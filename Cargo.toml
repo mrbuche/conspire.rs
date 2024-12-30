@@ -1,0 +1,28 @@
+[package]
+authors = ["Michael R. Buche <dev@mrbuche.com>"]
+categories = ["mathematics", "science"]
+description = "c o n s p i r e"
+documentation = "https://docs.rs/crate/conspire"
+edition = "2021"
+homepage = "https://mrbuche.github.io/conspire"
+keywords = ["conspire", "mrbuche"]
+license = "GPL-3.0"
+name = "conspire"
+repository = "https://github.com/mrbuche/conspire"
+version = "0.5.1"
+
+[features]
+constitutive = ['mechanics']
+fem = ['constitutive']
+math = []
+mechanics = ['math']
+
+[package.metadata.docs.rs]
+features = ["fem"]
+rustdoc-args = ["--html-in-header", ".github/katex.html"]
+
+[profile.release]
+codegen-units = 1
+lto = true
+panic = "abort"
+strip = "symbols"
