@@ -1,0 +1,24 @@
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.2.0
+    hooks:
+    -   id: check-yaml
+    -   id: check-added-large-files
+    -   id: end-of-file-fixer
+    -   id: trailing-whitespace
+-   repo: https://github.com/backplane/pre-commit-rust-hooks
+    rev: v1.1.0
+    hooks:
+    -   id: clippy
+        args: ['--features', 'math', '--', '-D',  'warnings']
+        name: cargo clippy math
+    -   id: clippy
+        args: ['--features', 'mechanics', '--', '-D',  'warnings']
+        name: cargo clippy mechanics
+    -   id: clippy
+        args: ['--features', 'constitutive', '--', '-D',  'warnings']
+        name: cargo clippy constitutive
+    -   id: clippy
+        args: ['--features', 'fem', '--', '-D',  'warnings']
+        name: cargo clippy fem
+    -   id: fmt
