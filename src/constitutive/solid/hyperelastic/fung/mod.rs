@@ -11,7 +11,7 @@ use super::*;
 /// - The bulk modulus $`\kappa`$.
 /// - The shear modulus $`\mu`$.
 /// - The extra modulus $`\mu_m`$.
-/// - The exponent $`a`$.
+/// - The exponent $`c`$.
 ///
 /// **External variables**
 /// - The deformation gradient $`\mathbf{F}`$.
@@ -20,7 +20,7 @@ use super::*;
 /// - None.
 ///
 /// **Notes**
-/// - The Fung model reduces to the [Neo-Hookean model](NeoHookean) when $`\mu_m\to 0`$ or $`a\to 0`$.
+/// - The Fung model reduces to the [Neo-Hookean model](NeoHookean) when $`\mu_m\to 0`$ or $`c\to 0`$.
 #[derive(Debug)]
 pub struct Fung<'a> {
     parameters: Parameters<'a>,
@@ -56,7 +56,7 @@ impl<'a> Elastic<'a> for Fung<'a> {
     /// Calculates and returns the Cauchy stress.
     ///
     /// ```math
-    /// \boldsymbol{\sigma}(\mathbf{F}) = \frac{1}{J}\left[\mu + \mu_m\left(e^{a[\mathrm{tr}(\mathbf{B}^* ) - 3]} - 1\right)\right]{\mathbf{B}^* }' + \frac{\kappa}{2}\left(J - \frac{1}{J}\right)\mathbf{1}
+    /// \boldsymbol{\sigma}(\mathbf{F}) = \frac{1}{J}\left[\mu + \mu_m\left(e^{c[\mathrm{tr}(\mathbf{B}^* ) - 3]} - 1\right)\right]{\mathbf{B}^* }' + \frac{\kappa}{2}\left(J - \frac{1}{J}\right)\mathbf{1}
     /// ```
     fn calculate_cauchy_stress(
         &self,
@@ -91,7 +91,7 @@ impl<'a> Elastic<'a> for Fung<'a> {
     /// Calculates and returns the tangent stiffness associated with the Cauchy stress.
     ///
     /// ```math
-    /// \mathcal{T}_{ijkL}(\mathbf{F}) = \frac{1}{J^{5/3}}\left[\mu + \mu_m\left(e^{a[\mathrm{tr}(\mathbf{B}^* ) - 3]} - 1\right)\right]\left(\delta_{ik}F_{jL} + \delta_{jk}F_{iL} - \frac{2}{3}\,\delta_{ij}F_{kL} - \frac{5}{3} \, B_{ij}'F_{kL}^{-T} \right) + \frac{2a\mu_m}{J^{7/3}}\,e^{a[\mathrm{tr}(\mathbf{B}^* ) - 3]}B_{ij}'B_{km}'F_{mL}^{-T} + \frac{\kappa}{2} \left(J + \frac{1}{J}\right)\delta_{ij}F_{kL}^{-T}
+    /// \mathcal{T}_{ijkL}(\mathbf{F}) = \frac{1}{J^{5/3}}\left[\mu + \mu_m\left(e^{c[\mathrm{tr}(\mathbf{B}^* ) - 3]} - 1\right)\right]\left(\delta_{ik}F_{jL} + \delta_{jk}F_{iL} - \frac{2}{3}\,\delta_{ij}F_{kL} - \frac{5}{3} \, B_{ij}'F_{kL}^{-T} \right) + \frac{2c\mu_m}{J^{7/3}}\,e^{c[\mathrm{tr}(\mathbf{B}^* ) - 3]}B_{ij}'B_{km}'F_{mL}^{-T} + \frac{\kappa}{2} \left(J + \frac{1}{J}\right)\delta_{ij}F_{kL}^{-T}
     /// ```
     fn calculate_cauchy_tangent_stiffness(
         &self,
@@ -148,7 +148,7 @@ impl<'a> Hyperelastic<'a> for Fung<'a> {
     /// Calculates and returns the Helmholtz free energy density.
     ///
     /// ```math
-    /// a(\mathbf{F}) = \frac{\mu - \mu_m}{2}\left[\mathrm{tr}(\mathbf{B}^* ) - 3\right] + \frac{\mu_m}{2a}\left(e^{a[\mathrm{tr}(\mathbf{B}^* ) - 3]} - 1\right)
+    /// a(\mathbf{F}) = \frac{\mu - \mu_m}{2}\left[\mathrm{tr}(\mathbf{B}^* ) - 3\right] + \frac{\mu_m}{2c}\left(e^{c[\mathrm{tr}(\mathbf{B}^* ) - 3]} - 1\right)
     /// ```
     fn calculate_helmholtz_free_energy_density(
         &self,
