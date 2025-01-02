@@ -32,6 +32,25 @@ use vec_2d::TensorRank2Vec2D;
 #[derive(Debug)]
 pub struct TensorRank2<const D: usize, const I: usize, const J: usize>(pub [TensorRank1<D, J>; D]);
 
+impl<const D: usize, const I: usize, const J: usize> From<Vec<Vec<f64>>> for TensorRank2<D, I, J> {
+    fn from(vec: Vec<Vec<f64>>) -> Self {
+        assert_eq!(vec.len(), D);
+        vec.iter().for_each(|entry| assert_eq!(entry.len(), D));
+        vec.into_iter()
+            .map(|entry| entry.into_iter().collect())
+            .collect()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> From<TensorRank2<D, I, J>> for Vec<Vec<f64>> {
+    fn from(tensor: TensorRank2<D, I, J>) -> Self {
+        tensor
+            .iter()
+            .map(|entry| entry.iter().copied().collect())
+            .collect()
+    }
+}
+
 impl<const D: usize, const I: usize, const J: usize> fmt::Display for TensorRank2<D, I, J> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "\x1B[s")?;

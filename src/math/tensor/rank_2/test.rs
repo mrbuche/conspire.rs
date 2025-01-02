@@ -849,6 +849,20 @@ fn iter_mut() {
 }
 
 #[test]
+fn into_vec() -> Result<(), TestError> {
+    let vec: Vec<Vec<f64>> = get_tensor_rank_2_dim_4().into();
+    get_tensor_rank_2_dim_4()
+        .iter()
+        .zip(vec.iter())
+        .for_each(|(a, b)| {
+            a.iter()
+                .zip(b.iter())
+                .for_each(|(entry_a, entry_b)| assert_eq!(entry_a, entry_b))
+        });
+    assert_eq(&get_tensor_rank_2_dim_4(), &vec.into())
+}
+
+#[test]
 fn lu_decomposition() {
     let (tensor_l, tensor_u) = get_tensor_rank_2_dim_9().lu_decomposition();
     tensor_l
