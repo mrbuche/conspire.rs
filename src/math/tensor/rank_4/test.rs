@@ -934,6 +934,22 @@ fn iter_mut() {
 }
 
 #[test]
+fn into_vec() {
+    let vec: Vec<Vec<Vec<Vec<f64>>>> = get_tensor_rank_4().into();
+    get_tensor_rank_4()
+        .iter()
+        .zip(vec.iter())
+        .for_each(|(a, b)| {
+            a.iter().zip(b.iter()).for_each(|(c, d)| {
+                c.iter()
+                    .zip(d.iter())
+                    .for_each(|(e, f)| e.iter().zip(f.iter()).for_each(|(g, h)| assert_eq!(g, h)))
+            })
+        });
+    assert_eq!(get_tensor_rank_4(), vec.into())
+}
+
+#[test]
 fn mul_tensor_rank_0_to_self() {
     (get_tensor_rank_4() * 3.3)
         .iter()

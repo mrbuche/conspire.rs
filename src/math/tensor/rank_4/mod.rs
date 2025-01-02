@@ -29,6 +29,51 @@ pub struct TensorRank4<
     const L: usize,
 >(pub [TensorRank3<D, J, K, L>; D]);
 
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
+    From<Vec<Vec<Vec<Vec<f64>>>>> for TensorRank4<D, I, J, K, L>
+{
+    fn from(vec_rank_4: Vec<Vec<Vec<Vec<f64>>>>) -> Self {
+        // assert_eq!(vec.len(), D);
+        // vec.iter().for_each(|entry| assert_eq!(entry.len(), D));
+        //
+        vec_rank_4
+            .into_iter()
+            .map(|vec_rank_3| {
+                vec_rank_3
+                    .into_iter()
+                    .map(|vec_rank_2| {
+                        vec_rank_2
+                            .into_iter()
+                            .map(|vec_rank_1| vec_rank_1.into_iter().collect())
+                            .collect()
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
+    From<TensorRank4<D, I, J, K, L>> for Vec<Vec<Vec<Vec<f64>>>>
+{
+    fn from(tensor_rank_4: TensorRank4<D, I, J, K, L>) -> Self {
+        tensor_rank_4
+            .iter()
+            .map(|tensor_rank_3| {
+                tensor_rank_3
+                    .iter()
+                    .map(|tensor_rank_2| {
+                        tensor_rank_2
+                            .iter()
+                            .map(|tensor_rank_1| tensor_rank_1.iter().copied().collect())
+                            .collect()
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+}
+
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> Display
     for TensorRank4<D, I, J, K, L>
 {
