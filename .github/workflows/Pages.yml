@@ -28,6 +28,7 @@ jobs:
         run: |
           mkdir -p _site/
           cargo rustdoc --release --features fem -- --html-in-header .github/katex.html
+          mv target/doc/conspire/ target/doc/latest/
           cp -r target/doc/* _site/
       - name: Upload
         uses: actions/upload-pages-artifact@v3
