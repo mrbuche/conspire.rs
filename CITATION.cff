@@ -1,12 +1,14 @@
 cff-version: 1.2.0
+title: conspire
+message: 'If you use this software, please cite it as below.'
+type: software
 authors:
-- family-names: Buche
-  given-names: Michael R.
-  orcid: https://orcid.org/0000-0003-1892-0502
+  - family-names: Buche
+    given-names: Michael R.
+    orcid: 'https://orcid.org/0000-0003-1892-0502'
 identifiers:
   - type: doi
     value: 10.5281/zenodo.14579444
-message: If you use this software, please cite it as below.
-title: "conspire"
-type: software
-url: https://mrbuche.github.io/conspire
+url: 'https://mrbuche.github.io/conspire'
+abstract: c o n s p i r e
+license: GPL-3.0
