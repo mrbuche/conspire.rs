@@ -85,7 +85,6 @@ where
         + Sub<&'a Self, Output = Self>
         + SubAssign
         + SubAssign<&'a Self>,
-    for <'a> &'a mut Self: DivAssign<TensorRank0>,
     Self::Item: Tensor,
 {
     /// The type of item encountered when iterating over the tensor.
@@ -130,10 +129,7 @@ where
         self.full_contraction(self)
     }
     /// Normalizes the tensor.
-    fn normalize(&mut self) {
-        let norm = self.norm();
-        self /= norm;
-    }
+    fn normalize(&mut self);
     /// Returns the tensor normalized.
     fn normalized(self) -> Self {
         let norm = self.norm();
