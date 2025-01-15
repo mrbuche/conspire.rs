@@ -80,6 +80,7 @@ where
         + AddAssign
         + AddAssign<&'a Self>
         + Div<TensorRank0, Output = Self>
+        + DivAssign<TensorRank0>
         + Mul<TensorRank0, Output = Self>
         + Sub<Self, Output = Self>
         + Sub<&'a Self, Output = Self>
@@ -129,7 +130,9 @@ where
         self.full_contraction(self)
     }
     /// Normalizes the tensor.
-    fn normalize(&mut self);
+    fn normalize(&mut self) {
+        *self /= self.norm()
+    }
     /// Returns the tensor normalized.
     fn normalized(self) -> Self {
         let norm = self.norm();
