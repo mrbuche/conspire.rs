@@ -287,6 +287,13 @@ fn norm() {
 }
 
 #[test]
+fn normalize() {
+    let mut tensor_rank_1 = get_tensor_rank_1();
+    tensor_rank_1.normalize();
+    assert_eq!(tensor_rank_1.norm(), 0.9999999999999999);
+}
+
+#[test]
 fn normalized() {
     assert_eq!(get_tensor_rank_1().normalized().norm(), 0.9999999999999999);
 }
