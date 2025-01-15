@@ -10,7 +10,7 @@ pub mod rank_4;
 use rank_0::TensorRank0;
 use std::{
     fmt::{Debug, Display},
-    ops::{Add, AddAssign, Div, Mul, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, Sub, SubAssign},
 };
 
 /// A value-to-value conversion that does not consume the input value.
@@ -85,6 +85,7 @@ where
         + Sub<&'a Self, Output = Self>
         + SubAssign
         + SubAssign<&'a Self>,
+    for <'a> &'a mut Self: DivAssign<TensorRank0>,
     Self::Item: Tensor,
 {
     /// The type of item encountered when iterating over the tensor.
@@ -127,6 +128,11 @@ where
     /// Returns the tensor norm squared.
     fn norm_squared(&self) -> TensorRank0 {
         self.full_contraction(self)
+    }
+    /// Normalizes the tensor.
+    fn normalize(&mut self) {
+        let norm = self.norm();
+        self /= norm;
     }
     /// Returns the tensor normalized.
     fn normalized(self) -> Self {
