@@ -13,6 +13,7 @@ use std::{
     array::from_fn,
     cmp::Ordering,
     fmt,
+    mem::transmute,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
@@ -660,12 +661,9 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     }
 }
 
-impl<const D: usize> From<TensorRank2<D, 0, 0>> for TensorRank2<D, 1, 0> {
-    fn from(tensor_rank_2: TensorRank2<D, 0, 0>) -> Self {
-        tensor_rank_2
-            .iter()
-            .map(|tensor_rank_1| tensor_rank_1.into())
-            .collect()
+impl From<TensorRank2<3, 0, 0>> for TensorRank2<3, 1, 0> {
+    fn from(tensor_rank_2: TensorRank2<3, 0, 0>) -> Self {
+        unsafe { transmute::<TensorRank2<3, 0, 0>, TensorRank2<3, 1, 0>>(tensor_rank_2) }
     }
 }
 
