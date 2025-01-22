@@ -667,48 +667,33 @@ impl From<TensorRank2<3, 0, 0>> for TensorRank2<3, 1, 0> {
     }
 }
 
-impl<const D: usize> From<TensorRank2<D, 0, 0>> for TensorRank2<D, 1, 1> {
-    fn from(tensor_rank_2: TensorRank2<D, 0, 0>) -> Self {
-        tensor_rank_2
-            .iter()
-            .map(|tensor_rank_1| tensor_rank_1.into())
-            .collect()
+impl From<TensorRank2<3, 0, 0>> for TensorRank2<3, 1, 1> {
+    fn from(tensor_rank_2: TensorRank2<3, 0, 0>) -> Self {
+        unsafe { transmute::<TensorRank2<3, 0, 0>, TensorRank2<3, 1, 1>>(tensor_rank_2) }
     }
 }
 
-impl<const D: usize> From<TensorRank2<D, 0, 1>> for TensorRank2<D, 0, 0> {
-    fn from(tensor_rank_2: TensorRank2<D, 0, 1>) -> Self {
-        tensor_rank_2
-            .iter()
-            .map(|tensor_rank_1| tensor_rank_1.into())
-            .collect()
+impl From<TensorRank2<3, 0, 1>> for TensorRank2<3, 0, 0> {
+    fn from(tensor_rank_2: TensorRank2<3, 0, 1>) -> Self {
+        unsafe { transmute::<TensorRank2<3, 0, 1>, TensorRank2<3, 0, 0>>(tensor_rank_2) }
     }
 }
 
-impl<const D: usize> From<TensorRank2<D, 1, 0>> for TensorRank2<D, 0, 0> {
-    fn from(tensor_rank_2: TensorRank2<D, 1, 0>) -> Self {
-        tensor_rank_2
-            .iter()
-            .map(|tensor_rank_1| tensor_rank_1.into())
-            .collect()
+impl From<TensorRank2<3, 1, 0>> for TensorRank2<3, 0, 0> {
+    fn from(tensor_rank_2: TensorRank2<3, 1, 0>) -> Self {
+        unsafe { transmute::<TensorRank2<3, 1, 0>, TensorRank2<3, 0, 0>>(tensor_rank_2) }
     }
 }
 
-impl<const D: usize> From<TensorRank2<D, 1, 1>> for TensorRank2<D, 1, 0> {
-    fn from(tensor_rank_2: TensorRank2<D, 1, 1>) -> Self {
-        tensor_rank_2
-            .iter()
-            .map(|tensor_rank_1| tensor_rank_1.into())
-            .collect()
+impl From<TensorRank2<3, 1, 1>> for TensorRank2<3, 1, 0> {
+    fn from(tensor_rank_2: TensorRank2<3, 1, 1>) -> Self {
+        unsafe { transmute::<TensorRank2<3, 1, 1>, TensorRank2<3, 1, 0>>(tensor_rank_2) }
     }
 }
 
-impl<const D: usize> From<TensorRank2<D, 1, 2>> for TensorRank2<D, 1, 0> {
-    fn from(tensor_rank_2: TensorRank2<D, 1, 2>) -> Self {
-        tensor_rank_2
-            .iter()
-            .map(|tensor_rank_1| tensor_rank_1.into())
-            .collect()
+impl From<TensorRank2<3, 1, 2>> for TensorRank2<3, 1, 0> {
+    fn from(tensor_rank_2: TensorRank2<3, 1, 2>) -> Self {
+        unsafe { transmute::<TensorRank2<3, 1, 2>, TensorRank2<3, 1, 0>>(tensor_rank_2) }
     }
 }
 
