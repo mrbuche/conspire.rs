@@ -187,10 +187,7 @@ impl<
         Self(from_fn(|_| Self::Item::identity()))
     }
     fn new(array: Self::Array) -> Self {
-        array
-            .into_iter()
-            .map(Self::Item::new)
-            .collect()
+        array.into_iter().map(Self::Item::new).collect()
     }
     fn zero() -> Self {
         Self(from_fn(|_| Self::Item::zero()))

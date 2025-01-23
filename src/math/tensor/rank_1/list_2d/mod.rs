@@ -20,6 +20,17 @@ pub struct TensorRank1List2D<const D: usize, const I: usize, const W: usize, con
     [TensorRank1List<D, I, W>; X],
 );
 
+pub const fn tensor_rank_1_list_2d<
+    const D: usize,
+    const I: usize,
+    const W: usize,
+    const X: usize,
+>(
+    array: [TensorRank1List<D, I, W>; X],
+) -> TensorRank1List2D<D, I, W, X> {
+    TensorRank1List2D(array)
+}
+
 impl<const D: usize, const I: usize, const W: usize, const X: usize> Display
     for TensorRank1List2D<D, I, W, X>
 {
@@ -60,10 +71,7 @@ impl<const D: usize, const I: usize, const W: usize, const X: usize> TensorArray
         Self(from_fn(|_| Self::Item::identity()))
     }
     fn new(array: Self::Array) -> Self {
-        array
-            .into_iter()
-            .map(TensorRank1List::new)
-            .collect()
+        array.into_iter().map(TensorRank1List::new).collect()
     }
     fn zero() -> Self {
         Self(from_fn(|_| TensorRank1List::zero()))

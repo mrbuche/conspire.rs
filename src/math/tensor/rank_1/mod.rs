@@ -24,7 +24,9 @@ use super::{
 #[derive(Debug)]
 pub struct TensorRank1<const D: usize, const I: usize>([TensorRank0; D]);
 
-pub const fn tensor_rank_1<const D: usize, const I: usize>(array: [TensorRank0; D]) -> TensorRank1<D, I> {
+pub const fn tensor_rank_1<const D: usize, const I: usize>(
+    array: [TensorRank0; D],
+) -> TensorRank1<D, I> {
     TensorRank1(array)
 }
 

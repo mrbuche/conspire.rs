@@ -178,10 +178,7 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize, const X: us
         Self(from_fn(|_| Self::Item::identity()))
     }
     fn new(array: Self::Array) -> Self {
-        array
-            .into_iter()
-            .map(Self::Item::new)
-            .collect()
+        array.into_iter().map(Self::Item::new).collect()
     }
     fn zero() -> Self {
         Self(from_fn(|_| Self::Item::zero()))

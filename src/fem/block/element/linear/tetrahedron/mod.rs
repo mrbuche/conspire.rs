@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::{tensor_rank_1, tensor_rank_1_list};
 use super::*;
+use crate::math::{tensor_rank_1, tensor_rank_1_list, tensor_rank_2_list};
 
 const G: usize = 1;
 const M: usize = 3;
@@ -78,7 +78,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
     ) -> DeformationGradients<G> {
-        TensorRank2List([self.calculate_deformation_gradient(nodal_coordinates)])
+        tensor_rank_2_list([self.calculate_deformation_gradient(nodal_coordinates)])
     }
     fn calculate_nodal_forces(
         &self,

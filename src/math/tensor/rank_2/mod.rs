@@ -21,8 +21,8 @@ use super::{
     super::write_tensor_rank_0,
     rank_0::TensorRank0,
     rank_1::{
-        tensor_rank_1, list::TensorRank1List,
-        vec::TensorRank1Vec, zero as tensor_rank_1_zero, TensorRank1,
+        list::TensorRank1List, tensor_rank_1, vec::TensorRank1Vec, zero as tensor_rank_1_zero,
+        TensorRank1,
     },
     rank_4::TensorRank4,
     Convert, Hessian, Rank2, Tensor, TensorArray, TensorError,
@@ -36,46 +36,112 @@ use vec_2d::TensorRank2Vec2D;
 #[derive(Debug)]
 pub struct TensorRank2<const D: usize, const I: usize, const J: usize>([TensorRank1<D, J>; D]);
 
+pub const fn tensor_rank_2<const D: usize, const I: usize, const J: usize>(
+    array: [TensorRank1<D, J>; D],
+) -> TensorRank2<D, I, J> {
+    TensorRank2(array)
+}
+
 pub const fn get_levi_civita_parts<const I: usize, const J: usize>() -> [TensorRank2<3, I, J>; 3] {
     [
-        TensorRank2([tensor_rank_1_zero(), tensor_rank_1([0.0, 0.0, 1.0]), tensor_rank_1([0.0, -1.0, 0.0])]),
-        TensorRank2([tensor_rank_1([0.0, 0.0, -1.0]), tensor_rank_1_zero(), tensor_rank_1([1.0, 0.0, 0.0])]),
-        TensorRank2([tensor_rank_1([0.0, 1.0, 0.0]), tensor_rank_1([-1.0, 0.0, 0.0]), tensor_rank_1_zero()]),
+        TensorRank2([
+            tensor_rank_1_zero(),
+            tensor_rank_1([0.0, 0.0, 1.0]),
+            tensor_rank_1([0.0, -1.0, 0.0]),
+        ]),
+        TensorRank2([
+            tensor_rank_1([0.0, 0.0, -1.0]),
+            tensor_rank_1_zero(),
+            tensor_rank_1([1.0, 0.0, 0.0]),
+        ]),
+        TensorRank2([
+            tensor_rank_1([0.0, 1.0, 0.0]),
+            tensor_rank_1([-1.0, 0.0, 0.0]),
+            tensor_rank_1_zero(),
+        ]),
     ]
 }
 
 pub const fn get_identity_1010_parts_1<const I: usize, const J: usize>() -> [TensorRank2<3, I, J>; 3]
 {
     [
-        TensorRank2([tensor_rank_1([1.0, 0.0, 0.0]), tensor_rank_1_zero(), tensor_rank_1_zero()]),
-        TensorRank2([tensor_rank_1([0.0, 1.0, 0.0]), tensor_rank_1_zero(), tensor_rank_1_zero()]),
-        TensorRank2([tensor_rank_1([0.0, 0.0, 1.0]), tensor_rank_1_zero(), tensor_rank_1_zero()]),
+        TensorRank2([
+            tensor_rank_1([1.0, 0.0, 0.0]),
+            tensor_rank_1_zero(),
+            tensor_rank_1_zero(),
+        ]),
+        TensorRank2([
+            tensor_rank_1([0.0, 1.0, 0.0]),
+            tensor_rank_1_zero(),
+            tensor_rank_1_zero(),
+        ]),
+        TensorRank2([
+            tensor_rank_1([0.0, 0.0, 1.0]),
+            tensor_rank_1_zero(),
+            tensor_rank_1_zero(),
+        ]),
     ]
 }
 
 pub const fn get_identity_1010_parts_2<const I: usize, const J: usize>() -> [TensorRank2<3, I, J>; 3]
 {
     [
-        TensorRank2([tensor_rank_1_zero(), tensor_rank_1([1.0, 0.0, 0.0]), tensor_rank_1_zero()]),
-        TensorRank2([tensor_rank_1_zero(), tensor_rank_1([0.0, 1.0, 0.0]), tensor_rank_1_zero()]),
-        TensorRank2([tensor_rank_1_zero(), tensor_rank_1([0.0, 0.0, 1.0]), tensor_rank_1_zero()]),
+        TensorRank2([
+            tensor_rank_1_zero(),
+            tensor_rank_1([1.0, 0.0, 0.0]),
+            tensor_rank_1_zero(),
+        ]),
+        TensorRank2([
+            tensor_rank_1_zero(),
+            tensor_rank_1([0.0, 1.0, 0.0]),
+            tensor_rank_1_zero(),
+        ]),
+        TensorRank2([
+            tensor_rank_1_zero(),
+            tensor_rank_1([0.0, 0.0, 1.0]),
+            tensor_rank_1_zero(),
+        ]),
     ]
 }
 
 pub const fn get_identity_1010_parts_3<const I: usize, const J: usize>() -> [TensorRank2<3, I, J>; 3]
 {
     [
-        TensorRank2([tensor_rank_1_zero(), tensor_rank_1_zero(), tensor_rank_1([1.0, 0.0, 0.0])]),
-        TensorRank2([tensor_rank_1_zero(), tensor_rank_1_zero(), tensor_rank_1([0.0, 1.0, 0.0])]),
-        TensorRank2([tensor_rank_1_zero(), tensor_rank_1_zero(), tensor_rank_1([0.0, 0.0, 1.0])]),
+        TensorRank2([
+            tensor_rank_1_zero(),
+            tensor_rank_1_zero(),
+            tensor_rank_1([1.0, 0.0, 0.0]),
+        ]),
+        TensorRank2([
+            tensor_rank_1_zero(),
+            tensor_rank_1_zero(),
+            tensor_rank_1([0.0, 1.0, 0.0]),
+        ]),
+        TensorRank2([
+            tensor_rank_1_zero(),
+            tensor_rank_1_zero(),
+            tensor_rank_1([0.0, 0.0, 1.0]),
+        ]),
     ]
 }
 
-pub const IDENTITY: TensorRank2<3, 1, 1> = TensorRank2([tensor_rank_1([1.0, 0.0, 0.0]), tensor_rank_1([0.0, 1.0, 0.0]), tensor_rank_1([0.0, 0.0, 1.0])]);
+pub const IDENTITY: TensorRank2<3, 1, 1> = TensorRank2([
+    tensor_rank_1([1.0, 0.0, 0.0]),
+    tensor_rank_1([0.0, 1.0, 0.0]),
+    tensor_rank_1([0.0, 0.0, 1.0]),
+]);
 
-pub const IDENTITY_00: TensorRank2<3, 0, 0> = TensorRank2([tensor_rank_1([1.0, 0.0, 0.0]), tensor_rank_1([0.0, 1.0, 0.0]), tensor_rank_1([0.0, 0.0, 1.0])]);
+pub const IDENTITY_00: TensorRank2<3, 0, 0> = TensorRank2([
+    tensor_rank_1([1.0, 0.0, 0.0]),
+    tensor_rank_1([0.0, 1.0, 0.0]),
+    tensor_rank_1([0.0, 0.0, 1.0]),
+]);
 
-pub const IDENTITY_10: TensorRank2<3, 1, 0> = TensorRank2([tensor_rank_1([1.0, 0.0, 0.0]), tensor_rank_1([0.0, 1.0, 0.0]), tensor_rank_1([0.0, 0.0, 1.0])]);
+pub const IDENTITY_10: TensorRank2<3, 1, 0> = TensorRank2([
+    tensor_rank_1([1.0, 0.0, 0.0]),
+    tensor_rank_1([0.0, 1.0, 0.0]),
+    tensor_rank_1([0.0, 0.0, 1.0]),
+]);
 
 pub const ZERO: TensorRank2<3, 1, 1> = TensorRank2([
     tensor_rank_1_zero(),
@@ -697,10 +763,7 @@ impl<const D: usize, const I: usize, const J: usize> TensorArray for TensorRank2
             .collect()
     }
     fn new(array: Self::Array) -> Self {
-        array
-            .into_iter()
-            .map(Self::Item::new)
-            .collect()
+        array.into_iter().map(Self::Item::new).collect()
     }
     fn zero() -> Self {
         Self(from_fn(|_| Self::Item::zero()))
