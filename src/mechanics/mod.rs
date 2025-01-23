@@ -4,9 +4,8 @@
 pub mod test;
 
 use crate::math::{
-    TensorRank0, TensorRank0List, TensorRank1, TensorRank1List,
-    TensorRank1List2D, TensorRank2, TensorRank2List, TensorRank2List2D, TensorRank4,
-    TensorRank4List
+    TensorRank0, TensorRank0List, TensorRank1, TensorRank1List, TensorRank1List2D, TensorRank2,
+    TensorRank2List, TensorRank2List2D, TensorRank4, TensorRank4List,
 };
 
 /// The Cauchy stress $`\boldsymbol{\sigma}`$.

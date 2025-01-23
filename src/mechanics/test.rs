@@ -1,12 +1,11 @@
 use super::{
     CurrentCoordinate, CurrentVelocity, DeformationGradient, DeformationGradientRate, FrameSpin,
     ReferenceCoordinate, RotationCurrentConfiguration, RotationRateCurrentConfiguration,
-    RotationReferenceConfiguration, Scalar, TemperatureGradient
+    RotationReferenceConfiguration, Scalar, TemperatureGradient,
 };
 use crate::math::{
     test::{assert_eq_within_tols, TestError},
-    Rank2, Tensor, TensorArray, IDENTITY, IDENTITY_00,
-    IDENTITY_10,
+    Rank2, Tensor, TensorArray, IDENTITY, IDENTITY_00, IDENTITY_10,
 };
 
 pub fn get_deformation_gradient() -> DeformationGradient {

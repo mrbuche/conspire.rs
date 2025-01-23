@@ -4,7 +4,7 @@ use super::{
     ContractFirstThirdFourthIndicesWithFirstIndicesOf,
     ContractSecondFourthIndicesWithFirstIndicesOf, ContractSecondIndexWithFirstIndexOf,
     ContractThirdFourthIndicesWithFirstSecondIndicesOf, Rank2, TensorRank0, TensorRank1,
-    TensorRank2, TensorRank3, TensorRank4, IDENTITY_1010
+    TensorRank2, TensorRank3, TensorRank4, IDENTITY_1010,
 };
 use crate::{ABS_TOL, REL_TOL};
 
@@ -352,7 +352,10 @@ fn identity_1010() {
         entry_i.iter().enumerate().for_each(|(j, entry_ij)| {
             entry_ij.iter().enumerate().for_each(|(k, entry_ijk)| {
                 entry_ijk.iter().enumerate().for_each(|(l, entry_ijkl)| {
-                    assert_eq!(entry_ijkl, &(((i == k) as u8 * (j == l) as u8) as TensorRank0))
+                    assert_eq!(
+                        entry_ijkl,
+                        &(((i == k) as u8 * (j == l) as u8) as TensorRank0)
+                    )
                 })
             })
         })

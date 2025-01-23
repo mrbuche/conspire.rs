@@ -5,28 +5,22 @@ mod block;
 pub use block::{
     element::{
         composite::{
-            localization::{
-                wedge::Wedge as CompositeWedgeLocalization, CompositeLocalizationElement,
-            },
-            surface::{triangle::Triangle as CompositeTriangle, CompositeSurfaceElement},
-            tetrahedron::Tetrahedron as CompositeTetrahedron,
-            CompositeElement, ElasticCompositeElement, ElasticHyperviscousCompositeElement,
+            tetrahedron::Tetrahedron as CompositeTetrahedron, CompositeElement,
+            ElasticCompositeElement, ElasticHyperviscousCompositeElement,
             HyperelasticCompositeElement, HyperviscoelasticCompositeElement,
             ViscoelasticCompositeElement,
         },
         linear::{
-            localization::{wedge::Wedge as LinearWedgeLocalization, LinearLocalizationElement},
-            surface::{triangle::Triangle as LinearTriangle, LinearSurfaceElement},
-            tetrahedron::Tetrahedron as LinearTetrahedron,
-            ElasticHyperviscousLinearElement, ElasticLinearElement, HyperelasticLinearElement,
-            HyperviscoelasticLinearElement, LinearElement, ViscoelasticLinearElement,
+            tetrahedron::Tetrahedron as LinearTetrahedron, ElasticHyperviscousLinearElement,
+            ElasticLinearElement, HyperelasticLinearElement, HyperviscoelasticLinearElement,
+            LinearElement, ViscoelasticLinearElement,
         },
         ElasticFiniteElement, FiniteElement, HyperelasticFiniteElement,
-        HyperviscoelasticFiniteElement, SurfaceElement, ViscoelasticFiniteElement,
+        HyperviscoelasticFiniteElement, ViscoelasticFiniteElement,
     },
     BasicFiniteElementBlock, ElasticBlock, ElasticFiniteElementBlock, FiniteElementBlock,
-    HyperelasticFiniteElementBlock, HyperviscoelasticFiniteElementBlock, SurfaceElementBlock,
-    ViscoelasticBlock, ViscoelasticFiniteElementBlock,
+    HyperelasticFiniteElementBlock, HyperviscoelasticFiniteElementBlock, ViscoelasticBlock,
+    ViscoelasticFiniteElementBlock,
 };
 
 use crate::{
@@ -39,17 +33,16 @@ use crate::{
         Constitutive, ConstitutiveError, Parameters,
     },
     math::{
-        tensor_rank_1_zero, ContractSecondFourthIndicesWithFirstIndicesOf, Tensor, TensorArray,
-        TensorRank1, TensorRank1List, TensorRank1List2D, TensorRank1Vec, TensorRank2,
-        TensorRank2List, TensorRank2List2D, TensorRank2Vec2D, TensorRank3, TensorRank3List,
-        TensorRank3List2D, TensorRank3List3D, TensorVec, ONE_SIXTH, ONE_TWENTY_FOURTH, LEVI_CIVITA, IDENTITY,
+        ContractSecondFourthIndicesWithFirstIndicesOf, Tensor, TensorRank1, TensorRank1List,
+        TensorRank1List2D, TensorRank1Vec, TensorRank2, TensorRank2List, TensorRank2List2D,
+        TensorRank2Vec2D, TensorRank3List2D, TensorRank3List3D, TensorVec, ONE_SIXTH,
+        ONE_TWENTY_FOURTH,
     },
     mechanics::{
-        Coordinates, CurrentCoordinates, DeformationGradient, DeformationGradientRate,
-        DeformationGradientRates, DeformationGradients, DeformationGradientss, Displacement,
-        FirstPiolaKirchoffRateTangentStiffnesses, FirstPiolaKirchoffStresses,
-        FirstPiolaKirchoffTangentStiffnesses, Forces, ReferenceCoordinates, Scalar, Scalars,
-        Stiffnesses, Vector, Vectors, Vectors2D, ZERO_VECTOR,
+        CurrentCoordinates, DeformationGradient, DeformationGradientRate, DeformationGradientRates,
+        DeformationGradients, DeformationGradientss, FirstPiolaKirchoffRateTangentStiffnesses,
+        FirstPiolaKirchoffStresses, FirstPiolaKirchoffTangentStiffnesses, Forces,
+        ReferenceCoordinates, Scalar, Scalars, Stiffnesses, Vector, Vectors, Vectors2D,
     },
 };
 

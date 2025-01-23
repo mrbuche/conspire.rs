@@ -13,8 +13,8 @@ use crate::{
     constitutive::ConstitutiveError,
     math::{
         ContractFirstSecondIndicesWithSecondIndicesOf, ContractSecondIndexWithFirstIndexOf, Rank2,
-        Tensor, TensorArray, TensorRank4, FIVE_THIRDS, SEVEN_THIRDS, TWO_THIRDS, IDENTITY, IDENTITY_00,
-        IDENTITY_10, ZERO_10, IDENTITY_1010
+        Tensor, TensorArray, TensorRank4, FIVE_THIRDS, IDENTITY, IDENTITY_00, IDENTITY_10,
+        IDENTITY_1010, SEVEN_THIRDS, TWO_THIRDS, ZERO_10,
     },
     mechanics::{
         CauchyRateTangentStiffness, CauchyStress, CauchyStresses, CauchyTangentStiffness,
@@ -22,7 +22,7 @@ use crate::{
         FirstPiolaKirchoffRateTangentStiffness, FirstPiolaKirchoffStress,
         FirstPiolaKirchoffTangentStiffness, LeftCauchyGreenDeformation,
         RightCauchyGreenDeformation, Scalar, SecondPiolaKirchoffRateTangentStiffness,
-        SecondPiolaKirchoffStress, SecondPiolaKirchoffTangentStiffness
+        SecondPiolaKirchoffStress, SecondPiolaKirchoffTangentStiffness,
     },
 };
 

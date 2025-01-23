@@ -26,24 +26,21 @@ pub const TWO_THIRDS: TensorRank0 = 2.0 / 3.0;
 pub use matrix::{square::SquareMatrix, vector::Vector};
 pub use tensor::{
     rank_0::{list::TensorRank0List, TensorRank0},
-    rank_1::{
-        list::TensorRank1List, list_2d::TensorRank1List2D, vec::TensorRank1Vec,
-        zero as tensor_rank_1_zero, TensorRank1,
-    },
+    rank_1::{list::TensorRank1List, list_2d::TensorRank1List2D, vec::TensorRank1Vec, TensorRank1},
     rank_2::{
         list::TensorRank2List, list_2d::TensorRank2List2D, vec::TensorRank2Vec,
         vec_2d::TensorRank2Vec2D, TensorRank2, IDENTITY, IDENTITY_00, IDENTITY_10, ZERO, ZERO_10,
     },
     rank_3::{
         levi_civita, list::TensorRank3List, list_2d::TensorRank3List2D, list_3d::TensorRank3List3D,
-        TensorRank3, LEVI_CIVITA
+        TensorRank3, LEVI_CIVITA,
     },
     rank_4::{
         list::TensorRank4List, ContractAllIndicesWithFirstIndicesOf,
         ContractFirstSecondIndicesWithSecondIndicesOf,
         ContractFirstThirdFourthIndicesWithFirstIndicesOf,
         ContractSecondFourthIndicesWithFirstIndicesOf, ContractSecondIndexWithFirstIndexOf,
-        ContractThirdFourthIndicesWithFirstSecondIndicesOf, TensorRank4, IDENTITY_1010
+        ContractThirdFourthIndicesWithFirstSecondIndicesOf, TensorRank4, IDENTITY_1010,
     },
     Convert, Hessian, Rank2, Tensor, TensorArray, TensorVec,
 };
