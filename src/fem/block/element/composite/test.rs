@@ -167,6 +167,7 @@ macro_rules! test_composite_element_with_constitutive_model
 {
     ($element: ident, $constitutive_model: ident, $constitutive_model_parameters: ident) =>
     {
+        use crate::math::TensorArray;
         setup_for_test_composite_element_with_constitutive_model!($element, $constitutive_model, $constitutive_model_parameters);
         mod deformation_gradients
         {

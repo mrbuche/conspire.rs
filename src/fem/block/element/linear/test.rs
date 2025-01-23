@@ -11,6 +11,7 @@ pub(crate) use test_linear_element;
 
 macro_rules! test_linear_element_inner {
     ($element: ident) => {
+        use crate::math::TensorArray;
         crate::fem::block::element::test::test_finite_element!($element);
         mod linear_element {
             use super::*;
@@ -220,6 +221,7 @@ pub(crate) use setup_for_test_linear_element_with_constitutive_model;
 
 macro_rules! test_linear_element_with_constitutive_model {
     ($element: ident, $constitutive_model: ident, $constitutive_model_parameters: ident) => {
+        use crate::math::TensorArray;
         setup_for_test_linear_element_with_constitutive_model!(
             $element,
             $constitutive_model,

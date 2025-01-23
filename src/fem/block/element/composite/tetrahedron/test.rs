@@ -11,6 +11,7 @@ use crate::fem::block::{
         test_finite_element_block,
     },
 };
+use crate::math::TensorArray;
 
 const D: usize = 35;
 const E: usize = 12;

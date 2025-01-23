@@ -11,7 +11,7 @@ macro_rules! test_finite_element_block {
                 },
                 math::{
                     test::{assert_eq, assert_eq_from_fd, assert_eq_within_tols, TestError},
-                    TensorRank2,
+                    TensorArray, TensorRank2,
                 },
                 mechanics::test::{
                     get_rotation_current_configuration, get_rotation_rate_current_configuration,
