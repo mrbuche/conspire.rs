@@ -21,7 +21,7 @@ use super::{
     super::write_tensor_rank_0,
     rank_0::TensorRank0,
     rank_1::{
-        get_x, get_x_neg, get_y, get_y_neg, get_z, get_z_neg, list::TensorRank1List,
+        tensor_rank_1, list::TensorRank1List,
         vec::TensorRank1Vec, zero as tensor_rank_1_zero, TensorRank1,
     },
     rank_4::TensorRank4,
@@ -38,44 +38,44 @@ pub struct TensorRank2<const D: usize, const I: usize, const J: usize>([TensorRa
 
 pub const fn get_levi_civita_parts<const I: usize, const J: usize>() -> [TensorRank2<3, I, J>; 3] {
     [
-        TensorRank2([tensor_rank_1_zero(), get_z(), get_y_neg()]),
-        TensorRank2([get_z_neg(), tensor_rank_1_zero(), get_x()]),
-        TensorRank2([get_y(), get_x_neg(), tensor_rank_1_zero()]),
+        TensorRank2([tensor_rank_1_zero(), tensor_rank_1([0.0, 0.0, 1.0]), tensor_rank_1([0.0, -1.0, 0.0])]),
+        TensorRank2([tensor_rank_1([0.0, 0.0, -1.0]), tensor_rank_1_zero(), tensor_rank_1([1.0, 0.0, 0.0])]),
+        TensorRank2([tensor_rank_1([0.0, 1.0, 0.0]), tensor_rank_1([-1.0, 0.0, 0.0]), tensor_rank_1_zero()]),
     ]
 }
 
 pub const fn get_identity_1010_parts_1<const I: usize, const J: usize>() -> [TensorRank2<3, I, J>; 3]
 {
     [
-        TensorRank2([get_x(), tensor_rank_1_zero(), tensor_rank_1_zero()]),
-        TensorRank2([get_y(), tensor_rank_1_zero(), tensor_rank_1_zero()]),
-        TensorRank2([get_z(), tensor_rank_1_zero(), tensor_rank_1_zero()]),
+        TensorRank2([tensor_rank_1([1.0, 0.0, 0.0]), tensor_rank_1_zero(), tensor_rank_1_zero()]),
+        TensorRank2([tensor_rank_1([0.0, 1.0, 0.0]), tensor_rank_1_zero(), tensor_rank_1_zero()]),
+        TensorRank2([tensor_rank_1([0.0, 0.0, 1.0]), tensor_rank_1_zero(), tensor_rank_1_zero()]),
     ]
 }
 
 pub const fn get_identity_1010_parts_2<const I: usize, const J: usize>() -> [TensorRank2<3, I, J>; 3]
 {
     [
-        TensorRank2([tensor_rank_1_zero(), get_x(), tensor_rank_1_zero()]),
-        TensorRank2([tensor_rank_1_zero(), get_y(), tensor_rank_1_zero()]),
-        TensorRank2([tensor_rank_1_zero(), get_z(), tensor_rank_1_zero()]),
+        TensorRank2([tensor_rank_1_zero(), tensor_rank_1([1.0, 0.0, 0.0]), tensor_rank_1_zero()]),
+        TensorRank2([tensor_rank_1_zero(), tensor_rank_1([0.0, 1.0, 0.0]), tensor_rank_1_zero()]),
+        TensorRank2([tensor_rank_1_zero(), tensor_rank_1([0.0, 0.0, 1.0]), tensor_rank_1_zero()]),
     ]
 }
 
 pub const fn get_identity_1010_parts_3<const I: usize, const J: usize>() -> [TensorRank2<3, I, J>; 3]
 {
     [
-        TensorRank2([tensor_rank_1_zero(), tensor_rank_1_zero(), get_x()]),
-        TensorRank2([tensor_rank_1_zero(), tensor_rank_1_zero(), get_y()]),
-        TensorRank2([tensor_rank_1_zero(), tensor_rank_1_zero(), get_z()]),
+        TensorRank2([tensor_rank_1_zero(), tensor_rank_1_zero(), tensor_rank_1([1.0, 0.0, 0.0])]),
+        TensorRank2([tensor_rank_1_zero(), tensor_rank_1_zero(), tensor_rank_1([0.0, 1.0, 0.0])]),
+        TensorRank2([tensor_rank_1_zero(), tensor_rank_1_zero(), tensor_rank_1([0.0, 0.0, 1.0])]),
     ]
 }
 
-pub const IDENTITY: TensorRank2<3, 1, 1> = TensorRank2([get_x(), get_y(), get_z()]);
+pub const IDENTITY: TensorRank2<3, 1, 1> = TensorRank2([tensor_rank_1([1.0, 0.0, 0.0]), tensor_rank_1([0.0, 1.0, 0.0]), tensor_rank_1([0.0, 0.0, 1.0])]);
 
-pub const IDENTITY_00: TensorRank2<3, 0, 0> = TensorRank2([get_x(), get_y(), get_z()]);
+pub const IDENTITY_00: TensorRank2<3, 0, 0> = TensorRank2([tensor_rank_1([1.0, 0.0, 0.0]), tensor_rank_1([0.0, 1.0, 0.0]), tensor_rank_1([0.0, 0.0, 1.0])]);
 
-pub const IDENTITY_10: TensorRank2<3, 1, 0> = TensorRank2([get_x(), get_y(), get_z()]);
+pub const IDENTITY_10: TensorRank2<3, 1, 0> = TensorRank2([tensor_rank_1([1.0, 0.0, 0.0]), tensor_rank_1([0.0, 1.0, 0.0]), tensor_rank_1([0.0, 0.0, 1.0])]);
 
 pub const ZERO: TensorRank2<3, 1, 1> = TensorRank2([
     tensor_rank_1_zero(),
@@ -698,8 +698,8 @@ impl<const D: usize, const I: usize, const J: usize> TensorArray for TensorRank2
     }
     fn new(array: Self::Array) -> Self {
         array
-            .iter()
-            .map(|array_i| Self::Item::new(*array_i))
+            .into_iter()
+            .map(Self::Item::new)
             .collect()
     }
     fn zero() -> Self {

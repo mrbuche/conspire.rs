@@ -24,28 +24,8 @@ use super::{
 #[derive(Debug)]
 pub struct TensorRank1<const D: usize, const I: usize>([TensorRank0; D]);
 
-pub const fn get_x<const I: usize>() -> TensorRank1<3, I> {
-    TensorRank1([1.0, 0.0, 0.0])
-}
-
-pub const fn get_y<const I: usize>() -> TensorRank1<3, I> {
-    TensorRank1([0.0, 1.0, 0.0])
-}
-
-pub const fn get_z<const I: usize>() -> TensorRank1<3, I> {
-    TensorRank1([0.0, 0.0, 1.0])
-}
-
-pub const fn get_x_neg<const I: usize>() -> TensorRank1<3, I> {
-    TensorRank1([-1.0, 0.0, 0.0])
-}
-
-pub const fn get_y_neg<const I: usize>() -> TensorRank1<3, I> {
-    TensorRank1([0.0, -1.0, 0.0])
-}
-
-pub const fn get_z_neg<const I: usize>() -> TensorRank1<3, I> {
-    TensorRank1([0.0, 0.0, -1.0])
+pub const fn tensor_rank_1<const D: usize, const I: usize>(array: [TensorRank0; D]) -> TensorRank1<D, I> {
+    TensorRank1(array)
 }
 
 impl<const D: usize, const I: usize> Display for TensorRank1<D, I> {

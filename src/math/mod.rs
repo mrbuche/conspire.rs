@@ -26,7 +26,7 @@ pub const TWO_THIRDS: TensorRank0 = 2.0 / 3.0;
 pub use matrix::{square::SquareMatrix, vector::Vector};
 pub use tensor::{
     rank_0::{list::TensorRank0List, TensorRank0},
-    rank_1::{list::TensorRank1List, list_2d::TensorRank1List2D, vec::TensorRank1Vec, TensorRank1},
+    rank_1::{list::{TensorRank1List, tensor_rank_1_list}, list_2d::TensorRank1List2D, vec::TensorRank1Vec, TensorRank1, tensor_rank_1},
     rank_2::{
         list::TensorRank2List, list_2d::TensorRank2List2D, vec::TensorRank2Vec,
         vec_2d::TensorRank2Vec2D, TensorRank2, IDENTITY, IDENTITY_00, IDENTITY_10, ZERO, ZERO_10,

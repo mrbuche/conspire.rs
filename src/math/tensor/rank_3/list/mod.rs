@@ -62,8 +62,8 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: us
     }
     fn new(array: Self::Array) -> Self {
         array
-            .iter()
-            .map(|array_i| Self::Item::new(*array_i))
+            .into_iter()
+            .map(Self::Item::new)
             .collect()
     }
     fn zero() -> Self {

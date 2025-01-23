@@ -61,8 +61,8 @@ impl<const D: usize, const I: usize, const W: usize, const X: usize> TensorArray
     }
     fn new(array: Self::Array) -> Self {
         array
-            .iter()
-            .map(|array_i| TensorRank1List::new(*array_i))
+            .into_iter()
+            .map(TensorRank1List::new)
             .collect()
     }
     fn zero() -> Self {

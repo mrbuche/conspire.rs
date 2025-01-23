@@ -173,7 +173,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> TensorArray
         panic!()
     }
     fn new(array: Self::Array) -> Self {
-        array.iter().map(|entry| Self::Item::new(*entry)).collect()
+        array.into_iter().map(Self::Item::new).collect()
     }
     fn zero() -> Self {
         Self(from_fn(|_| Self::Item::zero()))

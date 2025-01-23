@@ -22,8 +22,12 @@ use super::{
 /// `D` is the dimension, `I` is the configuration, `W` is the list length.
 #[derive(Debug)]
 pub struct TensorRank1List<const D: usize, const I: usize, const W: usize>(
-    pub [TensorRank1<D, I>; W],
+    [TensorRank1<D, I>; W],
 );
+
+pub const fn tensor_rank_1_list<const D: usize, const I: usize, const W: usize>(array: [TensorRank1<D, I>; W]) -> TensorRank1List<D, I, W> {
+    TensorRank1List(array)
+}
 
 impl<const D: usize, const I: usize, const W: usize> Display for TensorRank1List<D, I, W> {
     fn fmt(&self, f: &mut Formatter) -> Result {
@@ -157,8 +161,8 @@ impl<const D: usize, const I: usize, const W: usize> TensorArray for TensorRank1
     }
     fn new(array: Self::Array) -> Self {
         array
-            .iter()
-            .map(|array_i| TensorRank1::new(*array_i))
+            .into_iter()
+            .map(TensorRank1::new)
             .collect()
     }
     fn zero() -> Self {

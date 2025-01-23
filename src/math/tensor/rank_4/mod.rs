@@ -38,9 +38,6 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     From<Vec<Vec<Vec<Vec<f64>>>>> for TensorRank4<D, I, J, K, L>
 {
     fn from(vec_rank_4: Vec<Vec<Vec<Vec<f64>>>>) -> Self {
-        // assert_eq!(vec.len(), D);
-        // vec.iter().for_each(|entry| assert_eq!(entry.len(), D));
-        //
         vec_rank_4
             .into_iter()
             .map(|vec_rank_3| {
@@ -299,7 +296,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
         Self::dyad_ij_kl(&TensorRank2::identity(), &TensorRank2::identity())
     }
     fn new(array: Self::Array) -> Self {
-        array.iter().map(|entry| Self::Item::new(*entry)).collect()
+        array.into_iter().map(Self::Item::new).collect()
     }
     fn zero() -> Self {
         Self(from_fn(|_| Self::Item::zero()))
