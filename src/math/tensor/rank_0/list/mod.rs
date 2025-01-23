@@ -11,7 +11,7 @@ use std::{
 ///
 /// `W` is the list length.
 #[derive(Debug)]
-pub struct TensorRank0List<const W: usize>(pub [TensorRank0; W]);
+pub struct TensorRank0List<const W: usize>([TensorRank0; W]);
 
 /// Display implementation for rank-0 lists.
 impl<const W: usize> Display for TensorRank0List<W> {

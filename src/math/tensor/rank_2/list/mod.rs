@@ -17,7 +17,7 @@ use super::{Tensor, TensorArray, TensorRank0, TensorRank2};
 /// `D` is the dimension, `I`, `J` are the configurations `W` is the list length.
 #[derive(Debug)]
 pub struct TensorRank2List<const D: usize, const I: usize, const J: usize, const W: usize>(
-    pub [TensorRank2<D, I, J>; W],
+    [TensorRank2<D, I, J>; W],
 );
 
 impl<const D: usize, const I: usize, const J: usize, const W: usize> Display
