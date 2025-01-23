@@ -27,21 +27,6 @@ where
     ) -> Self;
 }
 
-pub trait CohesiveElement<'a, C, const G: usize, const N: usize>
-where
-    C: Cohesive<'a>,
-    Self: FiniteElement<'a, C, G, N>,
-{
-    fn calculate_nodal_forces(
-        &self,
-        nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<NodalForces<N>, ConstitutiveError>;
-    fn calculate_nodal_stiffnesses(
-        &self,
-        nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<NodalStiffnesses<N>, ConstitutiveError>;
-}
-
 pub trait ElasticFiniteElement<'a, C, const G: usize, const N: usize>
 where
     C: Elastic<'a>,

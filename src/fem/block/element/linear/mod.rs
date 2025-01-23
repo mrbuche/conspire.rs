@@ -1,7 +1,6 @@
 #[cfg(test)]
 pub mod test;
 
-pub mod cohesive;
 pub mod localization;
 pub mod surface;
 pub mod tetrahedron;

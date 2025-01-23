@@ -11,7 +11,7 @@ use std::{
 };
 
 use super::{
-    rank_0::TensorRank0, rank_1::TensorRank1, rank_2::TensorRank2, rank_3::TensorRank3, Hessian,
+    rank_0::TensorRank0, rank_1::TensorRank1, rank_2::TensorRank2, rank_3::{get_identity_1010_parts, TensorRank3}, Hessian,
     Rank2, Tensor, TensorArray,
 };
 
@@ -27,7 +27,9 @@ pub struct TensorRank4<
     const J: usize,
     const K: usize,
     const L: usize,
->(pub [TensorRank3<D, J, K, L>; D]);
+>([TensorRank3<D, J, K, L>; D]);
+
+pub const IDENTITY_1010: TensorRank4<3, 1, 0, 1, 0> = TensorRank4(get_identity_1010_parts());
 
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
     From<Vec<Vec<Vec<Vec<f64>>>>> for TensorRank4<D, I, J, K, L>

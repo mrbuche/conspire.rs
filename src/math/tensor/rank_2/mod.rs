@@ -20,7 +20,7 @@ use std::{
 use super::{
     super::write_tensor_rank_0,
     rank_0::TensorRank0,
-    rank_1::{list::TensorRank1List, vec::TensorRank1Vec, TensorRank1},
+    rank_1::{list::TensorRank1List, vec::TensorRank1Vec, TensorRank1, zero as tensor_rank_1_zero},
     rank_4::TensorRank4,
     Convert, Hessian, Rank2, Tensor, TensorArray, TensorError,
 };
@@ -31,7 +31,117 @@ use vec_2d::TensorRank2Vec2D;
 ///
 /// `D` is the dimension, `I`, `J` are the configurations.
 #[derive(Debug)]
-pub struct TensorRank2<const D: usize, const I: usize, const J: usize>(pub [TensorRank1<D, J>; D]);
+pub struct TensorRank2<const D: usize, const I: usize, const J: usize>([TensorRank1<D, J>; D]);
+
+pub const fn get_levi_civita_parts() -> [TensorRank2<3, 1, 1>; 3]{
+    [
+        TensorRank2([
+            TensorRank1([0.0, 0.0, 0.0]),
+            TensorRank1([0.0, 0.0, 1.0]),
+            TensorRank1([0.0, -1.0, 0.0]),
+        ]),
+        TensorRank2([
+            TensorRank1([0.0, 0.0, -1.0]),
+            TensorRank1([0.0, 0.0, 0.0]),
+            TensorRank1([1.0, 0.0, 0.0]),
+        ]),
+        TensorRank2([
+            TensorRank1([0.0, 1.0, 0.0]),
+            TensorRank1([-1.0, 0.0, 0.0]),
+            TensorRank1([0.0, 0.0, 0.0]),
+        ]),
+    ]
+}
+
+pub const fn get_identity_1010_parts_1() -> [TensorRank2<3, 1, 0>; 3] {
+    [
+        TensorRank2([
+            TensorRank1([1.0, 0.0, 0.0]),
+            TensorRank1([0.0, 0.0, 0.0]),
+            TensorRank1([0.0, 0.0, 0.0]),
+        ]),
+        TensorRank2([
+            TensorRank1([0.0, 1.0, 0.0]),
+            TensorRank1([0.0, 0.0, 0.0]),
+            TensorRank1([0.0, 0.0, 0.0]),
+        ]),
+        TensorRank2([
+            TensorRank1([0.0, 0.0, 1.0]),
+            TensorRank1([0.0, 0.0, 0.0]),
+            TensorRank1([0.0, 0.0, 0.0]),
+        ]),
+    ]
+}
+
+pub const fn get_identity_1010_parts_2() -> [TensorRank2<3, 1, 0>; 3] {
+    [
+        TensorRank2([
+            TensorRank1([0.0, 0.0, 0.0]),
+            TensorRank1([1.0, 0.0, 0.0]),
+            TensorRank1([0.0, 0.0, 0.0]),
+        ]),
+        TensorRank2([
+            TensorRank1([0.0, 0.0, 0.0]),
+            TensorRank1([0.0, 1.0, 0.0]),
+            TensorRank1([0.0, 0.0, 0.0]),
+        ]),
+        TensorRank2([
+            TensorRank1([0.0, 0.0, 0.0]),
+            TensorRank1([0.0, 0.0, 1.0]),
+            TensorRank1([0.0, 0.0, 0.0]),
+        ]),
+    ]
+}
+
+pub const fn get_identity_1010_parts_3() -> [TensorRank2<3, 1, 0>; 3] {
+    [
+        TensorRank2([
+            TensorRank1([0.0, 0.0, 0.0]),
+            TensorRank1([0.0, 0.0, 0.0]),
+            TensorRank1([1.0, 0.0, 0.0]),
+        ]),
+        TensorRank2([
+            TensorRank1([0.0, 0.0, 0.0]),
+            TensorRank1([0.0, 0.0, 0.0]),
+            TensorRank1([0.0, 1.0, 0.0]),
+        ]),
+        TensorRank2([
+            TensorRank1([0.0, 0.0, 0.0]),
+            TensorRank1([0.0, 0.0, 0.0]),
+            TensorRank1([0.0, 0.0, 1.0]),
+        ]),
+    ]
+}
+
+pub const IDENTITY: TensorRank2<3, 1, 1> = TensorRank2([
+    TensorRank1([1.0, 0.0, 0.0]),
+    TensorRank1([0.0, 1.0, 0.0]),
+    TensorRank1([0.0, 0.0, 1.0]),
+]);
+
+pub const IDENTITY_00: TensorRank2<3, 0, 0> = TensorRank2([
+    TensorRank1([1.0, 0.0, 0.0]),
+    TensorRank1([0.0, 1.0, 0.0]),
+    TensorRank1([0.0, 0.0, 1.0]),
+]);
+
+pub const IDENTITY_10: TensorRank2<3, 1, 0> = TensorRank2([
+    TensorRank1([1.0, 0.0, 0.0]),
+    TensorRank1([0.0, 1.0, 0.0]),
+    TensorRank1([0.0, 0.0, 1.0]),
+]);
+
+pub const ZERO: TensorRank2<3, 1, 1> = TensorRank2([
+    tensor_rank_1_zero(),
+    tensor_rank_1_zero(),
+    tensor_rank_1_zero(),
+]);
+
+pub const ZERO_10: TensorRank2<3, 1, 0> = TensorRank2([
+    tensor_rank_1_zero(),
+    tensor_rank_1_zero(),
+    tensor_rank_1_zero(),
+]);
 
 impl<const D: usize, const I: usize, const J: usize> From<Vec<Vec<f64>>> for TensorRank2<D, I, J> {
     fn from(vec: Vec<Vec<f64>>) -> Self {

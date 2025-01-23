@@ -14,7 +14,7 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
-use super::{rank_0::TensorRank0, rank_2::TensorRank2, Tensor, TensorArray};
+use super::{rank_0::TensorRank0, rank_2::{get_levi_civita_parts, get_identity_1010_parts_1, get_identity_1010_parts_2, get_identity_1010_parts_3, TensorRank2}, Tensor, TensorArray};
 
 /// Returns the rank-3 Levi-Civita symbol.
 pub fn levi_civita<const I: usize, const J: usize, const K: usize>() -> TensorRank3<3, I, J, K> {
@@ -30,8 +30,18 @@ pub fn levi_civita<const I: usize, const J: usize, const K: usize>() -> TensorRa
 /// `D` is the dimension, `I`, `J`, `K` are the configurations.
 #[derive(Debug)]
 pub struct TensorRank3<const D: usize, const I: usize, const J: usize, const K: usize>(
-    pub [TensorRank2<D, J, K>; D],
+    [TensorRank2<D, J, K>; D],
 );
+
+pub const LEVI_CIVITA: TensorRank3<3, 1, 1, 1> = TensorRank3(get_levi_civita_parts());
+
+pub const fn get_identity_1010_parts() -> [TensorRank3<3, 0, 1, 0>; 3] {
+    [
+        TensorRank3(get_identity_1010_parts_1()),
+        TensorRank3(get_identity_1010_parts_2()),
+        TensorRank3(get_identity_1010_parts_3()),
+    ]
+}
 
 impl<const D: usize, const I: usize, const J: usize, const K: usize> Display
     for TensorRank3<D, I, J, K>

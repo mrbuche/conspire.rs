@@ -32,18 +32,18 @@ pub use tensor::{
     },
     rank_2::{
         list::TensorRank2List, list_2d::TensorRank2List2D, vec::TensorRank2Vec,
-        vec_2d::TensorRank2Vec2D, TensorRank2,
+        vec_2d::TensorRank2Vec2D, TensorRank2, IDENTITY, IDENTITY_00, IDENTITY_10, ZERO, ZERO_10,
     },
     rank_3::{
         levi_civita, list::TensorRank3List, list_2d::TensorRank3List2D, list_3d::TensorRank3List3D,
-        TensorRank3,
+        TensorRank3, LEVI_CIVITA
     },
     rank_4::{
         list::TensorRank4List, ContractAllIndicesWithFirstIndicesOf,
         ContractFirstSecondIndicesWithSecondIndicesOf,
         ContractFirstThirdFourthIndicesWithFirstIndicesOf,
         ContractSecondFourthIndicesWithFirstIndicesOf, ContractSecondIndexWithFirstIndexOf,
-        ContractThirdFourthIndicesWithFirstSecondIndicesOf, TensorRank4,
+        ContractThirdFourthIndicesWithFirstSecondIndicesOf, TensorRank4, IDENTITY_1010
     },
     Convert, Hessian, Rank2, Tensor, TensorArray, TensorVec,
 };
