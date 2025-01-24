@@ -8,7 +8,7 @@ use super::{
     Explicit, IntegrationError,
 };
 use crate::{ABS_TOL, REL_TOL};
-use std::ops::{Index, Mul, Sub};
+use std::ops::{Mul, Sub};
 
 /// Explicit, three-stage, third-order, variable-step, Runge-Kutta method.[^cite]
 ///
@@ -66,7 +66,7 @@ where
     Self: InterpolateSolution<Y, U>,
     Y: Tensor + TensorArray,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
-    U: FromIterator<Y> + Index<usize, Output = Y> + Tensor<Item = Y> + TensorVec<Item = Y>,
+    U: TensorVec<Item = Y>,
 {
     fn integrate(
         &self,
@@ -124,7 +124,7 @@ impl<Y, U> InterpolateSolution<Y, U> for Ode23
 where
     Y: Tensor + TensorArray,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
-    U: FromIterator<Y> + Index<usize, Output = Y> + Tensor<Item = Y>,
+    U: TensorVec<Item = Y>,
 {
     fn interpolate(
         &self,

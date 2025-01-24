@@ -159,7 +159,7 @@ pub trait TensorArray {
 /// Common methods for tensors derived from Vec.
 pub trait TensorVec
 where
-    Self: Index<usize> + IndexMut<usize>,
+    Self: FromIterator<Self::Item> + Index<usize, Output = Self::Item> + IndexMut<usize>,
 {
     /// The type of item encountered when iterating over the tensor.
     type Item;

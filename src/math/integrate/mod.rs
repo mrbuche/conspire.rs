@@ -14,8 +14,7 @@ use super::{Tensor, TensorArray, TensorRank0, TensorVec, Vector};
 use crate::get_defeat_message;
 use std::{
     fmt,
-    iter::FromIterator,
-    ops::{Div, Index, Mul, Sub},
+    ops::{Div, Mul, Sub},
 };
 
 /// Base trait for ordinary differential equation solvers.
@@ -23,7 +22,7 @@ pub trait OdeSolver<Y, U>
 where
     Self: fmt::Debug,
     Y: Tensor,
-    U: Tensor<Item = Y>,
+    U: TensorVec<Item = Y>,
 {
 }
 
@@ -31,7 +30,7 @@ impl<A, Y, U> OdeSolver<Y, U> for A
 where
     A: std::fmt::Debug,
     Y: Tensor,
-    U: Tensor<Item = Y>,
+    U: TensorVec<Item = Y>,
 {
 }
 
@@ -40,7 +39,7 @@ pub trait Explicit<Y, U>: OdeSolver<Y, U>
 where
     Y: Tensor + TensorArray,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
-    U: FromIterator<Y> + Index<usize, Output = Y> + Tensor<Item = Y> + TensorVec<Item = Y>,
+    U: TensorVec<Item = Y>,
 {
     /// Solves an initial value problem by explicitly integrating a system of ordinary differential equations.
     ///
@@ -62,7 +61,7 @@ where
     Y: Tensor + Div<J, Output = Y>,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
     J: Tensor + TensorArray,
-    U: Tensor<Item = Y> + TensorVec<Item = Y>,
+    U: TensorVec<Item = Y>,
 {
     /// Solves an initial value problem by implicitly integrating a system of ordinary differential equations.
     ///

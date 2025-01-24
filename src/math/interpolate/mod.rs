@@ -1,5 +1,5 @@
-use super::{Tensor, TensorArray, TensorRank0, Vector};
-use std::ops::{Index, Mul, Sub};
+use super::{Tensor, TensorArray, TensorRank0, TensorVec, Vector};
+use std::ops::{Mul, Sub};
 
 /// Linear interpolation schemes.
 pub struct LinearInterpolation {}
@@ -7,7 +7,7 @@ pub struct LinearInterpolation {}
 /// One-dimensional interpolation schemes.
 pub trait Interpolate1D<F, T>
 where
-    F: FromIterator<T> + Index<usize, Output = T>,
+    F: TensorVec<Item = T>,
     T: Tensor,
 {
     /// One-dimensional interpolation.
@@ -19,7 +19,7 @@ pub trait InterpolateSolution<Y, U>
 where
     Y: Tensor + TensorArray,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
-    U: FromIterator<Y> + Index<usize, Output = Y> + Tensor<Item = Y>,
+    U: TensorVec<Item = Y>,
 {
     /// Solution interpolation.
     fn interpolate(&self, t: &Vector, tp: &Vector, yp: &U, f: impl Fn(&TensorRank0, &Y) -> Y) -> U;
@@ -27,7 +27,7 @@ where
 
 impl<F, T> Interpolate1D<F, T> for LinearInterpolation
 where
-    F: FromIterator<T> + Index<usize, Output = T>,
+    F: TensorVec<Item = T>,
     T: Tensor,
 {
     fn interpolate_1d(x: &Vector, xp: &Vector, fp: &F) -> F {
