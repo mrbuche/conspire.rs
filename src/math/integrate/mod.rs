@@ -50,9 +50,9 @@ where
         let dt;
         let y = initial_condition.copy();
         let t = initial_time.copy();
-        let mut eval_times = evaluation_times.0.into_iter().peekable();
+        let mut eval_times = evaluation_times.as_array().into_iter().peekable();
         let mut y_sol = solution.iter_mut();
-        for check_times in evaluation_times.0.windows(2) {
+        for check_times in evaluation_times.as_array().windows(2) {
             if check_times[1] - check_times[0] <= 0.0 {
                 return Err(IntegrationError::EvaluationTimesNotStrictlyIncreasing(
                     evaluation_times.copy(),

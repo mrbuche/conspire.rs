@@ -7,11 +7,11 @@ use crate::{
         solid::{elastic::Elastic, Solid},
         Constitutive, ConstitutiveError, Parameters,
     },
-    math::{Rank2, Tensor, TensorRank2},
+    math::{Rank2, Tensor, TensorRank2, IDENTITY_10, ZERO_10},
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchoffStress,
         FirstPiolaKirchoffTangentStiffness, Scalar, SecondPiolaKirchoffStress,
-        SecondPiolaKirchoffTangentStiffness, IDENTITY_10, ZERO_10,
+        SecondPiolaKirchoffTangentStiffness,
     },
     ABS_TOL,
 };

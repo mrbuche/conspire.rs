@@ -11,7 +11,7 @@ macro_rules! test_finite_element {
                 },
                 math::{
                     test::{assert_eq, assert_eq_from_fd, assert_eq_within_tols, TestError},
-                    Convert, Rank2, TensorRank2,
+                    Convert, Rank2, TensorArray, TensorRank2,
                 },
                 EPSILON,
             };
@@ -185,87 +185,6 @@ macro_rules! setup_for_elements {
     };
 }
 pub(crate) use setup_for_elements;
-
-macro_rules! setup_for_surface_or_localization_elements {
-    ($element: ident) => {
-        use crate::{mechanics::RotationCurrentConfiguration, EPSILON};
-        fn get_deformation_gradient() -> DeformationGradient {
-            get_deformation_gradient_rotation() * get_deformation_gradient_special()
-        }
-        fn get_deformation_gradient_rate() -> DeformationGradientRate {
-            get_deformation_gradient_rotation() * get_deformation_gradient_rate_special()
-        }
-        fn get_deformation_gradient_rotation() -> RotationCurrentConfiguration {
-            crate::mechanics::test::get_rotation_reference_configuration()
-                .transpose()
-                .into()
-        }
-        crate::fem::block::element::test::setup_for_element_tests_any_element!($element);
-    };
-}
-pub(crate) use setup_for_surface_or_localization_elements;
-
-macro_rules! setup_for_surface_elements {
-    ($element: ident) => {
-        use crate::math::Rank2;
-        fn get_coordinates() -> NodalCoordinates<N> {
-            get_deformation_gradient() * get_reference_coordinates()
-        }
-        fn get_deformation_gradient_special() -> DeformationGradient {
-            DeformationGradient::new([[0.62, 0.20, 0.00], [0.32, 0.98, 0.00], [0.00, 0.00, 1.00]])
-        }
-        fn get_deformation_gradient_rate_special() -> DeformationGradientRate {
-            DeformationGradient::new([[0.53, 0.58, 0.00], [0.28, 0.77, 0.00], [0.00, 0.00, 0.00]])
-        }
-        fn get_velocities() -> NodalVelocities<N> {
-            get_deformation_gradient_rate() * get_reference_coordinates()
-        }
-        crate::fem::block::element::test::setup_for_surface_or_localization_elements!($element);
-    };
-}
-pub(crate) use setup_for_surface_elements;
-
-macro_rules! setup_for_localization_elements {
-    ($element: ident) => {
-        use crate::{fem::block::element::linear::surface::test::THICKNESS, math::Rank2};
-        fn get_coordinates() -> NodalCoordinates<N> {
-            get_deformation_gradient_rotation() * get_coordinates_unrotated()
-        }
-        fn get_deformation_gradient_special() -> DeformationGradient {
-            let jump = get_jump();
-            let mut deformation_gradient = get_deformation_gradient_surface();
-            deformation_gradient[0][2] = jump[0] / THICKNESS;
-            deformation_gradient[1][2] = jump[1] / THICKNESS;
-            deformation_gradient[2][2] = jump[2] / THICKNESS + 1.0;
-            deformation_gradient
-        }
-        fn get_deformation_gradient_rate_special() -> DeformationGradientRate {
-            let jump_rate = get_jump_rate();
-            let mut deformation_gradient_rate = get_deformation_gradient_rate_surface();
-            deformation_gradient_rate[0][2] = jump_rate[0] / THICKNESS;
-            deformation_gradient_rate[1][2] = jump_rate[1] / THICKNESS;
-            deformation_gradient_rate[2][2] = jump_rate[2] / THICKNESS;
-            deformation_gradient_rate
-        }
-        fn get_deformation_gradient_surface() -> DeformationGradient {
-            DeformationGradient::new([[0.62, 0.20, 0.00], [0.32, 0.98, 0.00], [0.00, 0.00, 1.00]])
-        }
-        fn get_deformation_gradient_rate_surface() -> DeformationGradientRate {
-            DeformationGradient::new([[0.53, 0.58, 0.00], [0.28, 0.77, 0.00], [0.00, 0.00, 0.00]])
-        }
-        fn get_jump() -> Vector<1> {
-            Vector::new([1.11, 1.22, 1.33])
-        }
-        fn get_jump_rate() -> Vector<1> {
-            Vector::new([0.12, 0.34, 0.56])
-        }
-        fn get_velocities() -> NodalVelocities<N> {
-            get_deformation_gradient_rotation() * get_velocities_unrotated()
-        }
-        crate::fem::block::element::test::setup_for_surface_or_localization_elements!($element);
-    };
-}
-pub(crate) use setup_for_localization_elements;
 
 macro_rules! setup_for_composite_elements {
     ($element: ident) => {

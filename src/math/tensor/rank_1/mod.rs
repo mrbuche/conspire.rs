@@ -22,7 +22,13 @@ use super::{
 ///
 /// `D` is the dimension, `I` is the configuration.
 #[derive(Debug)]
-pub struct TensorRank1<const D: usize, const I: usize>(pub [TensorRank0; D]);
+pub struct TensorRank1<const D: usize, const I: usize>([TensorRank0; D]);
+
+pub const fn tensor_rank_1<const D: usize, const I: usize>(
+    array: [TensorRank0; D],
+) -> TensorRank1<D, I> {
+    TensorRank1(array)
+}
 
 impl<const D: usize, const I: usize> Display for TensorRank1<D, I> {
     fn fmt(&self, f: &mut Formatter) -> Result {

@@ -11,8 +11,11 @@ use std::{
 };
 
 use super::{
-    rank_0::TensorRank0, rank_1::TensorRank1, rank_2::TensorRank2, rank_3::TensorRank3, Hessian,
-    Rank2, Tensor, TensorArray,
+    rank_0::TensorRank0,
+    rank_1::TensorRank1,
+    rank_2::TensorRank2,
+    rank_3::{get_identity_1010_parts, TensorRank3},
+    Hessian, Rank2, Tensor, TensorArray,
 };
 
 pub mod list;
@@ -27,15 +30,14 @@ pub struct TensorRank4<
     const J: usize,
     const K: usize,
     const L: usize,
->(pub [TensorRank3<D, J, K, L>; D]);
+>([TensorRank3<D, J, K, L>; D]);
+
+pub const IDENTITY_1010: TensorRank4<3, 1, 0, 1, 0> = TensorRank4(get_identity_1010_parts());
 
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
     From<Vec<Vec<Vec<Vec<f64>>>>> for TensorRank4<D, I, J, K, L>
 {
     fn from(vec_rank_4: Vec<Vec<Vec<Vec<f64>>>>) -> Self {
-        // assert_eq!(vec.len(), D);
-        // vec.iter().for_each(|entry| assert_eq!(entry.len(), D));
-        //
         vec_rank_4
             .into_iter()
             .map(|vec_rank_3| {
@@ -294,7 +296,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
         Self::dyad_ij_kl(&TensorRank2::identity(), &TensorRank2::identity())
     }
     fn new(array: Self::Array) -> Self {
-        array.iter().map(|entry| Self::Item::new(*entry)).collect()
+        array.into_iter().map(Self::Item::new).collect()
     }
     fn zero() -> Self {
         Self(from_fn(|_| Self::Item::zero()))

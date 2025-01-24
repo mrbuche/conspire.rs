@@ -12,7 +12,7 @@ use std::{
 /// `D` is the dimension, `I`, `J` are the configurations.
 #[derive(Debug)]
 pub struct TensorRank2Vec2D<const D: usize, const I: usize, const J: usize>(
-    pub Vec<TensorRank2Vec<D, I, J>>,
+    Vec<TensorRank2Vec<D, I, J>>,
 );
 
 impl<const D: usize, const I: usize, const J: usize> Display for TensorRank2Vec2D<D, I, J> {

@@ -4,7 +4,7 @@ use super::{
     ContractFirstThirdFourthIndicesWithFirstIndicesOf,
     ContractSecondFourthIndicesWithFirstIndicesOf, ContractSecondIndexWithFirstIndexOf,
     ContractThirdFourthIndicesWithFirstSecondIndicesOf, Rank2, TensorRank0, TensorRank1,
-    TensorRank2, TensorRank3, TensorRank4,
+    TensorRank2, TensorRank3, TensorRank4, IDENTITY_1010,
 };
 use crate::{ABS_TOL, REL_TOL};
 
@@ -344,6 +344,22 @@ fn get_other_other_tensor_rank_2() -> TensorRank2<3, 1, 1> {
 
 fn get_other_other_other_tensor_rank_2() -> TensorRank2<3, 1, 1> {
     TensorRank2::new([[3.0, 2.0, 4.0], [1.0, 0.0, 0.0], [3.0, 2.0, 2.0]])
+}
+
+#[test]
+fn identity_1010() {
+    IDENTITY_1010.iter().enumerate().for_each(|(i, entry_i)| {
+        entry_i.iter().enumerate().for_each(|(j, entry_ij)| {
+            entry_ij.iter().enumerate().for_each(|(k, entry_ijk)| {
+                entry_ijk.iter().enumerate().for_each(|(l, entry_ijkl)| {
+                    assert_eq!(
+                        entry_ijkl,
+                        &(((i == k) as u8 * (j == l) as u8) as TensorRank0)
+                    )
+                })
+            })
+        })
+    })
 }
 
 #[test]

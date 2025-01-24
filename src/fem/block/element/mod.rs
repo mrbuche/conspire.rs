@@ -16,32 +16,6 @@ where
     ) -> Self;
 }
 
-pub trait SurfaceElement<'a, C, const G: usize, const N: usize>
-where
-    C: Constitutive<'a>,
-{
-    fn new(
-        constitutive_model_parameters: Parameters<'a>,
-        reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
-        thickness: &Scalar,
-    ) -> Self;
-}
-
-pub trait CohesiveElement<'a, C, const G: usize, const N: usize>
-where
-    C: Cohesive<'a>,
-    Self: FiniteElement<'a, C, G, N>,
-{
-    fn calculate_nodal_forces(
-        &self,
-        nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<NodalForces<N>, ConstitutiveError>;
-    fn calculate_nodal_stiffnesses(
-        &self,
-        nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<NodalStiffnesses<N>, ConstitutiveError>;
-}
-
 pub trait ElasticFiniteElement<'a, C, const G: usize, const N: usize>
 where
     C: Elastic<'a>,
@@ -50,7 +24,10 @@ where
         &self,
         _nodal_coordinates: &NodalCoordinates<N>,
     ) -> DeformationGradients<G> {
-        todo!() // should just get rid of linear elements assuming G=1 and then wont need this method
+        //
+        // should just get rid of linear elements assuming G=1 and then wont need this method
+        //
+        todo!()
     }
     fn calculate_nodal_forces(
         &self,

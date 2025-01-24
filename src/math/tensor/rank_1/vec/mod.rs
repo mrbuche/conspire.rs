@@ -13,7 +13,7 @@ use std::{
 ///
 /// `D` is the dimension, `I` is the configuration.
 #[derive(Debug)]
-pub struct TensorRank1Vec<const D: usize, const I: usize>(pub Vec<TensorRank1<D, I>>);
+pub struct TensorRank1Vec<const D: usize, const I: usize>(Vec<TensorRank1<D, I>>);
 
 impl<const D: usize, const I: usize> Display for TensorRank1Vec<D, I> {
     fn fmt(&self, f: &mut Formatter) -> Result {
