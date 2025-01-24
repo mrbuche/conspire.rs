@@ -19,6 +19,10 @@ use std::{
 };
 
 type EvalTimes<const W: usize> = Peekable<std::array::IntoIter<TensorRank0, W>>;
+//
+// tspan is either [a, b] or a list of evaluation times
+// interpolate to the evaluation times after solving only if they are specified
+//
 
 /// Base trait for ordinary differential equation solvers.
 pub trait OdeSolver<Y, U, const W: usize>
