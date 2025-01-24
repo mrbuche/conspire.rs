@@ -77,7 +77,7 @@ where
         } else if time[0] >= time[time.len() - 1] {
             return Err(IntegrationError::InitialTimeNotLessThanFinalTime)
         }
-        let mut dt;
+        let mut dt = 1e-1 * time[time.len() - 1];
         let mut e;
         let mut k_1 = function(&initial_time, &initial_condition);
         let mut k_2;
@@ -87,7 +87,11 @@ where
         let mut t = time[0];
         let mut y_trial;
         while t < time[time.len() - 1] {
-            
+            k_2 = function(&(t + 0.5 * dt), &(&k_1 * (0.5 * dt) + &y));
+            k_3 = function(&(t + 0.75 * dt), &(&k_2 * (0.75 * dt) + &y));
+            y_trial = (&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y;
+            k_4 = function(&(t + dt), &y_trial);
+            e = ((&k_1 * -5.0 + k_2 * 6.0 + k_3 * 8.0 + &k_4 * -9.0) * (dt / 72.0)).norm();
         }
         // {
         //     while eval_times.peek().is_some() {
