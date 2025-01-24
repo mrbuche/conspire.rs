@@ -2,7 +2,7 @@
 mod test;
 
 use super::{
-    super::{Tensor, TensorVec, TensorRank0},
+    super::{Tensor, TensorVec, TensorRank0, Vector},
     Explicit, IntegrationError,
 };
 use crate::{ABS_TOL, REL_TOL};
@@ -71,7 +71,7 @@ where
         initial_time: TensorRank0,
         initial_condition: Y,
         time: &[TensorRank0],
-    ) -> Result<(Vec<TensorRank0>, U), IntegrationError> {
+    ) -> Result<(Vector, U), IntegrationError> {
         if time.len() < 2 {
             return Err(IntegrationError::LengthTimeLessThanTwo)
         } else if time[0] >= time[time.len() - 1] {
@@ -84,7 +84,7 @@ where
         let mut k_3;
         let mut k_4;
         let mut t = time[0];
-        let mut t_sol = vec![];
+        let mut t_sol = Vector::zero(0);
         t_sol.push(time[0]);
         let mut y = initial_condition.copy();
         let mut y_sol = U::zero(0);

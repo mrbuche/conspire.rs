@@ -10,7 +10,7 @@ mod ode23;
 // pub use ode1be::Ode1be;
 pub use ode23::Ode23;
 
-use super::{Tensor, TensorArray, TensorVec, TensorRank0};
+use super::{Tensor, TensorArray, TensorVec, TensorRank0, Vector};
 use crate::get_defeat_message;
 use std::{
     fmt,
@@ -52,7 +52,7 @@ where
         initial_time: TensorRank0,
         initial_condition: Y,
         time: &[TensorRank0],
-    ) -> Result<(Vec<TensorRank0>, U), IntegrationError>;
+    ) -> Result<(Vector, U), IntegrationError>;
 }
 
 /// Base trait for implicit ordinary differential equation solvers.

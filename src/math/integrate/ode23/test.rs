@@ -2,7 +2,7 @@ use super::{
     super::{
         super::{
             test::TestError, Tensor, TensorArray, TensorRank0, TensorRank0List, TensorRank1,
-            TensorRank1List,
+            TensorRank1List, Vector,
         },
         test::zero_to_tau,
     },
@@ -64,11 +64,7 @@ const TOLERANCE: TensorRank0 = 1e-5;
 
 #[test]
 fn first_order_tensor_rank_0() -> Result<(), TestError> {
-    //
-    // well if you have to impl TensorRank0Vec
-    // might as well use it for time in the impl too
-    //
-    let (time, solution) = Ode23 {
+    let (time, solution): (Vector, Vector) = Ode23 {
         ..Default::default()
     }
     .integrate(
