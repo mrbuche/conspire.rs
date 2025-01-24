@@ -236,6 +236,9 @@ impl Tensor for SquareMatrix {
 impl TensorVec for SquareMatrix {
     type Item = Vector;
     type Slice<'a> = &'a [&'a [TensorRank0]];
+    fn append(&mut self, other: &mut Self) {
+        self.0.append(&mut other.0)
+    }
     fn is_empty(&self) -> bool {
         self.0.is_empty()
     }

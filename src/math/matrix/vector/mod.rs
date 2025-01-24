@@ -140,6 +140,9 @@ impl Tensor for Vector {
 impl TensorVec for Vector {
     type Item = TensorRank0;
     type Slice<'a> = &'a [TensorRank0];
+    fn append(&mut self, other: &mut Self) {
+        self.0.append(&mut other.0)
+    }
     fn is_empty(&self) -> bool {
         self.0.is_empty()
     }

@@ -165,9 +165,11 @@ where
     type Item;
     /// The type of slice corresponding to the tensor.
     type Slice<'a>;
-    /// Returns `true` if the vector contains no elements.
+    /// Moves all the items of other into self, leaving other empty.
+    fn append(&mut self, other: &mut Self);
+    /// Returns `true` if the vector contains no items.
     fn is_empty(&self) -> bool;
-    /// Returns the number of elements in the vector, also referred to as its ‘length’.
+    /// Returns the number of items in the vector, also referred to as its ‘length’.
     fn len(&self) -> usize;
     /// Returns a tensor given a slice.
     fn new(slice: Self::Slice<'_>) -> Self;

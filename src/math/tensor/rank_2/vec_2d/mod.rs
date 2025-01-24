@@ -151,6 +151,9 @@ impl<const D: usize, const I: usize, const J: usize> IndexMut<usize> for TensorR
 impl<const D: usize, const I: usize, const J: usize> TensorVec for TensorRank2Vec2D<D, I, J> {
     type Item = TensorRank2Vec<D, I, J>;
     type Slice<'a> = &'a [&'a [[[TensorRank0; D]; D]]];
+    fn append(&mut self, other: &mut Self) {
+        self.0.append(&mut other.0)
+    }
     fn is_empty(&self) -> bool {
         self.0.is_empty()
     }

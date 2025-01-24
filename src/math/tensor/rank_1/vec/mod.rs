@@ -143,6 +143,9 @@ impl<const D: usize, const I: usize> TensorRank1Vec<D, I> {
 impl<const D: usize, const I: usize> TensorVec for TensorRank1Vec<D, I> {
     type Item = TensorRank1<D, I>;
     type Slice<'a> = &'a [[TensorRank0; D]];
+    fn append(&mut self, other: &mut Self) {
+        self.0.append(&mut other.0)
+    }
     fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
