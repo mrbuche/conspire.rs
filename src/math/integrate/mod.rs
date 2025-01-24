@@ -97,7 +97,7 @@ impl fmt::Debug for IntegrationError {
                 "\x1b[1;91mThe initial time must precede the final time.".to_string()
             }
             Self::LengthTimeLessThanTwo => {
-                "\x1b[1;91mThe time must contain at least two entries".to_string()
+                "\x1b[1;91mThe time must contain at least two entries.".to_string()
             }
         };
         write!(
@@ -116,7 +116,7 @@ impl fmt::Display for IntegrationError {
                 "\x1b[1;91mThe initial time must precede the final time.".to_string()
             }
             Self::LengthTimeLessThanTwo => {
-                "\x1b[1;91mThe time must contain at least two entries".to_string()
+                "\x1b[1;91mThe time must contain at least two entries.".to_string()
             }
         };
         write!(f, "{}\x1b[0m", error)

@@ -9,39 +9,32 @@ use super::{
 };
 use std::f64::consts::TAU;
 
-const TOLERANCE: TensorRank0 = 1e-5;
+const TOLERANCE: TensorRank0 = 1e-11;
 
-// #[test]
-// #[should_panic(expected = "Evaluation times precede the initial time.")]
-// fn evaluation_times_precede_initial_time() {
-//     let mut evaluation_times = zero_to_tau::<LENGTH>();
-//     evaluation_times[0] = -1.0;
-//     let _: TensorRank0List<LENGTH> = Ode23 {
-//         ..Default::default()
-//     }
-//     .integrate(
-//         |t: &TensorRank0, _: &TensorRank0| t.cos(),
-//         0.0,
-//         0.0,
-//         &evaluation_times,
-//     )
-//     .unwrap();
-// }
+#[test]
+#[should_panic(expected = "The time must contain at least two entries.")]
+fn initial_time_not_less_than_final_time() {
+    let _: (Vector, Vector) = Ode23 {
+        ..Default::default()
+    }
+    .integrate(|t: &TensorRank0, _: &TensorRank0| t.cos(), 0.0, 0.0, &[0.0])
+    .unwrap();
+}
 
-// #[test]
-// #[should_panic(expected = "Evaluation times must include a final time.")]
-// fn evaluation_times_no_final_time() {
-//     let _: TensorRank0List<LENGTH> = Ode23 {
-//         ..Default::default()
-//     }
-//     .integrate(
-//         |t: &TensorRank0, _: &TensorRank0| t.cos(),
-//         0.0,
-//         0.0,
-//         &TensorRank0List::new([0.0]),
-//     )
-//     .unwrap();
-// }
+#[test]
+#[should_panic(expected = "The initial time must precede the final time.")]
+fn length_time_less_than_two() {
+    let _: (Vector, Vector) = Ode23 {
+        ..Default::default()
+    }
+    .integrate(
+        |t: &TensorRank0, _: &TensorRank0| t.cos(),
+        0.0,
+        0.0,
+        &[0.0, 1.0, 0.0],
+    )
+    .unwrap();
+}
 
 #[test]
 fn first_order_tensor_rank_0() -> Result<(), TestError> {
@@ -60,26 +53,10 @@ fn first_order_tensor_rank_0() -> Result<(), TestError> {
     Ok(())
 }
 
-// #[test]
-// fn first_order_tensor_rank_0_one_evaluation_time_after_initial_time() -> Result<(), TestError> {
-//     let evaluation_times = TensorRank0List::new([1.0]);
-//     let solution: TensorRank0List<LENGTH> = Ode23 {
-//         ..Default::default()
-//     }
-//     .integrate(
-//         |t: &TensorRank0, _: &TensorRank0| t.cos(),
-//         0.0,
-//         0.0,
-//         &evaluation_times,
-//     )?;
-//     evaluation_times
-//         .iter()
-//         .zip(solution.iter())
-//         .for_each(|(t, y)| {
-//             assert!((t.sin() - y).abs() < TOLERANCE || (t.sin() / y - 1.0).abs() < TOLERANCE)
-//         });
-//     Ok(())
-// }
+#[test]
+fn do_one_with_interpolate() {
+    todo!()
+}
 
 #[test]
 fn second_order_tensor_rank_0() -> Result<(), TestError> {

@@ -43,11 +43,12 @@ fn get_defeat_message<'a>() -> &'a str {
 #[allow(dead_code)]
 fn get_victory_message<'a>() -> &'a str {
     match get_random_number() {
-        0 => "Flawless victory.",
-        1 => "Hey, that's pretty good!",
-        2 => "Nice work, bone daddy.",
-        3 => "That's Numberwang!",
-        4.. => "Totes yeet, yo!",
+        0 => "Bird up!",
+        1 => "Flawless victory.",
+        2 => "Hey, that's pretty good!",
+        3 => "Nice work, bone daddy.",
+        4 => "That's Numberwang!",
+        5.. => "Totes yeet, yo!",
     }
 }
 
