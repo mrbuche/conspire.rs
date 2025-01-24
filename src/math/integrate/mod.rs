@@ -38,7 +38,7 @@ where
 /// Base trait for explicit ordinary differential equation solvers.
 pub trait Explicit<Y, U>: OdeSolver<Y, U>
 where
-    Y: Tensor,
+    Y: Tensor + TensorArray,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
     U: FromIterator<Y> + Index<usize, Output = Y> + Tensor<Item = Y> + TensorVec<Item = Y>,
 {

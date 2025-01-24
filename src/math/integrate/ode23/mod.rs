@@ -3,8 +3,7 @@ mod test;
 
 use super::{
     super::{
-        interpolate::{Interpolate1D, LinearInterpolation},
-        Tensor, TensorRank0, TensorVec, Vector,
+        interpolate::InterpolateSolution, Tensor, TensorArray, TensorRank0, TensorVec, Vector,
     },
     Explicit, IntegrationError,
 };
@@ -64,7 +63,8 @@ impl Default for Ode23 {
 
 impl<Y, U> Explicit<Y, U> for Ode23
 where
-    Y: Tensor,
+    Self: InterpolateSolution<Y, U>,
+    Y: Tensor + TensorArray,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
     U: FromIterator<Y> + Index<usize, Output = Y> + Tensor<Item = Y> + TensorVec<Item = Y>,
 {
@@ -112,10 +112,45 @@ where
         }
         if time.len() > 2 {
             let t_int = Vector::new(time);
-            let y_int = LinearInterpolation::interpolate_1d(&t_int, &t_sol, &y_sol);
+            let y_int = self.interpolate(&t_int, &t_sol, &y_sol, function);
             Ok((t_int, y_int))
         } else {
             Ok((t_sol, y_sol))
         }
+    }
+}
+
+impl<Y, U> InterpolateSolution<Y, U> for Ode23
+where
+    Y: Tensor + TensorArray,
+    for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
+    U: FromIterator<Y> + Index<usize, Output = Y> + Tensor<Item = Y>,
+{
+    fn interpolate(
+        &self,
+        ti: &Vector,
+        tp: &Vector,
+        yp: &U,
+        f: impl Fn(&TensorRank0, &Y) -> Y,
+    ) -> U {
+        let mut dt = 0.0;
+        let mut i = 0;
+        let mut k_1 = Y::zero();
+        let mut k_2 = Y::zero();
+        let mut k_3 = Y::zero();
+        let mut t = 0.0;
+        let mut y = Y::zero();
+        ti.iter()
+            .map(|ti_k| {
+                i = tp.iter().position(|tp_i| tp_i > ti_k).unwrap();
+                t = tp[i - 1].copy();
+                y = yp[i - 1].copy();
+                dt = ti_k - t;
+                k_1 = f(&t, &y);
+                k_2 = f(&(t + 0.5 * dt), &(&k_1 * (0.5 * dt) + &y));
+                k_3 = f(&(t + 0.75 * dt), &(&k_2 * (0.75 * dt) + &y));
+                (&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y
+            })
+            .collect()
     }
 }

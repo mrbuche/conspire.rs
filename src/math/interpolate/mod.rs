@@ -1,5 +1,5 @@
-use super::{Tensor, Vector};
-use std::ops::Index;
+use super::{Tensor, TensorArray, TensorRank0, Vector};
+use std::ops::{Index, Mul, Sub};
 
 /// Linear interpolation schemes.
 pub struct LinearInterpolation {}
@@ -10,11 +10,20 @@ where
     F: FromIterator<T> + Index<usize, Output = T>,
     T: Tensor,
 {
+    /// One-dimensional interpolation.
     fn interpolate_1d(x: &Vector, xp: &Vector, fp: &F) -> F;
 }
 
-// ode45 allegedly uses ntrp45.m
-// so maybe you need to use interpolation schemes of the same order!
+/// Solution interpolation schemes.
+pub trait InterpolateSolution<Y, U>
+where
+    Y: Tensor + TensorArray,
+    for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
+    U: FromIterator<Y> + Index<usize, Output = Y> + Tensor<Item = Y>,
+{
+    /// Solution interpolation.
+    fn interpolate(&self, t: &Vector, tp: &Vector, yp: &U, f: impl Fn(&TensorRank0, &Y) -> Y) -> U;
+}
 
 impl<F, T> Interpolate1D<F, T> for LinearInterpolation
 where
