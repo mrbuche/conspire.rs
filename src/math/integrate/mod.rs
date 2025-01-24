@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod test;
 
-// mod ode1be;
+mod ode1be;
 mod ode23;
 
 // Explicit, six-stage, fifth-order, variable-step, Runge-Kutta method ([Dormand and Prince, 1980](https://doi.org/10.1016/0771-050X(80)90013-3)).
 // mod ode45;
 
-// pub use ode1be::Ode1be;
+pub use ode1be::Ode1be;
 pub use ode23::Ode23;
 
 use super::{Tensor, TensorArray, TensorRank0, TensorVec, Vector};

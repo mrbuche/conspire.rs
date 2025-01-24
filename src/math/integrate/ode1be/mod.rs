@@ -43,12 +43,12 @@ impl Default for Ode1be {
     }
 }
 
-impl<Y, J, U, const W: usize> Implicit<Y, J, U, W> for Ode1be
+impl<Y, J, U> Implicit<Y, J, U> for Ode1be
 where
     Y: Tensor + Div<J, Output = Y>,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
     J: Hessian + Tensor + TensorArray,
-    U: Tensor<Item = Y> + TensorArray,
+    U: TensorVec<Item = Y>,
 {
     fn integrate(
         &self,
@@ -56,8 +56,8 @@ where
         jacobian: impl Fn(&TensorRank0, &Y) -> J,
         initial_time: TensorRank0,
         initial_condition: Y,
-        evaluation_times: &TensorRank0List<W>,
-    ) -> Result<U, IntegrationError<W>> {
+        time: &[TensorRank0],
+    ) -> Result<U, IntegrationError> {
         let mut e;
         let mut k_1 = function(&initial_time, &initial_condition);
         let mut k_2;
@@ -66,12 +66,12 @@ where
         let mut y_trial;
         let identity = J::identity();
         {
-            let (mut eval_times, mut dt, mut t, mut y, mut y_sol) = self.setup(
-                initial_time,
-                initial_condition,
-                evaluation_times,
-                &mut solution,
-            )?;
+            // let (mut eval_times, mut dt, mut t, mut y, mut y_sol) = self.setup(
+            //     initial_time,
+            //     initial_condition,
+            //     evaluation_times,
+            //     &mut solution,
+            // )?;
             while eval_times.peek().is_some() {
                 t_trial = t + dt;
                 y_trial = match &self.optimization {
