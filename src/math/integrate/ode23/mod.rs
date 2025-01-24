@@ -2,11 +2,11 @@
 mod test;
 
 use super::{
-    super::{Tensor, TensorRank0, TensorVec, Vector},
+    super::{interpolate::interp, Tensor, TensorRank0, TensorVec, Vector},
     Explicit, IntegrationError,
 };
 use crate::{ABS_TOL, REL_TOL};
-use std::ops::{Mul, Sub};
+use std::ops::{Index, Mul, Sub};
 
 /// Explicit, three-stage, third-order, variable-step, Runge-Kutta method.[^cite]
 ///
@@ -63,7 +63,7 @@ impl<Y, U> Explicit<Y, U> for Ode23
 where
     Y: Tensor,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
-    U: Tensor<Item = Y> + TensorVec<Item = Y>,
+    U: FromIterator<Y> + Index<usize, Output = Y> + Tensor<Item = Y> + TensorVec<Item = Y>,
 {
     fn integrate(
         &self,
@@ -108,8 +108,11 @@ where
             }
         }
         if time.len() > 2 {
-            panic!("interpolate!")
+            let t_int = Vector::new(time);
+            let y_int = interp(&t_int, &t_sol, &y_sol);
+            Ok((t_int, y_int))
+        } else {
+            Ok((t_sol, y_sol))
         }
-        Ok((t_sol, y_sol))
     }
 }

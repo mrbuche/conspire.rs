@@ -9,6 +9,9 @@ pub mod special;
 /// Integration and ODEs.
 pub mod integrate;
 
+/// Interpolation schemes.
+pub mod interpolate;
+
 /// Optimization and root finding.
 pub mod optimize;
 

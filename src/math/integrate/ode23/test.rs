@@ -10,7 +10,8 @@ use super::{
 use std::f64::consts::TAU;
 
 const LENGTH: usize = 33;
-const TOLERANCE: TensorRank0 = 1e-11;
+const TOLERANCE: TensorRank0 = 1e1 * crate::ABS_TOL;
+const TOL_INTRP: TensorRank0 = 1e6 * crate::ABS_TOL;
 
 #[test]
 #[should_panic(expected = "The time must contain at least two entries.")]
@@ -66,7 +67,7 @@ fn first_order_tensor_rank_0_eval_times() -> Result<(), TestError> {
         &zero_to_tau::<LENGTH>(),
     )?;
     time.iter().zip(solution.iter()).for_each(|(t, y)| {
-        assert!((t.sin() - y).abs() < TOLERANCE || (t.sin() / y - 1.0).abs() < TOLERANCE)
+        assert!((t.sin() - y).abs() < TOL_INTRP || (t.sin() / y - 1.0).abs() < TOL_INTRP)
     });
     Ok(())
 }

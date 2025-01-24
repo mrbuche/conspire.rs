@@ -10,7 +10,7 @@ pub mod rank_4;
 use rank_0::TensorRank0;
 use std::{
     fmt::{Debug, Display},
-    ops::{Add, AddAssign, Div, DivAssign, Mul, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, Sub, SubAssign},
 };
 
 /// A value-to-value conversion that does not consume the input value.
@@ -157,7 +157,10 @@ pub trait TensorArray {
 }
 
 /// Common methods for tensors derived from Vec.
-pub trait TensorVec {
+pub trait TensorVec
+where
+    Self: Index<usize> + IndexMut<usize>,
+{
     /// The type of item encountered when iterating over the tensor.
     type Item;
     /// The type of slice corresponding to the tensor.
