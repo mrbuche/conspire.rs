@@ -2,7 +2,10 @@
 mod test;
 
 use super::{
-    super::{interpolate::interp, Tensor, TensorRank0, TensorVec, Vector},
+    super::{
+        interpolate::{Interpolate1D, LinearInterpolation},
+        Tensor, TensorRank0, TensorVec, Vector,
+    },
     Explicit, IntegrationError,
 };
 use crate::{ABS_TOL, REL_TOL};
@@ -109,7 +112,7 @@ where
         }
         if time.len() > 2 {
             let t_int = Vector::new(time);
-            let y_int = interp(&t_int, &t_sol, &y_sol);
+            let y_int = LinearInterpolation::interpolate_1d(&t_int, &t_sol, &y_sol);
             Ok((t_int, y_int))
         } else {
             Ok((t_sol, y_sol))
