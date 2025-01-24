@@ -2,13 +2,13 @@
 mod test;
 
 // mod ode1be;
-// mod ode23;
+mod ode23;
 
 // Explicit, six-stage, fifth-order, variable-step, Runge-Kutta method ([Dormand and Prince, 1980](https://doi.org/10.1016/0771-050X(80)90013-3)).
 // mod ode45;
 
 // pub use ode1be::Ode1be;
-// pub use ode23::Ode23;
+pub use ode23::Ode23;
 
 use super::{Tensor, TensorArray, TensorRank0};
 use crate::get_defeat_message;
@@ -80,10 +80,8 @@ where
 
 /// Possible errors encountered when integrating.
 pub enum IntegrationError {
-    //
-    // maybe propagate some from Jacobians or something
-    //
-    Foo(String),
+    InitialTimeNotLessThanFinalTime,
+    LengthTimeLessThanTwo,
 }
 
 impl From<&str> for IntegrationError {
@@ -95,7 +93,12 @@ impl From<&str> for IntegrationError {
 impl fmt::Debug for IntegrationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let error = match self {
-            Self::Foo(integrator) => "",
+            Self::InitialTimeNotLessThanFinalTime => {
+                "\x1b[1;91mThe initial time must precede the final time.".to_string()
+            }
+            Self::LengthTimeLessThanTwo => {
+                    "\x1b[1;91mThe time must contain at least two entries".to_string()
+            }
         };
         write!(
             f,
@@ -109,7 +112,12 @@ impl fmt::Debug for IntegrationError {
 impl fmt::Display for IntegrationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let error = match self {
-            Self::Foo(integrator) => "",
+            Self::InitialTimeNotLessThanFinalTime => {
+                "\x1b[1;91mThe initial time must precede the final time.".to_string()
+            }
+            Self::LengthTimeLessThanTwo => {
+                "\x1b[1;91mThe time must contain at least two entries".to_string()
+            }
         };
         write!(f, "{}\x1b[0m", error)
     }

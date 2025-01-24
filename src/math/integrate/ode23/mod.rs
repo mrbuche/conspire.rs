@@ -70,42 +70,46 @@ where
         function: impl Fn(&TensorRank0, &Y) -> Y,
         initial_time: TensorRank0,
         initial_condition: Y,
-        evaluation_times: &TensorRank0List<W>,
-    ) -> Result<U, IntegrationError<W>> {
+        time: &[TensorRank0],
+    ) -> Result<U, IntegrationError> {
+        if time.len() < 2 {
+            return Err(IntegrationError::LengthTimeLessThanTwo)
+        } else if time[0] >= time[time.len() - 1] {
+            return Err(IntegrationError::InitialTimeNotLessThanFinalTime)
+        }
+        let mut dt;
         let mut e;
         let mut k_1 = function(&initial_time, &initial_condition);
         let mut k_2;
         let mut k_3;
         let mut k_4;
         let mut solution = U::zero();
+        let mut t = time[0];
         let mut y_trial;
-        {
-            let (mut eval_times, mut dt, mut t, mut y, mut y_sol) = self.setup(
-                initial_time,
-                initial_condition,
-                evaluation_times,
-                &mut solution,
-            )?;
-            while eval_times.peek().is_some() {
-                k_2 = function(&(t + 0.5 * dt), &(&k_1 * (0.5 * dt) + &y));
-                k_3 = function(&(t + 0.75 * dt), &(&k_2 * (0.75 * dt) + &y));
-                y_trial = (&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y;
-                k_4 = function(&(t + dt), &y_trial);
-                e = ((&k_1 * -5.0 + k_2 * 6.0 + k_3 * 8.0 + &k_4 * -9.0) * (dt / 72.0)).norm();
-                if e < self.abs_tol || e / y_trial.norm() < self.rel_tol {
-                    while let Some(eval_time) = eval_times.next_if(|&eval_time| t > eval_time) {
-                        *y_sol.next().ok_or("not ok")? =
-                            (&y_trial - &y) / dt * (eval_time - t) + &y;
-                    }
-                    k_1 = k_4;
-                    t += dt;
-                    dt *= self.inc_fac;
-                    y = y_trial;
-                } else {
-                    dt *= self.dec_fac;
-                }
-            }
+        while t < time[time.len() - 1] {
+            
         }
+        // {
+        //     while eval_times.peek().is_some() {
+        //         k_2 = function(&(t + 0.5 * dt), &(&k_1 * (0.5 * dt) + &y));
+        //         k_3 = function(&(t + 0.75 * dt), &(&k_2 * (0.75 * dt) + &y));
+        //         y_trial = (&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y;
+        //         k_4 = function(&(t + dt), &y_trial);
+        //         e = ((&k_1 * -5.0 + k_2 * 6.0 + k_3 * 8.0 + &k_4 * -9.0) * (dt / 72.0)).norm();
+        //         if e < self.abs_tol || e / y_trial.norm() < self.rel_tol {
+        //             while let Some(eval_time) = eval_times.next_if(|&eval_time| t > eval_time) {
+        //                 *y_sol.next().ok_or("not ok")? =
+        //                     (&y_trial - &y) / dt * (eval_time - t) + &y;
+        //             }
+        //             k_1 = k_4;
+        //             t += dt;
+        //             dt *= self.inc_fac;
+        //             y = y_trial;
+        //         } else {
+        //             dt *= self.dec_fac;
+        //         }
+        //     }
+        // }
         Ok(solution)
     }
 }
