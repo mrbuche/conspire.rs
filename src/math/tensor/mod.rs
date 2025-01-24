@@ -157,17 +157,19 @@ pub trait TensorArray {
 }
 
 /// Common methods for tensors derived from Vec.
-pub trait TensorVec<'a> {
+pub trait TensorVec {
     /// The type of item encountered when iterating over the tensor.
     type Item;
     /// The type of slice corresponding to the tensor.
-    type Slice;
+    type Slice<'a>;
     /// Returns `true` if the vector contains no elements.
     fn is_empty(&self) -> bool;
     /// Returns the number of elements in the vector, also referred to as its ‘length’.
     fn len(&self) -> usize;
     /// Returns a tensor given a slice.
-    fn new(slice: Self::Slice) -> Self;
+    fn new(slice: Self::Slice<'_>) -> Self;
+    /// Appends an item to the back of the Vec.
+    fn push(&mut self, item: Self::Item);
     /// Returns the zero tensor.
     fn zero(len: usize) -> Self;
 }

@@ -10,7 +10,7 @@ mod ode23;
 // pub use ode1be::Ode1be;
 pub use ode23::Ode23;
 
-use super::{Tensor, TensorArray, TensorRank0};
+use super::{Tensor, TensorArray, TensorVec, TensorRank0};
 use crate::get_defeat_message;
 use std::{
     fmt,
@@ -39,7 +39,7 @@ pub trait Explicit<Y, U>: OdeSolver<Y, U>
 where
     Y: Tensor,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
-    U: Tensor<Item = Y> + TensorArray,
+    U: Tensor<Item = Y> + TensorVec,
 {
     /// Solves an initial value problem by explicitly integrating a system of ordinary differential equations.
     ///
@@ -52,7 +52,7 @@ where
         initial_time: TensorRank0,
         initial_condition: Y,
         time: &[TensorRank0],
-    ) -> Result<U, IntegrationError>;
+    ) -> Result<(Vec<TensorRank0>, U), IntegrationError>;
 }
 
 /// Base trait for implicit ordinary differential equation solvers.
@@ -61,7 +61,7 @@ where
     Y: Tensor + Div<J, Output = Y>,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
     J: Tensor + TensorArray,
-    U: Tensor<Item = Y> + TensorArray,
+    U: Tensor<Item = Y> + TensorVec<Item = Y>,
 {
     /// Solves an initial value problem by implicitly integrating a system of ordinary differential equations.
     ///

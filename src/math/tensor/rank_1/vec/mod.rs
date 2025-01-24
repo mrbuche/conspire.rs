@@ -140,20 +140,23 @@ impl<const D: usize, const I: usize> TensorRank1Vec<D, I> {
     }
 }
 
-impl<'a, const D: usize, const I: usize> TensorVec<'a> for TensorRank1Vec<D, I> {
+impl<const D: usize, const I: usize> TensorVec for TensorRank1Vec<D, I> {
     type Item = TensorRank1<D, I>;
-    type Slice = &'a [[TensorRank0; D]];
+    type Slice<'a> = &'a [[TensorRank0; D]];
     fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
     fn len(&self) -> usize {
         self.0.len()
     }
-    fn new(slice: Self::Slice) -> Self {
+    fn new(slice: Self::Slice<'_>) -> Self {
         slice
             .iter()
             .map(|slice_entry| Self::Item::new(*slice_entry))
             .collect()
+    }
+    fn push(&mut self, item: Self::Item) {
+        self.0.push(item)
     }
     fn zero(len: usize) -> Self {
         (0..len).map(|_| super::zero()).collect()

@@ -8,8 +8,8 @@ pub fn zero_to_tau<const W: usize>() -> TensorRank0List<W> {
         .collect()
 }
 
-impl<const W: usize> From<IntegrationError<W>> for TestError {
-    fn from(error: IntegrationError<W>) -> TestError {
+impl From<IntegrationError> for TestError {
+    fn from(error: IntegrationError) -> TestError {
         TestError {
             message: format!("{}", error),
         }

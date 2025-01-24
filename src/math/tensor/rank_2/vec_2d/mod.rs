@@ -148,22 +148,25 @@ impl<const D: usize, const I: usize, const J: usize> IndexMut<usize> for TensorR
     }
 }
 
-impl<'a, const D: usize, const I: usize, const J: usize> TensorVec<'a>
+impl<const D: usize, const I: usize, const J: usize> TensorVec
     for TensorRank2Vec2D<D, I, J>
 {
     type Item = TensorRank2Vec<D, I, J>;
-    type Slice = &'a [&'a [[[TensorRank0; D]; D]]];
+    type Slice<'a> = &'a [&'a [[[TensorRank0; D]; D]]];
     fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
     fn len(&self) -> usize {
         self.0.len()
     }
-    fn new(slice: Self::Slice) -> Self {
+    fn new(slice: Self::Slice<'_>) -> Self {
         slice
             .iter()
             .map(|slice_entry| Self::Item::new(slice_entry))
             .collect()
+    }
+    fn push(&mut self, item: Self::Item) {
+        self.0.push(item)
     }
     fn zero(len: usize) -> Self {
         (0..len).map(|_| Self::Item::zero(len)).collect()

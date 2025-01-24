@@ -137,17 +137,20 @@ impl Tensor for Vector {
     }
 }
 
-impl<'a> TensorVec<'a> for Vector {
+impl TensorVec for Vector {
     type Item = TensorRank0;
-    type Slice = &'a [TensorRank0];
+    type Slice<'a> = &'a [TensorRank0];
     fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
     fn len(&self) -> usize {
         self.0.len()
     }
-    fn new(slice: Self::Slice) -> Self {
+    fn new(slice: Self::Slice<'_>) -> Self {
         slice.iter().copied().collect()
+    }
+    fn push(&mut self, item: Self::Item) {
+        self.0.push(item)
     }
     fn zero(len: usize) -> Self {
         Self(vec![0.0; len])

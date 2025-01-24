@@ -2,8 +2,8 @@
 mod test;
 
 use super::{
-    super::{Tensor, TensorArray, TensorRank0, TensorRank0List},
-    Explicit, IntegrationError, OdeSolver,
+    super::{Tensor, TensorVec, TensorRank0},
+    Explicit, IntegrationError,
 };
 use crate::{ABS_TOL, REL_TOL};
 use std::ops::{Mul, Sub};
@@ -63,7 +63,7 @@ impl<Y, U> Explicit<Y, U> for Ode23
 where
     Y: Tensor,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
-    U: Tensor<Item = Y> + TensorArray,
+    U: Tensor<Item = Y> + TensorVec<Item = Y>,
 {
     fn integrate(
         &self,
@@ -71,7 +71,7 @@ where
         initial_time: TensorRank0,
         initial_condition: Y,
         time: &[TensorRank0],
-    ) -> Result<U, IntegrationError> {
+    ) -> Result<(Vec<TensorRank0>, U), IntegrationError> {
         if time.len() < 2 {
             return Err(IntegrationError::LengthTimeLessThanTwo)
         } else if time[0] >= time[time.len() - 1] {
@@ -83,8 +83,12 @@ where
         let mut k_2;
         let mut k_3;
         let mut k_4;
-        let mut solution = U::zero();
         let mut t = time[0];
+        let mut t_sol = vec![];
+        t_sol.push(time[0]);
+        let mut y = initial_condition.copy();
+        let mut y_sol = U::zero(0);
+        y_sol.push(initial_condition.copy());
         let mut y_trial;
         while t < time[time.len() - 1] {
             k_2 = function(&(t + 0.5 * dt), &(&k_1 * (0.5 * dt) + &y));
@@ -92,28 +96,20 @@ where
             y_trial = (&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y;
             k_4 = function(&(t + dt), &y_trial);
             e = ((&k_1 * -5.0 + k_2 * 6.0 + k_3 * 8.0 + &k_4 * -9.0) * (dt / 72.0)).norm();
+            if e < self.abs_tol || e / y_trial.norm() < self.rel_tol {
+                k_1 = k_4;
+                t += dt;
+                dt *= self.inc_fac;
+                y = y_trial;
+                t_sol.push(t.copy());
+                y_sol.push(y.copy());
+            } else {
+                dt *= self.dec_fac;
+            }
         }
-        // {
-        //     while eval_times.peek().is_some() {
-        //         k_2 = function(&(t + 0.5 * dt), &(&k_1 * (0.5 * dt) + &y));
-        //         k_3 = function(&(t + 0.75 * dt), &(&k_2 * (0.75 * dt) + &y));
-        //         y_trial = (&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y;
-        //         k_4 = function(&(t + dt), &y_trial);
-        //         e = ((&k_1 * -5.0 + k_2 * 6.0 + k_3 * 8.0 + &k_4 * -9.0) * (dt / 72.0)).norm();
-        //         if e < self.abs_tol || e / y_trial.norm() < self.rel_tol {
-        //             while let Some(eval_time) = eval_times.next_if(|&eval_time| t > eval_time) {
-        //                 *y_sol.next().ok_or("not ok")? =
-        //                     (&y_trial - &y) / dt * (eval_time - t) + &y;
-        //             }
-        //             k_1 = k_4;
-        //             t += dt;
-        //             dt *= self.inc_fac;
-        //             y = y_trial;
-        //         } else {
-        //             dt *= self.dec_fac;
-        //         }
-        //     }
-        // }
-        Ok(solution)
+        if time.len() > 2 {
+            panic!("interpolate!")
+        }
+        Ok((t_sol, y_sol))
     }
 }
