@@ -59,7 +59,7 @@ impl Default for Ode23 {
     }
 }
 
-impl<Y, U, const W: usize> Explicit<Y, U, W> for Ode23
+impl<Y, U> Explicit<Y, U> for Ode23
 where
     Y: Tensor,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
