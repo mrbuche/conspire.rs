@@ -148,9 +148,7 @@ impl<const D: usize, const I: usize, const J: usize> IndexMut<usize> for TensorR
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> TensorVec
-    for TensorRank2Vec2D<D, I, J>
-{
+impl<const D: usize, const I: usize, const J: usize> TensorVec for TensorRank2Vec2D<D, I, J> {
     type Item = TensorRank2Vec<D, I, J>;
     type Slice<'a> = &'a [&'a [[[TensorRank0; D]; D]]];
     fn is_empty(&self) -> bool {

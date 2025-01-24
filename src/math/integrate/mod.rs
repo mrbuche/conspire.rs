@@ -10,7 +10,7 @@ mod ode23;
 // pub use ode1be::Ode1be;
 pub use ode23::Ode23;
 
-use super::{Tensor, TensorArray, TensorVec, TensorRank0, Vector};
+use super::{Tensor, TensorArray, TensorRank0, TensorVec, Vector};
 use crate::get_defeat_message;
 use std::{
     fmt,
@@ -97,7 +97,7 @@ impl fmt::Debug for IntegrationError {
                 "\x1b[1;91mThe initial time must precede the final time.".to_string()
             }
             Self::LengthTimeLessThanTwo => {
-                    "\x1b[1;91mThe time must contain at least two entries".to_string()
+                "\x1b[1;91mThe time must contain at least two entries".to_string()
             }
         };
         write!(
