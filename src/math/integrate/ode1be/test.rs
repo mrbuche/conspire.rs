@@ -12,15 +12,43 @@ use super::{
 use std::f64::consts::TAU;
 
 const LENGTH: usize = 33;
-const TOLERANCE: TensorRank0 = 1e7 * crate::ABS_TOL;
-
-#[test]
-fn do_2_error_cases_and_1_interp_case() {
-    todo!()
-}
+const TOLERANCE: TensorRank0 = 1e-5;
 
 macro_rules! test_ode1be {
     ($optimization: expr) => {
+        #[test]
+        #[should_panic(expected = "The time must contain at least two entries.")]
+        fn initial_time_not_less_than_final_time() {
+            let _: (Vector, Vector) = Ode1be {
+                optimization: $optimization,
+                ..Default::default()
+            }
+            .integrate(
+                |_: &TensorRank0, y: &TensorRank0| -y,
+                |_: &TensorRank0, _: &TensorRank0| -1.0,
+                0.0,
+                1.0,
+                &[0.0],
+            )
+            .unwrap();
+        }
+
+        #[test]
+        #[should_panic(expected = "The initial time must precede the final time.")]
+        fn length_time_less_than_two() {
+            let _: (Vector, Vector) = Ode1be {
+                optimization: $optimization,
+                ..Default::default()
+            }
+            .integrate(
+                |_: &TensorRank0, y: &TensorRank0| -y,
+                |_: &TensorRank0, _: &TensorRank0| -1.0,
+                0.0,
+                1.0,
+                &[0.0, 1.0, 0.0],
+            )
+            .unwrap();
+        }
         #[test]
         fn first_order_tensor_rank_0() -> Result<(), TestError> {
             let (time, solution): (Vector, Vector) = Ode1be {
