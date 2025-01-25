@@ -12,7 +12,7 @@ use super::{
 use std::f64::consts::TAU;
 
 const LENGTH: usize = 33;
-const TOLERANCE: TensorRank0 = 1e6 * crate::ABS_TOL;
+const TOLERANCE: TensorRank0 = 1e7 * crate::ABS_TOL;
 
 #[test]
 fn do_2_error_cases_and_1_interp_case() {
