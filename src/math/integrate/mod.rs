@@ -10,7 +10,9 @@ mod ode23;
 pub use ode1be::Ode1be;
 pub use ode23::Ode23;
 
-use super::{Tensor, TensorArray, TensorRank0, TensorVec, Vector};
+use super::{
+    interpolate::InterpolateSolution, Tensor, TensorArray, TensorRank0, TensorVec, Vector,
+};
 use crate::get_defeat_message;
 use std::{
     fmt,
@@ -37,6 +39,7 @@ where
 /// Base trait for explicit ordinary differential equation solvers.
 pub trait Explicit<Y, U>: OdeSolver<Y, U>
 where
+    Self: InterpolateSolution<Y, U>,
     Y: Tensor + TensorArray,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -58,7 +61,8 @@ where
 /// Base trait for implicit ordinary differential equation solvers.
 pub trait Implicit<Y, J, U>: OdeSolver<Y, U>
 where
-    Y: Tensor + Div<J, Output = Y>,
+    Self: InterpolateSolution<Y, U>,
+    Y: Tensor + TensorArray + Div<J, Output = Y>,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
     J: Tensor + TensorArray,
     U: TensorVec<Item = Y>,
@@ -75,7 +79,7 @@ where
         initial_time: TensorRank0,
         initial_condition: Y,
         time: &[TensorRank0],
-    ) -> Result<U, IntegrationError>;
+    ) -> Result<(Vector, U), IntegrationError>;
 }
 
 /// Possible errors encountered when integrating.
