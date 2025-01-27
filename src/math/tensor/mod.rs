@@ -10,7 +10,7 @@ pub mod rank_4;
 use rank_0::TensorRank0;
 use std::{
     fmt::{Debug, Display},
-    ops::{Add, AddAssign, Div, DivAssign, Mul, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, Sub, SubAssign},
 };
 
 /// A value-to-value conversion that does not consume the input value.
@@ -157,17 +157,24 @@ pub trait TensorArray {
 }
 
 /// Common methods for tensors derived from Vec.
-pub trait TensorVec<'a> {
+pub trait TensorVec
+where
+    Self: FromIterator<Self::Item> + Index<usize, Output = Self::Item> + IndexMut<usize>,
+{
     /// The type of item encountered when iterating over the tensor.
     type Item;
     /// The type of slice corresponding to the tensor.
-    type Slice;
-    /// Returns `true` if the vector contains no elements.
+    type Slice<'a>;
+    /// Moves all the items of other into self, leaving other empty.
+    fn append(&mut self, other: &mut Self);
+    /// Returns `true` if the vector contains no items.
     fn is_empty(&self) -> bool;
-    /// Returns the number of elements in the vector, also referred to as its ‘length’.
+    /// Returns the number of items in the vector, also referred to as its ‘length’.
     fn len(&self) -> usize;
     /// Returns a tensor given a slice.
-    fn new(slice: Self::Slice) -> Self;
+    fn new(slice: Self::Slice<'_>) -> Self;
+    /// Appends an item to the back of the Vec.
+    fn push(&mut self, item: Self::Item);
     /// Returns the zero tensor.
     fn zero(len: usize) -> Self;
 }

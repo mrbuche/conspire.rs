@@ -1,216 +1,164 @@
 use super::{
     super::{
         super::{
-            test::TestError, Tensor, TensorArray, TensorRank0, TensorRank0List, TensorRank1,
-            TensorRank1List,
+            test::TestError, Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank1Vec,
+            TensorRank2, Vector,
         },
         test::zero_to_tau,
     },
     Explicit, Ode23,
 };
+use std::f64::consts::TAU;
 
 const LENGTH: usize = 33;
-const TOLERANCE: TensorRank0 = 1e-5;
+const TOLERANCE: TensorRank0 = 5.0 * crate::ABS_TOL;
 
 #[test]
-#[should_panic(expected = "Evaluation times must be strictly increasing.")]
-fn evaluation_times_not_strictly_increasing() {
-    let mut evaluation_times = zero_to_tau::<LENGTH>();
-    evaluation_times[3] = evaluation_times[2];
-    let _: TensorRank0List<LENGTH> = Ode23 {
+#[should_panic(expected = "The time must contain at least two entries.")]
+fn initial_time_not_less_than_final_time() {
+    let _: (Vector, Vector) = Ode23 {
+        ..Default::default()
+    }
+    .integrate(|t: &TensorRank0, _: &TensorRank0| t.cos(), 0.0, 0.0, &[0.0])
+    .unwrap();
+}
+
+#[test]
+#[should_panic(expected = "The initial time must precede the final time.")]
+fn length_time_less_than_two() {
+    let _: (Vector, Vector) = Ode23 {
         ..Default::default()
     }
     .integrate(
         |t: &TensorRank0, _: &TensorRank0| t.cos(),
         0.0,
         0.0,
-        &evaluation_times,
+        &[0.0, 1.0, 0.0],
     )
     .unwrap();
 }
 
 #[test]
-#[should_panic(expected = "Evaluation times precede the initial time.")]
-fn evaluation_times_precede_initial_time() {
-    let mut evaluation_times = zero_to_tau::<LENGTH>();
-    evaluation_times[0] = -1.0;
-    let _: TensorRank0List<LENGTH> = Ode23 {
+fn dxdt_eq_2xt() -> Result<(), TestError> {
+    let (time, solution): (Vector, Vector) = Ode23 {
         ..Default::default()
     }
     .integrate(
-        |t: &TensorRank0, _: &TensorRank0| t.cos(),
+        |t: &TensorRank0, x: &TensorRank0| 2.0 * x * t,
         0.0,
-        0.0,
-        &evaluation_times,
-    )
-    .unwrap();
+        1.0,
+        &[0.0, 1.0],
+    )?;
+    time.iter().zip(solution.iter()).for_each(|(t, y)| {
+        assert!(
+            (t.powi(2).exp() - y).abs() < TOLERANCE
+                || (t.powi(2).exp() / y - 1.0).abs() < TOLERANCE
+        )
+    });
+    Ok(())
 }
 
 #[test]
-#[should_panic(expected = "Evaluation times must include a final time.")]
-fn evaluation_times_no_final_time() {
-    let _: TensorRank0List<LENGTH> = Ode23 {
+fn dxdt_eq_ix() -> Result<(), TestError> {
+    let a = TensorRank2::<3, 1, 1>::identity();
+    let (time, solution): (Vector, TensorRank1Vec<3, 1>) = Ode23 {
         ..Default::default()
     }
     .integrate(
-        |t: &TensorRank0, _: &TensorRank0| t.cos(),
+        |_: &TensorRank0, x: &TensorRank1<3, 1>| &a * x,
         0.0,
-        0.0,
-        &TensorRank0List::new([0.0]),
-    )
-    .unwrap();
+        TensorRank1::new([1.0, 1.0, 1.0]),
+        &[0.0, 1.0],
+    )?;
+    (0..3).for_each(|i| {
+        time.iter().zip(solution.iter()).for_each(|(t, y)| {
+            assert!((t.exp() - y[i]).abs() < TOLERANCE || (t.exp() / y[i] - 1.0).abs() < TOLERANCE)
+        })
+    });
+    Ok(())
 }
 
 #[test]
 fn first_order_tensor_rank_0() -> Result<(), TestError> {
-    let evaluation_times = zero_to_tau::<LENGTH>();
-    let solution: TensorRank0List<LENGTH> = Ode23 {
+    let (time, solution): (Vector, Vector) = Ode23 {
         ..Default::default()
     }
     .integrate(
         |t: &TensorRank0, _: &TensorRank0| t.cos(),
         0.0,
         0.0,
-        &evaluation_times,
+        &[0.0, TAU],
     )?;
-    evaluation_times
-        .iter()
-        .zip(solution.iter())
-        .for_each(|(t, y)| {
-            assert!((t.sin() - y).abs() < TOLERANCE || (t.sin() / y - 1.0).abs() < TOLERANCE)
-        });
+    time.iter().zip(solution.iter()).for_each(|(t, y)| {
+        assert!((t.sin() - y).abs() < TOLERANCE || (t.sin() / y - 1.0).abs() < TOLERANCE)
+    });
     Ok(())
 }
 
 #[test]
-fn first_order_tensor_rank_0_one_evaluation_time_after_initial_time() -> Result<(), TestError> {
-    let evaluation_times = TensorRank0List::new([1.0]);
-    let solution: TensorRank0List<LENGTH> = Ode23 {
+fn first_order_tensor_rank_0_eval_times() -> Result<(), TestError> {
+    let (time, solution): (Vector, Vector) = Ode23 {
         ..Default::default()
     }
     .integrate(
         |t: &TensorRank0, _: &TensorRank0| t.cos(),
         0.0,
         0.0,
-        &evaluation_times,
+        &zero_to_tau::<LENGTH>(),
     )?;
-    evaluation_times
-        .iter()
-        .zip(solution.iter())
-        .for_each(|(t, y)| {
-            assert!((t.sin() - y).abs() < TOLERANCE || (t.sin() / y - 1.0).abs() < TOLERANCE)
-        });
-    Ok(())
-}
-
-#[test]
-fn first_order_tensor_rank_0_first_evaluation_time() -> Result<(), TestError> {
-    let mut evaluation_times = zero_to_tau::<LENGTH>();
-    evaluation_times[0] = 1e-8;
-    evaluation_times[3] = evaluation_times[2] + 1e-8;
-    evaluation_times[4] = evaluation_times[3] + 1e-8;
-    evaluation_times[5] = evaluation_times[4] + 1e-8;
-    let solution: TensorRank0List<LENGTH> = Ode23 {
-        ..Default::default()
-    }
-    .integrate(
-        |t: &TensorRank0, _: &TensorRank0| t.cos(),
-        0.0,
-        0.0,
-        &evaluation_times,
-    )?;
-    evaluation_times
-        .iter()
-        .zip(solution.iter())
-        .for_each(|(t, y)| {
-            assert!((t.sin() - y).abs() < TOLERANCE || (t.sin() / y - 1.0).abs() < TOLERANCE)
-        });
-    Ok(())
-}
-
-#[test]
-fn first_order_tensor_rank_0_nearby_evaluation_times() -> Result<(), TestError> {
-    let mut evaluation_times = zero_to_tau::<LENGTH>();
-    evaluation_times[3] = evaluation_times[2] + 1e-10;
-    evaluation_times[4] = evaluation_times[3] + 1e-10;
-    evaluation_times[5] = evaluation_times[4] + 1e-10;
-    let solution: TensorRank0List<LENGTH> = Ode23 {
-        ..Default::default()
-    }
-    .integrate(
-        |t: &TensorRank0, _: &TensorRank0| t.cos(),
-        0.0,
-        0.0,
-        &evaluation_times,
-    )?;
-    evaluation_times
-        .iter()
-        .zip(solution.iter())
-        .for_each(|(t, y)| {
-            assert!((t.sin() - y).abs() < TOLERANCE || (t.sin() / y - 1.0).abs() < TOLERANCE)
-        });
+    time.iter().zip(solution.iter()).for_each(|(t, y)| {
+        assert!((t.sin() - y).abs() < TOLERANCE || (t.sin() / y - 1.0).abs() < TOLERANCE)
+    });
     Ok(())
 }
 
 #[test]
 fn second_order_tensor_rank_0() -> Result<(), TestError> {
-    let evaluation_times = zero_to_tau::<LENGTH>();
-    let solution: TensorRank1List<2, 1, LENGTH> = Ode23 {
+    let (time, solution): (Vector, TensorRank1Vec<2, 1>) = Ode23 {
         ..Default::default()
     }
     .integrate(
         |t: &TensorRank0, y: &TensorRank1<2, 1>| TensorRank1::new([y[1], -t.sin()]),
         0.0,
         TensorRank1::new([0.0, 1.0]),
-        &evaluation_times,
+        &[0.0, TAU],
     )?;
-    evaluation_times
-        .iter()
-        .zip(solution.iter())
-        .for_each(|(t, y)| {
-            assert!((t.sin() - y[0]).abs() < TOLERANCE || (t.sin() / y[0] - 1.0).abs() < TOLERANCE)
-        });
+    time.iter().zip(solution.iter()).for_each(|(t, y)| {
+        assert!((t.sin() - y[0]).abs() < TOLERANCE || (t.sin() / y[0] - 1.0).abs() < TOLERANCE)
+    });
     Ok(())
 }
 
 #[test]
 fn third_order_tensor_rank_0() -> Result<(), TestError> {
-    let evaluation_times = zero_to_tau::<LENGTH>();
-    let solution: TensorRank1List<3, 1, LENGTH> = Ode23 {
+    let (time, solution): (Vector, TensorRank1Vec<3, 1>) = Ode23 {
         ..Default::default()
     }
     .integrate(
         |t: &TensorRank0, y: &TensorRank1<3, 1>| TensorRank1::new([y[1], y[2], -t.cos()]),
         0.0,
         TensorRank1::new([0.0, 1.0, 0.0]),
-        &evaluation_times,
+        &[0.0, TAU],
     )?;
-    evaluation_times
-        .iter()
-        .zip(solution.iter())
-        .for_each(|(t, y)| {
-            assert!((t.sin() - y[0]).abs() < TOLERANCE || (t.sin() / y[0] - 1.0).abs() < TOLERANCE)
-        });
+    time.iter().zip(solution.iter()).for_each(|(t, y)| {
+        assert!((t.sin() - y[0]).abs() < TOLERANCE || (t.sin() / y[0] - 1.0).abs() < TOLERANCE)
+    });
     Ok(())
 }
 
 #[test]
 fn fourth_order_tensor_rank_0() -> Result<(), TestError> {
-    let evaluation_times = zero_to_tau::<LENGTH>();
-    let solution: TensorRank1List<4, 1, LENGTH> = Ode23 {
+    let (time, solution): (Vector, TensorRank1Vec<4, 1>) = Ode23 {
         ..Default::default()
     }
     .integrate(
         |t: &TensorRank0, y: &TensorRank1<4, 1>| TensorRank1::new([y[1], y[2], y[3], t.sin()]),
         0.0,
         TensorRank1::new([0.0, 1.0, 0.0, -1.0]),
-        &evaluation_times,
+        &[0.0, TAU],
     )?;
-    evaluation_times
-        .iter()
-        .zip(solution.iter())
-        .for_each(|(t, y)| {
-            assert!((t.sin() - y[0]).abs() < TOLERANCE || (t.sin() / y[0] - 1.0).abs() < TOLERANCE)
-        });
+    time.iter().zip(solution.iter()).for_each(|(t, y)| {
+        assert!((t.sin() - y[0]).abs() < TOLERANCE || (t.sin() / y[0] - 1.0).abs() < TOLERANCE)
+    });
     Ok(())
 }

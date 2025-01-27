@@ -2,8 +2,10 @@
 mod test;
 
 use super::{
-    super::{Tensor, TensorArray, TensorRank0, TensorRank0List},
-    Explicit, IntegrationError, OdeSolver,
+    super::{
+        interpolate::InterpolateSolution, Tensor, TensorArray, TensorRank0, TensorVec, Vector,
+    },
+    Explicit, IntegrationError,
 };
 use crate::{ABS_TOL, REL_TOL};
 use std::ops::{Mul, Sub};
@@ -42,6 +44,8 @@ pub struct Ode23 {
     pub abs_tol: TensorRank0,
     /// Multiplying factor when decreasing time steps.
     pub dec_fac: TensorRank0,
+    /// Initial relative timestep.
+    pub dt_init: TensorRank0,
     /// Multiplying factor when increasing time steps.
     pub inc_fac: TensorRank0,
     /// Relative error tolerance.
@@ -53,59 +57,103 @@ impl Default for Ode23 {
         Self {
             abs_tol: ABS_TOL,
             dec_fac: 0.5,
+            dt_init: 0.1,
             inc_fac: 1.1,
             rel_tol: REL_TOL,
         }
     }
 }
 
-impl<Y, U, const W: usize> Explicit<Y, U, W> for Ode23
+impl<Y, U> Explicit<Y, U> for Ode23
 where
-    Y: Tensor,
+    Self: InterpolateSolution<Y, U>,
+    Y: Tensor + TensorArray,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
-    U: Tensor<Item = Y> + TensorArray,
+    U: TensorVec<Item = Y>,
 {
     fn integrate(
         &self,
         function: impl Fn(&TensorRank0, &Y) -> Y,
         initial_time: TensorRank0,
         initial_condition: Y,
-        evaluation_times: &TensorRank0List<W>,
-    ) -> Result<U, IntegrationError<W>> {
+        time: &[TensorRank0],
+    ) -> Result<(Vector, U), IntegrationError> {
+        if time.len() < 2 {
+            return Err(IntegrationError::LengthTimeLessThanTwo);
+        } else if time[0] >= time[time.len() - 1] {
+            return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
+        }
+        let mut dt = self.dt_init * time[time.len() - 1];
         let mut e;
         let mut k_1 = function(&initial_time, &initial_condition);
         let mut k_2;
         let mut k_3;
         let mut k_4;
-        let mut solution = U::zero();
+        let mut t = time[0];
+        let mut t_sol = Vector::zero(0);
+        t_sol.push(time[0]);
+        let mut y = initial_condition.copy();
+        let mut y_sol = U::zero(0);
+        y_sol.push(initial_condition.copy());
         let mut y_trial;
-        {
-            let (mut eval_times, mut dt, mut t, mut y, mut y_sol) = self.setup(
-                initial_time,
-                initial_condition,
-                evaluation_times,
-                &mut solution,
-            )?;
-            while eval_times.peek().is_some() {
-                k_2 = function(&(t + 0.5 * dt), &(&k_1 * (0.5 * dt) + &y));
-                k_3 = function(&(t + 0.75 * dt), &(&k_2 * (0.75 * dt) + &y));
-                y_trial = (&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y;
-                k_4 = function(&(t + dt), &y_trial);
-                e = ((&k_1 * -5.0 + k_2 * 6.0 + k_3 * 8.0 + &k_4 * -9.0) * (dt / 72.0)).norm();
-                if e < self.abs_tol || e / y_trial.norm() < self.rel_tol {
-                    while let Some(eval_time) = eval_times.next_if(|&eval_time| t > eval_time) {
-                        *y_sol.next().ok_or("not ok")? =
-                            (&y_trial - &y) / dt * (eval_time - t) + &y;
-                    }
-                    k_1 = k_4;
-                    t += dt;
-                    dt *= self.inc_fac;
-                    y = y_trial;
-                } else {
-                    dt *= self.dec_fac;
-                }
+        while t < time[time.len() - 1] {
+            k_2 = function(&(t + 0.5 * dt), &(&k_1 * (0.5 * dt) + &y));
+            k_3 = function(&(t + 0.75 * dt), &(&k_2 * (0.75 * dt) + &y));
+            y_trial = (&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y;
+            k_4 = function(&(t + dt), &y_trial);
+            e = ((&k_1 * -5.0 + k_2 * 6.0 + k_3 * 8.0 + &k_4 * -9.0) * (dt / 72.0)).norm();
+            if e < self.abs_tol || e / y_trial.norm() < self.rel_tol {
+                k_1 = k_4;
+                t += dt;
+                dt *= self.inc_fac;
+                y = y_trial;
+                t_sol.push(t.copy());
+                y_sol.push(y.copy());
+            } else {
+                dt *= self.dec_fac;
             }
         }
-        Ok(solution)
+        if time.len() > 2 {
+            let t_int = Vector::new(time);
+            let y_int = self.interpolate(&t_int, &t_sol, &y_sol, function);
+            Ok((t_int, y_int))
+        } else {
+            Ok((t_sol, y_sol))
+        }
+    }
+}
+
+impl<Y, U> InterpolateSolution<Y, U> for Ode23
+where
+    Y: Tensor + TensorArray,
+    for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
+    U: TensorVec<Item = Y>,
+{
+    fn interpolate(
+        &self,
+        ti: &Vector,
+        tp: &Vector,
+        yp: &U,
+        f: impl Fn(&TensorRank0, &Y) -> Y,
+    ) -> U {
+        let mut dt = 0.0;
+        let mut i = 0;
+        let mut k_1 = Y::zero();
+        let mut k_2 = Y::zero();
+        let mut k_3 = Y::zero();
+        let mut t = 0.0;
+        let mut y = Y::zero();
+        ti.iter()
+            .map(|ti_k| {
+                i = tp.iter().position(|tp_i| tp_i > ti_k).unwrap();
+                t = tp[i - 1].copy();
+                y = yp[i - 1].copy();
+                dt = ti_k - t;
+                k_1 = f(&t, &y);
+                k_2 = f(&(t + 0.5 * dt), &(&k_1 * (0.5 * dt) + &y));
+                k_3 = f(&(t + 0.75 * dt), &(&k_2 * (0.75 * dt) + &y));
+                (&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y
+            })
+            .collect()
     }
 }
