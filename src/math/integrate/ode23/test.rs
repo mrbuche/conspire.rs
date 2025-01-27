@@ -38,6 +38,26 @@ fn length_time_less_than_two() {
 }
 
 #[test]
+fn dxdt_eq_2xt() -> Result<(), TestError> {
+    let (time, solution): (Vector, Vector) = Ode23 {
+        ..Default::default()
+    }
+    .integrate(
+        |t: &TensorRank0, x: &TensorRank0| 2.0 * x * t,
+        0.0,
+        1.0,
+        &[0.0, 1.0],
+    )?;
+    time.iter().zip(solution.iter()).for_each(|(t, y)| {
+        assert!(
+            (t.powi(2).exp() - y).abs() < TOLERANCE
+                || (t.powi(2).exp() / y - 1.0).abs() < TOLERANCE
+        )
+    });
+    Ok(())
+}
+
+#[test]
 fn first_order_tensor_rank_0() -> Result<(), TestError> {
     let (time, solution): (Vector, Vector) = Ode23 {
         ..Default::default()
