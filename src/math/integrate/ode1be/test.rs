@@ -32,7 +32,6 @@ macro_rules! test_ode1be {
             )
             .unwrap();
         }
-
         #[test]
         #[should_panic(expected = "The initial time must precede the final time.")]
         fn length_time_less_than_two() {
@@ -49,7 +48,6 @@ macro_rules! test_ode1be {
             )
             .unwrap();
         }
-
         #[test]
         fn dxdt_eq_2xt() -> Result<(), TestError> {
             let (time, solution): (Vector, Vector) = Ode1be {
@@ -68,6 +66,30 @@ macro_rules! test_ode1be {
                     (t.powi(2).exp() - y).abs() < TOLERANCE
                         || (t.powi(2).exp() / y - 1.0).abs() < TOLERANCE
                 )
+            });
+            Ok(())
+        }
+        #[test]
+        fn dxdt_eq_ix() -> Result<(), TestError> {
+            let a = TensorRank2::<3, 1, 1>::identity();
+            let (time, solution): (Vector, TensorRank1Vec<3, 1>) = Ode1be {
+                optimization: $optimization,
+                ..Default::default()
+            }
+            .integrate(
+                |_: &TensorRank0, x: &TensorRank1<3, 1>| &a * x,
+                |_: &TensorRank0, _: &TensorRank1<3, 1>| &a * 1.0,
+                0.0,
+                TensorRank1::new([1.0, 1.0, 1.0]),
+                &[0.0, 1.0],
+            )?;
+            (0..3).for_each(|i| {
+                time.iter().zip(solution.iter()).for_each(|(t, y)| {
+                    assert!(
+                        (t.exp() - y[i]).abs() < TOLERANCE
+                            || (t.exp() / y[i] - 1.0).abs() < TOLERANCE
+                    )
+                })
             });
             Ok(())
         }
@@ -120,7 +142,7 @@ macro_rules! test_ode1be {
             .integrate(
                 |_: &TensorRank0, y: &TensorRank1<2, 1>| TensorRank1::new([y[1], -y[0]]),
                 |_: &TensorRank0, _: &TensorRank1<2, 1>| {
-                    TensorRank2::new([[0.0, -1.0], [1.0, 0.0]])
+                    TensorRank2::new([[0.0, 1.0], [-1.0, 0.0]])
                 },
                 0.0,
                 TensorRank1::new([0.0, 1.0]),
@@ -142,7 +164,7 @@ macro_rules! test_ode1be {
             .integrate(
                 |_: &TensorRank0, y: &TensorRank1<3, 1>| TensorRank1::new([y[1], y[2], -y[1]]),
                 |_: &TensorRank0, _: &TensorRank1<3, 1>| {
-                    TensorRank2::new([[0.0, 0.0, 0.0], [1.0, 0.0, -1.0], [0.0, 1.0, 0.0]])
+                    TensorRank2::new([[0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]])
                 },
                 0.0,
                 TensorRank1::new([0.0, 1.0, 0.0]),
@@ -165,10 +187,10 @@ macro_rules! test_ode1be {
                 |_: &TensorRank0, y: &TensorRank1<4, 1>| TensorRank1::new([y[1], y[2], y[3], y[0]]),
                 |_: &TensorRank0, _: &TensorRank1<4, 1>| {
                     TensorRank2::new([
-                        [0.0, 0.0, 0.0, 1.0],
-                        [1.0, 0.0, 0.0, 0.0],
                         [0.0, 1.0, 0.0, 0.0],
                         [0.0, 0.0, 1.0, 0.0],
+                        [0.0, 0.0, 0.0, 1.0],
+                        [1.0, 0.0, 0.0, 0.0],
                     ])
                 },
                 0.0,

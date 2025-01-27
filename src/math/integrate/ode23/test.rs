@@ -1,7 +1,8 @@
 use super::{
     super::{
         super::{
-            test::TestError, Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank1Vec, Vector,
+            test::TestError, Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank1Vec,
+            TensorRank2, Vector,
         },
         test::zero_to_tau,
     },
@@ -53,6 +54,26 @@ fn dxdt_eq_2xt() -> Result<(), TestError> {
             (t.powi(2).exp() - y).abs() < TOLERANCE
                 || (t.powi(2).exp() / y - 1.0).abs() < TOLERANCE
         )
+    });
+    Ok(())
+}
+
+#[test]
+fn dxdt_eq_ix() -> Result<(), TestError> {
+    let a = TensorRank2::<3, 1, 1>::identity();
+    let (time, solution): (Vector, TensorRank1Vec<3, 1>) = Ode23 {
+        ..Default::default()
+    }
+    .integrate(
+        |_: &TensorRank0, x: &TensorRank1<3, 1>| &a * x,
+        0.0,
+        TensorRank1::new([1.0, 1.0, 1.0]),
+        &[0.0, 1.0],
+    )?;
+    (0..3).for_each(|i| {
+        time.iter().zip(solution.iter()).for_each(|(t, y)| {
+            assert!((t.exp() - y[i]).abs() < TOLERANCE || (t.exp() / y[i] - 1.0).abs() < TOLERANCE)
+        })
     });
     Ok(())
 }
