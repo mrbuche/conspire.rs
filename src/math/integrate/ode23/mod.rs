@@ -44,6 +44,8 @@ pub struct Ode23 {
     pub abs_tol: TensorRank0,
     /// Multiplying factor when decreasing time steps.
     pub dec_fac: TensorRank0,
+    /// Initial relative timestep.
+    pub dt_init: TensorRank0,
     /// Multiplying factor when increasing time steps.
     pub inc_fac: TensorRank0,
     /// Relative error tolerance.
@@ -55,6 +57,7 @@ impl Default for Ode23 {
         Self {
             abs_tol: ABS_TOL,
             dec_fac: 0.5,
+            dt_init: 0.1,
             inc_fac: 1.1,
             rel_tol: REL_TOL,
         }
@@ -80,7 +83,7 @@ where
         } else if time[0] >= time[time.len() - 1] {
             return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
         }
-        let mut dt = 1e-1 * time[time.len() - 1];
+        let mut dt = self.dt_init * time[time.len() - 1];
         let mut e;
         let mut k_1 = function(&initial_time, &initial_condition);
         let mut k_2;

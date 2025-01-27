@@ -20,7 +20,7 @@ macro_rules! test_ode1be {
         #[should_panic(expected = "The time must contain at least two entries.")]
         fn initial_time_not_less_than_final_time() {
             let _: (Vector, Vector) = Ode1be {
-                optimization: $optimization,
+                opt_alg: $optimization,
                 ..Default::default()
             }
             .integrate(
@@ -36,7 +36,7 @@ macro_rules! test_ode1be {
         #[should_panic(expected = "The initial time must precede the final time.")]
         fn length_time_less_than_two() {
             let _: (Vector, Vector) = Ode1be {
-                optimization: $optimization,
+                opt_alg: $optimization,
                 ..Default::default()
             }
             .integrate(
@@ -51,7 +51,7 @@ macro_rules! test_ode1be {
         #[test]
         fn dxdt_eq_2xt() -> Result<(), TestError> {
             let (time, solution): (Vector, Vector) = Ode1be {
-                optimization: $optimization,
+                opt_alg: $optimization,
                 ..Default::default()
             }
             .integrate(
@@ -73,7 +73,7 @@ macro_rules! test_ode1be {
         fn dxdt_eq_ix() -> Result<(), TestError> {
             let a = TensorRank2::<3, 1, 1>::identity();
             let (time, solution): (Vector, TensorRank1Vec<3, 1>) = Ode1be {
-                optimization: $optimization,
+                opt_alg: $optimization,
                 ..Default::default()
             }
             .integrate(
@@ -96,7 +96,7 @@ macro_rules! test_ode1be {
         #[test]
         fn first_order_tensor_rank_0() -> Result<(), TestError> {
             let (time, solution): (Vector, Vector) = Ode1be {
-                optimization: $optimization,
+                opt_alg: $optimization,
                 ..Default::default()
             }
             .integrate(
@@ -116,7 +116,7 @@ macro_rules! test_ode1be {
         #[test]
         fn first_order_tensor_rank_0_eval_times() -> Result<(), TestError> {
             let (time, solution): (Vector, Vector) = Ode1be {
-                optimization: $optimization,
+                opt_alg: $optimization,
                 ..Default::default()
             }
             .integrate(
@@ -136,7 +136,7 @@ macro_rules! test_ode1be {
         #[test]
         fn second_order_tensor_rank_0() -> Result<(), TestError> {
             let (time, solution): (Vector, TensorRank1Vec<2, 1>) = Ode1be {
-                optimization: $optimization,
+                opt_alg: $optimization,
                 ..Default::default()
             }
             .integrate(
@@ -158,7 +158,7 @@ macro_rules! test_ode1be {
         #[test]
         fn third_order_tensor_rank_0() -> Result<(), TestError> {
             let (time, solution): (Vector, TensorRank1Vec<3, 1>) = Ode1be {
-                optimization: $optimization,
+                opt_alg: $optimization,
                 ..Default::default()
             }
             .integrate(
@@ -180,7 +180,7 @@ macro_rules! test_ode1be {
         #[test]
         fn fourth_order_tensor_rank_0() -> Result<(), TestError> {
             let (time, solution): (Vector, TensorRank1Vec<4, 1>) = Ode1be {
-                optimization: $optimization,
+                opt_alg: $optimization,
                 ..Default::default()
             }
             .integrate(
