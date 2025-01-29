@@ -10,6 +10,10 @@ use super::{
 use crate::{ABS_TOL, REL_TOL};
 use std::ops::{Mul, Sub};
 
+// https://www.sfu.ca/~jverner/RKV87.IIa.Efficient.000000282866.081208.CoeffsOnlyFLOAT
+// https://www.sfu.ca/~jverner/RKV87.IIa.Robust.00000754677.081208.CoeffsOnlyRATandFLOAT
+// https://github.com/SciML/OrdinaryDiffEq.jl/blob/ad7891e95d8907b82adb31b5fbaa0d2d7d38a791/lib/OrdinaryDiffEqVerner/src/verner_tableaus.jl#L2030
+
 /// ???
 #[derive(Debug)]
 pub struct Ode78 {
