@@ -35,7 +35,7 @@ macro_rules! test_explicit {
         #[should_panic(expected = "The time must contain at least two entries.")]
         fn initial_time_not_less_than_final_time() {
             let _: (Vector, Vector) = $integration
-                .integrate(|t: &TensorRank0, _: &TensorRank0| t.cos(), 0.0, &[0.0])
+                .integrate(|t: &TensorRank0, _: &TensorRank0| t.cos(), &[0.0], 0.0)
                 .unwrap();
         }
         #[test]
@@ -44,15 +44,15 @@ macro_rules! test_explicit {
             let _: (Vector, Vector) = $integration
                 .integrate(
                     |t: &TensorRank0, _: &TensorRank0| t.cos(),
-                    0.0,
                     &[0.0, 1.0, 0.0],
+                    0.0,
                 )
                 .unwrap();
         }
         #[test]
         fn dxdt_eq_neg_x() -> Result<(), TestError> {
             let (time, solution): (Vector, Vector) =
-                $integration.integrate(|_: &TensorRank0, x: &TensorRank0| -x, 1.0, &[0.0, 1.0])?;
+                $integration.integrate(|_: &TensorRank0, x: &TensorRank0| -x, &[0.0, 1.0], 1.0)?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
                 assert!(
                     ((-t).exp() - y).abs() < TOLERANCE || ((-t).exp() / y - 1.0).abs() < TOLERANCE
@@ -64,8 +64,8 @@ macro_rules! test_explicit {
         fn dxdt_eq_2xt() -> Result<(), TestError> {
             let (time, solution): (Vector, Vector) = $integration.integrate(
                 |t: &TensorRank0, x: &TensorRank0| 2.0 * x * t,
-                1.0,
                 &[0.0, 1.0],
+                1.0,
             )?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
                 assert!(
@@ -79,8 +79,8 @@ macro_rules! test_explicit {
         fn dxdt_eq_cos_t() -> Result<(), TestError> {
             let (time, solution): (Vector, Vector) = $integration.integrate(
                 |t: &TensorRank0, _: &TensorRank0| t.cos(),
-                0.0,
                 &[0.0, 16.0 * TAU],
+                0.0,
             )?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
                 assert!((t.sin() - y).abs() < TOLERANCE || (t.sin() / y - 1.0).abs() < TOLERANCE)
@@ -92,8 +92,8 @@ macro_rules! test_explicit {
             let a = TensorRank2::<3, 1, 1>::identity();
             let (time, solution): (Vector, TensorRank1Vec<3, 1>) = $integration.integrate(
                 |_: &TensorRank0, x: &TensorRank1<3, 1>| &a * x,
-                TensorRank1::new([1.0, 1.0, 1.0]),
                 &[0.0, 1.0],
+                TensorRank1::new([1.0, 1.0, 1.0]),
             )?;
             (0..3).for_each(|i| {
                 time.iter().zip(solution.iter()).for_each(|(t, y)| {
@@ -109,8 +109,8 @@ macro_rules! test_explicit {
         fn first_order_tensor_rank_0() -> Result<(), TestError> {
             let (time, solution): (Vector, Vector) = $integration.integrate(
                 |t: &TensorRank0, _: &TensorRank0| t.cos(),
-                0.0,
                 &[0.0, TAU],
+                0.0,
             )?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
                 assert!((t.sin() - y).abs() < TOLERANCE || (t.sin() / y - 1.0).abs() < TOLERANCE)
@@ -121,8 +121,8 @@ macro_rules! test_explicit {
         fn first_order_tensor_rank_0_eval_times() -> Result<(), TestError> {
             let (time, solution): (Vector, Vector) = $integration.integrate(
                 |t: &TensorRank0, _: &TensorRank0| t.cos(),
-                0.0,
                 &zero_to_tau::<LENGTH>(),
+                0.0,
             )?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
                 assert!((t.sin() - y).abs() < TOLERANCE || (t.sin() / y - 1.0).abs() < TOLERANCE)
@@ -133,8 +133,8 @@ macro_rules! test_explicit {
         fn second_order_tensor_rank_0() -> Result<(), TestError> {
             let (time, solution): (Vector, TensorRank1Vec<2, 1>) = $integration.integrate(
                 |t: &TensorRank0, y: &TensorRank1<2, 1>| TensorRank1::new([y[1], -t.sin()]),
-                TensorRank1::new([0.0, 1.0]),
                 &[0.0, TAU],
+                TensorRank1::new([0.0, 1.0]),
             )?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
                 assert!(
@@ -147,8 +147,8 @@ macro_rules! test_explicit {
         fn third_order_tensor_rank_0() -> Result<(), TestError> {
             let (time, solution): (Vector, TensorRank1Vec<3, 1>) = $integration.integrate(
                 |t: &TensorRank0, y: &TensorRank1<3, 1>| TensorRank1::new([y[1], y[2], -t.cos()]),
-                TensorRank1::new([0.0, 1.0, 0.0]),
                 &[0.0, TAU],
+                TensorRank1::new([0.0, 1.0, 0.0]),
             )?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
                 assert!(
@@ -163,8 +163,8 @@ macro_rules! test_explicit {
                 |t: &TensorRank0, y: &TensorRank1<4, 1>| {
                     TensorRank1::new([y[1], y[2], y[3], t.sin()])
                 },
-                TensorRank1::new([0.0, 1.0, 0.0, -1.0]),
                 &[0.0, TAU],
+                TensorRank1::new([0.0, 1.0, 0.0, -1.0]),
             )?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
                 assert!(
@@ -196,8 +196,8 @@ macro_rules! test_implicit {
                 .integrate(
                     |t: &TensorRank0, _: &TensorRank0| t.cos(),
                     |_: &TensorRank0, _: &TensorRank0| 0.0,
-                    0.0,
                     &[0.0],
+                    0.0,
                 )
                 .unwrap();
         }
@@ -208,8 +208,8 @@ macro_rules! test_implicit {
                 .integrate(
                     |t: &TensorRank0, _: &TensorRank0| t.cos(),
                     |_: &TensorRank0, _: &TensorRank0| 0.0,
-                    0.0,
                     &[0.0, 1.0, 0.0],
+                    0.0,
                 )
                 .unwrap();
         }
@@ -218,8 +218,8 @@ macro_rules! test_implicit {
             let (time, solution): (Vector, Vector) = $integration.integrate(
                 |_: &TensorRank0, x: &TensorRank0| -x,
                 |_: &TensorRank0, _: &TensorRank0| -1.0,
-                1.0,
                 &[0.0, 1.0],
+                1.0,
             )?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
                 assert!(
@@ -233,8 +233,8 @@ macro_rules! test_implicit {
             let (time, solution): (Vector, Vector) = $integration.integrate(
                 |t: &TensorRank0, x: &TensorRank0| 2.0 * x * t,
                 |t: &TensorRank0, _: &TensorRank0| 2.0 * t,
-                1.0,
                 &[0.0, 1.0],
+                1.0,
             )?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
                 assert!(
@@ -249,8 +249,8 @@ macro_rules! test_implicit {
             let (time, solution): (Vector, Vector) = $integration.integrate(
                 |t: &TensorRank0, _: &TensorRank0| t.cos(),
                 |_: &TensorRank0, _: &TensorRank0| 0.0,
-                0.0,
                 &[0.0, 16.0 * TAU],
+                0.0,
             )?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
                 assert!((t.sin() - y).abs() < TOLERANCE || (t.sin() / y - 1.0).abs() < TOLERANCE)
@@ -263,8 +263,8 @@ macro_rules! test_implicit {
             let (time, solution): (Vector, TensorRank1Vec<3, 1>) = $integration.integrate(
                 |_: &TensorRank0, x: &TensorRank1<3, 1>| &a * x,
                 |_: &TensorRank0, _: &TensorRank1<3, 1>| a.copy(),
-                TensorRank1::new([1.0, 1.0, 1.0]),
                 &[0.0, 1.0],
+                TensorRank1::new([1.0, 1.0, 1.0]),
             )?;
             (0..3).for_each(|i| {
                 time.iter().zip(solution.iter()).for_each(|(t, y)| {
@@ -281,8 +281,8 @@ macro_rules! test_implicit {
             let (time, solution): (Vector, Vector) = $integration.integrate(
                 |t: &TensorRank0, _: &TensorRank0| t.cos(),
                 |_: &TensorRank0, _: &TensorRank0| 0.0,
-                0.0,
                 &[0.0, TAU],
+                0.0,
             )?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
                 assert!((t.sin() - y).abs() < TOLERANCE || (t.sin() / y - 1.0).abs() < TOLERANCE)
@@ -294,8 +294,8 @@ macro_rules! test_implicit {
             let (time, solution): (Vector, Vector) = $integration.integrate(
                 |t: &TensorRank0, _: &TensorRank0| t.cos(),
                 |_: &TensorRank0, _: &TensorRank0| 0.0,
-                0.0,
                 &zero_to_tau::<LENGTH>(),
+                0.0,
             )?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
                 assert!((t.sin() - y).abs() < TOLERANCE || (t.sin() / y - 1.0).abs() < TOLERANCE)
@@ -309,8 +309,8 @@ macro_rules! test_implicit {
                 |_: &TensorRank0, _: &TensorRank1<2, 1>| {
                     TensorRank2::new([[0.0, 1.0], [-1.0, 0.0]])
                 },
-                TensorRank1::new([0.0, 1.0]),
                 &[0.0, TAU],
+                TensorRank1::new([0.0, 1.0]),
             )?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
                 assert!(
@@ -326,8 +326,8 @@ macro_rules! test_implicit {
                 |_: &TensorRank0, _: &TensorRank1<3, 1>| {
                     TensorRank2::new([[0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]])
                 },
-                TensorRank1::new([0.0, 1.0, 0.0]),
                 &[0.0, TAU],
+                TensorRank1::new([0.0, 1.0, 0.0]),
             )?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
                 assert!(
@@ -348,8 +348,8 @@ macro_rules! test_implicit {
                         [1.0, 0.0, 0.0, 0.0],
                     ])
                 },
-                TensorRank1::new([0.0, 1.0, 0.0, -1.0]),
                 &[0.0, TAU],
+                TensorRank1::new([0.0, 1.0, 0.0, -1.0]),
             )?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
                 assert!(

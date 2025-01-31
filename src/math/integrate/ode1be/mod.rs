@@ -61,8 +61,8 @@ where
         &self,
         function: impl Fn(&TensorRank0, &Y) -> Y,
         jacobian: impl Fn(&TensorRank0, &Y) -> J,
-        initial_condition: Y,
         time: &[TensorRank0],
+        initial_condition: Y,
     ) -> Result<(Vector, U), IntegrationError> {
         if time.len() < 2 {
             return Err(IntegrationError::LengthTimeLessThanTwo);
