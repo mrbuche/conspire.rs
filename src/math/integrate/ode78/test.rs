@@ -1,3 +1,1 @@
-super::super::test::test_explicit!(super::Ode78 {
-    ..Default::default()
-});
+super::super::test::test_explicit!(super::Ode78::default());
