@@ -53,7 +53,6 @@ where
     fn integrate(
         &self,
         function: impl Fn(&TensorRank0, &Y) -> Y,
-        initial_time: TensorRank0,
         initial_condition: Y,
         time: &[TensorRank0],
     ) -> Result<(Vector, U), IntegrationError>;
@@ -77,7 +76,6 @@ where
         &self,
         function: impl Fn(&TensorRank0, &Y) -> Y,
         jacobian: impl Fn(&TensorRank0, &Y) -> J,
-        initial_time: TensorRank0,
         initial_condition: Y,
         time: &[TensorRank0],
     ) -> Result<(Vector, U), IntegrationError>;

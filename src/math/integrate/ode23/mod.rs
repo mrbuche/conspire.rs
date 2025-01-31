@@ -74,7 +74,6 @@ where
     fn integrate(
         &self,
         function: impl Fn(&TensorRank0, &Y) -> Y,
-        initial_time: TensorRank0,
         initial_condition: Y,
         time: &[TensorRank0],
     ) -> Result<(Vector, U), IntegrationError> {
@@ -83,13 +82,13 @@ where
         } else if time[0] >= time[time.len() - 1] {
             return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
         }
+        let mut t = time[0];
         let mut dt = self.dt_init * time[time.len() - 1];
         let mut e;
-        let mut k_1 = function(&initial_time, &initial_condition);
+        let mut k_1 = function(&t, &initial_condition);
         let mut k_2;
         let mut k_3;
         let mut k_4;
-        let mut t = time[0];
         let mut t_sol = Vector::zero(0);
         t_sol.push(time[0]);
         let mut y = initial_condition.copy();

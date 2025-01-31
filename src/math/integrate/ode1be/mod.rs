@@ -59,7 +59,6 @@ where
         &self,
         function: impl Fn(&TensorRank0, &Y) -> Y,
         jacobian: impl Fn(&TensorRank0, &Y) -> J,
-        initial_time: TensorRank0,
         initial_condition: Y,
         time: &[TensorRank0],
     ) -> Result<(Vector, U), IntegrationError> {
@@ -68,12 +67,12 @@ where
         } else if time[0] >= time[time.len() - 1] {
             return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
         }
+        let mut t = time[0];
         let mut dt = self.dt_init * time[time.len() - 1];
         let mut e;
         let identity = J::identity();
-        let mut k_1 = function(&initial_time, &initial_condition);
+        let mut k_1 = function(&t, &initial_condition);
         let mut k_2;
-        let mut t = time[0];
         let mut t_sol = Vector::zero(0);
         t_sol.push(time[0]);
         let mut t_trial;
