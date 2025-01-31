@@ -163,10 +163,6 @@ const E_13: TensorRank0 = -D_13;
 /// Explicit, thirteen-stage, eighth-order, variable-step, Runge-Kutta method.[^cite]
 ///
 /// [^cite]: J.H. Verner, [Numer. Algorithms **53**, 383 (2010)](https://doi.org/10.1007/s11075-009-9290-3).
-///
-/// ???
-/// ???
-/// ???
 #[derive(Debug)]
 pub struct Ode78 {
     /// Absolute error tolerance.
