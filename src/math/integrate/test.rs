@@ -76,6 +76,18 @@ macro_rules! test_explicit {
             Ok(())
         }
         #[test]
+        fn dxdt_eq_cos_t() -> Result<(), TestError> {
+            let (time, solution): (Vector, Vector) = $integration.integrate(
+                |t: &TensorRank0, _: &TensorRank0| t.cos(),
+                0.0,
+                &[0.0, 16.0 * TAU],
+            )?;
+            time.iter().zip(solution.iter()).for_each(|(t, y)| {
+                assert!((t.sin() - y).abs() < TOLERANCE || (t.sin() / y - 1.0).abs() < TOLERANCE)
+            });
+            Ok(())
+        }
+        #[test]
         fn dxdt_eq_ix() -> Result<(), TestError> {
             let a = TensorRank2::<3, 1, 1>::identity();
             let (time, solution): (Vector, TensorRank1Vec<3, 1>) = $integration.integrate(
@@ -177,24 +189,30 @@ macro_rules! test_implicit {
         };
         use std::f64::consts::TAU;
         pub const TOLERANCE: TensorRank0 = 1e-5;
-        // #[test]
-        // #[should_panic(expected = "The time must contain at least two entries.")]
-        // fn initial_time_not_less_than_final_time() {
-        //     let _: (Vector, Vector) = $integration
-        //         .integrate(|t: &TensorRank0, _: &TensorRank0| t.cos(), 0.0, &[0.0])
-        //         .unwrap();
-        // }
-        // #[test]
-        // #[should_panic(expected = "The initial time must precede the final time.")]
-        // fn length_time_less_than_two() {
-        //     let _: (Vector, Vector) = $integration
-        //         .integrate(
-        //             |t: &TensorRank0, _: &TensorRank0| t.cos(),
-        //             0.0,
-        //             &[0.0, 1.0, 0.0],
-        //         )
-        //         .unwrap();
-        // }
+        #[test]
+        #[should_panic(expected = "The time must contain at least two entries.")]
+        fn initial_time_not_less_than_final_time() {
+            let _: (Vector, Vector) = $integration
+                .integrate(
+                    |t: &TensorRank0, _: &TensorRank0| t.cos(),
+                    |_: &TensorRank0, _: &TensorRank0| 0.0,
+                    0.0,
+                    &[0.0],
+                )
+                .unwrap();
+        }
+        #[test]
+        #[should_panic(expected = "The initial time must precede the final time.")]
+        fn length_time_less_than_two() {
+            let _: (Vector, Vector) = $integration
+                .integrate(
+                    |t: &TensorRank0, _: &TensorRank0| t.cos(),
+                    |_: &TensorRank0, _: &TensorRank0| 0.0,
+                    0.0,
+                    &[0.0, 1.0, 0.0],
+                )
+                .unwrap();
+        }
         #[test]
         fn dxdt_eq_neg_x() -> Result<(), TestError> {
             let (time, solution): (Vector, Vector) = $integration.integrate(
@@ -223,6 +241,19 @@ macro_rules! test_implicit {
                     (t.powi(2).exp() - y).abs() < TOLERANCE
                         || (t.powi(2).exp() / y - 1.0).abs() < TOLERANCE
                 )
+            });
+            Ok(())
+        }
+        #[test]
+        fn dxdt_eq_cos_t() -> Result<(), TestError> {
+            let (time, solution): (Vector, Vector) = $integration.integrate(
+                |t: &TensorRank0, _: &TensorRank0| t.cos(),
+                |_: &TensorRank0, _: &TensorRank0| 0.0,
+                0.0,
+                &[0.0, 16.0 * TAU],
+            )?;
+            time.iter().zip(solution.iter()).for_each(|(t, y)| {
+                assert!((t.sin() - y).abs() < TOLERANCE || (t.sin() / y - 1.0).abs() < TOLERANCE)
             });
             Ok(())
         }

@@ -12,6 +12,8 @@ use super::{
 use crate::{ABS_TOL, REL_TOL};
 use std::ops::{Div, Mul, Sub};
 
+// NOTE: This is actually a fixed-step solver in MATLAB. May want consistency here and implement a different odefunc for an adaptive implicit solver. https://www.mathworks.com/help/simulink/gui/solver.html
+
 /// Implicit, single-stage, first-order, variable-step, Runge-Kutta method.[^cite]
 ///
 /// [^cite]: Also known as the backward Euler method.

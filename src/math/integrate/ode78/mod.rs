@@ -167,24 +167,24 @@ const E_13: TensorRank0 = -D_13;
 pub struct Ode78 {
     /// Absolute error tolerance.
     pub abs_tol: TensorRank0,
-    /// Multiplying factor when decreasing time steps.
-    pub dec_fac: TensorRank0,
-    /// Initial relative timestep.
-    pub dt_init: TensorRank0,
-    /// Multiplying factor when increasing time steps.
-    pub inc_fac: TensorRank0,
     /// Relative error tolerance.
     pub rel_tol: TensorRank0,
+    /// Multiplier for adaptive time steps.
+    pub dt_beta: TensorRank0,
+    /// Exponent for adaptive time steps.
+    pub dt_expn: TensorRank0,
+    /// Initial relative time step.
+    pub dt_init: TensorRank0,
 }
 
 impl Default for Ode78 {
     fn default() -> Self {
         Self {
             abs_tol: ABS_TOL,
-            dec_fac: 0.5,
-            dt_init: 0.1,
-            inc_fac: 1.1,
             rel_tol: REL_TOL,
+            dt_beta: 0.9,
+            dt_expn: 8.0,
+            dt_init: 0.1,
         }
     }
 }
@@ -346,13 +346,11 @@ where
                 .norm();
             if e < self.abs_tol || e / y_trial.norm() < self.rel_tol {
                 t += dt;
-                dt *= self.inc_fac;
                 y = y_trial;
                 t_sol.push(t.copy());
                 y_sol.push(y.copy());
-            } else {
-                dt *= self.dec_fac;
             }
+            dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn);
         }
         if time.len() > 2 {
             let t_int = Vector::new(time);

@@ -38,28 +38,31 @@ use std::ops::{Mul, Sub};
 /// ```math
 /// e_{n+1} = \frac{h}{72}\left(-5k_1 + 6k_2 + 8k_3 - 9k_4\right)
 /// ```
+/// ```math
+/// h_{n+1} = \beta h \left(\frac{e_\mathrm{tol}}{e_{n+1}}\right)^{1/p}
+/// ```
 #[derive(Debug)]
 pub struct Ode23 {
     /// Absolute error tolerance.
     pub abs_tol: TensorRank0,
-    /// Multiplying factor when decreasing time steps.
-    pub dec_fac: TensorRank0,
-    /// Initial relative timestep.
-    pub dt_init: TensorRank0,
-    /// Multiplying factor when increasing time steps.
-    pub inc_fac: TensorRank0,
     /// Relative error tolerance.
     pub rel_tol: TensorRank0,
+    /// Multiplier for adaptive time steps.
+    pub dt_beta: TensorRank0,
+    /// Exponent for adaptive time steps.
+    pub dt_expn: TensorRank0,
+    /// Initial relative time step.
+    pub dt_init: TensorRank0,
 }
 
 impl Default for Ode23 {
     fn default() -> Self {
         Self {
             abs_tol: ABS_TOL,
-            dec_fac: 0.5,
-            dt_init: 0.1,
-            inc_fac: 1.1,
             rel_tol: REL_TOL,
+            dt_beta: 0.9,
+            dt_expn: 3.0,
+            dt_init: 0.1,
         }
     }
 }
@@ -104,13 +107,11 @@ where
             if e < self.abs_tol || e / y_trial.norm() < self.rel_tol {
                 k_1 = k_4;
                 t += dt;
-                dt *= self.inc_fac;
                 y = y_trial;
                 t_sol.push(t.copy());
                 y_sol.push(y.copy());
-            } else {
-                dt *= self.dec_fac;
             }
+            dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn);
         }
         if time.len() > 2 {
             let t_int = Vector::new(time);

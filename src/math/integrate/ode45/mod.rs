@@ -68,28 +68,31 @@ const C_22_525: TensorRank0 = 22.0 / 525.0;
 /// ```math
 /// e_{n+1} = \frac{h}{5}\left(\frac{71}{11520}\,k_1 - \frac{71}{3339}\,k_3 + \frac{71}{384}\,k_4 - \frac{17253}{67840}\,k_5 + \frac{22}{105}\,k_6 - \frac{1}{8}\,k_7\right)
 /// ```
+/// ```math
+/// h_{n+1} = \beta h \left(\frac{e_\mathrm{tol}}{e_{n+1}}\right)^{1/p}
+/// ```
 #[derive(Debug)]
 pub struct Ode45 {
     /// Absolute error tolerance.
     pub abs_tol: TensorRank0,
-    /// Multiplying factor when decreasing time steps.
-    pub dec_fac: TensorRank0,
-    /// Initial relative timestep.
-    pub dt_init: TensorRank0,
-    /// Multiplying factor when increasing time steps.
-    pub inc_fac: TensorRank0,
     /// Relative error tolerance.
     pub rel_tol: TensorRank0,
+    /// Multiplier for adaptive time steps.
+    pub dt_beta: TensorRank0,
+    /// Exponent for adaptive time steps.
+    pub dt_expn: TensorRank0,
+    /// Initial relative time step.
+    pub dt_init: TensorRank0,
 }
 
 impl Default for Ode45 {
     fn default() -> Self {
         Self {
             abs_tol: ABS_TOL,
-            dec_fac: 0.5,
-            dt_init: 0.1,
-            inc_fac: 1.1,
             rel_tol: REL_TOL,
+            dt_beta: 0.9,
+            dt_expn: 5.0,
+            dt_init: 0.1,
         }
     }
 }
@@ -166,13 +169,11 @@ where
             if e < self.abs_tol || e / y_trial.norm() < self.rel_tol {
                 k_1 = k_7;
                 t += dt;
-                dt *= self.inc_fac;
                 y = y_trial;
                 t_sol.push(t.copy());
                 y_sol.push(y.copy());
-            } else {
-                dt *= self.dec_fac;
             }
+            dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn);
         }
         if time.len() > 2 {
             let t_int = Vector::new(time);
