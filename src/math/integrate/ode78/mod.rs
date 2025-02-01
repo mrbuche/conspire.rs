@@ -139,30 +139,25 @@ const D_11: TensorRank0 = 282035543183190840068750.0 / 12295407629873040425991.0
 const D_12: TensorRank0 = -306814272936976936753.0 / 1299331183183744997286.0;
 const D_13: TensorRank0 = 28735456870978964189.0 / 79783493704265043693.0;
 
-const E_1: TensorRank0 = B_1 - D_1;
-const E_6: TensorRank0 = B_6 - D_6;
-const E_7: TensorRank0 = B_7 - D_7;
-const E_8: TensorRank0 = B_8 - D_8;
-const E_9: TensorRank0 = B_9 - D_9;
-const E_10: TensorRank0 = B_10 - D_10;
-const E_11: TensorRank0 = B_11 - D_11;
-const E_12: TensorRank0 = B_12 - D_12;
-const E_13: TensorRank0 = -D_13;
-
-// guess coefficients from bhat
-// error coefficients are from (bhat - btilde)
-
-// https://www.sfu.ca/~jverner/RKV87.IIa.Efficient.000000282866.081208.CoeffsOnlyFLOAT
-// https://www.sfu.ca/~jverner/RKV87.IIa.Robust.00000754677.081208.CoeffsOnlyRATandFLOAT
-// https://github.com/SciML/OrdinaryDiffEq.jl/blob/ad7891e95d8907b82adb31b5fbaa0d2d7d38a791/lib/OrdinaryDiffEqVerner/src/verner_tableaus.jl#L2030
-
-// https://github.com/SciML/OrdinaryDiffEq.jl/blob/ad7891e95d8907b82adb31b5fbaa0d2d7d38a791/lib/OrdinaryDiffEqExplicitRK/src/algorithms.jl
-// https://numerary.readthedocs.io/en/latest/dormand-prince-method.html
-// https://mrbuche.github.io/conspire.rs/latest/math/integrate/struct.Ode45.html
-
 /// Explicit, thirteen-stage, eighth-order, variable-step, Runge-Kutta method.[^cite]
 ///
 /// [^cite]: J.H. Verner, [Numer. Algorithms **53**, 383 (2010)](https://doi.org/10.1007/s11075-009-9290-3).
+///
+/// ```math
+/// \frac{dy}{dt} = f(t, y)
+/// ```
+/// ```math
+/// t_{n+1} = t_n + h
+/// ```
+/// ```math
+/// k_1 = f(t_n, y_n)
+/// ```
+/// ```math
+/// \cdots
+/// ```
+/// ```math
+/// h_{n+1} = \beta h \left(\frac{e_\mathrm{tol}}{e_{n+1}}\right)^{1/p}
+/// ```
 #[derive(Debug)]
 pub struct Ode78 {
     /// Absolute error tolerance.
@@ -333,15 +328,15 @@ where
                 + &k_12 * B_12)
                 * dt
                 + &y;
-            e = ((&k_1 * E_1
-                + &k_6 * E_6
-                + &k_7 * E_7
-                + &k_8 * E_8
-                + &k_9 * E_9
-                + &k_10 * E_10
-                + &k_11 * E_11
-                + &k_12 * E_12
-                + &k_13 * E_13)
+            e = ((&k_1 * D_1
+                + &k_6 * D_6
+                + &k_7 * D_7
+                + &k_8 * D_8
+                + &k_9 * D_9
+                + &k_10 * D_10
+                + &k_11 * D_11
+                + &k_12 * D_12
+                + &k_13 * D_13)
                 * dt)
                 .norm();
             if e < self.abs_tol || e / y_trial.norm() < self.rel_tol {

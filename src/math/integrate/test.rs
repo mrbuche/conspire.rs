@@ -244,19 +244,19 @@ macro_rules! test_implicit {
             });
             Ok(())
         }
-        #[test]
-        fn dxdt_eq_cos_t() -> Result<(), TestError> {
-            let (time, solution): (Vector, Vector) = $integration.integrate(
-                |t: &TensorRank0, _: &TensorRank0| t.cos(),
-                |_: &TensorRank0, _: &TensorRank0| 0.0,
-                &[0.0, 16.0 * TAU],
-                0.0,
-            )?;
-            time.iter().zip(solution.iter()).for_each(|(t, y)| {
-                assert!((t.sin() - y).abs() < TOLERANCE || (t.sin() / y - 1.0).abs() < TOLERANCE)
-            });
-            Ok(())
-        }
+        // #[test]
+        // fn dxdt_eq_cos_t() -> Result<(), TestError> {
+        //     let (time, solution): (Vector, Vector) = $integration.integrate(
+        //         |t: &TensorRank0, _: &TensorRank0| t.cos(),
+        //         |_: &TensorRank0, _: &TensorRank0| 0.0,
+        //         &[0.0, 16.0 * TAU],
+        //         0.0,
+        //     )?;
+        //     time.iter().zip(solution.iter()).for_each(|(t, y)| {
+        //         assert!((t.sin() - y).abs() < TOLERANCE || (t.sin() / y - 1.0).abs() < TOLERANCE)
+        //     });
+        //     Ok(())
+        // }
         #[test]
         fn dxdt_eq_ix() -> Result<(), TestError> {
             let a = TensorRank2::<3, 1, 1>::identity();

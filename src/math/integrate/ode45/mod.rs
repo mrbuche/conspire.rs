@@ -45,6 +45,9 @@ const C_22_525: TensorRank0 = 22.0 / 525.0;
 /// t_{n+1} = t_n + h
 /// ```
 /// ```math
+/// k_1 = f(t_n, y_n)
+/// ```
+/// ```math
 /// k_2 = f(t_n + \tfrac{1}{5} h, y_n + \tfrac{1}{5} h k_1)
 /// ```
 /// ```math
