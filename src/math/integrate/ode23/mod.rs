@@ -38,28 +38,31 @@ use std::ops::{Mul, Sub};
 /// ```math
 /// e_{n+1} = \frac{h}{72}\left(-5k_1 + 6k_2 + 8k_3 - 9k_4\right)
 /// ```
+/// ```math
+/// h_{n+1} = \beta h \left(\frac{e_\mathrm{tol}}{e_{n+1}}\right)^{1/p}
+/// ```
 #[derive(Debug)]
 pub struct Ode23 {
     /// Absolute error tolerance.
     pub abs_tol: TensorRank0,
-    /// Multiplying factor when decreasing time steps.
-    pub dec_fac: TensorRank0,
-    /// Initial relative timestep.
-    pub dt_init: TensorRank0,
-    /// Multiplying factor when increasing time steps.
-    pub inc_fac: TensorRank0,
     /// Relative error tolerance.
     pub rel_tol: TensorRank0,
+    /// Multiplier for adaptive time steps.
+    pub dt_beta: TensorRank0,
+    /// Exponent for adaptive time steps.
+    pub dt_expn: TensorRank0,
+    /// Initial relative time step.
+    pub dt_init: TensorRank0,
 }
 
 impl Default for Ode23 {
     fn default() -> Self {
         Self {
             abs_tol: ABS_TOL,
-            dec_fac: 0.5,
-            dt_init: 0.1,
-            inc_fac: 1.1,
             rel_tol: REL_TOL,
+            dt_beta: 0.9,
+            dt_expn: 3.0,
+            dt_init: 0.1,
         }
     }
 }
@@ -74,22 +77,21 @@ where
     fn integrate(
         &self,
         function: impl Fn(&TensorRank0, &Y) -> Y,
-        initial_time: TensorRank0,
-        initial_condition: Y,
         time: &[TensorRank0],
+        initial_condition: Y,
     ) -> Result<(Vector, U), IntegrationError> {
         if time.len() < 2 {
             return Err(IntegrationError::LengthTimeLessThanTwo);
         } else if time[0] >= time[time.len() - 1] {
             return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
         }
+        let mut t = time[0];
         let mut dt = self.dt_init * time[time.len() - 1];
         let mut e;
-        let mut k_1 = function(&initial_time, &initial_condition);
+        let mut k_1 = function(&t, &initial_condition);
         let mut k_2;
         let mut k_3;
         let mut k_4;
-        let mut t = time[0];
         let mut t_sol = Vector::zero(0);
         t_sol.push(time[0]);
         let mut y = initial_condition.copy();
@@ -105,13 +107,11 @@ where
             if e < self.abs_tol || e / y_trial.norm() < self.rel_tol {
                 k_1 = k_4;
                 t += dt;
-                dt *= self.inc_fac;
                 y = y_trial;
                 t_sol.push(t.copy());
                 y_sol.push(y.copy());
-            } else {
-                dt *= self.dec_fac;
             }
+            dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn);
         }
         if time.len() > 2 {
             let t_int = Vector::new(time);
@@ -131,10 +131,10 @@ where
 {
     fn interpolate(
         &self,
-        ti: &Vector,
+        time: &Vector,
         tp: &Vector,
         yp: &U,
-        f: impl Fn(&TensorRank0, &Y) -> Y,
+        function: impl Fn(&TensorRank0, &Y) -> Y,
     ) -> U {
         let mut dt = 0.0;
         let mut i = 0;
@@ -143,15 +143,15 @@ where
         let mut k_3 = Y::zero();
         let mut t = 0.0;
         let mut y = Y::zero();
-        ti.iter()
-            .map(|ti_k| {
-                i = tp.iter().position(|tp_i| tp_i > ti_k).unwrap();
+        time.iter()
+            .map(|time_k| {
+                i = tp.iter().position(|tp_i| tp_i > time_k).unwrap();
                 t = tp[i - 1].copy();
                 y = yp[i - 1].copy();
-                dt = ti_k - t;
-                k_1 = f(&t, &y);
-                k_2 = f(&(t + 0.5 * dt), &(&k_1 * (0.5 * dt) + &y));
-                k_3 = f(&(t + 0.75 * dt), &(&k_2 * (0.75 * dt) + &y));
+                dt = time_k - t;
+                k_1 = function(&t, &y);
+                k_2 = function(&(t + 0.5 * dt), &(&k_1 * (0.5 * dt) + &y));
+                k_3 = function(&(t + 0.75 * dt), &(&k_2 * (0.75 * dt) + &y));
                 (&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y
             })
             .collect()

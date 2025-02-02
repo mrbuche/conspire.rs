@@ -22,7 +22,13 @@ where
     U: TensorVec<Item = Y>,
 {
     /// Solution interpolation.
-    fn interpolate(&self, t: &Vector, tp: &Vector, yp: &U, f: impl Fn(&TensorRank0, &Y) -> Y) -> U;
+    fn interpolate(
+        &self,
+        time: &Vector,
+        tp: &Vector,
+        yp: &U,
+        function: impl Fn(&TensorRank0, &Y) -> Y,
+    ) -> U;
 }
 
 impl<F, T> Interpolate1D<F, T> for LinearInterpolation

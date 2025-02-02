@@ -4,10 +4,14 @@ mod test;
 mod ode1be;
 mod ode23;
 mod ode45;
+mod ode78;
+mod ode89;
 
 pub use ode1be::Ode1be;
 pub use ode23::Ode23;
 pub use ode45::Ode45;
+pub use ode78::Ode78;
+pub use ode89::Ode89;
 
 use super::{
     interpolate::InterpolateSolution, Tensor, TensorArray, TensorRank0, TensorVec, Vector,
@@ -51,9 +55,8 @@ where
     fn integrate(
         &self,
         function: impl Fn(&TensorRank0, &Y) -> Y,
-        initial_time: TensorRank0,
-        initial_condition: Y,
         time: &[TensorRank0],
+        initial_condition: Y,
     ) -> Result<(Vector, U), IntegrationError>;
 }
 
@@ -75,9 +78,8 @@ where
         &self,
         function: impl Fn(&TensorRank0, &Y) -> Y,
         jacobian: impl Fn(&TensorRank0, &Y) -> J,
-        initial_time: TensorRank0,
-        initial_condition: Y,
         time: &[TensorRank0],
+        initial_condition: Y,
     ) -> Result<(Vector, U), IntegrationError>;
 }
 
