@@ -9,47 +9,24 @@ use super::{
     },
     Implicit, IntegrationError,
 };
-use crate::{ABS_TOL, REL_TOL};
 use std::ops::{Div, Mul, Sub};
 
-// NOTE: This is actually a fixed-step solver in MATLAB.
-// May want consistency here and implement a different odefunc for an adaptive implicit solver.
-// https://www.mathworks.com/help/simulink/gui/solver.html
-// also the adaptivity here is sort of ad hoc.
-// or fixed step methods are just no good
-// but would be helpful to have more capabilities for comparisons
-
-/// Implicit, single-stage, first-order, variable-step, Runge-Kutta method.[^cite]
+/// Implicit, single-stage, first-order, fixed-step, Runge-Kutta method.[^cite]
 ///
 /// [^cite]: Also known as the backward Euler method.
 #[derive(Debug)]
 pub struct Ode1be {
-    /// Absolute error tolerance.
-    pub abs_tol: TensorRank0,
-    /// Multiplying factor when decreasing time steps.
-    pub dec_fac: TensorRank0,
-    /// Initial relative timestep.
-    pub dt_init: TensorRank0,
-    /// Multiplying factor when increasing time steps.
-    pub inc_fac: TensorRank0,
     /// Optimization algorithm for equation solving.
     pub opt_alg: Optimization,
-    /// Relative error tolerance.
-    pub rel_tol: TensorRank0,
 }
 
 impl Default for Ode1be {
     fn default() -> Self {
         Self {
-            abs_tol: ABS_TOL,
-            dec_fac: 0.5,
-            dt_init: 0.1,
-            inc_fac: 1.1,
             opt_alg: Optimization::NewtonRaphson(NewtonRaphson {
                 check_minimum: false,
                 ..Default::default()
             }),
-            rel_tol: REL_TOL,
         }
     }
 }
@@ -74,12 +51,10 @@ where
         } else if time[0] >= time[time.len() - 1] {
             return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
         }
+        let mut index = 0;
         let mut t = time[0];
-        let mut dt = self.dt_init * time[time.len() - 1];
-        // let mut e;
+        let mut dt;
         let identity = J::identity();
-        // let mut k_1 = function(&t, &initial_condition);
-        // let mut k_2;
         let mut t_sol = Vector::zero(0);
         t_sol.push(time[0]);
         let mut t_trial;
@@ -88,7 +63,8 @@ where
         y_sol.push(initial_condition.copy());
         let mut y_trial;
         while t < time[time.len() - 1] {
-            t_trial = t + dt;
+            t_trial = time[index + 1];
+            dt = t_trial - t;
             y_trial = match &self.opt_alg {
                 Optimization::GradientDescent(gradient_descent) => gradient_descent
                     .minimize(
@@ -108,26 +84,13 @@ where
                     )
                     .unwrap(),
             };
-            // k_2 = function(&t_trial, &y_trial);
-            // e = ((&k_2 - &k_1) * (dt / 2.0)).norm();
-            // if e < self.abs_tol || e / y_trial.norm() < self.rel_tol {
-            // k_1 = k_2;
-            t += dt;
-            // dt *= self.inc_fac;
+            t = t_trial;
             y = y_trial;
             t_sol.push(t.copy());
             y_sol.push(y.copy());
-            // } else {
-            // dt *= self.dec_fac;
-            // }
+            index += 1;
         }
-        if time.len() > 2 {
-            let t_int = Vector::new(time);
-            let y_int = self.interpolate(&t_int, &t_sol, &y_sol, function);
-            Ok((t_int, y_int))
-        } else {
-            Ok((t_sol, y_sol))
-        }
+        Ok((t_sol, y_sol))
     }
 }
 
@@ -139,23 +102,11 @@ where
 {
     fn interpolate(
         &self,
-        time: &Vector,
-        tp: &Vector,
-        yp: &U,
-        function: impl Fn(&TensorRank0, &Y) -> Y,
+        _time: &Vector,
+        _tp: &Vector,
+        _yp: &U,
+        _function: impl Fn(&TensorRank0, &Y) -> Y,
     ) -> U {
-        let mut dt = 0.0;
-        let mut i = 0;
-        let mut t = 0.0;
-        let mut y = Y::zero();
-        time.iter()
-            .map(|time_k| {
-                i = tp.iter().position(|tp_i| tp_i > time_k).unwrap();
-                t = tp[i].copy();
-                y = yp[i].copy();
-                dt = time_k - t;
-                function(&t, &y) * dt + &y
-            })
-            .collect()
+        unimplemented!()
     }
 }

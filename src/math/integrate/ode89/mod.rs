@@ -124,7 +124,7 @@ const D_16: TensorRank0 = -0.04834231373823958;
 
 /// Explicit, sixteen-stage, ninth-order, variable-step, Runge-Kutta method.[^cite]
 ///
-/// [^cite]: J.H. Verner, [Numer. Algorithms **53**, 383 (2010)](https://doi.org/10.1007/s11075-009-9290-3).
+/// [^cite]: J.H. Verner, [Numer. Algor. **53**, 383 (2010)](https://doi.org/10.1007/s11075-009-9290-3).
 ///
 /// ```math
 /// \frac{dy}{dt} = f(t, y)
