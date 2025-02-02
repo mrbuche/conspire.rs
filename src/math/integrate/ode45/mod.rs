@@ -196,10 +196,10 @@ where
 {
     fn interpolate(
         &self,
-        ti: &Vector,
+        time: &Vector,
         tp: &Vector,
         yp: &U,
-        f: impl Fn(&TensorRank0, &Y) -> Y,
+        function: impl Fn(&TensorRank0, &Y) -> Y,
     ) -> U {
         let mut dt = 0.0;
         let mut i = 0;
@@ -211,30 +211,30 @@ where
         let mut k_6 = Y::zero();
         let mut t = 0.0;
         let mut y = Y::zero();
-        ti.iter()
-            .map(|ti_k| {
-                i = tp.iter().position(|tp_i| tp_i > ti_k).unwrap();
+        time.iter()
+            .map(|time_k| {
+                i = tp.iter().position(|tp_i| tp_i > time_k).unwrap();
                 t = tp[i - 1].copy();
                 y = yp[i - 1].copy();
-                dt = ti_k - t;
-                k_1 = f(&t, &y);
-                k_2 = f(&(t + 0.2 * dt), &(&k_1 * (0.2 * dt) + &y));
-                k_3 = f(
+                dt = time_k - t;
+                k_1 = function(&t, &y);
+                k_2 = function(&(t + 0.2 * dt), &(&k_1 * (0.2 * dt) + &y));
+                k_3 = function(
                     &(t + 0.3 * dt),
                     &(&k_1 * (0.075 * dt) + &k_2 * (0.225 * dt) + &y),
                 );
-                k_4 = f(
+                k_4 = function(
                     &(t + 0.8 * dt),
                     &(&k_1 * (C_44_45 * dt) - &k_2 * (C_56_15 * dt) + &k_3 * (C_32_9 * dt) + &y),
                 );
-                k_5 = f(
+                k_5 = function(
                     &(t + C_8_9 * dt),
                     &(&k_1 * (C_19372_6561 * dt) - &k_2 * (C_25360_2187 * dt)
                         + &k_3 * (C_64448_6561 * dt)
                         - &k_4 * (C_212_729 * dt)
                         + &y),
                 );
-                k_6 = f(
+                k_6 = function(
                     &(t + dt),
                     &(&k_1 * (C_9017_3168 * dt) - &k_2 * (C_355_33 * dt)
                         + &k_3 * (C_46732_5247 * dt)

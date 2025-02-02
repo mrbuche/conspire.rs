@@ -131,10 +131,10 @@ where
 {
     fn interpolate(
         &self,
-        ti: &Vector,
+        time: &Vector,
         tp: &Vector,
         yp: &U,
-        f: impl Fn(&TensorRank0, &Y) -> Y,
+        function: impl Fn(&TensorRank0, &Y) -> Y,
     ) -> U {
         let mut dt = 0.0;
         let mut i = 0;
@@ -143,15 +143,15 @@ where
         let mut k_3 = Y::zero();
         let mut t = 0.0;
         let mut y = Y::zero();
-        ti.iter()
-            .map(|ti_k| {
-                i = tp.iter().position(|tp_i| tp_i > ti_k).unwrap();
+        time.iter()
+            .map(|time_k| {
+                i = tp.iter().position(|tp_i| tp_i > time_k).unwrap();
                 t = tp[i - 1].copy();
                 y = yp[i - 1].copy();
-                dt = ti_k - t;
-                k_1 = f(&t, &y);
-                k_2 = f(&(t + 0.5 * dt), &(&k_1 * (0.5 * dt) + &y));
-                k_3 = f(&(t + 0.75 * dt), &(&k_2 * (0.75 * dt) + &y));
+                dt = time_k - t;
+                k_1 = function(&t, &y);
+                k_2 = function(&(t + 0.5 * dt), &(&k_1 * (0.5 * dt) + &y));
+                k_3 = function(&(t + 0.75 * dt), &(&k_2 * (0.75 * dt) + &y));
                 (&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y
             })
             .collect()

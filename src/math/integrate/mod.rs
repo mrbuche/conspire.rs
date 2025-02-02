@@ -5,11 +5,13 @@ mod ode1be;
 mod ode23;
 mod ode45;
 mod ode78;
+mod ode89;
 
 pub use ode1be::Ode1be;
 pub use ode23::Ode23;
 pub use ode45::Ode45;
 pub use ode78::Ode78;
+pub use ode89::Ode89;
 
 use super::{
     interpolate::InterpolateSolution, Tensor, TensorArray, TensorRank0, TensorVec, Vector,

@@ -12,7 +12,12 @@ use super::{
 use crate::{ABS_TOL, REL_TOL};
 use std::ops::{Div, Mul, Sub};
 
-// NOTE: This is actually a fixed-step solver in MATLAB. May want consistency here and implement a different odefunc for an adaptive implicit solver. https://www.mathworks.com/help/simulink/gui/solver.html
+// NOTE: This is actually a fixed-step solver in MATLAB.
+// May want consistency here and implement a different odefunc for an adaptive implicit solver.
+// https://www.mathworks.com/help/simulink/gui/solver.html
+// also the adaptivity here is sort of ad hoc.
+// or fixed step methods are just no good
+// but would be helpful to have more capabilities for comparisons
 
 /// Implicit, single-stage, first-order, variable-step, Runge-Kutta method.[^cite]
 ///
@@ -71,10 +76,10 @@ where
         }
         let mut t = time[0];
         let mut dt = self.dt_init * time[time.len() - 1];
-        let mut e;
+        // let mut e;
         let identity = J::identity();
-        let mut k_1 = function(&t, &initial_condition);
-        let mut k_2;
+        // let mut k_1 = function(&t, &initial_condition);
+        // let mut k_2;
         let mut t_sol = Vector::zero(0);
         t_sol.push(time[0]);
         let mut t_trial;
@@ -103,18 +108,18 @@ where
                     )
                     .unwrap(),
             };
-            k_2 = function(&t_trial, &y_trial);
-            e = ((&k_2 - &k_1) * (dt / 2.0)).norm();
-            if e < self.abs_tol || e / y_trial.norm() < self.rel_tol {
-                k_1 = k_2;
-                t += dt;
-                dt *= self.inc_fac;
-                y = y_trial;
-                t_sol.push(t.copy());
-                y_sol.push(y.copy());
-            } else {
-                dt *= self.dec_fac;
-            }
+            // k_2 = function(&t_trial, &y_trial);
+            // e = ((&k_2 - &k_1) * (dt / 2.0)).norm();
+            // if e < self.abs_tol || e / y_trial.norm() < self.rel_tol {
+            // k_1 = k_2;
+            t += dt;
+            // dt *= self.inc_fac;
+            y = y_trial;
+            t_sol.push(t.copy());
+            y_sol.push(y.copy());
+            // } else {
+            // dt *= self.dec_fac;
+            // }
         }
         if time.len() > 2 {
             let t_int = Vector::new(time);
@@ -134,22 +139,22 @@ where
 {
     fn interpolate(
         &self,
-        ti: &Vector,
+        time: &Vector,
         tp: &Vector,
         yp: &U,
-        f: impl Fn(&TensorRank0, &Y) -> Y,
+        function: impl Fn(&TensorRank0, &Y) -> Y,
     ) -> U {
         let mut dt = 0.0;
         let mut i = 0;
         let mut t = 0.0;
         let mut y = Y::zero();
-        ti.iter()
-            .map(|ti_k| {
-                i = tp.iter().position(|tp_i| tp_i > ti_k).unwrap();
+        time.iter()
+            .map(|time_k| {
+                i = tp.iter().position(|tp_i| tp_i > time_k).unwrap();
                 t = tp[i].copy();
                 y = yp[i].copy();
-                dt = ti_k - t;
-                f(&t, &y) * dt + &y
+                dt = time_k - t;
+                function(&t, &y) * dt + &y
             })
             .collect()
     }
