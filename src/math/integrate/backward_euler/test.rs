@@ -5,7 +5,7 @@ use super::{
         test::TestError,
         Tensor, TensorRank0, Vector,
     },
-    Ode1be,
+    BackwardEuler,
 };
 
 const LENGTH: usize = 33;
@@ -15,7 +15,7 @@ mod gradient_descent {
     use super::*;
     #[test]
     fn first_order_tensor_rank_0() -> Result<(), TestError> {
-        let (time, solution): (Vector, Vector) = Ode1be {
+        let (time, solution): (Vector, Vector) = BackwardEuler {
             opt_alg: Optimization::GradientDescent(GradientDescent {
                 ..Default::default()
             }),
@@ -37,7 +37,7 @@ mod newton_raphson {
     use super::*;
     #[test]
     fn first_order_tensor_rank_0() -> Result<(), TestError> {
-        let (time, solution): (Vector, Vector) = Ode1be {
+        let (time, solution): (Vector, Vector) = BackwardEuler {
             opt_alg: Optimization::NewtonRaphson(NewtonRaphson {
                 ..Default::default()
             }),

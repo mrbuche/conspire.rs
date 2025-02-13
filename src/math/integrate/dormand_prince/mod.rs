@@ -75,7 +75,7 @@ const C_22_525: TensorRank0 = 22.0 / 525.0;
 /// h_{n+1} = \beta h \left(\frac{e_\mathrm{tol}}{e_{n+1}}\right)^{1/p}
 /// ```
 #[derive(Debug)]
-pub struct Ode45 {
+pub struct DormandPrince {
     /// Absolute error tolerance.
     pub abs_tol: TensorRank0,
     /// Relative error tolerance.
@@ -88,7 +88,7 @@ pub struct Ode45 {
     pub dt_init: TensorRank0,
 }
 
-impl Default for Ode45 {
+impl Default for DormandPrince {
     fn default() -> Self {
         Self {
             abs_tol: ABS_TOL,
@@ -100,7 +100,7 @@ impl Default for Ode45 {
     }
 }
 
-impl<Y, U> Explicit<Y, U> for Ode45
+impl<Y, U> Explicit<Y, U> for DormandPrince
 where
     Self: InterpolateSolution<Y, U>,
     Y: Tensor + TensorArray,
@@ -188,7 +188,7 @@ where
     }
 }
 
-impl<Y, U> InterpolateSolution<Y, U> for Ode45
+impl<Y, U> InterpolateSolution<Y, U> for DormandPrince
 where
     Y: Tensor + TensorArray,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,

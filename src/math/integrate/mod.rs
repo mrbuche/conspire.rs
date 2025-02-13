@@ -1,15 +1,21 @@
 #[cfg(test)]
 mod test;
 
-mod ode1be;
-mod ode23;
-mod ode45;
+mod backward_euler;
+mod bogacki_shampine;
+mod dormand_prince;
+
+pub use backward_euler::BackwardEuler;
+pub use bogacki_shampine::BogackiShampine;
+pub use dormand_prince::DormandPrince;
+
+pub type Ode1be = BackwardEuler;
+pub type Ode23 = BogackiShampine;
+pub type Ode45 = DormandPrince;
+
 mod ode78;
 mod ode89;
 
-pub use ode1be::Ode1be;
-pub use ode23::Ode23;
-pub use ode45::Ode45;
 pub use ode78::Ode78;
 pub use ode89::Ode89;
 

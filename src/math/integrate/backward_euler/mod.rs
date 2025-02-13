@@ -15,12 +15,12 @@ use std::ops::{Div, Mul, Sub};
 ///
 /// [^cite]: Also known as the backward Euler method.
 #[derive(Debug)]
-pub struct Ode1be {
+pub struct BackwardEuler {
     /// Optimization algorithm for equation solving.
     pub opt_alg: Optimization,
 }
 
-impl Default for Ode1be {
+impl Default for BackwardEuler {
     fn default() -> Self {
         Self {
             opt_alg: Optimization::NewtonRaphson(NewtonRaphson {
@@ -31,7 +31,7 @@ impl Default for Ode1be {
     }
 }
 
-impl<Y, J, U> Implicit<Y, J, U> for Ode1be
+impl<Y, J, U> Implicit<Y, J, U> for BackwardEuler
 where
     Self: InterpolateSolution<Y, U>,
     Y: Tensor + TensorArray + Div<J, Output = Y>,
@@ -94,7 +94,7 @@ where
     }
 }
 
-impl<Y, U> InterpolateSolution<Y, U> for Ode1be
+impl<Y, U> InterpolateSolution<Y, U> for BackwardEuler
 where
     Y: Tensor + TensorArray,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,

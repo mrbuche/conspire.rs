@@ -42,7 +42,7 @@ use std::ops::{Mul, Sub};
 /// h_{n+1} = \beta h \left(\frac{e_\mathrm{tol}}{e_{n+1}}\right)^{1/p}
 /// ```
 #[derive(Debug)]
-pub struct Ode23 {
+pub struct BogackiShampine {
     /// Absolute error tolerance.
     pub abs_tol: TensorRank0,
     /// Relative error tolerance.
@@ -55,7 +55,7 @@ pub struct Ode23 {
     pub dt_init: TensorRank0,
 }
 
-impl Default for Ode23 {
+impl Default for BogackiShampine {
     fn default() -> Self {
         Self {
             abs_tol: ABS_TOL,
@@ -67,7 +67,7 @@ impl Default for Ode23 {
     }
 }
 
-impl<Y, U> Explicit<Y, U> for Ode23
+impl<Y, U> Explicit<Y, U> for BogackiShampine
 where
     Self: InterpolateSolution<Y, U>,
     Y: Tensor + TensorArray,
@@ -123,7 +123,7 @@ where
     }
 }
 
-impl<Y, U> InterpolateSolution<Y, U> for Ode23
+impl<Y, U> InterpolateSolution<Y, U> for BogackiShampine
 where
     Y: Tensor + TensorArray,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
