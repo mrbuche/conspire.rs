@@ -4,20 +4,20 @@ mod test;
 mod backward_euler;
 mod bogacki_shampine;
 mod dormand_prince;
+mod verner_8;
+mod verner_9;
 
 pub use backward_euler::BackwardEuler;
 pub use bogacki_shampine::BogackiShampine;
 pub use dormand_prince::DormandPrince;
+pub use verner_8::Verner8;
+pub use verner_9::Verner9;
 
 pub type Ode1be = BackwardEuler;
 pub type Ode23 = BogackiShampine;
 pub type Ode45 = DormandPrince;
-
-mod ode78;
-mod ode89;
-
-pub use ode78::Ode78;
-pub use ode89::Ode89;
+pub type Ode78 = Verner8;
+pub type Ode89 = Verner9;
 
 use super::{
     interpolate::InterpolateSolution, Tensor, TensorArray, TensorRank0, TensorVec, Vector,
