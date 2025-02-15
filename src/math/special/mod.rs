@@ -57,3 +57,25 @@ pub fn langevin(x: f64) -> f64 {
 pub fn langevin_derivative(x: f64) -> f64 {
     1.0 / x.powi(2) - 1.0 / x.sinh().powi(2)
 }
+
+/// Returns the Lambert W function.
+///
+/// ```math
+/// we^w = x
+/// ```
+pub fn lambert_w(x: f64) -> f64 {
+    if x < -(-1.0_f64).exp() {
+        panic!("Need to implement other branch.")
+    }
+    let mut a;
+    let mut b;
+    let mut e = 1.0_f64;
+    let mut w = x;
+    while e.abs() >= crate::ABS_TOL {
+        a = w.exp();
+        b = a * w;
+        w -= (b - x) / (a + b);
+        e = x - w * w.exp();
+    }
+    w
+}
