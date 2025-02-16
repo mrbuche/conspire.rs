@@ -10,7 +10,7 @@ use super::NINE_FIFTHS;
 /// ```
 /// The first few terms of the Maclaurin series are used when $`|y|<3e^{-3}`$.
 /// ```math
-/// x \sim 3y + \frac{9}{5}\,y^3 + \mathrm{ord}(y^5)
+/// x \sim 3y + \frac{9}{5}y^3 + \mathrm{ord}(y^5)
 /// ```
 /// Two iterations of Newton's method are used to improve upon an initial guess given by [inverse_langevin_approximate()] otherwise.
 /// The resulting maximum relative error is below $`1e^{-12}`$.
