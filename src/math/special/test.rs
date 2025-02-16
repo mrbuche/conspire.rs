@@ -1,5 +1,15 @@
-use super::*;
+use super::{inverse_langevin, langevin};
 use crate::math::test::{assert_eq_within_tols, TestError};
+
+const LENGTH: usize = 10_000;
+
+mod langevin {
+    use super::*;
+    #[test]
+    fn zero() {
+        assert_eq!(langevin(0.0), 0.0)
+    }
+}
 
 mod inverse_langevin {
     use super::*;
@@ -15,12 +25,11 @@ mod inverse_langevin {
     }
     #[test]
     fn range() -> Result<(), TestError> {
-        let mut gamma = -1.0;
-        let length = 9999;
-        let d_gamma = 2.0 / ((length + 1) as f64);
-        (0..length).try_for_each(|_| {
-            gamma += d_gamma;
-            assert_eq_within_tols(&langevin(inverse_langevin(gamma)), &gamma)
+        let mut x = -1.0;
+        let dx = 2.0 / ((LENGTH + 1) as f64);
+        (0..LENGTH).try_for_each(|_| {
+            x += dx;
+            assert_eq_within_tols(&langevin(inverse_langevin(x)), &x)
         })
     }
     #[test]
