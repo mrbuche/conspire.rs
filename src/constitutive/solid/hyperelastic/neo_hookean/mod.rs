@@ -37,11 +37,7 @@ impl<'a> Solid<'a> for NeoHookean<'a> {
 }
 
 impl<'a> Elastic<'a> for NeoHookean<'a> {
-    /// Calculates and returns the Cauchy stress.
-    ///
-    /// ```math
-    /// \boldsymbol{\sigma}(\mathbf{F}) = \frac{\mu}{J}\,{\mathbf{B}^*}' + \frac{\kappa}{2}\left(J - \frac{1}{J}\right)\mathbf{1}
-    /// ```
+    #[doc = include_str!("cauchy_stress.md")]
     fn calculate_cauchy_stress(
         &self,
         deformation_gradient: &DeformationGradient,
@@ -62,11 +58,7 @@ impl<'a> Elastic<'a> for NeoHookean<'a> {
             ))
         }
     }
-    /// Calculates and returns the tangent stiffness associated with the Cauchy stress.
-    ///
-    /// ```math
-    /// \mathcal{T}_{ijkL}(\mathbf{F}) = \frac{\mu}{J^{5/3}}\left(\delta_{ik}F_{jL} + \delta_{jk}F_{iL} - \frac{2}{3}\,\delta_{ij}F_{kL} - \frac{5}{3} \, B_{ij}'F_{kL}^{-T} \right) + \frac{\kappa}{2} \left(J + \frac{1}{J}\right)\delta_{ij}F_{kL}^{-T}
-    /// ```
+    #[doc = include_str!("cauchy_tangent_stiffness.md")]
     fn calculate_cauchy_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
@@ -101,11 +93,7 @@ impl<'a> Elastic<'a> for NeoHookean<'a> {
 }
 
 impl<'a> Hyperelastic<'a> for NeoHookean<'a> {
-    /// Calculates and returns the Helmholtz free energy density.
-    ///
-    /// ```math
-    /// a(\mathbf{F}) = \frac{\mu}{2}\left[\mathrm{tr}(\mathbf{B}^*) - 3\right] + \frac{\kappa}{2}\left[\frac{1}{2}\left(J^2 - 1\right) - \ln J\right]
-    /// ```
+    #[doc = include_str!("helmholtz_free_energy_density.md")]
     fn calculate_helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
