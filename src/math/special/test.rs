@@ -1,7 +1,15 @@
-use super::*;
+use super::{inverse_langevin, langevin};
 use crate::math::test::{assert_eq_within_tols, TestError};
 
 const LENGTH: usize = 10_000;
+
+mod langevin {
+    use super::*;
+    #[test]
+    fn zero() {
+        assert_eq!(langevin(0.0), 0.0)
+    }
+}
 
 mod inverse_langevin {
     use super::*;
@@ -27,28 +35,5 @@ mod inverse_langevin {
     #[test]
     fn zero() {
         assert_eq!(inverse_langevin(0.0), 0.0)
-    }
-}
-
-mod lambert_w {
-    use super::*;
-    #[test]
-    fn one() {
-        assert_eq!(lambert_w(1.0_f64.exp()), 1.0)
-    }
-    #[test]
-    fn range() -> Result<(), TestError> {
-        let mut x = -(-1.0_f64).exp(); // test other branch later
-        let mut w = 0.0;
-        let dx = (6.0 - x) / (LENGTH as f64);
-        (0..LENGTH).try_for_each(|_| {
-            x += dx;
-            w = lambert_w(x);
-            assert_eq_within_tols(&(w * w.exp()), &x)
-        })
-    }
-    #[test]
-    fn zero() {
-        assert_eq!(lambert_w(0.0), 0.0)
     }
 }

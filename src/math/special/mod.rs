@@ -5,6 +5,9 @@ use super::NINE_FIFTHS;
 
 /// Returns the inverse Langevin function.
 ///
+/// ```math
+/// x = \mathcal{L}^{-1}(y)
+/// ```
 /// Improves [inverse_langevin_approximate()] using two iterations of Newton's method.
 pub fn inverse_langevin(y: f64) -> f64 {
     let y_abs = y.abs();
@@ -27,13 +30,12 @@ pub fn inverse_langevin(y: f64) -> f64 {
 
 /// Returns an approximation of the inverse Langevin function.[^cite]
 ///
-/// This approximation has a maximum relative error of 0.082%.
-///
 /// [^cite]: R. Jedynak, [Math. Mech. Solids **24**, 1992 (2019)](https://doi.org/10.1177/1081286518811395).
 ///
 /// ```math
 /// \mathcal{L}^{-1}(y) \approx \frac{2.14234 y^3 - 4.22785 y^2 + 3y}{(1 - y)(0.71716 y^3 - 0.41103 y^2 - 0.39165 y + 1)}
 /// ```
+/// This approximation has a maximum relative error of 0.082%.
 pub fn inverse_langevin_approximate(y: f64) -> f64 {
     (2.14234 * y.powi(3) - 4.22785 * y.powi(2) + 3.0 * y)
         / (1.0 - y)
@@ -46,7 +48,11 @@ pub fn inverse_langevin_approximate(y: f64) -> f64 {
 /// \mathcal{L}(x) = \coth(x) - x^{-1}
 /// ```
 pub fn langevin(x: f64) -> f64 {
-    1.0 / x.tanh() - 1.0 / x
+    if x == 0.0 {
+        0.0
+    } else {
+        1.0 / x.tanh() - 1.0 / x
+    }
 }
 
 /// Returns derivative of the Langevin function.
@@ -56,26 +62,4 @@ pub fn langevin(x: f64) -> f64 {
 /// ```
 pub fn langevin_derivative(x: f64) -> f64 {
     1.0 / x.powi(2) - 1.0 / x.sinh().powi(2)
-}
-
-/// Returns the Lambert W function.
-///
-/// ```math
-/// we^w = x
-/// ```
-pub fn lambert_w(x: f64) -> f64 {
-    if x < -(-1.0_f64).exp() {
-        panic!("Need to implement other branch.")
-    }
-    let mut a;
-    let mut b;
-    let mut e = 1.0_f64;
-    let mut w = x;
-    while e.abs() >= crate::ABS_TOL {
-        a = w.exp();
-        b = a * w;
-        w -= (b - x) / (a + b);
-        e = x - w * w.exp();
-    }
-    w
 }
