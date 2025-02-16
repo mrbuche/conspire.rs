@@ -4,26 +4,7 @@ mod test;
 use super::*;
 use crate::math::special::{inverse_langevin, langevin_derivative};
 
-/// The Arruda-Boyce hyperelastic constitutive model.[^cite]
-///
-/// [^cite]: E.M. Arruda and M.C. Boyce, [J. Mech. Phys. Solids **41**, 389 (1993)](https://doi.org/10.1016/0022-5096(93)90013-6).
-///
-/// **Parameters**
-/// - The bulk modulus $`\kappa`$.
-/// - The shear modulus $`\mu`$.
-/// - The number of links $`N_b`$.
-///
-/// **External variables**
-/// - The deformation gradient $`\mathbf{F}`$.
-///
-/// **Internal variables**
-/// - None.
-///
-/// **Notes**
-/// - The nondimensional end-to-end length per link of the chains is $`\gamma=\sqrt{\mathrm{tr}(\mathbf{B}^*)/3N_b}`$.
-/// - The nondimensional force is given by the inverse Langevin function as $`\eta=\mathcal{L}^{-1}(\gamma)`$.
-/// - The initial values are given by $`\gamma_0=\sqrt{1/3N_b}`$ and $`\eta_0=\mathcal{L}^{-1}(\gamma_0)`$.
-/// - The Arruda-Boyce model reduces to the [Neo-Hookean model](NeoHookean) when $`N_b\to\infty`$.
+#[doc = include_str!("model.md")]
 #[derive(Debug)]
 pub struct ArrudaBoyce<'a> {
     parameters: Parameters<'a>,
@@ -52,11 +33,7 @@ impl<'a> Solid<'a> for ArrudaBoyce<'a> {
 }
 
 impl<'a> Elastic<'a> for ArrudaBoyce<'a> {
-    /// Calculates and returns the Cauchy stress.
-    ///
-    /// ```math
-    /// \boldsymbol{\sigma}(\mathbf{F}) = \frac{\mu\gamma_0\eta}{J\gamma\eta_0}\,{\mathbf{B}^*}' + \frac{\kappa}{2}\left(J - \frac{1}{J}\right)\mathbf{1}
-    /// ```
+    #[doc = include_str!("cauchy_stress.md")]
     fn calculate_cauchy_stress(
         &self,
         deformation_gradient: &DeformationGradient,
@@ -96,11 +73,7 @@ impl<'a> Elastic<'a> for ArrudaBoyce<'a> {
             ))
         }
     }
-    /// Calculates and returns the tangent stiffness associated with the Cauchy stress.
-    ///
-    /// ```math
-    /// \mathcal{T}_{ijkL}(\mathbf{F}) = \frac{\mu\gamma_0\eta}{J^{5/3}\gamma\eta_0}\left(\delta_{ik}F_{jL} + \delta_{jk}F_{iL} - \frac{2}{3}\,\delta_{ij}F_{kL}- \frac{5}{3} \, B_{ij}'F_{kL}^{-T} \right) + \frac{\mu\gamma_0\eta}{3J^{7/3}N_b\gamma^2\eta_0}\left(\frac{1}{\eta\mathcal{L}'(\eta)} - \frac{1}{\gamma}\right)B_{ij}'B_{km}'F_{mL}^{-T} + \frac{\kappa}{2} \left(J + \frac{1}{J}\right)\delta_{ij}F_{kL}^{-T}
-    /// ```
+    #[doc = include_str!("cauchy_tangent_stiffness.md")]
     fn calculate_cauchy_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
@@ -170,11 +143,7 @@ impl<'a> Elastic<'a> for ArrudaBoyce<'a> {
 }
 
 impl<'a> Hyperelastic<'a> for ArrudaBoyce<'a> {
-    /// Calculates and returns the Helmholtz free energy density.
-    ///
-    /// ```math
-    /// a(\mathbf{F}) = \frac{3\mu N_b\gamma_0}{\eta_0}\left[\gamma\eta - \gamma_0\eta_0 - \ln\left(\frac{\eta_0\sinh\eta}{\eta\sinh\eta_0}\right) \right] + \frac{\kappa}{2}\left[\frac{1}{2}\left(J^2 - 1\right) - \ln J\right]
-    /// ```
+    #[doc = include_str!("helmholtz_free_energy_density.md")]
     fn calculate_helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
