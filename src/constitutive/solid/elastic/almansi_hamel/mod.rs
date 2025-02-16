@@ -3,20 +3,7 @@ mod test;
 
 use super::*;
 
-/// The Almansi-Hamel elastic constitutive model.
-///
-/// **Parameters**
-/// - The bulk modulus $`\kappa`$.
-/// - The shear modulus $`\mu`$.
-///
-/// **External variables**
-/// - The deformation gradient $`\mathbf{F}`$.
-///
-/// **Internal variables**
-/// - None.
-///
-/// **Notes**
-/// - The Almansi-Hamel strain measure is given by $`\mathbf{e}=\tfrac{1}{2}(\mathbf{1}-\mathbf{B}^{-1})`$.
+#[doc = include_str!("model.md")]
 #[derive(Debug)]
 pub struct AlmansiHamel<'a> {
     parameters: Parameters<'a>,
@@ -38,11 +25,7 @@ impl<'a> Solid<'a> for AlmansiHamel<'a> {
 }
 
 impl<'a> Elastic<'a> for AlmansiHamel<'a> {
-    /// Calculates and returns the Cauchy stress.
-    ///
-    /// ```math
-    /// \boldsymbol{\sigma}(\mathbf{F}) = \frac{2\mu}{J}\,\mathbf{e}' + \frac{\kappa}{J}\,\mathrm{tr}(\mathbf{e})\mathbf{1}
-    /// ```
+    #[doc = include_str!("cauchy_stress.md")]
     fn calculate_cauchy_stress(
         &self,
         deformation_gradient: &DeformationGradient,
@@ -66,11 +49,7 @@ impl<'a> Elastic<'a> for AlmansiHamel<'a> {
             ))
         }
     }
-    /// Calculates and returns the tangent stiffness associated with the Cauchy stress.
-    ///
-    /// ```math
-    /// \mathcal{T}_{ijkL}(\mathbf{F}) = \frac{\mu}{J}\left[B_{jk}^{-1}F_{iL}^{-T} + B_{ik}^{-1}F_{jL}^{-T} - \frac{2}{3}\,\delta_{ij}B_{km}^{-1}F_{mL}^{-T} - 2e_{ij}'F_{kL}^{-T}\right] + \frac{\kappa}{J}\left[\delta_{ij}B_{km}^{-1}F_{mL}^{-T} - \mathrm{tr}(\mathbf{e})\delta_{ij}F_{kL}^{-T}\right]
-    /// ```
+    #[doc = include_str!("cauchy_tangent_stiffness.md")]
     fn calculate_cauchy_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
