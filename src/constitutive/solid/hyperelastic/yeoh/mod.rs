@@ -3,9 +3,9 @@ mod test;
 
 use super::*;
 
-/// The Yeoh hyperelastic constitutive model.[^cite]
+/// The Yeoh hyperelastic constitutive model.[^yeoh1993]
 ///
-/// [^cite]: O.H. Yeoh, [Rubber Chem. Technol. **66**, 754 (1993)](https://doi.org/10.5254/1.3538343).
+/// [^yeoh1993]: O.H. Yeoh, [Rubber Chem. Technol. **66**, 754 (1993)](https://doi.org/10.5254/1.3538343).
 ///
 /// **Parameters**
 /// - The bulk modulus $`\kappa`$.

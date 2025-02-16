@@ -3,10 +3,10 @@ mod test;
 
 use super::*;
 
-/// The Mooney-Rivlin hyperelastic constitutive model.[^cite1]<sup>,</sup>[^cite2]
+/// The Mooney-Rivlin hyperelastic constitutive model.[^mooney1940]<sup>,</sup>[^rivlin1948]
 ///
-/// [^cite1]: M. Mooney, [J. Appl. Phys. **11**, 582 (1940)](https://doi.org/10.1063/1.1712836).
-/// [^cite2]: R.S. Rivlin, [Philos. Trans. R. Soc. London, Ser. A **241**, 379 (1948)](https://doi.org/10.1098/rsta.1948.0024).
+/// [^mooney1940]: M. Mooney, [J. Appl. Phys. **11**, 582 (1940)](https://doi.org/10.1063/1.1712836).
+/// [^rivlin1948]: R.S. Rivlin, [Philos. Trans. R. Soc. London, Ser. A **241**, 379 (1948)](https://doi.org/10.1098/rsta.1948.0024).
 ///
 /// **Parameters**
 /// - The bulk modulus $`\kappa`$.
