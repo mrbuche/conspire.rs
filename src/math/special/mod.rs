@@ -8,12 +8,17 @@ use super::NINE_FIFTHS;
 /// ```math
 /// x = \mathcal{L}^{-1}(y)
 /// ```
-/// Improves [inverse_langevin_approximate()] using two iterations of Newton's method.
+/// The first few terms of the Maclaurin series are used when $`|y|<3e^{-3}`$.
+/// ```math
+/// x \sim 3y + \frac{9}{5}\,y^3 + \mathrm{ord}(y^5)
+/// ```
+/// Two iterations of Newton's method are used to improve upon an initial guess given by [inverse_langevin_approximate()] otherwise.
+/// The resulting maximum relative error is below $`1e^{-12}`$.
 pub fn inverse_langevin(y: f64) -> f64 {
     let y_abs = y.abs();
     if y_abs >= 1.0 {
         panic!()
-    } else if y_abs <= 1e-3 {
+    } else if y_abs <= 3e-3 {
         3.0 * y + NINE_FIFTHS * y.powi(3)
     } else {
         let mut x = inverse_langevin_approximate(y_abs);
@@ -35,7 +40,7 @@ pub fn inverse_langevin(y: f64) -> f64 {
 /// ```math
 /// \mathcal{L}^{-1}(y) \approx \frac{2.14234 y^3 - 4.22785 y^2 + 3y}{(1 - y)(0.71716 y^3 - 0.41103 y^2 - 0.39165 y + 1)}
 /// ```
-/// This approximation has a maximum relative error of 0.082%.
+/// This approximation has a maximum relative error of $`8.2e^{-4}`$.
 pub fn inverse_langevin_approximate(y: f64) -> f64 {
     (2.14234 * y.powi(3) - 4.22785 * y.powi(2) + 3.0 * y)
         / (1.0 - y)
