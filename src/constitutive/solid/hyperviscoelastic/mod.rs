@@ -12,7 +12,7 @@
 //! ```math
 //! \mathbf{P} = \frac{\partial a}{\partial\mathbf{F}} + \frac{\partial\phi}{\partial\dot{\mathbf{F}}}
 //! ```
-//! Consequently, the rate tangent stiffness associated with the first Piola-Kirchoff stress is symmetric for hyperviscoelastic models.
+//! Consequently, the rate tangent stiffness associated with the first Piola-Kirchhoff stress is symmetric for hyperviscoelastic models.
 //!
 //! ```math
 //! \mathcal{U}_{iJkL} = \mathcal{U}_{kLiJ}
@@ -21,9 +21,9 @@
 #[cfg(test)]
 pub mod test;
 
-mod saint_venant_kirchoff;
+mod saint_venant_kirchhoff;
 
-pub use saint_venant_kirchoff::SaintVenantKirchoff;
+pub use saint_venant_kirchhoff::SaintVenantKirchhoff;
 
 use super::{
     super::fluid::viscous::Viscous, elastic_hyperviscous::ElasticHyperviscous,

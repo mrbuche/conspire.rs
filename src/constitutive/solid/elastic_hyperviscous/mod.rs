@@ -12,7 +12,7 @@
 //! ```math
 //! \mathbf{P} = \mathbf{P}^e + \frac{\partial\phi}{\partial\dot{\mathbf{F}}}
 //! ```
-//! Consequently, the rate tangent stiffness associated with the first Piola-Kirchoff stress is symmetric for elastic-hyperviscous models.
+//! Consequently, the rate tangent stiffness associated with the first Piola-Kirchhoff stress is symmetric for elastic-hyperviscous models.
 //!
 //! ```math
 //! \mathcal{U}_{iJkL} = \mathcal{U}_{kLiJ}
@@ -45,7 +45,7 @@ where
         deformation_gradient_rate: &DeformationGradientRate,
     ) -> Result<Scalar, ConstitutiveError> {
         Ok(self
-            .calculate_first_piola_kirchoff_stress(deformation_gradient, &ZERO_10)?
+            .calculate_first_piola_kirchhoff_stress(deformation_gradient, &ZERO_10)?
             .full_contraction(deformation_gradient_rate)
             + self
                 .calculate_viscous_dissipation(deformation_gradient, deformation_gradient_rate)?)

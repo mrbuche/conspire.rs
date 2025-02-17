@@ -41,7 +41,7 @@ macro_rules! test_linear_element_inner {
                         MOONEYRIVLINPARAMETERS, NEOHOOKEANPARAMETERS,
                         SAINTVENANTKIRCHOFFPARAMETERS, YEOHPARAMETERS,
                     },
-                    ArrudaBoyce, Fung, Gent, MooneyRivlin, NeoHookean, SaintVenantKirchoff, Yeoh,
+                    ArrudaBoyce, Fung, Gent, MooneyRivlin, NeoHookean, SaintVenantKirchhoff, Yeoh,
                 };
                 mod arruda_boyce {
                     use super::*;
@@ -75,11 +75,11 @@ macro_rules! test_linear_element_inner {
                         NEOHOOKEANPARAMETERS
                     );
                 }
-                mod saint_venant_kirchoff {
+                mod saint_venant_kirchhoff {
                     use super::*;
                     test_linear_element_with_constitutive_model!(
                         $element,
-                        SaintVenantKirchoff,
+                        SaintVenantKirchhoff,
                         SAINTVENANTKIRCHOFFPARAMETERS
                     );
                 }
@@ -105,13 +105,13 @@ macro_rules! test_linear_element_inner {
             mod hyperviscoelastic {
                 use super::*;
                 use crate::constitutive::solid::hyperviscoelastic::{
-                    test::SAINTVENANTKIRCHOFFPARAMETERS, SaintVenantKirchoff,
+                    test::SAINTVENANTKIRCHOFFPARAMETERS, SaintVenantKirchhoff,
                 };
-                mod saint_venant_kirchoff {
+                mod saint_venant_kirchhoff {
                     use super::*;
                     test_linear_element_with_constitutive_model!(
                         $element,
-                        SaintVenantKirchoff,
+                        SaintVenantKirchhoff,
                         SAINTVENANTKIRCHOFFPARAMETERS
                     );
                 }
@@ -147,7 +147,7 @@ macro_rules! test_linear_element_with_constitutive_model_size {
         mod hyperelastic {
             use super::*;
             use crate::constitutive::solid::hyperelastic::{
-                ArrudaBoyce, Fung, Gent, MooneyRivlin, NeoHookean, SaintVenantKirchoff, Yeoh,
+                ArrudaBoyce, Fung, Gent, MooneyRivlin, NeoHookean, SaintVenantKirchhoff, Yeoh,
             };
             mod arruda_boyce {
                 use super::*;
@@ -169,11 +169,11 @@ macro_rules! test_linear_element_with_constitutive_model_size {
                 use super::*;
                 test_linear_element_with_constitutive_model_size_inner!($element, NeoHookean);
             }
-            mod saint_venant_kirchoff {
+            mod saint_venant_kirchhoff {
                 use super::*;
                 test_linear_element_with_constitutive_model_size_inner!(
                     $element,
-                    SaintVenantKirchoff
+                    SaintVenantKirchhoff
                 );
             }
             mod yeoh {
@@ -191,12 +191,12 @@ macro_rules! test_linear_element_with_constitutive_model_size {
         }
         mod hyperviscoelastic {
             use super::*;
-            use crate::constitutive::solid::hyperviscoelastic::SaintVenantKirchoff;
-            mod saint_venant_kirchoff {
+            use crate::constitutive::solid::hyperviscoelastic::SaintVenantKirchhoff;
+            mod saint_venant_kirchhoff {
                 use super::*;
                 test_linear_element_with_constitutive_model_size_inner!(
                     $element,
-                    SaintVenantKirchoff
+                    SaintVenantKirchhoff
                 );
             }
         }

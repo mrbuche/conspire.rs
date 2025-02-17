@@ -3,7 +3,7 @@ mod test;
 
 use super::*;
 
-/// The Saint Venant-Kirchoff hyperviscoelastic constitutive model.
+/// The Saint Venant-Kirchhoff hyperviscoelastic constitutive model.
 ///
 /// **Parameters**
 /// - The bulk modulus $`\kappa`$.
@@ -21,17 +21,17 @@ use super::*;
 /// **Notes**
 /// - The Green-Saint Venant strain measure is given by $`\mathbf{E}=\tfrac{1}{2}(\mathbf{C}-\mathbf{1})`$.
 #[derive(Debug)]
-pub struct SaintVenantKirchoff<'a> {
+pub struct SaintVenantKirchhoff<'a> {
     parameters: Parameters<'a>,
 }
 
-impl<'a> Constitutive<'a> for SaintVenantKirchoff<'a> {
+impl<'a> Constitutive<'a> for SaintVenantKirchhoff<'a> {
     fn new(parameters: Parameters<'a>) -> Self {
         Self { parameters }
     }
 }
 
-impl<'a> Solid<'a> for SaintVenantKirchoff<'a> {
+impl<'a> Solid<'a> for SaintVenantKirchhoff<'a> {
     fn get_bulk_modulus(&self) -> &Scalar {
         &self.parameters[0]
     }
@@ -40,7 +40,7 @@ impl<'a> Solid<'a> for SaintVenantKirchoff<'a> {
     }
 }
 
-impl<'a> Viscous<'a> for SaintVenantKirchoff<'a> {
+impl<'a> Viscous<'a> for SaintVenantKirchhoff<'a> {
     fn get_bulk_viscosity(&self) -> &Scalar {
         &self.parameters[2]
     }
@@ -49,17 +49,17 @@ impl<'a> Viscous<'a> for SaintVenantKirchoff<'a> {
     }
 }
 
-impl<'a> Viscoelastic<'a> for SaintVenantKirchoff<'a> {
-    /// Calculates and returns the second Piola-Kirchoff stress.
+impl<'a> Viscoelastic<'a> for SaintVenantKirchhoff<'a> {
+    /// Calculates and returns the second Piola-Kirchhoff stress.
     ///
     /// ```math
     /// \mathbf{S}(\mathbf{F},\dot\mathbf{F}) = 2\mu\mathbf{E}' + \kappa\,\mathrm{tr}(\mathbf{E})\mathbf{1} + 2\eta\dot{\mathbf{E}}' + \zeta\,\mathrm{tr}(\dot{\mathbf{E}})\mathbf{1}
     /// ```
-    fn calculate_second_piola_kirchoff_stress(
+    fn calculate_second_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate: &DeformationGradientRate,
-    ) -> Result<SecondPiolaKirchoffStress, ConstitutiveError> {
+    ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
         let jacobian = deformation_gradient.determinant();
         if jacobian > 0.0 {
             let (deviatoric_strain, strain_trace) = ((self
@@ -83,27 +83,27 @@ impl<'a> Viscoelastic<'a> for SaintVenantKirchoff<'a> {
             ))
         }
     }
-    /// Calculates and returns the rate tangent stiffness associated with the second Piola-Kirchoff stress.
+    /// Calculates and returns the rate tangent stiffness associated with the second Piola-Kirchhoff stress.
     ///
     /// ```math
     /// \mathcal{W}_{IJkL}(\mathbf{F}) = \eta\,\delta_{JL}F_{kI} + \eta\,\delta_{IL}F_{kJ} + \left(\zeta - \frac{2}{3}\,\eta\right)\delta_{IJ}F_{kL}
     /// ```
-    fn calculate_second_piola_kirchoff_rate_tangent_stiffness(
+    fn calculate_second_piola_kirchhoff_rate_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
         _: &DeformationGradientRate,
-    ) -> Result<SecondPiolaKirchoffRateTangentStiffness, ConstitutiveError> {
+    ) -> Result<SecondPiolaKirchhoffRateTangentStiffness, ConstitutiveError> {
         let jacobian = deformation_gradient.determinant();
         if jacobian > 0.0 {
             let scaled_deformation_gradient_transpose =
                 deformation_gradient.transpose() * self.get_shear_viscosity();
-            Ok(SecondPiolaKirchoffRateTangentStiffness::dyad_ik_jl(
+            Ok(SecondPiolaKirchhoffRateTangentStiffness::dyad_ik_jl(
                 &scaled_deformation_gradient_transpose,
                 &IDENTITY_00,
-            ) + SecondPiolaKirchoffRateTangentStiffness::dyad_il_jk(
+            ) + SecondPiolaKirchhoffRateTangentStiffness::dyad_il_jk(
                 &IDENTITY_00,
                 &scaled_deformation_gradient_transpose,
-            ) + SecondPiolaKirchoffRateTangentStiffness::dyad_ij_kl(
+            ) + SecondPiolaKirchhoffRateTangentStiffness::dyad_ij_kl(
                 &(IDENTITY_00
                     * (self.get_bulk_viscosity() - TWO_THIRDS * self.get_shear_viscosity())),
                 deformation_gradient,
@@ -118,7 +118,7 @@ impl<'a> Viscoelastic<'a> for SaintVenantKirchoff<'a> {
     }
 }
 
-impl<'a> ElasticHyperviscous<'a> for SaintVenantKirchoff<'a> {
+impl<'a> ElasticHyperviscous<'a> for SaintVenantKirchhoff<'a> {
     /// Calculates and returns the viscous dissipation.
     ///
     /// ```math
@@ -147,7 +147,7 @@ impl<'a> ElasticHyperviscous<'a> for SaintVenantKirchoff<'a> {
     }
 }
 
-impl<'a> Hyperviscoelastic<'a> for SaintVenantKirchoff<'a> {
+impl<'a> Hyperviscoelastic<'a> for SaintVenantKirchhoff<'a> {
     /// Calculates and returns the Helmholtz free energy density.
     ///
     /// ```math

@@ -7,7 +7,7 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models {
                     elastic::Elastic,
                     hyperelastic::{
                         test::*, ArrudaBoyce, Fung, Gent, Hyperelastic, MooneyRivlin, NeoHookean,
-                        SaintVenantKirchoff, Yeoh,
+                        SaintVenantKirchhoff, Yeoh,
                     },
                     Solid,
                 },
@@ -15,8 +15,8 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models {
             },
             math::{Rank2, Tensor, TensorArray},
             mechanics::{
-                CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchoffTangentStiffness,
-                SecondPiolaKirchoffTangentStiffness,
+                CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffTangentStiffness,
+                SecondPiolaKirchhoffTangentStiffness,
             },
         };
         use_elastic_macros!();
@@ -46,7 +46,7 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models {
             test_constructed_solid_hyperelastic_constitutive_model!($hybrid_type::construct(
                 NeoHookean::new(NEOHOOKEANPARAMETERS),
                 $hybrid_type::construct(
-                    SaintVenantKirchoff::new(SAINTVENANTKIRCHOFFPARAMETERS),
+                    SaintVenantKirchhoff::new(SAINTVENANTKIRCHOFFPARAMETERS),
                     Yeoh::new(YEOHPARAMETERS)
                 )
             ));
@@ -61,7 +61,7 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models {
                 $hybrid_type::construct(
                     NeoHookean::new(NEOHOOKEANPARAMETERS),
                     $hybrid_type::construct(
-                        SaintVenantKirchoff::new(SAINTVENANTKIRCHOFFPARAMETERS),
+                        SaintVenantKirchhoff::new(SAINTVENANTKIRCHOFFPARAMETERS),
                         Yeoh::new(YEOHPARAMETERS)
                     )
                 )
@@ -118,7 +118,7 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models_no_tangents {
             }
             #[test]
             #[should_panic]
-            fn calculate_first_piola_kirchoff_tangent_stiffness() {
+            fn calculate_first_piola_kirchhoff_tangent_stiffness() {
                 $hybrid_type::construct(
                     ArrudaBoyce::new(ARRUDABOYCEPARAMETERS),
                     Fung::new(FUNGPARAMETERS),
@@ -128,7 +128,7 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models_no_tangents {
             }
             #[test]
             #[should_panic]
-            fn calculate_second_piola_kirchoff_tangent_stiffness() {
+            fn calculate_second_piola_kirchhoff_tangent_stiffness() {
                 $hybrid_type::construct(
                     ArrudaBoyce::new(ARRUDABOYCEPARAMETERS),
                     Fung::new(FUNGPARAMETERS),

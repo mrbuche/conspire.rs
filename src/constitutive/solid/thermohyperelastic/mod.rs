@@ -3,9 +3,9 @@
 #[cfg(test)]
 pub mod test;
 
-mod saint_venant_kirchoff;
+mod saint_venant_kirchhoff;
 
-pub use saint_venant_kirchoff::SaintVenantKirchoff;
+pub use saint_venant_kirchhoff::SaintVenantKirchhoff;
 
 use super::{thermoelastic::Thermoelastic, *};
 
