@@ -19,10 +19,10 @@ use crate::{
     mechanics::{
         CauchyRateTangentStiffness, CauchyStress, CauchyStresses, CauchyTangentStiffness,
         DeformationGradient, DeformationGradientRate, DeformationGradients,
-        FirstPiolaKirchoffRateTangentStiffness, FirstPiolaKirchoffStress,
-        FirstPiolaKirchoffTangentStiffness, LeftCauchyGreenDeformation,
-        RightCauchyGreenDeformation, Scalar, SecondPiolaKirchoffRateTangentStiffness,
-        SecondPiolaKirchoffStress, SecondPiolaKirchoffTangentStiffness,
+        FirstPiolaKirchhoffRateTangentStiffness, FirstPiolaKirchhoffStress,
+        FirstPiolaKirchhoffTangentStiffness, LeftCauchyGreenDeformation,
+        RightCauchyGreenDeformation, Scalar, SecondPiolaKirchhoffRateTangentStiffness,
+        SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,
     },
 };
 

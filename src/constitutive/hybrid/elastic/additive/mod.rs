@@ -8,9 +8,9 @@ use crate::{
         Constitutive, ConstitutiveError, Parameters,
     },
     mechanics::{
-        CauchyStress, CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchoffStress,
-        FirstPiolaKirchoffTangentStiffness, Scalar, SecondPiolaKirchoffStress,
-        SecondPiolaKirchoffTangentStiffness,
+        CauchyStress, CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffStress,
+        FirstPiolaKirchhoffTangentStiffness, Scalar, SecondPiolaKirchhoffStress,
+        SecondPiolaKirchhoffTangentStiffness,
     },
 };
 
@@ -65,68 +65,68 @@ impl<'a, C1: Elastic<'a>, C2: Elastic<'a>> Elastic<'a> for Additive<C1, C2> {
                 .get_constitutive_model_2()
                 .calculate_cauchy_tangent_stiffness(deformation_gradient)?)
     }
-    /// Calculates and returns the first Piola-Kirchoff stress.
+    /// Calculates and returns the first Piola-Kirchhoff stress.
     ///
     /// ```math
     /// \mathbf{P}(\mathbf{F}) = \mathbf{P}_1(\mathbf{F}) + \mathbf{P}_2(\mathbf{F})
     /// ```
-    fn calculate_first_piola_kirchoff_stress(
+    fn calculate_first_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
-    ) -> Result<FirstPiolaKirchoffStress, ConstitutiveError> {
+    ) -> Result<FirstPiolaKirchhoffStress, ConstitutiveError> {
         Ok(self
             .get_constitutive_model_1()
-            .calculate_first_piola_kirchoff_stress(deformation_gradient)?
+            .calculate_first_piola_kirchhoff_stress(deformation_gradient)?
             + self
                 .get_constitutive_model_2()
-                .calculate_first_piola_kirchoff_stress(deformation_gradient)?)
+                .calculate_first_piola_kirchhoff_stress(deformation_gradient)?)
     }
-    /// Calculates and returns the tangent stiffness associated with the first Piola-Kirchoff stress.
+    /// Calculates and returns the tangent stiffness associated with the first Piola-Kirchhoff stress.
     ///
     /// ```math
     /// \mathcal{C}(\mathbf{F}) = \mathcal{C}_1(\mathbf{F}) + \mathcal{C}_2(\mathbf{F})
     /// ```
-    fn calculate_first_piola_kirchoff_tangent_stiffness(
+    fn calculate_first_piola_kirchhoff_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
-    ) -> Result<FirstPiolaKirchoffTangentStiffness, ConstitutiveError> {
+    ) -> Result<FirstPiolaKirchhoffTangentStiffness, ConstitutiveError> {
         Ok(self
             .get_constitutive_model_1()
-            .calculate_first_piola_kirchoff_tangent_stiffness(deformation_gradient)?
+            .calculate_first_piola_kirchhoff_tangent_stiffness(deformation_gradient)?
             + self
                 .get_constitutive_model_2()
-                .calculate_first_piola_kirchoff_tangent_stiffness(deformation_gradient)?)
+                .calculate_first_piola_kirchhoff_tangent_stiffness(deformation_gradient)?)
     }
-    /// Calculates and returns the second Piola-Kirchoff stress.
+    /// Calculates and returns the second Piola-Kirchhoff stress.
     ///
     /// ```math
     /// \mathbf{S}(\mathbf{F}) = \mathbf{S}_1(\mathbf{F}) + \mathbf{S}_2(\mathbf{F})
     /// ```
-    fn calculate_second_piola_kirchoff_stress(
+    fn calculate_second_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
-    ) -> Result<SecondPiolaKirchoffStress, ConstitutiveError> {
+    ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
         Ok(self
             .get_constitutive_model_1()
-            .calculate_second_piola_kirchoff_stress(deformation_gradient)?
+            .calculate_second_piola_kirchhoff_stress(deformation_gradient)?
             + self
                 .get_constitutive_model_2()
-                .calculate_second_piola_kirchoff_stress(deformation_gradient)?)
+                .calculate_second_piola_kirchhoff_stress(deformation_gradient)?)
     }
-    /// Calculates and returns the tangent stiffness associated with the second Piola-Kirchoff stress.
+    /// Calculates and returns the tangent stiffness associated with the second Piola-Kirchhoff stress.
     ///
     /// ```math
     /// \mathcal{G}(\mathbf{F}) = \mathcal{G}_1(\mathbf{F}) + \mathcal{G}_2(\mathbf{F})
     /// ```
-    fn calculate_second_piola_kirchoff_tangent_stiffness(
+    fn calculate_second_piola_kirchhoff_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
-    ) -> Result<SecondPiolaKirchoffTangentStiffness, ConstitutiveError> {
+    ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
         Ok(self
             .get_constitutive_model_1()
-            .calculate_second_piola_kirchoff_tangent_stiffness(deformation_gradient)?
+            .calculate_second_piola_kirchhoff_tangent_stiffness(deformation_gradient)?
             + self
                 .get_constitutive_model_2()
-                .calculate_second_piola_kirchoff_tangent_stiffness(deformation_gradient)?)
+                .calculate_second_piola_kirchhoff_tangent_stiffness(deformation_gradient)?)
     }
 }

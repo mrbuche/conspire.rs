@@ -61,16 +61,16 @@ pub trait ElasticLinearElement<
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
     ) -> Result<NodalForces<N>, ConstitutiveError> {
-        let first_piola_kirchoff_stress = self
+        let first_piola_kirchhoff_stress = self
             .get_constitutive_model()
-            .calculate_first_piola_kirchoff_stress(
+            .calculate_first_piola_kirchhoff_stress(
                 &self.calculate_deformation_gradient(nodal_coordinates),
             )?;
         Ok(self
             .get_gradient_vectors()
             .iter()
             .map(|gradient_vector| {
-                (&first_piola_kirchoff_stress * gradient_vector) * self.get_integration_weight()
+                (&first_piola_kirchhoff_stress * gradient_vector) * self.get_integration_weight()
             })
             .collect())
     }
@@ -78,9 +78,9 @@ pub trait ElasticLinearElement<
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
     ) -> Result<NodalStiffnesses<N>, ConstitutiveError> {
-        let first_piola_kirchoff_tangent_stiffness = self
+        let first_piola_kirchhoff_tangent_stiffness = self
             .get_constitutive_model()
-            .calculate_first_piola_kirchoff_tangent_stiffness(
+            .calculate_first_piola_kirchhoff_tangent_stiffness(
                 &self.calculate_deformation_gradient(nodal_coordinates),
             )?;
         let gradient_vectors = self.get_gradient_vectors();
@@ -90,7 +90,7 @@ pub trait ElasticLinearElement<
                 gradient_vectors
                     .iter()
                     .map(|gradient_vector_b| {
-                        first_piola_kirchoff_tangent_stiffness
+                        first_piola_kirchhoff_tangent_stiffness
                             .contract_second_fourth_indices_with_first_indices_of(
                                 gradient_vector_a,
                                 gradient_vector_b,
@@ -143,9 +143,9 @@ pub trait ViscoelasticLinearElement<
         nodal_coordinates: &NodalCoordinates<N>,
         nodal_velocities: &NodalVelocities<N>,
     ) -> Result<NodalForces<N>, ConstitutiveError> {
-        let first_piola_kirchoff_stress = self
+        let first_piola_kirchhoff_stress = self
             .get_constitutive_model()
-            .calculate_first_piola_kirchoff_stress(
+            .calculate_first_piola_kirchhoff_stress(
                 &self.calculate_deformation_gradient(nodal_coordinates),
                 &self.calculate_deformation_gradient_rate(nodal_coordinates, nodal_velocities),
             )?;
@@ -153,7 +153,7 @@ pub trait ViscoelasticLinearElement<
             .get_gradient_vectors()
             .iter()
             .map(|gradient_vector| {
-                (&first_piola_kirchoff_stress * gradient_vector) * self.get_integration_weight()
+                (&first_piola_kirchhoff_stress * gradient_vector) * self.get_integration_weight()
             })
             .collect())
     }
@@ -162,9 +162,9 @@ pub trait ViscoelasticLinearElement<
         nodal_coordinates: &NodalCoordinates<N>,
         nodal_velocities: &NodalVelocities<N>,
     ) -> Result<NodalStiffnesses<N>, ConstitutiveError> {
-        let first_piola_kirchoff_tangent_stiffness = self
+        let first_piola_kirchhoff_tangent_stiffness = self
             .get_constitutive_model()
-            .calculate_first_piola_kirchoff_rate_tangent_stiffness(
+            .calculate_first_piola_kirchhoff_rate_tangent_stiffness(
                 &self.calculate_deformation_gradient(nodal_coordinates),
                 &self.calculate_deformation_gradient_rate(nodal_coordinates, nodal_velocities),
             )?;
@@ -175,7 +175,7 @@ pub trait ViscoelasticLinearElement<
                 gradient_vectors
                     .iter()
                     .map(|gradient_vector_b| {
-                        first_piola_kirchoff_tangent_stiffness
+                        first_piola_kirchhoff_tangent_stiffness
                             .contract_second_fourth_indices_with_first_indices_of(
                                 gradient_vector_a,
                                 gradient_vector_b,

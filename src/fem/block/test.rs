@@ -44,7 +44,7 @@ macro_rules! test_finite_element_block {
                         MOONEYRIVLINPARAMETERS, NEOHOOKEANPARAMETERS,
                         SAINTVENANTKIRCHOFFPARAMETERS, YEOHPARAMETERS,
                     },
-                    ArrudaBoyce, Fung, Gent, MooneyRivlin, NeoHookean, SaintVenantKirchoff, Yeoh,
+                    ArrudaBoyce, Fung, Gent, MooneyRivlin, NeoHookean, SaintVenantKirchhoff, Yeoh,
                 };
                 mod arruda_boyce {
                     use super::*;
@@ -91,12 +91,12 @@ macro_rules! test_finite_element_block {
                         NEOHOOKEANPARAMETERS
                     );
                 }
-                mod saint_venant_kirchoff {
+                mod saint_venant_kirchhoff {
                     use super::*;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
                         ElasticBlock,
                         $element,
-                        SaintVenantKirchoff,
+                        SaintVenantKirchhoff,
                         SAINTVENANTKIRCHOFFPARAMETERS
                     );
                 }
@@ -128,14 +128,14 @@ macro_rules! test_finite_element_block {
             mod hyperviscoelastic {
                 use super::*;
                 use crate::constitutive::solid::hyperviscoelastic::{
-                    test::SAINTVENANTKIRCHOFFPARAMETERS, SaintVenantKirchoff,
+                    test::SAINTVENANTKIRCHOFFPARAMETERS, SaintVenantKirchhoff,
                 };
-                mod saint_venant_kirchoff {
+                mod saint_venant_kirchhoff {
                     use super::*;
                     test_finite_element_block_with_hyperviscoelastic_constitutive_model!(
                         ViscoelasticBlock,
                         $element,
-                        SaintVenantKirchoff,
+                        SaintVenantKirchhoff,
                         SAINTVENANTKIRCHOFFPARAMETERS
                     );
                 }

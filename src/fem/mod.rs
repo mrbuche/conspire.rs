@@ -39,8 +39,8 @@ use crate::{
     },
     mechanics::{
         CurrentCoordinates, DeformationGradient, DeformationGradientRate, DeformationGradientRates,
-        DeformationGradients, DeformationGradientss, FirstPiolaKirchoffRateTangentStiffnesses,
-        FirstPiolaKirchoffStresses, FirstPiolaKirchoffTangentStiffnesses, Forces,
+        DeformationGradients, DeformationGradientss, FirstPiolaKirchhoffRateTangentStiffnesses,
+        FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses, Forces,
         ReferenceCoordinates, Scalar, Scalars, Stiffnesses, Vectors, Vectors2D,
     },
 };

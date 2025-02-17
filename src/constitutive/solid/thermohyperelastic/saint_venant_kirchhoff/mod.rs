@@ -3,7 +3,7 @@ mod test;
 
 use super::*;
 
-/// The Saint Venant-Kirchoff thermohyperelastic constitutive model.
+/// The Saint Venant-Kirchhoff thermohyperelastic constitutive model.
 ///
 /// **Parameters**
 /// - The bulk modulus $`\kappa`$.
@@ -21,17 +21,17 @@ use super::*;
 /// **Notes**
 /// - The Green-Saint Venant strain measure is given by $`\mathbf{E}=\tfrac{1}{2}(\mathbf{C}-\mathbf{1})`$.
 #[derive(Debug)]
-pub struct SaintVenantKirchoff<'a> {
+pub struct SaintVenantKirchhoff<'a> {
     parameters: Parameters<'a>,
 }
 
-impl<'a> Constitutive<'a> for SaintVenantKirchoff<'a> {
+impl<'a> Constitutive<'a> for SaintVenantKirchhoff<'a> {
     fn new(parameters: Parameters<'a>) -> Self {
         Self { parameters }
     }
 }
 
-impl<'a> Solid<'a> for SaintVenantKirchoff<'a> {
+impl<'a> Solid<'a> for SaintVenantKirchhoff<'a> {
     fn get_bulk_modulus(&self) -> &Scalar {
         &self.parameters[0]
     }
@@ -40,17 +40,17 @@ impl<'a> Solid<'a> for SaintVenantKirchoff<'a> {
     }
 }
 
-impl<'a> Thermoelastic<'a> for SaintVenantKirchoff<'a> {
-    /// Calculates and returns the second Piola-Kirchoff stress.
+impl<'a> Thermoelastic<'a> for SaintVenantKirchhoff<'a> {
+    /// Calculates and returns the second Piola-Kirchhoff stress.
     ///
     /// ```math
     /// \mathbf{S}(\mathbf{F}, T) = 2\mu\mathbf{E}' + \kappa\,\mathrm{tr}(\mathbf{E})\mathbf{1} - 3\alpha\kappa(T - T_\mathrm{ref})\mathbf{1}
     /// ```
-    fn calculate_second_piola_kirchoff_stress(
+    fn calculate_second_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
         temperature: &Scalar,
-    ) -> Result<SecondPiolaKirchoffStress, ConstitutiveError> {
+    ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
         let jacobian = deformation_gradient.determinant();
         if jacobian > 0.0 {
             let (deviatoric_strain, strain_trace) = ((self
@@ -73,27 +73,27 @@ impl<'a> Thermoelastic<'a> for SaintVenantKirchoff<'a> {
             ))
         }
     }
-    /// Calculates and returns the tangent stiffness associated with the second Piola-Kirchoff stress.
+    /// Calculates and returns the tangent stiffness associated with the second Piola-Kirchhoff stress.
     ///
     /// ```math
     /// \mathcal{G}_{IJkL}(\mathbf{F}) = \mu\,\delta_{JL}F_{kI} + \mu\,\delta_{IL}F_{kJ} + \left(\kappa - \frac{2}{3}\,\mu\right)\delta_{IJ}F_{kL}
     /// ```
-    fn calculate_second_piola_kirchoff_tangent_stiffness(
+    fn calculate_second_piola_kirchhoff_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
         _: &Scalar,
-    ) -> Result<SecondPiolaKirchoffTangentStiffness, ConstitutiveError> {
+    ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
         let jacobian = deformation_gradient.determinant();
         if jacobian > 0.0 {
             let scaled_deformation_gradient_transpose =
                 deformation_gradient.transpose() * self.get_shear_modulus();
-            Ok(SecondPiolaKirchoffTangentStiffness::dyad_ik_jl(
+            Ok(SecondPiolaKirchhoffTangentStiffness::dyad_ik_jl(
                 &scaled_deformation_gradient_transpose,
                 &IDENTITY_00,
-            ) + SecondPiolaKirchoffTangentStiffness::dyad_il_jk(
+            ) + SecondPiolaKirchhoffTangentStiffness::dyad_il_jk(
                 &IDENTITY_00,
                 &scaled_deformation_gradient_transpose,
-            ) + SecondPiolaKirchoffTangentStiffness::dyad_ij_kl(
+            ) + SecondPiolaKirchhoffTangentStiffness::dyad_ij_kl(
                 &(IDENTITY_00 * (self.get_bulk_modulus() - TWO_THIRDS * self.get_shear_modulus())),
                 deformation_gradient,
             ))
@@ -113,7 +113,7 @@ impl<'a> Thermoelastic<'a> for SaintVenantKirchoff<'a> {
     }
 }
 
-impl<'a> Thermohyperelastic<'a> for SaintVenantKirchoff<'a> {
+impl<'a> Thermohyperelastic<'a> for SaintVenantKirchhoff<'a> {
     /// Calculates and returns the Helmholtz free energy density.
     ///
     /// ```math

@@ -12,8 +12,8 @@ macro_rules! test_hybrid_elastic_constitutive_models {
             },
             math::{Rank2, Tensor, TensorArray},
             mechanics::{
-                CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchoffTangentStiffness,
-                SecondPiolaKirchoffTangentStiffness,
+                CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffTangentStiffness,
+                SecondPiolaKirchhoffTangentStiffness,
             },
         };
         mod hybrid_1 {
@@ -92,7 +92,7 @@ macro_rules! test_hybrid_elastic_constitutive_models_no_tangents {
             }
             #[test]
             #[should_panic]
-            fn calculate_first_piola_kirchoff_tangent_stiffness() {
+            fn calculate_first_piola_kirchhoff_tangent_stiffness() {
                 $hybrid_type::construct(
                     AlmansiHamel::new(ALMANSIHAMELPARAMETERS),
                     NeoHookean::new(NEOHOOKEANPARAMETERS),
@@ -102,7 +102,7 @@ macro_rules! test_hybrid_elastic_constitutive_models_no_tangents {
             }
             #[test]
             #[should_panic]
-            fn calculate_second_piola_kirchoff_tangent_stiffness() {
+            fn calculate_second_piola_kirchhoff_tangent_stiffness() {
                 $hybrid_type::construct(
                     AlmansiHamel::new(ALMANSIHAMELPARAMETERS),
                     NeoHookean::new(NEOHOOKEANPARAMETERS),

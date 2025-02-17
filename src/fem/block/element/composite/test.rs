@@ -49,7 +49,7 @@ macro_rules! test_composite_element_inner
                         Gent,
                         MooneyRivlin,
                         NeoHookean,
-                        SaintVenantKirchoff,
+                        SaintVenantKirchhoff,
                         Yeoh,
                         test::
                         {
@@ -89,10 +89,10 @@ macro_rules! test_composite_element_inner
                     use super::*;
                     test_composite_element_with_constitutive_model!($element, NeoHookean, NEOHOOKEANPARAMETERS);
                 }
-                mod saint_venant_kirchoff
+                mod saint_venant_kirchhoff
                 {
                     use super::*;
-                    test_composite_element_with_constitutive_model!($element, SaintVenantKirchoff, SAINTVENANTKIRCHOFFPARAMETERS);
+                    test_composite_element_with_constitutive_model!($element, SaintVenantKirchhoff, SAINTVENANTKIRCHOFFPARAMETERS);
                 }
                 mod yeoh
                 {
@@ -123,15 +123,15 @@ macro_rules! test_composite_element_inner
                 {
                     constitutive::solid::hyperviscoelastic::
                     {
-                        SaintVenantKirchoff,
+                        SaintVenantKirchhoff,
                         test::SAINTVENANTKIRCHOFFPARAMETERS
                     }
                 };
                 use super::*;
-                mod saint_venant_kirchoff
+                mod saint_venant_kirchhoff
                 {
                     use super::*;
-                    test_composite_element_with_constitutive_model!($element, SaintVenantKirchoff, SAINTVENANTKIRCHOFFPARAMETERS);
+                    test_composite_element_with_constitutive_model!($element, SaintVenantKirchhoff, SAINTVENANTKIRCHOFFPARAMETERS);
                 }
             }
         }

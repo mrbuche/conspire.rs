@@ -130,9 +130,9 @@ pub trait ElasticCompositeElement<
                     .iter(),
             )
             .map(|(constitutive_model, deformation_gradient)| {
-                constitutive_model.calculate_first_piola_kirchoff_stress(deformation_gradient)
+                constitutive_model.calculate_first_piola_kirchhoff_stress(deformation_gradient)
             })
-            .collect::<Result<FirstPiolaKirchoffStresses<G>, _>>()?
+            .collect::<Result<FirstPiolaKirchhoffStresses<G>, _>>()?
             .iter()
             .zip(
                 self.get_projected_gradient_vectors()
@@ -141,13 +141,13 @@ pub trait ElasticCompositeElement<
             )
             .map(
                 |(
-                    first_piola_kirchoff_stress,
+                    first_piola_kirchhoff_stress,
                     (projected_gradient_vectors, scaled_composite_jacobian),
                 )| {
                     projected_gradient_vectors
                         .iter()
                         .map(|projected_gradient_vector| {
-                            (first_piola_kirchoff_stress * projected_gradient_vector)
+                            (first_piola_kirchhoff_stress * projected_gradient_vector)
                                 * scaled_composite_jacobian
                         })
                         .collect()
@@ -168,9 +168,9 @@ pub trait ElasticCompositeElement<
             )
             .map(|(constitutive_model, deformation_gradient)| {
                 constitutive_model
-                    .calculate_first_piola_kirchoff_tangent_stiffness(deformation_gradient)
+                    .calculate_first_piola_kirchhoff_tangent_stiffness(deformation_gradient)
             })
-            .collect::<Result<FirstPiolaKirchoffTangentStiffnesses<G>, _>>()?
+            .collect::<Result<FirstPiolaKirchhoffTangentStiffnesses<G>, _>>()?
             .iter()
             .zip(
                 self.get_projected_gradient_vectors()
@@ -179,7 +179,7 @@ pub trait ElasticCompositeElement<
             )
             .map(
                 |(
-                    first_piola_kirchoff_tangent_stiffness,
+                    first_piola_kirchhoff_tangent_stiffness,
                     (projected_gradient_vectors, scaled_composite_jacobian),
                 )| {
                     projected_gradient_vectors
@@ -188,7 +188,7 @@ pub trait ElasticCompositeElement<
                             projected_gradient_vectors
                                 .iter()
                                 .map(|projected_gradient_vector_b| {
-                                    first_piola_kirchoff_tangent_stiffness
+                                    first_piola_kirchhoff_tangent_stiffness
                                         .contract_second_fourth_indices_with_first_indices_of(
                                             projected_gradient_vector_a,
                                             projected_gradient_vector_b,
@@ -273,13 +273,13 @@ pub trait ViscoelasticCompositeElement<
             )
             .map(
                 |(constitutive_model, (deformation_gradient, deformation_gradient_rate))| {
-                    constitutive_model.calculate_first_piola_kirchoff_stress(
+                    constitutive_model.calculate_first_piola_kirchhoff_stress(
                         deformation_gradient,
                         deformation_gradient_rate,
                     )
                 },
             )
-            .collect::<Result<FirstPiolaKirchoffStresses<G>, _>>()?
+            .collect::<Result<FirstPiolaKirchhoffStresses<G>, _>>()?
             .iter()
             .zip(
                 self.get_projected_gradient_vectors()
@@ -288,13 +288,13 @@ pub trait ViscoelasticCompositeElement<
             )
             .map(
                 |(
-                    first_piola_kirchoff_stress,
+                    first_piola_kirchhoff_stress,
                     (projected_gradient_vectors, scaled_composite_jacobian),
                 )| {
                     projected_gradient_vectors
                         .iter()
                         .map(|projected_gradient_vector| {
-                            (first_piola_kirchoff_stress * projected_gradient_vector)
+                            (first_piola_kirchhoff_stress * projected_gradient_vector)
                                 * scaled_composite_jacobian
                         })
                         .collect()
@@ -323,13 +323,13 @@ pub trait ViscoelasticCompositeElement<
             )
             .map(
                 |(constitutive_model, (deformation_gradient, deformation_gradient_rate))| {
-                    constitutive_model.calculate_first_piola_kirchoff_rate_tangent_stiffness(
+                    constitutive_model.calculate_first_piola_kirchhoff_rate_tangent_stiffness(
                         deformation_gradient,
                         deformation_gradient_rate,
                     )
                 },
             )
-            .collect::<Result<FirstPiolaKirchoffRateTangentStiffnesses<G>, _>>()?
+            .collect::<Result<FirstPiolaKirchhoffRateTangentStiffnesses<G>, _>>()?
             .iter()
             .zip(
                 self.get_projected_gradient_vectors().iter().zip(
@@ -340,7 +340,7 @@ pub trait ViscoelasticCompositeElement<
             )
             .map(
                 |(
-                    first_piola_kirchoff_rate_tangent_stiffness,
+                    first_piola_kirchhoff_rate_tangent_stiffness,
                     (
                         projected_gradient_vectors_a,
                         (projected_gradient_vectors_b, scaled_composite_jacobian),
@@ -352,7 +352,7 @@ pub trait ViscoelasticCompositeElement<
                             projected_gradient_vectors_b
                                 .iter()
                                 .map(|projected_gradient_vector_b| {
-                                    first_piola_kirchoff_rate_tangent_stiffness
+                                    first_piola_kirchhoff_rate_tangent_stiffness
                                         .contract_second_fourth_indices_with_first_indices_of(
                                             projected_gradient_vector_a,
                                             projected_gradient_vector_b,

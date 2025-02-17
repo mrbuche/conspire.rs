@@ -4,12 +4,12 @@ use super::*;
 use_elastic_hyperviscous_macros!();
 
 test_solid_hyperviscoelastic_constitutive_model!(
-    SaintVenantKirchoff,
+    SaintVenantKirchhoff,
     SAINTVENANTKIRCHOFFPARAMETERS,
-    SaintVenantKirchoff::new(SAINTVENANTKIRCHOFFPARAMETERS)
+    SaintVenantKirchhoff::new(SAINTVENANTKIRCHOFFPARAMETERS)
 );
 
-test_solve!(SaintVenantKirchoff::new(SAINTVENANTKIRCHOFFPARAMETERS));
+test_solve!(SaintVenantKirchhoff::new(SAINTVENANTKIRCHOFFPARAMETERS));
 
 mod consistency {
     use super::*;
@@ -18,16 +18,16 @@ mod consistency {
             elastic::Elastic,
             hyperelastic::{
                 test::SAINTVENANTKIRCHOFFPARAMETERS as HYPERELASTICSAINTVENANTKIRCHOFFPARAMETERS,
-                Hyperelastic, SaintVenantKirchoff as HyperelasticSaintVenantKirchoff,
+                Hyperelastic, SaintVenantKirchhoff as HyperelasticSaintVenantKirchhoff,
             },
         },
         math::test::assert_eq_within_tols,
     };
     #[test]
     fn helmholtz_free_energy_density() -> Result<(), TestError> {
-        let model = SaintVenantKirchoff::new(SAINTVENANTKIRCHOFFPARAMETERS);
+        let model = SaintVenantKirchhoff::new(SAINTVENANTKIRCHOFFPARAMETERS);
         let hyperelastic_model =
-            HyperelasticSaintVenantKirchoff::new(HYPERELASTICSAINTVENANTKIRCHOFFPARAMETERS);
+            HyperelasticSaintVenantKirchhoff::new(HYPERELASTICSAINTVENANTKIRCHOFFPARAMETERS);
         assert_eq_within_tols(
             &model.calculate_helmholtz_free_energy_density(&get_deformation_gradient())?,
             &hyperelastic_model
@@ -36,9 +36,9 @@ mod consistency {
     }
     #[test]
     fn cauchy_stress() -> Result<(), TestError> {
-        let model = SaintVenantKirchoff::new(SAINTVENANTKIRCHOFFPARAMETERS);
+        let model = SaintVenantKirchhoff::new(SAINTVENANTKIRCHOFFPARAMETERS);
         let hyperelastic_model =
-            HyperelasticSaintVenantKirchoff::new(HYPERELASTICSAINTVENANTKIRCHOFFPARAMETERS);
+            HyperelasticSaintVenantKirchhoff::new(HYPERELASTICSAINTVENANTKIRCHOFFPARAMETERS);
         assert_eq_within_tols(
             &model.calculate_cauchy_stress(
                 &get_deformation_gradient(),

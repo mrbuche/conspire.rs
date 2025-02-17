@@ -5,17 +5,17 @@ use super::*;
 
 #[doc = include_str!("model.md")]
 #[derive(Debug)]
-pub struct SaintVenantKirchoff<'a> {
+pub struct SaintVenantKirchhoff<'a> {
     parameters: Parameters<'a>,
 }
 
-impl<'a> Constitutive<'a> for SaintVenantKirchoff<'a> {
+impl<'a> Constitutive<'a> for SaintVenantKirchhoff<'a> {
     fn new(parameters: Parameters<'a>) -> Self {
         Self { parameters }
     }
 }
 
-impl<'a> Solid<'a> for SaintVenantKirchoff<'a> {
+impl<'a> Solid<'a> for SaintVenantKirchhoff<'a> {
     fn get_bulk_modulus(&self) -> &Scalar {
         &self.parameters[0]
     }
@@ -24,12 +24,12 @@ impl<'a> Solid<'a> for SaintVenantKirchoff<'a> {
     }
 }
 
-impl<'a> Elastic<'a> for SaintVenantKirchoff<'a> {
-    #[doc = include_str!("second_piola_kirchoff_stress.md")]
-    fn calculate_second_piola_kirchoff_stress(
+impl<'a> Elastic<'a> for SaintVenantKirchhoff<'a> {
+    #[doc = include_str!("second_piola_kirchhoff_stress.md")]
+    fn calculate_second_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
-    ) -> Result<SecondPiolaKirchoffStress, ConstitutiveError> {
+    ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
         let jacobian = deformation_gradient.determinant();
         if jacobian > 0.0 {
             let (deviatoric_strain, strain_trace) = ((self
@@ -47,22 +47,22 @@ impl<'a> Elastic<'a> for SaintVenantKirchoff<'a> {
             ))
         }
     }
-    #[doc = include_str!("second_piola_kirchoff_tangent_stiffness.md")]
-    fn calculate_second_piola_kirchoff_tangent_stiffness(
+    #[doc = include_str!("second_piola_kirchhoff_tangent_stiffness.md")]
+    fn calculate_second_piola_kirchhoff_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
-    ) -> Result<SecondPiolaKirchoffTangentStiffness, ConstitutiveError> {
+    ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
         let jacobian = deformation_gradient.determinant();
         if jacobian > 0.0 {
             let scaled_deformation_gradient_transpose =
                 deformation_gradient.transpose() * self.get_shear_modulus();
-            Ok(SecondPiolaKirchoffTangentStiffness::dyad_ik_jl(
+            Ok(SecondPiolaKirchhoffTangentStiffness::dyad_ik_jl(
                 &scaled_deformation_gradient_transpose,
                 &IDENTITY_00,
-            ) + SecondPiolaKirchoffTangentStiffness::dyad_il_jk(
+            ) + SecondPiolaKirchhoffTangentStiffness::dyad_il_jk(
                 &IDENTITY_00,
                 &scaled_deformation_gradient_transpose,
-            ) + SecondPiolaKirchoffTangentStiffness::dyad_ij_kl(
+            ) + SecondPiolaKirchhoffTangentStiffness::dyad_ij_kl(
                 &(IDENTITY_00 * (self.get_bulk_modulus() - TWO_THIRDS * self.get_shear_modulus())),
                 deformation_gradient,
             ))
@@ -76,7 +76,7 @@ impl<'a> Elastic<'a> for SaintVenantKirchoff<'a> {
     }
 }
 
-impl<'a> Hyperelastic<'a> for SaintVenantKirchoff<'a> {
+impl<'a> Hyperelastic<'a> for SaintVenantKirchhoff<'a> {
     #[doc = include_str!("helmholtz_free_energy_density.md")]
     fn calculate_helmholtz_free_energy_density(
         &self,
