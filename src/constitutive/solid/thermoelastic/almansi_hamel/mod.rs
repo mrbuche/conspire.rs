@@ -46,7 +46,7 @@ impl<'a> Thermoelastic<'a> for AlmansiHamel<'a> {
     /// ```math
     /// \boldsymbol{\sigma}(\mathbf{F}, T) = \frac{2\mu}{J}\,\mathbf{e}' + \frac{\kappa}{J}\,\mathrm{tr}(\mathbf{e})\mathbf{1} - \frac{3\alpha\kappa}{J}(T - T_\mathrm{ref})\mathbf{1}
     /// ```
-    fn calculate_cauchy_stress(
+    fn cauchy_stress(
         &self,
         deformation_gradient: &DeformationGradient,
         temperature: &Scalar,
@@ -80,7 +80,7 @@ impl<'a> Thermoelastic<'a> for AlmansiHamel<'a> {
     /// ```math
     /// \mathcal{T}_{ijkL}(\mathbf{F}, T) = \frac{\mu}{J}\left[B_{jk}^{-1}F_{iL}^{-T} + B_{ik}^{-1}F_{jL}^{-T} - \frac{2}{3}\,\delta_{ij}B_{km}^{-1}F_{mL}^{-T} - 2e_{ij}'F_{kL}^{-T}\right] + \frac{\kappa}{J}\left\{\delta_{ij}B_{km}^{-1}F_{mL}^{-T} - \Big[\mathrm{tr}(\mathbf{e}) - 3\alpha(T - T_\mathrm{ref})\Big]\delta_{ij}F_{kL}^{-T}\right\}
     /// ```
-    fn calculate_cauchy_tangent_stiffness(
+    fn cauchy_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
         temperature: &Scalar,

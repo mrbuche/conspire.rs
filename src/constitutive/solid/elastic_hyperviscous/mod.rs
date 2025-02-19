@@ -39,23 +39,22 @@ where
     /// ```math
     /// \mathbf{P}^e(\mathbf{F}):\dot{\mathbf{F}} + \phi(\mathbf{F},\dot{\mathbf{F}})
     /// ```
-    fn calculate_dissipation_potential(
+    fn dissipation_potential(
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate: &DeformationGradientRate,
     ) -> Result<Scalar, ConstitutiveError> {
         Ok(self
-            .calculate_first_piola_kirchhoff_stress(deformation_gradient, &ZERO_10)?
+            .first_piola_kirchhoff_stress(deformation_gradient, &ZERO_10)?
             .full_contraction(deformation_gradient_rate)
-            + self
-                .calculate_viscous_dissipation(deformation_gradient, deformation_gradient_rate)?)
+            + self.viscous_dissipation(deformation_gradient, deformation_gradient_rate)?)
     }
     /// Calculates and returns the viscous dissipation.
     ///
     /// ```math
     /// \phi = \phi(\mathbf{F},\dot{\mathbf{F}})
     /// ```
-    fn calculate_viscous_dissipation(
+    fn viscous_dissipation(
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate: &DeformationGradientRate,
@@ -129,7 +128,7 @@ where
         };
         let deformation_gradient_rate_33 = optimization.minimize(
             |deformation_gradient_rate_33: &Scalar| {
-                Ok(self.calculate_cauchy_stress(
+                Ok(self.cauchy_stress(
                     deformation_gradient,
                     &DeformationGradientRate::new([
                         [*deformation_gradient_rate_11, 0.0, 0.0],
@@ -139,7 +138,7 @@ where
                 )?[2][2])
             },
             |deformation_gradient_rate_33: &Scalar| {
-                Ok(self.calculate_cauchy_rate_tangent_stiffness(
+                Ok(self.cauchy_rate_tangent_stiffness(
                     deformation_gradient,
                     &DeformationGradientRate::new([
                         [*deformation_gradient_rate_11, 0.0, 0.0],
@@ -157,8 +156,7 @@ where
             [0.0, deformation_gradient_rate_33, 0.0],
             [0.0, 0.0, deformation_gradient_rate_33],
         ]);
-        let cauchy_stress =
-            self.calculate_cauchy_stress(deformation_gradient, &deformation_gradient_rate)?;
+        let cauchy_stress = self.cauchy_stress(deformation_gradient, &deformation_gradient_rate)?;
         Ok((deformation_gradient_rate, cauchy_stress))
     }
 }

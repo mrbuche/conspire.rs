@@ -41,53 +41,53 @@ where
     C1: Thermoelastic<'a>,
     C2: ThermalConduction<'a>,
 {
-    fn calculate_cauchy_stress(
+    fn cauchy_stress(
         &self,
         deformation_gradient: &DeformationGradient,
         temperature: &Scalar,
     ) -> Result<CauchyStress, ConstitutiveError> {
         self.get_solid_constitutive_model()
-            .calculate_cauchy_stress(deformation_gradient, temperature)
+            .cauchy_stress(deformation_gradient, temperature)
     }
-    fn calculate_cauchy_tangent_stiffness(
+    fn cauchy_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
         temperature: &Scalar,
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
         self.get_solid_constitutive_model()
-            .calculate_cauchy_tangent_stiffness(deformation_gradient, temperature)
+            .cauchy_tangent_stiffness(deformation_gradient, temperature)
     }
-    fn calculate_first_piola_kirchhoff_stress(
+    fn first_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
         temperature: &Scalar,
     ) -> Result<FirstPiolaKirchhoffStress, ConstitutiveError> {
         self.get_solid_constitutive_model()
-            .calculate_first_piola_kirchhoff_stress(deformation_gradient, temperature)
+            .first_piola_kirchhoff_stress(deformation_gradient, temperature)
     }
-    fn calculate_first_piola_kirchhoff_tangent_stiffness(
+    fn first_piola_kirchhoff_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
         temperature: &Scalar,
     ) -> Result<FirstPiolaKirchhoffTangentStiffness, ConstitutiveError> {
         self.get_solid_constitutive_model()
-            .calculate_first_piola_kirchhoff_tangent_stiffness(deformation_gradient, temperature)
+            .first_piola_kirchhoff_tangent_stiffness(deformation_gradient, temperature)
     }
-    fn calculate_second_piola_kirchhoff_stress(
+    fn second_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
         temperature: &Scalar,
     ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
         self.get_solid_constitutive_model()
-            .calculate_second_piola_kirchhoff_stress(deformation_gradient, temperature)
+            .second_piola_kirchhoff_stress(deformation_gradient, temperature)
     }
-    fn calculate_second_piola_kirchhoff_tangent_stiffness(
+    fn second_piola_kirchhoff_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
         temperature: &Scalar,
     ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
         self.get_solid_constitutive_model()
-            .calculate_second_piola_kirchhoff_tangent_stiffness(deformation_gradient, temperature)
+            .second_piola_kirchhoff_tangent_stiffness(deformation_gradient, temperature)
     }
     fn get_coefficient_of_thermal_expansion(&self) -> &Scalar {
         self.get_solid_constitutive_model()
@@ -106,9 +106,9 @@ where
     C1: Thermoelastic<'a>,
     C2: ThermalConduction<'a>,
 {
-    fn calculate_heat_flux(&self, temperature_gradient: &TemperatureGradient) -> HeatFlux {
+    fn heat_flux(&self, temperature_gradient: &TemperatureGradient) -> HeatFlux {
         self.get_thermal_constitutive_model()
-            .calculate_heat_flux(temperature_gradient)
+            .heat_flux(temperature_gradient)
     }
 }
 

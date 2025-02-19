@@ -21,11 +21,11 @@ mod consistency {
         let model = AlmansiHamel::new(ALMANSIHAMELPARAMETERS);
         let elastic_model = ElasticAlmansiHamel::new(ELASTICALMANSIHAMELPARAMETERS);
         assert_eq_within_tols(
-            &model.calculate_cauchy_stress(
+            &model.cauchy_stress(
                 &get_deformation_gradient(),
                 model.get_reference_temperature(),
             )?,
-            &elastic_model.calculate_cauchy_stress(&get_deformation_gradient())?,
+            &elastic_model.cauchy_stress(&get_deformation_gradient())?,
         )
     }
     #[test]
@@ -33,11 +33,11 @@ mod consistency {
         let model = AlmansiHamel::new(ALMANSIHAMELPARAMETERS);
         let elastic_model = ElasticAlmansiHamel::new(ELASTICALMANSIHAMELPARAMETERS);
         assert_eq_within_tols(
-            &model.calculate_cauchy_tangent_stiffness(
+            &model.cauchy_tangent_stiffness(
                 &get_deformation_gradient(),
                 model.get_reference_temperature(),
             )?,
-            &elastic_model.calculate_cauchy_tangent_stiffness(&get_deformation_gradient())?,
+            &elastic_model.cauchy_tangent_stiffness(&get_deformation_gradient())?,
         )
     }
 }

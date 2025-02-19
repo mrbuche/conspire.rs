@@ -34,7 +34,7 @@ impl<'a> Solid<'a> for ArrudaBoyce<'a> {
 
 impl<'a> Elastic<'a> for ArrudaBoyce<'a> {
     #[doc = include_str!("cauchy_stress.md")]
-    fn calculate_cauchy_stress(
+    fn cauchy_stress(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<CauchyStress, ConstitutiveError> {
@@ -43,7 +43,7 @@ impl<'a> Elastic<'a> for ArrudaBoyce<'a> {
             let (
                 deviatoric_isochoric_left_cauchy_green_deformation,
                 isochoric_left_cauchy_green_deformation_trace,
-            ) = (self.calculate_left_cauchy_green_deformation(deformation_gradient)
+            ) = (self.left_cauchy_green_deformation(deformation_gradient)
                 / jacobian.powf(TWO_THIRDS))
             .deviatoric_and_trace();
             let gamma =
@@ -74,7 +74,7 @@ impl<'a> Elastic<'a> for ArrudaBoyce<'a> {
         }
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
-    fn calculate_cauchy_tangent_stiffness(
+    fn cauchy_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
@@ -82,7 +82,7 @@ impl<'a> Elastic<'a> for ArrudaBoyce<'a> {
         if jacobian > 0.0 {
             let inverse_transpose_deformation_gradient = deformation_gradient.inverse_transpose();
             let left_cauchy_green_deformation =
-                self.calculate_left_cauchy_green_deformation(deformation_gradient);
+                self.left_cauchy_green_deformation(deformation_gradient);
             let deviatoric_left_cauchy_green_deformation =
                 left_cauchy_green_deformation.deviatoric();
             let (
@@ -144,14 +144,14 @@ impl<'a> Elastic<'a> for ArrudaBoyce<'a> {
 
 impl<'a> Hyperelastic<'a> for ArrudaBoyce<'a> {
     #[doc = include_str!("helmholtz_free_energy_density.md")]
-    fn calculate_helmholtz_free_energy_density(
+    fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<Scalar, ConstitutiveError> {
         let jacobian = deformation_gradient.determinant();
         if jacobian > 0.0 {
             let isochoric_left_cauchy_green_deformation = self
-                .calculate_left_cauchy_green_deformation(deformation_gradient)
+                .left_cauchy_green_deformation(deformation_gradient)
                 / jacobian.powf(TWO_THIRDS);
             let gamma = (isochoric_left_cauchy_green_deformation.trace()
                 / 3.0

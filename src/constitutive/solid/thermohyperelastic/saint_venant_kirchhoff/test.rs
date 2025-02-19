@@ -27,12 +27,11 @@ mod consistency {
         let hyperelastic_model =
             HyperelasticSaintVenantKirchhoff::new(HYPERELASTICSAINTVENANTKIRCHOFFPARAMETERS);
         assert_eq_within_tols(
-            &model.calculate_helmholtz_free_energy_density(
+            &model.helmholtz_free_energy_density(
                 &get_deformation_gradient(),
                 model.get_reference_temperature(),
             )?,
-            &hyperelastic_model
-                .calculate_helmholtz_free_energy_density(&get_deformation_gradient())?,
+            &hyperelastic_model.helmholtz_free_energy_density(&get_deformation_gradient())?,
         )
     }
     #[test]
@@ -41,11 +40,11 @@ mod consistency {
         let hyperelastic_model =
             HyperelasticSaintVenantKirchhoff::new(HYPERELASTICSAINTVENANTKIRCHOFFPARAMETERS);
         assert_eq_within_tols(
-            &model.calculate_cauchy_stress(
+            &model.cauchy_stress(
                 &get_deformation_gradient(),
                 model.get_reference_temperature(),
             )?,
-            &hyperelastic_model.calculate_cauchy_stress(&get_deformation_gradient())?,
+            &hyperelastic_model.cauchy_stress(&get_deformation_gradient())?,
         )
     }
     #[test]
@@ -54,11 +53,11 @@ mod consistency {
         let hyperelastic_model =
             HyperelasticSaintVenantKirchhoff::new(HYPERELASTICSAINTVENANTKIRCHOFFPARAMETERS);
         assert_eq_within_tols(
-            &model.calculate_cauchy_tangent_stiffness(
+            &model.cauchy_tangent_stiffness(
                 &get_deformation_gradient(),
                 model.get_reference_temperature(),
             )?,
-            &hyperelastic_model.calculate_cauchy_tangent_stiffness(&get_deformation_gradient())?,
+            &hyperelastic_model.cauchy_tangent_stiffness(&get_deformation_gradient())?,
         )
     }
 }

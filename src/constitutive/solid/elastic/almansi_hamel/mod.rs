@@ -26,7 +26,7 @@ impl<'a> Solid<'a> for AlmansiHamel<'a> {
 
 impl<'a> Elastic<'a> for AlmansiHamel<'a> {
     #[doc = include_str!("cauchy_stress.md")]
-    fn calculate_cauchy_stress(
+    fn cauchy_stress(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<CauchyStress, ConstitutiveError> {
@@ -50,7 +50,7 @@ impl<'a> Elastic<'a> for AlmansiHamel<'a> {
         }
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
-    fn calculate_cauchy_tangent_stiffness(
+    fn cauchy_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {

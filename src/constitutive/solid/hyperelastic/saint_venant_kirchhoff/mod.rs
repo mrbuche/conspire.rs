@@ -26,17 +26,15 @@ impl<'a> Solid<'a> for SaintVenantKirchhoff<'a> {
 
 impl<'a> Elastic<'a> for SaintVenantKirchhoff<'a> {
     #[doc = include_str!("second_piola_kirchhoff_stress.md")]
-    fn calculate_second_piola_kirchhoff_stress(
+    fn second_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
         let jacobian = deformation_gradient.determinant();
         if jacobian > 0.0 {
-            let (deviatoric_strain, strain_trace) = ((self
-                .calculate_right_cauchy_green_deformation(deformation_gradient)
-                - IDENTITY_00)
-                * 0.5)
-                .deviatoric_and_trace();
+            let (deviatoric_strain, strain_trace) =
+                ((self.right_cauchy_green_deformation(deformation_gradient) - IDENTITY_00) * 0.5)
+                    .deviatoric_and_trace();
             Ok(deviatoric_strain * (2.0 * self.get_shear_modulus())
                 + IDENTITY_00 * (self.get_bulk_modulus() * strain_trace))
         } else {
@@ -48,7 +46,7 @@ impl<'a> Elastic<'a> for SaintVenantKirchhoff<'a> {
         }
     }
     #[doc = include_str!("second_piola_kirchhoff_tangent_stiffness.md")]
-    fn calculate_second_piola_kirchhoff_tangent_stiffness(
+    fn second_piola_kirchhoff_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
@@ -78,15 +76,14 @@ impl<'a> Elastic<'a> for SaintVenantKirchhoff<'a> {
 
 impl<'a> Hyperelastic<'a> for SaintVenantKirchhoff<'a> {
     #[doc = include_str!("helmholtz_free_energy_density.md")]
-    fn calculate_helmholtz_free_energy_density(
+    fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<Scalar, ConstitutiveError> {
         let jacobian = deformation_gradient.determinant();
         if jacobian > 0.0 {
-            let strain = (self.calculate_right_cauchy_green_deformation(deformation_gradient)
-                - IDENTITY_00)
-                * 0.5;
+            let strain =
+                (self.right_cauchy_green_deformation(deformation_gradient) - IDENTITY_00) * 0.5;
             Ok(self.get_shear_modulus() * strain.squared_trace()
                 + 0.5
                     * (self.get_bulk_modulus() - TWO_THIRDS * self.get_shear_modulus())

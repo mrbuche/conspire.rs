@@ -25,11 +25,11 @@ mod consistency {
         let model = AlmansiHamel::new(ALMANSIHAMELPARAMETERS);
         let hyperelastic_model = ElasticAlmansiHamel::new(ELASTICALMANSIHAMELPARAMETERS);
         assert_eq_within_tols(
-            &model.calculate_cauchy_stress(
+            &model.cauchy_stress(
                 &get_deformation_gradient(),
                 &DeformationGradientRate::zero(),
             )?,
-            &hyperelastic_model.calculate_cauchy_stress(&get_deformation_gradient())?,
+            &hyperelastic_model.cauchy_stress(&get_deformation_gradient())?,
         )
     }
 }

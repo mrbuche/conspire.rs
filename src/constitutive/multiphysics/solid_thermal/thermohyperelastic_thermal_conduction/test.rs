@@ -25,15 +25,15 @@ macro_rules! test_thermohyperelastic_thermal_conduction_constitutive_model
             $thermal_conduction_constitutive_model, $thermal_conduction_constitutive_model_parameters
         );
         #[test]
-        fn calculate_helmholtz_free_energy_density() -> Result<(), TestError>
+        fn helmholtz_free_energy_density() -> Result<(), TestError>
         {
             assert_eq(
                 &get_thermoelastic_thermal_conduction_constitutive_model()
-                .calculate_helmholtz_free_energy_density(
+                .helmholtz_free_energy_density(
                     &get_deformation_gradient(), &get_temperature()
                 )?,
                 &get_thermoelastic_constitutive_model()
-                .calculate_helmholtz_free_energy_density(
+                .helmholtz_free_energy_density(
                     &get_deformation_gradient(), &get_temperature()
                 )?
             )

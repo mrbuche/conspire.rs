@@ -426,9 +426,9 @@ where
     ) -> Self {
         Self {
             constitutive_models: std::array::from_fn(|_| <C>::new(constitutive_model_parameters)),
-            integration_weights: Self::calculate_reference_jacobians(&reference_nodal_coordinates)
+            integration_weights: Self::reference_jacobians(&reference_nodal_coordinates)
                 * INTEGRATION_WEIGHT,
-            projected_gradient_vectors: Self::calculate_projected_gradient_vectors(
+            projected_gradient_vectors: Self::projected_gradient_vectors(
                 &reference_nodal_coordinates,
             ),
         }
@@ -439,10 +439,10 @@ impl<'a, C> CompositeElement<'a, C, G, M, N, O, P, Q> for Tetrahedron<C>
 where
     C: Constitutive<'a>,
 {
-    fn calculate_inverse_normalized_projection_matrix() -> NormalizedProjectionMatrix<Q> {
+    fn inverse_normalized_projection_matrix() -> NormalizedProjectionMatrix<Q> {
         INVERSE_NORMALIED_PROJECTION_MATRIX
     }
-    fn calculate_projected_gradient_vectors(
+    fn projected_gradient_vectors(
         reference_nodal_coordinates: &ReferenceNodalCoordinates<O>,
     ) -> ProjectedGradientVectors<G, N> {
         let parametric_gradient_operators = STANDARD_GRADIENT_OPERATORS
@@ -452,9 +452,9 @@ where
             })
             .collect::<ParametricGradientOperators<P>>();
         let reference_jacobians_subelements =
-            Self::calculate_reference_jacobians_subelements(reference_nodal_coordinates);
+            Self::reference_jacobians_subelements(reference_nodal_coordinates);
         let inverse_projection_matrix =
-            Self::calculate_inverse_projection_matrix(&reference_jacobians_subelements);
+            Self::inverse_projection_matrix(&reference_jacobians_subelements);
         SHAPE_FUNCTIONS_AT_INTEGRATION_POINTS
             .iter()
             .map(|shape_functions_at_integration_point| {
@@ -495,7 +495,7 @@ where
             })
             .collect()
     }
-    fn calculate_reference_jacobians_subelements(
+    fn reference_jacobians_subelements(
         reference_nodal_coordinates: &ReferenceNodalCoordinates<N>,
     ) -> Scalars<P> {
         STANDARD_GRADIENT_OPERATORS
@@ -508,21 +508,19 @@ where
             .map(|parametric_gradient_operator| parametric_gradient_operator.determinant())
             .collect()
     }
-    fn calculate_shape_function_integrals() -> ShapeFunctionIntegrals<P, Q> {
+    fn shape_function_integrals() -> ShapeFunctionIntegrals<P, Q> {
         SHAPE_FUNCTION_INTEGRALS
     }
-    fn calculate_shape_function_integrals_products() -> ShapeFunctionIntegralsProducts<P, Q> {
+    fn shape_function_integrals_products() -> ShapeFunctionIntegralsProducts<P, Q> {
         SHAPE_FUNCTION_INTEGRALS_PRODUCTS
     }
-    fn calculate_shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, Q>
-    {
+    fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, Q> {
         SHAPE_FUNCTIONS_AT_INTEGRATION_POINTS
     }
-    fn calculate_standard_gradient_operators() -> StandardGradientOperators<M, O, P> {
+    fn standard_gradient_operators() -> StandardGradientOperators<M, O, P> {
         STANDARD_GRADIENT_OPERATORS
     }
-    fn calculate_standard_gradient_operators_transposed(
-    ) -> StandardGradientOperatorsTransposed<M, O, P> {
+    fn standard_gradient_operators_transposed() -> StandardGradientOperatorsTransposed<M, O, P> {
         STANDARD_GRADIENT_OPERATORS_TRANSPOSED
     }
     fn get_constitutive_models(&self) -> &[C; G] {
@@ -540,23 +538,20 @@ impl<'a, C> ElasticFiniteElement<'a, C, G, N> for Tetrahedron<C>
 where
     C: Elastic<'a>,
 {
-    fn calculate_deformations(
-        &self,
-        nodal_coordinates: &NodalCoordinates<N>,
-    ) -> DeformationGradients<G> {
-        self.calculate_deformation_gradients(nodal_coordinates)
+    fn deformations(&self, nodal_coordinates: &NodalCoordinates<N>) -> DeformationGradients<G> {
+        self.deformation_gradients(nodal_coordinates)
     }
-    fn calculate_nodal_forces(
+    fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
     ) -> Result<NodalForces<N>, ConstitutiveError> {
-        self.calculate_nodal_forces_composite_element(nodal_coordinates)
+        self.nodal_forces_composite_element(nodal_coordinates)
     }
-    fn calculate_nodal_stiffnesses(
+    fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
     ) -> Result<NodalStiffnesses<N>, ConstitutiveError> {
-        self.calculate_nodal_stiffnesses_composite_element(nodal_coordinates)
+        self.nodal_stiffnesses_composite_element(nodal_coordinates)
     }
 }
 
@@ -566,11 +561,11 @@ impl<'a, C> HyperelasticFiniteElement<'a, C, G, N> for Tetrahedron<C>
 where
     C: Hyperelastic<'a>,
 {
-    fn calculate_helmholtz_free_energy(
+    fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
     ) -> Result<Scalar, ConstitutiveError> {
-        self.calculate_helmholtz_free_energy_composite_element(nodal_coordinates)
+        self.helmholtz_free_energy_composite_element(nodal_coordinates)
     }
 }
 
@@ -583,19 +578,19 @@ impl<'a, C> ViscoelasticFiniteElement<'a, C, G, N> for Tetrahedron<C>
 where
     C: Viscoelastic<'a>,
 {
-    fn calculate_nodal_forces(
+    fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
         nodal_velocities: &NodalVelocities<N>,
     ) -> Result<NodalForces<N>, ConstitutiveError> {
-        self.calculate_nodal_forces_composite_element(nodal_coordinates, nodal_velocities)
+        self.nodal_forces_composite_element(nodal_coordinates, nodal_velocities)
     }
-    fn calculate_nodal_stiffnesses(
+    fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
         nodal_velocities: &NodalVelocities<N>,
     ) -> Result<NodalStiffnesses<N>, ConstitutiveError> {
-        self.calculate_nodal_stiffnesses_composite_element(nodal_coordinates, nodal_velocities)
+        self.nodal_stiffnesses_composite_element(nodal_coordinates, nodal_velocities)
     }
 }
 
@@ -608,19 +603,19 @@ impl<'a, C> ElasticHyperviscousFiniteElement<'a, C, G, N> for Tetrahedron<C>
 where
     C: ElasticHyperviscous<'a>,
 {
-    fn calculate_viscous_dissipation(
+    fn viscous_dissipation(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
         nodal_velocities: &NodalVelocities<N>,
     ) -> Result<Scalar, ConstitutiveError> {
-        self.calculate_viscous_dissipation_composite_element(nodal_coordinates, nodal_velocities)
+        self.viscous_dissipation_composite_element(nodal_coordinates, nodal_velocities)
     }
-    fn calculate_dissipation_potential(
+    fn dissipation_potential(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
         nodal_velocities: &NodalVelocities<N>,
     ) -> Result<Scalar, ConstitutiveError> {
-        self.calculate_dissipation_potential_composite_element(nodal_coordinates, nodal_velocities)
+        self.dissipation_potential_composite_element(nodal_coordinates, nodal_velocities)
     }
 }
 
@@ -633,11 +628,11 @@ impl<'a, C> HyperviscoelasticFiniteElement<'a, C, G, N> for Tetrahedron<C>
 where
     C: Hyperviscoelastic<'a>,
 {
-    fn calculate_helmholtz_free_energy(
+    fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
     ) -> Result<Scalar, ConstitutiveError> {
-        self.calculate_helmholtz_free_energy_composite_element(nodal_coordinates)
+        self.helmholtz_free_energy_composite_element(nodal_coordinates)
     }
 }
 

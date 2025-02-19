@@ -163,197 +163,184 @@ macro_rules! setup_for_test_composite_element_with_constitutive_model {
 }
 pub(crate) use setup_for_test_composite_element_with_constitutive_model;
 
-macro_rules! test_composite_element_with_constitutive_model
-{
-    ($element: ident, $constitutive_model: ident, $constitutive_model_parameters: ident) =>
-    {
+macro_rules! test_composite_element_with_constitutive_model {
+    ($element: ident, $constitutive_model: ident, $constitutive_model_parameters: ident) => {
         use crate::math::TensorArray;
-        setup_for_test_composite_element_with_constitutive_model!($element, $constitutive_model, $constitutive_model_parameters);
-        mod deformation_gradients
-        {
+        setup_for_test_composite_element_with_constitutive_model!(
+            $element,
+            $constitutive_model,
+            $constitutive_model_parameters
+        );
+        mod deformation_gradients {
             fn get_deformation_gradients() -> DeformationGradients<G> {
-                (0..G).map(|_|
-                    get_deformation_gradient()
-                ).collect()
+                (0..G).map(|_| get_deformation_gradient()).collect()
             }
             use super::*;
-            mod deformed
-            {
+            mod deformed {
                 use super::*;
                 #[test]
-                fn calculate() -> Result<(), TestError>
-                {
+                fn calculate() -> Result<(), TestError> {
                     assert_eq_within_tols(
-                        &get_element().calculate_deformation_gradients(
-                            &get_coordinates()
-                        ),
-                        &get_deformation_gradients()
+                        &get_element().deformation_gradients(&get_coordinates()),
+                        &get_deformation_gradients(),
                     )
                 }
                 #[test]
-                fn objectivity() -> Result<(), TestError>
-                {
-                    get_element().calculate_deformation_gradients(
-                        &get_coordinates()
-                    ).iter().zip((
-                        get_element_transformed().calculate_deformation_gradients(
-                            &get_coordinates_transformed()
-                    )).iter())
-                    .try_for_each(|(deformation_gradient, res_deformation_gradient)|
-                        assert_eq_within_tols(
-                            deformation_gradient,
-                            &(get_rotation_current_configuration().transpose() * res_deformation_gradient * get_rotation_reference_configuration())
+                fn objectivity() -> Result<(), TestError> {
+                    get_element()
+                        .deformation_gradients(&get_coordinates())
+                        .iter()
+                        .zip(
+                            (get_element_transformed()
+                                .deformation_gradients(&get_coordinates_transformed()))
+                            .iter(),
                         )
-                    )
-                }
-            }
-            mod undeformed
-            {
-                use super::*;
-                #[test]
-                fn calculate() -> Result<(), TestError>
-                {
-                    assert_eq_within_tols(
-                        &get_element().calculate_deformation_gradients(
-                            &get_reference_coordinates().into()
-                        ),
-                        &DeformationGradients::identity()
-                    )
-                }
-                #[test]
-                fn objectivity() -> Result<(), TestError>
-                {
-                    assert_eq_within_tols(
-                        &get_element_transformed().calculate_deformation_gradients(
-                            &get_reference_coordinates_transformed().into()
-                        ),
-                        &DeformationGradients::identity()
-                    )
-                }
-            }
-        }
-        mod deformation_gradient_rates
-        {
-            fn get_deformation_gradient_rates() -> DeformationGradientRates<G> {
-                (0..G).map(|_|
-                    get_deformation_gradient_rate()
-                ).collect()
-            }
-            use super::*;
-            mod deformed
-            {
-                use super::*;
-                #[test]
-                fn calculate() -> Result<(), TestError>
-                {
-                    assert_eq_within_tols(
-                        &get_element().calculate_deformation_gradient_rates(
-                            &get_coordinates(), &get_velocities()
-                        ),
-                        &get_deformation_gradient_rates()
-                    )
-                }
-                #[test]
-                fn objectivity() -> Result<(), TestError>
-                {
-                    get_element().calculate_deformation_gradients(
-                        &get_coordinates()
-                    ).iter().zip((
-                        get_element().calculate_deformation_gradient_rates(
-                            &get_coordinates(), &get_velocities()
-                        )
-                    ).iter().zip((
-                        get_element_transformed().calculate_deformation_gradient_rates(
-                            &get_coordinates_transformed(), &get_velocities_transformed()
-                        )
-                    ).iter()))
-                    .try_for_each(|(deformation_gradient, (deformation_gradient_rate, res_deformation_gradient_rate))|
-                        assert_eq_within_tols(
-                            deformation_gradient_rate,
-                            &(
-                                get_rotation_current_configuration().transpose() * (
-                                    res_deformation_gradient_rate * get_rotation_reference_configuration()
-                                    - get_rotation_rate_current_configuration() * deformation_gradient
-                                )
+                        .try_for_each(|(deformation_gradient, res_deformation_gradient)| {
+                            assert_eq_within_tols(
+                                deformation_gradient,
+                                &(get_rotation_current_configuration().transpose()
+                                    * res_deformation_gradient
+                                    * get_rotation_reference_configuration()),
                             )
-                        )
-                    )
+                        })
                 }
             }
-            mod undeformed
-            {
+            mod undeformed {
                 use super::*;
                 #[test]
-                fn calculate() -> Result<(), TestError>
-                {
+                fn calculate() -> Result<(), TestError> {
                     assert_eq_within_tols(
-                        &get_element_transformed().calculate_deformation_gradient_rates(
-                            &get_reference_coordinates().into(),
-                            &NodalVelocities::zero().into()
-                        ),
-                        &DeformationGradientRates::zero()
+                        &get_element().deformation_gradients(&get_reference_coordinates().into()),
+                        &DeformationGradients::identity(),
                     )
                 }
                 #[test]
-                fn objectivity() -> Result<(), TestError>
-                {
+                fn objectivity() -> Result<(), TestError> {
                     assert_eq_within_tols(
-                        &get_element_transformed().calculate_deformation_gradient_rates(
-                            &get_reference_coordinates_transformed().into(),
-                            &NodalVelocities::zero().into()
-                        ),
-                        &DeformationGradientRates::zero()
+                        &get_element_transformed()
+                            .deformation_gradients(&get_reference_coordinates_transformed().into()),
+                        &DeformationGradients::identity(),
                     )
                 }
             }
         }
-        mod partition_of_unity
-        {
+        mod deformation_gradient_rates {
+            fn get_deformation_gradient_rates() -> DeformationGradientRates<G> {
+                (0..G).map(|_| get_deformation_gradient_rate()).collect()
+            }
+            use super::*;
+            mod deformed {
+                use super::*;
+                #[test]
+                fn calculate() -> Result<(), TestError> {
+                    assert_eq_within_tols(
+                        &get_element()
+                            .deformation_gradient_rates(&get_coordinates(), &get_velocities()),
+                        &get_deformation_gradient_rates(),
+                    )
+                }
+                #[test]
+                fn objectivity() -> Result<(), TestError> {
+                    get_element()
+                        .deformation_gradients(&get_coordinates())
+                        .iter()
+                        .zip(
+                            (get_element()
+                                .deformation_gradient_rates(&get_coordinates(), &get_velocities()))
+                            .iter()
+                            .zip(
+                                (get_element_transformed().deformation_gradient_rates(
+                                    &get_coordinates_transformed(),
+                                    &get_velocities_transformed(),
+                                ))
+                                .iter(),
+                            ),
+                        )
+                        .try_for_each(
+                            |(
+                                deformation_gradient,
+                                (deformation_gradient_rate, res_deformation_gradient_rate),
+                            )| {
+                                assert_eq_within_tols(
+                                    deformation_gradient_rate,
+                                    &(get_rotation_current_configuration().transpose()
+                                        * (res_deformation_gradient_rate
+                                            * get_rotation_reference_configuration()
+                                            - get_rotation_rate_current_configuration()
+                                                * deformation_gradient)),
+                                )
+                            },
+                        )
+                }
+            }
+            mod undeformed {
+                use super::*;
+                #[test]
+                fn calculate() -> Result<(), TestError> {
+                    assert_eq_within_tols(
+                        &get_element_transformed().deformation_gradient_rates(
+                            &get_reference_coordinates().into(),
+                            &NodalVelocities::zero().into(),
+                        ),
+                        &DeformationGradientRates::zero(),
+                    )
+                }
+                #[test]
+                fn objectivity() -> Result<(), TestError> {
+                    assert_eq_within_tols(
+                        &get_element_transformed().deformation_gradient_rates(
+                            &get_reference_coordinates_transformed().into(),
+                            &NodalVelocities::zero().into(),
+                        ),
+                        &DeformationGradientRates::zero(),
+                    )
+                }
+            }
+        }
+        mod partition_of_unity {
             use super::*;
             #[test]
-            fn shape_functions() -> Result<(), TestError>
-            {
-                $element::<$constitutive_model>::calculate_shape_functions_at_integration_points().iter()
-                .try_for_each(|shape_functions|
-                    assert_eq(&shape_functions.iter().sum(), &1.0)
-                )
+            fn shape_functions() -> Result<(), TestError> {
+                $element::<$constitutive_model>::shape_functions_at_integration_points()
+                    .iter()
+                    .try_for_each(|shape_functions| assert_eq(&shape_functions.iter().sum(), &1.0))
             }
             #[test]
-            fn standard_gradient_operators() -> Result<(), TestError>
-            {
+            fn standard_gradient_operators() -> Result<(), TestError> {
                 let mut sum = [0.0_f64; 3];
-                $element::<$constitutive_model>::calculate_standard_gradient_operators().iter()
-                .try_for_each(|standard_gradient_operator|{
-                    standard_gradient_operator.iter()
-                    .for_each(|row|
-                        row.iter()
-                        .zip(sum.iter_mut())
-                        .for_each(|(entry, sum_i)|
-                            *sum_i += entry
-                        )
-                    );
-                    sum.iter()
-                    .try_for_each(|sum_i|
-                        assert_eq_within_tols(sum_i, &0.0)
-                    )
-                })
+                $element::<$constitutive_model>::standard_gradient_operators()
+                    .iter()
+                    .try_for_each(|standard_gradient_operator| {
+                        standard_gradient_operator.iter().for_each(|row| {
+                            row.iter()
+                                .zip(sum.iter_mut())
+                                .for_each(|(entry, sum_i)| *sum_i += entry)
+                        });
+                        sum.iter()
+                            .try_for_each(|sum_i| assert_eq_within_tols(sum_i, &0.0))
+                    })
             }
         }
         #[test]
-        fn normalized_projection_matrix() -> Result<(), TestError>
-        {
-            $element::<$constitutive_model>::calculate_shape_function_integrals_products()
-            .iter().map(|dummy| dummy * 1.0).sum::<TensorRank2<Q, 9, 9>>().iter()
-            .zip($element::<$constitutive_model>::calculate_inverse_normalized_projection_matrix()
-            .inverse().iter())
-            .try_for_each(|(sum_i, projection_matrix_i)|
-                sum_i.iter()
-                .zip(projection_matrix_i.iter())
-                .try_for_each(|(sum_ij, projection_matrix_ij)|
-                    assert_eq_within_tols(sum_ij, projection_matrix_ij)
+        fn normalized_projection_matrix() -> Result<(), TestError> {
+            $element::<$constitutive_model>::shape_function_integrals_products()
+                .iter()
+                .map(|dummy| dummy * 1.0)
+                .sum::<TensorRank2<Q, 9, 9>>()
+                .iter()
+                .zip(
+                    $element::<$constitutive_model>::inverse_normalized_projection_matrix()
+                        .inverse()
+                        .iter(),
                 )
-            )
+                .try_for_each(|(sum_i, projection_matrix_i)| {
+                    sum_i.iter().zip(projection_matrix_i.iter()).try_for_each(
+                        |(sum_ij, projection_matrix_ij)| {
+                            assert_eq_within_tols(sum_ij, projection_matrix_ij)
+                        },
+                    )
+                })
         }
-    }
+    };
 }
 pub(crate) use test_composite_element_with_constitutive_model;

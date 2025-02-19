@@ -46,18 +46,16 @@ impl<'a> Thermoelastic<'a> for SaintVenantKirchhoff<'a> {
     /// ```math
     /// \mathbf{S}(\mathbf{F}, T) = 2\mu\mathbf{E}' + \kappa\,\mathrm{tr}(\mathbf{E})\mathbf{1} - 3\alpha\kappa(T - T_\mathrm{ref})\mathbf{1}
     /// ```
-    fn calculate_second_piola_kirchhoff_stress(
+    fn second_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
         temperature: &Scalar,
     ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
         let jacobian = deformation_gradient.determinant();
         if jacobian > 0.0 {
-            let (deviatoric_strain, strain_trace) = ((self
-                .calculate_right_cauchy_green_deformation(deformation_gradient)
-                - IDENTITY_00)
-                * 0.5)
-                .deviatoric_and_trace();
+            let (deviatoric_strain, strain_trace) =
+                ((self.right_cauchy_green_deformation(deformation_gradient) - IDENTITY_00) * 0.5)
+                    .deviatoric_and_trace();
             Ok(deviatoric_strain * (2.0 * self.get_shear_modulus())
                 + IDENTITY_00
                     * (self.get_bulk_modulus()
@@ -78,7 +76,7 @@ impl<'a> Thermoelastic<'a> for SaintVenantKirchhoff<'a> {
     /// ```math
     /// \mathcal{G}_{IJkL}(\mathbf{F}) = \mu\,\delta_{JL}F_{kI} + \mu\,\delta_{IL}F_{kJ} + \left(\kappa - \frac{2}{3}\,\mu\right)\delta_{IJ}F_{kL}
     /// ```
-    fn calculate_second_piola_kirchhoff_tangent_stiffness(
+    fn second_piola_kirchhoff_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
         _: &Scalar,
@@ -119,16 +117,15 @@ impl<'a> Thermohyperelastic<'a> for SaintVenantKirchhoff<'a> {
     /// ```math
     /// a(\mathbf{F}, T) = \mu\,\mathrm{tr}(\mathbf{E}^2) + \frac{1}{2}\left(\kappa - \frac{2}{3}\,\mu\right)\mathrm{tr}(\mathbf{E})^2 - 3\alpha\kappa\,\mathrm{tr}(\mathbf{E})(T - T_\mathrm{ref})
     /// ```
-    fn calculate_helmholtz_free_energy_density(
+    fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
         temperature: &Scalar,
     ) -> Result<Scalar, ConstitutiveError> {
         let jacobian = deformation_gradient.determinant();
         if jacobian > 0.0 {
-            let strain = (self.calculate_right_cauchy_green_deformation(deformation_gradient)
-                - IDENTITY_00)
-                * 0.5;
+            let strain =
+                (self.right_cauchy_green_deformation(deformation_gradient) - IDENTITY_00) * 0.5;
             let strain_trace = strain.trace();
             Ok(self.get_shear_modulus() * strain.squared_trace()
                 + 0.5

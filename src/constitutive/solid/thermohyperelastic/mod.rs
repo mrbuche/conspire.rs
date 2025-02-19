@@ -19,7 +19,7 @@ where
     /// ```math
     /// a = a(\mathbf{F},T)
     /// ```
-    fn calculate_helmholtz_free_energy_density(
+    fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
         temperature: &Scalar,
