@@ -55,7 +55,7 @@ impl<'a> Viscoelastic<'a> for AlmansiHamel<'a> {
     /// ```math
     /// \mathbf{}(\mathbf{F},\dot\mathbf{F}) = 2\mu\mathbf{e}' + \kappa\,\mathrm{tr}(\mathbf{e})\mathbf{1} + 2\eta\mathbf{D}' + \zeta\,\mathrm{tr}(\mathbf{D})\mathbf{1}
     /// ```
-    fn calculate_cauchy_stress(
+    fn cauchy_stress(
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate: &DeformationGradientRate,
@@ -91,7 +91,7 @@ impl<'a> Viscoelastic<'a> for AlmansiHamel<'a> {
     /// ```math
     /// \mathcal{V}_{IJkL}(\mathbf{F}) = \eta\,\delta_{ik}F_{jL}^{-T} + \eta\,\delta_{jk}F_{iL}^{-T} + \left(\zeta - \frac{2}{3}\,\eta\right)\delta_{ij}F_{kL}^{-T}
     /// ```
-    fn calculate_cauchy_rate_tangent_stiffness(
+    fn cauchy_rate_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
         _: &DeformationGradientRate,
@@ -129,7 +129,7 @@ impl<'a> ElasticHyperviscous<'a> for AlmansiHamel<'a> {
     /// ```math
     /// \phi(\mathbf{F},\dot{\mathbf{F}}) = \eta\,\mathrm{tr}(\mathbf{D}^2) + \frac{1}{2}\left(\zeta - \frac{2}{3}\,\eta\right)\mathrm{tr}(\mathbf{D})^2
     /// ```
-    fn calculate_viscous_dissipation(
+    fn viscous_dissipation(
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate: &DeformationGradientRate,

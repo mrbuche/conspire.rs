@@ -37,14 +37,14 @@ impl<'a> Solid<'a> for Yeoh<'a> {
 
 impl<'a> Elastic<'a> for Yeoh<'a> {
     #[doc = include_str!("cauchy_stress.md")]
-    fn calculate_cauchy_stress(
+    fn cauchy_stress(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<CauchyStress, ConstitutiveError> {
         let jacobian = deformation_gradient.determinant();
         if jacobian > 0.0 {
             let (deviatoric_left_cauchy_green_deformation, left_cauchy_green_deformation_trace) =
-                self.calculate_left_cauchy_green_deformation(deformation_gradient)
+                self.left_cauchy_green_deformation(deformation_gradient)
                     .deviatoric_and_trace();
             let scalar_term = left_cauchy_green_deformation_trace / jacobian.powf(TWO_THIRDS) - 3.0;
             Ok(deviatoric_left_cauchy_green_deformation
@@ -67,7 +67,7 @@ impl<'a> Elastic<'a> for Yeoh<'a> {
         }
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
-    fn calculate_cauchy_tangent_stiffness(
+    fn cauchy_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
@@ -75,7 +75,7 @@ impl<'a> Elastic<'a> for Yeoh<'a> {
         if jacobian > 0.0 {
             let inverse_transpose_deformation_gradient = deformation_gradient.inverse_transpose();
             let left_cauchy_green_deformation =
-                self.calculate_left_cauchy_green_deformation(deformation_gradient);
+                self.left_cauchy_green_deformation(deformation_gradient);
             let scalar_term =
                 left_cauchy_green_deformation.trace() / jacobian.powf(TWO_THIRDS) - 3.0;
             let scaled_modulus = self
@@ -131,14 +131,14 @@ impl<'a> Elastic<'a> for Yeoh<'a> {
 
 impl<'a> Hyperelastic<'a> for Yeoh<'a> {
     #[doc = include_str!("helmholtz_free_energy_density.md")]
-    fn calculate_helmholtz_free_energy_density(
+    fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<Scalar, ConstitutiveError> {
         let jacobian = deformation_gradient.determinant();
         if jacobian > 0.0 {
             let scalar_term = self
-                .calculate_left_cauchy_green_deformation(deformation_gradient)
+                .left_cauchy_green_deformation(deformation_gradient)
                 .trace()
                 / jacobian.powf(TWO_THIRDS)
                 - 3.0;

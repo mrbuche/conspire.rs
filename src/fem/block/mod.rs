@@ -25,7 +25,7 @@ pub trait BasicFiniteElementBlock<'a, C, const E: usize, F, const G: usize, cons
 where
     C: Constitutive<'a>,
 {
-    fn calculate_nodal_coordinates_element(
+    fn nodal_coordinates_element(
         &self,
         element_connectivity: &[usize; N],
         nodal_coordinates: &NodalCoordinatesBlock,
@@ -52,15 +52,15 @@ where
     C: Elastic<'a>,
     F: ElasticFiniteElement<'a, C, G, N>,
 {
-    fn calculate_deformation_gradients(
+    fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> DeformationGradientss<G, E>;
-    fn calculate_nodal_forces(
+    fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<NodalForcesBlock, ConstitutiveError>;
-    fn calculate_nodal_stiffnesses(
+    fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<NodalStiffnessesBlock, ConstitutiveError>;
@@ -81,7 +81,7 @@ where
     F: HyperelasticFiniteElement<'a, C, G, N>,
     Self: ElasticFiniteElementBlock<'a, C, E, F, G, N>,
 {
-    fn calculate_helmholtz_free_energy(
+    fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<Scalar, ConstitutiveError>;
@@ -92,17 +92,17 @@ where
     C: Viscoelastic<'a>,
     F: ViscoelasticFiniteElement<'a, C, G, N>,
 {
-    fn calculate_nodal_forces(
+    fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
         nodal_velocities: &NodalVelocitiesBlock,
     ) -> Result<NodalForcesBlock, ConstitutiveError>;
-    fn calculate_nodal_stiffnesses(
+    fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
         nodal_velocities: &NodalVelocitiesBlock,
     ) -> Result<NodalStiffnessesBlock, ConstitutiveError>;
-    fn calculate_nodal_velocities_element(
+    fn nodal_velocities_element(
         &self,
         element_connectivity: &[usize; N],
         nodal_velocities: &NodalVelocitiesBlock,
@@ -121,12 +121,12 @@ pub trait ElasticHyperviscousFiniteElementBlock<
     F: ElasticHyperviscousFiniteElement<'a, C, G, N>,
     Self: ViscoelasticFiniteElementBlock<'a, C, E, F, G, N>,
 {
-    fn calculate_viscous_dissipation(
+    fn viscous_dissipation(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
         nodal_velocities: &NodalVelocitiesBlock,
     ) -> Result<Scalar, ConstitutiveError>;
-    fn calculate_dissipation_potential(
+    fn dissipation_potential(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
         nodal_velocities: &NodalVelocitiesBlock,
@@ -145,7 +145,7 @@ pub trait HyperviscoelasticFiniteElementBlock<
     F: HyperviscoelasticFiniteElement<'a, C, G, N>,
     Self: ElasticHyperviscousFiniteElementBlock<'a, C, E, F, G, N>,
 {
-    fn calculate_helmholtz_free_energy(
+    fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<Scalar, ConstitutiveError>;
@@ -157,7 +157,7 @@ where
     C: Elastic<'a>,
     F: ElasticFiniteElement<'a, C, G, N>,
 {
-    fn calculate_nodal_coordinates_element(
+    fn nodal_coordinates_element(
         &self,
         element_connectivity: &[usize; N],
         nodal_coordinates: &NodalCoordinatesBlock,
@@ -209,7 +209,7 @@ where
     F: ElasticFiniteElement<'a, C, G, N>,
     Self: BasicFiniteElementBlock<'a, C, E, F, G, N>,
 {
-    fn calculate_deformation_gradients(
+    fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> DeformationGradientss<G, E> {
@@ -217,16 +217,13 @@ where
             .iter()
             .zip(self.get_connectivity().iter())
             .map(|(element, element_connectivity)| {
-                element.calculate_deformations(
-                    &self.calculate_nodal_coordinates_element(
-                        element_connectivity,
-                        nodal_coordinates,
-                    ),
+                element.deformations(
+                    &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
                 )
             })
             .collect()
     }
-    fn calculate_nodal_forces(
+    fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<NodalForcesBlock, ConstitutiveError> {
@@ -236,10 +233,9 @@ where
             .zip(self.get_connectivity().iter())
             .try_for_each(|(element, element_connectivity)| {
                 element
-                    .calculate_nodal_forces(&self.calculate_nodal_coordinates_element(
-                        element_connectivity,
-                        nodal_coordinates,
-                    ))?
+                    .nodal_forces(
+                        &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
+                    )?
                     .iter()
                     .zip(element_connectivity.iter())
                     .for_each(|(nodal_force, node)| nodal_forces[*node] += nodal_force);
@@ -247,7 +243,7 @@ where
             })?;
         Ok(nodal_forces)
     }
-    fn calculate_nodal_stiffnesses(
+    fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<NodalStiffnessesBlock, ConstitutiveError> {
@@ -257,10 +253,9 @@ where
             .zip(self.get_connectivity().iter())
             .try_for_each(|(element, element_connectivity)| {
                 element
-                    .calculate_nodal_stiffnesses(&self.calculate_nodal_coordinates_element(
-                        element_connectivity,
-                        nodal_coordinates,
-                    ))?
+                    .nodal_stiffnesses(
+                        &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
+                    )?
                     .iter()
                     .zip(element_connectivity.iter())
                     .for_each(|(object, node_a)| {
@@ -284,9 +279,7 @@ where
         optimization: GradientDescent,
     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
         optimization.minimize(
-            |nodal_coordinates: &NodalCoordinatesBlock| {
-                Ok(self.calculate_nodal_forces(nodal_coordinates)?)
-            },
+            |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
             initial_coordinates,
             Some(Dirichlet {
                 places: places_d.unwrap(),
@@ -304,7 +297,7 @@ where
     F: HyperelasticFiniteElement<'a, C, G, N>,
     Self: ElasticFiniteElementBlock<'a, C, E, F, G, N>,
 {
-    fn calculate_helmholtz_free_energy(
+    fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<Scalar, ConstitutiveError> {
@@ -312,11 +305,8 @@ where
             .iter()
             .zip(self.get_connectivity().iter())
             .map(|(element, element_connectivity)| {
-                element.calculate_helmholtz_free_energy(
-                    &self.calculate_nodal_coordinates_element(
-                        element_connectivity,
-                        nodal_coordinates,
-                    ),
+                element.helmholtz_free_energy(
+                    &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
                 )
             })
             .sum()
@@ -329,7 +319,7 @@ where
     C: Viscoelastic<'a>,
     F: ViscoelasticFiniteElement<'a, C, G, N>,
 {
-    fn calculate_nodal_coordinates_element(
+    fn nodal_coordinates_element(
         &self,
         element_connectivity: &[usize; N],
         nodal_coordinates: &NodalCoordinatesBlock,
@@ -381,7 +371,7 @@ where
     F: ViscoelasticFiniteElement<'a, C, G, N>,
     Self: BasicFiniteElementBlock<'a, C, E, F, G, N>,
 {
-    fn calculate_nodal_forces(
+    fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
         nodal_velocities: &NodalVelocitiesBlock,
@@ -392,15 +382,9 @@ where
             .zip(self.get_connectivity().iter())
             .try_for_each(|(element, element_connectivity)| {
                 element
-                    .calculate_nodal_forces(
-                        &self.calculate_nodal_coordinates_element(
-                            element_connectivity,
-                            nodal_coordinates,
-                        ),
-                        &self.calculate_nodal_velocities_element(
-                            element_connectivity,
-                            nodal_velocities,
-                        ),
+                    .nodal_forces(
+                        &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
+                        &self.nodal_velocities_element(element_connectivity, nodal_velocities),
                     )?
                     .iter()
                     .zip(element_connectivity.iter())
@@ -409,7 +393,7 @@ where
             })?;
         Ok(nodal_forces)
     }
-    fn calculate_nodal_stiffnesses(
+    fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
         nodal_velocities: &NodalVelocitiesBlock,
@@ -420,15 +404,9 @@ where
             .zip(self.get_connectivity().iter())
             .try_for_each(|(element, element_connectivity)| {
                 element
-                    .calculate_nodal_stiffnesses(
-                        &self.calculate_nodal_coordinates_element(
-                            element_connectivity,
-                            nodal_coordinates,
-                        ),
-                        &self.calculate_nodal_velocities_element(
-                            element_connectivity,
-                            nodal_velocities,
-                        ),
+                    .nodal_stiffnesses(
+                        &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
+                        &self.nodal_velocities_element(element_connectivity, nodal_velocities),
                     )?
                     .iter()
                     .zip(element_connectivity.iter())
@@ -443,7 +421,7 @@ where
             })?;
         Ok(nodal_stiffnesses)
     }
-    fn calculate_nodal_velocities_element(
+    fn nodal_velocities_element(
         &self,
         element_connectivity: &[usize; N],
         nodal_velocities: &NodalVelocitiesBlock,
@@ -462,7 +440,7 @@ where
     F: ElasticHyperviscousFiniteElement<'a, C, G, N>,
     Self: ViscoelasticFiniteElementBlock<'a, C, E, F, G, N>,
 {
-    fn calculate_viscous_dissipation(
+    fn viscous_dissipation(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
         nodal_velocities: &NodalVelocitiesBlock,
@@ -471,18 +449,14 @@ where
             .iter()
             .zip(self.get_connectivity().iter())
             .map(|(element, element_connectivity)| {
-                element.calculate_viscous_dissipation(
-                    &self.calculate_nodal_coordinates_element(
-                        element_connectivity,
-                        nodal_coordinates,
-                    ),
-                    &self
-                        .calculate_nodal_velocities_element(element_connectivity, nodal_velocities),
+                element.viscous_dissipation(
+                    &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
+                    &self.nodal_velocities_element(element_connectivity, nodal_velocities),
                 )
             })
             .sum()
     }
-    fn calculate_dissipation_potential(
+    fn dissipation_potential(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
         nodal_velocities: &NodalVelocitiesBlock,
@@ -491,13 +465,9 @@ where
             .iter()
             .zip(self.get_connectivity().iter())
             .map(|(element, element_connectivity)| {
-                element.calculate_dissipation_potential(
-                    &self.calculate_nodal_coordinates_element(
-                        element_connectivity,
-                        nodal_coordinates,
-                    ),
-                    &self
-                        .calculate_nodal_velocities_element(element_connectivity, nodal_velocities),
+                element.dissipation_potential(
+                    &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
+                    &self.nodal_velocities_element(element_connectivity, nodal_velocities),
                 )
             })
             .sum()
@@ -511,7 +481,7 @@ where
     F: HyperviscoelasticFiniteElement<'a, C, G, N>,
     Self: ElasticHyperviscousFiniteElementBlock<'a, C, E, F, G, N>,
 {
-    fn calculate_helmholtz_free_energy(
+    fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<Scalar, ConstitutiveError> {
@@ -519,11 +489,8 @@ where
             .iter()
             .zip(self.get_connectivity().iter())
             .map(|(element, element_connectivity)| {
-                element.calculate_helmholtz_free_energy(
-                    &self.calculate_nodal_coordinates_element(
-                        element_connectivity,
-                        nodal_coordinates,
-                    ),
+                element.helmholtz_free_energy(
+                    &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
                 )
             })
             .sum()

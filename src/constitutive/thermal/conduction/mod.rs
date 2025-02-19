@@ -15,5 +15,5 @@ where
     Self: Constitutive<'a> + Thermal<'a>,
 {
     /// Calculates and returns the heat flux.
-    fn calculate_heat_flux(&self, temperature_gradient: &TemperatureGradient) -> HeatFlux;
+    fn heat_flux(&self, temperature_gradient: &TemperatureGradient) -> HeatFlux;
 }

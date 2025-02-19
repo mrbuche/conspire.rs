@@ -37,14 +37,14 @@ impl<'a> Solid<'a> for Fung<'a> {
 
 impl<'a> Elastic<'a> for Fung<'a> {
     #[doc = include_str!("cauchy_stress.md")]
-    fn calculate_cauchy_stress(
+    fn cauchy_stress(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<CauchyStress, ConstitutiveError> {
         let jacobian = deformation_gradient.determinant();
         if jacobian > 0.0 {
             let isochoric_left_cauchy_green_deformation = self
-                .calculate_left_cauchy_green_deformation(deformation_gradient)
+                .left_cauchy_green_deformation(deformation_gradient)
                 / jacobian.powf(TWO_THIRDS);
             let (
                 deviatoric_isochoric_left_cauchy_green_deformation,
@@ -68,7 +68,7 @@ impl<'a> Elastic<'a> for Fung<'a> {
         }
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
-    fn calculate_cauchy_tangent_stiffness(
+    fn cauchy_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
@@ -76,7 +76,7 @@ impl<'a> Elastic<'a> for Fung<'a> {
         if jacobian > 0.0 {
             let inverse_transpose_deformation_gradient = deformation_gradient.inverse_transpose();
             let isochoric_left_cauchy_green_deformation = self
-                .calculate_left_cauchy_green_deformation(deformation_gradient)
+                .left_cauchy_green_deformation(deformation_gradient)
                 / jacobian.powf(TWO_THIRDS);
             let (
                 deviatoric_isochoric_left_cauchy_green_deformation,
@@ -103,7 +103,7 @@ impl<'a> Elastic<'a> for Fung<'a> {
                     + CauchyTangentStiffness::dyad_ij_kl(
                         &(IDENTITY * (0.5 * self.get_bulk_modulus() * (jacobian + 1.0 / jacobian))
                             - self
-                                .calculate_left_cauchy_green_deformation(deformation_gradient)
+                                .left_cauchy_green_deformation(deformation_gradient)
                                 .deviatoric()
                                 * (scaled_shear_modulus_0 * FIVE_THIRDS)),
                         &inverse_transpose_deformation_gradient,
@@ -121,14 +121,14 @@ impl<'a> Elastic<'a> for Fung<'a> {
 
 impl<'a> Hyperelastic<'a> for Fung<'a> {
     #[doc = include_str!("helmholtz_free_energy_density.md")]
-    fn calculate_helmholtz_free_energy_density(
+    fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<Scalar, ConstitutiveError> {
         let jacobian = deformation_gradient.determinant();
         if jacobian > 0.0 {
             let scalar_term = self
-                .calculate_left_cauchy_green_deformation(deformation_gradient)
+                .left_cauchy_green_deformation(deformation_gradient)
                 .trace()
                 / jacobian.powf(TWO_THIRDS)
                 - 3.0;

@@ -38,7 +38,7 @@ impl<'a> ThermalConduction<'a> for Fourier<'a> {
     /// ```math
     /// \mathbf{q}(\nabla T) = -k\nabla T
     /// ```
-    fn calculate_heat_flux(&self, temperature_gradient: &TemperatureGradient) -> HeatFlux {
+    fn heat_flux(&self, temperature_gradient: &TemperatureGradient) -> HeatFlux {
         temperature_gradient * -self.get_thermal_conductivity()
     }
 }

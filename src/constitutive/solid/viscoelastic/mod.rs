@@ -25,16 +25,14 @@ where
     /// ```math
     /// \boldsymbol{\sigma} = J^{-1}\mathbf{P}\cdot\mathbf{F}^T
     /// ```
-    fn calculate_cauchy_stress(
+    fn cauchy_stress(
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate: &DeformationGradientRate,
     ) -> Result<CauchyStress, ConstitutiveError> {
         Ok(deformation_gradient
-            * self.calculate_second_piola_kirchhoff_stress(
-                deformation_gradient,
-                deformation_gradient_rate,
-            )?
+            * self
+                .second_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_rate)?
             * deformation_gradient.transpose()
             / deformation_gradient.determinant())
     }
@@ -43,13 +41,13 @@ where
     /// ```math
     /// \mathcal{V}_{ijkL} = \frac{\partial\sigma_{ij}}{\partial\dot{F}_{kL}} = J^{-1} \mathcal{W}_{MNkL} F_{iM} F_{jN}
     /// ```
-    fn calculate_cauchy_rate_tangent_stiffness(
+    fn cauchy_rate_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate: &DeformationGradientRate,
     ) -> Result<CauchyRateTangentStiffness, ConstitutiveError> {
         Ok(self
-            .calculate_second_piola_kirchhoff_rate_tangent_stiffness(
+            .second_piola_kirchhoff_rate_tangent_stiffness(
                 deformation_gradient,
                 deformation_gradient_rate,
             )?
@@ -64,13 +62,13 @@ where
     /// ```math
     /// \mathbf{P} = J\boldsymbol{\sigma}\cdot\mathbf{F}^{-T}
     /// ```
-    fn calculate_first_piola_kirchhoff_stress(
+    fn first_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate: &DeformationGradientRate,
     ) -> Result<FirstPiolaKirchhoffStress, ConstitutiveError> {
         Ok(
-            self.calculate_cauchy_stress(deformation_gradient, deformation_gradient_rate)?
+            self.cauchy_stress(deformation_gradient, deformation_gradient_rate)?
                 * deformation_gradient.inverse_transpose()
                 * deformation_gradient.determinant(),
         )
@@ -80,16 +78,13 @@ where
     /// ```math
     /// \mathcal{U}_{iJkL} = \frac{\partial P_{iJ}}{\partial\dot{F}_{kL}} = J \mathcal{V}_{iskL} F_{sJ}^{-T}
     /// ```
-    fn calculate_first_piola_kirchhoff_rate_tangent_stiffness(
+    fn first_piola_kirchhoff_rate_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate: &DeformationGradientRate,
     ) -> Result<FirstPiolaKirchhoffRateTangentStiffness, ConstitutiveError> {
         Ok(self
-            .calculate_cauchy_rate_tangent_stiffness(
-                deformation_gradient,
-                deformation_gradient_rate,
-            )?
+            .cauchy_rate_tangent_stiffness(deformation_gradient, deformation_gradient_rate)?
             .contract_second_index_with_first_index_of(&deformation_gradient.inverse_transpose())
             * deformation_gradient.determinant())
     }
@@ -98,13 +93,13 @@ where
     /// ```math
     /// \mathbf{S} = \mathbf{F}^{-1}\cdot\mathbf{P}
     /// ```
-    fn calculate_second_piola_kirchhoff_stress(
+    fn second_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate: &DeformationGradientRate,
     ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
         Ok(deformation_gradient.inverse()
-            * self.calculate_cauchy_stress(deformation_gradient, deformation_gradient_rate)?
+            * self.cauchy_stress(deformation_gradient, deformation_gradient_rate)?
             * deformation_gradient.inverse_transpose()
             * deformation_gradient.determinant())
     }
@@ -113,17 +108,14 @@ where
     /// ```math
     /// \mathcal{W}_{IJkL} = \frac{\partial S_{IJ}}{\partial\dot{F}_{kL}} = \mathcal{U}_{mJkL}F_{mI}^{-T} = J \mathcal{V}_{mnkL} F_{mI}^{-T} F_{nJ}^{-T}
     /// ```
-    fn calculate_second_piola_kirchhoff_rate_tangent_stiffness(
+    fn second_piola_kirchhoff_rate_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate: &DeformationGradientRate,
     ) -> Result<SecondPiolaKirchhoffRateTangentStiffness, ConstitutiveError> {
         let deformation_gradient_inverse = deformation_gradient.inverse();
         Ok(self
-            .calculate_cauchy_rate_tangent_stiffness(
-                deformation_gradient,
-                deformation_gradient_rate,
-            )?
+            .cauchy_rate_tangent_stiffness(deformation_gradient, deformation_gradient_rate)?
             .contract_first_second_indices_with_second_indices_of(
                 &deformation_gradient_inverse,
                 &deformation_gradient_inverse,

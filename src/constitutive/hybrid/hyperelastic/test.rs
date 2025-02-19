@@ -108,32 +108,32 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models_no_tangents {
             use crate::mechanics::test::get_deformation_gradient;
             #[test]
             #[should_panic]
-            fn calculate_cauchy_tangent_stiffness() {
+            fn cauchy_tangent_stiffness() {
                 $hybrid_type::construct(
                     ArrudaBoyce::new(ARRUDABOYCEPARAMETERS),
                     Fung::new(FUNGPARAMETERS),
                 )
-                .calculate_cauchy_tangent_stiffness(&get_deformation_gradient())
+                .cauchy_tangent_stiffness(&get_deformation_gradient())
                 .unwrap();
             }
             #[test]
             #[should_panic]
-            fn calculate_first_piola_kirchhoff_tangent_stiffness() {
+            fn first_piola_kirchhoff_tangent_stiffness() {
                 $hybrid_type::construct(
                     ArrudaBoyce::new(ARRUDABOYCEPARAMETERS),
                     Fung::new(FUNGPARAMETERS),
                 )
-                .calculate_cauchy_tangent_stiffness(&get_deformation_gradient())
+                .cauchy_tangent_stiffness(&get_deformation_gradient())
                 .unwrap();
             }
             #[test]
             #[should_panic]
-            fn calculate_second_piola_kirchhoff_tangent_stiffness() {
+            fn second_piola_kirchhoff_tangent_stiffness() {
                 $hybrid_type::construct(
                     ArrudaBoyce::new(ARRUDABOYCEPARAMETERS),
                     Fung::new(FUNGPARAMETERS),
                 )
-                .calculate_cauchy_tangent_stiffness(&get_deformation_gradient())
+                .cauchy_tangent_stiffness(&get_deformation_gradient())
                 .unwrap();
             }
         }

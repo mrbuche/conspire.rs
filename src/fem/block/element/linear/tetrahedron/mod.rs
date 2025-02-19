@@ -34,8 +34,8 @@ where
     ) -> Self {
         Self {
             constitutive_model: <C>::new(constitutive_model_parameters),
-            gradient_vectors: Self::calculate_gradient_vectors(&reference_nodal_coordinates),
-            integration_weight: Self::calculate_reference_jacobian(&reference_nodal_coordinates)
+            gradient_vectors: Self::gradient_vectors(&reference_nodal_coordinates),
+            integration_weight: Self::reference_jacobian(&reference_nodal_coordinates)
                 * INTEGRATION_WEIGHT,
         }
     }
@@ -45,18 +45,16 @@ impl<'a, C> LinearElement<'a, C, G, M, N, O> for Tetrahedron<C>
 where
     C: Constitutive<'a>,
 {
-    fn calculate_gradient_vectors(
+    fn gradient_vectors(
         reference_nodal_coordinates: &ReferenceNodalCoordinates<O>,
     ) -> GradientVectors<N> {
         (reference_nodal_coordinates * &STANDARD_GRADIENT_OPERATOR).inverse_transpose()
             * STANDARD_GRADIENT_OPERATOR
     }
-    fn calculate_reference_jacobian(
-        reference_nodal_coordinates: &ReferenceNodalCoordinates<O>,
-    ) -> Scalar {
+    fn reference_jacobian(reference_nodal_coordinates: &ReferenceNodalCoordinates<O>) -> Scalar {
         (reference_nodal_coordinates * STANDARD_GRADIENT_OPERATOR).determinant()
     }
-    fn calculate_standard_gradient_operator() -> StandardGradientOperator<M, O> {
+    fn standard_gradient_operator() -> StandardGradientOperator<M, O> {
         STANDARD_GRADIENT_OPERATOR
     }
     fn get_constitutive_model(&self) -> &C {
@@ -74,23 +72,20 @@ impl<'a, C> ElasticFiniteElement<'a, C, G, N> for Tetrahedron<C>
 where
     C: Elastic<'a>,
 {
-    fn calculate_deformations(
-        &self,
-        nodal_coordinates: &NodalCoordinates<N>,
-    ) -> DeformationGradients<G> {
-        tensor_rank_2_list([self.calculate_deformation_gradient(nodal_coordinates)])
+    fn deformations(&self, nodal_coordinates: &NodalCoordinates<N>) -> DeformationGradients<G> {
+        tensor_rank_2_list([self.deformation_gradient(nodal_coordinates)])
     }
-    fn calculate_nodal_forces(
+    fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
     ) -> Result<NodalForces<N>, ConstitutiveError> {
-        self.calculate_nodal_forces_linear_element(nodal_coordinates)
+        self.nodal_forces_linear_element(nodal_coordinates)
     }
-    fn calculate_nodal_stiffnesses(
+    fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
     ) -> Result<NodalStiffnesses<N>, ConstitutiveError> {
-        self.calculate_nodal_stiffnesses_linear_element(nodal_coordinates)
+        self.nodal_stiffnesses_linear_element(nodal_coordinates)
     }
 }
 impl<'a, C> ElasticLinearElement<'a, C, G, M, N, O> for Tetrahedron<C> where C: Elastic<'a> {}
@@ -98,11 +93,11 @@ impl<'a, C> HyperelasticFiniteElement<'a, C, G, N> for Tetrahedron<C>
 where
     C: Hyperelastic<'a>,
 {
-    fn calculate_helmholtz_free_energy(
+    fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
     ) -> Result<Scalar, ConstitutiveError> {
-        self.calculate_helmholtz_free_energy_linear_element(nodal_coordinates)
+        self.helmholtz_free_energy_linear_element(nodal_coordinates)
     }
 }
 impl<'a, C> HyperelasticLinearElement<'a, C, G, M, N, O> for Tetrahedron<C> where C: Hyperelastic<'a>
@@ -111,19 +106,19 @@ impl<'a, C> ViscoelasticFiniteElement<'a, C, G, N> for Tetrahedron<C>
 where
     C: Viscoelastic<'a>,
 {
-    fn calculate_nodal_forces(
+    fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
         nodal_velocities: &NodalVelocities<N>,
     ) -> Result<NodalForces<N>, ConstitutiveError> {
-        self.calculate_nodal_forces_linear_element(nodal_coordinates, nodal_velocities)
+        self.nodal_forces_linear_element(nodal_coordinates, nodal_velocities)
     }
-    fn calculate_nodal_stiffnesses(
+    fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
         nodal_velocities: &NodalVelocities<N>,
     ) -> Result<NodalStiffnesses<N>, ConstitutiveError> {
-        self.calculate_nodal_stiffnesses_linear_element(nodal_coordinates, nodal_velocities)
+        self.nodal_stiffnesses_linear_element(nodal_coordinates, nodal_velocities)
     }
 }
 impl<'a, C> ViscoelasticLinearElement<'a, C, G, M, N, O> for Tetrahedron<C> where C: Viscoelastic<'a>
@@ -132,19 +127,19 @@ impl<'a, C> ElasticHyperviscousFiniteElement<'a, C, G, N> for Tetrahedron<C>
 where
     C: ElasticHyperviscous<'a>,
 {
-    fn calculate_viscous_dissipation(
+    fn viscous_dissipation(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
         nodal_velocities: &NodalVelocities<N>,
     ) -> Result<Scalar, ConstitutiveError> {
-        self.calculate_viscous_dissipation_linear_element(nodal_coordinates, nodal_velocities)
+        self.viscous_dissipation_linear_element(nodal_coordinates, nodal_velocities)
     }
-    fn calculate_dissipation_potential(
+    fn dissipation_potential(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
         nodal_velocities: &NodalVelocities<N>,
     ) -> Result<Scalar, ConstitutiveError> {
-        self.calculate_dissipation_potential_linear_element(nodal_coordinates, nodal_velocities)
+        self.dissipation_potential_linear_element(nodal_coordinates, nodal_velocities)
     }
 }
 impl<'a, C> ElasticHyperviscousLinearElement<'a, C, G, M, N, O> for Tetrahedron<C> where
@@ -155,11 +150,11 @@ impl<'a, C> HyperviscoelasticFiniteElement<'a, C, G, N> for Tetrahedron<C>
 where
     C: Hyperviscoelastic<'a>,
 {
-    fn calculate_helmholtz_free_energy(
+    fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
     ) -> Result<Scalar, ConstitutiveError> {
-        self.calculate_helmholtz_free_energy_linear_element(nodal_coordinates)
+        self.helmholtz_free_energy_linear_element(nodal_coordinates)
     }
 }
 impl<'a, C> HyperviscoelasticLinearElement<'a, C, G, M, N, O> for Tetrahedron<C> where

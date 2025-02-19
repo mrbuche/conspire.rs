@@ -234,17 +234,17 @@ macro_rules! test_linear_element_with_constitutive_model {
                 #[test]
                 fn calculate() -> Result<(), TestError> {
                     assert_eq_within_tols(
-                        &get_element().calculate_deformation_gradient(&get_coordinates()),
+                        &get_element().deformation_gradient(&get_coordinates()),
                         &get_deformation_gradient(),
                     )
                 }
                 #[test]
                 fn objectivity() -> Result<(), TestError> {
                     assert_eq_within_tols(
-                        &get_element().calculate_deformation_gradient(&get_coordinates()),
+                        &get_element().deformation_gradient(&get_coordinates()),
                         &(get_rotation_current_configuration().transpose()
                             * get_element_transformed()
-                                .calculate_deformation_gradient(&get_coordinates_transformed())
+                                .deformation_gradient(&get_coordinates_transformed())
                             * get_rotation_reference_configuration()),
                     )
                 }
@@ -254,17 +254,15 @@ macro_rules! test_linear_element_with_constitutive_model {
                 #[test]
                 fn calculate() -> Result<(), TestError> {
                     assert_eq_within_tols(
-                        &get_element()
-                            .calculate_deformation_gradient(&get_reference_coordinates().into()),
+                        &get_element().deformation_gradient(&get_reference_coordinates().into()),
                         &DeformationGradient::identity(),
                     )
                 }
                 #[test]
                 fn objectivity() -> Result<(), TestError> {
                     assert_eq_within_tols(
-                        &get_element_transformed().calculate_deformation_gradient(
-                            &get_reference_coordinates_transformed().into(),
-                        ),
+                        &get_element_transformed()
+                            .deformation_gradient(&get_reference_coordinates_transformed().into()),
                         &DeformationGradient::identity(),
                     )
                 }
@@ -277,28 +275,23 @@ macro_rules! test_linear_element_with_constitutive_model {
                 #[test]
                 fn calculate() -> Result<(), TestError> {
                     assert_eq_within_tols(
-                        &get_element().calculate_deformation_gradient_rate(
-                            &get_coordinates(),
-                            &get_velocities(),
-                        ),
+                        &get_element()
+                            .deformation_gradient_rate(&get_coordinates(), &get_velocities()),
                         &get_deformation_gradient_rate(),
                     )
                 }
                 #[test]
                 fn objectivity() -> Result<(), TestError> {
                     assert_eq_within_tols(
-                        &get_element().calculate_deformation_gradient_rate(
-                            &get_coordinates(),
-                            &get_velocities(),
-                        ),
+                        &get_element()
+                            .deformation_gradient_rate(&get_coordinates(), &get_velocities()),
                         &(get_rotation_current_configuration().transpose()
-                            * (get_element_transformed().calculate_deformation_gradient_rate(
+                            * (get_element_transformed().deformation_gradient_rate(
                                 &get_coordinates_transformed(),
                                 &get_velocities_transformed(),
                             ) * get_rotation_reference_configuration()
                                 - get_rotation_rate_current_configuration()
-                                    * get_element()
-                                        .calculate_deformation_gradient(&get_coordinates()))),
+                                    * get_element().deformation_gradient(&get_coordinates()))),
                     )
                 }
             }
@@ -307,7 +300,7 @@ macro_rules! test_linear_element_with_constitutive_model {
                 #[test]
                 fn calculate() -> Result<(), TestError> {
                     assert_eq_within_tols(
-                        &get_element().calculate_deformation_gradient_rate(
+                        &get_element().deformation_gradient_rate(
                             &get_reference_coordinates().into(),
                             &NodalVelocities::zero().into(),
                         ),
@@ -317,7 +310,7 @@ macro_rules! test_linear_element_with_constitutive_model {
                 #[test]
                 fn objectivity() -> Result<(), TestError> {
                     assert_eq_within_tols(
-                        &get_element_transformed().calculate_deformation_gradient_rate(
+                        &get_element_transformed().deformation_gradient_rate(
                             &get_reference_coordinates_transformed().into(),
                             &NodalVelocities::zero().into(),
                         ),
@@ -331,7 +324,7 @@ macro_rules! test_linear_element_with_constitutive_model {
             #[test]
             fn partition_of_unity() -> Result<(), TestError> {
                 let mut sum = [0.0_f64; 3];
-                $element::<$constitutive_model>::calculate_standard_gradient_operator()
+                $element::<$constitutive_model>::standard_gradient_operator()
                     .iter()
                     .for_each(|row| {
                         row.iter()

@@ -33,14 +33,14 @@ impl<'a> Solid<'a> for MooneyRivlin<'a> {
 
 impl<'a> Elastic<'a> for MooneyRivlin<'a> {
     #[doc = include_str!("cauchy_stress.md")]
-    fn calculate_cauchy_stress(
+    fn cauchy_stress(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<CauchyStress, ConstitutiveError> {
         let jacobian = deformation_gradient.determinant();
         if jacobian > 0.0 {
             let isochoric_left_cauchy_green_deformation = self
-                .calculate_left_cauchy_green_deformation(deformation_gradient)
+                .left_cauchy_green_deformation(deformation_gradient)
                 / jacobian.powf(TWO_THIRDS);
             Ok(((isochoric_left_cauchy_green_deformation.deviatoric()
                 * (self.get_shear_modulus() - self.get_extra_modulus())
@@ -59,7 +59,7 @@ impl<'a> Elastic<'a> for MooneyRivlin<'a> {
         }
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
-    fn calculate_cauchy_tangent_stiffness(
+    fn cauchy_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
@@ -69,7 +69,7 @@ impl<'a> Elastic<'a> for MooneyRivlin<'a> {
             let scaled_delta_shear_modulus =
                 (self.get_shear_modulus() - self.get_extra_modulus()) / jacobian.powf(FIVE_THIRDS);
             let inverse_isochoric_left_cauchy_green_deformation = (self
-                .calculate_left_cauchy_green_deformation(deformation_gradient)
+                .left_cauchy_green_deformation(deformation_gradient)
                 / jacobian.powf(TWO_THIRDS))
             .inverse();
             let deviatoric_inverse_isochoric_left_cauchy_green_deformation =
@@ -104,7 +104,7 @@ impl<'a> Elastic<'a> for MooneyRivlin<'a> {
                     + CauchyTangentStiffness::dyad_ij_kl(
                         &(IDENTITY * (0.5 * self.get_bulk_modulus() * (jacobian + 1.0 / jacobian))
                             - self
-                                .calculate_left_cauchy_green_deformation(deformation_gradient)
+                                .left_cauchy_green_deformation(deformation_gradient)
                                 .deviatoric()
                                 * (scaled_delta_shear_modulus * FIVE_THIRDS)),
                         &inverse_transpose_deformation_gradient,
@@ -123,14 +123,14 @@ impl<'a> Elastic<'a> for MooneyRivlin<'a> {
 
 impl<'a> Hyperelastic<'a> for MooneyRivlin<'a> {
     #[doc = include_str!("helmholtz_free_energy_density.md")]
-    fn calculate_helmholtz_free_energy_density(
+    fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<Scalar, ConstitutiveError> {
         let jacobian = deformation_gradient.determinant();
         if jacobian > 0.0 {
             let isochoric_left_cauchy_green_deformation = self
-                .calculate_left_cauchy_green_deformation(deformation_gradient)
+                .left_cauchy_green_deformation(deformation_gradient)
                 / jacobian.powf(TWO_THIRDS);
             Ok(0.5
                 * ((self.get_shear_modulus() - self.get_extra_modulus())

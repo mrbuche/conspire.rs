@@ -30,7 +30,7 @@ fn size() {
 fn thermal_conductivity() {
     let model = get_constitutive_model();
     model
-        .calculate_heat_flux(&get_temperature_gradient())
+        .heat_flux(&get_temperature_gradient())
         .iter()
         .zip((get_temperature_gradient() / -model.get_thermal_conductivity()).iter())
         .for_each(|(heat_flux_i, entry_i)| assert_eq!(heat_flux_i, entry_i))
@@ -39,7 +39,7 @@ fn thermal_conductivity() {
 #[test]
 fn zero() {
     get_constitutive_model()
-        .calculate_heat_flux(&TemperatureGradient::new([0.0, 0.0, 0.0]))
+        .heat_flux(&TemperatureGradient::new([0.0, 0.0, 0.0]))
         .iter()
         .for_each(|heat_flux_i| assert_eq!(heat_flux_i, &0.0))
 }
