@@ -44,7 +44,7 @@ where
     /// ```math
     /// \mathbf{B} = \mathbf{F}\cdot\mathbf{F}^T
     /// ```
-    fn calculate_left_cauchy_green_deformation(
+    fn left_cauchy_green_deformation(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> LeftCauchyGreenDeformation {
@@ -63,7 +63,7 @@ where
     /// ```math
     /// \mathbf{C} = \mathbf{F}^T\cdot\mathbf{F}
     /// ```
-    fn calculate_right_cauchy_green_deformation(
+    fn right_cauchy_green_deformation(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> RightCauchyGreenDeformation {
@@ -81,7 +81,7 @@ where
             .collect()
     }
     /// Returns the bulk modulus.
-    fn get_bulk_modulus(&self) -> &Scalar;
+    fn bulk_modulus(&self) -> &Scalar;
     /// Returns the shear modulus.
-    fn get_shear_modulus(&self) -> &Scalar;
+    fn shear_modulus(&self) -> &Scalar;
 }

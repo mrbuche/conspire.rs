@@ -94,31 +94,29 @@ macro_rules! test_solve {
 }
 pub(crate) use test_solve;
 
-macro_rules! calculate_viscous_dissipation_from_deformation_gradient_rate_simple {
+macro_rules! viscous_dissipation_from_deformation_gradient_rate_simple {
     ($constitutive_model_constructed: expr, $deformation_gradient_rate: expr) => {
-        $constitutive_model_constructed.calculate_viscous_dissipation(
-            &DeformationGradient::identity(),
-            $deformation_gradient_rate,
-        )
+        $constitutive_model_constructed
+            .viscous_dissipation(&DeformationGradient::identity(), $deformation_gradient_rate)
     };
 }
-pub(crate) use calculate_viscous_dissipation_from_deformation_gradient_rate_simple;
+pub(crate) use viscous_dissipation_from_deformation_gradient_rate_simple;
 
-macro_rules! calculate_viscous_dissipation_from_deformation_gradient_and_deformation_gradient_rate {
+macro_rules! viscous_dissipation_from_deformation_gradient_and_deformation_gradient_rate {
     ($constitutive_model_constructed: expr, $deformation_gradient: expr, $deformation_gradient_rate: expr) => {
         $constitutive_model_constructed
-            .calculate_viscous_dissipation($deformation_gradient, $deformation_gradient_rate)
+            .viscous_dissipation($deformation_gradient, $deformation_gradient_rate)
     };
 }
-pub(crate) use calculate_viscous_dissipation_from_deformation_gradient_and_deformation_gradient_rate;
+pub(crate) use viscous_dissipation_from_deformation_gradient_and_deformation_gradient_rate;
 
-macro_rules! calculate_dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate {
+macro_rules! dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate {
     ($constitutive_model_constructed: expr, $deformation_gradient: expr, $deformation_gradient_rate: expr) => {
         $constitutive_model_constructed
-            .calculate_dissipation_potential($deformation_gradient, $deformation_gradient_rate)
+            .dissipation_potential($deformation_gradient, $deformation_gradient_rate)
     };
 }
-pub(crate) use calculate_dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate;
+pub(crate) use dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate;
 
 macro_rules! use_viscoelastic_macros
 {
@@ -126,22 +124,22 @@ macro_rules! use_viscoelastic_macros
     {
         use crate::constitutive::solid::viscoelastic::test::
         {
-            calculate_cauchy_stress_from_deformation_gradient,
-            calculate_cauchy_stress_from_deformation_gradient_simple,
-            calculate_cauchy_stress_from_deformation_gradient_rotated,
-            calculate_cauchy_stress_from_deformation_gradient_and_deformation_gradient_rate,
-            calculate_cauchy_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate,
-            calculate_first_piola_kirchhoff_stress_from_deformation_gradient,
-            calculate_first_piola_kirchhoff_stress_from_deformation_gradient_simple,
-            calculate_first_piola_kirchhoff_stress_from_deformation_gradient_rotated,
-            calculate_first_piola_kirchhoff_stress_from_deformation_gradient_rate_simple,
-            calculate_first_piola_kirchhoff_stress_from_deformation_gradient_and_deformation_gradient_rate,
-            calculate_first_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate,
-            calculate_second_piola_kirchhoff_stress_from_deformation_gradient,
-            calculate_second_piola_kirchhoff_stress_from_deformation_gradient_simple,
-            calculate_second_piola_kirchhoff_stress_from_deformation_gradient_rotated,
-            calculate_second_piola_kirchhoff_stress_from_deformation_gradient_and_deformation_gradient_rate,
-            calculate_second_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate,
+            cauchy_stress_from_deformation_gradient,
+            cauchy_stress_from_deformation_gradient_simple,
+            cauchy_stress_from_deformation_gradient_rotated,
+            cauchy_stress_from_deformation_gradient_and_deformation_gradient_rate,
+            cauchy_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate,
+            first_piola_kirchhoff_stress_from_deformation_gradient,
+            first_piola_kirchhoff_stress_from_deformation_gradient_simple,
+            first_piola_kirchhoff_stress_from_deformation_gradient_rotated,
+            first_piola_kirchhoff_stress_from_deformation_gradient_rate_simple,
+            first_piola_kirchhoff_stress_from_deformation_gradient_and_deformation_gradient_rate,
+            first_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate,
+            second_piola_kirchhoff_stress_from_deformation_gradient,
+            second_piola_kirchhoff_stress_from_deformation_gradient_simple,
+            second_piola_kirchhoff_stress_from_deformation_gradient_rotated,
+            second_piola_kirchhoff_stress_from_deformation_gradient_and_deformation_gradient_rate,
+            second_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate,
         };
     }
 }
@@ -177,7 +175,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
             mod viscous_dissipation // eventually should go in fluid/hyperviscous/test.rs
             {
                 use super::*;
-                fn calculate_first_piola_kirchhoff_stress_from_finite_difference_of_viscous_dissipation(is_deformed: bool) ->  Result<FirstPiolaKirchhoffStress, TestError>
+                fn first_piola_kirchhoff_stress_from_finite_difference_of_viscous_dissipation(is_deformed: bool) ->  Result<FirstPiolaKirchhoffStress, TestError>
                 {
                     let mut first_piola_kirchhoff_stress = FirstPiolaKirchhoffStress::zero();
                     for i in 0..3
@@ -195,7 +193,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                                 };
                             deformation_gradient_rate_plus[i][j] += 0.5*EPSILON;
                             let helmholtz_free_energy_density_plus =
-                            calculate_viscous_dissipation_from_deformation_gradient_rate_simple!(
+                            viscous_dissipation_from_deformation_gradient_rate_simple!(
                                 $constitutive_model_constructed, &deformation_gradient_rate_plus
                             )?;
                             let mut deformation_gradient_rate_minus =
@@ -209,7 +207,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                                 };
                             deformation_gradient_rate_minus[i][j] -= 0.5*EPSILON;
                             let helmholtz_free_energy_density_minus =
-                            calculate_viscous_dissipation_from_deformation_gradient_rate_simple!(
+                            viscous_dissipation_from_deformation_gradient_rate_simple!(
                                 $constitutive_model_constructed, &deformation_gradient_rate_minus
                             )?;
                             first_piola_kirchhoff_stress[i][j] = (
@@ -226,21 +224,21 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                     fn finite_difference() -> Result<(), TestError>
                     {
                         assert_eq_from_fd(
-                            &calculate_first_piola_kirchhoff_stress_from_deformation_gradient_rate_simple!(
+                            &first_piola_kirchhoff_stress_from_deformation_gradient_rate_simple!(
                                 $constitutive_model_constructed, &get_deformation_gradient_rate()
                             )?,
-                            &calculate_first_piola_kirchhoff_stress_from_finite_difference_of_viscous_dissipation(true)?
+                            &first_piola_kirchhoff_stress_from_finite_difference_of_viscous_dissipation(true)?
                         )
                     }
                     #[test]
                     fn minimized() -> Result<(), TestError>
                     {
                         let first_piola_kirchhoff_stress =
-                        calculate_first_piola_kirchhoff_stress_from_deformation_gradient_rate_simple!(
+                        first_piola_kirchhoff_stress_from_deformation_gradient_rate_simple!(
                             $constitutive_model_constructed, &get_deformation_gradient_rate()
                         )?;
                         let minimum =
-                        calculate_viscous_dissipation_from_deformation_gradient_rate_simple!(
+                        viscous_dissipation_from_deformation_gradient_rate_simple!(
                             $constitutive_model_constructed, &get_deformation_gradient_rate()
                         )? - first_piola_kirchhoff_stress.full_contraction(
                             &get_deformation_gradient_rate()
@@ -251,7 +249,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                                 perturbed_deformation_gradient_rate = get_deformation_gradient_rate();
                                 perturbed_deformation_gradient_rate[i][j] += 0.5 * EPSILON;
                                 assert!(
-                                    calculate_viscous_dissipation_from_deformation_gradient_rate_simple!(
+                                    viscous_dissipation_from_deformation_gradient_rate_simple!(
                                         $constitutive_model_constructed, &perturbed_deformation_gradient_rate
                                     )? - first_piola_kirchhoff_stress.full_contraction(
                                         &perturbed_deformation_gradient_rate
@@ -259,7 +257,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                                 );
                                 perturbed_deformation_gradient_rate[i][j] -= EPSILON;
                                 assert!(
-                                    calculate_viscous_dissipation_from_deformation_gradient_rate_simple!(
+                                    viscous_dissipation_from_deformation_gradient_rate_simple!(
                                         $constitutive_model_constructed, &perturbed_deformation_gradient_rate
                                     )? - first_piola_kirchhoff_stress.full_contraction(
                                         &perturbed_deformation_gradient_rate
@@ -273,10 +271,10 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                     fn objectivity() -> Result<(), TestError>
                     {
                         assert_eq_within_tols(
-                            &calculate_viscous_dissipation_from_deformation_gradient_and_deformation_gradient_rate!(
+                            &viscous_dissipation_from_deformation_gradient_and_deformation_gradient_rate!(
                                 $constitutive_model_constructed, &get_deformation_gradient(), &get_deformation_gradient_rate()
                             )?,
-                            &calculate_viscous_dissipation_from_deformation_gradient_and_deformation_gradient_rate!(
+                            &viscous_dissipation_from_deformation_gradient_and_deformation_gradient_rate!(
                                 $constitutive_model_constructed, &get_deformation_gradient_rotated(), &get_deformation_gradient_rate_rotated()
                             )?
                         )
@@ -285,7 +283,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                     fn positive() -> Result<(), TestError>
                     {
                         assert!(
-                            calculate_viscous_dissipation_from_deformation_gradient_rate_simple!(
+                            viscous_dissipation_from_deformation_gradient_rate_simple!(
                                 $constitutive_model_constructed,  &get_deformation_gradient_rate()
                             )? > 0.0
                         );
@@ -299,7 +297,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                     fn finite_difference() -> Result<(), TestError>
                     {
                         assert_eq_from_fd(
-                            &calculate_first_piola_kirchhoff_stress_from_finite_difference_of_viscous_dissipation(false)?,
+                            &first_piola_kirchhoff_stress_from_finite_difference_of_viscous_dissipation(false)?,
                             &FirstPiolaKirchhoffStress::zero()
                         )
                     }
@@ -307,7 +305,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                     fn minimized() -> Result<(), TestError>
                     {
                         let minimum =
-                        calculate_viscous_dissipation_from_deformation_gradient_rate_simple!(
+                        viscous_dissipation_from_deformation_gradient_rate_simple!(
                             $constitutive_model_constructed, &DeformationGradientRate::zero()
                         )?;
                         let mut perturbed_deformation_gradient_rate = DeformationGradientRate::zero();
@@ -316,13 +314,13 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                                 perturbed_deformation_gradient_rate = DeformationGradientRate::zero();
                                 perturbed_deformation_gradient_rate[i][j] += 0.5 * EPSILON;
                                 assert!(
-                                    calculate_viscous_dissipation_from_deformation_gradient_rate_simple!(
+                                    viscous_dissipation_from_deformation_gradient_rate_simple!(
                                         $constitutive_model_constructed, &perturbed_deformation_gradient_rate
                                     )? > minimum
                                 );
                                 perturbed_deformation_gradient_rate[i][j] -= EPSILON;
                                 assert!(
-                                    calculate_viscous_dissipation_from_deformation_gradient_rate_simple!(
+                                    viscous_dissipation_from_deformation_gradient_rate_simple!(
                                         $constitutive_model_constructed, &perturbed_deformation_gradient_rate
                                     )? > minimum
                                 );
@@ -334,7 +332,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                     fn zero() -> Result<(), TestError>
                     {
                         assert_eq(
-                            &calculate_viscous_dissipation_from_deformation_gradient_rate_simple!(
+                            &viscous_dissipation_from_deformation_gradient_rate_simple!(
                                 $constitutive_model_constructed,  &DeformationGradientRate::zero()
                             )?, &0.0
                         )
@@ -344,7 +342,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
             mod dissipation_potential
             {
                 use super::*;
-                fn calculate_first_piola_kirchhoff_stress_from_finite_difference_of_dissipation_potential(is_deformed: bool) -> Result<FirstPiolaKirchhoffStress, TestError>
+                fn first_piola_kirchhoff_stress_from_finite_difference_of_dissipation_potential(is_deformed: bool) -> Result<FirstPiolaKirchhoffStress, TestError>
                 {
                     let deformation_gradient =
                         if is_deformed
@@ -371,7 +369,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                                 };
                             deformation_gradient_rate_plus[i][j] += 0.5*EPSILON;
                             let helmholtz_free_energy_density_plus =
-                            calculate_dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
+                            dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                                 $constitutive_model_constructed, &deformation_gradient, &deformation_gradient_rate_plus
                             )?;
                             let mut deformation_gradient_rate_minus =
@@ -385,7 +383,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                                 };
                             deformation_gradient_rate_minus[i][j] -= 0.5*EPSILON;
                             let helmholtz_free_energy_density_minus =
-                            calculate_dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
+                            dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                                 $constitutive_model_constructed, &deformation_gradient, &deformation_gradient_rate_minus
                             )?;
                             first_piola_kirchhoff_stress[i][j] = (
@@ -402,21 +400,21 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                     fn finite_difference() -> Result<(), TestError>
                     {
                         assert_eq_from_fd(
-                            &calculate_first_piola_kirchhoff_stress_from_deformation_gradient_and_deformation_gradient_rate!(
+                            &first_piola_kirchhoff_stress_from_deformation_gradient_and_deformation_gradient_rate!(
                                 $constitutive_model_constructed, &get_deformation_gradient(), &get_deformation_gradient_rate()
                             )?,
-                            &calculate_first_piola_kirchhoff_stress_from_finite_difference_of_dissipation_potential(true)?
+                            &first_piola_kirchhoff_stress_from_finite_difference_of_dissipation_potential(true)?
                         )
                     }
                     #[test]
                     fn minimized() -> Result<(), TestError>
                     {
                         let first_piola_kirchhoff_stress =
-                        calculate_first_piola_kirchhoff_stress_from_deformation_gradient_and_deformation_gradient_rate!(
+                        first_piola_kirchhoff_stress_from_deformation_gradient_and_deformation_gradient_rate!(
                             $constitutive_model_constructed, &get_deformation_gradient(), &get_deformation_gradient_rate()
                         )?;
                         let minimum =
-                        calculate_dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
+                        dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                             $constitutive_model_constructed, &get_deformation_gradient(), &get_deformation_gradient_rate()
                         )? - first_piola_kirchhoff_stress.full_contraction(
                             &get_deformation_gradient_rate()
@@ -427,7 +425,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                                 perturbed_deformation_gradient_rate = get_deformation_gradient_rate();
                                 perturbed_deformation_gradient_rate[i][j] += 0.5 * EPSILON;
                                 assert!(
-                                    calculate_dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
+                                    dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                                         $constitutive_model_constructed, &get_deformation_gradient(), &perturbed_deformation_gradient_rate
                                     )? - first_piola_kirchhoff_stress.full_contraction(
                                         &perturbed_deformation_gradient_rate
@@ -435,7 +433,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                                 );
                                 perturbed_deformation_gradient_rate[i][j] -= EPSILON;
                                 assert!(
-                                    calculate_dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
+                                    dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                                         $constitutive_model_constructed, &get_deformation_gradient(), &perturbed_deformation_gradient_rate
                                     )? - first_piola_kirchhoff_stress.full_contraction(
                                         &perturbed_deformation_gradient_rate
@@ -449,10 +447,10 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                     fn objectivity() -> Result<(), TestError>
                     {
                         assert_eq_within_tols(
-                            &calculate_dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
+                            &dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                                 $constitutive_model_constructed, &get_deformation_gradient(), &get_deformation_gradient_rate()
                             )?,
-                            &calculate_dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
+                            &dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                                 $constitutive_model_constructed, &get_deformation_gradient_rotated(), &get_deformation_gradient_rate_rotated()
                             )?
                         )
@@ -465,7 +463,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                     fn finite_difference() -> Result<(), TestError>
                     {
                         assert_eq_from_fd(
-                            &calculate_first_piola_kirchhoff_stress_from_finite_difference_of_dissipation_potential(false)?,
+                            &first_piola_kirchhoff_stress_from_finite_difference_of_dissipation_potential(false)?,
                             &FirstPiolaKirchhoffStress::zero()
                         )
                     }
@@ -473,7 +471,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                     fn minimized() -> Result<(), TestError>
                     {
                         let minimum =
-                        calculate_dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
+                        dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                             $constitutive_model_constructed, &DeformationGradient::identity(), &DeformationGradientRate::zero()
                         )?;
                         let mut perturbed_deformation_gradient_rate = DeformationGradientRate::zero();
@@ -482,13 +480,13 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                                 perturbed_deformation_gradient_rate = DeformationGradientRate::zero();
                                 perturbed_deformation_gradient_rate[i][j] += 0.5 * EPSILON;
                                 assert!(
-                                    calculate_dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
+                                    dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                                         $constitutive_model_constructed, &DeformationGradient::identity(), &perturbed_deformation_gradient_rate
                                     )? > minimum
                                 );
                                 perturbed_deformation_gradient_rate[i][j] -= EPSILON;
                                 assert!(
-                                    calculate_dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
+                                    dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                                         $constitutive_model_constructed, &DeformationGradient::identity(), &perturbed_deformation_gradient_rate
                                     )? > minimum
                                 );
@@ -500,7 +498,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                     fn zero() -> Result<(), TestError>
                     {
                         assert_eq(
-                            &calculate_dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
+                            &dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                                 $constitutive_model_constructed, &DeformationGradient::identity(), &DeformationGradientRate::zero()
                             )?, &0.0
                         )
@@ -517,7 +515,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                     fn symmetry() -> Result<(), TestError>
                     {
                         let first_piola_kirchhoff_rate_tangent_stiffness =
-                        calculate_first_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
+                        first_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
                             $constitutive_model_constructed, &get_deformation_gradient(), &get_deformation_gradient_rate()
                         )?;
                         assert_eq_within_tols(
@@ -541,7 +539,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                     fn symmetry() -> Result<(), TestError>
                     {
                         let first_piola_kirchhoff_rate_tangent_stiffness =
-                        calculate_first_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
+                        first_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
                             $constitutive_model_constructed, &DeformationGradient::identity(), &DeformationGradientRate::zero()
                         )?;
                         assert_eq_within_tols(

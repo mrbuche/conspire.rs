@@ -1,5 +1,5 @@
 use super::{TensorError, TensorRank0};
-use crate::{get_defeat_message, ABS_TOL, EPSILON, REL_TOL};
+use crate::{defeat_message, ABS_TOL, EPSILON, REL_TOL};
 use std::{cmp::PartialEq, fmt};
 
 #[cfg(test)]
@@ -79,7 +79,7 @@ impl fmt::Debug for TestError {
             f,
             "{}\n\x1b[0;2;31m{}\x1b[0m\n",
             self.message,
-            get_defeat_message()
+            defeat_message()
         )
     }
 }

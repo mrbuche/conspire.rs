@@ -11,7 +11,7 @@ pub struct Gent<'a> {
 
 impl Gent<'_> {
     /// Returns the extensibility.
-    fn get_extensibility(&self) -> &Scalar {
+    fn extensibility(&self) -> &Scalar {
         &self.parameters[2]
     }
 }
@@ -23,31 +23,31 @@ impl<'a> Constitutive<'a> for Gent<'a> {
 }
 
 impl<'a> Solid<'a> for Gent<'a> {
-    fn get_bulk_modulus(&self) -> &Scalar {
+    fn bulk_modulus(&self) -> &Scalar {
         &self.parameters[0]
     }
-    fn get_shear_modulus(&self) -> &Scalar {
+    fn shear_modulus(&self) -> &Scalar {
         &self.parameters[1]
     }
 }
 
 impl<'a> Elastic<'a> for Gent<'a> {
     #[doc = include_str!("cauchy_stress.md")]
-    fn calculate_cauchy_stress(
+    fn cauchy_stress(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<CauchyStress, ConstitutiveError> {
         let jacobian = deformation_gradient.determinant();
         if jacobian > 0.0 {
             let isochoric_left_cauchy_green_deformation = self
-                .calculate_left_cauchy_green_deformation(deformation_gradient)
+                .left_cauchy_green_deformation(deformation_gradient)
                 / jacobian.powf(TWO_THIRDS);
             let (
                 deviatoric_isochoric_left_cauchy_green_deformation,
                 isochoric_left_cauchy_green_deformation_trace,
             ) = isochoric_left_cauchy_green_deformation.deviatoric_and_trace();
             let denominator =
-                self.get_extensibility() - isochoric_left_cauchy_green_deformation_trace + 3.0;
+                self.extensibility() - isochoric_left_cauchy_green_deformation_trace + 3.0;
             if denominator <= 0.0 {
                 Err(ConstitutiveError::Custom(
                     "Maximum extensibility reached.".to_string(),
@@ -56,11 +56,11 @@ impl<'a> Elastic<'a> for Gent<'a> {
                 ))
             } else {
                 Ok((deviatoric_isochoric_left_cauchy_green_deformation
-                    * self.get_shear_modulus()
-                    * self.get_extensibility()
+                    * self.shear_modulus()
+                    * self.extensibility()
                     / jacobian)
                     / denominator
-                    + IDENTITY * self.get_bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
+                    + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
             }
         } else {
             Err(ConstitutiveError::InvalidJacobian(
@@ -71,7 +71,7 @@ impl<'a> Elastic<'a> for Gent<'a> {
         }
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
-    fn calculate_cauchy_tangent_stiffness(
+    fn cauchy_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
@@ -79,14 +79,14 @@ impl<'a> Elastic<'a> for Gent<'a> {
         if jacobian > 0.0 {
             let inverse_transpose_deformation_gradient = deformation_gradient.inverse_transpose();
             let isochoric_left_cauchy_green_deformation = self
-                .calculate_left_cauchy_green_deformation(deformation_gradient)
+                .left_cauchy_green_deformation(deformation_gradient)
                 / jacobian.powf(TWO_THIRDS);
             let (
                 deviatoric_isochoric_left_cauchy_green_deformation,
                 isochoric_left_cauchy_green_deformation_trace,
             ) = isochoric_left_cauchy_green_deformation.deviatoric_and_trace();
             let denominator =
-                self.get_extensibility() - isochoric_left_cauchy_green_deformation_trace + 3.0;
+                self.extensibility() - isochoric_left_cauchy_green_deformation_trace + 3.0;
             if denominator <= 0.0 {
                 Err(ConstitutiveError::Custom(
                     "Maximum extensibility reached.".to_string(),
@@ -95,7 +95,7 @@ impl<'a> Elastic<'a> for Gent<'a> {
                 ))
             } else {
                 let prefactor =
-                    self.get_shear_modulus() * self.get_extensibility() / jacobian / denominator;
+                    self.shear_modulus() * self.extensibility() / jacobian / denominator;
                 Ok(
                     (CauchyTangentStiffness::dyad_ik_jl(&IDENTITY, deformation_gradient)
                         + CauchyTangentStiffness::dyad_il_jk(deformation_gradient, &IDENTITY)
@@ -107,8 +107,7 @@ impl<'a> Elastic<'a> for Gent<'a> {
                         ) * (2.0 / denominator))
                         * (prefactor / jacobian.powf(TWO_THIRDS))
                         + CauchyTangentStiffness::dyad_ij_kl(
-                            &(IDENTITY
-                                * (0.5 * self.get_bulk_modulus() * (jacobian + 1.0 / jacobian))
+                            &(IDENTITY * (0.5 * self.bulk_modulus() * (jacobian + 1.0 / jacobian))
                                 - deviatoric_isochoric_left_cauchy_green_deformation
                                     * prefactor
                                     * ((5.0
@@ -131,18 +130,18 @@ impl<'a> Elastic<'a> for Gent<'a> {
 
 impl<'a> Hyperelastic<'a> for Gent<'a> {
     #[doc = include_str!("helmholtz_free_energy_density.md")]
-    fn calculate_helmholtz_free_energy_density(
+    fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<Scalar, ConstitutiveError> {
         let jacobian = deformation_gradient.determinant();
         if jacobian > 0.0 {
             let factor = (self
-                .calculate_left_cauchy_green_deformation(deformation_gradient)
+                .left_cauchy_green_deformation(deformation_gradient)
                 .trace()
                 / jacobian.powf(TWO_THIRDS)
                 - 3.0)
-                / self.get_extensibility();
+                / self.extensibility();
             if factor >= 1.0 {
                 Err(ConstitutiveError::Custom(
                     "Maximum extensibility reached.".to_string(),
@@ -151,9 +150,8 @@ impl<'a> Hyperelastic<'a> for Gent<'a> {
                 ))
             } else {
                 Ok(0.5
-                    * (-self.get_shear_modulus() * self.get_extensibility() * (1.0 - factor).ln()
-                        + self.get_bulk_modulus()
-                            * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
+                    * (-self.shear_modulus() * self.extensibility() * (1.0 - factor).ln()
+                        + self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
             }
         } else {
             Err(ConstitutiveError::InvalidJacobian(

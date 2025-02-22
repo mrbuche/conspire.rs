@@ -20,7 +20,7 @@ pub struct Fourier<'a> {
 }
 
 impl Fourier<'_> {
-    fn get_thermal_conductivity(&self) -> &Scalar {
+    fn thermal_conductivity(&self) -> &Scalar {
         &self.parameters[0]
     }
 }
@@ -38,7 +38,7 @@ impl<'a> ThermalConduction<'a> for Fourier<'a> {
     /// ```math
     /// \mathbf{q}(\nabla T) = -k\nabla T
     /// ```
-    fn calculate_heat_flux(&self, temperature_gradient: &TemperatureGradient) -> HeatFlux {
-        temperature_gradient * -self.get_thermal_conductivity()
+    fn heat_flux(&self, temperature_gradient: &TemperatureGradient) -> HeatFlux {
+        temperature_gradient * -self.thermal_conductivity()
     }
 }

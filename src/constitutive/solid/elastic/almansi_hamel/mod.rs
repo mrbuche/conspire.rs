@@ -16,17 +16,17 @@ impl<'a> Constitutive<'a> for AlmansiHamel<'a> {
 }
 
 impl<'a> Solid<'a> for AlmansiHamel<'a> {
-    fn get_bulk_modulus(&self) -> &Scalar {
+    fn bulk_modulus(&self) -> &Scalar {
         &self.parameters[0]
     }
-    fn get_shear_modulus(&self) -> &Scalar {
+    fn shear_modulus(&self) -> &Scalar {
         &self.parameters[1]
     }
 }
 
 impl<'a> Elastic<'a> for AlmansiHamel<'a> {
     #[doc = include_str!("cauchy_stress.md")]
-    fn calculate_cauchy_stress(
+    fn cauchy_stress(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<CauchyStress, ConstitutiveError> {
@@ -37,10 +37,8 @@ impl<'a> Elastic<'a> for AlmansiHamel<'a> {
                 - inverse_deformation_gradient.transpose() * &inverse_deformation_gradient)
                 * 0.5;
             let (deviatoric_strain, strain_trace) = strain.deviatoric_and_trace();
-            Ok(
-                deviatoric_strain * (2.0 * self.get_shear_modulus() / jacobian)
-                    + IDENTITY * (self.get_bulk_modulus() * strain_trace / jacobian),
-            )
+            Ok(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
+                + IDENTITY * (self.bulk_modulus() * strain_trace / jacobian))
         } else {
             Err(ConstitutiveError::InvalidJacobian(
                 jacobian,
@@ -50,7 +48,7 @@ impl<'a> Elastic<'a> for AlmansiHamel<'a> {
         }
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
-    fn calculate_cauchy_tangent_stiffness(
+    fn cauchy_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
@@ -67,17 +65,16 @@ impl<'a> Elastic<'a> for AlmansiHamel<'a> {
             ) + CauchyTangentStiffness::dyad_ik_jl(
                 &inverse_left_cauchy_green_deformation,
                 &inverse_transpose_deformation_gradient,
-            )) * (self.get_shear_modulus() / jacobian)
+            )) * (self.shear_modulus() / jacobian)
                 + CauchyTangentStiffness::dyad_ij_kl(
                     &IDENTITY,
                     &(inverse_left_cauchy_green_deformation
                         * &inverse_transpose_deformation_gradient
-                        * ((self.get_bulk_modulus() - self.get_shear_modulus() * TWO_THIRDS)
-                            / jacobian)),
+                        * ((self.bulk_modulus() - self.shear_modulus() * TWO_THIRDS) / jacobian)),
                 )
                 - CauchyTangentStiffness::dyad_ij_kl(
-                    &(deviatoric_strain * (2.0 * self.get_shear_modulus() / jacobian)
-                        + IDENTITY * (self.get_bulk_modulus() * strain_trace / jacobian)),
+                    &(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
+                        + IDENTITY * (self.bulk_modulus() * strain_trace / jacobian)),
                     &inverse_transpose_deformation_gradient,
                 ))
         } else {

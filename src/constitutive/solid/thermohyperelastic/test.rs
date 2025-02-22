@@ -6,32 +6,32 @@ pub const SAINTVENANTKIRCHOFFPARAMETERS: &[Scalar; 4] = &[
     ALMANSIHAMELPARAMETERS[3],
 ];
 
-macro_rules! calculate_helmholtz_free_energy_density_from_deformation_gradient_simple {
+macro_rules! helmholtz_free_energy_density_from_deformation_gradient_simple {
     ($constitutive_model_constructed: expr, $deformation_gradient: expr) => {
-        $constitutive_model_constructed.calculate_helmholtz_free_energy_density(
+        $constitutive_model_constructed.helmholtz_free_energy_density(
             $deformation_gradient,
-            $constitutive_model_constructed.get_reference_temperature(),
+            $constitutive_model_constructed.reference_temperature(),
         )
     };
 }
-pub(crate) use calculate_helmholtz_free_energy_density_from_deformation_gradient_simple;
+pub(crate) use helmholtz_free_energy_density_from_deformation_gradient_simple;
 
 macro_rules! use_thermoelastic_macros {
     () => {
         use crate::constitutive::solid::thermoelastic::test::{
-            calculate_cauchy_stress_from_deformation_gradient,
-            calculate_cauchy_stress_from_deformation_gradient_rotated,
-            calculate_cauchy_stress_from_deformation_gradient_simple,
-            calculate_cauchy_tangent_stiffness_from_deformation_gradient,
-            calculate_first_piola_kirchhoff_stress_from_deformation_gradient,
-            calculate_first_piola_kirchhoff_stress_from_deformation_gradient_rotated,
-            calculate_first_piola_kirchhoff_stress_from_deformation_gradient_simple,
-            calculate_first_piola_kirchhoff_tangent_stiffness_from_deformation_gradient,
-            calculate_first_piola_kirchhoff_tangent_stiffness_from_deformation_gradient_simple,
-            calculate_second_piola_kirchhoff_stress_from_deformation_gradient,
-            calculate_second_piola_kirchhoff_stress_from_deformation_gradient_rotated,
-            calculate_second_piola_kirchhoff_stress_from_deformation_gradient_simple,
-            calculate_second_piola_kirchhoff_tangent_stiffness_from_deformation_gradient,
+            cauchy_stress_from_deformation_gradient,
+            cauchy_stress_from_deformation_gradient_rotated,
+            cauchy_stress_from_deformation_gradient_simple,
+            cauchy_tangent_stiffness_from_deformation_gradient,
+            first_piola_kirchhoff_stress_from_deformation_gradient,
+            first_piola_kirchhoff_stress_from_deformation_gradient_rotated,
+            first_piola_kirchhoff_stress_from_deformation_gradient_simple,
+            first_piola_kirchhoff_tangent_stiffness_from_deformation_gradient,
+            first_piola_kirchhoff_tangent_stiffness_from_deformation_gradient_simple,
+            second_piola_kirchhoff_stress_from_deformation_gradient,
+            second_piola_kirchhoff_stress_from_deformation_gradient_rotated,
+            second_piola_kirchhoff_stress_from_deformation_gradient_simple,
+            second_piola_kirchhoff_tangent_stiffness_from_deformation_gradient,
         };
     };
 }

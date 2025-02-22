@@ -290,18 +290,16 @@ macro_rules! test_helmholtz_free_energy {
             if is_rotated {
                 if is_deformed {
                     Ok(get_element_transformed()
-                        .calculate_helmholtz_free_energy(&get_coordinates_transformed())?)
+                        .helmholtz_free_energy(&get_coordinates_transformed())?)
                 } else {
-                    Ok(get_element_transformed().calculate_helmholtz_free_energy(
-                        &get_reference_coordinates_transformed().into(),
-                    )?)
+                    Ok(get_element_transformed()
+                        .helmholtz_free_energy(&get_reference_coordinates_transformed().into())?)
                 }
             } else {
                 if is_deformed {
-                    Ok(get_element().calculate_helmholtz_free_energy(&get_coordinates())?)
+                    Ok(get_element().helmholtz_free_energy(&get_coordinates())?)
                 } else {
-                    Ok(get_element()
-                        .calculate_helmholtz_free_energy(&get_reference_coordinates().into())?)
+                    Ok(get_element().helmholtz_free_energy(&get_reference_coordinates().into())?)
                 }
             }
         }
@@ -321,10 +319,10 @@ macro_rules! test_helmholtz_free_energy {
                             };
                             nodal_coordinates[node][i] += 0.5 * EPSILON;
                             finite_difference =
-                                element.calculate_helmholtz_free_energy(&nodal_coordinates)?;
+                                element.helmholtz_free_energy(&nodal_coordinates)?;
                             nodal_coordinates[node][i] -= EPSILON;
                             finite_difference -=
-                                element.calculate_helmholtz_free_energy(&nodal_coordinates)?;
+                                element.helmholtz_free_energy(&nodal_coordinates)?;
                             Ok(finite_difference / EPSILON)
                         })
                         .collect()
@@ -348,7 +346,7 @@ macro_rules! test_helmholtz_free_energy {
                     let mut deformation_gradient = DeformationGradient::identity();
                     deformation_gradient[0][0] = 0.0;
                     get_element()
-                        .calculate_helmholtz_free_energy(
+                        .helmholtz_free_energy(
                             &(deformation_gradient * get_reference_coordinates()),
                         )
                         .unwrap();
@@ -365,15 +363,13 @@ macro_rules! test_helmholtz_free_energy {
                         (0..3).try_for_each(|i| {
                             perturbed_coordinates = get_coordinates();
                             perturbed_coordinates[node][i] += 0.5 * EPSILON;
-                            perturbed = element
-                                .calculate_helmholtz_free_energy(&perturbed_coordinates)?
+                            perturbed = element.helmholtz_free_energy(&perturbed_coordinates)?
                                 - nodal_forces.dot(&perturbed_coordinates);
                             if assert_eq_within_tols(&perturbed, &minimum).is_err() {
                                 assert!(perturbed > minimum)
                             }
                             perturbed_coordinates[node][i] -= EPSILON;
-                            perturbed = element
-                                .calculate_helmholtz_free_energy(&perturbed_coordinates)?
+                            perturbed = element.helmholtz_free_energy(&perturbed_coordinates)?
                                 - nodal_forces.dot(&perturbed_coordinates);
                             if assert_eq_within_tols(&perturbed, &minimum).is_err() {
                                 assert!(perturbed > minimum)
@@ -414,16 +410,14 @@ macro_rules! test_helmholtz_free_energy {
                         (0..3).try_for_each(|i| {
                             perturbed_coordinates = get_reference_coordinates();
                             perturbed_coordinates[node][i] += 0.5 * EPSILON;
-                            perturbed = element.calculate_helmholtz_free_energy(
-                                &perturbed_coordinates.convert(),
-                            )?;
+                            perturbed =
+                                element.helmholtz_free_energy(&perturbed_coordinates.convert())?;
                             if assert_eq_within_tols(&perturbed, &minimum).is_err() {
                                 assert!(perturbed > minimum)
                             }
                             perturbed_coordinates[node][i] -= EPSILON;
-                            perturbed = element.calculate_helmholtz_free_energy(
-                                &perturbed_coordinates.convert(),
-                            )?;
+                            perturbed =
+                                element.helmholtz_free_energy(&perturbed_coordinates.convert())?;
                             if assert_eq_within_tols(&perturbed, &minimum).is_err() {
                                 assert!(perturbed > minimum)
                             }
@@ -562,7 +556,7 @@ macro_rules! test_finite_element_with_elastic_constitutive_model {
             let mut deformation_gradient = DeformationGradient::identity();
             deformation_gradient[0][0] = 0.0;
             get_element()
-                .calculate_nodal_forces(&(deformation_gradient * get_reference_coordinates()))
+                .nodal_forces(&(deformation_gradient * get_reference_coordinates()))
                 .unwrap();
         }
         #[test]
@@ -571,7 +565,7 @@ macro_rules! test_finite_element_with_elastic_constitutive_model {
             let mut deformation_gradient = DeformationGradient::identity();
             deformation_gradient[0][0] = 0.0;
             get_element()
-                .calculate_nodal_stiffnesses(&(deformation_gradient * get_reference_coordinates()))
+                .nodal_stiffnesses(&(deformation_gradient * get_reference_coordinates()))
                 .unwrap();
         }
         fn get_nodal_forces(
@@ -582,20 +576,16 @@ macro_rules! test_finite_element_with_elastic_constitutive_model {
             if is_rotated {
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
-                        * get_element_transformed()
-                            .calculate_nodal_forces(&get_coordinates_transformed())?)
+                        * get_element_transformed().nodal_forces(&get_coordinates_transformed())?)
                 } else {
                     Ok(get_element()
-                        .calculate_nodal_forces(&get_reference_coordinates_transformed().into())?)
+                        .nodal_forces(&get_reference_coordinates_transformed().into())?)
                 }
             } else {
                 if is_deformed {
-                    Ok(get_element().calculate_nodal_forces(&get_coordinates())?)
+                    Ok(get_element().nodal_forces(&get_coordinates())?)
                 } else {
-                    Ok(
-                        get_element()
-                            .calculate_nodal_forces(&get_reference_coordinates().into())?,
-                    )
+                    Ok(get_element().nodal_forces(&get_reference_coordinates().into())?)
                 }
             }
         }
@@ -607,23 +597,21 @@ macro_rules! test_finite_element_with_elastic_constitutive_model {
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
                         * get_element_transformed()
-                            .calculate_nodal_stiffnesses(&get_coordinates_transformed())?
+                            .nodal_stiffnesses(&get_coordinates_transformed())?
                         * get_rotation_current_configuration())
                 } else {
                     let converted: TensorRank2<3, 1, 1> =
                         get_rotation_reference_configuration().into();
                     Ok(converted.transpose()
-                        * get_element_transformed().calculate_nodal_stiffnesses(
-                            &get_reference_coordinates_transformed().into(),
-                        )?
+                        * get_element_transformed()
+                            .nodal_stiffnesses(&get_reference_coordinates_transformed().into())?
                         * converted)
                 }
             } else {
                 if is_deformed {
-                    Ok(get_element().calculate_nodal_stiffnesses(&get_coordinates())?)
+                    Ok(get_element().nodal_stiffnesses(&get_coordinates())?)
                 } else {
-                    Ok(get_element()
-                        .calculate_nodal_stiffnesses(&get_reference_coordinates().into())?)
+                    Ok(get_element().nodal_stiffnesses(&get_reference_coordinates().into())?)
                 }
             }
         }
@@ -646,11 +634,11 @@ macro_rules! test_finite_element_with_elastic_constitutive_model {
                                                 get_reference_coordinates().into()
                                             };
                                             nodal_coordinates[b][j] += 0.5 * EPSILON;
-                                            finite_difference = element
-                                                .calculate_nodal_forces(&nodal_coordinates)?[a][i];
+                                            finite_difference =
+                                                element.nodal_forces(&nodal_coordinates)?[a][i];
                                             nodal_coordinates[b][j] -= EPSILON;
-                                            finite_difference -= element
-                                                .calculate_nodal_forces(&nodal_coordinates)?[a][i];
+                                            finite_difference -=
+                                                element.nodal_forces(&nodal_coordinates)?[a][i];
                                             Ok(finite_difference / EPSILON)
                                         })
                                         .collect()
@@ -697,22 +685,21 @@ macro_rules! test_finite_element_with_viscoelastic_constitutive_model {
                 if is_rotated {
                     if is_deformed {
                         Ok(get_rotation_current_configuration().transpose()
-                            * get_element_transformed().calculate_nodal_forces(
+                            * get_element_transformed().nodal_forces(
                                 &get_coordinates_transformed(),
                                 &get_velocities_transformed(),
                             )?)
                     } else {
-                        Ok(get_element().calculate_nodal_forces(
+                        Ok(get_element().nodal_forces(
                             &get_reference_coordinates_transformed().into(),
                             &NodalVelocities::zero(),
                         )?)
                     }
                 } else {
                     if is_deformed {
-                        Ok(get_element()
-                            .calculate_nodal_forces(&get_coordinates(), &get_velocities())?)
+                        Ok(get_element().nodal_forces(&get_coordinates(), &get_velocities())?)
                     } else {
-                        Ok(get_element().calculate_nodal_forces(
+                        Ok(get_element().nodal_forces(
                             &get_reference_coordinates().into(),
                             &NodalVelocities::zero(),
                         )?)
@@ -722,12 +709,12 @@ macro_rules! test_finite_element_with_viscoelastic_constitutive_model {
                 if is_rotated {
                     if is_deformed {
                         Ok(get_rotation_current_configuration().transpose()
-                            * get_element_transformed().calculate_nodal_forces(
+                            * get_element_transformed().nodal_forces(
                                 &get_coordinates_transformed(),
                                 &NodalVelocities::zero(),
                             )?)
                     } else {
-                        Ok(get_element().calculate_nodal_forces(
+                        Ok(get_element().nodal_forces(
                             &get_reference_coordinates_transformed().into(),
                             &NodalVelocities::zero(),
                         )?)
@@ -735,9 +722,9 @@ macro_rules! test_finite_element_with_viscoelastic_constitutive_model {
                 } else {
                     if is_deformed {
                         Ok(get_element()
-                            .calculate_nodal_forces(&get_coordinates(), &NodalVelocities::zero())?)
+                            .nodal_forces(&get_coordinates(), &NodalVelocities::zero())?)
                     } else {
-                        Ok(get_element().calculate_nodal_forces(
+                        Ok(get_element().nodal_forces(
                             &get_reference_coordinates().into(),
                             &NodalVelocities::zero(),
                         )?)
@@ -752,7 +739,7 @@ macro_rules! test_finite_element_with_viscoelastic_constitutive_model {
             if is_rotated {
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
-                        * get_element_transformed().calculate_nodal_stiffnesses(
+                        * get_element_transformed().nodal_stiffnesses(
                             &get_coordinates_transformed(),
                             &get_velocities_transformed(),
                         )?
@@ -761,7 +748,7 @@ macro_rules! test_finite_element_with_viscoelastic_constitutive_model {
                     let converted: TensorRank2<3, 1, 1> =
                         get_rotation_reference_configuration().into();
                     Ok(converted.transpose()
-                        * get_element_transformed().calculate_nodal_stiffnesses(
+                        * get_element_transformed().nodal_stiffnesses(
                             &get_reference_coordinates_transformed().into(),
                             &NodalVelocities::zero(),
                         )?
@@ -769,10 +756,9 @@ macro_rules! test_finite_element_with_viscoelastic_constitutive_model {
                 }
             } else {
                 if is_deformed {
-                    Ok(get_element()
-                        .calculate_nodal_stiffnesses(&get_coordinates(), &get_velocities())?)
+                    Ok(get_element().nodal_stiffnesses(&get_coordinates(), &get_velocities())?)
                 } else {
-                    Ok(get_element().calculate_nodal_stiffnesses(
+                    Ok(get_element().nodal_stiffnesses(
                         &get_reference_coordinates().into(),
                         &NodalVelocities::zero(),
                     )?)
@@ -803,12 +789,12 @@ macro_rules! test_finite_element_with_viscoelastic_constitutive_model {
                                                 NodalVelocities::zero()
                                             };
                                             nodal_velocities[b][j] += 0.5 * EPSILON;
-                                            finite_difference = element.calculate_nodal_forces(
+                                            finite_difference = element.nodal_forces(
                                                 &nodal_coordinates,
                                                 &nodal_velocities,
                                             )?[a][i];
                                             nodal_velocities[b][j] -= EPSILON;
-                                            finite_difference -= element.calculate_nodal_forces(
+                                            finite_difference -= element.nodal_forces(
                                                 &nodal_coordinates,
                                                 &nodal_velocities,
                                             )?[a][i];
@@ -844,22 +830,21 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
         ) -> Result<Scalar, TestError> {
             if is_rotated {
                 if is_deformed {
-                    Ok(get_element_transformed().calculate_viscous_dissipation(
+                    Ok(get_element_transformed().viscous_dissipation(
                         &get_coordinates_transformed(),
                         &get_velocities_transformed(),
                     )?)
                 } else {
-                    Ok(get_element_transformed().calculate_viscous_dissipation(
+                    Ok(get_element_transformed().viscous_dissipation(
                         &get_reference_coordinates_transformed().into(),
                         &NodalVelocities::zero(),
                     )?)
                 }
             } else {
                 if is_deformed {
-                    Ok(get_element()
-                        .calculate_viscous_dissipation(&get_coordinates(), &get_velocities())?)
+                    Ok(get_element().viscous_dissipation(&get_coordinates(), &get_velocities())?)
                 } else {
-                    Ok(get_element().calculate_viscous_dissipation(
+                    Ok(get_element().viscous_dissipation(
                         &get_reference_coordinates().into(),
                         &NodalVelocities::zero(),
                     )?)
@@ -872,12 +857,12 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
         ) -> Result<Scalar, TestError> {
             if is_rotated {
                 if is_deformed {
-                    Ok(get_element_transformed().calculate_dissipation_potential(
+                    Ok(get_element_transformed().dissipation_potential(
                         &get_coordinates_transformed(),
                         &get_velocities_transformed(),
                     )?)
                 } else {
-                    Ok(get_element_transformed().calculate_dissipation_potential(
+                    Ok(get_element_transformed().dissipation_potential(
                         &get_reference_coordinates_transformed().into(),
                         &NodalVelocities::zero(),
                     )?)
@@ -885,9 +870,9 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
             } else {
                 if is_deformed {
                     Ok(get_element()
-                        .calculate_dissipation_potential(&get_coordinates(), &get_velocities())?)
+                        .dissipation_potential(&get_coordinates(), &get_velocities())?)
                 } else {
-                    Ok(get_element().calculate_dissipation_potential(
+                    Ok(get_element().dissipation_potential(
                         &get_reference_coordinates().into(),
                         &NodalVelocities::zero(),
                     )?)
@@ -914,15 +899,11 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                                 NodalVelocities::zero()
                             };
                             nodal_velocities[node][i] += 0.5 * EPSILON;
-                            finite_difference = element.calculate_viscous_dissipation(
-                                &nodal_coordinates,
-                                &nodal_velocities,
-                            )?;
+                            finite_difference = element
+                                .viscous_dissipation(&nodal_coordinates, &nodal_velocities)?;
                             nodal_velocities[node][i] -= EPSILON;
-                            finite_difference -= element.calculate_viscous_dissipation(
-                                &nodal_coordinates,
-                                &nodal_velocities,
-                            )?;
+                            finite_difference -= element
+                                .viscous_dissipation(&nodal_coordinates, &nodal_velocities)?;
                             Ok(finite_difference / EPSILON)
                         })
                         .collect()
@@ -949,15 +930,11 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                                 NodalVelocities::zero()
                             };
                             nodal_velocities[node][i] += 0.5 * EPSILON;
-                            finite_difference = element.calculate_dissipation_potential(
-                                &nodal_coordinates,
-                                &nodal_velocities,
-                            )?;
+                            finite_difference = element
+                                .dissipation_potential(&nodal_coordinates, &nodal_velocities)?;
                             nodal_velocities[node][i] -= EPSILON;
-                            finite_difference -= element.calculate_dissipation_potential(
-                                &nodal_coordinates,
-                                &nodal_velocities,
-                            )?;
+                            finite_difference -= element
+                                .dissipation_potential(&nodal_coordinates, &nodal_velocities)?;
                             Ok(finite_difference / EPSILON)
                         })
                         .collect()
@@ -989,18 +966,16 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                         (0..3).try_for_each(|i| {
                             perturbed_velocities = get_velocities();
                             perturbed_velocities[node][i] += 0.5 * EPSILON;
-                            perturbed = element.calculate_viscous_dissipation(
-                                &get_coordinates(),
-                                &perturbed_velocities,
-                            )? - nodal_forces.dot(&perturbed_velocities);
+                            perturbed = element
+                                .viscous_dissipation(&get_coordinates(), &perturbed_velocities)?
+                                - nodal_forces.dot(&perturbed_velocities);
                             if assert_eq_within_tols(&perturbed, &minimum).is_err() {
                                 assert!(perturbed > minimum)
                             }
                             perturbed_velocities[node][i] -= EPSILON;
-                            perturbed = element.calculate_viscous_dissipation(
-                                &get_coordinates(),
-                                &perturbed_velocities,
-                            )? - nodal_forces.dot(&perturbed_velocities);
+                            perturbed = element
+                                .viscous_dissipation(&get_coordinates(), &perturbed_velocities)?
+                                - nodal_forces.dot(&perturbed_velocities);
                             if assert_eq_within_tols(&perturbed, &minimum).is_err() {
                                 assert!(perturbed > minimum)
                             }
@@ -1040,7 +1015,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                         (0..3).try_for_each(|i| {
                             perturbed_velocities = NodalVelocities::zero();
                             perturbed_velocities[node][i] += 0.5 * EPSILON;
-                            perturbed = element.calculate_viscous_dissipation(
+                            perturbed = element.viscous_dissipation(
                                 &get_reference_coordinates().into(),
                                 &perturbed_velocities,
                             )?;
@@ -1048,7 +1023,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                                 assert!(perturbed > minimum)
                             }
                             perturbed_velocities[node][i] -= EPSILON;
-                            perturbed = element.calculate_viscous_dissipation(
+                            perturbed = element.viscous_dissipation(
                                 &get_reference_coordinates().into(),
                                 &perturbed_velocities,
                             )?;
@@ -1092,18 +1067,16 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                         (0..3).try_for_each(|i| {
                             perturbed_velocities = get_velocities();
                             perturbed_velocities[node][i] += 0.5 * EPSILON;
-                            perturbed = element.calculate_dissipation_potential(
-                                &get_coordinates(),
-                                &perturbed_velocities,
-                            )? - nodal_forces.dot(&perturbed_velocities);
+                            perturbed = element
+                                .dissipation_potential(&get_coordinates(), &perturbed_velocities)?
+                                - nodal_forces.dot(&perturbed_velocities);
                             if assert_eq_within_tols(&perturbed, &minimum).is_err() {
                                 assert!(perturbed > minimum)
                             }
                             perturbed_velocities[node][i] -= EPSILON;
-                            perturbed = element.calculate_dissipation_potential(
-                                &get_coordinates(),
-                                &perturbed_velocities,
-                            )? - nodal_forces.dot(&perturbed_velocities);
+                            perturbed = element
+                                .dissipation_potential(&get_coordinates(), &perturbed_velocities)?
+                                - nodal_forces.dot(&perturbed_velocities);
                             if assert_eq_within_tols(&perturbed, &minimum).is_err() {
                                 assert!(perturbed > minimum)
                             }
@@ -1138,7 +1111,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                         (0..3).try_for_each(|i| {
                             perturbed_velocities = NodalVelocities::zero();
                             perturbed_velocities[node][i] += 0.5 * EPSILON;
-                            perturbed = element.calculate_dissipation_potential(
+                            perturbed = element.dissipation_potential(
                                 &get_reference_coordinates().into(),
                                 &perturbed_velocities,
                             )?;
@@ -1146,7 +1119,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                                 assert!(perturbed > minimum)
                             }
                             perturbed_velocities[node][i] -= EPSILON;
-                            perturbed = element.calculate_dissipation_potential(
+                            perturbed = element.dissipation_potential(
                                 &get_reference_coordinates().into(),
                                 &perturbed_velocities,
                             )?;
