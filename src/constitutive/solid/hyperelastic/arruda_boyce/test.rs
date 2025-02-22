@@ -12,10 +12,10 @@ test_solid_hyperelastic_constitutive_model!(
 test_solve!(ArrudaBoyce::new(ARRUDABOYCEPARAMETERS));
 
 #[test]
-fn get_number_of_links() {
+fn number_of_links() {
     assert_eq!(
         &ARRUDABOYCEPARAMETERS[2],
-        ArrudaBoyce::new(ARRUDABOYCEPARAMETERS).get_number_of_links()
+        ArrudaBoyce::new(ARRUDABOYCEPARAMETERS).number_of_links()
     )
 }
 

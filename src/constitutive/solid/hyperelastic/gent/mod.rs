@@ -11,7 +11,7 @@ pub struct Gent<'a> {
 
 impl Gent<'_> {
     /// Returns the extensibility.
-    fn get_extensibility(&self) -> &Scalar {
+    fn extensibility(&self) -> &Scalar {
         &self.parameters[2]
     }
 }
@@ -47,7 +47,7 @@ impl<'a> Elastic<'a> for Gent<'a> {
                 isochoric_left_cauchy_green_deformation_trace,
             ) = isochoric_left_cauchy_green_deformation.deviatoric_and_trace();
             let denominator =
-                self.get_extensibility() - isochoric_left_cauchy_green_deformation_trace + 3.0;
+                self.extensibility() - isochoric_left_cauchy_green_deformation_trace + 3.0;
             if denominator <= 0.0 {
                 Err(ConstitutiveError::Custom(
                     "Maximum extensibility reached.".to_string(),
@@ -57,7 +57,7 @@ impl<'a> Elastic<'a> for Gent<'a> {
             } else {
                 Ok((deviatoric_isochoric_left_cauchy_green_deformation
                     * self.shear_modulus()
-                    * self.get_extensibility()
+                    * self.extensibility()
                     / jacobian)
                     / denominator
                     + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
@@ -86,7 +86,7 @@ impl<'a> Elastic<'a> for Gent<'a> {
                 isochoric_left_cauchy_green_deformation_trace,
             ) = isochoric_left_cauchy_green_deformation.deviatoric_and_trace();
             let denominator =
-                self.get_extensibility() - isochoric_left_cauchy_green_deformation_trace + 3.0;
+                self.extensibility() - isochoric_left_cauchy_green_deformation_trace + 3.0;
             if denominator <= 0.0 {
                 Err(ConstitutiveError::Custom(
                     "Maximum extensibility reached.".to_string(),
@@ -95,7 +95,7 @@ impl<'a> Elastic<'a> for Gent<'a> {
                 ))
             } else {
                 let prefactor =
-                    self.shear_modulus() * self.get_extensibility() / jacobian / denominator;
+                    self.shear_modulus() * self.extensibility() / jacobian / denominator;
                 Ok(
                     (CauchyTangentStiffness::dyad_ik_jl(&IDENTITY, deformation_gradient)
                         + CauchyTangentStiffness::dyad_il_jk(deformation_gradient, &IDENTITY)
@@ -141,7 +141,7 @@ impl<'a> Hyperelastic<'a> for Gent<'a> {
                 .trace()
                 / jacobian.powf(TWO_THIRDS)
                 - 3.0)
-                / self.get_extensibility();
+                / self.extensibility();
             if factor >= 1.0 {
                 Err(ConstitutiveError::Custom(
                     "Maximum extensibility reached.".to_string(),
@@ -150,7 +150,7 @@ impl<'a> Hyperelastic<'a> for Gent<'a> {
                 ))
             } else {
                 Ok(0.5
-                    * (-self.shear_modulus() * self.get_extensibility() * (1.0 - factor).ln()
+                    * (-self.shear_modulus() * self.extensibility() * (1.0 - factor).ln()
                         + self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
             }
         } else {

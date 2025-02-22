@@ -21,10 +21,10 @@ impl<'a, C1: Hyperelastic<'a>, C2: Hyperelastic<'a>> Hyperelastic<'a> for Additi
         deformation_gradient: &DeformationGradient,
     ) -> Result<Scalar, ConstitutiveError> {
         Ok(self
-            .get_constitutive_model_1()
+            .constitutive_model_1()
             .helmholtz_free_energy_density(deformation_gradient)?
             + self
-                .get_constitutive_model_2()
+                .constitutive_model_2()
                 .helmholtz_free_energy_density(deformation_gradient)?)
     }
 }

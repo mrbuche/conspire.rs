@@ -12,9 +12,9 @@ test_solid_hyperelastic_constitutive_model!(
 test_solve!(MooneyRivlin::new(MOONEYRIVLINPARAMETERS));
 
 #[test]
-fn get_extra_modulus() {
+fn extra_modulus() {
     assert_eq!(
         &MOONEYRIVLINPARAMETERS[2],
-        MooneyRivlin::new(MOONEYRIVLINPARAMETERS).get_extra_modulus()
+        MooneyRivlin::new(MOONEYRIVLINPARAMETERS).extra_modulus()
     )
 }

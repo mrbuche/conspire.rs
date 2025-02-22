@@ -12,7 +12,7 @@ pub struct ArrudaBoyce<'a> {
 
 impl ArrudaBoyce<'_> {
     /// Returns the number of links.
-    fn get_number_of_links(&self) -> &Scalar {
+    fn number_of_links(&self) -> &Scalar {
         &self.parameters[2]
     }
 }
@@ -47,7 +47,7 @@ impl<'a> Elastic<'a> for ArrudaBoyce<'a> {
                 / jacobian.powf(TWO_THIRDS))
             .deviatoric_and_trace();
             let gamma =
-                (isochoric_left_cauchy_green_deformation_trace / 3.0 / self.get_number_of_links())
+                (isochoric_left_cauchy_green_deformation_trace / 3.0 / self.number_of_links())
                     .sqrt();
             if gamma >= 1.0 {
                 Err(ConstitutiveError::Custom(
@@ -56,7 +56,7 @@ impl<'a> Elastic<'a> for ArrudaBoyce<'a> {
                     format!("{:?}", &self),
                 ))
             } else {
-                let gamma_0 = (1.0 / self.get_number_of_links()).sqrt();
+                let gamma_0 = (1.0 / self.number_of_links()).sqrt();
                 Ok(deviatoric_isochoric_left_cauchy_green_deformation
                     * (self.shear_modulus() * inverse_langevin(gamma) / inverse_langevin(gamma_0)
                         * gamma_0
@@ -89,7 +89,7 @@ impl<'a> Elastic<'a> for ArrudaBoyce<'a> {
                 isochoric_left_cauchy_green_deformation_trace,
             ) = (left_cauchy_green_deformation / jacobian.powf(TWO_THIRDS)).deviatoric_and_trace();
             let gamma =
-                (isochoric_left_cauchy_green_deformation_trace / 3.0 / self.get_number_of_links())
+                (isochoric_left_cauchy_green_deformation_trace / 3.0 / self.number_of_links())
                     .sqrt();
             if gamma >= 1.0 {
                 Err(ConstitutiveError::Custom(
@@ -98,7 +98,7 @@ impl<'a> Elastic<'a> for ArrudaBoyce<'a> {
                     format!("{:?}", &self),
                 ))
             } else {
-                let gamma_0 = (1.0 / self.get_number_of_links()).sqrt();
+                let gamma_0 = (1.0 / self.number_of_links()).sqrt();
                 let eta = inverse_langevin(gamma);
                 let scaled_shear_modulus =
                     gamma_0 / inverse_langevin(gamma_0) * self.shear_modulus() * eta
@@ -112,7 +112,7 @@ impl<'a> Elastic<'a> for ArrudaBoyce<'a> {
                         * &inverse_transpose_deformation_gradient
                         * ((1.0 / eta / langevin_derivative(eta) - 1.0 / gamma)
                             / 3.0
-                            / self.get_number_of_links()
+                            / self.number_of_links()
                             / gamma)),
                 );
                 Ok(
@@ -151,10 +151,9 @@ impl<'a> Hyperelastic<'a> for ArrudaBoyce<'a> {
             let isochoric_left_cauchy_green_deformation = self
                 .left_cauchy_green_deformation(deformation_gradient)
                 / jacobian.powf(TWO_THIRDS);
-            let gamma = (isochoric_left_cauchy_green_deformation.trace()
-                / 3.0
-                / self.get_number_of_links())
-            .sqrt();
+            let gamma =
+                (isochoric_left_cauchy_green_deformation.trace() / 3.0 / self.number_of_links())
+                    .sqrt();
             if gamma >= 1.0 {
                 Err(ConstitutiveError::Custom(
                     "Maximum extensibility reached.".to_string(),
@@ -163,11 +162,11 @@ impl<'a> Hyperelastic<'a> for ArrudaBoyce<'a> {
                 ))
             } else {
                 let eta = inverse_langevin(gamma);
-                let gamma_0 = (1.0 / self.get_number_of_links()).sqrt();
+                let gamma_0 = (1.0 / self.number_of_links()).sqrt();
                 let eta_0 = inverse_langevin(gamma_0);
                 Ok(3.0 * gamma_0 / eta_0
                     * self.shear_modulus()
-                    * self.get_number_of_links()
+                    * self.number_of_links()
                     * (gamma * eta
                         - gamma_0 * eta_0
                         - (eta_0 * eta.sinh() / (eta * eta_0.sinh())).ln())

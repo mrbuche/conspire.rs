@@ -8,10 +8,10 @@ test_solid_hyperelastic_constitutive_model!(Gent, GENTPARAMETERS, Gent::new(GENT
 test_solve!(Gent::new(GENTPARAMETERS));
 
 #[test]
-fn get_extensibility() {
+fn extensibility() {
     assert_eq!(
         &GENTPARAMETERS[2],
-        Gent::new(GENTPARAMETERS).get_extensibility()
+        Gent::new(GENTPARAMETERS).extensibility()
     )
 }
 

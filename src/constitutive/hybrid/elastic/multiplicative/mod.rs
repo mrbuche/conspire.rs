@@ -47,7 +47,7 @@ impl<'a, C1: Elastic<'a>, C2: Elastic<'a>> Elastic<'a> for Multiplicative<C1, C2
         let (deformation_gradient_1, deformation_gradient_2) =
             self.deformation_gradients(deformation_gradient)?;
         Ok(self
-            .get_constitutive_model_1()
+            .constitutive_model_1()
             .cauchy_stress(&deformation_gradient_1)?
             / deformation_gradient_2.determinant())
     }
@@ -72,7 +72,7 @@ impl<'a, C1: Elastic<'a>, C2: Elastic<'a>> Elastic<'a> for Multiplicative<C1, C2
         let deformation_gradient_2_inverse_transpose: TensorRank2<3, 0, 0> =
             deformation_gradient_2.inverse_transpose().into();
         Ok(self
-            .get_constitutive_model_1()
+            .constitutive_model_1()
             .first_piola_kirchhoff_stress(&deformation_gradient_1)?
             * deformation_gradient_2_inverse_transpose)
     }
@@ -98,7 +98,7 @@ impl<'a, C1: Elastic<'a>, C2: Elastic<'a>> Elastic<'a> for Multiplicative<C1, C2
             deformation_gradient_2.inverse().into();
         Ok(&deformation_gradient_2_inverse
             * self
-                .get_constitutive_model_1()
+                .constitutive_model_1()
                 .second_piola_kirchhoff_stress(&deformation_gradient_1)?
             * deformation_gradient_2_inverse.transpose())
     }
@@ -138,12 +138,12 @@ impl<'a, C1: Elastic<'a>, C2: Elastic<'a>> MultiplicativeTrait for Multiplicativ
                     deformation_gradient_2.inverse_transpose().into();
                 right_hand_side = (deformation_gradient_1.transpose()
                     * self
-                        .get_constitutive_model_1()
+                        .constitutive_model_1()
                         .first_piola_kirchhoff_stress(&deformation_gradient_1)?
                     * deformation_gradient_2_inverse_transpose)
                     .into();
                 residual = self
-                    .get_constitutive_model_2()
+                    .constitutive_model_2()
                     .first_piola_kirchhoff_stress(&deformation_gradient_2)?
                     - right_hand_side;
                 residual_norm = residual.norm();

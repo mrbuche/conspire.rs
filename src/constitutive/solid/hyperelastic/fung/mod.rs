@@ -11,11 +11,11 @@ pub struct Fung<'a> {
 
 impl Fung<'_> {
     /// Returns the extra modulus.
-    fn get_extra_modulus(&self) -> &Scalar {
+    fn extra_modulus(&self) -> &Scalar {
         &self.parameters[2]
     }
     /// Returns the exponent.
-    fn get_exponent(&self) -> &Scalar {
+    fn exponent(&self) -> &Scalar {
         &self.parameters[3]
     }
 }
@@ -52,8 +52,8 @@ impl<'a> Elastic<'a> for Fung<'a> {
             ) = isochoric_left_cauchy_green_deformation.deviatoric_and_trace();
             Ok(deviatoric_isochoric_left_cauchy_green_deformation
                 * ((self.shear_modulus()
-                    + self.get_extra_modulus()
-                        * ((self.get_exponent()
+                    + self.extra_modulus()
+                        * ((self.exponent()
                             * (isochoric_left_cauchy_green_deformation_trace - 3.0))
                             .exp()
                             - 1.0))
@@ -83,9 +83,9 @@ impl<'a> Elastic<'a> for Fung<'a> {
                 isochoric_left_cauchy_green_deformation_trace,
             ) = isochoric_left_cauchy_green_deformation.deviatoric_and_trace();
             let exponential =
-                (self.get_exponent() * (isochoric_left_cauchy_green_deformation_trace - 3.0)).exp();
+                (self.exponent() * (isochoric_left_cauchy_green_deformation_trace - 3.0)).exp();
             let scaled_shear_modulus_0 = (self.shear_modulus()
-                + self.get_extra_modulus() * (exponential - 1.0))
+                + self.extra_modulus() * (exponential - 1.0))
                 / jacobian.powf(FIVE_THIRDS);
             Ok(
                 (CauchyTangentStiffness::dyad_ik_jl(&IDENTITY, deformation_gradient)
@@ -97,7 +97,7 @@ impl<'a> Elastic<'a> for Fung<'a> {
                         &deviatoric_isochoric_left_cauchy_green_deformation,
                         &((&deviatoric_isochoric_left_cauchy_green_deformation
                             * &inverse_transpose_deformation_gradient)
-                            * (2.0 * self.get_exponent() * self.get_extra_modulus() * exponential
+                            * (2.0 * self.exponent() * self.extra_modulus() * exponential
                                 / jacobian)),
                     )
                     + CauchyTangentStiffness::dyad_ij_kl(
@@ -133,9 +133,9 @@ impl<'a> Hyperelastic<'a> for Fung<'a> {
                 / jacobian.powf(TWO_THIRDS)
                 - 3.0;
             Ok(0.5
-                * ((self.shear_modulus() - self.get_extra_modulus()) * scalar_term
-                    + self.get_extra_modulus() / self.get_exponent()
-                        * ((self.get_exponent() * scalar_term).exp() - 1.0)
+                * ((self.shear_modulus() - self.extra_modulus()) * scalar_term
+                    + self.extra_modulus() / self.exponent()
+                        * ((self.exponent() * scalar_term).exp() - 1.0)
                     + self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
         } else {
             Err(ConstitutiveError::InvalidJacobian(

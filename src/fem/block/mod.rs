@@ -25,8 +25,8 @@ pub trait BasicFiniteElementBlock<'a, C, const E: usize, F, const G: usize, cons
 where
     C: Constitutive<'a>,
 {
-    fn get_connectivity(&self) -> &Connectivity<E, N>;
-    fn get_elements(&self) -> &[F; E];
+    fn connectivity(&self) -> &Connectivity<E, N>;
+    fn elements(&self) -> &[F; E];
     fn nodal_coordinates_element(
         &self,
         element_connectivity: &[usize; N],
@@ -157,10 +157,10 @@ where
     C: Elastic<'a>,
     F: ElasticFiniteElement<'a, C, G, N>,
 {
-    fn get_connectivity(&self) -> &Connectivity<E, N> {
+    fn connectivity(&self) -> &Connectivity<E, N> {
         &self.connectivity
     }
-    fn get_elements(&self) -> &[F; E] {
+    fn elements(&self) -> &[F; E] {
         &self.elements
     }
     fn nodal_coordinates_element(
@@ -213,9 +213,9 @@ where
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> DeformationGradientss<G, E> {
-        self.get_elements()
+        self.elements()
             .iter()
-            .zip(self.get_connectivity().iter())
+            .zip(self.connectivity().iter())
             .map(|(element, element_connectivity)| {
                 element.deformations(
                     &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
@@ -228,9 +228,9 @@ where
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<NodalForcesBlock, ConstitutiveError> {
         let mut nodal_forces = NodalForcesBlock::zero(nodal_coordinates.len());
-        self.get_elements()
+        self.elements()
             .iter()
-            .zip(self.get_connectivity().iter())
+            .zip(self.connectivity().iter())
             .try_for_each(|(element, element_connectivity)| {
                 element
                     .nodal_forces(
@@ -248,9 +248,9 @@ where
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<NodalStiffnessesBlock, ConstitutiveError> {
         let mut nodal_stiffnesses = NodalStiffnessesBlock::zero(nodal_coordinates.len());
-        self.get_elements()
+        self.elements()
             .iter()
-            .zip(self.get_connectivity().iter())
+            .zip(self.connectivity().iter())
             .try_for_each(|(element, element_connectivity)| {
                 element
                     .nodal_stiffnesses(
@@ -301,9 +301,9 @@ where
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<Scalar, ConstitutiveError> {
-        self.get_elements()
+        self.elements()
             .iter()
-            .zip(self.get_connectivity().iter())
+            .zip(self.connectivity().iter())
             .map(|(element, element_connectivity)| {
                 element.helmholtz_free_energy(
                     &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
@@ -319,10 +319,10 @@ where
     C: Viscoelastic<'a>,
     F: ViscoelasticFiniteElement<'a, C, G, N>,
 {
-    fn get_connectivity(&self) -> &Connectivity<E, N> {
+    fn connectivity(&self) -> &Connectivity<E, N> {
         &self.connectivity
     }
-    fn get_elements(&self) -> &[F; E] {
+    fn elements(&self) -> &[F; E] {
         &self.elements
     }
     fn nodal_coordinates_element(
@@ -377,9 +377,9 @@ where
         nodal_velocities: &NodalVelocitiesBlock,
     ) -> Result<NodalForcesBlock, ConstitutiveError> {
         let mut nodal_forces = NodalForcesBlock::zero(nodal_coordinates.len());
-        self.get_elements()
+        self.elements()
             .iter()
-            .zip(self.get_connectivity().iter())
+            .zip(self.connectivity().iter())
             .try_for_each(|(element, element_connectivity)| {
                 element
                     .nodal_forces(
@@ -399,9 +399,9 @@ where
         nodal_velocities: &NodalVelocitiesBlock,
     ) -> Result<NodalStiffnessesBlock, ConstitutiveError> {
         let mut nodal_stiffnesses = NodalStiffnessesBlock::zero(nodal_coordinates.len());
-        self.get_elements()
+        self.elements()
             .iter()
-            .zip(self.get_connectivity().iter())
+            .zip(self.connectivity().iter())
             .try_for_each(|(element, element_connectivity)| {
                 element
                     .nodal_stiffnesses(
@@ -445,9 +445,9 @@ where
         nodal_coordinates: &NodalCoordinatesBlock,
         nodal_velocities: &NodalVelocitiesBlock,
     ) -> Result<Scalar, ConstitutiveError> {
-        self.get_elements()
+        self.elements()
             .iter()
-            .zip(self.get_connectivity().iter())
+            .zip(self.connectivity().iter())
             .map(|(element, element_connectivity)| {
                 element.viscous_dissipation(
                     &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
@@ -461,9 +461,9 @@ where
         nodal_coordinates: &NodalCoordinatesBlock,
         nodal_velocities: &NodalVelocitiesBlock,
     ) -> Result<Scalar, ConstitutiveError> {
-        self.get_elements()
+        self.elements()
             .iter()
-            .zip(self.get_connectivity().iter())
+            .zip(self.connectivity().iter())
             .map(|(element, element_connectivity)| {
                 element.dissipation_potential(
                     &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
@@ -485,9 +485,9 @@ where
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<Scalar, ConstitutiveError> {
-        self.get_elements()
+        self.elements()
             .iter()
-            .zip(self.get_connectivity().iter())
+            .zip(self.connectivity().iter())
             .map(|(element, element_connectivity)| {
                 element.helmholtz_free_energy(
                     &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),

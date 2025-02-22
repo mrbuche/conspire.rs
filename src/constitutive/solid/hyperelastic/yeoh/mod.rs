@@ -11,11 +11,11 @@ pub struct Yeoh<'a> {
 
 impl Yeoh<'_> {
     /// Returns an array of the moduli.
-    pub fn get_moduli(&self) -> &[Scalar] {
+    pub fn moduli(&self) -> &[Scalar] {
         &self.parameters[1..]
     }
     /// Returns an array of the extra moduli.
-    pub fn get_extra_moduli(&self) -> &[Scalar] {
+    pub fn extra_moduli(&self) -> &[Scalar] {
         &self.parameters[2..]
     }
 }
@@ -49,7 +49,7 @@ impl<'a> Elastic<'a> for Yeoh<'a> {
             let scalar_term = left_cauchy_green_deformation_trace / jacobian.powf(TWO_THIRDS) - 3.0;
             Ok(deviatoric_left_cauchy_green_deformation
                 * self
-                    .get_moduli()
+                    .moduli()
                     .iter()
                     .enumerate()
                     .map(|(n, modulus)| {
@@ -79,7 +79,7 @@ impl<'a> Elastic<'a> for Yeoh<'a> {
             let scalar_term =
                 left_cauchy_green_deformation.trace() / jacobian.powf(TWO_THIRDS) - 3.0;
             let scaled_modulus = self
-                .get_moduli()
+                .moduli()
                 .iter()
                 .enumerate()
                 .map(|(n, modulus)| ((n as Scalar) + 1.0) * modulus * scalar_term.powi(n as i32))
@@ -93,7 +93,7 @@ impl<'a> Elastic<'a> for Yeoh<'a> {
                     * &inverse_transpose_deformation_gradient)
                     * (2.0
                         * self
-                            .get_extra_moduli()
+                            .extra_moduli()
                             .iter()
                             .enumerate()
                             .map(|(n, modulus)| {
@@ -144,7 +144,7 @@ impl<'a> Hyperelastic<'a> for Yeoh<'a> {
                 - 3.0;
             Ok(0.5
                 * (self
-                    .get_moduli()
+                    .moduli()
                     .iter()
                     .enumerate()
                     .map(|(n, modulus)| modulus * scalar_term.powi((n + 1) as i32))
