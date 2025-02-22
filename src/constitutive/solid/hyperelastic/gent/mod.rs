@@ -23,10 +23,10 @@ impl<'a> Constitutive<'a> for Gent<'a> {
 }
 
 impl<'a> Solid<'a> for Gent<'a> {
-    fn get_bulk_modulus(&self) -> &Scalar {
+    fn bulk_modulus(&self) -> &Scalar {
         &self.parameters[0]
     }
-    fn get_shear_modulus(&self) -> &Scalar {
+    fn shear_modulus(&self) -> &Scalar {
         &self.parameters[1]
     }
 }
@@ -56,11 +56,11 @@ impl<'a> Elastic<'a> for Gent<'a> {
                 ))
             } else {
                 Ok((deviatoric_isochoric_left_cauchy_green_deformation
-                    * self.get_shear_modulus()
+                    * self.shear_modulus()
                     * self.get_extensibility()
                     / jacobian)
                     / denominator
-                    + IDENTITY * self.get_bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
+                    + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
             }
         } else {
             Err(ConstitutiveError::InvalidJacobian(
@@ -95,7 +95,7 @@ impl<'a> Elastic<'a> for Gent<'a> {
                 ))
             } else {
                 let prefactor =
-                    self.get_shear_modulus() * self.get_extensibility() / jacobian / denominator;
+                    self.shear_modulus() * self.get_extensibility() / jacobian / denominator;
                 Ok(
                     (CauchyTangentStiffness::dyad_ik_jl(&IDENTITY, deformation_gradient)
                         + CauchyTangentStiffness::dyad_il_jk(deformation_gradient, &IDENTITY)
@@ -107,8 +107,7 @@ impl<'a> Elastic<'a> for Gent<'a> {
                         ) * (2.0 / denominator))
                         * (prefactor / jacobian.powf(TWO_THIRDS))
                         + CauchyTangentStiffness::dyad_ij_kl(
-                            &(IDENTITY
-                                * (0.5 * self.get_bulk_modulus() * (jacobian + 1.0 / jacobian))
+                            &(IDENTITY * (0.5 * self.bulk_modulus() * (jacobian + 1.0 / jacobian))
                                 - deviatoric_isochoric_left_cauchy_green_deformation
                                     * prefactor
                                     * ((5.0
@@ -151,9 +150,8 @@ impl<'a> Hyperelastic<'a> for Gent<'a> {
                 ))
             } else {
                 Ok(0.5
-                    * (-self.get_shear_modulus() * self.get_extensibility() * (1.0 - factor).ln()
-                        + self.get_bulk_modulus()
-                            * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
+                    * (-self.shear_modulus() * self.get_extensibility() * (1.0 - factor).ln()
+                        + self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
             }
         } else {
             Err(ConstitutiveError::InvalidJacobian(

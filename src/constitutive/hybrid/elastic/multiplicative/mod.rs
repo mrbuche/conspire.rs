@@ -25,11 +25,11 @@ impl<'a, C1: Elastic<'a>, C2: Elastic<'a>> Constitutive<'a> for Multiplicative<C
 
 impl<'a, C1: Elastic<'a>, C2: Elastic<'a>> Solid<'a> for Multiplicative<C1, C2> {
     /// Dummy method that will panic.
-    fn get_bulk_modulus(&self) -> &Scalar {
+    fn bulk_modulus(&self) -> &Scalar {
         panic!()
     }
     /// Dummy method that will panic.
-    fn get_shear_modulus(&self) -> &Scalar {
+    fn shear_modulus(&self) -> &Scalar {
         panic!()
     }
 }

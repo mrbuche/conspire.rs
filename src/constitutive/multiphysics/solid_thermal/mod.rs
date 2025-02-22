@@ -15,7 +15,7 @@ where
     /// Constructs and returns a new solid-thermal constitutive model.
     fn construct(solid_constitutive_model: C1, thermal_constitutive_model: C2) -> Self;
     /// Returns a reference to the solid constitutive model.
-    fn get_solid_constitutive_model(&self) -> &C1;
+    fn solid_constitutive_model(&self) -> &C1;
     /// Returns a reference to the thermal constitutive model.
-    fn get_thermal_constitutive_model(&self) -> &C2;
+    fn thermal_constitutive_model(&self) -> &C2;
 }

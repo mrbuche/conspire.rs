@@ -10,7 +10,7 @@ pub mod solid;
 pub mod thermal;
 
 use crate::{
-    get_defeat_message,
+    defeat_message,
     math::optimize::OptimizeError,
     mechanics::{DeformationGradient, Scalar},
 };
@@ -77,12 +77,7 @@ impl fmt::Debug for ConstitutiveError {
                 )
             }
         };
-        write!(
-            f,
-            "\n{}\n\x1b[0;2;31m{}\x1b[0m\n",
-            error,
-            get_defeat_message()
-        )
+        write!(f, "\n{}\n\x1b[0;2;31m{}\x1b[0m\n", error, defeat_message())
     }
 }
 

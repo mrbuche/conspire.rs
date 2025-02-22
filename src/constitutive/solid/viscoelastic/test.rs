@@ -156,12 +156,12 @@ macro_rules! test_solid_viscous_constitutive_model
         #[test]
         fn get_bulk_viscosity() -> Result<(), TestError>
         {
-            assert_eq(get_constitutive_model().get_bulk_viscosity(), &$constitutive_model_parameters[2])
+            assert_eq(get_constitutive_model().bulk_viscosity(), &$constitutive_model_parameters[2])
         }
         #[test]
         fn get_shear_viscosity() -> Result<(), TestError>
         {
-            assert_eq(get_constitutive_model().get_shear_viscosity(), &$constitutive_model_parameters[3])
+            assert_eq(get_constitutive_model().shear_viscosity(), &$constitutive_model_parameters[3])
         }
         #[test]
         fn bulk_viscosity() -> Result<(), TestError>
@@ -170,7 +170,7 @@ macro_rules! test_solid_viscous_constitutive_model
             let mut deformation_gradient_rate = DeformationGradientRate::zero();
             deformation_gradient_rate += DeformationGradientRate::identity()*(EPSILON/3.0);
             let first_piola_kirchhoff_stress = first_piola_kirchhoff_stress_from_deformation_gradient_rate_simple!(&model, &deformation_gradient_rate)?;
-            assert!((3.0*EPSILON*model.get_bulk_viscosity()/first_piola_kirchhoff_stress.trace() - 1.0).abs() < EPSILON);
+            assert!((3.0*EPSILON*model.bulk_viscosity()/first_piola_kirchhoff_stress.trace() - 1.0).abs() < EPSILON);
             Ok(())
         }
         #[test]
@@ -180,7 +180,7 @@ macro_rules! test_solid_viscous_constitutive_model
             let mut deformation_gradient_rate = DeformationGradientRate::zero();
             deformation_gradient_rate[0][1] = EPSILON;
             let first_piola_kirchhoff_stress = first_piola_kirchhoff_stress_from_deformation_gradient_rate_simple!(&model, &deformation_gradient_rate)?;
-            assert!((EPSILON*model.get_shear_viscosity()/first_piola_kirchhoff_stress[0][1] - 1.0).abs() < EPSILON);
+            assert!((EPSILON*model.shear_viscosity()/first_piola_kirchhoff_stress[0][1] - 1.0).abs() < EPSILON);
             Ok(())
         }
         mod solid_viscous

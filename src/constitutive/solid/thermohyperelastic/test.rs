@@ -10,7 +10,7 @@ macro_rules! helmholtz_free_energy_density_from_deformation_gradient_simple {
     ($constitutive_model_constructed: expr, $deformation_gradient: expr) => {
         $constitutive_model_constructed.helmholtz_free_energy_density(
             $deformation_gradient,
-            $constitutive_model_constructed.get_reference_temperature(),
+            $constitutive_model_constructed.reference_temperature(),
         )
     };
 }

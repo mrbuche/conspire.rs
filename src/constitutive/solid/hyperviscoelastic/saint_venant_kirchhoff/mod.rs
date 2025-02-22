@@ -32,19 +32,19 @@ impl<'a> Constitutive<'a> for SaintVenantKirchhoff<'a> {
 }
 
 impl<'a> Solid<'a> for SaintVenantKirchhoff<'a> {
-    fn get_bulk_modulus(&self) -> &Scalar {
+    fn bulk_modulus(&self) -> &Scalar {
         &self.parameters[0]
     }
-    fn get_shear_modulus(&self) -> &Scalar {
+    fn shear_modulus(&self) -> &Scalar {
         &self.parameters[1]
     }
 }
 
 impl<'a> Viscous<'a> for SaintVenantKirchhoff<'a> {
-    fn get_bulk_viscosity(&self) -> &Scalar {
+    fn bulk_viscosity(&self) -> &Scalar {
         &self.parameters[2]
     }
-    fn get_shear_viscosity(&self) -> &Scalar {
+    fn shear_viscosity(&self) -> &Scalar {
         &self.parameters[3]
     }
 }
@@ -68,11 +68,11 @@ impl<'a> Viscoelastic<'a> for SaintVenantKirchhoff<'a> {
             let first_term = deformation_gradient_rate.transpose() * deformation_gradient;
             let (deviatoric_strain_rate, strain_rate_trace) =
                 ((&first_term + first_term.transpose()) * 0.5).deviatoric_and_trace();
-            Ok(deviatoric_strain * (2.0 * self.get_shear_modulus())
-                + deviatoric_strain_rate * (2.0 * self.get_shear_viscosity())
+            Ok(deviatoric_strain * (2.0 * self.shear_modulus())
+                + deviatoric_strain_rate * (2.0 * self.shear_viscosity())
                 + IDENTITY_00
-                    * (self.get_bulk_modulus() * strain_trace
-                        + self.get_bulk_viscosity() * strain_rate_trace))
+                    * (self.bulk_modulus() * strain_trace
+                        + self.bulk_viscosity() * strain_rate_trace))
         } else {
             Err(ConstitutiveError::InvalidJacobian(
                 jacobian,
@@ -94,7 +94,7 @@ impl<'a> Viscoelastic<'a> for SaintVenantKirchhoff<'a> {
         let jacobian = deformation_gradient.determinant();
         if jacobian > 0.0 {
             let scaled_deformation_gradient_transpose =
-                deformation_gradient.transpose() * self.get_shear_viscosity();
+                deformation_gradient.transpose() * self.shear_viscosity();
             Ok(SecondPiolaKirchhoffRateTangentStiffness::dyad_ik_jl(
                 &scaled_deformation_gradient_transpose,
                 &IDENTITY_00,
@@ -102,8 +102,7 @@ impl<'a> Viscoelastic<'a> for SaintVenantKirchhoff<'a> {
                 &IDENTITY_00,
                 &scaled_deformation_gradient_transpose,
             ) + SecondPiolaKirchhoffRateTangentStiffness::dyad_ij_kl(
-                &(IDENTITY_00
-                    * (self.get_bulk_viscosity() - TWO_THIRDS * self.get_shear_viscosity())),
+                &(IDENTITY_00 * (self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity())),
                 deformation_gradient,
             ))
         } else {
@@ -131,9 +130,9 @@ impl<'a> ElasticHyperviscous<'a> for SaintVenantKirchhoff<'a> {
         if jacobian > 0.0 {
             let first_term = deformation_gradient_rate.transpose() * deformation_gradient;
             let strain_rate = (&first_term + first_term.transpose()) * 0.5;
-            Ok(self.get_shear_viscosity() * strain_rate.squared_trace()
+            Ok(self.shear_viscosity() * strain_rate.squared_trace()
                 + 0.5
-                    * (self.get_bulk_viscosity() - TWO_THIRDS * self.get_shear_viscosity())
+                    * (self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity())
                     * strain_rate.trace().powi(2))
         } else {
             Err(ConstitutiveError::InvalidJacobian(
@@ -159,9 +158,9 @@ impl<'a> Hyperviscoelastic<'a> for SaintVenantKirchhoff<'a> {
         if jacobian > 0.0 {
             let strain =
                 (self.right_cauchy_green_deformation(deformation_gradient) - IDENTITY_00) * 0.5;
-            Ok(self.get_shear_modulus() * strain.squared_trace()
+            Ok(self.shear_modulus() * strain.squared_trace()
                 + 0.5
-                    * (self.get_bulk_modulus() - TWO_THIRDS * self.get_shear_modulus())
+                    * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())
                     * strain.trace().powi(2))
         } else {
             Err(ConstitutiveError::InvalidJacobian(

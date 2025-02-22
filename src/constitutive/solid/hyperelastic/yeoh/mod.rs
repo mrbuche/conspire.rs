@@ -27,10 +27,10 @@ impl<'a> Constitutive<'a> for Yeoh<'a> {
 }
 
 impl<'a> Solid<'a> for Yeoh<'a> {
-    fn get_bulk_modulus(&self) -> &Scalar {
+    fn bulk_modulus(&self) -> &Scalar {
         &self.parameters[0]
     }
-    fn get_shear_modulus(&self) -> &Scalar {
+    fn shear_modulus(&self) -> &Scalar {
         &self.parameters[1]
     }
 }
@@ -57,7 +57,7 @@ impl<'a> Elastic<'a> for Yeoh<'a> {
                     })
                     .sum::<Scalar>()
                 / jacobian.powf(FIVE_THIRDS)
-                + IDENTITY * self.get_bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
+                + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
         } else {
             Err(ConstitutiveError::InvalidJacobian(
                 jacobian,
@@ -112,7 +112,7 @@ impl<'a> Elastic<'a> for Yeoh<'a> {
                         * (TWO_THIRDS))
                     * scaled_modulus
                     + CauchyTangentStiffness::dyad_ij_kl(
-                        &(IDENTITY * (0.5 * self.get_bulk_modulus() * (jacobian + 1.0 / jacobian))
+                        &(IDENTITY * (0.5 * self.bulk_modulus() * (jacobian + 1.0 / jacobian))
                             - deviatoric_left_cauchy_green_deformation
                                 * (scaled_modulus * FIVE_THIRDS)),
                         &inverse_transpose_deformation_gradient,
@@ -149,7 +149,7 @@ impl<'a> Hyperelastic<'a> for Yeoh<'a> {
                     .enumerate()
                     .map(|(n, modulus)| modulus * scalar_term.powi((n + 1) as i32))
                     .sum::<Scalar>()
-                    + self.get_bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
+                    + self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
         } else {
             Err(ConstitutiveError::InvalidJacobian(
                 jacobian,

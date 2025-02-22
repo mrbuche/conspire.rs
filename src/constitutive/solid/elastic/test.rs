@@ -133,12 +133,12 @@ macro_rules! test_solid_constitutive_construction
         #[test]
         fn get_bulk_modulus() -> Result<(), TestError>
         {
-            assert_eq(get_constitutive_model().get_bulk_modulus(), &$constitutive_model_parameters[0])
+            assert_eq(get_constitutive_model().bulk_modulus(), &$constitutive_model_parameters[0])
         }
         #[test]
         fn get_shear_modulus() -> Result<(), TestError>
         {
-            assert_eq(get_constitutive_model().get_shear_modulus(), &$constitutive_model_parameters[1])
+            assert_eq(get_constitutive_model().shear_modulus(), &$constitutive_model_parameters[1])
         }
         #[test]
         fn bulk_modulus() -> Result<(), TestError>
@@ -146,7 +146,7 @@ macro_rules! test_solid_constitutive_construction
             let model = get_constitutive_model();
             let deformation_gradient = DeformationGradient::identity()*(1.0 + crate::EPSILON/3.0);
             let first_piola_kirchhoff_stress = first_piola_kirchhoff_stress_from_deformation_gradient_simple!(&model, &deformation_gradient)?;
-            assert!((3.0*crate::EPSILON*model.get_bulk_modulus()/first_piola_kirchhoff_stress.trace() - 1.0).abs() < crate::EPSILON);
+            assert!((3.0*crate::EPSILON*model.bulk_modulus()/first_piola_kirchhoff_stress.trace() - 1.0).abs() < crate::EPSILON);
             Ok(())
         }
         #[test]
@@ -156,7 +156,7 @@ macro_rules! test_solid_constitutive_construction
             let mut deformation_gradient = DeformationGradient::identity();
             deformation_gradient[0][1] = crate::EPSILON;
             let first_piola_kirchhoff_stress = first_piola_kirchhoff_stress_from_deformation_gradient_simple!(&model, &deformation_gradient)?;
-            assert!((crate::EPSILON*model.get_shear_modulus()/first_piola_kirchhoff_stress[0][1] - 1.0).abs() < crate::EPSILON);
+            assert!((crate::EPSILON*model.shear_modulus()/first_piola_kirchhoff_stress[0][1] - 1.0).abs() < crate::EPSILON);
             Ok(())
         }
         #[test]

@@ -24,7 +24,7 @@ pub type Ode89 = Verner9;
 use super::{
     interpolate::InterpolateSolution, Tensor, TensorArray, TensorRank0, TensorVec, Vector,
 };
-use crate::get_defeat_message;
+use crate::defeat_message;
 use std::{
     fmt,
     ops::{Div, Mul, Sub},
@@ -113,12 +113,7 @@ impl fmt::Debug for IntegrationError {
                 "\x1b[1;91mThe time must contain at least two entries.".to_string()
             }
         };
-        write!(
-            f,
-            "\n{}\n\x1b[0;2;31m{}\x1b[0m\n",
-            error,
-            get_defeat_message()
-        )
+        write!(f, "\n{}\n\x1b[0;2;31m{}\x1b[0m\n", error, defeat_message())
     }
 }
 

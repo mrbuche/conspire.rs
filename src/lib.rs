@@ -23,8 +23,8 @@ pub const REL_TOL: f64 = 1e-12;
 pub const EPSILON: f64 = 1e-6;
 
 #[allow(dead_code)]
-fn get_defeat_message<'a>() -> &'a str {
-    match get_random_number() {
+fn defeat_message<'a>() -> &'a str {
+    match random_number() {
         0 => "Game over.",
         1 => "I am Error.",
         2 => "Oh dear, you are dead!",
@@ -41,8 +41,8 @@ fn get_defeat_message<'a>() -> &'a str {
 }
 
 #[allow(dead_code)]
-fn get_victory_message<'a>() -> &'a str {
-    match get_random_number() {
+fn victory_message<'a>() -> &'a str {
+    match random_number() {
         0 => "Bird up!",
         1 => "Flawless victory.",
         2 => "Hey, that's pretty good!",
@@ -52,7 +52,7 @@ fn get_victory_message<'a>() -> &'a str {
     }
 }
 
-fn get_random_number() -> u8 {
+fn random_number() -> u8 {
     let now = format!("{:?}", std::time::SystemTime::now());
     let length = now.len();
     now[length - 3..length - 2].parse::<u8>().unwrap()

@@ -146,7 +146,7 @@ where
             ))
     }
     /// Returns the coefficient of thermal expansion.
-    fn get_coefficient_of_thermal_expansion(&self) -> &Scalar;
+    fn coefficient_of_thermal_expansion(&self) -> &Scalar;
     /// Returns the reference temperature.
-    fn get_reference_temperature(&self) -> &Scalar;
+    fn reference_temperature(&self) -> &Scalar;
 }

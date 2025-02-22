@@ -81,7 +81,7 @@ where
             .collect()
     }
     /// Returns the bulk modulus.
-    fn get_bulk_modulus(&self) -> &Scalar;
+    fn bulk_modulus(&self) -> &Scalar;
     /// Returns the shear modulus.
-    fn get_shear_modulus(&self) -> &Scalar;
+    fn shear_modulus(&self) -> &Scalar;
 }

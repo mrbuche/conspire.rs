@@ -28,11 +28,11 @@ where
     C1: Thermoelastic<'a>,
     C2: ThermalConduction<'a>,
 {
-    fn get_bulk_modulus(&self) -> &Scalar {
-        self.get_solid_constitutive_model().get_bulk_modulus()
+    fn bulk_modulus(&self) -> &Scalar {
+        self.solid_constitutive_model().bulk_modulus()
     }
-    fn get_shear_modulus(&self) -> &Scalar {
-        self.get_solid_constitutive_model().get_shear_modulus()
+    fn shear_modulus(&self) -> &Scalar {
+        self.solid_constitutive_model().shear_modulus()
     }
 }
 
@@ -46,7 +46,7 @@ where
         deformation_gradient: &DeformationGradient,
         temperature: &Scalar,
     ) -> Result<CauchyStress, ConstitutiveError> {
-        self.get_solid_constitutive_model()
+        self.solid_constitutive_model()
             .cauchy_stress(deformation_gradient, temperature)
     }
     fn cauchy_tangent_stiffness(
@@ -54,7 +54,7 @@ where
         deformation_gradient: &DeformationGradient,
         temperature: &Scalar,
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
-        self.get_solid_constitutive_model()
+        self.solid_constitutive_model()
             .cauchy_tangent_stiffness(deformation_gradient, temperature)
     }
     fn first_piola_kirchhoff_stress(
@@ -62,7 +62,7 @@ where
         deformation_gradient: &DeformationGradient,
         temperature: &Scalar,
     ) -> Result<FirstPiolaKirchhoffStress, ConstitutiveError> {
-        self.get_solid_constitutive_model()
+        self.solid_constitutive_model()
             .first_piola_kirchhoff_stress(deformation_gradient, temperature)
     }
     fn first_piola_kirchhoff_tangent_stiffness(
@@ -70,7 +70,7 @@ where
         deformation_gradient: &DeformationGradient,
         temperature: &Scalar,
     ) -> Result<FirstPiolaKirchhoffTangentStiffness, ConstitutiveError> {
-        self.get_solid_constitutive_model()
+        self.solid_constitutive_model()
             .first_piola_kirchhoff_tangent_stiffness(deformation_gradient, temperature)
     }
     fn second_piola_kirchhoff_stress(
@@ -78,7 +78,7 @@ where
         deformation_gradient: &DeformationGradient,
         temperature: &Scalar,
     ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
-        self.get_solid_constitutive_model()
+        self.solid_constitutive_model()
             .second_piola_kirchhoff_stress(deformation_gradient, temperature)
     }
     fn second_piola_kirchhoff_tangent_stiffness(
@@ -86,16 +86,15 @@ where
         deformation_gradient: &DeformationGradient,
         temperature: &Scalar,
     ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
-        self.get_solid_constitutive_model()
+        self.solid_constitutive_model()
             .second_piola_kirchhoff_tangent_stiffness(deformation_gradient, temperature)
     }
-    fn get_coefficient_of_thermal_expansion(&self) -> &Scalar {
-        self.get_solid_constitutive_model()
-            .get_coefficient_of_thermal_expansion()
+    fn coefficient_of_thermal_expansion(&self) -> &Scalar {
+        self.solid_constitutive_model()
+            .coefficient_of_thermal_expansion()
     }
-    fn get_reference_temperature(&self) -> &Scalar {
-        self.get_solid_constitutive_model()
-            .get_reference_temperature()
+    fn reference_temperature(&self) -> &Scalar {
+        self.solid_constitutive_model().reference_temperature()
     }
 }
 
@@ -107,7 +106,7 @@ where
     C2: ThermalConduction<'a>,
 {
     fn heat_flux(&self, temperature_gradient: &TemperatureGradient) -> HeatFlux {
-        self.get_thermal_constitutive_model()
+        self.thermal_constitutive_model()
             .heat_flux(temperature_gradient)
     }
 }
@@ -128,10 +127,10 @@ where
             thermal_conduction_constitutive_model,
         }
     }
-    fn get_solid_constitutive_model(&self) -> &C1 {
+    fn solid_constitutive_model(&self) -> &C1 {
         &self.thermoelastic_constitutive_model
     }
-    fn get_thermal_constitutive_model(&self) -> &C2 {
+    fn thermal_constitutive_model(&self) -> &C2 {
         &self.thermal_conduction_constitutive_model
     }
 }

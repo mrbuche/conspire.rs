@@ -5,7 +5,7 @@ mod gradient_descent;
 mod newton_raphson;
 
 use super::{Hessian, Tensor, TensorRank0};
-use crate::get_defeat_message;
+use crate::defeat_message;
 use std::{fmt, ops::Div};
 
 pub use gradient_descent::GradientDescent;
@@ -81,12 +81,7 @@ impl fmt::Debug for OptimizeError {
                 )
             }
         };
-        write!(
-            f,
-            "\n{}\n\x1b[0;2;31m{}\x1b[0m\n",
-            error,
-            get_defeat_message()
-        )
+        write!(f, "\n{}\n\x1b[0;2;31m{}\x1b[0m\n", error, defeat_message())
     }
 }
 

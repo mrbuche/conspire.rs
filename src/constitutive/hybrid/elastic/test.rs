@@ -121,21 +121,21 @@ macro_rules! test_panics {
             use super::*;
             #[test]
             #[should_panic]
-            fn get_bulk_modulus() {
+            fn bulk_modulus() {
                 $hybrid_type::construct(
                     AlmansiHamel::new(ALMANSIHAMELPARAMETERS),
                     NeoHookean::new(NEOHOOKEANPARAMETERS),
                 )
-                .get_bulk_modulus();
+                .bulk_modulus();
             }
             #[test]
             #[should_panic]
-            fn get_shear_modulus() {
+            fn shear_modulus() {
                 $hybrid_type::construct(
                     AlmansiHamel::new(ALMANSIHAMELPARAMETERS),
                     NeoHookean::new(NEOHOOKEANPARAMETERS),
                 )
-                .get_shear_modulus();
+                .shear_modulus();
             }
             #[test]
             #[should_panic]

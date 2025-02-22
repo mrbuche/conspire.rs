@@ -47,33 +47,32 @@ macro_rules! test_thermoelastic_thermal_conduction_constitutive_model {
             >::new(FOURIERPARAMETERS);
         }
         #[test]
-        fn get_bulk_modulus() {
+        fn bulk_modulus() {
             assert_eq!(
-                get_thermoelastic_thermal_conduction_constitutive_model().get_bulk_modulus(),
-                get_thermoelastic_constitutive_model().get_bulk_modulus()
+                get_thermoelastic_thermal_conduction_constitutive_model().bulk_modulus(),
+                get_thermoelastic_constitutive_model().bulk_modulus()
             )
         }
         #[test]
-        fn get_shear_modulus() {
+        fn shear_modulus() {
             assert_eq!(
-                get_thermoelastic_thermal_conduction_constitutive_model().get_shear_modulus(),
-                get_thermoelastic_constitutive_model().get_shear_modulus()
+                get_thermoelastic_thermal_conduction_constitutive_model().shear_modulus(),
+                get_thermoelastic_constitutive_model().shear_modulus()
             )
         }
         #[test]
-        fn get_coefficient_of_thermal_expansion() {
+        fn coefficient_of_thermal_expansion() {
             assert_eq!(
                 get_thermoelastic_thermal_conduction_constitutive_model()
-                    .get_coefficient_of_thermal_expansion(),
-                get_thermoelastic_constitutive_model().get_coefficient_of_thermal_expansion()
+                    .coefficient_of_thermal_expansion(),
+                get_thermoelastic_constitutive_model().coefficient_of_thermal_expansion()
             )
         }
         #[test]
-        fn get_reference_temperature() {
+        fn reference_temperature() {
             assert_eq!(
-                get_thermoelastic_thermal_conduction_constitutive_model()
-                    .get_reference_temperature(),
-                get_thermoelastic_constitutive_model().get_reference_temperature()
+                get_thermoelastic_thermal_conduction_constitutive_model().reference_temperature(),
+                get_thermoelastic_constitutive_model().reference_temperature()
             )
         }
         #[test]

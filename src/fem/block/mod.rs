@@ -25,13 +25,13 @@ pub trait BasicFiniteElementBlock<'a, C, const E: usize, F, const G: usize, cons
 where
     C: Constitutive<'a>,
 {
+    fn get_connectivity(&self) -> &Connectivity<E, N>;
+    fn get_elements(&self) -> &[F; E];
     fn nodal_coordinates_element(
         &self,
         element_connectivity: &[usize; N],
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> NodalCoordinates<N>;
-    fn get_connectivity(&self) -> &Connectivity<E, N>;
-    fn get_elements(&self) -> &[F; E];
 }
 
 pub trait FiniteElementBlock<'a, C, const E: usize, F, const G: usize, const N: usize>
@@ -157,6 +157,12 @@ where
     C: Elastic<'a>,
     F: ElasticFiniteElement<'a, C, G, N>,
 {
+    fn get_connectivity(&self) -> &Connectivity<E, N> {
+        &self.connectivity
+    }
+    fn get_elements(&self) -> &[F; E] {
+        &self.elements
+    }
     fn nodal_coordinates_element(
         &self,
         element_connectivity: &[usize; N],
@@ -166,12 +172,6 @@ where
             .iter()
             .map(|node| nodal_coordinates[*node].copy())
             .collect()
-    }
-    fn get_connectivity(&self) -> &Connectivity<E, N> {
-        &self.connectivity
-    }
-    fn get_elements(&self) -> &[F; E] {
-        &self.elements
     }
 }
 
@@ -319,6 +319,12 @@ where
     C: Viscoelastic<'a>,
     F: ViscoelasticFiniteElement<'a, C, G, N>,
 {
+    fn get_connectivity(&self) -> &Connectivity<E, N> {
+        &self.connectivity
+    }
+    fn get_elements(&self) -> &[F; E] {
+        &self.elements
+    }
     fn nodal_coordinates_element(
         &self,
         element_connectivity: &[usize; N],
@@ -328,12 +334,6 @@ where
             .iter()
             .map(|node| nodal_coordinates[*node].copy())
             .collect()
-    }
-    fn get_connectivity(&self) -> &Connectivity<E, N> {
-        &self.connectivity
-    }
-    fn get_elements(&self) -> &[F; E] {
-        &self.elements
     }
 }
 

@@ -32,10 +32,10 @@ impl<'a> Constitutive<'a> for SaintVenantKirchhoff<'a> {
 }
 
 impl<'a> Solid<'a> for SaintVenantKirchhoff<'a> {
-    fn get_bulk_modulus(&self) -> &Scalar {
+    fn bulk_modulus(&self) -> &Scalar {
         &self.parameters[0]
     }
-    fn get_shear_modulus(&self) -> &Scalar {
+    fn shear_modulus(&self) -> &Scalar {
         &self.parameters[1]
     }
 }
@@ -56,13 +56,13 @@ impl<'a> Thermoelastic<'a> for SaintVenantKirchhoff<'a> {
             let (deviatoric_strain, strain_trace) =
                 ((self.right_cauchy_green_deformation(deformation_gradient) - IDENTITY_00) * 0.5)
                     .deviatoric_and_trace();
-            Ok(deviatoric_strain * (2.0 * self.get_shear_modulus())
+            Ok(deviatoric_strain * (2.0 * self.shear_modulus())
                 + IDENTITY_00
-                    * (self.get_bulk_modulus()
+                    * (self.bulk_modulus()
                         * (strain_trace
                             - 3.0
-                                * self.get_coefficient_of_thermal_expansion()
-                                * (temperature - self.get_reference_temperature()))))
+                                * self.coefficient_of_thermal_expansion()
+                                * (temperature - self.reference_temperature()))))
         } else {
             Err(ConstitutiveError::InvalidJacobian(
                 jacobian,
@@ -84,7 +84,7 @@ impl<'a> Thermoelastic<'a> for SaintVenantKirchhoff<'a> {
         let jacobian = deformation_gradient.determinant();
         if jacobian > 0.0 {
             let scaled_deformation_gradient_transpose =
-                deformation_gradient.transpose() * self.get_shear_modulus();
+                deformation_gradient.transpose() * self.shear_modulus();
             Ok(SecondPiolaKirchhoffTangentStiffness::dyad_ik_jl(
                 &scaled_deformation_gradient_transpose,
                 &IDENTITY_00,
@@ -92,7 +92,7 @@ impl<'a> Thermoelastic<'a> for SaintVenantKirchhoff<'a> {
                 &IDENTITY_00,
                 &scaled_deformation_gradient_transpose,
             ) + SecondPiolaKirchhoffTangentStiffness::dyad_ij_kl(
-                &(IDENTITY_00 * (self.get_bulk_modulus() - TWO_THIRDS * self.get_shear_modulus())),
+                &(IDENTITY_00 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())),
                 deformation_gradient,
             ))
         } else {
@@ -103,10 +103,10 @@ impl<'a> Thermoelastic<'a> for SaintVenantKirchhoff<'a> {
             ))
         }
     }
-    fn get_coefficient_of_thermal_expansion(&self) -> &Scalar {
+    fn coefficient_of_thermal_expansion(&self) -> &Scalar {
         &self.parameters[2]
     }
-    fn get_reference_temperature(&self) -> &Scalar {
+    fn reference_temperature(&self) -> &Scalar {
         &self.parameters[3]
     }
 }
@@ -127,14 +127,14 @@ impl<'a> Thermohyperelastic<'a> for SaintVenantKirchhoff<'a> {
             let strain =
                 (self.right_cauchy_green_deformation(deformation_gradient) - IDENTITY_00) * 0.5;
             let strain_trace = strain.trace();
-            Ok(self.get_shear_modulus() * strain.squared_trace()
+            Ok(self.shear_modulus() * strain.squared_trace()
                 + 0.5
-                    * (self.get_bulk_modulus() - TWO_THIRDS * self.get_shear_modulus())
+                    * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())
                     * strain_trace.powi(2)
                 - 3.0
-                    * self.get_bulk_modulus()
-                    * self.get_coefficient_of_thermal_expansion()
-                    * (temperature - self.get_reference_temperature())
+                    * self.bulk_modulus()
+                    * self.coefficient_of_thermal_expansion()
+                    * (temperature - self.reference_temperature())
                     * strain_trace)
         } else {
             Err(ConstitutiveError::InvalidJacobian(

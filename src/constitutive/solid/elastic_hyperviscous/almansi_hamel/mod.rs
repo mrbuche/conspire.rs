@@ -32,19 +32,19 @@ impl<'a> Constitutive<'a> for AlmansiHamel<'a> {
 }
 
 impl<'a> Solid<'a> for AlmansiHamel<'a> {
-    fn get_bulk_modulus(&self) -> &Scalar {
+    fn bulk_modulus(&self) -> &Scalar {
         &self.parameters[0]
     }
-    fn get_shear_modulus(&self) -> &Scalar {
+    fn shear_modulus(&self) -> &Scalar {
         &self.parameters[1]
     }
 }
 
 impl<'a> Viscous<'a> for AlmansiHamel<'a> {
-    fn get_bulk_viscosity(&self) -> &Scalar {
+    fn bulk_viscosity(&self) -> &Scalar {
         &self.parameters[2]
     }
-    fn get_shear_viscosity(&self) -> &Scalar {
+    fn shear_viscosity(&self) -> &Scalar {
         &self.parameters[3]
     }
 }
@@ -70,14 +70,12 @@ impl<'a> Viscoelastic<'a> for AlmansiHamel<'a> {
             let velocity_gradient = deformation_gradient_rate * inverse_deformation_gradient;
             let strain_rate = (&velocity_gradient + velocity_gradient.transpose()) * 0.5;
             let (deviatoric_strain_rate, strain_rate_trace) = strain_rate.deviatoric_and_trace();
-            Ok(
-                deviatoric_strain * (2.0 * self.get_shear_modulus() / jacobian)
-                    + deviatoric_strain_rate * (2.0 * self.get_shear_viscosity() / jacobian)
-                    + IDENTITY
-                        * ((self.get_bulk_modulus() * strain_trace
-                            + self.get_bulk_viscosity() * strain_rate_trace)
-                            / jacobian),
-            )
+            Ok(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
+                + deviatoric_strain_rate * (2.0 * self.shear_viscosity() / jacobian)
+                + IDENTITY
+                    * ((self.bulk_modulus() * strain_trace
+                        + self.bulk_viscosity() * strain_rate_trace)
+                        / jacobian))
         } else {
             Err(ConstitutiveError::InvalidJacobian(
                 jacobian,
@@ -100,7 +98,7 @@ impl<'a> Viscoelastic<'a> for AlmansiHamel<'a> {
         if jacobian > 0.0 {
             let deformation_gradient_inverse_transpose = deformation_gradient.inverse_transpose();
             let scaled_deformation_gradient_inverse_transpose =
-                &deformation_gradient_inverse_transpose * self.get_shear_viscosity() / jacobian;
+                &deformation_gradient_inverse_transpose * self.shear_viscosity() / jacobian;
             Ok(CauchyRateTangentStiffness::dyad_ik_jl(
                 &IDENTITY,
                 &scaled_deformation_gradient_inverse_transpose,
@@ -109,8 +107,7 @@ impl<'a> Viscoelastic<'a> for AlmansiHamel<'a> {
                 &IDENTITY,
             ) + CauchyRateTangentStiffness::dyad_ij_kl(
                 &(IDENTITY
-                    * ((self.get_bulk_viscosity() - TWO_THIRDS * self.get_shear_viscosity())
-                        / jacobian)),
+                    * ((self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity()) / jacobian)),
                 &deformation_gradient_inverse_transpose,
             ))
         } else {
@@ -138,9 +135,9 @@ impl<'a> ElasticHyperviscous<'a> for AlmansiHamel<'a> {
         if jacobian > 0.0 {
             let velocity_gradient = deformation_gradient_rate * deformation_gradient.inverse();
             let strain_rate = (&velocity_gradient + velocity_gradient.transpose()) * 0.5;
-            Ok(self.get_shear_viscosity() * strain_rate.squared_trace()
+            Ok(self.shear_viscosity() * strain_rate.squared_trace()
                 + 0.5
-                    * (self.get_bulk_viscosity() - TWO_THIRDS * self.get_shear_viscosity())
+                    * (self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity())
                     * strain_rate.trace().powi(2))
         } else {
             Err(ConstitutiveError::InvalidJacobian(
