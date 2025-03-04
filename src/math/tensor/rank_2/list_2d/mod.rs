@@ -19,7 +19,7 @@ use super::{
 /// A 2D list of *d*-dimensional tensors of rank 2.
 ///
 /// `D` is the dimension, `I`, `J` are the configurations, `W` and `X` are the list lengths.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TensorRank2List2D<
     const D: usize,
     const I: usize,
@@ -148,9 +148,6 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize, const X: us
     for TensorRank2List2D<D, I, J, W, X>
 {
     type Item = TensorRank2List<D, I, J, W>;
-    fn copy(&self) -> Self {
-        self.iter().map(|entry| entry.clone()).collect()
-    }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }

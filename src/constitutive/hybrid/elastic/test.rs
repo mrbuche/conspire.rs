@@ -10,7 +10,7 @@ macro_rules! test_hybrid_elastic_constitutive_models {
                 },
                 Constitutive,
             },
-            math::{Rank2, Tensor, TensorArray},
+            math::{Rank2, TensorArray},
             mechanics::{
                 CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffTangentStiffness,
                 SecondPiolaKirchhoffTangentStiffness,

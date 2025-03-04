@@ -33,7 +33,7 @@ use vec_2d::TensorRank2Vec2D;
 /// A *d*-dimensional tensor of rank 2.
 ///
 /// `D` is the dimension, `I`, `J` are the configurations.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TensorRank2<const D: usize, const I: usize, const J: usize>([TensorRank1<D, J>; D]);
 
 pub const fn tensor_rank_2<const D: usize, const I: usize, const J: usize>(
@@ -735,9 +735,6 @@ impl<const D: usize, const I: usize, const J: usize> Rank2 for TensorRank2<D, I,
 
 impl<const D: usize, const I: usize, const J: usize> Tensor for TensorRank2<D, I, J> {
     type Item = TensorRank1<D, J>;
-    fn copy(&self) -> Self {
-        self.iter().map(|entry| entry.clone()).collect()
-    }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }

@@ -15,7 +15,7 @@ use std::{
 /// A 2D list of *d*-dimensional tensors of rank 1.
 ///
 /// `D` is the dimension, `I` is the configuration, `W` and `X` are the list lengths.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TensorRank1List2D<const D: usize, const I: usize, const W: usize, const X: usize>(
     [TensorRank1List<D, I, W>; X],
 );
@@ -43,9 +43,6 @@ impl<const D: usize, const I: usize, const W: usize, const X: usize> Tensor
     for TensorRank1List2D<D, I, W, X>
 {
     type Item = TensorRank1List<D, I, W>;
-    fn copy(&self) -> Self {
-        self.iter().map(|entry| entry.clone()).collect()
-    }
     fn iter(&self) -> impl Iterator<Item = &TensorRank1List<D, I, W>> {
         self.0.iter()
     }

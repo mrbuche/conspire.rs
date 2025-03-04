@@ -86,7 +86,7 @@ where
             };
             t = t_trial;
             y = y_trial;
-            t_sol.push(t.clone());
+            t_sol.push(t);
             y_sol.push(y.clone());
             index += 1;
         }

@@ -302,7 +302,7 @@ where
             if e < self.abs_tol || e / y_trial.norm() < self.rel_tol {
                 t += dt;
                 y = y_trial;
-                t_sol.push(t.clone());
+                t_sol.push(t);
                 y_sol.push(y.clone());
             }
             dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn);
@@ -349,7 +349,7 @@ where
         time.iter()
             .map(|time_k| {
                 i = tp.iter().position(|tp_i| tp_i > time_k).unwrap();
-                t = tp[i - 1].clone();
+                t = tp[i - 1];
                 y = yp[i - 1].clone();
                 dt = time_k - t;
                 k_1 = function(&t, &y);

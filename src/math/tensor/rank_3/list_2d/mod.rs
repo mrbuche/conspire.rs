@@ -18,7 +18,7 @@ use std::{
 /// A 2D list of *d*-dimensional tensors of rank 3.
 ///
 /// `D` is the dimension, `I`, `J`, `K` are the configurations `W` and `X` are the list lengths.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TensorRank3List2D<
     const D: usize,
     const I: usize,
@@ -151,9 +151,6 @@ impl<
     > Tensor for TensorRank3List2D<D, I, J, K, W, X>
 {
     type Item = TensorRank3List<D, I, J, K, W>;
-    fn copy(&self) -> Self {
-        self.iter().map(|entry| entry.clone()).collect()
-    }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }

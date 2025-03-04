@@ -12,7 +12,7 @@ use std::{
 /// A vector of *d*-dimensional tensors of rank 1.
 ///
 /// `D` is the dimension, `I` is the configuration.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TensorRank1Vec<const D: usize, const I: usize>(Vec<TensorRank1<D, I>>);
 
 impl<const D: usize, const I: usize> Display for TensorRank1Vec<D, I> {
@@ -168,9 +168,6 @@ impl<const D: usize, const I: usize> TensorVec for TensorRank1Vec<D, I> {
 
 impl<const D: usize, const I: usize> Tensor for TensorRank1Vec<D, I> {
     type Item = TensorRank1<D, I>;
-    fn copy(&self) -> Self {
-        self.iter().map(|entry| entry.clone()).collect()
-    }
     fn get_at(&self, indices: &[usize]) -> &TensorRank0 {
         &self[indices[0]][indices[1]]
     }

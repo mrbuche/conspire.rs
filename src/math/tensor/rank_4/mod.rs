@@ -23,7 +23,7 @@ pub mod list;
 /// A *d*-dimensional tensor of rank 4.
 ///
 /// `D` is the dimension, `I`, `J`, `K`, `L` are the configurations.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TensorRank4<
     const D: usize,
     const I: usize,
@@ -266,11 +266,6 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     for TensorRank4<D, I, J, K, L>
 {
     type Item = TensorRank3<D, J, K, L>;
-    fn copy(&self) -> Self {
-        self.iter()
-            .map(|entry_rank_3| entry_rank_3.clone())
-            .collect()
-    }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }

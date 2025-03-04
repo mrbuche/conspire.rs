@@ -8,7 +8,7 @@ use std::{
 };
 
 /// A vector.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Vector(Vec<TensorRank0>);
 
 #[cfg(test)]
@@ -126,9 +126,6 @@ impl IndexMut<usize> for Vector {
 
 impl Tensor for Vector {
     type Item = TensorRank0;
-    fn copy(&self) -> Self {
-        self.iter().map(|entry| entry.clone()).collect()
-    }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }

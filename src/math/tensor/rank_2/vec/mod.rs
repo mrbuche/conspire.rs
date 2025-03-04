@@ -10,7 +10,7 @@ use std::{
 /// A vector of *d*-dimensional tensors of rank 2.
 ///
 /// `D` is the dimension, `I`, `J` are the configurations.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TensorRank2Vec<const D: usize, const I: usize, const J: usize>(
     Vec<TensorRank2<D, I, J>>,
 );
@@ -134,9 +134,6 @@ impl<const D: usize, const I: usize, const J: usize> TensorVec for TensorRank2Ve
 
 impl<const D: usize, const I: usize, const J: usize> Tensor for TensorRank2Vec<D, I, J> {
     type Item = TensorRank2<D, I, J>;
-    fn copy(&self) -> Self {
-        self.iter().map(|entry| entry.clone()).collect()
-    }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }
