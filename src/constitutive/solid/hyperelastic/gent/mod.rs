@@ -51,7 +51,7 @@ impl<'a> Elastic<'a> for Gent<'a> {
             if denominator <= 0.0 {
                 Err(ConstitutiveError::Custom(
                     "Maximum extensibility reached.".to_string(),
-                    deformation_gradient.copy(),
+                    deformation_gradient.clone(),
                     format!("{:?}", &self),
                 ))
             } else {
@@ -65,7 +65,7 @@ impl<'a> Elastic<'a> for Gent<'a> {
         } else {
             Err(ConstitutiveError::InvalidJacobian(
                 jacobian,
-                deformation_gradient.copy(),
+                deformation_gradient.clone(),
                 format!("{:?}", &self),
             ))
         }
@@ -90,7 +90,7 @@ impl<'a> Elastic<'a> for Gent<'a> {
             if denominator <= 0.0 {
                 Err(ConstitutiveError::Custom(
                     "Maximum extensibility reached.".to_string(),
-                    deformation_gradient.copy(),
+                    deformation_gradient.clone(),
                     format!("{:?}", &self),
                 ))
             } else {
@@ -121,7 +121,7 @@ impl<'a> Elastic<'a> for Gent<'a> {
         } else {
             Err(ConstitutiveError::InvalidJacobian(
                 jacobian,
-                deformation_gradient.copy(),
+                deformation_gradient.clone(),
                 format!("{:?}", &self),
             ))
         }
@@ -145,7 +145,7 @@ impl<'a> Hyperelastic<'a> for Gent<'a> {
             if factor >= 1.0 {
                 Err(ConstitutiveError::Custom(
                     "Maximum extensibility reached.".to_string(),
-                    deformation_gradient.copy(),
+                    deformation_gradient.clone(),
                     format!("{:?}", &self),
                 ))
             } else {
@@ -156,7 +156,7 @@ impl<'a> Hyperelastic<'a> for Gent<'a> {
         } else {
             Err(ConstitutiveError::InvalidJacobian(
                 jacobian,
-                deformation_gradient.copy(),
+                deformation_gradient.clone(),
                 format!("{:?}", &self),
             ))
         }

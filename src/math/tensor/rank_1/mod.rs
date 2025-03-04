@@ -102,7 +102,7 @@ impl<const D: usize, const I: usize> ErrorTensor for TensorRank1<D, I> {
 impl<const D: usize, const I: usize> Tensor for TensorRank1<D, I> {
     type Item = TensorRank0;
     fn copy(&self) -> Self {
-        self.iter().map(|entry| entry.copy()).collect()
+        self.iter().map(|entry| entry.clone()).collect()
     }
     fn full_contraction(&self, tensor_rank_1: &Self) -> TensorRank0 {
         self * tensor_rank_1

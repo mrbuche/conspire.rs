@@ -262,7 +262,7 @@ pub(crate) use test_explicit;
 //             let a = TensorRank2::<3, 1, 1>::identity();
 //             let (time, solution): (Vector, TensorRank1Vec<3, 1>) = $integration.integrate(
 //                 |_: &TensorRank0, x: &TensorRank1<3, 1>| &a * x,
-//                 |_: &TensorRank0, _: &TensorRank1<3, 1>| a.copy(),
+//                 |_: &TensorRank0, _: &TensorRank1<3, 1>| a.clone(),
 //                 &[0.0, 1.0],
 //                 TensorRank1::new([1.0, 1.0, 1.0]),
 //             )?;

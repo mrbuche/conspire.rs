@@ -152,7 +152,7 @@ impl<
 {
     type Item = TensorRank3List<D, I, J, K, W>;
     fn copy(&self) -> Self {
-        self.iter().map(|entry| entry.copy()).collect()
+        self.iter().map(|entry| entry.clone()).collect()
     }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()

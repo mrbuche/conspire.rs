@@ -180,9 +180,9 @@ where
         let mut k_13;
         let mut t_sol = Vector::zero(0);
         t_sol.push(time[0]);
-        let mut y = initial_condition.copy();
+        let mut y = initial_condition.clone();
         let mut y_sol = U::zero(0);
-        y_sol.push(initial_condition.copy());
+        y_sol.push(initial_condition.clone());
         let mut y_trial;
         while t < time[time.len() - 1] {
             k_1 = function(&t, &y);
@@ -302,8 +302,8 @@ where
             if e < self.abs_tol || e / y_trial.norm() < self.rel_tol {
                 t += dt;
                 y = y_trial;
-                t_sol.push(t.copy());
-                y_sol.push(y.copy());
+                t_sol.push(t.clone());
+                y_sol.push(y.clone());
             }
             dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn);
         }
@@ -349,8 +349,8 @@ where
         time.iter()
             .map(|time_k| {
                 i = tp.iter().position(|tp_i| tp_i > time_k).unwrap();
-                t = tp[i - 1].copy();
-                y = yp[i - 1].copy();
+                t = tp[i - 1].clone();
+                y = yp[i - 1].clone();
                 dt = time_k - t;
                 k_1 = function(&t, &y);
                 k_2 = function(&(t + C_2 * dt), &(&k_1 * (A_2_1 * dt) + &y));

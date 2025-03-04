@@ -135,7 +135,7 @@ impl<const D: usize, const I: usize, const J: usize> TensorVec for TensorRank2Ve
 impl<const D: usize, const I: usize, const J: usize> Tensor for TensorRank2Vec<D, I, J> {
     type Item = TensorRank2<D, I, J>;
     fn copy(&self) -> Self {
-        self.iter().map(|entry| entry.copy()).collect()
+        self.iter().map(|entry| entry.clone()).collect()
     }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()

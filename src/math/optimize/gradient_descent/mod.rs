@@ -41,9 +41,9 @@ impl<X: Tensor> FirstOrder<X> for GradientDescent {
         // And then within the NLCG, different formulas for beta?
         //
         let mut residual;
-        let mut residual_change = initial_guess.copy() * 0.0;
+        let mut residual_change = initial_guess.clone() * 0.0;
         let mut solution = initial_guess;
-        let mut solution_change = solution.copy();
+        let mut solution_change = solution.clone();
         let mut step_size = 1e-2;
         let mut step_trial;
         if let Some(ref bc) = dirichlet {
@@ -77,8 +77,8 @@ impl<X: Tensor> FirstOrder<X> for GradientDescent {
                 } else {
                     step_size *= 1.1
                 }
-                residual_change = residual.copy();
-                solution_change = solution.copy();
+                residual_change = residual.clone();
+                solution_change = solution.clone();
                 solution -= residual * step_size;
             }
         }

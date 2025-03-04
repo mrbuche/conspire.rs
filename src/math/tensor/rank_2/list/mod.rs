@@ -105,7 +105,7 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize> Tensor
 {
     type Item = TensorRank2<D, I, J>;
     fn copy(&self) -> Self {
-        self.iter().map(|entry| entry.copy()).collect()
+        self.iter().map(|entry| entry.clone()).collect()
     }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()

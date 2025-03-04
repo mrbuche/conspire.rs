@@ -7,7 +7,7 @@ fn tensor_rank_0() {
 }
 
 #[test]
-fn copy() {
+fn.clone() {
     let a: TensorRank0 = 1.0;
     let b = a;
     assert_eq!(a, b);

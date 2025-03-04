@@ -145,7 +145,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Tensor
     type Item = TensorRank2<D, J, K>;
     fn copy(&self) -> Self {
         self.iter()
-            .map(|entry_rank_2| entry_rank_2.copy())
+            .map(|entry_rank_2| entry_rank_2.clone())
             .collect()
     }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {

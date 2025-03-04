@@ -44,7 +44,7 @@ impl<const D: usize, const I: usize, const W: usize, const X: usize> Tensor
 {
     type Item = TensorRank1List<D, I, W>;
     fn copy(&self) -> Self {
-        self.iter().map(|entry| entry.copy()).collect()
+        self.iter().map(|entry| entry.clone()).collect()
     }
     fn iter(&self) -> impl Iterator<Item = &TensorRank1List<D, I, W>> {
         self.0.iter()

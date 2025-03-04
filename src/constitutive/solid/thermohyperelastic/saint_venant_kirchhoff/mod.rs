@@ -66,7 +66,7 @@ impl<'a> Thermoelastic<'a> for SaintVenantKirchhoff<'a> {
         } else {
             Err(ConstitutiveError::InvalidJacobian(
                 jacobian,
-                deformation_gradient.copy(),
+                deformation_gradient.clone(),
                 format!("{:?}", &self),
             ))
         }
@@ -98,7 +98,7 @@ impl<'a> Thermoelastic<'a> for SaintVenantKirchhoff<'a> {
         } else {
             Err(ConstitutiveError::InvalidJacobian(
                 jacobian,
-                deformation_gradient.copy(),
+                deformation_gradient.clone(),
                 format!("{:?}", &self),
             ))
         }
@@ -139,7 +139,7 @@ impl<'a> Thermohyperelastic<'a> for SaintVenantKirchhoff<'a> {
         } else {
             Err(ConstitutiveError::InvalidJacobian(
                 jacobian,
-                deformation_gradient.copy(),
+                deformation_gradient.clone(),
                 format!("{:?}", &self),
             ))
         }

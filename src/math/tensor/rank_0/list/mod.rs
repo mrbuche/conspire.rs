@@ -37,7 +37,7 @@ impl<const W: usize> Display for TensorRank0List<W> {
 impl<const W: usize> Tensor for TensorRank0List<W> {
     type Item = TensorRank0;
     fn copy(&self) -> Self {
-        self.iter().map(|entry| entry.copy()).collect()
+        self.iter().map(|entry| entry.clone()).collect()
     }
     fn full_contraction(&self, tensor_rank_0_list: &Self) -> TensorRank0 {
         self.iter()

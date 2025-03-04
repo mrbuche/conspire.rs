@@ -53,7 +53,7 @@ impl<'a> Elastic<'a> for MooneyRivlin<'a> {
         } else {
             Err(ConstitutiveError::InvalidJacobian(
                 jacobian,
-                deformation_gradient.copy(),
+                deformation_gradient.clone(),
                 format!("{:?}", &self),
             ))
         }
@@ -114,7 +114,7 @@ impl<'a> Elastic<'a> for MooneyRivlin<'a> {
         } else {
             Err(ConstitutiveError::InvalidJacobian(
                 jacobian,
-                deformation_gradient.copy(),
+                deformation_gradient.clone(),
                 format!("{:?}", &self),
             ))
         }
@@ -141,7 +141,7 @@ impl<'a> Hyperelastic<'a> for MooneyRivlin<'a> {
         } else {
             Err(ConstitutiveError::InvalidJacobian(
                 jacobian,
-                deformation_gradient.copy(),
+                deformation_gradient.clone(),
                 format!("{:?}", &self),
             ))
         }

@@ -169,7 +169,7 @@ impl<const D: usize, const I: usize> TensorVec for TensorRank1Vec<D, I> {
 impl<const D: usize, const I: usize> Tensor for TensorRank1Vec<D, I> {
     type Item = TensorRank1<D, I>;
     fn copy(&self) -> Self {
-        self.iter().map(|entry| entry.copy()).collect()
+        self.iter().map(|entry| entry.clone()).collect()
     }
     fn get_at(&self, indices: &[usize]) -> &TensorRank0 {
         &self[indices[0]][indices[1]]

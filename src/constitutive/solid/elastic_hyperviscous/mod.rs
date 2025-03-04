@@ -94,7 +94,7 @@ where
                     deformation_gradient,
                     &deformation_gradient_rate_11,
                 )?;
-                Ok(deformation_gradient.copy()
+                Ok(deformation_gradient.clone()
                     - deformation_gradient_previous
                     - &deformation_gradient_rate * time_step)
             },

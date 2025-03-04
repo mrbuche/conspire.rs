@@ -129,7 +129,7 @@ impl<const D: usize, const I: usize, const W: usize> TensorRank1List<D, I, W> {
 impl<const D: usize, const I: usize, const W: usize> Tensor for TensorRank1List<D, I, W> {
     type Item = TensorRank1<D, I>;
     fn copy(&self) -> Self {
-        self.iter().map(|entry| entry.copy()).collect()
+        self.iter().map(|entry| entry.clone()).collect()
     }
     fn get_at(&self, indices: &[usize]) -> &TensorRank0 {
         &self[indices[0]][indices[1]]
