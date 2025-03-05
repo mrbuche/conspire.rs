@@ -11,7 +11,7 @@ use std::{
 };
 
 /// A square matrix.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct SquareMatrix(Vec<Vector>);
 
 #[cfg(test)]
@@ -222,9 +222,6 @@ impl Rank2 for SquareMatrix {
 
 impl Tensor for SquareMatrix {
     type Item = Vector;
-    fn copy(&self) -> Self {
-        self.iter().map(|entry| entry.copy()).collect()
-    }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }

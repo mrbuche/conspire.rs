@@ -12,7 +12,7 @@ use super::{Tensor, TensorArray, TensorRank0, TensorRank4};
 /// A list of *d*-dimensional tensor of rank 4.
 ///
 /// `D` is the dimension, `I`, `J`, `K`, `L` are the configurations, `W` is the list length.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TensorRank4List<
     const D: usize,
     const I: usize,
@@ -46,9 +46,6 @@ impl<
     > Tensor for TensorRank4List<D, I, J, K, L, W>
 {
     type Item = TensorRank4<D, I, J, K, L>;
-    fn copy(&self) -> Self {
-        self.iter().map(|entry| entry.copy()).collect()
-    }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }

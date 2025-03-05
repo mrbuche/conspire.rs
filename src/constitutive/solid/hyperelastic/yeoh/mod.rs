@@ -61,7 +61,7 @@ impl<'a> Elastic<'a> for Yeoh<'a> {
         } else {
             Err(ConstitutiveError::InvalidJacobian(
                 jacobian,
-                deformation_gradient.copy(),
+                deformation_gradient.clone(),
                 format!("{:?}", &self),
             ))
         }
@@ -122,7 +122,7 @@ impl<'a> Elastic<'a> for Yeoh<'a> {
         } else {
             Err(ConstitutiveError::InvalidJacobian(
                 jacobian,
-                deformation_gradient.copy(),
+                deformation_gradient.clone(),
                 format!("{:?}", &self),
             ))
         }
@@ -153,7 +153,7 @@ impl<'a> Hyperelastic<'a> for Yeoh<'a> {
         } else {
             Err(ConstitutiveError::InvalidJacobian(
                 jacobian,
-                deformation_gradient.copy(),
+                deformation_gradient.clone(),
                 format!("{:?}", &self),
             ))
         }

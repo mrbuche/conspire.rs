@@ -10,7 +10,7 @@ use std::{
 /// A list of tensors of rank 0 (a list of scalars).
 ///
 /// `W` is the list length.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TensorRank0List<const W: usize>([TensorRank0; W]);
 
 /// Display implementation for rank-0 lists.
@@ -36,9 +36,6 @@ impl<const W: usize> Display for TensorRank0List<W> {
 
 impl<const W: usize> Tensor for TensorRank0List<W> {
     type Item = TensorRank0;
-    fn copy(&self) -> Self {
-        self.iter().map(|entry| entry.copy()).collect()
-    }
     fn full_contraction(&self, tensor_rank_0_list: &Self) -> TensorRank0 {
         self.iter()
             .zip(tensor_rank_0_list.iter())

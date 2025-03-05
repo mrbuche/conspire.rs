@@ -30,7 +30,7 @@ mod maximum_extensibility {
             model.cauchy_stress(&deformation_gradient),
             Err(ConstitutiveError::Custom(
                 "Maximum extensibility reached.".to_string(),
-                deformation_gradient.copy(),
+                deformation_gradient.clone(),
                 format!("{:?}", &model),
             ))
         )
@@ -44,7 +44,7 @@ mod maximum_extensibility {
             model.cauchy_tangent_stiffness(&deformation_gradient),
             Err(ConstitutiveError::Custom(
                 "Maximum extensibility reached.".to_string(),
-                deformation_gradient.copy(),
+                deformation_gradient.clone(),
                 format!("{:?}", &model),
             ))
         )
@@ -58,7 +58,7 @@ mod maximum_extensibility {
             model.helmholtz_free_energy_density(&deformation_gradient),
             Err(ConstitutiveError::Custom(
                 "Maximum extensibility reached.".to_string(),
-                deformation_gradient.copy(),
+                deformation_gradient.clone(),
                 format!("{:?}", &model),
             ))
         )

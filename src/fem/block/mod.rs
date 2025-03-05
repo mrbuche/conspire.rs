@@ -170,7 +170,7 @@ where
     ) -> NodalCoordinates<N> {
         element_connectivity
             .iter()
-            .map(|node| nodal_coordinates[*node].copy())
+            .map(|node| nodal_coordinates[*node].clone())
             .collect()
     }
 }
@@ -191,7 +191,7 @@ where
                 constitutive_model_parameters,
                 connectivity[element]
                     .iter()
-                    .map(|node| reference_nodal_coordinates[*node].copy())
+                    .map(|node| reference_nodal_coordinates[*node].clone())
                     .collect(),
             )
         });
@@ -332,7 +332,7 @@ where
     ) -> NodalCoordinates<N> {
         element_connectivity
             .iter()
-            .map(|node| nodal_coordinates[*node].copy())
+            .map(|node| nodal_coordinates[*node].clone())
             .collect()
     }
 }
@@ -353,7 +353,7 @@ where
                 constitutive_model_parameters,
                 connectivity[element]
                     .iter()
-                    .map(|node| reference_nodal_coordinates[*node].copy())
+                    .map(|node| reference_nodal_coordinates[*node].clone())
                     .collect(),
             )
         });
@@ -428,7 +428,7 @@ where
     ) -> NodalVelocities<N> {
         element_connectivity
             .iter()
-            .map(|node| nodal_velocities[*node].copy())
+            .map(|node| nodal_velocities[*node].clone())
             .collect()
     }
 }

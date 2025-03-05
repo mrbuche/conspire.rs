@@ -20,7 +20,7 @@ use super::{
 /// A list of *d*-dimensional tensors of rank 1.
 ///
 /// `D` is the dimension, `I` is the configuration, `W` is the list length.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TensorRank1List<const D: usize, const I: usize, const W: usize>([TensorRank1<D, I>; W]);
 
 pub const fn tensor_rank_1_list<const D: usize, const I: usize, const W: usize>(
@@ -128,9 +128,6 @@ impl<const D: usize, const I: usize, const W: usize> TensorRank1List<D, I, W> {
 
 impl<const D: usize, const I: usize, const W: usize> Tensor for TensorRank1List<D, I, W> {
     type Item = TensorRank1<D, I>;
-    fn copy(&self) -> Self {
-        self.iter().map(|entry| entry.copy()).collect()
-    }
     fn get_at(&self, indices: &[usize]) -> &TensorRank0 {
         &self[indices[0]][indices[1]]
     }

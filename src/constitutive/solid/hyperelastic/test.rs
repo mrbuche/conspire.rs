@@ -405,7 +405,7 @@ macro_rules! test_solid_hyperelastic_constitutive_model_tangents
                                 (0..3).map(|j|
                                     (0..3).map(|k|
                                         (0..3).map(|l|
-                                            first_piola_kirchhoff_tangent_stiffness[k][l][i][j].copy()
+                                            first_piola_kirchhoff_tangent_stiffness[k][l][i][j].clone()
                                         ).collect()
                                     ).collect()
                                 ).collect()
@@ -429,7 +429,7 @@ macro_rules! test_solid_hyperelastic_constitutive_model_tangents
                                 (0..3).map(|j|
                                     (0..3).map(|k|
                                         (0..3).map(|l|
-                                            first_piola_kirchhoff_tangent_stiffness[k][l][i][j].copy()
+                                            first_piola_kirchhoff_tangent_stiffness[k][l][i][j].clone()
                                         ).collect()
                                     ).collect()
                                 ).collect()

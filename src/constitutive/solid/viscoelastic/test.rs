@@ -417,7 +417,7 @@ macro_rules! test_solid_viscous_constitutive_model
                             &cauchy_rate_tangent_stiffness,
                             &(0..3).map(|i|
                                 (0..3).map(|j|
-                                    cauchy_rate_tangent_stiffness[j][i].copy()
+                                    cauchy_rate_tangent_stiffness[j][i].clone()
                                 ).collect()
                             ).collect()
                         )
@@ -455,7 +455,7 @@ macro_rules! test_solid_viscous_constitutive_model
                             &cauchy_rate_tangent_stiffness,
                             &(0..3).map(|i|
                                 (0..3).map(|j|
-                                    cauchy_rate_tangent_stiffness[j][i].copy()
+                                    cauchy_rate_tangent_stiffness[j][i].clone()
                                 ).collect()
                             ).collect()
                         )

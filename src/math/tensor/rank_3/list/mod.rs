@@ -12,7 +12,7 @@ use super::{Tensor, TensorArray, TensorRank0, TensorRank3};
 /// A list of *d*-dimensional tensors of rank 3.
 ///
 /// `D` is the dimension, `I`, `J`, `K` are the configurations `W` is the list length.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TensorRank3List<
     const D: usize,
     const I: usize,
@@ -33,9 +33,6 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: us
     for TensorRank3List<D, I, J, K, W>
 {
     type Item = TensorRank3<D, I, J, K>;
-    fn copy(&self) -> Self {
-        self.iter().map(|entry| entry.copy()).collect()
-    }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }

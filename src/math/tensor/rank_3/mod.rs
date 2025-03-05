@@ -35,7 +35,7 @@ pub fn levi_civita<const I: usize, const J: usize, const K: usize>() -> TensorRa
 /// A *d*-dimensional tensor of rank 3.
 ///
 /// `D` is the dimension, `I`, `J`, `K` are the configurations.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TensorRank3<const D: usize, const I: usize, const J: usize, const K: usize>(
     [TensorRank2<D, J, K>; D],
 );
@@ -143,11 +143,6 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Tensor
     for TensorRank3<D, I, J, K>
 {
     type Item = TensorRank2<D, J, K>;
-    fn copy(&self) -> Self {
-        self.iter()
-            .map(|entry_rank_2| entry_rank_2.copy())
-            .collect()
-    }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }

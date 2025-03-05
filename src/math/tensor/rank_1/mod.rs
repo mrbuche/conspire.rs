@@ -21,7 +21,7 @@ use super::{
 /// A *d*-dimensional tensor of rank 1.
 ///
 /// `D` is the dimension, `I` is the configuration.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TensorRank1<const D: usize, const I: usize>([TensorRank0; D]);
 
 pub const fn tensor_rank_1<const D: usize, const I: usize>(
@@ -101,9 +101,6 @@ impl<const D: usize, const I: usize> ErrorTensor for TensorRank1<D, I> {
 
 impl<const D: usize, const I: usize> Tensor for TensorRank1<D, I> {
     type Item = TensorRank0;
-    fn copy(&self) -> Self {
-        self.iter().map(|entry| entry.copy()).collect()
-    }
     fn full_contraction(&self, tensor_rank_1: &Self) -> TensorRank0 {
         self * tensor_rank_1
     }

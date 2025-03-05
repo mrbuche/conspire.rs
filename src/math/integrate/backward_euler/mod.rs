@@ -58,9 +58,9 @@ where
         let mut t_sol = Vector::zero(0);
         t_sol.push(time[0]);
         let mut t_trial;
-        let mut y = initial_condition.copy();
+        let mut y = initial_condition.clone();
         let mut y_sol = U::zero(0);
-        y_sol.push(initial_condition.copy());
+        y_sol.push(initial_condition.clone());
         let mut y_trial;
         while t < time[time.len() - 1] {
             t_trial = time[index + 1];
@@ -69,7 +69,7 @@ where
                 Optimization::GradientDescent(gradient_descent) => gradient_descent
                     .minimize(
                         |y_trial: &Y| Ok(y_trial - &y - &(&function(&t_trial, y_trial) * dt)),
-                        y.copy(),
+                        y.clone(),
                         None,
                         None,
                     )
@@ -78,7 +78,7 @@ where
                     .minimize(
                         |y_trial: &Y| Ok(y_trial - &y - &(&function(&t_trial, y_trial) * dt)),
                         |y_trial: &Y| Ok(jacobian(&t_trial, y_trial) * -dt + &identity),
-                        y.copy(),
+                        y.clone(),
                         None,
                         None,
                     )
@@ -86,8 +86,8 @@ where
             };
             t = t_trial;
             y = y_trial;
-            t_sol.push(t.copy());
-            y_sol.push(y.copy());
+            t_sol.push(t);
+            y_sol.push(y.clone());
             index += 1;
         }
         Ok((t_sol, y_sol))

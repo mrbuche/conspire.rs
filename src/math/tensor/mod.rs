@@ -79,6 +79,7 @@ where
         + Add<&'a Self, Output = Self>
         + AddAssign
         + AddAssign<&'a Self>
+        + Clone
         + Div<TensorRank0, Output = Self>
         + DivAssign<TensorRank0>
         + Mul<TensorRank0, Output = Self>
@@ -90,10 +91,6 @@ where
 {
     /// The type of item encountered when iterating over the tensor.
     type Item;
-    /// Returns a copy.
-    ///
-    /// This method was implemented instead of the Copy trait to avoid unintended copy creations.
-    fn copy(&self) -> Self;
     /// Returns the full contraction with another tensor.
     fn full_contraction(&self, tensor: &Self) -> TensorRank0 {
         self.iter()

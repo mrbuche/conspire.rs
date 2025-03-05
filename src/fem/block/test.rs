@@ -335,7 +335,7 @@ macro_rules! test_helmholtz_free_energy {
                     let mut perturbed = 0.0;
                     (0..D).try_for_each(|node| {
                         (0..3).try_for_each(|i| {
-                            let mut perturbed_coordinates = nodal_coordinates.copy();
+                            let mut perturbed_coordinates = nodal_coordinates.clone();
                             perturbed_coordinates[node][i] += 0.5 * EPSILON;
                             perturbed = block.helmholtz_free_energy(&perturbed_coordinates)?
                                 - nodal_forces.dot(&perturbed_coordinates);
@@ -1056,7 +1056,7 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                         - nodal_forces.dot(&nodal_velocities);
                     (0..D).try_for_each(|node| {
                         (0..3).try_for_each(|i| {
-                            let mut perturbed_velocities = nodal_velocities.copy();
+                            let mut perturbed_velocities = nodal_velocities.clone();
                             perturbed_velocities[node][i] += 0.5 * EPSILON;
                             assert!(
                                 block.dissipation_potential(

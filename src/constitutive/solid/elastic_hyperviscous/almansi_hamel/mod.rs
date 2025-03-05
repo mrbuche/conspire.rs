@@ -79,7 +79,7 @@ impl<'a> Viscoelastic<'a> for AlmansiHamel<'a> {
         } else {
             Err(ConstitutiveError::InvalidJacobian(
                 jacobian,
-                deformation_gradient.copy(),
+                deformation_gradient.clone(),
                 format!("{:?}", &self),
             ))
         }
@@ -113,7 +113,7 @@ impl<'a> Viscoelastic<'a> for AlmansiHamel<'a> {
         } else {
             Err(ConstitutiveError::InvalidJacobian(
                 jacobian,
-                deformation_gradient.copy(),
+                deformation_gradient.clone(),
                 format!("{:?}", &self),
             ))
         }
@@ -142,7 +142,7 @@ impl<'a> ElasticHyperviscous<'a> for AlmansiHamel<'a> {
         } else {
             Err(ConstitutiveError::InvalidJacobian(
                 jacobian,
-                deformation_gradient.copy(),
+                deformation_gradient.clone(),
                 format!("{:?}", &self),
             ))
         }

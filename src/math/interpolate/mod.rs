@@ -41,7 +41,7 @@ where
         x.iter()
             .map(|x_k| {
                 i = xp.iter().position(|xp_i| xp_i > x_k).unwrap();
-                (fp[i].copy() - &fp[i - 1]) / (xp[i] - xp[i - 1]) * (x_k - xp[i - 1]) + &fp[i - 1]
+                (fp[i].clone() - &fp[i - 1]) / (xp[i] - xp[i - 1]) * (x_k - xp[i - 1]) + &fp[i - 1]
             })
             .collect()
     }

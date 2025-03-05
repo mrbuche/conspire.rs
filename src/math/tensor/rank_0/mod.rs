@@ -42,9 +42,6 @@ impl Hessian for TensorRank0 {
 
 impl Tensor for TensorRank0 {
     type Item = TensorRank0;
-    fn copy(&self) -> TensorRank0 {
-        *self
-    }
     fn full_contraction(&self, tensor_rank_0: &Self) -> TensorRank0 {
         self * tensor_rank_0
     }
@@ -66,7 +63,7 @@ impl TensorArray for TensorRank0 {
     type Array = [Self; 1];
     type Item = TensorRank0;
     fn as_array(&self) -> Self::Array {
-        [self.copy()]
+        [*self]
     }
     fn identity() -> Self {
         1.0
