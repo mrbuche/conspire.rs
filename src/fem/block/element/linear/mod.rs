@@ -8,6 +8,7 @@ use super::*;
 pub trait LinearElement<'a, C, const G: usize, const M: usize, const N: usize, const O: usize>
 where
     C: Constitutive<'a>,
+    Self: FiniteElement<'a, C, G, N>
 {
     fn deformation_gradient(&self, nodal_coordinates: &NodalCoordinates<N>) -> DeformationGradient {
         nodal_coordinates
@@ -38,6 +39,7 @@ where
     fn standard_gradient_operator() -> StandardGradientOperator<M, O>;
     fn get_constitutive_model(&self) -> &C;
     fn get_gradient_vectors(&self) -> &GradientVectors<N>;
+    fn get_gradient_vectors_nu(&self) -> &GradientVectorsActual<G, N>;
     fn get_integration_weight(&self) -> &Scalar;
 }
 

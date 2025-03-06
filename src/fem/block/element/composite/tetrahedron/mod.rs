@@ -420,6 +420,12 @@ impl<'a, C> FiniteElement<'a, C, G, N> for Tetrahedron<C>
 where
     C: Constitutive<'a>,
 {
+    fn constitutive_models(&self) -> &[C; G] {
+        &self.constitutive_models
+    }
+    fn integration_weights(&self) -> &Scalars<G> {
+        &self.integration_weights
+    }
     fn new(
         constitutive_model_parameters: Parameters<'a>,
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
@@ -538,9 +544,9 @@ impl<'a, C> ElasticFiniteElement<'a, C, G, N> for Tetrahedron<C>
 where
     C: Elastic<'a>,
 {
-    fn deformations(&self, nodal_coordinates: &NodalCoordinates<N>) -> DeformationGradients<G> {
-        self.deformation_gradients(nodal_coordinates)
-    }
+    // fn deformation_gradients(&self, nodal_coordinates: &NodalCoordinates<N>) -> DeformationGradients<G> {
+    //     self.deformation_gradients(nodal_coordinates)
+    // }
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,

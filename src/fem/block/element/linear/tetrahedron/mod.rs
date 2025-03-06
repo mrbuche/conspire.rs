@@ -2,7 +2,7 @@
 mod test;
 
 use super::*;
-use crate::math::{tensor_rank_1, tensor_rank_1_list, tensor_rank_2_list};
+use crate::math::{tensor_rank_1, tensor_rank_1_list, tensor_rank_2_list, TensorArray};
 
 const G: usize = 1;
 const M: usize = 3;
@@ -10,6 +10,7 @@ const N: usize = 4;
 const O: usize = 4;
 
 const INTEGRATION_WEIGHT: Scalar = ONE_SIXTH;
+// const INTEGRATION_WEIGHTS: Scalar = tensor_rank_0_list([ONE_SIXTH]);
 
 const STANDARD_GRADIENT_OPERATOR: StandardGradientOperator<M, O> = tensor_rank_1_list([
     tensor_rank_1([-1.0, -1.0, -1.0]),
@@ -28,6 +29,14 @@ impl<'a, C> FiniteElement<'a, C, G, N> for Tetrahedron<C>
 where
     C: Constitutive<'a>,
 {
+    fn constitutive_models(&self) -> &[C; G] {
+        // &[self.constitutive_model]
+        todo!()
+    }
+    fn integration_weights(&self) -> &Scalars<G> {
+        // &INTEGRATION_WEIGHTS
+        todo!()
+    }
     fn new(
         constitutive_model_parameters: Parameters<'a>,
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
@@ -63,6 +72,9 @@ where
     fn get_gradient_vectors(&self) -> &GradientVectors<N> {
         &self.gradient_vectors
     }
+    fn get_gradient_vectors_nu(&self) -> &GradientVectorsActual<G, N> {
+        todo!()
+    }
     fn get_integration_weight(&self) -> &Scalar {
         &self.integration_weight
     }
@@ -72,9 +84,9 @@ impl<'a, C> ElasticFiniteElement<'a, C, G, N> for Tetrahedron<C>
 where
     C: Elastic<'a>,
 {
-    fn deformations(&self, nodal_coordinates: &NodalCoordinates<N>) -> DeformationGradients<G> {
-        tensor_rank_2_list([self.deformation_gradient(nodal_coordinates)])
-    }
+    // fn deformation_gradients(&self, nodal_coordinates: &NodalCoordinates<N>) -> DeformationGradients<G> {
+    //     tensor_rank_2_list([self.deformation_gradient(nodal_coordinates)])
+    // }
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,

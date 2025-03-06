@@ -53,6 +53,9 @@ type NodalStiffnessesBlock = TensorRank2Vec2D<3, 1, 1>;
 
 type Connectivity<const E: usize, const N: usize> = [[usize; N]; E];
 type GradientVectors<const N: usize> = Vectors<0, N>;
+
+type GradientVectorsActual<const G: usize, const N: usize> = Vectors2D<0, N, G>;
+
 type NodalCoordinates<const D: usize> = CurrentCoordinates<D>;
 type NodalForces<const D: usize> = Forces<D>;
 type NodalStiffnesses<const D: usize> = Stiffnesses<D>;
