@@ -58,7 +58,7 @@ impl<C, const G: usize, const M: usize, const N: usize, const O: usize> FooFinit
         constitutive_model_parameters: Parameters,
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
     ) -> Self {
-        todo!("could probably get this in here too")
+        todo!("maybe not this since args will change for surface elements (thickness) and so on")
         // Self {
         //     constitutive_models: std::array::from_fn(|_| <C>::new(constitutive_model_parameters)),
         //     gradient_vectors: Self::precompute_gradient_vectors(&reference_nodal_coordinates),
