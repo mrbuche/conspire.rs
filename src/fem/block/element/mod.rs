@@ -6,9 +6,19 @@ pub mod linear;
 
 use super::*;
 
+pub trait FiniteElementMethods<'a, C, const N: usize>
+where
+    C: Constitutive<'a>
+{
+    fn new(
+        constitutive_model_parameters: Parameters<'a>,
+        reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
+    ) -> Self;
+}
+
 pub struct FooFiniteElement<C, const G: usize, const M: usize, const N: usize, const O: usize> {
     constitutive_models: [C; G],
-    gradient_vectors: GradientVectorsActual<G, N>,
+    gradient_vectors: GradientVectors<G, N>,
     integration_weights: Scalars<G>,
 }
 
@@ -48,22 +58,11 @@ impl<C, const G: usize, const M: usize, const N: usize, const O: usize> FooFinit
             })
             .collect()
     }
-    fn gradient_vectors(&self) -> &GradientVectorsActual<G, N> {
+    fn gradient_vectors(&self) -> &GradientVectors<G, N> {
         &self.gradient_vectors
     }
     fn integration_weights(&self) -> &Scalars<G> {
         &self.integration_weights
-    }
-    fn new(
-        constitutive_model_parameters: Parameters,
-        reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
-    ) -> Self {
-        todo!("maybe not this since args will change for surface elements (thickness) and so on")
-        // Self {
-        //     constitutive_models: std::array::from_fn(|_| <C>::new(constitutive_model_parameters)),
-        //     gradient_vectors: Self::precompute_gradient_vectors(&reference_nodal_coordinates),
-        //     integration_weights: Self::reference_jacobians(&reference_nodal_coordinates) * INTEGRATION_WEIGHT,
-        // }
     }
 }
 
