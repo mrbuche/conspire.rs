@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod test;
 
+use super::*; // this is for tests
+
 use super::{Element, FiniteElement, ReferenceNodalCoordinates, StandardGradientOperator};
 use crate::{
     constitutive::{Constitutive, Parameters},
