@@ -4,21 +4,18 @@ mod block;
 
 pub use block::{
     element::{
-        composite::{
-            tetrahedron::Tetrahedron as CompositeTetrahedron, CompositeElement,
-            ElasticCompositeElement, ElasticHyperviscousCompositeElement,
-            HyperelasticCompositeElement, HyperviscoelasticCompositeElement,
-            ViscoelasticCompositeElement,
-        },
-        linear::{
-            tetrahedron::Tetrahedron as LinearTetrahedron,
-            // tetrahedron::Tetrahedron as LinearTetrahedron,
-            // ElasticHyperviscousLinearElement,
-            // ElasticLinearElement, HyperelasticLinearElement, HyperviscoelasticLinearElement,
-            // LinearElement, ViscoelasticLinearElement,
-        },
-        ElasticFiniteElement, FiniteElement, HyperelasticFiniteElement,
-        HyperviscoelasticFiniteElement, ViscoelasticFiniteElement,
+        // composite::{
+        //     tetrahedron::Tetrahedron as CompositeTetrahedron, CompositeElement,
+        //     ElasticCompositeElement, ElasticHyperviscousCompositeElement,
+        //     HyperelasticCompositeElement, HyperviscoelasticCompositeElement,
+        //     ViscoelasticCompositeElement,
+        // },
+        linear::tetrahedron::Tetrahedron as LinearTetrahedron,
+        ElasticFiniteElement,
+        FiniteElement,
+        HyperelasticFiniteElement,
+        HyperviscoelasticFiniteElement,
+        ViscoelasticFiniteElement,
     },
     BasicFiniteElementBlock, ElasticBlock, ElasticFiniteElementBlock, FiniteElementBlock,
     HyperelasticFiniteElementBlock, HyperviscoelasticFiniteElementBlock, ViscoelasticBlock,
@@ -37,7 +34,7 @@ use crate::{
     math::{
         ContractSecondFourthIndicesWithFirstIndicesOf, Tensor, TensorRank1, TensorRank1List,
         TensorRank1List2D, TensorRank1Vec, TensorRank2, TensorRank2List, TensorRank2Vec2D,
-        TensorVec, ONE_SIXTH, ONE_TWENTY_FOURTH,
+        TensorVec,
     },
     mechanics::{
         CurrentCoordinates, DeformationGradient, DeformationGradientRate, DeformationGradientRates,
