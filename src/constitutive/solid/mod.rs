@@ -8,13 +8,16 @@ pub mod thermoelastic;
 pub mod thermohyperelastic;
 pub mod viscoelastic;
 
+const TWO_THIRDS: Scalar = 2.0 / 3.0;
+const FIVE_THIRDS: Scalar = 5.0 / 3.0;
+
 use super::{Constitutive, Parameters};
 use crate::{
     constitutive::ConstitutiveError,
     math::{
         ContractFirstSecondIndicesWithSecondIndicesOf, ContractSecondIndexWithFirstIndexOf, Rank2,
-        Tensor, TensorArray, TensorRank4, FIVE_THIRDS, IDENTITY, IDENTITY_00, IDENTITY_10,
-        IDENTITY_1010, SEVEN_THIRDS, TWO_THIRDS, ZERO_10,
+        Tensor, TensorArray, TensorRank4, IDENTITY, IDENTITY_00, IDENTITY_10, IDENTITY_1010,
+        ZERO_10,
     },
     mechanics::{
         CauchyRateTangentStiffness, CauchyStress, CauchyStresses, CauchyTangentStiffness,

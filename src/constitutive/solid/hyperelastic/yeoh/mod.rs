@@ -3,6 +3,8 @@ mod test;
 
 use super::*;
 
+const SEVEN_THIRDS: Scalar = 7.0 / 3.0;
+
 #[doc = include_str!("model.md")]
 #[derive(Debug)]
 pub struct Yeoh<'a> {

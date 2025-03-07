@@ -322,11 +322,11 @@ macro_rules! test_linear_element_with_constitutive_model {
                             )| {
                                 assert_eq_within_tols(
                                     deformation_gradient_rate,
-                                    &(get_rotation_current_configuration().transpose() * (
-                                        deformation_gradient_rate_transformed
-                                        * get_rotation_reference_configuration()
-                                        - get_rotation_rate_current_configuration()
-                                            * deformation_gradient)),
+                                    &(get_rotation_current_configuration().transpose()
+                                        * (deformation_gradient_rate_transformed
+                                            * get_rotation_reference_configuration()
+                                            - get_rotation_rate_current_configuration()
+                                                * deformation_gradient)),
                                 )
                             },
                         )

@@ -18,11 +18,6 @@ pub mod optimize;
 mod matrix;
 mod tensor;
 
-pub const FIVE_THIRDS: TensorRank0 = 5.0 / 3.0;
-pub const NINE_FIFTHS: TensorRank0 = 9.0 / 5.0;
-pub const SEVEN_THIRDS: TensorRank0 = 7.0 / 3.0;
-pub const TWO_THIRDS: TensorRank0 = 2.0 / 3.0;
-
 pub use matrix::{square::SquareMatrix, vector::Vector};
 pub use tensor::{
     rank_0::{

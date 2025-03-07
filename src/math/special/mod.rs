@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use super::NINE_FIFTHS;
+const NINE_FIFTHS: f64 = 9.0 / 5.0;
 
 /// Returns the inverse Langevin function.
 ///

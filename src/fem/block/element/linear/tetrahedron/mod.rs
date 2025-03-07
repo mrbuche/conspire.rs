@@ -24,11 +24,14 @@ where
         constitutive_model_parameters: Parameters<'a>,
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
     ) -> Self {
-        let (operator, jacobian) = (reference_nodal_coordinates * Self::standard_gradient_operator())
-            .inverse_transpose_and_determinant();
+        let (operator, jacobian) = (reference_nodal_coordinates
+            * Self::standard_gradient_operator())
+        .inverse_transpose_and_determinant();
         Self {
             constitutive_models: from_fn(|_| <C>::new(constitutive_model_parameters)),
-            gradient_vectors: tensor_rank_1_list_2d([operator * Self::standard_gradient_operator()]),
+            gradient_vectors: tensor_rank_1_list_2d(
+                [operator * Self::standard_gradient_operator()],
+            ),
             integration_weights: tensor_rank_0_list([jacobian * Self::integration_weight()]),
         }
     }

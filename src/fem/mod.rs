@@ -5,12 +5,8 @@ mod block;
 pub use block::{
     element::{
         composite::tetrahedron::Tetrahedron as CompositeTetrahedron,
-        linear::tetrahedron::Tetrahedron as LinearTetrahedron,
-        ElasticFiniteElement,
-        FiniteElement,
-        HyperelasticFiniteElement,
-        HyperviscoelasticFiniteElement,
-        ViscoelasticFiniteElement,
+        linear::tetrahedron::Tetrahedron as LinearTetrahedron, ElasticFiniteElement, FiniteElement,
+        HyperelasticFiniteElement, HyperviscoelasticFiniteElement, ViscoelasticFiniteElement,
     },
     BasicFiniteElementBlock, ElasticBlock, ElasticFiniteElementBlock, FiniteElementBlock,
     HyperelasticFiniteElementBlock, HyperviscoelasticFiniteElementBlock, ViscoelasticBlock,

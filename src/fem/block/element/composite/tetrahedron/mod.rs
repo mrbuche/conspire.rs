@@ -27,7 +27,8 @@ where
         Self {
             constitutive_models: from_fn(|_| <C>::new(constitutive_model_parameters)),
             gradient_vectors: Self::projected_gradient_vectors(&reference_nodal_coordinates),
-            integration_weights: Self::reference_jacobians(&reference_nodal_coordinates) * Self::integration_weight(),
+            integration_weights: Self::reference_jacobians(&reference_nodal_coordinates)
+                * Self::integration_weight(),
         }
     }
 }
@@ -399,7 +400,8 @@ where
             ]),
         ])
     }
-    const fn standard_gradient_operators_transposed() -> StandardGradientOperatorsTransposed<M, O, P> {
+    const fn standard_gradient_operators_transposed() -> StandardGradientOperatorsTransposed<M, O, P>
+    {
         const TWO_THIRDS: Scalar = 2.0 / 3.0;
         const FOUR_THIRDS: Scalar = 4.0 / 3.0;
         tensor_rank_1_list_2d([
