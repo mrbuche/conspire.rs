@@ -4,19 +4,9 @@ mod block;
 
 pub use block::{
     element::{
-        composite::{
-            tetrahedron::Tetrahedron as CompositeTetrahedron, CompositeElement,
-            ElasticCompositeElement, ElasticHyperviscousCompositeElement,
-            HyperelasticCompositeElement, HyperviscoelasticCompositeElement,
-            ViscoelasticCompositeElement,
-        },
-        linear::{
-            tetrahedron::Tetrahedron as LinearTetrahedron, ElasticHyperviscousLinearElement,
-            ElasticLinearElement, HyperelasticLinearElement, HyperviscoelasticLinearElement,
-            LinearElement, ViscoelasticLinearElement,
-        },
-        ElasticFiniteElement, FiniteElement, HyperelasticFiniteElement,
-        HyperviscoelasticFiniteElement, ViscoelasticFiniteElement,
+        composite::tetrahedron::Tetrahedron as CompositeTetrahedron,
+        linear::tetrahedron::Tetrahedron as LinearTetrahedron, ElasticFiniteElement, FiniteElement,
+        HyperelasticFiniteElement, HyperviscoelasticFiniteElement, ViscoelasticFiniteElement,
     },
     BasicFiniteElementBlock, ElasticBlock, ElasticFiniteElementBlock, FiniteElementBlock,
     HyperelasticFiniteElementBlock, HyperviscoelasticFiniteElementBlock, ViscoelasticBlock,
@@ -35,13 +25,13 @@ use crate::{
     math::{
         ContractSecondFourthIndicesWithFirstIndicesOf, Tensor, TensorRank1, TensorRank1List,
         TensorRank1List2D, TensorRank1Vec, TensorRank2, TensorRank2List, TensorRank2Vec2D,
-        TensorVec, ONE_SIXTH, ONE_TWENTY_FOURTH,
+        TensorVec,
     },
     mechanics::{
         CurrentCoordinates, DeformationGradient, DeformationGradientRate, DeformationGradientRates,
         DeformationGradients, DeformationGradientss, FirstPiolaKirchhoffRateTangentStiffnesses,
         FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses, Forces,
-        ReferenceCoordinates, Scalar, Scalars, Stiffnesses, Vectors, Vectors2D,
+        ReferenceCoordinates, Scalar, Scalars, Stiffnesses, Vectors2D,
     },
 };
 
@@ -52,7 +42,7 @@ type NodalForcesBlock = TensorRank1Vec<3, 1>;
 type NodalStiffnessesBlock = TensorRank2Vec2D<3, 1, 1>;
 
 type Connectivity<const E: usize, const N: usize> = [[usize; N]; E];
-type GradientVectors<const N: usize> = Vectors<0, N>;
+type GradientVectors<const G: usize, const N: usize> = Vectors2D<0, N, G>;
 type NodalCoordinates<const D: usize> = CurrentCoordinates<D>;
 type NodalForces<const D: usize> = Forces<D>;
 type NodalStiffnesses<const D: usize> = Stiffnesses<D>;

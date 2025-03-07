@@ -13,6 +13,10 @@ use std::{
 #[derive(Clone, Debug)]
 pub struct TensorRank0List<const W: usize>([TensorRank0; W]);
 
+pub const fn tensor_rank_0_list<const W: usize>(array: [TensorRank0; W]) -> TensorRank0List<W> {
+    TensorRank0List(array)
+}
+
 /// Display implementation for rank-0 lists.
 impl<const W: usize> Display for TensorRank0List<W> {
     fn fmt(&self, f: &mut Formatter) -> Result {

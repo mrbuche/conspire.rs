@@ -40,6 +40,20 @@ where
     F: FiniteElement<'a, C, G, N>,
     Self: BasicFiniteElementBlock<'a, C, E, F, G, N>,
 {
+    fn deformation_gradients(
+        &self,
+        nodal_coordinates: &NodalCoordinatesBlock,
+    ) -> DeformationGradientss<G, E> {
+        self.elements()
+            .iter()
+            .zip(self.connectivity().iter())
+            .map(|(element, element_connectivity)| {
+                element.deformation_gradients(
+                    &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
+                )
+            })
+            .collect()
+    }
     fn new(
         constitutive_model_parameters: Parameters<'a>,
         connectivity: Connectivity<E, N>,
@@ -52,10 +66,6 @@ where
     C: Elastic<'a>,
     F: ElasticFiniteElement<'a, C, G, N>,
 {
-    fn deformation_gradients(
-        &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> DeformationGradientss<G, E>;
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
@@ -209,20 +219,6 @@ where
     F: ElasticFiniteElement<'a, C, G, N>,
     Self: BasicFiniteElementBlock<'a, C, E, F, G, N>,
 {
-    fn deformation_gradients(
-        &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> DeformationGradientss<G, E> {
-        self.elements()
-            .iter()
-            .zip(self.connectivity().iter())
-            .map(|(element, element_connectivity)| {
-                element.deformations(
-                    &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
-                )
-            })
-            .collect()
-    }
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
