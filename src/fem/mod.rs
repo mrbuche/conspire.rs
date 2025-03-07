@@ -4,12 +4,7 @@ mod block;
 
 pub use block::{
     element::{
-        // composite::{
-        //     tetrahedron::Tetrahedron as CompositeTetrahedron, CompositeElement,
-        //     ElasticCompositeElement, ElasticHyperviscousCompositeElement,
-        //     HyperelasticCompositeElement, HyperviscoelasticCompositeElement,
-        //     ViscoelasticCompositeElement,
-        // },
+        composite::tetrahedron::Tetrahedron as CompositeTetrahedron,
         linear::tetrahedron::Tetrahedron as LinearTetrahedron,
         ElasticFiniteElement,
         FiniteElement,
@@ -40,7 +35,7 @@ use crate::{
         CurrentCoordinates, DeformationGradient, DeformationGradientRate, DeformationGradientRates,
         DeformationGradients, DeformationGradientss, FirstPiolaKirchhoffRateTangentStiffnesses,
         FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses, Forces,
-        ReferenceCoordinates, Scalar, Scalars, Stiffnesses, Vectors, Vectors2D,
+        ReferenceCoordinates, Scalar, Scalars, Stiffnesses, Vectors2D,
     },
 };
 

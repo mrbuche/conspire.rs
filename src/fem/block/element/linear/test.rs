@@ -322,11 +322,11 @@ macro_rules! test_linear_element_with_constitutive_model {
                             )| {
                                 assert_eq_within_tols(
                                     deformation_gradient_rate,
-                                    &(get_rotation_current_configuration().transpose()
-                                        * deformation_gradient_rate_transformed
+                                    &(get_rotation_current_configuration().transpose() * (
+                                        deformation_gradient_rate_transformed
                                         * get_rotation_reference_configuration()
                                         - get_rotation_rate_current_configuration()
-                                            * deformation_gradient),
+                                            * deformation_gradient)),
                                 )
                             },
                         )
@@ -353,6 +353,21 @@ macro_rules! test_linear_element_with_constitutive_model {
                         ),
                         &DeformationGradientRates::zero(),
                     )
+                }
+            }
+            mod standard_gradient_operator {
+                use super::*;
+                #[test]
+                fn partition_of_unity() -> Result<(), TestError> {
+                    let mut sum = [0.0_f64; 3];
+                    $element::<$constitutive_model>::standard_gradient_operator()
+                        .iter()
+                        .for_each(|row| {
+                            row.iter()
+                                .zip(sum.iter_mut())
+                                .for_each(|(entry, sum_i)| *sum_i += entry)
+                        });
+                    sum.iter().try_for_each(|sum_i| assert_eq(sum_i, &0.0))
                 }
             }
         }

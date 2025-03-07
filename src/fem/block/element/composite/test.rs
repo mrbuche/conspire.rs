@@ -301,48 +301,45 @@ macro_rules! test_composite_element_with_constitutive_model {
             use super::*;
             #[test]
             fn shape_functions() -> Result<(), TestError> {
-                panic!()
-                // $element::<$constitutive_model>::shape_functions_at_integration_points()
-                //     .iter()
-                //     .try_for_each(|shape_functions| assert_eq(&shape_functions.iter().sum(), &1.0))
+                $element::<$constitutive_model>::shape_functions_at_integration_points()
+                    .iter()
+                    .try_for_each(|shape_functions| assert_eq(&shape_functions.iter().sum(), &1.0))
             }
             #[test]
             fn standard_gradient_operators() -> Result<(), TestError> {
-                panic!("put this one back in linear/test.rs if keep it here too")
-                // let mut sum = [0.0_f64; 3];
-                // $element::<$constitutive_model>::standard_gradient_operators()
-                //     .iter()
-                //     .try_for_each(|standard_gradient_operator| {
-                //         standard_gradient_operator.iter().for_each(|row| {
-                //             row.iter()
-                //                 .zip(sum.iter_mut())
-                //                 .for_each(|(entry, sum_i)| *sum_i += entry)
-                //         });
-                //         sum.iter()
-                //             .try_for_each(|sum_i| assert_eq_within_tols(sum_i, &0.0))
-                //     })
+                let mut sum = [0.0_f64; 3];
+                $element::<$constitutive_model>::standard_gradient_operators()
+                    .iter()
+                    .try_for_each(|standard_gradient_operator| {
+                        standard_gradient_operator.iter().for_each(|row| {
+                            row.iter()
+                                .zip(sum.iter_mut())
+                                .for_each(|(entry, sum_i)| *sum_i += entry)
+                        });
+                        sum.iter()
+                            .try_for_each(|sum_i| assert_eq_within_tols(sum_i, &0.0))
+                    })
             }
         }
         #[test]
         fn normalized_projection_matrix() -> Result<(), TestError> {
-            panic!()
-            // $element::<$constitutive_model>::shape_function_integrals_products()
-            //     .iter()
-            //     .map(|dummy| dummy * 1.0)
-            //     .sum::<TensorRank2<Q, 9, 9>>()
-            //     .iter()
-            //     .zip(
-            //         $element::<$constitutive_model>::inverse_normalized_projection_matrix()
-            //             .inverse()
-            //             .iter(),
-            //     )
-            //     .try_for_each(|(sum_i, projection_matrix_i)| {
-            //         sum_i.iter().zip(projection_matrix_i.iter()).try_for_each(
-            //             |(sum_ij, projection_matrix_ij)| {
-            //                 assert_eq_within_tols(sum_ij, projection_matrix_ij)
-            //             },
-            //         )
-            //     })
+            $element::<$constitutive_model>::shape_function_integrals_products()
+                .iter()
+                .map(|dummy| dummy * 1.0)
+                .sum::<TensorRank2<Q, 9, 9>>()
+                .iter()
+                .zip(
+                    $element::<$constitutive_model>::inverse_normalized_projection_matrix()
+                        .inverse()
+                        .iter(),
+                )
+                .try_for_each(|(sum_i, projection_matrix_i)| {
+                    sum_i.iter().zip(projection_matrix_i.iter()).try_for_each(
+                        |(sum_ij, projection_matrix_ij)| {
+                            assert_eq_within_tols(sum_ij, projection_matrix_ij)
+                        },
+                    )
+                })
         }
     };
 }
