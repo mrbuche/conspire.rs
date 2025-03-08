@@ -15,9 +15,13 @@ macro_rules! test_finite_element {
                 },
                 EPSILON,
             };
+            //
+            // can you put the setup innards here instead?
+            //
             mod constitutive_model_independent {
                 use super::{
                     $element, G, N,
+                    assert_eq,
                     assert_eq_within_tols,
                     get_coordinates,
                     get_coordinates_transformed,
@@ -187,6 +191,12 @@ macro_rules! test_finite_element {
                 }
                 mod partition_of_unity {
                     use super::*;
+                    #[test]
+                    fn shape_functions() -> Result<(), TestError> {
+                        $element::<AlmansiHamel>::shape_functions_at_integration_points()
+                            .iter()
+                            .try_for_each(|shape_functions| assert_eq(&shape_functions.iter().sum(), &1.0))
+                    }
                     #[test]
                     fn standard_gradient_operators() -> Result<(), TestError> {
                         let mut sum = [0.0; 3];

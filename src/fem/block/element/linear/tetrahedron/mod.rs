@@ -15,6 +15,9 @@ const N: usize = 4;
 const O: usize = 4;
 const P: usize = 1;
 
+#[cfg(test)]
+const Q: usize = 4;
+
 pub type Tetrahedron<C> = Element<C, G, M, N, O>;
 
 impl<'a, C> FiniteElement<'a, C, G, N> for Tetrahedron<C>
@@ -44,6 +47,12 @@ where
 {
     const fn integration_weight() -> Scalar {
         1.0 / 6.0
+    }
+    #[cfg(test)]
+    const fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, Q> {
+        tensor_rank_1_list([
+            tensor_rank_1([0.25; Q]),
+        ])
     }
     const fn standard_gradient_operators() -> StandardGradientOperators<M, O, P> {
         tensor_rank_1_list_2d([

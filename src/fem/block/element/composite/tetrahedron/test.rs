@@ -1,9 +1,7 @@
 use super::*;
 use crate::fem::block::{
     element::{
-        composite::test::{
-            setup_for_test_composite_element_with_constitutive_model, test_composite_element,
-        },
+        composite::test::test_composite_element,
         test::setup_for_test_finite_element_with_elastic_constitutive_model,
     },
     test::{
@@ -180,3 +178,35 @@ fn get_dirichlet_values(_x: Scalar) -> [Scalar; 8] {
 
 test_composite_element!(Tetrahedron);
 test_finite_element_block!(Tetrahedron);
+
+#[test]
+fn test_transpose_Sopt() {
+    todo!()
+}
+
+#[test]
+fn test_other_stuff() {
+    todo!()
+}
+
+#[test]
+fn normalized_projection_matrix() {//-> Result<(), TestError> {
+    todo!()
+    // $element::<$constitutive_model>::shape_function_integrals_products()
+    //     .iter()
+    //     .map(|dummy| dummy * 1.0)
+    //     .sum::<TensorRank2<Q, 9, 9>>()
+    //     .iter()
+    //     .zip(
+    //         $element::<$constitutive_model>::inverse_normalized_projection_matrix()
+    //             .inverse()
+    //             .iter(),
+    //     )
+    //     .try_for_each(|(sum_i, projection_matrix_i)| {
+    //         sum_i.iter().zip(projection_matrix_i.iter()).try_for_each(
+    //             |(sum_ij, projection_matrix_ij)| {
+    //                 assert_eq_within_tols(sum_ij, projection_matrix_ij)
+    //             },
+    //         )
+    //     })
+}
