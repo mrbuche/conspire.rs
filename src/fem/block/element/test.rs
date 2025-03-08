@@ -15,6 +15,181 @@ macro_rules! test_finite_element {
                 },
                 EPSILON,
             };
+            mod constitutive_model_independent {
+                use super::{
+                    $element, G, N,
+                    assert_eq_within_tols,
+                    get_coordinates,
+                    get_coordinates_transformed,
+                    get_deformation_gradient,
+                    get_deformation_gradient_rate,
+                    get_reference_coordinates,
+                    get_reference_coordinates_transformed,
+                    get_rotation_current_configuration,
+                    get_rotation_rate_current_configuration,
+                    get_rotation_reference_configuration,
+                    get_velocities,
+                    get_velocities_transformed,
+                    DeformationGradients,
+                    DeformationGradientRates,
+                    FiniteElement,
+                    FiniteElementMethods,
+                    GradientVectors, NodalVelocities, 
+                    Rank2, Scalars, Tensor, TensorArray, TestError,
+                };
+                use crate::constitutive::solid::elastic::{
+                    test::ALMANSIHAMELPARAMETERS, AlmansiHamel,
+                };
+                fn deformation_gradients() -> DeformationGradients<G> {
+                    (0..G).map(|_| get_deformation_gradient()).collect()
+                }
+                fn deformation_gradient_rates() -> DeformationGradientRates<G> {
+                    (0..G).map(|_| get_deformation_gradient_rate()).collect()
+                }
+                fn element<'a>() -> $element<AlmansiHamel<'a>> {
+                    $element::new(ALMANSIHAMELPARAMETERS, get_reference_coordinates())
+                }
+                fn element_transformed<'a>() -> $element<AlmansiHamel<'a>> {
+                    $element::<AlmansiHamel<'a>>::new(
+                        ALMANSIHAMELPARAMETERS,
+                        get_reference_coordinates_transformed(),
+                    )
+                }
+                #[test]
+                fn size() {
+                    assert_eq!(
+                        std::mem::size_of::<$element::<AlmansiHamel>>(),
+                        std::mem::size_of::<[AlmansiHamel; G]>()
+                            + std::mem::size_of::<GradientVectors<G, N>>()
+                            + std::mem::size_of::<Scalars<G>>()
+                    )
+                }
+                mod deformation_gradient {
+                    use super::*;
+                    mod deformed {
+                        use super::*;
+                        #[test]
+                        fn calculate() -> Result<(), TestError> {
+                            assert_eq_within_tols(
+                                &element().deformation_gradients(&get_coordinates()),
+                                &deformation_gradients(),
+                            )
+                        }
+                        #[test]
+                        fn objectivity() -> Result<(), TestError> {
+                            element()
+                                .deformation_gradients(&get_coordinates())
+                                .iter()
+                                .zip(
+                                    element_transformed()
+                                        .deformation_gradients(&get_coordinates_transformed())
+                                        .iter(),
+                                )
+                                .try_for_each(|(deformation_gradient, deformation_gradient_transformed)| {
+                                    assert_eq_within_tols(
+                                        deformation_gradient,
+                                        &(get_rotation_current_configuration().transpose()
+                                            * deformation_gradient_transformed
+                                            * get_rotation_reference_configuration()),
+                                    )
+                                })
+                        }
+                    }
+                    mod undeformed {
+                        use super::*;
+                        #[test]
+                        fn calculate() -> Result<(), TestError> {
+                            assert_eq_within_tols(
+                                &element().deformation_gradients(&get_reference_coordinates().into()),
+                                &DeformationGradients::identity(),
+                            )
+                        }
+                        #[test]
+                        fn objectivity() -> Result<(), TestError> {
+                            assert_eq_within_tols(
+                                &element_transformed()
+                                    .deformation_gradients(&get_reference_coordinates_transformed().into()),
+                                &DeformationGradients::identity(),
+                            )
+                        }
+                    }
+                }
+                mod deformation_gradient_rate {
+                    use super::*;
+                    mod deformed {
+                        use super::*;
+                        #[test]
+                        fn calculate() -> Result<(), TestError> {
+                            assert_eq_within_tols(
+                                &element()
+                                    .deformation_gradient_rates(&get_coordinates(), &get_velocities()),
+                                &deformation_gradient_rates(),
+                            )
+                        }
+                        #[test]
+                        fn objectivity() -> Result<(), TestError> {
+                            element()
+                                .deformation_gradients(&get_coordinates())
+                                .iter()
+                                .zip(
+                                    element()
+                                        .deformation_gradient_rates(&get_coordinates(), &get_velocities())
+                                        .iter()
+                                        .zip(
+                                            element_transformed()
+                                                .deformation_gradient_rates(
+                                                    &get_coordinates_transformed(),
+                                                    &get_velocities_transformed(),
+                                                )
+                                                .iter(),
+                                        ),
+                                )
+                                .try_for_each(
+                                    |(
+                                        deformation_gradient,
+                                        (deformation_gradient_rate, deformation_gradient_rate_transformed),
+                                    )| {
+                                        assert_eq_within_tols(
+                                            deformation_gradient_rate,
+                                            &(get_rotation_current_configuration().transpose()
+                                                * (deformation_gradient_rate_transformed
+                                                    * get_rotation_reference_configuration()
+                                                    - get_rotation_rate_current_configuration()
+                                                        * deformation_gradient)),
+                                        )
+                                    },
+                                )
+                        }
+                    }
+                    mod undeformed {
+                        use super::*;
+                        #[test]
+                        fn calculate() -> Result<(), TestError> {
+                            assert_eq_within_tols(
+                                &element().deformation_gradient_rates(
+                                    &get_reference_coordinates().into(),
+                                    &NodalVelocities::zero().into(),
+                                ),
+                                &DeformationGradientRates::zero(),
+                            )
+                        }
+                        #[test]
+                        fn objectivity() -> Result<(), TestError> {
+                            assert_eq_within_tols(
+                                &element_transformed().deformation_gradient_rates(
+                                    &get_reference_coordinates_transformed().into(),
+                                    &NodalVelocities::zero().into(),
+                                ),
+                                &DeformationGradientRates::zero(),
+                            )
+                        }
+                    }
+                }
+            }
+            //
+            // put constitutive model independent tests here without using macros
+            // but you are going to need to bring all the stuff being called in too
+            //
             mod elastic {
                 use super::*;
                 use crate::constitutive::solid::elastic::{
@@ -185,23 +360,6 @@ macro_rules! setup_for_elements {
     };
 }
 pub(crate) use setup_for_elements;
-
-macro_rules! setup_for_composite_elements {
-    ($element: ident) => {
-        use crate::{
-            math::Rank2,
-            mechanics::test::{get_deformation_gradient, get_deformation_gradient_rate},
-        };
-        fn get_coordinates() -> NodalCoordinates<N> {
-            get_deformation_gradient() * get_reference_coordinates()
-        }
-        fn get_velocities() -> NodalVelocities<N> {
-            get_deformation_gradient_rate() * get_reference_coordinates()
-        }
-        crate::fem::block::element::test::setup_for_element_tests_any_element!($element);
-    };
-}
-pub(crate) use setup_for_composite_elements;
 
 macro_rules! test_nodal_forces_and_nodal_stiffnesses {
     ($element: ident, $constitutive_model: ident, $constitutive_model_parameters: ident) => {

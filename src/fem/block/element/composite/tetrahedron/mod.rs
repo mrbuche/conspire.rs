@@ -66,7 +66,7 @@ where
     }
     fn projected_gradient_vectors(
         reference_nodal_coordinates: &ReferenceNodalCoordinates<O>,
-    ) -> ProjectedGradientVectors<G, N> {
+    ) -> GradientVectors<G, N> {
         let parametric_gradient_operators = Self::standard_gradient_operators()
             .iter()
             .map(|standard_gradient_operator| {

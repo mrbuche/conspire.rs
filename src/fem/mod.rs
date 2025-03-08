@@ -49,7 +49,6 @@ type NodalStiffnesses<const D: usize> = Stiffnesses<D>;
 type NodalVelocities<const D: usize> = CurrentCoordinates<D>;
 type NormalizedProjectionMatrix<const Q: usize> = TensorRank2<Q, 9, 9>;
 type ParametricGradientOperators<const P: usize> = TensorRank2List<3, 0, 9, P>;
-type ProjectedGradientVectors<const G: usize, const N: usize> = Vectors2D<0, N, G>;
 type ProjectionMatrix<const Q: usize> = TensorRank2<Q, 9, 9>;
 type ReferenceNodalCoordinates<const D: usize> = ReferenceCoordinates<D>;
 type ShapeFunctionIntegrals<const P: usize, const Q: usize> = TensorRank1List<Q, 9, P>;
