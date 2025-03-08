@@ -30,12 +30,10 @@ where
     ) -> Self {
         let standard_gradient_operator = &Self::standard_gradient_operators()[0];
         let (operator, jacobian) = (reference_nodal_coordinates * standard_gradient_operator)
-        .inverse_transpose_and_determinant();
+            .inverse_transpose_and_determinant();
         Self {
             constitutive_models: from_fn(|_| <C>::new(constitutive_model_parameters)),
-            gradient_vectors: tensor_rank_1_list_2d(
-                [operator * standard_gradient_operator],
-            ),
+            gradient_vectors: tensor_rank_1_list_2d([operator * standard_gradient_operator]),
             integration_weights: tensor_rank_0_list([jacobian * Self::integration_weight()]),
         }
     }
@@ -50,18 +48,14 @@ where
     }
     #[cfg(test)]
     const fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, Q> {
-        tensor_rank_1_list([
-            tensor_rank_1([0.25; Q]),
-        ])
+        tensor_rank_1_list([tensor_rank_1([0.25; Q])])
     }
     const fn standard_gradient_operators() -> StandardGradientOperators<M, O, P> {
-        tensor_rank_1_list_2d([
-            tensor_rank_1_list([
-                tensor_rank_1([-1.0, -1.0, -1.0]),
-                tensor_rank_1([1.0, 0.0, 0.0]),
-                tensor_rank_1([0.0, 1.0, 0.0]),
-                tensor_rank_1([0.0, 0.0, 1.0]),
-        ])
-        ])
+        tensor_rank_1_list_2d([tensor_rank_1_list([
+            tensor_rank_1([-1.0, -1.0, -1.0]),
+            tensor_rank_1([1.0, 0.0, 0.0]),
+            tensor_rank_1([0.0, 1.0, 0.0]),
+            tensor_rank_1([0.0, 0.0, 1.0]),
+        ])])
     }
 }

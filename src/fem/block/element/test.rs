@@ -3,6 +3,12 @@ macro_rules! test_finite_element {
         mod element {
             use super::*;
             use crate::{
+                fem::block::element::test::{
+                    test_finite_element_with_elastic_constitutive_model,
+                    test_finite_element_with_elastic_hyperviscous_constitutive_model,
+                    test_finite_element_with_hyperelastic_constitutive_model,
+                    test_finite_element_with_hyperviscoelastic_constitutive_model,
+                },
                 math::{
                     test::{assert_eq, assert_eq_from_fd, assert_eq_within_tols, TestError},
                     Convert, Rank2, TensorArray, TensorRank2,
@@ -11,13 +17,8 @@ macro_rules! test_finite_element {
                     get_deformation_gradient, get_deformation_gradient_rate,
                     get_rotation_current_configuration, get_rotation_rate_current_configuration,
                     get_rotation_reference_configuration, get_translation_current_configuration,
-                    get_translation_rate_current_configuration, get_translation_reference_configuration,
-                },
-                fem::block::element::test::{
-                    test_finite_element_with_elastic_constitutive_model,
-                    test_finite_element_with_elastic_hyperviscous_constitutive_model,
-                    test_finite_element_with_hyperelastic_constitutive_model,
-                    test_finite_element_with_hyperviscoelastic_constitutive_model,
+                    get_translation_rate_current_configuration,
+                    get_translation_reference_configuration,
                 },
                 EPSILON,
             };
@@ -58,26 +59,14 @@ macro_rules! test_finite_element {
             }
             mod constitutive_model_independent {
                 use super::{
-                    $element, G, N,
-                    assert_eq,
-                    assert_eq_within_tols,
-                    coordinates,
-                    coordinates_transformed,
-                    get_deformation_gradient,
-                    get_deformation_gradient_rate,
-                    get_reference_coordinates,
-                    reference_coordinates_transformed,
-                    get_rotation_current_configuration,
-                    get_rotation_rate_current_configuration,
-                    get_rotation_reference_configuration,
-                    velocities,
-                    velocities_transformed,
-                    DeformationGradients,
-                    DeformationGradientRates,
-                    FiniteElement,
-                    FiniteElementMethods,
-                    GradientVectors, NodalVelocities, 
-                    Rank2, Scalars, Tensor, TensorArray, TestError,
+                    assert_eq, assert_eq_within_tols, coordinates, coordinates_transformed,
+                    get_deformation_gradient, get_deformation_gradient_rate,
+                    get_reference_coordinates, get_rotation_current_configuration,
+                    get_rotation_rate_current_configuration, get_rotation_reference_configuration,
+                    reference_coordinates_transformed, velocities, velocities_transformed,
+                    $element, DeformationGradientRates, DeformationGradients, FiniteElement,
+                    FiniteElementMethods, GradientVectors, NodalVelocities, Rank2, Scalars, Tensor,
+                    TensorArray, TestError, G, N,
                 };
                 use crate::constitutive::solid::elastic::{
                     test::ALMANSIHAMELPARAMETERS, AlmansiHamel,
@@ -127,14 +116,16 @@ macro_rules! test_finite_element {
                                         .deformation_gradients(&coordinates_transformed())
                                         .iter(),
                                 )
-                                .try_for_each(|(deformation_gradient, deformation_gradient_transformed)| {
-                                    assert_eq_within_tols(
-                                        deformation_gradient,
-                                        &(get_rotation_current_configuration().transpose()
-                                            * deformation_gradient_transformed
-                                            * get_rotation_reference_configuration()),
-                                    )
-                                })
+                                .try_for_each(
+                                    |(deformation_gradient, deformation_gradient_transformed)| {
+                                        assert_eq_within_tols(
+                                            deformation_gradient,
+                                            &(get_rotation_current_configuration().transpose()
+                                                * deformation_gradient_transformed
+                                                * get_rotation_reference_configuration()),
+                                        )
+                                    },
+                                )
                         }
                     }
                     mod undeformed {
@@ -142,15 +133,17 @@ macro_rules! test_finite_element {
                         #[test]
                         fn calculate() -> Result<(), TestError> {
                             assert_eq_within_tols(
-                                &element().deformation_gradients(&get_reference_coordinates().into()),
+                                &element()
+                                    .deformation_gradients(&get_reference_coordinates().into()),
                                 &DeformationGradients::identity(),
                             )
                         }
                         #[test]
                         fn objectivity() -> Result<(), TestError> {
                             assert_eq_within_tols(
-                                &element_transformed()
-                                    .deformation_gradients(&reference_coordinates_transformed().into()),
+                                &element_transformed().deformation_gradients(
+                                    &reference_coordinates_transformed().into(),
+                                ),
                                 &DeformationGradients::identity(),
                             )
                         }
@@ -189,7 +182,10 @@ macro_rules! test_finite_element {
                                 .try_for_each(
                                     |(
                                         deformation_gradient,
-                                        (deformation_gradient_rate, deformation_gradient_rate_transformed),
+                                        (
+                                            deformation_gradient_rate,
+                                            deformation_gradient_rate_transformed,
+                                        ),
                                     )| {
                                         assert_eq_within_tols(
                                             deformation_gradient_rate,
@@ -233,7 +229,9 @@ macro_rules! test_finite_element {
                     fn shape_functions() -> Result<(), TestError> {
                         $element::<AlmansiHamel>::shape_functions_at_integration_points()
                             .iter()
-                            .try_for_each(|shape_functions| assert_eq(&shape_functions.iter().sum(), &1.0))
+                            .try_for_each(|shape_functions| {
+                                assert_eq(&shape_functions.iter().sum(), &1.0)
+                            })
                     }
                     #[test]
                     fn standard_gradient_operators() -> Result<(), TestError> {
@@ -522,8 +520,8 @@ macro_rules! test_helmholtz_free_energy {
                 fn minimized() -> Result<(), TestError> {
                     let element = get_element();
                     let nodal_forces = get_nodal_forces(true, false, false)?;
-                    let minimum = get_helmholtz_free_energy(true, false)?
-                        - nodal_forces.dot(&coordinates());
+                    let minimum =
+                        get_helmholtz_free_energy(true, false)? - nodal_forces.dot(&coordinates());
                     let mut perturbed = 0.0;
                     let mut perturbed_coordinates = coordinates();
                     (0..N).try_for_each(|node| {
@@ -730,8 +728,7 @@ macro_rules! test_finite_element_with_elastic_constitutive_model {
                     Ok(get_rotation_current_configuration().transpose()
                         * get_element_transformed().nodal_forces(&coordinates_transformed())?)
                 } else {
-                    Ok(get_element()
-                        .nodal_forces(&reference_coordinates_transformed().into())?)
+                    Ok(get_element().nodal_forces(&reference_coordinates_transformed().into())?)
                 }
             } else {
                 if is_deformed {
@@ -748,8 +745,7 @@ macro_rules! test_finite_element_with_elastic_constitutive_model {
             if is_rotated {
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
-                        * get_element_transformed()
-                            .nodal_stiffnesses(&coordinates_transformed())?
+                        * get_element_transformed().nodal_stiffnesses(&coordinates_transformed())?
                         * get_rotation_current_configuration())
                 } else {
                     let converted: TensorRank2<3, 1, 1> =
@@ -873,8 +869,7 @@ macro_rules! test_finite_element_with_viscoelastic_constitutive_model {
                     }
                 } else {
                     if is_deformed {
-                        Ok(get_element()
-                            .nodal_forces(&coordinates(), &NodalVelocities::zero())?)
+                        Ok(get_element().nodal_forces(&coordinates(), &NodalVelocities::zero())?)
                     } else {
                         Ok(get_element().nodal_forces(
                             &get_reference_coordinates().into(),
@@ -1021,8 +1016,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                 }
             } else {
                 if is_deformed {
-                    Ok(get_element()
-                        .dissipation_potential(&coordinates(), &velocities())?)
+                    Ok(get_element().dissipation_potential(&coordinates(), &velocities())?)
                 } else {
                     Ok(get_element().dissipation_potential(
                         &get_reference_coordinates().into(),
@@ -1211,8 +1205,8 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                 fn minimized() -> Result<(), TestError> {
                     let element = get_element();
                     let nodal_forces = get_nodal_forces(true, false, true)?;
-                    let minimum = get_dissipation_potential(true, false)?
-                        - nodal_forces.dot(&velocities());
+                    let minimum =
+                        get_dissipation_potential(true, false)? - nodal_forces.dot(&velocities());
                     let mut perturbed = 0.0;
                     let mut perturbed_velocities = velocities();
                     (0..N).try_for_each(|node| {

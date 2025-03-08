@@ -1,10 +1,7 @@
 use super::*;
 use crate::{
+    fem::block::{element::test::test_finite_element, test::test_finite_element_block},
     math::TensorArray,
-    fem::block::{
-        element::test::test_finite_element,
-        test::test_finite_element_block,
-    }
 };
 
 const D: usize = 14;

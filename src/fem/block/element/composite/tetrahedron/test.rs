@@ -1,10 +1,7 @@
 use super::*;
 use crate::{
+    fem::block::{element::test::test_finite_element, test::test_finite_element_block},
     math::TensorArray,
-    fem::block::{
-        element::test::test_finite_element,
-        test::test_finite_element_block,
-    }
 };
 
 const D: usize = 35;
@@ -177,7 +174,7 @@ test_finite_element_block!(Tetrahedron);
 
 use crate::{
     constitutive::solid::elastic::AlmansiHamel,
-    math::test::{TestError, assert_eq_within_tols},
+    math::test::{assert_eq_within_tols, TestError},
 };
 
 #[test]
@@ -203,14 +200,22 @@ fn normalized_projection_matrix() -> Result<(), TestError> {
 
 #[test]
 fn standard_gradient_operators_transposed() -> Result<(), TestError> {
-    let standard_gradient_operators_transposed = Tetrahedron::<AlmansiHamel>::standard_gradient_operators_transposed();
-    Tetrahedron::<AlmansiHamel>::standard_gradient_operators().iter()
-    .enumerate()
-    .try_for_each(|(i, standard_gradient_operators_i)|
-        standard_gradient_operators_i.iter()
-        .zip(standard_gradient_operators_transposed.iter())
-        .try_for_each(|(standard_gradient_operators_ij, standard_gradient_operators_transposed_j)|
-            assert_eq_within_tols(standard_gradient_operators_ij, &standard_gradient_operators_transposed_j[i])
-        )
-    )
+    let standard_gradient_operators_transposed =
+        Tetrahedron::<AlmansiHamel>::standard_gradient_operators_transposed();
+    Tetrahedron::<AlmansiHamel>::standard_gradient_operators()
+        .iter()
+        .enumerate()
+        .try_for_each(|(i, standard_gradient_operators_i)| {
+            standard_gradient_operators_i
+                .iter()
+                .zip(standard_gradient_operators_transposed.iter())
+                .try_for_each(
+                    |(standard_gradient_operators_ij, standard_gradient_operators_transposed_j)| {
+                        assert_eq_within_tols(
+                            standard_gradient_operators_ij,
+                            &standard_gradient_operators_transposed_j[i],
+                        )
+                    },
+                )
+        })
 }
