@@ -13,6 +13,7 @@ const G: usize = 1;
 const M: usize = 3;
 const N: usize = 4;
 const O: usize = 4;
+const P: usize = 1;
 
 pub type Tetrahedron<C> = Element<C, G, M, N, O>;
 
@@ -24,13 +25,13 @@ where
         constitutive_model_parameters: Parameters<'a>,
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
     ) -> Self {
-        let (operator, jacobian) = (reference_nodal_coordinates
-            * Self::standard_gradient_operator())
+        let standard_gradient_operator = &Self::standard_gradient_operators()[0];
+        let (operator, jacobian) = (reference_nodal_coordinates * standard_gradient_operator)
         .inverse_transpose_and_determinant();
         Self {
             constitutive_models: from_fn(|_| <C>::new(constitutive_model_parameters)),
             gradient_vectors: tensor_rank_1_list_2d(
-                [operator * Self::standard_gradient_operator()],
+                [operator * standard_gradient_operator],
             ),
             integration_weights: tensor_rank_0_list([jacobian * Self::integration_weight()]),
         }
@@ -44,12 +45,14 @@ where
     const fn integration_weight() -> Scalar {
         1.0 / 6.0
     }
-    const fn standard_gradient_operator() -> StandardGradientOperator<M, O> {
-        tensor_rank_1_list([
-            tensor_rank_1([-1.0, -1.0, -1.0]),
-            tensor_rank_1([1.0, 0.0, 0.0]),
-            tensor_rank_1([0.0, 1.0, 0.0]),
-            tensor_rank_1([0.0, 0.0, 1.0]),
+    const fn standard_gradient_operators() -> StandardGradientOperators<M, O, P> {
+        tensor_rank_1_list_2d([
+            tensor_rank_1_list([
+                tensor_rank_1([-1.0, -1.0, -1.0]),
+                tensor_rank_1([1.0, 0.0, 0.0]),
+                tensor_rank_1([0.0, 1.0, 0.0]),
+                tensor_rank_1([0.0, 0.0, 1.0]),
+        ])
         ])
     }
 }

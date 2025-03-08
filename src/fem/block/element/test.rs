@@ -185,11 +185,25 @@ macro_rules! test_finite_element {
                         }
                     }
                 }
+                mod partition_of_unity {
+                    use super::*;
+                    #[test]
+                    fn standard_gradient_operators() -> Result<(), TestError> {
+                        let mut sum = [0.0; 3];
+                        $element::<AlmansiHamel>::standard_gradient_operators()
+                            .iter()
+                            .try_for_each(|standard_gradient_operator| {
+                                standard_gradient_operator.iter().for_each(|row| {
+                                    row.iter()
+                                        .zip(sum.iter_mut())
+                                        .for_each(|(entry, sum_i)| *sum_i += entry)
+                                });
+                                sum.iter()
+                                    .try_for_each(|sum_i| assert_eq_within_tols(sum_i, &0.0))
+                            })
+                    }
+                }
             }
-            //
-            // put constitutive model independent tests here without using macros
-            // but you are going to need to bring all the stuff being called in too
-            //
             mod elastic {
                 use super::*;
                 use crate::constitutive::solid::elastic::{

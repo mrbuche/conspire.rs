@@ -54,7 +54,6 @@ type ReferenceNodalCoordinates<const D: usize> = ReferenceCoordinates<D>;
 type ShapeFunctionIntegrals<const P: usize, const Q: usize> = TensorRank1List<Q, 9, P>;
 type ShapeFunctionIntegralsProducts<const P: usize, const Q: usize> = TensorRank2List<Q, 9, 9, P>;
 type ShapeFunctionsAtIntegrationPoints<const G: usize, const Q: usize> = TensorRank1List<Q, 9, G>;
-type StandardGradientOperator<const M: usize, const O: usize> = TensorRank1List<M, 9, O>;
 type StandardGradientOperators<const M: usize, const O: usize, const P: usize> =
     TensorRank1List2D<M, 9, O, P>;
 type StandardGradientOperatorsTransposed<const M: usize, const O: usize, const P: usize> =

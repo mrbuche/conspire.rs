@@ -74,21 +74,21 @@ macro_rules! test_composite_element_with_constitutive_model {
                     .iter()
                     .try_for_each(|shape_functions| assert_eq(&shape_functions.iter().sum(), &1.0))
             }
-            #[test]
-            fn standard_gradient_operators() -> Result<(), TestError> {
-                let mut sum = [0.0_f64; 3];
-                $element::<$constitutive_model>::standard_gradient_operators()
-                    .iter()
-                    .try_for_each(|standard_gradient_operator| {
-                        standard_gradient_operator.iter().for_each(|row| {
-                            row.iter()
-                                .zip(sum.iter_mut())
-                                .for_each(|(entry, sum_i)| *sum_i += entry)
-                        });
-                        sum.iter()
-                            .try_for_each(|sum_i| assert_eq_within_tols(sum_i, &0.0))
-                    })
-            }
+            // #[test]
+            // fn standard_gradient_operators() -> Result<(), TestError> {
+            //     let mut sum = [0.0_f64; 3];
+            //     $element::<$constitutive_model>::standard_gradient_operators()
+            //         .iter()
+            //         .try_for_each(|standard_gradient_operator| {
+            //             standard_gradient_operator.iter().for_each(|row| {
+            //                 row.iter()
+            //                     .zip(sum.iter_mut())
+            //                     .for_each(|(entry, sum_i)| *sum_i += entry)
+            //             });
+            //             sum.iter()
+            //                 .try_for_each(|sum_i| assert_eq_within_tols(sum_i, &0.0))
+            //         })
+            // }
         }
         #[test]
         fn normalized_projection_matrix() -> Result<(), TestError> {
