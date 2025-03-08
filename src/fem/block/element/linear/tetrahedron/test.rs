@@ -1,15 +1,7 @@
 use super::*;
-use crate::fem::block::{
-    element::{
-        linear::test::{
-            setup_for_test_linear_element_with_constitutive_model, test_linear_element,
-        },
-        test::setup_for_test_finite_element_with_elastic_constitutive_model,
-    },
-    test::{
-        setup_for_test_finite_element_block_with_elastic_constitutive_model,
-        test_finite_element_block,
-    },
+use crate::{
+    fem::block::{element::test::test_finite_element, test::test_finite_element_block},
+    math::TensorArray,
 };
 
 const D: usize = 14;
@@ -142,5 +134,5 @@ fn get_dirichlet_values(x: Scalar) -> [Scalar; 10] {
     ]
 }
 
-test_linear_element!(Tetrahedron);
+test_finite_element!(Tetrahedron);
 test_finite_element_block!(Tetrahedron);

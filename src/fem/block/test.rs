@@ -11,7 +11,7 @@ macro_rules! test_finite_element_block {
                 },
                 math::{
                     test::{assert_eq, assert_eq_from_fd, assert_eq_within_tols, TestError},
-                    TensorArray, TensorRank2,
+                    Rank2, TensorArray, TensorRank2,
                 },
                 mechanics::test::{
                     get_rotation_current_configuration, get_rotation_rate_current_configuration,
@@ -145,7 +145,7 @@ macro_rules! test_finite_element_block {
 }
 pub(crate) use test_finite_element_block;
 
-macro_rules! setup_for_test_finite_element_block_with_elastic_constitutive_model {
+macro_rules! test_nodal_forces_and_nodal_stiffnesses {
     ($block: ident, $element: ident, $constitutive_model: ident, $constitutive_model_parameters: ident) => {
         fn get_block<'a>() -> $block<E, $element<$constitutive_model<'a>>, N> {
             $block::<E, $element<$constitutive_model<'a>>, N>::new(
@@ -161,18 +161,6 @@ macro_rules! setup_for_test_finite_element_block_with_elastic_constitutive_model
                 get_reference_coordinates_transformed_block(),
             )
         }
-    };
-}
-pub(crate) use setup_for_test_finite_element_block_with_elastic_constitutive_model;
-
-macro_rules! test_nodal_forces_and_nodal_stiffnesses {
-    ($block: ident, $element: ident, $constitutive_model: ident, $constitutive_model_parameters: ident) => {
-        setup_for_test_finite_element_block_with_elastic_constitutive_model!(
-            $block,
-            $element,
-            $constitutive_model,
-            $constitutive_model_parameters
-        );
         fn get_coordinates_transformed_block() -> NodalCoordinatesBlock {
             get_coordinates_block()
                 .iter()
@@ -1165,9 +1153,7 @@ macro_rules! test_finite_element_block_with_hyperviscoelastic_constitutive_model
         crate::fem::block::test::test_finite_element_block_with_elastic_hyperviscous_constitutive_model!(
             $block, $element, $constitutive_model, $constitutive_model_parameters
         );
-        // crate::fem::block::test::test_helmholtz_free_energy!(
-        //     $block, $element, $constitutive_model, $constitutive_model_parameters
-        // );
+        // crate::fem::block::test::test_helmholtz_free_energy!($block, $element, $constitutive_model, $constitutive_model_parameters);
         #[test]
         fn dissipation_potential_deformed_positive() -> Result<(), TestError>
         {
