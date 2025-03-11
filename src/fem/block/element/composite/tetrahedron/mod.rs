@@ -10,11 +10,10 @@ use crate::math::{
 const G: usize = 4;
 const M: usize = 3;
 const N: usize = 10;
-const O: usize = 10;
 const P: usize = 12;
 const Q: usize = 4;
 
-pub type Tetrahedron<C> = Element<C, G, M, N, O>;
+pub type Tetrahedron<C> = Element<C, G, N>;
 
 impl<'a, C> FiniteElement<'a, C, G, N> for Tetrahedron<C>
 where
@@ -65,7 +64,7 @@ where
             .inverse()
     }
     fn projected_gradient_vectors(
-        reference_nodal_coordinates: &ReferenceNodalCoordinates<O>,
+        reference_nodal_coordinates: &ReferenceNodalCoordinates<N>,
     ) -> GradientVectors<G, N> {
         let parametric_gradient_operators = Self::standard_gradient_operators()
             .iter()
@@ -118,7 +117,7 @@ where
             .collect()
     }
     fn reference_jacobians(
-        reference_nodal_coordinates: &ReferenceNodalCoordinates<O>,
+        reference_nodal_coordinates: &ReferenceNodalCoordinates<N>,
     ) -> Scalars<G> {
         let vector = Self::inverse_normalized_projection_matrix()
             * Self::shape_function_integrals()
@@ -250,7 +249,7 @@ where
             ]),
         ])
     }
-    const fn standard_gradient_operators() -> StandardGradientOperators<M, O, P> {
+    const fn standard_gradient_operators() -> StandardGradientOperators<M, N, P> {
         const TWO_THIRDS: Scalar = 2.0 / 3.0;
         const FOUR_THIRDS: Scalar = 4.0 / 3.0;
         tensor_rank_1_list_2d([
@@ -400,7 +399,7 @@ where
             ]),
         ])
     }
-    const fn standard_gradient_operators_transposed() -> StandardGradientOperatorsTransposed<M, O, P>
+    const fn standard_gradient_operators_transposed() -> StandardGradientOperatorsTransposed<M, N, P>
     {
         const TWO_THIRDS: Scalar = 2.0 / 3.0;
         const FOUR_THIRDS: Scalar = 4.0 / 3.0;

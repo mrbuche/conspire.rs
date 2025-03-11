@@ -12,13 +12,12 @@ use std::array::from_fn;
 const G: usize = 1;
 const M: usize = 3;
 const N: usize = 4;
-const O: usize = 4;
 const P: usize = 1;
 
 #[cfg(test)]
 const Q: usize = 4;
 
-pub type Tetrahedron<C> = Element<C, G, M, N, O>;
+pub type Tetrahedron<C> = Element<C, G, N>;
 
 impl<'a, C> FiniteElement<'a, C, G, N> for Tetrahedron<C>
 where
@@ -50,7 +49,7 @@ where
     const fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, Q> {
         tensor_rank_1_list([tensor_rank_1([0.25; Q])])
     }
-    const fn standard_gradient_operators() -> StandardGradientOperators<M, O, P> {
+    const fn standard_gradient_operators() -> StandardGradientOperators<M, N, P> {
         tensor_rank_1_list_2d([tensor_rank_1_list([
             tensor_rank_1([-1.0, -1.0, -1.0]),
             tensor_rank_1([1.0, 0.0, 0.0]),
