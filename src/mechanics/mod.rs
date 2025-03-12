@@ -53,9 +53,6 @@ pub type DeformationGradientRatePlastic = TensorRank2<3, 2, 0>;
 /// A list of deformation gradients.
 pub type DeformationGradients<const W: usize> = TensorRank2List<3, 1, 0, W>;
 
-/// A 2D list of deformation gradients.
-pub type DeformationGradientss<const W: usize, const X: usize> = TensorRank2List2D<3, 1, 0, W, X>;
-
 /// A list of deformation gradient rates.
 pub type DeformationGradientRates<const W: usize> = TensorRank2List<3, 1, 0, W>;
 

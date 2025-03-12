@@ -12,22 +12,22 @@ use super::*;
 use crate::math::optimize::{Dirichlet, FirstOrder, GradientDescent, OptimizeError};
 use std::array::from_fn;
 
-pub struct ElementBlock<const E: usize, F, const N: usize> {
-    connectivity: Connectivity<E, N>,
-    elements: [F; E],
+pub struct ElementBlock<F, const N: usize> {
+    connectivity: Connectivity<N>,
+    elements: Vec<F>,
 }
 
-pub trait FiniteElementBlockMethods<'a, C, const E: usize, F, const G: usize, const N: usize>
+pub trait FiniteElementBlockMethods<'a, C, F, const G: usize, const N: usize>
 where
     C: Constitutive<'a>,
     F: FiniteElementMethods<'a, C, G, N>,
 {
-    fn connectivity(&self) -> &Connectivity<E, N>;
+    fn connectivity(&self) -> &Connectivity<N>;
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> DeformationGradientss<G, E>;
-    fn elements(&self) -> &[F; E];
+    ) -> Vec<DeformationGradients<G>>;
+    fn elements(&self) -> &[F];
     fn nodal_coordinates_element(
         &self,
         element_connectivity: &[usize; N],
@@ -35,51 +35,44 @@ where
     ) -> NodalCoordinates<N>;
 }
 
-pub trait FiniteElementBlock<'a, C, const E: usize, F, const G: usize, const N: usize>
+pub trait FiniteElementBlock<'a, C, F, const G: usize, const N: usize>
 where
     C: Constitutive<'a>,
     F: FiniteElement<'a, C, G, N>,
 {
     fn new(
         constitutive_model_parameters: Parameters<'a>,
-        connectivity: Connectivity<E, N>,
+        connectivity: Connectivity<N>,
         reference_nodal_coordinates: ReferenceNodalCoordinatesBlock,
     ) -> Self;
 }
 
-pub trait SurfaceFiniteElementBlock<
-    'a,
-    C,
-    const E: usize,
-    F,
-    const G: usize,
-    const N: usize,
-    const P: usize,
-> where
+pub trait SurfaceFiniteElementBlock<'a, C, F, const G: usize, const N: usize, const P: usize>
+where
     C: Constitutive<'a>,
     F: SurfaceFiniteElement<'a, C, G, N, P>,
 {
     fn new(
         constitutive_model_parameters: Parameters<'a>,
-        connectivity: Connectivity<E, N>,
+        connectivity: Connectivity<N>,
         reference_nodal_coordinates: ReferenceNodalCoordinatesBlock,
         thickness: Scalar,
     ) -> Self;
 }
 
-impl<'a, C, const E: usize, F, const G: usize, const N: usize>
-    FiniteElementBlockMethods<'a, C, E, F, G, N> for ElementBlock<E, F, N>
+impl<'a, C, F, const G: usize, const N: usize> FiniteElementBlockMethods<'a, C, F, G, N>
+    for ElementBlock<F, N>
 where
     C: Constitutive<'a>,
     F: FiniteElementMethods<'a, C, G, N>,
 {
-    fn connectivity(&self) -> &Connectivity<E, N> {
+    fn connectivity(&self) -> &Connectivity<N> {
         &self.connectivity
     }
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> DeformationGradientss<G, E> {
+    ) -> Vec<DeformationGradients<G>> {
         self.elements()
             .iter()
             .zip(self.connectivity().iter())
@@ -90,7 +83,7 @@ where
             })
             .collect()
     }
-    fn elements(&self) -> &[F; E] {
+    fn elements(&self) -> &[F] {
         &self.elements
     }
     fn nodal_coordinates_element(
@@ -105,26 +98,29 @@ where
     }
 }
 
-impl<'a, C, const E: usize, F, const G: usize, const N: usize> FiniteElementBlock<'a, C, E, F, G, N>
-    for ElementBlock<E, F, N>
+impl<'a, C, F, const G: usize, const N: usize> FiniteElementBlock<'a, C, F, G, N>
+    for ElementBlock<F, N>
 where
     C: Constitutive<'a>,
     F: FiniteElement<'a, C, G, N>,
 {
     fn new(
         constitutive_model_parameters: Parameters<'a>,
-        connectivity: Connectivity<E, N>,
+        connectivity: Connectivity<N>,
         reference_nodal_coordinates: ReferenceNodalCoordinatesBlock,
     ) -> Self {
-        let elements = from_fn(|element| {
-            <F>::new(
-                constitutive_model_parameters,
-                connectivity[element]
-                    .iter()
-                    .map(|node| reference_nodal_coordinates[*node].clone())
-                    .collect(),
-            )
-        });
+        let elements = connectivity
+            .iter()
+            .map(|element_connectivity| {
+                <F>::new(
+                    constitutive_model_parameters,
+                    element_connectivity
+                        .iter()
+                        .map(|node| reference_nodal_coordinates[*node].clone())
+                        .collect(),
+                )
+            })
+            .collect();
         Self {
             connectivity,
             elements,
@@ -132,28 +128,31 @@ where
     }
 }
 
-impl<'a, C, const E: usize, F, const G: usize, const N: usize, const P: usize>
-    SurfaceFiniteElementBlock<'a, C, E, F, G, N, P> for ElementBlock<E, F, N>
+impl<'a, C, F, const G: usize, const N: usize, const P: usize>
+    SurfaceFiniteElementBlock<'a, C, F, G, N, P> for ElementBlock<F, N>
 where
     C: Constitutive<'a>,
     F: SurfaceFiniteElement<'a, C, G, N, P>,
 {
     fn new(
         constitutive_model_parameters: Parameters<'a>,
-        connectivity: Connectivity<E, N>,
+        connectivity: Connectivity<N>,
         reference_nodal_coordinates: ReferenceNodalCoordinatesBlock,
         thickness: Scalar,
     ) -> Self {
-        let elements = from_fn(|element| {
-            <F>::new(
-                constitutive_model_parameters,
-                connectivity[element]
-                    .iter()
-                    .map(|node| reference_nodal_coordinates[*node].clone())
-                    .collect(),
-                &thickness,
-            )
-        });
+        let elements = connectivity
+            .iter()
+            .map(|element_connectivity| {
+                <F>::new(
+                    constitutive_model_parameters,
+                    element_connectivity
+                        .iter()
+                        .map(|node| reference_nodal_coordinates[*node].clone())
+                        .collect(),
+                    &thickness,
+                )
+            })
+            .collect();
         Self {
             connectivity,
             elements,
@@ -161,7 +160,7 @@ where
     }
 }
 
-pub trait ElasticFiniteElementBlock<'a, C, const E: usize, F, const G: usize, const N: usize>
+pub trait ElasticFiniteElementBlock<'a, C, F, const G: usize, const N: usize>
 where
     C: Elastic<'a>,
     F: ElasticFiniteElement<'a, C, G, N>,
@@ -185,11 +184,11 @@ where
     ) -> Result<NodalCoordinatesBlock, OptimizeError>;
 }
 
-pub trait HyperelasticFiniteElementBlock<'a, C, const E: usize, F, const G: usize, const N: usize>
+pub trait HyperelasticFiniteElementBlock<'a, C, F, const G: usize, const N: usize>
 where
     C: Hyperelastic<'a>,
     F: HyperelasticFiniteElement<'a, C, G, N>,
-    Self: ElasticFiniteElementBlock<'a, C, E, F, G, N>,
+    Self: ElasticFiniteElementBlock<'a, C, F, G, N>,
 {
     fn helmholtz_free_energy(
         &self,
@@ -197,7 +196,7 @@ where
     ) -> Result<Scalar, ConstitutiveError>;
 }
 
-pub trait ViscoelasticFiniteElementBlock<'a, C, const E: usize, F, const G: usize, const N: usize>
+pub trait ViscoelasticFiniteElementBlock<'a, C, F, const G: usize, const N: usize>
 where
     C: Viscoelastic<'a>,
     F: ViscoelasticFiniteElement<'a, C, G, N>,
@@ -219,17 +218,11 @@ where
     ) -> NodalVelocities<N>;
 }
 
-pub trait ElasticHyperviscousFiniteElementBlock<
-    'a,
-    C,
-    const E: usize,
-    F,
-    const G: usize,
-    const N: usize,
-> where
+pub trait ElasticHyperviscousFiniteElementBlock<'a, C, F, const G: usize, const N: usize>
+where
     C: ElasticHyperviscous<'a>,
     F: ElasticHyperviscousFiniteElement<'a, C, G, N>,
-    Self: ViscoelasticFiniteElementBlock<'a, C, E, F, G, N>,
+    Self: ViscoelasticFiniteElementBlock<'a, C, F, G, N>,
 {
     fn viscous_dissipation(
         &self,
@@ -243,17 +236,11 @@ pub trait ElasticHyperviscousFiniteElementBlock<
     ) -> Result<Scalar, ConstitutiveError>;
 }
 
-pub trait HyperviscoelasticFiniteElementBlock<
-    'a,
-    C,
-    const E: usize,
-    F,
-    const G: usize,
-    const N: usize,
-> where
+pub trait HyperviscoelasticFiniteElementBlock<'a, C, F, const G: usize, const N: usize>
+where
     C: Hyperviscoelastic<'a>,
     F: HyperviscoelasticFiniteElement<'a, C, G, N>,
-    Self: ElasticHyperviscousFiniteElementBlock<'a, C, E, F, G, N>,
+    Self: ElasticHyperviscousFiniteElementBlock<'a, C, F, G, N>,
 {
     fn helmholtz_free_energy(
         &self,
@@ -261,12 +248,12 @@ pub trait HyperviscoelasticFiniteElementBlock<
     ) -> Result<Scalar, ConstitutiveError>;
 }
 
-impl<'a, C, const E: usize, F, const G: usize, const N: usize>
-    ElasticFiniteElementBlock<'a, C, E, F, G, N> for ElementBlock<E, F, N>
+impl<'a, C, F, const G: usize, const N: usize> ElasticFiniteElementBlock<'a, C, F, G, N>
+    for ElementBlock<F, N>
 where
     C: Elastic<'a>,
     F: ElasticFiniteElement<'a, C, G, N>,
-    Self: FiniteElementBlockMethods<'a, C, E, F, G, N>,
+    Self: FiniteElementBlockMethods<'a, C, F, G, N>,
 {
     fn nodal_forces(
         &self,
@@ -335,12 +322,12 @@ where
     }
 }
 
-impl<'a, C, const E: usize, F, const G: usize, const N: usize>
-    HyperelasticFiniteElementBlock<'a, C, E, F, G, N> for ElementBlock<E, F, N>
+impl<'a, C, F, const G: usize, const N: usize> HyperelasticFiniteElementBlock<'a, C, F, G, N>
+    for ElementBlock<F, N>
 where
     C: Hyperelastic<'a>,
     F: HyperelasticFiniteElement<'a, C, G, N>,
-    Self: ElasticFiniteElementBlock<'a, C, E, F, G, N>,
+    Self: ElasticFiniteElementBlock<'a, C, F, G, N>,
 {
     fn helmholtz_free_energy(
         &self,
@@ -358,12 +345,12 @@ where
     }
 }
 
-impl<'a, C, const E: usize, F, const G: usize, const N: usize>
-    ViscoelasticFiniteElementBlock<'a, C, E, F, G, N> for ElementBlock<E, F, N>
+impl<'a, C, F, const G: usize, const N: usize> ViscoelasticFiniteElementBlock<'a, C, F, G, N>
+    for ElementBlock<F, N>
 where
     C: Viscoelastic<'a>,
     F: ViscoelasticFiniteElement<'a, C, G, N>,
-    Self: FiniteElementBlockMethods<'a, C, E, F, G, N>,
+    Self: FiniteElementBlockMethods<'a, C, F, G, N>,
 {
     fn nodal_forces(
         &self,
@@ -427,12 +414,12 @@ where
     }
 }
 
-impl<'a, C, const E: usize, F, const G: usize, const N: usize>
-    ElasticHyperviscousFiniteElementBlock<'a, C, E, F, G, N> for ElementBlock<E, F, N>
+impl<'a, C, F, const G: usize, const N: usize> ElasticHyperviscousFiniteElementBlock<'a, C, F, G, N>
+    for ElementBlock<F, N>
 where
     C: ElasticHyperviscous<'a>,
     F: ElasticHyperviscousFiniteElement<'a, C, G, N>,
-    Self: ViscoelasticFiniteElementBlock<'a, C, E, F, G, N>,
+    Self: ViscoelasticFiniteElementBlock<'a, C, F, G, N>,
 {
     fn viscous_dissipation(
         &self,
@@ -468,12 +455,12 @@ where
     }
 }
 
-impl<'a, C, const E: usize, F, const G: usize, const N: usize>
-    HyperviscoelasticFiniteElementBlock<'a, C, E, F, G, N> for ElementBlock<E, F, N>
+impl<'a, C, F, const G: usize, const N: usize> HyperviscoelasticFiniteElementBlock<'a, C, F, G, N>
+    for ElementBlock<F, N>
 where
     C: Hyperviscoelastic<'a>,
     F: HyperviscoelasticFiniteElement<'a, C, G, N>,
-    Self: ElasticHyperviscousFiniteElementBlock<'a, C, E, F, G, N>,
+    Self: ElasticHyperviscousFiniteElementBlock<'a, C, F, G, N>,
 {
     fn helmholtz_free_energy(
         &self,

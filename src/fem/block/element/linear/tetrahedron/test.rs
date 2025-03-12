@@ -5,10 +5,9 @@ use crate::{
 };
 
 const D: usize = 14;
-const E: usize = 24;
 
-fn get_connectivity() -> Connectivity<E, N> {
-    [
+fn get_connectivity() -> Connectivity<N> {
+    vec![
         [13, 12, 8, 1],
         [10, 3, 0, 8],
         [11, 10, 8, 3],

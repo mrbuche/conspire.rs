@@ -31,10 +31,9 @@ use crate::{
     },
     mechanics::{
         Coordinates, CurrentCoordinates, DeformationGradient, DeformationGradientRate,
-        DeformationGradientRates, DeformationGradients, DeformationGradientss,
-        FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStresses,
-        FirstPiolaKirchhoffTangentStiffnesses, Forces, ReferenceCoordinates, Scalar, Scalars,
-        Stiffnesses, Vectors, Vectors2D,
+        DeformationGradientRates, DeformationGradients, FirstPiolaKirchhoffRateTangentStiffnesses,
+        FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses, Forces,
+        ReferenceCoordinates, Scalar, Scalars, Stiffnesses, Vectors, Vectors2D,
     },
 };
 
@@ -45,7 +44,7 @@ type NodalForcesBlock = TensorRank1Vec<3, 1>;
 type NodalStiffnessesBlock = TensorRank2Vec2D<3, 1, 1>;
 
 type Bases<const I: usize, const P: usize> = TensorRank1List2D<3, I, 2, P>;
-type Connectivity<const E: usize, const N: usize> = [[usize; N]; E];
+type Connectivity<const N: usize> = Vec<[usize; N]>;
 type GradientVectors<const G: usize, const N: usize> = Vectors2D<0, N, G>;
 type NodalCoordinates<const D: usize> = CurrentCoordinates<D>;
 type NodalForces<const D: usize> = Forces<D>;
