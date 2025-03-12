@@ -81,9 +81,6 @@ where
         let integration_weights = Self::bases(&reference_nodal_coordinates)
             .iter()
             .map(|reference_basis|
-            //
-            // Is the area the same using the dual basis, or is it different?
-            //
             reference_basis[0]
                 .cross(&reference_basis[1])
                 .norm() * Self::integration_weight() * thickness)
