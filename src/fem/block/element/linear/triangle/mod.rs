@@ -4,7 +4,10 @@ mod test;
 use super::*;
 use crate::{
     constitutive::{Constitutive, Parameters},
-    math::{tensor_rank_1, tensor_rank_1_list, tensor_rank_1_zero, tensor_rank_1_list_2d, IDENTITY, LEVI_CIVITA},
+    math::{
+        tensor_rank_1, tensor_rank_1_list, tensor_rank_1_list_2d, tensor_rank_1_zero, IDENTITY,
+        LEVI_CIVITA,
+    },
     mechanics::Scalar,
 };
 use std::array::from_fn;
@@ -75,38 +78,48 @@ where
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
         thickness: &Scalar,
     ) -> Self {
-        let integration_weights = Self::bases(&reference_nodal_coordinates).iter().map(|reference_basis|
+        let integration_weights = Self::bases(&reference_nodal_coordinates)
+            .iter()
+            .map(|reference_basis|
             //
             // Is the area the same using the dual basis, or is it different?
             //
             reference_basis[0]
                 .cross(&reference_basis[1])
-                .norm() * Self::integration_weight() * thickness
-        ).collect();
+                .norm() * Self::integration_weight() * thickness)
+            .collect();
         let reference_dual_bases = Self::dual_bases(&reference_nodal_coordinates);
-        let gradient_vectors = Self::standard_gradient_operators().iter().zip(reference_dual_bases.iter()).map(|(standard_gradient_operator, reference_dual_basis)|
-        standard_gradient_operator
+        let gradient_vectors = Self::standard_gradient_operators()
             .iter()
-            .map(|standard_gradient_operator_a| {
-                standard_gradient_operator_a
+            .zip(reference_dual_bases.iter())
+            .map(|(standard_gradient_operator, reference_dual_basis)| {
+                standard_gradient_operator
                     .iter()
-                    .zip(reference_dual_basis.iter())
-                    .map(
-                        |(standard_gradient_operator_a_m, reference_dual_basis_m)| {
-                            reference_dual_basis_m * standard_gradient_operator_a_m
-                        },
-                    )
-                    .sum()
+                    .map(|standard_gradient_operator_a| {
+                        standard_gradient_operator_a
+                            .iter()
+                            .zip(reference_dual_basis.iter())
+                            .map(|(standard_gradient_operator_a_m, reference_dual_basis_m)| {
+                                reference_dual_basis_m * standard_gradient_operator_a_m
+                            })
+                            .sum()
+                    })
+                    .collect()
             })
-            .collect()).collect();
-        let reference_normals = reference_dual_bases.iter().map(|reference_dual_basis|
-            reference_dual_basis[0].cross(&reference_dual_basis[1]).normalized()
-        ).collect();
+            .collect();
+        let reference_normals = reference_dual_bases
+            .iter()
+            .map(|reference_dual_basis| {
+                reference_dual_basis[0]
+                    .cross(&reference_dual_basis[1])
+                    .normalized()
+            })
+            .collect();
         Self {
             constitutive_models: from_fn(|_| <C>::new(constitutive_model_parameters)),
             gradient_vectors,
             integration_weights,
-            reference_normals
+            reference_normals,
         }
     }
     fn normals(nodal_coordinates: &NodalCoordinates<N>) -> Normals<P> {
@@ -150,7 +163,10 @@ where
             ).collect()
         }).collect()
     }
-    fn normal_rates(nodal_coordinates: &NodalCoordinates<N>, nodal_velocities: &NodalVelocities<N>) -> NormalRates<P> {
+    fn normal_rates(
+        nodal_coordinates: &NodalCoordinates<N>,
+        nodal_velocities: &NodalVelocities<N>,
+    ) -> NormalRates<P> {
         let identity = IDENTITY;
         let levi_civita_symbol = LEVI_CIVITA;
         let mut normalization = 0.0;
@@ -226,7 +242,11 @@ where
     ) -> DeformationGradients<G> {
         self.gradient_vectors()
             .iter()
-            .zip(Self::normals(nodal_coordinates).iter().zip(self.reference_normals().iter()))
+            .zip(
+                Self::normals(nodal_coordinates)
+                    .iter()
+                    .zip(self.reference_normals().iter()),
+            )
             .map(|(gradient_vectors, (normal, reference_normal))| {
                 nodal_coordinates
                     .iter()
@@ -235,10 +255,7 @@ where
                         DeformationGradient::dyad(nodal_coordinate, gradient_vector)
                     })
                     .sum::<DeformationGradient>()
-                    + DeformationGradient::dyad(
-                        normal,
-                        reference_normal,
-                    )
+                    + DeformationGradient::dyad(normal, reference_normal)
             })
             .collect()
     }
@@ -249,7 +266,11 @@ where
     ) -> DeformationGradientRates<G> {
         self.gradient_vectors()
             .iter()
-            .zip(Self::normal_rates(nodal_coordinates, nodal_velocities).iter().zip(self.reference_normals().iter()))
+            .zip(
+                Self::normal_rates(nodal_coordinates, nodal_velocities)
+                    .iter()
+                    .zip(self.reference_normals().iter()),
+            )
             .map(|(gradient_vectors, (normal_rate, reference_normal))| {
                 nodal_velocities
                     .iter()
@@ -258,10 +279,7 @@ where
                         DeformationGradientRate::dyad(nodal_velocity, gradient_vector)
                     })
                     .sum::<DeformationGradientRate>()
-                    + DeformationGradientRate::dyad(
-                        normal_rate,
-                        reference_normal,
-                    )
+                    + DeformationGradientRate::dyad(normal_rate, reference_normal)
             })
             .collect()
     }
@@ -273,8 +291,7 @@ where
     }
 }
 
-impl<'a, C>
-    ElasticFiniteElement<'a, C, G, N> for Triangle<C>
+impl<'a, C> ElasticFiniteElement<'a, C, G, N> for Triangle<C>
 where
     C: Elastic<'a>,
 {
@@ -304,7 +321,7 @@ where
                             (first_piola_kirchhoff_stress * gradient_vector) * integration_weight
                         })
                         .collect()
-                }
+                },
             )
             .sum())
     }
@@ -375,8 +392,7 @@ where
     }
 }
 
-impl<'a, C>
-    HyperelasticFiniteElement<'a, C, G, N> for Triangle<C>
+impl<'a, C> HyperelasticFiniteElement<'a, C, G, N> for Triangle<C>
 where
     C: Hyperelastic<'a>,
 {
@@ -403,8 +419,7 @@ where
     }
 }
 
-impl<'a, C>
-    ViscoelasticFiniteElement<'a, C, G, N> for Triangle<C>
+impl<'a, C> ViscoelasticFiniteElement<'a, C, G, N> for Triangle<C>
 where
     C: Viscoelastic<'a>,
 {
@@ -517,8 +532,7 @@ where
     }
 }
 
-impl<'a, C>
-    ElasticHyperviscousFiniteElement<'a, C, G, N> for Triangle<C>
+impl<'a, C> ElasticHyperviscousFiniteElement<'a, C, G, N> for Triangle<C>
 where
     C: ElasticHyperviscous<'a>,
 {
@@ -576,8 +590,7 @@ where
     }
 }
 
-impl<'a, C>
-    HyperviscoelasticFiniteElement<'a, C, G, N> for Triangle<C>
+impl<'a, C> HyperviscoelasticFiniteElement<'a, C, G, N> for Triangle<C>
 where
     C: Hyperviscoelastic<'a>,
 {

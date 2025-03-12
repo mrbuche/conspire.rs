@@ -8,9 +8,8 @@ pub use block::{
         linear::tetrahedron::Tetrahedron as LinearTetrahedron, ElasticFiniteElement, FiniteElement,
         HyperelasticFiniteElement, HyperviscoelasticFiniteElement, ViscoelasticFiniteElement,
     },
-    ElementBlock, ElasticFiniteElementBlock, FiniteElementBlock, SurfaceFiniteElementBlock,
-    HyperelasticFiniteElementBlock, HyperviscoelasticFiniteElementBlock,
-    ViscoelasticFiniteElementBlock,
+    ElasticFiniteElementBlock, ElementBlock, FiniteElementBlock, HyperelasticFiniteElementBlock,
+    HyperviscoelasticFiniteElementBlock, SurfaceFiniteElementBlock, ViscoelasticFiniteElementBlock,
 };
 
 use crate::{
@@ -24,15 +23,15 @@ use crate::{
     },
     math::{
         ContractSecondFourthIndicesWithFirstIndicesOf, Tensor, TensorRank1, TensorRank1List,
-        TensorRank1List2D, TensorRank1Vec, TensorRank2, TensorRank2List, TensorRank2Vec2D,
-        TensorVec, TensorRank2List2D
+        TensorRank1List2D, TensorRank1Vec, TensorRank2, TensorRank2List, TensorRank2List2D,
+        TensorRank2Vec2D, TensorVec,
     },
     mechanics::{
-        Coordinates,
-        CurrentCoordinates, DeformationGradient, DeformationGradientRate, DeformationGradientRates,
-        DeformationGradients, DeformationGradientss, FirstPiolaKirchhoffRateTangentStiffnesses,
-        FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses, Forces,
-        ReferenceCoordinates, Scalar, Scalars, Stiffnesses, Vectors, Vectors2D,
+        Coordinates, CurrentCoordinates, DeformationGradient, DeformationGradientRate,
+        DeformationGradientRates, DeformationGradients, DeformationGradientss,
+        FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStresses,
+        FirstPiolaKirchhoffTangentStiffnesses, Forces, ReferenceCoordinates, Scalar, Scalars,
+        Stiffnesses, Vectors, Vectors2D,
     },
 };
 

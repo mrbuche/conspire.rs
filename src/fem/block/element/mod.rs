@@ -61,12 +61,14 @@ where
     ) -> Self;
     fn normals(nodal_coordinates: &NodalCoordinates<N>) -> Normals<P>;
     fn normal_gradients(nodal_coordinates: &NodalCoordinates<N>) -> NormalGradients<N, P>;
-    fn normal_rates(nodal_coordinates: &NodalCoordinates<N>, nodal_velocities: &NodalVelocities<N>) -> NormalRates<P>;
+    fn normal_rates(
+        nodal_coordinates: &NodalCoordinates<N>,
+        nodal_velocities: &NodalVelocities<N>,
+    ) -> NormalRates<P>;
     fn reference_normals(&self) -> &ReferenceNormals<P>;
 }
 
-impl<'a, C, const G: usize, const N: usize>
-    FiniteElementMethods<'a, C, G, N> for Element<C, G, N>
+impl<'a, C, const G: usize, const N: usize> FiniteElementMethods<'a, C, G, N> for Element<C, G, N>
 where
     C: Constitutive<'a>,
 {
@@ -187,8 +189,7 @@ where
     ) -> Result<Scalar, ConstitutiveError>;
 }
 
-impl<'a, C, const G: usize, const N: usize>
-    ElasticFiniteElement<'a, C, G, N> for Element<C, G, N>
+impl<'a, C, const G: usize, const N: usize> ElasticFiniteElement<'a, C, G, N> for Element<C, G, N>
 where
     C: Elastic<'a>,
 {
@@ -267,8 +268,8 @@ where
     }
 }
 
-impl<'a, C, const G: usize, const N: usize>
-    HyperelasticFiniteElement<'a, C, G, N> for Element<C, G, N>
+impl<'a, C, const G: usize, const N: usize> HyperelasticFiniteElement<'a, C, G, N>
+    for Element<C, G, N>
 where
     C: Hyperelastic<'a>,
 {
@@ -295,8 +296,8 @@ where
     }
 }
 
-impl<'a, C, const G: usize, const N: usize>
-    ViscoelasticFiniteElement<'a, C, G, N> for Element<C, G, N>
+impl<'a, C, const G: usize, const N: usize> ViscoelasticFiniteElement<'a, C, G, N>
+    for Element<C, G, N>
 where
     C: Viscoelastic<'a>,
 {
@@ -399,8 +400,8 @@ where
     }
 }
 
-impl<'a, C, const G: usize, const N: usize>
-    ElasticHyperviscousFiniteElement<'a, C, G, N> for Element<C, G, N>
+impl<'a, C, const G: usize, const N: usize> ElasticHyperviscousFiniteElement<'a, C, G, N>
+    for Element<C, G, N>
 where
     C: ElasticHyperviscous<'a>,
 {
@@ -458,8 +459,8 @@ where
     }
 }
 
-impl<'a, C, const G: usize, const N: usize>
-    HyperviscoelasticFiniteElement<'a, C, G, N> for Element<C, G, N>
+impl<'a, C, const G: usize, const N: usize> HyperviscoelasticFiniteElement<'a, C, G, N>
+    for Element<C, G, N>
 where
     C: Hyperviscoelastic<'a>,
 {

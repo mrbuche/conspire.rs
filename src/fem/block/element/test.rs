@@ -40,16 +40,18 @@ macro_rules! test_finite_element {
                         reference_coordinates_transformed(),
                     )
                 }
-            }
+            };
         }
         crate::fem::block::element::test::test_finite_element_inner!($element);
-    }
+    };
 }
 pub(crate) use test_finite_element;
 
 macro_rules! test_surface_finite_element {
     ($element: ident) => {
-        use crate::{math::Rank2, mechanics::RotationCurrentConfiguration, fem::block::element::test::setup};
+        use crate::{
+            fem::block::element::test::setup, math::Rank2, mechanics::RotationCurrentConfiguration,
+        };
         fn get_deformation_gradient_special() -> DeformationGradient {
             DeformationGradient::new([[0.62, 0.20, 0.00], [0.32, 0.98, 0.00], [0.00, 0.00, 1.00]])
         }
@@ -63,9 +65,7 @@ macro_rules! test_surface_finite_element {
             get_deformation_gradient_rotation() * get_deformation_gradient_rate_special()
         }
         fn get_deformation_gradient_rotation() -> RotationCurrentConfiguration {
-            get_rotation_reference_configuration()
-                .transpose()
-                .into()
+            get_rotation_reference_configuration().transpose().into()
         }
         setup!();
         fn coordinates() -> NodalCoordinates<N> {
@@ -97,7 +97,11 @@ macro_rules! test_surface_finite_element {
         macro_rules! setup_constitutive {
             ($constitutive_model: ident, $constitutive_model_parameters: ident) => {
                 fn get_element<'a>() -> $element<$constitutive_model<'a>> {
-                    $element::new($constitutive_model_parameters, reference_coordinates(), &THICKNESS)
+                    $element::new(
+                        $constitutive_model_parameters,
+                        reference_coordinates(),
+                        &THICKNESS,
+                    )
                 }
                 fn get_element_transformed<'a>() -> $element<$constitutive_model<'a>> {
                     $element::<$constitutive_model>::new(
@@ -106,291 +110,297 @@ macro_rules! test_surface_finite_element {
                         &THICKNESS,
                     )
                 }
-            }
+            };
         }
         crate::fem::block::element::test::test_finite_element_inner!($element);
-        use crate::{EPSILON, math::test::{assert_eq_within_tols, assert_eq_from_fd, TestError}};
-        mod bases
-        {
+        use crate::{
+            math::test::{assert_eq_from_fd, assert_eq_within_tols, TestError},
+            EPSILON,
+        };
+        mod bases {
             use super::*;
             #[test]
-            fn objectivity() -> Result<(), TestError>
-            {
-                $element::<AlmansiHamel>::bases(&coordinates_transformed()).iter()
-                .zip($element::<AlmansiHamel>::bases(&coordinates()).iter())
-                .try_for_each(|(basis_transformed, basis)|
-                    basis_transformed.iter().zip(basis.iter())
-                    .try_for_each(|(basis_transformed_m, basis_m)|
-                        assert_eq_within_tols(
-                            &(get_rotation_current_configuration().transpose() * basis_transformed_m),
-                            basis_m,
+            fn objectivity() -> Result<(), TestError> {
+                $element::<AlmansiHamel>::bases(&coordinates_transformed())
+                    .iter()
+                    .zip($element::<AlmansiHamel>::bases(&coordinates()).iter())
+                    .try_for_each(|(basis_transformed, basis)| {
+                        basis_transformed.iter().zip(basis.iter()).try_for_each(
+                            |(basis_transformed_m, basis_m)| {
+                                assert_eq_within_tols(
+                                    &(get_rotation_current_configuration().transpose()
+                                        * basis_transformed_m),
+                                    basis_m,
+                                )
+                            },
                         )
-                    )
-                )
+                    })
             }
         }
-        mod dual_bases
-        {
+        mod dual_bases {
             #[test]
-            fn basis() -> Result<(), TestError>
-            {
+            fn basis() -> Result<(), TestError> {
                 let mut surface_identity = DeformationGradient::identity();
                 surface_identity[2][2] = 0.0;
-                $element::<AlmansiHamel>::bases(&coordinates()).iter()
-                .zip($element::<AlmansiHamel>::dual_bases(&coordinates()).iter())
-                .try_for_each(|(basis, dual_basis)|
-                    assert_eq_within_tols(
-                        &basis.iter().map(|basis_m|
-                            dual_basis.iter().map(|dual_basis_n|
-                                basis_m * dual_basis_n
-                            ).collect()
-                        ).collect(),
-                        &surface_identity
-                    )
-                )
-            }
-            use super::*;
-            #[test]
-            fn objectivity() -> Result<(), TestError>
-            {
-                $element::<AlmansiHamel>::dual_bases(&coordinates_transformed()).iter()
-                .zip($element::<AlmansiHamel>::dual_bases(&coordinates()).iter())
-                .try_for_each(|(basis_transformed, basis)|
-                    basis_transformed.iter().zip(basis.iter())
-                    .try_for_each(|(basis_transformed_m, basis_m)|
+                $element::<AlmansiHamel>::bases(&coordinates())
+                    .iter()
+                    .zip($element::<AlmansiHamel>::dual_bases(&coordinates()).iter())
+                    .try_for_each(|(basis, dual_basis)| {
                         assert_eq_within_tols(
-                            &(get_rotation_current_configuration().transpose() * basis_transformed_m),
-                            basis_m,
-                        )
-                    )
-                )
-            }
-        }
-        mod normals
-        {
-            use super::*;
-            #[test]
-            fn finite_difference() -> Result<(), TestError>
-            {
-                let mut finite_difference = 0.0;
-                let normal_gradients_from_fd = (0..P).map(|p|
-                    (0..N)
-                        .map(|a| {
-                            (0..3)
-                                .map(|m| {
-                                    (0..3)
-                                        .map(|i| {
-                                            let mut nodal_coordinates = coordinates();
-                                            nodal_coordinates[a][m] += 0.5 * EPSILON;
-                                            finite_difference =
-                                                $element::<AlmansiHamel>::normals(
-                                                    &nodal_coordinates,
-                                                )[p][i];
-                                            nodal_coordinates[a][m] -= EPSILON;
-                                            finite_difference -=
-                                                $element::<AlmansiHamel>::normals(
-                                                    &nodal_coordinates,
-                                                )[p][i];
-                                            finite_difference / EPSILON
-                                        })
+                            &basis
+                                .iter()
+                                .map(|basis_m| {
+                                    dual_basis
+                                        .iter()
+                                        .map(|dual_basis_n| basis_m * dual_basis_n)
                                         .collect()
                                 })
-                                .collect()
-                        })
-                        .collect())
+                                .collect(),
+                            &surface_identity,
+                        )
+                    })
+            }
+            use super::*;
+            #[test]
+            fn objectivity() -> Result<(), TestError> {
+                $element::<AlmansiHamel>::dual_bases(&coordinates_transformed())
+                    .iter()
+                    .zip($element::<AlmansiHamel>::dual_bases(&coordinates()).iter())
+                    .try_for_each(|(basis_transformed, basis)| {
+                        basis_transformed.iter().zip(basis.iter()).try_for_each(
+                            |(basis_transformed_m, basis_m)| {
+                                assert_eq_within_tols(
+                                    &(get_rotation_current_configuration().transpose()
+                                        * basis_transformed_m),
+                                    basis_m,
+                                )
+                            },
+                        )
+                    })
+            }
+        }
+        mod normals {
+            use super::*;
+            #[test]
+            fn finite_difference() -> Result<(), TestError> {
+                let mut finite_difference = 0.0;
+                let normal_gradients_from_fd = (0..P)
+                    .map(|p| {
+                        (0..N)
+                            .map(|a| {
+                                (0..3)
+                                    .map(|m| {
+                                        (0..3)
+                                            .map(|i| {
+                                                let mut nodal_coordinates = coordinates();
+                                                nodal_coordinates[a][m] += 0.5 * EPSILON;
+                                                finite_difference =
+                                                    $element::<AlmansiHamel>::normals(
+                                                        &nodal_coordinates,
+                                                    )[p][i];
+                                                nodal_coordinates[a][m] -= EPSILON;
+                                                finite_difference -=
+                                                    $element::<AlmansiHamel>::normals(
+                                                        &nodal_coordinates,
+                                                    )[p][i];
+                                                finite_difference / EPSILON
+                                            })
+                                            .collect()
+                                    })
+                                    .collect()
+                            })
+                            .collect()
+                    })
                     .collect();
                 assert_eq_from_fd(
                     &$element::<AlmansiHamel>::normal_gradients(&coordinates()),
-                    &normal_gradients_from_fd
+                    &normal_gradients_from_fd,
                 )
             }
             #[test]
-            fn normal() -> Result<(), TestError>
-            {
-                $element::<AlmansiHamel>::bases(&coordinates()).iter()
-                .zip($element::<AlmansiHamel>::dual_bases(&coordinates()).iter()
-                .zip($element::<AlmansiHamel>::normals(&coordinates()).iter()))
-                .try_for_each(|(basis, (dual_basis, normal))| {
-                    assert_eq_within_tols(
-                        &(&basis[0] * normal), &0.0
-                    )?;
-                    assert_eq_within_tols(
-                        &(&basis[1] * normal), &0.0
-                    )?;
-                    assert_eq_within_tols(
-                        &(&dual_basis[0] * normal), &0.0
-                    )?;
-                    assert_eq_within_tols(
-                        &(&dual_basis[1] * normal), &0.0
+            fn normal() -> Result<(), TestError> {
+                $element::<AlmansiHamel>::bases(&coordinates())
+                    .iter()
+                    .zip(
+                        $element::<AlmansiHamel>::dual_bases(&coordinates())
+                            .iter()
+                            .zip($element::<AlmansiHamel>::normals(&coordinates()).iter()),
                     )
-                })
+                    .try_for_each(|(basis, (dual_basis, normal))| {
+                        assert_eq_within_tols(&(&basis[0] * normal), &0.0)?;
+                        assert_eq_within_tols(&(&basis[1] * normal), &0.0)?;
+                        assert_eq_within_tols(&(&dual_basis[0] * normal), &0.0)?;
+                        assert_eq_within_tols(&(&dual_basis[1] * normal), &0.0)
+                    })
             }
             #[test]
-            fn normalized() -> Result<(), TestError>
-            {
-                $element::<AlmansiHamel>::normals(&coordinates()).iter().try_for_each(|normal|
-                    assert_eq_within_tols(
-                        &normal.norm(), &1.0
-                    )
-                )
+            fn normalized() -> Result<(), TestError> {
+                $element::<AlmansiHamel>::normals(&coordinates())
+                    .iter()
+                    .try_for_each(|normal| assert_eq_within_tols(&normal.norm(), &1.0))
             }
             #[test]
-            fn objectivity() -> Result<(), TestError>
-            {
-                $element::<AlmansiHamel>::normals(&coordinates_transformed()).iter()
-                .zip($element::<AlmansiHamel>::normals(&coordinates()).iter())
-                .try_for_each(|(normal_transformed, normal)|
-                    assert_eq_within_tols(
-                        &(get_rotation_current_configuration().transpose() * normal_transformed),
-                        normal,
-                    )
-                )
-            }
-        }
-        mod normal_gradients
-        {
-            use super::*;
-            #[test]
-            fn objectivity() -> Result<(), TestError>
-            {
-                $element::<AlmansiHamel>::normal_gradients(&coordinates_transformed()).iter()
-                .zip($element::<AlmansiHamel>::normal_gradients(&coordinates()).iter())
-                .try_for_each(|(normal_gradient_transformed, normal_gradient)|
-                    normal_gradient_transformed.iter().zip(normal_gradient.iter())
-                    .try_for_each(|(normal_gradient_transformed_a, normal_gradient_a)|
+            fn objectivity() -> Result<(), TestError> {
+                $element::<AlmansiHamel>::normals(&coordinates_transformed())
+                    .iter()
+                    .zip($element::<AlmansiHamel>::normals(&coordinates()).iter())
+                    .try_for_each(|(normal_transformed, normal)| {
                         assert_eq_within_tols(
-                            &(
-                                get_rotation_current_configuration().transpose() *
-                                normal_gradient_transformed_a *
-                                get_rotation_current_configuration()
-                            ),
-                            normal_gradient_a,
+                            &(get_rotation_current_configuration().transpose()
+                                * normal_transformed),
+                            normal,
                         )
-                    )
-                )
+                    })
             }
         }
-        mod normal_rate
-        {
+        mod normal_gradients {
             use super::*;
             #[test]
-            fn finite_difference() -> Result<(), TestError>
-            {
+            fn objectivity() -> Result<(), TestError> {
+                $element::<AlmansiHamel>::normal_gradients(&coordinates_transformed())
+                    .iter()
+                    .zip($element::<AlmansiHamel>::normal_gradients(&coordinates()).iter())
+                    .try_for_each(|(normal_gradient_transformed, normal_gradient)| {
+                        normal_gradient_transformed
+                            .iter()
+                            .zip(normal_gradient.iter())
+                            .try_for_each(|(normal_gradient_transformed_a, normal_gradient_a)| {
+                                assert_eq_within_tols(
+                                    &(get_rotation_current_configuration().transpose()
+                                        * normal_gradient_transformed_a
+                                        * get_rotation_current_configuration()),
+                                    normal_gradient_a,
+                                )
+                            })
+                    })
+            }
+        }
+        mod normal_rate {
+            use super::*;
+            #[test]
+            fn finite_difference() -> Result<(), TestError> {
                 let mut finite_difference = 0.0;
-                let normal_rates_from_fd = (0..P).map(|p|
-                    (0..3)
-                        .map(|i| {
-                            velocities()
-                                .iter()
-                                .enumerate()
-                                .map(|(a, velocity_a)| {
-                                    velocity_a
-                                        .iter()
-                                        .enumerate()
-                                        .map(|(k, velocity_a_k)| {
-                                            let mut nodal_coordinates = coordinates();
-                                            nodal_coordinates[a][k] += 0.5 * EPSILON;
-                                            finite_difference =
-                                                $element::<AlmansiHamel>::normals(
-                                                    &nodal_coordinates,
-                                                )[p][i];
-                                            nodal_coordinates[a][k] -= EPSILON;
-                                            finite_difference -=
-                                                $element::<AlmansiHamel>::normals(
-                                                    &nodal_coordinates,
-                                                )[p][i];
-                                            finite_difference / EPSILON * velocity_a_k
-                                        })
-                                        .sum::<Scalar>()
-                                })
-                                .sum()
-                        })
-                        .collect())
-                        .collect();
+                let normal_rates_from_fd = (0..P)
+                    .map(|p| {
+                        (0..3)
+                            .map(|i| {
+                                velocities()
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(a, velocity_a)| {
+                                        velocity_a
+                                            .iter()
+                                            .enumerate()
+                                            .map(|(k, velocity_a_k)| {
+                                                let mut nodal_coordinates = coordinates();
+                                                nodal_coordinates[a][k] += 0.5 * EPSILON;
+                                                finite_difference =
+                                                    $element::<AlmansiHamel>::normals(
+                                                        &nodal_coordinates,
+                                                    )[p][i];
+                                                nodal_coordinates[a][k] -= EPSILON;
+                                                finite_difference -=
+                                                    $element::<AlmansiHamel>::normals(
+                                                        &nodal_coordinates,
+                                                    )[p][i];
+                                                finite_difference / EPSILON * velocity_a_k
+                                            })
+                                            .sum::<Scalar>()
+                                    })
+                                    .sum()
+                            })
+                            .collect()
+                    })
+                    .collect();
                 assert_eq_from_fd(
                     &$element::<AlmansiHamel>::normal_rates(&coordinates(), &velocities()),
-                    &normal_rates_from_fd
+                    &normal_rates_from_fd,
                 )
             }
             #[test]
-            fn objectivity() -> Result<(), TestError>
-            {
-                $element::<AlmansiHamel>::normals(&coordinates_transformed()).iter()
-                .zip($element::<AlmansiHamel>::normal_rates(&coordinates_transformed(), &velocities_transformed()).iter()
-                .zip($element::<AlmansiHamel>::normal_rates(&coordinates(), &velocities()).iter()))
-                .try_for_each(|(normal_transformed, (normal_rate_transformed, normal_rate))|
-                    assert_eq_within_tols(
-                        &(
-                            get_rotation_current_configuration().transpose() *
-                            normal_rate_transformed +
-                            get_rotation_rate_current_configuration().transpose() *
-                            normal_transformed
+            fn objectivity() -> Result<(), TestError> {
+                $element::<AlmansiHamel>::normals(&coordinates_transformed())
+                    .iter()
+                    .zip(
+                        $element::<AlmansiHamel>::normal_rates(
+                            &coordinates_transformed(),
+                            &velocities_transformed(),
+                        )
+                        .iter()
+                        .zip(
+                            $element::<AlmansiHamel>::normal_rates(&coordinates(), &velocities())
+                                .iter(),
                         ),
-                        normal_rate,
                     )
-                )
+                    .try_for_each(
+                        |(normal_transformed, (normal_rate_transformed, normal_rate))| {
+                            assert_eq_within_tols(
+                                &(get_rotation_current_configuration().transpose()
+                                    * normal_rate_transformed
+                                    + get_rotation_rate_current_configuration().transpose()
+                                        * normal_transformed),
+                                normal_rate,
+                            )
+                        },
+                    )
             }
         }
         mod reference_normals {
             use super::*;
             #[test]
-            fn normal() -> Result<(), TestError>
-            {
-                $element::<AlmansiHamel>::bases(&reference_coordinates()).iter()
-                .zip($element::<AlmansiHamel>::dual_bases(&reference_coordinates()).iter()
-                .zip(element().reference_normals().iter()))
-                .try_for_each(|(basis, (dual_basis, reference_normal))| {
-                    assert_eq_within_tols(
-                        &(&basis[0] * reference_normal), &0.0
-                    )?;
-                    assert_eq_within_tols(
-                        &(&basis[1] * reference_normal), &0.0
-                    )?;
-                    assert_eq_within_tols(
-                        &(&dual_basis[0] * reference_normal), &0.0
-                    )?;
-                    assert_eq_within_tols(
-                        &(&dual_basis[1] * reference_normal), &0.0
+            fn normal() -> Result<(), TestError> {
+                $element::<AlmansiHamel>::bases(&reference_coordinates())
+                    .iter()
+                    .zip(
+                        $element::<AlmansiHamel>::dual_bases(&reference_coordinates())
+                            .iter()
+                            .zip(element().reference_normals().iter()),
                     )
-                })
+                    .try_for_each(|(basis, (dual_basis, reference_normal))| {
+                        assert_eq_within_tols(&(&basis[0] * reference_normal), &0.0)?;
+                        assert_eq_within_tols(&(&basis[1] * reference_normal), &0.0)?;
+                        assert_eq_within_tols(&(&dual_basis[0] * reference_normal), &0.0)?;
+                        assert_eq_within_tols(&(&dual_basis[1] * reference_normal), &0.0)
+                    })
             }
             #[test]
-            fn normalized() -> Result<(), TestError>
-            {
-                element().reference_normals().iter().try_for_each(|reference_normal|
-                    assert_eq_within_tols(
-                        &reference_normal.norm(), &1.0
-                    )
-                )
+            fn normalized() -> Result<(), TestError> {
+                element()
+                    .reference_normals()
+                    .iter()
+                    .try_for_each(|reference_normal| {
+                        assert_eq_within_tols(&reference_normal.norm(), &1.0)
+                    })
             }
             #[test]
-            fn objectivity() -> Result<(), TestError>
-            {
-                element_transformed().reference_normals().iter()
-                .zip(element().reference_normals().iter())
-                .try_for_each(|(reference_normal_transformed, reference_normal)|
-                    assert_eq_within_tols(
-                        &(get_rotation_reference_configuration().transpose() * reference_normal_transformed),
-                        reference_normal,
-                    )
-                )
+            fn objectivity() -> Result<(), TestError> {
+                element_transformed()
+                    .reference_normals()
+                    .iter()
+                    .zip(element().reference_normals().iter())
+                    .try_for_each(|(reference_normal_transformed, reference_normal)| {
+                        assert_eq_within_tols(
+                            &(get_rotation_reference_configuration().transpose()
+                                * reference_normal_transformed),
+                            reference_normal,
+                        )
+                    })
             }
         }
-    }
+    };
 }
 pub(crate) use test_surface_finite_element;
 
 macro_rules! setup {
     () => {
         use crate::{
-            constitutive::solid::elastic::{
-            test::ALMANSIHAMELPARAMETERS, AlmansiHamel,
-            },
+            constitutive::solid::elastic::{test::ALMANSIHAMELPARAMETERS, AlmansiHamel},
             mechanics::test::{
                 get_rotation_current_configuration, get_rotation_rate_current_configuration,
                 get_rotation_reference_configuration, get_translation_current_configuration,
                 get_translation_rate_current_configuration,
-                get_translation_reference_configuration}
+                get_translation_reference_configuration,
+            },
         };
         fn coordinates_transformed() -> NodalCoordinates<N> {
             coordinates()
@@ -421,7 +431,7 @@ macro_rules! setup {
                 })
                 .collect()
         }
-    }
+    };
 }
 pub(crate) use setup;
 
@@ -449,14 +459,13 @@ macro_rules! test_finite_element_inner {
             mod constitutive_model_independent {
                 use super::{
                     assert_eq, assert_eq_within_tols, coordinates, coordinates_transformed,
-                    get_deformation_gradient, get_deformation_gradient_rate,
-                    reference_coordinates, get_rotation_current_configuration,
+                    element, element_transformed, get_deformation_gradient,
+                    get_deformation_gradient_rate, get_rotation_current_configuration,
                     get_rotation_rate_current_configuration, get_rotation_reference_configuration,
-                    element, element_transformed,
-                    reference_coordinates_transformed, velocities, velocities_transformed,
-                    $element, DeformationGradientRates, DeformationGradients,
-                    FiniteElementMethods, NodalVelocities, Rank2, Tensor,
-                    TensorArray, TestError, G, AlmansiHamel,
+                    reference_coordinates, reference_coordinates_transformed, velocities,
+                    velocities_transformed, $element, AlmansiHamel, DeformationGradientRates,
+                    DeformationGradients, FiniteElementMethods, NodalVelocities, Rank2, Tensor,
+                    TensorArray, TestError, G,
                 };
                 fn deformation_gradients() -> DeformationGradients<G> {
                     (0..G).map(|_| get_deformation_gradient()).collect()
@@ -502,8 +511,7 @@ macro_rules! test_finite_element_inner {
                         #[test]
                         fn calculate() -> Result<(), TestError> {
                             assert_eq_within_tols(
-                                &element()
-                                    .deformation_gradients(&reference_coordinates().into()),
+                                &element().deformation_gradients(&reference_coordinates().into()),
                                 &DeformationGradients::identity(),
                             )
                         }
@@ -872,9 +880,7 @@ macro_rules! test_helmholtz_free_energy {
                     let mut deformation_gradient = DeformationGradient::identity();
                     deformation_gradient[0][0] = 0.0;
                     get_element()
-                        .helmholtz_free_energy(
-                            &(deformation_gradient * reference_coordinates()),
-                        )
+                        .helmholtz_free_energy(&(deformation_gradient * reference_coordinates()))
                         .unwrap();
                 }
                 #[test]

@@ -4,8 +4,9 @@ mod test;
 pub mod element;
 
 use self::element::{
-    ElasticFiniteElement, ElasticHyperviscousFiniteElement, FiniteElement, FiniteElementMethods, SurfaceFiniteElement,
-    HyperelasticFiniteElement, HyperviscoelasticFiniteElement, ViscoelasticFiniteElement,
+    ElasticFiniteElement, ElasticHyperviscousFiniteElement, FiniteElement, FiniteElementMethods,
+    HyperelasticFiniteElement, HyperviscoelasticFiniteElement, SurfaceFiniteElement,
+    ViscoelasticFiniteElement,
 };
 use super::*;
 use crate::math::optimize::{Dirichlet, FirstOrder, GradientDescent, OptimizeError};
@@ -19,7 +20,7 @@ pub struct ElementBlock<const E: usize, F, const N: usize> {
 pub trait FiniteElementBlockMethods<'a, C, const E: usize, F, const G: usize, const N: usize>
 where
     C: Constitutive<'a>,
-    F: FiniteElementMethods<'a, C, G, N>
+    F: FiniteElementMethods<'a, C, G, N>,
 {
     fn connectivity(&self) -> &Connectivity<E, N>;
     fn deformation_gradients(
@@ -37,7 +38,7 @@ where
 pub trait FiniteElementBlock<'a, C, const E: usize, F, const G: usize, const N: usize>
 where
     C: Constitutive<'a>,
-    F: FiniteElement<'a, C, G, N>
+    F: FiniteElement<'a, C, G, N>,
 {
     fn new(
         constitutive_model_parameters: Parameters<'a>,
@@ -46,10 +47,17 @@ where
     ) -> Self;
 }
 
-pub trait SurfaceFiniteElementBlock<'a, C, const E: usize, F, const G: usize, const N: usize, const P: usize>
-where
+pub trait SurfaceFiniteElementBlock<
+    'a,
+    C,
+    const E: usize,
+    F,
+    const G: usize,
+    const N: usize,
+    const P: usize,
+> where
     C: Constitutive<'a>,
-    F: SurfaceFiniteElement<'a, C, G, N, P>
+    F: SurfaceFiniteElement<'a, C, G, N, P>,
 {
     fn new(
         constitutive_model_parameters: Parameters<'a>,
@@ -59,10 +67,11 @@ where
     ) -> Self;
 }
 
-impl<'a, C, const E: usize, F, const G: usize, const N: usize> FiniteElementBlockMethods<'a, C, E, F, G, N> for ElementBlock<E, F, N>
+impl<'a, C, const E: usize, F, const G: usize, const N: usize>
+    FiniteElementBlockMethods<'a, C, E, F, G, N> for ElementBlock<E, F, N>
 where
     C: Constitutive<'a>,
-    F: FiniteElementMethods<'a, C, G, N>
+    F: FiniteElementMethods<'a, C, G, N>,
 {
     fn connectivity(&self) -> &Connectivity<E, N> {
         &self.connectivity
@@ -96,10 +105,11 @@ where
     }
 }
 
-impl<'a, C, const E: usize, F, const G: usize, const N: usize> FiniteElementBlock<'a, C, E, F, G, N> for ElementBlock<E, F, N>
+impl<'a, C, const E: usize, F, const G: usize, const N: usize> FiniteElementBlock<'a, C, E, F, G, N>
+    for ElementBlock<E, F, N>
 where
     C: Constitutive<'a>,
-    F: FiniteElement<'a, C, G, N,>
+    F: FiniteElement<'a, C, G, N>,
 {
     fn new(
         constitutive_model_parameters: Parameters<'a>,
@@ -122,10 +132,11 @@ where
     }
 }
 
-impl<'a, C, const E: usize, F, const G: usize, const N: usize, const P: usize> SurfaceFiniteElementBlock<'a, C, E, F, G, N, P> for ElementBlock<E, F, N>
+impl<'a, C, const E: usize, F, const G: usize, const N: usize, const P: usize>
+    SurfaceFiniteElementBlock<'a, C, E, F, G, N, P> for ElementBlock<E, F, N>
 where
     C: Constitutive<'a>,
-    F: SurfaceFiniteElement<'a, C, G, N, P>
+    F: SurfaceFiniteElement<'a, C, G, N, P>,
 {
     fn new(
         constitutive_model_parameters: Parameters<'a>,
@@ -213,7 +224,8 @@ pub trait ElasticHyperviscousFiniteElementBlock<
     C,
     const E: usize,
     F,
-    const G: usize, const N: usize,
+    const G: usize,
+    const N: usize,
 > where
     C: ElasticHyperviscous<'a>,
     F: ElasticHyperviscousFiniteElement<'a, C, G, N>,
@@ -236,7 +248,8 @@ pub trait HyperviscoelasticFiniteElementBlock<
     C,
     const E: usize,
     F,
-    const G: usize, const N: usize,
+    const G: usize,
+    const N: usize,
 > where
     C: Hyperviscoelastic<'a>,
     F: HyperviscoelasticFiniteElement<'a, C, G, N>,

@@ -1,6 +1,8 @@
 use super::*;
 use crate::{
-    fem::block::{element::test::test_surface_finite_element, test::test_surface_finite_element_block},
+    fem::block::{
+        element::test::test_surface_finite_element, test::test_surface_finite_element_block,
+    },
     math::TensorArray,
 };
 

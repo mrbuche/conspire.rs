@@ -9,17 +9,18 @@ macro_rules! test_finite_element_block {
                         get_reference_coordinates_block(),
                     )
                 }
-                fn get_block_transformed<'a>() -> ElementBlock<E, $element<$constitutive_model<'a>>, N> {
+                fn get_block_transformed<'a>(
+                ) -> ElementBlock<E, $element<$constitutive_model<'a>>, N> {
                     ElementBlock::<E, $element<$constitutive_model<'a>>, N>::new(
                         $constitutive_model_parameters,
                         get_connectivity(),
                         get_reference_coordinates_transformed_block(),
                     )
                 }
-            }
+            };
         }
         crate::fem::block::test::test_finite_element_block_inner!($element);
-    }
+    };
 }
 pub(crate) use test_finite_element_block;
 
@@ -36,7 +37,8 @@ macro_rules! test_surface_finite_element_block {
                         THICKNESS,
                     )
                 }
-                fn get_block_transformed<'a>() -> ElementBlock<E, $element<$constitutive_model<'a>>, N> {
+                fn get_block_transformed<'a>(
+                ) -> ElementBlock<E, $element<$constitutive_model<'a>>, N> {
                     ElementBlock::<E, $element<$constitutive_model<'a>>, N>::new(
                         $constitutive_model_parameters,
                         get_connectivity(),
@@ -44,10 +46,10 @@ macro_rules! test_surface_finite_element_block {
                         THICKNESS,
                     )
                 }
-            }
+            };
         }
         crate::fem::block::test::test_finite_element_block_inner!($element);
-    }
+    };
 }
 pub(crate) use test_surface_finite_element_block;
 
