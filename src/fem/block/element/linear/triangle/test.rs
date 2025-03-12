@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    fem::block::{element::test::test_surface_finite_element, test::test_finite_element_block},
+    fem::block::{element::test::test_surface_finite_element, test::test_surface_finite_element_block},
     math::TensorArray,
 };
 
@@ -108,14 +108,9 @@ fn get_dirichlet_values(_x: Scalar) -> [Scalar; 8] {
 }
 
 test_surface_finite_element!(Triangle);
-// test_finite_element_block!(Triangle);
+test_surface_finite_element_block!(Triangle);
 
-#[test]
-fn turn_block_tests_back_on() {
-    todo!()
-}
-
-#[test]
-fn add_model_independent_tests_for_fd_normals_and_stuffs() {
-    todo!()
-}
+// #[test]
+// fn add_model_independent_tests_for_fd_normals_and_stuffs() {
+//     todo!()
+// }

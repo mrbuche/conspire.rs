@@ -1,3 +1,6 @@
+use crate::mechanics::Scalar;
+pub const THICKNESS: Scalar = 1.23;
+
 macro_rules! test_finite_element {
     ($element: ident) => {
         use crate::mechanics::test::{get_deformation_gradient, get_deformation_gradient_rate};
@@ -46,8 +49,7 @@ pub(crate) use test_finite_element;
 
 macro_rules! test_surface_finite_element {
     ($element: ident) => {
-        use crate::{math::Rank2, mechanics::RotationCurrentConfiguration};
-        const THICKNESS: Scalar = 1.23;
+        use crate::{math::Rank2, mechanics::RotationCurrentConfiguration, fem::block::element::test::setup};
         fn get_deformation_gradient_special() -> DeformationGradient {
             DeformationGradient::new([[0.62, 0.20, 0.00], [0.32, 0.98, 0.00], [0.00, 0.00, 1.00]])
         }
@@ -65,7 +67,7 @@ macro_rules! test_surface_finite_element {
                 .transpose()
                 .into()
         }
-        crate::fem::block::element::test::setup!();
+        setup!();
         fn coordinates() -> NodalCoordinates<N> {
             get_deformation_gradient() * get_reference_coordinates()
         }
@@ -107,6 +109,55 @@ macro_rules! test_surface_finite_element {
             }
         }
         crate::fem::block::element::test::test_finite_element_inner!($element);
+        mod basis
+        {
+            use crate::math::test::{assert_eq_within_tols, TestError};
+            use super::*;
+            mod deformed
+            {
+                use super::*;
+                #[test]
+                fn objectivity() -> Result<(), TestError>
+                {
+                    // assert_eq_within_tols(
+                    $element::<AlmansiHamel>::bases(&coordinates_transformed()).iter()
+                    .zip($element::<AlmansiHamel>::bases(&coordinates()).iter())
+                    .try_for_each(|(basis_transformed, basis)|
+                        basis_transformed.iter().zip(basis.iter())
+                        .try_for_each(|(basis_transformed_m, basis_m)|
+                            assert_eq_within_tols(
+                                &(get_rotation_current_configuration().transpose() * basis_transformed_m),
+                                basis_m,
+                            )
+                        )
+                    )
+                    // get_basis(true, false).iter()
+                    // .zip(get_basis(true, true).iter())
+                    // .try_for_each(|(basis_m, res_basis_m)|
+                    //     assert_eq_within_tols(
+                    //         basis_m,
+                    //         &(get_rotation_current_configuration().transpose() * res_basis_m)
+                    //     )
+                    // )
+                }
+            }
+            // mod undeformed
+            // {
+            //     use super::*;
+            //     #[test]
+            //     fn objectivity() -> Result<(), TestError>
+            //     {
+            //         get_basis(false, false).iter()
+            //         .zip(get_basis(false, true).iter())
+            //         .try_for_each(|(basis_m, res_basis_m)|
+            //             assert_eq_within_tols(
+            //                 &basis_m.convert(),
+            //                 &(get_rotation_reference_configuration().transpose() * res_basis_m.convert())
+            //             )
+            //         )
+            //     }
+            // }
+        }
     }
 }
 pub(crate) use test_surface_finite_element;
@@ -185,9 +236,9 @@ macro_rules! test_finite_element_inner {
                     get_rotation_rate_current_configuration, get_rotation_reference_configuration,
                     element, element_transformed,
                     reference_coordinates_transformed, velocities, velocities_transformed,
-                    $element, DeformationGradientRates, DeformationGradients, FiniteElement,
-                    FiniteElementMethods, GradientVectors, NodalVelocities, Rank2, Scalars, Tensor,
-                    TensorArray, TestError, G, N, AlmansiHamel,
+                    $element, DeformationGradientRates, DeformationGradients,
+                    FiniteElementMethods, NodalVelocities, Rank2, Tensor,
+                    TensorArray, TestError, G, AlmansiHamel,
                 };
                 fn deformation_gradients() -> DeformationGradients<G> {
                     (0..G).map(|_| get_deformation_gradient()).collect()
