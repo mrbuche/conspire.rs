@@ -132,10 +132,10 @@ where
     ) -> Result<NodalStiffnesses<N>, ConstitutiveError>;
 }
 
-pub trait HyperelasticFiniteElement<'a, C, const N: usize>
+pub trait HyperelasticFiniteElement<'a, C, const G: usize, const N: usize>
 where
     C: Hyperelastic<'a>,
-    Self: ElasticFiniteElement<'a, C, N>,
+    Self: ElasticFiniteElement<'a, C, G, N>,
 {
     fn helmholtz_free_energy(
         &self,
@@ -143,9 +143,10 @@ where
     ) -> Result<Scalar, ConstitutiveError>;
 }
 
-pub trait ViscoelasticFiniteElement<'a, C, const N: usize>
+pub trait ViscoelasticFiniteElement<'a, C, const G: usize, const N: usize>
 where
     C: Viscoelastic<'a>,
+    Self: FiniteElement<'a, C, G, N>,
 {
     fn nodal_forces(
         &self,
@@ -159,10 +160,10 @@ where
     ) -> Result<NodalStiffnesses<N>, ConstitutiveError>;
 }
 
-pub trait ElasticHyperviscousFiniteElement<'a, C, const N: usize>
+pub trait ElasticHyperviscousFiniteElement<'a, C, const G: usize, const N: usize>
 where
     C: ElasticHyperviscous<'a>,
-    Self: ViscoelasticFiniteElement<'a, C, N>,
+    Self: ViscoelasticFiniteElement<'a, C, G, N>,
 {
     fn viscous_dissipation(
         &self,
@@ -176,10 +177,10 @@ where
     ) -> Result<Scalar, ConstitutiveError>;
 }
 
-pub trait HyperviscoelasticFiniteElement<'a, C, const N: usize>
+pub trait HyperviscoelasticFiniteElement<'a, C, const G: usize, const N: usize>
 where
     C: Hyperviscoelastic<'a>,
-    Self: ElasticHyperviscousFiniteElement<'a, C, N>,
+    Self: ElasticHyperviscousFiniteElement<'a, C, G, N>,
 {
     fn helmholtz_free_energy(
         &self,
@@ -268,7 +269,7 @@ where
 }
 
 impl<'a, C, const G: usize, const N: usize>
-    HyperelasticFiniteElement<'a, C, N> for Element<C, G, N>
+    HyperelasticFiniteElement<'a, C, G, N> for Element<C, G, N>
 where
     C: Hyperelastic<'a>,
 {
@@ -296,7 +297,7 @@ where
 }
 
 impl<'a, C, const G: usize, const N: usize>
-    ViscoelasticFiniteElement<'a, C, N> for Element<C, G, N>
+    ViscoelasticFiniteElement<'a, C, G, N> for Element<C, G, N>
 where
     C: Viscoelastic<'a>,
 {
@@ -400,7 +401,7 @@ where
 }
 
 impl<'a, C, const G: usize, const N: usize>
-    ElasticHyperviscousFiniteElement<'a, C, N> for Element<C, G, N>
+    ElasticHyperviscousFiniteElement<'a, C, G, N> for Element<C, G, N>
 where
     C: ElasticHyperviscous<'a>,
 {
@@ -459,7 +460,7 @@ where
 }
 
 impl<'a, C, const G: usize, const N: usize>
-    HyperviscoelasticFiniteElement<'a, C, N> for Element<C, G, N>
+    HyperviscoelasticFiniteElement<'a, C, G, N> for Element<C, G, N>
 where
     C: Hyperviscoelastic<'a>,
 {
