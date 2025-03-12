@@ -62,7 +62,6 @@ where
     fn normals(nodal_coordinates: &NodalCoordinates<N>) -> Normals<P>;
     fn normal_gradients(nodal_coordinates: &NodalCoordinates<N>) -> NormalGradients<N, P>;
     fn normal_rates(nodal_coordinates: &NodalCoordinates<N>, nodal_velocities: &NodalVelocities<N>) -> NormalRates<P>;
-    fn normal_tangents(nodal_coordinates: &NodalCoordinates<N>) -> NormalTangents<N, P>;
     fn reference_normals(&self) -> &ReferenceNormals<P>;
 }
 
