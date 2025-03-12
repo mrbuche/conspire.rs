@@ -111,8 +111,3 @@ fn get_dirichlet_values(_x: Scalar) -> [Scalar; 8] {
 
 test_surface_finite_element!(Triangle);
 test_surface_finite_element_block!(Triangle);
-
-// #[test]
-// fn add_model_independent_tests_for_fd_normals_and_stuffs() {
-//     todo!()
-// }
