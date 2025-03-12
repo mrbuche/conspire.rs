@@ -64,7 +64,7 @@ fn get_coordinates_block() -> NodalCoordinatesBlock {
     ])
 }
 
-fn get_reference_coordinates() -> ReferenceNodalCoordinates<N> {
+fn reference_coordinates() -> ReferenceNodalCoordinates<N> {
     ReferenceNodalCoordinates::new([
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 0.0],
