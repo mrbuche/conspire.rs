@@ -6,10 +6,17 @@ pub mod linear;
 
 use super::*;
 
-pub struct Element<C, const G: usize, const M: usize, const N: usize, const O: usize> {
+pub struct Element<C, const G: usize, const N: usize> {
     constitutive_models: [C; G],
     gradient_vectors: GradientVectors<G, N>,
     integration_weights: Scalars<G>,
+}
+
+pub struct SurfaceElement<C, const G: usize, const N: usize, const P: usize> {
+    constitutive_models: [C; G],
+    gradient_vectors: GradientVectors<G, N>,
+    integration_weights: Scalars<G>,
+    reference_normals: ReferenceNormals<P>,
 }
 
 pub trait FiniteElementMethods<'a, C, const G: usize, const N: usize>
@@ -41,8 +48,27 @@ where
     ) -> Self;
 }
 
-impl<'a, C, const G: usize, const M: usize, const N: usize, const O: usize>
-    FiniteElementMethods<'a, C, G, N> for Element<C, G, M, N, O>
+pub trait SurfaceFiniteElement<'a, C, const G: usize, const N: usize, const P: usize>
+where
+    C: Constitutive<'a>,
+{
+    fn bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> Bases<I, P>;
+    fn dual_bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> Bases<I, P>;
+    fn new(
+        constitutive_model_parameters: Parameters<'a>,
+        reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
+        thickness: &Scalar,
+    ) -> Self;
+    fn normals(nodal_coordinates: &NodalCoordinates<N>) -> Normals<P>;
+    fn normal_gradients(nodal_coordinates: &NodalCoordinates<N>) -> NormalGradients<N, P>;
+    fn normal_rates(
+        nodal_coordinates: &NodalCoordinates<N>,
+        nodal_velocities: &NodalVelocities<N>,
+    ) -> NormalRates<P>;
+    fn reference_normals(&self) -> &ReferenceNormals<P>;
+}
+
+impl<'a, C, const G: usize, const N: usize> FiniteElementMethods<'a, C, G, N> for Element<C, G, N>
 where
     C: Constitutive<'a>,
 {
@@ -95,6 +121,7 @@ where
 pub trait ElasticFiniteElement<'a, C, const G: usize, const N: usize>
 where
     C: Elastic<'a>,
+    Self: FiniteElementMethods<'a, C, G, N>,
 {
     fn nodal_forces(
         &self,
@@ -120,6 +147,7 @@ where
 pub trait ViscoelasticFiniteElement<'a, C, const G: usize, const N: usize>
 where
     C: Viscoelastic<'a>,
+    Self: FiniteElementMethods<'a, C, G, N>,
 {
     fn nodal_forces(
         &self,
@@ -161,8 +189,7 @@ where
     ) -> Result<Scalar, ConstitutiveError>;
 }
 
-impl<'a, C, const G: usize, const M: usize, const N: usize, const O: usize>
-    ElasticFiniteElement<'a, C, G, N> for Element<C, G, M, N, O>
+impl<'a, C, const G: usize, const N: usize> ElasticFiniteElement<'a, C, G, N> for Element<C, G, N>
 where
     C: Elastic<'a>,
 {
@@ -241,8 +268,8 @@ where
     }
 }
 
-impl<'a, C, const G: usize, const M: usize, const N: usize, const O: usize>
-    HyperelasticFiniteElement<'a, C, G, N> for Element<C, G, M, N, O>
+impl<'a, C, const G: usize, const N: usize> HyperelasticFiniteElement<'a, C, G, N>
+    for Element<C, G, N>
 where
     C: Hyperelastic<'a>,
 {
@@ -269,8 +296,8 @@ where
     }
 }
 
-impl<'a, C, const G: usize, const M: usize, const N: usize, const O: usize>
-    ViscoelasticFiniteElement<'a, C, G, N> for Element<C, G, M, N, O>
+impl<'a, C, const G: usize, const N: usize> ViscoelasticFiniteElement<'a, C, G, N>
+    for Element<C, G, N>
 where
     C: Viscoelastic<'a>,
 {
@@ -373,8 +400,8 @@ where
     }
 }
 
-impl<'a, C, const G: usize, const M: usize, const N: usize, const O: usize>
-    ElasticHyperviscousFiniteElement<'a, C, G, N> for Element<C, G, M, N, O>
+impl<'a, C, const G: usize, const N: usize> ElasticHyperviscousFiniteElement<'a, C, G, N>
+    for Element<C, G, N>
 where
     C: ElasticHyperviscous<'a>,
 {
@@ -432,8 +459,8 @@ where
     }
 }
 
-impl<'a, C, const G: usize, const M: usize, const N: usize, const O: usize>
-    HyperviscoelasticFiniteElement<'a, C, G, N> for Element<C, G, M, N, O>
+impl<'a, C, const G: usize, const N: usize> HyperviscoelasticFiniteElement<'a, C, G, N>
+    for Element<C, G, N>
 where
     C: Hyperviscoelastic<'a>,
 {

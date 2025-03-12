@@ -64,7 +64,7 @@ fn get_coordinates_block() -> NodalCoordinatesBlock {
     ])
 }
 
-fn get_reference_coordinates() -> ReferenceNodalCoordinates<N> {
+fn reference_coordinates() -> ReferenceNodalCoordinates<N> {
     ReferenceNodalCoordinates::new([
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 0.0],
@@ -172,10 +172,7 @@ fn get_dirichlet_values(_x: Scalar) -> [Scalar; 8] {
 test_finite_element!(Tetrahedron);
 test_finite_element_block!(Tetrahedron);
 
-use crate::{
-    constitutive::solid::elastic::AlmansiHamel,
-    math::test::{assert_eq_within_tols, TestError},
-};
+use crate::math::test::{assert_eq_within_tols, TestError};
 
 #[test]
 fn normalized_projection_matrix() -> Result<(), TestError> {

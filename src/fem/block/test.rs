@@ -1,5 +1,60 @@
 macro_rules! test_finite_element_block {
     ($element: ident) => {
+        macro_rules! setup_constitutive {
+            ($constitutive_model: ident, $constitutive_model_parameters: ident) => {
+                fn get_block<'a>() -> ElementBlock<E, $element<$constitutive_model<'a>>, N> {
+                    ElementBlock::<E, $element<$constitutive_model<'a>>, N>::new(
+                        $constitutive_model_parameters,
+                        get_connectivity(),
+                        get_reference_coordinates_block(),
+                    )
+                }
+                fn get_block_transformed<'a>(
+                ) -> ElementBlock<E, $element<$constitutive_model<'a>>, N> {
+                    ElementBlock::<E, $element<$constitutive_model<'a>>, N>::new(
+                        $constitutive_model_parameters,
+                        get_connectivity(),
+                        get_reference_coordinates_transformed_block(),
+                    )
+                }
+            };
+        }
+        crate::fem::block::test::test_finite_element_block_inner!($element);
+    };
+}
+pub(crate) use test_finite_element_block;
+
+macro_rules! test_surface_finite_element_block {
+    ($element: ident) => {
+        use super::element::test::THICKNESS;
+        macro_rules! setup_constitutive {
+            ($constitutive_model: ident, $constitutive_model_parameters: ident) => {
+                fn get_block<'a>() -> ElementBlock<E, $element<$constitutive_model<'a>>, N> {
+                    ElementBlock::<E, $element<$constitutive_model<'a>>, N>::new(
+                        $constitutive_model_parameters,
+                        get_connectivity(),
+                        get_reference_coordinates_block(),
+                        THICKNESS,
+                    )
+                }
+                fn get_block_transformed<'a>(
+                ) -> ElementBlock<E, $element<$constitutive_model<'a>>, N> {
+                    ElementBlock::<E, $element<$constitutive_model<'a>>, N>::new(
+                        $constitutive_model_parameters,
+                        get_connectivity(),
+                        get_reference_coordinates_transformed_block(),
+                        THICKNESS,
+                    )
+                }
+            };
+        }
+        crate::fem::block::test::test_finite_element_block_inner!($element);
+    };
+}
+pub(crate) use test_surface_finite_element_block;
+
+macro_rules! test_finite_element_block_inner {
+    ($element: ident) => {
         mod block {
             use super::*;
             use crate::{
@@ -29,7 +84,7 @@ macro_rules! test_finite_element_block {
                 mod almansi_hamel {
                     use super::*;
                     test_finite_element_block_with_elastic_constitutive_model!(
-                        ElasticBlock,
+                        ElementBlock,
                         $element,
                         AlmansiHamel,
                         ALMANSIHAMELPARAMETERS
@@ -49,7 +104,7 @@ macro_rules! test_finite_element_block {
                 mod arruda_boyce {
                     use super::*;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
-                        ElasticBlock,
+                        ElementBlock,
                         $element,
                         ArrudaBoyce,
                         ARRUDABOYCEPARAMETERS
@@ -58,7 +113,7 @@ macro_rules! test_finite_element_block {
                 mod fung {
                     use super::*;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
-                        ElasticBlock,
+                        ElementBlock,
                         $element,
                         Fung,
                         FUNGPARAMETERS
@@ -67,7 +122,7 @@ macro_rules! test_finite_element_block {
                 mod gent {
                     use super::*;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
-                        ElasticBlock,
+                        ElementBlock,
                         $element,
                         Gent,
                         GENTPARAMETERS
@@ -76,7 +131,7 @@ macro_rules! test_finite_element_block {
                 mod mooney_rivlin {
                     use super::*;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
-                        ElasticBlock,
+                        ElementBlock,
                         $element,
                         MooneyRivlin,
                         MOONEYRIVLINPARAMETERS
@@ -85,7 +140,7 @@ macro_rules! test_finite_element_block {
                 mod neo_hookean {
                     use super::*;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
-                        ElasticBlock,
+                        ElementBlock,
                         $element,
                         NeoHookean,
                         NEOHOOKEANPARAMETERS
@@ -94,7 +149,7 @@ macro_rules! test_finite_element_block {
                 mod saint_venant_kirchhoff {
                     use super::*;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
-                        ElasticBlock,
+                        ElementBlock,
                         $element,
                         SaintVenantKirchhoff,
                         SAINTVENANTKIRCHOFFPARAMETERS
@@ -103,7 +158,7 @@ macro_rules! test_finite_element_block {
                 mod yeoh {
                     use super::*;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
-                        ElasticBlock,
+                        ElementBlock,
                         $element,
                         Yeoh,
                         YEOHPARAMETERS
@@ -118,7 +173,7 @@ macro_rules! test_finite_element_block {
                 mod almansi_hamel {
                     use super::*;
                     test_finite_element_block_with_elastic_hyperviscous_constitutive_model!(
-                        ViscoelasticBlock,
+                        ElementBlock,
                         $element,
                         AlmansiHamel,
                         ALMANSIHAMELPARAMETERS
@@ -133,7 +188,7 @@ macro_rules! test_finite_element_block {
                 mod saint_venant_kirchhoff {
                     use super::*;
                     test_finite_element_block_with_hyperviscoelastic_constitutive_model!(
-                        ViscoelasticBlock,
+                        ElementBlock,
                         $element,
                         SaintVenantKirchhoff,
                         SAINTVENANTKIRCHOFFPARAMETERS
@@ -143,24 +198,11 @@ macro_rules! test_finite_element_block {
         }
     };
 }
-pub(crate) use test_finite_element_block;
+pub(crate) use test_finite_element_block_inner;
 
 macro_rules! test_nodal_forces_and_nodal_stiffnesses {
     ($block: ident, $element: ident, $constitutive_model: ident, $constitutive_model_parameters: ident) => {
-        fn get_block<'a>() -> $block<E, $element<$constitutive_model<'a>>, N> {
-            $block::<E, $element<$constitutive_model<'a>>, N>::new(
-                $constitutive_model_parameters,
-                get_connectivity(),
-                get_reference_coordinates_block(),
-            )
-        }
-        fn get_block_transformed<'a>() -> $block<E, $element<$constitutive_model<'a>>, N> {
-            $block::<E, $element<$constitutive_model<'a>>, N>::new(
-                $constitutive_model_parameters,
-                get_connectivity(),
-                get_reference_coordinates_transformed_block(),
-            )
-        }
+        setup_constitutive!($constitutive_model, $constitutive_model_parameters);
         fn get_coordinates_transformed_block() -> NodalCoordinatesBlock {
             get_coordinates_block()
                 .iter()
@@ -249,7 +291,7 @@ macro_rules! test_nodal_forces_and_nodal_stiffnesses {
         #[test]
         fn size() {
             assert_eq!(
-                std::mem::size_of::<ElasticBlock<E, $element::<$constitutive_model>, N>>(),
+                std::mem::size_of::<ElementBlock<E, $element::<$constitutive_model>, N>>(),
                 std::mem::size_of::<Connectivity<E, N>>()
                     + E * std::mem::size_of::<$element::<$constitutive_model>>()
             )
