@@ -8,8 +8,8 @@ pub use block::{
         linear::tetrahedron::Tetrahedron as LinearTetrahedron, ElasticFiniteElement, FiniteElement,
         HyperelasticFiniteElement, HyperviscoelasticFiniteElement, ViscoelasticFiniteElement,
     },
-    BasicFiniteElementBlock, ElasticBlock, ElasticFiniteElementBlock, FiniteElementBlock,
-    HyperelasticFiniteElementBlock, HyperviscoelasticFiniteElementBlock, ViscoelasticBlock,
+     ElementBlock, ElasticFiniteElementBlock,
+    HyperelasticFiniteElementBlock, HyperviscoelasticFiniteElementBlock,
     ViscoelasticFiniteElementBlock,
 };
 
@@ -25,7 +25,7 @@ use crate::{
     math::{
         ContractSecondFourthIndicesWithFirstIndicesOf, Tensor, TensorRank1, TensorRank1List,
         TensorRank1List2D, TensorRank1Vec, TensorRank2, TensorRank2List, TensorRank2Vec2D,
-        TensorVec,
+        TensorVec, TensorRank3List3D, TensorRank2List2D
     },
     mechanics::{
         Coordinates,
@@ -50,7 +50,9 @@ type NodalForces<const D: usize> = Forces<D>;
 type NodalStiffnesses<const D: usize> = Stiffnesses<D>;
 type NodalVelocities<const D: usize> = CurrentCoordinates<D>;
 type Normals<const P: usize> = Vectors<1, P>;
+type NormalGradients<const O: usize, const P: usize> = TensorRank2List2D<3, 1, 1, O, P>;
 type NormalRates<const P: usize> = Vectors<1, P>;
+type NormalTangents<const O: usize, const P: usize> = TensorRank3List3D<3, 1, 1, 1, O, O, P>;
 type NormalizedProjectionMatrix<const Q: usize> = TensorRank2<Q, 9, 9>;
 type ParametricGradientOperators<const P: usize> = TensorRank2List<3, 0, 9, P>;
 type ProjectionMatrix<const Q: usize> = TensorRank2<Q, 9, 9>;

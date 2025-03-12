@@ -29,7 +29,7 @@ macro_rules! test_finite_element_block {
                 mod almansi_hamel {
                     use super::*;
                     test_finite_element_block_with_elastic_constitutive_model!(
-                        ElasticBlock,
+                        ElementBlock,
                         $element,
                         AlmansiHamel,
                         ALMANSIHAMELPARAMETERS
@@ -49,7 +49,7 @@ macro_rules! test_finite_element_block {
                 mod arruda_boyce {
                     use super::*;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
-                        ElasticBlock,
+                        ElementBlock,
                         $element,
                         ArrudaBoyce,
                         ARRUDABOYCEPARAMETERS
@@ -58,7 +58,7 @@ macro_rules! test_finite_element_block {
                 mod fung {
                     use super::*;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
-                        ElasticBlock,
+                        ElementBlock,
                         $element,
                         Fung,
                         FUNGPARAMETERS
@@ -67,7 +67,7 @@ macro_rules! test_finite_element_block {
                 mod gent {
                     use super::*;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
-                        ElasticBlock,
+                        ElementBlock,
                         $element,
                         Gent,
                         GENTPARAMETERS
@@ -76,7 +76,7 @@ macro_rules! test_finite_element_block {
                 mod mooney_rivlin {
                     use super::*;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
-                        ElasticBlock,
+                        ElementBlock,
                         $element,
                         MooneyRivlin,
                         MOONEYRIVLINPARAMETERS
@@ -85,7 +85,7 @@ macro_rules! test_finite_element_block {
                 mod neo_hookean {
                     use super::*;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
-                        ElasticBlock,
+                        ElementBlock,
                         $element,
                         NeoHookean,
                         NEOHOOKEANPARAMETERS
@@ -94,7 +94,7 @@ macro_rules! test_finite_element_block {
                 mod saint_venant_kirchhoff {
                     use super::*;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
-                        ElasticBlock,
+                        ElementBlock,
                         $element,
                         SaintVenantKirchhoff,
                         SAINTVENANTKIRCHOFFPARAMETERS
@@ -103,7 +103,7 @@ macro_rules! test_finite_element_block {
                 mod yeoh {
                     use super::*;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
-                        ElasticBlock,
+                        ElementBlock,
                         $element,
                         Yeoh,
                         YEOHPARAMETERS
@@ -118,7 +118,7 @@ macro_rules! test_finite_element_block {
                 mod almansi_hamel {
                     use super::*;
                     test_finite_element_block_with_elastic_hyperviscous_constitutive_model!(
-                        ViscoelasticBlock,
+                        ElementBlock,
                         $element,
                         AlmansiHamel,
                         ALMANSIHAMELPARAMETERS
@@ -133,7 +133,7 @@ macro_rules! test_finite_element_block {
                 mod saint_venant_kirchhoff {
                     use super::*;
                     test_finite_element_block_with_hyperviscoelastic_constitutive_model!(
-                        ViscoelasticBlock,
+                        ElementBlock,
                         $element,
                         SaintVenantKirchhoff,
                         SAINTVENANTKIRCHOFFPARAMETERS
@@ -249,7 +249,7 @@ macro_rules! test_nodal_forces_and_nodal_stiffnesses {
         #[test]
         fn size() {
             assert_eq!(
-                std::mem::size_of::<ElasticBlock<E, $element::<$constitutive_model>, N>>(),
+                std::mem::size_of::<ElementBlock<E, $element::<$constitutive_model>, N>>(),
                 std::mem::size_of::<Connectivity<E, N>>()
                     + E * std::mem::size_of::<$element::<$constitutive_model>>()
             )

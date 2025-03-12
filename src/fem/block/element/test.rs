@@ -1,5 +1,163 @@
 macro_rules! test_finite_element {
     ($element: ident) => {
+        use crate::mechanics::test::{get_deformation_gradient, get_deformation_gradient_rate};
+        crate::fem::block::element::test::setup!();
+        fn coordinates() -> NodalCoordinates<N> {
+            get_deformation_gradient() * get_reference_coordinates()
+        }
+        fn velocities() -> NodalVelocities<N> {
+            get_deformation_gradient_rate() * get_reference_coordinates()
+        }
+        fn element<'a>() -> $element<AlmansiHamel<'a>> {
+            $element::new(ALMANSIHAMELPARAMETERS, get_reference_coordinates())
+        }
+        fn element_transformed<'a>() -> $element<AlmansiHamel<'a>> {
+            $element::<AlmansiHamel<'a>>::new(
+                ALMANSIHAMELPARAMETERS,
+                reference_coordinates_transformed(),
+            )
+        }
+        #[test]
+        fn size() {
+            assert_eq!(
+                std::mem::size_of::<$element::<AlmansiHamel>>(),
+                std::mem::size_of::<[AlmansiHamel; G]>()
+                    + std::mem::size_of::<GradientVectors<G, N>>()
+                    + std::mem::size_of::<Scalars<G>>()
+            )
+        }
+        macro_rules! setup_constitutive {
+            ($constitutive_model: ident, $constitutive_model_parameters: ident) => {
+                fn get_element<'a>() -> $element<$constitutive_model<'a>> {
+                    $element::new($constitutive_model_parameters, get_reference_coordinates())
+                }
+                fn get_element_transformed<'a>() -> $element<$constitutive_model<'a>> {
+                    $element::<$constitutive_model>::new(
+                        $constitutive_model_parameters,
+                        reference_coordinates_transformed(),
+                    )
+                }
+            }
+        }
+        crate::fem::block::element::test::test_finite_element_inner!($element);
+    }
+}
+pub(crate) use test_finite_element;
+
+macro_rules! test_surface_finite_element {
+    ($element: ident) => {
+        use crate::{math::Rank2, mechanics::RotationCurrentConfiguration};
+        const THICKNESS: Scalar = 1.23;
+        fn get_deformation_gradient_special() -> DeformationGradient {
+            DeformationGradient::new([[0.62, 0.20, 0.00], [0.32, 0.98, 0.00], [0.00, 0.00, 1.00]])
+        }
+        fn get_deformation_gradient_rate_special() -> DeformationGradientRate {
+            DeformationGradient::new([[0.53, 0.58, 0.00], [0.28, 0.77, 0.00], [0.00, 0.00, 0.00]])
+        }
+        fn get_deformation_gradient() -> DeformationGradient {
+            get_deformation_gradient_rotation() * get_deformation_gradient_special()
+        }
+        fn get_deformation_gradient_rate() -> DeformationGradientRate {
+            get_deformation_gradient_rotation() * get_deformation_gradient_rate_special()
+        }
+        fn get_deformation_gradient_rotation() -> RotationCurrentConfiguration {
+            get_rotation_reference_configuration()
+                .transpose()
+                .into()
+        }
+        crate::fem::block::element::test::setup!();
+        fn coordinates() -> NodalCoordinates<N> {
+            get_deformation_gradient() * get_reference_coordinates()
+        }
+        fn velocities() -> NodalVelocities<N> {
+            get_deformation_gradient_rate() * get_reference_coordinates()
+        }
+        fn element<'a>() -> $element<AlmansiHamel<'a>> {
+            $element::new(ALMANSIHAMELPARAMETERS, get_reference_coordinates(), &THICKNESS)
+        }
+        fn element_transformed<'a>() -> $element<AlmansiHamel<'a>> {
+            $element::<AlmansiHamel<'a>>::new(
+                ALMANSIHAMELPARAMETERS,
+                reference_coordinates_transformed(),
+                &THICKNESS,
+            )
+        }
+        #[test]
+        fn size() {
+            assert_eq!(
+                std::mem::size_of::<$element::<AlmansiHamel>>(),
+                std::mem::size_of::<[AlmansiHamel; G]>()
+                    + std::mem::size_of::<GradientVectors<G, N>>()
+                    + std::mem::size_of::<Scalars<G>>()
+                    + std::mem::size_of::<Normals<P>>()
+            )
+        }
+        macro_rules! setup_constitutive {
+            ($constitutive_model: ident, $constitutive_model_parameters: ident) => {
+                fn get_element<'a>() -> $element<$constitutive_model<'a>> {
+                    $element::new($constitutive_model_parameters, get_reference_coordinates(), &THICKNESS)
+                }
+                fn get_element_transformed<'a>() -> $element<$constitutive_model<'a>> {
+                    $element::<$constitutive_model>::new(
+                        $constitutive_model_parameters,
+                        reference_coordinates_transformed(),
+                        &THICKNESS,
+                    )
+                }
+            }
+        }
+        crate::fem::block::element::test::test_finite_element_inner!($element);
+    }
+}
+pub(crate) use test_surface_finite_element;
+
+macro_rules! setup {
+    () => {
+        use crate::{
+            constitutive::solid::elastic::{
+            test::ALMANSIHAMELPARAMETERS, AlmansiHamel,
+            },
+            mechanics::test::{
+                get_rotation_current_configuration, get_rotation_rate_current_configuration,
+                get_rotation_reference_configuration, get_translation_current_configuration,
+                get_translation_rate_current_configuration,
+                get_translation_reference_configuration}
+        };
+        fn coordinates_transformed() -> NodalCoordinates<N> {
+            coordinates()
+                .iter()
+                .map(|coordinate| {
+                    get_rotation_current_configuration() * coordinate
+                        + get_translation_current_configuration()
+                })
+                .collect()
+        }
+        fn reference_coordinates_transformed() -> ReferenceNodalCoordinates<N> {
+            get_reference_coordinates()
+                .iter()
+                .map(|reference_coordinate| {
+                    get_rotation_reference_configuration() * reference_coordinate
+                        + get_translation_reference_configuration()
+                })
+                .collect()
+        }
+        fn velocities_transformed() -> NodalVelocities<N> {
+            coordinates()
+                .iter()
+                .zip(velocities().iter())
+                .map(|(coordinate, velocity)| {
+                    get_rotation_current_configuration() * velocity
+                        + get_rotation_rate_current_configuration() * coordinate
+                        + get_translation_rate_current_configuration()
+                })
+                .collect()
+        }
+    }
+}
+pub(crate) use setup;
+
+macro_rules! test_finite_element_inner {
+    ($element: ident) => {
         mod element {
             use super::*;
             use crate::{
@@ -14,86 +172,28 @@ macro_rules! test_finite_element {
                     Convert, Rank2, TensorArray, TensorRank2,
                 },
                 mechanics::test::{
-                    get_deformation_gradient, get_deformation_gradient_rate,
                     get_rotation_current_configuration, get_rotation_rate_current_configuration,
-                    get_rotation_reference_configuration, get_translation_current_configuration,
-                    get_translation_rate_current_configuration,
-                    get_translation_reference_configuration,
+                    get_rotation_reference_configuration,
                 },
                 EPSILON,
             };
-            fn coordinates() -> NodalCoordinates<N> {
-                get_deformation_gradient() * get_reference_coordinates()
-            }
-            fn coordinates_transformed() -> NodalCoordinates<N> {
-                coordinates()
-                    .iter()
-                    .map(|coordinate| {
-                        get_rotation_current_configuration() * coordinate
-                            + get_translation_current_configuration()
-                    })
-                    .collect()
-            }
-            fn reference_coordinates_transformed() -> ReferenceNodalCoordinates<N> {
-                get_reference_coordinates()
-                    .iter()
-                    .map(|reference_coordinate| {
-                        get_rotation_reference_configuration() * reference_coordinate
-                            + get_translation_reference_configuration()
-                    })
-                    .collect()
-            }
-            fn velocities() -> NodalVelocities<N> {
-                get_deformation_gradient_rate() * get_reference_coordinates()
-            }
-            fn velocities_transformed() -> NodalVelocities<N> {
-                coordinates()
-                    .iter()
-                    .zip(velocities().iter())
-                    .map(|(coordinate, velocity)| {
-                        get_rotation_current_configuration() * velocity
-                            + get_rotation_rate_current_configuration() * coordinate
-                            + get_translation_rate_current_configuration()
-                    })
-                    .collect()
-            }
             mod constitutive_model_independent {
                 use super::{
                     assert_eq, assert_eq_within_tols, coordinates, coordinates_transformed,
                     get_deformation_gradient, get_deformation_gradient_rate,
                     get_reference_coordinates, get_rotation_current_configuration,
                     get_rotation_rate_current_configuration, get_rotation_reference_configuration,
+                    element, element_transformed,
                     reference_coordinates_transformed, velocities, velocities_transformed,
                     $element, DeformationGradientRates, DeformationGradients, FiniteElement,
                     FiniteElementMethods, GradientVectors, NodalVelocities, Rank2, Scalars, Tensor,
-                    TensorArray, TestError, G, N,
-                };
-                use crate::constitutive::solid::elastic::{
-                    test::ALMANSIHAMELPARAMETERS, AlmansiHamel,
+                    TensorArray, TestError, G, N, AlmansiHamel,
                 };
                 fn deformation_gradients() -> DeformationGradients<G> {
                     (0..G).map(|_| get_deformation_gradient()).collect()
                 }
                 fn deformation_gradient_rates() -> DeformationGradientRates<G> {
                     (0..G).map(|_| get_deformation_gradient_rate()).collect()
-                }
-                fn element<'a>() -> $element<AlmansiHamel<'a>> {
-                    $element::new(ALMANSIHAMELPARAMETERS, get_reference_coordinates())
-                }
-                fn element_transformed<'a>() -> $element<AlmansiHamel<'a>> {
-                    $element::<AlmansiHamel<'a>>::new(
-                        ALMANSIHAMELPARAMETERS,
-                        reference_coordinates_transformed(),
-                    )
-                }
-                #[test]
-                fn size() {
-                    assert_eq!(
-                        std::mem::size_of::<$element::<AlmansiHamel>>(),
-                        std::mem::size_of::<[AlmansiHamel; G]>()
-                            + std::mem::size_of::<GradientVectors<G, N>>()
-                            + std::mem::size_of::<Scalars<G>>()
-                    )
                 }
                 mod deformation_gradient {
                     use super::*;
@@ -362,19 +462,11 @@ macro_rules! test_finite_element {
         }
     };
 }
-pub(crate) use test_finite_element;
+pub(crate) use test_finite_element_inner;
 
 macro_rules! test_nodal_forces_and_nodal_stiffnesses {
     ($element: ident, $constitutive_model: ident, $constitutive_model_parameters: ident) => {
-        fn get_element<'a>() -> $element<$constitutive_model<'a>> {
-            $element::new($constitutive_model_parameters, get_reference_coordinates())
-        }
-        fn get_element_transformed<'a>() -> $element<$constitutive_model<'a>> {
-            $element::<$constitutive_model>::new(
-                $constitutive_model_parameters,
-                reference_coordinates_transformed(),
-            )
-        }
+        setup_constitutive!($constitutive_model, $constitutive_model_parameters);
         mod nodal_forces {
             use super::*;
             mod deformed {
