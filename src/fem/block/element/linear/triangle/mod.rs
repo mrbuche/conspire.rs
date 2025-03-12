@@ -329,9 +329,6 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
     ) -> Result<NodalStiffnesses<N>, ConstitutiveError> {
-        //
-        // Does this simplify for hyperelastic models?
-        //
         Ok(self
             .constitutive_models()
             .iter()
@@ -469,9 +466,6 @@ where
         nodal_coordinates: &NodalCoordinates<N>,
         nodal_velocities: &NodalVelocities<N>,
     ) -> Result<NodalStiffnesses<N>, ConstitutiveError> {
-        //
-        // Does this simplify for hyperviscoelastic models?
-        //
         Ok(self
             .constitutive_models()
             .iter()
