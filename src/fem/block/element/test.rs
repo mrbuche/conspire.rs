@@ -109,9 +109,9 @@ macro_rules! test_surface_finite_element {
             }
         }
         crate::fem::block::element::test::test_finite_element_inner!($element);
+        use crate::math::test::{assert_eq_within_tols, TestError};
         mod basis
         {
-            use crate::math::test::{assert_eq_within_tols, TestError};
             use super::*;
             mod deformed
             {
@@ -119,7 +119,6 @@ macro_rules! test_surface_finite_element {
                 #[test]
                 fn objectivity() -> Result<(), TestError>
                 {
-                    // assert_eq_within_tols(
                     $element::<AlmansiHamel>::bases(&coordinates_transformed()).iter()
                     .zip($element::<AlmansiHamel>::bases(&coordinates()).iter())
                     .try_for_each(|(basis_transformed, basis)|
@@ -131,32 +130,27 @@ macro_rules! test_surface_finite_element {
                             )
                         )
                     )
-                    // get_basis(true, false).iter()
-                    // .zip(get_basis(true, true).iter())
-                    // .try_for_each(|(basis_m, res_basis_m)|
-                    //     assert_eq_within_tols(
-                    //         basis_m,
-                    //         &(get_rotation_current_configuration().transpose() * res_basis_m)
-                    //     )
-                    // )
                 }
             }
-            // mod undeformed
-            // {
-            //     use super::*;
-            //     #[test]
-            //     fn objectivity() -> Result<(), TestError>
-            //     {
-            //         get_basis(false, false).iter()
-            //         .zip(get_basis(false, true).iter())
-            //         .try_for_each(|(basis_m, res_basis_m)|
-            //             assert_eq_within_tols(
-            //                 &basis_m.convert(),
-            //                 &(get_rotation_reference_configuration().transpose() * res_basis_m.convert())
-            //             )
-            //         )
-            //     }
-            // }
+            mod undeformed
+            {
+                use super::*;
+                #[test]
+                fn objectivity() -> Result<(), TestError>
+                {
+                    $element::<AlmansiHamel>::bases(&reference_coordinates_transformed()).iter()
+                    .zip($element::<AlmansiHamel>::bases(&get_reference_coordinates()).iter())
+                    .try_for_each(|(basis_transformed, basis)|
+                        basis_transformed.iter().zip(basis.iter())
+                        .try_for_each(|(basis_transformed_m, basis_m)|
+                            assert_eq_within_tols(
+                                &(get_rotation_reference_configuration().transpose() * basis_transformed_m),
+                                basis_m,
+                            )
+                        )
+                    )
+                }
+            }
         }
     }
 }
