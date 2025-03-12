@@ -120,7 +120,7 @@ where
 pub trait ElasticFiniteElement<'a, C, const G: usize, const N: usize>
 where
     C: Elastic<'a>,
-    Self: FiniteElement<'a, C, G, N>,
+    Self: FiniteElementMethods<'a, C, G, N>,
 {
     fn nodal_forces(
         &self,
@@ -146,7 +146,7 @@ where
 pub trait ViscoelasticFiniteElement<'a, C, const G: usize, const N: usize>
 where
     C: Viscoelastic<'a>,
-    Self: FiniteElement<'a, C, G, N>,
+    Self: FiniteElementMethods<'a, C, G, N>,
 {
     fn nodal_forces(
         &self,

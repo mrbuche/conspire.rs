@@ -8,7 +8,7 @@ pub use block::{
         linear::tetrahedron::Tetrahedron as LinearTetrahedron, ElasticFiniteElement, FiniteElement,
         HyperelasticFiniteElement, HyperviscoelasticFiniteElement, ViscoelasticFiniteElement,
     },
-     ElementBlock, ElasticFiniteElementBlock,
+    ElementBlock, ElasticFiniteElementBlock,
     HyperelasticFiniteElementBlock, HyperviscoelasticFiniteElementBlock,
     ViscoelasticFiniteElementBlock,
 };

@@ -341,7 +341,7 @@ where
 }
 
 impl<'a, C>
-    ElasticFiniteElement<'a, C, N> for Triangle<C>
+    ElasticFiniteElement<'a, C, G, N> for Triangle<C>
 where
     C: Elastic<'a>,
 {
@@ -443,7 +443,7 @@ where
 }
 
 impl<'a, C>
-    HyperelasticFiniteElement<'a, C, N> for Triangle<C>
+    HyperelasticFiniteElement<'a, C, G, N> for Triangle<C>
 where
     C: Hyperelastic<'a>,
 {
@@ -471,7 +471,7 @@ where
 }
 
 impl<'a, C>
-    ViscoelasticFiniteElement<'a, C, N> for Triangle<C>
+    ViscoelasticFiniteElement<'a, C, G, N> for Triangle<C>
 where
     C: Viscoelastic<'a>,
 {
@@ -585,7 +585,7 @@ where
 }
 
 impl<'a, C>
-    ElasticHyperviscousFiniteElement<'a, C, N> for Triangle<C>
+    ElasticHyperviscousFiniteElement<'a, C, G, N> for Triangle<C>
 where
     C: ElasticHyperviscous<'a>,
 {
@@ -644,7 +644,7 @@ where
 }
 
 impl<'a, C>
-    HyperviscoelasticFiniteElement<'a, C, N> for Triangle<C>
+    HyperviscoelasticFiniteElement<'a, C, G, N> for Triangle<C>
 where
     C: Hyperviscoelastic<'a>,
 {
