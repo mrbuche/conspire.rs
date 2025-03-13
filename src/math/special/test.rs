@@ -1,15 +1,7 @@
-use super::{inverse_langevin, langevin};
-use crate::math::test::{assert_eq_within_tols, TestError};
+use super::{inverse_langevin, lambert_w, langevin, E};
+use crate::math::test::{assert_eq, assert_eq_within_tols, TestError};
 
 const LENGTH: usize = 10_000;
-
-mod langevin {
-    use super::*;
-    #[test]
-    fn zero() {
-        assert_eq!(langevin(0.0), 0.0)
-    }
-}
 
 mod inverse_langevin {
     use super::*;
@@ -33,7 +25,43 @@ mod inverse_langevin {
         })
     }
     #[test]
-    fn zero() {
-        assert_eq!(inverse_langevin(0.0), 0.0)
+    fn zero() -> Result<(), TestError> {
+        assert_eq(&inverse_langevin(0.0), &0.0)
+    }
+}
+
+mod lambert_w {
+    use super::*;
+    #[test]
+    fn end() -> Result<(), TestError> {
+        assert_eq(&lambert_w(-1.0 / E), &-1.0)
+    }
+    #[test]
+    fn euler() -> Result<(), TestError> {
+        assert_eq(&1.0_f64.exp(), &E)?;
+        assert_eq(&lambert_w(E), &1.0)
+    }
+    #[test]
+    fn range() -> Result<(), TestError> {
+        let mut x = -1.0 / E;
+        let dx = (6.0 - x) / ((LENGTH + 1) as f64);
+        let mut w = 0.0;
+        (0..LENGTH).try_for_each(|_| {
+            x += dx;
+            w = lambert_w(x);
+            assert_eq_within_tols(&(w * w.exp()), &x)
+        })
+    }
+    #[test]
+    fn zero() -> Result<(), TestError> {
+        assert_eq(&lambert_w(0.0), &0.0)
+    }
+}
+
+mod langevin {
+    use super::*;
+    #[test]
+    fn zero() -> Result<(), TestError> {
+        assert_eq(&langevin(0.0), &0.0)
     }
 }
