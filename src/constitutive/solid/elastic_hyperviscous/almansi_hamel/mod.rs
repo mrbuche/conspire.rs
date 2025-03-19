@@ -60,29 +60,21 @@ impl<'a> Viscoelastic<'a> for AlmansiHamel<'a> {
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate: &DeformationGradientRate,
     ) -> Result<CauchyStress, ConstitutiveError> {
-        let jacobian = deformation_gradient.determinant();
-        if jacobian > 0.0 {
-            let inverse_deformation_gradient = deformation_gradient.inverse();
-            let strain = (IDENTITY
-                - inverse_deformation_gradient.transpose() * &inverse_deformation_gradient)
-                * 0.5;
-            let (deviatoric_strain, strain_trace) = strain.deviatoric_and_trace();
-            let velocity_gradient = deformation_gradient_rate * inverse_deformation_gradient;
-            let strain_rate = (&velocity_gradient + velocity_gradient.transpose()) * 0.5;
-            let (deviatoric_strain_rate, strain_rate_trace) = strain_rate.deviatoric_and_trace();
-            Ok(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
-                + deviatoric_strain_rate * (2.0 * self.shear_viscosity() / jacobian)
-                + IDENTITY
-                    * ((self.bulk_modulus() * strain_trace
-                        + self.bulk_viscosity() * strain_rate_trace)
-                        / jacobian))
-        } else {
-            Err(ConstitutiveError::InvalidJacobian(
-                jacobian,
-                deformation_gradient.clone(),
-                format!("{:?}", &self),
-            ))
-        }
+        let jacobian = self.jacobian(deformation_gradient)?;
+        let inverse_deformation_gradient = deformation_gradient.inverse();
+        let strain = (IDENTITY
+            - inverse_deformation_gradient.transpose() * &inverse_deformation_gradient)
+            * 0.5;
+        let (deviatoric_strain, strain_trace) = strain.deviatoric_and_trace();
+        let velocity_gradient = deformation_gradient_rate * inverse_deformation_gradient;
+        let strain_rate = (&velocity_gradient + velocity_gradient.transpose()) * 0.5;
+        let (deviatoric_strain_rate, strain_rate_trace) = strain_rate.deviatoric_and_trace();
+        Ok(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
+            + deviatoric_strain_rate * (2.0 * self.shear_viscosity() / jacobian)
+            + IDENTITY
+                * ((self.bulk_modulus() * strain_trace
+                    + self.bulk_viscosity() * strain_rate_trace)
+                    / jacobian))
     }
     /// Calculates and returns the rate tangent stiffness associated with the Cauchy stress.
     ///
@@ -94,29 +86,21 @@ impl<'a> Viscoelastic<'a> for AlmansiHamel<'a> {
         deformation_gradient: &DeformationGradient,
         _: &DeformationGradientRate,
     ) -> Result<CauchyRateTangentStiffness, ConstitutiveError> {
-        let jacobian = deformation_gradient.determinant();
-        if jacobian > 0.0 {
-            let deformation_gradient_inverse_transpose = deformation_gradient.inverse_transpose();
-            let scaled_deformation_gradient_inverse_transpose =
-                &deformation_gradient_inverse_transpose * self.shear_viscosity() / jacobian;
-            Ok(CauchyRateTangentStiffness::dyad_ik_jl(
-                &IDENTITY,
-                &scaled_deformation_gradient_inverse_transpose,
-            ) + CauchyRateTangentStiffness::dyad_il_jk(
-                &scaled_deformation_gradient_inverse_transpose,
-                &IDENTITY,
-            ) + CauchyRateTangentStiffness::dyad_ij_kl(
-                &(IDENTITY
-                    * ((self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity()) / jacobian)),
-                &deformation_gradient_inverse_transpose,
-            ))
-        } else {
-            Err(ConstitutiveError::InvalidJacobian(
-                jacobian,
-                deformation_gradient.clone(),
-                format!("{:?}", &self),
-            ))
-        }
+        let jacobian = self.jacobian(deformation_gradient)?;
+        let deformation_gradient_inverse_transpose = deformation_gradient.inverse_transpose();
+        let scaled_deformation_gradient_inverse_transpose =
+            &deformation_gradient_inverse_transpose * self.shear_viscosity() / jacobian;
+        Ok(CauchyRateTangentStiffness::dyad_ik_jl(
+            &IDENTITY,
+            &scaled_deformation_gradient_inverse_transpose,
+        ) + CauchyRateTangentStiffness::dyad_il_jk(
+            &scaled_deformation_gradient_inverse_transpose,
+            &IDENTITY,
+        ) + CauchyRateTangentStiffness::dyad_ij_kl(
+            &(IDENTITY
+                * ((self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity()) / jacobian)),
+            &deformation_gradient_inverse_transpose,
+        ))
     }
 }
 
@@ -131,20 +115,12 @@ impl<'a> ElasticHyperviscous<'a> for AlmansiHamel<'a> {
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate: &DeformationGradientRate,
     ) -> Result<Scalar, ConstitutiveError> {
-        let jacobian = deformation_gradient.determinant();
-        if jacobian > 0.0 {
-            let velocity_gradient = deformation_gradient_rate * deformation_gradient.inverse();
-            let strain_rate = (&velocity_gradient + velocity_gradient.transpose()) * 0.5;
-            Ok(self.shear_viscosity() * strain_rate.squared_trace()
-                + 0.5
-                    * (self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity())
-                    * strain_rate.trace().powi(2))
-        } else {
-            Err(ConstitutiveError::InvalidJacobian(
-                jacobian,
-                deformation_gradient.clone(),
-                format!("{:?}", &self),
-            ))
-        }
+        let _jacobian = self.jacobian(deformation_gradient)?;
+        let velocity_gradient = deformation_gradient_rate * deformation_gradient.inverse();
+        let strain_rate = (&velocity_gradient + velocity_gradient.transpose()) * 0.5;
+        Ok(self.shear_viscosity() * strain_rate.squared_trace()
+            + 0.5
+                * (self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity())
+                * strain_rate.trace().powi(2))
     }
 }

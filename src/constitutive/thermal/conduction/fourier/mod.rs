@@ -15,6 +15,7 @@ use super::{
 ///
 /// **Internal variables**
 /// - None.
+#[derive(Debug)]
 pub struct Fourier<'a> {
     parameters: Parameters<'a>,
 }

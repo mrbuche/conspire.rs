@@ -11,12 +11,17 @@ use crate::mechanics::{
 };
 
 /// A thermoelastic-thermal conduction constitutive model.
+#[derive(Debug)]
 pub struct ThermoelasticThermalConduction<C1, C2> {
     thermoelastic_constitutive_model: C1,
     thermal_conduction_constitutive_model: C2,
 }
 
-impl<'a, C1, C2> Constitutive<'a> for ThermoelasticThermalConduction<C1, C2> {
+impl<'a, C1, C2> Constitutive<'a> for ThermoelasticThermalConduction<C1, C2>
+where
+    C1: Constitutive<'a>,
+    C2: Constitutive<'a>,
+{
     /// Dummy method that will panic, use [Self::construct()] instead.
     fn new(_parameters: Parameters<'a>) -> Self {
         panic!()
@@ -98,7 +103,12 @@ where
     }
 }
 
-impl<C1, C2> Thermal<'_> for ThermoelasticThermalConduction<C1, C2> {}
+impl<'a, C1, C2> Thermal<'a> for ThermoelasticThermalConduction<C1, C2>
+where
+    C1: Constitutive<'a>,
+    C2: Constitutive<'a>,
+{
+}
 
 impl<'a, C1, C2> ThermalConduction<'a> for ThermoelasticThermalConduction<C1, C2>
 where
@@ -111,7 +121,12 @@ where
     }
 }
 
-impl<C1, C2> Multiphysics<'_> for ThermoelasticThermalConduction<C1, C2> {}
+impl<'a, C1, C2> Multiphysics<'a> for ThermoelasticThermalConduction<C1, C2>
+where
+    C1: Constitutive<'a>,
+    C2: Constitutive<'a>,
+{
+}
 
 impl<'a, C1, C2> SolidThermal<'a, C1, C2> for ThermoelasticThermalConduction<C1, C2>
 where

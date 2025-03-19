@@ -3,10 +3,106 @@
 #[cfg(test)]
 pub mod test;
 
-use crate::math::{
-    TensorRank0, TensorRank0List, TensorRank1, TensorRank1List, TensorRank1List2D, TensorRank2,
-    TensorRank2List, TensorRank2List2D, TensorRank4, TensorRank4List,
+use crate::{
+    defeat_message,
+    math::{
+        Rank2, Tensor, TensorRank0, TensorRank0List, TensorRank1, TensorRank1List,
+        TensorRank1List2D, TensorRank2, TensorRank2List, TensorRank2List2D, TensorRank4,
+        TensorRank4List,
+    },
 };
+use std::fmt;
+
+/// Possible errors for deformation gradients.
+pub enum DeformationError {
+    InvalidJacobian(Scalar, DeformationGradient),
+}
+
+impl fmt::Debug for DeformationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let error = match self {
+            Self::InvalidJacobian(jacobian, deformation_gradient) => {
+                format!(
+                    "\x1b[1;91mInvalid Jacobian: {:.6e}.\x1b[0;91m\n\
+                     From deformation gradient: {}.",
+                    jacobian, deformation_gradient
+                )
+            }
+        };
+        write!(f, "\n{}\n\x1b[0;2;31m{}\x1b[0m\n", error, defeat_message())
+    }
+}
+
+impl fmt::Display for DeformationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let error = match self {
+            Self::InvalidJacobian(jacobian, deformation_gradient) => {
+                format!(
+                    "\x1b[1;91mInvalid Jacobian: {:.6e}.\x1b[0;91m\n\
+                     From deformation gradient: {}.",
+                    jacobian, deformation_gradient
+                )
+            }
+        };
+        write!(f, "\n{}\n\x1b[0;2;31m{}\x1b[0m\n", error, defeat_message())
+    }
+}
+
+/// Methods for deformation gradients.
+pub trait Deformation {
+    /// Calculates and returns the Jacobian.
+    ///
+    /// ```math
+    /// J = \mathrm{det}(\mathbf{F})
+    /// ```
+    fn jacobian(&self) -> Result<Scalar, DeformationError>;
+    /// Calculates and returns the left Cauchy-Green deformation.
+    ///
+    /// ```math
+    /// \mathbf{B} = \mathbf{F}\cdot\mathbf{F}^T
+    /// ```
+    fn left_cauchy_green(&self) -> LeftCauchyGreenDeformation;
+    /// Calculates and returns the right Cauchy-Green deformation.
+    ///
+    /// ```math
+    /// \mathbf{C} = \mathbf{F}^T\cdot\mathbf{F}
+    /// ```
+    fn right_cauchy_green(&self) -> RightCauchyGreenDeformation;
+}
+
+impl Deformation for DeformationGradient {
+    fn jacobian(&self) -> Result<Scalar, DeformationError> {
+        let jacobian = self.determinant();
+        if jacobian > 0.0 {
+            Ok(jacobian)
+        } else {
+            Err(DeformationError::InvalidJacobian(jacobian, self.clone()))
+        }
+    }
+    fn left_cauchy_green(&self) -> LeftCauchyGreenDeformation {
+        self.iter()
+            .map(|deformation_gradient_i| {
+                self.iter()
+                    .map(|deformation_gradient_j| deformation_gradient_i * deformation_gradient_j)
+                    .collect()
+            })
+            .collect()
+    }
+    fn right_cauchy_green(&self) -> RightCauchyGreenDeformation {
+        let deformation_gradient_transpose = self.transpose();
+        deformation_gradient_transpose
+            .iter()
+            .map(|deformation_gradient_transpose_i| {
+                deformation_gradient_transpose
+                    .iter()
+                    .map(|deformation_gradient_transpose_j| {
+                        deformation_gradient_transpose_i * deformation_gradient_transpose_j
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+}
 
 /// The Cauchy stress $`\boldsymbol{\sigma}`$.
 pub type CauchyStress = TensorRank2<3, 1, 1>;

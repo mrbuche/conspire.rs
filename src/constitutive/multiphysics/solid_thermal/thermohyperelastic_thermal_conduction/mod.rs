@@ -17,7 +17,11 @@ pub struct ThermohyperelasticThermalConduction<C1, C2> {
     thermal_conduction_constitutive_model: C2,
 }
 
-impl<'a, C1, C2> Constitutive<'a> for ThermohyperelasticThermalConduction<C1, C2> {
+impl<'a, C1, C2> Constitutive<'a> for ThermohyperelasticThermalConduction<C1, C2>
+where
+    C1: Constitutive<'a>,
+    C2: Constitutive<'a>,
+{
     /// Dummy method that will panic, use [Self::construct()] instead.
     fn new(_parameters: Parameters<'a>) -> Self {
         panic!()
@@ -114,7 +118,12 @@ where
     }
 }
 
-impl<C1, C2> Thermal<'_> for ThermohyperelasticThermalConduction<C1, C2> {}
+impl<'a, C1, C2> Thermal<'a> for ThermohyperelasticThermalConduction<C1, C2>
+where
+    C1: Constitutive<'a>,
+    C2: Constitutive<'a>,
+{
+}
 
 impl<'a, C1, C2> ThermalConduction<'a> for ThermohyperelasticThermalConduction<C1, C2>
 where
@@ -127,7 +136,12 @@ where
     }
 }
 
-impl<C1, C2> Multiphysics<'_> for ThermohyperelasticThermalConduction<C1, C2> {}
+impl<'a, C1, C2> Multiphysics<'a> for ThermohyperelasticThermalConduction<C1, C2>
+where
+    C1: Constitutive<'a>,
+    C2: Constitutive<'a>,
+{
+}
 
 impl<'a, C1, C2> SolidThermal<'a, C1, C2> for ThermohyperelasticThermalConduction<C1, C2>
 where
