@@ -43,91 +43,71 @@ impl<'a> Elastic<'a> for Yeoh<'a> {
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<CauchyStress, ConstitutiveError> {
-        let jacobian = deformation_gradient.determinant();
-        if jacobian > 0.0 {
-            let (deviatoric_left_cauchy_green_deformation, left_cauchy_green_deformation_trace) =
-                self.left_cauchy_green_deformation(deformation_gradient)
-                    .deviatoric_and_trace();
-            let scalar_term = left_cauchy_green_deformation_trace / jacobian.powf(TWO_THIRDS) - 3.0;
-            Ok(deviatoric_left_cauchy_green_deformation
-                * self
-                    .moduli()
-                    .iter()
-                    .enumerate()
-                    .map(|(n, modulus)| {
-                        ((n as Scalar) + 1.0) * modulus * scalar_term.powi(n as i32)
-                    })
-                    .sum::<Scalar>()
-                / jacobian.powf(FIVE_THIRDS)
-                + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
-        } else {
-            Err(ConstitutiveError::InvalidJacobian(
-                jacobian,
-                deformation_gradient.clone(),
-                format!("{:?}", &self),
-            ))
-        }
+        let jacobian = self.jacobian(deformation_gradient)?;
+        let (deviatoric_left_cauchy_green_deformation, left_cauchy_green_deformation_trace) =
+            deformation_gradient
+                .left_cauchy_green()
+                .deviatoric_and_trace();
+        let scalar_term = left_cauchy_green_deformation_trace / jacobian.powf(TWO_THIRDS) - 3.0;
+        Ok(deviatoric_left_cauchy_green_deformation
+            * self
+                .moduli()
+                .iter()
+                .enumerate()
+                .map(|(n, modulus)| ((n as Scalar) + 1.0) * modulus * scalar_term.powi(n as i32))
+                .sum::<Scalar>()
+            / jacobian.powf(FIVE_THIRDS)
+            + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
     fn cauchy_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
-        let jacobian = deformation_gradient.determinant();
-        if jacobian > 0.0 {
-            let inverse_transpose_deformation_gradient = deformation_gradient.inverse_transpose();
-            let left_cauchy_green_deformation =
-                self.left_cauchy_green_deformation(deformation_gradient);
-            let scalar_term =
-                left_cauchy_green_deformation.trace() / jacobian.powf(TWO_THIRDS) - 3.0;
-            let scaled_modulus = self
-                .moduli()
-                .iter()
-                .enumerate()
-                .map(|(n, modulus)| ((n as Scalar) + 1.0) * modulus * scalar_term.powi(n as i32))
-                .sum::<Scalar>()
-                / jacobian.powf(FIVE_THIRDS);
-            let deviatoric_left_cauchy_green_deformation =
-                left_cauchy_green_deformation.deviatoric();
-            let last_term = CauchyTangentStiffness::dyad_ij_kl(
-                &deviatoric_left_cauchy_green_deformation,
-                &((left_cauchy_green_deformation.deviatoric()
-                    * &inverse_transpose_deformation_gradient)
-                    * (2.0
-                        * self
-                            .extra_moduli()
-                            .iter()
-                            .enumerate()
-                            .map(|(n, modulus)| {
-                                ((n as Scalar) + 2.0)
-                                    * ((n as Scalar) + 1.0)
-                                    * modulus
-                                    * scalar_term.powi(n as i32)
-                            })
-                            .sum::<Scalar>()
-                        / jacobian.powf(SEVEN_THIRDS))),
-            );
-            Ok(
-                (CauchyTangentStiffness::dyad_ik_jl(&IDENTITY, deformation_gradient)
-                    + CauchyTangentStiffness::dyad_il_jk(deformation_gradient, &IDENTITY)
-                    - CauchyTangentStiffness::dyad_ij_kl(&IDENTITY, deformation_gradient)
-                        * (TWO_THIRDS))
-                    * scaled_modulus
-                    + CauchyTangentStiffness::dyad_ij_kl(
-                        &(IDENTITY * (0.5 * self.bulk_modulus() * (jacobian + 1.0 / jacobian))
-                            - deviatoric_left_cauchy_green_deformation
-                                * (scaled_modulus * FIVE_THIRDS)),
-                        &inverse_transpose_deformation_gradient,
-                    )
-                    + last_term,
-            )
-        } else {
-            Err(ConstitutiveError::InvalidJacobian(
-                jacobian,
-                deformation_gradient.clone(),
-                format!("{:?}", &self),
-            ))
-        }
+        let jacobian = self.jacobian(deformation_gradient)?;
+        let inverse_transpose_deformation_gradient = deformation_gradient.inverse_transpose();
+        let left_cauchy_green_deformation = deformation_gradient.left_cauchy_green();
+        let scalar_term = left_cauchy_green_deformation.trace() / jacobian.powf(TWO_THIRDS) - 3.0;
+        let scaled_modulus = self
+            .moduli()
+            .iter()
+            .enumerate()
+            .map(|(n, modulus)| ((n as Scalar) + 1.0) * modulus * scalar_term.powi(n as i32))
+            .sum::<Scalar>()
+            / jacobian.powf(FIVE_THIRDS);
+        let deviatoric_left_cauchy_green_deformation = left_cauchy_green_deformation.deviatoric();
+        let last_term = CauchyTangentStiffness::dyad_ij_kl(
+            &deviatoric_left_cauchy_green_deformation,
+            &((left_cauchy_green_deformation.deviatoric()
+                * &inverse_transpose_deformation_gradient)
+                * (2.0
+                    * self
+                        .extra_moduli()
+                        .iter()
+                        .enumerate()
+                        .map(|(n, modulus)| {
+                            ((n as Scalar) + 2.0)
+                                * ((n as Scalar) + 1.0)
+                                * modulus
+                                * scalar_term.powi(n as i32)
+                        })
+                        .sum::<Scalar>()
+                    / jacobian.powf(SEVEN_THIRDS))),
+        );
+        Ok(
+            (CauchyTangentStiffness::dyad_ik_jl(&IDENTITY, deformation_gradient)
+                + CauchyTangentStiffness::dyad_il_jk(deformation_gradient, &IDENTITY)
+                - CauchyTangentStiffness::dyad_ij_kl(&IDENTITY, deformation_gradient)
+                    * (TWO_THIRDS))
+                * scaled_modulus
+                + CauchyTangentStiffness::dyad_ij_kl(
+                    &(IDENTITY * (0.5 * self.bulk_modulus() * (jacobian + 1.0 / jacobian))
+                        - deviatoric_left_cauchy_green_deformation
+                            * (scaled_modulus * FIVE_THIRDS)),
+                    &inverse_transpose_deformation_gradient,
+                )
+                + last_term,
+        )
     }
 }
 
@@ -137,27 +117,16 @@ impl<'a> Hyperelastic<'a> for Yeoh<'a> {
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<Scalar, ConstitutiveError> {
-        let jacobian = deformation_gradient.determinant();
-        if jacobian > 0.0 {
-            let scalar_term = self
-                .left_cauchy_green_deformation(deformation_gradient)
-                .trace()
-                / jacobian.powf(TWO_THIRDS)
-                - 3.0;
-            Ok(0.5
-                * (self
-                    .moduli()
-                    .iter()
-                    .enumerate()
-                    .map(|(n, modulus)| modulus * scalar_term.powi((n + 1) as i32))
-                    .sum::<Scalar>()
-                    + self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
-        } else {
-            Err(ConstitutiveError::InvalidJacobian(
-                jacobian,
-                deformation_gradient.clone(),
-                format!("{:?}", &self),
-            ))
-        }
+        let jacobian = self.jacobian(deformation_gradient)?;
+        let scalar_term =
+            deformation_gradient.left_cauchy_green().trace() / jacobian.powf(TWO_THIRDS) - 3.0;
+        Ok(0.5
+            * (self
+                .moduli()
+                .iter()
+                .enumerate()
+                .map(|(n, modulus)| modulus * scalar_term.powi((n + 1) as i32))
+                .sum::<Scalar>()
+                + self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
     }
 }

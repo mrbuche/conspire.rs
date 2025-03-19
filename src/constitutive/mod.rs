@@ -12,7 +12,7 @@ pub mod thermal;
 use crate::{
     defeat_message,
     math::optimize::OptimizeError,
-    mechanics::{DeformationGradient, Scalar},
+    mechanics::{Deformation, DeformationError, DeformationGradient, Scalar},
 };
 use std::fmt;
 
@@ -20,7 +20,26 @@ use std::fmt;
 pub type Parameters<'a> = &'a [Scalar];
 
 /// Required methods for constitutive models.
-pub trait Constitutive<'a> {
+pub trait Constitutive<'a>
+where
+    Self: fmt::Debug,
+{
+    /// Calculates and returns the Jacobian.
+    fn jacobian(
+        &self,
+        deformation_gradient: &DeformationGradient,
+    ) -> Result<Scalar, ConstitutiveError> {
+        match deformation_gradient.jacobian() {
+            Err(DeformationError::InvalidJacobian(jacobian, deformation_gradient)) => {
+                Err(ConstitutiveError::InvalidJacobian(
+                    jacobian,
+                    deformation_gradient,
+                    format!("{:?}", self),
+                ))
+            }
+            Ok(jacobian) => Ok(jacobian),
+        }
+    }
     /// Constructs and returns a new constitutive model.
     fn new(parameters: Parameters<'a>) -> Self;
 }
@@ -57,8 +76,8 @@ impl fmt::Debug for ConstitutiveError {
             Self::InvalidJacobian(jacobian, deformation_gradient, constitutive_model) => {
                 format!(
                     "\x1b[1;91mInvalid Jacobian: {:.6e}.\x1b[0;91m\n\
-                     From deformation gradient: {}.\n\
-                     In constitutive model: {}.",
+                    From deformation gradient: {}.\n\
+                    In constitutive model: {}.",
                     jacobian, deformation_gradient, constitutive_model
                 )
             }
@@ -93,8 +112,8 @@ impl fmt::Display for ConstitutiveError {
             Self::InvalidJacobian(jacobian, deformation_gradient, constitutive_model) => {
                 format!(
                     "\x1b[1;91mInvalid Jacobian: {:.6e}.\x1b[0;91m\n\
-                     From deformation gradient: {}.\n\
-                     In constitutive model: {}.",
+                    From deformation gradient: {}.\n\
+                    In constitutive model: {}.",
                     jacobian, deformation_gradient, constitutive_model
                 )
             }
@@ -113,7 +132,7 @@ impl fmt::Display for ConstitutiveError {
                 )
             }
         };
-        write!(f, "{}\x1b[0m", error)
+        write!(f, "\n{}\n\x1b[0;2;31m{}\x1b[0m\n", error, defeat_message())
     }
 }
 

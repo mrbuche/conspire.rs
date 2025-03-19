@@ -80,10 +80,11 @@ where
     ) -> Self {
         let integration_weights = Self::bases(&reference_nodal_coordinates)
             .iter()
-            .map(|reference_basis|
-            reference_basis[0]
-                .cross(&reference_basis[1])
-                .norm() * Self::integration_weight() * thickness)
+            .map(|reference_basis| {
+                reference_basis[0].cross(&reference_basis[1]).norm()
+                    * Self::integration_weight()
+                    * thickness
+            })
             .collect();
         let reference_dual_bases = Self::dual_bases(&reference_nodal_coordinates);
         let gradient_vectors = Self::standard_gradient_operators()
