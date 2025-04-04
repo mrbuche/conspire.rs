@@ -657,7 +657,7 @@ impl<const D: usize, const I: usize, const J: usize> Rank2 for TensorRank2<D, I,
                     .take(j)
                     .map(|tensor_l_jk| tensor_l_jk.powi(2))
                     .sum::<TensorRank0>();
-            if check < 0.0 {
+            if check < 0.0 || check.is_nan() {
                 Err(TensorError::NotPositiveDefinite)
             } else {
                 tensor_l[j][j] = check.sqrt();

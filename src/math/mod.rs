@@ -56,7 +56,7 @@ pub use tensor::{
 use std::fmt;
 
 fn write_tensor_rank_0(f: &mut fmt::Formatter, tensor_rank_0: &TensorRank0) -> fmt::Result {
-    let num = (tensor_rank_0 * 1e6).round() / 1e6;
+    let num = *tensor_rank_0;
     let num_abs = num.abs();
     if num.is_nan() {
         write!(f, "{:>14}, ", num)
@@ -98,14 +98,11 @@ fn write_tensor_rank_0(f: &mut fmt::Formatter, tensor_rank_0: &TensorRank0) -> f
         c.next();
         let e = c.next().unwrap();
         write!(f, "{}e-00{}", a, e)
-    } else if num_abs <= 1e10 {
+    } else {
         let temp_1 = format!("{:>11.6e}, ", num).to_string();
         let mut temp_2 = temp_1.split("e");
         let a = temp_2.next().unwrap();
         let b = temp_2.next().unwrap();
         write!(f, "{}e+00{}", a, b)
-    } else {
-        println!("{}", num);
-        panic!("\n\n{}\n\n", num)
     }
 }

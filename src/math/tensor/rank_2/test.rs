@@ -1402,3 +1402,12 @@ fn zero_dim_9() {
                 .for_each(|tensor_rank_2_ij| assert_eq!(tensor_rank_2_ij, &0.0))
         });
 }
+
+#[test]
+fn not_positive_definite() {
+    let tensor_error = TensorRank2::<3, 1, 1>::zero()
+        .cholesky_decomposition()
+        .unwrap_err();
+    let _ = format!("{}", tensor_error);
+    let _: TestError = tensor_error.into();
+}

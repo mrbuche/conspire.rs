@@ -1,4 +1,7 @@
-use super::{TensorError, TensorRank0};
+use super::{
+    rank_1::{list::TensorRank1List, TensorRank1},
+    TensorArray, TensorError, TensorRank0,
+};
 use crate::{defeat_message, ABS_TOL, EPSILON, REL_TOL};
 use std::{cmp::PartialEq, fmt};
 
@@ -85,7 +88,51 @@ impl fmt::Debug for TestError {
 }
 
 impl From<TensorError> for TestError {
-    fn from(_error: TensorError) -> TestError {
-        todo!()
+    fn from(error: TensorError) -> TestError {
+        Self {
+            message: error.to_string(),
+        }
     }
+}
+
+#[test]
+#[should_panic(expected = "Assertion `left == right` failed.")]
+fn assert_eq_fail() {
+    assert_eq(&0.0, &1.0).unwrap()
+}
+
+#[test]
+#[should_panic(expected = "Assertion `left ≈= right` failed in 2 places.")]
+fn assert_eq_from_fd_fail() {
+    assert_eq_from_fd(
+        &TensorRank1::<3, 1>::new([1.0, 2.0, 3.0]),
+        &TensorRank1::<3, 1>::new([3.0, 2.0, 1.0]),
+    )
+    .unwrap()
+}
+
+#[test]
+fn assert_eq_from_fd_success() -> Result<(), TestError> {
+    assert_eq_from_fd(
+        &TensorRank1::<3, 1>::new([1.0, 2.0, 3.0]),
+        &TensorRank1::<3, 1>::new([1.0, 2.0, 3.0]),
+    )
+}
+
+#[test]
+fn assert_eq_from_fd_weak() -> Result<(), TestError> {
+    assert_eq_from_fd(
+        &TensorRank1List::<1, 1, 1>::new([[EPSILON * 1.01]]),
+        &TensorRank1List::<1, 1, 1>::new([[EPSILON * 1.02]]),
+    )
+}
+
+#[test]
+#[should_panic(expected = "Assertion `left ≈= right` failed in 2 places.")]
+fn assert_eq_within_tols_fail() {
+    assert_eq_within_tols(
+        &TensorRank1::<3, 1>::new([1.0, 2.0, 3.0]),
+        &TensorRank1::<3, 1>::new([3.0, 2.0, 1.0]),
+    )
+    .unwrap()
 }

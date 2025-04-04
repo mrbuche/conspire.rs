@@ -97,12 +97,6 @@ pub enum IntegrationError {
     LengthTimeLessThanTwo,
 }
 
-impl From<&str> for IntegrationError {
-    fn from(string: &str) -> Self {
-        todo!("{}", string)
-    }
-}
-
 impl fmt::Debug for IntegrationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let error = match self {

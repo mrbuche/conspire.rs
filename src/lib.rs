@@ -1,3 +1,4 @@
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![doc = include_str!("../README.md")]
 
 #[cfg(feature = "constitutive")]
@@ -23,6 +24,7 @@ pub const REL_TOL: f64 = 1e-12;
 pub const EPSILON: f64 = 1e-6;
 
 #[allow(dead_code)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 fn defeat_message<'a>() -> &'a str {
     match random_number() {
         0 => "Game over.",
@@ -41,6 +43,7 @@ fn defeat_message<'a>() -> &'a str {
 }
 
 #[allow(dead_code)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 fn victory_message<'a>() -> &'a str {
     match random_number() {
         0 => "Bird up!",
