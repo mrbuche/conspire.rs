@@ -5,7 +5,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
 jobs:
-  Cargo:
+  Checks:
     strategy:
       fail-fast: false
       matrix:
@@ -34,19 +34,22 @@ jobs:
       - name: Test
         run: cargo test --release --features ${{ matrix.features }}
       - name: Tree
-        if: matrix.os == 'ubuntu-latest'
         run: $([[ $(cargo tree --color always --edges normal --features ${{ matrix.features }} | wc -l) -eq 1 ]])
   Coverage:
+    strategy:
+      fail-fast: false
+      matrix:
+        features: [math, mechanics, constitutive, fem]
     runs-on: ubuntu-latest
     steps:
       - name: checkout
         uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly
       - uses: taiki-e/install-action@cargo-llvm-cov
       - name: llvm-cov
-        run: rustup run nightly cargo llvm-cov --profile release --features math --cobertura --output-path coverage.xml
+        run: rustup run nightly cargo llvm-cov --profile release --features ${{ matrix.features }} --cobertura --output-path coverage.xml
       - name: report
         uses: insightsengineering/coverage-action@v2
         with:
