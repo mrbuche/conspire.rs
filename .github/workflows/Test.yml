@@ -33,9 +33,6 @@ jobs:
         run: cargo clippy --release --features ${{ matrix.features }} --tests -- -D warnings
       - name: Test
         run: cargo test --release --features ${{ matrix.features }}
-      - name: Tree
-        if: matrix.os == 'ubuntu-latest'
-        run: $([[ $(cargo tree --color always --edges normal --features ${{ matrix.features }} | wc -l) -eq 1 ]])
   Coverage:
     strategy:
       fail-fast: false
@@ -45,11 +42,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+      - name: Toolchain
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
-      - uses: taiki-e/install-action@cargo-llvm-cov
       - name: LLVM-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Coverage
         run: rustup run nightly cargo llvm-cov --profile release --features ${{ matrix.features }} --cobertura --output-path coverage_${{ matrix.features }}.xml
       - name: Report
         uses: insightsengineering/coverage-action@v2
@@ -59,3 +58,5 @@ jobs:
           path: coverage_${{ matrix.features }}.xml
           publish: true
           togglable-report: true
+      - name: Tree
+        run: $([[ $(cargo tree --color always --edges normal --features ${{ matrix.features }} | wc -l) -eq 1 ]])

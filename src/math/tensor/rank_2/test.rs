@@ -52,6 +52,10 @@ fn get_tensor_rank_2_dim_2() -> TensorRank2<2, 1, 1> {
     TensorRank2::new(get_array_dim_2())
 }
 
+fn get_tensor_rank_2<const I: usize, const J: usize>() -> TensorRank2<3, I, J> {
+    TensorRank2::new(get_array_dim_3())
+}
+
 fn get_tensor_rank_2_dim_3() -> TensorRank2<3, 1, 1> {
     TensorRank2::new(get_array_dim_3())
 }
@@ -597,6 +601,42 @@ fn from_iter() {
                 .zip(value_i.iter())
                 .for_each(|(tensor_rank_2_ij, value_ij)| assert_eq!(tensor_rank_2_ij, value_ij))
         });
+}
+
+#[test]
+fn from_0_0_for_1_0() -> Result<(), TestError> {
+    let tensor: TensorRank2<3, 1, 0> = get_tensor_rank_2::<0, 0>().into();
+    assert_eq(&get_tensor_rank_2::<1, 0>(), &tensor)
+}
+
+#[test]
+fn from_0_0_for_1_1() -> Result<(), TestError> {
+    let tensor: TensorRank2<3, 1, 1> = get_tensor_rank_2::<0, 0>().into();
+    assert_eq(&get_tensor_rank_2::<1, 1>(), &tensor)
+}
+
+#[test]
+fn from_0_1_for_0_0() -> Result<(), TestError> {
+    let tensor: TensorRank2<3, 0, 0> = get_tensor_rank_2::<0, 1>().into();
+    assert_eq(&get_tensor_rank_2::<0, 0>(), &tensor)
+}
+
+#[test]
+fn from_1_0_for_0_0() -> Result<(), TestError> {
+    let tensor: TensorRank2<3, 0, 0> = get_tensor_rank_2::<1, 0>().into();
+    assert_eq(&get_tensor_rank_2::<0, 0>(), &tensor)
+}
+
+#[test]
+fn from_1_1_for_1_0() -> Result<(), TestError> {
+    let tensor: TensorRank2<3, 1, 0> = get_tensor_rank_2::<1, 1>().into();
+    assert_eq(&get_tensor_rank_2::<1, 0>(), &tensor)
+}
+
+#[test]
+fn from_1_2_for_1_0() -> Result<(), TestError> {
+    let tensor: TensorRank2<3, 1, 0> = get_tensor_rank_2::<1, 2>().into();
+    assert_eq(&get_tensor_rank_2::<1, 0>(), &tensor)
 }
 
 #[test]
