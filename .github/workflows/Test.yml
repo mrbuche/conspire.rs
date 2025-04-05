@@ -42,16 +42,17 @@ jobs:
         features: [math, mechanics, constitutive, fem]
     runs-on: ubuntu-latest
     steps:
-      - name: checkout
+      - name: Checkout
         uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
       - uses: taiki-e/install-action@cargo-llvm-cov
-      - name: llvm-cov
-        run: rustup run nightly cargo llvm-cov --profile release --features ${{ matrix.features }} --cobertura --output-path coverage.xml
-      - name: report
+      - name: LLVM-cov
+        run: rustup run nightly cargo llvm-cov --profile release --features ${{ matrix.features }} --cobertura --output-path coverage_${{ matrix.features }}.xml
+      - name: Report
         uses: insightsengineering/coverage-action@v2
         with:
           fail: false
+          path: coverage_${{ matrix.features }}.xml
           publish: true
