@@ -58,3 +58,4 @@ jobs:
           fail: false
           path: coverage_${{ matrix.features }}.xml
           publish: true
+          togglable-report: true
