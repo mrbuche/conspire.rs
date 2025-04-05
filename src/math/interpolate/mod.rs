@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 use super::{Tensor, TensorArray, TensorRank0, TensorVec, Vector};
 use std::ops::{Mul, Sub};
 

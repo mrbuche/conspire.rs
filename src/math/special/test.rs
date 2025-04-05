@@ -42,6 +42,11 @@ mod lambert_w {
         assert_eq(&lambert_w(E), &1.0)
     }
     #[test]
+    #[should_panic]
+    fn panic() {
+        let _ = lambert_w(-10.0);
+    }
+    #[test]
     fn range() -> Result<(), TestError> {
         let mut x = -1.0 / E;
         let dx = (6.0 - x) / ((LENGTH + 1) as f64);

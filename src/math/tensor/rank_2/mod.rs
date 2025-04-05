@@ -25,7 +25,7 @@ use super::{
         TensorRank1,
     },
     rank_4::TensorRank4,
-    Convert, Hessian, Rank2, Tensor, TensorArray, TensorError,
+    Hessian, Rank2, Tensor, TensorArray, TensorError,
 };
 use list_2d::TensorRank2List2D;
 use vec_2d::TensorRank2Vec2D;
@@ -657,7 +657,7 @@ impl<const D: usize, const I: usize, const J: usize> Rank2 for TensorRank2<D, I,
                     .take(j)
                     .map(|tensor_l_jk| tensor_l_jk.powi(2))
                     .sum::<TensorRank0>();
-            if check < 0.0 {
+            if check < 0.0 || check.is_nan() {
                 Err(TensorError::NotPositiveDefinite)
             } else {
                 tensor_l[j][j] = check.sqrt();
@@ -764,16 +764,6 @@ impl<const D: usize, const I: usize, const J: usize> TensorArray for TensorRank2
     }
     fn zero() -> Self {
         Self(from_fn(|_| Self::Item::zero()))
-    }
-}
-
-impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
-    Convert<TensorRank2<D, K, L>> for TensorRank2<D, I, J>
-{
-    fn convert(&self) -> TensorRank2<D, K, L> {
-        self.iter()
-            .map(|self_i| self_i.iter().copied().collect())
-            .collect()
     }
 }
 

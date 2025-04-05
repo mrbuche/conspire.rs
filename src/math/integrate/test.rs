@@ -19,6 +19,18 @@ impl From<IntegrationError> for TestError {
     }
 }
 
+#[test]
+fn debug() {
+    let _ = format!("{:?}", IntegrationError::InitialTimeNotLessThanFinalTime);
+    let _ = format!("{:?}", IntegrationError::LengthTimeLessThanTwo);
+}
+
+#[test]
+fn display() {
+    let _ = format!("{}", IntegrationError::InitialTimeNotLessThanFinalTime);
+    let _ = format!("{}", IntegrationError::LengthTimeLessThanTwo);
+}
+
 macro_rules! test_explicit {
     ($integration: expr) => {
         use super::super::{
@@ -27,7 +39,7 @@ macro_rules! test_explicit {
                 TensorRank2, Vector,
             },
             test::{zero_to_tau, LENGTH},
-            Explicit,
+            Explicit, IntegrationError
         };
         use std::f64::consts::TAU;
         pub const TOLERANCE: TensorRank0 = 5.0 * crate::ABS_TOL;
@@ -35,15 +47,20 @@ macro_rules! test_explicit {
         #[should_panic(expected = "The time must contain at least two entries.")]
         fn initial_time_not_less_than_final_time() {
             let _: (Vector, Vector) = $integration
-                .integrate(|t: &TensorRank0, _: &TensorRank0| t.cos(), &[0.0], 0.0)
+                .integrate(|_: &TensorRank0, _: &TensorRank0| panic!(), &[0.0], 0.0)
                 .unwrap();
+        }
+        #[test]
+        fn into_test_error() {
+            let result: Result<(Vector, Vector), IntegrationError> = $integration.integrate(|_: &TensorRank0, _: &TensorRank0| panic!(), &[0.0], 0.0);
+            let _: TestError = result.unwrap_err().into();
         }
         #[test]
         #[should_panic(expected = "The initial time must precede the final time.")]
         fn length_time_less_than_two() {
             let _: (Vector, Vector) = $integration
                 .integrate(
-                    |t: &TensorRank0, _: &TensorRank0| t.cos(),
+                    |_: &TensorRank0, _: &TensorRank0| panic!(),
                     &[0.0, 1.0, 0.0],
                     0.0,
                 )
@@ -55,7 +72,7 @@ macro_rules! test_explicit {
                 $integration.integrate(|_: &TensorRank0, x: &TensorRank0| -x, &[0.0, 1.0], 1.0)?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
                 assert!(
-                    ((-t).exp() - y).abs() < TOLERANCE || ((-t).exp() / y - 1.0).abs() < TOLERANCE
+                    ((-t).exp() - y).abs() < TOLERANCE // || ((-t).exp() / y - 1.0).abs() < TOLERANCE
                 )
             });
             Ok(())
@@ -69,8 +86,7 @@ macro_rules! test_explicit {
             )?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
                 assert!(
-                    (t.powi(2).exp() - y).abs() < TOLERANCE
-                        || (t.powi(2).exp() / y - 1.0).abs() < TOLERANCE
+                    (t.powi(2).exp() - y).abs() < TOLERANCE // || (t.powi(2).exp() / y - 1.0).abs() < TOLERANCE
                 )
             });
             Ok(())
@@ -83,7 +99,9 @@ macro_rules! test_explicit {
                 0.0,
             )?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
-                assert!((t.sin() - y).abs() < TOLERANCE || (t.sin() / y - 1.0).abs() < TOLERANCE)
+                assert!(
+                    (t.sin() - y).abs() < TOLERANCE // || (t.sin() / y - 1.0).abs() < TOLERANCE
+                )
             });
             Ok(())
         }
@@ -98,8 +116,7 @@ macro_rules! test_explicit {
             (0..3).for_each(|i| {
                 time.iter().zip(solution.iter()).for_each(|(t, y)| {
                     assert!(
-                        (t.exp() - y[i]).abs() < TOLERANCE
-                            || (t.exp() / y[i] - 1.0).abs() < TOLERANCE
+                        (t.exp() - y[i]).abs() < TOLERANCE // || (t.exp() / y[i] - 1.0).abs() < TOLERANCE
                     )
                 })
             });
@@ -113,7 +130,9 @@ macro_rules! test_explicit {
                 0.0,
             )?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
-                assert!((t.sin() - y).abs() < TOLERANCE || (t.sin() / y - 1.0).abs() < TOLERANCE)
+                assert!(
+                    (t.sin() - y).abs() < TOLERANCE // || (t.sin() / y - 1.0).abs() < TOLERANCE
+                )
             });
             Ok(())
         }
@@ -125,7 +144,9 @@ macro_rules! test_explicit {
                 0.0,
             )?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
-                assert!((t.sin() - y).abs() < TOLERANCE || (t.sin() / y - 1.0).abs() < TOLERANCE)
+                assert!(
+                    (t.sin() - y).abs() < TOLERANCE // || (t.sin() / y - 1.0).abs() < TOLERANCE
+                )
             });
             Ok(())
         }
@@ -138,7 +159,7 @@ macro_rules! test_explicit {
             )?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
                 assert!(
-                    (t.sin() - y[0]).abs() < TOLERANCE || (t.sin() / y[0] - 1.0).abs() < TOLERANCE
+                    (t.sin() - y[0]).abs() < TOLERANCE // || (t.sin() / y[0] - 1.0).abs() < TOLERANCE
                 )
             });
             Ok(())
@@ -152,7 +173,7 @@ macro_rules! test_explicit {
             )?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
                 assert!(
-                    (t.sin() - y[0]).abs() < TOLERANCE || (t.sin() / y[0] - 1.0).abs() < TOLERANCE
+                    (t.sin() - y[0]).abs() < TOLERANCE // || (t.sin() / y[0] - 1.0).abs() < TOLERANCE
                 )
             });
             Ok(())
@@ -168,7 +189,7 @@ macro_rules! test_explicit {
             )?;
             time.iter().zip(solution.iter()).for_each(|(t, y)| {
                 assert!(
-                    (t.sin() - y[0]).abs() < TOLERANCE || (t.sin() / y[0] - 1.0).abs() < TOLERANCE
+                    (t.sin() - y[0]).abs() < TOLERANCE // || (t.sin() / y[0] - 1.0).abs() < TOLERANCE
                 )
             });
             Ok(())

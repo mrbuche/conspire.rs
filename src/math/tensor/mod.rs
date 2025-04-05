@@ -7,8 +7,10 @@ pub mod rank_2;
 pub mod rank_3;
 pub mod rank_4;
 
+use crate::defeat_message;
 use rank_0::TensorRank0;
 use std::{
+    fmt,
     fmt::{Debug, Display},
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, Sub, SubAssign},
 };
@@ -25,6 +27,15 @@ pub trait Convert<T> {
 #[derive(Debug)]
 pub enum TensorError {
     NotPositiveDefinite,
+}
+
+impl Display for TensorError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let error = match self {
+            Self::NotPositiveDefinite => "\x1b[1;91mResult is not positive definite.".to_string(),
+        };
+        write!(f, "\n{}\n\x1b[0;2;31m{}\x1b[0m\n", error, defeat_message())
+    }
 }
 
 impl PartialEq for TensorError {
