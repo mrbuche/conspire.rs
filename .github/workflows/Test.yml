@@ -34,6 +34,7 @@ jobs:
       - name: Test
         run: cargo test --release --features ${{ matrix.features }}
       - name: Tree
+        if: matrix.os == 'ubuntu-latest'
         run: $([[ $(cargo tree --color always --edges normal --features ${{ matrix.features }} | wc -l) -eq 1 ]])
   Coverage:
     strategy:
@@ -53,6 +54,7 @@ jobs:
       - name: Report
         uses: insightsengineering/coverage-action@v2
         with:
+          coverage-summary-title: "Coverage (${{ matrix.features }})"
           fail: false
           path: coverage_${{ matrix.features }}.xml
           publish: true
