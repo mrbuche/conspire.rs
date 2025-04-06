@@ -49,14 +49,6 @@ jobs:
       - name: LLVM-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Coverage
-        run: rustup run nightly cargo llvm-cov --profile release --features ${{ matrix.features }} --cobertura --output-path coverage_${{ matrix.features }}.xml
-      - name: Report
-        uses: insightsengineering/coverage-action@v2
-        with:
-          coverage-summary-title: "Coverage (${{ matrix.features }})"
-          fail: false
-          path: coverage_${{ matrix.features }}.xml
-          publish: true
-          togglable-report: true
+        run: rustup run nightly cargo llvm-cov --profile release --features ${{ matrix.features }} --fail-under-functions 70 --fail-under-lines 75 --fail-under-regions 70
       - name: Tree
         run: $([[ $(cargo tree --color always --edges normal --features ${{ matrix.features }} | wc -l) -eq 1 ]])

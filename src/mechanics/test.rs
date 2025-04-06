@@ -1,12 +1,21 @@
 use super::{
-    CurrentCoordinate, CurrentVelocity, DeformationGradient, DeformationGradientRate, FrameSpin,
-    ReferenceCoordinate, RotationCurrentConfiguration, RotationRateCurrentConfiguration,
+    CurrentCoordinate, CurrentVelocity, Deformation, DeformationError, DeformationGradient,
+    DeformationGradientRate, FrameSpin, LeftCauchyGreenDeformation, ReferenceCoordinate,
+    RightCauchyGreenDeformation, RotationCurrentConfiguration, RotationRateCurrentConfiguration,
     RotationReferenceConfiguration, Scalar, TemperatureGradient,
 };
 use crate::math::{
     test::{assert_eq_within_tols, TestError},
     Rank2, Tensor, TensorArray, IDENTITY, IDENTITY_00, IDENTITY_10,
 };
+
+impl From<DeformationError> for TestError {
+    fn from(error: DeformationError) -> TestError {
+        TestError {
+            message: format!("{}", error),
+        }
+    }
+}
 
 pub fn get_deformation_gradient() -> DeformationGradient {
     DeformationGradient::new([
@@ -45,6 +54,26 @@ pub fn get_deformation_gradient_rate_rotated() -> DeformationGradientRate {
 pub fn get_deformation_gradient_rate_rotated_undeformed() -> DeformationGradientRate {
     get_rotation_rate_current_configuration()
         * get_deformation_gradient()
+        * get_rotation_reference_configuration().transpose()
+}
+
+pub fn get_left_cauchy_green() -> LeftCauchyGreenDeformation {
+    get_deformation_gradient().left_cauchy_green()
+}
+
+pub fn get_left_cauchy_green_rotated() -> LeftCauchyGreenDeformation {
+    get_rotation_current_configuration()
+        * get_deformation_gradient().left_cauchy_green()
+        * get_rotation_current_configuration().transpose()
+}
+
+pub fn get_right_cauchy_green() -> RightCauchyGreenDeformation {
+    get_deformation_gradient().right_cauchy_green()
+}
+
+pub fn get_right_cauchy_green_rotated() -> RightCauchyGreenDeformation {
+    get_rotation_reference_configuration()
+        * get_deformation_gradient().right_cauchy_green()
         * get_rotation_reference_configuration().transpose()
 }
 
@@ -130,6 +159,47 @@ fn frame_spin_tensor() {
 }
 
 #[test]
+fn into_test_error() {
+    let mut deformation_gradient = IDENTITY_10;
+    deformation_gradient[0][0] = -1.0;
+    let _: TestError = deformation_gradient.jacobian().unwrap_err().into();
+}
+
+#[test]
+#[should_panic(expected = "Invalid Jacobian")]
+fn invalid_jacobian() {
+    let mut deformation_gradient = IDENTITY_10;
+    deformation_gradient[0][0] = -1.0;
+    let _ = deformation_gradient.jacobian().unwrap();
+}
+
+#[test]
+fn invariant_jacobian() -> Result<(), TestError> {
+    assert_eq_within_tols(
+        &get_deformation_gradient().jacobian()?,
+        &get_deformation_gradient_rotated().jacobian()?,
+    )?;
+    assert_eq_within_tols(
+        &1.0,
+        &get_deformation_gradient_rotated_undeformed().jacobian()?,
+    )
+}
+
+#[test]
+fn invariant_jacobian_indeformed() -> Result<(), TestError> {
+    assert_eq_within_tols(
+        &1.0,
+        &get_deformation_gradient_rotated_undeformed().jacobian()?,
+    )
+}
+
+#[test]
+fn jacobian() -> Result<(), TestError> {
+    let _ = get_deformation_gradient().jacobian()?;
+    Ok(())
+}
+
+#[test]
 fn rotation_current_configuration() -> Result<(), TestError> {
     assert_eq_within_tols(
         &(get_rotation_current_configuration() * get_rotation_current_configuration().transpose()),
@@ -161,4 +231,62 @@ fn size() {
         std::mem::size_of::<DeformationGradient>(),
         std::mem::size_of::<[[f64; 3]; 3]>()
     );
+}
+
+#[test]
+fn symmetry() -> Result<(), TestError> {
+    let left_cauchy_green = get_left_cauchy_green();
+    assert_eq_within_tols(&left_cauchy_green, &left_cauchy_green.transpose())?;
+    let right_cauchy_green = get_right_cauchy_green();
+    assert_eq_within_tols(&right_cauchy_green, &right_cauchy_green.transpose())
+}
+
+#[test]
+fn trace() {
+    assert!(get_deformation_gradient_rate().trace() > 0.0)
+}
+
+#[test]
+fn trace_invariant() -> Result<(), TestError> {
+    assert_eq_within_tols(
+        &get_left_cauchy_green().trace(),
+        &get_left_cauchy_green_rotated().trace(),
+    )?;
+    assert_eq_within_tols(
+        &get_right_cauchy_green().trace(),
+        &get_right_cauchy_green_rotated().trace(),
+    )
+}
+
+#[test]
+fn trace_not_invariant() {
+    assert!(assert_eq_within_tols(
+        &get_deformation_gradient().trace(),
+        &get_deformation_gradient_rotated().trace(),
+    )
+    .is_err())
+}
+
+#[test]
+fn not_a_tensor() {
+    assert!(assert_eq_within_tols(
+        &get_deformation_gradient_rate_rotated_undeformed(),
+        &DeformationGradientRate::zero(),
+    )
+    .is_err());
+    assert!(assert_eq_within_tols(
+        &get_deformation_gradient_rate_rotated(),
+        &(get_rotation_current_configuration()
+            * get_deformation_gradient_rate()
+            * get_rotation_reference_configuration().transpose())
+    )
+    .is_err())
+}
+
+#[test]
+fn welp() {
+    let _ = get_translation_current_configuration()
+        + get_translation_rate_current_configuration()
+            * get_translation_reference_configuration()[0]
+        + get_temperature_gradient() * get_temperature();
 }
