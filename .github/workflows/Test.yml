@@ -42,11 +42,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-      - name: LLVM-cov
+      - name: Install
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Coverage
         run: rustup run nightly cargo llvm-cov --profile release --features ${{ matrix.features }} --fail-under-functions 70 --fail-under-lines 75 --fail-under-regions 70
@@ -62,6 +58,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Install
-        uses: taiki-e/install-action@cargo-mutants
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants
       - name: Mutants
         run: cargo mutants --features ${{ matrix.features }} --profile release --minimum-test-timeout 0.9
