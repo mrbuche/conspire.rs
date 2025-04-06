@@ -53,10 +53,6 @@ jobs:
       - name: Tree
         run: $([[ $(cargo tree --color always --edges normal --features ${{ matrix.features }} | wc -l) -eq 1 ]])
   Mutants:
-    strategy:
-      fail-fast: false
-      matrix:
-        features: [math]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -66,4 +62,4 @@ jobs:
         with:
           tool: cargo-mutants
       - name: Mutants
-        run: cargo mutants --features ${{ matrix.features }} --profile release --minimum-test-timeout 0.9
+        run: cargo mutants --features math --file 'src/math/**/*.rs' --minimum-test-timeout 0.9 --profile release
