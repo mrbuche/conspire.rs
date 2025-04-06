@@ -52,3 +52,16 @@ jobs:
         run: rustup run nightly cargo llvm-cov --profile release --features ${{ matrix.features }} --fail-under-functions 70 --fail-under-lines 75 --fail-under-regions 70
       - name: Tree
         run: $([[ $(cargo tree --color always --edges normal --features ${{ matrix.features }} | wc -l) -eq 1 ]])
+  Mutants:
+    strategy:
+      fail-fast: false
+      matrix:
+        features: [math]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install
+        uses: taiki-e/install-action@cargo-mutants
+      - name: Mutants
+        run: cargo mutants --features ${{ matrix.features }} --profile release --minimum-test-timeout 0.9
