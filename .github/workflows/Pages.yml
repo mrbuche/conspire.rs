@@ -1,4 +1,7 @@
 name: Pages
+concurrency:
+  group: "Pages"
+  cancel-in-progress: true
 on:
   push:
     branches: main
@@ -10,9 +13,6 @@ permissions:
   contents: read
   pages: write
   id-token: write
-concurrency:
-  group: "Pages"
-  cancel-in-progress: true
 jobs:
   Build:
     runs-on: ubuntu-latest
@@ -20,7 +20,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Toolchain
-        uses: actions-rs/toolchain@v1
+        uses: actions-rs/toolchain@b2417cde72dcf67f306c0ae8e0828a81bf0b189f
         with:
           default: true
           toolchain: stable
