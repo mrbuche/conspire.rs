@@ -1,4 +1,5 @@
 name: Test
+permissions: read-all
 on:
   pull_request:
     branches: main
@@ -20,7 +21,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Toolchain
-        uses: actions-rs/toolchain@v1
+        uses: actions-rs/toolchain@b2417cde72dcf67f306c0ae8e0828a81bf0b189f
         with:
           components: clippy, rustfmt
           default: true
@@ -43,12 +44,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Toolchain
-        uses: actions-rs/toolchain@v1
+        uses: actions-rs/toolchain@b2417cde72dcf67f306c0ae8e0828a81bf0b189f
         with:
           toolchain: nightly
-      - name: LLVM-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Install
+        uses: taiki-e/install-action@d4635f2de61c8b8104d59cd4aede2060638378cc
+        with:
+          tool: cargo-llvm-cov
       - name: Coverage
         run: rustup run nightly cargo llvm-cov --profile release --features ${{ matrix.features }} --fail-under-functions 70 --fail-under-lines 75 --fail-under-regions 70
       - name: Tree
         run: $([[ $(cargo tree --color always --edges normal --features ${{ matrix.features }} | wc -l) -eq 1 ]])
+  Mutants:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install
+        uses: taiki-e/install-action@d4635f2de61c8b8104d59cd4aede2060638378cc
+        with:
+          tool: cargo-mutants
+      - name: Mutants
+        run: cargo mutants --features math --file 'src/math/**/*.rs' --minimum-test-timeout 0.9 --profile release --shard 1/256 || true
