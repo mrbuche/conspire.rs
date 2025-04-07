@@ -1,10 +1,10 @@
 name: Test
-permissions: read-all
+env:
+  CARGO_TERM_COLOR: always
 on:
   pull_request:
     branches: main
-env:
-  CARGO_TERM_COLOR: always
+permissions: {}
 jobs:
   Checks:
     strategy:
