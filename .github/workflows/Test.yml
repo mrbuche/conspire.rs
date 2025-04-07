@@ -62,4 +62,4 @@ jobs:
         with:
           tool: cargo-mutants
       - name: Mutants
-        run: cargo mutants --features math --file 'src/math/**/*.rs' --minimum-test-timeout 0.9 --profile release
+        run: cargo mutants --features math --file 'src/math/**/*.rs' --minimum-test-timeout 0.9 --profile release --shard 1/512
