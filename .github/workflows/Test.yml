@@ -26,7 +26,7 @@ jobs:
       - name: Toolchain
         uses: actions-rs/toolchain@88dc2356392166efad76775c878094f4e83ff746
         with:
-          components: clippy, rustfmts
+          components: clippy, rustfmt
           toolchain: ${{ matrix.toolchain }}
       - name: Format
         run: cargo fmt --all -- --check
