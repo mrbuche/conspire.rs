@@ -2,8 +2,8 @@
 use crate::math::test::ErrorTensor;
 
 use crate::math::{
-    tensor::TensorError, write_tensor_rank_0, Hessian, Rank2, Tensor, TensorRank0, TensorVec,
-    Vector,
+    Hessian, Rank2, Tensor, TensorRank0, TensorVec, Vector, tensor::TensorError,
+    write_tensor_rank_0,
 };
 use std::{
     fmt,

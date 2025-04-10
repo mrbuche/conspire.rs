@@ -1,8 +1,8 @@
 use super::{
-    rank_1::{list::TensorRank1List, TensorRank1},
     TensorArray, TensorError, TensorRank0,
+    rank_1::{TensorRank1, list::TensorRank1List},
 };
-use crate::{defeat_message, ABS_TOL, EPSILON, REL_TOL};
+use crate::{ABS_TOL, EPSILON, REL_TOL, defeat_message};
 use std::{cmp::PartialEq, fmt};
 
 #[cfg(test)]
@@ -25,9 +25,9 @@ pub fn assert_eq<'a, T: fmt::Display + PartialEq + ErrorTensor>(
     } else {
         Err(TestError {
             message: format!(
-            "\n\x1b[1;91mAssertion `left == right` failed.\n\x1b[0;91m  left: {}\n right: {}\x1b[0m",
-            value_1, value_2
-        ),
+                "\n\x1b[1;91mAssertion `left == right` failed.\n\x1b[0;91m  left: {}\n right: {}\x1b[0m",
+                value_1, value_2
+            ),
         })
     }
 }
@@ -40,9 +40,9 @@ pub fn assert_eq_from_fd<'a, T: fmt::Display + ErrorTensor>(
         if failed {
             Err(TestError {
                 message: format!(
-                "\n\x1b[1;91mAssertion `left ≈= right` failed in {} places.\n\x1b[0;91m  left: {}\n right: {}\x1b[0m",
-                error_count, value, value_fd
-            ),
+                    "\n\x1b[1;91mAssertion `left ≈= right` failed in {} places.\n\x1b[0;91m  left: {}\n right: {}\x1b[0m",
+                    error_count, value, value_fd
+                ),
             })
         } else {
             println!(
@@ -63,9 +63,9 @@ pub fn assert_eq_within_tols<'a, T: fmt::Display + ErrorTensor>(
     if let Some(error_count) = value_1.error(value_2, &ABS_TOL, &REL_TOL) {
         Err(TestError {
             message: format!(
-            "\n\x1b[1;91mAssertion `left ≈= right` failed in {} places.\n\x1b[0;91m  left: {}\n right: {}\x1b[0m",
-            error_count, value_1, value_2
-        ),
+                "\n\x1b[1;91mAssertion `left ≈= right` failed in {} places.\n\x1b[0;91m  left: {}\n right: {}\x1b[0m",
+                error_count, value_1, value_2
+            ),
         })
     } else {
         Ok(())

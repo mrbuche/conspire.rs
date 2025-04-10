@@ -11,11 +11,11 @@ use std::{
 };
 
 use super::{
+    Hessian, Rank2, Tensor, TensorArray,
     rank_0::TensorRank0,
     rank_1::TensorRank1,
     rank_2::TensorRank2,
-    rank_3::{get_identity_1010_parts, TensorRank3},
-    Hessian, Rank2, Tensor, TensorArray,
+    rank_3::{TensorRank3, get_identity_1010_parts},
 };
 
 pub mod list;
@@ -353,16 +353,16 @@ pub trait ContractAllIndicesWithFirstIndicesOf<TIM, TJN, TKO, TLP> {
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const M: usize,
-        const N: usize,
-        const O: usize,
-        const P: usize,
-    >
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const L: usize,
+    const M: usize,
+    const N: usize,
+    const O: usize,
+    const P: usize,
+>
     ContractAllIndicesWithFirstIndicesOf<
         &TensorRank2<D, I, M>,
         &TensorRank2<D, J, N>,
@@ -411,15 +411,15 @@ pub trait ContractFirstThirdFourthIndicesWithFirstIndicesOf<TIM, TKO, TLP> {
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const M: usize,
-        const O: usize,
-        const P: usize,
-    >
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const L: usize,
+    const M: usize,
+    const O: usize,
+    const P: usize,
+>
     ContractFirstThirdFourthIndicesWithFirstIndicesOf<
         &TensorRank2<D, I, M>,
         &TensorRank2<D, K, O>,
@@ -458,14 +458,8 @@ pub trait ContractSecondIndexWithFirstIndexOf<TJN> {
     fn contract_second_index_with_first_index_of(&self, tensor_rank_2: TJN) -> Self::Output;
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const N: usize,
-    > ContractSecondIndexWithFirstIndexOf<&TensorRank2<D, J, N>> for TensorRank4<D, I, J, K, L>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const N: usize>
+    ContractSecondIndexWithFirstIndexOf<&TensorRank2<D, J, N>> for TensorRank4<D, I, J, K, L>
 {
     type Output = TensorRank4<D, I, N, K, L>;
     fn contract_second_index_with_first_index_of(
@@ -566,14 +560,14 @@ pub trait ContractFirstSecondIndicesWithSecondIndicesOf<TI, TJ> {
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const M: usize,
-        const N: usize,
-    > ContractFirstSecondIndicesWithSecondIndicesOf<&TensorRank2<D, I, M>, &TensorRank2<D, J, N>>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const L: usize,
+    const M: usize,
+    const N: usize,
+> ContractFirstSecondIndicesWithSecondIndicesOf<&TensorRank2<D, I, M>, &TensorRank2<D, J, N>>
     for TensorRank4<D, M, N, K, L>
 {
     type Output = TensorRank4<D, I, J, K, L>;
@@ -687,14 +681,8 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const M: usize,
-    > Mul<TensorRank2<D, L, M>> for TensorRank4<D, I, J, K, L>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const M: usize>
+    Mul<TensorRank2<D, L, M>> for TensorRank4<D, I, J, K, L>
 {
     type Output = TensorRank4<D, I, J, K, M>;
     fn mul(self, tensor_rank_2: TensorRank2<D, L, M>) -> Self::Output {
@@ -709,14 +697,8 @@ impl<
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const M: usize,
-    > Mul<&TensorRank2<D, L, M>> for TensorRank4<D, I, J, K, L>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const M: usize>
+    Mul<&TensorRank2<D, L, M>> for TensorRank4<D, I, J, K, L>
 {
     type Output = TensorRank4<D, I, J, K, M>;
     fn mul(self, tensor_rank_2: &TensorRank2<D, L, M>) -> Self::Output {

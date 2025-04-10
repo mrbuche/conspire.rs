@@ -2,16 +2,16 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models {
     ($hybrid_type: ident) => {
         use crate::{
             constitutive::{
+                Constitutive,
                 hybrid::Hybrid,
                 solid::{
+                    Solid,
                     elastic::Elastic,
                     hyperelastic::{
-                        test::*, ArrudaBoyce, Fung, Gent, Hyperelastic, MooneyRivlin, NeoHookean,
-                        SaintVenantKirchhoff, Yeoh,
+                        ArrudaBoyce, Fung, Gent, Hyperelastic, MooneyRivlin, NeoHookean,
+                        SaintVenantKirchhoff, Yeoh, test::*,
                     },
-                    Solid,
                 },
-                Constitutive,
             },
             math::{Rank2, Tensor, TensorArray},
             mechanics::{
@@ -76,13 +76,13 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models_no_tangents {
     ($hybrid_type: ident) => {
         use crate::{
             constitutive::{
+                Constitutive,
                 hybrid::Hybrid,
                 solid::{
-                    elastic::Elastic,
-                    hyperelastic::{test::*, ArrudaBoyce, Fung, Gent, Hyperelastic, MooneyRivlin},
                     Solid,
+                    elastic::Elastic,
+                    hyperelastic::{ArrudaBoyce, Fung, Gent, Hyperelastic, MooneyRivlin, test::*},
                 },
-                Constitutive,
             },
             math::{Rank2, Tensor, TensorArray},
             mechanics::DeformationGradient,

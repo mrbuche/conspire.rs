@@ -1,5 +1,5 @@
 use super::IntegrationError;
-use crate::math::{test::TestError, TensorArray, TensorRank0, TensorRank0List};
+use crate::math::{TensorArray, TensorRank0, TensorRank0List, test::TestError};
 use std::f64::consts::TAU;
 
 pub const LENGTH: usize = 33;
@@ -35,11 +35,11 @@ macro_rules! test_explicit {
     ($integration: expr) => {
         use super::super::{
             super::{
-                test::TestError, Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank1Vec,
-                TensorRank2, Vector,
+                Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank1Vec, TensorRank2, Vector,
+                test::TestError,
             },
-            test::{zero_to_tau, LENGTH},
-            Explicit, IntegrationError
+            Explicit, IntegrationError,
+            test::{LENGTH, zero_to_tau},
         };
         use std::f64::consts::TAU;
         pub const TOLERANCE: TensorRank0 = 5.0 * crate::ABS_TOL;
@@ -52,7 +52,8 @@ macro_rules! test_explicit {
         }
         #[test]
         fn into_test_error() {
-            let result: Result<(Vector, Vector), IntegrationError> = $integration.integrate(|_: &TensorRank0, _: &TensorRank0| panic!(), &[0.0], 0.0);
+            let result: Result<(Vector, Vector), IntegrationError> =
+                $integration.integrate(|_: &TensorRank0, _: &TensorRank0| panic!(), &[0.0], 0.0);
             let _: TestError = result.unwrap_err().into();
         }
         #[test]

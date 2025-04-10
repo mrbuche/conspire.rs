@@ -1,5 +1,5 @@
 use super::*;
-use crate::constitutive::solid::thermoelastic::{test::ALMANSIHAMELPARAMETERS, AlmansiHamel};
+use crate::constitutive::solid::thermoelastic::{AlmansiHamel, test::ALMANSIHAMELPARAMETERS};
 
 test_thermoelastic_thermal_conduction_constitutive_model!(
     ThermoelasticThermalConduction,
@@ -14,7 +14,7 @@ macro_rules! test_thermoelastic_thermal_conduction_constitutive_model {
      $thermoelastic_constitutive_model: ident, $thermoelastic_constitutive_model_parameters: expr,
      $thermal_conduction_constitutive_model: ident, $thermal_conduction_constitutive_model_parameters: expr) => {
         use crate::{
-            constitutive::thermal::conduction::{test::FOURIERPARAMETERS, Fourier},
+            constitutive::thermal::conduction::{Fourier, test::FOURIERPARAMETERS},
             mechanics::test::{
                 get_deformation_gradient, get_temperature, get_temperature_gradient,
             },
@@ -22,14 +22,14 @@ macro_rules! test_thermoelastic_thermal_conduction_constitutive_model {
         fn get_thermoelastic_constitutive_model<'a>() -> $thermoelastic_constitutive_model<'a> {
             $thermoelastic_constitutive_model::new($thermoelastic_constitutive_model_parameters)
         }
-        fn get_thermal_conduction_constitutive_model<'a>(
-        ) -> $thermal_conduction_constitutive_model<'a> {
+        fn get_thermal_conduction_constitutive_model<'a>()
+        -> $thermal_conduction_constitutive_model<'a> {
             $thermal_conduction_constitutive_model::new(
                 $thermal_conduction_constitutive_model_parameters,
             )
         }
-        fn get_thermoelastic_thermal_conduction_constitutive_model<'a>(
-        ) -> $thermoelastic_thermal_conduction_constitutive_model<
+        fn get_thermoelastic_thermal_conduction_constitutive_model<'a>()
+        -> $thermoelastic_thermal_conduction_constitutive_model<
             $thermoelastic_constitutive_model<'a>,
             $thermal_conduction_constitutive_model<'a>,
         > {

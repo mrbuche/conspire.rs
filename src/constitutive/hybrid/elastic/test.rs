@@ -2,13 +2,13 @@ macro_rules! test_hybrid_elastic_constitutive_models {
     ($hybrid_type: ident) => {
         use crate::{
             constitutive::{
+                Constitutive,
                 hybrid::Hybrid,
                 solid::{
-                    elastic::{test::*, AlmansiHamel, Elastic},
-                    hyperelastic::{test::NEOHOOKEANPARAMETERS, NeoHookean},
                     Solid,
+                    elastic::{AlmansiHamel, Elastic, test::*},
+                    hyperelastic::{NeoHookean, test::NEOHOOKEANPARAMETERS},
                 },
-                Constitutive,
             },
             math::{Rank2, TensorArray},
             mechanics::{
@@ -58,13 +58,13 @@ macro_rules! test_hybrid_elastic_constitutive_models_no_tangents {
     ($hybrid_type: ident) => {
         use crate::{
             constitutive::{
+                Constitutive,
                 hybrid::Hybrid,
                 solid::{
-                    elastic::{test::*, AlmansiHamel, Elastic},
-                    hyperelastic::{test::NEOHOOKEANPARAMETERS, NeoHookean},
                     Solid,
+                    elastic::{AlmansiHamel, Elastic, test::*},
+                    hyperelastic::{NeoHookean, test::NEOHOOKEANPARAMETERS},
                 },
-                Constitutive,
             },
             math::{Rank2, TensorArray},
             mechanics::DeformationGradient,

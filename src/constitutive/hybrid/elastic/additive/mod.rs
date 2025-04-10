@@ -3,9 +3,9 @@ mod test;
 
 use crate::{
     constitutive::{
-        hybrid::{Additive, Hybrid},
-        solid::{elastic::Elastic, Solid},
         Constitutive, ConstitutiveError, Parameters,
+        hybrid::{Additive, Hybrid},
+        solid::{Solid, elastic::Elastic},
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffStress,

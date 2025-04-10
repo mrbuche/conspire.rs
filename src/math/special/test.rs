@@ -1,5 +1,5 @@
-use super::{inverse_langevin, lambert_w, langevin, E};
-use crate::math::test::{assert_eq, assert_eq_within_tols, TestError};
+use super::{E, inverse_langevin, lambert_w, langevin};
+use crate::math::test::{TestError, assert_eq, assert_eq_within_tols};
 
 const LENGTH: usize = 10_000;
 

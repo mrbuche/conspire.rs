@@ -171,7 +171,7 @@ fn get_dirichlet_values(_x: Scalar) -> [Scalar; 8] {
 test_finite_element!(Tetrahedron);
 test_finite_element_block!(Tetrahedron);
 
-use crate::math::test::{assert_eq_within_tols, TestError};
+use crate::math::test::{TestError, assert_eq_within_tols};
 
 #[test]
 fn normalized_projection_matrix() -> Result<(), TestError> {

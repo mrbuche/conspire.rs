@@ -2,7 +2,7 @@
 use super::super::test::ErrorTensor;
 
 use crate::math::{
-    write_tensor_rank_0, Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank2, TensorVec,
+    Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank2, TensorVec, write_tensor_rank_0,
 };
 use std::{
     fmt::{Display, Formatter, Result},

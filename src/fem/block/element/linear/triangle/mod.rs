@@ -5,8 +5,8 @@ use super::*;
 use crate::{
     constitutive::{Constitutive, Parameters},
     math::{
-        tensor_rank_1, tensor_rank_1_list, tensor_rank_1_list_2d, tensor_rank_1_zero, IDENTITY,
-        LEVI_CIVITA,
+        IDENTITY, LEVI_CIVITA, tensor_rank_1, tensor_rank_1_list, tensor_rank_1_list_2d,
+        tensor_rank_1_zero,
     },
     mechanics::Scalar,
 };

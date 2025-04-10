@@ -12,8 +12,8 @@ use std::{
 
 use super::{
     super::{Tensor, TensorArray},
-    list::TensorRank2List,
     TensorRank0, TensorRank2,
+    list::TensorRank2List,
 };
 
 /// A 2D list of *d*-dimensional tensors of rank 2.
@@ -225,14 +225,8 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize, const X: us
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-    > Mul<TensorRank2<D, J, K>> for TensorRank2List2D<D, I, J, W, X>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: usize, const X: usize>
+    Mul<TensorRank2<D, J, K>> for TensorRank2List2D<D, I, J, W, X>
 {
     type Output = TensorRank2List2D<D, I, K, W, X>;
     fn mul(self, tensor_rank_2: TensorRank2<D, J, K>) -> Self::Output {
@@ -247,14 +241,8 @@ impl<
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-    > Mul<&TensorRank2<D, J, K>> for TensorRank2List2D<D, I, J, W, X>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: usize, const X: usize>
+    Mul<&TensorRank2<D, J, K>> for TensorRank2List2D<D, I, J, W, X>
 {
     type Output = TensorRank2List2D<D, I, K, W, X>;
     fn mul(self, tensor_rank_2: &TensorRank2<D, J, K>) -> Self::Output {

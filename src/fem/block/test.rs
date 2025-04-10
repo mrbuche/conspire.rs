@@ -58,6 +58,7 @@ macro_rules! test_finite_element_block_inner {
         mod block {
             use super::*;
             use crate::{
+                EPSILON,
                 fem::block::test::{
                     test_finite_element_block_with_elastic_constitutive_model,
                     test_finite_element_block_with_elastic_hyperviscous_constitutive_model,
@@ -65,8 +66,8 @@ macro_rules! test_finite_element_block_inner {
                     test_finite_element_block_with_hyperviscoelastic_constitutive_model,
                 },
                 math::{
-                    test::{assert_eq, assert_eq_from_fd, assert_eq_within_tols, TestError},
                     Rank2, TensorArray, TensorRank2,
+                    test::{TestError, assert_eq, assert_eq_from_fd, assert_eq_within_tols},
                 },
                 mechanics::test::{
                     get_rotation_current_configuration, get_rotation_rate_current_configuration,
@@ -74,12 +75,11 @@ macro_rules! test_finite_element_block_inner {
                     get_translation_rate_current_configuration,
                     get_translation_reference_configuration,
                 },
-                EPSILON,
             };
             mod elastic {
                 use super::*;
                 use crate::constitutive::solid::elastic::{
-                    test::ALMANSIHAMELPARAMETERS, AlmansiHamel,
+                    AlmansiHamel, test::ALMANSIHAMELPARAMETERS,
                 };
                 mod almansi_hamel {
                     use super::*;
@@ -94,12 +94,12 @@ macro_rules! test_finite_element_block_inner {
             mod hyperelastic {
                 use super::*;
                 use crate::constitutive::solid::hyperelastic::{
+                    ArrudaBoyce, Fung, Gent, MooneyRivlin, NeoHookean, SaintVenantKirchhoff, Yeoh,
                     test::{
                         ARRUDABOYCEPARAMETERS, FUNGPARAMETERS, GENTPARAMETERS,
                         MOONEYRIVLINPARAMETERS, NEOHOOKEANPARAMETERS,
                         SAINTVENANTKIRCHOFFPARAMETERS, YEOHPARAMETERS,
                     },
-                    ArrudaBoyce, Fung, Gent, MooneyRivlin, NeoHookean, SaintVenantKirchhoff, Yeoh,
                 };
                 mod arruda_boyce {
                     use super::*;
@@ -168,7 +168,7 @@ macro_rules! test_finite_element_block_inner {
             mod elastic_hyperviscous {
                 use super::*;
                 use crate::constitutive::solid::elastic_hyperviscous::{
-                    test::ALMANSIHAMELPARAMETERS, AlmansiHamel,
+                    AlmansiHamel, test::ALMANSIHAMELPARAMETERS,
                 };
                 mod almansi_hamel {
                     use super::*;
@@ -183,7 +183,7 @@ macro_rules! test_finite_element_block_inner {
             mod hyperviscoelastic {
                 use super::*;
                 use crate::constitutive::solid::hyperviscoelastic::{
-                    test::SAINTVENANTKIRCHOFFPARAMETERS, SaintVenantKirchhoff,
+                    SaintVenantKirchhoff, test::SAINTVENANTKIRCHOFFPARAMETERS,
                 };
                 mod saint_venant_kirchhoff {
                     use super::*;

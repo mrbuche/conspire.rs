@@ -6,8 +6,8 @@ use super::super::test::ErrorTensor;
 
 use super::{
     super::{Tensor, TensorArray},
-    list_2d::TensorRank3List2D,
     TensorRank0,
+    list_2d::TensorRank3List2D,
 };
 use std::{
     array::from_fn,
@@ -30,14 +30,14 @@ pub struct TensorRank3List3D<
 >([TensorRank3List2D<D, I, J, K, W, X>; Y]);
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-        const Y: usize,
-    > Display for TensorRank3List3D<D, I, J, K, W, X, Y>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> Display for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
     fn fmt(&self, _f: &mut Formatter) -> Result {
         Ok(())
@@ -46,14 +46,14 @@ impl<
 
 #[cfg(test)]
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-        const Y: usize,
-    > ErrorTensor for TensorRank3List3D<D, I, J, K, W, X, Y>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> ErrorTensor for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
     fn error(
         &self,
@@ -168,14 +168,14 @@ impl<
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-        const Y: usize,
-    > Tensor for TensorRank3List3D<D, I, J, K, W, X, Y>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> Tensor for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
     type Item = TensorRank3List2D<D, I, J, K, W, X>;
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
@@ -187,14 +187,14 @@ impl<
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-        const Y: usize,
-    > TensorArray for TensorRank3List3D<D, I, J, K, W, X, Y>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> TensorArray for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
     type Array = [[[[[[TensorRank0; D]; D]; D]; W]; X]; Y];
     type Item = TensorRank3List2D<D, I, J, K, W, X>;
@@ -219,14 +219,14 @@ impl<
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-        const Y: usize,
-    > FromIterator<TensorRank3List2D<D, I, J, K, W, X>> for TensorRank3List3D<D, I, J, K, W, X, Y>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> FromIterator<TensorRank3List2D<D, I, J, K, W, X>> for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
     fn from_iter<Ii: IntoIterator<Item = TensorRank3List2D<D, I, J, K, W, X>>>(
         into_iterator: Ii,
@@ -241,14 +241,14 @@ impl<
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-        const Y: usize,
-    > Index<usize> for TensorRank3List3D<D, I, J, K, W, X, Y>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> Index<usize> for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
     type Output = TensorRank3List2D<D, I, J, K, W, X>;
     fn index(&self, index: usize) -> &Self::Output {
@@ -257,14 +257,14 @@ impl<
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-        const Y: usize,
-    > IndexMut<usize> for TensorRank3List3D<D, I, J, K, W, X, Y>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> IndexMut<usize> for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.0[index]
@@ -272,14 +272,14 @@ impl<
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-        const Y: usize,
-    > Add for TensorRank3List3D<D, I, J, K, W, X, Y>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> Add for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
     type Output = Self;
     fn add(mut self, tensor_rank_3_list_3d: Self) -> Self::Output {
@@ -289,14 +289,14 @@ impl<
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-        const Y: usize,
-    > Add<&Self> for TensorRank3List3D<D, I, J, K, W, X, Y>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> Add<&Self> for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
     type Output = Self;
     fn add(mut self, tensor_rank_3_list_3d: &Self) -> Self::Output {
@@ -306,14 +306,14 @@ impl<
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-        const Y: usize,
-    > AddAssign for TensorRank3List3D<D, I, J, K, W, X, Y>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> AddAssign for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
     fn add_assign(&mut self, tensor_rank_3_list_3d: Self) {
         self.iter_mut()
@@ -323,14 +323,14 @@ impl<
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-        const Y: usize,
-    > AddAssign<&Self> for TensorRank3List3D<D, I, J, K, W, X, Y>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> AddAssign<&Self> for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
     fn add_assign(&mut self, tensor_rank_3_list_3d: &Self) {
         self.iter_mut()
@@ -340,14 +340,14 @@ impl<
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-        const Y: usize,
-    > Div<TensorRank0> for TensorRank3List3D<D, I, J, K, W, X, Y>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> Div<TensorRank0> for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
     type Output = Self;
     fn div(mut self, tensor_rank_0: TensorRank0) -> Self::Output {
@@ -357,14 +357,14 @@ impl<
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-        const Y: usize,
-    > Div<&TensorRank0> for TensorRank3List3D<D, I, J, K, W, X, Y>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> Div<&TensorRank0> for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
     type Output = Self;
     fn div(mut self, tensor_rank_0: &TensorRank0) -> Self::Output {
@@ -374,14 +374,14 @@ impl<
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-        const Y: usize,
-    > DivAssign<TensorRank0> for TensorRank3List3D<D, I, J, K, W, X, Y>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> DivAssign<TensorRank0> for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
     fn div_assign(&mut self, tensor_rank_0: TensorRank0) {
         self.iter_mut().for_each(|entry| *entry /= &tensor_rank_0);
@@ -389,14 +389,14 @@ impl<
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-        const Y: usize,
-    > DivAssign<&TensorRank0> for TensorRank3List3D<D, I, J, K, W, X, Y>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> DivAssign<&TensorRank0> for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
     fn div_assign(&mut self, tensor_rank_0: &TensorRank0) {
         self.iter_mut().for_each(|entry| *entry /= tensor_rank_0);
@@ -404,14 +404,14 @@ impl<
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-        const Y: usize,
-    > Mul<TensorRank0> for TensorRank3List3D<D, I, J, K, W, X, Y>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> Mul<TensorRank0> for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
     type Output = Self;
     fn mul(mut self, tensor_rank_0: TensorRank0) -> Self::Output {
@@ -421,14 +421,14 @@ impl<
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-        const Y: usize,
-    > Mul<&TensorRank0> for TensorRank3List3D<D, I, J, K, W, X, Y>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> Mul<&TensorRank0> for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
     type Output = Self;
     fn mul(mut self, tensor_rank_0: &TensorRank0) -> Self::Output {
@@ -438,14 +438,14 @@ impl<
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-        const Y: usize,
-    > MulAssign<TensorRank0> for TensorRank3List3D<D, I, J, K, W, X, Y>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> MulAssign<TensorRank0> for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
     fn mul_assign(&mut self, tensor_rank_0: TensorRank0) {
         self.iter_mut().for_each(|entry| *entry *= &tensor_rank_0);
@@ -453,14 +453,14 @@ impl<
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-        const Y: usize,
-    > MulAssign<&TensorRank0> for TensorRank3List3D<D, I, J, K, W, X, Y>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> MulAssign<&TensorRank0> for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
     fn mul_assign(&mut self, tensor_rank_0: &TensorRank0) {
         self.iter_mut().for_each(|entry| *entry *= tensor_rank_0);
@@ -468,14 +468,14 @@ impl<
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-        const Y: usize,
-    > Sub for TensorRank3List3D<D, I, J, K, W, X, Y>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> Sub for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
     type Output = Self;
     fn sub(mut self, tensor_rank_3_list_3d: Self) -> Self::Output {
@@ -485,14 +485,14 @@ impl<
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-        const Y: usize,
-    > Sub<&Self> for TensorRank3List3D<D, I, J, K, W, X, Y>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> Sub<&Self> for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
     type Output = Self;
     fn sub(mut self, tensor_rank_3_list_3d: &Self) -> Self::Output {
@@ -502,14 +502,14 @@ impl<
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-        const Y: usize,
-    > SubAssign for TensorRank3List3D<D, I, J, K, W, X, Y>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> SubAssign for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
     fn sub_assign(&mut self, tensor_rank_3_list_3d: Self) {
         self.iter_mut()
@@ -519,14 +519,14 @@ impl<
 }
 
 impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-        const Y: usize,
-    > SubAssign<&Self> for TensorRank3List3D<D, I, J, K, W, X, Y>
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> SubAssign<&Self> for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
     fn sub_assign(&mut self, tensor_rank_3_list_3d: &Self) {
         self.iter_mut()

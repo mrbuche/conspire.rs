@@ -166,15 +166,15 @@ pub(crate) use test_solid_constitutive_construction;
 macro_rules! test_solid_constitutive_model_no_tangents {
     ($constitutive_model_constructed: expr) => {
         use crate::{
-            math::test::{assert_eq, assert_eq_within_tols, TestError},
+            EPSILON,
+            math::test::{TestError, assert_eq, assert_eq_within_tols},
             mechanics::{
+                CauchyStress, FirstPiolaKirchhoffStress, SecondPiolaKirchhoffStress,
                 test::{
                     get_deformation_gradient, get_deformation_gradient_rotated,
                     get_rotation_current_configuration, get_rotation_reference_configuration,
                 },
-                CauchyStress, FirstPiolaKirchhoffStress, SecondPiolaKirchhoffStress,
             },
-            EPSILON,
         };
         mod cauchy_stress {
             use super::*;
