@@ -1,4 +1,7 @@
 name: Test
+concurrency:
+  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.head_ref }}
 env:
   CARGO_TERM_COLOR: always
 on:
@@ -8,7 +11,7 @@ permissions: {}
 jobs:
   Checks:
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         features: [math, mechanics, constitutive, fem]
         os: [macos-latest, windows-latest, ubuntu-latest]
@@ -28,15 +31,15 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
       - name: Format
         run: cargo fmt --all -- --check
-      - name: Lint
+      - name: Clippy
         run: cargo clippy --release --features ${{ matrix.features }} -- -D warnings
-      - name: Lint tests
+      - name: Clippy tests
         run: cargo clippy --release --features ${{ matrix.features }} --tests -- -D warnings
       - name: Test
         run: cargo test --release --features ${{ matrix.features }}
   Coverage:
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         features: [math, mechanics, constitutive, fem]
     runs-on: ubuntu-latest
