@@ -1,7 +1,4 @@
 name: Pages
-concurrency:
-  cancel-in-progress: true
-  group: Pages
 on:
   pull_request:
     branches: main
@@ -28,10 +25,13 @@ jobs:
       - name: Upload
         uses: actions/upload-pages-artifact@v3
   Deploy:
-    if: github.event_name != 'pull_request'
+    concurrency:
+      cancel-in-progress: true
+      group: Deploy
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    if: github.event_name != 'pull_request'
     needs: Build
     permissions:
       id-token: write
