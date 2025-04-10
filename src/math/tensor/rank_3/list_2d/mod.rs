@@ -65,7 +65,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: us
                                         self_ab_ij
                                             .iter()
                                             .zip(comparator_ab_ij.iter())
-                                            .filter(|(&self_ab_ijk, &comparator_ab_ijk)| {
+                                            .filter(|&(&self_ab_ijk, &comparator_ab_ijk)| {
                                                 &(self_ab_ijk - comparator_ab_ijk).abs() >= tol_abs
                                                     && &(self_ab_ijk / comparator_ab_ijk - 1.0)
                                                         .abs()
@@ -106,7 +106,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: us
                                         self_ab_ij
                                             .iter()
                                             .zip(comparator_ab_ij.iter())
-                                            .filter(|(&self_ab_ijk, &comparator_ab_ijk)| {
+                                            .filter(|&(&self_ab_ijk, &comparator_ab_ijk)| {
                                                 &(self_ab_ijk / comparator_ab_ijk - 1.0).abs()
                                                     >= epsilon
                                                     && (&self_ab_ijk.abs() >= epsilon

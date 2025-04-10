@@ -85,7 +85,7 @@ impl<
                                                     .iter()
                                                     .zip(comparator_abc_ij.iter())
                                                     .filter(
-                                                        |(&self_abc_ijk, &comparator_abc_ijk)| {
+                                                        |&(&self_abc_ijk, &comparator_abc_ijk)| {
                                                             &(self_abc_ijk - comparator_abc_ijk)
                                                                 .abs()
                                                                 >= tol_abs
@@ -138,7 +138,7 @@ impl<
                                                     .iter()
                                                     .zip(comparator_abc_ij.iter())
                                                     .filter(
-                                                        |(&self_abc_ijk, &comparator_abc_ijk)| {
+                                                        |&(&self_abc_ijk, &comparator_abc_ijk)| {
                                                             &(self_abc_ijk / comparator_abc_ijk
                                                                 - 1.0)
                                                                 .abs()

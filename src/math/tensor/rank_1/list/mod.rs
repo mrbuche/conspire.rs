@@ -63,7 +63,7 @@ impl<const D: usize, const I: usize, const W: usize> ErrorTensor for TensorRank1
                 entry
                     .iter()
                     .zip(comparator_entry.iter())
-                    .filter(|(&entry_i, &comparator_entry_i)| {
+                    .filter(|&(&entry_i, &comparator_entry_i)| {
                         &(entry_i - comparator_entry_i).abs() >= tol_abs
                             && &(entry_i / comparator_entry_i - 1.0).abs() >= tol_rel
                     })
@@ -84,7 +84,7 @@ impl<const D: usize, const I: usize, const W: usize> ErrorTensor for TensorRank1
                 entry
                     .iter()
                     .zip(comparator_entry.iter())
-                    .filter(|(&entry_i, &comparator_entry_i)| {
+                    .filter(|&(&entry_i, &comparator_entry_i)| {
                         &(entry_i / comparator_entry_i - 1.0).abs() >= epsilon
                             && (&entry_i.abs() >= epsilon || &comparator_entry_i.abs() >= epsilon)
                     })
@@ -99,7 +99,7 @@ impl<const D: usize, const I: usize, const W: usize> ErrorTensor for TensorRank1
                     entry
                         .iter()
                         .zip(comparator_entry.iter())
-                        .filter(|(&entry_i, &comparator_entry_i)| {
+                        .filter(|&(&entry_i, &comparator_entry_i)| {
                             &(entry_i / comparator_entry_i - 1.0).abs() >= epsilon
                                 && &(entry_i - comparator_entry_i).abs() >= epsilon
                                 && (&entry_i.abs() >= epsilon

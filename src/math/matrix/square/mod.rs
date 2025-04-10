@@ -29,7 +29,7 @@ impl ErrorTensor for SquareMatrix {
                 self_i
                     .iter()
                     .zip(comparator_i.iter())
-                    .filter(|(&self_ij, &comparator_ij)| {
+                    .filter(|&(&self_ij, &comparator_ij)| {
                         &(self_ij - comparator_ij).abs() >= tol_abs
                             && &(self_ij / comparator_ij - 1.0).abs() >= tol_rel
                     })
@@ -50,7 +50,7 @@ impl ErrorTensor for SquareMatrix {
                 self_i
                     .iter()
                     .zip(comparator_i.iter())
-                    .filter(|(&self_ij, &comparator_ij)| {
+                    .filter(|&(&self_ij, &comparator_ij)| {
                         &(self_ij / comparator_ij - 1.0).abs() >= epsilon
                             && (&self_ij.abs() >= epsilon || &comparator_ij.abs() >= epsilon)
                     })

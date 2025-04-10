@@ -94,7 +94,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> ErrorTensor
                         self_ij
                             .iter()
                             .zip(comparator_ij.iter())
-                            .filter(|(&self_ijk, &comparator_ijk)| {
+                            .filter(|&(&self_ijk, &comparator_ijk)| {
                                 &(self_ijk - comparator_ijk).abs() >= tol_abs
                                     && &(self_ijk / comparator_ijk - 1.0).abs() >= tol_rel
                             })
@@ -121,7 +121,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> ErrorTensor
                         self_ij
                             .iter()
                             .zip(comparator_ij.iter())
-                            .filter(|(&self_ijk, &comparator_ijk)| {
+                            .filter(|&(&self_ijk, &comparator_ijk)| {
                                 &(self_ijk / comparator_ijk - 1.0).abs() >= epsilon
                                     && (&self_ijk.abs() >= epsilon
                                         || &comparator_ijk.abs() >= epsilon)

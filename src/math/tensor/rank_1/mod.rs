@@ -71,7 +71,7 @@ impl<const D: usize, const I: usize> ErrorTensor for TensorRank1<D, I> {
         let error_count = self
             .iter()
             .zip(comparator.iter())
-            .filter(|(&self_i, &comparator_i)| {
+            .filter(|&(&self_i, &comparator_i)| {
                 &(self_i - comparator_i).abs() >= tol_abs
                     && &(self_i / comparator_i - 1.0).abs() >= tol_rel
             })
@@ -86,7 +86,7 @@ impl<const D: usize, const I: usize> ErrorTensor for TensorRank1<D, I> {
         let error_count = self
             .iter()
             .zip(comparator.iter())
-            .filter(|(&self_i, &comparator_i)| {
+            .filter(|&(&self_i, &comparator_i)| {
                 &(self_i / comparator_i - 1.0).abs() >= epsilon
                     && (&self_i.abs() >= epsilon || &comparator_i.abs() >= epsilon)
             })
