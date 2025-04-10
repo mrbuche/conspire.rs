@@ -7,4 +7,4 @@
 
 The Rust interface to [conspire](https://mrbuche.github.io/conspire).
 
-foo
+foo foo
