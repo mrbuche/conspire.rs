@@ -15,8 +15,8 @@ use super::{Constitutive, Parameters};
 use crate::{
     constitutive::ConstitutiveError,
     math::{
-        ContractFirstSecondIndicesWithSecondIndicesOf, ContractSecondIndexWithFirstIndexOf, Rank2,
-        Tensor, TensorArray, TensorRank4, IDENTITY, IDENTITY_00, IDENTITY_10, IDENTITY_1010,
+        ContractFirstSecondIndicesWithSecondIndicesOf, ContractSecondIndexWithFirstIndexOf,
+        IDENTITY, IDENTITY_00, IDENTITY_10, IDENTITY_1010, Rank2, Tensor, TensorArray, TensorRank4,
         ZERO_10,
     },
     mechanics::{

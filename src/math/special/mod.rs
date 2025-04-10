@@ -28,11 +28,7 @@ pub fn inverse_langevin(y: f64) -> f64 {
         for _ in 0..2 {
             x += (y_abs - langevin(x)) / langevin_derivative(x);
         }
-        if y < 0.0 {
-            -x
-        } else {
-            x
-        }
+        if y < 0.0 { -x } else { x }
     }
 }
 

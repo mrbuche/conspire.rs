@@ -11,8 +11,8 @@ mod consistency {
     use super::*;
     use crate::{
         constitutive::solid::elastic::{
-            test::ALMANSIHAMELPARAMETERS as ELASTICALMANSIHAMELPARAMETERS,
             AlmansiHamel as ElasticAlmansiHamel, Elastic,
+            test::ALMANSIHAMELPARAMETERS as ELASTICALMANSIHAMELPARAMETERS,
         },
         math::test::assert_eq_within_tols,
     };

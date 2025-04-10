@@ -1,6 +1,6 @@
 use super::{
-    super::{test::ErrorTensor, Tensor, TensorArray},
-    levi_civita, TensorRank0, TensorRank2, TensorRank3,
+    super::{Tensor, TensorArray, test::ErrorTensor},
+    TensorRank0, TensorRank2, TensorRank3, levi_civita,
 };
 use crate::{ABS_TOL, REL_TOL};
 

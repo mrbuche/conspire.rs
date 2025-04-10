@@ -12,8 +12,8 @@ use std::{
 
 use super::{
     super::{Tensor, TensorArray},
-    list::TensorRank2List,
     TensorRank0, TensorRank2,
+    list::TensorRank2List,
 };
 
 /// A 2D list of *d*-dimensional tensors of rank 2.
@@ -61,7 +61,7 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize, const X: us
                                 self_ab_i
                                     .iter()
                                     .zip(comparator_ab_i.iter())
-                                    .filter(|(&self_ab_ij, &comparator_ab_ij)| {
+                                    .filter(|&(&self_ab_ij, &comparator_ab_ij)| {
                                         &(self_ab_ij - comparator_ab_ij).abs() >= tol_abs
                                             && &(self_ab_ij / comparator_ab_ij - 1.0).abs()
                                                 >= tol_rel
@@ -95,7 +95,7 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize, const X: us
                                 self_ab_i
                                     .iter()
                                     .zip(comparator_ab_i.iter())
-                                    .filter(|(&self_ab_ij, &comparator_ab_ij)| {
+                                    .filter(|&(&self_ab_ij, &comparator_ab_ij)| {
                                         &(self_ab_ij / comparator_ab_ij - 1.0).abs() >= epsilon
                                             && (&self_ab_ij.abs() >= epsilon
                                                 || &comparator_ab_ij.abs() >= epsilon)
@@ -123,7 +123,7 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize, const X: us
                                     self_ab_i
                                         .iter()
                                         .zip(comparator_ab_i.iter())
-                                        .filter(|(&self_ab_ij, &comparator_ab_ij)| {
+                                        .filter(|&(&self_ab_ij, &comparator_ab_ij)| {
                                             &(self_ab_ij / comparator_ab_ij - 1.0).abs() >= epsilon
                                                 && &(self_ab_ij - comparator_ab_ij).abs() >= epsilon
                                                 && (&self_ab_ij.abs() >= epsilon
@@ -225,14 +225,8 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize, const X: us
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-    > Mul<TensorRank2<D, J, K>> for TensorRank2List2D<D, I, J, W, X>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: usize, const X: usize>
+    Mul<TensorRank2<D, J, K>> for TensorRank2List2D<D, I, J, W, X>
 {
     type Output = TensorRank2List2D<D, I, K, W, X>;
     fn mul(self, tensor_rank_2: TensorRank2<D, J, K>) -> Self::Output {
@@ -247,14 +241,8 @@ impl<
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-    > Mul<&TensorRank2<D, J, K>> for TensorRank2List2D<D, I, J, W, X>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: usize, const X: usize>
+    Mul<&TensorRank2<D, J, K>> for TensorRank2List2D<D, I, J, W, X>
 {
     type Output = TensorRank2List2D<D, I, K, W, X>;
     fn mul(self, tensor_rank_2: &TensorRank2<D, J, K>) -> Self::Output {

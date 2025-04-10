@@ -1,7 +1,7 @@
 #[cfg(test)]
 use crate::math::test::ErrorTensor;
 
-use crate::math::{write_tensor_rank_0, Tensor, TensorRank0, TensorVec};
+use crate::math::{Tensor, TensorRank0, TensorVec, write_tensor_rank_0};
 use std::{
     fmt::{Display, Formatter, Result},
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
@@ -26,7 +26,7 @@ impl ErrorTensor for Vector {
                 entry
                     .iter()
                     .zip(comparator_entry.iter())
-                    .filter(|(&entry_i, &comparator_entry_i)| {
+                    .filter(|&(&entry_i, &comparator_entry_i)| {
                         &(entry_i - comparator_entry_i).abs() >= tol_abs
                             && &(entry_i / comparator_entry_i - 1.0).abs() >= tol_rel
                     })
@@ -47,7 +47,7 @@ impl ErrorTensor for Vector {
                 entry
                     .iter()
                     .zip(comparator_entry.iter())
-                    .filter(|(&entry_i, &comparator_entry_i)| {
+                    .filter(|&(&entry_i, &comparator_entry_i)| {
                         &(entry_i / comparator_entry_i - 1.0).abs() >= epsilon
                             && (&entry_i.abs() >= epsilon || &comparator_entry_i.abs() >= epsilon)
                     })
@@ -62,7 +62,7 @@ impl ErrorTensor for Vector {
                     entry
                         .iter()
                         .zip(comparator_entry.iter())
-                        .filter(|(&entry_i, &comparator_entry_i)| {
+                        .filter(|&(&entry_i, &comparator_entry_i)| {
                             &(entry_i / comparator_entry_i - 1.0).abs() >= epsilon
                                 && &(entry_i - comparator_entry_i).abs() >= epsilon
                                 && (&entry_i.abs() >= epsilon

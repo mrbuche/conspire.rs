@@ -2,18 +2,18 @@
 mod test;
 
 use crate::{
+    ABS_TOL,
     constitutive::{
-        hybrid::{Hybrid, Multiplicative, MultiplicativeTrait},
-        solid::{elastic::Elastic, Solid},
         Constitutive, ConstitutiveError, Parameters,
+        hybrid::{Hybrid, Multiplicative, MultiplicativeTrait},
+        solid::{Solid, elastic::Elastic},
     },
-    math::{Rank2, Tensor, TensorRank2, IDENTITY_10, ZERO_10},
+    math::{IDENTITY_10, Rank2, Tensor, TensorRank2, ZERO_10},
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffStress,
         FirstPiolaKirchhoffTangentStiffness, Scalar, SecondPiolaKirchhoffStress,
         SecondPiolaKirchhoffTangentStiffness,
     },
-    ABS_TOL,
 };
 
 impl<'a, C1: Elastic<'a>, C2: Elastic<'a>> Constitutive<'a> for Multiplicative<C1, C2> {

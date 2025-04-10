@@ -1,7 +1,7 @@
 use super::{Tensor, TensorArray, TensorRank0, TensorRank1};
 use crate::{
-    math::test::{assert_eq, ErrorTensor, TestError},
     ABS_TOL, REL_TOL,
+    math::test::{ErrorTensor, TestError, assert_eq},
 };
 
 fn get_array() -> [TensorRank0; 4] {

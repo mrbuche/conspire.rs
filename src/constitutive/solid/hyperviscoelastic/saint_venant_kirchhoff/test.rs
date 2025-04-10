@@ -17,8 +17,8 @@ mod consistency {
         constitutive::solid::{
             elastic::Elastic,
             hyperelastic::{
-                test::SAINTVENANTKIRCHOFFPARAMETERS as HYPERELASTICSAINTVENANTKIRCHOFFPARAMETERS,
                 Hyperelastic, SaintVenantKirchhoff as HyperelasticSaintVenantKirchhoff,
+                test::SAINTVENANTKIRCHOFFPARAMETERS as HYPERELASTICSAINTVENANTKIRCHOFFPARAMETERS,
             },
         },
         math::test::assert_eq_within_tols,

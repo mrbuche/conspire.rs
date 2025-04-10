@@ -15,10 +15,7 @@ jobs:
       matrix:
         features: [math, mechanics, constitutive, fem]
         os: [macos-latest, windows-latest, ubuntu-latest]
-        toolchain:
-          - beta
-          - nightly
-          - stable
+        toolchain: [beta, nightly, stable]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout

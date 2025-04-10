@@ -3,9 +3,9 @@ mod test;
 
 use super::{
     super::{
+        Hessian, Tensor, TensorArray, TensorRank0, TensorVec, Vector,
         interpolate::InterpolateSolution,
         optimize::{FirstOrder, NewtonRaphson, Optimization, SecondOrder},
-        Hessian, Tensor, TensorArray, TensorRank0, TensorVec, Vector,
     },
     Implicit, IntegrationError,
 };

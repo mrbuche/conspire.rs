@@ -3,26 +3,26 @@
 mod block;
 
 pub use block::{
+    ElasticFiniteElementBlock, ElementBlock, FiniteElementBlock, HyperelasticFiniteElementBlock,
+    HyperviscoelasticFiniteElementBlock, SurfaceFiniteElementBlock, ViscoelasticFiniteElementBlock,
     element::{
+        ElasticFiniteElement, FiniteElement, FiniteElementMethods, HyperelasticFiniteElement,
+        HyperviscoelasticFiniteElement, SurfaceFiniteElement, ViscoelasticFiniteElement,
         composite::tetrahedron::Tetrahedron as CompositeTetrahedron,
         linear::{
             tetrahedron::Tetrahedron as LinearTetrahedron, triangle::Triangle as LinearTriangle,
         },
-        ElasticFiniteElement, FiniteElement, FiniteElementMethods, HyperelasticFiniteElement,
-        HyperviscoelasticFiniteElement, SurfaceFiniteElement, ViscoelasticFiniteElement,
     },
-    ElasticFiniteElementBlock, ElementBlock, FiniteElementBlock, HyperelasticFiniteElementBlock,
-    HyperviscoelasticFiniteElementBlock, SurfaceFiniteElementBlock, ViscoelasticFiniteElementBlock,
 };
 
 use crate::{
     constitutive::{
+        Constitutive, ConstitutiveError, Parameters,
         solid::{
             elastic::Elastic, elastic_hyperviscous::ElasticHyperviscous,
             hyperelastic::Hyperelastic, hyperviscoelastic::Hyperviscoelastic,
             viscoelastic::Viscoelastic,
         },
-        Constitutive, ConstitutiveError, Parameters,
     },
     math::{
         ContractSecondFourthIndicesWithFirstIndicesOf, Tensor, TensorRank1, TensorRank1List,

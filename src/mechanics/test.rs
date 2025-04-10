@@ -5,8 +5,8 @@ use super::{
     RotationReferenceConfiguration, Scalar, TemperatureGradient,
 };
 use crate::math::{
-    test::{assert_eq_within_tols, TestError},
-    Rank2, Tensor, TensorArray, IDENTITY, IDENTITY_00, IDENTITY_10,
+    IDENTITY, IDENTITY_00, IDENTITY_10, Rank2, Tensor, TensorArray,
+    test::{TestError, assert_eq_within_tols},
 };
 
 impl From<DeformationError> for TestError {
@@ -260,27 +260,33 @@ fn trace_invariant() -> Result<(), TestError> {
 
 #[test]
 fn trace_not_invariant() {
-    assert!(assert_eq_within_tols(
-        &get_deformation_gradient().trace(),
-        &get_deformation_gradient_rotated().trace(),
+    assert!(
+        assert_eq_within_tols(
+            &get_deformation_gradient().trace(),
+            &get_deformation_gradient_rotated().trace(),
+        )
+        .is_err()
     )
-    .is_err())
 }
 
 #[test]
 fn not_a_tensor() {
-    assert!(assert_eq_within_tols(
-        &get_deformation_gradient_rate_rotated_undeformed(),
-        &DeformationGradientRate::zero(),
+    assert!(
+        assert_eq_within_tols(
+            &get_deformation_gradient_rate_rotated_undeformed(),
+            &DeformationGradientRate::zero(),
+        )
+        .is_err()
+    );
+    assert!(
+        assert_eq_within_tols(
+            &get_deformation_gradient_rate_rotated(),
+            &(get_rotation_current_configuration()
+                * get_deformation_gradient_rate()
+                * get_rotation_reference_configuration().transpose())
+        )
+        .is_err()
     )
-    .is_err());
-    assert!(assert_eq_within_tols(
-        &get_deformation_gradient_rate_rotated(),
-        &(get_rotation_current_configuration()
-            * get_deformation_gradient_rate()
-            * get_rotation_reference_configuration().transpose())
-    )
-    .is_err())
 }
 
 #[test]

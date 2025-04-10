@@ -15,12 +15,12 @@ use std::{
 };
 
 use super::{
+    Tensor, TensorArray,
     rank_0::TensorRank0,
     rank_2::{
-        get_identity_1010_parts_1, get_identity_1010_parts_2, get_identity_1010_parts_3,
-        get_levi_civita_parts, TensorRank2,
+        TensorRank2, get_identity_1010_parts_1, get_identity_1010_parts_2,
+        get_identity_1010_parts_3, get_levi_civita_parts,
     },
-    Tensor, TensorArray,
 };
 
 /// Returns the rank-3 Levi-Civita symbol.
@@ -42,8 +42,8 @@ pub struct TensorRank3<const D: usize, const I: usize, const J: usize, const K: 
 
 pub const LEVI_CIVITA: TensorRank3<3, 1, 1, 1> = TensorRank3(get_levi_civita_parts());
 
-pub const fn get_identity_1010_parts<const I: usize, const J: usize, const K: usize>(
-) -> [TensorRank3<3, I, J, K>; 3] {
+pub const fn get_identity_1010_parts<const I: usize, const J: usize, const K: usize>()
+-> [TensorRank3<3, I, J, K>; 3] {
     [
         TensorRank3(get_identity_1010_parts_1()),
         TensorRank3(get_identity_1010_parts_2()),
@@ -94,7 +94,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> ErrorTensor
                         self_ij
                             .iter()
                             .zip(comparator_ij.iter())
-                            .filter(|(&self_ijk, &comparator_ijk)| {
+                            .filter(|&(&self_ijk, &comparator_ijk)| {
                                 &(self_ijk - comparator_ijk).abs() >= tol_abs
                                     && &(self_ijk / comparator_ijk - 1.0).abs() >= tol_rel
                             })
@@ -121,7 +121,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> ErrorTensor
                         self_ij
                             .iter()
                             .zip(comparator_ij.iter())
-                            .filter(|(&self_ijk, &comparator_ijk)| {
+                            .filter(|&(&self_ijk, &comparator_ijk)| {
                                 &(self_ijk / comparator_ijk - 1.0).abs() >= epsilon
                                     && (&self_ijk.abs() >= epsilon
                                         || &comparator_ijk.abs() >= epsilon)

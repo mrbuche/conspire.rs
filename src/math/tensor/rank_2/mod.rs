@@ -19,13 +19,13 @@ use std::{
 
 use super::{
     super::write_tensor_rank_0,
+    Hessian, Rank2, Tensor, TensorArray, TensorError,
     rank_0::TensorRank0,
     rank_1::{
-        list::TensorRank1List, tensor_rank_1, vec::TensorRank1Vec, zero as tensor_rank_1_zero,
-        TensorRank1,
+        TensorRank1, list::TensorRank1List, tensor_rank_1, vec::TensorRank1Vec,
+        zero as tensor_rank_1_zero,
     },
     rank_4::TensorRank4,
-    Hessian, Rank2, Tensor, TensorArray, TensorError,
 };
 use list_2d::TensorRank2List2D;
 use vec_2d::TensorRank2Vec2D;
@@ -219,7 +219,7 @@ impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2
                 self_i
                     .iter()
                     .zip(comparator_i.iter())
-                    .filter(|(&self_ij, &comparator_ij)| {
+                    .filter(|&(&self_ij, &comparator_ij)| {
                         &(self_ij - comparator_ij).abs() >= tol_abs
                             && &(self_ij / comparator_ij - 1.0).abs() >= tol_rel
                     })
@@ -240,7 +240,7 @@ impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2
                 self_i
                     .iter()
                     .zip(comparator_i.iter())
-                    .filter(|(&self_ij, &comparator_ij)| {
+                    .filter(|&(&self_ij, &comparator_ij)| {
                         &(self_ij / comparator_ij - 1.0).abs() >= epsilon
                             && (&self_ij.abs() >= epsilon || &comparator_ij.abs() >= epsilon)
                     })
@@ -1206,14 +1206,8 @@ impl<const D: usize, const I: usize, const J: usize> Mul<&TensorRank1Vec<D, J>>
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-    > Mul<TensorRank2List2D<D, J, K, W, X>> for TensorRank2<D, I, J>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: usize, const X: usize>
+    Mul<TensorRank2List2D<D, J, K, W, X>> for TensorRank2<D, I, J>
 {
     type Output = TensorRank2List2D<D, I, K, W, X>;
     fn mul(self, tensor_rank_2_list_2d: TensorRank2List2D<D, J, K, W, X>) -> Self::Output {
@@ -1229,14 +1223,8 @@ impl<
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const W: usize,
-        const X: usize,
-    > Mul<TensorRank2List2D<D, J, K, W, X>> for &TensorRank2<D, I, J>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: usize, const X: usize>
+    Mul<TensorRank2List2D<D, J, K, W, X>> for &TensorRank2<D, I, J>
 {
     type Output = TensorRank2List2D<D, I, K, W, X>;
     fn mul(self, tensor_rank_2_list_2d: TensorRank2List2D<D, J, K, W, X>) -> Self::Output {

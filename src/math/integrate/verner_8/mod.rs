@@ -3,7 +3,7 @@ mod test;
 
 use super::{
     super::{
-        interpolate::InterpolateSolution, Tensor, TensorArray, TensorRank0, TensorVec, Vector,
+        Tensor, TensorArray, TensorRank0, TensorVec, Vector, interpolate::InterpolateSolution,
     },
     Explicit, IntegrationError,
 };

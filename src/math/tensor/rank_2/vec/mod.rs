@@ -40,7 +40,7 @@ impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2
                         self_a_i
                             .iter()
                             .zip(comparator_a_i.iter())
-                            .filter(|(&self_a_ij, &comparator_a_ij)| {
+                            .filter(|&(&self_a_ij, &comparator_a_ij)| {
                                 &(self_a_ij - comparator_a_ij).abs() >= tol_abs
                                     && &(self_a_ij / comparator_a_ij - 1.0).abs() >= tol_rel
                             })
@@ -67,7 +67,7 @@ impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2
                         self_a_i
                             .iter()
                             .zip(comparator_a_i.iter())
-                            .filter(|(&self_a_ij, &comparator_a_ij)| {
+                            .filter(|&(&self_a_ij, &comparator_a_ij)| {
                                 &(self_a_ij / comparator_a_ij - 1.0).abs() >= epsilon
                                     && (&self_a_ij.abs() >= epsilon
                                         || &comparator_a_ij.abs() >= epsilon)

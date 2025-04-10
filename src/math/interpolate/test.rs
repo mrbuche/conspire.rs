@@ -1,5 +1,5 @@
 use super::{
-    super::test::{assert_eq, TestError},
+    super::test::{TestError, assert_eq},
     Interpolate1D, LinearInterpolation, TensorVec, Vector,
 };
 

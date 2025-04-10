@@ -1,10 +1,10 @@
 use super::{
-    super::{test::ErrorTensor, Tensor, TensorArray},
+    super::{Tensor, TensorArray, test::ErrorTensor},
     ContractAllIndicesWithFirstIndicesOf, ContractFirstSecondIndicesWithSecondIndicesOf,
     ContractFirstThirdFourthIndicesWithFirstIndicesOf,
     ContractSecondFourthIndicesWithFirstIndicesOf, ContractSecondIndexWithFirstIndexOf,
-    ContractThirdFourthIndicesWithFirstSecondIndicesOf, Rank2, TensorRank0, TensorRank1,
-    TensorRank2, TensorRank3, TensorRank4, IDENTITY_1010,
+    ContractThirdFourthIndicesWithFirstSecondIndicesOf, IDENTITY_1010, Rank2, TensorRank0,
+    TensorRank1, TensorRank2, TensorRank3, TensorRank4,
 };
 use crate::{ABS_TOL, REL_TOL};
 
@@ -112,8 +112,8 @@ fn get_tensor_rank_4_mul_tensor_rank_2() -> TensorRank4<3, 1, 1, 1, 1> {
     ])
 }
 
-fn get_tensor_rank_4_contract_all_indices_with_first_indices_of_tensor_rank_2(
-) -> TensorRank4<3, 1, 1, 1, 1> {
+fn get_tensor_rank_4_contract_all_indices_with_first_indices_of_tensor_rank_2()
+-> TensorRank4<3, 1, 1, 1, 1> {
     TensorRank4::new([
         [
             [
@@ -169,8 +169,8 @@ fn get_tensor_rank_4_contract_all_indices_with_first_indices_of_tensor_rank_2(
     ])
 }
 
-fn get_tensor_rank_4_contract_first_second_indices_with_second_indices_of_tensor_rank_2(
-) -> TensorRank4<3, 1, 1, 1, 1> {
+fn get_tensor_rank_4_contract_first_second_indices_with_second_indices_of_tensor_rank_2()
+-> TensorRank4<3, 1, 1, 1, 1> {
     TensorRank4::new([
         [
             [
@@ -226,8 +226,8 @@ fn get_tensor_rank_4_contract_first_second_indices_with_second_indices_of_tensor
     ])
 }
 
-fn get_tensor_rank_4_contract_first_third_fourth_indices_with_first_indices_of_tensor_rank_2(
-) -> TensorRank4<3, 1, 1, 1, 1> {
+fn get_tensor_rank_4_contract_first_third_fourth_indices_with_first_indices_of_tensor_rank_2()
+-> TensorRank4<3, 1, 1, 1, 1> {
     TensorRank4::new([
         [
             [
@@ -283,8 +283,8 @@ fn get_tensor_rank_4_contract_first_third_fourth_indices_with_first_indices_of_t
     ])
 }
 
-fn get_tensor_rank_4_contract_second_index_with_first_index_of_tensor_rank_2(
-) -> TensorRank4<3, 1, 1, 1, 1> {
+fn get_tensor_rank_4_contract_second_index_with_first_index_of_tensor_rank_2()
+-> TensorRank4<3, 1, 1, 1, 1> {
     TensorRank4::new([
         [
             [[27.0, 34.0, 45.0], [40.0, 29.0, 37.0], [18.0, 41.0, 18.0]],
@@ -304,8 +304,8 @@ fn get_tensor_rank_4_contract_second_index_with_first_index_of_tensor_rank_2(
     ])
 }
 
-fn get_tensor_rank_4_contract_third_fourth_indices_with_first_second_indices_of_tensor_rank_2(
-) -> TensorRank2<3, 1, 1> {
+fn get_tensor_rank_4_contract_third_fourth_indices_with_first_second_indices_of_tensor_rank_2()
+-> TensorRank2<3, 1, 1> {
     TensorRank2::new([
         [128.0, 97.0, 77.0],
         [113.0, 92.0, 99.0],
@@ -313,8 +313,8 @@ fn get_tensor_rank_4_contract_third_fourth_indices_with_first_second_indices_of_
     ])
 }
 
-fn get_tensor_rank_4_contract_second_fourth_indices_with_first_indices_of_tensors_rank_1(
-) -> TensorRank2<3, 1, 1> {
+fn get_tensor_rank_4_contract_second_fourth_indices_with_first_indices_of_tensors_rank_1()
+-> TensorRank2<3, 1, 1> {
     TensorRank2::new([
         [206.0, 196.0, 151.0],
         [196.0, 195.0, 198.0],

@@ -22,28 +22,16 @@ pub struct TensorRank4List<
     const W: usize,
 >([TensorRank4<D, I, J, K, L>; W]);
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const W: usize,
-    > Display for TensorRank4List<D, I, J, K, L, W>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
+    Display for TensorRank4List<D, I, J, K, L, W>
 {
     fn fmt(&self, _f: &mut Formatter) -> Result {
         Ok(())
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const W: usize,
-    > Tensor for TensorRank4List<D, I, J, K, L, W>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
+    Tensor for TensorRank4List<D, I, J, K, L, W>
 {
     type Item = TensorRank4<D, I, J, K, L>;
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
@@ -54,14 +42,8 @@ impl<
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const W: usize,
-    > TensorArray for TensorRank4List<D, I, J, K, L, W>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
+    TensorArray for TensorRank4List<D, I, J, K, L, W>
 {
     type Array = [[[[[TensorRank0; D]; D]; D]; D]; W];
     type Item = TensorRank4<D, I, J, K, L>;
@@ -84,14 +66,8 @@ impl<
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const W: usize,
-    > FromIterator<TensorRank4<D, I, J, K, L>> for TensorRank4List<D, I, J, K, L, W>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
+    FromIterator<TensorRank4<D, I, J, K, L>> for TensorRank4List<D, I, J, K, L, W>
 {
     fn from_iter<Ii: IntoIterator<Item = TensorRank4<D, I, J, K, L>>>(into_iterator: Ii) -> Self {
         let mut tensor_rank_4_list = Self::zero();
@@ -103,14 +79,8 @@ impl<
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const W: usize,
-    > Index<usize> for TensorRank4List<D, I, J, K, L, W>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
+    Index<usize> for TensorRank4List<D, I, J, K, L, W>
 {
     type Output = TensorRank4<D, I, J, K, L>;
     fn index(&self, index: usize) -> &Self::Output {
@@ -118,28 +88,16 @@ impl<
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const W: usize,
-    > IndexMut<usize> for TensorRank4List<D, I, J, K, L, W>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
+    IndexMut<usize> for TensorRank4List<D, I, J, K, L, W>
 {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.0[index]
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const W: usize,
-    > Add for TensorRank4List<D, I, J, K, L, W>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
+    Add for TensorRank4List<D, I, J, K, L, W>
 {
     type Output = Self;
     fn add(mut self, tensor_rank_4: Self) -> Self::Output {
@@ -148,14 +106,8 @@ impl<
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const W: usize,
-    > Add<&Self> for TensorRank4List<D, I, J, K, L, W>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
+    Add<&Self> for TensorRank4List<D, I, J, K, L, W>
 {
     type Output = Self;
     fn add(mut self, tensor_rank_4_list: &Self) -> Self::Output {
@@ -164,14 +116,8 @@ impl<
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const W: usize,
-    > AddAssign for TensorRank4List<D, I, J, K, L, W>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
+    AddAssign for TensorRank4List<D, I, J, K, L, W>
 {
     fn add_assign(&mut self, tensor_rank_4_list: Self) {
         self.iter_mut()
@@ -180,14 +126,8 @@ impl<
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const W: usize,
-    > AddAssign<&Self> for TensorRank4List<D, I, J, K, L, W>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
+    AddAssign<&Self> for TensorRank4List<D, I, J, K, L, W>
 {
     fn add_assign(&mut self, tensor_rank_4_list: &Self) {
         self.iter_mut()
@@ -196,14 +136,8 @@ impl<
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const W: usize,
-    > Div<TensorRank0> for TensorRank4List<D, I, J, K, L, W>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
+    Div<TensorRank0> for TensorRank4List<D, I, J, K, L, W>
 {
     type Output = Self;
     fn div(mut self, tensor_rank_0: TensorRank0) -> Self::Output {
@@ -212,14 +146,8 @@ impl<
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const W: usize,
-    > Div<&TensorRank0> for TensorRank4List<D, I, J, K, L, W>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
+    Div<&TensorRank0> for TensorRank4List<D, I, J, K, L, W>
 {
     type Output = Self;
     fn div(mut self, tensor_rank_0: &TensorRank0) -> Self::Output {
@@ -228,42 +156,24 @@ impl<
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const W: usize,
-    > DivAssign<TensorRank0> for TensorRank4List<D, I, J, K, L, W>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
+    DivAssign<TensorRank0> for TensorRank4List<D, I, J, K, L, W>
 {
     fn div_assign(&mut self, tensor_rank_0: TensorRank0) {
         self.iter_mut().for_each(|entry| *entry /= &tensor_rank_0);
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const W: usize,
-    > DivAssign<&TensorRank0> for TensorRank4List<D, I, J, K, L, W>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
+    DivAssign<&TensorRank0> for TensorRank4List<D, I, J, K, L, W>
 {
     fn div_assign(&mut self, tensor_rank_0: &TensorRank0) {
         self.iter_mut().for_each(|entry| *entry /= tensor_rank_0);
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const W: usize,
-    > Mul<TensorRank0> for TensorRank4List<D, I, J, K, L, W>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
+    Mul<TensorRank0> for TensorRank4List<D, I, J, K, L, W>
 {
     type Output = Self;
     fn mul(mut self, tensor_rank_0: TensorRank0) -> Self::Output {
@@ -272,14 +182,8 @@ impl<
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const W: usize,
-    > Mul<&TensorRank0> for TensorRank4List<D, I, J, K, L, W>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
+    Mul<&TensorRank0> for TensorRank4List<D, I, J, K, L, W>
 {
     type Output = Self;
     fn mul(mut self, tensor_rank_0: &TensorRank0) -> Self::Output {
@@ -288,42 +192,24 @@ impl<
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const W: usize,
-    > MulAssign<TensorRank0> for TensorRank4List<D, I, J, K, L, W>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
+    MulAssign<TensorRank0> for TensorRank4List<D, I, J, K, L, W>
 {
     fn mul_assign(&mut self, tensor_rank_0: TensorRank0) {
         self.iter_mut().for_each(|entry| *entry *= &tensor_rank_0);
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const W: usize,
-    > MulAssign<&TensorRank0> for TensorRank4List<D, I, J, K, L, W>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
+    MulAssign<&TensorRank0> for TensorRank4List<D, I, J, K, L, W>
 {
     fn mul_assign(&mut self, tensor_rank_0: &TensorRank0) {
         self.iter_mut().for_each(|entry| *entry *= tensor_rank_0);
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const W: usize,
-    > Sub for TensorRank4List<D, I, J, K, L, W>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
+    Sub for TensorRank4List<D, I, J, K, L, W>
 {
     type Output = Self;
     fn sub(mut self, tensor_rank_4_list: Self) -> Self::Output {
@@ -332,14 +218,8 @@ impl<
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const W: usize,
-    > Sub<&Self> for TensorRank4List<D, I, J, K, L, W>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
+    Sub<&Self> for TensorRank4List<D, I, J, K, L, W>
 {
     type Output = Self;
     fn sub(mut self, tensor_rank_4_list: &Self) -> Self::Output {
@@ -348,14 +228,8 @@ impl<
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const W: usize,
-    > SubAssign for TensorRank4List<D, I, J, K, L, W>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
+    SubAssign for TensorRank4List<D, I, J, K, L, W>
 {
     fn sub_assign(&mut self, tensor_rank_4_list: Self) {
         self.iter_mut()
@@ -364,14 +238,8 @@ impl<
     }
 }
 
-impl<
-        const D: usize,
-        const I: usize,
-        const J: usize,
-        const K: usize,
-        const L: usize,
-        const W: usize,
-    > SubAssign<&Self> for TensorRank4List<D, I, J, K, L, W>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
+    SubAssign<&Self> for TensorRank4List<D, I, J, K, L, W>
 {
     fn sub_assign(&mut self, tensor_rank_4_list: &Self) {
         self.iter_mut()

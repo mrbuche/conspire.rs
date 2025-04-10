@@ -1,7 +1,7 @@
 use super::{
     super::{
-        test::{assert_eq, assert_eq_within_tols, ErrorTensor, TestError},
         TensorError,
+        test::{ErrorTensor, TestError, assert_eq, assert_eq_within_tols},
     },
     Rank2, Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank1List, TensorRank2,
     TensorRank2List2D, TensorRank4,

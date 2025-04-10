@@ -2,7 +2,7 @@
 use super::super::test::ErrorTensor;
 
 use crate::math::{
-    write_tensor_rank_0, Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank2, TensorVec,
+    Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank2, TensorVec, write_tensor_rank_0,
 };
 use std::{
     fmt::{Display, Formatter, Result},
@@ -49,7 +49,7 @@ impl<const D: usize, const I: usize> ErrorTensor for TensorRank1Vec<D, I> {
                 entry
                     .iter()
                     .zip(comparator_entry.iter())
-                    .filter(|(&entry_i, &comparator_entry_i)| {
+                    .filter(|&(&entry_i, &comparator_entry_i)| {
                         &(entry_i - comparator_entry_i).abs() >= tol_abs
                             && &(entry_i / comparator_entry_i - 1.0).abs() >= tol_rel
                     })
@@ -70,7 +70,7 @@ impl<const D: usize, const I: usize> ErrorTensor for TensorRank1Vec<D, I> {
                 entry
                     .iter()
                     .zip(comparator_entry.iter())
-                    .filter(|(&entry_i, &comparator_entry_i)| {
+                    .filter(|&(&entry_i, &comparator_entry_i)| {
                         &(entry_i / comparator_entry_i - 1.0).abs() >= epsilon
                             && (&entry_i.abs() >= epsilon || &comparator_entry_i.abs() >= epsilon)
                     })
@@ -85,7 +85,7 @@ impl<const D: usize, const I: usize> ErrorTensor for TensorRank1Vec<D, I> {
                     entry
                         .iter()
                         .zip(comparator_entry.iter())
-                        .filter(|(&entry_i, &comparator_entry_i)| {
+                        .filter(|&(&entry_i, &comparator_entry_i)| {
                             &(entry_i / comparator_entry_i - 1.0).abs() >= epsilon
                                 && &(entry_i - comparator_entry_i).abs() >= epsilon
                                 && (&entry_i.abs() >= epsilon

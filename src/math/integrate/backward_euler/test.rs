@@ -1,9 +1,9 @@
 use super::{
     super::super::{
-        integrate::{test::zero_to_tau, Implicit},
+        Tensor, TensorRank0, Vector,
+        integrate::{Implicit, test::zero_to_tau},
         optimize::{GradientDescent, Optimization},
         test::TestError,
-        Tensor, TensorRank0, Vector,
     },
     BackwardEuler,
 };

@@ -3,8 +3,8 @@ mod test;
 
 use super::{
     super::{Tensor, TensorArray},
-    list::TensorRank1List,
     TensorRank0,
+    list::TensorRank1List,
 };
 use std::array::from_fn;
 use std::{

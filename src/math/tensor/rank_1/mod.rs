@@ -14,8 +14,8 @@ use std::{
 };
 
 use super::{
-    super::write_tensor_rank_0, rank_0::TensorRank0, rank_2::TensorRank2, Convert, Tensor,
-    TensorArray,
+    super::write_tensor_rank_0, Convert, Tensor, TensorArray, rank_0::TensorRank0,
+    rank_2::TensorRank2,
 };
 
 /// A *d*-dimensional tensor of rank 1.
@@ -71,7 +71,7 @@ impl<const D: usize, const I: usize> ErrorTensor for TensorRank1<D, I> {
         let error_count = self
             .iter()
             .zip(comparator.iter())
-            .filter(|(&self_i, &comparator_i)| {
+            .filter(|&(&self_i, &comparator_i)| {
                 &(self_i - comparator_i).abs() >= tol_abs
                     && &(self_i / comparator_i - 1.0).abs() >= tol_rel
             })
@@ -86,7 +86,7 @@ impl<const D: usize, const I: usize> ErrorTensor for TensorRank1<D, I> {
         let error_count = self
             .iter()
             .zip(comparator.iter())
-            .filter(|(&self_i, &comparator_i)| {
+            .filter(|&(&self_i, &comparator_i)| {
                 &(self_i / comparator_i - 1.0).abs() >= epsilon
                     && (&self_i.abs() >= epsilon || &comparator_i.abs() >= epsilon)
             })

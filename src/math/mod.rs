@@ -20,37 +20,38 @@ mod tensor;
 
 pub use matrix::{square::SquareMatrix, vector::Vector};
 pub use tensor::{
+    Convert, Hessian, Rank2, Tensor, TensorArray, TensorVec,
     rank_0::{
-        list::{tensor_rank_0_list, TensorRank0List},
         TensorRank0,
+        list::{TensorRank0List, tensor_rank_0_list},
     },
     rank_1::{
-        list::{tensor_rank_1_list, TensorRank1List},
-        list_2d::{tensor_rank_1_list_2d, TensorRank1List2D},
+        TensorRank1,
+        list::{TensorRank1List, tensor_rank_1_list},
+        list_2d::{TensorRank1List2D, tensor_rank_1_list_2d},
         tensor_rank_1,
         vec::TensorRank1Vec,
-        zero as tensor_rank_1_zero, TensorRank1,
+        zero as tensor_rank_1_zero,
     },
     rank_2::{
-        list::{tensor_rank_2_list, TensorRank2List},
+        IDENTITY, IDENTITY_00, IDENTITY_10, TensorRank2, ZERO, ZERO_10,
+        list::{TensorRank2List, tensor_rank_2_list},
         list_2d::TensorRank2List2D,
         tensor_rank_2,
         vec::TensorRank2Vec,
         vec_2d::TensorRank2Vec2D,
-        TensorRank2, IDENTITY, IDENTITY_00, IDENTITY_10, ZERO, ZERO_10,
     },
     rank_3::{
-        levi_civita, list::TensorRank3List, list_2d::TensorRank3List2D, list_3d::TensorRank3List3D,
-        TensorRank3, LEVI_CIVITA,
+        LEVI_CIVITA, TensorRank3, levi_civita, list::TensorRank3List, list_2d::TensorRank3List2D,
+        list_3d::TensorRank3List3D,
     },
     rank_4::{
-        list::TensorRank4List, ContractAllIndicesWithFirstIndicesOf,
-        ContractFirstSecondIndicesWithSecondIndicesOf,
+        ContractAllIndicesWithFirstIndicesOf, ContractFirstSecondIndicesWithSecondIndicesOf,
         ContractFirstThirdFourthIndicesWithFirstIndicesOf,
         ContractSecondFourthIndicesWithFirstIndicesOf, ContractSecondIndexWithFirstIndexOf,
-        ContractThirdFourthIndicesWithFirstSecondIndicesOf, TensorRank4, IDENTITY_1010,
+        ContractThirdFourthIndicesWithFirstSecondIndicesOf, IDENTITY_1010, TensorRank4,
+        list::TensorRank4List,
     },
-    Convert, Hessian, Rank2, Tensor, TensorArray, TensorVec,
 };
 
 use std::fmt;
