@@ -1,4 +1,7 @@
 name: Publish
+concurrency:
+  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.head_ref }}
 env:
   CARGO_TERM_COLOR: always
 on:
@@ -16,7 +19,6 @@ jobs:
       - name: Toolchain
         uses: actions-rs/toolchain@88dc2356392166efad76775c878094f4e83ff746
         with:
-          default: true
           toolchain: stable
       - name: Package
         run: cargo package

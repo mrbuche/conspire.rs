@@ -1,7 +1,7 @@
 name: Pages
 concurrency:
   cancel-in-progress: true
-  group: Pages
+  group: ${{ github.workflow }}-${{ github.head_ref }}
 on:
   pull_request:
     branches: main
@@ -17,7 +17,6 @@ jobs:
       - name: Toolchain
         uses: actions-rs/toolchain@88dc2356392166efad76775c878094f4e83ff746
         with:
-          default: true
           toolchain: stable
       - name: Dev
         run: |
@@ -28,10 +27,10 @@ jobs:
       - name: Upload
         uses: actions/upload-pages-artifact@v3
   Deploy:
-    if: github.event_name != 'pull_request'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    if: github.event_name != 'pull_request'
     needs: Build
     permissions:
       id-token: write

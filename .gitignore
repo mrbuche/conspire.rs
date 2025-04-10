@@ -1,4 +1,5 @@
 mutants.out/
 mutants.out.old/
 target/
+.venv/
 .vscode/
