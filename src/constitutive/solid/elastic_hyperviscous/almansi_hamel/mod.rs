@@ -53,7 +53,7 @@ impl<'a> Viscoelastic<'a> for AlmansiHamel<'a> {
     /// Calculates and returns the Cauchy stress.
     ///
     /// ```math
-    /// \mathbf{}(\mathbf{F},\dot\mathbf{F}) = 2\mu\mathbf{e}' + \kappa\,\mathrm{tr}(\mathbf{e})\mathbf{1} + 2\eta\mathbf{D}' + \zeta\,\mathrm{tr}(\mathbf{D})\mathbf{1}
+    /// \boldsymbol{\sigma}(\mathbf{F},\dot\mathbf{F}) = 2\mu\mathbf{e}' + \kappa\,\mathrm{tr}(\mathbf{e})\mathbf{1} + 2\eta\mathbf{D}' + \zeta\,\mathrm{tr}(\mathbf{D})\mathbf{1}
     /// ```
     fn cauchy_stress(
         &self,
