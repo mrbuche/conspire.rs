@@ -6,5 +6,3 @@
 [![release](https://img.shields.io/crates/v/conspire?color=blue&label=release)](https://crates.io/crates/conspire)
 
 The Rust interface to [conspire](https://mrbuche.github.io/conspire).
-
-foo foo
