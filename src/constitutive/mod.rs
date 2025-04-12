@@ -27,7 +27,7 @@ impl<const N: usize> Parameters for [Scalar; N] {
     }
 }
 
-impl<T> Parameters for &T where T: fmt::Debug + Index<usize, Output=Scalar> {
+impl<const N: usize> Parameters for &[Scalar; N] {
     fn get(&self, index: usize) -> &Scalar {
         self.index(index)
     }
