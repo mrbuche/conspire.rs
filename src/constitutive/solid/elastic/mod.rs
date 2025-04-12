@@ -15,9 +15,9 @@ use super::*;
 use crate::math::optimize::{NewtonRaphson, SecondOrder};
 
 /// Required methods for elastic constitutive models.
-pub trait Elastic<'a>
+pub trait Elastic<P>
 where
-    Self: Solid<'a>,
+    Self: Solid<P>,
 {
     /// Calculates and returns the Cauchy stress.
     ///
