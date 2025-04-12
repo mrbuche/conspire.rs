@@ -23,6 +23,10 @@ fn bar() {
     let _ = AlmansiHamel::new(&[13.0, 3.0]).bulk_modulus();
 }
 
+fn baz() {
+    let _ = AlmansiHamel::new(&vec![13.0, 3.0]).bulk_modulus();
+}
+
 impl<P> Constitutive<P> for AlmansiHamel<P> where P: Parameters {
     fn new(parameters: P) -> Self {
         Self { parameters }

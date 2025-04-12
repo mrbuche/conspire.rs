@@ -27,14 +27,11 @@ impl<const N: usize> Parameters for [Scalar; N] {
     }
 }
 
-impl<const N: usize> Parameters for &[Scalar; N] {
+impl<T> Parameters for &T where T: fmt::Debug + Index<usize, Output=Scalar> {
     fn get(&self, index: usize) -> &Scalar {
         self.index(index)
     }
 }
-
-// /// Array of constitutive model parameters.
-// pub type Parameters<'a> = &'a [Scalar];
 
 /// Required methods for constitutive models.
 pub trait Constitutive<P>
