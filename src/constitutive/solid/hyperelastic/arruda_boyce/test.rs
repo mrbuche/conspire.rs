@@ -1,10 +1,12 @@
 use super::super::test::*;
 use super::*;
 
+type ArrudaBoyceType<'a> = ArrudaBoyce<&'a [Scalar; 3]>;
+
 use_elastic_macros!();
 
 test_solid_hyperelastic_constitutive_model!(
-    ArrudaBoyce,
+    ArrudaBoyceType,
     ARRUDABOYCEPARAMETERS,
     ArrudaBoyce::new(ARRUDABOYCEPARAMETERS)
 );

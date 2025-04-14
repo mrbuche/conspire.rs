@@ -10,26 +10,19 @@ pub struct AlmansiHamel<P> {
     parameters: P,
 }
 
-#[test]
-fn need_to_test_sizing_of_models_both_ways_now() {
-    todo!()
-}
-
-fn foo() {
-    let _ = AlmansiHamel::new([13.0, 3.0]).bulk_modulus();
-}
-
-fn bar() {
-    let _ = AlmansiHamel::new(&[13.0, 3.0]).bulk_modulus();
-}
-
-impl<P> Constitutive<P> for AlmansiHamel<P> where P: Parameters {
+impl<P> Constitutive<P> for AlmansiHamel<P>
+where
+    P: Parameters,
+{
     fn new(parameters: P) -> Self {
         Self { parameters }
     }
 }
 
-impl<P> Solid<P> for AlmansiHamel<P> where P: Parameters {
+impl<P> Solid<P> for AlmansiHamel<P>
+where
+    P: Parameters,
+{
     fn bulk_modulus(&self) -> &Scalar {
         self.parameters.get(0)
     }
@@ -38,7 +31,10 @@ impl<P> Solid<P> for AlmansiHamel<P> where P: Parameters {
     }
 }
 
-impl<P> Elastic<P> for AlmansiHamel<P> where P: Parameters {
+impl<P> Elastic<P> for AlmansiHamel<P>
+where
+    P: Parameters,
+{
     #[doc = include_str!("cauchy_stress.md")]
     fn cauchy_stress(
         &self,

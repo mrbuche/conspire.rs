@@ -17,7 +17,10 @@ use crate::{
 use std::{fmt, ops::Index};
 
 /// Methods for lists of constitutive model parameters.
-pub trait Parameters where Self: fmt::Debug {
+pub trait Parameters
+where
+    Self: fmt::Debug,
+{
     fn get(&self, index: usize) -> &Scalar;
 }
 
