@@ -39,9 +39,9 @@ where
 
 pub trait FiniteElement<C, const G: usize, const N: usize, Y>
 where
-    C: Constitutive<y>,
+    C: Constitutive<Y>,
     Self: FiniteElementMethods<C, G, N, Y>,
-    Y: Parameters
+    Y: Parameters,
 {
     fn new(
         constitutive_model_parameters: Y,
@@ -52,7 +52,8 @@ where
 pub trait SurfaceFiniteElement<C, const G: usize, const N: usize, const P: usize, Y>
 where
     C: Constitutive<Y>,
-    Y: Parameters
+    Self: FiniteElementMethods<C, G, N, Y>,
+    Y: Parameters,
 {
     fn bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> Bases<I, P>;
     fn dual_bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> Bases<I, P>;
@@ -403,7 +404,7 @@ where
 }
 
 impl<C, const G: usize, const N: usize, Y> ElasticHyperviscousFiniteElement<C, G, N, Y>
-    for Element<C, G, N, Y>
+    for Element<C, G, N>
 where
     C: ElasticHyperviscous<Y>,
 {

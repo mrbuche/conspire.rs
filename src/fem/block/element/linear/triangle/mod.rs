@@ -22,9 +22,10 @@ const Q: usize = 3;
 
 pub type Triangle<C> = SurfaceElement<C, G, N, P>;
 
-impl<'a, C> SurfaceFiniteElement<'a, C, G, N, P> for Triangle<C>
+impl<C, Y> SurfaceFiniteElement<C, G, N, P, Y> for Triangle<C>
 where
-    C: Constitutive<'a>,
+    C: Constitutive<Y>,
+    Y: Parameters,
 {
     fn bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> Bases<I, P> {
         Self::standard_gradient_operators()
@@ -74,7 +75,7 @@ where
             .collect()
     }
     fn new(
-        constitutive_model_parameters: Parameters<'a>,
+        constitutive_model_parameters: Y,
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
         thickness: &Scalar,
     ) -> Self {
@@ -207,10 +208,7 @@ where
     }
 }
 
-impl<'a, C> Triangle<C>
-where
-    C: Constitutive<'a>,
-{
+impl<C> Triangle<C> {
     const fn integration_weight() -> Scalar {
         1.0 / 2.0
     }
@@ -227,9 +225,10 @@ where
     }
 }
 
-impl<'a, C> FiniteElementMethods<'a, C, G, N> for Triangle<C>
+impl<C, Y> FiniteElementMethods<C, G, N, Y> for Triangle<C>
 where
-    C: Constitutive<'a>,
+    C: Constitutive<Y>,
+    Y: Parameters,
 {
     fn constitutive_models(&self) -> &[C; G] {
         &self.constitutive_models
@@ -289,9 +288,10 @@ where
     }
 }
 
-impl<'a, C> ElasticFiniteElement<'a, C, G, N> for Triangle<C>
+impl<C, Y> ElasticFiniteElement<C, G, N, Y> for Triangle<C>
 where
-    C: Elastic<'a>,
+    C: Elastic<Y>,
+    Y: Parameters,
 {
     fn nodal_forces(
         &self,
@@ -387,9 +387,10 @@ where
     }
 }
 
-impl<'a, C> HyperelasticFiniteElement<'a, C, G, N> for Triangle<C>
+impl<C, Y> HyperelasticFiniteElement<C, G, N, Y> for Triangle<C>
 where
-    C: Hyperelastic<'a>,
+    C: Hyperelastic<Y>,
+    Y: Parameters,
 {
     fn helmholtz_free_energy(
         &self,
@@ -414,9 +415,10 @@ where
     }
 }
 
-impl<'a, C> ViscoelasticFiniteElement<'a, C, G, N> for Triangle<C>
+impl<C, Y> ViscoelasticFiniteElement<C, G, N, Y> for Triangle<C>
 where
-    C: Viscoelastic<'a>,
+    C: Viscoelastic<Y>,
+    Y: Parameters,
 {
     fn nodal_forces(
         &self,
@@ -524,9 +526,10 @@ where
     }
 }
 
-impl<'a, C> ElasticHyperviscousFiniteElement<'a, C, G, N> for Triangle<C>
+impl<C, Y> ElasticHyperviscousFiniteElement<C, G, N, Y> for Triangle<C>
 where
-    C: ElasticHyperviscous<'a>,
+    C: ElasticHyperviscous<Y>,
+    Y: Parameters,
 {
     fn viscous_dissipation(
         &self,
@@ -582,9 +585,10 @@ where
     }
 }
 
-impl<'a, C> HyperviscoelasticFiniteElement<'a, C, G, N> for Triangle<C>
+impl<C, Y> HyperviscoelasticFiniteElement<C, G, N, Y> for Triangle<C>
 where
-    C: Hyperviscoelastic<'a>,
+    C: Hyperviscoelastic<Y>,
+    Y: Parameters,
 {
     fn helmholtz_free_energy(
         &self,

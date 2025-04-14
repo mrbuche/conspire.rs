@@ -15,12 +15,13 @@ const Q: usize = 4;
 
 pub type Tetrahedron<C> = Element<C, G, N>;
 
-impl<'a, C> FiniteElement<'a, C, G, N> for Tetrahedron<C>
+impl<C, Y> FiniteElement<C, G, N, Y> for Tetrahedron<C>
 where
-    C: Constitutive<'a>,
+    C: Constitutive<Y>,
+    Y: Parameters,
 {
     fn new(
-        constitutive_model_parameters: Parameters<'a>,
+        constitutive_model_parameters: Y,
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
     ) -> Self {
         Self {
@@ -32,10 +33,7 @@ where
     }
 }
 
-impl<'a, C> Tetrahedron<C>
-where
-    C: Constitutive<'a>,
-{
+impl<C> Tetrahedron<C> {
     const fn integration_weight() -> Scalar {
         1.0 / 24.0
     }

@@ -9,13 +9,19 @@ pub struct SaintVenantKirchhoff<P> {
     parameters: P,
 }
 
-impl<P> Constitutive<P> for SaintVenantKirchhoff<P> where P: Parameters {
+impl<P> Constitutive<P> for SaintVenantKirchhoff<P>
+where
+    P: Parameters,
+{
     fn new(parameters: P) -> Self {
         Self { parameters }
     }
 }
 
-impl<P> Solid<P> for SaintVenantKirchhoff<P> where P: Parameters {
+impl<P> Solid<P> for SaintVenantKirchhoff<P>
+where
+    P: Parameters,
+{
     fn bulk_modulus(&self) -> &Scalar {
         self.parameters.get(0)
     }
@@ -24,7 +30,10 @@ impl<P> Solid<P> for SaintVenantKirchhoff<P> where P: Parameters {
     }
 }
 
-impl<P> Elastic<P> for SaintVenantKirchhoff<P> where P: Parameters {
+impl<P> Elastic<P> for SaintVenantKirchhoff<P>
+where
+    P: Parameters,
+{
     #[doc = include_str!("second_piola_kirchhoff_stress.md")]
     fn second_piola_kirchhoff_stress(
         &self,
@@ -58,7 +67,10 @@ impl<P> Elastic<P> for SaintVenantKirchhoff<P> where P: Parameters {
     }
 }
 
-impl<P> Hyperelastic<P> for SaintVenantKirchhoff<P> where P: Parameters {
+impl<P> Hyperelastic<P> for SaintVenantKirchhoff<P>
+where
+    P: Parameters,
+{
     #[doc = include_str!("helmholtz_free_energy_density.md")]
     fn helmholtz_free_energy_density(
         &self,

@@ -16,7 +16,8 @@ mod saint_venant_kirchhoff;
 mod yeoh;
 
 pub use self::{
-    arruda_boyce::ArrudaBoyce, fung::Fung, gent::Gent, mooney_rivlin::MooneyRivlin, neo_hookean::NeoHookean, saint_venant_kirchhoff::SaintVenantKirchhoff, yeoh::Yeoh,
+    arruda_boyce::ArrudaBoyce, fung::Fung, gent::Gent, mooney_rivlin::MooneyRivlin,
+    neo_hookean::NeoHookean, saint_venant_kirchhoff::SaintVenantKirchhoff, yeoh::Yeoh,
 };
 use super::{elastic::Elastic, *};
 use std::fmt::Debug;

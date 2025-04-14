@@ -25,15 +25,19 @@ pub struct AlmansiHamel<P> {
     parameters: P,
 }
 
-impl<P> Constitutive<P> for AlmansiHamel<P> where
-P: Parameters {
+impl<P> Constitutive<P> for AlmansiHamel<P>
+where
+    P: Parameters,
+{
     fn new(parameters: P) -> Self {
         Self { parameters }
     }
 }
 
-impl<P> Solid<P> for AlmansiHamel<P> where
-P: Parameters {
+impl<P> Solid<P> for AlmansiHamel<P>
+where
+    P: Parameters,
+{
     fn bulk_modulus(&self) -> &Scalar {
         self.parameters.get(0)
     }
@@ -42,8 +46,10 @@ P: Parameters {
     }
 }
 
-impl<P> Thermoelastic<P> for AlmansiHamel<P> where
-P: Parameters {
+impl<P> Thermoelastic<P> for AlmansiHamel<P>
+where
+    P: Parameters,
+{
     /// Calculates and returns the Cauchy stress.
     ///
     /// ```math

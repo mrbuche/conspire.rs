@@ -14,12 +14,15 @@ use crate::{
     math::optimize::OptimizeError,
     mechanics::{Deformation, DeformationError, DeformationGradient, Scalar},
 };
-use std::{fmt, ops::{Index, RangeFrom}};
+use std::{
+    fmt,
+    ops::{Index, RangeFrom},
+};
 
 /// Methods for lists of constitutive model parameters.
 pub trait Parameters
 where
-    Self: fmt::Debug,
+    Self: Copy + fmt::Debug,
 {
     fn get(&self, index: usize) -> &Scalar;
     fn get_slice(&self, index: RangeFrom<usize>) -> &[Scalar];

@@ -9,20 +9,29 @@ pub struct MooneyRivlin<P> {
     parameters: P,
 }
 
-impl<P> MooneyRivlin<P> where P: Parameters {
+impl<P> MooneyRivlin<P>
+where
+    P: Parameters,
+{
     /// Returns the extra modulus.
     fn extra_modulus(&self) -> &Scalar {
         self.parameters.get(2)
     }
 }
 
-impl<P> Constitutive<P> for MooneyRivlin<P> where P: Parameters {
+impl<P> Constitutive<P> for MooneyRivlin<P>
+where
+    P: Parameters,
+{
     fn new(parameters: P) -> Self {
         Self { parameters }
     }
 }
 
-impl<P> Solid<P> for MooneyRivlin<P> where P: Parameters {
+impl<P> Solid<P> for MooneyRivlin<P>
+where
+    P: Parameters,
+{
     fn bulk_modulus(&self) -> &Scalar {
         self.parameters.get(0)
     }
@@ -31,7 +40,10 @@ impl<P> Solid<P> for MooneyRivlin<P> where P: Parameters {
     }
 }
 
-impl<P> Elastic<P> for MooneyRivlin<P> where P: Parameters {
+impl<P> Elastic<P> for MooneyRivlin<P>
+where
+    P: Parameters,
+{
     #[doc = include_str!("cauchy_stress.md")]
     fn cauchy_stress(
         &self,
@@ -100,7 +112,10 @@ impl<P> Elastic<P> for MooneyRivlin<P> where P: Parameters {
     }
 }
 
-impl<P> Hyperelastic<P> for MooneyRivlin<P> where P: Parameters {
+impl<P> Hyperelastic<P> for MooneyRivlin<P>
+where
+    P: Parameters,
+{
     #[doc = include_str!("helmholtz_free_energy_density.md")]
     fn helmholtz_free_energy_density(
         &self,

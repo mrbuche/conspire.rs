@@ -11,7 +11,10 @@ pub struct Yeoh<P> {
     parameters: P,
 }
 
-impl<P> Yeoh<P> where P: Parameters {
+impl<P> Yeoh<P>
+where
+    P: Parameters,
+{
     /// Returns an array of the moduli.
     pub fn moduli(&self) -> &[Scalar] {
         // panic!()
@@ -24,13 +27,19 @@ impl<P> Yeoh<P> where P: Parameters {
     }
 }
 
-impl<P> Constitutive<P> for Yeoh<P> where P: Parameters {
+impl<P> Constitutive<P> for Yeoh<P>
+where
+    P: Parameters,
+{
     fn new(parameters: P) -> Self {
         Self { parameters }
     }
 }
 
-impl<P> Solid<P> for Yeoh<P> where P: Parameters {
+impl<P> Solid<P> for Yeoh<P>
+where
+    P: Parameters,
+{
     fn bulk_modulus(&self) -> &Scalar {
         self.parameters.get(0)
     }
@@ -39,7 +48,10 @@ impl<P> Solid<P> for Yeoh<P> where P: Parameters {
     }
 }
 
-impl<P> Elastic<P> for Yeoh<P> where P: Parameters {
+impl<P> Elastic<P> for Yeoh<P>
+where
+    P: Parameters,
+{
     #[doc = include_str!("cauchy_stress.md")]
     fn cauchy_stress(
         &self,
@@ -113,7 +125,10 @@ impl<P> Elastic<P> for Yeoh<P> where P: Parameters {
     }
 }
 
-impl<P> Hyperelastic<P> for Yeoh<P> where P: Parameters {
+impl<P> Hyperelastic<P> for Yeoh<P>
+where
+    P: Parameters,
+{
     #[doc = include_str!("helmholtz_free_energy_density.md")]
     fn helmholtz_free_energy_density(
         &self,

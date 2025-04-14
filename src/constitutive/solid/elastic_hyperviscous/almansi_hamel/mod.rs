@@ -25,13 +25,19 @@ pub struct AlmansiHamel<P> {
     parameters: P,
 }
 
-impl<P> Constitutive<P> for AlmansiHamel<P> where P: Parameters {
+impl<P> Constitutive<P> for AlmansiHamel<P>
+where
+    P: Parameters,
+{
     fn new(parameters: P) -> Self {
         Self { parameters }
     }
 }
 
-impl<P> Solid<P> for AlmansiHamel<P> where P: Parameters {
+impl<P> Solid<P> for AlmansiHamel<P>
+where
+    P: Parameters,
+{
     fn bulk_modulus(&self) -> &Scalar {
         self.parameters.get(0)
     }
@@ -40,7 +46,10 @@ impl<P> Solid<P> for AlmansiHamel<P> where P: Parameters {
     }
 }
 
-impl<P> Viscous<P> for AlmansiHamel<P> where P: Parameters {
+impl<P> Viscous<P> for AlmansiHamel<P>
+where
+    P: Parameters,
+{
     fn bulk_viscosity(&self) -> &Scalar {
         self.parameters.get(2)
     }
@@ -49,7 +58,10 @@ impl<P> Viscous<P> for AlmansiHamel<P> where P: Parameters {
     }
 }
 
-impl<P> Viscoelastic<P> for AlmansiHamel<P> where P: Parameters {
+impl<P> Viscoelastic<P> for AlmansiHamel<P>
+where
+    P: Parameters,
+{
     /// Calculates and returns the Cauchy stress.
     ///
     /// ```math
@@ -104,7 +116,10 @@ impl<P> Viscoelastic<P> for AlmansiHamel<P> where P: Parameters {
     }
 }
 
-impl<P> ElasticHyperviscous<P> for AlmansiHamel<P> where P: Parameters {
+impl<P> ElasticHyperviscous<P> for AlmansiHamel<P>
+where
+    P: Parameters,
+{
     /// Calculates and returns the viscous dissipation.
     ///
     /// ```math
