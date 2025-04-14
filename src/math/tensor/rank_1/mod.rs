@@ -142,15 +142,27 @@ impl<const D: usize, const I: usize, const J: usize> Convert<TensorRank1<D, J>>
     }
 }
 
-impl<const D: usize, const I: usize,> From<[TensorRank0; D]> for TensorRank1<D, I> {
+impl<const D: usize, const I: usize> From<[TensorRank0; D]> for TensorRank1<D, I> {
     fn from(array: [TensorRank0; D]) -> Self {
-        array.iter().copied().collect()
+        Self(array)
     }
 }
 
-impl<const D: usize, const I: usize,> From<TensorRank1<D, I>> for [TensorRank0; D] {
+impl<const D: usize, const I: usize> From<Vec<TensorRank0>> for TensorRank1<D, I> {
+    fn from(vec: Vec<TensorRank0>) -> Self {
+        Self(vec.try_into().unwrap())
+    }
+}
+
+impl<const D: usize, const I: usize> From<TensorRank1<D, I>> for [TensorRank0; D] {
     fn from(tensor_rank_1: TensorRank1<D, I>) -> Self {
-        tensor_rank_1.as_array()
+        tensor_rank_1.0
+    }
+}
+
+impl<const D: usize, const I: usize> From<TensorRank1<D, I>> for Vec<TensorRank0> {
+    fn from(tensor_rank_1: TensorRank1<D, I>) -> Self {
+        tensor_rank_1.0.to_vec()
     }
 }
 
