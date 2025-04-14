@@ -3,18 +3,18 @@
 #[cfg(test)]
 pub mod test;
 
-// pub mod fluid;
+pub mod fluid;
 // pub mod hybrid;
-// pub mod multiphysics;
+pub mod multiphysics;
 pub mod solid;
-// pub mod thermal;
+pub mod thermal;
 
 use crate::{
     defeat_message,
     math::optimize::OptimizeError,
     mechanics::{Deformation, DeformationError, DeformationGradient, Scalar},
 };
-use std::{fmt, ops::Index};
+use std::{fmt, ops::{Index, RangeFrom}};
 
 /// Methods for lists of constitutive model parameters.
 pub trait Parameters
@@ -22,16 +22,23 @@ where
     Self: fmt::Debug,
 {
     fn get(&self, index: usize) -> &Scalar;
+    fn get_slice(&self, index: RangeFrom<usize>) -> &[Scalar];
 }
 
 impl<const N: usize> Parameters for [Scalar; N] {
     fn get(&self, index: usize) -> &Scalar {
         self.index(index)
     }
+    fn get_slice(&self, index: RangeFrom<usize>) -> &[Scalar] {
+        self.index(index)
+    }
 }
 
 impl<const N: usize> Parameters for &[Scalar; N] {
     fn get(&self, index: usize) -> &Scalar {
+        self.index(index)
+    }
+    fn get_slice(&self, index: RangeFrom<usize>) -> &[Scalar] {
         self.index(index)
     }
 }

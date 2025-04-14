@@ -21,26 +21,29 @@ use super::*;
 /// **Notes**
 /// - The Almansi-Hamel strain measure is given by $`\mathbf{e}=\tfrac{1}{2}(\mathbf{1}-\mathbf{B}^{-1})`$.
 #[derive(Debug)]
-pub struct AlmansiHamel<'a> {
-    parameters: Parameters<'a>,
+pub struct AlmansiHamel<P> {
+    parameters: P,
 }
 
-impl<'a> Constitutive<'a> for AlmansiHamel<'a> {
-    fn new(parameters: Parameters<'a>) -> Self {
+impl<P> Constitutive<P> for AlmansiHamel<P> where
+P: Parameters {
+    fn new(parameters: P) -> Self {
         Self { parameters }
     }
 }
 
-impl<'a> Solid<'a> for AlmansiHamel<'a> {
+impl<P> Solid<P> for AlmansiHamel<P> where
+P: Parameters {
     fn bulk_modulus(&self) -> &Scalar {
-        &self.parameters[0]
+        self.parameters.get(0)
     }
     fn shear_modulus(&self) -> &Scalar {
-        &self.parameters[1]
+        self.parameters.get(1)
     }
 }
 
-impl<'a> Thermoelastic<'a> for AlmansiHamel<'a> {
+impl<P> Thermoelastic<P> for AlmansiHamel<P> where
+P: Parameters {
     /// Calculates and returns the Cauchy stress.
     ///
     /// ```math
@@ -106,9 +109,9 @@ impl<'a> Thermoelastic<'a> for AlmansiHamel<'a> {
             ))
     }
     fn coefficient_of_thermal_expansion(&self) -> &Scalar {
-        &self.parameters[2]
+        self.parameters.get(2)
     }
     fn reference_temperature(&self) -> &Scalar {
-        &self.parameters[3]
+        self.parameters.get(3)
     }
 }

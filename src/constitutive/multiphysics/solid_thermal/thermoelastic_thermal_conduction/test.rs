@@ -1,11 +1,14 @@
 use super::*;
 use crate::constitutive::solid::thermoelastic::{AlmansiHamel, test::ALMANSIHAMELPARAMETERS};
 
+type AlmansiHamelType<'a> = AlmansiHamel<&'a [Scalar; 4]>;
+type FourierType<'a> = Fourier<&'a [Scalar; 1]>;
+
 test_thermoelastic_thermal_conduction_constitutive_model!(
     ThermoelasticThermalConduction,
-    AlmansiHamel,
+    AlmansiHamelType,
     ALMANSIHAMELPARAMETERS,
-    Fourier,
+    FourierType,
     FOURIERPARAMETERS
 );
 
@@ -166,7 +169,7 @@ macro_rules! test_thermoelastic_thermal_conduction_constitutive_model {
                         $thermal_conduction_constitutive_model,
                     >,
                 >(),
-                2 * std::mem::size_of::<crate::constitutive::Parameters>()
+                2 * std::mem::size_of::<&[Scalar; 1]>()
             )
         }
     };

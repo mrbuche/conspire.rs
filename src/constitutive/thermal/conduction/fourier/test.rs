@@ -3,18 +3,20 @@ use super::{
 };
 use crate::{
     math::{Tensor, TensorArray},
-    mechanics::test::get_temperature_gradient,
+    mechanics::{Scalar, test::get_temperature_gradient},
 };
 
-fn get_constitutive_model<'a>() -> Fourier<'a> {
+type FourierType<'a> = Fourier<&'a [Scalar; 1]>;
+
+fn get_constitutive_model<'a>() -> FourierType<'a> {
     Fourier::new(FOURIERPARAMETERS)
 }
 
 #[test]
 fn size() {
     assert_eq!(
-        std::mem::size_of::<Fourier>(),
-        std::mem::size_of::<crate::constitutive::Parameters>()
+        std::mem::size_of::<FourierType>(),
+        std::mem::size_of::<&[Scalar; 1]>()
     )
 }
 

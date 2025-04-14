@@ -5,33 +5,33 @@ use super::*;
 
 #[doc = include_str!("model.md")]
 #[derive(Debug)]
-pub struct Gent<'a> {
-    parameters: Parameters<'a>,
+pub struct Gent<P> {
+    parameters: P,
 }
 
-impl Gent<'_> {
+impl<P> Gent<P> where P: Parameters {
     /// Returns the extensibility.
     fn extensibility(&self) -> &Scalar {
-        &self.parameters[2]
+        self.parameters.get(2)
     }
 }
 
-impl<'a> Constitutive<'a> for Gent<'a> {
-    fn new(parameters: Parameters<'a>) -> Self {
+impl<P> Constitutive<P> for Gent<P> where P: Parameters {
+    fn new(parameters: P) -> Self {
         Self { parameters }
     }
 }
 
-impl<'a> Solid<'a> for Gent<'a> {
+impl<P> Solid<P> for Gent<P> where P: Parameters {
     fn bulk_modulus(&self) -> &Scalar {
-        &self.parameters[0]
+        self.parameters.get(0)
     }
     fn shear_modulus(&self) -> &Scalar {
-        &self.parameters[1]
+        self.parameters.get(1)
     }
 }
 
-impl<'a> Elastic<'a> for Gent<'a> {
+impl<P> Elastic<P> for Gent<P> where P: Parameters {
     #[doc = include_str!("cauchy_stress.md")]
     fn cauchy_stress(
         &self,
@@ -109,7 +109,7 @@ impl<'a> Elastic<'a> for Gent<'a> {
     }
 }
 
-impl<'a> Hyperelastic<'a> for Gent<'a> {
+impl<P> Hyperelastic<P> for Gent<P> where P: Parameters {
     #[doc = include_str!("helmholtz_free_energy_density.md")]
     fn helmholtz_free_energy_density(
         &self,

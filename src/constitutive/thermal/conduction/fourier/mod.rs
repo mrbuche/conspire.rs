@@ -16,24 +16,24 @@ use super::{
 /// **Internal variables**
 /// - None.
 #[derive(Debug)]
-pub struct Fourier<'a> {
-    parameters: Parameters<'a>,
+pub struct Fourier<P> {
+    parameters: P,
 }
 
-impl Fourier<'_> {
+impl<P> Fourier<P> where P: Parameters {
     fn thermal_conductivity(&self) -> &Scalar {
-        &self.parameters[0]
+        self.parameters.get(0)
     }
 }
 
-impl<'a> Constitutive<'a> for Fourier<'a> {
-    fn new(parameters: Parameters<'a>) -> Self {
+impl<P> Constitutive<P> for Fourier<P> where P: Parameters {
+    fn new(parameters: P) -> Self {
         Self { parameters }
     }
 }
-impl<'a> Thermal<'a> for Fourier<'a> {}
+impl<P> Thermal<P> for Fourier<P> where P: Parameters {}
 
-impl<'a> ThermalConduction<'a> for Fourier<'a> {
+impl<P> ThermalConduction<P> for Fourier<P> where P: Parameters {
     /// Calculates and returns the heat flux.
     ///
     /// ```math

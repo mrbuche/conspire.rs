@@ -10,9 +10,9 @@ pub use almansi_hamel::AlmansiHamel;
 use super::*;
 
 /// Required methods for thermoelastic constitutive models.
-pub trait Thermoelastic<'a>
+pub trait Thermoelastic<P>
 where
-    Self: Solid<'a>,
+    Self: Solid<P>,
 {
     /// Calculates and returns the Cauchy stress.
     ///

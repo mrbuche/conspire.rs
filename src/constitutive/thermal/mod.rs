@@ -7,8 +7,8 @@ use crate::mechanics::{HeatFlux, Scalar, TemperatureGradient};
 use super::{Constitutive, Parameters};
 
 /// Required methods for thermal constitutive models.
-pub trait Thermal<'a>
+pub trait Thermal<P>
 where
-    Self: Constitutive<'a>,
+    Self: Constitutive<P>,
 {
 }

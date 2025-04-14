@@ -6,8 +6,8 @@ use super::Constitutive;
 use crate::mechanics::Scalar;
 
 /// Required methods for fluid constitutive models.
-pub trait Fluid<'a>
+pub trait Fluid<P>
 where
-    Self: Constitutive<'a>,
+    Self: Constitutive<P>,
 {
 }

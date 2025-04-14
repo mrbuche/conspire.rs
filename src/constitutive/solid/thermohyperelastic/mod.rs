@@ -10,9 +10,9 @@ pub use saint_venant_kirchhoff::SaintVenantKirchhoff;
 use super::{thermoelastic::Thermoelastic, *};
 
 /// Required methods for thermohyperelastic constitutive models.
-pub trait Thermohyperelastic<'a>
+pub trait Thermohyperelastic<P>
 where
-    Self: Thermoelastic<'a>,
+    Self: Thermoelastic<P>,
 {
     /// Calculates and returns the Helmholtz free energy density.
     ///

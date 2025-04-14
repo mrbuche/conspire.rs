@@ -2,7 +2,6 @@
 mod test;
 
 use super::*;
-use std::{fmt::Debug, ops::Index};
 
 #[doc = include_str!("model.md")]
 #[derive(Debug)]

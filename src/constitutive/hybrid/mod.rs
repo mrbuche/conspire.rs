@@ -9,7 +9,7 @@ use crate::{
 };
 
 /// Required methods for hybrid constitutive models.
-pub trait Hybrid<'a, C1: Constitutive<'a>, C2: Constitutive<'a>> {
+pub trait Hybrid<P, C1: Constitutive<P>, C2: Constitutive<P>> {
     /// Constructs and returns a new hybrid constitutive model.
     fn construct(constitutive_model_1: C1, constitutive_model_2: C2) -> Self;
     /// Returns a reference to the first constitutive model.
@@ -40,7 +40,7 @@ pub trait MultiplicativeTrait {
     ) -> Result<(DeformationGradient, DeformationGradient), ConstitutiveError>;
 }
 
-impl<'a, C1: Constitutive<'a>, C2: Constitutive<'a>> Hybrid<'a, C1, C2> for Additive<C1, C2> {
+impl<P, C1: Constitutive<P>, C2: Constitutive<P>> Hybrid<P, C1, C2> for Additive<C1, C2> {
     fn construct(constitutive_model_1: C1, constitutive_model_2: C2) -> Self {
         Self {
             constitutive_model_1,
@@ -55,7 +55,7 @@ impl<'a, C1: Constitutive<'a>, C2: Constitutive<'a>> Hybrid<'a, C1, C2> for Addi
     }
 }
 
-impl<'a, C1: Constitutive<'a>, C2: Constitutive<'a>> Hybrid<'a, C1, C2> for Multiplicative<C1, C2> {
+impl<P, C1: Constitutive<P>, C2: Constitutive<P>> Hybrid<P, C1, C2> for Multiplicative<C1, C2> {
     fn construct(constitutive_model_1: C1, constitutive_model_2: C2) -> Self {
         Self {
             constitutive_model_1,

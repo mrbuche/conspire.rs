@@ -5,26 +5,26 @@ use super::*;
 
 #[doc = include_str!("model.md")]
 #[derive(Debug)]
-pub struct NeoHookean<'a> {
-    parameters: Parameters<'a>,
+pub struct NeoHookean<P> {
+    parameters: P,
 }
 
-impl<'a> Constitutive<'a> for NeoHookean<'a> {
-    fn new(parameters: Parameters<'a>) -> Self {
+impl<P> Constitutive<P> for NeoHookean<P> where P: Parameters {
+    fn new(parameters: P) -> Self {
         Self { parameters }
     }
 }
 
-impl<'a> Solid<'a> for NeoHookean<'a> {
+impl<P> Solid<P> for NeoHookean<P> where P: Parameters {
     fn bulk_modulus(&self) -> &Scalar {
-        &self.parameters[0]
+        self.parameters.get(0)
     }
     fn shear_modulus(&self) -> &Scalar {
-        &self.parameters[1]
+        self.parameters.get(1)
     }
 }
 
-impl<'a> Elastic<'a> for NeoHookean<'a> {
+impl<P> Elastic<P> for NeoHookean<P> where P: Parameters {
     #[doc = include_str!("cauchy_stress.md")]
     fn cauchy_stress(
         &self,
@@ -61,7 +61,7 @@ impl<'a> Elastic<'a> for NeoHookean<'a> {
     }
 }
 
-impl<'a> Hyperelastic<'a> for NeoHookean<'a> {
+impl<P> Hyperelastic<P> for NeoHookean<P> where P: Parameters {
     #[doc = include_str!("helmholtz_free_energy_density.md")]
     fn helmholtz_free_energy_density(
         &self,

@@ -7,37 +7,39 @@ const SEVEN_THIRDS: Scalar = 7.0 / 3.0;
 
 #[doc = include_str!("model.md")]
 #[derive(Debug)]
-pub struct Yeoh<'a> {
-    parameters: Parameters<'a>,
+pub struct Yeoh<P> {
+    parameters: P,
 }
 
-impl Yeoh<'_> {
+impl<P> Yeoh<P> where P: Parameters {
     /// Returns an array of the moduli.
     pub fn moduli(&self) -> &[Scalar] {
-        &self.parameters[1..]
+        // panic!()
+        self.parameters.get_slice(1..)
     }
     /// Returns an array of the extra moduli.
     pub fn extra_moduli(&self) -> &[Scalar] {
-        &self.parameters[2..]
+        // panic!()
+        self.parameters.get_slice(2..)
     }
 }
 
-impl<'a> Constitutive<'a> for Yeoh<'a> {
-    fn new(parameters: Parameters<'a>) -> Self {
+impl<P> Constitutive<P> for Yeoh<P> where P: Parameters {
+    fn new(parameters: P) -> Self {
         Self { parameters }
     }
 }
 
-impl<'a> Solid<'a> for Yeoh<'a> {
+impl<P> Solid<P> for Yeoh<P> where P: Parameters {
     fn bulk_modulus(&self) -> &Scalar {
-        &self.parameters[0]
+        self.parameters.get(0)
     }
     fn shear_modulus(&self) -> &Scalar {
-        &self.parameters[1]
+        self.parameters.get(1)
     }
 }
 
-impl<'a> Elastic<'a> for Yeoh<'a> {
+impl<P> Elastic<P> for Yeoh<P> where P: Parameters {
     #[doc = include_str!("cauchy_stress.md")]
     fn cauchy_stress(
         &self,
@@ -111,7 +113,7 @@ impl<'a> Elastic<'a> for Yeoh<'a> {
     }
 }
 
-impl<'a> Hyperelastic<'a> for Yeoh<'a> {
+impl<P> Hyperelastic<P> for Yeoh<P> where P: Parameters {
     #[doc = include_str!("helmholtz_free_energy_density.md")]
     fn helmholtz_free_energy_density(
         &self,

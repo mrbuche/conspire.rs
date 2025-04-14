@@ -21,35 +21,35 @@ use super::*;
 /// **Notes**
 /// - The Green-Saint Venant strain measure is given by $`\mathbf{E}=\tfrac{1}{2}(\mathbf{C}-\mathbf{1})`$.
 #[derive(Debug)]
-pub struct SaintVenantKirchhoff<'a> {
-    parameters: Parameters<'a>,
+pub struct SaintVenantKirchhoff<P> {
+    parameters: P,
 }
 
-impl<'a> Constitutive<'a> for SaintVenantKirchhoff<'a> {
-    fn new(parameters: Parameters<'a>) -> Self {
+impl<P> Constitutive<P> for SaintVenantKirchhoff<P> where P: Parameters {
+    fn new(parameters: P) -> Self {
         Self { parameters }
     }
 }
 
-impl<'a> Solid<'a> for SaintVenantKirchhoff<'a> {
+impl<P> Solid<P> for SaintVenantKirchhoff<P> where P: Parameters {
     fn bulk_modulus(&self) -> &Scalar {
-        &self.parameters[0]
+        self.parameters.get(0)
     }
     fn shear_modulus(&self) -> &Scalar {
-        &self.parameters[1]
+        self.parameters.get(1)
     }
 }
 
-impl<'a> Viscous<'a> for SaintVenantKirchhoff<'a> {
+impl<P> Viscous<P> for SaintVenantKirchhoff<P> where P: Parameters {
     fn bulk_viscosity(&self) -> &Scalar {
-        &self.parameters[2]
+        self.parameters.get(2)
     }
     fn shear_viscosity(&self) -> &Scalar {
-        &self.parameters[3]
+        self.parameters.get(3)
     }
 }
 
-impl<'a> Viscoelastic<'a> for SaintVenantKirchhoff<'a> {
+impl<P> Viscoelastic<P> for SaintVenantKirchhoff<P> where P: Parameters {
     /// Calculates and returns the second Piola-Kirchhoff stress.
     ///
     /// ```math
@@ -98,7 +98,7 @@ impl<'a> Viscoelastic<'a> for SaintVenantKirchhoff<'a> {
     }
 }
 
-impl<'a> ElasticHyperviscous<'a> for SaintVenantKirchhoff<'a> {
+impl<P> ElasticHyperviscous<P> for SaintVenantKirchhoff<P> where P: Parameters {
     /// Calculates and returns the viscous dissipation.
     ///
     /// ```math
@@ -119,7 +119,7 @@ impl<'a> ElasticHyperviscous<'a> for SaintVenantKirchhoff<'a> {
     }
 }
 
-impl<'a> Hyperviscoelastic<'a> for SaintVenantKirchhoff<'a> {
+impl<P> Hyperviscoelastic<P> for SaintVenantKirchhoff<P> where P: Parameters {
     /// Calculates and returns the Helmholtz free energy density.
     ///
     /// ```math

@@ -1,9 +1,11 @@
 use super::super::test::*;
 use super::*;
 
+type GentType<'a> = ArrudaBoyce<&'a [Scalar; 3]>;
+
 use_elastic_macros!();
 
-test_solid_hyperelastic_constitutive_model!(Gent, GENTPARAMETERS, Gent::new(GENTPARAMETERS));
+test_solid_hyperelastic_constitutive_model!(GentType, GENTPARAMETERS, Gent::new(GENTPARAMETERS));
 
 test_solve!(Gent::new(GENTPARAMETERS));
 

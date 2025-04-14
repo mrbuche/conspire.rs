@@ -1,10 +1,12 @@
 use super::super::test::*;
 use super::*;
 
+type SaintVenantKirchhoffType<'a> = SaintVenantKirchhoff<&'a [Scalar; 4]>;
+
 use_elastic_hyperviscous_macros!();
 
 test_solid_hyperviscoelastic_constitutive_model!(
-    SaintVenantKirchhoff,
+    SaintVenantKirchhoffType,
     SAINTVENANTKIRCHOFFPARAMETERS,
     SaintVenantKirchhoff::new(SAINTVENANTKIRCHOFFPARAMETERS)
 );

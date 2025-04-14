@@ -1,10 +1,12 @@
 use super::super::test::*;
 use super::*;
 
+type MooneyRivlinType<'a> = MooneyRivlin<&'a [Scalar; 3]>;
+
 use_elastic_macros!();
 
 test_solid_hyperelastic_constitutive_model!(
-    MooneyRivlin,
+    MooneyRivlinType,
     MOONEYRIVLINPARAMETERS,
     MooneyRivlin::new(MOONEYRIVLINPARAMETERS)
 );

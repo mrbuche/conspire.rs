@@ -1,9 +1,11 @@
 use super::super::test::*;
 use super::*;
 
+type YeohType<'a> = Yeoh<&'a [Scalar; 6]>;
+
 use_elastic_macros!();
 
-test_solid_hyperelastic_constitutive_model!(Yeoh, YEOHPARAMETERS, Yeoh::new(YEOHPARAMETERS));
+test_solid_hyperelastic_constitutive_model!(YeohType, YEOHPARAMETERS, Yeoh::new(YEOHPARAMETERS));
 
 test_solve!(Yeoh::new(YEOHPARAMETERS));
 
