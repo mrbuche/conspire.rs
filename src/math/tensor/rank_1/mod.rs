@@ -142,6 +142,12 @@ impl<const D: usize, const I: usize, const J: usize> Convert<TensorRank1<D, J>>
     }
 }
 
+impl<const D: usize, const I: usize,> From<[TensorRank0; D]> for TensorRank1<D, I> {
+    fn from(array: [TensorRank0; D]) -> Self {
+        array.iter().copied().collect()
+    }
+}
+
 impl<const D: usize, const I: usize, const J: usize> From<&TensorRank1<D, I>>
     for TensorRank1<D, J>
 {

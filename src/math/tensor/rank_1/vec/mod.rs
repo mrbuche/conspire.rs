@@ -102,6 +102,15 @@ impl<const D: usize, const I: usize> ErrorTensor for TensorRank1Vec<D, I> {
     }
 }
 
+impl<const D: usize> From<Vec<[TensorRank0; D]>> for TensorRank1Vec<D, 1> {
+    fn from(vec: Vec<[TensorRank0; D]>) -> Self {
+        vec
+            .into_iter()
+            .map(|tensor_rank_1| tensor_rank_1.into())
+            .collect()
+    }
+}
+
 impl<const D: usize> From<TensorRank1Vec<D, 0>> for TensorRank1Vec<D, 1> {
     fn from(tensor_rank_1_vec: TensorRank1Vec<D, 0>) -> Self {
         tensor_rank_1_vec
