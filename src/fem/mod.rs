@@ -37,14 +37,15 @@ use crate::{
     },
 };
 
-type NodalCoordinatesBlock = TensorRank1Vec<3, 1>;
-type ReferenceNodalCoordinatesBlock = TensorRank1Vec<3, 0>;
+pub type Connectivity<const N: usize> = Vec<[usize; N]>;
+pub type NodalCoordinatesBlock = TensorRank1Vec<3, 1>;
+pub type NodalForcesBlock = TensorRank1Vec<3, 1>;
+pub type ReferenceNodalCoordinatesBlock = TensorRank1Vec<3, 0>;
+
 type NodalVelocitiesBlock = TensorRank1Vec<3, 1>;
-type NodalForcesBlock = TensorRank1Vec<3, 1>;
 type NodalStiffnessesBlock = TensorRank2Vec2D<3, 1, 1>;
 
 type Bases<const I: usize, const P: usize> = TensorRank1List2D<3, I, 2, P>;
-type Connectivity<const N: usize> = Vec<[usize; N]>;
 type GradientVectors<const G: usize, const N: usize> = Vectors2D<0, N, G>;
 type NodalCoordinates<const D: usize> = CurrentCoordinates<D>;
 type NodalForces<const D: usize> = Forces<D>;
