@@ -14,7 +14,7 @@ where
     P: Parameters,
 {
     /// Returns the extensibility.
-    fn extensibility(&self) -> &Scalar {
+    pub fn extensibility(&self) -> &Scalar {
         self.parameters.get(2)
     }
 }

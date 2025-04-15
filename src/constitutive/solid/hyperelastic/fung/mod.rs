@@ -14,11 +14,11 @@ where
     P: Parameters,
 {
     /// Returns the extra modulus.
-    fn extra_modulus(&self) -> &Scalar {
+    pub fn extra_modulus(&self) -> &Scalar {
         self.parameters.get(2)
     }
     /// Returns the exponent.
-    fn exponent(&self) -> &Scalar {
+    pub fn exponent(&self) -> &Scalar {
         self.parameters.get(3)
     }
 }

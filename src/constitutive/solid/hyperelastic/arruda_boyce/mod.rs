@@ -15,7 +15,7 @@ where
     P: Parameters,
 {
     /// Returns the number of links.
-    fn number_of_links(&self) -> &Scalar {
+    pub fn number_of_links(&self) -> &Scalar {
         self.parameters.get(2)
     }
 }
