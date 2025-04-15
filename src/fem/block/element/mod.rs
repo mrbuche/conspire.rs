@@ -6,7 +6,6 @@ pub mod linear;
 
 use super::*;
 
-#[derive(Clone)]
 pub struct Element<C, const G: usize, const N: usize> {
     constitutive_models: [C; G],
     gradient_vectors: GradientVectors<G, N>,
