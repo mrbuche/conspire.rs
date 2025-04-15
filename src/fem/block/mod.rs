@@ -12,6 +12,7 @@ use super::*;
 use crate::math::optimize::{Dirichlet, FirstOrder, GradientDescent, OptimizeError};
 use std::array::from_fn;
 
+#[derive(Clone)]
 pub struct ElementBlock<F, const N: usize> {
     connectivity: Connectivity<N>,
     elements: Vec<F>,
