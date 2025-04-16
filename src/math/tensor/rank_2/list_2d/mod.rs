@@ -195,6 +195,25 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize, const X: us
     }
 }
 
+impl<const D: usize, const I: usize, const J: usize, const W: usize, const X: usize>
+From<TensorRank2List2D<D, I, J, W, X>> for Vec<TensorRank0>
+{
+fn from(tensor_rank_2_list_2d: TensorRank2List2D<D, I, J, W, X>) -> Self {
+    tensor_rank_2_list_2d
+        .iter()
+        .flat_map(|tensor_rank_2_list_1d| {
+            tensor_rank_2_list_1d
+                .iter()
+                .flat_map(|tensor_rank_2| {
+                    tensor_rank_2
+                        .iter()
+                        .flat_map(|tensor_rank_1| tensor_rank_1.iter().copied())
+                })
+        })
+        .collect()
+}
+}
+
 impl<const D: usize, const I: usize, const J: usize, const W: usize, const X: usize> Index<usize>
     for TensorRank2List2D<D, I, J, W, X>
 {
