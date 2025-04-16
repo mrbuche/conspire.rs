@@ -155,7 +155,9 @@ pub const ZERO_10: TensorRank2<3, 1, 0> = TensorRank2([
     tensor_rank_1_zero(),
 ]);
 
-impl<const D: usize, const I: usize, const J: usize> From<Vec<Vec<TensorRank0>>> for TensorRank2<D, I, J> {
+impl<const D: usize, const I: usize, const J: usize> From<Vec<Vec<TensorRank0>>>
+    for TensorRank2<D, I, J>
+{
     fn from(vec: Vec<Vec<TensorRank0>>) -> Self {
         assert_eq!(vec.len(), D);
         vec.iter().for_each(|entry| assert_eq!(entry.len(), D));
@@ -165,7 +167,9 @@ impl<const D: usize, const I: usize, const J: usize> From<Vec<Vec<TensorRank0>>>
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> From<TensorRank2<D, I, J>> for Vec<Vec<TensorRank0>> {
+impl<const D: usize, const I: usize, const J: usize> From<TensorRank2<D, I, J>>
+    for Vec<Vec<TensorRank0>>
+{
     fn from(tensor: TensorRank2<D, I, J>) -> Self {
         tensor
             .iter()

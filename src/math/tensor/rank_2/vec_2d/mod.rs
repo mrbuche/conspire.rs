@@ -135,23 +135,21 @@ impl<const D: usize, const I: usize, const J: usize> FromIterator<TensorRank2Vec
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize>
-From<TensorRank2Vec2D<D, I, J>> for Vec<TensorRank0>
+impl<const D: usize, const I: usize, const J: usize> From<TensorRank2Vec2D<D, I, J>>
+    for Vec<TensorRank0>
 {
-fn from(tensor_rank_2_vec_2d: TensorRank2Vec2D<D, I, J>) -> Self {
-    tensor_rank_2_vec_2d
-        .iter()
-        .flat_map(|tensor_rank_2_vec_1d| {
-            tensor_rank_2_vec_1d
-                .iter()
-                .flat_map(|tensor_rank_2| {
+    fn from(tensor_rank_2_vec_2d: TensorRank2Vec2D<D, I, J>) -> Self {
+        tensor_rank_2_vec_2d
+            .iter()
+            .flat_map(|tensor_rank_2_vec_1d| {
+                tensor_rank_2_vec_1d.iter().flat_map(|tensor_rank_2| {
                     tensor_rank_2
                         .iter()
                         .flat_map(|tensor_rank_1| tensor_rank_1.iter().copied())
                 })
-        })
-        .collect()
-}
+            })
+            .collect()
+    }
 }
 
 impl<const D: usize, const I: usize, const J: usize> Index<usize> for TensorRank2Vec2D<D, I, J> {
