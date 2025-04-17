@@ -77,22 +77,20 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
 }
 
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
-From<TensorRank4<D, I, J, K, L>> for Vec<TensorRank0>
+    From<TensorRank4<D, I, J, K, L>> for Vec<TensorRank0>
 {
-fn from(tensor_rank_4: TensorRank4<D, I, J, K, L>) -> Self {
-    tensor_rank_4
-        .iter()
-        .flat_map(|tensor_rank_3| {
-            tensor_rank_3
-                .iter()
-                .flat_map(|tensor_rank_2| {
+    fn from(tensor_rank_4: TensorRank4<D, I, J, K, L>) -> Self {
+        tensor_rank_4
+            .iter()
+            .flat_map(|tensor_rank_3| {
+                tensor_rank_3.iter().flat_map(|tensor_rank_2| {
                     tensor_rank_2
                         .iter()
                         .flat_map(|tensor_rank_1| tensor_rank_1.iter().copied())
                 })
-        })
-        .collect()
-}
+            })
+            .collect()
+    }
 }
 
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> Display
