@@ -1,9 +1,11 @@
 use super::super::test::*;
 use super::*;
 
+type FungType<'a> = ArrudaBoyce<&'a [Scalar; 4]>;
+
 use_elastic_macros!();
 
-test_solid_hyperelastic_constitutive_model!(Fung, FUNGPARAMETERS, Fung::new(FUNGPARAMETERS));
+test_solid_hyperelastic_constitutive_model!(FungType, FUNGPARAMETERS, Fung::new(FUNGPARAMETERS));
 
 test_solve!(Fung::new(FUNGPARAMETERS));
 

@@ -10,7 +10,11 @@ use crate::{
     mechanics::{DeformationGradient, Scalar},
 };
 
-impl<'a, C1: Hyperelastic<'a>, C2: Hyperelastic<'a>> Hyperelastic<'a> for Multiplicative<C1, C2> {
+impl<C1, C2> Hyperelastic for Multiplicative<C1, C2>
+where
+    C1: Hyperelastic,
+    C2: Hyperelastic,
+{
     /// Calculates and returns the Helmholtz free energy density.
     ///
     /// ```math

@@ -5,37 +5,49 @@ use super::*;
 
 #[doc = include_str!("model.md")]
 #[derive(Debug)]
-pub struct Fung<'a> {
-    parameters: Parameters<'a>,
+pub struct Fung<P> {
+    parameters: P,
 }
 
-impl Fung<'_> {
+impl<P> Fung<P>
+where
+    P: Parameters,
+{
     /// Returns the extra modulus.
-    fn extra_modulus(&self) -> &Scalar {
-        &self.parameters[2]
+    pub fn extra_modulus(&self) -> &Scalar {
+        self.parameters.get(2)
     }
     /// Returns the exponent.
-    fn exponent(&self) -> &Scalar {
-        &self.parameters[3]
+    pub fn exponent(&self) -> &Scalar {
+        self.parameters.get(3)
     }
 }
 
-impl<'a> Constitutive<'a> for Fung<'a> {
-    fn new(parameters: Parameters<'a>) -> Self {
+impl<P> Constitutive<P> for Fung<P>
+where
+    P: Parameters,
+{
+    fn new(parameters: P) -> Self {
         Self { parameters }
     }
 }
 
-impl<'a> Solid<'a> for Fung<'a> {
+impl<P> Solid for Fung<P>
+where
+    P: Parameters,
+{
     fn bulk_modulus(&self) -> &Scalar {
-        &self.parameters[0]
+        self.parameters.get(0)
     }
     fn shear_modulus(&self) -> &Scalar {
-        &self.parameters[1]
+        self.parameters.get(1)
     }
 }
 
-impl<'a> Elastic<'a> for Fung<'a> {
+impl<P> Elastic for Fung<P>
+where
+    P: Parameters,
+{
     #[doc = include_str!("cauchy_stress.md")]
     fn cauchy_stress(
         &self,
@@ -97,7 +109,10 @@ impl<'a> Elastic<'a> for Fung<'a> {
     }
 }
 
-impl<'a> Hyperelastic<'a> for Fung<'a> {
+impl<P> Hyperelastic for Fung<P>
+where
+    P: Parameters,
+{
     #[doc = include_str!("helmholtz_free_energy_density.md")]
     fn helmholtz_free_energy_density(
         &self,

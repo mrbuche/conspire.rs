@@ -1,10 +1,10 @@
-use super::{ConstitutiveError, Parameters};
+use super::{ConstitutiveError, Scalar};
 use crate::math::test::TestError;
 use std::convert::From;
 
 #[test]
 fn size() {
-    assert_eq!(std::mem::size_of::<Parameters>(), 16)
+    assert_eq!(std::mem::size_of::<&[Scalar]>(), 16)
 }
 
 impl From<ConstitutiveError> for TestError {

@@ -1,8 +1,10 @@
 use super::super::test::*;
 use super::*;
 
+type AlmansiHamelType<'a> = AlmansiHamel<&'a [Scalar; 4]>;
+
 test_solid_thermoelastic_constitutive_model!(
-    AlmansiHamel,
+    AlmansiHamelType,
     ALMANSIHAMELPARAMETERS,
     AlmansiHamel::new(ALMANSIHAMELPARAMETERS)
 );

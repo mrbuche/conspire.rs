@@ -30,9 +30,9 @@ use crate::math::optimize::{NewtonRaphson, SecondOrder};
 use std::fmt::Debug;
 
 /// Required methods for elastic-hyperviscous constitutive models.
-pub trait ElasticHyperviscous<'a>
+pub trait ElasticHyperviscous
 where
-    Self: Viscoelastic<'a> + Debug,
+    Self: Viscoelastic,
 {
     /// Calculates and returns the dissipation potential.
     ///

@@ -1,10 +1,12 @@
 use super::super::test::*;
 use super::*;
 
+type AlmansiHamelType<'a> = AlmansiHamel<&'a [Scalar; 4]>;
+
 use_viscoelastic_macros!();
 
 test_solid_elastic_hyperviscous_constitutive_model!(
-    AlmansiHamel,
+    AlmansiHamelType,
     ALMANSIHAMELPARAMETERS,
     AlmansiHamel::new(ALMANSIHAMELPARAMETERS)
 );

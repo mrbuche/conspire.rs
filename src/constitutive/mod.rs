@@ -14,13 +14,40 @@ use crate::{
     math::optimize::OptimizeError,
     mechanics::{Deformation, DeformationError, DeformationGradient, Scalar},
 };
-use std::fmt;
+use std::{
+    fmt,
+    ops::{Index, RangeFrom},
+};
 
-/// Array of constitutive model parameters.
-pub type Parameters<'a> = &'a [Scalar];
+/// Methods for lists of constitutive model parameters.
+pub trait Parameters
+where
+    Self: Copy + fmt::Debug,
+{
+    fn get(&self, index: usize) -> &Scalar;
+    fn get_slice(&self, index: RangeFrom<usize>) -> &[Scalar];
+}
+
+impl<const N: usize> Parameters for [Scalar; N] {
+    fn get(&self, index: usize) -> &Scalar {
+        self.index(index)
+    }
+    fn get_slice(&self, index: RangeFrom<usize>) -> &[Scalar] {
+        self.index(index)
+    }
+}
+
+impl<const N: usize> Parameters for &[Scalar; N] {
+    fn get(&self, index: usize) -> &Scalar {
+        self.index(index)
+    }
+    fn get_slice(&self, index: RangeFrom<usize>) -> &[Scalar] {
+        self.index(index)
+    }
+}
 
 /// Required methods for constitutive models.
-pub trait Constitutive<'a>
+pub trait Constitutive<P>
 where
     Self: fmt::Debug,
 {
@@ -41,7 +68,7 @@ where
         }
     }
     /// Constructs and returns a new constitutive model.
-    fn new(parameters: Parameters<'a>) -> Self;
+    fn new(parameters: P) -> Self;
 }
 
 /// Possible errors encountered in constitutive models.

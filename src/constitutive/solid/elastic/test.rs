@@ -156,7 +156,7 @@ macro_rules! test_solid_constitutive_construction
         {
             assert_eq!(
                 std::mem::size_of::<$constitutive_model>(),
-                std::mem::size_of::<crate::constitutive::Parameters>()
+                std::mem::size_of::<&[Scalar; 1]>()
             )
         }
     }

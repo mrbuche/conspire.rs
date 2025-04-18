@@ -83,10 +83,11 @@ macro_rules! test_finite_element_block_inner {
                 };
                 mod almansi_hamel {
                     use super::*;
+                    type AlmansiHamelType<'a> = AlmansiHamel<&'a [Scalar; 2]>;
                     test_finite_element_block_with_elastic_constitutive_model!(
                         ElementBlock,
                         $element,
-                        AlmansiHamel,
+                        AlmansiHamelType,
                         ALMANSIHAMELPARAMETERS
                     );
                 }
@@ -103,64 +104,71 @@ macro_rules! test_finite_element_block_inner {
                 };
                 mod arruda_boyce {
                     use super::*;
+                    type ArrudaBoyceType<'a> = ArrudaBoyce<&'a [Scalar; 3]>;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
                         ElementBlock,
                         $element,
-                        ArrudaBoyce,
+                        ArrudaBoyceType,
                         ARRUDABOYCEPARAMETERS
                     );
                 }
                 mod fung {
                     use super::*;
+                    type FungType<'a> = Fung<&'a [Scalar; 4]>;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
                         ElementBlock,
                         $element,
-                        Fung,
+                        FungType,
                         FUNGPARAMETERS
                     );
                 }
                 mod gent {
                     use super::*;
+                    type GentType<'a> = Gent<&'a [Scalar; 3]>;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
                         ElementBlock,
                         $element,
-                        Gent,
+                        GentType,
                         GENTPARAMETERS
                     );
                 }
                 mod mooney_rivlin {
                     use super::*;
+                    type MooneyRivlinType<'a> = MooneyRivlin<&'a [Scalar; 3]>;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
                         ElementBlock,
                         $element,
-                        MooneyRivlin,
+                        MooneyRivlinType,
                         MOONEYRIVLINPARAMETERS
                     );
                 }
                 mod neo_hookean {
                     use super::*;
+                    type NeoHookeanType<'a> = NeoHookean<&'a [Scalar; 2]>;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
                         ElementBlock,
                         $element,
-                        NeoHookean,
+                        NeoHookeanType,
                         NEOHOOKEANPARAMETERS
                     );
                 }
                 mod saint_venant_kirchhoff {
                     use super::*;
+                    type SaintVenantKirchhoffType<'a> = SaintVenantKirchhoff<&'a [Scalar; 2]>;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
                         ElementBlock,
                         $element,
-                        SaintVenantKirchhoff,
+                        SaintVenantKirchhoffType,
                         SAINTVENANTKIRCHOFFPARAMETERS
                     );
                 }
                 mod yeoh {
                     use super::*;
+                    type YeohType<'a> = Yeoh<&'a [Scalar; 6]>;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
                         ElementBlock,
                         $element,
-                        Yeoh,
+                        YeohType,
                         YEOHPARAMETERS
                     );
                 }
@@ -172,10 +180,11 @@ macro_rules! test_finite_element_block_inner {
                 };
                 mod almansi_hamel {
                     use super::*;
+                    type AlmansiHamelType<'a> = AlmansiHamel<&'a [Scalar; 4]>;
                     test_finite_element_block_with_elastic_hyperviscous_constitutive_model!(
                         ElementBlock,
                         $element,
-                        AlmansiHamel,
+                        AlmansiHamelType,
                         ALMANSIHAMELPARAMETERS
                     );
                 }
@@ -187,10 +196,11 @@ macro_rules! test_finite_element_block_inner {
                 };
                 mod saint_venant_kirchhoff {
                     use super::*;
+                    type SaintVenantKirchhoffType<'a> = SaintVenantKirchhoff<&'a [Scalar; 4]>;
                     test_finite_element_block_with_hyperviscoelastic_constitutive_model!(
                         ElementBlock,
                         $element,
-                        SaintVenantKirchhoff,
+                        SaintVenantKirchhoffType,
                         SAINTVENANTKIRCHOFFPARAMETERS
                     );
                 }

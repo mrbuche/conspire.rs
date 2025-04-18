@@ -1,10 +1,12 @@
 use super::super::test::*;
 use super::*;
 
+type SaintVenantKirchhoffType<'a> = SaintVenantKirchhoff<&'a [Scalar; 4]>;
+
 use_thermoelastic_macros!();
 
 test_solid_thermohyperelastic_constitutive_model!(
-    SaintVenantKirchhoff,
+    SaintVenantKirchhoffType,
     SAINTVENANTKIRCHOFFPARAMETERS,
     SaintVenantKirchhoff::new(SAINTVENANTKIRCHOFFPARAMETERS)
 );

@@ -5,26 +5,35 @@ use super::*;
 
 #[doc = include_str!("model.md")]
 #[derive(Debug)]
-pub struct SaintVenantKirchhoff<'a> {
-    parameters: Parameters<'a>,
+pub struct SaintVenantKirchhoff<P> {
+    parameters: P,
 }
 
-impl<'a> Constitutive<'a> for SaintVenantKirchhoff<'a> {
-    fn new(parameters: Parameters<'a>) -> Self {
+impl<P> Constitutive<P> for SaintVenantKirchhoff<P>
+where
+    P: Parameters,
+{
+    fn new(parameters: P) -> Self {
         Self { parameters }
     }
 }
 
-impl<'a> Solid<'a> for SaintVenantKirchhoff<'a> {
+impl<P> Solid for SaintVenantKirchhoff<P>
+where
+    P: Parameters,
+{
     fn bulk_modulus(&self) -> &Scalar {
-        &self.parameters[0]
+        self.parameters.get(0)
     }
     fn shear_modulus(&self) -> &Scalar {
-        &self.parameters[1]
+        self.parameters.get(1)
     }
 }
 
-impl<'a> Elastic<'a> for SaintVenantKirchhoff<'a> {
+impl<P> Elastic for SaintVenantKirchhoff<P>
+where
+    P: Parameters,
+{
     #[doc = include_str!("second_piola_kirchhoff_stress.md")]
     fn second_piola_kirchhoff_stress(
         &self,
@@ -58,7 +67,10 @@ impl<'a> Elastic<'a> for SaintVenantKirchhoff<'a> {
     }
 }
 
-impl<'a> Hyperelastic<'a> for SaintVenantKirchhoff<'a> {
+impl<P> Hyperelastic for SaintVenantKirchhoff<P>
+where
+    P: Parameters,
+{
     #[doc = include_str!("helmholtz_free_energy_density.md")]
     fn helmholtz_free_energy_density(
         &self,

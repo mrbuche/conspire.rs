@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     constitutive::{
-        Constitutive, ConstitutiveError, Parameters,
+        ConstitutiveError,
         hybrid::{Additive, Hybrid},
         solid::{Solid, elastic::Elastic},
     },
@@ -14,14 +14,7 @@ use crate::{
     },
 };
 
-impl<'a, C1: Elastic<'a>, C2: Elastic<'a>> Constitutive<'a> for Additive<C1, C2> {
-    /// Dummy method that will panic, use [Self::construct()] instead.
-    fn new(_parameters: Parameters<'a>) -> Self {
-        panic!()
-    }
-}
-
-impl<'a, C1: Elastic<'a>, C2: Elastic<'a>> Solid<'a> for Additive<C1, C2> {
+impl<C1, C2> Solid for Additive<C1, C2> {
     /// Dummy method that will panic.
     fn bulk_modulus(&self) -> &Scalar {
         panic!()
@@ -32,7 +25,11 @@ impl<'a, C1: Elastic<'a>, C2: Elastic<'a>> Solid<'a> for Additive<C1, C2> {
     }
 }
 
-impl<'a, C1: Elastic<'a>, C2: Elastic<'a>> Elastic<'a> for Additive<C1, C2> {
+impl<C1, C2> Elastic for Additive<C1, C2>
+where
+    C1: Elastic,
+    C2: Elastic,
+{
     /// Calculates and returns the Cauchy stress.
     ///
     /// ```math

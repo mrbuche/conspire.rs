@@ -3,14 +3,17 @@
 pub mod thermoelastic_thermal_conduction;
 pub mod thermohyperelastic_thermal_conduction;
 
-use super::*;
+use super::{
+    super::{solid::Solid, thermal::Thermal},
+    Multiphysics,
+};
 
 /// Required methods for solid-thermal constitutive models.
-pub trait SolidThermal<'a, C1, C2>
+pub trait SolidThermal<C1, C2>
 where
-    C1: Solid<'a>,
-    C2: Thermal<'a>,
-    Self: Multiphysics<'a>,
+    C1: Solid,
+    C2: Thermal,
+    Self: Multiphysics,
 {
     /// Constructs and returns a new solid-thermal constitutive model.
     fn construct(solid_constitutive_model: C1, thermal_constitutive_model: C2) -> Self;

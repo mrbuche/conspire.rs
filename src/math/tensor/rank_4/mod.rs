@@ -35,9 +35,9 @@ pub struct TensorRank4<
 pub const IDENTITY_1010: TensorRank4<3, 1, 0, 1, 0> = TensorRank4(get_identity_1010_parts());
 
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
-    From<Vec<Vec<Vec<Vec<f64>>>>> for TensorRank4<D, I, J, K, L>
+    From<Vec<Vec<Vec<Vec<TensorRank0>>>>> for TensorRank4<D, I, J, K, L>
 {
-    fn from(vec_rank_4: Vec<Vec<Vec<Vec<f64>>>>) -> Self {
+    fn from(vec_rank_4: Vec<Vec<Vec<Vec<TensorRank0>>>>) -> Self {
         vec_rank_4
             .into_iter()
             .map(|vec_rank_3| {
@@ -56,7 +56,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
 }
 
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
-    From<TensorRank4<D, I, J, K, L>> for Vec<Vec<Vec<Vec<f64>>>>
+    From<TensorRank4<D, I, J, K, L>> for Vec<Vec<Vec<Vec<TensorRank0>>>>
 {
     fn from(tensor_rank_4: TensorRank4<D, I, J, K, L>) -> Self {
         tensor_rank_4
@@ -71,6 +71,23 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
                             .collect()
                     })
                     .collect()
+            })
+            .collect()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
+    From<TensorRank4<D, I, J, K, L>> for Vec<TensorRank0>
+{
+    fn from(tensor_rank_4: TensorRank4<D, I, J, K, L>) -> Self {
+        tensor_rank_4
+            .iter()
+            .flat_map(|tensor_rank_3| {
+                tensor_rank_3.iter().flat_map(|tensor_rank_2| {
+                    tensor_rank_2
+                        .iter()
+                        .flat_map(|tensor_rank_1| tensor_rank_1.iter().copied())
+                })
             })
             .collect()
     }

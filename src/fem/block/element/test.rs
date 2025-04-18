@@ -11,20 +11,17 @@ macro_rules! test_finite_element {
         fn velocities() -> NodalVelocities<N> {
             get_deformation_gradient_rate() * reference_coordinates()
         }
-        fn element<'a>() -> $element<AlmansiHamel<'a>> {
+        fn element<'a>() -> $element<AlmansiHamel<&'a [Scalar; 2]>> {
             $element::new(ALMANSIHAMELPARAMETERS, reference_coordinates())
         }
-        fn element_transformed<'a>() -> $element<AlmansiHamel<'a>> {
-            $element::<AlmansiHamel<'a>>::new(
-                ALMANSIHAMELPARAMETERS,
-                reference_coordinates_transformed(),
-            )
+        fn element_transformed<'a>() -> $element<AlmansiHamel<&'a [Scalar; 2]>> {
+            $element::new(ALMANSIHAMELPARAMETERS, reference_coordinates_transformed())
         }
         #[test]
         fn size() {
             assert_eq!(
-                std::mem::size_of::<$element::<AlmansiHamel>>(),
-                std::mem::size_of::<[AlmansiHamel; G]>()
+                std::mem::size_of::<$element::<AlmansiHamel<&[Scalar; 2]>>>(),
+                std::mem::size_of::<[AlmansiHamel<&[Scalar; 2]>; G]>()
                     + std::mem::size_of::<GradientVectors<G, N>>()
                     + std::mem::size_of::<Scalars<G>>()
             )
@@ -74,11 +71,11 @@ macro_rules! test_surface_finite_element {
         fn velocities() -> NodalVelocities<N> {
             get_deformation_gradient_rate() * reference_coordinates()
         }
-        fn element<'a>() -> $element<AlmansiHamel<'a>> {
+        fn element<'a>() -> $element<AlmansiHamel<&'a [Scalar; 2]>> {
             $element::new(ALMANSIHAMELPARAMETERS, reference_coordinates(), &THICKNESS)
         }
-        fn element_transformed<'a>() -> $element<AlmansiHamel<'a>> {
-            $element::<AlmansiHamel<'a>>::new(
+        fn element_transformed<'a>() -> $element<AlmansiHamel<&'a [Scalar; 2]>> {
+            $element::<AlmansiHamel<&[Scalar; 2]>>::new(
                 ALMANSIHAMELPARAMETERS,
                 reference_coordinates_transformed(),
                 &THICKNESS,
@@ -87,8 +84,8 @@ macro_rules! test_surface_finite_element {
         #[test]
         fn size() {
             assert_eq!(
-                std::mem::size_of::<$element::<AlmansiHamel>>(),
-                std::mem::size_of::<[AlmansiHamel; G]>()
+                std::mem::size_of::<$element::<AlmansiHamel<&[Scalar; 2]>>>(),
+                std::mem::size_of::<[AlmansiHamel<&[Scalar; 2]>; G]>()
                     + std::mem::size_of::<GradientVectors<G, N>>()
                     + std::mem::size_of::<Scalars<G>>()
                     + std::mem::size_of::<Normals<P>>()
@@ -121,9 +118,9 @@ macro_rules! test_surface_finite_element {
             use super::*;
             #[test]
             fn objectivity() -> Result<(), TestError> {
-                $element::<AlmansiHamel>::bases(&coordinates_transformed())
+                $element::<AlmansiHamel<&[Scalar; 2]>>::bases(&coordinates_transformed())
                     .iter()
-                    .zip($element::<AlmansiHamel>::bases(&coordinates()).iter())
+                    .zip($element::<AlmansiHamel<&[Scalar; 2]>>::bases(&coordinates()).iter())
                     .try_for_each(|(basis_transformed, basis)| {
                         basis_transformed.iter().zip(basis.iter()).try_for_each(
                             |(basis_transformed_m, basis_m)| {
@@ -142,9 +139,9 @@ macro_rules! test_surface_finite_element {
             fn basis() -> Result<(), TestError> {
                 let mut surface_identity = DeformationGradient::identity();
                 surface_identity[2][2] = 0.0;
-                $element::<AlmansiHamel>::bases(&coordinates())
+                $element::<AlmansiHamel<&[Scalar; 2]>>::bases(&coordinates())
                     .iter()
-                    .zip($element::<AlmansiHamel>::dual_bases(&coordinates()).iter())
+                    .zip($element::<AlmansiHamel<&[Scalar; 2]>>::dual_bases(&coordinates()).iter())
                     .try_for_each(|(basis, dual_basis)| {
                         assert_eq_within_tols(
                             &basis
@@ -163,9 +160,9 @@ macro_rules! test_surface_finite_element {
             use super::*;
             #[test]
             fn objectivity() -> Result<(), TestError> {
-                $element::<AlmansiHamel>::dual_bases(&coordinates_transformed())
+                $element::<AlmansiHamel<&[Scalar; 2]>>::dual_bases(&coordinates_transformed())
                     .iter()
-                    .zip($element::<AlmansiHamel>::dual_bases(&coordinates()).iter())
+                    .zip($element::<AlmansiHamel<&[Scalar; 2]>>::dual_bases(&coordinates()).iter())
                     .try_for_each(|(basis_transformed, basis)| {
                         basis_transformed.iter().zip(basis.iter()).try_for_each(
                             |(basis_transformed_m, basis_m)| {
@@ -195,12 +192,12 @@ macro_rules! test_surface_finite_element {
                                                 let mut nodal_coordinates = coordinates();
                                                 nodal_coordinates[a][m] += 0.5 * EPSILON;
                                                 finite_difference =
-                                                    $element::<AlmansiHamel>::normals(
+                                                    $element::<AlmansiHamel<&[Scalar; 2]>>::normals(
                                                         &nodal_coordinates,
                                                     )[p][i];
                                                 nodal_coordinates[a][m] -= EPSILON;
                                                 finite_difference -=
-                                                    $element::<AlmansiHamel>::normals(
+                                                    $element::<AlmansiHamel<&[Scalar; 2]>>::normals(
                                                         &nodal_coordinates,
                                                     )[p][i];
                                                 finite_difference / EPSILON
@@ -213,18 +210,18 @@ macro_rules! test_surface_finite_element {
                     })
                     .collect();
                 assert_eq_from_fd(
-                    &$element::<AlmansiHamel>::normal_gradients(&coordinates()),
+                    &$element::<AlmansiHamel<&[Scalar; 2]>>::normal_gradients(&coordinates()),
                     &normal_gradients_from_fd,
                 )
             }
             #[test]
             fn normal() -> Result<(), TestError> {
-                $element::<AlmansiHamel>::bases(&coordinates())
+                $element::<AlmansiHamel<&[Scalar; 2]>>::bases(&coordinates())
                     .iter()
                     .zip(
-                        $element::<AlmansiHamel>::dual_bases(&coordinates())
+                        $element::<AlmansiHamel<&[Scalar; 2]>>::dual_bases(&coordinates())
                             .iter()
-                            .zip($element::<AlmansiHamel>::normals(&coordinates()).iter()),
+                            .zip($element::<AlmansiHamel<&[Scalar; 2]>>::normals(&coordinates()).iter()),
                     )
                     .try_for_each(|(basis, (dual_basis, normal))| {
                         assert_eq_within_tols(&(&basis[0] * normal), &0.0)?;
@@ -235,15 +232,15 @@ macro_rules! test_surface_finite_element {
             }
             #[test]
             fn normalized() -> Result<(), TestError> {
-                $element::<AlmansiHamel>::normals(&coordinates())
+                $element::<AlmansiHamel<&[Scalar; 2]>>::normals(&coordinates())
                     .iter()
                     .try_for_each(|normal| assert_eq_within_tols(&normal.norm(), &1.0))
             }
             #[test]
             fn objectivity() -> Result<(), TestError> {
-                $element::<AlmansiHamel>::normals(&coordinates_transformed())
+                $element::<AlmansiHamel<&[Scalar; 2]>>::normals(&coordinates_transformed())
                     .iter()
-                    .zip($element::<AlmansiHamel>::normals(&coordinates()).iter())
+                    .zip($element::<AlmansiHamel<&[Scalar; 2]>>::normals(&coordinates()).iter())
                     .try_for_each(|(normal_transformed, normal)| {
                         assert_eq_within_tols(
                             &(get_rotation_current_configuration().transpose()
@@ -257,9 +254,9 @@ macro_rules! test_surface_finite_element {
             use super::*;
             #[test]
             fn objectivity() -> Result<(), TestError> {
-                $element::<AlmansiHamel>::normal_gradients(&coordinates_transformed())
+                $element::<AlmansiHamel<&[Scalar; 2]>>::normal_gradients(&coordinates_transformed())
                     .iter()
-                    .zip($element::<AlmansiHamel>::normal_gradients(&coordinates()).iter())
+                    .zip($element::<AlmansiHamel<&[Scalar; 2]>>::normal_gradients(&coordinates()).iter())
                     .try_for_each(|(normal_gradient_transformed, normal_gradient)| {
                         normal_gradient_transformed
                             .iter()
@@ -295,12 +292,12 @@ macro_rules! test_surface_finite_element {
                                                 let mut nodal_coordinates = coordinates();
                                                 nodal_coordinates[a][k] += 0.5 * EPSILON;
                                                 finite_difference =
-                                                    $element::<AlmansiHamel>::normals(
+                                                    $element::<AlmansiHamel<&[Scalar; 2]>>::normals(
                                                         &nodal_coordinates,
                                                     )[p][i];
                                                 nodal_coordinates[a][k] -= EPSILON;
                                                 finite_difference -=
-                                                    $element::<AlmansiHamel>::normals(
+                                                    $element::<AlmansiHamel<&[Scalar; 2]>>::normals(
                                                         &nodal_coordinates,
                                                     )[p][i];
                                                 finite_difference / EPSILON * velocity_a_k
@@ -313,22 +310,22 @@ macro_rules! test_surface_finite_element {
                     })
                     .collect();
                 assert_eq_from_fd(
-                    &$element::<AlmansiHamel>::normal_rates(&coordinates(), &velocities()),
+                    &$element::<AlmansiHamel<&[Scalar; 2]>>::normal_rates(&coordinates(), &velocities()),
                     &normal_rates_from_fd,
                 )
             }
             #[test]
             fn objectivity() -> Result<(), TestError> {
-                $element::<AlmansiHamel>::normals(&coordinates_transformed())
+                $element::<AlmansiHamel<&[Scalar; 2]>>::normals(&coordinates_transformed())
                     .iter()
                     .zip(
-                        $element::<AlmansiHamel>::normal_rates(
+                        $element::<AlmansiHamel<&[Scalar; 2]>>::normal_rates(
                             &coordinates_transformed(),
                             &velocities_transformed(),
                         )
                         .iter()
                         .zip(
-                            $element::<AlmansiHamel>::normal_rates(&coordinates(), &velocities())
+                            $element::<AlmansiHamel<&[Scalar; 2]>>::normal_rates(&coordinates(), &velocities())
                                 .iter(),
                         ),
                     )
@@ -349,10 +346,10 @@ macro_rules! test_surface_finite_element {
             use super::*;
             #[test]
             fn normal() -> Result<(), TestError> {
-                $element::<AlmansiHamel>::bases(&reference_coordinates())
+                $element::<AlmansiHamel<&[Scalar; 2]>>::bases(&reference_coordinates())
                     .iter()
                     .zip(
-                        $element::<AlmansiHamel>::dual_bases(&reference_coordinates())
+                        $element::<AlmansiHamel<&[Scalar; 2]>>::dual_bases(&reference_coordinates())
                             .iter()
                             .zip(element().reference_normals().iter()),
                     )
@@ -451,14 +448,14 @@ macro_rules! test_finite_element_inner {
                     Convert, Rank2, TensorArray, TensorRank2,
                     test::{TestError, assert_eq, assert_eq_from_fd, assert_eq_within_tols},
                 },
-                mechanics::test::{
+                mechanics::{Scalar, test::{
                     get_rotation_current_configuration, get_rotation_rate_current_configuration,
-                    get_rotation_reference_configuration,
+                    get_rotation_reference_configuration,}
                 },
             };
             mod constitutive_model_independent {
                 use super::{
-                    AlmansiHamel, DeformationGradientRates, DeformationGradients,
+                    AlmansiHamel, DeformationGradientRates, DeformationGradients, Scalar,
                     FiniteElementMethods, G, NodalVelocities, Rank2, Tensor, TensorArray,
                     TestError, assert_eq, assert_eq_within_tols, coordinates,
                     coordinates_transformed, element, element_transformed,
@@ -605,7 +602,7 @@ macro_rules! test_finite_element_inner {
                     use super::*;
                     #[test]
                     fn shape_functions() -> Result<(), TestError> {
-                        $element::<AlmansiHamel>::shape_functions_at_integration_points()
+                        $element::<AlmansiHamel<&[Scalar; 2]>>::shape_functions_at_integration_points()
                             .iter()
                             .try_for_each(|shape_functions| {
                                 assert_eq(&shape_functions.iter().sum(), &1.0)
@@ -614,7 +611,7 @@ macro_rules! test_finite_element_inner {
                     #[test]
                     fn standard_gradient_operators() -> Result<(), TestError> {
                         let mut sum = [0.0; 3];
-                        $element::<AlmansiHamel>::standard_gradient_operators()
+                        $element::<AlmansiHamel<&[Scalar; 2]>>::standard_gradient_operators()
                             .iter()
                             .try_for_each(|standard_gradient_operator| {
                                 standard_gradient_operator.iter().for_each(|row| {
@@ -635,9 +632,10 @@ macro_rules! test_finite_element_inner {
                 };
                 mod almansi_hamel {
                     use super::*;
+                    type AlmansiHamelType<'a> = AlmansiHamel::<&'a [Scalar; 2]>;
                     test_finite_element_with_elastic_constitutive_model!(
                         $element,
-                        AlmansiHamel,
+                        AlmansiHamelType,
                         ALMANSIHAMELPARAMETERS
                     );
                 }
@@ -654,57 +652,64 @@ macro_rules! test_finite_element_inner {
                 };
                 mod arruda_boyce {
                     use super::*;
+                    type ArrudaBoyceType<'a> = ArrudaBoyce::<&'a [Scalar; 3]>;
                     test_finite_element_with_hyperelastic_constitutive_model!(
                         $element,
-                        ArrudaBoyce,
+                        ArrudaBoyceType,
                         ARRUDABOYCEPARAMETERS
                     );
                 }
                 mod fung {
                     use super::*;
+                    type FungType<'a> = Fung::<&'a [Scalar; 4]>;
                     test_finite_element_with_hyperelastic_constitutive_model!(
                         $element,
-                        Fung,
+                        FungType,
                         FUNGPARAMETERS
                     );
                 }
                 mod gent {
                     use super::*;
+                    type GentType<'a> = Gent::<&'a [Scalar; 3]>;
                     test_finite_element_with_hyperelastic_constitutive_model!(
                         $element,
-                        Gent,
+                        GentType,
                         GENTPARAMETERS
                     );
                 }
                 mod mooney_rivlin {
                     use super::*;
+                    type MooneyRivlinType<'a> = MooneyRivlin::<&'a [Scalar; 3]>;
                     test_finite_element_with_hyperelastic_constitutive_model!(
                         $element,
-                        MooneyRivlin,
+                        MooneyRivlinType,
                         MOONEYRIVLINPARAMETERS
                     );
                 }
                 mod neo_hookean {
                     use super::*;
+                    type NeoHookeanType<'a> = NeoHookean::<&'a [Scalar; 2]>;
                     test_finite_element_with_hyperelastic_constitutive_model!(
                         $element,
-                        NeoHookean,
+                        NeoHookeanType,
                         NEOHOOKEANPARAMETERS
                     );
                 }
                 mod saint_venant_kirchhoff {
                     use super::*;
+                    type SaintVenantKirchhoffType<'a> = SaintVenantKirchhoff::<&'a [Scalar; 2]>;
                     test_finite_element_with_hyperelastic_constitutive_model!(
                         $element,
-                        SaintVenantKirchhoff,
+                        SaintVenantKirchhoffType,
                         SAINTVENANTKIRCHOFFPARAMETERS
                     );
                 }
                 mod yeoh {
                     use super::*;
+                    type YeohType<'a> = Yeoh::<&'a [Scalar; 6]>;
                     test_finite_element_with_hyperelastic_constitutive_model!(
                         $element,
-                        Yeoh,
+                        YeohType,
                         YEOHPARAMETERS
                     );
                 }
@@ -716,9 +721,10 @@ macro_rules! test_finite_element_inner {
                 };
                 mod almansi_hamel {
                     use super::*;
+                    type AlmansiHamelType<'a> = AlmansiHamel::<&'a [Scalar; 4]>;
                     test_finite_element_with_elastic_hyperviscous_constitutive_model!(
                         $element,
-                        AlmansiHamel,
+                        AlmansiHamelType,
                         ALMANSIHAMELPARAMETERS
                     );
                 }
@@ -730,9 +736,10 @@ macro_rules! test_finite_element_inner {
                 };
                 mod saint_venant_kirchhoff {
                     use super::*;
+                    type SaintVenantKirchhoffType<'a> = SaintVenantKirchhoff::<&'a [Scalar; 4]>;
                     test_finite_element_with_hyperviscoelastic_constitutive_model!(
                         $element,
-                        SaintVenantKirchhoff,
+                        SaintVenantKirchhoffType,
                         SAINTVENANTKIRCHOFFPARAMETERS
                     );
                 }
