@@ -28,7 +28,7 @@ where
     }
 }
 
-impl<P> Solid<P> for Gent<P>
+impl<P> Solid for Gent<P>
 where
     P: Parameters,
 {
@@ -40,7 +40,7 @@ where
     }
 }
 
-impl<P> Elastic<P> for Gent<P>
+impl<P> Elastic for Gent<P>
 where
     P: Parameters,
 {
@@ -121,7 +121,7 @@ where
     }
 }
 
-impl<P> Hyperelastic<P> for Gent<P>
+impl<P> Hyperelastic for Gent<P>
 where
     P: Parameters,
 {

@@ -4,10 +4,7 @@ mod test;
 use super::*;
 use crate::{
     constitutive::{Constitutive, Parameters},
-    math::{
-        IDENTITY, LEVI_CIVITA, tensor_rank_1, tensor_rank_1_list, tensor_rank_1_list_2d,
-        tensor_rank_1_zero,
-    },
+    math::{IDENTITY, tensor_rank_1, tensor_rank_1_list, tensor_rank_1_list_2d},
     mechanics::Scalar,
 };
 use std::array::from_fn;
@@ -27,53 +24,6 @@ where
     C: Constitutive<Y>,
     Y: Parameters,
 {
-    fn bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> Bases<I, P> {
-        Self::standard_gradient_operators()
-            .iter()
-            .map(|standard_gradient_operator| {
-                standard_gradient_operator
-                    .iter()
-                    .zip(nodal_coordinates.iter())
-                    .map(|(standard_gradient_operator_a, nodal_coordinate_a)| {
-                        standard_gradient_operator_a
-                            .iter()
-                            .map(|standard_gradient_operator_a_m| {
-                                nodal_coordinate_a * standard_gradient_operator_a_m
-                            })
-                            .collect()
-                    })
-                    .sum()
-            })
-            .collect()
-    }
-    fn dual_bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> Bases<I, P> {
-        Self::bases(nodal_coordinates)
-            .iter()
-            .map(|basis_vectors| {
-                basis_vectors
-                    .iter()
-                    .map(|basis_vectors_m| {
-                        basis_vectors
-                            .iter()
-                            .map(|basis_vectors_n| basis_vectors_m * basis_vectors_n)
-                            .collect()
-                    })
-                    .collect::<TensorRank2<2, I, I>>()
-                    .inverse()
-                    .iter()
-                    .map(|metric_tensor_m| {
-                        metric_tensor_m
-                            .iter()
-                            .zip(basis_vectors.iter())
-                            .map(|(metric_tensor_mn, basis_vectors_n)| {
-                                basis_vectors_n * metric_tensor_mn
-                            })
-                            .sum()
-                    })
-                    .collect()
-            })
-            .collect()
-    }
     fn new(
         constitutive_model_parameters: Y,
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
@@ -121,91 +71,6 @@ where
             reference_normals,
         }
     }
-    fn normals(nodal_coordinates: &NodalCoordinates<N>) -> Normals<P> {
-        Self::bases(nodal_coordinates)
-            .iter()
-            .map(|basis_vectors| basis_vectors[0].cross(&basis_vectors[1]).normalized())
-            .collect()
-    }
-    fn normal_gradients(nodal_coordinates: &NodalCoordinates<N>) -> NormalGradients<N, P> {
-        let levi_civita_symbol = LEVI_CIVITA;
-        let mut normalization: Scalar = 0.0;
-        let mut normal_vector = tensor_rank_1_zero();
-        Self::standard_gradient_operators().iter()
-        .zip(Self::bases(nodal_coordinates).iter())
-        .map(|(standard_gradient_operator, basis_vectors)|{
-            normalization = basis_vectors[0].cross(&basis_vectors[1]).norm();
-            normal_vector = basis_vectors[0].cross(&basis_vectors[1])/normalization;
-            standard_gradient_operator.iter()
-            .map(|standard_gradient_operator_a|
-                levi_civita_symbol.iter()
-                .map(|levi_civita_symbol_m|
-                    IDENTITY.iter()
-                    .zip(normal_vector.iter())
-                    .map(|(identity_i, normal_vector_i)|
-                        levi_civita_symbol_m.iter()
-                        .zip(basis_vectors[0].iter()
-                        .zip(basis_vectors[1].iter()))
-                        .map(|(levi_civita_symbol_mn, (basis_vector_0_n, basis_vector_1_n))|
-                            levi_civita_symbol_mn.iter()
-                            .zip(identity_i.iter()
-                            .zip(normal_vector.iter()))
-                            .map(|(levi_civita_symbol_mno, (identity_io, normal_vector_o))|
-                                levi_civita_symbol_mno * (identity_io - normal_vector_i * normal_vector_o)
-                            ).sum::<Scalar>() * (
-                                standard_gradient_operator_a[0] * basis_vector_1_n
-                              - standard_gradient_operator_a[1] * basis_vector_0_n
-                            )
-                        ).sum::<Scalar>() / normalization
-                    ).collect()
-                ).collect()
-            ).collect()
-        }).collect()
-    }
-    fn normal_rates(
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
-    ) -> NormalRates<P> {
-        let identity = IDENTITY;
-        let levi_civita_symbol = LEVI_CIVITA;
-        let mut normalization = 0.0;
-        Self::bases(nodal_coordinates)
-            .iter()
-            .zip(Self::normals(nodal_coordinates).iter()
-            .zip(Self::standard_gradient_operators().iter()))
-            .map(|(basis, (normal, standard_gradient_operator))| {
-                normalization = basis[0].cross(&basis[1]).norm();
-                identity.iter()
-                .zip(normal.iter())
-                .map(|(identity_i, normal_vector_i)|
-                    nodal_velocities.iter()
-                    .zip(standard_gradient_operator.iter())
-                    .map(|(nodal_velocity_a, standard_gradient_operator_a)|
-                        levi_civita_symbol.iter()
-                        .zip(nodal_velocity_a.iter())
-                        .map(|(levi_civita_symbol_m, nodal_velocity_a_m)|
-                            levi_civita_symbol_m.iter()
-                            .zip(basis[0].iter()
-                            .zip(basis[1].iter()))
-                            .map(|(levi_civita_symbol_mn, (basis_vector_0_n, basis_vector_1_n))|
-                                levi_civita_symbol_mn.iter()
-                                .zip(identity_i.iter()
-                                .zip(normal.iter()))
-                                .map(|(levi_civita_symbol_mno, (identity_io, normal_vector_o))|
-                                    levi_civita_symbol_mno * (identity_io - normal_vector_i * normal_vector_o)
-                                ).sum::<Scalar>() * (
-                                    standard_gradient_operator_a[0] * basis_vector_1_n
-                                - standard_gradient_operator_a[1] * basis_vector_0_n
-                                )
-                            ).sum::<Scalar>() * nodal_velocity_a_m
-                        ).sum::<Scalar>()
-                    ).sum::<Scalar>() / normalization
-                ).collect()
-        }).collect()
-    }
-    fn reference_normals(&self) -> &ReferenceNormals<P> {
-        &self.reference_normals
-    }
 }
 
 impl<C> Triangle<C> {
@@ -225,11 +90,13 @@ impl<C> Triangle<C> {
     }
 }
 
-impl<C, Y> FiniteElementMethods<C, G, N, Y> for Triangle<C>
-where
-    C: Constitutive<Y>,
-    Y: Parameters,
-{
+impl<C> SurfaceFiniteElementMethodsExtra<M, N, P> for Triangle<C> {
+    fn standard_gradient_operators() -> StandardGradientOperators<M, N, P> {
+        Self::standard_gradient_operators()
+    }
+}
+
+impl<C> FiniteElementMethods<C, G, N> for Triangle<C> {
     fn constitutive_models(&self) -> &[C; G] {
         &self.constitutive_models
     }
@@ -288,10 +155,9 @@ where
     }
 }
 
-impl<C, Y> ElasticFiniteElement<C, G, N, Y> for Triangle<C>
+impl<C> ElasticFiniteElement<C, G, N> for Triangle<C>
 where
-    C: Elastic<Y>,
-    Y: Parameters,
+    C: Elastic,
 {
     fn nodal_forces(
         &self,
@@ -387,10 +253,9 @@ where
     }
 }
 
-impl<C, Y> HyperelasticFiniteElement<C, G, N, Y> for Triangle<C>
+impl<C> HyperelasticFiniteElement<C, G, N> for Triangle<C>
 where
-    C: Hyperelastic<Y>,
-    Y: Parameters,
+    C: Hyperelastic,
 {
     fn helmholtz_free_energy(
         &self,
@@ -415,10 +280,9 @@ where
     }
 }
 
-impl<C, Y> ViscoelasticFiniteElement<C, G, N, Y> for Triangle<C>
+impl<C> ViscoelasticFiniteElement<C, G, N> for Triangle<C>
 where
-    C: Viscoelastic<Y>,
-    Y: Parameters,
+    C: Viscoelastic,
 {
     fn nodal_forces(
         &self,
@@ -526,10 +390,9 @@ where
     }
 }
 
-impl<C, Y> ElasticHyperviscousFiniteElement<C, G, N, Y> for Triangle<C>
+impl<C> ElasticHyperviscousFiniteElement<C, G, N> for Triangle<C>
 where
-    C: ElasticHyperviscous<Y>,
-    Y: Parameters,
+    C: ElasticHyperviscous,
 {
     fn viscous_dissipation(
         &self,
@@ -585,10 +448,9 @@ where
     }
 }
 
-impl<C, Y> HyperviscoelasticFiniteElement<C, G, N, Y> for Triangle<C>
+impl<C> HyperviscoelasticFiniteElement<C, G, N> for Triangle<C>
 where
-    C: Hyperviscoelastic<Y>,
-    Y: Parameters,
+    C: Hyperviscoelastic,
 {
     fn helmholtz_free_energy(
         &self,

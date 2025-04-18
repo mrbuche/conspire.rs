@@ -34,7 +34,7 @@ where
     }
 }
 
-impl<P> Solid<P> for AlmansiHamel<P>
+impl<P> Solid for AlmansiHamel<P>
 where
     P: Parameters,
 {
@@ -46,7 +46,7 @@ where
     }
 }
 
-impl<P> Thermoelastic<P> for AlmansiHamel<P>
+impl<P> Thermoelastic for AlmansiHamel<P>
 where
     P: Parameters,
 {

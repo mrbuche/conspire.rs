@@ -18,7 +18,7 @@ where
     }
 }
 
-impl<P> Solid<P> for NeoHookean<P>
+impl<P> Solid for NeoHookean<P>
 where
     P: Parameters,
 {
@@ -30,7 +30,7 @@ where
     }
 }
 
-impl<P> Elastic<P> for NeoHookean<P>
+impl<P> Elastic for NeoHookean<P>
 where
     P: Parameters,
 {
@@ -70,7 +70,7 @@ where
     }
 }
 
-impl<P> Hyperelastic<P> for NeoHookean<P>
+impl<P> Hyperelastic for NeoHookean<P>
 where
     P: Parameters,
 {

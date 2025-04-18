@@ -13,23 +13,23 @@ macro_rules! test_hybrid_elastic_constitutive_models {
             math::{Rank2, TensorArray},
             mechanics::{
                 CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffTangentStiffness,
-                SecondPiolaKirchhoffTangentStiffness,
+                Scalar, SecondPiolaKirchhoffTangentStiffness,
             },
         };
         mod hybrid_1 {
             use super::*;
             test_constructed_solid_constitutive_model!($hybrid_type::construct(
-                AlmansiHamel::new(ALMANSIHAMELPARAMETERS),
-                NeoHookean::new(NEOHOOKEANPARAMETERS)
+                AlmansiHamel::<&[Scalar; 2]>::new(ALMANSIHAMELPARAMETERS),
+                NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS)
             ));
         }
         mod hybrid_nested_1 {
             use super::*;
             test_constructed_solid_constitutive_model!($hybrid_type::construct(
-                AlmansiHamel::new(ALMANSIHAMELPARAMETERS),
+                AlmansiHamel::<&[Scalar; 2]>::new(ALMANSIHAMELPARAMETERS),
                 $hybrid_type::construct(
-                    AlmansiHamel::new(ALMANSIHAMELPARAMETERS),
-                    NeoHookean::new(NEOHOOKEANPARAMETERS)
+                    AlmansiHamel::<&[Scalar; 2]>::new(ALMANSIHAMELPARAMETERS),
+                    NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS)
                 )
             ));
         }
@@ -37,14 +37,14 @@ macro_rules! test_hybrid_elastic_constitutive_models {
             use super::*;
             test_constructed_solid_constitutive_model!($hybrid_type::construct(
                 $hybrid_type::construct(
-                    NeoHookean::new(NEOHOOKEANPARAMETERS),
-                    AlmansiHamel::new(ALMANSIHAMELPARAMETERS)
+                    NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS),
+                    AlmansiHamel::<&[Scalar; 2]>::new(ALMANSIHAMELPARAMETERS)
                 ),
                 $hybrid_type::construct(
-                    NeoHookean::new(NEOHOOKEANPARAMETERS),
+                    NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS),
                     $hybrid_type::construct(
-                        AlmansiHamel::new(ALMANSIHAMELPARAMETERS),
-                        NeoHookean::new(NEOHOOKEANPARAMETERS)
+                        AlmansiHamel::<&[Scalar; 2]>::new(ALMANSIHAMELPARAMETERS),
+                        NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS)
                     )
                 )
             ));
@@ -67,13 +67,13 @@ macro_rules! test_hybrid_elastic_constitutive_models_no_tangents {
                 },
             },
             math::{Rank2, TensorArray},
-            mechanics::DeformationGradient,
+            mechanics::{DeformationGradient, Scalar},
         };
         mod hybrid_1 {
             use super::*;
             test_solid_constitutive_model_no_tangents!($hybrid_type::construct(
-                AlmansiHamel::new(ALMANSIHAMELPARAMETERS),
-                NeoHookean::new(NEOHOOKEANPARAMETERS)
+                AlmansiHamel::<&[Scalar; 2]>::new(ALMANSIHAMELPARAMETERS),
+                NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS)
             ));
         }
         crate::constitutive::hybrid::elastic::test::test_panics!($hybrid_type);
@@ -84,8 +84,8 @@ macro_rules! test_hybrid_elastic_constitutive_models_no_tangents {
             #[should_panic]
             fn cauchy_tangent_stiffness() {
                 $hybrid_type::construct(
-                    AlmansiHamel::new(ALMANSIHAMELPARAMETERS),
-                    NeoHookean::new(NEOHOOKEANPARAMETERS),
+                    AlmansiHamel::<&[Scalar; 2]>::new(ALMANSIHAMELPARAMETERS),
+                    NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS),
                 )
                 .cauchy_tangent_stiffness(&get_deformation_gradient())
                 .unwrap();
@@ -94,8 +94,8 @@ macro_rules! test_hybrid_elastic_constitutive_models_no_tangents {
             #[should_panic]
             fn first_piola_kirchhoff_tangent_stiffness() {
                 $hybrid_type::construct(
-                    AlmansiHamel::new(ALMANSIHAMELPARAMETERS),
-                    NeoHookean::new(NEOHOOKEANPARAMETERS),
+                    AlmansiHamel::<&[Scalar; 2]>::new(ALMANSIHAMELPARAMETERS),
+                    NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS),
                 )
                 .cauchy_tangent_stiffness(&get_deformation_gradient())
                 .unwrap();
@@ -104,8 +104,8 @@ macro_rules! test_hybrid_elastic_constitutive_models_no_tangents {
             #[should_panic]
             fn second_piola_kirchhoff_tangent_stiffness() {
                 $hybrid_type::construct(
-                    AlmansiHamel::new(ALMANSIHAMELPARAMETERS),
-                    NeoHookean::new(NEOHOOKEANPARAMETERS),
+                    AlmansiHamel::<&[Scalar; 2]>::new(ALMANSIHAMELPARAMETERS),
+                    NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS),
                 )
                 .cauchy_tangent_stiffness(&get_deformation_gradient())
                 .unwrap();
@@ -123,8 +123,8 @@ macro_rules! test_panics {
             #[should_panic]
             fn bulk_modulus() {
                 $hybrid_type::construct(
-                    AlmansiHamel::new(ALMANSIHAMELPARAMETERS),
-                    NeoHookean::new(NEOHOOKEANPARAMETERS),
+                    AlmansiHamel::<&[Scalar; 2]>::new(ALMANSIHAMELPARAMETERS),
+                    NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS),
                 )
                 .bulk_modulus();
             }
@@ -132,15 +132,10 @@ macro_rules! test_panics {
             #[should_panic]
             fn shear_modulus() {
                 $hybrid_type::construct(
-                    AlmansiHamel::new(ALMANSIHAMELPARAMETERS),
-                    NeoHookean::new(NEOHOOKEANPARAMETERS),
+                    AlmansiHamel::<&[Scalar; 2]>::new(ALMANSIHAMELPARAMETERS),
+                    NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS),
                 )
                 .shear_modulus();
-            }
-            #[test]
-            #[should_panic]
-            fn new() {
-                $hybrid_type::<AlmansiHamel, NeoHookean>::new(ALMANSIHAMELPARAMETERS);
             }
         }
     };

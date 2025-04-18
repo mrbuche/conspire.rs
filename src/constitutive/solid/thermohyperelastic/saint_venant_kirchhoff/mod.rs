@@ -34,7 +34,7 @@ where
     }
 }
 
-impl<P> Solid<P> for SaintVenantKirchhoff<P>
+impl<P> Solid for SaintVenantKirchhoff<P>
 where
     P: Parameters,
 {
@@ -46,7 +46,7 @@ where
     }
 }
 
-impl<P> Thermoelastic<P> for SaintVenantKirchhoff<P>
+impl<P> Thermoelastic for SaintVenantKirchhoff<P>
 where
     P: Parameters,
 {
@@ -104,7 +104,7 @@ where
     }
 }
 
-impl<P> Thermohyperelastic<P> for SaintVenantKirchhoff<P>
+impl<P> Thermohyperelastic for SaintVenantKirchhoff<P>
 where
     P: Parameters,
 {

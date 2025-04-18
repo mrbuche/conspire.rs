@@ -37,10 +37,7 @@ pub enum AppliedLoad {
 }
 
 /// Required methods for solid constitutive models.
-pub trait Solid<P>
-where
-    Self: Constitutive<P>,
-{
+pub trait Solid {
     /// Returns the bulk modulus.
     fn bulk_modulus(&self) -> &Scalar;
     /// Returns the shear modulus.

@@ -34,7 +34,7 @@ where
     }
 }
 
-impl<P> Solid<P> for SaintVenantKirchhoff<P>
+impl<P> Solid for SaintVenantKirchhoff<P>
 where
     P: Parameters,
 {
@@ -46,7 +46,7 @@ where
     }
 }
 
-impl<P> Viscous<P> for SaintVenantKirchhoff<P>
+impl<P> Viscous for SaintVenantKirchhoff<P>
 where
     P: Parameters,
 {
@@ -58,7 +58,7 @@ where
     }
 }
 
-impl<P> Viscoelastic<P> for SaintVenantKirchhoff<P>
+impl<P> Viscoelastic for SaintVenantKirchhoff<P>
 where
     P: Parameters,
 {
@@ -110,7 +110,7 @@ where
     }
 }
 
-impl<P> ElasticHyperviscous<P> for SaintVenantKirchhoff<P>
+impl<P> ElasticHyperviscous for SaintVenantKirchhoff<P>
 where
     P: Parameters,
 {
@@ -134,7 +134,7 @@ where
     }
 }
 
-impl<P> Hyperviscoelastic<P> for SaintVenantKirchhoff<P>
+impl<P> Hyperviscoelastic for SaintVenantKirchhoff<P>
 where
     P: Parameters,
 {

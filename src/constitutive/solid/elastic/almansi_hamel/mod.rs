@@ -18,7 +18,7 @@ where
     }
 }
 
-impl<P> Solid<P> for AlmansiHamel<P>
+impl<P> Solid for AlmansiHamel<P>
 where
     P: Parameters,
 {
@@ -30,7 +30,7 @@ where
     }
 }
 
-impl<P> Elastic<P> for AlmansiHamel<P>
+impl<P> Elastic for AlmansiHamel<P>
 where
     P: Parameters,
 {

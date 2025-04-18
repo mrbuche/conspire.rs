@@ -32,7 +32,7 @@ where
     }
 }
 
-impl<P> Solid<P> for Fung<P>
+impl<P> Solid for Fung<P>
 where
     P: Parameters,
 {
@@ -44,7 +44,7 @@ where
     }
 }
 
-impl<P> Elastic<P> for Fung<P>
+impl<P> Elastic for Fung<P>
 where
     P: Parameters,
 {
@@ -109,7 +109,7 @@ where
     }
 }
 
-impl<P> Hyperelastic<P> for Fung<P>
+impl<P> Hyperelastic for Fung<P>
 where
     P: Parameters,
 {

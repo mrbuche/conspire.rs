@@ -4,7 +4,7 @@ mod test;
 use crate::{
     ABS_TOL,
     constitutive::{
-        Constitutive, ConstitutiveError, Parameters,
+        ConstitutiveError,
         hybrid::{Hybrid, Multiplicative, MultiplicativeTrait},
         solid::{Solid, elastic::Elastic},
     },
@@ -16,14 +16,7 @@ use crate::{
     },
 };
 
-impl<'a, C1: Elastic<'a>, C2: Elastic<'a>> Constitutive<'a> for Multiplicative<C1, C2> {
-    /// Dummy method that will panic, use [Self::construct()] instead.
-    fn new(_parameters: Parameters<'a>) -> Self {
-        panic!()
-    }
-}
-
-impl<'a, C1: Elastic<'a>, C2: Elastic<'a>> Solid<'a> for Multiplicative<C1, C2> {
+impl<C1, C2> Solid for Multiplicative<C1, C2> {
     /// Dummy method that will panic.
     fn bulk_modulus(&self) -> &Scalar {
         panic!()
@@ -34,7 +27,11 @@ impl<'a, C1: Elastic<'a>, C2: Elastic<'a>> Solid<'a> for Multiplicative<C1, C2> 
     }
 }
 
-impl<'a, C1: Elastic<'a>, C2: Elastic<'a>> Elastic<'a> for Multiplicative<C1, C2> {
+impl<C1, C2> Elastic for Multiplicative<C1, C2>
+where
+    C1: Elastic,
+    C2: Elastic,
+{
     /// Calculates and returns the Cauchy stress.
     ///
     /// ```math
@@ -111,7 +108,11 @@ impl<'a, C1: Elastic<'a>, C2: Elastic<'a>> Elastic<'a> for Multiplicative<C1, C2
     }
 }
 
-impl<'a, C1: Elastic<'a>, C2: Elastic<'a>> MultiplicativeTrait for Multiplicative<C1, C2> {
+impl<C1, C2> MultiplicativeTrait for Multiplicative<C1, C2>
+where
+    C1: Elastic,
+    C2: Elastic,
+{
     fn deformation_gradients(
         &self,
         deformation_gradient: &DeformationGradient,

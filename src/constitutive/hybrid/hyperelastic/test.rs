@@ -16,38 +16,38 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models {
             math::{Rank2, Tensor, TensorArray},
             mechanics::{
                 CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffTangentStiffness,
-                SecondPiolaKirchhoffTangentStiffness,
+                Scalar, SecondPiolaKirchhoffTangentStiffness,
             },
         };
         use_elastic_macros!();
         mod hybrid_0 {
             use super::*;
             test_solve!($hybrid_type::construct(
-                ArrudaBoyce::new(ARRUDABOYCEPARAMETERS),
-                Fung::new(FUNGPARAMETERS)
+                ArrudaBoyce::<&[Scalar; 3]>::new(ARRUDABOYCEPARAMETERS),
+                Fung::<&[Scalar; 4]>::new(FUNGPARAMETERS)
             ));
         }
         mod hybrid_1 {
             use super::*;
             test_constructed_solid_hyperelastic_constitutive_model!($hybrid_type::construct(
-                ArrudaBoyce::new(ARRUDABOYCEPARAMETERS),
-                Fung::new(FUNGPARAMETERS)
+                ArrudaBoyce::<&[Scalar; 3]>::new(ARRUDABOYCEPARAMETERS),
+                Fung::<&[Scalar; 4]>::new(FUNGPARAMETERS)
             ));
         }
         mod hybrid_2 {
             use super::*;
             test_constructed_solid_hyperelastic_constitutive_model!($hybrid_type::construct(
-                Gent::new(GENTPARAMETERS),
-                MooneyRivlin::new(MOONEYRIVLINPARAMETERS)
+                Gent::<&[Scalar; 3]>::new(GENTPARAMETERS),
+                MooneyRivlin::<&[Scalar; 3]>::new(MOONEYRIVLINPARAMETERS)
             ));
         }
         mod hybrid_nested_1 {
             use super::*;
             test_constructed_solid_hyperelastic_constitutive_model!($hybrid_type::construct(
-                NeoHookean::new(NEOHOOKEANPARAMETERS),
+                NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS),
                 $hybrid_type::construct(
-                    SaintVenantKirchhoff::new(SAINTVENANTKIRCHOFFPARAMETERS),
-                    Yeoh::new(YEOHPARAMETERS)
+                    SaintVenantKirchhoff::<&[Scalar; 2]>::new(SAINTVENANTKIRCHOFFPARAMETERS),
+                    Yeoh::<&[Scalar; 6]>::new(YEOHPARAMETERS)
                 )
             ));
         }
@@ -55,14 +55,14 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models {
             use super::*;
             test_constructed_solid_hyperelastic_constitutive_model!($hybrid_type::construct(
                 $hybrid_type::construct(
-                    Gent::new(GENTPARAMETERS),
-                    MooneyRivlin::new(MOONEYRIVLINPARAMETERS)
+                    Gent::<&[Scalar; 3]>::new(GENTPARAMETERS),
+                    MooneyRivlin::<&[Scalar; 3]>::new(MOONEYRIVLINPARAMETERS)
                 ),
                 $hybrid_type::construct(
-                    NeoHookean::new(NEOHOOKEANPARAMETERS),
+                    NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS),
                     $hybrid_type::construct(
-                        SaintVenantKirchhoff::new(SAINTVENANTKIRCHOFFPARAMETERS),
-                        Yeoh::new(YEOHPARAMETERS)
+                        SaintVenantKirchhoff::<&[Scalar; 2]>::new(SAINTVENANTKIRCHOFFPARAMETERS),
+                        Yeoh::<&[Scalar; 6]>::new(YEOHPARAMETERS)
                     )
                 )
             ));
@@ -85,21 +85,21 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models_no_tangents {
                 },
             },
             math::{Rank2, Tensor, TensorArray},
-            mechanics::DeformationGradient,
+            mechanics::{DeformationGradient, Scalar},
         };
         use_elastic_macros_no_tangents!();
         mod hybrid_1 {
             use super::*;
             test_solid_hyperelastic_constitutive_model_no_tangents!($hybrid_type::construct(
-                ArrudaBoyce::new(ARRUDABOYCEPARAMETERS),
-                Fung::new(FUNGPARAMETERS)
+                ArrudaBoyce::<&[Scalar; 3]>::new(ARRUDABOYCEPARAMETERS),
+                Fung::<&[Scalar; 4]>::new(FUNGPARAMETERS)
             ));
         }
         mod hybrid_2 {
             use super::*;
             test_solid_hyperelastic_constitutive_model_no_tangents!($hybrid_type::construct(
-                Gent::new(GENTPARAMETERS),
-                MooneyRivlin::new(MOONEYRIVLINPARAMETERS)
+                Gent::<&[Scalar; 3]>::new(GENTPARAMETERS),
+                MooneyRivlin::<&[Scalar; 3]>::new(MOONEYRIVLINPARAMETERS)
             ));
         }
         crate::constitutive::hybrid::hyperelastic::test::test_panics!($hybrid_type);
@@ -110,8 +110,8 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models_no_tangents {
             #[should_panic]
             fn cauchy_tangent_stiffness() {
                 $hybrid_type::construct(
-                    ArrudaBoyce::new(ARRUDABOYCEPARAMETERS),
-                    Fung::new(FUNGPARAMETERS),
+                    ArrudaBoyce::<&[Scalar; 3]>::new(ARRUDABOYCEPARAMETERS),
+                    Fung::<&[Scalar; 4]>::new(FUNGPARAMETERS),
                 )
                 .cauchy_tangent_stiffness(&get_deformation_gradient())
                 .unwrap();
@@ -120,8 +120,8 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models_no_tangents {
             #[should_panic]
             fn first_piola_kirchhoff_tangent_stiffness() {
                 $hybrid_type::construct(
-                    ArrudaBoyce::new(ARRUDABOYCEPARAMETERS),
-                    Fung::new(FUNGPARAMETERS),
+                    ArrudaBoyce::<&[Scalar; 3]>::new(ARRUDABOYCEPARAMETERS),
+                    Fung::<&[Scalar; 4]>::new(FUNGPARAMETERS),
                 )
                 .cauchy_tangent_stiffness(&get_deformation_gradient())
                 .unwrap();
@@ -130,8 +130,8 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models_no_tangents {
             #[should_panic]
             fn second_piola_kirchhoff_tangent_stiffness() {
                 $hybrid_type::construct(
-                    ArrudaBoyce::new(ARRUDABOYCEPARAMETERS),
-                    Fung::new(FUNGPARAMETERS),
+                    ArrudaBoyce::<&[Scalar; 3]>::new(ARRUDABOYCEPARAMETERS),
+                    Fung::<&[Scalar; 4]>::new(FUNGPARAMETERS),
                 )
                 .cauchy_tangent_stiffness(&get_deformation_gradient())
                 .unwrap();
@@ -149,8 +149,8 @@ macro_rules! test_panics {
             #[should_panic]
             fn bulk_modulus() {
                 $hybrid_type::construct(
-                    ArrudaBoyce::new(ARRUDABOYCEPARAMETERS),
-                    Fung::new(FUNGPARAMETERS),
+                    ArrudaBoyce::<&[Scalar; 3]>::new(ARRUDABOYCEPARAMETERS),
+                    Fung::<&[Scalar; 4]>::new(FUNGPARAMETERS),
                 )
                 .bulk_modulus();
             }
@@ -158,15 +158,10 @@ macro_rules! test_panics {
             #[should_panic]
             fn shear_modulus() {
                 $hybrid_type::construct(
-                    ArrudaBoyce::new(ARRUDABOYCEPARAMETERS),
-                    Fung::new(FUNGPARAMETERS),
+                    ArrudaBoyce::<&[Scalar; 3]>::new(ARRUDABOYCEPARAMETERS),
+                    Fung::<&[Scalar; 4]>::new(FUNGPARAMETERS),
                 )
                 .shear_modulus();
-            }
-            #[test]
-            #[should_panic]
-            fn new() {
-                $hybrid_type::<ArrudaBoyce, Fung>::new(ARRUDABOYCEPARAMETERS);
             }
         }
     };

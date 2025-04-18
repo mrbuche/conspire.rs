@@ -3,35 +3,37 @@
 #[cfg(test)]
 mod test;
 
-use super::*;
-use crate::mechanics::{
-    CauchyStress, CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffStress,
-    FirstPiolaKirchhoffTangentStiffness, HeatFlux, Scalar, SecondPiolaKirchhoffStress,
-    SecondPiolaKirchhoffTangentStiffness, TemperatureGradient,
+use crate::{
+    constitutive::{
+        ConstitutiveError,
+        multiphysics::{Multiphysics, solid_thermal::SolidThermal},
+        solid::{Solid, thermoelastic::Thermoelastic, thermohyperelastic::Thermohyperelastic},
+        thermal::{Thermal, conduction::ThermalConduction},
+    },
+    mechanics::{
+        CauchyStress, CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffStress,
+        FirstPiolaKirchhoffTangentStiffness, HeatFlux, Scalar, SecondPiolaKirchhoffStress,
+        SecondPiolaKirchhoffTangentStiffness, TemperatureGradient,
+    },
 };
 
 /// A thermohyperelastic-thermal conduction constitutive model.
 #[derive(Debug)]
-pub struct ThermohyperelasticThermalConduction<C1, C2> {
+pub struct ThermohyperelasticThermalConduction<C1, C2>
+where
+    C1: Thermohyperelastic,
+    C2: ThermalConduction,
+    Self: SolidThermal<C1, C2>,
+{
     thermohyperelastic_constitutive_model: C1,
     thermal_conduction_constitutive_model: C2,
 }
 
-// impl<P, C1, C2> Constitutive<P> for ThermohyperelasticThermalConduction<C1, C2>
-// where
-//     C1: Constitutive<P>,
-//     C2: Constitutive<P>,
-// {
-//     /// Dummy method that will panic, use [Self::construct()] instead.
-//     fn new(_parameters: P) -> Self {
-//         panic!()
-//     }
-// }
-
-impl<P, C1, C2> Solid<P> for ThermohyperelasticThermalConduction<C1, C2>
+impl<C1, C2> Solid for ThermohyperelasticThermalConduction<C1, C2>
 where
-    C1: Thermohyperelastic<P>,
-    C2: ThermalConduction<P>,
+    C1: Thermohyperelastic,
+    C2: ThermalConduction,
+    Self: SolidThermal<C1, C2>,
 {
     fn bulk_modulus(&self) -> &Scalar {
         self.solid_constitutive_model().bulk_modulus()
@@ -41,10 +43,11 @@ where
     }
 }
 
-impl<P, C1, C2> Thermoelastic<P> for ThermohyperelasticThermalConduction<C1, C2>
+impl<C1, C2> Thermoelastic for ThermohyperelasticThermalConduction<C1, C2>
 where
-    C1: Thermohyperelastic<P>,
-    C2: ThermalConduction<P>,
+    C1: Thermohyperelastic,
+    C2: ThermalConduction,
+    Self: SolidThermal<C1, C2>,
 {
     fn cauchy_stress(
         &self,
@@ -103,10 +106,11 @@ where
     }
 }
 
-impl<P, C1, C2> Thermohyperelastic<P> for ThermohyperelasticThermalConduction<C1, C2>
+impl<C1, C2> Thermohyperelastic for ThermohyperelasticThermalConduction<C1, C2>
 where
-    C1: Thermohyperelastic<P>,
-    C2: ThermalConduction<P>,
+    C1: Thermohyperelastic,
+    C2: ThermalConduction,
+    Self: SolidThermal<C1, C2>,
 {
     fn helmholtz_free_energy_density(
         &self,
@@ -118,17 +122,19 @@ where
     }
 }
 
-impl<P, C1, C2> Thermal<P> for ThermohyperelasticThermalConduction<C1, C2>
+impl<C1, C2> Thermal for ThermohyperelasticThermalConduction<C1, C2>
 where
-    C1: Constitutive<P>,
-    C2: Constitutive<P>,
+    C1: Thermohyperelastic,
+    C2: ThermalConduction,
+    Self: SolidThermal<C1, C2>,
 {
 }
 
-impl<P, C1, C2> ThermalConduction<P> for ThermohyperelasticThermalConduction<C1, C2>
+impl<C1, C2> ThermalConduction for ThermohyperelasticThermalConduction<C1, C2>
 where
-    C1: Thermohyperelastic<P>,
-    C2: ThermalConduction<P>,
+    C1: Thermohyperelastic,
+    C2: ThermalConduction,
+    Self: SolidThermal<C1, C2>,
 {
     fn heat_flux(&self, temperature_gradient: &TemperatureGradient) -> HeatFlux {
         self.thermal_constitutive_model()
@@ -136,17 +142,18 @@ where
     }
 }
 
-// impl<P, C1, C2> Multiphysics<P> for ThermohyperelasticThermalConduction<C1, C2>
-// where
-//     C1: Constitutive<P>,
-//     C2: Constitutive<P>,
-// {
-// }
-
-impl<P, C1, C2> SolidThermal<P, C1, C2> for ThermohyperelasticThermalConduction<C1, C2>
+impl<C1, C2> Multiphysics for ThermohyperelasticThermalConduction<C1, C2>
 where
-    C1: Thermohyperelastic<P>,
-    C2: ThermalConduction<P>,
+    C1: Thermohyperelastic,
+    C2: ThermalConduction,
+    Self: SolidThermal<C1, C2>,
+{
+}
+
+impl<C1, C2> SolidThermal<C1, C2> for ThermohyperelasticThermalConduction<C1, C2>
+where
+    C1: Thermohyperelastic,
+    C2: ThermalConduction,
 {
     fn construct(
         thermohyperelastic_constitutive_model: C1,

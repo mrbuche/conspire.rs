@@ -16,9 +16,9 @@ pub mod test;
 use super::{super::fluid::viscous::Viscous, *};
 
 /// Required methods for viscoelastic constitutive models.
-pub trait Viscoelastic<P>
+pub trait Viscoelastic
 where
-    Self: Solid<P> + Viscous<P>,
+    Self: Solid + Viscous,
 {
     /// Calculates and returns the Cauchy stress.
     ///

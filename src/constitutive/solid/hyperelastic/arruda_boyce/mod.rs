@@ -29,7 +29,7 @@ where
     }
 }
 
-impl<P> Solid<P> for ArrudaBoyce<P>
+impl<P> Solid for ArrudaBoyce<P>
 where
     P: Parameters,
 {
@@ -41,7 +41,7 @@ where
     }
 }
 
-impl<P> Elastic<P> for ArrudaBoyce<P>
+impl<P> Elastic for ArrudaBoyce<P>
 where
     P: Parameters,
 {
@@ -131,7 +131,7 @@ where
     }
 }
 
-impl<P> Hyperelastic<P> for ArrudaBoyce<P>
+impl<P> Hyperelastic for ArrudaBoyce<P>
 where
     P: Parameters,
 {

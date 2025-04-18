@@ -34,7 +34,7 @@ where
     }
 }
 
-impl<P> Solid<P> for AlmansiHamel<P>
+impl<P> Solid for AlmansiHamel<P>
 where
     P: Parameters,
 {
@@ -46,7 +46,7 @@ where
     }
 }
 
-impl<P> Viscous<P> for AlmansiHamel<P>
+impl<P> Viscous for AlmansiHamel<P>
 where
     P: Parameters,
 {
@@ -58,7 +58,7 @@ where
     }
 }
 
-impl<P> Viscoelastic<P> for AlmansiHamel<P>
+impl<P> Viscoelastic for AlmansiHamel<P>
 where
     P: Parameters,
 {
@@ -116,7 +116,7 @@ where
     }
 }
 
-impl<P> ElasticHyperviscous<P> for AlmansiHamel<P>
+impl<P> ElasticHyperviscous for AlmansiHamel<P>
 where
     P: Parameters,
 {

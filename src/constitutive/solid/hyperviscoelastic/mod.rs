@@ -32,9 +32,9 @@ use super::{
 use std::fmt::Debug;
 
 /// Required methods for hyperviscoelastic constitutive models.
-pub trait Hyperviscoelastic<P>
+pub trait Hyperviscoelastic
 where
-    Self: ElasticHyperviscous<P>,
+    Self: ElasticHyperviscous,
 {
     /// Calculates and returns the Helmholtz free energy density.
     ///

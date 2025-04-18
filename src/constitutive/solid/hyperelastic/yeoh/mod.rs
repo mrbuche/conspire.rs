@@ -36,7 +36,7 @@ where
     }
 }
 
-impl<P> Solid<P> for Yeoh<P>
+impl<P> Solid for Yeoh<P>
 where
     P: Parameters,
 {
@@ -48,7 +48,7 @@ where
     }
 }
 
-impl<P> Elastic<P> for Yeoh<P>
+impl<P> Elastic for Yeoh<P>
 where
     P: Parameters,
 {
@@ -125,7 +125,7 @@ where
     }
 }
 
-impl<P> Hyperelastic<P> for Yeoh<P>
+impl<P> Hyperelastic for Yeoh<P>
 where
     P: Parameters,
 {

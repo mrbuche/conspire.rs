@@ -28,7 +28,7 @@ where
     }
 }
 
-impl<P> Solid<P> for MooneyRivlin<P>
+impl<P> Solid for MooneyRivlin<P>
 where
     P: Parameters,
 {
@@ -40,7 +40,7 @@ where
     }
 }
 
-impl<P> Elastic<P> for MooneyRivlin<P>
+impl<P> Elastic for MooneyRivlin<P>
 where
     P: Parameters,
 {
@@ -112,7 +112,7 @@ where
     }
 }
 
-impl<P> Hyperelastic<P> for MooneyRivlin<P>
+impl<P> Hyperelastic for MooneyRivlin<P>
 where
     P: Parameters,
 {

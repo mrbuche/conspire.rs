@@ -17,7 +17,11 @@ macro_rules! test_thermoelastic_thermal_conduction_constitutive_model {
      $thermoelastic_constitutive_model: ident, $thermoelastic_constitutive_model_parameters: expr,
      $thermal_conduction_constitutive_model: ident, $thermal_conduction_constitutive_model_parameters: expr) => {
         use crate::{
-            constitutive::thermal::conduction::{Fourier, test::FOURIERPARAMETERS},
+            constitutive::{
+                Constitutive,
+                multiphysics::ThermoelasticThermalConduction,
+                thermal::conduction::{Fourier, test::FOURIERPARAMETERS},
+            },
             mechanics::test::{
                 get_deformation_gradient, get_temperature, get_temperature_gradient,
             },
@@ -40,14 +44,6 @@ macro_rules! test_thermoelastic_thermal_conduction_constitutive_model {
                 get_thermoelastic_constitutive_model(),
                 get_thermal_conduction_constitutive_model(),
             )
-        }
-        #[test]
-        #[should_panic]
-        fn new() {
-            $thermoelastic_thermal_conduction_constitutive_model::<
-                $thermoelastic_constitutive_model,
-                $thermal_conduction_constitutive_model,
-            >::new(FOURIERPARAMETERS);
         }
         #[test]
         fn bulk_modulus() {

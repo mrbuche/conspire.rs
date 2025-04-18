@@ -37,9 +37,9 @@ where
         Self { parameters }
     }
 }
-impl<P> Thermal<P> for Fourier<P> where P: Parameters {}
+impl<P> Thermal for Fourier<P> where P: Parameters {}
 
-impl<P> ThermalConduction<P> for Fourier<P>
+impl<P> ThermalConduction for Fourier<P>
 where
     P: Parameters,
 {

@@ -23,9 +23,9 @@ use super::{elastic::Elastic, *};
 use std::fmt::Debug;
 
 /// Required methods for hyperelastic constitutive models.
-pub trait Hyperelastic<P>
+pub trait Hyperelastic
 where
-    Self: Elastic<P>,
+    Self: Elastic,
 {
     /// Calculates and returns the Helmholtz free energy density.
     ///
