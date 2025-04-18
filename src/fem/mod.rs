@@ -6,16 +6,11 @@ pub use block::{
     ElasticFiniteElementBlock, ElementBlock, FiniteElementBlock, HyperelasticFiniteElementBlock,
     HyperviscoelasticFiniteElementBlock, SurfaceFiniteElementBlock, ViscoelasticFiniteElementBlock,
     element::{
-        ElasticFiniteElement,
-        FiniteElement,
-        FiniteElementMethods,
-        HyperelasticFiniteElement,
-        HyperviscoelasticFiniteElement,
-        SurfaceFiniteElement,
-        ViscoelasticFiniteElement,
-        // composite::tetrahedron::Tetrahedron as CompositeTetrahedron,
+        ElasticFiniteElement, FiniteElement, FiniteElementMethods, HyperelasticFiniteElement,
+        HyperviscoelasticFiniteElement, SurfaceFiniteElement, ViscoelasticFiniteElement,
+        composite::tetrahedron::Tetrahedron as CompositeTetrahedron,
         linear::{
-            tetrahedron::Tetrahedron as LinearTetrahedron, //triangle::Triangle as LinearTriangle,
+            tetrahedron::Tetrahedron as LinearTetrahedron, triangle::Triangle as LinearTriangle,
         },
     },
 };
