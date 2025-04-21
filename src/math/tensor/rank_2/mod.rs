@@ -33,7 +33,7 @@ use vec_2d::TensorRank2Vec2D;
 /// A *d*-dimensional tensor of rank 2.
 ///
 /// `D` is the dimension, `I`, `J` are the configurations.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TensorRank2<const D: usize, const I: usize, const J: usize>([TensorRank1<D, J>; D]);
 
 pub const fn tensor_rank_2<const D: usize, const I: usize, const J: usize>(
@@ -193,18 +193,6 @@ impl<const D: usize, const I: usize, const J: usize> fmt::Display for TensorRank
             Ok(())
         })?;
         write!(f, "\x1B[2D]]")
-    }
-}
-
-impl<const D: usize, const I: usize, const J: usize> PartialEq for TensorRank2<D, I, J> {
-    fn eq(&self, other: &Self) -> bool {
-        let mut result = true;
-        self.iter().zip(other.iter()).for_each(|(self_i, other_i)| {
-            if self_i != other_i {
-                result = false
-            }
-        });
-        result
     }
 }
 

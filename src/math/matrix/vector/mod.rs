@@ -8,7 +8,7 @@ use std::{
 };
 
 /// A vector.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Vector(Vec<TensorRank0>);
 
 #[cfg(test)]
@@ -96,12 +96,6 @@ impl Display for Vector {
         })?;
         write!(f, "\x1B[2D]")?;
         Ok(())
-    }
-}
-
-impl PartialEq for Vector {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
     }
 }
 

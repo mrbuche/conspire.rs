@@ -15,16 +15,8 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, Sub, SubAssign},
 };
 
-/// A value-to-value conversion that does not consume the input value.
-///
-/// This is as opposed to [`Into`](https://doc.rust-lang.org/std/convert/trait.Into.html), which consumes the input value.
-pub trait Convert<T> {
-    /// Converts this type into the (usually inferred) input type.
-    fn convert(&self) -> T;
-}
-
 /// Possible errors for tensors.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TensorError {
     NotPositiveDefinite,
 }
@@ -35,16 +27,6 @@ impl Display for TensorError {
             Self::NotPositiveDefinite => "\x1b[1;91mResult is not positive definite.".to_string(),
         };
         write!(f, "\n{}\n\x1b[0;2;31m{}\x1b[0m\n", error, defeat_message())
-    }
-}
-
-impl PartialEq for TensorError {
-    fn eq(&self, other: &Self) -> bool {
-        match self {
-            Self::NotPositiveDefinite => match other {
-                Self::NotPositiveDefinite => true,
-            },
-        }
     }
 }
 
