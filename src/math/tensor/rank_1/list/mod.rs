@@ -13,10 +13,7 @@ use std::{
 
 use crate::math::{Tensor, TensorArray, TensorRank2};
 
-use super::{
-    super::super::write_tensor_rank_0,
-    TensorRank0, TensorRank1,
-};
+use super::{super::super::write_tensor_rank_0, TensorRank0, TensorRank1};
 
 /// A list of *d*-dimensional tensors of rank 1.
 ///
@@ -167,19 +164,25 @@ impl<const D: usize, const I: usize, const W: usize> TensorArray for TensorRank1
 
 impl From<TensorRank1List<3, 0, 3>> for TensorRank1List<3, 1, 3> {
     fn from(tensor_rank_1_list: TensorRank1List<3, 0, 3>) -> Self {
-        unsafe { transmute::<TensorRank1List<3, 0, 3>, TensorRank1List<3, 1, 3>>(tensor_rank_1_list) }
+        unsafe {
+            transmute::<TensorRank1List<3, 0, 3>, TensorRank1List<3, 1, 3>>(tensor_rank_1_list)
+        }
     }
 }
 
 impl From<TensorRank1List<3, 0, 4>> for TensorRank1List<3, 1, 4> {
     fn from(tensor_rank_1_list: TensorRank1List<3, 0, 4>) -> Self {
-        unsafe { transmute::<TensorRank1List<3, 0, 4>, TensorRank1List<3, 1, 4>>(tensor_rank_1_list) }
+        unsafe {
+            transmute::<TensorRank1List<3, 0, 4>, TensorRank1List<3, 1, 4>>(tensor_rank_1_list)
+        }
     }
 }
 
 impl From<TensorRank1List<3, 0, 10>> for TensorRank1List<3, 1, 10> {
     fn from(tensor_rank_1_list: TensorRank1List<3, 0, 10>) -> Self {
-        unsafe { transmute::<TensorRank1List<3, 0, 10>, TensorRank1List<3, 1, 10>>(tensor_rank_1_list) }
+        unsafe {
+            transmute::<TensorRank1List<3, 0, 10>, TensorRank1List<3, 1, 10>>(tensor_rank_1_list)
+        }
     }
 }
 

@@ -15,8 +15,7 @@ use std::{
 };
 
 use super::{
-    super::write_tensor_rank_0, Tensor, TensorArray, rank_0::TensorRank0,
-    rank_2::TensorRank2,
+    super::write_tensor_rank_0, Tensor, TensorArray, rank_0::TensorRank0, rank_2::TensorRank2,
 };
 
 /// A *d*-dimensional tensor of rank 1.
@@ -153,8 +152,7 @@ impl<const D: usize, const I: usize> From<TensorRank1<D, I>> for Vec<TensorRank0
     }
 }
 
-impl From<TensorRank1<3, 0>> for TensorRank1<3, 1>
-{
+impl From<TensorRank1<3, 0>> for TensorRank1<3, 1> {
     fn from(tensor_rank_1: TensorRank1<3, 0>) -> Self {
         unsafe { transmute::<TensorRank1<3, 0>, TensorRank1<3, 1>>(tensor_rank_1) }
     }

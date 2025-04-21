@@ -945,19 +945,18 @@ macro_rules! test_helmholtz_free_energy {
                     let element = get_element();
                     let minimum = get_helmholtz_free_energy(false, false)?;
                     let mut perturbed = 0.0;
-                    let mut perturbed_coordinates: NodalCoordinates<N> = reference_coordinates().into();
+                    let mut perturbed_coordinates: NodalCoordinates<N> =
+                        reference_coordinates().into();
                     (0..N).try_for_each(|node| {
                         (0..3).try_for_each(|i| {
                             perturbed_coordinates = reference_coordinates().into();
                             perturbed_coordinates[node][i] += 0.5 * EPSILON;
-                            perturbed =
-                                element.helmholtz_free_energy(&perturbed_coordinates)?;
+                            perturbed = element.helmholtz_free_energy(&perturbed_coordinates)?;
                             if assert_eq_within_tols(&perturbed, &minimum).is_err() {
                                 assert!(perturbed > minimum)
                             }
                             perturbed_coordinates[node][i] -= EPSILON;
-                            perturbed =
-                                element.helmholtz_free_energy(&perturbed_coordinates)?;
+                            perturbed = element.helmholtz_free_energy(&perturbed_coordinates)?;
                             if assert_eq_within_tols(&perturbed, &minimum).is_err() {
                                 assert!(perturbed > minimum)
                             }

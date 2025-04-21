@@ -3,7 +3,10 @@ use super::{
     rank_1::{TensorRank1, list::TensorRank1List},
 };
 use crate::{ABS_TOL, EPSILON, REL_TOL, defeat_message};
-use std::{cmp::PartialEq, fmt::{self, Debug, Display, Formatter}};
+use std::{
+    cmp::PartialEq,
+    fmt::{self, Debug, Display, Formatter},
+};
 
 #[cfg(test)]
 pub trait ErrorTensor {
