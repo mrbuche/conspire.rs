@@ -7,13 +7,14 @@ use super::super::test::ErrorTensor;
 use std::array::from_fn;
 use std::{
     fmt::{Display, Formatter, Result},
+    mem::transmute,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
 use crate::math::{Tensor, TensorArray, TensorRank2};
 
 use super::{
-    super::{super::write_tensor_rank_0, Convert},
+    super::super::write_tensor_rank_0,
     TensorRank0, TensorRank1,
 };
 
@@ -164,22 +165,21 @@ impl<const D: usize, const I: usize, const W: usize> TensorArray for TensorRank1
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const W: usize>
-    Convert<TensorRank1List<D, J, W>> for TensorRank1List<D, I, W>
-{
-    fn convert(&self) -> TensorRank1List<D, J, W> {
-        self.iter()
-            .map(|self_entry| self_entry.iter().copied().collect())
-            .collect()
+impl From<TensorRank1List<3, 0, 3>> for TensorRank1List<3, 1, 3> {
+    fn from(tensor_rank_1_list: TensorRank1List<3, 0, 3>) -> Self {
+        unsafe { transmute::<TensorRank1List<3, 0, 3>, TensorRank1List<3, 1, 3>>(tensor_rank_1_list) }
     }
 }
 
-impl<const D: usize, const W: usize> From<TensorRank1List<D, 0, W>> for TensorRank1List<D, 1, W> {
-    fn from(tensor_rank_1_list: TensorRank1List<D, 0, W>) -> Self {
-        tensor_rank_1_list
-            .iter()
-            .map(|tensor_rank_1| tensor_rank_1.into())
-            .collect()
+impl From<TensorRank1List<3, 0, 4>> for TensorRank1List<3, 1, 4> {
+    fn from(tensor_rank_1_list: TensorRank1List<3, 0, 4>) -> Self {
+        unsafe { transmute::<TensorRank1List<3, 0, 4>, TensorRank1List<3, 1, 4>>(tensor_rank_1_list) }
+    }
+}
+
+impl From<TensorRank1List<3, 0, 10>> for TensorRank1List<3, 1, 10> {
+    fn from(tensor_rank_1_list: TensorRank1List<3, 0, 10>) -> Self {
+        unsafe { transmute::<TensorRank1List<3, 0, 10>, TensorRank1List<3, 1, 10>>(tensor_rank_1_list) }
     }
 }
 

@@ -23,7 +23,7 @@ pub mod list;
 /// A *d*-dimensional tensor of rank 4.
 ///
 /// `D` is the dimension, `I`, `J`, `K`, `L` are the configurations.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TensorRank4<
     const D: usize,
     const I: usize,
@@ -98,20 +98,6 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
 {
     fn fmt(&self, _f: &mut Formatter) -> Result {
         Ok(())
-    }
-}
-
-impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> PartialEq
-    for TensorRank4<D, I, J, K, L>
-{
-    fn eq(&self, other: &Self) -> bool {
-        let mut result = true;
-        self.iter().zip(other.iter()).for_each(|(self_i, other_i)| {
-            if self_i != other_i {
-                result = false
-            }
-        });
-        result
     }
 }
 

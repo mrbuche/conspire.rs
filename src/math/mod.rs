@@ -20,7 +20,7 @@ mod tensor;
 
 pub use matrix::{square::SquareMatrix, vector::Vector};
 pub use tensor::{
-    Convert, Hessian, Rank2, Tensor, TensorArray, TensorVec,
+    Hessian, Rank2, Tensor, TensorArray, TensorVec,
     rank_0::{
         TensorRank0,
         list::{TensorRank0List, tensor_rank_0_list},

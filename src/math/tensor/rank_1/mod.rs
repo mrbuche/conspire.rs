@@ -10,18 +10,19 @@ pub mod vec;
 
 use std::{
     fmt::{Display, Formatter, Result},
+    mem::transmute,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
 use super::{
-    super::write_tensor_rank_0, Convert, Tensor, TensorArray, rank_0::TensorRank0,
+    super::write_tensor_rank_0, Tensor, TensorArray, rank_0::TensorRank0,
     rank_2::TensorRank2,
 };
 
 /// A *d*-dimensional tensor of rank 1.
 ///
 /// `D` is the dimension, `I` is the configuration.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TensorRank1<const D: usize, const I: usize>([TensorRank0; D]);
 
 pub const fn tensor_rank_1<const D: usize, const I: usize>(
@@ -36,12 +37,6 @@ impl<const D: usize, const I: usize> Display for TensorRank1<D, I> {
         self.iter()
             .try_for_each(|entry| write_tensor_rank_0(f, entry))?;
         write!(f, "\x1B[2D]")
-    }
-}
-
-impl<const D: usize, const I: usize> PartialEq for TensorRank1<D, I> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
     }
 }
 
@@ -134,14 +129,6 @@ pub const fn zero<const D: usize, const I: usize>() -> TensorRank1<D, I> {
     TensorRank1([0.0; D])
 }
 
-impl<const D: usize, const I: usize, const J: usize> Convert<TensorRank1<D, J>>
-    for TensorRank1<D, I>
-{
-    fn convert(&self) -> TensorRank1<D, J> {
-        self.iter().copied().collect()
-    }
-}
-
 impl<const D: usize, const I: usize> From<[TensorRank0; D]> for TensorRank1<D, I> {
     fn from(array: [TensorRank0; D]) -> Self {
         Self(array)
@@ -166,11 +153,10 @@ impl<const D: usize, const I: usize> From<TensorRank1<D, I>> for Vec<TensorRank0
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> From<&TensorRank1<D, I>>
-    for TensorRank1<D, J>
+impl From<TensorRank1<3, 0>> for TensorRank1<3, 1>
 {
-    fn from(tensor_rank_1: &TensorRank1<D, I>) -> Self {
-        TensorRank1(tensor_rank_1.0)
+    fn from(tensor_rank_1: TensorRank1<3, 0>) -> Self {
+        unsafe { transmute::<TensorRank1<3, 0>, TensorRank1<3, 1>>(tensor_rank_1) }
     }
 }
 

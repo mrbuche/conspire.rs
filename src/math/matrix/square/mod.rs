@@ -11,7 +11,7 @@ use std::{
 };
 
 /// A square matrix.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SquareMatrix(Vec<Vector>);
 
 #[cfg(test)]
@@ -80,12 +80,6 @@ impl fmt::Display for SquareMatrix {
             Ok(())
         })?;
         write!(f, "\x1B[2D]]")
-    }
-}
-
-impl PartialEq for SquareMatrix {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
     }
 }
 

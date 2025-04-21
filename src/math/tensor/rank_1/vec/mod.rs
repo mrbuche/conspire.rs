@@ -6,6 +6,7 @@ use crate::math::{
 };
 use std::{
     fmt::{Display, Formatter, Result},
+    mem::transmute,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
@@ -136,12 +137,9 @@ impl<const D: usize, const I: usize> From<TensorRank1Vec<D, I>> for Vec<Vec<Tens
     }
 }
 
-impl<const D: usize> From<TensorRank1Vec<D, 0>> for TensorRank1Vec<D, 1> {
-    fn from(tensor_rank_1_vec: TensorRank1Vec<D, 0>) -> Self {
-        tensor_rank_1_vec
-            .iter()
-            .map(|tensor_rank_1| tensor_rank_1.into())
-            .collect()
+impl From<TensorRank1Vec<3, 0>> for TensorRank1Vec<3, 1> {
+    fn from(tensor_rank_1_vec: TensorRank1Vec<3, 0>) -> Self {
+        unsafe { transmute::<TensorRank1Vec<3, 0>, TensorRank1Vec<3, 1>>(tensor_rank_1_vec) }
     }
 }
 

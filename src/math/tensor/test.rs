@@ -3,7 +3,7 @@ use super::{
     rank_1::{TensorRank1, list::TensorRank1List},
 };
 use crate::{ABS_TOL, EPSILON, REL_TOL, defeat_message};
-use std::{cmp::PartialEq, fmt};
+use std::{cmp::PartialEq, fmt::{self, Debug, Display, Formatter}};
 
 #[cfg(test)]
 pub trait ErrorTensor {
@@ -16,7 +16,7 @@ pub trait ErrorTensor {
     fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)>;
 }
 
-pub fn assert_eq<'a, T: fmt::Display + PartialEq + ErrorTensor>(
+pub fn assert_eq<'a, T: Display + PartialEq + ErrorTensor>(
     value_1: &'a T,
     value_2: &'a T,
 ) -> Result<(), TestError> {
@@ -32,7 +32,7 @@ pub fn assert_eq<'a, T: fmt::Display + PartialEq + ErrorTensor>(
     }
 }
 
-pub fn assert_eq_from_fd<'a, T: fmt::Display + ErrorTensor>(
+pub fn assert_eq_from_fd<'a, T: Display + ErrorTensor>(
     value: &'a T,
     value_fd: &'a T,
 ) -> Result<(), TestError> {
@@ -56,7 +56,7 @@ pub fn assert_eq_from_fd<'a, T: fmt::Display + ErrorTensor>(
     }
 }
 
-pub fn assert_eq_within_tols<'a, T: fmt::Display + ErrorTensor>(
+pub fn assert_eq_within_tols<'a, T: Display + ErrorTensor>(
     value_1: &'a T,
     value_2: &'a T,
 ) -> Result<(), TestError> {
@@ -76,8 +76,8 @@ pub struct TestError {
     pub message: String,
 }
 
-impl fmt::Debug for TestError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Debug for TestError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{}\n\x1b[0;2;31m{}\x1b[0m\n",
