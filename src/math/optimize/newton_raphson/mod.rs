@@ -42,10 +42,12 @@ where
         _neumann: Option<Neumann>,
     ) -> Result<X, OptimizeError> {
         //
-        // consider having separate implementations for constrained and unconstrained optimization
-        // mostly because what you are planning for constrained optimization isn't really NewtonRaphson anymore
-        // so would have unconstrained GD, unconstrained NR, and the constrained solver for fem
-        // maybe you can pass Option<SecondOrder> into that solver?
+        // how to redo the interface?
+        // Some/None lets you on/off the evaluation of constraints/multipliers?
+        // dirichlet only for now?
+        //
+        // let lagrangian; // L(x,λ) = U(x) - λ(Ax - b)
+        // let multipliers;
         //
         let mut residual;
         let mut solution = initial_guess;
