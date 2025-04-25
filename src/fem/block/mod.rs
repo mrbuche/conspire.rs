@@ -9,7 +9,7 @@ use self::element::{
     ViscoelasticFiniteElement,
 };
 use super::*;
-use crate::math::optimize::{Dirichlet, FirstOrder, GradientDescent, NewtonRaphson, OptimizeError, SecondOrder};
+use crate::math::optimize::{Dirichlet, FirstOrder, GradientDescent, OptimizeError};
 use std::array::from_fn;
 
 pub struct ElementBlock<F, const N: usize> {
@@ -182,8 +182,7 @@ where
         values_d: Option<Vec<Scalar>>,
         places_n: Option<&[&[usize]]>,
         values_n: Option<&[Scalar]>,
-        // optimization: GradientDescent,
-        optimization: NewtonRaphson,
+        optimization: GradientDescent,
     ) -> Result<NodalCoordinatesBlock, OptimizeError>;
 }
 
@@ -311,12 +310,10 @@ where
         values_d: Option<Vec<Scalar>>,
         _places_n: Option<&[&[usize]]>,
         _values_n: Option<&[Scalar]>,
-        // optimization: GradientDescent,
-        optimization: NewtonRaphson,
+        optimization: GradientDescent,
     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
         optimization.minimize(
             |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
-            |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_stiffnesses(nodal_coordinates)?),
             initial_coordinates,
             Some(Dirichlet {
                 places: places_d.unwrap(),

@@ -36,7 +36,7 @@ impl<X: Tensor> FirstOrder<X> for GradientDescent {
         //
         // How to choose short (below, dx*dg/dg*dg) or long (dx*dx/dx*dg) steps?
         // Or even allow different options for calculating step size?
-        // Like using backtracking line search with: (1), checked decrease, (2) Armijo condition (sufficient decrease), (3) trust region, etc. (see slides).
+        // Like using backtracking line search with: (1), checked decrease, (2) Armijo condition (sufficient decrease), (3) Wolfe, (4) trust region, etc. (see slides).
         // Those methods might also be abstracted to be used in multiple places, like if you make a nonlinear conjugate gradient solver.
         // And then within the NLCG, different formulas for beta?
         //
@@ -52,7 +52,6 @@ impl<X: Tensor> FirstOrder<X> for GradientDescent {
         //         .zip(bc.values.iter())
         //         .for_each(|(place, value)| *solution.get_at_mut(place) = *value)
         // }
-        todo!();
         for _ in 0..self.max_steps {
             residual = jacobian(&solution)?;
             // if let Some(ref bc) = neumann {

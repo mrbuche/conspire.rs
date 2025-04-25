@@ -59,6 +59,12 @@ where
         dirichlet: Option<Dirichlet>,
         neumann: Option<Neumann>,
     ) -> Result<X, OptimizeError>;
+    // fn minimize(
+    //     &self,
+    //     jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
+    //     hessian: impl Fn(&X) -> Result<H, OptimizeError>,
+    //     initial_guess: X,
+    // ) -> Result<X, OptimizeError>;
 }
 
 /// Possible optimization algorithms.

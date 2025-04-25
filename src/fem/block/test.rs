@@ -694,8 +694,7 @@ macro_rules! test_finite_element_block_with_hyperelastic_constitutive_model {
                     Some(get_dirichlet_values(dx)),
                     None,
                     None,
-                    // GradientDescent {
-                    NewtonRaphson {
+                    GradientDescent {
                         ..Default::default()
                     },
                 )?;

@@ -41,48 +41,56 @@ where
         dirichlet: Option<Dirichlet>,
         neumann: Option<Neumann>,
     ) -> Result<X, OptimizeError> {
-        //
-        // might want X to impl into::<Vector> and H into::<Matrix> for this to work instead?
-        // but that sort of hurts the templating, and simple cases like scalars
-        //
-        // can make it call the actual method directly or not based on if there are constraints
-        // with constraints: flatten J & H into Vector & Matrix, each with effects of constraints built in to new function calls, then call the method
-        // and then base method called by either can just be regular unconstrained NM like below!
-        //
-        let x_tot_len = 5; // need x total (flattened) length method
-        let foo = if let Some(bc) = dirichlet {
-            let mut foo = vec![vec![0.0; bc.places.len()]; x_tot_len];
-            bc.places.iter().enumerate().zip(bc.values.iter()).for_each(|((index, &place), &value)| foo[index][place] = value);
-            Some(foo)
+        if let Some(bc) = dirichlet {
+            // let lagrangian; // L(x,λ) = U(x) - λ(Ax - b)
+            // let multipliers;
+            //
+            // Any appetite to make this also take nonlinear equality constraints and handle differently than linear?
+            // Would you make Dirichlet an enum with linear/quadratic/nonlinear variants to match here?
+            // Then can solidify the underlying BC data type maybe.
+            //
+            // need (X, J)::into<Vector> and H::into<Matrix>
+            // or similar, also tack on multipliers to former and A to latter
+            todo!()
         } else {
-            None
-        };
-        //
-        // let lagrangian; // L(x,λ) = U(x) - λ(Ax - b)
-        // let multipliers;
-        //
-        let mut residual;
-        let mut solution = initial_guess;
-        let mut tangent;
-        for _ in 0..self.max_steps {
-            residual = jacobian(&solution)?;
-            tangent = hessian(&solution)?;
-            if residual.norm() < self.abs_tol {
-                if self.check_minimum && !tangent.is_positive_definite() {
-                    return Err(OptimizeError::NotMinimum(
-                        format!("{}", solution),
-                        format!("{:?}", &self),
-                    ));
-                } else {
-                    return Ok(solution);
-                }
-            } else {
-                solution -= residual / tangent;
-            }
+            //
+            // might be able to pass neumann in anyway here, except for the indexing...
+            //
+            unconstrained(self, jacobian, hessian, initial_guess)
         }
-        Err(OptimizeError::MaximumStepsReached(
-            self.max_steps,
-            format!("{:?}", &self),
-        ))
     }
+}
+
+fn unconstrained<H: Hessian, J: Tensor, X: Tensor>(
+    newton: &NewtonRaphson,
+    jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
+    hessian: impl Fn(&X) -> Result<H, OptimizeError>,
+    initial_guess: X,
+) -> Result<X, OptimizeError>
+where
+    J: Div<H, Output = X>,
+{
+    let mut residual;
+    let mut solution = initial_guess;
+    let mut tangent;
+    for _ in 0..newton.max_steps {
+        residual = jacobian(&solution)?;
+        tangent = hessian(&solution)?;
+        if residual.norm() < newton.abs_tol {
+            if newton.check_minimum && !tangent.is_positive_definite() {
+                return Err(OptimizeError::NotMinimum(
+                    format!("{}", solution),
+                    format!("{:?}", &newton),
+                ));
+            } else {
+                return Ok(solution);
+            }
+        } else {
+            solution -= residual / tangent;
+        }
+    }
+    Err(OptimizeError::MaximumStepsReached(
+        newton.max_steps,
+        format!("{:?}", &newton),
+    ))
 }
