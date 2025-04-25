@@ -38,39 +38,34 @@ where
         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
         hessian: impl Fn(&X) -> Result<H, OptimizeError>,
         initial_guess: X,
-        _dirichlet: Option<Dirichlet>,
-        _neumann: Option<Neumann>,
+        dirichlet: Option<Dirichlet>,
+        neumann: Option<Neumann>,
     ) -> Result<X, OptimizeError> {
         //
-        // how to redo the interface?
-        // Some/None lets you on/off the evaluation of constraints/multipliers?
-        // dirichlet only for now?
+        // might want X to impl into::<Vector> and H into::<Matrix> for this to work instead?
+        // but that sort of hurts the templating, and simple cases like scalars
+        //
+        // can make it call the actual method directly or not based on if there are constraints
+        // with constraints: flatten J & H into Vector & Matrix, each with effects of constraints built in to new function calls, then call the method
+        // and then base method called by either can just be regular unconstrained NM like below!
+        //
+        let x_tot_len = 5; // need x total (flattened) length method
+        let foo = if let Some(bc) = dirichlet {
+            let mut foo = vec![vec![0.0; bc.places.len()]; x_tot_len];
+            bc.places.iter().enumerate().zip(bc.values.iter()).for_each(|((index, &place), &value)| foo[index][place] = value);
+            Some(foo)
+        } else {
+            None
+        };
         //
         // let lagrangian; // L(x,λ) = U(x) - λ(Ax - b)
         // let multipliers;
         //
         let mut residual;
         let mut solution = initial_guess;
-        // if let Some(ref bc) = dirichlet {
-        //     bc.places
-        //         .iter()
-        //         .zip(bc.values.iter())
-        //         .for_each(|(place, value)| *solution.get_at_mut(place) = *value)
-        // }
         let mut tangent;
         for _ in 0..self.max_steps {
             residual = jacobian(&solution)?;
-            // if let Some(ref bc) = neumann {
-            //     bc.places
-            //         .iter()
-            //         .zip(bc.values.iter())
-            //         .for_each(|(place, value)| *residual.get_at_mut(place) -= value)
-            // }
-            // if let Some(ref bc) = dirichlet {
-            //     bc.places
-            //         .iter()
-            //         .for_each(|place| *residual.get_at_mut(place) = 0.0)
-            // }
             tangent = hessian(&solution)?;
             if residual.norm() < self.abs_tol {
                 if self.check_minimum && !tangent.is_positive_definite() {

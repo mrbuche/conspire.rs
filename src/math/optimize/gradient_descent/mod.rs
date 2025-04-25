@@ -46,25 +46,26 @@ impl<X: Tensor> FirstOrder<X> for GradientDescent {
         let mut solution_change = solution.clone();
         let mut step_size = 1e-2;
         let mut step_trial;
-        if let Some(ref bc) = dirichlet {
-            bc.places
-                .iter()
-                .zip(bc.values.iter())
-                .for_each(|(place, value)| *solution.get_at_mut(place) = *value)
-        }
+        // if let Some(ref bc) = dirichlet {
+        //     bc.places
+        //         .iter()
+        //         .zip(bc.values.iter())
+        //         .for_each(|(place, value)| *solution.get_at_mut(place) = *value)
+        // }
+        todo!();
         for _ in 0..self.max_steps {
             residual = jacobian(&solution)?;
-            if let Some(ref bc) = neumann {
-                bc.places
-                    .iter()
-                    .zip(bc.values.iter())
-                    .for_each(|(place, value)| *residual.get_at_mut(place) -= value)
-            }
-            if let Some(ref bc) = dirichlet {
-                bc.places
-                    .iter()
-                    .for_each(|place| *residual.get_at_mut(place) = 0.0)
-            }
+            // if let Some(ref bc) = neumann {
+            //     bc.places
+            //         .iter()
+            //         .zip(bc.values.iter())
+            //         .for_each(|(place, value)| *residual.get_at_mut(place) -= value)
+            // }
+            // if let Some(ref bc) = dirichlet {
+            //     bc.places
+            //         .iter()
+            //         .for_each(|place| *residual.get_at_mut(place) = 0.0)
+            // }
             if residual.norm() < self.abs_tol {
                 return Ok(solution);
             } else {

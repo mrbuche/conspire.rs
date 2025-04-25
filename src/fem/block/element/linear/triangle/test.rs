@@ -100,11 +100,11 @@ fn get_velocities_block() -> NodalVelocitiesBlock {
 
 const TEST_SOLVE: bool = false;
 
-fn get_dirichlet_places<'a>() -> [&'a [usize]; 8] {
+fn get_dirichlet_places<'a>() -> Vec<usize> {
     panic!()
 }
 
-fn get_dirichlet_values(_x: Scalar) -> [Scalar; 8] {
+fn get_dirichlet_values(_x: Scalar) -> Vec<Scalar> {
     panic!()
 }
 

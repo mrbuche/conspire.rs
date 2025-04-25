@@ -11,16 +11,28 @@ use std::{fmt, ops::Div};
 pub use gradient_descent::GradientDescent;
 pub use newton_raphson::NewtonRaphson;
 
+// /// Dirichlet boundary conditions.
+// pub struct Dirichlet<'a> {
+//     pub places: &'a [&'a [usize]],
+//     pub values: &'a [TensorRank0],
+// }
+
+// /// Neumann boundary conditions.
+// pub struct Neumann<'a> {
+//     pub places: &'a [&'a [usize]],
+//     pub values: &'a [TensorRank0],
+// }
+
 /// Dirichlet boundary conditions.
-pub struct Dirichlet<'a> {
-    pub places: &'a [&'a [usize]],
-    pub values: &'a [TensorRank0],
+pub struct Dirichlet {
+    pub places: Vec<usize>,
+    pub values: Vec<TensorRank0>,
 }
 
 /// Neumann boundary conditions.
-pub struct Neumann<'a> {
-    pub places: &'a [&'a [usize]],
-    pub values: &'a [TensorRank0],
+pub struct Neumann {
+    pub places: Vec<usize>,
+    pub values: Vec<TensorRank0>,
 }
 
 /// First-order optimization algorithms.
