@@ -85,6 +85,10 @@ where
                     //
                     // may need a method for sparse (or at least special) indexing
                     // ndarray lets you index like A[ [i, j] ], maybe can reproduce?
+                    //
+                    // why dont you make a new type, a sparse "X" called "S" or something?
+                    // then you can do X -= S for the forces here
+                    //
                     panic!()
                     //
                     // *residual.get_at_mut(place) -= value
