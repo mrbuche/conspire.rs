@@ -31,7 +31,7 @@ pub struct Dirichlet {
 
 /// Neumann boundary conditions.
 pub struct Neumann {
-    pub places: Vec<usize>,
+    pub places: Vec<Vec<usize>>,
     pub values: Vec<TensorRank0>,
 }
 

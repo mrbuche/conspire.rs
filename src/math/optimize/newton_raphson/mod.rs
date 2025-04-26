@@ -55,8 +55,9 @@ where
         } else {
             //
             // might be able to pass neumann in anyway here, except for the indexing...
+            // use Vec<Vec<usize>> for sparse indexing, should try to make that into a type to prevent construction issues (length mismatches, etc.)
             //
-            unconstrained(self, jacobian, hessian, initial_guess)
+            unconstrained(self, jacobian, hessian, initial_guess, neumann)
         }
     }
 }
@@ -66,6 +67,7 @@ fn unconstrained<H: Hessian, J: Tensor, X: Tensor>(
     jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
     hessian: impl Fn(&X) -> Result<H, OptimizeError>,
     initial_guess: X,
+    neumann: Option<Neumann>,
 ) -> Result<X, OptimizeError>
 where
     J: Div<H, Output = X>,
@@ -75,6 +77,19 @@ where
     let mut tangent;
     for _ in 0..newton.max_steps {
         residual = jacobian(&solution)?;
+        if let Some(ref bc) = neumann {
+            bc.places
+                .iter()
+                .zip(bc.values.iter())
+                .for_each(|(place, value)|
+                    //
+                    // may need a method for sparse (or at least special) indexing
+                    // ndarray lets you index like A[ [i, j] ], maybe can reproduce?
+                    panic!()
+                    //
+                    // *residual.get_at_mut(place) -= value
+                )
+        }
         tangent = hessian(&solution)?;
         if residual.norm() < newton.abs_tol {
             if newton.check_minimum && !tangent.is_positive_definite() {
