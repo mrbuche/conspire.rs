@@ -30,6 +30,11 @@ impl Default for NewtonRaphson {
     }
 }
 
+// Try separate null-space and range-space steps eventually:
+// Q, R = np.linalg.qr(A.T, mode='complete')
+// Z = Q[:, A.T.shape[1]:]
+// assert np.all(A.dot(Z) == 0)
+
 impl<C, H, J, X> SecondOrder<C, H, J, X> for NewtonRaphson
 where
     C: IntoConstraint<LinearEqualityConstraint>,
@@ -51,11 +56,8 @@ where
                 let mut solution = initial_guess;
                 //
                 // maybe into_matrix for Hessians should take a parameters for extra space?
-                // wait -> what do you need exactly for the null space method anyway?
-                //
-                // should be easy to automatically find Z from A such that A*Z=0, try it here!
-                // maybe just leave note to figure out null space method eventually
-                // and leave notes (like steps using QR to get Z)
+                // mostly trying to find the best way to allocate once and then continually re-populate
+                // maybe you can return the full KKT matrix (without H) from "into_constraint" since you know length
                 //
                 // let lagrangian; // L(x,λ) = U(x) - λ(Ax - b)
                 // let multipliers;

@@ -8,6 +8,8 @@ use std::{
 };
 use vector::Vector;
 
+delete Matrix probably
+
 /// A matrix.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Matrix(Vec<Vector>);
