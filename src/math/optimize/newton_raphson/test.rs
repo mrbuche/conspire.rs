@@ -1,4 +1,4 @@
-use super::{NewtonRaphson, SecondOrder, TensorRank0};
+use super::{NewtonRaphson, SecondOrderRoot, TensorRank0};
 
 const TOLERANCE: TensorRank0 = 1e-6;
 
@@ -8,12 +8,10 @@ fn linear() {
         NewtonRaphson {
             ..Default::default()
         }
-        .minimize(
+        .root(
             |x: &TensorRank0| Ok(*x),
             |_: &TensorRank0| Ok(1.0),
             1.0,
-            None,
-            None
         )
         .unwrap()
         .abs()
@@ -27,12 +25,10 @@ fn quadratic() {
         NewtonRaphson {
             ..Default::default()
         }
-        .minimize(
+        .root(
             |x: &TensorRank0| Ok(x.powi(2) / 2.0),
             |x: &TensorRank0| Ok(*x),
             1.0,
-            None,
-            None
         )
         .unwrap()
         .abs()
@@ -46,12 +42,10 @@ fn sin() {
         NewtonRaphson {
             ..Default::default()
         }
-        .minimize(
+        .root(
             |x: &TensorRank0| Ok(x.sin()),
             |x: &TensorRank0| Ok(x.cos()),
             1.0,
-            None,
-            None
         )
         .unwrap()
         .abs()
@@ -65,12 +59,10 @@ fn sin_max() {
     NewtonRaphson {
         ..Default::default()
     }
-    .minimize(
+    .root(
         |x: &TensorRank0| Ok(x.sin()),
         |x: &TensorRank0| Ok(x.cos()),
         3.0,
-        None,
-        None,
     )
     .unwrap();
 }

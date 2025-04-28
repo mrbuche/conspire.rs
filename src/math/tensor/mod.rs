@@ -14,6 +14,7 @@ use std::{
     fmt::{Debug, Display},
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, Sub, SubAssign},
 };
+use super::SquareMatrix;
 
 /// Possible errors for tensors.
 #[derive(Debug, PartialEq)]
@@ -32,6 +33,8 @@ impl Display for TensorError {
 
 /// Common methods for Hessians.
 pub trait Hessian {
+    /// Converts this type into a square matrix.
+    fn into_matrix(self) -> SquareMatrix;
     /// Checks whether the Hessian is positive-definite.
     fn is_positive_definite(&self) -> bool;
 }

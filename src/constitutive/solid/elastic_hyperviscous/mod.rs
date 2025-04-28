@@ -26,7 +26,7 @@ mod almansi_hamel;
 pub use almansi_hamel::AlmansiHamel;
 
 use super::{super::fluid::viscous::Viscous, viscoelastic::Viscoelastic, *};
-use crate::math::optimize::{NewtonRaphson, SecondOrder};
+use crate::math::optimize::{NewtonRaphson, SecondOrderRoot};
 use std::fmt::Debug;
 
 /// Required methods for elastic-hyperviscous constitutive models.
@@ -88,7 +88,7 @@ where
         let optimization = NewtonRaphson {
             ..Default::default()
         };
-        let deformation_gradient = optimization.minimize(
+        let deformation_gradient = optimization.root(
             |deformation_gradient: &DeformationGradient| {
                 let (deformation_gradient_rate, _) = self.solve_uniaxial_inner_inner(
                     deformation_gradient,
@@ -110,8 +110,6 @@ where
                     ) * time_step)
             },
             IDENTITY_10,
-            None,
-            None,
         )?;
         let (_, cauchy_stress) =
             self.solve_uniaxial_inner_inner(&deformation_gradient, &deformation_gradient_rate_11)?;
@@ -126,7 +124,7 @@ where
         let optimization = NewtonRaphson {
             ..Default::default()
         };
-        let deformation_gradient_rate_33 = optimization.minimize(
+        let deformation_gradient_rate_33 = optimization.root(
             |deformation_gradient_rate_33: &Scalar| {
                 Ok(self.cauchy_stress(
                     deformation_gradient,
@@ -148,8 +146,6 @@ where
                 )?[2][2][2][2])
             },
             -deformation_gradient_rate_11 / deformation_gradient[0][0].powf(1.5),
-            None,
-            None,
         )?;
         let deformation_gradient_rate = DeformationGradientRate::new([
             [*deformation_gradient_rate_11, 0.0, 0.0],

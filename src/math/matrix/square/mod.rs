@@ -103,6 +103,9 @@ impl IndexMut<usize> for SquareMatrix {
 }
 
 impl Hessian for SquareMatrix {
+    fn into_matrix(self) -> SquareMatrix {
+        self
+    }
     fn is_positive_definite(&self) -> bool {
         self.cholesky_decomposition().is_ok()
     }

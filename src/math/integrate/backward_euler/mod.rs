@@ -5,7 +5,7 @@ use super::{
     super::{
         Hessian, Tensor, TensorArray, TensorRank0, TensorVec, Vector,
         interpolate::InterpolateSolution,
-        optimize::{FirstOrder, NewtonRaphson, Optimization, SecondOrder},
+        optimize::{FirstOrder, NewtonRaphson, Optimization, SecondOrderRoot},
     },
     Implicit, IntegrationError,
 };
@@ -71,16 +71,13 @@ where
                         |y_trial: &Y| Ok(y_trial - &y - &(&function(&t_trial, y_trial) * dt)),
                         y.clone(),
                         None,
-                        None,
                     )
                     .unwrap(),
                 Optimization::NewtonRaphson(newton_raphson) => newton_raphson
-                    .minimize(
+                    .root(
                         |y_trial: &Y| Ok(y_trial - &y - &(&function(&t_trial, y_trial) * dt)),
                         |y_trial: &Y| Ok(jacobian(&t_trial, y_trial) * -dt + &identity),
                         y.clone(),
-                        None,
-                        None,
                     )
                     .unwrap(),
             };

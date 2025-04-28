@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+mod constraint;
 mod gradient_descent;
 mod newton_raphson;
 
@@ -8,30 +9,13 @@ use super::{Hessian, Tensor, TensorRank0};
 use crate::defeat_message;
 use std::{fmt, ops::{Div, SubAssign}};
 
+pub use constraint::{IntoConstraint, equality::{EqualityConstraint, linear::LinearEqualityConstraint}};
 pub use gradient_descent::GradientDescent;
 pub use newton_raphson::NewtonRaphson;
-
-// /// Dirichlet boundary conditions.
-// pub struct Dirichlet<'a> {
-//     pub places: &'a [&'a [usize]],
-//     pub values: &'a [TensorRank0],
-// }
-
-// /// Neumann boundary conditions.
-// pub struct Neumann<'a> {
-//     pub places: &'a [&'a [usize]],
-//     pub values: &'a [TensorRank0],
-// }
 
 /// Dirichlet boundary conditions.
 pub struct Dirichlet {
     pub places: Vec<usize>,
-    pub values: Vec<TensorRank0>,
-}
-
-/// Neumann boundary conditions.
-pub struct Neumann {
-    pub places: Vec<Vec<usize>>,
     pub values: Vec<TensorRank0>,
 }
 
@@ -42,15 +26,15 @@ pub trait FirstOrder<X: Tensor> {
         jacobian: impl Fn(&X) -> Result<X, OptimizeError>,
         initial_guess: X,
         dirichlet: Option<Dirichlet>,
-        neumann: Option<Neumann>,
     ) -> Result<X, OptimizeError>;
 }
 
 /// Second-order optimization algorithms.
-pub trait SecondOrder<F, H, J, X>
+pub trait SecondOrder<C, H, J, X>
 where
+    C: IntoConstraint<LinearEqualityConstraint>,
     H: Hessian,
-    J: Div<H, Output = X> + for <'a> SubAssign<&'a F> + Tensor,
+    J: Div<H, Output = X> + Tensor,
     X: Tensor,
 {
     fn minimize(
@@ -58,16 +42,27 @@ where
         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
         hessian: impl Fn(&X) -> Result<H, OptimizeError>,
         initial_guess: X,
-        dirichlet: Option<Dirichlet>,
-        // neumann: Option<Neumann>,
-        neumann: Option<F>,
+        equality_constraint: EqualityConstraint<C>,
     ) -> Result<X, OptimizeError>;
-    // fn minimize(
-    //     &self,
-    //     jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
-    //     hessian: impl Fn(&X) -> Result<H, OptimizeError>,
-    //     initial_guess: X,
-    // ) -> Result<X, OptimizeError>;
+}
+
+// maybe put below in another directory for root finding?
+// also would be a first-order root finding method?
+// how does scipy organize this?
+
+/// Second-order solution algorithms.
+pub trait SecondOrderRoot<H, J, X>
+where
+    H: Hessian,
+    J: Div<H, Output = X> + Tensor,
+    X: Tensor,
+{
+    fn root(
+        &self,
+        jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
+        hessian: impl Fn(&X) -> Result<H, OptimizeError>,
+        initial_guess: X,
+    ) -> Result<X, OptimizeError>;
 }
 
 /// Possible optimization algorithms.

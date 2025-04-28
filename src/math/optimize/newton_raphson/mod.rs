@@ -2,8 +2,9 @@
 mod test;
 
 use super::{
-    super::{Hessian, Tensor, TensorRank0},
-    Dirichlet, Neumann, OptimizeError, SecondOrder,
+    super::{Hessian, Tensor, TensorRank0, SquareMatrix},
+    EqualityConstraint, Dirichlet, OptimizeError, SecondOrder, SecondOrderRoot,
+    LinearEqualityConstraint, IntoConstraint
 };
 use crate::ABS_TOL;
 use std::ops::{Div, SubAssign};
@@ -29,10 +30,11 @@ impl Default for NewtonRaphson {
     }
 }
 
-impl<F, H, J, X> SecondOrder<F, H, J, X> for NewtonRaphson
+impl<C, H, J, X> SecondOrder<C, H, J, X> for NewtonRaphson
 where
+    C: IntoConstraint<LinearEqualityConstraint>,
     H: Hessian,
-    J: Div<H, Output = X> + for <'a> SubAssign<&'a F> + Tensor,
+    J: Div<H, Output = X> + Tensor,
     X: Tensor,
 {
     fn minimize(
@@ -40,73 +42,66 @@ where
         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
         hessian: impl Fn(&X) -> Result<H, OptimizeError>,
         initial_guess: X,
-        dirichlet: Option<Dirichlet>,
-        // neumann: Option<Neumann>,
-        neumann: Option<F>,
+        equality_constraint: EqualityConstraint<C>,
     ) -> Result<X, OptimizeError> {
-        if let Some(bc) = dirichlet {
-            // let lagrangian; // L(x,λ) = U(x) - λ(Ax - b)
-            // let multipliers;
-            //
-            // Any appetite to make this also take nonlinear equality constraints and handle differently than linear?
-            // Would you make Dirichlet an enum with linear/quadratic/nonlinear variants to match here?
-            // Then can solidify the underlying BC data type maybe.
-            //
-            // need (X, J)::into<Vector> and H::into<Matrix>
-            // or similar, also tack on multipliers to former and A to latter
-            todo!()
-        } else {
-            //
-            // might be able to pass neumann in anyway here, except for the indexing...
-            // use Vec<Vec<usize>> for sparse indexing, should try to make that into a type to prevent construction issues (length mismatches, etc.)
-            //
-            unconstrained(self, jacobian, hessian, initial_guess, neumann)
+        match equality_constraint {
+            EqualityConstraint::Linear(constraint) => {
+                let length = initial_guess.iter().count();
+                let (matrix, vector) = constraint.into_constraint(length);
+                let mut solution = initial_guess;
+                //
+                // maybe into_matrix for Hessians should take a parameters for extra space?
+                // wait -> what do you need exactly for the null space method anyway?
+                //
+                // should be easy to automatically find Z from A such that A*Z=0, try it here!
+                // maybe just leave note to figure out null space method eventually
+                // and leave notes (like steps using QR to get Z)
+                //
+                // let lagrangian; // L(x,λ) = U(x) - λ(Ax - b)
+                // let multipliers;
+                todo!()
+            }
+            EqualityConstraint::None => {
+                self.root(jacobian, hessian, initial_guess)
+            }
         }
     }
 }
 
-fn unconstrained<F, H, J, X>(
-    newton: &NewtonRaphson,
-    jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
-    hessian: impl Fn(&X) -> Result<H, OptimizeError>,
-    initial_guess: X,
-    // neumann: Option<Neumann>,
-    neumann: Option<F>,
-) -> Result<X, OptimizeError>
+impl<H, J, X> SecondOrderRoot<H, J, X> for NewtonRaphson
 where
     H: Hessian,
-    J: Div<H, Output = X> + for <'a> SubAssign<&'a F> + Tensor,
+    J: Div<H, Output = X> + Tensor,
     X: Tensor,
 {
-    let mut residual;
-    let mut solution = initial_guess;
-    let mut tangent;
-    for _ in 0..newton.max_steps {
-        residual = jacobian(&solution)?;
-        if let Some(ref bc) = neumann {
-            residual -= bc
-            //
-            // you might just wanna take Neumann out since it isn't a real constraint
-            // have that baked into the residual being passed in beforehand
-            // and then maybe dirichlet becomes a constraint enum (None, Linear, Quadratic, etc.)
-            //
-        }
-        tangent = hessian(&solution)?;
-        if residual.norm() < newton.abs_tol {
-            if newton.check_minimum && !tangent.is_positive_definite() {
-                return Err(OptimizeError::NotMinimum(
-                    format!("{}", solution),
-                    format!("{:?}", &newton),
-                ));
+    fn root(
+        &self,
+        jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
+        hessian: impl Fn(&X) -> Result<H, OptimizeError>,
+        initial_guess: X,
+    ) -> Result<X, OptimizeError> {
+        let mut residual;
+        let mut solution = initial_guess;
+        let mut tangent;
+        for _ in 0..self.max_steps {
+            residual = jacobian(&solution)?;
+            tangent = hessian(&solution)?;
+            if residual.norm() < self.abs_tol {
+                if self.check_minimum && !tangent.is_positive_definite() {
+                    return Err(OptimizeError::NotMinimum(
+                        format!("{}", solution),
+                        format!("{:?}", &self),
+                    ));
+                } else {
+                    return Ok(solution);
+                }
             } else {
-                return Ok(solution);
+                solution -= residual / tangent;
             }
-        } else {
-            solution -= residual / tangent;
         }
+        Err(OptimizeError::MaximumStepsReached(
+            self.max_steps,
+            format!("{:?}", &self),
+        ))
     }
-    Err(OptimizeError::MaximumStepsReached(
-        newton.max_steps,
-        format!("{:?}", &newton),
-    ))
 }
