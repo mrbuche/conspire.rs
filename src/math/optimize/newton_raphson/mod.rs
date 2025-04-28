@@ -6,7 +6,7 @@ use super::{
     Dirichlet, Neumann, OptimizeError, SecondOrder,
 };
 use crate::ABS_TOL;
-use std::ops::Div;
+use std::ops::{Div, SubAssign};
 
 /// The Newton-Raphson method.
 #[derive(Debug)]
@@ -29,9 +29,11 @@ impl Default for NewtonRaphson {
     }
 }
 
-impl<H: Hessian, J: Tensor, X: Tensor> SecondOrder<H, J, X> for NewtonRaphson
+impl<F, H, J, X> SecondOrder<F, H, J, X> for NewtonRaphson
 where
-    J: Div<H, Output = X>,
+    H: Hessian,
+    J: Div<H, Output = X> + for <'a> SubAssign<&'a F> + Tensor,
+    X: Tensor,
 {
     fn minimize(
         &self,
@@ -39,7 +41,8 @@ where
         hessian: impl Fn(&X) -> Result<H, OptimizeError>,
         initial_guess: X,
         dirichlet: Option<Dirichlet>,
-        neumann: Option<Neumann>,
+        // neumann: Option<Neumann>,
+        neumann: Option<F>,
     ) -> Result<X, OptimizeError> {
         if let Some(bc) = dirichlet {
             // let lagrangian; // L(x,λ) = U(x) - λ(Ax - b)
@@ -62,15 +65,18 @@ where
     }
 }
 
-fn unconstrained<H: Hessian, J: Tensor, X: Tensor>(
+fn unconstrained<F, H, J, X>(
     newton: &NewtonRaphson,
     jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
     hessian: impl Fn(&X) -> Result<H, OptimizeError>,
     initial_guess: X,
-    neumann: Option<Neumann>,
+    // neumann: Option<Neumann>,
+    neumann: Option<F>,
 ) -> Result<X, OptimizeError>
 where
-    J: Div<H, Output = X>,
+    H: Hessian,
+    J: Div<H, Output = X> + for <'a> SubAssign<&'a F> + Tensor,
+    X: Tensor,
 {
     let mut residual;
     let mut solution = initial_guess;
@@ -78,21 +84,12 @@ where
     for _ in 0..newton.max_steps {
         residual = jacobian(&solution)?;
         if let Some(ref bc) = neumann {
-            bc.places
-                .iter()
-                .zip(bc.values.iter())
-                .for_each(|(place, value)|
-                    //
-                    // may need a method for sparse (or at least special) indexing
-                    // ndarray lets you index like A[ [i, j] ], maybe can reproduce?
-                    //
-                    // why dont you make a new type, a sparse "X" called "S" or something?
-                    // then you can do X -= S for the forces here
-                    //
-                    panic!()
-                    //
-                    // *residual.get_at_mut(place) -= value
-                )
+            residual -= bc
+            //
+            // you might just wanna take Neumann out since it isn't a real constraint
+            // have that baked into the residual being passed in beforehand
+            // and then maybe dirichlet becomes a constraint enum (None, Linear, Quadratic, etc.)
+            //
         }
         tangent = hessian(&solution)?;
         if residual.norm() < newton.abs_tol {

@@ -30,6 +30,7 @@ pub use tensor::{
         list::{TensorRank1List, tensor_rank_1_list},
         list_2d::{TensorRank1List2D, tensor_rank_1_list_2d},
         tensor_rank_1,
+        sparse::TensorRank1Sparse,
         vec::TensorRank1Vec,
         zero as tensor_rank_1_zero,
     },

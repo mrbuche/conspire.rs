@@ -6,7 +6,7 @@ mod newton_raphson;
 
 use super::{Hessian, Tensor, TensorRank0};
 use crate::defeat_message;
-use std::{fmt, ops::Div};
+use std::{fmt, ops::{Div, SubAssign}};
 
 pub use gradient_descent::GradientDescent;
 pub use newton_raphson::NewtonRaphson;
@@ -47,9 +47,11 @@ pub trait FirstOrder<X: Tensor> {
 }
 
 /// Second-order optimization algorithms.
-pub trait SecondOrder<H: Hessian, J: Tensor, X: Tensor>
+pub trait SecondOrder<F, H, J, X>
 where
-    J: Div<H, Output = X>,
+    H: Hessian,
+    J: Div<H, Output = X> + for <'a> SubAssign<&'a F> + Tensor,
+    X: Tensor,
 {
     fn minimize(
         &self,
@@ -57,7 +59,8 @@ where
         hessian: impl Fn(&X) -> Result<H, OptimizeError>,
         initial_guess: X,
         dirichlet: Option<Dirichlet>,
-        neumann: Option<Neumann>,
+        // neumann: Option<Neumann>,
+        neumann: Option<F>,
     ) -> Result<X, OptimizeError>;
     // fn minimize(
     //     &self,
