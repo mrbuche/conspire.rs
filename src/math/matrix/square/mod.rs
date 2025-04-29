@@ -90,10 +90,12 @@ impl fmt::Display for SquareMatrix {
     }
 }
 
-impl From<SquareMatrix> for Vector
-{
+impl From<SquareMatrix> for Vector {
     fn from(matrix: SquareMatrix) -> Self {
-        matrix.iter().flat_map(|vector| vector.iter().copied()).collect()
+        matrix
+            .iter()
+            .flat_map(|vector| vector.iter().copied())
+            .collect()
     }
 }
 
@@ -118,11 +120,12 @@ impl IndexMut<usize> for SquareMatrix {
 
 impl Hessian for SquareMatrix {
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
-        self.into_iter().enumerate().for_each(|(i, self_i)|
-            self_i.into_iter().enumerate().for_each(|(j, self_ij)|
-                square_matrix[i][j] = self_ij
-            )
-        )
+        self.into_iter().enumerate().for_each(|(i, self_i)| {
+            self_i
+                .into_iter()
+                .enumerate()
+                .for_each(|(j, self_ij)| square_matrix[i][j] = self_ij)
+        })
     }
     fn into_matrix(self) -> SquareMatrix {
         self
@@ -348,6 +351,13 @@ impl Mul<Vector> for SquareMatrix {
     type Output = Vector;
     fn mul(self, vector: Vector) -> Self::Output {
         self.iter().map(|self_i| self_i * &vector).collect()
+    }
+}
+
+impl Mul<&Vector> for SquareMatrix {
+    type Output = Vector;
+    fn mul(self, vector: &Vector) -> Self::Output {
+        self.iter().map(|self_i| self_i * vector).collect()
     }
 }
 

@@ -5,11 +5,14 @@ mod constraint;
 mod gradient_descent;
 mod newton_raphson;
 
-use super::{Hessian, Tensor, TensorRank0, Vector};
+use super::{Hessian, SquareMatrix, Tensor, TensorRank0, Vector};
 use crate::defeat_message;
-use std::{fmt, ops::{Div, Sub, SubAssign}};
+use std::{
+    fmt,
+    ops::{Div, Sub, SubAssign},
+};
 
-pub use constraint::{ToConstraint, equality::{EqualityConstraint, linear::LinearEqualityConstraint}};
+pub use constraint::EqualityConstraint;
 pub use gradient_descent::GradientDescent;
 pub use newton_raphson::NewtonRaphson;
 
@@ -19,34 +22,43 @@ pub struct Dirichlet {
     pub values: Vec<TensorRank0>,
 }
 
-/// Second-order optimization algorithms.
-pub trait SecondOrder<C, H, J, X>
-where
-    C: ToConstraint<LinearEqualityConstraint> + Clone, // get rid of this clone!
-    H: Hessian,
-    J: Div<H, Output = X> + Tensor + Into<Vector>,
-    X: Tensor + Into<Vector> + for <'a> SubAssign<&'a [f64]>,
-    for<'a> &'a C: Sub<&'a X, Output = Vector>,
-    //
-    // finish getting Into<Vector> (both) into Tensor and take " + Into<Vector>" out
-    //
-{
-    fn minimize(
-        &self,
-        function: impl Fn(&X) -> Result<TensorRank0, OptimizeError>,
-        jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
-        hessian: impl Fn(&X) -> Result<H, OptimizeError>,
-        initial_guess: X,
-        equality_constraint: EqualityConstraint<C>,
-    ) -> Result<X, OptimizeError>;
-}
+// /// Second-order optimization algorithms.
+// pub trait SecondOrder<C, H, J, X>
+// where
+//     C: ToConstraint<LinearEqualityConstraint> + Clone, // get rid of this clone!
+//     H: Hessian,
+//     J: Div<H, Output = X> + Tensor + Into<Vector>,
+//     X: Tensor + Into<Vector> + for <'a> SubAssign<&'a [f64]>,
+//     for<'a> &'a C: Sub<&'a X, Output = Vector>,
+//     //
+//     // finish getting Into<Vector> (both) into Tensor and take " + Into<Vector>" out
+//     //
+// {
+//     fn minimize(
+//         &self,
+//         function: impl Fn(&X) -> Result<TensorRank0, OptimizeError>,
+//         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
+//         hessian: impl Fn(&X) -> Result<H, OptimizeError>,
+//         initial_guess: X,
+//         equality_constraint: EqualityConstraint<C>,
+//     ) -> Result<X, OptimizeError>;
+// }
 
 /// Zeroth-order root-finding algorithms.
-pub trait ZerothOrderRootFinding<X> where X: Tensor {
+pub trait ZerothOrderRootFinding<X>
+where
+    X: Tensor,
+{
     fn root(
         &self,
         function: impl Fn(&X) -> Result<X, OptimizeError>,
         initial_guess: X,
+    ) -> Result<X, OptimizeError>;
+    fn solve(
+        &self,
+        function: impl Fn(&X) -> Result<X, OptimizeError>,
+        initial_guess: X,
+        dirichlet: Option<Dirichlet>,
     ) -> Result<X, OptimizeError>;
 }
 
@@ -62,16 +74,25 @@ where
         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
         initial_guess: X,
     ) -> Result<X, OptimizeError>;
+    fn solve(
+        &self,
+        function: impl Fn(&Vector) -> Result<Vector, OptimizeError>,
+        jacobian: impl Fn(&Vector) -> Result<SquareMatrix, OptimizeError>,
+        initial_guess: Vector,
+        equality_constraint: EqualityConstraint,
+    ) -> Result<Vector, OptimizeError>;
 }
 
 /// First-order optimization algorithms.
-pub trait FirstOrder<F, X> where X: Tensor {
+pub trait FirstOrderOptimization<F, X>
+where
+    X: Tensor,
+{
     fn minimize(
         &self,
         function: impl Fn(&X) -> Result<F, OptimizeError>,
         jacobian: impl Fn(&X) -> Result<X, OptimizeError>,
         initial_guess: X,
-        dirichlet: Option<Dirichlet>,
     ) -> Result<(X, F), OptimizeError>;
 }
 
@@ -80,7 +101,7 @@ pub trait SecondOrderOptimization<F, H, J, X>
 where
     H: Hessian,
     J: Div<H, Output = X> + Tensor,
-    X: Tensor
+    X: Tensor,
 {
     fn minimize(
         &self,
@@ -89,6 +110,14 @@ where
         hessian: impl Fn(&X) -> Result<H, OptimizeError>,
         initial_guess: X,
     ) -> Result<(X, F), OptimizeError>;
+    fn solve(
+        &self,
+        function: impl Fn(&Vector) -> Result<TensorRank0, OptimizeError>,
+        jacobian: impl Fn(&Vector) -> Result<Vector, OptimizeError>,
+        hessian: impl Fn(&Vector) -> Result<SquareMatrix, OptimizeError>,
+        initial_guess: Vector,
+        equality_constraint: EqualityConstraint,
+    ) -> Result<(Vector, TensorRank0), OptimizeError>;
 }
 
 /// Possible optimization algorithms.

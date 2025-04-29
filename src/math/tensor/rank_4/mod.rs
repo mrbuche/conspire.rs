@@ -11,7 +11,7 @@ use std::{
 };
 
 use super::{
-    Hessian, Rank2, Tensor, TensorArray, SquareMatrix, TensorVec, Vector,
+    Hessian, Rank2, SquareMatrix, Tensor, TensorArray, TensorVec, Vector,
     rank_0::TensorRank0,
     rank_1::TensorRank1,
     rank_2::TensorRank2,
@@ -93,7 +93,8 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> From<TensorRank4<D, I, J, K, L>> for Vector
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
+    From<TensorRank4<D, I, J, K, L>> for Vector
 {
     fn from(tensor_rank_4: TensorRank4<D, I, J, K, L>) -> Self {
         tensor_rank_4
@@ -277,27 +278,29 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     for TensorRank4<D, I, J, K, L>
 {
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
-        self.into_iter().enumerate().for_each(|(i, self_i)|
-            self_i.into_iter().enumerate().for_each(|(j, self_ij)|
-                self_ij.into_iter().enumerate().for_each(|(k, self_ijk)|
-                    self_ijk.into_iter().enumerate().for_each(|(l, self_ijkl)|
-                        square_matrix[D * i + j][D * k + l] = self_ijkl
-                    )
-                )
-            )
-        )
+        self.into_iter().enumerate().for_each(|(i, self_i)| {
+            self_i.into_iter().enumerate().for_each(|(j, self_ij)| {
+                self_ij.into_iter().enumerate().for_each(|(k, self_ijk)| {
+                    self_ijk
+                        .into_iter()
+                        .enumerate()
+                        .for_each(|(l, self_ijkl)| square_matrix[D * i + j][D * k + l] = self_ijkl)
+                })
+            })
+        })
     }
     fn into_matrix(self) -> SquareMatrix {
         let mut matrix = SquareMatrix::zero(D * D);
-        self.iter().enumerate().for_each(|(i, self_i)|
-            self_i.iter().enumerate().for_each(|(j, self_ij)|
-                self_ij.iter().enumerate().for_each(|(k, self_ijk)|
-                    self_ijk.iter().enumerate().for_each(|(l, self_ijkl)|
-                        matrix[D * i + j][D * k + l] = *self_ijkl
-                    )
-                )
-            )
-        );
+        self.iter().enumerate().for_each(|(i, self_i)| {
+            self_i.iter().enumerate().for_each(|(j, self_ij)| {
+                self_ij.iter().enumerate().for_each(|(k, self_ijk)| {
+                    self_ijk
+                        .iter()
+                        .enumerate()
+                        .for_each(|(l, self_ijkl)| matrix[D * i + j][D * k + l] = *self_ijkl)
+                })
+            })
+        });
         matrix
     }
     fn is_positive_definite(&self) -> bool {
@@ -317,7 +320,9 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> IntoIterator for TensorRank4<D, I, J, K, L> {
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> IntoIterator
+    for TensorRank4<D, I, J, K, L>
+{
     type Item = TensorRank3<D, J, K, L>;
     type IntoIter = std::array::IntoIter<Self::Item, D>;
     fn into_iter(self) -> Self::IntoIter {

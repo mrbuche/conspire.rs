@@ -692,8 +692,6 @@ macro_rules! test_finite_element_block_with_hyperelastic_constitutive_model {
                     get_reference_coordinates_block().into(),
                     Some(get_dirichlet_places()),
                     Some(get_dirichlet_values(dx)),
-                    None,
-                    None,
                     GradientDescent {
                         ..Default::default()
                     },

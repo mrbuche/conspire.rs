@@ -9,7 +9,12 @@ use self::element::{
     ViscoelasticFiniteElement,
 };
 use super::*;
-use crate::math::optimize::{Dirichlet, FirstOrder, GradientDescent, OptimizeError};
+use crate::math::{
+    Vector,
+    optimize::{
+        Dirichlet, EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError,
+    },
+};
 use std::array::from_fn;
 
 pub struct ElementBlock<F, const N: usize> {
@@ -178,9 +183,7 @@ where
     fn solve(
         &self,
         initial_coordinates: NodalCoordinatesBlock,
-        places_d: Option<Vec<usize>>,
-        values_d: Option<Vec<Scalar>>,
-        optimization: GradientDescent,
+        root_finding: NewtonRaphson,
     ) -> Result<NodalCoordinatesBlock, OptimizeError>;
 }
 
@@ -304,18 +307,20 @@ where
     fn solve(
         &self,
         initial_coordinates: NodalCoordinatesBlock,
-        places_d: Option<Vec<usize>>,
-        values_d: Option<Vec<Scalar>>,
-        optimization: GradientDescent,
+        root_finding: NewtonRaphson,
     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
-        optimization.minimize(
-            |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
-            initial_coordinates,
-            Some(Dirichlet {
-                places: places_d.unwrap(),
-                values: values_d.unwrap(),
-            }),
-        )
+        Ok(root_finding
+            .solve(
+                |nodal_coordinates: &Vector| {
+                    Ok(self.nodal_forces(nodal_coordinates.into())?).into()
+                },
+                |nodal_coordinates: &Vector| {
+                    Ok(self.nodal_stiffnesses(nodal_coordinates.into())?).into()
+                },
+                initial_coordinates.into(),
+                EqualityConstraint::None,
+            )?
+            .into())
     }
 }
 

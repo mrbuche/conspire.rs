@@ -1,10 +1,13 @@
 #[cfg(test)]
 use crate::math::test::ErrorTensor;
 
-use crate::math::{SquareMatrix, Tensor, TensorRank0, TensorVec, Rank2, write_tensor_rank_0};
+use crate::math::{Rank2, SquareMatrix, Tensor, TensorRank0, TensorVec, write_tensor_rank_0};
 use std::{
     fmt::{Display, Formatter, Result},
-    ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign, RangeTo, RangeFrom},
+    ops::{
+        Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, RangeFrom, RangeTo, Sub,
+        SubAssign,
+    },
 };
 
 /// A vector.
@@ -320,6 +323,17 @@ impl Sub<&Self> for Vector {
     }
 }
 
+impl Sub<Vector> for &Vector {
+    type Output = Vector;
+    fn sub(self, mut vector: Vector) -> Self::Output {
+        vector
+            .iter_mut()
+            .zip(self.iter())
+            .for_each(|(vector_i, self_i)| *vector_i = self_i - *vector_i);
+        vector
+    }
+}
+
 impl SubAssign for Vector {
     fn sub_assign(&mut self, vector: Self) {
         self.iter_mut()
@@ -344,16 +358,14 @@ impl SubAssign<&[TensorRank0]> for Vector {
     }
 }
 
-impl Div<SquareMatrix> for Vector
-{
+impl Div<SquareMatrix> for Vector {
     type Output = Vector;
     fn div(self, matrix: SquareMatrix) -> Self::Output {
         matrix.inverse() * self
     }
 }
 
-impl Div<&SquareMatrix> for Vector
-{
+impl Div<&SquareMatrix> for &Vector {
     type Output = Vector;
     fn div(self, matrix: &SquareMatrix) -> Self::Output {
         matrix.inverse() * self

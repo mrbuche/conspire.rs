@@ -1,4 +1,4 @@
-use super::{NewtonRaphson, FirstOrderRootFinding, TensorRank0, SecondOrderOptimization};
+use super::{FirstOrderRootFinding, NewtonRaphson, SecondOrderOptimization, TensorRank0};
 
 const TOLERANCE: TensorRank0 = 1e-6;
 
@@ -63,7 +63,6 @@ mod minimize {
         )
         .unwrap();
     }
-    
 }
 
 mod root {
@@ -74,11 +73,7 @@ mod root {
             NewtonRaphson {
                 ..Default::default()
             }
-            .root(
-                |x: &TensorRank0| Ok(*x),
-                |_: &TensorRank0| Ok(1.0),
-                1.0,
-            )
+            .root(|x: &TensorRank0| Ok(*x), |_: &TensorRank0| Ok(1.0), 1.0,)
             .unwrap()
             .abs()
                 < TOLERANCE

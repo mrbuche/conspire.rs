@@ -1,6 +1,7 @@
-pub mod equality;
+use crate::math::{Matrix, Vector};
 
-/// ???
-pub trait ToConstraint<T> {
-    fn to_constraint(&self, num: usize) -> T;
+/// Possible equality constraints.
+pub enum EqualityConstraint {
+    Linear(Matrix, Vector),
+    None,
 }

@@ -3,7 +3,7 @@ mod test;
 
 use super::{
     super::{Tensor, TensorRank0},
-    Dirichlet, FirstOrder, OptimizeError, ZerothOrderRootFinding,
+    Dirichlet, FirstOrderOptimization, OptimizeError, ZerothOrderRootFinding,
 };
 use crate::ABS_TOL;
 
@@ -25,7 +25,10 @@ impl Default for GradientDescent {
     }
 }
 
-impl<X> ZerothOrderRootFinding<X> for GradientDescent where X: Tensor {
+impl<X> ZerothOrderRootFinding<X> for GradientDescent
+where
+    X: Tensor,
+{
     fn root(
         &self,
         function: impl Fn(&X) -> Result<X, OptimizeError>,
@@ -61,15 +64,25 @@ impl<X> ZerothOrderRootFinding<X> for GradientDescent where X: Tensor {
             format!("{:?}", &self),
         ))
     }
+    fn solve(
+        &self,
+        function: impl Fn(&X) -> Result<X, OptimizeError>,
+        initial_guess: X,
+        dirichlet: Option<Dirichlet>,
+    ) -> Result<X, OptimizeError> {
+        unimplemented!("This may work with gradient ascent on multipliers, or not at all.")
+    }
 }
 
-impl<F, X> FirstOrder<F, X> for GradientDescent where X: Tensor {
+impl<F, X> FirstOrderOptimization<F, X> for GradientDescent
+where
+    X: Tensor,
+{
     fn minimize(
         &self,
         function: impl Fn(&X) -> Result<F, OptimizeError>,
         jacobian: impl Fn(&X) -> Result<X, OptimizeError>,
         initial_guess: X,
-        dirichlet: Option<Dirichlet>,
     ) -> Result<(X, F), OptimizeError> {
         //
         // How to choose short (below, dx*dg/dg*dg) or long (dx*dx/dx*dg) steps?

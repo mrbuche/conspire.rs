@@ -19,8 +19,7 @@ use std::{
 
 use super::{
     super::write_tensor_rank_0,
-    Hessian, Rank2, Tensor, TensorArray, TensorError,
-    SquareMatrix,
+    Hessian, Rank2, SquareMatrix, Tensor, TensorArray, TensorError,
     rank_0::TensorRank0,
     rank_1::{
         TensorRank1, list::TensorRank1List, tensor_rank_1, vec::TensorRank1Vec,
@@ -634,16 +633,17 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
 
 impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2<D, I, J> {
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
-        self.into_iter().enumerate().for_each(|(i, self_i)|
-            self_i.into_iter().enumerate().for_each(|(j, self_ij)|
-                square_matrix[i][j] = self_ij
-            )
-        )
+        self.into_iter().enumerate().for_each(|(i, self_i)| {
+            self_i
+                .into_iter()
+                .enumerate()
+                .for_each(|(j, self_ij)| square_matrix[i][j] = self_ij)
+        })
     }
     fn into_matrix(self) -> SquareMatrix {
-        self.iter().map(|self_i|
-            self_i.iter().copied().collect()
-        ).collect()
+        self.iter()
+            .map(|self_i| self_i.iter().copied().collect())
+            .collect()
     }
     fn is_positive_definite(&self) -> bool {
         self.cholesky_decomposition().is_ok()

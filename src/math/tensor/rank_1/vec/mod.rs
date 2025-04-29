@@ -2,7 +2,8 @@
 use super::super::test::ErrorTensor;
 
 use crate::math::{
-    Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank1Sparse, TensorRank2, TensorVec, write_tensor_rank_0,
+    Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank1Sparse, TensorRank2, TensorVec,
+    write_tensor_rank_0,
 };
 use std::{
     fmt::{Display, Formatter, Result},
@@ -398,8 +399,8 @@ impl<const D: usize, const I: usize> SubAssign<&Self> for TensorRank1Vec<D, I> {
 
 impl<const I: usize> SubAssign<&TensorRank1Sparse<3, I>> for TensorRank1Vec<3, I> {
     fn sub_assign(&mut self, tensor_rank_1_sparse: &TensorRank1Sparse<3, I>) {
-        tensor_rank_1_sparse.iter().for_each(|(a, i, value)|
-            self[*a][*i] -= value
-        )
+        tensor_rank_1_sparse
+            .iter()
+            .for_each(|(a, i, value)| self[*a][*i] -= value)
     }
 }

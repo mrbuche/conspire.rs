@@ -1,4 +1,4 @@
-use super::{ZerothOrderRootFinding, GradientDescent, TensorRank0};
+use super::{GradientDescent, TensorRank0, ZerothOrderRootFinding};
 
 const TOLERANCE: TensorRank0 = 1e-5;
 

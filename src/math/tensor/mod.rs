@@ -7,6 +7,7 @@ pub mod rank_2;
 pub mod rank_3;
 pub mod rank_4;
 
+use super::{SquareMatrix, Vector};
 use crate::defeat_message;
 use rank_0::TensorRank0;
 use std::{
@@ -14,7 +15,6 @@ use std::{
     fmt::{Debug, Display},
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, Sub, SubAssign},
 };
-use super::{SquareMatrix, Vector};
 
 /// Possible errors for tensors.
 #[derive(Debug, PartialEq)]
