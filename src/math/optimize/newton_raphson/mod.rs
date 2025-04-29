@@ -60,6 +60,8 @@ where
     // CAN IMPLEMENT SEPARATE TRAIT SequentialQuadraticProgramming FOR CONSTRAINTS CASE
     // MAY BE ABLE TO KEEP FN DEFINITION AS JUST "minimize" SINCE ARGS WILL NOT CONFLICT
     //
+    // AND MAYBE TRY TO GO BACK AND GET RID OF IRRELEVANT IMPLS YOU DID IN MATH
+    //
 {
     fn minimize(
         &self,
