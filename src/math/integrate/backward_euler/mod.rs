@@ -5,7 +5,7 @@ use super::{
     super::{
         Hessian, Tensor, TensorArray, TensorRank0, TensorVec, Vector,
         interpolate::InterpolateSolution,
-        optimize::{FirstOrder, NewtonRaphson, Optimization, SecondOrderRoot},
+        optimize::{FirstOrder, NewtonRaphson, Optimization, FirstOrderRootFinding},
     },
     Implicit, IntegrationError,
 };

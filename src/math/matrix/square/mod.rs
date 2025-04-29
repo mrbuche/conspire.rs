@@ -14,6 +14,13 @@ use std::{
 #[derive(Clone, Debug, PartialEq)]
 pub struct SquareMatrix(Vec<Vector>);
 
+impl SquareMatrix {
+    /// Returns the inverse of the rank-2 tensor.
+    pub fn inverse(&self) -> SquareMatrix {
+        todo!()
+    }
+}
+
 #[cfg(test)]
 impl ErrorTensor for SquareMatrix {
     fn error(
@@ -83,6 +90,13 @@ impl fmt::Display for SquareMatrix {
     }
 }
 
+impl From<SquareMatrix> for Vector
+{
+    fn from(matrix: SquareMatrix) -> Self {
+        matrix.iter().flat_map(|vector| vector.iter().copied()).collect()
+    }
+}
+
 impl FromIterator<Vector> for SquareMatrix {
     fn from_iter<Ii: IntoIterator<Item = Vector>>(into_iterator: Ii) -> Self {
         Self(Vec::from_iter(into_iterator))
@@ -103,6 +117,13 @@ impl IndexMut<usize> for SquareMatrix {
 }
 
 impl Hessian for SquareMatrix {
+    fn fill_into(self, square_matrix: &mut SquareMatrix) {
+        self.into_iter().enumerate().for_each(|(i, self_i)|
+            self_i.into_iter().enumerate().for_each(|(j, self_ij)|
+                square_matrix[i][j] = self_ij
+            )
+        )
+    }
     fn into_matrix(self) -> SquareMatrix {
         self
     }
@@ -227,6 +248,14 @@ impl Tensor for SquareMatrix {
     }
 }
 
+impl IntoIterator for SquareMatrix {
+    type Item = Vector;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 impl TensorVec for SquareMatrix {
     type Item = Vector;
     type Slice<'a> = &'a [&'a [TensorRank0]];
@@ -312,6 +341,13 @@ impl MulAssign<TensorRank0> for SquareMatrix {
 impl MulAssign<&TensorRank0> for SquareMatrix {
     fn mul_assign(&mut self, tensor_rank_0: &TensorRank0) {
         self.iter_mut().for_each(|entry| *entry *= tensor_rank_0);
+    }
+}
+
+impl Mul<Vector> for SquareMatrix {
+    type Output = Vector;
+    fn mul(self, vector: Vector) -> Self::Output {
+        self.iter().map(|self_i| self_i * &vector).collect()
     }
 }
 

@@ -633,6 +633,13 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
 }
 
 impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2<D, I, J> {
+    fn fill_into(self, square_matrix: &mut SquareMatrix) {
+        self.into_iter().enumerate().for_each(|(i, self_i)|
+            self_i.into_iter().enumerate().for_each(|(j, self_ij)|
+                square_matrix[i][j] = self_ij
+            )
+        )
+    }
     fn into_matrix(self) -> SquareMatrix {
         self.iter().map(|self_i|
             self_i.iter().copied().collect()
@@ -738,6 +745,14 @@ impl<const D: usize, const I: usize, const J: usize> Tensor for TensorRank2<D, I
     }
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> IntoIterator for TensorRank2<D, I, J> {
+    type Item = TensorRank1<D, J>;
+    type IntoIter = std::array::IntoIter<Self::Item, D>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 

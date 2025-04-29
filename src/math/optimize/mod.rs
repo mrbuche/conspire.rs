@@ -5,11 +5,11 @@ mod constraint;
 mod gradient_descent;
 mod newton_raphson;
 
-use super::{Hessian, Tensor, TensorRank0};
+use super::{Hessian, Tensor, TensorRank0, Vector};
 use crate::defeat_message;
-use std::{fmt, ops::{Div, SubAssign}};
+use std::{fmt, ops::{Div, Sub, SubAssign}};
 
-pub use constraint::{IntoConstraint, equality::{EqualityConstraint, linear::LinearEqualityConstraint}};
+pub use constraint::{ToConstraint, equality::{EqualityConstraint, linear::LinearEqualityConstraint}};
 pub use gradient_descent::GradientDescent;
 pub use newton_raphson::NewtonRaphson;
 
@@ -32,13 +32,18 @@ pub trait FirstOrder<X: Tensor> {
 /// Second-order optimization algorithms.
 pub trait SecondOrder<C, H, J, X>
 where
-    C: IntoConstraint<LinearEqualityConstraint>,
+    C: ToConstraint<LinearEqualityConstraint> + Clone, // get rid of this clone!
     H: Hessian,
-    J: Div<H, Output = X> + Tensor,
-    X: Tensor,
+    J: Div<H, Output = X> + Tensor + Into<Vector>,
+    X: Tensor + Into<Vector> + for <'a> SubAssign<&'a [f64]>,
+    for<'a> &'a C: Sub<&'a X, Output = Vector>,
+    //
+    // finish getting Into<Vector> (both) into Tensor and take " + Into<Vector>" out
+    //
 {
     fn minimize(
         &self,
+        function: impl Fn(&X) -> Result<TensorRank0, OptimizeError>,
         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
         hessian: impl Fn(&X) -> Result<H, OptimizeError>,
         initial_guess: X,
@@ -50,17 +55,16 @@ where
 // also would be a first-order root finding method?
 // how does scipy organize this?
 
-/// Second-order solution algorithms.
-pub trait SecondOrderRoot<H, J, X>
+/// First-order root-finding algorithms.
+pub trait FirstOrderRootFinding<F, J, X>
 where
-    H: Hessian,
-    J: Div<H, Output = X> + Tensor,
+    F: Div<J, Output = X> + Tensor,
     X: Tensor,
 {
     fn root(
         &self,
+        function: impl Fn(&X) -> Result<F, OptimizeError>,
         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
-        hessian: impl Fn(&X) -> Result<H, OptimizeError>,
         initial_guess: X,
     ) -> Result<X, OptimizeError>;
 }

@@ -1,44 +1,21 @@
 use crate::math::{SquareMatrix, Vector, TensorRank1Sparse, TensorVec};
-use super::super::IntoConstraint;
+use super::super::ToConstraint;
 
-/// ???
+/// A linear equality constraint.
 pub type LinearEqualityConstraint = (SquareMatrix, Vector);
 
-impl<const D: usize, const I: usize> IntoConstraint<LinearEqualityConstraint> for TensorRank1Sparse<D, I> {
-    fn into_constraint(self, num: usize) -> LinearEqualityConstraint {
-        // let multipliers_len = self.len();
-        // let full_length = 5;
-        let mults = self.len();
-        let mut kkt = SquareMatrix::zero(mults + D * num);
-        // let mut matrix = Matrix::zero();
-        self.iter().for_each(|(a, i, _)|
-            kkt[mults + D * a + i][mults + D * a + i] = 1.0
-            need to check this
-        );
-        let vector = self.iter().map(|(_, _, value)|
+impl<const D: usize, const I: usize> ToConstraint<LinearEqualityConstraint> for TensorRank1Sparse<D, I> {
+    fn to_constraint(&self, num: usize) -> LinearEqualityConstraint {
+        let num_dof = D * num;
+        let num_constraints = self.iter().count();
+        let mut kkt = SquareMatrix::zero(num_constraints + num_dof);
+        self.iter().enumerate().for_each(|(index, (a, i, _))| {
+            kkt[num_dof + index][D * a + i] = -1.0;
+            kkt[D * a + i][num_dof + index] = -1.0
+        });
+        let rhs = self.iter().map(|(_, _, value)|
             *value
         ).collect();
-        (kkt, vector)
+        (kkt, rhs)
     }
 }
-
-// trait FromSparse<T> {
-//     fn from_sparse(sparse: T, num: usize) -> Self;
-// }
-
-// impl<const D: usize, const I: usize> FromSparse<TensorRank1Sparse<D, I>> for LinearEqualityConstraint {
-//     fn from_sparse(sparse: TensorRank1Sparse<D, I>, num: usize) -> Self {
-//         let matrix = sparse.iter().map(|(a, i, value)| {
-//             let mut row = Vector::zero(num);
-//             row[D * a + i] = 1.0;
-//             row
-//         }).collect();
-//         let vector = sparse.iter().map(|(_, _, value)|
-//             *value
-//         ).collect();
-//         Self {
-//             matrix,
-//             vector,
-//         }
-//     }
-// }

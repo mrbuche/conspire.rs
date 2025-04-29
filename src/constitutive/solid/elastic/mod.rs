@@ -12,7 +12,7 @@ mod almansi_hamel;
 pub use almansi_hamel::AlmansiHamel;
 
 use super::*;
-use crate::math::optimize::{NewtonRaphson, SecondOrderRoot};
+use crate::math::optimize::{NewtonRaphson, FirstOrderRootFinding};
 
 /// Required methods for elastic constitutive models.
 pub trait Elastic

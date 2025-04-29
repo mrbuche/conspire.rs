@@ -6,7 +6,7 @@ use super::test::ErrorTensor;
 
 pub mod list;
 
-use super::{Hessian, Tensor, TensorArray, SquareMatrix};
+use super::{Hessian, Tensor, TensorArray, TensorVec, SquareMatrix, Vector};
 
 /// A tensor of rank 0 (a scalar).
 pub type TensorRank0 = f64;
@@ -35,6 +35,9 @@ impl ErrorTensor for TensorRank0 {
 }
 
 impl Hessian for TensorRank0 {
+    fn fill_into(self, _square_matrix: &mut SquareMatrix) {
+        panic!()
+    }
     fn into_matrix(self) -> SquareMatrix {
         panic!()
     }
@@ -76,5 +79,12 @@ impl TensorArray for TensorRank0 {
     }
     fn zero() -> Self {
         0.0
+    }
+}
+
+impl From<TensorRank0> for Vector
+{
+    fn from(tensor_rank_0: TensorRank0) -> Self {
+        Vector::new(&[tensor_rank_0])
     }
 }

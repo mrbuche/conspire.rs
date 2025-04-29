@@ -1,15 +1,21 @@
 #[cfg(test)]
 use crate::math::test::ErrorTensor;
 
-use crate::math::{Tensor, TensorRank0, TensorVec, write_tensor_rank_0};
+use crate::math::{SquareMatrix, Tensor, TensorRank0, TensorVec, Rank2, write_tensor_rank_0};
 use std::{
     fmt::{Display, Formatter, Result},
-    ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign, RangeTo, RangeFrom},
 };
 
 /// A vector.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Vector(Vec<TensorRank0>);
+
+impl Vector {
+    pub fn ones(len: usize) -> Self {
+        Self(vec![1.0; len])
+    }
+}
 
 #[cfg(test)]
 impl ErrorTensor for Vector {
@@ -112,6 +118,20 @@ impl Index<usize> for Vector {
     }
 }
 
+impl Index<RangeTo<usize>> for Vector {
+    type Output = [TensorRank0];
+    fn index(&self, indices: RangeTo<usize>) -> &Self::Output {
+        &self.0[indices]
+    }
+}
+
+impl Index<RangeFrom<usize>> for Vector {
+    type Output = [TensorRank0];
+    fn index(&self, indices: RangeFrom<usize>) -> &Self::Output {
+        &self.0[indices]
+    }
+}
+
 impl IndexMut<usize> for Vector {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.0[index]
@@ -125,6 +145,14 @@ impl Tensor for Vector {
     }
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
+    }
+}
+
+impl IntoIterator for Vector {
+    type Item = TensorRank0;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 
@@ -186,6 +214,7 @@ impl Mul<TensorRank0> for Vector {
         self
     }
 }
+
 impl Mul<&TensorRank0> for Vector {
     type Output = Self;
     fn mul(mut self, tensor_rank_0: &TensorRank0) -> Self::Output {
@@ -245,6 +274,36 @@ impl AddAssign<&Self> for Vector {
     }
 }
 
+impl Mul for Vector {
+    type Output = TensorRank0;
+    fn mul(self, vector: Self) -> Self::Output {
+        self.iter()
+            .zip(vector.iter())
+            .map(|(self_i, vector_i)| self_i * vector_i)
+            .sum()
+    }
+}
+
+impl Mul<&Self> for Vector {
+    type Output = TensorRank0;
+    fn mul(self, vector: &Self) -> Self::Output {
+        self.iter()
+            .zip(vector.iter())
+            .map(|(self_i, vector_i)| self_i * vector_i)
+            .sum()
+    }
+}
+
+impl Mul for &Vector {
+    type Output = TensorRank0;
+    fn mul(self, vector: Self) -> Self::Output {
+        self.iter()
+            .zip(vector.iter())
+            .map(|(self_i, vector_i)| self_i * vector_i)
+            .sum()
+    }
+}
+
 impl Sub for Vector {
     type Output = Self;
     fn sub(mut self, vector: Self) -> Self::Output {
@@ -274,5 +333,29 @@ impl SubAssign<&Self> for Vector {
         self.iter_mut()
             .zip(vector.iter())
             .for_each(|(self_entry, tensor_rank_1)| *self_entry -= tensor_rank_1);
+    }
+}
+
+impl SubAssign<&[TensorRank0]> for Vector {
+    fn sub_assign(&mut self, slice: &[TensorRank0]) {
+        self.iter_mut()
+            .zip(slice.iter())
+            .for_each(|(self_entry, tensor_rank_1)| *self_entry -= tensor_rank_1);
+    }
+}
+
+impl Div<SquareMatrix> for Vector
+{
+    type Output = Vector;
+    fn div(self, matrix: SquareMatrix) -> Self::Output {
+        matrix.inverse() * self
+    }
+}
+
+impl Div<&SquareMatrix> for Vector
+{
+    type Output = Vector;
+    fn div(self, matrix: &SquareMatrix) -> Self::Output {
+        matrix.inverse() * self
     }
 }

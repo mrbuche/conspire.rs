@@ -16,7 +16,7 @@ use std::{
 };
 
 use super::{
-    super::write_tensor_rank_0, Tensor, TensorArray, rank_0::TensorRank0, rank_2::TensorRank2,
+    super::write_tensor_rank_0, Tensor, TensorArray, Rank2, rank_0::TensorRank0, rank_2::TensorRank2,
 };
 
 /// A *d*-dimensional tensor of rank 1.
@@ -104,6 +104,14 @@ impl<const D: usize, const I: usize> Tensor for TensorRank1<D, I> {
     }
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
+    }
+}
+
+impl<const D: usize, const I: usize> IntoIterator for TensorRank1<D, I> {
+    type Item = TensorRank0;
+    type IntoIter = std::array::IntoIter<Self::Item, D>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 

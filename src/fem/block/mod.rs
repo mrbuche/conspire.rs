@@ -180,8 +180,6 @@ where
         initial_coordinates: NodalCoordinatesBlock,
         places_d: Option<Vec<usize>>,
         values_d: Option<Vec<Scalar>>,
-        places_n: Option<&[&[usize]]>,
-        values_n: Option<&[Scalar]>,
         optimization: GradientDescent,
     ) -> Result<NodalCoordinatesBlock, OptimizeError>;
 }
@@ -308,8 +306,6 @@ where
         initial_coordinates: NodalCoordinatesBlock,
         places_d: Option<Vec<usize>>,
         values_d: Option<Vec<Scalar>>,
-        _places_n: Option<&[&[usize]]>,
-        _values_n: Option<&[Scalar]>,
         optimization: GradientDescent,
     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
         optimization.minimize(

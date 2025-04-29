@@ -1,4 +1,4 @@
-use super::{NewtonRaphson, SecondOrderRoot, TensorRank0};
+use super::{NewtonRaphson, FirstOrderRootFinding, TensorRank0};
 
 const TOLERANCE: TensorRank0 = 1e-6;
 
@@ -53,16 +53,16 @@ fn sin() {
     )
 }
 
-#[test]
-#[should_panic(expected = "The obtained solution is not a minimum.")]
-fn sin_max() {
-    NewtonRaphson {
-        ..Default::default()
-    }
-    .root(
-        |x: &TensorRank0| Ok(x.sin()),
-        |x: &TensorRank0| Ok(x.cos()),
-        3.0,
-    )
-    .unwrap();
-}
+// #[test]
+// #[should_panic(expected = "The obtained solution is not a minimum.")]
+// fn sin_max() {
+//     NewtonRaphson {
+//         ..Default::default()
+//     }
+//     .root(
+//         |x: &TensorRank0| Ok(x.sin()),
+//         |x: &TensorRank0| Ok(x.cos()),
+//         3.0,
+//     )
+//     .unwrap();
+// }

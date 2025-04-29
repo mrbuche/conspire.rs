@@ -26,7 +26,7 @@ mod almansi_hamel;
 pub use almansi_hamel::AlmansiHamel;
 
 use super::{super::fluid::viscous::Viscous, viscoelastic::Viscoelastic, *};
-use crate::math::optimize::{NewtonRaphson, SecondOrderRoot};
+use crate::math::optimize::{NewtonRaphson, FirstOrderRootFinding};
 use std::fmt::Debug;
 
 /// Required methods for elastic-hyperviscous constitutive models.
