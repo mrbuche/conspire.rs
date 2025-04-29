@@ -4,7 +4,7 @@ mod test;
 use super::{
     super::{Hessian, Tensor, TensorRank0, SquareMatrix, Vector, TensorVec, Rank2},
     EqualityConstraint, Dirichlet, OptimizeError, SecondOrder, FirstOrderRootFinding,
-    LinearEqualityConstraint, ToConstraint
+    LinearEqualityConstraint, ToConstraint, SecondOrderOptimization
 };
 use crate::ABS_TOL;
 use std::ops::{Div, Sub, SubAssign};
@@ -135,6 +135,47 @@ where
             tangent = jacobian(&solution)?;
             if residual.norm() < self.abs_tol {
                 return Ok(solution);
+            } else {
+                solution -= residual / tangent;
+            }
+        }
+        Err(OptimizeError::MaximumStepsReached(
+            self.max_steps,
+            format!("{:?}", &self),
+        ))
+    }
+}
+
+impl<F, H, J, X> SecondOrderOptimization<F, H, J, X> for NewtonRaphson
+where
+    H: Hessian,
+    J: Div<H, Output = X> + Tensor,
+    X: Tensor
+{
+    fn minimize(
+        &self,
+        function: impl Fn(&X) -> Result<F, OptimizeError>,
+        jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
+        hessian: impl Fn(&X) -> Result<H, OptimizeError>,
+        initial_guess: X,
+    ) -> Result<(X, F), OptimizeError> {
+        let mut potential;
+        let mut residual;
+        let mut solution = initial_guess;
+        let mut tangent;
+        for _ in 0..self.max_steps {
+            potential = function(&solution)?;
+            residual = jacobian(&solution)?;
+            tangent = hessian(&solution)?;
+            if residual.norm() < self.abs_tol {
+                if self.check_minimum && !tangent.is_positive_definite() {
+                    return Err(OptimizeError::NotMinimum(
+                        format!("{}", solution),
+                        format!("{:?}", &self),
+                    ));
+                } else {
+                    return Ok((solution, potential));
+                }
             } else {
                 solution -= residual / tangent;
             }

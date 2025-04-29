@@ -19,16 +19,6 @@ pub struct Dirichlet {
     pub values: Vec<TensorRank0>,
 }
 
-/// First-order optimization algorithms.
-pub trait FirstOrder<X: Tensor> {
-    fn minimize(
-        &self,
-        jacobian: impl Fn(&X) -> Result<X, OptimizeError>,
-        initial_guess: X,
-        dirichlet: Option<Dirichlet>,
-    ) -> Result<X, OptimizeError>;
-}
-
 /// Second-order optimization algorithms.
 pub trait SecondOrder<C, H, J, X>
 where
@@ -51,9 +41,14 @@ where
     ) -> Result<X, OptimizeError>;
 }
 
-// maybe put below in another directory for root finding?
-// also would be a first-order root finding method?
-// how does scipy organize this?
+/// Zeroth-order root-finding algorithms.
+pub trait ZerothOrderRootFinding<X> where X: Tensor {
+    fn root(
+        &self,
+        function: impl Fn(&X) -> Result<X, OptimizeError>,
+        initial_guess: X,
+    ) -> Result<X, OptimizeError>;
+}
 
 /// First-order root-finding algorithms.
 pub trait FirstOrderRootFinding<F, J, X>
@@ -67,6 +62,33 @@ where
         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
         initial_guess: X,
     ) -> Result<X, OptimizeError>;
+}
+
+/// First-order optimization algorithms.
+pub trait FirstOrder<F, X> where X: Tensor {
+    fn minimize(
+        &self,
+        function: impl Fn(&X) -> Result<F, OptimizeError>,
+        jacobian: impl Fn(&X) -> Result<X, OptimizeError>,
+        initial_guess: X,
+        dirichlet: Option<Dirichlet>,
+    ) -> Result<(X, F), OptimizeError>;
+}
+
+/// Second-order optimization algorithms.
+pub trait SecondOrderOptimization<F, H, J, X>
+where
+    H: Hessian,
+    J: Div<H, Output = X> + Tensor,
+    X: Tensor
+{
+    fn minimize(
+        &self,
+        function: impl Fn(&X) -> Result<F, OptimizeError>,
+        jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
+        hessian: impl Fn(&X) -> Result<H, OptimizeError>,
+        initial_guess: X,
+    ) -> Result<(X, F), OptimizeError>;
 }
 
 /// Possible optimization algorithms.

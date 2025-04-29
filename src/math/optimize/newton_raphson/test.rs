@@ -1,68 +1,119 @@
-use super::{NewtonRaphson, FirstOrderRootFinding, TensorRank0};
+use super::{NewtonRaphson, FirstOrderRootFinding, TensorRank0, SecondOrderOptimization};
 
 const TOLERANCE: TensorRank0 = 1e-6;
 
-#[test]
-fn linear() {
-    assert!(
-        NewtonRaphson {
+mod minimize {
+    use super::*;
+    #[test]
+    fn quadratic() {
+        let (x, f) = NewtonRaphson {
             ..Default::default()
         }
-        .root(
+        .minimize(
+            |x: &TensorRank0| Ok(x.powi(2) / 2.0),
             |x: &TensorRank0| Ok(*x),
             |_: &TensorRank0| Ok(1.0),
             1.0,
         )
-        .unwrap()
-        .abs()
-            < TOLERANCE
-    )
-}
-
-#[test]
-fn quadratic() {
-    assert!(
-        NewtonRaphson {
+        .unwrap();
+        assert!(x.abs() < TOLERANCE);
+        assert!(f.abs() < TOLERANCE)
+    }
+    #[test]
+    fn cubic() {
+        let (x, f) = NewtonRaphson {
             ..Default::default()
         }
-        .root(
+        .minimize(
+            |x: &TensorRank0| Ok(x.powi(3) / 6.0),
             |x: &TensorRank0| Ok(x.powi(2) / 2.0),
             |x: &TensorRank0| Ok(*x),
             1.0,
         )
-        .unwrap()
-        .abs()
-            < TOLERANCE
-    )
-}
-
-#[test]
-fn sin() {
-    assert!(
-        NewtonRaphson {
+        .unwrap();
+        assert!(x.abs() < TOLERANCE);
+        assert!(f.abs() < TOLERANCE)
+    }
+    #[test]
+    fn sin() {
+        let (x, f) = NewtonRaphson {
             ..Default::default()
         }
-        .root(
+        .minimize(
+            |x: &TensorRank0| Ok(-x.sin()),
             |x: &TensorRank0| Ok(x.sin()),
             |x: &TensorRank0| Ok(x.cos()),
             1.0,
         )
-        .unwrap()
-        .abs()
-            < TOLERANCE
-    )
+        .unwrap();
+        assert!(x.abs() < TOLERANCE);
+        assert!(f.abs() < TOLERANCE)
+    }
+    #[test]
+    #[should_panic(expected = "The obtained solution is not a minimum.")]
+    fn sin_max() {
+        NewtonRaphson {
+            ..Default::default()
+        }
+        .minimize(
+            |x: &TensorRank0| Ok(-x.sin()),
+            |x: &TensorRank0| Ok(x.sin()),
+            |x: &TensorRank0| Ok(x.cos()),
+            3.0,
+        )
+        .unwrap();
+    }
+    
 }
 
-// #[test]
-// #[should_panic(expected = "The obtained solution is not a minimum.")]
-// fn sin_max() {
-//     NewtonRaphson {
-//         ..Default::default()
-//     }
-//     .root(
-//         |x: &TensorRank0| Ok(x.sin()),
-//         |x: &TensorRank0| Ok(x.cos()),
-//         3.0,
-//     )
-//     .unwrap();
-// }
+mod root {
+    use super::*;
+    #[test]
+    fn linear() {
+        assert!(
+            NewtonRaphson {
+                ..Default::default()
+            }
+            .root(
+                |x: &TensorRank0| Ok(*x),
+                |_: &TensorRank0| Ok(1.0),
+                1.0,
+            )
+            .unwrap()
+            .abs()
+                < TOLERANCE
+        )
+    }
+    #[test]
+    fn quadratic() {
+        assert!(
+            NewtonRaphson {
+                ..Default::default()
+            }
+            .root(
+                |x: &TensorRank0| Ok(x.powi(2) / 2.0),
+                |x: &TensorRank0| Ok(*x),
+                1.0,
+            )
+            .unwrap()
+            .abs()
+                < TOLERANCE
+        )
+    }
+    #[test]
+    fn sin() {
+        assert!(
+            NewtonRaphson {
+                ..Default::default()
+            }
+            .root(
+                |x: &TensorRank0| Ok(x.sin()),
+                |x: &TensorRank0| Ok(x.cos()),
+                1.0,
+            )
+            .unwrap()
+            .abs()
+                < TOLERANCE
+        )
+    }
+}

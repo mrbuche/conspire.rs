@@ -5,7 +5,7 @@ use super::{
     super::{
         Hessian, Tensor, TensorArray, TensorRank0, TensorVec, Vector,
         interpolate::InterpolateSolution,
-        optimize::{FirstOrder, NewtonRaphson, Optimization, FirstOrderRootFinding},
+        optimize::{ZerothOrderRootFinding, NewtonRaphson, Optimization, FirstOrderRootFinding},
     },
     Implicit, IntegrationError,
 };
@@ -67,10 +67,9 @@ where
             dt = t_trial - t;
             y_trial = match &self.opt_alg {
                 Optimization::GradientDescent(gradient_descent) => gradient_descent
-                    .minimize(
+                    .root(
                         |y_trial: &Y| Ok(y_trial - &y - &(&function(&t_trial, y_trial) * dt)),
                         y.clone(),
-                        None,
                     )
                     .unwrap(),
                 Optimization::NewtonRaphson(newton_raphson) => newton_raphson
