@@ -1,13 +1,16 @@
 #[cfg(test)]
+mod test;
+
+#[cfg(test)]
 use crate::math::test::ErrorTensor;
 
 use crate::math::{
-    Hessian, Rank2, Tensor, TensorRank0, TensorVec, TensorRank2Vec2D, Vector, tensor::TensorError,
+    Hessian, Rank2, Tensor, TensorRank0, TensorRank2Vec2D, TensorVec, Vector, tensor::TensorError,
     write_tensor_rank_0,
 };
 use std::{
-    fmt,
     cmp::Ordering,
+    fmt,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
@@ -153,7 +156,9 @@ impl fmt::Display for SquareMatrix {
 //     }
 // }
 
-impl<const D: usize, const I: usize, const J: usize> From<TensorRank2Vec2D<D, I, J>> for SquareMatrix {
+impl<const D: usize, const I: usize, const J: usize> From<TensorRank2Vec2D<D, I, J>>
+    for SquareMatrix
+{
     fn from(tensor_rank_2_vec_2d: TensorRank2Vec2D<D, I, J>) -> Self {
         // tensor_rank_2_vec_2d.into_iter().flatten().map(|asdf|
         //     asdf.into_iter().flatten().collect()
@@ -163,16 +168,18 @@ impl<const D: usize, const I: usize, const J: usize> From<TensorRank2Vec2D<D, I,
         // and have to do this way to stay compatible with analogous Vector
         //
         let mut matrix = Self::zero(tensor_rank_2_vec_2d.len() * D);
-        tensor_rank_2_vec_2d.iter().enumerate().for_each(|(a, entry_a)| {
-            entry_a.iter().enumerate().for_each(|(b, entry_ab)| {
-                entry_ab.iter().enumerate().for_each(|(i, entry_ab_i)| {
-                    entry_ab_i
-                        .iter()
-                        .enumerate()
-                        .for_each(|(j, entry_ab_ij)| matrix[D * a + i][D * b + j] = *entry_ab_ij)
+        tensor_rank_2_vec_2d
+            .iter()
+            .enumerate()
+            .for_each(|(a, entry_a)| {
+                entry_a.iter().enumerate().for_each(|(b, entry_ab)| {
+                    entry_ab.iter().enumerate().for_each(|(i, entry_ab_i)| {
+                        entry_ab_i.iter().enumerate().for_each(|(j, entry_ab_ij)| {
+                            matrix[D * a + i][D * b + j] = *entry_ab_ij
+                        })
+                    })
                 })
-            })
-        });
+            });
         matrix
     }
 }
@@ -480,14 +487,12 @@ impl Mul for SquareMatrix {
         //
         let mut output = Self::zero(matrix.len());
         self.iter()
-            .zip(output.iter())
+            .zip(output.iter_mut())
             .for_each(|(self_i, output_i)| {
                 self_i
                     .iter()
                     .zip(matrix.iter())
-                    .for_each(|(self_ij, matrix_j)|
-                        output_i += matrix_j * self_ij
-                    )
+                    .for_each(|(self_ij, matrix_j)| *output_i += matrix_j * self_ij)
             });
         output
     }

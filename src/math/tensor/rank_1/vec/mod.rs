@@ -2,8 +2,8 @@
 use super::super::test::ErrorTensor;
 
 use crate::math::{
-    Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank1Sparse, TensorRank2, TensorVec, Vector,
-    write_tensor_rank_0,
+    Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank1Sparse, TensorRank2, TensorVec,
+    Vector, write_tensor_rank_0,
 };
 use std::{
     fmt::{Display, Formatter, Result},
@@ -150,11 +150,9 @@ impl<const D: usize, const I: usize> From<Vector> for TensorRank1Vec<D, I> {
         if n % D != 0 {
             panic!("Vector length mismatch.")
         } else {
-            (0..n/D).map(|a|
-                (0..D).map(|i|
-                    vector[D * a + i]
-                ).collect()
-            ).collect()
+            (0..n / D)
+                .map(|a| (0..D).map(|i| vector[D * a + i]).collect())
+                .collect()
         }
     }
 }
@@ -165,11 +163,9 @@ impl<const D: usize, const I: usize> From<&Vector> for TensorRank1Vec<D, I> {
         if n % D != 0 {
             panic!("Vector length mismatch.")
         } else {
-            (0..n/D).map(|a|
-                (0..D).map(|i|
-                    vector[D * a + i]
-                ).collect()
-            ).collect()
+            (0..n / D)
+                .map(|a| (0..D).map(|i| vector[D * a + i]).collect())
+                .collect()
         }
     }
 }

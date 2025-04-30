@@ -1,7 +1,10 @@
 #[cfg(test)]
 use crate::math::test::ErrorTensor;
 
-use crate::math::{Rank2, Matrix, SquareMatrix, Tensor, TensorRank0, TensorVec, TensorRank1Vec, write_tensor_rank_0};
+use crate::math::{
+    Matrix, Rank2, SquareMatrix, Tensor, TensorRank0, TensorRank1Vec, TensorVec,
+    write_tensor_rank_0,
+};
 use std::{
     fmt::{Display, Formatter, Result},
     iter::Sum,
@@ -383,11 +386,14 @@ impl Mul<&Matrix> for &Vector {
     type Output = Vector;
     fn mul(self, matrix: &Matrix) -> Self::Output {
         let mut output = Vector::zero(matrix.width());
-        self.iter().zip(matrix.iter()).for_each(|(self_i, matrix_i)|
-            output.iter_mut().zip(matrix_i.iter()).for_each(|(output_j, matrix_ij)|
-                *output_j += self_i * matrix_ij
-            )
-        );
+        self.iter()
+            .zip(matrix.iter())
+            .for_each(|(self_i, matrix_i)| {
+                output
+                    .iter_mut()
+                    .zip(matrix_i.iter())
+                    .for_each(|(output_j, matrix_ij)| *output_j += self_i * matrix_ij)
+            });
         output
     }
 }

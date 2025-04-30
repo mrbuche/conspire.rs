@@ -10,7 +10,7 @@ use self::element::{
 };
 use super::*;
 use crate::math::{
-    Vector, Matrix,
+    Matrix, Vector,
     optimize::{
         Dirichlet, EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError,
     },

@@ -63,14 +63,16 @@ where
 }
 
 /// First-order root-finding algorithms.
-pub trait FirstOrderRootFinding
-{
+pub trait FirstOrderRootFinding {
     fn root<F, J, X>(
         &self,
         function: impl Fn(&X) -> Result<F, OptimizeError>,
         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
         initial_guess: X,
-    ) -> Result<X, OptimizeError> where F: Div<J, Output = X> + Tensor, X: Tensor;
+    ) -> Result<X, OptimizeError>
+    where
+        F: Div<J, Output = X> + Tensor,
+        X: Tensor;
     fn solve(
         &self,
         function: impl Fn(&Vector) -> Result<Vector, OptimizeError>,

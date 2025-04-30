@@ -115,14 +115,17 @@ impl Default for NewtonRaphson {
 //     }
 // }
 
-impl FirstOrderRootFinding for NewtonRaphson
-{
+impl FirstOrderRootFinding for NewtonRaphson {
     fn root<F, J, X>(
         &self,
         function: impl Fn(&X) -> Result<F, OptimizeError>,
         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
         initial_guess: X,
-    ) -> Result<X, OptimizeError> where F: Div<J, Output = X> + Tensor, X: Tensor {
+    ) -> Result<X, OptimizeError>
+    where
+        F: Div<J, Output = X> + Tensor,
+        X: Tensor,
+    {
         let mut residual;
         let mut solution = initial_guess;
         let mut tangent;
@@ -187,6 +190,11 @@ impl FirstOrderRootFinding for NewtonRaphson
                                 .zip(tangent_i.iter_mut())
                                 .for_each(|(jacobian_ij, tangent_ij)| *tangent_ij = *jacobian_ij)
                         });
+
+tangent.iter().for_each(|foobar|
+    println!("{:?}", foobar)
+);
+
                     if residual.norm() < self.abs_tol {
                         if self.check_minimum && !tangent.is_positive_definite() {
                             return Err(OptimizeError::NotMinimum(
@@ -207,10 +215,10 @@ impl FirstOrderRootFinding for NewtonRaphson
                         //     .for_each(|(&multipliers_i, state_i)| *state_i = multipliers_i);
                         increment = &residual / &tangent;
 
-                        println!("norm: {}", residual.norm());
-                        println!("residual: {:?}", residual);
-                        println!("trace: {:?}", tangent.trace());
-                        println!("inverse: {:?}", tangent.inverse());
+                        // println!("norm: {}", residual.norm());
+                        // println!("residual: {:?}", residual);
+                        // println!("trace: {:?}", tangent.trace());
+                        // println!("inverse: {:?}", tangent.inverse());
                         println!("increment: {:?}", increment);
 
                         solution
