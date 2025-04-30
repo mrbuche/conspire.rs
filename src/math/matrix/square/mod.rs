@@ -2,11 +2,12 @@
 use crate::math::test::ErrorTensor;
 
 use crate::math::{
-    Hessian, Rank2, Tensor, TensorRank0, TensorVec, Vector, tensor::TensorError,
+    Hessian, Rank2, Tensor, TensorRank0, TensorVec, TensorRank2Vec2D, Vector, tensor::TensorError,
     write_tensor_rank_0,
 };
 use std::{
     fmt,
+    cmp::Ordering,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
@@ -16,8 +17,61 @@ pub struct SquareMatrix(Vec<Vector>);
 
 impl SquareMatrix {
     /// Returns the inverse of the rank-2 tensor.
-    pub fn inverse(&self) -> SquareMatrix {
-        todo!()
+    pub fn inverse(&self) -> Self {
+        let (tensor_l_inverse, tensor_u_inverse) = self.lu_decomposition_inverse();
+        tensor_u_inverse * tensor_l_inverse
+    }
+    /// Returns the inverse of the LU decomposition of the rank-2 tensor.
+    pub fn lu_decomposition_inverse(&self) -> (Self, Self) {
+        let n = self.len();
+        let mut tensor_l = Self::zero(n);
+        let mut tensor_u = Self::zero(n);
+        for i in 0..n {
+            for j in 0..n {
+                if j >= i {
+                    tensor_l[j][i] = self[j][i];
+                    for k in 0..i {
+                        tensor_l[j][i] -= tensor_l[j][k] * tensor_u[k][i];
+                    }
+                }
+            }
+            for j in 0..n {
+                match j.cmp(&i) {
+                    Ordering::Equal => {
+                        tensor_u[i][j] = 1.0;
+                    }
+                    Ordering::Greater => {
+                        tensor_u[i][j] = self[i][j] / tensor_l[i][i];
+                        for k in 0..i {
+                            tensor_u[i][j] -= (tensor_l[i][k] * tensor_u[k][j]) / tensor_l[i][i];
+                        }
+                    }
+                    Ordering::Less => (),
+                }
+            }
+        }
+        let mut sum;
+        for i in 0..n {
+            tensor_l[i][i] = 1.0 / tensor_l[i][i];
+            for j in 0..i {
+                sum = 0.0;
+                for k in j..i {
+                    sum += tensor_l[i][k] * tensor_l[k][j];
+                }
+                tensor_l[i][j] = -sum * tensor_l[i][i];
+            }
+        }
+        for i in 0..n {
+            tensor_u[i][i] = 1.0 / tensor_u[i][i];
+            for j in 0..i {
+                sum = 0.0;
+                for k in j..i {
+                    sum += tensor_u[j][k] * tensor_u[k][i];
+                }
+                tensor_u[j][i] = -sum * tensor_u[i][i];
+            }
+        }
+        (tensor_l, tensor_u)
     }
 }
 
@@ -90,12 +144,36 @@ impl fmt::Display for SquareMatrix {
     }
 }
 
-impl From<SquareMatrix> for Vector {
-    fn from(matrix: SquareMatrix) -> Self {
+// impl From<SquareMatrix> for Vector {
+//     fn from(matrix: SquareMatrix) -> Self {
+//         matrix
+//             .iter()
+//             .flat_map(|vector| vector.iter().copied())
+//             .collect()
+//     }
+// }
+
+impl<const D: usize, const I: usize, const J: usize> From<TensorRank2Vec2D<D, I, J>> for SquareMatrix {
+    fn from(tensor_rank_2_vec_2d: TensorRank2Vec2D<D, I, J>) -> Self {
+        // tensor_rank_2_vec_2d.into_iter().flatten().map(|asdf|
+        //     asdf.into_iter().flatten().collect()
+        // ).collect()
+        //
+        // above might not work since indexing out of order?
+        // and have to do this way to stay compatible with analogous Vector
+        //
+        let mut matrix = Self::zero(tensor_rank_2_vec_2d.len() * D);
+        tensor_rank_2_vec_2d.iter().enumerate().for_each(|(a, entry_a)| {
+            entry_a.iter().enumerate().for_each(|(b, entry_ab)| {
+                entry_ab.iter().enumerate().for_each(|(i, entry_ab_i)| {
+                    entry_ab_i
+                        .iter()
+                        .enumerate()
+                        .for_each(|(j, entry_ab_ij)| matrix[D * a + i][D * b + j] = *entry_ab_ij)
+                })
+            })
+        });
         matrix
-            .iter()
-            .flat_map(|vector| vector.iter().copied())
-            .collect()
     }
 }
 
@@ -320,6 +398,7 @@ impl Mul<TensorRank0> for SquareMatrix {
         self
     }
 }
+
 impl Mul<&TensorRank0> for SquareMatrix {
     type Output = Self;
     fn mul(mut self, tensor_rank_0: &TensorRank0) -> Self::Output {
@@ -390,6 +469,24 @@ impl AddAssign<&Self> for SquareMatrix {
         self.iter_mut()
             .zip(vector.iter())
             .for_each(|(self_entry, tensor_rank_1)| *self_entry += tensor_rank_1);
+    }
+}
+
+impl Mul for SquareMatrix {
+    type Output = Self;
+    fn mul(self, matrix: Self) -> Self::Output {
+        let mut output = Self::zero(matrix.len());
+        self.iter()
+            .enumerate()
+            .for_each(|(i, self_i)| {
+                self_i
+                    .iter()
+                    .zip(matrix.iter())
+                    .for_each(|(self_ij, matrix_j)|
+                        output[i] += matrix_j * self_ij
+                    )
+            });
+        output
     }
 }
 

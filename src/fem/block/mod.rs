@@ -10,7 +10,7 @@ use self::element::{
 };
 use super::*;
 use crate::math::{
-    Vector,
+    Vector, Matrix,
     optimize::{
         Dirichlet, EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError,
     },
@@ -309,16 +309,45 @@ where
         initial_coordinates: NodalCoordinatesBlock,
         root_finding: NewtonRaphson,
     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
+        let mut foo = Matrix::zero(13, 42);
+        foo[0][2] = 1.0;
+        foo[1][5] = 1.0;
+        foo[2][8] = 1.0;
+        foo[3][11] = 1.0;
+        foo[4][26] = 1.0;
+        foo[5][14] = 1.0;
+        foo[6][17] = 1.0;
+        foo[7][20] = 1.0;
+        foo[8][23] = 1.0;
+        foo[9][29] = 1.0;
+        foo[10][18] = 1.0;
+        foo[11][19] = 1.0;
+        foo[12][21] = 1.0;
+        let mut bar = Vector::zero(13);
+        let e = 0.23;
+        bar[0] = 0.5 + e;
+        bar[1] = 0.5 + e;
+        bar[2] = 0.5 + e;
+        bar[3] = 0.5 + e;
+        bar[4] = 0.5 + e;
+        bar[5] = -0.5;
+        bar[6] = -0.5;
+        bar[7] = -0.5;
+        bar[8] = -0.5;
+        bar[9] = -0.5;
+        bar[10] = -0.5;
+        bar[11] = -0.5;
+        bar[12] = -0.5;
         Ok(root_finding
             .solve(
                 |nodal_coordinates: &Vector| {
-                    Ok(self.nodal_forces(nodal_coordinates.into())?).into()
+                    Ok(self.nodal_forces(&nodal_coordinates.into())?.into())
                 },
                 |nodal_coordinates: &Vector| {
-                    Ok(self.nodal_stiffnesses(nodal_coordinates.into())?).into()
+                    Ok(self.nodal_stiffnesses(&nodal_coordinates.into())?.into())
                 },
                 initial_coordinates.into(),
-                EqualityConstraint::None,
+                EqualityConstraint::Linear(foo, bar),
             )?
             .into())
     }

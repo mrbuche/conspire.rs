@@ -290,6 +290,11 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
         })
     }
     fn into_matrix(self) -> SquareMatrix {
+        //
+        // can you use into_iter and flatten for this?
+        // is it faster?
+        // also might want to use From<> instead?
+        //
         let mut matrix = SquareMatrix::zero(D * D);
         self.iter().enumerate().for_each(|(i, self_i)| {
             self_i.iter().enumerate().for_each(|(j, self_ij)| {

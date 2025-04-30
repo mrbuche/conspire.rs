@@ -115,17 +115,14 @@ impl Default for NewtonRaphson {
 //     }
 // }
 
-impl<F, J, X> FirstOrderRootFinding<F, J, X> for NewtonRaphson
-where
-    F: Div<J, Output = X> + Tensor,
-    X: Tensor,
+impl FirstOrderRootFinding for NewtonRaphson
 {
-    fn root(
+    fn root<F, J, X>(
         &self,
         function: impl Fn(&X) -> Result<F, OptimizeError>,
         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
         initial_guess: X,
-    ) -> Result<X, OptimizeError> {
+    ) -> Result<X, OptimizeError> where F: Div<J, Output = X> + Tensor, X: Tensor {
         let mut residual;
         let mut solution = initial_guess;
         let mut tangent;
@@ -158,9 +155,8 @@ where
                 let mut increment;
                 let mut multipliers = Vector::ones(num_constraints);
                 let mut residual = Vector::zero(num_total);
-                let mut satisfaction;
                 let mut solution = initial_guess;
-                let mut state = Vector::zero(num_total);
+                // let mut state = Vector::zero(num_total);
                 let mut tangent = SquareMatrix::zero(num_total);
                 constraint_matrix
                     .iter()
@@ -168,29 +164,28 @@ where
                     .for_each(|(i, constraint_matrix_i)| {
                         constraint_matrix_i.iter().enumerate().for_each(
                             |(j, constraint_matrix_ij)| {
-                                tangent[i + num_variables][j] = *constraint_matrix_ij;
-                                tangent[j][i + num_variables] = *constraint_matrix_ij;
+                                tangent[i + num_variables][j] = -constraint_matrix_ij;
+                                tangent[j][i + num_variables] = -constraint_matrix_ij;
                             },
                         )
                     });
                 for _ in 0..self.max_steps {
-                    satisfaction = &constraint_rhs - &constraint_matrix * &solution;
-                    function(&solution)?
+                    (function(&solution)? - &multipliers * &constraint_matrix)
                         .iter()
                         .zip(residual.iter_mut())
                         .for_each(|(&function_i, residual_i)| *residual_i = function_i);
-                    satisfaction
+                    (&constraint_rhs - &constraint_matrix * &solution)
                         .iter()
                         .zip(residual.iter_mut().skip(num_variables))
                         .for_each(|(&satisfaction_i, residual_i)| *residual_i = satisfaction_i);
                     jacobian(&solution)?
                         .iter()
-                        .zip(residual.iter_mut())
-                        .for_each(|(jacobian_i, residual_i)| {
+                        .zip(tangent.iter_mut())
+                        .for_each(|(jacobian_i, tangent_i)| {
                             jacobian_i
                                 .iter()
-                                .zip(residual_i.iter_mut())
-                                .for_each(|(jacobian_ij, residual_ij)| *residual_ij = *jacobian_ij)
+                                .zip(tangent_i.iter_mut())
+                                .for_each(|(jacobian_ij, tangent_ij)| *tangent_ij = *jacobian_ij)
                         });
                     if residual.norm() < self.abs_tol {
                         if self.check_minimum && !tangent.is_positive_definite() {
@@ -202,15 +197,22 @@ where
                             return Ok(solution);
                         }
                     } else {
-                        solution
-                            .iter()
-                            .zip(state.iter_mut())
-                            .for_each(|(&solution_i, state_i)| *state_i = solution_i);
-                        multipliers
-                            .iter()
-                            .zip(state.iter_mut().skip(num_variables))
-                            .for_each(|(&multipliers_i, state_i)| *state_i = multipliers_i);
-                        increment = &state / &tangent;
+                        // solution
+                        //     .iter()
+                        //     .zip(state.iter_mut())
+                        //     .for_each(|(&solution_i, state_i)| *state_i = solution_i);
+                        // multipliers
+                        //     .iter()
+                        //     .zip(state.iter_mut().skip(num_variables))
+                        //     .for_each(|(&multipliers_i, state_i)| *state_i = multipliers_i);
+                        increment = &residual / &tangent;
+
+                        println!("norm: {}", residual.norm());
+                        println!("residual: {:?}", residual);
+                        println!("trace: {:?}", tangent.trace());
+                        println!("inverse: {:?}", tangent.inverse());
+                        println!("increment: {:?}", increment);
+
                         solution
                             .iter_mut()
                             .zip(increment.iter())

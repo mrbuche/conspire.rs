@@ -690,9 +690,8 @@ macro_rules! test_finite_element_block_with_hyperelastic_constitutive_model {
                 let block = get_block();
                 let solution = block.solve(
                     get_reference_coordinates_block().into(),
-                    Some(get_dirichlet_places()),
-                    Some(get_dirichlet_values(dx)),
-                    GradientDescent {
+                    NewtonRaphson {
+                        max_steps: 4,
                         ..Default::default()
                     },
                 )?;

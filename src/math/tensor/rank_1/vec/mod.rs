@@ -2,7 +2,7 @@
 use super::super::test::ErrorTensor;
 
 use crate::math::{
-    Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank1Sparse, TensorRank2, TensorVec,
+    Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank1Sparse, TensorRank2, TensorVec, Vector,
     write_tensor_rank_0,
 };
 use std::{
@@ -144,6 +144,36 @@ impl From<TensorRank1Vec<3, 0>> for TensorRank1Vec<3, 1> {
     }
 }
 
+impl<const D: usize, const I: usize> From<Vector> for TensorRank1Vec<D, I> {
+    fn from(vector: Vector) -> Self {
+        let n = vector.len();
+        if n % D != 0 {
+            panic!("Vector length mismatch.")
+        } else {
+            (0..n/D).map(|a|
+                (0..D).map(|i|
+                    vector[D * a + i]
+                ).collect()
+            ).collect()
+        }
+    }
+}
+
+impl<const D: usize, const I: usize> From<&Vector> for TensorRank1Vec<D, I> {
+    fn from(vector: &Vector) -> Self {
+        let n = vector.len();
+        if n % D != 0 {
+            panic!("Vector length mismatch.")
+        } else {
+            (0..n/D).map(|a|
+                (0..D).map(|i|
+                    vector[D * a + i]
+                ).collect()
+            ).collect()
+        }
+    }
+}
+
 impl<const D: usize, const I: usize> FromIterator<TensorRank1<D, I>> for TensorRank1Vec<D, I> {
     fn from_iter<Ii: IntoIterator<Item = TensorRank1<D, I>>>(into_iterator: Ii) -> Self {
         Self(Vec::from_iter(into_iterator))
@@ -212,6 +242,14 @@ impl<const D: usize, const I: usize> Tensor for TensorRank1Vec<D, I> {
     }
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
+    }
+}
+
+impl<const D: usize, const I: usize> IntoIterator for TensorRank1Vec<D, I> {
+    type Item = TensorRank1<D, I>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 
