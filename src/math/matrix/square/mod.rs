@@ -475,15 +475,18 @@ impl AddAssign<&Self> for SquareMatrix {
 impl Mul for SquareMatrix {
     type Output = Self;
     fn mul(self, matrix: Self) -> Self::Output {
+        //
+        // check/test this?
+        //
         let mut output = Self::zero(matrix.len());
         self.iter()
-            .enumerate()
-            .for_each(|(i, self_i)| {
+            .zip(output.iter())
+            .for_each(|(self_i, output_i)| {
                 self_i
                     .iter()
                     .zip(matrix.iter())
                     .for_each(|(self_ij, matrix_j)|
-                        output[i] += matrix_j * self_ij
+                        output_i += matrix_j * self_ij
                     )
             });
         output
