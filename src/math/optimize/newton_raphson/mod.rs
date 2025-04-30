@@ -155,11 +155,10 @@ impl FirstOrderRootFinding for NewtonRaphson {
                 let num_variables = initial_guess.len();
                 let num_constraints = constraint_rhs.len();
                 let num_total = num_variables + num_constraints;
-                let mut increment;
+                let mut increment = Vector::zero(num_total);
                 let mut multipliers = Vector::ones(num_constraints);
                 let mut residual = Vector::zero(num_total);
                 let mut solution = initial_guess;
-                // let mut state = Vector::zero(num_total);
                 let mut tangent = SquareMatrix::zero(num_total);
                 constraint_matrix
                     .iter()
@@ -190,11 +189,6 @@ impl FirstOrderRootFinding for NewtonRaphson {
                                 .zip(tangent_i.iter_mut())
                                 .for_each(|(jacobian_ij, tangent_ij)| *tangent_ij = *jacobian_ij)
                         });
-
-tangent.iter().for_each(|foobar|
-    println!("{:?}", foobar)
-);
-
                     if residual.norm() < self.abs_tol {
                         if self.check_minimum && !tangent.is_positive_definite() {
                             return Err(OptimizeError::NotMinimum(
@@ -216,10 +210,12 @@ tangent.iter().for_each(|foobar|
                         increment = &residual / &tangent;
 
                         // println!("norm: {}", residual.norm());
-                        // println!("residual: {:?}", residual);
-                        // println!("trace: {:?}", tangent.trace());
-                        // println!("inverse: {:?}", tangent.inverse());
-                        println!("increment: {:?}", increment);
+                        println!("\ntangent: {}\n", tangent);
+                        println!("\ninverse tangent: {}\n", tangent.inverse());
+                        println!("residual: {}\n", residual);
+                        println!("trace: {}\n", tangent.trace());
+                        println!("inverse trace: {}\n", tangent.inverse().trace());
+                        println!("increment: {}\n", increment);
 
                         solution
                             .iter_mut()

@@ -553,13 +553,13 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
         let mut tensor_l = TensorRank2::zero();
         let mut tensor_u = TensorRank2::zero();
         for i in 0..D {
-            for j in 0..D {
-                if j >= i {
+            for j in i..D {
+                // if j >= i {
                     tensor_l[j][i] = self[j][i];
                     for k in 0..i {
                         tensor_l[j][i] -= tensor_l[j][k] * tensor_u[k][i];
                     }
-                }
+                // }
             }
             for j in 0..D {
                 match j.cmp(&i) {
@@ -583,13 +583,13 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
         let mut tensor_l = TensorRank2::zero();
         let mut tensor_u = TensorRank2::zero();
         for i in 0..D {
-            for j in 0..D {
-                if j >= i {
+            for j in i..D {
+                // if j >= i {
                     tensor_l[j][i] = self[j][i];
                     for k in 0..i {
                         tensor_l[j][i] -= tensor_l[j][k] * tensor_u[k][i];
                     }
-                }
+                // }
             }
             for j in 0..D {
                 match j.cmp(&i) {

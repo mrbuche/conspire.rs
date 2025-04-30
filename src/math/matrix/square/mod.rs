@@ -26,11 +26,11 @@ impl SquareMatrix {
     }
     /// Returns the inverse of the LU decomposition of the rank-2 tensor.
     pub fn lu_decomposition_inverse(&self) -> (Self, Self) {
-        let n = self.len();
-        let mut tensor_l = Self::zero(n);
-        let mut tensor_u = Self::zero(n);
-        for i in 0..n {
-            for j in 0..n {
+        let nn = self.len();
+        let mut tensor_l = Self::zero(nn);
+        let mut tensor_u = Self::zero(nn);
+        for i in 0..nn {
+            for j in 0..nn {
                 if j >= i {
                     tensor_l[j][i] = self[j][i];
                     for k in 0..i {
@@ -38,7 +38,7 @@ impl SquareMatrix {
                     }
                 }
             }
-            for j in 0..n {
+            for j in 0..nn {
                 match j.cmp(&i) {
                     Ordering::Equal => {
                         tensor_u[i][j] = 1.0;
@@ -54,7 +54,7 @@ impl SquareMatrix {
             }
         }
         let mut sum;
-        for i in 0..n {
+        for i in 0..nn {
             tensor_l[i][i] = 1.0 / tensor_l[i][i];
             for j in 0..i {
                 sum = 0.0;
@@ -64,7 +64,7 @@ impl SquareMatrix {
                 tensor_l[i][j] = -sum * tensor_l[i][i];
             }
         }
-        for i in 0..n {
+        for i in 0..nn {
             tensor_u[i][i] = 1.0 / tensor_u[i][i];
             for j in 0..i {
                 sum = 0.0;
@@ -482,9 +482,6 @@ impl AddAssign<&Self> for SquareMatrix {
 impl Mul for SquareMatrix {
     type Output = Self;
     fn mul(self, matrix: Self) -> Self::Output {
-        //
-        // check/test this?
-        //
         let mut output = Self::zero(matrix.len());
         self.iter()
             .zip(output.iter_mut())
