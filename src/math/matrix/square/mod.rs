@@ -19,25 +19,52 @@ use std::{
 pub struct SquareMatrix(Vec<Vector>);
 
 impl SquareMatrix {
-    /// Returns the inverse of the rank-2 tensor.
+    /// Returns the inverse of the square matrix.
     pub fn inverse(&self) -> Self {
         let (tensor_l_inverse, tensor_u_inverse) = self.lu_decomposition_inverse();
         tensor_u_inverse * tensor_l_inverse
     }
-    /// Returns the inverse of the LU decomposition of the rank-2 tensor.
+    /// Returns the LU decomposition of the square matrix.
+    pub fn lu_decomposition(&self) -> (Self, Self) {
+        let n = self.len();
+        let mut tensor_l = Self::zero(n);
+        let mut tensor_u = Self::zero(n);
+        for i in 0..n {
+            for k in i..n {
+                    tensor_u[i][k] = self[i][k];
+                    for j in 0..i {
+                        tensor_u[i][k] -= tensor_l[i][j] * tensor_u[j][k];
+                    }
+            }
+            for k in i..n {
+                if i == k {
+                    tensor_l[i][k] = 1.0
+                } else {
+                    tensor_l[k][i] = self[k][i];
+                    for j in 0..i {
+                        tensor_l[k][i] -= tensor_l[k][j] * tensor_u[j][i];
+                    }
+                    tensor_l[k][i] /= tensor_u[i][i]
+                }
+            }
+        }
+        (tensor_l, tensor_u)
+    }
+    /// Returns the inverse of the LU decomposition of the square matrix.
     pub fn lu_decomposition_inverse(&self) -> (Self, Self) {
         let nn = self.len();
         let mut tensor_l = Self::zero(nn);
         let mut tensor_u = Self::zero(nn);
         for i in 0..nn {
-            for j in 0..nn {
-                if j >= i {
-                    tensor_l[j][i] = self[j][i];
-                    for k in 0..i {
-                        tensor_l[j][i] -= tensor_l[j][k] * tensor_u[k][i];
-                    }
+            for j in i..nn {
+                tensor_l[j][i] = self[j][i];
+                for k in 0..i {
+                    tensor_l[j][i] -= tensor_l[j][k] * tensor_u[k][i];
                 }
             }
+if tensor_l[i][i].abs() < 1e-12 {
+    println!("FOOBAR")
+}
             for j in 0..nn {
                 match j.cmp(&i) {
                     Ordering::Equal => {

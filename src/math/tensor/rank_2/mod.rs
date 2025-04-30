@@ -553,26 +553,21 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
         let mut tensor_l = TensorRank2::zero();
         let mut tensor_u = TensorRank2::zero();
         for i in 0..D {
-            for j in i..D {
-                // if j >= i {
-                    tensor_l[j][i] = self[j][i];
-                    for k in 0..i {
-                        tensor_l[j][i] -= tensor_l[j][k] * tensor_u[k][i];
+            for k in i..D {
+                    tensor_u[i][k] = self[i][k];
+                    for j in 0..i {
+                        tensor_u[i][k] -= tensor_l[i][j] * tensor_u[j][k];
                     }
-                // }
             }
-            for j in 0..D {
-                match j.cmp(&i) {
-                    Ordering::Equal => {
-                        tensor_u[i][j] = 1.0;
+            for k in i..D {
+                if i == k {
+                    tensor_l[i][k] = 1.0
+                } else {
+                    tensor_l[k][i] = self[k][i];
+                    for j in 0..i {
+                        tensor_l[k][i] -= tensor_l[k][j] * tensor_u[j][i];
                     }
-                    Ordering::Greater => {
-                        tensor_u[i][j] = self[i][j] / tensor_l[i][i];
-                        for k in 0..i {
-                            tensor_u[i][j] -= (tensor_l[i][k] * tensor_u[k][j]) / tensor_l[i][i];
-                        }
-                    }
-                    Ordering::Less => (),
+                    tensor_l[k][i] /= tensor_u[i][i]
                 }
             }
         }
@@ -584,12 +579,10 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
         let mut tensor_u = TensorRank2::zero();
         for i in 0..D {
             for j in i..D {
-                // if j >= i {
                     tensor_l[j][i] = self[j][i];
                     for k in 0..i {
                         tensor_l[j][i] -= tensor_l[j][k] * tensor_u[k][i];
                     }
-                // }
             }
             for j in 0..D {
                 match j.cmp(&i) {

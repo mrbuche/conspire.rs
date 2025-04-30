@@ -275,7 +275,7 @@ impl AddAssign for Vector {
     fn add_assign(&mut self, vector: Self) {
         self.iter_mut()
             .zip(vector.iter())
-            .for_each(|(self_entry, tensor_rank_1)| *self_entry += tensor_rank_1);
+            .for_each(|(self_entry, tensor_rank_0)| *self_entry += tensor_rank_0);
     }
 }
 
@@ -283,7 +283,7 @@ impl AddAssign<&Self> for Vector {
     fn add_assign(&mut self, vector: &Self) {
         self.iter_mut()
             .zip(vector.iter())
-            .for_each(|(self_entry, tensor_rank_1)| *self_entry += tensor_rank_1);
+            .for_each(|(self_entry, tensor_rank_0)| *self_entry += tensor_rank_0);
     }
 }
 

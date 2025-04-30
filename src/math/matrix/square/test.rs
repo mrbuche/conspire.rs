@@ -192,6 +192,15 @@ fn vector_mul_matrix_dim_6_9() -> Result<(), TestError> {
 }
 
 #[test]
+fn asdfasdf() {
+    let (l, u) = square_matrix_dim_9().lu_decomposition_inverse();
+    println!("\nL: {}\n", l);
+    println!("\nU: {}\n", u);
+    println!("\nLU: {}\n", u * l);
+    println!("\ninv: {}\n", square_matrix_dim_9().inverse());
+}
+
+#[test]
 fn vector_div_square_matrix_dim_9() -> Result<(), TestError> {
     assert_eq_from_fd(
         &(&vector_dim_9() / &square_matrix_dim_9()),
