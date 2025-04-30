@@ -903,14 +903,6 @@ fn into_vec() -> Result<(), TestError> {
 }
 
 #[test]
-fn asdfasdf() {
-    let (l, u) = get_tensor_rank_2_dim_9().lu_decomposition_inverse();
-    println!("\nL: {}\n", l);
-    println!("\nU: {}\n", u);
-    println!("\nLU: {}\n", u * l);
-}
-
-#[test]
 fn lu_decomposition() {
     let (tensor_l, tensor_u) = get_tensor_rank_2_dim_9().lu_decomposition();
     tensor_l

@@ -29,6 +29,7 @@ use super::{
 };
 use list_2d::TensorRank2List2D;
 use vec_2d::TensorRank2Vec2D;
+use crate::ABS_TOL;
 
 /// A *d*-dimensional tensor of rank 2.
 ///
@@ -558,6 +559,9 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
                     for j in 0..i {
                         tensor_u[i][k] -= tensor_l[i][j] * tensor_u[j][k];
                     }
+            }
+            if tensor_u[i][i].abs() <= ABS_TOL {
+                panic!("LU decomposition failed (zero pivot).")
             }
             for k in i..D {
                 if i == k {

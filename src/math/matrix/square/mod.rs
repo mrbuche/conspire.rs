@@ -4,10 +4,10 @@ mod test;
 #[cfg(test)]
 use crate::math::test::ErrorTensor;
 
-use crate::math::{
+use crate::{ABS_TOL, math::{
     Hessian, Rank2, Tensor, TensorRank0, TensorRank2Vec2D, TensorVec, Vector, tensor::TensorError,
     write_tensor_rank_0,
-};
+}};
 use std::{
     cmp::Ordering,
     fmt,
@@ -35,6 +35,9 @@ impl SquareMatrix {
                     for j in 0..i {
                         tensor_u[i][k] -= tensor_l[i][j] * tensor_u[j][k];
                     }
+            }
+            if tensor_u[i][i].abs() <= ABS_TOL {
+                panic!("LU decomposition failed (zero pivot).")
             }
             for k in i..n {
                 if i == k {
