@@ -683,15 +683,18 @@ macro_rules! test_finite_element_block_with_hyperelastic_constitutive_model {
             $constitutive_model_parameters
         );
         use crate::constitutive::solid::AppliedLoad;
+        //
+        // test in elastic too
+        // ok to double-test "solve" of hyperelastic since first one will use root, second one will use minimization
+        //
         #[test]
-        fn solve() -> Result<(), TestError> {
+        fn minimize() -> Result<(), TestError> {
             if TEST_SOLVE {
-                let dx = 0.23;
+                let dx = 0.88;
                 let block = get_block();
-                let solution = block.solve(
+                let solution = block.minimize(
                     get_reference_coordinates_block().into(),
                     NewtonRaphson {
-                        max_steps: 4,
                         ..Default::default()
                     },
                 )?;

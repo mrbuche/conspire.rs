@@ -11,7 +11,6 @@ pub mod vec_2d;
 
 use std::{
     array::from_fn,
-    cmp::Ordering,
     fmt,
     mem::transmute,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
@@ -27,9 +26,9 @@ use super::{
     },
     rank_4::TensorRank4,
 };
+use crate::ABS_TOL;
 use list_2d::TensorRank2List2D;
 use vec_2d::TensorRank2Vec2D;
-use crate::ABS_TOL;
 
 /// A *d*-dimensional tensor of rank 2.
 ///
@@ -555,10 +554,10 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
         let mut tensor_u = TensorRank2::zero();
         for i in 0..D {
             for k in i..D {
-                    tensor_u[i][k] = self[i][k];
-                    for j in 0..i {
-                        tensor_u[i][k] -= tensor_l[i][j] * tensor_u[j][k];
-                    }
+                tensor_u[i][k] = self[i][k];
+                for j in 0..i {
+                    tensor_u[i][k] -= tensor_l[i][j] * tensor_u[j][k];
+                }
             }
             if tensor_u[i][i].abs() <= ABS_TOL {
                 panic!("LU decomposition failed (zero pivot).")
@@ -582,27 +581,30 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
         let mut tensor_l = TensorRank2::zero();
         let mut tensor_u = TensorRank2::zero();
         for i in 0..D {
-            for j in i..D {
-                    tensor_l[j][i] = self[j][i];
-                    for k in 0..i {
-                        tensor_l[j][i] -= tensor_l[j][k] * tensor_u[k][i];
-                    }
+            for k in i..D {
+                tensor_u[i][k] = self[i][k];
+                for j in 0..i {
+                    tensor_u[i][k] -= tensor_l[i][j] * tensor_u[j][k];
+                }
             }
-            for j in 0..D {
-                match j.cmp(&i) {
-                    Ordering::Equal => {
-                        tensor_u[i][j] = 1.0;
+            if tensor_u[i][i].abs() <= ABS_TOL {
+                panic!("LU decomposition failed (zero pivot).")
+            }
+            for k in i..D {
+                if i == k {
+                    tensor_l[i][k] = 1.0
+                } else {
+                    tensor_l[k][i] = self[k][i];
+                    for j in 0..i {
+                        tensor_l[k][i] -= tensor_l[k][j] * tensor_u[j][i];
                     }
-                    Ordering::Greater => {
-                        tensor_u[i][j] = self[i][j] / tensor_l[i][i];
-                        for k in 0..i {
-                            tensor_u[i][j] -= (tensor_l[i][k] * tensor_u[k][j]) / tensor_l[i][i];
-                        }
-                    }
-                    Ordering::Less => (),
+                    tensor_l[k][i] /= tensor_u[i][i]
                 }
             }
         }
+        //
+        // above is copied from lu_decomposition
+        //
         let mut sum;
         for i in 0..D {
             tensor_l[i][i] = 1.0 / tensor_l[i][i];
@@ -636,11 +638,6 @@ impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2<D, 
                 .enumerate()
                 .for_each(|(j, self_ij)| square_matrix[i][j] = self_ij)
         })
-    }
-    fn into_matrix(self) -> SquareMatrix {
-        self.iter()
-            .map(|self_i| self_i.iter().copied().collect())
-            .collect()
     }
     fn is_positive_definite(&self) -> bool {
         self.cholesky_decomposition().is_ok()
@@ -774,6 +771,33 @@ impl<const D: usize, const I: usize, const J: usize> TensorArray for TensorRank2
     }
     fn zero() -> Self {
         Self(from_fn(|_| Self::Item::zero()))
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
+    From<TensorRank4<D, I, J, K, L>> for TensorRank2<9, 88, 99>
+{
+    fn from(tensor_rank_4: TensorRank4<D, I, J, K, L>) -> Self {
+        assert_eq!(D, 3);
+        tensor_rank_4
+            .into_iter()
+            .flatten()
+            .map(|entry_ij| entry_ij.into_iter().flatten().collect())
+            .collect()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
+    From<&TensorRank4<D, I, J, K, L>> for TensorRank2<9, 88, 99>
+{
+    fn from(tensor_rank_4: &TensorRank4<D, I, J, K, L>) -> Self {
+        assert_eq!(D, 3);
+        tensor_rank_4
+            .clone()
+            .into_iter()
+            .flatten()
+            .map(|entry_ij| entry_ij.into_iter().flatten().collect())
+            .collect()
     }
 }
 
@@ -1290,8 +1314,8 @@ impl<const I: usize, const J: usize, const K: usize, const L: usize> Div<TensorR
 {
     type Output = TensorRank2<3, K, L>;
     fn div(self, tensor_rank_4: TensorRank4<3, I, J, K, L>) -> Self::Output {
-        let output_tensor_rank_1 =
-            tensor_rank_4.as_tensor_rank_2().inverse() * self.as_tensor_rank_1();
+        let tensor_rank_2: TensorRank2<9, 88, 99> = tensor_rank_4.into();
+        let output_tensor_rank_1 = tensor_rank_2.inverse() * self.as_tensor_rank_1();
         let mut output = TensorRank2::zero();
         output.iter_mut().enumerate().for_each(|(i, output_i)| {
             output_i

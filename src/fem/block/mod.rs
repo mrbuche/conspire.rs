@@ -12,7 +12,8 @@ use super::*;
 use crate::math::{
     Matrix, Vector,
     optimize::{
-        Dirichlet, EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError,
+        EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError,
+        SecondOrderOptimization,
     },
 };
 use std::array::from_fn;
@@ -197,6 +198,11 @@ where
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<Scalar, ConstitutiveError>;
+    fn minimize(
+        &self,
+        initial_coordinates: NodalCoordinatesBlock,
+        optimization: NewtonRaphson,
+    ) -> Result<NodalCoordinatesBlock, OptimizeError>;
 }
 
 pub trait ViscoelasticFiniteElementBlock<C, F, const G: usize, const N: usize>
@@ -249,6 +255,41 @@ where
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<Scalar, ConstitutiveError>;
+}
+
+macro_rules! temporary_setup {
+    () => {{
+        let mut a = Matrix::zero(13, 42);
+        a[0][0] = 1.0;
+        a[1][3] = 1.0;
+        a[2][12] = 1.0;
+        a[3][15] = 1.0;
+        a[4][39] = 1.0;
+        a[5][6] = 1.0;
+        a[6][9] = 1.0;
+        a[7][18] = 1.0;
+        a[8][21] = 1.0;
+        a[9][33] = 1.0;
+        a[10][19] = 1.0;
+        a[11][20] = 1.0;
+        a[12][23] = 1.0;
+        let mut b = Vector::zero(13);
+        let e = 0.88;
+        b[0] = 0.5 + e;
+        b[1] = 0.5 + e;
+        b[2] = 0.5 + e;
+        b[3] = 0.5 + e;
+        b[4] = 0.5 + e;
+        b[5] = -0.5;
+        b[6] = -0.5;
+        b[7] = -0.5;
+        b[8] = -0.5;
+        b[9] = -0.5;
+        b[10] = -0.5;
+        b[11] = -0.5;
+        b[12] = -0.5;
+        (a, b)
+    }};
 }
 
 impl<C, F, const G: usize, const N: usize> ElasticFiniteElementBlock<C, F, G, N>
@@ -309,35 +350,7 @@ where
         initial_coordinates: NodalCoordinatesBlock,
         root_finding: NewtonRaphson,
     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
-        let mut foo = Matrix::zero(13, 42);
-        foo[0][2] = 1.0;
-        foo[1][5] = 1.0;
-        foo[2][8] = 1.0;
-        foo[3][11] = 1.0;
-        foo[4][26] = 1.0;
-        foo[5][14] = 1.0;
-        foo[6][17] = 1.0;
-        foo[7][20] = 1.0;
-        foo[8][23] = 1.0;
-        foo[9][29] = 1.0;
-        foo[10][18] = 1.0;
-        foo[11][19] = 1.0;
-        foo[12][21] = 1.0;
-        let mut bar = Vector::zero(13);
-        let e = 0.23;
-        bar[0] = 0.5 + e;
-        bar[1] = 0.5 + e;
-        bar[2] = 0.5 + e;
-        bar[3] = 0.5 + e;
-        bar[4] = 0.5 + e;
-        bar[5] = -0.5;
-        bar[6] = -0.5;
-        bar[7] = -0.5;
-        bar[8] = -0.5;
-        bar[9] = -0.5;
-        bar[10] = -0.5;
-        bar[11] = -0.5;
-        bar[12] = -0.5;
+        let (a, b) = temporary_setup!();
         Ok(root_finding
             .solve(
                 |nodal_coordinates: &Vector| {
@@ -347,7 +360,7 @@ where
                     Ok(self.nodal_stiffnesses(&nodal_coordinates.into())?.into())
                 },
                 initial_coordinates.into(),
-                EqualityConstraint::Linear(foo, bar),
+                EqualityConstraint::Linear(a, b),
             )?
             .into())
     }
@@ -373,6 +386,30 @@ where
                 )
             })
             .sum()
+    }
+    fn minimize(
+        &self,
+        initial_coordinates: NodalCoordinatesBlock,
+        optimization: NewtonRaphson,
+    ) -> Result<NodalCoordinatesBlock, OptimizeError> {
+        let (a, b) = temporary_setup!();
+        Ok(optimization
+            .minimize_constrained(
+                |nodal_coordinates: &Vector| {
+                    Ok(self
+                        .helmholtz_free_energy(&nodal_coordinates.into())?
+                        .into())
+                },
+                |nodal_coordinates: &Vector| {
+                    Ok(self.nodal_forces(&nodal_coordinates.into())?.into())
+                },
+                |nodal_coordinates: &Vector| {
+                    Ok(self.nodal_stiffnesses(&nodal_coordinates.into())?.into())
+                },
+                initial_coordinates.into(),
+                EqualityConstraint::Linear(a, b),
+            )?
+            .into())
     }
 }
 

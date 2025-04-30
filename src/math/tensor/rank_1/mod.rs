@@ -16,8 +16,7 @@ use std::{
 };
 
 use super::{
-    super::write_tensor_rank_0, Rank2, Tensor, TensorArray, rank_0::TensorRank0,
-    rank_2::TensorRank2,
+    super::write_tensor_rank_0, Tensor, TensorArray, rank_0::TensorRank0, rank_2::TensorRank2,
 };
 
 /// A *d*-dimensional tensor of rank 1.

@@ -1,11 +1,8 @@
 pub mod square;
 pub mod vector;
 
-use crate::math::{TensorRank0, TensorVec};
-use std::{
-    fmt,
-    ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
-};
+use crate::math::TensorVec;
+use std::ops::{Index, IndexMut, Mul};
 use vector::Vector;
 
 /// A matrix.

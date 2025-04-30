@@ -66,9 +66,9 @@ where
     }
     fn solve(
         &self,
-        function: impl Fn(&X) -> Result<X, OptimizeError>,
-        initial_guess: X,
-        dirichlet: Option<Dirichlet>,
+        _function: impl Fn(&X) -> Result<X, OptimizeError>,
+        _initial_guess: X,
+        _dirichlet: Option<Dirichlet>,
     ) -> Result<X, OptimizeError> {
         unimplemented!("This may work with gradient ascent on multipliers, or not at all.")
     }
@@ -80,10 +80,10 @@ where
 {
     fn minimize(
         &self,
-        function: impl Fn(&X) -> Result<F, OptimizeError>,
+        _function: impl Fn(&X) -> Result<F, OptimizeError>,
         jacobian: impl Fn(&X) -> Result<X, OptimizeError>,
         initial_guess: X,
-    ) -> Result<(X, F), OptimizeError> {
+    ) -> Result<X, OptimizeError> {
         //
         // How to choose short (below, dx*dg/dg*dg) or long (dx*dx/dx*dg) steps?
         // Or even allow different options for calculating step size?
@@ -91,7 +91,7 @@ where
         // Those methods might also be abstracted to be used in multiple places, like if you make a nonlinear conjugate gradient solver.
         // And then within the NLCG, different formulas for beta?
         //
-        let mut potential;
+        // let mut potential;
         let mut residual;
         let mut residual_change = initial_guess.clone() * 0.0;
         let mut solution = initial_guess;
@@ -105,7 +105,7 @@ where
         //         .for_each(|(place, value)| *solution.get_at_mut(place) = *value)
         // }
         for _ in 0..self.max_steps {
-            potential = function(&solution)?;
+            // potential = function(&solution)?;
             residual = jacobian(&solution)?;
             // if let Some(ref bc) = neumann {
             //     bc.places
@@ -119,7 +119,7 @@ where
             //         .for_each(|place| *residual.get_at_mut(place) = 0.0)
             // }
             if residual.norm() < self.abs_tol {
-                return Ok((solution, potential));
+                return Ok(solution);
             } else {
                 solution_change -= &solution;
                 residual_change -= &residual;

@@ -6,7 +6,7 @@ mod minimize {
     use super::*;
     #[test]
     fn quadratic() {
-        let (x, f) = NewtonRaphson {
+        let x = NewtonRaphson {
             ..Default::default()
         }
         .minimize(
@@ -16,12 +16,11 @@ mod minimize {
             1.0,
         )
         .unwrap();
-        assert!(x.abs() < TOLERANCE);
-        assert!(f.abs() < TOLERANCE)
+        assert!(x.abs() < TOLERANCE)
     }
     #[test]
     fn cubic() {
-        let (x, f) = NewtonRaphson {
+        let x = NewtonRaphson {
             ..Default::default()
         }
         .minimize(
@@ -31,12 +30,11 @@ mod minimize {
             1.0,
         )
         .unwrap();
-        assert!(x.abs() < TOLERANCE);
-        assert!(f.abs() < TOLERANCE)
+        assert!(x.abs() < TOLERANCE)
     }
     #[test]
     fn sin() {
-        let (x, f) = NewtonRaphson {
+        let x = NewtonRaphson {
             ..Default::default()
         }
         .minimize(
@@ -46,8 +44,7 @@ mod minimize {
             1.0,
         )
         .unwrap();
-        assert!(x.abs() < TOLERANCE);
-        assert!(f.abs() < TOLERANCE)
+        assert!(x.abs() < TOLERANCE)
     }
     #[test]
     #[should_panic(expected = "The obtained solution is not a minimum.")]

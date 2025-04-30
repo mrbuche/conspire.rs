@@ -2,11 +2,11 @@
 mod test;
 
 use super::{
-    super::{Hessian, Rank2, SquareMatrix, Tensor, TensorRank0, TensorVec, Vector},
-    Dirichlet, EqualityConstraint, FirstOrderRootFinding, OptimizeError, SecondOrderOptimization,
+    super::{Hessian, SquareMatrix, Tensor, TensorRank0, TensorVec, Vector},
+    EqualityConstraint, FirstOrderRootFinding, OptimizeError, SecondOrderOptimization,
 };
 use crate::ABS_TOL;
-use std::ops::{Div, Sub, SubAssign};
+use std::ops::Div;
 
 /// The Newton-Raphson method.
 #[derive(Debug)]
@@ -155,7 +155,7 @@ impl FirstOrderRootFinding for NewtonRaphson {
                 let num_variables = initial_guess.len();
                 let num_constraints = constraint_rhs.len();
                 let num_total = num_variables + num_constraints;
-                let mut increment = Vector::zero(num_total);
+                let mut increment;
                 let mut multipliers = Vector::ones(num_constraints);
                 let mut residual = Vector::zero(num_total);
                 let mut solution = initial_guess;
@@ -190,33 +190,9 @@ impl FirstOrderRootFinding for NewtonRaphson {
                                 .for_each(|(jacobian_ij, tangent_ij)| *tangent_ij = *jacobian_ij)
                         });
                     if residual.norm() < self.abs_tol {
-                        if self.check_minimum && !tangent.is_positive_definite() {
-                            return Err(OptimizeError::NotMinimum(
-                                format!("{}", solution),
-                                format!("{:?}", &self),
-                            ));
-                        } else {
-                            return Ok(solution);
-                        }
+                        return Ok(solution);
                     } else {
-                        // solution
-                        //     .iter()
-                        //     .zip(state.iter_mut())
-                        //     .for_each(|(&solution_i, state_i)| *state_i = solution_i);
-                        // multipliers
-                        //     .iter()
-                        //     .zip(state.iter_mut().skip(num_variables))
-                        //     .for_each(|(&multipliers_i, state_i)| *state_i = multipliers_i);
                         increment = &residual / &tangent;
-
-                        // println!("norm: {}", residual.norm());
-                        println!("\ntangent: {}\n", tangent);
-                        println!("\ninverse tangent: {}\n", tangent.inverse());
-                        println!("residual: {}\n", residual);
-                        println!("trace: {}\n", tangent.trace());
-                        println!("inverse trace: {}\n", tangent.inverse().trace());
-                        println!("increment: {}\n", increment);
-
                         solution
                             .iter_mut()
                             .zip(increment.iter())
@@ -239,25 +215,25 @@ impl FirstOrderRootFinding for NewtonRaphson {
     }
 }
 
-impl<F, H, J, X> SecondOrderOptimization<F, H, J, X> for NewtonRaphson
-where
-    H: Hessian,
-    J: Div<H, Output = X> + Tensor,
-    X: Tensor,
-{
-    fn minimize(
+impl SecondOrderOptimization for NewtonRaphson {
+    fn minimize<F, H, J, X>(
         &self,
-        function: impl Fn(&X) -> Result<F, OptimizeError>,
+        _function: impl Fn(&X) -> Result<F, OptimizeError>,
         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
         hessian: impl Fn(&X) -> Result<H, OptimizeError>,
         initial_guess: X,
-    ) -> Result<(X, F), OptimizeError> {
-        let mut potential;
+    ) -> Result<X, OptimizeError>
+    where
+        H: Hessian,
+        J: Div<H, Output = X> + Tensor,
+        X: Tensor,
+    {
+        // let mut potential;
         let mut residual;
         let mut solution = initial_guess;
         let mut tangent;
         for _ in 0..self.max_steps {
-            potential = function(&solution)?;
+            // potential = function(&solution)?;
             residual = jacobian(&solution)?;
             tangent = hessian(&solution)?;
             if residual.norm() < self.abs_tol {
@@ -267,7 +243,7 @@ where
                         format!("{:?}", &self),
                     ));
                 } else {
-                    return Ok((solution, potential));
+                    return Ok(solution);
                 }
             } else {
                 solution -= residual / tangent;
@@ -278,81 +254,78 @@ where
             format!("{:?}", &self),
         ))
     }
-    fn solve(
+    fn minimize_constrained(
         &self,
         function: impl Fn(&Vector) -> Result<TensorRank0, OptimizeError>,
         jacobian: impl Fn(&Vector) -> Result<Vector, OptimizeError>,
         hessian: impl Fn(&Vector) -> Result<SquareMatrix, OptimizeError>,
         initial_guess: Vector,
         equality_constraint: EqualityConstraint,
-    ) -> Result<(Vector, TensorRank0), OptimizeError> {
-        todo!("try to alleviate copying from above")
-        //     match equality_constraint {
-        //         EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
-        //             let num_variables = initial_guess.len();
-        //             let num_constraints = constraint_rhs.len();
-        //             let num_total = num_variables + num_constraints;
-        //             let mut increment;
-        //             let mut lagrangian;
-        //             let mut multipliers = Vector::ones(num_constraints);
-        //             let mut residual = Vector::zero(num_total);
-        //             let mut satisfaction;
-        //             let mut solution = initial_guess;
-        //             let mut state = Vector::zero(num_total);
-        //             let mut tangent = SquareMatrix::zero(num_total);
-        //             constraint_matrix.iter().enumerate().for_each(|(i, constraint_matrix_i)|
-        //                 constraint_matrix_i.iter().enumerate().for_each(|(j, constraint_matrix_ij)| {
-        //                     tangent[i + num_variables][j] = *constraint_matrix_ij;
-        //                     tangent[j][i + num_variables] = *constraint_matrix_ij;
-        //                 })
-        //             );
-        //             for _ in 0..self.max_steps {
-        //                 satisfaction = &constraint_rhs - &constraint_matrix * &solution;
-        //                 lagrangian = function(&solution)? + &multipliers * &satisfaction;
-        //                 jacobian(&solution)?.iter().zip(residual.iter_mut()).for_each(|(&jacobian_i, residual_i)|
-        //                     *residual_i = jacobian_i
-        //                 );
-        //                 satisfaction.iter().zip(residual.iter_mut().skip(num_variables)).for_each(|(&satisfaction_i, residual_i)|
-        //                     *residual_i = satisfaction_i
-        //                 );
-        //                 hessian(&solution)?.iter().zip(residual.iter_mut()).for_each(|(hessian_i, residual_i)|
-        //                     hessian_i.iter().zip(residual_i.iter_mut()).for_each(|(hessian_ij, residual_ij)|
-        //                         *residual_ij = *hessian_ij
-        //                     )
-        //                 );
-        //                 if residual.norm() < self.abs_tol {
-        //                     if self.check_minimum && !tangent.is_positive_definite() {
-        //                         return Err(OptimizeError::NotMinimum(
-        //                             format!("{}", solution),
-        //                             format!("{:?}", &self),
-        //                         ));
-        //                     } else {
-        //                         return Ok((solution, lagrangian));
-        //                     }
-        //                 } else {
-        //                     solution.iter().zip(state.iter_mut()).for_each(|(&solution_i, state_i)|
-        //                         *state_i = solution_i
-        //                     );
-        //                     multipliers.iter().zip(state.iter_mut().skip(num_variables)).for_each(|(&multipliers_i, state_i)|
-        //                         *state_i = multipliers_i
-        //                     );
-        //                     increment = &state / &tangent;
-        //                     solution.iter_mut().zip(increment.iter()).for_each(|(solution_i, &increment_i)|
-        //                         *solution_i -= increment_i
-        //                     );
-        //                     multipliers.iter_mut().zip(increment.iter().skip(num_variables)).for_each(|(multipliers_i, &increment_i)|
-        //                         *multipliers_i -= increment_i
-        //                     );
-        //                 }
-        //             }
-        //             Err(OptimizeError::MaximumStepsReached(
-        //                 self.max_steps,
-        //                 format!("{:?}", &self),
-        //             ))
-        //         }
-        //         EqualityConstraint::None => {
-        //             self.minimize(function, jacobian, hessian, initial_guess)
-        //         }
-        //     }
+    ) -> Result<Vector, OptimizeError> {
+        match equality_constraint {
+            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
+                let num_variables = initial_guess.len();
+                let num_constraints = constraint_rhs.len();
+                let num_total = num_variables + num_constraints;
+                let mut increment;
+                let mut multipliers = Vector::ones(num_constraints);
+                let mut residual = Vector::zero(num_total);
+                let mut solution = initial_guess;
+                let mut tangent = SquareMatrix::zero(num_total);
+                constraint_matrix
+                    .iter()
+                    .enumerate()
+                    .for_each(|(i, constraint_matrix_i)| {
+                        constraint_matrix_i.iter().enumerate().for_each(
+                            |(j, constraint_matrix_ij)| {
+                                tangent[i + num_variables][j] = -constraint_matrix_ij;
+                                tangent[j][i + num_variables] = -constraint_matrix_ij;
+                            },
+                        )
+                    });
+                for _ in 0..self.max_steps {
+                    (jacobian(&solution)? - &multipliers * &constraint_matrix)
+                        .iter()
+                        .zip(residual.iter_mut())
+                        .for_each(|(&entry_i, residual_i)| *residual_i = entry_i);
+                    (&constraint_rhs - &constraint_matrix * &solution)
+                        .iter()
+                        .zip(residual.iter_mut().skip(num_variables))
+                        .for_each(|(&satisfaction_i, residual_i)| *residual_i = satisfaction_i);
+                    hessian(&solution)?.fill_into(&mut tangent);
+                    if residual.norm() < self.abs_tol {
+                        if self.check_minimum && !tangent.is_positive_definite() {
+                            // return Err(OptimizeError::NotMinimum(
+                            //     format!("{}", solution),
+                            //     format!("{:?}", &self),
+                            // ));
+                            println!(
+                                "Warning: \n\x1b[1;93mNeed to check positive definiteness with Lagrange multipliers.\x1b[0m"
+                            );
+                            return Ok(solution);
+                        } else {
+                            return Ok(solution);
+                        }
+                    } else {
+                        increment = &residual / &tangent;
+                        solution
+                            .iter_mut()
+                            .zip(increment.iter())
+                            .for_each(|(solution_i, &increment_i)| *solution_i -= increment_i);
+                        multipliers
+                            .iter_mut()
+                            .zip(increment.iter().skip(num_variables))
+                            .for_each(|(multipliers_i, &increment_i)| {
+                                *multipliers_i -= increment_i
+                            });
+                    }
+                }
+                Err(OptimizeError::MaximumStepsReached(
+                    self.max_steps,
+                    format!("{:?}", &self),
+                ))
+            }
+            EqualityConstraint::None => self.minimize(function, jacobian, hessian, initial_guess),
+        }
     }
 }

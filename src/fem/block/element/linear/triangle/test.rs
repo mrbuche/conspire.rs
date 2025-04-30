@@ -100,13 +100,5 @@ fn get_velocities_block() -> NodalVelocitiesBlock {
 
 const TEST_SOLVE: bool = false;
 
-fn get_dirichlet_places<'a>() -> Vec<usize> {
-    panic!()
-}
-
-fn get_dirichlet_values(_x: Scalar) -> Vec<Scalar> {
-    panic!()
-}
-
 test_surface_finite_element!(Triangle);
 test_surface_finite_element_block!(Triangle);

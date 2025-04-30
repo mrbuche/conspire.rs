@@ -1,14 +1,8 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::{
-    Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank2, TensorVec, write_tensor_rank_0,
-};
-use std::{
-    fmt::{Display, Formatter, Result},
-    mem::transmute,
-    ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
-};
+use crate::math::TensorRank0;
+use std::fmt::{self, Display, Formatter};
 
 /// A sparse collection of *d*-dimensional tensors of rank 1.
 ///
@@ -17,7 +11,7 @@ use std::{
 pub struct TensorRank1Sparse<const D: usize, const I: usize>(Vec<(usize, usize, TensorRank0)>);
 
 impl<const D: usize, const I: usize> Display for TensorRank1Sparse<D, I> {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, _f: &mut Formatter) -> fmt::Result {
         // write!(f, "\x1B[s")?;
         // write!(f, "[[")?;
         // self.iter().enumerate().try_for_each(|(i, tensor_rank_1)| {

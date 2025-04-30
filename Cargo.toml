@@ -11,6 +11,9 @@ name = "conspire"
 repository = "https://github.com/mrbuche/conspire.rs"
 version = "0.5.6"
 
+[dependencies]
+nalgebra = "=0.33.2"
+
 [features]
 constitutive = ['mechanics']
 fem = ['constitutive']

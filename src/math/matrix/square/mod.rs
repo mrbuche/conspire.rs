@@ -4,15 +4,19 @@ mod test;
 #[cfg(test)]
 use crate::math::test::ErrorTensor;
 
-use crate::{ABS_TOL, math::{
-    Hessian, Rank2, Tensor, TensorRank0, TensorRank2Vec2D, TensorVec, Vector, tensor::TensorError,
-    write_tensor_rank_0,
-}};
+use crate::{
+    ABS_TOL,
+    math::{
+        Hessian, Rank2, Tensor, TensorRank0, TensorRank2Vec2D, TensorVec, Vector,
+        tensor::TensorError, write_tensor_rank_0,
+    },
+};
 use std::{
-    cmp::Ordering,
     fmt,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
+
+use nalgebra::DMatrix as Temporary;
 
 /// A square matrix.
 #[derive(Clone, Debug, PartialEq)]
@@ -21,8 +25,30 @@ pub struct SquareMatrix(Vec<Vector>);
 impl SquareMatrix {
     /// Returns the inverse of the square matrix.
     pub fn inverse(&self) -> Self {
-        let (tensor_l_inverse, tensor_u_inverse) = self.lu_decomposition_inverse();
-        tensor_u_inverse * tensor_l_inverse
+        let now = std::time::Instant::now();
+
+        let n = self.len();
+        let mut asdf = Temporary::<TensorRank0>::zeros(n, n);
+        self.iter().enumerate().for_each(|(i, entry_i)| {
+            entry_i
+                .iter()
+                .enumerate()
+                .for_each(|(j, entry_ij)| asdf[(i, j)] = *entry_ij)
+        });
+        let fdsa = asdf.try_inverse().unwrap();
+        let mut inverse = Self::zero(n);
+        inverse.iter_mut().enumerate().for_each(|(i, entry_i)| {
+            entry_i
+                .iter_mut()
+                .enumerate()
+                .for_each(|(j, entry_ij)| *entry_ij = fdsa[(i, j)])
+        });
+
+        println!(
+            "Running inverse() took {} microseconds.",
+            now.elapsed().as_micros()
+        );
+        inverse
     }
     /// Returns the LU decomposition of the square matrix.
     pub fn lu_decomposition(&self) -> (Self, Self) {
@@ -31,10 +57,10 @@ impl SquareMatrix {
         let mut tensor_u = Self::zero(n);
         for i in 0..n {
             for k in i..n {
-                    tensor_u[i][k] = self[i][k];
-                    for j in 0..i {
-                        tensor_u[i][k] -= tensor_l[i][j] * tensor_u[j][k];
-                    }
+                tensor_u[i][k] = self[i][k];
+                for j in 0..i {
+                    tensor_u[i][k] -= tensor_l[i][j] * tensor_u[j][k];
+                }
             }
             if tensor_u[i][i].abs() <= ABS_TOL {
                 panic!("LU decomposition failed (zero pivot).")
@@ -49,59 +75,6 @@ impl SquareMatrix {
                     }
                     tensor_l[k][i] /= tensor_u[i][i]
                 }
-            }
-        }
-        (tensor_l, tensor_u)
-    }
-    /// Returns the inverse of the LU decomposition of the square matrix.
-    pub fn lu_decomposition_inverse(&self) -> (Self, Self) {
-        let nn = self.len();
-        let mut tensor_l = Self::zero(nn);
-        let mut tensor_u = Self::zero(nn);
-        for i in 0..nn {
-            for j in i..nn {
-                tensor_l[j][i] = self[j][i];
-                for k in 0..i {
-                    tensor_l[j][i] -= tensor_l[j][k] * tensor_u[k][i];
-                }
-            }
-if tensor_l[i][i].abs() < 1e-12 {
-    println!("FOOBAR")
-}
-            for j in 0..nn {
-                match j.cmp(&i) {
-                    Ordering::Equal => {
-                        tensor_u[i][j] = 1.0;
-                    }
-                    Ordering::Greater => {
-                        tensor_u[i][j] = self[i][j] / tensor_l[i][i];
-                        for k in 0..i {
-                            tensor_u[i][j] -= (tensor_l[i][k] * tensor_u[k][j]) / tensor_l[i][i];
-                        }
-                    }
-                    Ordering::Less => (),
-                }
-            }
-        }
-        let mut sum;
-        for i in 0..nn {
-            tensor_l[i][i] = 1.0 / tensor_l[i][i];
-            for j in 0..i {
-                sum = 0.0;
-                for k in j..i {
-                    sum += tensor_l[i][k] * tensor_l[k][j];
-                }
-                tensor_l[i][j] = -sum * tensor_l[i][i];
-            }
-        }
-        for i in 0..nn {
-            tensor_u[i][i] = 1.0 / tensor_u[i][i];
-            for j in 0..i {
-                sum = 0.0;
-                for k in j..i {
-                    sum += tensor_u[j][k] * tensor_u[k][i];
-                }
-                tensor_u[j][i] = -sum * tensor_u[i][i];
             }
         }
         (tensor_l, tensor_u)
@@ -177,26 +150,10 @@ impl fmt::Display for SquareMatrix {
     }
 }
 
-// impl From<SquareMatrix> for Vector {
-//     fn from(matrix: SquareMatrix) -> Self {
-//         matrix
-//             .iter()
-//             .flat_map(|vector| vector.iter().copied())
-//             .collect()
-//     }
-// }
-
 impl<const D: usize, const I: usize, const J: usize> From<TensorRank2Vec2D<D, I, J>>
     for SquareMatrix
 {
     fn from(tensor_rank_2_vec_2d: TensorRank2Vec2D<D, I, J>) -> Self {
-        // tensor_rank_2_vec_2d.into_iter().flatten().map(|asdf|
-        //     asdf.into_iter().flatten().collect()
-        // ).collect()
-        //
-        // above might not work since indexing out of order?
-        // and have to do this way to stay compatible with analogous Vector
-        //
         let mut matrix = Self::zero(tensor_rank_2_vec_2d.len() * D);
         tensor_rank_2_vec_2d
             .iter()
@@ -235,15 +192,20 @@ impl IndexMut<usize> for SquareMatrix {
 
 impl Hessian for SquareMatrix {
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
-        self.into_iter().enumerate().for_each(|(i, self_i)| {
-            self_i
-                .into_iter()
-                .enumerate()
-                .for_each(|(j, self_ij)| square_matrix[i][j] = self_ij)
-        })
-    }
-    fn into_matrix(self) -> SquareMatrix {
-        self
+        // self.into_iter().enumerate().for_each(|(i, self_i)| {
+        //     self_i
+        //         .into_iter()
+        //         .enumerate()
+        //         .for_each(|(j, self_ij)| square_matrix[i][j] = self_ij)
+        // })
+        self.iter()
+            .zip(square_matrix.iter_mut())
+            .for_each(|(self_i, square_matrix_i)| {
+                self_i
+                    .iter()
+                    .zip(square_matrix_i.iter_mut())
+                    .for_each(|(self_ij, square_matrix_ij)| *square_matrix_ij = *self_ij)
+            });
     }
     fn is_positive_definite(&self) -> bool {
         self.cholesky_decomposition().is_ok()

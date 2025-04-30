@@ -38,9 +38,6 @@ impl Hessian for TensorRank0 {
     fn fill_into(self, _square_matrix: &mut SquareMatrix) {
         panic!()
     }
-    fn into_matrix(self) -> SquareMatrix {
-        panic!()
-    }
     fn is_positive_definite(&self) -> bool {
         self > &0.0
     }

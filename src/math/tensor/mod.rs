@@ -31,18 +31,31 @@ impl Display for TensorError {
     }
 }
 
+/// Common methods for Jacobians.
+pub trait Jacobian
+where
+    Self: Tensor,
+{
+    /// Fills the Jacobian components into a vector.
+    fn fill_into(self, vector: &mut Vector);
+}
+
 /// Common methods for Hessians.
-pub trait Hessian {
-    /// ???
+pub trait Hessian
+where
+    Self: Tensor,
+{
+    /// Fills the Hessian components into a square matrix.
     fn fill_into(self, square_matrix: &mut SquareMatrix);
-    /// Converts this type into a square matrix.
-    fn into_matrix(self) -> SquareMatrix; // DO YOU NEED THIS ANYMORE? OR CAN USE SOMETHING BETTER?
     /// Checks whether the Hessian is positive-definite.
     fn is_positive_definite(&self) -> bool;
 }
 
 /// Common methods for rank-2 tensors.
-pub trait Rank2: Sized {
+pub trait Rank2
+where
+    Self: Sized,
+{
     /// The type that is the transpose of the tensor.
     type Transpose;
     /// Returns the Cholesky decomposition of the rank-2 tensor.

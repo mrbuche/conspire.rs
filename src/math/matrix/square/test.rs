@@ -2,15 +2,11 @@ use super::{super::Matrix, SquareMatrix, TensorVec, Vector};
 use crate::math::test::{TestError, assert_eq, assert_eq_from_fd};
 
 fn vector_dim_6() -> Vector {
-    Vector::new(
-        &[2.0, 1.0, 3.0, 2.0, 1.0, 3.0],
-    )
+    Vector::new(&[2.0, 1.0, 3.0, 2.0, 1.0, 3.0])
 }
 
 fn vector_dim_9() -> Vector {
-    Vector::new(
-        &[2.0, 1.0, 3.0, 2.0, 1.0, 3.0, 1.0, 2.0, 3.0],
-    )
+    Vector::new(&[2.0, 1.0, 3.0, 2.0, 1.0, 3.0, 1.0, 2.0, 3.0])
 }
 
 fn matrix_dim_6_9() -> Matrix {
@@ -21,7 +17,9 @@ fn matrix_dim_6_9() -> Matrix {
         Vector::new(&[4.0, 4.0, 0.0, 2.0, 1.0, 1.0, 0.0, 0.0, 4.0]),
         Vector::new(&[0.0, 1.0, 0.0, 1.0, 1.0, 3.0, 0.0, 1.0, 1.0]),
         Vector::new(&[4.0, 2.0, 3.0, 4.0, 2.0, 4.0, 3.0, 0.0, 4.0]),
-    ].into_iter().collect()
+    ]
+    .into_iter()
+    .collect()
 }
 
 fn square_matrix_dim_9() -> SquareMatrix {
@@ -53,16 +51,21 @@ fn other_square_matrix_dim_9() -> SquareMatrix {
 }
 
 fn get_vector_mul_matrix_dim_6_9() -> Vector {
-    Vector::new(
-        &[33.0, 22.0, 21.0, 23.0,  9.0, 29.0, 27.0, 21.0, 34.0],
-    )
+    Vector::new(&[33.0, 22.0, 21.0, 23.0, 9.0, 29.0, 27.0, 21.0, 34.0])
 }
 
 fn get_vector_div_square_matrix_dim_9() -> Vector {
-    Vector::new(
-        &[1.88365304,  1.08715596,  0.69349458, -0.04587156, -0.68723937,
-        1.03085905, -0.40658882,  0.08715596, -2.53377815],
-    )
+    Vector::new(&[
+        1.88365304,
+        1.08715596,
+        0.69349458,
+        -0.04587156,
+        -0.68723937,
+        1.03085905,
+        -0.40658882,
+        0.08715596,
+        -2.53377815,
+    ])
 }
 
 fn get_square_matrix_mul_other_square_matrix_dim_9() -> SquareMatrix {
@@ -189,15 +192,6 @@ fn vector_mul_matrix_dim_6_9() -> Result<(), TestError> {
         &(&vector_dim_6() * &matrix_dim_6_9()),
         &get_vector_mul_matrix_dim_6_9(),
     )
-}
-
-#[test]
-fn asdfasdf() {
-    let (l, u) = square_matrix_dim_9().lu_decomposition_inverse();
-    println!("\nL: {}\n", l);
-    println!("\nU: {}\n", u);
-    println!("\nLU: {}\n", u * l);
-    println!("\ninv: {}\n", square_matrix_dim_9().inverse());
 }
 
 #[test]

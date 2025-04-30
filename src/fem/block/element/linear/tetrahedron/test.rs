@@ -103,37 +103,5 @@ fn get_velocities_block() -> NodalVelocitiesBlock {
 
 const TEST_SOLVE: bool = true;
 
-fn get_dirichlet_places<'a>() -> Vec<usize> {
-    todo!()
-    // [
-    //     &[0, 0],
-    //     &[1, 0],
-    //     &[2, 0],
-    //     &[3, 0],
-    //     &[4, 0],
-    //     &[5, 0],
-    //     &[6, 0],
-    //     &[7, 0],
-    //     &[11, 0],
-    //     &[13, 0],
-    // ]
-}
-
-fn get_dirichlet_values(x: Scalar) -> Vec<Scalar> {
-    todo!()
-    // [
-    //     0.5 + x,
-    //     0.5 + x,
-    //     -0.5,
-    //     -0.5,
-    //     0.5 + x,
-    //     0.5 + x,
-    //     -0.5,
-    //     -0.5,
-    //     -0.5,
-    //     0.5 + x,
-    // ]
-}
-
 test_finite_element!(Tetrahedron);
 test_finite_element_block!(Tetrahedron);

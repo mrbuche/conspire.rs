@@ -2,12 +2,10 @@
 use crate::math::test::ErrorTensor;
 
 use crate::math::{
-    Matrix, Rank2, SquareMatrix, Tensor, TensorRank0, TensorRank1Vec, TensorVec,
-    write_tensor_rank_0,
+    Matrix, SquareMatrix, Tensor, TensorRank0, TensorRank1Vec, TensorVec, write_tensor_rank_0,
 };
 use std::{
     fmt::{Display, Formatter, Result},
-    iter::Sum,
     ops::{
         Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, RangeFrom, RangeTo, Sub,
         SubAssign,
@@ -368,6 +366,7 @@ impl SubAssign<&[TensorRank0]> for Vector {
     }
 }
 
+#[allow(clippy::suspicious_arithmetic_impl)]
 impl Div<SquareMatrix> for Vector {
     type Output = Vector;
     fn div(self, square_matrix: SquareMatrix) -> Self::Output {
@@ -375,6 +374,7 @@ impl Div<SquareMatrix> for Vector {
     }
 }
 
+#[allow(clippy::suspicious_arithmetic_impl)]
 impl Div<&SquareMatrix> for &Vector {
     type Output = Vector;
     fn div(self, square_matrix: &SquareMatrix) -> Self::Output {

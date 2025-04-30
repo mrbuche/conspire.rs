@@ -11,7 +11,7 @@ use std::{
 };
 
 use super::{
-    Hessian, Rank2, SquareMatrix, Tensor, TensorArray, TensorVec, Vector,
+    Hessian, Rank2, SquareMatrix, Tensor, TensorArray, Vector,
     rank_0::TensorRank0,
     rank_1::TensorRank1,
     rank_2::TensorRank2,
@@ -199,21 +199,6 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
     TensorRank4<D, I, J, K, L>
 {
-    pub fn as_tensor_rank_2(&self) -> TensorRank2<9, 88, 99> {
-        assert_eq!(D, 3);
-        let mut tensor_rank_2 = TensorRank2::<9, 88, 99>::zero();
-        self.iter().enumerate().for_each(|(i, self_i)| {
-            self_i.iter().enumerate().for_each(|(j, self_ij)| {
-                self_ij.iter().enumerate().for_each(|(k, self_ijk)| {
-                    self_ijk
-                        .iter()
-                        .enumerate()
-                        .for_each(|(l, self_ijkl)| tensor_rank_2[D * i + j][D * k + l] = *self_ijkl)
-                })
-            })
-        });
-        tensor_rank_2
-    }
     pub fn dyad_ij_kl(
         tensor_rank_2_a: &TensorRank2<D, I, J>,
         tensor_rank_2_b: &TensorRank2<D, K, L>,
@@ -289,27 +274,9 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
             })
         })
     }
-    fn into_matrix(self) -> SquareMatrix {
-        //
-        // can you use into_iter and flatten for this?
-        // is it faster?
-        // also might want to use From<> instead?
-        //
-        let mut matrix = SquareMatrix::zero(D * D);
-        self.iter().enumerate().for_each(|(i, self_i)| {
-            self_i.iter().enumerate().for_each(|(j, self_ij)| {
-                self_ij.iter().enumerate().for_each(|(k, self_ijk)| {
-                    self_ijk
-                        .iter()
-                        .enumerate()
-                        .for_each(|(l, self_ijkl)| matrix[D * i + j][D * k + l] = *self_ijkl)
-                })
-            })
-        });
-        matrix
-    }
     fn is_positive_definite(&self) -> bool {
-        self.as_tensor_rank_2().cholesky_decomposition().is_ok()
+        let tensor_rank_2: TensorRank2<9, 88, 99> = self.into();
+        tensor_rank_2.cholesky_decomposition().is_ok()
     }
 }
 
