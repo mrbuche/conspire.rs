@@ -396,9 +396,7 @@ where
         Ok(optimization
             .minimize_constrained(
                 |nodal_coordinates: &Vector| {
-                    Ok(self
-                        .helmholtz_free_energy(&nodal_coordinates.into())?
-                        .into())
+                    Ok(self.helmholtz_free_energy(&nodal_coordinates.into())?)
                 },
                 |nodal_coordinates: &Vector| {
                     Ok(self.nodal_forces(&nodal_coordinates.into())?.into())

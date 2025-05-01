@@ -6,7 +6,7 @@ use super::test::ErrorTensor;
 
 pub mod list;
 
-use super::{Hessian, SquareMatrix, Tensor, TensorArray, TensorVec, Vector};
+use super::{Hessian, Jacobian, SquareMatrix, Tensor, TensorArray, TensorVec, Vector};
 
 /// A tensor of rank 0 (a scalar).
 pub type TensorRank0 = f64;
@@ -31,6 +31,24 @@ impl ErrorTensor for TensorRank0 {
         } else {
             None
         }
+    }
+}
+
+impl Jacobian for TensorRank0 {
+    fn decrement_from_chained(&mut self, _jacobian: &mut Self, _vector: Vector) {
+        panic!()
+    }
+    fn fill_from(&mut self, _vector: Vector) {
+        panic!()
+    }
+    fn fill_into(self, _vector: &mut Vector) {
+        panic!()
+    }
+    fn fill_into_chained(self, _jacobian: Self, _vector: &mut Vector) {
+        panic!()
+    }
+    fn fill_into_offset(self, _vector: &mut Vector, _offset: usize) {
+        panic!()
     }
 }
 

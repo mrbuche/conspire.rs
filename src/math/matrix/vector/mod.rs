@@ -2,7 +2,8 @@
 use crate::math::test::ErrorTensor;
 
 use crate::math::{
-    Matrix, SquareMatrix, Tensor, TensorRank0, TensorRank1Vec, TensorVec, write_tensor_rank_0,
+    Jacobian, Matrix, SquareMatrix, Tensor, TensorRank0, TensorRank1Vec, TensorVec,
+    write_tensor_rank_0,
 };
 use std::{
     fmt::{Display, Formatter, Result},
@@ -156,6 +157,36 @@ impl Tensor for Vector {
     }
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
+    }
+}
+
+impl Jacobian for Vector {
+    fn decrement_from_chained(&mut self, jacobian: &mut Self, vector: Vector) {
+        self.iter_mut()
+            .chain(jacobian.iter_mut())
+            .zip(vector)
+            .for_each(|(entry_i, vector_i)| *entry_i -= vector_i)
+    }
+    fn fill_from(&mut self, vector: Vector) {
+        self.iter_mut()
+            .zip(vector)
+            .for_each(|(self_i, vector_i)| *self_i = vector_i)
+    }
+    fn fill_into(self, vector: &mut Vector) {
+        self.into_iter()
+            .zip(vector.iter_mut())
+            .for_each(|(self_i, vector_i)| *vector_i = self_i)
+    }
+    fn fill_into_chained(self, jacobian: Self, vector: &mut Vector) {
+        self.into_iter()
+            .chain(jacobian)
+            .zip(vector.iter_mut())
+            .for_each(|(entry_i, vector_i)| *vector_i = entry_i)
+    }
+    fn fill_into_offset(self, vector: &mut Vector, offset: usize) {
+        self.into_iter()
+            .zip(vector.iter_mut().skip(offset))
+            .for_each(|(self_i, vector_i)| *vector_i = self_i)
     }
 }
 

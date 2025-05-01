@@ -5,7 +5,7 @@ mod constraint;
 mod gradient_descent;
 mod newton_raphson;
 
-use super::{Hessian, SquareMatrix, Tensor, TensorRank0, Vector};
+use super::{Hessian, Jacobian, SquareMatrix, Tensor, TensorRank0, Vector};
 use crate::defeat_message;
 use std::{fmt, ops::Div};
 
@@ -81,7 +81,7 @@ pub trait SecondOrderOptimization {
     ) -> Result<X, OptimizeError>
     where
         H: Hessian,
-        J: Div<H, Output = X> + Tensor,
+        J: Jacobian + Div<H, Output = X>,
         X: Tensor;
     fn minimize_constrained(
         &self,

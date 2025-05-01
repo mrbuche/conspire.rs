@@ -36,8 +36,16 @@ pub trait Jacobian
 where
     Self: Tensor,
 {
-    /// Fills the Jacobian components into a vector.
+    /// Decrements the Jacobian chained with another from a vector.
+    fn decrement_from_chained(&mut self, jacobian: &mut Self, vector: Vector);
+    /// Fills the Jacobian from a vector.
+    fn fill_from(&mut self, vector: Vector);
+    /// Fills the Jacobian into a vector.
     fn fill_into(self, vector: &mut Vector);
+    /// Fills the Jacobian chained with another into a vector.
+    fn fill_into_chained(self, jacobian: Self, vector: &mut Vector);
+    /// Fills the Jacobian into a vector with an offset.
+    fn fill_into_offset(self, vector: &mut Vector, offset: usize);
 }
 
 /// Common methods for Hessians.
@@ -45,7 +53,7 @@ pub trait Hessian
 where
     Self: Tensor,
 {
-    /// Fills the Hessian components into a square matrix.
+    /// Fills the Hessian into a square matrix.
     fn fill_into(self, square_matrix: &mut SquareMatrix);
     /// Checks whether the Hessian is positive-definite.
     fn is_positive_definite(&self) -> bool;

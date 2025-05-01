@@ -2,7 +2,7 @@
 mod test;
 
 use super::{
-    super::{Hessian, SquareMatrix, Tensor, TensorRank0, TensorVec, Vector},
+    super::{Hessian, Jacobian, SquareMatrix, Tensor, TensorRank0, TensorVec, Vector},
     EqualityConstraint, FirstOrderRootFinding, OptimizeError, SecondOrderOptimization,
 };
 use crate::ABS_TOL;
@@ -155,7 +155,6 @@ impl FirstOrderRootFinding for NewtonRaphson {
                 let num_variables = initial_guess.len();
                 let num_constraints = constraint_rhs.len();
                 let num_total = num_variables + num_constraints;
-                let mut increment;
                 let mut multipliers = Vector::ones(num_constraints);
                 let mut residual = Vector::zero(num_total);
                 let mut solution = initial_guess;
@@ -172,37 +171,15 @@ impl FirstOrderRootFinding for NewtonRaphson {
                         )
                     });
                 for _ in 0..self.max_steps {
-                    (function(&solution)? - &multipliers * &constraint_matrix)
-                        .iter()
-                        .zip(residual.iter_mut())
-                        .for_each(|(&function_i, residual_i)| *residual_i = function_i);
-                    (&constraint_rhs - &constraint_matrix * &solution)
-                        .iter()
-                        .zip(residual.iter_mut().skip(num_variables))
-                        .for_each(|(&satisfaction_i, residual_i)| *residual_i = satisfaction_i);
-                    jacobian(&solution)?
-                        .iter()
-                        .zip(tangent.iter_mut())
-                        .for_each(|(jacobian_i, tangent_i)| {
-                            jacobian_i
-                                .iter()
-                                .zip(tangent_i.iter_mut())
-                                .for_each(|(jacobian_ij, tangent_ij)| *tangent_ij = *jacobian_ij)
-                        });
+                    (function(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
+                        &constraint_rhs - &constraint_matrix * &solution,
+                        &mut residual,
+                    );
+                    jacobian(&solution)?.fill_into(&mut tangent);
                     if residual.norm() < self.abs_tol {
                         return Ok(solution);
                     } else {
-                        increment = &residual / &tangent;
-                        solution
-                            .iter_mut()
-                            .zip(increment.iter())
-                            .for_each(|(solution_i, &increment_i)| *solution_i -= increment_i);
-                        multipliers
-                            .iter_mut()
-                            .zip(increment.iter().skip(num_variables))
-                            .for_each(|(multipliers_i, &increment_i)| {
-                                *multipliers_i -= increment_i
-                            });
+                        solution.decrement_from_chained(&mut multipliers, &residual / &tangent)
                     }
                 }
                 Err(OptimizeError::MaximumStepsReached(
@@ -267,7 +244,7 @@ impl SecondOrderOptimization for NewtonRaphson {
                 let num_variables = initial_guess.len();
                 let num_constraints = constraint_rhs.len();
                 let num_total = num_variables + num_constraints;
-                let mut increment;
+                // let mut increment;
                 let mut multipliers = Vector::ones(num_constraints);
                 let mut residual = Vector::zero(num_total);
                 let mut solution = initial_guess;
@@ -284,14 +261,14 @@ impl SecondOrderOptimization for NewtonRaphson {
                         )
                     });
                 for _ in 0..self.max_steps {
-                    (jacobian(&solution)? - &multipliers * &constraint_matrix)
-                        .iter()
-                        .zip(residual.iter_mut())
-                        .for_each(|(&entry_i, residual_i)| *residual_i = entry_i);
-                    (&constraint_rhs - &constraint_matrix * &solution)
-                        .iter()
-                        .zip(residual.iter_mut().skip(num_variables))
-                        .for_each(|(&satisfaction_i, residual_i)| *residual_i = satisfaction_i);
+                    // (jacobian(&solution)? - &multipliers * &constraint_matrix)
+                    //     .fill_into(&mut residual);
+                    // (&constraint_rhs - &constraint_matrix * &solution)
+                    //     .fill_into_offset(&mut residual, num_variables);
+                    (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
+                        &constraint_rhs - &constraint_matrix * &solution,
+                        &mut residual,
+                    );
                     hessian(&solution)?.fill_into(&mut tangent);
                     if residual.norm() < self.abs_tol {
                         if self.check_minimum && !tangent.is_positive_definite() {
@@ -307,17 +284,7 @@ impl SecondOrderOptimization for NewtonRaphson {
                             return Ok(solution);
                         }
                     } else {
-                        increment = &residual / &tangent;
-                        solution
-                            .iter_mut()
-                            .zip(increment.iter())
-                            .for_each(|(solution_i, &increment_i)| *solution_i -= increment_i);
-                        multipliers
-                            .iter_mut()
-                            .zip(increment.iter().skip(num_variables))
-                            .for_each(|(multipliers_i, &increment_i)| {
-                                *multipliers_i -= increment_i
-                            });
+                        solution.decrement_from_chained(&mut multipliers, &residual / &tangent)
                     }
                 }
                 Err(OptimizeError::MaximumStepsReached(

@@ -192,19 +192,13 @@ impl IndexMut<usize> for SquareMatrix {
 
 impl Hessian for SquareMatrix {
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
-        // self.into_iter().enumerate().for_each(|(i, self_i)| {
-        //     self_i
-        //         .into_iter()
-        //         .enumerate()
-        //         .for_each(|(j, self_ij)| square_matrix[i][j] = self_ij)
-        // })
-        self.iter()
+        self.into_iter()
             .zip(square_matrix.iter_mut())
             .for_each(|(self_i, square_matrix_i)| {
                 self_i
-                    .iter()
+                    .into_iter()
                     .zip(square_matrix_i.iter_mut())
-                    .for_each(|(self_ij, square_matrix_ij)| *square_matrix_ij = *self_ij)
+                    .for_each(|(self_ij, square_matrix_ij)| *square_matrix_ij = self_ij)
             });
     }
     fn is_positive_definite(&self) -> bool {
