@@ -37,7 +37,7 @@ where
     J: Hessian,
     X: Solution,
     Vector: From<X>,
-    for<'a> &'a Matrix: Mul<&'a X, Output = Vector>, // temporary until A replaced by sparse representation and similar implementation
+    for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     fn root(
         &self,
@@ -107,7 +107,7 @@ where
     J: Jacobian + Div<H, Output = X>,
     X: Solution,
     Vector: From<X>,
-    for<'a> &'a Matrix: Mul<&'a X, Output = Vector>, // temporary until A replaced by sparse representation and similar implementation
+    for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     fn minimize(
         &self,

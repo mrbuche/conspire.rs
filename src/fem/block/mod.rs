@@ -9,12 +9,9 @@ use self::element::{
     ViscoelasticFiniteElement,
 };
 use super::*;
-use crate::math::{
-    Matrix, Vector,
-    optimize::{
-        EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError,
-        SecondOrderOptimization,
-    },
+use crate::math::optimize::{
+    EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError,
+    SecondOrderOptimization,
 };
 use std::array::from_fn;
 
@@ -185,6 +182,7 @@ where
         &self,
         initial_coordinates: NodalCoordinatesBlock,
         root_finding: NewtonRaphson,
+        equality_constraint: EqualityConstraint,
     ) -> Result<NodalCoordinatesBlock, OptimizeError>;
 }
 
@@ -202,6 +200,7 @@ where
         &self,
         initial_coordinates: NodalCoordinatesBlock,
         optimization: NewtonRaphson,
+        equality_constraint: EqualityConstraint,
     ) -> Result<NodalCoordinatesBlock, OptimizeError>;
 }
 
@@ -255,41 +254,6 @@ where
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<Scalar, ConstitutiveError>;
-}
-
-macro_rules! temporary_setup {
-    () => {{
-        let mut a = Matrix::zero(13, 42);
-        a[0][0] = 1.0;
-        a[1][3] = 1.0;
-        a[2][12] = 1.0;
-        a[3][15] = 1.0;
-        a[4][39] = 1.0;
-        a[5][6] = 1.0;
-        a[6][9] = 1.0;
-        a[7][18] = 1.0;
-        a[8][21] = 1.0;
-        a[9][33] = 1.0;
-        a[10][19] = 1.0;
-        a[11][20] = 1.0;
-        a[12][23] = 1.0;
-        let mut b = Vector::zero(13);
-        let e = 0.88;
-        b[0] = 0.5 + e;
-        b[1] = 0.5 + e;
-        b[2] = 0.5 + e;
-        b[3] = 0.5 + e;
-        b[4] = 0.5 + e;
-        b[5] = -0.5;
-        b[6] = -0.5;
-        b[7] = -0.5;
-        b[8] = -0.5;
-        b[9] = -0.5;
-        b[10] = -0.5;
-        b[11] = -0.5;
-        b[12] = -0.5;
-        (a, b)
-    }};
 }
 
 impl<C, F, const G: usize, const N: usize> ElasticFiniteElementBlock<C, F, G, N>
@@ -349,15 +313,15 @@ where
         &self,
         initial_coordinates: NodalCoordinatesBlock,
         root_finding: NewtonRaphson,
+        equality_constraint: EqualityConstraint,
     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
-        let (a, b) = temporary_setup!();
         root_finding.root(
             |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
             |nodal_coordinates: &NodalCoordinatesBlock| {
                 Ok(self.nodal_stiffnesses(nodal_coordinates)?)
             },
             initial_coordinates,
-            EqualityConstraint::Linear(a, b),
+            equality_constraint,
         )
     }
 }
@@ -387,8 +351,8 @@ where
         &self,
         initial_coordinates: NodalCoordinatesBlock,
         optimization: NewtonRaphson,
+        equality_constraint: EqualityConstraint,
     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
-        let (a, b) = temporary_setup!();
         optimization.minimize(
             |nodal_coordinates: &NodalCoordinatesBlock| {
                 Ok(self.helmholtz_free_energy(nodal_coordinates)?)
@@ -398,7 +362,7 @@ where
                 Ok(self.nodal_stiffnesses(nodal_coordinates)?)
             },
             initial_coordinates,
-            EqualityConstraint::Linear(a, b),
+            equality_constraint,
         )
     }
 }

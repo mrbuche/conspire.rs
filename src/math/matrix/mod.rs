@@ -60,7 +60,6 @@ impl Mul<&Vector> for &Matrix {
     }
 }
 
-// temporary until A replaced by sparse representation and similar implementation
 impl Mul<&TensorRank0> for &Matrix {
     type Output = Vector;
     fn mul(self, _tensor_rank_0: &TensorRank0) -> Self::Output {
@@ -68,7 +67,6 @@ impl Mul<&TensorRank0> for &Matrix {
     }
 }
 
-// temporary until A replaced by sparse representation and similar implementation
 impl<const D: usize, const I: usize> Mul<&TensorRank1Vec<D, I>> for &Matrix {
     type Output = Vector;
     fn mul(self, tensor_rank_1_vec: &TensorRank1Vec<D, I>) -> Self::Output {
@@ -78,7 +76,6 @@ impl<const D: usize, const I: usize> Mul<&TensorRank1Vec<D, I>> for &Matrix {
     }
 }
 
-// temporary until A replaced by sparse representation and similar implementation
 impl<const D: usize, const I: usize, const J: usize> Mul<&TensorRank2<D, I, J>> for &Matrix {
     type Output = Vector;
     fn mul(self, tensor_rank_2: &TensorRank2<D, I, J>) -> Self::Output {

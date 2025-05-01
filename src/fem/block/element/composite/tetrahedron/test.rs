@@ -158,7 +158,9 @@ fn get_velocities_block() -> NodalVelocitiesBlock {
     ])
 }
 
-const TEST_SOLVE: bool = false;
+fn equality_constraint() -> (crate::math::Matrix, crate::math::Vector) {
+    panic!()
+}
 
 test_finite_element!(Tetrahedron);
 test_finite_element_block!(Tetrahedron);

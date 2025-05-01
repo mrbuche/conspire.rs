@@ -101,7 +101,38 @@ fn get_velocities_block() -> NodalVelocitiesBlock {
     ])
 }
 
-const TEST_SOLVE: bool = true;
+fn equality_constraint() -> (crate::math::Matrix, crate::math::Vector) {
+    let mut a = crate::math::Matrix::zero(13, 42);
+    a[0][0] = 1.0;
+    a[1][3] = 1.0;
+    a[2][12] = 1.0;
+    a[3][15] = 1.0;
+    a[4][39] = 1.0;
+    a[5][6] = 1.0;
+    a[6][9] = 1.0;
+    a[7][18] = 1.0;
+    a[8][21] = 1.0;
+    a[9][33] = 1.0;
+    a[10][19] = 1.0;
+    a[11][20] = 1.0;
+    a[12][23] = 1.0;
+    let mut b = crate::math::Vector::zero(13);
+    let e = 0.88;
+    b[0] = 0.5 + e;
+    b[1] = 0.5 + e;
+    b[2] = 0.5 + e;
+    b[3] = 0.5 + e;
+    b[4] = 0.5 + e;
+    b[5] = -0.5;
+    b[6] = -0.5;
+    b[7] = -0.5;
+    b[8] = -0.5;
+    b[9] = -0.5;
+    b[10] = -0.5;
+    b[11] = -0.5;
+    b[12] = -0.5;
+    (a, b)
+}
 
 test_finite_element!(Tetrahedron);
 test_finite_element_block!(Tetrahedron);

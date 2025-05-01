@@ -98,7 +98,9 @@ fn get_velocities_block() -> NodalVelocitiesBlock {
     ])
 }
 
-const TEST_SOLVE: bool = false;
+fn equality_constraint() -> (crate::math::Matrix, crate::math::Vector) {
+    panic!()
+}
 
 test_surface_finite_element!(Triangle);
 test_surface_finite_element_block!(Triangle);
