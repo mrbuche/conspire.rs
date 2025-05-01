@@ -26,7 +26,7 @@ mod almansi_hamel;
 pub use almansi_hamel::AlmansiHamel;
 
 use super::{super::fluid::viscous::Viscous, viscoelastic::Viscoelastic, *};
-use crate::math::optimize::{FirstOrderRootFinding, NewtonRaphson};
+use crate::math::optimize::{EqualityConstraint, FirstOrderRootFinding, NewtonRaphson};
 use std::fmt::Debug;
 
 /// Required methods for elastic-hyperviscous constitutive models.
@@ -110,6 +110,7 @@ where
                     ) * time_step)
             },
             IDENTITY_10,
+            EqualityConstraint::None,
         )?;
         let (_, cauchy_stress) =
             self.solve_uniaxial_inner_inner(&deformation_gradient, &deformation_gradient_rate_11)?;
@@ -146,6 +147,7 @@ where
                 )?[2][2][2][2])
             },
             -deformation_gradient_rate_11 / deformation_gradient[0][0].powf(1.5),
+            EqualityConstraint::None,
         )?;
         let deformation_gradient_rate = DeformationGradientRate::new([
             [*deformation_gradient_rate_11, 0.0, 0.0],

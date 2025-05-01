@@ -5,9 +5,9 @@ mod constraint;
 mod gradient_descent;
 mod newton_raphson;
 
-use super::{SquareMatrix, Tensor, TensorRank0, Vector};
+use super::Tensor;
 use crate::defeat_message;
-use std::{fmt, ops::Div};
+use std::fmt::{self, Debug, Display, Formatter};
 
 pub use constraint::EqualityConstraint;
 pub use gradient_descent::GradientDescent;
@@ -16,7 +16,7 @@ pub use newton_raphson::NewtonRaphson;
 /// Dirichlet boundary conditions.
 pub struct Dirichlet {
     pub places: Vec<usize>,
-    pub values: Vec<TensorRank0>,
+    pub values: Vec<super::TensorRank0>,
 }
 
 /// Zeroth-order root-finding algorithms.
@@ -38,23 +38,14 @@ where
 }
 
 /// First-order root-finding algorithms.
-pub trait FirstOrderRootFinding {
-    fn root<F, J, X>(
+pub trait FirstOrderRootFinding<F, J, X> {
+    fn root(
         &self,
         function: impl Fn(&X) -> Result<F, OptimizeError>,
         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
         initial_guess: X,
-    ) -> Result<X, OptimizeError>
-    where
-        F: Div<J, Output = X> + Tensor,
-        X: Tensor;
-    fn solve(
-        &self,
-        function: impl Fn(&Vector) -> Result<Vector, OptimizeError>,
-        jacobian: impl Fn(&Vector) -> Result<SquareMatrix, OptimizeError>,
-        initial_guess: Vector,
         equality_constraint: EqualityConstraint,
-    ) -> Result<Vector, OptimizeError>;
+    ) -> Result<X, OptimizeError>;
 }
 
 /// First-order optimization algorithms.
@@ -92,8 +83,8 @@ pub enum OptimizeError {
     NotMinimum(String, String),
 }
 
-impl fmt::Debug for OptimizeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Debug for OptimizeError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
             Self::MaximumStepsReached(steps, optimizer) => {
                 format!(
@@ -115,8 +106,8 @@ impl fmt::Debug for OptimizeError {
     }
 }
 
-impl fmt::Display for OptimizeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for OptimizeError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
             Self::MaximumStepsReached(steps, optimizer) => {
                 format!(

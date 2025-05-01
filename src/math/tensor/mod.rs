@@ -45,14 +45,10 @@ pub trait Jacobian
 where
     Self: Tensor + Sub<Vector, Output = Self>,
 {
-    /// Fills the Jacobian from a vector.
-    fn fill_from(&mut self, vector: Vector);
     /// Fills the Jacobian into a vector.
     fn fill_into(self, vector: &mut Vector);
     /// Fills the Jacobian chained with a vector into another vector.
     fn fill_into_chained(self, other: Vector, vector: &mut Vector);
-    /// Fills the Jacobian into a vector with an offset.
-    fn fill_into_offset(self, vector: &mut Vector, offset: usize);
 }
 
 /// Common methods for Hessians.

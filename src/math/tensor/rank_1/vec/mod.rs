@@ -263,9 +263,6 @@ impl<const D: usize, const I: usize> Solution for TensorRank1Vec<D, I> {
 }
 
 impl<const D: usize, const I: usize> Jacobian for TensorRank1Vec<D, I> {
-    fn fill_from(&mut self, _vector: Vector) {
-        panic!()
-    }
     fn fill_into(self, vector: &mut Vector) {
         self.into_iter()
             .flatten()
@@ -275,12 +272,9 @@ impl<const D: usize, const I: usize> Jacobian for TensorRank1Vec<D, I> {
     fn fill_into_chained(self, other: Vector, vector: &mut Vector) {
         self.into_iter()
             .flatten()
-            .chain(other.into_iter())
+            .chain(other)
             .zip(vector.iter_mut())
             .for_each(|(self_i, vector_i)| *vector_i = self_i)
-    }
-    fn fill_into_offset(self, _vector: &mut Vector, _offset: usize) {
-        panic!()
     }
 }
 

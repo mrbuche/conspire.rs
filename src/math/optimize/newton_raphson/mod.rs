@@ -29,44 +29,23 @@ impl Default for NewtonRaphson {
     }
 }
 
-impl FirstOrderRootFinding for NewtonRaphson {
-    fn root<F, J, X>(
+impl<F, J, X> FirstOrderRootFinding<F, J, X> for NewtonRaphson
+where
+    F: Jacobian + Div<J, Output = X>,
+    J: Hessian,
+    X: Solution,
+    Vector: From<X>,
+{
+    fn root(
         &self,
         function: impl Fn(&X) -> Result<F, OptimizeError>,
         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
         initial_guess: X,
-    ) -> Result<X, OptimizeError>
-    where
-        F: Div<J, Output = X> + Tensor,
-        X: Tensor,
-    {
-        let mut residual;
-        let mut solution = initial_guess;
-        let mut tangent;
-        for _ in 0..self.max_steps {
-            residual = function(&solution)?;
-            tangent = jacobian(&solution)?;
-            if residual.norm() < self.abs_tol {
-                return Ok(solution);
-            } else {
-                solution -= residual / tangent;
-            }
-        }
-        Err(OptimizeError::MaximumStepsReached(
-            self.max_steps,
-            format!("{:?}", &self),
-        ))
-    }
-    fn solve(
-        &self,
-        function: impl Fn(&Vector) -> Result<Vector, OptimizeError>,
-        jacobian: impl Fn(&Vector) -> Result<SquareMatrix, OptimizeError>,
-        initial_guess: Vector,
         equality_constraint: EqualityConstraint,
-    ) -> Result<Vector, OptimizeError> {
+    ) -> Result<X, OptimizeError> {
         match equality_constraint {
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
-                let num_variables = initial_guess.len();
+                let num_variables = initial_guess.num_entries();
                 let num_constraints = constraint_rhs.len();
                 let num_total = num_variables + num_constraints;
                 let mut multipliers = Vector::ones(num_constraints);
@@ -86,7 +65,7 @@ impl FirstOrderRootFinding for NewtonRaphson {
                     });
                 for _ in 0..self.max_steps {
                     (function(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
-                        &constraint_rhs - &constraint_matrix * &solution,
+                        &constraint_rhs - &constraint_matrix * Vector::from(solution.clone()), // from() and clone() are temporary?
                         &mut residual,
                     );
                     jacobian(&solution)?.fill_into(&mut tangent);
@@ -96,13 +75,26 @@ impl FirstOrderRootFinding for NewtonRaphson {
                         solution.decrement_from_chained(&mut multipliers, &residual / &tangent)
                     }
                 }
-                Err(OptimizeError::MaximumStepsReached(
-                    self.max_steps,
-                    format!("{:?}", &self),
-                ))
             }
-            EqualityConstraint::None => self.root(function, jacobian, initial_guess),
+            EqualityConstraint::None => {
+                let mut residual;
+                let mut solution = initial_guess;
+                let mut tangent;
+                for _ in 0..self.max_steps {
+                    residual = function(&solution)?;
+                    tangent = jacobian(&solution)?;
+                    if residual.norm() < self.abs_tol {
+                        return Ok(solution);
+                    } else {
+                        solution -= residual / tangent;
+                    }
+                }
+            }
         }
+        Err(OptimizeError::MaximumStepsReached(
+            self.max_steps,
+            format!("{:?}", &self),
+        ))
     }
 }
 
@@ -115,7 +107,7 @@ where
 {
     fn minimize(
         &self,
-        function: impl Fn(&X) -> Result<F, OptimizeError>,
+        _function: impl Fn(&X) -> Result<F, OptimizeError>,
         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
         hessian: impl Fn(&X) -> Result<H, OptimizeError>,
         initial_guess: X,
@@ -128,7 +120,7 @@ where
                 let num_total = num_variables + num_constraints;
                 let mut multipliers = Vector::ones(num_constraints);
                 let mut residual = Vector::zero(num_total);
-                let mut solution = initial_guess.into();
+                let mut solution = initial_guess;
                 let mut tangent = SquareMatrix::zero(num_total);
                 constraint_matrix
                     .iter()
@@ -166,12 +158,10 @@ where
                 }
             }
             EqualityConstraint::None => {
-                let mut potential;
                 let mut residual;
                 let mut solution = initial_guess;
                 let mut tangent;
                 for _ in 0..self.max_steps {
-                    potential = function(&solution)?;
                     residual = jacobian(&solution)?;
                     tangent = hessian(&solution)?;
                     if residual.norm() < self.abs_tol {

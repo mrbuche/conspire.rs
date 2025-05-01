@@ -2,8 +2,8 @@
 use crate::math::test::ErrorTensor;
 
 use crate::math::{
-    Jacobian, Matrix, Solution, SquareMatrix, Tensor, TensorRank0, TensorRank1Vec, TensorVec,
-    write_tensor_rank_0,
+    Jacobian, Matrix, Solution, SquareMatrix, Tensor, TensorRank0, TensorRank1Vec, TensorRank2,
+    TensorVec, write_tensor_rank_0,
 };
 use std::{
     fmt::{Display, Formatter, Result},
@@ -117,6 +117,12 @@ impl<const D: usize, const I: usize> From<TensorRank1Vec<D, I>> for Vector {
     }
 }
 
+impl<const D: usize, const I: usize, const J: usize> From<TensorRank2<D, I, J>> for Vector {
+    fn from(tensor_rank_2: TensorRank2<D, I, J>) -> Self {
+        tensor_rank_2.into_iter().flatten().collect()
+    }
+}
+
 impl FromIterator<TensorRank0> for Vector {
     fn from_iter<Ii: IntoIterator<Item = TensorRank0>>(into_iterator: Ii) -> Self {
         Self(Vec::from_iter(into_iterator))
@@ -161,20 +167,15 @@ impl Tensor for Vector {
 }
 
 impl Solution for Vector {
-    fn decrement_from_chained(&mut self, jacobian: &mut Self, vector: Vector) {
+    fn decrement_from_chained(&mut self, other: &mut Self, vector: Vector) {
         self.iter_mut()
-            .chain(jacobian.iter_mut())
+            .chain(other.iter_mut())
             .zip(vector)
             .for_each(|(entry_i, vector_i)| *entry_i -= vector_i)
     }
 }
 
 impl Jacobian for Vector {
-    fn fill_from(&mut self, vector: Vector) {
-        self.iter_mut()
-            .zip(vector)
-            .for_each(|(self_i, vector_i)| *self_i = vector_i)
-    }
     fn fill_into(self, vector: &mut Vector) {
         self.into_iter()
             .zip(vector.iter_mut())
@@ -185,11 +186,6 @@ impl Jacobian for Vector {
             .chain(other)
             .zip(vector.iter_mut())
             .for_each(|(entry_i, vector_i)| *vector_i = entry_i)
-    }
-    fn fill_into_offset(self, vector: &mut Vector, offset: usize) {
-        self.into_iter()
-            .zip(vector.iter_mut().skip(offset))
-            .for_each(|(self_i, vector_i)| *vector_i = self_i)
     }
 }
 

@@ -3,9 +3,12 @@ mod test;
 
 use super::{
     super::{
-        Hessian, Tensor, TensorArray, TensorRank0, TensorVec, Vector,
+        Hessian, Jacobian, Solution, Tensor, TensorArray, TensorRank0, TensorVec, Vector,
         interpolate::InterpolateSolution,
-        optimize::{FirstOrderRootFinding, NewtonRaphson, Optimization, ZerothOrderRootFinding},
+        optimize::{
+            EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, Optimization,
+            ZerothOrderRootFinding,
+        },
     },
     Implicit, IntegrationError,
 };
@@ -34,10 +37,11 @@ impl Default for BackwardEuler {
 impl<Y, J, U> Implicit<Y, J, U> for BackwardEuler
 where
     Self: InterpolateSolution<Y, U>,
-    Y: Tensor + TensorArray + Div<J, Output = Y>,
+    Y: Jacobian + Solution + TensorArray + Div<J, Output = Y>,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
     J: Hessian + Tensor + TensorArray,
     U: TensorVec<Item = Y>,
+    Vector: From<Y>,
 {
     fn integrate(
         &self,
@@ -77,6 +81,7 @@ where
                         |y_trial: &Y| Ok(y_trial - &y - &(&function(&t_trial, y_trial) * dt)),
                         |y_trial: &Y| Ok(jacobian(&t_trial, y_trial) * -dt + &identity),
                         y.clone(),
+                        EqualityConstraint::None,
                     )
                     .unwrap(),
             };
@@ -92,9 +97,10 @@ where
 
 impl<Y, U> InterpolateSolution<Y, U> for BackwardEuler
 where
-    Y: Tensor + TensorArray,
+    Y: Jacobian + Solution + TensorArray,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
+    Vector: From<Y>,
 {
     fn interpolate(
         &self,

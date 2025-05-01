@@ -18,7 +18,7 @@ use std::{
 
 use super::{
     super::write_tensor_rank_0,
-    Hessian, Rank2, SquareMatrix, Tensor, TensorArray, TensorError,
+    Hessian, Jacobian, Rank2, Solution, SquareMatrix, Tensor, TensorArray, TensorError, Vector,
     rank_0::TensorRank0,
     rank_1::{
         TensorRank1, list::TensorRank1List, tensor_rank_1, vec::TensorRank1Vec,
@@ -771,6 +771,45 @@ impl<const D: usize, const I: usize, const J: usize> TensorArray for TensorRank2
     }
     fn zero() -> Self {
         Self(from_fn(|_| Self::Item::zero()))
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> Solution for TensorRank2<D, I, J> {
+    fn decrement_from_chained(&mut self, other: &mut Vector, vector: Vector) {
+        self.iter_mut()
+            .flat_map(|x| x.iter_mut())
+            .chain(other.iter_mut())
+            .zip(vector)
+            .for_each(|(entry_i, vector_i)| *entry_i -= vector_i)
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> Jacobian for TensorRank2<D, I, J> {
+    fn fill_into(self, vector: &mut Vector) {
+        self.into_iter()
+            .flatten()
+            .zip(vector.iter_mut())
+            .for_each(|(self_i, vector_i)| *vector_i = self_i)
+    }
+    fn fill_into_chained(self, other: Vector, vector: &mut Vector) {
+        self.into_iter()
+            .flatten()
+            .chain(other)
+            .zip(vector.iter_mut())
+            .for_each(|(self_i, vector_i)| *vector_i = self_i)
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> Sub<Vector> for TensorRank2<D, I, J> {
+    type Output = Self;
+    fn sub(mut self, vector: Vector) -> Self::Output {
+        self.iter_mut().enumerate().for_each(|(i, self_i)| {
+            self_i
+                .iter_mut()
+                .enumerate()
+                .for_each(|(j, self_ij)| *self_ij -= vector[D * i + j])
+        });
+        self
     }
 }
 

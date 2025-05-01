@@ -42,16 +42,10 @@ impl Solution for TensorRank0 {
 }
 
 impl Jacobian for TensorRank0 {
-    fn fill_from(&mut self, _vector: Vector) {
-        panic!()
-    }
     fn fill_into(self, _vector: &mut Vector) {
         panic!()
     }
     fn fill_into_chained(self, _other: Vector, _vector: &mut Vector) {
-        panic!()
-    }
-    fn fill_into_offset(self, _vector: &mut Vector, _offset: usize) {
         panic!()
     }
 }

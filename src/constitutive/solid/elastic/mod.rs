@@ -12,7 +12,7 @@ mod almansi_hamel;
 pub use almansi_hamel::AlmansiHamel;
 
 use super::*;
-use crate::math::optimize::{FirstOrderRootFinding, NewtonRaphson};
+use crate::math::optimize::{EqualityConstraint, FirstOrderRootFinding, NewtonRaphson};
 
 /// Required methods for elastic constitutive models.
 pub trait Elastic
@@ -170,6 +170,7 @@ where
                         ]))?[2][2][2][2])
                     },
                     1.0 / deformation_gradient_11.sqrt(),
+                    EqualityConstraint::None,
                 )?;
                 DeformationGradient::new([
                     [deformation_gradient_11, 0.0, 0.0],
@@ -194,6 +195,7 @@ where
                         ]))?[2][2][2][2])
                     },
                     1.0 / deformation_gradient_11 / deformation_gradient_22,
+                    EqualityConstraint::None,
                 )?;
                 DeformationGradient::new([
                     [deformation_gradient_11, 0.0, 0.0],
