@@ -197,6 +197,10 @@ where
     H: Hessian,
     J: Jacobian + Div<H, Output = X>,
     X: Tensor,
+    //
+    // below is temp, should put into Jacobian trait bounds
+    //
+    Vector: From<X>
 {
     fn minimize(
         &self,
@@ -236,18 +240,18 @@ where
         function: impl Fn(&Vector) -> Result<F, OptimizeError>,
         jacobian: impl Fn(&Vector) -> Result<J, OptimizeError>,
         hessian: impl Fn(&Vector) -> Result<H, OptimizeError>,
-        initial_guess: Vector,
+        initial_guess: X,
         equality_constraint: EqualityConstraint,
     ) -> Result<Vector, OptimizeError> {
         match equality_constraint {
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
-                let num_variables = initial_guess.len();
+                let num_variables = initial_guess.num_entries();
                 let num_constraints = constraint_rhs.len();
                 let num_total = num_variables + num_constraints;
                 // let mut increment;
                 let mut multipliers = Vector::ones(num_constraints);
                 let mut residual = Vector::zero(num_total);
-                let mut solution = initial_guess;
+                let mut solution = initial_guess.into();
                 let mut tangent = SquareMatrix::zero(num_total);
                 constraint_matrix
                     .iter()

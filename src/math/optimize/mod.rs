@@ -76,6 +76,10 @@ where
     H: Hessian,
     J: Jacobian + Div<H, Output = X>,
     X: Tensor,
+    //
+    // below is temp, should put into Jacobian trait bounds
+    //
+    Vector: From<X>
 {
     fn minimize(
         &self,
@@ -89,7 +93,7 @@ where
         function: impl Fn(&Vector) -> Result<F, OptimizeError>,
         jacobian: impl Fn(&Vector) -> Result<J, OptimizeError>,
         hessian: impl Fn(&Vector) -> Result<H, OptimizeError>,
-        initial_guess: Vector,
+        initial_guess: X,
         equality_constraint: EqualityConstraint,
     ) -> Result<Vector, OptimizeError>;
 }

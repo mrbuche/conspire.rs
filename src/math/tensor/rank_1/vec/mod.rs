@@ -239,6 +239,9 @@ impl<const D: usize, const I: usize> Tensor for TensorRank1Vec<D, I> {
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
     }
+    fn num_entries(&self) -> usize {
+        D * self.len()
+    }
 }
 
 impl<const D: usize, const I: usize> Jacobian for TensorRank1Vec<D, I> {

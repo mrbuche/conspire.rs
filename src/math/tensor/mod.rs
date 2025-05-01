@@ -155,6 +155,10 @@ where
         let norm = self.norm();
         self / norm
     }
+    /// Returns the total number of entries.
+    fn num_entries(&self) -> usize {
+        panic!("will implement for all the others eventually")
+    }
 }
 
 /// Common methods for tensors derived from arrays.

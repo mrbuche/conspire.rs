@@ -404,7 +404,7 @@ where
                 |nodal_coordinates: &Vector| {
                     Ok(self.nodal_stiffnesses(&nodal_coordinates.into())?)
                 },
-                initial_coordinates.into(),
+                initial_coordinates,
                 EqualityConstraint::Linear(a, b),
             )?
             .into())
