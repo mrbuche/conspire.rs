@@ -2,8 +2,8 @@
 use super::super::test::ErrorTensor;
 
 use crate::math::{
-    Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank1Sparse, TensorRank2, TensorVec,
-    Vector, write_tensor_rank_0,
+    Jacobian, Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank1Sparse, TensorRank2, TensorVec,
+    Vector, write_tensor_rank_0, TensorRank2Vec2D
 };
 use std::{
     fmt::{Display, Formatter, Result},
@@ -238,6 +238,46 @@ impl<const D: usize, const I: usize> Tensor for TensorRank1Vec<D, I> {
     }
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
+    }
+}
+
+impl<const D: usize, const I: usize> Jacobian for TensorRank1Vec<D, I> {
+    fn decrement_from_chained(&mut self, _jacobian: &mut Self, _vector: Vector) {
+        panic!()
+    }
+    fn fill_from(&mut self, _vector: Vector) {
+        panic!()
+    }
+    fn fill_into(self, vector: &mut Vector) {
+        self.into_iter()
+            .flatten()
+            .zip(vector.iter_mut())
+            .for_each(|(self_i, vector_i)| *vector_i = self_i)
+    }
+    fn fill_into_chained(self, _jacobian: Self, _vector: &mut Vector) {
+        panic!()
+    }
+    fn fill_into_offset(self, _vector: &mut Vector, _offset: usize) {
+        panic!()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> Div<TensorRank2Vec2D<D, I, J>> for TensorRank1Vec<D, I> {
+    type Output = Self;
+    fn div(self, _tensor_rank_2_vec_2d: TensorRank2Vec2D<D, I, J>) -> Self::Output {
+        todo!()
+    }
+}
+
+impl<const D: usize, const I: usize> Sub<Vector> for TensorRank1Vec<D, I> {
+    type Output = Self;
+    fn sub(mut self, vector: Vector) -> Self::Output {
+        self.iter_mut().enumerate().for_each(|(a, self_a)|
+            self_a.iter_mut().enumerate().for_each(|(i, self_a_i)|
+                *self_a_i -= vector[D * a + i]
+            )
+        );
+        self
     }
 }
 

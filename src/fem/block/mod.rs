@@ -399,7 +399,7 @@ where
                     Ok(self.helmholtz_free_energy(&nodal_coordinates.into())?)
                 },
                 |nodal_coordinates: &Vector| {
-                    Ok(self.nodal_forces(&nodal_coordinates.into())?.into())
+                    Ok(self.nodal_forces(&nodal_coordinates.into())?)
                 },
                 |nodal_coordinates: &Vector| {
                     Ok(self.nodal_stiffnesses(&nodal_coordinates.into())?)

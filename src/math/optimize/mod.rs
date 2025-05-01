@@ -71,28 +71,27 @@ where
 }
 
 /// Second-order optimization algorithms.
-pub trait SecondOrderOptimization {
-    fn minimize<F, H, J, X>(
+pub trait SecondOrderOptimization<F, H, J, X>
+where
+    H: Hessian,
+    J: Jacobian + Div<H, Output = X>,
+    X: Tensor,
+{
+    fn minimize(
         &self,
         function: impl Fn(&X) -> Result<F, OptimizeError>,
         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
         hessian: impl Fn(&X) -> Result<H, OptimizeError>,
         initial_guess: X,
-    ) -> Result<X, OptimizeError>
-    where
-        H: Hessian,
-        J: Jacobian + Div<H, Output = X>,
-        X: Tensor;
-    fn minimize_constrained<H>(
+    ) -> Result<X, OptimizeError>;
+    fn minimize_constrained(
         &self,
-        function: impl Fn(&Vector) -> Result<TensorRank0, OptimizeError>,
-        jacobian: impl Fn(&Vector) -> Result<Vector, OptimizeError>,
+        function: impl Fn(&Vector) -> Result<F, OptimizeError>,
+        jacobian: impl Fn(&Vector) -> Result<J, OptimizeError>,
         hessian: impl Fn(&Vector) -> Result<H, OptimizeError>,
         initial_guess: Vector,
         equality_constraint: EqualityConstraint,
-    ) -> Result<Vector, OptimizeError>
-    where
-        H: Hessian;
+    ) -> Result<Vector, OptimizeError>;
 }
 
 /// Possible optimization algorithms.

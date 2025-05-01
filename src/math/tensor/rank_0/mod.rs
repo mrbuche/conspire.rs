@@ -7,6 +7,7 @@ use super::test::ErrorTensor;
 pub mod list;
 
 use super::{Hessian, Jacobian, SquareMatrix, Tensor, TensorArray, TensorVec, Vector};
+use std::ops::Sub;
 
 /// A tensor of rank 0 (a scalar).
 pub type TensorRank0 = f64;
@@ -48,6 +49,13 @@ impl Jacobian for TensorRank0 {
         panic!()
     }
     fn fill_into_offset(self, _vector: &mut Vector, _offset: usize) {
+        panic!()
+    }
+}
+
+impl Sub<Vector> for TensorRank0 {
+    type Output = Self;
+    fn sub(self, _vector: Vector) -> Self::Output {
         panic!()
     }
 }

@@ -192,19 +192,19 @@ impl FirstOrderRootFinding for NewtonRaphson {
     }
 }
 
-impl SecondOrderOptimization for NewtonRaphson {
-    fn minimize<F, H, J, X>(
+impl<F, H, J, X> SecondOrderOptimization<F, H, J, X> for NewtonRaphson
+where
+    H: Hessian,
+    J: Jacobian + Div<H, Output = X>,
+    X: Tensor,
+{
+    fn minimize(
         &self,
         _function: impl Fn(&X) -> Result<F, OptimizeError>,
         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
         hessian: impl Fn(&X) -> Result<H, OptimizeError>,
         initial_guess: X,
-    ) -> Result<X, OptimizeError>
-    where
-        H: Hessian,
-        J: Div<H, Output = X> + Tensor,
-        X: Tensor,
-    {
+    ) -> Result<X, OptimizeError> {
         // let mut potential;
         let mut residual;
         let mut solution = initial_guess;
@@ -231,17 +231,14 @@ impl SecondOrderOptimization for NewtonRaphson {
             format!("{:?}", &self),
         ))
     }
-    fn minimize_constrained<H>(
+    fn minimize_constrained(
         &self,
-        function: impl Fn(&Vector) -> Result<TensorRank0, OptimizeError>,
-        jacobian: impl Fn(&Vector) -> Result<Vector, OptimizeError>,
+        function: impl Fn(&Vector) -> Result<F, OptimizeError>,
+        jacobian: impl Fn(&Vector) -> Result<J, OptimizeError>,
         hessian: impl Fn(&Vector) -> Result<H, OptimizeError>,
         initial_guess: Vector,
         equality_constraint: EqualityConstraint,
-    ) -> Result<Vector, OptimizeError>
-    where
-        H: Hessian,
-    {
+    ) -> Result<Vector, OptimizeError> {
         match equality_constraint {
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
                 let num_variables = initial_guess.len();
@@ -264,14 +261,14 @@ impl SecondOrderOptimization for NewtonRaphson {
                         )
                     });
                 for _ in 0..self.max_steps {
-                    // (jacobian(&solution)? - &multipliers * &constraint_matrix)
-                    //     .fill_into(&mut residual);
-                    // (&constraint_rhs - &constraint_matrix * &solution)
-                    //     .fill_into_offset(&mut residual, num_variables);
-                    (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
-                        &constraint_rhs - &constraint_matrix * &solution,
-                        &mut residual,
-                    );
+                    (jacobian(&solution)? - &multipliers * &constraint_matrix)
+                        .fill_into(&mut residual);
+                    (&constraint_rhs - &constraint_matrix * &solution)
+                        .fill_into_offset(&mut residual, num_variables);
+                    // (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
+                    //     &constraint_rhs - &constraint_matrix * &solution,
+                    //     &mut residual,
+                    // );
                     hessian(&solution)?.fill_into(&mut tangent);
                     if residual.norm() < self.abs_tol {
                         if self.check_minimum && !tangent.is_positive_definite() {

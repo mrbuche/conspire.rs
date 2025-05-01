@@ -34,7 +34,7 @@ impl Display for TensorError {
 /// Common methods for Jacobians.
 pub trait Jacobian
 where
-    Self: Tensor,
+    Self: Tensor + Sub<Vector, Output=Self>,
 {
     /// Decrements the Jacobian chained with another from a vector.
     fn decrement_from_chained(&mut self, jacobian: &mut Self, vector: Vector);
