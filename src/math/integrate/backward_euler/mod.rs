@@ -3,7 +3,7 @@ mod test;
 
 use super::{
     super::{
-        Hessian, Jacobian, Solution, Tensor, TensorArray, TensorRank0, TensorVec, Vector,
+        Hessian, Jacobian, Matrix, Solution, Tensor, TensorArray, TensorRank0, TensorVec, Vector,
         interpolate::InterpolateSolution,
         optimize::{
             EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, Optimization,
@@ -42,6 +42,7 @@ where
     J: Hessian + Tensor + TensorArray,
     U: TensorVec<Item = Y>,
     Vector: From<Y>,
+    for<'a> &'a Matrix: Mul<&'a Y, Output = Vector>, // temporary until A replaced by sparse representation and similar implementation
 {
     fn integrate(
         &self,
@@ -74,6 +75,7 @@ where
                     .root(
                         |y_trial: &Y| Ok(y_trial - &y - &(&function(&t_trial, y_trial) * dt)),
                         y.clone(),
+                        EqualityConstraint::None,
                     )
                     .unwrap(),
                 Optimization::NewtonRaphson(newton_raphson) => newton_raphson

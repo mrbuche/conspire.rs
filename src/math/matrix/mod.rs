@@ -1,7 +1,7 @@
 pub mod square;
 pub mod vector;
 
-use crate::math::TensorVec;
+use crate::math::{TensorRank0, TensorRank1Vec, TensorRank2, TensorVec};
 use std::ops::{Index, IndexMut, Mul};
 use vector::Vector;
 
@@ -57,5 +57,31 @@ impl Mul<&Vector> for &Matrix {
     type Output = Vector;
     fn mul(self, vector: &Vector) -> Self::Output {
         self.iter().map(|self_i| self_i * vector).collect()
+    }
+}
+
+// temporary until A replaced by sparse representation and similar implementation
+impl Mul<&TensorRank0> for &Matrix {
+    type Output = Vector;
+    fn mul(self, _tensor_rank_0: &TensorRank0) -> Self::Output {
+        panic!()
+    }
+}
+
+// temporary until A replaced by sparse representation and similar implementation
+impl<const D: usize, const I: usize> Mul<&TensorRank1Vec<D, I>> for &Matrix {
+    type Output = Vector;
+    fn mul(self, tensor_rank_1_vec: &TensorRank1Vec<D, I>) -> Self::Output {
+        self.iter()
+            .map(|self_i| self_i * tensor_rank_1_vec)
+            .collect()
+    }
+}
+
+// temporary until A replaced by sparse representation and similar implementation
+impl<const D: usize, const I: usize, const J: usize> Mul<&TensorRank2<D, I, J>> for &Matrix {
+    type Output = Vector;
+    fn mul(self, tensor_rank_2: &TensorRank2<D, I, J>) -> Self::Output {
+        self.iter().map(|self_i| self_i * tensor_rank_2).collect()
     }
 }

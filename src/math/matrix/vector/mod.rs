@@ -427,3 +427,39 @@ impl Mul<&Matrix> for &Vector {
         output
     }
 }
+
+// temporary until A replaced by sparse representation and similar implementation
+impl<const D: usize, const I: usize> Mul<&TensorRank1Vec<D, I>> for &Vector {
+    type Output = TensorRank0;
+    fn mul(self, tensor_rank_1_vec: &TensorRank1Vec<D, I>) -> Self::Output {
+        tensor_rank_1_vec
+            .iter()
+            .enumerate()
+            .map(|(a, entry_a)| {
+                entry_a
+                    .iter()
+                    .enumerate()
+                    .map(|(i, entry_a_i)| self[D * a + i] * entry_a_i)
+                    .sum::<TensorRank0>()
+            })
+            .sum()
+    }
+}
+
+// temporary until A replaced by sparse representation and similar implementation
+impl<const D: usize, const I: usize, const J: usize> Mul<&TensorRank2<D, I, J>> for &Vector {
+    type Output = TensorRank0;
+    fn mul(self, tensor_rank_2: &TensorRank2<D, I, J>) -> Self::Output {
+        tensor_rank_2
+            .iter()
+            .enumerate()
+            .map(|(i, entry_i)| {
+                entry_i
+                    .iter()
+                    .enumerate()
+                    .map(|(j, entry_ij)| self[D * i + j] * entry_ij)
+                    .sum::<TensorRank0>()
+            })
+            .sum()
+    }
+}

@@ -1,4 +1,4 @@
-use super::{GradientDescent, TensorRank0, ZerothOrderRootFinding};
+use super::{EqualityConstraint, GradientDescent, TensorRank0, ZerothOrderRootFinding};
 
 const TOLERANCE: TensorRank0 = 1e-5;
 
@@ -8,7 +8,7 @@ fn linear() {
         GradientDescent {
             ..Default::default()
         }
-        .root(|x: &TensorRank0| Ok(*x), 1.0)
+        .root(|x: &TensorRank0| Ok(*x), 1.0, EqualityConstraint::None)
         .unwrap()
         .abs()
             < TOLERANCE
@@ -21,7 +21,11 @@ fn quadratic() {
         GradientDescent {
             ..Default::default()
         }
-        .root(|x: &TensorRank0| Ok(x.powi(2) / 2.0), 1.0)
+        .root(
+            |x: &TensorRank0| Ok(x.powi(2) / 2.0),
+            1.0,
+            EqualityConstraint::None
+        )
         .unwrap()
         .abs()
             < TOLERANCE
@@ -34,7 +38,7 @@ fn sin() {
         GradientDescent {
             ..Default::default()
         }
-        .root(|x: &TensorRank0| Ok(x.sin()), 1.0)
+        .root(|x: &TensorRank0| Ok(x.sin()), 1.0, EqualityConstraint::None)
         .unwrap()
         .abs()
             < TOLERANCE

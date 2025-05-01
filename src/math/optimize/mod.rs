@@ -5,7 +5,6 @@ mod constraint;
 mod gradient_descent;
 mod newton_raphson;
 
-use super::Tensor;
 use crate::defeat_message;
 use std::fmt::{self, Debug, Display, Formatter};
 
@@ -13,27 +12,13 @@ pub use constraint::EqualityConstraint;
 pub use gradient_descent::GradientDescent;
 pub use newton_raphson::NewtonRaphson;
 
-/// Dirichlet boundary conditions.
-pub struct Dirichlet {
-    pub places: Vec<usize>,
-    pub values: Vec<super::TensorRank0>,
-}
-
 /// Zeroth-order root-finding algorithms.
-pub trait ZerothOrderRootFinding<X>
-where
-    X: Tensor,
-{
+pub trait ZerothOrderRootFinding<X> {
     fn root(
         &self,
         function: impl Fn(&X) -> Result<X, OptimizeError>,
         initial_guess: X,
-    ) -> Result<X, OptimizeError>;
-    fn solve(
-        &self,
-        function: impl Fn(&X) -> Result<X, OptimizeError>,
-        initial_guess: X,
-        dirichlet: Option<Dirichlet>,
+        equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizeError>;
 }
 
@@ -55,6 +40,7 @@ pub trait FirstOrderOptimization<F, X> {
         function: impl Fn(&X) -> Result<F, OptimizeError>,
         jacobian: impl Fn(&X) -> Result<X, OptimizeError>,
         initial_guess: X,
+        equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizeError>;
 }
 

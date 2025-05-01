@@ -2,11 +2,13 @@
 mod test;
 
 use super::{
-    super::{Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorRank0, TensorVec, Vector},
+    super::{
+        Hessian, Jacobian, Matrix, Solution, SquareMatrix, Tensor, TensorRank0, TensorVec, Vector,
+    },
     EqualityConstraint, FirstOrderRootFinding, OptimizeError, SecondOrderOptimization,
 };
 use crate::ABS_TOL;
-use std::ops::Div;
+use std::ops::{Div, Mul};
 
 /// The Newton-Raphson method.
 #[derive(Debug)]
@@ -35,6 +37,7 @@ where
     J: Hessian,
     X: Solution,
     Vector: From<X>,
+    for<'a> &'a Matrix: Mul<&'a X, Output = Vector>, // temporary until A replaced by sparse representation and similar implementation
 {
     fn root(
         &self,
@@ -65,7 +68,7 @@ where
                     });
                 for _ in 0..self.max_steps {
                     (function(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
-                        &constraint_rhs - &constraint_matrix * Vector::from(solution.clone()), // from() and clone() are temporary?
+                        &constraint_rhs - &constraint_matrix * &solution,
                         &mut residual,
                     );
                     jacobian(&solution)?.fill_into(&mut tangent);
@@ -104,6 +107,7 @@ where
     J: Jacobian + Div<H, Output = X>,
     X: Solution,
     Vector: From<X>,
+    for<'a> &'a Matrix: Mul<&'a X, Output = Vector>, // temporary until A replaced by sparse representation and similar implementation
 {
     fn minimize(
         &self,
@@ -135,7 +139,7 @@ where
                     });
                 for _ in 0..self.max_steps {
                     (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
-                        &constraint_rhs - &constraint_matrix * Vector::from(solution.clone()), // from() and clone() are temporary?
+                        &constraint_rhs - &constraint_matrix * &solution,
                         &mut residual,
                     );
                     hessian(&solution)?.fill_into(&mut tangent);

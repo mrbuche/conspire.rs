@@ -351,17 +351,14 @@ where
         root_finding: NewtonRaphson,
     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
         let (a, b) = temporary_setup!();
-        root_finding
-            .root(
-                |nodal_coordinates: &NodalCoordinatesBlock| {
-                    Ok(self.nodal_forces(nodal_coordinates)?)
-                },
-                |nodal_coordinates: &NodalCoordinatesBlock| {
-                    Ok(self.nodal_stiffnesses(nodal_coordinates)?)
-                },
-                initial_coordinates,
-                EqualityConstraint::Linear(a, b),
-            )
+        root_finding.root(
+            |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
+            |nodal_coordinates: &NodalCoordinatesBlock| {
+                Ok(self.nodal_stiffnesses(nodal_coordinates)?)
+            },
+            initial_coordinates,
+            EqualityConstraint::Linear(a, b),
+        )
     }
 }
 
@@ -392,20 +389,17 @@ where
         optimization: NewtonRaphson,
     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
         let (a, b) = temporary_setup!();
-        optimization
-            .minimize(
-                |nodal_coordinates: &NodalCoordinatesBlock| {
-                    Ok(self.helmholtz_free_energy(nodal_coordinates)?)
-                },
-                |nodal_coordinates: &NodalCoordinatesBlock| {
-                    Ok(self.nodal_forces(nodal_coordinates)?)
-                },
-                |nodal_coordinates: &NodalCoordinatesBlock| {
-                    Ok(self.nodal_stiffnesses(nodal_coordinates)?)
-                },
-                initial_coordinates,
-                EqualityConstraint::Linear(a, b),
-            )
+        optimization.minimize(
+            |nodal_coordinates: &NodalCoordinatesBlock| {
+                Ok(self.helmholtz_free_energy(nodal_coordinates)?)
+            },
+            |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
+            |nodal_coordinates: &NodalCoordinatesBlock| {
+                Ok(self.nodal_stiffnesses(nodal_coordinates)?)
+            },
+            initial_coordinates,
+            EqualityConstraint::Linear(a, b),
+        )
     }
 }
 
