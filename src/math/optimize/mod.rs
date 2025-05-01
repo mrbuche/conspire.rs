@@ -83,14 +83,16 @@ pub trait SecondOrderOptimization {
         H: Hessian,
         J: Jacobian + Div<H, Output = X>,
         X: Tensor;
-    fn minimize_constrained(
+    fn minimize_constrained<H>(
         &self,
         function: impl Fn(&Vector) -> Result<TensorRank0, OptimizeError>,
         jacobian: impl Fn(&Vector) -> Result<Vector, OptimizeError>,
-        hessian: impl Fn(&Vector) -> Result<SquareMatrix, OptimizeError>,
+        hessian: impl Fn(&Vector) -> Result<H, OptimizeError>,
         initial_guess: Vector,
         equality_constraint: EqualityConstraint,
-    ) -> Result<Vector, OptimizeError>;
+    ) -> Result<Vector, OptimizeError>
+    where
+        H: Hessian;
 }
 
 /// Possible optimization algorithms.

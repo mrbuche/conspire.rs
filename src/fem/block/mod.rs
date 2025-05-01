@@ -402,7 +402,7 @@ where
                     Ok(self.nodal_forces(&nodal_coordinates.into())?.into())
                 },
                 |nodal_coordinates: &Vector| {
-                    Ok(self.nodal_stiffnesses(&nodal_coordinates.into())?.into())
+                    Ok(self.nodal_stiffnesses(&nodal_coordinates.into())?)
                 },
                 initial_coordinates.into(),
                 EqualityConstraint::Linear(a, b),

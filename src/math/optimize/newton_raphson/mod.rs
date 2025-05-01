@@ -231,14 +231,17 @@ impl SecondOrderOptimization for NewtonRaphson {
             format!("{:?}", &self),
         ))
     }
-    fn minimize_constrained(
+    fn minimize_constrained<H>(
         &self,
         function: impl Fn(&Vector) -> Result<TensorRank0, OptimizeError>,
         jacobian: impl Fn(&Vector) -> Result<Vector, OptimizeError>,
-        hessian: impl Fn(&Vector) -> Result<SquareMatrix, OptimizeError>,
+        hessian: impl Fn(&Vector) -> Result<H, OptimizeError>,
         initial_guess: Vector,
         equality_constraint: EqualityConstraint,
-    ) -> Result<Vector, OptimizeError> {
+    ) -> Result<Vector, OptimizeError>
+    where
+        H: Hessian,
+    {
         match equality_constraint {
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
                 let num_variables = initial_guess.len();
@@ -292,7 +295,7 @@ impl SecondOrderOptimization for NewtonRaphson {
                     format!("{:?}", &self),
                 ))
             }
-            EqualityConstraint::None => self.minimize(function, jacobian, hessian, initial_guess),
+            EqualityConstraint::None => todo!(), //self.minimize(function, jacobian, hessian, initial_guess),
         }
     }
 }

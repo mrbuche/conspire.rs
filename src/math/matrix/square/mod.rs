@@ -154,7 +154,7 @@ impl<const D: usize, const I: usize, const J: usize> From<TensorRank2Vec2D<D, I,
     for SquareMatrix
 {
     fn from(tensor_rank_2_vec_2d: TensorRank2Vec2D<D, I, J>) -> Self {
-        let mut matrix = Self::zero(tensor_rank_2_vec_2d.len() * D);
+        let mut square_matrix = Self::zero(tensor_rank_2_vec_2d.len() * D);
         tensor_rank_2_vec_2d
             .iter()
             .enumerate()
@@ -162,12 +162,12 @@ impl<const D: usize, const I: usize, const J: usize> From<TensorRank2Vec2D<D, I,
                 entry_a.iter().enumerate().for_each(|(b, entry_ab)| {
                     entry_ab.iter().enumerate().for_each(|(i, entry_ab_i)| {
                         entry_ab_i.iter().enumerate().for_each(|(j, entry_ab_ij)| {
-                            matrix[D * a + i][D * b + j] = *entry_ab_ij
+                            square_matrix[D * a + i][D * b + j] = *entry_ab_ij
                         })
                     })
                 })
             });
-        matrix
+        square_matrix
     }
 }
 
