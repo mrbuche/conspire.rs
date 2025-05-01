@@ -394,15 +394,15 @@ where
     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
         let (a, b) = temporary_setup!();
         Ok(optimization
-            .minimize_constrained(
-                |nodal_coordinates: &Vector| {
-                    Ok(self.helmholtz_free_energy(&nodal_coordinates.into())?)
+            .minimize(
+                |nodal_coordinates: &NodalCoordinatesBlock| {
+                    Ok(self.helmholtz_free_energy(nodal_coordinates)?)
                 },
-                |nodal_coordinates: &Vector| {
-                    Ok(self.nodal_forces(&nodal_coordinates.into())?)
+                |nodal_coordinates: &NodalCoordinatesBlock| {
+                    Ok(self.nodal_forces(nodal_coordinates)?)
                 },
-                |nodal_coordinates: &Vector| {
-                    Ok(self.nodal_stiffnesses(&nodal_coordinates.into())?)
+                |nodal_coordinates: &NodalCoordinatesBlock| {
+                    Ok(self.nodal_stiffnesses(nodal_coordinates)?)
                 },
                 initial_coordinates,
                 EqualityConstraint::Linear(a, b),

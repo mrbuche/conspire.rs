@@ -1,4 +1,4 @@
-use super::{FirstOrderRootFinding, NewtonRaphson, SecondOrderOptimization, TensorRank0};
+use super::{FirstOrderRootFinding, NewtonRaphson, SecondOrderOptimization, TensorRank0, EqualityConstraint};
 
 const TOLERANCE: TensorRank0 = 1e-6;
 
@@ -14,6 +14,7 @@ mod minimize {
             |x: &TensorRank0| Ok(*x),
             |_: &TensorRank0| Ok(1.0),
             1.0,
+            EqualityConstraint::None,
         )
         .unwrap();
         assert!(x.abs() < TOLERANCE)
@@ -28,6 +29,7 @@ mod minimize {
             |x: &TensorRank0| Ok(x.powi(2) / 2.0),
             |x: &TensorRank0| Ok(*x),
             1.0,
+            EqualityConstraint::None,
         )
         .unwrap();
         assert!(x.abs() < TOLERANCE)
@@ -42,6 +44,7 @@ mod minimize {
             |x: &TensorRank0| Ok(x.sin()),
             |x: &TensorRank0| Ok(x.cos()),
             1.0,
+            EqualityConstraint::None,
         )
         .unwrap();
         assert!(x.abs() < TOLERANCE)
@@ -57,6 +60,7 @@ mod minimize {
             |x: &TensorRank0| Ok(x.sin()),
             |x: &TensorRank0| Ok(x.cos()),
             3.0,
+            EqualityConstraint::None,
         )
         .unwrap();
     }

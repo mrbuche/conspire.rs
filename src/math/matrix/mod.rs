@@ -46,6 +46,13 @@ impl IndexMut<usize> for Matrix {
     }
 }
 
+impl Mul<Vector> for &Matrix {
+    type Output = Vector;
+    fn mul(self, vector: Vector) -> Self::Output {
+        self.iter().map(|self_i| self_i * &vector).collect()
+    }
+}
+
 impl Mul<&Vector> for &Matrix {
     type Output = Vector;
     fn mul(self, vector: &Vector) -> Self::Output {

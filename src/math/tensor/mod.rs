@@ -31,19 +31,26 @@ impl Display for TensorError {
     }
 }
 
+/// Common methods for solutions.
+pub trait Solution
+where
+    Self: Tensor,
+{
+    /// Decrements the solution chained with a vector from another vector.
+    fn decrement_from_chained(&mut self, other: &mut Vector, vector: Vector);
+}
+
 /// Common methods for Jacobians.
 pub trait Jacobian
 where
-    Self: Tensor + Sub<Vector, Output=Self>,
+    Self: Tensor + Sub<Vector, Output = Self>,
 {
-    /// Decrements the Jacobian chained with another from a vector.
-    fn decrement_from_chained(&mut self, jacobian: &mut Self, vector: Vector);
     /// Fills the Jacobian from a vector.
     fn fill_from(&mut self, vector: Vector);
     /// Fills the Jacobian into a vector.
     fn fill_into(self, vector: &mut Vector);
-    /// Fills the Jacobian chained with another into a vector.
-    fn fill_into_chained(self, jacobian: Self, vector: &mut Vector);
+    /// Fills the Jacobian chained with a vector into another vector.
+    fn fill_into_chained(self, other: Vector, vector: &mut Vector);
     /// Fills the Jacobian into a vector with an offset.
     fn fill_into_offset(self, vector: &mut Vector, offset: usize);
 }

@@ -2,7 +2,7 @@
 use crate::math::test::ErrorTensor;
 
 use crate::math::{
-    Jacobian, Matrix, SquareMatrix, Tensor, TensorRank0, TensorRank1Vec, TensorVec,
+    Jacobian, Matrix, Solution, SquareMatrix, Tensor, TensorRank0, TensorRank1Vec, TensorVec,
     write_tensor_rank_0,
 };
 use std::{
@@ -160,13 +160,16 @@ impl Tensor for Vector {
     }
 }
 
-impl Jacobian for Vector {
+impl Solution for Vector {
     fn decrement_from_chained(&mut self, jacobian: &mut Self, vector: Vector) {
         self.iter_mut()
             .chain(jacobian.iter_mut())
             .zip(vector)
             .for_each(|(entry_i, vector_i)| *entry_i -= vector_i)
     }
+}
+
+impl Jacobian for Vector {
     fn fill_from(&mut self, vector: Vector) {
         self.iter_mut()
             .zip(vector)
@@ -177,9 +180,9 @@ impl Jacobian for Vector {
             .zip(vector.iter_mut())
             .for_each(|(self_i, vector_i)| *vector_i = self_i)
     }
-    fn fill_into_chained(self, jacobian: Self, vector: &mut Vector) {
+    fn fill_into_chained(self, other: Self, vector: &mut Self) {
         self.into_iter()
-            .chain(jacobian)
+            .chain(other)
             .zip(vector.iter_mut())
             .for_each(|(entry_i, vector_i)| *vector_i = entry_i)
     }

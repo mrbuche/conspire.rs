@@ -6,7 +6,7 @@ use super::test::ErrorTensor;
 
 pub mod list;
 
-use super::{Hessian, Jacobian, SquareMatrix, Tensor, TensorArray, TensorVec, Vector};
+use super::{Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, TensorVec, Vector};
 use std::ops::Sub;
 
 /// A tensor of rank 0 (a scalar).
@@ -35,17 +35,20 @@ impl ErrorTensor for TensorRank0 {
     }
 }
 
-impl Jacobian for TensorRank0 {
-    fn decrement_from_chained(&mut self, _jacobian: &mut Self, _vector: Vector) {
+impl Solution for TensorRank0 {
+    fn decrement_from_chained(&mut self, _other: &mut Vector, _vector: Vector) {
         panic!()
     }
+}
+
+impl Jacobian for TensorRank0 {
     fn fill_from(&mut self, _vector: Vector) {
         panic!()
     }
     fn fill_into(self, _vector: &mut Vector) {
         panic!()
     }
-    fn fill_into_chained(self, _jacobian: Self, _vector: &mut Vector) {
+    fn fill_into_chained(self, _other: Vector, _vector: &mut Vector) {
         panic!()
     }
     fn fill_into_offset(self, _vector: &mut Vector, _offset: usize) {

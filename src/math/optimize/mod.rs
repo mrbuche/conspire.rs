@@ -5,7 +5,7 @@ mod constraint;
 mod gradient_descent;
 mod newton_raphson;
 
-use super::{Hessian, Jacobian, SquareMatrix, Tensor, TensorRank0, Vector};
+use super::{SquareMatrix, Tensor, TensorRank0, Vector};
 use crate::defeat_message;
 use std::{fmt, ops::Div};
 
@@ -58,10 +58,7 @@ pub trait FirstOrderRootFinding {
 }
 
 /// First-order optimization algorithms.
-pub trait FirstOrderOptimization<F, X>
-where
-    X: Tensor,
-{
+pub trait FirstOrderOptimization<F, X> {
     fn minimize(
         &self,
         function: impl Fn(&X) -> Result<F, OptimizeError>,
@@ -71,31 +68,15 @@ where
 }
 
 /// Second-order optimization algorithms.
-pub trait SecondOrderOptimization<F, H, J, X>
-where
-    H: Hessian,
-    J: Jacobian + Div<H, Output = X>,
-    X: Tensor,
-    //
-    // below is temp, should put into Jacobian trait bounds
-    //
-    Vector: From<X>
-{
+pub trait SecondOrderOptimization<F, H, J, X> {
     fn minimize(
         &self,
         function: impl Fn(&X) -> Result<F, OptimizeError>,
         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
         hessian: impl Fn(&X) -> Result<H, OptimizeError>,
         initial_guess: X,
-    ) -> Result<X, OptimizeError>;
-    fn minimize_constrained(
-        &self,
-        function: impl Fn(&Vector) -> Result<F, OptimizeError>,
-        jacobian: impl Fn(&Vector) -> Result<J, OptimizeError>,
-        hessian: impl Fn(&Vector) -> Result<H, OptimizeError>,
-        initial_guess: X,
         equality_constraint: EqualityConstraint,
-    ) -> Result<Vector, OptimizeError>;
+    ) -> Result<X, OptimizeError>;
 }
 
 /// Possible optimization algorithms.

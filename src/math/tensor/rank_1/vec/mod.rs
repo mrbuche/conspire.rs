@@ -2,8 +2,8 @@
 use super::super::test::ErrorTensor;
 
 use crate::math::{
-    Jacobian, Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank1Sparse, TensorRank2, TensorVec,
-    Vector, write_tensor_rank_0, TensorRank2Vec2D
+    Jacobian, Solution, Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank1Sparse,
+    TensorRank2, TensorRank2Vec2D, TensorVec, Vector, write_tensor_rank_0,
 };
 use std::{
     fmt::{Display, Formatter, Result},
@@ -244,10 +244,25 @@ impl<const D: usize, const I: usize> Tensor for TensorRank1Vec<D, I> {
     }
 }
 
-impl<const D: usize, const I: usize> Jacobian for TensorRank1Vec<D, I> {
-    fn decrement_from_chained(&mut self, _jacobian: &mut Self, _vector: Vector) {
-        panic!()
+impl<const D: usize, const I: usize> IntoIterator for TensorRank1Vec<D, I> {
+    type Item = TensorRank1<D, I>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
+}
+
+impl<const D: usize, const I: usize> Solution for TensorRank1Vec<D, I> {
+    fn decrement_from_chained(&mut self, other: &mut Vector, vector: Vector) {
+        self.iter_mut()
+            .flat_map(|x| x.iter_mut())
+            .chain(other.iter_mut())
+            .zip(vector)
+            .for_each(|(entry_i, vector_i)| *entry_i -= vector_i)
+    }
+}
+
+impl<const D: usize, const I: usize> Jacobian for TensorRank1Vec<D, I> {
     fn fill_from(&mut self, _vector: Vector) {
         panic!()
     }
@@ -257,15 +272,21 @@ impl<const D: usize, const I: usize> Jacobian for TensorRank1Vec<D, I> {
             .zip(vector.iter_mut())
             .for_each(|(self_i, vector_i)| *vector_i = self_i)
     }
-    fn fill_into_chained(self, _jacobian: Self, _vector: &mut Vector) {
-        panic!()
+    fn fill_into_chained(self, other: Vector, vector: &mut Vector) {
+        self.into_iter()
+            .flatten()
+            .chain(other.into_iter())
+            .zip(vector.iter_mut())
+            .for_each(|(self_i, vector_i)| *vector_i = self_i)
     }
     fn fill_into_offset(self, _vector: &mut Vector, _offset: usize) {
         panic!()
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> Div<TensorRank2Vec2D<D, I, J>> for TensorRank1Vec<D, I> {
+impl<const D: usize, const I: usize, const J: usize> Div<TensorRank2Vec2D<D, I, J>>
+    for TensorRank1Vec<D, I>
+{
     type Output = Self;
     fn div(self, _tensor_rank_2_vec_2d: TensorRank2Vec2D<D, I, J>) -> Self::Output {
         todo!()
@@ -275,20 +296,13 @@ impl<const D: usize, const I: usize, const J: usize> Div<TensorRank2Vec2D<D, I, 
 impl<const D: usize, const I: usize> Sub<Vector> for TensorRank1Vec<D, I> {
     type Output = Self;
     fn sub(mut self, vector: Vector) -> Self::Output {
-        self.iter_mut().enumerate().for_each(|(a, self_a)|
-            self_a.iter_mut().enumerate().for_each(|(i, self_a_i)|
-                *self_a_i -= vector[D * a + i]
-            )
-        );
+        self.iter_mut().enumerate().for_each(|(a, self_a)| {
+            self_a
+                .iter_mut()
+                .enumerate()
+                .for_each(|(i, self_a_i)| *self_a_i -= vector[D * a + i])
+        });
         self
-    }
-}
-
-impl<const D: usize, const I: usize> IntoIterator for TensorRank1Vec<D, I> {
-    type Item = TensorRank1<D, I>;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
     }
 }
 
