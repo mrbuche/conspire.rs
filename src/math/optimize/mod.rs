@@ -65,6 +65,7 @@ pub enum Optimization {
 
 /// Possible errors encountered when optimizing.
 pub enum OptimizeError {
+    Generic(String),
     MaximumStepsReached(usize, String),
     NotMinimum(String, String),
 }
@@ -72,6 +73,9 @@ pub enum OptimizeError {
 impl Debug for OptimizeError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
+            Self::Generic(message) => {
+                format!("{}", message)
+            }
             Self::MaximumStepsReached(steps, optimizer) => {
                 format!(
                     "\x1b[1;91mMaximum number of steps ({}) reached.\x1b[0;91m\n\
@@ -95,6 +99,9 @@ impl Debug for OptimizeError {
 impl Display for OptimizeError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
+            Self::Generic(message) => {
+                format!("{}", message)
+            }
             Self::MaximumStepsReached(steps, optimizer) => {
                 format!(
                     "\x1b[1;91mMaximum number of steps ({}) reached.\x1b[0;91m\n\

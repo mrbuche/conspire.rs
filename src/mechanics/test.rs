@@ -12,7 +12,7 @@ use crate::math::{
 impl From<DeformationError> for TestError {
     fn from(error: DeformationError) -> TestError {
         TestError {
-            message: format!("{}", error),
+            message: error.to_string(),
         }
     }
 }

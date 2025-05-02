@@ -14,7 +14,7 @@ pub fn zero_to_tau<const W: usize>() -> [TensorRank0; W] {
 impl From<IntegrationError> for TestError {
     fn from(error: IntegrationError) -> TestError {
         TestError {
-            message: format!("{}", error),
+            message: error.to_string(),
         }
     }
 }

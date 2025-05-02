@@ -26,14 +26,14 @@ use super::{
 };
 use crate::defeat_message;
 use std::{
-    fmt,
+    fmt::{self, Debug, Display, Formatter},
     ops::{Div, Mul, Sub},
 };
 
 /// Base trait for ordinary differential equation solvers.
 pub trait OdeSolver<Y, U>
 where
-    Self: fmt::Debug,
+    Self: Debug,
     Y: Tensor,
     U: TensorVec<Item = Y>,
 {
@@ -41,7 +41,7 @@ where
 
 impl<A, Y, U> OdeSolver<Y, U> for A
 where
-    A: std::fmt::Debug,
+    A: Debug,
     Y: Tensor,
     U: TensorVec<Item = Y>,
 {
@@ -97,8 +97,8 @@ pub enum IntegrationError {
     LengthTimeLessThanTwo,
 }
 
-impl fmt::Debug for IntegrationError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Debug for IntegrationError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
             Self::InitialTimeNotLessThanFinalTime => {
                 "\x1b[1;91mThe initial time must precede the final time.".to_string()
@@ -111,8 +111,8 @@ impl fmt::Debug for IntegrationError {
     }
 }
 
-impl fmt::Display for IntegrationError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for IntegrationError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
             Self::InitialTimeNotLessThanFinalTime => {
                 "\x1b[1;91mThe initial time must precede the final time.".to_string()

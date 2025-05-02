@@ -15,7 +15,7 @@ use crate::{
     mechanics::{Deformation, DeformationError, DeformationGradient, Scalar},
 };
 use std::{
-    fmt,
+    fmt::{self, Debug, Display, Formatter},
     ops::{Index, RangeFrom},
 };
 
@@ -49,7 +49,7 @@ impl<const N: usize> Parameters for &[Scalar; N] {
 /// Required methods for constitutive models.
 pub trait Constitutive<P>
 where
-    Self: fmt::Debug,
+    Self: Debug,
 {
     /// Calculates and returns the Jacobian.
     fn jacobian(
@@ -80,8 +80,20 @@ pub enum ConstitutiveError {
 }
 
 impl From<ConstitutiveError> for OptimizeError {
-    fn from(_error: ConstitutiveError) -> OptimizeError {
-        todo!()
+    fn from(error: ConstitutiveError) -> OptimizeError {
+        match error {
+            ConstitutiveError::InvalidJacobian(jacobian, deformation_gradient, constitutive_model) => {
+                OptimizeError::Generic(
+                    format!(
+                        "\x1b[1;91mInvalid Jacobian: {:.6e}.\x1b[0;91m\n\
+                        From deformation gradient: {}.\n\
+                        In constitutive model: {}.",
+                        jacobian, deformation_gradient, constitutive_model
+                    )
+                )
+            }
+            _ => todo!(),
+        }
     }
 }
 
@@ -91,8 +103,8 @@ impl From<OptimizeError> for ConstitutiveError {
     }
 }
 
-impl fmt::Debug for ConstitutiveError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Debug for ConstitutiveError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
             Self::Custom(message, deformation_gradient, constitutive_model) => format!(
                 "\x1b[1;91m{}\x1b[0;91m\n\
@@ -127,8 +139,8 @@ impl fmt::Debug for ConstitutiveError {
     }
 }
 
-impl fmt::Display for ConstitutiveError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for ConstitutiveError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
             Self::Custom(message, deformation_gradient, constitutive_model) => format!(
                 "\x1b[1;91m{}\x1b[0;91m\n\
@@ -159,7 +171,7 @@ impl fmt::Display for ConstitutiveError {
                 )
             }
         };
-        write!(f, "\n{}\n\x1b[0;2;31m{}\x1b[0m\n", error, defeat_message())
+        write!(f, "{}\x1b[0m", error)
     }
 }
 
