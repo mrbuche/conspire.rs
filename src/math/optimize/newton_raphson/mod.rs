@@ -137,11 +137,7 @@ where
                             },
                         )
                     });
-                for foo in 0..self.max_steps {
-
-println!("\nStep {}\n", foo);
-println!("\tSolution {}\n", solution);
-                    
+                for _ in 0..self.max_steps {
                     (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
                         &constraint_rhs - &constraint_matrix * &solution,
                         &mut residual,

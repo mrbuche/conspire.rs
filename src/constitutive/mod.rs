@@ -82,16 +82,16 @@ pub enum ConstitutiveError {
 impl From<ConstitutiveError> for OptimizeError {
     fn from(error: ConstitutiveError) -> OptimizeError {
         match error {
-            ConstitutiveError::InvalidJacobian(jacobian, deformation_gradient, constitutive_model) => {
-                OptimizeError::Generic(
-                    format!(
-                        "\x1b[1;91mInvalid Jacobian: {:.6e}.\x1b[0;91m\n\
+            ConstitutiveError::InvalidJacobian(
+                jacobian,
+                deformation_gradient,
+                constitutive_model,
+            ) => OptimizeError::Generic(format!(
+                "\x1b[1;91mInvalid Jacobian: {:.6e}.\x1b[0;91m\n\
                         From deformation gradient: {}.\n\
                         In constitutive model: {}.",
-                        jacobian, deformation_gradient, constitutive_model
-                    )
-                )
-            }
+                jacobian, deformation_gradient, constitutive_model
+            )),
             _ => todo!(),
         }
     }
