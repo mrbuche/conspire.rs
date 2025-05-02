@@ -19,6 +19,9 @@ impl Matrix {
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Vector> {
         self.0.iter_mut()
     }
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
     pub fn width(&self) -> usize {
         self.0[0].len()
     }

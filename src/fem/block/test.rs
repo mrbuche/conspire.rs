@@ -664,6 +664,32 @@ macro_rules! test_finite_element_block_with_elastic_constitutive_model {
             $constitutive_model,
             $constitutive_model_parameters
         );
+        use crate::constitutive::solid::AppliedLoad;
+        #[test]
+        fn root() -> Result<(), TestError> {
+            let (stretch, a, b) = equality_constraint();
+            let block = get_block();
+            let solution = block.root(
+                get_reference_coordinates_block().into(),
+                NewtonRaphson {
+                    ..Default::default()
+                },
+                EqualityConstraint::Linear(a, b),
+            )?;
+            let (deformation_gradient, _) =
+                $constitutive_model::new($constitutive_model_parameters)
+                    .solve(AppliedLoad::UniaxialStress(stretch))?;
+            block
+                .deformation_gradients(&solution)
+                .iter()
+                .try_for_each(|deformation_gradients| {
+                    deformation_gradients
+                        .iter()
+                        .try_for_each(|deformation_gradient_g| {
+                            assert_eq_within_tols(deformation_gradient_g, &deformation_gradient)
+                        })
+                })
+        }
     };
 }
 pub(crate) use test_finite_element_block_with_elastic_constitutive_model;
@@ -682,15 +708,9 @@ macro_rules! test_finite_element_block_with_hyperelastic_constitutive_model {
             $constitutive_model,
             $constitutive_model_parameters
         );
-        use crate::constitutive::solid::AppliedLoad;
-        //
-        // test in elastic too
-        // ok to double-test "solve" of hyperelastic since first one will use root, second one will use minimization
-        //
         #[test]
         fn minimize() -> Result<(), TestError> {
-            let (a, b) = equality_constraint();
-            let dx = 0.88;
+            let (stretch, a, b) = equality_constraint();
             let block = get_block();
             let solution = block.minimize(
                 get_reference_coordinates_block().into(),
@@ -701,16 +721,17 @@ macro_rules! test_finite_element_block_with_hyperelastic_constitutive_model {
             )?;
             let (deformation_gradient, _) =
                 $constitutive_model::new($constitutive_model_parameters)
-                    .solve(AppliedLoad::UniaxialStress(1.0 + dx))?;
-            block.deformation_gradients(&solution).iter().try_for_each(
-                |deformation_gradients| {
+                    .solve(AppliedLoad::UniaxialStress(stretch))?;
+            block
+                .deformation_gradients(&solution)
+                .iter()
+                .try_for_each(|deformation_gradients| {
                     deformation_gradients
                         .iter()
                         .try_for_each(|deformation_gradient_g| {
                             assert_eq_within_tols(deformation_gradient_g, &deformation_gradient)
                         })
-                },
-            )
+                })
         }
     };
 }

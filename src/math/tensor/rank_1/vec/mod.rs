@@ -2,8 +2,8 @@
 use super::super::test::ErrorTensor;
 
 use crate::math::{
-    Jacobian, Solution, Tensor, TensorArray, TensorRank0, TensorRank1,
-    TensorRank2, TensorRank2Vec2D, TensorVec, Vector, write_tensor_rank_0,
+    Jacobian, Solution, Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank2,
+    TensorRank2Vec2D, TensorVec, Vector, write_tensor_rank_0,
 };
 use std::{
     fmt::{Display, Formatter, Result},

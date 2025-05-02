@@ -98,7 +98,7 @@ fn get_velocities_block() -> NodalVelocitiesBlock {
     ])
 }
 
-fn equality_constraint() -> (crate::math::Matrix, crate::math::Vector) {
+fn equality_constraint() -> (Scalar, crate::math::Matrix, crate::math::Vector) {
     panic!()
 }
 
