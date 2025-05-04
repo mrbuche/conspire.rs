@@ -35,6 +35,7 @@ where
         element_connectivity: &[usize; N],
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> NodalCoordinates<N>;
+    fn structure(&self, number_of_nodes: usize) -> Vec<Vec<bool>>;
 }
 
 pub trait FiniteElementBlock<C, F, const G: usize, const N: usize, Y>
@@ -98,6 +99,32 @@ where
             .iter()
             .map(|node| nodal_coordinates[*node].clone())
             .collect()
+    }
+    fn structure(&self, number_of_nodes: usize) -> Vec<Vec<bool>> {
+        let connectivity = self.connectivity();
+        let mut inverse_connectivity = vec![vec![]; number_of_nodes];
+        connectivity
+            .iter()
+            .enumerate()
+            .for_each(|(element, nodes)| {
+                nodes
+                    .iter()
+                    .for_each(|&node| inverse_connectivity[node].push(element))
+            });
+        let foo: Vec<Vec<usize>> = inverse_connectivity
+            .iter()
+            .map(|elements| {
+                let mut bar: Vec<usize> = elements
+                    .iter()
+                    .flat_map(|&element| connectivity[element])
+                    .collect();
+                bar.sort();
+                bar.dedup();
+                bar
+            })
+            .collect();
+        // now populate SquatrMatrix of bools, if that is the best structure to rearrange for something
+        todo!()
     }
 }
 
