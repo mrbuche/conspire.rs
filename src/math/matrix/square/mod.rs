@@ -91,22 +91,14 @@ impl SquareMatrix {
             }
         }
         
-        // let b_p: Vector = p.into_iter().map(|p_i| b[p_i]).collect();
-
-        // let mut y = Vector::zero(n);
         let mut y: Vector = p.into_iter().map(|p_i| b[p_i]).collect();
-
-        // lu.iter().enumerate().zip(y.iter_mut()).for_each(|((i, lu_i), y_i)|
-        //     lu_i.iter().take(i).zip(y.iter).for_each(|lu_ij| y_i -= )
-        // );
-    
-        // Forward substitution to solve L * y = permuted_b
         for i in 0..n {
             for j in 0..i {
                 y[i] -= lu[i][j] * y[j];
             }
+            // cannot multiply straight across j because storing all LU (also might be less efficient)
         }
-        
+
         let mut x = Vector::zero(n);
         for i in (0..n).rev() {
             x[i] = y[i];
