@@ -16,8 +16,6 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
-use nalgebra::DMatrix as Temporary;
-
 /// A square matrix.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SquareMatrix(Vec<Vector>);
@@ -25,30 +23,7 @@ pub struct SquareMatrix(Vec<Vector>);
 impl SquareMatrix {
     /// Returns the inverse of the square matrix.
     pub fn inverse(&self) -> Self {
-        let now = std::time::Instant::now();
-
-        let n = self.len();
-        let mut asdf = Temporary::<TensorRank0>::zeros(n, n);
-        self.iter().enumerate().for_each(|(i, entry_i)| {
-            entry_i
-                .iter()
-                .enumerate()
-                .for_each(|(j, entry_ij)| asdf[(i, j)] = *entry_ij)
-        });
-        let fdsa = asdf.try_inverse().unwrap();
-        let mut inverse = Self::zero(n);
-        inverse.iter_mut().enumerate().for_each(|(i, entry_i)| {
-            entry_i
-                .iter_mut()
-                .enumerate()
-                .for_each(|(j, entry_ij)| *entry_ij = fdsa[(i, j)])
-        });
-
-        println!(
-            "Running inverse() took {} microseconds.",
-            now.elapsed().as_micros()
-        );
-        inverse
+        panic!()
     }
     /// Returns the LU decomposition of the square matrix.
     pub fn lu_decomposition(&self) -> (Self, Self) {
@@ -78,6 +53,70 @@ impl SquareMatrix {
             }
         }
         (tensor_l, tensor_u)
+    }
+    /// Solve a system of linear equations using the LU decomposition.
+    pub fn solve_lu(&self, b: &Vector) -> Vector {
+        let n = self.len();
+
+        let mut lu = self.clone();
+
+        let mut p: Vec<usize> = (0..n).collect();
+
+        for i in 0..n {
+            // Pivoting: Find the row with the largest pivot element in the current column
+            let mut max_row = i;
+            for k in i + 1..n {
+                if lu[k][i].abs() > lu[max_row][i].abs() {
+                    max_row = k;
+                }
+            }
+
+            // Swap rows in A and update pivot indices
+            if max_row != i {
+                lu.0.swap(i, max_row);
+                p.swap(i, max_row);
+            }
+
+            // Check for singular matrix (zero pivot)
+            if lu[i][i].abs() < ABS_TOL {
+                panic!("Matrix is singular and cannot be solved.");
+            }
+
+            // Perform LU decomposition in-place
+            for j in i + 1..n {
+                lu[j][i] /= lu[i][i]; // Compute L (lower triangular part)
+                for k in i + 1..n {
+                    lu[j][k] -= lu[j][i] * lu[i][k]; // Update U (upper triangular part)
+                }
+            }
+        }
+        
+        // let b_p: Vector = p.into_iter().map(|p_i| b[p_i]).collect();
+
+        // let mut y = Vector::zero(n);
+        let mut y: Vector = p.into_iter().map(|p_i| b[p_i]).collect();
+
+        // lu.iter().enumerate().zip(y.iter_mut()).for_each(|((i, lu_i), y_i)|
+        //     lu_i.iter().take(i).zip(y.iter).for_each(|lu_ij| y_i -= )
+        // );
+    
+        // Forward substitution to solve L * y = permuted_b
+        for i in 0..n {
+            for j in 0..i {
+                y[i] -= lu[i][j] * y[j];
+            }
+        }
+        
+        let mut x = Vector::zero(n);
+        for i in (0..n).rev() {
+            x[i] = y[i];
+            for j in i + 1..n {
+                x[i] -= lu[i][j] * x[j];
+            }
+            x[i] /= lu[i][i];
+        }
+    
+        x
     }
 }
 

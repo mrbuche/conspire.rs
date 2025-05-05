@@ -124,6 +124,10 @@ where
             })
             .collect();
         // now populate SquatrMatrix of bools, if that is the best structure to rearrange for something
+        //
+        // Cuthill–McKee algorithm (and reverse) permutes SYMMETRIC sparse matrices into a narrow band matrix.
+        // Supposedly helps both aspects of performance, and also numerical stability, when solving equations.
+        //
         todo!()
     }
 }
