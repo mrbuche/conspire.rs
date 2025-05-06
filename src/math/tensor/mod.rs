@@ -112,7 +112,6 @@ where
         + Clone
         + Div<TensorRank0, Output = Self>
         + DivAssign<TensorRank0>
-        // + Into<Vector>
         + Mul<TensorRank0, Output = Self>
         + Sub<Self, Output = Self>
         + Sub<&'a Self, Output = Self>

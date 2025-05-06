@@ -27,6 +27,8 @@ impl SquareMatrix {
         // Can have this re-use (&mut self, &mut b) for null-space method.
         // Cannot use currently because A and A.T are pre-populated into H.
         //
+        // Need to do error handling with singular case.
+        //
         let n = self.len();
         let mut lu = self.clone();
         let mut p: Vec<usize> = (0..n).collect();
@@ -41,12 +43,9 @@ impl SquareMatrix {
                 lu.0.swap(i, max_row);
                 p.swap(i, max_row);
             }
-
-            // Do some sort of error handling instead!
             if lu[i][i].abs() < ABS_TOL {
-                panic!("Matrix is singular and cannot be solved.")
+                panic!("Matrix is singular and has no LU decomposition.")
             }
-
             (i + 1..n).for_each(|j| {
                 lu[j][i] /= lu[i][i];
                 (i + 1..n).for_each(|k| lu[j][k] -= lu[j][i] * lu[i][k])
