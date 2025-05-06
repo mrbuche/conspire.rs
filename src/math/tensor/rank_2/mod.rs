@@ -728,6 +728,7 @@ impl<const D: usize, const I: usize, const J: usize> Rank2 for TensorRank2<D, I,
     fn transpose(&self) -> Self::Transpose {
         (0..D)
             .map(|i| (0..D).map(|j| self[j][i]).collect())
+            // .map(|i| self.iter().map(|self_j| self_j[i]).collect())
             .collect()
     }
 }

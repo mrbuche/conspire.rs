@@ -478,38 +478,18 @@ macro_rules! test_helmholtz_free_energy {
                     .try_for_each(|(a, nodal_stiffness_a)| {
                         nodal_stiffness_a.iter().enumerate().try_for_each(
                             |(b, nodal_stiffness_ab)| {
-                                nodal_stiffness_ab
-                                    .iter()
-                                    .enumerate()
-                                    .zip(nodal_stiffness_ab.transpose().iter())
-                                    .try_for_each(
-                                        |((i, nodal_stiffness_ab_i), nodal_stiffness_ab_j)| {
-                                            nodal_stiffness_ab_i
-                                                .iter()
-                                                .enumerate()
-                                                .zip(nodal_stiffness_ab_j.iter())
-                                                .try_for_each(
-                                                    |(
-                                                        (j, nodal_stiffness_ab_ij),
-                                                        nodal_stiffness_ab_ji,
-                                                    )| {
-                                                        if a == b {
-                                                            assert_eq_within_tols(
-                                                                nodal_stiffness_ab_ij,
-                                                                &nodal_stiffness_ab_ji,
-                                                            )
-                                                        } else if i == j {
-                                                            assert_eq_within_tols(
-                                                                nodal_stiffness_ab_ij,
-                                                                &nodal_stiffness[b][a][i][j],
-                                                            )
-                                                        } else {
-                                                            Ok(())
-                                                        }
-                                                    },
+                                nodal_stiffness_ab.iter().enumerate().try_for_each(
+                                    |(i, nodal_stiffness_ab_i)| {
+                                        nodal_stiffness_ab_i.iter().enumerate().try_for_each(
+                                            |(j, nodal_stiffness_ab_ij)| {
+                                                assert_eq_within_tols(
+                                                    nodal_stiffness_ab_ij,
+                                                    &nodal_stiffness[b][a][j][i],
                                                 )
-                                        },
-                                    )
+                                            },
+                                        )
+                                    },
+                                )
                             },
                         )
                     });
@@ -525,38 +505,18 @@ macro_rules! test_helmholtz_free_energy {
                     .try_for_each(|(a, nodal_stiffness_a)| {
                         nodal_stiffness_a.iter().enumerate().try_for_each(
                             |(b, nodal_stiffness_ab)| {
-                                nodal_stiffness_ab
-                                    .iter()
-                                    .enumerate()
-                                    .zip(nodal_stiffness_ab.transpose().iter())
-                                    .try_for_each(
-                                        |((i, nodal_stiffness_ab_i), nodal_stiffness_ab_j)| {
-                                            nodal_stiffness_ab_i
-                                                .iter()
-                                                .enumerate()
-                                                .zip(nodal_stiffness_ab_j.iter())
-                                                .try_for_each(
-                                                    |(
-                                                        (j, nodal_stiffness_ab_ij),
-                                                        nodal_stiffness_ab_ji,
-                                                    )| {
-                                                        if a == b {
-                                                            assert_eq_within_tols(
-                                                                nodal_stiffness_ab_ij,
-                                                                &nodal_stiffness_ab_ji,
-                                                            )
-                                                        } else if i == j {
-                                                            assert_eq_within_tols(
-                                                                nodal_stiffness_ab_ij,
-                                                                &nodal_stiffness[b][a][i][j],
-                                                            )
-                                                        } else {
-                                                            Ok(())
-                                                        }
-                                                    },
+                                nodal_stiffness_ab.iter().enumerate().try_for_each(
+                                    |(i, nodal_stiffness_ab_i)| {
+                                        nodal_stiffness_ab_i.iter().enumerate().try_for_each(
+                                            |(j, nodal_stiffness_ab_ij)| {
+                                                assert_eq_within_tols(
+                                                    nodal_stiffness_ab_ij,
+                                                    &nodal_stiffness[b][a][j][i],
                                                 )
-                                        },
-                                    )
+                                            },
+                                        )
+                                    },
+                                )
                             },
                         )
                     });

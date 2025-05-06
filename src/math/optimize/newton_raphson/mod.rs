@@ -127,6 +127,19 @@ where
                 let mut residual = Vector::zero(num_total);
                 let mut solution = initial_guess;
                 let mut tangent = SquareMatrix::zero(num_total);
+                // Only works for A with one 1 in each row in a different column.
+                let mut j = 0;
+                let mut null_space = Matrix::zero(num_total, num_total - num_constraints);
+                constraint_matrix
+                    .transpose()
+                    .iter()
+                    .zip(null_space.iter_mut())
+                    .for_each(|(c_i, n_i)| {
+                        if c_i.iter().all(|c_ij| c_ij == &0.0) {
+                            n_i[j] = 1.0;
+                            j += 1;
+                        }
+                    });
                 constraint_matrix
                     .iter()
                     .enumerate()
@@ -145,17 +158,13 @@ where
                     );
                     hessian(&solution)?.fill_into(&mut tangent);
                     if residual.norm() < self.abs_tol {
-                        if self.check_minimum && !tangent.is_positive_definite() {
-                            // return Err(OptimizeError::NotMinimum(
-                            //     format!("{}", solution),
-                            //     format!("{:?}", &self),
-                            // ));
-                            println!(
-                                "Warning: \n\x1b[1;93mNeed to check positive definiteness with Lagrange multipliers.\x1b[0m"
-                            );
+                        if tangent.verify(null_space) {
                             return Ok(solution);
                         } else {
-                            return Ok(solution);
+                            return Err(OptimizeError::NotMinimum(
+                                format!("{}", solution),
+                                format!("{:?}", &self),
+                            ));
                         }
                     } else {
                         solution

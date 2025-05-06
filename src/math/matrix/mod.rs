@@ -1,7 +1,7 @@
 pub mod square;
 pub mod vector;
 
-use crate::math::{TensorRank0, TensorRank1Vec, TensorRank2, TensorVec};
+use crate::math::{Tensor, TensorRank0, TensorRank1Vec, TensorRank2, TensorVec};
 use std::ops::{Index, IndexMut, Mul};
 use vector::Vector;
 
@@ -24,6 +24,18 @@ impl Matrix {
     }
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+    pub fn transpose(&self) -> Self {
+        (0..self.width())
+            .map(|i| (0..self.len()).map(|j| self[j][i]).collect())
+            .collect()
+        // let mut transpose = Self::zero(self.width(), self.len());
+        // self.iter().enumerate().for_each(|(i, self_i)|
+        //     self_i.iter().zip(transpose.iter_mut()).for_each(|(self_ij, transpose_j)|
+        //         transpose_j[i] = *self_ij
+        //     )
+        // );
+        // transpose
     }
     pub fn width(&self) -> usize {
         self.0[0].len()
@@ -49,6 +61,14 @@ impl Index<usize> for Matrix {
 impl IndexMut<usize> for Matrix {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.0[index]
+    }
+}
+
+impl IntoIterator for Matrix {
+    type Item = Vector;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 
@@ -86,5 +106,21 @@ impl<const D: usize, const I: usize, const J: usize> Mul<&TensorRank2<D, I, J>> 
     type Output = Vector;
     fn mul(self, tensor_rank_2: &TensorRank2<D, I, J>) -> Self::Output {
         self.iter().map(|self_i| self_i * tensor_rank_2).collect()
+    }
+}
+
+impl Mul for Matrix {
+    type Output = Self;
+    fn mul(self, matrix: Self) -> Self::Output {
+        let mut output = Self::zero(self.len(), matrix.width());
+        self.iter()
+            .zip(output.iter_mut())
+            .for_each(|(self_i, output_i)| {
+                self_i
+                    .iter()
+                    .zip(matrix.iter())
+                    .for_each(|(self_ij, matrix_j)| *output_i += matrix_j * self_ij)
+            });
+        output
     }
 }
