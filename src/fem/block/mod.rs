@@ -128,6 +128,9 @@ where
     //     // Cuthill–McKee algorithm (and reverse) permutes SYMMETRIC sparse matrices into a narrow band matrix.
     //     // Supposedly helps both aspects of performance, and also numerical stability, when solving equations.
     //     //
+    //     // Seems there are Cholesky algorithms for banded Hermitian positive-definite matrices,
+    //     // so this re-structuring might be a good idea after all.
+    //     //
     //     todo!()
     // }
 }
