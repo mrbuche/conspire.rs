@@ -75,7 +75,8 @@ where
                     if residual.norm() < self.abs_tol {
                         return Ok(solution);
                     } else {
-                        solution.decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual))
+                        solution
+                            .decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual))
                     }
                 }
             }
@@ -157,7 +158,8 @@ where
                             return Ok(solution);
                         }
                     } else {
-                        solution.decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual))
+                        solution
+                            .decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual))
                     }
                 }
             }

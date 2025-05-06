@@ -2,8 +2,8 @@
 use crate::math::test::ErrorTensor;
 
 use crate::math::{
-    Jacobian, Matrix, Solution, SquareMatrix, Tensor, TensorRank0, TensorRank1Vec, TensorRank2,
-    TensorVec, write_tensor_rank_0,
+    Jacobian, Matrix, Solution, Tensor, TensorRank0, TensorRank1Vec, TensorRank2, TensorVec,
+    write_tensor_rank_0,
 };
 use std::{
     fmt::{Display, Formatter, Result},
@@ -393,22 +393,6 @@ impl SubAssign<&[TensorRank0]> for Vector {
         self.iter_mut()
             .zip(slice.iter())
             .for_each(|(self_entry, tensor_rank_1)| *self_entry -= tensor_rank_1);
-    }
-}
-
-#[allow(clippy::suspicious_arithmetic_impl)]
-impl Div<SquareMatrix> for Vector {
-    type Output = Vector;
-    fn div(self, square_matrix: SquareMatrix) -> Self::Output {
-        square_matrix.inverse() * self
-    }
-}
-
-#[allow(clippy::suspicious_arithmetic_impl)]
-impl Div<&SquareMatrix> for &Vector {
-    type Output = Vector;
-    fn div(self, square_matrix: &SquareMatrix) -> Self::Output {
-        square_matrix.inverse() * self
     }
 }
 

@@ -21,93 +21,56 @@ use std::{
 pub struct SquareMatrix(Vec<Vector>);
 
 impl SquareMatrix {
-    /// Returns the inverse of the square matrix.
-    pub fn inverse(&self) -> Self {
-        panic!()
-    }
-    /// Returns the LU decomposition of the square matrix.
-    pub fn lu_decomposition(&self) -> (Self, Self) {
-        let n = self.len();
-        let mut tensor_l = Self::zero(n);
-        let mut tensor_u = Self::zero(n);
-        for i in 0..n {
-            for k in i..n {
-                tensor_u[i][k] = self[i][k];
-                for j in 0..i {
-                    tensor_u[i][k] -= tensor_l[i][j] * tensor_u[j][k];
-                }
-            }
-            if tensor_u[i][i].abs() <= ABS_TOL {
-                panic!("LU decomposition failed (zero pivot).")
-            }
-            for k in i..n {
-                if i == k {
-                    tensor_l[i][k] = 1.0
-                } else {
-                    tensor_l[k][i] = self[k][i];
-                    for j in 0..i {
-                        tensor_l[k][i] -= tensor_l[k][j] * tensor_u[j][i];
-                    }
-                    tensor_l[k][i] /= tensor_u[i][i]
-                }
-            }
-        }
-        (tensor_l, tensor_u)
-    }
     /// Solve a system of linear equations using the LU decomposition.
     pub fn solve_lu(&self, b: &Vector) -> Vector {
+        //
+        // Can have this re-use (&mut self, &mut b) for null-space method.
+        // Cannot use currently because A and A.T are pre-populated into H.
+        //
         let n = self.len();
-
         let mut lu = self.clone();
-
         let mut p: Vec<usize> = (0..n).collect();
-
-        for i in 0..n {
-            // Pivoting: Find the row with the largest pivot element in the current column
+        (0..n).for_each(|i| {
             let mut max_row = i;
-            for k in i + 1..n {
+            (i + 1..n).for_each(|k| {
                 if lu[k][i].abs() > lu[max_row][i].abs() {
                     max_row = k;
                 }
-            }
-
-            // Swap rows in A and update pivot indices
+            });
             if max_row != i {
                 lu.0.swap(i, max_row);
                 p.swap(i, max_row);
             }
 
-            // Check for singular matrix (zero pivot)
+            // Do some sort of error handling instead!
             if lu[i][i].abs() < ABS_TOL {
-                panic!("Matrix is singular and cannot be solved.");
+                panic!("Matrix is singular and cannot be solved.")
             }
 
-            // Perform LU decomposition in-place
-            for j in i + 1..n {
-                lu[j][i] /= lu[i][i]; // Compute L (lower triangular part)
-                for k in i + 1..n {
-                    lu[j][k] -= lu[j][i] * lu[i][k]; // Update U (upper triangular part)
-                }
-            }
-        }
-        
+            (i + 1..n).for_each(|j| {
+                lu[j][i] /= lu[i][i];
+                (i + 1..n).for_each(|k| lu[j][k] -= lu[j][i] * lu[i][k])
+            })
+        });
         let mut y: Vector = p.into_iter().map(|p_i| b[p_i]).collect();
-        for i in 0..n {
-            for j in 0..i {
-                y[i] -= lu[i][j] * y[j];
-            }
-            // cannot multiply straight across j because storing all LU (also might be less efficient)
-        }
-
-        let mut x = Vector::zero(n);
-        for i in (0..n).rev() {
-            x[i] = y[i];
-            for j in i + 1..n {
-                x[i] -= lu[i][j] * x[j];
-            }
+        (0..n).for_each(|i| {
+            y[i] -= lu[i]
+                .iter()
+                .take(i)
+                .zip(y.iter())
+                .map(|(lu_ij, y_j)| lu_ij * y_j)
+                .sum::<TensorRank0>()
+        });
+        let mut x = y;
+        (0..n).rev().for_each(|i| {
+            x[i] -= lu[i]
+                .iter()
+                .skip(i + 1)
+                .zip(x.iter().skip(i + 1))
+                .map(|(lu_ij, x_j)| lu_ij * x_j)
+                .sum::<TensorRank0>();
             x[i] /= lu[i][i];
-        }
-    
+        });
         x
     }
 }
