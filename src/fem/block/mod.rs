@@ -9,7 +9,10 @@ use self::element::{
     ViscoelasticFiniteElement,
 };
 use super::*;
-use crate::math::optimize::{Dirichlet, FirstOrder, GradientDescent, OptimizeError};
+use crate::math::optimize::{
+    EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError,
+    SecondOrderOptimization,
+};
 use std::array::from_fn;
 
 pub struct ElementBlock<F, const N: usize> {
@@ -32,6 +35,7 @@ where
         element_connectivity: &[usize; N],
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> NodalCoordinates<N>;
+    // fn structure(&self, number_of_nodes: usize) -> Vec<Vec<bool>>;
 }
 
 pub trait FiniteElementBlock<C, F, const G: usize, const N: usize, Y>
@@ -96,6 +100,39 @@ where
             .map(|node| nodal_coordinates[*node].clone())
             .collect()
     }
+    // fn structure(&self, number_of_nodes: usize) -> Vec<Vec<bool>> {
+    //     let connectivity = self.connectivity();
+    //     let mut inverse_connectivity = vec![vec![]; number_of_nodes];
+    //     connectivity
+    //         .iter()
+    //         .enumerate()
+    //         .for_each(|(element, nodes)| {
+    //             nodes
+    //                 .iter()
+    //                 .for_each(|&node| inverse_connectivity[node].push(element))
+    //         });
+    //     let foo: Vec<Vec<usize>> = inverse_connectivity
+    //         .iter()
+    //         .map(|elements| {
+    //             let mut bar: Vec<usize> = elements
+    //                 .iter()
+    //                 .flat_map(|&element| connectivity[element])
+    //                 .collect();
+    //             bar.sort();
+    //             bar.dedup();
+    //             bar
+    //         })
+    //         .collect();
+    //     // now populate SquatrMatrix of bools, if that is the best structure to rearrange for something
+    //     //
+    //     // Cuthill–McKee algorithm (and reverse) permutes SYMMETRIC sparse matrices into a narrow band matrix.
+    //     // Supposedly helps both aspects of performance, and also numerical stability, when solving equations.
+    //     //
+    //     // Seems there are Cholesky algorithms for banded Hermitian positive-definite matrices,
+    //     // so this re-structuring might be a good idea after all.
+    //     //
+    //     todo!()
+    // }
 }
 
 impl<C, F, const G: usize, const N: usize, Y> FiniteElementBlock<C, F, G, N, Y>
@@ -175,14 +212,11 @@ where
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<NodalStiffnessesBlock, ConstitutiveError>;
-    fn solve(
+    fn root(
         &self,
         initial_coordinates: NodalCoordinatesBlock,
-        places_d: Option<&[&[usize]]>,
-        values_d: Option<&[Scalar]>,
-        places_n: Option<&[&[usize]]>,
-        values_n: Option<&[Scalar]>,
-        optimization: GradientDescent,
+        root_finding: NewtonRaphson,
+        equality_constraint: EqualityConstraint,
     ) -> Result<NodalCoordinatesBlock, OptimizeError>;
 }
 
@@ -196,6 +230,12 @@ where
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<Scalar, ConstitutiveError>;
+    fn minimize(
+        &self,
+        initial_coordinates: NodalCoordinatesBlock,
+        optimization: NewtonRaphson,
+        equality_constraint: EqualityConstraint,
+    ) -> Result<NodalCoordinatesBlock, OptimizeError>;
 }
 
 pub trait ViscoelasticFiniteElementBlock<C, F, const G: usize, const N: usize>
@@ -272,7 +312,7 @@ where
                     )?
                     .iter()
                     .zip(element_connectivity.iter())
-                    .for_each(|(nodal_force, node)| nodal_forces[*node] += nodal_force);
+                    .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
                 Ok::<(), ConstitutiveError>(())
             })?;
         Ok(nodal_forces)
@@ -292,10 +332,10 @@ where
                     )?
                     .iter()
                     .zip(element_connectivity.iter())
-                    .for_each(|(object, node_a)| {
+                    .for_each(|(object, &node_a)| {
                         object.iter().zip(element_connectivity.iter()).for_each(
-                            |(nodal_stiffness, node_b)| {
-                                nodal_stiffnesses[*node_a][*node_b] += nodal_stiffness
+                            |(nodal_stiffness, &node_b)| {
+                                nodal_stiffnesses[node_a][node_b] += nodal_stiffness
                             },
                         )
                     });
@@ -303,23 +343,19 @@ where
             })?;
         Ok(nodal_stiffnesses)
     }
-    fn solve(
+    fn root(
         &self,
         initial_coordinates: NodalCoordinatesBlock,
-        places_d: Option<&[&[usize]]>,
-        values_d: Option<&[Scalar]>,
-        _places_n: Option<&[&[usize]]>,
-        _values_n: Option<&[Scalar]>,
-        optimization: GradientDescent,
+        root_finding: NewtonRaphson,
+        equality_constraint: EqualityConstraint,
     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
-        optimization.minimize(
+        root_finding.root(
             |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
+            |nodal_coordinates: &NodalCoordinatesBlock| {
+                Ok(self.nodal_stiffnesses(nodal_coordinates)?)
+            },
             initial_coordinates,
-            Some(Dirichlet {
-                places: places_d.unwrap(),
-                values: values_d.unwrap(),
-            }),
-            None,
+            equality_constraint,
         )
     }
 }
@@ -344,6 +380,24 @@ where
                 )
             })
             .sum()
+    }
+    fn minimize(
+        &self,
+        initial_coordinates: NodalCoordinatesBlock,
+        optimization: NewtonRaphson,
+        equality_constraint: EqualityConstraint,
+    ) -> Result<NodalCoordinatesBlock, OptimizeError> {
+        optimization.minimize(
+            |nodal_coordinates: &NodalCoordinatesBlock| {
+                Ok(self.helmholtz_free_energy(nodal_coordinates)?)
+            },
+            |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
+            |nodal_coordinates: &NodalCoordinatesBlock| {
+                Ok(self.nodal_stiffnesses(nodal_coordinates)?)
+            },
+            initial_coordinates,
+            equality_constraint,
+        )
     }
 }
 
@@ -371,7 +425,7 @@ where
                     )?
                     .iter()
                     .zip(element_connectivity.iter())
-                    .for_each(|(nodal_force, node)| nodal_forces[*node] += nodal_force);
+                    .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
                 Ok::<(), ConstitutiveError>(())
             })?;
         Ok(nodal_forces)
@@ -393,10 +447,10 @@ where
                     )?
                     .iter()
                     .zip(element_connectivity.iter())
-                    .for_each(|(object, node_a)| {
+                    .for_each(|(object, &node_a)| {
                         object.iter().zip(element_connectivity.iter()).for_each(
-                            |(nodal_stiffness, node_b)| {
-                                nodal_stiffnesses[*node_a][*node_b] += nodal_stiffness
+                            |(nodal_stiffness, &node_b)| {
+                                nodal_stiffnesses[node_a][node_b] += nodal_stiffness
                             },
                         )
                     });

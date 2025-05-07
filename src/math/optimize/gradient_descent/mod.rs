@@ -3,7 +3,7 @@ mod test;
 
 use super::{
     super::{Tensor, TensorRank0},
-    Dirichlet, FirstOrder, Neumann, OptimizeError,
+    EqualityConstraint, FirstOrderOptimization, OptimizeError, ZerothOrderRootFinding,
 };
 use crate::ABS_TOL;
 
@@ -25,61 +25,103 @@ impl Default for GradientDescent {
     }
 }
 
-impl<X: Tensor> FirstOrder<X> for GradientDescent {
+impl<X> ZerothOrderRootFinding<X> for GradientDescent
+where
+    X: Tensor,
+{
+    fn root(
+        &self,
+        function: impl Fn(&X) -> Result<X, OptimizeError>,
+        initial_guess: X,
+        equality_constraint: EqualityConstraint,
+    ) -> Result<X, OptimizeError> {
+        match equality_constraint {
+            EqualityConstraint::Linear(_constraint_matrix, _constraint_rhs) => {
+                unimplemented!("This may work with gradient ascent on multipliers, or not at all.")
+            }
+            EqualityConstraint::None => {
+                let mut residual;
+                let mut residual_change = initial_guess.clone() * 0.0;
+                let mut solution = initial_guess;
+                let mut solution_change = solution.clone();
+                let mut step_size = 1e-2;
+                let mut step_trial;
+                for _ in 0..self.max_steps {
+                    residual = function(&solution)?;
+                    if residual.norm() < self.abs_tol {
+                        return Ok(solution);
+                    } else {
+                        solution_change -= &solution;
+                        residual_change -= &residual;
+                        step_trial = residual_change.full_contraction(&solution_change)
+                            / residual_change.norm_squared();
+                        if step_trial.abs() > 0.0 && !step_trial.is_nan() {
+                            step_size = step_trial.abs()
+                        } else {
+                            step_size *= 1.1
+                        }
+                        residual_change = residual.clone();
+                        solution_change = solution.clone();
+                        solution -= residual * step_size;
+                    }
+                }
+            }
+        }
+        Err(OptimizeError::MaximumStepsReached(
+            self.max_steps,
+            format!("{:?}", &self),
+        ))
+    }
+}
+
+impl<F, X> FirstOrderOptimization<F, X> for GradientDescent
+where
+    X: Tensor,
+{
     fn minimize(
         &self,
+        _function: impl Fn(&X) -> Result<F, OptimizeError>,
         jacobian: impl Fn(&X) -> Result<X, OptimizeError>,
         initial_guess: X,
-        dirichlet: Option<Dirichlet>,
-        neumann: Option<Neumann>,
+        equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizeError> {
-        //
-        // How to choose short (below, dx*dg/dg*dg) or long (dx*dx/dx*dg) steps?
-        // Or even allow different options for calculating step size?
-        // Like using backtracking line search with: (1), checked decrease, (2) Armijo condition (sufficient decrease), (3) trust region, etc. (see slides).
-        // Those methods might also be abstracted to be used in multiple places, like if you make a nonlinear conjugate gradient solver.
-        // And then within the NLCG, different formulas for beta?
-        //
-        let mut residual;
-        let mut residual_change = initial_guess.clone() * 0.0;
-        let mut solution = initial_guess;
-        let mut solution_change = solution.clone();
-        let mut step_size = 1e-2;
-        let mut step_trial;
-        if let Some(ref bc) = dirichlet {
-            bc.places
-                .iter()
-                .zip(bc.values.iter())
-                .for_each(|(place, value)| *solution.get_at_mut(place) = *value)
-        }
-        for _ in 0..self.max_steps {
-            residual = jacobian(&solution)?;
-            if let Some(ref bc) = neumann {
-                bc.places
-                    .iter()
-                    .zip(bc.values.iter())
-                    .for_each(|(place, value)| *residual.get_at_mut(place) -= value)
+        match equality_constraint {
+            EqualityConstraint::Linear(_constraint_matrix, _constraint_rhs) => {
+                unimplemented!("This may work with gradient ascent on multipliers, or not at all.")
             }
-            if let Some(ref bc) = dirichlet {
-                bc.places
-                    .iter()
-                    .for_each(|place| *residual.get_at_mut(place) = 0.0)
-            }
-            if residual.norm() < self.abs_tol {
-                return Ok(solution);
-            } else {
-                solution_change -= &solution;
-                residual_change -= &residual;
-                step_trial = residual_change.full_contraction(&solution_change)
-                    / residual_change.norm_squared();
-                if step_trial.abs() > 0.0 && !step_trial.is_nan() {
-                    step_size = step_trial.abs()
-                } else {
-                    step_size *= 1.1
+            EqualityConstraint::None => {
+                //
+                // How to choose short (below, dx*dg/dg*dg) or long (dx*dx/dx*dg) steps?
+                // Or even allow different options for calculating step size?
+                // Like using backtracking line search with: (1), checked decrease, (2) Armijo condition (sufficient decrease), (3) Wolfe, (4) trust region, etc. (see slides).
+                // Those methods might also be abstracted to be used in multiple places, like if you make a nonlinear conjugate gradient solver.
+                // And then within the NLCG, different formulas for beta?
+                //
+                let mut residual;
+                let mut residual_change = initial_guess.clone() * 0.0;
+                let mut solution = initial_guess;
+                let mut solution_change = solution.clone();
+                let mut step_size = 1e-2;
+                let mut step_trial;
+                for _ in 0..self.max_steps {
+                    residual = jacobian(&solution)?;
+                    if residual.norm() < self.abs_tol {
+                        return Ok(solution);
+                    } else {
+                        solution_change -= &solution;
+                        residual_change -= &residual;
+                        step_trial = residual_change.full_contraction(&solution_change)
+                            / residual_change.norm_squared();
+                        if step_trial.abs() > 0.0 && !step_trial.is_nan() {
+                            step_size = step_trial.abs()
+                        } else {
+                            step_size *= 1.1
+                        }
+                        residual_change = residual.clone();
+                        solution_change = solution.clone();
+                        solution -= residual * step_size;
+                    }
                 }
-                residual_change = residual.clone();
-                solution_change = solution.clone();
-                solution -= residual * step_size;
             }
         }
         Err(OptimizeError::MaximumStepsReached(

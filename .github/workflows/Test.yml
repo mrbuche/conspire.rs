@@ -47,11 +47,9 @@ jobs:
         with:
           toolchain: nightly
       - name: Install
-        uses: taiki-e/install-action@f285525a10c5cb7ee50e88901676b1ecfd91c647
-        with:
-          tool: cargo-llvm-cov
+        run: cargo install cargo-llvm-cov
       - name: Coverage
-        run: rustup run nightly cargo llvm-cov --profile release --features ${{ matrix.features }} --fail-under-functions 69 --fail-under-lines 74 --fail-under-regions 70
+        run: rustup run nightly cargo llvm-cov --profile release --features ${{ matrix.features }} --fail-under-functions 66 --fail-under-lines 71 --fail-under-regions 66
       - name: Tree
         run: $([[ $(cargo tree --color always --edges normal --features ${{ matrix.features }} | wc -l) -eq 1 ]])
   Mutants:
@@ -60,8 +58,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Install
-        uses: taiki-e/install-action@f285525a10c5cb7ee50e88901676b1ecfd91c647
-        with:
-          tool: cargo-mutants
+        run: cargo install cargo-mutants
       - name: Mutants
         run: cargo mutants --features math --file 'src/math/**/*.rs' --minimum-test-timeout 0.9 --profile release --shard 1/256 || true

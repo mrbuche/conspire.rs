@@ -7,22 +7,22 @@ pub mod rank_2;
 pub mod rank_3;
 pub mod rank_4;
 
+use super::{SquareMatrix, Vector};
 use crate::defeat_message;
 use rank_0::TensorRank0;
 use std::{
-    fmt,
-    fmt::{Debug, Display},
+    fmt::{self, Debug, Display, Formatter},
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, Sub, SubAssign},
 };
 
 /// Possible errors for tensors.
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub enum TensorError {
     NotPositiveDefinite,
 }
 
-impl Display for TensorError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Debug for TensorError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
             Self::NotPositiveDefinite => "\x1b[1;91mResult is not positive definite.".to_string(),
         };
@@ -30,14 +30,51 @@ impl Display for TensorError {
     }
 }
 
+impl Display for TensorError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let error = match self {
+            Self::NotPositiveDefinite => "\x1b[1;91mResult is not positive definite.".to_string(),
+        };
+        write!(f, "{}\x1b[0m", error)
+    }
+}
+
+/// Common methods for solutions.
+pub trait Solution
+where
+    Self: Tensor,
+{
+    /// Decrements the solution chained with a vector from another vector.
+    fn decrement_from_chained(&mut self, other: &mut Vector, vector: Vector);
+}
+
+/// Common methods for Jacobians.
+pub trait Jacobian
+where
+    Self: Tensor + Sub<Vector, Output = Self>,
+{
+    /// Fills the Jacobian into a vector.
+    fn fill_into(self, vector: &mut Vector);
+    /// Fills the Jacobian chained with a vector into another vector.
+    fn fill_into_chained(self, other: Vector, vector: &mut Vector);
+}
+
 /// Common methods for Hessians.
-pub trait Hessian {
+pub trait Hessian
+where
+    Self: Tensor,
+{
+    /// Fills the Hessian into a square matrix.
+    fn fill_into(self, square_matrix: &mut SquareMatrix);
     /// Checks whether the Hessian is positive-definite.
     fn is_positive_definite(&self) -> bool;
 }
 
 /// Common methods for rank-2 tensors.
-pub trait Rank2: Sized {
+pub trait Rank2
+where
+    Self: Sized,
+{
     /// The type that is the transpose of the tensor.
     type Transpose;
     /// Returns the Cholesky decomposition of the rank-2 tensor.
@@ -127,6 +164,10 @@ where
     fn normalized(self) -> Self {
         let norm = self.norm();
         self / norm
+    }
+    /// Returns the total number of entries.
+    fn num_entries(&self) -> usize {
+        panic!("will implement for all the others eventually")
     }
 }
 

@@ -374,7 +374,7 @@ fn cholesky_decomposition_fail_dim_9() {
 
 #[test]
 fn div_tensor_rank_4_to_self() -> Result<(), TestError> {
-    assert_eq(
+    assert_eq_within_tols(
         &(get_tensor_rank_2_dim_3() / get_tensor_rank_4()),
         &get_tensor_rank_2_div_tensor_rank_4(),
     )

@@ -142,6 +142,14 @@ impl<const D: usize, const I: usize, const J: usize> Tensor for TensorRank2Vec<D
     }
 }
 
+impl<const D: usize, const I: usize, const J: usize> IntoIterator for TensorRank2Vec<D, I, J> {
+    type Item = TensorRank2<D, I, J>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 impl<const D: usize, const I: usize, const J: usize> Add for TensorRank2Vec<D, I, J> {
     type Output = Self;
     fn add(mut self, tensor_rank_2_vec: Self) -> Self::Output {

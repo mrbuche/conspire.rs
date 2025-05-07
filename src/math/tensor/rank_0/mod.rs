@@ -6,7 +6,8 @@ use super::test::ErrorTensor;
 
 pub mod list;
 
-use super::{Hessian, Tensor, TensorArray};
+use super::{Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, TensorVec, Vector};
+use std::ops::Sub;
 
 /// A tensor of rank 0 (a scalar).
 pub type TensorRank0 = f64;
@@ -34,7 +35,32 @@ impl ErrorTensor for TensorRank0 {
     }
 }
 
+impl Solution for TensorRank0 {
+    fn decrement_from_chained(&mut self, _other: &mut Vector, _vector: Vector) {
+        panic!()
+    }
+}
+
+impl Jacobian for TensorRank0 {
+    fn fill_into(self, _vector: &mut Vector) {
+        panic!()
+    }
+    fn fill_into_chained(self, _other: Vector, _vector: &mut Vector) {
+        panic!()
+    }
+}
+
+impl Sub<Vector> for TensorRank0 {
+    type Output = Self;
+    fn sub(self, _vector: Vector) -> Self::Output {
+        panic!()
+    }
+}
+
 impl Hessian for TensorRank0 {
+    fn fill_into(self, _square_matrix: &mut SquareMatrix) {
+        panic!()
+    }
     fn is_positive_definite(&self) -> bool {
         self > &0.0
     }
@@ -73,5 +99,11 @@ impl TensorArray for TensorRank0 {
     }
     fn zero() -> Self {
         0.0
+    }
+}
+
+impl From<TensorRank0> for Vector {
+    fn from(tensor_rank_0: TensorRank0) -> Self {
+        Vector::new(&[tensor_rank_0])
     }
 }

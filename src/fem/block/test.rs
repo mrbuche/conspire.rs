@@ -478,38 +478,18 @@ macro_rules! test_helmholtz_free_energy {
                     .try_for_each(|(a, nodal_stiffness_a)| {
                         nodal_stiffness_a.iter().enumerate().try_for_each(
                             |(b, nodal_stiffness_ab)| {
-                                nodal_stiffness_ab
-                                    .iter()
-                                    .enumerate()
-                                    .zip(nodal_stiffness_ab.transpose().iter())
-                                    .try_for_each(
-                                        |((i, nodal_stiffness_ab_i), nodal_stiffness_ab_j)| {
-                                            nodal_stiffness_ab_i
-                                                .iter()
-                                                .enumerate()
-                                                .zip(nodal_stiffness_ab_j.iter())
-                                                .try_for_each(
-                                                    |(
-                                                        (j, nodal_stiffness_ab_ij),
-                                                        nodal_stiffness_ab_ji,
-                                                    )| {
-                                                        if a == b {
-                                                            assert_eq_within_tols(
-                                                                nodal_stiffness_ab_ij,
-                                                                &nodal_stiffness_ab_ji,
-                                                            )
-                                                        } else if i == j {
-                                                            assert_eq_within_tols(
-                                                                nodal_stiffness_ab_ij,
-                                                                &nodal_stiffness[b][a][i][j],
-                                                            )
-                                                        } else {
-                                                            Ok(())
-                                                        }
-                                                    },
+                                nodal_stiffness_ab.iter().enumerate().try_for_each(
+                                    |(i, nodal_stiffness_ab_i)| {
+                                        nodal_stiffness_ab_i.iter().enumerate().try_for_each(
+                                            |(j, nodal_stiffness_ab_ij)| {
+                                                assert_eq_within_tols(
+                                                    nodal_stiffness_ab_ij,
+                                                    &nodal_stiffness[b][a][j][i],
                                                 )
-                                        },
-                                    )
+                                            },
+                                        )
+                                    },
+                                )
                             },
                         )
                     });
@@ -525,38 +505,18 @@ macro_rules! test_helmholtz_free_energy {
                     .try_for_each(|(a, nodal_stiffness_a)| {
                         nodal_stiffness_a.iter().enumerate().try_for_each(
                             |(b, nodal_stiffness_ab)| {
-                                nodal_stiffness_ab
-                                    .iter()
-                                    .enumerate()
-                                    .zip(nodal_stiffness_ab.transpose().iter())
-                                    .try_for_each(
-                                        |((i, nodal_stiffness_ab_i), nodal_stiffness_ab_j)| {
-                                            nodal_stiffness_ab_i
-                                                .iter()
-                                                .enumerate()
-                                                .zip(nodal_stiffness_ab_j.iter())
-                                                .try_for_each(
-                                                    |(
-                                                        (j, nodal_stiffness_ab_ij),
-                                                        nodal_stiffness_ab_ji,
-                                                    )| {
-                                                        if a == b {
-                                                            assert_eq_within_tols(
-                                                                nodal_stiffness_ab_ij,
-                                                                &nodal_stiffness_ab_ji,
-                                                            )
-                                                        } else if i == j {
-                                                            assert_eq_within_tols(
-                                                                nodal_stiffness_ab_ij,
-                                                                &nodal_stiffness[b][a][i][j],
-                                                            )
-                                                        } else {
-                                                            Ok(())
-                                                        }
-                                                    },
+                                nodal_stiffness_ab.iter().enumerate().try_for_each(
+                                    |(i, nodal_stiffness_ab_i)| {
+                                        nodal_stiffness_ab_i.iter().enumerate().try_for_each(
+                                            |(j, nodal_stiffness_ab_ij)| {
+                                                assert_eq_within_tols(
+                                                    nodal_stiffness_ab_ij,
+                                                    &nodal_stiffness[b][a][j][i],
                                                 )
-                                        },
-                                    )
+                                            },
+                                        )
+                                    },
+                                )
                             },
                         )
                     });
@@ -664,6 +624,30 @@ macro_rules! test_finite_element_block_with_elastic_constitutive_model {
             $constitutive_model,
             $constitutive_model_parameters
         );
+        #[test]
+        fn root() -> Result<(), TestError> {
+            let (applied_load, a, b) = equality_constraint();
+            let block = get_block();
+            let solution = block.root(
+                get_reference_coordinates_block().into(),
+                NewtonRaphson {
+                    ..Default::default()
+                },
+                EqualityConstraint::Linear(a, b),
+            )?;
+            let (deformation_gradient, _) =
+                $constitutive_model::new($constitutive_model_parameters).solve(applied_load)?;
+            block
+                .deformation_gradients(&solution)
+                .iter()
+                .try_for_each(|deformation_gradients| {
+                    deformation_gradients
+                        .iter()
+                        .try_for_each(|deformation_gradient_g| {
+                            assert_eq_within_tols(deformation_gradient_g, &deformation_gradient)
+                        })
+                })
+        }
     };
 }
 pub(crate) use test_finite_element_block_with_elastic_constitutive_model;
@@ -682,37 +666,29 @@ macro_rules! test_finite_element_block_with_hyperelastic_constitutive_model {
             $constitutive_model,
             $constitutive_model_parameters
         );
-        use crate::constitutive::solid::AppliedLoad;
         #[test]
-        fn solve() -> Result<(), TestError> {
-            if TEST_SOLVE {
-                let dx = 0.23;
-                let block = get_block();
-                let solution = block.solve(
-                    get_reference_coordinates_block().into(),
-                    Some(&get_dirichlet_places()),
-                    Some(&get_dirichlet_values(dx)),
-                    None,
-                    None,
-                    GradientDescent {
-                        ..Default::default()
-                    },
-                )?;
-                let (deformation_gradient, _) =
-                    $constitutive_model::new($constitutive_model_parameters)
-                        .solve(AppliedLoad::UniaxialStress(1.0 + dx))?;
-                block.deformation_gradients(&solution).iter().try_for_each(
-                    |deformation_gradients| {
-                        deformation_gradients
-                            .iter()
-                            .try_for_each(|deformation_gradient_g| {
-                                assert_eq_within_tols(deformation_gradient_g, &deformation_gradient)
-                            })
-                    },
-                )
-            } else {
-                Ok(())
-            }
+        fn minimize() -> Result<(), TestError> {
+            let (applied_load, a, b) = equality_constraint();
+            let block = get_block();
+            let solution = block.minimize(
+                get_reference_coordinates_block().into(),
+                NewtonRaphson {
+                    ..Default::default()
+                },
+                EqualityConstraint::Linear(a, b),
+            )?;
+            let (deformation_gradient, _) =
+                $constitutive_model::new($constitutive_model_parameters).solve(applied_load)?;
+            block
+                .deformation_gradients(&solution)
+                .iter()
+                .try_for_each(|deformation_gradients| {
+                    deformation_gradients
+                        .iter()
+                        .try_for_each(|deformation_gradient_g| {
+                            assert_eq_within_tols(deformation_gradient_g, &deformation_gradient)
+                        })
+                })
         }
     };
 }

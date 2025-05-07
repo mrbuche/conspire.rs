@@ -158,14 +158,61 @@ fn get_velocities_block() -> NodalVelocitiesBlock {
     ])
 }
 
-const TEST_SOLVE: bool = false;
-
-fn get_dirichlet_places<'a>() -> [&'a [usize]; 8] {
-    panic!()
-}
-
-fn get_dirichlet_values(_x: Scalar) -> [Scalar; 8] {
-    panic!()
+fn equality_constraint() -> (
+    crate::constitutive::solid::AppliedLoad,
+    crate::math::Matrix,
+    crate::math::Vector,
+) {
+    let strain = 0.88;
+    let mut a = crate::math::Matrix::zero(21, 105);
+    a[0][0] = 1.0;
+    a[1][3] = 1.0;
+    a[2][12] = 1.0;
+    a[3][15] = 1.0;
+    a[4][24] = 1.0;
+    a[5][33] = 1.0;
+    a[6][36] = 1.0;
+    a[7][39] = 1.0;
+    a[8][66] = 1.0;
+    a[9][6] = 1.0;
+    a[10][9] = 1.0;
+    a[11][18] = 1.0;
+    a[12][21] = 1.0;
+    a[13][42] = 1.0;
+    a[14][51] = 1.0;
+    a[15][54] = 1.0;
+    a[16][57] = 1.0;
+    a[17][72] = 1.0;
+    a[18][19] = 1.0;
+    a[19][20] = 1.0;
+    a[20][23] = 1.0;
+    let mut b = crate::math::Vector::zero(a.len());
+    b[0] = 0.5 + strain;
+    b[1] = 0.5 + strain;
+    b[2] = 0.5 + strain;
+    b[3] = 0.5 + strain;
+    b[4] = 0.5 + strain;
+    b[5] = 0.5 + strain;
+    b[6] = 0.5 + strain;
+    b[7] = 0.5 + strain;
+    b[8] = 0.5 + strain;
+    b[9] = -0.5;
+    b[10] = -0.5;
+    b[11] = -0.5;
+    b[12] = -0.5;
+    b[13] = -0.5;
+    b[14] = -0.5;
+    b[15] = -0.5;
+    b[16] = -0.5;
+    b[17] = -0.5;
+    b[18] = -0.5;
+    b[19] = -0.5;
+    b[20] = -0.5;
+    (
+        crate::constitutive::solid::AppliedLoad::UniaxialStress(strain + 1.0),
+        a,
+        b,
+    )
 }
 
 test_finite_element!(Tetrahedron);

@@ -11,15 +11,15 @@ use crate::{
         TensorRank4List,
     },
 };
-use std::fmt;
+use std::fmt::{self, Debug, Display, Formatter};
 
 /// Possible errors for deformation gradients.
 pub enum DeformationError {
     InvalidJacobian(Scalar, DeformationGradient),
 }
 
-impl fmt::Debug for DeformationError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Debug for DeformationError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
             Self::InvalidJacobian(jacobian, deformation_gradient) => {
                 format!(
@@ -33,8 +33,8 @@ impl fmt::Debug for DeformationError {
     }
 }
 
-impl fmt::Display for DeformationError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for DeformationError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
             Self::InvalidJacobian(jacobian, deformation_gradient) => {
                 format!(
@@ -44,7 +44,7 @@ impl fmt::Display for DeformationError {
                 )
             }
         };
-        write!(f, "\n{}\n\x1b[0;2;31m{}\x1b[0m\n", error, defeat_message())
+        write!(f, "{}\x1b[0m", error)
     }
 }
 

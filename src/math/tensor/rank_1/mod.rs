@@ -106,6 +106,14 @@ impl<const D: usize, const I: usize> Tensor for TensorRank1<D, I> {
     }
 }
 
+impl<const D: usize, const I: usize> IntoIterator for TensorRank1<D, I> {
+    type Item = TensorRank0;
+    type IntoIter = std::array::IntoIter<Self::Item, D>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 impl<const D: usize, const I: usize> TensorArray for TensorRank1<D, I> {
     type Array = [TensorRank0; D];
     type Item = TensorRank0;

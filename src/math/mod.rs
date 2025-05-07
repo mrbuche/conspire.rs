@@ -18,9 +18,9 @@ pub mod optimize;
 mod matrix;
 mod tensor;
 
-pub use matrix::{square::SquareMatrix, vector::Vector};
+pub use matrix::{Matrix, square::SquareMatrix, vector::Vector};
 pub use tensor::{
-    Hessian, Rank2, Tensor, TensorArray, TensorVec,
+    Hessian, Jacobian, Rank2, Solution, Tensor, TensorArray, TensorVec,
     rank_0::{
         TensorRank0,
         list::{TensorRank0List, tensor_rank_0_list},

@@ -12,7 +12,7 @@ mod almansi_hamel;
 pub use almansi_hamel::AlmansiHamel;
 
 use super::*;
-use crate::math::optimize::{NewtonRaphson, SecondOrder};
+use crate::math::optimize::{EqualityConstraint, FirstOrderRootFinding, NewtonRaphson};
 
 /// Required methods for elastic constitutive models.
 pub trait Elastic
@@ -154,7 +154,7 @@ where
         };
         let deformation_gradient = match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_11) => {
-                let deformation_gradient_33 = optimization.minimize(
+                let deformation_gradient_33 = optimization.root(
                     |deformation_gradient_33: &Scalar| {
                         Ok(self.cauchy_stress(&DeformationGradient::new([
                             [deformation_gradient_11, 0.0, 0.0],
@@ -170,8 +170,7 @@ where
                         ]))?[2][2][2][2])
                     },
                     1.0 / deformation_gradient_11.sqrt(),
-                    None,
-                    None,
+                    EqualityConstraint::None,
                 )?;
                 DeformationGradient::new([
                     [deformation_gradient_11, 0.0, 0.0],
@@ -180,7 +179,7 @@ where
                 ])
             }
             AppliedLoad::BiaxialStress(deformation_gradient_11, deformation_gradient_22) => {
-                let deformation_gradient_33 = optimization.minimize(
+                let deformation_gradient_33 = optimization.root(
                     |deformation_gradient_33: &Scalar| {
                         Ok(self.cauchy_stress(&DeformationGradient::new([
                             [deformation_gradient_11, 0.0, 0.0],
@@ -196,8 +195,7 @@ where
                         ]))?[2][2][2][2])
                     },
                     1.0 / deformation_gradient_11 / deformation_gradient_22,
-                    None,
-                    None,
+                    EqualityConstraint::None,
                 )?;
                 DeformationGradient::new([
                     [deformation_gradient_11, 0.0, 0.0],

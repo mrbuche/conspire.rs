@@ -1,7 +1,9 @@
 #[cfg(test)]
 use super::super::test::ErrorTensor;
 
-use crate::math::{Tensor, TensorRank0, TensorRank2, TensorRank2Vec, TensorVec};
+use crate::math::{
+    Hessian, SquareMatrix, Tensor, TensorRank0, TensorRank2, TensorRank2Vec, TensorVec,
+};
 use std::{
     fmt::{Display, Formatter, Result},
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
@@ -198,6 +200,37 @@ impl<const D: usize, const I: usize, const J: usize> Tensor for TensorRank2Vec2D
     }
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> IntoIterator for TensorRank2Vec2D<D, I, J> {
+    type Item = TensorRank2Vec<D, I, J>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2Vec2D<D, I, J> {
+    fn fill_into(self, square_matrix: &mut SquareMatrix) {
+        self.into_iter().enumerate().for_each(|(a, entry_a)| {
+            entry_a.into_iter().enumerate().for_each(|(b, entry_ab)| {
+                entry_ab
+                    .into_iter()
+                    .enumerate()
+                    .for_each(|(i, entry_ab_i)| {
+                        entry_ab_i
+                            .into_iter()
+                            .enumerate()
+                            .for_each(|(j, entry_ab_ij)| {
+                                square_matrix[D * a + i][D * b + j] = entry_ab_ij
+                            })
+                    })
+            })
+        });
+    }
+    fn is_positive_definite(&self) -> bool {
+        todo!()
     }
 }
 
