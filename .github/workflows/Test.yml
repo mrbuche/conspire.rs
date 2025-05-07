@@ -47,9 +47,7 @@ jobs:
         with:
           toolchain: nightly
       - name: Install
-        uses: taiki-e/install-action@9903ab6feadaec33945de535fe9d181b91802a55
-        with:
-          tool: cargo-llvm-cov
+        run: cargo install cargo-llvm-cov
       - name: Coverage
         run: rustup run nightly cargo llvm-cov --profile release --features ${{ matrix.features }} --fail-under-functions 69 --fail-under-lines 74 --fail-under-regions 70
       - name: Tree
@@ -60,8 +58,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Install
-        uses: taiki-e/install-action@9903ab6feadaec33945de535fe9d181b91802a55
-        with:
-          tool: cargo-mutants
+        run: cargo install cargo-mutants
       - name: Mutants
         run: cargo mutants --features math --file 'src/math/**/*.rs' --minimum-test-timeout 0.9 --profile release --shard 1/256 || true
