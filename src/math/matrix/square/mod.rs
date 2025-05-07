@@ -16,62 +16,59 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
+/// Possible errors for square matrices.
+#[derive(PartialEq)]
+pub enum SquareMatrixError {
+    Singular,
+}
+
 /// A square matrix.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SquareMatrix(Vec<Vector>);
 
 impl SquareMatrix {
     /// Solve a system of linear equations using the LU decomposition.
-    pub fn solve_lu(&self, b: &Vector) -> Vector {
-        //
-        // Can have this re-use (&mut self, &mut b) for null-space method.
-        // Cannot use currently because A and A.T are pre-populated into H.
-        // Unless change that if performance is better.
-        //
-        // Need to do error handling with singular case.
-        //
+    pub fn solve_lu(&mut self, b: &Vector) -> Result<Vector, SquareMatrixError> {
         let n = self.len();
-        let mut lu = self.clone();
         let mut p: Vec<usize> = (0..n).collect();
-        (0..n).for_each(|i| {
+        for i in 0..n {
             let mut max_row = i;
             (i + 1..n).for_each(|k| {
-                if lu[k][i].abs() > lu[max_row][i].abs() {
+                if self[k][i].abs() > self[max_row][i].abs() {
                     max_row = k;
                 }
             });
             if max_row != i {
-                lu.0.swap(i, max_row);
+                self.0.swap(i, max_row);
                 p.swap(i, max_row);
             }
-            if lu[i][i].abs() < ABS_TOL {
-                panic!("Matrix is singular and has no LU decomposition.")
+            if self[i][i].abs() < ABS_TOL {
+                return Err(SquareMatrixError::Singular);
             }
             (i + 1..n).for_each(|j| {
-                lu[j][i] /= lu[i][i];
-                (i + 1..n).for_each(|k| lu[j][k] -= lu[j][i] * lu[i][k])
+                self[j][i] /= self[i][i];
+                (i + 1..n).for_each(|k| self[j][k] -= self[j][i] * self[i][k])
             })
-        });
-        let mut y: Vector = p.into_iter().map(|p_i| b[p_i]).collect();
+        }
+        let mut xy: Vector = p.into_iter().map(|p_i| b[p_i]).collect();
         (0..n).for_each(|i| {
-            y[i] -= lu[i]
+            xy[i] -= self[i]
                 .iter()
                 .take(i)
-                .zip(y.iter())
+                .zip(xy.iter())
                 .map(|(lu_ij, y_j)| lu_ij * y_j)
                 .sum::<TensorRank0>()
         });
-        let mut x = y;
         (0..n).rev().for_each(|i| {
-            x[i] -= lu[i]
+            xy[i] -= self[i]
                 .iter()
                 .skip(i + 1)
-                .zip(x.iter().skip(i + 1))
+                .zip(xy.iter().skip(i + 1))
                 .map(|(lu_ij, x_j)| lu_ij * x_j)
                 .sum::<TensorRank0>();
-            x[i] /= lu[i][i];
+            xy[i] /= self[i][i];
         });
-        x
+        Ok(xy)
     }
     /// Verifies a minimum using the null space of the constraint matrix.
     pub fn verify(self, null_space: Matrix) -> bool {

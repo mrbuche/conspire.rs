@@ -55,28 +55,37 @@ where
                 let mut residual = Vector::zero(num_total);
                 let mut solution = initial_guess;
                 let mut tangent = SquareMatrix::zero(num_total);
-                constraint_matrix
-                    .iter()
-                    .enumerate()
-                    .for_each(|(i, constraint_matrix_i)| {
-                        constraint_matrix_i.iter().enumerate().for_each(
-                            |(j, constraint_matrix_ij)| {
-                                tangent[i + num_variables][j] = -constraint_matrix_ij;
-                                tangent[j][i + num_variables] = -constraint_matrix_ij;
-                            },
-                        )
-                    });
                 for _ in 0..self.max_steps {
                     (function(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
                         &constraint_rhs - &constraint_matrix * &solution,
                         &mut residual,
                     );
                     jacobian(&solution)?.fill_into(&mut tangent);
+                    constraint_matrix
+                        .iter()
+                        .enumerate()
+                        .for_each(|(i, constraint_matrix_i)| {
+                            constraint_matrix_i.iter().enumerate().for_each(
+                                |(j, constraint_matrix_ij)| {
+                                    tangent[i + num_variables][j] = -constraint_matrix_ij;
+                                    tangent[j][i + num_variables] = -constraint_matrix_ij;
+                                },
+                            )
+                        });
+                    tangent
+                        .iter_mut()
+                        .skip(num_variables)
+                        .for_each(|tangent_i| {
+                            tangent_i
+                                .iter_mut()
+                                .skip(num_variables)
+                                .for_each(|tangent_ij| *tangent_ij = 0.0)
+                        });
                     if residual.norm() < self.abs_tol {
                         return Ok(solution);
                     } else {
                         solution
-                            .decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual))
+                            .decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual)?)
                     }
                 }
             }
@@ -140,23 +149,32 @@ where
                             j += 1;
                         }
                     });
-                constraint_matrix
-                    .iter()
-                    .enumerate()
-                    .for_each(|(i, constraint_matrix_i)| {
-                        constraint_matrix_i.iter().enumerate().for_each(
-                            |(j, constraint_matrix_ij)| {
-                                tangent[i + num_variables][j] = -constraint_matrix_ij;
-                                tangent[j][i + num_variables] = -constraint_matrix_ij;
-                            },
-                        )
-                    });
                 for _ in 0..self.max_steps {
                     (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
                         &constraint_rhs - &constraint_matrix * &solution,
                         &mut residual,
                     );
                     hessian(&solution)?.fill_into(&mut tangent);
+                    constraint_matrix
+                        .iter()
+                        .enumerate()
+                        .for_each(|(i, constraint_matrix_i)| {
+                            constraint_matrix_i.iter().enumerate().for_each(
+                                |(j, constraint_matrix_ij)| {
+                                    tangent[i + num_variables][j] = -constraint_matrix_ij;
+                                    tangent[j][i + num_variables] = -constraint_matrix_ij;
+                                },
+                            )
+                        });
+                    tangent
+                        .iter_mut()
+                        .skip(num_variables)
+                        .for_each(|tangent_i| {
+                            tangent_i
+                                .iter_mut()
+                                .skip(num_variables)
+                                .for_each(|tangent_ij| *tangent_ij = 0.0)
+                        });
                     if residual.norm() < self.abs_tol {
                         if tangent.verify(null_space) {
                             return Ok(solution);
@@ -168,7 +186,7 @@ where
                         }
                     } else {
                         solution
-                            .decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual))
+                            .decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual)?);
                     }
                 }
             }

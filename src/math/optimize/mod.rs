@@ -5,7 +5,7 @@ mod constraint;
 mod gradient_descent;
 mod newton_raphson;
 
-use crate::defeat_message;
+use crate::{defeat_message, math::matrix::square::SquareMatrixError};
 use std::fmt::{self, Debug, Display, Formatter};
 
 pub use constraint::EqualityConstraint;
@@ -68,6 +68,13 @@ pub enum OptimizeError {
     Generic(String),
     MaximumStepsReached(usize, String),
     NotMinimum(String, String),
+    SingularMatrix,
+}
+
+impl From<SquareMatrixError> for OptimizeError {
+    fn from(_error: SquareMatrixError) -> Self {
+        Self::SingularMatrix
+    }
 }
 
 impl Debug for OptimizeError {
@@ -89,6 +96,7 @@ impl Debug for OptimizeError {
                     solution, optimizer
                 )
             }
+            Self::SingularMatrix => "\x1b[1;91mMatrix is singular.".to_string(),
         };
         write!(f, "\n{}\n\x1b[0;2;31m{}\x1b[0m\n", error, defeat_message())
     }
@@ -113,6 +121,7 @@ impl Display for OptimizeError {
                     solution, optimizer
                 )
             }
+            Self::SingularMatrix => "\x1b[1;91mMatrix is singular.".to_string(),
         };
         write!(f, "{}\x1b[0m", error)
     }
