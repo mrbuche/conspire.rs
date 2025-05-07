@@ -12,7 +12,7 @@ use crate::{
     },
 };
 use std::{
-    fmt,
+    fmt::{self, Display, Formatter},
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
@@ -145,8 +145,8 @@ impl ErrorTensor for SquareMatrix {
     }
 }
 
-impl fmt::Display for SquareMatrix {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl Display for SquareMatrix {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "\x1B[s")?;
         write!(f, "[[")?;
         self.iter().enumerate().try_for_each(|(i, row)| {
