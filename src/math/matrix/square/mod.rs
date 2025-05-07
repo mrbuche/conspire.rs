@@ -29,27 +29,40 @@ pub struct SquareMatrix(Vec<Vector>);
 impl SquareMatrix {
     /// Solve a system of linear equations using the LU decomposition.
     pub fn solve_lu(&mut self, b: &Vector) -> Result<Vector, SquareMatrixError> {
+        let mut now = std::time::Instant::now();
         let n = self.len();
         let mut p: Vec<usize> = (0..n).collect();
+        let mut factor;
+        let mut foo;
+        let mut max_row;
+        let mut pivot;
         for i in 0..n {
-            let mut max_row = i;
+            max_row = i;
+            foo = self[max_row][i].abs();
             (i + 1..n).for_each(|k| {
-                if self[k][i].abs() > self[max_row][i].abs() {
+                if self[k][i].abs() > foo {
                     max_row = k;
+                    foo = self[max_row][i].abs();
                 }
             });
             if max_row != i {
                 self.0.swap(i, max_row);
                 p.swap(i, max_row);
             }
-            if self[i][i].abs() < ABS_TOL {
+            pivot = self[i][i];
+            if pivot.abs() < ABS_TOL {
                 return Err(SquareMatrixError::Singular);
             }
-            (i + 1..n).for_each(|j| {
-                self[j][i] /= self[i][i];
-                (i + 1..n).for_each(|k| self[j][k] -= self[j][i] * self[i][k])
-            })
+            for j in i + 1..n {
+                self[j][i] /= pivot;
+                factor = self[j][i];
+                for k in i + 1..n {
+                    self[j][k] -= factor * self[i][k];
+                }
+            }
         }
+        println!("Forming LU took {:?}.", now.elapsed());
+        now = std::time::Instant::now();
         let mut xy: Vector = p.into_iter().map(|p_i| b[p_i]).collect();
         (0..n).for_each(|i| {
             xy[i] -= self[i]
@@ -59,6 +72,8 @@ impl SquareMatrix {
                 .map(|(lu_ij, y_j)| lu_ij * y_j)
                 .sum::<TensorRank0>()
         });
+        println!("Solving Ly=Pb took {:?}.", now.elapsed());
+        now = std::time::Instant::now();
         (0..n).rev().for_each(|i| {
             xy[i] -= self[i]
                 .iter()
@@ -68,6 +83,7 @@ impl SquareMatrix {
                 .sum::<TensorRank0>();
             xy[i] /= self[i][i];
         });
+        println!("Solving Ux=y took {:?}.", now.elapsed());
         Ok(xy)
     }
     /// Verifies a minimum using the null space of the constraint matrix.
