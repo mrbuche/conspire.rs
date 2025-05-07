@@ -51,7 +51,7 @@ where
                 let num_variables = initial_guess.num_entries();
                 let num_constraints = constraint_rhs.len();
                 let num_total = num_variables + num_constraints;
-                let mut multipliers = Vector::ones(num_constraints);
+                let mut multipliers = Vector::ones(num_constraints) * 10.0 * self.abs_tol;
                 let mut residual = Vector::zero(num_total);
                 let mut solution = initial_guess;
                 let mut tangent = SquareMatrix::zero(num_total);
@@ -132,7 +132,7 @@ where
                 let num_variables = initial_guess.num_entries();
                 let num_constraints = constraint_rhs.len();
                 let num_total = num_variables + num_constraints;
-                let mut multipliers = Vector::ones(num_constraints);
+                let mut multipliers = Vector::ones(num_constraints) * 10.0 * self.abs_tol;
                 let mut residual = Vector::zero(num_total);
                 let mut solution = initial_guess;
                 let mut tangent = SquareMatrix::zero(num_total);
