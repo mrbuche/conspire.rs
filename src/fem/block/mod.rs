@@ -410,7 +410,7 @@ where
         //
         // Add on BCs here and then find the permutation indices
         // But seems weird to have some spots for nodes (3D) and some for BCs (1D)
-        // Unless always consider BC at a node to be like it is 3D
+        // Unless always consider BC at a node to be like it is a 3D spot too
         // So then you will have to account for that here too!
         // Maybe now is a good time to figure out how you want to pass in BCs...
         //
