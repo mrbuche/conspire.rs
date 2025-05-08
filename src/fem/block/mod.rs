@@ -121,6 +121,9 @@ where
         // Allegedly O(n^2) for dense and O(n+m) for sparse.
         //
         // Also, the constant re-indexing (using this) of the nodal stiffnesses output need to be quick!
+        // And will also have to consistently re-index nodal forces and coordinates (increments will be output re-indexed and must be un-re-indexed before used as arguments again, unless bake that in during block initialization)
+        //
+        // Wait, is Thomas just for tri-diaginal banded matrices?
         //
     }
     fn connectivity(&self) -> &Connectivity<N> {

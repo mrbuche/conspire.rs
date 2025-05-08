@@ -7371,9 +7371,9 @@ fn foo() {
     // println!("{:?}", block.band(num_nodes));
     // println!("{:?}", (num_nodes, block.band(num_nodes).len(), block.band(num_nodes)[0].len()));
 
+    let structure = block.band(num_nodes);
     let stiffness = SquareMatrix::from(block.nodal_stiffnesses(&coordinates().into()).unwrap());
-    block
-        .band(num_nodes)
+    structure
         .iter()
         .zip(stiffness.iter())
         .for_each(|(b_i, k_i)| {
@@ -7385,6 +7385,40 @@ fn foo() {
                 }
             )
         });
+        
+    (0..num_nodes).for_each(|i|
+        (0..num_nodes).for_each(|j|
+            assert!(
+                (stiffness[i][j] - stiffness[j][i]).abs() < ABS_TOL ||
+                (stiffness[i][j] / stiffness[j][i] - 1.0).abs() < ABS_TOL
+            )
+        )
+    );
+
+    let restructuring = cuthill_mckee_binary(&structure);
+    // println!("{:?}", restructuring.len());
+    // let foo = restructuring.iter().
+    // let foo: Vec<bool> = structure.into_iter().flatten().collect();
+    // let mut bar = vec![vec![false; num_nodes]; num_nodes];
+    // let mut index = 0;
+    // (0..num_nodes).for_each(|i|
+    //     (0..num_nodes).for_each(|j| {
+    //         if index < restructuring.len() {
+    //             bar[i][j] = foo[restructuring[index]];
+    //             index += 1;
+    //         }
+    //     })
+    // );
+    // println!("{:?}", bar);
+    let mut foo = SquareMatrix::zero(num_nodes);
+    (0..num_nodes).for_each(|i|
+        (0..num_nodes).for_each(|j| {
+            foo[i][j] = stiffness[restructuring[i]][restructuring[j]]
+        })
+    );
+
+    foo.iter().for_each(|val| println!("{:?}", val));
+
 
     let length = coordinates()
         .iter()
@@ -7464,56 +7498,58 @@ fn foo() {
     println!("Done ({:?}).", time.elapsed());
 }
 
-// use std::collections::{VecDeque, HashSet};
+use core::num;
+use std::collections::{VecDeque, HashSet};
 
-// /// Perform the Cuthill–McKee algorithm on a binary matrix.
-// /// Returns the reordered indices for rows and columns.
-// fn cuthill_mckee_binary(matrix: &[Vec<u8>]) -> Vec<usize> {
-//     let n = matrix.len(); // Number of rows/columns
-//     assert!(matrix.iter().all(|row| row.len() == n), "Matrix must be square!");
+/// Perform the Cuthill–McKee algorithm on a binary matrix.
+/// Returns the reordered indices for rows and columns.
+fn cuthill_mckee_binary(matrix: &[Vec<bool>]) -> Vec<usize> {
+    let n = matrix.len(); // Number of rows/columns
+    assert!(matrix.iter().all(|row| row.len() == n), "Matrix must be square!");
 
-//     // Step 1: Convert binary matrix to adjacency list
-//     let mut adj_list = vec![Vec::new(); n];
-//     for i in 0..n {
-//         for j in 0..n {
-//             if matrix[i][j] == 1 && i != j {
-//                 adj_list[i].push(j);
-//             }
-//         }
-//     }
+    // Step 1: Convert binary matrix to adjacency list
+    let mut adj_list = vec![Vec::new(); n];
+    for i in 0..n {
+        for j in 0..n {
+            // if matrix[i][j] == 1 && i != j {
+            if matrix[i][j] && j != 1 {
+                adj_list[i].push(j);
+            }
+        }
+    }
 
-//     // Step 2: Find the starting vertex (vertex with the smallest degree)
-//     let start_vertex = (0..n)
-//         .min_by_key(|&i| adj_list[i].len())
-//         .expect("Matrix must have at least one vertex");
+    // Step 2: Find the starting vertex (vertex with the smallest degree)
+    let start_vertex = (0..n)
+        .min_by_key(|&i| adj_list[i].len())
+        .expect("Matrix must have at least one vertex");
 
-//     // Step 3: Perform Breadth-First Search (BFS)
-//     let mut visited = vec![false; n]; // Track visited vertices
-//     let mut order = Vec::new(); // Final reordered indices
-//     let mut queue = VecDeque::new();
-//     queue.push_back(start_vertex);
-//     visited[start_vertex] = true;
+    // Step 3: Perform Breadth-First Search (BFS)
+    let mut visited = vec![false; n]; // Track visited vertices
+    let mut order = Vec::new(); // Final reordered indices
+    let mut queue = VecDeque::new();
+    queue.push_back(start_vertex);
+    visited[start_vertex] = true;
 
-//     while let Some(vertex) = queue.pop_front() {
-//         order.push(vertex);
+    while let Some(vertex) = queue.pop_front() {
+        order.push(vertex);
 
-//         // Get neighbors of the current vertex, sorted by degree (ascending)
-//         let mut neighbors: Vec<usize> = adj_list[vertex]
-//             .iter()
-//             .filter(|&&neighbor| !visited[neighbor])
-//             .copied()
-//             .collect();
-//         neighbors.sort_by_key(|&neighbor| adj_list[neighbor].len());
+        // Get neighbors of the current vertex, sorted by degree (ascending)
+        let mut neighbors: Vec<usize> = adj_list[vertex]
+            .iter()
+            .filter(|&&neighbor| !visited[neighbor])
+            .copied()
+            .collect();
+        neighbors.sort_by_key(|&neighbor| adj_list[neighbor].len());
 
-//         // Add unvisited neighbors to the queue
-//         for neighbor in neighbors {
-//             visited[neighbor] = true;
-//             queue.push_back(neighbor);
-//         }
-//     }
+        // Add unvisited neighbors to the queue
+        for neighbor in neighbors {
+            visited[neighbor] = true;
+            queue.push_back(neighbor);
+        }
+    }
 
-//     order
-// }
+    order
+}
 
 // /// Reverse the order for the Reverse Cuthill–McKee (RCM) algorithm.
 // /// This often further reduces the bandwidth.
