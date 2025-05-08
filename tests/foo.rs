@@ -7367,59 +7367,6 @@ fn foo() {
         connectivity,
         coordinates(),
     );
-
-    // println!("{:?}", block.band(num_nodes));
-    // println!("{:?}", (num_nodes, block.band(num_nodes).len(), block.band(num_nodes)[0].len()));
-
-    let structure = block.band(num_nodes);
-    let stiffness = SquareMatrix::from(block.nodal_stiffnesses(&coordinates().into()).unwrap());
-    structure
-        .iter()
-        .zip(stiffness.iter())
-        .for_each(|(b_i, k_i)| {
-            b_i.iter().zip(k_i.iter()).for_each(
-                |(&b_ij, k_ij)| {
-                    if !b_ij {
-                        assert!(k_ij.abs() < ABS_TOL)
-                    }
-                }
-            )
-        });
-        
-    (0..num_nodes).for_each(|i|
-        (0..num_nodes).for_each(|j|
-            assert!(
-                (stiffness[i][j] - stiffness[j][i]).abs() < ABS_TOL ||
-                (stiffness[i][j] / stiffness[j][i] - 1.0).abs() < ABS_TOL
-            )
-        )
-    );
-
-    let restructuring = cuthill_mckee_binary(&structure);
-    // println!("{:?}", restructuring.len());
-    // let foo = restructuring.iter().
-    // let foo: Vec<bool> = structure.into_iter().flatten().collect();
-    // let mut bar = vec![vec![false; num_nodes]; num_nodes];
-    // let mut index = 0;
-    // (0..num_nodes).for_each(|i|
-    //     (0..num_nodes).for_each(|j| {
-    //         if index < restructuring.len() {
-    //             bar[i][j] = foo[restructuring[index]];
-    //             index += 1;
-    //         }
-    //     })
-    // );
-    // println!("{:?}", bar);
-    let mut foo = SquareMatrix::zero(num_nodes);
-    (0..num_nodes).for_each(|i|
-        (0..num_nodes).for_each(|j| {
-            foo[i][j] = stiffness[restructuring[i]][restructuring[j]]
-        })
-    );
-
-    foo.iter().for_each(|val| println!("{:?}", val));
-
-
     let length = coordinates()
         .iter()
         .filter(|coordinate| coordinate[0].abs() == 0.5)
