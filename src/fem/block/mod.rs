@@ -18,7 +18,7 @@ use std::{array::from_fn, collections::VecDeque, iter::repeat_n};
 pub struct ElementBlock<F, const N: usize> {
     connectivity: Connectivity<N>,
     elements: Vec<F>,
-    permutation: Vec<usize>,
+    permutation: (Vec<usize>, Vec<usize>),
 }
 
 pub trait FiniteElementBlockMethods<C, F, const G: usize, const N: usize>
@@ -36,7 +36,7 @@ where
         element_connectivity: &[usize; N],
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> NodalCoordinates<N>;
-    fn permutation(&self) -> &Vec<usize>;
+    fn permutation(&self) -> &(Vec<usize>, Vec<usize>);
 }
 
 pub trait FiniteElementBlock<C, F, const G: usize, const N: usize, Y>
@@ -101,7 +101,7 @@ where
             .map(|node| nodal_coordinates[*node].clone())
             .collect()
     }
-    fn permutation(&self) -> &Vec<usize> {
+    fn permutation(&self) -> &(Vec<usize>, Vec<usize>) {
         &self.permutation
     }
 }
@@ -121,6 +121,8 @@ where
         //
         // Calling functions like nodal_forces from tests would now require permutation!
         // How to avoid? Pass yes/no to them? Include permutations in tests?
+        // Only do for meshes over a certain size?
+        // Worry about it AFTER you get it working and solve speed/scaling is much better.
         //
         let number_of_nodes = reference_nodal_coordinates.len();
         // let permutation: Vec<usize> = (0..number_of_nodes).collect();
@@ -178,7 +180,7 @@ where
         Self {
             connectivity: permuted_connectivity,
             elements,
-            permutation,
+            permutation: (permutation, inverse_map),
         }
     }
 }
@@ -196,8 +198,6 @@ where
         reference_nodal_coordinates: ReferenceNodalCoordinatesBlock,
         thickness: Scalar,
     ) -> Self {
-        let number_of_nodes = reference_nodal_coordinates.len();
-        let permutation = permute(&connectivity, number_of_nodes);
         let elements = connectivity
             .iter()
             .map(|element_connectivity| {
@@ -214,7 +214,7 @@ where
         Self {
             connectivity,
             elements,
-            permutation,
+            permutation: todo!(),
         }
     }
 }
@@ -407,6 +407,19 @@ where
         optimization: NewtonRaphson,
         equality_constraint: EqualityConstraint,
     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
+        //
+        // Add on BCs here and then find the permutation indices
+        // But seems weird to have some spots for nodes (3D) and some for BCs (1D)
+        // Unless always consider BC at a node to be like it is 3D
+        // So then you will have to account for that here too!
+        // Maybe now is a good time to figure out how you want to pass in BCs...
+        //
+        // let number_of_nodes = reference_nodal_coordinates.len();
+        // let permutation = permute(&connectivity, number_of_nodes);
+        // let mut inverse_map = vec![0; permutation.len()];
+        // permutation.iter().enumerate().for_each(|(node, &index)|
+        //     inverse_map[index] = node
+        // );
         optimization.minimize(
             |nodal_coordinates: &NodalCoordinatesBlock| {
                 Ok(self.helmholtz_free_energy(nodal_coordinates)?)
