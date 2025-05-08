@@ -1,5 +1,4 @@
 use conspire::{
-    ABS_TOL,
     constitutive::{
         Constitutive,
         solid::{AppliedLoad, elastic::Elastic, hyperelastic::NeoHookean},
@@ -7355,19 +7354,28 @@ fn coordinates() -> ReferenceNodalCoordinatesBlock {
 #[test]
 fn foo() {
     let strain = 0.88;
+    let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
     connectivity
         .iter_mut()
         .flatten()
         .for_each(|entry| *entry -= 1);
-    let num_nodes = coordinates().len();
+    let num_nodes = ref_coordinates.len();
     let parameters = &[13.0, 3.0];
     let block = ElementBlock::<LinearTetrahedron<NeoHookean<&[Scalar; 2]>>, N>::new(
         parameters,
         connectivity,
         coordinates(),
     );
-    let length = coordinates()
+    let permutation = block.permutation();
+    let permuted_coordinates = (0..num_nodes)
+        .map(|node| ref_coordinates[permutation[node]].clone())
+        .collect::<ReferenceNodalCoordinatesBlock>();
+    let stiffness = SquareMatrix::from(block.nodal_stiffnesses(&permuted_coordinates.into()).unwrap());
+    for line in stiffness {
+        println!("{:?}", line)
+    }
+    let length = ref_coordinates
         .iter()
         .filter(|coordinate| coordinate[0].abs() == 0.5)
         .count()
@@ -7396,6 +7404,7 @@ fn foo() {
     vector[length - 3] = -0.5;
     vector[length - 2] = -0.5;
     vector[length - 1] = -0.5;
+    // panic!();
     let mut time = std::time::Instant::now();
     println!("Solving...");
     let solution = block
@@ -7444,83 +7453,3 @@ fn foo() {
         });
     println!("Done ({:?}).", time.elapsed());
 }
-
-use core::num;
-use std::collections::{VecDeque, HashSet};
-
-/// Perform the Cuthill–McKee algorithm on a binary matrix.
-/// Returns the reordered indices for rows and columns.
-fn cuthill_mckee_binary(matrix: &[Vec<bool>]) -> Vec<usize> {
-    let n = matrix.len(); // Number of rows/columns
-    assert!(matrix.iter().all(|row| row.len() == n), "Matrix must be square!");
-
-    // Step 1: Convert binary matrix to adjacency list
-    let mut adj_list = vec![Vec::new(); n];
-    for i in 0..n {
-        for j in 0..n {
-            // if matrix[i][j] == 1 && i != j {
-            if matrix[i][j] && j != 1 {
-                adj_list[i].push(j);
-            }
-        }
-    }
-
-    // Step 2: Find the starting vertex (vertex with the smallest degree)
-    let start_vertex = (0..n)
-        .min_by_key(|&i| adj_list[i].len())
-        .expect("Matrix must have at least one vertex");
-
-    // Step 3: Perform Breadth-First Search (BFS)
-    let mut visited = vec![false; n]; // Track visited vertices
-    let mut order = Vec::new(); // Final reordered indices
-    let mut queue = VecDeque::new();
-    queue.push_back(start_vertex);
-    visited[start_vertex] = true;
-
-    while let Some(vertex) = queue.pop_front() {
-        order.push(vertex);
-
-        // Get neighbors of the current vertex, sorted by degree (ascending)
-        let mut neighbors: Vec<usize> = adj_list[vertex]
-            .iter()
-            .filter(|&&neighbor| !visited[neighbor])
-            .copied()
-            .collect();
-        neighbors.sort_by_key(|&neighbor| adj_list[neighbor].len());
-
-        // Add unvisited neighbors to the queue
-        for neighbor in neighbors {
-            visited[neighbor] = true;
-            queue.push_back(neighbor);
-        }
-    }
-
-    order
-}
-
-// /// Reverse the order for the Reverse Cuthill–McKee (RCM) algorithm.
-// /// This often further reduces the bandwidth.
-// fn reverse_cuthill_mckee(order: Vec<usize>) -> Vec<usize> {
-//     let mut reversed_order = order;
-//     reversed_order.reverse();
-//     reversed_order
-// }
-
-// fn main() {
-//     // Example binary matrix
-//     let matrix = vec![
-//         vec![1, 0, 0, 0, 1], // Row 0
-//         vec![0, 1, 1, 0, 0], // Row 1
-//         vec![0, 1, 1, 1, 0], // Row 2
-//         vec![0, 0, 1, 1, 1], // Row 3
-//         vec![1, 0, 0, 1, 1], // Row 4
-//     ];
-
-//     // Perform Cuthill–McKee algorithm
-//     let order = cuthill_mckee_binary(&matrix);
-//     println!("Cuthill–McKee order: {:?}", order);
-
-//     // Perform Reverse Cuthill–McKee algorithm
-//     let reversed_order = reverse_cuthill_mckee(order);
-//     println!("Reverse Cuthill–McKee order: {:?}", reversed_order);
-// }
