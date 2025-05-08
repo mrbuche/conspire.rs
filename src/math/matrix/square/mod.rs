@@ -39,6 +39,7 @@ impl SquareMatrix {
             max_row = i;
             track = self[max_row][i].abs();
             (i + 1..n).for_each(|k| {
+            // for k in i + 1..n.min(i + bandwidth + 1) {
                 if self[k][i].abs() > track {
                     max_row = k;
                     track = self[max_row][i].abs();
@@ -54,9 +55,11 @@ impl SquareMatrix {
             }
             // BOTTLENECK
             for j in i + 1..n {
+                // for j in i + 1..n.min(i + 590 + 1) {
                 self[j][i] /= pivot;
                 factor = self[j][i];
                 for k in i + 1..n {
+                // for k in i + 1..n.min(i + 590 + 1) {
                     self[j][k] -= factor * self[i][k];
                 }
             }

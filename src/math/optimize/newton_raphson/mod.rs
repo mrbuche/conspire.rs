@@ -81,6 +81,10 @@ where
                                 .skip(num_variables)
                                 .for_each(|tangent_ij| *tangent_ij = 0.0)
                         });
+
+let foo = residual.norm();
+println!("{:?}", foo);
+
                     if residual.norm() < self.abs_tol {
                         return Ok(solution);
                     } else {
