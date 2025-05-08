@@ -13,11 +13,12 @@ use crate::math::optimize::{
     EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError,
     SecondOrderOptimization,
 };
-use std::array::from_fn;
+use std::{array::from_fn, collections::VecDeque, iter::repeat_n};
 
 pub struct ElementBlock<F, const N: usize> {
     connectivity: Connectivity<N>,
     elements: Vec<F>,
+    permutation: Vec<usize>,
 }
 
 pub trait FiniteElementBlockMethods<C, F, const G: usize, const N: usize>
@@ -35,6 +36,7 @@ where
         element_connectivity: &[usize; N],
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> NodalCoordinates<N>;
+    fn permutation(&self) -> &Vec<usize>;
 }
 
 pub trait FiniteElementBlock<C, F, const G: usize, const N: usize, Y>
@@ -99,6 +101,9 @@ where
             .map(|node| nodal_coordinates[*node].clone())
             .collect()
     }
+    fn permutation(&self) -> &Vec<usize> {
+        &self.permutation
+    }
 }
 
 impl<C, F, const G: usize, const N: usize, Y> FiniteElementBlock<C, F, G, N, Y>
@@ -113,21 +118,67 @@ where
         connectivity: Connectivity<N>,
         reference_nodal_coordinates: ReferenceNodalCoordinatesBlock,
     ) -> Self {
-        let elements = connectivity
+        //
+        // Calling functions like nodal_forces from tests would now require permutation!
+        // How to avoid? Pass yes/no to them? Include permutations in tests?
+        //
+        let number_of_nodes = reference_nodal_coordinates.len();
+        // let permutation: Vec<usize> = (0..number_of_nodes).collect();
+        let permutation = permute(&connectivity, number_of_nodes);
+        let mut inverse_map = vec![0; permutation.len()];
+        permutation.iter().enumerate().for_each(|(node, &index)|
+            inverse_map[index] = node
+        );
+        // connectivity
+        //     .iter_mut()
+        //     .for_each(|nodes| {
+        //         nodes
+        //             .iter()
+        //             .map(|&node| permutation[node])
+        //             .collect::<Vec<usize>>()
+        //             .try_into()
+        //             .unwrap()
+        //     });
+        let permuted_connectivity = connectivity
+            .iter()
+            .map(|nodes| {
+                nodes
+                    .iter()
+                    .map(|&node| inverse_map[node])
+                    // .map(|&node| permutation[node])
+                    .collect::<Vec<usize>>()
+                    .try_into()
+                    .unwrap()
+            })
+            .collect::<Connectivity<N>>();
+        let permuted_coordinates = (0..number_of_nodes)
+            .map(|node| reference_nodal_coordinates[permutation[node]].clone())
+            .collect::<ReferenceNodalCoordinatesBlock>();
+
+        // println!("{:?}", reference_nodal_coordinates[connectivity[5][1]]);
+        // println!("{:?}", permuted_coordinates[permutation[5]]);
+
+        //
+        // maybe permute reference coordinates right from the start
+        // and store something that lets you output results correctly after
+        // also need to be careful about permuting BCs and solutions!
+        //
+        let elements = permuted_connectivity
             .iter()
             .map(|element_connectivity| {
                 <F>::new(
                     constitutive_model_parameters,
                     element_connectivity
                         .iter()
-                        .map(|node| reference_nodal_coordinates[*node].clone())
+                        .map(|&node| permuted_coordinates[node].clone())
                         .collect(),
                 )
             })
             .collect();
         Self {
-            connectivity,
+            connectivity: permuted_connectivity,
             elements,
+            permutation,
         }
     }
 }
@@ -145,6 +196,8 @@ where
         reference_nodal_coordinates: ReferenceNodalCoordinatesBlock,
         thickness: Scalar,
     ) -> Self {
+        let number_of_nodes = reference_nodal_coordinates.len();
+        let permutation = permute(&connectivity, number_of_nodes);
         let elements = connectivity
             .iter()
             .map(|element_connectivity| {
@@ -161,6 +214,7 @@ where
         Self {
             connectivity,
             elements,
+            permutation,
         }
     }
 }
@@ -498,4 +552,71 @@ where
             })
             .sum()
     }
+}
+
+fn permute<const N: usize>(connectivity: &Connectivity<N>, number_of_nodes: usize) -> Vec<usize> {
+    let mut inverse_connectivity = vec![vec![]; number_of_nodes];
+    connectivity
+        .iter()
+        .enumerate()
+        .for_each(|(element, nodes)| {
+            nodes
+                .iter()
+                .for_each(|&node| inverse_connectivity[node].push(element))
+        });
+    let neighbors: Vec<Vec<usize>> = inverse_connectivity
+        .iter()
+        .map(|elements| {
+            let mut bar: Vec<usize> = elements
+                .iter()
+                .flat_map(|&element| connectivity[element])
+                .collect();
+            bar.sort();
+            bar.dedup();
+            bar
+        })
+        .collect();
+    let structure: Vec<Vec<bool>> = neighbors
+        .iter()
+        .map(|nodes| (0..number_of_nodes).map(|b| nodes.contains(&b)).collect())
+        .collect();
+    assert!(structure.iter().all(|row| row.len() == number_of_nodes));
+    // Step 1: Convert binary matrix to adjacency list
+    let mut adj_list = vec![Vec::new(); number_of_nodes];
+    for i in 0..number_of_nodes {
+        for j in 0..number_of_nodes {
+            if structure[i][j] && i != j {
+                adj_list[i].push(j);
+            }
+        }
+    }
+    // Step 2: Find the starting vertex (vertex with the smallest degree)
+    let start_vertex = (0..number_of_nodes)
+        .min_by_key(|&i| adj_list[i].len())
+        .expect("Matrix must have at least one vertex");
+    // Step 3: Perform Breadth-First Search (BFS)
+    let mut visited = vec![false; number_of_nodes]; // Track visited vertices
+    let mut order = Vec::new(); // Final reordered indices
+    let mut queue = VecDeque::new();
+    queue.push_back(start_vertex);
+    visited[start_vertex] = true;
+    while let Some(vertex) = queue.pop_front() {
+        order.push(vertex);
+
+        // Get neighbors of the current vertex, sorted by degree (ascending)
+        let mut neighbors: Vec<usize> = adj_list[vertex]
+            .iter()
+            .filter(|&&neighbor| !visited[neighbor])
+            .copied()
+            .collect();
+        neighbors.sort_by_key(|&neighbor| adj_list[neighbor].len());
+
+        // Add unvisited neighbors to the queue
+        for neighbor in neighbors {
+            visited[neighbor] = true;
+            queue.push_back(neighbor);
+        }
+    }
+    order.reverse();
+    order
 }
