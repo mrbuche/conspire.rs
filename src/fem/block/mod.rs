@@ -13,7 +13,7 @@ use crate::math::optimize::{
     EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError,
     SecondOrderOptimization,
 };
-use std::{array::from_fn, iter::repeat_n};
+use std::array::from_fn;
 
 pub struct ElementBlock<F, const N: usize> {
     connectivity: Connectivity<N>,
@@ -24,7 +24,6 @@ pub trait FiniteElementBlockMethods<C, F, const G: usize, const N: usize>
 where
     F: FiniteElementMethods<C, G, N>,
 {
-    fn band(&self, number_of_nodes: usize) -> Vec<Vec<bool>>;
     fn connectivity(&self) -> &Connectivity<N>;
     fn deformation_gradients(
         &self,
@@ -70,62 +69,6 @@ impl<C, F, const G: usize, const N: usize> FiniteElementBlockMethods<C, F, G, N>
 where
     F: FiniteElementMethods<C, G, N>,
 {
-    fn band(&self, number_of_nodes: usize) -> Vec<Vec<bool>> {
-        //
-        // need to make this 3N x 3N
-        //
-        let connectivity = self.connectivity();
-        let mut inverse_connectivity = vec![vec![]; number_of_nodes];
-        connectivity
-            .iter()
-            .enumerate()
-            .for_each(|(element, nodes)| {
-                nodes
-                    .iter()
-                    .for_each(|&node| inverse_connectivity[node].push(element))
-            });
-        let neighbors: Vec<Vec<usize>> = inverse_connectivity
-            .iter()
-            .map(|elements| {
-                let mut bar: Vec<usize> = elements
-                    .iter()
-                    .flat_map(|&element| connectivity[element])
-                    .collect();
-                bar.sort();
-                bar.dedup();
-                bar
-            })
-            .collect();
-        neighbors
-            .iter()
-            .flat_map(|nodes| {
-                repeat_n(
-                    (0..number_of_nodes)
-                        .flat_map(|b| repeat_n(nodes.contains(&b), 3))
-                        .collect(),
-                    3,
-                )
-            })
-            .collect()
-        //
-        // Cuthill–McKee algorithm (and reverse) permutes SYMMETRIC sparse matrices into a narrow band matrix.
-        // Supposedly helps both aspects of performance, and also numerical stability, when solving equations.
-        //
-        // Seems there are Cholesky algorithms for banded Hermitian positive-definite matrices,
-        // so this re-structuring might be a good idea after all.
-        //
-        // Apparently the Thomas tridiagonal algorithm is O(n * k) for bandwidth k (conpared to O(n^3) for LU),
-        // so maybe this is an awesome idea!
-        //
-        // So then the initial Cuthill–McKee algorithm just has to be kind of fast too.
-        // Allegedly O(n^2) for dense and O(n+m) for sparse.
-        //
-        // Also, the constant re-indexing (using this) of the nodal stiffnesses output need to be quick!
-        // And will also have to consistently re-index nodal forces and coordinates (increments will be output re-indexed and must be un-re-indexed before used as arguments again, unless bake that in during block initialization)
-        //
-        // Wait, is Thomas just for tri-diaginal banded matrices?
-        //
-    }
     fn connectivity(&self) -> &Connectivity<N> {
         &self.connectivity
     }
