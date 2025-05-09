@@ -35,16 +35,18 @@ impl SquareMatrix {
         let mut max_row;
         let mut pivot;
         let mut track;
+        let time = std::time::Instant::now();
         for i in 0..n {
             max_row = i;
             track = self[max_row][i].abs();
             (i + 1..n).for_each(|k| {
-            // for k in i + 1..n.min(i + bandwidth + 1) {
+            // for k in i + 1..n.min(i + 590 + 1) {
                 if self[k][i].abs() > track {
                     max_row = k;
                     track = self[max_row][i].abs();
                 }
             });
+            // }
             if max_row != i {
                 self.0.swap(i, max_row);
                 p.swap(i, max_row);
@@ -54,7 +56,6 @@ impl SquareMatrix {
                 return Err(SquareMatrixError::Singular);
             }
             // BOTTLENECK
-            // let time = std::time::Instant::now();
             for j in i + 1..n {
             // for j in i + 1..n.min(i + 590 + 1) {
                 self[j][i] /= pivot;
@@ -64,9 +65,9 @@ impl SquareMatrix {
                     self[j][k] -= factor * self[i][k];
                 }
             }
-            // println!("Bottleneck: {:?}", time.elapsed());
             // BOTTLENECK
         }
+        println!("LU: {:?}", time.elapsed());
         let mut xy: Vector = p.into_iter().map(|p_i| b[p_i]).collect();
         (0..n).for_each(|i| {
             xy[i] -= self[i]
