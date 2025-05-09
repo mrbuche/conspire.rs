@@ -54,8 +54,9 @@ impl SquareMatrix {
                 return Err(SquareMatrixError::Singular);
             }
             // BOTTLENECK
+            // let time = std::time::Instant::now();
             for j in i + 1..n {
-                // for j in i + 1..n.min(i + 590 + 1) {
+            // for j in i + 1..n.min(i + 590 + 1) {
                 self[j][i] /= pivot;
                 factor = self[j][i];
                 for k in i + 1..n {
@@ -63,6 +64,7 @@ impl SquareMatrix {
                     self[j][k] -= factor * self[i][k];
                 }
             }
+            // println!("Bottleneck: {:?}", time.elapsed());
             // BOTTLENECK
         }
         let mut xy: Vector = p.into_iter().map(|p_i| b[p_i]).collect();
