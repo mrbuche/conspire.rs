@@ -18,7 +18,7 @@ use std::{array::from_fn, collections::VecDeque, iter::repeat_n};
 pub struct ElementBlock<F, const N: usize> {
     connectivity: Connectivity<N>,
     elements: Vec<F>,
-    permutation: (Vec<usize>, Vec<usize>),
+    // permutation: (Vec<usize>, Vec<usize>),
 }
 
 pub trait FiniteElementBlockMethods<C, F, const G: usize, const N: usize>
@@ -36,7 +36,7 @@ where
         element_connectivity: &[usize; N],
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> NodalCoordinates<N>;
-    fn permutation(&self) -> &(Vec<usize>, Vec<usize>);
+    // fn permutation(&self) -> &(Vec<usize>, Vec<usize>);
 }
 
 pub trait FiniteElementBlock<C, F, const G: usize, const N: usize, Y>
@@ -101,9 +101,9 @@ where
             .map(|node| nodal_coordinates[*node].clone())
             .collect()
     }
-    fn permutation(&self) -> &(Vec<usize>, Vec<usize>) {
-        &self.permutation
-    }
+    // fn permutation(&self) -> &(Vec<usize>, Vec<usize>) {
+    //     &self.permutation
+    // }
 }
 
 impl<C, F, const G: usize, const N: usize, Y> FiniteElementBlock<C, F, G, N, Y>
@@ -118,69 +118,72 @@ where
         connectivity: Connectivity<N>,
         reference_nodal_coordinates: ReferenceNodalCoordinatesBlock,
     ) -> Self {
-        //
-        // Calling functions like nodal_forces from tests would now require permutation!
-        // How to avoid? Pass yes/no to them? Include permutations in tests?
-        // Only do for meshes over a certain size?
-        // Worry about it AFTER you get it working and solve speed/scaling is much better.
-        //
-        let number_of_nodes = reference_nodal_coordinates.len();
-        // let permutation: Vec<usize> = (0..number_of_nodes).collect();
-        let permutation = permute(&connectivity, number_of_nodes);
-        let mut inverse_map = vec![0; permutation.len()];
-        permutation.iter().enumerate().for_each(|(node, &index)|
-            inverse_map[index] = node
-        );
-        // connectivity
-        //     .iter_mut()
-        //     .for_each(|nodes| {
+        // //
+        // // Calling functions like nodal_forces from tests would now require permutation!
+        // // How to avoid? Pass yes/no to them? Include permutations in tests?
+        // // Only do for meshes over a certain size?
+        // // Worry about it AFTER you get it working and solve speed/scaling is much better.
+        // //
+        // let number_of_nodes = reference_nodal_coordinates.len();
+        // // let permutation: Vec<usize> = (0..number_of_nodes).collect();
+        // let permutation = permute(&connectivity, number_of_nodes);
+        // let mut inverse_map = vec![0; permutation.len()];
+        // permutation.iter().enumerate().for_each(|(node, &index)|
+        //     inverse_map[index] = node
+        // );
+        // // connectivity
+        // //     .iter_mut()
+        // //     .for_each(|nodes| {
+        // //         nodes
+        // //             .iter()
+        // //             .map(|&node| permutation[node])
+        // //             .collect::<Vec<usize>>()
+        // //             .try_into()
+        // //             .unwrap()
+        // //     });
+        // let permuted_connectivity = connectivity
+        //     .iter()
+        //     .map(|nodes| {
         //         nodes
         //             .iter()
-        //             .map(|&node| permutation[node])
+        //             .map(|&node| inverse_map[node])
+        //             // .map(|&node| permutation[node])
         //             .collect::<Vec<usize>>()
         //             .try_into()
         //             .unwrap()
-        //     });
-        let permuted_connectivity = connectivity
-            .iter()
-            .map(|nodes| {
-                nodes
-                    .iter()
-                    .map(|&node| inverse_map[node])
-                    // .map(|&node| permutation[node])
-                    .collect::<Vec<usize>>()
-                    .try_into()
-                    .unwrap()
-            })
-            .collect::<Connectivity<N>>();
-        let permuted_coordinates = (0..number_of_nodes)
-            .map(|node| reference_nodal_coordinates[permutation[node]].clone())
-            .collect::<ReferenceNodalCoordinatesBlock>();
+        //     })
+        //     .collect::<Connectivity<N>>();
+        // let permuted_coordinates = (0..number_of_nodes)
+        //     .map(|node| reference_nodal_coordinates[permutation[node]].clone())
+        //     .collect::<ReferenceNodalCoordinatesBlock>();
 
-        // println!("{:?}", reference_nodal_coordinates[connectivity[5][1]]);
-        // println!("{:?}", permuted_coordinates[permutation[5]]);
+        // // println!("{:?}", reference_nodal_coordinates[connectivity[5][1]]);
+        // // println!("{:?}", permuted_coordinates[permutation[5]]);
 
-        //
-        // maybe permute reference coordinates right from the start
-        // and store something that lets you output results correctly after
-        // also need to be careful about permuting BCs and solutions!
-        //
-        let elements = permuted_connectivity
+        // //
+        // // maybe permute reference coordinates right from the start
+        // // and store something that lets you output results correctly after
+        // // also need to be careful about permuting BCs and solutions!
+        // //
+        // let elements = permuted_connectivity
+        let elements = connectivity
             .iter()
             .map(|element_connectivity| {
                 <F>::new(
                     constitutive_model_parameters,
                     element_connectivity
                         .iter()
-                        .map(|&node| permuted_coordinates[node].clone())
+                        // .map(|&node| permuted_coordinates[node].clone())
+                        .map(|&node| reference_nodal_coordinates[node].clone())
                         .collect(),
                 )
             })
             .collect();
         Self {
-            connectivity: permuted_connectivity,
+            connectivity: connectivity,
+            // connectivity: permuted_connectivity,
             elements,
-            permutation: (permutation, inverse_map),
+            // permutation: (permutation, inverse_map),
         }
     }
 }
@@ -214,7 +217,7 @@ where
         Self {
             connectivity,
             elements,
-            permutation: todo!(),
+            // permutation: todo!(),
         }
     }
 }
@@ -369,29 +372,14 @@ where
         root_finding: NewtonRaphson,
         equality_constraint: EqualityConstraint,
     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
-        match equality_constraint {
-            EqualityConstraint::Linear(ref matrix, _) => {
-                let number_of_nodes = initial_coordinates.len();
-                // let permutation: Vec<usize> = (0..number_of_nodes).collect();
-                let permutation = permute_new(self.connectivity(), matrix, number_of_nodes);
-                let mut inverse_map = vec![0; permutation.len()];
-                permutation.iter().enumerate().for_each(|(node, &index)|
-                    inverse_map[index] = node
-                );
-                //
-                //
-                //
-                root_finding.root(
-                    |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
-                    |nodal_coordinates: &NodalCoordinatesBlock| {
-                        Ok(self.nodal_stiffnesses(nodal_coordinates)?)
-                    },
-                    initial_coordinates,
-                    equality_constraint,
-                )
-            }
-            _ => unimplemented!(),
-        }
+        root_finding.root(
+            |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
+            |nodal_coordinates: &NodalCoordinatesBlock| {
+                Ok(self.nodal_stiffnesses(nodal_coordinates)?)
+            },
+            initial_coordinates,
+            equality_constraint,
+        )
     }
 }
 
@@ -669,8 +657,7 @@ fn permute_new<const N: usize>(connectivity: &Connectivity<N>, matrix: &Matrix, 
         }
     }
     order.reverse();
-    panic!("need to pass bandwith out too maybe")
-    // order
+    order
 }
 
 fn permute<const N: usize>(connectivity: &Connectivity<N>, number_of_nodes: usize) -> Vec<usize> {

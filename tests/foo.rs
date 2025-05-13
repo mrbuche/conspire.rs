@@ -7367,22 +7367,22 @@ fn foo() {
         connectivity,
         coordinates(),
     );
-    let (permutation, inverse_map) = block.permutation();
-    let permuted_coordinates = (0..num_nodes)
-        .map(|node| ref_coordinates[permutation[node]].clone())
-        .collect::<ReferenceNodalCoordinatesBlock>();
-    let stiffness = SquareMatrix::from(block.nodal_stiffnesses(&permuted_coordinates.clone().into()).unwrap());
-    let mut bandwidth = 0.0;
-    stiffness.iter().enumerate().for_each(|(i, k_i)|
-        k_i.iter().enumerate().for_each(|(j, k_ij)|
-            if k_ij.abs() > 1e-12 {
-                if (i as f64 - j as f64).abs() > bandwidth {
-                    bandwidth = (i as f64 - j as f64).abs()
-                }
-            }
-        )
-    );
-    println!("Bandwidth: {}", bandwidth);
+    // let (permutation, inverse_map) = block.permutation();
+    // let permuted_coordinates = (0..num_nodes)
+    //     .map(|node| ref_coordinates[permutation[node]].clone())
+    //     .collect::<ReferenceNodalCoordinatesBlock>();
+    // let stiffness = SquareMatrix::from(block.nodal_stiffnesses(&permuted_coordinates.clone().into()).unwrap());
+    // let mut bandwidth = 0.0;
+    // stiffness.iter().enumerate().for_each(|(i, k_i)|
+    //     k_i.iter().enumerate().for_each(|(j, k_ij)|
+    //         if k_ij.abs() > 1e-12 {
+    //             if (i as f64 - j as f64).abs() > bandwidth {
+    //                 bandwidth = (i as f64 - j as f64).abs()
+    //             }
+    //         }
+    //     )
+    // );
+    // println!("Bandwidth: {}", bandwidth);
     // for line in stiffness {
     //     println!("{:?}", line)
     // }
@@ -7407,8 +7407,8 @@ fn foo() {
     let mut matrix = Matrix::zero(length, width);
     let mut vector = Vector::zero(length);
     let mut index = 0;
-    permuted_coordinates
-    // coordinates()
+    // permuted_coordinates
+    coordinates()
         .iter()
         .enumerate()
         .for_each(|(node, coordinate)| {
@@ -7422,9 +7422,12 @@ fn foo() {
                 index += 1;
             }
         });
-    matrix[length - 3][inverse_map[132] * 3 + 1] = 1.0;
-    matrix[length - 2][inverse_map[132] * 3 + 2] = 1.0;
-    matrix[length - 1][inverse_map[142] * 3 + 2] = 1.0;
+    matrix[length - 3][132 * 3 + 1] = 1.0;
+    matrix[length - 2][132 * 3 + 2] = 1.0;
+    matrix[length - 1][142 * 3 + 2] = 1.0;
+    // matrix[length - 3][inverse_map[132] * 3 + 1] = 1.0;
+    // matrix[length - 2][inverse_map[132] * 3 + 2] = 1.0;
+    // matrix[length - 1][inverse_map[142] * 3 + 2] = 1.0;
     vector[length - 3] = -0.5;
     vector[length - 2] = -0.5;
     vector[length - 1] = -0.5;
@@ -7442,8 +7445,8 @@ fn foo() {
     println!("Solving...");
     let solution = block
         .root(
-            permuted_coordinates.into(),
-            // coordinates().into(),
+            // permuted_coordinates.into(),
+            coordinates().into(),
             NewtonRaphson::default(),
             EqualityConstraint::Linear(matrix, vector),
         )
