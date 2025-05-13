@@ -7424,7 +7424,7 @@ fn foo() {
         });
     matrix[length - 3][inverse_map[132] * 3 + 1] = 1.0;
     matrix[length - 2][inverse_map[132] * 3 + 2] = 1.0;
-    matrix[length - 1][inverse_map[142]* 3 + 2] = 1.0;
+    matrix[length - 1][inverse_map[142] * 3 + 2] = 1.0;
     vector[length - 3] = -0.5;
     vector[length - 2] = -0.5;
     vector[length - 1] = -0.5;
