@@ -9,10 +9,10 @@ use self::element::{
     ViscoelasticFiniteElement,
 };
 use super::*;
-use crate::math::optimize::{
+use crate::math::{{Matrix, Vector}, optimize::{
     EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError,
     SecondOrderOptimization,
-};
+}};
 use std::{array::from_fn, collections::VecDeque, iter::repeat_n};
 
 pub struct ElementBlock<F, const N: usize> {
@@ -369,14 +369,29 @@ where
         root_finding: NewtonRaphson,
         equality_constraint: EqualityConstraint,
     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
-        root_finding.root(
-            |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
-            |nodal_coordinates: &NodalCoordinatesBlock| {
-                Ok(self.nodal_stiffnesses(nodal_coordinates)?)
-            },
-            initial_coordinates,
-            equality_constraint,
-        )
+        match equality_constraint {
+            EqualityConstraint::Linear(ref matrix, _) => {
+                let number_of_nodes = initial_coordinates.len();
+                // let permutation: Vec<usize> = (0..number_of_nodes).collect();
+                let permutation = permute_new(self.connectivity(), matrix, number_of_nodes);
+                let mut inverse_map = vec![0; permutation.len()];
+                permutation.iter().enumerate().for_each(|(node, &index)|
+                    inverse_map[index] = node
+                );
+                //
+                //
+                //
+                root_finding.root(
+                    |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
+                    |nodal_coordinates: &NodalCoordinatesBlock| {
+                        Ok(self.nodal_stiffnesses(nodal_coordinates)?)
+                    },
+                    initial_coordinates,
+                    equality_constraint,
+                )
+            }
+            _ => unimplemented!(),
+        }
     }
 }
 
@@ -565,6 +580,97 @@ where
             })
             .sum()
     }
+}
+
+fn permute_new<const N: usize>(connectivity: &Connectivity<N>, matrix: &Matrix, number_of_nodes: usize) -> Vec<usize> {
+    let mut inverse_connectivity = vec![vec![]; number_of_nodes];
+    connectivity
+        .iter()
+        .enumerate()
+        .for_each(|(element, nodes)| {
+            nodes
+                .iter()
+                .for_each(|&node| inverse_connectivity[node].push(element))
+        });
+    let neighbors: Vec<Vec<usize>> = inverse_connectivity
+        .iter()
+        .map(|elements| {
+            let mut bar: Vec<usize> = elements
+                .iter()
+                .flat_map(|&element| connectivity[element])
+                .collect();
+            bar.sort();
+            bar.dedup();
+            bar
+        })
+        .collect();
+    let structure: Vec<Vec<bool>> = neighbors
+        .iter()
+        .map(|nodes| (0..number_of_nodes).map(|b| nodes.contains(&b)).collect())
+        .collect();
+    let foo: Vec<Vec<bool>> = structure.iter().flat_map(|row|
+        repeat_n(row.iter().flat_map(|entry|
+            repeat_n(*entry, 3)
+        ).collect(), 3)
+    ).collect();
+    let num_coords = 3 * number_of_nodes;
+    assert_eq!(matrix.len(), num_coords);
+    let num_dof = matrix.len() + matrix.width();
+    let mut bar = vec![vec![false; num_dof]; num_dof];
+    foo.iter().zip(bar.iter_mut()).for_each(|(foo_i, bar_i)|
+        foo_i.iter().zip(bar_i.iter_mut()).for_each(|(foo_ij, bar_ij)|
+            *bar_ij = *foo_ij
+        )
+    );
+    let mut index = num_coords;
+    matrix.iter().for_each(|matrix_i|
+        matrix_i.iter().enumerate().for_each(|(j, matrix_ij)|
+            if matrix_ij != &0.0 {
+                bar[index][j] = true;
+                bar[j][index] = true;
+                index += 1;
+            }
+        )
+    );
+    // Step 1: Convert binary matrix to adjacency list
+    let mut adj_list = vec![Vec::new(); num_dof];
+    for i in 0..num_dof {
+        for j in 0..num_dof {
+            if structure[i][j] && i != j {
+                adj_list[i].push(j);
+            }
+        }
+    }
+    // Step 2: Find the starting vertex (vertex with the smallest degree)
+    let start_vertex = (0..num_dof)
+        .min_by_key(|&i| adj_list[i].len())
+        .expect("Matrix must have at least one vertex");
+    // Step 3: Perform Breadth-First Search (BFS)
+    let mut visited = vec![false; num_dof]; // Track visited vertices
+    let mut order = Vec::new(); // Final reordered indices
+    let mut queue = VecDeque::new();
+    queue.push_back(start_vertex);
+    visited[start_vertex] = true;
+    while let Some(vertex) = queue.pop_front() {
+        order.push(vertex);
+
+        // Get neighbors of the current vertex, sorted by degree (ascending)
+        let mut neighbors: Vec<usize> = adj_list[vertex]
+            .iter()
+            .filter(|&&neighbor| !visited[neighbor])
+            .copied()
+            .collect();
+        neighbors.sort_by_key(|&neighbor| adj_list[neighbor].len());
+
+        // Add unvisited neighbors to the queue
+        for neighbor in neighbors {
+            visited[neighbor] = true;
+            queue.push_back(neighbor);
+        }
+    }
+    order.reverse();
+    panic!("need to pass bandwith out too maybe")
+    // order
 }
 
 fn permute<const N: usize>(connectivity: &Connectivity<N>, number_of_nodes: usize) -> Vec<usize> {
