@@ -149,19 +149,6 @@ where
                             },
                         )
                     });
-                // Only works for A with one 1 in each row in a different column.
-                let mut j = 0;
-                let mut null_space = Matrix::zero(num_total, num_total - num_constraints);
-                constraint_matrix
-                    .transpose()
-                    .iter()
-                    .zip(null_space.iter_mut())
-                    .for_each(|(c_i, n_i)| {
-                        if c_i.iter().all(|c_ij| c_ij == &0.0) {
-                            n_i[j] = 1.0;
-                            j += 1;
-                        }
-                    });
                 for _ in 0..self.max_steps {
                     (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
                         &constraint_rhs - &constraint_matrix * &solution,
@@ -169,6 +156,9 @@ where
                     );
                     hessian(&solution)?.fill_into(&mut tangent);
                     if residual.norm() < self.abs_tol {
+                        //
+                        // Just wait for LDL* version of Cholesky to do verification by looking at the inertia.
+                        //
                         // if tangent.verify(null_space) {
                         return Ok(solution);
                         // } else {
