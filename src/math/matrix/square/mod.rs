@@ -203,9 +203,6 @@ impl SquareMatrix {
             bandwidth_updated = bandwidth;
             (i + 1 + bandwidth..n).for_each(|j| {
                 if rearr[i][j] != 0.0 {
-                    // if j - i > bandwidth_updated {
-                    //     bandwidth_updated = j - 1
-                    // }
                     bandwidth_updated = bandwidth_updated.max(j - i)
                 }
             });
