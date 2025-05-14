@@ -7367,37 +7367,6 @@ fn foo() {
         connectivity,
         coordinates(),
     );
-    // let (permutation, inverse_map) = block.permutation();
-    // let permuted_coordinates = (0..num_nodes)
-    //     .map(|node| ref_coordinates[permutation[node]].clone())
-    //     .collect::<ReferenceNodalCoordinatesBlock>();
-    // let stiffness = SquareMatrix::from(block.nodal_stiffnesses(&permuted_coordinates.clone().into()).unwrap());
-    // let mut bandwidth = 0.0;
-    // stiffness.iter().enumerate().for_each(|(i, k_i)|
-    //     k_i.iter().enumerate().for_each(|(j, k_ij)|
-    //         if k_ij.abs() > 1e-12 {
-    //             if (i as f64 - j as f64).abs() > bandwidth {
-    //                 bandwidth = (i as f64 - j as f64).abs()
-    //             }
-    //         }
-    //     )
-    // );
-    // println!("Bandwidth: {}", bandwidth);
-    // for line in stiffness {
-    //     println!("{:?}", line)
-    // }
-    // let forces = Vector::from(block.nodal_forces(&permuted_coordinates.clone().into()).unwrap());
-    // for force in forces {
-    //     assert!(force.abs() < 1e-10)
-    // }
-    // let defgrads = block.deformation_gradients(&permuted_coordinates.clone().into());
-    // for fg in defgrads {
-    //     for f in fg.iter() {
-    //         if !f.is_identity() {
-    //             println!("{}", f)
-    //         }
-    //     }
-    // }
     let length = ref_coordinates
         .iter()
         .filter(|coordinate| coordinate[0].abs() == 0.5)
@@ -7425,28 +7394,13 @@ fn foo() {
     matrix[length - 3][132 * 3 + 1] = 1.0;
     matrix[length - 2][132 * 3 + 2] = 1.0;
     matrix[length - 1][142 * 3 + 2] = 1.0;
-    // matrix[length - 3][inverse_map[132] * 3 + 1] = 1.0;
-    // matrix[length - 2][inverse_map[132] * 3 + 2] = 1.0;
-    // matrix[length - 1][inverse_map[142] * 3 + 2] = 1.0;
     vector[length - 3] = -0.5;
     vector[length - 2] = -0.5;
     vector[length - 1] = -0.5;
-    //
-    // YOU HAVE TO MAKE THE WHOLE TANGENT BANDED!
-    // (THE LAGRANGE MULTIPLIERS ARE THERE TOO)
-    // So maybe it is actually best NOT to re-structure off the bat
-    // Since you will always have to do it again when BCs are assigned
-    // Can make it a setting in NewtonRaphson for sparse LU
-    // Come up with re-structuring indices ONCE at the start
-    // But, how you are doing it now is really specific to finite elements!
-    // Which makes where/how to do this sort of confusing
-    //
     let mut time = std::time::Instant::now();
     println!("Solving...");
     let solution = block
-        // .root(
         .minimize(
-            // permuted_coordinates.into(),
             coordinates().into(),
             NewtonRaphson::default(),
             EqualityConstraint::Linear(matrix, vector),
