@@ -7,7 +7,7 @@ use crate::math::test::ErrorTensor;
 use crate::{
     ABS_TOL,
     math::{
-        Hessian, Matrix, Rank2, Tensor, TensorRank0, TensorRank2Vec2D, TensorVec, Vector,
+        Hessian, Rank2, Tensor, TensorRank0, TensorRank2Vec2D, TensorVec, Vector,
         tensor::TensorError, write_tensor_rank_0,
     },
 };
@@ -236,28 +236,6 @@ impl SquareMatrix {
             xy[i] /= rearr[i][i];
         });
         Ok((0..n).map(|i| xy[banded.map(i)]).collect())
-    }
-    /// Verifies a minimum using the null space of the constraint matrix.
-    pub fn verify(self, null_space: Matrix) -> bool {
-        // Supposed to use the Hessian but should be OK since Z will hit None.
-        let mut result = Self::zero(null_space.width());
-        null_space
-            .transpose()
-            .iter()
-            .zip(result.iter_mut())
-            .for_each(|(zt_i, res_i)| {
-                zt_i.iter().zip(self.iter()).for_each(|(zt_ij, self_j)| {
-                    null_space
-                        .iter()
-                        .zip(self_j.iter())
-                        .for_each(|(z_k, self_jk)| {
-                            z_k.iter()
-                                .zip(res_i.iter_mut())
-                                .for_each(|(z_kl, res_il)| *res_il += zt_ij * self_jk * z_kl)
-                        })
-                })
-            });
-        result.is_positive_definite()
     }
 }
 
