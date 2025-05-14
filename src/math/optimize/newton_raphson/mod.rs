@@ -158,6 +158,7 @@ where
                     if residual.norm() < self.abs_tol {
                         //
                         // Just wait for LDL* version of Cholesky to do verification by looking at the inertia.
+                        // And should you check every single time? Seems that SQP suggests each step is verifiable.
                         //
                         // if tangent.verify(null_space) {
                         return Ok(solution);
