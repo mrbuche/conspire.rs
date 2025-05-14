@@ -7444,7 +7444,8 @@ fn foo() {
     let mut time = std::time::Instant::now();
     println!("Solving...");
     let solution = block
-        .root(
+        // .root(
+        .minimize(
             // permuted_coordinates.into(),
             coordinates().into(),
             NewtonRaphson::default(),
