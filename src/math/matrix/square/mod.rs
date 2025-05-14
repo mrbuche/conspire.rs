@@ -168,8 +168,8 @@ impl SquareMatrix {
     }
     /// ???
     pub fn solve_lu_banded(&mut self, b: &Vector, banded: &Banded) -> Result<Vector, SquareMatrixError> {
-        println!("Bandwidth: {}", banded.width());
         let bandwidth = banded.width();
+        let mut bandwidth_updated;
         let n = self.len();
         let mut p: Vec<usize> = (0..n).collect();
         let mut end;
@@ -182,56 +182,46 @@ impl SquareMatrix {
                 self[banded.old(i)][banded.old(j)]
             ).collect()
         ).collect();
-        // let mut foo = Self::zero(n);
-        // self.iter().enumerate().for_each(|(i, self_i)|
-        //     self_i.iter().enumerate().for_each(|(j, self_ij)|
-        //         foo[banded.new(i)][banded.new(j)] = *self_ij
-        //     )
-        // );
-        // let mut bw = 0;
-        // (0..n).for_each(|i|
-        //     (i + 1..n).for_each(|j|
-        //         if foo[i][j] != 0.0 {
-        //             if j - i > bw {
-        //                 bw = j - i
-        //             }
-        //         }
-        //     )
-        // );
-        // println!("BW: {}", bw);
         let time = std::time::Instant::now();
         for i in 0..n {
-            end = n.min(i + bandwidth + 1);
+            end = n.min(i + 1 + bandwidth);
             max_row = i;
             track = foo[max_row][i].abs();
-            end = n.min(i + bandwidth + 1);
-            // for k in i + 1..end {
-            for k in i + 1..n {
+            for k in i + 1..end {
                 if foo[k][i].abs() > track {
                     max_row = k;
                     track = foo[max_row][i].abs();
                 }
             }
-            if max_row != i {
+            pivot = foo[i][i];
+            if max_row != i && pivot.abs() < ABS_TOL {
                 foo.0.swap(i, max_row);
                 p.swap(i, max_row);
+                pivot = foo[i][i];
+                if pivot.abs() < ABS_TOL {
+                    return Err(SquareMatrixError::Singular);
+                }
             }
-            pivot = foo[i][i];
-            if pivot.abs() < ABS_TOL {
-                return Err(SquareMatrixError::Singular);
-            }
-            // for j in i + 1..end {
-            for j in i + 1..n {
+            bandwidth_updated = bandwidth;
+            (i + 1 + bandwidth..n).for_each(|j|
+                if foo[i][j] != 0.0 {
+                    if j - i > bandwidth_updated {
+                        bandwidth_updated = j - 1
+                    }
+                }
+            );
+            end = n.min(i + 1 + bandwidth_updated);
+            for j in i + 1..end {
                 foo[j][i] /= pivot;
                 factor = foo[j][i];
-                for k in i + 1..n {
-                // for k in i + 1..end {
+                for k in i + 1..end {
                     foo[j][k] -= factor * foo[i][k];
                 }
             }
         }
-        println!("LU: {:?}", time.elapsed());
-        // let mut xy: Vector = p.into_iter().map(|p_i| b[p_i]).collect();
+
+println!("LU: {:?}", time.elapsed());
+
         let mut xy: Vector = p.into_iter().map(|p_i| b[banded.old(p_i)]).collect();
         (0..n).for_each(|i| {
             xy[i] -= foo[i]
@@ -250,70 +240,7 @@ impl SquareMatrix {
                 .sum::<TensorRank0>();
             xy[i] /= foo[i][i];
         });
-        // Ok(xy)
-        // had 2 types of bugs, now LU is ~1s instead of ~36s
-        // why isnt this working? can you order then solve then re-order to solve Ax=b?
         Ok((0..n).map(|i| xy[banded.new(i)]).collect())
-        // Ok((0..n).map(|i| xy[banded.old(i)]).collect())
-        //
-        // let n = self.len();
-        // let mut p: Vec<usize> = (0..n).collect();
-        // let mut end;
-        // let mut factor;
-        // let mut max_row;
-        // let mut pivot;
-        // let mut track;
-        // let time = std::time::Instant::now();
-        // for i in 0..n {
-        //     end = n.min(i + bandwidth + 1);
-        //     max_row = i;
-        //     track = self[banded.old(max_row)][banded.old(i)].abs();
-        //     for k in f1..end {
-        //         if self[banded.old(k)][banded.old(i)].abs() > track {
-        //             max_row = k;
-        //             track = self[banded.old(max_row)][banded.old(i)].abs();
-        //         }
-        //     }
-        //     if max_row != i {
-        //         // self.0.swap(banded.old(i), banded.old(max_row));
-        //         // p.swap(banded.old(i), banded.old(max_row));
-        //         self.0.swap(i, max_row);
-        //         p.swap(i, max_row);
-        //     }
-        //     pivot = self[banded.old(i)][banded.old(i)];
-        //     if pivot.abs() < ABS_TOL {
-        //         return Err(SquareMatrixError::Singular);
-        //     }
-        //     for j in f1..end {
-        //         self[banded.old(j)][banded.old(i)] /= pivot;
-        //         factor = self[banded.old(j)][banded.old(i)];
-        //         for k in f1..end {
-        //             self[banded.old(j)][banded.old(k)] -= factor * self[banded.old(i)][banded.old(k)];
-        //         }
-        //     }
-        // }
-        // println!("LU: {:?}", time.elapsed());
-        // let mut xy: Vector = p.into_iter().map(|p_i| b[p_i]).collect();
-        // (0..n).for_each(|i| {
-        //     // xy[i] -= self[banded.old(i)] // maybe not this one?
-        //     xy[i] -= self[i]
-        //         .iter()
-        //         .take(i)
-        //         .zip(xy.iter())
-        //         .map(|(lu_ij, y_j)| lu_ij * y_j)
-        //         .sum::<TensorRank0>()
-        // });
-        // (0..n).rev().for_each(|i| {
-        //     // xy[i] -= self[banded.old(i)] // maybe not this one?
-        //     xy[i] -= self[i]
-        //         .iter()
-        //         .skip(i + 1)
-        //         .zip(xy.iter().skip(i + 1))
-        //         .map(|(lu_ij, x_j)| lu_ij * x_j)
-        //         .sum::<TensorRank0>();
-        //     // xy[i] /= self[banded.old(i)][banded.old(i)]; // maybe not this one?
-        //     xy[i] /= self[i][i];
-        // });
     }
     /// Verifies a minimum using the null space of the constraint matrix.
     pub fn verify(self, null_space: Matrix) -> bool {
