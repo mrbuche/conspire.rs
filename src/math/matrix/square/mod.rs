@@ -231,7 +231,8 @@ impl SquareMatrix {
             }
         }
         println!("LU: {:?}", time.elapsed());
-        let mut xy: Vector = p.into_iter().map(|p_i| b[p_i]).collect();
+        // let mut xy: Vector = p.into_iter().map(|p_i| b[p_i]).collect();
+        let mut xy: Vector = p.into_iter().map(|p_i| b[banded.old(p_i)]).collect();
         (0..n).for_each(|i| {
             xy[i] -= foo[i]
                 .iter()
@@ -250,8 +251,8 @@ impl SquareMatrix {
             xy[i] /= foo[i][i];
         });
         // Ok(xy)
-        had 2 types of bugs, now LU is ~1s instead of ~36s
-        why isnt this working? can you order then solve then re-order to solve Ax=b?
+        // had 2 types of bugs, now LU is ~1s instead of ~36s
+        // why isnt this working? can you order then solve then re-order to solve Ax=b?
         Ok((0..n).map(|i| xy[banded.new(i)]).collect())
         // Ok((0..n).map(|i| xy[banded.old(i)]).collect())
         //
