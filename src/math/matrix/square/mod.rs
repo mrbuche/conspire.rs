@@ -171,15 +171,17 @@ impl SquareMatrix {
         let bandwidth = banded.width();
         let n = self.len();
         let mut p: Vec<usize> = (0..n).collect();
+        let mut end;
         let mut factor;
         let mut max_row;
         let mut pivot;
         let mut track;
         let time = std::time::Instant::now();
         for i in 0..n {
+            end = n.min(i + bandwidth + 1);
             max_row = i;
             track = self[banded.old(max_row)][banded.old(i)].abs();
-            for k in i + 1..n.min(i + bandwidth + 1) {
+            for k in 1..end {
                 if self[banded.old(k)][banded.old(i)].abs() > track {
                     max_row = k;
                     track = self[banded.old(max_row)][banded.old(i)].abs();
@@ -193,10 +195,10 @@ impl SquareMatrix {
             if pivot.abs() < ABS_TOL {
                 return Err(SquareMatrixError::Singular);
             }
-            for j in i + 1..n.min(i + bandwidth + 1) {
+            for j in 1..end {
                 self[banded.old(j)][banded.old(i)] /= pivot;
                 factor = self[banded.old(j)][banded.old(i)];
-                for k in i + 1..n.min(i + bandwidth + 1) {
+                for k in 1..end {
                     self[banded.old(j)][banded.old(k)] -= factor * self[banded.old(i)][banded.old(k)];
                 }
             }
