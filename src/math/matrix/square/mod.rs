@@ -22,7 +22,6 @@ pub struct Banded {
     bandwidth: usize,
     inverse: Vec<usize>,
     mapping: Vec<usize>,
-
 }
 
 impl Banded {
@@ -42,12 +41,11 @@ impl From<Vec<Vec<bool>>> for Banded {
         let num = structure.len();
         structure.iter().enumerate().for_each(|(i, row_i)| {
             assert_eq!(row_i.len(), num);
-            row_i.iter().zip(structure.iter()).for_each(|(entry_ij, row_j)|
-                assert_eq!(&row_j[i], entry_ij)
-            )
+            row_i
+                .iter()
+                .zip(structure.iter())
+                .for_each(|(entry_ij, row_j)| assert_eq!(&row_j[i], entry_ij))
         });
-
-        // Step 1: Convert binary matrix to adjacency list
         let mut adj_list = vec![Vec::new(); num];
         for i in 0..num {
             for j in 0..num {
@@ -56,28 +54,22 @@ impl From<Vec<Vec<bool>>> for Banded {
                 }
             }
         }
-        // Step 2: Find the starting vertex (vertex with the smallest degree)
         let start_vertex = (0..num)
             .min_by_key(|&i| adj_list[i].len())
-            .expect("Matrix must have at least one vertex");
-        // Step 3: Perform Breadth-First Search (BFS)
-        let mut visited = vec![false; num]; // Track visited vertices
-        let mut mapping = Vec::new(); // Final reordered indices
+            .expect("Matrix must have at least one entry.");
+        let mut visited = vec![false; num];
+        let mut mapping = Vec::new();
         let mut queue = VecDeque::new();
         queue.push_back(start_vertex);
         visited[start_vertex] = true;
         while let Some(vertex) = queue.pop_front() {
             mapping.push(vertex);
-
-            // Get neighbors of the current vertex, sorted by degree (ascending)
             let mut neighbors: Vec<usize> = adj_list[vertex]
                 .iter()
                 .filter(|&&neighbor| !visited[neighbor])
                 .copied()
                 .collect();
             neighbors.sort_by_key(|&neighbor| adj_list[neighbor].len());
-
-            // Add unvisited neighbors to the queue
             for neighbor in neighbors {
                 visited[neighbor] = true;
                 queue.push_back(neighbor);
@@ -85,20 +77,23 @@ impl From<Vec<Vec<bool>>> for Banded {
         }
         mapping.reverse();
         let mut inverse = vec![0; num];
-        mapping.iter().enumerate().for_each(|(new, &old)|
-            inverse[old] = new
-        );
+        mapping
+            .iter()
+            .enumerate()
+            .for_each(|(new, &old)| inverse[old] = new);
         let mut bandwidth = 0;
-        (0..num).for_each(|i|
-            (i + 1..num).for_each(|j|
+        (0..num).for_each(|i| {
+            (i + 1..num).for_each(|j| {
                 if structure[mapping[i]][mapping[j]] {
-                    if j - i > bandwidth {
-                        bandwidth = j - i
-                    }
+                    bandwidth = bandwidth.max(j - i)
                 }
-            )
-        );
-        Self { bandwidth, mapping, inverse }
+            })
+        });
+        Self {
+            bandwidth,
+            mapping,
+            inverse,
+        }
     }
 }
 
@@ -167,7 +162,11 @@ impl SquareMatrix {
         Ok(xy)
     }
     /// Solve a system of linear equations rearranged in a banded structure using the LU decomposition.
-    pub fn solve_lu_banded(&mut self, b: &Vector, banded: &Banded) -> Result<Vector, SquareMatrixError> {
+    pub fn solve_lu_banded(
+        &self,
+        b: &Vector,
+        banded: &Banded,
+    ) -> Result<Vector, SquareMatrixError> {
         let bandwidth = banded.width();
         let mut bandwidth_updated;
         let n = self.len();
@@ -177,54 +176,53 @@ impl SquareMatrix {
         let mut max_row;
         let mut pivot;
         let mut track;
-        let mut foo: Self = (0..n).map(|i| // back to copying...
-            (0..n).map(|j|
-                self[banded.old(i)][banded.old(j)]
-            ).collect()
-        ).collect();
+        let mut rearr: Self = (0..n)
+            .map(|i| (0..n).map(|j| self[banded.old(i)][banded.old(j)]).collect())
+            .collect();
         for i in 0..n {
             end = n.min(i + 1 + bandwidth);
-            pivot = foo[i][i];
+            pivot = rearr[i][i];
             if pivot.abs() < ABS_TOL {
                 max_row = i;
-                track = foo[max_row][i].abs();
+                track = rearr[max_row][i].abs();
                 for k in i + 1..end {
-                    if foo[k][i].abs() > track {
+                    if rearr[k][i].abs() > track {
                         max_row = k;
-                        track = foo[max_row][i].abs();
+                        track = rearr[max_row][i].abs();
                     }
                 }
                 if max_row != i {
-                    foo.0.swap(i, max_row);
+                    rearr.0.swap(i, max_row);
                     p.swap(i, max_row);
-                    pivot = foo[i][i];
+                    pivot = rearr[i][i];
                     if pivot.abs() < ABS_TOL {
                         return Err(SquareMatrixError::Singular);
                     }
                 }
             }
             bandwidth_updated = bandwidth;
-            (i + 1 + bandwidth..n).for_each(|j|
-                if foo[i][j] != 0.0 {
-                    if j - i > bandwidth_updated {
-                        bandwidth_updated = j - 1
-                    }
+            (i + 1 + bandwidth..n).for_each(|j| {
+                if rearr[i][j] != 0.0 {
+                    // if j - i > bandwidth_updated {
+                    //     bandwidth_updated = j - 1
+                    // }
+                    bandwidth_updated = bandwidth_updated.max(j - i)
                 }
-            );
+            });
             end = n.min(i + 1 + bandwidth_updated);
             for j in i + 1..end {
-                if foo[j][i] != 0.0 {
-                    foo[j][i] /= pivot;
-                    factor = foo[j][i];
+                if rearr[j][i] != 0.0 {
+                    rearr[j][i] /= pivot;
+                    factor = rearr[j][i];
                     for k in i + 1..end {
-                        foo[j][k] -= factor * foo[i][k];
+                        rearr[j][k] -= factor * rearr[i][k];
                     }
                 }
             }
         }
         let mut xy: Vector = p.into_iter().map(|p_i| b[banded.old(p_i)]).collect();
         (0..n).for_each(|i| {
-            xy[i] -= foo[i]
+            xy[i] -= rearr[i]
                 .iter()
                 .take(i)
                 .zip(xy.iter())
@@ -232,13 +230,13 @@ impl SquareMatrix {
                 .sum::<TensorRank0>()
         });
         (0..n).rev().for_each(|i| {
-            xy[i] -= foo[i]
+            xy[i] -= rearr[i]
                 .iter()
                 .skip(i + 1)
                 .zip(xy.iter().skip(i + 1))
                 .map(|(lu_ij, x_j)| lu_ij * x_j)
                 .sum::<TensorRank0>();
-            xy[i] /= foo[i][i];
+            xy[i] /= rearr[i][i];
         });
         Ok((0..n).map(|i| xy[banded.new(i)]).collect())
     }

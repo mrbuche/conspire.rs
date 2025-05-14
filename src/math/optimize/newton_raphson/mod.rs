@@ -3,7 +3,8 @@ mod test;
 
 use super::{
     super::{
-        Banded, Hessian, Jacobian, Matrix, Solution, SquareMatrix, Tensor, TensorRank0, TensorVec, Vector,
+        Banded, Hessian, Jacobian, Matrix, Solution, SquareMatrix, Tensor, TensorRank0, TensorVec,
+        Vector,
     },
     EqualityConstraint, FirstOrderRootFinding, OptimizeError, SecondOrderOptimization,
 };
@@ -137,6 +138,17 @@ where
                 let mut residual = Vector::zero(num_total);
                 let mut solution = initial_guess;
                 let mut tangent = SquareMatrix::zero(num_total);
+                constraint_matrix
+                    .iter()
+                    .enumerate()
+                    .for_each(|(i, constraint_matrix_i)| {
+                        constraint_matrix_i.iter().enumerate().for_each(
+                            |(j, constraint_matrix_ij)| {
+                                tangent[i + num_variables][j] = -constraint_matrix_ij;
+                                tangent[j][i + num_variables] = -constraint_matrix_ij;
+                            },
+                        )
+                    });
                 // Only works for A with one 1 in each row in a different column.
                 let mut j = 0;
                 let mut null_space = Matrix::zero(num_total, num_total - num_constraints);
@@ -156,47 +168,25 @@ where
                         &mut residual,
                     );
                     hessian(&solution)?.fill_into(&mut tangent);
-                    constraint_matrix
-                        .iter()
-                        .enumerate()
-                        .for_each(|(i, constraint_matrix_i)| {
-                            constraint_matrix_i.iter().enumerate().for_each(
-                                |(j, constraint_matrix_ij)| {
-                                    tangent[i + num_variables][j] = -constraint_matrix_ij;
-                                    tangent[j][i + num_variables] = -constraint_matrix_ij;
-                                },
-                            )
-                        });
-                    tangent
-                        .iter_mut()
-                        .skip(num_variables)
-                        .for_each(|tangent_i| {
-                            tangent_i
-                                .iter_mut()
-                                .skip(num_variables)
-                                .for_each(|tangent_ij| *tangent_ij = 0.0)
-                        });
-
-let foo = residual.norm();
-println!("Residual norm: {:?}.", foo);
-
                     if residual.norm() < self.abs_tol {
                         // if tangent.verify(null_space) {
-                            return Ok(solution);
+                        return Ok(solution);
                         // } else {
                         //     return Err(OptimizeError::NotMinimum(
                         //         format!("{}", solution),
                         //         format!("{:?}", &self),
                         //     ));
                         // }
+                    } else if let Some(ref band) = banded {
+                            solution.decrement_from_chained(
+                                &mut multipliers,
+                                tangent.solve_lu_banded(&residual, band)?,
+                            )
                     } else {
-                        if let Some(ref band) = banded {
-                            solution
-                                .decrement_from_chained(&mut multipliers, tangent.solve_lu_banded(&residual, &band)?)
-                        } else {
-                            solution
-                                .decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual)?)
-                        }
+                        solution.decrement_from_chained(
+                            &mut multipliers,
+                            tangent.solve_lu(&residual)?,
+                        )
                     }
                 }
             }
