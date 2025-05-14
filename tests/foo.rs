@@ -1,4 +1,5 @@
 use conspire::{
+    ABS_TOL,
     constitutive::{
         Constitutive,
         solid::{AppliedLoad, elastic::Elastic, hyperelastic::NeoHookean},
@@ -7376,7 +7377,6 @@ fn foo() {
     let mut matrix = Matrix::zero(length, width);
     let mut vector = Vector::zero(length);
     let mut index = 0;
-    // permuted_coordinates
     coordinates()
         .iter()
         .enumerate()
@@ -7432,12 +7432,12 @@ fn foo() {
                                 .for_each(|(deformation_gradient_g_ij, deformation_gradient_ij)| {
                                     assert!(
                                         (deformation_gradient_g_ij - deformation_gradient_ij).abs()
-                                            < 1e-12
+                                            < ABS_TOL
                                             || (deformation_gradient_g_ij
                                                 / deformation_gradient_ij
                                                 - 1.0)
                                                 .abs()
-                                                < 1e-12
+                                                < ABS_TOL
                                     )
                                 })
                         })
