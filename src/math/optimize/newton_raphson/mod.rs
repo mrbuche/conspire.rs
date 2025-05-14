@@ -178,15 +178,13 @@ where
                         //     ));
                         // }
                     } else if let Some(ref band) = banded {
-                            solution.decrement_from_chained(
-                                &mut multipliers,
-                                tangent.solve_lu_banded(&residual, band)?,
-                            )
-                    } else {
                         solution.decrement_from_chained(
                             &mut multipliers,
-                            tangent.solve_lu(&residual)?,
+                            tangent.solve_lu_banded(&residual, band)?,
                         )
+                    } else {
+                        solution
+                            .decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual)?)
                     }
                 }
             }

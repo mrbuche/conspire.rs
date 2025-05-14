@@ -545,12 +545,15 @@ fn band<const N: usize>(
             assert_eq!(matrix.width(), num_coords);
             let num_dof = matrix.len() + matrix.width();
             let mut banded = vec![vec![false; num_dof]; num_dof];
-            structure_3d.iter().zip(banded.iter_mut()).for_each(|(structure_3d_i, banded_i)| {
-                structure_3d_i
-                    .iter()
-                    .zip(banded_i.iter_mut())
-                    .for_each(|(structure_3d_ij, banded_ij)| *banded_ij = *structure_3d_ij)
-            });
+            structure_3d
+                .iter()
+                .zip(banded.iter_mut())
+                .for_each(|(structure_3d_i, banded_i)| {
+                    structure_3d_i
+                        .iter()
+                        .zip(banded_i.iter_mut())
+                        .for_each(|(structure_3d_ij, banded_ij)| *banded_ij = *structure_3d_ij)
+                });
             let mut index = num_coords;
             matrix.iter().for_each(|matrix_i| {
                 matrix_i.iter().enumerate().for_each(|(j, matrix_ij)| {

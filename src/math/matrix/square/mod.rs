@@ -25,7 +25,7 @@ pub struct Banded {
 }
 
 impl Banded {
-    pub fn new(&self, old: usize) -> usize {
+    pub fn map(&self, old: usize) -> usize {
         self.inverse[old]
     }
     pub fn old(&self, new: usize) -> usize {
@@ -238,7 +238,7 @@ impl SquareMatrix {
                 .sum::<TensorRank0>();
             xy[i] /= rearr[i][i];
         });
-        Ok((0..n).map(|i| xy[banded.new(i)]).collect())
+        Ok((0..n).map(|i| xy[banded.map(i)]).collect())
     }
     /// Verifies a minimum using the null space of the constraint matrix.
     pub fn verify(self, null_space: Matrix) -> bool {
