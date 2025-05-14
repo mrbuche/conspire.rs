@@ -17,7 +17,7 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
-/// ???
+/// Rearrangement structure for a banded matrix.
 pub struct Banded {
     bandwidth: usize,
     inverse: Vec<usize>,
