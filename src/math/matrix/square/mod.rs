@@ -166,7 +166,7 @@ impl SquareMatrix {
         });
         Ok(xy)
     }
-    /// ???
+    /// Solve a system of linear equations rearranged in a banded structure using the LU decomposition.
     pub fn solve_lu_banded(&mut self, b: &Vector, banded: &Banded) -> Result<Vector, SquareMatrixError> {
         let bandwidth = banded.width();
         let mut bandwidth_updated;
@@ -177,29 +177,30 @@ impl SquareMatrix {
         let mut max_row;
         let mut pivot;
         let mut track;
-        let mut foo: Self = (0..n).map(|i|
+        let mut foo: Self = (0..n).map(|i| // back to copying...
             (0..n).map(|j|
                 self[banded.old(i)][banded.old(j)]
             ).collect()
         ).collect();
-        let time = std::time::Instant::now();
         for i in 0..n {
             end = n.min(i + 1 + bandwidth);
-            max_row = i;
-            track = foo[max_row][i].abs();
-            for k in i + 1..end {
-                if foo[k][i].abs() > track {
-                    max_row = k;
-                    track = foo[max_row][i].abs();
-                }
-            }
             pivot = foo[i][i];
-            if max_row != i && pivot.abs() < ABS_TOL {
-                foo.0.swap(i, max_row);
-                p.swap(i, max_row);
-                pivot = foo[i][i];
-                if pivot.abs() < ABS_TOL {
-                    return Err(SquareMatrixError::Singular);
+            if pivot.abs() < ABS_TOL {
+                max_row = i;
+                track = foo[max_row][i].abs();
+                for k in i + 1..end {
+                    if foo[k][i].abs() > track {
+                        max_row = k;
+                        track = foo[max_row][i].abs();
+                    }
+                }
+                if max_row != i {
+                    foo.0.swap(i, max_row);
+                    p.swap(i, max_row);
+                    pivot = foo[i][i];
+                    if pivot.abs() < ABS_TOL {
+                        return Err(SquareMatrixError::Singular);
+                    }
                 }
             }
             bandwidth_updated = bandwidth;
@@ -212,16 +213,15 @@ impl SquareMatrix {
             );
             end = n.min(i + 1 + bandwidth_updated);
             for j in i + 1..end {
-                foo[j][i] /= pivot;
-                factor = foo[j][i];
-                for k in i + 1..end {
-                    foo[j][k] -= factor * foo[i][k];
+                if foo[j][i] != 0.0 {
+                    foo[j][i] /= pivot;
+                    factor = foo[j][i];
+                    for k in i + 1..end {
+                        foo[j][k] -= factor * foo[i][k];
+                    }
                 }
             }
         }
-
-println!("LU: {:?}", time.elapsed());
-
         let mut xy: Vector = p.into_iter().map(|p_i| b[banded.old(p_i)]).collect();
         (0..n).for_each(|i| {
             xy[i] -= foo[i]
