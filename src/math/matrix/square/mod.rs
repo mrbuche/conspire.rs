@@ -12,9 +12,95 @@ use crate::{
     },
 };
 use std::{
+    collections::VecDeque,
     fmt::{self, Display, Formatter},
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
+
+/// ???
+pub struct Banded {
+    bandwidth: usize,
+    inverse: Vec<usize>,
+    mapping: Vec<usize>,
+
+}
+
+impl Banded {
+    pub fn new(&self, old: usize) -> usize {
+        self.inverse[old]
+    }
+    pub fn old(&self, new: usize) -> usize {
+        self.mapping[new]
+    }
+    pub fn width(&self) -> usize {
+        self.bandwidth
+    }
+}
+
+impl From<Vec<Vec<bool>>> for Banded {
+    fn from(structure: Vec<Vec<bool>>) -> Self {
+        let num = structure.len();
+        structure.iter().enumerate().for_each(|(i, row_i)| {
+            assert_eq!(row_i.len(), num);
+            row_i.iter().zip(structure.iter()).for_each(|(entry_ij, row_j)|
+                assert_eq!(&row_j[i], entry_ij)
+            )
+        });
+
+        // Step 1: Convert binary matrix to adjacency list
+        let mut adj_list = vec![Vec::new(); num];
+        for i in 0..num {
+            for j in 0..num {
+                if structure[i][j] && i != j {
+                    adj_list[i].push(j);
+                }
+            }
+        }
+        // Step 2: Find the starting vertex (vertex with the smallest degree)
+        let start_vertex = (0..num)
+            .min_by_key(|&i| adj_list[i].len())
+            .expect("Matrix must have at least one vertex");
+        // Step 3: Perform Breadth-First Search (BFS)
+        let mut visited = vec![false; num]; // Track visited vertices
+        let mut mapping = Vec::new(); // Final reordered indices
+        let mut queue = VecDeque::new();
+        queue.push_back(start_vertex);
+        visited[start_vertex] = true;
+        while let Some(vertex) = queue.pop_front() {
+            mapping.push(vertex);
+
+            // Get neighbors of the current vertex, sorted by degree (ascending)
+            let mut neighbors: Vec<usize> = adj_list[vertex]
+                .iter()
+                .filter(|&&neighbor| !visited[neighbor])
+                .copied()
+                .collect();
+            neighbors.sort_by_key(|&neighbor| adj_list[neighbor].len());
+
+            // Add unvisited neighbors to the queue
+            for neighbor in neighbors {
+                visited[neighbor] = true;
+                queue.push_back(neighbor);
+            }
+        }
+        mapping.reverse();
+        let mut inverse = vec![0; num];
+        mapping.iter().enumerate().for_each(|(new, &old)|
+            inverse[old] = new
+        );
+        let mut bandwidth = 0;
+        (0..num).for_each(|i|
+            (i + 1..num).for_each(|j|
+                if structure[mapping[i]][mapping[j]] {
+                    if j - i > bandwidth {
+                        bandwidth = j - 1
+                    }
+                }
+            )
+        );
+        Self { bandwidth, mapping, inverse }
+    }
+}
 
 /// Possible errors for square matrices.
 #[derive(PartialEq)]
@@ -35,18 +121,15 @@ impl SquareMatrix {
         let mut max_row;
         let mut pivot;
         let mut track;
-        let time = std::time::Instant::now();
         for i in 0..n {
             max_row = i;
             track = self[max_row][i].abs();
             (i + 1..n).for_each(|k| {
-            // for k in i + 1..n.min(i + 590 + 1) {
                 if self[k][i].abs() > track {
                     max_row = k;
                     track = self[max_row][i].abs();
                 }
             });
-            // }
             if max_row != i {
                 self.0.swap(i, max_row);
                 p.swap(i, max_row);
@@ -55,19 +138,14 @@ impl SquareMatrix {
             if pivot.abs() < ABS_TOL {
                 return Err(SquareMatrixError::Singular);
             }
-            // BOTTLENECK
             for j in i + 1..n {
-            // for j in i + 1..n.min(i + 590 + 1) {
                 self[j][i] /= pivot;
                 factor = self[j][i];
                 for k in i + 1..n {
-                // for k in i + 1..n.min(i + 590 + 1) {
                     self[j][k] -= factor * self[i][k];
                 }
             }
-            // BOTTLENECK
         }
-        println!("LU: {:?}", time.elapsed());
         let mut xy: Vector = p.into_iter().map(|p_i| b[p_i]).collect();
         (0..n).for_each(|i| {
             xy[i] -= self[i]
@@ -86,6 +164,65 @@ impl SquareMatrix {
                 .sum::<TensorRank0>();
             xy[i] /= self[i][i];
         });
+        Ok(xy)
+    }
+    /// ???
+    pub fn solve_lu_banded(&mut self, b: &Vector, banded: &Banded) -> Result<Vector, SquareMatrixError> {
+        let bandwidth = banded.width();
+        let n = self.len();
+        let mut p: Vec<usize> = (0..n).collect();
+        let mut factor;
+        let mut max_row;
+        let mut pivot;
+        let mut track;
+        let time = std::time::Instant::now();
+        for i in 0..n {
+            max_row = i;
+            track = self[banded.old(max_row)][banded.old(i)].abs();
+            for k in i + 1..n.min(i + bandwidth + 1) {
+                if self[banded.old(k)][banded.old(i)].abs() > track {
+                    max_row = k;
+                    track = self[banded.old(max_row)][banded.old(i)].abs();
+                }
+            }
+            if max_row != i {
+                self.0.swap(banded.old(i), banded.old(max_row));
+                p.swap(banded.old(i), banded.old(max_row));
+            }
+            pivot = self[banded.old(i)][banded.old(i)];
+            if pivot.abs() < ABS_TOL {
+                return Err(SquareMatrixError::Singular);
+            }
+            for j in i + 1..n.min(i + bandwidth + 1) {
+                self[banded.old(j)][banded.old(i)] /= pivot;
+                factor = self[banded.old(j)][banded.old(i)];
+                for k in i + 1..n.min(i + bandwidth + 1) {
+                    self[banded.old(j)][banded.old(k)] -= factor * self[banded.old(i)][banded.old(k)];
+                }
+            }
+        }
+        println!("LU: {:?}", time.elapsed());
+        let mut xy: Vector = p.into_iter().map(|p_i| b[p_i]).collect();
+        (0..n).for_each(|i| {
+            xy[i] -= self[banded.old(i)]
+                .iter()
+                .take(i)
+                .zip(xy.iter())
+                .map(|(lu_ij, y_j)| lu_ij * y_j)
+                .sum::<TensorRank0>()
+        });
+        (0..n).rev().for_each(|i| {
+            xy[i] -= self[banded.old(i)]
+                .iter()
+                .skip(i + 1)
+                .zip(xy.iter().skip(i + 1))
+                .map(|(lu_ij, x_j)| lu_ij * x_j)
+                .sum::<TensorRank0>();
+            xy[i] /= self[banded.old(i)][banded.old(i)];
+        });
+        //
+        // Need to re-map xy indices before returning?
+        //
         Ok(xy)
     }
     /// Verifies a minimum using the null space of the constraint matrix.

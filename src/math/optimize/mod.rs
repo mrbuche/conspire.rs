@@ -5,7 +5,7 @@ mod constraint;
 mod gradient_descent;
 mod newton_raphson;
 
-use crate::{defeat_message, math::matrix::square::SquareMatrixError};
+use crate::{defeat_message, math::matrix::square::{Banded, SquareMatrixError}};
 use std::fmt::{self, Debug, Display, Formatter};
 
 pub use constraint::EqualityConstraint;
@@ -53,6 +53,7 @@ pub trait SecondOrderOptimization<F, H, J, X> {
         hessian: impl Fn(&X) -> Result<H, OptimizeError>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
+        banded: Option<Banded>,
     ) -> Result<X, OptimizeError>;
 }
 

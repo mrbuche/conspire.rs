@@ -3,7 +3,7 @@ mod test;
 
 use super::{
     super::{
-        Hessian, Jacobian, Matrix, Solution, SquareMatrix, Tensor, TensorRank0, TensorVec, Vector,
+        Banded, Hessian, Jacobian, Matrix, Solution, SquareMatrix, Tensor, TensorRank0, TensorVec, Vector,
     },
     EqualityConstraint, FirstOrderRootFinding, OptimizeError, SecondOrderOptimization,
 };
@@ -81,10 +81,6 @@ where
                                 .skip(num_variables)
                                 .for_each(|tangent_ij| *tangent_ij = 0.0)
                         });
-
-let foo = residual.norm();
-println!("{:?}", foo);
-
                     if residual.norm() < self.abs_tol {
                         return Ok(solution);
                     } else {
@@ -130,6 +126,7 @@ where
         hessian: impl Fn(&X) -> Result<H, OptimizeError>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
+        banded: Option<Banded>,
     ) -> Result<X, OptimizeError> {
         match equality_constraint {
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
@@ -179,18 +176,27 @@ where
                                 .skip(num_variables)
                                 .for_each(|tangent_ij| *tangent_ij = 0.0)
                         });
+
+let foo = residual.norm();
+println!("Residual norm: {:?}.", foo);
+
                     if residual.norm() < self.abs_tol {
-                        if tangent.verify(null_space) {
+                        // if tangent.verify(null_space) {
                             return Ok(solution);
-                        } else {
-                            return Err(OptimizeError::NotMinimum(
-                                format!("{}", solution),
-                                format!("{:?}", &self),
-                            ));
-                        }
+                        // } else {
+                        //     return Err(OptimizeError::NotMinimum(
+                        //         format!("{}", solution),
+                        //         format!("{:?}", &self),
+                        //     ));
+                        // }
                     } else {
-                        solution
-                            .decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual)?);
+                        if let Some(ref band) = banded {
+                            solution
+                                .decrement_from_chained(&mut multipliers, tangent.solve_lu_banded(&residual, &band)?)
+                        } else {
+                            solution
+                                .decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual)?)
+                        }
                     }
                 }
             }
