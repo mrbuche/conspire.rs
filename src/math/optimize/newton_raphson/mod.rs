@@ -85,8 +85,11 @@ where
                     if residual.norm() < self.abs_tol {
                         return Ok(solution);
                     } else {
+                        println!("{:?}", residual.norm());
                         solution
-                            .decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual)?)
+                            .decrement_from_chained(&mut multipliers, tangent.solve_ldl(&residual)?)
+                        // solution
+                        //     .decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual)?)
                     }
                 }
             }
@@ -159,6 +162,7 @@ where
                         //
                         // Just wait for LDL* version of Cholesky to do verification by looking at the inertia.
                         // And should you check every single time? Seems that SQP suggests each step is verifiable.
+                        // And note, the entries of D are NOT the eigenvalues.
                         //
                         // if tangent.verify(null_space) {
                         return Ok(solution);

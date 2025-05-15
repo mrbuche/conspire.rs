@@ -98,7 +98,7 @@ impl From<Vec<Vec<bool>>> for Banded {
 }
 
 /// Possible errors for square matrices.
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum SquareMatrixError {
     Singular,
 }
@@ -108,6 +108,74 @@ pub enum SquareMatrixError {
 pub struct SquareMatrix(Vec<Vector>);
 
 impl SquareMatrix {
+    /// Solve a system of linear equations using the LDL decomposition.
+    pub fn solve_ldl(&mut self, b: &Vector) -> Result<Vector, SquareMatrixError> {
+        let n = self.len();
+        let mut p: Vec<usize> = (0..n).collect();
+        let mut d: Vec<TensorRank0> = vec![0.0; n];
+        let mut l: Vec<Vec<TensorRank0>> = vec![vec![0.0; n]; n];
+        // for i in 0..n {
+        //     for j in 0..n {
+        //         assert!((self[i][j] - self[j][i]).abs() < ABS_TOL || (self[i][j] / self[j][i] - 1.0).abs() < ABS_TOL)
+        //     }
+        // }
+        for i in 0..n {
+            let mut max_row = i;
+            for k in i + 1..n {
+                if self[k][i].abs() > self[max_row][i].abs() {
+                    max_row = k;
+                }
+            }
+            if max_row != i {
+                self.0.swap(i, max_row);
+                p.swap(i, max_row);
+            }
+            let mut sum = 0.0;
+            for k in 0..i {
+                sum += l[i][k] * d[k] * l[i][k];
+            }
+            let pivot = self[i][i] - sum;
+            if pivot.abs() < ABS_TOL {
+                return Err(SquareMatrixError::Singular);
+            }
+            d[i] = pivot;
+            l[i][i] = 1.0;
+            for j in i + 1..n {
+                sum = 0.0;
+                for k in 0..i {
+                    sum += l[j][k] * d[k] * l[i][k];
+                }
+                l[j][i] = (self[j][i] - sum) / d[i];
+            }
+        }
+        let mut y = Vector::zero(n);
+        for i in 0..n {
+            y[i] = b[p[i]];
+            for j in 0..i {
+                y[i] -= l[i][j] * y[j];
+            }
+        }
+        let mut x = Vector::zero(n);
+        for i in 0..n {
+            x[i] = y[i] / d[i];
+        }
+        for i in (0..n).rev() {
+            for j in i + 1..n {
+                x[i] -= l[j][i] * x[j];
+            }
+        }
+        // Ok(x)
+        let mut p_reverse = vec![0; n];
+        for (i, &pi) in p.iter().enumerate() {
+            p_reverse[pi] = i;
+        }
+        let mut xs = Vector::zero(n);
+        for i in 0..n {
+            // xs[i] = x[p_reverse[i]]
+            xs[p_reverse[i]] = x[i]
+        }
+        Ok(xs)
+    }
     /// Solve a system of linear equations using the LU decomposition.
     pub fn solve_lu(&mut self, b: &Vector) -> Result<Vector, SquareMatrixError> {
         let n = self.len();
@@ -115,14 +183,11 @@ impl SquareMatrix {
         let mut factor;
         let mut max_row;
         let mut pivot;
-        let mut track;
         for i in 0..n {
             max_row = i;
-            track = self[max_row][i].abs();
             (i + 1..n).for_each(|k| {
-                if self[k][i].abs() > track {
+                if self[k][i].abs() > self[max_row][i].abs() {
                     max_row = k;
-                    track = self[max_row][i].abs();
                 }
             });
             if max_row != i {
@@ -175,7 +240,6 @@ impl SquareMatrix {
         let mut factor;
         let mut max_row;
         let mut pivot;
-        let mut track;
         let mut rearr: Self = (0..n)
             .map(|i| (0..n).map(|j| self[banded.old(i)][banded.old(j)]).collect())
             .collect();
@@ -184,11 +248,9 @@ impl SquareMatrix {
             pivot = rearr[i][i];
             if pivot.abs() < ABS_TOL {
                 max_row = i;
-                track = rearr[max_row][i].abs();
                 for k in i + 1..end {
-                    if rearr[k][i].abs() > track {
+                    if rearr[k][i].abs() > rearr[max_row][i].abs() {
                         max_row = k;
-                        track = rearr[max_row][i].abs();
                     }
                 }
                 if max_row != i {
