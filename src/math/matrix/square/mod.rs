@@ -15,6 +15,7 @@ use std::{
     collections::VecDeque,
     fmt::{self, Display, Formatter},
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
+    vec::IntoIter,
 };
 
 /// Rearrangement structure for a banded matrix.
@@ -185,11 +186,11 @@ impl SquareMatrix {
         let mut pivot;
         for i in 0..n {
             max_row = i;
-            (i + 1..n).for_each(|k| {
+            for k in i + 1..n {
                 if self[k][i].abs() > self[max_row][i].abs() {
                     max_row = k;
                 }
-            });
+            }
             if max_row != i {
                 self.0.swap(i, max_row);
                 p.swap(i, max_row);
@@ -199,32 +200,19 @@ impl SquareMatrix {
                 return Err(SquareMatrixError::Singular);
             }
             for j in i + 1..n {
-                self[j][i] /= pivot;
-                factor = self[j][i];
-                for k in i + 1..n {
-                    self[j][k] -= factor * self[i][k];
+                if self[j][i] != 0.0 {
+                    self[j][i] /= pivot;
+                    factor = self[j][i];
+                    for k in i + 1..n {
+                        self[j][k] -= factor * self[i][k];
+                    }
                 }
             }
         }
-        let mut xy: Vector = p.into_iter().map(|p_i| b[p_i]).collect();
-        (0..n).for_each(|i| {
-            xy[i] -= self[i]
-                .iter()
-                .take(i)
-                .zip(xy.iter())
-                .map(|(lu_ij, y_j)| lu_ij * y_j)
-                .sum::<TensorRank0>()
-        });
-        (0..n).rev().for_each(|i| {
-            xy[i] -= self[i]
-                .iter()
-                .skip(i + 1)
-                .zip(xy.iter().skip(i + 1))
-                .map(|(lu_ij, x_j)| lu_ij * x_j)
-                .sum::<TensorRank0>();
-            xy[i] /= self[i][i];
-        });
-        Ok(xy)
+        let mut x: Vector = p.into_iter().map(|p_i| b[p_i]).collect();
+        forward_substitution(&mut x, self);
+        backward_substitution(&mut x, self);
+        Ok(x)
     }
     /// Solve a system of linear equations rearranged in a banded structure using the LU decomposition.
     pub fn solve_lu_banded(
@@ -279,26 +267,34 @@ impl SquareMatrix {
                 }
             }
         }
-        let mut xy: Vector = p.into_iter().map(|p_i| b[banded.old(p_i)]).collect();
-        (0..n).for_each(|i| {
-            xy[i] -= rearr[i]
-                .iter()
-                .take(i)
-                .zip(xy.iter())
-                .map(|(lu_ij, y_j)| lu_ij * y_j)
-                .sum::<TensorRank0>()
-        });
-        (0..n).rev().for_each(|i| {
-            xy[i] -= rearr[i]
-                .iter()
-                .skip(i + 1)
-                .zip(xy.iter().skip(i + 1))
-                .map(|(lu_ij, x_j)| lu_ij * x_j)
-                .sum::<TensorRank0>();
-            xy[i] /= rearr[i][i];
-        });
-        Ok((0..n).map(|i| xy[banded.map(i)]).collect())
+        let mut x: Vector = p.into_iter().map(|p_i| b[banded.old(p_i)]).collect();
+        forward_substitution(&mut x, &rearr);
+        backward_substitution(&mut x, &rearr);
+        Ok((0..n).map(|i| x[banded.map(i)]).collect())
     }
+}
+
+fn forward_substitution(x: &mut Vector, a: &SquareMatrix) {
+    a.iter().enumerate().for_each(|(i, a_i)| {
+        x[i] -= a_i
+            .iter()
+            .take(i)
+            .zip(x.iter().take(i))
+            .map(|(a_ij, x_j)| a_ij * x_j)
+            .sum::<TensorRank0>()
+    })
+}
+
+fn backward_substitution(x: &mut Vector, a: &SquareMatrix) {
+    a.0.iter().enumerate().rev().for_each(|(i, a_i)| {
+        x[i] -= a_i
+            .iter()
+            .skip(i + 1)
+            .zip(x.iter().skip(i + 1))
+            .map(|(a_ij, x_j)| a_ij * x_j)
+            .sum::<TensorRank0>();
+        x[i] /= a_i[i];
+    })
 }
 
 #[cfg(test)]
@@ -544,7 +540,7 @@ impl Tensor for SquareMatrix {
 
 impl IntoIterator for SquareMatrix {
     type Item = Vector;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = IntoIter<Self::Item>;
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
     }

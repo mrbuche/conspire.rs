@@ -7400,8 +7400,8 @@ fn foo() {
     let mut time = std::time::Instant::now();
     println!("Solving...");
     let solution = block
-        // .minimize(
-        .root(
+        .minimize(
+            // .root(
             coordinates().into(),
             NewtonRaphson::default(),
             EqualityConstraint::Linear(matrix, vector),
