@@ -85,11 +85,11 @@ where
                     if residual.norm() < self.abs_tol {
                         return Ok(solution);
                     } else {
-                        // println!("{:?}", residual.norm());
-                        // solution
-                        //     .decrement_from_chained(&mut multipliers, tangent.solve_ldl(&residual)?)
+                        println!("{:?}", residual.norm());
                         solution
-                            .decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual)?)
+                            .decrement_from_chained(&mut multipliers, tangent.solve_ldl(&residual)?)
+                        // solution
+                        //     .decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual)?)
                     }
                 }
             }

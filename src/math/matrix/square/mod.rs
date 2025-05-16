@@ -122,9 +122,11 @@ impl SquareMatrix {
         // }
         for i in 0..n {
             let mut max_row = i;
+            let mut max_val = self[max_row][i].abs();
             for k in i + 1..n {
-                if self[k][i].abs() > self[max_row][i].abs() {
+                if self[k][i].abs() > max_val {
                     max_row = k;
+                    max_val = self[max_row][i].abs();
                 }
             }
             if max_row != i {
@@ -166,16 +168,21 @@ impl SquareMatrix {
             }
         }
         // Ok(x)
-        let mut p_reverse = vec![0; n];
-        for (i, &pi) in p.iter().enumerate() {
-            p_reverse[pi] = i;
-        }
         let mut xs = Vector::zero(n);
         for i in 0..n {
-            // xs[i] = x[p_reverse[i]]
-            xs[p_reverse[i]] = x[i]
+            xs[p[i]] = x[i]
         }
         Ok(xs)
+        // let mut p_reverse = vec![0; n];
+        // for (i, &pi) in p.iter().enumerate() {
+        //     p_reverse[pi] = i;
+        // }
+        // let mut xs = Vector::zero(n);
+        // for i in 0..n {
+        //     // xs[i] = x[p_reverse[i]]
+        //     xs[p_reverse[i]] = x[i]
+        // }
+        // Ok(xs)
     }
     /// Solve a system of linear equations using the LU decomposition.
     pub fn solve_lu(&mut self, b: &Vector) -> Result<Vector, SquareMatrixError> {
@@ -183,12 +190,15 @@ impl SquareMatrix {
         let mut p: Vec<usize> = (0..n).collect();
         let mut factor;
         let mut max_row;
+        let mut max_val;
         let mut pivot;
         for i in 0..n {
             max_row = i;
+            max_val = self[max_row][i].abs();
             for k in i + 1..n {
-                if self[k][i].abs() > self[max_row][i].abs() {
+                if self[k][i].abs() > max_val {
                     max_row = k;
+                    max_val = self[max_row][i].abs();
                 }
             }
             if max_row != i {
@@ -227,6 +237,7 @@ impl SquareMatrix {
         let mut end;
         let mut factor;
         let mut max_row;
+        let mut max_val;
         let mut pivot;
         let mut rearr: Self = (0..n)
             .map(|i| (0..n).map(|j| self[banded.old(i)][banded.old(j)]).collect())
@@ -236,9 +247,11 @@ impl SquareMatrix {
             pivot = rearr[i][i];
             if pivot.abs() < ABS_TOL {
                 max_row = i;
+                max_val = rearr[max_row][i].abs();
                 for k in i + 1..end {
-                    if rearr[k][i].abs() > rearr[max_row][i].abs() {
+                    if rearr[k][i].abs() > max_val {
                         max_row = k;
+                        max_val = rearr[max_row][i].abs();
                     }
                 }
                 if max_row != i {
