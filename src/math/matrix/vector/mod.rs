@@ -11,6 +11,7 @@ use std::{
         Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, RangeFrom, RangeTo, Sub,
         SubAssign,
     },
+    vec::IntoIter,
 };
 
 /// A vector.
@@ -191,7 +192,7 @@ impl Jacobian for Vector {
 
 impl IntoIterator for Vector {
     type Item = TensorRank0;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = IntoIter<Self::Item>;
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
     }

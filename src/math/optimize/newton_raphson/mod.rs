@@ -3,7 +3,8 @@ mod test;
 
 use super::{
     super::{
-        Hessian, Jacobian, Matrix, Solution, SquareMatrix, Tensor, TensorRank0, TensorVec, Vector,
+        Banded, Hessian, Jacobian, Matrix, Solution, SquareMatrix, Tensor, TensorRank0, TensorVec,
+        Vector,
     },
     EqualityConstraint, FirstOrderRootFinding, OptimizeError, SecondOrderOptimization,
 };
@@ -51,7 +52,7 @@ where
                 let num_variables = initial_guess.num_entries();
                 let num_constraints = constraint_rhs.len();
                 let num_total = num_variables + num_constraints;
-                let mut multipliers = Vector::ones(num_constraints) * 10.0 * self.abs_tol;
+                let mut multipliers = Vector::ones(num_constraints) * self.abs_tol;
                 let mut residual = Vector::zero(num_total);
                 let mut solution = initial_guess;
                 let mut tangent = SquareMatrix::zero(num_total);
@@ -126,67 +127,48 @@ where
         hessian: impl Fn(&X) -> Result<H, OptimizeError>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
+        banded: Option<Banded>,
     ) -> Result<X, OptimizeError> {
         match equality_constraint {
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
                 let num_variables = initial_guess.num_entries();
                 let num_constraints = constraint_rhs.len();
                 let num_total = num_variables + num_constraints;
-                let mut multipliers = Vector::ones(num_constraints) * 10.0 * self.abs_tol;
+                let mut multipliers = Vector::ones(num_constraints) * self.abs_tol;
                 let mut residual = Vector::zero(num_total);
                 let mut solution = initial_guess;
                 let mut tangent = SquareMatrix::zero(num_total);
-                // Only works for A with one 1 in each row in a different column.
-                let mut j = 0;
-                let mut null_space = Matrix::zero(num_total, num_total - num_constraints);
                 constraint_matrix
-                    .transpose()
                     .iter()
-                    .zip(null_space.iter_mut())
-                    .for_each(|(c_i, n_i)| {
-                        if c_i.iter().all(|c_ij| c_ij == &0.0) {
-                            n_i[j] = 1.0;
-                            j += 1;
-                        }
+                    .enumerate()
+                    .for_each(|(i, constraint_matrix_i)| {
+                        constraint_matrix_i.iter().enumerate().for_each(
+                            |(j, constraint_matrix_ij)| {
+                                tangent[i + num_variables][j] = -constraint_matrix_ij;
+                                tangent[j][i + num_variables] = -constraint_matrix_ij;
+                            },
+                        )
                     });
-                for _ in 0..self.max_steps {
+                for step in 0..self.max_steps {
                     (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
                         &constraint_rhs - &constraint_matrix * &solution,
                         &mut residual,
                     );
                     hessian(&solution)?.fill_into(&mut tangent);
-                    constraint_matrix
-                        .iter()
-                        .enumerate()
-                        .for_each(|(i, constraint_matrix_i)| {
-                            constraint_matrix_i.iter().enumerate().for_each(
-                                |(j, constraint_matrix_ij)| {
-                                    tangent[i + num_variables][j] = -constraint_matrix_ij;
-                                    tangent[j][i + num_variables] = -constraint_matrix_ij;
-                                },
-                            )
-                        });
-                    tangent
-                        .iter_mut()
-                        .skip(num_variables)
-                        .for_each(|tangent_i| {
-                            tangent_i
-                                .iter_mut()
-                                .skip(num_variables)
-                                .for_each(|tangent_ij| *tangent_ij = 0.0)
-                        });
                     if residual.norm() < self.abs_tol {
-                        if tangent.verify(null_space) {
-                            return Ok(solution);
-                        } else {
-                            return Err(OptimizeError::NotMinimum(
-                                format!("{}", solution),
-                                format!("{:?}", &self),
-                            ));
-                        }
+                        return Ok(solution);
+                    } else if let Some(ref band) = banded {
+                        println!(
+                            "\x1b[1;93m({}) SQP step convexity is not verified.\x1b[0m",
+                            step + 1
+                        );
+                        solution.decrement_from_chained(
+                            &mut multipliers,
+                            tangent.solve_lu_banded(&residual, band)?,
+                        )
                     } else {
                         solution
-                            .decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual)?);
+                            .decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual)?)
                     }
                 }
             }

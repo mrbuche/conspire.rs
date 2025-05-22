@@ -9,11 +9,14 @@ use self::element::{
     ViscoelasticFiniteElement,
 };
 use super::*;
-use crate::math::optimize::{
-    EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError,
-    SecondOrderOptimization,
+use crate::math::{
+    Banded,
+    optimize::{
+        EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError,
+        SecondOrderOptimization,
+    },
 };
-use std::array::from_fn;
+use std::{array::from_fn, iter::repeat_n};
 
 pub struct ElementBlock<F, const N: usize> {
     connectivity: Connectivity<N>,
@@ -35,7 +38,6 @@ where
         element_connectivity: &[usize; N],
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> NodalCoordinates<N>;
-    // fn structure(&self, number_of_nodes: usize) -> Vec<Vec<bool>>;
 }
 
 pub trait FiniteElementBlock<C, F, const G: usize, const N: usize, Y>
@@ -100,39 +102,6 @@ where
             .map(|node| nodal_coordinates[*node].clone())
             .collect()
     }
-    // fn structure(&self, number_of_nodes: usize) -> Vec<Vec<bool>> {
-    //     let connectivity = self.connectivity();
-    //     let mut inverse_connectivity = vec![vec![]; number_of_nodes];
-    //     connectivity
-    //         .iter()
-    //         .enumerate()
-    //         .for_each(|(element, nodes)| {
-    //             nodes
-    //                 .iter()
-    //                 .for_each(|&node| inverse_connectivity[node].push(element))
-    //         });
-    //     let foo: Vec<Vec<usize>> = inverse_connectivity
-    //         .iter()
-    //         .map(|elements| {
-    //             let mut bar: Vec<usize> = elements
-    //                 .iter()
-    //                 .flat_map(|&element| connectivity[element])
-    //                 .collect();
-    //             bar.sort();
-    //             bar.dedup();
-    //             bar
-    //         })
-    //         .collect();
-    //     // now populate SquatrMatrix of bools, if that is the best structure to rearrange for something
-    //     //
-    //     // Cuthill–McKee algorithm (and reverse) permutes SYMMETRIC sparse matrices into a narrow band matrix.
-    //     // Supposedly helps both aspects of performance, and also numerical stability, when solving equations.
-    //     //
-    //     // Seems there are Cholesky algorithms for banded Hermitian positive-definite matrices,
-    //     // so this re-structuring might be a good idea after all.
-    //     //
-    //     todo!()
-    // }
 }
 
 impl<C, F, const G: usize, const N: usize, Y> FiniteElementBlock<C, F, G, N, Y>
@@ -154,7 +123,7 @@ where
                     constitutive_model_parameters,
                     element_connectivity
                         .iter()
-                        .map(|node| reference_nodal_coordinates[*node].clone())
+                        .map(|&node| reference_nodal_coordinates[node].clone())
                         .collect(),
                 )
             })
@@ -387,6 +356,11 @@ where
         optimization: NewtonRaphson,
         equality_constraint: EqualityConstraint,
     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
+        let banded = band(
+            self.connectivity(),
+            &equality_constraint,
+            initial_coordinates.len(),
+        );
         optimization.minimize(
             |nodal_coordinates: &NodalCoordinatesBlock| {
                 Ok(self.helmholtz_free_energy(nodal_coordinates)?)
@@ -397,6 +371,7 @@ where
             },
             initial_coordinates,
             equality_constraint,
+            Some(banded),
         )
     }
 }
@@ -532,4 +507,81 @@ where
             })
             .sum()
     }
+}
+
+fn band<const N: usize>(
+    connectivity: &Connectivity<N>,
+    equality_constraint: &EqualityConstraint,
+    number_of_nodes: usize,
+) -> Banded {
+    match equality_constraint {
+        EqualityConstraint::Linear(matrix, _) => {
+            let neighbors: Vec<Vec<usize>> = invert(connectivity, number_of_nodes)
+                .iter()
+                .map(|elements| {
+                    let mut nodes: Vec<usize> = elements
+                        .iter()
+                        .flat_map(|&element| connectivity[element])
+                        .collect();
+                    nodes.sort();
+                    nodes.dedup();
+                    nodes
+                })
+                .collect();
+            let structure: Vec<Vec<bool>> = neighbors
+                .iter()
+                .map(|nodes| (0..number_of_nodes).map(|b| nodes.contains(&b)).collect())
+                .collect();
+            let structure_3d: Vec<Vec<bool>> = structure
+                .iter()
+                .flat_map(|row| {
+                    repeat_n(
+                        row.iter().flat_map(|entry| repeat_n(*entry, 3)).collect(),
+                        3,
+                    )
+                })
+                .collect();
+            let num_coords = 3 * number_of_nodes;
+            assert_eq!(matrix.width(), num_coords);
+            let num_dof = matrix.len() + matrix.width();
+            let mut banded = vec![vec![false; num_dof]; num_dof];
+            structure_3d
+                .iter()
+                .zip(banded.iter_mut())
+                .for_each(|(structure_3d_i, banded_i)| {
+                    structure_3d_i
+                        .iter()
+                        .zip(banded_i.iter_mut())
+                        .for_each(|(structure_3d_ij, banded_ij)| *banded_ij = *structure_3d_ij)
+                });
+            let mut index = num_coords;
+            matrix.iter().for_each(|matrix_i| {
+                matrix_i.iter().enumerate().for_each(|(j, matrix_ij)| {
+                    if matrix_ij != &0.0 {
+                        banded[index][j] = true;
+                        banded[j][index] = true;
+                        index += 1;
+                    }
+                })
+            });
+            Banded::from(banded)
+        }
+        _ => unimplemented!(),
+    }
+}
+
+fn invert<const N: usize>(
+    connectivity: &Connectivity<N>,
+    number_of_nodes: usize,
+) -> Vec<Vec<usize>> {
+    let mut inverse_connectivity = vec![vec![]; number_of_nodes];
+    connectivity
+        .iter()
+        .enumerate()
+        .for_each(|(element, nodes)| {
+            nodes
+                .iter()
+                .for_each(|&node| inverse_connectivity[node].push(element))
+        });
+    inverse_connectivity
 }

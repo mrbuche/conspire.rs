@@ -17,6 +17,7 @@ mod minimize {
             |_: &TensorRank0| Ok(1.0),
             1.0,
             EqualityConstraint::None,
+            None,
         )
         .unwrap();
         assert!(x.abs() < TOLERANCE)
@@ -32,6 +33,7 @@ mod minimize {
             |x: &TensorRank0| Ok(*x),
             1.0,
             EqualityConstraint::None,
+            None,
         )
         .unwrap();
         assert!(x.abs() < TOLERANCE)
@@ -47,6 +49,7 @@ mod minimize {
             |x: &TensorRank0| Ok(x.cos()),
             1.0,
             EqualityConstraint::None,
+            None,
         )
         .unwrap();
         assert!(x.abs() < TOLERANCE)
@@ -63,6 +66,7 @@ mod minimize {
             |x: &TensorRank0| Ok(x.cos()),
             3.0,
             EqualityConstraint::None,
+            None,
         )
         .unwrap();
     }

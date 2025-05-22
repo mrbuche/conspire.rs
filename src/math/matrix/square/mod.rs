@@ -7,17 +7,99 @@ use crate::math::test::ErrorTensor;
 use crate::{
     ABS_TOL,
     math::{
-        Hessian, Matrix, Rank2, Tensor, TensorRank0, TensorRank2Vec2D, TensorVec, Vector,
+        Hessian, Rank2, Tensor, TensorRank0, TensorRank2Vec2D, TensorVec, Vector,
         tensor::TensorError, write_tensor_rank_0,
     },
 };
 use std::{
+    collections::VecDeque,
     fmt::{self, Display, Formatter},
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
+    vec::IntoIter,
 };
 
+/// Rearrangement structure for a banded matrix.
+pub struct Banded {
+    bandwidth: usize,
+    inverse: Vec<usize>,
+    mapping: Vec<usize>,
+}
+
+impl Banded {
+    pub fn map(&self, old: usize) -> usize {
+        self.inverse[old]
+    }
+    pub fn old(&self, new: usize) -> usize {
+        self.mapping[new]
+    }
+    pub fn width(&self) -> usize {
+        self.bandwidth
+    }
+}
+
+impl From<Vec<Vec<bool>>> for Banded {
+    fn from(structure: Vec<Vec<bool>>) -> Self {
+        let num = structure.len();
+        structure.iter().enumerate().for_each(|(i, row_i)| {
+            assert_eq!(row_i.len(), num);
+            row_i
+                .iter()
+                .zip(structure.iter())
+                .for_each(|(entry_ij, row_j)| assert_eq!(&row_j[i], entry_ij))
+        });
+        let mut adj_list = vec![Vec::new(); num];
+        for i in 0..num {
+            for j in 0..num {
+                if structure[i][j] && i != j {
+                    adj_list[i].push(j);
+                }
+            }
+        }
+        let start_vertex = (0..num)
+            .min_by_key(|&i| adj_list[i].len())
+            .expect("Matrix must have at least one entry.");
+        let mut visited = vec![false; num];
+        let mut mapping = Vec::new();
+        let mut queue = VecDeque::new();
+        queue.push_back(start_vertex);
+        visited[start_vertex] = true;
+        while let Some(vertex) = queue.pop_front() {
+            mapping.push(vertex);
+            let mut neighbors: Vec<usize> = adj_list[vertex]
+                .iter()
+                .filter(|&&neighbor| !visited[neighbor])
+                .copied()
+                .collect();
+            neighbors.sort_by_key(|&neighbor| adj_list[neighbor].len());
+            for neighbor in neighbors {
+                visited[neighbor] = true;
+                queue.push_back(neighbor);
+            }
+        }
+        mapping.reverse();
+        let mut inverse = vec![0; num];
+        mapping
+            .iter()
+            .enumerate()
+            .for_each(|(new, &old)| inverse[old] = new);
+        let mut bandwidth = 0;
+        (0..num).for_each(|i| {
+            (i + 1..num).for_each(|j| {
+                if structure[mapping[i]][mapping[j]] {
+                    bandwidth = bandwidth.max(j - i)
+                }
+            })
+        });
+        Self {
+            bandwidth,
+            mapping,
+            inverse,
+        }
+    }
+}
+
 /// Possible errors for square matrices.
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum SquareMatrixError {
     Singular,
 }
@@ -27,71 +109,205 @@ pub enum SquareMatrixError {
 pub struct SquareMatrix(Vec<Vector>);
 
 impl SquareMatrix {
+    // /// Solve a system of linear equations using the LDL decomposition.
+    // pub fn solve_ldl(&mut self, b: &Vector) -> Result<Vector, SquareMatrixError> {
+    //     let n = self.len();
+    //     let mut p: Vec<usize> = (0..n).collect();
+    //     let mut d: Vec<TensorRank0> = vec![0.0; n];
+    //     let mut l: Vec<Vec<TensorRank0>> = vec![vec![0.0; n]; n];
+    //     // for i in 0..n {
+    //     //     for j in 0..n {
+    //     //         assert!((self[i][j] - self[j][i]).abs() < ABS_TOL || (self[i][j] / self[j][i] - 1.0).abs() < ABS_TOL)
+    //     //     }
+    //     // }
+    //     for i in 0..n {
+    //         let mut max_row = i;
+    //         let mut max_val = self[max_row][i].abs();
+    //         for k in i + 1..n {
+    //             if self[k][i].abs() > max_val {
+    //                 max_row = k;
+    //                 max_val = self[max_row][i].abs();
+    //             }
+    //         }
+    //         if max_row != i {
+    //             self.0.swap(i, max_row);
+    //             p.swap(i, max_row);
+    //         }
+    //         let mut sum = 0.0;
+    //         for k in 0..i {
+    //             sum += l[i][k] * d[k] * l[i][k];
+    //         }
+    //         let pivot = self[i][i] - sum;
+    //         if pivot.abs() < ABS_TOL {
+    //             return Err(SquareMatrixError::Singular);
+    //         }
+    //         d[i] = pivot;
+    //         l[i][i] = 1.0;
+    //         for j in i + 1..n {
+    //             sum = 0.0;
+    //             for k in 0..i {
+    //                 sum += l[j][k] * d[k] * l[i][k];
+    //             }
+    //             l[j][i] = (self[j][i] - sum) / d[i];
+    //         }
+    //     }
+    //     let mut y = Vector::zero(n);
+    //     for i in 0..n {
+    //         y[i] = b[p[i]];
+    //         for j in 0..i {
+    //             y[i] -= l[i][j] * y[j];
+    //         }
+    //     }
+    //     let mut x = Vector::zero(n);
+    //     for i in 0..n {
+    //         x[i] = y[i] / d[i];
+    //     }
+    //     for i in (0..n).rev() {
+    //         for j in i + 1..n {
+    //             x[i] -= l[j][i] * x[j];
+    //         }
+    //     }
+    //     // Ok(x)
+    //     let mut xs = Vector::zero(n);
+    //     for i in 0..n {
+    //         xs[p[i]] = x[i]
+    //     }
+    //     Ok(xs)
+    //     // let mut p_reverse = vec![0; n];
+    //     // for (i, &pi) in p.iter().enumerate() {
+    //     //     p_reverse[pi] = i;
+    //     // }
+    //     // let mut xs = Vector::zero(n);
+    //     // for i in 0..n {
+    //     //     // xs[i] = x[p_reverse[i]]
+    //     //     xs[p_reverse[i]] = x[i]
+    //     // }
+    //     // Ok(xs)
+    // }
     /// Solve a system of linear equations using the LU decomposition.
     pub fn solve_lu(&mut self, b: &Vector) -> Result<Vector, SquareMatrixError> {
         let n = self.len();
         let mut p: Vec<usize> = (0..n).collect();
+        let mut factor;
+        let mut max_row;
+        let mut max_val;
+        let mut pivot;
         for i in 0..n {
-            let mut max_row = i;
-            (i + 1..n).for_each(|k| {
-                if self[k][i].abs() > self[max_row][i].abs() {
+            max_row = i;
+            max_val = self[max_row][i].abs();
+            for k in i + 1..n {
+                if self[k][i].abs() > max_val {
                     max_row = k;
+                    max_val = self[max_row][i].abs();
                 }
-            });
+            }
             if max_row != i {
                 self.0.swap(i, max_row);
                 p.swap(i, max_row);
             }
-            if self[i][i].abs() < ABS_TOL {
+            pivot = self[i][i];
+            if pivot.abs() < ABS_TOL {
                 return Err(SquareMatrixError::Singular);
             }
-            (i + 1..n).for_each(|j| {
-                self[j][i] /= self[i][i];
-                (i + 1..n).for_each(|k| self[j][k] -= self[j][i] * self[i][k])
-            })
+            for j in i + 1..n {
+                if self[j][i] != 0.0 {
+                    self[j][i] /= pivot;
+                    factor = self[j][i];
+                    for k in i + 1..n {
+                        self[j][k] -= factor * self[i][k];
+                    }
+                }
+            }
         }
-        let mut xy: Vector = p.into_iter().map(|p_i| b[p_i]).collect();
-        (0..n).for_each(|i| {
-            xy[i] -= self[i]
-                .iter()
-                .take(i)
-                .zip(xy.iter())
-                .map(|(lu_ij, y_j)| lu_ij * y_j)
-                .sum::<TensorRank0>()
-        });
-        (0..n).rev().for_each(|i| {
-            xy[i] -= self[i]
-                .iter()
-                .skip(i + 1)
-                .zip(xy.iter().skip(i + 1))
-                .map(|(lu_ij, x_j)| lu_ij * x_j)
-                .sum::<TensorRank0>();
-            xy[i] /= self[i][i];
-        });
-        Ok(xy)
+        let mut x: Vector = p.into_iter().map(|p_i| b[p_i]).collect();
+        forward_substitution(&mut x, self);
+        backward_substitution(&mut x, self);
+        Ok(x)
     }
-    /// Verifies a minimum using the null space of the constraint matrix.
-    pub fn verify(self, null_space: Matrix) -> bool {
-        // Supposed to use the Hessian but should be OK since Z will hit None.
-        let mut result = Self::zero(null_space.width());
-        null_space
-            .transpose()
-            .iter()
-            .zip(result.iter_mut())
-            .for_each(|(zt_i, res_i)| {
-                zt_i.iter().zip(self.iter()).for_each(|(zt_ij, self_j)| {
-                    null_space
-                        .iter()
-                        .zip(self_j.iter())
-                        .for_each(|(z_k, self_jk)| {
-                            z_k.iter()
-                                .zip(res_i.iter_mut())
-                                .for_each(|(z_kl, res_il)| *res_il += zt_ij * self_jk * z_kl)
-                        })
-                })
+    /// Solve a system of linear equations rearranged in a banded structure using the LU decomposition.
+    pub fn solve_lu_banded(
+        &self,
+        b: &Vector,
+        banded: &Banded,
+    ) -> Result<Vector, SquareMatrixError> {
+        let bandwidth = banded.width();
+        let mut bandwidth_updated;
+        let n = self.len();
+        let mut p: Vec<usize> = (0..n).collect();
+        let mut end;
+        let mut factor;
+        let mut max_row;
+        let mut max_val;
+        let mut pivot;
+        let mut rearr: Self = (0..n)
+            .map(|i| (0..n).map(|j| self[banded.old(i)][banded.old(j)]).collect())
+            .collect();
+        for i in 0..n {
+            end = n.min(i + 1 + bandwidth);
+            pivot = rearr[i][i];
+            if pivot.abs() < ABS_TOL {
+                max_row = i;
+                max_val = rearr[max_row][i].abs();
+                for k in i + 1..end {
+                    if rearr[k][i].abs() > max_val {
+                        max_row = k;
+                        max_val = rearr[max_row][i].abs();
+                    }
+                }
+                if max_row != i {
+                    rearr.0.swap(i, max_row);
+                    p.swap(i, max_row);
+                    pivot = rearr[i][i];
+                    if pivot.abs() < ABS_TOL {
+                        return Err(SquareMatrixError::Singular);
+                    }
+                }
+            }
+            bandwidth_updated = bandwidth;
+            (i + 1 + bandwidth..n).for_each(|j| {
+                if rearr[i][j] != 0.0 {
+                    bandwidth_updated = bandwidth_updated.max(j - i)
+                }
             });
-        result.is_positive_definite()
+            end = n.min(i + 1 + bandwidth_updated);
+            for j in i + 1..end {
+                if rearr[j][i] != 0.0 {
+                    rearr[j][i] /= pivot;
+                    factor = rearr[j][i];
+                    for k in i + 1..end {
+                        rearr[j][k] -= factor * rearr[i][k];
+                    }
+                }
+            }
+        }
+        let mut x: Vector = p.into_iter().map(|p_i| b[banded.old(p_i)]).collect();
+        forward_substitution(&mut x, &rearr);
+        backward_substitution(&mut x, &rearr);
+        Ok((0..n).map(|i| x[banded.map(i)]).collect())
     }
+}
+
+fn forward_substitution(x: &mut Vector, a: &SquareMatrix) {
+    a.iter().enumerate().for_each(|(i, a_i)| {
+        x[i] -= a_i
+            .iter()
+            .take(i)
+            .zip(x.iter().take(i))
+            .map(|(a_ij, x_j)| a_ij * x_j)
+            .sum::<TensorRank0>()
+    })
+}
+
+fn backward_substitution(x: &mut Vector, a: &SquareMatrix) {
+    a.0.iter().enumerate().rev().for_each(|(i, a_i)| {
+        x[i] -= a_i
+            .iter()
+            .skip(i + 1)
+            .zip(x.iter().skip(i + 1))
+            .map(|(a_ij, x_j)| a_ij * x_j)
+            .sum::<TensorRank0>();
+        x[i] /= a_i[i];
+    })
 }
 
 #[cfg(test)]
@@ -337,7 +553,7 @@ impl Tensor for SquareMatrix {
 
 impl IntoIterator for SquareMatrix {
     type Item = Vector;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = IntoIter<Self::Item>;
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
     }
