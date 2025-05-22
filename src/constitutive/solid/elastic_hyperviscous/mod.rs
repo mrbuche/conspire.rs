@@ -12,7 +12,7 @@
 //! ```math
 //! \mathbf{P} = \mathbf{P}^e + \frac{\partial\phi}{\partial\dot{\mathbf{F}}}
 //! ```
-//! Consequently, the rate tangent stiffness associated with the first Piola-Kirchhoff stress is symmetric for elastic-hyperviscous models.
+//! Consequently, the rate tangent stiffness associated with the first Piola-Kirchhoff stress is symmetric for these constitutive models.
 //!
 //! ```math
 //! \mathcal{U}_{iJkL} = \mathcal{U}_{kLiJ}

@@ -8,7 +8,7 @@ Satisfying the second law of thermodynamics (here, equivalent to extremized or z
 ```math
 \mathbf{P} = \frac{\partial a}{\partial\mathbf{F}}
 ```
-Consequently, the tangent stiffness associated with the first Piola-Kirchhoff stress is symmetric for hyperelastic constitutive models.
+Consequently, the tangent stiffness associated with the first Piola-Kirchhoff stress is symmetric for these constitutive models.
 
 ```math
 \mathcal{C}_{iJkL} = \mathcal{C}_{kLiJ}

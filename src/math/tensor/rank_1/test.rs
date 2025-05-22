@@ -135,22 +135,20 @@ fn div_tensor_rank_0_ref_to_self_ref() -> Result<(), TestError> {
 fn div_assign_tensor_rank_0() -> Result<(), TestError> {
     let mut tensor_rank_1 = get_tensor_rank_1();
     tensor_rank_1 /= 3.3;
-    let result = tensor_rank_1
+    tensor_rank_1
         .iter()
         .zip(get_array().iter())
-        .try_for_each(|(tensor_rank_1_i, array_i)| assert_eq(tensor_rank_1_i, &(array_i / 3.3)));
-    result
+        .try_for_each(|(tensor_rank_1_i, array_i)| assert_eq(tensor_rank_1_i, &(array_i / 3.3)))
 }
 
 #[test]
 fn div_assign_tensor_rank_0_ref() -> Result<(), TestError> {
     let mut tensor_rank_1 = get_tensor_rank_1();
     tensor_rank_1 /= &3.3;
-    let result = tensor_rank_1
+    tensor_rank_1
         .iter()
         .zip(get_array().iter())
-        .try_for_each(|(tensor_rank_1_i, array_i)| assert_eq(tensor_rank_1_i, &(array_i / 3.3)));
-    result
+        .try_for_each(|(tensor_rank_1_i, array_i)| assert_eq(tensor_rank_1_i, &(array_i / 3.3)))
 }
 
 #[test]
