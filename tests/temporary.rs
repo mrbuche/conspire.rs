@@ -1,3 +1,5 @@
+#![cfg(feature = "fem")]
+
 use conspire::{
     ABS_TOL,
     constitutive::{
