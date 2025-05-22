@@ -144,6 +144,12 @@ impl From<TensorRank1Vec<3, 0>> for TensorRank1Vec<3, 1> {
     }
 }
 
+impl From<TensorRank1Vec<3, 1>> for TensorRank1Vec<3, 0> {
+    fn from(tensor_rank_1_vec: TensorRank1Vec<3, 1>) -> Self {
+        unsafe { transmute::<TensorRank1Vec<3, 1>, TensorRank1Vec<3, 0>>(tensor_rank_1_vec) }
+    }
+}
+
 impl<const D: usize, const I: usize> From<Vector> for TensorRank1Vec<D, I> {
     fn from(vector: Vector) -> Self {
         let n = vector.len();
