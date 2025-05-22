@@ -7353,7 +7353,7 @@ fn coordinates() -> ReferenceNodalCoordinatesBlock {
 }
 
 #[test]
-fn foo() {
+fn temporary() {
     let strain = 0.88;
     let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
@@ -7401,7 +7401,6 @@ fn foo() {
     println!("Solving...");
     let solution = block
         .minimize(
-            // .root(
             coordinates().into(),
             NewtonRaphson::default(),
             EqualityConstraint::Linear(matrix, vector),
@@ -7409,13 +7408,10 @@ fn foo() {
         .unwrap();
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
-    println!("Checking...");
+    println!("Verifying...");
     let (deformation_gradient, _) = NeoHookean::new(parameters)
         .solve(AppliedLoad::UniaxialStress(strain + 1.0))
         .unwrap();
-    println!("Done ({:?}).", time.elapsed());
-    time = std::time::Instant::now();
-    println!("Verifying...");
     block
         .deformation_gradients(&solution)
         .iter()
@@ -7446,24 +7442,3 @@ fn foo() {
         });
     println!("Done ({:?}).", time.elapsed());
 }
-
-// #[test]
-// fn foo_bar() {
-//     let mut a = SquareMatrix::new(&[
-//         // &[ 4.0, -1.0,  3.0],
-//         // &[-1.0,  4.0,  0.0],
-//         // &[ 3.0,  0.0,  2.0],
-//        &[0.95957119, 0.34971843, 0.62044062, 0.79301247, 0.58803658, 0.15954693, 0.33199288, 0.23260251],
-//        &[0.34971843, 0.08167511, 0.58061239, 0.49543216, 0.42178550, 0.64850443, 0.56853207, 0.39851228],
-//        &[0.62044062, 0.58061239, 0.6175974 , 0.48520875, 0.44294899, 0.84542829, 0.89637584, 0.46141308],
-//        &[0.79301247, 0.49543216, 0.48520875, 0.92639969, 0.30313958, 0.57295668, 0.53172691, 0.31567925],
-//        &[0.58803658, 0.4217855 , 0.44294899, 0.30313958, 0.40346739, 0.65089578, 0.26234434, 0.68896643],
-//        &[0.15954693, 0.64850443, 0.84542829, 0.57295668, 0.65089578, 0.05793784, 0.59597088, 0.63283432],
-//        &[0.33199288, 0.56853207, 0.89637584, 0.53172691, 0.26234434, 0.59597088, 0.04166002, 0.24093676],
-//        &[0.23260251, 0.39851228, 0.46141308, 0.31567925, 0.68896643, 0.63283432, 0.24093676, 0.36057465]
-//     ]);
-//     // let b = Vector::new(&[1.0, 2.0, 3.0]);
-//     let b = (0..a.len()).map(|i| i as f64).collect();
-//     let c: Vector = a.solve_ldl(&b).unwrap();
-//     println!("{:?}", c);
-// }

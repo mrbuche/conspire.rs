@@ -85,11 +85,8 @@ where
                     if residual.norm() < self.abs_tol {
                         return Ok(solution);
                     } else {
-                        println!("{:?}", residual.norm());
                         solution
-                            .decrement_from_chained(&mut multipliers, tangent.solve_ldl(&residual)?)
-                        // solution
-                        //     .decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual)?)
+                            .decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual)?)
                     }
                 }
             }
@@ -152,27 +149,19 @@ where
                             },
                         )
                     });
-                for _ in 0..self.max_steps {
+                for step in 0..self.max_steps {
                     (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
                         &constraint_rhs - &constraint_matrix * &solution,
                         &mut residual,
                     );
                     hessian(&solution)?.fill_into(&mut tangent);
                     if residual.norm() < self.abs_tol {
-                        //
-                        // Just wait for LDL* version of Cholesky to do verification by looking at the inertia.
-                        // And should you check every single time? Seems that SQP suggests each step is verifiable.
-                        // And note, the entries of D are NOT the eigenvalues.
-                        //
-                        // if tangent.verify(null_space) {
                         return Ok(solution);
-                        // } else {
-                        //     return Err(OptimizeError::NotMinimum(
-                        //         format!("{}", solution),
-                        //         format!("{:?}", &self),
-                        //     ));
-                        // }
                     } else if let Some(ref band) = banded {
+                        println!(
+                            "\x1b[1;93m({}) SQP step convexity is not verified.\x1b[0m",
+                            step + 1
+                        );
                         solution.decrement_from_chained(
                             &mut multipliers,
                             tangent.solve_lu_banded(&residual, band)?,
