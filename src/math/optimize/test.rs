@@ -1,13 +1,5 @@
 use super::{super::test::TestError, OptimizeError};
 
-impl From<OptimizeError> for TestError {
-    fn from(error: OptimizeError) -> Self {
-        TestError {
-            message: error.to_string(),
-        }
-    }
-}
-
 #[test]
 fn debug() {
     let _ = format!(

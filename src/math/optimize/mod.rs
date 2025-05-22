@@ -7,7 +7,10 @@ mod newton_raphson;
 
 use crate::{
     defeat_message,
-    math::matrix::square::{Banded, SquareMatrixError},
+    math::{
+        TestError,
+        matrix::square::{Banded, SquareMatrixError},
+    },
 };
 use std::fmt::{self, Debug, Display, Formatter};
 
@@ -128,5 +131,13 @@ impl Display for OptimizeError {
             Self::SingularMatrix => "\x1b[1;91mMatrix is singular.".to_string(),
         };
         write!(f, "{}\x1b[0m", error)
+    }
+}
+
+impl From<OptimizeError> for TestError {
+    fn from(error: OptimizeError) -> Self {
+        TestError {
+            message: error.to_string(),
+        }
     }
 }

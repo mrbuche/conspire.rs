@@ -11,7 +11,7 @@ pub mod thermal;
 
 use crate::{
     defeat_message,
-    math::optimize::OptimizeError,
+    math::{TestError, optimize::OptimizeError},
     mechanics::{Deformation, DeformationError, DeformationGradient, Scalar},
 };
 use std::{
@@ -93,6 +93,14 @@ impl From<ConstitutiveError> for OptimizeError {
                 jacobian, deformation_gradient, constitutive_model
             )),
             _ => todo!(),
+        }
+    }
+}
+
+impl From<ConstitutiveError> for TestError {
+    fn from(error: ConstitutiveError) -> TestError {
+        TestError {
+            message: error.to_string(),
         }
     }
 }

@@ -7405,19 +7405,16 @@ fn temporary() -> Result<(), TestError> {
     vector[length - 1] = -0.5;
     let mut time = std::time::Instant::now();
     println!("Solving...");
-    let solution = block
-        .minimize(
-            coordinates().into(),
-            NewtonRaphson::default(),
-            EqualityConstraint::Linear(matrix, vector),
-        )
-        .unwrap();
+    let solution = block.minimize(
+        coordinates().into(),
+        NewtonRaphson::default(),
+        EqualityConstraint::Linear(matrix, vector),
+    )?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
     println!("Verifying...");
-    let (deformation_gradient, _) = NeoHookean::new(parameters)
-        .solve(AppliedLoad::UniaxialStress(strain + 1.0))
-        .unwrap();
+    let (deformation_gradient, _) =
+        NeoHookean::new(parameters).solve(AppliedLoad::UniaxialStress(strain + 1.0))?;
     block
         .deformation_gradients(&solution)
         .iter()
