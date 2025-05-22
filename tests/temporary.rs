@@ -1,14 +1,18 @@
 #![cfg(feature = "fem")]
 
 use conspire::{
-    ABS_TOL,
     constitutive::{
         Constitutive,
         solid::{AppliedLoad, elastic::Elastic, hyperelastic::NeoHookean},
     },
-    fem::*,
-    math::{optimize::*, *},
-    mechanics::Scalar,
+    fem::{
+        Connectivity, ElementBlock, FiniteElementBlock, FiniteElementBlockMethods,
+        HyperelasticFiniteElementBlock, LinearTetrahedron, ReferenceNodalCoordinatesBlock,
+    },
+    math::{
+        Matrix, Tensor, TensorVec, TestError, Vector, assert_eq_within_tols,
+        optimize::{EqualityConstraint, NewtonRaphson},
+    },
 };
 
 const N: usize = 4;
@@ -7355,8 +7359,8 @@ fn coordinates() -> ReferenceNodalCoordinatesBlock {
 }
 
 #[test]
-fn temporary() {
-    let strain = 0.88;
+fn temporary() -> Result<(), TestError> {
+    let strain = 1.23;
     let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
     connectivity
@@ -7365,7 +7369,7 @@ fn temporary() {
         .for_each(|entry| *entry -= 1);
     let num_nodes = ref_coordinates.len();
     let parameters = &[13.0, 3.0];
-    let block = ElementBlock::<LinearTetrahedron<NeoHookean<&[Scalar; 2]>>, N>::new(
+    let block = ElementBlock::<LinearTetrahedron<NeoHookean<_>>, N>::new(
         parameters,
         connectivity,
         coordinates(),
@@ -7417,30 +7421,13 @@ fn temporary() {
     block
         .deformation_gradients(&solution)
         .iter()
-        .for_each(|deformation_gradients_e| {
+        .try_for_each(|deformation_gradients_e| {
             deformation_gradients_e
                 .iter()
-                .for_each(|deformation_gradient_g| {
-                    deformation_gradient_g
-                        .iter()
-                        .zip(deformation_gradient.iter())
-                        .for_each(|(deformation_gradient_g_i, deformation_gradient_i)| {
-                            deformation_gradient_g_i
-                                .iter()
-                                .zip(deformation_gradient_i.iter())
-                                .for_each(|(deformation_gradient_g_ij, deformation_gradient_ij)| {
-                                    assert!(
-                                        (deformation_gradient_g_ij - deformation_gradient_ij).abs()
-                                            < ABS_TOL
-                                            || (deformation_gradient_g_ij
-                                                / deformation_gradient_ij
-                                                - 1.0)
-                                                .abs()
-                                                < ABS_TOL
-                                    )
-                                })
-                        })
+                .try_for_each(|deformation_gradient_g| {
+                    assert_eq_within_tols(deformation_gradient_g, &deformation_gradient)
                 })
-        });
+        })?;
     println!("Done ({:?}).", time.elapsed());
+    Ok(())
 }

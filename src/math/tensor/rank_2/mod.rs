@@ -1,9 +1,6 @@
 #[cfg(test)]
 mod test;
 
-#[cfg(test)]
-use super::test::ErrorTensor;
-
 pub mod list;
 pub mod list_2d;
 pub mod vec;
@@ -25,6 +22,7 @@ use super::{
         zero as tensor_rank_1_zero,
     },
     rank_4::TensorRank4,
+    test::ErrorTensor,
 };
 use crate::ABS_TOL;
 use list_2d::TensorRank2List2D;
@@ -196,7 +194,6 @@ impl<const D: usize, const I: usize, const J: usize> fmt::Display for TensorRank
     }
 }
 
-#[cfg(test)]
 impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2<D, I, J> {
     fn error(
         &self,

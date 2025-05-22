@@ -1,9 +1,6 @@
 #[cfg(test)]
 mod test;
 
-#[cfg(test)]
-use super::test::ErrorTensor;
-
 pub mod list;
 pub mod list_2d;
 pub mod vec;
@@ -16,6 +13,7 @@ use std::{
 
 use super::{
     super::write_tensor_rank_0, Tensor, TensorArray, rank_0::TensorRank0, rank_2::TensorRank2,
+    test::ErrorTensor,
 };
 
 /// A *d*-dimensional tensor of rank 1.
@@ -54,7 +52,6 @@ impl<const D: usize, const I: usize> TensorRank1<D, I> {
     }
 }
 
-#[cfg(test)]
 impl<const D: usize, const I: usize> ErrorTensor for TensorRank1<D, I> {
     fn error(
         &self,

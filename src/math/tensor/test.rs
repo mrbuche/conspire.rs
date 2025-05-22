@@ -1,14 +1,19 @@
-use super::{
-    TensorArray, TensorError, TensorRank0,
-    rank_1::{TensorRank1, list::TensorRank1List},
-};
-use crate::{ABS_TOL, EPSILON, REL_TOL, defeat_message};
+use super::{TensorError, TensorRank0};
+use crate::{ABS_TOL, REL_TOL, defeat_message};
 use std::{
     cmp::PartialEq,
     fmt::{self, Debug, Display, Formatter},
 };
 
 #[cfg(test)]
+use crate::EPSILON;
+
+#[cfg(test)]
+use super::{
+    TensorArray,
+    rank_1::{TensorRank1, list::TensorRank1List},
+};
+
 pub trait ErrorTensor {
     fn error(
         &self,
@@ -35,6 +40,7 @@ pub fn assert_eq<'a, T: Display + PartialEq + ErrorTensor>(
     }
 }
 
+#[cfg(test)]
 pub fn assert_eq_from_fd<'a, T: Display + ErrorTensor>(
     value: &'a T,
     value_fd: &'a T,

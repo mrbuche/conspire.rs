@@ -56,6 +56,7 @@ pub use tensor::{
         ContractThirdFourthIndicesWithFirstSecondIndicesOf, IDENTITY_1010, TensorRank4,
         list::TensorRank4List,
     },
+    test::{TestError, assert_eq, assert_eq_within_tols},
 };
 
 use std::fmt;
