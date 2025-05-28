@@ -98,16 +98,21 @@ impl From<ConstitutiveError> for OptimizeError {
 }
 
 impl From<ConstitutiveError> for TestError {
-    fn from(error: ConstitutiveError) -> TestError {
-        TestError {
+    fn from(error: ConstitutiveError) -> Self {
+        Self {
             message: error.to_string(),
         }
     }
 }
 
 impl From<OptimizeError> for ConstitutiveError {
-    fn from(_error: OptimizeError) -> ConstitutiveError {
-        todo!()
+    fn from(error: OptimizeError) -> Self {
+        match error {
+            OptimizeError::Generic(_) => todo!("Generic"),
+            OptimizeError::MaximumStepsReached(_, _) => todo!("MaximumStepsReached"),
+            OptimizeError::NotMinimum(_, _) => todo!("NotMinimum"),
+            OptimizeError::SingularMatrix => todo!("SingularMatrix"),
+        }
     }
 }
 

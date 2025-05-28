@@ -11,4 +11,5 @@ test_solid_hyperelastic_constitutive_model!(
     SaintVenantKirchhoff::new(SAINTVENANTKIRCHOFFPARAMETERS)
 );
 
+test_minimize!(SaintVenantKirchhoff::new(SAINTVENANTKIRCHOFFPARAMETERS));
 test_solve!(SaintVenantKirchhoff::new(SAINTVENANTKIRCHOFFPARAMETERS));

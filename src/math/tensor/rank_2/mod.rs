@@ -738,6 +738,9 @@ impl<const D: usize, const I: usize, const J: usize> Tensor for TensorRank2<D, I
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
     }
+    fn num_entries(&self) -> usize {
+        D * D
+    }
 }
 
 impl<const D: usize, const I: usize, const J: usize> IntoIterator for TensorRank2<D, I, J> {

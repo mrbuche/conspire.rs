@@ -3,7 +3,10 @@
 use conspire::{
     constitutive::{
         Constitutive,
-        solid::{AppliedLoad, elastic::Elastic, hyperelastic::NeoHookean},
+        solid::{
+            AppliedLoad,
+            hyperelastic::{Hyperelastic, NeoHookean},
+        },
     },
     fem::{
         Connectivity, ElementBlock, FiniteElementBlock, FiniteElementBlockMethods,
@@ -7360,7 +7363,7 @@ fn coordinates() -> ReferenceNodalCoordinatesBlock {
 
 #[test]
 fn temporary() -> Result<(), TestError> {
-    let strain = 1.23;
+    let strain = 8.88;
     let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
     connectivity
@@ -7413,8 +7416,8 @@ fn temporary() -> Result<(), TestError> {
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
     println!("Verifying...");
-    let (deformation_gradient, _) =
-        NeoHookean::new(parameters).solve(AppliedLoad::UniaxialStress(strain + 1.0))?;
+    let deformation_gradient =
+        NeoHookean::new(parameters).minimize(AppliedLoad::UniaxialStress(strain + 1.0))?;
     block
         .deformation_gradients(&solution)
         .iter()

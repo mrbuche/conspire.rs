@@ -167,6 +167,10 @@ where
                             tangent.solve_lu_banded(&residual, band)?,
                         )
                     } else {
+                        println!(
+                            "\x1b[1;93m({}) SQP step convexity is not verified.\x1b[0m",
+                            step + 1
+                        );
                         solution
                             .decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual)?)
                     }

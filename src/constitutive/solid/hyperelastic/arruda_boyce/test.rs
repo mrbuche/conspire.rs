@@ -11,6 +11,7 @@ test_solid_hyperelastic_constitutive_model!(
     ArrudaBoyce::new(ARRUDABOYCEPARAMETERS)
 );
 
+test_minimize!(ArrudaBoyce::new(ARRUDABOYCEPARAMETERS));
 test_solve!(ArrudaBoyce::new(ARRUDABOYCEPARAMETERS));
 
 #[test]
