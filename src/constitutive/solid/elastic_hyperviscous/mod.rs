@@ -59,8 +59,8 @@ where
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate: &DeformationGradientRate,
     ) -> Result<Scalar, ConstitutiveError>;
-    /// Solve for the unknown components of the Cauchy stress and deformation gradient under uniaxial stress.
-    fn solve_uniaxial<const W: usize>(
+    /// Solve for the unknown components of the deformation gradient under an applied load.
+    fn root_uniaxial<const W: usize>(
         &self,
         deformation_gradient_rate_11: impl Fn(Scalar) -> Scalar,
         evaluation_times: [Scalar; W],
@@ -70,7 +70,7 @@ where
         let time_steps = evaluation_times.windows(2).map(|time| time[1] - time[0]);
         for ((index, time_step), time) in time_steps.enumerate().zip(evaluation_times.into_iter()) {
             (deformation_gradients[index + 1], cauchy_stresses[index + 1]) = self
-                .solve_uniaxial_inner(
+                .root_uniaxial_inner(
                     &deformation_gradients[index],
                     deformation_gradient_rate_11(time),
                     time_step,
@@ -79,7 +79,7 @@ where
         Ok((deformation_gradients, cauchy_stresses))
     }
     #[doc(hidden)]
-    fn solve_uniaxial_inner(
+    fn root_uniaxial_inner(
         &self,
         deformation_gradient_previous: &DeformationGradient,
         deformation_gradient_rate_11: Scalar,
@@ -90,7 +90,7 @@ where
         };
         let deformation_gradient = optimization.root(
             |deformation_gradient: &DeformationGradient| {
-                let (deformation_gradient_rate, _) = self.solve_uniaxial_inner_inner(
+                let (deformation_gradient_rate, _) = self.root_uniaxial_inner_inner(
                     deformation_gradient,
                     &deformation_gradient_rate_11,
                 )?;
@@ -99,7 +99,7 @@ where
                     - &deformation_gradient_rate * time_step)
             },
             |deformation_gradient: &DeformationGradient| {
-                let (deformation_gradient_rate, _) = self.solve_uniaxial_inner_inner(
+                let (deformation_gradient_rate, _) = self.root_uniaxial_inner_inner(
                     deformation_gradient,
                     &deformation_gradient_rate_11,
                 )?;
@@ -113,11 +113,11 @@ where
             EqualityConstraint::None,
         )?;
         let (_, cauchy_stress) =
-            self.solve_uniaxial_inner_inner(&deformation_gradient, &deformation_gradient_rate_11)?;
+            self.root_uniaxial_inner_inner(&deformation_gradient, &deformation_gradient_rate_11)?;
         Ok((deformation_gradient, cauchy_stress))
     }
     #[doc(hidden)]
-    fn solve_uniaxial_inner_inner(
+    fn root_uniaxial_inner_inner(
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate_11: &Scalar,

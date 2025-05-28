@@ -7,6 +7,7 @@ use_elastic_macros!();
 
 test_solid_hyperelastic_constitutive_model!(FungType, FUNGPARAMETERS, Fung::new(FUNGPARAMETERS));
 
+test_minimize!(Fung::new(FUNGPARAMETERS));
 test_solve!(Fung::new(FUNGPARAMETERS));
 
 #[test]

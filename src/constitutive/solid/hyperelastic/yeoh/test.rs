@@ -7,6 +7,7 @@ use_elastic_macros!();
 
 test_solid_hyperelastic_constitutive_model!(YeohType, YEOHPARAMETERS, Yeoh::new(YEOHPARAMETERS));
 
+test_minimize!(Yeoh::new(YEOHPARAMETERS));
 test_solve!(Yeoh::new(YEOHPARAMETERS));
 
 #[test]

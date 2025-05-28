@@ -106,7 +106,7 @@ fn equality_constraint() -> (
     crate::math::Matrix,
     crate::math::Vector,
 ) {
-    let strain = 0.88;
+    let strain = 0.55;
     let mut a = crate::math::Matrix::zero(13, 42);
     a[0][0] = 1.0;
     a[1][3] = 1.0;

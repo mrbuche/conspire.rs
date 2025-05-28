@@ -11,6 +11,7 @@ test_solid_hyperelastic_constitutive_model!(
     MooneyRivlin::new(MOONEYRIVLINPARAMETERS)
 );
 
+test_minimize!(MooneyRivlin::new(MOONEYRIVLINPARAMETERS));
 test_solve!(MooneyRivlin::new(MOONEYRIVLINPARAMETERS));
 
 #[test]

@@ -185,43 +185,44 @@ impl SquareMatrix {
     //     // Ok(xs)
     // }
     /// Solve a system of linear equations using the LU decomposition.
-    pub fn solve_lu(&mut self, b: &Vector) -> Result<Vector, SquareMatrixError> {
+    pub fn solve_lu(&self, b: &Vector) -> Result<Vector, SquareMatrixError> {
         let n = self.len();
         let mut p: Vec<usize> = (0..n).collect();
         let mut factor;
+        let mut lu = self.clone();
         let mut max_row;
         let mut max_val;
         let mut pivot;
         for i in 0..n {
             max_row = i;
-            max_val = self[max_row][i].abs();
+            max_val = lu[max_row][i].abs();
             for k in i + 1..n {
-                if self[k][i].abs() > max_val {
+                if lu[k][i].abs() > max_val {
                     max_row = k;
-                    max_val = self[max_row][i].abs();
+                    max_val = lu[max_row][i].abs();
                 }
             }
             if max_row != i {
-                self.0.swap(i, max_row);
+                lu.0.swap(i, max_row);
                 p.swap(i, max_row);
             }
-            pivot = self[i][i];
+            pivot = lu[i][i];
             if pivot.abs() < ABS_TOL {
                 return Err(SquareMatrixError::Singular);
             }
             for j in i + 1..n {
-                if self[j][i] != 0.0 {
-                    self[j][i] /= pivot;
-                    factor = self[j][i];
+                if lu[j][i] != 0.0 {
+                    lu[j][i] /= pivot;
+                    factor = lu[j][i];
                     for k in i + 1..n {
-                        self[j][k] -= factor * self[i][k];
+                        lu[j][k] -= factor * lu[i][k];
                     }
                 }
             }
         }
         let mut x: Vector = p.into_iter().map(|p_i| b[p_i]).collect();
-        forward_substitution(&mut x, self);
-        backward_substitution(&mut x, self);
+        forward_substitution(&mut x, &lu);
+        backward_substitution(&mut x, &lu);
         Ok(x)
     }
     /// Solve a system of linear equations rearranged in a banded structure using the LU decomposition.

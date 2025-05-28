@@ -7,6 +7,7 @@ use_elastic_macros!();
 
 test_solid_hyperelastic_constitutive_model!(GentType, GENTPARAMETERS, Gent::new(GENTPARAMETERS));
 
+test_minimize!(Gent::new(GENTPARAMETERS));
 test_solve!(Gent::new(GENTPARAMETERS));
 
 #[test]

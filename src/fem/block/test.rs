@@ -635,8 +635,8 @@ macro_rules! test_finite_element_block_with_elastic_constitutive_model {
                 },
                 EqualityConstraint::Linear(a, b),
             )?;
-            let (deformation_gradient, _) =
-                $constitutive_model::new($constitutive_model_parameters).solve(applied_load)?;
+            let deformation_gradient =
+                $constitutive_model::new($constitutive_model_parameters).root(applied_load)?;
             block
                 .deformation_gradients(&solution)
                 .iter()
@@ -677,8 +677,8 @@ macro_rules! test_finite_element_block_with_hyperelastic_constitutive_model {
                 },
                 EqualityConstraint::Linear(a, b),
             )?;
-            let (deformation_gradient, _) =
-                $constitutive_model::new($constitutive_model_parameters).solve(applied_load)?;
+            let deformation_gradient =
+                $constitutive_model::new($constitutive_model_parameters).minimize(applied_load)?;
             block
                 .deformation_gradients(&solution)
                 .iter()
