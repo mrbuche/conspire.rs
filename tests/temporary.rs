@@ -7363,7 +7363,7 @@ fn coordinates() -> ReferenceNodalCoordinatesBlock {
 
 #[test]
 fn temporary() -> Result<(), TestError> {
-    let strain = 8.88;
+    let strain = 13.0;
     let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
     connectivity

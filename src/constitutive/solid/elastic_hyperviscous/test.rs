@@ -9,7 +9,7 @@ pub const ALMANSIHAMELPARAMETERS: &[Scalar; 4] = &[
     1.0,
 ];
 
-macro_rules! test_solve {
+macro_rules! test_root {
     ($constitutive_model_constructed: expr) => {
         #[test]
         fn root_uniaxial_compression_inner_inner() -> Result<(), crate::math::test::TestError> {
@@ -92,7 +92,7 @@ macro_rules! test_solve {
         }
     };
 }
-pub(crate) use test_solve;
+pub(crate) use test_root;
 
 macro_rules! viscous_dissipation_from_deformation_gradient_rate_simple {
     ($constitutive_model_constructed: expr, $deformation_gradient_rate: expr) => {

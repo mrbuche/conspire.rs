@@ -59,7 +59,7 @@ where
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate: &DeformationGradientRate,
     ) -> Result<Scalar, ConstitutiveError>;
-    /// Solve for the unknown components of the Cauchy stress and deformation gradient under uniaxial stress.
+    /// Solve for the unknown components of the deformation gradient under an applied load.
     fn root_uniaxial<const W: usize>(
         &self,
         deformation_gradient_rate_11: impl Fn(Scalar) -> Scalar,
