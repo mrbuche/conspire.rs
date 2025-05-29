@@ -7,8 +7,8 @@ use crate::{
     defeat_message,
     math::{
         Rank2, Tensor, TensorRank0, TensorRank0List, TensorRank1, TensorRank1List,
-        TensorRank1List2D, TensorRank2, TensorRank2List, TensorRank2List2D, TensorRank4,
-        TensorRank4List,
+        TensorRank1List2D, TensorRank2, TensorRank2List, TensorRank2List2D, TensorRank2Vec,
+        TensorRank4, TensorRank4List,
     },
 };
 use std::fmt::{self, Debug, Display, Formatter};
@@ -147,10 +147,16 @@ pub type DeformationGradientRate = TensorRank2<3, 1, 0>;
 pub type DeformationGradientRatePlastic = TensorRank2<3, 2, 0>;
 
 /// A list of deformation gradients.
-pub type DeformationGradients<const W: usize> = TensorRank2List<3, 1, 0, W>;
+pub type DeformationGradientList<const W: usize> = TensorRank2List<3, 1, 0, W>;
 
 /// A list of deformation gradient rates.
-pub type DeformationGradientRates<const W: usize> = TensorRank2List<3, 1, 0, W>;
+pub type DeformationGradientRateList<const W: usize> = TensorRank2List<3, 1, 0, W>;
+
+/// A vector of deformation gradients.
+pub type DeformationGradients = TensorRank2Vec<3, 1, 0>;
+
+/// A vector of deformation gradient rates.
+pub type DeformationGradientRates = TensorRank2Vec<3, 1, 0>;
 
 /// A displacement.
 pub type Displacement = TensorRank1<3, 1>;
@@ -242,6 +248,9 @@ pub type StretchingRatePlastic = TensorRank2<3, 2, 2>;
 
 /// The temperature gradient.
 pub type TemperatureGradient = TensorRank1<3, 1>;
+
+/// A vector of times.
+pub type Times = crate::math::Vector;
 
 /// A traction.
 pub type Traction = TensorRank1<3, 1>;

@@ -54,12 +54,12 @@ pub trait FiniteElementMethods<C, const G: usize, const N: usize> {
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
-    ) -> DeformationGradients<G>;
+    ) -> DeformationGradientList<G>;
     fn deformation_gradient_rates(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
         nodal_velocities: &NodalVelocities<N>,
-    ) -> DeformationGradientRates<G>;
+    ) -> DeformationGradientRateList<G>;
     fn gradient_vectors(&self) -> &GradientVectors<G, N>;
     fn integration_weights(&self) -> &Scalars<G>;
 }
@@ -95,7 +95,7 @@ impl<C, const G: usize, const N: usize> FiniteElementMethods<C, G, N> for Elemen
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
-    ) -> DeformationGradients<G> {
+    ) -> DeformationGradientList<G> {
         self.gradient_vectors()
             .iter()
             .map(|gradient_vectors| {
@@ -113,7 +113,7 @@ impl<C, const G: usize, const N: usize> FiniteElementMethods<C, G, N> for Elemen
         &self,
         _: &NodalCoordinates<N>,
         nodal_velocities: &NodalVelocities<N>,
-    ) -> DeformationGradientRates<G> {
+    ) -> DeformationGradientRateList<G> {
         self.gradient_vectors()
             .iter()
             .map(|gradient_vectors| {

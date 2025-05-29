@@ -688,7 +688,7 @@ impl<const D: usize, const I: usize, const J: usize> Rank2 for TensorRank2<D, I,
                 self_i
                     .iter()
                     .enumerate()
-                    .map(|(j, self_ij)| (self_ij == &0.0) as u8 * (i != j) as u8)
+                    .map(|(j, self_ij)| (self_ij.abs() < ABS_TOL) as u8 * (i != j) as u8)
                     .sum::<u8>()
             })
             .sum::<u8>()
@@ -1165,6 +1165,15 @@ impl<const D: usize, const I: usize, const J: usize> Sub<&Self> for TensorRank2<
     fn sub(mut self, tensor_rank_2: &Self) -> Self::Output {
         self -= tensor_rank_2;
         self
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> Sub for &TensorRank2<D, I, J> {
+    type Output = TensorRank2<D, I, J>;
+    fn sub(self, tensor_rank_2: Self) -> Self::Output {
+        let mut output = self.clone();
+        output -= tensor_rank_2;
+        output
     }
 }
 

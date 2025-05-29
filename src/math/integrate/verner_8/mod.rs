@@ -153,7 +153,7 @@ where
 {
     fn integrate(
         &self,
-        function: impl Fn(&TensorRank0, &Y) -> Y,
+        function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
         time: &[TensorRank0],
         initial_condition: Y,
     ) -> Result<(Vector, U), IntegrationError> {
@@ -185,43 +185,43 @@ where
         y_sol.push(initial_condition.clone());
         let mut y_trial;
         while t < time[time.len() - 1] {
-            k_1 = function(&t, &y);
-            k_2 = function(&(t + C_2 * dt), &(&k_1 * (A_2_1 * dt) + &y));
+            k_1 = function(t, &y)?;
+            k_2 = function(t + C_2 * dt, &(&k_1 * (A_2_1 * dt) + &y))?;
             k_3 = function(
-                &(t + C_3 * dt),
+                t + C_3 * dt,
                 &(&k_1 * (A_3_1 * dt) + &k_2 * (A_3_2 * dt) + &y),
-            );
+            )?;
             k_4 = function(
-                &(t + C_4 * dt),
+                t + C_4 * dt,
                 &(&k_1 * (A_4_1 * dt) + &k_3 * (A_4_3 * dt) + &y),
-            );
+            )?;
             k_5 = function(
-                &(t + C_5 * dt),
+                t + C_5 * dt,
                 &(&k_1 * (A_5_1 * dt) + &k_3 * (A_5_3 * dt) + &k_4 * (A_5_4 * dt) + &y),
-            );
+            )?;
             k_6 = function(
-                &(t + C_6 * dt),
+                t + C_6 * dt,
                 &(&k_1 * (A_6_1 * dt) + &k_4 * (A_6_4 * dt) + &k_5 * (A_6_5 * dt) + &y),
-            );
+            )?;
             k_7 = function(
-                &(t + C_7 * dt),
+                t + C_7 * dt,
                 &(&k_1 * (A_7_1 * dt)
                     + &k_4 * (A_7_4 * dt)
                     + &k_5 * (A_7_5 * dt)
                     + &k_6 * (A_7_6 * dt)
                     + &y),
-            );
+            )?;
             k_8 = function(
-                &(t + C_8 * dt),
+                t + C_8 * dt,
                 &(&k_1 * (A_8_1 * dt)
                     + &k_4 * (A_8_4 * dt)
                     + &k_5 * (A_8_5 * dt)
                     + &k_6 * (A_8_6 * dt)
                     + &k_7 * (A_8_7 * dt)
                     + &y),
-            );
+            )?;
             k_9 = function(
-                &(t + C_9 * dt),
+                t + C_9 * dt,
                 &(&k_1 * (A_9_1 * dt)
                     + &k_4 * (A_9_4 * dt)
                     + &k_5 * (A_9_5 * dt)
@@ -229,9 +229,9 @@ where
                     + &k_7 * (A_9_7 * dt)
                     + &k_8 * (A_9_8 * dt)
                     + &y),
-            );
+            )?;
             k_10 = function(
-                &(t + C_10 * dt),
+                t + C_10 * dt,
                 &(&k_1 * (A_10_1 * dt)
                     + &k_4 * (A_10_4 * dt)
                     + &k_5 * (A_10_5 * dt)
@@ -240,9 +240,9 @@ where
                     + &k_8 * (A_10_8 * dt)
                     + &k_9 * (A_10_9 * dt)
                     + &y),
-            );
+            )?;
             k_11 = function(
-                &(t + C_11 * dt),
+                t + C_11 * dt,
                 &(&k_1 * (A_11_1 * dt)
                     + &k_4 * (A_11_4 * dt)
                     + &k_5 * (A_11_5 * dt)
@@ -252,9 +252,9 @@ where
                     + &k_9 * (A_11_9 * dt)
                     + &k_10 * (A_11_10 * dt)
                     + &y),
-            );
+            )?;
             k_12 = function(
-                &(t + dt),
+                t + dt,
                 &(&k_1 * (A_12_1 * dt)
                     + &k_4 * (A_12_4 * dt)
                     + &k_5 * (A_12_5 * dt)
@@ -265,7 +265,7 @@ where
                     + &k_10 * (A_12_10 * dt)
                     + &k_11 * (A_12_11 * dt)
                     + &y),
-            );
+            )?;
             y_trial = (&k_1 * B_1
                 + &k_6 * B_6
                 + &k_7 * B_7
@@ -277,7 +277,7 @@ where
                 * dt
                 + &y;
             k_13 = function(
-                &(t + dt),
+                t + dt,
                 &(&k_1 * (A_13_1 * dt)
                     + &k_4 * (A_13_4 * dt)
                     + &k_5 * (A_13_5 * dt)
@@ -287,7 +287,7 @@ where
                     + &k_9 * (A_13_9 * dt)
                     + &k_10 * (A_13_10 * dt)
                     + &y),
-            );
+            )?;
             e = ((&k_1 * D_1
                 + &k_6 * D_6
                 + &k_7 * D_7
@@ -309,7 +309,7 @@ where
         }
         if time.len() > 2 {
             let t_int = Vector::new(time);
-            let y_int = self.interpolate(&t_int, &t_sol, &y_sol, function);
+            let y_int = self.interpolate(&t_int, &t_sol, &y_sol, function)?;
             Ok((t_int, y_int))
         } else {
             Ok((t_sol, y_sol))
@@ -328,8 +328,8 @@ where
         time: &Vector,
         tp: &Vector,
         yp: &U,
-        function: impl Fn(&TensorRank0, &Y) -> Y,
-    ) -> U {
+        function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
+    ) -> Result<U, IntegrationError> {
         let mut dt = 0.0;
         let mut i = 0;
         let mut k_1 = Y::zero();
@@ -352,43 +352,43 @@ where
                 t = tp[i - 1];
                 y = yp[i - 1].clone();
                 dt = time_k - t;
-                k_1 = function(&t, &y);
-                k_2 = function(&(t + C_2 * dt), &(&k_1 * (A_2_1 * dt) + &y));
+                k_1 = function(t, &y)?;
+                k_2 = function(t + C_2 * dt, &(&k_1 * (A_2_1 * dt) + &y))?;
                 k_3 = function(
-                    &(t + C_3 * dt),
+                    t + C_3 * dt,
                     &(&k_1 * (A_3_1 * dt) + &k_2 * (A_3_2 * dt) + &y),
-                );
+                )?;
                 k_4 = function(
-                    &(t + C_4 * dt),
+                    t + C_4 * dt,
                     &(&k_1 * (A_4_1 * dt) + &k_3 * (A_4_3 * dt) + &y),
-                );
+                )?;
                 k_5 = function(
-                    &(t + C_5 * dt),
+                    t + C_5 * dt,
                     &(&k_1 * (A_5_1 * dt) + &k_3 * (A_5_3 * dt) + &k_4 * (A_5_4 * dt) + &y),
-                );
+                )?;
                 k_6 = function(
-                    &(t + C_6 * dt),
+                    t + C_6 * dt,
                     &(&k_1 * (A_6_1 * dt) + &k_4 * (A_6_4 * dt) + &k_5 * (A_6_5 * dt) + &y),
-                );
+                )?;
                 k_7 = function(
-                    &(t + C_7 * dt),
+                    t + C_7 * dt,
                     &(&k_1 * (A_7_1 * dt)
                         + &k_4 * (A_7_4 * dt)
                         + &k_5 * (A_7_5 * dt)
                         + &k_6 * (A_7_6 * dt)
                         + &y),
-                );
+                )?;
                 k_8 = function(
-                    &(t + C_8 * dt),
+                    t + C_8 * dt,
                     &(&k_1 * (A_8_1 * dt)
                         + &k_4 * (A_8_4 * dt)
                         + &k_5 * (A_8_5 * dt)
                         + &k_6 * (A_8_6 * dt)
                         + &k_7 * (A_8_7 * dt)
                         + &y),
-                );
+                )?;
                 k_9 = function(
-                    &(t + C_9 * dt),
+                    t + C_9 * dt,
                     &(&k_1 * (A_9_1 * dt)
                         + &k_4 * (A_9_4 * dt)
                         + &k_5 * (A_9_5 * dt)
@@ -396,9 +396,9 @@ where
                         + &k_7 * (A_9_7 * dt)
                         + &k_8 * (A_9_8 * dt)
                         + &y),
-                );
+                )?;
                 k_10 = function(
-                    &(t + C_10 * dt),
+                    t + C_10 * dt,
                     &(&k_1 * (A_10_1 * dt)
                         + &k_4 * (A_10_4 * dt)
                         + &k_5 * (A_10_5 * dt)
@@ -407,9 +407,9 @@ where
                         + &k_8 * (A_10_8 * dt)
                         + &k_9 * (A_10_9 * dt)
                         + &y),
-                );
+                )?;
                 k_11 = function(
-                    &(t + C_11 * dt),
+                    t + C_11 * dt,
                     &(&k_1 * (A_11_1 * dt)
                         + &k_4 * (A_11_4 * dt)
                         + &k_5 * (A_11_5 * dt)
@@ -419,9 +419,9 @@ where
                         + &k_9 * (A_11_9 * dt)
                         + &k_10 * (A_11_10 * dt)
                         + &y),
-                );
+                )?;
                 k_12 = function(
-                    &(t + dt),
+                    t + dt,
                     &(&k_1 * (A_12_1 * dt)
                         + &k_4 * (A_12_4 * dt)
                         + &k_5 * (A_12_5 * dt)
@@ -432,8 +432,8 @@ where
                         + &k_10 * (A_12_10 * dt)
                         + &k_11 * (A_12_11 * dt)
                         + &y),
-                );
-                (&k_1 * B_1
+                )?;
+                Ok((&k_1 * B_1
                     + &k_6 * B_6
                     + &k_7 * B_7
                     + &k_8 * B_8
@@ -442,7 +442,7 @@ where
                     + &k_11 * B_11
                     + &k_12 * B_12)
                     * dt
-                    + &y
+                    + &y)
             })
             .collect()
     }
