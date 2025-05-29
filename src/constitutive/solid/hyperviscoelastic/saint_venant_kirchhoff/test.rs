@@ -11,7 +11,7 @@ test_solid_hyperviscoelastic_constitutive_model!(
     SaintVenantKirchhoff::new(SAINTVENANTKIRCHOFFPARAMETERS)
 );
 
-test_root!(SaintVenantKirchhoff::new(SAINTVENANTKIRCHOFFPARAMETERS));
+test_minimize_and_root!(SaintVenantKirchhoff::new(SAINTVENANTKIRCHOFFPARAMETERS));
 
 mod consistency {
     use super::*;

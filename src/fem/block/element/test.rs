@@ -455,7 +455,7 @@ macro_rules! test_finite_element_inner {
             };
             mod constitutive_model_independent {
                 use super::{
-                    AlmansiHamel, DeformationGradientRates, DeformationGradients, Scalar,
+                    AlmansiHamel, DeformationGradientRateList, DeformationGradientList, Scalar,
                     FiniteElementMethods, G, NodalVelocities, Rank2, Tensor, TensorArray,
                     TestError, assert_eq, assert_eq_within_tols, coordinates,
                     coordinates_transformed, element, element_transformed,
@@ -465,10 +465,10 @@ macro_rules! test_finite_element_inner {
                     reference_coordinates_transformed, velocities, velocities_transformed,
                     $element,
                 };
-                fn deformation_gradients() -> DeformationGradients<G> {
+                fn deformation_gradients() -> DeformationGradientList<G> {
                     (0..G).map(|_| get_deformation_gradient()).collect()
                 }
-                fn deformation_gradient_rates() -> DeformationGradientRates<G> {
+                fn deformation_gradient_rates() -> DeformationGradientRateList<G> {
                     (0..G).map(|_| get_deformation_gradient_rate()).collect()
                 }
                 mod deformation_gradient {
@@ -510,7 +510,7 @@ macro_rules! test_finite_element_inner {
                         fn calculate() -> Result<(), TestError> {
                             assert_eq_within_tols(
                                 &element().deformation_gradients(&reference_coordinates().into()),
-                                &DeformationGradients::identity(),
+                                &DeformationGradientList::identity(),
                             )
                         }
                         #[test]
@@ -519,7 +519,7 @@ macro_rules! test_finite_element_inner {
                                 &element_transformed().deformation_gradients(
                                     &reference_coordinates_transformed().into(),
                                 ),
-                                &DeformationGradients::identity(),
+                                &DeformationGradientList::identity(),
                             )
                         }
                     }
@@ -583,7 +583,7 @@ macro_rules! test_finite_element_inner {
                                     &reference_coordinates().into(),
                                     &NodalVelocities::zero().into(),
                                 ),
-                                &DeformationGradientRates::zero(),
+                                &DeformationGradientRateList::zero(),
                             )
                         }
                         #[test]
@@ -593,7 +593,7 @@ macro_rules! test_finite_element_inner {
                                     &reference_coordinates_transformed().into(),
                                     &NodalVelocities::zero().into(),
                                 ),
-                                &DeformationGradientRates::zero(),
+                                &DeformationGradientRateList::zero(),
                             )
                         }
                     }

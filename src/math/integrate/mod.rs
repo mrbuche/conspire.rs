@@ -23,6 +23,7 @@ pub type Ode89 = Verner9;
 
 use super::{
     Tensor, TensorArray, TensorRank0, TensorVec, Vector, interpolate::InterpolateSolution,
+    optimize::OptimizeError,
 };
 use crate::defeat_message;
 use std::{
@@ -62,7 +63,7 @@ where
     /// ```
     fn integrate(
         &self,
-        function: impl Fn(&TensorRank0, &Y) -> Y,
+        function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
         time: &[TensorRank0],
         initial_condition: Y,
     ) -> Result<(Vector, U), IntegrationError>;
@@ -84,8 +85,8 @@ where
     /// ```
     fn integrate(
         &self,
-        function: impl Fn(&TensorRank0, &Y) -> Y,
-        jacobian: impl Fn(&TensorRank0, &Y) -> J,
+        function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
+        jacobian: impl Fn(TensorRank0, &Y) -> Result<J, IntegrationError>,
         time: &[TensorRank0],
         initial_condition: Y,
     ) -> Result<(Vector, U), IntegrationError>;
@@ -122,5 +123,11 @@ impl Display for IntegrationError {
             }
         };
         write!(f, "{}\x1b[0m", error)
+    }
+}
+
+impl From<OptimizeError> for IntegrationError {
+    fn from(_error: OptimizeError) -> Self {
+        todo!()
     }
 }

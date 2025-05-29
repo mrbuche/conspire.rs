@@ -16,15 +16,14 @@ use crate::{
     constitutive::ConstitutiveError,
     math::{
         ContractFirstSecondIndicesWithSecondIndicesOf, ContractSecondIndexWithFirstIndexOf,
-        IDENTITY, IDENTITY_00, IDENTITY_10, IDENTITY_1010, Rank2, Tensor, TensorArray, TensorRank4,
-        ZERO_10,
+        IDENTITY, IDENTITY_00, Rank2, Tensor, TensorArray, ZERO_10,
     },
     mechanics::{
         CauchyRateTangentStiffness, CauchyStress, CauchyTangentStiffness, Deformation,
         DeformationGradient, DeformationGradientRate, DeformationGradientRates,
         DeformationGradients, FirstPiolaKirchhoffRateTangentStiffness, FirstPiolaKirchhoffStress,
         FirstPiolaKirchhoffTangentStiffness, Scalar, SecondPiolaKirchhoffRateTangentStiffness,
-        SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,
+        SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness, Times,
     },
 };
 

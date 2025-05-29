@@ -46,8 +46,8 @@ where
 {
     fn integrate(
         &self,
-        function: impl Fn(&TensorRank0, &Y) -> Y,
-        jacobian: impl Fn(&TensorRank0, &Y) -> J,
+        function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
+        jacobian: impl Fn(TensorRank0, &Y) -> Result<J, IntegrationError>,
         time: &[TensorRank0],
         initial_condition: Y,
     ) -> Result<(Vector, U), IntegrationError> {
@@ -71,21 +71,17 @@ where
             t_trial = time[index + 1];
             dt = t_trial - t;
             y_trial = match &self.opt_alg {
-                Optimization::GradientDescent(gradient_descent) => gradient_descent
-                    .root(
-                        |y_trial: &Y| Ok(y_trial - &y - &(&function(&t_trial, y_trial) * dt)),
-                        y.clone(),
-                        EqualityConstraint::None,
-                    )
-                    .unwrap(),
-                Optimization::NewtonRaphson(newton_raphson) => newton_raphson
-                    .root(
-                        |y_trial: &Y| Ok(y_trial - &y - &(&function(&t_trial, y_trial) * dt)),
-                        |y_trial: &Y| Ok(jacobian(&t_trial, y_trial) * -dt + &identity),
-                        y.clone(),
-                        EqualityConstraint::None,
-                    )
-                    .unwrap(),
+                Optimization::GradientDescent(gradient_descent) => gradient_descent.root(
+                    |y_trial: &Y| Ok(y_trial - &y - &(&function(t_trial, y_trial)? * dt)),
+                    y.clone(),
+                    EqualityConstraint::None,
+                )?,
+                Optimization::NewtonRaphson(newton_raphson) => newton_raphson.root(
+                    |y_trial: &Y| Ok(y_trial - &y - &(&function(t_trial, y_trial)? * dt)),
+                    |y_trial: &Y| Ok(jacobian(t_trial, y_trial)? * -dt + &identity),
+                    y.clone(),
+                    EqualityConstraint::None,
+                )?,
             };
             t = t_trial;
             y = y_trial;
@@ -109,8 +105,8 @@ where
         _time: &Vector,
         _tp: &Vector,
         _yp: &U,
-        _function: impl Fn(&TensorRank0, &Y) -> Y,
-    ) -> U {
+        _function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
+    ) -> Result<U, IntegrationError> {
         unimplemented!()
     }
 }

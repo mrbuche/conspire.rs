@@ -11,7 +11,7 @@ test_solid_elastic_hyperviscous_constitutive_model!(
     AlmansiHamel::new(ALMANSIHAMELPARAMETERS)
 );
 
-test_root!(AlmansiHamel::new(ALMANSIHAMELPARAMETERS));
+test_minimize_and_root!(AlmansiHamel::new(ALMANSIHAMELPARAMETERS));
 
 mod consistency {
     use super::*;

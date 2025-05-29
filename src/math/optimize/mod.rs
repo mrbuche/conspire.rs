@@ -9,6 +9,7 @@ use crate::{
     defeat_message,
     math::{
         TestError,
+        integrate::IntegrationError,
         matrix::square::{Banded, SquareMatrixError},
     },
 };
@@ -80,9 +81,15 @@ pub enum OptimizeError {
 
 impl From<OptimizeError> for TestError {
     fn from(error: OptimizeError) -> Self {
-        TestError {
+        Self {
             message: error.to_string(),
         }
+    }
+}
+
+impl From<IntegrationError> for OptimizeError {
+    fn from(_error: IntegrationError) -> Self {
+        todo!()
     }
 }
 

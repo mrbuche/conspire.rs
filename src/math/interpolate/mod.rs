@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use super::{Tensor, TensorArray, TensorRank0, TensorVec, Vector};
+use super::{Tensor, TensorArray, TensorRank0, TensorVec, Vector, integrate::IntegrationError};
 use std::ops::{Mul, Sub};
 
 /// Linear interpolation schemes.
@@ -30,8 +30,8 @@ where
         time: &Vector,
         tp: &Vector,
         yp: &U,
-        function: impl Fn(&TensorRank0, &Y) -> Y,
-    ) -> U;
+        function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
+    ) -> Result<U, IntegrationError>;
 }
 
 impl<F, T> Interpolate1D<F, T> for LinearInterpolation

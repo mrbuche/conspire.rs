@@ -103,7 +103,7 @@ impl<C> FiniteElementMethods<C, G, N> for Triangle<C> {
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
-    ) -> DeformationGradients<G> {
+    ) -> DeformationGradientList<G> {
         self.gradient_vectors()
             .iter()
             .zip(
@@ -127,7 +127,7 @@ impl<C> FiniteElementMethods<C, G, N> for Triangle<C> {
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
         nodal_velocities: &NodalVelocities<N>,
-    ) -> DeformationGradientRates<G> {
+    ) -> DeformationGradientRateList<G> {
         self.gradient_vectors()
             .iter()
             .zip(

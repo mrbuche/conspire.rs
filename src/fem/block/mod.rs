@@ -31,7 +31,7 @@ where
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> Vec<DeformationGradients<G>>;
+    ) -> Vec<DeformationGradientList<G>>;
     fn elements(&self) -> &[F];
     fn nodal_coordinates_element(
         &self,
@@ -78,7 +78,7 @@ where
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> Vec<DeformationGradients<G>> {
+    ) -> Vec<DeformationGradientList<G>> {
         self.elements()
             .iter()
             .zip(self.connectivity().iter())

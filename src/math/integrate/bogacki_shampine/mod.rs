@@ -76,7 +76,7 @@ where
 {
     fn integrate(
         &self,
-        function: impl Fn(&TensorRank0, &Y) -> Y,
+        function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
         time: &[TensorRank0],
         initial_condition: Y,
     ) -> Result<(Vector, U), IntegrationError> {
@@ -88,7 +88,7 @@ where
         let mut t = time[0];
         let mut dt = self.dt_init * time[time.len() - 1];
         let mut e;
-        let mut k_1 = function(&t, &initial_condition);
+        let mut k_1 = function(t, &initial_condition)?;
         let mut k_2;
         let mut k_3;
         let mut k_4;
@@ -99,10 +99,10 @@ where
         y_sol.push(initial_condition.clone());
         let mut y_trial;
         while t < time[time.len() - 1] {
-            k_2 = function(&(t + 0.5 * dt), &(&k_1 * (0.5 * dt) + &y));
-            k_3 = function(&(t + 0.75 * dt), &(&k_2 * (0.75 * dt) + &y));
+            k_2 = function(t + 0.5 * dt, &(&k_1 * (0.5 * dt) + &y))?;
+            k_3 = function(t + 0.75 * dt, &(&k_2 * (0.75 * dt) + &y))?;
             y_trial = (&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y;
-            k_4 = function(&(t + dt), &y_trial);
+            k_4 = function(t + dt, &y_trial)?;
             e = ((&k_1 * -5.0 + k_2 * 6.0 + k_3 * 8.0 + &k_4 * -9.0) * (dt / 72.0)).norm();
             if e < self.abs_tol || e / y_trial.norm() < self.rel_tol {
                 k_1 = k_4;
@@ -115,7 +115,7 @@ where
         }
         if time.len() > 2 {
             let t_int = Vector::new(time);
-            let y_int = self.interpolate(&t_int, &t_sol, &y_sol, function);
+            let y_int = self.interpolate(&t_int, &t_sol, &y_sol, function)?;
             Ok((t_int, y_int))
         } else {
             Ok((t_sol, y_sol))
@@ -134,8 +134,8 @@ where
         time: &Vector,
         tp: &Vector,
         yp: &U,
-        function: impl Fn(&TensorRank0, &Y) -> Y,
-    ) -> U {
+        function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
+    ) -> Result<U, IntegrationError> {
         let mut dt = 0.0;
         let mut i = 0;
         let mut k_1 = Y::zero();
@@ -149,10 +149,10 @@ where
                 t = tp[i - 1];
                 y = yp[i - 1].clone();
                 dt = time_k - t;
-                k_1 = function(&t, &y);
-                k_2 = function(&(t + 0.5 * dt), &(&k_1 * (0.5 * dt) + &y));
-                k_3 = function(&(t + 0.75 * dt), &(&k_2 * (0.75 * dt) + &y));
-                (&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y
+                k_1 = function(t, &y)?;
+                k_2 = function(t + 0.5 * dt, &(&k_1 * (0.5 * dt) + &y))?;
+                k_3 = function(t + 0.75 * dt, &(&k_2 * (0.75 * dt) + &y))?;
+                Ok((&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y)
             })
             .collect()
     }

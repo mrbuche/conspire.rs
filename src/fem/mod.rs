@@ -31,10 +31,11 @@ use crate::{
         TensorRank2Vec2D, TensorVec,
     },
     mechanics::{
-        Coordinates, CurrentCoordinates, DeformationGradient, DeformationGradientRate,
-        DeformationGradientRates, DeformationGradients, FirstPiolaKirchhoffRateTangentStiffnesses,
-        FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses, Forces,
-        ReferenceCoordinates, Scalar, Scalars, Stiffnesses, Vectors, Vectors2D,
+        Coordinates, CurrentCoordinates, DeformationGradient, DeformationGradientList,
+        DeformationGradientRate, DeformationGradientRateList,
+        FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStresses,
+        FirstPiolaKirchhoffTangentStiffnesses, Forces, ReferenceCoordinates, Scalar, Scalars,
+        Stiffnesses, Vectors, Vectors2D,
     },
 };
 

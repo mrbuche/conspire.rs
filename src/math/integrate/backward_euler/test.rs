@@ -21,8 +21,8 @@ mod gradient_descent {
             }),
         }
         .integrate(
-            |_: &TensorRank0, _: &TensorRank0| 1.0,
-            |_: &TensorRank0, _: &TensorRank0| 0.0,
+            |_: TensorRank0, _: &TensorRank0| Ok(1.0),
+            |_: TensorRank0, _: &TensorRank0| Ok(0.0),
             &zero_to_tau::<LENGTH>(),
             0.0,
         )?;
@@ -40,8 +40,8 @@ mod newton_raphson {
     #[test]
     fn first_order_tensor_rank_0() -> Result<(), TestError> {
         let (time, solution): (Vector, Vector) = BackwardEuler::default().integrate(
-            |_: &TensorRank0, _: &TensorRank0| 1.0,
-            |_: &TensorRank0, _: &TensorRank0| 0.0,
+            |_: TensorRank0, _: &TensorRank0| Ok(1.0),
+            |_: TensorRank0, _: &TensorRank0| Ok(0.0),
             &zero_to_tau::<LENGTH>(),
             0.0,
         )?;
