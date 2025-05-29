@@ -72,6 +72,9 @@ where
         deformation_gradient_rate_11: impl Fn(Scalar) -> Scalar,
         evaluation_times: [Scalar; W],
     ) -> Result<(DeformationGradients<W>, DeformationGradientRates<W>), ConstitutiveError> {
+        //
+        // Evaluation times should be determined by the ODE solver.
+        //
         let mut deformation_gradients = DeformationGradients::identity();
         let mut deformation_gradient_rates = DeformationGradientRates::zero();
         let time_steps = evaluation_times.windows(2).map(|time| time[1] - time[0]);
@@ -94,6 +97,9 @@ where
         deformation_gradient_rate_11: Scalar,
         time_step: Scalar,
     ) -> Result<(DeformationGradient, DeformationGradientRate), OptimizeError> {
+        //
+        // Should allow different ODE solvers instead of choosing BE.
+        //
         let solver = NewtonRaphson {
             ..Default::default()
         };
