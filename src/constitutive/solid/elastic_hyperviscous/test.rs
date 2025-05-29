@@ -12,83 +12,58 @@ pub const ALMANSIHAMELPARAMETERS: &[Scalar; 4] = &[
 macro_rules! test_root {
     ($constitutive_model_constructed: expr) => {
         #[test]
-        fn root_uniaxial_compression_inner_inner() -> Result<(), crate::math::test::TestError> {
-            let (deformation_gradient_rate, cauchy_stress) = $constitutive_model_constructed
+        fn root_uniaxial_compression_inner_inner() -> Result<(), TestError> {
+            let deformation_gradient_rate = $constitutive_model_constructed
                 .root_uniaxial_inner_inner(&DeformationGradient::identity(), &-4.4)?;
-            assert!(cauchy_stress[0][0] < 0.0);
-            crate::math::test::assert_eq_within_tols(
-                &(cauchy_stress[1][1] / cauchy_stress[0][0]),
-                &0.0,
-            )?;
-            crate::math::test::assert_eq_within_tols(
-                &(cauchy_stress[2][2] / cauchy_stress[0][0]),
-                &0.0,
-            )?;
-            assert!(cauchy_stress.is_diagonal());
-            crate::math::test::assert_eq(
+            assert!(deformation_gradient_rate.is_diagonal());
+            assert_eq_within_tols(
                 &deformation_gradient_rate[1][1],
                 &deformation_gradient_rate[2][2],
-            )?;
-            assert!(deformation_gradient_rate.is_diagonal());
-            Ok(())
+            )
         }
         #[test]
-        fn root_uniaxial_tension_inner_inner() -> Result<(), crate::math::test::TestError> {
-            let (deformation_gradient_rate, cauchy_stress) = $constitutive_model_constructed
+        fn root_uniaxial_tension_inner_inner() -> Result<(), TestError> {
+            let deformation_gradient_rate = $constitutive_model_constructed
                 .root_uniaxial_inner_inner(&DeformationGradient::identity(), &4.4)?;
-            assert!(cauchy_stress[0][0] > 0.0);
-            crate::math::test::assert_eq_within_tols(
-                &(cauchy_stress[1][1] / cauchy_stress[0][0]),
-                &0.0,
-            )?;
-            crate::math::test::assert_eq_within_tols(
-                &(cauchy_stress[2][2] / cauchy_stress[0][0]),
-                &0.0,
-            )?;
-            assert!(cauchy_stress.is_diagonal());
-            crate::math::test::assert_eq(
+            assert!(deformation_gradient_rate.is_diagonal());
+            assert_eq_within_tols(
                 &deformation_gradient_rate[1][1],
                 &deformation_gradient_rate[2][2],
-            )?;
-            assert!(deformation_gradient_rate.is_diagonal());
-            Ok(())
+            )
         }
         #[test]
-        fn root_uniaxial_undeformed_inner_inner() -> Result<(), crate::math::test::TestError> {
-            let (deformation_gradient_rate, cauchy_stress) = $constitutive_model_constructed
-                .root_uniaxial_inner_inner(&DeformationGradient::identity(), &0.0)?;
-            assert!(cauchy_stress.is_zero());
-            assert!(deformation_gradient_rate.is_zero());
-            Ok(())
+        fn root_uniaxial_undeformed_inner_inner() -> Result<(), TestError> {
+            assert_eq_within_tols(
+                &$constitutive_model_constructed
+                    .root_uniaxial_inner_inner(&DeformationGradient::identity(), &0.0)?,
+                &DeformationGradientRate::zero(),
+            )
         }
         #[test]
-        fn root_uniaxial_tension_inner() -> Result<(), crate::math::test::TestError> {
+        fn root_uniaxial_tension_inner() -> Result<(), TestError> {
             let deformation_gradient_previous =
                 DeformationGradient::new([[1.1, 0.0, 0.0], [0.0, 0.95, 0.0], [0.0, 0.0, 0.95]]);
-            let (deformation_gradient, cauchy_stress) = $constitutive_model_constructed
+            let (deformation_gradient, deformation_gradient_rate) = $constitutive_model_constructed
                 .root_uniaxial_inner(&deformation_gradient_previous, 1.0, 1e-1)?;
-            assert!(cauchy_stress[0][0] > 0.0);
-            crate::math::test::assert_eq_within_tols(
-                &(cauchy_stress[1][1] / cauchy_stress[0][0]),
-                &0.0,
-            )?;
-            crate::math::test::assert_eq_within_tols(
-                &(cauchy_stress[2][2] / cauchy_stress[0][0]),
-                &0.0,
-            )?;
-            assert!(cauchy_stress.is_diagonal());
             assert!(deformation_gradient.is_diagonal());
-            crate::math::test::assert_eq(&deformation_gradient[1][1], &deformation_gradient[2][2])?;
+            assert!(deformation_gradient_rate.is_diagonal());
             assert!(deformation_gradient[0][0] > deformation_gradient_previous[0][0]);
-            Ok(())
+            assert_eq_within_tols(&deformation_gradient[1][1], &deformation_gradient[2][2])?;
+            assert_eq_within_tols(
+                &deformation_gradient_rate[1][1],
+                &deformation_gradient_rate[2][2],
+            )
         }
         #[test]
-        fn root_uniaxial_undeformed_inner() -> Result<(), crate::math::test::TestError> {
-            let (deformation_gradient, cauchy_stress) = $constitutive_model_constructed
-                .root_uniaxial_inner(&DeformationGradient::identity(), 0.0, 1e-2)?;
-            assert!(cauchy_stress.is_zero());
-            assert!(deformation_gradient.is_identity());
-            Ok(())
+        fn root_uniaxial_undeformed_inner() -> Result<(), TestError> {
+            let (deformation_gradient, deformation_gradient_rate) =
+                &$constitutive_model_constructed.root_uniaxial_inner(
+                    &DeformationGradient::identity(),
+                    0.0,
+                    1e-2,
+                )?;
+            assert_eq_within_tols(deformation_gradient, &DeformationGradient::identity())?;
+            assert_eq_within_tols(deformation_gradient_rate, &DeformationGradientRate::zero())
         }
     };
 }

@@ -12,9 +12,6 @@ mod almansi_hamel;
 pub use almansi_hamel::AlmansiHamel;
 
 use super::*;
-// use crate::math::optimize::{
-//     EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError,
-// };
 use crate::math::{
     Matrix, TensorVec, Vector,
     optimize::{EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError},
