@@ -48,7 +48,7 @@ macro_rules! test_solve {
         #[test]
         fn root_biaxial_mixed() -> Result<(), crate::math::test::TestError> {
             let deformation_gradient =
-                $constitutive_model_constructed.root(AppliedLoad::BiaxialStress(1.3, 0.44))?;
+                $constitutive_model_constructed.root(AppliedLoad::BiaxialStress(1.3, 0.64))?;
             let cauchy_stress =
                 $constitutive_model_constructed.cauchy_stress(&deformation_gradient)?;
             assert!(cauchy_stress[0][0] > cauchy_stress[1][1]);
@@ -149,7 +149,7 @@ macro_rules! test_minimize {
         #[test]
         fn minimize_biaxial_mixed() -> Result<(), crate::math::test::TestError> {
             let deformation_gradient =
-                $constitutive_model_constructed.minimize(AppliedLoad::BiaxialStress(1.3, 0.44))?;
+                $constitutive_model_constructed.minimize(AppliedLoad::BiaxialStress(1.3, 0.64))?;
             let cauchy_stress =
                 $constitutive_model_constructed.cauchy_stress(&deformation_gradient)?;
             assert!(cauchy_stress[0][0] > cauchy_stress[1][1]);

@@ -46,7 +46,7 @@ where
     /// \Pi(\mathbf{F},\boldsymbol{\lambda}) = a(\mathbf{F}) - \boldsymbol{\lambda}:(\mathbf{F} - \mathbf{F}_0) - \mathbf{P}_0:\mathbf{F}
     /// ```
     fn minimize(&self, applied_load: AppliedLoad) -> Result<DeformationGradient, OptimizeError> {
-        let optimization = NewtonRaphson {
+        let solver = NewtonRaphson {
             ..Default::default()
         };
         match applied_load {
@@ -58,7 +58,7 @@ where
                 matrix[2][2] = 1.0;
                 matrix[3][5] = 1.0;
                 vector[0] = deformation_gradient_11;
-                optimization.minimize(
+                solver.minimize(
                     |deformation_gradient: &DeformationGradient| {
                         Ok(self.helmholtz_free_energy_density(deformation_gradient)?)
                     },
@@ -83,7 +83,7 @@ where
                 matrix[4][4] = 1.0;
                 vector[0] = deformation_gradient_11;
                 vector[4] = deformation_gradient_22;
-                optimization.minimize(
+                solver.minimize(
                     |deformation_gradient: &DeformationGradient| {
                         Ok(self.helmholtz_free_energy_density(deformation_gradient)?)
                     },
