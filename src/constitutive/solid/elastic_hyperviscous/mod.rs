@@ -85,10 +85,10 @@ where
         deformation_gradient_rate_11: Scalar,
         time_step: Scalar,
     ) -> Result<(DeformationGradient, CauchyStress), ConstitutiveError> {
-        let optimization = NewtonRaphson {
+        let solver = NewtonRaphson {
             ..Default::default()
         };
-        let deformation_gradient = optimization.root(
+        let deformation_gradient = solver.root(
             |deformation_gradient: &DeformationGradient| {
                 let (deformation_gradient_rate, _) = self.root_uniaxial_inner_inner(
                     deformation_gradient,
@@ -122,10 +122,10 @@ where
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate_11: &Scalar,
     ) -> Result<(DeformationGradientRate, CauchyStress), ConstitutiveError> {
-        let optimization = NewtonRaphson {
+        let solver = NewtonRaphson {
             ..Default::default()
         };
-        let deformation_gradient_rate_33 = optimization.root(
+        let deformation_gradient_rate_33 = solver.root(
             |deformation_gradient_rate_33: &Scalar| {
                 Ok(self.cauchy_stress(
                     deformation_gradient,
