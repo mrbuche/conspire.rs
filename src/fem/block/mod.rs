@@ -9,13 +9,14 @@ use self::element::{
     ViscoelasticFiniteElement,
 };
 use super::*;
-use crate::math::{
+use crate::{math::{
     Banded,
+    integrate::{Explicit, IntegrationError},
     optimize::{
         EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError,
         SecondOrderOptimization,
     },
-};
+}, mechanics::Times};
 use std::{array::from_fn, iter::repeat_n};
 
 pub struct ElementBlock<F, const N: usize> {
@@ -245,6 +246,21 @@ where
         nodal_coordinates: &NodalCoordinatesBlock,
         nodal_velocities: &NodalVelocitiesBlock,
     ) -> Result<Scalar, ConstitutiveError>;
+    fn minimize(
+        &self,
+        initial_coordinates: NodalCoordinatesBlock,
+        integrator: impl Explicit<NodalVelocitiesBlock, Vec<NodalVelocitiesBlock>>,
+        time: &[Scalar],
+        optimization: NewtonRaphson,
+        equality_constraint: EqualityConstraint,
+    ) -> Result<(Times, NodalCoordinatesBlock, NodalVelocitiesBlock), IntegrationError>;
+    #[doc(hidden)]
+    fn minimize_inner(
+        &self,
+        nodal_coordinates: &NodalCoordinatesBlock,
+        optimization: NewtonRaphson,
+        equality_constraint: EqualityConstraint,
+    ) -> Result<NodalVelocitiesBlock, OptimizeError>;
 }
 
 pub trait HyperviscoelasticFiniteElementBlock<C, F, const G: usize, const N: usize>
@@ -483,6 +499,53 @@ where
                 )
             })
             .sum()
+    }
+    fn minimize(
+        &self,
+        initial_coordinates: NodalCoordinatesBlock,
+        integrator: impl Explicit<NodalVelocitiesBlock, Vec<NodalVelocitiesBlock>>,
+        time: &[Scalar],
+        optimization: NewtonRaphson, // should you just take this out of minimize/root args for now since defaults seem good and want to generalize away from just NM later?
+        equality_constraint: EqualityConstraint,
+    ) -> Result<(Times, NodalCoordinatesBlock, NodalVelocitiesBlock), IntegrationError> {
+        let (times, foo) = integrator.integrate(
+            |t: Scalar, nodal_coordinates: &NodalCoordinatesBlock| {
+                Ok(self.minimize_inner(
+                    nodal_coordinates,
+                    optimization,
+                    equality_constraint,
+                )?)
+            },
+            time,
+            initial_coordinates,
+        )?;
+        todo!()
+    }
+    #[doc(hidden)]
+    fn minimize_inner(
+        &self,
+        nodal_coordinates: &NodalCoordinatesBlock,
+        optimization: NewtonRaphson,
+        equality_constraint: EqualityConstraint,
+    ) -> Result<NodalVelocitiesBlock, OptimizeError> {
+        let num_coords = nodal_coordinates.len();
+        let banded = band(
+            self.connectivity(),
+            &equality_constraint,
+            num_coords,
+        );
+        optimization.minimize(
+            |nodal_velocities: &NodalVelocitiesBlock| {
+                Ok(self.dissipation_potential(nodal_coordinates, nodal_velocities)?)
+            },
+            |nodal_velocities: &NodalVelocitiesBlock| Ok(self.nodal_forces(nodal_coordinates, nodal_velocities)?),
+            |nodal_velocities: &NodalVelocitiesBlock| {
+                Ok(self.nodal_stiffnesses(nodal_coordinates, nodal_velocities)?)
+            },
+            NodalVelocitiesBlock::zero(num_coords),
+            equality_constraint,
+            Some(banded),
+        )
     }
 }
 

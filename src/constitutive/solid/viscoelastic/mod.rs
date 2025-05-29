@@ -13,6 +13,13 @@
 #[cfg(test)]
 pub mod test;
 
+use crate::math::{
+    Matrix, TensorVec, Vector,
+    integrate::{Explicit, IntegrationError},
+    optimize::{
+        EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError,
+    },
+};
 use super::{super::fluid::viscous::Viscous, *};
 
 /// Required methods for viscoelastic constitutive models.
@@ -121,5 +128,66 @@ where
                 &deformation_gradient_inverse,
             )
             * deformation_gradient.determinant())
+    }
+    /// Solve for the unknown components of the deformation gradient and rate under an applied load.
+    ///
+    /// ```math
+    /// \mathbf{P}(\mathbf{F},\dot{\mathbf{F}}) - \boldsymbol{\lambda} - \mathbf{P}_0 = \mathbf{0}
+    /// ```
+    fn root_uniaxial(
+        &self,
+        deformation_gradient_rate_11: impl Fn(Scalar) -> Scalar,
+        integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
+        time: &[Scalar],
+    ) -> Result<(Times, DeformationGradients, DeformationGradientRates), IntegrationError> {
+        let (times, deformation_gradients) = integrator.integrate(
+            |t: Scalar, deformation_gradient: &DeformationGradient| {
+                Ok(self
+                    .root_uniaxial_inner(deformation_gradient, deformation_gradient_rate_11(t))?)
+            },
+            time,
+            DeformationGradient::identity(),
+        )?;
+        let deformation_gradient_rates = times
+            .iter()
+            .zip(deformation_gradients.iter())
+            .map(|(&t, deformation_gradient)| {
+                self.root_uniaxial_inner(deformation_gradient, deformation_gradient_rate_11(t))
+            })
+            .collect::<Result<DeformationGradientRates, OptimizeError>>()?;
+        Ok((times, deformation_gradients, deformation_gradient_rates))
+    }
+    #[doc(hidden)]
+    fn root_uniaxial_inner(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_rate_11: Scalar,
+    ) -> Result<DeformationGradientRate, OptimizeError> {
+        let solver = NewtonRaphson {
+            ..Default::default()
+        };
+        let mut matrix = Matrix::zero(4, 9);
+        let mut vector = Vector::zero(4);
+        matrix[0][0] = 1.0;
+        matrix[1][1] = 1.0;
+        matrix[2][2] = 1.0;
+        matrix[3][5] = 1.0;
+        vector[0] = deformation_gradient_rate_11;
+        solver.root(
+            |deformation_gradient_rate: &DeformationGradientRate| {
+                Ok(self.first_piola_kirchhoff_stress(
+                    deformation_gradient,
+                    deformation_gradient_rate,
+                )?)
+            },
+            |deformation_gradient_rate: &DeformationGradientRate| {
+                Ok(self.first_piola_kirchhoff_rate_tangent_stiffness(
+                    deformation_gradient,
+                    deformation_gradient_rate,
+                )?)
+            },
+            DeformationGradientRate::zero(),
+            EqualityConstraint::Linear(matrix, vector),
+        )
     }
 }
