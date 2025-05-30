@@ -52,7 +52,7 @@ where
 pub trait Explicit<Y, U>: OdeSolver<Y, U>
 where
     Self: InterpolateSolution<Y, U>,
-    Y: Tensor + TensorArray,
+    Y: Tensor,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
@@ -73,7 +73,7 @@ where
 pub trait Implicit<Y, J, U>: OdeSolver<Y, U>
 where
     Self: InterpolateSolution<Y, U>,
-    Y: Tensor + TensorArray + Div<J, Output = Y>,
+    Y: Tensor + Div<J, Output = Y>,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
     J: Tensor + TensorArray,
     U: TensorVec<Item = Y>,

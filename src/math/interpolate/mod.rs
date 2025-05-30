@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use super::{Tensor, TensorArray, TensorRank0, TensorVec, Vector, integrate::IntegrationError};
+use super::{Tensor, TensorRank0, TensorVec, Vector, integrate::IntegrationError};
 use std::ops::{Mul, Sub};
 
 /// Linear interpolation schemes.
@@ -20,7 +20,7 @@ where
 /// Solution interpolation schemes.
 pub trait InterpolateSolution<Y, U>
 where
-    Y: Tensor + TensorArray,
+    Y: Tensor,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {

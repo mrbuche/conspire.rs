@@ -630,9 +630,6 @@ macro_rules! test_finite_element_block_with_elastic_constitutive_model {
             let block = get_block();
             let solution = block.root(
                 get_reference_coordinates_block().into(),
-                NewtonRaphson {
-                    ..Default::default()
-                },
                 EqualityConstraint::Linear(a, b),
             )?;
             let deformation_gradient =
@@ -672,9 +669,6 @@ macro_rules! test_finite_element_block_with_hyperelastic_constitutive_model {
             let block = get_block();
             let solution = block.minimize(
                 get_reference_coordinates_block().into(),
-                NewtonRaphson {
-                    ..Default::default()
-                },
                 EqualityConstraint::Linear(a, b),
             )?;
             let deformation_gradient =

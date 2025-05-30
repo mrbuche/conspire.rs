@@ -29,9 +29,7 @@ use super::{super::fluid::viscous::Viscous, viscoelastic::Viscoelastic, *};
 use crate::math::{
     Matrix, TensorVec, Vector,
     integrate::{Explicit, IntegrationError},
-    optimize::{
-        EqualityConstraint, NewtonRaphson, OptimizeError, SecondOrderOptimization,
-    },
+    optimize::{EqualityConstraint, NewtonRaphson, OptimizeError, SecondOrderOptimization},
 };
 use std::fmt::Debug;
 
@@ -90,7 +88,7 @@ where
             .iter()
             .zip(deformation_gradients.iter())
             .map(|(&t, deformation_gradient)| {
-                self.root_uniaxial_inner(deformation_gradient, deformation_gradient_rate_11(t))
+                self.minimize_uniaxial_inner(deformation_gradient, deformation_gradient_rate_11(t))
             })
             .collect::<Result<DeformationGradientRates, OptimizeError>>()?;
         Ok((times, deformation_gradients, deformation_gradient_rates))

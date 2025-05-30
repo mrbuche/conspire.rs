@@ -70,7 +70,7 @@ impl Default for BogackiShampine {
 impl<Y, U> Explicit<Y, U> for BogackiShampine
 where
     Self: InterpolateSolution<Y, U>,
-    Y: Tensor + TensorArray,
+    Y: Tensor,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {

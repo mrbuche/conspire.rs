@@ -9,14 +9,17 @@ use self::element::{
     ViscoelasticFiniteElement,
 };
 use super::*;
-use crate::{math::{
-    Banded,
-    integrate::{Explicit, IntegrationError},
-    optimize::{
-        EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError,
-        SecondOrderOptimization,
+use crate::{
+    math::{
+        Banded,
+        integrate::{Explicit, IntegrationError},
+        optimize::{
+            EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError,
+            SecondOrderOptimization,
+        },
     },
-}, mechanics::Times};
+    mechanics::Times,
+};
 use std::{array::from_fn, iter::repeat_n};
 
 pub struct ElementBlock<F, const N: usize> {
@@ -185,7 +188,6 @@ where
     fn root(
         &self,
         initial_coordinates: NodalCoordinatesBlock,
-        root_finding: NewtonRaphson,
         equality_constraint: EqualityConstraint,
     ) -> Result<NodalCoordinatesBlock, OptimizeError>;
 }
@@ -203,7 +205,6 @@ where
     fn minimize(
         &self,
         initial_coordinates: NodalCoordinatesBlock,
-        optimization: NewtonRaphson,
         equality_constraint: EqualityConstraint,
     ) -> Result<NodalCoordinatesBlock, OptimizeError>;
 }
@@ -249,16 +250,14 @@ where
     fn minimize(
         &self,
         initial_coordinates: NodalCoordinatesBlock,
-        integrator: impl Explicit<NodalVelocitiesBlock, Vec<NodalVelocitiesBlock>>,
+        integrator: impl Explicit<NodalVelocitiesBlock, NodalVelocitiesHistory>,
         time: &[Scalar],
-        optimization: NewtonRaphson,
         equality_constraint: EqualityConstraint,
     ) -> Result<(Times, NodalCoordinatesBlock, NodalVelocitiesBlock), IntegrationError>;
     #[doc(hidden)]
     fn minimize_inner(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
-        optimization: NewtonRaphson,
         equality_constraint: EqualityConstraint,
     ) -> Result<NodalVelocitiesBlock, OptimizeError>;
 }
@@ -331,10 +330,12 @@ where
     fn root(
         &self,
         initial_coordinates: NodalCoordinatesBlock,
-        root_finding: NewtonRaphson,
         equality_constraint: EqualityConstraint,
     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
-        root_finding.root(
+        let solver = NewtonRaphson {
+            ..Default::default()
+        };
+        solver.root(
             |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
             |nodal_coordinates: &NodalCoordinatesBlock| {
                 Ok(self.nodal_stiffnesses(nodal_coordinates)?)
@@ -369,7 +370,6 @@ where
     fn minimize(
         &self,
         initial_coordinates: NodalCoordinatesBlock,
-        optimization: NewtonRaphson,
         equality_constraint: EqualityConstraint,
     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
         let banded = band(
@@ -377,7 +377,10 @@ where
             &equality_constraint,
             initial_coordinates.len(),
         );
-        optimization.minimize(
+        let solver = NewtonRaphson {
+            ..Default::default()
+        };
+        solver.minimize(
             |nodal_coordinates: &NodalCoordinatesBlock| {
                 Ok(self.helmholtz_free_energy(nodal_coordinates)?)
             },
@@ -503,42 +506,45 @@ where
     fn minimize(
         &self,
         initial_coordinates: NodalCoordinatesBlock,
-        integrator: impl Explicit<NodalVelocitiesBlock, Vec<NodalVelocitiesBlock>>,
+        integrator: impl Explicit<NodalVelocitiesBlock, NodalVelocitiesHistory>,
         time: &[Scalar],
-        optimization: NewtonRaphson, // should you just take this out of minimize/root args for now since defaults seem good and want to generalize away from just NM later?
         equality_constraint: EqualityConstraint,
     ) -> Result<(Times, NodalCoordinatesBlock, NodalVelocitiesBlock), IntegrationError> {
-        let (times, foo) = integrator.integrate(
+        let (times, coordinates) = integrator.integrate(
             |t: Scalar, nodal_coordinates: &NodalCoordinatesBlock| {
                 Ok(self.minimize_inner(
                     nodal_coordinates,
-                    optimization,
-                    equality_constraint,
+                    panic!(), // equality_constraint,
                 )?)
             },
             time,
             initial_coordinates,
         )?;
+        //
+        // Can you just make Explicit integrators return the history of dy/dt as well?
+        // Seems like in all these real cases (constitutive, fem) you always ask for it.
+        // And the post-solve to get it back seems redundant, especially here.
+        //
         todo!()
     }
     #[doc(hidden)]
     fn minimize_inner(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
-        optimization: NewtonRaphson,
         equality_constraint: EqualityConstraint,
     ) -> Result<NodalVelocitiesBlock, OptimizeError> {
         let num_coords = nodal_coordinates.len();
-        let banded = band(
-            self.connectivity(),
-            &equality_constraint,
-            num_coords,
-        );
-        optimization.minimize(
+        let banded = band(self.connectivity(), &equality_constraint, num_coords);
+        let solver = NewtonRaphson {
+            ..Default::default()
+        };
+        solver.minimize(
             |nodal_velocities: &NodalVelocitiesBlock| {
                 Ok(self.dissipation_potential(nodal_coordinates, nodal_velocities)?)
             },
-            |nodal_velocities: &NodalVelocitiesBlock| Ok(self.nodal_forces(nodal_coordinates, nodal_velocities)?),
+            |nodal_velocities: &NodalVelocitiesBlock| {
+                Ok(self.nodal_forces(nodal_coordinates, nodal_velocities)?)
+            },
             |nodal_velocities: &NodalVelocitiesBlock| {
                 Ok(self.nodal_stiffnesses(nodal_coordinates, nodal_velocities)?)
             },

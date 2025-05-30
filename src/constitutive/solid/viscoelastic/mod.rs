@@ -13,14 +13,12 @@
 #[cfg(test)]
 pub mod test;
 
+use super::{super::fluid::viscous::Viscous, *};
 use crate::math::{
     Matrix, TensorVec, Vector,
     integrate::{Explicit, IntegrationError},
-    optimize::{
-        EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError,
-    },
+    optimize::{EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError},
 };
-use super::{super::fluid::viscous::Viscous, *};
 
 /// Required methods for viscoelastic constitutive models.
 pub trait Viscoelastic

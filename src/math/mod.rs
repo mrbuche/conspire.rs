@@ -35,6 +35,7 @@ pub use tensor::{
         list_2d::{TensorRank1List2D, tensor_rank_1_list_2d},
         tensor_rank_1,
         vec::TensorRank1Vec,
+        vec_2d::TensorRank1Vec2D,
         zero as tensor_rank_1_zero,
     },
     rank_2::{

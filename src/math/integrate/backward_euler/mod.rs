@@ -37,7 +37,7 @@ impl Default for BackwardEuler {
 impl<Y, J, U> Implicit<Y, J, U> for BackwardEuler
 where
     Self: InterpolateSolution<Y, U>,
-    Y: Jacobian + Solution + TensorArray + Div<J, Output = Y>,
+    Y: Jacobian + Solution + Div<J, Output = Y>,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
     J: Hessian + Tensor + TensorArray,
     U: TensorVec<Item = Y>,

@@ -4,6 +4,7 @@ mod test;
 pub mod list;
 pub mod list_2d;
 pub mod vec;
+pub mod vec_2d;
 
 use std::{
     fmt::{Display, Formatter, Result},

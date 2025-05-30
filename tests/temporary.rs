@@ -14,7 +14,7 @@ use conspire::{
     },
     math::{
         Matrix, Tensor, TensorVec, TestError, Vector, assert_eq_within_tols,
-        optimize::{EqualityConstraint, NewtonRaphson},
+        optimize::EqualityConstraint,
     },
 };
 
@@ -7410,7 +7410,6 @@ fn temporary() -> Result<(), TestError> {
     println!("Solving...");
     let solution = block.minimize(
         coordinates().into(),
-        NewtonRaphson::default(),
         EqualityConstraint::Linear(matrix, vector),
     )?;
     println!("Done ({:?}).", time.elapsed());

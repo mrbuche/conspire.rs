@@ -171,7 +171,7 @@ impl Default for Verner9 {
 impl<Y, U> Explicit<Y, U> for Verner9
 where
     Self: InterpolateSolution<Y, U>,
-    Y: Tensor + TensorArray,
+    Y: Tensor,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
