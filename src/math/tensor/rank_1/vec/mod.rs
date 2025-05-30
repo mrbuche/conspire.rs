@@ -352,7 +352,7 @@ impl<const D: usize, const I: usize> Mul<&TensorRank0> for TensorRank1Vec<D, I> 
 
 impl<const D: usize, const I: usize> Mul<TensorRank0> for &TensorRank1Vec<D, I> {
     type Output = TensorRank1Vec<D, I>;
-    fn mul(mut self, tensor_rank_0: TensorRank0) -> Self::Output {
+    fn mul(self, tensor_rank_0: TensorRank0) -> Self::Output {
         self.iter().map(|self_i| self_i * tensor_rank_0).collect()
     }
 }

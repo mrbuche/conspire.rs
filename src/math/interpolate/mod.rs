@@ -31,7 +31,7 @@ where
         tp: &Vector,
         yp: &U,
         function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
-    ) -> Result<U, IntegrationError>;
+    ) -> Result<(U, U), IntegrationError>;
 }
 
 impl<F, T> Interpolate1D<F, T> for LinearInterpolation

@@ -253,7 +253,7 @@ where
         integrator: impl Explicit<NodalVelocitiesBlock, NodalVelocitiesHistory>,
         time: &[Scalar],
         equality_constraint: EqualityConstraint,
-    ) -> Result<(Times, NodalCoordinatesBlock, NodalVelocitiesBlock), IntegrationError>;
+    ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError>;
     #[doc(hidden)]
     fn minimize_inner(
         &self,
@@ -509,8 +509,8 @@ where
         integrator: impl Explicit<NodalVelocitiesBlock, NodalVelocitiesHistory>,
         time: &[Scalar],
         equality_constraint: EqualityConstraint,
-    ) -> Result<(Times, NodalCoordinatesBlock, NodalVelocitiesBlock), IntegrationError> {
-        let (times, coordinates) = integrator.integrate(
+    ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError> {
+        integrator.integrate(
             |t: Scalar, nodal_coordinates: &NodalCoordinatesBlock| {
                 Ok(self.minimize_inner(
                     nodal_coordinates,
@@ -519,13 +519,7 @@ where
             },
             time,
             initial_coordinates,
-        )?;
-        //
-        // Can you just make Explicit integrators return the history of dy/dt as well?
-        // Seems like in all these real cases (constitutive, fem) you always ask for it.
-        // And the post-solve to get it back seems redundant, especially here.
-        //
-        todo!()
+        )
     }
     #[doc(hidden)]
     fn minimize_inner(

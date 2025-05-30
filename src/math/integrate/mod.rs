@@ -1,23 +1,23 @@
 #[cfg(test)]
 mod test;
 
-mod backward_euler;
+// mod backward_euler;
 mod bogacki_shampine;
-mod dormand_prince;
-mod verner_8;
-mod verner_9;
+// mod dormand_prince;
+// mod verner_8;
+// mod verner_9;
 
-pub use backward_euler::BackwardEuler;
+// pub use backward_euler::BackwardEuler;
 pub use bogacki_shampine::BogackiShampine;
-pub use dormand_prince::DormandPrince;
-pub use verner_8::Verner8;
-pub use verner_9::Verner9;
+// pub use dormand_prince::DormandPrince;
+// pub use verner_8::Verner8;
+// pub use verner_9::Verner9;
 
-pub type Ode1be = BackwardEuler;
+// pub type Ode1be = BackwardEuler;
 pub type Ode23 = BogackiShampine;
-pub type Ode45 = DormandPrince;
-pub type Ode78 = Verner8;
-pub type Ode89 = Verner9;
+// pub type Ode45 = DormandPrince;
+// pub type Ode78 = Verner8;
+// pub type Ode89 = Verner9;
 
 // consider symplectic integrators for dynamics eventually
 
@@ -66,7 +66,7 @@ where
         function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
         time: &[TensorRank0],
         initial_condition: Y,
-    ) -> Result<(Vector, U), IntegrationError>;
+    ) -> Result<(Vector, U, U), IntegrationError>;
 }
 
 /// Base trait for implicit ordinary differential equation solvers.

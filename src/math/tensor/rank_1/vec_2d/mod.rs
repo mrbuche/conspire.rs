@@ -1,9 +1,5 @@
 use crate::math::{TensorRank0, TensorRank1Vec, TensorVec};
-use std::{
-    fmt::{Display, Formatter, Result},
-    mem::transmute,
-    ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
-};
+use std::ops::{Index, IndexMut};
 
 /// A 2D vector of *d*-dimensional tensors of rank 1.
 ///

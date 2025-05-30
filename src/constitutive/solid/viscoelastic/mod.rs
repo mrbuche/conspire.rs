@@ -138,22 +138,14 @@ where
         integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
         time: &[Scalar],
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), IntegrationError> {
-        let (times, deformation_gradients) = integrator.integrate(
+        integrator.integrate(
             |t: Scalar, deformation_gradient: &DeformationGradient| {
                 Ok(self
                     .root_uniaxial_inner(deformation_gradient, deformation_gradient_rate_11(t))?)
             },
             time,
             DeformationGradient::identity(),
-        )?;
-        let deformation_gradient_rates = times
-            .iter()
-            .zip(deformation_gradients.iter())
-            .map(|(&t, deformation_gradient)| {
-                self.root_uniaxial_inner(deformation_gradient, deformation_gradient_rate_11(t))
-            })
-            .collect::<Result<DeformationGradientRates, OptimizeError>>()?;
-        Ok((times, deformation_gradients, deformation_gradient_rates))
+        )
     }
     #[doc(hidden)]
     fn root_uniaxial_inner(
