@@ -156,7 +156,7 @@ where
         function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
         time: &[TensorRank0],
         initial_condition: Y,
-    ) -> Result<(Vector, U), IntegrationError> {
+    ) -> Result<(Vector, U, U), IntegrationError> {
         if time.len() < 2 {
             return Err(IntegrationError::LengthTimeLessThanTwo);
         } else if time[0] >= time[time.len() - 1] {
@@ -165,7 +165,7 @@ where
         let mut t = time[0];
         let mut dt = self.dt_init * time[time.len() - 1];
         let mut e;
-        let mut k_1;
+        let mut k_1 = function(t, &initial_condition)?;
         let mut k_2;
         let mut k_3;
         let mut k_4;
@@ -183,6 +183,8 @@ where
         let mut y = initial_condition.clone();
         let mut y_sol = U::zero(0);
         y_sol.push(initial_condition.clone());
+        let mut dydt_sol = U::zero(0);
+        dydt_sol.push(k_1.clone());
         let mut y_trial;
         while t < time[time.len() - 1] {
             k_1 = function(t, &y)?;
@@ -304,15 +306,16 @@ where
                 y = y_trial;
                 t_sol.push(t);
                 y_sol.push(y.clone());
+                dydt_sol.push(function(t, &y)?);
             }
             dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn);
         }
         if time.len() > 2 {
             let t_int = Vector::new(time);
-            let y_int = self.interpolate(&t_int, &t_sol, &y_sol, function)?;
-            Ok((t_int, y_int))
+            let (y_int, dydt_int) = self.interpolate(&t_int, &t_sol, &y_sol, function)?;
+            Ok((t_int, y_int, dydt_int))
         } else {
-            Ok((t_sol, y_sol))
+            Ok((t_sol, y_sol, dydt_sol))
         }
     }
 }
@@ -329,121 +332,125 @@ where
         tp: &Vector,
         yp: &U,
         function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
-    ) -> Result<U, IntegrationError> {
-        let mut dt = 0.0;
-        let mut i = 0;
-        let mut k_1 = Y::zero();
-        let mut k_2 = Y::zero();
-        let mut k_3 = Y::zero();
-        let mut k_4 = Y::zero();
-        let mut k_5 = Y::zero();
-        let mut k_6 = Y::zero();
-        let mut k_7 = Y::zero();
-        let mut k_8 = Y::zero();
-        let mut k_9 = Y::zero();
-        let mut k_10 = Y::zero();
-        let mut k_11 = Y::zero();
-        let mut k_12 = Y::zero();
-        let mut t = 0.0;
-        let mut y = Y::zero();
-        time.iter()
-            .map(|time_k| {
-                i = tp.iter().position(|tp_i| tp_i > time_k).unwrap();
-                t = tp[i - 1];
-                y = yp[i - 1].clone();
-                dt = time_k - t;
-                k_1 = function(t, &y)?;
-                k_2 = function(t + C_2 * dt, &(&k_1 * (A_2_1 * dt) + &y))?;
-                k_3 = function(
-                    t + C_3 * dt,
-                    &(&k_1 * (A_3_1 * dt) + &k_2 * (A_3_2 * dt) + &y),
-                )?;
-                k_4 = function(
-                    t + C_4 * dt,
-                    &(&k_1 * (A_4_1 * dt) + &k_3 * (A_4_3 * dt) + &y),
-                )?;
-                k_5 = function(
-                    t + C_5 * dt,
-                    &(&k_1 * (A_5_1 * dt) + &k_3 * (A_5_3 * dt) + &k_4 * (A_5_4 * dt) + &y),
-                )?;
-                k_6 = function(
-                    t + C_6 * dt,
-                    &(&k_1 * (A_6_1 * dt) + &k_4 * (A_6_4 * dt) + &k_5 * (A_6_5 * dt) + &y),
-                )?;
-                k_7 = function(
-                    t + C_7 * dt,
-                    &(&k_1 * (A_7_1 * dt)
-                        + &k_4 * (A_7_4 * dt)
-                        + &k_5 * (A_7_5 * dt)
-                        + &k_6 * (A_7_6 * dt)
-                        + &y),
-                )?;
-                k_8 = function(
-                    t + C_8 * dt,
-                    &(&k_1 * (A_8_1 * dt)
-                        + &k_4 * (A_8_4 * dt)
-                        + &k_5 * (A_8_5 * dt)
-                        + &k_6 * (A_8_6 * dt)
-                        + &k_7 * (A_8_7 * dt)
-                        + &y),
-                )?;
-                k_9 = function(
-                    t + C_9 * dt,
-                    &(&k_1 * (A_9_1 * dt)
-                        + &k_4 * (A_9_4 * dt)
-                        + &k_5 * (A_9_5 * dt)
-                        + &k_6 * (A_9_6 * dt)
-                        + &k_7 * (A_9_7 * dt)
-                        + &k_8 * (A_9_8 * dt)
-                        + &y),
-                )?;
-                k_10 = function(
-                    t + C_10 * dt,
-                    &(&k_1 * (A_10_1 * dt)
-                        + &k_4 * (A_10_4 * dt)
-                        + &k_5 * (A_10_5 * dt)
-                        + &k_6 * (A_10_6 * dt)
-                        + &k_7 * (A_10_7 * dt)
-                        + &k_8 * (A_10_8 * dt)
-                        + &k_9 * (A_10_9 * dt)
-                        + &y),
-                )?;
-                k_11 = function(
-                    t + C_11 * dt,
-                    &(&k_1 * (A_11_1 * dt)
-                        + &k_4 * (A_11_4 * dt)
-                        + &k_5 * (A_11_5 * dt)
-                        + &k_6 * (A_11_6 * dt)
-                        + &k_7 * (A_11_7 * dt)
-                        + &k_8 * (A_11_8 * dt)
-                        + &k_9 * (A_11_9 * dt)
-                        + &k_10 * (A_11_10 * dt)
-                        + &y),
-                )?;
-                k_12 = function(
-                    t + dt,
-                    &(&k_1 * (A_12_1 * dt)
-                        + &k_4 * (A_12_4 * dt)
-                        + &k_5 * (A_12_5 * dt)
-                        + &k_6 * (A_12_6 * dt)
-                        + &k_7 * (A_12_7 * dt)
-                        + &k_8 * (A_12_8 * dt)
-                        + &k_9 * (A_12_9 * dt)
-                        + &k_10 * (A_12_10 * dt)
-                        + &k_11 * (A_12_11 * dt)
-                        + &y),
-                )?;
-                Ok((&k_1 * B_1
-                    + &k_6 * B_6
-                    + &k_7 * B_7
-                    + &k_8 * B_8
-                    + &k_9 * B_9
-                    + &k_10 * B_10
-                    + &k_11 * B_11
-                    + &k_12 * B_12)
-                    * dt
-                    + &y)
-            })
-            .collect()
+    ) -> Result<(U, U), IntegrationError> {
+        let mut dt;
+        let mut i;
+        let mut k_1;
+        let mut k_2;
+        let mut k_3;
+        let mut k_4;
+        let mut k_5;
+        let mut k_6;
+        let mut k_7;
+        let mut k_8;
+        let mut k_9;
+        let mut k_10;
+        let mut k_11;
+        let mut k_12;
+        let mut t;
+        let mut y;
+        let mut y_int = U::zero(0);
+        let mut dydt_int = U::zero(0);
+        let mut y_trial;
+        for time_k in time.iter() {
+            i = tp.iter().position(|tp_i| tp_i > time_k).unwrap();
+            t = tp[i - 1];
+            y = yp[i - 1].clone();
+            dt = time_k - t;
+            k_1 = function(t, &y)?;
+            k_2 = function(t + C_2 * dt, &(&k_1 * (A_2_1 * dt) + &y))?;
+            k_3 = function(
+                t + C_3 * dt,
+                &(&k_1 * (A_3_1 * dt) + &k_2 * (A_3_2 * dt) + &y),
+            )?;
+            k_4 = function(
+                t + C_4 * dt,
+                &(&k_1 * (A_4_1 * dt) + &k_3 * (A_4_3 * dt) + &y),
+            )?;
+            k_5 = function(
+                t + C_5 * dt,
+                &(&k_1 * (A_5_1 * dt) + &k_3 * (A_5_3 * dt) + &k_4 * (A_5_4 * dt) + &y),
+            )?;
+            k_6 = function(
+                t + C_6 * dt,
+                &(&k_1 * (A_6_1 * dt) + &k_4 * (A_6_4 * dt) + &k_5 * (A_6_5 * dt) + &y),
+            )?;
+            k_7 = function(
+                t + C_7 * dt,
+                &(&k_1 * (A_7_1 * dt)
+                    + &k_4 * (A_7_4 * dt)
+                    + &k_5 * (A_7_5 * dt)
+                    + &k_6 * (A_7_6 * dt)
+                    + &y),
+            )?;
+            k_8 = function(
+                t + C_8 * dt,
+                &(&k_1 * (A_8_1 * dt)
+                    + &k_4 * (A_8_4 * dt)
+                    + &k_5 * (A_8_5 * dt)
+                    + &k_6 * (A_8_6 * dt)
+                    + &k_7 * (A_8_7 * dt)
+                    + &y),
+            )?;
+            k_9 = function(
+                t + C_9 * dt,
+                &(&k_1 * (A_9_1 * dt)
+                    + &k_4 * (A_9_4 * dt)
+                    + &k_5 * (A_9_5 * dt)
+                    + &k_6 * (A_9_6 * dt)
+                    + &k_7 * (A_9_7 * dt)
+                    + &k_8 * (A_9_8 * dt)
+                    + &y),
+            )?;
+            k_10 = function(
+                t + C_10 * dt,
+                &(&k_1 * (A_10_1 * dt)
+                    + &k_4 * (A_10_4 * dt)
+                    + &k_5 * (A_10_5 * dt)
+                    + &k_6 * (A_10_6 * dt)
+                    + &k_7 * (A_10_7 * dt)
+                    + &k_8 * (A_10_8 * dt)
+                    + &k_9 * (A_10_9 * dt)
+                    + &y),
+            )?;
+            k_11 = function(
+                t + C_11 * dt,
+                &(&k_1 * (A_11_1 * dt)
+                    + &k_4 * (A_11_4 * dt)
+                    + &k_5 * (A_11_5 * dt)
+                    + &k_6 * (A_11_6 * dt)
+                    + &k_7 * (A_11_7 * dt)
+                    + &k_8 * (A_11_8 * dt)
+                    + &k_9 * (A_11_9 * dt)
+                    + &k_10 * (A_11_10 * dt)
+                    + &y),
+            )?;
+            k_12 = function(
+                t + dt,
+                &(&k_1 * (A_12_1 * dt)
+                    + &k_4 * (A_12_4 * dt)
+                    + &k_5 * (A_12_5 * dt)
+                    + &k_6 * (A_12_6 * dt)
+                    + &k_7 * (A_12_7 * dt)
+                    + &k_8 * (A_12_8 * dt)
+                    + &k_9 * (A_12_9 * dt)
+                    + &k_10 * (A_12_10 * dt)
+                    + &k_11 * (A_12_11 * dt)
+                    + &y),
+            )?;
+            y_trial = (&k_1 * B_1
+                + &k_6 * B_6
+                + &k_7 * B_7
+                + &k_8 * B_8
+                + &k_9 * B_9
+                + &k_10 * B_10
+                + &k_11 * B_11
+                + &k_12 * B_12)
+                * dt
+                + &y;
+            dydt_int.push(function(t + dt, &y_trial)?);
+            y_int.push(y_trial);
+        }
+        Ok((y_int, dydt_int))
     }
 }

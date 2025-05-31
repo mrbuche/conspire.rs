@@ -50,7 +50,7 @@ where
         jacobian: impl Fn(TensorRank0, &Y) -> Result<J, IntegrationError>,
         time: &[TensorRank0],
         initial_condition: Y,
-    ) -> Result<(Vector, U), IntegrationError> {
+    ) -> Result<(Vector, U, U), IntegrationError> {
         if time.len() < 2 {
             return Err(IntegrationError::LengthTimeLessThanTwo);
         } else if time[0] >= time[time.len() - 1] {
@@ -66,6 +66,8 @@ where
         let mut y = initial_condition.clone();
         let mut y_sol = U::zero(0);
         y_sol.push(initial_condition.clone());
+        let mut dydt_sol = U::zero(0);
+        dydt_sol.push(function(t, &y.clone())?);
         let mut y_trial;
         while t < time[time.len() - 1] {
             t_trial = time[index + 1];
@@ -87,9 +89,10 @@ where
             y = y_trial;
             t_sol.push(t);
             y_sol.push(y.clone());
+            dydt_sol.push(function(t, &y)?);
             index += 1;
         }
-        Ok((t_sol, y_sol))
+        Ok((t_sol, y_sol, dydt_sol))
     }
 }
 
@@ -106,7 +109,7 @@ where
         _tp: &Vector,
         _yp: &U,
         _function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
-    ) -> Result<U, IntegrationError> {
+    ) -> Result<(U, U), IntegrationError> {
         unimplemented!()
     }
 }
