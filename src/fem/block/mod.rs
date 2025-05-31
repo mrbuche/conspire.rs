@@ -514,7 +514,7 @@ where
             |t: Scalar, nodal_coordinates: &NodalCoordinatesBlock| {
                 Ok(self.minimize_inner(
                     nodal_coordinates,
-                    panic!(), // equality_constraint,
+                    panic!(), // equality_constraint (maybe pass in functions of time somehow?)
                 )?)
             },
             time,
