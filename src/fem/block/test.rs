@@ -628,14 +628,11 @@ macro_rules! test_finite_element_block_with_elastic_constitutive_model {
         fn root() -> Result<(), TestError> {
             let (applied_load, a, b) = equality_constraint();
             let block = get_block();
-            let solution = block.root(
-                get_reference_coordinates_block().into(),
-                EqualityConstraint::Linear(a, b),
-            )?;
+            let coordinates = block.root(EqualityConstraint::Linear(a, b))?;
             let deformation_gradient =
                 $constitutive_model::new($constitutive_model_parameters).root(applied_load)?;
             block
-                .deformation_gradients(&solution)
+                .deformation_gradients(&coordinates)
                 .iter()
                 .try_for_each(|deformation_gradients| {
                     deformation_gradients
@@ -667,14 +664,11 @@ macro_rules! test_finite_element_block_with_hyperelastic_constitutive_model {
         fn minimize() -> Result<(), TestError> {
             let (applied_load, a, b) = equality_constraint();
             let block = get_block();
-            let solution = block.minimize(
-                get_reference_coordinates_block().into(),
-                EqualityConstraint::Linear(a, b),
-            )?;
+            let coordinates = block.minimize(EqualityConstraint::Linear(a, b))?;
             let deformation_gradient =
                 $constitutive_model::new($constitutive_model_parameters).minimize(applied_load)?;
             block
-                .deformation_gradients(&solution)
+                .deformation_gradients(&coordinates)
                 .iter()
                 .try_for_each(|deformation_gradients| {
                     deformation_gradients
@@ -833,6 +827,144 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
             $constitutive_model,
             $constitutive_model_parameters
         );
+        use crate::math::integrate::{BogackiShampine, DormandPrince, Verner8, Verner9};
+        macro_rules! test_with_integrator {
+            ($integrator: ident) => {
+                #[test]
+                fn minimize() -> Result<(), TestError> {
+                    let (velocity, a, b) = applied_velocities();
+                    let block = get_block();
+                    let (times, coordinates_history, velocities_history) = block.minimize(
+                        EqualityConstraint::Linear(a, b),
+                        $integrator::default(),
+                        &[0.0, 1.0],
+                    )?;
+                    let (_, deformation_gradients, deformation_gradient_rates) =
+                        $constitutive_model::new($constitutive_model_parameters)
+                            .minimize_uniaxial(
+                                |_: Scalar| velocity,
+                                $integrator::default(),
+                                times.as_slice(),
+                            )?;
+                    coordinates_history
+                        .iter()
+                        .zip(
+                            velocities_history.iter().zip(
+                                deformation_gradients
+                                    .iter()
+                                    .zip(deformation_gradient_rates.iter()),
+                            ),
+                        )
+                        .try_for_each(
+                            |(
+                                coordinates,
+                                (velocities, (deformation_gradient, deformation_gradient_rate)),
+                            )| {
+                                block
+                                    .deformation_gradients(coordinates)
+                                    .iter()
+                                    .try_for_each(|deformation_gradients| {
+                                        deformation_gradients.iter().try_for_each(
+                                            |deformation_gradient_g| {
+                                                assert_eq_within_tols(
+                                                    deformation_gradient_g,
+                                                    deformation_gradient,
+                                                )
+                                            },
+                                        )
+                                    })?;
+                                block
+                                    .deformation_gradient_rates(coordinates, velocities)
+                                    .iter()
+                                    .try_for_each(|deformation_gradient_rates| {
+                                        deformation_gradient_rates.iter().try_for_each(
+                                            |deformation_gradient_rate_g| {
+                                                assert_eq_within_tols(
+                                                    deformation_gradient_rate_g,
+                                                    deformation_gradient_rate,
+                                                )
+                                            },
+                                        )
+                                    })
+                            },
+                        )
+                }
+                #[test]
+                fn root() -> Result<(), TestError> {
+                    let (velocity, a, b) = applied_velocities();
+                    let block = get_block();
+                    let (times, coordinates_history, velocities_history) = block.root(
+                        EqualityConstraint::Linear(a, b),
+                        $integrator::default(),
+                        &[0.0, 1.0],
+                    )?;
+                    let (_, deformation_gradients, deformation_gradient_rates) =
+                        $constitutive_model::new($constitutive_model_parameters).root_uniaxial(
+                            |_: Scalar| velocity,
+                            $integrator::default(),
+                            times.as_slice(),
+                        )?;
+                    coordinates_history
+                        .iter()
+                        .zip(
+                            velocities_history.iter().zip(
+                                deformation_gradients
+                                    .iter()
+                                    .zip(deformation_gradient_rates.iter()),
+                            ),
+                        )
+                        .try_for_each(
+                            |(
+                                coordinates,
+                                (velocities, (deformation_gradient, deformation_gradient_rate)),
+                            )| {
+                                block
+                                    .deformation_gradients(coordinates)
+                                    .iter()
+                                    .try_for_each(|deformation_gradients| {
+                                        deformation_gradients.iter().try_for_each(
+                                            |deformation_gradient_g| {
+                                                assert_eq_within_tols(
+                                                    deformation_gradient_g,
+                                                    deformation_gradient,
+                                                )
+                                            },
+                                        )
+                                    })?;
+                                block
+                                    .deformation_gradient_rates(coordinates, velocities)
+                                    .iter()
+                                    .try_for_each(|deformation_gradient_rates| {
+                                        deformation_gradient_rates.iter().try_for_each(
+                                            |deformation_gradient_rate_g| {
+                                                assert_eq_within_tols(
+                                                    deformation_gradient_rate_g,
+                                                    deformation_gradient_rate,
+                                                )
+                                            },
+                                        )
+                                    })
+                            },
+                        )
+                }
+            };
+        }
+        mod bogacki_shampine {
+            use super::*;
+            test_with_integrator!(BogackiShampine);
+        }
+        mod dormand_prince {
+            use super::*;
+            test_with_integrator!(DormandPrince);
+        }
+        mod verner_8 {
+            use super::*;
+            test_with_integrator!(Verner8);
+        }
+        mod verner_9 {
+            use super::*;
+            test_with_integrator!(Verner9);
+        }
         fn get_finite_difference_of_viscous_dissipation(
             is_deformed: bool,
         ) -> Result<NodalForcesBlock, TestError> {

@@ -2,9 +2,7 @@
 mod test;
 
 use super::{
-    super::{
-        Tensor, TensorArray, TensorRank0, TensorVec, Vector, interpolate::InterpolateSolution,
-    },
+    super::{Tensor, TensorRank0, TensorVec, Vector, interpolate::InterpolateSolution},
     Explicit, IntegrationError,
 };
 use crate::{ABS_TOL, REL_TOL};
@@ -378,7 +376,7 @@ where
 
 impl<Y, U> InterpolateSolution<Y, U> for Verner9
 where
-    Y: Tensor + TensorArray,
+    Y: Tensor,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {

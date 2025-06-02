@@ -215,6 +215,55 @@ fn equality_constraint() -> (
     )
 }
 
+fn applied_velocities() -> (Scalar, crate::math::Matrix, crate::math::Vector) {
+    let velocity = 0.13;
+    let mut a = crate::math::Matrix::zero(21, 105);
+    a[0][0] = 1.0;
+    a[1][3] = 1.0;
+    a[2][12] = 1.0;
+    a[3][15] = 1.0;
+    a[4][24] = 1.0;
+    a[5][33] = 1.0;
+    a[6][36] = 1.0;
+    a[7][39] = 1.0;
+    a[8][66] = 1.0;
+    a[9][6] = 1.0;
+    a[10][9] = 1.0;
+    a[11][18] = 1.0;
+    a[12][21] = 1.0;
+    a[13][42] = 1.0;
+    a[14][51] = 1.0;
+    a[15][54] = 1.0;
+    a[16][57] = 1.0;
+    a[17][72] = 1.0;
+    a[18][19] = 1.0;
+    a[19][20] = 1.0;
+    a[20][23] = 1.0;
+    let mut b = crate::math::Vector::zero(a.len());
+    b[0] = velocity;
+    b[1] = velocity;
+    b[2] = velocity;
+    b[3] = velocity;
+    b[4] = velocity;
+    b[5] = velocity;
+    b[6] = velocity;
+    b[7] = velocity;
+    b[8] = velocity;
+    b[9] = 0.0;
+    b[10] = 0.0;
+    b[11] = 0.0;
+    b[12] = 0.0;
+    b[13] = 0.0;
+    b[14] = 0.0;
+    b[15] = 0.0;
+    b[16] = 0.0;
+    b[17] = 0.0;
+    b[18] = 0.0;
+    b[19] = 0.0;
+    b[20] = 0.0;
+    (velocity, a, b)
+}
+
 test_finite_element!(Tetrahedron);
 test_finite_element_block!(Tetrahedron);
 

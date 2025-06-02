@@ -167,5 +167,9 @@ fn equality_constraint() -> (
     )
 }
 
+fn applied_velocities() -> (Scalar, crate::math::Matrix, crate::math::Vector) {
+    todo!("viscoelastic does not have biaxial yet")
+}
+
 test_surface_finite_element!(Triangle);
 test_surface_finite_element_block!(Triangle);

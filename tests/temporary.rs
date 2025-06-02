@@ -7408,10 +7408,7 @@ fn temporary() -> Result<(), TestError> {
     vector[length - 1] = -0.5;
     let mut time = std::time::Instant::now();
     println!("Solving...");
-    let solution = block.minimize(
-        coordinates().into(),
-        EqualityConstraint::Linear(matrix, vector),
-    )?;
+    let solution = block.minimize(EqualityConstraint::Linear(matrix, vector))?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
     println!("Verifying...");
