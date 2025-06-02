@@ -738,6 +738,16 @@ impl<const D: usize, const I: usize, const J: usize> Tensor for TensorRank2<D, I
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
     }
+    fn norm_inf(&self) -> TensorRank0 {
+        self.iter()
+            .map(|tensor_rank_1| {
+                tensor_rank_1
+                    .iter()
+                    .fold(0.0, |acc, entry| entry.abs().max(acc))
+            })
+            .reduce(TensorRank0::max)
+            .unwrap()
+    }
     fn num_entries(&self) -> usize {
         D * D
     }

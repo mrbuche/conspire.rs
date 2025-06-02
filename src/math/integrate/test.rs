@@ -42,7 +42,7 @@ macro_rules! test_explicit {
             test::{LENGTH, zero_to_tau},
         };
         use std::f64::consts::TAU;
-        pub const TOLERANCE: TensorRank0 = 5.0 * crate::ABS_TOL;
+        pub const TOLERANCE: TensorRank0 = 7.0 * crate::ABS_TOL;
         #[test]
         #[should_panic(expected = "The time must contain at least two entries.")]
         fn initial_time_not_less_than_final_time() {

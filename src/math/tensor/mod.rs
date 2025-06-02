@@ -128,14 +128,6 @@ where
             .map(|(self_entry, tensor_entry)| self_entry.full_contraction(tensor_entry))
             .sum()
     }
-    /// Returns a reference to the entry at the specified indices.
-    fn get_at(&self, _indices: &[usize]) -> &TensorRank0 {
-        panic!("Need to implement get_at() for {:?}.", self)
-    }
-    /// Returns a mutable reference to the entry at the specified indices.
-    fn get_at_mut(&mut self, _indices: &[usize]) -> &mut TensorRank0 {
-        panic!("Need to implement get_at_mut() for {:?}.", self)
-    }
     /// Checks whether the tensor is the zero tensor.
     fn is_zero(&self) -> bool {
         self.iter().filter(|entry| !entry.is_zero()).count() == 0
@@ -152,6 +144,10 @@ where
     fn norm(&self) -> TensorRank0 {
         self.norm_squared().sqrt()
     }
+    /// Returns the infinity norm.
+    fn norm_inf(&self) -> TensorRank0 {
+        unimplemented!()
+    }
     /// Returns the tensor norm squared.
     fn norm_squared(&self) -> TensorRank0 {
         self.full_contraction(self)
@@ -167,7 +163,7 @@ where
     }
     /// Returns the total number of entries.
     fn num_entries(&self) -> usize {
-        panic!("will implement for all the others eventually")
+        unimplemented!()
     }
 }
 

@@ -233,17 +233,21 @@ impl<const D: usize, const I: usize> TensorVec for TensorRank1Vec<D, I> {
 
 impl<const D: usize, const I: usize> Tensor for TensorRank1Vec<D, I> {
     type Item = TensorRank1<D, I>;
-    fn get_at(&self, indices: &[usize]) -> &TensorRank0 {
-        &self[indices[0]][indices[1]]
-    }
-    fn get_at_mut(&mut self, indices: &[usize]) -> &mut TensorRank0 {
-        &mut self[indices[0]][indices[1]]
-    }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
+    }
+    fn norm_inf(&self) -> TensorRank0 {
+        self.iter()
+            .map(|tensor_rank_1| {
+                tensor_rank_1
+                    .iter()
+                    .fold(0.0, |acc, entry| entry.abs().max(acc))
+            })
+            .reduce(TensorRank0::max)
+            .unwrap()
     }
     fn num_entries(&self) -> usize {
         D * self.len()

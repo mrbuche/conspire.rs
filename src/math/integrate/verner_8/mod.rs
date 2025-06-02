@@ -300,8 +300,8 @@ where
                 + &k_12 * D_12
                 + &k_13 * D_13)
                 * dt)
-                .norm();
-            if e < self.abs_tol || e / y_trial.norm() < self.rel_tol {
+                .norm_inf();
+            if e < self.abs_tol || e / y_trial.norm_inf() < self.rel_tol {
                 t += dt;
                 y = y_trial;
                 t_sol.push(t);

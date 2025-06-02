@@ -19,6 +19,9 @@ use std::{
 pub struct Vector(Vec<TensorRank0>);
 
 impl Vector {
+    pub fn as_slice(&self) -> &[TensorRank0] {
+        self.0.as_slice()
+    }
     pub fn ones(len: usize) -> Self {
         Self(vec![1.0; len])
     }

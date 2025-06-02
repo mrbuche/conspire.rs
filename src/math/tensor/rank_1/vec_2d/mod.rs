@@ -51,3 +51,25 @@ impl<const D: usize, const I: usize> TensorVec for TensorRank1Vec2D<D, I> {
         (0..len).map(|_| Self::Item::zero(0)).collect()
     }
 }
+
+// impl<const D: usize, const I: usize> Tensor for TensorRank1Vec2D<D, I> {
+//     type Item = TensorRank1Vec<D, I>;
+//     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
+//         self.0.iter()
+//     }
+//     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
+//         self.0.iter_mut()
+//     }
+//     fn num_entries(&self) -> usize {
+//         todo!()
+//     }
+// }
+
+impl<const D: usize, const I: usize> TensorRank1Vec2D<D, I> {
+    pub fn iter(&self) -> impl Iterator<Item = &TensorRank1Vec<D, I>> {
+        self.0.iter()
+    }
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut TensorRank1Vec<D, I>> {
+        self.0.iter_mut()
+    }
+}

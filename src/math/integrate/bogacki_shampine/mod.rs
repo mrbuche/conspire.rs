@@ -103,8 +103,8 @@ where
             k_3 = function(t + 0.75 * dt, &(&k_2 * (0.75 * dt) + &y))?;
             y_trial = (&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y;
             k_4 = function(t + dt, &y_trial)?;
-            e = ((&k_1 * -5.0 + k_2 * 6.0 + k_3 * 8.0 + &k_4 * -9.0) * (dt / 72.0)).norm();
-            if e < self.abs_tol || e / y_trial.norm() < self.rel_tol {
+            e = ((&k_1 * -5.0 + k_2 * 6.0 + k_3 * 8.0 + &k_4 * -9.0) * (dt / 72.0)).norm_inf();
+            if e < self.abs_tol || e / y_trial.norm_inf() < self.rel_tol {
                 k_1 = k_4;
                 t += dt;
                 y = y_trial;
