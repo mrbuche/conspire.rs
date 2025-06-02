@@ -14,6 +14,19 @@
 pub mod test;
 
 use super::{super::fluid::viscous::Viscous, *};
+use crate::math::{
+    Matrix, TensorVec, Vector,
+    integrate::{Explicit, IntegrationError},
+    optimize::{EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError},
+};
+
+/// Possible applied loads.
+pub enum AppliedLoad<'a> {
+    /// Uniaxial stress given $`\dot{F}_{11}`$.
+    UniaxialStress(fn(Scalar) -> Scalar, &'a [Scalar]),
+    /// Biaxial stress given $`\dot{F}_{11}`$ and $`\dot{F}_{22}`$.
+    BiaxialStress(fn(Scalar) -> Scalar, fn(Scalar) -> Scalar, &'a [Scalar]),
+}
 
 /// Required methods for viscoelastic constitutive models.
 pub trait Viscoelastic
@@ -121,5 +134,113 @@ where
                 &deformation_gradient_inverse,
             )
             * deformation_gradient.determinant())
+    }
+    /// Solve for the unknown components of the deformation gradient and rate under an applied load.
+    ///
+    /// ```math
+    /// \mathbf{P}(\mathbf{F},\dot{\mathbf{F}}) - \boldsymbol{\lambda} - \mathbf{P}_0 = \mathbf{0}
+    /// ```
+    fn root(
+        &self,
+        applied_load: AppliedLoad,
+        integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
+    ) -> Result<(Times, DeformationGradients, DeformationGradientRates), IntegrationError> {
+        match applied_load {
+            AppliedLoad::UniaxialStress(deformation_gradient_rate_11, time) => integrator
+                .integrate(
+                    |t: Scalar, deformation_gradient: &DeformationGradient| {
+                        Ok(self.root_uniaxial_inner(
+                            deformation_gradient,
+                            deformation_gradient_rate_11(t),
+                        )?)
+                    },
+                    time,
+                    DeformationGradient::identity(),
+                ),
+            AppliedLoad::BiaxialStress(
+                deformation_gradient_rate_11,
+                deformation_gradient_rate_22,
+                time,
+            ) => integrator.integrate(
+                |t: Scalar, deformation_gradient: &DeformationGradient| {
+                    Ok(self.root_biaxial_inner(
+                        deformation_gradient,
+                        deformation_gradient_rate_11(t),
+                        deformation_gradient_rate_22(t),
+                    )?)
+                },
+                time,
+                DeformationGradient::identity(),
+            ),
+        }
+    }
+    #[doc(hidden)]
+    fn root_uniaxial_inner(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_rate_11: Scalar,
+    ) -> Result<DeformationGradientRate, OptimizeError> {
+        let solver = NewtonRaphson {
+            ..Default::default()
+        };
+        let mut matrix = Matrix::zero(4, 9);
+        let mut vector = Vector::zero(4);
+        matrix[0][0] = 1.0;
+        matrix[1][1] = 1.0;
+        matrix[2][2] = 1.0;
+        matrix[3][5] = 1.0;
+        vector[0] = deformation_gradient_rate_11;
+        solver.root(
+            |deformation_gradient_rate: &DeformationGradientRate| {
+                Ok(self.first_piola_kirchhoff_stress(
+                    deformation_gradient,
+                    deformation_gradient_rate,
+                )?)
+            },
+            |deformation_gradient_rate: &DeformationGradientRate| {
+                Ok(self.first_piola_kirchhoff_rate_tangent_stiffness(
+                    deformation_gradient,
+                    deformation_gradient_rate,
+                )?)
+            },
+            DeformationGradientRate::zero(),
+            EqualityConstraint::Linear(matrix, vector),
+        )
+    }
+    #[doc(hidden)]
+    fn root_biaxial_inner(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_rate_11: Scalar,
+        deformation_gradient_rate_22: Scalar,
+    ) -> Result<DeformationGradientRate, OptimizeError> {
+        let solver = NewtonRaphson {
+            ..Default::default()
+        };
+        let mut matrix = Matrix::zero(5, 9);
+        let mut vector = Vector::zero(5);
+        matrix[0][0] = 1.0;
+        matrix[1][1] = 1.0;
+        matrix[2][2] = 1.0;
+        matrix[3][5] = 1.0;
+        matrix[4][4] = 1.0;
+        vector[0] = deformation_gradient_rate_11;
+        vector[4] = deformation_gradient_rate_22;
+        solver.root(
+            |deformation_gradient_rate: &DeformationGradientRate| {
+                Ok(self.first_piola_kirchhoff_stress(
+                    deformation_gradient,
+                    deformation_gradient_rate,
+                )?)
+            },
+            |deformation_gradient_rate: &DeformationGradientRate| {
+                Ok(self.first_piola_kirchhoff_rate_tangent_stiffness(
+                    deformation_gradient,
+                    deformation_gradient_rate,
+                )?)
+            },
+            DeformationGradientRate::zero(),
+            EqualityConstraint::Linear(matrix, vector),
+        )
     }
 }

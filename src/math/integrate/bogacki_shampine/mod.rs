@@ -2,9 +2,7 @@
 mod test;
 
 use super::{
-    super::{
-        Tensor, TensorArray, TensorRank0, TensorVec, Vector, interpolate::InterpolateSolution,
-    },
+    super::{Tensor, TensorRank0, TensorVec, Vector, interpolate::InterpolateSolution},
     Explicit, IntegrationError,
 };
 use crate::{ABS_TOL, REL_TOL};
@@ -70,7 +68,7 @@ impl Default for BogackiShampine {
 impl<Y, U> Explicit<Y, U> for BogackiShampine
 where
     Self: InterpolateSolution<Y, U>,
-    Y: Tensor + TensorArray,
+    Y: Tensor,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
@@ -79,7 +77,7 @@ where
         function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
         time: &[TensorRank0],
         initial_condition: Y,
-    ) -> Result<(Vector, U), IntegrationError> {
+    ) -> Result<(Vector, U, U), IntegrationError> {
         if time.len() < 2 {
             return Err(IntegrationError::LengthTimeLessThanTwo);
         } else if time[0] >= time[time.len() - 1] {
@@ -97,35 +95,38 @@ where
         let mut y = initial_condition.clone();
         let mut y_sol = U::zero(0);
         y_sol.push(initial_condition.clone());
+        let mut dydt_sol = U::zero(0);
+        dydt_sol.push(k_1.clone());
         let mut y_trial;
         while t < time[time.len() - 1] {
             k_2 = function(t + 0.5 * dt, &(&k_1 * (0.5 * dt) + &y))?;
             k_3 = function(t + 0.75 * dt, &(&k_2 * (0.75 * dt) + &y))?;
             y_trial = (&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y;
             k_4 = function(t + dt, &y_trial)?;
-            e = ((&k_1 * -5.0 + k_2 * 6.0 + k_3 * 8.0 + &k_4 * -9.0) * (dt / 72.0)).norm();
-            if e < self.abs_tol || e / y_trial.norm() < self.rel_tol {
+            e = ((&k_1 * -5.0 + k_2 * 6.0 + k_3 * 8.0 + &k_4 * -9.0) * (dt / 72.0)).norm_inf();
+            if e < self.abs_tol || e / y_trial.norm_inf() < self.rel_tol {
                 k_1 = k_4;
                 t += dt;
                 y = y_trial;
                 t_sol.push(t);
                 y_sol.push(y.clone());
+                dydt_sol.push(k_1.clone());
             }
             dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn);
         }
         if time.len() > 2 {
             let t_int = Vector::new(time);
-            let y_int = self.interpolate(&t_int, &t_sol, &y_sol, function)?;
-            Ok((t_int, y_int))
+            let (y_int, dydt_int) = self.interpolate(&t_int, &t_sol, &y_sol, function)?;
+            Ok((t_int, y_int, dydt_int))
         } else {
-            Ok((t_sol, y_sol))
+            Ok((t_sol, y_sol, dydt_sol))
         }
     }
 }
 
 impl<Y, U> InterpolateSolution<Y, U> for BogackiShampine
 where
-    Y: Tensor + TensorArray,
+    Y: Tensor,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
@@ -135,25 +136,29 @@ where
         tp: &Vector,
         yp: &U,
         function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
-    ) -> Result<U, IntegrationError> {
-        let mut dt = 0.0;
-        let mut i = 0;
-        let mut k_1 = Y::zero();
-        let mut k_2 = Y::zero();
-        let mut k_3 = Y::zero();
-        let mut t = 0.0;
-        let mut y = Y::zero();
-        time.iter()
-            .map(|time_k| {
-                i = tp.iter().position(|tp_i| tp_i > time_k).unwrap();
-                t = tp[i - 1];
-                y = yp[i - 1].clone();
-                dt = time_k - t;
-                k_1 = function(t, &y)?;
-                k_2 = function(t + 0.5 * dt, &(&k_1 * (0.5 * dt) + &y))?;
-                k_3 = function(t + 0.75 * dt, &(&k_2 * (0.75 * dt) + &y))?;
-                Ok((&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y)
-            })
-            .collect()
+    ) -> Result<(U, U), IntegrationError> {
+        let mut dt;
+        let mut i;
+        let mut k_1;
+        let mut k_2;
+        let mut k_3;
+        let mut t;
+        let mut y;
+        let mut y_int = U::zero(0);
+        let mut dydt_int = U::zero(0);
+        let mut y_trial;
+        for time_k in time.iter() {
+            i = tp.iter().position(|tp_i| tp_i > time_k).unwrap();
+            t = tp[i - 1];
+            y = yp[i - 1].clone();
+            dt = time_k - t;
+            k_1 = function(t, &y)?;
+            k_2 = function(t + 0.5 * dt, &(&k_1 * (0.5 * dt) + &y))?;
+            k_3 = function(t + 0.75 * dt, &(&k_2 * (0.75 * dt) + &y))?;
+            y_trial = (&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y;
+            dydt_int.push(function(t + dt, &y_trial)?);
+            y_int.push(y_trial);
+        }
+        Ok((y_int, dydt_int))
     }
 }

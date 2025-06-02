@@ -4,6 +4,7 @@ mod test;
 pub mod list;
 pub mod list_2d;
 pub mod vec;
+pub mod vec_2d;
 
 use std::{
     fmt::{Display, Formatter, Result},
@@ -100,6 +101,9 @@ impl<const D: usize, const I: usize> Tensor for TensorRank1<D, I> {
     }
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
+    }
+    fn norm_inf(&self) -> TensorRank0 {
+        self.iter().fold(0.0, |acc, entry| entry.abs().max(acc))
     }
 }
 

@@ -52,7 +52,7 @@ where
 pub trait Explicit<Y, U>: OdeSolver<Y, U>
 where
     Self: InterpolateSolution<Y, U>,
-    Y: Tensor + TensorArray,
+    Y: Tensor,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
@@ -66,14 +66,14 @@ where
         function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
         time: &[TensorRank0],
         initial_condition: Y,
-    ) -> Result<(Vector, U), IntegrationError>;
+    ) -> Result<(Vector, U, U), IntegrationError>;
 }
 
 /// Base trait for implicit ordinary differential equation solvers.
 pub trait Implicit<Y, J, U>: OdeSolver<Y, U>
 where
     Self: InterpolateSolution<Y, U>,
-    Y: Tensor + TensorArray + Div<J, Output = Y>,
+    Y: Tensor + Div<J, Output = Y>,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
     J: Tensor + TensorArray,
     U: TensorVec<Item = Y>,
@@ -89,7 +89,7 @@ where
         jacobian: impl Fn(TensorRank0, &Y) -> Result<J, IntegrationError>,
         time: &[TensorRank0],
         initial_condition: Y,
-    ) -> Result<(Vector, U), IntegrationError>;
+    ) -> Result<(Vector, U, U), IntegrationError>;
 }
 
 /// Possible errors encountered when integrating.

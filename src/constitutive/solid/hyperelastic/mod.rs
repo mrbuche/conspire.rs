@@ -19,7 +19,10 @@ pub use self::{
     arruda_boyce::ArrudaBoyce, fung::Fung, gent::Gent, mooney_rivlin::MooneyRivlin,
     neo_hookean::NeoHookean, saint_venant_kirchhoff::SaintVenantKirchhoff, yeoh::Yeoh,
 };
-use super::{elastic::Elastic, *};
+use super::{
+    elastic::{AppliedLoad, Elastic},
+    *,
+};
 use crate::math::{
     Matrix, TensorVec, Vector,
     optimize::{EqualityConstraint, NewtonRaphson, OptimizeError, SecondOrderOptimization},

@@ -9,17 +9,22 @@ use self::element::{
     ViscoelasticFiniteElement,
 };
 use super::*;
-use crate::math::{
-    Banded,
-    optimize::{
-        EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError,
-        SecondOrderOptimization,
+use crate::{
+    math::{
+        Banded,
+        integrate::{Explicit, IntegrationError},
+        optimize::{
+            EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError,
+            SecondOrderOptimization,
+        },
     },
+    mechanics::Times,
 };
 use std::{array::from_fn, iter::repeat_n};
 
 pub struct ElementBlock<F, const N: usize> {
     connectivity: Connectivity<N>,
+    coordinates: ReferenceNodalCoordinatesBlock,
     elements: Vec<F>,
 }
 
@@ -28,6 +33,7 @@ where
     F: FiniteElementMethods<C, G, N>,
 {
     fn connectivity(&self) -> &Connectivity<N>;
+    fn coordinates(&self) -> &ReferenceNodalCoordinatesBlock;
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
@@ -75,6 +81,9 @@ where
     fn connectivity(&self) -> &Connectivity<N> {
         &self.connectivity
     }
+    fn coordinates(&self) -> &ReferenceNodalCoordinatesBlock {
+        &self.coordinates
+    }
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
@@ -114,7 +123,7 @@ where
     fn new(
         constitutive_model_parameters: Y,
         connectivity: Connectivity<N>,
-        reference_nodal_coordinates: ReferenceNodalCoordinatesBlock,
+        coordinates: ReferenceNodalCoordinatesBlock,
     ) -> Self {
         let elements = connectivity
             .iter()
@@ -123,13 +132,14 @@ where
                     constitutive_model_parameters,
                     element_connectivity
                         .iter()
-                        .map(|&node| reference_nodal_coordinates[node].clone())
+                        .map(|&node| coordinates[node].clone())
                         .collect(),
                 )
             })
             .collect();
         Self {
             connectivity,
+            coordinates,
             elements,
         }
     }
@@ -145,7 +155,7 @@ where
     fn new(
         constitutive_model_parameters: Y,
         connectivity: Connectivity<N>,
-        reference_nodal_coordinates: ReferenceNodalCoordinatesBlock,
+        coordinates: ReferenceNodalCoordinatesBlock,
         thickness: Scalar,
     ) -> Self {
         let elements = connectivity
@@ -155,7 +165,7 @@ where
                     constitutive_model_parameters,
                     element_connectivity
                         .iter()
-                        .map(|node| reference_nodal_coordinates[*node].clone())
+                        .map(|node| coordinates[*node].clone())
                         .collect(),
                     &thickness,
                 )
@@ -163,6 +173,7 @@ where
             .collect();
         Self {
             connectivity,
+            coordinates,
             elements,
         }
     }
@@ -183,8 +194,6 @@ where
     ) -> Result<NodalStiffnessesBlock, ConstitutiveError>;
     fn root(
         &self,
-        initial_coordinates: NodalCoordinatesBlock,
-        root_finding: NewtonRaphson,
         equality_constraint: EqualityConstraint,
     ) -> Result<NodalCoordinatesBlock, OptimizeError>;
 }
@@ -201,8 +210,6 @@ where
     ) -> Result<Scalar, ConstitutiveError>;
     fn minimize(
         &self,
-        initial_coordinates: NodalCoordinatesBlock,
-        optimization: NewtonRaphson,
         equality_constraint: EqualityConstraint,
     ) -> Result<NodalCoordinatesBlock, OptimizeError>;
 }
@@ -212,6 +219,11 @@ where
     C: Viscoelastic,
     F: ViscoelasticFiniteElement<C, G, N>,
 {
+    fn deformation_gradient_rates(
+        &self,
+        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_velocities: &NodalVelocitiesBlock,
+    ) -> Vec<DeformationGradientRateList<G>>;
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
@@ -227,6 +239,18 @@ where
         element_connectivity: &[usize; N],
         nodal_velocities: &NodalVelocitiesBlock,
     ) -> NodalVelocities<N>;
+    fn root(
+        &self,
+        equality_constraint: EqualityConstraint,
+        integrator: impl Explicit<NodalVelocitiesBlock, NodalVelocitiesHistory>,
+        time: &[Scalar],
+    ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError>;
+    #[doc(hidden)]
+    fn root_inner(
+        &self,
+        equality_constraint: EqualityConstraint,
+        nodal_coordinates: &NodalCoordinatesBlock,
+    ) -> Result<NodalVelocitiesBlock, OptimizeError>;
 }
 
 pub trait ElasticHyperviscousFiniteElementBlock<C, F, const G: usize, const N: usize>
@@ -245,6 +269,18 @@ where
         nodal_coordinates: &NodalCoordinatesBlock,
         nodal_velocities: &NodalVelocitiesBlock,
     ) -> Result<Scalar, ConstitutiveError>;
+    fn minimize(
+        &self,
+        equality_constraint: EqualityConstraint,
+        integrator: impl Explicit<NodalVelocitiesBlock, NodalVelocitiesHistory>,
+        time: &[Scalar],
+    ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError>;
+    #[doc(hidden)]
+    fn minimize_inner(
+        &self,
+        equality_constraint: EqualityConstraint,
+        nodal_coordinates: &NodalCoordinatesBlock,
+    ) -> Result<NodalVelocitiesBlock, OptimizeError>;
 }
 
 pub trait HyperviscoelasticFiniteElementBlock<C, F, const G: usize, const N: usize>
@@ -314,16 +350,17 @@ where
     }
     fn root(
         &self,
-        initial_coordinates: NodalCoordinatesBlock,
-        root_finding: NewtonRaphson,
         equality_constraint: EqualityConstraint,
     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
-        root_finding.root(
+        let solver = NewtonRaphson {
+            ..Default::default()
+        };
+        solver.root(
             |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
             |nodal_coordinates: &NodalCoordinatesBlock| {
                 Ok(self.nodal_stiffnesses(nodal_coordinates)?)
             },
-            initial_coordinates,
+            self.coordinates().clone().into(),
             equality_constraint,
         )
     }
@@ -352,16 +389,17 @@ where
     }
     fn minimize(
         &self,
-        initial_coordinates: NodalCoordinatesBlock,
-        optimization: NewtonRaphson,
         equality_constraint: EqualityConstraint,
     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
         let banded = band(
             self.connectivity(),
             &equality_constraint,
-            initial_coordinates.len(),
+            self.coordinates().len(),
         );
-        optimization.minimize(
+        let solver = NewtonRaphson {
+            ..Default::default()
+        };
+        solver.minimize(
             |nodal_coordinates: &NodalCoordinatesBlock| {
                 Ok(self.helmholtz_free_energy(nodal_coordinates)?)
             },
@@ -369,7 +407,7 @@ where
             |nodal_coordinates: &NodalCoordinatesBlock| {
                 Ok(self.nodal_stiffnesses(nodal_coordinates)?)
             },
-            initial_coordinates,
+            self.coordinates().clone().into(),
             equality_constraint,
             Some(banded),
         )
@@ -383,6 +421,22 @@ where
     F: ViscoelasticFiniteElement<C, G, N>,
     Self: FiniteElementBlockMethods<C, F, G, N>,
 {
+    fn deformation_gradient_rates(
+        &self,
+        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_velocities: &NodalVelocitiesBlock,
+    ) -> Vec<DeformationGradientRateList<G>> {
+        self.elements()
+            .iter()
+            .zip(self.connectivity().iter())
+            .map(|(element, element_connectivity)| {
+                element.deformation_gradient_rates(
+                    &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
+                    &self.nodal_velocities_element(element_connectivity, nodal_velocities),
+                )
+            })
+            .collect()
+    }
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
@@ -443,6 +497,41 @@ where
             .map(|node| nodal_velocities[*node].clone())
             .collect()
     }
+    fn root(
+        &self,
+        equality_constraint: EqualityConstraint,
+        integrator: impl Explicit<NodalVelocitiesBlock, NodalVelocitiesHistory>,
+        time: &[Scalar],
+    ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError> {
+        integrator.integrate(
+            |_: Scalar, nodal_coordinates: &NodalCoordinatesBlock| {
+                Ok(self.root_inner(equality_constraint.clone(), nodal_coordinates)?)
+            },
+            time,
+            self.coordinates().clone().into(),
+        )
+    }
+    #[doc(hidden)]
+    fn root_inner(
+        &self,
+        equality_constraint: EqualityConstraint,
+        nodal_coordinates: &NodalCoordinatesBlock,
+    ) -> Result<NodalVelocitiesBlock, OptimizeError> {
+        let num_coords = nodal_coordinates.len();
+        let solver = NewtonRaphson {
+            ..Default::default()
+        };
+        solver.root(
+            |nodal_velocities: &NodalVelocitiesBlock| {
+                Ok(self.nodal_forces(nodal_coordinates, nodal_velocities)?)
+            },
+            |nodal_velocities: &NodalVelocitiesBlock| {
+                Ok(self.nodal_stiffnesses(nodal_coordinates, nodal_velocities)?)
+            },
+            NodalVelocitiesBlock::zero(num_coords),
+            equality_constraint,
+        )
+    }
 }
 
 impl<C, F, const G: usize, const N: usize> ElasticHyperviscousFiniteElementBlock<C, F, G, N>
@@ -483,6 +572,46 @@ where
                 )
             })
             .sum()
+    }
+    fn minimize(
+        &self,
+        equality_constraint: EqualityConstraint,
+        integrator: impl Explicit<NodalVelocitiesBlock, NodalVelocitiesHistory>,
+        time: &[Scalar],
+    ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError> {
+        integrator.integrate(
+            |_: Scalar, nodal_coordinates: &NodalCoordinatesBlock| {
+                Ok(self.minimize_inner(equality_constraint.clone(), nodal_coordinates)?)
+            },
+            time,
+            self.coordinates().clone().into(),
+        )
+    }
+    #[doc(hidden)]
+    fn minimize_inner(
+        &self,
+        equality_constraint: EqualityConstraint,
+        nodal_coordinates: &NodalCoordinatesBlock,
+    ) -> Result<NodalVelocitiesBlock, OptimizeError> {
+        let num_coords = nodal_coordinates.len();
+        let banded = band(self.connectivity(), &equality_constraint, num_coords);
+        let solver = NewtonRaphson {
+            ..Default::default()
+        };
+        solver.minimize(
+            |nodal_velocities: &NodalVelocitiesBlock| {
+                Ok(self.dissipation_potential(nodal_coordinates, nodal_velocities)?)
+            },
+            |nodal_velocities: &NodalVelocitiesBlock| {
+                Ok(self.nodal_forces(nodal_coordinates, nodal_velocities)?)
+            },
+            |nodal_velocities: &NodalVelocitiesBlock| {
+                Ok(self.nodal_stiffnesses(nodal_coordinates, nodal_velocities)?)
+            },
+            NodalVelocitiesBlock::zero(num_coords),
+            equality_constraint,
+            Some(banded),
+        )
     }
 }
 

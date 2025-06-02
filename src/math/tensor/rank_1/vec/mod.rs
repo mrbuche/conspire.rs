@@ -233,17 +233,21 @@ impl<const D: usize, const I: usize> TensorVec for TensorRank1Vec<D, I> {
 
 impl<const D: usize, const I: usize> Tensor for TensorRank1Vec<D, I> {
     type Item = TensorRank1<D, I>;
-    fn get_at(&self, indices: &[usize]) -> &TensorRank0 {
-        &self[indices[0]][indices[1]]
-    }
-    fn get_at_mut(&mut self, indices: &[usize]) -> &mut TensorRank0 {
-        &mut self[indices[0]][indices[1]]
-    }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
+    }
+    fn norm_inf(&self) -> TensorRank0 {
+        self.iter()
+            .map(|tensor_rank_1| {
+                tensor_rank_1
+                    .iter()
+                    .fold(0.0, |acc, entry| entry.abs().max(acc))
+            })
+            .reduce(TensorRank0::max)
+            .unwrap()
     }
     fn num_entries(&self) -> usize {
         D * self.len()
@@ -341,11 +345,19 @@ impl<const D: usize, const I: usize> Mul<TensorRank0> for TensorRank1Vec<D, I> {
         self
     }
 }
+
 impl<const D: usize, const I: usize> Mul<&TensorRank0> for TensorRank1Vec<D, I> {
     type Output = Self;
     fn mul(mut self, tensor_rank_0: &TensorRank0) -> Self::Output {
         self *= tensor_rank_0;
         self
+    }
+}
+
+impl<const D: usize, const I: usize> Mul<TensorRank0> for &TensorRank1Vec<D, I> {
+    type Output = TensorRank1Vec<D, I>;
+    fn mul(self, tensor_rank_0: TensorRank0) -> Self::Output {
+        self.iter().map(|self_i| self_i * tensor_rank_0).collect()
     }
 }
 
@@ -469,6 +481,23 @@ impl<const D: usize, const I: usize> Sub<&Self> for TensorRank1Vec<D, I> {
     fn sub(mut self, tensor_rank_1_vec: &Self) -> Self::Output {
         self -= tensor_rank_1_vec;
         self
+    }
+}
+
+impl<const D: usize, const I: usize> Sub for &TensorRank1Vec<D, I> {
+    type Output = TensorRank1Vec<D, I>;
+    fn sub(self, tensor_rank_1_vec: Self) -> Self::Output {
+        tensor_rank_1_vec
+            .iter()
+            .zip(self.iter())
+            .map(|(tensor_rank_1_vec_a, self_a)| {
+                tensor_rank_1_vec_a
+                    .iter()
+                    .zip(self_a.iter())
+                    .map(|(tensor_rank_1_vec_a_i, self_a_i)| self_a_i - *tensor_rank_1_vec_a_i)
+                    .collect()
+            })
+            .collect()
     }
 }
 

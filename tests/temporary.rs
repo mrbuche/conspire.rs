@@ -4,7 +4,7 @@ use conspire::{
     constitutive::{
         Constitutive,
         solid::{
-            AppliedLoad,
+            elastic::AppliedLoad,
             hyperelastic::{Hyperelastic, NeoHookean},
         },
     },
@@ -14,7 +14,7 @@ use conspire::{
     },
     math::{
         Matrix, Tensor, TensorVec, TestError, Vector, assert_eq_within_tols,
-        optimize::{EqualityConstraint, NewtonRaphson},
+        optimize::EqualityConstraint,
     },
 };
 
@@ -7408,11 +7408,7 @@ fn temporary() -> Result<(), TestError> {
     vector[length - 1] = -0.5;
     let mut time = std::time::Instant::now();
     println!("Solving...");
-    let solution = block.minimize(
-        coordinates().into(),
-        NewtonRaphson::default(),
-        EqualityConstraint::Linear(matrix, vector),
-    )?;
+    let solution = block.minimize(EqualityConstraint::Linear(matrix, vector))?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
     println!("Verifying...");

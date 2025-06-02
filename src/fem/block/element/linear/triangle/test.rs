@@ -99,7 +99,7 @@ fn get_velocities_block() -> NodalVelocitiesBlock {
 }
 
 fn equality_constraint() -> (
-    crate::constitutive::solid::AppliedLoad,
+    crate::constitutive::solid::elastic::AppliedLoad,
     crate::math::Matrix,
     crate::math::Vector,
 ) {
@@ -161,10 +161,81 @@ fn equality_constraint() -> (
     b[23] = 0.0;
     b[24] = 0.0;
     (
-        crate::constitutive::solid::AppliedLoad::BiaxialStress(strain + 1.0, 1.0),
+        crate::constitutive::solid::elastic::AppliedLoad::BiaxialStress(strain + 1.0, 1.0),
         a,
         b,
     )
+}
+
+fn applied_velocity(
+    times: &crate::math::Vector,
+) -> crate::constitutive::solid::viscoelastic::AppliedLoad {
+    crate::constitutive::solid::viscoelastic::AppliedLoad::BiaxialStress(
+        |_| 0.13,
+        |_| 0.0,
+        times.as_slice(),
+    )
+}
+
+fn applied_velocities() -> (crate::math::Matrix, crate::math::Vector) {
+    let velocity = 0.13;
+    let mut a = crate::math::Matrix::zero(25, 48);
+    a[0][0] = 1.0;
+    a[1][21] = 1.0;
+    a[2][30] = 1.0;
+    a[3][33] = 1.0;
+    a[4][3] = 1.0;
+    a[5][12] = 1.0;
+    a[6][15] = 1.0;
+    a[7][18] = 1.0;
+    //
+    a[8][14] = 1.0;
+    //
+    a[9][1] = 1.0;
+    a[10][4] = 1.0;
+    a[11][7] = 1.0;
+    a[12][10] = 1.0;
+    a[13][13] = 1.0;
+    a[14][16] = 1.0;
+    a[15][19] = 1.0;
+    a[16][22] = 1.0;
+    a[17][25] = 1.0;
+    a[18][28] = 1.0;
+    a[19][31] = 1.0;
+    a[20][34] = 1.0;
+    a[21][37] = 1.0;
+    a[22][40] = 1.0;
+    a[23][43] = 1.0;
+    a[24][46] = 1.0;
+    let mut b = crate::math::Vector::zero(a.len());
+    b[0] = velocity;
+    b[1] = velocity;
+    b[2] = velocity;
+    b[3] = velocity;
+    b[4] = 0.0;
+    b[5] = 0.0;
+    b[6] = 0.0;
+    b[7] = 0.0;
+    //
+    b[8] = 0.0;
+    //
+    b[9] = 0.0;
+    b[10] = 0.0;
+    b[11] = 0.0;
+    b[12] = 0.0;
+    b[13] = 0.0;
+    b[14] = 0.0;
+    b[15] = 0.0;
+    b[16] = 0.0;
+    b[17] = 0.0;
+    b[18] = 0.0;
+    b[19] = 0.0;
+    b[20] = 0.0;
+    b[21] = 0.0;
+    b[22] = 0.0;
+    b[23] = 0.0;
+    b[24] = 0.0;
+    (a, b)
 }
 
 test_surface_finite_element!(Triangle);

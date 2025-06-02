@@ -25,14 +25,15 @@ mod almansi_hamel;
 
 pub use almansi_hamel::AlmansiHamel;
 
-use super::{super::fluid::viscous::Viscous, viscoelastic::Viscoelastic, *};
+use super::{
+    super::fluid::viscous::Viscous,
+    viscoelastic::{AppliedLoad, Viscoelastic},
+    *,
+};
 use crate::math::{
     Matrix, TensorVec, Vector,
     integrate::{Explicit, IntegrationError},
-    optimize::{
-        EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError,
-        SecondOrderOptimization,
-    },
+    optimize::{EqualityConstraint, NewtonRaphson, OptimizeError, SecondOrderOptimization},
 };
 use std::fmt::Debug;
 
@@ -71,30 +72,39 @@ where
     /// ```math
     /// \Pi(\mathbf{F},\dot{\mathbf{F}},\boldsymbol{\lambda}) = \mathbf{P}^e(\mathbf{F}):\dot{\mathbf{F}} + \phi(\mathbf{F},\dot{\mathbf{F}}) - \boldsymbol{\lambda}:(\dot{\mathbf{F}} - \dot{\mathbf{F}}_0) - \mathbf{P}_0:\dot{\mathbf{F}}
     /// ```
-    fn minimize_uniaxial(
+    fn minimize(
         &self,
-        deformation_gradient_rate_11: impl Fn(Scalar) -> Scalar,
+        applied_load: AppliedLoad,
         integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
-        time: &[Scalar],
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), IntegrationError> {
-        let (times, deformation_gradients): (_, DeformationGradients) = integrator.integrate(
-            |t: Scalar, deformation_gradient: &DeformationGradient| {
-                Ok(self.minimize_uniaxial_inner(
-                    deformation_gradient,
-                    deformation_gradient_rate_11(t),
-                )?)
-            },
-            time,
-            DeformationGradient::identity(),
-        )?;
-        let deformation_gradient_rates = times
-            .iter()
-            .zip(deformation_gradients.iter())
-            .map(|(&t, deformation_gradient)| {
-                self.root_uniaxial_inner(deformation_gradient, deformation_gradient_rate_11(t))
-            })
-            .collect::<Result<DeformationGradientRates, OptimizeError>>()?;
-        Ok((times, deformation_gradients, deformation_gradient_rates))
+        match applied_load {
+            AppliedLoad::UniaxialStress(deformation_gradient_rate_11, time) => integrator
+                .integrate(
+                    |t: Scalar, deformation_gradient: &DeformationGradient| {
+                        Ok(self.minimize_uniaxial_inner(
+                            deformation_gradient,
+                            deformation_gradient_rate_11(t),
+                        )?)
+                    },
+                    time,
+                    DeformationGradient::identity(),
+                ),
+            AppliedLoad::BiaxialStress(
+                deformation_gradient_rate_11,
+                deformation_gradient_rate_22,
+                time,
+            ) => integrator.integrate(
+                |t: Scalar, deformation_gradient: &DeformationGradient| {
+                    Ok(self.minimize_biaxial_inner(
+                        deformation_gradient,
+                        deformation_gradient_rate_11(t),
+                        deformation_gradient_rate_22(t),
+                    )?)
+                },
+                time,
+                DeformationGradient::identity(),
+            ),
+        }
     }
     #[doc(hidden)]
     fn minimize_uniaxial_inner(
@@ -133,51 +143,29 @@ where
             None,
         )
     }
-    /// Solve for the unknown components of the deformation gradient and rate under an applied load.
-    ///
-    /// ```math
-    /// \mathbf{P}(\mathbf{F},\dot{\mathbf{F}}) - \boldsymbol{\lambda} - \mathbf{P}_0 = \mathbf{0}
-    /// ```
-    fn root_uniaxial(
-        &self,
-        deformation_gradient_rate_11: impl Fn(Scalar) -> Scalar,
-        integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
-        time: &[Scalar],
-    ) -> Result<(Times, DeformationGradients, DeformationGradientRates), IntegrationError> {
-        let (times, deformation_gradients): (_, DeformationGradients) = integrator.integrate(
-            |t: Scalar, deformation_gradient: &DeformationGradient| {
-                Ok(self
-                    .root_uniaxial_inner(deformation_gradient, deformation_gradient_rate_11(t))?)
-            },
-            time,
-            DeformationGradient::identity(),
-        )?;
-        let deformation_gradient_rates = times
-            .iter()
-            .zip(deformation_gradients.iter())
-            .map(|(&t, deformation_gradient)| {
-                self.root_uniaxial_inner(deformation_gradient, deformation_gradient_rate_11(t))
-            })
-            .collect::<Result<DeformationGradientRates, OptimizeError>>()?;
-        Ok((times, deformation_gradients, deformation_gradient_rates))
-    }
     #[doc(hidden)]
-    fn root_uniaxial_inner(
+    fn minimize_biaxial_inner(
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate_11: Scalar,
+        deformation_gradient_rate_22: Scalar,
     ) -> Result<DeformationGradientRate, OptimizeError> {
         let solver = NewtonRaphson {
             ..Default::default()
         };
-        let mut matrix = Matrix::zero(4, 9);
-        let mut vector = Vector::zero(4);
+        let mut matrix = Matrix::zero(5, 9);
+        let mut vector = Vector::zero(5);
         matrix[0][0] = 1.0;
         matrix[1][1] = 1.0;
         matrix[2][2] = 1.0;
         matrix[3][5] = 1.0;
+        matrix[4][4] = 1.0;
         vector[0] = deformation_gradient_rate_11;
-        solver.root(
+        vector[4] = deformation_gradient_rate_22;
+        solver.minimize(
+            |deformation_gradient_rate: &DeformationGradientRate| {
+                Ok(self.dissipation_potential(deformation_gradient, deformation_gradient_rate)?)
+            },
             |deformation_gradient_rate: &DeformationGradientRate| {
                 Ok(self.first_piola_kirchhoff_stress(
                     deformation_gradient,
@@ -192,6 +180,7 @@ where
             },
             DeformationGradientRate::zero(),
             EqualityConstraint::Linear(matrix, vector),
+            None,
         )
     }
 }

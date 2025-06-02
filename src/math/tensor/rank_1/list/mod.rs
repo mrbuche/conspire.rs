@@ -126,12 +126,6 @@ impl<const D: usize, const I: usize, const W: usize> TensorRank1List<D, I, W> {
 
 impl<const D: usize, const I: usize, const W: usize> Tensor for TensorRank1List<D, I, W> {
     type Item = TensorRank1<D, I>;
-    fn get_at(&self, indices: &[usize]) -> &TensorRank0 {
-        &self[indices[0]][indices[1]]
-    }
-    fn get_at_mut(&mut self, indices: &[usize]) -> &mut TensorRank0 {
-        &mut self[indices[0]][indices[1]]
-    }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }
