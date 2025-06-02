@@ -832,7 +832,7 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
             ($integrator: ident) => {
                 #[test]
                 fn minimize() -> Result<(), TestError> {
-                    let (velocity, a, b) = applied_velocities();
+                    let (a, b) = applied_velocities();
                     let block = get_block();
                     let (times, coordinates_history, velocities_history) = block.minimize(
                         EqualityConstraint::Linear(a, b),
@@ -841,11 +841,7 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                     )?;
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model::new($constitutive_model_parameters)
-                            .minimize_uniaxial(
-                                |_: Scalar| velocity,
-                                $integrator::default(),
-                                times.as_slice(),
-                            )?;
+                            .minimize(applied_velocity(&times), $integrator::default())?;
                     coordinates_history
                         .iter()
                         .zip(
@@ -891,7 +887,7 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                 }
                 #[test]
                 fn root() -> Result<(), TestError> {
-                    let (velocity, a, b) = applied_velocities();
+                    let (a, b) = applied_velocities();
                     let block = get_block();
                     let (times, coordinates_history, velocities_history) = block.root(
                         EqualityConstraint::Linear(a, b),
@@ -899,11 +895,8 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                         &[0.0, 1.0],
                     )?;
                     let (_, deformation_gradients, deformation_gradient_rates) =
-                        $constitutive_model::new($constitutive_model_parameters).root_uniaxial(
-                            |_: Scalar| velocity,
-                            $integrator::default(),
-                            times.as_slice(),
-                        )?;
+                        $constitutive_model::new($constitutive_model_parameters)
+                            .root(applied_velocity(&times), $integrator::default())?;
                     coordinates_history
                         .iter()
                         .zip(

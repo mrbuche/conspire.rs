@@ -4,7 +4,7 @@ use conspire::{
     constitutive::{
         Constitutive,
         solid::{
-            AppliedLoad,
+            elastic::AppliedLoad,
             hyperelastic::{Hyperelastic, NeoHookean},
         },
     },

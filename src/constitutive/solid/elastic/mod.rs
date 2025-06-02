@@ -17,6 +17,14 @@ use crate::math::{
     optimize::{EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError},
 };
 
+/// Possible applied loads.
+pub enum AppliedLoad {
+    /// Uniaxial stress given $`F_{11}`$.
+    UniaxialStress(Scalar),
+    /// Biaxial stress given $`F_{11}`$ and $`F_{22}`$.
+    BiaxialStress(Scalar, Scalar),
+}
+
 /// Required methods for elastic constitutive models.
 pub trait Elastic
 where

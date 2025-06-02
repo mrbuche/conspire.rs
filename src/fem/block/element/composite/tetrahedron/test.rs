@@ -159,7 +159,7 @@ fn get_velocities_block() -> NodalVelocitiesBlock {
 }
 
 fn equality_constraint() -> (
-    crate::constitutive::solid::AppliedLoad,
+    crate::constitutive::solid::elastic::AppliedLoad,
     crate::math::Matrix,
     crate::math::Vector,
 ) {
@@ -209,13 +209,22 @@ fn equality_constraint() -> (
     b[19] = -0.5;
     b[20] = -0.5;
     (
-        crate::constitutive::solid::AppliedLoad::UniaxialStress(strain + 1.0),
+        crate::constitutive::solid::elastic::AppliedLoad::UniaxialStress(strain + 1.0),
         a,
         b,
     )
 }
 
-fn applied_velocities() -> (Scalar, crate::math::Matrix, crate::math::Vector) {
+fn applied_velocity(
+    times: &crate::math::Vector,
+) -> crate::constitutive::solid::viscoelastic::AppliedLoad {
+    crate::constitutive::solid::viscoelastic::AppliedLoad::UniaxialStress(
+        |_| 0.13,
+        times.as_slice(),
+    )
+}
+
+fn applied_velocities() -> (crate::math::Matrix, crate::math::Vector) {
     let velocity = 0.13;
     let mut a = crate::math::Matrix::zero(21, 105);
     a[0][0] = 1.0;
@@ -261,7 +270,7 @@ fn applied_velocities() -> (Scalar, crate::math::Matrix, crate::math::Vector) {
     b[18] = 0.0;
     b[19] = 0.0;
     b[20] = 0.0;
-    (velocity, a, b)
+    (a, b)
 }
 
 test_finite_element!(Tetrahedron);
