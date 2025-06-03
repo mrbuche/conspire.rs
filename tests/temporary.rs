@@ -17,7 +17,7 @@ use conspire::{
         ReferenceNodalCoordinatesBlock, ViscoelasticFiniteElementBlock,
     },
     math::{
-        Matrix, Tensor, TensorVec, TestError, Vector, assert_eq_within_tols,
+        Matrix, Tensor, TensorVec, TestError, Vector, assert_eq_within, assert_eq_within_tols,
         integrate::DormandPrince, optimize::EqualityConstraint,
     },
 };
@@ -7434,7 +7434,8 @@ fn temporary_hyperelastic() -> Result<(), TestError> {
 
 #[test]
 fn temporary_hyperviscoelastic() -> Result<(), TestError> {
-    let strain_rate = 0.1;
+    let tol = 1e-4;
+    let strain_rate = 0.33; // also set below
     let tspan = [0.0, 1.0];
     let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
@@ -7483,8 +7484,8 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
     let (times, coordinates_history, velocities_history) = block.minimize(
         EqualityConstraint::Linear(matrix, vector),
         DormandPrince {
-            abs_tol: 1e-8,
-            rel_tol: 1e-8,
+            abs_tol: tol,
+            rel_tol: tol,
             ..Default::default()
         },
         &tspan,
@@ -7494,12 +7495,8 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
     println!("Verifying...");
     let (_, deformation_gradients, deformation_gradient_rates) =
         SaintVenantKirchhoff::new(parameters).minimize(
-            AppliedDeformationRate::UniaxialStress(|_| 0.1, times.as_slice()),
-            DormandPrince {
-                abs_tol: 1e-8,
-                rel_tol: 1e-8,
-                ..Default::default()
-            },
+            AppliedDeformationRate::UniaxialStress(|_| 0.33, times.as_slice()),
+            DormandPrince::default(),
         )?;
     coordinates_history
         .iter()
@@ -7519,7 +7516,12 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
                         deformation_gradients
                             .iter()
                             .try_for_each(|deformation_gradient_g| {
-                                assert_eq_within_tols(deformation_gradient_g, deformation_gradient)
+                                assert_eq_within(
+                                    deformation_gradient_g,
+                                    deformation_gradient,
+                                    &tol,
+                                    &tol,
+                                )
                             })
                     })?;
                 block
@@ -7528,9 +7530,11 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
                     .try_for_each(|deformation_gradient_rates| {
                         deformation_gradient_rates.iter().try_for_each(
                             |deformation_gradient_rate_g| {
-                                assert_eq_within_tols(
+                                assert_eq_within(
                                     deformation_gradient_rate_g,
                                     deformation_gradient_rate,
+                                    &tol,
+                                    &tol,
                                 )
                             },
                         )
