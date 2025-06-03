@@ -7444,7 +7444,7 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
         .flatten()
         .for_each(|entry| *entry -= 1);
     let num_nodes = ref_coordinates.len();
-    let parameters = &[13.0, 3.0, 0.0, 1.0];
+    let parameters = &[13.0, 3.0, 0.1, 1.0];
     let block = ElementBlock::<LinearTetrahedron<SaintVenantKirchhoff<_>>, N>::new(
         parameters,
         connectivity,
