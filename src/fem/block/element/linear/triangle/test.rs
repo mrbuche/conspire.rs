@@ -171,14 +171,14 @@ fn applied_velocity(
     times: &crate::math::Vector,
 ) -> crate::constitutive::solid::viscoelastic::AppliedLoad {
     crate::constitutive::solid::viscoelastic::AppliedLoad::BiaxialStress(
-        |_| 0.55,
+        |_| 0.13,
         |_| 0.0,
         times.as_slice(),
     )
 }
 
 fn applied_velocities() -> (crate::math::Matrix, crate::math::Vector) {
-    let velocity = 0.55;
+    let velocity = 0.13;
     let mut a = crate::math::Matrix::zero(25, 48);
     a[0][0] = 1.0;
     a[1][21] = 1.0;
