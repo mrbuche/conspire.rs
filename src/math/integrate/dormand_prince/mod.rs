@@ -111,13 +111,15 @@ where
         time: &[TensorRank0],
         initial_condition: Y,
     ) -> Result<(Vector, U, U), IntegrationError> {
+        let t_0 = time[0];
+        let t_f = time[time.len() - 1];
         if time.len() < 2 {
             return Err(IntegrationError::LengthTimeLessThanTwo);
-        } else if time[0] >= time[time.len() - 1] {
+        } else if t_0 >= t_f {
             return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
         }
-        let mut t = time[0];
-        let mut dt = self.dt_init * time[time.len() - 1];
+        let mut t = t_0;
+        let mut dt = self.dt_init * t_f;
         let mut e;
         let mut k_1 = function(t, &initial_condition)?;
         let mut k_2;
@@ -127,14 +129,14 @@ where
         let mut k_6;
         let mut k_7;
         let mut t_sol = Vector::zero(0);
-        t_sol.push(time[0]);
+        t_sol.push(t_0);
         let mut y = initial_condition.clone();
         let mut y_sol = U::zero(0);
         y_sol.push(initial_condition.clone());
         let mut dydt_sol = U::zero(0);
         dydt_sol.push(k_1.clone());
         let mut y_trial;
-        while t < time[time.len() - 1] {
+        while t < t_f {
             k_2 = function(t + 0.2 * dt, &(&k_1 * (0.2 * dt) + &y))?;
             k_3 = function(
                 t + 0.3 * dt,
@@ -177,7 +179,10 @@ where
                 y_sol.push(y.clone());
                 dydt_sol.push(k_1.clone());
             }
-            dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn);
+            if e > 0.0 {
+                dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn)
+            }
+            dt = dt.min(t_f - t)
         }
         if time.len() > 2 {
             let t_int = Vector::new(time);
@@ -216,39 +221,46 @@ where
         let mut dydt_int = U::zero(0);
         let mut y_trial;
         for time_k in time.iter() {
-            i = tp.iter().position(|tp_i| tp_i > time_k).unwrap();
-            t = tp[i - 1];
-            y = yp[i - 1].clone();
-            dt = time_k - t;
-            k_1 = function(t, &y)?;
-            k_2 = function(t + 0.2 * dt, &(&k_1 * (0.2 * dt) + &y))?;
-            k_3 = function(
-                t + 0.3 * dt,
-                &(&k_1 * (0.075 * dt) + &k_2 * (0.225 * dt) + &y),
-            )?;
-            k_4 = function(
-                t + 0.8 * dt,
-                &(&k_1 * (C_44_45 * dt) - &k_2 * (C_56_15 * dt) + &k_3 * (C_32_9 * dt) + &y),
-            )?;
-            k_5 = function(
-                t + C_8_9 * dt,
-                &(&k_1 * (C_19372_6561 * dt) - &k_2 * (C_25360_2187 * dt)
-                    + &k_3 * (C_64448_6561 * dt)
-                    - &k_4 * (C_212_729 * dt)
-                    + &y),
-            )?;
-            k_6 = function(
-                t + dt,
-                &(&k_1 * (C_9017_3168 * dt) - &k_2 * (C_355_33 * dt)
-                    + &k_3 * (C_46732_5247 * dt)
-                    + &k_4 * (C_49_176 * dt)
-                    - &k_5 * (C_5103_18656 * dt)
-                    + &y),
-            )?;
-            y_trial = (&k_1 * C_35_384 + &k_3 * C_500_1113 + &k_4 * C_125_192 - &k_5 * C_2187_6784
-                + &k_6 * C_11_84)
-                * dt
-                + &y;
+            i = tp.iter().position(|tp_i| tp_i >= time_k).unwrap();
+            if time_k == &tp[i] {
+                t = tp[i];
+                y_trial = yp[i].clone();
+                dt = 0.0;
+            } else {
+                t = tp[i - 1];
+                y = yp[i - 1].clone();
+                dt = time_k - t;
+                k_1 = function(t, &y)?;
+                k_2 = function(t + 0.2 * dt, &(&k_1 * (0.2 * dt) + &y))?;
+                k_3 = function(
+                    t + 0.3 * dt,
+                    &(&k_1 * (0.075 * dt) + &k_2 * (0.225 * dt) + &y),
+                )?;
+                k_4 = function(
+                    t + 0.8 * dt,
+                    &(&k_1 * (C_44_45 * dt) - &k_2 * (C_56_15 * dt) + &k_3 * (C_32_9 * dt) + &y),
+                )?;
+                k_5 = function(
+                    t + C_8_9 * dt,
+                    &(&k_1 * (C_19372_6561 * dt) - &k_2 * (C_25360_2187 * dt)
+                        + &k_3 * (C_64448_6561 * dt)
+                        - &k_4 * (C_212_729 * dt)
+                        + &y),
+                )?;
+                k_6 = function(
+                    t + dt,
+                    &(&k_1 * (C_9017_3168 * dt) - &k_2 * (C_355_33 * dt)
+                        + &k_3 * (C_46732_5247 * dt)
+                        + &k_4 * (C_49_176 * dt)
+                        - &k_5 * (C_5103_18656 * dt)
+                        + &y),
+                )?;
+                y_trial = (&k_1 * C_35_384 + &k_3 * C_500_1113 + &k_4 * C_125_192
+                    - &k_5 * C_2187_6784
+                    + &k_6 * C_11_84)
+                    * dt
+                    + &y;
+            }
             dydt_int.push(function(t + dt, &y_trial)?);
             y_int.push(y_trial);
         }

@@ -7434,8 +7434,8 @@ fn temporary_hyperelastic() -> Result<(), TestError> {
 
 #[test]
 fn temporary_hyperviscoelastic() -> Result<(), TestError> {
-    let tol = 1e-4;
-    let strain_rate = 0.33; // also set below
+    let tol = 1e-6;
+    let strain_rate = 1.0; // also set below
     let tspan = [0.0, 1.0];
     let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
@@ -7444,7 +7444,7 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
         .flatten()
         .for_each(|entry| *entry -= 1);
     let num_nodes = ref_coordinates.len();
-    let parameters = &[13.0, 3.0, 11.0, 1.0];
+    let parameters = &[13.0, 3.0, 0.0, 1.0];
     let block = ElementBlock::<LinearTetrahedron<SaintVenantKirchhoff<_>>, N>::new(
         parameters,
         connectivity,
@@ -7495,7 +7495,7 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
     println!("Verifying...");
     let (_, deformation_gradients, deformation_gradient_rates) =
         SaintVenantKirchhoff::new(parameters).minimize(
-            AppliedDeformationRate::UniaxialStress(|_| 0.33, times.as_slice()),
+            AppliedDeformationRate::UniaxialStress(|_| 1.0, times.as_slice()),
             DormandPrince::default(),
         )?;
     coordinates_history
@@ -7516,6 +7516,7 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
                         deformation_gradients
                             .iter()
                             .try_for_each(|deformation_gradient_g| {
+                                println!("{}", deformation_gradient);
                                 assert_eq_within(
                                     deformation_gradient_g,
                                     deformation_gradient,
