@@ -48,7 +48,7 @@ where
                 let mut step_trial;
                 for _ in 0..self.max_steps {
                     residual = function(&solution)?;
-                    if residual.norm() < self.abs_tol {
+                    if residual.norm_inf() < self.abs_tol {
                         return Ok(solution);
                     } else {
                         solution_change -= &solution;
@@ -105,7 +105,7 @@ where
                 let mut step_trial;
                 for _ in 0..self.max_steps {
                     residual = jacobian(&solution)?;
-                    if residual.norm() < self.abs_tol {
+                    if residual.norm_inf() < self.abs_tol {
                         return Ok(solution);
                     } else {
                         solution_change -= &solution;

@@ -22,8 +22,8 @@ pub type Ode89 = Verner9;
 // consider symplectic integrators for dynamics eventually
 
 use super::{
-    Tensor, TensorArray, TensorRank0, TensorVec, Vector, interpolate::InterpolateSolution,
-    optimize::OptimizeError,
+    Tensor, TensorArray, TensorRank0, TensorVec, TestError, Vector,
+    interpolate::InterpolateSolution, optimize::OptimizeError,
 };
 use crate::defeat_message;
 use std::{
@@ -129,5 +129,13 @@ impl Display for IntegrationError {
 impl From<OptimizeError> for IntegrationError {
     fn from(_error: OptimizeError) -> Self {
         todo!()
+    }
+}
+
+impl From<IntegrationError> for TestError {
+    fn from(error: IntegrationError) -> Self {
+        TestError {
+            message: error.to_string(),
+        }
     }
 }

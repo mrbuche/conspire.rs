@@ -3,9 +3,9 @@
 mod block;
 
 pub use block::{
-    ElasticFiniteElementBlock, ElementBlock, FiniteElementBlock, FiniteElementBlockMethods,
-    HyperelasticFiniteElementBlock, HyperviscoelasticFiniteElementBlock, SurfaceFiniteElementBlock,
-    ViscoelasticFiniteElementBlock,
+    ElasticFiniteElementBlock, ElasticHyperviscousFiniteElementBlock, ElementBlock,
+    FiniteElementBlock, FiniteElementBlockMethods, HyperelasticFiniteElementBlock,
+    HyperviscoelasticFiniteElementBlock, SurfaceFiniteElementBlock, ViscoelasticFiniteElementBlock,
     element::{
         ElasticFiniteElement, FiniteElement, FiniteElementMethods, HyperelasticFiniteElement,
         HyperviscoelasticFiniteElement, SurfaceFiniteElement, ViscoelasticFiniteElement,
