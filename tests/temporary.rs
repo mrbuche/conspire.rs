@@ -5,6 +5,7 @@ use conspire::{
         Constitutive,
         solid::{
             elastic::AppliedLoad as AppliedDeformation,
+            elastic_hyperviscous::ElasticHyperviscous,
             hyperelastic::{Hyperelastic, NeoHookean},
             hyperviscoelastic::SaintVenantKirchhoff,
             viscoelastic::AppliedLoad as AppliedDeformationRate,
@@ -13,7 +14,7 @@ use conspire::{
     fem::{
         Connectivity, ElasticHyperviscousFiniteElementBlock, ElementBlock, FiniteElementBlock,
         FiniteElementBlockMethods, HyperelasticFiniteElementBlock, LinearTetrahedron,
-        ReferenceNodalCoordinatesBlock,
+        ReferenceNodalCoordinatesBlock, ViscoelasticFiniteElementBlock,
     },
     math::{
         Matrix, Tensor, TensorVec, TestError, Vector, assert_eq_within_tols,
@@ -7479,7 +7480,7 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
     vector[length - 1] = 0.0;
     let mut time = std::time::Instant::now();
     println!("Solving...");
-    let solution = block.minimize(
+    let (times, coordinates_history, velocities_history) = block.minimize(
         EqualityConstraint::Linear(matrix, vector),
         DormandPrince {
             abs_tol: 1e-8,
@@ -7488,6 +7489,54 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
         },
         &tspan,
     )?;
+    println!("Done ({:?}).", time.elapsed());
+    time = std::time::Instant::now();
+    println!("Verifying...");
+    let (_, deformation_gradients, deformation_gradient_rates) =
+        SaintVenantKirchhoff::new(parameters).minimize(
+            AppliedDeformationRate::UniaxialStress(|_| 0.1, times.as_slice()),
+            DormandPrince {
+                abs_tol: 1e-8,
+                rel_tol: 1e-8,
+                ..Default::default()
+            },
+        )?;
+    coordinates_history
+        .iter()
+        .zip(
+            velocities_history.iter().zip(
+                deformation_gradients
+                    .iter()
+                    .zip(deformation_gradient_rates.iter()),
+            ),
+        )
+        .try_for_each(
+            |(coordinates, (velocities, (deformation_gradient, deformation_gradient_rate)))| {
+                block
+                    .deformation_gradients(coordinates)
+                    .iter()
+                    .try_for_each(|deformation_gradients| {
+                        deformation_gradients
+                            .iter()
+                            .try_for_each(|deformation_gradient_g| {
+                                assert_eq_within_tols(deformation_gradient_g, deformation_gradient)
+                            })
+                    })?;
+                block
+                    .deformation_gradient_rates(coordinates, velocities)
+                    .iter()
+                    .try_for_each(|deformation_gradient_rates| {
+                        deformation_gradient_rates.iter().try_for_each(
+                            |deformation_gradient_rate_g| {
+                                assert_eq_within_tols(
+                                    deformation_gradient_rate_g,
+                                    deformation_gradient_rate,
+                                )
+                            },
+                        )
+                    })
+            },
+        )?;
     println!("Done ({:?}).", time.elapsed());
     Ok(())
 }
