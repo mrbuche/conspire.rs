@@ -5,7 +5,7 @@ use crate::{
 pub const ALMANSIHAMELPARAMETERS: &[Scalar; 4] = &[
     ALMANSIHAMELPARAMETERSELASTIC[0],
     ALMANSIHAMELPARAMETERSELASTIC[1],
-    0.1,
+    11.0,
     1.0,
 ];
 
