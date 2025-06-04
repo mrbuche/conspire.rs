@@ -82,7 +82,7 @@ where
                                 .skip(num_variables)
                                 .for_each(|tangent_ij| *tangent_ij = 0.0)
                         });
-                    if residual.norm() < self.abs_tol {
+                    if residual.norm_inf() < self.abs_tol {
                         return Ok(solution);
                     } else {
                         solution
@@ -97,7 +97,7 @@ where
                 for _ in 0..self.max_steps {
                     residual = function(&solution)?;
                     tangent = jacobian(&solution)?;
-                    if residual.norm() < self.abs_tol {
+                    if residual.norm_inf() < self.abs_tol {
                         return Ok(solution);
                     } else {
                         solution -= residual / tangent;
@@ -112,7 +112,7 @@ where
     }
 }
 
-impl<F, H, J, X> SecondOrderOptimization<F, H, J, X> for NewtonRaphson
+impl<F, J, H, X> SecondOrderOptimization<F, J, H, X> for NewtonRaphson
 where
     H: Hessian,
     J: Jacobian + Div<H, Output = X>,
@@ -155,7 +155,7 @@ where
                         &mut residual,
                     );
                     hessian(&solution)?.fill_into(&mut tangent);
-                    if residual.norm() < self.abs_tol {
+                    if residual.norm_inf() < self.abs_tol {
                         return Ok(solution);
                     } else if let Some(ref band) = banded {
                         println!(
@@ -183,7 +183,7 @@ where
                 for _ in 0..self.max_steps {
                     residual = jacobian(&solution)?;
                     tangent = hessian(&solution)?;
-                    if residual.norm() < self.abs_tol {
+                    if residual.norm_inf() < self.abs_tol {
                         if self.check_minimum && !tangent.is_positive_definite() {
                             return Err(OptimizeError::NotMinimum(
                                 format!("{}", solution),

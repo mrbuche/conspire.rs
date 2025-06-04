@@ -4,17 +4,21 @@ use conspire::{
     constitutive::{
         Constitutive,
         solid::{
-            elastic::AppliedLoad,
+            elastic::AppliedLoad as AppliedDeformation,
+            elastic_hyperviscous::{AlmansiHamel, ElasticHyperviscous},
             hyperelastic::{Hyperelastic, NeoHookean},
+            viscoelastic::AppliedLoad as AppliedDeformationRate,
         },
     },
     fem::{
-        Connectivity, ElementBlock, FiniteElementBlock, FiniteElementBlockMethods,
-        HyperelasticFiniteElementBlock, LinearTetrahedron, ReferenceNodalCoordinatesBlock,
+        Connectivity, ElasticHyperviscousFiniteElementBlock, ElementBlock, FiniteElementBlock,
+        FiniteElementBlockMethods, HyperelasticFiniteElementBlock, LinearTetrahedron,
+        ReferenceNodalCoordinatesBlock, ViscoelasticFiniteElementBlock,
     },
     math::{
-        Matrix, Tensor, TensorVec, TestError, Vector, assert_eq_within_tols,
-        optimize::EqualityConstraint,
+        Matrix, Tensor, TensorVec, TestError, Vector, assert_eq_within, assert_eq_within_tols,
+        integrate::DormandPrince,
+        optimize::{EqualityConstraint, NewtonRaphson},
     },
 };
 
@@ -7362,7 +7366,7 @@ fn coordinates() -> ReferenceNodalCoordinatesBlock {
 }
 
 #[test]
-fn temporary() -> Result<(), TestError> {
+fn temporary_hyperelastic() -> Result<(), TestError> {
     let strain = 13.0;
     let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
@@ -7408,12 +7412,17 @@ fn temporary() -> Result<(), TestError> {
     vector[length - 1] = -0.5;
     let mut time = std::time::Instant::now();
     println!("Solving...");
-    let solution = block.minimize(EqualityConstraint::Linear(matrix, vector))?;
+    let solution = block.minimize(
+        EqualityConstraint::Linear(matrix, vector),
+        NewtonRaphson::default(),
+    )?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
     println!("Verifying...");
-    let deformation_gradient =
-        NeoHookean::new(parameters).minimize(AppliedLoad::UniaxialStress(strain + 1.0))?;
+    let deformation_gradient = NeoHookean::new(parameters).minimize(
+        AppliedDeformation::UniaxialStress(strain + 1.0),
+        NewtonRaphson::default(),
+    )?;
     block
         .deformation_gradients(&solution)
         .iter()
@@ -7424,6 +7433,121 @@ fn temporary() -> Result<(), TestError> {
                     assert_eq_within_tols(deformation_gradient_g, &deformation_gradient)
                 })
         })?;
+    println!("Done ({:?}).", time.elapsed());
+    Ok(())
+}
+
+#[test]
+fn temporary_hyperviscoelastic() -> Result<(), TestError> {
+    let tol = 1e-4;
+    let strain_rate = 2.3; // also set below
+    let tspan = [0.0, 1.0];
+    let ref_coordinates = coordinates();
+    let mut connectivity = connectivity();
+    connectivity
+        .iter_mut()
+        .flatten()
+        .for_each(|entry| *entry -= 1);
+    let num_nodes = ref_coordinates.len();
+    let parameters = &[13.0, 3.0, 11.0, 1.0];
+    let block = ElementBlock::<LinearTetrahedron<AlmansiHamel<_>>, N>::new(
+        parameters,
+        connectivity,
+        coordinates(),
+    );
+    let length = ref_coordinates
+        .iter()
+        .filter(|coordinate| coordinate[0].abs() == 0.5)
+        .count()
+        + 3;
+    let width = num_nodes * 3;
+    let mut matrix = Matrix::zero(length, width);
+    let mut vector = Vector::zero(length);
+    let mut index = 0;
+    coordinates()
+        .iter()
+        .enumerate()
+        .for_each(|(node, coordinate)| {
+            if coordinate[0].abs() == 0.5 {
+                matrix[index][3 * node] = 1.0;
+                if coordinate[0] > 0.0 {
+                    vector[index] = strain_rate
+                } else {
+                    vector[index] = 0.0
+                }
+                index += 1;
+            }
+        });
+    matrix[length - 3][132 * 3 + 1] = 1.0;
+    matrix[length - 2][132 * 3 + 2] = 1.0;
+    matrix[length - 1][142 * 3 + 2] = 1.0;
+    vector[length - 3] = 0.0;
+    vector[length - 2] = 0.0;
+    vector[length - 1] = 0.0;
+    let mut time = std::time::Instant::now();
+    println!("Solving...");
+    let (times, coordinates_history, velocities_history) = block.minimize(
+        EqualityConstraint::Linear(matrix, vector),
+        DormandPrince {
+            abs_tol: tol,
+            rel_tol: tol,
+            ..Default::default()
+        },
+        &tspan,
+        NewtonRaphson::default(),
+    )?;
+    println!("Done ({:?}).", time.elapsed());
+    time = std::time::Instant::now();
+    println!("Verifying...");
+    let (_, deformation_gradients, deformation_gradient_rates) = AlmansiHamel::new(parameters)
+        .minimize(
+            AppliedDeformationRate::UniaxialStress(|_| 2.3, times.as_slice()),
+            DormandPrince::default(),
+            NewtonRaphson::default(),
+        )?;
+    coordinates_history
+        .iter()
+        .zip(
+            velocities_history.iter().zip(
+                deformation_gradients
+                    .iter()
+                    .zip(deformation_gradient_rates.iter()),
+            ),
+        )
+        .try_for_each(
+            |(coordinates, (velocities, (deformation_gradient, deformation_gradient_rate)))| {
+                block
+                    .deformation_gradients(coordinates)
+                    .iter()
+                    .try_for_each(|deformation_gradients| {
+                        deformation_gradients
+                            .iter()
+                            .try_for_each(|deformation_gradient_g| {
+                                assert_eq_within(
+                                    deformation_gradient_g,
+                                    deformation_gradient,
+                                    &tol,
+                                    &tol,
+                                )
+                            })
+                    })?;
+                block
+                    .deformation_gradient_rates(coordinates, velocities)
+                    .iter()
+                    .try_for_each(|deformation_gradient_rates| {
+                        deformation_gradient_rates.iter().try_for_each(
+                            |deformation_gradient_rate_g| {
+                                assert_eq_within(
+                                    deformation_gradient_rate_g,
+                                    deformation_gradient_rate,
+                                    &tol,
+                                    &tol,
+                                )
+                            },
+                        )
+                    })
+            },
+        )?;
     println!("Done ({:?}).", time.elapsed());
     Ok(())
 }

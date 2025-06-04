@@ -624,13 +624,15 @@ macro_rules! test_finite_element_block_with_elastic_constitutive_model {
             $constitutive_model,
             $constitutive_model_parameters
         );
+        use crate::math::optimize::NewtonRaphson;
         #[test]
         fn root() -> Result<(), TestError> {
             let (applied_load, a, b) = equality_constraint();
             let block = get_block();
-            let coordinates = block.root(EqualityConstraint::Linear(a, b))?;
-            let deformation_gradient =
-                $constitutive_model::new($constitutive_model_parameters).root(applied_load)?;
+            let coordinates =
+                block.root(EqualityConstraint::Linear(a, b), NewtonRaphson::default())?;
+            let deformation_gradient = $constitutive_model::new($constitutive_model_parameters)
+                .root(applied_load, NewtonRaphson::default())?;
             block
                 .deformation_gradients(&coordinates)
                 .iter()
@@ -664,9 +666,10 @@ macro_rules! test_finite_element_block_with_hyperelastic_constitutive_model {
         fn minimize() -> Result<(), TestError> {
             let (applied_load, a, b) = equality_constraint();
             let block = get_block();
-            let coordinates = block.minimize(EqualityConstraint::Linear(a, b))?;
-            let deformation_gradient =
-                $constitutive_model::new($constitutive_model_parameters).minimize(applied_load)?;
+            let coordinates =
+                block.minimize(EqualityConstraint::Linear(a, b), NewtonRaphson::default())?;
+            let deformation_gradient = $constitutive_model::new($constitutive_model_parameters)
+                .minimize(applied_load, NewtonRaphson::default())?;
             block
                 .deformation_gradients(&coordinates)
                 .iter()
@@ -827,7 +830,10 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
             $constitutive_model,
             $constitutive_model_parameters
         );
-        use crate::math::integrate::{BogackiShampine, DormandPrince, Verner8, Verner9};
+        use crate::math::{
+            integrate::{BogackiShampine, DormandPrince, Verner8, Verner9},
+            optimize::NewtonRaphson,
+        };
         macro_rules! test_with_integrator {
             ($integrator: ident) => {
                 #[test]
@@ -838,10 +844,14 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                         EqualityConstraint::Linear(a, b),
                         $integrator::default(),
                         &[0.0, 1.0],
+                        NewtonRaphson::default(),
                     )?;
                     let (_, deformation_gradients, deformation_gradient_rates) =
-                        $constitutive_model::new($constitutive_model_parameters)
-                            .minimize(applied_velocity(&times), $integrator::default())?;
+                        $constitutive_model::new($constitutive_model_parameters).minimize(
+                            applied_velocity(&times),
+                            $integrator::default(),
+                            NewtonRaphson::default(),
+                        )?;
                     coordinates_history
                         .iter()
                         .zip(
@@ -893,10 +903,14 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                         EqualityConstraint::Linear(a, b),
                         $integrator::default(),
                         &[0.0, 1.0],
+                        NewtonRaphson::default(),
                     )?;
                     let (_, deformation_gradients, deformation_gradient_rates) =
-                        $constitutive_model::new($constitutive_model_parameters)
-                            .root(applied_velocity(&times), $integrator::default())?;
+                        $constitutive_model::new($constitutive_model_parameters).root(
+                            applied_velocity(&times),
+                            $integrator::default(),
+                            NewtonRaphson::default(),
+                        )?;
                     coordinates_history
                         .iter()
                         .zip(

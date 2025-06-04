@@ -49,8 +49,6 @@ pub struct BogackiShampine {
     pub dt_beta: TensorRank0,
     /// Exponent for adaptive time steps.
     pub dt_expn: TensorRank0,
-    /// Initial relative time step.
-    pub dt_init: TensorRank0,
 }
 
 impl Default for BogackiShampine {
@@ -60,7 +58,6 @@ impl Default for BogackiShampine {
             rel_tol: REL_TOL,
             dt_beta: 0.9,
             dt_expn: 3.0,
-            dt_init: 0.1,
         }
     }
 }
@@ -78,27 +75,29 @@ where
         time: &[TensorRank0],
         initial_condition: Y,
     ) -> Result<(Vector, U, U), IntegrationError> {
+        let t_0 = time[0];
+        let t_f = time[time.len() - 1];
         if time.len() < 2 {
             return Err(IntegrationError::LengthTimeLessThanTwo);
-        } else if time[0] >= time[time.len() - 1] {
+        } else if t_0 >= t_f {
             return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
         }
-        let mut t = time[0];
-        let mut dt = self.dt_init * time[time.len() - 1];
+        let mut t = t_0;
+        let mut dt = t_f;
         let mut e;
         let mut k_1 = function(t, &initial_condition)?;
         let mut k_2;
         let mut k_3;
         let mut k_4;
         let mut t_sol = Vector::zero(0);
-        t_sol.push(time[0]);
+        t_sol.push(t_0);
         let mut y = initial_condition.clone();
         let mut y_sol = U::zero(0);
         y_sol.push(initial_condition.clone());
         let mut dydt_sol = U::zero(0);
         dydt_sol.push(k_1.clone());
         let mut y_trial;
-        while t < time[time.len() - 1] {
+        while t < t_f {
             k_2 = function(t + 0.5 * dt, &(&k_1 * (0.5 * dt) + &y))?;
             k_3 = function(t + 0.75 * dt, &(&k_2 * (0.75 * dt) + &y))?;
             y_trial = (&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y;
@@ -112,7 +111,10 @@ where
                 y_sol.push(y.clone());
                 dydt_sol.push(k_1.clone());
             }
-            dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn);
+            if e > 0.0 {
+                dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn)
+            }
+            dt = dt.min(t_f - t)
         }
         if time.len() > 2 {
             let t_int = Vector::new(time);
@@ -148,14 +150,20 @@ where
         let mut dydt_int = U::zero(0);
         let mut y_trial;
         for time_k in time.iter() {
-            i = tp.iter().position(|tp_i| tp_i > time_k).unwrap();
-            t = tp[i - 1];
-            y = yp[i - 1].clone();
-            dt = time_k - t;
-            k_1 = function(t, &y)?;
-            k_2 = function(t + 0.5 * dt, &(&k_1 * (0.5 * dt) + &y))?;
-            k_3 = function(t + 0.75 * dt, &(&k_2 * (0.75 * dt) + &y))?;
-            y_trial = (&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y;
+            i = tp.iter().position(|tp_i| tp_i >= time_k).unwrap();
+            if time_k == &tp[i] {
+                t = tp[i];
+                y_trial = yp[i].clone();
+                dt = 0.0;
+            } else {
+                t = tp[i - 1];
+                y = yp[i - 1].clone();
+                dt = time_k - t;
+                k_1 = function(t, &y)?;
+                k_2 = function(t + 0.5 * dt, &(&k_1 * (0.5 * dt) + &y))?;
+                k_3 = function(t + 0.75 * dt, &(&k_2 * (0.75 * dt) + &y))?;
+                y_trial = (&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y;
+            }
             dydt_int.push(function(t + dt, &y_trial)?);
             y_int.push(y_trial);
         }

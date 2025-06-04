@@ -65,11 +65,13 @@ pub fn assert_eq_from_fd<'a, T: Display + ErrorTensor>(
     }
 }
 
-pub fn assert_eq_within_tols<'a, T: Display + ErrorTensor>(
+pub fn assert_eq_within<'a, T: Display + ErrorTensor>(
     value_1: &'a T,
     value_2: &'a T,
+    tol_abs: &TensorRank0,
+    tol_rel: &TensorRank0,
 ) -> Result<(), TestError> {
-    if let Some(error_count) = value_1.error(value_2, &ABS_TOL, &REL_TOL) {
+    if let Some(error_count) = value_1.error(value_2, tol_abs, tol_rel) {
         Err(TestError {
             message: format!(
                 "\n\x1b[1;91mAssertion `left ≈= right` failed in {} places.\n\x1b[0;91m  left: {}\n right: {}\x1b[0m",
@@ -79,6 +81,13 @@ pub fn assert_eq_within_tols<'a, T: Display + ErrorTensor>(
     } else {
         Ok(())
     }
+}
+
+pub fn assert_eq_within_tols<'a, T: Display + ErrorTensor>(
+    value_1: &'a T,
+    value_2: &'a T,
+) -> Result<(), TestError> {
+    assert_eq_within(value_1, value_2, &ABS_TOL, &REL_TOL)
 }
 
 pub struct TestError {

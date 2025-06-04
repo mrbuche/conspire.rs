@@ -168,6 +168,9 @@ impl Tensor for Vector {
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
     }
+    fn norm_inf(&self) -> TensorRank0 {
+        self.iter().fold(0.0, |acc, entry| entry.abs().max(acc))
+    }
 }
 
 impl Solution for Vector {

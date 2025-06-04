@@ -14,8 +14,7 @@ use crate::{
         Banded,
         integrate::{Explicit, IntegrationError},
         optimize::{
-            EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError,
-            SecondOrderOptimization,
+            EqualityConstraint, FirstOrderRootFinding, OptimizeError, SecondOrderOptimization,
         },
     },
     mechanics::Times,
@@ -195,6 +194,11 @@ where
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
+        solver: impl FirstOrderRootFinding<
+            NodalForcesBlock,
+            NodalStiffnessesBlock,
+            NodalCoordinatesBlock,
+        >,
     ) -> Result<NodalCoordinatesBlock, OptimizeError>;
 }
 
@@ -211,6 +215,12 @@ where
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
+        solver: impl SecondOrderOptimization<
+            Scalar,
+            NodalForcesBlock,
+            NodalStiffnessesBlock,
+            NodalCoordinatesBlock,
+        >,
     ) -> Result<NodalCoordinatesBlock, OptimizeError>;
 }
 
@@ -244,12 +254,22 @@ where
         equality_constraint: EqualityConstraint,
         integrator: impl Explicit<NodalVelocitiesBlock, NodalVelocitiesHistory>,
         time: &[Scalar],
+        solver: impl FirstOrderRootFinding<
+            NodalForcesBlock,
+            NodalStiffnessesBlock,
+            NodalCoordinatesBlock,
+        >,
     ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError>;
     #[doc(hidden)]
     fn root_inner(
         &self,
         equality_constraint: EqualityConstraint,
         nodal_coordinates: &NodalCoordinatesBlock,
+        solver: &impl FirstOrderRootFinding<
+            NodalForcesBlock,
+            NodalStiffnessesBlock,
+            NodalCoordinatesBlock,
+        >,
     ) -> Result<NodalVelocitiesBlock, OptimizeError>;
 }
 
@@ -274,12 +294,24 @@ where
         equality_constraint: EqualityConstraint,
         integrator: impl Explicit<NodalVelocitiesBlock, NodalVelocitiesHistory>,
         time: &[Scalar],
+        solver: impl SecondOrderOptimization<
+            Scalar,
+            NodalForcesBlock,
+            NodalStiffnessesBlock,
+            NodalCoordinatesBlock,
+        >,
     ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError>;
     #[doc(hidden)]
     fn minimize_inner(
         &self,
         equality_constraint: EqualityConstraint,
         nodal_coordinates: &NodalCoordinatesBlock,
+        solver: &impl SecondOrderOptimization<
+            Scalar,
+            NodalForcesBlock,
+            NodalStiffnessesBlock,
+            NodalCoordinatesBlock,
+        >,
     ) -> Result<NodalVelocitiesBlock, OptimizeError>;
 }
 
@@ -351,10 +383,12 @@ where
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
+        solver: impl FirstOrderRootFinding<
+            NodalForcesBlock,
+            NodalStiffnessesBlock,
+            NodalCoordinatesBlock,
+        >,
     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
-        let solver = NewtonRaphson {
-            ..Default::default()
-        };
         solver.root(
             |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
             |nodal_coordinates: &NodalCoordinatesBlock| {
@@ -390,15 +424,18 @@ where
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
+        solver: impl SecondOrderOptimization<
+            Scalar,
+            NodalForcesBlock,
+            NodalStiffnessesBlock,
+            NodalCoordinatesBlock,
+        >,
     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
         let banded = band(
             self.connectivity(),
             &equality_constraint,
             self.coordinates().len(),
         );
-        let solver = NewtonRaphson {
-            ..Default::default()
-        };
         solver.minimize(
             |nodal_coordinates: &NodalCoordinatesBlock| {
                 Ok(self.helmholtz_free_energy(nodal_coordinates)?)
@@ -502,10 +539,15 @@ where
         equality_constraint: EqualityConstraint,
         integrator: impl Explicit<NodalVelocitiesBlock, NodalVelocitiesHistory>,
         time: &[Scalar],
+        solver: impl FirstOrderRootFinding<
+            NodalForcesBlock,
+            NodalStiffnessesBlock,
+            NodalCoordinatesBlock,
+        >,
     ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError> {
         integrator.integrate(
             |_: Scalar, nodal_coordinates: &NodalCoordinatesBlock| {
-                Ok(self.root_inner(equality_constraint.clone(), nodal_coordinates)?)
+                Ok(self.root_inner(equality_constraint.clone(), nodal_coordinates, &solver)?)
             },
             time,
             self.coordinates().clone().into(),
@@ -516,11 +558,13 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         nodal_coordinates: &NodalCoordinatesBlock,
+        solver: &impl FirstOrderRootFinding<
+            NodalForcesBlock,
+            NodalStiffnessesBlock,
+            NodalCoordinatesBlock,
+        >,
     ) -> Result<NodalVelocitiesBlock, OptimizeError> {
         let num_coords = nodal_coordinates.len();
-        let solver = NewtonRaphson {
-            ..Default::default()
-        };
         solver.root(
             |nodal_velocities: &NodalVelocitiesBlock| {
                 Ok(self.nodal_forces(nodal_coordinates, nodal_velocities)?)
@@ -578,10 +622,16 @@ where
         equality_constraint: EqualityConstraint,
         integrator: impl Explicit<NodalVelocitiesBlock, NodalVelocitiesHistory>,
         time: &[Scalar],
+        solver: impl SecondOrderOptimization<
+            Scalar,
+            NodalForcesBlock,
+            NodalStiffnessesBlock,
+            NodalCoordinatesBlock,
+        >,
     ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError> {
         integrator.integrate(
             |_: Scalar, nodal_coordinates: &NodalCoordinatesBlock| {
-                Ok(self.minimize_inner(equality_constraint.clone(), nodal_coordinates)?)
+                Ok(self.minimize_inner(equality_constraint.clone(), nodal_coordinates, &solver)?)
             },
             time,
             self.coordinates().clone().into(),
@@ -592,12 +642,15 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         nodal_coordinates: &NodalCoordinatesBlock,
+        solver: &impl SecondOrderOptimization<
+            Scalar,
+            NodalForcesBlock,
+            NodalStiffnessesBlock,
+            NodalCoordinatesBlock,
+        >,
     ) -> Result<NodalVelocitiesBlock, OptimizeError> {
         let num_coords = nodal_coordinates.len();
         let banded = band(self.connectivity(), &equality_constraint, num_coords);
-        let solver = NewtonRaphson {
-            ..Default::default()
-        };
         solver.minimize(
             |nodal_velocities: &NodalVelocitiesBlock| {
                 Ok(self.dissipation_potential(nodal_coordinates, nodal_velocities)?)
