@@ -150,8 +150,6 @@ pub struct Verner9 {
     pub dt_beta: TensorRank0,
     /// Exponent for adaptive time steps.
     pub dt_expn: TensorRank0,
-    /// Initial relative time step.
-    pub dt_init: TensorRank0,
 }
 
 impl Default for Verner9 {
@@ -161,7 +159,6 @@ impl Default for Verner9 {
             rel_tol: REL_TOL,
             dt_beta: 0.9,
             dt_expn: 9.0,
-            dt_init: 0.1,
         }
     }
 }
@@ -187,7 +184,7 @@ where
             return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
         }
         let mut t = t_0;
-        let mut dt = self.dt_init * t_f;
+        let mut dt = t_f;
         let mut e;
         let mut k_1 = function(t, &initial_condition)?;
         let mut k_2;

@@ -17,7 +17,7 @@ use super::{super::fluid::viscous::Viscous, *};
 use crate::math::{
     Matrix, TensorVec, Vector,
     integrate::{Explicit, IntegrationError},
-    optimize::{EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError},
+    optimize::{EqualityConstraint, FirstOrderRootFinding, OptimizeError},
 };
 
 /// Possible applied loads.
@@ -144,6 +144,11 @@ where
         &self,
         applied_load: AppliedLoad,
         integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
+        solver: impl FirstOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+        >,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), IntegrationError> {
         match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_rate_11, time) => integrator
@@ -152,6 +157,7 @@ where
                         Ok(self.root_uniaxial_inner(
                             deformation_gradient,
                             deformation_gradient_rate_11(t),
+                            &solver,
                         )?)
                     },
                     time,
@@ -167,6 +173,7 @@ where
                         deformation_gradient,
                         deformation_gradient_rate_11(t),
                         deformation_gradient_rate_22(t),
+                        &solver,
                     )?)
                 },
                 time,
@@ -179,10 +186,12 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate_11: Scalar,
+        solver: &impl FirstOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+        >,
     ) -> Result<DeformationGradientRate, OptimizeError> {
-        let solver = NewtonRaphson {
-            ..Default::default()
-        };
         let mut matrix = Matrix::zero(4, 9);
         let mut vector = Vector::zero(4);
         matrix[0][0] = 1.0;
@@ -213,10 +222,12 @@ where
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate_11: Scalar,
         deformation_gradient_rate_22: Scalar,
+        solver: &impl FirstOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+        >,
     ) -> Result<DeformationGradientRate, OptimizeError> {
-        let solver = NewtonRaphson {
-            ..Default::default()
-        };
         let mut matrix = Matrix::zero(5, 9);
         let mut vector = Vector::zero(5);
         matrix[0][0] = 1.0;

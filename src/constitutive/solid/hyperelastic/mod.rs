@@ -25,7 +25,7 @@ use super::{
 };
 use crate::math::{
     Matrix, TensorVec, Vector,
-    optimize::{EqualityConstraint, NewtonRaphson, OptimizeError, SecondOrderOptimization},
+    optimize::{EqualityConstraint, OptimizeError, SecondOrderOptimization},
 };
 use std::fmt::Debug;
 
@@ -48,10 +48,16 @@ where
     /// ```math
     /// \Pi(\mathbf{F},\boldsymbol{\lambda}) = a(\mathbf{F}) - \boldsymbol{\lambda}:(\mathbf{F} - \mathbf{F}_0) - \mathbf{P}_0:\mathbf{F}
     /// ```
-    fn minimize(&self, applied_load: AppliedLoad) -> Result<DeformationGradient, OptimizeError> {
-        let solver = NewtonRaphson {
-            ..Default::default()
-        };
+    fn minimize(
+        &self,
+        applied_load: AppliedLoad,
+        solver: impl SecondOrderOptimization<
+            Scalar,
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+        >,
+    ) -> Result<DeformationGradient, OptimizeError> {
         match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_11) => {
                 let mut matrix = Matrix::zero(4, 9);

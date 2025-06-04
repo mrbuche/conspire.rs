@@ -14,7 +14,7 @@ pub use almansi_hamel::AlmansiHamel;
 use super::*;
 use crate::math::{
     Matrix, TensorVec, Vector,
-    optimize::{EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizeError},
+    optimize::{EqualityConstraint, FirstOrderRootFinding, OptimizeError},
 };
 
 /// Possible applied loads.
@@ -160,10 +160,15 @@ where
     /// ```math
     /// \mathbf{P}(\mathbf{F}) - \boldsymbol{\lambda} - \mathbf{P}_0 = \mathbf{0}
     /// ```
-    fn root(&self, applied_load: AppliedLoad) -> Result<DeformationGradient, OptimizeError> {
-        let solver = NewtonRaphson {
-            ..Default::default()
-        };
+    fn root(
+        &self,
+        applied_load: AppliedLoad,
+        solver: impl FirstOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+        >,
+    ) -> Result<DeformationGradient, OptimizeError> {
         match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_11) => {
                 let mut matrix = Matrix::zero(4, 9);

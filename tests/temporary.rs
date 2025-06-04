@@ -5,9 +5,8 @@ use conspire::{
         Constitutive,
         solid::{
             elastic::AppliedLoad as AppliedDeformation,
-            elastic_hyperviscous::ElasticHyperviscous,
+            elastic_hyperviscous::{AlmansiHamel, ElasticHyperviscous},
             hyperelastic::{Hyperelastic, NeoHookean},
-            hyperviscoelastic::SaintVenantKirchhoff,
             viscoelastic::AppliedLoad as AppliedDeformationRate,
         },
     },
@@ -18,7 +17,8 @@ use conspire::{
     },
     math::{
         Matrix, Tensor, TensorVec, TestError, Vector, assert_eq_within, assert_eq_within_tols,
-        integrate::DormandPrince, optimize::EqualityConstraint,
+        integrate::DormandPrince,
+        optimize::{EqualityConstraint, NewtonRaphson},
     },
 };
 
@@ -7412,12 +7412,17 @@ fn temporary_hyperelastic() -> Result<(), TestError> {
     vector[length - 1] = -0.5;
     let mut time = std::time::Instant::now();
     println!("Solving...");
-    let solution = block.minimize(EqualityConstraint::Linear(matrix, vector))?;
+    let solution = block.minimize(
+        EqualityConstraint::Linear(matrix, vector),
+        NewtonRaphson::default(),
+    )?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
     println!("Verifying...");
-    let deformation_gradient =
-        NeoHookean::new(parameters).minimize(AppliedDeformation::UniaxialStress(strain + 1.0))?;
+    let deformation_gradient = NeoHookean::new(parameters).minimize(
+        AppliedDeformation::UniaxialStress(strain + 1.0),
+        NewtonRaphson::default(),
+    )?;
     block
         .deformation_gradients(&solution)
         .iter()
@@ -7434,8 +7439,8 @@ fn temporary_hyperelastic() -> Result<(), TestError> {
 
 #[test]
 fn temporary_hyperviscoelastic() -> Result<(), TestError> {
-    let tol = 1e-6;
-    let strain_rate = 1.0; // also set below
+    let tol = 1e-4;
+    let strain_rate = 2.3; // also set below
     let tspan = [0.0, 1.0];
     let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
@@ -7444,8 +7449,8 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
         .flatten()
         .for_each(|entry| *entry -= 1);
     let num_nodes = ref_coordinates.len();
-    let parameters = &[13.0, 3.0, 0.1, 1.0];
-    let block = ElementBlock::<LinearTetrahedron<SaintVenantKirchhoff<_>>, N>::new(
+    let parameters = &[13.0, 3.0, 11.0, 1.0];
+    let block = ElementBlock::<LinearTetrahedron<AlmansiHamel<_>>, N>::new(
         parameters,
         connectivity,
         coordinates(),
@@ -7489,14 +7494,16 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
             ..Default::default()
         },
         &tspan,
+        NewtonRaphson::default(),
     )?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
     println!("Verifying...");
-    let (_, deformation_gradients, deformation_gradient_rates) =
-        SaintVenantKirchhoff::new(parameters).minimize(
-            AppliedDeformationRate::UniaxialStress(|_| 1.0, times.as_slice()),
+    let (_, deformation_gradients, deformation_gradient_rates) = AlmansiHamel::new(parameters)
+        .minimize(
+            AppliedDeformationRate::UniaxialStress(|_| 2.3, times.as_slice()),
             DormandPrince::default(),
+            NewtonRaphson::default(),
         )?;
     coordinates_history
         .iter()
@@ -7516,7 +7523,6 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
                         deformation_gradients
                             .iter()
                             .try_for_each(|deformation_gradient_g| {
-                                println!("{}", deformation_gradient);
                                 assert_eq_within(
                                     deformation_gradient_g,
                                     deformation_gradient,

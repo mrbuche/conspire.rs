@@ -52,7 +52,7 @@ pub trait FirstOrderOptimization<F, X> {
 }
 
 /// Second-order optimization algorithms.
-pub trait SecondOrderOptimization<F, H, J, X> {
+pub trait SecondOrderOptimization<F, J, H, X> {
     fn minimize(
         &self,
         function: impl Fn(&X) -> Result<F, OptimizeError>,

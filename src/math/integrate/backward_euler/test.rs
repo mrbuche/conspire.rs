@@ -1,7 +1,7 @@
 use super::{
     super::super::{
         Tensor, TensorRank0, Vector,
-        integrate::{Implicit, test::zero_to_tau},
+        integrate::{Implicit, test::zero_to_one},
         optimize::{GradientDescent, Optimization},
         test::TestError,
     },
@@ -23,7 +23,7 @@ mod gradient_descent {
         .integrate(
             |_: TensorRank0, _: &TensorRank0| Ok(1.0),
             |_: TensorRank0, _: &TensorRank0| Ok(0.0),
-            &zero_to_tau::<LENGTH>(),
+            &zero_to_one::<LENGTH>(),
             0.0,
         )?;
         time.iter()
@@ -42,7 +42,7 @@ mod newton_raphson {
         let (time, solution, function): (Vector, Vector, _) = BackwardEuler::default().integrate(
             |_: TensorRank0, _: &TensorRank0| Ok(1.0),
             |_: TensorRank0, _: &TensorRank0| Ok(0.0),
-            &zero_to_tau::<LENGTH>(),
+            &zero_to_one::<LENGTH>(),
             0.0,
         )?;
         time.iter()

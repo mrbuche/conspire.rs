@@ -112,7 +112,7 @@ where
     }
 }
 
-impl<F, H, J, X> SecondOrderOptimization<F, H, J, X> for NewtonRaphson
+impl<F, J, H, X> SecondOrderOptimization<F, J, H, X> for NewtonRaphson
 where
     H: Hessian,
     J: Jacobian + Div<H, Output = X>,
