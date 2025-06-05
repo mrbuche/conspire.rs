@@ -90,13 +90,6 @@ where
                 unimplemented!("This may work with gradient ascent on multipliers, or not at all.")
             }
             EqualityConstraint::None => {
-                //
-                // How to choose short (below, dx*dg/dg*dg) or long (dx*dx/dx*dg) steps?
-                // Or even allow different options for calculating step size?
-                // Like using backtracking line search with: (1), checked decrease, (2) Armijo condition (sufficient decrease), (3) Wolfe, (4) trust region, etc. (see slides).
-                // Those methods might also be abstracted to be used in multiple places, like if you make a nonlinear conjugate gradient solver.
-                // And then within the NLCG, different formulas for beta?
-                //
                 let mut residual;
                 let mut residual_change = initial_guess.clone() * 0.0;
                 let mut solution = initial_guess;
