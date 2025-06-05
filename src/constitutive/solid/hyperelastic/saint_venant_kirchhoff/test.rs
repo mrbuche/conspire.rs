@@ -1,5 +1,6 @@
 use super::super::test::*;
 use super::*;
+use crate::mechanics::CauchyTangentStiffness;
 
 type SaintVenantKirchhoffType<'a> = SaintVenantKirchhoff<&'a [Scalar; 2]>;
 

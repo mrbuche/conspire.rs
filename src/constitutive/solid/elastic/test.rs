@@ -167,7 +167,10 @@ macro_rules! test_solid_constitutive_model_no_tangents {
     ($constitutive_model_constructed: expr) => {
         use crate::{
             EPSILON,
-            math::test::{TestError, assert_eq, assert_eq_within_tols},
+            math::{
+                TensorArray,
+                test::{TestError, assert_eq, assert_eq_within_tols},
+            },
             mechanics::{
                 CauchyStress, FirstPiolaKirchhoffStress, SecondPiolaKirchhoffStress,
                 test::{
@@ -332,8 +335,8 @@ macro_rules! test_solid_constitutive_model_tangents
         {
             use crate::
             {
-                math::{ContractAllIndicesWithFirstIndicesOf, test::assert_eq_from_fd},
-                mechanics::test::get_deformation_gradient_rotated_undeformed
+                math::{ContractAllIndicesWithFirstIndicesOf, test::assert_eq_from_fd, TensorArray},
+                mechanics::{FirstPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffTangentStiffness, test::get_deformation_gradient_rotated_undeformed},
             };
             use super::*;
             fn cauchy_tangent_stiffness_from_finite_difference_of_cauchy_stress(is_deformed: bool) -> Result<CauchyTangentStiffness, TestError>

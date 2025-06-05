@@ -57,6 +57,13 @@ impl Sub<Vector> for TensorRank0 {
     }
 }
 
+impl Sub<&Vector> for TensorRank0 {
+    type Output = Self;
+    fn sub(self, _vector: &Vector) -> Self::Output {
+        panic!()
+    }
+}
+
 impl Hessian for TensorRank0 {
     fn fill_into(self, _square_matrix: &mut SquareMatrix) {
         panic!()

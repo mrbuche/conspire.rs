@@ -10,11 +10,8 @@ macro_rules! test_hybrid_elastic_constitutive_models {
                     hyperelastic::{NeoHookean, test::NEOHOOKEANPARAMETERS},
                 },
             },
-            math::{Rank2, TensorArray},
-            mechanics::{
-                CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffTangentStiffness,
-                Scalar, SecondPiolaKirchhoffTangentStiffness,
-            },
+            math::Rank2,
+            mechanics::{CauchyTangentStiffness, DeformationGradient, Scalar},
         };
         mod hybrid_1 {
             use super::*;
@@ -66,7 +63,7 @@ macro_rules! test_hybrid_elastic_constitutive_models_no_tangents {
                     hyperelastic::{NeoHookean, test::NEOHOOKEANPARAMETERS},
                 },
             },
-            math::{Rank2, TensorArray},
+            math::Rank2,
             mechanics::{DeformationGradient, Scalar},
         };
         mod hybrid_1 {

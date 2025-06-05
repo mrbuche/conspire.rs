@@ -310,6 +310,19 @@ impl<const D: usize, const I: usize> Sub<Vector> for TensorRank1Vec<D, I> {
     }
 }
 
+impl<const D: usize, const I: usize> Sub<&Vector> for TensorRank1Vec<D, I> {
+    type Output = Self;
+    fn sub(mut self, vector: &Vector) -> Self::Output {
+        self.iter_mut().enumerate().for_each(|(a, self_a)| {
+            self_a
+                .iter_mut()
+                .enumerate()
+                .for_each(|(i, self_a_i)| *self_a_i -= vector[D * a + i])
+        });
+        self
+    }
+}
+
 impl<const D: usize, const I: usize> Div<TensorRank0> for TensorRank1Vec<D, I> {
     type Output = Self;
     fn div(mut self, tensor_rank_0: TensorRank0) -> Self::Output {

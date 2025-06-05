@@ -793,6 +793,19 @@ impl<const D: usize, const I: usize, const J: usize> Sub<Vector> for TensorRank2
     }
 }
 
+impl<const D: usize, const I: usize, const J: usize> Sub<&Vector> for TensorRank2<D, I, J> {
+    type Output = Self;
+    fn sub(mut self, vector: &Vector) -> Self::Output {
+        self.iter_mut().enumerate().for_each(|(i, self_i)| {
+            self_i
+                .iter_mut()
+                .enumerate()
+                .for_each(|(j, self_ij)| *self_ij -= vector[D * i + j])
+        });
+        self
+    }
+}
+
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
     From<TensorRank4<D, I, J, K, L>> for TensorRank2<9, 88, 99>
 {

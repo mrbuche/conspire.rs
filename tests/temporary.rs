@@ -6,7 +6,7 @@ use conspire::{
         solid::{
             elastic::AppliedLoad as AppliedDeformation,
             elastic_hyperviscous::{AlmansiHamel, ElasticHyperviscous},
-            hyperelastic::{Hyperelastic, NeoHookean},
+            hyperelastic::{NeoHookean, SecondOrderMinimize},
             viscoelastic::AppliedLoad as AppliedDeformationRate,
         },
     },

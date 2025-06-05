@@ -51,7 +51,7 @@ where
 /// Common methods for Jacobians.
 pub trait Jacobian
 where
-    Self: Tensor + Sub<Vector, Output = Self>,
+    Self: Tensor + Sub<Vector, Output = Self> + for<'a> Sub<&'a Vector, Output = Self>,
 {
     /// Fills the Jacobian into a vector.
     fn fill_into(self, vector: &mut Vector);

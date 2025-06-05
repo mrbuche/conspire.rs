@@ -1,7 +1,7 @@
 use super::super::test::*;
 use super::*;
 
-type FungType<'a> = ArrudaBoyce<&'a [Scalar; 4]>;
+type FungType<'a> = Fung<&'a [Scalar; 4]>;
 
 use_elastic_macros!();
 

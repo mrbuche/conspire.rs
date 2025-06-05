@@ -1,8 +1,17 @@
 #[cfg(test)]
 mod test;
 
-use super::*;
-use crate::math::special::{inverse_langevin, langevin_derivative};
+use crate::{
+    constitutive::{
+        Constitutive, ConstitutiveError, Parameters,
+        solid::{FIVE_THIRDS, Solid, TWO_THIRDS, elastic::Elastic, hyperelastic::Hyperelastic},
+    },
+    math::{
+        IDENTITY, Rank2,
+        special::{inverse_langevin, langevin_derivative},
+    },
+    mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient, Scalar},
+};
 
 #[doc = include_str!("model.md")]
 #[derive(Debug)]

@@ -1,7 +1,17 @@
 #[cfg(test)]
 mod test;
 
-use super::*;
+use crate::{
+    constitutive::{
+        Constitutive, ConstitutiveError, Parameters,
+        solid::{Solid, TWO_THIRDS, elastic::Elastic, hyperelastic::Hyperelastic},
+    },
+    math::{IDENTITY_00, Rank2},
+    mechanics::{
+        Deformation, DeformationGradient, Scalar, SecondPiolaKirchhoffStress,
+        SecondPiolaKirchhoffTangentStiffness,
+    },
+};
 
 #[doc = include_str!("model.md")]
 #[derive(Debug)]

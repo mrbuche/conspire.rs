@@ -662,6 +662,7 @@ macro_rules! test_finite_element_block_with_hyperelastic_constitutive_model {
             $constitutive_model,
             $constitutive_model_parameters
         );
+        use crate::constitutive::solid::hyperelastic::SecondOrderMinimize;
         #[test]
         fn minimize() -> Result<(), TestError> {
             let (applied_load, a, b) = equality_constraint();

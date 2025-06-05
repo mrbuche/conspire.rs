@@ -189,7 +189,53 @@ pub trait FirstOrderRoot {
     ) -> Result<DeformationGradient, OptimizeError>;
 }
 
-// impl<T> ZerothOrderRoot for T where T: Elastic {}
+impl<T> ZerothOrderRoot for T
+where
+    T: Elastic,
+{
+    fn root(
+        &self,
+        applied_load: AppliedLoad,
+        solver: impl optimize::ZerothOrderRootFinding<DeformationGradient>,
+    ) -> Result<DeformationGradient, OptimizeError> {
+        match applied_load {
+            AppliedLoad::UniaxialStress(deformation_gradient_11) => {
+                let mut matrix = Matrix::zero(4, 9);
+                let mut vector = Vector::zero(4);
+                matrix[0][0] = 1.0;
+                matrix[1][1] = 1.0;
+                matrix[2][2] = 1.0;
+                matrix[3][5] = 1.0;
+                vector[0] = deformation_gradient_11;
+                solver.root(
+                    |deformation_gradient: &DeformationGradient| {
+                        Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
+                    },
+                    DeformationGradient::identity(),
+                    EqualityConstraint::Linear(matrix, vector),
+                )
+            }
+            AppliedLoad::BiaxialStress(deformation_gradient_11, deformation_gradient_22) => {
+                let mut matrix = Matrix::zero(5, 9);
+                let mut vector = Vector::zero(5);
+                matrix[0][0] = 1.0;
+                matrix[1][1] = 1.0;
+                matrix[2][2] = 1.0;
+                matrix[3][5] = 1.0;
+                matrix[4][4] = 1.0;
+                vector[0] = deformation_gradient_11;
+                vector[4] = deformation_gradient_22;
+                solver.root(
+                    |deformation_gradient: &DeformationGradient| {
+                        Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
+                    },
+                    DeformationGradient::identity(),
+                    EqualityConstraint::Linear(matrix, vector),
+                )
+            }
+        }
+    }
+}
 
 impl<T> FirstOrderRoot for T
 where
