@@ -2,7 +2,7 @@ use super::{
     super::super::{
         Tensor, TensorRank0, Vector,
         integrate::{Implicit, test::zero_to_one},
-        optimize::{GradientDescent, Optimization},
+        optimize::{GradientDescent, NewtonRaphson},
         test::TestError,
     },
     BackwardEuler,
@@ -16,9 +16,9 @@ mod gradient_descent {
     #[test]
     fn first_order_tensor_rank_0() -> Result<(), TestError> {
         let (time, solution, function): (Vector, Vector, _) = BackwardEuler {
-            solver: Optimization::GradientDescent(GradientDescent {
+            solver: GradientDescent {
                 ..Default::default()
-            }),
+            },
         }
         .integrate(
             |_: TensorRank0, _: &TensorRank0| Ok(1.0),
@@ -39,7 +39,12 @@ mod newton_raphson {
     use super::*;
     #[test]
     fn first_order_tensor_rank_0() -> Result<(), TestError> {
-        let (time, solution, function): (Vector, Vector, _) = BackwardEuler::default().integrate(
+        let (time, solution, function): (Vector, Vector, _) = BackwardEuler {
+                solver: NewtonRaphson {
+                    ..Default::default()
+                },
+            }
+        .integrate(
             |_: TensorRank0, _: &TensorRank0| Ok(1.0),
             |_: TensorRank0, _: &TensorRank0| Ok(0.0),
             &zero_to_one::<LENGTH>(),

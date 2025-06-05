@@ -64,13 +64,6 @@ pub trait SecondOrderOptimization<F, J, H, X> {
     ) -> Result<X, OptimizeError>;
 }
 
-/// Possible optimization algorithms.
-#[derive(Debug)]
-pub enum Optimization {
-    GradientDescent(GradientDescent),
-    NewtonRaphson(NewtonRaphson),
-}
-
 /// Possible errors encountered when optimizing.
 pub enum OptimizeError {
     Generic(String),

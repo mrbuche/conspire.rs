@@ -13,7 +13,7 @@ pub use dormand_prince::DormandPrince;
 pub use verner_8::Verner8;
 pub use verner_9::Verner9;
 
-pub type Ode1be = BackwardEuler;
+pub type Ode1be<S> = BackwardEuler<S>;
 pub type Ode23 = BogackiShampine;
 pub type Ode45 = DormandPrince;
 pub type Ode78 = Verner8;
