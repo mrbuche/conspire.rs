@@ -14,7 +14,7 @@ pub use almansi_hamel::AlmansiHamel;
 use super::*;
 use crate::math::{
     Matrix, TensorVec, Vector,
-    optimize::{EqualityConstraint, FirstOrderRootFinding, OptimizeError},
+    optimize::{self, EqualityConstraint, OptimizeError},
 };
 
 /// Possible applied loads.
@@ -155,6 +155,10 @@ where
                 &second_piola_kirchhoff_stress,
             ))
     }
+}
+
+/// Zeroth-order root-finding methods for elastic constitutive models.
+pub trait ZerothOrderRoot {
     /// Solve for the unknown components of the deformation gradient under an applied load.
     ///
     /// ```math
@@ -163,7 +167,38 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderRootFinding<
+        solver: impl optimize::ZerothOrderRootFinding<DeformationGradient>,
+    ) -> Result<DeformationGradient, OptimizeError>;
+}
+
+/// First-order root-finding methods for elastic constitutive models.
+pub trait FirstOrderRoot {
+    /// Solve for the unknown components of the deformation gradient under an applied load.
+    ///
+    /// ```math
+    /// \mathbf{P}(\mathbf{F}) - \boldsymbol{\lambda} - \mathbf{P}_0 = \mathbf{0}
+    /// ```
+    fn root(
+        &self,
+        applied_load: AppliedLoad,
+        solver: impl optimize::FirstOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+        >,
+    ) -> Result<DeformationGradient, OptimizeError>;
+}
+
+// impl<T> ZerothOrderRoot for T where T: Elastic {}
+
+impl<T> FirstOrderRoot for T
+where
+    T: Elastic,
+{
+    fn root(
+        &self,
+        applied_load: AppliedLoad,
+        solver: impl optimize::FirstOrderRootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,

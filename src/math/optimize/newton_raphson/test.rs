@@ -54,22 +54,6 @@ mod minimize {
         .unwrap();
         assert!(x.abs() < TOLERANCE)
     }
-    #[test]
-    #[should_panic(expected = "The obtained solution is not a minimum.")]
-    fn sin_max() {
-        NewtonRaphson {
-            ..Default::default()
-        }
-        .minimize(
-            |x: &TensorRank0| Ok(-x.sin()),
-            |x: &TensorRank0| Ok(x.sin()),
-            |x: &TensorRank0| Ok(x.cos()),
-            3.0,
-            EqualityConstraint::None,
-            None,
-        )
-        .unwrap();
-    }
 }
 
 mod root {

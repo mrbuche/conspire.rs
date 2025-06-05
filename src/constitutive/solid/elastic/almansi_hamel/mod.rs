@@ -1,7 +1,14 @@
 #[cfg(test)]
 mod test;
 
-use super::*;
+use crate::{
+    constitutive::{
+        Constitutive, ConstitutiveError, Parameters,
+        solid::{Solid, TWO_THIRDS, elastic::Elastic},
+    },
+    math::{IDENTITY, Rank2},
+    mechanics::{CauchyStress, CauchyTangentStiffness, DeformationGradient, Scalar},
+};
 
 #[doc = include_str!("model.md")]
 #[derive(Debug)]

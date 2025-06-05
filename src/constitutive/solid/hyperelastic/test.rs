@@ -27,7 +27,10 @@ pub const YEOHPARAMETERS: &[Scalar; 6] = &[
 
 macro_rules! test_solve {
     ($constitutive_model_constructed: expr) => {
-        use crate::{constitutive::solid::elastic::AppliedLoad, math::optimize::NewtonRaphson};
+        use crate::{
+            constitutive::solid::elastic::{AppliedLoad, FirstOrderRoot},
+            math::optimize::NewtonRaphson,
+        };
         #[test]
         fn root_uniaxial_compression() -> Result<(), crate::math::test::TestError> {
             let deformation_gradient = $constitutive_model_constructed

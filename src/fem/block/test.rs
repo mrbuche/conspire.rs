@@ -624,7 +624,7 @@ macro_rules! test_finite_element_block_with_elastic_constitutive_model {
             $constitutive_model,
             $constitutive_model_parameters
         );
-        use crate::math::optimize::NewtonRaphson;
+        use crate::{constitutive::solid::elastic::FirstOrderRoot, math::optimize::NewtonRaphson};
         #[test]
         fn root() -> Result<(), TestError> {
             let (applied_load, a, b) = equality_constraint();
