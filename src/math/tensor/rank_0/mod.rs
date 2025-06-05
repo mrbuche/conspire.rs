@@ -61,9 +61,6 @@ impl Hessian for TensorRank0 {
     fn fill_into(self, _square_matrix: &mut SquareMatrix) {
         panic!()
     }
-    fn is_positive_definite(&self) -> bool {
-        self > &0.0
-    }
 }
 
 impl Tensor for TensorRank0 {

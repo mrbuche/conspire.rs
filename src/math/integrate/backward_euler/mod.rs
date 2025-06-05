@@ -19,17 +19,14 @@ use std::ops::{Div, Mul, Sub};
 /// [^cite]: Also known as the backward Euler method.
 #[derive(Debug)]
 pub struct BackwardEuler {
-    /// Optimization algorithm for equation solving.
-    pub opt_alg: Optimization,
+    /// Algorithm for equation solving.
+    pub solver: Optimization,
 }
 
 impl Default for BackwardEuler {
     fn default() -> Self {
         Self {
-            opt_alg: Optimization::NewtonRaphson(NewtonRaphson {
-                check_minimum: false,
-                ..Default::default()
-            }),
+            solver: Optimization::NewtonRaphson(NewtonRaphson::default()),
         }
     }
 }
@@ -72,7 +69,7 @@ where
         while t < time[time.len() - 1] {
             t_trial = time[index + 1];
             dt = t_trial - t;
-            y_trial = match &self.opt_alg {
+            y_trial = match &self.solver {
                 Optimization::GradientDescent(gradient_descent) => gradient_descent.root(
                     |y_trial: &Y| Ok(y_trial - &y - &(&function(t_trial, y_trial)? * dt)),
                     y.clone(),

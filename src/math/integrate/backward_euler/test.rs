@@ -16,7 +16,7 @@ mod gradient_descent {
     #[test]
     fn first_order_tensor_rank_0() -> Result<(), TestError> {
         let (time, solution, function): (Vector, Vector, _) = BackwardEuler {
-            opt_alg: Optimization::GradientDescent(GradientDescent {
+            solver: Optimization::GradientDescent(GradientDescent {
                 ..Default::default()
             }),
         }

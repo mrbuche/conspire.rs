@@ -274,10 +274,6 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
             })
         })
     }
-    fn is_positive_definite(&self) -> bool {
-        let tensor_rank_2: TensorRank2<9, 88, 99> = self.into();
-        tensor_rank_2.cholesky_decomposition().is_ok()
-    }
 }
 
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> Tensor

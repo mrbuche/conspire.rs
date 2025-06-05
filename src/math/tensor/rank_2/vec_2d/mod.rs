@@ -229,9 +229,6 @@ impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2Vec2
             })
         });
     }
-    fn is_positive_definite(&self) -> bool {
-        todo!()
-    }
 }
 
 impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<TensorRank2<D, J, K>>

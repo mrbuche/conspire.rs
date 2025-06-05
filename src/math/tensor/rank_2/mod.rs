@@ -15,7 +15,7 @@ use std::{
 
 use super::{
     super::write_tensor_rank_0,
-    Hessian, Jacobian, Rank2, Solution, SquareMatrix, Tensor, TensorArray, TensorError, Vector,
+    Hessian, Jacobian, Rank2, Solution, SquareMatrix, Tensor, TensorArray, Vector,
     rank_0::TensorRank0,
     rank_1::{
         TensorRank1, list::TensorRank1List, tensor_rank_1, vec::TensorRank1Vec,
@@ -636,41 +636,10 @@ impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2<D, 
                 .for_each(|(j, self_ij)| square_matrix[i][j] = self_ij)
         })
     }
-    fn is_positive_definite(&self) -> bool {
-        self.cholesky_decomposition().is_ok()
-    }
 }
 
 impl<const D: usize, const I: usize, const J: usize> Rank2 for TensorRank2<D, I, J> {
     type Transpose = TensorRank2<D, J, I>;
-    fn cholesky_decomposition(&self) -> Result<TensorRank2<D, I, J>, TensorError> {
-        let mut check = 0.0;
-        let mut tensor_l = Self::zero();
-        self.iter().enumerate().try_for_each(|(j, self_j)| {
-            check = self_j[j]
-                - tensor_l[j]
-                    .iter()
-                    .take(j)
-                    .map(|tensor_l_jk| tensor_l_jk.powi(2))
-                    .sum::<TensorRank0>();
-            if check < 0.0 || check.is_nan() {
-                Err(TensorError::NotPositiveDefinite)
-            } else {
-                tensor_l[j][j] = check.sqrt();
-                self.iter().enumerate().skip(j + 1).for_each(|(i, self_i)| {
-                    check = tensor_l[i]
-                        .iter()
-                        .zip(tensor_l[j].iter())
-                        .take(j)
-                        .map(|(tensor_l_ik, tensor_l_jk)| tensor_l_ik * tensor_l_jk)
-                        .sum();
-                    tensor_l[i][j] = (self_i[j] - check) / tensor_l[j][j];
-                });
-                Ok(())
-            }
-        })?;
-        Ok(tensor_l)
-    }
     fn deviatoric(&self) -> Self {
         Self::identity() * (self.trace() / -(D as TensorRank0)) + self
     }

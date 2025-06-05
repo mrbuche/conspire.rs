@@ -16,8 +16,6 @@ use std::ops::{Div, Mul};
 pub struct NewtonRaphson {
     /// Absolute error tolerance.
     pub abs_tol: TensorRank0,
-    /// Whether to check if solution is minimum.
-    pub check_minimum: bool,
     /// Maximum number of steps.
     pub max_steps: usize,
 }
@@ -26,7 +24,6 @@ impl Default for NewtonRaphson {
     fn default() -> Self {
         Self {
             abs_tol: ABS_TOL,
-            check_minimum: true,
             max_steps: 250,
         }
     }
@@ -184,14 +181,7 @@ where
                     residual = jacobian(&solution)?;
                     tangent = hessian(&solution)?;
                     if residual.norm_inf() < self.abs_tol {
-                        if self.check_minimum && !tangent.is_positive_definite() {
-                            return Err(OptimizeError::NotMinimum(
-                                format!("{}", solution),
-                                format!("{:?}", &self),
-                            ));
-                        } else {
-                            return Ok(solution);
-                        }
+                        return Ok(solution);
                     } else {
                         solution -= residual / tangent;
                     }
