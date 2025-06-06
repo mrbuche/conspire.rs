@@ -15,6 +15,7 @@ use crate::{
         integrate::{Explicit, IntegrationError},
         optimize::{
             EqualityConstraint, FirstOrderRootFinding, OptimizeError, SecondOrderOptimization,
+            ZerothOrderRootFinding,
         },
     },
     mechanics::Times,
@@ -191,6 +192,25 @@ where
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<NodalStiffnessesBlock, ConstitutiveError>;
+}
+
+pub trait ZerothOrderRoot<C, F, const G: usize, const N: usize>
+where
+    C: Elastic,
+    F: ElasticFiniteElement<C, G, N>,
+{
+    fn root(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: impl ZerothOrderRootFinding<NodalCoordinatesBlock>,
+    ) -> Result<NodalCoordinatesBlock, OptimizeError>;
+}
+
+pub trait FirstOrderRoot<C, F, const G: usize, const N: usize>
+where
+    C: Elastic,
+    F: ElasticFiniteElement<C, G, N>,
+{
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
@@ -380,6 +400,33 @@ where
             })?;
         Ok(nodal_stiffnesses)
     }
+}
+
+// impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N> for ElementBlock<F, N>
+// where
+//     C: Elastic,
+//     F: ElasticFiniteElement<C, G, N>,
+//     Self: FiniteElementBlockMethods<C, F, G, N>,
+// {
+//     fn root(
+//         &self,
+//         equality_constraint: EqualityConstraint,
+//         solver: impl ZerothOrderRootFinding<NodalCoordinatesBlock>,
+//     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
+//         solver.root(
+//             |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
+//             self.coordinates().clone().into(),
+//             equality_constraint,
+//         )
+//     }
+// }
+
+impl<C, F, const G: usize, const N: usize> FirstOrderRoot<C, F, G, N> for ElementBlock<F, N>
+where
+    C: Elastic,
+    F: ElasticFiniteElement<C, G, N>,
+    Self: FiniteElementBlockMethods<C, F, G, N>,
+{
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
