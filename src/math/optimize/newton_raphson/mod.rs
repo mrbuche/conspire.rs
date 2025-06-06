@@ -24,7 +24,7 @@ impl Default for NewtonRaphson {
     fn default() -> Self {
         Self {
             abs_tol: ABS_TOL,
-            max_steps: 32,
+            max_steps: 25,
         }
     }
 }
@@ -49,7 +49,7 @@ where
                 let num_variables = initial_guess.num_entries();
                 let num_constraints = constraint_rhs.len();
                 let num_total = num_variables + num_constraints;
-                let mut multipliers = Vector::ones(num_constraints) * self.abs_tol;
+                let mut multipliers = Vector::zero(num_constraints);
                 let mut residual = Vector::zero(num_total);
                 let mut solution = initial_guess;
                 let mut tangent = SquareMatrix::zero(num_total);
@@ -131,7 +131,7 @@ where
                 let num_variables = initial_guess.num_entries();
                 let num_constraints = constraint_rhs.len();
                 let num_total = num_variables + num_constraints;
-                let mut multipliers = Vector::ones(num_constraints) * self.abs_tol;
+                let mut multipliers = Vector::zero(num_constraints);
                 let mut residual = Vector::zero(num_total);
                 let mut solution = initial_guess;
                 let mut tangent = SquareMatrix::zero(num_total);

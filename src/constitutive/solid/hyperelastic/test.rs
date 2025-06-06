@@ -33,7 +33,7 @@ macro_rules! test_solve {
                 #[test]
                 fn root_uniaxial_compression() -> Result<(), crate::math::test::TestError> {
                     let deformation_gradient = $constitutive_model_constructed
-                        .root(AppliedLoad::UniaxialStress(0.66), $solver::default())?;
+                        .root(AppliedLoad::UniaxialStress(0.77), $solver::default())?;
                     let cauchy_stress =
                         $constitutive_model_constructed.cauchy_stress(&deformation_gradient)?;
                     assert!(cauchy_stress[0][0] < 0.0);
