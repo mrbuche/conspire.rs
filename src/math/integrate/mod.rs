@@ -22,8 +22,9 @@ pub type Ode89 = Verner9;
 // consider symplectic integrators for dynamics eventually
 
 use super::{
-    Tensor, TensorArray, TensorRank0, TensorVec, TestError, Vector,
-    interpolate::InterpolateSolution, optimize::OptimizeError,
+    Solution, Tensor, TensorArray, TensorRank0, TensorVec, TestError, Vector,
+    interpolate::InterpolateSolution,
+    optimize::{FirstOrderRootFinding, OptimizeError, ZerothOrderRootFinding},
 };
 use crate::defeat_message;
 use std::{
@@ -69,11 +70,33 @@ where
     ) -> Result<(Vector, U, U), IntegrationError>;
 }
 
-/// Base trait for implicit ordinary differential equation solvers.
-pub trait Implicit<Y, J, U>: OdeSolver<Y, U>
+/// Base trait for zeroth-order implicit ordinary differential equation solvers.
+pub trait ImplicitZerothOrder<Y, U>: OdeSolver<Y, U>
 where
     Self: InterpolateSolution<Y, U>,
-    Y: Tensor + Div<J, Output = Y>,
+    Y: Solution,
+    for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
+    U: TensorVec<Item = Y>,
+{
+    /// Solves an initial value problem by implicitly integrating a system of ordinary differential equations.
+    ///
+    /// ```math
+    /// \frac{dy}{dt} = f(t, y),\quad y(t_0) = y_0,\quad \frac{\partial f}{\partial y} = J(t, y)
+    /// ```
+    fn integrate(
+        &self,
+        function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
+        time: &[TensorRank0],
+        initial_condition: Y,
+        solver: impl ZerothOrderRootFinding<Y>,
+    ) -> Result<(Vector, U, U), IntegrationError>;
+}
+
+/// Base trait for first-order implicit ordinary differential equation solvers.
+pub trait ImplicitFirstOrder<Y, J, U>: OdeSolver<Y, U>
+where
+    Self: InterpolateSolution<Y, U>,
+    Y: Solution + Div<J, Output = Y>,
     for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
     J: Tensor + TensorArray,
     U: TensorVec<Item = Y>,
@@ -89,6 +112,7 @@ where
         jacobian: impl Fn(TensorRank0, &Y) -> Result<J, IntegrationError>,
         time: &[TensorRank0],
         initial_condition: Y,
+        solver: impl FirstOrderRootFinding<Y, J, Y>,
     ) -> Result<(Vector, U, U), IntegrationError>;
 }
 

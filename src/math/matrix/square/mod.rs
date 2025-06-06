@@ -8,7 +8,7 @@ use crate::{
     ABS_TOL,
     math::{
         Hessian, Rank2, Tensor, TensorRank0, TensorRank2Vec2D, TensorVec, Vector,
-        tensor::TensorError, write_tensor_rank_0,
+        write_tensor_rank_0,
     },
 };
 use std::{
@@ -431,41 +431,10 @@ impl Hessian for SquareMatrix {
                     .for_each(|(self_ij, square_matrix_ij)| *square_matrix_ij = self_ij)
             });
     }
-    fn is_positive_definite(&self) -> bool {
-        self.cholesky_decomposition().is_ok()
-    }
 }
 
 impl Rank2 for SquareMatrix {
     type Transpose = Self;
-    fn cholesky_decomposition(&self) -> Result<SquareMatrix, TensorError> {
-        let mut check = 0.0;
-        let mut tensor_l = SquareMatrix::zero(self.len());
-        self.iter().enumerate().try_for_each(|(j, self_j)| {
-            check = self_j[j]
-                - tensor_l[j]
-                    .iter()
-                    .take(j)
-                    .map(|tensor_l_jk| tensor_l_jk.powi(2))
-                    .sum::<TensorRank0>();
-            if check < 0.0 {
-                Err(TensorError::NotPositiveDefinite)
-            } else {
-                tensor_l[j][j] = check.sqrt();
-                self.iter().enumerate().skip(j + 1).for_each(|(i, self_i)| {
-                    check = tensor_l[i]
-                        .iter()
-                        .zip(tensor_l[j].iter())
-                        .take(j)
-                        .map(|(tensor_l_ik, tensor_l_jk)| tensor_l_ik * tensor_l_jk)
-                        .sum();
-                    tensor_l[i][j] = (self_i[j] - check) / tensor_l[j][j];
-                });
-                Ok(())
-            }
-        })?;
-        Ok(tensor_l)
-    }
     fn deviatoric(&self) -> Self {
         let len = self.len();
         let scale = -self.trace() / len as TensorRank0;

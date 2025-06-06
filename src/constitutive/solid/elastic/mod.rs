@@ -14,7 +14,7 @@ pub use almansi_hamel::AlmansiHamel;
 use super::*;
 use crate::math::{
     Matrix, TensorVec, Vector,
-    optimize::{EqualityConstraint, FirstOrderRootFinding, OptimizeError},
+    optimize::{self, EqualityConstraint, OptimizeError},
 };
 
 /// Possible applied loads.
@@ -155,6 +155,10 @@ where
                 &second_piola_kirchhoff_stress,
             ))
     }
+}
+
+/// Zeroth-order root-finding methods for elastic constitutive models.
+pub trait ZerothOrderRoot {
     /// Solve for the unknown components of the deformation gradient under an applied load.
     ///
     /// ```math
@@ -163,7 +167,84 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderRootFinding<
+        solver: impl optimize::ZerothOrderRootFinding<DeformationGradient>,
+    ) -> Result<DeformationGradient, OptimizeError>;
+}
+
+/// First-order root-finding methods for elastic constitutive models.
+pub trait FirstOrderRoot {
+    /// Solve for the unknown components of the deformation gradient under an applied load.
+    ///
+    /// ```math
+    /// \mathbf{P}(\mathbf{F}) - \boldsymbol{\lambda} - \mathbf{P}_0 = \mathbf{0}
+    /// ```
+    fn root(
+        &self,
+        applied_load: AppliedLoad,
+        solver: impl optimize::FirstOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+        >,
+    ) -> Result<DeformationGradient, OptimizeError>;
+}
+
+impl<T> ZerothOrderRoot for T
+where
+    T: Elastic,
+{
+    fn root(
+        &self,
+        applied_load: AppliedLoad,
+        solver: impl optimize::ZerothOrderRootFinding<DeformationGradient>,
+    ) -> Result<DeformationGradient, OptimizeError> {
+        match applied_load {
+            AppliedLoad::UniaxialStress(deformation_gradient_11) => {
+                let mut matrix = Matrix::zero(4, 9);
+                let mut vector = Vector::zero(4);
+                matrix[0][0] = 1.0;
+                matrix[1][1] = 1.0;
+                matrix[2][2] = 1.0;
+                matrix[3][5] = 1.0;
+                vector[0] = deformation_gradient_11;
+                solver.root(
+                    |deformation_gradient: &DeformationGradient| {
+                        Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
+                    },
+                    DeformationGradient::identity(),
+                    EqualityConstraint::Linear(matrix, vector),
+                )
+            }
+            AppliedLoad::BiaxialStress(deformation_gradient_11, deformation_gradient_22) => {
+                let mut matrix = Matrix::zero(5, 9);
+                let mut vector = Vector::zero(5);
+                matrix[0][0] = 1.0;
+                matrix[1][1] = 1.0;
+                matrix[2][2] = 1.0;
+                matrix[3][5] = 1.0;
+                matrix[4][4] = 1.0;
+                vector[0] = deformation_gradient_11;
+                vector[4] = deformation_gradient_22;
+                solver.root(
+                    |deformation_gradient: &DeformationGradient| {
+                        Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
+                    },
+                    DeformationGradient::identity(),
+                    EqualityConstraint::Linear(matrix, vector),
+                )
+            }
+        }
+    }
+}
+
+impl<T> FirstOrderRoot for T
+where
+    T: Elastic,
+{
+    fn root(
+        &self,
+        applied_load: AppliedLoad,
+        solver: impl optimize::FirstOrderRootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,

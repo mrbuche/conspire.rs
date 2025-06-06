@@ -1,7 +1,14 @@
 #[cfg(test)]
 mod test;
 
-use super::*;
+use crate::{
+    constitutive::{
+        Constitutive, ConstitutiveError, Parameters,
+        solid::{FIVE_THIRDS, Solid, TWO_THIRDS, elastic::Elastic, hyperelastic::Hyperelastic},
+    },
+    math::{IDENTITY, Rank2},
+    mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient, Scalar},
+};
 
 const SEVEN_THIRDS: Scalar = 7.0 / 3.0;
 

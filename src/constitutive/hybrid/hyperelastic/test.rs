@@ -13,11 +13,8 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models {
                     },
                 },
             },
-            math::{Rank2, Tensor, TensorArray},
-            mechanics::{
-                CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffTangentStiffness,
-                Scalar, SecondPiolaKirchhoffTangentStiffness,
-            },
+            math::{Rank2, Tensor},
+            mechanics::{CauchyTangentStiffness, DeformationGradient, Scalar},
         };
         use_elastic_macros!();
         mod hybrid_0 {
@@ -84,7 +81,7 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models_no_tangents {
                     hyperelastic::{ArrudaBoyce, Fung, Gent, Hyperelastic, MooneyRivlin, test::*},
                 },
             },
-            math::{Rank2, Tensor, TensorArray},
+            math::{Rank2, Tensor},
             mechanics::{DeformationGradient, Scalar},
         };
         use_elastic_macros_no_tangents!();

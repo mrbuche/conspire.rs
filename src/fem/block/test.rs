@@ -624,25 +624,40 @@ macro_rules! test_finite_element_block_with_elastic_constitutive_model {
             $constitutive_model,
             $constitutive_model_parameters
         );
-        use crate::math::optimize::NewtonRaphson;
-        #[test]
-        fn root() -> Result<(), TestError> {
-            let (applied_load, a, b) = equality_constraint();
-            let block = get_block();
-            let coordinates =
-                block.root(EqualityConstraint::Linear(a, b), NewtonRaphson::default())?;
-            let deformation_gradient = $constitutive_model::new($constitutive_model_parameters)
-                .root(applied_load, NewtonRaphson::default())?;
-            block
-                .deformation_gradients(&coordinates)
-                .iter()
-                .try_for_each(|deformation_gradients| {
-                    deformation_gradients
+        macro_rules! test_root_with_solver {
+            ($solver: ident) => {
+                #[test]
+                fn root() -> Result<(), TestError> {
+                    let (applied_load, a, b) = equality_constraint();
+                    let block = get_block();
+                    let coordinates =
+                        block.root(EqualityConstraint::Linear(a, b), $solver::default())?;
+                    let deformation_gradient =
+                        $constitutive_model::new($constitutive_model_parameters)
+                            .root(applied_load, $solver::default())?;
+                    block
+                        .deformation_gradients(&coordinates)
                         .iter()
-                        .try_for_each(|deformation_gradient_g| {
-                            assert_eq_within_tols(deformation_gradient_g, &deformation_gradient)
+                        .try_for_each(|deformation_gradients| {
+                            deformation_gradients
+                                .iter()
+                                .try_for_each(|deformation_gradient_g| {
+                                    assert_eq_within_tols(
+                                        deformation_gradient_g,
+                                        &deformation_gradient,
+                                    )
+                                })
                         })
-                })
+                }
+            };
+        }
+        mod newton_raphson_root {
+            use super::*;
+            use crate::{
+                constitutive::solid::elastic::FirstOrderRoot as _, fem::block::FirstOrderRoot,
+                math::optimize::NewtonRaphson,
+            };
+            test_root_with_solver!(NewtonRaphson);
         }
     };
 }
@@ -662,24 +677,40 @@ macro_rules! test_finite_element_block_with_hyperelastic_constitutive_model {
             $constitutive_model,
             $constitutive_model_parameters
         );
-        #[test]
-        fn minimize() -> Result<(), TestError> {
-            let (applied_load, a, b) = equality_constraint();
-            let block = get_block();
-            let coordinates =
-                block.minimize(EqualityConstraint::Linear(a, b), NewtonRaphson::default())?;
-            let deformation_gradient = $constitutive_model::new($constitutive_model_parameters)
-                .minimize(applied_load, NewtonRaphson::default())?;
-            block
-                .deformation_gradients(&coordinates)
-                .iter()
-                .try_for_each(|deformation_gradients| {
-                    deformation_gradients
+        macro_rules! test_minimize_with_solver {
+            ($solver: ident) => {
+                #[test]
+                fn minimize() -> Result<(), TestError> {
+                    let (applied_load, a, b) = equality_constraint();
+                    let block = get_block();
+                    let coordinates =
+                        block.minimize(EqualityConstraint::Linear(a, b), $solver::default())?;
+                    let deformation_gradient =
+                        $constitutive_model::new($constitutive_model_parameters)
+                            .minimize(applied_load, $solver::default())?;
+                    block
+                        .deformation_gradients(&coordinates)
                         .iter()
-                        .try_for_each(|deformation_gradient_g| {
-                            assert_eq_within_tols(deformation_gradient_g, &deformation_gradient)
+                        .try_for_each(|deformation_gradients| {
+                            deformation_gradients
+                                .iter()
+                                .try_for_each(|deformation_gradient_g| {
+                                    assert_eq_within_tols(
+                                        deformation_gradient_g,
+                                        &deformation_gradient,
+                                    )
+                                })
                         })
-                })
+                }
+            };
+        }
+        mod newton_raphson_minimize {
+            use super::*;
+            use crate::{
+                constitutive::solid::hyperelastic::SecondOrderMinimize as _,
+                fem::block::SecondOrderMinimize, math::optimize::NewtonRaphson,
+            };
+            test_minimize_with_solver!(NewtonRaphson);
         }
     };
 }

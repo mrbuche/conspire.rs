@@ -16,8 +16,6 @@ use std::ops::{Div, Mul};
 pub struct NewtonRaphson {
     /// Absolute error tolerance.
     pub abs_tol: TensorRank0,
-    /// Whether to check if solution is minimum.
-    pub check_minimum: bool,
     /// Maximum number of steps.
     pub max_steps: usize,
 }
@@ -26,8 +24,7 @@ impl Default for NewtonRaphson {
     fn default() -> Self {
         Self {
             abs_tol: ABS_TOL,
-            check_minimum: true,
-            max_steps: 250,
+            max_steps: 25,
         }
     }
 }
@@ -48,67 +45,17 @@ where
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizeError> {
         match equality_constraint {
-            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
-                let num_variables = initial_guess.num_entries();
-                let num_constraints = constraint_rhs.len();
-                let num_total = num_variables + num_constraints;
-                let mut multipliers = Vector::ones(num_constraints) * self.abs_tol;
-                let mut residual = Vector::zero(num_total);
-                let mut solution = initial_guess;
-                let mut tangent = SquareMatrix::zero(num_total);
-                for _ in 0..self.max_steps {
-                    (function(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
-                        &constraint_rhs - &constraint_matrix * &solution,
-                        &mut residual,
-                    );
-                    jacobian(&solution)?.fill_into(&mut tangent);
-                    constraint_matrix
-                        .iter()
-                        .enumerate()
-                        .for_each(|(i, constraint_matrix_i)| {
-                            constraint_matrix_i.iter().enumerate().for_each(
-                                |(j, constraint_matrix_ij)| {
-                                    tangent[i + num_variables][j] = -constraint_matrix_ij;
-                                    tangent[j][i + num_variables] = -constraint_matrix_ij;
-                                },
-                            )
-                        });
-                    tangent
-                        .iter_mut()
-                        .skip(num_variables)
-                        .for_each(|tangent_i| {
-                            tangent_i
-                                .iter_mut()
-                                .skip(num_variables)
-                                .for_each(|tangent_ij| *tangent_ij = 0.0)
-                        });
-                    if residual.norm_inf() < self.abs_tol {
-                        return Ok(solution);
-                    } else {
-                        solution
-                            .decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual)?)
-                    }
-                }
-            }
-            EqualityConstraint::None => {
-                let mut residual;
-                let mut solution = initial_guess;
-                let mut tangent;
-                for _ in 0..self.max_steps {
-                    residual = function(&solution)?;
-                    tangent = jacobian(&solution)?;
-                    if residual.norm_inf() < self.abs_tol {
-                        return Ok(solution);
-                    } else {
-                        solution -= residual / tangent;
-                    }
-                }
-            }
+            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
+                self,
+                function,
+                jacobian,
+                initial_guess,
+                None,
+                constraint_matrix,
+                constraint_rhs,
+            ),
+            EqualityConstraint::None => unconstrained(self, function, jacobian, initial_guess),
         }
-        Err(OptimizeError::MaximumStepsReached(
-            self.max_steps,
-            format!("{:?}", &self),
-        ))
     }
 }
 
@@ -130,77 +77,105 @@ where
         banded: Option<Banded>,
     ) -> Result<X, OptimizeError> {
         match equality_constraint {
-            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
-                let num_variables = initial_guess.num_entries();
-                let num_constraints = constraint_rhs.len();
-                let num_total = num_variables + num_constraints;
-                let mut multipliers = Vector::ones(num_constraints) * self.abs_tol;
-                let mut residual = Vector::zero(num_total);
-                let mut solution = initial_guess;
-                let mut tangent = SquareMatrix::zero(num_total);
-                constraint_matrix
-                    .iter()
-                    .enumerate()
-                    .for_each(|(i, constraint_matrix_i)| {
-                        constraint_matrix_i.iter().enumerate().for_each(
-                            |(j, constraint_matrix_ij)| {
-                                tangent[i + num_variables][j] = -constraint_matrix_ij;
-                                tangent[j][i + num_variables] = -constraint_matrix_ij;
-                            },
-                        )
-                    });
-                for step in 0..self.max_steps {
-                    (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
-                        &constraint_rhs - &constraint_matrix * &solution,
-                        &mut residual,
-                    );
-                    hessian(&solution)?.fill_into(&mut tangent);
-                    if residual.norm_inf() < self.abs_tol {
-                        return Ok(solution);
-                    } else if let Some(ref band) = banded {
-                        println!(
-                            "\x1b[1;93m({}) SQP step convexity is not verified.\x1b[0m",
-                            step + 1
-                        );
-                        solution.decrement_from_chained(
-                            &mut multipliers,
-                            tangent.solve_lu_banded(&residual, band)?,
-                        )
-                    } else {
-                        println!(
-                            "\x1b[1;93m({}) SQP step convexity is not verified.\x1b[0m",
-                            step + 1
-                        );
-                        solution
-                            .decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual)?)
-                    }
-                }
-            }
-            EqualityConstraint::None => {
-                let mut residual;
-                let mut solution = initial_guess;
-                let mut tangent;
-                for _ in 0..self.max_steps {
-                    residual = jacobian(&solution)?;
-                    tangent = hessian(&solution)?;
-                    if residual.norm_inf() < self.abs_tol {
-                        if self.check_minimum && !tangent.is_positive_definite() {
-                            return Err(OptimizeError::NotMinimum(
-                                format!("{}", solution),
-                                format!("{:?}", &self),
-                            ));
-                        } else {
-                            return Ok(solution);
-                        }
-                    } else {
-                        solution -= residual / tangent;
-                    }
-                }
-            }
+            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
+                self,
+                jacobian,
+                hessian,
+                initial_guess,
+                banded,
+                constraint_matrix,
+                constraint_rhs,
+            ),
+            EqualityConstraint::None => unconstrained(self, jacobian, hessian, initial_guess),
         }
-        Err(OptimizeError::MaximumStepsReached(
-            self.max_steps,
-            format!("{:?}", &self),
-        ))
     }
+}
+
+fn unconstrained<J, H, X>(
+    newton_raphson: &NewtonRaphson,
+    jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
+    hessian: impl Fn(&X) -> Result<H, OptimizeError>,
+    initial_guess: X,
+) -> Result<X, OptimizeError>
+where
+    H: Hessian,
+    J: Jacobian + Div<H, Output = X>,
+    X: Solution,
+    Vector: From<X>,
+    for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
+{
+    let mut residual;
+    let mut solution = initial_guess;
+    let mut tangent;
+    for _ in 0..newton_raphson.max_steps {
+        residual = jacobian(&solution)?;
+        tangent = hessian(&solution)?;
+        if residual.norm_inf() < newton_raphson.abs_tol {
+            return Ok(solution);
+        } else {
+            solution -= residual / tangent;
+        }
+    }
+    Err(OptimizeError::MaximumStepsReached(
+        newton_raphson.max_steps,
+        format!("{:?}", &newton_raphson),
+    ))
+}
+
+fn constrained<J, H, X>(
+    newton_raphson: &NewtonRaphson,
+    jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
+    hessian: impl Fn(&X) -> Result<H, OptimizeError>,
+    initial_guess: X,
+    banded: Option<Banded>,
+    constraint_matrix: Matrix,
+    constraint_rhs: Vector,
+) -> Result<X, OptimizeError>
+where
+    H: Hessian,
+    J: Jacobian + Div<H, Output = X>,
+    X: Solution,
+    Vector: From<X>,
+    for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
+{
+    let num_variables = initial_guess.num_entries();
+    let num_constraints = constraint_rhs.len();
+    let num_total = num_variables + num_constraints;
+    let mut multipliers = Vector::zero(num_constraints);
+    let mut residual = Vector::zero(num_total);
+    let mut solution = initial_guess;
+    let mut tangent = SquareMatrix::zero(num_total);
+    constraint_matrix
+        .iter()
+        .enumerate()
+        .for_each(|(i, constraint_matrix_i)| {
+            constraint_matrix_i
+                .iter()
+                .enumerate()
+                .for_each(|(j, constraint_matrix_ij)| {
+                    tangent[i + num_variables][j] = -constraint_matrix_ij;
+                    tangent[j][i + num_variables] = -constraint_matrix_ij;
+                })
+        });
+    for _ in 0..newton_raphson.max_steps {
+        (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
+            &constraint_rhs - &constraint_matrix * &solution,
+            &mut residual,
+        );
+        hessian(&solution)?.fill_into(&mut tangent);
+        if residual.norm_inf() < newton_raphson.abs_tol {
+            return Ok(solution);
+        } else if let Some(ref band) = banded {
+            solution
+                .decrement_from_chained(&mut multipliers, tangent.solve_lu_banded(&residual, band)?)
+        } else {
+            solution.decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual)?)
+        }
+        // The convexity of every step of the solves can be verified (with LDL, LL, etc.).
+        // Also, consider revisiting null-space method to drastically reduce solve size.
+    }
+    Err(OptimizeError::MaximumStepsReached(
+        newton_raphson.max_steps,
+        format!("{:?}", &newton_raphson),
+    ))
 }

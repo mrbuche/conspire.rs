@@ -6,14 +6,14 @@ use conspire::{
         solid::{
             elastic::AppliedLoad as AppliedDeformation,
             elastic_hyperviscous::{AlmansiHamel, ElasticHyperviscous},
-            hyperelastic::{Hyperelastic, NeoHookean},
+            hyperelastic::{NeoHookean, SecondOrderMinimize as _},
             viscoelastic::AppliedLoad as AppliedDeformationRate,
         },
     },
     fem::{
         Connectivity, ElasticHyperviscousFiniteElementBlock, ElementBlock, FiniteElementBlock,
-        FiniteElementBlockMethods, HyperelasticFiniteElementBlock, LinearTetrahedron,
-        ReferenceNodalCoordinatesBlock, ViscoelasticFiniteElementBlock,
+        FiniteElementBlockMethods, LinearTetrahedron, ReferenceNodalCoordinatesBlock,
+        SecondOrderMinimize, ViscoelasticFiniteElementBlock,
     },
     math::{
         Matrix, Tensor, TensorVec, TestError, Vector, assert_eq_within, assert_eq_within_tols,

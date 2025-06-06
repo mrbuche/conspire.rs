@@ -51,7 +51,7 @@ where
 /// Common methods for Jacobians.
 pub trait Jacobian
 where
-    Self: Tensor + Sub<Vector, Output = Self>,
+    Self: Tensor + Sub<Vector, Output = Self> + for<'a> Sub<&'a Vector, Output = Self>,
 {
     /// Fills the Jacobian into a vector.
     fn fill_into(self, vector: &mut Vector);
@@ -66,8 +66,6 @@ where
 {
     /// Fills the Hessian into a square matrix.
     fn fill_into(self, square_matrix: &mut SquareMatrix);
-    /// Checks whether the Hessian is positive-definite.
-    fn is_positive_definite(&self) -> bool;
 }
 
 /// Common methods for rank-2 tensors.
@@ -77,8 +75,6 @@ where
 {
     /// The type that is the transpose of the tensor.
     type Transpose;
-    /// Returns the Cholesky decomposition of the rank-2 tensor.
-    fn cholesky_decomposition(&self) -> Result<Self, TensorError>;
     /// Returns the deviatoric component of the rank-2 tensor.
     fn deviatoric(&self) -> Self;
     /// Returns the deviatoric component and trace of the rank-2 tensor.

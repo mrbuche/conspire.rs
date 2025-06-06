@@ -1,7 +1,7 @@
 use super::super::test::*;
 use super::*;
 
-type GentType<'a> = ArrudaBoyce<&'a [Scalar; 3]>;
+type GentType<'a> = Gent<&'a [Scalar; 3]>;
 
 use_elastic_macros!();
 

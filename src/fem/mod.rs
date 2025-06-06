@@ -4,8 +4,9 @@ mod block;
 
 pub use block::{
     ElasticFiniteElementBlock, ElasticHyperviscousFiniteElementBlock, ElementBlock,
-    FiniteElementBlock, FiniteElementBlockMethods, HyperelasticFiniteElementBlock,
-    HyperviscoelasticFiniteElementBlock, SurfaceFiniteElementBlock, ViscoelasticFiniteElementBlock,
+    FiniteElementBlock, FiniteElementBlockMethods, FirstOrderRoot, HyperelasticFiniteElementBlock,
+    HyperviscoelasticFiniteElementBlock, SecondOrderMinimize, SurfaceFiniteElementBlock,
+    ViscoelasticFiniteElementBlock, ZerothOrderRoot,
     element::{
         ElasticFiniteElement, FiniteElement, FiniteElementMethods, HyperelasticFiniteElement,
         HyperviscoelasticFiniteElement, SurfaceFiniteElement, ViscoelasticFiniteElement,
