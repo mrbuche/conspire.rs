@@ -38,57 +38,14 @@ where
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizeError> {
         match equality_constraint {
-            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
-                let num_constraints = constraint_rhs.len();
-                let mut multipliers = Vector::ones(num_constraints) * self.abs_tol;
-                let mut multipliers_change = multipliers.clone();
-                let mut residual;
-                let mut residual_change = Vector::zero(num_constraints);
-                let mut solution = initial_guess;
-                let mut step_size = 1e-2;
-                let mut step_trial;
-                for _ in 0..self.max_steps {
-                    if let Ok(result) = gradient_descent(
-                        self,
-                        &function,
-                        &solution,
-                        Some((&constraint_matrix, &multipliers)),
-                    ) {
-                        solution = result;
-                        residual = &constraint_rhs - &constraint_matrix * &solution;
-                        // println!(
-                        //     "Residual norm: {:?}, step size: {:?}",
-                        //     residual.norm_inf(),
-                        //     step_size
-                        // );
-                        if residual.norm_inf() < self.abs_tol {
-                            return Ok(solution);
-                        } else {
-                            multipliers_change -= &multipliers;
-                            residual_change -= &residual;
-                            step_trial = residual_change.full_contraction(&multipliers_change)
-                                / residual_change.norm_squared();
-                            if step_trial.abs() > 0.0 && !step_trial.is_nan() {
-                                step_size = step_trial.abs()
-                                // } else {
-                                //     step_size *= 1.1
-                            }
-                            residual_change = residual.clone();
-                            multipliers_change = multipliers.clone();
-                            multipliers += residual * step_size;
-                        }
-                    } else {
-                        // println!("CUT BACK");
-                        multipliers -= (multipliers.clone() - &multipliers_change) * 0.8;
-                        step_size *= 0.8;
-                    }
-                }
-                Err(OptimizeError::MaximumStepsReached(
-                    self.max_steps,
-                    format!("{:?}", self),
-                ))
-            }
-            EqualityConstraint::None => gradient_descent(self, function, &initial_guess, None),
+            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => ascent(
+                self,
+                function,
+                initial_guess,
+                constraint_matrix,
+                constraint_rhs,
+            ),
+            EqualityConstraint::None => descent(self, function, initial_guess, None),
         }
     }
 }
@@ -96,6 +53,7 @@ where
 impl<F, X> FirstOrderOptimization<F, X> for GradientDescent
 where
     X: Jacobian,
+    for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     fn minimize(
         &self,
@@ -105,20 +63,27 @@ where
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizeError> {
         match equality_constraint {
-            EqualityConstraint::Linear(_constraint_matrix, _constraint_rhs) => {
-                unimplemented!("This may work with gradient ascent on multipliers, or not at all.")
-            }
-            EqualityConstraint::None => gradient_descent(self, jacobian, &initial_guess, None),
+            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => ascent(
+                self,
+                jacobian,
+                initial_guess,
+                constraint_matrix,
+                constraint_rhs,
+            ),
+            EqualityConstraint::None => descent(self, jacobian, initial_guess, None),
         }
     }
 }
 
-fn gradient_descent<X: Jacobian>(
+fn descent<X>(
     gradient_descent: &GradientDescent,
     jacobian: impl Fn(&X) -> Result<X, OptimizeError>,
-    initial_guess: &X,
+    initial_guess: X,
     linear_equality_constraint: Option<(&Matrix, &Vector)>,
-) -> Result<X, OptimizeError> {
+) -> Result<X, OptimizeError>
+where
+    X: Jacobian,
+{
     let constraint = if let Some((constraint_matrix, multipliers)) = linear_equality_constraint {
         Some(multipliers * constraint_matrix)
     } else {
@@ -145,12 +110,63 @@ fn gradient_descent<X: Jacobian>(
                 residual_change.full_contraction(&solution_change) / residual_change.norm_squared();
             if step_trial.abs() > 0.0 && !step_trial.is_nan() {
                 step_size = step_trial.abs()
-                // } else {
-                //     step_size *= 1.1
             }
             residual_change = residual.clone();
             solution_change = solution.clone();
             solution -= residual * step_size;
+        }
+    }
+    Err(OptimizeError::MaximumStepsReached(
+        gradient_descent.max_steps,
+        format!("{:?}", gradient_descent),
+    ))
+}
+
+fn ascent<X>(
+    gradient_descent: &GradientDescent,
+    jacobian: impl Fn(&X) -> Result<X, OptimizeError>,
+    initial_guess: X,
+    constraint_matrix: Matrix,
+    constraint_rhs: Vector,
+) -> Result<X, OptimizeError>
+where
+    X: Jacobian,
+    for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
+{
+    let num_constraints = constraint_rhs.len();
+    let mut multipliers = Vector::zero(num_constraints);
+    let mut multipliers_change = multipliers.clone();
+    let mut residual;
+    let mut residual_change = Vector::zero(num_constraints);
+    let mut solution = initial_guess;
+    let mut step_size = 1e-2;
+    let mut step_trial;
+    for _ in 0..gradient_descent.max_steps {
+        if let Ok(result) = descent(
+            gradient_descent,
+            &jacobian,
+            solution.clone(),
+            Some((&constraint_matrix, &multipliers)),
+        ) {
+            solution = result;
+            residual = &constraint_rhs - &constraint_matrix * &solution;
+            if residual.norm_inf() < gradient_descent.abs_tol {
+                return Ok(solution);
+            } else {
+                multipliers_change -= &multipliers;
+                residual_change -= &residual;
+                step_trial = residual_change.full_contraction(&multipliers_change)
+                    / residual_change.norm_squared();
+                if step_trial.abs() > 0.0 && !step_trial.is_nan() {
+                    step_size = step_trial.abs()
+                }
+                residual_change = residual.clone();
+                multipliers_change = multipliers.clone();
+                multipliers += residual * step_size;
+            }
+        } else {
+            multipliers -= (multipliers.clone() - &multipliers_change) * 0.8;
+            step_size *= 0.8;
         }
     }
     Err(OptimizeError::MaximumStepsReached(
