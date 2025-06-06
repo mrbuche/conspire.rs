@@ -707,9 +707,8 @@ macro_rules! test_finite_element_block_with_hyperelastic_constitutive_model {
         mod newton_raphson_minimize {
             use super::*;
             use crate::{
-                constitutive::solid::hyperelastic::SecondOrderMinimize,
-                // fem::block::SecondOrderMinimize,
-                math::optimize::NewtonRaphson,
+                constitutive::solid::hyperelastic::SecondOrderMinimize as _,
+                fem::block::SecondOrderMinimize, math::optimize::NewtonRaphson,
             };
             test_minimize_with_solver!(NewtonRaphson);
         }

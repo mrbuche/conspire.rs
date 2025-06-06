@@ -232,6 +232,14 @@ where
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<Scalar, ConstitutiveError>;
+}
+
+pub trait SecondOrderMinimize<C, F, const G: usize, const N: usize>
+where
+    C: Hyperelastic,
+    F: HyperelasticFiniteElement<C, G, N>,
+    Self: ElasticFiniteElementBlock<C, F, G, N>,
+{
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
@@ -468,6 +476,14 @@ where
             })
             .sum()
     }
+}
+
+impl<C, F, const G: usize, const N: usize> SecondOrderMinimize<C, F, G, N> for ElementBlock<F, N>
+where
+    C: Hyperelastic,
+    F: HyperelasticFiniteElement<C, G, N>,
+    Self: ElasticFiniteElementBlock<C, F, G, N>,
+{
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,

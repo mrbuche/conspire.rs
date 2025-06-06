@@ -26,6 +26,10 @@ impl Default for GradientDescent {
     }
 }
 
+const CUTBACK_FACTOR: TensorRank0 = 0.8;
+const CUTBACK_FACTOR_MINUS_ONE: TensorRank0 = 1.0 - CUTBACK_FACTOR;
+const INITIAL_STEP_SIZE: TensorRank0 = 1e-2;
+
 impl<X> ZerothOrderRootFinding<X> for GradientDescent
 where
     X: Jacobian,
@@ -38,7 +42,7 @@ where
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizeError> {
         match equality_constraint {
-            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => ascent(
+            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => dual_ascent(
                 self,
                 function,
                 initial_guess,
@@ -63,7 +67,7 @@ where
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizeError> {
         match equality_constraint {
-            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => ascent(
+            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => dual_ascent(
                 self,
                 jacobian,
                 initial_guess,
@@ -93,7 +97,7 @@ where
     let mut residual_change = initial_guess.clone() * 0.0;
     let mut solution = initial_guess.clone();
     let mut solution_change = solution.clone();
-    let mut step_size = 1e-2;
+    let mut step_size = INITIAL_STEP_SIZE;
     let mut step_trial;
     for _ in 0..gradient_descent.max_steps {
         residual = if let Some(ref extra) = constraint {
@@ -122,7 +126,7 @@ where
     ))
 }
 
-fn ascent<X>(
+fn dual_ascent<X>(
     gradient_descent: &GradientDescent,
     jacobian: impl Fn(&X) -> Result<X, OptimizeError>,
     initial_guess: X,
@@ -139,7 +143,7 @@ where
     let mut residual;
     let mut residual_change = Vector::zero(num_constraints);
     let mut solution = initial_guess;
-    let mut step_size = 1e-2;
+    let mut step_size = INITIAL_STEP_SIZE;
     let mut step_trial;
     for _ in 0..gradient_descent.max_steps {
         if let Ok(result) = descent(
@@ -165,8 +169,8 @@ where
                 multipliers += residual * step_size;
             }
         } else {
-            multipliers -= (multipliers.clone() - &multipliers_change) * 0.8;
-            step_size *= 0.8;
+            multipliers -= (multipliers.clone() - &multipliers_change) * CUTBACK_FACTOR_MINUS_ONE;
+            step_size *= CUTBACK_FACTOR;
         }
     }
     Err(OptimizeError::MaximumStepsReached(
