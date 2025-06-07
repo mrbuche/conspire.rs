@@ -142,7 +142,7 @@ where
         _time: &Vector,
         _tp: &Vector,
         _yp: &U,
-        _function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
+        mut _function: impl FnMut(TensorRank0, &Y) -> Result<Y, IntegrationError>,
     ) -> Result<(U, U), IntegrationError> {
         unimplemented!()
     }
