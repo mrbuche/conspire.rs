@@ -613,7 +613,12 @@ where
         let mut solution = NodalVelocitiesBlock::zero(self.coordinates().len());
         integrator.integrate(
             |_: Scalar, nodal_coordinates: &NodalCoordinatesBlock| {
-                solution = self.root_inner(equality_constraint.clone(), nodal_coordinates, &solver, &solution)?;
+                solution = self.root_inner(
+                    equality_constraint.clone(),
+                    nodal_coordinates,
+                    &solver,
+                    &solution,
+                )?;
                 Ok(solution.clone())
             },
             time,
@@ -630,7 +635,7 @@ where
             NodalStiffnessesBlock,
             NodalCoordinatesBlock,
         >,
-        initial_guess: &NodalVelocitiesBlock
+        initial_guess: &NodalVelocitiesBlock,
     ) -> Result<NodalVelocitiesBlock, OptimizeError> {
         solver.root(
             |nodal_velocities: &NodalVelocitiesBlock| {
@@ -699,7 +704,12 @@ where
         let mut solution = NodalVelocitiesBlock::zero(self.coordinates().len());
         integrator.integrate(
             |_: Scalar, nodal_coordinates: &NodalCoordinatesBlock| {
-                solution = self.minimize_inner(equality_constraint.clone(), nodal_coordinates, &solver, &solution)?;
+                solution = self.minimize_inner(
+                    equality_constraint.clone(),
+                    nodal_coordinates,
+                    &solver,
+                    &solution,
+                )?;
                 Ok(solution.clone())
             },
             time,

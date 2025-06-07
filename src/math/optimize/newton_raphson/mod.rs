@@ -157,9 +157,8 @@ where
                     tangent[j][i + num_variables] = -constraint_matrix_ij;
                 })
         });
-    for k in 0..newton_raphson.max_steps {
-println!("Step {}.", k);        
-(jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
+    for _ in 0..newton_raphson.max_steps {
+        (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
             &constraint_rhs - &constraint_matrix * &solution,
             &mut residual,
         );
