@@ -339,6 +339,7 @@ macro_rules! test_minimize_and_root {
                     &DeformationGradient::identity(),
                     -4.4,
                     &NewtonRaphson::default(),
+                    &DeformationGradientRate::zero(),
                 )?;
             assert!(deformation_gradient_rate.is_diagonal());
             assert!(deformation_gradient_rate[0][0] < deformation_gradient_rate[1][1]);
@@ -354,6 +355,7 @@ macro_rules! test_minimize_and_root {
                     &DeformationGradient::identity(),
                     4.4,
                     &NewtonRaphson::default(),
+                    &DeformationGradientRate::zero(),
                 )?;
             assert!(deformation_gradient_rate.is_diagonal());
             assert!(deformation_gradient_rate[0][0] > deformation_gradient_rate[1][1]);
@@ -369,6 +371,7 @@ macro_rules! test_minimize_and_root {
                     &DeformationGradient::identity(),
                     0.0,
                     &NewtonRaphson::default(),
+                    &DeformationGradientRate::zero(),
                 )?,
                 &DeformationGradientRate::zero(),
             )
@@ -381,6 +384,7 @@ macro_rules! test_minimize_and_root {
                     -0.77,
                     -0.88,
                     &NewtonRaphson::default(),
+                    &DeformationGradientRate::zero(),
                 )?;
             assert!(deformation_gradient_rate.is_diagonal());
             assert!(deformation_gradient_rate[0][0] < deformation_gradient_rate[2][2]);
@@ -395,6 +399,7 @@ macro_rules! test_minimize_and_root {
                     1.3,
                     -0.64,
                     &NewtonRaphson::default(),
+                    &DeformationGradientRate::zero(),
                 )?;
             assert!(deformation_gradient_rate.is_diagonal());
             assert!(deformation_gradient_rate[0][0] > deformation_gradient_rate[2][2]);
@@ -409,6 +414,7 @@ macro_rules! test_minimize_and_root {
                     1.3,
                     1.2,
                     &NewtonRaphson::default(),
+                    &DeformationGradientRate::zero(),
                 )?;
             assert!(deformation_gradient_rate.is_diagonal());
             assert!(deformation_gradient_rate[0][0] > deformation_gradient_rate[2][2]);
@@ -423,6 +429,7 @@ macro_rules! test_minimize_and_root {
                     0.0,
                     0.0,
                     &NewtonRaphson::default(),
+                    &DeformationGradientRate::zero(),
                 )?,
                 &DeformationGradientRate::zero(),
             )
@@ -433,6 +440,7 @@ macro_rules! test_minimize_and_root {
                 &DeformationGradient::identity(),
                 -4.4,
                 &NewtonRaphson::default(),
+                &DeformationGradientRate::zero(),
             )?;
             assert!(deformation_gradient_rate.is_diagonal());
             assert!(deformation_gradient_rate[0][0] < deformation_gradient_rate[1][1]);
@@ -447,6 +455,7 @@ macro_rules! test_minimize_and_root {
                 &DeformationGradient::identity(),
                 4.4,
                 &NewtonRaphson::default(),
+                &DeformationGradientRate::zero(),
             )?;
             assert!(deformation_gradient_rate.is_diagonal());
             assert!(deformation_gradient_rate[0][0] > deformation_gradient_rate[1][1]);
@@ -462,6 +471,7 @@ macro_rules! test_minimize_and_root {
                     &DeformationGradient::identity(),
                     0.0,
                     &NewtonRaphson::default(),
+                    &DeformationGradientRate::zero(),
                 )?,
                 &DeformationGradientRate::zero(),
             )
@@ -473,6 +483,7 @@ macro_rules! test_minimize_and_root {
                 -0.77,
                 -0.88,
                 &NewtonRaphson::default(),
+                &DeformationGradientRate::zero(),
             )?;
             assert!(deformation_gradient_rate.is_diagonal());
             assert!(deformation_gradient_rate[0][0] < deformation_gradient_rate[2][2]);
@@ -486,6 +497,7 @@ macro_rules! test_minimize_and_root {
                 1.3,
                 -0.64,
                 &NewtonRaphson::default(),
+                &DeformationGradientRate::zero(),
             )?;
             assert!(deformation_gradient_rate.is_diagonal());
             assert!(deformation_gradient_rate[0][0] > deformation_gradient_rate[2][2]);
@@ -499,6 +511,7 @@ macro_rules! test_minimize_and_root {
                 1.3,
                 1.2,
                 &NewtonRaphson::default(),
+                &DeformationGradientRate::zero(),
             )?;
             assert!(deformation_gradient_rate.is_diagonal());
             assert!(deformation_gradient_rate[0][0] > deformation_gradient_rate[2][2]);
@@ -513,6 +526,7 @@ macro_rules! test_minimize_and_root {
                     0.0,
                     0.0,
                     &NewtonRaphson::default(),
+                    &DeformationGradientRate::zero(),
                 )?,
                 &DeformationGradientRate::zero(),
             )

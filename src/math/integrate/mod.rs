@@ -64,7 +64,7 @@ where
     /// ```
     fn integrate(
         &self,
-        function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
+        function: impl FnMut(TensorRank0, &Y) -> Result<Y, IntegrationError>,
         time: &[TensorRank0],
         initial_condition: Y,
     ) -> Result<(Vector, U, U), IntegrationError>;

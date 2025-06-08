@@ -83,15 +83,18 @@ where
             DeformationGradient,
         >,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), IntegrationError> {
+        let mut solution = DeformationGradientRate::zero();
         match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_rate_11, time) => integrator
                 .integrate(
                     |t: Scalar, deformation_gradient: &DeformationGradient| {
-                        Ok(self.minimize_uniaxial_inner(
+                        solution = self.minimize_uniaxial_inner(
                             deformation_gradient,
                             deformation_gradient_rate_11(t),
                             &solver,
-                        )?)
+                            &solution,
+                        )?;
+                        Ok(solution.clone())
                     },
                     time,
                     DeformationGradient::identity(),
@@ -102,12 +105,14 @@ where
                 time,
             ) => integrator.integrate(
                 |t: Scalar, deformation_gradient: &DeformationGradient| {
-                    Ok(self.minimize_biaxial_inner(
+                    solution = self.minimize_biaxial_inner(
                         deformation_gradient,
                         deformation_gradient_rate_11(t),
                         deformation_gradient_rate_22(t),
                         &solver,
-                    )?)
+                        &solution,
+                    )?;
+                    Ok(solution.clone())
                 },
                 time,
                 DeformationGradient::identity(),
@@ -125,6 +130,7 @@ where
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
         >,
+        initial_guess: &DeformationGradientRate,
     ) -> Result<DeformationGradientRate, OptimizeError> {
         let mut matrix = Matrix::zero(4, 9);
         let mut vector = Vector::zero(4);
@@ -149,7 +155,7 @@ where
                     deformation_gradient_rate,
                 )?)
             },
-            DeformationGradientRate::zero(),
+            initial_guess.clone(),
             EqualityConstraint::Linear(matrix, vector),
             None,
         )
@@ -166,6 +172,7 @@ where
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
         >,
+        initial_guess: &DeformationGradientRate,
     ) -> Result<DeformationGradientRate, OptimizeError> {
         let mut matrix = Matrix::zero(5, 9);
         let mut vector = Vector::zero(5);
@@ -192,7 +199,7 @@ where
                     deformation_gradient_rate,
                 )?)
             },
-            DeformationGradientRate::zero(),
+            initial_guess.clone(),
             EqualityConstraint::Linear(matrix, vector),
             None,
         )
