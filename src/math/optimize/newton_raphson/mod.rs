@@ -16,7 +16,7 @@ use std::ops::{Div, Mul};
 pub struct NewtonRaphson {
     /// Absolute error tolerance.
     pub abs_tol: Scalar,
-    /// Optional line search algorithm.
+    /// Line search algorithm.
     pub line_search: Option<LineSearch>,
     /// Maximum number of steps.
     pub max_steps: usize,
@@ -57,12 +57,12 @@ where
                 constraint_matrix,
                 constraint_rhs,
             ),
-            EqualityConstraint::None => unconstrained(self, |_: &X| Err::<F, _>(OptimizeError::RootFindingLineSearch), function, jacobian, initial_guess),
+            EqualityConstraint::None => unconstrained(self, |_: &X| Err::<Scalar, _>(OptimizeError::RootFindingLineSearch), function, jacobian, initial_guess),
         }
     }
 }
 
-impl<F, J, H, X> SecondOrderOptimization<F, J, H, X> for NewtonRaphson
+impl<J, H, X> SecondOrderOptimization<Scalar, J, H, X> for NewtonRaphson
 where
     H: Hessian,
     J: Jacobian + Div<H, Output = X>,
@@ -72,7 +72,7 @@ where
 {
     fn minimize(
         &self,
-        function: impl Fn(&X) -> Result<F, OptimizeError>,
+        function: impl Fn(&X) -> Result<Scalar, OptimizeError>,
         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
         hessian: impl Fn(&X) -> Result<H, OptimizeError>,
         initial_guess: X,
@@ -94,9 +94,9 @@ where
     }
 }
 
-fn unconstrained<F, J, H, X>(
+fn unconstrained<J, H, X>(
     newton_raphson: &NewtonRaphson,
-    function: impl Fn(&X) -> Result<F, OptimizeError>,
+    function: impl Fn(&X) -> Result<Scalar, OptimizeError>,
     jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
     hessian: impl Fn(&X) -> Result<H, OptimizeError>,
     initial_guess: X,
@@ -111,11 +111,7 @@ where
     let mut direction;
     let mut residual;
     let mut solution = initial_guess;
-    let mut step_size = panic!(); // could make step_size a parameter in Self, but would then need templating and Default ("ones()"?)
-    //
-    // seems multi-objective is pretty different to where re-using these specific impls would not be possible
-    // so just impl NewtonRaphson for F=Scalar everywhere here
-    //
+    let mut step_size = newton_raphson.step_size;
     let mut tangent;
     for _ in 0..newton_raphson.max_steps {
         residual = jacobian(&solution)?;
@@ -125,9 +121,9 @@ where
         } else {
             direction = residual / tangent;
             if let Some(algorithm) = &newton_raphson.line_search {
-                algorithm.line_search(&function, &jacobian, &solution, &direction, &mut step_size)?
+                algorithm.line_search(&function, &jacobian, &solution, &direction, &mut newton_raphson.step_size)?
             }
-            solution -= direction
+            solution -= direction * step_size
         }
     }
     Err(OptimizeError::MaximumStepsReached(
