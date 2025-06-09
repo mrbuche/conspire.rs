@@ -11,8 +11,8 @@ pub mod thermal;
 
 use crate::{
     defeat_message,
-    math::{TestError, optimize::OptimizeError},
-    mechanics::{Deformation, DeformationError, DeformationGradient, Scalar},
+    math::{Scalar, TestError, optimize::OptimizeError},
+    mechanics::{Deformation, DeformationError, DeformationGradient},
 };
 use std::{
     fmt::{self, Debug, Display, Formatter},

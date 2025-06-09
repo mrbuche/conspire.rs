@@ -12,7 +12,7 @@ use crate::defeat_message;
 use rank_0::TensorRank0;
 use std::{
     fmt::{self, Debug, Display, Formatter},
-    ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
 /// A scalar.
@@ -112,6 +112,7 @@ where
         + Div<TensorRank0, Output = Self>
         + DivAssign<TensorRank0>
         + Mul<TensorRank0, Output = Self>
+        + MulAssign<TensorRank0>
         + Sub<Self, Output = Self>
         + Sub<&'a Self, Output = Self>
         + SubAssign

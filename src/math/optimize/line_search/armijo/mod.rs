@@ -1,17 +1,17 @@
 #[cfg(test)]
 mod test;
 
-use super::{Search, OptimizeError, TensorRank0};
-use crate::math::{Jacobian, Tensor};
+use super::{OptimizeError, Scalar, Search};
+use crate::math::{Jacobian, Solution};
 use std::ops::Mul;
 
 /// ???
 #[derive(Debug)]
 pub struct Armijo {
     /// ???
-    pub control: TensorRank0,
+    pub control: Scalar,
     /// ???
-    pub cut_back: TensorRank0,
+    pub cut_back: Scalar,
     /// Maximum number of steps.
     pub max_steps: usize,
 }
@@ -26,23 +26,36 @@ impl Default for Armijo {
     }
 }
 
-impl<F, J, X> Search<F, J, X> for Armijo
+impl<J, X> Search<Scalar, J, X> for Armijo
 where
-    // J: Jacobian + for<'a> Mul<&'a X, Output = F>,
-    // for<'a> &'a J: Mul<F, Output = X>,
-    X: Tensor,
+    J: Jacobian + for<'a> Mul<&'a X, Output = Scalar>,
+    X: Solution,
+    for<'a> &'a X: Mul<Scalar, Output = X>,
 {
     fn line_search(
         &self,
-        function: impl Fn(&X) -> Result<F, OptimizeError>,
+        function: impl Fn(&X) -> Result<Scalar, OptimizeError>,
         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
         position: &X,
         direction: &X,
-        step_size: &mut F,
-    ) -> Result<(), OptimizeError> {
+        step_size: &Scalar,
+    ) -> Result<Scalar, OptimizeError> {
+        let mut a = *step_size;
         let f = function(position)?;
-        // let m = jacobian(position)? * direction;
-        todo!()
+        let m = jacobian(position)? * direction;
+        // assert!(m < 0.0);
+        let t = self.control * m;
+        for _ in 0..self.max_steps {
+            if function(&(direction * a + position))? - f > a * t {
+                a *= self.cut_back
+            } else {
+                return Ok(a);
+            }
+        }
+        Err(OptimizeError::MaximumStepsReached(
+            self.max_steps,
+            format!("{:?}", self),
+        ))
     }
 }
 

@@ -5,8 +5,8 @@ mod armijo;
 
 use armijo::Armijo;
 
-use super::{super::TensorRank0, OptimizeError};
-use crate::math::{Jacobian, Tensor};
+use super::{super::Scalar, OptimizeError};
+use crate::math::{Jacobian, Solution};
 use std::ops::Mul;
 
 /// ???
@@ -18,37 +18,37 @@ pub trait Search<F, J, X> {
         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
         position: &X,
         direction: &X,
-        step_size: &mut F,
-    ) -> Result<(), OptimizeError>;
+        step_size: &F,
+    ) -> Result<F, OptimizeError>;
 }
 
 /// ???
 #[derive(Debug)]
 pub enum LineSearch {
-    Armijo(TensorRank0, TensorRank0, usize),
+    Armijo(Scalar, Scalar, usize),
 }
 
-impl<F, J, X> Search<F, J, X> for LineSearch
+impl<J, X> Search<Scalar, J, X> for LineSearch
 where
-    // J: Jacobian + for<'a> Mul<&'a X, Output = F>,
-    // for<'a> &'a J: Mul<F, Output = X>,
-    X: Tensor,
+    J: Jacobian + for<'a> Mul<&'a X, Output = Scalar>,
+    X: Solution,
+    for<'a> &'a X: Mul<Scalar, Output = X>,
 {
     fn line_search(
         &self,
-        function: impl Fn(&X) -> Result<F, OptimizeError>,
+        function: impl Fn(&X) -> Result<Scalar, OptimizeError>,
         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
         position: &X,
         direction: &X,
-        step_size: &mut F,
-    ) -> Result<(), OptimizeError> {
+        step_size: &Scalar,
+    ) -> Result<Scalar, OptimizeError> {
         match self {
             Self::Armijo(control, cut_back, max_steps) => Armijo {
                 control: *control,
                 cut_back: *cut_back,
                 max_steps: *max_steps,
-            }
-            .line_search(function, jacobian, position, direction, step_size),
+            },
         }
+        .line_search(function, jacobian, position, direction, step_size)
     }
 }

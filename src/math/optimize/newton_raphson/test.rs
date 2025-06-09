@@ -1,8 +1,8 @@
 use super::{
-    EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, SecondOrderOptimization, TensorRank0,
+    EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, Scalar, SecondOrderOptimization,
 };
 
-const TOLERANCE: TensorRank0 = 1e-6;
+const TOLERANCE: Scalar = 1e-6;
 
 mod minimize {
     use super::*;
@@ -12,9 +12,9 @@ mod minimize {
             ..Default::default()
         }
         .minimize(
-            |x: &TensorRank0| Ok(x.powi(2) / 2.0),
-            |x: &TensorRank0| Ok(*x),
-            |_: &TensorRank0| Ok(1.0),
+            |x: &Scalar| Ok(x.powi(2) / 2.0),
+            |x: &Scalar| Ok(*x),
+            |_: &Scalar| Ok(1.0),
             1.0,
             EqualityConstraint::None,
             None,
@@ -28,9 +28,9 @@ mod minimize {
             ..Default::default()
         }
         .minimize(
-            |x: &TensorRank0| Ok(x.powi(3) / 6.0),
-            |x: &TensorRank0| Ok(x.powi(2) / 2.0),
-            |x: &TensorRank0| Ok(*x),
+            |x: &Scalar| Ok(x.powi(3) / 6.0),
+            |x: &Scalar| Ok(x.powi(2) / 2.0),
+            |x: &Scalar| Ok(*x),
             1.0,
             EqualityConstraint::None,
             None,
@@ -44,9 +44,9 @@ mod minimize {
             ..Default::default()
         }
         .minimize(
-            |x: &TensorRank0| Ok(-x.sin()),
-            |x: &TensorRank0| Ok(x.sin()),
-            |x: &TensorRank0| Ok(x.cos()),
+            |x: &Scalar| Ok(-x.sin()),
+            |x: &Scalar| Ok(x.sin()),
+            |x: &Scalar| Ok(x.cos()),
             1.0,
             EqualityConstraint::None,
             None,
@@ -65,8 +65,8 @@ mod root {
                 ..Default::default()
             }
             .root(
-                |x: &TensorRank0| Ok(*x),
-                |_: &TensorRank0| Ok(1.0),
+                |x: &Scalar| Ok(*x),
+                |_: &Scalar| Ok(1.0),
                 1.0,
                 EqualityConstraint::None,
             )
@@ -82,8 +82,8 @@ mod root {
                 ..Default::default()
             }
             .root(
-                |x: &TensorRank0| Ok(x.powi(2) / 2.0),
-                |x: &TensorRank0| Ok(*x),
+                |x: &Scalar| Ok(x.powi(2) / 2.0),
+                |x: &Scalar| Ok(*x),
                 1.0,
                 EqualityConstraint::None,
             )
@@ -99,8 +99,8 @@ mod root {
                 ..Default::default()
             }
             .root(
-                |x: &TensorRank0| Ok(x.sin()),
-                |x: &TensorRank0| Ok(x.cos()),
+                |x: &Scalar| Ok(x.sin()),
+                |x: &Scalar| Ok(x.cos()),
                 1.0,
                 EqualityConstraint::None,
             )

@@ -71,7 +71,6 @@ pub enum OptimizeError {
     Generic(String),
     MaximumStepsReached(usize, String),
     NotMinimum(String, String),
-    RootFindingLineSearch,
     SingularMatrix,
 }
 
@@ -114,7 +113,6 @@ impl Debug for OptimizeError {
                     solution, optimizer
                 )
             }
-            Self::RootFindingLineSearch => "\x1b[1;91mNo line search with root finding".to_string(),
             Self::SingularMatrix => "\x1b[1;91mMatrix is singular.".to_string(),
         };
         write!(f, "\n{}\n\x1b[0;2;31m{}\x1b[0m\n", error, defeat_message())
@@ -140,7 +138,6 @@ impl Display for OptimizeError {
                     solution, optimizer
                 )
             }
-            Self::RootFindingLineSearch => "\x1b[1;91mNo line search with root finding".to_string(),
             Self::SingularMatrix => "\x1b[1;91mMatrix is singular.".to_string(),
         };
         write!(f, "{}\x1b[0m", error)

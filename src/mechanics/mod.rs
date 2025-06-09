@@ -6,12 +6,14 @@ pub mod test;
 use crate::{
     defeat_message,
     math::{
-        Rank2, Tensor, TensorRank0, TensorRank0List, TensorRank1, TensorRank1List,
-        TensorRank1List2D, TensorRank2, TensorRank2List, TensorRank2List2D, TensorRank2Vec,
-        TensorRank4, TensorRank4List,
+        Rank2, Tensor, TensorRank0List, TensorRank1, TensorRank1List, TensorRank1List2D,
+        TensorRank2, TensorRank2List, TensorRank2List2D, TensorRank2Vec, TensorRank4,
+        TensorRank4List,
     },
 };
 use std::fmt::{self, Debug, Display, Formatter};
+
+pub use crate::math::Scalar;
 
 /// Possible errors for deformation gradients.
 pub enum DeformationError {
