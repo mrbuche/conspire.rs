@@ -219,9 +219,6 @@ pub type RotationRateCurrentConfiguration = TensorRank2<3, 1, 1>;
 /// The rotation of the reference configuration $`\mathbf{Q}_0`$.
 pub type RotationReferenceConfiguration = TensorRank2<3, 0, 0>;
 
-/// A scalar.
-pub type Scalar = TensorRank0;
-
 /// A list of scalars.
 pub type Scalars<const W: usize> = TensorRank0List<W>;
 

@@ -3,7 +3,7 @@ mod test;
 
 use super::{
     super::{
-        Banded, Hessian, Jacobian, Matrix, Solution, SquareMatrix, Tensor, TensorRank0, TensorVec,
+        Banded, Hessian, Jacobian, Matrix, Solution, SquareMatrix, Tensor, Scalar, TensorVec,
         Vector,
     },
     EqualityConstraint, FirstOrderRootFinding, LineSearch, Search, OptimizeError, SecondOrderOptimization,
@@ -15,7 +15,7 @@ use std::ops::{Div, Mul};
 #[derive(Debug)]
 pub struct NewtonRaphson {
     /// Absolute error tolerance.
-    pub abs_tol: TensorRank0,
+    pub abs_tol: Scalar,
     /// Optional line search algorithm.
     pub line_search: Option<LineSearch>,
     /// Maximum number of steps.
@@ -112,6 +112,10 @@ where
     let mut residual;
     let mut solution = initial_guess;
     let mut step_size = panic!(); // could make step_size a parameter in Self, but would then need templating and Default ("ones()"?)
+    //
+    // seems multi-objective is pretty different to where re-using these specific impls would not be possible
+    // so just impl NewtonRaphson for F=Scalar everywhere here
+    //
     let mut tangent;
     for _ in 0..newton_raphson.max_steps {
         residual = jacobian(&solution)?;

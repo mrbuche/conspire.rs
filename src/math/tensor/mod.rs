@@ -15,6 +15,9 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, Sub, SubAssign},
 };
 
+/// A scalar.
+pub type Scalar = TensorRank0;
+
 /// Possible errors for tensors.
 #[derive(PartialEq)]
 pub enum TensorError {
