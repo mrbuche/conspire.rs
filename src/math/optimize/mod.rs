@@ -3,7 +3,13 @@ mod test;
 
 mod constraint;
 mod gradient_descent;
+mod line_search;
 mod newton_raphson;
+
+pub use constraint::EqualityConstraint;
+pub use gradient_descent::GradientDescent;
+pub use line_search::{LineSearch, Search};
+pub use newton_raphson::NewtonRaphson;
 
 use crate::{
     defeat_message,
@@ -14,10 +20,6 @@ use crate::{
     },
 };
 use std::fmt::{self, Debug, Display, Formatter};
-
-pub use constraint::EqualityConstraint;
-pub use gradient_descent::GradientDescent;
-pub use newton_raphson::NewtonRaphson;
 
 /// Zeroth-order root-finding algorithms.
 pub trait ZerothOrderRootFinding<X> {
@@ -69,6 +71,7 @@ pub enum OptimizeError {
     Generic(String),
     MaximumStepsReached(usize, String),
     NotMinimum(String, String),
+    RootFindingLineSearch,
     SingularMatrix,
 }
 
@@ -111,6 +114,7 @@ impl Debug for OptimizeError {
                     solution, optimizer
                 )
             }
+            Self::RootFindingLineSearch => "\x1b[1;91mNo line search with root finding".to_string(),
             Self::SingularMatrix => "\x1b[1;91mMatrix is singular.".to_string(),
         };
         write!(f, "\n{}\n\x1b[0;2;31m{}\x1b[0m\n", error, defeat_message())
@@ -136,6 +140,7 @@ impl Display for OptimizeError {
                     solution, optimizer
                 )
             }
+            Self::RootFindingLineSearch => "\x1b[1;91mNo line search with root finding".to_string(),
             Self::SingularMatrix => "\x1b[1;91mMatrix is singular.".to_string(),
         };
         write!(f, "{}\x1b[0m", error)

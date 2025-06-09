@@ -6,7 +6,7 @@ use super::{
         Banded, Hessian, Jacobian, Matrix, Solution, SquareMatrix, Tensor, TensorRank0, TensorVec,
         Vector,
     },
-    EqualityConstraint, FirstOrderRootFinding, OptimizeError, SecondOrderOptimization,
+    EqualityConstraint, FirstOrderRootFinding, LineSearch, Search, OptimizeError, SecondOrderOptimization,
 };
 use crate::ABS_TOL;
 use std::ops::{Div, Mul};
@@ -16,6 +16,8 @@ use std::ops::{Div, Mul};
 pub struct NewtonRaphson {
     /// Absolute error tolerance.
     pub abs_tol: TensorRank0,
+    /// Optional line search algorithm.
+    pub line_search: Option<LineSearch>,
     /// Maximum number of steps.
     pub max_steps: usize,
 }
@@ -24,6 +26,7 @@ impl Default for NewtonRaphson {
     fn default() -> Self {
         Self {
             abs_tol: ABS_TOL,
+            line_search: None,
             max_steps: 25,
         }
     }
@@ -54,7 +57,7 @@ where
                 constraint_matrix,
                 constraint_rhs,
             ),
-            EqualityConstraint::None => unconstrained(self, function, jacobian, initial_guess),
+            EqualityConstraint::None => unconstrained(self, |_: &X| Err::<F, _>(OptimizeError::RootFindingLineSearch), function, jacobian, initial_guess),
         }
     }
 }
@@ -69,7 +72,7 @@ where
 {
     fn minimize(
         &self,
-        _function: impl Fn(&X) -> Result<F, OptimizeError>,
+        function: impl Fn(&X) -> Result<F, OptimizeError>,
         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
         hessian: impl Fn(&X) -> Result<H, OptimizeError>,
         initial_guess: X,
@@ -86,13 +89,14 @@ where
                 constraint_matrix,
                 constraint_rhs,
             ),
-            EqualityConstraint::None => unconstrained(self, jacobian, hessian, initial_guess),
+            EqualityConstraint::None => unconstrained(self, function, jacobian, hessian, initial_guess),
         }
     }
 }
 
-fn unconstrained<J, H, X>(
+fn unconstrained<F, J, H, X>(
     newton_raphson: &NewtonRaphson,
+    function: impl Fn(&X) -> Result<F, OptimizeError>,
     jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
     hessian: impl Fn(&X) -> Result<H, OptimizeError>,
     initial_guess: X,
@@ -104,8 +108,10 @@ where
     Vector: From<X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
+    let mut direction;
     let mut residual;
     let mut solution = initial_guess;
+    let mut step_size = panic!(); // could make step_size a parameter in Self, but would then need templating and Default ("ones()"?)
     let mut tangent;
     for _ in 0..newton_raphson.max_steps {
         residual = jacobian(&solution)?;
@@ -113,7 +119,11 @@ where
         if residual.norm_inf() < newton_raphson.abs_tol {
             return Ok(solution);
         } else {
-            solution -= residual / tangent;
+            direction = residual / tangent;
+            if let Some(algorithm) = &newton_raphson.line_search {
+                algorithm.line_search(&function, &jacobian, &solution, &direction, &mut step_size)?
+            }
+            solution -= direction
         }
     }
     Err(OptimizeError::MaximumStepsReached(
