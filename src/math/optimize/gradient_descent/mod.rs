@@ -3,7 +3,7 @@ mod test;
 
 use super::{
     super::{Jacobian, Matrix, Tensor, TensorRank0, TensorVec, Vector},
-    EqualityConstraint, FirstOrderOptimization, OptimizeError, ZerothOrderRootFinding,
+    EqualityConstraint, FirstOrderOptimization, LineSearch, OptimizeError, ZerothOrderRootFinding,
 };
 use crate::ABS_TOL;
 use std::ops::Mul;
@@ -13,6 +13,8 @@ use std::ops::Mul;
 pub struct GradientDescent {
     /// Absolute error tolerance.
     pub abs_tol: TensorRank0,
+    /// Line search algorithm.
+    pub line_search: Option<LineSearch>,
     /// Maximum number of steps.
     pub max_steps: usize,
 }
@@ -21,6 +23,7 @@ impl Default for GradientDescent {
     fn default() -> Self {
         Self {
             abs_tol: ABS_TOL,
+            line_search: None,
             max_steps: 250,
         }
     }
@@ -115,6 +118,10 @@ where
             if step_trial.abs() > 0.0 && !step_trial.is_nan() {
                 step_size = step_trial.abs()
             }
+            if let Some(algorithm) = &gradient_descent.line_search {
+                todo!()
+                // step_size = algorithm.line_search(&function, &residual, &solution, &decrement, &step_size)?
+            }
             residual_change = residual.clone();
             solution_change = solution.clone();
             solution -= residual * step_size;
@@ -137,6 +144,11 @@ where
     X: Jacobian,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
+    if gradient_descent.line_search.is_some() {
+        println!(
+            "Warning: \n\x1b[1;93mLine search is not used in constrained optimization.\x1b[0m"
+        );
+    }
     let num_constraints = constraint_rhs.len();
     let mut multipliers = Vector::zero(num_constraints);
     let mut multipliers_change = multipliers.clone();

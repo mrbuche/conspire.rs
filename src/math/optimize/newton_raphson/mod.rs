@@ -146,6 +146,7 @@ where
     ))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn constrained<J, H, X>(
     newton_raphson: &NewtonRaphson,
     _function: impl Fn(&X) -> Result<Scalar, OptimizeError>,
