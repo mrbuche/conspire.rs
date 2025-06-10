@@ -28,6 +28,13 @@ pub enum LineSearch {
     Armijo(Scalar, Scalar, usize),
 }
 
+impl Default for LineSearch {
+    fn default() -> Self {
+        let default = Armijo::default();
+        Self::Armijo(default.control, default.cut_back, default.max_steps)
+    }
+}
+
 impl<J, X> Search<Scalar, J, X> for LineSearch
 where
     J: Jacobian,

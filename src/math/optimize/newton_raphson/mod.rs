@@ -195,7 +195,7 @@ where
         );
         hessian(&solution)?.fill_into(&mut tangent);
         if residual.norm_inf() < newton_raphson.abs_tol {
-            return Ok(solution)
+            return Ok(solution);
         } else if let Some(ref band) = banded {
             direction = tangent.solve_lu_banded(&residual, band)?
         } else {

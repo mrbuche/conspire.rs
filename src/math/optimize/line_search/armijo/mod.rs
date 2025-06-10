@@ -19,8 +19,8 @@ pub struct Armijo {
 impl Default for Armijo {
     fn default() -> Self {
         Self {
-            control: 0.5,
-            cut_back: 0.5,
+            control: 1e-3,
+            cut_back: 0.9,
             max_steps: 10,
         }
     }
@@ -41,14 +41,23 @@ where
         direction: &X,
         step_size: &Scalar,
     ) -> Result<Scalar, OptimizeError> {
-        // assert!(step_size > 0.0);
+
+        assert!(step_size > &0.0);
+
         let mut a = *step_size;
         let f = function(position)?;
         let m = jacobian(position)?.full_contraction(direction.into());
-        // assert!(m < 0.0);
-        let t = self.control * m;
+        //
+        // direction is coming in with sign flipped right now
+        //
+        assert!(m > 0.0);
+        //
+        // so putting a negative sign below on m and on a in function call
+        //
+        let t = self.control * -m;
         for _ in 0..self.max_steps {
-            if function(&(direction * a + position))? - f > a * t {
+            if function(&(direction * -a + position))? - f > a * t {
+                println!("{:?}, {:?}, {:?}", a, a*t, function(&(direction * -a + position))? - f);
                 a *= self.cut_back
             } else {
                 return Ok(a);
