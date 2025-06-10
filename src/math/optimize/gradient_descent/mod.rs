@@ -2,7 +2,7 @@
 mod test;
 
 use super::{
-    super::{Jacobian, Matrix, Tensor, TensorRank0, TensorVec, Vector},
+    super::{Jacobian, Matrix, Scalar, Tensor, TensorVec, Vector},
     EqualityConstraint, FirstOrderOptimization, LineSearch, OptimizeError, ZerothOrderRootFinding,
 };
 use crate::ABS_TOL;
@@ -12,7 +12,7 @@ use std::ops::Mul;
 #[derive(Debug)]
 pub struct GradientDescent {
     /// Absolute error tolerance.
-    pub abs_tol: TensorRank0,
+    pub abs_tol: Scalar,
     /// Line search algorithm.
     pub line_search: Option<LineSearch>,
     /// Maximum number of steps.
@@ -29,9 +29,9 @@ impl Default for GradientDescent {
     }
 }
 
-const CUTBACK_FACTOR: TensorRank0 = 0.8;
-const CUTBACK_FACTOR_MINUS_ONE: TensorRank0 = 1.0 - CUTBACK_FACTOR;
-const INITIAL_STEP_SIZE: TensorRank0 = 1e-2;
+const CUTBACK_FACTOR: Scalar = 0.8;
+const CUTBACK_FACTOR_MINUS_ONE: Scalar = 1.0 - CUTBACK_FACTOR;
+const INITIAL_STEP_SIZE: Scalar = 1e-2;
 
 impl<X> ZerothOrderRootFinding<X> for GradientDescent
 where
@@ -91,6 +91,9 @@ fn descent<X>(
 where
     X: Jacobian,
 {
+    if gradient_descent.line_search.is_some() {
+        unimplemented!();
+    }
     let constraint = if let Some((constraint_matrix, multipliers)) = linear_equality_constraint {
         Some(multipliers * constraint_matrix)
     } else {
@@ -118,10 +121,6 @@ where
             if step_trial.abs() > 0.0 && !step_trial.is_nan() {
                 step_size = step_trial.abs()
             }
-            if let Some(algorithm) = &gradient_descent.line_search {
-                todo!()
-                // step_size = algorithm.line_search(&function, &residual, &solution, &decrement, &step_size)?
-            }
             residual_change = residual.clone();
             solution_change = solution.clone();
             solution -= residual * step_size;
@@ -145,9 +144,7 @@ where
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     if gradient_descent.line_search.is_some() {
-        println!(
-            "Warning: \n\x1b[1;93mLine search is not used in constrained optimization.\x1b[0m"
-        );
+        panic!("Line search needs the exact penalty function in constrained optimization.");
     }
     let num_constraints = constraint_rhs.len();
     let mut multipliers = Vector::zero(num_constraints);

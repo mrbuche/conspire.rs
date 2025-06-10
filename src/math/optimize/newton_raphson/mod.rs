@@ -164,9 +164,7 @@ where
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     if newton_raphson.line_search.is_some() {
-        println!(
-            "Warning: \n\x1b[1;93mLine search is not used in constrained optimization.\x1b[0m"
-        );
+        panic!("Line search needs the exact penalty function in constrained optimization.");
     }
     let mut decrement;
     let num_variables = initial_guess.num_entries();
