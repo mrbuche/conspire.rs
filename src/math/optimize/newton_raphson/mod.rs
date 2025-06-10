@@ -151,7 +151,7 @@ where
 
 fn constrained<J, H, X>(
     newton_raphson: &NewtonRaphson,
-    function: impl Fn(&X) -> Result<Scalar, OptimizeError>,
+    _function: impl Fn(&X) -> Result<Scalar, OptimizeError>,
     jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
     hessian: impl Fn(&X) -> Result<H, OptimizeError>,
     initial_guess: X,
@@ -207,9 +207,10 @@ where
         // Can you make another method in Search to deal with 2 arguments from constraints?
         // May be nice to continue to keep separate since separate null-space and range-space solves could be expedient.
         //
-        // if let Some(algorithm) = &newton_raphson.line_search {
-        //     direction *= algorithm.line_search(&function, &jacobian, &solution, &direction, &1.0)?
-        // }
+        if let Some(_algorithm) = &newton_raphson.line_search {
+            // direction *= algorithm.line_search(&function, &jacobian, &solution, &direction, &1.0)?
+            unimplemented!()
+        }
         solution.decrement_from_chained(&mut multipliers, direction)
         // The convexity of every step of the solves can be verified (with LDL, LL, etc.).
         // Also, consider revisiting null-space method to drastically reduce solve size.
