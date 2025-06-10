@@ -53,6 +53,7 @@ where
         match equality_constraint {
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
                 self,
+                |_: &X| panic!("No line search in root finding"),
                 function,
                 jacobian,
                 initial_guess,
@@ -93,6 +94,7 @@ where
         match equality_constraint {
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
                 self,
+                function,
                 jacobian,
                 hessian,
                 initial_guess,
@@ -149,6 +151,7 @@ where
 
 fn constrained<J, H, X>(
     newton_raphson: &NewtonRaphson,
+    function: impl Fn(&X) -> Result<Scalar, OptimizeError>,
     jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
     hessian: impl Fn(&X) -> Result<H, OptimizeError>,
     initial_guess: X,
@@ -159,10 +162,13 @@ fn constrained<J, H, X>(
 where
     H: Hessian,
     J: Jacobian + Div<H, Output = X>,
+    // for<'a> &'a J: From<&'a X>,
     X: Solution,
+    // for<'a> &'a X: Mul<Scalar, Output = X>,
     Vector: From<X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
+    let mut direction;
     let num_variables = initial_guess.num_entries();
     let num_constraints = constraint_rhs.len();
     let num_total = num_variables + num_constraints;
@@ -189,13 +195,22 @@ where
         );
         hessian(&solution)?.fill_into(&mut tangent);
         if residual.norm_inf() < newton_raphson.abs_tol {
-            return Ok(solution);
+            return Ok(solution)
         } else if let Some(ref band) = banded {
-            solution
-                .decrement_from_chained(&mut multipliers, tangent.solve_lu_banded(&residual, band)?)
+            direction = tangent.solve_lu_banded(&residual, band)?
         } else {
-            solution.decrement_from_chained(&mut multipliers, tangent.solve_lu(&residual)?)
+            direction = tangent.solve_lu(&residual)?
         }
+        //
+        // See now you need to have "function", "jacobian", etc. below take in {solution; multipliers} as one long vector and so on
+        // I.e. "function" becomes the Lagrangian, "jacobian" the whole residual, etc.
+        // Can you make another method in Search to deal with 2 arguments from constraints?
+        // May be nice to continue to keep separate since separate null-space and range-space solves could be expedient.
+        //
+        // if let Some(algorithm) = &newton_raphson.line_search {
+        //     direction *= algorithm.line_search(&function, &jacobian, &solution, &direction, &1.0)?
+        // }
+        solution.decrement_from_chained(&mut multipliers, direction)
         // The convexity of every step of the solves can be verified (with LDL, LL, etc.).
         // Also, consider revisiting null-space method to drastically reduce solve size.
     }
