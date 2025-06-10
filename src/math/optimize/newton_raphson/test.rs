@@ -1,28 +1,12 @@
 use super::{
-    EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, Scalar, SecondOrderOptimization, LineSearch,
+    EqualityConstraint, FirstOrderRootFinding, LineSearch, NewtonRaphson, Scalar,
+    SecondOrderOptimization,
 };
 
 const TOLERANCE: Scalar = 1e-6;
 
 mod minimize {
     use super::*;
-    #[test]
-    fn armijo() {
-        let x = NewtonRaphson {
-            line_search: Some(LineSearch::default()),
-            ..Default::default()
-        }
-        .minimize(
-            |x: &Scalar| Ok(x.powi(3) / 6.0),
-            |x: &Scalar| Ok(x.powi(2) / 2.0),
-            |x: &Scalar| Ok(*x),
-            1.0,
-            EqualityConstraint::None,
-            None,
-        )
-        .unwrap();
-        assert!(x.abs() < TOLERANCE)
-    }
     #[test]
     fn quadratic() {
         let x = NewtonRaphson {
@@ -70,6 +54,26 @@ mod minimize {
         )
         .unwrap();
         assert!(x.abs() < TOLERANCE)
+    }
+    mod line_search {
+        use super::*;
+        #[test]
+        fn armijo() {
+            let x = NewtonRaphson {
+                line_search: Some(LineSearch::default()),
+                ..Default::default()
+            }
+            .minimize(
+                |x: &Scalar| Ok(x.powi(3) / 6.0),
+                |x: &Scalar| Ok(x.powi(2) / 2.0),
+                |x: &Scalar| Ok(*x),
+                1.0,
+                EqualityConstraint::None,
+                None,
+            )
+            .unwrap();
+            assert!(x.abs() < TOLERANCE)
+        }
     }
 }
 

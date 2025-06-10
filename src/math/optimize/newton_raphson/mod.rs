@@ -35,12 +35,11 @@ impl Default for NewtonRaphson {
 
 impl<F, J, X> FirstOrderRootFinding<F, J, X> for NewtonRaphson
 where
-    F: Jacobian + Div<J, Output = X>,
-    for<'a> &'a F: From<&'a X>,
+    F: Jacobian,
+    for<'a> &'a F: Div<J, Output = X> + From<&'a X>,
     J: Hessian,
     X: Solution,
     for<'a> &'a X: Mul<Scalar, Output = X>,
-    Vector: From<X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     fn root(
@@ -75,11 +74,10 @@ where
 impl<J, H, X> SecondOrderOptimization<Scalar, J, H, X> for NewtonRaphson
 where
     H: Hessian,
-    J: Jacobian + Div<H, Output = X>,
-    for<'a> &'a J: From<&'a X>,
+    J: Jacobian,
+    for<'a> &'a J: Div<H, Output = X> + From<&'a X>,
     X: Solution,
     for<'a> &'a X: Mul<Scalar, Output = X>,
-    Vector: From<X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     fn minimize(
@@ -118,14 +116,13 @@ fn unconstrained<J, H, X>(
 ) -> Result<X, OptimizeError>
 where
     H: Hessian,
-    J: Jacobian + Div<H, Output = X>,
-    for<'a> &'a J: From<&'a X>,
+    J: Jacobian,
+    for<'a> &'a J: Div<H, Output = X> + From<&'a X>,
     X: Solution,
     for<'a> &'a X: Mul<Scalar, Output = X>,
-    Vector: From<X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
-    let mut direction;
+    let mut decrement;
     let mut residual;
     let mut solution = initial_guess;
     let mut tangent;
@@ -135,12 +132,12 @@ where
         if residual.norm_inf() < newton_raphson.abs_tol {
             return Ok(solution);
         } else {
-            direction = residual / tangent;
+            decrement = &residual / tangent;
             if let Some(algorithm) = &newton_raphson.line_search {
-                direction *=
-                    algorithm.line_search(&function, &jacobian, &solution, &direction, &1.0)?
+                decrement *=
+                    algorithm.line_search(&function, &residual, &solution, &decrement, &1.0)?
             }
-            solution -= direction
+            solution -= decrement
         }
     }
     Err(OptimizeError::MaximumStepsReached(
@@ -161,14 +158,14 @@ fn constrained<J, H, X>(
 ) -> Result<X, OptimizeError>
 where
     H: Hessian,
-    J: Jacobian + Div<H, Output = X>,
-    // for<'a> &'a J: From<&'a X>,
+    J: Jacobian,
     X: Solution,
-    // for<'a> &'a X: Mul<Scalar, Output = X>,
-    Vector: From<X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
-    let mut direction;
+    if newton_raphson.line_search.is_some() {
+        println!("Warning: \n\x1b[1;93mLine search is not used in constrained optimization.\x1b[0m");
+    }
+    let mut decrement;
     let num_variables = initial_guess.num_entries();
     let num_constraints = constraint_rhs.len();
     let num_total = num_variables + num_constraints;
@@ -197,21 +194,11 @@ where
         if residual.norm_inf() < newton_raphson.abs_tol {
             return Ok(solution);
         } else if let Some(ref band) = banded {
-            direction = tangent.solve_lu_banded(&residual, band)?
+            decrement = tangent.solve_lu_banded(&residual, band)?
         } else {
-            direction = tangent.solve_lu(&residual)?
+            decrement = tangent.solve_lu(&residual)?
         }
-        //
-        // See now you need to have "function", "jacobian", etc. below take in {solution; multipliers} as one long vector and so on
-        // I.e. "function" becomes the Lagrangian, "jacobian" the whole residual, etc.
-        // Can you make another method in Search to deal with 2 arguments from constraints?
-        // May be nice to continue to keep separate since separate null-space and range-space solves could be expedient.
-        //
-        if let Some(_algorithm) = &newton_raphson.line_search {
-            // direction *= algorithm.line_search(&function, &jacobian, &solution, &direction, &1.0)?
-            unimplemented!()
-        }
-        solution.decrement_from_chained(&mut multipliers, direction)
+        solution.decrement_from_chained(&mut multipliers, decrement)
         // The convexity of every step of the solves can be verified (with LDL, LL, etc.).
         // Also, consider revisiting null-space method to drastically reduce solve size.
     }

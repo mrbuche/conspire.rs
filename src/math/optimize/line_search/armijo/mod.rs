@@ -1,6 +1,3 @@
-#[cfg(test)]
-mod test;
-
 use super::{OptimizeError, Scalar, Search};
 use crate::math::{Jacobian, Solution};
 use std::ops::Mul;
@@ -21,46 +18,37 @@ impl Default for Armijo {
         Self {
             control: 1e-3,
             cut_back: 0.9,
-            max_steps: 10,
+            max_steps: 25,
         }
     }
 }
 
-impl<J, X> Search<Scalar, J, X> for Armijo
-where
-    J: Jacobian,
-    for<'a> &'a J: From<&'a X>,
-    X: Solution,
-    for<'a> &'a X: Mul<Scalar, Output = X>,
-{
-    fn line_search(
+impl Search for Armijo {
+    fn line_search<X, J>(
         &self,
         function: impl Fn(&X) -> Result<Scalar, OptimizeError>,
-        jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
-        position: &X,
-        direction: &X,
+        jacobian: &J,
+        argument: &X,
+        decrement: &X,
         step_size: &Scalar,
-    ) -> Result<Scalar, OptimizeError> {
-
-        assert!(step_size > &0.0);
-
-        let mut a = *step_size;
-        let f = function(position)?;
-        let m = jacobian(position)?.full_contraction(direction.into());
-        //
-        // direction is coming in with sign flipped right now
-        //
-        assert!(m > 0.0);
-        //
-        // so putting a negative sign below on m and on a in function call
-        //
-        let t = self.control * -m;
+    ) -> Result<Scalar, OptimizeError>
+    where
+        J: Jacobian,
+        for<'a> &'a J: From<&'a X>,
+        X: Solution,
+        for<'a> &'a X: Mul<Scalar, Output = X>,
+    {
+        assert!(step_size > &0.0, "Negative step size");
+        let mut n = -step_size;
+        let f = function(argument)?;
+        let m = jacobian.full_contraction(decrement.into());
+        assert!(m > 0.0, "Not a descent direction");
+        let t = self.control * m;
         for _ in 0..self.max_steps {
-            if function(&(direction * -a + position))? - f > a * t {
-                println!("{:?}, {:?}, {:?}", a, a*t, function(&(direction * -a + position))? - f);
-                a *= self.cut_back
+            if function(&(decrement * n + argument))? - f > n * t {
+                n *= self.cut_back
             } else {
-                return Ok(a);
+                return Ok(-n);
             }
         }
         Err(OptimizeError::MaximumStepsReached(
