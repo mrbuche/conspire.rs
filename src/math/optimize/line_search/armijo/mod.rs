@@ -5,12 +5,12 @@ use super::{OptimizeError, Scalar, Search};
 use crate::math::{Jacobian, Solution};
 use std::ops::Mul;
 
-/// ???
+/// The Armijo condition.
 #[derive(Debug)]
 pub struct Armijo {
-    /// ???
+    /// Control parameter.
     pub control: Scalar,
-    /// ???
+    /// Cut-back parameter.
     pub cut_back: Scalar,
     /// Maximum number of steps.
     pub max_steps: usize,
@@ -28,7 +28,8 @@ impl Default for Armijo {
 
 impl<J, X> Search<Scalar, J, X> for Armijo
 where
-    J: Jacobian + for<'a> Mul<&'a X, Output = Scalar>,
+    J: Jacobian,
+    for<'a> &'a J: From<&'a X>,
     X: Solution,
     for<'a> &'a X: Mul<Scalar, Output = X>,
 {
@@ -40,9 +41,10 @@ where
         direction: &X,
         step_size: &Scalar,
     ) -> Result<Scalar, OptimizeError> {
+        // assert!(step_size > 0.0);
         let mut a = *step_size;
         let f = function(position)?;
-        let m = jacobian(position)? * direction;
+        let m = jacobian(position)?.full_contraction(direction.into());
         // assert!(m < 0.0);
         let t = self.control * m;
         for _ in 0..self.max_steps {
@@ -58,36 +60,3 @@ where
         ))
     }
 }
-
-// impl<J, X> Search<TensorRank0, J, X> for Armijo
-// where
-//     J: Jacobian + for<'a> Mul<&'a J, Output = TensorRank0>,
-//     for<'a> &'a J: Mul<TensorRank0, Output = X>,
-//     X: Tensor,
-// {
-//     fn line_search(
-//         &self,
-//         function: impl Fn(&X) -> Result<TensorRank0, OptimizeError>,
-//         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
-//         position: &X,
-//         direction: &J,
-//         step_size: &mut TensorRank0,
-//     ) -> Result<(), OptimizeError> {
-//         // assert!(step_size > 0.0);
-//         let f = function(position)?;
-//         let m = jacobian(position)? * direction;
-//         // assert!(m < 0.0);
-//         let t = self.control * m;
-//         for _ in 0..self.max_steps {
-//             if function(&(direction * *step_size + position))? - f > *step_size * t {
-//                 *step_size *= self.cut_back
-//             } else {
-//                 return Ok(());
-//             }
-//         }
-//         Err(OptimizeError::MaximumStepsReached(
-//             self.max_steps,
-//             format!("{:?}", self),
-//         ))
-//     }
-// }

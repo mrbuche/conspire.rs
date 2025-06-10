@@ -35,7 +35,8 @@ impl Default for NewtonRaphson {
 
 impl<F, J, X> FirstOrderRootFinding<F, J, X> for NewtonRaphson
 where
-    F: Jacobian + Div<J, Output = X> + for<'a> Mul<&'a X, Output = Scalar>,
+    F: Jacobian + Div<J, Output = X>,
+    for<'a> &'a F: From<&'a X>,
     J: Hessian,
     X: Solution,
     for<'a> &'a X: Mul<Scalar, Output = X>,
@@ -73,7 +74,8 @@ where
 impl<J, H, X> SecondOrderOptimization<Scalar, J, H, X> for NewtonRaphson
 where
     H: Hessian,
-    J: Jacobian + Div<H, Output = X> + for<'a> Mul<&'a X, Output = Scalar>,
+    J: Jacobian + Div<H, Output = X>,
+    for<'a> &'a J: From<&'a X>,
     X: Solution,
     for<'a> &'a X: Mul<Scalar, Output = X>,
     Vector: From<X>,
@@ -114,7 +116,8 @@ fn unconstrained<J, H, X>(
 ) -> Result<X, OptimizeError>
 where
     H: Hessian,
-    J: Jacobian + Div<H, Output = X> + for<'a> Mul<&'a X, Output = Scalar>,
+    J: Jacobian + Div<H, Output = X>,
+    for<'a> &'a J: From<&'a X>,
     X: Solution,
     for<'a> &'a X: Mul<Scalar, Output = X>,
     Vector: From<X>,

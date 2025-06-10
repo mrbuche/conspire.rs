@@ -9,9 +9,9 @@ use super::{super::Scalar, OptimizeError};
 use crate::math::{Jacobian, Solution};
 use std::ops::Mul;
 
-/// ???
+/// Required methods for line search algorithms.
 pub trait Search<F, J, X> {
-    /// ???
+    /// Perform a line search calculation.
     fn line_search(
         &self,
         function: impl Fn(&X) -> Result<F, OptimizeError>,
@@ -22,7 +22,7 @@ pub trait Search<F, J, X> {
     ) -> Result<F, OptimizeError>;
 }
 
-/// ???
+/// Possible line search algorithms.
 #[derive(Debug)]
 pub enum LineSearch {
     Armijo(Scalar, Scalar, usize),
@@ -30,7 +30,8 @@ pub enum LineSearch {
 
 impl<J, X> Search<Scalar, J, X> for LineSearch
 where
-    J: Jacobian + for<'a> Mul<&'a X, Output = Scalar>,
+    J: Jacobian,
+    for<'a> &'a J: From<&'a X>,
     X: Solution,
     for<'a> &'a X: Mul<Scalar, Output = X>,
 {
