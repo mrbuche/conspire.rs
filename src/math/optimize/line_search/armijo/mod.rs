@@ -2,6 +2,7 @@ use super::{OptimizeError, Scalar};
 use crate::math::{Jacobian, Solution};
 use std::ops::Mul;
 
+#[allow(clippy::too_many_arguments)]
 pub fn backtrack<X, J>(
     control: Scalar,
     cut_back: Scalar,

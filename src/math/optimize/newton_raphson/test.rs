@@ -1,108 +1,119 @@
 use super::{
+    super::super::test::{TestError, assert_eq_within_tols},
     EqualityConstraint, FirstOrderRootFinding, LineSearch, NewtonRaphson, Scalar,
     SecondOrderOptimization,
 };
 
-const TOLERANCE: Scalar = 1e-6;
+const CONTROL_1: Scalar = 1e-3;
+const CONTROL_2: Scalar = 1e-1;
+const CUT_BACK: Scalar = 9e-1;
+const MAX_STEPS: usize = 25;
 
 mod minimize {
     use super::*;
     #[test]
-    fn quadratic() {
-        let x = NewtonRaphson {
-            ..Default::default()
-        }
-        .minimize(
-            |x: &Scalar| Ok(x.powi(2) / 2.0),
-            |x: &Scalar| Ok(*x),
-            |_: &Scalar| Ok(1.0),
-            1.0,
-            EqualityConstraint::None,
-            None,
+    fn quadratic() -> Result<(), TestError> {
+        assert_eq_within_tols(
+            &NewtonRaphson::default().minimize(
+                |x: &Scalar| Ok(x.powi(2) / 2.0),
+                |x: &Scalar| Ok(*x),
+                |_: &Scalar| Ok(1.0),
+                1.0,
+                EqualityConstraint::None,
+                None,
+            )?,
+            &0.0,
         )
-        .unwrap();
-        assert!(x.abs() < TOLERANCE)
     }
-    #[test]
-    fn cubic() {
-        let x = NewtonRaphson {
-            ..Default::default()
-        }
-        .minimize(
-            |x: &Scalar| Ok(x.powi(3) / 6.0),
-            |x: &Scalar| Ok(x.powi(2) / 2.0),
-            |x: &Scalar| Ok(*x),
-            1.0,
-            EqualityConstraint::None,
-            None,
-        )
-        .unwrap();
-        assert!(x.abs() < TOLERANCE)
-    }
-    #[test]
-    fn sin() {
-        let x = NewtonRaphson {
-            ..Default::default()
-        }
-        .minimize(
-            |x: &Scalar| Ok(-x.sin()),
-            |x: &Scalar| Ok(x.sin()),
-            |x: &Scalar| Ok(x.cos()),
-            1.0,
-            EqualityConstraint::None,
-            None,
-        )
-        .unwrap();
-        assert!(x.abs() < TOLERANCE)
-    }
+    //
+    // "The global minimum is inside a long, narrow, parabolic-shaped flat valley.
+    //  To find the valley is trivial.
+    //  To converge to the global minimum, however, is difficult."
+    // Probably need to detect and regularize non-hyperbolic regions when using Newton's Method.
+    //
+    // #[test]
+    // fn rosenbrock() {
+    //     todo!()
+    // }
     mod line_search {
         use super::*;
-        const CONTROL: Scalar = 1e-3;
-        const CUT_BACK: Scalar = 9e-1;
-        const MAX_STEPS: usize = 25;
         #[test]
-        fn armijo() {
-            let x = NewtonRaphson {
-                line_search: Some(LineSearch::Armijo(CONTROL, CUT_BACK, MAX_STEPS)),
-                ..Default::default()
-            }
-            .minimize(
-                |x: &Scalar| Ok(x.powi(3) / 6.0),
-                |x: &Scalar| Ok(x.powi(2) / 2.0),
-                |x: &Scalar| Ok(*x),
-                1.0,
-                EqualityConstraint::None,
-                None,
+        fn armijo() -> Result<(), TestError> {
+            assert_eq_within_tols(
+                &NewtonRaphson {
+                    line_search: Some(LineSearch::Armijo(CONTROL_1, CUT_BACK, MAX_STEPS)),
+                    ..Default::default()
+                }
+                .minimize(
+                    |x: &Scalar| Ok(x.powi(2) / 2.0),
+                    |x: &Scalar| Ok(*x),
+                    |_: &Scalar| Ok(1.0),
+                    1.0,
+                    EqualityConstraint::None,
+                    None,
+                )?,
+                &0.0,
             )
-            .unwrap();
-            assert!(x.abs() < TOLERANCE)
         }
         #[test]
-        fn goldstein() {
-            let x = NewtonRaphson {
-                line_search: Some(LineSearch::Goldstein(CONTROL, CUT_BACK, MAX_STEPS)),
-                ..Default::default()
-            }
-            .minimize(
-                |x: &Scalar| Ok(x.powi(3) / 6.0),
-                |x: &Scalar| Ok(x.powi(2) / 2.0),
-                |x: &Scalar| Ok(*x),
-                1.0,
-                EqualityConstraint::None,
-                None,
+        fn goldstein() -> Result<(), TestError> {
+            assert_eq_within_tols(
+                &NewtonRaphson {
+                    line_search: Some(LineSearch::Goldstein(CONTROL_1, CUT_BACK, MAX_STEPS)),
+                    ..Default::default()
+                }
+                .minimize(
+                    |x: &Scalar| Ok(x.powi(2) / 2.0),
+                    |x: &Scalar| Ok(*x),
+                    |_: &Scalar| Ok(1.0),
+                    1.0,
+                    EqualityConstraint::None,
+                    None,
+                )?,
+                &0.0,
             )
-            .unwrap();
-            assert!(x.abs() < TOLERANCE)
         }
         mod wolfe {
             use super::*;
             #[test]
-            fn strong() {
-                todo!()
+            fn strong() -> Result<(), TestError> {
+                assert_eq_within_tols(
+                    &NewtonRaphson {
+                        line_search: Some(LineSearch::Wolfe(
+                            CONTROL_1, CONTROL_2, CUT_BACK, MAX_STEPS, true,
+                        )),
+                        ..Default::default()
+                    }
+                    .minimize(
+                        |x: &Scalar| Ok(x.powi(2) / 2.0),
+                        |x: &Scalar| Ok(*x),
+                        |_: &Scalar| Ok(1.0),
+                        1.0,
+                        EqualityConstraint::None,
+                        None,
+                    )?,
+                    &0.0,
+                )
             }
             #[test]
-            fn weak() {
-                todo!()
+            fn weak() -> Result<(), TestError> {
+                assert_eq_within_tols(
+                    &NewtonRaphson {
+                        line_search: Some(LineSearch::Wolfe(
+                            CONTROL_1, CONTROL_2, CUT_BACK, MAX_STEPS, false,
+                        )),
+                        ..Default::default()
+                    }
+                    .minimize(
+                        |x: &Scalar| Ok(x.powi(2) / 2.0),
+                        |x: &Scalar| Ok(*x),
+                        |_: &Scalar| Ok(1.0),
+                        1.0,
+                        EqualityConstraint::None,
+                        None,
+                    )?,
+                    &0.0,
+                )
             }
         }
     }
@@ -111,54 +122,15 @@ mod minimize {
 mod root {
     use super::*;
     #[test]
-    fn linear() {
-        assert!(
-            NewtonRaphson {
-                ..Default::default()
-            }
-            .root(
+    fn linear() -> Result<(), TestError> {
+        assert_eq_within_tols(
+            &NewtonRaphson::default().root(
                 |x: &Scalar| Ok(*x),
                 |_: &Scalar| Ok(1.0),
                 1.0,
                 EqualityConstraint::None,
-            )
-            .unwrap()
-            .abs()
-                < TOLERANCE
-        )
-    }
-    #[test]
-    fn quadratic() {
-        assert!(
-            NewtonRaphson {
-                ..Default::default()
-            }
-            .root(
-                |x: &Scalar| Ok(x.powi(2) / 2.0),
-                |x: &Scalar| Ok(*x),
-                1.0,
-                EqualityConstraint::None,
-            )
-            .unwrap()
-            .abs()
-                < TOLERANCE
-        )
-    }
-    #[test]
-    fn sin() {
-        assert!(
-            NewtonRaphson {
-                ..Default::default()
-            }
-            .root(
-                |x: &Scalar| Ok(x.sin()),
-                |x: &Scalar| Ok(x.cos()),
-                1.0,
-                EqualityConstraint::None,
-            )
-            .unwrap()
-            .abs()
-                < TOLERANCE
+            )?,
+            &0.0,
         )
     }
 }

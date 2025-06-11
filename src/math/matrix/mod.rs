@@ -1,7 +1,7 @@
 pub mod square;
 pub mod vector;
 
-use crate::math::{Tensor, TensorRank0, TensorRank1Vec, TensorRank2, TensorVec};
+use crate::math::{Scalar, Tensor, TensorRank1, TensorRank1Vec, TensorRank2, TensorVec};
 use std::ops::{Index, IndexMut, Mul};
 use vector::Vector;
 
@@ -86,10 +86,17 @@ impl Mul<&Vector> for &Matrix {
     }
 }
 
-impl Mul<&TensorRank0> for &Matrix {
+impl Mul<&Scalar> for &Matrix {
     type Output = Vector;
-    fn mul(self, _tensor_rank_0: &TensorRank0) -> Self::Output {
-        panic!()
+    fn mul(self, _tensor_rank_0: &Scalar) -> Self::Output {
+        unimplemented!()
+    }
+}
+
+impl<const D: usize, const I: usize> Mul<&TensorRank1<D, I>> for &Matrix {
+    type Output = Vector;
+    fn mul(self, _tensor_rank_1: &TensorRank1<D, I>) -> Self::Output {
+        unimplemented!()
     }
 }
 
