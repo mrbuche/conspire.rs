@@ -8,7 +8,7 @@ mod newton_raphson;
 
 pub use constraint::EqualityConstraint;
 pub use gradient_descent::GradientDescent;
-pub use line_search::{LineSearch, Search};
+pub use line_search::LineSearch;
 pub use newton_raphson::NewtonRaphson;
 
 use crate::{

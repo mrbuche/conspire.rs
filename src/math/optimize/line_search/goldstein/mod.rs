@@ -24,8 +24,11 @@ where
     let m = jacobian(argument)?.full_contraction(decrement.into());
     assert!(m > 0.0, "Not a descent direction");
     let t = control * m;
+    let u = (1.0 - control) * m;
+    let mut v;
     for _ in 0..max_steps {
-        if function(&(decrement * n + argument))? - f > n * t {
+        v = function(&(decrement * n + argument))? - f;
+        if n * u > v || v > n * t {
             n *= cut_back
         } else {
             return Ok(-n);

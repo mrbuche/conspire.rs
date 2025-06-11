@@ -6,8 +6,7 @@ use super::{
         Banded, Hessian, Jacobian, Matrix, Scalar, Solution, SquareMatrix, Tensor, TensorVec,
         Vector,
     },
-    EqualityConstraint, FirstOrderRootFinding, LineSearch, OptimizeError, Search,
-    SecondOrderOptimization,
+    EqualityConstraint, FirstOrderRootFinding, LineSearch, OptimizeError, SecondOrderOptimization,
 };
 use crate::ABS_TOL;
 use std::ops::{Div, Mul};
@@ -133,9 +132,9 @@ where
             return Ok(solution);
         } else {
             decrement = &residual / tangent;
-            if let Some(algorithm) = &newton_raphson.line_search {
+            if let Some(line_search) = &newton_raphson.line_search {
                 decrement *=
-                    algorithm.line_search(&function, &residual, &solution, &decrement, &1.0)?
+                    line_search.backtrack(&function, &jacobian, &solution, &decrement, &1.0)?
             }
             solution -= decrement
         }

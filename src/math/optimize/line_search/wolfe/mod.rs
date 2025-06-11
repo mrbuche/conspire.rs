@@ -3,9 +3,11 @@ use crate::math::{Jacobian, Solution};
 use std::ops::Mul;
 
 pub fn backtrack<X, J>(
-    control: Scalar,
+    control_1: Scalar,
+    control_2: Scalar,
     cut_back: Scalar,
     max_steps: usize,
+    strong: bool,
     function: impl Fn(&X) -> Result<Scalar, OptimizeError>,
     jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
     argument: &X,
@@ -18,18 +20,5 @@ where
     X: Solution,
     for<'a> &'a X: Mul<Scalar, Output = X>,
 {
-    assert!(step_size > &0.0, "Negative step size");
-    let mut n = -step_size;
-    let f = function(argument)?;
-    let m = jacobian(argument)?.full_contraction(decrement.into());
-    assert!(m > 0.0, "Not a descent direction");
-    let t = control * m;
-    for _ in 0..max_steps {
-        if function(&(decrement * n + argument))? - f > n * t {
-            n *= cut_back
-        } else {
-            return Ok(-n);
-        }
-    }
-    panic!("Maximum steps reached")
+    todo!()
 }
