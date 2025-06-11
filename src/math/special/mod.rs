@@ -118,7 +118,10 @@ where
 /// Returns the derivative of the Rosenbrock function.
 ///
 /// ```math
-/// \frac{\partial f}{\partial x_i} = \begin{cases} -2\left(a - x_i\right) - 4bx_i\left(x_{i+1} - x_i^2\right)^2, & i<N\\ 2b\left(x_{i+1} - x_i^2\right), & i=N \end{cases}
+/// \frac{\partial f}{\partial x_i} = \begin{cases}
+/// &\!\!\!\!\!\!-2(a - x_i) - 4bx_i(x_{i+1} - x_i^2), & i=1\\
+/// 2b(x_i - x_{i-1}^2) &\!\!\!\!\!\!- 2(a - x_i) - 4bx_i(x_{i+1} - x_i^2), & 1<i<N\\
+/// 2b(x_i - x_{i-1}^2),&\!\!\!\!\!\! & i=N \end{cases}
 /// ```
 pub fn rosenbrock_derivative<T>(x: &T, a: Scalar, b: Scalar) -> T
 where
