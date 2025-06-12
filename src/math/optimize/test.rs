@@ -17,6 +17,14 @@ where
     Ok(special::rosenbrock_derivative(x, 1.0, 100.0))
 }
 
+// pub fn rosenbrock_second_derivative<T, U>(x: &T) -> Result<U, OptimizeError>
+// where
+//     T: FromIterator<Scalar> + Tensor<Item = Scalar>,
+//     U: Tensor<Item = T>,
+// {
+//     Ok(special::rosenbrock_second_derivative(x, 1.0, 100.0))
+// }
+
 #[test]
 fn debug() {
     let _ = format!(

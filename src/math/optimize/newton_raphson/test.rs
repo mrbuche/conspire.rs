@@ -1,5 +1,11 @@
 use super::{
-    super::super::test::{TestError, assert_eq_within_tols},
+    super::{
+        super::{
+            // TensorArray, TensorRank1, TensorRank2,
+            test::{TestError, assert_eq_within_tols},
+        },
+        // test::{rosenbrock, rosenbrock_derivative, rosenbrock_second_derivative},
+    },
     EqualityConstraint, FirstOrderRootFinding, LineSearch, NewtonRaphson, Scalar,
     SecondOrderOptimization,
 };
@@ -29,11 +35,31 @@ mod minimize {
     // "The global minimum is inside a long, narrow, parabolic-shaped flat valley.
     //  To find the valley is trivial.
     //  To converge to the global minimum, however, is difficult."
+    // The whole banana region (including (-1, 1), (1, 1), and path between them) is non-convex.
     // Probably need to detect and regularize non-hyperbolic regions when using Newton's Method.
     //
     // #[test]
-    // fn rosenbrock() {
-    //     todo!()
+    // fn rosenbrock_2d() -> Result<(), TestError> {
+    //     assert_eq_within_tols(
+    //         &NewtonRaphson::default().minimize(
+    //             rosenbrock,
+    //             rosenbrock_derivative,
+    //             |x: &TensorRank1<2, 1>| {
+    //                 Ok(TensorRank2::<2, 1, 1>::new([
+    //                     [
+    //                         2.0 + 400.0 * (x[1] - x[0].powi(2)) - 800.0 * x[0].powi(2),
+    //                         -400.0 * x[0],
+    //                     ],
+    //                     [-400.0 * x[0], 200.0],
+    //                 ]))
+    //             },
+    //             // rosenbrock_second_derivative::<_, TensorRank2<2, 1, 1>>,
+    //             TensorRank1::new([-1.0, 1.0]),
+    //             EqualityConstraint::None,
+    //             None,
+    //         )?,
+    //         &TensorRank1::<2, 1>::identity(),
+    //     )
     // }
     mod line_search {
         use super::*;

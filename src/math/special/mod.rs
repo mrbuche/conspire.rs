@@ -150,4 +150,15 @@ where
         .collect()
 }
 
-// For second derivative can have T and U where U: Tensor<Item=T>.
+// /// Returns the second derivative of the Rosenbrock function.
+// ///
+// /// ```math
+// /// \frac{\partial^2f}{\partial x_i\partial x_j} = ?
+// /// ```
+// pub fn rosenbrock_second_derivative<T, U>(x: &T, a: Scalar, b: Scalar) -> U
+// where
+//     T: FromIterator<Scalar> + Tensor<Item = Scalar>,
+//     U: Tensor<Item = T>,
+// {
+//     todo!()
+// }
