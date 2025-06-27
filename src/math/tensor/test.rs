@@ -33,8 +33,7 @@ pub fn assert_eq<'a, T: Display + PartialEq + ErrorTensor>(
     } else {
         Err(TestError {
             message: format!(
-                "\n\x1b[1;91mAssertion `left == right` failed.\n\x1b[0;91m  left: {}\n right: {}\x1b[0m",
-                value_1, value_2
+                "\n\x1b[1;91mAssertion `left == right` failed.\n\x1b[0;91m  left: {value_1}\n right: {value_2}\x1b[0m"
             ),
         })
     }
@@ -49,14 +48,12 @@ pub fn assert_eq_from_fd<'a, T: Display + ErrorTensor>(
         if failed {
             Err(TestError {
                 message: format!(
-                    "\n\x1b[1;91mAssertion `left ≈= right` failed in {} places.\n\x1b[0;91m  left: {}\n right: {}\x1b[0m",
-                    error_count, value, value_fd
+                    "\n\x1b[1;91mAssertion `left ≈= right` failed in {error_count} places.\n\x1b[0;91m  left: {value}\n right: {value_fd}\x1b[0m"
                 ),
             })
         } else {
             println!(
-                "Warning: \n\x1b[1;93mAssertion `left ≈= right` was weak in {} places.\x1b[0m",
-                error_count
+                "Warning: \n\x1b[1;93mAssertion `left ≈= right` was weak in {error_count} places.\x1b[0m"
             );
             Ok(())
         }
@@ -74,8 +71,7 @@ pub fn assert_eq_within<'a, T: Display + ErrorTensor>(
     if let Some(error_count) = value_1.error(value_2, tol_abs, tol_rel) {
         Err(TestError {
             message: format!(
-                "\n\x1b[1;91mAssertion `left ≈= right` failed in {} places.\n\x1b[0;91m  left: {}\n right: {}\x1b[0m",
-                error_count, value_1, value_2
+                "\n\x1b[1;91mAssertion `left ≈= right` failed in {error_count} places.\n\x1b[0;91m  left: {value_1}\n right: {value_2}\x1b[0m"
             ),
         })
     } else {

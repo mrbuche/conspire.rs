@@ -1,10 +1,11 @@
 #[cfg(test)]
 mod test;
 
+use super::{Scalar, Tensor};
 use crate::{ABS_TOL, REL_TOL};
 use std::f64::consts::E;
 
-const NINE_FIFTHS: f64 = 9.0 / 5.0;
+const NINE_FIFTHS: Scalar = 9.0 / 5.0;
 
 /// Returns the inverse Langevin function.
 ///
@@ -17,7 +18,7 @@ const NINE_FIFTHS: f64 = 9.0 / 5.0;
 /// ```
 /// Two iterations of Newton's method are used to improve upon an initial guess given by [inverse_langevin_approximate()] otherwise.
 /// The resulting maximum relative error is below $`1e^{-12}`$.
-pub fn inverse_langevin(y: f64) -> f64 {
+pub fn inverse_langevin(y: Scalar) -> Scalar {
     let y_abs = y.abs();
     if y_abs >= 1.0 {
         panic!()
@@ -40,7 +41,7 @@ pub fn inverse_langevin(y: f64) -> f64 {
 /// \mathcal{L}^{-1}(y) \approx \frac{2.14234 y^3 - 4.22785 y^2 + 3y}{(1 - y)(0.71716 y^3 - 0.41103 y^2 - 0.39165 y + 1)}
 /// ```
 /// This approximation has a maximum relative error of $`8.2e^{-4}`$.
-pub fn inverse_langevin_approximate(y: f64) -> f64 {
+pub fn inverse_langevin_approximate(y: Scalar) -> Scalar {
     (2.14234 * y.powi(3) - 4.22785 * y.powi(2) + 3.0 * y)
         / (1.0 - y)
         / (0.71716 * y.powi(3) - 0.41103 * y.powi(2) - 0.39165 * y + 1.0)
@@ -51,7 +52,7 @@ pub fn inverse_langevin_approximate(y: f64) -> f64 {
 /// ```math
 /// y = W_0(x)
 /// ```
-pub fn lambert_w(x: f64) -> f64 {
+pub fn lambert_w(x: Scalar) -> Scalar {
     if x == -1.0 / E {
         -1.0
     } else if x == 0.0 {
@@ -82,7 +83,7 @@ pub fn lambert_w(x: f64) -> f64 {
 /// ```math
 /// \mathcal{L}(x) = \coth(x) - x^{-1}
 /// ```
-pub fn langevin(x: f64) -> f64 {
+pub fn langevin(x: Scalar) -> Scalar {
     if x == 0.0 {
         0.0
     } else {
@@ -90,11 +91,74 @@ pub fn langevin(x: f64) -> f64 {
     }
 }
 
-/// Returns derivative of the Langevin function.
+/// Returns the derivative of the Langevin function.
 ///
 /// ```math
 /// \mathcal{L}'(x) = x^{-2} - \sinh^{-2}(x)
 /// ```
-pub fn langevin_derivative(x: f64) -> f64 {
+pub fn langevin_derivative(x: Scalar) -> Scalar {
     1.0 / x.powi(2) - 1.0 / x.sinh().powi(2)
 }
+
+/// Returns the Rosenbrock function.
+///
+/// ```math
+/// f(\mathbf{x}) = \sum_{i=1}^{N-1} \left[\left(a - x_i\right)^2 + b\left(x_{i+1} - x_i^2\right)^2\right]
+/// ```
+pub fn rosenbrock<T>(x: &T, a: Scalar, b: Scalar) -> Scalar
+where
+    T: Tensor<Item = Scalar>,
+{
+    x.iter()
+        .zip(x.iter().skip(1))
+        .map(|(x_i, x_ip1)| (a - x_i).powi(2) + b * (x_ip1 - x_i.powi(2)).powi(2))
+        .sum()
+}
+
+/// Returns the derivative of the Rosenbrock function.
+///
+/// ```math
+/// \frac{\partial f}{\partial x_i} = \begin{cases}
+/// &\!\!\!\!\!\!-2(a - x_i) - 4bx_i(x_{i+1} - x_i^2), & i=1\\
+/// 2b(x_i - x_{i-1}^2) &\!\!\!\!\!\!- 2(a - x_i) - 4bx_i(x_{i+1} - x_i^2), & 1<i<N\\
+/// 2b(x_i - x_{i-1}^2),&\!\!\!\!\!\! & i=N \end{cases}
+/// ```
+pub fn rosenbrock_derivative<T>(x: &T, a: Scalar, b: Scalar) -> T
+where
+    T: FromIterator<Scalar> + Tensor<Item = Scalar>,
+{
+    let n = x.iter().count();
+    x.iter()
+        .take(1)
+        .zip(x.iter().skip(1).take(1))
+        .map(|(x_i, x_ip1)| -2.0 * (a - x_i) - 4.0 * b * x_i * (x_ip1 - x_i.powi(2)))
+        .chain(
+            x.iter()
+                .zip(x.iter().skip(1).zip(x.iter().skip(2)))
+                .map(|(x_im1, (x_i, x_ip1))| {
+                    2.0 * b * (x_i - x_im1.powi(2))
+                        - 2.0 * (a - x_i)
+                        - 4.0 * b * x_i * (x_ip1 - x_i.powi(2))
+                })
+                .chain(
+                    x.iter()
+                        .skip(n - 2)
+                        .zip(x.iter().skip(n - 1))
+                        .map(|(x_im1, x_i)| 2.0 * b * (x_i - x_im1.powi(2))),
+                ),
+        )
+        .collect()
+}
+
+// /// Returns the second derivative of the Rosenbrock function.
+// ///
+// /// ```math
+// /// \frac{\partial^2f}{\partial x_i\partial x_j} = ?
+// /// ```
+// pub fn rosenbrock_second_derivative<T, U>(x: &T, a: Scalar, b: Scalar) -> U
+// where
+//     T: FromIterator<Scalar> + Tensor<Item = Scalar>,
+//     U: Tensor<Item = T>,
+// {
+//     todo!()
+// }

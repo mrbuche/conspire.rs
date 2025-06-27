@@ -37,36 +37,36 @@ impl ErrorTensor for TensorRank0 {
 
 impl Solution for TensorRank0 {
     fn decrement_from_chained(&mut self, _other: &mut Vector, _vector: Vector) {
-        panic!()
+        unimplemented!()
     }
 }
 
 impl Jacobian for TensorRank0 {
     fn fill_into(self, _vector: &mut Vector) {
-        panic!()
+        unimplemented!()
     }
     fn fill_into_chained(self, _other: Vector, _vector: &mut Vector) {
-        panic!()
+        unimplemented!()
     }
 }
 
 impl Sub<Vector> for TensorRank0 {
     type Output = Self;
     fn sub(self, _vector: Vector) -> Self::Output {
-        panic!()
+        unimplemented!()
     }
 }
 
 impl Sub<&Vector> for TensorRank0 {
     type Output = Self;
     fn sub(self, _vector: &Vector) -> Self::Output {
-        panic!()
+        unimplemented!()
     }
 }
 
 impl Hessian for TensorRank0 {
     fn fill_into(self, _square_matrix: &mut SquareMatrix) {
-        panic!()
+        unimplemented!()
     }
 }
 

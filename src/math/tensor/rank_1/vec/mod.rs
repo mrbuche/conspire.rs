@@ -289,9 +289,9 @@ impl<const D: usize, const I: usize> Jacobian for TensorRank1Vec<D, I> {
 }
 
 impl<const D: usize, const I: usize, const J: usize> Div<TensorRank2Vec2D<D, I, J>>
-    for TensorRank1Vec<D, I>
+    for &TensorRank1Vec<D, I>
 {
-    type Output = Self;
+    type Output = TensorRank1Vec<D, J>;
     fn div(self, _tensor_rank_2_vec_2d: TensorRank2Vec2D<D, I, J>) -> Self::Output {
         todo!()
     }

@@ -2,8 +2,8 @@
 mod test;
 
 use super::{
-    super::{Jacobian, Matrix, Tensor, TensorRank0, TensorVec, Vector},
-    EqualityConstraint, FirstOrderOptimization, OptimizeError, ZerothOrderRootFinding,
+    super::{Jacobian, Matrix, Scalar, Tensor, TensorVec, Vector},
+    EqualityConstraint, FirstOrderOptimization, LineSearch, OptimizeError, ZerothOrderRootFinding,
 };
 use crate::ABS_TOL;
 use std::ops::Mul;
@@ -12,7 +12,9 @@ use std::ops::Mul;
 #[derive(Debug)]
 pub struct GradientDescent {
     /// Absolute error tolerance.
-    pub abs_tol: TensorRank0,
+    pub abs_tol: Scalar,
+    /// Line search algorithm.
+    pub line_search: Option<LineSearch>,
     /// Maximum number of steps.
     pub max_steps: usize,
 }
@@ -21,14 +23,15 @@ impl Default for GradientDescent {
     fn default() -> Self {
         Self {
             abs_tol: ABS_TOL,
+            line_search: None,
             max_steps: 250,
         }
     }
 }
 
-const CUTBACK_FACTOR: TensorRank0 = 0.8;
-const CUTBACK_FACTOR_MINUS_ONE: TensorRank0 = 1.0 - CUTBACK_FACTOR;
-const INITIAL_STEP_SIZE: TensorRank0 = 1e-2;
+const CUTBACK_FACTOR: Scalar = 0.8;
+const CUTBACK_FACTOR_MINUS_ONE: Scalar = 1.0 - CUTBACK_FACTOR;
+const INITIAL_STEP_SIZE: Scalar = 1e-2;
 
 impl<X> ZerothOrderRootFinding<X> for GradientDescent
 where
@@ -88,6 +91,9 @@ fn descent<X>(
 where
     X: Jacobian,
 {
+    if gradient_descent.line_search.is_some() {
+        unimplemented!();
+    }
     let constraint = if let Some((constraint_matrix, multipliers)) = linear_equality_constraint {
         Some(multipliers * constraint_matrix)
     } else {
@@ -122,7 +128,7 @@ where
     }
     Err(OptimizeError::MaximumStepsReached(
         gradient_descent.max_steps,
-        format!("{:?}", gradient_descent),
+        format!("{gradient_descent:?}"),
     ))
 }
 
@@ -137,6 +143,9 @@ where
     X: Jacobian,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
+    if gradient_descent.line_search.is_some() {
+        panic!("Line search needs the exact penalty function in constrained optimization.");
+    }
     let num_constraints = constraint_rhs.len();
     let mut multipliers = Vector::zero(num_constraints);
     let mut multipliers_change = multipliers.clone();
@@ -175,6 +184,6 @@ where
     }
     Err(OptimizeError::MaximumStepsReached(
         gradient_descent.max_steps,
-        format!("{:?}", gradient_descent),
+        format!("{gradient_descent:?}"),
     ))
 }

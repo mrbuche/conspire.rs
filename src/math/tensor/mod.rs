@@ -12,8 +12,11 @@ use crate::defeat_message;
 use rank_0::TensorRank0;
 use std::{
     fmt::{self, Debug, Display, Formatter},
-    ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
+
+/// A scalar.
+pub type Scalar = TensorRank0;
 
 /// Possible errors for tensors.
 #[derive(PartialEq)]
@@ -26,7 +29,7 @@ impl Debug for TensorError {
         let error = match self {
             Self::NotPositiveDefinite => "\x1b[1;91mResult is not positive definite.".to_string(),
         };
-        write!(f, "\n{}\n\x1b[0;2;31m{}\x1b[0m\n", error, defeat_message())
+        write!(f, "\n{error}\n\x1b[0;2;31m{}\x1b[0m\n", defeat_message())
     }
 }
 
@@ -35,7 +38,7 @@ impl Display for TensorError {
         let error = match self {
             Self::NotPositiveDefinite => "\x1b[1;91mResult is not positive definite.".to_string(),
         };
-        write!(f, "{}\x1b[0m", error)
+        write!(f, "{error}\x1b[0m")
     }
 }
 
@@ -109,6 +112,7 @@ where
         + Div<TensorRank0, Output = Self>
         + DivAssign<TensorRank0>
         + Mul<TensorRank0, Output = Self>
+        + MulAssign<TensorRank0>
         + Sub<Self, Output = Self>
         + Sub<&'a Self, Output = Self>
         + SubAssign

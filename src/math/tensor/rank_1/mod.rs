@@ -13,8 +13,8 @@ use std::{
 };
 
 use super::{
-    super::write_tensor_rank_0, Tensor, TensorArray, rank_0::TensorRank0, rank_2::TensorRank2,
-    test::ErrorTensor,
+    super::write_tensor_rank_0, Jacobian, Solution, Tensor, TensorArray, Vector,
+    rank_0::TensorRank0, rank_2::TensorRank2, test::ErrorTensor,
 };
 
 /// A *d*-dimensional tensor of rank 1.
@@ -91,6 +91,35 @@ impl<const D: usize, const I: usize> ErrorTensor for TensorRank1<D, I> {
     }
 }
 
+impl<const D: usize, const I: usize> Solution for TensorRank1<D, I> {
+    fn decrement_from_chained(&mut self, _other: &mut Vector, _vector: Vector) {
+        unimplemented!()
+    }
+}
+
+impl<const D: usize, const I: usize> Jacobian for TensorRank1<D, I> {
+    fn fill_into(self, _vector: &mut Vector) {
+        unimplemented!()
+    }
+    fn fill_into_chained(self, _other: Vector, _vector: &mut Vector) {
+        unimplemented!()
+    }
+}
+
+impl<const D: usize, const I: usize> Sub<Vector> for TensorRank1<D, I> {
+    type Output = Self;
+    fn sub(self, _vector: Vector) -> Self::Output {
+        unimplemented!()
+    }
+}
+
+impl<const D: usize, const I: usize> Sub<&Vector> for TensorRank1<D, I> {
+    type Output = Self;
+    fn sub(self, _vector: &Vector) -> Self::Output {
+        unimplemented!()
+    }
+}
+
 impl<const D: usize, const I: usize> Tensor for TensorRank1<D, I> {
     type Item = TensorRank0;
     fn full_contraction(&self, tensor_rank_1: &Self) -> TensorRank0 {
@@ -122,7 +151,7 @@ impl<const D: usize, const I: usize> TensorArray for TensorRank1<D, I> {
         self.0
     }
     fn identity() -> Self {
-        panic!()
+        ones()
     }
     fn new(array: Self::Array) -> Self {
         array.into_iter().collect()
@@ -130,6 +159,11 @@ impl<const D: usize, const I: usize> TensorArray for TensorRank1<D, I> {
     fn zero() -> Self {
         zero()
     }
+}
+
+/// Returns the rank-1 tensor of ones as a constant.
+pub const fn ones<const D: usize, const I: usize>() -> TensorRank1<D, I> {
+    TensorRank1([1.0; D])
 }
 
 /// Returns the rank-1 zero tensor as a constant.
@@ -422,7 +456,7 @@ impl<const D: usize, const I: usize> Mul for &TensorRank1<D, I> {
 
 #[allow(clippy::suspicious_arithmetic_impl)]
 impl<const D: usize, const I: usize, const J: usize> Div<TensorRank2<D, I, J>>
-    for TensorRank1<D, I>
+    for &TensorRank1<D, I>
 {
     type Output = TensorRank1<D, J>;
     fn div(self, tensor_rank_2: TensorRank2<D, I, J>) -> Self::Output {

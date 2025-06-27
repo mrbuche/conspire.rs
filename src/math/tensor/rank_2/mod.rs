@@ -1351,7 +1351,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<TensorR
 
 #[allow(clippy::suspicious_arithmetic_impl)]
 impl<const I: usize, const J: usize, const K: usize, const L: usize> Div<TensorRank4<3, I, J, K, L>>
-    for TensorRank2<3, I, J>
+    for &TensorRank2<3, I, J>
 {
     type Output = TensorRank2<3, K, L>;
     fn div(self, tensor_rank_4: TensorRank4<3, I, J, K, L>) -> Self::Output {
