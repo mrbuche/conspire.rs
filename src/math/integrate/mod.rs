@@ -146,7 +146,7 @@ impl Display for IntegrationError {
                 "\x1b[1;91mThe time must contain at least two entries.".to_string()
             }
         };
-        write!(f, "{}\x1b[0m", error)
+        write!(f, "{error}\x1b[0m")
     }
 }
 

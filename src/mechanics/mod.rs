@@ -25,13 +25,12 @@ impl Debug for DeformationError {
         let error = match self {
             Self::InvalidJacobian(jacobian, deformation_gradient) => {
                 format!(
-                    "\x1b[1;91mInvalid Jacobian: {:.6e}.\x1b[0;91m\n\
-                     From deformation gradient: {}.",
-                    jacobian, deformation_gradient
+                    "\x1b[1;91mInvalid Jacobian: {jacobian:.6e}.\x1b[0;91m\n\
+                     From deformation gradient: {deformation_gradient}.",
                 )
             }
         };
-        write!(f, "\n{}\n\x1b[0;2;31m{}\x1b[0m\n", error, defeat_message())
+        write!(f, "\n{error}\n\x1b[0;2;31m{}\x1b[0m\n", defeat_message())
     }
 }
 
@@ -40,13 +39,12 @@ impl Display for DeformationError {
         let error = match self {
             Self::InvalidJacobian(jacobian, deformation_gradient) => {
                 format!(
-                    "\x1b[1;91mInvalid Jacobian: {:.6e}.\x1b[0;91m\n\
-                     From deformation gradient: {}.",
-                    jacobian, deformation_gradient
+                    "\x1b[1;91mInvalid Jacobian: {jacobian:.6e}.\x1b[0;91m\n\
+                     From deformation gradient: {deformation_gradient}."
                 )
             }
         };
-        write!(f, "{}\x1b[0m", error)
+        write!(f, "{error}\x1b[0m")
     }
 }
 

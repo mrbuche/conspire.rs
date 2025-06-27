@@ -29,7 +29,7 @@ impl Debug for TensorError {
         let error = match self {
             Self::NotPositiveDefinite => "\x1b[1;91mResult is not positive definite.".to_string(),
         };
-        write!(f, "\n{}\n\x1b[0;2;31m{}\x1b[0m\n", error, defeat_message())
+        write!(f, "\n{error}\n\x1b[0;2;31m{}\x1b[0m\n", defeat_message())
     }
 }
 
@@ -38,7 +38,7 @@ impl Display for TensorError {
         let error = match self {
             Self::NotPositiveDefinite => "\x1b[1;91mResult is not positive definite.".to_string(),
         };
-        write!(f, "{}\x1b[0m", error)
+        write!(f, "{error}\x1b[0m")
     }
 }
 

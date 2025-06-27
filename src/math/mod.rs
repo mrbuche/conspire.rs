@@ -70,50 +70,50 @@ fn write_tensor_rank_0(f: &mut fmt::Formatter, tensor_rank_0: &TensorRank0) -> f
     };
     let num_abs = num.abs();
     if num.is_nan() {
-        write!(f, "{:>11}, ", num)
+        write!(f, "{num:>11}, ")
     } else if num == 0.0 || num_abs == 1.0 {
-        let temp_1 = format!("{:>11.6e}, ", num).to_string();
+        let temp_1 = format!("{num:>11.6e}, ").to_string();
         let mut temp_2 = temp_1.split("e");
         let a = temp_2.next().unwrap();
         let b = temp_2.next().unwrap();
-        write!(f, "{}e+00{}", a, b)
+        write!(f, "{a}e+00{b}")
     } else if num_abs <= 1e-100 {
-        write!(f, "{:>14.6e}, ", num)
+        write!(f, "{num:>14.6e}, ")
     } else if num_abs >= 1e100 {
-        let temp_1 = format!("{:>13.6e}, ", num).to_string();
+        let temp_1 = format!("{num:>13.6e}, ").to_string();
         let mut temp_2 = temp_1.split("e");
         let a = temp_2.next().unwrap();
         let b = temp_2.next().unwrap();
-        write!(f, "{}e+{}", a, b)
+        write!(f, "{a}e+{b}")
     } else if num_abs <= 1e-10 {
-        let temp_1 = format!("{:>13.6e}, ", num).to_string();
+        let temp_1 = format!("{num:>13.6e}, ").to_string();
         let mut temp_2 = temp_1.split("e");
         let a = temp_2.next().unwrap();
         let b = temp_2.next().unwrap();
         let mut c = b.split("-");
         c.next();
         let e = c.next().unwrap();
-        write!(f, "{}e-0{}", a, e)
+        write!(f, "{a}e-0{e}")
     } else if num_abs >= 1e10 {
-        let temp_1 = format!("{:>12.6e}, ", num).to_string();
+        let temp_1 = format!("{num:>12.6e}, ").to_string();
         let mut temp_2 = temp_1.split("e");
         let a = temp_2.next().unwrap();
         let b = temp_2.next().unwrap();
-        write!(f, "{}e+0{}", a, b)
+        write!(f, "{a}e+0{b}")
     } else if num_abs <= 1e0 {
-        let temp_1 = format!("{:>12.6e}, ", num).to_string();
+        let temp_1 = format!("{num:>12.6e}, ").to_string();
         let mut temp_2 = temp_1.split("e");
         let a = temp_2.next().unwrap();
         let b = temp_2.next().unwrap();
         let mut c = b.split("-");
         c.next();
         let e = c.next().unwrap();
-        write!(f, "{}e-00{}", a, e)
+        write!(f, "{a}e-00{e}")
     } else {
-        let temp_1 = format!("{:>11.6e}, ", num).to_string();
+        let temp_1 = format!("{num:>11.6e}, ").to_string();
         let mut temp_2 = temp_1.split("e");
         let a = temp_2.next().unwrap();
         let b = temp_2.next().unwrap();
-        write!(f, "{}e+00{}", a, b)
+        write!(f, "{a}e+00{b}")
     }
 }

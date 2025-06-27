@@ -98,24 +98,22 @@ impl Debug for OptimizeError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
             Self::Generic(message) => message.to_string(),
-            Self::MaximumStepsReached(steps, optimizer) => {
+            Self::MaximumStepsReached(steps, solver) => {
                 format!(
-                    "\x1b[1;91mMaximum number of steps ({}) reached.\x1b[0;91m\n\
-                     In optimizer: {}.",
-                    steps, optimizer
+                    "\x1b[1;91mMaximum number of steps ({steps}) reached.\x1b[0;91m\n\
+                     In solver: {solver}."
                 )
             }
-            Self::NotMinimum(solution, optimizer) => {
+            Self::NotMinimum(solution, solver) => {
                 format!(
                     "\x1b[1;91mThe obtained solution is not a minimum.\x1b[0;91m\n\
-                     For solution: {}.\n\
-                     In optimizer: {}.",
-                    solution, optimizer
+                     For solution: {solution}.\n\
+                     In solver: {solver}."
                 )
             }
             Self::SingularMatrix => "\x1b[1;91mMatrix is singular.".to_string(),
         };
-        write!(f, "\n{}\n\x1b[0;2;31m{}\x1b[0m\n", error, defeat_message())
+        write!(f, "\n{error}\n\x1b[0;2;31m{}\x1b[0m\n", defeat_message())
     }
 }
 
@@ -123,23 +121,21 @@ impl Display for OptimizeError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
             Self::Generic(message) => message.to_string(),
-            Self::MaximumStepsReached(steps, optimizer) => {
+            Self::MaximumStepsReached(steps, solver) => {
                 format!(
-                    "\x1b[1;91mMaximum number of steps ({}) reached.\x1b[0;91m\n\
-                     In optimizer: {}.",
-                    steps, optimizer
+                    "\x1b[1;91mMaximum number of steps ({steps}) reached.\x1b[0;91m\n\
+                     In solver: {solver}."
                 )
             }
-            Self::NotMinimum(solution, optimizer) => {
+            Self::NotMinimum(solution, solver) => {
                 format!(
                     "\x1b[1;91mThe obtained solution is not a minimum.\x1b[0;91m\n\
-                     For solution: {}.\n\
-                     In optimizer: {}.",
-                    solution, optimizer
+                     For solution: {solution}.\n\
+                     In solver: {solver}."
                 )
             }
             Self::SingularMatrix => "\x1b[1;91mMatrix is singular.".to_string(),
         };
-        write!(f, "{}\x1b[0m", error)
+        write!(f, "{error}\x1b[0m")
     }
 }

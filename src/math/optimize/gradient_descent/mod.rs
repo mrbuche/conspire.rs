@@ -128,7 +128,7 @@ where
     }
     Err(OptimizeError::MaximumStepsReached(
         gradient_descent.max_steps,
-        format!("{:?}", gradient_descent),
+        format!("{gradient_descent:?}"),
     ))
 }
 
@@ -184,6 +184,6 @@ where
     }
     Err(OptimizeError::MaximumStepsReached(
         gradient_descent.max_steps,
-        format!("{:?}", gradient_descent),
+        format!("{gradient_descent:?}"),
     ))
 }

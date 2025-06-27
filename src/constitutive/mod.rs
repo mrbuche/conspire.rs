@@ -61,7 +61,7 @@ where
                 Err(ConstitutiveError::InvalidJacobian(
                     jacobian,
                     deformation_gradient,
-                    format!("{:?}", self),
+                    format!("{self:?}"),
                 ))
             }
             Ok(jacobian) => Ok(jacobian),
@@ -87,10 +87,9 @@ impl From<ConstitutiveError> for OptimizeError {
                 deformation_gradient,
                 constitutive_model,
             ) => OptimizeError::Generic(format!(
-                "\x1b[1;91mInvalid Jacobian: {:.6e}.\x1b[0;91m\n\
-                        From deformation gradient: {}.\n\
-                        In constitutive model: {}.",
-                jacobian, deformation_gradient, constitutive_model
+                "\x1b[1;91mInvalid Jacobian: {jacobian:.6e}.\x1b[0;91m\n\
+                        From deformation gradient: {deformation_gradient}.\n\
+                        In constitutive model: {constitutive_model}."
             )),
             _ => todo!(),
         }
@@ -120,31 +119,27 @@ impl Debug for ConstitutiveError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
             Self::Custom(message, deformation_gradient, constitutive_model) => format!(
-                "\x1b[1;91m{}\x1b[0;91m\n\
-                 From deformation gradient: {}.\n\
-                 In constitutive model: {}.",
-                message, deformation_gradient, constitutive_model
+                "\x1b[1;91m{message}\x1b[0;91m\n\
+                 From deformation gradient: {deformation_gradient}.\n\
+                 In constitutive model: {constitutive_model}."
             ),
             Self::InvalidJacobian(jacobian, deformation_gradient, constitutive_model) => {
                 format!(
-                    "\x1b[1;91mInvalid Jacobian: {:.6e}.\x1b[0;91m\n\
-                    From deformation gradient: {}.\n\
-                    In constitutive model: {}.",
-                    jacobian, deformation_gradient, constitutive_model
+                    "\x1b[1;91mInvalid Jacobian: {jacobian:.6e}.\x1b[0;91m\n\
+                    From deformation gradient: {deformation_gradient}.\n\
+                    In constitutive model: {constitutive_model}."
                 )
             }
             Self::MaximumStepsReached(steps, constitutive_model) => {
                 format!(
-                    "\x1b[1;91mMaximum number of steps ({}) reached.\x1b[0;91m\n\
-                     In constitutive model: {}.",
-                    steps, constitutive_model
+                    "\x1b[1;91mMaximum number of steps ({steps}) reached.\x1b[0;91m\n\
+                     In constitutive model: {constitutive_model}."
                 )
             }
             Self::NotMinimum(deformation_gradient, constitutive_model) => {
                 format!(
                     "\x1b[1;91mThe obtained solution is not a minimum.\x1b[0;91m\n\
-                     {}\nIn constitutive model: {}.",
-                    deformation_gradient, constitutive_model
+                     {deformation_gradient}\nIn constitutive model: {constitutive_model}."
                 )
             }
         };
@@ -156,35 +151,31 @@ impl Display for ConstitutiveError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
             Self::Custom(message, deformation_gradient, constitutive_model) => format!(
-                "\x1b[1;91m{}\x1b[0;91m\n\
-                 From deformation gradient: {}.\n\
-                 In constitutive model: {}.",
-                message, deformation_gradient, constitutive_model
+                "\x1b[1;91m{message}\x1b[0;91m\n\
+                 From deformation gradient: {deformation_gradient}.\n\
+                 In constitutive model: {constitutive_model}."
             ),
             Self::InvalidJacobian(jacobian, deformation_gradient, constitutive_model) => {
                 format!(
-                    "\x1b[1;91mInvalid Jacobian: {:.6e}.\x1b[0;91m\n\
-                    From deformation gradient: {}.\n\
-                    In constitutive model: {}.",
-                    jacobian, deformation_gradient, constitutive_model
+                    "\x1b[1;91mInvalid Jacobian: {jacobian:.6e}.\x1b[0;91m\n\
+                    From deformation gradient: {deformation_gradient}.\n\
+                    In constitutive model: {constitutive_model}."
                 )
             }
             Self::MaximumStepsReached(steps, constitutive_model) => {
                 format!(
-                    "\x1b[1;91mMaximum number of steps ({}) reached.\x1b[0;91m\n\
-                     In constitutive model: {}.",
-                    steps, constitutive_model
+                    "\x1b[1;91mMaximum number of steps ({steps}) reached.\x1b[0;91m\n\
+                     In constitutive model: {constitutive_model}."
                 )
             }
             Self::NotMinimum(deformation_gradient, constitutive_model) => {
                 format!(
                     "\x1b[1;91mThe obtained solution is not a minimum.\x1b[0;91m\n\
-                     {}\nIn constitutive model: {}.",
-                    deformation_gradient, constitutive_model
+                     {deformation_gradient}\nIn constitutive model: {constitutive_model}."
                 )
             }
         };
-        write!(f, "{}\x1b[0m", error)
+        write!(f, "{error}\x1b[0m")
     }
 }
 
