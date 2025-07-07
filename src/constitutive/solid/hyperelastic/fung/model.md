@@ -1,7 +1,4 @@
-
-The Fung hyperelastic constitutive model.[^fung1967]
-
-[^fung1967]: Y.C. Fung, [Am. J. Physiol. **213**, 1532 (1967)](https://doi.org/10.1152/ajplegacy.1967.213.6.1532).
+The Fung hyperelastic constitutive model.[^1]
 
 **Parameters**
 - The bulk modulus $`\kappa`$.
@@ -16,4 +13,6 @@ The Fung hyperelastic constitutive model.[^fung1967]
 - None.
 
 **Notes**
-- The Fung model reduces to the [Neo-Hookean model](NeoHookean) when $`\mu_m\to 0`$ or $`c\to 0`$.
+- The Fung model reduces to the [Neo-Hookean model](super::NeoHookean) when $`\mu_m\to 0`$ or $`c\to 0`$.
+
+[^1]: Y.C. Fung, [Am. J. Physiol. **213**, 1532 (1967)](https://doi.org/10.1152/ajplegacy.1967.213.6.1532).
