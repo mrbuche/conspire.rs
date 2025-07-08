@@ -1,7 +1,7 @@
 [package]
-authors = ["Michael R. Buche <dev@mrbuche.com>"]
+authors = ["Michael R. Buche <mrbuche@sandia.gov>"]
 categories = ["mathematics", "science"]
-description = "c o n s p i r e"
+description = "The Rust interface to conspire."
 documentation = "https://docs.rs/crate/conspire"
 edition = "2024"
 homepage = "https://mrbuche.github.io/conspire"
