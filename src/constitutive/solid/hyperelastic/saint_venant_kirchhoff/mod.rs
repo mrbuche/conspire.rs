@@ -13,7 +13,7 @@ use crate::{
     },
 };
 
-#[doc = include_str!("model.md")]
+#[doc = include_str!("doc.md")]
 #[derive(Debug)]
 pub struct SaintVenantKirchhoff<P> {
     parameters: P,

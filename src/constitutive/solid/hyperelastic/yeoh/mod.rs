@@ -12,7 +12,7 @@ use crate::{
 
 const SEVEN_THIRDS: Scalar = 7.0 / 3.0;
 
-#[doc = include_str!("model.md")]
+#[doc = include_str!("doc.md")]
 #[derive(Debug)]
 pub struct Yeoh<P> {
     parameters: P,
