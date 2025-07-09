@@ -1,4 +1,4 @@
-pub const HYPERELASTIC: &str = include_str!("doc.md");
+pub const DOC: &str = include_str!("doc.md");
 pub const ARRUDA_BOYCE: [&str; 4] = [
     include_str!("arruda_boyce/doc.md"),
     include_str!("arruda_boyce/cauchy_stress.md"),
