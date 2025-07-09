@@ -10,7 +10,7 @@ use crate::{
     mechanics::{CauchyStress, CauchyTangentStiffness, DeformationGradient, Scalar},
 };
 
-#[doc = include_str!("model.md")]
+#[doc = include_str!("doc.md")]
 #[derive(Debug)]
 pub struct AlmansiHamel<P> {
     parameters: P,
