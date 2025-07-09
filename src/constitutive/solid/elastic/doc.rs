@@ -1,8 +1,9 @@
 pub const DOC: &str = include_str!("doc.md");
+
 pub fn almansi_hamel<'a>() -> Vec<[&'a str; 2]> {
     vec![
         [
-            "src/constitutive/solid/elastic/almansi_hamel",
+            "constitutive/solid/elastic/almansi_hamel",
             include_str!("almansi_hamel/doc.md"),
         ],
         [
