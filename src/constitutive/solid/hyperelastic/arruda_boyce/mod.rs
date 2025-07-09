@@ -13,7 +13,7 @@ use crate::{
     mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient, Scalar},
 };
 
-#[doc = include_str!("model.md")]
+#[doc = include_str!("doc.md")]
 #[derive(Debug)]
 pub struct ArrudaBoyce<P> {
     parameters: P,

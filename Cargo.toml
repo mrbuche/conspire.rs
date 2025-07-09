@@ -12,6 +12,7 @@ repository = "https://github.com/mrbuche/conspire.rs"
 version = "0.5.8"
 
 [features]
+doc = []
 constitutive = ['mechanics']
 fem = ['constitutive']
 math = []
