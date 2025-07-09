@@ -1,5 +1,5 @@
 pub const DOC: &str = include_str!("doc.md");
-pub const ALMANSI_HAMEL: ([&str; 2], [&str; 2], [&str; 2]) = (
+pub const ALMANSI_HAMEL: [[&str; 2]; 3] = [
     [
         "src/constitutive/solid/elastic/almansi_hamel",
         include_str!("almansi_hamel/doc.md"),
@@ -12,4 +12,4 @@ pub const ALMANSI_HAMEL: ([&str; 2], [&str; 2], [&str; 2]) = (
         "cauchy_tangent_stiffness",
         include_str!("almansi_hamel/cauchy_tangent_stiffness.md"),
     ],
-);
+];
