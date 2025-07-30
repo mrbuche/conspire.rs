@@ -12,10 +12,10 @@ use std::array::from_fn;
 const G: usize = 1;
 const M: usize = 3;
 const N: usize = 4;
-const P: usize = 1;
+const P: usize = G;
 
 #[cfg(test)]
-const Q: usize = 4;
+const Q: usize = N;
 
 pub type Tetrahedron<C> = Element<C, G, N>;
 

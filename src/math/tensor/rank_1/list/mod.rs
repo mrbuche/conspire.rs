@@ -172,6 +172,14 @@ impl From<TensorRank1List<3, 0, 4>> for TensorRank1List<3, 1, 4> {
     }
 }
 
+impl From<TensorRank1List<3, 0, 8>> for TensorRank1List<3, 1, 8> {
+    fn from(tensor_rank_1_list: TensorRank1List<3, 0, 8>) -> Self {
+        unsafe {
+            transmute::<TensorRank1List<3, 0, 8>, TensorRank1List<3, 1, 8>>(tensor_rank_1_list)
+        }
+    }
+}
+
 impl From<TensorRank1List<3, 0, 10>> for TensorRank1List<3, 1, 10> {
     fn from(tensor_rank_1_list: TensorRank1List<3, 0, 10>) -> Self {
         unsafe {

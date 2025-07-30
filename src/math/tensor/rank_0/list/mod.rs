@@ -17,7 +17,6 @@ pub const fn tensor_rank_0_list<const W: usize>(array: [TensorRank0; W]) -> Tens
     TensorRank0List(array)
 }
 
-/// Display implementation for rank-0 lists.
 impl<const W: usize> Display for TensorRank0List<W> {
     fn fmt(&self, f: &mut Formatter) -> Result {
         write!(f, "\x1B[s")?;
