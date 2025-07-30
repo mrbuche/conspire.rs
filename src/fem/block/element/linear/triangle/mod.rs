@@ -12,10 +12,10 @@ use std::array::from_fn;
 const G: usize = 1;
 const M: usize = 2;
 const N: usize = 3;
-const P: usize = 1;
+const P: usize = G;
 
 #[cfg(test)]
-const Q: usize = 3;
+const Q: usize = N;
 
 pub type Triangle<C> = SurfaceElement<C, G, N, P>;
 

@@ -460,7 +460,7 @@ macro_rules! test_finite_element_inner {
                 use super::{
                     AlmansiHamel, DeformationGradientRateList, DeformationGradientList, Scalar,
                     FiniteElementMethods, G, NodalVelocities, Rank2, Tensor, TensorArray,
-                    TestError, assert_eq, assert_eq_within_tols, coordinates,
+                    TestError, assert_eq_within_tols, coordinates,
                     coordinates_transformed, element, element_transformed,
                     get_deformation_gradient, get_deformation_gradient_rate,
                     get_rotation_current_configuration, get_rotation_rate_current_configuration,
@@ -608,7 +608,7 @@ macro_rules! test_finite_element_inner {
                         $element::<AlmansiHamel<&[Scalar; 2]>>::shape_functions_at_integration_points()
                             .iter()
                             .try_for_each(|shape_functions| {
-                                assert_eq(&shape_functions.iter().sum(), &1.0)
+                                assert_eq_within_tols(&shape_functions.iter().sum(), &1.0)
                             })
                     }
                     #[test]
