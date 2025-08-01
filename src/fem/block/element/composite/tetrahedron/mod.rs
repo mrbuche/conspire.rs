@@ -24,16 +24,43 @@ where
         constitutive_model_parameters: Y,
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
     ) -> Self {
+        let (gradient_vectors, integration_weights) = Self::initialize(reference_nodal_coordinates);
         Self {
             constitutive_models: from_fn(|_| <C>::new(constitutive_model_parameters)),
-            gradient_vectors: Self::projected_gradient_vectors(&reference_nodal_coordinates),
-            integration_weights: Self::reference_jacobians(&reference_nodal_coordinates)
-                * Self::integration_weight(),
+            gradient_vectors,
+            integration_weights,
         }
+    }
+    fn reference() -> ReferenceNodalCoordinates<N> {
+        tensor_rank_1_list([
+            tensor_rank_1([0.0, 0.0, 0.0]),
+            tensor_rank_1([1.0, 0.0, 0.0]),
+            tensor_rank_1([0.0, 1.0, 0.0]),
+            tensor_rank_1([0.0, 0.0, 1.0]),
+            tensor_rank_1([0.25, 0.25, 0.0]),
+            tensor_rank_1([0.25, 0.0, 0.25]),
+            tensor_rank_1([0.0, 0.25, 0.25]),
+            tensor_rank_1([0.5, 0.5, 0.0]),
+            tensor_rank_1([0.5, 0.0, 0.5]),
+            tensor_rank_1([0.0, 0.5, 0.5]),
+        ])
+    }
+    fn reset(&mut self) {
+        let (gradient_vectors, integration_weights) = Self::initialize(Self::reference());
+        self.gradient_vectors = gradient_vectors;
+        self.integration_weights = integration_weights;
     }
 }
 
 impl<C> Tetrahedron<C> {
+    fn initialize(
+        reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
+    ) -> (GradientVectors<G, N>, Scalars<G>) {
+        let gradient_vectors = Self::projected_gradient_vectors(&reference_nodal_coordinates);
+        let integration_weights =
+            Self::reference_jacobians(&reference_nodal_coordinates) * Self::integration_weight();
+        (gradient_vectors, integration_weights)
+    }
     const fn integration_weight() -> Scalar {
         1.0 / 24.0
     }

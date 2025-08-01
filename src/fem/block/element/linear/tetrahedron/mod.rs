@@ -28,18 +28,39 @@ where
         constitutive_model_parameters: Y,
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
     ) -> Self {
-        let standard_gradient_operator = &Self::standard_gradient_operators()[0];
-        let (operator, jacobian) = (reference_nodal_coordinates * standard_gradient_operator)
-            .inverse_transpose_and_determinant();
+        let (gradient_vectors, integration_weights) = Self::initialize(reference_nodal_coordinates);
         Self {
             constitutive_models: from_fn(|_| <C>::new(constitutive_model_parameters)),
-            gradient_vectors: tensor_rank_1_list_2d([operator * standard_gradient_operator]),
-            integration_weights: tensor_rank_0_list([jacobian * Self::integration_weight()]),
+            gradient_vectors,
+            integration_weights,
         }
+    }
+    fn reference() -> ReferenceNodalCoordinates<N> {
+        tensor_rank_1_list([
+            tensor_rank_1([0.0, 0.0, 0.0]),
+            tensor_rank_1([1.0, 0.0, 0.0]),
+            tensor_rank_1([0.0, 1.0, 0.0]),
+            tensor_rank_1([0.0, 0.0, 1.0]),
+        ])
+    }
+    fn reset(&mut self) {
+        let (gradient_vectors, integration_weights) = Self::initialize(Self::reference());
+        self.gradient_vectors = gradient_vectors;
+        self.integration_weights = integration_weights;
     }
 }
 
 impl<C> Tetrahedron<C> {
+    fn initialize(
+        reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
+    ) -> (GradientVectors<G, N>, Scalars<G>) {
+        let standard_gradient_operator = &Self::standard_gradient_operators()[0];
+        let (operator, jacobian) = (reference_nodal_coordinates * standard_gradient_operator)
+            .inverse_transpose_and_determinant();
+        let gradient_vectors = tensor_rank_1_list_2d([operator * standard_gradient_operator]);
+        let integration_weights = tensor_rank_0_list([jacobian * Self::integration_weight()]);
+        (gradient_vectors, integration_weights)
+    }
     const fn integration_weight() -> Scalar {
         1.0 / 6.0
     }
