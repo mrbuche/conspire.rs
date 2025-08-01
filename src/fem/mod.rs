@@ -12,6 +12,7 @@ pub use block::{
         HyperviscoelasticFiniteElement, SurfaceFiniteElement, ViscoelasticFiniteElement,
         composite::tetrahedron::Tetrahedron as CompositeTetrahedron,
         linear::{
+            hexahedron::Hexahedron as LinearHexahedron,
             tetrahedron::Tetrahedron as LinearTetrahedron, triangle::Triangle as LinearTriangle,
         },
     },

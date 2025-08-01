@@ -30,6 +30,36 @@ where
         constitutive_model_parameters: Y,
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
     ) -> Self {
+        let (gradient_vectors, integration_weights) = Self::initialize(reference_nodal_coordinates);
+        Self {
+            constitutive_models: from_fn(|_| <C>::new(constitutive_model_parameters)),
+            gradient_vectors,
+            integration_weights,
+        }
+    }
+    fn reference() -> ReferenceNodalCoordinates<N> {
+        tensor_rank_1_list([
+            tensor_rank_1([-1.0, -1.0, -1.0]),
+            tensor_rank_1([1.0, -1.0, -1.0]),
+            tensor_rank_1([1.0, 1.0, -1.0]),
+            tensor_rank_1([-1.0, 1.0, -1.0]),
+            tensor_rank_1([-1.0, -1.0, 1.0]),
+            tensor_rank_1([1.0, -1.0, 1.0]),
+            tensor_rank_1([1.0, 1.0, 1.0]),
+            tensor_rank_1([-1.0, 1.0, 1.0]),
+        ])
+    }
+    fn reset(&mut self) {
+        let (gradient_vectors, integration_weights) = Self::initialize(Self::reference());
+        self.gradient_vectors = gradient_vectors;
+        self.integration_weights = integration_weights;
+    }
+}
+
+impl<C> Hexahedron<C> {
+    fn initialize(
+        reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
+    ) -> (GradientVectors<G, N>, Scalars<G>) {
         let standard_gradient_operators = Self::standard_gradient_operators();
         let gradient_vectors = standard_gradient_operators
             .iter()
@@ -45,15 +75,8 @@ where
                     * Self::integration_weight()
             })
             .collect();
-        Self {
-            constitutive_models: from_fn(|_| <C>::new(constitutive_model_parameters)),
-            gradient_vectors,
-            integration_weights,
-        }
+        (gradient_vectors, integration_weights)
     }
-}
-
-impl<C> Hexahedron<C> {
     const fn integration_point(point: usize) -> [Scalar; M] {
         match point {
             0 => [-SQRT_3 / 3.0, -SQRT_3 / 3.0, -SQRT_3 / 3.0],

@@ -57,6 +57,7 @@ where
         connectivity: Connectivity<N>,
         reference_nodal_coordinates: ReferenceNodalCoordinatesBlock,
     ) -> Self;
+    fn reset(&mut self);
 }
 
 pub trait SurfaceFiniteElementBlock<C, F, const G: usize, const N: usize, const P: usize, Y>
@@ -142,6 +143,9 @@ where
             coordinates,
             elements,
         }
+    }
+    fn reset(&mut self) {
+        self.elements.iter_mut().for_each(|element| element.reset())
     }
 }
 

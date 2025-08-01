@@ -34,6 +34,8 @@ where
         constitutive_model_parameters: Y,
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
     ) -> Self;
+    fn reference() -> ReferenceNodalCoordinates<N>;
+    fn reset(&mut self);
 }
 
 pub trait SurfaceFiniteElement<C, const G: usize, const N: usize, const P: usize, Y>
