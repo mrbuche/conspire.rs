@@ -199,7 +199,6 @@ where
             decrement = tangent.solve_lu(&residual)?
         }
         solution.decrement_from_chained(&mut multipliers, decrement)
-        // The convexity of every step of the solves can be verified (with LDL, LL, etc.).
         // Also, consider revisiting null-space method to drastically reduce solve size.
     }
     Err(OptimizeError::MaximumStepsReached(
