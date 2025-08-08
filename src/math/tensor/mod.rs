@@ -203,13 +203,9 @@ where
     /// Appends an item to the back of the Vec.
     fn push(&mut self, item: Self::Item);
     /// Removes an item from the Vec and returns it, shifting items to the left.
-    fn remove(&mut self, _index: usize) -> Self::Item {
-        unimplemented!()
-    }
+    fn remove(&mut self, _index: usize) -> Self::Item;
     /// Removes an item from the Vec and returns it, replacing it the last item.
-    fn swap_remove(&mut self, _index: usize) -> Self::Item {
-        unimplemented!()
-    }
+    fn swap_remove(&mut self, _index: usize) -> Self::Item;
     /// Returns the zero tensor.
     fn zero(len: usize) -> Self;
 }

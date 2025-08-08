@@ -550,6 +550,12 @@ impl TensorVec for SquareMatrix {
     fn push(&mut self, item: Self::Item) {
         self.0.push(item)
     }
+    fn remove(&mut self, index: usize) -> Self::Item {
+        self.0.remove(index)
+    }
+    fn swap_remove(&mut self, index: usize) -> Self::Item {
+        self.0.swap_remove(index)
+    }
     fn zero(len: usize) -> Self {
         (0..len).map(|_| Self::Item::zero(len)).collect()
     }

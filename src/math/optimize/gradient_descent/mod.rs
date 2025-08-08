@@ -144,7 +144,7 @@ where
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     if gradient_descent.line_search.is_some() {
-        panic!("Line search needs the exact penalty function in constrained optimization.");
+        panic!("Line search needs the exact penalty function in constrained optimization.")
     }
     let num_constraints = constraint_rhs.len();
     let mut multipliers = Vector::zero(num_constraints);

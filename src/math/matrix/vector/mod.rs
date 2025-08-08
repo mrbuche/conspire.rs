@@ -217,6 +217,12 @@ impl TensorVec for Vector {
     fn push(&mut self, item: Self::Item) {
         self.0.push(item)
     }
+    fn remove(&mut self, index: usize) -> Self::Item {
+        self.0.remove(index)
+    }
+    fn swap_remove(&mut self, index: usize) -> Self::Item {
+        self.0.swap_remove(index)
+    }
     fn zero(len: usize) -> Self {
         Self(vec![0.0; len])
     }
