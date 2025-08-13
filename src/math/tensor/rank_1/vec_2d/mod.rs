@@ -47,6 +47,12 @@ impl<const D: usize, const I: usize> TensorVec for TensorRank1Vec2D<D, I> {
     fn push(&mut self, item: Self::Item) {
         self.0.push(item)
     }
+    fn remove(&mut self, index: usize) -> Self::Item {
+        self.0.remove(index)
+    }
+    fn swap_remove(&mut self, index: usize) -> Self::Item {
+        self.0.swap_remove(index)
+    }
     fn zero(len: usize) -> Self {
         (0..len).map(|_| Self::Item::zero(0)).collect()
     }
