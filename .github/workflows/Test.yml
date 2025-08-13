@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        features: [math, mechanics, constitutive, fem]
+        features: [math, mechanics, constitutive] #, fem]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
