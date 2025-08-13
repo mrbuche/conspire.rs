@@ -166,7 +166,7 @@ fn equality_constraint() -> (
 
 fn applied_velocity(
     times: &crate::math::Vector,
-) -> crate::constitutive::solid::viscoelastic::AppliedLoad<'_> {
+) -> crate::constitutive::solid::viscoelastic::AppliedLoad {
     crate::constitutive::solid::viscoelastic::AppliedLoad::BiaxialStress(
         |_| 0.23,
         |_| 0.0,
