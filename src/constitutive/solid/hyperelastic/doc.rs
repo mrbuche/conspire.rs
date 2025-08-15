@@ -69,6 +69,28 @@ pub fn gent<'a>() -> Vec<[&'a str; 2]> {
     ]
 }
 
+pub fn hencky<'a>() -> Vec<[&'a str; 2]> {
+    vec![
+        [
+            "constitutive/solid/hyperelastic/hencky",
+            include_str!("hencky/doc.md"),
+        ],
+        ["cauchy_stress", include_str!("hencky/cauchy_stress.md")],
+        [
+            "cauchy_tangent_stiffness",
+            include_str!("hencky/cauchy_tangent_stiffness.md"),
+        ],
+        ["first_piola_kirchhoff_stress", ""],
+        ["first_piola_kirchhoff_tangent_stiffness", ""],
+        ["second_piola_kirchhoff_stress", ""],
+        ["second_piola_kirchhoff_tangent_stiffness", ""],
+        [
+            "helmholtz_free_energy_density",
+            include_str!("hencky/helmholtz_free_energy_density.md"),
+        ],
+    ]
+}
+
 pub fn mooney_rivlin<'a>() -> Vec<[&'a str; 2]> {
     vec![
         [
