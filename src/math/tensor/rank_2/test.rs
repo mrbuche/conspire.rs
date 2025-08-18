@@ -1,5 +1,5 @@
 use super::{
-    super::test::{ErrorTensor, TestError, assert_eq, assert_eq_within_tols},
+    super::test::{TestError, assert_eq, assert_eq_within_tols},
     Rank2, Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank1List, TensorRank2,
     TensorRank2List2D, TensorRank4,
 };
@@ -207,7 +207,7 @@ fn get_tensor_rank_2_div_tensor_rank_4() -> TensorRank2<3, 2, 3> {
     ])
 }
 
-fn get_tensor_rank_2_for_ln() -> TensorRank2<3, 1, 1> {
+fn get_tensor_rank_2_for_logm() -> TensorRank2<3, 1, 1> {
     TensorRank2::new([
         [0.91287866, 0.53888260, 0.05575707],
         [0.20963177, 0.97385069, 0.19313704],
@@ -215,7 +215,7 @@ fn get_tensor_rank_2_for_ln() -> TensorRank2<3, 1, 1> {
     ])
 }
 
-fn get_ln_tensor_rank_2() -> TensorRank2<3, 1, 1> {
+fn get_logm_tensor_rank_2() -> TensorRank2<3, 1, 1> {
     TensorRank2::new([
         [
             -0.1245679561305735,
@@ -232,8 +232,11 @@ fn get_ln_tensor_rank_2() -> TensorRank2<3, 1, 1> {
 }
 
 #[test]
-fn ln() -> Result<(), TestError> {
-    assert_eq_within_tols(&get_tensor_rank_2_for_ln().ln(), &get_ln_tensor_rank_2())
+fn logm() -> Result<(), TestError> {
+    assert_eq_within_tols(
+        &get_tensor_rank_2_for_logm().logm(),
+        &get_logm_tensor_rank_2(),
+    )
 }
 
 #[test]
@@ -512,8 +515,8 @@ fn dyad() {
 fn error() {
     let a = get_tensor_rank_1_a();
     let b = get_tensor_rank_1_b();
-    assert_eq!(a.error(&a, &ABS_TOL, &REL_TOL), None);
-    assert_eq!(a.error(&b, &ABS_TOL, &REL_TOL), Some(4));
+    assert_eq!(a.error_count(&a, &ABS_TOL, &REL_TOL), None);
+    assert_eq!(a.error_count(&b, &ABS_TOL, &REL_TOL), Some(4));
 }
 
 #[test]

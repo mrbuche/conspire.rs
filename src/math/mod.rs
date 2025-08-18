@@ -85,7 +85,7 @@ fn write_tensor_rank_0(f: &mut fmt::Formatter, tensor_rank_0: &TensorRank0) -> f
         let a = temp_2.next().unwrap();
         let b = temp_2.next().unwrap();
         write!(f, "{a}e+{b}")
-    } else if num_abs <= 1e-10 {
+    } else if num_abs < 1e-9 {
         let temp_1 = format!("{num:>13.6e}, ").to_string();
         let mut temp_2 = temp_1.split("e");
         let a = temp_2.next().unwrap();

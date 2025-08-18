@@ -3,7 +3,7 @@ use super::super::test::ErrorTensor;
 
 use crate::math::{Tensor, TensorArray, TensorRank0, TensorRank2, TensorVec};
 use std::{
-    fmt::{Display, Formatter, Result},
+    fmt::{self, Display, Formatter},
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
@@ -16,45 +16,13 @@ pub struct TensorRank2Vec<const D: usize, const I: usize, const J: usize>(
 );
 
 impl<const D: usize, const I: usize, const J: usize> Display for TensorRank2Vec<D, I, J> {
-    fn fmt(&self, _f: &mut Formatter) -> Result {
+    fn fmt(&self, _f: &mut Formatter) -> fmt::Result {
         Ok(())
     }
 }
 
 #[cfg(test)]
 impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2Vec<D, I, J> {
-    fn error(
-        &self,
-        comparator: &Self,
-        tol_abs: &TensorRank0,
-        tol_rel: &TensorRank0,
-    ) -> Option<usize> {
-        let error_count = self
-            .iter()
-            .zip(comparator.iter())
-            .map(|(self_a, comparator_a)| {
-                self_a
-                    .iter()
-                    .zip(comparator_a.iter())
-                    .map(|(self_a_i, comparator_a_i)| {
-                        self_a_i
-                            .iter()
-                            .zip(comparator_a_i.iter())
-                            .filter(|&(&self_a_ij, &comparator_a_ij)| {
-                                &(self_a_ij - comparator_a_ij).abs() >= tol_abs
-                                    && &(self_a_ij / comparator_a_ij - 1.0).abs() >= tol_rel
-                            })
-                            .count()
-                    })
-                    .sum::<usize>()
-            })
-            .sum();
-        if error_count > 0 {
-            Some(error_count)
-        } else {
-            None
-        }
-    }
     fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
@@ -265,6 +233,17 @@ impl<const D: usize, const I: usize, const J: usize> Sub<&Self> for TensorRank2V
     fn sub(mut self, tensor_rank_2_vec: &Self) -> Self::Output {
         self -= tensor_rank_2_vec;
         self
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> Sub for &TensorRank2Vec<D, I, J> {
+    type Output = TensorRank2Vec<D, I, J>;
+    fn sub(self, tensor_rank_2_vec: Self) -> Self::Output {
+        tensor_rank_2_vec
+            .iter()
+            .zip(self.iter())
+            .map(|(tensor_rank_2_vec_a, self_a)| self_a - tensor_rank_2_vec_a)
+            .collect()
     }
 }
 

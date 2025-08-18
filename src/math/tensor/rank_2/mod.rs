@@ -8,13 +8,12 @@ pub mod vec_2d;
 
 use std::{
     array::from_fn,
-    fmt,
+    fmt::{self, Display, Formatter},
     mem::transmute,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
 use super::{
-    super::write_tensor_rank_0,
     Hessian, Jacobian, Rank2, Solution, SquareMatrix, Tensor, TensorArray, Vector,
     rank_0::TensorRank0,
     rank_1::{
@@ -176,51 +175,17 @@ impl<const D: usize, const I: usize, const J: usize> From<TensorRank2<D, I, J>>
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> fmt::Display for TensorRank2<D, I, J> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "\x1B[s")?;
-        write!(f, "[[")?;
-        self.iter().enumerate().try_for_each(|(i, row)| {
-            row.iter()
-                .try_for_each(|entry| write_tensor_rank_0(f, entry))?;
-            if i + 1 < D {
-                writeln!(f, "\x1B[2D],")?;
-                write!(f, "\x1B[u")?;
-                write!(f, "\x1B[{}B [", i + 1)?;
-            }
-            Ok(())
-        })?;
-        write!(f, "\x1B[2D]]")
+impl<const D: usize, const I: usize, const J: usize> Display for TensorRank2<D, I, J> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "[")?;
+        self.iter()
+            .enumerate()
+            .try_for_each(|(i, row)| write!(f, "{row},\n\x1B[u\x1B[{}B", i + 1))?;
+        write!(f, "\x1B[u\x1B[1A\x1B[{}C]", 16 * D)
     }
 }
 
 impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2<D, I, J> {
-    fn error(
-        &self,
-        comparator: &Self,
-        tol_abs: &TensorRank0,
-        tol_rel: &TensorRank0,
-    ) -> Option<usize> {
-        let error_count = self
-            .iter()
-            .zip(comparator.iter())
-            .map(|(self_i, comparator_i)| {
-                self_i
-                    .iter()
-                    .zip(comparator_i.iter())
-                    .filter(|&(&self_ij, &comparator_ij)| {
-                        &(self_ij - comparator_ij).abs() >= tol_abs
-                            && &(self_ij / comparator_ij - 1.0).abs() >= tol_rel
-                    })
-                    .count()
-            })
-            .sum();
-        if error_count > 0 {
-            Some(error_count)
-        } else {
-            None
-        }
-    }
     fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
@@ -617,19 +582,19 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
         }
     }
     /// Returns the matrix logarithm of the rank-2 tensor.
-    pub fn ln(&self) -> TensorRank2<D, I, I> {
+    pub fn logm(&self) -> TensorRank2<D, I, I> {
         if self.is_diagonal() {
-            let mut ln = TensorRank2::zero();
-            ln.iter_mut()
+            let mut logm = TensorRank2::zero();
+            logm.iter_mut()
                 .enumerate()
                 .zip(self.iter())
                 .for_each(|((i, ln_i), a_i)| ln_i[i] = a_i[i].ln());
-            ln
+            logm
         } else {
             let (p, h) = self.hessenberg_decomposition();
             let (q, u) = h.schur_decomposition();
             let r = p * q;
-            &r * ln_triangular_matrix(u) * r.transpose()
+            &r * logm_triangular_matrix(u) * r.transpose()
         }
     }
     /// Returns the LU decomposition of the rank-2 tensor.
@@ -801,7 +766,7 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
     }
 }
 
-fn ln_triangular_matrix<const D: usize, const I: usize>(
+fn logm_triangular_matrix<const D: usize, const I: usize>(
     t: TensorRank2<D, I, I>,
 ) -> TensorRank2<D, I, I> {
     let identity = TensorRank2::identity();
@@ -812,7 +777,7 @@ fn ln_triangular_matrix<const D: usize, const I: usize>(
         scale += 1;
     }
     scaled_t -= identity;
-    let mut ln_t = scaled_t.clone();
+    let mut logm_t = scaled_t.clone();
     let mut current_power = scaled_t.clone();
     let mut coefficient;
     for k in 2..=15 {
@@ -822,9 +787,9 @@ fn ln_triangular_matrix<const D: usize, const I: usize>(
         } else {
             1.0 / k as TensorRank0
         };
-        ln_t += &current_power * coefficient;
+        logm_t += &current_power * coefficient;
         if (&current_power * coefficient).norm() < ABS_TOL {
-            return ln_t * (1 << scale) as TensorRank0;
+            return logm_t * (1 << scale) as TensorRank0;
         }
     }
     panic!()

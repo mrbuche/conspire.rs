@@ -48,32 +48,6 @@ impl<const D: usize, const I: usize, const W: usize> Display for TensorRank1List
 
 #[cfg(test)]
 impl<const D: usize, const I: usize, const W: usize> ErrorTensor for TensorRank1List<D, I, W> {
-    fn error(
-        &self,
-        comparator: &Self,
-        tol_abs: &TensorRank0,
-        tol_rel: &TensorRank0,
-    ) -> Option<usize> {
-        let error_count = self
-            .iter()
-            .zip(comparator.iter())
-            .map(|(entry, comparator_entry)| {
-                entry
-                    .iter()
-                    .zip(comparator_entry.iter())
-                    .filter(|&(&entry_i, &comparator_entry_i)| {
-                        &(entry_i - comparator_entry_i).abs() >= tol_abs
-                            && &(entry_i / comparator_entry_i - 1.0).abs() >= tol_rel
-                    })
-                    .count()
-            })
-            .sum();
-        if error_count > 0 {
-            Some(error_count)
-        } else {
-            None
-        }
-    }
     fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
@@ -402,6 +376,17 @@ impl<const D: usize, const I: usize, const W: usize> Sub<&Self> for TensorRank1L
     fn sub(mut self, tensor_rank_1_list: &Self) -> Self::Output {
         self -= tensor_rank_1_list;
         self
+    }
+}
+
+impl<const D: usize, const I: usize, const W: usize> Sub for &TensorRank1List<D, I, W> {
+    type Output = TensorRank1List<D, I, W>;
+    fn sub(self, tensor_rank_1_list: Self) -> Self::Output {
+        tensor_rank_1_list
+            .iter()
+            .zip(self.iter())
+            .map(|(tensor_rank_1_list_a, self_a)| self_a - tensor_rank_1_list_a)
+            .collect()
     }
 }
 

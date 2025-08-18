@@ -55,64 +55,6 @@ impl<
     const Y: usize,
 > ErrorTensor for TensorRank3List3D<D, I, J, K, W, X, Y>
 {
-    fn error(
-        &self,
-        comparator: &Self,
-        tol_abs: &TensorRank0,
-        tol_rel: &TensorRank0,
-    ) -> Option<usize> {
-        let error_count = self
-            .iter()
-            .zip(comparator.iter())
-            .map(|(self_a, comparator_a)| {
-                self_a
-                    .iter()
-                    .zip(comparator_a.iter())
-                    .map(|(self_ab, comparator_ab)| {
-                        self_ab
-                            .iter()
-                            .zip(comparator_ab.iter())
-                            .map(|(self_abc, comparator_abc)| {
-                                self_abc
-                                    .iter()
-                                    .zip(comparator_abc.iter())
-                                    .map(|(self_abc_i, comparator_abc_i)| {
-                                        self_abc_i
-                                            .iter()
-                                            .zip(comparator_abc_i.iter())
-                                            .map(|(self_abc_ij, comparator_abc_ij)| {
-                                                self_abc_ij
-                                                    .iter()
-                                                    .zip(comparator_abc_ij.iter())
-                                                    .filter(
-                                                        |&(&self_abc_ijk, &comparator_abc_ijk)| {
-                                                            &(self_abc_ijk - comparator_abc_ijk)
-                                                                .abs()
-                                                                >= tol_abs
-                                                                && &(self_abc_ijk
-                                                                    / comparator_abc_ijk
-                                                                    - 1.0)
-                                                                    .abs()
-                                                                    >= tol_rel
-                                                        },
-                                                    )
-                                                    .count()
-                                            })
-                                            .sum::<usize>()
-                                    })
-                                    .sum::<usize>()
-                            })
-                            .sum::<usize>()
-                    })
-                    .sum::<usize>()
-            })
-            .sum();
-        if error_count > 0 {
-            Some(error_count)
-        } else {
-            None
-        }
-    }
     fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
@@ -498,6 +440,26 @@ impl<
     fn sub(mut self, tensor_rank_3_list_3d: &Self) -> Self::Output {
         self -= tensor_rank_3_list_3d;
         self
+    }
+}
+
+impl<
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const W: usize,
+    const X: usize,
+    const Y: usize,
+> Sub for &TensorRank3List3D<D, I, J, K, W, X, Y>
+{
+    type Output = TensorRank3List3D<D, I, J, K, W, X, Y>;
+    fn sub(self, tensor_rank_3_list_3d: Self) -> Self::Output {
+        tensor_rank_3_list_3d
+            .iter()
+            .zip(self.iter())
+            .map(|(tensor_rank_3_list_3d_a, self_a)| self_a - tensor_rank_3_list_3d_a)
+            .collect()
     }
 }
 

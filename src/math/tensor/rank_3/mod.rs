@@ -10,7 +10,7 @@ pub mod list_3d;
 
 use std::{
     array::from_fn,
-    fmt::{Display, Formatter, Result},
+    fmt::{self, Display, Formatter},
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
@@ -54,8 +54,12 @@ pub const fn get_identity_1010_parts<const I: usize, const J: usize, const K: us
 impl<const D: usize, const I: usize, const J: usize, const K: usize> Display
     for TensorRank3<D, I, J, K>
 {
-    fn fmt(&self, _f: &mut Formatter) -> Result {
-        Ok(())
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "[")?;
+        self.iter().enumerate().try_for_each(|(i, tensor_rank_2)| {
+            write!(f, "{tensor_rank_2},\n\x1B[u\x1B[{}B\x1B[1D", i + 1)
+        })?;
+        write!(f, "\x1B[u\x1B[1A\x1B[{}C]", 16 * D + 1)
     }
 }
 
@@ -63,38 +67,6 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Display
 impl<const D: usize, const I: usize, const J: usize, const K: usize> ErrorTensor
     for TensorRank3<D, I, J, K>
 {
-    fn error(
-        &self,
-        comparator: &Self,
-        tol_abs: &TensorRank0,
-        tol_rel: &TensorRank0,
-    ) -> Option<usize> {
-        let error_count = self
-            .iter()
-            .zip(comparator.iter())
-            .map(|(self_i, comparator_i)| {
-                self_i
-                    .iter()
-                    .zip(comparator_i.iter())
-                    .map(|(self_ij, comparator_ij)| {
-                        self_ij
-                            .iter()
-                            .zip(comparator_ij.iter())
-                            .filter(|&(&self_ijk, &comparator_ijk)| {
-                                &(self_ijk - comparator_ijk).abs() >= tol_abs
-                                    && &(self_ijk / comparator_ijk - 1.0).abs() >= tol_rel
-                            })
-                            .count()
-                    })
-                    .sum::<usize>()
-            })
-            .sum();
-        if error_count > 0 {
-            Some(error_count)
-        } else {
-            None
-        }
-    }
     fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
@@ -349,6 +321,19 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Sub<&Self>
     fn sub(mut self, tensor_rank_3: &Self) -> Self::Output {
         self -= tensor_rank_3;
         self
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize, const K: usize> Sub
+    for &TensorRank3<D, I, J, K>
+{
+    type Output = TensorRank3<D, I, J, K>;
+    fn sub(self, tensor_rank_3: Self) -> Self::Output {
+        tensor_rank_3
+            .iter()
+            .zip(self.iter())
+            .map(|(tensor_rank_3_i, self_i)| self_i - tensor_rank_3_i)
+            .collect()
     }
 }
 

@@ -646,9 +646,9 @@ macro_rules! test_finite_element_inner {
             mod hyperelastic {
                 use super::*;
                 use crate::constitutive::solid::hyperelastic::{
-                    ArrudaBoyce, Fung, Gent, MooneyRivlin, NeoHookean, SaintVenantKirchhoff, Yeoh,
+                    ArrudaBoyce, Fung, Gent, Hencky, MooneyRivlin, NeoHookean, SaintVenantKirchhoff, Yeoh,
                     test::{
-                        ARRUDABOYCEPARAMETERS, FUNGPARAMETERS, GENTPARAMETERS,
+                        ARRUDABOYCEPARAMETERS, FUNGPARAMETERS, GENTPARAMETERS, HENCKYPARAMETERS,
                         MOONEYRIVLINPARAMETERS, NEOHOOKEANPARAMETERS,
                         SAINTVENANTKIRCHOFFPARAMETERS, YEOHPARAMETERS,
                     },
@@ -678,6 +678,15 @@ macro_rules! test_finite_element_inner {
                         $element,
                         GentType,
                         GENTPARAMETERS
+                    );
+                }
+                mod hencky {
+                    use super::*;
+                    type HenckyType<'a> = Hencky::<&'a [Scalar; 2]>;
+                    test_finite_element_with_hyperelastic_constitutive_model!(
+                        $element,
+                        HenckyType,
+                        HENCKYPARAMETERS
                     );
                 }
                 mod mooney_rivlin {

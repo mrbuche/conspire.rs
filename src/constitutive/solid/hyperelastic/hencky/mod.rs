@@ -48,7 +48,7 @@ where
     ) -> Result<CauchyStress, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         let (deviatoric_strain, strain_trace) =
-            (deformation_gradient.left_cauchy_green().ln() * 0.5).deviatoric_and_trace();
+            (deformation_gradient.left_cauchy_green().logm() * 0.5).deviatoric_and_trace();
         Ok(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
             + IDENTITY * (self.bulk_modulus() * strain_trace / jacobian))
     }
@@ -89,7 +89,7 @@ where
         deformation_gradient: &DeformationGradient,
     ) -> Result<Scalar, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
-        let strain = deformation_gradient.left_cauchy_green().ln() * 0.5;
+        let strain = deformation_gradient.left_cauchy_green().logm() * 0.5;
         Ok(self.shear_modulus() * strain.squared_trace()
             + 0.5
                 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())

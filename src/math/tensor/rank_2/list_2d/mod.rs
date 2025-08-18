@@ -40,45 +40,6 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize, const X: us
 impl<const D: usize, const I: usize, const J: usize, const W: usize, const X: usize> ErrorTensor
     for TensorRank2List2D<D, I, J, W, X>
 {
-    fn error(
-        &self,
-        comparator: &Self,
-        tol_abs: &TensorRank0,
-        tol_rel: &TensorRank0,
-    ) -> Option<usize> {
-        let error_count = self
-            .iter()
-            .zip(comparator.iter())
-            .map(|(self_a, comparator_a)| {
-                self_a
-                    .iter()
-                    .zip(comparator_a.iter())
-                    .map(|(self_ab, comparator_ab)| {
-                        self_ab
-                            .iter()
-                            .zip(comparator_ab.iter())
-                            .map(|(self_ab_i, comparator_ab_i)| {
-                                self_ab_i
-                                    .iter()
-                                    .zip(comparator_ab_i.iter())
-                                    .filter(|&(&self_ab_ij, &comparator_ab_ij)| {
-                                        &(self_ab_ij - comparator_ab_ij).abs() >= tol_abs
-                                            && &(self_ab_ij / comparator_ab_ij - 1.0).abs()
-                                                >= tol_rel
-                                    })
-                                    .count()
-                            })
-                            .sum::<usize>()
-                    })
-                    .sum::<usize>()
-            })
-            .sum();
-        if error_count > 0 {
-            Some(error_count)
-        } else {
-            None
-        }
-    }
     fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
@@ -386,6 +347,19 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize, const X: us
     fn sub(mut self, tensor_rank_2_list_2d: &Self) -> Self::Output {
         self -= tensor_rank_2_list_2d;
         self
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize, const W: usize, const X: usize> Sub
+    for &TensorRank2List2D<D, I, J, W, X>
+{
+    type Output = TensorRank2List2D<D, I, J, W, X>;
+    fn sub(self, tensor_rank_2_list_2d: Self) -> Self::Output {
+        tensor_rank_2_list_2d
+            .iter()
+            .zip(self.iter())
+            .map(|(tensor_rank_2_list_2d_a, self_a)| self_a - tensor_rank_2_list_2d_a)
+            .collect()
     }
 }
 

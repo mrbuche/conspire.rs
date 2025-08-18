@@ -240,6 +240,19 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: us
     }
 }
 
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: usize> Sub
+    for &TensorRank3List<D, I, J, K, W>
+{
+    type Output = TensorRank3List<D, I, J, K, W>;
+    fn sub(self, tensor_rank_3_list: Self) -> Self::Output {
+        tensor_rank_3_list
+            .iter()
+            .zip(self.iter())
+            .map(|(tensor_rank_3_list_a, self_a)| self_a - tensor_rank_3_list_a)
+            .collect()
+    }
+}
+
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: usize> SubAssign
     for TensorRank3List<D, I, J, K, W>
 {

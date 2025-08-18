@@ -29,27 +29,6 @@ impl Vector {
 
 #[cfg(test)]
 impl ErrorTensor for Vector {
-    fn error(&self, comparator: &Self, tol_abs: &Scalar, tol_rel: &Scalar) -> Option<usize> {
-        let error_count = self
-            .iter()
-            .zip(comparator.iter())
-            .map(|(entry, comparator_entry)| {
-                entry
-                    .iter()
-                    .zip(comparator_entry.iter())
-                    .filter(|&(&entry_i, &comparator_entry_i)| {
-                        &(entry_i - comparator_entry_i).abs() >= tol_abs
-                            && &(entry_i / comparator_entry_i - 1.0).abs() >= tol_rel
-                    })
-                    .count()
-            })
-            .sum();
-        if error_count > 0 {
-            Some(error_count)
-        } else {
-            None
-        }
-    }
     fn error_fd(&self, comparator: &Self, epsilon: &Scalar) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
@@ -394,6 +373,17 @@ impl Sub<Vector> for &Vector {
             .zip(self.iter())
             .for_each(|(vector_i, self_i)| *vector_i = self_i - *vector_i);
         vector
+    }
+}
+
+impl Sub for &Vector {
+    type Output = Vector;
+    fn sub(self, vector: Self) -> Self::Output {
+        vector
+            .iter()
+            .zip(self.iter())
+            .map(|(vector_i, self_i)| self_i - vector_i)
+            .collect()
     }
 }
 

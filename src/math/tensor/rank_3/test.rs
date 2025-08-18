@@ -1,5 +1,5 @@
 use super::{
-    super::{Tensor, TensorArray, test::ErrorTensor},
+    super::{Tensor, TensorArray},
     TensorRank0, TensorRank2, TensorRank3, levi_civita,
 };
 use crate::{ABS_TOL, REL_TOL};
@@ -334,8 +334,8 @@ fn div_assign_tensor_rank_0_ref() {
 fn error() {
     let a = get_tensor_rank_3();
     let b = get_other_tensor_rank_3();
-    assert_eq!(a.error(&a, &ABS_TOL, &REL_TOL), None);
-    assert_eq!(a.error(&b, &ABS_TOL, &REL_TOL), Some(44));
+    assert_eq!(a.error_count(&a, &ABS_TOL, &REL_TOL), None);
+    assert_eq!(a.error_count(&b, &ABS_TOL, &REL_TOL), Some(44));
 }
 
 #[test]
