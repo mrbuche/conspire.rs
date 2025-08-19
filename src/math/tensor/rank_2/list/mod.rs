@@ -29,8 +29,12 @@ pub const fn tensor_rank_2_list<const D: usize, const I: usize, const J: usize, 
 impl<const D: usize, const I: usize, const J: usize, const W: usize> Display
     for TensorRank2List<D, I, J, W>
 {
-    fn fmt(&self, _f: &mut Formatter) -> Result {
-        Ok(())
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "[")?;
+        self.iter()
+            .enumerate()
+            .try_for_each(|(i, entry)| write!(f, "{entry},\n\x1B[u\x1B[{}B\x1B[1D", i + 1))?;
+        write!(f, "\x1B[u\x1B[1A\x1B[{}C]", 16 * D + 1)
     }
 }
 

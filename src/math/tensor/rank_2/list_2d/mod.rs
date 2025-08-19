@@ -31,8 +31,12 @@ pub struct TensorRank2List2D<
 impl<const D: usize, const I: usize, const J: usize, const W: usize, const X: usize> Display
     for TensorRank2List2D<D, I, J, W, X>
 {
-    fn fmt(&self, _f: &mut Formatter) -> Result {
-        Ok(())
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "[")?;
+        self.iter()
+            .enumerate()
+            .try_for_each(|(i, entry)| write!(f, "{entry},\n\x1B[u\x1B[{}B\x1B[2D", i + 1))?;
+        write!(f, "\x1B[u\x1B[1A\x1B[{}C]", 16 * D + 2)
     }
 }
 

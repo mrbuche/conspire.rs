@@ -56,9 +56,9 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Display
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "[")?;
-        self.iter().enumerate().try_for_each(|(i, tensor_rank_2)| {
-            write!(f, "{tensor_rank_2},\n\x1B[u\x1B[{}B\x1B[1D", i + 1)
-        })?;
+        self.iter()
+            .enumerate()
+            .try_for_each(|(i, entry)| write!(f, "{entry},\n\x1B[u\x1B[{}B\x1B[1D", i + 1))?;
         write!(f, "\x1B[u\x1B[1A\x1B[{}C]", 16 * D + 1)
     }
 }

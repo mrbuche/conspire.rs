@@ -117,7 +117,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
         write!(f, "[")?;
         self.iter()
             .enumerate()
-            .try_for_each(|(i, row)| write!(f, "{row},\n\x1B[u\x1B[{}B\x1B[2D", i + 1))?;
+            .try_for_each(|(i, entry)| write!(f, "{entry},\n\x1B[u\x1B[{}B\x1B[2D", i + 1))?;
         write!(f, "\x1B[u\x1B[1A\x1B[{}C]", 16 * D + 2)
     }
 }
