@@ -583,6 +583,13 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
     }
     /// Returns the matrix logarithm of the rank-2 tensor.
     pub fn logm(&self) -> TensorRank2<D, I, I> {
+        //
+        // Maybe just want to specialize for 3x3 (even symmetric?) cases
+        // using eigen decompositions to get better accuracy AND speeds.
+        //
+        // Should this only be for I=J anyway to ensure objectivity?
+        // Then make it a trait and implement for TensorRank2<D, I, I> only.
+        //
         if self.is_diagonal() {
             let mut logm = TensorRank2::zero();
             logm.iter_mut()
@@ -591,10 +598,28 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
                 .for_each(|((i, ln_i), a_i)| ln_i[i] = a_i[i].ln());
             logm
         } else {
-            let (p, h) = self.hessenberg_decomposition();
-            let (q, u) = h.schur_decomposition();
-            let r = p * q;
-            &r * logm_triangular_matrix(u) * r.transpose()
+            let bar = self - &TensorRank2::identity();
+            //
+            // Make this adaptive and in a separate function,
+            // i.e. make it pick number of terms based on the norm,
+            // starting below 1e-1 or something?
+            // Also, consolidate with implementation in logm_triangular_matrix?
+            //
+            if bar.norm() < 1e-2 {
+                let foo = TensorRank2::<D, I, I>::new(bar.as_array());
+                if bar.norm() < 1e-3 {
+                    foo.clone() - &foo * &foo / 2.0 + &foo * &foo * &foo / 3.0
+                } else {
+                    foo.clone() - &foo * &foo / 2.0 + &foo * &foo * &foo / 3.0
+                        - &foo * &foo * &foo * &foo / 4.0
+                        + &foo * &foo * &foo * &foo * &foo / 5.0
+                }
+            } else {
+                let (p, h) = self.hessenberg_decomposition();
+                let (q, u) = h.schur_decomposition();
+                let r = p * q;
+                &r * logm_triangular_matrix(u) * r.transpose()
+            }
         }
     }
     /// Returns the LU decomposition of the rank-2 tensor.
@@ -772,6 +797,7 @@ fn logm_triangular_matrix<const D: usize, const I: usize>(
     let identity = TensorRank2::identity();
     let mut scaled_t = t.clone();
     let mut scale = 0;
+    // while (&scaled_t - &identity).norm() > 1e-1 {
     while (&scaled_t - &identity).norm() > 1e-2 {
         sqrt_triangular_matrix(&mut scaled_t);
         scale += 1;

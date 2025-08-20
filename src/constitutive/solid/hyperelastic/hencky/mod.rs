@@ -58,24 +58,25 @@ where
         deformation_gradient: &DeformationGradient,
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
-        let mut cauchy_tangent_stiffness = CauchyTangentStiffness::zero();
-        for k in 0..3 {
-            for l in 0..3 {
-                let mut deformation_gradient_plus = deformation_gradient.clone();
-                deformation_gradient_plus[k][l] += 0.5 * 1e-6;
-                let cauchy_stress_plus = self.cauchy_stress(&deformation_gradient_plus)?;
-                let mut deformation_gradient_minus = deformation_gradient.clone();
-                deformation_gradient_minus[k][l] -= 0.5 * 1e-6;
-                let cauchy_stress_minus = self.cauchy_stress(&deformation_gradient_minus)?;
-                for i in 0..3 {
-                    for j in 0..3 {
-                        cauchy_tangent_stiffness[i][j][k][l] =
-                            (cauchy_stress_plus[i][j] - cauchy_stress_minus[i][j]) / 1e-6;
-                    }
-                }
-            }
-        }
-        Ok(cauchy_tangent_stiffness)
+        // let mut cauchy_tangent_stiffness = CauchyTangentStiffness::zero();
+        // for k in 0..3 {
+        //     for l in 0..3 {
+        //         let mut deformation_gradient_plus = deformation_gradient.clone();
+        //         deformation_gradient_plus[k][l] += 0.5 * 1e-6;
+        //         let cauchy_stress_plus = self.cauchy_stress(&deformation_gradient_plus)?;
+        //         let mut deformation_gradient_minus = deformation_gradient.clone();
+        //         deformation_gradient_minus[k][l] -= 0.5 * 1e-6;
+        //         let cauchy_stress_minus = self.cauchy_stress(&deformation_gradient_minus)?;
+        //         for i in 0..3 {
+        //             for j in 0..3 {
+        //                 cauchy_tangent_stiffness[i][j][k][l] =
+        //                     (cauchy_stress_plus[i][j] - cauchy_stress_minus[i][j]) / 1e-6;
+        //             }
+        //         }
+        //     }
+        // }
+        // Ok(cauchy_tangent_stiffness)
+        todo!()
     }
 }
 
