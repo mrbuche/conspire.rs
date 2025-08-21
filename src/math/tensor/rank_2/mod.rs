@@ -267,77 +267,6 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
             })
             .collect()
     }
-    /// Returns the Hessenberg decomposition of the rank-2 tensor.
-    pub fn hessenberg_decomposition(&self) -> (TensorRank2<D, I, 88>, TensorRank2<D, 88, 88>) {
-        let mut dot_product = 0.0;
-        let mut norm;
-        let mut v;
-        let mut v_norm;
-        let mut q = TensorRank2::identity();
-        let mut h = TensorRank2::new(self.as_array());
-        for k in 0..D - 2 {
-            v = TensorRank1::<D, I>::zero();
-            norm = v
-                .iter_mut()
-                .skip(k + 1)
-                .zip(h.iter().skip(k + 1))
-                .map(|(v_i, h_i)| {
-                    *v_i = h_i[k];
-                    *v_i * *v_i
-                })
-                .sum::<TensorRank0>()
-                .sqrt();
-            if norm == 0.0 {
-                continue;
-            }
-            if v[k + 1] > 0.0 {
-                norm = -norm;
-            }
-            v[k + 1] -= norm;
-            v_norm = v.norm();
-            v.iter_mut().skip(k + 1).for_each(|v_i| *v_i /= v_norm);
-            for i in k..D {
-                let mut dot_product = 0.0;
-                for j in k + 1..D {
-                    dot_product += v[j] * h[j][i];
-                }
-                for j in k + 1..D {
-                    h[j][i] -= 2.0 * dot_product * v[j];
-                }
-            }
-            h.iter_mut().for_each(|h_i| {
-                dot_product = 2.0
-                    * h_i
-                        .iter()
-                        .skip(k + 1)
-                        .zip(v.iter().skip(k + 1))
-                        .map(|(h_ij, v_j)| h_ij * v_j)
-                        .sum::<TensorRank0>();
-                h_i.iter_mut()
-                    .skip(k + 1)
-                    .zip(v.iter().skip(k + 1))
-                    .for_each(|(h_ij, v_j)| {
-                        *h_ij -= dot_product * v_j;
-                    });
-            });
-            q.iter_mut().for_each(|q_i| {
-                dot_product = 2.0
-                    * q_i
-                        .iter()
-                        .skip(k + 1)
-                        .zip(v.iter().skip(k + 1))
-                        .map(|(q_ij, v_j)| q_ij * v_j)
-                        .sum::<TensorRank0>();
-                q_i.iter_mut()
-                    .skip(k + 1)
-                    .zip(v.iter().skip(k + 1))
-                    .for_each(|(q_ij, v_j)| {
-                        *q_ij -= dot_product * v_j;
-                    });
-            });
-        }
-        (q, h)
-    }
     /// Returns the inverse of the rank-2 tensor.
     pub fn inverse(&self) -> TensorRank2<D, J, I> {
         if D == 2 {
@@ -584,11 +513,11 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
     /// Returns the matrix logarithm of the rank-2 tensor.
     pub fn logm(&self) -> TensorRank2<D, I, I> {
         //
-        // Maybe just want to specialize for 3x3 (even symmetric?) cases
-        // using eigen decompositions to get better accuracy AND speeds.
+        // Impl using a separate trait for D=3 and I=J,
+        // using eigen decompositions to get better accuracy AND speeds,
+        // still using series for small (A-I) norms, and diag.
         //
-        // Should this only be for I=J anyway to ensure objectivity?
-        // Then make it a trait and implement for TensorRank2<D, I, I> only.
+        // And fix/understand that stupid printout...
         //
         if self.is_diagonal() {
             let mut logm = TensorRank2::zero();
@@ -603,7 +532,6 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
             // Make this adaptive and in a separate function,
             // i.e. make it pick number of terms based on the norm,
             // starting below 1e-1 or something?
-            // Also, consolidate with implementation in logm_triangular_matrix?
             //
             if bar.norm() < 1e-2 {
                 let foo = TensorRank2::<D, I, I>::new(bar.as_array());
@@ -615,10 +543,7 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
                         + &foo * &foo * &foo * &foo * &foo / 5.0
                 }
             } else {
-                let (p, h) = self.hessenberg_decomposition();
-                let (q, u) = h.schur_decomposition();
-                let r = p * q;
-                &r * logm_triangular_matrix(u) * r.transpose()
+                panic!()
             }
         }
     }
@@ -702,153 +627,6 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
         }
         (tensor_l, tensor_u)
     }
-    /// Returns the QR decomposition of the rank-2 tensor.
-    pub fn qr_decomposition(&self) -> (TensorRank2<D, I, 88>, TensorRank2<D, 88, J>) {
-        let mut dot_product = 0.0;
-        let mut norm;
-        let mut v;
-        let mut v_norm;
-        let mut q = TensorRank2::identity();
-        let mut r = TensorRank2::new(self.as_array());
-        for k in 0..D - 1 {
-            v = TensorRank1::<D, I>::zero();
-            norm = v
-                .iter_mut()
-                .skip(k)
-                .zip(r.iter().skip(k))
-                .map(|(v_i, r_i)| {
-                    *v_i = r_i[k];
-                    *v_i * *v_i
-                })
-                .sum::<TensorRank0>()
-                .sqrt();
-            if norm == 0.0 {
-                continue;
-            }
-            if v[k] > 0.0 {
-                norm = -norm;
-            }
-            v[k] -= norm;
-            v_norm = v.norm();
-            v.iter_mut().skip(k).for_each(|v_i| *v_i /= v_norm);
-            for i in k..D {
-                dot_product = 2.0
-                    * r.iter()
-                        .skip(k)
-                        .zip(v.iter().skip(k))
-                        .map(|(r_j, v_j)| r_j[i] * v_j)
-                        .sum::<TensorRank0>();
-                r.iter_mut()
-                    .skip(k)
-                    .zip(v.iter().skip(k))
-                    .for_each(|(r_j, v_j)| {
-                        r_j[i] -= dot_product * v_j;
-                    });
-            }
-            q.iter_mut().for_each(|q_i| {
-                dot_product = 2.0
-                    * q_i
-                        .iter()
-                        .skip(k)
-                        .zip(v.iter().skip(k))
-                        .map(|(q_ij, v_j)| q_ij * v_j)
-                        .sum::<TensorRank0>();
-                q_i.iter_mut()
-                    .skip(k)
-                    .zip(v.iter().skip(k))
-                    .for_each(|(q_ij, v_j)| {
-                        *q_ij -= dot_product * v_j;
-                    });
-            });
-        }
-        (q, r)
-    }
-    /// Returns the Schur decomposition of the rank-2 tensor.
-    pub fn schur_decomposition(&self) -> (TensorRank2<D, I, 88>, TensorRank2<D, 88, 88>) {
-        let mut u = TensorRank2::new(self.as_array());
-        let mut q = TensorRank2::identity();
-        for _ in 0..100 {
-            let (q_qr, r_qr) = u.qr_decomposition();
-            u = r_qr * &q_qr;
-            q *= q_qr;
-            if u.iter()
-                .enumerate()
-                .map(|(i, u_i)| {
-                    u_i.iter()
-                        .take(i)
-                        .map(|u_ij| u_ij.powi(2))
-                        .sum::<TensorRank0>()
-                })
-                .sum::<TensorRank0>()
-                .sqrt()
-                < ABS_TOL
-            {
-                return (q, u);
-            }
-        }
-        panic!()
-        // (q, u)
-    }
-}
-
-fn logm_triangular_matrix<const D: usize, const I: usize>(
-    t: TensorRank2<D, I, I>,
-) -> TensorRank2<D, I, I> {
-    let identity = TensorRank2::identity();
-    let mut scaled_t = t.clone();
-    let mut scale = 0;
-    // while (&scaled_t - &identity).norm() > 1e-1 {
-    while (&scaled_t - &identity).norm() > 1e-2 {
-        sqrt_triangular_matrix(&mut scaled_t);
-        scale += 1;
-    }
-    scaled_t -= identity;
-    let mut logm_t = scaled_t.clone();
-    let mut current_power = scaled_t.clone();
-    let mut coefficient;
-    for k in 2..=15 {
-        current_power *= &scaled_t;
-        coefficient = if k % 2 == 0 {
-            -1.0 / k as TensorRank0
-        } else {
-            1.0 / k as TensorRank0
-        };
-        logm_t += &current_power * coefficient;
-        if (&current_power * coefficient).norm() < ABS_TOL {
-            return logm_t * (1 << scale) as TensorRank0;
-        }
-    }
-    panic!()
-}
-
-fn sqrt_triangular_matrix<const D: usize, const I: usize>(t: &mut TensorRank2<D, I, I>) {
-    t.iter_mut().enumerate().for_each(|(i, t_i)| {
-        if t_i[i] < 0.0 {
-            panic!("Matrix has negative eigenvalues")
-        } else {
-            t_i[i] = t_i[i].sqrt()
-        }
-    });
-    let mut j = 0;
-    let mut sum = 0.0;
-    let mut denominator = 0.0;
-    (1..D).for_each(|diag_offset| {
-        (0..D - diag_offset).for_each(|i| {
-            j = i + diag_offset;
-            sum = t[i]
-                .iter()
-                .skip(i + 1)
-                .take(diag_offset - 1)
-                .zip(t.iter().skip(i + 1).take(diag_offset - 1))
-                .map(|(t_ik, t_k)| t_ik * t_k[j])
-                .sum::<TensorRank0>();
-            denominator = t[i][i] + t[j][j];
-            if denominator.abs() < ABS_TOL {
-                panic!("Denominators are too close to zero")
-            }
-            t[i][j] = (t[i][j] - sum) / denominator;
-        })
-    })
 }
 
 impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2<D, I, J> {
