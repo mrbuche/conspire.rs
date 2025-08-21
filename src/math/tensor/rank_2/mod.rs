@@ -8,6 +8,7 @@ pub mod vec_2d;
 
 use std::{
     array::from_fn,
+    f64::consts::TAU,
     fmt::{self, Display, Formatter},
     mem::transmute,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
@@ -15,7 +16,7 @@ use std::{
 
 use super::{
     Hessian, Jacobian, Rank2, Solution, SquareMatrix, Tensor, TensorArray, Vector,
-    rank_0::TensorRank0,
+    rank_0::{TensorRank0, list::TensorRank0List},
     rank_1::{
         TensorRank1, list::TensorRank1List, tensor_rank_1, vec::TensorRank1Vec,
         zero as tensor_rank_1_zero,
@@ -510,43 +511,6 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
             panic!()
         }
     }
-    /// Returns the matrix logarithm of the rank-2 tensor.
-    pub fn logm(&self) -> TensorRank2<D, I, I> {
-        //
-        // Impl using a separate trait for D=3 and I=J,
-        // using eigen decompositions to get better accuracy AND speeds,
-        // still using series for small (A-I) norms, and diag.
-        //
-        // And fix/understand that stupid printout...
-        //
-        if self.is_diagonal() {
-            let mut logm = TensorRank2::zero();
-            logm.iter_mut()
-                .enumerate()
-                .zip(self.iter())
-                .for_each(|((i, ln_i), a_i)| ln_i[i] = a_i[i].ln());
-            logm
-        } else {
-            let bar = self - &TensorRank2::identity();
-            //
-            // Make this adaptive and in a separate function,
-            // i.e. make it pick number of terms based on the norm,
-            // starting below 1e-1 or something?
-            //
-            if bar.norm() < 1e-2 {
-                let foo = TensorRank2::<D, I, I>::new(bar.as_array());
-                if bar.norm() < 1e-3 {
-                    foo.clone() - &foo * &foo / 2.0 + &foo * &foo * &foo / 3.0
-                } else {
-                    foo.clone() - &foo * &foo / 2.0 + &foo * &foo * &foo / 3.0
-                        - &foo * &foo * &foo * &foo / 4.0
-                        + &foo * &foo * &foo * &foo * &foo / 5.0
-                }
-            } else {
-                panic!()
-            }
-        }
-    }
     /// Returns the LU decomposition of the rank-2 tensor.
     pub fn lu_decomposition(&self) -> (TensorRank2<D, I, 88>, TensorRank2<D, 88, J>) {
         let mut tensor_l = TensorRank2::zero();
@@ -629,6 +593,154 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
     }
 }
 
+impl<const I: usize> TensorRank2<3, I, I> {
+    /// Returns the matrix logarithm of the 3x3 symmetric tensor.
+    pub fn logm(&self) -> Self {
+        if self.is_diagonal() {
+            let mut logm = TensorRank2::zero();
+            logm.iter_mut()
+                .enumerate()
+                .zip(self.iter())
+                .for_each(|((i, logm_i), self_i)| logm_i[i] = self_i[i].ln());
+            logm
+        } else {
+            let tensor = self - &TensorRank2::identity();
+            let norm = tensor.norm();
+            //
+            // And fix/understand that stupid printout...
+            //
+            if norm < 1e-2 {
+                let num_terms = if norm < 1e-4 {
+                    2
+                } else if norm < 1e-3 {
+                    3
+                } else {
+                    5
+                };
+                let mut logm = tensor.clone();
+                let mut power = tensor.clone();
+                (2..=num_terms).for_each(|k| {
+                    power *= &tensor;
+                    logm += &power / (if k % 2 == 0 { -1.0 } else { 1.0 } / k as f64);
+                });
+                logm
+            } else if self.is_symmetric() {
+                let mut eigenvalues = solve_cubic_symmetric(self.invariants());
+                if eigenvalues.iter().any(|eigenvalue| eigenvalue <= &0.0) {
+                    panic!("Symmetric matrix has a non-positive eigenvalue")
+                }
+                let eigenvectors = find_orthonormal_eigenvectors(&eigenvalues, self);
+                eigenvalues
+                    .iter_mut()
+                    .for_each(|eigenvalue| *eigenvalue = eigenvalue.ln());
+                reconstruct_symmetric(eigenvalues, eigenvectors)
+            } else {
+                panic!("Matrix logarithm only implemented for symmetric cases")
+            }
+        }
+    }
+    /// Returns the invariants of the 3x3 symmetric tensor.
+    pub fn invariants(&self) -> TensorRank0List<3> {
+        let trace = self.trace();
+        TensorRank0List::new([
+            trace,
+            0.5 * (trace.powi(2) - self.squared_trace()),
+            self.determinant(),
+        ])
+    }
+}
+
+fn solve_cubic_symmetric(coefficients: TensorRank0List<3>) -> TensorRank0List<3> {
+    let c2 = coefficients[0];
+    let c1 = coefficients[1];
+    let c0 = coefficients[2];
+    let p = c1 - c2 * c2 / 3.0;
+    let q = -(2.0 * c2.powi(3) - 9.0 * c2 * c1 + 27.0 * c0) / 27.0;
+    if p.abs() < ABS_TOL {
+        let t = (-q).cbrt();
+        let lambda = t + c2 / 3.0;
+        return TensorRank0List::new([lambda; _]);
+    }
+    let discriminant = -4.0 * p * p * p - 27.0 * q * q;
+    if discriminant >= ABS_TOL {
+        let sqrt_term = (-p / 3.0).sqrt();
+        let cos_arg = 3.0 * q / (2.0 * p * (-p / 3.0).sqrt());
+        let cos_arg = cos_arg.clamp(-1.0, 1.0);
+        let theta = cos_arg.acos();
+        let mut lambdas = [
+            2.0 * sqrt_term * (theta / 3.0).cos() + c2 / 3.0,
+            2.0 * sqrt_term * ((theta + TAU) / 3.0).cos() + c2 / 3.0,
+            2.0 * sqrt_term * ((theta + 2.0 * TAU) / 3.0).cos() + c2 / 3.0,
+        ];
+        lambdas.sort_by(|a, b| b.partial_cmp(a).unwrap());
+        TensorRank0List::new(lambdas)
+    } else {
+        panic!("Symmetric matrix produced complex eigenvalues");
+    }
+}
+
+fn find_orthonormal_eigenvectors<const I: usize>(
+    eigenvalues: &TensorRank0List<3>,
+    tensor: &TensorRank2<3, I, I>,
+) -> TensorRank2<3, I, I> {
+    let mut eigenvectors = eigenvalues
+        .iter()
+        .map(|eigenvalue| eigenvector_symmetric(eigenvalue, tensor))
+        .collect::<TensorRank2<3, I, I>>();
+    eigenvectors[0].normalize();
+    let proj1 = &eigenvectors[1] * &eigenvectors[0];
+    for i in 0..3 {
+        eigenvectors[1][i] -= proj1 * eigenvectors[0][i];
+    }
+    eigenvectors[1].normalize();
+    eigenvectors[2] = eigenvectors[0].cross(&eigenvectors[1]);
+    eigenvectors
+}
+
+fn eigenvector_symmetric<const I: usize>(
+    eigenvalue: &TensorRank0,
+    tensor: &TensorRank2<3, I, I>,
+) -> TensorRank1<3, I> {
+    let m = tensor - TensorRank2::identity() * eigenvalue;
+    let mut pivot_row = 0;
+    m.iter().enumerate().for_each(|(i, m_i)| {
+        if m_i[i].abs() < m[pivot_row][pivot_row].abs() {
+            pivot_row = i;
+        }
+    });
+    if pivot_row == 0 {
+        m[1].cross(&m[2])
+    } else if pivot_row == 1 {
+        m[0].cross(&m[2])
+    } else {
+        m[0].cross(&m[1])
+    }
+    .normalized()
+}
+
+fn reconstruct_symmetric<const I: usize>(
+    eigenvalues: TensorRank0List<3>,
+    eigenvectors: TensorRank2<3, I, I>,
+) -> TensorRank2<3, I, I> {
+    let mut tensor = TensorRank2::zero();
+    eigenvalues
+        .iter()
+        .zip(eigenvectors.iter())
+        .for_each(|(eigenvalue, eigenvector)| {
+            tensor
+                .iter_mut()
+                .zip(eigenvector.iter())
+                .for_each(|(tensor_i, eigenvector_i)| {
+                    tensor_i.iter_mut().zip(eigenvector.iter()).for_each(
+                        |(tensor_ij, eigenvector_j)| {
+                            *tensor_ij += eigenvalue * eigenvector_i * eigenvector_j
+                        },
+                    )
+                })
+        });
+    tensor
+}
+
 impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2<D, I, J> {
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
         self.into_iter().enumerate().for_each(|(i, self_i)| {
@@ -666,17 +778,20 @@ impl<const D: usize, const I: usize, const J: usize> Rank2 for TensorRank2<D, I,
             == (D.pow(2) - D) as u8
     }
     fn is_identity(&self) -> bool {
-        self.iter()
-            .enumerate()
-            .map(|(i, self_i)| {
-                self_i
-                    .iter()
-                    .enumerate()
-                    .map(|(j, self_ij)| (self_ij == &((i == j) as u8 as TensorRank0)) as u8)
-                    .sum::<u8>()
-            })
-            .sum::<u8>()
-            == D.pow(2) as u8
+        self.iter().enumerate().all(|(i, self_i)| {
+            self_i
+                .iter()
+                .enumerate()
+                .all(|(j, self_ij)| self_ij == &((i == j) as u8 as TensorRank0))
+        })
+    }
+    fn is_symmetric(&self) -> bool {
+        self.iter().enumerate().all(|(i, self_i)| {
+            self_i
+                .iter()
+                .zip(self.iter())
+                .all(|(self_ij, self_j)| self_ij == &self_j[i])
+        })
     }
     fn squared_trace(&self) -> TensorRank0 {
         self.iter()
@@ -1169,6 +1284,17 @@ impl<const D: usize, const I: usize, const J: usize> Sub<&Self> for TensorRank2<
     fn sub(mut self, tensor_rank_2: &Self) -> Self::Output {
         self -= tensor_rank_2;
         self
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> Sub<TensorRank2<D, I, J>>
+    for &TensorRank2<D, I, J>
+{
+    type Output = TensorRank2<D, I, J>;
+    fn sub(self, tensor_rank_2: TensorRank2<D, I, J>) -> Self::Output {
+        let mut output = self.clone();
+        output -= tensor_rank_2;
+        output
     }
 }
 

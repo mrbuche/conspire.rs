@@ -86,6 +86,8 @@ where
     fn is_diagonal(&self) -> bool;
     /// Checks whether the tensor is the identity tensor.
     fn is_identity(&self) -> bool;
+    /// Checks whether the tensor is a symmetric tensor.
+    fn is_symmetric(&self) -> bool;
     /// Returns the second invariant of the rank-2 tensor.
     fn second_invariant(&self) -> TensorRank0 {
         0.5 * (self.trace().powi(2) - self.squared_trace())

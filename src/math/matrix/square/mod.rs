@@ -451,17 +451,20 @@ impl Rank2 for SquareMatrix {
             == (self.len().pow(2) - self.len()) as u8
     }
     fn is_identity(&self) -> bool {
-        self.iter()
-            .enumerate()
-            .map(|(i, self_i)| {
-                self_i
-                    .iter()
-                    .enumerate()
-                    .map(|(j, self_ij)| (self_ij == &((i == j) as u8 as f64)) as u8)
-                    .sum::<u8>()
-            })
-            .sum::<u8>()
-            == self.len().pow(2) as u8
+        self.iter().enumerate().all(|(i, self_i)| {
+            self_i
+                .iter()
+                .enumerate()
+                .all(|(j, self_ij)| self_ij == &((i == j) as u8 as TensorRank0))
+        })
+    }
+    fn is_symmetric(&self) -> bool {
+        self.iter().enumerate().all(|(i, self_i)| {
+            self_i
+                .iter()
+                .zip(self.iter())
+                .all(|(self_ij, self_j)| self_ij == &self_j[i])
+        })
     }
     fn squared_trace(&self) -> TensorRank0 {
         self.iter()

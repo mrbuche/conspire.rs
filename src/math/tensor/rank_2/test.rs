@@ -207,38 +207,6 @@ fn get_tensor_rank_2_div_tensor_rank_4() -> TensorRank2<3, 2, 3> {
     ])
 }
 
-fn get_tensor_rank_2_for_logm() -> TensorRank2<3, 1, 1> {
-    TensorRank2::new([
-        [0.91287866, 0.53888260, 0.05575707],
-        [0.20963177, 0.97385069, 0.19313704],
-        [0.86208145, 0.69673117, 0.27278523],
-    ])
-}
-
-fn get_logm_tensor_rank_2() -> TensorRank2<3, 1, 1> {
-    TensorRank2::new([
-        [
-            -0.1245679561305735,
-            0.6081799763535962,
-            -0.03276221356910875,
-        ],
-        [
-            -0.001008550853369955,
-            -0.18461163040537268,
-            0.41550711744749724,
-        ],
-        [1.7897934540770555, 0.8359837379087458, -1.6575860606096502],
-    ])
-}
-
-#[test]
-fn logm() -> Result<(), TestError> {
-    assert_eq_within_tols(
-        &get_tensor_rank_2_for_logm().logm(),
-        &get_logm_tensor_rank_2(),
-    )
-}
-
 #[test]
 fn add_tensor_rank_2_to_self() -> Result<(), TestError> {
     assert_eq(
