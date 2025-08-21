@@ -631,7 +631,7 @@ macro_rules! test_finite_element_inner {
             mod elastic {
                 use super::*;
                 use crate::constitutive::solid::elastic::{
-                    AlmansiHamel, test::ALMANSIHAMELPARAMETERS,
+                    AlmansiHamel, Hencky, test::{ALMANSIHAMELPARAMETERS, HENCKYPARAMETERS}
                 };
                 mod almansi_hamel {
                     use super::*;
@@ -640,6 +640,15 @@ macro_rules! test_finite_element_inner {
                         $element,
                         AlmansiHamelType,
                         ALMANSIHAMELPARAMETERS
+                    );
+                }
+                mod hencky {
+                    use super::*;
+                    type HenckyType<'a> = Hencky::<&'a [Scalar; 2]>;
+                    test_finite_element_with_elastic_constitutive_model!(
+                        $element,
+                        HenckyType,
+                        HENCKYPARAMETERS
                     );
                 }
             }

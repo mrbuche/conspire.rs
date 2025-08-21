@@ -606,9 +606,6 @@ impl<const I: usize> TensorRank2<3, I, I> {
         } else {
             let tensor = self - &TensorRank2::identity();
             let norm = tensor.norm();
-            //
-            // And fix/understand that stupid printout...
-            //
             if norm < 1e-2 {
                 let num_terms = if norm < 1e-4 {
                     2

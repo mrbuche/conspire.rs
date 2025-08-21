@@ -11,8 +11,10 @@ pub mod doc;
 pub mod test;
 
 mod almansi_hamel;
+mod hencky;
 
 pub use almansi_hamel::AlmansiHamel;
+pub use hencky::Hencky;
 
 use super::*;
 use crate::math::{
