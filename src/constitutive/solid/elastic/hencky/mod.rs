@@ -49,22 +49,20 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
-        let jacobian = self.jacobian(deformation_gradient)?;
+        let _jacobian = self.jacobian(deformation_gradient)?;
         let (deviatoric_strain, strain_trace) =
             (deformation_gradient.right_cauchy_green().logm() * 0.5).deviatoric_and_trace();
-        Ok(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
-            + IDENTITY_00 * (self.bulk_modulus() * strain_trace / jacobian))
+        Ok(deviatoric_strain * (2.0 * self.shear_modulus())
+            + IDENTITY_00 * (self.bulk_modulus() * strain_trace))
     }
     #[doc = include_str!("second_piola_kirchhoff_tangent_stiffness.md")]
     fn second_piola_kirchhoff_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
-        let jacobian = self.jacobian(deformation_gradient)?;
-        let right_cauchy_green = deformation_gradient.right_cauchy_green();
-        let inverse_right_cauchy_green = right_cauchy_green.inverse();
+        let _jacobian = self.jacobian(deformation_gradient)?;
+        let inverse_right_cauchy_green = deformation_gradient.right_cauchy_green().inverse();
         let inverse_deformation_gradient = deformation_gradient.inverse();
-        let inverse_transpose_deformation_gradient = inverse_deformation_gradient.transpose();
         Ok((SecondPiolaKirchhoffTangentStiffness::dyad_ik_jl(
             &deformation_gradient.transpose(),
             &inverse_right_cauchy_green,
@@ -78,12 +76,10 @@ where
             &inverse_deformation_gradient,
             &IDENTITY_00,
         )) * self.shear_modulus()
-            / jacobian
             / 2.0
             + (SecondPiolaKirchhoffTangentStiffness::dyad_ij_kl(
-                &(IDENTITY_00
-                    * ((self.bulk_modulus() - TWO_THIRDS * self.shear_modulus()) / jacobian)),
-                &inverse_transpose_deformation_gradient,
+                &(IDENTITY_00 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())),
+                &inverse_deformation_gradient.transpose(),
             )))
     }
 }

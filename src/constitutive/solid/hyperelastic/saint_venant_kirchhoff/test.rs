@@ -8,9 +8,9 @@ use_elastic_macros!();
 
 test_solid_hyperelastic_constitutive_model!(
     SaintVenantKirchhoffType,
-    SAINTVENANTKIRCHOFFPARAMETERS,
-    SaintVenantKirchhoff::new(SAINTVENANTKIRCHOFFPARAMETERS)
+    SAINTVENANTKIRCHHOFFPARAMETERS,
+    SaintVenantKirchhoff::new(SAINTVENANTKIRCHHOFFPARAMETERS)
 );
 
-test_minimize!(SaintVenantKirchhoff::new(SAINTVENANTKIRCHOFFPARAMETERS));
-test_solve!(SaintVenantKirchhoff::new(SAINTVENANTKIRCHOFFPARAMETERS));
+test_minimize!(SaintVenantKirchhoff::new(SAINTVENANTKIRCHHOFFPARAMETERS));
+test_solve!(SaintVenantKirchhoff::new(SAINTVENANTKIRCHHOFFPARAMETERS));

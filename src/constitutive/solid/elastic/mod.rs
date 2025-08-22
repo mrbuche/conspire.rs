@@ -12,9 +12,11 @@ pub mod test;
 
 mod almansi_hamel;
 mod hencky;
+mod saint_venant_kirchhoff;
 
-pub use almansi_hamel::AlmansiHamel;
-pub use hencky::Hencky;
+pub use self::{
+    almansi_hamel::AlmansiHamel, hencky::Hencky, saint_venant_kirchhoff::SaintVenantKirchhoff,
+};
 
 use super::*;
 use crate::math::{

@@ -43,7 +43,7 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models {
             test_constructed_solid_hyperelastic_constitutive_model!($hybrid_type::construct(
                 NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS),
                 $hybrid_type::construct(
-                    SaintVenantKirchhoff::<&[Scalar; 2]>::new(SAINTVENANTKIRCHOFFPARAMETERS),
+                    SaintVenantKirchhoff::<&[Scalar; 2]>::new(SAINTVENANTKIRCHHOFFPARAMETERS),
                     Yeoh::<&[Scalar; 6]>::new(YEOHPARAMETERS)
                 )
             ));
@@ -58,7 +58,7 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models {
                 $hybrid_type::construct(
                     NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS),
                     $hybrid_type::construct(
-                        SaintVenantKirchhoff::<&[Scalar; 2]>::new(SAINTVENANTKIRCHOFFPARAMETERS),
+                        SaintVenantKirchhoff::<&[Scalar; 2]>::new(SAINTVENANTKIRCHHOFFPARAMETERS),
                         Yeoh::<&[Scalar; 6]>::new(YEOHPARAMETERS)
                     )
                 )
