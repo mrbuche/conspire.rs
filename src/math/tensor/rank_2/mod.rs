@@ -22,11 +22,13 @@ use super::{
         zero as tensor_rank_1_zero,
     },
     rank_4::TensorRank4,
-    test::ErrorTensor,
 };
 use crate::ABS_TOL;
 use list_2d::TensorRank2List2D;
 use vec_2d::TensorRank2Vec2D;
+
+#[cfg(test)]
+use super::test::ErrorTensor;
 
 /// A *d*-dimensional tensor of rank 2.
 ///
@@ -186,6 +188,7 @@ impl<const D: usize, const I: usize, const J: usize> Display for TensorRank2<D, 
     }
 }
 
+#[cfg(test)]
 impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2<D, I, J> {
     fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
         let error_count = self

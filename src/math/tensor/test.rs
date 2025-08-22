@@ -14,6 +14,7 @@ use super::{
     rank_1::{TensorRank1, list::TensorRank1List},
 };
 
+#[cfg(test)]
 pub trait ErrorTensor {
     fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)>;
 }

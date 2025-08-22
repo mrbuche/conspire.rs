@@ -14,8 +14,11 @@ use std::{
 
 use super::{
     super::write_tensor_rank_0, Jacobian, Solution, Tensor, TensorArray, Vector,
-    rank_0::TensorRank0, rank_2::TensorRank2, test::ErrorTensor,
+    rank_0::TensorRank0, rank_2::TensorRank2,
 };
+
+#[cfg(test)]
+use super::test::ErrorTensor;
 
 /// A *d*-dimensional tensor of rank 1.
 ///
@@ -54,6 +57,7 @@ impl<const D: usize, const I: usize> TensorRank1<D, I> {
     }
 }
 
+#[cfg(test)]
 impl<const D: usize, const I: usize> ErrorTensor for TensorRank1<D, I> {
     fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
