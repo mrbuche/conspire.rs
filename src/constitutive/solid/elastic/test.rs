@@ -309,6 +309,14 @@ macro_rules! test_solid_constitutive_model_no_tangents {
                             * get_rotation_reference_configuration()),
                     )
                 }
+                #[test]
+                fn symmetry() -> Result<(), TestError> {
+                    let second_piola_kirchhoff_stress = second_piola_kirchhoff_stress_from_deformation_gradient!(
+                        &$constitutive_model_constructed,
+                        &get_deformation_gradient()
+                    )?;
+                    assert_eq_within_tols(&second_piola_kirchhoff_stress, &second_piola_kirchhoff_stress.transpose())
+                }
             }
             mod undeformed {
                 use super::*;
@@ -743,6 +751,22 @@ macro_rules! test_solid_constitutive_model_tangents
                             )
                         )
                     }
+                    #[test]
+                    fn symmetry() -> Result<(), TestError>
+                    {
+                        let second_piola_kirchhoff_tangent_stiffness =
+                        second_piola_kirchhoff_tangent_stiffness_from_deformation_gradient!(
+                            &$constitutive_model_constructed, &get_deformation_gradient()
+                        )?;
+                        assert_eq_within_tols(
+                            &second_piola_kirchhoff_tangent_stiffness,
+                            &(0..3).map(|i|
+                                (0..3).map(|j|
+                                    second_piola_kirchhoff_tangent_stiffness[j][i].clone()
+                                ).collect()
+                            ).collect()
+                        )
+                    }
                 }
                 mod undeformed
                 {
@@ -762,6 +786,22 @@ macro_rules! test_solid_constitutive_model_tangents
                                 &get_rotation_current_configuration(),
                                 &get_rotation_reference_configuration()
                             )
+                        )
+                    }
+                    #[test]
+                    fn symmetry() -> Result<(), TestError>
+                    {
+                        let second_piola_kirchhoff_tangent_stiffness =
+                        second_piola_kirchhoff_tangent_stiffness_from_deformation_gradient!(
+                            &$constitutive_model_constructed, &DeformationGradient::identity()
+                        )?;
+                        assert_eq_within_tols(
+                            &second_piola_kirchhoff_tangent_stiffness,
+                            &(0..3).map(|i|
+                                (0..3).map(|j|
+                                    second_piola_kirchhoff_tangent_stiffness[j][i].clone()
+                                ).collect()
+                            ).collect()
                         )
                     }
                 }

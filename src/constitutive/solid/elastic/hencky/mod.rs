@@ -4,7 +4,7 @@ mod test;
 use crate::{
     constitutive::{
         Constitutive, ConstitutiveError, Parameters,
-        solid::{Solid, elastic::Elastic},
+        solid::{Solid, TWO_THIRDS, elastic::Elastic},
     },
     math::{IDENTITY_00, Rank2},
     mechanics::{
@@ -60,7 +60,30 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
-        let _jacobian = self.jacobian(deformation_gradient)?;
-        todo!()
+        let jacobian = self.jacobian(deformation_gradient)?;
+        let right_cauchy_green = deformation_gradient.right_cauchy_green();
+        let inverse_right_cauchy_green = right_cauchy_green.inverse();
+        let inverse_deformation_gradient = deformation_gradient.inverse();
+        let inverse_transpose_deformation_gradient = inverse_deformation_gradient.transpose();
+        Ok((SecondPiolaKirchhoffTangentStiffness::dyad_ik_jl(
+            &deformation_gradient.transpose(),
+            &inverse_right_cauchy_green,
+        ) + SecondPiolaKirchhoffTangentStiffness::dyad_il_jk(
+            &inverse_right_cauchy_green,
+            &deformation_gradient.transpose(),
+        ) + SecondPiolaKirchhoffTangentStiffness::dyad_il_jk(
+            &IDENTITY_00,
+            &inverse_deformation_gradient,
+        ) + SecondPiolaKirchhoffTangentStiffness::dyad_ik_jl(
+            &inverse_deformation_gradient,
+            &IDENTITY_00,
+        )) * self.shear_modulus()
+            / jacobian
+            / 2.0
+            + (SecondPiolaKirchhoffTangentStiffness::dyad_ij_kl(
+                &(IDENTITY_00
+                    * ((self.bulk_modulus() - TWO_THIRDS * self.shear_modulus()) / jacobian)),
+                &inverse_transpose_deformation_gradient,
+            )))
     }
 }

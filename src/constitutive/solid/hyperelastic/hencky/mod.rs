@@ -81,27 +81,32 @@ where
             (left_cauchy_green.logm() * 0.5).deviatoric_and_trace();
         let inverse_transpose_deformation_gradient = deformation_gradient.inverse_transpose();
         Ok(
-            (
-                CauchyTangentStiffness::dyad_ik_jl(
-                    &inverse_left_cauchy_green,
+            (CauchyTangentStiffness::dyad_ik_jl(&inverse_left_cauchy_green, deformation_gradient)
+                + CauchyTangentStiffness::dyad_il_jk(
                     deformation_gradient,
-                ) + CauchyTangentStiffness::dyad_il_jk(
+                    &inverse_left_cauchy_green,
+                )
+                + CauchyTangentStiffness::dyad_il_jk(
                     &inverse_transpose_deformation_gradient,
                     &IDENTITY,
                 )
-            ) * self.shear_modulus() / jacobian +
-            (
-                CauchyTangentStiffness::dyad_ij_kl(
+                + CauchyTangentStiffness::dyad_ik_jl(
                     &IDENTITY,
                     &inverse_transpose_deformation_gradient,
-                )
-            ) * ((self.bulk_modulus() - TWO_THIRDS * self.shear_modulus()) * strain_trace / jacobian) -
-            (
-                CauchyTangentStiffness::dyad_ij_kl(
-                    &(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian) + IDENTITY * (self.bulk_modulus() * strain_trace / jacobian)),
+                ))
+                * self.shear_modulus()
+                / jacobian
+                / 2.0
+                + (CauchyTangentStiffness::dyad_ij_kl(
+                    &(IDENTITY
+                        * ((self.bulk_modulus() - TWO_THIRDS * self.shear_modulus()) / jacobian)),
                     &inverse_transpose_deformation_gradient,
-                )
-            )
+                ))
+                - (CauchyTangentStiffness::dyad_ij_kl(
+                    &(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
+                        + IDENTITY * (self.bulk_modulus() * strain_trace / jacobian)),
+                    &inverse_transpose_deformation_gradient,
+                )),
         )
     }
 }
