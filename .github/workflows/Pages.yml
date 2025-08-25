@@ -25,7 +25,7 @@ jobs:
           mv target/doc/conspire/ target/doc/latest/
           cp -r target/doc/* _site/
       - name: Upload
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
   Deploy:
     environment:
       name: github-pages
