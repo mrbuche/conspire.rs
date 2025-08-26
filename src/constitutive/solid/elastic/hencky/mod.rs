@@ -6,7 +6,7 @@ use crate::{
         Constitutive, ConstitutiveError, Parameters,
         solid::{Solid, TWO_THIRDS, elastic::Elastic},
     },
-    math::{IDENTITY_00, Rank2},
+    math::{ContractThirdFourthIndicesWithFirstSecondIndicesOf, IDENTITY_00, Rank2},
     mechanics::{
         Deformation, DeformationGradient, Scalar, SecondPiolaKirchhoffStress,
         SecondPiolaKirchhoffTangentStiffness,
@@ -61,25 +61,24 @@ where
         deformation_gradient: &DeformationGradient,
     ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
-        let inverse_right_cauchy_green = deformation_gradient.right_cauchy_green().inverse();
-        let inverse_deformation_gradient = deformation_gradient.inverse();
-        Ok((SecondPiolaKirchhoffTangentStiffness::dyad_ik_jl(
-            &deformation_gradient.transpose(),
-            &inverse_right_cauchy_green,
-        ) + SecondPiolaKirchhoffTangentStiffness::dyad_il_jk(
-            &inverse_right_cauchy_green,
-            &deformation_gradient.transpose(),
-        ) + SecondPiolaKirchhoffTangentStiffness::dyad_il_jk(
-            &IDENTITY_00,
-            &inverse_deformation_gradient,
-        ) + SecondPiolaKirchhoffTangentStiffness::dyad_ik_jl(
-            &inverse_deformation_gradient,
-            &IDENTITY_00,
-        )) * self.shear_modulus()
-            / 2.0
+        let right_cauchy_green = deformation_gradient.right_cauchy_green();
+        let deformation_gradient_transpose = deformation_gradient.transpose();
+        let scaled_deformation_gradient_transpose =
+            &deformation_gradient_transpose * self.shear_modulus();
+        Ok((right_cauchy_green
+            .dlogm()
+            .contract_third_fourth_indices_with_first_second_indices_of(
+                &(SecondPiolaKirchhoffTangentStiffness::dyad_il_jk(
+                    &IDENTITY_00,
+                    &scaled_deformation_gradient_transpose,
+                ) + SecondPiolaKirchhoffTangentStiffness::dyad_ik_jl(
+                    &scaled_deformation_gradient_transpose,
+                    &IDENTITY_00,
+                )),
+            ))
             + (SecondPiolaKirchhoffTangentStiffness::dyad_ij_kl(
                 &(IDENTITY_00 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())),
-                &inverse_deformation_gradient.transpose(),
+                &deformation_gradient_transpose.inverse(),
             )))
     }
 }

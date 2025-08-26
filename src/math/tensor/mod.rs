@@ -1,4 +1,3 @@
-// #[cfg(test)]
 pub mod test;
 
 pub mod rank_0;

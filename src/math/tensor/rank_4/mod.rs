@@ -516,7 +516,7 @@ pub trait ContractThirdFourthIndicesWithFirstSecondIndicesOf<TKL> {
     type Output;
     fn contract_third_fourth_indices_with_first_second_indices_of(
         &self,
-        tensor_rank_2: TKL,
+        tensor: TKL,
     ) -> Self::Output;
 }
 
@@ -534,6 +534,45 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
                 self_i
                     .iter()
                     .map(|self_ij| self_ij.full_contraction(tensor_rank_2))
+                    .collect()
+            })
+            .collect()
+    }
+}
+
+impl<
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const L: usize,
+    const M: usize,
+    const N: usize,
+> ContractThirdFourthIndicesWithFirstSecondIndicesOf<&TensorRank4<D, K, L, M, N>>
+    for TensorRank4<D, I, J, K, L>
+{
+    type Output = TensorRank4<D, I, J, M, N>;
+    fn contract_third_fourth_indices_with_first_second_indices_of(
+        &self,
+        tensor: &TensorRank4<D, K, L, M, N>,
+    ) -> Self::Output {
+        self.iter()
+            .map(|self_i| {
+                self_i
+                    .iter()
+                    .map(|self_ij| {
+                        self_ij
+                            .iter()
+                            .zip(tensor.iter())
+                            .map(|(self_ijk, tensor_k)| {
+                                self_ijk
+                                    .iter()
+                                    .zip(tensor_k.iter())
+                                    .map(|(self_ijkl, tensor_kl)| tensor_kl * self_ijkl)
+                                    .sum()
+                            })
+                            .sum()
+                    })
                     .collect()
             })
             .collect()
