@@ -64,7 +64,7 @@ impl<const D: usize, const I: usize, const W: usize> ErrorTensor for TensorRank1
             })
             .sum();
         if error_count > 0 {
-            let auxillary = self
+            let auxiliary = self
                 .iter()
                 .zip(comparator.iter())
                 .map(|(entry, comparator_entry)| {
@@ -81,7 +81,7 @@ impl<const D: usize, const I: usize, const W: usize> ErrorTensor for TensorRank1
                 })
                 .sum::<usize>()
                 > 0;
-            Some((auxillary, error_count))
+            Some((auxiliary, error_count))
         } else {
             None
         }

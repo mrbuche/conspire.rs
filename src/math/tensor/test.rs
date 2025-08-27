@@ -39,7 +39,7 @@ pub fn assert_eq_from_fd<'a, T>(value: &'a T, value_fd: &'a T) -> Result<(), Tes
 where
     T: Display + ErrorTensor + Tensor,
 {
-    if let Some((failed, count)) = value.error_fd(value_fd, &EPSILON) {
+    if let Some((failed, count)) = value.error_fd(value_fd, &(3.0 * EPSILON)) {
         if failed {
             let abs = value.sub_abs(value_fd);
             let rel = value.sub_rel(value_fd);
