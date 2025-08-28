@@ -6,7 +6,7 @@ use crate::math::{
     TensorRank2Vec2D, TensorVec, Vector, write_tensor_rank_0,
 };
 use std::{
-    fmt::{Display, Formatter, Result},
+    fmt::{self, Display, Formatter},
     mem::transmute,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
@@ -18,7 +18,7 @@ use std::{
 pub struct TensorRank1Vec<const D: usize, const I: usize>(Vec<TensorRank1<D, I>>);
 
 impl<const D: usize, const I: usize> Display for TensorRank1Vec<D, I> {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "\x1B[s")?;
         write!(f, "[[")?;
         self.iter().enumerate().try_for_each(|(i, tensor_rank_1)| {
@@ -38,32 +38,6 @@ impl<const D: usize, const I: usize> Display for TensorRank1Vec<D, I> {
 
 #[cfg(test)]
 impl<const D: usize, const I: usize> ErrorTensor for TensorRank1Vec<D, I> {
-    fn error(
-        &self,
-        comparator: &Self,
-        tol_abs: &TensorRank0,
-        tol_rel: &TensorRank0,
-    ) -> Option<usize> {
-        let error_count = self
-            .iter()
-            .zip(comparator.iter())
-            .map(|(entry, comparator_entry)| {
-                entry
-                    .iter()
-                    .zip(comparator_entry.iter())
-                    .filter(|&(&entry_i, &comparator_entry_i)| {
-                        &(entry_i - comparator_entry_i).abs() >= tol_abs
-                            && &(entry_i / comparator_entry_i - 1.0).abs() >= tol_rel
-                    })
-                    .count()
-            })
-            .sum();
-        if error_count > 0 {
-            Some(error_count)
-        } else {
-            None
-        }
-    }
     fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
@@ -80,7 +54,7 @@ impl<const D: usize, const I: usize> ErrorTensor for TensorRank1Vec<D, I> {
             })
             .sum();
         if error_count > 0 {
-            let auxillary = self
+            let auxiliary = self
                 .iter()
                 .zip(comparator.iter())
                 .map(|(entry, comparator_entry)| {
@@ -97,7 +71,7 @@ impl<const D: usize, const I: usize> ErrorTensor for TensorRank1Vec<D, I> {
                 })
                 .sum::<usize>()
                 > 0;
-            Some((auxillary, error_count))
+            Some((auxiliary, error_count))
         } else {
             None
         }

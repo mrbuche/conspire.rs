@@ -1,5 +1,5 @@
 use super::{
-    super::test::{ErrorTensor, TestError, assert_eq, assert_eq_within_tols},
+    super::test::{TestError, assert_eq, assert_eq_within_tols},
     Rank2, Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank1List, TensorRank2,
     TensorRank2List2D, TensorRank4,
 };
@@ -483,8 +483,8 @@ fn dyad() {
 fn error() {
     let a = get_tensor_rank_1_a();
     let b = get_tensor_rank_1_b();
-    assert_eq!(a.error(&a, &ABS_TOL, &REL_TOL), None);
-    assert_eq!(a.error(&b, &ABS_TOL, &REL_TOL), Some(4));
+    assert_eq!(a.error_count(&a, &ABS_TOL, &REL_TOL), None);
+    assert_eq!(a.error_count(&b, &ABS_TOL, &REL_TOL), Some(4));
 }
 
 #[test]

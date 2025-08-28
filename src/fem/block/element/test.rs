@@ -631,7 +631,7 @@ macro_rules! test_finite_element_inner {
             mod elastic {
                 use super::*;
                 use crate::constitutive::solid::elastic::{
-                    AlmansiHamel, test::ALMANSIHAMELPARAMETERS,
+                    AlmansiHamel, Hencky, SaintVenantKirchhoff, test::{ALMANSIHAMELPARAMETERS, HENCKYPARAMETERS, SAINTVENANTKIRCHHOFFPARAMETERS}
                 };
                 mod almansi_hamel {
                     use super::*;
@@ -642,15 +642,33 @@ macro_rules! test_finite_element_inner {
                         ALMANSIHAMELPARAMETERS
                     );
                 }
+                mod hencky {
+                    use super::*;
+                    type HenckyType<'a> = Hencky::<&'a [Scalar; 2]>;
+                    test_finite_element_with_elastic_constitutive_model!(
+                        $element,
+                        HenckyType,
+                        HENCKYPARAMETERS
+                    );
+                }
+                mod saint_venant_kirchhoff {
+                    use super::*;
+                    type SaintVenantKirchhoffType<'a> = SaintVenantKirchhoff::<&'a [Scalar; 2]>;
+                    test_finite_element_with_elastic_constitutive_model!(
+                        $element,
+                        SaintVenantKirchhoffType,
+                        SAINTVENANTKIRCHHOFFPARAMETERS
+                    );
+                }
             }
             mod hyperelastic {
                 use super::*;
                 use crate::constitutive::solid::hyperelastic::{
-                    ArrudaBoyce, Fung, Gent, MooneyRivlin, NeoHookean, SaintVenantKirchhoff, Yeoh,
+                    ArrudaBoyce, Fung, Gent, Hencky, MooneyRivlin, NeoHookean, SaintVenantKirchhoff, Yeoh,
                     test::{
-                        ARRUDABOYCEPARAMETERS, FUNGPARAMETERS, GENTPARAMETERS,
+                        ARRUDABOYCEPARAMETERS, FUNGPARAMETERS, GENTPARAMETERS, HENCKYPARAMETERS,
                         MOONEYRIVLINPARAMETERS, NEOHOOKEANPARAMETERS,
-                        SAINTVENANTKIRCHOFFPARAMETERS, YEOHPARAMETERS,
+                        SAINTVENANTKIRCHHOFFPARAMETERS, YEOHPARAMETERS,
                     },
                 };
                 mod arruda_boyce {
@@ -680,6 +698,15 @@ macro_rules! test_finite_element_inner {
                         GENTPARAMETERS
                     );
                 }
+                mod hencky {
+                    use super::*;
+                    type HenckyType<'a> = Hencky::<&'a [Scalar; 2]>;
+                    test_finite_element_with_hyperelastic_constitutive_model!(
+                        $element,
+                        HenckyType,
+                        HENCKYPARAMETERS
+                    );
+                }
                 mod mooney_rivlin {
                     use super::*;
                     type MooneyRivlinType<'a> = MooneyRivlin::<&'a [Scalar; 3]>;
@@ -704,7 +731,7 @@ macro_rules! test_finite_element_inner {
                     test_finite_element_with_hyperelastic_constitutive_model!(
                         $element,
                         SaintVenantKirchhoffType,
-                        SAINTVENANTKIRCHOFFPARAMETERS
+                        SAINTVENANTKIRCHHOFFPARAMETERS
                     );
                 }
                 mod yeoh {
@@ -735,7 +762,7 @@ macro_rules! test_finite_element_inner {
             mod hyperviscoelastic {
                 use super::*;
                 use crate::constitutive::solid::hyperviscoelastic::{
-                    SaintVenantKirchhoff, test::SAINTVENANTKIRCHOFFPARAMETERS,
+                    SaintVenantKirchhoff, test::SAINTVENANTKIRCHHOFFPARAMETERS,
                 };
                 mod saint_venant_kirchhoff {
                     use super::*;
@@ -743,7 +770,7 @@ macro_rules! test_finite_element_inner {
                     test_finite_element_with_hyperviscoelastic_constitutive_model!(
                         $element,
                         SaintVenantKirchhoffType,
-                        SAINTVENANTKIRCHOFFPARAMETERS
+                        SAINTVENANTKIRCHHOFFPARAMETERS
                     );
                 }
             }
@@ -1035,7 +1062,7 @@ macro_rules! test_helmholtz_free_energy {
 }
 pub(crate) use test_helmholtz_free_energy;
 
-macro_rules! test_finite_element_with_elastic_constitutive_model {
+macro_rules! test_finite_element_with_elastic_or_hyperelastic_constitutive_model {
     ($element: ident, $constitutive_model: ident, $constitutive_model_parameters: ident) => {
         #[test]
         #[should_panic(expected = "Invalid Jacobian")]
@@ -1141,11 +1168,42 @@ macro_rules! test_finite_element_with_elastic_constitutive_model {
         );
     };
 }
+pub(crate) use test_finite_element_with_elastic_or_hyperelastic_constitutive_model;
+
+macro_rules! test_finite_element_with_elastic_constitutive_model {
+    ($element: ident, $constitutive_model: ident, $constitutive_model_parameters: ident) => {
+        crate::fem::block::element::test::test_finite_element_with_elastic_or_hyperelastic_constitutive_model!(
+            $element,
+            $constitutive_model,
+            $constitutive_model_parameters
+        );
+        #[test]
+        fn nodal_stiffnesses_deformed_non_symmetry() -> Result<(), TestError> {
+            let nodal_stiffness = get_nodal_stiffnesses(true, false)?;
+            assert!(
+                assert_eq_within_tols(
+                    &nodal_stiffness,
+                    &(0..N)
+                        .map(|a| (0..N)
+                            .map(|b| (0..3)
+                                .map(|i| (0..3)
+                                    .map(|j| nodal_stiffness[b][a][j][i].clone())
+                                    .collect())
+                                .collect())
+                            .collect())
+                        .collect()
+                )
+                .is_err()
+            );
+            Ok(())
+        }
+    };
+}
 pub(crate) use test_finite_element_with_elastic_constitutive_model;
 
 macro_rules! test_finite_element_with_hyperelastic_constitutive_model {
     ($element: ident, $constitutive_model: ident, $constitutive_model_parameters: ident) => {
-        crate::fem::block::element::test::test_finite_element_with_elastic_constitutive_model!(
+        crate::fem::block::element::test::test_finite_element_with_elastic_or_hyperelastic_constitutive_model!(
             $element,
             $constitutive_model,
             $constitutive_model_parameters

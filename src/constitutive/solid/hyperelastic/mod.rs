@@ -13,13 +13,14 @@ pub mod test;
 mod arruda_boyce;
 mod fung;
 mod gent;
+mod hencky;
 mod mooney_rivlin;
 mod neo_hookean;
 mod saint_venant_kirchhoff;
 mod yeoh;
 
 pub use self::{
-    arruda_boyce::ArrudaBoyce, fung::Fung, gent::Gent, mooney_rivlin::MooneyRivlin,
+    arruda_boyce::ArrudaBoyce, fung::Fung, gent::Gent, hencky::Hencky, mooney_rivlin::MooneyRivlin,
     neo_hookean::NeoHookean, saint_venant_kirchhoff::SaintVenantKirchhoff, yeoh::Yeoh,
 };
 use super::{

@@ -1,4 +1,3 @@
-// #[cfg(test)]
 pub mod test;
 
 pub mod rank_0;
@@ -86,6 +85,8 @@ where
     fn is_diagonal(&self) -> bool;
     /// Checks whether the tensor is the identity tensor.
     fn is_identity(&self) -> bool;
+    /// Checks whether the tensor is a symmetric tensor.
+    fn is_symmetric(&self) -> bool;
     /// Returns the second invariant of the rank-2 tensor.
     fn second_invariant(&self) -> TensorRank0 {
         0.5 * (self.trace().powi(2) - self.squared_trace())
@@ -121,6 +122,21 @@ where
 {
     /// The type of item encountered when iterating over the tensor.
     type Item;
+    /// Returns number of different entries given absolute and relative tolerances.
+    fn error_count(&self, other: &Self, tol_abs: &Scalar, tol_rel: &Scalar) -> Option<usize> {
+        let error_count = self
+            .iter()
+            .zip(other.iter())
+            .filter_map(|(self_entry, other_entry)| {
+                self_entry.error_count(other_entry, tol_abs, tol_rel)
+            })
+            .sum();
+        if error_count > 0 {
+            Some(error_count)
+        } else {
+            None
+        }
+    }
     /// Returns the full contraction with another tensor.
     fn full_contraction(&self, tensor: &Self) -> TensorRank0 {
         self.iter()
@@ -164,6 +180,28 @@ where
     /// Returns the total number of entries.
     fn num_entries(&self) -> usize {
         unimplemented!()
+    }
+    /// Returns the positive difference of the two tensors.
+    fn sub_abs(&self, other: &Self) -> Self {
+        let mut difference = self.clone();
+        difference
+            .iter_mut()
+            .zip(self.iter().zip(other.iter()))
+            .for_each(|(entry, (self_entry, other_entry))| {
+                *entry = self_entry.sub_abs(other_entry)
+            });
+        difference
+    }
+    /// Returns the relative difference of the two tensors.
+    fn sub_rel(&self, other: &Self) -> Self {
+        let mut difference = self.clone();
+        difference
+            .iter_mut()
+            .zip(self.iter().zip(other.iter()))
+            .for_each(|(entry, (self_entry, other_entry))| {
+                *entry = self_entry.sub_rel(other_entry)
+            });
+        difference
     }
 }
 

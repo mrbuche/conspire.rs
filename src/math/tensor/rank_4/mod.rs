@@ -6,7 +6,7 @@ use super::test::ErrorTensor;
 
 use std::{
     array::from_fn,
-    fmt::{Display, Formatter, Result},
+    fmt::{self, Display, Formatter},
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
@@ -113,8 +113,12 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> Display
     for TensorRank4<D, I, J, K, L>
 {
-    fn fmt(&self, _f: &mut Formatter) -> Result {
-        Ok(())
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "[")?;
+        self.iter()
+            .enumerate()
+            .try_for_each(|(i, entry)| write!(f, "{entry},\n\x1B[u\x1B[{}B\x1B[2D", i + 1))?;
+        write!(f, "\x1B[u\x1B[1A\x1B[{}C]", 16 * D + 2)
     }
 }
 
@@ -122,44 +126,6 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> ErrorTensor
     for TensorRank4<D, I, J, K, L>
 {
-    fn error(
-        &self,
-        comparator: &Self,
-        tol_abs: &TensorRank0,
-        tol_rel: &TensorRank0,
-    ) -> Option<usize> {
-        let error_count = self
-            .iter()
-            .zip(comparator.iter())
-            .map(|(self_i, comparator_i)| {
-                self_i
-                    .iter()
-                    .zip(comparator_i.iter())
-                    .map(|(self_ij, comparator_ij)| {
-                        self_ij
-                            .iter()
-                            .zip(comparator_ij.iter())
-                            .map(|(self_ijk, comparator_ijk)| {
-                                self_ijk
-                                    .iter()
-                                    .zip(comparator_ijk.iter())
-                                    .filter(|&(&self_ijkl, &comparator_ijkl)| {
-                                        &(self_ijkl - comparator_ijkl).abs() >= tol_abs
-                                            && &(self_ijkl / comparator_ijkl - 1.0).abs() >= tol_rel
-                                    })
-                                    .count()
-                            })
-                            .sum::<usize>()
-                    })
-                    .sum::<usize>()
-            })
-            .sum();
-        if error_count > 0 {
-            Some(error_count)
-        } else {
-            None
-        }
-    }
     fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
@@ -189,7 +155,36 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
             })
             .sum();
         if error_count > 0 {
-            Some((true, error_count))
+            let auxiliary = self
+                .iter()
+                .zip(comparator.iter())
+                .map(|(self_i, comparator_i)| {
+                    self_i
+                        .iter()
+                        .zip(comparator_i.iter())
+                        .map(|(self_ij, comparator_ij)| {
+                            self_ij
+                                .iter()
+                                .zip(comparator_ij.iter())
+                                .map(|(self_ijk, comparator_ijk)| {
+                                    self_ijk
+                                        .iter()
+                                        .zip(comparator_ijk.iter())
+                                        .filter(|&(&self_ijkl, &comparator_ijkl)| {
+                                            &(self_ijkl / comparator_ijkl - 1.0).abs() >= epsilon
+                                                && &(self_ijkl - comparator_ijkl).abs() >= epsilon
+                                                && (&self_ijkl.abs() >= epsilon
+                                                    || &comparator_ijkl.abs() >= epsilon)
+                                        })
+                                        .count()
+                                })
+                                .sum::<usize>()
+                        })
+                        .sum::<usize>()
+                })
+                .sum::<usize>()
+                > 0;
+            Some((auxiliary, error_count))
         } else {
             None
         }
@@ -550,7 +545,7 @@ pub trait ContractThirdFourthIndicesWithFirstSecondIndicesOf<TKL> {
     type Output;
     fn contract_third_fourth_indices_with_first_second_indices_of(
         &self,
-        tensor_rank_2: TKL,
+        tensor: TKL,
     ) -> Self::Output;
 }
 
@@ -568,6 +563,45 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
                 self_i
                     .iter()
                     .map(|self_ij| self_ij.full_contraction(tensor_rank_2))
+                    .collect()
+            })
+            .collect()
+    }
+}
+
+impl<
+    const D: usize,
+    const I: usize,
+    const J: usize,
+    const K: usize,
+    const L: usize,
+    const M: usize,
+    const N: usize,
+> ContractThirdFourthIndicesWithFirstSecondIndicesOf<&TensorRank4<D, K, L, M, N>>
+    for TensorRank4<D, I, J, K, L>
+{
+    type Output = TensorRank4<D, I, J, M, N>;
+    fn contract_third_fourth_indices_with_first_second_indices_of(
+        &self,
+        tensor: &TensorRank4<D, K, L, M, N>,
+    ) -> Self::Output {
+        self.iter()
+            .map(|self_i| {
+                self_i
+                    .iter()
+                    .map(|self_ij| {
+                        self_ij
+                            .iter()
+                            .zip(tensor.iter())
+                            .map(|(self_ijk, tensor_k)| {
+                                self_ijk
+                                    .iter()
+                                    .zip(tensor_k.iter())
+                                    .map(|(self_ijkl, tensor_kl)| tensor_kl * self_ijkl)
+                                    .sum()
+                            })
+                            .sum()
+                    })
                     .collect()
             })
             .collect()
@@ -804,6 +838,19 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     fn sub(mut self, tensor_rank_4: &Self) -> Self::Output {
         self -= tensor_rank_4;
         self
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> Sub
+    for &TensorRank4<D, I, J, K, L>
+{
+    type Output = TensorRank4<D, I, J, K, L>;
+    fn sub(self, tensor_rank_4: Self) -> Self::Output {
+        tensor_rank_4
+            .iter()
+            .zip(self.iter())
+            .map(|(tensor_rank_4_i, self_i)| self_i - tensor_rank_4_i)
+            .collect()
     }
 }
 

@@ -29,8 +29,12 @@ pub const fn tensor_rank_2_list<const D: usize, const I: usize, const J: usize, 
 impl<const D: usize, const I: usize, const J: usize, const W: usize> Display
     for TensorRank2List<D, I, J, W>
 {
-    fn fmt(&self, _f: &mut Formatter) -> Result {
-        Ok(())
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "[")?;
+        self.iter()
+            .enumerate()
+            .try_for_each(|(i, entry)| write!(f, "{entry},\n\x1B[u\x1B[{}B\x1B[1D", i + 1))?;
+        write!(f, "\x1B[u\x1B[1A\x1B[{}C]", 16 * D + 1)
     }
 }
 
@@ -38,38 +42,6 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize> Display
 impl<const D: usize, const I: usize, const J: usize, const W: usize> ErrorTensor
     for TensorRank2List<D, I, J, W>
 {
-    fn error(
-        &self,
-        comparator: &Self,
-        tol_abs: &TensorRank0,
-        tol_rel: &TensorRank0,
-    ) -> Option<usize> {
-        let error_count = self
-            .iter()
-            .zip(comparator.iter())
-            .map(|(self_a, comparator_a)| {
-                self_a
-                    .iter()
-                    .zip(comparator_a.iter())
-                    .map(|(self_a_i, comparator_a_i)| {
-                        self_a_i
-                            .iter()
-                            .zip(comparator_a_i.iter())
-                            .filter(|&(&self_a_ij, &comparator_a_ij)| {
-                                &(self_a_ij - comparator_a_ij).abs() >= tol_abs
-                                    && &(self_a_ij / comparator_a_ij - 1.0).abs() >= tol_rel
-                            })
-                            .count()
-                    })
-                    .sum::<usize>()
-            })
-            .sum();
-        if error_count > 0 {
-            Some(error_count)
-        } else {
-            None
-        }
-    }
     fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
@@ -295,6 +267,19 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize> Sub<&Self>
     fn sub(mut self, tensor_rank_2_list: &Self) -> Self::Output {
         self -= tensor_rank_2_list;
         self
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize, const W: usize> Sub
+    for &TensorRank2List<D, I, J, W>
+{
+    type Output = TensorRank2List<D, I, J, W>;
+    fn sub(self, tensor_rank_2_list: Self) -> Self::Output {
+        tensor_rank_2_list
+            .iter()
+            .zip(self.iter())
+            .map(|(tensor_rank_2_list_a, self_a)| self_a - tensor_rank_2_list_a)
+            .collect()
     }
 }
 

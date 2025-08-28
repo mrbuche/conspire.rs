@@ -1,5 +1,5 @@
 use super::{
-    super::{Tensor, TensorArray, test::ErrorTensor},
+    super::{Tensor, TensorArray},
     ContractAllIndicesWithFirstIndicesOf, ContractFirstSecondIndicesWithSecondIndicesOf,
     ContractFirstThirdFourthIndicesWithFirstIndicesOf,
     ContractSecondFourthIndicesWithFirstIndicesOf, ContractSecondIndexWithFirstIndexOf,
@@ -874,8 +874,8 @@ fn dyad_il_kj() {
 fn error() {
     let a = get_tensor_rank_4();
     let b = get_other_tensor_rank_4();
-    assert_eq!(a.error(&a, &ABS_TOL, &REL_TOL), None);
-    assert_eq!(a.error(&b, &ABS_TOL, &REL_TOL), Some(67));
+    assert_eq!(a.error_count(&a, &ABS_TOL, &REL_TOL), None);
+    assert_eq!(a.error_count(&b, &ABS_TOL, &REL_TOL), Some(67));
 }
 
 #[test]

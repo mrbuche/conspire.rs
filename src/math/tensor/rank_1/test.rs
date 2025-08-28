@@ -1,7 +1,7 @@
 use super::{Tensor, TensorArray, TensorRank0, TensorRank1};
 use crate::{
     ABS_TOL, REL_TOL,
-    math::test::{ErrorTensor, TestError, assert_eq},
+    math::test::{TestError, assert_eq},
 };
 
 fn get_array() -> [TensorRank0; 4] {
@@ -155,8 +155,8 @@ fn div_assign_tensor_rank_0_ref() -> Result<(), TestError> {
 fn error() {
     let b = get_tensor_rank_1_b();
     let c = get_tensor_rank_1_c();
-    assert_eq!(b.error(&b, &ABS_TOL, &REL_TOL), None);
-    assert_eq!(b.error(&c, &ABS_TOL, &REL_TOL), Some(3));
+    assert_eq!(b.error_count(&b, &ABS_TOL, &REL_TOL), None);
+    assert_eq!(b.error_count(&c, &ABS_TOL, &REL_TOL), Some(3));
 }
 
 #[test]

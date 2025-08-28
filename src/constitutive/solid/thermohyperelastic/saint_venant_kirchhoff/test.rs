@@ -7,8 +7,8 @@ use_thermoelastic_macros!();
 
 test_solid_thermohyperelastic_constitutive_model!(
     SaintVenantKirchhoffType,
-    SAINTVENANTKIRCHOFFPARAMETERS,
-    SaintVenantKirchhoff::new(SAINTVENANTKIRCHOFFPARAMETERS)
+    SAINTVENANTKIRCHHOFFPARAMETERS,
+    SaintVenantKirchhoff::new(SAINTVENANTKIRCHHOFFPARAMETERS)
 );
 
 mod consistency {
@@ -18,16 +18,16 @@ mod consistency {
             elastic::Elastic,
             hyperelastic::{
                 Hyperelastic, SaintVenantKirchhoff as HyperelasticSaintVenantKirchhoff,
-                test::SAINTVENANTKIRCHOFFPARAMETERS as HYPERELASTICSAINTVENANTKIRCHOFFPARAMETERS,
+                test::SAINTVENANTKIRCHHOFFPARAMETERS as HYPERELASTICSAINTVENANTKIRCHHOFFPARAMETERS,
             },
         },
         math::test::assert_eq_within_tols,
     };
     #[test]
     fn helmholtz_free_energy_density() -> Result<(), TestError> {
-        let model = SaintVenantKirchhoff::new(SAINTVENANTKIRCHOFFPARAMETERS);
+        let model = SaintVenantKirchhoff::new(SAINTVENANTKIRCHHOFFPARAMETERS);
         let hyperelastic_model =
-            HyperelasticSaintVenantKirchhoff::new(HYPERELASTICSAINTVENANTKIRCHOFFPARAMETERS);
+            HyperelasticSaintVenantKirchhoff::new(HYPERELASTICSAINTVENANTKIRCHHOFFPARAMETERS);
         assert_eq_within_tols(
             &model.helmholtz_free_energy_density(
                 &get_deformation_gradient(),
@@ -38,9 +38,9 @@ mod consistency {
     }
     #[test]
     fn cauchy_stress() -> Result<(), TestError> {
-        let model = SaintVenantKirchhoff::new(SAINTVENANTKIRCHOFFPARAMETERS);
+        let model = SaintVenantKirchhoff::new(SAINTVENANTKIRCHHOFFPARAMETERS);
         let hyperelastic_model =
-            HyperelasticSaintVenantKirchhoff::new(HYPERELASTICSAINTVENANTKIRCHOFFPARAMETERS);
+            HyperelasticSaintVenantKirchhoff::new(HYPERELASTICSAINTVENANTKIRCHHOFFPARAMETERS);
         assert_eq_within_tols(
             &model.cauchy_stress(&get_deformation_gradient(), model.reference_temperature())?,
             &hyperelastic_model.cauchy_stress(&get_deformation_gradient())?,
@@ -48,9 +48,9 @@ mod consistency {
     }
     #[test]
     fn cauchy_tangent_stiffness() -> Result<(), TestError> {
-        let model = SaintVenantKirchhoff::new(SAINTVENANTKIRCHOFFPARAMETERS);
+        let model = SaintVenantKirchhoff::new(SAINTVENANTKIRCHHOFFPARAMETERS);
         let hyperelastic_model =
-            HyperelasticSaintVenantKirchhoff::new(HYPERELASTICSAINTVENANTKIRCHOFFPARAMETERS);
+            HyperelasticSaintVenantKirchhoff::new(HYPERELASTICSAINTVENANTKIRCHHOFFPARAMETERS);
         assert_eq_within_tols(
             &model.cauchy_tangent_stiffness(
                 &get_deformation_gradient(),

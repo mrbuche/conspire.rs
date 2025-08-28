@@ -1,6 +1,6 @@
 use super::*;
 use crate::constitutive::solid::thermohyperelastic::{
-    SaintVenantKirchhoff, test::SAINTVENANTKIRCHOFFPARAMETERS,
+    SaintVenantKirchhoff, test::SAINTVENANTKIRCHHOFFPARAMETERS,
 };
 
 type SaintVenantKirchhoffType<'a> = SaintVenantKirchhoff<&'a [Scalar; 4]>;
@@ -8,7 +8,7 @@ type FourierType<'a> = Fourier<&'a [Scalar; 1]>;
 
 test_thermohyperelastic_thermal_conduction_constitutive_model!(
     SaintVenantKirchhoffType,
-    SAINTVENANTKIRCHOFFPARAMETERS,
+    SAINTVENANTKIRCHHOFFPARAMETERS,
     FourierType,
     FOURIERPARAMETERS
 );

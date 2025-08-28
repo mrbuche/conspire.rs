@@ -313,32 +313,6 @@ fn backward_substitution(x: &mut Vector, a: &SquareMatrix) {
 
 #[cfg(test)]
 impl ErrorTensor for SquareMatrix {
-    fn error(
-        &self,
-        comparator: &Self,
-        tol_abs: &TensorRank0,
-        tol_rel: &TensorRank0,
-    ) -> Option<usize> {
-        let error_count = self
-            .iter()
-            .zip(comparator.iter())
-            .map(|(self_i, comparator_i)| {
-                self_i
-                    .iter()
-                    .zip(comparator_i.iter())
-                    .filter(|&(&self_ij, &comparator_ij)| {
-                        &(self_ij - comparator_ij).abs() >= tol_abs
-                            && &(self_ij / comparator_ij - 1.0).abs() >= tol_rel
-                    })
-                    .count()
-            })
-            .sum();
-        if error_count > 0 {
-            Some(error_count)
-        } else {
-            None
-        }
-    }
     fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
@@ -477,17 +451,20 @@ impl Rank2 for SquareMatrix {
             == (self.len().pow(2) - self.len()) as u8
     }
     fn is_identity(&self) -> bool {
-        self.iter()
-            .enumerate()
-            .map(|(i, self_i)| {
-                self_i
-                    .iter()
-                    .enumerate()
-                    .map(|(j, self_ij)| (self_ij == &((i == j) as u8 as f64)) as u8)
-                    .sum::<u8>()
-            })
-            .sum::<u8>()
-            == self.len().pow(2) as u8
+        self.iter().enumerate().all(|(i, self_i)| {
+            self_i
+                .iter()
+                .enumerate()
+                .all(|(j, self_ij)| self_ij == &((i == j) as u8 as TensorRank0))
+        })
+    }
+    fn is_symmetric(&self) -> bool {
+        self.iter().enumerate().all(|(i, self_i)| {
+            self_i
+                .iter()
+                .zip(self.iter())
+                .all(|(self_ij, self_j)| self_ij == &self_j[i])
+        })
     }
     fn squared_trace(&self) -> TensorRank0 {
         self.iter()
@@ -688,32 +665,43 @@ impl Mul for SquareMatrix {
 
 impl Sub for SquareMatrix {
     type Output = Self;
-    fn sub(mut self, vector: Self) -> Self::Output {
-        self -= vector;
+    fn sub(mut self, square_matrix: Self) -> Self::Output {
+        self -= square_matrix;
         self
     }
 }
 
 impl Sub<&Self> for SquareMatrix {
     type Output = Self;
-    fn sub(mut self, vector: &Self) -> Self::Output {
-        self -= vector;
+    fn sub(mut self, square_matrix: &Self) -> Self::Output {
+        self -= square_matrix;
         self
     }
 }
 
+impl Sub for &SquareMatrix {
+    type Output = SquareMatrix;
+    fn sub(self, square_matrix: Self) -> Self::Output {
+        square_matrix
+            .iter()
+            .zip(self.iter())
+            .map(|(square_matrix_i, self_i)| self_i - square_matrix_i)
+            .collect()
+    }
+}
+
 impl SubAssign for SquareMatrix {
-    fn sub_assign(&mut self, vector: Self) {
+    fn sub_assign(&mut self, square_matrix: Self) {
         self.iter_mut()
-            .zip(vector.iter())
+            .zip(square_matrix.iter())
             .for_each(|(self_entry, tensor_rank_1)| *self_entry -= tensor_rank_1);
     }
 }
 
 impl SubAssign<&Self> for SquareMatrix {
-    fn sub_assign(&mut self, vector: &Self) {
+    fn sub_assign(&mut self, square_matrix: &Self) {
         self.iter_mut()
-            .zip(vector.iter())
+            .zip(square_matrix.iter())
             .for_each(|(self_entry, tensor_rank_1)| *self_entry -= tensor_rank_1);
     }
 }

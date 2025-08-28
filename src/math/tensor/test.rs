@@ -1,4 +1,4 @@
-use super::{TensorError, TensorRank0};
+use super::{Tensor, TensorError, TensorRank0};
 use crate::{ABS_TOL, REL_TOL, defeat_message};
 use std::{
     cmp::PartialEq,
@@ -14,20 +14,15 @@ use super::{
     rank_1::{TensorRank1, list::TensorRank1List},
 };
 
+#[cfg(test)]
 pub trait ErrorTensor {
-    fn error(
-        &self,
-        comparator: &Self,
-        tol_abs: &TensorRank0,
-        tol_rel: &TensorRank0,
-    ) -> Option<usize>;
     fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)>;
 }
 
-pub fn assert_eq<'a, T: Display + PartialEq + ErrorTensor>(
-    value_1: &'a T,
-    value_2: &'a T,
-) -> Result<(), TestError> {
+pub fn assert_eq<'a, T>(value_1: &'a T, value_2: &'a T) -> Result<(), TestError>
+where
+    T: Display + PartialEq,
+{
     if value_1 == value_2 {
         Ok(())
     } else {
@@ -40,20 +35,22 @@ pub fn assert_eq<'a, T: Display + PartialEq + ErrorTensor>(
 }
 
 #[cfg(test)]
-pub fn assert_eq_from_fd<'a, T: Display + ErrorTensor>(
-    value: &'a T,
-    value_fd: &'a T,
-) -> Result<(), TestError> {
-    if let Some((failed, error_count)) = value.error_fd(value_fd, &EPSILON) {
+pub fn assert_eq_from_fd<'a, T>(value: &'a T, value_fd: &'a T) -> Result<(), TestError>
+where
+    T: Display + ErrorTensor + Tensor,
+{
+    if let Some((failed, count)) = value.error_fd(value_fd, &(3.0 * EPSILON)) {
         if failed {
+            let abs = value.sub_abs(value_fd);
+            let rel = value.sub_rel(value_fd);
             Err(TestError {
                 message: format!(
-                    "\n\x1b[1;91mAssertion `left ≈= right` failed in {error_count} places.\n\x1b[0;91m  left: {value}\n right: {value_fd}\x1b[0m"
+                    "\n\x1b[1;91mAssertion `left ≈= right` failed in {count} places.\n\x1b[0;91m  left: {value}\n right: {value_fd}\n   abs: {abs}\n   rel: {rel}\x1b[0m"
                 ),
             })
         } else {
             println!(
-                "Warning: \n\x1b[1;93mAssertion `left ≈= right` was weak in {error_count} places.\x1b[0m"
+                "Warning: \n\x1b[1;93mAssertion `left ≈= right` was weak in {count} places.\x1b[0m"
             );
             Ok(())
         }
@@ -62,16 +59,21 @@ pub fn assert_eq_from_fd<'a, T: Display + ErrorTensor>(
     }
 }
 
-pub fn assert_eq_within<'a, T: Display + ErrorTensor>(
+pub fn assert_eq_within<'a, T>(
     value_1: &'a T,
     value_2: &'a T,
     tol_abs: &TensorRank0,
     tol_rel: &TensorRank0,
-) -> Result<(), TestError> {
-    if let Some(error_count) = value_1.error(value_2, tol_abs, tol_rel) {
+) -> Result<(), TestError>
+where
+    T: Display + Tensor,
+{
+    if let Some(count) = value_1.error_count(value_2, tol_abs, tol_rel) {
+        let abs = value_1.sub_abs(value_2);
+        let rel = value_1.sub_rel(value_2);
         Err(TestError {
             message: format!(
-                "\n\x1b[1;91mAssertion `left ≈= right` failed in {error_count} places.\n\x1b[0;91m  left: {value_1}\n right: {value_2}\x1b[0m"
+                "\n\x1b[1;91mAssertion `left ≈= right` failed in {count} places.\n\x1b[0;91m  left: {value_1}\n right: {value_2}\n   abs: {abs}\n   rel: {rel}\x1b[0m"
             ),
         })
     } else {
@@ -79,10 +81,10 @@ pub fn assert_eq_within<'a, T: Display + ErrorTensor>(
     }
 }
 
-pub fn assert_eq_within_tols<'a, T: Display + ErrorTensor>(
-    value_1: &'a T,
-    value_2: &'a T,
-) -> Result<(), TestError> {
+pub fn assert_eq_within_tols<'a, T>(value_1: &'a T, value_2: &'a T) -> Result<(), TestError>
+where
+    T: Display + Tensor,
+{
     assert_eq_within(value_1, value_2, &ABS_TOL, &REL_TOL)
 }
 

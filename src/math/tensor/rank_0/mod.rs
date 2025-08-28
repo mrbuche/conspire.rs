@@ -14,18 +14,6 @@ pub type TensorRank0 = f64;
 
 #[cfg(test)]
 impl ErrorTensor for TensorRank0 {
-    fn error(
-        &self,
-        comparator: &Self,
-        tol_abs: &TensorRank0,
-        tol_rel: &TensorRank0,
-    ) -> Option<usize> {
-        if &(self - comparator).abs() >= tol_abs && &(self / comparator - 1.0).abs() >= tol_rel {
-            Some(1)
-        } else {
-            None
-        }
-    }
     fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
         if &(self / comparator - 1.0).abs() >= epsilon {
             Some((true, 1))
@@ -72,6 +60,18 @@ impl Hessian for TensorRank0 {
 
 impl Tensor for TensorRank0 {
     type Item = TensorRank0;
+    fn error_count(
+        &self,
+        other: &Self,
+        tol_abs: &TensorRank0,
+        tol_rel: &TensorRank0,
+    ) -> Option<usize> {
+        if &self.sub_abs(other) < tol_abs || &self.sub_rel(other) < tol_rel {
+            None
+        } else {
+            Some(1)
+        }
+    }
     fn full_contraction(&self, tensor_rank_0: &Self) -> TensorRank0 {
         self * tensor_rank_0
     }
@@ -89,6 +89,16 @@ impl Tensor for TensorRank0 {
     }
     fn normalized(self) -> Self {
         1.0
+    }
+    fn sub_abs(&self, other: &Self) -> Self {
+        (self - other).abs()
+    }
+    fn sub_rel(&self, other: &Self) -> Self {
+        if other == &0.0 {
+            if self == &0.0 { 0.0 } else { 1.0 }
+        } else {
+            (self / other - 1.0).abs()
+        }
     }
 }
 

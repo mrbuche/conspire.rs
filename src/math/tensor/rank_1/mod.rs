@@ -7,15 +7,18 @@ pub mod vec;
 pub mod vec_2d;
 
 use std::{
-    fmt::{Display, Formatter, Result},
+    fmt::{self, Display, Formatter},
     mem::transmute,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
 use super::{
     super::write_tensor_rank_0, Jacobian, Solution, Tensor, TensorArray, Vector,
-    rank_0::TensorRank0, rank_2::TensorRank2, test::ErrorTensor,
+    rank_0::TensorRank0, rank_2::TensorRank2,
 };
+
+#[cfg(test)]
+use super::test::ErrorTensor;
 
 /// A *d*-dimensional tensor of rank 1.
 ///
@@ -30,7 +33,8 @@ pub const fn tensor_rank_1<const D: usize, const I: usize>(
 }
 
 impl<const D: usize, const I: usize> Display for TensorRank1<D, I> {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "\x1B[s")?;
         write!(f, "[")?;
         self.iter()
             .try_for_each(|entry| write_tensor_rank_0(f, entry))?;
@@ -53,27 +57,8 @@ impl<const D: usize, const I: usize> TensorRank1<D, I> {
     }
 }
 
+#[cfg(test)]
 impl<const D: usize, const I: usize> ErrorTensor for TensorRank1<D, I> {
-    fn error(
-        &self,
-        comparator: &Self,
-        tol_abs: &TensorRank0,
-        tol_rel: &TensorRank0,
-    ) -> Option<usize> {
-        let error_count = self
-            .iter()
-            .zip(comparator.iter())
-            .filter(|&(&self_i, &comparator_i)| {
-                &(self_i - comparator_i).abs() >= tol_abs
-                    && &(self_i / comparator_i - 1.0).abs() >= tol_rel
-            })
-            .count();
-        if error_count > 0 {
-            Some(error_count)
-        } else {
-            None
-        }
-    }
     fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()

@@ -8,25 +8,28 @@ pub mod vec_2d;
 
 use std::{
     array::from_fn,
-    fmt,
+    f64::consts::TAU,
+    fmt::{self, Display, Formatter},
     mem::transmute,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
 use super::{
-    super::write_tensor_rank_0,
+    super::assert_eq_within_tols,
     Hessian, Jacobian, Rank2, Solution, SquareMatrix, Tensor, TensorArray, Vector,
-    rank_0::TensorRank0,
+    rank_0::{TensorRank0, list::TensorRank0List},
     rank_1::{
         TensorRank1, list::TensorRank1List, tensor_rank_1, vec::TensorRank1Vec,
         zero as tensor_rank_1_zero,
     },
     rank_4::TensorRank4,
-    test::ErrorTensor,
 };
 use crate::ABS_TOL;
 use list_2d::TensorRank2List2D;
 use vec_2d::TensorRank2Vec2D;
+
+#[cfg(test)]
+use super::test::ErrorTensor;
 
 /// A *d*-dimensional tensor of rank 2.
 ///
@@ -176,51 +179,18 @@ impl<const D: usize, const I: usize, const J: usize> From<TensorRank2<D, I, J>>
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> fmt::Display for TensorRank2<D, I, J> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "\x1B[s")?;
-        write!(f, "[[")?;
-        self.iter().enumerate().try_for_each(|(i, row)| {
-            row.iter()
-                .try_for_each(|entry| write_tensor_rank_0(f, entry))?;
-            if i + 1 < D {
-                writeln!(f, "\x1B[2D],")?;
-                write!(f, "\x1B[u")?;
-                write!(f, "\x1B[{}B [", i + 1)?;
-            }
-            Ok(())
-        })?;
-        write!(f, "\x1B[2D]]")
+impl<const D: usize, const I: usize, const J: usize> Display for TensorRank2<D, I, J> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "[")?;
+        self.iter()
+            .enumerate()
+            .try_for_each(|(i, row)| write!(f, "{row},\n\x1B[u\x1B[{}B", i + 1))?;
+        write!(f, "\x1B[u\x1B[1A\x1B[{}C]", 16 * D)
     }
 }
 
+#[cfg(test)]
 impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2<D, I, J> {
-    fn error(
-        &self,
-        comparator: &Self,
-        tol_abs: &TensorRank0,
-        tol_rel: &TensorRank0,
-    ) -> Option<usize> {
-        let error_count = self
-            .iter()
-            .zip(comparator.iter())
-            .map(|(self_i, comparator_i)| {
-                self_i
-                    .iter()
-                    .zip(comparator_i.iter())
-                    .filter(|&(&self_ij, &comparator_ij)| {
-                        &(self_ij - comparator_ij).abs() >= tol_abs
-                            && &(self_ij / comparator_ij - 1.0).abs() >= tol_rel
-                    })
-                    .count()
-            })
-            .sum();
-        if error_count > 0 {
-            Some(error_count)
-        } else {
-            None
-        }
-    }
     fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
@@ -627,6 +597,214 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
     }
 }
 
+impl<const I: usize> TensorRank2<3, I, I> {
+    /// Returns the matrix logarithm of the 3x3 symmetric tensor.
+    pub fn logm(&self) -> Self {
+        if self.is_diagonal() {
+            let mut logm = TensorRank2::zero();
+            logm.iter_mut()
+                .enumerate()
+                .zip(self.iter())
+                .for_each(|((i, logm_i), self_i)| logm_i[i] = self_i[i].ln());
+            logm
+        } else {
+            let tensor = self - &TensorRank2::identity();
+            let norm = tensor.norm();
+            if norm < 1e-2 {
+                let num_terms = if norm < 1e-4 {
+                    2
+                } else if norm < 1e-3 {
+                    3
+                } else {
+                    5
+                };
+                let mut logm = tensor.clone();
+                let mut power = tensor.clone();
+                (2..=num_terms).for_each(|k| {
+                    power *= &tensor;
+                    logm += &power / (if k % 2 == 0 { -1.0 } else { 1.0 } / k as f64);
+                });
+                logm
+            } else if self.is_symmetric() {
+                let mut eigenvalues = solve_cubic_symmetric(self.invariants());
+                if eigenvalues.iter().any(|eigenvalue| eigenvalue <= &0.0) {
+                    panic!("Symmetric matrix has a non-positive eigenvalue")
+                }
+                let eigenvectors = find_orthonormal_eigenvectors(&eigenvalues, self);
+                eigenvalues
+                    .iter_mut()
+                    .for_each(|eigenvalue| *eigenvalue = eigenvalue.ln());
+                reconstruct_symmetric(eigenvalues, eigenvectors)
+            } else {
+                panic!("Matrix logarithm only implemented for symmetric cases")
+            }
+        }
+    }
+    /// Returns the derivative of the matrix logarithm of the 3x3 symmetric tensor.
+    pub fn dlogm(&self) -> TensorRank4<3, I, I, I, I> {
+        if self.is_diagonal() {
+            let mut dlogm = TensorRank4::zero();
+            dlogm.iter_mut().enumerate().for_each(|(i, dlogm_i)| {
+                dlogm_i.iter_mut().enumerate().for_each(|(j, dlogm_ij)| {
+                    dlogm_ij.iter_mut().enumerate().for_each(|(k, dlogm_ijk)| {
+                        dlogm_ijk
+                            .iter_mut()
+                            .enumerate()
+                            .filter(|(l, _)| i == k && &j == l)
+                            .for_each(|(_, dlogm_ijkl)| {
+                                *dlogm_ijkl = if assert_eq_within_tols(&self[i][i], &self[j][j])
+                                    .is_ok()
+                                {
+                                    1.0 / self[j][j]
+                                } else {
+                                    (self[i][i].ln() - self[j][j].ln()) / (self[i][i] - self[j][j])
+                                }
+                            })
+                    })
+                })
+            });
+            dlogm
+        } else if self.is_symmetric() {
+            let eigenvalues = solve_cubic_symmetric(self.invariants());
+            if eigenvalues.iter().any(|eigenvalue| eigenvalue <= &0.0) {
+                panic!("Symmetric matrix has a non-positive eigenvalue")
+            }
+            let divided_difference: Self = eigenvalues
+                .iter()
+                .map(|eigenvalue_i| {
+                    eigenvalues
+                        .iter()
+                        .map(|eigenvalue_j| {
+                            if assert_eq_within_tols(eigenvalue_i, eigenvalue_j).is_ok() {
+                                1.0 / eigenvalue_j
+                            } else {
+                                (eigenvalue_i.ln() - eigenvalue_j.ln())
+                                    / (eigenvalue_i - eigenvalue_j)
+                            }
+                        })
+                        .collect()
+                })
+                .collect();
+            let eigenvectors = find_orthonormal_eigenvectors(&eigenvalues, self).transpose();
+            eigenvectors.iter().map(|eigenvector_i|
+                eigenvectors.iter().map(|eigenvector_j|
+                    eigenvectors.iter().map(|eigenvector_k|
+                        eigenvectors.iter().map(|eigenvector_l|
+                            eigenvector_i.iter().zip(eigenvector_k.iter().zip(divided_difference.iter())).map(|(eigenvector_ip, (eigenvector_kp, divided_difference_p))|
+                                eigenvector_j.iter().zip(eigenvector_l.iter().zip(divided_difference_p.iter())).map(|(eigenvector_jq, (eigenvector_lq, divided_difference_pq))|
+                                    eigenvector_ip * eigenvector_kp * divided_difference_pq * eigenvector_jq * eigenvector_lq
+                                ).sum::<TensorRank0>()
+                            ).sum()
+                        ).collect()
+                    ).collect()
+                ).collect()
+            ).collect()
+        } else {
+            panic!("Matrix logarithm only implemented for symmetric cases")
+        }
+    }
+    /// Returns the invariants of the 3x3 symmetric tensor.
+    pub fn invariants(&self) -> TensorRank0List<3> {
+        let trace = self.trace();
+        TensorRank0List::new([
+            trace,
+            0.5 * (trace.powi(2) - self.squared_trace()),
+            self.determinant(),
+        ])
+    }
+}
+
+fn solve_cubic_symmetric(coefficients: TensorRank0List<3>) -> TensorRank0List<3> {
+    let c2 = coefficients[0];
+    let c1 = coefficients[1];
+    let c0 = coefficients[2];
+    let p = c1 - c2 * c2 / 3.0;
+    let q = -(2.0 * c2.powi(3) - 9.0 * c2 * c1 + 27.0 * c0) / 27.0;
+    if p.abs() < ABS_TOL {
+        let t = (-q).cbrt();
+        let lambda = t + c2 / 3.0;
+        return TensorRank0List::new([lambda; _]);
+    }
+    let discriminant = -4.0 * p * p * p - 27.0 * q * q;
+    if discriminant >= ABS_TOL {
+        let sqrt_term = (-p / 3.0).sqrt();
+        let cos_arg = 3.0 * q / (2.0 * p * (-p / 3.0).sqrt());
+        let cos_arg = cos_arg.clamp(-1.0, 1.0);
+        let theta = cos_arg.acos();
+        let mut lambdas = [
+            2.0 * sqrt_term * (theta / 3.0).cos() + c2 / 3.0,
+            2.0 * sqrt_term * ((theta + TAU) / 3.0).cos() + c2 / 3.0,
+            2.0 * sqrt_term * ((theta + 2.0 * TAU) / 3.0).cos() + c2 / 3.0,
+        ];
+        lambdas.sort_by(|a, b| b.partial_cmp(a).unwrap());
+        TensorRank0List::new(lambdas)
+    } else {
+        panic!("Symmetric matrix produced complex eigenvalues");
+    }
+}
+
+fn find_orthonormal_eigenvectors<const I: usize>(
+    eigenvalues: &TensorRank0List<3>,
+    tensor: &TensorRank2<3, I, I>,
+) -> TensorRank2<3, I, I> {
+    let mut eigenvectors = eigenvalues
+        .iter()
+        .map(|eigenvalue| eigenvector_symmetric(eigenvalue, tensor))
+        .collect::<TensorRank2<3, I, I>>();
+    eigenvectors[0].normalize();
+    let proj1 = &eigenvectors[1] * &eigenvectors[0];
+    for i in 0..3 {
+        eigenvectors[1][i] -= proj1 * eigenvectors[0][i];
+    }
+    eigenvectors[1].normalize();
+    eigenvectors[2] = eigenvectors[0].cross(&eigenvectors[1]);
+    eigenvectors
+}
+
+fn eigenvector_symmetric<const I: usize>(
+    eigenvalue: &TensorRank0,
+    tensor: &TensorRank2<3, I, I>,
+) -> TensorRank1<3, I> {
+    let m = tensor - TensorRank2::identity() * eigenvalue;
+    let mut pivot_row = 0;
+    m.iter().enumerate().for_each(|(i, m_i)| {
+        if m_i[i].abs() < m[pivot_row][pivot_row].abs() {
+            pivot_row = i;
+        }
+    });
+    if pivot_row == 0 {
+        m[1].cross(&m[2])
+    } else if pivot_row == 1 {
+        m[0].cross(&m[2])
+    } else {
+        m[0].cross(&m[1])
+    }
+    .normalized()
+}
+
+fn reconstruct_symmetric<const I: usize>(
+    eigenvalues: TensorRank0List<3>,
+    eigenvectors: TensorRank2<3, I, I>,
+) -> TensorRank2<3, I, I> {
+    let mut tensor = TensorRank2::zero();
+    eigenvalues
+        .iter()
+        .zip(eigenvectors.iter())
+        .for_each(|(eigenvalue, eigenvector)| {
+            tensor
+                .iter_mut()
+                .zip(eigenvector.iter())
+                .for_each(|(tensor_i, eigenvector_i)| {
+                    tensor_i.iter_mut().zip(eigenvector.iter()).for_each(
+                        |(tensor_ij, eigenvector_j)| {
+                            *tensor_ij += eigenvalue * eigenvector_i * eigenvector_j
+                        },
+                    )
+                })
+        });
+    tensor
+}
+
 impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2<D, I, J> {
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
         self.into_iter().enumerate().for_each(|(i, self_i)| {
@@ -664,17 +842,20 @@ impl<const D: usize, const I: usize, const J: usize> Rank2 for TensorRank2<D, I,
             == (D.pow(2) - D) as u8
     }
     fn is_identity(&self) -> bool {
-        self.iter()
-            .enumerate()
-            .map(|(i, self_i)| {
-                self_i
-                    .iter()
-                    .enumerate()
-                    .map(|(j, self_ij)| (self_ij == &((i == j) as u8 as TensorRank0)) as u8)
-                    .sum::<u8>()
-            })
-            .sum::<u8>()
-            == D.pow(2) as u8
+        self.iter().enumerate().all(|(i, self_i)| {
+            self_i
+                .iter()
+                .enumerate()
+                .all(|(j, self_ij)| self_ij == &((i == j) as u8 as TensorRank0))
+        })
+    }
+    fn is_symmetric(&self) -> bool {
+        self.iter().enumerate().all(|(i, self_i)| {
+            self_i
+                .iter()
+                .zip(self.iter())
+                .all(|(self_ij, self_j)| self_ij == &self_j[i])
+        })
     }
     fn squared_trace(&self) -> TensorRank0 {
         self.iter()
@@ -833,39 +1014,33 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     }
 }
 
-impl From<TensorRank2<3, 0, 0>> for TensorRank2<3, 1, 0> {
-    fn from(tensor_rank_2: TensorRank2<3, 0, 0>) -> Self {
-        unsafe { transmute::<TensorRank2<3, 0, 0>, TensorRank2<3, 1, 0>>(tensor_rank_2) }
+impl<const I: usize> From<TensorRank2<3, I, 1>> for TensorRank2<3, I, 0> {
+    fn from(tensor_rank_2: TensorRank2<3, I, 1>) -> Self {
+        unsafe { transmute::<TensorRank2<3, I, 1>, TensorRank2<3, I, 0>>(tensor_rank_2) }
+    }
+}
+
+impl<const I: usize> From<TensorRank2<3, I, 2>> for TensorRank2<3, I, 0> {
+    fn from(tensor_rank_2: TensorRank2<3, I, 2>) -> Self {
+        unsafe { transmute::<TensorRank2<3, I, 2>, TensorRank2<3, I, 0>>(tensor_rank_2) }
+    }
+}
+
+impl<const J: usize> From<TensorRank2<3, 0, J>> for TensorRank2<3, 1, J> {
+    fn from(tensor_rank_2: TensorRank2<3, 0, J>) -> Self {
+        unsafe { transmute::<TensorRank2<3, 0, J>, TensorRank2<3, 1, J>>(tensor_rank_2) }
+    }
+}
+
+impl<const J: usize> From<TensorRank2<3, 1, J>> for TensorRank2<3, 0, J> {
+    fn from(tensor_rank_2: TensorRank2<3, 1, J>) -> Self {
+        unsafe { transmute::<TensorRank2<3, 1, J>, TensorRank2<3, 0, J>>(tensor_rank_2) }
     }
 }
 
 impl From<TensorRank2<3, 0, 0>> for TensorRank2<3, 1, 1> {
     fn from(tensor_rank_2: TensorRank2<3, 0, 0>) -> Self {
         unsafe { transmute::<TensorRank2<3, 0, 0>, TensorRank2<3, 1, 1>>(tensor_rank_2) }
-    }
-}
-
-impl From<TensorRank2<3, 0, 1>> for TensorRank2<3, 0, 0> {
-    fn from(tensor_rank_2: TensorRank2<3, 0, 1>) -> Self {
-        unsafe { transmute::<TensorRank2<3, 0, 1>, TensorRank2<3, 0, 0>>(tensor_rank_2) }
-    }
-}
-
-impl From<TensorRank2<3, 1, 0>> for TensorRank2<3, 0, 0> {
-    fn from(tensor_rank_2: TensorRank2<3, 1, 0>) -> Self {
-        unsafe { transmute::<TensorRank2<3, 1, 0>, TensorRank2<3, 0, 0>>(tensor_rank_2) }
-    }
-}
-
-impl From<TensorRank2<3, 1, 1>> for TensorRank2<3, 1, 0> {
-    fn from(tensor_rank_2: TensorRank2<3, 1, 1>) -> Self {
-        unsafe { transmute::<TensorRank2<3, 1, 1>, TensorRank2<3, 1, 0>>(tensor_rank_2) }
-    }
-}
-
-impl From<TensorRank2<3, 1, 2>> for TensorRank2<3, 1, 0> {
-    fn from(tensor_rank_2: TensorRank2<3, 1, 2>) -> Self {
-        unsafe { transmute::<TensorRank2<3, 1, 2>, TensorRank2<3, 1, 0>>(tensor_rank_2) }
     }
 }
 
@@ -1144,6 +1319,22 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<&Tensor
     }
 }
 
+impl<const D: usize, const I: usize, const J: usize> MulAssign<TensorRank2<D, J, J>>
+    for TensorRank2<D, I, J>
+{
+    fn mul_assign(&mut self, tensor_rank_2: TensorRank2<D, J, J>) {
+        *self = &*self * tensor_rank_2
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> MulAssign<&TensorRank2<D, J, J>>
+    for TensorRank2<D, I, J>
+{
+    fn mul_assign(&mut self, tensor_rank_2: &TensorRank2<D, J, J>) {
+        *self = &*self * tensor_rank_2
+    }
+}
+
 impl<const D: usize, const I: usize, const J: usize> Sub for TensorRank2<D, I, J> {
     type Output = Self;
     fn sub(mut self, tensor_rank_2: Self) -> Self::Output {
@@ -1157,6 +1348,17 @@ impl<const D: usize, const I: usize, const J: usize> Sub<&Self> for TensorRank2<
     fn sub(mut self, tensor_rank_2: &Self) -> Self::Output {
         self -= tensor_rank_2;
         self
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> Sub<TensorRank2<D, I, J>>
+    for &TensorRank2<D, I, J>
+{
+    type Output = TensorRank2<D, I, J>;
+    fn sub(self, tensor_rank_2: TensorRank2<D, I, J>) -> Self::Output {
+        let mut output = self.clone();
+        output -= tensor_rank_2;
+        output
     }
 }
 

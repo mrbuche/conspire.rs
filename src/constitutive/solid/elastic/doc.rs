@@ -20,3 +20,24 @@ pub fn almansi_hamel<'a>() -> Vec<[&'a str; 2]> {
         ["second_piola_kirchhoff_tangent_stiffness", ""],
     ]
 }
+
+pub fn hencky<'a>() -> Vec<[&'a str; 2]> {
+    vec![
+        [
+            "constitutive/solid/elastic/hencky",
+            include_str!("hencky/doc.md"),
+        ],
+        ["cauchy_stress", ""],
+        ["cauchy_tangent_stiffness", ""],
+        ["first_piola_kirchhoff_stress", ""],
+        ["first_piola_kirchhoff_tangent_stiffness", ""],
+        [
+            "second_piola_kirchhoff_stress",
+            include_str!("hencky/second_piola_kirchhoff_stress.md"),
+        ],
+        [
+            "second_piola_kirchhoff_tangent_stiffness",
+            include_str!("hencky/second_piola_kirchhoff_tangent_stiffness.md"),
+        ],
+    ]
+}

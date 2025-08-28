@@ -1,7 +1,7 @@
 use crate::{
     constitutive::solid::elastic_hyperviscous::test::ALMANSIHAMELPARAMETERS, mechanics::Scalar,
 };
-pub const SAINTVENANTKIRCHOFFPARAMETERS: &[Scalar; 4] = &[
+pub const SAINTVENANTKIRCHHOFFPARAMETERS: &[Scalar; 4] = &[
     ALMANSIHAMELPARAMETERS[0],
     ALMANSIHAMELPARAMETERS[1],
     ALMANSIHAMELPARAMETERS[2],
