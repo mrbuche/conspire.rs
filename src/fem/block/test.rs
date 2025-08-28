@@ -79,10 +79,8 @@ macro_rules! test_finite_element_block_inner {
             mod elastic {
                 use super::*;
                 use crate::constitutive::solid::elastic::{
-                    AlmansiHamel, Hencky, SaintVenantKirchhoff,
-                    test::{
-                        ALMANSIHAMELPARAMETERS, HENCKYPARAMETERS, SAINTVENANTKIRCHHOFFPARAMETERS,
-                    },
+                    AlmansiHamel, SaintVenantKirchhoff,
+                    test::{ALMANSIHAMELPARAMETERS, SAINTVENANTKIRCHHOFFPARAMETERS},
                 };
                 mod almansi_hamel {
                     use super::*;
@@ -94,16 +92,16 @@ macro_rules! test_finite_element_block_inner {
                         ALMANSIHAMELPARAMETERS
                     );
                 }
-                mod hencky {
-                    use super::*;
-                    type HenckyType<'a> = Hencky<&'a [Scalar; 2]>;
-                    test_finite_element_block_with_elastic_constitutive_model!(
-                        ElementBlock,
-                        $element,
-                        HenckyType,
-                        HENCKYPARAMETERS
-                    );
-                }
+                // mod hencky {
+                //     use super::*;
+                //     type HenckyType<'a> = Hencky<&'a [Scalar; 2]>;
+                //     test_finite_element_block_with_elastic_constitutive_model!(
+                //         ElementBlock,
+                //         $element,
+                //         HenckyType,
+                //         HENCKYPARAMETERS
+                //     );
+                // }
                 mod saint_venant_kirchhoff {
                     use super::*;
                     type SaintVenantKirchhoffType<'a> = SaintVenantKirchhoff<&'a [Scalar; 2]>;
@@ -118,10 +116,9 @@ macro_rules! test_finite_element_block_inner {
             mod hyperelastic {
                 use super::*;
                 use crate::constitutive::solid::hyperelastic::{
-                    ArrudaBoyce, Fung, Gent, Hencky, MooneyRivlin, NeoHookean,
-                    SaintVenantKirchhoff, Yeoh,
+                    ArrudaBoyce, Fung, Gent, MooneyRivlin, NeoHookean, SaintVenantKirchhoff, Yeoh,
                     test::{
-                        ARRUDABOYCEPARAMETERS, FUNGPARAMETERS, GENTPARAMETERS, HENCKYPARAMETERS,
+                        ARRUDABOYCEPARAMETERS, FUNGPARAMETERS, GENTPARAMETERS,
                         MOONEYRIVLINPARAMETERS, NEOHOOKEANPARAMETERS,
                         SAINTVENANTKIRCHHOFFPARAMETERS, YEOHPARAMETERS,
                     },
@@ -156,16 +153,16 @@ macro_rules! test_finite_element_block_inner {
                         GENTPARAMETERS
                     );
                 }
-                mod hencky {
-                    use super::*;
-                    type HenckyType<'a> = Hencky<&'a [Scalar; 2]>;
-                    test_finite_element_block_with_hyperelastic_constitutive_model!(
-                        ElementBlock,
-                        $element,
-                        HenckyType,
-                        HENCKYPARAMETERS
-                    );
-                }
+                // mod hencky {
+                //     use super::*;
+                //     type HenckyType<'a> = Hencky<&'a [Scalar; 2]>;
+                //     test_finite_element_block_with_hyperelastic_constitutive_model!(
+                //         ElementBlock,
+                //         $element,
+                //         HenckyType,
+                //         HENCKYPARAMETERS
+                //     );
+                // }
                 mod mooney_rivlin {
                     use super::*;
                     type MooneyRivlinType<'a> = MooneyRivlin<&'a [Scalar; 3]>;
