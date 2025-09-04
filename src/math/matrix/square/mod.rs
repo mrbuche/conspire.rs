@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod test;
+pub mod test;
 
 #[cfg(test)]
 use crate::math::test::ErrorTensor;

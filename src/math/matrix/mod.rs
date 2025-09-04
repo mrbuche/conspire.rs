@@ -1,3 +1,4 @@
+pub mod sparse;
 pub mod square;
 pub mod vector;
 

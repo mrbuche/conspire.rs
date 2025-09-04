@@ -20,6 +20,7 @@ mod tensor;
 
 pub use matrix::{
     Matrix,
+    sparse::SparseMatrix,
     square::{Banded, SquareMatrix},
     vector::Vector,
 };

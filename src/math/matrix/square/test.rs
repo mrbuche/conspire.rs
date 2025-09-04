@@ -1,8 +1,12 @@
 use super::{super::Matrix, SquareMatrix, TensorVec, Vector};
-use crate::math::test::{TestError, assert_eq};
+use crate::math::test::{TestError, assert_eq, assert_eq_within_tols};
 
 fn vector_dim_6() -> Vector {
     Vector::new(&[2.0, 1.0, 3.0, 2.0, 1.0, 3.0])
+}
+
+pub fn vector_dim_9() -> Vector {
+    Vector::new(&[2.0, 1.0, 3.0, 2.0, 1.0, 3.0, 5.0, 1.0, 2.0])
 }
 
 fn matrix_dim_6_9() -> Matrix {
@@ -18,7 +22,7 @@ fn matrix_dim_6_9() -> Matrix {
     .collect()
 }
 
-fn square_matrix_dim_9() -> SquareMatrix {
+pub fn square_matrix_dim_9() -> SquareMatrix {
     SquareMatrix::new(&[
         &[2.0, 2.0, 4.0, 0.0, 0.0, 1.0, 1.0, 3.0, 3.0],
         &[0.0, 3.0, 1.0, 0.0, 0.0, 1.0, 4.0, 2.0, 1.0],
@@ -64,6 +68,20 @@ fn get_square_matrix_mul_other_square_matrix_dim_9() -> SquareMatrix {
     ])
 }
 
+pub fn get_solve_lu() -> Vector {
+    Vector::new(&[
+        16.870725604670554,
+        8.541284403669726,
+        5.326105087572977,
+        -4.495412844036696,
+        10.014178482068388,
+        3.4787322768974156,
+        -3.1184320266889083,
+        2.541284403669724,
+        -26.037531276063383,
+    ])
+}
+
 #[test]
 fn vector_mul_matrix_dim_6_9() -> Result<(), TestError> {
     assert_eq(
@@ -77,5 +95,15 @@ fn square_matrix_mul_other_square_matrix_dim_9() -> Result<(), TestError> {
     assert_eq(
         &(square_matrix_dim_9() * other_square_matrix_dim_9()),
         &get_square_matrix_mul_other_square_matrix_dim_9(),
+    )
+}
+
+#[test]
+fn solve_lu() -> Result<(), TestError> {
+    println!("{:?}", square_matrix_dim_9().solve_lu(&vector_dim_9()));
+    assert_eq_within_tols(
+        // &square_matrix_dim_9().solve_lu(&vector_dim_9())?,
+        &square_matrix_dim_9().solve_lu(&vector_dim_9()).unwrap(),
+        &get_solve_lu(),
     )
 }
