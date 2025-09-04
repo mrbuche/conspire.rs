@@ -37,7 +37,10 @@ impl SparseMatrix {
     /// Solve a system of linear equations using the LU decomposition.
     pub fn solve_lu(&self, b: &Vector) -> Vector {
     // pub fn solve_lu(&self, b: &Vector) -> Result<Vector, SquareMatrixError> {
-        let n = self.rows; // just make this SparseSquareMatrix? And put in square/sparse?
+    //
+    // just make this SparseSquareMatrix? And put in square/sparse?
+    //
+        let n = self.rows;
         let mut p: Vec<usize> = (0..n).collect();
         let mut factor;
         let mut lu = self.clone();
