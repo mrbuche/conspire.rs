@@ -20,8 +20,7 @@ mod tensor;
 
 pub use matrix::{
     Matrix,
-    sparse::SparseMatrix,
-    square::{Banded, SquareMatrix},
+    square::{Banded, SquareMatrix, sparse::SparseSquareMatrix},
     vector::Vector,
 };
 pub use tensor::{

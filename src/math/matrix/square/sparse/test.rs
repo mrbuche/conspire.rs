@@ -1,15 +1,15 @@
-use crate::math::{SparseMatrix, SquareMatrix, Tensor, TestError, assert_eq, assert_eq_within_tols};
-use super::super::square::test::{get_solve_lu, square_matrix_dim_9, vector_dim_9};
+use crate::math::{Banded, SparseSquareMatrix, SquareMatrix, Tensor, TestError, assert_eq, assert_eq_within_tols};
+use super::super::super::square::test::{get_solve_lu, square_matrix_dim_9, vector_dim_9};
 
 #[test]
 fn mul() -> Result<(), TestError> {
-    let mut matrix_a = SparseMatrix::new(3, 3);
+    let mut matrix_a = SparseSquareMatrix::new(3);
     matrix_a.add_value(0, 0, 1.0);
     matrix_a.add_value(0, 2, 2.0);
     matrix_a.add_value(1, 1, 3.0);
     matrix_a.add_value(2, 0, 4.0);
     matrix_a.add_value(2, 2, 5.0);
-    let mut matrix_b = SparseMatrix::new(3, 3);
+    let mut matrix_b = SparseSquareMatrix::new(3);
     matrix_b.add_value(0, 0, 6.0);
     matrix_b.add_value(0, 1, 7.0);
     matrix_b.add_value(1, 1, 8.0);
@@ -26,12 +26,43 @@ fn mul() -> Result<(), TestError> {
         })
 }
 
+// #[test]
+// fn solve_lu() -> Result<(), TestError> {
+//     // println!("{:?}", square_matrix_dim_9().solve_lu(&vector_dim_9()));
+//     let mut matrix = SparseSquareMatrix::new(9);
+//     square_matrix_dim_9().iter().enumerate().for_each(|(i, entry_i)|
+//         entry_i.iter().enumerate().for_each(|(j, &entry_ij)|
+//             if entry_ij != 0.0 {
+//                 matrix.add_value(i, j, entry_ij);
+//             }
+//         )
+//     );
+//     // println!("{}", matrix);
+//     // println!("{:?}", matrix);
+//     assert_eq_within_tols(
+//         // &matrix.solve_lu(&vector_dim_9())?,
+//         &matrix.solve_lu(&vector_dim_9()),
+//         &get_solve_lu(),
+//     )
+// }
+
 #[test]
-fn solve_lu() -> Result<(), TestError> {
-    println!("{:?}", square_matrix_dim_9().solve_lu(&vector_dim_9()));
+fn solve_lu_banded() -> Result<(), TestError> {
+    let mut matrix = SparseSquareMatrix::new(9);
+    square_matrix_dim_9().iter().enumerate().for_each(|(i, entry_i)|
+        entry_i.iter().enumerate().for_each(|(j, &entry_ij)|
+            if entry_ij != 0.0 {
+                matrix.add_value(i, j, entry_ij);
+            }
+        )
+    );
     assert_eq_within_tols(
         // &square_matrix_dim_9().solve_lu(&vector_dim_9())?,
-        &square_matrix_dim_9().solve_lu(&vector_dim_9()),
+        &matrix.solve_lu_banded(&vector_dim_9(), &Banded {
+        bandwidth: 9,
+        inverse:(0..9).collect(),
+        mapping: (0..9).collect(),
+    }).unwrap(),
         &get_solve_lu(),
     )
 }
@@ -41,13 +72,13 @@ use crate::math::TensorVec;
 #[test]
 fn foo() {
     let time = std::time::Instant::now();
-    let mut matrix_a = SparseMatrix::new(1000, 1000);
+    let mut matrix_a = SparseSquareMatrix::new(1000);
     matrix_a.add_value(0, 0, 1.0);
     matrix_a.add_value(0, 2, 2.0);
     matrix_a.add_value(1, 1, 3.0);
     matrix_a.add_value(2, 0, 4.0);
     matrix_a.add_value(2, 2, 5.0);
-    let mut matrix_b = SparseMatrix::new(1000, 1000);
+    let mut matrix_b = SparseSquareMatrix::new(1000);
     matrix_b.add_value(0, 0, 6.0);
     matrix_b.add_value(0, 1, 7.0);
     matrix_b.add_value(1, 1, 8.0);

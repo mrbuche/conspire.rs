@@ -1,4 +1,4 @@
-use super::{super::Matrix, SquareMatrix, TensorVec, Vector};
+use super::{super::Matrix, Banded, SquareMatrix, TensorVec, Vector};
 use crate::math::test::{TestError, assert_eq, assert_eq_within_tols};
 
 fn vector_dim_6() -> Vector {
@@ -100,10 +100,22 @@ fn square_matrix_mul_other_square_matrix_dim_9() -> Result<(), TestError> {
 
 #[test]
 fn solve_lu() -> Result<(), TestError> {
-    println!("{:?}", square_matrix_dim_9().solve_lu(&vector_dim_9()));
     assert_eq_within_tols(
         // &square_matrix_dim_9().solve_lu(&vector_dim_9())?,
         &square_matrix_dim_9().solve_lu(&vector_dim_9()).unwrap(),
+        &get_solve_lu(),
+    )
+}
+
+#[test]
+fn solve_lu_banded() -> Result<(), TestError> {
+    assert_eq_within_tols(
+        // &square_matrix_dim_9().solve_lu(&vector_dim_9())?,
+        &square_matrix_dim_9().solve_lu_banded(&vector_dim_9(), &Banded {
+        bandwidth: 9,
+        inverse:(0..9).collect(),
+        mapping: (0..9).collect(),
+    }).unwrap(),
         &get_solve_lu(),
     )
 }

@@ -1,13 +1,15 @@
 #[cfg(test)]
 pub mod test;
 
+pub mod sparse;
+
 #[cfg(test)]
 use crate::math::test::ErrorTensor;
 
 use crate::{
     ABS_TOL,
     math::{
-        Hessian, Rank2, Tensor, TensorRank0, TensorRank2Vec2D, TensorVec, Vector,
+        Hessian, Rank2, Scalar, Tensor, TensorRank0, TensorRank2Vec2D, TensorVec, Vector,
         write_tensor_rank_0,
     },
 };
@@ -225,6 +227,62 @@ impl SquareMatrix {
         backward_substitution(&mut x, &lu);
         Ok(x)
     }
+    // /// Solve a system of linear equations rearranged in a banded structure using the LL^T decomposition.
+    // pub fn solve_llt_banded(
+    //     &self,
+    //     b: &Vector,
+    //     banded: &Banded,
+    // ) -> Result<Vector, SquareMatrixError> {
+    //     let bandwidth = banded.width();
+    //     let mut bandwidth_updated;
+    //     let n = self.len();
+    //     let mut p: Vec<usize> = (0..n).collect();
+    //     let mut end;
+    //     let mut factor = 0.0;
+    //     let mut max_row: usize;
+    //     let mut max_val: Scalar;
+    //     let mut pivot;
+    //     let mut rearr: Self = (0..n)
+    //         .map(|i| (0..n).map(|j| self[banded.old(i)][banded.old(j)]).collect())
+    //         .collect();
+    //     for i in 0..n {
+    //         end = n.min(i + 1 + bandwidth);
+    //         pivot = rearr[i][i];
+    //         if pivot.abs() < ABS_TOL {
+    //             let (max_row, max_val) = (i..end)
+    //                 .map(|k| (k, rearr[k][i].abs()))
+    //                 .max_by(|(_, val1), (_, val2)| val1.partial_cmp(val2).unwrap())
+    //                 .unwrap();
+    //             if max_row != i {
+    //                 rearr.0.swap(i, max_row);
+    //                 p.swap(i, max_row);
+    //                 pivot = rearr[i][i];
+    //                 if pivot.abs() < ABS_TOL {
+    //                     return Err(SquareMatrixError::Singular);
+    //                 }
+    //             }
+    //         }
+    //         bandwidth_updated = (i + 1 + bandwidth..n)
+    //             .filter(|&j| rearr[i][j] != 0.0)
+    //             .map(|j| j - i)
+    //             .max()
+    //             .unwrap_or(bandwidth);
+    //         end = n.min(i + 1 + bandwidth_updated);
+    //         (i + 1..end).for_each(|j|
+    //             if rearr[j][i] != 0.0 {
+    //                 rearr[j][i] /= pivot;
+    //                 factor = rearr[j][i];
+    //                 (i + 1..end).for_each(|k|
+    //                     rearr[j][k] -= factor * rearr[i][k]
+    //                 )
+    //             }
+    //         )
+    //     }
+    //     let mut x: Vector = p.into_iter().map(|p_i| b[banded.old(p_i)]).collect();
+    //     forward_substitution(&mut x, &rearr);
+    //     backward_substitution(&mut x, &rearr);
+    //     Ok((0..n).map(|i| x[banded.map(i)]).collect())
+    // }
     /// Solve a system of linear equations rearranged in a banded structure using the LU decomposition.
     pub fn solve_lu_banded(
         &self,
@@ -232,29 +290,24 @@ impl SquareMatrix {
         banded: &Banded,
     ) -> Result<Vector, SquareMatrixError> {
         let bandwidth = banded.width();
-        let mut bandwidth_updated;
         let n = self.len();
         let mut p: Vec<usize> = (0..n).collect();
         let mut end;
-        let mut factor;
-        let mut max_row;
-        let mut max_val;
+        let mut factor = 0.0;
+        let mut max_row: usize;
+        let mut max_val: Scalar;
         let mut pivot;
         let mut rearr: Self = (0..n)
             .map(|i| (0..n).map(|j| self[banded.old(i)][banded.old(j)]).collect())
             .collect();
         for i in 0..n {
-            end = n.min(i + 1 + bandwidth);
+            end = (i + 1 + bandwidth).min(n);
             pivot = rearr[i][i];
             if pivot.abs() < ABS_TOL {
-                max_row = i;
-                max_val = rearr[max_row][i].abs();
-                for k in i + 1..end {
-                    if rearr[k][i].abs() > max_val {
-                        max_row = k;
-                        max_val = rearr[max_row][i].abs();
-                    }
-                }
+                let (max_row, max_val) = (i..end)
+                    .map(|k| (k, rearr[k][i].abs()))
+                    .max_by(|(_, val1), (_, val2)| val1.partial_cmp(val2).unwrap())
+                    .unwrap();
                 if max_row != i {
                     rearr.0.swap(i, max_row);
                     p.swap(i, max_row);
@@ -264,26 +317,19 @@ impl SquareMatrix {
                     }
                 }
             }
-            bandwidth_updated = bandwidth;
-            (i + 1 + bandwidth..n).for_each(|j| {
-                if rearr[i][j] != 0.0 {
-                    bandwidth_updated = bandwidth_updated.max(j - i)
-                }
-            });
-            end = n.min(i + 1 + bandwidth_updated);
-            for j in i + 1..end {
+            (i + 1..end).for_each(|j|
                 if rearr[j][i] != 0.0 {
                     rearr[j][i] /= pivot;
                     factor = rearr[j][i];
-                    for k in i + 1..end {
-                        rearr[j][k] -= factor * rearr[i][k];
-                    }
+                    (i + 1..end).for_each(|k|
+                        rearr[j][k] -= factor * rearr[i][k]
+                    )
                 }
-            }
+            )
         }
         let mut x: Vector = p.into_iter().map(|p_i| b[banded.old(p_i)]).collect();
-        forward_substitution(&mut x, &rearr);
-        backward_substitution(&mut x, &rearr);
+        forward_substitution_banded(&mut x, &rearr, bandwidth);
+        backward_substitution_banded(&mut x, &rearr, bandwidth);
         Ok((0..n).map(|i| x[banded.map(i)]).collect())
     }
 }
@@ -299,12 +345,40 @@ fn forward_substitution(x: &mut Vector, a: &SquareMatrix) {
     })
 }
 
+fn forward_substitution_banded(x: &mut Vector, a: &SquareMatrix, bandwidth: usize) {
+    let mut start = 0;
+    a.iter().enumerate().for_each(|(i, a_i)| {
+        start = i.saturating_sub(bandwidth);
+        x[i] -= a_i
+            .iter()
+            .skip(start).take(i - start)
+            .zip(x.iter().skip(start).take(i - start))
+            .map(|(a_ij, x_j)| a_ij * x_j)
+            .sum::<TensorRank0>()
+    })
+}
+
 fn backward_substitution(x: &mut Vector, a: &SquareMatrix) {
     a.0.iter().enumerate().rev().for_each(|(i, a_i)| {
         x[i] -= a_i
             .iter()
             .skip(i + 1)
             .zip(x.iter().skip(i + 1))
+            .map(|(a_ij, x_j)| a_ij * x_j)
+            .sum::<TensorRank0>();
+        x[i] /= a_i[i];
+    })
+}
+
+fn backward_substitution_banded(x: &mut Vector, a: &SquareMatrix, bandwidth: usize) {
+    let n = a.len();
+    let mut end = 0;
+    a.0.iter().enumerate().rev().for_each(|(i, a_i)| {
+        end = (i + bandwidth + 1).min(n);
+        x[i] -= a_i
+            .iter()
+            .skip(i + 1).take(end)
+            .zip(x.iter().skip(i + 1).take(end))
             .map(|(a_ij, x_j)| a_ij * x_j)
             .sum::<TensorRank0>();
         x[i] /= a_i[i];
