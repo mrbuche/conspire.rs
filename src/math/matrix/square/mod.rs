@@ -104,6 +104,15 @@ pub enum SquareMatrixError {
     Singular,
 }
 
+impl Display for SquareMatrixError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let error = match self {
+            Self::Singular => "\x1b[1;91mMatrix is singular.".to_string(),
+        };
+        write!(f, "{error}\x1b[0m")
+    }
+}
+
 /// A square matrix.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SquareMatrix(Vec<Vector>);

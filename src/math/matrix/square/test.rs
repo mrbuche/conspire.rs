@@ -101,8 +101,7 @@ fn square_matrix_mul_other_square_matrix_dim_9() -> Result<(), TestError> {
 #[test]
 fn solve_lu() -> Result<(), TestError> {
     assert_eq_within_tols(
-        // &square_matrix_dim_9().solve_lu(&vector_dim_9())?,
-        &square_matrix_dim_9().solve_lu(&vector_dim_9()).unwrap(),
+        &square_matrix_dim_9().solve_lu(&vector_dim_9())?,
         &get_solve_lu(),
     )
 }
@@ -110,17 +109,14 @@ fn solve_lu() -> Result<(), TestError> {
 #[test]
 fn solve_lu_banded() -> Result<(), TestError> {
     assert_eq_within_tols(
-        // &square_matrix_dim_9().solve_lu(&vector_dim_9())?,
-        &square_matrix_dim_9()
-            .solve_lu_banded(
-                &vector_dim_9(),
-                &Banded {
-                    bandwidth: 9,
-                    inverse: (0..9).collect(),
-                    mapping: (0..9).collect(),
-                },
-            )
-            .unwrap(),
+        &square_matrix_dim_9().solve_lu_banded(
+            &vector_dim_9(),
+            &Banded {
+                bandwidth: 9,
+                inverse: (0..9).collect(),
+                mapping: (0..9).collect(),
+            },
+        )?,
         &get_solve_lu(),
     )
 }

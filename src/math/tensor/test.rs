@@ -1,4 +1,4 @@
-use super::{Tensor, TensorError, TensorRank0};
+use super::{super::matrix::square::SquareMatrixError, Tensor, TensorError, TensorRank0};
 use crate::{ABS_TOL, REL_TOL, defeat_message};
 use std::{
     cmp::PartialEq,
@@ -100,6 +100,14 @@ impl Debug for TestError {
             self.message,
             defeat_message()
         )
+    }
+}
+
+impl From<SquareMatrixError> for TestError {
+    fn from(error: SquareMatrixError) -> TestError {
+        Self {
+            message: error.to_string(),
+        }
     }
 }
 
