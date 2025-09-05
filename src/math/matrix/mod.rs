@@ -1,5 +1,5 @@
-pub mod square;
 pub mod skyline;
+pub mod square;
 pub mod vector;
 
 use crate::math::{Scalar, Tensor, TensorRank1, TensorRank1Vec, TensorRank2, TensorVec};
