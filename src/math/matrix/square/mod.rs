@@ -1,8 +1,6 @@
 #[cfg(test)]
 pub mod test;
 
-pub mod sparse;
-
 #[cfg(test)]
 use crate::math::test::ErrorTensor;
 
