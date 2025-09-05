@@ -28,9 +28,9 @@ use crate::{
         },
     },
     math::{
-        ContractSecondFourthIndicesWithFirstIndicesOf, Tensor, TensorRank1, TensorRank1List,
-        TensorRank1List2D, TensorRank1Vec, TensorRank1Vec2D, TensorRank2, TensorRank2List,
-        TensorRank2List2D, TensorRank2Vec2D, TensorVec,
+        ContractSecondFourthIndicesWithFirstIndicesOf, SkylineMatrix, Tensor, TensorRank1,
+        TensorRank1List, TensorRank1List2D, TensorRank1Vec, TensorRank1Vec2D, TensorRank2,
+        TensorRank2List, TensorRank2List2D, TensorRank2Vec2D, TensorVec,
     },
     mechanics::{
         Coordinates, CurrentCoordinates, DeformationGradient, DeformationGradientList,
@@ -46,7 +46,13 @@ pub type ReferenceNodalCoordinatesBlock = TensorRank1Vec<3, 0>;
 pub type NodalCoordinatesBlock = TensorRank1Vec<3, 1>;
 pub type NodalVelocitiesBlock = TensorRank1Vec<3, 1>;
 pub type NodalForcesBlock = TensorRank1Vec<3, 1>;
-pub type NodalStiffnessesBlock = TensorRank2Vec2D<3, 1, 1>;
+pub type NodalStiffnessesBlockDense = TensorRank2Vec2D<3, 1, 1>;
+pub type NodalStiffnessesBlockSkyline = SkylineMatrix;
+
+pub enum NodalStiffnessesBlock {
+    Dense(NodalStiffnessesBlockDense),
+    Skyline(NodalStiffnessesBlockSkyline),
+}
 
 pub type NodalCoordinatesHistory = TensorRank1Vec2D<3, 1>;
 pub type NodalVelocitiesHistory = TensorRank1Vec2D<3, 1>;

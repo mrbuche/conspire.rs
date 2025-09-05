@@ -194,6 +194,7 @@ where
     ) -> Result<NodalForcesBlock, ConstitutiveError>;
     fn nodal_stiffnesses(
         &self,
+        dense: bool,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<NodalStiffnessesBlock, ConstitutiveError>;
 }
@@ -275,7 +276,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
         nodal_velocities: &NodalVelocitiesBlock,
-    ) -> Result<NodalStiffnessesBlock, ConstitutiveError>;
+    ) -> Result<NodalStiffnessesBlockDense, ConstitutiveError>;
     fn nodal_velocities_element(
         &self,
         element_connectivity: &[usize; N],
@@ -288,7 +289,7 @@ where
         time: &[Scalar],
         solver: impl FirstOrderRootFinding<
             NodalForcesBlock,
-            NodalStiffnessesBlock,
+            NodalStiffnessesBlockDense,
             NodalCoordinatesBlock,
         >,
     ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError>;
@@ -299,7 +300,7 @@ where
         nodal_coordinates: &NodalCoordinatesBlock,
         solver: &impl FirstOrderRootFinding<
             NodalForcesBlock,
-            NodalStiffnessesBlock,
+            NodalStiffnessesBlockDense,
             NodalCoordinatesBlock,
         >,
         initial_guess: &NodalVelocitiesBlock,
@@ -330,7 +331,7 @@ where
         solver: impl SecondOrderOptimization<
             Scalar,
             NodalForcesBlock,
-            NodalStiffnessesBlock,
+            NodalStiffnessesBlockDense,
             NodalCoordinatesBlock,
         >,
     ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError>;
@@ -342,7 +343,7 @@ where
         solver: &impl SecondOrderOptimization<
             Scalar,
             NodalForcesBlock,
-            NodalStiffnessesBlock,
+            NodalStiffnessesBlockDense,
             NodalCoordinatesBlock,
         >,
         initial_guess: &NodalVelocitiesBlock,
@@ -390,29 +391,42 @@ where
     }
     fn nodal_stiffnesses(
         &self,
+        dense: bool,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<NodalStiffnessesBlock, ConstitutiveError> {
-        let mut nodal_stiffnesses = NodalStiffnessesBlock::zero(nodal_coordinates.len());
-        self.elements()
-            .iter()
-            .zip(self.connectivity().iter())
-            .try_for_each(|(element, element_connectivity)| {
-                element
-                    .nodal_stiffnesses(
-                        &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
-                    )?
-                    .iter()
-                    .zip(element_connectivity.iter())
-                    .for_each(|(object, &node_a)| {
-                        object.iter().zip(element_connectivity.iter()).for_each(
-                            |(nodal_stiffness, &node_b)| {
-                                nodal_stiffnesses[node_a][node_b] += nodal_stiffness
-                            },
-                        )
-                    });
-                Ok::<(), ConstitutiveError>(())
-            })?;
-        Ok(nodal_stiffnesses)
+        if dense {
+            let mut nodal_stiffnesses = NodalStiffnessesBlockDense::zero(nodal_coordinates.len());
+            self.elements()
+                .iter()
+                .zip(self.connectivity().iter())
+                .try_for_each(|(element, element_connectivity)| {
+                    element
+                        .nodal_stiffnesses(
+                            &self
+                                .nodal_coordinates_element(element_connectivity, nodal_coordinates),
+                        )?
+                        .iter()
+                        .zip(element_connectivity.iter())
+                        .for_each(|(object, &node_a)| {
+                            object.iter().zip(element_connectivity.iter()).for_each(
+                                |(nodal_stiffness, &node_b)| {
+                                    nodal_stiffnesses[node_a][node_b] += nodal_stiffness
+                                },
+                            )
+                        });
+                    Ok::<(), ConstitutiveError>(())
+                })?;
+            Ok(NodalStiffnessesBlock::Dense(nodal_stiffnesses))
+        } else {
+            //
+            // Do the re-ordering during construction of type and save info in fields to re-use here and later when sending to solver.
+            //
+            // Instead of matching before sending to solver in minimize or root, just implement Hessian for the enum.
+            //
+            // Would still like to get rid of the true/false somehow though.
+            //
+            todo!()
+        }
     }
 }
 
@@ -453,7 +467,7 @@ where
         solver.root(
             |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
             |nodal_coordinates: &NodalCoordinatesBlock| {
-                Ok(self.nodal_stiffnesses(nodal_coordinates)?)
+                Ok(self.nodal_stiffnesses(true, nodal_coordinates)?)
             },
             self.coordinates().clone().into(),
             equality_constraint,
@@ -511,7 +525,7 @@ where
             },
             |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
             |nodal_coordinates: &NodalCoordinatesBlock| {
-                Ok(self.nodal_stiffnesses(nodal_coordinates)?)
+                Ok(self.nodal_stiffnesses(true, nodal_coordinates)?)
             },
             self.coordinates().clone().into(),
             equality_constraint,
@@ -569,8 +583,8 @@ where
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
         nodal_velocities: &NodalVelocitiesBlock,
-    ) -> Result<NodalStiffnessesBlock, ConstitutiveError> {
-        let mut nodal_stiffnesses = NodalStiffnessesBlock::zero(nodal_coordinates.len());
+    ) -> Result<NodalStiffnessesBlockDense, ConstitutiveError> {
+        let mut nodal_stiffnesses = NodalStiffnessesBlockDense::zero(nodal_coordinates.len());
         self.elements()
             .iter()
             .zip(self.connectivity().iter())
@@ -610,7 +624,7 @@ where
         time: &[Scalar],
         solver: impl FirstOrderRootFinding<
             NodalForcesBlock,
-            NodalStiffnessesBlock,
+            NodalStiffnessesBlockDense,
             NodalCoordinatesBlock,
         >,
     ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError> {
@@ -636,7 +650,7 @@ where
         nodal_coordinates: &NodalCoordinatesBlock,
         solver: &impl FirstOrderRootFinding<
             NodalForcesBlock,
-            NodalStiffnessesBlock,
+            NodalStiffnessesBlockDense,
             NodalCoordinatesBlock,
         >,
         initial_guess: &NodalVelocitiesBlock,
@@ -701,7 +715,7 @@ where
         solver: impl SecondOrderOptimization<
             Scalar,
             NodalForcesBlock,
-            NodalStiffnessesBlock,
+            NodalStiffnessesBlockDense,
             NodalCoordinatesBlock,
         >,
     ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError> {
@@ -728,7 +742,7 @@ where
         solver: &impl SecondOrderOptimization<
             Scalar,
             NodalForcesBlock,
-            NodalStiffnessesBlock,
+            NodalStiffnessesBlockDense,
             NodalCoordinatesBlock,
         >,
         initial_guess: &NodalVelocitiesBlock,
