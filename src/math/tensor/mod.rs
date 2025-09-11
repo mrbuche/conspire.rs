@@ -245,7 +245,7 @@ where
     /// Retains only the elements specified by the predicate.
     fn retain<F>(&mut self, f: F)
     where
-        F: FnMut(&T) -> bool,
+        F: FnMut(&Self::Item) -> bool,
     {
         todo!()
     }
