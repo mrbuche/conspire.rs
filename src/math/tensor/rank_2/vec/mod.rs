@@ -98,6 +98,12 @@ impl<const D: usize, const I: usize, const J: usize> TensorVec for TensorRank2Ve
     fn remove(&mut self, index: usize) -> Self::Item {
         self.0.remove(index)
     }
+    fn retain<F>(&mut self, f: F)
+    where
+        F: FnMut(&Self::Item) -> bool,
+    {
+        self.0.retain(f)
+    }
     fn swap_remove(&mut self, index: usize) -> Self::Item {
         self.0.swap_remove(index)
     }

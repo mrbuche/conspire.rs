@@ -242,6 +242,10 @@ where
     fn push(&mut self, item: Self::Item);
     /// Removes an item from the Vec and returns it, shifting items to the left.
     fn remove(&mut self, _index: usize) -> Self::Item;
+    /// Retains only the items specified by the predicate.
+    fn retain<F>(&mut self, f: F)
+    where
+        F: FnMut(&Self::Item) -> bool;
     /// Removes an item from the Vec and returns it, replacing it the last item.
     fn swap_remove(&mut self, _index: usize) -> Self::Item;
     /// Returns the zero tensor.
