@@ -11,22 +11,16 @@ pub const ALMANSIHAMELPARAMETERS: &[Scalar; 4] = &[
 
 macro_rules! test_minimize_and_root {
     ($constitutive_model_constructed: expr) => {
-        use crate::{
-            constitutive::solid::viscoelastic::AppliedLoad,
-            math::{
-                integrate::{BogackiShampine, DormandPrince, Verner8, Verner9},
-                optimize::NewtonRaphson,
-            },
-        };
-        macro_rules! test_with_integrator {
-            ($integrator: ident) => {
+        use crate::constitutive::solid::viscoelastic::AppliedLoad;
+        macro_rules! test_with_integrator_and_solver {
+            ($integrator: ident, $solver: expr) => {
                 #[test]
                 fn minimize_uniaxial_compression() -> Result<(), TestError> {
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model_constructed.minimize(
                             AppliedLoad::UniaxialStress(|t: Scalar| -t, &[0.0, 1.0]),
                             $integrator::default(),
-                            NewtonRaphson::default(),
+                            $solver,
                         )?;
                     deformation_gradients
                         .iter()
@@ -58,7 +52,7 @@ macro_rules! test_minimize_and_root {
                         $constitutive_model_constructed.minimize(
                             AppliedLoad::UniaxialStress(|t: Scalar| t, &[0.0, 1.0]),
                             $integrator::default(),
-                            NewtonRaphson::default(),
+                            $solver,
                         )?;
                     deformation_gradients
                         .iter()
@@ -90,7 +84,7 @@ macro_rules! test_minimize_and_root {
                         $constitutive_model_constructed.minimize(
                             AppliedLoad::UniaxialStress(|_| 0.0, &[0.0, 1.0]),
                             $integrator::default(),
-                            NewtonRaphson::default(),
+                            $solver,
                         )?;
                     deformation_gradients
                         .iter()
@@ -119,7 +113,7 @@ macro_rules! test_minimize_and_root {
                                 &[0.0, 1.0],
                             ),
                             $integrator::default(),
-                            NewtonRaphson::default(),
+                            $solver,
                         )?;
                     deformation_gradients
                         .iter()
@@ -148,7 +142,7 @@ macro_rules! test_minimize_and_root {
                         $constitutive_model_constructed.minimize(
                             AppliedLoad::BiaxialStress(|_| 0.0, |_| 0.0, &[0.0, 1.0]),
                             $integrator::default(),
-                            NewtonRaphson::default(),
+                            $solver,
                         )?;
                     deformation_gradients
                         .iter()
@@ -173,7 +167,7 @@ macro_rules! test_minimize_and_root {
                         $constitutive_model_constructed.root(
                             AppliedLoad::UniaxialStress(|t: Scalar| -t, &[0.0, 1.0]),
                             $integrator::default(),
-                            NewtonRaphson::default(),
+                            $solver,
                         )?;
                     deformation_gradients
                         .iter()
@@ -205,7 +199,7 @@ macro_rules! test_minimize_and_root {
                         $constitutive_model_constructed.root(
                             AppliedLoad::UniaxialStress(|t: Scalar| t, &[0.0, 1.0]),
                             $integrator::default(),
-                            NewtonRaphson::default(),
+                            $solver,
                         )?;
                     deformation_gradients
                         .iter()
@@ -237,7 +231,7 @@ macro_rules! test_minimize_and_root {
                         $constitutive_model_constructed.root(
                             AppliedLoad::UniaxialStress(|_| 0.0, &[0.0, 1.0]),
                             $integrator::default(),
-                            NewtonRaphson::default(),
+                            $solver,
                         )?;
                     deformation_gradients
                         .iter()
@@ -266,7 +260,7 @@ macro_rules! test_minimize_and_root {
                                 &[0.0, 1.0],
                             ),
                             $integrator::default(),
-                            NewtonRaphson::default(),
+                            $solver,
                         )?;
                     deformation_gradients
                         .iter()
@@ -295,7 +289,7 @@ macro_rules! test_minimize_and_root {
                         $constitutive_model_constructed.root(
                             AppliedLoad::BiaxialStress(|_| 0.0, |_| 0.0, &[0.0, 1.0]),
                             $integrator::default(),
-                            NewtonRaphson::default(),
+                            $solver,
                         )?;
                     deformation_gradients
                         .iter()
@@ -316,220 +310,248 @@ macro_rules! test_minimize_and_root {
                 }
             };
         }
-        mod bogacki_shampine {
+        macro_rules! test_with_solver {
+            ($solver: expr) => {
+                mod bogacki_shampine {
+                    use super::*;
+                    use crate::math::integrate::BogackiShampine;
+                    test_with_integrator_and_solver!(BogackiShampine, $solver);
+                }
+                mod dormand_prince {
+                    use super::*;
+                    use crate::math::integrate::DormandPrince;
+                    test_with_integrator_and_solver!(DormandPrince, $solver);
+                }
+                mod verner_8 {
+                    use super::*;
+                    use crate::math::integrate::Verner8;
+                    test_with_integrator_and_solver!(Verner8, $solver);
+                }
+                mod verner_9 {
+                    use super::*;
+                    use crate::math::integrate::Verner9;
+                    test_with_integrator_and_solver!(Verner9, $solver);
+                }
+                #[test]
+                fn minimize_uniaxial_compression_inner() -> Result<(), TestError> {
+                    let deformation_gradient_rate = $constitutive_model_constructed
+                        .minimize_uniaxial_inner(
+                            &DeformationGradient::identity(),
+                            -4.4,
+                            &$solver,
+                            &DeformationGradientRate::zero(),
+                        )?;
+                    assert!(deformation_gradient_rate.is_diagonal());
+                    assert!(deformation_gradient_rate[0][0] < deformation_gradient_rate[1][1]);
+                    assert_eq_within_tols(
+                        &deformation_gradient_rate[1][1],
+                        &deformation_gradient_rate[2][2],
+                    )
+                }
+                #[test]
+                fn minimize_uniaxial_tension_inner() -> Result<(), TestError> {
+                    let deformation_gradient_rate = $constitutive_model_constructed
+                        .minimize_uniaxial_inner(
+                            &DeformationGradient::identity(),
+                            4.4,
+                            &$solver,
+                            &DeformationGradientRate::zero(),
+                        )?;
+                    assert!(deformation_gradient_rate.is_diagonal());
+                    assert!(deformation_gradient_rate[0][0] > deformation_gradient_rate[1][1]);
+                    assert_eq_within_tols(
+                        &deformation_gradient_rate[1][1],
+                        &deformation_gradient_rate[2][2],
+                    )
+                }
+                #[test]
+                fn minimize_uniaxial_undeformed_inner() -> Result<(), TestError> {
+                    assert_eq_within_tols(
+                        &$constitutive_model_constructed.minimize_uniaxial_inner(
+                            &DeformationGradient::identity(),
+                            0.0,
+                            &$solver,
+                            &DeformationGradientRate::zero(),
+                        )?,
+                        &DeformationGradientRate::zero(),
+                    )
+                }
+                #[test]
+                fn minimize_biaxial_compression_inner() -> Result<(), TestError> {
+                    let deformation_gradient_rate = $constitutive_model_constructed
+                        .minimize_biaxial_inner(
+                            &DeformationGradient::identity(),
+                            -0.77,
+                            -0.88,
+                            &$solver,
+                            &DeformationGradientRate::zero(),
+                        )?;
+                    assert!(deformation_gradient_rate.is_diagonal());
+                    assert!(deformation_gradient_rate[0][0] < deformation_gradient_rate[2][2]);
+                    assert!(deformation_gradient_rate[1][1] < deformation_gradient_rate[2][2]);
+                    Ok(())
+                }
+                #[test]
+                fn minimize_biaxial_mixed_inner() -> Result<(), TestError> {
+                    let deformation_gradient_rate = $constitutive_model_constructed
+                        .minimize_biaxial_inner(
+                            &DeformationGradient::identity(),
+                            1.3,
+                            -0.64,
+                            &$solver,
+                            &DeformationGradientRate::zero(),
+                        )?;
+                    assert!(deformation_gradient_rate.is_diagonal());
+                    assert!(deformation_gradient_rate[0][0] > deformation_gradient_rate[2][2]);
+                    assert!(deformation_gradient_rate[1][1] < deformation_gradient_rate[2][2]);
+                    Ok(())
+                }
+                #[test]
+                fn minimize_biaxial_tension_inner() -> Result<(), TestError> {
+                    let deformation_gradient_rate = $constitutive_model_constructed
+                        .minimize_biaxial_inner(
+                            &DeformationGradient::identity(),
+                            1.3,
+                            1.2,
+                            &$solver,
+                            &DeformationGradientRate::zero(),
+                        )?;
+                    assert!(deformation_gradient_rate.is_diagonal());
+                    assert!(deformation_gradient_rate[0][0] > deformation_gradient_rate[2][2]);
+                    assert!(deformation_gradient_rate[1][1] > deformation_gradient_rate[2][2]);
+                    Ok(())
+                }
+                #[test]
+                fn minimize_biaxial_undeformed_inner() -> Result<(), TestError> {
+                    assert_eq_within_tols(
+                        &$constitutive_model_constructed.minimize_biaxial_inner(
+                            &DeformationGradient::identity(),
+                            0.0,
+                            0.0,
+                            &$solver,
+                            &DeformationGradientRate::zero(),
+                        )?,
+                        &DeformationGradientRate::zero(),
+                    )
+                }
+                #[test]
+                fn root_uniaxial_compression_inner() -> Result<(), TestError> {
+                    let deformation_gradient_rate = $constitutive_model_constructed
+                        .root_uniaxial_inner(
+                            &DeformationGradient::identity(),
+                            -4.4,
+                            &$solver,
+                            &DeformationGradientRate::zero(),
+                        )?;
+                    assert!(deformation_gradient_rate.is_diagonal());
+                    assert!(deformation_gradient_rate[0][0] < deformation_gradient_rate[1][1]);
+                    assert_eq_within_tols(
+                        &deformation_gradient_rate[1][1],
+                        &deformation_gradient_rate[2][2],
+                    )
+                }
+                #[test]
+                fn root_uniaxial_tension_inner() -> Result<(), TestError> {
+                    let deformation_gradient_rate = $constitutive_model_constructed
+                        .root_uniaxial_inner(
+                            &DeformationGradient::identity(),
+                            4.4,
+                            &$solver,
+                            &DeformationGradientRate::zero(),
+                        )?;
+                    assert!(deformation_gradient_rate.is_diagonal());
+                    assert!(deformation_gradient_rate[0][0] > deformation_gradient_rate[1][1]);
+                    assert_eq_within_tols(
+                        &deformation_gradient_rate[1][1],
+                        &deformation_gradient_rate[2][2],
+                    )
+                }
+                #[test]
+                fn root_uniaxial_undeformed_inner() -> Result<(), TestError> {
+                    assert_eq_within_tols(
+                        &$constitutive_model_constructed.root_uniaxial_inner(
+                            &DeformationGradient::identity(),
+                            0.0,
+                            &$solver,
+                            &DeformationGradientRate::zero(),
+                        )?,
+                        &DeformationGradientRate::zero(),
+                    )
+                }
+                #[test]
+                fn root_biaxial_compression_inner() -> Result<(), TestError> {
+                    let deformation_gradient_rate = $constitutive_model_constructed
+                        .root_biaxial_inner(
+                            &DeformationGradient::identity(),
+                            -0.77,
+                            -0.88,
+                            &$solver,
+                            &DeformationGradientRate::zero(),
+                        )?;
+                    assert!(deformation_gradient_rate.is_diagonal());
+                    assert!(deformation_gradient_rate[0][0] < deformation_gradient_rate[2][2]);
+                    assert!(deformation_gradient_rate[1][1] < deformation_gradient_rate[2][2]);
+                    Ok(())
+                }
+                #[test]
+                fn root_biaxial_mixed_inner() -> Result<(), TestError> {
+                    let deformation_gradient_rate = $constitutive_model_constructed
+                        .root_biaxial_inner(
+                            &DeformationGradient::identity(),
+                            1.3,
+                            -0.64,
+                            &$solver,
+                            &DeformationGradientRate::zero(),
+                        )?;
+                    assert!(deformation_gradient_rate.is_diagonal());
+                    assert!(deformation_gradient_rate[0][0] > deformation_gradient_rate[2][2]);
+                    assert!(deformation_gradient_rate[1][1] < deformation_gradient_rate[2][2]);
+                    Ok(())
+                }
+                #[test]
+                fn root_biaxial_tension_inner() -> Result<(), TestError> {
+                    let deformation_gradient_rate = $constitutive_model_constructed
+                        .root_biaxial_inner(
+                            &DeformationGradient::identity(),
+                            1.3,
+                            1.2,
+                            &$solver,
+                            &DeformationGradientRate::zero(),
+                        )?;
+                    assert!(deformation_gradient_rate.is_diagonal());
+                    assert!(deformation_gradient_rate[0][0] > deformation_gradient_rate[2][2]);
+                    assert!(deformation_gradient_rate[1][1] > deformation_gradient_rate[2][2]);
+                    Ok(())
+                }
+                #[test]
+                fn root_biaxial_undeformed_inner() -> Result<(), TestError> {
+                    assert_eq_within_tols(
+                        &$constitutive_model_constructed.root_biaxial_inner(
+                            &DeformationGradient::identity(),
+                            0.0,
+                            0.0,
+                            &$solver,
+                            &DeformationGradientRate::zero(),
+                        )?,
+                        &DeformationGradientRate::zero(),
+                    )
+                }
+            };
+        }
+        // mod gradient_descent_root_dual {
+        //     use super::*;
+        //     use crate::{
+        //         math::optimize::GradientDescent,
+        //     };
+        //     test_with_solver!(GradientDescent {
+        //         dual: true,
+        //         ..Default::default()
+        //     });
+        // }
+        mod newton_raphson {
             use super::*;
-            test_with_integrator!(BogackiShampine);
-        }
-        mod dormand_prince {
-            use super::*;
-            test_with_integrator!(DormandPrince);
-        }
-        mod verner_8 {
-            use super::*;
-            test_with_integrator!(Verner8);
-        }
-        mod verner_9 {
-            use super::*;
-            test_with_integrator!(Verner9);
-        }
-        #[test]
-        fn minimize_uniaxial_compression_inner() -> Result<(), TestError> {
-            let deformation_gradient_rate = $constitutive_model_constructed
-                .minimize_uniaxial_inner(
-                    &DeformationGradient::identity(),
-                    -4.4,
-                    &NewtonRaphson::default(),
-                    &DeformationGradientRate::zero(),
-                )?;
-            assert!(deformation_gradient_rate.is_diagonal());
-            assert!(deformation_gradient_rate[0][0] < deformation_gradient_rate[1][1]);
-            assert_eq_within_tols(
-                &deformation_gradient_rate[1][1],
-                &deformation_gradient_rate[2][2],
-            )
-        }
-        #[test]
-        fn minimize_uniaxial_tension_inner() -> Result<(), TestError> {
-            let deformation_gradient_rate = $constitutive_model_constructed
-                .minimize_uniaxial_inner(
-                    &DeformationGradient::identity(),
-                    4.4,
-                    &NewtonRaphson::default(),
-                    &DeformationGradientRate::zero(),
-                )?;
-            assert!(deformation_gradient_rate.is_diagonal());
-            assert!(deformation_gradient_rate[0][0] > deformation_gradient_rate[1][1]);
-            assert_eq_within_tols(
-                &deformation_gradient_rate[1][1],
-                &deformation_gradient_rate[2][2],
-            )
-        }
-        #[test]
-        fn minimize_uniaxial_undeformed_inner() -> Result<(), TestError> {
-            assert_eq_within_tols(
-                &$constitutive_model_constructed.minimize_uniaxial_inner(
-                    &DeformationGradient::identity(),
-                    0.0,
-                    &NewtonRaphson::default(),
-                    &DeformationGradientRate::zero(),
-                )?,
-                &DeformationGradientRate::zero(),
-            )
-        }
-        #[test]
-        fn minimize_biaxial_compression_inner() -> Result<(), TestError> {
-            let deformation_gradient_rate = $constitutive_model_constructed
-                .minimize_biaxial_inner(
-                    &DeformationGradient::identity(),
-                    -0.77,
-                    -0.88,
-                    &NewtonRaphson::default(),
-                    &DeformationGradientRate::zero(),
-                )?;
-            assert!(deformation_gradient_rate.is_diagonal());
-            assert!(deformation_gradient_rate[0][0] < deformation_gradient_rate[2][2]);
-            assert!(deformation_gradient_rate[1][1] < deformation_gradient_rate[2][2]);
-            Ok(())
-        }
-        #[test]
-        fn minimize_biaxial_mixed_inner() -> Result<(), TestError> {
-            let deformation_gradient_rate = $constitutive_model_constructed
-                .minimize_biaxial_inner(
-                    &DeformationGradient::identity(),
-                    1.3,
-                    -0.64,
-                    &NewtonRaphson::default(),
-                    &DeformationGradientRate::zero(),
-                )?;
-            assert!(deformation_gradient_rate.is_diagonal());
-            assert!(deformation_gradient_rate[0][0] > deformation_gradient_rate[2][2]);
-            assert!(deformation_gradient_rate[1][1] < deformation_gradient_rate[2][2]);
-            Ok(())
-        }
-        #[test]
-        fn minimize_biaxial_tension_inner() -> Result<(), TestError> {
-            let deformation_gradient_rate = $constitutive_model_constructed
-                .minimize_biaxial_inner(
-                    &DeformationGradient::identity(),
-                    1.3,
-                    1.2,
-                    &NewtonRaphson::default(),
-                    &DeformationGradientRate::zero(),
-                )?;
-            assert!(deformation_gradient_rate.is_diagonal());
-            assert!(deformation_gradient_rate[0][0] > deformation_gradient_rate[2][2]);
-            assert!(deformation_gradient_rate[1][1] > deformation_gradient_rate[2][2]);
-            Ok(())
-        }
-        #[test]
-        fn minimize_biaxial_undeformed_inner() -> Result<(), TestError> {
-            assert_eq_within_tols(
-                &$constitutive_model_constructed.minimize_biaxial_inner(
-                    &DeformationGradient::identity(),
-                    0.0,
-                    0.0,
-                    &NewtonRaphson::default(),
-                    &DeformationGradientRate::zero(),
-                )?,
-                &DeformationGradientRate::zero(),
-            )
-        }
-        #[test]
-        fn root_uniaxial_compression_inner() -> Result<(), TestError> {
-            let deformation_gradient_rate = $constitutive_model_constructed.root_uniaxial_inner(
-                &DeformationGradient::identity(),
-                -4.4,
-                &NewtonRaphson::default(),
-                &DeformationGradientRate::zero(),
-            )?;
-            assert!(deformation_gradient_rate.is_diagonal());
-            assert!(deformation_gradient_rate[0][0] < deformation_gradient_rate[1][1]);
-            assert_eq_within_tols(
-                &deformation_gradient_rate[1][1],
-                &deformation_gradient_rate[2][2],
-            )
-        }
-        #[test]
-        fn root_uniaxial_tension_inner() -> Result<(), TestError> {
-            let deformation_gradient_rate = $constitutive_model_constructed.root_uniaxial_inner(
-                &DeformationGradient::identity(),
-                4.4,
-                &NewtonRaphson::default(),
-                &DeformationGradientRate::zero(),
-            )?;
-            assert!(deformation_gradient_rate.is_diagonal());
-            assert!(deformation_gradient_rate[0][0] > deformation_gradient_rate[1][1]);
-            assert_eq_within_tols(
-                &deformation_gradient_rate[1][1],
-                &deformation_gradient_rate[2][2],
-            )
-        }
-        #[test]
-        fn root_uniaxial_undeformed_inner() -> Result<(), TestError> {
-            assert_eq_within_tols(
-                &$constitutive_model_constructed.root_uniaxial_inner(
-                    &DeformationGradient::identity(),
-                    0.0,
-                    &NewtonRaphson::default(),
-                    &DeformationGradientRate::zero(),
-                )?,
-                &DeformationGradientRate::zero(),
-            )
-        }
-        #[test]
-        fn root_biaxial_compression_inner() -> Result<(), TestError> {
-            let deformation_gradient_rate = $constitutive_model_constructed.root_biaxial_inner(
-                &DeformationGradient::identity(),
-                -0.77,
-                -0.88,
-                &NewtonRaphson::default(),
-                &DeformationGradientRate::zero(),
-            )?;
-            assert!(deformation_gradient_rate.is_diagonal());
-            assert!(deformation_gradient_rate[0][0] < deformation_gradient_rate[2][2]);
-            assert!(deformation_gradient_rate[1][1] < deformation_gradient_rate[2][2]);
-            Ok(())
-        }
-        #[test]
-        fn root_biaxial_mixed_inner() -> Result<(), TestError> {
-            let deformation_gradient_rate = $constitutive_model_constructed.root_biaxial_inner(
-                &DeformationGradient::identity(),
-                1.3,
-                -0.64,
-                &NewtonRaphson::default(),
-                &DeformationGradientRate::zero(),
-            )?;
-            assert!(deformation_gradient_rate.is_diagonal());
-            assert!(deformation_gradient_rate[0][0] > deformation_gradient_rate[2][2]);
-            assert!(deformation_gradient_rate[1][1] < deformation_gradient_rate[2][2]);
-            Ok(())
-        }
-        #[test]
-        fn root_biaxial_tension_inner() -> Result<(), TestError> {
-            let deformation_gradient_rate = $constitutive_model_constructed.root_biaxial_inner(
-                &DeformationGradient::identity(),
-                1.3,
-                1.2,
-                &NewtonRaphson::default(),
-                &DeformationGradientRate::zero(),
-            )?;
-            assert!(deformation_gradient_rate.is_diagonal());
-            assert!(deformation_gradient_rate[0][0] > deformation_gradient_rate[2][2]);
-            assert!(deformation_gradient_rate[1][1] > deformation_gradient_rate[2][2]);
-            Ok(())
-        }
-        #[test]
-        fn root_biaxial_undeformed_inner() -> Result<(), TestError> {
-            assert_eq_within_tols(
-                &$constitutive_model_constructed.root_biaxial_inner(
-                    &DeformationGradient::identity(),
-                    0.0,
-                    0.0,
-                    &NewtonRaphson::default(),
-                    &DeformationGradientRate::zero(),
-                )?,
-                &DeformationGradientRate::zero(),
-            )
+            use crate::math::optimize::NewtonRaphson;
+            test_with_solver!(NewtonRaphson::default());
         }
     };
 }

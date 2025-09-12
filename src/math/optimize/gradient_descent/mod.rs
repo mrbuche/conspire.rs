@@ -13,6 +13,8 @@ use std::ops::Mul;
 pub struct GradientDescent {
     /// Absolute error tolerance.
     pub abs_tol: Scalar,
+    /// Lagrangian dual.
+    pub dual: bool,
     /// Line search algorithm.
     pub line_search: Option<LineSearch>,
     /// Maximum number of steps.
@@ -23,6 +25,7 @@ impl Default for GradientDescent {
     fn default() -> Self {
         Self {
             abs_tol: ABS_TOL,
+            dual: false,
             line_search: None,
             max_steps: 250,
         }
@@ -45,14 +48,26 @@ where
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizeError> {
         match equality_constraint {
-            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => dual_ascent(
-                self,
-                function,
-                initial_guess,
-                constraint_matrix,
-                constraint_rhs,
-            ),
-            EqualityConstraint::None => descent(self, function, initial_guess, None),
+            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
+                if self.dual {
+                    constrained_dual(
+                        self,
+                        function,
+                        initial_guess,
+                        constraint_matrix,
+                        constraint_rhs,
+                    )
+                } else {
+                    constrained(
+                        self,
+                        function,
+                        initial_guess,
+                        constraint_matrix,
+                        constraint_rhs,
+                    )
+                }
+            }
+            EqualityConstraint::None => unconstrained(self, function, initial_guess, None),
         }
     }
 }
@@ -70,19 +85,31 @@ where
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizeError> {
         match equality_constraint {
-            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => dual_ascent(
-                self,
-                jacobian,
-                initial_guess,
-                constraint_matrix,
-                constraint_rhs,
-            ),
-            EqualityConstraint::None => descent(self, jacobian, initial_guess, None),
+            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
+                if self.dual {
+                    constrained_dual(
+                        self,
+                        jacobian,
+                        initial_guess,
+                        constraint_matrix,
+                        constraint_rhs,
+                    )
+                } else {
+                    constrained(
+                        self,
+                        jacobian,
+                        initial_guess,
+                        constraint_matrix,
+                        constraint_rhs,
+                    )
+                }
+            }
+            EqualityConstraint::None => unconstrained(self, jacobian, initial_guess, None),
         }
     }
 }
 
-fn descent<X>(
+fn unconstrained<X>(
     gradient_descent: &GradientDescent,
     jacobian: impl Fn(&X) -> Result<X, OptimizeError>,
     initial_guess: X,
@@ -132,7 +159,73 @@ where
     ))
 }
 
-fn dual_ascent<X>(
+fn constrained<X>(
+    gradient_descent: &GradientDescent,
+    jacobian: impl Fn(&X) -> Result<X, OptimizeError>,
+    initial_guess: X,
+    constraint_matrix: Matrix,
+    constraint_rhs: Vector,
+) -> Result<X, OptimizeError>
+where
+    X: Jacobian,
+    for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
+{
+    if gradient_descent.line_search.is_some() {
+        panic!("Line search needs the exact penalty function in constrained optimization.")
+    }
+    let mut residual_solution;
+    let mut residual_solution_change = initial_guess.clone() * 0.0;
+    let mut solution = initial_guess.clone();
+    let mut solution_change = solution.clone();
+    let mut step_size_solution = INITIAL_STEP_SIZE;
+    let mut step_trial_solution;
+    let num_constraints = constraint_rhs.len();
+    let mut residual_multipliers;
+    let mut residual_multipliers_change = Vector::zero(num_constraints);
+    let mut multipliers = Vector::zero(num_constraints);
+    let mut multipliers_change = Vector::zero(num_constraints);
+    let mut step_size_multipliers = INITIAL_STEP_SIZE;
+    let mut step_trial_multipliers;
+    let mut step_size;
+    for _ in 0..gradient_descent.max_steps {
+        residual_solution = jacobian(&solution)? - &multipliers * &constraint_matrix;
+        residual_multipliers = &constraint_rhs - &constraint_matrix * &solution;
+        if residual_solution.norm_inf() < gradient_descent.abs_tol
+            && residual_multipliers.norm_inf() < gradient_descent.abs_tol
+        {
+            return Ok(solution);
+        } else {
+            solution_change -= &solution;
+            residual_solution_change -= &residual_solution;
+            step_trial_solution = residual_solution_change.full_contraction(&solution_change)
+                / residual_solution_change.norm_squared();
+            if step_trial_solution.abs() > 0.0 && !step_trial_solution.is_nan() {
+                step_size_solution = step_trial_solution.abs()
+            }
+            residual_solution_change = residual_solution.clone();
+            solution_change = solution.clone();
+            multipliers_change -= &multipliers;
+            residual_multipliers_change -= &residual_multipliers;
+            step_trial_multipliers = residual_multipliers_change
+                .full_contraction(&multipliers_change)
+                / residual_multipliers_change.norm_squared();
+            if step_trial_multipliers.abs() > 0.0 && !step_trial_multipliers.is_nan() {
+                step_size_multipliers = step_trial_multipliers.abs()
+            }
+            residual_multipliers_change = residual_multipliers.clone();
+            multipliers_change = multipliers.clone();
+            step_size = step_size_solution.min(step_size_multipliers);
+            solution -= residual_solution * step_size;
+            multipliers += residual_multipliers * step_size;
+        }
+    }
+    Err(OptimizeError::MaximumStepsReached(
+        gradient_descent.max_steps,
+        format!("{gradient_descent:?}"),
+    ))
+}
+
+fn constrained_dual<X>(
     gradient_descent: &GradientDescent,
     jacobian: impl Fn(&X) -> Result<X, OptimizeError>,
     initial_guess: X,
@@ -155,7 +248,7 @@ where
     let mut step_size = INITIAL_STEP_SIZE;
     let mut step_trial;
     for _ in 0..gradient_descent.max_steps {
-        if let Ok(result) = descent(
+        if let Ok(result) = unconstrained(
             gradient_descent,
             &jacobian,
             solution.clone(),
