@@ -246,7 +246,7 @@ where
     fn retain<F>(&mut self, f: F)
     where
         F: FnMut(&Self::Item) -> bool;
-    /// Removes an item from the Vec and returns it, replacing it the last item.
+    /// Removes an item from the Vec and returns it, replacing it with the last item.
     fn swap_remove(&mut self, _index: usize) -> Self::Item;
     /// Returns the zero tensor.
     fn zero(len: usize) -> Self;
