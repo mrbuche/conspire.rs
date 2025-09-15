@@ -20,6 +20,10 @@ use std::{
 pub struct Vector(Vec<Scalar>);
 
 impl Vector {
+    /// Returns a raw pointer to the vector’s buffer, or a dangling raw pointer valid for zero sized reads if the vector didn’t allocate.
+    pub const fn as_ptr(&self) -> *const Scalar {
+        self.0.as_ptr()
+    }
     pub fn as_slice(&self) -> &[Scalar] {
         self.0.as_slice()
     }
@@ -111,7 +115,6 @@ impl<const D: usize, const I: usize, const J: usize> From<TensorRank2<D, I, J>> 
         let length = D * D;
         let capacity = length;
         let pointer = tensor_rank_2.as_ptr() as *mut Scalar;
-        // forget(tensor_rank_2);
         unsafe { Self(Vec::from_raw_parts(pointer, length, capacity)) }
     }
 }

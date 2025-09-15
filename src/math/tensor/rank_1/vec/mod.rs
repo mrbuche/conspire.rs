@@ -128,9 +128,10 @@ impl<const D: usize, const I: usize> From<Vector> for TensorRank1Vec<D, I> {
         if n % D != 0 {
             panic!("Vector length mismatch.")
         } else {
-            (0..n / D)
-                .map(|a| (0..D).map(|i| vector[D * a + i]).collect())
-                .collect()
+            let length = n / D;
+            let pointer = vector.as_ptr() as *mut TensorRank1<D, I>;
+            std::mem::forget(vector);
+            unsafe { Self(Vec::from_raw_parts(pointer, length, length)) }
         }
     }
 }
@@ -141,9 +142,9 @@ impl<const D: usize, const I: usize> From<&Vector> for TensorRank1Vec<D, I> {
         if n % D != 0 {
             panic!("Vector length mismatch.")
         } else {
-            (0..n / D)
-                .map(|a| (0..D).map(|i| vector[D * a + i]).collect())
-                .collect()
+            let length = n / D;
+            let pointer = vector.as_ptr() as *mut TensorRank1<D, I>;
+            unsafe { Self(Vec::from_raw_parts(pointer, length, length)) }
         }
     }
 }
