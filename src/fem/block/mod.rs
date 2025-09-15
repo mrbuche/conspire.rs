@@ -14,8 +14,8 @@ use crate::{
         Banded,
         integrate::{Explicit, IntegrationError},
         optimize::{
-            EqualityConstraint, FirstOrderRootFinding, OptimizeError, SecondOrderOptimization,
-            ZerothOrderRootFinding,
+            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizeError,
+            SecondOrderOptimization, ZerothOrderRootFinding,
         },
     },
     mechanics::Times,
@@ -238,6 +238,19 @@ where
     ) -> Result<Scalar, ConstitutiveError>;
 }
 
+pub trait FirstOrderMinimize<C, F, const G: usize, const N: usize>
+where
+    C: Hyperelastic,
+    F: HyperelasticFiniteElement<C, G, N>,
+    Self: ElasticFiniteElementBlock<C, F, G, N>,
+{
+    fn minimize(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: impl FirstOrderOptimization<Scalar, NodalForcesBlock>,
+    ) -> Result<NodalCoordinatesBlock, OptimizeError>;
+}
+
 pub trait SecondOrderMinimize<C, F, const G: usize, const N: usize>
 where
     C: Hyperelastic,
@@ -416,24 +429,24 @@ where
     }
 }
 
-// impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N> for ElementBlock<F, N>
-// where
-//     C: Elastic,
-//     F: ElasticFiniteElement<C, G, N>,
-//     Self: FiniteElementBlockMethods<C, F, G, N>,
-// {
-//     fn root(
-//         &self,
-//         equality_constraint: EqualityConstraint,
-//         solver: impl ZerothOrderRootFinding<NodalCoordinatesBlock>,
-//     ) -> Result<NodalCoordinatesBlock, OptimizeError> {
-//         solver.root(
-//             |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
-//             self.coordinates().clone().into(),
-//             equality_constraint,
-//         )
-//     }
-// }
+impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N> for ElementBlock<F, N>
+where
+    C: Elastic,
+    F: ElasticFiniteElement<C, G, N>,
+    Self: FiniteElementBlockMethods<C, F, G, N>,
+{
+    fn root(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: impl ZerothOrderRootFinding<NodalCoordinatesBlock>,
+    ) -> Result<NodalCoordinatesBlock, OptimizeError> {
+        solver.root(
+            |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
+            self.coordinates().clone().into(),
+            equality_constraint,
+        )
+    }
+}
 
 impl<C, F, const G: usize, const N: usize> FirstOrderRoot<C, F, G, N> for ElementBlock<F, N>
 where
@@ -481,6 +494,28 @@ where
                 )
             })
             .sum()
+    }
+}
+
+impl<C, F, const G: usize, const N: usize> FirstOrderMinimize<C, F, G, N> for ElementBlock<F, N>
+where
+    C: Hyperelastic,
+    F: HyperelasticFiniteElement<C, G, N>,
+    Self: ElasticFiniteElementBlock<C, F, G, N>,
+{
+    fn minimize(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: impl FirstOrderOptimization<Scalar, NodalForcesBlock>,
+    ) -> Result<NodalCoordinatesBlock, OptimizeError> {
+        solver.minimize(
+            |nodal_coordinates: &NodalCoordinatesBlock| {
+                Ok(self.helmholtz_free_energy(nodal_coordinates)?)
+            },
+            |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
+            self.coordinates().clone().into(),
+            equality_constraint,
+        )
     }
 }
 

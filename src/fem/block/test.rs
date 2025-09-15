@@ -661,8 +661,11 @@ macro_rules! test_finite_element_block_with_elastic_or_hyperelastic_constitutive
                 fn root() -> Result<(), TestError> {
                     let (applied_load, a, b) = equality_constraint();
                     let block = get_block();
-                    let coordinates =
-                        block.root(EqualityConstraint::Linear(a, b), $solver::default())?;
+                    let coordinates = FirstOrderRoot::root(
+                        &block,
+                        EqualityConstraint::Linear(a, b),
+                        $solver::default(),
+                    )?;
                     let deformation_gradient =
                         $constitutive_model::new($constitutive_model_parameters)
                             .root(applied_load, $solver::default())?;
@@ -748,7 +751,7 @@ macro_rules! test_finite_element_block_with_hyperelastic_constitutive_model {
                     let (applied_load, a, b) = equality_constraint();
                     let block = get_block();
                     let coordinates =
-                        block.minimize(EqualityConstraint::Linear(a, b), $solver::default())?;
+                        SecondOrderMinimize::minimize(&block, EqualityConstraint::Linear(a, b), $solver::default())?;
                     let deformation_gradient =
                         $constitutive_model::new($constitutive_model_parameters)
                             .minimize(applied_load, $solver::default())?;

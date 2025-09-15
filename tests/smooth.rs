@@ -4,11 +4,11 @@ use conspire::{
     constitutive::solid::hyperelastic::NeoHookean,
     fem::{
         Connectivity, ElementBlock, FiniteElementBlock, LinearHexahedron,
-        ReferenceNodalCoordinatesBlock, SecondOrderMinimize,
+        ReferenceNodalCoordinatesBlock,
     },
     math::{
         Matrix, Tensor, TensorVec, TestError, Vector,
-        optimize::{EqualityConstraint, NewtonRaphson},
+        optimize::{EqualityConstraint, GradientDescent, NewtonRaphson},
     },
 };
 
@@ -871,6 +871,7 @@ fn coordinates() -> ReferenceNodalCoordinatesBlock {
 
 #[test]
 fn temporary_1() -> Result<(), TestError> {
+    use conspire::fem::SecondOrderMinimize;
     let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
     connectivity
@@ -926,6 +927,7 @@ fn temporary_1() -> Result<(), TestError> {
 
 #[test]
 fn temporary_2() -> Result<(), TestError> {
+    use conspire::fem::SecondOrderMinimize;
     let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
     connectivity
@@ -985,6 +987,7 @@ fn temporary_2() -> Result<(), TestError> {
 
 #[test]
 fn temporary_3() -> Result<(), TestError> {
+    use conspire::fem::SecondOrderMinimize;
     let mut connectivity = connectivity();
     connectivity
         .iter_mut()
@@ -1010,6 +1013,47 @@ fn temporary_3() -> Result<(), TestError> {
     let time = std::time::Instant::now();
     println!("Solving...");
     let _solution = block.minimize(EqualityConstraint::Fixed(indices), NewtonRaphson::default())?;
+    println!("Done ({:?}).", time.elapsed());
+    // solution.iter().for_each(|coordinate| {
+    //     println!(
+    //         "{:?} {:?} {:?} 0",
+    //         coordinate[0], coordinate[1], coordinate[2]
+    //     )
+    // });
+    Ok(())
+}
+
+#[test]
+fn temporary_4() -> Result<(), TestError> {
+    use conspire::fem::FirstOrderMinimize;
+    let mut connectivity = connectivity();
+    connectivity
+        .iter_mut()
+        .flatten()
+        .for_each(|entry| *entry -= 1);
+    let parameters = &[0.0, 1.0];
+    let mut block = ElementBlock::<LinearHexahedron<NeoHookean<_>>, N>::new(
+        parameters,
+        connectivity,
+        coordinates(),
+    );
+    block.reset();
+    let nodes = coordinates()
+        .iter()
+        .enumerate()
+        .filter(|(_, coordinate)| coordinate.iter().any(|c| c == &0.0 || c == &100.0))
+        .map(|(node, _)| node)
+        .collect::<Vec<usize>>();
+    let indices: Vec<usize> = nodes
+        .iter()
+        .flat_map(|node| vec![3 * node, 3 * node + 1, 3 * node + 2])
+        .collect();
+    let time = std::time::Instant::now();
+    println!("Solving...");
+    let _solution = block.minimize(
+        EqualityConstraint::Fixed(indices),
+        GradientDescent::default(),
+    )?;
     println!("Done ({:?}).", time.elapsed());
     // solution.iter().for_each(|coordinate| {
     //     println!(
