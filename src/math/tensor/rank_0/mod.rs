@@ -24,6 +24,9 @@ impl ErrorTensor for TensorRank0 {
 }
 
 impl Solution for TensorRank0 {
+    fn decrement_from(&mut self, _other: &Vector) {
+        unimplemented!()
+    }
     fn decrement_from_chained(&mut self, _other: &mut Vector, _vector: Vector) {
         unimplemented!()
     }
@@ -122,5 +125,11 @@ impl TensorArray for TensorRank0 {
 impl From<TensorRank0> for Vector {
     fn from(tensor_rank_0: TensorRank0) -> Self {
         Vector::new(&[tensor_rank_0])
+    }
+}
+
+impl From<Vector> for TensorRank0 {
+    fn from(vector: Vector) -> Self {
+        vector[0]
     }
 }

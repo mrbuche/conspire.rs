@@ -781,6 +781,49 @@ fn band<const N: usize>(
     number_of_nodes: usize,
 ) -> Banded {
     match equality_constraint {
+        EqualityConstraint::Fixed(indices) => {
+            let neighbors: Vec<Vec<usize>> = invert(connectivity, number_of_nodes)
+                .iter()
+                .map(|elements| {
+                    let mut nodes: Vec<usize> = elements
+                        .iter()
+                        .flat_map(|&element| connectivity[element])
+                        .collect();
+                    nodes.sort();
+                    nodes.dedup();
+                    nodes
+                })
+                .collect();
+            let structure: Vec<Vec<bool>> = neighbors
+                .iter()
+                .map(|nodes| (0..number_of_nodes).map(|b| nodes.contains(&b)).collect())
+                .collect();
+            let structure_3d: Vec<Vec<bool>> = structure
+                .iter()
+                .flat_map(|row| {
+                    repeat_n(
+                        row.iter().flat_map(|entry| repeat_n(*entry, 3)).collect(),
+                        3,
+                    )
+                })
+                .collect();
+            let mut keep = vec![true; structure_3d.len()];
+            indices.iter().for_each(|&index| keep[index] = false);
+            let banded = structure_3d
+                .into_iter()
+                .zip(keep.iter())
+                .filter(|(_, keep)| **keep)
+                .map(|(structure_3d_a, _)| {
+                    structure_3d_a
+                        .into_iter()
+                        .zip(keep.iter())
+                        .filter(|(_, keep)| **keep)
+                        .map(|(structure_3d_ab, _)| structure_3d_ab)
+                        .collect::<Vec<bool>>()
+                })
+                .collect::<Vec<Vec<bool>>>();
+            Banded::from(banded)
+        }
         EqualityConstraint::Linear(matrix, _) => {
             let neighbors: Vec<Vec<usize>> = invert(connectivity, number_of_nodes)
                 .iter()
@@ -832,7 +875,34 @@ fn band<const N: usize>(
             });
             Banded::from(banded)
         }
-        _ => unimplemented!(),
+        EqualityConstraint::None => {
+            let neighbors: Vec<Vec<usize>> = invert(connectivity, number_of_nodes)
+                .iter()
+                .map(|elements| {
+                    let mut nodes: Vec<usize> = elements
+                        .iter()
+                        .flat_map(|&element| connectivity[element])
+                        .collect();
+                    nodes.sort();
+                    nodes.dedup();
+                    nodes
+                })
+                .collect();
+            let structure: Vec<Vec<bool>> = neighbors
+                .iter()
+                .map(|nodes| (0..number_of_nodes).map(|b| nodes.contains(&b)).collect())
+                .collect();
+            let structure_3d: Vec<Vec<bool>> = structure
+                .iter()
+                .flat_map(|row| {
+                    repeat_n(
+                        row.iter().flat_map(|entry| repeat_n(*entry, 3)).collect(),
+                        3,
+                    )
+                })
+                .collect();
+            Banded::from(structure_3d)
+        }
     }
 }
 

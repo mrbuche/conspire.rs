@@ -48,6 +48,9 @@ where
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizeError> {
         match equality_constraint {
+            EqualityConstraint::Fixed(indices) => {
+                constrained_fixed(self, function, initial_guess, indices)
+            }
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
                 if self.dual {
                     constrained_dual(
@@ -85,6 +88,9 @@ where
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizeError> {
         match equality_constraint {
+            EqualityConstraint::Fixed(indices) => {
+                constrained_fixed(self, jacobian, initial_guess, indices)
+            }
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
                 if self.dual {
                     constrained_dual(
@@ -138,6 +144,49 @@ where
         } else {
             jacobian(&solution)?
         };
+        if residual.norm_inf() < gradient_descent.abs_tol {
+            return Ok(solution);
+        } else {
+            solution_change -= &solution;
+            residual_change -= &residual;
+            step_trial =
+                residual_change.full_contraction(&solution_change) / residual_change.norm_squared();
+            if step_trial.abs() > 0.0 && !step_trial.is_nan() {
+                step_size = step_trial.abs()
+            }
+            residual_change = residual.clone();
+            solution_change = solution.clone();
+            solution -= residual * step_size;
+        }
+    }
+    Err(OptimizeError::MaximumStepsReached(
+        gradient_descent.max_steps,
+        format!("{gradient_descent:?}"),
+    ))
+}
+
+fn constrained_fixed<X>(
+    gradient_descent: &GradientDescent,
+    jacobian: impl Fn(&X) -> Result<X, OptimizeError>,
+    initial_guess: X,
+    indices: Vec<usize>,
+) -> Result<X, OptimizeError>
+where
+    X: Jacobian,
+{
+    if gradient_descent.line_search.is_some() {
+        unimplemented!();
+    }
+    let mut retained = vec![true; initial_guess.num_entries()];
+    indices.iter().for_each(|&index| retained[index] = false);
+    let mut residual: X;
+    let mut residual_change = initial_guess.clone() * 0.0;
+    let mut solution = initial_guess.clone();
+    let mut solution_change = solution.clone();
+    let mut step_size = INITIAL_STEP_SIZE;
+    let mut step_trial;
+    for _ in 0..gradient_descent.max_steps {
+        residual = jacobian(&solution)?.retain_from(&retained).into();
         if residual.norm_inf() < gradient_descent.abs_tol {
             return Ok(solution);
         } else {

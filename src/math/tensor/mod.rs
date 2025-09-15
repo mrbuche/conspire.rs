@@ -46,6 +46,8 @@ pub trait Solution
 where
     Self: Tensor,
 {
+    /// Decrements the solution from another vector.
+    fn decrement_from(&mut self, other: &Vector);
     /// Decrements the solution chained with a vector from another vector.
     fn decrement_from_chained(&mut self, other: &mut Vector, vector: Vector);
 }
@@ -53,12 +55,17 @@ where
 /// Common methods for Jacobians.
 pub trait Jacobian
 where
-    Self: Tensor + Sub<Vector, Output = Self> + for<'a> Sub<&'a Vector, Output = Self>,
+    Self:
+        From<Vector> + Tensor + Sub<Vector, Output = Self> + for<'a> Sub<&'a Vector, Output = Self>,
 {
     /// Fills the Jacobian into a vector.
     fn fill_into(self, vector: &mut Vector);
     /// Fills the Jacobian chained with a vector into another vector.
     fn fill_into_chained(self, other: Vector, vector: &mut Vector);
+    /// Return only the retained indices.
+    fn retain_from(self, _retained: &[bool]) -> Vector {
+        unimplemented!()
+    }
 }
 
 /// Common methods for Hessians.
@@ -68,6 +75,10 @@ where
 {
     /// Fills the Hessian into a square matrix.
     fn fill_into(self, square_matrix: &mut SquareMatrix);
+    /// Return only the retained indices.
+    fn retain_from(self, _retained: &[bool]) -> SquareMatrix {
+        unimplemented!()
+    }
 }
 
 /// Common methods for rank-2 tensors.
@@ -226,27 +237,29 @@ pub trait TensorVec
 where
     Self: FromIterator<Self::Item> + Index<usize, Output = Self::Item> + IndexMut<usize>,
 {
-    /// The type of item encountered when iterating over the tensor.
+    /// The type of element encountered when iterating over the tensor.
     type Item;
     /// The type of slice corresponding to the tensor.
     type Slice<'a>;
-    /// Moves all the items of other into self, leaving other empty.
+    /// Moves all the elements of other into self, leaving other empty.
     fn append(&mut self, other: &mut Self);
-    /// Returns `true` if the vector contains no items.
+    /// Returns the total number of elements the vector can hold without reallocating.
+    fn capacity(&self) -> usize;
+    /// Returns `true` if the vector contains no elements.
     fn is_empty(&self) -> bool;
-    /// Returns the number of items in the vector, also referred to as its ‘length’.
+    /// Returns the number of elements in the vector, also referred to as its ‘length’.
     fn len(&self) -> usize;
     /// Returns a tensor given a slice.
     fn new(slice: Self::Slice<'_>) -> Self;
-    /// Appends an item to the back of the Vec.
+    /// Appends an element to the back of the Vec.
     fn push(&mut self, item: Self::Item);
-    /// Removes an item from the Vec and returns it, shifting items to the left.
+    /// Removes an element from the Vec and returns it, shifting elements to the left.
     fn remove(&mut self, _index: usize) -> Self::Item;
-    /// Retains only the items specified by the predicate.
+    /// Retains only the elements specified by the predicate.
     fn retain<F>(&mut self, f: F)
     where
         F: FnMut(&Self::Item) -> bool;
-    /// Removes an item from the Vec and returns it, replacing it with the last item.
+    /// Removes an element from the Vec and returns it, replacing it with the last element.
     fn swap_remove(&mut self, _index: usize) -> Self::Item;
     /// Returns the zero tensor.
     fn zero(len: usize) -> Self;

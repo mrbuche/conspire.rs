@@ -49,6 +49,15 @@ where
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizeError> {
         match equality_constraint {
+            EqualityConstraint::Fixed(indices) => constrained_fixed(
+                self,
+                |_: &X| panic!("No line search in root finding"),
+                function,
+                jacobian,
+                initial_guess,
+                None,
+                indices,
+            ),
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
                 self,
                 |_: &X| panic!("No line search in root finding"),
@@ -89,6 +98,15 @@ where
         banded: Option<Banded>,
     ) -> Result<X, OptimizeError> {
         match equality_constraint {
+            EqualityConstraint::Fixed(indices) => constrained_fixed(
+                self,
+                function,
+                jacobian,
+                hessian,
+                initial_guess,
+                banded,
+                indices,
+            ),
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
                 self,
                 function,
@@ -119,7 +137,6 @@ where
     for<'a> &'a J: Div<H, Output = X> + From<&'a X>,
     X: Solution,
     for<'a> &'a X: Mul<Scalar, Output = X>,
-    for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     let mut decrement;
     let mut residual;
@@ -138,6 +155,48 @@ where
             }
             solution -= decrement
         }
+    }
+    Err(OptimizeError::MaximumStepsReached(
+        newton_raphson.max_steps,
+        format!("{:?}", &newton_raphson),
+    ))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn constrained_fixed<J, H, X>(
+    newton_raphson: &NewtonRaphson,
+    _function: impl Fn(&X) -> Result<Scalar, OptimizeError>,
+    jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
+    hessian: impl Fn(&X) -> Result<H, OptimizeError>,
+    initial_guess: X,
+    banded: Option<Banded>,
+    indices: Vec<usize>,
+) -> Result<X, OptimizeError>
+where
+    H: Hessian,
+    J: Jacobian,
+    X: Solution,
+{
+    if newton_raphson.line_search.is_some() {
+        panic!("Line search needs the exact penalty function in constrained optimization.");
+    }
+    let mut retained = vec![true; initial_guess.num_entries()];
+    indices.iter().for_each(|&index| retained[index] = false);
+    let mut decrement;
+    let mut residual;
+    let mut solution = initial_guess;
+    let mut tangent;
+    for _ in 0..newton_raphson.max_steps {
+        residual = jacobian(&solution)?.retain_from(&retained);
+        tangent = hessian(&solution)?.retain_from(&retained);
+        if residual.norm_inf() < newton_raphson.abs_tol {
+            return Ok(solution);
+        } else if let Some(ref band) = banded {
+            decrement = tangent.solve_lu_banded(&residual, band)?
+        } else {
+            decrement = tangent.solve_lu(&residual)?
+        }
+        solution.decrement_from(&decrement)
     }
     Err(OptimizeError::MaximumStepsReached(
         newton_raphson.max_steps,

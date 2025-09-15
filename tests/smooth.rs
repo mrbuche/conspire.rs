@@ -3,12 +3,11 @@
 use conspire::{
     constitutive::solid::hyperelastic::NeoHookean,
     fem::{
-        Connectivity, ElasticFiniteElementBlock, ElementBlock, FiniteElementBlock,
-        LinearHexahedron, NodalCoordinatesBlock, NodalForcesBlock, NodalStiffnessesBlock,
+        Connectivity, ElementBlock, FiniteElementBlock, LinearHexahedron,
         ReferenceNodalCoordinatesBlock, SecondOrderMinimize,
     },
     math::{
-        Matrix, SquareMatrix, Tensor, TensorVec, TestError, Vector,
+        Matrix, Tensor, TensorVec, TestError, Vector,
         optimize::{EqualityConstraint, NewtonRaphson},
     },
 };
@@ -911,17 +910,17 @@ fn temporary_1() -> Result<(), TestError> {
         });
     let time = std::time::Instant::now();
     println!("Solving...");
-    let solution = block.minimize(
+    let _solution = block.minimize(
         EqualityConstraint::Linear(matrix, vector),
         NewtonRaphson::default(),
     )?;
     println!("Done ({:?}).", time.elapsed());
-    solution.iter().for_each(|coordinate| {
-        println!(
-            "{:?} {:?} {:?} 0",
-            coordinate[0], coordinate[1], coordinate[2]
-        )
-    });
+    // solution.iter().for_each(|coordinate| {
+    //     println!(
+    //         "{:?} {:?} {:?} 0",
+    //         coordinate[0], coordinate[1], coordinate[2]
+    //     )
+    // });
     Ok(())
 }
 
@@ -970,29 +969,27 @@ fn temporary_2() -> Result<(), TestError> {
         });
     let time = std::time::Instant::now();
     println!("Solving...");
-    let solution = block.minimize(
+    let _solution = block.minimize(
         EqualityConstraint::Linear(matrix, vector),
         NewtonRaphson::default(),
     )?;
     println!("Done ({:?}).", time.elapsed());
-    solution.iter().for_each(|coordinate| {
-        println!(
-            "{:?} {:?} {:?} 0",
-            coordinate[0], coordinate[1], coordinate[2]
-        )
-    });
+    // solution.iter().for_each(|coordinate| {
+    //     println!(
+    //         "{:?} {:?} {:?} 0",
+    //         coordinate[0], coordinate[1], coordinate[2]
+    //     )
+    // });
     Ok(())
 }
 
 #[test]
 fn temporary_3() -> Result<(), TestError> {
-    let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
     connectivity
         .iter_mut()
         .flatten()
         .for_each(|entry| *entry -= 1);
-    let num_nodes = ref_coordinates.len();
     let parameters = &[0.0, 1.0];
     let mut block = ElementBlock::<LinearHexahedron<NeoHookean<_>>, N>::new(
         parameters,
@@ -1006,63 +1003,13 @@ fn temporary_3() -> Result<(), TestError> {
         .filter(|(_, coordinate)| coordinate.iter().any(|c| c == &0.0 || c == &100.0))
         .map(|(node, _)| node)
         .collect::<Vec<usize>>();
-    let mut map = vec![];
-    (0..num_nodes)
-        .filter(|node| !nodes.contains(node))
-        .for_each(|node| map.push(node));
-    let mut keep = vec![true; num_nodes];
-    nodes.iter().for_each(|&node| keep[node] = false);
-    let nodal_forces = |coordinates: &NodalCoordinatesBlock| {
-        block
-            .nodal_forces(coordinates)
-            .unwrap()
-            .into_iter()
-            .zip(keep.iter())
-            .filter(|(_, keep)| **keep)
-            .map(|(force, _)| force)
-            .collect::<NodalForcesBlock>()
-            .into()
-    };
-    let nodal_stiffnesses = |coordinates: &NodalCoordinatesBlock| {
-        block
-            .nodal_stiffnesses(coordinates)
-            .unwrap()
-            .into_iter()
-            .zip(keep.iter())
-            .filter(|(_, keep)| **keep)
-            .map(|(nodal_stiffness_a, _)| {
-                nodal_stiffness_a
-                    .into_iter()
-                    .zip(keep.iter())
-                    .filter(|(_, keep)| **keep)
-                    .map(|(nodal_stiffness_a, _)| nodal_stiffness_a)
-                    .collect()
-            })
-            .collect::<NodalStiffnessesBlock>()
-            .into()
-    };
+    let indices: Vec<usize> = nodes
+        .iter()
+        .flat_map(|node| vec![3 * node, 3 * node + 1, 3 * node + 2])
+        .collect();
     let time = std::time::Instant::now();
-    let mut decrement: NodalCoordinatesBlock;
-    let mut residual: Vector;
-    let mut solution = coordinates().into();
-    let mut tangent: SquareMatrix;
-    for iteration in 0..25 {
-        residual = nodal_forces(&solution);
-        tangent = nodal_stiffnesses(&solution);
-        if residual.norm_inf() < 1e-12 {
-            println!("{iteration} iterations");
-            break;
-        } else {
-            decrement = tangent.solve_lu(&residual).unwrap().into();
-            decrement
-                .iter()
-                .enumerate()
-                .for_each(|(index, entry)| solution[map[index]] -= entry);
-        }
-        if iteration == 25 {
-            panic!()
-        }
-    }
+    println!("Solving...");
+    let _solution = block.minimize(EqualityConstraint::Fixed(indices), NewtonRaphson::default())?;
     println!("Done ({:?}).", time.elapsed());
     // solution.iter().for_each(|coordinate| {
     //     println!(

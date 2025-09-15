@@ -7,6 +7,7 @@ use crate::math::{
 };
 use std::{
     fmt::{Display, Formatter, Result},
+    mem::forget,
     ops::{
         Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, RangeFrom, RangeTo, Sub,
         SubAssign,
@@ -89,15 +90,29 @@ impl Display for Vector {
     }
 }
 
+impl From<Vec<Scalar>> for Vector {
+    fn from(vec: Vec<Scalar>) -> Self {
+        Self(vec)
+    }
+}
+
 impl<const D: usize, const I: usize> From<TensorRank1Vec<D, I>> for Vector {
     fn from(tensor_rank_1_vec: TensorRank1Vec<D, I>) -> Self {
-        tensor_rank_1_vec.into_iter().flatten().collect()
+        let length = tensor_rank_1_vec.len() * D;
+        let capacity = tensor_rank_1_vec.capacity() * D;
+        let pointer = tensor_rank_1_vec.as_ptr() as *mut Scalar;
+        forget(tensor_rank_1_vec);
+        unsafe { Self(Vec::from_raw_parts(pointer, length, capacity)) }
     }
 }
 
 impl<const D: usize, const I: usize, const J: usize> From<TensorRank2<D, I, J>> for Vector {
     fn from(tensor_rank_2: TensorRank2<D, I, J>) -> Self {
-        tensor_rank_2.into_iter().flatten().collect()
+        let length = D * D;
+        let capacity = length;
+        let pointer = tensor_rank_2.as_ptr() as *mut Scalar;
+        // forget(tensor_rank_2);
+        unsafe { Self(Vec::from_raw_parts(pointer, length, capacity)) }
     }
 }
 
@@ -148,6 +163,11 @@ impl Tensor for Vector {
 }
 
 impl Solution for Vector {
+    fn decrement_from(&mut self, other: &Vector) {
+        self.iter_mut()
+            .zip(other.iter())
+            .for_each(|(self_i, vector_i)| *self_i -= vector_i)
+    }
     fn decrement_from_chained(&mut self, other: &mut Self, vector: Vector) {
         self.iter_mut()
             .chain(other.iter_mut())
@@ -183,6 +203,9 @@ impl TensorVec for Vector {
     type Slice<'a> = &'a [Scalar];
     fn append(&mut self, other: &mut Self) {
         self.0.append(&mut other.0)
+    }
+    fn capacity(&self) -> usize {
+        self.0.capacity()
     }
     fn is_empty(&self) -> bool {
         self.0.is_empty()
