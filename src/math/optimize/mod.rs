@@ -74,6 +74,12 @@ pub enum OptimizeError {
     SingularMatrix,
 }
 
+impl From<OptimizeError> for String {
+    fn from(error: OptimizeError) -> Self {
+        error.to_string()
+    }
+}
+
 impl From<OptimizeError> for TestError {
     fn from(error: OptimizeError) -> Self {
         Self {
