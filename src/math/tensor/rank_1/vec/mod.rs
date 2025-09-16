@@ -268,6 +268,14 @@ impl<const D: usize, const I: usize> Solution for TensorRank1Vec<D, I> {
             .zip(vector)
             .for_each(|(entry_i, vector_i)| *entry_i -= vector_i)
     }
+    fn decrement_from_retained(&mut self, retained: &[bool], other: &Vector) {
+        self.iter_mut()
+            .flat_map(|x| x.iter_mut())
+            .zip(retained.iter())
+            .filter(|(_, retained_i)| **retained_i)
+            .zip(other.iter())
+            .for_each(|((self_i, _), vector_i)| *self_i -= vector_i)
+    }
 }
 
 impl<const D: usize, const I: usize> Jacobian for TensorRank1Vec<D, I> {

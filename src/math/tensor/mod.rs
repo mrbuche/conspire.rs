@@ -50,6 +50,10 @@ where
     fn decrement_from(&mut self, other: &Vector);
     /// Decrements the solution chained with a vector from another vector.
     fn decrement_from_chained(&mut self, other: &mut Vector, vector: Vector);
+    /// Decrements the solution from another vector on retained entries.
+    fn decrement_from_retained(&mut self, _retained: &[bool], _other: &Vector) {
+        unimplemented!()
+    }
 }
 
 /// Common methods for Jacobians.

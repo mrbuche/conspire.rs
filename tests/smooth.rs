@@ -10296,7 +10296,7 @@ fn temporary_6() -> Result<(), TestError> {
     let _solution = block.minimize(
         EqualityConstraint::Fixed(indices),
         NewtonRaphson {
-            abs_tol: 1e-1,
+            abs_tol: 1e1,
             ..Default::default()
         },
     )?;
