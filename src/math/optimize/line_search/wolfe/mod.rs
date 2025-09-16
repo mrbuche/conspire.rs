@@ -22,6 +22,7 @@ where
     for<'a> &'a X: Mul<Scalar, Output = X>,
 {
     assert!(step_size > &0.0, "Negative step size");
+    let mut f_n;
     let mut n = -step_size;
     let f = function(argument)?;
     let m = jacobian(argument)?.full_contraction(decrement.into());
@@ -30,7 +31,9 @@ where
     let t_2 = control_2 * m;
     let mut trial_argument = decrement * n + argument;
     for _ in 0..max_steps {
-        if function(&trial_argument)? - f > n * t_1
+        f_n = function(&trial_argument);
+        if f_n.is_err()
+            || f_n? - f > n * t_1
             || if strong {
                 jacobian(&trial_argument)?.full_contraction(decrement.into()) > t_2
             } else {

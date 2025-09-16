@@ -19,7 +19,7 @@ pub enum LineSearch {
 
 impl Default for LineSearch {
     fn default() -> Self {
-        Self::Armijo(1e-3, 9e-1, 25)
+        Self::Armijo(1e-3, 9e-1, 100)
     }
 }
 

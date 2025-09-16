@@ -20,13 +20,15 @@ where
     for<'a> &'a X: Mul<Scalar, Output = X>,
 {
     assert!(step_size > &0.0, "Negative step size");
+    let mut f_n;
     let mut n = -step_size;
     let f = function(argument)?;
     let m = jacobian(argument)?.full_contraction(decrement.into());
     assert!(m > 0.0, "Not a descent direction");
     let t = control * m;
     for _ in 0..max_steps {
-        if function(&(decrement * n + argument))? - f > n * t {
+        f_n = function(&(decrement * n + argument));
+        if f_n.is_err() || f_n? - f > n * t {
             n *= cut_back
         } else {
             return Ok(-n);

@@ -2,7 +2,7 @@
 mod test;
 
 use super::{
-    super::{Jacobian, Matrix, Scalar, Tensor, TensorVec, Vector},
+    super::{Jacobian, Matrix, Scalar, Solution, Tensor, TensorVec, Vector},
     EqualityConstraint, FirstOrderOptimization, LineSearch, OptimizeError, ZerothOrderRootFinding,
 };
 use crate::ABS_TOL;
@@ -19,6 +19,8 @@ pub struct GradientDescent {
     pub line_search: Option<LineSearch>,
     /// Maximum number of steps.
     pub max_steps: usize,
+    /// Relative error tolerance.
+    pub rel_tol: Option<Scalar>,
 }
 
 impl Default for GradientDescent {
@@ -28,6 +30,7 @@ impl Default for GradientDescent {
             dual: false,
             line_search: None,
             max_steps: 250,
+            rel_tol: None,
         }
     }
 }
@@ -38,7 +41,8 @@ const INITIAL_STEP_SIZE: Scalar = 1e-2;
 
 impl<X> ZerothOrderRootFinding<X> for GradientDescent
 where
-    X: Jacobian,
+    X: Jacobian + Solution,
+    for<'a> &'a X: Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     fn root(
@@ -48,9 +52,13 @@ where
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizeError> {
         match equality_constraint {
-            EqualityConstraint::Fixed(indices) => {
-                constrained_fixed(self, function, initial_guess, indices)
-            }
+            EqualityConstraint::Fixed(indices) => constrained_fixed(
+                self,
+                |_: &X| panic!("No line search in root finding."),
+                function,
+                initial_guess,
+                indices,
+            ),
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
                 if self.dual {
                     constrained_dual(
@@ -70,26 +78,33 @@ where
                     )
                 }
             }
-            EqualityConstraint::None => unconstrained(self, function, initial_guess, None),
+            EqualityConstraint::None => unconstrained(
+                self,
+                |_: &X| panic!("No line search in root finding."),
+                function,
+                initial_guess,
+                None,
+            ),
         }
     }
 }
 
-impl<F, X> FirstOrderOptimization<F, X> for GradientDescent
+impl<X> FirstOrderOptimization<Scalar, X> for GradientDescent
 where
-    X: Jacobian,
+    X: Jacobian + Solution,
+    for<'a> &'a X: Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     fn minimize(
         &self,
-        _function: impl Fn(&X) -> Result<F, OptimizeError>,
+        function: impl Fn(&X) -> Result<Scalar, OptimizeError>,
         jacobian: impl Fn(&X) -> Result<X, OptimizeError>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizeError> {
         match equality_constraint {
             EqualityConstraint::Fixed(indices) => {
-                constrained_fixed(self, jacobian, initial_guess, indices)
+                constrained_fixed(self, function, jacobian, initial_guess, indices)
             }
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
                 if self.dual {
@@ -110,23 +125,24 @@ where
                     )
                 }
             }
-            EqualityConstraint::None => unconstrained(self, jacobian, initial_guess, None),
+            EqualityConstraint::None => {
+                unconstrained(self, function, jacobian, initial_guess, None)
+            }
         }
     }
 }
 
 fn unconstrained<X>(
     gradient_descent: &GradientDescent,
+    function: impl Fn(&X) -> Result<Scalar, OptimizeError>,
     jacobian: impl Fn(&X) -> Result<X, OptimizeError>,
     initial_guess: X,
     linear_equality_constraint: Option<(&Matrix, &Vector)>,
 ) -> Result<X, OptimizeError>
 where
-    X: Jacobian,
+    X: Jacobian + Solution,
+    for<'a> &'a X: Mul<Scalar, Output = X>,
 {
-    if gradient_descent.line_search.is_some() {
-        unimplemented!();
-    }
     let constraint = if let Some((constraint_matrix, multipliers)) = linear_equality_constraint {
         Some(multipliers * constraint_matrix)
     } else {
@@ -154,6 +170,10 @@ where
             if step_trial.abs() > 0.0 && !step_trial.is_nan() {
                 step_size = step_trial.abs()
             }
+            if let Some(line_search) = &gradient_descent.line_search {
+                step_size =
+                    line_search.backtrack(&function, &jacobian, &solution, &residual, &step_size)?
+            }
             residual_change = residual.clone();
             solution_change = solution.clone();
             solution -= residual * step_size;
@@ -167,28 +187,36 @@ where
 
 fn constrained_fixed<X>(
     gradient_descent: &GradientDescent,
+    function: impl Fn(&X) -> Result<Scalar, OptimizeError>,
     jacobian: impl Fn(&X) -> Result<X, OptimizeError>,
     initial_guess: X,
     indices: Vec<usize>,
 ) -> Result<X, OptimizeError>
 where
-    X: Jacobian,
+    X: Jacobian + Solution,
+    for<'a> &'a X: Mul<Scalar, Output = X>,
 {
-    if gradient_descent.line_search.is_some() {
-        unimplemented!();
-    }
+    let mut relative_scale = 0.0;
     let mut retained = vec![true; initial_guess.num_entries()];
     indices.iter().for_each(|&index| retained[index] = false);
     let mut residual: X;
     let mut residual_change = initial_guess.clone() * 0.0;
+    let mut residual_norm;
     let mut solution = initial_guess.clone();
     let mut solution_change = solution.clone();
     let mut step_size = INITIAL_STEP_SIZE;
     let mut step_trial;
     for iteration in 0..gradient_descent.max_steps {
-        println!("{:?}", iteration);
         residual = jacobian(&solution)?.retain_from(&retained).into();
-        if residual.norm_inf() < gradient_descent.abs_tol {
+        residual_norm = residual.norm_inf();
+        if gradient_descent.rel_tol.is_some() && iteration == 0 {
+            relative_scale = residual.norm_inf()
+        }
+        if residual_norm < gradient_descent.abs_tol {
+            return Ok(solution);
+        } else if let Some(rel_tol) = gradient_descent.rel_tol
+            && residual_norm / relative_scale < rel_tol
+        {
             return Ok(solution);
         } else {
             solution_change -= &solution;
@@ -197,6 +225,10 @@ where
                 residual_change.full_contraction(&solution_change) / residual_change.norm_squared();
             if step_trial.abs() > 0.0 && !step_trial.is_nan() {
                 step_size = step_trial.abs()
+            }
+            if let Some(line_search) = &gradient_descent.line_search {
+                step_size =
+                    line_search.backtrack(&function, &jacobian, &solution, &residual, &step_size)?
             }
             residual_change = residual.clone();
             solution_change = solution.clone();
@@ -283,7 +315,8 @@ fn constrained_dual<X>(
     constraint_rhs: Vector,
 ) -> Result<X, OptimizeError>
 where
-    X: Jacobian,
+    X: Jacobian + Solution,
+    for<'a> &'a X: Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     if gradient_descent.line_search.is_some() {
@@ -300,6 +333,9 @@ where
     for _ in 0..gradient_descent.max_steps {
         if let Ok(result) = unconstrained(
             gradient_descent,
+            |_: &X| {
+                panic!("Line search needs the exact penalty function in constrained optimization.")
+            },
             &jacobian,
             solution.clone(),
             Some((&constraint_matrix, &multipliers)),
