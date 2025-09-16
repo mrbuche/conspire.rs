@@ -198,8 +198,6 @@ where
     for<'a> &'a X: Mul<Scalar, Output = X>,
 {
     let mut relative_scale = 0.0;
-    let mut retained = vec![true; initial_guess.num_entries()];
-    indices.iter().for_each(|&index| retained[index] = false);
     let mut residual: X;
     let mut residual_change = initial_guess.clone() * 0.0;
     let mut residual_norm;
@@ -208,8 +206,13 @@ where
     let mut step_size = INITIAL_STEP_SIZE;
     let mut step_trial;
     for iteration in 0..gradient_descent.max_steps {
-        residual = jacobian(&solution)?.retain_from(&retained).into();
+        residual = jacobian(&solution)?;
+        residual.zero_out(&indices);
         residual_norm = residual.norm_inf();
+
+        let foo = 1;
+        println!("iteration {iteration}, residual {residual_norm}");
+
         if gradient_descent.rel_tol.is_some() && iteration == 0 {
             relative_scale = residual.norm_inf()
         }

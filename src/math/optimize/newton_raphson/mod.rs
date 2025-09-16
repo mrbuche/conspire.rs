@@ -178,6 +178,11 @@ where
     J: Jacobian,
     X: Solution,
 {
+    if !indices.is_empty() {
+        unimplemented!(
+            "Length mismatch between decrement and solution causes this to be invalid. Want to avoid zero_out since want tangent to be smaller in size. So you would need to add the zero entries to decrement or impl a function that takes in solution, decrement, and the indices to subtract properly."
+        )
+    }
     if !matches!(newton_raphson.line_search, LineSearch::None) {
         unimplemented!()
     }

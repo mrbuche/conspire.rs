@@ -1,4 +1,5 @@
 mod armijo;
+mod error;
 mod goldstein;
 mod wolfe;
 
@@ -11,11 +12,13 @@ use std::ops::Mul;
 pub enum LineSearch {
     /// The Armijo condition.
     Armijo(Scalar, Scalar, usize),
+    /// Backtrack for errors.
+    Error(Scalar, usize),
     /// The Goldstein conditions.
     Goldstein(Scalar, Scalar, usize),
     /// The Wolfe conditions.
     Wolfe(Scalar, Scalar, Scalar, usize, bool),
-    /// ???
+    /// No line search.
     None,
 }
 
@@ -51,8 +54,11 @@ impl LineSearch {
                 *control_1, *control_2, *cut_back, *max_steps, *strong, function, jacobian,
                 argument, decrement, step_size,
             ),
+            Self::Error(cut_back, max_steps) => error::backtrack(
+                *cut_back, *max_steps, function, jacobian, argument, decrement, step_size,
+            ),
             Self::None => {
-                panic!("Cannot call backtracking line search when the algorithm is none.")
+                panic!("Cannot call backtracking line search when there is no algorithm.")
             }
         }
     }

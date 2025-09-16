@@ -292,6 +292,11 @@ impl<const D: usize, const I: usize> Jacobian for TensorRank1Vec<D, I> {
             .map(|(entry, _)| entry)
             .collect()
     }
+    fn zero_out(&mut self, indices: &[usize]) {
+        indices
+            .iter()
+            .for_each(|index| self[index / D][index % D] = 0.0)
+    }
 }
 
 impl<const D: usize, const I: usize, const J: usize> Div<TensorRank2Vec2D<D, I, J>>

@@ -66,6 +66,10 @@ where
     fn retain_from(self, _retained: &[bool]) -> Vector {
         unimplemented!()
     }
+    /// Zero out the specified indices.
+    fn zero_out(&mut self, _indices: &[usize]) {
+        unimplemented!()
+    }
 }
 
 /// Common methods for Hessians.
