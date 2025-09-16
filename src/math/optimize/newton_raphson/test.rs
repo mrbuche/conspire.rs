@@ -67,7 +67,7 @@ mod minimize {
         fn armijo() -> Result<(), TestError> {
             assert_eq_within_tols(
                 &NewtonRaphson {
-                    line_search: Some(LineSearch::Armijo(CONTROL_1, CUT_BACK, MAX_STEPS)),
+                    line_search: LineSearch::Armijo(CONTROL_1, CUT_BACK, MAX_STEPS),
                     ..Default::default()
                 }
                 .minimize(
@@ -85,7 +85,7 @@ mod minimize {
         fn goldstein() -> Result<(), TestError> {
             assert_eq_within_tols(
                 &NewtonRaphson {
-                    line_search: Some(LineSearch::Goldstein(CONTROL_1, CUT_BACK, MAX_STEPS)),
+                    line_search: LineSearch::Goldstein(CONTROL_1, CUT_BACK, MAX_STEPS),
                     ..Default::default()
                 }
                 .minimize(
@@ -105,9 +105,9 @@ mod minimize {
             fn strong() -> Result<(), TestError> {
                 assert_eq_within_tols(
                     &NewtonRaphson {
-                        line_search: Some(LineSearch::Wolfe(
+                        line_search: LineSearch::Wolfe(
                             CONTROL_1, CONTROL_2, CUT_BACK, MAX_STEPS, true,
-                        )),
+                        ),
                         ..Default::default()
                     }
                     .minimize(
@@ -125,9 +125,9 @@ mod minimize {
             fn weak() -> Result<(), TestError> {
                 assert_eq_within_tols(
                     &NewtonRaphson {
-                        line_search: Some(LineSearch::Wolfe(
+                        line_search: LineSearch::Wolfe(
                             CONTROL_1, CONTROL_2, CUT_BACK, MAX_STEPS, false,
-                        )),
+                        ),
                         ..Default::default()
                     }
                     .minimize(
