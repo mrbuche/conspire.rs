@@ -185,7 +185,8 @@ where
     let mut solution_change = solution.clone();
     let mut step_size = INITIAL_STEP_SIZE;
     let mut step_trial;
-    for _ in 0..gradient_descent.max_steps {
+    for iteration in 0..gradient_descent.max_steps {
+        println!("{:?}", iteration);
         residual = jacobian(&solution)?.retain_from(&retained).into();
         if residual.norm_inf() < gradient_descent.abs_tol {
             return Ok(solution);
