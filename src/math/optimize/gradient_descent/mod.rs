@@ -16,7 +16,7 @@ pub struct GradientDescent {
     /// Lagrangian dual.
     pub dual: bool,
     /// Line search algorithm.
-    pub line_search: Option<LineSearch>,
+    pub line_search: LineSearch,
     /// Maximum number of steps.
     pub max_steps: usize,
     /// Relative error tolerance.
@@ -28,7 +28,7 @@ impl Default for GradientDescent {
         Self {
             abs_tol: ABS_TOL,
             dual: false,
-            line_search: None,
+            line_search: LineSearch::None,
             max_steps: 250,
             rel_tol: None,
         }
@@ -170,9 +170,10 @@ where
             if step_trial.abs() > 0.0 && !step_trial.is_nan() {
                 step_size = step_trial.abs()
             }
-            if let Some(line_search) = &gradient_descent.line_search {
-                step_size =
-                    line_search.backtrack(&function, &jacobian, &solution, &residual, &step_size)?
+            if !matches!(gradient_descent.line_search, LineSearch::None) {
+                step_size = gradient_descent
+                    .line_search
+                    .backtrack(&function, &jacobian, &solution, &residual, &step_size)?
             }
             residual_change = residual.clone();
             solution_change = solution.clone();
@@ -226,9 +227,10 @@ where
             if step_trial.abs() > 0.0 && !step_trial.is_nan() {
                 step_size = step_trial.abs()
             }
-            if let Some(line_search) = &gradient_descent.line_search {
-                step_size =
-                    line_search.backtrack(&function, &jacobian, &solution, &residual, &step_size)?
+            if !matches!(gradient_descent.line_search, LineSearch::None) {
+                step_size = gradient_descent
+                    .line_search
+                    .backtrack(&function, &jacobian, &solution, &residual, &step_size)?
             }
             residual_change = residual.clone();
             solution_change = solution.clone();
@@ -252,7 +254,7 @@ where
     X: Jacobian,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
-    if gradient_descent.line_search.is_some() {
+    if !matches!(gradient_descent.line_search, LineSearch::None) {
         panic!("Line search needs the exact penalty function in constrained optimization.")
     }
     let mut residual_solution;
@@ -319,7 +321,7 @@ where
     for<'a> &'a X: Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
-    if gradient_descent.line_search.is_some() {
+    if !matches!(gradient_descent.line_search, LineSearch::None) {
         panic!("Line search needs the exact penalty function in constrained optimization.")
     }
     let num_constraints = constraint_rhs.len();

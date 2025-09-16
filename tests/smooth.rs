@@ -8,7 +8,7 @@ use conspire::{
     },
     math::{
         Matrix, Tensor, TensorVec, TestError, Vector,
-        optimize::{EqualityConstraint, GradientDescent, NewtonRaphson},
+        optimize::{EqualityConstraint, GradientDescent, LineSearch, NewtonRaphson},
     },
 };
 
@@ -10139,7 +10139,7 @@ fn temporary_5() -> Result<(), TestError> {
     let _solution = block.minimize(
         EqualityConstraint::Fixed(indices),
         GradientDescent {
-            line_search: Some(conspire::math::optimize::LineSearch::default()),
+            line_search: LineSearch::default(),
             rel_tol: Some(1e-1),
             ..Default::default()
         },

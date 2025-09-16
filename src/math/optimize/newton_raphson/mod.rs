@@ -17,7 +17,7 @@ pub struct NewtonRaphson {
     /// Absolute error tolerance.
     pub abs_tol: Scalar,
     /// Line search algorithm.
-    pub line_search: Option<LineSearch>,
+    pub line_search: LineSearch,
     /// Maximum number of steps.
     pub max_steps: usize,
 }
@@ -26,7 +26,7 @@ impl Default for NewtonRaphson {
     fn default() -> Self {
         Self {
             abs_tol: ABS_TOL,
-            line_search: None,
+            line_search: LineSearch::None,
             max_steps: 25,
         }
     }
@@ -149,9 +149,10 @@ where
             return Ok(solution);
         } else {
             decrement = &residual / tangent;
-            if let Some(line_search) = &newton_raphson.line_search {
-                decrement *=
-                    line_search.backtrack(&function, &jacobian, &solution, &decrement, &1.0)?
+            if !matches!(newton_raphson.line_search, LineSearch::None) {
+                decrement *= newton_raphson
+                    .line_search
+                    .backtrack(&function, &jacobian, &solution, &decrement, &1.0)?
             }
             solution -= decrement
         }
@@ -177,8 +178,8 @@ where
     J: Jacobian,
     X: Solution,
 {
-    if newton_raphson.line_search.is_some() {
-        panic!("Line search needs the exact penalty function in constrained optimization.");
+    if !matches!(newton_raphson.line_search, LineSearch::None) {
+        unimplemented!()
     }
     let mut retained = vec![true; initial_guess.num_entries()];
     indices.iter().for_each(|&index| retained[index] = false);
@@ -221,8 +222,8 @@ where
     X: Solution,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
-    if newton_raphson.line_search.is_some() {
-        panic!("Line search needs the exact penalty function in constrained optimization.");
+    if !matches!(newton_raphson.line_search, LineSearch::None) {
+        panic!("Line search needs the exact penalty function in constrained optimization.")
     }
     let mut decrement;
     let num_variables = initial_guess.num_entries();

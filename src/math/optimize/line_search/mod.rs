@@ -15,6 +15,8 @@ pub enum LineSearch {
     Goldstein(Scalar, Scalar, usize),
     /// The Wolfe conditions.
     Wolfe(Scalar, Scalar, Scalar, usize, bool),
+    /// ???
+    None,
 }
 
 impl Default for LineSearch {
@@ -49,6 +51,9 @@ impl LineSearch {
                 *control_1, *control_2, *cut_back, *max_steps, *strong, function, jacobian,
                 argument, decrement, step_size,
             ),
+            Self::None => {
+                panic!("Cannot call backtracking line search when the algorithm is none.")
+            }
         }
     }
 }
