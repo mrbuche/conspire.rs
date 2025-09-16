@@ -209,10 +209,6 @@ where
         residual = jacobian(&solution)?;
         residual.zero_out(&indices);
         residual_norm = residual.norm_inf();
-
-        let foo = 1;
-        println!("iteration {iteration}, residual {residual_norm}");
-
         if gradient_descent.rel_tol.is_some() && iteration == 0 {
             relative_scale = residual.norm_inf()
         }
