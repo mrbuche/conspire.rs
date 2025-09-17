@@ -10262,12 +10262,7 @@ fn temporary_5() -> Result<(), TestError> {
     let _solution = block.minimize(
         EqualityConstraint::Fixed(indices),
         GradientDescent {
-            // line_search: LineSearch::default(),
-            line_search: LineSearch::Armijo {
-                control: 1e-3,
-                cut_back: 9e-1,
-                max_steps: 1,
-            },
+            line_search: LineSearch::default(),
             rel_tol: Some(1e-2),
             ..Default::default()
         },
@@ -10301,6 +10296,7 @@ fn temporary_6() -> Result<(), TestError> {
         EqualityConstraint::Fixed(indices),
         NewtonRaphson {
             abs_tol: 1e1,
+            line_search: LineSearch::default(),
             ..Default::default()
         },
     )?;

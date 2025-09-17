@@ -187,7 +187,7 @@ where
 #[allow(clippy::too_many_arguments)]
 fn constrained_fixed<J, H, X>(
     newton_raphson: &NewtonRaphson,
-    _function: impl Fn(&X) -> Result<Scalar, OptimizationError>,
+    function: impl Fn(&X) -> Result<Scalar, OptimizationError>,
     jacobian: impl Fn(&X) -> Result<J, OptimizationError>,
     hessian: impl Fn(&X) -> Result<H, OptimizationError>,
     initial_guess: X,
@@ -197,17 +197,16 @@ fn constrained_fixed<J, H, X>(
 where
     H: Hessian,
     J: Jacobian,
+    for<'a> &'a J: From<&'a X>,
     X: Solution,
+    for<'a> &'a X: Mul<Scalar, Output = X>,
 {
-    if !matches!(newton_raphson.line_search, LineSearch::None) {
-        unimplemented!()
-    }
     let mut retained = vec![true; initial_guess.num_entries()];
     indices.iter().for_each(|&index| retained[index] = false);
     let mut decrement;
     let mut residual;
     let mut solution = initial_guess;
-    // let mut step_size;
+    let mut step_size;
     let mut tangent;
     for _ in 0..newton_raphson.max_steps {
         residual = jacobian(&solution)?.retain_from(&retained);
@@ -219,12 +218,22 @@ where
         } else {
             decrement = tangent.solve_lu(&residual)?
         }
-        // step_size = newton_raphson.backtracking_line_search(
-        //     &function, &jacobian, &solution, &residual, &decrement, 1.0,
-        // )?;
-        // if step_size != 1.0 {
-        //     decrement *= step_size
-        // }
+        if !matches!(newton_raphson.line_search, LineSearch::None) {
+            let mut decrement_full = &solution * 0.0;
+            decrement_full.decrement_from_retained(&retained, &decrement);
+            decrement_full *= -1.0;
+            step_size = newton_raphson.backtracking_line_search(
+                &function,
+                &jacobian,
+                &solution,
+                &jacobian(&solution)?,
+                &decrement_full,
+                1.0,
+            )?;
+            if step_size != 1.0 {
+                decrement *= step_size
+            }
+        }
         solution.decrement_from_retained(&retained, &decrement)
     }
     Err(OptimizationError::MaximumStepsReached(

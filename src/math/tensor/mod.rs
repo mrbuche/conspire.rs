@@ -44,7 +44,7 @@ impl Display for TensorError {
 /// Common methods for solutions.
 pub trait Solution
 where
-    Self: Tensor,
+    Self: From<Vector> + Tensor,
 {
     /// Decrements the solution from another vector.
     fn decrement_from(&mut self, other: &Vector);
