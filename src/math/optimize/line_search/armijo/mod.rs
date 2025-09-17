@@ -8,7 +8,7 @@ pub fn backtrack<X, J>(
     cut_back: Scalar,
     max_steps: usize,
     function: impl Fn(&X) -> Result<Scalar, OptimizeError>,
-    jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
+    jacobian: &J,
     argument: &X,
     decrement: &X,
     step_size: &Scalar,
@@ -23,7 +23,7 @@ where
     let mut f_n;
     let mut n = -step_size;
     let f = function(argument)?;
-    let m = jacobian(argument)?.full_contraction(decrement.into());
+    let m = jacobian.full_contraction(decrement.into());
     assert!(m > 0.0, "Not a descent direction");
     let t = control * m;
     for _ in 0..max_steps {

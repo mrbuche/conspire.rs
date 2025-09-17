@@ -152,7 +152,7 @@ where
             if !matches!(newton_raphson.line_search, LineSearch::None) {
                 decrement *= newton_raphson
                     .line_search
-                    .backtrack(&function, &jacobian, &solution, &decrement, &1.0)?
+                    .backtrack(&function, &jacobian, &solution, &residual, &decrement, &1.0)?
             }
             solution -= decrement
         }

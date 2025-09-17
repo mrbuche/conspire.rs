@@ -12,6 +12,7 @@ pub fn backtrack<X, J>(
     function: impl Fn(&X) -> Result<Scalar, OptimizeError>,
     jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
     argument: &X,
+    jacobian0: &J,
     decrement: &X,
     step_size: &Scalar,
 ) -> Result<Scalar, OptimizeError>
@@ -25,7 +26,7 @@ where
     let mut f_n;
     let mut n = -step_size;
     let f = function(argument)?;
-    let m = jacobian(argument)?.full_contraction(decrement.into());
+    let m = jacobian0.full_contraction(decrement.into());
     assert!(m > 0.0, "Not a descent direction");
     let t_1 = control_1 * m;
     let t_2 = control_2 * m;

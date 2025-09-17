@@ -66,7 +66,7 @@ pub trait SecondOrderOptimization<F, J, H, X> {
     ) -> Result<X, OptimizeError>;
 }
 
-/// Possible errors encountered when optimizing.
+/// Possible errors encountered during optimization.
 pub enum OptimizeError {
     Generic(String),
     MaximumStepsReached(usize, String),

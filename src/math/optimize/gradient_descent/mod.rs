@@ -171,9 +171,9 @@ where
                 step_size = step_trial.abs()
             }
             if !matches!(gradient_descent.line_search, LineSearch::None) {
-                step_size = gradient_descent
-                    .line_search
-                    .backtrack(&function, &jacobian, &solution, &residual, &step_size)?
+                step_size = gradient_descent.line_search.backtrack(
+                    &function, &jacobian, &solution, &residual, &residual, &step_size,
+                )?
             }
             residual_change = residual.clone();
             solution_change = solution.clone();
@@ -227,9 +227,9 @@ where
                 step_size = step_trial.abs()
             }
             if !matches!(gradient_descent.line_search, LineSearch::None) {
-                step_size = gradient_descent
-                    .line_search
-                    .backtrack(&function, &jacobian, &solution, &residual, &step_size)?
+                step_size = gradient_descent.line_search.backtrack(
+                    &function, &jacobian, &solution, &residual, &residual, &step_size,
+                )?
             }
             residual_change = residual.clone();
             solution_change = solution.clone();

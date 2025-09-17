@@ -34,6 +34,7 @@ impl LineSearch {
         function: impl Fn(&X) -> Result<Scalar, OptimizeError>,
         jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
         argument: &X,
+        jacobian0: &J,
         decrement: &X,
         step_size: &Scalar,
     ) -> Result<Scalar, OptimizeError>
@@ -45,17 +46,19 @@ impl LineSearch {
     {
         match self {
             Self::Armijo(control, cut_back, max_steps) => armijo::backtrack(
-                *control, *cut_back, *max_steps, function, jacobian, argument, decrement, step_size,
+                *control, *cut_back, *max_steps, function, jacobian0, argument, decrement,
+                step_size,
+            ),
+            Self::Error(cut_back, max_steps) => error::backtrack(
+                *cut_back, *max_steps, function, jacobian0, argument, decrement, step_size,
             ),
             Self::Goldstein(control, cut_back, max_steps) => goldstein::backtrack(
-                *control, *cut_back, *max_steps, function, jacobian, argument, decrement, step_size,
+                *control, *cut_back, *max_steps, function, jacobian0, argument, decrement,
+                step_size,
             ),
             Self::Wolfe(control_1, control_2, cut_back, max_steps, strong) => wolfe::backtrack(
                 *control_1, *control_2, *cut_back, *max_steps, *strong, function, jacobian,
-                argument, decrement, step_size,
-            ),
-            Self::Error(cut_back, max_steps) => error::backtrack(
-                *cut_back, *max_steps, function, jacobian, argument, decrement, step_size,
+                argument, jacobian0, decrement, step_size,
             ),
             Self::None => {
                 panic!("Cannot call backtracking line search when there is no algorithm.")
@@ -63,3 +66,11 @@ impl LineSearch {
         }
     }
 }
+
+// /// Possible errors encountered during line search.
+// pub enum OptimizeError {
+//     MaximumStepsReached(usize, String),
+//     NegativeStepSize(String, String),
+//     NotDescentDirection(String, String),
+// }
+// Need to implement conversion to OptimizeError and so on.
