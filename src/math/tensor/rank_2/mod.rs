@@ -215,6 +215,10 @@ impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2
 }
 
 impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
+    /// Returns a raw pointer to the slice’s buffer.
+    pub const fn as_ptr(&self) -> *const TensorRank1<D, J> {
+        self.0.as_ptr()
+    }
     /// Returns the rank-2 tensor reshaped as a rank-1 tensor.
     pub fn as_tensor_rank_1(&self) -> TensorRank1<9, 88> {
         assert_eq!(D, 3);
@@ -936,6 +940,12 @@ impl<const D: usize, const I: usize, const J: usize> TensorArray for TensorRank2
 }
 
 impl<const D: usize, const I: usize, const J: usize> Solution for TensorRank2<D, I, J> {
+    fn decrement_from(&mut self, other: &Vector) {
+        self.iter_mut()
+            .flat_map(|x| x.iter_mut())
+            .zip(other.iter())
+            .for_each(|(self_i, vector_i)| *self_i -= vector_i)
+    }
     fn decrement_from_chained(&mut self, other: &mut Vector, vector: Vector) {
         self.iter_mut()
             .flat_map(|x| x.iter_mut())
@@ -1041,6 +1051,12 @@ impl<const J: usize> From<TensorRank2<3, 1, J>> for TensorRank2<3, 0, J> {
 impl From<TensorRank2<3, 0, 0>> for TensorRank2<3, 1, 1> {
     fn from(tensor_rank_2: TensorRank2<3, 0, 0>) -> Self {
         unsafe { transmute::<TensorRank2<3, 0, 0>, TensorRank2<3, 1, 1>>(tensor_rank_2) }
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> From<Vector> for TensorRank2<D, I, J> {
+    fn from(_vector: Vector) -> Self {
+        unimplemented!()
     }
 }
 

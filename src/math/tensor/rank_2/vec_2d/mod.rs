@@ -134,6 +134,9 @@ impl<const D: usize, const I: usize, const J: usize> TensorVec for TensorRank2Ve
     fn append(&mut self, other: &mut Self) {
         self.0.append(&mut other.0)
     }
+    fn capacity(&self) -> usize {
+        self.0.capacity()
+    }
     fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -201,6 +204,21 @@ impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2Vec2
                     })
             })
         });
+    }
+    fn retain_from(self, retained: &[bool]) -> SquareMatrix {
+        SquareMatrix::from(self)
+            .into_iter()
+            .zip(retained.iter())
+            .filter(|(_, retained)| **retained)
+            .map(|(self_i, _)| {
+                self_i
+                    .into_iter()
+                    .zip(retained.iter())
+                    .filter(|(_, retained)| **retained)
+                    .map(|(self_ij, _)| self_ij)
+                    .collect()
+            })
+            .collect()
     }
 }
 

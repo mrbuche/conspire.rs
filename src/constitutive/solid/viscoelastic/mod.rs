@@ -17,7 +17,7 @@ use super::{super::fluid::viscous::Viscous, *};
 use crate::math::{
     Matrix, TensorVec, Vector,
     integrate::{Explicit, IntegrationError},
-    optimize::{EqualityConstraint, FirstOrderRootFinding, OptimizeError},
+    optimize::{EqualityConstraint, FirstOrderRootFinding, OptimizationError},
 };
 
 /// Possible applied loads.
@@ -197,7 +197,7 @@ where
             DeformationGradient,
         >,
         initial_guess: &DeformationGradientRate,
-    ) -> Result<DeformationGradientRate, OptimizeError> {
+    ) -> Result<DeformationGradientRate, OptimizationError> {
         let mut matrix = Matrix::zero(4, 9);
         let mut vector = Vector::zero(4);
         matrix[0][0] = 1.0;
@@ -234,7 +234,7 @@ where
             DeformationGradient,
         >,
         initial_guess: &DeformationGradientRate,
-    ) -> Result<DeformationGradientRate, OptimizeError> {
+    ) -> Result<DeformationGradientRate, OptimizationError> {
         let mut matrix = Matrix::zero(5, 9);
         let mut vector = Vector::zero(5);
         matrix[0][0] = 1.0;

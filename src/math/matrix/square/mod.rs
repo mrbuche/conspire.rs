@@ -48,13 +48,11 @@ impl From<Vec<Vec<bool>>> for Banded {
                 .for_each(|(entry_ij, row_j)| assert_eq!(&row_j[i], entry_ij))
         });
         let mut adj_list = vec![Vec::new(); num];
-        for i in 0..num {
-            for j in 0..num {
-                if structure[i][j] && i != j {
-                    adj_list[i].push(j);
-                }
-            }
-        }
+        (0..num).for_each(|i| {
+            (0..num)
+                .filter(|&j| structure[i][j] && i != j)
+                .for_each(|j| adj_list[i].push(j))
+        });
         let start_vertex = (0..num)
             .min_by_key(|&i| adj_list[i].len())
             .expect("Matrix must have at least one entry.");
@@ -84,11 +82,9 @@ impl From<Vec<Vec<bool>>> for Banded {
             .for_each(|(new, &old)| inverse[old] = new);
         let mut bandwidth = 0;
         (0..num).for_each(|i| {
-            (i + 1..num).for_each(|j| {
-                if structure[mapping[i]][mapping[j]] {
-                    bandwidth = bandwidth.max(j - i)
-                }
-            })
+            (i + 1..num)
+                .filter(|&j| structure[mapping[i]][mapping[j]])
+                .for_each(|j| bandwidth = bandwidth.max(j - i))
         });
         Self {
             bandwidth,
@@ -511,6 +507,9 @@ impl TensorVec for SquareMatrix {
     type Slice<'a> = &'a [&'a [TensorRank0]];
     fn append(&mut self, other: &mut Self) {
         self.0.append(&mut other.0)
+    }
+    fn capacity(&self) -> usize {
+        self.0.capacity()
     }
     fn is_empty(&self) -> bool {
         self.0.is_empty()

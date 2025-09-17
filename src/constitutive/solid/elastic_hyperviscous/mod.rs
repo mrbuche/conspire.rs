@@ -33,7 +33,7 @@ use super::{
 use crate::math::{
     Matrix, TensorVec, Vector,
     integrate::{Explicit, IntegrationError},
-    optimize::{EqualityConstraint, OptimizeError, SecondOrderOptimization},
+    optimize::{EqualityConstraint, OptimizationError, SecondOrderOptimization},
 };
 use std::fmt::Debug;
 
@@ -131,7 +131,7 @@ where
             DeformationGradient,
         >,
         initial_guess: &DeformationGradientRate,
-    ) -> Result<DeformationGradientRate, OptimizeError> {
+    ) -> Result<DeformationGradientRate, OptimizationError> {
         let mut matrix = Matrix::zero(4, 9);
         let mut vector = Vector::zero(4);
         matrix[0][0] = 1.0;
@@ -173,7 +173,7 @@ where
             DeformationGradient,
         >,
         initial_guess: &DeformationGradientRate,
-    ) -> Result<DeformationGradientRate, OptimizeError> {
+    ) -> Result<DeformationGradientRate, OptimizationError> {
         let mut matrix = Matrix::zero(5, 9);
         let mut vector = Vector::zero(5);
         matrix[0][0] = 1.0;

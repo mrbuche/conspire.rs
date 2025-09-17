@@ -21,7 +21,7 @@ pub use self::{
 use super::*;
 use crate::math::{
     Matrix, TensorVec, Vector,
-    optimize::{self, EqualityConstraint, OptimizeError},
+    optimize::{self, EqualityConstraint, OptimizationError},
 };
 
 /// Possible applied loads.
@@ -175,7 +175,7 @@ pub trait ZerothOrderRoot {
         &self,
         applied_load: AppliedLoad,
         solver: impl optimize::ZerothOrderRootFinding<DeformationGradient>,
-    ) -> Result<DeformationGradient, OptimizeError>;
+    ) -> Result<DeformationGradient, OptimizationError>;
 }
 
 /// First-order root-finding methods for elastic constitutive models.
@@ -193,7 +193,7 @@ pub trait FirstOrderRoot {
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
         >,
-    ) -> Result<DeformationGradient, OptimizeError>;
+    ) -> Result<DeformationGradient, OptimizationError>;
 }
 
 impl<T> ZerothOrderRoot for T
@@ -204,7 +204,7 @@ where
         &self,
         applied_load: AppliedLoad,
         solver: impl optimize::ZerothOrderRootFinding<DeformationGradient>,
-    ) -> Result<DeformationGradient, OptimizeError> {
+    ) -> Result<DeformationGradient, OptimizationError> {
         match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_11) => {
                 let mut matrix = Matrix::zero(4, 9);
@@ -256,7 +256,7 @@ where
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
         >,
-    ) -> Result<DeformationGradient, OptimizeError> {
+    ) -> Result<DeformationGradient, OptimizationError> {
         match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_11) => {
                 let mut matrix = Matrix::zero(4, 9);

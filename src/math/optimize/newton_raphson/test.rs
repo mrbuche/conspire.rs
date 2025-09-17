@@ -67,7 +67,11 @@ mod minimize {
         fn armijo() -> Result<(), TestError> {
             assert_eq_within_tols(
                 &NewtonRaphson {
-                    line_search: Some(LineSearch::Armijo(CONTROL_1, CUT_BACK, MAX_STEPS)),
+                    line_search: LineSearch::Armijo {
+                        control: CONTROL_1,
+                        cut_back: CUT_BACK,
+                        max_steps: MAX_STEPS,
+                    },
                     ..Default::default()
                 }
                 .minimize(
@@ -85,7 +89,11 @@ mod minimize {
         fn goldstein() -> Result<(), TestError> {
             assert_eq_within_tols(
                 &NewtonRaphson {
-                    line_search: Some(LineSearch::Goldstein(CONTROL_1, CUT_BACK, MAX_STEPS)),
+                    line_search: LineSearch::Goldstein {
+                        control: CONTROL_1,
+                        cut_back: CUT_BACK,
+                        max_steps: MAX_STEPS,
+                    },
                     ..Default::default()
                 }
                 .minimize(
@@ -105,9 +113,13 @@ mod minimize {
             fn strong() -> Result<(), TestError> {
                 assert_eq_within_tols(
                     &NewtonRaphson {
-                        line_search: Some(LineSearch::Wolfe(
-                            CONTROL_1, CONTROL_2, CUT_BACK, MAX_STEPS, true,
-                        )),
+                        line_search: LineSearch::Wolfe {
+                            control_1: CONTROL_1,
+                            control_2: CONTROL_2,
+                            cut_back: CUT_BACK,
+                            max_steps: MAX_STEPS,
+                            strong: true,
+                        },
                         ..Default::default()
                     }
                     .minimize(
@@ -125,9 +137,13 @@ mod minimize {
             fn weak() -> Result<(), TestError> {
                 assert_eq_within_tols(
                     &NewtonRaphson {
-                        line_search: Some(LineSearch::Wolfe(
-                            CONTROL_1, CONTROL_2, CUT_BACK, MAX_STEPS, false,
-                        )),
+                        line_search: LineSearch::Wolfe {
+                            control_1: CONTROL_1,
+                            control_2: CONTROL_2,
+                            cut_back: CUT_BACK,
+                            max_steps: MAX_STEPS,
+                            strong: false,
+                        },
                         ..Default::default()
                     }
                     .minimize(

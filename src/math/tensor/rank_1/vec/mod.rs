@@ -1,4 +1,7 @@
 #[cfg(test)]
+mod test;
+
+#[cfg(test)]
 use super::super::test::ErrorTensor;
 
 use crate::math::{
@@ -14,7 +17,7 @@ use std::{
 /// A vector of *d*-dimensional tensors of rank 1.
 ///
 /// `D` is the dimension, `I` is the configuration.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TensorRank1Vec<const D: usize, const I: usize>(Vec<TensorRank1<D, I>>);
 
 impl<const D: usize, const I: usize> Display for TensorRank1Vec<D, I> {
@@ -80,9 +83,13 @@ impl<const D: usize, const I: usize> ErrorTensor for TensorRank1Vec<D, I> {
 
 impl<const D: usize, const I: usize> From<Vec<[TensorRank0; D]>> for TensorRank1Vec<D, I> {
     fn from(vec: Vec<[TensorRank0; D]>) -> Self {
-        vec.into_iter()
-            .map(|tensor_rank_1| tensor_rank_1.into())
-            .collect()
+        unsafe { transmute(vec) }
+    }
+}
+
+impl<const D: usize, const I: usize> From<TensorRank1Vec<D, I>> for Vec<[TensorRank0; D]> {
+    fn from(tensor_rank_1_vec: TensorRank1Vec<D, I>) -> Self {
+        unsafe { transmute(tensor_rank_1_vec) }
     }
 }
 
@@ -94,33 +101,24 @@ impl<const D: usize, const I: usize> From<Vec<Vec<TensorRank0>>> for TensorRank1
     }
 }
 
-impl<const D: usize, const I: usize> From<TensorRank1Vec<D, I>> for Vec<[TensorRank0; D]> {
-    fn from(tensor_rank_1_vec: TensorRank1Vec<D, I>) -> Self {
-        tensor_rank_1_vec
-            .iter()
-            .map(|tensor_rank_1| tensor_rank_1.clone().into())
-            .collect()
-    }
-}
-
 impl<const D: usize, const I: usize> From<TensorRank1Vec<D, I>> for Vec<Vec<TensorRank0>> {
     fn from(tensor_rank_1_vec: TensorRank1Vec<D, I>) -> Self {
         tensor_rank_1_vec
-            .iter()
-            .map(|tensor_rank_1| tensor_rank_1.clone().into())
+            .into_iter()
+            .map(|tensor_rank_1| tensor_rank_1.into())
             .collect()
     }
 }
 
 impl From<TensorRank1Vec<3, 0>> for TensorRank1Vec<3, 1> {
     fn from(tensor_rank_1_vec: TensorRank1Vec<3, 0>) -> Self {
-        unsafe { transmute::<TensorRank1Vec<3, 0>, TensorRank1Vec<3, 1>>(tensor_rank_1_vec) }
+        unsafe { transmute(tensor_rank_1_vec) }
     }
 }
 
 impl From<TensorRank1Vec<3, 1>> for TensorRank1Vec<3, 0> {
     fn from(tensor_rank_1_vec: TensorRank1Vec<3, 1>) -> Self {
-        unsafe { transmute::<TensorRank1Vec<3, 1>, TensorRank1Vec<3, 0>>(tensor_rank_1_vec) }
+        unsafe { transmute(tensor_rank_1_vec) }
     }
 }
 
@@ -130,9 +128,10 @@ impl<const D: usize, const I: usize> From<Vector> for TensorRank1Vec<D, I> {
         if n % D != 0 {
             panic!("Vector length mismatch.")
         } else {
-            (0..n / D)
-                .map(|a| (0..D).map(|i| vector[D * a + i]).collect())
-                .collect()
+            let length = n / D;
+            let pointer = vector.as_ptr() as *mut TensorRank1<D, I>;
+            std::mem::forget(vector);
+            unsafe { Self(Vec::from_raw_parts(pointer, length, length)) }
         }
     }
 }
@@ -143,9 +142,9 @@ impl<const D: usize, const I: usize> From<&Vector> for TensorRank1Vec<D, I> {
         if n % D != 0 {
             panic!("Vector length mismatch.")
         } else {
-            (0..n / D)
-                .map(|a| (0..D).map(|i| vector[D * a + i]).collect())
-                .collect()
+            let length = n / D;
+            let pointer = vector.as_ptr() as *mut TensorRank1<D, I>;
+            unsafe { Self(Vec::from_raw_parts(pointer, length, length)) }
         }
     }
 }
@@ -170,6 +169,10 @@ impl<const D: usize, const I: usize> IndexMut<usize> for TensorRank1Vec<D, I> {
 }
 
 impl<const D: usize, const I: usize> TensorRank1Vec<D, I> {
+    /// Returns a raw pointer to the vector’s buffer, or a dangling raw pointer valid for zero sized reads if the vector didn’t allocate.
+    pub const fn as_ptr(&self) -> *const TensorRank1<D, I> {
+        self.0.as_ptr()
+    }
     /// Returns the sum of the full dot product of each tensor in each vector.
     pub fn dot(&self, tensors: &Self) -> TensorRank0 {
         self.iter()
@@ -184,6 +187,9 @@ impl<const D: usize, const I: usize> TensorVec for TensorRank1Vec<D, I> {
     type Slice<'a> = &'a [[TensorRank0; D]];
     fn append(&mut self, other: &mut Self) {
         self.0.append(&mut other.0)
+    }
+    fn capacity(&self) -> usize {
+        self.0.capacity()
     }
     fn is_empty(&self) -> bool {
         self.0.is_empty()
@@ -249,12 +255,26 @@ impl<const D: usize, const I: usize> IntoIterator for TensorRank1Vec<D, I> {
 }
 
 impl<const D: usize, const I: usize> Solution for TensorRank1Vec<D, I> {
+    fn decrement_from(&mut self, other: &Vector) {
+        self.iter_mut()
+            .flat_map(|x| x.iter_mut())
+            .zip(other.iter())
+            .for_each(|(self_i, vector_i)| *self_i -= vector_i)
+    }
     fn decrement_from_chained(&mut self, other: &mut Vector, vector: Vector) {
         self.iter_mut()
             .flat_map(|x| x.iter_mut())
             .chain(other.iter_mut())
             .zip(vector)
             .for_each(|(entry_i, vector_i)| *entry_i -= vector_i)
+    }
+    fn decrement_from_retained(&mut self, retained: &[bool], other: &Vector) {
+        self.iter_mut()
+            .flat_map(|x| x.iter_mut())
+            .zip(retained.iter())
+            .filter(|(_, retained_i)| **retained_i)
+            .zip(other.iter())
+            .for_each(|((self_i, _), vector_i)| *self_i -= vector_i)
     }
 }
 
@@ -271,6 +291,19 @@ impl<const D: usize, const I: usize> Jacobian for TensorRank1Vec<D, I> {
             .chain(other)
             .zip(vector.iter_mut())
             .for_each(|(self_i, vector_i)| *vector_i = self_i)
+    }
+    fn retain_from(self, retained: &[bool]) -> Vector {
+        self.into_iter()
+            .flatten()
+            .zip(retained.iter())
+            .filter(|(_, retained)| **retained)
+            .map(|(entry, _)| entry)
+            .collect()
+    }
+    fn zero_out(&mut self, indices: &[usize]) {
+        indices
+            .iter()
+            .for_each(|index| self[index / D][index % D] = 0.0)
     }
 }
 

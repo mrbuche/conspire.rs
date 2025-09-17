@@ -43,6 +43,10 @@ impl<const D: usize, const I: usize> Display for TensorRank1<D, I> {
 }
 
 impl<const D: usize, const I: usize> TensorRank1<D, I> {
+    /// Returns a raw pointer to the slice’s buffer.
+    pub const fn as_ptr(&self) -> *const TensorRank0 {
+        self.0.as_ptr()
+    }
     /// Returns the cross product with another rank-1 tensor.
     pub fn cross(&self, tensor_rank_1: &Self) -> Self {
         if D == 3 {
@@ -77,6 +81,9 @@ impl<const D: usize, const I: usize> ErrorTensor for TensorRank1<D, I> {
 }
 
 impl<const D: usize, const I: usize> Solution for TensorRank1<D, I> {
+    fn decrement_from(&mut self, _other: &Vector) {
+        unimplemented!()
+    }
     fn decrement_from_chained(&mut self, _other: &mut Vector, _vector: Vector) {
         unimplemented!()
     }
@@ -156,15 +163,15 @@ pub const fn zero<const D: usize, const I: usize>() -> TensorRank1<D, I> {
     TensorRank1([0.0; D])
 }
 
-impl<const D: usize, const I: usize> From<[TensorRank0; D]> for TensorRank1<D, I> {
-    fn from(array: [TensorRank0; D]) -> Self {
-        Self(array)
+impl From<TensorRank1<3, 0>> for TensorRank1<3, 1> {
+    fn from(tensor_rank_1: TensorRank1<3, 0>) -> Self {
+        unsafe { transmute::<TensorRank1<3, 0>, TensorRank1<3, 1>>(tensor_rank_1) }
     }
 }
 
-impl<const D: usize, const I: usize> From<Vec<TensorRank0>> for TensorRank1<D, I> {
-    fn from(vec: Vec<TensorRank0>) -> Self {
-        Self(vec.try_into().unwrap())
+impl<const D: usize, const I: usize> From<[TensorRank0; D]> for TensorRank1<D, I> {
+    fn from(array: [TensorRank0; D]) -> Self {
+        Self(array)
     }
 }
 
@@ -174,15 +181,21 @@ impl<const D: usize, const I: usize> From<TensorRank1<D, I>> for [TensorRank0; D
     }
 }
 
+impl<const D: usize, const I: usize> From<Vec<TensorRank0>> for TensorRank1<D, I> {
+    fn from(vec: Vec<TensorRank0>) -> Self {
+        Self(vec.try_into().unwrap())
+    }
+}
+
 impl<const D: usize, const I: usize> From<TensorRank1<D, I>> for Vec<TensorRank0> {
     fn from(tensor_rank_1: TensorRank1<D, I>) -> Self {
         tensor_rank_1.0.to_vec()
     }
 }
 
-impl From<TensorRank1<3, 0>> for TensorRank1<3, 1> {
-    fn from(tensor_rank_1: TensorRank1<3, 0>) -> Self {
-        unsafe { transmute::<TensorRank1<3, 0>, TensorRank1<3, 1>>(tensor_rank_1) }
+impl<const D: usize, const I: usize> From<Vector> for TensorRank1<D, I> {
+    fn from(_vector: Vector) -> Self {
+        unimplemented!()
     }
 }
 
