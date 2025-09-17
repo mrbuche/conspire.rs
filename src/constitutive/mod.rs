@@ -11,7 +11,7 @@ pub mod thermal;
 
 use crate::{
     defeat_message,
-    math::{Scalar, TestError, optimize::OptimizeError},
+    math::{Scalar, TestError, optimize::OptimizationError},
     mechanics::{Deformation, DeformationError, DeformationGradient},
 };
 use std::{
@@ -79,14 +79,14 @@ pub enum ConstitutiveError {
     NotMinimum(String, String),
 }
 
-impl From<ConstitutiveError> for OptimizeError {
-    fn from(error: ConstitutiveError) -> OptimizeError {
+impl From<ConstitutiveError> for OptimizationError {
+    fn from(error: ConstitutiveError) -> OptimizationError {
         match error {
             ConstitutiveError::InvalidJacobian(
                 jacobian,
                 deformation_gradient,
                 constitutive_model,
-            ) => OptimizeError::Generic(format!(
+            ) => OptimizationError::Generic(format!(
                 "\x1b[1;91mInvalid Jacobian: {jacobian:.6e}.\x1b[0;91m\n\
                         From deformation gradient: {deformation_gradient}.\n\
                         In constitutive model: {constitutive_model}."
@@ -104,13 +104,14 @@ impl From<ConstitutiveError> for TestError {
     }
 }
 
-impl From<OptimizeError> for ConstitutiveError {
-    fn from(error: OptimizeError) -> Self {
+impl From<OptimizationError> for ConstitutiveError {
+    fn from(error: OptimizationError) -> Self {
         match error {
-            OptimizeError::Generic(_) => todo!("Generic"),
-            OptimizeError::MaximumStepsReached(_, _) => todo!("MaximumStepsReached"),
-            OptimizeError::NotMinimum(_, _) => todo!("NotMinimum"),
-            OptimizeError::SingularMatrix => todo!("SingularMatrix"),
+            OptimizationError::Generic(_) => todo!("Generic"),
+            OptimizationError::LineSearch(_, _) => todo!("LineSearch"),
+            OptimizationError::MaximumStepsReached(_, _) => todo!("MaximumStepsReached"),
+            OptimizationError::NotMinimum(_, _) => todo!("NotMinimum"),
+            OptimizationError::SingularMatrix => todo!("SingularMatrix"),
         }
     }
 }

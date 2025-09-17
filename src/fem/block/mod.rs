@@ -14,7 +14,7 @@ use crate::{
         Banded,
         integrate::{Explicit, IntegrationError},
         optimize::{
-            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizeError,
+            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
             SecondOrderOptimization, ZerothOrderRootFinding,
         },
     },
@@ -207,7 +207,7 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl ZerothOrderRootFinding<NodalCoordinatesBlock>,
-    ) -> Result<NodalCoordinatesBlock, OptimizeError>;
+    ) -> Result<NodalCoordinatesBlock, OptimizationError>;
 }
 
 pub trait FirstOrderRoot<C, F, const G: usize, const N: usize>
@@ -223,7 +223,7 @@ where
             NodalStiffnessesBlock,
             NodalCoordinatesBlock,
         >,
-    ) -> Result<NodalCoordinatesBlock, OptimizeError>;
+    ) -> Result<NodalCoordinatesBlock, OptimizationError>;
 }
 
 pub trait HyperelasticFiniteElementBlock<C, F, const G: usize, const N: usize>
@@ -248,7 +248,7 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl FirstOrderOptimization<Scalar, NodalForcesBlock>,
-    ) -> Result<NodalCoordinatesBlock, OptimizeError>;
+    ) -> Result<NodalCoordinatesBlock, OptimizationError>;
 }
 
 pub trait SecondOrderMinimize<C, F, const G: usize, const N: usize>
@@ -266,7 +266,7 @@ where
             NodalStiffnessesBlock,
             NodalCoordinatesBlock,
         >,
-    ) -> Result<NodalCoordinatesBlock, OptimizeError>;
+    ) -> Result<NodalCoordinatesBlock, OptimizationError>;
 }
 
 pub trait ViscoelasticFiniteElementBlock<C, F, const G: usize, const N: usize>
@@ -316,7 +316,7 @@ where
             NodalCoordinatesBlock,
         >,
         initial_guess: &NodalVelocitiesBlock,
-    ) -> Result<NodalVelocitiesBlock, OptimizeError>;
+    ) -> Result<NodalVelocitiesBlock, OptimizationError>;
 }
 
 pub trait ElasticHyperviscousFiniteElementBlock<C, F, const G: usize, const N: usize>
@@ -359,7 +359,7 @@ where
             NodalCoordinatesBlock,
         >,
         initial_guess: &NodalVelocitiesBlock,
-    ) -> Result<NodalVelocitiesBlock, OptimizeError>;
+    ) -> Result<NodalVelocitiesBlock, OptimizationError>;
 }
 
 pub trait HyperviscoelasticFiniteElementBlock<C, F, const G: usize, const N: usize>
@@ -439,7 +439,7 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl ZerothOrderRootFinding<NodalCoordinatesBlock>,
-    ) -> Result<NodalCoordinatesBlock, OptimizeError> {
+    ) -> Result<NodalCoordinatesBlock, OptimizationError> {
         solver.root(
             |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
             self.coordinates().clone().into(),
@@ -462,7 +462,7 @@ where
             NodalStiffnessesBlock,
             NodalCoordinatesBlock,
         >,
-    ) -> Result<NodalCoordinatesBlock, OptimizeError> {
+    ) -> Result<NodalCoordinatesBlock, OptimizationError> {
         solver.root(
             |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
             |nodal_coordinates: &NodalCoordinatesBlock| {
@@ -507,7 +507,7 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl FirstOrderOptimization<Scalar, NodalForcesBlock>,
-    ) -> Result<NodalCoordinatesBlock, OptimizeError> {
+    ) -> Result<NodalCoordinatesBlock, OptimizationError> {
         solver.minimize(
             |nodal_coordinates: &NodalCoordinatesBlock| {
                 Ok(self.helmholtz_free_energy(nodal_coordinates)?)
@@ -534,7 +534,7 @@ where
             NodalStiffnessesBlock,
             NodalCoordinatesBlock,
         >,
-    ) -> Result<NodalCoordinatesBlock, OptimizeError> {
+    ) -> Result<NodalCoordinatesBlock, OptimizationError> {
         let banded = band(
             self.connectivity(),
             &equality_constraint,
@@ -675,7 +675,7 @@ where
             NodalCoordinatesBlock,
         >,
         initial_guess: &NodalVelocitiesBlock,
-    ) -> Result<NodalVelocitiesBlock, OptimizeError> {
+    ) -> Result<NodalVelocitiesBlock, OptimizationError> {
         solver.root(
             |nodal_velocities: &NodalVelocitiesBlock| {
                 Ok(self.nodal_forces(nodal_coordinates, nodal_velocities)?)
@@ -767,7 +767,7 @@ where
             NodalCoordinatesBlock,
         >,
         initial_guess: &NodalVelocitiesBlock,
-    ) -> Result<NodalVelocitiesBlock, OptimizeError> {
+    ) -> Result<NodalVelocitiesBlock, OptimizationError> {
         let num_coords = nodal_coordinates.len();
         let banded = band(self.connectivity(), &equality_constraint, num_coords);
         solver.minimize(

@@ -6,13 +6,16 @@ use super::{
         Banded, Hessian, Jacobian, Matrix, Scalar, Solution, SquareMatrix, Tensor, TensorVec,
         Vector,
     },
-    EqualityConstraint, FirstOrderRootFinding, LineSearch, OptimizeError, SecondOrderOptimization,
+    BacktrackingLineSearch, EqualityConstraint, FirstOrderRootFinding, LineSearch,
+    OptimizationError, SecondOrderOptimization,
 };
 use crate::ABS_TOL;
-use std::ops::{Div, Mul};
+use std::{
+    fmt::{self, Debug, Formatter},
+    ops::{Div, Mul},
+};
 
 /// The Newton-Raphson method.
-#[derive(Debug)]
 pub struct NewtonRaphson {
     /// Absolute error tolerance.
     pub abs_tol: Scalar,
@@ -20,6 +23,22 @@ pub struct NewtonRaphson {
     pub line_search: LineSearch,
     /// Maximum number of steps.
     pub max_steps: usize,
+}
+
+impl<J, X> BacktrackingLineSearch<J, X> for NewtonRaphson {
+    fn get_line_search(&self) -> &LineSearch {
+        &self.line_search
+    }
+}
+
+impl Debug for NewtonRaphson {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "NewtonRaphson {{ abs_tol: {:?}, line_search: {}, max_steps: {:?} }}",
+            self.abs_tol, self.line_search, self.max_steps
+        )
+    }
 }
 
 impl Default for NewtonRaphson {
@@ -43,11 +62,11 @@ where
 {
     fn root(
         &self,
-        function: impl Fn(&X) -> Result<F, OptimizeError>,
-        jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
+        function: impl Fn(&X) -> Result<F, OptimizationError>,
+        jacobian: impl Fn(&X) -> Result<J, OptimizationError>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
-    ) -> Result<X, OptimizeError> {
+    ) -> Result<X, OptimizationError> {
         match equality_constraint {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
                 self,
@@ -90,13 +109,13 @@ where
 {
     fn minimize(
         &self,
-        function: impl Fn(&X) -> Result<Scalar, OptimizeError>,
-        jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
-        hessian: impl Fn(&X) -> Result<H, OptimizeError>,
+        function: impl Fn(&X) -> Result<Scalar, OptimizationError>,
+        jacobian: impl Fn(&X) -> Result<J, OptimizationError>,
+        hessian: impl Fn(&X) -> Result<H, OptimizationError>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
         banded: Option<Banded>,
-    ) -> Result<X, OptimizeError> {
+    ) -> Result<X, OptimizationError> {
         match equality_constraint {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
                 self,
@@ -126,11 +145,11 @@ where
 
 fn unconstrained<J, H, X>(
     newton_raphson: &NewtonRaphson,
-    function: impl Fn(&X) -> Result<Scalar, OptimizeError>,
-    jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
-    hessian: impl Fn(&X) -> Result<H, OptimizeError>,
+    function: impl Fn(&X) -> Result<Scalar, OptimizationError>,
+    jacobian: impl Fn(&X) -> Result<J, OptimizationError>,
+    hessian: impl Fn(&X) -> Result<H, OptimizationError>,
     initial_guess: X,
-) -> Result<X, OptimizeError>
+) -> Result<X, OptimizationError>
 where
     H: Hessian,
     J: Jacobian,
@@ -141,6 +160,7 @@ where
     let mut decrement;
     let mut residual;
     let mut solution = initial_guess;
+    let mut step_size;
     let mut tangent;
     for _ in 0..newton_raphson.max_steps {
         residual = jacobian(&solution)?;
@@ -149,15 +169,16 @@ where
             return Ok(solution);
         } else {
             decrement = &residual / tangent;
-            if !matches!(newton_raphson.line_search, LineSearch::None) {
-                decrement *= newton_raphson
-                    .line_search
-                    .backtrack(&function, &jacobian, &solution, &residual, &decrement, &1.0)?
+            step_size = newton_raphson.backtracking_line_search(
+                &function, &jacobian, &solution, &residual, &decrement, 1.0,
+            )?;
+            if step_size != 1.0 {
+                decrement *= step_size
             }
             solution -= decrement
         }
     }
-    Err(OptimizeError::MaximumStepsReached(
+    Err(OptimizationError::MaximumStepsReached(
         newton_raphson.max_steps,
         format!("{:?}", &newton_raphson),
     ))
@@ -166,13 +187,13 @@ where
 #[allow(clippy::too_many_arguments)]
 fn constrained_fixed<J, H, X>(
     newton_raphson: &NewtonRaphson,
-    _function: impl Fn(&X) -> Result<Scalar, OptimizeError>,
-    jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
-    hessian: impl Fn(&X) -> Result<H, OptimizeError>,
+    _function: impl Fn(&X) -> Result<Scalar, OptimizationError>,
+    jacobian: impl Fn(&X) -> Result<J, OptimizationError>,
+    hessian: impl Fn(&X) -> Result<H, OptimizationError>,
     initial_guess: X,
     banded: Option<Banded>,
     indices: Vec<usize>,
-) -> Result<X, OptimizeError>
+) -> Result<X, OptimizationError>
 where
     H: Hessian,
     J: Jacobian,
@@ -186,6 +207,7 @@ where
     let mut decrement;
     let mut residual;
     let mut solution = initial_guess;
+    // let mut step_size;
     let mut tangent;
     for _ in 0..newton_raphson.max_steps {
         residual = jacobian(&solution)?.retain_from(&retained);
@@ -197,9 +219,15 @@ where
         } else {
             decrement = tangent.solve_lu(&residual)?
         }
+        // step_size = newton_raphson.backtracking_line_search(
+        //     &function, &jacobian, &solution, &residual, &decrement, 1.0,
+        // )?;
+        // if step_size != 1.0 {
+        //     decrement *= step_size
+        // }
         solution.decrement_from_retained(&retained, &decrement)
     }
-    Err(OptimizeError::MaximumStepsReached(
+    Err(OptimizationError::MaximumStepsReached(
         newton_raphson.max_steps,
         format!("{:?}", &newton_raphson),
     ))
@@ -208,14 +236,14 @@ where
 #[allow(clippy::too_many_arguments)]
 fn constrained<J, H, X>(
     newton_raphson: &NewtonRaphson,
-    _function: impl Fn(&X) -> Result<Scalar, OptimizeError>,
-    jacobian: impl Fn(&X) -> Result<J, OptimizeError>,
-    hessian: impl Fn(&X) -> Result<H, OptimizeError>,
+    _function: impl Fn(&X) -> Result<Scalar, OptimizationError>,
+    jacobian: impl Fn(&X) -> Result<J, OptimizationError>,
+    hessian: impl Fn(&X) -> Result<H, OptimizationError>,
     initial_guess: X,
     banded: Option<Banded>,
     constraint_matrix: Matrix,
     constraint_rhs: Vector,
-) -> Result<X, OptimizeError>
+) -> Result<X, OptimizationError>
 where
     H: Hessian,
     J: Jacobian,
@@ -260,7 +288,7 @@ where
         }
         solution.decrement_from_chained(&mut multipliers, decrement)
     }
-    Err(OptimizeError::MaximumStepsReached(
+    Err(OptimizationError::MaximumStepsReached(
         newton_raphson.max_steps,
         format!("{:?}", &newton_raphson),
     ))

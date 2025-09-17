@@ -10262,8 +10262,12 @@ fn temporary_5() -> Result<(), TestError> {
     let _solution = block.minimize(
         EqualityConstraint::Fixed(indices),
         GradientDescent {
-            line_search: LineSearch::default(),
-            // max_steps: 1000,
+            // line_search: LineSearch::default(),
+            line_search: LineSearch::Armijo {
+                control: 1e-3,
+                cut_back: 9e-1,
+                max_steps: 1,
+            },
             rel_tol: Some(1e-2),
             ..Default::default()
         },

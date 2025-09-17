@@ -1,23 +1,23 @@
 use super::{
     super::{Scalar, Tensor, special, test::TestError},
-    OptimizeError,
+    OptimizationError,
 };
 
-pub fn rosenbrock<T>(x: &T) -> Result<Scalar, OptimizeError>
+pub fn rosenbrock<T>(x: &T) -> Result<Scalar, OptimizationError>
 where
     T: Tensor<Item = Scalar>,
 {
     Ok(special::rosenbrock(x, 1.0, 100.0))
 }
 
-pub fn rosenbrock_derivative<T>(x: &T) -> Result<T, OptimizeError>
+pub fn rosenbrock_derivative<T>(x: &T) -> Result<T, OptimizationError>
 where
     T: FromIterator<Scalar> + Tensor<Item = Scalar>,
 {
     Ok(special::rosenbrock_derivative(x, 1.0, 100.0))
 }
 
-// pub fn rosenbrock_second_derivative<T, U>(x: &T) -> Result<U, OptimizeError>
+// pub fn rosenbrock_second_derivative<T, U>(x: &T) -> Result<U, OptimizationError>
 // where
 //     T: FromIterator<Scalar> + Tensor<Item = Scalar>,
 //     U: Tensor<Item = T>,
@@ -29,11 +29,11 @@ where
 fn debug() {
     let _ = format!(
         "{:?}",
-        OptimizeError::MaximumStepsReached(1, "foo".to_string())
+        OptimizationError::MaximumStepsReached(1, "foo".to_string())
     );
     let _ = format!(
         "{:?}",
-        OptimizeError::NotMinimum("foo".to_string(), "bar".to_string())
+        OptimizationError::NotMinimum("foo".to_string(), "bar".to_string())
     );
 }
 
@@ -41,16 +41,16 @@ fn debug() {
 fn display() {
     let _ = format!(
         "{}",
-        OptimizeError::MaximumStepsReached(1, "foo".to_string())
+        OptimizationError::MaximumStepsReached(1, "foo".to_string())
     );
     let _ = format!(
         "{}",
-        OptimizeError::NotMinimum("foo".to_string(), "bar".to_string())
+        OptimizationError::NotMinimum("foo".to_string(), "bar".to_string())
     );
 }
 
 #[test]
 fn into_test_error() {
-    let optimize_error = OptimizeError::MaximumStepsReached(1, "foo".to_string());
+    let optimize_error = OptimizationError::MaximumStepsReached(1, "foo".to_string());
     let _: TestError = optimize_error.into();
 }

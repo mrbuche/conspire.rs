@@ -30,7 +30,7 @@ use super::{
 use crate::math::{
     Matrix, TensorVec, Vector,
     optimize::{
-        EqualityConstraint, FirstOrderOptimization, OptimizeError, SecondOrderOptimization,
+        EqualityConstraint, FirstOrderOptimization, OptimizationError, SecondOrderOptimization,
     },
 };
 
@@ -61,7 +61,7 @@ pub trait FirstOrderMinimize {
         &self,
         applied_load: AppliedLoad,
         solver: impl FirstOrderOptimization<Scalar, DeformationGradient>,
-    ) -> Result<DeformationGradient, OptimizeError>;
+    ) -> Result<DeformationGradient, OptimizationError>;
 }
 
 /// Second-order minimization methods for elastic constitutive models.
@@ -80,7 +80,7 @@ pub trait SecondOrderMinimize {
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
         >,
-    ) -> Result<DeformationGradient, OptimizeError>;
+    ) -> Result<DeformationGradient, OptimizationError>;
 }
 
 impl<T> FirstOrderMinimize for T
@@ -91,7 +91,7 @@ where
         &self,
         applied_load: AppliedLoad,
         solver: impl FirstOrderOptimization<Scalar, DeformationGradient>,
-    ) -> Result<DeformationGradient, OptimizeError> {
+    ) -> Result<DeformationGradient, OptimizationError> {
         match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_11) => {
                 let mut matrix = Matrix::zero(4, 9);
@@ -150,7 +150,7 @@ where
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
         >,
-    ) -> Result<DeformationGradient, OptimizeError> {
+    ) -> Result<DeformationGradient, OptimizationError> {
         match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_11) => {
                 let mut matrix = Matrix::zero(4, 9);
