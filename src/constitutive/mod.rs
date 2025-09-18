@@ -127,7 +127,6 @@ impl Debug for ConstitutiveError {
             Self::InvalidJacobian(jacobian, deformation_gradient, constitutive_model) => {
                 format!(
                     "\x1b[1;91mInvalid Jacobian: {jacobian:.6e}.\x1b[0;91m\n\
-                    From deformation gradient: {deformation_gradient}.\n\
                     In constitutive model: {constitutive_model}."
                 )
             }
@@ -159,7 +158,6 @@ impl Display for ConstitutiveError {
             Self::InvalidJacobian(jacobian, deformation_gradient, constitutive_model) => {
                 format!(
                     "\x1b[1;91mInvalid Jacobian: {jacobian:.6e}.\x1b[0;91m\n\
-                    From deformation gradient: {deformation_gradient}.\n\
                     In constitutive model: {constitutive_model}."
                 )
             }
