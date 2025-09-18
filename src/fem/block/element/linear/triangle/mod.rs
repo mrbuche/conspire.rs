@@ -162,32 +162,40 @@ where
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<NodalForces<N>, ConstitutiveError> {
-        Ok(self
+    ) -> Result<NodalForces<N>, FiniteElementError> {
+        match self
             .constitutive_models()
             .iter()
             .zip(self.deformation_gradients(nodal_coordinates).iter())
             .map(|(constitutive_model, deformation_gradient)| {
                 constitutive_model.first_piola_kirchhoff_stress(deformation_gradient)
             })
-            .collect::<Result<FirstPiolaKirchhoffStresses<G>, _>>()?
-            .iter()
-            .zip(
-                self.gradient_vectors()
-                    .iter()
-                    .zip(self.integration_weights().iter()),
-            )
-            .map(
-                |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
-                    gradient_vectors
+            .collect::<Result<FirstPiolaKirchhoffStresses<G>, _>>()
+        {
+            Ok(foo) => Ok(foo
+                .iter()
+                .zip(
+                    self.gradient_vectors()
                         .iter()
-                        .map(|gradient_vector| {
-                            (first_piola_kirchhoff_stress * gradient_vector) * integration_weight
-                        })
-                        .collect()
-                },
-            )
-            .sum())
+                        .zip(self.integration_weights().iter()),
+                )
+                .map(
+                    |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
+                        gradient_vectors
+                            .iter()
+                            .map(|gradient_vector| {
+                                (first_piola_kirchhoff_stress * gradient_vector)
+                                    * integration_weight
+                            })
+                            .collect()
+                    },
+                )
+                .sum()),
+            Err(error) => Err(FiniteElementError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
     fn nodal_stiffnesses(
         &self,

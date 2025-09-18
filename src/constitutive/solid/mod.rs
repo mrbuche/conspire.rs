@@ -26,9 +26,13 @@ use crate::{
         SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness, Times,
     },
 };
+use std::fmt::Debug;
 
 /// Required methods for solid constitutive models.
-pub trait Solid {
+pub trait Solid
+where
+    Self: Debug,
+{
     /// Returns the bulk modulus.
     fn bulk_modulus(&self) -> &Scalar;
     /// Returns the shear modulus.

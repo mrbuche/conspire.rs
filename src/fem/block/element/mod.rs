@@ -7,21 +7,40 @@ pub mod linear;
 use super::*;
 use crate::{
     constitutive::{Constitutive, Parameters},
+    defeat_message,
     math::{IDENTITY, LEVI_CIVITA, tensor_rank_1_zero},
     mechanics::Scalar,
 };
+use std::fmt::{Debug, Display};
 
+// #[derive(Debug)]
 pub struct Element<C, const G: usize, const N: usize> {
     constitutive_models: [C; G],
     gradient_vectors: GradientVectors<G, N>,
     integration_weights: Scalars<G>,
 }
 
+#[derive(Debug)]
 pub struct SurfaceElement<C, const G: usize, const N: usize, const P: usize> {
     constitutive_models: [C; G],
     gradient_vectors: GradientVectors<G, N>,
     integration_weights: Scalars<G>,
     reference_normals: ReferenceNormals<P>,
+}
+
+impl<C, const G: usize, const N: usize> Debug for Element<C, G, N> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match (G, N) {
+            (1, 4) => write!(f, "LinearTetrahedron {{ constitutive_model: {} }}", "Foo"), // get Display implemented for the constitutive models
+            (8, 8) => write!(f, "LinearHexahedron {{ constitutive_model: {} }}", "Foo"), // also may want to consider impl debug separately to show parameter names
+            (4, 10) => write!(
+                f,
+                "CompositeTetrahedron {{ constitutive_model: {} }}",
+                "Foo"
+            ),
+            _ => panic!(),
+        }
+    }
 }
 
 pub trait FiniteElement<C, const G: usize, const N: usize, Y>
@@ -88,6 +107,38 @@ pub trait SurfaceFiniteElementMethods<
 // make this a const fn and remove inherent impl of it once Rust stabilizes const fn trait methods
 pub trait SurfaceFiniteElementMethodsExtra<const M: usize, const N: usize, const P: usize> {
     fn standard_gradient_operators() -> StandardGradientOperators<M, N, P>;
+}
+
+pub enum FiniteElementError {
+    Upstream(String, String),
+}
+
+impl Debug for FiniteElementError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let error = match self {
+            Self::Upstream(error, element) => {
+                format!(
+                    "{error}\x1b[0;91m\n\
+                    In finite element: {element}."
+                )
+            }
+        };
+        write!(f, "\n{error}\n\x1b[0;2;31m{}\x1b[0m\n", defeat_message())
+    }
+}
+
+impl Display for FiniteElementError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let error = match self {
+            Self::Upstream(error, element) => {
+                format!(
+                    "{error}\x1b[0;91m\n\
+                    In finite element: {element}."
+                )
+            }
+        };
+        write!(f, "{error}\x1b[0m")
+    }
 }
 
 impl<C, const G: usize, const N: usize> FiniteElementMethods<C, G, N> for Element<C, G, N> {
@@ -279,12 +330,12 @@ where
 pub trait ElasticFiniteElement<C, const G: usize, const N: usize>
 where
     C: Elastic,
-    Self: FiniteElementMethods<C, G, N>,
+    Self: Debug + FiniteElementMethods<C, G, N>,
 {
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<NodalForces<N>, ConstitutiveError>;
+    ) -> Result<NodalForces<N>, FiniteElementError>;
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
@@ -354,32 +405,40 @@ where
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<NodalForces<N>, ConstitutiveError> {
-        Ok(self
+    ) -> Result<NodalForces<N>, FiniteElementError> {
+        match self
             .constitutive_models()
             .iter()
             .zip(self.deformation_gradients(nodal_coordinates).iter())
             .map(|(constitutive_model, deformation_gradient)| {
                 constitutive_model.first_piola_kirchhoff_stress(deformation_gradient)
             })
-            .collect::<Result<FirstPiolaKirchhoffStresses<G>, _>>()?
-            .iter()
-            .zip(
-                self.gradient_vectors()
-                    .iter()
-                    .zip(self.integration_weights().iter()),
-            )
-            .map(
-                |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
-                    gradient_vectors
+            .collect::<Result<FirstPiolaKirchhoffStresses<G>, _>>()
+        {
+            Ok(foo) => Ok(foo
+                .iter()
+                .zip(
+                    self.gradient_vectors()
                         .iter()
-                        .map(|gradient_vector| {
-                            (first_piola_kirchhoff_stress * gradient_vector) * integration_weight
-                        })
-                        .collect()
-                },
-            )
-            .sum())
+                        .zip(self.integration_weights().iter()),
+                )
+                .map(
+                    |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
+                        gradient_vectors
+                            .iter()
+                            .map(|gradient_vector| {
+                                (first_piola_kirchhoff_stress * gradient_vector)
+                                    * integration_weight
+                            })
+                            .collect()
+                    },
+                )
+                .sum()),
+            Err(error) => Err(FiniteElementError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
     fn nodal_stiffnesses(
         &self,

@@ -4,9 +4,9 @@ mod test;
 pub mod element;
 
 use self::element::{
-    ElasticFiniteElement, ElasticHyperviscousFiniteElement, FiniteElement, FiniteElementMethods,
-    HyperelasticFiniteElement, HyperviscoelasticFiniteElement, SurfaceFiniteElement,
-    ViscoelasticFiniteElement,
+    ElasticFiniteElement, ElasticHyperviscousFiniteElement, FiniteElement, FiniteElementError,
+    FiniteElementMethods, HyperelasticFiniteElement, HyperviscoelasticFiniteElement,
+    SurfaceFiniteElement, ViscoelasticFiniteElement,
 };
 use super::*;
 use crate::{
@@ -20,12 +20,39 @@ use crate::{
     },
     mechanics::Times,
 };
-use std::{array::from_fn, iter::repeat_n};
+use std::{
+    array::from_fn,
+    fmt::{self, Debug, Formatter},
+    iter::repeat_n,
+};
 
 pub struct ElementBlock<F, const N: usize> {
     connectivity: Connectivity<N>,
     coordinates: ReferenceNodalCoordinatesBlock,
     elements: Vec<F>,
+}
+
+impl<F, const N: usize> Debug for ElementBlock<F, N> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match N {
+            4 => write!(
+                f,
+                "ElementBlock {{ elements: [LinearTetrahedron; {}] }}",
+                self.connectivity.len()
+            ),
+            8 => write!(
+                f,
+                "ElementBlock {{ elements: [LinearHexahedron; {}] }}",
+                self.connectivity.len()
+            ),
+            10 => write!(
+                f,
+                "ElementBlock {{ elements: [CompositeTetrahedron; {}] }}",
+                self.connectivity.len()
+            ),
+            _ => panic!(),
+        }
+    }
 }
 
 pub trait FiniteElementBlockMethods<C, F, const G: usize, const N: usize>
@@ -72,6 +99,24 @@ where
         reference_nodal_coordinates: ReferenceNodalCoordinatesBlock,
         thickness: Scalar,
     ) -> Self;
+}
+
+pub enum FiniteElementBlockError {
+    Upstream(String, String),
+}
+
+impl From<FiniteElementBlockError> for OptimizationError {
+    fn from(error: FiniteElementBlockError) -> OptimizationError {
+        match error {
+            FiniteElementBlockError::Upstream(error, block) => OptimizationError::Upstream(
+                format!(
+                    "{error}\x1b[0;91m\n\
+                    In finite element block: {block}."
+                ),
+                "TODO".to_string(),
+            ),
+        }
+    }
 }
 
 impl<C, F, const G: usize, const N: usize> FiniteElementBlockMethods<C, F, G, N>
@@ -191,7 +236,7 @@ where
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> Result<NodalForcesBlock, ConstitutiveError>;
+    ) -> Result<NodalForcesBlock, FiniteElementBlockError>;
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
@@ -384,9 +429,10 @@ where
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> Result<NodalForcesBlock, ConstitutiveError> {
+    ) -> Result<NodalForcesBlock, FiniteElementBlockError> {
         let mut nodal_forces = NodalForcesBlock::zero(nodal_coordinates.len());
-        self.elements()
+        match self
+            .elements()
             .iter()
             .zip(self.connectivity().iter())
             .try_for_each(|(element, element_connectivity)| {
@@ -397,9 +443,14 @@ where
                     .iter()
                     .zip(element_connectivity.iter())
                     .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
-                Ok::<(), ConstitutiveError>(())
-            })?;
-        Ok(nodal_forces)
+                Ok::<(), FiniteElementError>(())
+            }) {
+            Ok(()) => Ok(nodal_forces),
+            Err(error) => Err(FiniteElementBlockError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
     fn nodal_stiffnesses(
         &self,

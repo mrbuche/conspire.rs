@@ -9,7 +9,7 @@ use std::{
 };
 
 /// Available line search algorithms.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum LineSearch {
     /// The Armijo condition.
     Armijo {
@@ -76,17 +76,20 @@ impl LineSearch {
         for<'a> &'a X: Mul<Scalar, Output = X>,
     {
         if step_size <= 0.0 {
-            return Err(LineSearchError::NegativeStepSize(self.clone(), step_size));
+            return Err(LineSearchError::NegativeStepSize(
+                format!("{self:?}"),
+                step_size,
+            ));
         }
         let mut n = step_size;
         let f = if let Ok(value) = function(argument) {
             value
         } else {
-            return Err(LineSearchError::InvalidStartingPoint(self.clone()));
+            return Err(LineSearchError::InvalidStartingPoint(format!("{self:?}")));
         };
         let m = jacobian0.full_contraction(decrement.into());
         if m <= 0.0 {
-            return Err(LineSearchError::NotDescentDirection(self.clone()));
+            return Err(LineSearchError::NotDescentDirection(format!("{self:?}")));
         }
         match self {
             Self::Armijo {
@@ -107,7 +110,7 @@ impl LineSearch {
                     }
                 }
                 Err(LineSearchError::MaximumStepsReached(
-                    self.clone(),
+                    format!("{self:?}"),
                     *max_steps,
                 ))
             }
@@ -123,7 +126,7 @@ impl LineSearch {
                     }
                 }
                 Err(LineSearchError::MaximumStepsReached(
-                    self.clone(),
+                    format!("{self:?}"),
                     *max_steps,
                 ))
             }
@@ -150,7 +153,7 @@ impl LineSearch {
                     }
                 }
                 Err(LineSearchError::MaximumStepsReached(
-                    self.clone(),
+                    format!("{self:?}"),
                     *max_steps,
                 ))
             }
@@ -185,7 +188,7 @@ impl LineSearch {
                     }
                 }
                 Err(LineSearchError::MaximumStepsReached(
-                    self.clone(),
+                    format!("{self:?}"),
                     *max_steps,
                 ))
             }
@@ -198,10 +201,10 @@ impl LineSearch {
 
 /// Possible errors encountered during line search.
 pub enum LineSearchError {
-    InvalidStartingPoint(LineSearch),
-    MaximumStepsReached(LineSearch, usize),
-    NegativeStepSize(LineSearch, Scalar),
-    NotDescentDirection(LineSearch),
+    InvalidStartingPoint(String),
+    MaximumStepsReached(String, usize),
+    NegativeStepSize(String, Scalar),
+    NotDescentDirection(String),
 }
 
 impl Debug for LineSearchError {
@@ -210,25 +213,25 @@ impl Debug for LineSearchError {
             Self::InvalidStartingPoint(line_search) => {
                 format!(
                     "\x1b[1;91mStaring point is invalid.\x1b[0;91m\n\
-                     In line search: {line_search:?}."
+                     In line search: {line_search}."
                 )
             }
             Self::MaximumStepsReached(line_search, steps) => {
                 format!(
                     "\x1b[1;91mMaximum number of steps ({steps}) reached.\x1b[0;91m\n\
-                     In line search: {line_search:?}."
+                     In line search: {line_search}."
                 )
             }
             Self::NegativeStepSize(line_search, step_size) => {
                 format!(
                     "\x1b[1;91mNegative step size ({step_size}) encountered.\x1b[0;91m\n\
-                     In line search: {line_search:?}."
+                     In line search: {line_search}."
                 )
             }
             Self::NotDescentDirection(line_search) => {
                 format!(
                     "\x1b[1;91mDirection is not a descent direction.\x1b[0;91m\n\
-                     In line search: {line_search:?}."
+                     In line search: {line_search}."
                 )
             }
         };
@@ -242,25 +245,25 @@ impl Display for LineSearchError {
             Self::InvalidStartingPoint(line_search) => {
                 format!(
                     "\x1b[1;91mStaring point is invalid.\x1b[0;91m\n\
-                     In line search: {line_search:?}."
+                     In line search: {line_search}."
                 )
             }
             Self::MaximumStepsReached(line_search, steps) => {
                 format!(
                     "\x1b[1;91mMaximum number of steps ({steps}) reached.\x1b[0;91m\n\
-                     In line search: {line_search:?}."
+                     In line search: {line_search}."
                 )
             }
             Self::NegativeStepSize(line_search, step_size) => {
                 format!(
                     "\x1b[1;91mNegative step size ({step_size}) encountered.\x1b[0;91m\n\
-                     In line search: {line_search:?}."
+                     In line search: {line_search}."
                 )
             }
             Self::NotDescentDirection(line_search) => {
                 format!(
                     "\x1b[1;91mDirection is not a descent direction.\x1b[0;91m\n\
-                     In line search: {line_search:?}."
+                     In line search: {line_search}."
                 )
             }
         };

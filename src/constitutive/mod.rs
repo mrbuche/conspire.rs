@@ -108,10 +108,10 @@ impl From<OptimizationError> for ConstitutiveError {
     fn from(error: OptimizationError) -> Self {
         match error {
             OptimizationError::Generic(_) => todo!("Generic"),
-            OptimizationError::LineSearch(_, _) => todo!("LineSearch"),
             OptimizationError::MaximumStepsReached(_, _) => todo!("MaximumStepsReached"),
             OptimizationError::NotMinimum(_, _) => todo!("NotMinimum"),
             OptimizationError::SingularMatrix => todo!("SingularMatrix"),
+            OptimizationError::Upstream(_, _) => todo!("Upstream"),
         }
     }
 }

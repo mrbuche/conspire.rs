@@ -95,12 +95,12 @@ where
                 &function, &jacobian, argument, jacobian0, decrement, step_size,
             ) {
                 Ok(step_size) => Ok(step_size),
-                Err(error) => Err(self.convert_error(error)),
+                Err(error) => Err(OptimizationError::Upstream(
+                    format!("{error}"),
+                    format!("{self:?}"),
+                )),
             }
         }
-    }
-    fn convert_error(&self, error: LineSearchError) -> OptimizationError {
-        OptimizationError::LineSearch(format!("{error}"), format!("{self:?}"))
     }
     fn get_line_search(&self) -> &LineSearch;
 }
@@ -108,9 +108,9 @@ where
 /// Possible errors encountered during optimization.
 pub enum OptimizationError {
     Generic(String),
-    LineSearch(String, String),
     MaximumStepsReached(usize, String),
     NotMinimum(String, String),
+    Upstream(String, String),
     SingularMatrix,
 }
 
@@ -118,12 +118,6 @@ impl Debug for OptimizationError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
             Self::Generic(message) => message.to_string(),
-            Self::LineSearch(error, solver) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In solver: {solver}."
-                )
-            }
             Self::MaximumStepsReached(steps, solver) => {
                 format!(
                     "\x1b[1;91mMaximum number of steps ({steps}) reached.\x1b[0;91m\n\
@@ -138,6 +132,12 @@ impl Debug for OptimizationError {
                 )
             }
             Self::SingularMatrix => "\x1b[1;91mMatrix is singular.".to_string(),
+            Self::Upstream(error, solver) => {
+                format!(
+                    "{error}\x1b[0;91m\n\
+                    In solver: {solver}."
+                )
+            }
         };
         write!(f, "\n{error}\n\x1b[0;2;31m{}\x1b[0m\n", defeat_message())
     }
@@ -147,12 +147,6 @@ impl Display for OptimizationError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
             Self::Generic(message) => message.to_string(),
-            Self::LineSearch(error, solver) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In solver: {solver}."
-                )
-            }
             Self::MaximumStepsReached(steps, solver) => {
                 format!(
                     "\x1b[1;91mMaximum number of steps ({steps}) reached.\x1b[0;91m\n\
@@ -167,6 +161,12 @@ impl Display for OptimizationError {
                 )
             }
             Self::SingularMatrix => "\x1b[1;91mMatrix is singular.".to_string(),
+            Self::Upstream(error, solver) => {
+                format!(
+                    "{error}\x1b[0;91m\n\
+                    In solver: {solver}."
+                )
+            }
         };
         write!(f, "{error}\x1b[0m")
     }
