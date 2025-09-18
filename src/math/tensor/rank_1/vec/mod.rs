@@ -125,7 +125,7 @@ impl From<TensorRank1Vec<3, 1>> for TensorRank1Vec<3, 0> {
 impl<const D: usize, const I: usize> From<Vector> for TensorRank1Vec<D, I> {
     fn from(vector: Vector) -> Self {
         let n = vector.len();
-        if n % D != 0 {
+        if !n.is_multiple_of(D) {
             panic!("Vector length mismatch.")
         } else {
             let length = n / D;
@@ -139,7 +139,7 @@ impl<const D: usize, const I: usize> From<Vector> for TensorRank1Vec<D, I> {
 impl<const D: usize, const I: usize> From<&Vector> for TensorRank1Vec<D, I> {
     fn from(vector: &Vector) -> Self {
         let n = vector.len();
-        if n % D != 0 {
+        if !n.is_multiple_of(D) {
             panic!("Vector length mismatch.")
         } else {
             let length = n / D;
