@@ -10,6 +10,7 @@ use self::element::{
 };
 use super::*;
 use crate::{
+    defeat_message,
     math::{
         Banded, TestError,
         integrate::{Explicit, IntegrationError},
@@ -34,24 +35,18 @@ pub struct ElementBlock<F, const N: usize> {
 
 impl<F, const N: usize> Debug for ElementBlock<F, N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match N {
-            4 => write!(
-                f,
-                "ElementBlock {{ elements: [LinearTetrahedron; {}] }}",
-                self.connectivity.len()
-            ),
-            8 => write!(
-                f,
-                "ElementBlock {{ elements: [LinearHexahedron; {}] }}",
-                self.connectivity.len()
-            ),
-            10 => write!(
-                f,
-                "ElementBlock {{ elements: [CompositeTetrahedron; {}] }}",
-                self.connectivity.len()
-            ),
+        let element = match N {
+            3 => "LinearTriangle",
+            4 => "LinearTetrahedron",
+            8 => "LinearHexahedron",
+            10 => "CompositeTetrahedron",
             _ => panic!(),
-        }
+        };
+        write!(
+            f,
+            "ElementBlock {{ elements: [{element}; {}] }}",
+            self.connectivity.len()
+        )
     }
 }
 
@@ -123,6 +118,20 @@ impl From<FiniteElementBlockError> for TestError {
         Self {
             message: error.to_string(),
         }
+    }
+}
+
+impl Debug for FiniteElementBlockError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let error = match self {
+            Self::Upstream(error, block) => {
+                format!(
+                    "{error}\x1b[0;91m\n\
+                    In block: {block}."
+                )
+            }
+        };
+        write!(f, "\n{error}\n\x1b[0;2;31m{}\x1b[0m\n", defeat_message())
     }
 }
 
@@ -261,7 +270,7 @@ where
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> Result<NodalStiffnessesBlock, ConstitutiveError>;
+    ) -> Result<NodalStiffnessesBlock, FiniteElementBlockError>;
 }
 
 pub trait ZerothOrderRoot<C, F, const G: usize, const N: usize>
@@ -301,7 +310,7 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> Result<Scalar, ConstitutiveError>;
+    ) -> Result<Scalar, FiniteElementBlockError>;
 }
 
 pub trait FirstOrderMinimize<C, F, const G: usize, const N: usize>
@@ -349,12 +358,12 @@ where
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
         nodal_velocities: &NodalVelocitiesBlock,
-    ) -> Result<NodalForcesBlock, ConstitutiveError>;
+    ) -> Result<NodalForcesBlock, FiniteElementBlockError>;
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
         nodal_velocities: &NodalVelocitiesBlock,
-    ) -> Result<NodalStiffnessesBlock, ConstitutiveError>;
+    ) -> Result<NodalStiffnessesBlock, FiniteElementBlockError>;
     fn nodal_velocities_element(
         &self,
         element_connectivity: &[usize; N],
@@ -395,12 +404,12 @@ where
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
         nodal_velocities: &NodalVelocitiesBlock,
-    ) -> Result<Scalar, ConstitutiveError>;
+    ) -> Result<Scalar, FiniteElementBlockError>;
     fn dissipation_potential(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
         nodal_velocities: &NodalVelocitiesBlock,
-    ) -> Result<Scalar, ConstitutiveError>;
+    ) -> Result<Scalar, FiniteElementBlockError>;
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
@@ -437,7 +446,7 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> Result<Scalar, ConstitutiveError>;
+    ) -> Result<Scalar, FiniteElementBlockError>;
 }
 
 impl<C, F, const G: usize, const N: usize> ElasticFiniteElementBlock<C, F, G, N>
@@ -476,9 +485,10 @@ where
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> Result<NodalStiffnessesBlock, ConstitutiveError> {
+    ) -> Result<NodalStiffnessesBlock, FiniteElementBlockError> {
         let mut nodal_stiffnesses = NodalStiffnessesBlock::zero(nodal_coordinates.len());
-        self.elements()
+        match self
+            .elements()
             .iter()
             .zip(self.connectivity().iter())
             .try_for_each(|(element, element_connectivity)| {
@@ -495,9 +505,14 @@ where
                             },
                         )
                     });
-                Ok::<(), ConstitutiveError>(())
-            })?;
-        Ok(nodal_stiffnesses)
+                Ok::<(), FiniteElementError>(())
+            }) {
+            Ok(()) => Ok(nodal_stiffnesses),
+            Err(error) => Err(FiniteElementBlockError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
 }
 
@@ -556,8 +571,9 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> Result<Scalar, ConstitutiveError> {
-        self.elements()
+    ) -> Result<Scalar, FiniteElementBlockError> {
+        match self
+            .elements()
             .iter()
             .zip(self.connectivity().iter())
             .map(|(element, element_connectivity)| {
@@ -566,6 +582,13 @@ where
                 )
             })
             .sum()
+        {
+            Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
+            Err(error) => Err(FiniteElementBlockError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
 }
 
@@ -654,9 +677,10 @@ where
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
         nodal_velocities: &NodalVelocitiesBlock,
-    ) -> Result<NodalForcesBlock, ConstitutiveError> {
+    ) -> Result<NodalForcesBlock, FiniteElementBlockError> {
         let mut nodal_forces = NodalForcesBlock::zero(nodal_coordinates.len());
-        self.elements()
+        match self
+            .elements()
             .iter()
             .zip(self.connectivity().iter())
             .try_for_each(|(element, element_connectivity)| {
@@ -668,17 +692,23 @@ where
                     .iter()
                     .zip(element_connectivity.iter())
                     .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
-                Ok::<(), ConstitutiveError>(())
-            })?;
-        Ok(nodal_forces)
+                Ok::<(), FiniteElementError>(())
+            }) {
+            Ok(()) => Ok(nodal_forces),
+            Err(error) => Err(FiniteElementBlockError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
         nodal_velocities: &NodalVelocitiesBlock,
-    ) -> Result<NodalStiffnessesBlock, ConstitutiveError> {
+    ) -> Result<NodalStiffnessesBlock, FiniteElementBlockError> {
         let mut nodal_stiffnesses = NodalStiffnessesBlock::zero(nodal_coordinates.len());
-        self.elements()
+        match self
+            .elements()
             .iter()
             .zip(self.connectivity().iter())
             .try_for_each(|(element, element_connectivity)| {
@@ -696,9 +726,14 @@ where
                             },
                         )
                     });
-                Ok::<(), ConstitutiveError>(())
-            })?;
-        Ok(nodal_stiffnesses)
+                Ok::<(), FiniteElementError>(())
+            }) {
+            Ok(()) => Ok(nodal_stiffnesses),
+            Err(error) => Err(FiniteElementBlockError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
     fn nodal_velocities_element(
         &self,
@@ -772,8 +807,9 @@ where
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
         nodal_velocities: &NodalVelocitiesBlock,
-    ) -> Result<Scalar, ConstitutiveError> {
-        self.elements()
+    ) -> Result<Scalar, FiniteElementBlockError> {
+        match self
+            .elements()
             .iter()
             .zip(self.connectivity().iter())
             .map(|(element, element_connectivity)| {
@@ -783,13 +819,21 @@ where
                 )
             })
             .sum()
+        {
+            Ok(viscous_dissipation) => Ok(viscous_dissipation),
+            Err(error) => Err(FiniteElementBlockError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
     fn dissipation_potential(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
         nodal_velocities: &NodalVelocitiesBlock,
-    ) -> Result<Scalar, ConstitutiveError> {
-        self.elements()
+    ) -> Result<Scalar, FiniteElementBlockError> {
+        match self
+            .elements()
             .iter()
             .zip(self.connectivity().iter())
             .map(|(element, element_connectivity)| {
@@ -799,6 +843,13 @@ where
                 )
             })
             .sum()
+        {
+            Ok(dissipation_potential) => Ok(dissipation_potential),
+            Err(error) => Err(FiniteElementBlockError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
     fn minimize(
         &self,
@@ -869,8 +920,9 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> Result<Scalar, ConstitutiveError> {
-        self.elements()
+    ) -> Result<Scalar, FiniteElementBlockError> {
+        match self
+            .elements()
             .iter()
             .zip(self.connectivity().iter())
             .map(|(element, element_connectivity)| {
@@ -879,6 +931,13 @@ where
                 )
             })
             .sum()
+        {
+            Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
+            Err(error) => Err(FiniteElementBlockError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
 }
 
