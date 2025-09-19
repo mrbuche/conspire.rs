@@ -32,7 +32,7 @@ impl<C, const G: usize, const N: usize> Debug for Element<C, G, N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match (G, N) {
             (1, 4) => write!(f, "LinearTetrahedron {{ constitutive_model: {} }}", "Foo"), // get Display implemented for the constitutive models
-            (8, 8) => write!(f, "LinearHexahedron {{ constitutive_model: {} }}", "Foo"), // also may want to consider impl debug separately to show parameter names
+            (8, 8) => write!(f, "LinearHexahedron {{ constitutive_model: {} }}", "Foo"),
             (4, 10) => write!(
                 f,
                 "CompositeTetrahedron {{ constitutive_model: {} }}",
