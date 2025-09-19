@@ -104,13 +104,21 @@ impl Debug for TestError {
 }
 
 impl From<String> for TestError {
-    fn from(error: String) -> TestError {
+    fn from(error: String) -> Self {
         Self { message: error }
     }
 }
 
+impl From<&str> for TestError {
+    fn from(error: &str) -> Self {
+        Self {
+            message: error.to_string(),
+        }
+    }
+}
+
 impl From<TensorError> for TestError {
-    fn from(error: TensorError) -> TestError {
+    fn from(error: TensorError) -> Self {
         Self {
             message: error.to_string(),
         }
