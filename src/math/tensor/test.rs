@@ -103,6 +103,12 @@ impl Debug for TestError {
     }
 }
 
+impl From<String> for TestError {
+    fn from(error: String) -> TestError {
+        Self { message: error }
+    }
+}
+
 impl From<TensorError> for TestError {
     fn from(error: TensorError) -> TestError {
         Self {

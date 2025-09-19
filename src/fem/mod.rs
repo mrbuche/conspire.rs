@@ -4,12 +4,14 @@ mod block;
 
 pub use block::{
     ElasticFiniteElementBlock, ElasticHyperviscousFiniteElementBlock, ElementBlock,
-    FiniteElementBlock, FiniteElementBlockMethods, FirstOrderMinimize, FirstOrderRoot,
-    HyperelasticFiniteElementBlock, HyperviscoelasticFiniteElementBlock, SecondOrderMinimize,
-    SurfaceFiniteElementBlock, ViscoelasticFiniteElementBlock, ZerothOrderRoot,
+    FiniteElementBlock, FiniteElementBlockError, FiniteElementBlockMethods, FirstOrderMinimize,
+    FirstOrderRoot, HyperelasticFiniteElementBlock, HyperviscoelasticFiniteElementBlock,
+    SecondOrderMinimize, SurfaceFiniteElementBlock, ViscoelasticFiniteElementBlock,
+    ZerothOrderRoot,
     element::{
-        ElasticFiniteElement, FiniteElement, FiniteElementMethods, HyperelasticFiniteElement,
-        HyperviscoelasticFiniteElement, SurfaceFiniteElement, ViscoelasticFiniteElement,
+        ElasticFiniteElement, FiniteElement, FiniteElementError, FiniteElementMethods,
+        HyperelasticFiniteElement, HyperviscoelasticFiniteElement, SurfaceFiniteElement,
+        ViscoelasticFiniteElement,
         composite::tetrahedron::Tetrahedron as CompositeTetrahedron,
         linear::{
             hexahedron::Hexahedron as LinearHexahedron,
