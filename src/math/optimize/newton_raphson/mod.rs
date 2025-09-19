@@ -62,8 +62,8 @@ where
 {
     fn root(
         &self,
-        function: impl Fn(&X) -> Result<F, OptimizationError>,
-        jacobian: impl Fn(&X) -> Result<J, OptimizationError>,
+        function: impl Fn(&X) -> Result<F, String>,
+        jacobian: impl Fn(&X) -> Result<J, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizationError> {
@@ -109,14 +109,14 @@ where
 {
     fn minimize(
         &self,
-        function: impl Fn(&X) -> Result<Scalar, OptimizationError>,
-        jacobian: impl Fn(&X) -> Result<J, OptimizationError>,
-        hessian: impl Fn(&X) -> Result<H, OptimizationError>,
+        function: impl Fn(&X) -> Result<Scalar, String>,
+        jacobian: impl Fn(&X) -> Result<J, String>,
+        hessian: impl Fn(&X) -> Result<H, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
         banded: Option<Banded>,
     ) -> Result<X, OptimizationError> {
-        match equality_constraint {
+        match match equality_constraint {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
                 self,
                 function,
@@ -139,15 +139,21 @@ where
             EqualityConstraint::None => {
                 unconstrained(self, function, jacobian, hessian, initial_guess)
             }
+        } {
+            Ok(solution) => Ok(solution),
+            Err(error) => Err(OptimizationError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
         }
     }
 }
 
 fn unconstrained<J, H, X>(
     newton_raphson: &NewtonRaphson,
-    function: impl Fn(&X) -> Result<Scalar, OptimizationError>,
-    jacobian: impl Fn(&X) -> Result<J, OptimizationError>,
-    hessian: impl Fn(&X) -> Result<H, OptimizationError>,
+    function: impl Fn(&X) -> Result<Scalar, String>,
+    jacobian: impl Fn(&X) -> Result<J, String>,
+    hessian: impl Fn(&X) -> Result<H, String>,
     initial_guess: X,
 ) -> Result<X, OptimizationError>
 where
@@ -187,9 +193,9 @@ where
 #[allow(clippy::too_many_arguments)]
 fn constrained_fixed<J, H, X>(
     newton_raphson: &NewtonRaphson,
-    function: impl Fn(&X) -> Result<Scalar, OptimizationError>,
-    jacobian: impl Fn(&X) -> Result<J, OptimizationError>,
-    hessian: impl Fn(&X) -> Result<H, OptimizationError>,
+    function: impl Fn(&X) -> Result<Scalar, String>,
+    jacobian: impl Fn(&X) -> Result<J, String>,
+    hessian: impl Fn(&X) -> Result<H, String>,
     initial_guess: X,
     banded: Option<Banded>,
     indices: Vec<usize>,
@@ -245,9 +251,9 @@ where
 #[allow(clippy::too_many_arguments)]
 fn constrained<J, H, X>(
     newton_raphson: &NewtonRaphson,
-    _function: impl Fn(&X) -> Result<Scalar, OptimizationError>,
-    jacobian: impl Fn(&X) -> Result<J, OptimizationError>,
-    hessian: impl Fn(&X) -> Result<H, OptimizationError>,
+    _function: impl Fn(&X) -> Result<Scalar, String>,
+    jacobian: impl Fn(&X) -> Result<J, String>,
+    hessian: impl Fn(&X) -> Result<H, String>,
     initial_guess: X,
     banded: Option<Banded>,
     constraint_matrix: Matrix,

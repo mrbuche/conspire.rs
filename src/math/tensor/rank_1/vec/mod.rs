@@ -10,7 +10,7 @@ use crate::math::{
 };
 use std::{
     fmt::{self, Display, Formatter},
-    mem::transmute,
+    mem::{forget, transmute},
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
@@ -130,20 +130,7 @@ impl<const D: usize, const I: usize> From<Vector> for TensorRank1Vec<D, I> {
         } else {
             let length = n / D;
             let pointer = vector.as_ptr() as *mut TensorRank1<D, I>;
-            std::mem::forget(vector);
-            unsafe { Self(Vec::from_raw_parts(pointer, length, length)) }
-        }
-    }
-}
-
-impl<const D: usize, const I: usize> From<&Vector> for TensorRank1Vec<D, I> {
-    fn from(vector: &Vector) -> Self {
-        let n = vector.len();
-        if !n.is_multiple_of(D) {
-            panic!("Vector length mismatch.")
-        } else {
-            let length = n / D;
-            let pointer = vector.as_ptr() as *mut TensorRank1<D, I>;
+            forget(vector);
             unsafe { Self(Vec::from_raw_parts(pointer, length, length)) }
         }
     }

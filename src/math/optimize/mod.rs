@@ -15,7 +15,6 @@ use crate::{
     defeat_message,
     math::{
         Jacobian, Scalar, Solution, TestError,
-        integrate::IntegrationError,
         matrix::square::{Banded, SquareMatrixError},
     },
 };
@@ -28,7 +27,7 @@ use std::{
 pub trait ZerothOrderRootFinding<X> {
     fn root(
         &self,
-        function: impl Fn(&X) -> Result<X, OptimizationError>,
+        function: impl Fn(&X) -> Result<X, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizationError>;
@@ -38,8 +37,8 @@ pub trait ZerothOrderRootFinding<X> {
 pub trait FirstOrderRootFinding<F, J, X> {
     fn root(
         &self,
-        function: impl Fn(&X) -> Result<F, OptimizationError>,
-        jacobian: impl Fn(&X) -> Result<J, OptimizationError>,
+        function: impl Fn(&X) -> Result<F, String>,
+        jacobian: impl Fn(&X) -> Result<J, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizationError>;
@@ -49,8 +48,8 @@ pub trait FirstOrderRootFinding<F, J, X> {
 pub trait FirstOrderOptimization<F, X> {
     fn minimize(
         &self,
-        function: impl Fn(&X) -> Result<F, OptimizationError>,
-        jacobian: impl Fn(&X) -> Result<X, OptimizationError>,
+        function: impl Fn(&X) -> Result<F, String>,
+        jacobian: impl Fn(&X) -> Result<X, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizationError>;
@@ -60,9 +59,9 @@ pub trait FirstOrderOptimization<F, X> {
 pub trait SecondOrderOptimization<F, J, H, X> {
     fn minimize(
         &self,
-        function: impl Fn(&X) -> Result<F, OptimizationError>,
-        jacobian: impl Fn(&X) -> Result<J, OptimizationError>,
-        hessian: impl Fn(&X) -> Result<H, OptimizationError>,
+        function: impl Fn(&X) -> Result<F, String>,
+        jacobian: impl Fn(&X) -> Result<J, String>,
+        hessian: impl Fn(&X) -> Result<H, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
         banded: Option<Banded>,
@@ -75,8 +74,8 @@ where
 {
     fn backtracking_line_search(
         &self,
-        function: impl Fn(&X) -> Result<Scalar, OptimizationError>,
-        jacobian: impl Fn(&X) -> Result<J, OptimizationError>,
+        function: impl Fn(&X) -> Result<Scalar, String>,
+        jacobian: impl Fn(&X) -> Result<J, String>,
         argument: &X,
         jacobian0: &J,
         decrement: &X,
@@ -95,35 +94,35 @@ where
                 &function, &jacobian, argument, jacobian0, decrement, step_size,
             ) {
                 Ok(step_size) => Ok(step_size),
-                Err(error) => Err(self.convert_error(error)),
+                Err(error) => Err(OptimizationError::Upstream(
+                    format!("{error}"),
+                    format!("{self:?}"),
+                )),
             }
         }
-    }
-    fn convert_error(&self, error: LineSearchError) -> OptimizationError {
-        OptimizationError::LineSearch(format!("{error}"), format!("{self:?}"))
     }
     fn get_line_search(&self) -> &LineSearch;
 }
 
 /// Possible errors encountered during optimization.
 pub enum OptimizationError {
-    Generic(String),
-    LineSearch(String, String),
+    Intermediate(String),
     MaximumStepsReached(usize, String),
     NotMinimum(String, String),
+    Upstream(String, String),
     SingularMatrix,
+}
+
+impl From<String> for OptimizationError {
+    fn from(error: String) -> Self {
+        Self::Intermediate(error)
+    }
 }
 
 impl Debug for OptimizationError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
-            Self::Generic(message) => message.to_string(),
-            Self::LineSearch(error, solver) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In solver: {solver}."
-                )
-            }
+            Self::Intermediate(message) => message.to_string(),
             Self::MaximumStepsReached(steps, solver) => {
                 format!(
                     "\x1b[1;91mMaximum number of steps ({steps}) reached.\x1b[0;91m\n\
@@ -138,6 +137,12 @@ impl Debug for OptimizationError {
                 )
             }
             Self::SingularMatrix => "\x1b[1;91mMatrix is singular.".to_string(),
+            Self::Upstream(error, solver) => {
+                format!(
+                    "{error}\x1b[0;91m\n\
+                    In solver: {solver}."
+                )
+            }
         };
         write!(f, "\n{error}\n\x1b[0;2;31m{}\x1b[0m\n", defeat_message())
     }
@@ -146,13 +151,7 @@ impl Debug for OptimizationError {
 impl Display for OptimizationError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
-            Self::Generic(message) => message.to_string(),
-            Self::LineSearch(error, solver) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In solver: {solver}."
-                )
-            }
+            Self::Intermediate(message) => message.to_string(),
             Self::MaximumStepsReached(steps, solver) => {
                 format!(
                     "\x1b[1;91mMaximum number of steps ({steps}) reached.\x1b[0;91m\n\
@@ -167,6 +166,12 @@ impl Display for OptimizationError {
                 )
             }
             Self::SingularMatrix => "\x1b[1;91mMatrix is singular.".to_string(),
+            Self::Upstream(error, solver) => {
+                format!(
+                    "{error}\x1b[0;91m\n\
+                    In solver: {solver}."
+                )
+            }
         };
         write!(f, "{error}\x1b[0m")
     }
@@ -183,12 +188,6 @@ impl From<OptimizationError> for TestError {
         Self {
             message: error.to_string(),
         }
-    }
-}
-
-impl From<IntegrationError> for OptimizationError {
-    fn from(_error: IntegrationError) -> Self {
-        todo!()
     }
 }
 

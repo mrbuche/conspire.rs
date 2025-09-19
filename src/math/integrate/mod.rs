@@ -156,6 +156,12 @@ impl From<OptimizationError> for IntegrationError {
     }
 }
 
+impl From<IntegrationError> for String {
+    fn from(error: IntegrationError) -> Self {
+        format!("{}", error)
+    }
+}
+
 impl From<IntegrationError> for TestError {
     fn from(error: IntegrationError) -> Self {
         TestError {

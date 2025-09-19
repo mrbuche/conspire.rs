@@ -162,45 +162,55 @@ where
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<NodalForces<N>, ConstitutiveError> {
-        Ok(self
+    ) -> Result<NodalForces<N>, FiniteElementError> {
+        match self
             .constitutive_models()
             .iter()
             .zip(self.deformation_gradients(nodal_coordinates).iter())
             .map(|(constitutive_model, deformation_gradient)| {
                 constitutive_model.first_piola_kirchhoff_stress(deformation_gradient)
             })
-            .collect::<Result<FirstPiolaKirchhoffStresses<G>, _>>()?
-            .iter()
-            .zip(
-                self.gradient_vectors()
-                    .iter()
-                    .zip(self.integration_weights().iter()),
-            )
-            .map(
-                |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
-                    gradient_vectors
+            .collect::<Result<FirstPiolaKirchhoffStresses<G>, _>>()
+        {
+            Ok(first_piola_kirchhoff_stresses) => Ok(first_piola_kirchhoff_stresses
+                .iter()
+                .zip(
+                    self.gradient_vectors()
                         .iter()
-                        .map(|gradient_vector| {
-                            (first_piola_kirchhoff_stress * gradient_vector) * integration_weight
-                        })
-                        .collect()
-                },
-            )
-            .sum())
+                        .zip(self.integration_weights().iter()),
+                )
+                .map(
+                    |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
+                        gradient_vectors
+                            .iter()
+                            .map(|gradient_vector| {
+                                (first_piola_kirchhoff_stress * gradient_vector)
+                                    * integration_weight
+                            })
+                            .collect()
+                    },
+                )
+                .sum()),
+            Err(error) => Err(FiniteElementError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<NodalStiffnesses<N>, ConstitutiveError> {
-        Ok(self
+    ) -> Result<NodalStiffnesses<N>, FiniteElementError> {
+        match self
             .constitutive_models()
             .iter()
             .zip(self.deformation_gradients(nodal_coordinates).iter())
             .map(|(constitutive_model, deformation_gradient)| {
                 constitutive_model.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)
             })
-            .collect::<Result<FirstPiolaKirchhoffTangentStiffnesses<G>, _>>()?
+            .collect::<Result<FirstPiolaKirchhoffTangentStiffnesses<G>, _>>()
+            {
+            Ok(first_piola_kirchhoff_tangent_stiffnesses) => Ok(first_piola_kirchhoff_tangent_stiffnesses
             .iter()
             .zip(
                 self.gradient_vectors()
@@ -249,7 +259,12 @@ where
                     ).collect()
                 }
             )
-            .sum())
+            .sum()),
+            Err(error) => Err(FiniteElementError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
 }
 
@@ -260,8 +275,9 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<Scalar, ConstitutiveError> {
-        self.constitutive_models()
+    ) -> Result<Scalar, FiniteElementError> {
+        match self
+            .constitutive_models()
             .iter()
             .zip(
                 self.deformation_gradients(nodal_coordinates)
@@ -270,13 +286,20 @@ where
             )
             .map(
                 |(constitutive_model, (deformation_gradient, integration_weight))| {
-                    Ok(
+                    Ok::<Scalar, ConstitutiveError>(
                         constitutive_model.helmholtz_free_energy_density(deformation_gradient)?
                             * integration_weight,
                     )
                 },
             )
             .sum()
+        {
+            Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
+            Err(error) => Err(FiniteElementError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
 }
 
@@ -288,8 +311,8 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
         nodal_velocities: &NodalVelocities<N>,
-    ) -> Result<NodalForces<N>, ConstitutiveError> {
-        Ok(self
+    ) -> Result<NodalForces<N>, FiniteElementError> {
+        match self
             .constitutive_models()
             .iter()
             .zip(
@@ -306,38 +329,48 @@ where
                     )
                 },
             )
-            .collect::<Result<FirstPiolaKirchhoffStresses<G>, _>>()?
-            .iter()
-            .zip(
-                self.gradient_vectors()
-                    .iter()
-                    .zip(self.integration_weights().iter()),
-            )
-            .map(
-                |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
-                    gradient_vectors
+            .collect::<Result<FirstPiolaKirchhoffStresses<G>, _>>()
+        {
+            Ok(first_piola_kirchhoff_stresses) => Ok(first_piola_kirchhoff_stresses
+                .iter()
+                .zip(
+                    self.gradient_vectors()
                         .iter()
-                        .map(|gradient_vector| {
-                            (first_piola_kirchhoff_stress * gradient_vector) * integration_weight
-                        })
-                        .collect()
-                },
-            )
-            .sum())
+                        .zip(self.integration_weights().iter()),
+                )
+                .map(
+                    |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
+                        gradient_vectors
+                            .iter()
+                            .map(|gradient_vector| {
+                                (first_piola_kirchhoff_stress * gradient_vector)
+                                    * integration_weight
+                            })
+                            .collect()
+                    },
+                )
+                .sum()),
+            Err(error) => Err(FiniteElementError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
         nodal_velocities: &NodalVelocities<N>,
-    ) -> Result<NodalStiffnesses<N>, ConstitutiveError> {
-        Ok(self
+    ) -> Result<NodalStiffnesses<N>, FiniteElementError> {
+        match self
             .constitutive_models()
             .iter()
             .zip(self.deformation_gradients(nodal_coordinates).iter().zip(self.deformation_gradient_rates(nodal_coordinates, nodal_velocities).iter()))
             .map(|(constitutive_model, (deformation_gradient, deformation_gradient_rate))| {
                 constitutive_model.first_piola_kirchhoff_rate_tangent_stiffness(deformation_gradient, deformation_gradient_rate)
             })
-            .collect::<Result<FirstPiolaKirchhoffRateTangentStiffnesses<G>, _>>()?
+            .collect::<Result<FirstPiolaKirchhoffRateTangentStiffnesses<G>, _>>()
+        {
+            Ok(first_piola_kirchhoff_rate_tangent_stiffnesses) => Ok(first_piola_kirchhoff_rate_tangent_stiffnesses
             .iter()
             .zip(
                 self.gradient_vectors()
@@ -386,7 +419,12 @@ where
                     ).collect()
                 }
             )
-            .sum())
+            .sum()),
+            Err(error) => Err(FiniteElementError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
 }
 
@@ -398,8 +436,9 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
         nodal_velocities: &NodalVelocities<N>,
-    ) -> Result<Scalar, ConstitutiveError> {
-        self.constitutive_models()
+    ) -> Result<Scalar, FiniteElementError> {
+        match self
+            .constitutive_models()
             .iter()
             .zip(
                 self.deformation_gradients(nodal_coordinates).iter().zip(
@@ -413,19 +452,29 @@ where
                     constitutive_model,
                     (deformation_gradient, (deformation_gradient_rate, integration_weight)),
                 )| {
-                    Ok(constitutive_model
-                        .viscous_dissipation(deformation_gradient, deformation_gradient_rate)?
-                        * integration_weight)
+                    Ok::<Scalar, ConstitutiveError>(
+                        constitutive_model
+                            .viscous_dissipation(deformation_gradient, deformation_gradient_rate)?
+                            * integration_weight,
+                    )
                 },
             )
             .sum()
+        {
+            Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
+            Err(error) => Err(FiniteElementError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
     fn dissipation_potential(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
         nodal_velocities: &NodalVelocities<N>,
-    ) -> Result<Scalar, ConstitutiveError> {
-        self.constitutive_models()
+    ) -> Result<Scalar, FiniteElementError> {
+        match self
+            .constitutive_models()
             .iter()
             .zip(
                 self.deformation_gradients(nodal_coordinates).iter().zip(
@@ -439,12 +488,22 @@ where
                     constitutive_model,
                     (deformation_gradient, (deformation_gradient_rate, integration_weight)),
                 )| {
-                    Ok(constitutive_model
-                        .dissipation_potential(deformation_gradient, deformation_gradient_rate)?
-                        * integration_weight)
+                    Ok::<Scalar, ConstitutiveError>(
+                        constitutive_model.dissipation_potential(
+                            deformation_gradient,
+                            deformation_gradient_rate,
+                        )? * integration_weight,
+                    )
                 },
             )
             .sum()
+        {
+            Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
+            Err(error) => Err(FiniteElementError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
 }
 
@@ -455,8 +514,9 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<Scalar, ConstitutiveError> {
-        self.constitutive_models()
+    ) -> Result<Scalar, FiniteElementError> {
+        match self
+            .constitutive_models()
             .iter()
             .zip(
                 self.deformation_gradients(nodal_coordinates)
@@ -465,12 +525,19 @@ where
             )
             .map(
                 |(constitutive_model, (deformation_gradient, integration_weight))| {
-                    Ok(
+                    Ok::<Scalar, ConstitutiveError>(
                         constitutive_model.helmholtz_free_energy_density(deformation_gradient)?
                             * integration_weight,
                     )
                 },
             )
             .sum()
+        {
+            Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
+            Err(error) => Err(FiniteElementError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
 }
