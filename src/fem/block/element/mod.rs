@@ -141,6 +141,14 @@ pub enum FiniteElementError {
     Upstream(String, String),
 }
 
+impl From<FiniteElementError> for TestError {
+    fn from(error: FiniteElementError) -> Self {
+        Self {
+            message: error.to_string(),
+        }
+    }
+}
+
 impl Debug for FiniteElementError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
@@ -443,7 +451,7 @@ where
             })
             .collect::<Result<FirstPiolaKirchhoffStresses<G>, _>>()
         {
-            Ok(foo) => Ok(foo
+            Ok(first_piola_kirchhoff_stresses) => Ok(first_piola_kirchhoff_stresses
                 .iter()
                 .zip(
                     self.gradient_vectors()

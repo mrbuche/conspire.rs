@@ -11,7 +11,7 @@ use self::element::{
 use super::*;
 use crate::{
     math::{
-        Banded,
+        Banded, TestError,
         integrate::{Explicit, IntegrationError},
         optimize::{
             EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
@@ -22,7 +22,7 @@ use crate::{
 };
 use std::{
     array::from_fn,
-    fmt::{self, Debug, Formatter},
+    fmt::{self, Debug, Display, Formatter},
     iter::repeat_n,
 };
 
@@ -105,17 +105,38 @@ pub enum FiniteElementBlockError {
     Upstream(String, String),
 }
 
-impl From<FiniteElementBlockError> for OptimizationError {
-    fn from(error: FiniteElementBlockError) -> OptimizationError {
+impl From<FiniteElementBlockError> for String {
+    fn from(error: FiniteElementBlockError) -> Self {
         match error {
-            FiniteElementBlockError::Upstream(error, block) => OptimizationError::Upstream(
+            FiniteElementBlockError::Upstream(error, block) => {
                 format!(
                     "{error}\x1b[0;91m\n\
                     In finite element block: {block}."
-                ),
-                "TODO".to_string(),
-            ),
+                )
+            }
         }
+    }
+}
+
+impl From<FiniteElementBlockError> for TestError {
+    fn from(error: FiniteElementBlockError) -> Self {
+        Self {
+            message: error.to_string(),
+        }
+    }
+}
+
+impl Display for FiniteElementBlockError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let error = match self {
+            Self::Upstream(error, block) => {
+                format!(
+                    "{error}\x1b[0;91m\n\
+                    In block: {block}."
+                )
+            }
+        };
+        write!(f, "{error}\x1b[0m")
     }
 }
 

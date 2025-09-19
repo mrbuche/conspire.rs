@@ -17,17 +17,14 @@ pub use crate::math::Scalar;
 
 /// Possible errors for deformation gradients.
 pub enum DeformationError {
-    InvalidJacobian(Scalar, DeformationGradient),
+    InvalidJacobian(Scalar),
 }
 
 impl Debug for DeformationError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
-            Self::InvalidJacobian(jacobian, deformation_gradient) => {
-                format!(
-                    "\x1b[1;91mInvalid Jacobian: {jacobian:.6e}.\x1b[0;91m\n\
-                     From deformation gradient: {deformation_gradient}.",
-                )
+            Self::InvalidJacobian(jacobian) => {
+                format!("\x1b[1;91mInvalid Jacobian: {jacobian:.6e}fdsafdsa.\x1b[0;91m")
             }
         };
         write!(f, "\n{error}\n\x1b[0;2;31m{}\x1b[0m\n", defeat_message())
@@ -37,11 +34,8 @@ impl Debug for DeformationError {
 impl Display for DeformationError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
-            Self::InvalidJacobian(jacobian, deformation_gradient) => {
-                format!(
-                    "\x1b[1;91mInvalid Jacobian: {jacobian:.6e}.\x1b[0;91m\n\
-                     From deformation gradient: {deformation_gradient}."
-                )
+            Self::InvalidJacobian(jacobian) => {
+                format!("\x1b[1;91mInvalid Jacobian: {jacobian:.6e}asdfasdf.\x1b[0;91m")
             }
         };
         write!(f, "{error}\x1b[0m")
@@ -76,7 +70,7 @@ impl Deformation for DeformationGradient {
         if jacobian > 0.0 {
             Ok(jacobian)
         } else {
-            Err(DeformationError::InvalidJacobian(jacobian, self.clone()))
+            Err(DeformationError::InvalidJacobian(jacobian))
         }
     }
     fn left_cauchy_green(&self) -> LeftCauchyGreenDeformation {

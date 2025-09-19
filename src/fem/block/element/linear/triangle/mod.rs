@@ -172,7 +172,7 @@ where
             })
             .collect::<Result<FirstPiolaKirchhoffStresses<G>, _>>()
         {
-            Ok(foo) => Ok(foo
+            Ok(first_piola_kirchhoff_stresses) => Ok(first_piola_kirchhoff_stresses
                 .iter()
                 .zip(
                     self.gradient_vectors()

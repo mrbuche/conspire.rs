@@ -1,7 +1,6 @@
-use super::{super::Scalar, OptimizationError};
 use crate::{
     defeat_message,
-    math::{Jacobian, Solution},
+    math::{Jacobian, Scalar, Solution},
 };
 use std::{
     fmt::{self, Debug, Display, Formatter},
@@ -50,10 +49,10 @@ impl Default for LineSearch {
 impl Display for LineSearch {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Armijo { .. } => write!(f, "Armijo {{..}}"),
-            Self::Error { .. } => write!(f, "Error {{..}}"),
-            Self::Goldstein { .. } => write!(f, "Goldstein {{..}}"),
-            Self::Wolfe { .. } => write!(f, "Wolfe {{..}}"),
+            Self::Armijo { .. } => write!(f, "Armijo"),
+            Self::Error { .. } => write!(f, "Error"),
+            Self::Goldstein { .. } => write!(f, "Goldstein"),
+            Self::Wolfe { .. } => write!(f, "Wolfe"),
             Self::None { .. } => write!(f, "None"),
         }
     }
@@ -62,8 +61,8 @@ impl Display for LineSearch {
 impl LineSearch {
     pub fn backtrack<X, J>(
         &self,
-        function: impl Fn(&X) -> Result<Scalar, OptimizationError>,
-        jacobian: impl Fn(&X) -> Result<J, OptimizationError>,
+        function: impl Fn(&X) -> Result<Scalar, String>,
+        jacobian: impl Fn(&X) -> Result<J, String>,
         argument: &X,
         jacobian0: &J,
         decrement: &X,

@@ -11,7 +11,7 @@ pub mod thermal;
 
 use crate::{
     defeat_message,
-    math::{Scalar, TestError, optimize::OptimizationError},
+    math::{Scalar, TestError},
     mechanics::{Deformation, DeformationError, DeformationGradient},
 };
 use std::{
@@ -57,13 +57,9 @@ where
         deformation_gradient: &DeformationGradient,
     ) -> Result<Scalar, ConstitutiveError> {
         match deformation_gradient.jacobian() {
-            Err(DeformationError::InvalidJacobian(jacobian, deformation_gradient)) => {
-                Err(ConstitutiveError::InvalidJacobian(
-                    jacobian,
-                    deformation_gradient,
-                    format!("{self:?}"),
-                ))
-            }
+            Err(DeformationError::InvalidJacobian(jacobian)) => Err(
+                ConstitutiveError::InvalidJacobian(jacobian, format!("{self:?}")),
+            ),
             Ok(jacobian) => Ok(jacobian),
         }
     }
@@ -73,24 +69,17 @@ where
 
 /// Possible errors encountered in constitutive models.
 pub enum ConstitutiveError {
-    Custom(String, DeformationGradient, String),
-    InvalidJacobian(Scalar, DeformationGradient, String),
-    MaximumStepsReached(usize, String),
-    NotMinimum(String, String),
+    Custom(String, String),
+    InvalidJacobian(Scalar, String),
 }
 
-impl From<ConstitutiveError> for OptimizationError {
-    fn from(error: ConstitutiveError) -> OptimizationError {
+impl From<ConstitutiveError> for String {
+    fn from(error: ConstitutiveError) -> Self {
         match error {
-            ConstitutiveError::InvalidJacobian(
-                jacobian,
-                deformation_gradient,
-                constitutive_model,
-            ) => OptimizationError::Generic(format!(
+            ConstitutiveError::InvalidJacobian(jacobian, constitutive_model) => format!(
                 "\x1b[1;91mInvalid Jacobian: {jacobian:.6e}.\x1b[0;91m\n\
-                        From deformation gradient: {deformation_gradient}.\n\
                         In constitutive model: {constitutive_model}."
-            )),
+            ),
             _ => todo!(),
         }
     }
@@ -104,42 +93,17 @@ impl From<ConstitutiveError> for TestError {
     }
 }
 
-impl From<OptimizationError> for ConstitutiveError {
-    fn from(error: OptimizationError) -> Self {
-        match error {
-            OptimizationError::Generic(_) => todo!("Generic"),
-            OptimizationError::MaximumStepsReached(_, _) => todo!("MaximumStepsReached"),
-            OptimizationError::NotMinimum(_, _) => todo!("NotMinimum"),
-            OptimizationError::SingularMatrix => todo!("SingularMatrix"),
-            OptimizationError::Upstream(_, _) => todo!("Upstream"),
-        }
-    }
-}
-
 impl Debug for ConstitutiveError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
-            Self::Custom(message, deformation_gradient, constitutive_model) => format!(
+            Self::Custom(message, constitutive_model) => format!(
                 "\x1b[1;91m{message}\x1b[0;91m\n\
-                 From deformation gradient: {deformation_gradient}.\n\
                  In constitutive model: {constitutive_model}."
             ),
-            Self::InvalidJacobian(jacobian, deformation_gradient, constitutive_model) => {
+            Self::InvalidJacobian(jacobian, constitutive_model) => {
                 format!(
                     "\x1b[1;91mInvalid Jacobian: {jacobian:.6e}.\x1b[0;91m\n\
                     In constitutive model: {constitutive_model}."
-                )
-            }
-            Self::MaximumStepsReached(steps, constitutive_model) => {
-                format!(
-                    "\x1b[1;91mMaximum number of steps ({steps}) reached.\x1b[0;91m\n\
-                     In constitutive model: {constitutive_model}."
-                )
-            }
-            Self::NotMinimum(deformation_gradient, constitutive_model) => {
-                format!(
-                    "\x1b[1;91mThe obtained solution is not a minimum.\x1b[0;91m\n\
-                     {deformation_gradient}\nIn constitutive model: {constitutive_model}."
                 )
             }
         };
@@ -150,27 +114,14 @@ impl Debug for ConstitutiveError {
 impl Display for ConstitutiveError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
-            Self::Custom(message, deformation_gradient, constitutive_model) => format!(
+            Self::Custom(message, constitutive_model) => format!(
                 "\x1b[1;91m{message}\x1b[0;91m\n\
-                 From deformation gradient: {deformation_gradient}.\n\
                  In constitutive model: {constitutive_model}."
             ),
-            Self::InvalidJacobian(jacobian, deformation_gradient, constitutive_model) => {
+            Self::InvalidJacobian(jacobian, constitutive_model) => {
                 format!(
                     "\x1b[1;91mInvalid Jacobian: {jacobian:.6e}.\x1b[0;91m\n\
                     In constitutive model: {constitutive_model}."
-                )
-            }
-            Self::MaximumStepsReached(steps, constitutive_model) => {
-                format!(
-                    "\x1b[1;91mMaximum number of steps ({steps}) reached.\x1b[0;91m\n\
-                     In constitutive model: {constitutive_model}."
-                )
-            }
-            Self::NotMinimum(deformation_gradient, constitutive_model) => {
-                format!(
-                    "\x1b[1;91mThe obtained solution is not a minimum.\x1b[0;91m\n\
-                     {deformation_gradient}\nIn constitutive model: {constitutive_model}."
                 )
             }
         };
@@ -181,16 +132,14 @@ impl Display for ConstitutiveError {
 impl PartialEq for ConstitutiveError {
     fn eq(&self, other: &Self) -> bool {
         match self {
-            Self::Custom(a, b, c) => match other {
-                Self::Custom(d, e, f) => a == d && b == e && c == f,
+            Self::Custom(a, b) => match other {
+                Self::Custom(c, d) => a == c && b == d,
                 _ => false,
             },
-            Self::InvalidJacobian(a, b, c) => match other {
-                Self::InvalidJacobian(d, e, f) => a == d && b == e && c == f,
+            Self::InvalidJacobian(a, b) => match other {
+                Self::InvalidJacobian(c, d) => a == c && b == d,
                 _ => false,
             },
-            Self::MaximumStepsReached(_, _) => todo!(),
-            Self::NotMinimum(_, _) => todo!(),
         }
     }
 }

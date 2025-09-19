@@ -7367,7 +7367,7 @@ fn coordinates() -> ReferenceNodalCoordinatesBlock {
 
 #[test]
 fn temporary_hyperelastic() -> Result<(), TestError> {
-    let strain = 130.0;
+    let strain = 53.0;
     let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
     connectivity

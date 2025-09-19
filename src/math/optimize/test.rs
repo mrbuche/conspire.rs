@@ -3,21 +3,21 @@ use super::{
     OptimizationError,
 };
 
-pub fn rosenbrock<T>(x: &T) -> Result<Scalar, OptimizationError>
+pub fn rosenbrock<T>(x: &T) -> Result<Scalar, String>
 where
     T: Tensor<Item = Scalar>,
 {
     Ok(special::rosenbrock(x, 1.0, 100.0))
 }
 
-pub fn rosenbrock_derivative<T>(x: &T) -> Result<T, OptimizationError>
+pub fn rosenbrock_derivative<T>(x: &T) -> Result<T, String>
 where
     T: FromIterator<Scalar> + Tensor<Item = Scalar>,
 {
     Ok(special::rosenbrock_derivative(x, 1.0, 100.0))
 }
 
-// pub fn rosenbrock_second_derivative<T, U>(x: &T) -> Result<U, OptimizationError>
+// pub fn rosenbrock_second_derivative<T, U>(x: &T) -> Result<U, String>
 // where
 //     T: FromIterator<Scalar> + Tensor<Item = Scalar>,
 //     U: Tensor<Item = T>,

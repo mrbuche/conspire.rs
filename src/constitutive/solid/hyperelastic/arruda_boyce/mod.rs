@@ -70,7 +70,6 @@ where
         if gamma >= 1.0 {
             Err(ConstitutiveError::Custom(
                 "Maximum extensibility reached.".to_string(),
-                deformation_gradient.clone(),
                 format!("{:?}", &self),
             ))
         } else {
@@ -101,7 +100,6 @@ where
         if gamma >= 1.0 {
             Err(ConstitutiveError::Custom(
                 "Maximum extensibility reached.".to_string(),
-                deformation_gradient.clone(),
                 format!("{:?}", &self),
             ))
         } else {
@@ -157,7 +155,6 @@ where
         if gamma >= 1.0 {
             Err(ConstitutiveError::Custom(
                 "Maximum extensibility reached.".to_string(),
-                deformation_gradient.clone(),
                 format!("{:?}", &self),
             ))
         } else {
