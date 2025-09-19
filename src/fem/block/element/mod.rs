@@ -11,9 +11,11 @@ use crate::{
     math::{IDENTITY, LEVI_CIVITA, tensor_rank_1_zero},
     mechanics::Scalar,
 };
-use std::fmt::{Debug, Display};
+use std::{
+    any::type_name,
+    fmt::{Debug, Display},
+};
 
-// #[derive(Debug)]
 pub struct Element<C, const G: usize, const N: usize> {
     constitutive_models: [C; G],
     gradient_vectors: GradientVectors<G, N>,
@@ -31,12 +33,38 @@ pub struct SurfaceElement<C, const G: usize, const N: usize, const P: usize> {
 impl<C, const G: usize, const N: usize> Debug for Element<C, G, N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match (G, N) {
-            (1, 4) => write!(f, "LinearTetrahedron {{ constitutive_model: {} }}", "Foo"), // get Display implemented for the constitutive models
-            (8, 8) => write!(f, "LinearHexahedron {{ constitutive_model: {} }}", "Foo"),
+            (1, 4) => write!(
+                f,
+                "LinearTetrahedron {{ constitutive_model: {} }}",
+                type_name::<C>()
+                    .rsplit("::")
+                    .next()
+                    .unwrap()
+                    .split("<")
+                    .next()
+                    .unwrap()
+            ),
+            (8, 8) => write!(
+                f,
+                "LinearHexahedron {{ constitutive_model: {} }}",
+                type_name::<C>()
+                    .rsplit("::")
+                    .next()
+                    .unwrap()
+                    .split("<")
+                    .next()
+                    .unwrap()
+            ),
             (4, 10) => write!(
                 f,
                 "CompositeTetrahedron {{ constitutive_model: {} }}",
-                "Foo"
+                type_name::<C>()
+                    .rsplit("::")
+                    .next()
+                    .unwrap()
+                    .split("<")
+                    .next()
+                    .unwrap()
             ),
             _ => panic!(),
         }
