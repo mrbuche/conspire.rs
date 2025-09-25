@@ -16,7 +16,7 @@ pub mod test;
 use super::{super::fluid::viscous::Viscous, *};
 use crate::math::{
     Matrix, TensorVec, Vector,
-    integrate::{Explicit, IntegrationError},
+    integrate::Explicit,
     optimize::{EqualityConstraint, FirstOrderRootFinding, OptimizationError},
 };
 
@@ -149,9 +149,9 @@ where
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
         >,
-    ) -> Result<(Times, DeformationGradients, DeformationGradientRates), IntegrationError> {
+    ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
         let mut solution = DeformationGradientRate::zero();
-        match applied_load {
+        match match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_rate_11, time) => integrator
                 .integrate(
                     |t: Scalar, deformation_gradient: &DeformationGradient| {
@@ -184,6 +184,12 @@ where
                 time,
                 DeformationGradient::identity(),
             ),
+        } {
+            Ok(deformation_gradient) => Ok(deformation_gradient),
+            Err(error) => Err(ConstitutiveError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
         }
     }
     #[doc(hidden)]
