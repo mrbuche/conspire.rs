@@ -71,6 +71,7 @@ where
 pub enum ConstitutiveError {
     Custom(String, String),
     InvalidJacobian(Scalar, String),
+    Upstream(String, String),
 }
 
 impl From<ConstitutiveError> for String {
@@ -106,6 +107,12 @@ impl Debug for ConstitutiveError {
                     In constitutive model: {constitutive_model}."
                 )
             }
+            Self::Upstream(error, constitutive_model) => {
+                format!(
+                    "{error}\x1b[0;91m\n\
+                    In constitutive model: {constitutive_model}."
+                )
+            }
         };
         write!(f, "\n{}\n\x1b[0;2;31m{}\x1b[0m\n", error, defeat_message())
     }
@@ -124,6 +131,12 @@ impl Display for ConstitutiveError {
                     In constitutive model: {constitutive_model}."
                 )
             }
+            Self::Upstream(error, constitutive_model) => {
+                format!(
+                    "{error}\x1b[0;91m\n\
+                    In constitutive model: {constitutive_model}."
+                )
+            }
         };
         write!(f, "{error}\x1b[0m")
     }
@@ -138,6 +151,10 @@ impl PartialEq for ConstitutiveError {
             },
             Self::InvalidJacobian(a, b) => match other {
                 Self::InvalidJacobian(c, d) => a == c && b == d,
+                _ => false,
+            },
+            Self::Upstream(a, b) => match other {
+                Self::Upstream(c, d) => a == c && b == d,
                 _ => false,
             },
         }

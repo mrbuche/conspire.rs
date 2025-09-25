@@ -21,7 +21,7 @@ pub use self::{
 use super::*;
 use crate::math::{
     Matrix, TensorVec, Vector,
-    optimize::{self, EqualityConstraint, OptimizationError},
+    optimize::{self, EqualityConstraint},
 };
 
 /// Possible applied loads.
@@ -175,7 +175,7 @@ pub trait ZerothOrderRoot {
         &self,
         applied_load: AppliedLoad,
         solver: impl optimize::ZerothOrderRootFinding<DeformationGradient>,
-    ) -> Result<DeformationGradient, OptimizationError>;
+    ) -> Result<DeformationGradient, ConstitutiveError>;
 }
 
 /// First-order root-finding methods for elastic constitutive models.
@@ -193,7 +193,7 @@ pub trait FirstOrderRoot {
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
         >,
-    ) -> Result<DeformationGradient, OptimizationError>;
+    ) -> Result<DeformationGradient, ConstitutiveError>;
 }
 
 impl<T> ZerothOrderRoot for T
@@ -204,8 +204,8 @@ where
         &self,
         applied_load: AppliedLoad,
         solver: impl optimize::ZerothOrderRootFinding<DeformationGradient>,
-    ) -> Result<DeformationGradient, OptimizationError> {
-        match applied_load {
+    ) -> Result<DeformationGradient, ConstitutiveError> {
+        match match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_11) => {
                 let mut matrix = Matrix::zero(4, 9);
                 let mut vector = Vector::zero(4);
@@ -240,6 +240,12 @@ where
                     EqualityConstraint::Linear(matrix, vector),
                 )
             }
+        } {
+            Ok(deformation_gradient) => Ok(deformation_gradient),
+            Err(error) => Err(ConstitutiveError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
         }
     }
 }
@@ -256,8 +262,8 @@ where
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
         >,
-    ) -> Result<DeformationGradient, OptimizationError> {
-        match applied_load {
+    ) -> Result<DeformationGradient, ConstitutiveError> {
+        match match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_11) => {
                 let mut matrix = Matrix::zero(4, 9);
                 let mut vector = Vector::zero(4);
@@ -298,6 +304,12 @@ where
                     EqualityConstraint::Linear(matrix, vector),
                 )
             }
+        } {
+            Ok(deformation_gradient) => Ok(deformation_gradient),
+            Err(error) => Err(ConstitutiveError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
         }
     }
 }

@@ -2,13 +2,15 @@
 mod test;
 
 use crate::{
-    ABS_TOL,
     constitutive::{
         ConstitutiveError,
         hybrid::{Hybrid, Multiplicative, MultiplicativeTrait},
         solid::{Solid, elastic::Elastic},
     },
-    math::{IDENTITY_10, Rank2, Tensor, TensorRank2, ZERO_10},
+    math::{
+        IDENTITY_10, Rank2, TensorRank2,
+        optimize::{EqualityConstraint, GradientDescent, ZerothOrderRootFinding},
+    },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffStress,
         FirstPiolaKirchhoffTangentStiffness, Scalar, SecondPiolaKirchhoffStress,
@@ -125,52 +127,36 @@ where
         if deformation_gradient.is_identity() {
             Ok((IDENTITY_10, IDENTITY_10))
         } else {
-            let mut deformation_gradient_1 = IDENTITY_10;
-            let mut deformation_gradient_2 = deformation_gradient.clone();
-            let mut deformation_gradient_2_old = IDENTITY_10;
-            let mut deformation_gradient_2_inverse_transpose: TensorRank2<3, 0, 0>;
-            let mut residual: FirstPiolaKirchhoffStress;
-            let mut residual_increment: FirstPiolaKirchhoffStress;
-            let mut residual_norm = 1.0;
-            let mut residual_old = ZERO_10;
-            let mut right_hand_side: FirstPiolaKirchhoffStress;
-            let mut steps: u8 = 0;
-            let steps_maximum: u8 = 50;
-            let mut step_size: Scalar;
-            while steps < steps_maximum {
-                deformation_gradient_1 =
-                    (deformation_gradient * deformation_gradient_2.inverse()).into();
-                deformation_gradient_2_inverse_transpose =
-                    deformation_gradient_2.inverse_transpose().into();
-                right_hand_side = (deformation_gradient_1.transpose()
-                    * self
-                        .constitutive_model_1()
-                        .first_piola_kirchhoff_stress(&deformation_gradient_1)?
-                    * deformation_gradient_2_inverse_transpose)
-                    .into();
-                residual = self
-                    .constitutive_model_2()
-                    .first_piola_kirchhoff_stress(&deformation_gradient_2)?
-                    - right_hand_side;
-                residual_norm = residual.norm();
-                if residual_norm >= ABS_TOL {
-                    residual_increment = residual_old - &residual;
-                    step_size = (deformation_gradient_2_old - &deformation_gradient_2)
-                        .full_contraction(&residual_increment)
-                        .abs()
-                        / residual_increment.norm_squared();
-                    deformation_gradient_2_old = deformation_gradient_2.clone();
-                    residual_old = residual.clone();
-                    deformation_gradient_2 -= residual * step_size;
-                } else {
-                    break;
+            match GradientDescent::default().root(
+                |deformation_gradient_2: &DeformationGradient| {
+                    let deformation_gradient_1: DeformationGradient =
+                        (deformation_gradient * deformation_gradient_2.inverse()).into();
+                    let deformation_gradient_2_inverse_transpose: TensorRank2<3, 0, 0> =
+                        deformation_gradient_2.inverse_transpose().into();
+                    let right_hand_side: FirstPiolaKirchhoffStress = (deformation_gradient_1
+                        .transpose()
+                        * self
+                            .constitutive_model_1()
+                            .first_piola_kirchhoff_stress(&deformation_gradient_1)?
+                        * deformation_gradient_2_inverse_transpose)
+                        .into();
+                    Ok(self
+                        .constitutive_model_2()
+                        .first_piola_kirchhoff_stress(deformation_gradient_2)?
+                        - right_hand_side)
+                },
+                IDENTITY_10,
+                EqualityConstraint::None,
+            ) {
+                Ok(deformation_gradient_2) => {
+                    let deformation_gradient_1 =
+                        (deformation_gradient * deformation_gradient_2.inverse()).into();
+                    Ok((deformation_gradient_1, deformation_gradient_2))
                 }
-                steps += 1;
-            }
-            if residual_norm >= ABS_TOL && steps == steps_maximum {
-                panic!("MAX STEPS REACHED")
-            } else {
-                Ok((deformation_gradient_1, deformation_gradient_2))
+                Err(error) => Err(ConstitutiveError::Upstream(
+                    format!("{error}"),
+                    format!("{self:?}"),
+                )),
             }
         }
     }
