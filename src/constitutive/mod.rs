@@ -107,10 +107,10 @@ impl Debug for ConstitutiveError {
                     In constitutive model: {constitutive_model}."
                 )
             }
-            Self::Upstream(error, solver) => {
+            Self::Upstream(error, constitutive_model) => {
                 format!(
                     "{error}\x1b[0;91m\n\
-                    In solver: {solver}."
+                    In constitutive model: {constitutive_model}."
                 )
             }
         };
@@ -131,10 +131,10 @@ impl Display for ConstitutiveError {
                     In constitutive model: {constitutive_model}."
                 )
             }
-            Self::Upstream(error, solver) => {
+            Self::Upstream(error, constitutive_model) => {
                 format!(
                     "{error}\x1b[0;91m\n\
-                    In solver: {solver}."
+                    In constitutive model: {constitutive_model}."
                 )
             }
         };
