@@ -26,10 +26,10 @@ fn get_array_dim_4() -> [[TensorRank0; 4]; 4] {
 fn get_array_dim_9() -> [[TensorRank0; 9]; 9] {
     [
         [2.0, 2.0, 4.0, 0.0, 0.0, 1.0, 1.0, 3.0, 3.0],
-        [0.0, 3.0, 1.0, 0.0, 0.0, 1.0, 4.0, 2.0, 1.0],
+        [0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 4.0, 2.0, 1.0],
         [3.0, 0.0, 1.0, 2.0, 0.0, 3.0, 4.0, 4.0, 2.0],
         [4.0, 4.0, 0.0, 2.0, 1.0, 1.0, 0.0, 0.0, 4.0],
-        [0.0, 1.0, 0.0, 1.0, 1.0, 3.0, 0.0, 1.0, 1.0],
+        [0.0, 1.0, 0.0, 1.0, 0.0, 3.0, 0.0, 1.0, 1.0],
         [4.0, 2.0, 3.0, 4.0, 2.0, 4.0, 3.0, 0.0, 4.0],
         [1.0, 3.0, 2.0, 0.0, 0.0, 0.0, 2.0, 4.0, 2.0],
         [2.0, 2.0, 2.0, 4.0, 1.0, 2.0, 4.0, 2.0, 2.0],
@@ -380,7 +380,7 @@ fn determinant_dim_4() -> Result<(), TestError> {
 
 #[test]
 fn determinant_dim_9() -> Result<(), TestError> {
-    assert_eq_within_tols(&get_tensor_rank_2_dim_9().determinant(), &2398.0)
+    assert_eq_within_tols(&get_tensor_rank_2_dim_9().determinant(), &5297.0)
 }
 
 #[test]
@@ -424,7 +424,7 @@ fn deviatoric_dim_9() -> Result<(), TestError> {
     let tensor_rank_2 = get_tensor_rank_2_dim_9();
     let trace = tensor_rank_2.trace();
     let deviatoric_tensor_rank_2 = tensor_rank_2.deviatoric();
-    assert_eq(&deviatoric_tensor_rank_2.trace(), &0.0)?;
+    assert_eq_within_tols(&deviatoric_tensor_rank_2.trace(), &0.0)?;
     assert_eq(
         &deviatoric_tensor_rank_2,
         &(tensor_rank_2 - TensorRank2::identity() * (trace / 9.0)),
@@ -566,7 +566,7 @@ fn full_contraction_dim_4() -> Result<(), TestError> {
 fn full_contraction_dim_9() -> Result<(), TestError> {
     assert_eq_within_tols(
         &get_tensor_rank_2_dim_9().full_contraction(&get_other_tensor_rank_2_dim_9()),
-        &269.0,
+        &262.0,
     )
 }
 
@@ -802,23 +802,27 @@ fn into_vec() -> Result<(), TestError> {
 }
 
 #[test]
-fn lu_decomposition() {
-    let (tensor_l, tensor_u) = get_tensor_rank_2_dim_9().lu_decomposition();
-    tensor_l
-        .iter()
+fn lu_decomposition() -> Result<(), TestError> {
+    let (l, u, p) = get_tensor_rank_2_dim_9().lu_decomposition();
+    l.iter()
         .enumerate()
-        .zip(tensor_u.iter())
-        .for_each(|((i, tensor_l_i), tensor_u_i)| {
-            tensor_l_i
-                .iter()
+        .zip(u.iter())
+        .for_each(|((i, l_i), u_i)| {
+            l_i.iter()
                 .enumerate()
-                .zip(tensor_u_i.iter())
-                .for_each(|((j, tensor_l_ij), tensor_u_ij)| match i.cmp(&j) {
-                    Ordering::Greater => assert_eq!(tensor_u_ij, &0.0),
-                    Ordering::Less => assert_eq!(tensor_l_ij, &0.0),
-                    _ => (),
+                .zip(u_i.iter())
+                .for_each(|((j, l_ij), u_ij)| match i.cmp(&j) {
+                    Ordering::Equal => assert_eq!(l_ij, &1.0),
+                    Ordering::Greater => assert_eq!(u_ij, &0.0),
+                    Ordering::Less => assert_eq!(l_ij, &0.0),
                 })
         });
+    assert_eq_within_tols(
+        &(l * u),
+        &p.iter()
+            .map(|&p_i| get_tensor_rank_2_dim_9()[p_i].clone())
+            .collect(),
+    )
 }
 
 #[test]
@@ -1151,7 +1155,7 @@ fn norm_dim_4() -> Result<(), TestError> {
 
 #[test]
 fn norm_dim_9() -> Result<(), TestError> {
-    assert_eq(&get_tensor_rank_2_dim_9().norm(), &20.976_176_963_403_03)
+    assert_eq(&get_tensor_rank_2_dim_9().norm(), &20.736_441_353_327_72)
 }
 
 #[test]
@@ -1184,7 +1188,7 @@ fn squared_trace_dim_4() -> Result<(), TestError> {
 
 #[test]
 fn squared_trace_dim_9() -> Result<(), TestError> {
-    assert_eq_within_tols(&get_tensor_rank_2_dim_9().squared_trace(), &318.0)
+    assert_eq_within_tols(&get_tensor_rank_2_dim_9().squared_trace(), &308.0)
 }
 
 #[test]
@@ -1268,7 +1272,7 @@ fn trace_dim_4() -> Result<(), TestError> {
 
 #[test]
 fn trace_dim_9() -> Result<(), TestError> {
-    assert_eq(&get_tensor_rank_2_dim_9().trace(), &18.0)
+    assert_eq(&get_tensor_rank_2_dim_9().trace(), &14.0)
 }
 
 #[test]

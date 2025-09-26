@@ -10,6 +10,7 @@ use std::{
     array::from_fn,
     f64::consts::TAU,
     fmt::{self, Display, Formatter},
+    iter::Sum,
     mem::transmute,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
@@ -255,13 +256,13 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
             let c0 = self[2][0] * self[3][1] - self[2][1] * self[3][0];
             s0 * c5 - s1 * c4 + s2 * c3 + s3 * c2 - s4 * c1 + s5 * c0
         } else {
-            let (tensor_l, tensor_u) = self.lu_decomposition();
-            tensor_l
-                .iter()
+            let (_, u, p) = self.lu_decomposition();
+            let num_swaps = p.iter().enumerate().filter(|(i, p_i)| p_i != &i).count();
+            u.into_iter()
                 .enumerate()
-                .zip(tensor_u.iter())
-                .map(|((i, tensor_l_i), tensor_u_i)| tensor_l_i[i] * tensor_u_i[i])
-                .product()
+                .map(|(i, u_i)| u_i[i])
+                .product::<TensorRank0>()
+                * if num_swaps % 2 == 0 { 1.0 } else { -1.0 }
         }
     }
     /// Returns a rank-2 tensor constructed from a dyad of the given vectors.
@@ -332,8 +333,23 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
             adjugate[3][3] = self[2][0] * s3 - self[2][1] * s1 + self[2][2] * s0;
             adjugate / (s0 * c5 - s1 * c4 + s2 * c3 + s3 * c2 - s4 * c1 + s5 * c0)
         } else {
-            let (tensor_l_inverse, tensor_u_inverse) = self.lu_decomposition_inverse();
-            tensor_u_inverse * tensor_l_inverse
+            let (l_inverse, u_inverse, p) = self.lu_decomposition_inverse();
+            let mut q = [0; D];
+            p.into_iter().enumerate().for_each(|(i, p_i)| q[p_i] = i);
+            u_inverse
+                .into_iter()
+                .map(|u_inverse_i| {
+                    q.iter()
+                        .map(|&q_j| {
+                            u_inverse_i
+                                .iter()
+                                .zip(l_inverse.iter())
+                                .map(|(u_inverse_ik, l_inverse_k)| u_inverse_ik * l_inverse_k[q_j])
+                                .sum()
+                        })
+                        .collect()
+                })
+                .collect()
         }
     }
     /// Returns the inverse and determinant of the rank-2 tensor.
@@ -520,62 +536,60 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
         }
     }
     /// Returns the LU decomposition of the rank-2 tensor.
-    pub fn lu_decomposition(&self) -> (TensorRank2<D, I, 88>, TensorRank2<D, 88, J>) {
-        let mut tensor_l = TensorRank2::zero();
-        let mut tensor_u = TensorRank2::zero();
-        for i in 0..D {
-            for k in i..D {
-                tensor_u[i][k] = self[i][k];
-                for j in 0..i {
-                    tensor_u[i][k] -= tensor_l[i][j] * tensor_u[j][k];
+    pub fn lu_decomposition(&self) -> (TensorRank2<D, I, 88>, TensorRank2<D, 88, J>, Vec<usize>) {
+        let n = D;
+        let mut p: Vec<usize> = (0..n).collect();
+        let mut factor;
+        let mut lu = self.clone();
+        let mut max_row;
+        let mut max_val;
+        let mut pivot;
+        for i in 0..n {
+            max_row = i;
+            max_val = lu[max_row][i].abs();
+            for k in i + 1..n {
+                if lu[k][i].abs() > max_val {
+                    max_row = k;
+                    max_val = lu[max_row][i].abs();
                 }
             }
-            if tensor_u[i][i].abs() <= ABS_TOL {
+            if max_row != i {
+                lu.0.swap(i, max_row);
+                p.swap(i, max_row);
+            }
+            pivot = lu[i][i];
+            if pivot.abs() < ABS_TOL {
                 panic!("LU decomposition failed (zero pivot).")
             }
-            for k in i..D {
-                if i == k {
-                    tensor_l[i][k] = 1.0
-                } else {
-                    tensor_l[k][i] = self[k][i];
-                    for j in 0..i {
-                        tensor_l[k][i] -= tensor_l[k][j] * tensor_u[j][i];
+            for j in i + 1..n {
+                if lu[j][i] != 0.0 {
+                    lu[j][i] /= pivot;
+                    factor = lu[j][i];
+                    for k in i + 1..n {
+                        lu[j][k] -= factor * lu[i][k];
                     }
-                    tensor_l[k][i] /= tensor_u[i][i]
                 }
             }
         }
-        (tensor_l, tensor_u)
+        let mut l = TensorRank2::identity();
+        for i in 0..D {
+            for j in 0..i {
+                l[i][j] = lu[i][j]
+            }
+        }
+        let mut u = TensorRank2::zero();
+        for i in 0..D {
+            for j in i..D {
+                u[i][j] = lu[i][j]
+            }
+        }
+        (l, u, p)
     }
     /// Returns the inverse of the LU decomposition of the rank-2 tensor.
-    pub fn lu_decomposition_inverse(&self) -> (TensorRank2<D, 88, I>, TensorRank2<D, J, 88>) {
-        let mut tensor_l = TensorRank2::zero();
-        let mut tensor_u = TensorRank2::zero();
-        for i in 0..D {
-            for k in i..D {
-                tensor_u[i][k] = self[i][k];
-                for j in 0..i {
-                    tensor_u[i][k] -= tensor_l[i][j] * tensor_u[j][k];
-                }
-            }
-            if tensor_u[i][i].abs() <= ABS_TOL {
-                panic!("LU decomposition failed (zero pivot).")
-            }
-            for k in i..D {
-                if i == k {
-                    tensor_l[i][k] = 1.0
-                } else {
-                    tensor_l[k][i] = self[k][i];
-                    for j in 0..i {
-                        tensor_l[k][i] -= tensor_l[k][j] * tensor_u[j][i];
-                    }
-                    tensor_l[k][i] /= tensor_u[i][i]
-                }
-            }
-        }
-        //
-        // above is copied from lu_decomposition
-        //
+    pub fn lu_decomposition_inverse(
+        &self,
+    ) -> (TensorRank2<D, I, 88>, TensorRank2<D, 88, J>, Vec<usize>) {
+        let (mut tensor_l, mut tensor_u, p) = self.lu_decomposition();
         let mut sum;
         for i in 0..D {
             tensor_l[i][i] = 1.0 / tensor_l[i][i];
@@ -597,7 +611,7 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
                 tensor_u[j][i] = -sum * tensor_u[i][i];
             }
         }
-        (tensor_l, tensor_u)
+        (tensor_l, tensor_u, p)
     }
 }
 
@@ -1086,7 +1100,7 @@ impl<const D: usize, const I: usize, const J: usize> IndexMut<usize> for TensorR
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> std::iter::Sum for TensorRank2<D, I, J> {
+impl<const D: usize, const I: usize, const J: usize> Sum for TensorRank2<D, I, J> {
     fn sum<Ii>(iter: Ii) -> Self
     where
         Ii: Iterator<Item = Self>,
