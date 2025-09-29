@@ -17,7 +17,7 @@ use super::{super::fluid::viscous::Viscous, *};
 use crate::math::{
     Matrix, TensorVec, Vector,
     integrate::Explicit,
-    optimize::{EqualityConstraint, FirstOrderRootFinding, OptimizationError},
+    optimize::{EqualityConstraint, FirstOrderRootFinding, OptimizationError, ZerothOrderRootFinding},
 };
 
 /// Possible applied loads.
@@ -266,5 +266,75 @@ where
             initial_guess.clone(),
             EqualityConstraint::Linear(matrix, vector),
         )
+    }
+}
+
+/// Zeroth-order root-finding methods for viscoelastic constitutive models.
+pub trait ZerothOrderRoot {
+    /// Solve for the unknown components of the deformation gradient under an applied load.
+    ///
+    /// ```math
+    /// \mathbf{P}(\mathbf{F},\dot{\mathbf{F}}) - \boldsymbol{\lambda} - \mathbf{P}_0 = \mathbf{0}
+    /// ```
+    fn root(
+        &self,
+        applied_load: AppliedLoad,
+        integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
+        solver: impl ZerothOrderRootFinding<
+            DeformationGradient,
+        >,
+    ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
+}
+
+/// Zeroth-order root-finding methods for viscoelastic constitutive models.
+pub trait FirstOrderRoot {
+    /// Solve for the unknown components of the deformation gradient under an applied load.
+    ///
+    /// ```math
+    /// \mathbf{P}(\mathbf{F},\dot{\mathbf{F}}) - \boldsymbol{\lambda} - \mathbf{P}_0 = \mathbf{0}
+    /// ```
+    fn root(
+        &self,
+        applied_load: AppliedLoad,
+        integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
+        solver: impl FirstOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+        >,
+    ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
+}
+
+impl<T> ZerothOrderRoot for T
+where
+    T: Viscoelastic,
+{
+    fn root(
+        &self,
+        applied_load: AppliedLoad,
+        integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
+        solver: impl ZerothOrderRootFinding<
+            DeformationGradient,
+        >,
+    ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
+        todo!()
+    }
+}
+
+impl<T> FirstOrderRoot for T
+where
+    T: Viscoelastic,
+{
+    fn root(
+        &self,
+        applied_load: AppliedLoad,
+        integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
+        solver: impl FirstOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+        >,
+    ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
+        todo!()
     }
 }
