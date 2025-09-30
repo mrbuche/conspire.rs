@@ -17,7 +17,7 @@ use conspire::{
     },
     math::{
         Matrix, Tensor, TensorVec, TestError, Vector, assert_eq_within, assert_eq_within_tols,
-        integrate::BogackiShampine,
+        integrate::DormandPrince,
         optimize::{EqualityConstraint, NewtonRaphson},
     },
 };
@@ -7488,7 +7488,7 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
     println!("Solving...");
     let (times, coordinates_history, velocities_history) = block.minimize(
         EqualityConstraint::Linear(matrix, vector),
-        BogackiShampine {
+        DormandPrince {
             abs_tol: tol,
             rel_tol: tol,
             ..Default::default()
@@ -7502,7 +7502,7 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
     let (_, deformation_gradients, deformation_gradient_rates) = AlmansiHamel::new(parameters)
         .minimize(
             AppliedDeformationRate::UniaxialStress(|_| 2.3, times.as_slice()),
-            BogackiShampine::default(),
+            DormandPrince::default(),
             NewtonRaphson::default(),
         )?;
     coordinates_history

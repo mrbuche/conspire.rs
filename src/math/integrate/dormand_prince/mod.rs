@@ -6,7 +6,10 @@ use super::{
     Explicit, IntegrationError,
 };
 use crate::{ABS_TOL, REL_TOL};
-use std::ops::{Mul, Sub};
+use std::{
+    array::from_fn,
+    ops::{Mul, Sub},
+};
 
 const C_44_45: Scalar = 44.0 / 45.0;
 const C_56_15: Scalar = 56.0 / 15.0;
@@ -118,63 +121,33 @@ where
         let mut t = t_0;
         let mut dt = t_f;
         let mut e;
-        let mut k_1 = function(t, &initial_condition)?;
-        let mut k_2;
-        let mut k_3;
-        let mut k_4;
-        let mut k_5;
-        let mut k_6;
-        let mut k_7;
+        let mut k: [Y; 7] = from_fn(|_| Y::default());
+        k[0] = function(t, &initial_condition)?;
         let mut t_sol = Vector::zero(0);
         t_sol.push(t_0);
         let mut y = initial_condition.clone();
         let mut y_sol = U::zero(0);
         y_sol.push(initial_condition.clone());
         let mut dydt_sol = U::zero(0);
-        dydt_sol.push(k_1.clone());
-        let mut y_trial;
+        dydt_sol.push(k[0].clone());
+        let mut y_trial = Y::default();
         while t < t_f {
-            k_2 = function(t + 0.2 * dt, &(&k_1 * (0.2 * dt) + &y))?;
-            k_3 = function(
-                t + 0.3 * dt,
-                &(&k_1 * (0.075 * dt) + &k_2 * (0.225 * dt) + &y),
-            )?;
-            k_4 = function(
-                t + 0.8 * dt,
-                &(&k_1 * (C_44_45 * dt) - &k_2 * (C_56_15 * dt) + &k_3 * (C_32_9 * dt) + &y),
-            )?;
-            k_5 = function(
-                t + C_8_9 * dt,
-                &(&k_1 * (C_19372_6561 * dt) - &k_2 * (C_25360_2187 * dt)
-                    + &k_3 * (C_64448_6561 * dt)
-                    - &k_4 * (C_212_729 * dt)
-                    + &y),
-            )?;
-            k_6 = function(
-                t + dt,
-                &(&k_1 * (C_9017_3168 * dt) - &k_2 * (C_355_33 * dt)
-                    + &k_3 * (C_46732_5247 * dt)
-                    + &k_4 * (C_49_176 * dt)
-                    - &k_5 * (C_5103_18656 * dt)
-                    + &y),
-            )?;
-            y_trial = (&k_1 * C_35_384 + &k_3 * C_500_1113 + &k_4 * C_125_192 - &k_5 * C_2187_6784
-                + &k_6 * C_11_84)
-                * dt
-                + &y;
-            k_7 = function(t + dt, &y_trial)?;
-            e = ((&k_1 * C_71_57600 - k_3 * C_71_16695 + k_4 * C_71_1920 - k_5 * C_17253_339200
-                + k_6 * C_22_525
-                - &k_7 * 0.025)
-                * dt)
-                .norm_inf();
+            e = match self.slopes(&mut function, &y, &t, &dt, &mut k, &mut y_trial) {
+                Ok(e) => e,
+                Err(error) => {
+                    return Err(IntegrationError::Upstream(
+                        format!("{error}"),
+                        format!("{self:?}"),
+                    ));
+                }
+            };
             if e < self.abs_tol || e / y_trial.norm_inf() < self.rel_tol {
-                k_1 = k_7;
+                k[0] = k[6].clone();
                 t += dt;
-                y = y_trial;
+                y = y_trial.clone();
                 t_sol.push(t);
                 y_sol.push(y.clone());
-                dydt_sol.push(k_1.clone());
+                dydt_sol.push(k[0].clone());
             }
             if e > 0.0 {
                 dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn)
@@ -188,6 +161,50 @@ where
         } else {
             Ok((t_sol, y_sol, dydt_sol))
         }
+    }
+    fn slopes(
+        &self,
+        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        y: &Y,
+        t: &Scalar,
+        dt: &Scalar,
+        k: &mut [Y],
+        y_trial: &mut Y,
+    ) -> Result<Scalar, String> {
+        k[1] = function(t + 0.2 * dt, &(&k[0] * (0.2 * dt) + y))?;
+        k[2] = function(
+            t + 0.3 * dt,
+            &(&k[0] * (0.075 * dt) + &k[1] * (0.225 * dt) + y),
+        )?;
+        k[3] = function(
+            t + 0.8 * dt,
+            &(&k[0] * (C_44_45 * dt) - &k[1] * (C_56_15 * dt) + &k[2] * (C_32_9 * dt) + y),
+        )?;
+        k[4] = function(
+            t + C_8_9 * dt,
+            &(&k[0] * (C_19372_6561 * dt) - &k[1] * (C_25360_2187 * dt)
+                + &k[2] * (C_64448_6561 * dt)
+                - &k[3] * (C_212_729 * dt)
+                + y),
+        )?;
+        k[5] = function(
+            t + dt,
+            &(&k[0] * (C_9017_3168 * dt) - &k[1] * (C_355_33 * dt)
+                + &k[2] * (C_46732_5247 * dt)
+                + &k[3] * (C_49_176 * dt)
+                - &k[4] * (C_5103_18656 * dt)
+                + y),
+        )?;
+        *y_trial = (&k[0] * C_35_384 + &k[2] * C_500_1113 + &k[3] * C_125_192 - &k[4] * C_2187_6784
+            + &k[5] * C_11_84)
+            * *dt
+            + y;
+        k[6] = function(t + dt, &y_trial)?;
+        Ok(((&k[0] * C_71_57600 - &k[2] * C_71_16695 + &k[3] * C_71_1920 - &k[4] * C_17253_339200
+            + &k[5] * C_22_525
+            - &k[6] * 0.025)
+            * *dt)
+            .norm_inf())
     }
 }
 

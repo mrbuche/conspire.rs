@@ -97,7 +97,7 @@ where
         y_sol.push(initial_condition.clone());
         let mut dydt_sol = U::zero(0);
         dydt_sol.push(k[0].clone());
-        let mut y_trial = y.clone(); // Tensor::default() for other components? or use U?
+        let mut y_trial = Y::default();
         while t < t_f {
             e = match self.slopes(&mut function, &y, &t, &dt, &mut k, &mut y_trial) {
                 Ok(e) => e,
@@ -109,7 +109,7 @@ where
                 }
             };
             if e < self.abs_tol || e / y_trial.norm_inf() < self.rel_tol {
-                k[0] = k[3].clone(); // cannot put in slopes() because do not want to update unless accept
+                k[0] = k[3].clone();
                 t += dt;
                 y = y_trial.clone();
                 t_sol.push(t);
