@@ -1,6 +1,15 @@
 use super::super::test::*;
 use super::*;
 
+use crate::{
+    math::Tensor,
+    mechanics::{
+        CauchyRateTangentStiffness, CauchyTangentStiffness,
+        FirstPiolaKirchhoffRateTangentStiffness, FirstPiolaKirchhoffTangentStiffness,
+        SecondPiolaKirchhoffTangentStiffness,
+    },
+};
+
 type SaintVenantKirchhoffType<'a> = SaintVenantKirchhoff<&'a [Scalar; 4]>;
 
 use_elastic_hyperviscous_macros!();

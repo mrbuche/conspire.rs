@@ -1,7 +1,21 @@
 #[cfg(test)]
 mod test;
 
-use super::*;
+use crate::{
+    constitutive::{
+        Constitutive, ConstitutiveError, Parameters,
+        fluid::viscous::Viscous,
+        solid::{
+            Solid, TWO_THIRDS, elastic_hyperviscous::ElasticHyperviscous,
+            viscoelastic::Viscoelastic,
+        },
+    },
+    math::{IDENTITY, Rank2},
+    mechanics::{
+        CauchyRateTangentStiffness, CauchyStress, DeformationGradient, DeformationGradientRate,
+        Scalar,
+    },
+};
 
 /// The Almansi-Hamel viscoelastic constitutive model.
 ///

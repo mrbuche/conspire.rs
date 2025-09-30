@@ -25,11 +25,7 @@ mod saint_venant_kirchhoff;
 
 pub use saint_venant_kirchhoff::SaintVenantKirchhoff;
 
-use super::{
-    super::fluid::viscous::Viscous, elastic_hyperviscous::ElasticHyperviscous,
-    viscoelastic::Viscoelastic, *,
-};
-use std::fmt::Debug;
+use super::{elastic_hyperviscous::ElasticHyperviscous, *};
 
 /// Required methods for hyperviscoelastic constitutive models.
 pub trait Hyperviscoelastic
