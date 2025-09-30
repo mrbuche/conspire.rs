@@ -146,177 +146,155 @@ where
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
-    fn integrate(
+    const SLOPES: usize = 13;
+    fn slopes(
         &self,
         mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
-        time: &[Scalar],
-        initial_condition: Y,
-    ) -> Result<(Vector, U, U), IntegrationError> {
-        let t_0 = time[0];
-        let t_f = time[time.len() - 1];
-        if time.len() < 2 {
-            return Err(IntegrationError::LengthTimeLessThanTwo);
-        } else if t_0 >= t_f {
-            return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
+        y: &Y,
+        t: &Scalar,
+        dt: &Scalar,
+        k: &mut [Y],
+        y_trial: &mut Y,
+    ) -> Result<Scalar, String> {
+        k[0] = function(*t, y)?;
+        k[1] = function(t + C_2 * dt, &(&k[0] * (A_2_1 * dt) + y))?;
+        k[2] = function(
+            t + C_3 * dt,
+            &(&k[0] * (A_3_1 * dt) + &k[1] * (A_3_2 * dt) + y),
+        )?;
+        k[3] = function(
+            t + C_4 * dt,
+            &(&k[0] * (A_4_1 * dt) + &k[2] * (A_4_3 * dt) + y),
+        )?;
+        k[4] = function(
+            t + C_5 * dt,
+            &(&k[0] * (A_5_1 * dt) + &k[2] * (A_5_3 * dt) + &k[3] * (A_5_4 * dt) + y),
+        )?;
+        k[5] = function(
+            t + C_6 * dt,
+            &(&k[0] * (A_6_1 * dt) + &k[3] * (A_6_4 * dt) + &k[4] * (A_6_5 * dt) + y),
+        )?;
+        k[6] = function(
+            t + C_7 * dt,
+            &(&k[0] * (A_7_1 * dt)
+                + &k[3] * (A_7_4 * dt)
+                + &k[4] * (A_7_5 * dt)
+                + &k[5] * (A_7_6 * dt)
+                + y),
+        )?;
+        k[7] = function(
+            t + C_8 * dt,
+            &(&k[0] * (A_8_1 * dt)
+                + &k[3] * (A_8_4 * dt)
+                + &k[4] * (A_8_5 * dt)
+                + &k[5] * (A_8_6 * dt)
+                + &k[6] * (A_8_7 * dt)
+                + y),
+        )?;
+        k[8] = function(
+            t + C_9 * dt,
+            &(&k[0] * (A_9_1 * dt)
+                + &k[3] * (A_9_4 * dt)
+                + &k[4] * (A_9_5 * dt)
+                + &k[5] * (A_9_6 * dt)
+                + &k[6] * (A_9_7 * dt)
+                + &k[7] * (A_9_8 * dt)
+                + y),
+        )?;
+        k[9] = function(
+            t + C_10 * dt,
+            &(&k[0] * (A_10_1 * dt)
+                + &k[3] * (A_10_4 * dt)
+                + &k[4] * (A_10_5 * dt)
+                + &k[5] * (A_10_6 * dt)
+                + &k[6] * (A_10_7 * dt)
+                + &k[7] * (A_10_8 * dt)
+                + &k[8] * (A_10_9 * dt)
+                + y),
+        )?;
+        k[10] = function(
+            t + C_11 * dt,
+            &(&k[0] * (A_11_1 * dt)
+                + &k[3] * (A_11_4 * dt)
+                + &k[4] * (A_11_5 * dt)
+                + &k[5] * (A_11_6 * dt)
+                + &k[6] * (A_11_7 * dt)
+                + &k[7] * (A_11_8 * dt)
+                + &k[8] * (A_11_9 * dt)
+                + &k[9] * (A_11_10 * dt)
+                + y),
+        )?;
+        k[11] = function(
+            t + dt,
+            &(&k[0] * (A_12_1 * dt)
+                + &k[3] * (A_12_4 * dt)
+                + &k[4] * (A_12_5 * dt)
+                + &k[5] * (A_12_6 * dt)
+                + &k[6] * (A_12_7 * dt)
+                + &k[7] * (A_12_8 * dt)
+                + &k[8] * (A_12_9 * dt)
+                + &k[9] * (A_12_10 * dt)
+                + &k[10] * (A_12_11 * dt)
+                + y),
+        )?;
+        *y_trial = (&k[0] * B_1
+            + &k[5] * B_6
+            + &k[6] * B_7
+            + &k[7] * B_8
+            + &k[8] * B_9
+            + &k[9] * B_10
+            + &k[10] * B_11
+            + &k[11] * B_12)
+            * *dt
+            + y;
+        k[12] = function(
+            t + dt,
+            &(&k[0] * (A_13_1 * dt)
+                + &k[3] * (A_13_4 * dt)
+                + &k[4] * (A_13_5 * dt)
+                + &k[5] * (A_13_6 * dt)
+                + &k[6] * (A_13_7 * dt)
+                + &k[7] * (A_13_8 * dt)
+                + &k[8] * (A_13_9 * dt)
+                + &k[9] * (A_13_10 * dt)
+                + y),
+        )?;
+        Ok(((&k[0] * D_1
+            + &k[5] * D_6
+            + &k[6] * D_7
+            + &k[7] * D_8
+            + &k[8] * D_9
+            + &k[9] * D_10
+            + &k[10] * D_11
+            + &k[11] * D_12
+            + &k[12] * D_13)
+            * *dt)
+            .norm_inf())
+    }
+    fn step(
+        &self,
+        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        y: &mut Y,
+        t: &mut Scalar,
+        y_sol: &mut U,
+        t_sol: &mut Vector,
+        dydt_sol: &mut U,
+        dt: &mut Scalar,
+        _k: &mut [Y],
+        y_trial: &Y,
+        e: &Scalar,
+    ) -> Result<(), String> {
+        if e < &self.abs_tol || e / y_trial.norm_inf() < self.rel_tol {
+            *t += *dt;
+            *y = y_trial.clone();
+            t_sol.push(*t);
+            y_sol.push(y.clone());
+            dydt_sol.push(function(*t, y)?);
         }
-        let mut t = t_0;
-        let mut dt = t_f;
-        let mut e;
-        let mut k_1 = function(t, &initial_condition)?;
-        let mut k_2;
-        let mut k_3;
-        let mut k_4;
-        let mut k_5;
-        let mut k_6;
-        let mut k_7;
-        let mut k_8;
-        let mut k_9;
-        let mut k_10;
-        let mut k_11;
-        let mut k_12;
-        let mut k_13;
-        let mut t_sol = Vector::zero(0);
-        t_sol.push(t_0);
-        let mut y = initial_condition.clone();
-        let mut y_sol = U::zero(0);
-        y_sol.push(initial_condition.clone());
-        let mut dydt_sol = U::zero(0);
-        dydt_sol.push(k_1.clone());
-        let mut y_trial;
-        while t < t_f {
-            k_1 = function(t, &y)?;
-            k_2 = function(t + C_2 * dt, &(&k_1 * (A_2_1 * dt) + &y))?;
-            k_3 = function(
-                t + C_3 * dt,
-                &(&k_1 * (A_3_1 * dt) + &k_2 * (A_3_2 * dt) + &y),
-            )?;
-            k_4 = function(
-                t + C_4 * dt,
-                &(&k_1 * (A_4_1 * dt) + &k_3 * (A_4_3 * dt) + &y),
-            )?;
-            k_5 = function(
-                t + C_5 * dt,
-                &(&k_1 * (A_5_1 * dt) + &k_3 * (A_5_3 * dt) + &k_4 * (A_5_4 * dt) + &y),
-            )?;
-            k_6 = function(
-                t + C_6 * dt,
-                &(&k_1 * (A_6_1 * dt) + &k_4 * (A_6_4 * dt) + &k_5 * (A_6_5 * dt) + &y),
-            )?;
-            k_7 = function(
-                t + C_7 * dt,
-                &(&k_1 * (A_7_1 * dt)
-                    + &k_4 * (A_7_4 * dt)
-                    + &k_5 * (A_7_5 * dt)
-                    + &k_6 * (A_7_6 * dt)
-                    + &y),
-            )?;
-            k_8 = function(
-                t + C_8 * dt,
-                &(&k_1 * (A_8_1 * dt)
-                    + &k_4 * (A_8_4 * dt)
-                    + &k_5 * (A_8_5 * dt)
-                    + &k_6 * (A_8_6 * dt)
-                    + &k_7 * (A_8_7 * dt)
-                    + &y),
-            )?;
-            k_9 = function(
-                t + C_9 * dt,
-                &(&k_1 * (A_9_1 * dt)
-                    + &k_4 * (A_9_4 * dt)
-                    + &k_5 * (A_9_5 * dt)
-                    + &k_6 * (A_9_6 * dt)
-                    + &k_7 * (A_9_7 * dt)
-                    + &k_8 * (A_9_8 * dt)
-                    + &y),
-            )?;
-            k_10 = function(
-                t + C_10 * dt,
-                &(&k_1 * (A_10_1 * dt)
-                    + &k_4 * (A_10_4 * dt)
-                    + &k_5 * (A_10_5 * dt)
-                    + &k_6 * (A_10_6 * dt)
-                    + &k_7 * (A_10_7 * dt)
-                    + &k_8 * (A_10_8 * dt)
-                    + &k_9 * (A_10_9 * dt)
-                    + &y),
-            )?;
-            k_11 = function(
-                t + C_11 * dt,
-                &(&k_1 * (A_11_1 * dt)
-                    + &k_4 * (A_11_4 * dt)
-                    + &k_5 * (A_11_5 * dt)
-                    + &k_6 * (A_11_6 * dt)
-                    + &k_7 * (A_11_7 * dt)
-                    + &k_8 * (A_11_8 * dt)
-                    + &k_9 * (A_11_9 * dt)
-                    + &k_10 * (A_11_10 * dt)
-                    + &y),
-            )?;
-            k_12 = function(
-                t + dt,
-                &(&k_1 * (A_12_1 * dt)
-                    + &k_4 * (A_12_4 * dt)
-                    + &k_5 * (A_12_5 * dt)
-                    + &k_6 * (A_12_6 * dt)
-                    + &k_7 * (A_12_7 * dt)
-                    + &k_8 * (A_12_8 * dt)
-                    + &k_9 * (A_12_9 * dt)
-                    + &k_10 * (A_12_10 * dt)
-                    + &k_11 * (A_12_11 * dt)
-                    + &y),
-            )?;
-            y_trial = (&k_1 * B_1
-                + &k_6 * B_6
-                + &k_7 * B_7
-                + &k_8 * B_8
-                + &k_9 * B_9
-                + &k_10 * B_10
-                + &k_11 * B_11
-                + &k_12 * B_12)
-                * dt
-                + &y;
-            k_13 = function(
-                t + dt,
-                &(&k_1 * (A_13_1 * dt)
-                    + &k_4 * (A_13_4 * dt)
-                    + &k_5 * (A_13_5 * dt)
-                    + &k_6 * (A_13_6 * dt)
-                    + &k_7 * (A_13_7 * dt)
-                    + &k_8 * (A_13_8 * dt)
-                    + &k_9 * (A_13_9 * dt)
-                    + &k_10 * (A_13_10 * dt)
-                    + &y),
-            )?;
-            e = ((&k_1 * D_1
-                + &k_6 * D_6
-                + &k_7 * D_7
-                + &k_8 * D_8
-                + &k_9 * D_9
-                + &k_10 * D_10
-                + &k_11 * D_11
-                + &k_12 * D_12
-                + &k_13 * D_13)
-                * dt)
-                .norm_inf();
-            if e < self.abs_tol || e / y_trial.norm_inf() < self.rel_tol {
-                t += dt;
-                y = y_trial;
-                t_sol.push(t);
-                y_sol.push(y.clone());
-                dydt_sol.push(function(t, &y)?);
-            }
-            if e > 0.0 {
-                dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn)
-            }
-            dt = dt.min(t_f - t)
+        if e > &0.0 {
+            *dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn)
         }
-        if time.len() > 2 {
-            let t_int = Vector::new(time);
-            let (y_int, dydt_int) = self.interpolate(&t_int, &t_sol, &y_sol, function)?;
-            Ok((t_int, y_int, dydt_int))
-        } else {
-            Ok((t_sol, y_sol, dydt_sol))
-        }
+        Ok(())
     }
 }
 

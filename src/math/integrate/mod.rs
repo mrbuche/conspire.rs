@@ -57,6 +57,7 @@ where
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
+    const SLOPES: usize;
     /// Solves an initial value problem by explicitly integrating a system of ordinary differential equations.
     ///
     /// ```math
@@ -64,11 +65,65 @@ where
     /// ```
     fn integrate(
         &self,
-        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
         time: &[Scalar],
         initial_condition: Y,
-    ) -> Result<(Vector, U, U), IntegrationError>;
-    /// ???
+    ) -> Result<(Vector, U, U), IntegrationError> {
+        let t_0 = time[0];
+        let t_f = time[time.len() - 1];
+        if time.len() < 2 {
+            return Err(IntegrationError::LengthTimeLessThanTwo);
+        } else if t_0 >= t_f {
+            return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
+        }
+        let mut t = t_0;
+        let mut dt = t_f;
+        let mut e;
+        let mut k = vec![Y::default(); Self::SLOPES];
+        k[0] = function(t, &initial_condition)?;
+        let mut t_sol = Vector::zero(0);
+        t_sol.push(t_0);
+        let mut y = initial_condition.clone();
+        let mut y_sol = U::zero(0);
+        y_sol.push(initial_condition.clone());
+        let mut dydt_sol = U::zero(0);
+        dydt_sol.push(k[0].clone());
+        let mut y_trial = Y::default();
+        while t < t_f {
+            e = match self.slopes(&mut function, &y, &t, &dt, &mut k, &mut y_trial) {
+                Ok(e) => e,
+                Err(error) => {
+                    return Err(IntegrationError::Upstream(error, format!("{self:?}")));
+                }
+            };
+            match self.step(
+                &mut function,
+                &mut y,
+                &mut t,
+                &mut y_sol,
+                &mut t_sol,
+                &mut dydt_sol,
+                &mut dt,
+                &mut k,
+                &y_trial,
+                &e,
+            ) {
+                Ok(e) => e,
+                Err(error) => {
+                    return Err(IntegrationError::Upstream(error, format!("{self:?}")));
+                }
+            };
+            dt = dt.min(t_f - t);
+        }
+        if time.len() > 2 {
+            let t_int = Vector::new(time);
+            let (y_int, dydt_int) = self.interpolate(&t_int, &t_sol, &y_sol, function)?;
+            Ok((t_int, y_int, dydt_int))
+        } else {
+            Ok((t_sol, y_sol, dydt_sol))
+        }
+    }
+    #[doc(hidden)]
     fn slopes(
         &self,
         function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
@@ -77,9 +132,22 @@ where
         dt: &Scalar,
         k: &mut [Y],
         y_trial: &mut Y,
-    ) -> Result<Scalar, String> {
-        todo!()
-    }
+    ) -> Result<Scalar, String>;
+    #[allow(clippy::too_many_arguments)]
+    #[doc(hidden)]
+    fn step(
+        &self,
+        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        y: &mut Y,
+        t: &mut Scalar,
+        y_sol: &mut U,
+        t_sol: &mut Vector,
+        dydt_sol: &mut U,
+        dt: &mut Scalar,
+        k: &mut [Y],
+        y_trial: &Y,
+        e: &Scalar,
+    ) -> Result<(), String>;
 }
 
 /// Base trait for zeroth-order implicit ordinary differential equation solvers.

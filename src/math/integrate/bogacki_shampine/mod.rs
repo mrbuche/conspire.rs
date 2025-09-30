@@ -6,10 +6,7 @@ use super::{
     Explicit, IntegrationError,
 };
 use crate::{ABS_TOL, REL_TOL};
-use std::{
-    array::from_fn,
-    ops::{Mul, Sub},
-};
+use std::ops::{Mul, Sub};
 
 /// Explicit, three-stage, third-order, variable-step, Runge-Kutta method.[^cite]
 ///
@@ -72,63 +69,7 @@ where
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
-    fn integrate(
-        &self,
-        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
-        time: &[Scalar],
-        initial_condition: Y,
-    ) -> Result<(Vector, U, U), IntegrationError> {
-        let t_0 = time[0];
-        let t_f = time[time.len() - 1];
-        if time.len() < 2 {
-            return Err(IntegrationError::LengthTimeLessThanTwo);
-        } else if t_0 >= t_f {
-            return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
-        }
-        let mut t = t_0;
-        let mut dt = t_f;
-        let mut e;
-        let mut k: [Y; 4] = from_fn(|_| Y::default());
-        k[0] = function(t, &initial_condition)?;
-        let mut t_sol = Vector::zero(0);
-        t_sol.push(t_0);
-        let mut y = initial_condition.clone();
-        let mut y_sol = U::zero(0);
-        y_sol.push(initial_condition.clone());
-        let mut dydt_sol = U::zero(0);
-        dydt_sol.push(k[0].clone());
-        let mut y_trial = Y::default();
-        while t < t_f {
-            e = match self.slopes(&mut function, &y, &t, &dt, &mut k, &mut y_trial) {
-                Ok(e) => e,
-                Err(error) => {
-                    return Err(IntegrationError::Upstream(
-                        format!("{error}"),
-                        format!("{self:?}"),
-                    ));
-                }
-            };
-            if e < self.abs_tol || e / y_trial.norm_inf() < self.rel_tol {
-                k[0] = k[3].clone();
-                t += dt;
-                y = y_trial.clone();
-                t_sol.push(t);
-                y_sol.push(y.clone());
-                dydt_sol.push(k[0].clone());
-            }
-            if e > 0.0 {
-                dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn)
-            }
-            dt = dt.min(t_f - t)
-        }
-        if time.len() > 2 {
-            let t_int = Vector::new(time);
-            let (y_int, dydt_int) = self.interpolate(&t_int, &t_sol, &y_sol, function)?;
-            Ok((t_int, y_int, dydt_int))
-        } else {
-            Ok((t_sol, y_sol, dydt_sol))
-        }
-    }
+    const SLOPES: usize = 4;
     fn slopes(
         &self,
         mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
@@ -143,6 +84,32 @@ where
         *y_trial = (&k[0] * 2.0 + &k[1] * 3.0 + &k[2] * 4.0) * (dt / 9.0) + y;
         k[3] = function(t + dt, y_trial)?;
         Ok(((&k[0] * -5.0 + &k[1] * 6.0 + &k[2] * 8.0 + &k[3] * -9.0) * (dt / 72.0)).norm_inf())
+    }
+    fn step(
+        &self,
+        _function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        y: &mut Y,
+        t: &mut Scalar,
+        y_sol: &mut U,
+        t_sol: &mut Vector,
+        dydt_sol: &mut U,
+        dt: &mut Scalar,
+        k: &mut [Y],
+        y_trial: &Y,
+        e: &Scalar,
+    ) -> Result<(), String> {
+        if e < &self.abs_tol || e / y_trial.norm_inf() < self.rel_tol {
+            k[0] = k[3].clone();
+            *t += *dt;
+            *y = y_trial.clone();
+            t_sol.push(*t);
+            y_sol.push(y.clone());
+            dydt_sol.push(k[0].clone());
+        }
+        if e > &0.0 {
+            *dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn)
+        }
+        Ok(())
     }
 }
 
