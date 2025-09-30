@@ -24,7 +24,7 @@ pub type Ode89 = Verner9;
 use super::{
     Scalar, Solution, Tensor, TensorArray, TensorVec, TestError, Vector,
     interpolate::InterpolateSolution,
-    optimize::{FirstOrderRootFinding, OptimizationError, ZerothOrderRootFinding},
+    optimize::{FirstOrderRootFinding, ZerothOrderRootFinding},
 };
 use crate::defeat_message;
 use std::{
@@ -249,12 +249,6 @@ impl Display for IntegrationError {
             }
         };
         write!(f, "{error}\x1b[0m")
-    }
-}
-
-impl From<OptimizationError> for IntegrationError {
-    fn from(error: OptimizationError) -> Self {
-        todo!("should not need this once done")
     }
 }
 

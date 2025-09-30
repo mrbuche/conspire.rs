@@ -57,11 +57,19 @@ where
         while t < t_f {
             t_trial = time[index + 1];
             dt = t_trial - t;
-            y_trial = solver.root(
+            y_trial = match solver.root(
                 |y_trial: &Y| Ok(y_trial - &y - &(&function(t_trial, y_trial)? * dt)),
                 y.clone(),
                 EqualityConstraint::None,
-            )?;
+            ) {
+                Ok(solution) => solution,
+                Err(error) => {
+                    return Err(IntegrationError::Upstream(
+                        format!("{error:?}"),
+                        format!("{self:?}"),
+                    ));
+                }
+            };
             t = t_trial;
             y = y_trial;
             t_sol.push(t);
@@ -113,12 +121,20 @@ where
         while t < t_f {
             t_trial = time[index + 1];
             dt = t_trial - t;
-            y_trial = solver.root(
+            y_trial = match solver.root(
                 |y_trial: &Y| Ok(y_trial - &y - &(&function(t_trial, y_trial)? * dt)),
                 |y_trial: &Y| Ok(jacobian(t_trial, y_trial)? * -dt + &identity),
                 y.clone(),
                 EqualityConstraint::None,
-            )?;
+            ) {
+                Ok(solution) => solution,
+                Err(error) => {
+                    return Err(IntegrationError::Upstream(
+                        format!("{error:?}"),
+                        format!("{self:?}"),
+                    ));
+                }
+            };
             t = t_trial;
             y = y_trial;
             t_sol.push(t);
