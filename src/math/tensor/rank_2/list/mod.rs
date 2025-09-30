@@ -26,6 +26,14 @@ pub const fn tensor_rank_2_list<const D: usize, const I: usize, const J: usize, 
     TensorRank2List(array)
 }
 
+impl<const D: usize, const I: usize, const J: usize, const W: usize> Default
+    for TensorRank2List<D, I, J, W>
+{
+    fn default() -> Self {
+        Self::zero()
+    }
+}
+
 impl<const D: usize, const I: usize, const J: usize, const W: usize> Display
     for TensorRank2List<D, I, J, W>
 {

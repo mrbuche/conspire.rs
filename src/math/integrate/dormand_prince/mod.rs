@@ -2,35 +2,35 @@
 mod test;
 
 use super::{
-    super::{Tensor, TensorRank0, TensorVec, Vector, interpolate::InterpolateSolution},
+    super::{Scalar, Tensor, TensorVec, Vector, interpolate::InterpolateSolution},
     Explicit, IntegrationError,
 };
 use crate::{ABS_TOL, REL_TOL};
 use std::ops::{Mul, Sub};
 
-const C_44_45: TensorRank0 = 44.0 / 45.0;
-const C_56_15: TensorRank0 = 56.0 / 15.0;
-const C_32_9: TensorRank0 = 32.0 / 9.0;
-const C_8_9: TensorRank0 = 8.0 / 9.0;
-const C_19372_6561: TensorRank0 = 19372.0 / 6561.0;
-const C_25360_2187: TensorRank0 = 25360.0 / 2187.0;
-const C_64448_6561: TensorRank0 = 64448.0 / 6561.0;
-const C_212_729: TensorRank0 = 212.0 / 729.0;
-const C_9017_3168: TensorRank0 = 9017.0 / 3168.0;
-const C_355_33: TensorRank0 = 355.0 / 33.0;
-const C_46732_5247: TensorRank0 = 46732.0 / 5247.0;
-const C_49_176: TensorRank0 = 49.0 / 176.0;
-const C_5103_18656: TensorRank0 = 5103.0 / 18656.0;
-const C_35_384: TensorRank0 = 35.0 / 384.0;
-const C_500_1113: TensorRank0 = 500.0 / 1113.0;
-const C_125_192: TensorRank0 = 125.0 / 192.0;
-const C_2187_6784: TensorRank0 = 2187.0 / 6784.0;
-const C_11_84: TensorRank0 = 11.0 / 84.0;
-const C_71_57600: TensorRank0 = 71.0 / 57600.0;
-const C_71_16695: TensorRank0 = 71.0 / 16695.0;
-const C_71_1920: TensorRank0 = 71.0 / 1920.0;
-const C_17253_339200: TensorRank0 = 17253.0 / 339200.0;
-const C_22_525: TensorRank0 = 22.0 / 525.0;
+const C_44_45: Scalar = 44.0 / 45.0;
+const C_56_15: Scalar = 56.0 / 15.0;
+const C_32_9: Scalar = 32.0 / 9.0;
+const C_8_9: Scalar = 8.0 / 9.0;
+const C_19372_6561: Scalar = 19372.0 / 6561.0;
+const C_25360_2187: Scalar = 25360.0 / 2187.0;
+const C_64448_6561: Scalar = 64448.0 / 6561.0;
+const C_212_729: Scalar = 212.0 / 729.0;
+const C_9017_3168: Scalar = 9017.0 / 3168.0;
+const C_355_33: Scalar = 355.0 / 33.0;
+const C_46732_5247: Scalar = 46732.0 / 5247.0;
+const C_49_176: Scalar = 49.0 / 176.0;
+const C_5103_18656: Scalar = 5103.0 / 18656.0;
+const C_35_384: Scalar = 35.0 / 384.0;
+const C_500_1113: Scalar = 500.0 / 1113.0;
+const C_125_192: Scalar = 125.0 / 192.0;
+const C_2187_6784: Scalar = 2187.0 / 6784.0;
+const C_11_84: Scalar = 11.0 / 84.0;
+const C_71_57600: Scalar = 71.0 / 57600.0;
+const C_71_16695: Scalar = 71.0 / 16695.0;
+const C_71_1920: Scalar = 71.0 / 1920.0;
+const C_17253_339200: Scalar = 17253.0 / 339200.0;
+const C_22_525: Scalar = 22.0 / 525.0;
 
 /// Explicit, six-stage, fifth-order, variable-step, Runge-Kutta method.[^cite]
 ///
@@ -75,13 +75,13 @@ const C_22_525: TensorRank0 = 22.0 / 525.0;
 #[derive(Debug)]
 pub struct DormandPrince {
     /// Absolute error tolerance.
-    pub abs_tol: TensorRank0,
+    pub abs_tol: Scalar,
     /// Relative error tolerance.
-    pub rel_tol: TensorRank0,
+    pub rel_tol: Scalar,
     /// Multiplier for adaptive time steps.
-    pub dt_beta: TensorRank0,
+    pub dt_beta: Scalar,
     /// Exponent for adaptive time steps.
-    pub dt_expn: TensorRank0,
+    pub dt_expn: Scalar,
 }
 
 impl Default for DormandPrince {
@@ -99,13 +99,13 @@ impl<Y, U> Explicit<Y, U> for DormandPrince
 where
     Self: InterpolateSolution<Y, U>,
     Y: Tensor,
-    for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
     fn integrate(
         &self,
-        mut function: impl FnMut(TensorRank0, &Y) -> Result<Y, IntegrationError>,
-        time: &[TensorRank0],
+        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        time: &[Scalar],
         initial_condition: Y,
     ) -> Result<(Vector, U, U), IntegrationError> {
         let t_0 = time[0];
@@ -194,7 +194,7 @@ where
 impl<Y, U> InterpolateSolution<Y, U> for DormandPrince
 where
     Y: Tensor,
-    for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
     fn interpolate(
@@ -202,7 +202,7 @@ where
         time: &Vector,
         tp: &Vector,
         yp: &U,
-        mut function: impl FnMut(TensorRank0, &Y) -> Result<Y, IntegrationError>,
+        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
     ) -> Result<(U, U), IntegrationError> {
         let mut dt;
         let mut i;

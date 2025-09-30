@@ -32,6 +32,14 @@ pub struct TensorRank4<
     const L: usize,
 >([TensorRank3<D, J, K, L>; D]);
 
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> Default
+    for TensorRank4<D, I, J, K, L>
+{
+    fn default() -> Self {
+        Self::zero()
+    }
+}
+
 pub const IDENTITY_1010: TensorRank4<3, 1, 0, 1, 0> = TensorRank4(get_identity_1010_parts());
 
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>

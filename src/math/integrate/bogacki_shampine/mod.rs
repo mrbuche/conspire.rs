@@ -2,11 +2,14 @@
 mod test;
 
 use super::{
-    super::{Tensor, TensorRank0, TensorVec, Vector, interpolate::InterpolateSolution},
+    super::{Scalar, Tensor, TensorVec, Vector, interpolate::InterpolateSolution},
     Explicit, IntegrationError,
 };
 use crate::{ABS_TOL, REL_TOL};
-use std::ops::{Mul, Sub};
+use std::{
+    array::from_fn,
+    ops::{Mul, Sub},
+};
 
 /// Explicit, three-stage, third-order, variable-step, Runge-Kutta method.[^cite]
 ///
@@ -42,13 +45,13 @@ use std::ops::{Mul, Sub};
 #[derive(Debug)]
 pub struct BogackiShampine {
     /// Absolute error tolerance.
-    pub abs_tol: TensorRank0,
+    pub abs_tol: Scalar,
     /// Relative error tolerance.
-    pub rel_tol: TensorRank0,
+    pub rel_tol: Scalar,
     /// Multiplier for adaptive time steps.
-    pub dt_beta: TensorRank0,
+    pub dt_beta: Scalar,
     /// Exponent for adaptive time steps.
-    pub dt_expn: TensorRank0,
+    pub dt_expn: Scalar,
 }
 
 impl Default for BogackiShampine {
@@ -66,13 +69,13 @@ impl<Y, U> Explicit<Y, U> for BogackiShampine
 where
     Self: InterpolateSolution<Y, U>,
     Y: Tensor,
-    for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
     fn integrate(
         &self,
-        mut function: impl FnMut(TensorRank0, &Y) -> Result<Y, IntegrationError>,
-        time: &[TensorRank0],
+        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        time: &[Scalar],
         initial_condition: Y,
     ) -> Result<(Vector, U, U), IntegrationError> {
         let t_0 = time[0];
@@ -85,31 +88,33 @@ where
         let mut t = t_0;
         let mut dt = t_f;
         let mut e;
-        let mut k_1 = function(t, &initial_condition)?;
-        let mut k_2;
-        let mut k_3;
-        let mut k_4;
+        let mut k: [Y; 4] = from_fn(|_| Y::default());
+        k[0] = function(t, &initial_condition)?;
         let mut t_sol = Vector::zero(0);
         t_sol.push(t_0);
         let mut y = initial_condition.clone();
         let mut y_sol = U::zero(0);
         y_sol.push(initial_condition.clone());
         let mut dydt_sol = U::zero(0);
-        dydt_sol.push(k_1.clone());
-        let mut y_trial;
+        dydt_sol.push(k[0].clone());
+        let mut y_trial = y.clone(); // Tensor::default() for other components? or use U?
         while t < t_f {
-            k_2 = function(t + 0.5 * dt, &(&k_1 * (0.5 * dt) + &y))?;
-            k_3 = function(t + 0.75 * dt, &(&k_2 * (0.75 * dt) + &y))?;
-            y_trial = (&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y;
-            k_4 = function(t + dt, &y_trial)?;
-            e = ((&k_1 * -5.0 + k_2 * 6.0 + k_3 * 8.0 + &k_4 * -9.0) * (dt / 72.0)).norm_inf();
+            e = match self.slopes(&mut function, &y, &t, &dt, &mut k, &mut y_trial) {
+                Ok(e) => e,
+                Err(error) => {
+                    return Err(IntegrationError::Upstream(
+                        format!("{error}"),
+                        format!("{self:?}"),
+                    ));
+                }
+            };
             if e < self.abs_tol || e / y_trial.norm_inf() < self.rel_tol {
-                k_1 = k_4;
+                k[0] = k[3].clone(); // cannot put in slopes() because do not want to update unless accept
                 t += dt;
-                y = y_trial;
+                y = y_trial.clone();
                 t_sol.push(t);
                 y_sol.push(y.clone());
-                dydt_sol.push(k_1.clone());
+                dydt_sol.push(k[0].clone());
             }
             if e > 0.0 {
                 dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn)
@@ -124,12 +129,27 @@ where
             Ok((t_sol, y_sol, dydt_sol))
         }
     }
+    fn slopes(
+        &self,
+        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        y: &Y,
+        t: &Scalar,
+        dt: &Scalar,
+        k: &mut [Y],
+        y_trial: &mut Y,
+    ) -> Result<Scalar, String> {
+        k[1] = function(t + 0.5 * dt, &(&k[0] * (0.5 * dt) + y))?;
+        k[2] = function(t + 0.75 * dt, &(&k[1] * (0.75 * dt) + y))?;
+        *y_trial = (&k[0] * 2.0 + &k[1] * 3.0 + &k[2] * 4.0) * (dt / 9.0) + y;
+        k[3] = function(t + dt, y_trial)?;
+        Ok(((&k[0] * -5.0 + &k[1] * 6.0 + &k[2] * 8.0 + &k[3] * -9.0) * (dt / 72.0)).norm_inf())
+    }
 }
 
 impl<Y, U> InterpolateSolution<Y, U> for BogackiShampine
 where
     Y: Tensor,
-    for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
     fn interpolate(
@@ -137,7 +157,7 @@ where
         time: &Vector,
         tp: &Vector,
         yp: &U,
-        mut function: impl FnMut(TensorRank0, &Y) -> Result<Y, IntegrationError>,
+        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
     ) -> Result<(U, U), IntegrationError> {
         let mut dt;
         let mut i;

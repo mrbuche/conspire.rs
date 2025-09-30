@@ -30,7 +30,7 @@ where
         time: &Vector,
         tp: &Vector,
         yp: &U,
-        function: impl FnMut(TensorRank0, &Y) -> Result<Y, IntegrationError>,
+        function: impl FnMut(TensorRank0, &Y) -> Result<Y, String>,
     ) -> Result<(U, U), IntegrationError>;
 }
 

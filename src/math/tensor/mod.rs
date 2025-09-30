@@ -123,6 +123,7 @@ pub trait Tensor
 where
     for<'a> Self: Sized
         + Debug
+        + Default
         + Display
         + Add<Self, Output = Self>
         + Add<&'a Self, Output = Self>

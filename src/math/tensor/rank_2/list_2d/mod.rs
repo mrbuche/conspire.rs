@@ -28,6 +28,14 @@ pub struct TensorRank2List2D<
     const X: usize,
 >([TensorRank2List<D, I, J, W>; X]);
 
+impl<const D: usize, const I: usize, const J: usize, const W: usize, const X: usize> Default
+    for TensorRank2List2D<D, I, J, W, X>
+{
+    fn default() -> Self {
+        Self::zero()
+    }
+}
+
 impl<const D: usize, const I: usize, const J: usize, const W: usize, const X: usize> Display
     for TensorRank2List2D<D, I, J, W, X>
 {

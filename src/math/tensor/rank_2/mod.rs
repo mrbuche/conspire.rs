@@ -38,6 +38,12 @@ use super::test::ErrorTensor;
 #[derive(Clone, Debug, PartialEq)]
 pub struct TensorRank2<const D: usize, const I: usize, const J: usize>([TensorRank1<D, J>; D]);
 
+impl<const D: usize, const I: usize, const J: usize> Default for TensorRank2<D, I, J> {
+    fn default() -> Self {
+        Self::zero()
+    }
+}
+
 pub const fn tensor_rank_2<const D: usize, const I: usize, const J: usize>(
     array: [TensorRank1<D, J>; D],
 ) -> TensorRank2<D, I, J> {

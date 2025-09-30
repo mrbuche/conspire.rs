@@ -40,6 +40,14 @@ pub struct TensorRank3<const D: usize, const I: usize, const J: usize, const K: 
     [TensorRank2<D, J, K>; D],
 );
 
+impl<const D: usize, const I: usize, const J: usize, const K: usize> Default
+    for TensorRank3<D, I, J, K>
+{
+    fn default() -> Self {
+        Self::zero()
+    }
+}
+
 pub const LEVI_CIVITA: TensorRank3<3, 1, 1, 1> = TensorRank3(get_levi_civita_parts());
 
 pub const fn get_identity_1010_parts<const I: usize, const J: usize, const K: usize>()

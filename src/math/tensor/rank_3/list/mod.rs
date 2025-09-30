@@ -21,6 +21,14 @@ pub struct TensorRank3List<
     const W: usize,
 >([TensorRank3<D, I, J, K>; W]);
 
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: usize> Default
+    for TensorRank3List<D, I, J, K, W>
+{
+    fn default() -> Self {
+        Self::zero()
+    }
+}
+
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: usize> Display
     for TensorRank3List<D, I, J, K, W>
 {

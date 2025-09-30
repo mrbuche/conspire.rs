@@ -22,7 +22,7 @@ pub type Ode89 = Verner9;
 // consider symplectic integrators for dynamics eventually
 
 use super::{
-    Solution, Tensor, TensorArray, TensorRank0, TensorVec, TestError, Vector,
+    Scalar, Solution, Tensor, TensorArray, TensorVec, TestError, Vector,
     interpolate::InterpolateSolution,
     optimize::{FirstOrderRootFinding, OptimizationError, ZerothOrderRootFinding},
 };
@@ -54,7 +54,7 @@ pub trait Explicit<Y, U>: OdeSolver<Y, U>
 where
     Self: InterpolateSolution<Y, U>,
     Y: Tensor,
-    for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
     /// Solves an initial value problem by explicitly integrating a system of ordinary differential equations.
@@ -64,10 +64,22 @@ where
     /// ```
     fn integrate(
         &self,
-        function: impl FnMut(TensorRank0, &Y) -> Result<Y, IntegrationError>,
-        time: &[TensorRank0],
+        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        time: &[Scalar],
         initial_condition: Y,
     ) -> Result<(Vector, U, U), IntegrationError>;
+    /// ???
+    fn slopes(
+        &self,
+        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        y: &Y,
+        t: &Scalar,
+        dt: &Scalar,
+        k: &mut [Y],
+        y_trial: &mut Y,
+    ) -> Result<Scalar, String> {
+        todo!()
+    }
 }
 
 /// Base trait for zeroth-order implicit ordinary differential equation solvers.
@@ -75,7 +87,7 @@ pub trait ImplicitZerothOrder<Y, U>: OdeSolver<Y, U>
 where
     Self: InterpolateSolution<Y, U>,
     Y: Solution,
-    for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
     /// Solves an initial value problem by implicitly integrating a system of ordinary differential equations.
@@ -85,8 +97,8 @@ where
     /// ```
     fn integrate(
         &self,
-        function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
-        time: &[TensorRank0],
+        function: impl Fn(Scalar, &Y) -> Result<Y, IntegrationError>,
+        time: &[Scalar],
         initial_condition: Y,
         solver: impl ZerothOrderRootFinding<Y>,
     ) -> Result<(Vector, U, U), IntegrationError>;
@@ -97,7 +109,7 @@ pub trait ImplicitFirstOrder<Y, J, U>: OdeSolver<Y, U>
 where
     Self: InterpolateSolution<Y, U>,
     Y: Solution + Div<J, Output = Y>,
-    for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     J: Tensor + TensorArray,
     U: TensorVec<Item = Y>,
 {
@@ -108,9 +120,9 @@ where
     /// ```
     fn integrate(
         &self,
-        function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
-        jacobian: impl Fn(TensorRank0, &Y) -> Result<J, IntegrationError>,
-        time: &[TensorRank0],
+        function: impl Fn(Scalar, &Y) -> Result<Y, IntegrationError>,
+        jacobian: impl Fn(Scalar, &Y) -> Result<J, IntegrationError>,
+        time: &[Scalar],
         initial_condition: Y,
         solver: impl FirstOrderRootFinding<Y, J, Y>,
     ) -> Result<(Vector, U, U), IntegrationError>;
@@ -119,7 +131,15 @@ where
 /// Possible errors encountered when integrating.
 pub enum IntegrationError {
     InitialTimeNotLessThanFinalTime,
+    Intermediate(String),
     LengthTimeLessThanTwo,
+    Upstream(String, String),
+}
+
+impl From<String> for IntegrationError {
+    fn from(error: String) -> Self {
+        Self::Intermediate(error)
+    }
 }
 
 impl Debug for IntegrationError {
@@ -128,8 +148,15 @@ impl Debug for IntegrationError {
             Self::InitialTimeNotLessThanFinalTime => {
                 "\x1b[1;91mThe initial time must precede the final time.".to_string()
             }
+            Self::Intermediate(message) => message.to_string(),
             Self::LengthTimeLessThanTwo => {
                 "\x1b[1;91mThe time must contain at least two entries.".to_string()
+            }
+            Self::Upstream(error, integrator) => {
+                format!(
+                    "{error}\x1b[0;91m\n\
+                    In integrator: {integrator}."
+                )
             }
         };
         write!(f, "\n{}\n\x1b[0;2;31m{}\x1b[0m\n", error, defeat_message())
@@ -142,8 +169,15 @@ impl Display for IntegrationError {
             Self::InitialTimeNotLessThanFinalTime => {
                 "\x1b[1;91mThe initial time must precede the final time.".to_string()
             }
+            Self::Intermediate(message) => message.to_string(),
             Self::LengthTimeLessThanTwo => {
                 "\x1b[1;91mThe time must contain at least two entries.".to_string()
+            }
+            Self::Upstream(error, integrator) => {
+                format!(
+                    "{error}\x1b[0;91m\n\
+                    In integrator: {integrator}."
+                )
             }
         };
         write!(f, "{error}\x1b[0m")
@@ -151,8 +185,8 @@ impl Display for IntegrationError {
 }
 
 impl From<OptimizationError> for IntegrationError {
-    fn from(_error: OptimizationError) -> Self {
-        todo!()
+    fn from(error: OptimizationError) -> Self {
+        todo!("should not need this once done")
     }
 }
 
