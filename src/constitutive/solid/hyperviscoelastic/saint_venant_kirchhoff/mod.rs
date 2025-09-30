@@ -1,7 +1,21 @@
 #[cfg(test)]
 mod test;
 
-use super::*;
+use crate::{
+    constitutive::{
+        Constitutive, ConstitutiveError, Parameters,
+        fluid::viscous::Viscous,
+        solid::{
+            Solid, TWO_THIRDS, elastic_hyperviscous::ElasticHyperviscous,
+            hyperviscoelastic::Hyperviscoelastic, viscoelastic::Viscoelastic,
+        },
+    },
+    math::{IDENTITY_00, Rank2},
+    mechanics::{
+        Deformation, DeformationGradient, DeformationGradientRate, Scalar,
+        SecondPiolaKirchhoffRateTangentStiffness, SecondPiolaKirchhoffStress,
+    },
+};
 
 /// The Saint Venant-Kirchhoff hyperviscoelastic constitutive model.
 ///

@@ -1,6 +1,15 @@
 use super::super::test::*;
 use super::*;
 
+use crate::{
+    math::Tensor,
+    mechanics::{
+        CauchyTangentStiffness, FirstPiolaKirchhoffRateTangentStiffness,
+        FirstPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffRateTangentStiffness,
+        SecondPiolaKirchhoffTangentStiffness,
+    },
+};
+
 type AlmansiHamelType<'a> = AlmansiHamel<&'a [Scalar; 4]>;
 
 use_viscoelastic_macros!();

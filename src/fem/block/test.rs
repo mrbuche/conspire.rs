@@ -936,6 +936,7 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
             ($integrator: ident) => {
                 #[test]
                 fn minimize() -> Result<(), TestError> {
+                    use crate::constitutive::solid::elastic_hyperviscous::SecondOrderMinimize as _;
                     let (a, b) = applied_velocities();
                     let block = get_block();
                     let (times, coordinates_history, velocities_history) = block.minimize(
@@ -995,6 +996,7 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                 }
                 #[test]
                 fn root() -> Result<(), TestError> {
+                    use crate::constitutive::solid::viscoelastic::FirstOrderRoot as _;
                     let (a, b) = applied_velocities();
                     let block = get_block();
                     let (times, coordinates_history, velocities_history) = block.root(

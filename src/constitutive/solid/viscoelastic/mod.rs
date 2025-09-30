@@ -17,7 +17,9 @@ use super::{super::fluid::viscous::Viscous, *};
 use crate::math::{
     Matrix, TensorVec, Vector,
     integrate::Explicit,
-    optimize::{EqualityConstraint, FirstOrderRootFinding, OptimizationError, ZerothOrderRootFinding},
+    optimize::{
+        EqualityConstraint, FirstOrderRootFinding, OptimizationError, ZerothOrderRootFinding,
+    },
 };
 
 /// Possible applied loads.
@@ -135,6 +137,33 @@ where
             )
             * deformation_gradient.determinant())
     }
+}
+
+/// Zeroth-order root-finding methods for viscoelastic constitutive models.
+pub trait ZerothOrderRoot {
+    /// Solve for the unknown components of the deformation gradient and rate under an applied load.
+    ///
+    /// ```math
+    /// \mathbf{P}(\mathbf{F},\dot{\mathbf{F}}) - \boldsymbol{\lambda} - \mathbf{P}_0 = \mathbf{0}
+    /// ```
+    fn root(
+        &self,
+        applied_load: AppliedLoad,
+        integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
+        solver: impl ZerothOrderRootFinding<DeformationGradient>,
+    ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
+    #[doc(hidden)]
+    fn root_inner_0(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        equality_constraint: EqualityConstraint,
+        solver: &impl ZerothOrderRootFinding<DeformationGradient>,
+        initial_guess: &DeformationGradientRate,
+    ) -> Result<DeformationGradientRate, OptimizationError>;
+}
+
+/// Zeroth-order root-finding methods for viscoelastic constitutive models.
+pub trait FirstOrderRoot {
     /// Solve for the unknown components of the deformation gradient and rate under an applied load.
     ///
     /// ```math
@@ -149,160 +178,19 @@ where
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
         >,
-    ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
-        let mut solution = DeformationGradientRate::zero();
-        match match applied_load {
-            AppliedLoad::UniaxialStress(deformation_gradient_rate_11, time) => integrator
-                .integrate(
-                    |t: Scalar, deformation_gradient: &DeformationGradient| {
-                        solution = self.root_uniaxial_inner(
-                            deformation_gradient,
-                            deformation_gradient_rate_11(t),
-                            &solver,
-                            &solution,
-                        )?;
-                        Ok(solution.clone())
-                    },
-                    time,
-                    DeformationGradient::identity(),
-                ),
-            AppliedLoad::BiaxialStress(
-                deformation_gradient_rate_11,
-                deformation_gradient_rate_22,
-                time,
-            ) => integrator.integrate(
-                |t: Scalar, deformation_gradient: &DeformationGradient| {
-                    solution = self.root_biaxial_inner(
-                        deformation_gradient,
-                        deformation_gradient_rate_11(t),
-                        deformation_gradient_rate_22(t),
-                        &solver,
-                        &solution,
-                    )?;
-                    Ok(solution.clone())
-                },
-                time,
-                DeformationGradient::identity(),
-            ),
-        } {
-            Ok(deformation_gradient) => Ok(deformation_gradient),
-            Err(error) => Err(ConstitutiveError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
-    }
+    ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
     #[doc(hidden)]
-    fn root_uniaxial_inner(
+    fn root_inner_1(
         &self,
         deformation_gradient: &DeformationGradient,
-        deformation_gradient_rate_11: Scalar,
+        equality_constraint: EqualityConstraint,
         solver: &impl FirstOrderRootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
         >,
         initial_guess: &DeformationGradientRate,
-    ) -> Result<DeformationGradientRate, OptimizationError> {
-        let mut matrix = Matrix::zero(4, 9);
-        let mut vector = Vector::zero(4);
-        matrix[0][0] = 1.0;
-        matrix[1][1] = 1.0;
-        matrix[2][2] = 1.0;
-        matrix[3][5] = 1.0;
-        vector[0] = deformation_gradient_rate_11;
-        solver.root(
-            |deformation_gradient_rate: &DeformationGradientRate| {
-                Ok(self.first_piola_kirchhoff_stress(
-                    deformation_gradient,
-                    deformation_gradient_rate,
-                )?)
-            },
-            |deformation_gradient_rate: &DeformationGradientRate| {
-                Ok(self.first_piola_kirchhoff_rate_tangent_stiffness(
-                    deformation_gradient,
-                    deformation_gradient_rate,
-                )?)
-            },
-            initial_guess.clone(),
-            EqualityConstraint::Linear(matrix, vector),
-        )
-    }
-    #[doc(hidden)]
-    fn root_biaxial_inner(
-        &self,
-        deformation_gradient: &DeformationGradient,
-        deformation_gradient_rate_11: Scalar,
-        deformation_gradient_rate_22: Scalar,
-        solver: &impl FirstOrderRootFinding<
-            FirstPiolaKirchhoffStress,
-            FirstPiolaKirchhoffTangentStiffness,
-            DeformationGradient,
-        >,
-        initial_guess: &DeformationGradientRate,
-    ) -> Result<DeformationGradientRate, OptimizationError> {
-        let mut matrix = Matrix::zero(5, 9);
-        let mut vector = Vector::zero(5);
-        matrix[0][0] = 1.0;
-        matrix[1][1] = 1.0;
-        matrix[2][2] = 1.0;
-        matrix[3][5] = 1.0;
-        matrix[4][4] = 1.0;
-        vector[0] = deformation_gradient_rate_11;
-        vector[4] = deformation_gradient_rate_22;
-        solver.root(
-            |deformation_gradient_rate: &DeformationGradientRate| {
-                Ok(self.first_piola_kirchhoff_stress(
-                    deformation_gradient,
-                    deformation_gradient_rate,
-                )?)
-            },
-            |deformation_gradient_rate: &DeformationGradientRate| {
-                Ok(self.first_piola_kirchhoff_rate_tangent_stiffness(
-                    deformation_gradient,
-                    deformation_gradient_rate,
-                )?)
-            },
-            initial_guess.clone(),
-            EqualityConstraint::Linear(matrix, vector),
-        )
-    }
-}
-
-/// Zeroth-order root-finding methods for viscoelastic constitutive models.
-pub trait ZerothOrderRoot {
-    /// Solve for the unknown components of the deformation gradient under an applied load.
-    ///
-    /// ```math
-    /// \mathbf{P}(\mathbf{F},\dot{\mathbf{F}}) - \boldsymbol{\lambda} - \mathbf{P}_0 = \mathbf{0}
-    /// ```
-    fn root(
-        &self,
-        applied_load: AppliedLoad,
-        integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
-        solver: impl ZerothOrderRootFinding<
-            DeformationGradient,
-        >,
-    ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
-}
-
-/// Zeroth-order root-finding methods for viscoelastic constitutive models.
-pub trait FirstOrderRoot {
-    /// Solve for the unknown components of the deformation gradient under an applied load.
-    ///
-    /// ```math
-    /// \mathbf{P}(\mathbf{F},\dot{\mathbf{F}}) - \boldsymbol{\lambda} - \mathbf{P}_0 = \mathbf{0}
-    /// ```
-    fn root(
-        &self,
-        applied_load: AppliedLoad,
-        integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
-        solver: impl FirstOrderRootFinding<
-            FirstPiolaKirchhoffStress,
-            FirstPiolaKirchhoffTangentStiffness,
-            DeformationGradient,
-        >,
-    ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
+    ) -> Result<DeformationGradientRate, OptimizationError>;
 }
 
 impl<T> ZerothOrderRoot for T
@@ -313,11 +201,86 @@ where
         &self,
         applied_load: AppliedLoad,
         integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
-        solver: impl ZerothOrderRootFinding<
-            DeformationGradient,
-        >,
+        solver: impl ZerothOrderRootFinding<DeformationGradient>,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
-        todo!()
+        let mut solution = DeformationGradientRate::zero();
+        match match applied_load {
+            AppliedLoad::UniaxialStress(deformation_gradient_rate_11, time) => {
+                let mut matrix = Matrix::zero(4, 9);
+                let mut vector = Vector::zero(4);
+                matrix[0][0] = 1.0;
+                matrix[1][1] = 1.0;
+                matrix[2][2] = 1.0;
+                matrix[3][5] = 1.0;
+                integrator.integrate(
+                    |t: Scalar, deformation_gradient: &DeformationGradient| {
+                        vector[0] = deformation_gradient_rate_11(t);
+                        solution = self.root_inner_0(
+                            deformation_gradient,
+                            EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+                            &solver,
+                            &solution,
+                        )?;
+                        Ok(solution.clone())
+                    },
+                    time,
+                    DeformationGradient::identity(),
+                )
+            }
+            AppliedLoad::BiaxialStress(
+                deformation_gradient_rate_11,
+                deformation_gradient_rate_22,
+                time,
+            ) => {
+                let mut matrix = Matrix::zero(5, 9);
+                let mut vector = Vector::zero(5);
+                matrix[0][0] = 1.0;
+                matrix[1][1] = 1.0;
+                matrix[2][2] = 1.0;
+                matrix[3][5] = 1.0;
+                matrix[4][4] = 1.0;
+                integrator.integrate(
+                    |t: Scalar, deformation_gradient: &DeformationGradient| {
+                        vector[0] = deformation_gradient_rate_11(t);
+                        vector[4] = deformation_gradient_rate_22(t);
+                        solution = self.root_inner_0(
+                            deformation_gradient,
+                            EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+                            &solver,
+                            &solution,
+                        )?;
+                        Ok(solution.clone())
+                    },
+                    time,
+                    DeformationGradient::identity(),
+                )
+            }
+        } {
+            Ok(deformation_gradient) => Ok(deformation_gradient),
+            Err(error) => Err(ConstitutiveError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
+    }
+    #[doc(hidden)]
+    fn root_inner_0(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        equality_constraint: EqualityConstraint,
+        solver: &impl ZerothOrderRootFinding<DeformationGradient>,
+        initial_guess: &DeformationGradientRate,
+    ) -> Result<DeformationGradientRate, OptimizationError> {
+        solver.root(
+            |deformation_gradient_rate: &DeformationGradientRate| {
+                Ok(self.first_piola_kirchhoff_stress(
+                    deformation_gradient,
+                    deformation_gradient_rate,
+                )?)
+            },
+            initial_guess.clone(),
+            equality_constraint,
+        )
     }
 }
 
@@ -335,6 +298,93 @@ where
             DeformationGradient,
         >,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
-        todo!()
+        let mut solution = DeformationGradientRate::zero();
+        match match applied_load {
+            AppliedLoad::UniaxialStress(deformation_gradient_rate_11, time) => {
+                let mut matrix = Matrix::zero(4, 9);
+                let mut vector = Vector::zero(4);
+                matrix[0][0] = 1.0;
+                matrix[1][1] = 1.0;
+                matrix[2][2] = 1.0;
+                matrix[3][5] = 1.0;
+                integrator.integrate(
+                    |t: Scalar, deformation_gradient: &DeformationGradient| {
+                        vector[0] = deformation_gradient_rate_11(t);
+                        solution = self.root_inner_1(
+                            deformation_gradient,
+                            EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+                            &solver,
+                            &solution,
+                        )?;
+                        Ok(solution.clone())
+                    },
+                    time,
+                    DeformationGradient::identity(),
+                )
+            }
+            AppliedLoad::BiaxialStress(
+                deformation_gradient_rate_11,
+                deformation_gradient_rate_22,
+                time,
+            ) => {
+                let mut matrix = Matrix::zero(5, 9);
+                let mut vector = Vector::zero(5);
+                matrix[0][0] = 1.0;
+                matrix[1][1] = 1.0;
+                matrix[2][2] = 1.0;
+                matrix[3][5] = 1.0;
+                matrix[4][4] = 1.0;
+                integrator.integrate(
+                    |t: Scalar, deformation_gradient: &DeformationGradient| {
+                        vector[0] = deformation_gradient_rate_11(t);
+                        vector[4] = deformation_gradient_rate_22(t);
+                        solution = self.root_inner_1(
+                            deformation_gradient,
+                            EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+                            &solver,
+                            &solution,
+                        )?;
+                        Ok(solution.clone())
+                    },
+                    time,
+                    DeformationGradient::identity(),
+                )
+            }
+        } {
+            Ok(deformation_gradient) => Ok(deformation_gradient),
+            Err(error) => Err(ConstitutiveError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
+    }
+    #[doc(hidden)]
+    fn root_inner_1(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        equality_constraint: EqualityConstraint,
+        solver: &impl FirstOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+        >,
+        initial_guess: &DeformationGradientRate,
+    ) -> Result<DeformationGradientRate, OptimizationError> {
+        solver.root(
+            |deformation_gradient_rate: &DeformationGradientRate| {
+                Ok(self.first_piola_kirchhoff_stress(
+                    deformation_gradient,
+                    deformation_gradient_rate,
+                )?)
+            },
+            |deformation_gradient_rate: &DeformationGradientRate| {
+                Ok(self.first_piola_kirchhoff_rate_tangent_stiffness(
+                    deformation_gradient,
+                    deformation_gradient_rate,
+                )?)
+            },
+            initial_guess.clone(),
+            equality_constraint,
+        )
     }
 }

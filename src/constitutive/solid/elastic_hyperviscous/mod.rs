@@ -26,16 +26,16 @@ mod almansi_hamel;
 pub use almansi_hamel::AlmansiHamel;
 
 use super::{
-    super::fluid::viscous::Viscous,
     viscoelastic::{AppliedLoad, Viscoelastic},
     *,
 };
 use crate::math::{
     Matrix, TensorVec, Vector,
     integrate::Explicit,
-    optimize::{EqualityConstraint, OptimizationError, SecondOrderOptimization},
+    optimize::{
+        EqualityConstraint, FirstOrderOptimization, OptimizationError, SecondOrderOptimization,
+    },
 };
-use std::fmt::Debug;
 
 /// Required methods for elastic-hyperviscous constitutive models.
 pub trait ElasticHyperviscous
@@ -67,6 +67,176 @@ where
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate: &DeformationGradientRate,
     ) -> Result<Scalar, ConstitutiveError>;
+    // /// Solve for the unknown components of the deformation gradient and rate under an applied load.
+    // ///
+    // /// ```math
+    // /// \Pi(\mathbf{F},\dot{\mathbf{F}},\boldsymbol{\lambda}) = \mathbf{P}^e(\mathbf{F}):\dot{\mathbf{F}} + \phi(\mathbf{F},\dot{\mathbf{F}}) - \boldsymbol{\lambda}:(\dot{\mathbf{F}} - \dot{\mathbf{F}}_0) - \mathbf{P}_0:\dot{\mathbf{F}}
+    // /// ```
+    // fn minimize(
+    //     &self,
+    //     applied_load: AppliedLoad,
+    //     integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
+    //     solver: impl SecondOrderOptimization<
+    //         Scalar,
+    //         FirstPiolaKirchhoffStress,
+    //         FirstPiolaKirchhoffTangentStiffness,
+    //         DeformationGradient,
+    //     >,
+    // ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
+    //     let mut solution = DeformationGradientRate::zero();
+    //     match match applied_load {
+    //         AppliedLoad::UniaxialStress(deformation_gradient_rate_11, time) => integrator
+    //             .integrate(
+    //                 |t: Scalar, deformation_gradient: &DeformationGradient| {
+    //                     solution = self.minimize_uniaxial_inner(
+    //                         deformation_gradient,
+    //                         deformation_gradient_rate_11(t),
+    //                         &solver,
+    //                         &solution,
+    //                     )?;
+    //                     Ok(solution.clone())
+    //                 },
+    //                 time,
+    //                 DeformationGradient::identity(),
+    //             ),
+    //         AppliedLoad::BiaxialStress(
+    //             deformation_gradient_rate_11,
+    //             deformation_gradient_rate_22,
+    //             time,
+    //         ) => integrator.integrate(
+    //             |t: Scalar, deformation_gradient: &DeformationGradient| {
+    //                 solution = self.minimize_biaxial_inner(
+    //                     deformation_gradient,
+    //                     deformation_gradient_rate_11(t),
+    //                     deformation_gradient_rate_22(t),
+    //                     &solver,
+    //                     &solution,
+    //                 )?;
+    //                 Ok(solution.clone())
+    //             },
+    //             time,
+    //             DeformationGradient::identity(),
+    //         ),
+    //     } {
+    //         Ok(deformation_gradient) => Ok(deformation_gradient),
+    //         Err(error) => Err(ConstitutiveError::Upstream(
+    //             format!("{error}"),
+    //             format!("{self:?}"),
+    //         )),
+    //     }
+    // }
+    // #[doc(hidden)]
+    // fn minimize_uniaxial_inner(
+    //     &self,
+    //     deformation_gradient: &DeformationGradient,
+    //     deformation_gradient_rate_11: Scalar,
+    //     solver: &impl SecondOrderOptimization<
+    //         Scalar,
+    //         FirstPiolaKirchhoffStress,
+    //         FirstPiolaKirchhoffTangentStiffness,
+    //         DeformationGradient,
+    //     >,
+    //     initial_guess: &DeformationGradientRate,
+    // ) -> Result<DeformationGradientRate, OptimizationError> {
+    //     let mut matrix = Matrix::zero(4, 9);
+    //     let mut vector = Vector::zero(4);
+    //     matrix[0][0] = 1.0;
+    //     matrix[1][1] = 1.0;
+    //     matrix[2][2] = 1.0;
+    //     matrix[3][5] = 1.0;
+    //     vector[0] = deformation_gradient_rate_11;
+    //     solver.minimize(
+    //         |deformation_gradient_rate: &DeformationGradientRate| {
+    //             Ok(self.dissipation_potential(deformation_gradient, deformation_gradient_rate)?)
+    //         },
+    //         |deformation_gradient_rate: &DeformationGradientRate| {
+    //             Ok(self.first_piola_kirchhoff_stress(
+    //                 deformation_gradient,
+    //                 deformation_gradient_rate,
+    //             )?)
+    //         },
+    //         |deformation_gradient_rate: &DeformationGradientRate| {
+    //             Ok(self.first_piola_kirchhoff_rate_tangent_stiffness(
+    //                 deformation_gradient,
+    //                 deformation_gradient_rate,
+    //             )?)
+    //         },
+    //         initial_guess.clone(),
+    //         EqualityConstraint::Linear(matrix, vector),
+    //         None,
+    //     )
+    // }
+    // #[doc(hidden)]
+    // fn minimize_biaxial_inner(
+    //     &self,
+    //     deformation_gradient: &DeformationGradient,
+    //     deformation_gradient_rate_11: Scalar,
+    //     deformation_gradient_rate_22: Scalar,
+    //     solver: &impl SecondOrderOptimization<
+    //         Scalar,
+    //         FirstPiolaKirchhoffStress,
+    //         FirstPiolaKirchhoffTangentStiffness,
+    //         DeformationGradient,
+    //     >,
+    //     initial_guess: &DeformationGradientRate,
+    // ) -> Result<DeformationGradientRate, OptimizationError> {
+    //     let mut matrix = Matrix::zero(5, 9);
+    //     let mut vector = Vector::zero(5);
+    //     matrix[0][0] = 1.0;
+    //     matrix[1][1] = 1.0;
+    //     matrix[2][2] = 1.0;
+    //     matrix[3][5] = 1.0;
+    //     matrix[4][4] = 1.0;
+    //     vector[0] = deformation_gradient_rate_11;
+    //     vector[4] = deformation_gradient_rate_22;
+    //     solver.minimize(
+    //         |deformation_gradient_rate: &DeformationGradientRate| {
+    //             Ok(self.dissipation_potential(deformation_gradient, deformation_gradient_rate)?)
+    //         },
+    //         |deformation_gradient_rate: &DeformationGradientRate| {
+    //             Ok(self.first_piola_kirchhoff_stress(
+    //                 deformation_gradient,
+    //                 deformation_gradient_rate,
+    //             )?)
+    //         },
+    //         |deformation_gradient_rate: &DeformationGradientRate| {
+    //             Ok(self.first_piola_kirchhoff_rate_tangent_stiffness(
+    //                 deformation_gradient,
+    //                 deformation_gradient_rate,
+    //             )?)
+    //         },
+    //         initial_guess.clone(),
+    //         EqualityConstraint::Linear(matrix, vector),
+    //         None,
+    //     )
+    // }
+}
+
+/// First-order optimization methods for elastic-hyperviscous constitutive models.
+pub trait FirstOrderMinimize {
+    /// Solve for the unknown components of the deformation gradient and rate under an applied load.
+    ///
+    /// ```math
+    /// \Pi(\mathbf{F},\dot{\mathbf{F}},\boldsymbol{\lambda}) = \mathbf{P}^e(\mathbf{F}):\dot{\mathbf{F}} + \phi(\mathbf{F},\dot{\mathbf{F}}) - \boldsymbol{\lambda}:(\dot{\mathbf{F}} - \dot{\mathbf{F}}_0) - \mathbf{P}_0:\dot{\mathbf{F}}
+    /// ```
+    fn minimize(
+        &self,
+        applied_load: AppliedLoad,
+        integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
+        solver: impl FirstOrderOptimization<Scalar, DeformationGradient>,
+    ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
+    #[doc(hidden)]
+    fn minimize_inner_1(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        equality_constraint: EqualityConstraint,
+        solver: &impl FirstOrderOptimization<Scalar, DeformationGradient>,
+        initial_guess: &DeformationGradientRate,
+    ) -> Result<DeformationGradientRate, OptimizationError>;
+}
+
+/// Second-order optimization methods for elastic-hyperviscous constitutive models.
+pub trait SecondOrderMinimize {
     /// Solve for the unknown components of the deformation gradient and rate under an applied load.
     ///
     /// ```math
@@ -82,15 +252,47 @@ where
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
         >,
+    ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
+    #[doc(hidden)]
+    fn minimize_inner_2(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        equality_constraint: EqualityConstraint,
+        solver: &impl SecondOrderOptimization<
+            Scalar,
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+        >,
+        initial_guess: &DeformationGradientRate,
+    ) -> Result<DeformationGradientRate, OptimizationError>;
+}
+
+impl<T> FirstOrderMinimize for T
+where
+    T: ElasticHyperviscous,
+{
+    fn minimize(
+        &self,
+        applied_load: AppliedLoad,
+        integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
+        solver: impl FirstOrderOptimization<Scalar, DeformationGradient>,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
         let mut solution = DeformationGradientRate::zero();
         match match applied_load {
-            AppliedLoad::UniaxialStress(deformation_gradient_rate_11, time) => integrator
-                .integrate(
+            AppliedLoad::UniaxialStress(deformation_gradient_rate_11, time) => {
+                let mut matrix = Matrix::zero(4, 9);
+                let mut vector = Vector::zero(4);
+                matrix[0][0] = 1.0;
+                matrix[1][1] = 1.0;
+                matrix[2][2] = 1.0;
+                matrix[3][5] = 1.0;
+                integrator.integrate(
                     |t: Scalar, deformation_gradient: &DeformationGradient| {
-                        solution = self.minimize_uniaxial_inner(
+                        vector[0] = deformation_gradient_rate_11(t);
+                        solution = self.minimize_inner_1(
                             deformation_gradient,
-                            deformation_gradient_rate_11(t),
+                            EqualityConstraint::Linear(matrix.clone(), vector.clone()),
                             &solver,
                             &solution,
                         )?;
@@ -98,25 +300,36 @@ where
                     },
                     time,
                     DeformationGradient::identity(),
-                ),
+                )
+            }
             AppliedLoad::BiaxialStress(
                 deformation_gradient_rate_11,
                 deformation_gradient_rate_22,
                 time,
-            ) => integrator.integrate(
-                |t: Scalar, deformation_gradient: &DeformationGradient| {
-                    solution = self.minimize_biaxial_inner(
-                        deformation_gradient,
-                        deformation_gradient_rate_11(t),
-                        deformation_gradient_rate_22(t),
-                        &solver,
-                        &solution,
-                    )?;
-                    Ok(solution.clone())
-                },
-                time,
-                DeformationGradient::identity(),
-            ),
+            ) => {
+                let mut matrix = Matrix::zero(5, 9);
+                let mut vector = Vector::zero(5);
+                matrix[0][0] = 1.0;
+                matrix[1][1] = 1.0;
+                matrix[2][2] = 1.0;
+                matrix[3][5] = 1.0;
+                matrix[4][4] = 1.0;
+                integrator.integrate(
+                    |t: Scalar, deformation_gradient: &DeformationGradient| {
+                        vector[0] = deformation_gradient_rate_11(t);
+                        vector[4] = deformation_gradient_rate_22(t);
+                        solution = self.minimize_inner_1(
+                            deformation_gradient,
+                            EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+                            &solver,
+                            &solution,
+                        )?;
+                        Ok(solution.clone())
+                    },
+                    time,
+                    DeformationGradient::identity(),
+                )
+            }
         } {
             Ok(deformation_gradient) => Ok(deformation_gradient),
             Err(error) => Err(ConstitutiveError::Upstream(
@@ -126,25 +339,13 @@ where
         }
     }
     #[doc(hidden)]
-    fn minimize_uniaxial_inner(
+    fn minimize_inner_1(
         &self,
         deformation_gradient: &DeformationGradient,
-        deformation_gradient_rate_11: Scalar,
-        solver: &impl SecondOrderOptimization<
-            Scalar,
-            FirstPiolaKirchhoffStress,
-            FirstPiolaKirchhoffTangentStiffness,
-            DeformationGradient,
-        >,
+        equality_constraint: EqualityConstraint,
+        solver: &impl FirstOrderOptimization<Scalar, DeformationGradient>,
         initial_guess: &DeformationGradientRate,
     ) -> Result<DeformationGradientRate, OptimizationError> {
-        let mut matrix = Matrix::zero(4, 9);
-        let mut vector = Vector::zero(4);
-        matrix[0][0] = 1.0;
-        matrix[1][1] = 1.0;
-        matrix[2][2] = 1.0;
-        matrix[3][5] = 1.0;
-        vector[0] = deformation_gradient_rate_11;
         solver.minimize(
             |deformation_gradient_rate: &DeformationGradientRate| {
                 Ok(self.dissipation_potential(deformation_gradient, deformation_gradient_rate)?)
@@ -155,23 +356,92 @@ where
                     deformation_gradient_rate,
                 )?)
             },
-            |deformation_gradient_rate: &DeformationGradientRate| {
-                Ok(self.first_piola_kirchhoff_rate_tangent_stiffness(
-                    deformation_gradient,
-                    deformation_gradient_rate,
-                )?)
-            },
             initial_guess.clone(),
-            EqualityConstraint::Linear(matrix, vector),
-            None,
+            equality_constraint,
         )
     }
+}
+
+impl<T> SecondOrderMinimize for T
+where
+    T: ElasticHyperviscous,
+{
+    fn minimize(
+        &self,
+        applied_load: AppliedLoad,
+        integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
+        solver: impl SecondOrderOptimization<
+            Scalar,
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+        >,
+    ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
+        let mut solution = DeformationGradientRate::zero();
+        match match applied_load {
+            AppliedLoad::UniaxialStress(deformation_gradient_rate_11, time) => {
+                let mut matrix = Matrix::zero(4, 9);
+                let mut vector = Vector::zero(4);
+                matrix[0][0] = 1.0;
+                matrix[1][1] = 1.0;
+                matrix[2][2] = 1.0;
+                matrix[3][5] = 1.0;
+                integrator.integrate(
+                    |t: Scalar, deformation_gradient: &DeformationGradient| {
+                        vector[0] = deformation_gradient_rate_11(t);
+                        solution = self.minimize_inner_2(
+                            deformation_gradient,
+                            EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+                            &solver,
+                            &solution,
+                        )?;
+                        Ok(solution.clone())
+                    },
+                    time,
+                    DeformationGradient::identity(),
+                )
+            }
+            AppliedLoad::BiaxialStress(
+                deformation_gradient_rate_11,
+                deformation_gradient_rate_22,
+                time,
+            ) => {
+                let mut matrix = Matrix::zero(5, 9);
+                let mut vector = Vector::zero(5);
+                matrix[0][0] = 1.0;
+                matrix[1][1] = 1.0;
+                matrix[2][2] = 1.0;
+                matrix[3][5] = 1.0;
+                matrix[4][4] = 1.0;
+                integrator.integrate(
+                    |t: Scalar, deformation_gradient: &DeformationGradient| {
+                        vector[0] = deformation_gradient_rate_11(t);
+                        vector[4] = deformation_gradient_rate_22(t);
+                        solution = self.minimize_inner_2(
+                            deformation_gradient,
+                            EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+                            &solver,
+                            &solution,
+                        )?;
+                        Ok(solution.clone())
+                    },
+                    time,
+                    DeformationGradient::identity(),
+                )
+            }
+        } {
+            Ok(deformation_gradient) => Ok(deformation_gradient),
+            Err(error) => Err(ConstitutiveError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
+    }
     #[doc(hidden)]
-    fn minimize_biaxial_inner(
+    fn minimize_inner_2(
         &self,
         deformation_gradient: &DeformationGradient,
-        deformation_gradient_rate_11: Scalar,
-        deformation_gradient_rate_22: Scalar,
+        equality_constraint: EqualityConstraint,
         solver: &impl SecondOrderOptimization<
             Scalar,
             FirstPiolaKirchhoffStress,
@@ -180,15 +450,6 @@ where
         >,
         initial_guess: &DeformationGradientRate,
     ) -> Result<DeformationGradientRate, OptimizationError> {
-        let mut matrix = Matrix::zero(5, 9);
-        let mut vector = Vector::zero(5);
-        matrix[0][0] = 1.0;
-        matrix[1][1] = 1.0;
-        matrix[2][2] = 1.0;
-        matrix[3][5] = 1.0;
-        matrix[4][4] = 1.0;
-        vector[0] = deformation_gradient_rate_11;
-        vector[4] = deformation_gradient_rate_22;
         solver.minimize(
             |deformation_gradient_rate: &DeformationGradientRate| {
                 Ok(self.dissipation_potential(deformation_gradient, deformation_gradient_rate)?)
@@ -206,7 +467,7 @@ where
                 )?)
             },
             initial_guess.clone(),
-            EqualityConstraint::Linear(matrix, vector),
+            equality_constraint,
             None,
         )
     }
