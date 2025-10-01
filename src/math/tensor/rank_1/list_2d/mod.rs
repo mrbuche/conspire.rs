@@ -20,6 +20,14 @@ pub struct TensorRank1List2D<const D: usize, const I: usize, const W: usize, con
     [TensorRank1List<D, I, W>; X],
 );
 
+impl<const D: usize, const I: usize, const W: usize, const X: usize> Default
+    for TensorRank1List2D<D, I, W, X>
+{
+    fn default() -> Self {
+        Self::zero()
+    }
+}
+
 pub const fn tensor_rank_1_list_2d<
     const D: usize,
     const I: usize,

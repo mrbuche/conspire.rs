@@ -263,7 +263,6 @@ where
             )),
         }
     }
-    #[doc(hidden)]
     fn root_inner_0(
         &self,
         deformation_gradient: &DeformationGradient,
@@ -358,7 +357,6 @@ where
             )),
         }
     }
-    #[doc(hidden)]
     fn root_inner_1(
         &self,
         deformation_gradient: &DeformationGradient,

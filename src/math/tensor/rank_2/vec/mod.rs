@@ -15,6 +15,12 @@ pub struct TensorRank2Vec<const D: usize, const I: usize, const J: usize>(
     Vec<TensorRank2<D, I, J>>,
 );
 
+impl<const D: usize, const I: usize, const J: usize> Default for TensorRank2Vec<D, I, J> {
+    fn default() -> Self {
+        Self::zero(0)
+    }
+}
+
 impl<const D: usize, const I: usize, const J: usize> Display for TensorRank2Vec<D, I, J> {
     fn fmt(&self, _f: &mut Formatter) -> fmt::Result {
         Ok(())

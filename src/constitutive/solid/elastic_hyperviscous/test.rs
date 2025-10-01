@@ -538,6 +538,16 @@ macro_rules! test_minimize_and_root {
                 // }
             };
         }
+        // mod gradient_descent {
+        //     use super::*;
+        //     use crate::{
+        //         constitutive::solid::{
+        //             elastic_hyperviscous::FirstOrderMinimize, viscoelastic::ZerothOrderRoot,
+        //         },
+        //         math::optimize::GradientDescent,
+        //     };
+        //     test_with_solver!(GradientDescent::default());
+        // }
         mod gradient_descent_dual {
             use super::*;
             use crate::{

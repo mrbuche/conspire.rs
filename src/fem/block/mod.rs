@@ -771,7 +771,6 @@ where
             self.coordinates().clone().into(),
         )
     }
-    #[doc(hidden)]
     fn root_inner(
         &self,
         equality_constraint: EqualityConstraint,
@@ -878,7 +877,6 @@ where
             self.coordinates().clone().into(),
         )
     }
-    #[doc(hidden)]
     fn minimize_inner(
         &self,
         equality_constraint: EqualityConstraint,

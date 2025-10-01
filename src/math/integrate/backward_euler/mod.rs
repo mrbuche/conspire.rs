@@ -3,7 +3,7 @@ mod test;
 
 use super::{
     super::{
-        Hessian, Jacobian, Solution, TensorArray, TensorRank0, TensorVec, Vector,
+        Hessian, Jacobian, Scalar, Solution, TensorArray, TensorVec, Vector,
         interpolate::InterpolateSolution,
         optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
     },
@@ -24,14 +24,14 @@ impl<Y, U> ImplicitZerothOrder<Y, U> for BackwardEuler
 where
     Self: InterpolateSolution<Y, U>,
     Y: Solution,
-    for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
     Vector: From<Y>,
 {
     fn integrate(
         &self,
-        function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
-        time: &[TensorRank0],
+        function: impl Fn(Scalar, &Y) -> Result<Y, IntegrationError>,
+        time: &[Scalar],
         initial_condition: Y,
         solver: impl ZerothOrderRootFinding<Y>,
     ) -> Result<(Vector, U, U), IntegrationError> {
@@ -57,11 +57,19 @@ where
         while t < t_f {
             t_trial = time[index + 1];
             dt = t_trial - t;
-            y_trial = solver.root(
+            y_trial = match solver.root(
                 |y_trial: &Y| Ok(y_trial - &y - &(&function(t_trial, y_trial)? * dt)),
                 y.clone(),
                 EqualityConstraint::None,
-            )?;
+            ) {
+                Ok(solution) => solution,
+                Err(error) => {
+                    return Err(IntegrationError::Upstream(
+                        format!("{error:?}"),
+                        format!("{self:?}"),
+                    ));
+                }
+            };
             t = t_trial;
             y = y_trial;
             t_sol.push(t);
@@ -77,16 +85,16 @@ impl<Y, J, U> ImplicitFirstOrder<Y, J, U> for BackwardEuler
 where
     Self: InterpolateSolution<Y, U>,
     Y: Jacobian + Solution + Div<J, Output = Y>,
-    for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     J: Hessian + TensorArray,
     U: TensorVec<Item = Y>,
     Vector: From<Y>,
 {
     fn integrate(
         &self,
-        function: impl Fn(TensorRank0, &Y) -> Result<Y, IntegrationError>,
-        jacobian: impl Fn(TensorRank0, &Y) -> Result<J, IntegrationError>,
-        time: &[TensorRank0],
+        function: impl Fn(Scalar, &Y) -> Result<Y, IntegrationError>,
+        jacobian: impl Fn(Scalar, &Y) -> Result<J, IntegrationError>,
+        time: &[Scalar],
         initial_condition: Y,
         solver: impl FirstOrderRootFinding<Y, J, Y>,
     ) -> Result<(Vector, U, U), IntegrationError> {
@@ -113,12 +121,20 @@ where
         while t < t_f {
             t_trial = time[index + 1];
             dt = t_trial - t;
-            y_trial = solver.root(
+            y_trial = match solver.root(
                 |y_trial: &Y| Ok(y_trial - &y - &(&function(t_trial, y_trial)? * dt)),
                 |y_trial: &Y| Ok(jacobian(t_trial, y_trial)? * -dt + &identity),
                 y.clone(),
                 EqualityConstraint::None,
-            )?;
+            ) {
+                Ok(solution) => solution,
+                Err(error) => {
+                    return Err(IntegrationError::Upstream(
+                        format!("{error:?}"),
+                        format!("{self:?}"),
+                    ));
+                }
+            };
             t = t_trial;
             y = y_trial;
             t_sol.push(t);
@@ -133,7 +149,7 @@ where
 impl<Y, U> InterpolateSolution<Y, U> for BackwardEuler
 where
     Y: Jacobian + Solution + TensorArray,
-    for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
     Vector: From<Y>,
 {
@@ -142,7 +158,7 @@ where
         _time: &Vector,
         _tp: &Vector,
         _yp: &U,
-        mut _function: impl FnMut(TensorRank0, &Y) -> Result<Y, IntegrationError>,
+        mut _function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
     ) -> Result<(U, U), IntegrationError> {
         unimplemented!()
     }

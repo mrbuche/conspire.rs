@@ -20,6 +20,12 @@ use std::{
 #[derive(Clone, Debug, PartialEq)]
 pub struct TensorRank1Vec<const D: usize, const I: usize>(Vec<TensorRank1<D, I>>);
 
+impl<const D: usize, const I: usize> Default for TensorRank1Vec<D, I> {
+    fn default() -> Self {
+        Self::zero(0)
+    }
+}
+
 impl<const D: usize, const I: usize> Display for TensorRank1Vec<D, I> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "\x1B[s")?;

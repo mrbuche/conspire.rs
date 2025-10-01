@@ -104,6 +104,12 @@ pub enum SquareMatrixError {
 #[derive(Clone, Debug, PartialEq)]
 pub struct SquareMatrix(Vec<Vector>);
 
+impl Default for SquareMatrix {
+    fn default() -> Self {
+        Self::zero(0)
+    }
+}
+
 impl SquareMatrix {
     // /// Solve a system of linear equations using the LDL decomposition.
     // pub fn solve_ldl(&mut self, b: &Vector) -> Result<Vector, SquareMatrixError> {

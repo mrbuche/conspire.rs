@@ -23,6 +23,14 @@ pub struct TensorRank4List<
 >([TensorRank4<D, I, J, K, L>; W]);
 
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
+    Default for TensorRank4List<D, I, J, K, L, W>
+{
+    fn default() -> Self {
+        Self::zero()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const W: usize>
     Display for TensorRank4List<D, I, J, K, L, W>
 {
     fn fmt(&self, _f: &mut Formatter) -> Result {

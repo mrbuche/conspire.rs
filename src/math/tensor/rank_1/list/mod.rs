@@ -27,6 +27,12 @@ pub const fn tensor_rank_1_list<const D: usize, const I: usize, const W: usize>(
     TensorRank1List(array)
 }
 
+impl<const D: usize, const I: usize, const W: usize> Default for TensorRank1List<D, I, W> {
+    fn default() -> Self {
+        Self::zero()
+    }
+}
+
 impl<const D: usize, const I: usize, const W: usize> Display for TensorRank1List<D, I, W> {
     fn fmt(&self, f: &mut Formatter) -> Result {
         write!(f, "\x1B[s")?;

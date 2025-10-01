@@ -29,6 +29,14 @@ pub struct TensorRank3List2D<
 >([TensorRank3List<D, I, J, K, W>; X]);
 
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: usize, const X: usize>
+    Default for TensorRank3List2D<D, I, J, K, W, X>
+{
+    fn default() -> Self {
+        Self::zero()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: usize, const X: usize>
     Display for TensorRank3List2D<D, I, J, K, W, X>
 {
     fn fmt(&self, _f: &mut Formatter) -> Result {

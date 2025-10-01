@@ -32,6 +32,12 @@ impl Vector {
     }
 }
 
+impl Default for Vector {
+    fn default() -> Self {
+        Self::zero(0)
+    }
+}
+
 #[cfg(test)]
 impl ErrorTensor for Vector {
     fn error_fd(&self, comparator: &Self, epsilon: &Scalar) -> Option<(bool, usize)> {
