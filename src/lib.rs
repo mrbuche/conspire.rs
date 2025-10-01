@@ -13,6 +13,11 @@ pub mod math;
 #[cfg(feature = "mechanics")]
 pub mod mechanics;
 
+use std::{
+    sync::atomic::{AtomicU64, Ordering},
+    time::{SystemTime, UNIX_EPOCH},
+};
+
 /// Absolute tolerance.
 pub const ABS_TOL: f64 = 1e-12;
 
@@ -57,51 +62,43 @@ fn victory_message<'a>() -> &'a str {
         5 => "Nice work, bone daddy.",
         6 => "That's Numberwang!",
         7.. => "That was totes yeet, yo!",
-        // "You, the master of unlocking!"
     }
 }
 
-/// Generate a random u8 in range 0..=max using rejection sampling to avoid modulo bias
 fn random_u8(max: u8) -> u8 {
-    // For perfectly uniform distribution, we need to reject values that would cause modulo bias
+    if max == u8::MAX {
+        return get_random();
+    }
+    let range = (max as u16) + 1;
+    let threshold = ((256_u16 / range) * range) as u8;
     let mut attempts = 0;
     loop {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default();
-
-        // Use multiple entropy sources mixed together
-        let nanos = now.subsec_nanos();
-        let secs = now.as_secs();
-        let addr = &nanos as *const _ as usize;
-
-        // Mix the values with different shifts to spread the entropy
-        let mixed = ((nanos as u64) << 32 | (secs as u64)) ^ (addr as u64);
-        let mut x = mixed;
-
-        // Quick PRNG shuffle (xorshift)
-        x ^= x >> 12;
-        x ^= x << 25;
-        x ^= x >> 27;
-
-        // Convert to u8, avoiding modulo bias by rejecting values in the biased range
-        let val = x as u8;
-        let cutoff = (256_u16 - (256_u16 % (max as u16 + 1))) as u8;
-
-        if val < cutoff {
+        let val = get_random();
+        if val < threshold {
             return val % (max + 1);
         }
-
-        // Avoid infinite loops in case of system time issues
         attempts += 1;
-        if attempts > 100 {
-            return (mixed as u8) % (max + 1); // Fallback with some bias
+        if attempts > 10 {
+            return val % (max + 1);
         }
     }
 }
 
-#[test]
-fn fail() {
-    println!("{}", defeat_message());
-    assert!(false)
+fn get_random() -> u8 {
+    static STATE: AtomicU64 = AtomicU64::new(0);
+    let mut s = STATE.load(Ordering::Relaxed);
+    if s == 0 {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default();
+        s = now.as_nanos() as u64;
+        if s == 0 {
+            s = 1;
+        }
+    }
+    s ^= s << 13;
+    s ^= s >> 7;
+    s ^= s << 17;
+    STATE.store(s, Ordering::Relaxed);
+    (s >> 56) as u8
 }
