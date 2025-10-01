@@ -12,7 +12,7 @@ pub mod thermal;
 use crate::{
     defeat_message,
     math::{Scalar, TestError},
-    mechanics::{Deformation, DeformationError, DeformationGradient},
+    mechanics::{Deformation, DeformationError, DeformationGradientGeneral},
 };
 use std::{
     fmt::{self, Debug, Display, Formatter},
@@ -52,9 +52,9 @@ where
     Self: Debug,
 {
     /// Calculates and returns the Jacobian.
-    fn jacobian(
+    fn jacobian<const I: usize, const J: usize>(
         &self,
-        deformation_gradient: &DeformationGradient,
+        deformation_gradient: &DeformationGradientGeneral<I, J>,
     ) -> Result<Scalar, ConstitutiveError> {
         match deformation_gradient.jacobian() {
             Err(DeformationError::InvalidJacobian(jacobian)) => Err(

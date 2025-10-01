@@ -64,7 +64,7 @@ pub trait Deformation {
     fn right_cauchy_green(&self) -> RightCauchyGreenDeformation;
 }
 
-impl Deformation for DeformationGradient {
+impl<const I: usize, const J: usize> Deformation for DeformationGradientGeneral<I, J> {
     fn jacobian(&self) -> Result<Scalar, DeformationError> {
         let jacobian = self.determinant();
         if jacobian > 0.0 {

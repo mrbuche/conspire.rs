@@ -125,9 +125,7 @@ where
         deformation_gradient: &DeformationGradient,
     ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
         Ok(deformation_gradient.inverse()
-            * self.cauchy_stress(deformation_gradient)?
-            * deformation_gradient.inverse_transpose()
-            * deformation_gradient.determinant())
+            * self.first_piola_kirchhoff_stress(deformation_gradient)?)
     }
     /// Calculates and returns the tangent stiffness associated with the second Piola-Kirchhoff stress.
     ///
