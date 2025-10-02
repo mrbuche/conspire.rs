@@ -5,8 +5,9 @@ use crate::{
     constitutive::{
         Constitutive, ConstitutiveError, Parameters,
         solid::{
-            Solid, TWO_THIRDS, elastic_plastic::ElasticPlastic,
-            hyperelastic_plastic::HyperelasticPlastic,
+            Solid, TWO_THIRDS,
+            elastic_viscoplastic::{ElasticViscoplastic, Plastic, Viscoplastic},
+            hyperelastic_viscoplastic::HyperelasticViscoplastic,
         },
     },
     math::{IDENTITY, Rank2},
@@ -42,7 +43,28 @@ where
     }
 }
 
-impl<P> ElasticPlastic for Hencky<P>
+impl<P> Plastic for Hencky<P>
+where
+    P: Parameters,
+{
+    fn yield_stress(&self) -> Scalar {
+        *self.parameters.get(2)
+    }
+}
+
+impl<P> Viscoplastic for Hencky<P>
+where
+    P: Parameters,
+{
+    fn rate_sensitivity(&self) -> Scalar {
+        *self.parameters.get(3)
+    }
+    fn reference_flow_rate(&self) -> Scalar {
+        *self.parameters.get(4)
+    }
+}
+
+impl<P> ElasticViscoplastic for Hencky<P>
 where
     P: Parameters,
 {
@@ -63,7 +85,7 @@ where
     }
 }
 
-impl<P> HyperelasticPlastic for Hencky<P>
+impl<P> HyperelasticViscoplastic for Hencky<P>
 where
     P: Parameters,
 {

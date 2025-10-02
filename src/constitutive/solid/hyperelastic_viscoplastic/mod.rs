@@ -3,14 +3,14 @@ mod hencky;
 pub use hencky::Hencky;
 
 use crate::{
-    constitutive::{ConstitutiveError, solid::elastic_plastic::ElasticPlastic},
+    constitutive::{ConstitutiveError, solid::elastic_viscoplastic::ElasticViscoplastic},
     mechanics::{DeformationGradient, DeformationGradientPlastic, Scalar},
 };
 
 /// Required methods for hyperelastic-plastic constitutive models.
-pub trait HyperelasticPlastic
+pub trait HyperelasticViscoplastic
 where
-    Self: ElasticPlastic,
+    Self: ElasticViscoplastic,
 {
     /// Calculates and returns the Helmholtz free energy density.
     ///

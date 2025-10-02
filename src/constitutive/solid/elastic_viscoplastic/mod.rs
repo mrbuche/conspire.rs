@@ -13,6 +13,23 @@ use crate::{
     },
 };
 
+/// Required methods for plastic constitutive models.
+pub trait Plastic {
+    /// Returns the yield stress.
+    fn yield_stress(&self) -> Scalar;
+}
+
+/// Required methods for viscoplastic constitutive models.
+pub trait Viscoplastic
+where
+    Self: Plastic,
+{
+    /// Returns the rate_sensitivity parameter.
+    fn rate_sensitivity(&self) -> Scalar;
+    /// Returns the reference flow rate.
+    fn reference_flow_rate(&self) -> Scalar;
+}
+
 /// Possible applied loads.
 pub enum AppliedLoad<'a> {
     /// Uniaxial stress given $`F_{11}`$.
@@ -22,9 +39,9 @@ pub enum AppliedLoad<'a> {
 }
 
 /// Required methods for elastic-plastic constitutive models.
-pub trait ElasticPlastic
+pub trait ElasticViscoplastic
 where
-    Self: Solid,
+    Self: Solid + Viscoplastic,
 {
     /// Calculates and returns the Cauchy stress.
     ///
@@ -102,11 +119,9 @@ where
         if magnitude == 0.0 {
             Ok(StretchingRatePlastic::zero())
         } else {
-            let d_0 = 1e-1; // This should be replaced with a parameter or a function of state
-            let m = 0.25; // This should be replaced with a parameter or a function of state
-            let y = 3.0; // This should be replaced with a parameter or a function of state
-            // also need to do hardening stuff
-            Ok(deviatoric_mandel_stress_e * (d_0 / magnitude * (magnitude / y).powf(1.0 / m)))
+            Ok(deviatoric_mandel_stress_e
+                * (self.reference_flow_rate() / magnitude
+                    * (magnitude / self.yield_stress()).powf(1.0 / self.rate_sensitivity())))
         }
     }
 }
@@ -140,7 +155,7 @@ pub trait ZerothOrderRoot {
 
 impl<T> ZerothOrderRoot for T
 where
-    T: ElasticPlastic,
+    T: ElasticViscoplastic,
 {
     fn root(
         &self,

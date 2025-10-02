@@ -2,8 +2,8 @@ use crate::{
     constitutive::{
         Constitutive,
         solid::{
-            elastic_plastic::{AppliedLoad, ElasticPlastic, ZerothOrderRoot},
-            hyperelastic_plastic::Hencky,
+            elastic_viscoplastic::{AppliedLoad, ZerothOrderRoot},
+            hyperelastic_viscoplastic::Hencky,
         },
     },
     math::{Tensor, integrate::BogackiShampine, optimize::GradientDescent, test::TestError},
@@ -11,7 +11,7 @@ use crate::{
 
 #[test]
 fn foo() -> Result<(), TestError> {
-    let (t, F, F_p, F_p_dot) = Hencky::new(&[13.0, 3.0]).root(
+    let (t, f, f_p, _) = Hencky::new(&[13.0, 3.0, 3.0, 0.25, 1e-1]).root(
         AppliedLoad::UniaxialStress(|t| 1.0 + t, &[0.0, 1.0]),
         BogackiShampine {
             abs_tol: 1e-6,
@@ -23,8 +23,8 @@ fn foo() -> Result<(), TestError> {
             ..Default::default()
         },
     )?;
-    for (t_i, (F_i, F_p_i)) in t.iter().zip(F.iter().zip(F_p.iter())) {
-        println!("[{}, {}, {}],", t_i, F_i[0][0], F_p_i[0][0])
+    for (t_i, (f_i, f_p_i)) in t.iter().zip(f.iter().zip(f_p.iter())) {
+        println!("[{}, {}, {}],", t_i, f_i[0][0], f_p_i[0][0])
     }
     Ok(())
 }
