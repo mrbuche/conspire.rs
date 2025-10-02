@@ -71,9 +71,6 @@ where
         // May be able to pass in deformation_gradient_e directly,
         // since the evaluation of the plastic deformation gradient rate
         // will be preceeded by an inner solve at it will be known at that point.
-        // Could be similar for the stress and other evaluations too,
-        // since have to write out the all functions in the solves anyway.
-        // May be able to satisfy both things if depend on (Fe, Fp) everywhere.
         //
         let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
         Ok(self.plastic_stretching_rate(&deformation_gradient_e)? * deformation_gradient_p)
