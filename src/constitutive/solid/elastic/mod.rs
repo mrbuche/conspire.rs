@@ -21,7 +21,7 @@ pub use self::{
 use super::*;
 use crate::math::{
     Matrix, TensorVec, Vector,
-    optimize::{self, EqualityConstraint},
+    optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
 };
 
 /// Possible applied loads.
@@ -172,7 +172,7 @@ pub trait ZerothOrderRoot {
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl optimize::ZerothOrderRootFinding<DeformationGradient>,
+        solver: impl ZerothOrderRootFinding<DeformationGradient>,
     ) -> Result<DeformationGradient, ConstitutiveError>;
 }
 
@@ -186,7 +186,7 @@ pub trait FirstOrderRoot {
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl optimize::FirstOrderRootFinding<
+        solver: impl FirstOrderRootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
@@ -201,7 +201,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl optimize::ZerothOrderRootFinding<DeformationGradient>,
+        solver: impl ZerothOrderRootFinding<DeformationGradient>,
     ) -> Result<DeformationGradient, ConstitutiveError> {
         match match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_11) => {
@@ -255,7 +255,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl optimize::FirstOrderRootFinding<
+        solver: impl FirstOrderRootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,

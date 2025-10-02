@@ -175,8 +175,8 @@ pub trait FirstOrderRoot {
         integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
         solver: impl FirstOrderRootFinding<
             FirstPiolaKirchhoffStress,
-            FirstPiolaKirchhoffTangentStiffness,
-            DeformationGradient,
+            FirstPiolaKirchhoffRateTangentStiffness,
+            DeformationGradientRate,
         >,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
     #[doc(hidden)]
@@ -186,8 +186,8 @@ pub trait FirstOrderRoot {
         equality_constraint: EqualityConstraint,
         solver: &impl FirstOrderRootFinding<
             FirstPiolaKirchhoffStress,
-            FirstPiolaKirchhoffTangentStiffness,
-            DeformationGradient,
+            FirstPiolaKirchhoffRateTangentStiffness,
+            DeformationGradientRate,
         >,
         initial_guess: &DeformationGradientRate,
     ) -> Result<DeformationGradientRate, OptimizationError>;
@@ -201,7 +201,7 @@ where
         &self,
         applied_load: AppliedLoad,
         integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
-        solver: impl ZerothOrderRootFinding<DeformationGradient>,
+        solver: impl ZerothOrderRootFinding<DeformationGradientRate>,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
         let mut solution = DeformationGradientRate::zero();
         match match applied_load {
@@ -256,7 +256,7 @@ where
                 )
             }
         } {
-            Ok(deformation_gradient) => Ok(deformation_gradient),
+            Ok(results) => Ok(results),
             Err(error) => Err(ConstitutiveError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
@@ -267,7 +267,7 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
         equality_constraint: EqualityConstraint,
-        solver: &impl ZerothOrderRootFinding<DeformationGradient>,
+        solver: &impl ZerothOrderRootFinding<DeformationGradientRate>,
         initial_guess: &DeformationGradientRate,
     ) -> Result<DeformationGradientRate, OptimizationError> {
         solver.root(
@@ -293,8 +293,8 @@ where
         integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
         solver: impl FirstOrderRootFinding<
             FirstPiolaKirchhoffStress,
-            FirstPiolaKirchhoffTangentStiffness,
-            DeformationGradient,
+            FirstPiolaKirchhoffRateTangentStiffness,
+            DeformationGradientRate,
         >,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
         let mut solution = DeformationGradientRate::zero();
@@ -350,7 +350,7 @@ where
                 )
             }
         } {
-            Ok(deformation_gradient) => Ok(deformation_gradient),
+            Ok(results) => Ok(results),
             Err(error) => Err(ConstitutiveError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
@@ -363,8 +363,8 @@ where
         equality_constraint: EqualityConstraint,
         solver: &impl FirstOrderRootFinding<
             FirstPiolaKirchhoffStress,
-            FirstPiolaKirchhoffTangentStiffness,
-            DeformationGradient,
+            FirstPiolaKirchhoffRateTangentStiffness,
+            DeformationGradientRate,
         >,
         initial_guess: &DeformationGradientRate,
     ) -> Result<DeformationGradientRate, OptimizationError> {

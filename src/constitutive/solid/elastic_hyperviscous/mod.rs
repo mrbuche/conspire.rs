@@ -87,7 +87,7 @@ pub trait FirstOrderMinimize {
         &self,
         deformation_gradient: &DeformationGradient,
         equality_constraint: EqualityConstraint,
-        solver: &impl FirstOrderOptimization<Scalar, DeformationGradient>,
+        solver: &impl FirstOrderOptimization<Scalar, DeformationGradientRate>,
         initial_guess: &DeformationGradientRate,
     ) -> Result<DeformationGradientRate, OptimizationError>;
 }
@@ -106,7 +106,7 @@ pub trait SecondOrderMinimize {
         solver: impl SecondOrderOptimization<
             Scalar,
             FirstPiolaKirchhoffStress,
-            FirstPiolaKirchhoffTangentStiffness,
+            FirstPiolaKirchhoffRateTangentStiffness,
             DeformationGradient,
         >,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
@@ -118,8 +118,8 @@ pub trait SecondOrderMinimize {
         solver: &impl SecondOrderOptimization<
             Scalar,
             FirstPiolaKirchhoffStress,
-            FirstPiolaKirchhoffTangentStiffness,
-            DeformationGradient,
+            FirstPiolaKirchhoffRateTangentStiffness,
+            DeformationGradientRate,
         >,
         initial_guess: &DeformationGradientRate,
     ) -> Result<DeformationGradientRate, OptimizationError>;
@@ -133,7 +133,7 @@ where
         &self,
         applied_load: AppliedLoad,
         integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
-        solver: impl FirstOrderOptimization<Scalar, DeformationGradient>,
+        solver: impl FirstOrderOptimization<Scalar, DeformationGradientRate>,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
         let mut solution = DeformationGradientRate::zero();
         match match applied_load {
@@ -188,7 +188,7 @@ where
                 )
             }
         } {
-            Ok(deformation_gradient) => Ok(deformation_gradient),
+            Ok(results) => Ok(results),
             Err(error) => Err(ConstitutiveError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
@@ -229,8 +229,8 @@ where
         solver: impl SecondOrderOptimization<
             Scalar,
             FirstPiolaKirchhoffStress,
-            FirstPiolaKirchhoffTangentStiffness,
-            DeformationGradient,
+            FirstPiolaKirchhoffRateTangentStiffness,
+            DeformationGradientRate,
         >,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
         let mut solution = DeformationGradientRate::zero();
@@ -286,7 +286,7 @@ where
                 )
             }
         } {
-            Ok(deformation_gradient) => Ok(deformation_gradient),
+            Ok(results) => Ok(results),
             Err(error) => Err(ConstitutiveError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
@@ -300,8 +300,8 @@ where
         solver: &impl SecondOrderOptimization<
             Scalar,
             FirstPiolaKirchhoffStress,
-            FirstPiolaKirchhoffTangentStiffness,
-            DeformationGradient,
+            FirstPiolaKirchhoffRateTangentStiffness,
+            DeformationGradientRate,
         >,
         initial_guess: &DeformationGradientRate,
     ) -> Result<DeformationGradientRate, OptimizationError> {

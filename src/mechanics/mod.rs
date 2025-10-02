@@ -149,8 +149,14 @@ pub type DeformationGradientRateList<const W: usize> = TensorRank2List<3, 1, 0, 
 /// A vector of deformation gradients.
 pub type DeformationGradients = TensorRank2Vec<3, 1, 0>;
 
+/// A vector of plastic deformation gradients.
+pub type DeformationGradientsPlastic = TensorRank2Vec<3, 2, 0>;
+
 /// A vector of deformation gradient rates.
 pub type DeformationGradientRates = TensorRank2Vec<3, 1, 0>;
+
+/// A vector of plastic deformation gradient rates.
+pub type DeformationGradientRatesPlastic = TensorRank2Vec<3, 2, 0>;
 
 /// A displacement.
 pub type Displacement = TensorRank1<3, 1>;
