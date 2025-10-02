@@ -1,10 +1,10 @@
 use crate::{
     constitutive::{ConstitutiveError, solid::Solid},
-    math::Rank2,
+    math::{Rank2, Tensor, TensorArray},
     mechanics::{
-        CauchyStress, DeformationGradient, DeformationGradientElastic, DeformationGradientPlastic,
-        DeformationGradientRatePlastic, FirstPiolaKirchhoffStress, SecondPiolaKirchhoffStress,
-        StretchingRatePlastic,
+        CauchyStress, Deformation, DeformationGradient, DeformationGradientPlastic,
+        DeformationGradientRatePlastic, FirstPiolaKirchhoffStress, MandelStressElastic,
+        SecondPiolaKirchhoffStress, StretchingRatePlastic,
     },
 };
 
@@ -67,23 +67,33 @@ where
         deformation_gradient: &DeformationGradient,
         deformation_gradient_p: &DeformationGradientPlastic,
     ) -> Result<DeformationGradientRatePlastic, ConstitutiveError> {
-        //
-        // May be able to pass in deformation_gradient_e directly,
-        // since the evaluation of the plastic deformation gradient rate
-        // will be preceeded by an inner solve at it will be known at that point.
-        //
+        let jacobian = deformation_gradient.jacobian().unwrap();
         let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
-        Ok(self.plastic_stretching_rate(&deformation_gradient_e)? * deformation_gradient_p)
+        let cauchy_stress = self.cauchy_stress(deformation_gradient, deformation_gradient_p)?;
+        let mandel_stress_e = (deformation_gradient_e.transpose()
+            * cauchy_stress
+            * deformation_gradient_e.inverse_transpose())
+            * jacobian;
+        Ok(self.plastic_stretching_rate(mandel_stress_e.deviatoric())? * deformation_gradient_p)
     }
     /// Calculates and returns the rate of plastic stretching.
     ///
     /// ```math
-    /// \mathbf{D}_\mathrm{p} = \dot{\gamma}_\mathrm{p}\,\frac{\mathbf{M}_\mathrm{e}'}{|\mathbf{M}_\mathrm{e}'|}
+    /// \mathbf{D}_\mathrm{p} = d_0\left(\frac{|\mathbf{M}_\mathrm{e}'|}{Y(S)}\right)^{\footnotesize\tfrac{1}{m}}\frac{\mathbf{M}_\mathrm{e}'}{|\mathbf{M}_\mathrm{e}'|}
     /// ```
     fn plastic_stretching_rate(
         &self,
-        deformation_gradient_e: &DeformationGradientElastic,
+        deviatoric_mandel_stress_e: MandelStressElastic,
     ) -> Result<StretchingRatePlastic, ConstitutiveError> {
-        todo!()
+        let magnitude = deviatoric_mandel_stress_e.norm();
+        if magnitude == 0.0 {
+            Ok(StretchingRatePlastic::zero())
+        } else {
+            let d_0 = 1.0; // This should be replaced with a parameter or a function of state
+            let m = 1.0; // This should be replaced with a parameter or a function of state
+            let y = 1.0; // This should be replaced with a parameter or a function of state
+            // also need to do hardening stuff
+            Ok(deviatoric_mandel_stress_e * (d_0 / magnitude * (magnitude / y).powf(1.0 / m)))
+        }
     }
 }

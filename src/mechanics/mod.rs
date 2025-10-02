@@ -190,7 +190,10 @@ pub type HeatFlux = TensorRank1<3, 1>;
 pub type LeftCauchyGreenDeformation = TensorRank2<3, 1, 1>;
 
 /// The Mandel stress $`\mathbf{M}`$.
-pub type MandelStress = TensorRank2<3, 2, 2>;
+pub type MandelStress = TensorRank2<3, 0, 0>;
+
+/// The elastic stress $`\mathbf{M}_e`$.
+pub type MandelStressElastic = TensorRank2<3, 2, 2>;
 
 /// A normal.
 pub type Normal = TensorRank1<3, 1>;
