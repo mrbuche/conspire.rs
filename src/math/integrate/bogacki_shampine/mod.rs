@@ -3,7 +3,7 @@ mod test;
 
 use super::{
     super::{Scalar, Tensor, TensorVec, Vector, interpolate::InterpolateSolution},
-    Explicit, IntegrationError,
+    Explicit, ExplicitIV, IntegrationError,
 };
 use crate::{ABS_TOL, REL_TOL};
 use std::ops::{Mul, Sub};
@@ -155,5 +155,63 @@ where
             y_int.push(y_trial);
         }
         Ok((y_int, dydt_int))
+    }
+}
+
+impl<Y, Z, U, V> ExplicitIV<Y, Z, U, V> for BogackiShampine
+where
+    Y: Tensor,
+    Z: Tensor,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Z>,
+{
+    const SLOPES: usize = 4;
+    fn slopes(
+        &self,
+        mut function: impl FnMut(Scalar, &Y) -> Result<(Y, Z), String>,
+        y: &Y,
+        t: &Scalar,
+        dt: &Scalar,
+        k: &mut [Y],
+        y_trial: &mut Y,
+        z_trial: &mut Z,
+    ) -> Result<Scalar, String> {
+        (k[1], _) = function(t + 0.5 * dt, &(&k[0] * (0.5 * dt) + y))?;
+        (k[2], _) = function(t + 0.75 * dt, &(&k[1] * (0.75 * dt) + y))?;
+        *y_trial = (&k[0] * 2.0 + &k[1] * 3.0 + &k[2] * 4.0) * (dt / 9.0) + y;
+        (k[3], *z_trial) = function(t + dt, y_trial)?;
+        Ok(((&k[0] * -5.0 + &k[1] * 6.0 + &k[2] * 8.0 + &k[3] * -9.0) * (dt / 72.0)).norm_inf())
+    }
+    fn step(
+        &self,
+        _function: impl FnMut(Scalar, &Y) -> Result<(Y, Z), String>,
+        y: &mut Y,
+        z: &mut Z,
+        t: &mut Scalar,
+        y_sol: &mut U,
+        z_sol: &mut V,
+        t_sol: &mut Vector,
+        dydt_sol: &mut U,
+        dt: &mut Scalar,
+        k: &mut [Y],
+        y_trial: &Y,
+        z_trial: &Z,
+        e: &Scalar,
+    ) -> Result<(), String> {
+        if e < &self.abs_tol || e / y_trial.norm_inf() < self.rel_tol {
+            k[0] = k[3].clone();
+            *t += *dt;
+            *y = y_trial.clone();
+            *z = z_trial.clone();
+            t_sol.push(*t);
+            y_sol.push(y.clone());
+            z_sol.push(z.clone());
+            dydt_sol.push(k[0].clone());
+        }
+        if e > &0.0 {
+            *dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn)
+        }
+        Ok(())
     }
 }

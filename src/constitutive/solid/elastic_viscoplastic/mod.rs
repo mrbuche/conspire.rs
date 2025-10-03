@@ -2,7 +2,7 @@ use crate::{
     constitutive::{ConstitutiveError, solid::Solid},
     math::{
         Matrix, Rank2, Tensor, TensorArray, TensorVec, Vector,
-        integrate::Explicit,
+        integrate::ExplicitIV,
         optimize::{EqualityConstraint, OptimizationError, ZerothOrderRootFinding},
     },
     mechanics::{
@@ -132,17 +132,14 @@ pub trait ZerothOrderRoot {
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl Explicit<DeformationGradientRatePlastic, DeformationGradientRatesPlastic>,
-        solver: impl ZerothOrderRootFinding<DeformationGradient>,
-    ) -> Result<
-        (
-            Times,
-            DeformationGradients,
-            DeformationGradientsPlastic,
+        integrator: impl ExplicitIV<
+            DeformationGradientRatePlastic,
+            DeformationGradient,
             DeformationGradientRatesPlastic,
-        ),
-        ConstitutiveError,
-    >;
+            DeformationGradients,
+        >,
+        solver: impl ZerothOrderRootFinding<DeformationGradient>,
+    ) -> Result<(Times, DeformationGradients, DeformationGradientsPlastic), ConstitutiveError>;
     #[doc(hidden)]
     fn root_inner_0(
         &self,
@@ -160,17 +157,14 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl Explicit<DeformationGradientRatePlastic, DeformationGradientRatesPlastic>,
-        solver: impl ZerothOrderRootFinding<DeformationGradient>,
-    ) -> Result<
-        (
-            Times,
-            DeformationGradients,
-            DeformationGradientsPlastic,
+        integrator: impl ExplicitIV<
+            DeformationGradientRatePlastic,
+            DeformationGradient,
             DeformationGradientRatesPlastic,
-        ),
-        ConstitutiveError,
-    > {
+            DeformationGradients,
+        >,
+        solver: impl ZerothOrderRootFinding<DeformationGradient>,
+    ) -> Result<(Times, DeformationGradients, DeformationGradientsPlastic), ConstitutiveError> {
         let mut deformation_gradient = DeformationGradient::identity();
         match match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_11, time) => {
@@ -189,54 +183,22 @@ where
                             &solver,
                             &deformation_gradient,
                         )?;
-                        Ok(self.plastic_deformation_gradient_rate(
-                            &deformation_gradient,
-                            deformation_gradient_p,
-                        )?)
+                        Ok((
+                            self.plastic_deformation_gradient_rate(
+                                &deformation_gradient,
+                                deformation_gradient_p,
+                            )?,
+                            deformation_gradient.clone(),
+                        ))
                     },
                     time,
                     DeformationGradientPlastic::identity(),
                 )
             }
         } {
-            Ok((times, deformation_gradients_p, deformation_gradient_rates_p)) => {
-                match applied_load {
-                    AppliedLoad::UniaxialStress(deformation_gradient_11, _) => {
-                        let mut matrix = Matrix::zero(4, 9);
-                        let mut vector = Vector::zero(4);
-                        matrix[0][0] = 1.0;
-                        matrix[1][1] = 1.0;
-                        matrix[2][2] = 1.0;
-                        matrix[3][5] = 1.0;
-                        match times
-                            .iter()
-                            .zip(deformation_gradients_p.iter())
-                            .map(|(time, deformation_gradient_p)| {
-                                vector[0] = deformation_gradient_11(*time);
-                                self.root_inner_0(
-                                    deformation_gradient_p,
-                                    EqualityConstraint::Linear(matrix.clone(), vector.clone()),
-                                    &solver,
-                                    &deformation_gradient,
-                                )
-                            })
-                            .collect()
-                        {
-                            Ok(deformation_gradients) => Ok((
-                                times,
-                                deformation_gradients,
-                                deformation_gradients_p,
-                                deformation_gradient_rates_p,
-                            )),
-                            Err(error) => Err(ConstitutiveError::Upstream(
-                                format!("{error}"),
-                                format!("{self:?}"),
-                            )),
-                        }
-                    }
-                }
+            Ok((times, deformation_gradients_p, _, deformation_gradients)) => {
+                Ok((times, deformation_gradients, deformation_gradients_p))
             }
-            // Ok(results) => Ok(results),
             Err(error) => Err(ConstitutiveError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
