@@ -122,7 +122,7 @@ where
             Ok(StretchingRatePlastic::zero())
         } else {
             if self.hardening_slope() != 0.0 {
-                todo!("Need to integrate dY/dt = H * |D_p|")
+                todo!("Need to integrate dY/dt = H * eqps, where eqps = sqrt(2/3) * |D_p|");
             }
             Ok(deviatoric_mandel_stress_e
                 * (self.reference_flow_rate() / magnitude
