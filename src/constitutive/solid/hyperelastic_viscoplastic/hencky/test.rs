@@ -11,7 +11,7 @@ use crate::{
 
 #[test]
 fn foo() -> Result<(), TestError> {
-    let (t, f, f_p) = Hencky::new(&[13.0, 3.0, 3.0, 0.25, 1e-1]).root(
+    let (t, f, f_p) = Hencky::new(&[13.0, 3.0, 3.0, 0.0, 0.25, 0.1]).root(
         AppliedLoad::UniaxialStress(|t| 1.0 + t, &[0.0, 1.0]),
         BogackiShampine {
             abs_tol: 1e-6,

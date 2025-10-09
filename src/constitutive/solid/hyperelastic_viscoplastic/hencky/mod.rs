@@ -47,8 +47,11 @@ impl<P> Plastic for Hencky<P>
 where
     P: Parameters,
 {
-    fn yield_stress(&self) -> Scalar {
+    fn initial_yield_stress(&self) -> Scalar {
         *self.parameters.get(2)
+    }
+    fn hardening_slope(&self) -> Scalar {
+        *self.parameters.get(3)
     }
 }
 
@@ -57,10 +60,10 @@ where
     P: Parameters,
 {
     fn rate_sensitivity(&self) -> Scalar {
-        *self.parameters.get(3)
+        *self.parameters.get(4)
     }
     fn reference_flow_rate(&self) -> Scalar {
-        *self.parameters.get(4)
+        *self.parameters.get(5)
     }
 }
 

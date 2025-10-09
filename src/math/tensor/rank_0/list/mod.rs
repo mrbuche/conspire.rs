@@ -168,12 +168,12 @@ impl<const W: usize> Mul<TensorRank0> for TensorRank0List<W> {
     }
 }
 
-// impl<const W: usize> Mul<TensorRank0> for &TensorRank0List<W> {
-//     type Output = TensorRank0List<W>;
-//     fn mul(self, tensor_rank_0: TensorRank0) -> Self::Output {
-//         self.iter().map(|self_i| self_i * tensor_rank_0).collect()
-//     }
-// }
+impl<const W: usize> Mul<TensorRank0> for &TensorRank0List<W> {
+    type Output = TensorRank0List<W>;
+    fn mul(self, tensor_rank_0: TensorRank0) -> Self::Output {
+        self.iter().map(|self_i| self_i * tensor_rank_0).collect()
+    }
+}
 
 impl<const W: usize> Mul<&TensorRank0> for TensorRank0List<W> {
     type Output = Self;
