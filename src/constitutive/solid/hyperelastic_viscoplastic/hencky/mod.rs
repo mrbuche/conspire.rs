@@ -10,9 +10,10 @@ use crate::{
             hyperelastic_viscoplastic::HyperelasticViscoplastic,
         },
     },
-    math::{IDENTITY, Rank2},
+    math::{ContractThirdFourthIndicesWithFirstSecondIndicesOf, IDENTITY, Rank2},
     mechanics::{
-        CauchyStress, Deformation, DeformationGradient, DeformationGradientPlastic, Scalar,
+        CauchyStress, CauchyTangentStiffness, CauchyTangentStiffnessElastic, Deformation,
+        DeformationGradient, DeformationGradientPlastic, Scalar,
     },
 };
 
@@ -85,6 +86,40 @@ where
             deviatoric_strain_e * (2.0 * self.shear_modulus() / jacobian)
                 + IDENTITY * (self.bulk_modulus() * strain_trace_e / jacobian),
         )
+    }
+    #[doc = include_str!("cauchy_tangent_stiffness.md")]
+    fn cauchy_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_p: &DeformationGradientPlastic,
+    ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
+        let jacobian = self.jacobian(deformation_gradient)?;
+        let deformation_gradient_inverse_p = deformation_gradient_p.inverse();
+        let deformation_gradient_e = deformation_gradient * &deformation_gradient_inverse_p;
+        let left_cauchy_green_e = deformation_gradient_e.left_cauchy_green();
+        let (deviatoric_strain_e, strain_trace_e) =
+            (left_cauchy_green_e.logm() * 0.5).deviatoric_and_trace();
+        let scaled_deformation_gradient_e =
+            &deformation_gradient_e * self.shear_modulus() / jacobian;
+        Ok(((left_cauchy_green_e
+            .dlogm()
+            .contract_third_fourth_indices_with_first_second_indices_of(
+                &(CauchyTangentStiffnessElastic::dyad_il_jk(
+                    &scaled_deformation_gradient_e,
+                    &IDENTITY,
+                ) + CauchyTangentStiffnessElastic::dyad_ik_jl(
+                    &IDENTITY,
+                    &scaled_deformation_gradient_e,
+                )),
+            ))
+            + (CauchyTangentStiffnessElastic::dyad_ij_kl(
+                &(IDENTITY
+                    * ((self.bulk_modulus() - TWO_THIRDS * self.shear_modulus()) / jacobian)
+                    - deviatoric_strain_e * (2.0 * self.shear_modulus() / jacobian)
+                    - IDENTITY * (self.bulk_modulus() * strain_trace_e / jacobian)),
+                &deformation_gradient_e.inverse_transpose(),
+            )))
+            * deformation_gradient_inverse_p.transpose())
     }
 }
 

@@ -107,6 +107,9 @@ pub type CauchyStresses<const W: usize> = TensorRank2List<3, 1, 1, W>;
 /// The tangent stiffness associated with the Cauchy stress $`\boldsymbol{\mathcal{T}}`$.
 pub type CauchyTangentStiffness = TensorRank4<3, 1, 1, 1, 0>;
 
+/// The tangent stiffness associated with the elastic Cauchy stress $`\boldsymbol{\mathcal{T}}_\mathrm{e}`$.
+pub type CauchyTangentStiffnessElastic = TensorRank4<3, 1, 1, 1, 2>;
+
 /// The rate tangent stiffness associated with the Cauchy stress $`\boldsymbol{\mathcal{V}}`$.
 pub type CauchyRateTangentStiffness = TensorRank4<3, 1, 1, 1, 0>;
 
