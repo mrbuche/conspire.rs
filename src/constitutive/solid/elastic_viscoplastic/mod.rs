@@ -280,79 +280,79 @@ pub trait FirstOrderRoot {
     ) -> Result<DeformationGradient, OptimizationError>;
 }
 
-impl<T> ZerothOrderRoot for T
-where
-    T: ElasticViscoplastic,
-{
-    fn root(
-        &self,
-        applied_load: AppliedLoad,
-        integrator: impl ExplicitIV<
-            DeformationGradientRatePlastic,
-            DeformationGradient,
-            DeformationGradientRatesPlastic,
-            DeformationGradients,
-        >,
-        solver: impl ZerothOrderRootFinding<DeformationGradient>,
-    ) -> Result<(Times, DeformationGradients, DeformationGradientsPlastic), ConstitutiveError> {
-        let mut deformation_gradient = DeformationGradient::identity();
-        match match applied_load {
-            AppliedLoad::UniaxialStress(deformation_gradient_11, time) => {
-                let mut matrix = Matrix::zero(4, 9);
-                let mut vector = Vector::zero(4);
-                matrix[0][0] = 1.0;
-                matrix[1][1] = 1.0;
-                matrix[2][2] = 1.0;
-                matrix[3][5] = 1.0;
-                integrator.integrate(
-                    |t: Scalar, deformation_gradient_p: &DeformationGradientPlastic| {
-                        vector[0] = deformation_gradient_11(t);
-                        deformation_gradient = self.root_inner_0(
-                            deformation_gradient_p,
-                            EqualityConstraint::Linear(matrix.clone(), vector.clone()),
-                            &solver,
-                            &deformation_gradient,
-                        )?;
-                        Ok((
-                            self.plastic_deformation_gradient_rate(
-                                &deformation_gradient,
-                                deformation_gradient_p,
-                            )?,
-                            deformation_gradient.clone(),
-                        ))
-                    },
-                    time,
-                    DeformationGradientPlastic::identity(),
-                )
-            }
-        } {
-            Ok((times, deformation_gradients_p, _, deformation_gradients)) => {
-                Ok((times, deformation_gradients, deformation_gradients_p))
-            }
-            Err(error) => Err(ConstitutiveError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
-    }
-    #[doc(hidden)]
-    fn root_inner_0(
-        &self,
-        deformation_gradient_p: &DeformationGradientPlastic,
-        equality_constraint: EqualityConstraint,
-        solver: &impl ZerothOrderRootFinding<DeformationGradient>,
-        initial_guess: &DeformationGradient,
-    ) -> Result<DeformationGradient, OptimizationError> {
-        solver.root(
-            |deformation_gradient: &DeformationGradient| {
-                Ok(self
-                    .first_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_p)?)
-            },
-            initial_guess.clone(),
-            equality_constraint,
-        )
-    }
-}
+// impl<T> ZerothOrderRoot for T
+// where
+//     T: ElasticViscoplastic,
+// {
+//     fn root(
+//         &self,
+//         applied_load: AppliedLoad,
+//         integrator: impl ExplicitIV<
+//             DeformationGradientRatePlastic,
+//             DeformationGradient,
+//             DeformationGradientRatesPlastic,
+//             DeformationGradients,
+//         >,
+//         solver: impl ZerothOrderRootFinding<DeformationGradient>,
+//     ) -> Result<(Times, DeformationGradients, DeformationGradientsPlastic), ConstitutiveError> {
+//         let mut deformation_gradient = DeformationGradient::identity();
+//         match match applied_load {
+//             AppliedLoad::UniaxialStress(deformation_gradient_11, time) => {
+//                 let mut matrix = Matrix::zero(4, 9);
+//                 let mut vector = Vector::zero(4);
+//                 matrix[0][0] = 1.0;
+//                 matrix[1][1] = 1.0;
+//                 matrix[2][2] = 1.0;
+//                 matrix[3][5] = 1.0;
+//                 integrator.integrate(
+//                     |t: Scalar, deformation_gradient_p: &DeformationGradientPlastic| {
+//                         vector[0] = deformation_gradient_11(t);
+//                         deformation_gradient = self.root_inner_0(
+//                             deformation_gradient_p,
+//                             EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+//                             &solver,
+//                             &deformation_gradient,
+//                         )?;
+//                         Ok((
+//                             self.plastic_deformation_gradient_rate(
+//                                 &deformation_gradient,
+//                                 deformation_gradient_p,
+//                             )?,
+//                             deformation_gradient.clone(),
+//                         ))
+//                     },
+//                     time,
+//                     DeformationGradientPlastic::identity(),
+//                 )
+//             }
+//         } {
+//             Ok((times, deformation_gradients_p, _, deformation_gradients)) => {
+//                 Ok((times, deformation_gradients, deformation_gradients_p))
+//             }
+//             Err(error) => Err(ConstitutiveError::Upstream(
+//                 format!("{error}"),
+//                 format!("{self:?}"),
+//             )),
+//         }
+//     }
+//     #[doc(hidden)]
+//     fn root_inner_0(
+//         &self,
+//         deformation_gradient_p: &DeformationGradientPlastic,
+//         equality_constraint: EqualityConstraint,
+//         solver: &impl ZerothOrderRootFinding<DeformationGradient>,
+//         initial_guess: &DeformationGradient,
+//     ) -> Result<DeformationGradient, OptimizationError> {
+//         solver.root(
+//             |deformation_gradient: &DeformationGradient| {
+//                 Ok(self
+//                     .first_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_p)?)
+//             },
+//             initial_guess.clone(),
+//             equality_constraint,
+//         )
+//     }
+// }
 
 impl<T> FirstOrderRoot for T
 where
@@ -373,7 +373,6 @@ where
             DeformationGradient,
         >,
     ) -> Result<(Times, DeformationGradients, DeformationGradientsPlastic), ConstitutiveError> {
-        let mut deformation_gradient = DeformationGradient::identity();
         match match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_11, time) => {
                 let mut matrix = Matrix::zero(4, 9);
@@ -383,24 +382,28 @@ where
                 matrix[2][2] = 1.0;
                 matrix[3][5] = 1.0;
                 integrator.integrate(
-                    |t: Scalar, deformation_gradient_p: &DeformationGradientPlastic| {
+                    |_: Scalar,
+                     deformation_gradient_p: &DeformationGradientPlastic,
+                     deformation_gradient: &DeformationGradient| {
+                        Ok(self.plastic_deformation_gradient_rate(
+                            deformation_gradient,
+                            deformation_gradient_p,
+                        )?)
+                    },
+                    |t: Scalar,
+                     deformation_gradient_p: &DeformationGradientPlastic,
+                     deformation_gradient: &DeformationGradient| {
                         vector[0] = deformation_gradient_11(t);
-                        deformation_gradient = self.root_inner_1(
+                        Ok(self.root_inner_1(
                             deformation_gradient_p,
                             EqualityConstraint::Linear(matrix.clone(), vector.clone()),
                             &solver,
-                            &deformation_gradient,
-                        )?;
-                        Ok((
-                            self.plastic_deformation_gradient_rate(
-                                &deformation_gradient,
-                                deformation_gradient_p,
-                            )?,
-                            deformation_gradient.clone(),
-                        ))
+                            deformation_gradient,
+                        )?)
                     },
                     time,
                     DeformationGradientPlastic::identity(),
+                    DeformationGradient::identity(),
                 )
             }
         } {

@@ -22,7 +22,7 @@ pub type Ode89 = Verner9;
 // consider symplectic integrators for dynamics eventually
 
 use super::{
-    Scalar, Solution, Tensor, TensorArray, TensorVec, TestError, Vector,
+    Scalar, Solution, Tensor, TensorArray, TensorVec, TestError, Vector, assert_eq_within_tols,
     interpolate::InterpolateSolution,
     optimize::{FirstOrderRootFinding, ZerothOrderRootFinding},
 };
@@ -47,6 +47,14 @@ where
     Y: Tensor,
     U: TensorVec<Item = Y>,
 {
+}
+
+/// Getters trait for explicit ordinary differential equation solvers.
+pub trait ExplicitGetters {
+    /// Returns the cut back factor for function errors.
+    fn dt_cut(&self) -> Scalar;
+    /// Returns the minimum value for the time step.
+    fn dt_min(&self) -> Scalar;
 }
 
 /// Base trait for explicit ordinary differential equation solvers.
@@ -77,7 +85,7 @@ where
             return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
         }
         let mut t = t_0;
-        let mut dt = t_f;
+        let mut dt = t_f - t_0;
         let mut e;
         let mut k = vec![Y::default(); Self::SLOPES];
         k[0] = function(t, &initial_condition)?;
@@ -96,22 +104,22 @@ where
                     return Err(IntegrationError::Upstream(error, format!("{self:?}")));
                 }
             };
-            match self.step(
-                &mut function,
-                &mut y,
-                &mut t,
-                &mut y_sol,
-                &mut t_sol,
-                &mut dydt_sol,
-                &mut dt,
-                &mut k,
-                &y_trial,
-                &e,
-            ) {
-                Ok(e) => e,
-                Err(error) => {
-                    return Err(IntegrationError::Upstream(error, format!("{self:?}")));
-                }
+            if let Some(error) = self
+                .step(
+                    &mut function,
+                    &mut y,
+                    &mut t,
+                    &mut y_sol,
+                    &mut t_sol,
+                    &mut dydt_sol,
+                    &mut dt,
+                    &mut k,
+                    &y_trial,
+                    &e,
+                )
+                .err()
+            {
+                return Err(IntegrationError::Upstream(error, format!("{self:?}")));
             };
             dt = dt.min(t_f - t);
         }
@@ -153,7 +161,7 @@ where
 /// Base trait for explicit ordinary differential equation solvers with internal variables.
 pub trait ExplicitIV<Y, Z, U, V>
 where
-    Self: OdeSolver<Y, U>,
+    Self: OdeSolver<Y, U> + ExplicitGetters,
     Y: Tensor,
     Z: Tensor,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -168,9 +176,11 @@ where
     /// ```
     fn integrate(
         &self,
-        mut function: impl FnMut(Scalar, &Y) -> Result<(Y, Z), String>,
+        mut function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        mut evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
         time: &[Scalar],
         initial_condition: Y,
+        initial_evaluation: Z,
     ) -> Result<(Vector, U, U, V), IntegrationError> {
         let t_0 = time[0];
         let t_f = time[time.len() - 1];
@@ -180,14 +190,17 @@ where
             return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
         }
         let mut t = t_0;
-        let mut dt = t_f;
+        let mut dt = t_f - t_0;
         let mut e;
         let mut t_sol = Vector::zero(0);
         t_sol.push(t_0);
         let mut y = initial_condition;
-        let mut z;
+        let mut z = initial_evaluation;
+        if assert_eq_within_tols(&evaluate(t, &y, &z)?, &z).is_err() {
+            return Err(IntegrationError::InconsistentInitialConditions);
+        }
         let mut k = vec![Y::default(); Self::SLOPES];
-        (k[0], z) = function(t, &y)?;
+        k[0] = function(t, &y, &z)?;
         let mut y_sol = U::zero(0);
         y_sol.push(y.clone());
         let mut z_sol = V::zero(0);
@@ -197,41 +210,58 @@ where
         let mut y_trial = Y::default();
         let mut z_trial = Z::default();
         while t < t_f {
-            e = match self.slopes(
-                &mut function,
-                &y,
-                &t,
-                &dt,
-                &mut k,
-                &mut y_trial,
-                &mut z_trial,
-            ) {
-                Ok(e) => e,
-                Err(error) => {
-                    return Err(IntegrationError::Upstream(error, format!("{self:?}")));
+            loop {
+                match self.slopes(
+                    &mut function,
+                    &mut evaluate,
+                    &y,
+                    &z,
+                    &t,
+                    &dt,
+                    &mut k,
+                    &mut y_trial,
+                    &mut z_trial,
+                ) {
+                    Ok(val) => {
+                        e = val;
+                        break;
+                    }
+                    Err(error) => {
+                        // println!("{error}");
+                        dt *= self.dt_cut();
+                        if dt < self.dt_min() {
+                            return Err(IntegrationError::Upstream(error, format!("{self:?}")));
+                            // but make it indicate that hit dt_min due to this?
+                        }
+                    }
                 }
-            };
-            match self.step(
-                &mut function,
-                &mut y,
-                &mut z,
-                &mut t,
-                &mut y_sol,
-                &mut z_sol,
-                &mut t_sol,
-                &mut dydt_sol,
-                &mut dt,
-                &mut k,
-                &y_trial,
-                &z_trial,
-                &e,
-            ) {
-                Ok(e) => e,
-                Err(error) => {
-                    return Err(IntegrationError::Upstream(error, format!("{self:?}")));
-                }
-            };
+            }
+            if let Some(error) = self
+                .step(
+                    &mut function,
+                    &mut y,
+                    &mut z,
+                    &mut t,
+                    &mut y_sol,
+                    &mut z_sol,
+                    &mut t_sol,
+                    &mut dydt_sol,
+                    &mut dt,
+                    &mut k,
+                    &y_trial,
+                    &z_trial,
+                    &e,
+                )
+                .err()
+            {
+                return Err(IntegrationError::Upstream(error, format!("{self:?}")));
+            }
             dt = dt.min(t_f - t);
+            //
+            let foo = 1;
+            // need to error on small timesteps below dt_min here too
+            // may become easier if combine with above loop (also need to cut back on errors)
+            //
         }
         if time.len() > 2 {
             todo!()
@@ -243,8 +273,10 @@ where
     #[doc(hidden)]
     fn slopes(
         &self,
-        function: impl FnMut(Scalar, &Y) -> Result<(Y, Z), String>,
+        function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
         y: &Y,
+        z: &Z,
         t: &Scalar,
         dt: &Scalar,
         k: &mut [Y],
@@ -255,7 +287,7 @@ where
     #[doc(hidden)]
     fn step(
         &self,
-        function: impl FnMut(Scalar, &Y) -> Result<(Y, Z), String>,
+        function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
         y: &mut Y,
         z: &mut Z,
         t: &mut Scalar,
@@ -319,6 +351,7 @@ where
 
 /// Possible errors encountered when integrating.
 pub enum IntegrationError {
+    InconsistentInitialConditions,
     InitialTimeNotLessThanFinalTime,
     Intermediate(String),
     LengthTimeLessThanTwo,
@@ -334,6 +367,10 @@ impl From<String> for IntegrationError {
 impl Debug for IntegrationError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
+            Self::InconsistentInitialConditions => {
+                "\x1b[1;91mThe initial condition z_0 is not consistent with g(t_0, y_0)."
+                    .to_string()
+            }
             Self::InitialTimeNotLessThanFinalTime => {
                 "\x1b[1;91mThe initial time must precede the final time.".to_string()
             }
@@ -355,6 +392,10 @@ impl Debug for IntegrationError {
 impl Display for IntegrationError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
+            Self::InconsistentInitialConditions => {
+                "\x1b[1;91mThe initial condition z_0 is not consistent with g(t_0, y_0)."
+                    .to_string()
+            }
             Self::InitialTimeNotLessThanFinalTime => {
                 "\x1b[1;91mThe initial time must precede the final time.".to_string()
             }

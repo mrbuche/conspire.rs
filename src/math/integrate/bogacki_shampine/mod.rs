@@ -3,7 +3,7 @@ mod test;
 
 use super::{
     super::{Scalar, Tensor, TensorVec, Vector, interpolate::InterpolateSolution},
-    Explicit, ExplicitIV, IntegrationError,
+    Explicit, ExplicitGetters, ExplicitIV, IntegrationError,
 };
 use crate::{ABS_TOL, REL_TOL};
 use std::ops::{Mul, Sub};
@@ -49,6 +49,10 @@ pub struct BogackiShampine {
     pub dt_beta: Scalar,
     /// Exponent for adaptive time steps.
     pub dt_expn: Scalar,
+    /// Cut back factor for the time step.
+    pub dt_cut: Scalar,
+    /// Minimum value for the time step.
+    pub dt_min: Scalar,
 }
 
 impl Default for BogackiShampine {
@@ -58,7 +62,18 @@ impl Default for BogackiShampine {
             rel_tol: REL_TOL,
             dt_beta: 0.9,
             dt_expn: 3.0,
+            dt_cut: 0.5,
+            dt_min: f64::EPSILON,
         }
+    }
+}
+
+impl ExplicitGetters for BogackiShampine {
+    fn dt_cut(&self) -> Scalar {
+        self.dt_cut
+    }
+    fn dt_min(&self) -> Scalar {
+        self.dt_min
     }
 }
 
@@ -146,6 +161,10 @@ where
                 t = tp[i - 1];
                 y = yp[i - 1].clone();
                 dt = time_k - t;
+                //
+                let foo = 1;
+                // Use y_trial as a buffer for the arguments below? (replicate in other solvers too, as well as above in slopes/etc.)
+                //
                 k_1 = function(t, &y)?;
                 k_2 = function(t + 0.5 * dt, &(&k_1 * (0.5 * dt) + &y))?;
                 k_3 = function(t + 0.75 * dt, &(&k_2 * (0.75 * dt) + &y))?;
@@ -169,23 +188,30 @@ where
     const SLOPES: usize = 4;
     fn slopes(
         &self,
-        mut function: impl FnMut(Scalar, &Y) -> Result<(Y, Z), String>,
+        mut function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        mut evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
         y: &Y,
+        z: &Z,
         t: &Scalar,
         dt: &Scalar,
         k: &mut [Y],
         y_trial: &mut Y,
         z_trial: &mut Z,
     ) -> Result<Scalar, String> {
-        (k[1], _) = function(t + 0.5 * dt, &(&k[0] * (0.5 * dt) + y))?;
-        (k[2], _) = function(t + 0.75 * dt, &(&k[1] * (0.75 * dt) + y))?;
+        *y_trial = &k[0] * (0.5 * dt) + y;
+        *z_trial = evaluate(t + 0.5 * dt, y_trial, z)?;
+        k[1] = function(t + 0.5 * dt, y_trial, z_trial)?;
+        *y_trial = &k[1] * (0.75 * dt) + y;
+        *z_trial = evaluate(t + 0.75 * dt, y_trial, z_trial)?;
+        k[2] = function(t + 0.75 * dt, y_trial, z_trial)?;
         *y_trial = (&k[0] * 2.0 + &k[1] * 3.0 + &k[2] * 4.0) * (dt / 9.0) + y;
-        (k[3], *z_trial) = function(t + dt, y_trial)?;
+        *z_trial = evaluate(t + dt, y_trial, z_trial)?;
+        k[3] = function(t + dt, y_trial, z_trial)?;
         Ok(((&k[0] * -5.0 + &k[1] * 6.0 + &k[2] * 8.0 + &k[3] * -9.0) * (dt / 72.0)).norm_inf())
     }
     fn step(
         &self,
-        _function: impl FnMut(Scalar, &Y) -> Result<(Y, Z), String>,
+        _function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
         y: &mut Y,
         z: &mut Z,
         t: &mut Scalar,
@@ -210,7 +236,7 @@ where
             dydt_sol.push(k[0].clone());
         }
         if e > &0.0 {
-            *dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn)
+            *dt *= (self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn)).max(self.dt_cut())
         }
         Ok(())
     }
