@@ -15,6 +15,11 @@ use crate::{
     mechanics::{CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic},
 };
 
+// if constitutive models are never going hold state variables
+// i.e. they are always going to be immutable
+// (1) can rethink their construction, i.e. can make fields public and make like solvers (also better for debug prints; can use From for make from slices still)
+// (2) can rethink how they are used in fem, i.e. can have elements store a reference to a model rather than own it (but still leave room for spatial variance)
+
 #[test]
 fn finite_difference() -> Result<(), TestError> {
     let deformation_gradient = DeformationGradient::new([
@@ -60,7 +65,7 @@ fn root_0() -> Result<(), TestError> {
     use crate::constitutive::solid::elastic_viscoplastic::ZerothOrderRoot;
     let model = Hencky::new(&[13.0, 3.0, 3.0, 0.0, 0.05, 0.1]);
     let (t, f, f_p) = model.root(
-        AppliedLoad::UniaxialStress(|t| 1.0 + t, &[0.0, 1.0]),
+        AppliedLoad::UniaxialStress(|t| 1.0 + t, &[0.0, 8.0]),
         BogackiShampine {
             abs_tol: 1e-6,
             rel_tol: 1e-6,
