@@ -191,7 +191,6 @@ where
         }
         let mut t = t_0;
         let mut dt = t_f - t_0;
-        let mut e;
         let mut t_sol = Vector::zero(0);
         t_sol.push(t_0);
         let mut y = initial_condition;
@@ -210,58 +209,65 @@ where
         let mut y_trial = Y::default();
         let mut z_trial = Z::default();
         while t < t_f {
-            loop {
-                match self.slopes(
-                    &mut function,
-                    &mut evaluate,
-                    &y,
-                    &z,
-                    &t,
-                    &dt,
-                    &mut k,
-                    &mut y_trial,
-                    &mut z_trial,
-                ) {
-                    Ok(val) => {
-                        e = val;
-                        break;
-                    }
-                    Err(error) => {
-                        // println!("{error}");
+            match self.slopes(
+                &mut function,
+                &mut evaluate,
+                &y,
+                &z,
+                &t,
+                &dt,
+                &mut k,
+                &mut y_trial,
+                &mut z_trial,
+            ) {
+                Ok(e) => {
+                    if let Some(error) = self
+                        .step(
+                            &mut function,
+                            &mut y,
+                            &mut z,
+                            &mut t,
+                            &mut y_sol,
+                            &mut z_sol,
+                            &mut t_sol,
+                            &mut dydt_sol,
+                            &mut dt,
+                            &mut k,
+                            &y_trial,
+                            &z_trial,
+                            &e,
+                        )
+                        .err()
+                    {
                         dt *= self.dt_cut();
                         if dt < self.dt_min() {
-                            return Err(IntegrationError::Upstream(error, format!("{self:?}")));
-                            // but make it indicate that hit dt_min due to this?
+                            return Err(IntegrationError::MinimumStepSizeUpstream(
+                                self.dt_min(),
+                                error,
+                                format!("{self:?}"),
+                            ));
+                        }
+                    } else {
+                        dt = dt.min(t_f - t);
+                        if dt < self.dt_min() && t < t_f {
+                            return Err(IntegrationError::MinimumStepSizeReached(
+                                self.dt_min(),
+                                format!("{self:?}"),
+                            ));
                         }
                     }
                 }
+                Err(error) => {
+                    dt *= self.dt_cut();
+                    if dt < self.dt_min() {
+                        return Err(IntegrationError::MinimumStepSizeUpstream(
+                            self.dt_min(),
+                            error,
+                            format!("{self:?}"),
+                        ));
+                    }
+                }
             }
-            if let Some(error) = self
-                .step(
-                    &mut function,
-                    &mut y,
-                    &mut z,
-                    &mut t,
-                    &mut y_sol,
-                    &mut z_sol,
-                    &mut t_sol,
-                    &mut dydt_sol,
-                    &mut dt,
-                    &mut k,
-                    &y_trial,
-                    &z_trial,
-                    &e,
-                )
-                .err()
-            {
-                return Err(IntegrationError::Upstream(error, format!("{self:?}")));
-            }
-            dt = dt.min(t_f - t);
-            //
-            let foo = 1;
-            // need to error on small timesteps below dt_min here too
-            // may become easier if combine with above loop (also need to cut back on errors)
-            //
         }
         if time.len() > 2 {
             todo!()
@@ -355,6 +361,8 @@ pub enum IntegrationError {
     InitialTimeNotLessThanFinalTime,
     Intermediate(String),
     LengthTimeLessThanTwo,
+    MinimumStepSizeReached(Scalar, String),
+    MinimumStepSizeUpstream(Scalar, String, String),
     Upstream(String, String),
 }
 
@@ -377,6 +385,19 @@ impl Debug for IntegrationError {
             Self::Intermediate(message) => message.to_string(),
             Self::LengthTimeLessThanTwo => {
                 "\x1b[1;91mThe time must contain at least two entries.".to_string()
+            }
+            Self::MinimumStepSizeReached(dt_min, integrator) => {
+                format!(
+                    "\x1b[1;91mMinimum time step ({dt_min:?}) reached.\x1b[0;91m\n\
+                    In integrator: {integrator}."
+                )
+            }
+            Self::MinimumStepSizeUpstream(dt_min, error, integrator) => {
+                format!(
+                    "{error}\x1b[0;91m\n\
+                    Causing error: \x1b[1;91mMinimum time step ({dt_min:?}) reached.\x1b[0;91m\n\
+                    In integrator: {integrator}."
+                )
             }
             Self::Upstream(error, integrator) => {
                 format!(
@@ -402,6 +423,19 @@ impl Display for IntegrationError {
             Self::Intermediate(message) => message.to_string(),
             Self::LengthTimeLessThanTwo => {
                 "\x1b[1;91mThe time must contain at least two entries.".to_string()
+            }
+            Self::MinimumStepSizeReached(dt_min, integrator) => {
+                format!(
+                    "\x1b[1;91mMinimum time step ({dt_min:?}) reached.\x1b[0;91m\n\
+                    In integrator: {integrator}."
+                )
+            }
+            Self::MinimumStepSizeUpstream(dt_min, error, integrator) => {
+                format!(
+                    "{error}\x1b[0;91m\n\
+                    Causing error: \x1b[1;91mMinimum time step ({dt_min:?}) reached.\x1b[0;91m\n\
+                    In integrator: {integrator}."
+                )
             }
             Self::Upstream(error, integrator) => {
                 format!(

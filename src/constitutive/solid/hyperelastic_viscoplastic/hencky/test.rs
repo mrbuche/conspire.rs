@@ -55,32 +55,37 @@ fn finite_difference() -> Result<(), TestError> {
     }
 }
 
-// #[test]
-// fn root_0() -> Result<(), TestError> {
-//     use crate::constitutive::solid::elastic_viscoplastic::ZerothOrderRoot;
-//     let (t, f, f_p) = Hencky::new(&[13.0, 3.0, 3.0, 0.0, 0.25, 0.1]).root(
-//         AppliedLoad::UniaxialStress(|t| 1.0 + t, &[0.0, 1.0]),
-//         BogackiShampine {
-//             abs_tol: 1e-6,
-//             rel_tol: 1e-6,
-//             ..Default::default()
-//         },
-//         GradientDescent {
-//             dual: true,
-//             ..Default::default()
-//         },
-//     )?;
-//     for (t_i, (f_i, f_p_i)) in t.iter().zip(f.iter().zip(f_p.iter())) {
-//         println!(
-//             "[{}, {}, {}, {}],",
-//             t_i,
-//             f_i[0][0],
-//             f_p_i[0][0],
-//             f_p_i.determinant()
-//         )
-//     }
-//     Ok(())
-// }
+#[test]
+fn root_0() -> Result<(), TestError> {
+    use crate::constitutive::solid::elastic_viscoplastic::ZerothOrderRoot;
+    let model = Hencky::new(&[13.0, 3.0, 3.0, 0.0, 0.05, 0.1]);
+    let (t, f, f_p) = model.root(
+        AppliedLoad::UniaxialStress(|t| 1.0 + t, &[0.0, 1.0]),
+        BogackiShampine {
+            abs_tol: 1e-6,
+            rel_tol: 1e-6,
+            ..Default::default()
+        },
+        GradientDescent {
+            dual: true,
+            ..Default::default()
+        },
+    )?;
+    for (t_i, (f_i, f_p_i)) in t.iter().zip(f.iter().zip(f_p.iter())) {
+        let f_e = f_i * f_p_i.inverse();
+        let m_e = f_e.transpose() * model.cauchy_stress(&f_i, &f_p_i)? * f_e.inverse_transpose();
+        let m_e_dev_mag = m_e.deviatoric().norm();
+        println!(
+            "[{}, {}, {}, {}, {}],",
+            t_i,
+            f_i[0][0],
+            f_p_i[0][0],
+            f_p_i.determinant(),
+            m_e_dev_mag,
+        )
+    }
+    Ok(())
+}
 
 #[test]
 fn root_1() -> Result<(), TestError> {
@@ -91,7 +96,6 @@ fn root_1() -> Result<(), TestError> {
         BogackiShampine {
             abs_tol: 1e-6,
             rel_tol: 1e-6,
-            dt_min: 1e-4,
             ..Default::default()
         },
         NewtonRaphson::default(),

@@ -63,7 +63,7 @@ impl Default for BogackiShampine {
             dt_beta: 0.9,
             dt_expn: 3.0,
             dt_cut: 0.5,
-            dt_min: f64::EPSILON,
+            dt_min: ABS_TOL,
         }
     }
 }
