@@ -94,8 +94,10 @@ where
         k: &mut [Y],
         y_trial: &mut Y,
     ) -> Result<Scalar, String> {
-        k[1] = function(t + 0.5 * dt, &(&k[0] * (0.5 * dt) + y))?;
-        k[2] = function(t + 0.75 * dt, &(&k[1] * (0.75 * dt) + y))?;
+        *y_trial = &k[0] * (0.5 * dt) + y;
+        k[1] = function(t + 0.5 * dt, y_trial)?;
+        *y_trial = &k[1] * (0.75 * dt) + y;
+        k[2] = function(t + 0.75 * dt, y_trial)?;
         *y_trial = (&k[0] * 2.0 + &k[1] * 3.0 + &k[2] * 4.0) * (dt / 9.0) + y;
         k[3] = function(t + dt, y_trial)?;
         Ok(((&k[0] * -5.0 + &k[1] * 6.0 + &k[2] * 8.0 + &k[3] * -9.0) * (dt / 72.0)).norm_inf())
@@ -161,13 +163,11 @@ where
                 t = tp[i - 1];
                 y = yp[i - 1].clone();
                 dt = time_k - t;
-                //
-                let foo = 1;
-                // Use y_trial as a buffer for the arguments below? (replicate in other solvers too, as well as above in slopes/etc.)
-                //
                 k_1 = function(t, &y)?;
-                k_2 = function(t + 0.5 * dt, &(&k_1 * (0.5 * dt) + &y))?;
-                k_3 = function(t + 0.75 * dt, &(&k_2 * (0.75 * dt) + &y))?;
+                y_trial = &k_1 * (0.5 * dt) + &y;
+                k_2 = function(t + 0.5 * dt, &y_trial)?;
+                y_trial = &k_2 * (0.75 * dt) + &y;
+                k_3 = function(t + 0.75 * dt, &y_trial)?;
                 y_trial = (&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y;
             }
             dydt_int.push(function(t + dt, &y_trial)?);

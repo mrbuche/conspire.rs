@@ -112,30 +112,23 @@ where
         k: &mut [Y],
         y_trial: &mut Y,
     ) -> Result<Scalar, String> {
-        k[1] = function(t + 0.2 * dt, &(&k[0] * (0.2 * dt) + y))?;
-        k[2] = function(
-            t + 0.3 * dt,
-            &(&k[0] * (0.075 * dt) + &k[1] * (0.225 * dt) + y),
-        )?;
-        k[3] = function(
-            t + 0.8 * dt,
-            &(&k[0] * (C_44_45 * dt) - &k[1] * (C_56_15 * dt) + &k[2] * (C_32_9 * dt) + y),
-        )?;
-        k[4] = function(
-            t + C_8_9 * dt,
-            &(&k[0] * (C_19372_6561 * dt) - &k[1] * (C_25360_2187 * dt)
-                + &k[2] * (C_64448_6561 * dt)
-                - &k[3] * (C_212_729 * dt)
-                + y),
-        )?;
-        k[5] = function(
-            t + dt,
-            &(&k[0] * (C_9017_3168 * dt) - &k[1] * (C_355_33 * dt)
-                + &k[2] * (C_46732_5247 * dt)
-                + &k[3] * (C_49_176 * dt)
-                - &k[4] * (C_5103_18656 * dt)
-                + y),
-        )?;
+        *y_trial = &k[0] * (0.2 * dt) + y;
+        k[1] = function(t + 0.2 * dt, y_trial)?;
+        *y_trial = &k[0] * (0.075 * dt) + &k[1] * (0.225 * dt) + y;
+        k[2] = function(t + 0.3 * dt, y_trial)?;
+        *y_trial = &k[0] * (C_44_45 * dt) - &k[1] * (C_56_15 * dt) + &k[2] * (C_32_9 * dt) + y;
+        k[3] = function(t + 0.8 * dt, y_trial)?;
+        *y_trial = &k[0] * (C_19372_6561 * dt) - &k[1] * (C_25360_2187 * dt)
+            + &k[2] * (C_64448_6561 * dt)
+            - &k[3] * (C_212_729 * dt)
+            + y;
+        k[4] = function(t + C_8_9 * dt, y_trial)?;
+        *y_trial = &k[0] * (C_9017_3168 * dt) - &k[1] * (C_355_33 * dt)
+            + &k[2] * (C_46732_5247 * dt)
+            + &k[3] * (C_49_176 * dt)
+            - &k[4] * (C_5103_18656 * dt)
+            + y;
+        k[5] = function(t + dt, y_trial)?;
         *y_trial = (&k[0] * C_35_384 + &k[2] * C_500_1113 + &k[3] * C_125_192
             - &k[4] * C_2187_6784
             + &k[5] * C_11_84)
@@ -216,30 +209,23 @@ where
                 y = yp[i - 1].clone();
                 dt = time_k - t;
                 k_1 = function(t, &y)?;
-                k_2 = function(t + 0.2 * dt, &(&k_1 * (0.2 * dt) + &y))?;
-                k_3 = function(
-                    t + 0.3 * dt,
-                    &(&k_1 * (0.075 * dt) + &k_2 * (0.225 * dt) + &y),
-                )?;
-                k_4 = function(
-                    t + 0.8 * dt,
-                    &(&k_1 * (C_44_45 * dt) - &k_2 * (C_56_15 * dt) + &k_3 * (C_32_9 * dt) + &y),
-                )?;
-                k_5 = function(
-                    t + C_8_9 * dt,
-                    &(&k_1 * (C_19372_6561 * dt) - &k_2 * (C_25360_2187 * dt)
-                        + &k_3 * (C_64448_6561 * dt)
-                        - &k_4 * (C_212_729 * dt)
-                        + &y),
-                )?;
-                k_6 = function(
-                    t + dt,
-                    &(&k_1 * (C_9017_3168 * dt) - &k_2 * (C_355_33 * dt)
-                        + &k_3 * (C_46732_5247 * dt)
-                        + &k_4 * (C_49_176 * dt)
-                        - &k_5 * (C_5103_18656 * dt)
-                        + &y),
-                )?;
+                y_trial = &k_1 * (0.2 * dt) + &y;
+                k_2 = function(t + 0.2 * dt, &y_trial)?;
+                y_trial = &k_1 * (0.075 * dt) + &k_2 * (0.225 * dt) + &y;
+                k_3 = function(t + 0.3 * dt, &y_trial)?;
+                y_trial = &k_1 * (C_44_45 * dt) - &k_2 * (C_56_15 * dt) + &k_3 * (C_32_9 * dt) + &y;
+                k_4 = function(t + 0.8 * dt, &y_trial)?;
+                y_trial = &k_1 * (C_19372_6561 * dt) - &k_2 * (C_25360_2187 * dt)
+                    + &k_3 * (C_64448_6561 * dt)
+                    - &k_4 * (C_212_729 * dt)
+                    + &y;
+                k_5 = function(t + C_8_9 * dt, &y_trial)?;
+                y_trial = &k_1 * (C_9017_3168 * dt) - &k_2 * (C_355_33 * dt)
+                    + &k_3 * (C_46732_5247 * dt)
+                    + &k_4 * (C_49_176 * dt)
+                    - &k_5 * (C_5103_18656 * dt)
+                    + &y;
+                k_6 = function(t + dt, &y_trial)?;
                 y_trial = (&k_1 * C_35_384 + &k_3 * C_500_1113 + &k_4 * C_125_192
                     - &k_5 * C_2187_6784
                     + &k_6 * C_11_84)
