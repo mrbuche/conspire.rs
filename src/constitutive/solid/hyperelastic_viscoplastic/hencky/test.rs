@@ -19,6 +19,8 @@ use crate::{
 // i.e. they are always going to be immutable
 // (1) can rethink their construction, i.e. can make fields public and make like solvers (also better for debug prints; can use From for make from slices still)
 // (2) can rethink how they are used in fem, i.e. can have elements store a reference to a model rather than own it (but still leave room for spatial variance)
+// or is it already set up that way since models can take slices in as parameters?
+// just check it out I guess...
 
 #[test]
 fn finite_difference() -> Result<(), TestError> {
