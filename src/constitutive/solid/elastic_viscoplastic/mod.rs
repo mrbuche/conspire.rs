@@ -21,9 +21,9 @@ use crate::{
 /// Required methods for plastic constitutive models.
 pub trait Plastic {
     /// Returns the initial yield stress.
-    fn initial_yield_stress(&self) -> Scalar;
+    fn initial_yield_stress(&self) -> &Scalar;
     /// Returns the isotropic hardening slope.
-    fn hardening_slope(&self) -> Scalar;
+    fn hardening_slope(&self) -> &Scalar;
 }
 
 /// Required methods for viscoplastic constitutive models.
@@ -32,9 +32,9 @@ where
     Self: Plastic,
 {
     /// Returns the rate_sensitivity parameter.
-    fn rate_sensitivity(&self) -> Scalar;
+    fn rate_sensitivity(&self) -> &Scalar;
     /// Returns the reference flow rate.
-    fn reference_flow_rate(&self) -> Scalar;
+    fn reference_flow_rate(&self) -> &Scalar;
 }
 
 /// Possible applied loads.
@@ -213,7 +213,7 @@ where
         if magnitude == 0.0 {
             Ok(StretchingRatePlastic::zero())
         } else {
-            if self.hardening_slope() != 0.0 {
+            if self.hardening_slope() != &0.0 {
                 todo!("Need to integrate dY/dt = H * eqps, where eqps = sqrt(2/3) * |D_p|");
             }
             Ok(deviatoric_mandel_stress_e
