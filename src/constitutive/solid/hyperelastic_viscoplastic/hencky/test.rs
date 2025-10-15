@@ -21,6 +21,11 @@ use crate::{
 // (2) can rethink how they are used in fem, i.e. can have elements store a reference to a model rather than own it (but still leave room for spatial variance)
 // or is it already set up that way since models can take slices in as parameters?
 // just check it out I guess...
+//
+// This abstraction over P in constitutive is maybe dumb.
+// Do not want constitutive/ to be influenced by the outside, want it to be nice like specifying fields of solvers.
+// Elements should be generic over storing models or shared references to a model, not model parameters or references to them.
+// Make sure this is possible in constitutive/tests (all the macros) and then in fem/ before overhauling it all.
 
 #[test]
 fn finite_difference() -> Result<(), TestError> {
