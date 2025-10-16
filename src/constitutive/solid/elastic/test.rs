@@ -1,9 +1,7 @@
 use crate::mechanics::Scalar;
 
-pub const ALMANSIHAMELPARAMETERS: &[Scalar; 2] = &[13.0, 3.0];
-pub const HENCKYPARAMETERS: &[Scalar; 2] = &[ALMANSIHAMELPARAMETERS[0], ALMANSIHAMELPARAMETERS[1]];
-pub const SAINTVENANTKIRCHHOFFPARAMETERS: &[Scalar; 2] =
-    &[ALMANSIHAMELPARAMETERS[0], ALMANSIHAMELPARAMETERS[1]];
+pub const BULK_MODULUS: Scalar = 13.0;
+pub const SHEAR_MODULUS: Scalar = 3.0;
 
 macro_rules! cauchy_stress_from_deformation_gradient {
     ($constitutive_model: expr, $deformation_gradient: expr) => {
@@ -127,7 +125,6 @@ macro_rules! test_solid_constitutive
         {
             use crate::EPSILON;
             let model = $constitutive_model;
-            // assert_eq(model.bulk_modulus(), &$constitutive_model_parameters[0])?;
             let deformation_gradient = DeformationGradient::identity()*(1.0 + EPSILON / 3.0);
             let first_piola_kirchhoff_stress = first_piola_kirchhoff_stress_from_deformation_gradient_simple!(&model, &deformation_gradient)?;
             assert!((3.0 * EPSILON * model.bulk_modulus() / first_piola_kirchhoff_stress.trace() - 1.0).abs() < EPSILON);
@@ -138,22 +135,11 @@ macro_rules! test_solid_constitutive
         {
             use crate::EPSILON;
             let model = $constitutive_model;
-            // assert_eq(model.shear_modulus(), &$constitutive_model_parameters[1])?;
             let mut deformation_gradient = DeformationGradient::identity();
             deformation_gradient[0][1] = EPSILON;
             let first_piola_kirchhoff_stress = first_piola_kirchhoff_stress_from_deformation_gradient_simple!(&model, &deformation_gradient)?;
             assert!((EPSILON * model.shear_modulus() / first_piola_kirchhoff_stress[0][1] - 1.0).abs() < EPSILON);
             Ok(())
-        }
-        #[test]
-        fn size()
-        {
-            todo!("Now would need to pass in the number of parameters too so maybe delete?");
-            todo!("Can also stop passing in $constitutive_model and $constitutive_model_parameters now too.")
-            // assert_eq!(
-            //     std::mem::size_of::<$constitutive_model>(),
-            //     std::mem::size_of::<[Scalar; 2]>()
-            // )
         }
     }
 }
@@ -806,7 +792,7 @@ macro_rules! test_solid_constitutive_model_tangents
 }
 pub(crate) use test_solid_constitutive_model_tangents;
 
-macro_rules! test_solid_elastic_constitutive_model
+macro_rules! test_solid_elastic_constitutive_model_no_root
 {
     ($constitutive_model: expr) =>
     {
@@ -850,4 +836,150 @@ macro_rules! test_solid_elastic_constitutive_model
         }
     }
 }
+pub(crate) use test_solid_elastic_constitutive_model_no_root;
+
+macro_rules! test_solid_elastic_constitutive_model {
+    ($constitutive_model: expr) => {
+        crate::constitutive::solid::elastic::test::test_solid_elastic_constitutive_model_no_root!(
+            $constitutive_model
+        );
+        crate::constitutive::solid::elastic::test::test_root!($constitutive_model);
+    };
+}
 pub(crate) use test_solid_elastic_constitutive_model;
+
+macro_rules! test_root {
+    ($constitutive_model_constructed: expr) => {
+        use crate::{constitutive::solid::elastic::AppliedLoad, math::Tensor};
+        macro_rules! test_root_with_solver {
+            ($solver: expr) => {
+                #[test]
+                fn uniaxial_compression() -> Result<(), crate::math::test::TestError> {
+                    let deformation_gradient = $constitutive_model_constructed
+                        .root(AppliedLoad::UniaxialStress(0.77), $solver)?;
+                    let cauchy_stress =
+                        $constitutive_model_constructed.cauchy_stress(&deformation_gradient)?;
+                    assert!(cauchy_stress[0][0] < 0.0);
+                    crate::math::test::assert_eq_within_tols(
+                        &(cauchy_stress[1][1] / cauchy_stress[0][0]),
+                        &0.0,
+                    )?;
+                    crate::math::test::assert_eq_within_tols(
+                        &(cauchy_stress[2][2] / cauchy_stress[0][0]),
+                        &0.0,
+                    )?;
+                    assert!(cauchy_stress.is_diagonal());
+                    crate::math::test::assert_eq(
+                        &deformation_gradient[1][1],
+                        &deformation_gradient[2][2],
+                    )?;
+                    assert!(deformation_gradient.is_diagonal());
+                    Ok(())
+                }
+                #[test]
+                fn uniaxial_tension() -> Result<(), crate::math::test::TestError> {
+                    let deformation_gradient = $constitutive_model_constructed
+                        .root(AppliedLoad::UniaxialStress(1.2), $solver)?;
+                    let cauchy_stress =
+                        $constitutive_model_constructed.cauchy_stress(&deformation_gradient)?;
+                    assert!(cauchy_stress[0][0] > 0.0);
+                    assert!(cauchy_stress.is_diagonal());
+                    crate::math::test::assert_eq_within_tols(&cauchy_stress[1][1], &0.0)?;
+                    crate::math::test::assert_eq_within_tols(&cauchy_stress[2][2], &0.0)?;
+                    assert!(deformation_gradient.is_diagonal());
+                    crate::math::test::assert_eq(
+                        &deformation_gradient[1][1],
+                        &deformation_gradient[2][2],
+                    )
+                }
+                #[test]
+                fn uniaxial_undeformed() -> Result<(), crate::math::test::TestError> {
+                    let deformation_gradient = $constitutive_model_constructed
+                        .root(AppliedLoad::UniaxialStress(1.0), $solver)?;
+                    let cauchy_stress =
+                        $constitutive_model_constructed.cauchy_stress(&deformation_gradient)?;
+                    assert!(cauchy_stress.is_zero());
+                    assert!(deformation_gradient.is_identity());
+                    Ok(())
+                }
+                #[test]
+                fn biaxial_compression() -> Result<(), crate::math::test::TestError> {
+                    let deformation_gradient = $constitutive_model_constructed
+                        .root(AppliedLoad::BiaxialStress(0.77, 0.88), $solver)?;
+                    let cauchy_stress =
+                        $constitutive_model_constructed.cauchy_stress(&deformation_gradient)?;
+                    assert!(cauchy_stress[0][0] < 0.0);
+                    assert!(cauchy_stress[1][1] < 0.0);
+                    crate::math::test::assert_eq_within_tols(
+                        &(cauchy_stress[2][2]
+                            / (cauchy_stress[0][0].powi(2) + cauchy_stress[1][1].powi(2)).sqrt()),
+                        &0.0,
+                    )?;
+                    assert!(cauchy_stress.is_diagonal());
+                    assert!(deformation_gradient.is_diagonal());
+                    Ok(())
+                }
+                #[test]
+                fn biaxial_mixed() -> Result<(), crate::math::test::TestError> {
+                    let deformation_gradient = $constitutive_model_constructed
+                        .root(AppliedLoad::BiaxialStress(1.3, 0.64), $solver)?;
+                    let cauchy_stress =
+                        $constitutive_model_constructed.cauchy_stress(&deformation_gradient)?;
+                    assert!(cauchy_stress[0][0] > cauchy_stress[1][1]);
+                    crate::math::test::assert_eq_within_tols(&cauchy_stress[2][2], &0.0)?;
+                    assert!(cauchy_stress.is_diagonal());
+                    assert!(deformation_gradient.is_diagonal());
+                    Ok(())
+                }
+                #[test]
+                fn biaxial_tension() -> Result<(), crate::math::test::TestError> {
+                    let deformation_gradient = $constitutive_model_constructed
+                        .root(AppliedLoad::BiaxialStress(1.3, 1.2), $solver)?;
+                    let cauchy_stress =
+                        $constitutive_model_constructed.cauchy_stress(&deformation_gradient)?;
+                    assert!(cauchy_stress[0][0] > cauchy_stress[1][1]);
+                    assert!(cauchy_stress[1][1] > 0.0);
+                    crate::math::test::assert_eq_within_tols(&cauchy_stress[2][2], &0.0)?;
+                    assert!(cauchy_stress.is_diagonal());
+                    assert!(deformation_gradient.is_diagonal());
+                    Ok(())
+                }
+                #[test]
+                fn biaxial_undeformed() -> Result<(), crate::math::test::TestError> {
+                    let deformation_gradient = $constitutive_model_constructed
+                        .root(AppliedLoad::BiaxialStress(1.0, 1.0), $solver)?;
+                    let cauchy_stress =
+                        $constitutive_model_constructed.cauchy_stress(&deformation_gradient)?;
+                    assert!(cauchy_stress.is_zero());
+                    assert!(deformation_gradient.is_identity());
+                    Ok(())
+                }
+            };
+        }
+        mod root {
+            use super::*;
+            mod gradient_descent {
+                use super::*;
+                use crate::{
+                    constitutive::solid::elastic::ZerothOrderRoot, math::optimize::GradientDescent,
+                };
+                // test_root_with_solver!(GradientDescent::default());
+                mod dual {
+                    use super::*;
+                    test_root_with_solver!(GradientDescent {
+                        dual: true,
+                        ..Default::default()
+                    });
+                }
+            }
+            mod newton_raphson {
+                use super::*;
+                use crate::{
+                    constitutive::solid::elastic::FirstOrderRoot, math::optimize::NewtonRaphson,
+                };
+                test_root_with_solver!(NewtonRaphson::default());
+            }
+        }
+    };
+}
+pub(crate) use test_root;

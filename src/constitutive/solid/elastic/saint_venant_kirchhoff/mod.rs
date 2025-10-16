@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     constitutive::{
-        Constitutive, ConstitutiveError, Parameters,
+        Constitutive, ConstitutiveError,
         solid::{Solid, TWO_THIRDS, elastic::Elastic},
     },
     math::{IDENTITY, Rank2},
@@ -12,35 +12,21 @@ use crate::{
 
 #[doc = include_str!("doc.md")]
 #[derive(Debug)]
-pub struct SaintVenantKirchhoff<P> {
-    parameters: P,
+pub struct SaintVenantKirchhoff {
+    bulk_modulus: Scalar,
+    shear_modulus: Scalar,
 }
 
-impl<P> Constitutive<P> for SaintVenantKirchhoff<P>
-where
-    P: Parameters,
-{
-    fn new(parameters: P) -> Self {
-        Self { parameters }
-    }
-}
-
-impl<P> Solid for SaintVenantKirchhoff<P>
-where
-    P: Parameters,
-{
+impl Solid for SaintVenantKirchhoff {
     fn bulk_modulus(&self) -> &Scalar {
-        self.parameters.get(0)
+        &self.bulk_modulus
     }
     fn shear_modulus(&self) -> &Scalar {
-        self.parameters.get(1)
+        &self.shear_modulus
     }
 }
 
-impl<P> Elastic for SaintVenantKirchhoff<P>
-where
-    P: Parameters,
-{
+impl Elastic for SaintVenantKirchhoff {
     #[doc = include_str!("cauchy_stress.md")]
     fn cauchy_stress(
         &self,

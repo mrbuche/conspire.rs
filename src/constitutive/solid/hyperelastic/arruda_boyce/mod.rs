@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     constitutive::{
-        Constitutive, ConstitutiveError, Parameters,
+        Constitutive, ConstitutiveError,
         solid::{FIVE_THIRDS, Solid, TWO_THIRDS, elastic::Elastic, hyperelastic::Hyperelastic},
     },
     math::{
@@ -15,45 +15,29 @@ use crate::{
 
 #[doc = include_str!("doc.md")]
 #[derive(Debug)]
-pub struct ArrudaBoyce<P> {
-    parameters: P,
+pub struct ArrudaBoyce {
+    bulk_modulus: Scalar,
+    shear_modulus: Scalar,
+    number_of_links: Scalar,
 }
 
-impl<P> ArrudaBoyce<P>
-where
-    P: Parameters,
-{
+impl ArrudaBoyce {
     /// Returns the number of links.
     pub fn number_of_links(&self) -> &Scalar {
-        self.parameters.get(2)
+        &self.number_of_links
     }
 }
 
-impl<P> Constitutive<P> for ArrudaBoyce<P>
-where
-    P: Parameters,
-{
-    fn new(parameters: P) -> Self {
-        Self { parameters }
-    }
-}
-
-impl<P> Solid for ArrudaBoyce<P>
-where
-    P: Parameters,
-{
+impl Solid for ArrudaBoyce {
     fn bulk_modulus(&self) -> &Scalar {
-        self.parameters.get(0)
+        &self.bulk_modulus
     }
     fn shear_modulus(&self) -> &Scalar {
-        self.parameters.get(1)
+        &self.shear_modulus
     }
 }
 
-impl<P> Elastic for ArrudaBoyce<P>
-where
-    P: Parameters,
-{
+impl Elastic for ArrudaBoyce {
     #[doc = include_str!("cauchy_stress.md")]
     fn cauchy_stress(
         &self,
@@ -138,10 +122,7 @@ where
     }
 }
 
-impl<P> Hyperelastic for ArrudaBoyce<P>
-where
-    P: Parameters,
-{
+impl Hyperelastic for ArrudaBoyce {
     #[doc = include_str!("helmholtz_free_energy_density.md")]
     fn helmholtz_free_energy_density(
         &self,

@@ -3,7 +3,7 @@
 #[cfg(test)]
 pub mod test;
 
-// pub mod fluid;
+pub mod fluid;
 // pub mod hybrid;
 // pub mod multiphysics;
 pub mod solid;
@@ -14,10 +14,7 @@ use crate::{
     math::{Scalar, TestError},
     mechanics::{Deformation, DeformationError, DeformationGradient},
 };
-use std::{
-    fmt::{self, Debug, Display, Formatter},
-    ops::{Index, RangeFrom},
-};
+use std::fmt::{self, Debug, Display, Formatter};
 
 /// Required methods for constitutive models.
 pub trait Constitutive
