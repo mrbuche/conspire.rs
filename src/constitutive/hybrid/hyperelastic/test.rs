@@ -2,49 +2,85 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models {
     ($hybrid_type: ident) => {
         use crate::{
             constitutive::{
-                Constitutive,
                 hybrid::Hybrid,
                 solid::{
                     Solid,
                     elastic::Elastic,
                     hyperelastic::{
                         ArrudaBoyce, Fung, Gent, Hyperelastic, MooneyRivlin, NeoHookean,
-                        SaintVenantKirchhoff, Yeoh, test::*,
+                        SaintVenantKirchhoff, test::*,
                     },
                 },
             },
             math::{Rank2, Tensor},
-            mechanics::{CauchyTangentStiffness, DeformationGradient, Scalar},
+            mechanics::{CauchyTangentStiffness, DeformationGradient},
         };
         use_elastic_macros!();
         mod hybrid_0 {
             use super::*;
-            test_solve!($hybrid_type::construct(
-                ArrudaBoyce::<&[Scalar; 3]>::new(ARRUDABOYCEPARAMETERS),
-                Fung::<&[Scalar; 4]>::new(FUNGPARAMETERS)
+            test_constructed_solid_hyperelastic_constitutive_model!($hybrid_type::construct(
+                ArrudaBoyce {
+                    bulk_modulus: BULK_MODULUS,
+                    shear_modulus: SHEAR_MODULUS,
+                    number_of_links: NUMBER_OF_LINKS,
+                },
+                Fung {
+                    bulk_modulus: BULK_MODULUS,
+                    shear_modulus: SHEAR_MODULUS,
+                    exponent: EXPONENT,
+                    extra_modulus: EXTRA_MODULUS,
+                }
             ));
         }
         mod hybrid_1 {
             use super::*;
             test_constructed_solid_hyperelastic_constitutive_model!($hybrid_type::construct(
-                ArrudaBoyce::<&[Scalar; 3]>::new(ARRUDABOYCEPARAMETERS),
-                Fung::<&[Scalar; 4]>::new(FUNGPARAMETERS)
+                ArrudaBoyce {
+                    bulk_modulus: BULK_MODULUS,
+                    shear_modulus: SHEAR_MODULUS,
+                    number_of_links: NUMBER_OF_LINKS,
+                },
+                Fung {
+                    bulk_modulus: BULK_MODULUS,
+                    shear_modulus: SHEAR_MODULUS,
+                    exponent: EXPONENT,
+                    extra_modulus: EXTRA_MODULUS,
+                }
             ));
         }
         mod hybrid_2 {
             use super::*;
             test_constructed_solid_hyperelastic_constitutive_model!($hybrid_type::construct(
-                Gent::<&[Scalar; 3]>::new(GENTPARAMETERS),
-                MooneyRivlin::<&[Scalar; 3]>::new(MOONEYRIVLINPARAMETERS)
+                Gent {
+                    bulk_modulus: BULK_MODULUS,
+                    shear_modulus: SHEAR_MODULUS,
+                    extensibility: EXTENSIBILITY,
+                },
+                MooneyRivlin {
+                    bulk_modulus: BULK_MODULUS,
+                    shear_modulus: SHEAR_MODULUS,
+                    extra_modulus: EXTRA_MODULUS,
+                }
             ));
         }
         mod hybrid_nested_1 {
             use super::*;
             test_constructed_solid_hyperelastic_constitutive_model!($hybrid_type::construct(
-                NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS),
+                NeoHookean {
+                    bulk_modulus: BULK_MODULUS,
+                    shear_modulus: SHEAR_MODULUS,
+                },
                 $hybrid_type::construct(
-                    SaintVenantKirchhoff::<&[Scalar; 2]>::new(SAINTVENANTKIRCHHOFFPARAMETERS),
-                    Yeoh::<&[Scalar; 6]>::new(YEOHPARAMETERS)
+                    SaintVenantKirchhoff {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                    },
+                    Fung {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                        exponent: EXPONENT,
+                        extra_modulus: EXTRA_MODULUS,
+                    }
                 )
             ));
         }
@@ -52,14 +88,33 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models {
             use super::*;
             test_constructed_solid_hyperelastic_constitutive_model!($hybrid_type::construct(
                 $hybrid_type::construct(
-                    Gent::<&[Scalar; 3]>::new(GENTPARAMETERS),
-                    MooneyRivlin::<&[Scalar; 3]>::new(MOONEYRIVLINPARAMETERS)
+                    Gent {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                        extensibility: EXTENSIBILITY,
+                    },
+                    MooneyRivlin {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                        extra_modulus: EXTRA_MODULUS,
+                    }
                 ),
                 $hybrid_type::construct(
-                    NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS),
+                    NeoHookean {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                    },
                     $hybrid_type::construct(
-                        SaintVenantKirchhoff::<&[Scalar; 2]>::new(SAINTVENANTKIRCHHOFFPARAMETERS),
-                        Yeoh::<&[Scalar; 6]>::new(YEOHPARAMETERS)
+                        SaintVenantKirchhoff {
+                            bulk_modulus: BULK_MODULUS,
+                            shear_modulus: SHEAR_MODULUS,
+                        },
+                        Fung {
+                            bulk_modulus: BULK_MODULUS,
+                            shear_modulus: SHEAR_MODULUS,
+                            exponent: EXPONENT,
+                            extra_modulus: EXTRA_MODULUS,
+                        }
                     )
                 )
             ));
@@ -73,7 +128,6 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models_no_tangents {
     ($hybrid_type: ident) => {
         use crate::{
             constitutive::{
-                Constitutive,
                 hybrid::Hybrid,
                 solid::{
                     Solid,
@@ -82,21 +136,38 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models_no_tangents {
                 },
             },
             math::{Rank2, Tensor},
-            mechanics::{DeformationGradient, Scalar},
+            mechanics::DeformationGradient,
         };
         use_elastic_macros_no_tangents!();
         mod hybrid_1 {
             use super::*;
             test_solid_hyperelastic_constitutive_model_no_tangents!($hybrid_type::construct(
-                ArrudaBoyce::<&[Scalar; 3]>::new(ARRUDABOYCEPARAMETERS),
-                Fung::<&[Scalar; 4]>::new(FUNGPARAMETERS)
+                ArrudaBoyce {
+                    bulk_modulus: BULK_MODULUS,
+                    shear_modulus: SHEAR_MODULUS,
+                    number_of_links: NUMBER_OF_LINKS,
+                },
+                Fung {
+                    bulk_modulus: BULK_MODULUS,
+                    shear_modulus: SHEAR_MODULUS,
+                    exponent: EXPONENT,
+                    extra_modulus: EXTRA_MODULUS,
+                }
             ));
         }
         mod hybrid_2 {
             use super::*;
             test_solid_hyperelastic_constitutive_model_no_tangents!($hybrid_type::construct(
-                Gent::<&[Scalar; 3]>::new(GENTPARAMETERS),
-                MooneyRivlin::<&[Scalar; 3]>::new(MOONEYRIVLINPARAMETERS)
+                Gent {
+                    bulk_modulus: BULK_MODULUS,
+                    shear_modulus: SHEAR_MODULUS,
+                    extensibility: EXTENSIBILITY,
+                },
+                MooneyRivlin {
+                    bulk_modulus: BULK_MODULUS,
+                    shear_modulus: SHEAR_MODULUS,
+                    extra_modulus: EXTRA_MODULUS,
+                }
             ));
         }
         crate::constitutive::hybrid::hyperelastic::test::test_panics!($hybrid_type);
@@ -107,8 +178,17 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models_no_tangents {
             #[should_panic]
             fn cauchy_tangent_stiffness() {
                 $hybrid_type::construct(
-                    ArrudaBoyce::<&[Scalar; 3]>::new(ARRUDABOYCEPARAMETERS),
-                    Fung::<&[Scalar; 4]>::new(FUNGPARAMETERS),
+                    ArrudaBoyce {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                        number_of_links: NUMBER_OF_LINKS,
+                    },
+                    Fung {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                        exponent: EXPONENT,
+                        extra_modulus: EXTRA_MODULUS,
+                    },
                 )
                 .cauchy_tangent_stiffness(&get_deformation_gradient())
                 .unwrap();
@@ -117,8 +197,17 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models_no_tangents {
             #[should_panic]
             fn first_piola_kirchhoff_tangent_stiffness() {
                 $hybrid_type::construct(
-                    ArrudaBoyce::<&[Scalar; 3]>::new(ARRUDABOYCEPARAMETERS),
-                    Fung::<&[Scalar; 4]>::new(FUNGPARAMETERS),
+                    ArrudaBoyce {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                        number_of_links: NUMBER_OF_LINKS,
+                    },
+                    Fung {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                        exponent: EXPONENT,
+                        extra_modulus: EXTRA_MODULUS,
+                    },
                 )
                 .cauchy_tangent_stiffness(&get_deformation_gradient())
                 .unwrap();
@@ -127,8 +216,17 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models_no_tangents {
             #[should_panic]
             fn second_piola_kirchhoff_tangent_stiffness() {
                 $hybrid_type::construct(
-                    ArrudaBoyce::<&[Scalar; 3]>::new(ARRUDABOYCEPARAMETERS),
-                    Fung::<&[Scalar; 4]>::new(FUNGPARAMETERS),
+                    ArrudaBoyce {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                        number_of_links: NUMBER_OF_LINKS,
+                    },
+                    Fung {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                        exponent: EXPONENT,
+                        extra_modulus: EXTRA_MODULUS,
+                    },
                 )
                 .cauchy_tangent_stiffness(&get_deformation_gradient())
                 .unwrap();
@@ -146,8 +244,17 @@ macro_rules! test_panics {
             #[should_panic]
             fn bulk_modulus() {
                 $hybrid_type::construct(
-                    ArrudaBoyce::<&[Scalar; 3]>::new(ARRUDABOYCEPARAMETERS),
-                    Fung::<&[Scalar; 4]>::new(FUNGPARAMETERS),
+                    ArrudaBoyce {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                        number_of_links: NUMBER_OF_LINKS,
+                    },
+                    Fung {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                        exponent: EXPONENT,
+                        extra_modulus: EXTRA_MODULUS,
+                    },
                 )
                 .bulk_modulus();
             }
@@ -155,8 +262,17 @@ macro_rules! test_panics {
             #[should_panic]
             fn shear_modulus() {
                 $hybrid_type::construct(
-                    ArrudaBoyce::<&[Scalar; 3]>::new(ARRUDABOYCEPARAMETERS),
-                    Fung::<&[Scalar; 4]>::new(FUNGPARAMETERS),
+                    ArrudaBoyce {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                        number_of_links: NUMBER_OF_LINKS,
+                    },
+                    Fung {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                        exponent: EXPONENT,
+                        extra_modulus: EXTRA_MODULUS,
+                    },
                 )
                 .shear_modulus();
             }

@@ -4,7 +4,7 @@ use super::*;
 test_solid_hyperelastic_constitutive_model!(Gent {
     bulk_modulus: BULK_MODULUS,
     shear_modulus: SHEAR_MODULUS,
-    extensibility: 23.0,
+    extensibility: EXTENSIBILITY,
 });
 
 mod maximum_extensibility {

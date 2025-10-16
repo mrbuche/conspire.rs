@@ -4,6 +4,11 @@ pub use crate::{
     mechanics::Scalar,
 };
 
+pub const EXPONENT: Scalar = 1.1;
+pub const EXTENSIBILITY: Scalar = 23.0;
+pub const EXTRA_MODULUS: Scalar = 1.2;
+pub const NUMBER_OF_LINKS: Scalar = 8.0;
+
 macro_rules! helmholtz_free_energy_density_from_deformation_gradient_simple {
     ($constitutive_model: expr, $deformation_gradient: expr) => {
         $constitutive_model.helmholtz_free_energy_density($deformation_gradient)
