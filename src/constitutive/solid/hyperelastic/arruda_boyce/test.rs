@@ -4,7 +4,7 @@ use super::*;
 test_solid_hyperelastic_constitutive_model!(ArrudaBoyce {
     bulk_modulus: BULK_MODULUS,
     shear_modulus: SHEAR_MODULUS,
-    number_of_links: 8.0,
+    number_of_links: NUMBER_OF_LINKS,
 });
 
 mod maximum_extensibility {

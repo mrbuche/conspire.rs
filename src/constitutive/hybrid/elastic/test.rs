@@ -2,31 +2,45 @@ macro_rules! test_hybrid_elastic_constitutive_models {
     ($hybrid_type: ident) => {
         use crate::{
             constitutive::{
-                Constitutive,
                 hybrid::Hybrid,
                 solid::{
                     Solid,
                     elastic::{AlmansiHamel, Elastic, test::*},
-                    hyperelastic::{NeoHookean, test::NEOHOOKEANPARAMETERS},
+                    hyperelastic::NeoHookean,
                 },
             },
             math::Rank2,
-            mechanics::{CauchyTangentStiffness, DeformationGradient, Scalar},
+            mechanics::{CauchyTangentStiffness, DeformationGradient},
         };
         mod hybrid_1 {
             use super::*;
             test_constructed_solid_constitutive_model!($hybrid_type::construct(
-                AlmansiHamel::<&[Scalar; 2]>::new(ALMANSIHAMELPARAMETERS),
-                NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS)
+                AlmansiHamel {
+                    bulk_modulus: BULK_MODULUS,
+                    shear_modulus: SHEAR_MODULUS,
+                },
+                NeoHookean {
+                    bulk_modulus: BULK_MODULUS,
+                    shear_modulus: SHEAR_MODULUS,
+                },
             ));
         }
         mod hybrid_nested_1 {
             use super::*;
             test_constructed_solid_constitutive_model!($hybrid_type::construct(
-                AlmansiHamel::<&[Scalar; 2]>::new(ALMANSIHAMELPARAMETERS),
+                AlmansiHamel {
+                    bulk_modulus: BULK_MODULUS,
+                    shear_modulus: SHEAR_MODULUS,
+                },
                 $hybrid_type::construct(
-                    AlmansiHamel::<&[Scalar; 2]>::new(ALMANSIHAMELPARAMETERS),
-                    NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS)
+                    AlmansiHamel {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                    },
+                    NeoHookean {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                    }
                 )
             ));
         }
@@ -34,14 +48,29 @@ macro_rules! test_hybrid_elastic_constitutive_models {
             use super::*;
             test_constructed_solid_constitutive_model!($hybrid_type::construct(
                 $hybrid_type::construct(
-                    NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS),
-                    AlmansiHamel::<&[Scalar; 2]>::new(ALMANSIHAMELPARAMETERS)
+                    NeoHookean {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                    },
+                    AlmansiHamel {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                    }
                 ),
                 $hybrid_type::construct(
-                    NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS),
+                    NeoHookean {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                    },
                     $hybrid_type::construct(
-                        AlmansiHamel::<&[Scalar; 2]>::new(ALMANSIHAMELPARAMETERS),
-                        NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS)
+                        AlmansiHamel {
+                            bulk_modulus: BULK_MODULUS,
+                            shear_modulus: SHEAR_MODULUS,
+                        },
+                        NeoHookean {
+                            bulk_modulus: BULK_MODULUS,
+                            shear_modulus: SHEAR_MODULUS,
+                        }
                     )
                 )
             ));
@@ -55,22 +84,27 @@ macro_rules! test_hybrid_elastic_constitutive_models_no_tangents {
     ($hybrid_type: ident) => {
         use crate::{
             constitutive::{
-                Constitutive,
                 hybrid::Hybrid,
                 solid::{
                     Solid,
                     elastic::{AlmansiHamel, Elastic, test::*},
-                    hyperelastic::{NeoHookean, test::NEOHOOKEANPARAMETERS},
+                    hyperelastic::NeoHookean,
                 },
             },
             math::Rank2,
-            mechanics::{DeformationGradient, Scalar},
+            mechanics::DeformationGradient,
         };
         mod hybrid_1 {
             use super::*;
             test_solid_constitutive_model_no_tangents!($hybrid_type::construct(
-                AlmansiHamel::<&[Scalar; 2]>::new(ALMANSIHAMELPARAMETERS),
-                NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS)
+                AlmansiHamel {
+                    bulk_modulus: BULK_MODULUS,
+                    shear_modulus: SHEAR_MODULUS,
+                },
+                NeoHookean {
+                    bulk_modulus: BULK_MODULUS,
+                    shear_modulus: SHEAR_MODULUS,
+                }
             ));
         }
         crate::constitutive::hybrid::elastic::test::test_panics!($hybrid_type);
@@ -81,8 +115,14 @@ macro_rules! test_hybrid_elastic_constitutive_models_no_tangents {
             #[should_panic]
             fn cauchy_tangent_stiffness() {
                 $hybrid_type::construct(
-                    AlmansiHamel::<&[Scalar; 2]>::new(ALMANSIHAMELPARAMETERS),
-                    NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS),
+                    AlmansiHamel {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                    },
+                    NeoHookean {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                    },
                 )
                 .cauchy_tangent_stiffness(&get_deformation_gradient())
                 .unwrap();
@@ -91,8 +131,14 @@ macro_rules! test_hybrid_elastic_constitutive_models_no_tangents {
             #[should_panic]
             fn first_piola_kirchhoff_tangent_stiffness() {
                 $hybrid_type::construct(
-                    AlmansiHamel::<&[Scalar; 2]>::new(ALMANSIHAMELPARAMETERS),
-                    NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS),
+                    AlmansiHamel {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                    },
+                    NeoHookean {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                    },
                 )
                 .cauchy_tangent_stiffness(&get_deformation_gradient())
                 .unwrap();
@@ -101,8 +147,14 @@ macro_rules! test_hybrid_elastic_constitutive_models_no_tangents {
             #[should_panic]
             fn second_piola_kirchhoff_tangent_stiffness() {
                 $hybrid_type::construct(
-                    AlmansiHamel::<&[Scalar; 2]>::new(ALMANSIHAMELPARAMETERS),
-                    NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS),
+                    AlmansiHamel {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                    },
+                    NeoHookean {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                    },
                 )
                 .cauchy_tangent_stiffness(&get_deformation_gradient())
                 .unwrap();
@@ -120,8 +172,14 @@ macro_rules! test_panics {
             #[should_panic]
             fn bulk_modulus() {
                 $hybrid_type::construct(
-                    AlmansiHamel::<&[Scalar; 2]>::new(ALMANSIHAMELPARAMETERS),
-                    NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS),
+                    AlmansiHamel {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                    },
+                    NeoHookean {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                    },
                 )
                 .bulk_modulus();
             }
@@ -129,8 +187,14 @@ macro_rules! test_panics {
             #[should_panic]
             fn shear_modulus() {
                 $hybrid_type::construct(
-                    AlmansiHamel::<&[Scalar; 2]>::new(ALMANSIHAMELPARAMETERS),
-                    NeoHookean::<&[Scalar; 2]>::new(NEOHOOKEANPARAMETERS),
+                    AlmansiHamel {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                    },
+                    NeoHookean {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                    },
                 )
                 .shear_modulus();
             }
