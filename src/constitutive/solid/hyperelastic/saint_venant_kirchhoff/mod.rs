@@ -16,8 +16,10 @@ use crate::{
 #[doc = include_str!("doc.md")]
 #[derive(Debug)]
 pub struct SaintVenantKirchhoff {
-    bulk_modulus: Scalar,
-    shear_modulus: Scalar,
+    /// The bulk modulus $`\kappa`$.
+    pub bulk_modulus: Scalar,
+    /// The shear modulus $`\mu`$.
+    pub shear_modulus: Scalar,
 }
 
 impl Solid for SaintVenantKirchhoff {

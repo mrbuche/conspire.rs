@@ -13,9 +13,12 @@ use crate::{
 #[doc = include_str!("doc.md")]
 #[derive(Debug)]
 pub struct Gent {
-    bulk_modulus: Scalar,
-    shear_modulus: Scalar,
-    extensibility: Scalar,
+    /// The bulk modulus $`\kappa`$.
+    pub bulk_modulus: Scalar,
+    /// The shear modulus $`\mu`$.
+    pub shear_modulus: Scalar,
+    /// The extensibility $`J_m`$.
+    pub extensibility: Scalar,
 }
 
 impl Gent {

@@ -5,7 +5,7 @@ pub mod test;
 
 mod fourier;
 
-use super::{Constitutive, HeatFlux, Parameters, Scalar, TemperatureGradient, Thermal};
+use super::{HeatFlux, Scalar, TemperatureGradient, Thermal};
 
 pub use fourier::Fourier;
 

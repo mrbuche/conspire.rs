@@ -1,9 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use super::{
-    Constitutive, HeatFlux, Parameters, Scalar, TemperatureGradient, Thermal, ThermalConduction,
-};
+use super::{HeatFlux, Scalar, TemperatureGradient, Thermal, ThermalConduction};
 
 /// The Fourier thermal conduction constitutive model.
 ///
@@ -16,33 +14,20 @@ use super::{
 /// **Internal variables**
 /// - None.
 #[derive(Debug)]
-pub struct Fourier<P> {
-    parameters: P,
+pub struct Fourier {
+    /// The thermal conductivity $`k`$.
+    pub thermal_conductivity: Scalar,
 }
 
-impl<P> Fourier<P>
-where
-    P: Parameters,
-{
+impl Fourier {
     fn thermal_conductivity(&self) -> &Scalar {
-        self.parameters.get(0)
+        &self.thermal_conductivity
     }
 }
 
-impl<P> Constitutive<P> for Fourier<P>
-where
-    P: Parameters,
-{
-    fn new(parameters: P) -> Self {
-        Self { parameters }
-    }
-}
-impl<P> Thermal for Fourier<P> where P: Parameters {}
+impl Thermal for Fourier {}
 
-impl<P> ThermalConduction for Fourier<P>
-where
-    P: Parameters,
-{
+impl ThermalConduction for Fourier {
     /// Calculates and returns the heat flux.
     ///
     /// ```math

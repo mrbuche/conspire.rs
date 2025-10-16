@@ -1,10 +1,6 @@
-use crate::{constitutive::solid::thermoelastic::test::ALMANSIHAMELPARAMETERS, mechanics::Scalar};
-pub const SAINTVENANTKIRCHHOFFPARAMETERS: &[Scalar; 4] = &[
-    ALMANSIHAMELPARAMETERS[0],
-    ALMANSIHAMELPARAMETERS[1],
-    ALMANSIHAMELPARAMETERS[2],
-    ALMANSIHAMELPARAMETERS[3],
-];
+pub use crate::constitutive::solid::thermoelastic::test::{
+    BULK_MODULUS, COEFFICIENT_OF_THERMAL_EXPANSION, REFERENCE_TEMPERATURE, SHEAR_MODULUS,
+};
 
 macro_rules! helmholtz_free_energy_density_from_deformation_gradient_simple {
     ($constitutive_model_constructed: expr, $deformation_gradient: expr) => {
@@ -38,16 +34,12 @@ macro_rules! use_thermoelastic_macros {
 pub(crate) use use_thermoelastic_macros;
 
 macro_rules! test_solid_thermohyperelastic_constitutive_model {
-    ($constitutive_model: ident, $constitutive_model_parameters: expr, $constitutive_model_constructed: expr) => {
-        crate::constitutive::solid::hyperelastic::test::test_solid_hyperelastic_constitutive_model!(
-            $constitutive_model,
-            $constitutive_model_parameters,
-            $constitutive_model_constructed
+    ($constitutive_model: expr) => {
+        crate::constitutive::solid::hyperelastic::test::test_solid_hyperelastic_constitutive_model_no_minimize!(
+            $constitutive_model
         );
         crate::constitutive::solid::thermoelastic::test::test_solid_thermal_constitutive_model!(
-            $constitutive_model,
-            $constitutive_model_parameters,
-            $constitutive_model_constructed
+            $constitutive_model
         );
     };
 }

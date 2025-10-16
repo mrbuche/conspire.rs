@@ -49,15 +49,29 @@ macro_rules! use_elastic_macros_no_tangents {
 }
 pub(crate) use use_elastic_macros_no_tangents;
 
+macro_rules! test_solid_hyperelastic_constitutive_model_no_minimize
+{
+    ($constitutive_model: expr) =>
+    {
+        crate::constitutive::solid::elastic::test::test_solid_constitutive!(
+            $constitutive_model
+        );
+        crate::constitutive::solid::hyperelastic::test::test_constructed_solid_hyperelastic_constitutive_model!(
+            $constitutive_model
+        );
+    }
+}
+pub(crate) use test_solid_hyperelastic_constitutive_model_no_minimize;
+
 macro_rules! test_solid_hyperelastic_constitutive_model
 {
     ($constitutive_model: expr) =>
     {
         use_elastic_macros!();
-        crate::constitutive::solid::elastic::test::test_solid_constitutive!(
+        crate::constitutive::solid::hyperelastic::test::test_solid_hyperelastic_constitutive_model_no_minimize!(
             $constitutive_model
         );
-        crate::constitutive::solid::hyperelastic::test::test_constructed_solid_hyperelastic_constitutive_model!(
+        crate::constitutive::solid::hyperelastic::test::test_minimize_and_root!(
             $constitutive_model
         );
     }
@@ -72,9 +86,6 @@ macro_rules! test_constructed_solid_hyperelastic_constitutive_model
             $constitutive_model
         );
         crate::constitutive::solid::hyperelastic::test::test_solid_hyperelastic_constitutive_model_tangents!(
-            $constitutive_model
-        );
-        crate::constitutive::solid::hyperelastic::test::test_minimize_and_root!(
             $constitutive_model
         );
     }
