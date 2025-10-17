@@ -13,20 +13,16 @@ const N: usize = 10;
 const P: usize = 12;
 const Q: usize = 4;
 
-pub type Tetrahedron<C> = Element<C, G, N>;
+pub type Tetrahedron<'a, C> = Element<'a, C, G, N>;
 
-impl<C, Y> FiniteElement<C, G, N, Y> for Tetrahedron<C>
-where
-    C: Constitutive<Y>,
-    Y: Parameters,
-{
+impl<'a, C> FiniteElement<'a, C, G, N> for Tetrahedron<'a, C> {
     fn new(
-        constitutive_model_parameters: Y,
+        constitutive_model: &'a C,
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
     ) -> Self {
         let (gradient_vectors, integration_weights) = Self::initialize(reference_nodal_coordinates);
         Self {
-            constitutive_models: from_fn(|_| <C>::new(constitutive_model_parameters)),
+            constitutive_model,
             gradient_vectors,
             integration_weights,
         }
@@ -52,7 +48,7 @@ where
     }
 }
 
-impl<C> Tetrahedron<C> {
+impl<'a, C> Tetrahedron<'a, C> {
     fn initialize(
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
     ) -> (GradientVectors<G, N>, Scalars<G>) {

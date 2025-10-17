@@ -1,14 +1,11 @@
 #![cfg(feature = "fem")]
 
 use conspire::{
-    constitutive::{
-        Constitutive,
-        solid::{
-            elastic::AppliedLoad as AppliedDeformation,
-            elastic_hyperviscous::{AlmansiHamel, SecondOrderMinimize as _},
-            hyperelastic::{NeoHookean, SecondOrderMinimize as _},
-            viscoelastic::AppliedLoad as AppliedDeformationRate,
-        },
+    constitutive::solid::{
+        elastic::AppliedLoad as AppliedDeformation,
+        elastic_hyperviscous::{AlmansiHamel, SecondOrderMinimize as _},
+        hyperelastic::{NeoHookean, SecondOrderMinimize as _},
+        viscoelastic::AppliedLoad as AppliedDeformationRate,
     },
     fem::{
         Connectivity, ElasticHyperviscousFiniteElementBlock, ElementBlock, FiniteElementBlock,
@@ -7375,12 +7372,11 @@ fn temporary_hyperelastic() -> Result<(), TestError> {
         .flatten()
         .for_each(|entry| *entry -= 1);
     let num_nodes = ref_coordinates.len();
-    let parameters = &[13.0, 3.0];
-    let block = ElementBlock::<LinearTetrahedron<NeoHookean<_>>, N>::new(
-        parameters,
-        connectivity,
-        coordinates(),
-    );
+    let model = NeoHookean {
+        bulk_modulus: 13.0,
+        shear_modulus: 3.0,
+    };
+    let block = ElementBlock::<LinearTetrahedron<_>, N>::new(&model, connectivity, coordinates());
     let length = ref_coordinates
         .iter()
         .filter(|coordinate| coordinate[0].abs() == 0.5)
@@ -7419,7 +7415,7 @@ fn temporary_hyperelastic() -> Result<(), TestError> {
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
     println!("Verifying...");
-    let deformation_gradient = NeoHookean::new(parameters).minimize(
+    let deformation_gradient = model.minimize(
         AppliedDeformation::UniaxialStress(strain + 1.0),
         NewtonRaphson::default(),
     )?;
@@ -7449,12 +7445,13 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
         .flatten()
         .for_each(|entry| *entry -= 1);
     let num_nodes = ref_coordinates.len();
-    let parameters = &[13.0, 3.0, 11.0, 1.0];
-    let block = ElementBlock::<LinearTetrahedron<AlmansiHamel<_>>, N>::new(
-        parameters,
-        connectivity,
-        coordinates(),
-    );
+    let model = AlmansiHamel {
+        bulk_modulus: 13.0,
+        shear_modulus: 3.0,
+        bulk_viscosity: 11.0,
+        shear_viscosity: 1.0,
+    };
+    let block = ElementBlock::<LinearTetrahedron<_>, N>::new(&model, connectivity, coordinates());
     let length = ref_coordinates
         .iter()
         .filter(|coordinate| coordinate[0].abs() == 0.5)
@@ -7499,12 +7496,11 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
     println!("Verifying...");
-    let (_, deformation_gradients, deformation_gradient_rates) = AlmansiHamel::new(parameters)
-        .minimize(
-            AppliedDeformationRate::UniaxialStress(|_| 2.3, times.as_slice()),
-            DormandPrince::default(),
-            NewtonRaphson::default(),
-        )?;
+    let (_, deformation_gradients, deformation_gradient_rates) = model.minimize(
+        AppliedDeformationRate::UniaxialStress(|_| 2.3, times.as_slice()),
+        DormandPrince::default(),
+        NewtonRaphson::default(),
+    )?;
     coordinates_history
         .iter()
         .zip(

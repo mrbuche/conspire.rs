@@ -22,7 +22,6 @@ use crate::{
     mechanics::Times,
 };
 use std::{
-    array::from_fn,
     fmt::{self, Debug, Display, Formatter},
     iter::repeat_n,
 };
@@ -68,28 +67,24 @@ where
     ) -> NodalCoordinates<N>;
 }
 
-pub trait FiniteElementBlock<C, F, const G: usize, const N: usize, Y>
+pub trait FiniteElementBlock<'a, C, F, const G: usize, const N: usize>
 where
-    C: Constitutive<Y>,
-    F: FiniteElement<C, G, N, Y>,
-    Y: Parameters,
+    F: FiniteElement<'a, C, G, N>,
 {
     fn new(
-        constitutive_model_parameters: Y,
+        constitutive_model: &'a C,
         connectivity: Connectivity<N>,
         reference_nodal_coordinates: ReferenceNodalCoordinatesBlock,
     ) -> Self;
     fn reset(&mut self);
 }
 
-pub trait SurfaceFiniteElementBlock<C, F, const G: usize, const N: usize, const P: usize, Y>
+pub trait SurfaceFiniteElementBlock<'a, C, F, const G: usize, const N: usize, const P: usize>
 where
-    C: Constitutive<Y>,
-    F: SurfaceFiniteElement<C, G, N, P, Y>,
-    Y: Parameters,
+    F: SurfaceFiniteElement<'a, C, G, N, P>,
 {
     fn new(
-        constitutive_model_parameters: Y,
+        constitutive_model: &'a C,
         connectivity: Connectivity<N>,
         reference_nodal_coordinates: ReferenceNodalCoordinatesBlock,
         thickness: Scalar,
@@ -189,15 +184,13 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize, Y> FiniteElementBlock<C, F, G, N, Y>
+impl<'a, C, F, const G: usize, const N: usize> FiniteElementBlock<'a, C, F, G, N>
     for ElementBlock<F, N>
 where
-    C: Constitutive<Y>,
-    F: FiniteElement<C, G, N, Y>,
-    Y: Parameters,
+    F: FiniteElement<'a, C, G, N>,
 {
     fn new(
-        constitutive_model_parameters: Y,
+        constitutive_model: &'a C,
         connectivity: Connectivity<N>,
         coordinates: ReferenceNodalCoordinatesBlock,
     ) -> Self {
@@ -205,7 +198,7 @@ where
             .iter()
             .map(|element_connectivity| {
                 <F>::new(
-                    constitutive_model_parameters,
+                    constitutive_model,
                     element_connectivity
                         .iter()
                         .map(|&node| coordinates[node].clone())
@@ -224,15 +217,13 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize, const P: usize, Y>
-    SurfaceFiniteElementBlock<C, F, G, N, P, Y> for ElementBlock<F, N>
+impl<'a, C, F, const G: usize, const N: usize, const P: usize>
+    SurfaceFiniteElementBlock<'a, C, F, G, N, P> for ElementBlock<F, N>
 where
-    C: Constitutive<Y>,
-    F: SurfaceFiniteElement<C, G, N, P, Y>,
-    Y: Parameters,
+    F: SurfaceFiniteElement<'a, C, G, N, P>,
 {
     fn new(
-        constitutive_model_parameters: Y,
+        constitutive_model: &'a C,
         connectivity: Connectivity<N>,
         coordinates: ReferenceNodalCoordinatesBlock,
         thickness: Scalar,
@@ -241,7 +232,7 @@ where
             .iter()
             .map(|element_connectivity| {
                 <F>::new(
-                    constitutive_model_parameters,
+                    constitutive_model,
                     element_connectivity
                         .iter()
                         .map(|node| coordinates[*node].clone())

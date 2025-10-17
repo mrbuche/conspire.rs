@@ -3,11 +3,9 @@ mod test;
 
 use super::*;
 use crate::{
-    constitutive::{Constitutive, Parameters},
     math::{IDENTITY, tensor_rank_1, tensor_rank_1_list, tensor_rank_1_list_2d},
     mechanics::Scalar,
 };
-use std::array::from_fn;
 
 const G: usize = 1;
 const M: usize = 2;
@@ -17,15 +15,11 @@ const P: usize = G;
 #[cfg(test)]
 const Q: usize = N;
 
-pub type Triangle<C> = SurfaceElement<C, G, N, P>;
+pub type Triangle<'a, C> = SurfaceElement<'a, C, G, N, P>;
 
-impl<C, Y> SurfaceFiniteElement<C, G, N, P, Y> for Triangle<C>
-where
-    C: Constitutive<Y>,
-    Y: Parameters,
-{
+impl<'a, C> SurfaceFiniteElement<'a, C, G, N, P> for Triangle<'a, C> {
     fn new(
-        constitutive_model_parameters: Y,
+        constitutive_model: &'a C,
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
         thickness: &Scalar,
     ) -> Self {
@@ -65,7 +59,7 @@ where
             })
             .collect();
         Self {
-            constitutive_models: from_fn(|_| <C>::new(constitutive_model_parameters)),
+            constitutive_model,
             gradient_vectors,
             integration_weights,
             reference_normals,
@@ -73,7 +67,7 @@ where
     }
 }
 
-impl<C> Triangle<C> {
+impl<'a, C> Triangle<'a, C> {
     const fn integration_weight() -> Scalar {
         1.0 / 2.0
     }
@@ -90,15 +84,15 @@ impl<C> Triangle<C> {
     }
 }
 
-impl<C> SurfaceFiniteElementMethodsExtra<M, N, P> for Triangle<C> {
+impl<'a, C> SurfaceFiniteElementMethodsExtra<M, N, P> for Triangle<'a, C> {
     fn standard_gradient_operators() -> StandardGradientOperators<M, N, P> {
         Self::standard_gradient_operators()
     }
 }
 
-impl<C> FiniteElementMethods<C, G, N> for Triangle<C> {
-    fn constitutive_models(&self) -> &[C; G] {
-        &self.constitutive_models
+impl<'a, C> FiniteElementMethods<C, G, N> for Triangle<'a, C> {
+    fn constitutive_models(&self) -> [&C; G] {
+        std::array::from_fn(|_| self.constitutive_model)
     }
     fn deformation_gradients(
         &self,
@@ -155,7 +149,7 @@ impl<C> FiniteElementMethods<C, G, N> for Triangle<C> {
     }
 }
 
-impl<C> ElasticFiniteElement<C, G, N> for Triangle<C>
+impl<'a, C> ElasticFiniteElement<C, G, N> for Triangle<'a, C>
 where
     C: Elastic,
 {
@@ -268,7 +262,7 @@ where
     }
 }
 
-impl<C> HyperelasticFiniteElement<C, G, N> for Triangle<C>
+impl<'a, C> HyperelasticFiniteElement<C, G, N> for Triangle<'a, C>
 where
     C: Hyperelastic,
 {
@@ -303,7 +297,7 @@ where
     }
 }
 
-impl<C> ViscoelasticFiniteElement<C, G, N> for Triangle<C>
+impl<'a, C> ViscoelasticFiniteElement<C, G, N> for Triangle<'a, C>
 where
     C: Viscoelastic,
 {
@@ -428,7 +422,7 @@ where
     }
 }
 
-impl<C> ElasticHyperviscousFiniteElement<C, G, N> for Triangle<C>
+impl<'a, C> ElasticHyperviscousFiniteElement<C, G, N> for Triangle<'a, C>
 where
     C: ElasticHyperviscous,
 {
@@ -507,7 +501,7 @@ where
     }
 }
 
-impl<C> HyperviscoelasticFiniteElement<C, G, N> for Triangle<C>
+impl<'a, C> HyperviscoelasticFiniteElement<C, G, N> for Triangle<'a, C>
 where
     C: Hyperviscoelastic,
 {

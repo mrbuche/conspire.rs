@@ -22,7 +22,7 @@ pub use block::{
 
 use crate::{
     constitutive::{
-        Constitutive, ConstitutiveError, Parameters,
+        ConstitutiveError,
         solid::{
             elastic::Elastic, elastic_hyperviscous::ElasticHyperviscous,
             hyperelastic::Hyperelastic, hyperviscoelastic::Hyperviscoelastic,
