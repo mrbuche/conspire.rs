@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     constitutive::{
-        Constitutive, ConstitutiveError, Parameters,
+        Constitutive, ConstitutiveError,
         solid::{FIVE_THIRDS, Solid, TWO_THIRDS, elastic::Elastic, hyperelastic::Hyperelastic},
     },
     math::{IDENTITY, Rank2},
@@ -12,49 +12,34 @@ use crate::{
 
 #[doc = include_str!("doc.md")]
 #[derive(Debug)]
-pub struct Fung<P> {
-    parameters: P,
+pub struct Fung {
+    bulk_modulus: Scalar,
+    shear_modulus: Scalar,
+    extra_modulus: Scalar,
+    exponent: Scalar,
 }
 
-impl<P> Fung<P>
-where
-    P: Parameters,
-{
+impl Fung {
     /// Returns the extra modulus.
     pub fn extra_modulus(&self) -> &Scalar {
-        self.parameters.get(2)
+        &self.extra_modulus
     }
     /// Returns the exponent.
     pub fn exponent(&self) -> &Scalar {
-        self.parameters.get(3)
+        &self.exponent
     }
 }
 
-impl<P> Constitutive<P> for Fung<P>
-where
-    P: Parameters,
-{
-    fn new(parameters: P) -> Self {
-        Self { parameters }
-    }
-}
-
-impl<P> Solid for Fung<P>
-where
-    P: Parameters,
-{
+impl Solid for Fung {
     fn bulk_modulus(&self) -> &Scalar {
-        self.parameters.get(0)
+        &self.bulk_modulus
     }
     fn shear_modulus(&self) -> &Scalar {
-        self.parameters.get(1)
+        &self.shear_modulus
     }
 }
 
-impl<P> Elastic for Fung<P>
-where
-    P: Parameters,
-{
+impl Elastic for Fung {
     #[doc = include_str!("cauchy_stress.md")]
     fn cauchy_stress(
         &self,
@@ -116,10 +101,7 @@ where
     }
 }
 
-impl<P> Hyperelastic for Fung<P>
-where
-    P: Parameters,
-{
+impl Hyperelastic for Fung {
     #[doc = include_str!("helmholtz_free_energy_density.md")]
     fn helmholtz_free_energy_density(
         &self,

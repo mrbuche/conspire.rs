@@ -11,11 +11,11 @@ pub mod doc;
 pub mod test;
 
 mod almansi_hamel;
-// mod hencky;
-// mod saint_venant_kirchhoff;
+mod hencky;
+mod saint_venant_kirchhoff;
 
 pub use self::{
-    almansi_hamel::AlmansiHamel, //hencky::Hencky, saint_venant_kirchhoff::SaintVenantKirchhoff,
+    almansi_hamel::AlmansiHamel, hencky::Hencky, saint_venant_kirchhoff::SaintVenantKirchhoff,
 };
 
 use super::*;

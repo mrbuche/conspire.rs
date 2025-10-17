@@ -17,8 +17,6 @@ pub struct AlmansiHamel {
     shear_modulus: Scalar,
 }
 
-impl Constitutive for AlmansiHamel {}
-
 impl Solid for AlmansiHamel {
     fn bulk_modulus(&self) -> &Scalar {
         &self.bulk_modulus

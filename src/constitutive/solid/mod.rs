@@ -1,5 +1,5 @@
 //! Solid constitutive models.
-//! 
+
 pub mod elastic;
 pub mod elastic_hyperviscous;
 pub mod elastic_viscoplastic;
@@ -13,9 +13,8 @@ pub mod viscoelastic;
 const TWO_THIRDS: Scalar = 2.0 / 3.0;
 const FIVE_THIRDS: Scalar = 5.0 / 3.0;
 
-use super::Constitutive;
 use crate::{
-    constitutive::ConstitutiveError,
+    constitutive::{Constitutive, ConstitutiveError},
     math::{
         ContractFirstSecondIndicesWithSecondIndicesOf, ContractSecondIndexWithFirstIndexOf,
         IDENTITY, IDENTITY_00, Rank2, Tensor, TensorArray, ZERO_10,
@@ -29,6 +28,8 @@ use crate::{
     },
 };
 use std::fmt::Debug;
+
+impl<C> Constitutive for C where C: Solid {}
 
 /// Required methods for solid constitutive models.
 pub trait Solid
