@@ -277,13 +277,13 @@ use crate::math::test::{TestError, assert_eq_within_tols};
 
 #[test]
 fn normalized_projection_matrix() -> Result<(), TestError> {
-    Tetrahedron::<AlmansiHamel<&[Scalar; 2]>>::shape_function_integrals_products()
+    Tetrahedron::<AlmansiHamel>::shape_function_integrals_products()
         .iter()
         .map(|dummy| dummy * 1.0)
         .sum::<TensorRank2<Q, 9, 9>>()
         .iter()
         .zip(
-            Tetrahedron::<AlmansiHamel<&[Scalar; 2]>>::inverse_normalized_projection_matrix()
+            Tetrahedron::<AlmansiHamel>::inverse_normalized_projection_matrix()
                 .inverse()
                 .iter(),
         )
@@ -299,8 +299,8 @@ fn normalized_projection_matrix() -> Result<(), TestError> {
 #[test]
 fn standard_gradient_operators_transposed() -> Result<(), TestError> {
     let standard_gradient_operators_transposed =
-        Tetrahedron::<AlmansiHamel<&[Scalar; 2]>>::standard_gradient_operators_transposed();
-    Tetrahedron::<AlmansiHamel<&[Scalar; 2]>>::standard_gradient_operators()
+        Tetrahedron::<AlmansiHamel>::standard_gradient_operators_transposed();
+    Tetrahedron::<AlmansiHamel>::standard_gradient_operators()
         .iter()
         .enumerate()
         .try_for_each(|(i, standard_gradient_operators_i)| {

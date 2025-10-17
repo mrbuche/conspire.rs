@@ -6,7 +6,6 @@ pub mod linear;
 
 use super::*;
 use crate::{
-    constitutive::{Constitutive, Parameters},
     defeat_message,
     math::{IDENTITY, LEVI_CIVITA, tensor_rank_1_zero},
     mechanics::Scalar,
@@ -16,21 +15,21 @@ use std::{
     fmt::{Debug, Display},
 };
 
-pub struct Element<C, const G: usize, const N: usize> {
-    constitutive_models: [C; G],
+pub struct Element<'a, C, const G: usize, const N: usize> {
+    constitutive_model: &'a C,
     gradient_vectors: GradientVectors<G, N>,
     integration_weights: Scalars<G>,
 }
 
 #[derive(Debug)]
-pub struct SurfaceElement<C, const G: usize, const N: usize, const P: usize> {
-    constitutive_models: [C; G],
+pub struct SurfaceElement<'a, C, const G: usize, const N: usize, const P: usize> {
+    constitutive_model: &'a C,
     gradient_vectors: GradientVectors<G, N>,
     integration_weights: Scalars<G>,
     reference_normals: ReferenceNormals<P>,
 }
 
-impl<C, const G: usize, const N: usize> Debug for Element<C, G, N> {
+impl<'a, C, const G: usize, const N: usize> Debug for Element<'a, C, G, N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let element = match (G, N) {
             (1, 3) => "LinearTriangle",
@@ -53,35 +52,31 @@ impl<C, const G: usize, const N: usize> Debug for Element<C, G, N> {
     }
 }
 
-pub trait FiniteElement<C, const G: usize, const N: usize, Y>
+pub trait FiniteElement<'a, C, const G: usize, const N: usize>
 where
-    C: Constitutive<Y>,
     Self: FiniteElementMethods<C, G, N>,
-    Y: Parameters,
 {
     fn new(
-        constitutive_model_parameters: Y,
+        constitutive_model: &'a C,
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
     ) -> Self;
     fn reference() -> ReferenceNodalCoordinates<N>;
     fn reset(&mut self);
 }
 
-pub trait SurfaceFiniteElement<C, const G: usize, const N: usize, const P: usize, Y>
+pub trait SurfaceFiniteElement<'a, C, const G: usize, const N: usize, const P: usize>
 where
-    C: Constitutive<Y>,
     Self: FiniteElementMethods<C, G, N>,
-    Y: Parameters,
 {
     fn new(
-        constitutive_model_parameters: Y,
+        constitutive_model: &'a C,
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
         thickness: &Scalar,
     ) -> Self;
 }
 
 pub trait FiniteElementMethods<C, const G: usize, const N: usize> {
-    fn constitutive_models(&self) -> &[C; G];
+    fn constitutive_models(&self) -> [&C; G];
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
@@ -159,9 +154,9 @@ impl Display for FiniteElementError {
     }
 }
 
-impl<C, const G: usize, const N: usize> FiniteElementMethods<C, G, N> for Element<C, G, N> {
-    fn constitutive_models(&self) -> &[C; G] {
-        &self.constitutive_models
+impl<'a, C, const G: usize, const N: usize> FiniteElementMethods<C, G, N> for Element<'a, C, G, N> {
+    fn constitutive_models(&self) -> [&C; G] {
+        std::array::from_fn(|_| self.constitutive_model)
     }
     fn deformation_gradients(
         &self,
@@ -206,8 +201,8 @@ impl<C, const G: usize, const N: usize> FiniteElementMethods<C, G, N> for Elemen
     }
 }
 
-impl<C, const G: usize, const M: usize, const N: usize, const P: usize>
-    SurfaceFiniteElementMethods<G, M, N, P> for SurfaceElement<C, G, N, P>
+impl<'a, C, const G: usize, const M: usize, const N: usize, const P: usize>
+    SurfaceFiniteElementMethods<G, M, N, P> for SurfaceElement<'a, C, G, N, P>
 where
     Self: SurfaceFiniteElementMethodsExtra<M, N, P>,
 {
@@ -416,7 +411,7 @@ where
     ) -> Result<Scalar, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize> ElasticFiniteElement<C, G, N> for Element<C, G, N>
+impl<'a, C, const G: usize, const N: usize> ElasticFiniteElement<C, G, N> for Element<'a, C, G, N>
 where
     C: Elastic,
 {
@@ -512,7 +507,8 @@ where
     }
 }
 
-impl<C, const G: usize, const N: usize> HyperelasticFiniteElement<C, G, N> for Element<C, G, N>
+impl<'a, C, const G: usize, const N: usize> HyperelasticFiniteElement<C, G, N>
+    for Element<'a, C, G, N>
 where
     C: Hyperelastic,
 {
@@ -547,7 +543,8 @@ where
     }
 }
 
-impl<C, const G: usize, const N: usize> ViscoelasticFiniteElement<C, G, N> for Element<C, G, N>
+impl<'a, C, const G: usize, const N: usize> ViscoelasticFiniteElement<C, G, N>
+    for Element<'a, C, G, N>
 where
     C: Viscoelastic,
 {
@@ -667,8 +664,8 @@ where
     }
 }
 
-impl<C, const G: usize, const N: usize> ElasticHyperviscousFiniteElement<C, G, N>
-    for Element<C, G, N>
+impl<'a, C, const G: usize, const N: usize> ElasticHyperviscousFiniteElement<C, G, N>
+    for Element<'a, C, G, N>
 where
     C: ElasticHyperviscous,
 {
@@ -747,7 +744,8 @@ where
     }
 }
 
-impl<C, const G: usize, const N: usize> HyperviscoelasticFiniteElement<C, G, N> for Element<C, G, N>
+impl<'a, C, const G: usize, const N: usize> HyperviscoelasticFiniteElement<C, G, N>
+    for Element<'a, C, G, N>
 where
     C: Hyperviscoelastic,
 {

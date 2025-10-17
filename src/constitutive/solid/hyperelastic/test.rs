@@ -8,6 +8,8 @@ pub const EXPONENT: Scalar = 1.1;
 pub const EXTENSIBILITY: Scalar = 23.0;
 pub const EXTRA_MODULUS: Scalar = 1.2;
 pub const NUMBER_OF_LINKS: Scalar = 8.0;
+pub const NUM_YEOH_EXTRA_MODULI: usize = 4;
+pub const YEOH_EXTRA_MODULI: [Scalar; NUM_YEOH_EXTRA_MODULI] = [-1.0, 3e-1, -1e-3, 1e-5];
 
 macro_rules! helmholtz_free_energy_density_from_deformation_gradient_simple {
     ($constitutive_model: expr, $deformation_gradient: expr) => {
