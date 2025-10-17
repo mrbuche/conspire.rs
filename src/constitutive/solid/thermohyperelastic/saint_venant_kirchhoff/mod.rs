@@ -21,35 +21,27 @@ use super::*;
 /// **Notes**
 /// - The Green-Saint Venant strain measure is given by $`\mathbf{E}=\tfrac{1}{2}(\mathbf{C}-\mathbf{1})`$.
 #[derive(Debug)]
-pub struct SaintVenantKirchhoff<P> {
-    parameters: P,
+pub struct SaintVenantKirchhoff {
+    /// The bulk modulus $`\kappa`$.
+    pub bulk_modulus: Scalar,
+    /// The shear modulus $`\mu`$.
+    pub shear_modulus: Scalar,
+    /// The coefficient of thermal expansion $`\alpha`$.
+    pub coefficient_of_thermal_expansion: Scalar,
+    /// The reference temperature $`T_\mathrm{ref}`$.
+    pub reference_temperature: Scalar,
 }
 
-impl<P> Constitutive<P> for SaintVenantKirchhoff<P>
-where
-    P: Parameters,
-{
-    fn new(parameters: P) -> Self {
-        Self { parameters }
-    }
-}
-
-impl<P> Solid for SaintVenantKirchhoff<P>
-where
-    P: Parameters,
-{
+impl Solid for SaintVenantKirchhoff {
     fn bulk_modulus(&self) -> &Scalar {
-        self.parameters.get(0)
+        &self.bulk_modulus
     }
     fn shear_modulus(&self) -> &Scalar {
-        self.parameters.get(1)
+        &self.shear_modulus
     }
 }
 
-impl<P> Thermoelastic for SaintVenantKirchhoff<P>
-where
-    P: Parameters,
-{
+impl Thermoelastic for SaintVenantKirchhoff {
     /// Calculates and returns the second Piola-Kirchhoff stress.
     ///
     /// ```math
@@ -97,17 +89,14 @@ where
         ))
     }
     fn coefficient_of_thermal_expansion(&self) -> &Scalar {
-        self.parameters.get(2)
+        &self.coefficient_of_thermal_expansion
     }
     fn reference_temperature(&self) -> &Scalar {
-        self.parameters.get(3)
+        &self.reference_temperature
     }
 }
 
-impl<P> Thermohyperelastic for SaintVenantKirchhoff<P>
-where
-    P: Parameters,
-{
+impl Thermohyperelastic for SaintVenantKirchhoff {
     /// Calculates and returns the Helmholtz free energy density.
     ///
     /// ```math

@@ -16,9 +16,12 @@ const SEVEN_THIRDS: Scalar = 7.0 / 3.0;
 #[doc = include_str!("doc.md")]
 #[derive(Debug)]
 pub struct Yeoh<const N: usize> {
-    bulk_modulus: Scalar,
-    shear_modulus: Scalar,
-    extra_moduli: [Scalar; N],
+    /// The bulk modulus $`\kappa`$.
+    pub bulk_modulus: Scalar,
+    /// The shear modulus $`\mu`$.
+    pub shear_modulus: Scalar,
+    /// The extra moduli $`\mu_n`$ for $`n=2\ldots N`$.
+    pub extra_moduli: [Scalar; N],
 }
 
 impl<const N: usize> Yeoh<N> {

@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     constitutive::{
-        Constitutive, ConstitutiveError, Parameters,
+        Constitutive, ConstitutiveError,
         fluid::viscous::Viscous,
         solid::{
             Solid, TWO_THIRDS, elastic_hyperviscous::ElasticHyperviscous,
@@ -35,47 +35,36 @@ use crate::{
 /// **Notes**
 /// - The Almansi-Hamel strain measure is given by $`\mathbf{e}=\tfrac{1}{2}(\mathbf{1}-\mathbf{B}^{-1})`$.
 #[derive(Debug)]
-pub struct AlmansiHamel<P> {
-    parameters: P,
+pub struct AlmansiHamel {
+    /// The bulk modulus $`\kappa`$.
+    pub bulk_modulus: Scalar,
+    /// The shear modulus $`\mu`$.
+    pub shear_modulus: Scalar,
+    /// The bulk viscosity $`\zeta`$.
+    pub bulk_viscosity: Scalar,
+    /// The shear viscosity $`\eta`$.
+    pub shear_viscosity: Scalar,
 }
 
-impl<P> Constitutive<P> for AlmansiHamel<P>
-where
-    P: Parameters,
-{
-    fn new(parameters: P) -> Self {
-        Self { parameters }
-    }
-}
-
-impl<P> Solid for AlmansiHamel<P>
-where
-    P: Parameters,
-{
+impl Solid for AlmansiHamel {
     fn bulk_modulus(&self) -> &Scalar {
-        self.parameters.get(0)
+        &self.bulk_modulus
     }
     fn shear_modulus(&self) -> &Scalar {
-        self.parameters.get(1)
+        &self.shear_modulus
     }
 }
 
-impl<P> Viscous for AlmansiHamel<P>
-where
-    P: Parameters,
-{
+impl Viscous for AlmansiHamel {
     fn bulk_viscosity(&self) -> &Scalar {
-        self.parameters.get(2)
+        &self.bulk_viscosity
     }
     fn shear_viscosity(&self) -> &Scalar {
-        self.parameters.get(3)
+        &self.shear_viscosity
     }
 }
 
-impl<P> Viscoelastic for AlmansiHamel<P>
-where
-    P: Parameters,
-{
+impl Viscoelastic for AlmansiHamel {
     /// Calculates and returns the Cauchy stress.
     ///
     /// ```math
@@ -130,10 +119,7 @@ where
     }
 }
 
-impl<P> ElasticHyperviscous for AlmansiHamel<P>
-where
-    P: Parameters,
-{
+impl ElasticHyperviscous for AlmansiHamel {
     /// Calculates and returns the viscous dissipation.
     ///
     /// ```math

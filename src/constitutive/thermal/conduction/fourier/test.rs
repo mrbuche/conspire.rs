@@ -1,29 +1,22 @@
-use super::{
-    super::test::FOURIERPARAMETERS, Constitutive, Fourier, TemperatureGradient, ThermalConduction,
-};
+use super::{super::test::THERMAL_CONDUCTIVITY, Fourier, TemperatureGradient, ThermalConduction};
 use crate::{
-    math::{Tensor, TensorArray},
-    mechanics::{Scalar, test::get_temperature_gradient},
+    math::{Scalar, Tensor, TensorArray},
+    mechanics::test::get_temperature_gradient,
 };
-
-type FourierType<'a> = Fourier<&'a [Scalar; 1]>;
-
-fn get_constitutive_model<'a>() -> FourierType<'a> {
-    Fourier::new(FOURIERPARAMETERS)
-}
 
 #[test]
 fn size() {
     assert_eq!(
-        std::mem::size_of::<FourierType>(),
-        std::mem::size_of::<&[Scalar; 1]>()
+        std::mem::size_of::<Fourier>(),
+        std::mem::size_of::<Scalar>()
     )
 }
 
 #[test]
 fn thermal_conductivity() {
-    let model = get_constitutive_model();
-    assert_eq!(&FOURIERPARAMETERS[0], model.thermal_conductivity());
+    let model = Fourier {
+        thermal_conductivity: THERMAL_CONDUCTIVITY,
+    };
     model
         .heat_flux(&get_temperature_gradient())
         .iter()
@@ -33,8 +26,10 @@ fn thermal_conductivity() {
 
 #[test]
 fn zero() {
-    get_constitutive_model()
-        .heat_flux(&TemperatureGradient::new([0.0, 0.0, 0.0]))
-        .iter()
-        .for_each(|heat_flux_i| assert_eq!(heat_flux_i, &0.0))
+    Fourier {
+        thermal_conductivity: THERMAL_CONDUCTIVITY,
+    }
+    .heat_flux(&TemperatureGradient::new([0.0, 0.0, 0.0]))
+    .iter()
+    .for_each(|heat_flux_i| assert_eq!(heat_flux_i, &0.0))
 }

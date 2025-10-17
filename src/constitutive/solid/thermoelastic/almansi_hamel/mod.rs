@@ -22,10 +22,14 @@ use super::*;
 /// - The Almansi-Hamel strain measure is given by $`\mathbf{e}=\tfrac{1}{2}(\mathbf{1}-\mathbf{B}^{-1})`$.
 #[derive(Debug)]
 pub struct AlmansiHamel {
-    bulk_modulus: Scalar,
-    shear_modulus: Scalar,
-    coefficient_of_thermal_expansion: Scalar,
-    reference_temperature: Scalar,
+    /// The bulk modulus $`\kappa`$.
+    pub bulk_modulus: Scalar,
+    /// The shear modulus $`\mu`$.
+    pub shear_modulus: Scalar,
+    /// The coefficient of thermal expansion $`\alpha`$.
+    pub coefficient_of_thermal_expansion: Scalar,
+    /// The reference temperature $`T_\mathrm{ref}`$.
+    pub reference_temperature: Scalar,
 }
 
 impl Solid for AlmansiHamel {

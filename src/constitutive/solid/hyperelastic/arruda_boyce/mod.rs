@@ -16,9 +16,12 @@ use crate::{
 #[doc = include_str!("doc.md")]
 #[derive(Debug)]
 pub struct ArrudaBoyce {
-    bulk_modulus: Scalar,
-    shear_modulus: Scalar,
-    number_of_links: Scalar,
+    /// The bulk modulus $`\kappa`$.
+    pub bulk_modulus: Scalar,
+    /// The shear modulus $`\mu`$.
+    pub shear_modulus: Scalar,
+    /// The number of links $`N_b`$.
+    pub number_of_links: Scalar,
 }
 
 impl ArrudaBoyce {

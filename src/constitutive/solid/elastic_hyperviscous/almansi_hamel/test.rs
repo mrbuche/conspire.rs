@@ -10,31 +10,31 @@ use crate::{
     },
 };
 
-type AlmansiHamelType<'a> = AlmansiHamel<&'a [Scalar; 4]>;
-
-use_viscoelastic_macros!();
-
-test_solid_elastic_hyperviscous_constitutive_model!(
-    AlmansiHamelType,
-    ALMANSIHAMELPARAMETERS,
-    AlmansiHamel::new(ALMANSIHAMELPARAMETERS)
-);
-
-test_minimize_and_root!(AlmansiHamel::new(ALMANSIHAMELPARAMETERS));
+test_solid_elastic_hyperviscous_constitutive_model!(AlmansiHamel {
+    bulk_modulus: BULK_MODULUS,
+    shear_modulus: SHEAR_MODULUS,
+    bulk_viscosity: BULK_VISCOSITY,
+    shear_viscosity: SHEAR_VISCOSITY,
+});
 
 mod consistency {
     use super::*;
     use crate::{
-        constitutive::solid::elastic::{
-            AlmansiHamel as ElasticAlmansiHamel, Elastic,
-            test::ALMANSIHAMELPARAMETERS as ELASTICALMANSIHAMELPARAMETERS,
-        },
+        constitutive::solid::elastic::{AlmansiHamel as ElasticAlmansiHamel, Elastic},
         math::test::assert_eq_within_tols,
     };
     #[test]
     fn cauchy_stress() -> Result<(), TestError> {
-        let model = AlmansiHamel::new(ALMANSIHAMELPARAMETERS);
-        let hyperelastic_model = ElasticAlmansiHamel::new(ELASTICALMANSIHAMELPARAMETERS);
+        let model = AlmansiHamel {
+            bulk_modulus: BULK_MODULUS,
+            shear_modulus: SHEAR_MODULUS,
+            bulk_viscosity: BULK_VISCOSITY,
+            shear_viscosity: SHEAR_VISCOSITY,
+        };
+        let hyperelastic_model = ElasticAlmansiHamel {
+            bulk_modulus: BULK_MODULUS,
+            shear_modulus: SHEAR_MODULUS,
+        };
         assert_eq_within_tols(
             &model.cauchy_stress(
                 &get_deformation_gradient(),

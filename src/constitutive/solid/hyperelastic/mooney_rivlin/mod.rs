@@ -13,9 +13,12 @@ use crate::{
 #[doc = include_str!("doc.md")]
 #[derive(Debug)]
 pub struct MooneyRivlin {
-    bulk_modulus: Scalar,
-    shear_modulus: Scalar,
-    extra_modulus: Scalar,
+    /// The bulk modulus $`\kappa`$.
+    pub bulk_modulus: Scalar,
+    /// The shear modulus $`\mu`$.
+    pub shear_modulus: Scalar,
+    /// The extra modulus $`\mu_m`$.
+    pub extra_modulus: Scalar,
 }
 
 impl MooneyRivlin {
