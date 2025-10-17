@@ -1,2 +1,3 @@
 use crate::mechanics::Scalar;
-pub const FOURIERPARAMETERS: &[Scalar; 1] = &[1.0];
+
+pub const THERMAL_CONDUCTIVITY: Scalar = 1.0;

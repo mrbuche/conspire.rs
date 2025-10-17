@@ -3,11 +3,9 @@ mod test;
 
 use super::*;
 use crate::{
-    constitutive::{Constitutive, Parameters},
     math::{tensor_rank_1, tensor_rank_1_list, tensor_rank_1_list_2d},
     mechanics::Scalar,
 };
-use std::array::from_fn;
 
 const G: usize = 8;
 const M: usize = 3;
@@ -19,20 +17,16 @@ const Q: usize = N;
 
 const SQRT_3: Scalar = 1.732_050_807_568_877_2;
 
-pub type Hexahedron<C> = Element<C, G, N>;
+pub type Hexahedron<'a, C> = Element<'a, C, G, N>;
 
-impl<C, Y> FiniteElement<C, G, N, Y> for Hexahedron<C>
-where
-    C: Constitutive<Y>,
-    Y: Parameters,
-{
+impl<'a, C> FiniteElement<'a, C, G, N> for Hexahedron<'a, C> {
     fn new(
-        constitutive_model_parameters: Y,
+        constitutive_model: &'a C,
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
     ) -> Self {
         let (gradient_vectors, integration_weights) = Self::initialize(reference_nodal_coordinates);
         Self {
-            constitutive_models: from_fn(|_| <C>::new(constitutive_model_parameters)),
+            constitutive_model,
             gradient_vectors,
             integration_weights,
         }
@@ -56,7 +50,7 @@ where
     }
 }
 
-impl<C> Hexahedron<C> {
+impl<'a, C> Hexahedron<'a, C> {
     fn initialize(
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
     ) -> (GradientVectors<G, N>, Scalars<G>) {

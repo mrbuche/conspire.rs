@@ -1,16 +1,9 @@
 use super::super::test::*;
 use super::*;
+
+test_solid_hyperelastic_constitutive_model!(SaintVenantKirchhoff {
+    bulk_modulus: BULK_MODULUS,
+    shear_modulus: SHEAR_MODULUS,
+});
+
 use crate::mechanics::CauchyTangentStiffness;
-
-type SaintVenantKirchhoffType<'a> = SaintVenantKirchhoff<&'a [Scalar; 2]>;
-
-use_elastic_macros!();
-
-test_solid_hyperelastic_constitutive_model!(
-    SaintVenantKirchhoffType,
-    SAINTVENANTKIRCHHOFFPARAMETERS,
-    SaintVenantKirchhoff::new(SAINTVENANTKIRCHHOFFPARAMETERS)
-);
-
-test_minimize!(SaintVenantKirchhoff::new(SAINTVENANTKIRCHHOFFPARAMETERS));
-test_solve!(SaintVenantKirchhoff::new(SAINTVENANTKIRCHHOFFPARAMETERS));

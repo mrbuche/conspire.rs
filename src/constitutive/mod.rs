@@ -14,40 +14,10 @@ use crate::{
     math::{Scalar, TestError},
     mechanics::{Deformation, DeformationError, DeformationGradient},
 };
-use std::{
-    fmt::{self, Debug, Display, Formatter},
-    ops::{Index, RangeFrom},
-};
-
-/// Methods for lists of constitutive model parameters.
-pub trait Parameters
-where
-    Self: Copy + fmt::Debug,
-{
-    fn get(&self, index: usize) -> &Scalar;
-    fn get_slice(&self, index: RangeFrom<usize>) -> &[Scalar];
-}
-
-impl<const N: usize> Parameters for [Scalar; N] {
-    fn get(&self, index: usize) -> &Scalar {
-        self.index(index)
-    }
-    fn get_slice(&self, index: RangeFrom<usize>) -> &[Scalar] {
-        self.index(index)
-    }
-}
-
-impl<const N: usize> Parameters for &[Scalar; N] {
-    fn get(&self, index: usize) -> &Scalar {
-        self.index(index)
-    }
-    fn get_slice(&self, index: RangeFrom<usize>) -> &[Scalar] {
-        self.index(index)
-    }
-}
+use std::fmt::{self, Debug, Display, Formatter};
 
 /// Required methods for constitutive models.
-pub trait Constitutive<P>
+pub trait Constitutive
 where
     Self: Debug,
 {
@@ -63,8 +33,6 @@ where
             Ok(jacobian) => Ok(jacobian),
         }
     }
-    /// Constructs and returns a new constitutive model.
-    fn new(parameters: P) -> Self;
 }
 
 /// Possible errors encountered in constitutive models.

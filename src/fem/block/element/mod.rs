@@ -6,7 +6,6 @@ pub mod linear;
 
 use super::*;
 use crate::{
-    constitutive::{Constitutive, Parameters},
     defeat_message,
     math::{IDENTITY, LEVI_CIVITA, tensor_rank_1_zero},
     mechanics::Scalar,
@@ -16,21 +15,21 @@ use std::{
     fmt::{Debug, Display},
 };
 
-pub struct Element<C, const G: usize, const N: usize> {
-    constitutive_models: [C; G],
+pub struct Element<'a, C, const G: usize, const N: usize> {
+    constitutive_model: &'a C,
     gradient_vectors: GradientVectors<G, N>,
     integration_weights: Scalars<G>,
 }
 
 #[derive(Debug)]
-pub struct SurfaceElement<C, const G: usize, const N: usize, const P: usize> {
-    constitutive_models: [C; G],
+pub struct SurfaceElement<'a, C, const G: usize, const N: usize, const P: usize> {
+    constitutive_model: &'a C,
     gradient_vectors: GradientVectors<G, N>,
     integration_weights: Scalars<G>,
     reference_normals: ReferenceNormals<P>,
 }
 
-impl<C, const G: usize, const N: usize> Debug for Element<C, G, N> {
+impl<'a, C, const G: usize, const N: usize> Debug for Element<'a, C, G, N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let element = match (G, N) {
             (1, 3) => "LinearTriangle",
@@ -53,35 +52,30 @@ impl<C, const G: usize, const N: usize> Debug for Element<C, G, N> {
     }
 }
 
-pub trait FiniteElement<C, const G: usize, const N: usize, Y>
+pub trait FiniteElement<'a, C, const G: usize, const N: usize>
 where
-    C: Constitutive<Y>,
-    Self: FiniteElementMethods<C, G, N>,
-    Y: Parameters,
+    Self: FiniteElementMethods<G, N>,
 {
     fn new(
-        constitutive_model_parameters: Y,
+        constitutive_model: &'a C,
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
     ) -> Self;
     fn reference() -> ReferenceNodalCoordinates<N>;
     fn reset(&mut self);
 }
 
-pub trait SurfaceFiniteElement<C, const G: usize, const N: usize, const P: usize, Y>
+pub trait SurfaceFiniteElement<'a, C, const G: usize, const N: usize, const P: usize>
 where
-    C: Constitutive<Y>,
-    Self: FiniteElementMethods<C, G, N>,
-    Y: Parameters,
+    Self: FiniteElementMethods<G, N>,
 {
     fn new(
-        constitutive_model_parameters: Y,
+        constitutive_model: &'a C,
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
         thickness: &Scalar,
     ) -> Self;
 }
 
-pub trait FiniteElementMethods<C, const G: usize, const N: usize> {
-    fn constitutive_models(&self) -> &[C; G];
+pub trait FiniteElementMethods<const G: usize, const N: usize> {
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
@@ -159,10 +153,7 @@ impl Display for FiniteElementError {
     }
 }
 
-impl<C, const G: usize, const N: usize> FiniteElementMethods<C, G, N> for Element<C, G, N> {
-    fn constitutive_models(&self) -> &[C; G] {
-        &self.constitutive_models
-    }
+impl<'a, C, const G: usize, const N: usize> FiniteElementMethods<G, N> for Element<'a, C, G, N> {
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
@@ -206,8 +197,8 @@ impl<C, const G: usize, const N: usize> FiniteElementMethods<C, G, N> for Elemen
     }
 }
 
-impl<C, const G: usize, const M: usize, const N: usize, const P: usize>
-    SurfaceFiniteElementMethods<G, M, N, P> for SurfaceElement<C, G, N, P>
+impl<'a, C, const G: usize, const M: usize, const N: usize, const P: usize>
+    SurfaceFiniteElementMethods<G, M, N, P> for SurfaceElement<'a, C, G, N, P>
 where
     Self: SurfaceFiniteElementMethodsExtra<M, N, P>,
 {
@@ -348,7 +339,7 @@ where
 pub trait ElasticFiniteElement<C, const G: usize, const N: usize>
 where
     C: Elastic,
-    Self: Debug + FiniteElementMethods<C, G, N>,
+    Self: Debug + FiniteElementMethods<G, N>,
 {
     fn nodal_forces(
         &self,
@@ -374,7 +365,7 @@ where
 pub trait ViscoelasticFiniteElement<C, const G: usize, const N: usize>
 where
     C: Viscoelastic,
-    Self: FiniteElementMethods<C, G, N>,
+    Self: FiniteElementMethods<G, N>,
 {
     fn nodal_forces(
         &self,
@@ -416,7 +407,7 @@ where
     ) -> Result<Scalar, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize> ElasticFiniteElement<C, G, N> for Element<C, G, N>
+impl<'a, C, const G: usize, const N: usize> ElasticFiniteElement<C, G, N> for Element<'a, C, G, N>
 where
     C: Elastic,
 {
@@ -425,11 +416,11 @@ where
         nodal_coordinates: &NodalCoordinates<N>,
     ) -> Result<NodalForces<N>, FiniteElementError> {
         match self
-            .constitutive_models()
+            .deformation_gradients(nodal_coordinates)
             .iter()
-            .zip(self.deformation_gradients(nodal_coordinates).iter())
-            .map(|(constitutive_model, deformation_gradient)| {
-                constitutive_model.first_piola_kirchhoff_stress(deformation_gradient)
+            .map(|deformation_gradient| {
+                self.constitutive_model
+                    .first_piola_kirchhoff_stress(deformation_gradient)
             })
             .collect::<Result<FirstPiolaKirchhoffStresses<G>, _>>()
         {
@@ -463,11 +454,11 @@ where
         nodal_coordinates: &NodalCoordinates<N>,
     ) -> Result<NodalStiffnesses<N>, FiniteElementError> {
         match self
-            .constitutive_models()
+            .deformation_gradients(nodal_coordinates)
             .iter()
-            .zip(self.deformation_gradients(nodal_coordinates).iter())
-            .map(|(constitutive_model, deformation_gradient)| {
-                constitutive_model.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)
+            .map(|deformation_gradient| {
+                self.constitutive_model
+                    .first_piola_kirchhoff_tangent_stiffness(deformation_gradient)
             })
             .collect::<Result<FirstPiolaKirchhoffTangentStiffnesses<G>, _>>()
         {
@@ -512,7 +503,8 @@ where
     }
 }
 
-impl<C, const G: usize, const N: usize> HyperelasticFiniteElement<C, G, N> for Element<C, G, N>
+impl<'a, C, const G: usize, const N: usize> HyperelasticFiniteElement<C, G, N>
+    for Element<'a, C, G, N>
 where
     C: Hyperelastic,
 {
@@ -521,21 +513,16 @@ where
         nodal_coordinates: &NodalCoordinates<N>,
     ) -> Result<Scalar, FiniteElementError> {
         match self
-            .constitutive_models()
+            .deformation_gradients(nodal_coordinates)
             .iter()
-            .zip(
-                self.deformation_gradients(nodal_coordinates)
-                    .iter()
-                    .zip(self.integration_weights().iter()),
-            )
-            .map(
-                |(constitutive_model, (deformation_gradient, integration_weight))| {
-                    Ok::<Scalar, ConstitutiveError>(
-                        constitutive_model.helmholtz_free_energy_density(deformation_gradient)?
-                            * integration_weight,
-                    )
-                },
-            )
+            .zip(self.integration_weights().iter())
+            .map(|(deformation_gradient, integration_weight)| {
+                Ok::<Scalar, ConstitutiveError>(
+                    self.constitutive_model
+                        .helmholtz_free_energy_density(deformation_gradient)?
+                        * integration_weight,
+                )
+            })
             .sum()
         {
             Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
@@ -547,7 +534,8 @@ where
     }
 }
 
-impl<C, const G: usize, const N: usize> ViscoelasticFiniteElement<C, G, N> for Element<C, G, N>
+impl<'a, C, const G: usize, const N: usize> ViscoelasticFiniteElement<C, G, N>
+    for Element<'a, C, G, N>
 where
     C: Viscoelastic,
 {
@@ -557,22 +545,16 @@ where
         nodal_velocities: &NodalVelocities<N>,
     ) -> Result<NodalForces<N>, FiniteElementError> {
         match self
-            .constitutive_models()
+            .deformation_gradients(nodal_coordinates)
             .iter()
             .zip(
-                self.deformation_gradients(nodal_coordinates).iter().zip(
-                    self.deformation_gradient_rates(nodal_coordinates, nodal_velocities)
-                        .iter(),
-                ),
+                self.deformation_gradient_rates(nodal_coordinates, nodal_velocities)
+                    .iter(),
             )
-            .map(
-                |(constitutive_model, (deformation_gradient, deformation_gradient_rate))| {
-                    constitutive_model.first_piola_kirchhoff_stress(
-                        deformation_gradient,
-                        deformation_gradient_rate,
-                    )
-                },
-            )
+            .map(|(deformation_gradient, deformation_gradient_rate)| {
+                self.constitutive_model
+                    .first_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_rate)
+            })
             .collect::<Result<FirstPiolaKirchhoffStresses<G>, _>>()
         {
             Ok(first_piola_kirchhoff_stresses) => Ok(first_piola_kirchhoff_stresses
@@ -606,22 +588,19 @@ where
         nodal_velocities: &NodalVelocities<N>,
     ) -> Result<NodalStiffnesses<N>, FiniteElementError> {
         match self
-            .constitutive_models()
+            .deformation_gradients(nodal_coordinates)
             .iter()
             .zip(
-                self.deformation_gradients(nodal_coordinates).iter().zip(
-                    self.deformation_gradient_rates(nodal_coordinates, nodal_velocities)
-                        .iter(),
-                ),
+                self.deformation_gradient_rates(nodal_coordinates, nodal_velocities)
+                    .iter(),
             )
-            .map(
-                |(constitutive_model, (deformation_gradient, deformation_gradient_rate))| {
-                    constitutive_model.first_piola_kirchhoff_rate_tangent_stiffness(
+            .map(|(deformation_gradient, deformation_gradient_rate)| {
+                self.constitutive_model
+                    .first_piola_kirchhoff_rate_tangent_stiffness(
                         deformation_gradient,
                         deformation_gradient_rate,
                     )
-                },
-            )
+            })
             .collect::<Result<FirstPiolaKirchhoffRateTangentStiffnesses<G>, _>>()
         {
             Ok(first_piola_kirchhoff_rate_tangent_stiffnesses) => {
@@ -667,8 +646,8 @@ where
     }
 }
 
-impl<C, const G: usize, const N: usize> ElasticHyperviscousFiniteElement<C, G, N>
-    for Element<C, G, N>
+impl<'a, C, const G: usize, const N: usize> ElasticHyperviscousFiniteElement<C, G, N>
+    for Element<'a, C, G, N>
 where
     C: ElasticHyperviscous,
 {
@@ -678,22 +657,17 @@ where
         nodal_velocities: &NodalVelocities<N>,
     ) -> Result<Scalar, FiniteElementError> {
         match self
-            .constitutive_models()
+            .deformation_gradients(nodal_coordinates)
             .iter()
             .zip(
-                self.deformation_gradients(nodal_coordinates).iter().zip(
-                    self.deformation_gradient_rates(nodal_coordinates, nodal_velocities)
-                        .iter()
-                        .zip(self.integration_weights().iter()),
-                ),
+                self.deformation_gradient_rates(nodal_coordinates, nodal_velocities)
+                    .iter()
+                    .zip(self.integration_weights().iter()),
             )
             .map(
-                |(
-                    constitutive_model,
-                    (deformation_gradient, (deformation_gradient_rate, integration_weight)),
-                )| {
+                |(deformation_gradient, (deformation_gradient_rate, integration_weight))| {
                     Ok::<Scalar, ConstitutiveError>(
-                        constitutive_model
+                        self.constitutive_model
                             .viscous_dissipation(deformation_gradient, deformation_gradient_rate)?
                             * integration_weight,
                     )
@@ -714,22 +688,17 @@ where
         nodal_velocities: &NodalVelocities<N>,
     ) -> Result<Scalar, FiniteElementError> {
         match self
-            .constitutive_models()
+            .deformation_gradients(nodal_coordinates)
             .iter()
             .zip(
-                self.deformation_gradients(nodal_coordinates).iter().zip(
-                    self.deformation_gradient_rates(nodal_coordinates, nodal_velocities)
-                        .iter()
-                        .zip(self.integration_weights().iter()),
-                ),
+                self.deformation_gradient_rates(nodal_coordinates, nodal_velocities)
+                    .iter()
+                    .zip(self.integration_weights().iter()),
             )
             .map(
-                |(
-                    constitutive_model,
-                    (deformation_gradient, (deformation_gradient_rate, integration_weight)),
-                )| {
+                |(deformation_gradient, (deformation_gradient_rate, integration_weight))| {
                     Ok::<Scalar, ConstitutiveError>(
-                        constitutive_model.dissipation_potential(
+                        self.constitutive_model.dissipation_potential(
                             deformation_gradient,
                             deformation_gradient_rate,
                         )? * integration_weight,
@@ -747,7 +716,8 @@ where
     }
 }
 
-impl<C, const G: usize, const N: usize> HyperviscoelasticFiniteElement<C, G, N> for Element<C, G, N>
+impl<'a, C, const G: usize, const N: usize> HyperviscoelasticFiniteElement<C, G, N>
+    for Element<'a, C, G, N>
 where
     C: Hyperviscoelastic,
 {
@@ -756,21 +726,16 @@ where
         nodal_coordinates: &NodalCoordinates<N>,
     ) -> Result<Scalar, FiniteElementError> {
         match self
-            .constitutive_models()
+            .deformation_gradients(nodal_coordinates)
             .iter()
-            .zip(
-                self.deformation_gradients(nodal_coordinates)
-                    .iter()
-                    .zip(self.integration_weights().iter()),
-            )
-            .map(
-                |(constitutive_model, (deformation_gradient, integration_weight))| {
-                    Ok::<Scalar, ConstitutiveError>(
-                        constitutive_model.helmholtz_free_energy_density(deformation_gradient)?
-                            * integration_weight,
-                    )
-                },
-            )
+            .zip(self.integration_weights().iter())
+            .map(|(deformation_gradient, integration_weight)| {
+                Ok::<Scalar, ConstitutiveError>(
+                    self.constitutive_model
+                        .helmholtz_free_energy_density(deformation_gradient)?
+                        * integration_weight,
+                )
+            })
             .sum()
         {
             Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),

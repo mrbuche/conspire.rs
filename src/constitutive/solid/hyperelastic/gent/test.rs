@@ -1,22 +1,11 @@
 use super::super::test::*;
 use super::*;
 
-type GentType<'a> = Gent<&'a [Scalar; 3]>;
-
-use_elastic_macros!();
-
-test_solid_hyperelastic_constitutive_model!(GentType, GENTPARAMETERS, Gent::new(GENTPARAMETERS));
-
-test_minimize!(Gent::new(GENTPARAMETERS));
-test_solve!(Gent::new(GENTPARAMETERS));
-
-#[test]
-fn extensibility() {
-    assert_eq!(
-        &GENTPARAMETERS[2],
-        Gent::new(GENTPARAMETERS).extensibility()
-    )
-}
+test_solid_hyperelastic_constitutive_model!(Gent {
+    bulk_modulus: BULK_MODULUS,
+    shear_modulus: SHEAR_MODULUS,
+    extensibility: EXTENSIBILITY,
+});
 
 mod maximum_extensibility {
     use super::*;
@@ -24,7 +13,11 @@ mod maximum_extensibility {
     fn cauchy_stress() {
         let deformation_gradient =
             DeformationGradient::new([[16.0, 0.0, 0.0], [0.0, 0.25, 0.0], [0.0, 0.0, 0.25]]);
-        let model = Gent::new(GENTPARAMETERS);
+        let model = Gent {
+            bulk_modulus: BULK_MODULUS,
+            shear_modulus: SHEAR_MODULUS,
+            extensibility: 23.0,
+        };
         assert_eq!(
             model.cauchy_stress(&deformation_gradient),
             Err(ConstitutiveError::Custom(
@@ -37,7 +30,11 @@ mod maximum_extensibility {
     fn cauchy_tangent_stiffness() {
         let deformation_gradient =
             DeformationGradient::new([[16.0, 0.0, 0.0], [0.0, 0.25, 0.0], [0.0, 0.0, 0.25]]);
-        let model = Gent::new(GENTPARAMETERS);
+        let model = Gent {
+            bulk_modulus: BULK_MODULUS,
+            shear_modulus: SHEAR_MODULUS,
+            extensibility: 23.0,
+        };
         assert_eq!(
             model.cauchy_tangent_stiffness(&deformation_gradient),
             Err(ConstitutiveError::Custom(
@@ -50,7 +47,11 @@ mod maximum_extensibility {
     fn helmholtz_free_energy_density() {
         let deformation_gradient =
             DeformationGradient::new([[16.0, 0.0, 0.0], [0.0, 0.25, 0.0], [0.0, 0.0, 0.25]]);
-        let model = Gent::new(GENTPARAMETERS);
+        let model = Gent {
+            bulk_modulus: BULK_MODULUS,
+            shear_modulus: SHEAR_MODULUS,
+            extensibility: 23.0,
+        };
         assert_eq!(
             model.helmholtz_free_energy_density(&deformation_gradient),
             Err(ConstitutiveError::Custom(

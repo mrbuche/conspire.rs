@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     constitutive::{
-        Constitutive, ConstitutiveError, Parameters,
+        Constitutive, ConstitutiveError,
         solid::{Solid, TWO_THIRDS, elastic::Elastic},
     },
     math::{ContractThirdFourthIndicesWithFirstSecondIndicesOf, IDENTITY_00, Rank2},
@@ -15,35 +15,23 @@ use crate::{
 
 #[doc = include_str!("doc.md")]
 #[derive(Debug)]
-pub struct Hencky<P> {
-    parameters: P,
+pub struct Hencky {
+    /// The bulk modulus $`\kappa`$.
+    pub bulk_modulus: Scalar,
+    /// The shear modulus $`\mu`$.
+    pub shear_modulus: Scalar,
 }
 
-impl<P> Constitutive<P> for Hencky<P>
-where
-    P: Parameters,
-{
-    fn new(parameters: P) -> Self {
-        Self { parameters }
-    }
-}
-
-impl<P> Solid for Hencky<P>
-where
-    P: Parameters,
-{
+impl Solid for Hencky {
     fn bulk_modulus(&self) -> &Scalar {
-        self.parameters.get(0)
+        &self.bulk_modulus
     }
     fn shear_modulus(&self) -> &Scalar {
-        self.parameters.get(1)
+        &self.shear_modulus
     }
 }
 
-impl<P> Elastic for Hencky<P>
-where
-    P: Parameters,
-{
+impl Elastic for Hencky {
     #[doc = include_str!("second_piola_kirchhoff_stress.md")]
     fn second_piola_kirchhoff_stress(
         &self,

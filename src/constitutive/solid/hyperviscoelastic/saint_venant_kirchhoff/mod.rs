@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     constitutive::{
-        Constitutive, ConstitutiveError, Parameters,
+        Constitutive, ConstitutiveError,
         fluid::viscous::Viscous,
         solid::{
             Solid, TWO_THIRDS, elastic_hyperviscous::ElasticHyperviscous,
@@ -35,47 +35,36 @@ use crate::{
 /// **Notes**
 /// - The Green-Saint Venant strain measure is given by $`\mathbf{E}=\tfrac{1}{2}(\mathbf{C}-\mathbf{1})`$.
 #[derive(Debug)]
-pub struct SaintVenantKirchhoff<P> {
-    parameters: P,
+pub struct SaintVenantKirchhoff {
+    /// The bulk modulus $`\kappa`$.
+    pub bulk_modulus: Scalar,
+    /// The shear modulus $`\mu`$.
+    pub shear_modulus: Scalar,
+    /// The bulk viscosity $`\zeta`$.
+    pub bulk_viscosity: Scalar,
+    /// The shear viscosity $`\eta`$.
+    pub shear_viscosity: Scalar,
 }
 
-impl<P> Constitutive<P> for SaintVenantKirchhoff<P>
-where
-    P: Parameters,
-{
-    fn new(parameters: P) -> Self {
-        Self { parameters }
-    }
-}
-
-impl<P> Solid for SaintVenantKirchhoff<P>
-where
-    P: Parameters,
-{
+impl Solid for SaintVenantKirchhoff {
     fn bulk_modulus(&self) -> &Scalar {
-        self.parameters.get(0)
+        &self.bulk_modulus
     }
     fn shear_modulus(&self) -> &Scalar {
-        self.parameters.get(1)
+        &self.shear_modulus
     }
 }
 
-impl<P> Viscous for SaintVenantKirchhoff<P>
-where
-    P: Parameters,
-{
+impl Viscous for SaintVenantKirchhoff {
     fn bulk_viscosity(&self) -> &Scalar {
-        self.parameters.get(2)
+        &self.bulk_viscosity
     }
     fn shear_viscosity(&self) -> &Scalar {
-        self.parameters.get(3)
+        &self.shear_viscosity
     }
 }
 
-impl<P> Viscoelastic for SaintVenantKirchhoff<P>
-where
-    P: Parameters,
-{
+impl Viscoelastic for SaintVenantKirchhoff {
     /// Calculates and returns the second Piola-Kirchhoff stress.
     ///
     /// ```math
@@ -124,10 +113,7 @@ where
     }
 }
 
-impl<P> ElasticHyperviscous for SaintVenantKirchhoff<P>
-where
-    P: Parameters,
-{
+impl ElasticHyperviscous for SaintVenantKirchhoff {
     /// Calculates and returns the viscous dissipation.
     ///
     /// ```math
@@ -148,10 +134,7 @@ where
     }
 }
 
-impl<P> Hyperviscoelastic for SaintVenantKirchhoff<P>
-where
-    P: Parameters,
-{
+impl Hyperviscoelastic for SaintVenantKirchhoff {
     /// Calculates and returns the Helmholtz free energy density.
     ///
     /// ```math
