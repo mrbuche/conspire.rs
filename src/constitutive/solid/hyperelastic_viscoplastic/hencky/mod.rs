@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     constitutive::{
-        Constitutive, ConstitutiveError, Parameters,
+        Constitutive, ConstitutiveError,
         solid::{
             Solid, TWO_THIRDS,
             elastic_viscoplastic::{ElasticViscoplastic, Plastic, Viscoplastic},
@@ -19,59 +19,49 @@ use crate::{
 
 #[doc = include_str!("doc.md")]
 #[derive(Debug)]
-pub struct Hencky<P> {
-    parameters: P,
+pub struct Hencky {
+    /// The bulk modulus $`\kappa`$.
+    pub bulk_modulus: Scalar,
+    /// The shear modulus $`\mu`$.
+    pub shear_modulus: Scalar,
+    /// The initial yield stress $`Y_0`$.
+    pub initial_yield_stress: Scalar,
+    /// The isotropic hardening slope $`H`$.
+    pub hardening_slope: Scalar,
+    /// The rate sensitivity parameter $`m`$.
+    pub rate_sensitivity: Scalar,
+    /// The reference flow rate $`d_0`$.
+    pub reference_flow_rate: Scalar,
 }
 
-impl<P> Constitutive<P> for Hencky<P>
-where
-    P: Parameters,
-{
-    fn new(parameters: P) -> Self {
-        Self { parameters }
-    }
-}
-
-impl<P> Solid for Hencky<P>
-where
-    P: Parameters,
-{
+impl Solid for Hencky {
     fn bulk_modulus(&self) -> &Scalar {
-        self.parameters.get(0)
+        &self.bulk_modulus
     }
     fn shear_modulus(&self) -> &Scalar {
-        self.parameters.get(1)
+        &self.shear_modulus
     }
 }
 
-impl<P> Plastic for Hencky<P>
-where
-    P: Parameters,
-{
+impl Plastic for Hencky {
     fn initial_yield_stress(&self) -> &Scalar {
-        self.parameters.get(2)
+        &self.initial_yield_stress
     }
     fn hardening_slope(&self) -> &Scalar {
-        self.parameters.get(3)
+        &self.hardening_slope
     }
 }
 
-impl<P> Viscoplastic for Hencky<P>
-where
-    P: Parameters,
-{
+impl Viscoplastic for Hencky {
     fn rate_sensitivity(&self) -> &Scalar {
-        self.parameters.get(4)
+        &self.rate_sensitivity
     }
     fn reference_flow_rate(&self) -> &Scalar {
-        self.parameters.get(5)
+        &self.reference_flow_rate
     }
 }
 
-impl<P> ElasticViscoplastic for Hencky<P>
-where
-    P: Parameters,
-{
+impl ElasticViscoplastic for Hencky {
     #[doc = include_str!("cauchy_stress.md")]
     fn cauchy_stress(
         &self,
@@ -123,10 +113,7 @@ where
     }
 }
 
-impl<P> HyperelasticViscoplastic for Hencky<P>
-where
-    P: Parameters,
-{
+impl HyperelasticViscoplastic for Hencky {
     #[doc = include_str!("helmholtz_free_energy_density.md")]
     fn helmholtz_free_energy_density(
         &self,

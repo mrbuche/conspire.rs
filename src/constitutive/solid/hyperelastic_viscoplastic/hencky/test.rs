@@ -1,10 +1,7 @@
 use crate::{
-    constitutive::{
-        Constitutive,
-        solid::{
-            elastic_viscoplastic::{AppliedLoad, ElasticViscoplastic},
-            hyperelastic_viscoplastic::Hencky,
-        },
+    constitutive::solid::{
+        elastic_viscoplastic::{AppliedLoad, ElasticViscoplastic},
+        hyperelastic_viscoplastic::Hencky,
     },
     math::{
         Rank2, Tensor, TensorArray,
@@ -14,18 +11,6 @@ use crate::{
     },
     mechanics::{CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic},
 };
-
-// if constitutive models are never going hold state variables
-// i.e. they are always going to be immutable
-// (1) can rethink their construction, i.e. can make fields public and make like solvers (also better for debug prints; can use From for make from slices still)
-// (2) can rethink how they are used in fem, i.e. can have elements store a reference to a model rather than own it (but still leave room for spatial variance)
-// or is it already set up that way since models can take slices in as parameters?
-// just check it out I guess...
-//
-// This abstraction over P in constitutive is maybe dumb.
-// Do not want constitutive/ to be influenced by the outside, want it to be nice like specifying fields of solvers.
-// Elements should be generic over storing models or shared references to a model, not model parameters or references to them.
-// Make sure this is possible in constitutive/tests (all the macros) and then in fem/ before overhauling it all.
 
 #[test]
 fn finite_difference() -> Result<(), TestError> {
@@ -39,7 +24,14 @@ fn finite_difference() -> Result<(), TestError> {
         [0.71714877, 1.83110678, 0.69670465],
         [1.82260662, 2.1921719, 3.16928404],
     ]);
-    let model = Hencky::new(&[13.0, 3.0, 3.0, 0.0, 0.25, 0.1]);
+    let model = Hencky {
+        bulk_modulus: 13.0,
+        shear_modulus: 3.0,
+        initial_yield_stress: 3.0,
+        hardening_slope: 0.0,
+        rate_sensitivity: 0.25,
+        reference_flow_rate: 0.1,
+    };
     let tangent = model.cauchy_tangent_stiffness(&deformation_gradient, &deformation_gradient_p)?;
     let mut fd = CauchyTangentStiffness::zero();
     for k in 0..3 {
@@ -70,7 +62,14 @@ fn finite_difference() -> Result<(), TestError> {
 #[test]
 fn root_0() -> Result<(), TestError> {
     use crate::constitutive::solid::elastic_viscoplastic::ZerothOrderRoot;
-    let model = Hencky::new(&[13.0, 3.0, 3.0, 0.0, 0.05, 0.1]);
+    let model = Hencky {
+        bulk_modulus: 13.0,
+        shear_modulus: 3.0,
+        initial_yield_stress: 3.0,
+        hardening_slope: 0.0,
+        rate_sensitivity: 0.25,
+        reference_flow_rate: 0.1,
+    };
     let (t, f, f_p) = model.root(
         AppliedLoad::UniaxialStress(|t| 1.0 + t, &[0.0, 8.0]),
         BogackiShampine {
@@ -85,7 +84,7 @@ fn root_0() -> Result<(), TestError> {
     )?;
     for (t_i, (f_i, f_p_i)) in t.iter().zip(f.iter().zip(f_p.iter())) {
         let f_e = f_i * f_p_i.inverse();
-        let m_e = f_e.transpose() * model.cauchy_stress(&f_i, &f_p_i)? * f_e.inverse_transpose();
+        let m_e = f_e.transpose() * model.cauchy_stress(f_i, f_p_i)? * f_e.inverse_transpose();
         let m_e_dev_mag = m_e.deviatoric().norm();
         println!(
             "[{}, {}, {}, {}, {}],",
@@ -102,7 +101,14 @@ fn root_0() -> Result<(), TestError> {
 #[test]
 fn root_1() -> Result<(), TestError> {
     use crate::constitutive::solid::elastic_viscoplastic::FirstOrderRoot;
-    let model = Hencky::new(&[13.0, 3.0, 3.0, 0.0, 0.05, 0.1]);
+    let model = Hencky {
+        bulk_modulus: 13.0,
+        shear_modulus: 3.0,
+        initial_yield_stress: 3.0,
+        hardening_slope: 0.0,
+        rate_sensitivity: 0.25,
+        reference_flow_rate: 0.1,
+    };
     let (t, f, f_p) = model.root(
         AppliedLoad::UniaxialStress(|t| 1.0 + t, &[0.0, 8.0]),
         BogackiShampine {
@@ -114,7 +120,7 @@ fn root_1() -> Result<(), TestError> {
     )?;
     for (t_i, (f_i, f_p_i)) in t.iter().zip(f.iter().zip(f_p.iter())) {
         let f_e = f_i * f_p_i.inverse();
-        let m_e = f_e.transpose() * model.cauchy_stress(&f_i, &f_p_i)? * f_e.inverse_transpose();
+        let m_e = f_e.transpose() * model.cauchy_stress(f_i, f_p_i)? * f_e.inverse_transpose();
         let m_e_dev_mag = m_e.deviatoric().norm();
         println!(
             "[{}, {}, {}, {}, {}],",
