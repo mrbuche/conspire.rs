@@ -49,9 +49,9 @@ impl<F, const N: usize> Debug for ElementBlock<F, N> {
     }
 }
 
-pub trait FiniteElementBlockMethods<C, F, const G: usize, const N: usize>
+pub trait FiniteElementBlockMethods<F, const G: usize, const N: usize>
 where
-    F: FiniteElementMethods<C, G, N>,
+    F: FiniteElementMethods<G, N>,
 {
     fn connectivity(&self) -> &Connectivity<N>;
     fn coordinates(&self) -> &ReferenceNodalCoordinatesBlock;
@@ -144,10 +144,9 @@ impl Display for FiniteElementBlockError {
     }
 }
 
-impl<C, F, const G: usize, const N: usize> FiniteElementBlockMethods<C, F, G, N>
-    for ElementBlock<F, N>
+impl<F, const G: usize, const N: usize> FiniteElementBlockMethods<F, G, N> for ElementBlock<F, N>
 where
-    F: FiniteElementMethods<C, G, N>,
+    F: FiniteElementMethods<G, N>,
 {
     fn connectivity(&self) -> &Connectivity<N> {
         &self.connectivity
@@ -445,7 +444,7 @@ impl<C, F, const G: usize, const N: usize> ElasticFiniteElementBlock<C, F, G, N>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, N>,
-    Self: FiniteElementBlockMethods<C, F, G, N>,
+    Self: FiniteElementBlockMethods<F, G, N>,
 {
     fn nodal_forces(
         &self,
@@ -511,7 +510,7 @@ impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N> for Eleme
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, N>,
-    Self: FiniteElementBlockMethods<C, F, G, N>,
+    Self: FiniteElementBlockMethods<F, G, N>,
 {
     fn root(
         &self,
@@ -530,7 +529,7 @@ impl<C, F, const G: usize, const N: usize> FirstOrderRoot<C, F, G, N> for Elemen
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, N>,
-    Self: FiniteElementBlockMethods<C, F, G, N>,
+    Self: FiniteElementBlockMethods<F, G, N>,
 {
     fn root(
         &self,
@@ -646,7 +645,7 @@ impl<C, F, const G: usize, const N: usize> ViscoelasticFiniteElementBlock<C, F, 
 where
     C: Viscoelastic,
     F: ViscoelasticFiniteElement<C, G, N>,
-    Self: FiniteElementBlockMethods<C, F, G, N>,
+    Self: FiniteElementBlockMethods<F, G, N>,
 {
     fn deformation_gradient_rates(
         &self,
