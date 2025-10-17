@@ -3,11 +3,11 @@
 #[cfg(test)]
 pub mod test;
 
-pub mod fluid;
-pub mod hybrid;
-pub mod multiphysics;
+// pub mod fluid;
+// pub mod hybrid;
+// pub mod multiphysics;
 pub mod solid;
-pub mod thermal;
+// pub mod thermal;
 
 use crate::{
     defeat_message,
@@ -19,35 +19,8 @@ use std::{
     ops::{Index, RangeFrom},
 };
 
-/// Methods for lists of constitutive model parameters.
-pub trait Parameters
-where
-    Self: Copy + fmt::Debug,
-{
-    fn get(&self, index: usize) -> &Scalar;
-    fn get_slice(&self, index: RangeFrom<usize>) -> &[Scalar];
-}
-
-impl<const N: usize> Parameters for [Scalar; N] {
-    fn get(&self, index: usize) -> &Scalar {
-        self.index(index)
-    }
-    fn get_slice(&self, index: RangeFrom<usize>) -> &[Scalar] {
-        self.index(index)
-    }
-}
-
-impl<const N: usize> Parameters for &[Scalar; N] {
-    fn get(&self, index: usize) -> &Scalar {
-        self.index(index)
-    }
-    fn get_slice(&self, index: RangeFrom<usize>) -> &[Scalar] {
-        self.index(index)
-    }
-}
-
 /// Required methods for constitutive models.
-pub trait Constitutive<P>
+pub trait Constitutive
 where
     Self: Debug,
 {
@@ -63,8 +36,6 @@ where
             Ok(jacobian) => Ok(jacobian),
         }
     }
-    /// Constructs and returns a new constitutive model.
-    fn new(parameters: P) -> Self;
 }
 
 /// Possible errors encountered in constitutive models.

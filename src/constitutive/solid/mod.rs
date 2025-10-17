@@ -1,5 +1,5 @@
 //! Solid constitutive models.
-
+//! 
 pub mod elastic;
 pub mod elastic_hyperviscous;
 pub mod elastic_viscoplastic;
@@ -13,7 +13,7 @@ pub mod viscoelastic;
 const TWO_THIRDS: Scalar = 2.0 / 3.0;
 const FIVE_THIRDS: Scalar = 5.0 / 3.0;
 
-use super::{Constitutive, Parameters};
+use super::Constitutive;
 use crate::{
     constitutive::ConstitutiveError,
     math::{
