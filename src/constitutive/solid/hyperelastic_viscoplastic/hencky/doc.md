@@ -1,4 +1,4 @@
-The Hencky hyperelastic-plastic constitutive model.
+The Hencky hyperelastic-viscoplastic constitutive model.
 
 **Parameters**
 - The bulk modulus $`\kappa`$.

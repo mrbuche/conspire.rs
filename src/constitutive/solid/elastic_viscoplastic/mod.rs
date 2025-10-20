@@ -1,3 +1,5 @@
+//! Elastic-viscoplastic constitutive models.
+
 use crate::{
     constitutive::{ConstitutiveError, solid::Solid},
     math::{
@@ -45,7 +47,7 @@ pub enum AppliedLoad<'a> {
     // BiaxialStress(fn(Scalar) -> Scalar, fn(Scalar) -> Scalar, &'a [Scalar]),
 }
 
-/// Required methods for elastic-plastic constitutive models.
+/// Required methods for elastic-viscoplastic constitutive models.
 pub trait ElasticViscoplastic
 where
     Self: Solid + Viscoplastic,
@@ -222,9 +224,58 @@ where
                         .powf(1.0 / self.rate_sensitivity())))
         }
     }
+    /// Calculates and returns the evolution of the yield stress.
+    ///
+    /// ```math
+    /// \dot{Y} = H\,|\mathbf{D}_\mathrm{p}|
+    /// ```
+    fn yield_stress_evolution(
+        &self,
+        plastic_stretching_rate: &StretchingRatePlastic,
+    ) -> Result<Scalar, ConstitutiveError> {
+        Ok(self.hardening_slope() * plastic_stretching_rate.norm())
+    }
+    /// ???
+    ///
+    /// ```math
+    /// \dot{\mathbf{F}}_\mathrm{p} = \mathbf{D}_\mathrm{p}\cdot\mathbf{F}_\mathrm{p}
+    /// ```
+    fn foo(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_p: &DeformationGradientPlastic,
+    ) -> Result<(DeformationGradientRatePlastic, Scalar), ConstitutiveError> {
+        //
+        // Some redundancy with above `plastic_deformation_gradient_rate`` function.
+        // Since the above equation is always true, maybe delete that function and use this instead.
+        // The yield stress evolution on the other hand could be different, so keep that function.
+        //
+        let jacobian = deformation_gradient.jacobian().unwrap();
+        let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
+        let cauchy_stress = self.cauchy_stress(deformation_gradient, deformation_gradient_p)?;
+        let mandel_stress_e = (deformation_gradient_e.transpose()
+            * cauchy_stress
+            * deformation_gradient_e.inverse_transpose())
+            * jacobian;
+        let plastic_stretching_rate = self.plastic_stretching_rate(mandel_stress_e.deviatoric())?;
+        //
+        // You have tensor rank N list/vec and 2D and so on.
+        // Could you combine these into a single impl?
+        // Like TensorList<T> or TensorVec<T> where T is the tensor type.
+        // Might be able to even automatically handle the nested cases with T=TensorList<...>.
+        //
+        // And also see if you can do something with (T1, T2) being a tensor?
+        // The thing above would help you automatically handle a Vec of these tuple.
+        // Integration impls could handle tuples automatically if they have the tensor impls.
+        //
+        Ok((
+            &plastic_stretching_rate * deformation_gradient_p,
+            self.yield_stress_evolution(&plastic_stretching_rate)?,
+        ))
+    }
 }
 
-/// Zeroth-order root-finding methods for elastic-plastic constitutive models.
+/// Zeroth-order root-finding methods for elastic-viscoplastic constitutive models.
 pub trait ZerothOrderRoot {
     /// Solve for the unknown components of the deformation gradients under an applied load.
     ///
@@ -252,7 +303,7 @@ pub trait ZerothOrderRoot {
     ) -> Result<DeformationGradient, OptimizationError>;
 }
 
-/// First-order root-finding methods for elastic-plastic constitutive models.
+/// First-order root-finding methods for elastic-viscoplastic constitutive models.
 pub trait FirstOrderRoot {
     /// Solve for the unknown components of the deformation gradients under an applied load.
     ///

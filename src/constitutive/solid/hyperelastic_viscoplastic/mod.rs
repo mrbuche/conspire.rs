@@ -1,3 +1,5 @@
+//! Hyperelastic-viscoplastic constitutive models.
+
 mod hencky;
 
 pub use hencky::Hencky;
@@ -7,7 +9,7 @@ use crate::{
     mechanics::{DeformationGradient, DeformationGradientPlastic, Scalar},
 };
 
-/// Required methods for hyperelastic-plastic constitutive models.
+/// Required methods for hyperelastic-viscoplastic constitutive models.
 pub trait HyperelasticViscoplastic
 where
     Self: ElasticViscoplastic,
