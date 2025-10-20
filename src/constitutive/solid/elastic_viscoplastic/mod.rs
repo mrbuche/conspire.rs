@@ -226,7 +226,11 @@ where
 
 /// Zeroth-order root-finding methods for elastic-plastic constitutive models.
 pub trait ZerothOrderRoot {
-    /// ???
+    /// Solve for the unknown components of the deformation gradients under an applied load.
+    ///
+    /// ```math
+    /// \mathbf{P}(\mathbf{F},\mathbf{F}_\mathrm{p}) - \boldsymbol{\lambda} - \mathbf{P}_0 = \mathbf{0}
+    /// ```
     fn root(
         &self,
         applied_load: AppliedLoad,
@@ -250,7 +254,11 @@ pub trait ZerothOrderRoot {
 
 /// First-order root-finding methods for elastic-plastic constitutive models.
 pub trait FirstOrderRoot {
-    /// ???
+    /// Solve for the unknown components of the deformation gradients under an applied load.
+    ///
+    /// ```math
+    /// \mathbf{P}(\mathbf{F},\mathbf{F}_\mathrm{p}) - \boldsymbol{\lambda} - \mathbf{P}_0 = \mathbf{0}
+    /// ```
     fn root(
         &self,
         applied_load: AppliedLoad,
