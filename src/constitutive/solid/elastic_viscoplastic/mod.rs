@@ -268,6 +268,8 @@ where
         // The thing above would help you automatically handle a Vec of these tuple.
         // Integration impls could handle tuples automatically if they have the tensor impls.
         //
+        // Also note that you are going to have to this and `plastic_stretching_rate` a function of `yield_stress`.
+        //
         Ok((
             &plastic_stretching_rate * deformation_gradient_p,
             self.yield_stress_evolution(&plastic_stretching_rate)?,
