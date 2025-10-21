@@ -1111,9 +1111,11 @@ impl<const D: usize, const I: usize, const J: usize> Sum for TensorRank2<D, I, J
     where
         Ii: Iterator<Item = Self>,
     {
-        let mut output = Self::zero();
-        iter.for_each(|item| output += item);
-        output
+        iter.reduce(|mut acc, item| {
+            acc += item;
+            acc
+        })
+        .unwrap_or_else(Self::default)
     }
 }
 

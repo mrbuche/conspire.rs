@@ -1,7 +1,4 @@
-use super::{
-    super::super::{Tensor, TensorArray},
-    TensorRank0, TensorRank2, TensorRank2List,
-};
+use crate::math::{Tensor, TensorArray, TensorRank0, TensorRank2, TensorRank2List};
 
 fn get_array() -> [[[TensorRank0; 3]; 3]; 8] {
     [
@@ -26,27 +23,6 @@ fn as_array() {
         .as_array()
         .iter()
         .zip(get_array().iter())
-        .for_each(|(tensor_rank_2_entry, array_entry)| {
-            tensor_rank_2_entry.iter().zip(array_entry.iter()).for_each(
-                |(tensor_rank_2_entry_i, array_entry_i)| {
-                    tensor_rank_2_entry_i
-                        .iter()
-                        .zip(array_entry_i.iter())
-                        .for_each(|(tensor_rank_2_entry_ij, array_entry_ij)| {
-                            assert_eq!(tensor_rank_2_entry_ij, array_entry_ij)
-                        })
-                },
-            )
-        });
-}
-
-#[test]
-fn from_iter() {
-    let into_iterator = get_tensor_rank_2_list().0.into_iter();
-    let tensor_rank_2_list = TensorRank2List::<3, 1, 1, 8>::from_iter(get_tensor_rank_2_list().0);
-    tensor_rank_2_list
-        .iter()
-        .zip(into_iterator)
         .for_each(|(tensor_rank_2_entry, array_entry)| {
             tensor_rank_2_entry.iter().zip(array_entry.iter()).for_each(
                 |(tensor_rank_2_entry_i, array_entry_i)| {

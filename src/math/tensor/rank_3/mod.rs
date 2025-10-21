@@ -4,13 +4,10 @@ mod test;
 #[cfg(test)]
 use super::test::ErrorTensor;
 
-pub mod list;
-pub mod list_2d;
-pub mod list_3d;
-
 use std::{
     array::from_fn,
     fmt::{self, Display, Formatter},
+    iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
@@ -178,6 +175,21 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> IndexMut<us
 {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.0[index]
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize, const K: usize> Sum
+    for TensorRank3<D, I, J, K>
+{
+    fn sum<Ii>(iter: Ii) -> Self
+    where
+        Ii: Iterator<Item = Self>,
+    {
+        iter.reduce(|mut acc, item| {
+            acc += item;
+            acc
+        })
+        .unwrap_or_else(Self::default)
     }
 }
 

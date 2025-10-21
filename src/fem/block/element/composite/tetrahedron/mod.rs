@@ -2,10 +2,7 @@
 mod test;
 
 use super::*;
-use crate::math::{
-    tensor_rank_1, tensor_rank_1_list, tensor_rank_1_list_2d, tensor_rank_1_zero, tensor_rank_2,
-    tensor_rank_2_list,
-};
+use crate::math::{TensorRank1List, tensor_rank_1, tensor_rank_1_zero, tensor_rank_2};
 
 const G: usize = 4;
 const M: usize = 3;
@@ -28,7 +25,7 @@ impl<'a, C> FiniteElement<'a, C, G, N> for Tetrahedron<'a, C> {
         }
     }
     fn reference() -> ReferenceNodalCoordinates<N> {
-        tensor_rank_1_list([
+        ReferenceNodalCoordinates::const_from([
             tensor_rank_1([0.0, 0.0, 0.0]),
             tensor_rank_1([1.0, 0.0, 0.0]),
             tensor_rank_1([0.0, 1.0, 0.0]),
@@ -171,7 +168,7 @@ impl<'a, C> Tetrahedron<'a, C> {
     const fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, Q> {
         const DIAG: Scalar = 0.585_410_196_624_968_5;
         const OFF: Scalar = 0.138_196_601_125_010_5;
-        tensor_rank_1_list([
+        ShapeFunctionsAtIntegrationPoints::const_from([
             tensor_rank_1([DIAG, OFF, OFF, OFF]),
             tensor_rank_1([OFF, DIAG, OFF, OFF]),
             tensor_rank_1([OFF, OFF, DIAG, OFF]),
@@ -179,7 +176,7 @@ impl<'a, C> Tetrahedron<'a, C> {
         ])
     }
     const fn shape_function_integrals() -> ShapeFunctionIntegrals<P, Q> {
-        tensor_rank_1_list([
+        ShapeFunctionIntegrals::const_from([
             tensor_rank_1([200.0, 40.0, 40.0, 40.0]),
             tensor_rank_1([40.0, 200.0, 40.0, 40.0]),
             tensor_rank_1([40.0, 40.0, 200.0, 40.0]),
@@ -195,7 +192,7 @@ impl<'a, C> Tetrahedron<'a, C> {
         ])
     }
     const fn shape_function_integrals_products() -> ShapeFunctionIntegralsProducts<P, Q> {
-        tensor_rank_2_list([
+        ShapeFunctionIntegralsProducts::const_from([
             tensor_rank_2([
                 tensor_rank_1([128.0, 24.0, 24.0, 24.0]),
                 tensor_rank_1([24.0, 8.0, 4.0, 4.0]),
@@ -273,8 +270,8 @@ impl<'a, C> Tetrahedron<'a, C> {
     const fn standard_gradient_operators() -> StandardGradientOperators<M, N, P> {
         const TWO_THIRDS: Scalar = 2.0 / 3.0;
         const FOUR_THIRDS: Scalar = 4.0 / 3.0;
-        tensor_rank_1_list_2d([
-            tensor_rank_1_list([
+        StandardGradientOperators::const_from([
+            TensorRank1List::const_from([
                 tensor_rank_1([-2.0, -2.0, -2.0]),
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
@@ -286,7 +283,7 @@ impl<'a, C> Tetrahedron<'a, C> {
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
             ]),
-            tensor_rank_1_list([
+            TensorRank1List::const_from([
                 tensor_rank_1_zero(),
                 tensor_rank_1([2.0, 0.0, 0.0]),
                 tensor_rank_1_zero(),
@@ -298,7 +295,7 @@ impl<'a, C> Tetrahedron<'a, C> {
                 tensor_rank_1([0.0, 0.0, 2.0]),
                 tensor_rank_1_zero(),
             ]),
-            tensor_rank_1_list([
+            TensorRank1List::const_from([
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
                 tensor_rank_1([0.0, 2.0, 0.0]),
@@ -310,7 +307,7 @@ impl<'a, C> Tetrahedron<'a, C> {
                 tensor_rank_1_zero(),
                 tensor_rank_1([0.0, 0.0, 2.0]),
             ]),
-            tensor_rank_1_list([
+            TensorRank1List::const_from([
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
@@ -322,7 +319,7 @@ impl<'a, C> Tetrahedron<'a, C> {
                 tensor_rank_1([2.0, 0.0, 0.0]),
                 tensor_rank_1([0.0, 2.0, 0.0]),
             ]),
-            tensor_rank_1_list([
+            TensorRank1List::const_from([
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
@@ -334,7 +331,7 @@ impl<'a, C> Tetrahedron<'a, C> {
                 tensor_rank_1([FOUR_THIRDS, 0.0, 2.0]),
                 tensor_rank_1([-TWO_THIRDS, 0.0, 0.0]),
             ]),
-            tensor_rank_1_list([
+            TensorRank1List::const_from([
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
@@ -346,7 +343,7 @@ impl<'a, C> Tetrahedron<'a, C> {
                 tensor_rank_1([FOUR_THIRDS, -TWO_THIRDS, FOUR_THIRDS]),
                 tensor_rank_1([-TWO_THIRDS, FOUR_THIRDS, FOUR_THIRDS]),
             ]),
-            tensor_rank_1_list([
+            TensorRank1List::const_from([
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
@@ -358,7 +355,7 @@ impl<'a, C> Tetrahedron<'a, C> {
                 tensor_rank_1([2.0, 0.0, FOUR_THIRDS]),
                 tensor_rank_1([0.0, 2.0, FOUR_THIRDS]),
             ]),
-            tensor_rank_1_list([
+            TensorRank1List::const_from([
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
@@ -370,7 +367,7 @@ impl<'a, C> Tetrahedron<'a, C> {
                 tensor_rank_1([2.0, TWO_THIRDS, 2.0]),
                 tensor_rank_1([0.0, TWO_THIRDS, 0.0]),
             ]),
-            tensor_rank_1_list([
+            TensorRank1List::const_from([
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
@@ -382,7 +379,7 @@ impl<'a, C> Tetrahedron<'a, C> {
                 tensor_rank_1([0.0, 0.0, TWO_THIRDS]),
                 tensor_rank_1([0.0, 0.0, TWO_THIRDS]),
             ]),
-            tensor_rank_1_list([
+            TensorRank1List::const_from([
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
@@ -394,7 +391,7 @@ impl<'a, C> Tetrahedron<'a, C> {
                 tensor_rank_1([0.0, -TWO_THIRDS, 0.0]),
                 tensor_rank_1([0.0, FOUR_THIRDS, 2.0]),
             ]),
-            tensor_rank_1_list([
+            TensorRank1List::const_from([
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
@@ -406,7 +403,7 @@ impl<'a, C> Tetrahedron<'a, C> {
                 tensor_rank_1([TWO_THIRDS, 0.0, 0.0]),
                 tensor_rank_1([TWO_THIRDS, 2.0, 2.0]),
             ]),
-            tensor_rank_1_list([
+            TensorRank1List::const_from([
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
@@ -424,8 +421,8 @@ impl<'a, C> Tetrahedron<'a, C> {
     {
         const TWO_THIRDS: Scalar = 2.0 / 3.0;
         const FOUR_THIRDS: Scalar = 4.0 / 3.0;
-        tensor_rank_1_list_2d([
-            tensor_rank_1_list([
+        StandardGradientOperators::const_from([
+            TensorRank1List::const_from([
                 tensor_rank_1([-2.0, -2.0, -2.0]),
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
@@ -439,7 +436,7 @@ impl<'a, C> Tetrahedron<'a, C> {
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
             ]),
-            tensor_rank_1_list([
+            TensorRank1List::const_from([
                 tensor_rank_1_zero(),
                 tensor_rank_1([2.0, 0.0, 0.0]),
                 tensor_rank_1_zero(),
@@ -453,7 +450,7 @@ impl<'a, C> Tetrahedron<'a, C> {
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
             ]),
-            tensor_rank_1_list([
+            TensorRank1List::const_from([
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
                 tensor_rank_1([0.0, 2.0, 0.0]),
@@ -467,7 +464,7 @@ impl<'a, C> Tetrahedron<'a, C> {
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
             ]),
-            tensor_rank_1_list([
+            TensorRank1List::const_from([
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
@@ -481,7 +478,7 @@ impl<'a, C> Tetrahedron<'a, C> {
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
             ]),
-            tensor_rank_1_list([
+            TensorRank1List::const_from([
                 tensor_rank_1([2.0, 0.0, 0.0]),
                 tensor_rank_1([-2.0, -2.0, -2.0]),
                 tensor_rank_1_zero(),
@@ -495,7 +492,7 @@ impl<'a, C> Tetrahedron<'a, C> {
                 tensor_rank_1([TWO_THIRDS, 0.0, 0.0]),
                 tensor_rank_1([TWO_THIRDS, -FOUR_THIRDS, -FOUR_THIRDS]),
             ]),
-            tensor_rank_1_list([
+            TensorRank1List::const_from([
                 tensor_rank_1_zero(),
                 tensor_rank_1([0.0, 2.0, 0.0]),
                 tensor_rank_1([2.0, 0.0, 0.0]),
@@ -509,7 +506,7 @@ impl<'a, C> Tetrahedron<'a, C> {
                 tensor_rank_1([TWO_THIRDS, 0.0, 0.0]),
                 tensor_rank_1([TWO_THIRDS, TWO_THIRDS, TWO_THIRDS]),
             ]),
-            tensor_rank_1_list([
+            TensorRank1List::const_from([
                 tensor_rank_1([0.0, 2.0, 0.0]),
                 tensor_rank_1_zero(),
                 tensor_rank_1([-2.0, -2.0, -2.0]),
@@ -523,7 +520,7 @@ impl<'a, C> Tetrahedron<'a, C> {
                 tensor_rank_1([-FOUR_THIRDS, 0.0, -2.0]),
                 tensor_rank_1([-FOUR_THIRDS, TWO_THIRDS, -FOUR_THIRDS]),
             ]),
-            tensor_rank_1_list([
+            TensorRank1List::const_from([
                 tensor_rank_1([0.0, 0.0, 2.0]),
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
@@ -537,7 +534,7 @@ impl<'a, C> Tetrahedron<'a, C> {
                 tensor_rank_1([-FOUR_THIRDS, -2.0, 0.0]),
                 tensor_rank_1([-FOUR_THIRDS, -FOUR_THIRDS, TWO_THIRDS]),
             ]),
-            tensor_rank_1_list([
+            TensorRank1List::const_from([
                 tensor_rank_1_zero(),
                 tensor_rank_1([0.0, 0.0, 2.0]),
                 tensor_rank_1_zero(),
@@ -551,7 +548,7 @@ impl<'a, C> Tetrahedron<'a, C> {
                 tensor_rank_1([TWO_THIRDS, 0.0, 0.0]),
                 tensor_rank_1([TWO_THIRDS, TWO_THIRDS, TWO_THIRDS]),
             ]),
-            tensor_rank_1_list([
+            TensorRank1List::const_from([
                 tensor_rank_1_zero(),
                 tensor_rank_1_zero(),
                 tensor_rank_1([0.0, 0.0, 2.0]),

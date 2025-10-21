@@ -212,23 +212,6 @@ fn div_assign_tensor_rank_0_ref() {
 }
 
 #[test]
-fn from_iter() {
-    todo!()
-    // let into_iterator = get_tensor_rank_1_list().0;
-    // let tensor_rank_1_list = TensorRank1List::<3, 1, 8>::from_iter(get_tensor_rank_1_list().0);
-    // tensor_rank_1_list
-    //     .iter()
-    //     .zip(into_iterator)
-    //     .for_each(|(tensor_rank_1_list_entry, entry)| {
-    //         tensor_rank_1_list_entry.iter().zip(entry.iter()).for_each(
-    //             |(tensor_rank_1_list_entry_i, entry_i)| {
-    //                 assert_eq!(tensor_rank_1_list_entry_i, entry_i)
-    //             },
-    //         )
-    //     });
-}
-
-#[test]
 fn iter() {
     get_tensor_rank_1_list()
         .iter()
@@ -276,22 +259,6 @@ fn mul_tensor_rank_0_to_self() {
 #[allow(clippy::op_ref)]
 fn mul_tensor_rank_0_ref_to_self() {
     (get_tensor_rank_1_list() * &3.3)
-        .iter()
-        .zip(get_array().iter())
-        .for_each(|(tensor_rank_1_list_entry, array_entry)| {
-            tensor_rank_1_list_entry
-                .iter()
-                .zip(array_entry.iter())
-                .for_each(|(tensor_rank_1_list_entry_i, array_entry_i)| {
-                    assert_eq!(tensor_rank_1_list_entry_i, &(array_entry_i * 3.3))
-                })
-        });
-}
-
-#[test]
-#[allow(clippy::op_ref)]
-fn mul_tensor_rank_0_ref_to_self_ref() {
-    (&get_tensor_rank_1_list() * &3.3)
         .iter()
         .zip(get_array().iter())
         .for_each(|(tensor_rank_1_list_entry, array_entry)| {

@@ -8,6 +8,7 @@ pub mod vec_2d;
 
 use std::{
     fmt::{self, Display, Formatter},
+    iter::Sum,
     mem::transmute,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
@@ -229,14 +230,16 @@ impl<const D: usize, const I: usize> IndexMut<usize> for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, const I: usize> std::iter::Sum for TensorRank1<D, I> {
+impl<const D: usize, const I: usize> Sum for TensorRank1<D, I> {
     fn sum<Ii>(iter: Ii) -> Self
     where
         Ii: Iterator<Item = Self>,
     {
-        let mut output = zero();
-        iter.for_each(|item| output += item);
-        output
+        iter.reduce(|mut acc, item| {
+            acc += item;
+            acc
+        })
+        .unwrap_or_else(Self::default)
     }
 }
 

@@ -25,31 +25,16 @@ pub use matrix::{
 };
 pub use tensor::{
     Hessian, Jacobian, Rank2, Scalar, Solution, Tensor, TensorArray, TensorVec,
-    rank_0::{
-        TensorRank0,
-        list::{TensorRank0List, tensor_rank_0_list},
-    },
+    rank_0::{TensorRank0, list::TensorRank0List},
     rank_1::{
-        TensorRank1,
-        list::{TensorRank1List, tensor_rank_1_list},
-        list_2d::{TensorRank1List2D, tensor_rank_1_list_2d},
-        tensor_rank_1,
-        vec::TensorRank1Vec,
-        vec_2d::TensorRank1Vec2D,
-        zero as tensor_rank_1_zero,
+        TensorRank1, list::TensorRank1List, list_2d::TensorRank1List2D, tensor_rank_1,
+        vec::TensorRank1Vec, vec_2d::TensorRank1Vec2D, zero as tensor_rank_1_zero,
     },
     rank_2::{
-        IDENTITY, IDENTITY_00, IDENTITY_10, TensorRank2, ZERO, ZERO_10,
-        list::{TensorRank2List, tensor_rank_2_list},
-        list_2d::TensorRank2List2D,
-        tensor_rank_2,
-        vec::TensorRank2Vec,
-        vec_2d::TensorRank2Vec2D,
+        IDENTITY, IDENTITY_00, IDENTITY_10, TensorRank2, ZERO, ZERO_10, list::TensorRank2List,
+        list_2d::TensorRank2List2D, tensor_rank_2, vec::TensorRank2Vec, vec_2d::TensorRank2Vec2D,
     },
-    rank_3::{
-        LEVI_CIVITA, TensorRank3, levi_civita, list::TensorRank3List, list_2d::TensorRank3List2D,
-        list_3d::TensorRank3List3D,
-    },
+    rank_3::{LEVI_CIVITA, TensorRank3, levi_civita},
     rank_4::{
         ContractAllIndicesWithFirstIndicesOf, ContractFirstSecondIndicesWithSecondIndicesOf,
         ContractFirstThirdFourthIndicesWithFirstIndicesOf,

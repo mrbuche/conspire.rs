@@ -434,20 +434,20 @@ macro_rules! test_helmholtz_free_energy {
                     let nodal_coordinates = get_coordinates_block();
                     let nodal_forces = block.nodal_forces(&nodal_coordinates)?;
                     let minimum = block.helmholtz_free_energy(&nodal_coordinates)?
-                        - nodal_forces.dot(&nodal_coordinates);
+                        - nodal_forces.full_contraction(&nodal_coordinates);
                     let mut perturbed = 0.0;
                     (0..D).try_for_each(|node| {
                         (0..3).try_for_each(|i| {
                             let mut perturbed_coordinates = nodal_coordinates.clone();
                             perturbed_coordinates[node][i] += 0.5 * EPSILON;
                             perturbed = block.helmholtz_free_energy(&perturbed_coordinates)?
-                                - nodal_forces.dot(&perturbed_coordinates);
+                                - nodal_forces.full_contraction(&perturbed_coordinates);
                             if assert_eq_within_tols(&perturbed, &minimum).is_err() {
                                 assert!(perturbed > minimum)
                             }
                             perturbed_coordinates[node][i] -= EPSILON;
                             perturbed = block.helmholtz_free_energy(&perturbed_coordinates)?
-                                - nodal_forces.dot(&perturbed_coordinates);
+                                - nodal_forces.full_contraction(&perturbed_coordinates);
                             if assert_eq_within_tols(&perturbed, &minimum).is_err() {
                                 assert!(perturbed > minimum)
                             }
@@ -1202,7 +1202,7 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                         block.nodal_forces(&nodal_coordinates, &nodal_velocities)? - nodal_forces_0;
                     let minimum = block
                         .viscous_dissipation(&nodal_coordinates, &nodal_velocities)?
-                        - nodal_forces.dot(&nodal_velocities);
+                        - nodal_forces.full_contraction(&nodal_velocities);
                     let mut perturbed_velocities = get_velocities_block();
                     (0..D).try_for_each(|node| {
                         (0..3).try_for_each(|i| {
@@ -1212,7 +1212,7 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                                 block.viscous_dissipation(
                                     &nodal_coordinates,
                                     &perturbed_velocities,
-                                )? - nodal_forces.dot(&perturbed_velocities)
+                                )? - nodal_forces.full_contraction(&perturbed_velocities)
                                     >= minimum
                             );
                             perturbed_velocities[node][i] -= EPSILON;
@@ -1220,7 +1220,7 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                                 block.viscous_dissipation(
                                     &nodal_coordinates,
                                     &perturbed_velocities,
-                                )? - nodal_forces.dot(&perturbed_velocities)
+                                )? - nodal_forces.full_contraction(&perturbed_velocities)
                                     >= minimum
                             );
                             Ok(())
@@ -1333,7 +1333,7 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                     let nodal_forces = block.nodal_forces(&nodal_coordinates, &nodal_velocities)?;
                     let minimum = block
                         .dissipation_potential(&nodal_coordinates, &nodal_velocities)?
-                        - nodal_forces.dot(&nodal_velocities);
+                        - nodal_forces.full_contraction(&nodal_velocities);
                     (0..D).try_for_each(|node| {
                         (0..3).try_for_each(|i| {
                             let mut perturbed_velocities = nodal_velocities.clone();
@@ -1342,7 +1342,7 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                                 block.dissipation_potential(
                                     &nodal_coordinates,
                                     &perturbed_velocities,
-                                )? - nodal_forces.dot(&perturbed_velocities)
+                                )? - nodal_forces.full_contraction(&perturbed_velocities)
                                     >= minimum
                             );
                             perturbed_velocities[node][i] -= EPSILON;
@@ -1350,7 +1350,7 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                                 block.dissipation_potential(
                                     &nodal_coordinates,
                                     &perturbed_velocities,
-                                )? - nodal_forces.dot(&perturbed_velocities)
+                                )? - nodal_forces.full_contraction(&perturbed_velocities)
                                     >= minimum
                             );
                             Ok(())

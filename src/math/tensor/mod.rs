@@ -1,12 +1,12 @@
 pub mod test;
 
 pub mod list;
-
 pub mod rank_0;
 pub mod rank_1;
 pub mod rank_2;
 pub mod rank_3;
 pub mod rank_4;
+pub mod vec;
 
 use super::{SquareMatrix, Vector};
 use crate::defeat_message;
@@ -144,6 +144,7 @@ where
         + Sub<&'a Self, Output = Self>
         + SubAssign
         + SubAssign<&'a Self>,
+    // + Sum,
     Self::Item: Tensor,
 {
     /// The type of item encountered when iterating over the tensor.

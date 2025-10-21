@@ -106,16 +106,16 @@ impl Tensor for TensorRank0 {
 }
 
 impl TensorArray for TensorRank0 {
-    type Array = [Self; 1];
+    type Array = Self;
     type Item = TensorRank0;
     fn as_array(&self) -> Self::Array {
-        [*self]
+        *self
     }
     fn identity() -> Self {
         1.0
     }
     fn new(array: Self::Array) -> Self {
-        array[0]
+        array
     }
     fn zero() -> Self {
         0.0

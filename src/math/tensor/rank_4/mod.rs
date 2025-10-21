@@ -7,6 +7,7 @@ use super::test::ErrorTensor;
 use std::{
     array::from_fn,
     fmt::{self, Display, Formatter},
+    iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
@@ -355,16 +356,18 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> std::iter::Sum
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> Sum
     for TensorRank4<D, I, J, K, L>
 {
     fn sum<Ii>(iter: Ii) -> Self
     where
         Ii: Iterator<Item = Self>,
     {
-        let mut output = TensorRank4::zero();
-        iter.for_each(|item| output += item);
-        output
+        iter.reduce(|mut acc, item| {
+            acc += item;
+            acc
+        })
+        .unwrap_or_else(Self::default)
     }
 }
 
