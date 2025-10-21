@@ -281,6 +281,23 @@ where
         // since the fem/ would be generic over them just like integrate/ would be.
         // The mod could be internal_state_variables and have the two submodules.
         //
+        // Maybe not though, that is somewhat further in the future,
+        // and mainly it might be nice to think about how to collect things in fem/
+        // like the plastic deformation as [[Fp; integ_pts]; elements] and so on,
+        // and hard to know what these are if just a general state.
+        // Maybe just do it the specific way for now? Can always refactor later.
+        // And use the nice parts of the specific impl to drive how to get general one working just as nice later.
+        //
+        // Fp_dot = f_1(F, Fp, Y) and Y_dot = f_2(F, Fp, Y)
+        // (Fp_dot, Y_dot) = (f_1(F, Fp, Y), f_2(F, Fp, Y))
+        // (dXdt, dYdt, ...) = (f_1(Z0; X, Y, ...), f_2(Z0; X, Y, ...), ...)
+        // should handle nicely in integrate/ if Tensor/etc. is implemented for the tuples
+        // fem/ has Vec<[(F, Fp, Y); N]> which should still be alright
+        // also note that each integration point evolution equation only depends on the local (F, Fp, Y)
+        // is there a way to get integrate/ to handle that simplification for performance purposes?
+        // Would compute all the slopes/steps separately, but the error together.
+        // Perhaps not actually worth it, since the IV solve for z needs all variables anyway.
+        //
         Ok((
             &plastic_stretching_rate * deformation_gradient_p,
             self.yield_stress_evolution(&plastic_stretching_rate)?,
