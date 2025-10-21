@@ -1,5 +1,7 @@
 pub mod test;
 
+pub mod list;
+
 pub mod rank_0;
 pub mod rank_1;
 pub mod rank_2;
@@ -122,18 +124,22 @@ where
 pub trait Tensor
 where
     for<'a> Self: Sized
-        + Debug
-        + Default
-        + Display
         + Add<Self, Output = Self>
         + Add<&'a Self, Output = Self>
         + AddAssign
         + AddAssign<&'a Self>
         + Clone
+        + Debug
+        + Default
+        + Display
         + Div<TensorRank0, Output = Self>
+        + Div<&'a TensorRank0, Output = Self>
         + DivAssign<TensorRank0>
+        + DivAssign<&'a TensorRank0>
         + Mul<TensorRank0, Output = Self>
+        + Mul<&'a TensorRank0, Output = Self>
         + MulAssign<TensorRank0>
+        + MulAssign<&'a TensorRank0>
         + Sub<Self, Output = Self>
         + Sub<&'a Self, Output = Self>
         + SubAssign
