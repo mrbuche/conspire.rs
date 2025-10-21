@@ -270,6 +270,17 @@ where
         //
         // Also note that you are going to have to this and `plastic_stretching_rate` a function of `yield_stress`.
         //
+        // Is this going to get out of hand later? With models with ISVs that are arbitrary?
+        // Do you want to start now handling that in a consistent way?
+        // Which will help you implement only 1 solver/etc. in constitutive/ and fem/ for ISV models?
+        // (Maybe still separate for explicitly- and implicitly-rate-dependent models).
+        // Could make a trait in solid/ for all implicitly-rate-dependent models
+        // which has an evolution function accepting the state and returning the evolution.
+        // The i/o here could be a sized array (method would have to flatten and stuff)
+        // or generic parameters that impl certain methods (could be nice),
+        // since the fem/ would be generic over them just like integrate/ would be.
+        // The mod could be internal_state_variables and have the two submodules.
+        //
         Ok((
             &plastic_stretching_rate * deformation_gradient_p,
             self.yield_stress_evolution(&plastic_stretching_rate)?,
