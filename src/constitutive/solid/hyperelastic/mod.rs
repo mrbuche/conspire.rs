@@ -28,7 +28,7 @@ use super::{
     *,
 };
 use crate::math::{
-    Matrix, TensorVec, Vector,
+    Matrix, Vector,
     optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
 };
 

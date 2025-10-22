@@ -35,6 +35,9 @@ where
     T: Tensor,
 {
     fn from(array: [T; N]) -> Self {
+        //
+        // any way to do with unsafe/pointering?
+        //
         Self(array.to_vec())
     }
 }
@@ -153,8 +156,6 @@ where
     T: Tensor,
 {
     type Item = T;
-    // type Slice<'a> = &'a [[TensorRank0; D]];
-    type Slice<'a> = &'a f32;
     fn append(&mut self, other: &mut Self) {
         self.0.append(&mut other.0)
     }
@@ -184,10 +185,6 @@ where
     }
     fn swap_remove(&mut self, index: usize) -> Self::Item {
         self.0.swap_remove(index)
-    }
-    fn zero(len: usize) -> Self {
-        todo!("Do you need this method after all?")
-        // (0..len).map(|_| super::zero()).collect()
     }
 }
 
@@ -259,7 +256,7 @@ where
     for<'a> &'a T: Mul<&'a TensorRank0, Output = T>,
 {
     type Output = TensorVector<T>;
-    fn mul(mut self, tensor_rank_0: TensorRank0) -> Self::Output {
+    fn mul(self, tensor_rank_0: TensorRank0) -> Self::Output {
         self.iter().map(|self_i| self_i * &tensor_rank_0).collect()
     }
 }
@@ -270,7 +267,7 @@ where
 //     for <'a> &'a T: Mul<&'a TensorRank0, Output=T>
 // {
 //     type Output = TensorVector<T>;
-//     fn mul(mut self, tensor_rank_0: &TensorRank0) -> Self::Output {
+//     fn mul(self, tensor_rank_0: &TensorRank0) -> Self::Output {
 //         self.iter().map(|self_i| self_i * tensor_rank_0).collect()
 //     }
 // }

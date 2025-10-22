@@ -255,8 +255,6 @@ where
 {
     /// The type of element encountered when iterating over the tensor.
     type Item;
-    /// The type of slice corresponding to the tensor.
-    type Slice<'a>;
     /// Moves all the elements of other into self, leaving other empty.
     fn append(&mut self, other: &mut Self);
     /// Returns the total number of elements the vector can hold without reallocating.
@@ -277,6 +275,4 @@ where
         F: FnMut(&Self::Item) -> bool;
     /// Removes an element from the Vec and returns it, replacing it with the last element.
     fn swap_remove(&mut self, _index: usize) -> Self::Item;
-    /// Returns the zero tensor.
-    fn zero(len: usize) -> Self;
 }

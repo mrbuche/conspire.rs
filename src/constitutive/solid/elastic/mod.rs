@@ -20,7 +20,7 @@ pub use self::{
 
 use super::*;
 use crate::math::{
-    Matrix, TensorVec, Vector,
+    Matrix, Vector,
     optimize::{self, EqualityConstraint},
 };
 

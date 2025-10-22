@@ -2,18 +2,26 @@
 mod test;
 
 use crate::math::{
-    Jacobian, Solution, Tensor, TensorRank0, TensorRank1, TensorVec, Vector,
+    Jacobian, Solution, Tensor, TensorRank0, TensorRank1, TensorRank2Vec2D,
+    TensorVec, Vector,
     tensor::vec::TensorVector,
 };
 use std::{
     mem::{forget, transmute},
-    ops::Sub,
+    ops::{Div, Sub},
 };
 
 #[cfg(test)]
 use crate::math::tensor::test::ErrorTensor;
 
 pub type TensorRank1Vec<const D: usize, const I: usize> = TensorVector<TensorRank1<D, I>>;
+
+impl<const D: usize, const I: usize> TensorRank1Vec<D, I>
+{
+    pub fn zero(len: usize) -> Self {
+        (0..len).map(|_| super::zero()).collect()
+    }
+}
 
 impl<const D: usize, const I: usize, const N: usize> From<[[TensorRank0; D]; N]>
     for TensorRank1Vec<D, I>
@@ -160,6 +168,15 @@ impl<const D: usize, const I: usize> Sub<&Vector> for TensorRank1Vec<D, I> {
     }
 }
 
+impl<const D: usize, const I: usize, const J: usize> Div<TensorRank2Vec2D<D, I, J>>
+    for &TensorRank1Vec<D, I>
+{
+    type Output = TensorRank1Vec<D, J>;
+    fn div(self, _tensor_rank_2_vec_2d: TensorRank2Vec2D<D, I, J>) -> Self::Output {
+        todo!()
+    }
+}
+
 #[cfg(test)]
 impl<const D: usize, const I: usize> ErrorTensor for TensorRank1Vec<D, I> {
     fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
@@ -226,7 +243,7 @@ impl<const D: usize, const I: usize> ErrorTensor for TensorRank1Vec<D, I> {
 
 // impl<const D: usize, const I: usize> Default for TensorRank1Vec<D, I> {
 //     fn default() -> Self {
-//         Self::zero(0)
+//         Self::new()
 //     }
 // }
 

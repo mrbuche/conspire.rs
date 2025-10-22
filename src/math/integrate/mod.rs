@@ -81,12 +81,12 @@ where
         let mut e;
         let mut k = vec![Y::default(); Self::SLOPES];
         k[0] = function(t, &initial_condition)?;
-        let mut t_sol = Vector::zero(0); // can be new(), grep for other cases!
+        let mut t_sol = Vector::new();
         t_sol.push(t_0);
         let mut y = initial_condition.clone();
-        let mut y_sol = U::zero(0); // can be new(), grep for other cases!
+        let mut y_sol = U::new();
         y_sol.push(initial_condition.clone());
-        let mut dydt_sol = U::zero(0); // can be new(), grep for other cases!
+        let mut dydt_sol = U::new();
         dydt_sol.push(k[0].clone());
         let mut y_trial = Y::default();
         while t < t_f {

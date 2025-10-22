@@ -6027,7 +6027,7 @@ fn connectivity() -> Connectivity<N> {
 }
 
 fn coordinates() -> ReferenceNodalCoordinatesBlock {
-    ReferenceNodalCoordinatesBlock::new(&[
+    ReferenceNodalCoordinatesBlock::from([
         [5.000000e-01, -5.000000e-01, 5.000000e-01],
         [5.000000e-01, 5.000000e-01, 5.000000e-01],
         [5.000000e-01, -4.000000e-01, 5.000000e-01],

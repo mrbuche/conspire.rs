@@ -1,4 +1,4 @@
-use crate::math::{TensorRank0, TensorRank1Vec, TensorVec};
+use crate::math::{TensorRank1Vec, TensorVec};
 use std::ops::{Index, IndexMut};
 
 /// A 2D vector of *d*-dimensional tensors of rank 1.
@@ -28,7 +28,6 @@ impl<const D: usize, const I: usize> IndexMut<usize> for TensorRank1Vec2D<D, I> 
 
 impl<const D: usize, const I: usize> TensorVec for TensorRank1Vec2D<D, I> {
     type Item = TensorRank1Vec<D, I>;
-    type Slice<'a> = &'a [&'a [[TensorRank0; D]]];
     fn append(&mut self, other: &mut Self) {
         self.0.append(&mut other.0)
     }
@@ -58,9 +57,6 @@ impl<const D: usize, const I: usize> TensorVec for TensorRank1Vec2D<D, I> {
     }
     fn swap_remove(&mut self, index: usize) -> Self::Item {
         self.0.swap_remove(index)
-    }
-    fn zero(len: usize) -> Self {
-        (0..len).map(|_| Self::Item::zero(0)).collect()
     }
 }
 

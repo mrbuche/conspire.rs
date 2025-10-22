@@ -30,11 +30,14 @@ impl Vector {
     pub fn ones(len: usize) -> Self {
         Self(vec![1.0; len])
     }
+    pub fn zero(len: usize) -> Self {
+        Self(vec![0.0; len])
+    }
 }
 
 impl Default for Vector {
     fn default() -> Self {
-        Self::zero(0)
+        Self::new()
     }
 }
 
@@ -97,6 +100,16 @@ impl Display for Vector {
         })?;
         write!(f, "\x1B[2D]")?;
         Ok(())
+    }
+}
+
+impl<const N: usize> From<[Scalar; N]> for Vector
+{
+    fn from(array: [Scalar; N]) -> Self {
+        //
+        // any way to do with unsafe/pointering?
+        //
+        array.into_iter().collect()
     }
 }
 
@@ -221,7 +234,6 @@ impl IntoIterator for Vector {
 
 impl TensorVec for Vector {
     type Item = Scalar;
-    type Slice<'a> = &'a [Scalar];
     fn append(&mut self, other: &mut Self) {
         self.0.append(&mut other.0)
     }
@@ -251,9 +263,6 @@ impl TensorVec for Vector {
     }
     fn swap_remove(&mut self, index: usize) -> Self::Item {
         self.0.swap_remove(index)
-    }
-    fn zero(len: usize) -> Self {
-        Self(vec![0.0; len])
     }
 }
 

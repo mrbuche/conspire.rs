@@ -45,13 +45,13 @@ where
         let mut index = 0;
         let mut t = t_0;
         let mut dt;
-        let mut t_sol = Vector::zero(0);
+        let mut t_sol = Vector::new();
         t_sol.push(t_0);
         let mut t_trial;
         let mut y = initial_condition.clone();
-        let mut y_sol = U::zero(0);
+        let mut y_sol = U::new();
         y_sol.push(initial_condition.clone());
-        let mut dydt_sol = U::zero(0);
+        let mut dydt_sol = U::new();
         dydt_sol.push(function(t, &y.clone())?);
         let mut y_trial;
         while t < t_f {
@@ -109,13 +109,13 @@ where
         let mut t = t_0;
         let mut dt;
         let identity = J::identity();
-        let mut t_sol = Vector::zero(0);
+        let mut t_sol = Vector::new();
         t_sol.push(t_0);
         let mut t_trial;
         let mut y = initial_condition.clone();
-        let mut y_sol = U::zero(0);
+        let mut y_sol = U::new();
         y_sol.push(initial_condition.clone());
-        let mut dydt_sol = U::zero(0);
+        let mut dydt_sol = U::new();
         dydt_sol.push(function(t, &y.clone())?);
         let mut y_trial;
         while t < t_f {

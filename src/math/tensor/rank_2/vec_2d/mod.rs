@@ -17,9 +17,16 @@ pub struct TensorRank2Vec2D<const D: usize, const I: usize, const J: usize>(
     Vec<TensorRank2Vec<D, I, J>>,
 );
 
+impl<const D: usize, const I: usize, const J: usize> TensorRank2Vec2D<D, I, J>
+{
+    pub fn zero(len: usize) -> Self {
+        (0..len).map(|_| TensorRank2Vec::zero(len)).collect()
+    }
+}
+
 impl<const D: usize, const I: usize, const J: usize> Default for TensorRank2Vec2D<D, I, J> {
     fn default() -> Self {
-        Self::zero(0)
+        Self::new()
     }
 }
 
@@ -136,7 +143,6 @@ impl<const D: usize, const I: usize, const J: usize> IndexMut<usize> for TensorR
 
 impl<const D: usize, const I: usize, const J: usize> TensorVec for TensorRank2Vec2D<D, I, J> {
     type Item = TensorRank2Vec<D, I, J>;
-    type Slice<'a> = &'a [&'a [[[TensorRank0; D]; D]]];
     fn append(&mut self, other: &mut Self) {
         self.0.append(&mut other.0)
     }
@@ -166,9 +172,6 @@ impl<const D: usize, const I: usize, const J: usize> TensorVec for TensorRank2Ve
     }
     fn swap_remove(&mut self, index: usize) -> Self::Item {
         self.0.swap_remove(index)
-    }
-    fn zero(len: usize) -> Self {
-        (0..len).map(|_| Self::Item::zero(len)).collect()
     }
 }
 
