@@ -24,6 +24,7 @@ pub mod list;
 /// A *d*-dimensional tensor of rank 4.
 ///
 /// `D` is the dimension, `I`, `J`, `K`, `L` are the configurations.
+#[repr(transparent)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct TensorRank4<
     const D: usize,
@@ -289,6 +290,12 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     }
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
+    }
+    fn len(&self) -> usize {
+        D
+    }
+    fn size(&self) -> usize {
+        D * D * D * D
     }
 }
 

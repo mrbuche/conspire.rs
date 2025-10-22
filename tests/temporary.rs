@@ -13,7 +13,7 @@ use conspire::{
         SecondOrderMinimize, ViscoelasticFiniteElementBlock,
     },
     math::{
-        Matrix, Tensor, TensorVec, TestError, Vector, assert_eq_within, assert_eq_within_tols,
+        Matrix, Tensor, TestError, Vector, assert_eq_within, assert_eq_within_tols,
         integrate::DormandPrince,
         optimize::{EqualityConstraint, NewtonRaphson},
     },

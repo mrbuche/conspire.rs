@@ -7,6 +7,7 @@ use crate::math::{
 };
 use std::{
     fmt::{Display, Formatter, Result},
+    iter::Sum,
     mem::forget,
     ops::{
         Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, RangeFrom, RangeTo, Sub,
@@ -103,13 +104,9 @@ impl Display for Vector {
     }
 }
 
-impl<const N: usize> From<[Scalar; N]> for Vector
-{
+impl<const N: usize> From<[Scalar; N]> for Vector {
     fn from(array: [Scalar; N]) -> Self {
-        //
-        // any way to do with unsafe/pointering?
-        //
-        array.into_iter().collect()
+        Self(array.to_vec())
     }
 }
 
@@ -191,8 +188,14 @@ impl Tensor for Vector {
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
     }
+    fn len(&self) -> usize {
+        self.0.len()
+    }
     fn norm_inf(&self) -> Scalar {
         self.iter().fold(0.0, |acc, entry| entry.abs().max(acc))
+    }
+    fn size(&self) -> usize {
+        self.len()
     }
 }
 
@@ -243,9 +246,6 @@ impl TensorVec for Vector {
     fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
-    fn len(&self) -> usize {
-        self.0.len()
-    }
     fn new() -> Self {
         Self(Vec::new())
     }
@@ -263,6 +263,19 @@ impl TensorVec for Vector {
     }
     fn swap_remove(&mut self, index: usize) -> Self::Item {
         self.0.swap_remove(index)
+    }
+}
+
+impl Sum for Vector {
+    fn sum<Ii>(iter: Ii) -> Self
+    where
+        Ii: Iterator<Item = Self>,
+    {
+        iter.reduce(|mut acc, item| {
+            acc += item;
+            acc
+        })
+        .unwrap_or_else(Self::default)
     }
 }
 

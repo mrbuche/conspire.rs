@@ -2,10 +2,7 @@
 mod test;
 
 use super::{
-    super::{
-        Banded, Hessian, Jacobian, Matrix, Scalar, Solution, SquareMatrix, Tensor, TensorVec,
-        Vector,
-    },
+    super::{Banded, Hessian, Jacobian, Matrix, Scalar, Solution, SquareMatrix, Tensor, Vector},
     BacktrackingLineSearch, EqualityConstraint, FirstOrderRootFinding, LineSearch,
     OptimizationError, SecondOrderOptimization,
 };
@@ -207,7 +204,7 @@ where
     X: Solution,
     for<'a> &'a X: Mul<Scalar, Output = X>,
 {
-    let mut retained = vec![true; initial_guess.num_entries()];
+    let mut retained = vec![true; initial_guess.size()];
     indices.iter().for_each(|&index| retained[index] = false);
     let mut decrement;
     let mut residual;
@@ -269,7 +266,7 @@ where
         panic!("Line search needs the exact penalty function in constrained optimization.")
     }
     let mut decrement;
-    let num_variables = initial_guess.num_entries();
+    let num_variables = initial_guess.size();
     let num_constraints = constraint_rhs.len();
     let num_total = num_variables + num_constraints;
     let mut multipliers = Vector::zero(num_constraints);

@@ -6,6 +6,7 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
+#[repr(transparent)]
 #[derive(Clone, Debug)]
 pub struct TensorList<T, const N: usize>([T; N])
 where
@@ -91,6 +92,12 @@ where
     }
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
+    }
+    fn len(&self) -> usize {
+        N
+    }
+    fn size(&self) -> usize {
+        N * self[0].size() // fine if T is TensorArray
     }
 }
 

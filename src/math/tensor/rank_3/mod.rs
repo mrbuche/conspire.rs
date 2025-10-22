@@ -32,6 +32,7 @@ pub fn levi_civita<const I: usize, const J: usize, const K: usize>() -> TensorRa
 /// A *d*-dimensional tensor of rank 3.
 ///
 /// `D` is the dimension, `I`, `J`, `K` are the configurations.
+#[repr(transparent)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct TensorRank3<const D: usize, const I: usize, const J: usize, const K: usize>(
     [TensorRank2<D, J, K>; D],
@@ -111,6 +112,12 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Tensor
     }
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
+    }
+    fn len(&self) -> usize {
+        D
+    }
+    fn size(&self) -> usize {
+        D * D * D
     }
 }
 

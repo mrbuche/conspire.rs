@@ -35,9 +35,6 @@ where
     T: Tensor,
 {
     fn from(array: [T; N]) -> Self {
-        //
-        // any way to do with unsafe/pointering?
-        //
         Self(array.to_vec())
     }
 }
@@ -113,6 +110,12 @@ where
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
     }
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+    fn size(&self) -> usize {
+        self.len() * self[0].size() // not a huge fan of this since T could be another Vec and each could have a different size
+    }
 }
 
 impl<T> FromIterator<T> for TensorVector<T>
@@ -164,9 +167,6 @@ where
     }
     fn is_empty(&self) -> bool {
         self.0.is_empty()
-    }
-    fn len(&self) -> usize {
-        self.0.len()
     }
     fn new() -> Self {
         Self(Vec::new())
@@ -362,8 +362,8 @@ where
     // for <'a> &'a T: Sub<&'a T, Output=T>
 {
     type Output = TensorVector<T>;
-    fn sub(self, tensor_vec: Self) -> Self::Output {
-        todo!()
+    fn sub(self, _tensor_vec: Self) -> Self::Output {
+        unimplemented!()
         // self
         //     .iter()
         //     .zip(tensor_vec.iter())

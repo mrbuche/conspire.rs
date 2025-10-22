@@ -7,13 +7,13 @@ use crate::math::test::ErrorTensor;
 use crate::{
     ABS_TOL,
     math::{
-        Hessian, Rank2, Tensor, Scalar, TensorRank2Vec2D, TensorVec, Vector,
-        write_tensor_rank_0,
+        Hessian, Rank2, Scalar, Tensor, TensorRank2Vec2D, TensorVec, Vector, write_tensor_rank_0,
     },
 };
 use std::{
     collections::VecDeque,
     fmt::{self, Display, Formatter},
+    iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
     vec::IntoIter,
 };
@@ -290,7 +290,8 @@ impl SquareMatrix {
     }
     pub fn zero(len: usize) -> Self {
         (0..len).map(|_| Vector::zero(len)).collect()
-    }}
+    }
+}
 
 fn forward_substitution(x: &mut Vector, a: &SquareMatrix) {
     a.iter().enumerate().for_each(|(i, a_i)| {
@@ -358,12 +359,8 @@ impl Display for SquareMatrix {
     }
 }
 
-impl<const N: usize> From<[[Scalar; N]; N]> for SquareMatrix
-{
+impl<const N: usize> From<[[Scalar; N]; N]> for SquareMatrix {
     fn from(array: [[Scalar; N]; N]) -> Self {
-        //
-        // any way to do with unsafe/pointering?
-        //
         array.into_iter().map(Vector::from).collect()
     }
 }
@@ -510,6 +507,12 @@ impl Tensor for SquareMatrix {
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
     }
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+    fn size(&self) -> usize {
+        unimplemented!("Do not like that inner Vecs could be different sizes")
+    }
 }
 
 impl IntoIterator for SquareMatrix {
@@ -531,9 +534,6 @@ impl TensorVec for SquareMatrix {
     fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
-    fn len(&self) -> usize {
-        self.0.len()
-    }
     fn new() -> Self {
         Self(Vec::new())
     }
@@ -551,6 +551,19 @@ impl TensorVec for SquareMatrix {
     }
     fn swap_remove(&mut self, index: usize) -> Self::Item {
         self.0.swap_remove(index)
+    }
+}
+
+impl Sum for SquareMatrix {
+    fn sum<Ii>(iter: Ii) -> Self
+    where
+        Ii: Iterator<Item = Self>,
+    {
+        iter.reduce(|mut acc, item| {
+            acc += item;
+            acc
+        })
+        .unwrap_or_else(Self::default)
     }
 }
 

@@ -24,6 +24,7 @@ use super::test::ErrorTensor;
 /// A *d*-dimensional tensor of rank 1.
 ///
 /// `D` is the dimension, `I` is the configuration.
+#[repr(transparent)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct TensorRank1<const D: usize, const I: usize>([TensorRank0; D]);
 
@@ -130,8 +131,11 @@ impl<const D: usize, const I: usize> Tensor for TensorRank1<D, I> {
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
     }
-    fn norm_inf(&self) -> TensorRank0 {
-        self.iter().fold(0.0, |acc, entry| entry.abs().max(acc))
+    fn len(&self) -> usize {
+        D
+    }
+    fn size(&self) -> usize {
+        D
     }
 }
 

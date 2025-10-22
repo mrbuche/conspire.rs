@@ -2,7 +2,7 @@
 mod test;
 
 use super::{
-    super::{Jacobian, Matrix, Scalar, Solution, Tensor, TensorVec, Vector},
+    super::{Jacobian, Matrix, Scalar, Solution, Tensor, Vector},
     BacktrackingLineSearch, EqualityConstraint, FirstOrderOptimization, LineSearch,
     OptimizationError, ZerothOrderRootFinding,
 };

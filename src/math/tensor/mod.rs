@@ -13,6 +13,7 @@ use crate::defeat_message;
 use rank_0::TensorRank0;
 use std::{
     fmt::{self, Debug, Display, Formatter},
+    iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
@@ -121,6 +122,7 @@ where
 }
 
 /// Common methods for tensors.
+#[allow(clippy::len_without_is_empty)]
 pub trait Tensor
 where
     for<'a> Self: Sized
@@ -143,8 +145,8 @@ where
         + Sub<Self, Output = Self>
         + Sub<&'a Self, Output = Self>
         + SubAssign
-        + SubAssign<&'a Self>,
-    // + Sum,
+        + SubAssign<&'a Self>
+        + Sum,
     Self::Item: Tensor,
 {
     /// The type of item encountered when iterating over the tensor.
@@ -183,13 +185,16 @@ where
     ///
     /// The iterator yields all items from start to end. [Read more](https://doc.rust-lang.org/std/iter/)
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item>;
+    /// Returns the number of elements, also referred to as the ‘length’.
+    fn len(&self) -> usize;
     /// Returns the tensor norm.
     fn norm(&self) -> TensorRank0 {
         self.norm_squared().sqrt()
     }
     /// Returns the infinity norm.
     fn norm_inf(&self) -> TensorRank0 {
-        unimplemented!()
+        self.iter()
+            .fold(0.0, |acc, entry| entry.norm_inf().max(acc))
     }
     /// Returns the tensor norm squared.
     fn norm_squared(&self) -> TensorRank0 {
@@ -205,9 +210,7 @@ where
         self / norm
     }
     /// Returns the total number of entries.
-    fn num_entries(&self) -> usize {
-        unimplemented!()
-    }
+    fn size(&self) -> usize;
     /// Returns the positive difference of the two tensors.
     fn sub_abs(&self, other: &Self) -> Self {
         let mut difference = self.clone();
@@ -261,8 +264,6 @@ where
     fn capacity(&self) -> usize;
     /// Returns `true` if the vector contains no elements.
     fn is_empty(&self) -> bool;
-    /// Returns the number of elements in the vector, also referred to as its ‘length’.
-    fn len(&self) -> usize;
     /// Constructs a new, empty Vec, not allocating until elements are pushed onto it.
     fn new() -> Self;
     /// Appends an element to the back of the Vec.

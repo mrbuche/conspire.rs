@@ -87,11 +87,17 @@ impl Tensor for TensorRank0 {
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         [self].into_iter()
     }
+    fn len(&self) -> usize {
+        1
+    }
     fn norm_inf(&self) -> TensorRank0 {
         self.abs()
     }
     fn normalized(self) -> Self {
         1.0
+    }
+    fn size(&self) -> usize {
+        1
     }
     fn sub_abs(&self, other: &Self) -> Self {
         (self - other).abs()

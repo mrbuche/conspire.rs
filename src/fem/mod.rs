@@ -32,7 +32,7 @@ use crate::{
     math::{
         ContractSecondFourthIndicesWithFirstIndicesOf, Tensor, TensorRank1, TensorRank1List,
         TensorRank1List2D, TensorRank1Vec, TensorRank1Vec2D, TensorRank2, TensorRank2List,
-        TensorRank2List2D, TensorRank2Vec2D, TensorVec,
+        TensorRank2List2D, TensorRank2Vec2D,
     },
     mechanics::{
         Coordinates, CurrentCoordinates, DeformationGradient, DeformationGradientList,
