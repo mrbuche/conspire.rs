@@ -3,12 +3,23 @@ use std::{
     fmt::{Display, Formatter, Result},
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
+    vec::IntoIter,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TensorVector<T>(Vec<T>)
 where
     T: Tensor;
+
+impl<T> TensorVector<T>
+where
+    T: Tensor,
+{
+    /// Returns a raw pointer to the vector’s buffer, or a dangling raw pointer valid for zero sized reads if the vector didn’t allocate.
+    pub const fn as_ptr(&self) -> *const T {
+        self.0.as_ptr()
+    }
+}
 
 impl<T> Default for TensorVector<T>
 where
@@ -19,12 +30,30 @@ where
     }
 }
 
+impl<T, const N: usize> From<[T; N]> for TensorVector<T>
+where
+    T: Tensor,
+{
+    fn from(array: [T; N]) -> Self {
+        Self(array.to_vec())
+    }
+}
+
+impl<T> From<&[T]> for TensorVector<T>
+where
+    T: Tensor,
+{
+    fn from(slice: &[T]) -> Self {
+        Self(slice.to_vec())
+    }
+}
+
 impl<T> From<Vec<T>> for TensorVector<T>
 where
     T: Tensor,
 {
-    fn from(tensor_vec: Vec<T>) -> Self {
-        Self(tensor_vec)
+    fn from(vec: Vec<T>) -> Self {
+        Self(vec)
     }
 }
 
@@ -92,6 +121,17 @@ where
     }
 }
 
+impl<T> IntoIterator for TensorVector<T>
+where
+    T: Tensor,
+{
+    type Item = T;
+    type IntoIter = IntoIter<Self::Item>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 impl<T> Sum for TensorVector<T>
 where
     T: Tensor,
@@ -127,12 +167,8 @@ where
     fn len(&self) -> usize {
         self.0.len()
     }
-    fn new(slice: Self::Slice<'_>) -> Self {
-        todo!("Do you need this method after all? Can you use From<> instead?")
-        // slice
-        //     .iter()
-        //     .map(|slice_entry| Self::Item::new(*slice_entry))
-        //     .collect()
+    fn new() -> Self {
+        Self(Vec::new())
     }
     fn push(&mut self, item: Self::Item) {
         self.0.push(item)
@@ -205,6 +241,7 @@ where
         self
     }
 }
+
 impl<T> Mul<&TensorRank0> for TensorVector<T>
 where
     T: Tensor,
@@ -215,6 +252,28 @@ where
         self
     }
 }
+
+impl<T> Mul<TensorRank0> for &TensorVector<T>
+where
+    T: Tensor,
+    for<'a> &'a T: Mul<&'a TensorRank0, Output = T>,
+{
+    type Output = TensorVector<T>;
+    fn mul(mut self, tensor_rank_0: TensorRank0) -> Self::Output {
+        self.iter().map(|self_i| self_i * &tensor_rank_0).collect()
+    }
+}
+
+// impl<T> Mul<&TensorRank0> for &TensorVector<T>
+// where
+//     T: Tensor,
+//     for <'a> &'a T: Mul<&'a TensorRank0, Output=T>
+// {
+//     type Output = TensorVector<T>;
+//     fn mul(mut self, tensor_rank_0: &TensorRank0) -> Self::Output {
+//         self.iter().map(|self_i| self_i * tensor_rank_0).collect()
+//     }
+// }
 
 impl<T> MulAssign<TensorRank0> for TensorVector<T>
 where
@@ -239,8 +298,8 @@ where
     T: Tensor,
 {
     type Output = Self;
-    fn add(mut self, tensor_list: Self) -> Self::Output {
-        self += tensor_list;
+    fn add(mut self, tensor_vec: Self) -> Self::Output {
+        self += tensor_vec;
         self
     }
 }
@@ -250,8 +309,8 @@ where
     T: Tensor,
 {
     type Output = Self;
-    fn add(mut self, tensor_list: &Self) -> Self::Output {
-        self += tensor_list;
+    fn add(mut self, tensor_vec: &Self) -> Self::Output {
+        self += tensor_vec;
         self
     }
 }
@@ -260,9 +319,9 @@ impl<T> AddAssign for TensorVector<T>
 where
     T: Tensor,
 {
-    fn add_assign(&mut self, tensor_list: Self) {
+    fn add_assign(&mut self, tensor_vec: Self) {
         self.iter_mut()
-            .zip(tensor_list.iter())
+            .zip(tensor_vec.iter())
             .for_each(|(self_entry, entry)| *self_entry += entry);
     }
 }
@@ -271,9 +330,9 @@ impl<T> AddAssign<&Self> for TensorVector<T>
 where
     T: Tensor,
 {
-    fn add_assign(&mut self, tensor_list: &Self) {
+    fn add_assign(&mut self, tensor_vec: &Self) {
         self.iter_mut()
-            .zip(tensor_list.iter())
+            .zip(tensor_vec.iter())
             .for_each(|(self_entry, entry)| *self_entry += entry);
     }
 }
@@ -283,8 +342,8 @@ where
     T: Tensor,
 {
     type Output = Self;
-    fn sub(mut self, tensor_list: Self) -> Self::Output {
-        self -= tensor_list;
+    fn sub(mut self, tensor_vec: Self) -> Self::Output {
+        self -= tensor_vec;
         self
     }
 }
@@ -294,9 +353,27 @@ where
     T: Tensor,
 {
     type Output = Self;
-    fn sub(mut self, tensor_list: &Self) -> Self::Output {
-        self -= tensor_list;
+    fn sub(mut self, tensor_vec: &Self) -> Self::Output {
+        self -= tensor_vec;
         self
+    }
+}
+
+impl<T> Sub<Self> for &TensorVector<T>
+where
+    T: Tensor,
+    // for <'a> &'a T: Sub<&'a T, Output=T>
+{
+    type Output = TensorVector<T>;
+    fn sub(self, tensor_vec: Self) -> Self::Output {
+        todo!()
+        // self
+        //     .iter()
+        //     .zip(tensor_vec.iter())
+        //     .map(|(self_entry, entry)| {
+        //         self_entry - entry
+        //     })
+        //     .collect()
     }
 }
 
@@ -304,9 +381,9 @@ impl<T> SubAssign for TensorVector<T>
 where
     T: Tensor,
 {
-    fn sub_assign(&mut self, tensor_list: Self) {
+    fn sub_assign(&mut self, tensor_vec: Self) {
         self.iter_mut()
-            .zip(tensor_list.iter())
+            .zip(tensor_vec.iter())
             .for_each(|(self_entry, entry)| *self_entry -= entry);
     }
 }
@@ -315,9 +392,9 @@ impl<T> SubAssign<&Self> for TensorVector<T>
 where
     T: Tensor,
 {
-    fn sub_assign(&mut self, tensor_list: &Self) {
+    fn sub_assign(&mut self, tensor_vec: &Self) {
         self.iter_mut()
-            .zip(tensor_list.iter())
+            .zip(tensor_vec.iter())
             .for_each(|(self_entry, entry)| *self_entry -= entry);
     }
 }

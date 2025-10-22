@@ -13,7 +13,7 @@ pub type TensorRank2List2D<
     const J: usize,
     const W: usize,
     const X: usize,
-> = TensorList<X, TensorRank2List<D, I, J, W>>;
+> = TensorList<TensorRank2List<D, I, J, W>, X>;
 
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: usize, const X: usize>
     Mul<TensorRank2<D, J, K>> for TensorRank2List2D<D, I, J, W, X>

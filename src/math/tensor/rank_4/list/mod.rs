@@ -10,4 +10,4 @@ pub type TensorRank4List<
     const K: usize,
     const L: usize,
     const W: usize,
-> = TensorList<W, TensorRank4<D, I, J, K, L>>;
+> = TensorList<TensorRank4<D, I, J, K, L>, W>;

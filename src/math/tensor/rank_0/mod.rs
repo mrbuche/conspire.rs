@@ -6,7 +6,7 @@ use super::test::ErrorTensor;
 
 pub mod list;
 
-use super::{Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, TensorVec, Vector};
+use super::{Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, Vector};
 use std::ops::Sub;
 
 /// A tensor of rank 0 (a scalar).
@@ -122,14 +122,8 @@ impl TensorArray for TensorRank0 {
     }
 }
 
-impl From<TensorRank0> for Vector {
-    fn from(tensor_rank_0: TensorRank0) -> Self {
-        Vector::new(&[tensor_rank_0])
-    }
-}
-
 impl From<Vector> for TensorRank0 {
-    fn from(vector: Vector) -> Self {
-        vector[0]
+    fn from(_vector: Vector) -> Self {
+        unimplemented!()
     }
 }

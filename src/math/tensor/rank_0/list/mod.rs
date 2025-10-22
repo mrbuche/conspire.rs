@@ -4,7 +4,7 @@ mod test;
 use crate::math::{Tensor, TensorRank0, tensor::list::TensorList};
 use std::ops::Mul;
 
-pub type TensorRank0List<const W: usize> = TensorList<W, TensorRank0>;
+pub type TensorRank0List<const W: usize> = TensorList<TensorRank0, W>;
 
 impl<const W: usize> Mul for TensorRank0List<W> {
     type Output = TensorRank0;

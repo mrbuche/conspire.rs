@@ -1,6 +1,6 @@
-use super::{
-    super::super::test::{TestError, assert_eq},
-    TensorRank0, TensorRank1Vec, TensorVec,
+use crate::math::{
+    TensorRank0, TensorRank1Vec,
+    tensor::test::{TestError, assert_eq},
 };
 
 fn get_array() -> [[TensorRank0; 3]; 2] {
@@ -8,7 +8,7 @@ fn get_array() -> [[TensorRank0; 3]; 2] {
 }
 
 fn get_tensor_rank_1_vec() -> TensorRank1Vec<3, 1> {
-    TensorRank1Vec::new(&get_array())
+    TensorRank1Vec::from(get_vec_arr())
 }
 
 fn get_vec_arr() -> Vec<[TensorRank0; 3]> {

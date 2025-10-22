@@ -265,8 +265,8 @@ where
     fn is_empty(&self) -> bool;
     /// Returns the number of elements in the vector, also referred to as its ‘length’.
     fn len(&self) -> usize;
-    /// Returns a tensor given a slice.
-    fn new(slice: Self::Slice<'_>) -> Self;
+    /// Constructs a new, empty Vec, not allocating until elements are pushed onto it.
+    fn new() -> Self;
     /// Appends an element to the back of the Vec.
     fn push(&mut self, item: Self::Item);
     /// Removes an element from the Vec and returns it, shifting elements to the left.

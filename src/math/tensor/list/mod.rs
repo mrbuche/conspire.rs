@@ -1,17 +1,17 @@
 use crate::math::{Tensor, TensorArray, TensorRank0};
 use std::{
-    array::from_fn,
+    array::{IntoIter, from_fn},
     fmt::{Display, Formatter, Result},
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
 #[derive(Clone, Debug)]
-pub struct TensorList<const N: usize, T>([T; N])
+pub struct TensorList<T, const N: usize>([T; N])
 where
     T: Tensor;
 
-impl<const N: usize, T> Default for TensorList<N, T>
+impl<T, const N: usize> Default for TensorList<T, N>
 where
     T: Tensor,
 {
@@ -20,7 +20,7 @@ where
     }
 }
 
-impl<const N: usize, T> TensorList<N, T>
+impl<T, const N: usize> TensorList<T, N>
 where
     T: Tensor,
 {
@@ -30,7 +30,7 @@ where
     }
 }
 
-impl<const N: usize, T> From<[T; N]> for TensorList<N, T>
+impl<T, const N: usize> From<[T; N]> for TensorList<T, N>
 where
     T: Tensor,
 {
@@ -39,7 +39,7 @@ where
     }
 }
 
-impl<const N: usize, T> Display for TensorList<N, T>
+impl<T, const N: usize> Display for TensorList<T, N>
 where
     T: Tensor,
 {
@@ -62,7 +62,7 @@ where
     }
 }
 
-impl<const N: usize, T> Index<usize> for TensorList<N, T>
+impl<T, const N: usize> Index<usize> for TensorList<T, N>
 where
     T: Tensor,
 {
@@ -72,7 +72,7 @@ where
     }
 }
 
-impl<const N: usize, T> IndexMut<usize> for TensorList<N, T>
+impl<T, const N: usize> IndexMut<usize> for TensorList<T, N>
 where
     T: Tensor,
 {
@@ -81,7 +81,7 @@ where
     }
 }
 
-impl<const N: usize, T> Tensor for TensorList<N, T>
+impl<T, const N: usize> Tensor for TensorList<T, N>
 where
     T: Tensor,
 {
@@ -94,7 +94,7 @@ where
     }
 }
 
-impl<const N: usize, T> FromIterator<T> for TensorList<N, T>
+impl<T, const N: usize> FromIterator<T> for TensorList<T, N>
 where
     T: Tensor,
 {
@@ -108,7 +108,18 @@ where
     }
 }
 
-impl<const N: usize, T> Sum for TensorList<N, T>
+impl<T, const N: usize> IntoIterator for TensorList<T, N>
+where
+    T: Tensor,
+{
+    type Item = T;
+    type IntoIter = IntoIter<Self::Item, N>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<T, const N: usize> Sum for TensorList<T, N>
 where
     T: Tensor,
 {
@@ -124,7 +135,7 @@ where
     }
 }
 
-impl<const N: usize, T> TensorArray for TensorList<N, T>
+impl<T, const N: usize> TensorArray for TensorList<T, N>
 where
     T: Tensor + TensorArray,
 {
@@ -144,7 +155,7 @@ where
     }
 }
 
-impl<const N: usize, T> Div<TensorRank0> for TensorList<N, T>
+impl<T, const N: usize> Div<TensorRank0> for TensorList<T, N>
 where
     T: Tensor,
 {
@@ -155,7 +166,7 @@ where
     }
 }
 
-impl<const N: usize, T> Div<&TensorRank0> for TensorList<N, T>
+impl<T, const N: usize> Div<&TensorRank0> for TensorList<T, N>
 where
     T: Tensor,
 {
@@ -166,7 +177,7 @@ where
     }
 }
 
-impl<const N: usize, T> DivAssign<TensorRank0> for TensorList<N, T>
+impl<T, const N: usize> DivAssign<TensorRank0> for TensorList<T, N>
 where
     T: Tensor,
 {
@@ -175,7 +186,7 @@ where
     }
 }
 
-impl<const N: usize, T> DivAssign<&TensorRank0> for TensorList<N, T>
+impl<T, const N: usize> DivAssign<&TensorRank0> for TensorList<T, N>
 where
     T: Tensor,
 {
@@ -184,7 +195,7 @@ where
     }
 }
 
-impl<const N: usize, T> Mul<TensorRank0> for TensorList<N, T>
+impl<T, const N: usize> Mul<TensorRank0> for TensorList<T, N>
 where
     T: Tensor,
 {
@@ -194,7 +205,7 @@ where
         self
     }
 }
-impl<const N: usize, T> Mul<&TensorRank0> for TensorList<N, T>
+impl<T, const N: usize> Mul<&TensorRank0> for TensorList<T, N>
 where
     T: Tensor,
 {
@@ -205,7 +216,7 @@ where
     }
 }
 
-impl<const N: usize, T> MulAssign<TensorRank0> for TensorList<N, T>
+impl<T, const N: usize> MulAssign<TensorRank0> for TensorList<T, N>
 where
     T: Tensor,
 {
@@ -214,7 +225,7 @@ where
     }
 }
 
-impl<const N: usize, T> MulAssign<&TensorRank0> for TensorList<N, T>
+impl<T, const N: usize> MulAssign<&TensorRank0> for TensorList<T, N>
 where
     T: Tensor,
 {
@@ -223,7 +234,7 @@ where
     }
 }
 
-impl<const N: usize, T> Add for TensorList<N, T>
+impl<T, const N: usize> Add for TensorList<T, N>
 where
     T: Tensor,
 {
@@ -234,7 +245,7 @@ where
     }
 }
 
-impl<const N: usize, T> Add<&Self> for TensorList<N, T>
+impl<T, const N: usize> Add<&Self> for TensorList<T, N>
 where
     T: Tensor,
 {
@@ -245,7 +256,7 @@ where
     }
 }
 
-impl<const N: usize, T> AddAssign for TensorList<N, T>
+impl<T, const N: usize> AddAssign for TensorList<T, N>
 where
     T: Tensor,
 {
@@ -256,7 +267,7 @@ where
     }
 }
 
-impl<const N: usize, T> AddAssign<&Self> for TensorList<N, T>
+impl<T, const N: usize> AddAssign<&Self> for TensorList<T, N>
 where
     T: Tensor,
 {
@@ -267,7 +278,7 @@ where
     }
 }
 
-impl<const N: usize, T> Sub for TensorList<N, T>
+impl<T, const N: usize> Sub for TensorList<T, N>
 where
     T: Tensor,
 {
@@ -278,7 +289,7 @@ where
     }
 }
 
-impl<const N: usize, T> Sub<&Self> for TensorList<N, T>
+impl<T, const N: usize> Sub<&Self> for TensorList<T, N>
 where
     T: Tensor,
 {
@@ -289,7 +300,7 @@ where
     }
 }
 
-impl<const N: usize, T> SubAssign for TensorList<N, T>
+impl<T, const N: usize> SubAssign for TensorList<T, N>
 where
     T: Tensor,
 {
@@ -300,7 +311,7 @@ where
     }
 }
 
-impl<const N: usize, T> SubAssign<&Self> for TensorList<N, T>
+impl<T, const N: usize> SubAssign<&Self> for TensorList<T, N>
 where
     T: Tensor,
 {

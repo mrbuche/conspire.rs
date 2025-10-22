@@ -81,12 +81,12 @@ where
         let mut e;
         let mut k = vec![Y::default(); Self::SLOPES];
         k[0] = function(t, &initial_condition)?;
-        let mut t_sol = Vector::zero(0);
+        let mut t_sol = Vector::zero(0); // can be new(), grep for other cases!
         t_sol.push(t_0);
         let mut y = initial_condition.clone();
-        let mut y_sol = U::zero(0);
+        let mut y_sol = U::zero(0); // can be new(), grep for other cases!
         y_sol.push(initial_condition.clone());
-        let mut dydt_sol = U::zero(0);
+        let mut dydt_sol = U::zero(0); // can be new(), grep for other cases!
         dydt_sol.push(k[0].clone());
         let mut y_trial = Y::default();
         while t < t_f {
@@ -116,7 +116,7 @@ where
             dt = dt.min(t_f - t);
         }
         if time.len() > 2 {
-            let t_int = Vector::new(time);
+            let t_int = Vector::from(time);
             let (y_int, dydt_int) = self.interpolate(&t_int, &t_sol, &y_sol, function)?;
             Ok((t_int, y_int, dydt_int))
         } else {

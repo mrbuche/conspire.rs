@@ -100,6 +100,18 @@ impl Display for Vector {
     }
 }
 
+impl From<&[Scalar]> for Vector {
+    fn from(slice: &[Scalar]) -> Self {
+        Self(slice.to_vec())
+    }
+}
+
+impl From<Scalar> for Vector {
+    fn from(scalar: Scalar) -> Self {
+        Vector(vec![scalar])
+    }
+}
+
 impl From<Vec<Scalar>> for Vector {
     fn from(vec: Vec<Scalar>) -> Self {
         Self(vec)
@@ -222,8 +234,8 @@ impl TensorVec for Vector {
     fn len(&self) -> usize {
         self.0.len()
     }
-    fn new(slice: Self::Slice<'_>) -> Self {
-        slice.iter().copied().collect()
+    fn new() -> Self {
+        Self(Vec::new())
     }
     fn push(&mut self, item: Self::Item) {
         self.0.push(item)

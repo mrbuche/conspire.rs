@@ -41,11 +41,8 @@ impl<const D: usize, const I: usize> TensorVec for TensorRank1Vec2D<D, I> {
     fn len(&self) -> usize {
         self.0.len()
     }
-    fn new(slice: Self::Slice<'_>) -> Self {
-        slice
-            .iter()
-            .map(|slice_entry| Self::Item::new(*slice_entry))
-            .collect()
+    fn new() -> Self {
+        Self(Vec::new())
     }
     fn push(&mut self, item: Self::Item) {
         self.0.push(item)

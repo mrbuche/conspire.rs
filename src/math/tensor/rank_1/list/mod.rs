@@ -8,7 +8,7 @@ use std::{mem::transmute, ops::Mul};
 use crate::math::{TensorRank0, tensor::test::ErrorTensor};
 
 pub type TensorRank1List<const D: usize, const I: usize, const W: usize> =
-    TensorList<W, TensorRank1<D, I>>;
+    TensorList<TensorRank1<D, I>, W>;
 
 impl From<TensorRank1List<3, 0, 3>> for TensorRank1List<3, 1, 3> {
     fn from(tensor_rank_1_list: TensorRank1List<3, 0, 3>) -> Self {
