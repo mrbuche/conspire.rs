@@ -26,7 +26,7 @@ macro_rules! test_explicit {
     ($integration: expr) => {
         use super::super::{
             super::{
-                Tensor, TensorArray, TensorTuple, TensorRank0, TensorRank1, TensorRank1Vec, TensorRank2, Vector,
+                Tensor, TensorArray, TensorTuple, TensorTupleVec, TensorRank0, TensorRank1, TensorRank1Vec, TensorRank2, Vector,
                 assert_eq_within_tols, test::TestError,
             },
             Explicit, IntegrationError,
@@ -194,24 +194,34 @@ macro_rules! test_explicit {
         #[test]
         fn tuple() -> Result<(), TestError> {
             let a = TensorRank2::<3, 1, 1>::identity();
-            let (time, solution, function): (Vector, TensorRank1Vec<3, 1>, _) = $integration
+            let (time, solution, function): (Vector, TensorTupleVec<TensorRank1<2, 1>, TensorRank1<3, 1>>, _) = $integration
                 .integrate(
-                    |_: TensorRank0, x: &TensorTuple<TensorRank1<3, 1>, TensorRank0>| {
-                        let (x_1, x_2) = x.into();
-                        Ok(TensorTuple::from(((&a * x_1), -x_2)))
+                    |t: TensorRank0, y: &TensorTuple<TensorRank1<2, 1>, TensorRank1<3, 1>>| {
+                        let (y_1, y_2) = y.into();
+                        Ok(TensorTuple::from((
+                            TensorRank1::new([y_1[1], -t.sin()]),
+                            TensorRank1::new([y_2[1], y_2[2], -t.cos()])
+                        )))
                     },
                     &[0.0, 1.0],
-                    TensorTuple::from((TensorRank1::new([1.0, 1.0, 1.0]), 1.0)),
+                    TensorTuple::from((TensorRank1::new([0.0, 1.0]), TensorRank1::new([0.0, 1.0, 0.0]))),
                 )?;
-            // time.iter()
-            //     .zip(solution.iter().zip(function.iter()))
-            //     .try_for_each(|(t, (y, f))| {
-            //         y.iter().zip(f.iter()).try_for_each(|(y_n, f_n)| {
-            //             assert_eq_within_tols(y_n, &t.exp())?;
-            //             assert_eq_within_tols(f_n, y_n)
-            //         })
-            //     })
-            todo!()
+            time.iter()
+                .zip(solution.iter().zip(function.iter()))
+                .try_for_each(|(t, (y, f))| {
+                    let (y_1, y_2) = y.into();
+                    let (f_1, f_2) = f.into();
+                    assert_eq_within_tols(&y_1[0], &t.sin())?;
+                    assert_eq_within_tols(&f_1[0], &t.cos())?;
+                    assert_eq_within_tols(&y_1[1], &t.cos())?;
+                    assert_eq_within_tols(&f_1[1], &-t.sin())?;
+                    assert_eq_within_tols(&y_2[0], &t.sin())?;
+                    assert_eq_within_tols(&f_2[0], &t.cos())?;
+                    assert_eq_within_tols(&y_2[1], &t.cos())?;
+                    assert_eq_within_tols(&f_2[1], &-t.sin())?;
+                    assert_eq_within_tols(&y_2[2], &-t.sin())?;
+                    assert_eq_within_tols(&f_2[2], &-t.cos())
+                })
         }
     };
 }

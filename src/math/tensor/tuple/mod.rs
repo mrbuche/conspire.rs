@@ -1,9 +1,11 @@
-use crate::math::{Tensor, TensorRank0};
+use crate::math::{Tensor, TensorRank0, TensorVector};
 use std::{
     fmt::{Display, Formatter, Result},
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign},
 };
+
+pub type TensorTupleVec<T1, T2> = TensorVector<TensorTuple<T1, T2>>;
 
 #[derive(Clone, Debug)]
 pub struct TensorTuple<T1, T2>(T1, T2)
@@ -83,6 +85,10 @@ where
     }
     fn len(&self) -> usize {
         unimplemented!()
+    }
+    fn norm_inf(&self) -> TensorRank0 {
+        // println!("{}, {}", self.0.norm_inf(), self.1.norm_inf());
+        self.0.norm_inf().max(self.1.norm_inf())
     }
     fn size(&self) -> usize {
         unimplemented!()

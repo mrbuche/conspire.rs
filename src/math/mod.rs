@@ -44,7 +44,7 @@ pub use tensor::{
         list::TensorRank4List,
     },
     test::{TestError, assert_eq, assert_eq_within, assert_eq_within_tols},
-    tuple::TensorTuple,
+    tuple::{TensorTuple, TensorTupleVec},
     vec::TensorVector,
 };
 
