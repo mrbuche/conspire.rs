@@ -1,7 +1,7 @@
 pub mod square;
 pub mod vector;
 
-use crate::math::{Scalar, Tensor, TensorRank1, TensorRank1Vec, TensorRank2, TensorVec};
+use crate::math::{Scalar, Tensor, TensorRank1, TensorRank1Vec, TensorRank2};
 use std::ops::{Index, IndexMut, Mul};
 use vector::Vector;
 

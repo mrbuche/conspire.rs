@@ -7,13 +7,13 @@ use crate::math::test::ErrorTensor;
 use crate::{
     ABS_TOL,
     math::{
-        Hessian, Rank2, Tensor, TensorRank0, TensorRank2Vec2D, TensorVec, Vector,
-        write_tensor_rank_0,
+        Hessian, Rank2, Scalar, Tensor, TensorRank2Vec2D, TensorVec, Vector, write_tensor_rank_0,
     },
 };
 use std::{
     collections::VecDeque,
     fmt::{self, Display, Formatter},
+    iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
     vec::IntoIter,
 };
@@ -106,7 +106,7 @@ pub struct SquareMatrix(Vec<Vector>);
 
 impl Default for SquareMatrix {
     fn default() -> Self {
-        Self::zero(0)
+        Self::new()
     }
 }
 
@@ -115,8 +115,8 @@ impl SquareMatrix {
     // pub fn solve_ldl(&mut self, b: &Vector) -> Result<Vector, SquareMatrixError> {
     //     let n = self.len();
     //     let mut p: Vec<usize> = (0..n).collect();
-    //     let mut d: Vec<TensorRank0> = vec![0.0; n];
-    //     let mut l: Vec<Vec<TensorRank0>> = vec![vec![0.0; n]; n];
+    //     let mut d: Vec<Scalar> = vec![0.0; n];
+    //     let mut l: Vec<Vec<Scalar>> = vec![vec![0.0; n]; n];
     //     // for i in 0..n {
     //     //     for j in 0..n {
     //     //         assert!((self[i][j] - self[j][i]).abs() < ABS_TOL || (self[i][j] / self[j][i] - 1.0).abs() < ABS_TOL)
@@ -288,6 +288,9 @@ impl SquareMatrix {
         backward_substitution(&mut x, &rearr);
         Ok((0..n).map(|i| x[banded.map(i)]).collect())
     }
+    pub fn zero(len: usize) -> Self {
+        (0..len).map(|_| Vector::zero(len)).collect()
+    }
 }
 
 fn forward_substitution(x: &mut Vector, a: &SquareMatrix) {
@@ -297,7 +300,7 @@ fn forward_substitution(x: &mut Vector, a: &SquareMatrix) {
             .take(i)
             .zip(x.iter().take(i))
             .map(|(a_ij, x_j)| a_ij * x_j)
-            .sum::<TensorRank0>()
+            .sum::<Scalar>()
     })
 }
 
@@ -308,14 +311,14 @@ fn backward_substitution(x: &mut Vector, a: &SquareMatrix) {
             .skip(i + 1)
             .zip(x.iter().skip(i + 1))
             .map(|(a_ij, x_j)| a_ij * x_j)
-            .sum::<TensorRank0>();
+            .sum::<Scalar>();
         x[i] /= a_i[i];
     })
 }
 
 #[cfg(test)]
 impl ErrorTensor for SquareMatrix {
-    fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
+    fn error_fd(&self, comparator: &Self, epsilon: &Scalar) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
             .zip(comparator.iter())
@@ -353,6 +356,12 @@ impl Display for SquareMatrix {
             Ok(())
         })?;
         write!(f, "\x1B[2D]]")
+    }
+}
+
+impl<const N: usize> From<[[Scalar; N]; N]> for SquareMatrix {
+    fn from(array: [[Scalar; N]; N]) -> Self {
+        array.into_iter().map(Vector::from).collect()
     }
 }
 
@@ -413,25 +422,25 @@ impl Rank2 for SquareMatrix {
     type Transpose = Self;
     fn deviatoric(&self) -> Self {
         let len = self.len();
-        let scale = -self.trace() / len as TensorRank0;
+        let scale = -self.trace() / len as Scalar;
         (0..len)
             .map(|i| {
                 (0..len)
-                    .map(|j| ((i == j) as u8) as TensorRank0 * scale)
+                    .map(|j| ((i == j) as u8) as Scalar * scale)
                     .collect()
             })
             .collect::<Self>()
             + self
     }
-    fn deviatoric_and_trace(&self) -> (Self, TensorRank0) {
+    fn deviatoric_and_trace(&self) -> (Self, Scalar) {
         let len = self.len();
         let trace = self.trace();
-        let scale = -trace / len as TensorRank0;
+        let scale = -trace / len as Scalar;
         (
             (0..len)
                 .map(|i| {
                     (0..len)
-                        .map(|j| ((i == j) as u8) as TensorRank0 * scale)
+                        .map(|j| ((i == j) as u8) as Scalar * scale)
                         .collect()
                 })
                 .collect::<Self>()
@@ -457,7 +466,7 @@ impl Rank2 for SquareMatrix {
             self_i
                 .iter()
                 .enumerate()
-                .all(|(j, self_ij)| self_ij == &((i == j) as u8 as TensorRank0))
+                .all(|(j, self_ij)| self_ij == &((i == j) as u8 as Scalar))
         })
     }
     fn is_symmetric(&self) -> bool {
@@ -468,7 +477,7 @@ impl Rank2 for SquareMatrix {
                 .all(|(self_ij, self_j)| self_ij == &self_j[i])
         })
     }
-    fn squared_trace(&self) -> TensorRank0 {
+    fn squared_trace(&self) -> Scalar {
         self.iter()
             .enumerate()
             .map(|(i, self_i)| {
@@ -476,11 +485,11 @@ impl Rank2 for SquareMatrix {
                     .iter()
                     .zip(self.iter())
                     .map(|(self_ij, self_j)| self_ij * self_j[i])
-                    .sum::<TensorRank0>()
+                    .sum::<Scalar>()
             })
             .sum()
     }
-    fn trace(&self) -> TensorRank0 {
+    fn trace(&self) -> Scalar {
         self.iter().enumerate().map(|(i, self_i)| self_i[i]).sum()
     }
     fn transpose(&self) -> Self::Transpose {
@@ -498,6 +507,12 @@ impl Tensor for SquareMatrix {
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
     }
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+    fn size(&self) -> usize {
+        unimplemented!("Do not like that inner Vecs could be different sizes")
+    }
 }
 
 impl IntoIterator for SquareMatrix {
@@ -510,7 +525,6 @@ impl IntoIterator for SquareMatrix {
 
 impl TensorVec for SquareMatrix {
     type Item = Vector;
-    type Slice<'a> = &'a [&'a [TensorRank0]];
     fn append(&mut self, other: &mut Self) {
         self.0.append(&mut other.0)
     }
@@ -520,14 +534,8 @@ impl TensorVec for SquareMatrix {
     fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
-    fn len(&self) -> usize {
-        self.0.len()
-    }
-    fn new(slice: Self::Slice<'_>) -> Self {
-        slice
-            .iter()
-            .map(|slice_entry| Self::Item::new(slice_entry))
-            .collect()
+    fn new() -> Self {
+        Self(Vec::new())
     }
     fn push(&mut self, item: Self::Item) {
         self.0.push(item)
@@ -544,70 +552,80 @@ impl TensorVec for SquareMatrix {
     fn swap_remove(&mut self, index: usize) -> Self::Item {
         self.0.swap_remove(index)
     }
-    fn zero(len: usize) -> Self {
-        (0..len).map(|_| Self::Item::zero(len)).collect()
+}
+
+impl Sum for SquareMatrix {
+    fn sum<Ii>(iter: Ii) -> Self
+    where
+        Ii: Iterator<Item = Self>,
+    {
+        iter.reduce(|mut acc, item| {
+            acc += item;
+            acc
+        })
+        .unwrap_or_else(Self::default)
     }
 }
 
-impl Div<TensorRank0> for SquareMatrix {
+impl Div<Scalar> for SquareMatrix {
     type Output = Self;
-    fn div(mut self, tensor_rank_0: TensorRank0) -> Self::Output {
+    fn div(mut self, tensor_rank_0: Scalar) -> Self::Output {
         self /= &tensor_rank_0;
         self
     }
 }
 
-impl Div<&TensorRank0> for SquareMatrix {
+impl Div<&Scalar> for SquareMatrix {
     type Output = Self;
-    fn div(mut self, tensor_rank_0: &TensorRank0) -> Self::Output {
+    fn div(mut self, tensor_rank_0: &Scalar) -> Self::Output {
         self /= tensor_rank_0;
         self
     }
 }
 
-impl DivAssign<TensorRank0> for SquareMatrix {
-    fn div_assign(&mut self, tensor_rank_0: TensorRank0) {
+impl DivAssign<Scalar> for SquareMatrix {
+    fn div_assign(&mut self, tensor_rank_0: Scalar) {
         self.iter_mut().for_each(|entry| *entry /= &tensor_rank_0);
     }
 }
 
-impl DivAssign<&TensorRank0> for SquareMatrix {
-    fn div_assign(&mut self, tensor_rank_0: &TensorRank0) {
+impl DivAssign<&Scalar> for SquareMatrix {
+    fn div_assign(&mut self, tensor_rank_0: &Scalar) {
         self.iter_mut().for_each(|entry| *entry /= tensor_rank_0);
     }
 }
 
-impl Mul<TensorRank0> for SquareMatrix {
+impl Mul<Scalar> for SquareMatrix {
     type Output = Self;
-    fn mul(mut self, tensor_rank_0: TensorRank0) -> Self::Output {
+    fn mul(mut self, tensor_rank_0: Scalar) -> Self::Output {
         self *= &tensor_rank_0;
         self
     }
 }
 
-impl Mul<&TensorRank0> for SquareMatrix {
+impl Mul<&Scalar> for SquareMatrix {
     type Output = Self;
-    fn mul(mut self, tensor_rank_0: &TensorRank0) -> Self::Output {
+    fn mul(mut self, tensor_rank_0: &Scalar) -> Self::Output {
         self *= tensor_rank_0;
         self
     }
 }
 
-impl Mul<&TensorRank0> for &SquareMatrix {
+impl Mul<&Scalar> for &SquareMatrix {
     type Output = SquareMatrix;
-    fn mul(self, tensor_rank_0: &TensorRank0) -> Self::Output {
+    fn mul(self, tensor_rank_0: &Scalar) -> Self::Output {
         self.iter().map(|self_i| self_i * tensor_rank_0).collect()
     }
 }
 
-impl MulAssign<TensorRank0> for SquareMatrix {
-    fn mul_assign(&mut self, tensor_rank_0: TensorRank0) {
+impl MulAssign<Scalar> for SquareMatrix {
+    fn mul_assign(&mut self, tensor_rank_0: Scalar) {
         self.iter_mut().for_each(|entry| *entry *= &tensor_rank_0);
     }
 }
 
-impl MulAssign<&TensorRank0> for SquareMatrix {
-    fn mul_assign(&mut self, tensor_rank_0: &TensorRank0) {
+impl MulAssign<&Scalar> for SquareMatrix {
+    fn mul_assign(&mut self, tensor_rank_0: &Scalar) {
         self.iter_mut().for_each(|entry| *entry *= tensor_rank_0);
     }
 }

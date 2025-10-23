@@ -1,7 +1,4 @@
-use super::{
-    super::{Tensor, TensorArray},
-    TensorRank0, TensorRank1List, TensorRank1List2D,
-};
+use crate::math::{Tensor, TensorArray, TensorRank0, TensorRank1List, TensorRank1List2D};
 
 fn get_array() -> [[[TensorRank0; 3]; 8]; 2] {
     [
@@ -30,27 +27,6 @@ fn get_array() -> [[[TensorRank0; 3]; 8]; 2] {
 
 fn get_tensor_rank_1_list_2d() -> TensorRank1List2D<3, 1, 8, 2> {
     TensorRank1List2D::new(get_array())
-}
-
-#[test]
-fn from_iter() {
-    let into_iterator = get_tensor_rank_1_list_2d().0.into_iter();
-    let tensor_rank_1_list_2d =
-        TensorRank1List2D::<3, 1, 8, 2>::from_iter(get_tensor_rank_1_list_2d().0);
-    tensor_rank_1_list_2d
-        .iter()
-        .zip(into_iterator)
-        .for_each(|(tensor_rank_1_list, array_list)| {
-            tensor_rank_1_list
-                .iter()
-                .zip(array_list.iter())
-                .for_each(|(tensor_rank_1, array)| {
-                    tensor_rank_1
-                        .iter()
-                        .zip(array.iter())
-                        .for_each(|(tensor_rank_1_i, array_i)| assert_eq!(tensor_rank_1_i, array_i))
-                })
-        });
 }
 
 #[test]

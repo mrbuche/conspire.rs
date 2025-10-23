@@ -4,7 +4,7 @@ use crate::{
     constitutive::{ConstitutiveError, solid::Solid},
     math::{
         ContractFirstSecondIndicesWithSecondIndicesOf, ContractSecondIndexWithFirstIndexOf,
-        IDENTITY, Matrix, Rank2, Tensor, TensorArray, TensorVec, Vector,
+        IDENTITY, Matrix, Rank2, Tensor, TensorArray, Vector,
         integrate::ExplicitIV,
         optimize::{
             EqualityConstraint, FirstOrderRootFinding, OptimizationError, ZerothOrderRootFinding,

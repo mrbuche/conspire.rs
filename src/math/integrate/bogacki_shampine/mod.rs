@@ -150,8 +150,8 @@ where
         let mut k_3;
         let mut t;
         let mut y;
-        let mut y_int = U::zero(0);
-        let mut dydt_int = U::zero(0);
+        let mut y_int = U::new();
+        let mut dydt_int = U::new();
         let mut y_trial;
         for time_k in time.iter() {
             i = tp.iter().position(|tp_i| tp_i >= time_k).unwrap();

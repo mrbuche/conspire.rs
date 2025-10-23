@@ -15,7 +15,7 @@ pub mod test;
 
 use super::{super::fluid::viscous::Viscous, *};
 use crate::math::{
-    Matrix, TensorVec, Vector,
+    Matrix, Vector,
     integrate::Explicit,
     optimize::{
         EqualityConstraint, FirstOrderRootFinding, OptimizationError, ZerothOrderRootFinding,

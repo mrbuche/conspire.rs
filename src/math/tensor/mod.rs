@@ -1,16 +1,20 @@
 pub mod test;
 
+pub mod list;
 pub mod rank_0;
 pub mod rank_1;
 pub mod rank_2;
 pub mod rank_3;
 pub mod rank_4;
+pub mod tuple;
+pub mod vec;
 
 use super::{SquareMatrix, Vector};
 use crate::defeat_message;
 use rank_0::TensorRank0;
 use std::{
     fmt::{self, Debug, Display, Formatter},
+    iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
@@ -119,25 +123,31 @@ where
 }
 
 /// Common methods for tensors.
+#[allow(clippy::len_without_is_empty)]
 pub trait Tensor
 where
     for<'a> Self: Sized
-        + Debug
-        + Default
-        + Display
         + Add<Self, Output = Self>
         + Add<&'a Self, Output = Self>
         + AddAssign
         + AddAssign<&'a Self>
         + Clone
+        + Debug
+        + Default
+        + Display
         + Div<TensorRank0, Output = Self>
+        + Div<&'a TensorRank0, Output = Self>
         + DivAssign<TensorRank0>
+        + DivAssign<&'a TensorRank0>
         + Mul<TensorRank0, Output = Self>
+        + Mul<&'a TensorRank0, Output = Self>
         + MulAssign<TensorRank0>
+        + MulAssign<&'a TensorRank0>
         + Sub<Self, Output = Self>
         + Sub<&'a Self, Output = Self>
         + SubAssign
-        + SubAssign<&'a Self>,
+        + SubAssign<&'a Self>
+        + Sum,
     Self::Item: Tensor,
 {
     /// The type of item encountered when iterating over the tensor.
@@ -176,13 +186,16 @@ where
     ///
     /// The iterator yields all items from start to end. [Read more](https://doc.rust-lang.org/std/iter/)
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item>;
+    /// Returns the number of elements, also referred to as the ‘length’.
+    fn len(&self) -> usize;
     /// Returns the tensor norm.
     fn norm(&self) -> TensorRank0 {
         self.norm_squared().sqrt()
     }
     /// Returns the infinity norm.
     fn norm_inf(&self) -> TensorRank0 {
-        unimplemented!()
+        self.iter()
+            .fold(0.0, |acc, entry| entry.norm_inf().max(acc))
     }
     /// Returns the tensor norm squared.
     fn norm_squared(&self) -> TensorRank0 {
@@ -198,9 +211,7 @@ where
         self / norm
     }
     /// Returns the total number of entries.
-    fn num_entries(&self) -> usize {
-        unimplemented!()
-    }
+    fn size(&self) -> usize;
     /// Returns the positive difference of the two tensors.
     fn sub_abs(&self, other: &Self) -> Self {
         let mut difference = self.clone();
@@ -248,18 +259,14 @@ where
 {
     /// The type of element encountered when iterating over the tensor.
     type Item;
-    /// The type of slice corresponding to the tensor.
-    type Slice<'a>;
     /// Moves all the elements of other into self, leaving other empty.
     fn append(&mut self, other: &mut Self);
     /// Returns the total number of elements the vector can hold without reallocating.
     fn capacity(&self) -> usize;
     /// Returns `true` if the vector contains no elements.
     fn is_empty(&self) -> bool;
-    /// Returns the number of elements in the vector, also referred to as its ‘length’.
-    fn len(&self) -> usize;
-    /// Returns a tensor given a slice.
-    fn new(slice: Self::Slice<'_>) -> Self;
+    /// Constructs a new, empty Vec, not allocating until elements are pushed onto it.
+    fn new() -> Self;
     /// Appends an element to the back of the Vec.
     fn push(&mut self, item: Self::Item);
     /// Removes an element from the Vec and returns it, shifting elements to the left.
@@ -270,6 +277,4 @@ where
         F: FnMut(&Self::Item) -> bool;
     /// Removes an element from the Vec and returns it, replacing it with the last element.
     fn swap_remove(&mut self, _index: usize) -> Self::Item;
-    /// Returns the zero tensor.
-    fn zero(len: usize) -> Self;
 }

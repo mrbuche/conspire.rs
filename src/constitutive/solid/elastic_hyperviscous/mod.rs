@@ -30,7 +30,7 @@ use super::{
     *,
 };
 use crate::math::{
-    Matrix, TensorVec, Vector,
+    Matrix, Vector,
     integrate::Explicit,
     optimize::{
         EqualityConstraint, FirstOrderOptimization, OptimizationError, SecondOrderOptimization,

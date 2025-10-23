@@ -2,10 +2,7 @@
 mod test;
 
 use super::*;
-use crate::{
-    math::{tensor_rank_1, tensor_rank_1_list, tensor_rank_1_list_2d},
-    mechanics::Scalar,
-};
+use crate::{math::tensor_rank_1, mechanics::Scalar};
 
 const G: usize = 8;
 const M: usize = 3;
@@ -32,7 +29,7 @@ impl<'a, C> FiniteElement<'a, C, G, N> for Hexahedron<'a, C> {
         }
     }
     fn reference() -> ReferenceNodalCoordinates<N> {
-        tensor_rank_1_list([
+        ReferenceNodalCoordinates::const_from([
             tensor_rank_1([-1.0, -1.0, -1.0]),
             tensor_rank_1([1.0, -1.0, -1.0]),
             tensor_rank_1([1.0, 1.0, -1.0]),
@@ -102,7 +99,7 @@ impl<'a, C> Hexahedron<'a, C> {
     }
     #[cfg(test)]
     const fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, Q> {
-        tensor_rank_1_list([
+        ShapeFunctionsAtIntegrationPoints::const_from([
             Self::shape_functions(Self::integration_point(0)),
             Self::shape_functions(Self::integration_point(1)),
             Self::shape_functions(Self::integration_point(2)),
@@ -116,7 +113,7 @@ impl<'a, C> Hexahedron<'a, C> {
     const fn shape_functions_gradients(
         [xi_1, xi_2, xi_3]: [Scalar; M],
     ) -> ShapeFunctionsGradients<M, N> {
-        tensor_rank_1_list([
+        ShapeFunctionsGradients::const_from([
             tensor_rank_1([
                 -(1.0 - xi_2) * (1.0 - xi_3) / 8.0,
                 -(1.0 - xi_1) * (1.0 - xi_3) / 8.0,
@@ -160,7 +157,7 @@ impl<'a, C> Hexahedron<'a, C> {
         ])
     }
     const fn standard_gradient_operators() -> StandardGradientOperators<M, N, P> {
-        tensor_rank_1_list_2d([
+        StandardGradientOperators::const_from([
             Self::shape_functions_gradients(Self::integration_point(0)),
             Self::shape_functions_gradients(Self::integration_point(1)),
             Self::shape_functions_gradients(Self::integration_point(2)),
