@@ -4,7 +4,7 @@ use crate::{
     constitutive::{ConstitutiveError, solid::Solid},
     math::{
         ContractFirstSecondIndicesWithSecondIndicesOf, ContractSecondIndexWithFirstIndexOf,
-        IDENTITY, Matrix, Rank2, Tensor, TensorArray, Vector,
+        IDENTITY, Matrix, Rank2, Tensor, TensorArray, TensorTuple, TensorTupleVec, Vector,
         integrate::ExplicitIV,
         optimize::{
             EqualityConstraint, FirstOrderRootFinding, OptimizationError, ZerothOrderRootFinding,
@@ -19,6 +19,12 @@ use crate::{
         StretchingRatePlastic, Times,
     },
 };
+
+/// ???
+pub type StateVariables = TensorTuple<DeformationGradientPlastic, Scalar>;
+
+/// ???
+pub type StateVariablesHistory = TensorTupleVec<DeformationGradientPlastic, Scalar>;
 
 /// Required methods for plastic constitutive models.
 pub trait Plastic {
@@ -193,6 +199,7 @@ where
         deformation_gradient: &DeformationGradient,
         deformation_gradient_p: &DeformationGradientPlastic,
     ) -> Result<DeformationGradientRatePlastic, ConstitutiveError> {
+        todo!("plastic_deformation_gradient_rate() deprecated");
         let jacobian = deformation_gradient.jacobian().unwrap();
         let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
         let cauchy_stress = self.cauchy_stress(deformation_gradient, deformation_gradient_p)?;
@@ -200,7 +207,9 @@ where
             * cauchy_stress
             * deformation_gradient_e.inverse_transpose())
             * jacobian;
-        Ok(self.plastic_stretching_rate(mandel_stress_e.deviatoric())? * deformation_gradient_p)
+        Ok(self
+            .plastic_stretching_rate(mandel_stress_e.deviatoric(), self.initial_yield_stress())?
+            * deformation_gradient_p)
     }
     /// Calculates and returns the rate of plastic stretching.
     ///
@@ -210,30 +219,27 @@ where
     fn plastic_stretching_rate(
         &self,
         deviatoric_mandel_stress_e: MandelStressElastic,
+        yield_stress: &Scalar,
     ) -> Result<StretchingRatePlastic, ConstitutiveError> {
         let magnitude = deviatoric_mandel_stress_e.norm();
         if magnitude == 0.0 {
             Ok(StretchingRatePlastic::zero())
         } else {
-            if self.hardening_slope() != &0.0 {
-                todo!("Need to integrate dY/dt = H * eqps, where eqps = sqrt(2/3) * |D_p|");
-            }
             Ok(deviatoric_mandel_stress_e
                 * (self.reference_flow_rate() / magnitude
-                    * (magnitude / self.initial_yield_stress())
-                        .powf(1.0 / self.rate_sensitivity())))
+                    * (magnitude / yield_stress).powf(1.0 / self.rate_sensitivity())))
         }
     }
     /// Calculates and returns the evolution of the yield stress.
     ///
     /// ```math
-    /// \dot{Y} = H\,|\mathbf{D}_\mathrm{p}|
+    /// \dot{Y} = \sqrt{\frac{2}{3}}\,H\,|\mathbf{D}_\mathrm{p}|
     /// ```
     fn yield_stress_evolution(
         &self,
         plastic_stretching_rate: &StretchingRatePlastic,
     ) -> Result<Scalar, ConstitutiveError> {
-        Ok(self.hardening_slope() * plastic_stretching_rate.norm())
+        Ok(self.hardening_slope() * plastic_stretching_rate.norm() * (2.0_f64 / 3.0).sqrt())
     }
     /// ???
     ///
@@ -243,13 +249,14 @@ where
     fn foo(
         &self,
         deformation_gradient: &DeformationGradient,
-        deformation_gradient_p: &DeformationGradientPlastic,
-    ) -> Result<(DeformationGradientRatePlastic, Scalar), ConstitutiveError> {
+        state_variables: &StateVariables,
+    ) -> Result<StateVariables, ConstitutiveError> {
         //
         // Some redundancy with above `plastic_deformation_gradient_rate`` function.
         // Since the above equation is always true, maybe delete that function and use this instead.
         // The yield stress evolution on the other hand could be different, so keep that function.
         //
+        let (deformation_gradient_p, yield_stress) = state_variables.into();
         let jacobian = deformation_gradient.jacobian().unwrap();
         let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
         let cauchy_stress = self.cauchy_stress(deformation_gradient, deformation_gradient_p)?;
@@ -257,7 +264,8 @@ where
             * cauchy_stress
             * deformation_gradient_e.inverse_transpose())
             * jacobian;
-        let plastic_stretching_rate = self.plastic_stretching_rate(mandel_stress_e.deviatoric())?;
+        let plastic_stretching_rate =
+            self.plastic_stretching_rate(mandel_stress_e.deviatoric(), yield_stress)?;
         //
         // You have tensor rank N list/vec and 2D and so on.
         // Could you combine these into a single impl?
@@ -298,10 +306,10 @@ where
         // Would compute all the slopes/steps separately, but the error together.
         // Perhaps not actually worth it, since the IV solve for z needs all variables anyway.
         //
-        Ok((
+        Ok(StateVariables::from((
             &plastic_stretching_rate * deformation_gradient_p,
             self.yield_stress_evolution(&plastic_stretching_rate)?,
-        ))
+        )))
     }
 }
 
@@ -344,9 +352,9 @@ pub trait FirstOrderRoot {
         &self,
         applied_load: AppliedLoad,
         integrator: impl ExplicitIV<
-            DeformationGradientRatePlastic,
+            StateVariables,
             DeformationGradient,
-            DeformationGradientRatesPlastic,
+            StateVariablesHistory,
             DeformationGradients,
         >,
         solver: impl FirstOrderRootFinding<
@@ -354,7 +362,7 @@ pub trait FirstOrderRoot {
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
         >,
-    ) -> Result<(Times, DeformationGradients, DeformationGradientsPlastic), ConstitutiveError>;
+    ) -> Result<(Times, DeformationGradients, StateVariablesHistory), ConstitutiveError>;
     #[doc(hidden)]
     fn root_inner_1(
         &self,
@@ -454,9 +462,9 @@ where
         &self,
         applied_load: AppliedLoad,
         integrator: impl ExplicitIV<
-            DeformationGradientRatePlastic,
+            StateVariables,
             DeformationGradient,
-            DeformationGradientRatesPlastic,
+            StateVariablesHistory,
             DeformationGradients,
         >,
         solver: impl FirstOrderRootFinding<
@@ -464,7 +472,7 @@ where
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
         >,
-    ) -> Result<(Times, DeformationGradients, DeformationGradientsPlastic), ConstitutiveError> {
+    ) -> Result<(Times, DeformationGradients, StateVariablesHistory), ConstitutiveError> {
         match match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_11, time) => {
                 let mut matrix = Matrix::zero(4, 9);
@@ -475,16 +483,14 @@ where
                 matrix[3][5] = 1.0;
                 integrator.integrate(
                     |_: Scalar,
-                     deformation_gradient_p: &DeformationGradientPlastic,
+                     state_variables: &StateVariables,
                      deformation_gradient: &DeformationGradient| {
-                        Ok(self.plastic_deformation_gradient_rate(
-                            deformation_gradient,
-                            deformation_gradient_p,
-                        )?)
+                        Ok(self.foo(deformation_gradient, state_variables)?)
                     },
                     |t: Scalar,
-                     deformation_gradient_p: &DeformationGradientPlastic,
+                     state_variables: &StateVariables,
                      deformation_gradient: &DeformationGradient| {
+                        let (deformation_gradient_p, _) = state_variables.into();
                         vector[0] = deformation_gradient_11(t);
                         Ok(self.root_inner_1(
                             deformation_gradient_p,
@@ -494,13 +500,16 @@ where
                         )?)
                     },
                     time,
-                    DeformationGradientPlastic::identity(),
+                    StateVariables::from((
+                        DeformationGradientPlastic::identity(),
+                        *self.initial_yield_stress(),
+                    )),
                     DeformationGradient::identity(),
                 )
             }
         } {
-            Ok((times, deformation_gradients_p, _, deformation_gradients)) => {
-                Ok((times, deformation_gradients, deformation_gradients_p))
+            Ok((times, state_variables, _, deformation_gradients)) => {
+                Ok((times, deformation_gradients, state_variables))
             }
             Err(error) => Err(ConstitutiveError::Upstream(
                 format!("{error}"),
