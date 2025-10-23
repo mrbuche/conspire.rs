@@ -7,7 +7,7 @@ pub mod vec;
 pub mod vec_2d;
 
 use std::{
-    array::from_fn,
+    array::{IntoIter, from_fn},
     f64::consts::TAU,
     fmt::{self, Display, Formatter},
     iter::Sum,
@@ -35,6 +35,7 @@ use super::test::ErrorTensor;
 /// A *d*-dimensional tensor of rank 2.
 ///
 /// `D` is the dimension, `I`, `J` are the configurations.
+#[repr(transparent)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct TensorRank2<const D: usize, const I: usize, const J: usize>([TensorRank1<D, J>; D]);
 
@@ -912,24 +913,17 @@ impl<const D: usize, const I: usize, const J: usize> Tensor for TensorRank2<D, I
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
     }
-    fn norm_inf(&self) -> TensorRank0 {
-        self.iter()
-            .map(|tensor_rank_1| {
-                tensor_rank_1
-                    .iter()
-                    .fold(0.0, |acc, entry| entry.abs().max(acc))
-            })
-            .reduce(TensorRank0::max)
-            .unwrap()
+    fn len(&self) -> usize {
+        D
     }
-    fn num_entries(&self) -> usize {
+    fn size(&self) -> usize {
         D * D
     }
 }
 
 impl<const D: usize, const I: usize, const J: usize> IntoIterator for TensorRank2<D, I, J> {
     type Item = TensorRank1<D, J>;
-    type IntoIter = std::array::IntoIter<Self::Item, D>;
+    type IntoIter = IntoIter<Self::Item, D>;
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
     }
@@ -1111,9 +1105,11 @@ impl<const D: usize, const I: usize, const J: usize> Sum for TensorRank2<D, I, J
     where
         Ii: Iterator<Item = Self>,
     {
-        let mut output = Self::zero();
-        iter.for_each(|item| output += item);
-        output
+        iter.reduce(|mut acc, item| {
+            acc += item;
+            acc
+        })
+        .unwrap_or_else(Self::default)
     }
 }
 

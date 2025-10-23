@@ -1,4 +1,4 @@
-use super::{Tensor, TensorArray, TensorRank0, TensorRank0List, tensor_rank_0_list};
+use crate::math::{Tensor, TensorArray, TensorRank0, TensorRank0List};
 
 fn get_array() -> [TensorRank0; 4] {
     [1.0, 2.0, 3.0, 4.0]
@@ -16,7 +16,7 @@ fn get_other_tensor_rank_0_list() -> TensorRank0List<4> {
 fn const_fn_tensor_rank_0_list() {
     get_tensor_rank_0_list()
         .iter()
-        .zip(tensor_rank_0_list(get_array()).iter())
+        .zip(TensorRank0List::const_from(get_array()).iter())
         .for_each(|(tensor_rank_0_list_i, value_i)| assert_eq!(tensor_rank_0_list_i, value_i));
 }
 

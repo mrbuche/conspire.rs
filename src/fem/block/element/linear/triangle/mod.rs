@@ -3,7 +3,7 @@ mod test;
 
 use super::*;
 use crate::{
-    math::{IDENTITY, tensor_rank_1, tensor_rank_1_list, tensor_rank_1_list_2d},
+    math::{IDENTITY, TensorRank1List, tensor_rank_1},
     mechanics::Scalar,
 };
 
@@ -73,10 +73,10 @@ impl<'a, C> Triangle<'a, C> {
     }
     #[cfg(test)]
     const fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, Q> {
-        tensor_rank_1_list([tensor_rank_1([1.0 / 3.0; Q])])
+        ShapeFunctionsAtIntegrationPoints::const_from([tensor_rank_1([1.0 / 3.0; Q])])
     }
     const fn standard_gradient_operators() -> StandardGradientOperators<M, N, P> {
-        tensor_rank_1_list_2d([tensor_rank_1_list([
+        StandardGradientOperators::const_from([TensorRank1List::const_from([
             tensor_rank_1([-1.0, -1.0]),
             tensor_rank_1([1.0, 0.0]),
             tensor_rank_1([0.0, 1.0]),

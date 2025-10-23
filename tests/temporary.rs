@@ -13,7 +13,7 @@ use conspire::{
         SecondOrderMinimize, ViscoelasticFiniteElementBlock,
     },
     math::{
-        Matrix, Tensor, TensorVec, TestError, Vector, assert_eq_within, assert_eq_within_tols,
+        Matrix, Tensor, TestError, Vector, assert_eq_within, assert_eq_within_tols,
         integrate::DormandPrince,
         optimize::{EqualityConstraint, NewtonRaphson},
     },
@@ -6027,7 +6027,7 @@ fn connectivity() -> Connectivity<N> {
 }
 
 fn coordinates() -> ReferenceNodalCoordinatesBlock {
-    ReferenceNodalCoordinatesBlock::new(&[
+    ReferenceNodalCoordinatesBlock::from([
         [5.000000e-01, -5.000000e-01, 5.000000e-01],
         [5.000000e-01, 5.000000e-01, 5.000000e-01],
         [5.000000e-01, -4.000000e-01, 5.000000e-01],

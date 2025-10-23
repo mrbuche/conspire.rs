@@ -8,6 +8,7 @@ pub mod vec_2d;
 
 use std::{
     fmt::{self, Display, Formatter},
+    iter::Sum,
     mem::transmute,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
@@ -23,6 +24,7 @@ use super::test::ErrorTensor;
 /// A *d*-dimensional tensor of rank 1.
 ///
 /// `D` is the dimension, `I` is the configuration.
+#[repr(transparent)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct TensorRank1<const D: usize, const I: usize>([TensorRank0; D]);
 
@@ -129,8 +131,11 @@ impl<const D: usize, const I: usize> Tensor for TensorRank1<D, I> {
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
     }
-    fn norm_inf(&self) -> TensorRank0 {
-        self.iter().fold(0.0, |acc, entry| entry.abs().max(acc))
+    fn len(&self) -> usize {
+        D
+    }
+    fn size(&self) -> usize {
+        D
     }
 }
 
@@ -229,14 +234,16 @@ impl<const D: usize, const I: usize> IndexMut<usize> for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, const I: usize> std::iter::Sum for TensorRank1<D, I> {
+impl<const D: usize, const I: usize> Sum for TensorRank1<D, I> {
     fn sum<Ii>(iter: Ii) -> Self
     where
         Ii: Iterator<Item = Self>,
     {
-        let mut output = zero();
-        iter.for_each(|item| output += item);
-        output
+        iter.reduce(|mut acc, item| {
+            acc += item;
+            acc
+        })
+        .unwrap_or_else(Self::default)
     }
 }
 

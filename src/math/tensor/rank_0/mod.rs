@@ -6,7 +6,7 @@ use super::test::ErrorTensor;
 
 pub mod list;
 
-use super::{Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, TensorVec, Vector};
+use super::{Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, Vector};
 use std::ops::Sub;
 
 /// A tensor of rank 0 (a scalar).
@@ -87,11 +87,17 @@ impl Tensor for TensorRank0 {
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         [self].into_iter()
     }
+    fn len(&self) -> usize {
+        1
+    }
     fn norm_inf(&self) -> TensorRank0 {
         self.abs()
     }
     fn normalized(self) -> Self {
         1.0
+    }
+    fn size(&self) -> usize {
+        1
     }
     fn sub_abs(&self, other: &Self) -> Self {
         (self - other).abs()
@@ -106,30 +112,24 @@ impl Tensor for TensorRank0 {
 }
 
 impl TensorArray for TensorRank0 {
-    type Array = [Self; 1];
+    type Array = Self;
     type Item = TensorRank0;
     fn as_array(&self) -> Self::Array {
-        [*self]
+        *self
     }
     fn identity() -> Self {
         1.0
     }
     fn new(array: Self::Array) -> Self {
-        array[0]
+        array
     }
     fn zero() -> Self {
         0.0
     }
 }
 
-impl From<TensorRank0> for Vector {
-    fn from(tensor_rank_0: TensorRank0) -> Self {
-        Vector::new(&[tensor_rank_0])
-    }
-}
-
 impl From<Vector> for TensorRank0 {
-    fn from(vector: Vector) -> Self {
-        vector[0]
+    fn from(_vector: Vector) -> Self {
+        unimplemented!()
     }
 }

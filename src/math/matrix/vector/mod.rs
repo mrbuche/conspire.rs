@@ -7,6 +7,7 @@ use crate::math::{
 };
 use std::{
     fmt::{Display, Formatter, Result},
+    iter::Sum,
     mem::forget,
     ops::{
         Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, RangeFrom, RangeTo, Sub,
@@ -30,11 +31,14 @@ impl Vector {
     pub fn ones(len: usize) -> Self {
         Self(vec![1.0; len])
     }
+    pub fn zero(len: usize) -> Self {
+        Self(vec![0.0; len])
+    }
 }
 
 impl Default for Vector {
     fn default() -> Self {
-        Self::zero(0)
+        Self::new()
     }
 }
 
@@ -97,6 +101,24 @@ impl Display for Vector {
         })?;
         write!(f, "\x1B[2D]")?;
         Ok(())
+    }
+}
+
+impl<const N: usize> From<[Scalar; N]> for Vector {
+    fn from(array: [Scalar; N]) -> Self {
+        Self(array.to_vec())
+    }
+}
+
+impl From<&[Scalar]> for Vector {
+    fn from(slice: &[Scalar]) -> Self {
+        Self(slice.to_vec())
+    }
+}
+
+impl From<Scalar> for Vector {
+    fn from(scalar: Scalar) -> Self {
+        Vector(vec![scalar])
     }
 }
 
@@ -166,8 +188,14 @@ impl Tensor for Vector {
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         self.0.iter_mut()
     }
+    fn len(&self) -> usize {
+        self.0.len()
+    }
     fn norm_inf(&self) -> Scalar {
         self.iter().fold(0.0, |acc, entry| entry.abs().max(acc))
+    }
+    fn size(&self) -> usize {
+        self.len()
     }
 }
 
@@ -209,7 +237,6 @@ impl IntoIterator for Vector {
 
 impl TensorVec for Vector {
     type Item = Scalar;
-    type Slice<'a> = &'a [Scalar];
     fn append(&mut self, other: &mut Self) {
         self.0.append(&mut other.0)
     }
@@ -219,11 +246,8 @@ impl TensorVec for Vector {
     fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
-    fn len(&self) -> usize {
-        self.0.len()
-    }
-    fn new(slice: Self::Slice<'_>) -> Self {
-        slice.iter().copied().collect()
+    fn new() -> Self {
+        Self(Vec::new())
     }
     fn push(&mut self, item: Self::Item) {
         self.0.push(item)
@@ -240,8 +264,18 @@ impl TensorVec for Vector {
     fn swap_remove(&mut self, index: usize) -> Self::Item {
         self.0.swap_remove(index)
     }
-    fn zero(len: usize) -> Self {
-        Self(vec![0.0; len])
+}
+
+impl Sum for Vector {
+    fn sum<Ii>(iter: Ii) -> Self
+    where
+        Ii: Iterator<Item = Self>,
+    {
+        iter.reduce(|mut acc, item| {
+            acc += item;
+            acc
+        })
+        .unwrap_or_else(Self::default)
     }
 }
 
