@@ -165,6 +165,19 @@ where
     }
 }
 
+impl<T1, T2> Mul<TensorRank0> for &TensorTuple<T1, T2>
+where
+    T1: Tensor,
+    T2: Tensor,
+    for<'a> &'a T1: Mul<&'a TensorRank0, Output = T1>,
+    for<'a> &'a T2: Mul<&'a TensorRank0, Output = T2>,
+{
+    type Output = TensorTuple<T1, T2>;
+    fn mul(self, tensor_rank_0: TensorRank0) -> Self::Output {
+        TensorTuple(&self.0 * &tensor_rank_0, &self.1 * &tensor_rank_0)
+    }
+}
+
 impl<T1, T2> Mul<&TensorRank0> for TensorTuple<T1, T2>
 where
     T1: Tensor,
@@ -176,6 +189,19 @@ where
         self
     }
 }
+
+// impl<T1, T2> Mul<&TensorRank0> for &TensorTuple<T1, T2>
+// where
+//     T1: Tensor,
+//     T2: Tensor,
+//     for<'a> &'a T1: Mul<&'a TensorRank0, Output = T1>,
+//     for<'a> &'a T2: Mul<&'a TensorRank0, Output = T2>,
+// {
+//     type Output = TensorTuple<T1, T2>;
+//     fn mul(self, tensor_rank_0: &TensorRank0) -> Self::Output {
+//         TensorTuple(&self.0 * tensor_rank_0, &self.1 * tensor_rank_0)
+//     }
+// }
 
 impl<T1, T2> MulAssign<TensorRank0> for TensorTuple<T1, T2>
 where
@@ -257,6 +283,17 @@ where
     }
 }
 
+// impl<T1, T2> Sub<TensorTuple<T1, T2>> for &TensorTuple<T1, T2>
+// where
+//     T1: Tensor,
+//     T2: Tensor,
+// {
+//     type Output = TensorTuple<T1, T2>;
+//     fn sub(self, tensor_tuple: TensorTuple<T1, T2>) -> Self::Output {
+//         todo!()
+//     }
+// }
+
 impl<T1, T2> Sub<&Self> for TensorTuple<T1, T2>
 where
     T1: Tensor,
@@ -266,6 +303,17 @@ where
     fn sub(mut self, tensor_tuple: &Self) -> Self::Output {
         self -= tensor_tuple;
         self
+    }
+}
+
+impl<T1, T2> Sub for &TensorTuple<T1, T2>
+where
+    T1: Tensor,
+    T2: Tensor,
+{
+    type Output = TensorTuple<T1, T2>;
+    fn sub(self, tensor_tuple: Self) -> Self::Output {
+        todo!()
     }
 }
 

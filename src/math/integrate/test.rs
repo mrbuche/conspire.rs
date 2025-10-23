@@ -198,7 +198,7 @@ macro_rules! test_explicit {
                 .integrate(
                     |_: TensorRank0, x: &TensorTuple<TensorRank1<3, 1>, TensorRank0>| {
                         let (x_1, x_2) = x.into();
-                        Ok(TensorTuple::from((&a * x_1), -x_2))
+                        Ok(TensorTuple::from(((&a * x_1), -x_2)))
                     },
                     &[0.0, 1.0],
                     TensorTuple::from((TensorRank1::new([1.0, 1.0, 1.0]), 1.0)),
