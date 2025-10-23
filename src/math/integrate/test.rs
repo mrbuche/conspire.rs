@@ -26,8 +26,8 @@ macro_rules! test_explicit {
     ($integration: expr) => {
         use super::super::{
             super::{
-                Tensor, TensorArray, TensorTuple, TensorTupleVec, TensorRank0, TensorRank1, TensorRank1Vec, TensorRank2, Vector,
-                assert_eq_within_tols, test::TestError,
+                Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank1Vec, TensorRank2,
+                TensorTuple, TensorTupleVec, Vector, assert_eq_within_tols, test::TestError,
             },
             Explicit, IntegrationError,
             test::{LENGTH, zero_to_one},
@@ -192,20 +192,50 @@ macro_rules! test_explicit {
                 })
         }
         #[test]
-        fn tuple() -> Result<(), TestError> {
-            let a = TensorRank2::<3, 1, 1>::identity();
-            let (time, solution, function): (Vector, TensorTupleVec<TensorRank1<2, 1>, TensorRank1<3, 1>>, _) = $integration
+        fn flat() -> Result<(), TestError> {
+            let (time, solution, function): (Vector, TensorRank1Vec<5, 1>, _) = $integration
                 .integrate(
-                    |t: TensorRank0, y: &TensorTuple<TensorRank1<2, 1>, TensorRank1<3, 1>>| {
-                        let (y_1, y_2) = y.into();
-                        Ok(TensorTuple::from((
-                            TensorRank1::new([y_1[1], -t.sin()]),
-                            TensorRank1::new([y_2[1], y_2[2], -t.cos()])
-                        )))
+                    |t: TensorRank0, y: &TensorRank1<5, 1>| {
+                        Ok(TensorRank1::new([y[1], -t.sin(), y[3], y[4], -t.cos()]))
                     },
                     &[0.0, 1.0],
-                    TensorTuple::from((TensorRank1::new([0.0, 1.0]), TensorRank1::new([0.0, 1.0, 0.0]))),
+                    TensorRank1::new([0.0, 1.0, 0.0, 1.0, 0.0]),
                 )?;
+            time.iter()
+                .zip(solution.iter().zip(function.iter()))
+                .try_for_each(|(t, (y, f))| {
+                    assert_eq_within_tols(&y[0], &t.sin())?;
+                    assert_eq_within_tols(&f[0], &t.cos())?;
+                    assert_eq_within_tols(&y[1], &t.cos())?;
+                    assert_eq_within_tols(&f[1], &-t.sin())?;
+                    assert_eq_within_tols(&y[2], &t.sin())?;
+                    assert_eq_within_tols(&f[2], &t.cos())?;
+                    assert_eq_within_tols(&y[3], &t.cos())?;
+                    assert_eq_within_tols(&f[3], &-t.sin())?;
+                    assert_eq_within_tols(&y[4], &-t.sin())?;
+                    assert_eq_within_tols(&f[4], &-t.cos())
+                })
+        }
+        #[test]
+        fn tuple() -> Result<(), TestError> {
+            let (time, solution, function): (
+                Vector,
+                TensorTupleVec<TensorRank1<2, 1>, TensorRank1<3, 1>>,
+                _,
+            ) = $integration.integrate(
+                |t: TensorRank0, y: &TensorTuple<TensorRank1<2, 1>, TensorRank1<3, 1>>| {
+                    let (y_1, y_2) = y.into();
+                    Ok(TensorTuple::from((
+                        TensorRank1::new([y_1[1], -t.sin()]),
+                        TensorRank1::new([y_2[1], y_2[2], -t.cos()]),
+                    )))
+                },
+                &[0.0, 1.0],
+                TensorTuple::from((
+                    TensorRank1::new([0.0, 1.0]),
+                    TensorRank1::new([0.0, 1.0, 0.0]),
+                )),
+            )?;
             time.iter()
                 .zip(solution.iter().zip(function.iter()))
                 .try_for_each(|(t, (y, f))| {

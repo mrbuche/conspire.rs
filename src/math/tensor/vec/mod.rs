@@ -356,7 +356,7 @@ where
     }
 }
 
-impl<T> Sub<Self> for &TensorVector<T>
+impl<T> Sub for &TensorVector<T>
 where
     T: Tensor,
     // for <'a> &'a T: Sub<&'a T, Output=T>

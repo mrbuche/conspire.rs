@@ -318,7 +318,8 @@ where
     T2: Tensor,
 {
     type Output = TensorTuple<T1, T2>;
-    fn sub(self, tensor_tuple: Self) -> Self::Output {
+    fn sub(self, _tensor_tuple: Self) -> Self::Output {
+        // TensorTuple(&self.0 - &tensor_tuple.0, &self.1 - &tensor_tuple.1)
         todo!()
     }
 }
@@ -329,8 +330,8 @@ where
     T2: Tensor,
 {
     fn sub_assign(&mut self, tensor_tuple: Self) {
-        self.0 += tensor_tuple.0;
-        self.1 += tensor_tuple.1;
+        self.0 -= tensor_tuple.0;
+        self.1 -= tensor_tuple.1;
     }
 }
 
@@ -340,7 +341,7 @@ where
     T2: Tensor,
 {
     fn sub_assign(&mut self, tensor_tuple: &Self) {
-        self.0 += &tensor_tuple.0;
-        self.1 += &tensor_tuple.1;
+        self.0 -= &tensor_tuple.0;
+        self.1 -= &tensor_tuple.1;
     }
 }
