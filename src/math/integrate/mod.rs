@@ -19,8 +19,6 @@ pub type Ode45 = DormandPrince;
 pub type Ode78 = Verner8;
 pub type Ode89 = Verner9;
 
-// consider symplectic integrators for dynamics eventually
-
 use super::{
     Scalar, Solution, Tensor, TensorArray, TensorVec, TestError, Vector,
     interpolate::InterpolateSolution,

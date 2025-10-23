@@ -253,6 +253,67 @@ macro_rules! test_explicit {
                     assert_eq_within_tols(&f_2[2], &-t.cos())
                 })
         }
+        #[test]
+        fn tuple_nested() -> Result<(), TestError> {
+            let (time, solution, function): (
+                Vector,
+                TensorTupleVec<
+                    TensorRank1<2, 1>,
+                    TensorTuple<TensorRank1<3, 1>, TensorRank1<4, 1>>,
+                >,
+                _,
+            ) = $integration.integrate(
+                |t: TensorRank0,
+                 y: &TensorTuple<
+                    TensorRank1<2, 1>,
+                    TensorTuple<TensorRank1<3, 1>, TensorRank1<4, 1>>,
+                >| {
+                    let (y_1, y_23) = y.into();
+                    let (y_2, y_3) = y_23.into();
+                    Ok(TensorTuple::from((
+                        TensorRank1::new([y_1[1], -t.sin()]),
+                        TensorTuple::from((
+                            TensorRank1::new([y_2[1], y_2[2], -t.cos()]),
+                            TensorRank1::new([y_3[1], y_3[2], y_3[3], t.sin()]),
+                        )),
+                    )))
+                },
+                &[0.0, 0.6],
+                TensorTuple::from((
+                    TensorRank1::new([0.0, 1.0]),
+                    TensorTuple::from((
+                        TensorRank1::new([0.0, 1.0, 0.0]),
+                        TensorRank1::new([0.0, 1.0, 0.0, -1.0]),
+                    )),
+                )),
+            )?;
+            time.iter()
+                .zip(solution.iter().zip(function.iter()))
+                .try_for_each(|(t, (y, f))| {
+                    let (y_1, y_23) = y.into();
+                    let (y_2, y_3) = y_23.into();
+                    let (f_1, f_23) = f.into();
+                    let (f_2, f_3) = f_23.into();
+                    assert_eq_within_tols(&y_1[0], &t.sin())?;
+                    assert_eq_within_tols(&f_1[0], &t.cos())?;
+                    assert_eq_within_tols(&y_1[1], &t.cos())?;
+                    assert_eq_within_tols(&f_1[1], &-t.sin())?;
+                    assert_eq_within_tols(&y_2[0], &t.sin())?;
+                    assert_eq_within_tols(&f_2[0], &t.cos())?;
+                    assert_eq_within_tols(&y_2[1], &t.cos())?;
+                    assert_eq_within_tols(&f_2[1], &-t.sin())?;
+                    assert_eq_within_tols(&y_2[2], &-t.sin())?;
+                    assert_eq_within_tols(&f_2[2], &-t.cos())?;
+                    assert_eq_within_tols(&y_3[0], &t.sin())?;
+                    assert_eq_within_tols(&f_3[0], &t.cos())?;
+                    assert_eq_within_tols(&y_3[1], &t.cos())?;
+                    assert_eq_within_tols(&f_3[1], &-t.sin())?;
+                    assert_eq_within_tols(&y_3[2], &-t.sin())?;
+                    assert_eq_within_tols(&f_3[2], &-t.cos())?;
+                    assert_eq_within_tols(&y_3[3], &-t.cos())?;
+                    assert_eq_within_tols(&f_3[3], &t.sin())
+                })
+        }
     };
 }
 pub(crate) use test_explicit;
