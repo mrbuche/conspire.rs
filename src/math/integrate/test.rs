@@ -26,7 +26,7 @@ macro_rules! test_explicit {
     ($integration: expr) => {
         use super::super::{
             super::{
-                Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank1Vec, TensorRank2, Vector,
+                Tensor, TensorArray, TensorTuple, TensorRank0, TensorRank1, TensorRank1Vec, TensorRank2, Vector,
                 assert_eq_within_tols, test::TestError,
             },
             Explicit, IntegrationError,
@@ -190,6 +190,28 @@ macro_rules! test_explicit {
                     assert_eq_within_tols(&y[3], &-t.cos())?;
                     assert_eq_within_tols(&f[3], &t.sin())
                 })
+        }
+        #[test]
+        fn tuple() -> Result<(), TestError> {
+            let a = TensorRank2::<3, 1, 1>::identity();
+            let (time, solution, function): (Vector, TensorRank1Vec<3, 1>, _) = $integration
+                .integrate(
+                    |_: TensorRank0, x: &TensorTuple<TensorRank1<3, 1>, TensorRank0>| {
+                        let (x_1, x_2) = x.into();
+                        Ok(TensorTuple::from((&a * x_1), -x_2))
+                    },
+                    &[0.0, 1.0],
+                    TensorTuple::from((TensorRank1::new([1.0, 1.0, 1.0]), 1.0)),
+                )?;
+            // time.iter()
+            //     .zip(solution.iter().zip(function.iter()))
+            //     .try_for_each(|(t, (y, f))| {
+            //         y.iter().zip(f.iter()).try_for_each(|(y_n, f_n)| {
+            //             assert_eq_within_tols(y_n, &t.exp())?;
+            //             assert_eq_within_tols(f_n, y_n)
+            //         })
+            //     })
+            todo!()
         }
     };
 }

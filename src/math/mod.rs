@@ -25,6 +25,7 @@ pub use matrix::{
 };
 pub use tensor::{
     Hessian, Jacobian, Rank2, Scalar, Solution, Tensor, TensorArray, TensorVec,
+    list::TensorList,
     rank_0::{TensorRank0, list::TensorRank0List},
     rank_1::{
         TensorRank1, list::TensorRank1List, list_2d::TensorRank1List2D, tensor_rank_1,
@@ -43,6 +44,8 @@ pub use tensor::{
         list::TensorRank4List,
     },
     test::{TestError, assert_eq, assert_eq_within, assert_eq_within_tols},
+    tuple::TensorTuple,
+    vec::TensorVector,
 };
 
 use std::fmt;

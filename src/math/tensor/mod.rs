@@ -6,6 +6,7 @@ pub mod rank_1;
 pub mod rank_2;
 pub mod rank_3;
 pub mod rank_4;
+pub mod tuple;
 pub mod vec;
 
 use super::{SquareMatrix, Vector};

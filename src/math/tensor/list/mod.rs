@@ -12,15 +12,6 @@ pub struct TensorList<T, const N: usize>([T; N])
 where
     T: Tensor;
 
-impl<T, const N: usize> Default for TensorList<T, N>
-where
-    T: Tensor,
-{
-    fn default() -> Self {
-        Self(from_fn(|_| T::default()))
-    }
-}
-
 impl<T, const N: usize> TensorList<T, N>
 where
     T: Tensor,
@@ -28,6 +19,15 @@ where
     /// Associated function for const type conversion.
     pub const fn const_from(array: [T; N]) -> Self {
         Self(array)
+    }
+}
+
+impl<T, const N: usize> Default for TensorList<T, N>
+where
+    T: Tensor,
+{
+    fn default() -> Self {
+        Self(from_fn(|_| T::default()))
     }
 }
 
@@ -168,7 +168,7 @@ where
 {
     type Output = Self;
     fn div(mut self, tensor_rank_0: TensorRank0) -> Self::Output {
-        self /= &tensor_rank_0;
+        self /= tensor_rank_0;
         self
     }
 }
@@ -208,10 +208,11 @@ where
 {
     type Output = Self;
     fn mul(mut self, tensor_rank_0: TensorRank0) -> Self::Output {
-        self *= &tensor_rank_0;
+        self *= tensor_rank_0;
         self
     }
 }
+
 impl<T, const N: usize> Mul<&TensorRank0> for TensorList<T, N>
 where
     T: Tensor,

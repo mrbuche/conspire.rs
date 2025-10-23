@@ -194,7 +194,7 @@ where
 {
     type Output = Self;
     fn div(mut self, tensor_rank_0: TensorRank0) -> Self::Output {
-        self /= &tensor_rank_0;
+        self /= tensor_rank_0;
         self
     }
 }
@@ -234,7 +234,7 @@ where
 {
     type Output = Self;
     fn mul(mut self, tensor_rank_0: TensorRank0) -> Self::Output {
-        self *= &tensor_rank_0;
+        self *= tensor_rank_0;
         self
     }
 }
