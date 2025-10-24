@@ -12,11 +12,10 @@ use crate::{
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient,
-        DeformationGradientPlastic, DeformationGradientRatePlastic,
-        DeformationGradientRatesPlastic, DeformationGradients, DeformationGradientsPlastic,
-        FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness, MandelStressElastic,
-        Scalar, SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,
-        StretchingRatePlastic, Times,
+        DeformationGradientPlastic, DeformationGradients, FirstPiolaKirchhoffStress,
+        FirstPiolaKirchhoffTangentStiffness, MandelStressElastic, Scalar,
+        SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness, StretchingRatePlastic,
+        Times,
     },
 };
 
@@ -189,28 +188,6 @@ where
                 &second_piola_kirchhoff_stress,
             ))
     }
-    /// Calculates and returns the rate plastic deformation.
-    ///
-    /// ```math
-    /// \dot{\mathbf{F}}_\mathrm{p} = \mathbf{D}_\mathrm{p}\cdot\mathbf{F}_\mathrm{p}
-    /// ```
-    fn plastic_deformation_gradient_rate(
-        &self,
-        deformation_gradient: &DeformationGradient,
-        deformation_gradient_p: &DeformationGradientPlastic,
-    ) -> Result<DeformationGradientRatePlastic, ConstitutiveError> {
-        todo!("plastic_deformation_gradient_rate() deprecated");
-        let jacobian = deformation_gradient.jacobian().unwrap();
-        let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
-        let cauchy_stress = self.cauchy_stress(deformation_gradient, deformation_gradient_p)?;
-        let mandel_stress_e = (deformation_gradient_e.transpose()
-            * cauchy_stress
-            * deformation_gradient_e.inverse_transpose())
-            * jacobian;
-        Ok(self
-            .plastic_stretching_rate(mandel_stress_e.deviatoric(), self.initial_yield_stress())?
-            * deformation_gradient_p)
-    }
     /// Calculates and returns the rate of plastic stretching.
     ///
     /// ```math
@@ -241,21 +218,16 @@ where
     ) -> Result<Scalar, ConstitutiveError> {
         Ok(self.hardening_slope() * plastic_stretching_rate.norm() * (2.0_f64 / 3.0).sqrt())
     }
-    /// ???
+    /// Calculates and returns the evolution of the state variables.
     ///
     /// ```math
     /// \dot{\mathbf{F}}_\mathrm{p} = \mathbf{D}_\mathrm{p}\cdot\mathbf{F}_\mathrm{p}
     /// ```
-    fn foo(
+    fn state_variables_evolution(
         &self,
-        deformation_gradient: &DeformationGradient,
         state_variables: &StateVariables,
+        deformation_gradient: &DeformationGradient,
     ) -> Result<StateVariables, ConstitutiveError> {
-        //
-        // Some redundancy with above `plastic_deformation_gradient_rate`` function.
-        // Since the above equation is always true, maybe delete that function and use this instead.
-        // The yield stress evolution on the other hand could be different, so keep that function.
-        //
         let (deformation_gradient_p, yield_stress) = state_variables.into();
         let jacobian = deformation_gradient.jacobian().unwrap();
         let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
@@ -266,46 +238,6 @@ where
             * jacobian;
         let plastic_stretching_rate =
             self.plastic_stretching_rate(mandel_stress_e.deviatoric(), yield_stress)?;
-        //
-        // You have tensor rank N list/vec and 2D and so on.
-        // Could you combine these into a single impl?
-        // Like TensorList<T> or TensorVec<T> where T is the tensor type.
-        // Might be able to even automatically handle the nested cases with T=TensorList<...>.
-        //
-        // And also see if you can do something with (T1, T2) being a tensor?
-        // The thing above would help you automatically handle a Vec of these tuple.
-        // Integration impls could handle tuples automatically if they have the tensor impls.
-        //
-        // Also note that you are going to have to this and `plastic_stretching_rate` a function of `yield_stress`.
-        //
-        // Is this going to get out of hand later? With models with ISVs that are arbitrary?
-        // Do you want to start now handling that in a consistent way?
-        // Which will help you implement only 1 solver/etc. in constitutive/ and fem/ for ISV models?
-        // (Maybe still separate for explicitly- and implicitly-rate-dependent models).
-        // Could make a trait in solid/ for all implicitly-rate-dependent models
-        // which has an evolution function accepting the state and returning the evolution.
-        // The i/o here could be a sized array (method would have to flatten and stuff)
-        // or generic parameters that impl certain methods (could be nice),
-        // since the fem/ would be generic over them just like integrate/ would be.
-        // The mod could be internal_state_variables and have the two submodules.
-        //
-        // Maybe not though, that is somewhat further in the future,
-        // and mainly it might be nice to think about how to collect things in fem/
-        // like the plastic deformation as [[Fp; integ_pts]; elements] and so on,
-        // and hard to know what these are if just a general state.
-        // Maybe just do it the specific way for now? Can always refactor later.
-        // And use the nice parts of the specific impl to drive how to get general one working just as nice later.
-        //
-        // Fp_dot = f_1(F, Fp, Y) and Y_dot = f_2(F, Fp, Y)
-        // (Fp_dot, Y_dot) = (f_1(F, Fp, Y), f_2(F, Fp, Y))
-        // (dXdt, dYdt, ...) = (f_1(Z0; X, Y, ...), f_2(Z0; X, Y, ...), ...)
-        // should handle nicely in integrate/ if Tensor/etc. is implemented for the tuples
-        // fem/ has Vec<[(F, Fp, Y); N]> which should still be alright
-        // also note that each integration point evolution equation only depends on the local (F, Fp, Y)
-        // is there a way to get integrate/ to handle that simplification for performance purposes?
-        // Would compute all the slopes/steps separately, but the error together.
-        // Perhaps not actually worth it, since the IV solve for z needs all variables anyway.
-        //
         Ok(StateVariables::from((
             &plastic_stretching_rate * deformation_gradient_p,
             self.yield_stress_evolution(&plastic_stretching_rate)?,
@@ -324,13 +256,13 @@ pub trait ZerothOrderRoot {
         &self,
         applied_load: AppliedLoad,
         integrator: impl ExplicitIV<
-            DeformationGradientRatePlastic,
+            StateVariables,
             DeformationGradient,
-            DeformationGradientRatesPlastic,
+            StateVariablesHistory,
             DeformationGradients,
         >,
         solver: impl ZerothOrderRootFinding<DeformationGradient>,
-    ) -> Result<(Times, DeformationGradients, DeformationGradientsPlastic), ConstitutiveError>;
+    ) -> Result<(Times, DeformationGradients, StateVariablesHistory), ConstitutiveError>;
     #[doc(hidden)]
     fn root_inner_0(
         &self,
@@ -385,13 +317,13 @@ where
         &self,
         applied_load: AppliedLoad,
         integrator: impl ExplicitIV<
-            DeformationGradientRatePlastic,
+            StateVariables,
             DeformationGradient,
-            DeformationGradientRatesPlastic,
+            StateVariablesHistory,
             DeformationGradients,
         >,
         solver: impl ZerothOrderRootFinding<DeformationGradient>,
-    ) -> Result<(Times, DeformationGradients, DeformationGradientsPlastic), ConstitutiveError> {
+    ) -> Result<(Times, DeformationGradients, StateVariablesHistory), ConstitutiveError> {
         match match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_11, time) => {
                 let mut matrix = Matrix::zero(4, 9);
@@ -402,16 +334,14 @@ where
                 matrix[3][5] = 1.0;
                 integrator.integrate(
                     |_: Scalar,
-                     deformation_gradient_p: &DeformationGradientPlastic,
+                     state_variables: &StateVariables,
                      deformation_gradient: &DeformationGradient| {
-                        Ok(self.plastic_deformation_gradient_rate(
-                            deformation_gradient,
-                            deformation_gradient_p,
-                        )?)
+                        Ok(self.state_variables_evolution(state_variables, deformation_gradient)?)
                     },
                     |t: Scalar,
-                     deformation_gradient_p: &DeformationGradientPlastic,
+                     state_variables: &StateVariables,
                      deformation_gradient: &DeformationGradient| {
+                        let (deformation_gradient_p, _) = state_variables.into();
                         vector[0] = deformation_gradient_11(t);
                         Ok(self.root_inner_0(
                             deformation_gradient_p,
@@ -421,13 +351,16 @@ where
                         )?)
                     },
                     time,
-                    DeformationGradientPlastic::identity(),
+                    StateVariables::from((
+                        DeformationGradientPlastic::identity(),
+                        *self.initial_yield_stress(),
+                    )),
                     DeformationGradient::identity(),
                 )
             }
         } {
-            Ok((times, deformation_gradients_p, _, deformation_gradients)) => {
-                Ok((times, deformation_gradients, deformation_gradients_p))
+            Ok((times, state_variables, _, deformation_gradients)) => {
+                Ok((times, deformation_gradients, state_variables))
             }
             Err(error) => Err(ConstitutiveError::Upstream(
                 format!("{error}"),
@@ -485,7 +418,7 @@ where
                     |_: Scalar,
                      state_variables: &StateVariables,
                      deformation_gradient: &DeformationGradient| {
-                        Ok(self.foo(deformation_gradient, state_variables)?)
+                        Ok(self.state_variables_evolution(state_variables, deformation_gradient)?)
                     },
                     |t: Scalar,
                      state_variables: &StateVariables,

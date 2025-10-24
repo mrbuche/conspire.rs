@@ -82,15 +82,19 @@ fn root_0() -> Result<(), TestError> {
             ..Default::default()
         },
     )?;
-    for (t_i, (f_i, f_p_i)) in t.iter().zip(f.iter().zip(f_p.iter())) {
+    for (t_i, (f_i, s_i)) in t.iter().zip(f.iter().zip(f_p.iter())) {
+        let (f_p_i, y_i) = s_i.into();
         let f_e = f_i * f_p_i.inverse();
-        let m_e = f_e.transpose() * model.cauchy_stress(f_i, f_p_i)? * f_e.inverse_transpose();
+        let c_e = model.cauchy_stress(f_i, f_p_i)?;
+        let m_e = f_e.transpose() * &c_e * f_e.inverse_transpose();
         let m_e_dev_mag = m_e.deviatoric().norm();
         println!(
-            "[{}, {}, {}, {}, {}],",
+            "[{}, {}, {}, {}, {}, {}, {}],",
             t_i,
             f_i[0][0],
             f_p_i[0][0],
+            y_i,
+            c_e[0][0],
             f_p_i.determinant(),
             m_e_dev_mag,
         )
