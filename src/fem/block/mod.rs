@@ -845,6 +845,15 @@ where
                  nodal_coordinates: &NodalCoordinatesBlock| {
                     // let (deformation_gradients_p, _) = state_variables.into();
                     let (deformation_gradients_p, _) = &state_variables.clone().into();
+                    //
+                    // To use references (no cloning or allocation)
+                    // would have to change all instances of
+                    // deformation_gradients_p: &DeformationGradientPlasticListVec<G> => &Vec<[Fp; G]>
+                    // used by root_inner and subsequent fns (nodal_forces, nodal_stiffnesses)
+                    // to have the reference on Fp, i.e., Vec<[&Fp; G]> structure.
+                    // so that into() can unzip them correctly.
+                    // I think this should be possible.
+                    //
                     Ok(self.root_inner(
                         equality_constraint.clone(),
                         deformation_gradients_p,
