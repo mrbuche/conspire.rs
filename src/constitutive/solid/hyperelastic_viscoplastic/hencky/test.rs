@@ -114,7 +114,7 @@ fn root_1() -> Result<(), TestError> {
         reference_flow_rate: 0.1,
     };
     let (t, f, f_p) = model.root(
-        AppliedLoad::UniaxialStress(|t| 1.0 + t, &[0.0, 8.0]),
+        AppliedLoad::UniaxialStress(|t| 1.0 + t, &[0.0, 512.0]), // 8.0
         BogackiShampine {
             abs_tol: 1e-6,
             rel_tol: 1e-6,

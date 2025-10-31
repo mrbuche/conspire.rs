@@ -32,8 +32,12 @@ pub use tensor::{
         vec::TensorRank1Vec, vec_2d::TensorRank1Vec2D, zero as tensor_rank_1_zero,
     },
     rank_2::{
-        IDENTITY, IDENTITY_00, IDENTITY_10, TensorRank2, ZERO, ZERO_10, list::TensorRank2List,
-        list_2d::TensorRank2List2D, tensor_rank_2, vec::TensorRank2Vec, vec_2d::TensorRank2Vec2D,
+        IDENTITY, IDENTITY_00, IDENTITY_10, TensorRank2, ZERO, ZERO_10,
+        list::TensorRank2List,
+        list_2d::TensorRank2List2D,
+        tensor_rank_2,
+        vec::{TensorRank2Vec, list::TensorRank2ListVec},
+        vec_2d::TensorRank2Vec2D,
     },
     rank_3::{LEVI_CIVITA, TensorRank3, levi_civita},
     rank_4::{
