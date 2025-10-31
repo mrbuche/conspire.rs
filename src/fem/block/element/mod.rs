@@ -7,7 +7,7 @@ pub mod linear;
 use super::*;
 use crate::{
     defeat_message,
-    math::{IDENTITY, LEVI_CIVITA, tensor_rank_1_zero},
+    math::{IDENTITY, LEVI_CIVITA, TensorTupleList, tensor_rank_1_zero},
     mechanics::{DeformationGradientPlasticList, Scalar},
 };
 use std::{
@@ -366,10 +366,8 @@ where
     ) -> Result<Scalar, FiniteElementError>;
 }
 
-pub type YieldStresses<const G: usize> = Scalars<G>;
-
 pub type ViscoplasticStateVariables<const G: usize> =
-    TensorTuple<DeformationGradientPlasticList<G>, YieldStresses<G>>;
+    TensorTupleList<DeformationGradientPlastic, Scalar, G>;
 
 pub trait ElasticViscoplasticFiniteElement<C, const G: usize, const N: usize>
 where
@@ -672,23 +670,22 @@ where
         nodal_coordinates: &NodalCoordinates<N>,
         state_variables: &ViscoplasticStateVariables<G>,
     ) -> Result<ViscoplasticStateVariables<G>, FiniteElementError> {
-        todo!("Need to get .iter() right for TensorTuple or structure state variables differently.")
-        // match self
-        //     .deformation_gradients(nodal_coordinates)
-        //     .iter()
-        //     .zip(state_variables.iter())
-        //     .map(|(deformation_gradient, state_variable)| {
-        //         self.constitutive_model
-        //             .state_variables_evolution(deformation_gradient, state_variable)
-        //     })
-        //     .collect::<Result<ViscoplasticStateVariables<G>, _>>()
-        // {
-        //     Ok(state_variables_evolution) => Ok(state_variables_evolution),
-        //     Err(error) => Err(FiniteElementError::Upstream(
-        //         format!("{error}"),
-        //         format!("{self:?}"),
-        //     )),
-        // }
+        match self
+            .deformation_gradients(nodal_coordinates)
+            .iter()
+            .zip(state_variables.iter())
+            .map(|(deformation_gradient, state_variable)| {
+                self.constitutive_model
+                    .state_variables_evolution(deformation_gradient, state_variable)
+            })
+            .collect::<Result<ViscoplasticStateVariables<G>, _>>()
+        {
+            Ok(state_variables_evolution) => Ok(state_variables_evolution),
+            Err(error) => Err(FiniteElementError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
 }
 

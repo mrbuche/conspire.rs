@@ -13,17 +13,14 @@ use crate::{
     constitutive::solid::elastic_viscoplastic::ElasticViscoplastic,
     defeat_message,
     math::{
-        Banded, ScalarsVec, TensorArray, TensorTuple, TensorTupleVec, TestError,
+        Banded, TensorArray, TensorTupleListVec, TensorTupleListVec2D, TestError,
         integrate::{Explicit, ExplicitIV, IntegrationError},
         optimize::{
             EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
             SecondOrderOptimization, ZerothOrderRootFinding,
         },
     },
-    mechanics::{
-        DeformationGradientPlastic, DeformationGradientPlasticList,
-        DeformationGradientPlasticListVec, Times,
-    },
+    mechanics::{DeformationGradientPlastic, DeformationGradientPlasticListVec, Times},
 };
 use std::{
     array::from_fn,
@@ -340,13 +337,11 @@ where
     ) -> Result<NodalCoordinatesBlock, OptimizationError>;
 }
 
-pub type YieldStresses<const G: usize> = ScalarsVec<G>;
-
 pub type ViscoplasticStateVariables<const G: usize> =
-    TensorTuple<DeformationGradientPlasticListVec<G>, YieldStresses<G>>;
+    TensorTupleListVec<DeformationGradientPlastic, Scalar, G>;
 
 pub type ViscoplasticStateVariablesHistory<const G: usize> =
-    TensorTupleVec<DeformationGradientPlasticListVec<G>, YieldStresses<G>>;
+    TensorTupleListVec2D<DeformationGradientPlastic, Scalar, G>;
 
 pub trait ElasticViscoplasticFiniteElementBlock<C, F, const G: usize, const N: usize>
 where
@@ -793,10 +788,27 @@ where
         state_variables: &ViscoplasticStateVariables<G>,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<ViscoplasticStateVariables<G>, FiniteElementBlockError> {
-        todo!("Need to get .iter() right for TensorTuple or structure state variables differently.")
-        // self.elements().iter().zip(self.connectivity().iter()).zip(state_variables.iter()).map(|((element, element_connectivity), element_state_variables)|
-        //     element.state_variables_evolution(&self.nodal_coordinates_element(element_connectivity, nodal_coordinates), element_state_variables)
-        // ).collect() // dont forget error handling like above
+        match self
+            .elements()
+            .iter()
+            .zip(self.connectivity().iter())
+            .zip(state_variables.iter())
+            .map(
+                |((element, element_connectivity), element_state_variables)| {
+                    element.state_variables_evolution(
+                        &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
+                        element_state_variables,
+                    )
+                },
+            )
+            .collect()
+        {
+            Ok(state_variables_evolution) => Ok(state_variables_evolution),
+            Err(error) => Err(FiniteElementBlockError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
     fn root(
         &self,
@@ -821,7 +833,6 @@ where
         ),
         IntegrationError,
     > {
-        let number_of_elements = self.elements().len();
         let (time_history, state_variables_history, _, nodal_coordinates_history) = integrator
             .integrate(
                 |_: Scalar,
@@ -832,7 +843,8 @@ where
                 |_: Scalar,
                  state_variables: &ViscoplasticStateVariables<G>,
                  nodal_coordinates: &NodalCoordinatesBlock| {
-                    let (deformation_gradients_p, _) = state_variables.into();
+                    // let (deformation_gradients_p, _) = state_variables.into();
+                    let (deformation_gradients_p, _) = &state_variables.clone().into();
                     Ok(self.root_inner(
                         equality_constraint.clone(),
                         deformation_gradients_p,
@@ -841,24 +853,19 @@ where
                     )?)
                 },
                 time,
-                ViscoplasticStateVariables::from((
-                    DeformationGradientPlasticListVec::from(vec![
-                        DeformationGradientPlasticList::const_from(from_fn(|_| {
-                            DeformationGradientPlastic::identity()
-                        }));
-                        number_of_elements
-                    ]),
-                    YieldStresses::from(
-                        self.elements()
-                            .iter()
-                            .map(|element| {
-                                Scalars::const_from(
-                                    [*element.constitutive_model().initial_yield_stress(); _],
-                                )
-                            })
-                            .collect::<Vec<_>>(),
-                    ),
-                )),
+                self.elements()
+                    .iter()
+                    .map(|element| {
+                        from_fn(|_| {
+                            (
+                                DeformationGradientPlastic::identity(),
+                                *element.constitutive_model().initial_yield_stress(),
+                            )
+                                .into()
+                        })
+                        .into()
+                    })
+                    .collect(),
                 self.coordinates().clone().into(),
             )?;
         Ok((

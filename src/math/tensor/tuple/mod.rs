@@ -1,11 +1,12 @@
-use crate::math::{Tensor, TensorRank0, TensorVector};
+pub mod list;
+pub mod vec;
+
+use crate::math::{Tensor, TensorRank0};
 use std::{
     fmt::{Display, Formatter, Result},
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign},
 };
-
-pub type TensorTupleVec<T1, T2> = TensorVector<TensorTuple<T1, T2>>;
 
 #[derive(Clone, Debug)]
 pub struct TensorTuple<T1, T2>(T1, T2)
@@ -170,6 +171,18 @@ where
     }
 }
 
+impl<T1, T2> Mul<&TensorRank0> for TensorTuple<T1, T2>
+where
+    T1: Tensor,
+    T2: Tensor,
+{
+    type Output = Self;
+    fn mul(mut self, tensor_rank_0: &TensorRank0) -> Self::Output {
+        self *= tensor_rank_0;
+        self
+    }
+}
+
 impl<T1, T2> Mul<TensorRank0> for &TensorTuple<T1, T2>
 where
     T1: Tensor,
@@ -187,15 +200,20 @@ where
     }
 }
 
-impl<T1, T2> Mul<&TensorRank0> for TensorTuple<T1, T2>
+impl<T1, T2> Mul<&TensorRank0> for &TensorTuple<T1, T2>
 where
     T1: Tensor,
     T2: Tensor,
 {
-    type Output = Self;
-    fn mul(mut self, tensor_rank_0: &TensorRank0) -> Self::Output {
-        self *= tensor_rank_0;
-        self
+    type Output = TensorTuple<T1, T2>;
+    fn mul(self, tensor_rank_0: &TensorRank0) -> Self::Output {
+        //
+        // Cloning for now to avoid trait recursion nightmare.
+        //
+        TensorTuple(
+            self.0.clone() * tensor_rank_0,
+            self.1.clone() * tensor_rank_0,
+        )
     }
 }
 

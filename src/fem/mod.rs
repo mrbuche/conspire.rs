@@ -8,7 +8,7 @@ pub use block::{
     FiniteElementBlockError, FiniteElementBlockMethods, FirstOrderMinimize, FirstOrderRoot,
     HyperelasticFiniteElementBlock, HyperviscoelasticFiniteElementBlock, SecondOrderMinimize,
     SurfaceFiniteElementBlock, ViscoelasticFiniteElementBlock, ViscoplasticStateVariables,
-    ViscoplasticStateVariablesHistory, YieldStresses, ZerothOrderRoot,
+    ViscoplasticStateVariablesHistory, ZerothOrderRoot,
     element::{
         ElasticFiniteElement, ElasticViscoplasticFiniteElement, FiniteElement, FiniteElementError,
         FiniteElementMethods, HyperelasticFiniteElement, HyperviscoelasticFiniteElement,

@@ -49,7 +49,11 @@ pub use tensor::{
         list::TensorRank4List,
     },
     test::{TestError, assert_eq, assert_eq_within, assert_eq_within_tols},
-    tuple::{TensorTuple, TensorTupleVec},
+    tuple::{
+        TensorTuple,
+        list::{TensorTupleList, vec::TensorTupleListVec, vec_2d::TensorTupleListVec2D},
+        vec::TensorTupleVec,
+    },
     vec::TensorVector,
 };
 

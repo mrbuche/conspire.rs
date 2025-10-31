@@ -1,4 +1,4 @@
-use crate::math::{Tensor, TensorRank0, TensorVec};
+use crate::math::{Tensor, TensorList, TensorRank0, TensorTuple, TensorVec};
 use std::{
     fmt::{Display, Formatter, Result},
     iter::Sum,
@@ -57,6 +57,42 @@ where
     }
 }
 
+impl<T1, T2, const N: usize> From<TensorVector<TensorList<TensorTuple<T1, T2>, N>>>
+    for (
+        TensorVector<TensorList<T1, N>>,
+        TensorVector<TensorList<T2, N>>,
+    )
+where
+    T1: Tensor,
+    T2: Tensor,
+{
+    fn from(tensor_tuple_list_vec: TensorVector<TensorList<TensorTuple<T1, T2>, N>>) -> Self {
+        tensor_tuple_list_vec
+            .into_iter()
+            .map(|tensor_tuple_list| {
+                tensor_tuple_list
+                    .into_iter()
+                    .map(|tensor_tuple| tensor_tuple.into())
+                    .unzip()
+            })
+            .unzip()
+    }
+}
+
+impl<T1, T2, const N: usize> From<&TensorVector<TensorList<TensorTuple<T1, T2>, N>>>
+    for (
+        &TensorVector<TensorList<T1, N>>,
+        &TensorVector<TensorList<T2, N>>,
+    )
+where
+    T1: Tensor,
+    T2: Tensor,
+{
+    fn from(tensor_tuple_list_vec: &TensorVector<TensorList<TensorTuple<T1, T2>, N>>) -> Self {
+        todo!()
+    }
+}
+
 impl<T> Display for TensorVector<T>
 where
     T: Tensor,
@@ -77,6 +113,18 @@ where
         //     Ok(())
         // })?;
         // write!(f, "\x1B[2D]]")
+    }
+}
+
+impl<T> Extend<T> for TensorVector<T>
+where
+    T: Tensor,
+{
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = T>,
+    {
+        self.0.extend(iter)
     }
 }
 
