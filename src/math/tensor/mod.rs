@@ -11,7 +11,10 @@ pub mod vec;
 
 use super::{SquareMatrix, Vector};
 use crate::defeat_message;
-use rank_0::TensorRank0;
+use rank_0::{
+    TensorRank0,
+    list::{TensorRank0List, vec::TensorRank0ListVec},
+};
 use std::{
     fmt::{self, Debug, Display, Formatter},
     iter::Sum,
@@ -20,6 +23,12 @@ use std::{
 
 /// A scalar.
 pub type Scalar = TensorRank0;
+
+/// A list of scalars.
+pub type Scalars<const W: usize> = TensorRank0List<W>;
+
+/// A vector of lists of scalars.
+pub type ScalarsVec<const W: usize> = TensorRank0ListVec<W>;
 
 /// Possible errors for tensors.
 #[derive(PartialEq)]

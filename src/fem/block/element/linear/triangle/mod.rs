@@ -90,7 +90,10 @@ impl<'a, C> SurfaceFiniteElementMethodsExtra<M, N, P> for Triangle<'a, C> {
     }
 }
 
-impl<'a, C> FiniteElementMethods<G, N> for Triangle<'a, C> {
+impl<'a, C> FiniteElementMethods<C, G, N> for Triangle<'a, C> {
+    fn constitutive_model(&self) -> &C {
+        self.constitutive_model
+    }
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,

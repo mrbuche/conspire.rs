@@ -6,9 +6,9 @@ pub mod test;
 use crate::{
     defeat_message,
     math::{
-        Rank2, Tensor, TensorRank0List, TensorRank1, TensorRank1List, TensorRank1List2D,
-        TensorRank2, TensorRank2List, TensorRank2List2D, TensorRank2ListVec, TensorRank2ListVec2D, TensorRank2Vec,
-        TensorRank4, TensorRank4List,
+        Rank2, Tensor, TensorRank1, TensorRank1List, TensorRank1List2D, TensorRank2,
+        TensorRank2List, TensorRank2List2D, TensorRank2ListVec, TensorRank2Vec, TensorRank4,
+        TensorRank4List,
     },
 };
 use std::fmt::{self, Debug, Display, Formatter};
@@ -149,9 +149,6 @@ pub type DeformationGradientPlasticList<const W: usize> = TensorRank2List<3, 2, 
 /// A vector of lists of plastic deformation gradients.
 pub type DeformationGradientPlasticListVec<const W: usize> = TensorRank2ListVec<3, 2, 0, W>;
 
-/// A two-dimensional vector of lists of plastic deformation gradients.
-pub type DeformationGradientPlasticListVec2D<const W: usize> = TensorRank2ListVec2D<3, 2, 0, W>;
-
 /// A list of deformation gradients.
 pub type DeformationGradientList<const W: usize> = TensorRank2List<3, 1, 0, W>;
 
@@ -233,9 +230,6 @@ pub type RotationRateCurrentConfiguration = TensorRank2<3, 1, 1>;
 
 /// The rotation of the reference configuration $`\mathbf{Q}_0`$.
 pub type RotationReferenceConfiguration = TensorRank2<3, 0, 0>;
-
-/// A list of scalars.
-pub type Scalars<const W: usize> = TensorRank0List<W>;
 
 /// The second Piola-Kirchhoff stress $`\mathbf{S}`$.
 pub type SecondPiolaKirchhoffStress = TensorRank2<3, 0, 0>;

@@ -54,7 +54,7 @@ impl<'a, C, const G: usize, const N: usize> Debug for Element<'a, C, G, N> {
 
 pub trait FiniteElement<'a, C, const G: usize, const N: usize>
 where
-    Self: FiniteElementMethods<G, N>,
+    Self: FiniteElementMethods<C, G, N>,
 {
     fn new(
         constitutive_model: &'a C,
@@ -66,7 +66,7 @@ where
 
 pub trait SurfaceFiniteElement<'a, C, const G: usize, const N: usize, const P: usize>
 where
-    Self: FiniteElementMethods<G, N>,
+    Self: FiniteElementMethods<C, G, N>,
 {
     fn new(
         constitutive_model: &'a C,
@@ -75,7 +75,8 @@ where
     ) -> Self;
 }
 
-pub trait FiniteElementMethods<const G: usize, const N: usize> {
+pub trait FiniteElementMethods<C, const G: usize, const N: usize> {
+    fn constitutive_model(&self) -> &C;
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
@@ -153,7 +154,10 @@ impl Display for FiniteElementError {
     }
 }
 
-impl<'a, C, const G: usize, const N: usize> FiniteElementMethods<G, N> for Element<'a, C, G, N> {
+impl<'a, C, const G: usize, const N: usize> FiniteElementMethods<C, G, N> for Element<'a, C, G, N> {
+    fn constitutive_model(&self) -> &C {
+        self.constitutive_model
+    }
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
@@ -339,7 +343,7 @@ where
 pub trait ElasticFiniteElement<C, const G: usize, const N: usize>
 where
     C: Elastic,
-    Self: Debug + FiniteElementMethods<G, N>,
+    Self: Debug + FiniteElementMethods<C, G, N>,
 {
     fn nodal_forces(
         &self,
@@ -362,10 +366,15 @@ where
     ) -> Result<Scalar, FiniteElementError>;
 }
 
+pub type YieldStresses<const G: usize> = Scalars<G>;
+
+pub type ViscoplasticStateVariables<const G: usize> =
+    TensorTuple<DeformationGradientPlasticList<G>, YieldStresses<G>>;
+
 pub trait ElasticViscoplasticFiniteElement<C, const G: usize, const N: usize>
 where
     C: ElasticViscoplastic,
-    Self: Debug + FiniteElementMethods<G, N>,
+    Self: Debug + FiniteElementMethods<C, G, N>,
 {
     fn nodal_forces(
         &self,
@@ -377,12 +386,17 @@ where
         nodal_coordinates: &NodalCoordinates<N>,
         deformation_gradients_p: &DeformationGradientPlasticList<G>,
     ) -> Result<NodalStiffnesses<N>, FiniteElementError>;
+    fn state_variables_evolution(
+        &self,
+        nodal_coordinates: &NodalCoordinates<N>,
+        state_variables: &ViscoplasticStateVariables<G>,
+    ) -> Result<ViscoplasticStateVariables<G>, FiniteElementError>;
 }
 
 pub trait ViscoelasticFiniteElement<C, const G: usize, const N: usize>
 where
     C: Viscoelastic,
-    Self: FiniteElementMethods<G, N>,
+    Self: FiniteElementMethods<C, G, N>,
 {
     fn nodal_forces(
         &self,
@@ -652,6 +666,29 @@ where
                 format!("{self:?}"),
             )),
         }
+    }
+    fn state_variables_evolution(
+        &self,
+        nodal_coordinates: &NodalCoordinates<N>,
+        state_variables: &ViscoplasticStateVariables<G>,
+    ) -> Result<ViscoplasticStateVariables<G>, FiniteElementError> {
+        todo!("Need to get .iter() right for TensorTuple or structure state variables differently.")
+        // match self
+        //     .deformation_gradients(nodal_coordinates)
+        //     .iter()
+        //     .zip(state_variables.iter())
+        //     .map(|(deformation_gradient, state_variable)| {
+        //         self.constitutive_model
+        //             .state_variables_evolution(deformation_gradient, state_variable)
+        //     })
+        //     .collect::<Result<ViscoplasticStateVariables<G>, _>>()
+        // {
+        //     Ok(state_variables_evolution) => Ok(state_variables_evolution),
+        //     Err(error) => Err(FiniteElementError::Upstream(
+        //         format!("{error}"),
+        //         format!("{self:?}"),
+        //     )),
+        // }
     }
 }
 

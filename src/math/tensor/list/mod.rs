@@ -227,22 +227,25 @@ where
 impl<T, const N: usize> Mul<TensorRank0> for &TensorList<T, N>
 where
     T: Tensor,
+    for<'a> &'a T: Mul<&'a TensorRank0, Output = T>,
 {
     type Output = TensorList<T, N>;
     fn mul(self, tensor_rank_0: TensorRank0) -> Self::Output {
-        todo!()
+        self.iter().map(|self_i| self_i * &tensor_rank_0).collect()
     }
 }
 
-impl<T, const N: usize> Mul<&TensorRank0> for &TensorList<T, N>
-where
-    T: Tensor,
-{
-    type Output = TensorList<T, N>;
-    fn mul(self, tensor_rank_0: &TensorRank0) -> Self::Output {
-        todo!()
-    }
-}
+// impl<T, const N: usize> Mul<&TensorRank0> for &TensorList<T, N>
+// where
+//     T: Tensor,
+//     // for <'a> &'a T: Mul<&'a TensorRank0, Output=T>
+// {
+//     type Output = TensorList<T, N>;
+//     fn mul(self, tensor_rank_0: &TensorRank0) -> Self::Output {
+//         // self.iter().map(|self_i| self_i * tensor_rank_0).collect()
+//         todo!()
+//     }
+// }
 
 impl<T, const N: usize> MulAssign<TensorRank0> for TensorList<T, N>
 where

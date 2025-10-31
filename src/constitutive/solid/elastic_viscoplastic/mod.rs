@@ -225,8 +225,8 @@ where
     /// ```
     fn state_variables_evolution(
         &self,
-        state_variables: &StateVariables,
         deformation_gradient: &DeformationGradient,
+        state_variables: &StateVariables,
     ) -> Result<StateVariables, ConstitutiveError> {
         let (deformation_gradient_p, yield_stress) = state_variables.into();
         let jacobian = deformation_gradient.jacobian().unwrap();
@@ -336,7 +336,7 @@ where
                     |_: Scalar,
                      state_variables: &StateVariables,
                      deformation_gradient: &DeformationGradient| {
-                        Ok(self.state_variables_evolution(state_variables, deformation_gradient)?)
+                        Ok(self.state_variables_evolution(deformation_gradient, state_variables)?)
                     },
                     |t: Scalar,
                      state_variables: &StateVariables,
@@ -418,7 +418,7 @@ where
                     |_: Scalar,
                      state_variables: &StateVariables,
                      deformation_gradient: &DeformationGradient| {
-                        Ok(self.state_variables_evolution(state_variables, deformation_gradient)?)
+                        Ok(self.state_variables_evolution(deformation_gradient, state_variables)?)
                     },
                     |t: Scalar,
                      state_variables: &StateVariables,

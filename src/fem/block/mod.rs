@@ -13,16 +13,20 @@ use crate::{
     constitutive::solid::elastic_viscoplastic::ElasticViscoplastic,
     defeat_message,
     math::{
-        Banded, TestError,
+        Banded, ScalarsVec, TensorArray, TensorTuple, TensorTupleVec, TestError,
         integrate::{Explicit, ExplicitIV, IntegrationError},
         optimize::{
             EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
             SecondOrderOptimization, ZerothOrderRootFinding,
         },
     },
-    mechanics::{DeformationGradientPlasticListVec, DeformationGradientPlasticListVec2D, Times},
+    mechanics::{
+        DeformationGradientPlastic, DeformationGradientPlasticList,
+        DeformationGradientPlasticListVec, Times,
+    },
 };
 use std::{
+    array::from_fn,
     fmt::{self, Debug, Display, Formatter},
     iter::repeat_n,
 };
@@ -50,9 +54,9 @@ impl<F, const N: usize> Debug for ElementBlock<F, N> {
     }
 }
 
-pub trait FiniteElementBlockMethods<F, const G: usize, const N: usize>
+pub trait FiniteElementBlockMethods<C, F, const G: usize, const N: usize>
 where
-    F: FiniteElementMethods<G, N>,
+    F: FiniteElementMethods<C, G, N>,
 {
     fn connectivity(&self) -> &Connectivity<N>;
     fn coordinates(&self) -> &ReferenceNodalCoordinatesBlock;
@@ -145,9 +149,10 @@ impl Display for FiniteElementBlockError {
     }
 }
 
-impl<F, const G: usize, const N: usize> FiniteElementBlockMethods<F, G, N> for ElementBlock<F, N>
+impl<C, F, const G: usize, const N: usize> FiniteElementBlockMethods<C, F, G, N>
+    for ElementBlock<F, N>
 where
-    F: FiniteElementMethods<G, N>,
+    F: FiniteElementMethods<C, G, N>,
 {
     fn connectivity(&self) -> &Connectivity<N> {
         &self.connectivity
@@ -335,6 +340,14 @@ where
     ) -> Result<NodalCoordinatesBlock, OptimizationError>;
 }
 
+pub type YieldStresses<const G: usize> = ScalarsVec<G>;
+
+pub type ViscoplasticStateVariables<const G: usize> =
+    TensorTuple<DeformationGradientPlasticListVec<G>, YieldStresses<G>>;
+
+pub type ViscoplasticStateVariablesHistory<const G: usize> =
+    TensorTupleVec<DeformationGradientPlasticListVec<G>, YieldStresses<G>>;
+
 pub trait ElasticViscoplasticFiniteElementBlock<C, F, const G: usize, const N: usize>
 where
     C: ElasticViscoplastic,
@@ -350,17 +363,34 @@ where
         nodal_coordinates: &NodalCoordinatesBlock,
         deformation_gradients_p: &DeformationGradientPlasticListVec<G>,
     ) -> Result<NodalStiffnessesBlock, FiniteElementBlockError>;
+    fn state_variables_evolution(
+        &self,
+        state_variables: &ViscoplasticStateVariables<G>,
+        nodal_coordinates: &NodalCoordinatesBlock,
+    ) -> Result<ViscoplasticStateVariables<G>, FiniteElementBlockError>;
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
-        integrator: impl ExplicitIV<DeformationGradientPlasticListVec<G>, NodalCoordinatesBlock, DeformationGradientPlasticListVec2D<G>, NodalCoordinatesHistory>,
+        integrator: impl ExplicitIV<
+            ViscoplasticStateVariables<G>,
+            NodalCoordinatesBlock,
+            ViscoplasticStateVariablesHistory<G>,
+            NodalCoordinatesHistory,
+        >,
         time: &[Scalar],
         solver: impl FirstOrderRootFinding<
             NodalForcesBlock,
             NodalStiffnessesBlock,
             NodalCoordinatesBlock,
         >,
-    ) -> Result<(Times, NodalCoordinatesHistory), IntegrationError>;
+    ) -> Result<
+        (
+            Times,
+            NodalCoordinatesHistory,
+            ViscoplasticStateVariablesHistory<G>,
+        ),
+        IntegrationError,
+    >;
     #[doc(hidden)]
     fn root_inner(
         &self,
@@ -485,7 +515,7 @@ impl<C, F, const G: usize, const N: usize> ElasticFiniteElementBlock<C, F, G, N>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, N>,
-    Self: FiniteElementBlockMethods<F, G, N>,
+    Self: FiniteElementBlockMethods<C, F, G, N>,
 {
     fn nodal_forces(
         &self,
@@ -551,7 +581,7 @@ impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N> for Eleme
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, N>,
-    Self: FiniteElementBlockMethods<F, G, N>,
+    Self: FiniteElementBlockMethods<C, F, G, N>,
 {
     fn root(
         &self,
@@ -570,7 +600,7 @@ impl<C, F, const G: usize, const N: usize> FirstOrderRoot<C, F, G, N> for Elemen
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, N>,
-    Self: FiniteElementBlockMethods<F, G, N>,
+    Self: FiniteElementBlockMethods<C, F, G, N>,
 {
     fn root(
         &self,
@@ -686,7 +716,7 @@ impl<C, F, const G: usize, const N: usize> ElasticViscoplasticFiniteElementBlock
 where
     C: ElasticViscoplastic,
     F: ElasticViscoplasticFiniteElement<C, G, N>,
-    Self: FiniteElementBlockMethods<F, G, N>,
+    Self: FiniteElementBlockMethods<C, F, G, N>,
 {
     fn nodal_forces(
         &self,
@@ -758,35 +788,84 @@ where
             )),
         }
     }
+    fn state_variables_evolution(
+        &self,
+        state_variables: &ViscoplasticStateVariables<G>,
+        nodal_coordinates: &NodalCoordinatesBlock,
+    ) -> Result<ViscoplasticStateVariables<G>, FiniteElementBlockError> {
+        todo!("Need to get .iter() right for TensorTuple or structure state variables differently.")
+        // self.elements().iter().zip(self.connectivity().iter()).zip(state_variables.iter()).map(|((element, element_connectivity), element_state_variables)|
+        //     element.state_variables_evolution(&self.nodal_coordinates_element(element_connectivity, nodal_coordinates), element_state_variables)
+        // ).collect() // dont forget error handling like above
+    }
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
-        integrator: impl ExplicitIV<DeformationGradientPlasticListVec<G>, NodalCoordinatesBlock, DeformationGradientPlasticListVec2D<G>, NodalCoordinatesHistory>,
+        integrator: impl ExplicitIV<
+            ViscoplasticStateVariables<G>,
+            NodalCoordinatesBlock,
+            ViscoplasticStateVariablesHistory<G>,
+            NodalCoordinatesHistory,
+        >,
         time: &[Scalar],
         solver: impl FirstOrderRootFinding<
             NodalForcesBlock,
             NodalStiffnessesBlock,
             NodalCoordinatesBlock,
         >,
-    ) -> Result<(Times, NodalCoordinatesHistory), IntegrationError> {
-        let mut solution = NodalCoordinatesBlock::zero(self.coordinates().len());
-        let (time, nodal_coordinates_history, _) = integrator.integrate(
-            |_: Scalar, nodal_coordinates: &NodalCoordinatesBlock| {
-                solution = todo!();
-                // self.root_inner(
-                //     equality_constraint.clone(),
-                //     nodal_coordinates,
-                //     &solver,
-                //     &solution,
-                // )?;
-                Ok(solution.clone())
-            },
-            todo!(),
-            time,
-            todo!(),
-            self.coordinates().clone().into(),
-        )?;
-        Ok((time, nodal_coordinates_history))
+    ) -> Result<
+        (
+            Times,
+            NodalCoordinatesHistory,
+            ViscoplasticStateVariablesHistory<G>,
+        ),
+        IntegrationError,
+    > {
+        let number_of_elements = self.elements().len();
+        let (time_history, state_variables_history, _, nodal_coordinates_history) = integrator
+            .integrate(
+                |_: Scalar,
+                 state_variables: &ViscoplasticStateVariables<G>,
+                 nodal_coordinates: &NodalCoordinatesBlock| {
+                    Ok(self.state_variables_evolution(state_variables, nodal_coordinates)?)
+                },
+                |_: Scalar,
+                 state_variables: &ViscoplasticStateVariables<G>,
+                 nodal_coordinates: &NodalCoordinatesBlock| {
+                    let (deformation_gradients_p, _) = state_variables.into();
+                    Ok(self.root_inner(
+                        equality_constraint.clone(),
+                        deformation_gradients_p,
+                        &solver,
+                        nodal_coordinates,
+                    )?)
+                },
+                time,
+                ViscoplasticStateVariables::from((
+                    DeformationGradientPlasticListVec::from(vec![
+                        DeformationGradientPlasticList::const_from(from_fn(|_| {
+                            DeformationGradientPlastic::identity()
+                        }));
+                        number_of_elements
+                    ]),
+                    YieldStresses::from(
+                        self.elements()
+                            .iter()
+                            .map(|element| {
+                                Scalars::const_from(
+                                    [*element.constitutive_model().initial_yield_stress(); _],
+                                )
+                            })
+                            .collect::<Vec<_>>(),
+                    ),
+                )),
+                self.coordinates().clone().into(),
+            )?;
+        Ok((
+            time_history,
+            nodal_coordinates_history,
+            state_variables_history,
+        ))
     }
     fn root_inner(
         &self,
@@ -817,7 +896,7 @@ impl<C, F, const G: usize, const N: usize> ViscoelasticFiniteElementBlock<C, F, 
 where
     C: Viscoelastic,
     F: ViscoelasticFiniteElement<C, G, N>,
-    Self: FiniteElementBlockMethods<F, G, N>,
+    Self: FiniteElementBlockMethods<C, F, G, N>,
 {
     fn deformation_gradient_rates(
         &self,

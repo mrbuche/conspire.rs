@@ -24,7 +24,8 @@ pub use matrix::{
     vector::Vector,
 };
 pub use tensor::{
-    Hessian, Jacobian, Rank2, Scalar, Solution, Tensor, TensorArray, TensorVec,
+    Hessian, Jacobian, Rank2, Scalar, Scalars, ScalarsVec, Solution, Tensor, TensorArray,
+    TensorVec,
     list::TensorList,
     rank_0::{TensorRank0, list::TensorRank0List},
     rank_1::{
@@ -33,7 +34,7 @@ pub use tensor::{
     },
     rank_2::{
         IDENTITY, IDENTITY_00, IDENTITY_10, TensorRank2, ZERO, ZERO_10,
-        list::{TensorRank2List, vec::TensorRank2ListVec, vec_2d::TensorRank2ListVec2D},
+        list::{TensorRank2List, vec::TensorRank2ListVec},
         list_2d::TensorRank2List2D,
         tensor_rank_2,
         vec::TensorRank2Vec,
