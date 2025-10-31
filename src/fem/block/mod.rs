@@ -14,13 +14,13 @@ use crate::{
     defeat_message,
     math::{
         Banded, TestError,
-        integrate::{Explicit, IntegrationError},
+        integrate::{Explicit, ExplicitIV, IntegrationError},
         optimize::{
             EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
             SecondOrderOptimization, ZerothOrderRootFinding,
         },
     },
-    mechanics::{DeformationGradientPlasticListVec, Times},
+    mechanics::{DeformationGradientPlasticListVec, DeformationGradientPlasticListVec2D, Times},
 };
 use std::{
     fmt::{self, Debug, Display, Formatter},
@@ -350,6 +350,29 @@ where
         nodal_coordinates: &NodalCoordinatesBlock,
         deformation_gradients_p: &DeformationGradientPlasticListVec<G>,
     ) -> Result<NodalStiffnessesBlock, FiniteElementBlockError>;
+    fn root(
+        &self,
+        equality_constraint: EqualityConstraint,
+        integrator: impl ExplicitIV<DeformationGradientPlasticListVec<G>, NodalCoordinatesBlock, DeformationGradientPlasticListVec2D<G>, NodalCoordinatesHistory>,
+        time: &[Scalar],
+        solver: impl FirstOrderRootFinding<
+            NodalForcesBlock,
+            NodalStiffnessesBlock,
+            NodalCoordinatesBlock,
+        >,
+    ) -> Result<(Times, NodalCoordinatesHistory), IntegrationError>;
+    #[doc(hidden)]
+    fn root_inner(
+        &self,
+        equality_constraint: EqualityConstraint,
+        deformation_gradients_p: &DeformationGradientPlasticListVec<G>,
+        solver: &impl FirstOrderRootFinding<
+            NodalForcesBlock,
+            NodalStiffnessesBlock,
+            NodalCoordinatesBlock,
+        >,
+        initial_guess: &NodalCoordinatesBlock,
+    ) -> Result<NodalCoordinatesBlock, OptimizationError>;
 }
 
 pub trait ViscoelasticFiniteElementBlock<C, F, const G: usize, const N: usize>
@@ -734,6 +757,58 @@ where
                 format!("{self:?}"),
             )),
         }
+    }
+    fn root(
+        &self,
+        equality_constraint: EqualityConstraint,
+        integrator: impl ExplicitIV<DeformationGradientPlasticListVec<G>, NodalCoordinatesBlock, DeformationGradientPlasticListVec2D<G>, NodalCoordinatesHistory>,
+        time: &[Scalar],
+        solver: impl FirstOrderRootFinding<
+            NodalForcesBlock,
+            NodalStiffnessesBlock,
+            NodalCoordinatesBlock,
+        >,
+    ) -> Result<(Times, NodalCoordinatesHistory), IntegrationError> {
+        let mut solution = NodalCoordinatesBlock::zero(self.coordinates().len());
+        let (time, nodal_coordinates_history, _) = integrator.integrate(
+            |_: Scalar, nodal_coordinates: &NodalCoordinatesBlock| {
+                solution = todo!();
+                // self.root_inner(
+                //     equality_constraint.clone(),
+                //     nodal_coordinates,
+                //     &solver,
+                //     &solution,
+                // )?;
+                Ok(solution.clone())
+            },
+            todo!(),
+            time,
+            todo!(),
+            self.coordinates().clone().into(),
+        )?;
+        Ok((time, nodal_coordinates_history))
+    }
+    fn root_inner(
+        &self,
+        equality_constraint: EqualityConstraint,
+        deformation_gradients_p: &DeformationGradientPlasticListVec<G>,
+        solver: &impl FirstOrderRootFinding<
+            NodalForcesBlock,
+            NodalStiffnessesBlock,
+            NodalCoordinatesBlock,
+        >,
+        initial_guess: &NodalCoordinatesBlock,
+    ) -> Result<NodalCoordinatesBlock, OptimizationError> {
+        solver.root(
+            |nodal_coordinates: &NodalCoordinatesBlock| {
+                Ok(self.nodal_forces(nodal_coordinates, deformation_gradients_p)?)
+            },
+            |nodal_coordinates: &NodalCoordinatesBlock| {
+                Ok(self.nodal_stiffnesses(nodal_coordinates, deformation_gradients_p)?)
+            },
+            initial_guess.clone(),
+            equality_constraint,
+        )
     }
 }
 

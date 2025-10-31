@@ -224,6 +224,26 @@ where
     }
 }
 
+impl<T, const N: usize> Mul<TensorRank0> for &TensorList<T, N>
+where
+    T: Tensor,
+{
+    type Output = TensorList<T, N>;
+    fn mul(self, tensor_rank_0: TensorRank0) -> Self::Output {
+        todo!()
+    }
+}
+
+impl<T, const N: usize> Mul<&TensorRank0> for &TensorList<T, N>
+where
+    T: Tensor,
+{
+    type Output = TensorList<T, N>;
+    fn mul(self, tensor_rank_0: &TensorRank0) -> Self::Output {
+        todo!()
+    }
+}
+
 impl<T, const N: usize> MulAssign<TensorRank0> for TensorList<T, N>
 where
     T: Tensor,

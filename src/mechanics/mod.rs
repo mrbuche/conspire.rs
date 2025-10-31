@@ -7,7 +7,7 @@ use crate::{
     defeat_message,
     math::{
         Rank2, Tensor, TensorRank0List, TensorRank1, TensorRank1List, TensorRank1List2D,
-        TensorRank2, TensorRank2List, TensorRank2List2D, TensorRank2ListVec, TensorRank2Vec,
+        TensorRank2, TensorRank2List, TensorRank2List2D, TensorRank2ListVec, TensorRank2ListVec2D, TensorRank2Vec,
         TensorRank4, TensorRank4List,
     },
 };
@@ -148,6 +148,9 @@ pub type DeformationGradientPlasticList<const W: usize> = TensorRank2List<3, 2, 
 
 /// A vector of lists of plastic deformation gradients.
 pub type DeformationGradientPlasticListVec<const W: usize> = TensorRank2ListVec<3, 2, 0, W>;
+
+/// A two-dimensional vector of lists of plastic deformation gradients.
+pub type DeformationGradientPlasticListVec2D<const W: usize> = TensorRank2ListVec2D<3, 2, 0, W>;
 
 /// A list of deformation gradients.
 pub type DeformationGradientList<const W: usize> = TensorRank2List<3, 1, 0, W>;

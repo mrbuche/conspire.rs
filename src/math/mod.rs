@@ -33,10 +33,10 @@ pub use tensor::{
     },
     rank_2::{
         IDENTITY, IDENTITY_00, IDENTITY_10, TensorRank2, ZERO, ZERO_10,
-        list::TensorRank2List,
+        list::{TensorRank2List, vec::TensorRank2ListVec, vec_2d::TensorRank2ListVec2D},
         list_2d::TensorRank2List2D,
         tensor_rank_2,
-        vec::{TensorRank2Vec, list::TensorRank2ListVec},
+        vec::TensorRank2Vec,
         vec_2d::TensorRank2Vec2D,
     },
     rank_3::{LEVI_CIVITA, TensorRank3, levi_civita},
