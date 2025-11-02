@@ -389,7 +389,7 @@ where
     #[doc(hidden)]
     fn root_inner(
         &self,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: &EqualityConstraint,
         state_variables: &ViscoplasticStateVariables<G>,
         solver: &impl FirstOrderRootFinding<
             NodalForcesBlock,
@@ -439,7 +439,7 @@ where
     #[doc(hidden)]
     fn root_inner(
         &self,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: &EqualityConstraint,
         nodal_coordinates: &NodalCoordinatesBlock,
         solver: &impl FirstOrderRootFinding<
             NodalForcesBlock,
@@ -481,7 +481,7 @@ where
     #[doc(hidden)]
     fn minimize_inner(
         &self,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: &EqualityConstraint,
         nodal_coordinates: &NodalCoordinatesBlock,
         solver: &impl SecondOrderOptimization<
             Scalar,
@@ -844,7 +844,7 @@ where
                  state_variables: &ViscoplasticStateVariables<G>,
                  nodal_coordinates: &NodalCoordinatesBlock| {
                     Ok(self.root_inner(
-                        equality_constraint.clone(),
+                        &equality_constraint,
                         state_variables,
                         &solver,
                         nodal_coordinates,
@@ -874,7 +874,7 @@ where
     }
     fn root_inner(
         &self,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: &EqualityConstraint,
         state_variables: &ViscoplasticStateVariables<G>,
         solver: &impl FirstOrderRootFinding<
             NodalForcesBlock,
@@ -891,7 +891,7 @@ where
                 Ok(self.nodal_stiffnesses(nodal_coordinates, state_variables)?)
             },
             initial_guess.clone(),
-            equality_constraint,
+            equality_constraint.clone(),
         )
     }
 }
@@ -1005,12 +1005,8 @@ where
         let mut solution = NodalVelocitiesBlock::zero(self.coordinates().len());
         integrator.integrate(
             |_: Scalar, nodal_coordinates: &NodalCoordinatesBlock| {
-                solution = self.root_inner(
-                    equality_constraint.clone(),
-                    nodal_coordinates,
-                    &solver,
-                    &solution,
-                )?;
+                solution =
+                    self.root_inner(&equality_constraint, nodal_coordinates, &solver, &solution)?;
                 Ok(solution.clone())
             },
             time,
@@ -1019,7 +1015,7 @@ where
     }
     fn root_inner(
         &self,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: &EqualityConstraint,
         nodal_coordinates: &NodalCoordinatesBlock,
         solver: &impl FirstOrderRootFinding<
             NodalForcesBlock,
@@ -1036,7 +1032,7 @@ where
                 Ok(self.nodal_stiffnesses(nodal_coordinates, nodal_velocities)?)
             },
             initial_guess.clone(),
-            equality_constraint,
+            equality_constraint.clone(),
         )
     }
 }
@@ -1112,7 +1108,7 @@ where
         integrator.integrate(
             |_: Scalar, nodal_coordinates: &NodalCoordinatesBlock| {
                 solution = self.minimize_inner(
-                    equality_constraint.clone(),
+                    &equality_constraint,
                     nodal_coordinates,
                     &solver,
                     &solution,
@@ -1125,7 +1121,7 @@ where
     }
     fn minimize_inner(
         &self,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: &EqualityConstraint,
         nodal_coordinates: &NodalCoordinatesBlock,
         solver: &impl SecondOrderOptimization<
             Scalar,
@@ -1136,7 +1132,7 @@ where
         initial_guess: &NodalVelocitiesBlock,
     ) -> Result<NodalVelocitiesBlock, OptimizationError> {
         let num_coords = nodal_coordinates.len();
-        let banded = band(self.connectivity(), &equality_constraint, num_coords);
+        let banded = band(self.connectivity(), equality_constraint, num_coords);
         solver.minimize(
             |nodal_velocities: &NodalVelocitiesBlock| {
                 Ok(self.dissipation_potential(nodal_coordinates, nodal_velocities)?)
@@ -1148,7 +1144,7 @@ where
                 Ok(self.nodal_stiffnesses(nodal_coordinates, nodal_velocities)?)
             },
             initial_guess.clone(),
-            equality_constraint,
+            equality_constraint.clone(),
             Some(banded),
         )
     }
