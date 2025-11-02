@@ -8,7 +8,7 @@ use super::*;
 use crate::{
     defeat_message,
     math::{IDENTITY, LEVI_CIVITA, TensorTupleList, tensor_rank_1_zero},
-    mechanics::{DeformationGradientPlasticList, Scalar},
+    mechanics::Scalar,
 };
 use std::{
     any::type_name,
@@ -377,12 +377,12 @@ where
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
-        deformation_gradients_p: &DeformationGradientPlasticList<G>,
+        state_variables: &ViscoplasticStateVariables<G>,
     ) -> Result<NodalForces<N>, FiniteElementError>;
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
-        deformation_gradients_p: &DeformationGradientPlasticList<G>,
+        state_variables: &ViscoplasticStateVariables<G>,
     ) -> Result<NodalStiffnesses<N>, FiniteElementError>;
     fn state_variables_evolution(
         &self,
@@ -571,13 +571,14 @@ where
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
-        deformation_gradients_p: &DeformationGradientPlasticList<G>,
+        state_variables: &ViscoplasticStateVariables<G>,
     ) -> Result<NodalForces<N>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
-            .zip(deformation_gradients_p.iter())
-            .map(|(deformation_gradient, deformation_gradient_p)| {
+            .zip(state_variables.iter())
+            .map(|(deformation_gradient, state_variable)| {
+                let (deformation_gradient_p, _) = state_variable.into();
                 self.constitutive_model
                     .first_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_p)
             })
@@ -611,13 +612,14 @@ where
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
-        deformation_gradients_p: &DeformationGradientPlasticList<G>,
+        state_variables: &ViscoplasticStateVariables<G>,
     ) -> Result<NodalStiffnesses<N>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
-            .zip(deformation_gradients_p.iter())
-            .map(|(deformation_gradient, deformation_gradient_p)| {
+            .zip(state_variables.iter())
+            .map(|(deformation_gradient, state_variable)| {
+                let (deformation_gradient_p, _) = state_variable.into();
                 self.constitutive_model
                     .first_piola_kirchhoff_tangent_stiffness(
                         deformation_gradient,

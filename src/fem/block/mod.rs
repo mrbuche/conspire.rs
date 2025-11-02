@@ -20,7 +20,7 @@ use crate::{
             SecondOrderOptimization, ZerothOrderRootFinding,
         },
     },
-    mechanics::{DeformationGradientPlastic, DeformationGradientPlasticListVec, Times},
+    mechanics::{DeformationGradientPlastic, Times},
 };
 use std::{
     array::from_fn,
@@ -351,17 +351,17 @@ where
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
-        deformation_gradients_p: &DeformationGradientPlasticListVec<G>,
+        state_variables: &ViscoplasticStateVariables<G>,
     ) -> Result<NodalForcesBlock, FiniteElementBlockError>;
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
-        deformation_gradients_p: &DeformationGradientPlasticListVec<G>,
+        state_variables: &ViscoplasticStateVariables<G>,
     ) -> Result<NodalStiffnessesBlock, FiniteElementBlockError>;
     fn state_variables_evolution(
         &self,
-        state_variables: &ViscoplasticStateVariables<G>,
         nodal_coordinates: &NodalCoordinatesBlock,
+        state_variables: &ViscoplasticStateVariables<G>,
     ) -> Result<ViscoplasticStateVariables<G>, FiniteElementBlockError>;
     fn root(
         &self,
@@ -390,7 +390,7 @@ where
     fn root_inner(
         &self,
         equality_constraint: EqualityConstraint,
-        deformation_gradients_p: &DeformationGradientPlasticListVec<G>,
+        state_variables: &ViscoplasticStateVariables<G>,
         solver: &impl FirstOrderRootFinding<
             NodalForcesBlock,
             NodalStiffnessesBlock,
@@ -716,21 +716,21 @@ where
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
-        deformation_gradients_p: &DeformationGradientPlasticListVec<G>,
+        state_variables: &ViscoplasticStateVariables<G>,
     ) -> Result<NodalForcesBlock, FiniteElementBlockError> {
         let mut nodal_forces = NodalForcesBlock::zero(nodal_coordinates.len());
         match self
             .elements()
             .iter()
             .zip(self.connectivity().iter())
-            .zip(deformation_gradients_p.iter())
+            .zip(state_variables.iter())
             .try_for_each(
-                |((element, element_connectivity), deformation_gradients_p_element)| {
+                |((element, element_connectivity), state_variables_element)| {
                     element
                         .nodal_forces(
                             &self
                                 .nodal_coordinates_element(element_connectivity, nodal_coordinates),
-                            deformation_gradients_p_element,
+                            state_variables_element,
                         )?
                         .iter()
                         .zip(element_connectivity.iter())
@@ -748,21 +748,21 @@ where
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
-        deformation_gradients_p: &DeformationGradientPlasticListVec<G>,
+        state_variables: &ViscoplasticStateVariables<G>,
     ) -> Result<NodalStiffnessesBlock, FiniteElementBlockError> {
         let mut nodal_stiffnesses = NodalStiffnessesBlock::zero(nodal_coordinates.len());
         match self
             .elements()
             .iter()
             .zip(self.connectivity().iter())
-            .zip(deformation_gradients_p.iter())
+            .zip(state_variables.iter())
             .try_for_each(
-                |((element, element_connectivity), deformation_gradients_p_element)| {
+                |((element, element_connectivity), state_variables_element)| {
                     element
                         .nodal_stiffnesses(
                             &self
                                 .nodal_coordinates_element(element_connectivity, nodal_coordinates),
-                            deformation_gradients_p_element,
+                            state_variables_element,
                         )?
                         .iter()
                         .zip(element_connectivity.iter())
@@ -785,8 +785,8 @@ where
     }
     fn state_variables_evolution(
         &self,
-        state_variables: &ViscoplasticStateVariables<G>,
         nodal_coordinates: &NodalCoordinatesBlock,
+        state_variables: &ViscoplasticStateVariables<G>,
     ) -> Result<ViscoplasticStateVariables<G>, FiniteElementBlockError> {
         match self
             .elements()
@@ -838,25 +838,14 @@ where
                 |_: Scalar,
                  state_variables: &ViscoplasticStateVariables<G>,
                  nodal_coordinates: &NodalCoordinatesBlock| {
-                    Ok(self.state_variables_evolution(state_variables, nodal_coordinates)?)
+                    Ok(self.state_variables_evolution(nodal_coordinates, state_variables)?)
                 },
                 |_: Scalar,
                  state_variables: &ViscoplasticStateVariables<G>,
                  nodal_coordinates: &NodalCoordinatesBlock| {
-                    // let (deformation_gradients_p, _) = state_variables.into();
-                    let (deformation_gradients_p, _) = &state_variables.clone().into();
-                    //
-                    // To use references (no cloning or allocation)
-                    // would have to change all instances of
-                    // deformation_gradients_p: &DeformationGradientPlasticListVec<G> => &Vec<[Fp; G]>
-                    // used by root_inner and subsequent fns (nodal_forces, nodal_stiffnesses)
-                    // to have the reference on Fp, i.e., Vec<[&Fp; G]> structure.
-                    // so that into() can unzip them correctly.
-                    // I think this should be possible.
-                    //
                     Ok(self.root_inner(
                         equality_constraint.clone(),
-                        deformation_gradients_p,
+                        state_variables,
                         &solver,
                         nodal_coordinates,
                     )?)
@@ -886,7 +875,7 @@ where
     fn root_inner(
         &self,
         equality_constraint: EqualityConstraint,
-        deformation_gradients_p: &DeformationGradientPlasticListVec<G>,
+        state_variables: &ViscoplasticStateVariables<G>,
         solver: &impl FirstOrderRootFinding<
             NodalForcesBlock,
             NodalStiffnessesBlock,
@@ -896,10 +885,10 @@ where
     ) -> Result<NodalCoordinatesBlock, OptimizationError> {
         solver.root(
             |nodal_coordinates: &NodalCoordinatesBlock| {
-                Ok(self.nodal_forces(nodal_coordinates, deformation_gradients_p)?)
+                Ok(self.nodal_forces(nodal_coordinates, state_variables)?)
             },
             |nodal_coordinates: &NodalCoordinatesBlock| {
-                Ok(self.nodal_stiffnesses(nodal_coordinates, deformation_gradients_p)?)
+                Ok(self.nodal_stiffnesses(nodal_coordinates, state_variables)?)
             },
             initial_guess.clone(),
             equality_constraint,

@@ -79,20 +79,6 @@ where
     }
 }
 
-impl<T1, T2, const N: usize> From<&TensorVector<TensorList<TensorTuple<T1, T2>, N>>>
-    for (
-        &TensorVector<TensorList<T1, N>>,
-        &TensorVector<TensorList<T2, N>>,
-    )
-where
-    T1: Tensor,
-    T2: Tensor,
-{
-    fn from(tensor_tuple_list_vec: &TensorVector<TensorList<TensorTuple<T1, T2>, N>>) -> Self {
-        todo!()
-    }
-}
-
 impl<T> Display for TensorVector<T>
 where
     T: Tensor,
