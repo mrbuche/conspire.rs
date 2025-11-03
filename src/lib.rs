@@ -13,6 +13,9 @@ pub mod math;
 #[cfg(feature = "mechanics")]
 pub mod mechanics;
 
+#[cfg(test)]
+mod test;
+
 use std::{
     sync::atomic::{AtomicU64, Ordering},
     time::{SystemTime, UNIX_EPOCH},
@@ -69,14 +72,14 @@ fn random_u8(max: u8) -> u8 {
     if max == u8::MAX {
         return get_random();
     }
-    let range = (max as u16) + 1;
-    let threshold = ((256_u16 / range) * range) as u8;
+    // let range = (max as u16) + 1;
+    // let threshold = ((256_u16 / range) * range) as u8;
     let mut attempts = 0;
     loop {
         let val = get_random();
-        if val < threshold {
-            return val % (max + 1);
-        }
+        // if val < threshold {
+        //     return val % (max + 1);
+        // }
         attempts += 1;
         if attempts > 10 {
             return val % (max + 1);
@@ -91,10 +94,7 @@ fn get_random() -> u8 {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default();
-        s = now.as_nanos() as u64;
-        if s == 0 {
-            s = 1;
-        }
+        s = 1 + now.as_nanos() as u64;
     }
     s ^= s << 13;
     s ^= s >> 7;

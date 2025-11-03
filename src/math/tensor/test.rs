@@ -126,6 +126,29 @@ impl From<TensorError> for TestError {
 }
 
 #[test]
+fn test_error_from_string() {
+    assert_eq!(
+        TestError::from("An error occurred".to_string()).message,
+        "An error occurred"
+    );
+}
+
+#[test]
+fn test_error_from_str() {
+    assert_eq!(
+        TestError::from("An error occurred").message,
+        "An error occurred"
+    );
+}
+
+#[test]
+fn test_error_from_tensor_error() {
+    let tensor_error = TensorError::NotPositiveDefinite;
+    let _ = format!("{:?}", tensor_error);
+    let _ = TestError::from(tensor_error);
+}
+
+#[test]
 #[should_panic(expected = "Assertion `left == right` failed.")]
 fn assert_eq_fail() {
     assert_eq(&0.0, &1.0).unwrap()
@@ -135,8 +158,8 @@ fn assert_eq_fail() {
 #[should_panic(expected = "Assertion `left ≈= right` failed in 2 places.")]
 fn assert_eq_from_fd_fail() {
     assert_eq_from_fd(
-        &TensorRank1::<3, 1>::new([1.0, 2.0, 3.0]),
-        &TensorRank1::<3, 1>::new([3.0, 2.0, 1.0]),
+        &TensorRank1::<_, 1>::new([1.0, 2.0, 3.0]),
+        &TensorRank1::<_, 1>::new([3.0, 2.0, 1.0]),
     )
     .unwrap()
 }
@@ -144,16 +167,16 @@ fn assert_eq_from_fd_fail() {
 #[test]
 fn assert_eq_from_fd_success() -> Result<(), TestError> {
     assert_eq_from_fd(
-        &TensorRank1::<3, 1>::new([1.0, 2.0, 3.0]),
-        &TensorRank1::<3, 1>::new([1.0, 2.0, 3.0]),
+        &TensorRank1::<_, 1>::new([1.0, 2.0, 3.0]),
+        &TensorRank1::<_, 1>::new([1.0, 2.0, 3.0]),
     )
 }
 
 #[test]
 fn assert_eq_from_fd_weak() -> Result<(), TestError> {
     assert_eq_from_fd(
-        &TensorRank1List::<1, 1, 1>::new([[EPSILON * 1.01]]),
-        &TensorRank1List::<1, 1, 1>::new([[EPSILON * 1.02]]),
+        &TensorRank1List::<_, 1, 1>::new([[EPSILON * 1.01]]),
+        &TensorRank1List::<_, 1, 1>::new([[EPSILON * 1.02]]),
     )
 }
 
@@ -161,8 +184,8 @@ fn assert_eq_from_fd_weak() -> Result<(), TestError> {
 #[should_panic(expected = "Assertion `left ≈= right` failed in 2 places.")]
 fn assert_eq_within_tols_fail() {
     assert_eq_within_tols(
-        &TensorRank1::<3, 1>::new([1.0, 2.0, 3.0]),
-        &TensorRank1::<3, 1>::new([3.0, 2.0, 1.0]),
+        &TensorRank1::<_, 1>::new([1.0, 2.0, 3.0]),
+        &TensorRank1::<_, 1>::new([3.0, 2.0, 1.0]),
     )
     .unwrap()
 }

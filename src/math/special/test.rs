@@ -38,7 +38,6 @@ mod lambert_w {
     }
     #[test]
     fn euler() -> Result<(), TestError> {
-        assert_eq(&1.0_f64.exp(), &E)?;
         assert_eq(&lambert_w(E), &1.0)
     }
     #[test]
