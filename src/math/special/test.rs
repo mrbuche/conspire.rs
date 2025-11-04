@@ -1,5 +1,8 @@
-use super::{E, inverse_langevin, lambert_w, langevin};
-use crate::math::test::{TestError, assert_eq, assert_eq_within_tols};
+use super::{E, inverse_langevin, lambert_w, langevin, rosenbrock, rosenbrock_derivative};
+use crate::math::{
+    Vector,
+    test::{TestError, assert_eq, assert_eq_within_tols},
+};
 
 const LENGTH: usize = 10_000;
 
@@ -67,5 +70,23 @@ mod langevin {
     #[test]
     fn zero() -> Result<(), TestError> {
         assert_eq(&langevin(0.0), &0.0)
+    }
+}
+
+mod rosenbrock {
+    use super::*;
+    #[test]
+    fn zero() -> Result<(), TestError> {
+        assert_eq(&rosenbrock(&Vector::from([1.0; 3]), 1.0, 1.0), &0.0)
+    }
+    mod derivative {
+        use super::*;
+        #[test]
+        fn zero() -> Result<(), TestError> {
+            assert_eq(
+                &rosenbrock_derivative(&Vector::from([1.0; 3]), 1.0, 1.0),
+                &Vector::from([0.0; 3]),
+            )
+        }
     }
 }
