@@ -5,7 +5,7 @@ mod block;
 pub use block::{
     ElasticFiniteElementBlock, ElasticHyperviscousFiniteElementBlock,
     ElasticViscoplasticFiniteElementBlock, ElementBlock, FiniteElementBlock,
-    FiniteElementBlockError, FiniteElementBlockMethods, FirstOrderMinimize, FirstOrderRoot,
+    FiniteElementBlockError, FiniteElementBlockMethods, FirstOrderMinimize, FirstOrderRoot, Foo,
     HyperelasticFiniteElementBlock, HyperviscoelasticFiniteElementBlock, SecondOrderMinimize,
     SurfaceFiniteElementBlock, ViscoelasticFiniteElementBlock, ViscoplasticStateVariables,
     ViscoplasticStateVariablesHistory, ZerothOrderRoot,

@@ -343,6 +343,8 @@ pub type ViscoplasticStateVariables<const G: usize> =
 pub type ViscoplasticStateVariablesHistory<const G: usize> =
     TensorTupleListVec2D<DeformationGradientPlastic, Scalar, G>;
 
+pub type Foo = (crate::math::Matrix, fn(Scalar) -> crate::math::Vector);
+
 pub trait ElasticViscoplasticFiniteElementBlock<C, F, const G: usize, const N: usize>
 where
     C: ElasticViscoplastic,
@@ -365,7 +367,7 @@ where
     ) -> Result<ViscoplasticStateVariables<G>, FiniteElementBlockError>;
     fn root(
         &self,
-        equality_constraint: EqualityConstraint,
+        foo: Foo,
         integrator: impl ExplicitIV<
             ViscoplasticStateVariables<G>,
             NodalCoordinatesBlock,
@@ -389,7 +391,7 @@ where
     #[doc(hidden)]
     fn root_inner(
         &self,
-        equality_constraint: &EqualityConstraint,
+        equality_constraint: EqualityConstraint,
         state_variables: &ViscoplasticStateVariables<G>,
         solver: &impl FirstOrderRootFinding<
             NodalForcesBlock,
@@ -812,7 +814,7 @@ where
     }
     fn root(
         &self,
-        equality_constraint: EqualityConstraint,
+        foo: Foo,
         integrator: impl ExplicitIV<
             ViscoplasticStateVariables<G>,
             NodalCoordinatesBlock,
@@ -840,11 +842,11 @@ where
                  nodal_coordinates: &NodalCoordinatesBlock| {
                     Ok(self.state_variables_evolution(nodal_coordinates, state_variables)?)
                 },
-                |_: Scalar,
+                |t: Scalar,
                  state_variables: &ViscoplasticStateVariables<G>,
                  nodal_coordinates: &NodalCoordinatesBlock| {
                     Ok(self.root_inner(
-                        &equality_constraint,
+                        EqualityConstraint::Linear(foo.0.clone(), foo.1(t)),
                         state_variables,
                         &solver,
                         nodal_coordinates,
@@ -874,7 +876,7 @@ where
     }
     fn root_inner(
         &self,
-        equality_constraint: &EqualityConstraint,
+        equality_constraint: EqualityConstraint,
         state_variables: &ViscoplasticStateVariables<G>,
         solver: &impl FirstOrderRootFinding<
             NodalForcesBlock,
