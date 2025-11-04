@@ -15,7 +15,7 @@ use conspire::{
         ReferenceNodalCoordinatesBlock, SecondOrderMinimize, ViscoelasticFiniteElementBlock,
     },
     math::{
-        Matrix, Tensor, TestError, Vector, assert_eq_within, assert_eq_within_tols,
+        Matrix, Scalar, Tensor, TestError, Vector, assert_eq_within, assert_eq_within_tols,
         integrate::DormandPrince,
         optimize::{EqualityConstraint, NewtonRaphson},
     },
@@ -7435,12 +7435,39 @@ fn temporary_hyperelastic() -> Result<(), TestError> {
     Ok(())
 }
 
+fn bcs_temporary_elastic_viscoplastic(t: Scalar) -> Vector {
+    let strain_rate = 1e-1; // also set below
+    let ref_coordinates = coordinates();
+    let length = ref_coordinates
+        .iter()
+        .filter(|coordinate| coordinate[0].abs() == 0.5)
+        .count()
+        + 3;
+    let mut vector = Vector::zero(length);
+    let mut index = 0;
+    coordinates().iter().for_each(|coordinate| {
+        if coordinate[0].abs() == 0.5 {
+            if coordinate[0] > 0.0 {
+                // vector[index] = coordinate[0] * (1.0 + strain_rate * t)
+                vector[index] = coordinate[0] + strain_rate * t
+            } else {
+                vector[index] = coordinate[0]
+            }
+            index += 1;
+        }
+    });
+    vector[length - 3] = -0.5;
+    vector[length - 2] = -0.5;
+    vector[length - 1] = -0.5;
+    vector
+}
+
 #[test]
 fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
-    use conspire::math::integrate::BogackiShampine;
-    let tol = 1e-4;
-    // let strain_rate = 1.0; // also set below
-    let tspan = [0.0, 8.0];
+    use conspire::math::{Scalar, integrate::BogackiShampine};
+    // let tol = 1e-4;
+    let tol = 1e-6;
+    let tspan = [0.0, 1.0];
     let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
     connectivity
@@ -7464,7 +7491,6 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
         + 3;
     let width = num_nodes * 3;
     let mut matrix = Matrix::zero(length, width);
-    let mut vector = Vector::zero(length);
     let mut index = 0;
     coordinates()
         .iter()
@@ -7472,24 +7498,16 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
         .for_each(|(node, coordinate)| {
             if coordinate[0].abs() == 0.5 {
                 matrix[index][3 * node] = 1.0;
-                if coordinate[0] > 0.0 {
-                    vector[index] = coordinate[0]; // + "strain_rate * t"
-                } else {
-                    vector[index] = coordinate[0]
-                }
                 index += 1;
             }
         });
     matrix[length - 3][132 * 3 + 1] = 1.0;
     matrix[length - 2][132 * 3 + 2] = 1.0;
     matrix[length - 1][142 * 3 + 2] = 1.0;
-    vector[length - 3] = -0.5;
-    vector[length - 2] = -0.5;
-    vector[length - 1] = -0.5;
     let mut time = std::time::Instant::now();
     println!("Solving...");
     let (times, coordinates_history, state_variables_history) = block.root(
-        EqualityConstraint::Linear(matrix, vector),
+        (matrix, |t: Scalar| bcs_temporary_elastic_viscoplastic(t)),
         BogackiShampine {
             abs_tol: tol,
             rel_tol: tol,
@@ -7499,10 +7517,24 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
         NewtonRaphson::default(),
     )?;
     println!("Done ({:?}).", time.elapsed());
+    println!("{}", block.deformation_gradients(&coordinates_history[times.len() - 1])[0][0]);
+    //
+    // FEM only doing a bit right now because encountering complex eigs from Hencky model logarithm,
+    // probably need ability to cut back on matrix logarithm issues? Why doesnt hencky/test.rs encounter this?
+    // And then only doing 2 points, which then looks like regular [t0, tf] to the verification solve,
+    // which then does not do interpolation to get to the same points from tighter tolerances,
+    // but interpolation is not implemented for state variables anyway, not sure how to do that well.
+    // Hencky might also take longer (takes while for only 2 points), but also evalulating for multiple slopes.
+    //
     time = std::time::Instant::now();
     println!("Verifying...");
-    let (_, deformation_gradients, state_variables) = model.root(
-        AppliedLoad::UniaxialStress(|t| 1.0 + t, times.as_slice()),
+    let (foo, deformation_gradients, state_variables) = model.root(
+        AppliedLoad::UniaxialStress(|t| 1.0 + 1e-1 * t, times.as_slice()),
+        // BogackiShampine {
+        //     abs_tol: tol,
+        //     rel_tol: tol,
+        //     ..Default::default()
+        // },
         BogackiShampine::default(),
         NewtonRaphson::default(),
     )?;
