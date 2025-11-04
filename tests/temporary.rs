@@ -7436,7 +7436,7 @@ fn temporary_hyperelastic() -> Result<(), TestError> {
 }
 
 fn bcs_temporary_elastic_viscoplastic(t: Scalar) -> Vector {
-    let strain_rate = 1e-1; // also set below
+    let strain_rate = 1e0; // also set below
     let ref_coordinates = coordinates();
     let length = ref_coordinates
         .iter()
@@ -7465,8 +7465,7 @@ fn bcs_temporary_elastic_viscoplastic(t: Scalar) -> Vector {
 #[test]
 fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
     use conspire::math::{Scalar, integrate::BogackiShampine};
-    // let tol = 1e-4;
-    let tol = 1e-6;
+    let tol = 1e-4;
     let tspan = [0.0, 1.0];
     let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
@@ -7479,7 +7478,7 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
         bulk_modulus: 13.0,
         shear_modulus: 3.0,
         initial_yield_stress: 3.0,
-        hardening_slope: 1.0,
+        hardening_slope: 5.0, // 1.0
         rate_sensitivity: 0.25,
         reference_flow_rate: 0.1,
     };
@@ -7529,7 +7528,7 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
     time = std::time::Instant::now();
     println!("Verifying...");
     let (foo, deformation_gradients, state_variables) = model.root(
-        AppliedLoad::UniaxialStress(|t| 1.0 + 1e-1 * t, times.as_slice()),
+        AppliedLoad::UniaxialStress(|t| 1.0 + 1e0 * t, times.as_slice()),
         // BogackiShampine {
         //     abs_tol: tol,
         //     rel_tol: tol,

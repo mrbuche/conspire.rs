@@ -17,6 +17,7 @@ use std::{
 
 use super::{
     super::assert_eq_within_tols,
+    TensorError,
     Hessian, Jacobian, Rank2, Solution, SquareMatrix, Tensor, TensorArray, Vector,
     rank_0::{TensorRank0, list::TensorRank0List},
     rank_1::{
@@ -624,14 +625,14 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
 
 impl<const I: usize> TensorRank2<3, I, I> {
     /// Returns the matrix logarithm of the 3x3 symmetric tensor.
-    pub fn logm(&self) -> Self {
+    pub fn logm(&self) -> Result<Self, TensorError> {
         if self.is_diagonal() {
             let mut logm = TensorRank2::zero();
             logm.iter_mut()
                 .enumerate()
                 .zip(self.iter())
                 .for_each(|((i, logm_i), self_i)| logm_i[i] = self_i[i].ln());
-            logm
+            Ok(logm)
         } else {
             let tensor = self - &TensorRank2::identity();
             let norm = tensor.norm();
@@ -649,9 +650,9 @@ impl<const I: usize> TensorRank2<3, I, I> {
                     power *= &tensor;
                     logm += &power / (if k % 2 == 0 { -1.0 } else { 1.0 } / k as f64);
                 });
-                logm
+                Ok(logm)
             } else if self.is_symmetric() {
-                let mut eigenvalues = solve_cubic_symmetric(self.invariants());
+                let mut eigenvalues = solve_cubic_symmetric(self.invariants())?;
                 if eigenvalues.iter().any(|eigenvalue| eigenvalue <= &0.0) {
                     panic!("Symmetric matrix has a non-positive eigenvalue")
                 }
@@ -659,14 +660,14 @@ impl<const I: usize> TensorRank2<3, I, I> {
                 eigenvalues
                     .iter_mut()
                     .for_each(|eigenvalue| *eigenvalue = eigenvalue.ln());
-                reconstruct_symmetric(eigenvalues, eigenvectors)
+                Ok(reconstruct_symmetric(eigenvalues, eigenvectors))
             } else {
                 panic!("Matrix logarithm only implemented for symmetric cases")
             }
         }
     }
     /// Returns the derivative of the matrix logarithm of the 3x3 symmetric tensor.
-    pub fn dlogm(&self) -> TensorRank4<3, I, I, I, I> {
+    pub fn dlogm(&self) -> Result<TensorRank4<3, I, I, I, I>, TensorError> {
         if self.is_diagonal() {
             let mut dlogm = TensorRank4::zero();
             dlogm.iter_mut().enumerate().for_each(|(i, dlogm_i)| {
@@ -688,9 +689,9 @@ impl<const I: usize> TensorRank2<3, I, I> {
                     })
                 })
             });
-            dlogm
+            Ok(dlogm)
         } else if self.is_symmetric() {
-            let eigenvalues = solve_cubic_symmetric(self.invariants());
+            let eigenvalues = solve_cubic_symmetric(self.invariants())?;
             if eigenvalues.iter().any(|eigenvalue| eigenvalue <= &0.0) {
                 panic!("Symmetric matrix has a non-positive eigenvalue")
             }
@@ -711,7 +712,7 @@ impl<const I: usize> TensorRank2<3, I, I> {
                 })
                 .collect();
             let eigenvectors = find_orthonormal_eigenvectors(&eigenvalues, self).transpose();
-            eigenvectors.iter().map(|eigenvector_i|
+            Ok(eigenvectors.iter().map(|eigenvector_i|
                 eigenvectors.iter().map(|eigenvector_j|
                     eigenvectors.iter().map(|eigenvector_k|
                         eigenvectors.iter().map(|eigenvector_l|
@@ -723,7 +724,7 @@ impl<const I: usize> TensorRank2<3, I, I> {
                         ).collect()
                     ).collect()
                 ).collect()
-            ).collect()
+            ).collect())
         } else {
             panic!("Matrix logarithm only implemented for symmetric cases")
         }
@@ -739,7 +740,7 @@ impl<const I: usize> TensorRank2<3, I, I> {
     }
 }
 
-fn solve_cubic_symmetric(coefficients: TensorRank0List<3>) -> TensorRank0List<3> {
+fn solve_cubic_symmetric(coefficients: TensorRank0List<3>) -> Result<TensorRank0List<3>, TensorError> {
     let c2 = coefficients[0];
     let c1 = coefficients[1];
     let c0 = coefficients[2];
@@ -748,7 +749,7 @@ fn solve_cubic_symmetric(coefficients: TensorRank0List<3>) -> TensorRank0List<3>
     if p.abs() < ABS_TOL {
         let t = (-q).cbrt();
         let lambda = t + c2 / 3.0;
-        return TensorRank0List::new([lambda; _]);
+        return Ok(TensorRank0List::new([lambda; _]))
     }
     let discriminant = -4.0 * p * p * p - 27.0 * q * q;
     if discriminant >= ABS_TOL {
@@ -762,9 +763,9 @@ fn solve_cubic_symmetric(coefficients: TensorRank0List<3>) -> TensorRank0List<3>
             2.0 * sqrt_term * ((theta + 2.0 * TAU) / 3.0).cos() + c2 / 3.0,
         ];
         lambdas.sort_by(|a, b| b.partial_cmp(a).unwrap());
-        TensorRank0List::new(lambdas)
+        Ok(TensorRank0List::new(lambdas))
     } else {
-        panic!("Symmetric matrix produced complex eigenvalues");
+        Err(TensorError::SymmetricMatrixComplexEigenvalues)
     }
 }
 

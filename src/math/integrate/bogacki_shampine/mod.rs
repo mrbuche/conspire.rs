@@ -198,6 +198,8 @@ where
         y_trial: &mut Y,
         z_trial: &mut Z,
     ) -> Result<Scalar, String> {
+let foo = 1;
+println!("time: {t}, step: {dt}");
         *y_trial = &k[0] * (0.5 * dt) + y;
         *z_trial = evaluate(t + 0.5 * dt, y_trial, z)?;
         k[1] = function(t + 0.5 * dt, y_trial, z_trial)?;

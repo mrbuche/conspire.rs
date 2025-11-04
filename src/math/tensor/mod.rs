@@ -34,12 +34,14 @@ pub type ScalarsVec<const W: usize> = TensorRank0ListVec<W>;
 #[derive(PartialEq)]
 pub enum TensorError {
     NotPositiveDefinite,
+    SymmetricMatrixComplexEigenvalues,
 }
 
 impl Debug for TensorError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
             Self::NotPositiveDefinite => "\x1b[1;91mResult is not positive definite.".to_string(),
+            Self::SymmetricMatrixComplexEigenvalues => "\x1b[1;91mSymmetric matrix produced complex eigenvalues".to_string(),
         };
         write!(f, "\n{error}\n\x1b[0;2;31m{}\x1b[0m\n", defeat_message())
     }
@@ -49,6 +51,7 @@ impl Display for TensorError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
             Self::NotPositiveDefinite => "\x1b[1;91mResult is not positive definite.".to_string(),
+            Self::SymmetricMatrixComplexEigenvalues => "\x1b[1;91mSymmetric matrix produced complex eigenvalues".to_string(),
         };
         write!(f, "{error}\x1b[0m")
     }

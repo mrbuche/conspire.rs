@@ -11,7 +11,7 @@ pub mod thermal;
 
 use crate::{
     defeat_message,
-    math::{Scalar, TestError},
+    math::{Scalar, TensorError, TestError},
     mechanics::{Deformation, DeformationError, DeformationGradientGeneral},
 };
 use std::fmt::{self, Debug, Display, Formatter};
@@ -59,6 +59,15 @@ impl From<ConstitutiveError> for TestError {
         Self {
             message: error.to_string(),
         }
+    }
+}
+
+impl From<TensorError> for ConstitutiveError {
+    fn from(error: TensorError) -> Self {
+        ConstitutiveError::Custom(
+            error.to_string(),
+            format!("unknown (temporary error handling)"),
+        )
     }
 }
 

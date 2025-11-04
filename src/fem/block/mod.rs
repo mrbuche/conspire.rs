@@ -837,14 +837,18 @@ where
     > {
         let (time_history, state_variables_history, _, nodal_coordinates_history) = integrator
             .integrate(
-                |_: Scalar,
+                |t: Scalar,
                  state_variables: &ViscoplasticStateVariables<G>,
                  nodal_coordinates: &NodalCoordinatesBlock| {
+                    let bar = 1;
+                    println!("\tevaluation time: {t}");
                     Ok(self.state_variables_evolution(nodal_coordinates, state_variables)?)
                 },
                 |t: Scalar,
                  state_variables: &ViscoplasticStateVariables<G>,
                  nodal_coordinates: &NodalCoordinatesBlock| {
+                    let bar = 1;
+                    println!("\tsolve time: {t}");
                     Ok(self.root_inner(
                         EqualityConstraint::Linear(foo.0.clone(), foo.1(t)),
                         state_variables,
