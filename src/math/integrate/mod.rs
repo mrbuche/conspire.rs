@@ -21,7 +21,7 @@ pub type Ode89 = Verner9;
 
 use super::{
     Scalar, Solution, Tensor, TensorArray, TensorVec, TestError, Vector, assert_eq_within_tols,
-    interpolate::InterpolateSolution,
+    interpolate::{InterpolateSolution, InterpolateSolutionIV},
     optimize::{FirstOrderRootFinding, ZerothOrderRootFinding},
 };
 use crate::defeat_message;
@@ -159,7 +159,7 @@ where
 /// Base trait for explicit ordinary differential equation solvers with internal variables.
 pub trait ExplicitIV<Y, Z, U, V>
 where
-    Self: OdeSolver<Y, U> + ExplicitGetters,
+    Self: InterpolateSolutionIV<Y, Z, U, V> + OdeSolver<Y, U> + ExplicitGetters,
     Y: Tensor,
     Z: Tensor,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -268,7 +268,10 @@ where
             }
         }
         if time.len() > 2 {
-            todo!()
+            let t_int = Vector::from(time);
+            let (y_int, dydt_int, z_int) =
+                self.interpolate(&t_int, &t_sol, &y_sol, &z_sol, function, evaluate)?;
+            Ok((t_int, y_int, dydt_int, z_int))
         } else {
             Ok((t_sol, y_sol, dydt_sol, z_sol))
         }

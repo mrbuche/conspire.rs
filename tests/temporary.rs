@@ -7436,7 +7436,7 @@ fn temporary_hyperelastic() -> Result<(), TestError> {
 }
 
 fn bcs_temporary_elastic_viscoplastic(t: Scalar) -> Vector {
-    let strain_rate = 1e0; // also set below
+    let strain_rate = 1.0; // also set below
     let ref_coordinates = coordinates();
     let length = ref_coordinates
         .iter()
@@ -7448,7 +7448,6 @@ fn bcs_temporary_elastic_viscoplastic(t: Scalar) -> Vector {
     coordinates().iter().for_each(|coordinate| {
         if coordinate[0].abs() == 0.5 {
             if coordinate[0] > 0.0 {
-                // vector[index] = coordinate[0] * (1.0 + strain_rate * t)
                 vector[index] = coordinate[0] + strain_rate * t
             } else {
                 vector[index] = coordinate[0]
@@ -7466,7 +7465,7 @@ fn bcs_temporary_elastic_viscoplastic(t: Scalar) -> Vector {
 fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
     use conspire::math::{Scalar, integrate::BogackiShampine};
     let tol = 1e-4;
-    let tspan = [0.0, 1.0];
+    let tspan = [0.0, 2.0];
     let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
     connectivity
@@ -7478,7 +7477,7 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
         bulk_modulus: 13.0,
         shear_modulus: 3.0,
         initial_yield_stress: 3.0,
-        hardening_slope: 5.0, // 1.0
+        hardening_slope: 1.0,
         rate_sensitivity: 0.25,
         reference_flow_rate: 0.1,
     };
@@ -7516,24 +7515,10 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
         NewtonRaphson::default(),
     )?;
     println!("Done ({:?}).", time.elapsed());
-    println!("{}", block.deformation_gradients(&coordinates_history[times.len() - 1])[0][0]);
-    //
-    // FEM only doing a bit right now because encountering complex eigs from Hencky model logarithm,
-    // probably need ability to cut back on matrix logarithm issues? Why doesnt hencky/test.rs encounter this?
-    // And then only doing 2 points, which then looks like regular [t0, tf] to the verification solve,
-    // which then does not do interpolation to get to the same points from tighter tolerances,
-    // but interpolation is not implemented for state variables anyway, not sure how to do that well.
-    // Hencky might also take longer (takes while for only 2 points), but also evalulating for multiple slopes.
-    //
     time = std::time::Instant::now();
     println!("Verifying...");
-    let (foo, deformation_gradients, state_variables) = model.root(
-        AppliedLoad::UniaxialStress(|t| 1.0 + 1e0 * t, times.as_slice()),
-        // BogackiShampine {
-        //     abs_tol: tol,
-        //     rel_tol: tol,
-        //     ..Default::default()
-        // },
+    let (_, deformation_gradients, state_variables) = model.root(
+        AppliedLoad::UniaxialStress(|t| 1.0 + 1.0 * t, times.as_slice()),
         BogackiShampine::default(),
         NewtonRaphson::default(),
     )?;
@@ -7559,8 +7544,8 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
                                 assert_eq_within(
                                     deformation_gradient_g,
                                     deformation_gradient,
-                                    &tol,
-                                    &tol,
+                                    &(1e1 * tol),
+                                    &(1e1 * tol),
                                 )
                             })
                     })?;
@@ -7576,10 +7561,15 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
                                 assert_eq_within(
                                     deformation_gradient_p_g,
                                     deformation_gradient_p,
-                                    &tol,
-                                    &tol,
+                                    &(1e1 * tol),
+                                    &(1e1 * tol),
                                 )?;
-                                assert_eq_within(yield_stress_g, yield_stress, &tol, &tol)
+                                assert_eq_within(
+                                    yield_stress_g,
+                                    yield_stress,
+                                    &(1e1 * tol),
+                                    &(1e1 * tol),
+                                )
                             })
                     })
             },

@@ -2,7 +2,10 @@
 mod test;
 
 use super::{
-    super::{Scalar, Tensor, TensorVec, Vector, interpolate::InterpolateSolution},
+    super::{
+        Scalar, Tensor, TensorVec, Vector,
+        interpolate::{InterpolateSolution, InterpolateSolutionIV},
+    },
     Explicit, ExplicitGetters, ExplicitIV, IntegrationError,
 };
 use crate::{ABS_TOL, REL_TOL};
@@ -198,8 +201,6 @@ where
         y_trial: &mut Y,
         z_trial: &mut Z,
     ) -> Result<Scalar, String> {
-let foo = 1;
-println!("time: {t}, step: {dt}");
         *y_trial = &k[0] * (0.5 * dt) + y;
         *z_trial = evaluate(t + 0.5 * dt, y_trial, z)?;
         k[1] = function(t + 0.5 * dt, y_trial, z_trial)?;
@@ -241,5 +242,64 @@ println!("time: {t}, step: {dt}");
             *dt *= (self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn)).max(self.dt_cut())
         }
         Ok(())
+    }
+}
+
+impl<Y, Z, U, V> InterpolateSolutionIV<Y, Z, U, V> for BogackiShampine
+where
+    Y: Tensor,
+    Z: Tensor,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Z>,
+{
+    fn interpolate(
+        &self,
+        time: &Vector,
+        tp: &Vector,
+        yp: &U,
+        zp: &V,
+        mut function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        mut evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
+    ) -> Result<(U, U, V), IntegrationError> {
+        let mut dt;
+        let mut i;
+        let mut k_1;
+        let mut k_2;
+        let mut k_3;
+        let mut t;
+        let mut y;
+        let mut y_int = U::new();
+        let mut z_int = V::new();
+        let mut dydt_int = U::new();
+        let mut y_trial;
+        let mut z_trial;
+        for time_k in time.iter() {
+            i = tp.iter().position(|tp_i| tp_i >= time_k).unwrap();
+            if time_k == &tp[i] {
+                t = tp[i];
+                y_trial = yp[i].clone();
+                z_trial = zp[i].clone();
+                dt = 0.0;
+            } else {
+                t = tp[i - 1];
+                y = yp[i - 1].clone();
+                z_trial = zp[i - 1].clone();
+                dt = time_k - t;
+                k_1 = function(t, &y, &z_trial)?;
+                y_trial = &k_1 * (0.5 * dt) + &y;
+                z_trial = evaluate(t + 0.5 * dt, &y_trial, &z_trial)?;
+                k_2 = function(t + 0.5 * dt, &y_trial, &z_trial)?;
+                y_trial = &k_2 * (0.75 * dt) + &y;
+                z_trial = evaluate(t + 0.75 * dt, &y_trial, &z_trial)?;
+                k_3 = function(t + 0.75 * dt, &y_trial, &z_trial)?;
+                y_trial = (&k_1 * 2.0 + &k_2 * 3.0 + &k_3 * 4.0) * (dt / 9.0) + &y;
+                z_trial = evaluate(t + dt, &y_trial, &z_trial)?;
+            }
+            dydt_int.push(function(t + dt, &y_trial, &z_trial)?);
+            y_int.push(y_trial);
+            z_int.push(z_trial);
+        }
+        Ok((y_int, dydt_int, z_int))
     }
 }

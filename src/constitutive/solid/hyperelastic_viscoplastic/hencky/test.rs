@@ -109,12 +109,12 @@ fn root_1() -> Result<(), TestError> {
         bulk_modulus: 13.0,
         shear_modulus: 3.0,
         initial_yield_stress: 3.0,
-        hardening_slope: 5.0, // 1.0
+        hardening_slope: 1.0,
         rate_sensitivity: 0.25,
         reference_flow_rate: 0.1,
     };
     let (t, f, f_p) = model.root(
-        AppliedLoad::UniaxialStress(|t| 1.0 + t, &[0.0, 1.0]), // 8.0
+        AppliedLoad::UniaxialStress(|t| 1.0 + t, &[0.0, 2.0]),
         BogackiShampine {
             abs_tol: 1e-6,
             rel_tol: 1e-6,

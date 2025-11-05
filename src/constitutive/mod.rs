@@ -66,7 +66,7 @@ impl From<TensorError> for ConstitutiveError {
     fn from(error: TensorError) -> Self {
         ConstitutiveError::Custom(
             error.to_string(),
-            format!("unknown (temporary error handling)"),
+            "unknown (temporary error handling)".to_string(),
         )
     }
 }

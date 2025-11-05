@@ -415,18 +415,14 @@ where
                 matrix[2][2] = 1.0;
                 matrix[3][5] = 1.0;
                 integrator.integrate(
-                    |t: Scalar,
+                    |_: Scalar,
                      state_variables: &StateVariables,
                      deformation_gradient: &DeformationGradient| {
-                        let bar = 1;
-                        println!("\tevaluation time: {t}");
                         Ok(self.state_variables_evolution(deformation_gradient, state_variables)?)
                     },
                     |t: Scalar,
                      state_variables: &StateVariables,
                      deformation_gradient: &DeformationGradient| {
-                        let bar = 1;
-                        println!("\tsolve time: {t}");
                         let (deformation_gradient_p, _) = state_variables.into();
                         vector[0] = deformation_gradient_11(t);
                         Ok(self.root_inner_1(

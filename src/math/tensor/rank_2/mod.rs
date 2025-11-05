@@ -17,8 +17,7 @@ use std::{
 
 use super::{
     super::assert_eq_within_tols,
-    TensorError,
-    Hessian, Jacobian, Rank2, Solution, SquareMatrix, Tensor, TensorArray, Vector,
+    Hessian, Jacobian, Rank2, Solution, SquareMatrix, Tensor, TensorArray, TensorError, Vector,
     rank_0::{TensorRank0, list::TensorRank0List},
     rank_1::{
         TensorRank1, list::TensorRank1List, tensor_rank_1, vec::TensorRank1Vec,
@@ -740,7 +739,9 @@ impl<const I: usize> TensorRank2<3, I, I> {
     }
 }
 
-fn solve_cubic_symmetric(coefficients: TensorRank0List<3>) -> Result<TensorRank0List<3>, TensorError> {
+fn solve_cubic_symmetric(
+    coefficients: TensorRank0List<3>,
+) -> Result<TensorRank0List<3>, TensorError> {
     let c2 = coefficients[0];
     let c1 = coefficients[1];
     let c0 = coefficients[2];
@@ -749,7 +750,7 @@ fn solve_cubic_symmetric(coefficients: TensorRank0List<3>) -> Result<TensorRank0
     if p.abs() < ABS_TOL {
         let t = (-q).cbrt();
         let lambda = t + c2 / 3.0;
-        return Ok(TensorRank0List::new([lambda; _]))
+        return Ok(TensorRank0List::new([lambda; _]));
     }
     let discriminant = -4.0 * p * p * p - 27.0 * q * q;
     if discriminant >= ABS_TOL {
