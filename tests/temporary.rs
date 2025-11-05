@@ -7461,6 +7461,7 @@ fn bcs_temporary_elastic_viscoplastic(t: Scalar) -> Vector {
     vector
 }
 
+// put something to skip this by default
 #[test]
 fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
     use conspire::math::{Scalar, integrate::BogackiShampine};
