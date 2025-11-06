@@ -3,6 +3,7 @@
 mod elastic;
 mod elastic_viscoplastic;
 mod hyperelastic;
+mod hyperelastic_viscoplastic;
 
 use crate::{constitutive::ConstitutiveError, mechanics::DeformationGradient};
 

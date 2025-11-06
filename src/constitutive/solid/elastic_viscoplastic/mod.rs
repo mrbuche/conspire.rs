@@ -18,10 +18,10 @@ use crate::{
     },
 };
 
-/// ???
+/// Elastic-viscoplastic state variables.
 pub type StateVariables = TensorTuple<DeformationGradientPlastic, Scalar>;
 
-/// ???
+/// Elastic-viscoplastic state variables history.
 pub type StateVariablesHistory = TensorTupleVec<DeformationGradientPlastic, Scalar>;
 
 /// Possible applied loads.
