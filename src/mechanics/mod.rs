@@ -230,6 +230,9 @@ pub type RotationReferenceConfiguration = TensorRank2<3, 0, 0>;
 /// The second Piola-Kirchhoff stress $`\mathbf{S}`$.
 pub type SecondPiolaKirchhoffStress = TensorRank2<3, 0, 0>;
 
+/// The elastic second Piola-Kirchhoff stress $`\mathbf{S}`$.
+pub type SecondPiolaKirchhoffStressElastic = TensorRank2<3, 2, 2>;
+
 /// The tangent stiffness associated with the second Piola-Kirchhoff stress $`\boldsymbol{\mathcal{G}}`$.
 pub type SecondPiolaKirchhoffTangentStiffness = TensorRank4<3, 0, 0, 1, 0>;
 

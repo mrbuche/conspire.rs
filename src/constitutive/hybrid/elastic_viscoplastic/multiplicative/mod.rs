@@ -10,7 +10,7 @@ use crate::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic,
         FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStressElastic,
         FirstPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffStress,
-        SecondPiolaKirchhoffTangentStiffness,
+        SecondPiolaKirchhoffStressElastic, SecondPiolaKirchhoffTangentStiffness,
     },
 };
 
@@ -99,8 +99,14 @@ where
         deformation_gradient: &DeformationGradient,
         deformation_gradient_p: &DeformationGradientPlastic,
     ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
-        // \mathbf{S} = \mathbf{F}_\mathrm{p}^{-1}\cdot\mathbf{S}_\mathrm{e}\cdot\mathbf{F}_\mathrm{p}^{-T}
-        todo!()
+        let deformation_gradient_p_inverse = deformation_gradient_p.inverse();
+        Ok(&deformation_gradient_p_inverse
+            * SecondPiolaKirchhoffStressElastic::from(
+                self.constitutive_model_1().second_piola_kirchhoff_stress(
+                    &(deformation_gradient * &deformation_gradient_p_inverse).into(),
+                )?,
+            )
+            * deformation_gradient_p_inverse.transpose())
     }
     fn second_piola_kirchhoff_tangent_stiffness(
         &self,
