@@ -1046,6 +1046,12 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     }
 }
 
+impl<const I: usize> From<TensorRank2<3, I, 0>> for TensorRank2<3, I, 2> {
+    fn from(tensor_rank_2: TensorRank2<3, I, 0>) -> Self {
+        unsafe { transmute::<TensorRank2<3, I, 0>, TensorRank2<3, I, 2>>(tensor_rank_2) }
+    }
+}
+
 impl<const I: usize> From<TensorRank2<3, I, 1>> for TensorRank2<3, I, 0> {
     fn from(tensor_rank_2: TensorRank2<3, I, 1>) -> Self {
         unsafe { transmute::<TensorRank2<3, I, 1>, TensorRank2<3, I, 0>>(tensor_rank_2) }

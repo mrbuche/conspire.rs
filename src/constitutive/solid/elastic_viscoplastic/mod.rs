@@ -13,9 +13,8 @@ use crate::{
     mechanics::{
         CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient,
         DeformationGradientPlastic, DeformationGradients, FirstPiolaKirchhoffStress,
-        FirstPiolaKirchhoffTangentStiffness, Scalar,
-        SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,
-        Times,
+        FirstPiolaKirchhoffTangentStiffness, Scalar, SecondPiolaKirchhoffStress,
+        SecondPiolaKirchhoffTangentStiffness, Times,
     },
 };
 

@@ -1,6 +1,7 @@
 //! Hybrid constitutive models.
 
 mod elastic;
+mod elastic_viscoplastic;
 mod hyperelastic;
 
 use crate::{constitutive::ConstitutiveError, mechanics::DeformationGradient};

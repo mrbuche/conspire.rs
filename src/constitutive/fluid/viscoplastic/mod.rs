@@ -1,6 +1,10 @@
 //! Viscoplastic constitutive models.
 
-use crate::{constitutive::{ConstitutiveError, fluid::plastic::Plastic}, math::{Scalar, Tensor, TensorArray}, mechanics::{MandelStressElastic, StretchingRatePlastic}};
+use crate::{
+    constitutive::{ConstitutiveError, fluid::plastic::Plastic},
+    math::{Scalar, Tensor, TensorArray},
+    mechanics::{MandelStressElastic, StretchingRatePlastic},
+};
 
 const TWO_THIRDS: Scalar = 2.0 / 3.0;
 

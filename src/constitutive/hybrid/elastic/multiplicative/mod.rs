@@ -17,12 +17,13 @@ use crate::{
         SecondPiolaKirchhoffTangentStiffness,
     },
 };
-use std::fmt::Debug;
 
 impl<C1, C2> Solid for Multiplicative<C1, C2>
 where
-    C1: Debug,
-    C2: Debug,
+    // C1: Elastic,
+    // C2: Elastic,
+    C1: std::fmt::Debug,
+    C2: std::fmt::Debug,
 {
     /// Dummy method that will panic.
     fn bulk_modulus(&self) -> &Scalar {
