@@ -45,9 +45,31 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
 
 pub const IDENTITY_1010: TensorRank4<3, 1, 0, 1, 0> = TensorRank4(get_identity_1010_parts());
 
-impl<const I: usize, const J: usize, const K: usize> From<TensorRank4<3, I, J, K, 0>> for TensorRank4<3, I, J, K, 2>{
+impl<const I: usize, const J: usize, const K: usize> From<TensorRank4<3, I, J, K, 0>>
+    for TensorRank4<3, I, J, K, 2>
+{
     fn from(tensor_rank_4: TensorRank4<3, I, J, K, 0>) -> Self {
-        unsafe { transmute::<TensorRank4<3, I, J, K, 0>, TensorRank4<3, I, J, K, 2>>(tensor_rank_4) }
+        unsafe {
+            transmute::<TensorRank4<3, I, J, K, 0>, TensorRank4<3, I, J, K, 2>>(tensor_rank_4)
+        }
+    }
+}
+
+impl<const I: usize, const K: usize> From<TensorRank4<3, I, 0, K, 0>>
+    for TensorRank4<3, I, 2, K, 2>
+{
+    fn from(tensor_rank_4: TensorRank4<3, I, 0, K, 0>) -> Self {
+        unsafe {
+            transmute::<TensorRank4<3, I, 0, K, 0>, TensorRank4<3, I, 2, K, 2>>(tensor_rank_4)
+        }
+    }
+}
+
+impl<const K: usize> From<TensorRank4<3, 0, 0, K, 0>> for TensorRank4<3, 2, 2, K, 2> {
+    fn from(tensor_rank_4: TensorRank4<3, 0, 0, K, 0>) -> Self {
+        unsafe {
+            transmute::<TensorRank4<3, 0, 0, K, 0>, TensorRank4<3, 2, 2, K, 2>>(tensor_rank_4)
+        }
     }
 }
 

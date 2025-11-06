@@ -48,3 +48,34 @@ where
         Ok(self.hardening_slope() * plastic_stretching_rate.norm() * TWO_THIRDS.sqrt())
     }
 }
+
+/// The viscoplastic flow model.
+#[derive(Debug)]
+pub struct ViscoplasticFlow {
+    /// The initial yield stress $`Y_0`$.
+    pub initial_yield_stress: Scalar,
+    /// The isotropic hardening slope $`H`$.
+    pub hardening_slope: Scalar,
+    /// The rate sensitivity parameter $`m`$.
+    pub rate_sensitivity: Scalar,
+    /// The reference flow rate $`d_0`$.
+    pub reference_flow_rate: Scalar,
+}
+
+impl Plastic for ViscoplasticFlow {
+    fn initial_yield_stress(&self) -> &Scalar {
+        &self.initial_yield_stress
+    }
+    fn hardening_slope(&self) -> &Scalar {
+        &self.hardening_slope
+    }
+}
+
+impl Viscoplastic for ViscoplasticFlow {
+    fn rate_sensitivity(&self) -> &Scalar {
+        &self.rate_sensitivity
+    }
+    fn reference_flow_rate(&self) -> &Scalar {
+        &self.reference_flow_rate
+    }
+}

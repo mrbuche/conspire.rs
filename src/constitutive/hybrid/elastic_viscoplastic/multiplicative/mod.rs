@@ -1,17 +1,23 @@
+#[cfg(test)]
+mod test;
+
 use crate::{
     constitutive::{
         ConstitutiveError,
         fluid::{plastic::Plastic, viscoplastic::Viscoplastic},
         hybrid::{Hybrid, Multiplicative},
-        solid::{Solid, elastic::Elastic, elastic_viscoplastic::ElasticViscoplastic},
+        solid::{elastic::Elastic, elastic_viscoplastic::ElasticViscoplastic},
     },
-    math::{Rank2, Scalar},
+    math::{
+        ContractFirstSecondIndicesWithSecondIndicesOf, ContractSecondIndexWithFirstIndexOf, Rank2,
+        Scalar,
+    },
     mechanics::{
-        CauchyStress, CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic,
-        FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStressElastic,
-        FirstPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffStress,
-        SecondPiolaKirchhoffStressElastic, SecondPiolaKirchhoffTangentStiffness,
-        CauchyTangentStiffnessElastic,
+        CauchyStress, CauchyTangentStiffness, CauchyTangentStiffnessElastic, DeformationGradient,
+        DeformationGradientPlastic, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStressElastic,
+        FirstPiolaKirchhoffTangentStiffness, FirstPiolaKirchhoffTangentStiffnessElastic,
+        SecondPiolaKirchhoffStress, SecondPiolaKirchhoffStressElastic,
+        SecondPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffTangentStiffnessElastic,
     },
 };
 
@@ -27,6 +33,7 @@ use crate::{
 //         self.constitutive_model_1().shear_modulus()
 //     }
 // }
+// You can de-conflict this with elastic/ using specialization if it ever gets stabilized.
 
 impl<C1, C2> Plastic for Multiplicative<C1, C2>
 where
@@ -96,8 +103,15 @@ where
         deformation_gradient: &DeformationGradient,
         deformation_gradient_p: &DeformationGradientPlastic,
     ) -> Result<FirstPiolaKirchhoffTangentStiffness, ConstitutiveError> {
-        // \mathcal{C}_{iJkL} = \mathcal{C}^\mathrm{e}_{iMkN} F_{MJ}^{\mathrm{p}-T} F_{NL}^{\mathrm{p}-T}
-        todo!()
+        let deformation_gradient_p_inverse = deformation_gradient_p.inverse();
+        let deformation_gradient_p_inverse_transpose = deformation_gradient_p_inverse.transpose();
+        Ok((FirstPiolaKirchhoffTangentStiffnessElastic::from(
+            self.constitutive_model_1()
+                .first_piola_kirchhoff_tangent_stiffness(
+                    &(deformation_gradient * &deformation_gradient_p_inverse).into(),
+                )?,
+        ) * &deformation_gradient_p_inverse_transpose)
+            .contract_second_index_with_first_index_of(&deformation_gradient_p_inverse_transpose))
     }
     fn second_piola_kirchhoff_stress(
         &self,
@@ -118,7 +132,16 @@ where
         deformation_gradient: &DeformationGradient,
         deformation_gradient_p: &DeformationGradientPlastic,
     ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
-        // \mathcal{G}_{IJkL} = \mathcal{G}^\mathrm{e}_{MNkO} F_{MI}^{\mathrm{p}-T} F_{NJ}^{\mathrm{p}-T} F_{OL}^{\mathrm{p}-T}
-        todo!()
+        let deformation_gradient_p_inverse = deformation_gradient_p.inverse();
+        Ok((SecondPiolaKirchhoffTangentStiffnessElastic::from(
+            self.constitutive_model_1()
+                .second_piola_kirchhoff_tangent_stiffness(
+                    &(deformation_gradient * &deformation_gradient_p_inverse).into(),
+                )?,
+        ) * deformation_gradient_p_inverse.transpose())
+        .contract_first_second_indices_with_second_indices_of(
+            &deformation_gradient_p_inverse,
+            &deformation_gradient_p_inverse,
+        ))
     }
 }

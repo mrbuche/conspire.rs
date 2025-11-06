@@ -1,7 +1,11 @@
 use crate::{
-    constitutive::solid::{
-        elastic_viscoplastic::{AppliedLoad, ElasticViscoplastic},
-        hyperelastic_viscoplastic::Hencky,
+    constitutive::{
+        fluid::viscoplastic::ViscoplasticFlow,
+        hybrid::{Hybrid, Multiplicative},
+        solid::{
+            elastic::AlmansiHamel,
+            elastic_viscoplastic::{AppliedLoad, ElasticViscoplastic},
+        },
     },
     math::{
         Rank2, Tensor, TensorArray,
@@ -24,14 +28,18 @@ fn finite_difference() -> Result<(), TestError> {
         [0.71714877, 1.83110678, 0.69670465],
         [1.82260662, 2.1921719, 3.16928404],
     ]);
-    let model = Hencky {
-        bulk_modulus: 13.0,
-        shear_modulus: 3.0,
-        initial_yield_stress: 3.0,
-        hardening_slope: 1.0,
-        rate_sensitivity: 0.25,
-        reference_flow_rate: 0.1,
-    };
+    let model = Multiplicative::construct(
+        AlmansiHamel {
+            bulk_modulus: 13.0,
+            shear_modulus: 3.0,
+        },
+        ViscoplasticFlow {
+            initial_yield_stress: 3.0,
+            hardening_slope: 1.0,
+            rate_sensitivity: 0.25,
+            reference_flow_rate: 0.1,
+        },
+    );
     let tangent = model.cauchy_tangent_stiffness(&deformation_gradient, &deformation_gradient_p)?;
     let mut fd = CauchyTangentStiffness::zero();
     for k in 0..3 {
@@ -62,14 +70,18 @@ fn finite_difference() -> Result<(), TestError> {
 #[test]
 fn root_0() -> Result<(), TestError> {
     use crate::constitutive::solid::elastic_viscoplastic::ZerothOrderRoot;
-    let model = Hencky {
-        bulk_modulus: 13.0,
-        shear_modulus: 3.0,
-        initial_yield_stress: 3.0,
-        hardening_slope: 1.0,
-        rate_sensitivity: 0.25,
-        reference_flow_rate: 0.1,
-    };
+    let model = Multiplicative::construct(
+        AlmansiHamel {
+            bulk_modulus: 13.0,
+            shear_modulus: 3.0,
+        },
+        ViscoplasticFlow {
+            initial_yield_stress: 3.0,
+            hardening_slope: 1.0,
+            rate_sensitivity: 0.25,
+            reference_flow_rate: 0.1,
+        },
+    );
     let (t, f, f_p) = model.root(
         AppliedLoad::UniaxialStress(|t| 1.0 + t, &[0.0, 8.0]),
         BogackiShampine {
@@ -105,14 +117,18 @@ fn root_0() -> Result<(), TestError> {
 #[test]
 fn root_1() -> Result<(), TestError> {
     use crate::constitutive::solid::elastic_viscoplastic::FirstOrderRoot;
-    let model = Hencky {
-        bulk_modulus: 13.0,
-        shear_modulus: 3.0,
-        initial_yield_stress: 3.0,
-        hardening_slope: 1.0,
-        rate_sensitivity: 0.25,
-        reference_flow_rate: 0.1,
-    };
+    let model = Multiplicative::construct(
+        AlmansiHamel {
+            bulk_modulus: 13.0,
+            shear_modulus: 3.0,
+        },
+        ViscoplasticFlow {
+            initial_yield_stress: 3.0,
+            hardening_slope: 1.0,
+            rate_sensitivity: 0.25,
+            reference_flow_rate: 0.1,
+        },
+    );
     let (t, f, f_p) = model.root(
         AppliedLoad::UniaxialStress(|t| 1.0 + t, &[0.0, 2.0]),
         BogackiShampine {

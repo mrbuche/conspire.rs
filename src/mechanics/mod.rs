@@ -175,6 +175,9 @@ pub type FirstPiolaKirchhoffStresses<const W: usize> = TensorRank2List<3, 1, 0, 
 /// The tangent stiffness associated with the first Piola-Kirchhoff stress $`\boldsymbol{\mathcal{C}}`$.
 pub type FirstPiolaKirchhoffTangentStiffness = TensorRank4<3, 1, 0, 1, 0>;
 
+/// The elastic tangent stiffness associated with the first Piola-Kirchhoff stress $`\boldsymbol{\mathcal{C}}_\mathrm{e}`$.
+pub type FirstPiolaKirchhoffTangentStiffnessElastic = TensorRank4<3, 1, 2, 1, 2>;
+
 /// A list of first Piola-Kirchhoff tangent stiffnesses.
 pub type FirstPiolaKirchhoffTangentStiffnesses<const W: usize> = TensorRank4List<3, 1, 0, 1, 0, W>;
 
@@ -235,6 +238,9 @@ pub type SecondPiolaKirchhoffStressElastic = TensorRank2<3, 2, 2>;
 
 /// The tangent stiffness associated with the second Piola-Kirchhoff stress $`\boldsymbol{\mathcal{G}}`$.
 pub type SecondPiolaKirchhoffTangentStiffness = TensorRank4<3, 0, 0, 1, 0>;
+
+/// The elastic tangent stiffness associated with the second Piola-Kirchhoff stress $`\boldsymbol{\mathcal{G}}_\mathrm{e}`$.
+pub type SecondPiolaKirchhoffTangentStiffnessElastic = TensorRank4<3, 2, 2, 1, 2>;
 
 /// The rate tangent stiffness associated with the second Piola-Kirchhoff stress $`\boldsymbol{\mathcal{W}}`$.
 pub type SecondPiolaKirchhoffRateTangentStiffness = TensorRank4<3, 0, 0, 1, 0>;
