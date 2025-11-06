@@ -42,7 +42,7 @@ impl Display for DeformationError {
 }
 
 /// Methods for deformation gradients.
-pub trait Deformation {
+pub trait Deformation<const I: usize, const J: usize> {
     /// Calculates and returns the Jacobian.
     ///
     /// ```math
@@ -54,16 +54,16 @@ pub trait Deformation {
     /// ```math
     /// \mathbf{B} = \mathbf{F}\cdot\mathbf{F}^T
     /// ```
-    fn left_cauchy_green(&self) -> LeftCauchyGreenDeformation;
+    fn left_cauchy_green(&self) -> TensorRank2<3, I, I>;
     /// Calculates and returns the right Cauchy-Green deformation.
     ///
     /// ```math
     /// \mathbf{C} = \mathbf{F}^T\cdot\mathbf{F}
     /// ```
-    fn right_cauchy_green(&self) -> RightCauchyGreenDeformation;
+    fn right_cauchy_green(&self) -> TensorRank2<3, J, J>;
 }
 
-impl<const I: usize, const J: usize> Deformation for DeformationGradientGeneral<I, J> {
+impl<const I: usize, const J: usize> Deformation<I, J> for DeformationGradientGeneral<I, J> {
     fn jacobian(&self) -> Result<Scalar, DeformationError> {
         let jacobian = self.determinant();
         if jacobian > 0.0 {
@@ -72,7 +72,7 @@ impl<const I: usize, const J: usize> Deformation for DeformationGradientGeneral<
             Err(DeformationError::InvalidJacobian(jacobian))
         }
     }
-    fn left_cauchy_green(&self) -> LeftCauchyGreenDeformation {
+    fn left_cauchy_green(&self) -> TensorRank2<3, I, I> {
         self.iter()
             .map(|deformation_gradient_i| {
                 self.iter()
@@ -81,7 +81,7 @@ impl<const I: usize, const J: usize> Deformation for DeformationGradientGeneral<
             })
             .collect()
     }
-    fn right_cauchy_green(&self) -> RightCauchyGreenDeformation {
+    fn right_cauchy_green(&self) -> TensorRank2<3, J, J> {
         let deformation_gradient_transpose = self.transpose();
         deformation_gradient_transpose
             .iter()

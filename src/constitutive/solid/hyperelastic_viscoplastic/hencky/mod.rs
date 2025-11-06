@@ -70,16 +70,12 @@ impl ElasticViscoplastic for Hencky {
     ) -> Result<CauchyStress, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
-        // let (deviatoric_strain_e, strain_trace_e) =
-        //     (deformation_gradient_e.left_cauchy_green().logm()? * 0.5).deviatoric_and_trace();
-        // Ok(
-        //     deviatoric_strain_e * (2.0 * self.shear_modulus() / jacobian)
-        //         + IDENTITY * (self.bulk_modulus() * strain_trace_e / jacobian),
-        // )
-        Ok(deformation_gradient_e.left_cauchy_green().deviatoric()
-            / jacobian.powf(crate::constitutive::solid::FIVE_THIRDS)
-            * self.shear_modulus()
-            + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
+        let (deviatoric_strain_e, strain_trace_e) =
+            (deformation_gradient_e.left_cauchy_green().logm()? * 0.5).deviatoric_and_trace();
+        Ok(
+            deviatoric_strain_e * (2.0 * self.shear_modulus() / jacobian)
+                + IDENTITY * (self.bulk_modulus() * strain_trace_e / jacobian),
+        )
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
     fn cauchy_tangent_stiffness(
@@ -90,50 +86,30 @@ impl ElasticViscoplastic for Hencky {
         let jacobian = self.jacobian(deformation_gradient)?;
         let deformation_gradient_inverse_p = deformation_gradient_p.inverse();
         let deformation_gradient_e = deformation_gradient * &deformation_gradient_inverse_p;
-        // let left_cauchy_green_e = deformation_gradient_e.left_cauchy_green();
-        // let (deviatoric_strain_e, strain_trace_e) =
-        //     (left_cauchy_green_e.logm()? * 0.5).deviatoric_and_trace();
-        // let scaled_deformation_gradient_e =
-        //     &deformation_gradient_e * self.shear_modulus() / jacobian;
-        // Ok((left_cauchy_green_e
-        //     .dlogm()?
-        //     .contract_third_fourth_indices_with_first_second_indices_of(
-        //         &(CauchyTangentStiffnessElastic::dyad_il_jk(
-        //             &scaled_deformation_gradient_e,
-        //             &IDENTITY,
-        //         ) + CauchyTangentStiffnessElastic::dyad_ik_jl(
-        //             &IDENTITY,
-        //             &scaled_deformation_gradient_e,
-        //         )),
-        //     ))
-        //     * deformation_gradient_inverse_p.transpose()
-        //     + (CauchyTangentStiffness::dyad_ij_kl(
-        //         &(IDENTITY
-        //             * ((self.bulk_modulus() - TWO_THIRDS * self.shear_modulus()) / jacobian)
-        //             - deviatoric_strain_e * (2.0 * self.shear_modulus() / jacobian)
-        //             - IDENTITY * (self.bulk_modulus() * strain_trace_e / jacobian)),
-        //         &deformation_gradient.inverse_transpose(),
-        //     )))
-        let inverse_transpose_deformation_gradient_e = deformation_gradient_e.inverse_transpose();
-        let scaled_shear_modulus =
-            self.shear_modulus() / jacobian.powf(crate::constitutive::solid::FIVE_THIRDS);
-        Ok((CauchyTangentStiffness::dyad_ik_jl(
-            &IDENTITY,
-            &(deformation_gradient_e.clone().into()),
-        ) + CauchyTangentStiffness::dyad_il_jk(
-            &(deformation_gradient_e.clone().into()),
-            &IDENTITY,
-        ) - CauchyTangentStiffness::dyad_ij_kl(
-            &IDENTITY,
-            &(deformation_gradient_e.clone().into()),
-        ) * (TWO_THIRDS))
-            * scaled_shear_modulus
-            + CauchyTangentStiffness::dyad_ij_kl(
-                &(IDENTITY * (0.5 * self.bulk_modulus() * (jacobian + 1.0 / jacobian))
-                    - deformation_gradient_e.left_cauchy_green().deviatoric()
-                        * (scaled_shear_modulus * crate::constitutive::solid::FIVE_THIRDS)),
-                &(inverse_transpose_deformation_gradient_e.into()),
+        let left_cauchy_green_e = deformation_gradient_e.left_cauchy_green();
+        let (deviatoric_strain_e, strain_trace_e) =
+            (left_cauchy_green_e.logm()? * 0.5).deviatoric_and_trace();
+        let scaled_deformation_gradient_e =
+            &deformation_gradient_e * self.shear_modulus() / jacobian;
+        Ok((left_cauchy_green_e
+            .dlogm()?
+            .contract_third_fourth_indices_with_first_second_indices_of(
+                &(CauchyTangentStiffnessElastic::dyad_il_jk(
+                    &scaled_deformation_gradient_e,
+                    &IDENTITY,
+                ) + CauchyTangentStiffnessElastic::dyad_ik_jl(
+                    &IDENTITY,
+                    &scaled_deformation_gradient_e,
+                )),
             ))
+            * deformation_gradient_inverse_p.transpose()
+            + (CauchyTangentStiffness::dyad_ij_kl(
+                &(IDENTITY
+                    * ((self.bulk_modulus() - TWO_THIRDS * self.shear_modulus()) / jacobian)
+                    - deviatoric_strain_e * (2.0 * self.shear_modulus() / jacobian)
+                    - IDENTITY * (self.bulk_modulus() * strain_trace_e / jacobian)),
+                &deformation_gradient.inverse_transpose(),
+            )))
     }
 }
 

@@ -6,7 +6,7 @@ use conspire::{
         elastic_hyperviscous::{AlmansiHamel, SecondOrderMinimize as _},
         elastic_viscoplastic::{AppliedLoad, FirstOrderRoot},
         hyperelastic::{NeoHookean, SecondOrderMinimize as _},
-        hyperelastic_viscoplastic::Hencky,
+        hyperelastic_viscoplastic::SaintVenantKirchhoff,
         viscoelastic::AppliedLoad as AppliedDeformationRate,
     },
     fem::{
@@ -7461,7 +7461,7 @@ fn bcs_temporary_elastic_viscoplastic(t: Scalar) -> Vector {
     vector
 }
 
-// put something to skip this by default
+#[ignore]
 #[test]
 fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
     use conspire::math::{Scalar, integrate::BogackiShampine};
@@ -7474,7 +7474,7 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
         .flatten()
         .for_each(|entry| *entry -= 1);
     let num_nodes = ref_coordinates.len();
-    let model = Hencky {
+    let model = SaintVenantKirchhoff {
         bulk_modulus: 13.0,
         shear_modulus: 3.0,
         initial_yield_stress: 3.0,

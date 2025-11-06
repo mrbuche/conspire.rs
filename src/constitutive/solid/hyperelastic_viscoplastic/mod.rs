@@ -1,8 +1,10 @@
 //! Hyperelastic-viscoplastic constitutive models.
 
 mod hencky;
+mod saint_venant_kirchhoff;
 
 pub use hencky::Hencky;
+pub use saint_venant_kirchhoff::SaintVenantKirchhoff;
 
 use crate::{
     constitutive::{ConstitutiveError, solid::elastic_viscoplastic::ElasticViscoplastic},
