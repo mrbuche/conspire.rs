@@ -1,6 +1,6 @@
 //! Viscous constitutive models.
 
-use super::*;
+use crate::math::Scalar;
 
 /// Required methods for viscous constitutive models.
 pub trait Viscous {

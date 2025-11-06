@@ -1,8 +1,8 @@
 //! Fluid constitutive models.
 
+pub mod plastic;
+pub mod viscoplastic;
 pub mod viscous;
-
-use crate::mechanics::Scalar;
 
 /// Required methods for fluid constitutive models.
 pub trait Fluid {}

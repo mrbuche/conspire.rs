@@ -1,10 +1,10 @@
 //! Elastic-viscoplastic constitutive models.
 
 use crate::{
-    constitutive::{ConstitutiveError, solid::Solid},
+    constitutive::{ConstitutiveError, fluid::viscoplastic::Viscoplastic, solid::Solid},
     math::{
         ContractFirstSecondIndicesWithSecondIndicesOf, ContractSecondIndexWithFirstIndexOf,
-        IDENTITY, Matrix, Rank2, Tensor, TensorArray, TensorTuple, TensorTupleVec, Vector,
+        IDENTITY, Matrix, Rank2, TensorArray, TensorTuple, TensorTupleVec, Vector,
         integrate::ExplicitIV,
         optimize::{
             EqualityConstraint, FirstOrderRootFinding, OptimizationError, ZerothOrderRootFinding,
@@ -13,8 +13,8 @@ use crate::{
     mechanics::{
         CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient,
         DeformationGradientPlastic, DeformationGradients, FirstPiolaKirchhoffStress,
-        FirstPiolaKirchhoffTangentStiffness, MandelStressElastic, Scalar,
-        SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness, StretchingRatePlastic,
+        FirstPiolaKirchhoffTangentStiffness, Scalar,
+        SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,
         Times,
     },
 };
@@ -24,25 +24,6 @@ pub type StateVariables = TensorTuple<DeformationGradientPlastic, Scalar>;
 
 /// ???
 pub type StateVariablesHistory = TensorTupleVec<DeformationGradientPlastic, Scalar>;
-
-/// Required methods for plastic constitutive models.
-pub trait Plastic {
-    /// Returns the initial yield stress.
-    fn initial_yield_stress(&self) -> &Scalar;
-    /// Returns the isotropic hardening slope.
-    fn hardening_slope(&self) -> &Scalar;
-}
-
-/// Required methods for viscoplastic constitutive models.
-pub trait Viscoplastic
-where
-    Self: Plastic,
-{
-    /// Returns the rate_sensitivity parameter.
-    fn rate_sensitivity(&self) -> &Scalar;
-    /// Returns the reference flow rate.
-    fn reference_flow_rate(&self) -> &Scalar;
-}
 
 /// Possible applied loads.
 pub enum AppliedLoad<'a> {
@@ -187,36 +168,6 @@ where
                 &deformation_gradient_inverse,
                 &second_piola_kirchhoff_stress,
             ))
-    }
-    /// Calculates and returns the rate of plastic stretching.
-    ///
-    /// ```math
-    /// \mathbf{D}_\mathrm{p} = d_0\left(\frac{|\mathbf{M}_\mathrm{e}'|}{Y(S)}\right)^{\footnotesize\tfrac{1}{m}}\frac{\mathbf{M}_\mathrm{e}'}{|\mathbf{M}_\mathrm{e}'|}
-    /// ```
-    fn plastic_stretching_rate(
-        &self,
-        deviatoric_mandel_stress_e: MandelStressElastic,
-        yield_stress: &Scalar,
-    ) -> Result<StretchingRatePlastic, ConstitutiveError> {
-        let magnitude = deviatoric_mandel_stress_e.norm();
-        if magnitude == 0.0 {
-            Ok(StretchingRatePlastic::zero())
-        } else {
-            Ok(deviatoric_mandel_stress_e
-                * (self.reference_flow_rate() / magnitude
-                    * (magnitude / yield_stress).powf(1.0 / self.rate_sensitivity())))
-        }
-    }
-    /// Calculates and returns the evolution of the yield stress.
-    ///
-    /// ```math
-    /// \dot{Y} = \sqrt{\frac{2}{3}}\,H\,|\mathbf{D}_\mathrm{p}|
-    /// ```
-    fn yield_stress_evolution(
-        &self,
-        plastic_stretching_rate: &StretchingRatePlastic,
-    ) -> Result<Scalar, ConstitutiveError> {
-        Ok(self.hardening_slope() * plastic_stretching_rate.norm() * (2.0_f64 / 3.0).sqrt())
     }
     /// Calculates and returns the evolution of the state variables.
     ///
