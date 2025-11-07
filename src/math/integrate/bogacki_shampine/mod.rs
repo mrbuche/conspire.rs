@@ -92,8 +92,8 @@ where
         &self,
         mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
         y: &Y,
-        t: &Scalar,
-        dt: &Scalar,
+        t: Scalar,
+        dt: Scalar,
         k: &mut [Y],
         y_trial: &mut Y,
     ) -> Result<Scalar, String> {
@@ -116,9 +116,9 @@ where
         dt: &mut Scalar,
         k: &mut [Y],
         y_trial: &Y,
-        e: &Scalar,
+        e: Scalar,
     ) -> Result<(), String> {
-        if e < &self.abs_tol || e / y_trial.norm_inf() < self.rel_tol {
+        if e < self.abs_tol || e / y_trial.norm_inf() < self.rel_tol {
             k[0] = k[3].clone();
             *t += *dt;
             *y = y_trial.clone();
@@ -126,7 +126,7 @@ where
             y_sol.push(y.clone());
             dydt_sol.push(k[0].clone());
         }
-        if e > &0.0 {
+        if e > 0.0 {
             *dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn)
         }
         Ok(())
@@ -195,8 +195,8 @@ where
         mut evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
         y: &Y,
         z: &Z,
-        t: &Scalar,
-        dt: &Scalar,
+        t: Scalar,
+        dt: Scalar,
         k: &mut [Y],
         y_trial: &mut Y,
         z_trial: &mut Z,
@@ -226,9 +226,9 @@ where
         k: &mut [Y],
         y_trial: &Y,
         z_trial: &Z,
-        e: &Scalar,
+        e: Scalar,
     ) -> Result<(), String> {
-        if e < &self.abs_tol || e / y_trial.norm_inf() < self.rel_tol {
+        if e < self.abs_tol || e / y_trial.norm_inf() < self.rel_tol {
             k[0] = k[3].clone();
             *t += *dt;
             *y = y_trial.clone();
@@ -238,7 +238,7 @@ where
             z_sol.push(z.clone());
             dydt_sol.push(k[0].clone());
         }
-        if e > &0.0 {
+        if e > 0.0 {
             *dt *= (self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn)).max(self.dt_cut())
         }
         Ok(())

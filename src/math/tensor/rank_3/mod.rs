@@ -73,7 +73,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Display
 impl<const D: usize, const I: usize, const J: usize, const K: usize> ErrorTensor
     for TensorRank3<D, I, J, K>
 {
-    fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
+    fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
             .zip(comparator.iter())
@@ -86,9 +86,9 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> ErrorTensor
                             .iter()
                             .zip(comparator_ij.iter())
                             .filter(|&(&self_ijk, &comparator_ijk)| {
-                                &(self_ijk / comparator_ijk - 1.0).abs() >= epsilon
-                                    && (&self_ijk.abs() >= epsilon
-                                        || &comparator_ijk.abs() >= epsilon)
+                                (self_ijk / comparator_ijk - 1.0).abs() >= epsilon
+                                    && (self_ijk.abs() >= epsilon
+                                        || comparator_ijk.abs() >= epsilon)
                             })
                             .count()
                     })

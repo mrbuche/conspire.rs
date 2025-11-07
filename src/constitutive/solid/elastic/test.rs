@@ -97,15 +97,6 @@ pub(crate) use second_piola_kirchhoff_tangent_stiffness_from_deformation_gradien
 macro_rules! test_solid_constitutive_model {
     ($constitutive_model: expr) => {
         crate::constitutive::solid::elastic::test::test_solid_constitutive!($constitutive_model);
-        crate::constitutive::solid::elastic::test::test_constructed_solid_constitutive_model!(
-            $constitutive_model
-        );
-    };
-}
-pub(crate) use test_solid_constitutive_model;
-
-macro_rules! test_constructed_solid_constitutive_model {
-    ($constitutive_model: expr) => {
         crate::constitutive::solid::elastic::test::test_solid_constitutive_model_no_tangents!(
             $constitutive_model
         );
@@ -114,7 +105,7 @@ macro_rules! test_constructed_solid_constitutive_model {
         );
     };
 }
-pub(crate) use test_constructed_solid_constitutive_model;
+pub(crate) use test_solid_constitutive_model;
 
 macro_rules! test_solid_constitutive
 {

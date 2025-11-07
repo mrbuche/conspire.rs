@@ -71,13 +71,13 @@ impl<const D: usize, const I: usize> TensorRank1<D, I> {
 
 #[cfg(test)]
 impl<const D: usize, const I: usize> ErrorTensor for TensorRank1<D, I> {
-    fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
+    fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
             .zip(comparator.iter())
             .filter(|&(&self_i, &comparator_i)| {
-                &(self_i / comparator_i - 1.0).abs() >= epsilon
-                    && (&self_i.abs() >= epsilon || &comparator_i.abs() >= epsilon)
+                (self_i / comparator_i - 1.0).abs() >= epsilon
+                    && (self_i.abs() >= epsilon || comparator_i.abs() >= epsilon)
             })
             .count();
         if error_count > 0 {

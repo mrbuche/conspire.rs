@@ -44,7 +44,7 @@ impl Default for Vector {
 
 #[cfg(test)]
 impl ErrorTensor for Vector {
-    fn error_fd(&self, comparator: &Self, epsilon: &Scalar) -> Option<(bool, usize)> {
+    fn error_fd(&self, comparator: &Self, epsilon: Scalar) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
             .zip(comparator.iter())
@@ -53,8 +53,8 @@ impl ErrorTensor for Vector {
                     .iter()
                     .zip(comparator_entry.iter())
                     .filter(|&(&entry_i, &comparator_entry_i)| {
-                        &(entry_i / comparator_entry_i - 1.0).abs() >= epsilon
-                            && (&entry_i.abs() >= epsilon || &comparator_entry_i.abs() >= epsilon)
+                        (entry_i / comparator_entry_i - 1.0).abs() >= epsilon
+                            && (entry_i.abs() >= epsilon || comparator_entry_i.abs() >= epsilon)
                     })
                     .count()
             })
@@ -68,10 +68,10 @@ impl ErrorTensor for Vector {
                         .iter()
                         .zip(comparator_entry.iter())
                         .filter(|&(&entry_i, &comparator_entry_i)| {
-                            &(entry_i / comparator_entry_i - 1.0).abs() >= epsilon
-                                && &(entry_i - comparator_entry_i).abs() >= epsilon
-                                && (&entry_i.abs() >= epsilon
-                                    || &comparator_entry_i.abs() >= epsilon)
+                            (entry_i / comparator_entry_i - 1.0).abs() >= epsilon
+                                && (entry_i - comparator_entry_i).abs() >= epsilon
+                                && (entry_i.abs() >= epsilon
+                                    || comparator_entry_i.abs() >= epsilon)
                         })
                         .count()
                 })

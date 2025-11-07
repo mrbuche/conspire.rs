@@ -27,11 +27,11 @@ where
 {
     /// Dummy method that will panic.
     fn bulk_modulus(&self) -> Scalar {
-        panic!()
+        panic!("what would this be?")
     }
     /// Dummy method that will panic.
     fn shear_modulus(&self) -> Scalar {
-        panic!()
+        panic!("what would this be?")
     }
 }
 

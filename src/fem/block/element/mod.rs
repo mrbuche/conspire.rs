@@ -71,7 +71,7 @@ where
     fn new(
         constitutive_model: &'a C,
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
-        thickness: &Scalar,
+        thickness: Scalar,
     ) -> Self;
 }
 

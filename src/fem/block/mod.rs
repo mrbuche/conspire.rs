@@ -239,7 +239,7 @@ where
                         .iter()
                         .map(|node| coordinates[*node].clone())
                         .collect(),
-                    &thickness,
+                    thickness,
                 )
             })
             .collect();
@@ -859,7 +859,7 @@ where
                         from_fn(|_| {
                             (
                                 DeformationGradientPlastic::identity(),
-                                *element.constitutive_model().initial_yield_stress(),
+                                element.constitutive_model().initial_yield_stress(),
                             )
                                 .into()
                         })

@@ -21,7 +21,7 @@ where
     fn plastic_stretching_rate(
         &self,
         deviatoric_mandel_stress_e: MandelStressElastic,
-        yield_stress: &Scalar,
+        yield_stress: Scalar,
     ) -> Result<StretchingRatePlastic, ConstitutiveError> {
         let magnitude = deviatoric_mandel_stress_e.norm();
         if magnitude == 0.0 {

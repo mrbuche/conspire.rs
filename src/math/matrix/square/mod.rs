@@ -318,7 +318,7 @@ fn backward_substitution(x: &mut Vector, a: &SquareMatrix) {
 
 #[cfg(test)]
 impl ErrorTensor for SquareMatrix {
-    fn error_fd(&self, comparator: &Self, epsilon: &Scalar) -> Option<(bool, usize)> {
+    fn error_fd(&self, comparator: &Self, epsilon: Scalar) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
             .zip(comparator.iter())
@@ -327,8 +327,8 @@ impl ErrorTensor for SquareMatrix {
                     .iter()
                     .zip(comparator_i.iter())
                     .filter(|&(&self_ij, &comparator_ij)| {
-                        &(self_ij / comparator_ij - 1.0).abs() >= epsilon
-                            && (&self_ij.abs() >= epsilon || &comparator_ij.abs() >= epsilon)
+                        (self_ij / comparator_ij - 1.0).abs() >= epsilon
+                            && (self_ij.abs() >= epsilon || comparator_ij.abs() >= epsilon)
                     })
                     .count()
             })

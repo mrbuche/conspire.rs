@@ -96,7 +96,7 @@ where
         dydt_sol.push(k[0].clone());
         let mut y_trial = Y::default();
         while t < t_f {
-            e = match self.slopes(&mut function, &y, &t, &dt, &mut k, &mut y_trial) {
+            e = match self.slopes(&mut function, &y, t, dt, &mut k, &mut y_trial) {
                 Ok(e) => e,
                 Err(error) => {
                     return Err(IntegrationError::Upstream(error, format!("{self:?}")));
@@ -113,7 +113,7 @@ where
                     &mut dt,
                     &mut k,
                     &y_trial,
-                    &e,
+                    e,
                 )
                 .err()
             {
@@ -134,8 +134,8 @@ where
         &self,
         function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
         y: &Y,
-        t: &Scalar,
-        dt: &Scalar,
+        t: Scalar,
+        dt: Scalar,
         k: &mut [Y],
         y_trial: &mut Y,
     ) -> Result<Scalar, String>;
@@ -152,7 +152,7 @@ where
         dt: &mut Scalar,
         k: &mut [Y],
         y_trial: &Y,
-        e: &Scalar,
+        e: Scalar,
     ) -> Result<(), String>;
 }
 
@@ -212,8 +212,8 @@ where
                 &mut evaluate,
                 &y,
                 &z,
-                &t,
-                &dt,
+                t,
+                dt,
                 &mut k,
                 &mut y_trial,
                 &mut z_trial,
@@ -233,7 +233,7 @@ where
                             &mut k,
                             &y_trial,
                             &z_trial,
-                            &e,
+                            e,
                         )
                         .err()
                     {
@@ -284,8 +284,8 @@ where
         evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
         y: &Y,
         z: &Z,
-        t: &Scalar,
-        dt: &Scalar,
+        t: Scalar,
+        dt: Scalar,
         k: &mut [Y],
         y_trial: &mut Y,
         z_trial: &mut Z,
@@ -306,7 +306,7 @@ where
         k: &mut [Y],
         y_trial: &Y,
         z_trial: &Z,
-        e: &Scalar,
+        e: Scalar,
     ) -> Result<(), String>;
 }
 

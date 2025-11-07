@@ -25,8 +25,8 @@ fn error() {
     let a: TensorRank0 = 1.0;
     let b: TensorRank0 = 1.0;
     let c: TensorRank0 = 2.0;
-    assert_eq!(a.error_count(&b, &ABS_TOL, &REL_TOL), None);
-    assert_eq!(a.error_count(&c, &ABS_TOL, &REL_TOL), Some(1));
+    assert_eq!(a.error_count(&b, ABS_TOL, REL_TOL), None);
+    assert_eq!(a.error_count(&c, ABS_TOL, REL_TOL), Some(1));
 }
 
 #[test]

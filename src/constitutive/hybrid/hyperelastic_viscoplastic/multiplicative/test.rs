@@ -60,7 +60,7 @@ fn finite_difference() -> Result<(), TestError> {
             }
         }
     }
-    if tangent.error_fd(&fd, &(5e1 * crate::EPSILON)).is_some() {
+    if tangent.error_fd(&fd, 5e1 * crate::EPSILON).is_some() {
         assert_eq_from_fd(&tangent, &fd)
     } else {
         Ok(())

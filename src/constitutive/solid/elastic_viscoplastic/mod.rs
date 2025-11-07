@@ -187,7 +187,7 @@ where
             * deformation_gradient_e.inverse_transpose())
             * jacobian;
         let plastic_stretching_rate =
-            self.plastic_stretching_rate(mandel_stress_e.deviatoric(), yield_stress)?;
+            self.plastic_stretching_rate(mandel_stress_e.deviatoric(), *yield_stress)?;
         Ok(StateVariables::from((
             &plastic_stretching_rate * deformation_gradient_p,
             self.yield_stress_evolution(&plastic_stretching_rate)?,

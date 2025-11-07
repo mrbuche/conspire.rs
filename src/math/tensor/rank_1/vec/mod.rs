@@ -174,7 +174,7 @@ impl<const D: usize, const I: usize, const J: usize> Div<TensorRank2Vec2D<D, I, 
 
 #[cfg(test)]
 impl<const D: usize, const I: usize> ErrorTensor for TensorRank1Vec<D, I> {
-    fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
+    fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
             .zip(comparator.iter())
@@ -183,8 +183,8 @@ impl<const D: usize, const I: usize> ErrorTensor for TensorRank1Vec<D, I> {
                     .iter()
                     .zip(comparator_entry.iter())
                     .filter(|&(&entry_i, &comparator_entry_i)| {
-                        &(entry_i / comparator_entry_i - 1.0).abs() >= epsilon
-                            && (&entry_i.abs() >= epsilon || &comparator_entry_i.abs() >= epsilon)
+                        (entry_i / comparator_entry_i - 1.0).abs() >= epsilon
+                            && (entry_i.abs() >= epsilon || comparator_entry_i.abs() >= epsilon)
                     })
                     .count()
             })
@@ -198,10 +198,10 @@ impl<const D: usize, const I: usize> ErrorTensor for TensorRank1Vec<D, I> {
                         .iter()
                         .zip(comparator_entry.iter())
                         .filter(|&(&entry_i, &comparator_entry_i)| {
-                            &(entry_i / comparator_entry_i - 1.0).abs() >= epsilon
-                                && &(entry_i - comparator_entry_i).abs() >= epsilon
-                                && (&entry_i.abs() >= epsilon
-                                    || &comparator_entry_i.abs() >= epsilon)
+                            (entry_i / comparator_entry_i - 1.0).abs() >= epsilon
+                                && (entry_i - comparator_entry_i).abs() >= epsilon
+                                && (entry_i.abs() >= epsilon
+                                    || comparator_entry_i.abs() >= epsilon)
                         })
                         .count()
                 })

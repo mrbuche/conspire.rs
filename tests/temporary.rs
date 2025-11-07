@@ -7545,8 +7545,8 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
                                 assert_eq_within(
                                     deformation_gradient_g,
                                     deformation_gradient,
-                                    &(1e1 * tol),
-                                    &(1e1 * tol),
+                                    1e1 * tol,
+                                    1e1 * tol,
                                 )
                             })
                     })?;
@@ -7562,14 +7562,14 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
                                 assert_eq_within(
                                     deformation_gradient_p_g,
                                     deformation_gradient_p,
-                                    &(1e1 * tol),
-                                    &(1e1 * tol),
+                                    1e1 * tol,
+                                    1e1 * tol,
                                 )?;
                                 assert_eq_within(
                                     yield_stress_g,
                                     yield_stress,
-                                    &(1e1 * tol),
-                                    &(1e1 * tol),
+                                    1e1 * tol,
+                                    1e1 * tol,
                                 )
                             })
                     })
@@ -7668,8 +7668,8 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
                                 assert_eq_within(
                                     deformation_gradient_g,
                                     deformation_gradient,
-                                    &tol,
-                                    &tol,
+                                    tol,
+                                    tol,
                                 )
                             })
                     })?;
@@ -7682,8 +7682,8 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
                                 assert_eq_within(
                                     deformation_gradient_rate_g,
                                     deformation_gradient_rate,
-                                    &tol,
-                                    &tol,
+                                    tol,
+                                    tol,
                                 )
                             },
                         )

@@ -205,7 +205,7 @@ impl<const D: usize, const I: usize, const J: usize> Display for TensorRank2<D, 
 
 #[cfg(test)]
 impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2<D, I, J> {
-    fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
+    fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
             .zip(comparator.iter())
@@ -214,8 +214,8 @@ impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2
                     .iter()
                     .zip(comparator_i.iter())
                     .filter(|&(&self_ij, &comparator_ij)| {
-                        &(self_ij / comparator_ij - 1.0).abs() >= epsilon
-                            && (&self_ij.abs() >= epsilon || &comparator_ij.abs() >= epsilon)
+                        (self_ij / comparator_ij - 1.0).abs() >= epsilon
+                            && (self_ij.abs() >= epsilon || comparator_ij.abs() >= epsilon)
                     })
                     .count()
             })
@@ -782,7 +782,7 @@ fn find_orthonormal_eigenvectors<const I: usize>(
 ) -> TensorRank2<3, I, I> {
     let mut eigenvectors = eigenvalues
         .iter()
-        .map(|eigenvalue| eigenvector_symmetric(eigenvalue, tensor))
+        .map(|&eigenvalue| eigenvector_symmetric(eigenvalue, tensor))
         .collect::<TensorRank2<3, I, I>>();
     eigenvectors[0].normalize();
     let proj1 = &eigenvectors[1] * &eigenvectors[0];
@@ -795,7 +795,7 @@ fn find_orthonormal_eigenvectors<const I: usize>(
 }
 
 fn eigenvector_symmetric<const I: usize>(
-    eigenvalue: &TensorRank0,
+    eigenvalue: TensorRank0,
     tensor: &TensorRank2<3, I, I>,
 ) -> TensorRank1<3, I> {
     let m = tensor - TensorRank2::identity() * eigenvalue;

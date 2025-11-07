@@ -151,12 +151,12 @@ where
         &self,
         mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
         y: &Y,
-        t: &Scalar,
-        dt: &Scalar,
+        t: Scalar,
+        dt: Scalar,
         k: &mut [Y],
         y_trial: &mut Y,
     ) -> Result<Scalar, String> {
-        k[0] = function(*t, y)?;
+        k[0] = function(t, y)?;
         *y_trial = &k[0] * (A_2_1 * dt) + y;
         k[1] = function(t + C_2 * dt, y_trial)?;
         *y_trial = &k[0] * (A_3_1 * dt) + &k[1] * (A_3_2 * dt) + y;
@@ -236,7 +236,7 @@ where
             + &k[9] * B_10
             + &k[10] * B_11
             + &k[11] * B_12)
-            * *dt
+            * dt
             + y;
         Ok(((&k[0] * D_1
             + &k[5] * D_6
@@ -247,7 +247,7 @@ where
             + &k[10] * D_11
             + &k[11] * D_12
             + &k[12] * D_13)
-            * *dt)
+            * dt)
             .norm_inf())
     }
     fn step(
@@ -261,16 +261,16 @@ where
         dt: &mut Scalar,
         _k: &mut [Y],
         y_trial: &Y,
-        e: &Scalar,
+        e: Scalar,
     ) -> Result<(), String> {
-        if e < &self.abs_tol || e / y_trial.norm_inf() < self.rel_tol {
+        if e < self.abs_tol || e / y_trial.norm_inf() < self.rel_tol {
             *t += *dt;
             *y = y_trial.clone();
             t_sol.push(*t);
             y_sol.push(y.clone());
             dydt_sol.push(function(*t, y)?);
         }
-        if e > &0.0 {
+        if e > 0.0 {
             *dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn)
         }
         Ok(())

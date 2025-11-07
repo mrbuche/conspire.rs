@@ -1,4 +1,4 @@
-use super::{Tensor, TensorError, TensorRank0};
+use super::{Tensor, TensorError, Scalar};
 use crate::{ABS_TOL, REL_TOL, defeat_message};
 use std::{
     cmp::PartialEq,
@@ -16,7 +16,7 @@ use super::{
 
 #[cfg(test)]
 pub trait ErrorTensor {
-    fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)>;
+    fn error_fd(&self, comparator: &Self, epsilon: Scalar) -> Option<(bool, usize)>;
 }
 
 pub fn assert_eq<'a, T>(value_1: &'a T, value_2: &'a T) -> Result<(), TestError>
@@ -39,7 +39,7 @@ pub fn assert_eq_from_fd<'a, T>(value: &'a T, value_fd: &'a T) -> Result<(), Tes
 where
     T: Display + ErrorTensor + Tensor,
 {
-    if let Some((failed, count)) = value.error_fd(value_fd, &(3.0 * EPSILON)) {
+    if let Some((failed, count)) = value.error_fd(value_fd, 3.0 * EPSILON) {
         if failed {
             let abs = value.sub_abs(value_fd);
             let rel = value.sub_rel(value_fd);
@@ -62,8 +62,8 @@ where
 pub fn assert_eq_within<'a, T>(
     value_1: &'a T,
     value_2: &'a T,
-    tol_abs: &TensorRank0,
-    tol_rel: &TensorRank0,
+    tol_abs: Scalar,
+    tol_rel: Scalar,
 ) -> Result<(), TestError>
 where
     T: Display + Tensor,
@@ -85,7 +85,7 @@ pub fn assert_eq_within_tols<'a, T>(value_1: &'a T, value_2: &'a T) -> Result<()
 where
     T: Display + Tensor,
 {
-    assert_eq_within(value_1, value_2, &ABS_TOL, &REL_TOL)
+    assert_eq_within(value_1, value_2, ABS_TOL, REL_TOL)
 }
 
 pub struct TestError {

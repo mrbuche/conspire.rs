@@ -483,8 +483,8 @@ fn dyad() {
 fn error() {
     let a = get_tensor_rank_1_a();
     let b = get_tensor_rank_1_b();
-    assert_eq!(a.error_count(&a, &ABS_TOL, &REL_TOL), None);
-    assert_eq!(a.error_count(&b, &ABS_TOL, &REL_TOL), Some(4));
+    assert_eq!(a.error_count(&a, ABS_TOL, REL_TOL), None);
+    assert_eq!(a.error_count(&b, ABS_TOL, REL_TOL), Some(4));
 }
 
 #[test]

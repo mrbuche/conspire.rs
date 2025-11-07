@@ -200,23 +200,6 @@ where
     }
 }
 
-impl<T1, T2> Mul<&TensorRank0> for &TensorTuple<T1, T2>
-where
-    T1: Tensor,
-    T2: Tensor,
-{
-    type Output = TensorTuple<T1, T2>;
-    fn mul(self, tensor_rank_0: &TensorRank0) -> Self::Output {
-        //
-        // Cloning for now to avoid trait recursion nightmare.
-        //
-        TensorTuple(
-            self.0.clone() * tensor_rank_0,
-            self.1.clone() * tensor_rank_0,
-        )
-    }
-}
-
 impl<T1, T2> MulAssign<TensorRank0> for TensorTuple<T1, T2>
 where
     T1: Tensor,

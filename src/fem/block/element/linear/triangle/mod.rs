@@ -21,7 +21,7 @@ impl<'a, C> SurfaceFiniteElement<'a, C, G, N, P> for Triangle<'a, C> {
     fn new(
         constitutive_model: &'a C,
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
-        thickness: &Scalar,
+        thickness: Scalar,
     ) -> Self {
         let integration_weights = Self::bases(&reference_nodal_coordinates)
             .iter()

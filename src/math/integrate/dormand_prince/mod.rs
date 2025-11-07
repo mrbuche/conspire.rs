@@ -107,8 +107,8 @@ where
         &self,
         mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
         y: &Y,
-        t: &Scalar,
-        dt: &Scalar,
+        t: Scalar,
+        dt: Scalar,
         k: &mut [Y],
         y_trial: &mut Y,
     ) -> Result<Scalar, String> {
@@ -132,7 +132,7 @@ where
         *y_trial = (&k[0] * C_35_384 + &k[2] * C_500_1113 + &k[3] * C_125_192
             - &k[4] * C_2187_6784
             + &k[5] * C_11_84)
-            * *dt
+            * dt
             + y;
         k[6] = function(t + dt, y_trial)?;
         Ok(
@@ -140,7 +140,7 @@ where
                 - &k[4] * C_17253_339200
                 + &k[5] * C_22_525
                 - &k[6] * 0.025)
-                * *dt)
+                * dt)
                 .norm_inf(),
         )
     }
@@ -155,9 +155,9 @@ where
         dt: &mut Scalar,
         k: &mut [Y],
         y_trial: &Y,
-        e: &Scalar,
+        e: Scalar,
     ) -> Result<(), String> {
-        if e < &self.abs_tol || e / y_trial.norm_inf() < self.rel_tol {
+        if e < self.abs_tol || e / y_trial.norm_inf() < self.rel_tol {
             k[0] = k[6].clone();
             *t += *dt;
             *y = y_trial.clone();
@@ -165,7 +165,7 @@ where
             y_sol.push(y.clone());
             dydt_sol.push(k[0].clone());
         }
-        if e > &0.0 {
+        if e > 0.0 {
             *dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn)
         }
         Ok(())

@@ -152,11 +152,11 @@ where
         + Default
         + Display
         + Div<TensorRank0, Output = Self>
-        + Div<&'a TensorRank0, Output = Self>
+        // + Div<&'a TensorRank0, Output = Self>
         + DivAssign<TensorRank0>
         + DivAssign<&'a TensorRank0>
         + Mul<TensorRank0, Output = Self>
-        + Mul<&'a TensorRank0, Output = Self>
+        // + Mul<&'a TensorRank0, Output = Self>
         + MulAssign<TensorRank0>
         + MulAssign<&'a TensorRank0>
         + Sub<Self, Output = Self>
@@ -169,7 +169,7 @@ where
     /// The type of item encountered when iterating over the tensor.
     type Item;
     /// Returns number of different entries given absolute and relative tolerances.
-    fn error_count(&self, other: &Self, tol_abs: &Scalar, tol_rel: &Scalar) -> Option<usize> {
+    fn error_count(&self, other: &Self, tol_abs: Scalar, tol_rel: Scalar) -> Option<usize> {
         let error_count = self
             .iter()
             .zip(other.iter())
