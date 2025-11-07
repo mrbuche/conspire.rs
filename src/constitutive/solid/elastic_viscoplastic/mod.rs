@@ -303,7 +303,7 @@ where
                     time,
                     StateVariables::from((
                         DeformationGradientPlastic::identity(),
-                        *self.initial_yield_stress(),
+                        self.initial_yield_stress(),
                     )),
                     DeformationGradient::identity(),
                 )
@@ -385,7 +385,7 @@ where
                     time,
                     StateVariables::from((
                         DeformationGradientPlastic::identity(),
-                        *self.initial_yield_stress(),
+                        self.initial_yield_stress(),
                     )),
                     DeformationGradient::identity(),
                 )

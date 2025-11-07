@@ -37,7 +37,7 @@ where
     Self: Debug,
 {
     /// Returns the bulk modulus.
-    fn bulk_modulus(&self) -> &Scalar;
+    fn bulk_modulus(&self) -> Scalar;
     /// Returns the shear modulus.
-    fn shear_modulus(&self) -> &Scalar;
+    fn shear_modulus(&self) -> Scalar;
 }

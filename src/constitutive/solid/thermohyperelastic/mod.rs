@@ -22,6 +22,6 @@ where
     fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: &Scalar,
+        temperature: Scalar,
     ) -> Result<Scalar, ConstitutiveError>;
 }

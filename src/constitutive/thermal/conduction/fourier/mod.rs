@@ -20,8 +20,8 @@ pub struct Fourier {
 }
 
 impl Fourier {
-    fn thermal_conductivity(&self) -> &Scalar {
-        &self.thermal_conductivity
+    fn thermal_conductivity(&self) -> Scalar {
+        self.thermal_conductivity
     }
 }
 

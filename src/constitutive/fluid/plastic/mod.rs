@@ -9,7 +9,7 @@ where
     Self: Debug,
 {
     /// Returns the initial yield stress.
-    fn initial_yield_stress(&self) -> &Scalar;
+    fn initial_yield_stress(&self) -> Scalar;
     /// Returns the isotropic hardening slope.
-    fn hardening_slope(&self) -> &Scalar;
+    fn hardening_slope(&self) -> Scalar;
 }

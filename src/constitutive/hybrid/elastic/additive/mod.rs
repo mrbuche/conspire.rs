@@ -13,20 +13,19 @@ use crate::{
         SecondPiolaKirchhoffTangentStiffness,
     },
 };
-use std::fmt::Debug;
 
 impl<C1, C2> Solid for Additive<C1, C2>
 where
-    C1: Solid,
-    C2: Solid,
+    C1: Elastic,
+    C2: Elastic,
 {
-    /// Dummy method that will panic.
-    fn bulk_modulus(&self) -> &Scalar {
-        panic!()
+    fn bulk_modulus(&self) -> Scalar {
+        self.constitutive_model_1().bulk_modulus()
+            + self.constitutive_model_2().bulk_modulus()
     }
-    /// Dummy method that will panic.
-    fn shear_modulus(&self) -> &Scalar {
-        panic!()
+    fn shear_modulus(&self) -> Scalar {
+        self.constitutive_model_1().shear_modulus()
+            + self.constitutive_model_2().shear_modulus()
     }
 }
 

@@ -35,29 +35,29 @@ pub struct SaintVenantKirchhoff {
 }
 
 impl Solid for SaintVenantKirchhoff {
-    fn bulk_modulus(&self) -> &Scalar {
-        &self.bulk_modulus
+    fn bulk_modulus(&self) -> Scalar {
+        self.bulk_modulus
     }
-    fn shear_modulus(&self) -> &Scalar {
-        &self.shear_modulus
+    fn shear_modulus(&self) -> Scalar {
+        self.shear_modulus
     }
 }
 
 impl Plastic for SaintVenantKirchhoff {
-    fn initial_yield_stress(&self) -> &Scalar {
-        &self.initial_yield_stress
+    fn initial_yield_stress(&self) -> Scalar {
+        self.initial_yield_stress
     }
-    fn hardening_slope(&self) -> &Scalar {
-        &self.hardening_slope
+    fn hardening_slope(&self) -> Scalar {
+        self.hardening_slope
     }
 }
 
 impl Viscoplastic for SaintVenantKirchhoff {
-    fn rate_sensitivity(&self) -> &Scalar {
-        &self.rate_sensitivity
+    fn rate_sensitivity(&self) -> Scalar {
+        self.rate_sensitivity
     }
-    fn reference_flow_rate(&self) -> &Scalar {
-        &self.reference_flow_rate
+    fn reference_flow_rate(&self) -> Scalar {
+        self.reference_flow_rate
     }
 }
 

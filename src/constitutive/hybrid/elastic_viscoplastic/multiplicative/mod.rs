@@ -26,10 +26,10 @@ use crate::{
 //     C1: Elastic,
 //     C2: Viscoplastic,
 // {
-//     fn bulk_modulus(&self) -> &Scalar {
+//     fn bulk_modulus(&self) -> Scalar {
 //         self.constitutive_model_1().bulk_modulus()
 //     }
-//     fn shear_modulus(&self) -> &Scalar {
+//     fn shear_modulus(&self) -> Scalar {
 //         self.constitutive_model_1().shear_modulus()
 //     }
 // }
@@ -40,10 +40,10 @@ where
     C1: Elastic,
     C2: Viscoplastic,
 {
-    fn initial_yield_stress(&self) -> &Scalar {
+    fn initial_yield_stress(&self) -> Scalar {
         self.constitutive_model_2().initial_yield_stress()
     }
-    fn hardening_slope(&self) -> &Scalar {
+    fn hardening_slope(&self) -> Scalar {
         self.constitutive_model_2().hardening_slope()
     }
 }
@@ -53,10 +53,10 @@ where
     C1: Elastic,
     C2: Viscoplastic,
 {
-    fn rate_sensitivity(&self) -> &Scalar {
+    fn rate_sensitivity(&self) -> Scalar {
         self.constitutive_model_2().rate_sensitivity()
     }
-    fn reference_flow_rate(&self) -> &Scalar {
+    fn reference_flow_rate(&self) -> Scalar {
         self.constitutive_model_2().reference_flow_rate()
     }
 }

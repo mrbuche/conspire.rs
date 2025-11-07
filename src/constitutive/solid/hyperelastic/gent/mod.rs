@@ -23,17 +23,17 @@ pub struct Gent {
 
 impl Gent {
     /// Returns the extensibility.
-    pub fn extensibility(&self) -> &Scalar {
-        &self.extensibility
+    pub fn extensibility(&self) -> Scalar {
+        self.extensibility
     }
 }
 
 impl Solid for Gent {
-    fn bulk_modulus(&self) -> &Scalar {
-        &self.bulk_modulus
+    fn bulk_modulus(&self) -> Scalar {
+        self.bulk_modulus
     }
-    fn shear_modulus(&self) -> &Scalar {
-        &self.shear_modulus
+    fn shear_modulus(&self) -> Scalar {
+        self.shear_modulus
     }
 }
 

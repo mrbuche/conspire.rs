@@ -20,11 +20,11 @@ pub struct Hencky {
 }
 
 impl Solid for Hencky {
-    fn bulk_modulus(&self) -> &Scalar {
-        &self.bulk_modulus
+    fn bulk_modulus(&self) -> Scalar {
+        self.bulk_modulus
     }
-    fn shear_modulus(&self) -> &Scalar {
-        &self.shear_modulus
+    fn shear_modulus(&self) -> Scalar {
+        self.shear_modulus
     }
 }
 

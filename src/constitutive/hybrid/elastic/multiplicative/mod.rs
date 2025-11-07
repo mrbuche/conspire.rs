@@ -26,11 +26,11 @@ where
     C2: std::fmt::Debug,
 {
     /// Dummy method that will panic.
-    fn bulk_modulus(&self) -> &Scalar {
+    fn bulk_modulus(&self) -> Scalar {
         panic!()
     }
     /// Dummy method that will panic.
-    fn shear_modulus(&self) -> &Scalar {
+    fn shear_modulus(&self) -> Scalar {
         panic!()
     }
 }

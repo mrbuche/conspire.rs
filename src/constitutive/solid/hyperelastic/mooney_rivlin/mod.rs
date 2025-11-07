@@ -23,17 +23,17 @@ pub struct MooneyRivlin {
 
 impl MooneyRivlin {
     /// Returns the extra modulus.
-    pub fn extra_modulus(&self) -> &Scalar {
-        &self.extra_modulus
+    pub fn extra_modulus(&self) -> Scalar {
+        self.extra_modulus
     }
 }
 
 impl Solid for MooneyRivlin {
-    fn bulk_modulus(&self) -> &Scalar {
-        &self.bulk_modulus
+    fn bulk_modulus(&self) -> Scalar {
+        self.bulk_modulus
     }
-    fn shear_modulus(&self) -> &Scalar {
-        &self.shear_modulus
+    fn shear_modulus(&self) -> Scalar {
+        self.shear_modulus
     }
 }
 

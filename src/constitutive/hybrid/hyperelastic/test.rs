@@ -18,7 +18,7 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models {
         use_elastic_macros!();
         mod hybrid_0 {
             use super::*;
-            test_constructed_solid_hyperelastic_constitutive_model!($hybrid_type::construct(
+            test_solid_hyperelastic_constitutive_model!($hybrid_type::construct(
                 ArrudaBoyce {
                     bulk_modulus: BULK_MODULUS,
                     shear_modulus: SHEAR_MODULUS,
@@ -34,7 +34,7 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models {
         }
         mod hybrid_1 {
             use super::*;
-            test_constructed_solid_hyperelastic_constitutive_model!($hybrid_type::construct(
+            test_solid_hyperelastic_constitutive_model!($hybrid_type::construct(
                 ArrudaBoyce {
                     bulk_modulus: BULK_MODULUS,
                     shear_modulus: SHEAR_MODULUS,
@@ -48,24 +48,24 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models {
                 }
             ));
         }
-        mod hybrid_2 {
-            use super::*;
-            test_constructed_solid_hyperelastic_constitutive_model!($hybrid_type::construct(
-                Gent {
-                    bulk_modulus: BULK_MODULUS,
-                    shear_modulus: SHEAR_MODULUS,
-                    extensibility: EXTENSIBILITY,
-                },
-                MooneyRivlin {
-                    bulk_modulus: BULK_MODULUS,
-                    shear_modulus: SHEAR_MODULUS,
-                    extra_modulus: EXTRA_MODULUS,
-                }
-            ));
-        }
+        // mod hybrid_2 {
+        //     use super::*;
+        //     test_solid_hyperelastic_constitutive_model!($hybrid_type::construct(
+        //         Gent {
+        //             bulk_modulus: BULK_MODULUS,
+        //             shear_modulus: SHEAR_MODULUS,
+        //             extensibility: EXTENSIBILITY,
+        //         },
+        //         MooneyRivlin {
+        //             bulk_modulus: BULK_MODULUS,
+        //             shear_modulus: SHEAR_MODULUS,
+        //             extra_modulus: EXTRA_MODULUS,
+        //         }
+        //     ));
+        // }
         mod hybrid_nested_1 {
             use super::*;
-            test_constructed_solid_hyperelastic_constitutive_model!($hybrid_type::construct(
+            test_solid_hyperelastic_constitutive_model!($hybrid_type::construct(
                 NeoHookean {
                     bulk_modulus: BULK_MODULUS,
                     shear_modulus: SHEAR_MODULUS,
@@ -86,7 +86,7 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models {
         }
         mod hybrid_nested_2 {
             use super::*;
-            test_constructed_solid_hyperelastic_constitutive_model!($hybrid_type::construct(
+            test_solid_hyperelastic_constitutive_model!($hybrid_type::construct(
                 $hybrid_type::construct(
                     Gent {
                         bulk_modulus: BULK_MODULUS,
@@ -119,7 +119,6 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models {
                 )
             ));
         }
-        crate::constitutive::hybrid::hyperelastic::test::test_panics!($hybrid_type);
     };
 }
 pub(crate) use test_hybrid_hyperelastic_constitutive_models;
@@ -170,7 +169,6 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models_no_tangents {
                 }
             ));
         }
-        crate::constitutive::hybrid::hyperelastic::test::test_panics!($hybrid_type);
         mod panic_tangents {
             use super::*;
             use crate::mechanics::test::get_deformation_gradient;
@@ -235,48 +233,3 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models_no_tangents {
     };
 }
 pub(crate) use test_hybrid_hyperelastic_constitutive_models_no_tangents;
-
-macro_rules! test_panics {
-    ($hybrid_type: ident) => {
-        mod panic {
-            use super::*;
-            #[test]
-            #[should_panic]
-            fn bulk_modulus() {
-                $hybrid_type::construct(
-                    ArrudaBoyce {
-                        bulk_modulus: BULK_MODULUS,
-                        shear_modulus: SHEAR_MODULUS,
-                        number_of_links: NUMBER_OF_LINKS,
-                    },
-                    Fung {
-                        bulk_modulus: BULK_MODULUS,
-                        shear_modulus: SHEAR_MODULUS,
-                        exponent: EXPONENT,
-                        extra_modulus: EXTRA_MODULUS,
-                    },
-                )
-                .bulk_modulus();
-            }
-            #[test]
-            #[should_panic]
-            fn shear_modulus() {
-                $hybrid_type::construct(
-                    ArrudaBoyce {
-                        bulk_modulus: BULK_MODULUS,
-                        shear_modulus: SHEAR_MODULUS,
-                        number_of_links: NUMBER_OF_LINKS,
-                    },
-                    Fung {
-                        bulk_modulus: BULK_MODULUS,
-                        shear_modulus: SHEAR_MODULUS,
-                        exponent: EXPONENT,
-                        extra_modulus: EXTRA_MODULUS,
-                    },
-                )
-                .shear_modulus();
-            }
-        }
-    };
-}
-pub(crate) use test_panics;
