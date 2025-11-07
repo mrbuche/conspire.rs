@@ -316,7 +316,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> AddAssign
 {
     fn add_assign(&mut self, tensor_rank_3: Self) {
         self.iter_mut()
-            .zip(tensor_rank_3.iter())
+            .zip(tensor_rank_3)
             .for_each(|(self_i, tensor_rank_3_i)| *self_i += tensor_rank_3_i);
     }
 }
@@ -369,7 +369,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> SubAssign
 {
     fn sub_assign(&mut self, tensor_rank_3: Self) {
         self.iter_mut()
-            .zip(tensor_rank_3.iter())
+            .zip(tensor_rank_3)
             .for_each(|(self_i, tensor_rank_3_i)| *self_i -= tensor_rank_3_i);
     }
 }

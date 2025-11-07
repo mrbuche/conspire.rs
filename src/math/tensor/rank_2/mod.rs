@@ -1230,7 +1230,7 @@ impl<const D: usize, const I: usize, const J: usize> Mul<TensorRank1<D, J>>
 {
     type Output = TensorRank1<D, I>;
     fn mul(self, tensor_rank_1: TensorRank1<D, J>) -> Self::Output {
-        self.iter().map(|self_i| self_i * &tensor_rank_1).collect()
+        self.into_iter().map(|self_i| self_i * &tensor_rank_1).collect()
     }
 }
 
@@ -1239,7 +1239,7 @@ impl<const D: usize, const I: usize, const J: usize> Mul<&TensorRank1<D, J>>
 {
     type Output = TensorRank1<D, I>;
     fn mul(self, tensor_rank_1: &TensorRank1<D, J>) -> Self::Output {
-        self.iter().map(|self_i| self_i * tensor_rank_1).collect()
+        self.into_iter().map(|self_i| self_i * tensor_rank_1).collect()
     }
 }
 
@@ -1290,7 +1290,7 @@ impl<const D: usize, const I: usize, const J: usize> Add<TensorRank2<D, I, J>>
 impl<const D: usize, const I: usize, const J: usize> AddAssign for TensorRank2<D, I, J> {
     fn add_assign(&mut self, tensor_rank_2: Self) {
         self.iter_mut()
-            .zip(tensor_rank_2.iter())
+            .zip(tensor_rank_2)
             .for_each(|(self_i, tensor_rank_2_i)| *self_i += tensor_rank_2_i);
     }
 }
@@ -1308,10 +1308,10 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<TensorR
 {
     type Output = TensorRank2<D, I, K>;
     fn mul(self, tensor_rank_2: TensorRank2<D, J, K>) -> Self::Output {
-        self.iter()
+        self.into_iter()
             .map(|self_i| {
                 self_i
-                    .iter()
+                    .into_iter()
                     .zip(tensor_rank_2.iter())
                     .map(|(self_ij, tensor_rank_2_j)| tensor_rank_2_j * self_ij)
                     .sum()
@@ -1325,10 +1325,10 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<&Tensor
 {
     type Output = TensorRank2<D, I, K>;
     fn mul(self, tensor_rank_2: &TensorRank2<D, J, K>) -> Self::Output {
-        self.iter()
+        self.into_iter()
             .map(|self_i| {
                 self_i
-                    .iter()
+                    .into_iter()
                     .zip(tensor_rank_2.iter())
                     .map(|(self_ij, tensor_rank_2_j)| tensor_rank_2_j * self_ij)
                     .sum()
@@ -1426,7 +1426,7 @@ impl<const D: usize, const I: usize, const J: usize> Sub for &TensorRank2<D, I, 
 impl<const D: usize, const I: usize, const J: usize> SubAssign for TensorRank2<D, I, J> {
     fn sub_assign(&mut self, tensor_rank_2: Self) {
         self.iter_mut()
-            .zip(tensor_rank_2.iter())
+            .zip(tensor_rank_2)
             .for_each(|(self_i, tensor_rank_2_i)| *self_i -= tensor_rank_2_i);
     }
 }
@@ -1445,7 +1445,7 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize> Mul<TensorR
     type Output = TensorRank1List<D, I, W>;
     fn mul(self, tensor_rank_1_list: TensorRank1List<D, J, W>) -> Self::Output {
         tensor_rank_1_list
-            .iter()
+            .into_iter()
             .map(|tensor_rank_1| &self * tensor_rank_1)
             .collect()
     }
@@ -1469,7 +1469,7 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize> Mul<TensorR
     type Output = TensorRank1List<D, I, W>;
     fn mul(self, tensor_rank_1_list: TensorRank1List<D, J, W>) -> Self::Output {
         tensor_rank_1_list
-            .iter()
+            .into_iter()
             .map(|tensor_rank_1| self * tensor_rank_1)
             .collect()
     }
@@ -1493,7 +1493,7 @@ impl<const D: usize, const I: usize, const J: usize> Mul<TensorRank1Vec<D, J>>
     type Output = TensorRank1Vec<D, I>;
     fn mul(self, tensor_rank_1_vec: TensorRank1Vec<D, J>) -> Self::Output {
         tensor_rank_1_vec
-            .iter()
+            .into_iter()
             .map(|tensor_rank_1| &self * tensor_rank_1)
             .collect()
     }
@@ -1517,7 +1517,7 @@ impl<const D: usize, const I: usize, const J: usize> Mul<TensorRank1Vec<D, J>>
     type Output = TensorRank1Vec<D, I>;
     fn mul(self, tensor_rank_1_vec: TensorRank1Vec<D, J>) -> Self::Output {
         tensor_rank_1_vec
-            .iter()
+            .into_iter()
             .map(|tensor_rank_1| self * tensor_rank_1)
             .collect()
     }
@@ -1541,10 +1541,10 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: us
     type Output = TensorRank2List2D<D, I, K, W, X>;
     fn mul(self, tensor_rank_2_list_2d: TensorRank2List2D<D, J, K, W, X>) -> Self::Output {
         tensor_rank_2_list_2d
-            .iter()
+            .into_iter()
             .map(|tensor_rank_2_list_2d_entry| {
                 tensor_rank_2_list_2d_entry
-                    .iter()
+                    .into_iter()
                     .map(|tensor_rank_2| &self * tensor_rank_2)
                     .collect()
             })
@@ -1558,10 +1558,10 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: us
     type Output = TensorRank2List2D<D, I, K, W, X>;
     fn mul(self, tensor_rank_2_list_2d: TensorRank2List2D<D, J, K, W, X>) -> Self::Output {
         tensor_rank_2_list_2d
-            .iter()
+            .into_iter()
             .map(|tensor_rank_2_list_2d_entry| {
                 tensor_rank_2_list_2d_entry
-                    .iter()
+                    .into_iter()
                     .map(|tensor_rank_2| self * tensor_rank_2)
                     .collect()
             })
@@ -1575,10 +1575,10 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<TensorR
     type Output = TensorRank2Vec2D<D, I, K>;
     fn mul(self, tensor_rank_2_list_2d: TensorRank2Vec2D<D, J, K>) -> Self::Output {
         tensor_rank_2_list_2d
-            .iter()
+            .into_iter()
             .map(|tensor_rank_2_list_2d_entry| {
                 tensor_rank_2_list_2d_entry
-                    .iter()
+                    .into_iter()
                     .map(|tensor_rank_2| &self * tensor_rank_2)
                     .collect()
             })
@@ -1592,10 +1592,10 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<TensorR
     type Output = TensorRank2Vec2D<D, I, K>;
     fn mul(self, tensor_rank_2_list_2d: TensorRank2Vec2D<D, J, K>) -> Self::Output {
         tensor_rank_2_list_2d
-            .iter()
+            .into_iter()
             .map(|tensor_rank_2_list_2d_entry| {
                 tensor_rank_2_list_2d_entry
-                    .iter()
+                    .into_iter()
                     .map(|tensor_rank_2| self * tensor_rank_2)
                     .collect()
             })

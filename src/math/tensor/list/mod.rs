@@ -308,7 +308,7 @@ where
 {
     fn add_assign(&mut self, tensor_list: Self) {
         self.iter_mut()
-            .zip(tensor_list.iter())
+            .zip(tensor_list)
             .for_each(|(self_entry, entry)| *self_entry += entry);
     }
 }
@@ -352,7 +352,7 @@ where
 {
     fn sub_assign(&mut self, tensor_list: Self) {
         self.iter_mut()
-            .zip(tensor_list.iter())
+            .zip(tensor_list)
             .for_each(|(self_entry, entry)| *self_entry -= entry);
     }
 }
