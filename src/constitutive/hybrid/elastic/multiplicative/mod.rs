@@ -25,13 +25,11 @@ where
     C1: Solid,
     C2: std::fmt::Debug,
 {
-    /// Dummy method that will panic.
     fn bulk_modulus(&self) -> Scalar {
-        panic!("what would this be?")
+        todo!()
     }
-    /// Dummy method that will panic.
     fn shear_modulus(&self) -> Scalar {
-        panic!("what would this be?")
+        todo!()
     }
 }
 

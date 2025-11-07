@@ -7565,12 +7565,7 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
                                     1e1 * tol,
                                     1e1 * tol,
                                 )?;
-                                assert_eq_within(
-                                    yield_stress_g,
-                                    yield_stress,
-                                    1e1 * tol,
-                                    1e1 * tol,
-                                )
+                                assert_eq_within(yield_stress_g, yield_stress, 1e1 * tol, 1e1 * tol)
                             })
                     })
             },

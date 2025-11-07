@@ -70,8 +70,7 @@ impl ErrorTensor for Vector {
                         .filter(|&(&entry_i, &comparator_entry_i)| {
                             (entry_i / comparator_entry_i - 1.0).abs() >= epsilon
                                 && (entry_i - comparator_entry_i).abs() >= epsilon
-                                && (entry_i.abs() >= epsilon
-                                    || comparator_entry_i.abs() >= epsilon)
+                                && (entry_i.abs() >= epsilon || comparator_entry_i.abs() >= epsilon)
                         })
                         .count()
                 })

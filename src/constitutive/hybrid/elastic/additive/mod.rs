@@ -20,12 +20,10 @@ where
     C2: Elastic,
 {
     fn bulk_modulus(&self) -> Scalar {
-        self.constitutive_model_1().bulk_modulus()
-            + self.constitutive_model_2().bulk_modulus()
+        self.constitutive_model_1().bulk_modulus() + self.constitutive_model_2().bulk_modulus()
     }
     fn shear_modulus(&self) -> Scalar {
-        self.constitutive_model_1().shear_modulus()
-            + self.constitutive_model_2().shear_modulus()
+        self.constitutive_model_1().shear_modulus() + self.constitutive_model_2().shear_modulus()
     }
 }
 

@@ -1230,7 +1230,9 @@ impl<const D: usize, const I: usize, const J: usize> Mul<TensorRank1<D, J>>
 {
     type Output = TensorRank1<D, I>;
     fn mul(self, tensor_rank_1: TensorRank1<D, J>) -> Self::Output {
-        self.into_iter().map(|self_i| self_i * &tensor_rank_1).collect()
+        self.into_iter()
+            .map(|self_i| self_i * &tensor_rank_1)
+            .collect()
     }
 }
 
@@ -1239,7 +1241,9 @@ impl<const D: usize, const I: usize, const J: usize> Mul<&TensorRank1<D, J>>
 {
     type Output = TensorRank1<D, I>;
     fn mul(self, tensor_rank_1: &TensorRank1<D, J>) -> Self::Output {
-        self.into_iter().map(|self_i| self_i * tensor_rank_1).collect()
+        self.into_iter()
+            .map(|self_i| self_i * tensor_rank_1)
+            .collect()
     }
 }
 

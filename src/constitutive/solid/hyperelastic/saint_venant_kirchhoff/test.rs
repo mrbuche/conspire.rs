@@ -5,5 +5,3 @@ test_solid_hyperelastic_constitutive_model!(SaintVenantKirchhoff {
     bulk_modulus: BULK_MODULUS,
     shear_modulus: SHEAR_MODULUS,
 });
-
-use crate::mechanics::CauchyTangentStiffness;

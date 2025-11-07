@@ -1,4 +1,4 @@
-use super::{Tensor, TensorError, Scalar};
+use super::{Scalar, Tensor, TensorError};
 use crate::{ABS_TOL, REL_TOL, defeat_message};
 use std::{
     cmp::PartialEq,

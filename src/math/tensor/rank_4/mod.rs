@@ -533,21 +533,16 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
         tensor_rank_2: &TensorRank2<D, J, N>,
     ) -> Self::Output {
         let mut output = TensorRank4::zero();
-        output
-            .iter_mut()
-            .zip(self)
-            .for_each(|(output_i, self_i)| {
-                self_i
-                    .into_iter()
-                    .zip(tensor_rank_2.iter())
-                    .for_each(|(self_is, tensor_rank_2_s)| {
-                        output_i.iter_mut().zip(tensor_rank_2_s.iter()).for_each(
-                            |(output_ij, tensor_rank_2_sj)| {
-                                *output_ij += &self_is * tensor_rank_2_sj
-                            },
-                        )
-                    })
-            });
+        output.iter_mut().zip(self).for_each(|(output_i, self_i)| {
+            self_i
+                .into_iter()
+                .zip(tensor_rank_2.iter())
+                .for_each(|(self_is, tensor_rank_2_s)| {
+                    output_i.iter_mut().zip(tensor_rank_2_s.iter()).for_each(
+                        |(output_ij, tensor_rank_2_sj)| *output_ij += &self_is * tensor_rank_2_sj,
+                    )
+                })
+        });
         output
     }
 }
