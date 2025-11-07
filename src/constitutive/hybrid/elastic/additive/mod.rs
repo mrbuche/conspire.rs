@@ -17,8 +17,8 @@ use std::fmt::Debug;
 
 impl<C1, C2> Solid for Additive<C1, C2>
 where
-    C1: Debug,
-    C2: Debug,
+    C1: Solid,
+    C2: Solid,
 {
     /// Dummy method that will panic.
     fn bulk_modulus(&self) -> &Scalar {

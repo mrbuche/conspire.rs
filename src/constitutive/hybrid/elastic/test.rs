@@ -14,7 +14,7 @@ macro_rules! test_hybrid_elastic_constitutive_models {
         };
         mod hybrid_1 {
             use super::*;
-            test_constructed_solid_constitutive_model!($hybrid_type::construct(
+            test_solid_constitutive_model!($hybrid_type::construct(
                 AlmansiHamel {
                     bulk_modulus: BULK_MODULUS,
                     shear_modulus: SHEAR_MODULUS,
