@@ -5,7 +5,7 @@ use crate::constitutive::solid::thermoelastic::{
 };
 
 test_thermoelastic_thermal_conduction_constitutive_model!(
-    ThermoelasticThermalConduction::construct(
+    ThermoelasticThermalConduction::from((
         AlmansiHamel {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
@@ -15,7 +15,7 @@ test_thermoelastic_thermal_conduction_constitutive_model!(
         Fourier {
             thermal_conductivity: THERMAL_CONDUCTIVITY
         },
-    ),
+    )),
     AlmansiHamel {
         bulk_modulus: BULK_MODULUS,
         shear_modulus: SHEAR_MODULUS,

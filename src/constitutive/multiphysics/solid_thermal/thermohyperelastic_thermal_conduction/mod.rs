@@ -29,6 +29,22 @@ where
     thermal_conduction_constitutive_model: C2,
 }
 
+impl<C1, C2> From<(C1, C2)> for ThermohyperelasticThermalConduction<C1, C2>
+where
+    C1: Thermohyperelastic,
+    C2: ThermalConduction,
+    Self: SolidThermal<C1, C2>,
+{
+    fn from(
+        (thermohyperelastic_constitutive_model, thermal_conduction_constitutive_model): (C1, C2),
+    ) -> Self {
+        Self {
+            thermohyperelastic_constitutive_model,
+            thermal_conduction_constitutive_model,
+        }
+    }
+}
+
 impl<C1, C2> Solid for ThermohyperelasticThermalConduction<C1, C2>
 where
     C1: Thermohyperelastic,
@@ -155,15 +171,6 @@ where
     C1: Thermohyperelastic,
     C2: ThermalConduction,
 {
-    fn construct(
-        thermohyperelastic_constitutive_model: C1,
-        thermal_conduction_constitutive_model: C2,
-    ) -> Self {
-        Self {
-            thermohyperelastic_constitutive_model,
-            thermal_conduction_constitutive_model,
-        }
-    }
     fn solid_constitutive_model(&self) -> &C1 {
         &self.thermohyperelastic_constitutive_model
     }

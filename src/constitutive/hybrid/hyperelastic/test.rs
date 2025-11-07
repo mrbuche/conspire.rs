@@ -1,10 +1,7 @@
 macro_rules! test_hybrid_hyperelastic_constitutive_models {
     ($hybrid_type: ident) => {
-        use crate::constitutive::{
-            hybrid::Hybrid,
-            solid::hyperelastic::{ArrudaBoyce, Fung, test::*},
-        };
-        test_solid_hyperelastic_constitutive_model!($hybrid_type::construct(
+        use crate::constitutive::solid::hyperelastic::{ArrudaBoyce, Fung, test::*};
+        test_solid_hyperelastic_constitutive_model!($hybrid_type::from((
             ArrudaBoyce {
                 bulk_modulus: BULK_MODULUS,
                 shear_modulus: SHEAR_MODULUS,
@@ -16,7 +13,7 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models {
                 exponent: EXPONENT,
                 extra_modulus: EXTRA_MODULUS,
             }
-        ));
+        )));
     };
 }
 pub(crate) use test_hybrid_hyperelastic_constitutive_models;
@@ -24,19 +21,16 @@ pub(crate) use test_hybrid_hyperelastic_constitutive_models;
 macro_rules! test_hybrid_hyperelastic_constitutive_models_no_tangents {
     ($hybrid_type: ident) => {
         use crate::{
-            constitutive::{
-                hybrid::Hybrid,
-                solid::{
-                    Solid,
-                    elastic::Elastic,
-                    hyperelastic::{ArrudaBoyce, Fung, Hyperelastic, test::*},
-                },
+            constitutive::solid::{
+                Solid,
+                elastic::Elastic,
+                hyperelastic::{ArrudaBoyce, Fung, Hyperelastic, test::*},
             },
             math::{Rank2, Tensor},
             mechanics::DeformationGradient,
         };
         use_elastic_macros_no_tangents!();
-        test_solid_hyperelastic_constitutive_model_no_tangents!($hybrid_type::construct(
+        test_solid_hyperelastic_constitutive_model_no_tangents!($hybrid_type::from((
             ArrudaBoyce {
                 bulk_modulus: BULK_MODULUS,
                 shear_modulus: SHEAR_MODULUS,
@@ -48,14 +42,14 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models_no_tangents {
                 exponent: EXPONENT,
                 extra_modulus: EXTRA_MODULUS,
             }
-        ));
+        )));
         mod panic_tangents {
             use super::*;
             use crate::mechanics::test::get_deformation_gradient;
             #[test]
             #[should_panic]
             fn cauchy_tangent_stiffness() {
-                $hybrid_type::construct(
+                $hybrid_type::from((
                     ArrudaBoyce {
                         bulk_modulus: BULK_MODULUS,
                         shear_modulus: SHEAR_MODULUS,
@@ -67,14 +61,14 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models_no_tangents {
                         exponent: EXPONENT,
                         extra_modulus: EXTRA_MODULUS,
                     },
-                )
+                ))
                 .cauchy_tangent_stiffness(&get_deformation_gradient())
                 .unwrap();
             }
             #[test]
             #[should_panic]
             fn first_piola_kirchhoff_tangent_stiffness() {
-                $hybrid_type::construct(
+                $hybrid_type::from((
                     ArrudaBoyce {
                         bulk_modulus: BULK_MODULUS,
                         shear_modulus: SHEAR_MODULUS,
@@ -86,14 +80,14 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models_no_tangents {
                         exponent: EXPONENT,
                         extra_modulus: EXTRA_MODULUS,
                     },
-                )
+                ))
                 .cauchy_tangent_stiffness(&get_deformation_gradient())
                 .unwrap();
             }
             #[test]
             #[should_panic]
             fn second_piola_kirchhoff_tangent_stiffness() {
-                $hybrid_type::construct(
+                $hybrid_type::from((
                     ArrudaBoyce {
                         bulk_modulus: BULK_MODULUS,
                         shear_modulus: SHEAR_MODULUS,
@@ -105,14 +99,14 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models_no_tangents {
                         exponent: EXPONENT,
                         extra_modulus: EXTRA_MODULUS,
                     },
-                )
+                ))
                 .cauchy_tangent_stiffness(&get_deformation_gradient())
                 .unwrap();
             }
             #[test]
             #[should_panic]
             fn bulk_modulus() {
-                $hybrid_type::construct(
+                $hybrid_type::from((
                     ArrudaBoyce {
                         bulk_modulus: BULK_MODULUS,
                         shear_modulus: SHEAR_MODULUS,
@@ -124,13 +118,13 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models_no_tangents {
                         exponent: EXPONENT,
                         extra_modulus: EXTRA_MODULUS,
                     },
-                )
+                ))
                 .bulk_modulus();
             }
             #[test]
             #[should_panic]
             fn shear_modulus() {
-                $hybrid_type::construct(
+                $hybrid_type::from((
                     ArrudaBoyce {
                         bulk_modulus: BULK_MODULUS,
                         shear_modulus: SHEAR_MODULUS,
@@ -142,7 +136,7 @@ macro_rules! test_hybrid_hyperelastic_constitutive_models_no_tangents {
                         exponent: EXPONENT,
                         extra_modulus: EXTRA_MODULUS,
                     },
-                )
+                ))
                 .shear_modulus();
             }
         }
