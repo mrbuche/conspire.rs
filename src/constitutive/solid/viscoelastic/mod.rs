@@ -10,6 +10,37 @@
 //! \mathcal{U}_{iJkL} \neq \mathcal{U}_{kLiJ}
 //! ```
 
+// Could eventually make this a bit more general with a const generic type parameters:
+// (0) implicitly rate dependent (has rate-dependent ISV)
+// (1) explicitly rate dependent to first order (dF/dt)
+// (2) explicitly rate dependent to second order (d^2F/dt^2)
+// ...
+// Still need separate traits, though, since the arguments will differ.
+// And will have to implement differently anyway, especially in fem/
+// So maybe instead, there are just subdirectories in viscoelastic/
+// order_0/
+// order_1/
+// order_2/
+// ...
+// But how to handle order_1+ that may or may not have ISV?
+// Maybe just have separate trait, like ElastiicViscoplasticISV.
+// But what about viscoelastic models with rate-dependent and/or rate-independent ISV?
+// Maybe the key is there are *IVs* and *SVs*:
+// internal variables are determined by the state (not independent), and cannot be rate-dependent,
+// and state variables determine the state (are independent), and must be rate-dependent.
+// The ability (or inability) to set these models up properly as
+// (a) optimization (or root-finding) problems with constraints, and
+// (b) ensure that the second law is satisfied (Lyapunov stability),
+// should determine whether the model can fit into this framework.
+// For example, if a model has rate-independent variables but is path-dependent,
+// the model cannot fit into this framework, and may be invalid altogether,
+// or at least that doing the model that was is a bad idea.
+// That might be the key question:
+// Can (a) and (b) be satisfied for rate-independent, but path-dependent, variables?
+// Rate-independent elasto-plasticity being the key example.
+// If (a) is true, the plastic deformation is not independent.
+// But if (a) is not true, what problem are we solving?
+
 #[cfg(test)]
 pub mod test;
 
