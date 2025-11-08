@@ -5,7 +5,7 @@ use crate::{
     constitutive::{
         ConstitutiveError,
         fluid::{plastic::Plastic, viscoplastic::Viscoplastic},
-        hybrid::{Hybrid, Multiplicative},
+        hybrid::Multiplicative,
         solid::{elastic::Elastic, elastic_viscoplastic::ElasticViscoplastic},
     },
     math::{
@@ -27,10 +27,10 @@ use crate::{
 //     C2: Viscoplastic,
 // {
 //     fn bulk_modulus(&self) -> Scalar {
-//         self.constitutive_model_1().bulk_modulus()
+//         self.0.bulk_modulus()
 //     }
 //     fn shear_modulus(&self) -> Scalar {
-//         self.constitutive_model_1().shear_modulus()
+//         self.0.shear_modulus()
 //     }
 // }
 // You can de-conflict this with elastic/ using specialization if it ever gets stabilized.
@@ -41,10 +41,10 @@ where
     C2: Viscoplastic,
 {
     fn initial_yield_stress(&self) -> Scalar {
-        self.constitutive_model_2().initial_yield_stress()
+        self.1.initial_yield_stress()
     }
     fn hardening_slope(&self) -> Scalar {
-        self.constitutive_model_2().hardening_slope()
+        self.1.hardening_slope()
     }
 }
 
@@ -54,10 +54,10 @@ where
     C2: Viscoplastic,
 {
     fn rate_sensitivity(&self) -> Scalar {
-        self.constitutive_model_2().rate_sensitivity()
+        self.1.rate_sensitivity()
     }
     fn reference_flow_rate(&self) -> Scalar {
-        self.constitutive_model_2().reference_flow_rate()
+        self.1.reference_flow_rate()
     }
 }
 
@@ -71,7 +71,7 @@ where
         deformation_gradient: &DeformationGradient,
         deformation_gradient_p: &DeformationGradientPlastic,
     ) -> Result<CauchyStress, ConstitutiveError> {
-        self.constitutive_model_1()
+        self.0
             .cauchy_stress(&(deformation_gradient * deformation_gradient_p.inverse()).into())
     }
     fn cauchy_tangent_stiffness(
@@ -80,11 +80,11 @@ where
         deformation_gradient_p: &DeformationGradientPlastic,
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
         let deformation_gradient_p_inverse = deformation_gradient_p.inverse();
-        Ok(CauchyTangentStiffnessElastic::from(
-            self.constitutive_model_1().cauchy_tangent_stiffness(
+        Ok(
+            CauchyTangentStiffnessElastic::from(self.0.cauchy_tangent_stiffness(
                 &(deformation_gradient * &deformation_gradient_p_inverse).into(),
-            )?,
-        ) * deformation_gradient_p_inverse.transpose())
+            )?) * deformation_gradient_p_inverse.transpose(),
+        )
     }
     fn first_piola_kirchhoff_stress(
         &self,
@@ -92,11 +92,11 @@ where
         deformation_gradient_p: &DeformationGradientPlastic,
     ) -> Result<FirstPiolaKirchhoffStress, ConstitutiveError> {
         let deformation_gradient_p_inverse = deformation_gradient_p.inverse();
-        Ok(FirstPiolaKirchhoffStressElastic::from(
-            self.constitutive_model_1().first_piola_kirchhoff_stress(
+        Ok(
+            FirstPiolaKirchhoffStressElastic::from(self.0.first_piola_kirchhoff_stress(
                 &(deformation_gradient * &deformation_gradient_p_inverse).into(),
-            )?,
-        ) * deformation_gradient_p_inverse.transpose())
+            )?) * deformation_gradient_p_inverse.transpose(),
+        )
     }
     fn first_piola_kirchhoff_tangent_stiffness(
         &self,
@@ -106,10 +106,9 @@ where
         let deformation_gradient_p_inverse = deformation_gradient_p.inverse();
         let deformation_gradient_p_inverse_transpose = deformation_gradient_p_inverse.transpose();
         Ok((FirstPiolaKirchhoffTangentStiffnessElastic::from(
-            self.constitutive_model_1()
-                .first_piola_kirchhoff_tangent_stiffness(
-                    &(deformation_gradient * &deformation_gradient_p_inverse).into(),
-                )?,
+            self.0.first_piola_kirchhoff_tangent_stiffness(
+                &(deformation_gradient * &deformation_gradient_p_inverse).into(),
+            )?,
         ) * &deformation_gradient_p_inverse_transpose)
             .contract_second_index_with_first_index_of(&deformation_gradient_p_inverse_transpose))
     }
@@ -120,11 +119,9 @@ where
     ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
         let deformation_gradient_p_inverse = deformation_gradient_p.inverse();
         Ok(&deformation_gradient_p_inverse
-            * SecondPiolaKirchhoffStressElastic::from(
-                self.constitutive_model_1().second_piola_kirchhoff_stress(
-                    &(deformation_gradient * &deformation_gradient_p_inverse).into(),
-                )?,
-            )
+            * SecondPiolaKirchhoffStressElastic::from(self.0.second_piola_kirchhoff_stress(
+                &(deformation_gradient * &deformation_gradient_p_inverse).into(),
+            )?)
             * deformation_gradient_p_inverse.transpose())
     }
     fn second_piola_kirchhoff_tangent_stiffness(
@@ -134,10 +131,9 @@ where
     ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
         let deformation_gradient_p_inverse = deformation_gradient_p.inverse();
         Ok((SecondPiolaKirchhoffTangentStiffnessElastic::from(
-            self.constitutive_model_1()
-                .second_piola_kirchhoff_tangent_stiffness(
-                    &(deformation_gradient * &deformation_gradient_p_inverse).into(),
-                )?,
+            self.0.second_piola_kirchhoff_tangent_stiffness(
+                &(deformation_gradient * &deformation_gradient_p_inverse).into(),
+            )?,
         ) * deformation_gradient_p_inverse.transpose())
         .contract_first_second_indices_with_second_indices_of(
             &deformation_gradient_p_inverse,

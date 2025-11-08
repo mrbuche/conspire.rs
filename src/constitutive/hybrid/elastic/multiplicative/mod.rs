@@ -4,7 +4,7 @@ mod test;
 use crate::{
     constitutive::{
         ConstitutiveError,
-        hybrid::{Hybrid, Multiplicative, MultiplicativeTrait},
+        hybrid::{Multiplicative, MultiplicativeTrait},
         solid::{Solid, elastic::Elastic},
     },
     math::{
@@ -49,10 +49,7 @@ where
     ) -> Result<CauchyStress, ConstitutiveError> {
         let (deformation_gradient_1, deformation_gradient_2) =
             self.deformation_gradients(deformation_gradient)?;
-        Ok(self
-            .constitutive_model_1()
-            .cauchy_stress(&deformation_gradient_1)?
-            / deformation_gradient_2.determinant())
+        Ok(self.0.cauchy_stress(&deformation_gradient_1)? / deformation_gradient_2.determinant())
     }
     /// Dummy method that will panic.
     fn cauchy_tangent_stiffness(
@@ -75,7 +72,7 @@ where
         let deformation_gradient_2_inverse_transpose: TensorRank2<3, 0, 0> =
             deformation_gradient_2.inverse_transpose().into();
         Ok(self
-            .constitutive_model_1()
+            .0
             .first_piola_kirchhoff_stress(&deformation_gradient_1)?
             * deformation_gradient_2_inverse_transpose)
     }
@@ -101,7 +98,7 @@ where
             deformation_gradient_2.inverse().into();
         Ok(&deformation_gradient_2_inverse
             * self
-                .constitutive_model_1()
+                .0
                 .second_piola_kirchhoff_stress(&deformation_gradient_1)?
             * deformation_gradient_2_inverse.transpose())
     }
@@ -135,12 +132,12 @@ where
                     let right_hand_side: FirstPiolaKirchhoffStress = (deformation_gradient_1
                         .transpose()
                         * self
-                            .constitutive_model_1()
+                            .0
                             .first_piola_kirchhoff_stress(&deformation_gradient_1)?
                         * deformation_gradient_2_inverse_transpose)
                         .into();
                     Ok(self
-                        .constitutive_model_2()
+                        .1
                         .first_piola_kirchhoff_stress(deformation_gradient_2)?
                         - right_hand_side)
                 },
