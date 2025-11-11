@@ -172,6 +172,12 @@ pub type Displacement = TensorRank1<3, 1>;
 /// The first Piola-Kirchhoff stress $`\mathbf{P}`$.
 pub type FirstPiolaKirchhoffStress = TensorRank2<3, 1, 0>;
 
+/// The first Piola-Kirchhoff stress $`\mathbf{P}_1`$.
+pub type FirstPiolaKirchhoffStress1 = TensorRank2<3, 1, 2>;
+
+/// The first Piola-Kirchhoff stress $`\mathbf{P}_2`$.
+pub type FirstPiolaKirchhoffStress2 = TensorRank2<3, 2, 0>;
+
 /// The elastic first Piola-Kirchhoff stress $`\mathbf{P}_\mathrm{e}`$.
 pub type FirstPiolaKirchhoffStressElastic = TensorRank2<3, 1, 2>;
 

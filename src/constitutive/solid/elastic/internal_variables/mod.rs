@@ -1,7 +1,10 @@
 //! Elastic constitutive models with internal variables.
 
 use crate::{
-    constitutive::{ConstitutiveError, solid::{Solid, elastic::AppliedLoad}},
+    constitutive::{
+        ConstitutiveError,
+        solid::{Solid, elastic::AppliedLoad},
+    },
     math::{
         ContractFirstSecondIndicesWithSecondIndicesOf, ContractSecondIndexWithFirstIndexOf,
         IDENTITY, Rank2, optimize::FirstOrderRootFinding,
@@ -149,6 +152,14 @@ where
                 &second_piola_kirchhoff_stress,
             ))
     }
+    ///
+    /// THIS IS RESIDUAL CORRESPONDING TO SOLVING FOR THE INTERNAL VARIABLES
+    ///
+    fn foo(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        internal_variables: &V,
+    ) -> Result<V, ConstitutiveError>;
 }
 
 /// First-order root-finding methods for elastic constitutive models with internal variables.
@@ -170,6 +181,7 @@ pub trait FirstOrderRoot<V> {
 }
 
 // need other residual (da/dF_2=0) and tangents (d^2a/dFdF_2 and d^2a/dF_2^2)
+// maybe start with zeroth order since just need the residual, and you have it now
 
 // impl<T> FirstOrderRoot for T
 // where

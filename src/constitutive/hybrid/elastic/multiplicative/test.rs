@@ -6,8 +6,8 @@ test_hybrid_elastic_constitutive_models_no_tangents!(Multiplicative);
 
 use crate::{
     constitutive::solid::elastic::internal_variables::ElasticIV,
-    math::test::{assert_eq_from_fd, ErrorTensor},
-    mechanics::*
+    math::test::{ErrorTensor, assert_eq_from_fd},
+    mechanics::*,
 };
 
 #[test]
@@ -20,17 +20,20 @@ fn finite_difference_foo() -> Result<(), TestError> {
     let deformation_gradient_2 = DeformationGradient2::new([
         [0.84598947, 1.44803635, 0.62447529],
         [0.76208429, 1.94584131, 0.74035917],
-        [1.93680854, 2.32953025, 3.36786684]
+        [1.93680854, 2.32953025, 3.36786684],
     ]);
-    let model = Multiplicative::from((AlmansiHamel {
-                bulk_modulus: BULK_MODULUS,
-                shear_modulus: SHEAR_MODULUS,
-            },
-            NeoHookean {
-                bulk_modulus: BULK_MODULUS,
-                shear_modulus: SHEAR_MODULUS,
-            },));
-    let tangent = model.cauchy_tangent_stiffness_foo(&deformation_gradient, &deformation_gradient_2)?;
+    let model = Multiplicative::from((
+        AlmansiHamel {
+            bulk_modulus: BULK_MODULUS,
+            shear_modulus: SHEAR_MODULUS,
+        },
+        NeoHookean {
+            bulk_modulus: BULK_MODULUS,
+            shear_modulus: SHEAR_MODULUS,
+        },
+    ));
+    let tangent =
+        model.cauchy_tangent_stiffness_foo(&deformation_gradient, &deformation_gradient_2)?;
     let mut fd = CauchyTangentStiffness::zero();
     for k in 0..3 {
         for l in 0..3 {

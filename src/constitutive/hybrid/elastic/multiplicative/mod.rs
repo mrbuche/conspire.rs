@@ -15,8 +15,9 @@ use crate::{
         optimize::{EqualityConstraint, GradientDescent, ZerothOrderRootFinding},
     },
     mechanics::{
-        CauchyStress, CauchyTangentStiffness, CauchyTangentStiffness1, DeformationGradient, DeformationGradient2,
-        FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness, Scalar,
+        CauchyStress, CauchyTangentStiffness, CauchyTangentStiffness1, DeformationGradient,
+        DeformationGradient2, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStress1,
+        FirstPiolaKirchhoffStress2, FirstPiolaKirchhoffTangentStiffness, Scalar,
         SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,
     },
 };
@@ -51,10 +52,10 @@ where
         deformation_gradient: &DeformationGradient,
         deformation_gradient_2: &DeformationGradient2,
     ) -> Result<CauchyStress, ConstitutiveError> {
-        let (deformation_gradient_2_inverse, jacobian_2) = deformation_gradient_2.inverse_and_determinant();
+        let (deformation_gradient_2_inverse, jacobian_2) =
+            deformation_gradient_2.inverse_and_determinant();
         let deformation_gradient_1 = deformation_gradient * &deformation_gradient_2_inverse;
-        Ok(self.0.cauchy_stress(&deformation_gradient_1.into())?
-            / jacobian_2)
+        Ok(self.0.cauchy_stress(&deformation_gradient_1.into())? / jacobian_2)
     }
     /// Calculates and returns the tangent stiffness associated with the Cauchy stress.
     ///
@@ -66,10 +67,13 @@ where
         deformation_gradient: &DeformationGradient,
         deformation_gradient_2: &DeformationGradient2,
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
-        let (deformation_gradient_2_inverse, jacobian_2) = deformation_gradient_2.inverse_and_determinant();
+        let (deformation_gradient_2_inverse, jacobian_2) =
+            deformation_gradient_2.inverse_and_determinant();
         let deformation_gradient_1 = deformation_gradient * &deformation_gradient_2_inverse;
-        Ok(CauchyTangentStiffness1::from(self.0.cauchy_tangent_stiffness(&deformation_gradient_1.into())?)
-            * (deformation_gradient_2_inverse.transpose() / jacobian_2))
+        Ok(CauchyTangentStiffness1::from(
+            self.0
+                .cauchy_tangent_stiffness(&deformation_gradient_1.into())?,
+        ) * (deformation_gradient_2_inverse.transpose() / jacobian_2))
     }
     /// Calculates and returns the first Piola-Kirchhoff stress.
     ///
@@ -100,6 +104,28 @@ where
         Ok(deformation_gradient.inverse()
             * self
                 .first_piola_kirchhoff_stress_foo(deformation_gradient, deformation_gradient_2)?)
+    }
+    /// ???
+    ///
+    /// ```math
+    /// \mathbf{R} = \mathbf{P}_2 - \mathbf{M}_1\cdot\mathbf{F}_2^{-T}
+    /// ```
+    fn foo(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_2: &DeformationGradient2,
+    ) -> Result<DeformationGradient2, ConstitutiveError> {
+        let deformation_gradient_2_inverse = deformation_gradient_2.inverse();
+        let deformation_gradient_1 = deformation_gradient * &deformation_gradient_2_inverse;
+        Ok(FirstPiolaKirchhoffStress2::from(
+            self.1
+                .first_piola_kirchhoff_stress(&deformation_gradient_2.clone().into())?,
+        ) - deformation_gradient_1.transpose()
+            * FirstPiolaKirchhoffStress1::from(
+                self.0
+                    .first_piola_kirchhoff_stress(&deformation_gradient_1.into())?,
+            )
+            * deformation_gradient_2_inverse.transpose())
     }
 }
 
