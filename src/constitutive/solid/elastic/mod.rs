@@ -10,6 +10,8 @@ pub mod doc;
 #[cfg(test)]
 pub mod test;
 
+pub mod internal_variables;
+
 mod almansi_hamel;
 mod hencky;
 mod saint_venant_kirchhoff;

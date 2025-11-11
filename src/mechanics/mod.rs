@@ -106,6 +106,9 @@ pub type CauchyStresses<const W: usize> = TensorRank2List<3, 1, 1, W>;
 /// The tangent stiffness associated with the Cauchy stress $`\boldsymbol{\mathcal{T}}`$.
 pub type CauchyTangentStiffness = TensorRank4<3, 1, 1, 1, 0>;
 
+/// The tangent stiffness associated with the Cauchy stress $`\boldsymbol{\mathcal{T}}_1`$.
+pub type CauchyTangentStiffness1 = TensorRank4<3, 1, 1, 1, 2>;
+
 /// The tangent stiffness associated with the elastic Cauchy stress $`\boldsymbol{\mathcal{T}}_\mathrm{e}`$.
 pub type CauchyTangentStiffnessElastic = TensorRank4<3, 1, 1, 1, 2>;
 
@@ -126,6 +129,9 @@ pub type CurrentVelocity = TensorRank1<3, 1>;
 
 /// The deformation gradient $`\mathbf{F}`$.
 pub type DeformationGradient = TensorRank2<3, 1, 0>;
+
+/// The second deformation gradient $`\mathbf{F}_2`$.
+pub type DeformationGradient2 = TensorRank2<3, 2, 0>;
 
 /// The elastic deformation gradient $`\mathbf{F}_\mathrm{e}`$.
 pub type DeformationGradientElastic = TensorRank2<3, 1, 2>;
