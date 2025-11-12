@@ -1,7 +1,7 @@
 pub mod square;
 pub mod vector;
 
-use crate::math::{Scalar, Tensor, TensorRank1, TensorRank1Vec, TensorRank2};
+use crate::math::{Scalar, Tensor, TensorRank1, TensorRank1Vec, TensorRank2, TensorTuple};
 use std::ops::{Index, IndexMut, Mul};
 use vector::Vector;
 
@@ -113,6 +113,18 @@ impl<const D: usize, const I: usize, const J: usize> Mul<&TensorRank2<D, I, J>> 
     type Output = Vector;
     fn mul(self, tensor_rank_2: &TensorRank2<D, I, J>) -> Self::Output {
         self.iter().map(|self_i| self_i * tensor_rank_2).collect()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
+    Mul<&TensorTuple<TensorRank2<D, I, J>, TensorRank2<D, K, L>>> for &Matrix
+{
+    type Output = Vector;
+    fn mul(
+        self,
+        tensor_tuple: &TensorTuple<TensorRank2<D, I, J>, TensorRank2<D, K, L>>,
+    ) -> Self::Output {
+        self.iter().map(|self_i| self_i * tensor_tuple).collect()
     }
 }
 

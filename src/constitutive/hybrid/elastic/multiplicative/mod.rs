@@ -11,7 +11,7 @@ use crate::{
         },
     },
     math::{
-        IDENTITY_10, Rank2, TensorRank2,
+        IDENTITY_10, Rank2, TensorArray, TensorRank2,
         optimize::{EqualityConstraint, GradientDescent, ZerothOrderRootFinding},
     },
     mechanics::{
@@ -104,6 +104,9 @@ where
         Ok(deformation_gradient.inverse()
             * self
                 .first_piola_kirchhoff_stress_foo(deformation_gradient, deformation_gradient_2)?)
+    }
+    fn internal_variables_initial_value(&self) -> DeformationGradient2 {
+        DeformationGradient2::identity()
     }
     /// Calculates and returns the residual associated with the second deformation gradient.
     ///

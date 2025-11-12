@@ -2,8 +2,8 @@
 use crate::math::test::ErrorTensor;
 
 use crate::math::{
-    Jacobian, Matrix, Scalar, Solution, Tensor, TensorRank1Vec, TensorRank2, TensorVec,
-    write_tensor_rank_0,
+    Jacobian, Matrix, Scalar, Solution, Tensor, TensorRank1Vec, TensorRank2, TensorTuple,
+    TensorVec, write_tensor_rank_0,
 };
 use std::{
     fmt::{Display, Formatter, Result},
@@ -529,5 +529,19 @@ impl<const D: usize, const I: usize, const J: usize> Mul<&TensorRank2<D, I, J>> 
                     .sum::<Scalar>()
             })
             .sum()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
+    Mul<&TensorTuple<TensorRank2<D, I, J>, TensorRank2<D, K, L>>> for &Vector
+{
+    type Output = Scalar;
+    fn mul(
+        self,
+        tensor_tuple: &TensorTuple<TensorRank2<D, I, J>, TensorRank2<D, K, L>>,
+    ) -> Self::Output {
+        let (tensor_rank_2_a, tensor_rank_2_b) = tensor_tuple.into();
+        &self.iter().take(D * D).copied().collect::<Vector>() * tensor_rank_2_a
+            + &self.iter().skip(D * D).copied().collect::<Vector>() * tensor_rank_2_b
     }
 }

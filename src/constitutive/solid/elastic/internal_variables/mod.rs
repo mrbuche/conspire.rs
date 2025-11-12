@@ -7,7 +7,7 @@ use crate::{
     },
     math::{
         ContractFirstSecondIndicesWithSecondIndicesOf, ContractSecondIndexWithFirstIndexOf,
-        IDENTITY, Matrix, Rank2, Tensor, TensorTuple, Vector,
+        IDENTITY, Matrix, Rank2, Tensor, TensorArray, TensorTuple, Vector,
         optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
     },
     mechanics::{
@@ -153,6 +153,8 @@ where
                 &second_piola_kirchhoff_stress,
             ))
     }
+    /// Returns the initial value for the internal variables.
+    fn internal_variables_initial_value(&self) -> V;
     /// Calculates and returns the residual associated with the internal variables.
     fn internal_variables_residual(
         &self,
@@ -216,7 +218,7 @@ where
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {
         match match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_11) => {
-                let mut matrix = Matrix::zero(4, 9);
+                let mut matrix = Matrix::zero(4, 18);
                 let mut vector = Vector::zero(4);
                 matrix[0][0] = 1.0;
                 matrix[1][1] = 1.0;
@@ -231,15 +233,21 @@ where
                                 deformation_gradient,
                                 internal_variables,
                             )?,
-                            self.internal_variables_residual(deformation_gradient, internal_variables)?,
+                            self.internal_variables_residual(
+                                deformation_gradient,
+                                internal_variables,
+                            )?,
                         )))
                     },
-                    Self::Variables::default(),
+                    Self::Variables::from((
+                        DeformationGradient::identity(),
+                        self.internal_variables_initial_value(),
+                    )),
                     EqualityConstraint::Linear(matrix, vector),
                 )
             }
             AppliedLoad::BiaxialStress(deformation_gradient_11, deformation_gradient_22) => {
-                let mut matrix = Matrix::zero(5, 9);
+                let mut matrix = Matrix::zero(5, 18);
                 let mut vector = Vector::zero(5);
                 matrix[0][0] = 1.0;
                 matrix[1][1] = 1.0;
@@ -256,10 +264,16 @@ where
                                 deformation_gradient,
                                 internal_variables,
                             )?,
-                            self.internal_variables_residual(deformation_gradient, internal_variables)?,
+                            self.internal_variables_residual(
+                                deformation_gradient,
+                                internal_variables,
+                            )?,
                         )))
                     },
-                    Self::Variables::default(),
+                    Self::Variables::from((
+                        DeformationGradient::identity(),
+                        self.internal_variables_initial_value(),
+                    )),
                     EqualityConstraint::Linear(matrix, vector),
                 )
             }
@@ -272,7 +286,6 @@ where
         }
     }
 }
-
 
 impl<T, V> FirstOrderRoot<V> for T
 where
@@ -294,7 +307,7 @@ where
         todo!()
         //     match match applied_load {
         //         AppliedLoad::UniaxialStress(deformation_gradient_11) => {
-        //             let mut matrix = Matrix::zero(4, 9);
+        //             let mut matrix = Matrix::zero(4, 18); made the 9 18
         //             let mut vector = Vector::zero(4);
         //             matrix[0][0] = 1.0;
         //             matrix[1][1] = 1.0;
@@ -313,7 +326,7 @@ where
         //             )
         //         }
         //         AppliedLoad::BiaxialStress(deformation_gradient_11, deformation_gradient_22) => {
-        //             let mut matrix = Matrix::zero(5, 9);
+        //             let mut matrix = Matrix::zero(5, 18); made the 9 18
         //             let mut vector = Vector::zero(5);
         //             matrix[0][0] = 1.0;
         //             matrix[1][1] = 1.0;
