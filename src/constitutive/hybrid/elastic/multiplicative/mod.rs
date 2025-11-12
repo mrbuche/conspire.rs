@@ -105,12 +105,12 @@ where
             * self
                 .first_piola_kirchhoff_stress_foo(deformation_gradient, deformation_gradient_2)?)
     }
-    /// ???
+    /// Calculates and returns the residual associated with the second deformation gradient.
     ///
     /// ```math
     /// \mathbf{R} = \mathbf{P}_2 - \mathbf{M}_1\cdot\mathbf{F}_2^{-T}
     /// ```
-    fn foo(
+    fn internal_variables_residual(
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_2: &DeformationGradient2,
