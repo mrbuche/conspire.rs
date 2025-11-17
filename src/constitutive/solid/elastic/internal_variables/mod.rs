@@ -154,13 +154,19 @@ where
             ))
     }
     /// Returns the initial value for the internal variables.
-    fn internal_variables_initial_value(&self) -> V;
+    fn internal_variables_initial(&self) -> V;
     /// Calculates and returns the residual associated with the internal variables.
     fn internal_variables_residual(
         &self,
         deformation_gradient: &DeformationGradient,
         internal_variables: &V,
     ) -> Result<V, ConstitutiveError>;
+    /// Calculates and returns the tangents associated with the internal variables.
+    fn internal_variables_tangents<T1, T2, T3>(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        internal_variables: &V,
+    ) -> Result<(T1, T2, T3), ConstitutiveError>;
 }
 
 /// Zeroth-order root-finding methods for elastic constitutive models with internal variables.
@@ -241,7 +247,7 @@ where
                     },
                     Self::Variables::from((
                         DeformationGradient::identity(),
-                        self.internal_variables_initial_value(),
+                        self.internal_variables_initial(),
                     )),
                     EqualityConstraint::Linear(matrix, vector),
                 )
@@ -272,7 +278,7 @@ where
                     },
                     Self::Variables::from((
                         DeformationGradient::identity(),
-                        self.internal_variables_initial_value(),
+                        self.internal_variables_initial(),
                     )),
                     EqualityConstraint::Linear(matrix, vector),
                 )

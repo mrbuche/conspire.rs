@@ -105,7 +105,7 @@ where
             * self
                 .first_piola_kirchhoff_stress_foo(deformation_gradient, deformation_gradient_2)?)
     }
-    fn internal_variables_initial_value(&self) -> DeformationGradient2 {
+    fn internal_variables_initial(&self) -> DeformationGradient2 {
         DeformationGradient2::identity()
     }
     /// Calculates and returns the residual associated with the second deformation gradient.
@@ -129,6 +129,25 @@ where
                     .first_piola_kirchhoff_stress(&deformation_gradient_1.into())?,
             )
             * deformation_gradient_2_inverse.transpose())
+    }
+    /// Calculates and returns the tangents associated with the internal variables.
+    ///
+    /// ```math
+    /// \frac{\partial R_{ij}}{\partial F_{kl}} = ???
+    /// ```
+    fn internal_variables_tangents<T1, T2, T3>(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        internal_variables: &DeformationGradient2,
+    ) -> Result<(T1, T2, T3), ConstitutiveError> {
+        // There are 4 tangents:
+        // 1) dP/dF
+        // 2) dP/dF2
+        // 3) dR/dF
+        // 4) dR/dF2
+        // Tangents 2, 3, and 4 would be calculated here.
+        // Note that 2=3 only if hyperelastic.
+        todo!()
     }
 }
 
