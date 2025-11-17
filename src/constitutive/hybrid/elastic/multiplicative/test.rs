@@ -5,10 +5,7 @@ use crate::constitutive::hybrid::{
 test_hybrid_elastic_constitutive_models_no_tangents!(Multiplicative);
 
 use crate::{
-    constitutive::solid::elastic::{
-        AppliedLoad,
-        internal_variables::ElasticIV,
-    },
+    constitutive::solid::elastic::{AppliedLoad, internal_variables::ElasticIV},
     math::{
         optimize::{GradientDescent, NewtonRaphson},
         test::{ErrorTensor, assert_eq_from_fd},
@@ -66,6 +63,8 @@ fn finite_difference_foo() -> Result<(), TestError> {
     }
 }
 
+const STRETCH: Scalar = 1.5;
+
 #[test]
 fn root_0() -> Result<(), TestError> {
     use crate::constitutive::solid::elastic::ZerothOrderRoot;
@@ -79,13 +78,15 @@ fn root_0() -> Result<(), TestError> {
             shear_modulus: SHEAR_MODULUS,
         },
     ));
+    let time = std::time::Instant::now();
     let f = model.root(
-        AppliedLoad::UniaxialStress(1.2),
+        AppliedLoad::UniaxialStress(STRETCH),
         GradientDescent {
             dual: true,
             ..Default::default()
         },
     )?;
+    println!("old {:?}", time.elapsed());
     // let f_1 = &f * f_2.inverse();
     // println!("{}\n{}\n{}", f, f_1, f_2,);
     println!("{}", f);
@@ -105,14 +106,15 @@ fn root_0_foo() -> Result<(), TestError> {
             shear_modulus: SHEAR_MODULUS,
         },
     ));
+    let time = std::time::Instant::now();
     let (f, f_2) = model.root(
-        AppliedLoad::UniaxialStress(1.2),
+        AppliedLoad::UniaxialStress(STRETCH),
         GradientDescent {
             dual: true,
             ..Default::default()
         },
     )?;
+    println!("new {:?}", time.elapsed());
     let f_1 = &f * f_2.inverse();
-    println!("{}\n{}\n{}", f, f_1, f_2,);
     Ok(())
 }

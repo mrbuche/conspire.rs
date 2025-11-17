@@ -373,6 +373,9 @@ where
                 multipliers += residual * step_size;
             }
         } else {
+            //
+            // This sort of acts like LineSearch::Error, does it not?
+            //
             multipliers -= (multipliers.clone() - &multipliers_change) * CUTBACK_FACTOR_MINUS_ONE;
             step_size *= CUTBACK_FACTOR;
         }

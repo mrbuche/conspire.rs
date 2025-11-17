@@ -45,11 +45,18 @@ pub enum ConstitutiveError {
 impl From<ConstitutiveError> for String {
     fn from(error: ConstitutiveError) -> Self {
         match error {
+            ConstitutiveError::Custom(message, constitutive_model) => format!(
+                "\x1b[1;91m{message}\x1b[0;91m\n\
+                        In constitutive model: {constitutive_model}."
+            ),
             ConstitutiveError::InvalidJacobian(jacobian, constitutive_model) => format!(
                 "\x1b[1;91mInvalid Jacobian: {jacobian:.6e}.\x1b[0;91m\n\
                         In constitutive model: {constitutive_model}."
             ),
-            _ => todo!(),
+            ConstitutiveError::Upstream(error, constitutive_model) => format!(
+                "{error}\x1b[0;91m\n\
+                    In constitutive model: {constitutive_model}."
+            ),
         }
     }
 }
