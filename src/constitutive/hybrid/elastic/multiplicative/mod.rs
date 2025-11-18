@@ -18,7 +18,7 @@ use crate::{
         CauchyStress, CauchyTangentStiffness, CauchyTangentStiffness1, DeformationGradient,
         DeformationGradient2, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStress1,
         FirstPiolaKirchhoffStress2, FirstPiolaKirchhoffTangentStiffness, Scalar,
-        SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,
+        SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,FirstPiolaKirchhoffTangentStiffness2
     },
 };
 
@@ -37,7 +37,7 @@ where
     }
 }
 
-impl<C1, C2> ElasticIV<DeformationGradient2, TensorRank4<3, 1, 0, 2, 0>, TensorRank4<3, 2, 0, 1, 0>, TensorRank4<3, 2, 0, 2, 0>> for Multiplicative<C1, C2>
+impl<C1, C2> ElasticIV<DeformationGradient2, TensorRank4<3, 1, 0, 2, 0>, TensorRank4<3, 2, 0, 1, 0>, FirstPiolaKirchhoffTangentStiffness2> for Multiplicative<C1, C2>
 where
     C1: Elastic,
     C2: Elastic,
@@ -122,7 +122,7 @@ where
         let deformation_gradient_1 = deformation_gradient * &deformation_gradient_2_inverse;
         Ok(FirstPiolaKirchhoffStress2::from(
             self.1
-                .first_piola_kirchhoff_stress(&deformation_gradient_2.clone().into())?,
+                .first_piola_kirchhoff_stress(deformation_gradient_2.into())?,
         ) - deformation_gradient_1.transpose()
             * FirstPiolaKirchhoffStress1::from(
                 self.0
@@ -139,28 +139,39 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_2: &DeformationGradient2,
-    ) -> Result<(TensorRank4<3, 1, 0, 2, 0>, TensorRank4<3, 2, 0, 1, 0>, TensorRank4<3, 2, 0, 2, 0>), ConstitutiveError> {
+    ) -> Result<(TensorRank4<3, 1, 0, 2, 0>, TensorRank4<3, 2, 0, 1, 0>, FirstPiolaKirchhoffTangentStiffness2), ConstitutiveError> {
         // There are 4 tangents:
-        // 1) dP/dF
-        // 2) dP/dF2
-        // 3) dR/dF
-        // 4) dR/dF2
+        // 0) dP/dF
+        // 1) dP/dF2
+        // 2) dR/dF
+        // 3) dR/dF2
         // Tangents 2, 3, and 4 would be calculated here.
         // Note that 1=2 only if hyperelastic.
         let deformation_gradient_2_inverse = deformation_gradient_2.inverse();
+        let deformation_gradient_2_inverse_transpose = deformation_gradient_2_inverse.transpose();
         let deformation_gradient_1 = deformation_gradient * &deformation_gradient_2_inverse;
-        let tangent_2 = TensorRank4::dyad_il_kj(
-            &(deformation_gradient_2_inverse.transpose() * -1.0),
-            &self.first_piola_kirchhoff_stress_foo(
-                deformation_gradient,
-                deformation_gradient_2,
-            )?,
-        ) - deformation_gradient_1.transpose()
-            * self.first_piola_kirchhoff_tangent_stiffness_foo(
-                deformation_gradient,
-                deformation_gradient_2,
+        let deformation_gradient_1_transpose = deformation_gradient_1.transpose();
+        let first_piola_kirchhoff_stress = self.first_piola_kirchhoff_stress_foo(
+            deformation_gradient,
+            deformation_gradient_2,
         )?;
-        Ok((TensorRank4::zero(), tangent_2, TensorRank4::zero()))
+        let tangent_0 = self.first_piola_kirchhoff_tangent_stiffness_foo(
+            deformation_gradient,
+            deformation_gradient_2,
+        )?;
+        let tangent_2 = TensorRank4::dyad_il_kj(
+            &(&deformation_gradient_2_inverse_transpose * -1.0),
+            &first_piola_kirchhoff_stress,
+        ) - &deformation_gradient_1_transpose * &tangent_0;
+        let tangent_3 = FirstPiolaKirchhoffTangentStiffness2::from(self.1.first_piola_kirchhoff_tangent_stiffness(deformation_gradient_2.into())?)
+        + TensorRank4::dyad_il_kj(
+            &deformation_gradient_2_inverse_transpose,
+            &(&deformation_gradient_1_transpose * &first_piola_kirchhoff_stress),
+        )
+        // + &deformation_gradient_1_transpose * tangent_0.contract_third_index_with_first_index_of(&deformation_gradient_1)
+        + deformation_gradient_1_transpose * 
+        ;
+        Ok((TensorRank4::zero(), tangent_2, tangent_3))
     }
 }
 

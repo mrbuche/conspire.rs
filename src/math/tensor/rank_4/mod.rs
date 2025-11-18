@@ -55,6 +55,16 @@ impl<const I: usize, const J: usize, const K: usize> From<TensorRank4<3, I, J, K
     }
 }
 
+impl<const J: usize, const L: usize> From<TensorRank4<3, 1, J, 1, L>>
+    for TensorRank4<3, 2, J, 2, L>
+{
+    fn from(tensor_rank_4: TensorRank4<3, 1, J, 1, L>) -> Self {
+        unsafe {
+            transmute::<TensorRank4<3, 1, J, 1, L>, TensorRank4<3, 2, J, 2, L>>(tensor_rank_4)
+        }
+    }
+}
+
 impl<const I: usize, const K: usize> From<TensorRank4<3, I, 0, K, 0>>
     for TensorRank4<3, I, 2, K, 2>
 {
@@ -810,6 +820,96 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
                     .collect()
             })
             .collect()
+    }
+}
+
+impl<const D: usize, const J: usize, const K: usize, const L: usize, const M: usize>
+    Mul<TensorRank4<D, M, J, K, L>> for TensorRank1<D, M>
+{
+    type Output = TensorRank3<D, J, K, L>;
+    fn mul(self, tensor_rank_4: TensorRank4<D, M, J, K, L>) -> Self::Output {
+        self.into_iter().zip(tensor_rank_4).map(|(self_m, tensor_rank_4_m)|
+            tensor_rank_4_m * self_m
+        ).sum()
+    }
+}
+
+impl<const D: usize, const J: usize, const K: usize, const L: usize, const M: usize>
+    Mul<&TensorRank4<D, M, J, K, L>> for TensorRank1<D, M>
+{
+    type Output = TensorRank3<D, J, K, L>;
+    fn mul(self, tensor_rank_4: &TensorRank4<D, M, J, K, L>) -> Self::Output {
+        let foo = 1; // get rid of clone by doing other impl
+        self.into_iter().zip(tensor_rank_4.iter()).map(|(self_m, tensor_rank_4_m)|
+            tensor_rank_4_m.clone() * self_m
+        ).sum()
+    }
+}
+
+impl<const D: usize, const J: usize, const K: usize, const L: usize, const M: usize>
+    Mul<TensorRank4<D, M, J, K, L>> for &TensorRank1<D, M>
+{
+    type Output = TensorRank3<D, J, K, L>;
+    fn mul(self, tensor_rank_4: TensorRank4<D, M, J, K, L>) -> Self::Output {
+        self.iter().zip(tensor_rank_4).map(|(self_m, tensor_rank_4_m)|
+            tensor_rank_4_m * self_m
+        ).sum()
+    }
+}
+
+impl<const D: usize, const J: usize, const K: usize, const L: usize, const M: usize>
+    Mul<&TensorRank4<D, M, J, K, L>> for &TensorRank1<D, M>
+{
+    type Output = TensorRank3<D, J, K, L>;
+    fn mul(self, tensor_rank_4: &TensorRank4<D, M, J, K, L>) -> Self::Output {
+        let foo = 1; // get rid of clone by doing other impl
+        self.iter().zip(tensor_rank_4.iter()).map(|(self_m, tensor_rank_4_m)|
+            tensor_rank_4_m.clone() * self_m
+        ).sum()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const M: usize>
+    Mul<TensorRank4<D, M, J, K, L>> for TensorRank2<D, I, M>
+{
+    type Output = TensorRank4<D, I, J, K, L>;
+    fn mul(self, tensor_rank_4: TensorRank4<D, M, J, K, L>) -> Self::Output {
+        self.into_iter().map(|self_i|
+            self_i * &tensor_rank_4
+        ).collect()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const M: usize>
+    Mul<&TensorRank4<D, M, J, K, L>> for TensorRank2<D, I, M>
+{
+    type Output = TensorRank4<D, I, J, K, L>;
+    fn mul(self, tensor_rank_4: &TensorRank4<D, M, J, K, L>) -> Self::Output {
+        self.into_iter().map(|self_i|
+            self_i * tensor_rank_4
+        ).collect()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const M: usize>
+    Mul<TensorRank4<D, M, J, K, L>> for &TensorRank2<D, I, M>
+{
+    type Output = TensorRank4<D, I, J, K, L>;
+    fn mul(self, tensor_rank_4: TensorRank4<D, M, J, K, L>) -> Self::Output {
+        self.iter().map(|self_i|
+            self_i * &tensor_rank_4
+        ).collect()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const M: usize>
+    Mul<&TensorRank4<D, M, J, K, L>> for &TensorRank2<D, I, M>
+{
+    type Output = TensorRank4<D, I, J, K, L>;
+    fn mul(self, tensor_rank_4: &TensorRank4<D, M, J, K, L>) -> Self::Output {
+        self.iter().map(|self_i|
+            self_i * tensor_rank_4
+        ).collect()
     }
 }
 
