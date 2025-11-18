@@ -7,8 +7,9 @@ test_hybrid_elastic_constitutive_models_no_tangents!(Multiplicative);
 use crate::{
     constitutive::solid::elastic::{AppliedLoad, internal_variables::ElasticIV},
     math::{
+        TensorRank4,
         optimize::{GradientDescent, NewtonRaphson},
-        test::{ErrorTensor, assert_eq_from_fd},TensorRank4
+        test::{ErrorTensor, assert_eq_from_fd},
     },
     mechanics::*,
 };
@@ -92,16 +93,17 @@ fn finite_difference_foo_1() -> Result<(), TestError> {
         for l in 0..3 {
             let mut deformation_gradient_2_plus = deformation_gradient_2.clone();
             deformation_gradient_2_plus[k][l] += 0.5 * crate::EPSILON;
-            let residual_plus =
-                model.internal_variables_residual(&deformation_gradient, &deformation_gradient_2_plus)?;
+            let residual_plus = model
+                .first_piola_kirchhoff_stress_foo(&deformation_gradient, &deformation_gradient_2_plus)?;
             let mut deformation_gradient_2_minus = deformation_gradient_2.clone();
             deformation_gradient_2_minus[k][l] -= 0.5 * crate::EPSILON;
-            let residual_minus =
-                model.internal_variables_residual(&deformation_gradient, &deformation_gradient_2_minus)?;
+            let residual_minus = model.first_piola_kirchhoff_stress_foo(
+                &deformation_gradient,
+                &deformation_gradient_2_minus,
+            )?;
             for i in 0..3 {
                 for j in 0..3 {
-                    fd[i][j][k][l] =
-                        (residual_plus[i][j] - residual_minus[i][j]) / crate::EPSILON;
+                    fd[i][j][k][l] = (residual_plus[i][j] - residual_minus[i][j]) / crate::EPSILON;
                 }
             }
         }
@@ -142,16 +144,17 @@ fn finite_difference_foo_2() -> Result<(), TestError> {
         for l in 0..3 {
             let mut deformation_gradient_plus = deformation_gradient.clone();
             deformation_gradient_plus[k][l] += 0.5 * crate::EPSILON;
-            let residual_plus =
-                model.internal_variables_residual(&deformation_gradient_plus, &deformation_gradient_2)?;
+            let residual_plus = model
+                .internal_variables_residual(&deformation_gradient_plus, &deformation_gradient_2)?;
             let mut deformation_gradient_minus = deformation_gradient.clone();
             deformation_gradient_minus[k][l] -= 0.5 * crate::EPSILON;
-            let residual_minus =
-                model.internal_variables_residual(&deformation_gradient_minus, &deformation_gradient_2)?;
+            let residual_minus = model.internal_variables_residual(
+                &deformation_gradient_minus,
+                &deformation_gradient_2,
+            )?;
             for i in 0..3 {
                 for j in 0..3 {
-                    fd[i][j][k][l] =
-                        (residual_plus[i][j] - residual_minus[i][j]) / crate::EPSILON;
+                    fd[i][j][k][l] = (residual_plus[i][j] - residual_minus[i][j]) / crate::EPSILON;
                 }
             }
         }
@@ -192,16 +195,17 @@ fn finite_difference_foo_3() -> Result<(), TestError> {
         for l in 0..3 {
             let mut deformation_gradient_2_plus = deformation_gradient_2.clone();
             deformation_gradient_2_plus[k][l] += 0.5 * crate::EPSILON;
-            let residual_plus =
-                model.internal_variables_residual(&deformation_gradient, &deformation_gradient_2_plus)?;
+            let residual_plus = model
+                .internal_variables_residual(&deformation_gradient, &deformation_gradient_2_plus)?;
             let mut deformation_gradient_2_minus = deformation_gradient_2.clone();
             deformation_gradient_2_minus[k][l] -= 0.5 * crate::EPSILON;
-            let residual_minus =
-                model.internal_variables_residual(&deformation_gradient, &deformation_gradient_2_minus)?;
+            let residual_minus = model.internal_variables_residual(
+                &deformation_gradient,
+                &deformation_gradient_2_minus,
+            )?;
             for i in 0..3 {
                 for j in 0..3 {
-                    fd[i][j][k][l] =
-                        (residual_plus[i][j] - residual_minus[i][j]) / crate::EPSILON;
+                    fd[i][j][k][l] = (residual_plus[i][j] - residual_minus[i][j]) / crate::EPSILON;
                 }
             }
         }

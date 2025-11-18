@@ -593,6 +593,38 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     }
 }
 
+pub trait ContractThirdIndexWithFirstIndexOf<TKL> {
+    type Output;
+    fn contract_third_index_with_first_index_of(&self, tensor: TKL) -> Self::Output;
+}
+
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const M: usize>
+    ContractThirdIndexWithFirstIndexOf<&TensorRank2<D, M, K>> for TensorRank4<D, I, J, M, L>
+{
+    type Output = TensorRank4<D, I, J, K, L>;
+    fn contract_third_index_with_first_index_of(
+        &self,
+        tensor_rank_2: &TensorRank2<D, M, K>,
+    ) -> Self::Output {
+        self.iter()
+            .map(|self_i| {
+                self_i
+                    .iter()
+                    .map(|self_ij| {
+                        self_ij
+                            .iter()
+                            .zip(tensor_rank_2.iter())
+                            .map(|(self_ijm, tensor_rank_2_m)| {
+                                TensorRank2::dyad(tensor_rank_2_m, self_ijm)
+                            })
+                            .sum()
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+}
+
 pub trait ContractThirdFourthIndicesWithFirstSecondIndicesOf<TKL> {
     type Output;
     fn contract_third_fourth_indices_with_first_second_indices_of(
@@ -828,9 +860,10 @@ impl<const D: usize, const J: usize, const K: usize, const L: usize, const M: us
 {
     type Output = TensorRank3<D, J, K, L>;
     fn mul(self, tensor_rank_4: TensorRank4<D, M, J, K, L>) -> Self::Output {
-        self.into_iter().zip(tensor_rank_4).map(|(self_m, tensor_rank_4_m)|
-            tensor_rank_4_m * self_m
-        ).sum()
+        self.into_iter()
+            .zip(tensor_rank_4)
+            .map(|(self_m, tensor_rank_4_m)| tensor_rank_4_m * self_m)
+            .sum()
     }
 }
 
@@ -840,9 +873,10 @@ impl<const D: usize, const J: usize, const K: usize, const L: usize, const M: us
     type Output = TensorRank3<D, J, K, L>;
     fn mul(self, tensor_rank_4: &TensorRank4<D, M, J, K, L>) -> Self::Output {
         let foo = 1; // get rid of clone by doing other impl
-        self.into_iter().zip(tensor_rank_4.iter()).map(|(self_m, tensor_rank_4_m)|
-            tensor_rank_4_m.clone() * self_m
-        ).sum()
+        self.into_iter()
+            .zip(tensor_rank_4.iter())
+            .map(|(self_m, tensor_rank_4_m)| tensor_rank_4_m.clone() * self_m)
+            .sum()
     }
 }
 
@@ -851,9 +885,10 @@ impl<const D: usize, const J: usize, const K: usize, const L: usize, const M: us
 {
     type Output = TensorRank3<D, J, K, L>;
     fn mul(self, tensor_rank_4: TensorRank4<D, M, J, K, L>) -> Self::Output {
-        self.iter().zip(tensor_rank_4).map(|(self_m, tensor_rank_4_m)|
-            tensor_rank_4_m * self_m
-        ).sum()
+        self.iter()
+            .zip(tensor_rank_4)
+            .map(|(self_m, tensor_rank_4_m)| tensor_rank_4_m * self_m)
+            .sum()
     }
 }
 
@@ -863,9 +898,10 @@ impl<const D: usize, const J: usize, const K: usize, const L: usize, const M: us
     type Output = TensorRank3<D, J, K, L>;
     fn mul(self, tensor_rank_4: &TensorRank4<D, M, J, K, L>) -> Self::Output {
         let foo = 1; // get rid of clone by doing other impl
-        self.iter().zip(tensor_rank_4.iter()).map(|(self_m, tensor_rank_4_m)|
-            tensor_rank_4_m.clone() * self_m
-        ).sum()
+        self.iter()
+            .zip(tensor_rank_4.iter())
+            .map(|(self_m, tensor_rank_4_m)| tensor_rank_4_m.clone() * self_m)
+            .sum()
     }
 }
 
@@ -874,9 +910,9 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
 {
     type Output = TensorRank4<D, I, J, K, L>;
     fn mul(self, tensor_rank_4: TensorRank4<D, M, J, K, L>) -> Self::Output {
-        self.into_iter().map(|self_i|
-            self_i * &tensor_rank_4
-        ).collect()
+        self.into_iter()
+            .map(|self_i| self_i * &tensor_rank_4)
+            .collect()
     }
 }
 
@@ -885,9 +921,9 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
 {
     type Output = TensorRank4<D, I, J, K, L>;
     fn mul(self, tensor_rank_4: &TensorRank4<D, M, J, K, L>) -> Self::Output {
-        self.into_iter().map(|self_i|
-            self_i * tensor_rank_4
-        ).collect()
+        self.into_iter()
+            .map(|self_i| self_i * tensor_rank_4)
+            .collect()
     }
 }
 
@@ -896,9 +932,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
 {
     type Output = TensorRank4<D, I, J, K, L>;
     fn mul(self, tensor_rank_4: TensorRank4<D, M, J, K, L>) -> Self::Output {
-        self.iter().map(|self_i|
-            self_i * &tensor_rank_4
-        ).collect()
+        self.iter().map(|self_i| self_i * &tensor_rank_4).collect()
     }
 }
 
@@ -907,9 +941,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
 {
     type Output = TensorRank4<D, I, J, K, L>;
     fn mul(self, tensor_rank_4: &TensorRank4<D, M, J, K, L>) -> Self::Output {
-        self.iter().map(|self_i|
-            self_i * tensor_rank_4
-        ).collect()
+        self.iter().map(|self_i| self_i * tensor_rank_4).collect()
     }
 }
 

@@ -11,14 +11,16 @@ use crate::{
         },
     },
     math::{
+        ContractThirdIndexWithFirstIndexOf,
         IDENTITY_10, Rank2, TensorArray, TensorRank2, TensorRank4,
         optimize::{EqualityConstraint, GradientDescent, ZerothOrderRootFinding},
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, CauchyTangentStiffness1, DeformationGradient,
         DeformationGradient2, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStress1,
-        FirstPiolaKirchhoffStress2, FirstPiolaKirchhoffTangentStiffness, Scalar,
-        SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,FirstPiolaKirchhoffTangentStiffness2
+        FirstPiolaKirchhoffStress2, FirstPiolaKirchhoffTangentStiffness,
+        FirstPiolaKirchhoffTangentStiffness2, Scalar,
+        SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,
     },
 };
 
@@ -37,7 +39,13 @@ where
     }
 }
 
-impl<C1, C2> ElasticIV<DeformationGradient2, TensorRank4<3, 1, 0, 2, 0>, TensorRank4<3, 2, 0, 1, 0>, FirstPiolaKirchhoffTangentStiffness2> for Multiplicative<C1, C2>
+impl<C1, C2>
+    ElasticIV<
+        DeformationGradient2,
+        TensorRank4<3, 1, 0, 2, 0>,
+        TensorRank4<3, 2, 0, 1, 0>,
+        FirstPiolaKirchhoffTangentStiffness2,
+    > for Multiplicative<C1, C2>
 where
     C1: Elastic,
     C2: Elastic,
@@ -133,48 +141,59 @@ where
     /// Calculates and returns the tangents associated with the internal variables.
     ///
     /// ```math
-    /// \frac{\partial R_{ij}}{\partial F_{kl}} = ???
+    /// \frac{\partial P_{iJ}}{\partial F_{KL}^2} = -P_{iL}F_{KJ}^{2-T} - \mathcal{C}_{iJmL}F_{mK}^1
+    /// ```
+    /// ```math
+    /// \frac{\partial R_{IJ}}{\partial F_{kL}} = -F_{IL}^{2-T}P_{kJ} - F_{mI}^1\mathcal{C}_{mJkL}
+    /// ```
+    /// ```math
+    /// \frac{\partial R_{IJ}}{\partial F_{KL}^2} = \mathcal{C}_{IJKL}^2 + F_{IM}^1P_{ML}{F_{KJ}^{2-T}} - \frac{\partial R_{IJ}}{\partial F_{mL}}\,F_{mK}^1
     /// ```
     fn internal_variables_tangents(
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_2: &DeformationGradient2,
-    ) -> Result<(TensorRank4<3, 1, 0, 2, 0>, TensorRank4<3, 2, 0, 1, 0>, FirstPiolaKirchhoffTangentStiffness2), ConstitutiveError> {
-        // There are 4 tangents:
-        // 0) dP/dF
-        // 1) dP/dF2
-        // 2) dR/dF
-        // 3) dR/dF2
-        // Tangents 2, 3, and 4 would be calculated here.
-        // Note that 1=2 only if hyperelastic.
+    ) -> Result<
+        (
+            TensorRank4<3, 1, 0, 2, 0>,
+            TensorRank4<3, 2, 0, 1, 0>,
+            FirstPiolaKirchhoffTangentStiffness2,
+        ),
+        ConstitutiveError,
+    > {
+        //
+        // If hyperelastic, tangent_1 should equal a transpose of tangent_2.
+        // Could add a method to utilize that for minimize() in hyperelastic/multiplicative.
+        //
         let deformation_gradient_2_inverse = deformation_gradient_2.inverse();
         let deformation_gradient_2_inverse_transpose = deformation_gradient_2_inverse.transpose();
         let deformation_gradient_1 = deformation_gradient * &deformation_gradient_2_inverse;
         let deformation_gradient_1_transpose = deformation_gradient_1.transpose();
-        let first_piola_kirchhoff_stress = self.first_piola_kirchhoff_stress_foo(
-            deformation_gradient,
-            deformation_gradient_2,
-        )?;
+        let first_piola_kirchhoff_stress =
+            self.first_piola_kirchhoff_stress_foo(deformation_gradient, deformation_gradient_2)?;
         let tangent_0 = self.first_piola_kirchhoff_tangent_stiffness_foo(
             deformation_gradient,
             deformation_gradient_2,
         )?;
+        let tangent_1 = TensorRank4::dyad_il_jk(
+            &first_piola_kirchhoff_stress,
+            &(&deformation_gradient_2_inverse * -1.0),
+        ) - tangent_0
+            .contract_third_index_with_first_index_of(&deformation_gradient_1);
         let tangent_2 = TensorRank4::dyad_il_kj(
             &(&deformation_gradient_2_inverse_transpose * -1.0),
             &first_piola_kirchhoff_stress,
         ) - &deformation_gradient_1_transpose * &tangent_0;
-        let tangent_3 = FirstPiolaKirchhoffTangentStiffness2::from(self.1.first_piola_kirchhoff_tangent_stiffness(deformation_gradient_2.into())?)
-        + TensorRank4::dyad_il_kj(
-            &deformation_gradient_2_inverse_transpose,
-            &(&deformation_gradient_1_transpose * first_piola_kirchhoff_stress),
-        )
-        // + &deformation_gradient_1_transpose * tangent_0.contract_third_index_with_first_index_of(&deformation_gradient_1)
-        + TensorRank4::dyad_il_jk(
-            &(deformation_gradient_1_transpose * FirstPiolaKirchhoffStress1::from(self.1.first_piola_kirchhoff_stress(deformation_gradient_2.into())?) * deformation_gradient_2_inverse_transpose),
-            &deformation_gradient_2_inverse,
-        )
-        ;
-        Ok((TensorRank4::zero(), tangent_2, tangent_3))
+        let tangent_3 = FirstPiolaKirchhoffTangentStiffness2::from(
+            self.1
+                .first_piola_kirchhoff_tangent_stiffness(deformation_gradient_2.into())?,
+        ) - tangent_2
+            .contract_third_index_with_first_index_of(&deformation_gradient_1)
+            + TensorRank4::dyad_il_jk(
+                &(deformation_gradient_1_transpose * first_piola_kirchhoff_stress),
+                &deformation_gradient_2_inverse,
+            );
+        Ok((tangent_1, tangent_2, tangent_3))
     }
 }
 
