@@ -166,10 +166,13 @@ where
         let tangent_3 = FirstPiolaKirchhoffTangentStiffness2::from(self.1.first_piola_kirchhoff_tangent_stiffness(deformation_gradient_2.into())?)
         + TensorRank4::dyad_il_kj(
             &deformation_gradient_2_inverse_transpose,
-            &(&deformation_gradient_1_transpose * &first_piola_kirchhoff_stress),
+            &(&deformation_gradient_1_transpose * first_piola_kirchhoff_stress),
         )
         // + &deformation_gradient_1_transpose * tangent_0.contract_third_index_with_first_index_of(&deformation_gradient_1)
-        + deformation_gradient_1_transpose * 
+        + TensorRank4::dyad_il_jk(
+            &(deformation_gradient_1_transpose * FirstPiolaKirchhoffStress1::from(self.1.first_piola_kirchhoff_stress(deformation_gradient_2.into())?) * deformation_gradient_2_inverse_transpose),
+            &deformation_gradient_2_inverse,
+        )
         ;
         Ok((TensorRank4::zero(), tangent_2, tangent_3))
     }
