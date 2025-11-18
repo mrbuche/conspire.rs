@@ -18,7 +18,7 @@ use crate::{
 };
 
 /// Required methods for elastic constitutive models with internal variables.
-pub trait ElasticIV<V>
+pub trait ElasticIV<V, T1, T2, T3>
 where
     Self: Solid,
 {
@@ -162,7 +162,7 @@ where
         internal_variables: &V,
     ) -> Result<V, ConstitutiveError>;
     /// Calculates and returns the tangents associated with the internal variables.
-    fn internal_variables_tangents<T1, T2, T3>(
+    fn internal_variables_tangents(
         &self,
         deformation_gradient: &DeformationGradient,
         internal_variables: &V,
@@ -170,7 +170,7 @@ where
 }
 
 /// Zeroth-order root-finding methods for elastic constitutive models with internal variables.
-pub trait ZerothOrderRoot<V>
+pub trait ZerothOrderRoot<V, T1, T2, T3>
 where
     V: Tensor,
 {
@@ -189,7 +189,7 @@ where
 }
 
 /// First-order root-finding methods for elastic constitutive models with internal variables.
-pub trait FirstOrderRoot<V>
+pub trait FirstOrderRoot<V, T1, T2, T3>
 where
     V: Tensor,
 {
@@ -211,9 +211,9 @@ where
     ) -> Result<(DeformationGradient, V), ConstitutiveError>;
 }
 
-impl<T, V> ZerothOrderRoot<V> for T
+impl<T, V, T1, T2, T3> ZerothOrderRoot<V, T1, T2, T3> for T
 where
-    T: ElasticIV<V>,
+    T: ElasticIV<V, T1, T2, T3>,
     V: Tensor,
 {
     type Variables = TensorTuple<DeformationGradient, V>;
@@ -293,9 +293,9 @@ where
     }
 }
 
-impl<T, V> FirstOrderRoot<V> for T
+impl<T, V, T1, T2, T3> FirstOrderRoot<V, T1, T2, T3> for T
 where
-    T: ElasticIV<V>,
+    T: ElasticIV<V, T1, T2, T3>,
     V: Tensor,
 {
     type Variables = TensorTuple<DeformationGradient, V>;

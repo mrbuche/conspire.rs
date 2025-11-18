@@ -11,7 +11,7 @@ use crate::{
         },
     },
     math::{
-        IDENTITY_10, Rank2, TensorArray, TensorRank2,
+        IDENTITY_10, Rank2, TensorArray, TensorRank2, TensorRank4,
         optimize::{EqualityConstraint, GradientDescent, ZerothOrderRootFinding},
     },
     mechanics::{
@@ -37,7 +37,7 @@ where
     }
 }
 
-impl<C1, C2> ElasticIV<DeformationGradient2> for Multiplicative<C1, C2>
+impl<C1, C2> ElasticIV<DeformationGradient2, TensorRank4<3, 1, 0, 2, 0>, TensorRank4<3, 2, 0, 1, 0>, TensorRank4<3, 2, 0, 2, 0>> for Multiplicative<C1, C2>
 where
     C1: Elastic,
     C2: Elastic,
@@ -135,19 +135,32 @@ where
     /// ```math
     /// \frac{\partial R_{ij}}{\partial F_{kl}} = ???
     /// ```
-    fn internal_variables_tangents<T1, T2, T3>(
+    fn internal_variables_tangents(
         &self,
         deformation_gradient: &DeformationGradient,
-        internal_variables: &DeformationGradient2,
-    ) -> Result<(T1, T2, T3), ConstitutiveError> {
+        deformation_gradient_2: &DeformationGradient2,
+    ) -> Result<(TensorRank4<3, 1, 0, 2, 0>, TensorRank4<3, 2, 0, 1, 0>, TensorRank4<3, 2, 0, 2, 0>), ConstitutiveError> {
         // There are 4 tangents:
         // 1) dP/dF
         // 2) dP/dF2
         // 3) dR/dF
         // 4) dR/dF2
         // Tangents 2, 3, and 4 would be calculated here.
-        // Note that 2=3 only if hyperelastic.
-        todo!()
+        // Note that 1=2 only if hyperelastic.
+        let deformation_gradient_2_inverse = deformation_gradient_2.inverse();
+        let deformation_gradient_1 = deformation_gradient * &deformation_gradient_2_inverse;
+        let tangent_2 = TensorRank4::dyad_il_kj(
+            &(deformation_gradient_2_inverse.transpose() * -1.0),
+            &self.first_piola_kirchhoff_stress_foo(
+                deformation_gradient,
+                deformation_gradient_2,
+            )?,
+        ) - deformation_gradient_1.transpose()
+            * self.first_piola_kirchhoff_tangent_stiffness_foo(
+                deformation_gradient,
+                deformation_gradient_2,
+        )?;
+        Ok((TensorRank4::zero(), tangent_2, TensorRank4::zero()))
     }
 }
 

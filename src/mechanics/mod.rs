@@ -179,7 +179,7 @@ pub type FirstPiolaKirchhoffStress1 = TensorRank2<3, 1, 2>;
 pub type FirstPiolaKirchhoffStress2 = TensorRank2<3, 2, 0>;
 
 /// The elastic first Piola-Kirchhoff stress $`\mathbf{P}_\mathrm{e}`$.
-pub type FirstPiolaKirchhoffStressElastic = TensorRank2<3, 1, 2>;
+pub type FirstPiolaKirchhoffStressElastic = FirstPiolaKirchhoffStress1;
 
 /// A list of first Piola-Kirchhoff stresses.
 pub type FirstPiolaKirchhoffStresses<const W: usize> = TensorRank2List<3, 1, 0, W>;

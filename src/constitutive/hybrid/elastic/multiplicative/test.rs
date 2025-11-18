@@ -8,7 +8,7 @@ use crate::{
     constitutive::solid::elastic::{AppliedLoad, internal_variables::ElasticIV},
     math::{
         optimize::{GradientDescent, NewtonRaphson},
-        test::{ErrorTensor, assert_eq_from_fd},
+        test::{ErrorTensor, assert_eq_from_fd},TensorRank4
     },
     mechanics::*,
 };
@@ -58,6 +58,56 @@ fn finite_difference_foo() -> Result<(), TestError> {
     }
     if tangent.error_fd(&fd, 5e1 * crate::EPSILON).is_some() {
         assert_eq_from_fd(&tangent, &fd)
+    } else {
+        Ok(())
+    }
+}
+
+#[test]
+fn finite_difference_foo_3() -> Result<(), TestError> {
+    let deformation_gradient = DeformationGradient::new([
+        [1.31924942, 1.36431217, 0.41764434],
+        [0.09959341, 1.38409741, 1.48320137],
+        [0.21114106, 1.16675104, 1.98146028],
+    ]);
+    let deformation_gradient_2 = DeformationGradient2::new([
+        [0.84598947, 1.44803635, 0.62447529],
+        [0.76208429, 1.94584131, 0.74035917],
+        [1.93680854, 2.32953025, 3.36786684],
+    ]);
+    let model = Multiplicative::from((
+        AlmansiHamel {
+            bulk_modulus: BULK_MODULUS,
+            shear_modulus: SHEAR_MODULUS,
+        },
+        NeoHookean {
+            bulk_modulus: BULK_MODULUS,
+            shear_modulus: SHEAR_MODULUS,
+        },
+    ));
+    let (_, _, tangent_3) =
+        model.internal_variables_tangents(&deformation_gradient, &deformation_gradient_2)?;
+    let mut fd = TensorRank4::zero();
+    for k in 0..3 {
+        for l in 0..3 {
+            let mut deformation_gradient_2_plus = deformation_gradient_2.clone();
+            deformation_gradient_2_plus[k][l] += 0.5 * crate::EPSILON;
+            let residual_plus =
+                model.internal_variables_residual(&deformation_gradient, &deformation_gradient_2_plus)?;
+            let mut deformation_gradient_2_minus = deformation_gradient_2.clone();
+            deformation_gradient_2_minus[k][l] -= 0.5 * crate::EPSILON;
+            let residual_minus =
+                model.internal_variables_residual(&deformation_gradient, &deformation_gradient_2_minus)?;
+            for i in 0..3 {
+                for j in 0..3 {
+                    fd[i][j][k][l] =
+                        (residual_plus[i][j] - residual_minus[i][j]) / crate::EPSILON;
+                }
+            }
+        }
+    }
+    if tangent_3.error_fd(&fd, 5e1 * crate::EPSILON).is_some() {
+        assert_eq_from_fd(&tangent_3, &fd)
     } else {
         Ok(())
     }
