@@ -169,7 +169,7 @@ impl<'a, C, const G: usize, const N: usize> FiniteElementMethods<C, G, N> for El
                     .iter()
                     .zip(gradient_vectors.iter())
                     .map(|(nodal_coordinate, gradient_vector)| {
-                        DeformationGradient::dyad(nodal_coordinate, gradient_vector)
+                        (nodal_coordinate, gradient_vector).into()
                     })
                     .sum()
             })
@@ -187,7 +187,7 @@ impl<'a, C, const G: usize, const N: usize> FiniteElementMethods<C, G, N> for El
                     .iter()
                     .zip(gradient_vectors.iter())
                     .map(|(nodal_velocity, gradient_vector)| {
-                        DeformationGradientRate::dyad(nodal_velocity, gradient_vector)
+                        (nodal_velocity, gradient_vector).into()
                     })
                     .sum()
             })

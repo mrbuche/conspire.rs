@@ -181,7 +181,7 @@ where
     ) -> NodalCoordinates<N> {
         element_connectivity
             .iter()
-            .map(|node| nodal_coordinates[*node].clone())
+            .map(|&node| nodal_coordinates[node].clone())
             .collect()
     }
 }
@@ -237,7 +237,7 @@ where
                     constitutive_model,
                     element_connectivity
                         .iter()
-                        .map(|node| coordinates[*node].clone())
+                        .map(|&node| coordinates[node].clone())
                         .collect(),
                     thickness,
                 )
@@ -990,7 +990,7 @@ where
     ) -> NodalVelocities<N> {
         element_connectivity
             .iter()
-            .map(|node| nodal_velocities[*node].clone())
+            .map(|&node| nodal_velocities[node].clone())
             .collect()
     }
     fn root(

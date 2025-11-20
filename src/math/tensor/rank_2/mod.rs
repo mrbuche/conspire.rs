@@ -170,21 +170,69 @@ pub const ZERO_10: TensorRank2<3, 1, 0> = TensorRank2([
     tensor_rank_1_zero(),
 ]);
 
-// impl<const D: usize, const I: usize, const J: usize> From<(TensorRank1<D, I>, TensorRank1<D, J>)>
-//     for TensorRank2<D, I, J>
-// {
-//     fn from((vector_a, vector_b): (TensorRank1<D, I>, TensorRank1<D, J>)) -> Self {
-//         vector_a
-//             .into_iter()
-//             .map(|vector_a_i| {
-//                 vector_b
-//                     .iter()
-//                     .map(|vector_b_j| vector_a_i * vector_b_j)
-//                     .collect()
-//             })
-//             .collect()
-//     }
-// }
+impl<const D: usize, const I: usize, const J: usize> From<(TensorRank1<D, I>, TensorRank1<D, J>)>
+    for TensorRank2<D, I, J>
+{
+    fn from((vector_a, vector_b): (TensorRank1<D, I>, TensorRank1<D, J>)) -> Self {
+        vector_a
+            .into_iter()
+            .map(|vector_a_i| {
+                vector_b
+                    .iter()
+                    .map(|vector_b_j| vector_a_i * vector_b_j)
+                    .collect()
+            })
+            .collect()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> From<(TensorRank1<D, I>, &TensorRank1<D, J>)>
+    for TensorRank2<D, I, J>
+{
+    fn from((vector_a, vector_b): (TensorRank1<D, I>, &TensorRank1<D, J>)) -> Self {
+        vector_a
+            .into_iter()
+            .map(|vector_a_i| {
+                vector_b
+                    .iter()
+                    .map(|vector_b_j| vector_a_i * vector_b_j)
+                    .collect()
+            })
+            .collect()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> From<(&TensorRank1<D, I>, TensorRank1<D, J>)>
+    for TensorRank2<D, I, J>
+{
+    fn from((vector_a, vector_b): (&TensorRank1<D, I>, TensorRank1<D, J>)) -> Self {
+        vector_a
+            .iter()
+            .map(|vector_a_i| {
+                vector_b
+                    .iter()
+                    .map(|vector_b_j| vector_a_i * vector_b_j)
+                    .collect()
+            })
+            .collect()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> From<(&TensorRank1<D, I>, &TensorRank1<D, J>)>
+    for TensorRank2<D, I, J>
+{
+    fn from((vector_a, vector_b): (&TensorRank1<D, I>, &TensorRank1<D, J>)) -> Self {
+        vector_a
+            .iter()
+            .map(|vector_a_i| {
+                vector_b
+                    .iter()
+                    .map(|vector_b_j| vector_a_i * vector_b_j)
+                    .collect()
+            })
+            .collect()
+    }
+}
 
 impl<const D: usize, const I: usize, const J: usize> From<Vec<Vec<TensorRank0>>>
     for TensorRank2<D, I, J>
@@ -293,18 +341,6 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
                 .product::<TensorRank0>()
                 * if num_swaps % 2 == 0 { 1.0 } else { -1.0 }
         }
-    }
-    /// Returns a rank-2 tensor constructed from a dyad of the given vectors.
-    pub fn dyad(vector_a: &TensorRank1<D, I>, vector_b: &TensorRank1<D, J>) -> Self {
-        vector_a
-            .iter()
-            .map(|vector_a_i| {
-                vector_b
-                    .iter()
-                    .map(|vector_b_j| vector_a_i * vector_b_j)
-                    .collect()
-            })
-            .collect()
     }
     /// Returns the inverse of the rank-2 tensor.
     pub fn inverse(&self) -> TensorRank2<D, J, I> {

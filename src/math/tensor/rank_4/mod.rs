@@ -615,7 +615,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
                             .iter()
                             .zip(tensor_rank_2.iter())
                             .map(|(self_ijm, tensor_rank_2_m)| {
-                                TensorRank2::dyad(tensor_rank_2_m, self_ijm)
+                                (tensor_rank_2_m, self_ijm).into()
                             })
                             .sum()
                     })

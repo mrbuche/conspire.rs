@@ -464,22 +464,6 @@ fn deviatoric_and_trace_dim_9() -> Result<(), TestError> {
 }
 
 #[test]
-fn dyad() {
-    let tensor_rank_1_a = get_tensor_rank_1_a();
-    let tensor_rank_1_b = get_tensor_rank_1_b();
-    let tensor_rank_2 = TensorRank2::dyad(&tensor_rank_1_a, &tensor_rank_1_b);
-    tensor_rank_2.iter().zip(tensor_rank_1_a.iter()).for_each(
-        |(tensor_rank_2_i, tensor_rank_1_a_i)| {
-            tensor_rank_2_i.iter().zip(tensor_rank_1_b.iter()).for_each(
-                |(tensor_rank_2_ij, tensor_rank_1_b_j)| {
-                    assert_eq!(tensor_rank_2_ij, &(tensor_rank_1_a_i * tensor_rank_1_b_j))
-                },
-            )
-        },
-    );
-}
-
-#[test]
 fn error() {
     let a = get_tensor_rank_1_a();
     let b = get_tensor_rank_1_b();
