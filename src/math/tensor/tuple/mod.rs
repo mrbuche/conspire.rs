@@ -1,7 +1,10 @@
 pub mod list;
 pub mod vec;
 
-use crate::math::{Jacobian, Solution, Tensor, TensorRank0, TensorRank2, Vector};
+use crate::math::{
+    Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorRank0, TensorRank2, TensorRank4,
+    Vector,
+};
 use std::{
     fmt::{Display, Formatter, Result},
     iter::Sum,
@@ -105,6 +108,30 @@ where
     }
     fn size(&self) -> usize {
         self.0.size() + self.1.size()
+    }
+}
+
+// impl<T1, T2> Hessian for TensorTuple<T1, T2>
+// where
+//     T1: Tensor,
+//     T2: Tensor,
+// {
+//     fn fill_into(self, square_matrix: &mut SquareMatrix) {
+//         todo!("May need to make this more specific like Jacobian below")
+//     }
+// }
+
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> Hessian
+    for TensorTuple<
+        TensorRank4<D, I, J, I, J>,
+        TensorTuple<
+            TensorRank4<D, I, J, K, L>,
+            TensorTuple<TensorRank4<D, K, L, I, J>, TensorRank4<D, K, L, K, L>>,
+        >,
+    >
+{
+    fn fill_into(self, square_matrix: &mut SquareMatrix) {
+        todo!()
     }
 }
 
@@ -401,5 +428,18 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
         self.0 = self.0 - vector.iter().take(D * D).copied().collect::<Vector>();
         self.1 = self.1 - vector.iter().skip(D * D).copied().collect::<Vector>();
         self
+    }
+}
+
+impl<T0, T1, T4, T5> Div<TensorTuple<T0, T1>> for &TensorTuple<T4, T5>
+where
+    T0: Tensor,
+    T1: Tensor,
+    T4: Tensor,
+    T5: Tensor,
+{
+    type Output = TensorTuple<T4, T5>;
+    fn div(self, _tensor_tuple: TensorTuple<T0, T1>) -> Self::Output {
+        unimplemented!()
     }
 }

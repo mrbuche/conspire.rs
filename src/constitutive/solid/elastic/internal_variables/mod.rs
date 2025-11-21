@@ -191,6 +191,9 @@ where
 /// First-order root-finding methods for elastic constitutive models with internal variables.
 pub trait FirstOrderRoot<V, T1, T2, T3>
 where
+    T1: Tensor,
+    T2: Tensor,
+    T3: Tensor,
     V: Tensor,
 {
     /// Type representing all variables.
@@ -205,8 +208,8 @@ where
         applied_load: AppliedLoad,
         solver: impl FirstOrderRootFinding<
             Self::Variables,
-            FirstPiolaKirchhoffTangentStiffness,
-            DeformationGradient,
+            TensorTuple<FirstPiolaKirchhoffTangentStiffness, TensorTuple<T1, TensorTuple<T2, T3>>>,
+            Self::Variables,
         >,
     ) -> Result<(DeformationGradient, V), ConstitutiveError>;
 }
@@ -295,6 +298,9 @@ where
 
 impl<T, V, T1, T2, T3> FirstOrderRoot<V, T1, T2, T3> for T
 where
+    T1: Tensor,
+    T2: Tensor,
+    T3: Tensor,
     T: ElasticIV<V, T1, T2, T3>,
     V: Tensor,
 {
@@ -304,60 +310,101 @@ where
         applied_load: AppliedLoad,
         solver: impl FirstOrderRootFinding<
             Self::Variables,
-            FirstPiolaKirchhoffTangentStiffness,
-            DeformationGradient,
+            TensorTuple<FirstPiolaKirchhoffTangentStiffness, TensorTuple<T1, TensorTuple<T2, T3>>>,
+            Self::Variables,
         >,
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {
-        // need other residual (da/dF_2=0) and tangents (d^2a/dFdF_2 and d^2a/dF_2^2)
-        // for Hessian, should pass in a tuple of the ingredients and let math/ assemble it somewhere
-        todo!()
-        //     match match applied_load {
-        //         AppliedLoad::UniaxialStress(deformation_gradient_11) => {
-        //             let mut matrix = Matrix::zero(4, 18); made the 9 18
-        //             let mut vector = Vector::zero(4);
-        //             matrix[0][0] = 1.0;
-        //             matrix[1][1] = 1.0;
-        //             matrix[2][2] = 1.0;
-        //             matrix[3][5] = 1.0;
-        //             vector[0] = deformation_gradient_11;
-        //             solver.root(
-        //                 |deformation_gradient: &DeformationGradient| {
-        //                     Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
-        //                 },
-        //                 |deformation_gradient: &DeformationGradient| {
-        //                     Ok(self.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)?)
-        //                 },
-        //                 DeformationGradient::identity(),
-        //                 EqualityConstraint::Linear(matrix, vector),
-        //             )
-        //         }
-        //         AppliedLoad::BiaxialStress(deformation_gradient_11, deformation_gradient_22) => {
-        //             let mut matrix = Matrix::zero(5, 18); made the 9 18
-        //             let mut vector = Vector::zero(5);
-        //             matrix[0][0] = 1.0;
-        //             matrix[1][1] = 1.0;
-        //             matrix[2][2] = 1.0;
-        //             matrix[3][5] = 1.0;
-        //             matrix[4][4] = 1.0;
-        //             vector[0] = deformation_gradient_11;
-        //             vector[4] = deformation_gradient_22;
-        //             solver.root(
-        //                 |deformation_gradient: &DeformationGradient| {
-        //                     Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
-        //                 },
-        //                 |deformation_gradient: &DeformationGradient| {
-        //                     Ok(self.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)?)
-        //                 },
-        //                 DeformationGradient::identity(),
-        //                 EqualityConstraint::Linear(matrix, vector),
-        //             )
-        //         }
-        //     } {
-        //         Ok(deformation_gradient) => Ok(deformation_gradient),
-        //         Err(error) => Err(ConstitutiveError::Upstream(
-        //             format!("{error}"),
-        //             format!("{self:?}"),
-        //         )),
-        //     }
+        match match applied_load {
+            AppliedLoad::UniaxialStress(deformation_gradient_11) => {
+                let mut matrix = Matrix::zero(4, 18);
+                let mut vector = Vector::zero(4);
+                matrix[0][0] = 1.0;
+                matrix[1][1] = 1.0;
+                matrix[2][2] = 1.0;
+                matrix[3][5] = 1.0;
+                vector[0] = deformation_gradient_11;
+                solver.root(
+                    |variables: &Self::Variables| {
+                        let (deformation_gradient, internal_variables) = variables.into();
+                        Ok(TensorTuple::from((
+                            self.first_piola_kirchhoff_stress_foo(
+                                deformation_gradient,
+                                internal_variables,
+                            )?,
+                            self.internal_variables_residual(
+                                deformation_gradient,
+                                internal_variables,
+                            )?,
+                        )))
+                    },
+                    |variables: &Self::Variables| {
+                        let (deformation_gradient, internal_variables) = variables.into();
+                        let tangent_0 = self.first_piola_kirchhoff_tangent_stiffness_foo(
+                            &deformation_gradient,
+                            &internal_variables,
+                        )?;
+                        let (tangent_1, tangent_2, tangent_3) = self.internal_variables_tangents(
+                            &deformation_gradient,
+                            &internal_variables,
+                        )?;
+                        Ok((tangent_0, (tangent_1, (tangent_2, tangent_3).into()).into()).into())
+                    },
+                    Self::Variables::from((
+                        DeformationGradient::identity(),
+                        self.internal_variables_initial(),
+                    )),
+                    EqualityConstraint::Linear(matrix, vector),
+                )
+            }
+            AppliedLoad::BiaxialStress(deformation_gradient_11, deformation_gradient_22) => {
+                let mut matrix = Matrix::zero(5, 18);
+                let mut vector = Vector::zero(5);
+                matrix[0][0] = 1.0;
+                matrix[1][1] = 1.0;
+                matrix[2][2] = 1.0;
+                matrix[3][5] = 1.0;
+                matrix[4][4] = 1.0;
+                vector[0] = deformation_gradient_11;
+                vector[4] = deformation_gradient_22;
+                solver.root(
+                    |variables: &Self::Variables| {
+                        let (deformation_gradient, internal_variables) = variables.into();
+                        Ok(TensorTuple::from((
+                            self.first_piola_kirchhoff_stress_foo(
+                                deformation_gradient,
+                                internal_variables,
+                            )?,
+                            self.internal_variables_residual(
+                                deformation_gradient,
+                                internal_variables,
+                            )?,
+                        )))
+                    },
+                    |variables: &Self::Variables| {
+                        let (deformation_gradient, internal_variables) = variables.into();
+                        let tangent_0 = self.first_piola_kirchhoff_tangent_stiffness_foo(
+                            &deformation_gradient,
+                            &internal_variables,
+                        )?;
+                        let (tangent_1, tangent_2, tangent_3) = self.internal_variables_tangents(
+                            &deformation_gradient,
+                            &internal_variables,
+                        )?;
+                        Ok((tangent_0, (tangent_1, (tangent_2, tangent_3).into()).into()).into())
+                    },
+                    Self::Variables::from((
+                        DeformationGradient::identity(),
+                        self.internal_variables_initial(),
+                    )),
+                    EqualityConstraint::Linear(matrix, vector),
+                )
+            }
+        } {
+            Ok(solution) => Ok(solution.into()),
+            Err(error) => Err(ConstitutiveError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
 }

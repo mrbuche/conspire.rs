@@ -265,6 +265,24 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<&Tensor
     }
 }
 
+impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<TensorRank0>
+    for &TensorRank3<D, I, J, K>
+{
+    type Output = TensorRank3<D, I, J, K>;
+    fn mul(self, tensor_rank_0: TensorRank0) -> Self::Output {
+        self.iter().map(|self_i| self_i * tensor_rank_0).collect()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<&TensorRank0>
+    for &TensorRank3<D, I, J, K>
+{
+    type Output = TensorRank3<D, I, J, K>;
+    fn mul(self, tensor_rank_0: &TensorRank0) -> Self::Output {
+        self.iter().map(|self_i| self_i * tensor_rank_0).collect()
+    }
+}
+
 impl<const D: usize, const I: usize, const J: usize, const K: usize> MulAssign<TensorRank0>
     for TensorRank3<D, I, J, K>
 {

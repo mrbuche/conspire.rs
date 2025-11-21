@@ -93,8 +93,10 @@ fn finite_difference_foo_1() -> Result<(), TestError> {
         for l in 0..3 {
             let mut deformation_gradient_2_plus = deformation_gradient_2.clone();
             deformation_gradient_2_plus[k][l] += 0.5 * crate::EPSILON;
-            let residual_plus = model
-                .first_piola_kirchhoff_stress_foo(&deformation_gradient, &deformation_gradient_2_plus)?;
+            let residual_plus = model.first_piola_kirchhoff_stress_foo(
+                &deformation_gradient,
+                &deformation_gradient_2_plus,
+            )?;
             let mut deformation_gradient_2_minus = deformation_gradient_2.clone();
             deformation_gradient_2_minus[k][l] -= 0.5 * crate::EPSILON;
             let residual_minus = model.first_piola_kirchhoff_stress_foo(
@@ -233,17 +235,17 @@ fn root_0() -> Result<(), TestError> {
         },
     ));
     let time = std::time::Instant::now();
-    let f = model.root(
+    let _f = model.root(
         AppliedLoad::UniaxialStress(STRETCH),
         GradientDescent {
             dual: true,
             ..Default::default()
         },
     )?;
-    println!("old {:?}", time.elapsed());
+    println!("old_0 {:?}", time.elapsed());
     // let f_1 = &f * f_2.inverse();
     // println!("{}\n{}\n{}", f, f_1, f_2,);
-    println!("{}", f);
+    // println!("{}", f);
     Ok(())
 }
 
@@ -261,14 +263,37 @@ fn root_0_foo() -> Result<(), TestError> {
         },
     ));
     let time = std::time::Instant::now();
-    let (f, f_2) = model.root(
+    let (_f, _f_2) = model.root(
         AppliedLoad::UniaxialStress(STRETCH),
         GradientDescent {
             dual: true,
             ..Default::default()
         },
     )?;
-    println!("new {:?}", time.elapsed());
-    let f_1 = &f * f_2.inverse();
+    println!("new_0 {:?}", time.elapsed());
+    // let _f_1 = &f * f_2.inverse();
+    Ok(())
+}
+
+#[test]
+fn root_1_foo() -> Result<(), TestError> {
+    use crate::constitutive::solid::elastic::internal_variables::FirstOrderRoot;
+    let model = Multiplicative::from((
+        AlmansiHamel {
+            bulk_modulus: BULK_MODULUS,
+            shear_modulus: SHEAR_MODULUS,
+        },
+        NeoHookean {
+            bulk_modulus: BULK_MODULUS,
+            shear_modulus: SHEAR_MODULUS,
+        },
+    ));
+    let time = std::time::Instant::now();
+    let (_f, _f_2) = model.root(
+        AppliedLoad::UniaxialStress(STRETCH),
+        NewtonRaphson::default(),
+    )?;
+    println!("new_1 {:?}", time.elapsed());
+    // let _f_1 = &f * f_2.inverse();
     Ok(())
 }

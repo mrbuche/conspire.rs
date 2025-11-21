@@ -11,16 +11,16 @@ use crate::{
         },
     },
     math::{
-        ContractThirdIndexWithFirstIndexOf,
-        IDENTITY_10, Rank2, TensorArray, TensorRank2, TensorRank4,
+        ContractThirdIndexWithFirstIndexOf, IDENTITY_10, Rank2, TensorArray, TensorRank2,
+        TensorRank4,
         optimize::{EqualityConstraint, GradientDescent, ZerothOrderRootFinding},
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, CauchyTangentStiffness1, DeformationGradient,
         DeformationGradient2, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStress1,
         FirstPiolaKirchhoffStress2, FirstPiolaKirchhoffTangentStiffness,
-        FirstPiolaKirchhoffTangentStiffness2, Scalar,
-        SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,
+        FirstPiolaKirchhoffTangentStiffness2, Scalar, SecondPiolaKirchhoffStress,
+        SecondPiolaKirchhoffTangentStiffness,
     },
 };
 
