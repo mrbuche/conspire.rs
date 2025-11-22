@@ -316,12 +316,22 @@ where
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {
         match match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_11) => {
-                let mut matrix = Matrix::zero(4, 18);
-                let mut vector = Vector::zero(4);
+                // let mut matrix = Matrix::zero(4, 18);
+                // let mut vector = Vector::zero(4);
+                // matrix[0][0] = 1.0;
+                // matrix[1][1] = 1.0;
+                // matrix[2][2] = 1.0;
+                // matrix[3][5] = 1.0;
+                let mut matrix = Matrix::zero(7, 18);
+                let mut vector = Vector::zero(7);
                 matrix[0][0] = 1.0;
                 matrix[1][1] = 1.0;
                 matrix[2][2] = 1.0;
                 matrix[3][5] = 1.0;
+                let foo = 1;
+                matrix[4][10] = 1.0;
+                matrix[5][11] = 1.0;
+                matrix[6][14] = 1.0;
                 vector[0] = deformation_gradient_11;
                 solver.root(
                     |variables: &Self::Variables| {

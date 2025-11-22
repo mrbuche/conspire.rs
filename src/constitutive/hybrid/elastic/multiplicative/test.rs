@@ -91,17 +91,15 @@ fn finite_difference_foo_1() -> Result<(), TestError> {
     let mut fd = TensorRank4::zero();
     for k in 0..3 {
         for l in 0..3 {
-            let mut deformation_gradient_2_plus = deformation_gradient_2.clone();
-            deformation_gradient_2_plus[k][l] += 0.5 * crate::EPSILON;
-            let residual_plus = model.first_piola_kirchhoff_stress_foo(
-                &deformation_gradient,
-                &deformation_gradient_2_plus,
-            )?;
-            let mut deformation_gradient_2_minus = deformation_gradient_2.clone();
-            deformation_gradient_2_minus[k][l] -= 0.5 * crate::EPSILON;
-            let residual_minus = model.first_piola_kirchhoff_stress_foo(
-                &deformation_gradient,
-                &deformation_gradient_2_minus,
+            let mut deformation_gradient_plus = deformation_gradient.clone();
+            deformation_gradient_plus[k][l] += 0.5 * crate::EPSILON;
+            let residual_plus = model
+                .internal_variables_residual(&deformation_gradient_plus, &deformation_gradient_2)?;
+            let mut deformation_gradient_minus = deformation_gradient.clone();
+            deformation_gradient_minus[k][l] -= 0.5 * crate::EPSILON;
+            let residual_minus = model.internal_variables_residual(
+                &deformation_gradient_minus,
+                &deformation_gradient_2,
             )?;
             for i in 0..3 {
                 for j in 0..3 {
@@ -144,15 +142,17 @@ fn finite_difference_foo_2() -> Result<(), TestError> {
     let mut fd = TensorRank4::zero();
     for k in 0..3 {
         for l in 0..3 {
-            let mut deformation_gradient_plus = deformation_gradient.clone();
-            deformation_gradient_plus[k][l] += 0.5 * crate::EPSILON;
-            let residual_plus = model
-                .internal_variables_residual(&deformation_gradient_plus, &deformation_gradient_2)?;
-            let mut deformation_gradient_minus = deformation_gradient.clone();
-            deformation_gradient_minus[k][l] -= 0.5 * crate::EPSILON;
-            let residual_minus = model.internal_variables_residual(
-                &deformation_gradient_minus,
-                &deformation_gradient_2,
+            let mut deformation_gradient_2_plus = deformation_gradient_2.clone();
+            deformation_gradient_2_plus[k][l] += 0.5 * crate::EPSILON;
+            let residual_plus = model.first_piola_kirchhoff_stress_foo(
+                &deformation_gradient,
+                &deformation_gradient_2_plus,
+            )?;
+            let mut deformation_gradient_2_minus = deformation_gradient_2.clone();
+            deformation_gradient_2_minus[k][l] -= 0.5 * crate::EPSILON;
+            let residual_minus = model.first_piola_kirchhoff_stress_foo(
+                &deformation_gradient,
+                &deformation_gradient_2_minus,
             )?;
             for i in 0..3 {
                 for j in 0..3 {
@@ -222,7 +222,7 @@ fn finite_difference_foo_3() -> Result<(), TestError> {
 const STRETCH: Scalar = 1.5;
 
 #[test]
-fn root_0() -> Result<(), TestError> {
+fn root_0_not_foo() -> Result<(), TestError> {
     use crate::constitutive::solid::elastic::ZerothOrderRoot;
     let model = Multiplicative::from((
         AlmansiHamel {

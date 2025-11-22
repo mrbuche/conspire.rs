@@ -125,13 +125,33 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     for TensorTuple<
         TensorRank4<D, I, J, I, J>,
         TensorTuple<
-            TensorRank4<D, I, J, K, L>,
-            TensorTuple<TensorRank4<D, K, L, I, J>, TensorRank4<D, K, L, K, L>>,
+            TensorRank4<D, K, L, I, J>,
+            TensorTuple<TensorRank4<D, I, J, K, L>, TensorRank4<D, K, L, K, L>>,
         >,
     >
 {
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
-        todo!()
+        let offset = D * D;
+        let (tangent_0, tangent_123) = self.into();
+        let (tangent_1, tangent_23) = tangent_123.into();
+        let (tangent_2, tangent_3) = tangent_23.into();
+
+        tangent_0.into_iter().zip(tangent_1.into_iter().zip(tangent_2.into_iter().zip(tangent_3))).enumerate()
+            .for_each(|(i, (tangent_0_i, (tangent_1_i, (tangent_2_i, tangent_3_i))))| {
+                tangent_0_i.into_iter().zip(tangent_1_i.into_iter().zip(tangent_2_i.into_iter().zip(tangent_3_i))).enumerate()
+                    .for_each(|(j, (tangent_0_ij, (tangent_1_ij, (tangent_2_ij, tangent_3_ij))))| {
+                        tangent_0_ij.into_iter().zip(tangent_1_ij.into_iter().zip(tangent_2_ij.into_iter().zip(tangent_3_ij))).enumerate()
+                            .for_each(|(k, (tangent_0_ijk, (tangent_1_ijk, (tangent_2_ijk, tangent_3_ijk))))| {
+                                tangent_0_ijk.into_iter().zip(tangent_1_ijk.into_iter().zip(tangent_2_ijk.into_iter().zip(tangent_3_ijk))).enumerate()
+                                    .for_each(|(l, (tangent_0_ijkl, (tangent_1_ijkl, (tangent_2_ijkl, tangent_3_ijkl))))| {
+                                        square_matrix[D * i + j][D * k + l] = tangent_0_ijkl;
+                                        square_matrix[offset + D * i + j][D * k + l] = tangent_1_ijkl;
+                                        square_matrix[D * i + j][offset + D * k + l] = tangent_2_ijkl;
+                                        square_matrix[offset + D * i + j][offset + D * k + l] = tangent_3_ijkl;
+                                    })
+                            })
+                    })
+            })
     }
 }
 

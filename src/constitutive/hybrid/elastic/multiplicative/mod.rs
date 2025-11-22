@@ -42,8 +42,8 @@ where
 impl<C1, C2>
     ElasticIV<
         DeformationGradient2,
-        TensorRank4<3, 1, 0, 2, 0>,
         TensorRank4<3, 2, 0, 1, 0>,
+        TensorRank4<3, 1, 0, 2, 0>,
         FirstPiolaKirchhoffTangentStiffness2,
     > for Multiplicative<C1, C2>
 where
@@ -155,8 +155,8 @@ where
         deformation_gradient_2: &DeformationGradient2,
     ) -> Result<
         (
-            TensorRank4<3, 1, 0, 2, 0>,
             TensorRank4<3, 2, 0, 1, 0>,
+            TensorRank4<3, 1, 0, 2, 0>,
             FirstPiolaKirchhoffTangentStiffness2,
         ),
         ConstitutiveError,
@@ -175,19 +175,19 @@ where
             deformation_gradient,
             deformation_gradient_2,
         )?;
-        let tangent_1 = TensorRank4::dyad_il_jk(
+        let tangent_1 = TensorRank4::dyad_il_kj(
+            &(deformation_gradient_2_inverse_transpose * -1.0),
+            &first_piola_kirchhoff_stress,
+        ) - &deformation_gradient_1_transpose * &tangent_0;
+        let tangent_2 = TensorRank4::dyad_il_jk(
             &first_piola_kirchhoff_stress,
             &(&deformation_gradient_2_inverse * -1.0),
         ) - tangent_0
             .contract_third_index_with_first_index_of(&deformation_gradient_1);
-        let tangent_2 = TensorRank4::dyad_il_kj(
-            &(&deformation_gradient_2_inverse_transpose * -1.0),
-            &first_piola_kirchhoff_stress,
-        ) - &deformation_gradient_1_transpose * &tangent_0;
         let tangent_3 = FirstPiolaKirchhoffTangentStiffness2::from(
             self.1
                 .first_piola_kirchhoff_tangent_stiffness(deformation_gradient_2.into())?,
-        ) - tangent_2
+        ) - tangent_1
             .contract_third_index_with_first_index_of(&deformation_gradient_1)
             + TensorRank4::dyad_il_jk(
                 &(deformation_gradient_1_transpose * first_piola_kirchhoff_stress),
