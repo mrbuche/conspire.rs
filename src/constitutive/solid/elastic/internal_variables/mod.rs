@@ -167,6 +167,8 @@ where
         deformation_gradient: &DeformationGradient,
         internal_variables: &V,
     ) -> Result<(T1, T2, T3), ConstitutiveError>;
+    /// Returns the constraint indices for the internal variables.
+    fn internal_variables_constraints(&self) -> (&[usize], usize);
 }
 
 /// Zeroth-order root-finding methods for elastic constitutive models with internal variables.
@@ -316,22 +318,16 @@ where
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {
         match match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_11) => {
-                // let mut matrix = Matrix::zero(4, 18);
-                // let mut vector = Vector::zero(4);
-                // matrix[0][0] = 1.0;
-                // matrix[1][1] = 1.0;
-                // matrix[2][2] = 1.0;
-                // matrix[3][5] = 1.0;
-                let mut matrix = Matrix::zero(7, 18);
-                let mut vector = Vector::zero(7);
+                let (extra, num_vars) = self.internal_variables_constraints();
+                let mut matrix = Matrix::zero(4 + extra.len(), 9 + num_vars);
+                let mut vector = Vector::zero(4 + extra.len());
                 matrix[0][0] = 1.0;
                 matrix[1][1] = 1.0;
                 matrix[2][2] = 1.0;
                 matrix[3][5] = 1.0;
-                let foo = 1;
-                matrix[4][10] = 1.0;
-                matrix[5][11] = 1.0;
-                matrix[6][14] = 1.0;
+                matrix[4][extra[0]] = 1.0;
+                matrix[5][extra[1]] = 1.0;
+                matrix[6][extra[2]] = 1.0;
                 vector[0] = deformation_gradient_11;
                 solver.root(
                     |variables: &Self::Variables| {
@@ -350,12 +346,12 @@ where
                     |variables: &Self::Variables| {
                         let (deformation_gradient, internal_variables) = variables.into();
                         let tangent_0 = self.first_piola_kirchhoff_tangent_stiffness_foo(
-                            &deformation_gradient,
-                            &internal_variables,
+                            deformation_gradient,
+                            internal_variables,
                         )?;
                         let (tangent_1, tangent_2, tangent_3) = self.internal_variables_tangents(
-                            &deformation_gradient,
-                            &internal_variables,
+                            deformation_gradient,
+                            internal_variables,
                         )?;
                         Ok((tangent_0, (tangent_1, (tangent_2, tangent_3).into()).into()).into())
                     },
@@ -367,13 +363,17 @@ where
                 )
             }
             AppliedLoad::BiaxialStress(deformation_gradient_11, deformation_gradient_22) => {
-                let mut matrix = Matrix::zero(5, 18);
-                let mut vector = Vector::zero(5);
+                let (extra, num_vars) = self.internal_variables_constraints();
+                let mut matrix = Matrix::zero(5 + extra.len(), 9 + num_vars);
+                let mut vector = Vector::zero(5 + extra.len());
                 matrix[0][0] = 1.0;
                 matrix[1][1] = 1.0;
                 matrix[2][2] = 1.0;
                 matrix[3][5] = 1.0;
                 matrix[4][4] = 1.0;
+                matrix[6][extra[0]] = 1.0;
+                matrix[7][extra[1]] = 1.0;
+                matrix[8][extra[2]] = 1.0;
                 vector[0] = deformation_gradient_11;
                 vector[4] = deformation_gradient_22;
                 solver.root(
@@ -393,12 +393,12 @@ where
                     |variables: &Self::Variables| {
                         let (deformation_gradient, internal_variables) = variables.into();
                         let tangent_0 = self.first_piola_kirchhoff_tangent_stiffness_foo(
-                            &deformation_gradient,
-                            &internal_variables,
+                            deformation_gradient,
+                            internal_variables,
                         )?;
                         let (tangent_1, tangent_2, tangent_3) = self.internal_variables_tangents(
-                            &deformation_gradient,
-                            &internal_variables,
+                            deformation_gradient,
+                            internal_variables,
                         )?;
                         Ok((tangent_0, (tangent_1, (tangent_2, tangent_3).into()).into()).into())
                     },

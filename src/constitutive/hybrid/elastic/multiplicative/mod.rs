@@ -195,6 +195,9 @@ where
             );
         Ok((tangent_1, tangent_2, tangent_3))
     }
+    fn internal_variables_constraints(&self) -> (&[usize], usize) {
+        (&[10, 11, 14], 9)
+    }
 }
 
 impl<C1, C2> Elastic for Multiplicative<C1, C2>
