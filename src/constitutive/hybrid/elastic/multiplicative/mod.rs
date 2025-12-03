@@ -32,10 +32,10 @@ where
     C2: std::fmt::Debug,
 {
     fn bulk_modulus(&self) -> Scalar {
-        todo!()
+        todo!() // can do right when switch to the _foo methods
     }
     fn shear_modulus(&self) -> Scalar {
-        todo!()
+        todo!() // can do right when switch to the _foo methods
     }
 }
 

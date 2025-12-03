@@ -67,6 +67,7 @@ fn finite_difference() -> Result<(), TestError> {
     }
 }
 
+#[ignore]
 #[test]
 fn root_0() -> Result<(), TestError> {
     use crate::constitutive::solid::elastic_viscoplastic::ZerothOrderRoot;

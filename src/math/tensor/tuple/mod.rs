@@ -111,16 +111,6 @@ where
     }
 }
 
-// impl<T1, T2> Hessian for TensorTuple<T1, T2>
-// where
-//     T1: Tensor,
-//     T2: Tensor,
-// {
-//     fn fill_into(self, square_matrix: &mut SquareMatrix) {
-//         todo!("May need to make this more specific like Jacobian below")
-//     }
-// }
-
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> Hessian
     for TensorTuple<
         TensorRank4<D, I, J, I, J>,

@@ -343,7 +343,7 @@ pub type ViscoplasticStateVariables<const G: usize> =
 pub type ViscoplasticStateVariablesHistory<const G: usize> =
     TensorTupleListVec2D<DeformationGradientPlastic, Scalar, G>;
 
-pub type Foo = (crate::math::Matrix, fn(Scalar) -> crate::math::Vector);
+pub type ElasticViscoplasticBCs = (crate::math::Matrix, fn(Scalar) -> crate::math::Vector);
 
 pub trait ElasticViscoplasticFiniteElementBlock<C, F, const G: usize, const N: usize>
 where
@@ -367,7 +367,7 @@ where
     ) -> Result<ViscoplasticStateVariables<G>, FiniteElementBlockError>;
     fn root(
         &self,
-        foo: Foo,
+        bcs: ElasticViscoplasticBCs,
         integrator: impl ExplicitIV<
             ViscoplasticStateVariables<G>,
             NodalCoordinatesBlock,
@@ -814,7 +814,7 @@ where
     }
     fn root(
         &self,
-        foo: Foo,
+        bcs: ElasticViscoplasticBCs,
         integrator: impl ExplicitIV<
             ViscoplasticStateVariables<G>,
             NodalCoordinatesBlock,
@@ -846,7 +846,7 @@ where
                  state_variables: &ViscoplasticStateVariables<G>,
                  nodal_coordinates: &NodalCoordinatesBlock| {
                     Ok(self.root_inner(
-                        EqualityConstraint::Linear(foo.0.clone(), foo.1(t)),
+                        EqualityConstraint::Linear(bcs.0.clone(), bcs.1(t)),
                         state_variables,
                         &solver,
                         nodal_coordinates,
