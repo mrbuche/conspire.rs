@@ -13,10 +13,19 @@ pub use dormand_prince::DormandPrince;
 pub use verner_8::Verner8;
 pub use verner_9::Verner9;
 
+/// Alias for [`BackwardEuler`].
 pub type Ode1be = BackwardEuler;
+
+/// Alias for [`BogackiShampine`].
 pub type Ode23 = BogackiShampine;
+
+/// Alias for [`DormandPrince`].
 pub type Ode45 = DormandPrince;
+
+/// Alias for [`Verner8`].
 pub type Ode78 = Verner8;
+
+/// Alias for [`Verner9`].
 pub type Ode89 = Verner9;
 
 use super::{
@@ -37,18 +46,8 @@ where
     Y: Tensor,
     U: TensorVec<Item = Y>,
 {
-}
-
-impl<A, Y, U> OdeSolver<Y, U> for A
-where
-    A: Debug,
-    Y: Tensor,
-    U: TensorVec<Item = Y>,
-{
-}
-
-/// Getters trait for explicit ordinary differential equation solvers.
-pub trait ExplicitGetters {
+    /// Returns the absolute error tolerance.
+    fn abs_tol(&self) -> Scalar;
     /// Returns the cut back factor for function errors.
     fn dt_cut(&self) -> Scalar;
     /// Returns the minimum value for the time step.
@@ -64,6 +63,10 @@ where
     U: TensorVec<Item = Y>,
 {
     const SLOPES: usize;
+    /// Returns the multiplier for adaptive time steps.
+    fn dt_beta(&self) -> Scalar;
+    /// Returns the exponent for adaptive time steps.
+    fn dt_expn(&self) -> Scalar;
     /// Solves an initial value problem by explicitly integrating a system of ordinary differential equations.
     ///
     /// ```math
@@ -84,7 +87,6 @@ where
         }
         let mut t = t_0;
         let mut dt = t_f - t_0;
-        let mut e;
         let mut k = vec![Y::default(); Self::SLOPES];
         k[0] = function(t, &initial_condition)?;
         let mut t_sol = Vector::new();
@@ -96,30 +98,52 @@ where
         dydt_sol.push(k[0].clone());
         let mut y_trial = Y::default();
         while t < t_f {
-            e = match self.slopes(&mut function, &y, t, dt, &mut k, &mut y_trial) {
-                Ok(e) => e,
-                Err(error) => {
-                    return Err(IntegrationError::Upstream(error, format!("{self:?}")));
+            match self.slopes(&mut function, &y, t, dt, &mut k, &mut y_trial) {
+                Ok(e) => {
+                    if let Some(error) = self
+                        .step(
+                            &mut function,
+                            &mut y,
+                            &mut t,
+                            &mut y_sol,
+                            &mut t_sol,
+                            &mut dydt_sol,
+                            &mut dt,
+                            &mut k,
+                            &y_trial,
+                            e,
+                        )
+                        .err()
+                    {
+                        dt *= self.dt_cut();
+                        if dt < self.dt_min() {
+                            return Err(IntegrationError::MinimumStepSizeUpstream(
+                                self.dt_min(),
+                                error,
+                                format!("{self:?}"),
+                            ));
+                        }
+                    } else {
+                        dt = dt.min(t_f - t);
+                        if dt < self.dt_min() && t < t_f {
+                            return Err(IntegrationError::MinimumStepSizeReached(
+                                self.dt_min(),
+                                format!("{self:?}"),
+                            ));
+                        }
+                    }
                 }
-            };
-            if let Some(error) = self
-                .step(
-                    &mut function,
-                    &mut y,
-                    &mut t,
-                    &mut y_sol,
-                    &mut t_sol,
-                    &mut dydt_sol,
-                    &mut dt,
-                    &mut k,
-                    &y_trial,
-                    e,
-                )
-                .err()
-            {
-                return Err(IntegrationError::Upstream(error, format!("{self:?}")));
-            };
-            dt = dt.min(t_f - t);
+                Err(error) => {
+                    dt *= self.dt_cut();
+                    if dt < self.dt_min() {
+                        return Err(IntegrationError::MinimumStepSizeUpstream(
+                            self.dt_min(),
+                            error,
+                            format!("{self:?}"),
+                        ));
+                    }
+                }
+            }
         }
         if time.len() > 2 {
             let t_int = Vector::from(time);
@@ -154,12 +178,23 @@ where
         y_trial: &Y,
         e: Scalar,
     ) -> Result<(), String>;
+    /// Provides the adaptive time step as a function of the error.
+    ///
+    /// ```math
+    /// h_{n+1} = \beta h \left(\frac{e_\mathrm{tol}}{e_{n+1}}\right)^{1/p}
+    /// ```
+    fn time_step(&self, error: Scalar, dt: &mut Scalar) {
+        if error > 0.0 {
+            *dt *= (self.dt_beta() * (self.abs_tol() / error).powf(1.0 / self.dt_expn()))
+                .max(self.dt_cut())
+        }
+    }
 }
 
 /// Base trait for explicit ordinary differential equation solvers with internal variables.
 pub trait ExplicitIV<Y, Z, U, V>
 where
-    Self: InterpolateSolutionIV<Y, Z, U, V> + OdeSolver<Y, U> + ExplicitGetters,
+    Self: InterpolateSolutionIV<Y, Z, U, V> + OdeSolver<Y, U>,
     Y: Tensor,
     Z: Tensor,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,

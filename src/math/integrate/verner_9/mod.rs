@@ -3,7 +3,7 @@ mod test;
 
 use super::{
     super::{Scalar, Tensor, TensorVec, Vector, interpolate::InterpolateSolution},
-    Explicit, IntegrationError,
+    Explicit, IntegrationError, OdeSolver,
 };
 use crate::{ABS_TOL, REL_TOL};
 use std::ops::{Mul, Sub};
@@ -120,26 +120,7 @@ const D_14: Scalar = 0.13643174034822156;
 const D_15: Scalar = 0.030570139830827976;
 const D_16: Scalar = -0.04834231373823958;
 
-/// Explicit, sixteen-stage, ninth-order, variable-step, Runge-Kutta method.[^cite]
-///
-/// [^cite]: J.H. Verner, [Numer. Algor. **53**, 383 (2010)](https://doi.org/10.1007/s11075-009-9290-3).
-///
-/// ```math
-/// \frac{dy}{dt} = f(t, y)
-/// ```
-/// ```math
-/// t_{n+1} = t_n + h
-/// ```
-/// ```math
-/// k_1 = f(t_n, y_n)
-/// ```
-/// ```math
-/// \cdots
-/// ```
-/// ```math
-/// h_{n+1} = \beta h \left(\frac{e_\mathrm{tol}}{e_{n+1}}\right)^{1/p}
-/// ```
-
+#[doc = include_str!("doc.md")]
 #[derive(Debug)]
 pub struct Verner9 {
     /// Absolute error tolerance.
@@ -150,6 +131,10 @@ pub struct Verner9 {
     pub dt_beta: Scalar,
     /// Exponent for adaptive time steps.
     pub dt_expn: Scalar,
+    /// Cut back factor for the time step.
+    pub dt_cut: Scalar,
+    /// Minimum value for the time step.
+    pub dt_min: Scalar,
 }
 
 impl Default for Verner9 {
@@ -159,18 +144,42 @@ impl Default for Verner9 {
             rel_tol: REL_TOL,
             dt_beta: 0.9,
             dt_expn: 9.0,
+            dt_cut: 0.5,
+            dt_min: ABS_TOL,
         }
+    }
+}
+
+impl<Y, U> OdeSolver<Y, U> for Verner9
+where
+    Y: Tensor,
+    U: TensorVec<Item = Y>,
+{
+    fn abs_tol(&self) -> Scalar {
+        self.abs_tol
+    }
+    fn dt_cut(&self) -> Scalar {
+        self.dt_cut
+    }
+    fn dt_min(&self) -> Scalar {
+        self.dt_min
     }
 }
 
 impl<Y, U> Explicit<Y, U> for Verner9
 where
-    Self: InterpolateSolution<Y, U>,
+    Self: OdeSolver<Y, U>,
     Y: Tensor,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
     const SLOPES: usize = 16;
+    fn dt_beta(&self) -> Scalar {
+        self.dt_beta
+    }
+    fn dt_expn(&self) -> Scalar {
+        self.dt_expn
+    }
     fn slopes(
         &self,
         mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
@@ -317,9 +326,7 @@ where
             y_sol.push(y.clone());
             dydt_sol.push(function(*t, y)?);
         }
-        if e > 0.0 {
-            *dt *= self.dt_beta * (self.abs_tol / e).powf(1.0 / self.dt_expn)
-        }
+        self.time_step(e, dt);
         Ok(())
     }
 }
