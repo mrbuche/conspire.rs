@@ -1,3 +1,5 @@
+pub const EXPLICIT: &str = include_str!("explicit.md");
+
 pub fn bogacki_shampine<'a>() -> Vec<[&'a str; 2]> {
     vec![[
         "math/integrate/bogacki_shampine",

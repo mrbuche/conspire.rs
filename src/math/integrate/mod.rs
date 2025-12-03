@@ -70,11 +70,7 @@ where
     fn dt_beta(&self) -> Scalar;
     /// Returns the exponent for adaptive time steps.
     fn dt_expn(&self) -> Scalar;
-    /// Solves an initial value problem by explicitly integrating a system of ordinary differential equations.
-    ///
-    /// ```math
-    /// \frac{dy}{dt} = f(t, y),\quad y(t_0) = y_0
-    /// ```
+    #[doc = include_str!("explicit.md")]
     fn integrate(
         &self,
         mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
