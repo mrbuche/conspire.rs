@@ -201,11 +201,7 @@ where
     V: TensorVec<Item = Z>,
 {
     const SLOPES: usize;
-    /// Solves an initial value problem by explicitly integrating a system of ordinary differential equations with internal variables.
-    ///
-    /// ```math
-    /// \frac{dy}{dt} = f(t, y, z),\quad z=g(t, y),\quad y(t_0) = y_0
-    /// ```
+    #[doc = include_str!("explicit_iv.md")]
     fn integrate(
         &self,
         mut function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
@@ -352,11 +348,7 @@ where
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
-    /// Solves an initial value problem by implicitly integrating a system of ordinary differential equations.
-    ///
-    /// ```math
-    /// \frac{dy}{dt} = f(t, y),\quad y(t_0) = y_0,\quad \frac{\partial f}{\partial y} = J(t, y)
-    /// ```
+    #[doc = include_str!("implicit.md")]
     fn integrate(
         &self,
         function: impl Fn(Scalar, &Y) -> Result<Y, IntegrationError>,
@@ -375,11 +367,7 @@ where
     J: Tensor + TensorArray,
     U: TensorVec<Item = Y>,
 {
-    /// Solves an initial value problem by implicitly integrating a system of ordinary differential equations.
-    ///
-    /// ```math
-    /// \frac{dy}{dt} = f(t, y),\quad y(t_0) = y_0,\quad \frac{\partial f}{\partial y} = J(t, y)
-    /// ```
+    #[doc = include_str!("implicit.md")]
     fn integrate(
         &self,
         function: impl Fn(Scalar, &Y) -> Result<Y, IntegrationError>,
