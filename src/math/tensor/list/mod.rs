@@ -63,6 +63,20 @@ where
     }
 }
 
+impl<T, const N: usize> Extend<T> for TensorList<T, N>
+where
+    T: Tensor,
+{
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = T>,
+    {
+        self.iter_mut()
+            .zip(iter)
+            .for_each(|(entry, item)| *entry = item)
+    }
+}
+
 impl<T, const N: usize> Index<usize> for TensorList<T, N>
 where
     T: Tensor,
@@ -224,6 +238,30 @@ where
     }
 }
 
+impl<T, const N: usize> Mul<TensorRank0> for &TensorList<T, N>
+where
+    T: Tensor,
+    for<'a> &'a T: Mul<&'a TensorRank0, Output = T>,
+{
+    type Output = TensorList<T, N>;
+    fn mul(self, tensor_rank_0: TensorRank0) -> Self::Output {
+        self.iter().map(|self_i| self_i * &tensor_rank_0).collect()
+    }
+}
+
+impl<T, const N: usize> Mul<&TensorRank0> for &TensorList<T, N>
+where
+    T: Tensor,
+{
+    type Output = TensorList<T, N>;
+    fn mul(self, tensor_rank_0: &TensorRank0) -> Self::Output {
+        //
+        // Cloning for now to avoid trait recursion nightmare.
+        //
+        self.clone() * tensor_rank_0
+    }
+}
+
 impl<T, const N: usize> MulAssign<TensorRank0> for TensorList<T, N>
 where
     T: Tensor,
@@ -270,7 +308,7 @@ where
 {
     fn add_assign(&mut self, tensor_list: Self) {
         self.iter_mut()
-            .zip(tensor_list.iter())
+            .zip(tensor_list)
             .for_each(|(self_entry, entry)| *self_entry += entry);
     }
 }
@@ -314,7 +352,7 @@ where
 {
     fn sub_assign(&mut self, tensor_list: Self) {
         self.iter_mut()
-            .zip(tensor_list.iter())
+            .zip(tensor_list)
             .for_each(|(self_entry, entry)| *self_entry -= entry);
     }
 }

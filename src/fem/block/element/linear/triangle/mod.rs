@@ -21,7 +21,7 @@ impl<'a, C> SurfaceFiniteElement<'a, C, G, N, P> for Triangle<'a, C> {
     fn new(
         constitutive_model: &'a C,
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
-        thickness: &Scalar,
+        thickness: Scalar,
     ) -> Self {
         let integration_weights = Self::bases(&reference_nodal_coordinates)
             .iter()
@@ -90,7 +90,10 @@ impl<'a, C> SurfaceFiniteElementMethodsExtra<M, N, P> for Triangle<'a, C> {
     }
 }
 
-impl<'a, C> FiniteElementMethods<G, N> for Triangle<'a, C> {
+impl<'a, C> FiniteElementMethods<C, G, N> for Triangle<'a, C> {
+    fn constitutive_model(&self) -> &C {
+        self.constitutive_model
+    }
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
@@ -102,15 +105,15 @@ impl<'a, C> FiniteElementMethods<G, N> for Triangle<'a, C> {
                     .iter()
                     .zip(self.reference_normals().iter()),
             )
-            .map(|(gradient_vectors, (normal, reference_normal))| {
+            .map(|(gradient_vectors, normal_and_reference_normal)| {
                 nodal_coordinates
                     .iter()
                     .zip(gradient_vectors.iter())
                     .map(|(nodal_coordinate, gradient_vector)| {
-                        DeformationGradient::dyad(nodal_coordinate, gradient_vector)
+                        (nodal_coordinate, gradient_vector).into()
                     })
                     .sum::<DeformationGradient>()
-                    + DeformationGradient::dyad(normal, reference_normal)
+                    + DeformationGradient::from(normal_and_reference_normal)
             })
             .collect()
     }
@@ -126,15 +129,15 @@ impl<'a, C> FiniteElementMethods<G, N> for Triangle<'a, C> {
                     .iter()
                     .zip(self.reference_normals().iter()),
             )
-            .map(|(gradient_vectors, (normal_rate, reference_normal))| {
+            .map(|(gradient_vectors, normal_rate_and_reference_normal)| {
                 nodal_velocities
                     .iter()
                     .zip(gradient_vectors.iter())
                     .map(|(nodal_velocity, gradient_vector)| {
-                        DeformationGradientRate::dyad(nodal_velocity, gradient_vector)
+                        (nodal_velocity, gradient_vector).into()
                     })
                     .sum::<DeformationGradientRate>()
-                    + DeformationGradientRate::dyad(normal_rate, reference_normal)
+                    + DeformationGradientRate::from(normal_rate_and_reference_normal)
             })
             .collect()
     }

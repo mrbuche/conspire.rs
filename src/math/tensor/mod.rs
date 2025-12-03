@@ -11,7 +11,10 @@ pub mod vec;
 
 use super::{SquareMatrix, Vector};
 use crate::defeat_message;
-use rank_0::TensorRank0;
+use rank_0::{
+    TensorRank0,
+    list::{TensorRank0List, vec::TensorRank0ListVec},
+};
 use std::{
     fmt::{self, Debug, Display, Formatter},
     iter::Sum,
@@ -21,16 +24,26 @@ use std::{
 /// A scalar.
 pub type Scalar = TensorRank0;
 
+/// A list of scalars.
+pub type Scalars<const W: usize> = TensorRank0List<W>;
+
+/// A vector of lists of scalars.
+pub type ScalarsVec<const W: usize> = TensorRank0ListVec<W>;
+
 /// Possible errors for tensors.
 #[derive(PartialEq)]
 pub enum TensorError {
     NotPositiveDefinite,
+    SymmetricMatrixComplexEigenvalues,
 }
 
 impl Debug for TensorError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
             Self::NotPositiveDefinite => "\x1b[1;91mResult is not positive definite.".to_string(),
+            Self::SymmetricMatrixComplexEigenvalues => {
+                "\x1b[1;91mSymmetric matrix produced complex eigenvalues".to_string()
+            }
         };
         write!(f, "\n{error}\n\x1b[0;2;31m{}\x1b[0m\n", defeat_message())
     }
@@ -40,6 +53,9 @@ impl Display for TensorError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
             Self::NotPositiveDefinite => "\x1b[1;91mResult is not positive definite.".to_string(),
+            Self::SymmetricMatrixComplexEigenvalues => {
+                "\x1b[1;91mSymmetric matrix produced complex eigenvalues".to_string()
+            }
         };
         write!(f, "{error}\x1b[0m")
     }
@@ -136,11 +152,11 @@ where
         + Default
         + Display
         + Div<TensorRank0, Output = Self>
-        + Div<&'a TensorRank0, Output = Self>
+        // + Div<&'a TensorRank0, Output = Self>
         + DivAssign<TensorRank0>
         + DivAssign<&'a TensorRank0>
         + Mul<TensorRank0, Output = Self>
-        + Mul<&'a TensorRank0, Output = Self>
+        // + Mul<&'a TensorRank0, Output = Self>
         + MulAssign<TensorRank0>
         + MulAssign<&'a TensorRank0>
         + Sub<Self, Output = Self>
@@ -153,7 +169,7 @@ where
     /// The type of item encountered when iterating over the tensor.
     type Item;
     /// Returns number of different entries given absolute and relative tolerances.
-    fn error_count(&self, other: &Self, tol_abs: &Scalar, tol_rel: &Scalar) -> Option<usize> {
+    fn error_count(&self, other: &Self, tol_abs: Scalar, tol_rel: Scalar) -> Option<usize> {
         let error_count = self
             .iter()
             .zip(other.iter())

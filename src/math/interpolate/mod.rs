@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use super::{Tensor, TensorRank0, TensorVec, Vector, integrate::IntegrationError};
+use super::{Scalar, Tensor, TensorVec, Vector, integrate::IntegrationError};
 use std::ops::{Mul, Sub};
 
 /// Linear interpolation schemes.
@@ -21,7 +21,7 @@ where
 pub trait InterpolateSolution<Y, U>
 where
     Y: Tensor,
-    for<'a> &'a Y: Mul<TensorRank0, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
     /// Solution interpolation.
@@ -30,8 +30,29 @@ where
         time: &Vector,
         tp: &Vector,
         yp: &U,
-        function: impl FnMut(TensorRank0, &Y) -> Result<Y, String>,
+        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
     ) -> Result<(U, U), IntegrationError>;
+}
+
+/// Solution interpolation schemes with internal variables.
+pub trait InterpolateSolutionIV<Y, Z, U, V>
+where
+    Y: Tensor,
+    Z: Tensor,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Z>,
+{
+    /// Solution interpolation with internal variables.
+    fn interpolate(
+        &self,
+        time: &Vector,
+        tp: &Vector,
+        yp: &U,
+        zp: &V,
+        function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
+    ) -> Result<(U, U, V), IntegrationError>;
 }
 
 impl<F, T> Interpolate1D<F, T> for LinearInterpolation

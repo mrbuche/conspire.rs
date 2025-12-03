@@ -4,7 +4,7 @@ mod test;
 use crate::{
     constitutive::{
         ConstitutiveError,
-        hybrid::{Hybrid, Multiplicative, MultiplicativeTrait},
+        hybrid::{Multiplicative, MultiplicativeTrait},
         solid::hyperelastic::Hyperelastic,
     },
     mechanics::{DeformationGradient, Scalar},
@@ -27,10 +27,10 @@ where
         let (deformation_gradient_1, deformation_gradient_2) =
             self.deformation_gradients(deformation_gradient)?;
         Ok(self
-            .constitutive_model_1()
+            .0
             .helmholtz_free_energy_density(&deformation_gradient_1)?
             + self
-                .constitutive_model_2()
+                .1
                 .helmholtz_free_energy_density(&deformation_gradient_2)?)
     }
 }

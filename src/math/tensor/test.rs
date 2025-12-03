@@ -1,4 +1,4 @@
-use super::{Tensor, TensorError, TensorRank0};
+use super::{Scalar, Tensor, TensorError};
 use crate::{ABS_TOL, REL_TOL, defeat_message};
 use std::{
     cmp::PartialEq,
@@ -16,7 +16,7 @@ use super::{
 
 #[cfg(test)]
 pub trait ErrorTensor {
-    fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)>;
+    fn error_fd(&self, comparator: &Self, epsilon: Scalar) -> Option<(bool, usize)>;
 }
 
 pub fn assert_eq<'a, T>(value_1: &'a T, value_2: &'a T) -> Result<(), TestError>
@@ -39,7 +39,7 @@ pub fn assert_eq_from_fd<'a, T>(value: &'a T, value_fd: &'a T) -> Result<(), Tes
 where
     T: Display + ErrorTensor + Tensor,
 {
-    if let Some((failed, count)) = value.error_fd(value_fd, &(3.0 * EPSILON)) {
+    if let Some((failed, count)) = value.error_fd(value_fd, 3.0 * EPSILON) {
         if failed {
             let abs = value.sub_abs(value_fd);
             let rel = value.sub_rel(value_fd);
@@ -62,8 +62,8 @@ where
 pub fn assert_eq_within<'a, T>(
     value_1: &'a T,
     value_2: &'a T,
-    tol_abs: &TensorRank0,
-    tol_rel: &TensorRank0,
+    tol_abs: Scalar,
+    tol_rel: Scalar,
 ) -> Result<(), TestError>
 where
     T: Display + Tensor,
@@ -85,7 +85,7 @@ pub fn assert_eq_within_tols<'a, T>(value_1: &'a T, value_2: &'a T) -> Result<()
 where
     T: Display + Tensor,
 {
-    assert_eq_within(value_1, value_2, &ABS_TOL, &REL_TOL)
+    assert_eq_within(value_1, value_2, ABS_TOL, REL_TOL)
 }
 
 pub struct TestError {
@@ -126,6 +126,29 @@ impl From<TensorError> for TestError {
 }
 
 #[test]
+fn test_error_from_string() {
+    assert_eq!(
+        TestError::from("An error occurred".to_string()).message,
+        "An error occurred"
+    );
+}
+
+#[test]
+fn test_error_from_str() {
+    assert_eq!(
+        TestError::from("An error occurred").message,
+        "An error occurred"
+    );
+}
+
+#[test]
+fn test_error_from_tensor_error() {
+    let tensor_error = TensorError::NotPositiveDefinite;
+    let _ = format!("{:?}", tensor_error);
+    let _ = TestError::from(tensor_error);
+}
+
+#[test]
 #[should_panic(expected = "Assertion `left == right` failed.")]
 fn assert_eq_fail() {
     assert_eq(&0.0, &1.0).unwrap()
@@ -135,8 +158,8 @@ fn assert_eq_fail() {
 #[should_panic(expected = "Assertion `left ≈= right` failed in 2 places.")]
 fn assert_eq_from_fd_fail() {
     assert_eq_from_fd(
-        &TensorRank1::<3, 1>::new([1.0, 2.0, 3.0]),
-        &TensorRank1::<3, 1>::new([3.0, 2.0, 1.0]),
+        &TensorRank1::<_, 1>::new([1.0, 2.0, 3.0]),
+        &TensorRank1::<_, 1>::new([3.0, 2.0, 1.0]),
     )
     .unwrap()
 }
@@ -144,16 +167,16 @@ fn assert_eq_from_fd_fail() {
 #[test]
 fn assert_eq_from_fd_success() -> Result<(), TestError> {
     assert_eq_from_fd(
-        &TensorRank1::<3, 1>::new([1.0, 2.0, 3.0]),
-        &TensorRank1::<3, 1>::new([1.0, 2.0, 3.0]),
+        &TensorRank1::<_, 1>::new([1.0, 2.0, 3.0]),
+        &TensorRank1::<_, 1>::new([1.0, 2.0, 3.0]),
     )
 }
 
 #[test]
 fn assert_eq_from_fd_weak() -> Result<(), TestError> {
     assert_eq_from_fd(
-        &TensorRank1List::<1, 1, 1>::new([[EPSILON * 1.01]]),
-        &TensorRank1List::<1, 1, 1>::new([[EPSILON * 1.02]]),
+        &TensorRank1List::<_, 1, 1>::new([[EPSILON * 1.01]]),
+        &TensorRank1List::<_, 1, 1>::new([[EPSILON * 1.02]]),
     )
 }
 
@@ -161,8 +184,8 @@ fn assert_eq_from_fd_weak() -> Result<(), TestError> {
 #[should_panic(expected = "Assertion `left ≈= right` failed in 2 places.")]
 fn assert_eq_within_tols_fail() {
     assert_eq_within_tols(
-        &TensorRank1::<3, 1>::new([1.0, 2.0, 3.0]),
-        &TensorRank1::<3, 1>::new([3.0, 2.0, 1.0]),
+        &TensorRank1::<_, 1>::new([1.0, 2.0, 3.0]),
+        &TensorRank1::<_, 1>::new([3.0, 2.0, 1.0]),
     )
     .unwrap()
 }

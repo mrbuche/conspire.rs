@@ -47,20 +47,20 @@ pub struct AlmansiHamel {
 }
 
 impl Solid for AlmansiHamel {
-    fn bulk_modulus(&self) -> &Scalar {
-        &self.bulk_modulus
+    fn bulk_modulus(&self) -> Scalar {
+        self.bulk_modulus
     }
-    fn shear_modulus(&self) -> &Scalar {
-        &self.shear_modulus
+    fn shear_modulus(&self) -> Scalar {
+        self.shear_modulus
     }
 }
 
 impl Viscous for AlmansiHamel {
-    fn bulk_viscosity(&self) -> &Scalar {
-        &self.bulk_viscosity
+    fn bulk_viscosity(&self) -> Scalar {
+        self.bulk_viscosity
     }
-    fn shear_viscosity(&self) -> &Scalar {
-        &self.shear_viscosity
+    fn shear_viscosity(&self) -> Scalar {
+        self.shear_viscosity
     }
 }
 

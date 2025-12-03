@@ -41,9 +41,9 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize> Mul<TensorR
 {
     type Output = TensorRank2<D, I, J>;
     fn mul(self, tensor_rank_1_list: TensorRank1List<D, J, W>) -> Self::Output {
-        self.iter()
-            .zip(tensor_rank_1_list.iter())
-            .map(|(self_entry, entry)| TensorRank2::dyad(self_entry, entry))
+        self.into_iter()
+            .zip(tensor_rank_1_list)
+            .map(|(self_entry, entry)| (self_entry, entry).into())
             .sum()
     }
 }
@@ -53,9 +53,9 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize> Mul<&Tensor
 {
     type Output = TensorRank2<D, I, J>;
     fn mul(self, tensor_rank_1_list: &TensorRank1List<D, J, W>) -> Self::Output {
-        self.iter()
+        self.into_iter()
             .zip(tensor_rank_1_list.iter())
-            .map(|(self_entry, entry)| TensorRank2::dyad(self_entry, entry))
+            .map(|(self_entry, entry)| (self_entry, entry).into())
             .sum()
     }
 }
@@ -66,8 +66,8 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize> Mul<TensorR
     type Output = TensorRank2<D, I, J>;
     fn mul(self, tensor_rank_1_list: TensorRank1List<D, J, W>) -> Self::Output {
         self.iter()
-            .zip(tensor_rank_1_list.iter())
-            .map(|(self_entry, entry)| TensorRank2::dyad(self_entry, entry))
+            .zip(tensor_rank_1_list)
+            .map(|(self_entry, entry)| (self_entry, entry).into())
             .sum()
     }
 }
@@ -79,14 +79,14 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize> Mul<&Tensor
     fn mul(self, tensor_rank_1_list: &TensorRank1List<D, J, W>) -> Self::Output {
         self.iter()
             .zip(tensor_rank_1_list.iter())
-            .map(|(self_entry, entry)| TensorRank2::dyad(self_entry, entry))
+            .map(|(self_entry, entry)| (self_entry, entry).into())
             .sum()
     }
 }
 
 #[cfg(test)]
 impl<const D: usize, const I: usize, const W: usize> ErrorTensor for TensorRank1List<D, I, W> {
-    fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
+    fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
             .zip(comparator.iter())
@@ -95,8 +95,8 @@ impl<const D: usize, const I: usize, const W: usize> ErrorTensor for TensorRank1
                     .iter()
                     .zip(comparator_entry.iter())
                     .filter(|&(&entry_i, &comparator_entry_i)| {
-                        &(entry_i / comparator_entry_i - 1.0).abs() >= epsilon
-                            && (&entry_i.abs() >= epsilon || &comparator_entry_i.abs() >= epsilon)
+                        (entry_i / comparator_entry_i - 1.0).abs() >= epsilon
+                            && (entry_i.abs() >= epsilon || comparator_entry_i.abs() >= epsilon)
                     })
                     .count()
             })
@@ -110,10 +110,9 @@ impl<const D: usize, const I: usize, const W: usize> ErrorTensor for TensorRank1
                         .iter()
                         .zip(comparator_entry.iter())
                         .filter(|&(&entry_i, &comparator_entry_i)| {
-                            &(entry_i / comparator_entry_i - 1.0).abs() >= epsilon
-                                && &(entry_i - comparator_entry_i).abs() >= epsilon
-                                && (&entry_i.abs() >= epsilon
-                                    || &comparator_entry_i.abs() >= epsilon)
+                            (entry_i / comparator_entry_i - 1.0).abs() >= epsilon
+                                && (entry_i - comparator_entry_i).abs() >= epsilon
+                                && (entry_i.abs() >= epsilon || comparator_entry_i.abs() >= epsilon)
                         })
                         .count()
                 })

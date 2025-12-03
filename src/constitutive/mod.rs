@@ -11,8 +11,8 @@ pub mod thermal;
 
 use crate::{
     defeat_message,
-    math::{Scalar, TestError},
-    mechanics::{Deformation, DeformationError, DeformationGradient},
+    math::{Scalar, TensorError, TestError},
+    mechanics::{Deformation, DeformationError, DeformationGradientGeneral},
 };
 use std::fmt::{self, Debug, Display, Formatter};
 
@@ -22,9 +22,9 @@ where
     Self: Debug,
 {
     /// Calculates and returns the Jacobian.
-    fn jacobian(
+    fn jacobian<const I: usize, const J: usize>(
         &self,
-        deformation_gradient: &DeformationGradient,
+        deformation_gradient: &DeformationGradientGeneral<I, J>,
     ) -> Result<Scalar, ConstitutiveError> {
         match deformation_gradient.jacobian() {
             Err(DeformationError::InvalidJacobian(jacobian)) => Err(
@@ -45,11 +45,18 @@ pub enum ConstitutiveError {
 impl From<ConstitutiveError> for String {
     fn from(error: ConstitutiveError) -> Self {
         match error {
+            ConstitutiveError::Custom(message, constitutive_model) => format!(
+                "\x1b[1;91m{message}\x1b[0;91m\n\
+                        In constitutive model: {constitutive_model}."
+            ),
             ConstitutiveError::InvalidJacobian(jacobian, constitutive_model) => format!(
                 "\x1b[1;91mInvalid Jacobian: {jacobian:.6e}.\x1b[0;91m\n\
                         In constitutive model: {constitutive_model}."
             ),
-            _ => todo!(),
+            ConstitutiveError::Upstream(error, constitutive_model) => format!(
+                "{error}\x1b[0;91m\n\
+                    In constitutive model: {constitutive_model}."
+            ),
         }
     }
 }
@@ -59,6 +66,15 @@ impl From<ConstitutiveError> for TestError {
         Self {
             message: error.to_string(),
         }
+    }
+}
+
+impl From<TensorError> for ConstitutiveError {
+    fn from(error: TensorError) -> Self {
+        ConstitutiveError::Custom(
+            error.to_string(),
+            "unknown (temporary error handling)".to_string(),
+        )
     }
 }
 

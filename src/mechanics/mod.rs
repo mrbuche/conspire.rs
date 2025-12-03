@@ -6,9 +6,8 @@ pub mod test;
 use crate::{
     defeat_message,
     math::{
-        Rank2, Tensor, TensorRank0List, TensorRank1, TensorRank1List, TensorRank1List2D,
-        TensorRank2, TensorRank2List, TensorRank2List2D, TensorRank2Vec, TensorRank4,
-        TensorRank4List,
+        Rank2, Tensor, TensorRank1, TensorRank1List, TensorRank1List2D, TensorRank2,
+        TensorRank2List, TensorRank2List2D, TensorRank2Vec, TensorRank4, TensorRank4List,
     },
 };
 use std::fmt::{self, Debug, Display, Formatter};
@@ -43,7 +42,7 @@ impl Display for DeformationError {
 }
 
 /// Methods for deformation gradients.
-pub trait Deformation {
+pub trait Deformation<const I: usize, const J: usize> {
     /// Calculates and returns the Jacobian.
     ///
     /// ```math
@@ -55,16 +54,16 @@ pub trait Deformation {
     /// ```math
     /// \mathbf{B} = \mathbf{F}\cdot\mathbf{F}^T
     /// ```
-    fn left_cauchy_green(&self) -> LeftCauchyGreenDeformation;
+    fn left_cauchy_green(&self) -> TensorRank2<3, I, I>;
     /// Calculates and returns the right Cauchy-Green deformation.
     ///
     /// ```math
     /// \mathbf{C} = \mathbf{F}^T\cdot\mathbf{F}
     /// ```
-    fn right_cauchy_green(&self) -> RightCauchyGreenDeformation;
+    fn right_cauchy_green(&self) -> TensorRank2<3, J, J>;
 }
 
-impl Deformation for DeformationGradient {
+impl<const I: usize, const J: usize> Deformation<I, J> for DeformationGradientGeneral<I, J> {
     fn jacobian(&self) -> Result<Scalar, DeformationError> {
         let jacobian = self.determinant();
         if jacobian > 0.0 {
@@ -73,7 +72,7 @@ impl Deformation for DeformationGradient {
             Err(DeformationError::InvalidJacobian(jacobian))
         }
     }
-    fn left_cauchy_green(&self) -> LeftCauchyGreenDeformation {
+    fn left_cauchy_green(&self) -> TensorRank2<3, I, I> {
         self.iter()
             .map(|deformation_gradient_i| {
                 self.iter()
@@ -82,7 +81,7 @@ impl Deformation for DeformationGradient {
             })
             .collect()
     }
-    fn right_cauchy_green(&self) -> RightCauchyGreenDeformation {
+    fn right_cauchy_green(&self) -> TensorRank2<3, J, J> {
         let deformation_gradient_transpose = self.transpose();
         deformation_gradient_transpose
             .iter()
@@ -107,6 +106,12 @@ pub type CauchyStresses<const W: usize> = TensorRank2List<3, 1, 1, W>;
 /// The tangent stiffness associated with the Cauchy stress $`\boldsymbol{\mathcal{T}}`$.
 pub type CauchyTangentStiffness = TensorRank4<3, 1, 1, 1, 0>;
 
+/// The tangent stiffness associated with the Cauchy stress $`\boldsymbol{\mathcal{T}}_1`$.
+pub type CauchyTangentStiffness1 = TensorRank4<3, 1, 1, 1, 2>;
+
+/// The tangent stiffness associated with the elastic Cauchy stress $`\boldsymbol{\mathcal{T}}_\mathrm{e}`$.
+pub type CauchyTangentStiffnessElastic = TensorRank4<3, 1, 1, 1, 2>;
+
 /// The rate tangent stiffness associated with the Cauchy stress $`\boldsymbol{\mathcal{V}}`$.
 pub type CauchyRateTangentStiffness = TensorRank4<3, 1, 1, 1, 0>;
 
@@ -124,6 +129,9 @@ pub type CurrentVelocity = TensorRank1<3, 1>;
 
 /// The deformation gradient $`\mathbf{F}`$.
 pub type DeformationGradient = TensorRank2<3, 1, 0>;
+
+/// The second deformation gradient $`\mathbf{F}_2`$.
+pub type DeformationGradient2 = TensorRank2<3, 2, 0>;
 
 /// The elastic deformation gradient $`\mathbf{F}_\mathrm{e}`$.
 pub type DeformationGradientElastic = TensorRank2<3, 1, 2>;
@@ -149,8 +157,14 @@ pub type DeformationGradientRateList<const W: usize> = TensorRank2List<3, 1, 0, 
 /// A vector of deformation gradients.
 pub type DeformationGradients = TensorRank2Vec<3, 1, 0>;
 
+/// A vector of plastic deformation gradients.
+pub type DeformationGradientsPlastic = TensorRank2Vec<3, 2, 0>;
+
 /// A vector of deformation gradient rates.
 pub type DeformationGradientRates = TensorRank2Vec<3, 1, 0>;
+
+/// A vector of plastic deformation gradient rates.
+pub type DeformationGradientRatesPlastic = TensorRank2Vec<3, 2, 0>;
 
 /// A displacement.
 pub type Displacement = TensorRank1<3, 1>;
@@ -158,11 +172,29 @@ pub type Displacement = TensorRank1<3, 1>;
 /// The first Piola-Kirchhoff stress $`\mathbf{P}`$.
 pub type FirstPiolaKirchhoffStress = TensorRank2<3, 1, 0>;
 
+/// The first Piola-Kirchhoff stress $`\mathbf{P}_1`$.
+pub type FirstPiolaKirchhoffStress1 = TensorRank2<3, 1, 2>;
+
+/// The first Piola-Kirchhoff stress $`\mathbf{P}_2`$.
+pub type FirstPiolaKirchhoffStress2 = TensorRank2<3, 2, 0>;
+
+/// The elastic first Piola-Kirchhoff stress $`\mathbf{P}_\mathrm{e}`$.
+pub type FirstPiolaKirchhoffStressElastic = FirstPiolaKirchhoffStress1;
+
 /// A list of first Piola-Kirchhoff stresses.
 pub type FirstPiolaKirchhoffStresses<const W: usize> = TensorRank2List<3, 1, 0, W>;
 
 /// The tangent stiffness associated with the first Piola-Kirchhoff stress $`\boldsymbol{\mathcal{C}}`$.
 pub type FirstPiolaKirchhoffTangentStiffness = TensorRank4<3, 1, 0, 1, 0>;
+
+/// The first tangent stiffness associated with the first Piola-Kirchhoff stress $`\boldsymbol{\mathcal{C}}_1`$.
+pub type FirstPiolaKirchhoffTangentStiffness1 = TensorRank4<3, 1, 2, 1, 2>;
+
+/// The second tangent stiffness associated with the first Piola-Kirchhoff stress $`\boldsymbol{\mathcal{C}}_2`$.
+pub type FirstPiolaKirchhoffTangentStiffness2 = TensorRank4<3, 2, 0, 2, 0>;
+
+/// The elastic tangent stiffness associated with the first Piola-Kirchhoff stress $`\boldsymbol{\mathcal{C}}_\mathrm{e}`$.
+pub type FirstPiolaKirchhoffTangentStiffnessElastic = FirstPiolaKirchhoffTangentStiffness1;
 
 /// A list of first Piola-Kirchhoff tangent stiffnesses.
 pub type FirstPiolaKirchhoffTangentStiffnesses<const W: usize> = TensorRank4List<3, 1, 0, 1, 0, W>;
@@ -190,7 +222,10 @@ pub type HeatFlux = TensorRank1<3, 1>;
 pub type LeftCauchyGreenDeformation = TensorRank2<3, 1, 1>;
 
 /// The Mandel stress $`\mathbf{M}`$.
-pub type MandelStress = TensorRank2<3, 2, 2>;
+pub type MandelStress = TensorRank2<3, 0, 0>;
+
+/// The elastic stress $`\mathbf{M}_e`$.
+pub type MandelStressElastic = TensorRank2<3, 2, 2>;
 
 /// A normal.
 pub type Normal = TensorRank1<3, 1>;
@@ -213,14 +248,17 @@ pub type RotationRateCurrentConfiguration = TensorRank2<3, 1, 1>;
 /// The rotation of the reference configuration $`\mathbf{Q}_0`$.
 pub type RotationReferenceConfiguration = TensorRank2<3, 0, 0>;
 
-/// A list of scalars.
-pub type Scalars<const W: usize> = TensorRank0List<W>;
-
 /// The second Piola-Kirchhoff stress $`\mathbf{S}`$.
 pub type SecondPiolaKirchhoffStress = TensorRank2<3, 0, 0>;
 
+/// The elastic second Piola-Kirchhoff stress $`\mathbf{S}`$.
+pub type SecondPiolaKirchhoffStressElastic = TensorRank2<3, 2, 2>;
+
 /// The tangent stiffness associated with the second Piola-Kirchhoff stress $`\boldsymbol{\mathcal{G}}`$.
 pub type SecondPiolaKirchhoffTangentStiffness = TensorRank4<3, 0, 0, 1, 0>;
+
+/// The elastic tangent stiffness associated with the second Piola-Kirchhoff stress $`\boldsymbol{\mathcal{G}}_\mathrm{e}`$.
+pub type SecondPiolaKirchhoffTangentStiffnessElastic = TensorRank4<3, 2, 2, 1, 2>;
 
 /// The rate tangent stiffness associated with the second Piola-Kirchhoff stress $`\boldsymbol{\mathcal{W}}`$.
 pub type SecondPiolaKirchhoffRateTangentStiffness = TensorRank4<3, 0, 0, 1, 0>;

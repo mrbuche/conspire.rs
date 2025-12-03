@@ -97,15 +97,6 @@ pub(crate) use second_piola_kirchhoff_tangent_stiffness_from_deformation_gradien
 macro_rules! test_solid_constitutive_model {
     ($constitutive_model: expr) => {
         crate::constitutive::solid::elastic::test::test_solid_constitutive!($constitutive_model);
-        crate::constitutive::solid::elastic::test::test_constructed_solid_constitutive_model!(
-            $constitutive_model
-        );
-    };
-}
-pub(crate) use test_solid_constitutive_model;
-
-macro_rules! test_constructed_solid_constitutive_model {
-    ($constitutive_model: expr) => {
         crate::constitutive::solid::elastic::test::test_solid_constitutive_model_no_tangents!(
             $constitutive_model
         );
@@ -114,12 +105,13 @@ macro_rules! test_constructed_solid_constitutive_model {
         );
     };
 }
-pub(crate) use test_constructed_solid_constitutive_model;
+pub(crate) use test_solid_constitutive_model;
 
 macro_rules! test_solid_constitutive
 {
     ($constitutive_model: expr) =>
     {
+        use crate::constitutive::solid::Solid;
         #[test]
         fn bulk_modulus() -> Result<(), TestError>
         {
@@ -326,7 +318,7 @@ macro_rules! test_solid_constitutive_model_tangents
             use crate::
             {
                 math::{ContractAllIndicesWithFirstIndicesOf, test::assert_eq_from_fd, TensorArray},
-                mechanics::{FirstPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffTangentStiffness, test::get_deformation_gradient_rotated_undeformed},
+                mechanics::{CauchyTangentStiffness, FirstPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffTangentStiffness, test::get_deformation_gradient_rotated_undeformed},
             };
             use super::*;
             fn cauchy_tangent_stiffness_from_finite_difference_of_cauchy_stress(is_deformed: bool) -> Result<CauchyTangentStiffness, TestError>
@@ -850,7 +842,11 @@ pub(crate) use test_solid_elastic_constitutive_model;
 
 macro_rules! test_root {
     ($constitutive_model_constructed: expr) => {
-        use crate::{constitutive::solid::elastic::AppliedLoad, math::Tensor};
+        use crate::{
+            constitutive::solid::elastic::{AppliedLoad, Elastic},
+            math::{Rank2, Tensor},
+            mechanics::DeformationGradient,
+        };
         macro_rules! test_root_with_solver {
             ($solver: expr) => {
                 #[test]

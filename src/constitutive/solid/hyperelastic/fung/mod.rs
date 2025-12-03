@@ -25,21 +25,21 @@ pub struct Fung {
 
 impl Fung {
     /// Returns the extra modulus.
-    pub fn extra_modulus(&self) -> &Scalar {
-        &self.extra_modulus
+    pub fn extra_modulus(&self) -> Scalar {
+        self.extra_modulus
     }
     /// Returns the exponent.
-    pub fn exponent(&self) -> &Scalar {
-        &self.exponent
+    pub fn exponent(&self) -> Scalar {
+        self.exponent
     }
 }
 
 impl Solid for Fung {
-    fn bulk_modulus(&self) -> &Scalar {
-        &self.bulk_modulus
+    fn bulk_modulus(&self) -> Scalar {
+        self.bulk_modulus
     }
-    fn shear_modulus(&self) -> &Scalar {
-        &self.shear_modulus
+    fn shear_modulus(&self) -> Scalar {
+        self.shear_modulus
     }
 }
 

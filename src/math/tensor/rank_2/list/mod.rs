@@ -1,3 +1,5 @@
+pub mod vec;
+
 #[cfg(test)]
 mod test;
 

@@ -92,7 +92,7 @@ macro_rules! test_surface_finite_element {
                     shear_modulus: SHEAR_MODULUS,
                 },
                 reference_coordinates(),
-                &THICKNESS,
+                THICKNESS,
             )
         }
         fn element_transformed<'a>() -> $element<'a, AlmansiHamel> {
@@ -102,7 +102,7 @@ macro_rules! test_surface_finite_element {
                     shear_modulus: SHEAR_MODULUS,
                 },
                 reference_coordinates_transformed(),
-                &THICKNESS,
+                THICKNESS,
             )
         }
         #[test]
@@ -118,13 +118,13 @@ macro_rules! test_surface_finite_element {
         macro_rules! setup_constitutive {
             ($constitutive_model: expr, $constitutive_model_type: ident) => {
                 fn get_element<'a>() -> $element<'a, $constitutive_model_type> {
-                    $element::new(&$constitutive_model, reference_coordinates(), &THICKNESS)
+                    $element::new(&$constitutive_model, reference_coordinates(), THICKNESS)
                 }
                 fn get_element_transformed<'a>() -> $element<'a, $constitutive_model_type> {
                     $element::new(
                         &$constitutive_model,
                         reference_coordinates_transformed(),
-                        &THICKNESS,
+                        THICKNESS,
                     )
                 }
             };

@@ -84,7 +84,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<&Tensor
 
 #[cfg(test)]
 impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2Vec2D<D, I, J> {
-    fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
+    fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
             .zip(comparator.iter())
@@ -101,9 +101,9 @@ impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2
                                     .iter()
                                     .zip(comparator_ab_i.iter())
                                     .filter(|&(&self_ab_ij, &comparator_ab_ij)| {
-                                        &(self_ab_ij / comparator_ab_ij - 1.0).abs() >= epsilon
-                                            && (&self_ab_ij.abs() >= epsilon
-                                                || &comparator_ab_ij.abs() >= epsilon)
+                                        (self_ab_ij / comparator_ab_ij - 1.0).abs() >= epsilon
+                                            && (self_ab_ij.abs() >= epsilon
+                                                || comparator_ab_ij.abs() >= epsilon)
                                     })
                                     .count()
                             })
@@ -129,10 +129,10 @@ impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2
                                         .iter()
                                         .zip(comparator_ab_i.iter())
                                         .filter(|&(&self_ab_ij, &comparator_ab_ij)| {
-                                            &(self_ab_ij / comparator_ab_ij - 1.0).abs() >= epsilon
-                                                && &(self_ab_ij - comparator_ab_ij).abs() >= epsilon
-                                                && (&self_ab_ij.abs() >= epsilon
-                                                    || &comparator_ab_ij.abs() >= epsilon)
+                                            (self_ab_ij / comparator_ab_ij - 1.0).abs() >= epsilon
+                                                && (self_ab_ij - comparator_ab_ij).abs() >= epsilon
+                                                && (self_ab_ij.abs() >= epsilon
+                                                    || comparator_ab_ij.abs() >= epsilon)
                                         })
                                         .count()
                                 })

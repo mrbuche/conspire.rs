@@ -71,13 +71,13 @@ impl<const D: usize, const I: usize> TensorRank1<D, I> {
 
 #[cfg(test)]
 impl<const D: usize, const I: usize> ErrorTensor for TensorRank1<D, I> {
-    fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
+    fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
             .zip(comparator.iter())
             .filter(|&(&self_i, &comparator_i)| {
-                &(self_i / comparator_i - 1.0).abs() >= epsilon
-                    && (&self_i.abs() >= epsilon || &comparator_i.abs() >= epsilon)
+                (self_i / comparator_i - 1.0).abs() >= epsilon
+                    && (self_i.abs() >= epsilon || comparator_i.abs() >= epsilon)
             })
             .count();
         if error_count > 0 {
@@ -358,7 +358,7 @@ impl<const D: usize, const I: usize> Add<TensorRank1<D, I>> for &TensorRank1<D, 
 impl<const D: usize, const I: usize> AddAssign for TensorRank1<D, I> {
     fn add_assign(&mut self, tensor_rank_1: Self) {
         self.iter_mut()
-            .zip(tensor_rank_1.iter())
+            .zip(tensor_rank_1)
             .for_each(|(self_i, tensor_rank_1_i)| *self_i += tensor_rank_1_i);
     }
 }
@@ -412,7 +412,7 @@ impl<const D: usize, const I: usize> Sub<Self> for &TensorRank1<D, I> {
 impl<const D: usize, const I: usize> SubAssign for TensorRank1<D, I> {
     fn sub_assign(&mut self, tensor_rank_1: Self) {
         self.iter_mut()
-            .zip(tensor_rank_1.iter())
+            .zip(tensor_rank_1)
             .for_each(|(self_i, tensor_rank_1_i)| *self_i -= tensor_rank_1_i);
     }
 }
@@ -428,8 +428,8 @@ impl<const D: usize, const I: usize> SubAssign<&Self> for TensorRank1<D, I> {
 impl<const D: usize, const I: usize> Mul for TensorRank1<D, I> {
     type Output = TensorRank0;
     fn mul(self, tensor_rank_1: Self) -> Self::Output {
-        self.iter()
-            .zip(tensor_rank_1.iter())
+        self.into_iter()
+            .zip(tensor_rank_1)
             .map(|(self_i, tensor_rank_1_i)| self_i * tensor_rank_1_i)
             .sum()
     }
@@ -438,7 +438,7 @@ impl<const D: usize, const I: usize> Mul for TensorRank1<D, I> {
 impl<const D: usize, const I: usize> Mul<&Self> for TensorRank1<D, I> {
     type Output = TensorRank0;
     fn mul(self, tensor_rank_1: &Self) -> Self::Output {
-        self.iter()
+        self.into_iter()
             .zip(tensor_rank_1.iter())
             .map(|(self_i, tensor_rank_1_i)| self_i * tensor_rank_1_i)
             .sum()
@@ -449,7 +449,7 @@ impl<const D: usize, const I: usize> Mul<TensorRank1<D, I>> for &TensorRank1<D, 
     type Output = TensorRank0;
     fn mul(self, tensor_rank_1: TensorRank1<D, I>) -> Self::Output {
         self.iter()
-            .zip(tensor_rank_1.iter())
+            .zip(tensor_rank_1)
             .map(|(self_i, tensor_rank_1_i)| self_i * tensor_rank_1_i)
             .sum()
     }

@@ -17,7 +17,7 @@ use std::{
 
 use super::{
     super::assert_eq_within_tols,
-    Hessian, Jacobian, Rank2, Solution, SquareMatrix, Tensor, TensorArray, Vector,
+    Hessian, Jacobian, Rank2, Solution, SquareMatrix, Tensor, TensorArray, TensorError, Vector,
     rank_0::{TensorRank0, list::TensorRank0List},
     rank_1::{
         TensorRank1, list::TensorRank1List, tensor_rank_1, vec::TensorRank1Vec,
@@ -152,6 +152,12 @@ pub const IDENTITY_10: TensorRank2<3, 1, 0> = TensorRank2([
     tensor_rank_1([0.0, 0.0, 1.0]),
 ]);
 
+pub const IDENTITY_22: TensorRank2<3, 2, 2> = TensorRank2([
+    tensor_rank_1([1.0, 0.0, 0.0]),
+    tensor_rank_1([0.0, 1.0, 0.0]),
+    tensor_rank_1([0.0, 0.0, 1.0]),
+]);
+
 pub const ZERO: TensorRank2<3, 1, 1> = TensorRank2([
     tensor_rank_1_zero(),
     tensor_rank_1_zero(),
@@ -163,6 +169,70 @@ pub const ZERO_10: TensorRank2<3, 1, 0> = TensorRank2([
     tensor_rank_1_zero(),
     tensor_rank_1_zero(),
 ]);
+
+impl<const D: usize, const I: usize, const J: usize> From<(TensorRank1<D, I>, TensorRank1<D, J>)>
+    for TensorRank2<D, I, J>
+{
+    fn from((vector_a, vector_b): (TensorRank1<D, I>, TensorRank1<D, J>)) -> Self {
+        vector_a
+            .into_iter()
+            .map(|vector_a_i| {
+                vector_b
+                    .iter()
+                    .map(|vector_b_j| vector_a_i * vector_b_j)
+                    .collect()
+            })
+            .collect()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> From<(TensorRank1<D, I>, &TensorRank1<D, J>)>
+    for TensorRank2<D, I, J>
+{
+    fn from((vector_a, vector_b): (TensorRank1<D, I>, &TensorRank1<D, J>)) -> Self {
+        vector_a
+            .into_iter()
+            .map(|vector_a_i| {
+                vector_b
+                    .iter()
+                    .map(|vector_b_j| vector_a_i * vector_b_j)
+                    .collect()
+            })
+            .collect()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> From<(&TensorRank1<D, I>, TensorRank1<D, J>)>
+    for TensorRank2<D, I, J>
+{
+    fn from((vector_a, vector_b): (&TensorRank1<D, I>, TensorRank1<D, J>)) -> Self {
+        vector_a
+            .iter()
+            .map(|vector_a_i| {
+                vector_b
+                    .iter()
+                    .map(|vector_b_j| vector_a_i * vector_b_j)
+                    .collect()
+            })
+            .collect()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> From<(&TensorRank1<D, I>, &TensorRank1<D, J>)>
+    for TensorRank2<D, I, J>
+{
+    fn from((vector_a, vector_b): (&TensorRank1<D, I>, &TensorRank1<D, J>)) -> Self {
+        vector_a
+            .iter()
+            .map(|vector_a_i| {
+                vector_b
+                    .iter()
+                    .map(|vector_b_j| vector_a_i * vector_b_j)
+                    .collect()
+            })
+            .collect()
+    }
+}
 
 impl<const D: usize, const I: usize, const J: usize> From<Vec<Vec<TensorRank0>>>
     for TensorRank2<D, I, J>
@@ -199,7 +269,7 @@ impl<const D: usize, const I: usize, const J: usize> Display for TensorRank2<D, 
 
 #[cfg(test)]
 impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2<D, I, J> {
-    fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
+    fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
             .zip(comparator.iter())
@@ -208,8 +278,8 @@ impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2
                     .iter()
                     .zip(comparator_i.iter())
                     .filter(|&(&self_ij, &comparator_ij)| {
-                        &(self_ij / comparator_ij - 1.0).abs() >= epsilon
-                            && (&self_ij.abs() >= epsilon || &comparator_ij.abs() >= epsilon)
+                        (self_ij / comparator_ij - 1.0).abs() >= epsilon
+                            && (self_ij.abs() >= epsilon || comparator_ij.abs() >= epsilon)
                     })
                     .count()
             })
@@ -271,18 +341,6 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
                 .product::<TensorRank0>()
                 * if num_swaps % 2 == 0 { 1.0 } else { -1.0 }
         }
-    }
-    /// Returns a rank-2 tensor constructed from a dyad of the given vectors.
-    pub fn dyad(vector_a: &TensorRank1<D, I>, vector_b: &TensorRank1<D, J>) -> Self {
-        vector_a
-            .iter()
-            .map(|vector_a_i| {
-                vector_b
-                    .iter()
-                    .map(|vector_b_j| vector_a_i * vector_b_j)
-                    .collect()
-            })
-            .collect()
     }
     /// Returns the inverse of the rank-2 tensor.
     pub fn inverse(&self) -> TensorRank2<D, J, I> {
@@ -624,14 +682,14 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
 
 impl<const I: usize> TensorRank2<3, I, I> {
     /// Returns the matrix logarithm of the 3x3 symmetric tensor.
-    pub fn logm(&self) -> Self {
+    pub fn logm(&self) -> Result<Self, TensorError> {
         if self.is_diagonal() {
             let mut logm = TensorRank2::zero();
             logm.iter_mut()
                 .enumerate()
                 .zip(self.iter())
                 .for_each(|((i, logm_i), self_i)| logm_i[i] = self_i[i].ln());
-            logm
+            Ok(logm)
         } else {
             let tensor = self - &TensorRank2::identity();
             let norm = tensor.norm();
@@ -649,9 +707,9 @@ impl<const I: usize> TensorRank2<3, I, I> {
                     power *= &tensor;
                     logm += &power / (if k % 2 == 0 { -1.0 } else { 1.0 } / k as f64);
                 });
-                logm
+                Ok(logm)
             } else if self.is_symmetric() {
-                let mut eigenvalues = solve_cubic_symmetric(self.invariants());
+                let mut eigenvalues = solve_cubic_symmetric(self.invariants())?;
                 if eigenvalues.iter().any(|eigenvalue| eigenvalue <= &0.0) {
                     panic!("Symmetric matrix has a non-positive eigenvalue")
                 }
@@ -659,14 +717,14 @@ impl<const I: usize> TensorRank2<3, I, I> {
                 eigenvalues
                     .iter_mut()
                     .for_each(|eigenvalue| *eigenvalue = eigenvalue.ln());
-                reconstruct_symmetric(eigenvalues, eigenvectors)
+                Ok(reconstruct_symmetric(eigenvalues, eigenvectors))
             } else {
                 panic!("Matrix logarithm only implemented for symmetric cases")
             }
         }
     }
     /// Returns the derivative of the matrix logarithm of the 3x3 symmetric tensor.
-    pub fn dlogm(&self) -> TensorRank4<3, I, I, I, I> {
+    pub fn dlogm(&self) -> Result<TensorRank4<3, I, I, I, I>, TensorError> {
         if self.is_diagonal() {
             let mut dlogm = TensorRank4::zero();
             dlogm.iter_mut().enumerate().for_each(|(i, dlogm_i)| {
@@ -688,9 +746,9 @@ impl<const I: usize> TensorRank2<3, I, I> {
                     })
                 })
             });
-            dlogm
+            Ok(dlogm)
         } else if self.is_symmetric() {
-            let eigenvalues = solve_cubic_symmetric(self.invariants());
+            let eigenvalues = solve_cubic_symmetric(self.invariants())?;
             if eigenvalues.iter().any(|eigenvalue| eigenvalue <= &0.0) {
                 panic!("Symmetric matrix has a non-positive eigenvalue")
             }
@@ -711,7 +769,7 @@ impl<const I: usize> TensorRank2<3, I, I> {
                 })
                 .collect();
             let eigenvectors = find_orthonormal_eigenvectors(&eigenvalues, self).transpose();
-            eigenvectors.iter().map(|eigenvector_i|
+            Ok(eigenvectors.iter().map(|eigenvector_i|
                 eigenvectors.iter().map(|eigenvector_j|
                     eigenvectors.iter().map(|eigenvector_k|
                         eigenvectors.iter().map(|eigenvector_l|
@@ -723,7 +781,7 @@ impl<const I: usize> TensorRank2<3, I, I> {
                         ).collect()
                     ).collect()
                 ).collect()
-            ).collect()
+            ).collect())
         } else {
             panic!("Matrix logarithm only implemented for symmetric cases")
         }
@@ -739,7 +797,9 @@ impl<const I: usize> TensorRank2<3, I, I> {
     }
 }
 
-fn solve_cubic_symmetric(coefficients: TensorRank0List<3>) -> TensorRank0List<3> {
+fn solve_cubic_symmetric(
+    coefficients: TensorRank0List<3>,
+) -> Result<TensorRank0List<3>, TensorError> {
     let c2 = coefficients[0];
     let c1 = coefficients[1];
     let c0 = coefficients[2];
@@ -748,7 +808,7 @@ fn solve_cubic_symmetric(coefficients: TensorRank0List<3>) -> TensorRank0List<3>
     if p.abs() < ABS_TOL {
         let t = (-q).cbrt();
         let lambda = t + c2 / 3.0;
-        return TensorRank0List::new([lambda; _]);
+        return Ok(TensorRank0List::new([lambda; _]));
     }
     let discriminant = -4.0 * p * p * p - 27.0 * q * q;
     if discriminant >= ABS_TOL {
@@ -762,9 +822,9 @@ fn solve_cubic_symmetric(coefficients: TensorRank0List<3>) -> TensorRank0List<3>
             2.0 * sqrt_term * ((theta + 2.0 * TAU) / 3.0).cos() + c2 / 3.0,
         ];
         lambdas.sort_by(|a, b| b.partial_cmp(a).unwrap());
-        TensorRank0List::new(lambdas)
+        Ok(TensorRank0List::new(lambdas))
     } else {
-        panic!("Symmetric matrix produced complex eigenvalues");
+        Err(TensorError::SymmetricMatrixComplexEigenvalues)
     }
 }
 
@@ -774,7 +834,7 @@ fn find_orthonormal_eigenvectors<const I: usize>(
 ) -> TensorRank2<3, I, I> {
     let mut eigenvectors = eigenvalues
         .iter()
-        .map(|eigenvalue| eigenvector_symmetric(eigenvalue, tensor))
+        .map(|&eigenvalue| eigenvector_symmetric(eigenvalue, tensor))
         .collect::<TensorRank2<3, I, I>>();
     eigenvectors[0].normalize();
     let proj1 = &eigenvectors[1] * &eigenvectors[0];
@@ -787,7 +847,7 @@ fn find_orthonormal_eigenvectors<const I: usize>(
 }
 
 fn eigenvector_symmetric<const I: usize>(
-    eigenvalue: &TensorRank0,
+    eigenvalue: TensorRank0,
     tensor: &TensorRank2<3, I, I>,
 ) -> TensorRank1<3, I> {
     let m = tensor - TensorRank2::identity() * eigenvalue;
@@ -1038,6 +1098,18 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     }
 }
 
+impl From<TensorRank2<3, 0, 0>> for TensorRank2<3, 2, 2> {
+    fn from(tensor_rank_2: TensorRank2<3, 0, 0>) -> Self {
+        unsafe { transmute::<TensorRank2<3, 0, 0>, TensorRank2<3, 2, 2>>(tensor_rank_2) }
+    }
+}
+
+impl<const I: usize> From<TensorRank2<3, I, 0>> for TensorRank2<3, I, 2> {
+    fn from(tensor_rank_2: TensorRank2<3, I, 0>) -> Self {
+        unsafe { transmute::<TensorRank2<3, I, 0>, TensorRank2<3, I, 2>>(tensor_rank_2) }
+    }
+}
+
 impl<const I: usize> From<TensorRank2<3, I, 1>> for TensorRank2<3, I, 0> {
     fn from(tensor_rank_2: TensorRank2<3, I, 1>) -> Self {
         unsafe { transmute::<TensorRank2<3, I, 1>, TensorRank2<3, I, 0>>(tensor_rank_2) }
@@ -1059,6 +1131,24 @@ impl<const J: usize> From<TensorRank2<3, 0, J>> for TensorRank2<3, 1, J> {
 impl<const J: usize> From<TensorRank2<3, 1, J>> for TensorRank2<3, 0, J> {
     fn from(tensor_rank_2: TensorRank2<3, 1, J>) -> Self {
         unsafe { transmute::<TensorRank2<3, 1, J>, TensorRank2<3, 0, J>>(tensor_rank_2) }
+    }
+}
+
+impl<const J: usize> From<TensorRank2<3, 1, J>> for TensorRank2<3, 2, J> {
+    fn from(tensor_rank_2: TensorRank2<3, 1, J>) -> Self {
+        unsafe { transmute::<TensorRank2<3, 1, J>, TensorRank2<3, 2, J>>(tensor_rank_2) }
+    }
+}
+
+impl<const J: usize> From<TensorRank2<3, 2, J>> for TensorRank2<3, 1, J> {
+    fn from(tensor_rank_2: TensorRank2<3, 2, J>) -> Self {
+        unsafe { transmute::<TensorRank2<3, 2, J>, TensorRank2<3, 1, J>>(tensor_rank_2) }
+    }
+}
+
+impl<const J: usize> From<&TensorRank2<3, 2, J>> for &TensorRank2<3, 1, J> {
+    fn from(tensor_rank_2: &TensorRank2<3, 2, J>) -> Self {
+        unsafe { transmute::<&TensorRank2<3, 2, J>, &TensorRank2<3, 1, J>>(tensor_rank_2) }
     }
 }
 
@@ -1210,7 +1300,9 @@ impl<const D: usize, const I: usize, const J: usize> Mul<TensorRank1<D, J>>
 {
     type Output = TensorRank1<D, I>;
     fn mul(self, tensor_rank_1: TensorRank1<D, J>) -> Self::Output {
-        self.iter().map(|self_i| self_i * &tensor_rank_1).collect()
+        self.into_iter()
+            .map(|self_i| self_i * &tensor_rank_1)
+            .collect()
     }
 }
 
@@ -1219,7 +1311,9 @@ impl<const D: usize, const I: usize, const J: usize> Mul<&TensorRank1<D, J>>
 {
     type Output = TensorRank1<D, I>;
     fn mul(self, tensor_rank_1: &TensorRank1<D, J>) -> Self::Output {
-        self.iter().map(|self_i| self_i * tensor_rank_1).collect()
+        self.into_iter()
+            .map(|self_i| self_i * tensor_rank_1)
+            .collect()
     }
 }
 
@@ -1270,7 +1364,7 @@ impl<const D: usize, const I: usize, const J: usize> Add<TensorRank2<D, I, J>>
 impl<const D: usize, const I: usize, const J: usize> AddAssign for TensorRank2<D, I, J> {
     fn add_assign(&mut self, tensor_rank_2: Self) {
         self.iter_mut()
-            .zip(tensor_rank_2.iter())
+            .zip(tensor_rank_2)
             .for_each(|(self_i, tensor_rank_2_i)| *self_i += tensor_rank_2_i);
     }
 }
@@ -1288,10 +1382,10 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<TensorR
 {
     type Output = TensorRank2<D, I, K>;
     fn mul(self, tensor_rank_2: TensorRank2<D, J, K>) -> Self::Output {
-        self.iter()
+        self.into_iter()
             .map(|self_i| {
                 self_i
-                    .iter()
+                    .into_iter()
                     .zip(tensor_rank_2.iter())
                     .map(|(self_ij, tensor_rank_2_j)| tensor_rank_2_j * self_ij)
                     .sum()
@@ -1305,10 +1399,10 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<&Tensor
 {
     type Output = TensorRank2<D, I, K>;
     fn mul(self, tensor_rank_2: &TensorRank2<D, J, K>) -> Self::Output {
-        self.iter()
+        self.into_iter()
             .map(|self_i| {
                 self_i
-                    .iter()
+                    .into_iter()
                     .zip(tensor_rank_2.iter())
                     .map(|(self_ij, tensor_rank_2_j)| tensor_rank_2_j * self_ij)
                     .sum()
@@ -1406,7 +1500,7 @@ impl<const D: usize, const I: usize, const J: usize> Sub for &TensorRank2<D, I, 
 impl<const D: usize, const I: usize, const J: usize> SubAssign for TensorRank2<D, I, J> {
     fn sub_assign(&mut self, tensor_rank_2: Self) {
         self.iter_mut()
-            .zip(tensor_rank_2.iter())
+            .zip(tensor_rank_2)
             .for_each(|(self_i, tensor_rank_2_i)| *self_i -= tensor_rank_2_i);
     }
 }
@@ -1425,7 +1519,7 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize> Mul<TensorR
     type Output = TensorRank1List<D, I, W>;
     fn mul(self, tensor_rank_1_list: TensorRank1List<D, J, W>) -> Self::Output {
         tensor_rank_1_list
-            .iter()
+            .into_iter()
             .map(|tensor_rank_1| &self * tensor_rank_1)
             .collect()
     }
@@ -1449,7 +1543,7 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize> Mul<TensorR
     type Output = TensorRank1List<D, I, W>;
     fn mul(self, tensor_rank_1_list: TensorRank1List<D, J, W>) -> Self::Output {
         tensor_rank_1_list
-            .iter()
+            .into_iter()
             .map(|tensor_rank_1| self * tensor_rank_1)
             .collect()
     }
@@ -1473,7 +1567,7 @@ impl<const D: usize, const I: usize, const J: usize> Mul<TensorRank1Vec<D, J>>
     type Output = TensorRank1Vec<D, I>;
     fn mul(self, tensor_rank_1_vec: TensorRank1Vec<D, J>) -> Self::Output {
         tensor_rank_1_vec
-            .iter()
+            .into_iter()
             .map(|tensor_rank_1| &self * tensor_rank_1)
             .collect()
     }
@@ -1497,7 +1591,7 @@ impl<const D: usize, const I: usize, const J: usize> Mul<TensorRank1Vec<D, J>>
     type Output = TensorRank1Vec<D, I>;
     fn mul(self, tensor_rank_1_vec: TensorRank1Vec<D, J>) -> Self::Output {
         tensor_rank_1_vec
-            .iter()
+            .into_iter()
             .map(|tensor_rank_1| self * tensor_rank_1)
             .collect()
     }
@@ -1521,10 +1615,10 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: us
     type Output = TensorRank2List2D<D, I, K, W, X>;
     fn mul(self, tensor_rank_2_list_2d: TensorRank2List2D<D, J, K, W, X>) -> Self::Output {
         tensor_rank_2_list_2d
-            .iter()
+            .into_iter()
             .map(|tensor_rank_2_list_2d_entry| {
                 tensor_rank_2_list_2d_entry
-                    .iter()
+                    .into_iter()
                     .map(|tensor_rank_2| &self * tensor_rank_2)
                     .collect()
             })
@@ -1538,10 +1632,10 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: us
     type Output = TensorRank2List2D<D, I, K, W, X>;
     fn mul(self, tensor_rank_2_list_2d: TensorRank2List2D<D, J, K, W, X>) -> Self::Output {
         tensor_rank_2_list_2d
-            .iter()
+            .into_iter()
             .map(|tensor_rank_2_list_2d_entry| {
                 tensor_rank_2_list_2d_entry
-                    .iter()
+                    .into_iter()
                     .map(|tensor_rank_2| self * tensor_rank_2)
                     .collect()
             })
@@ -1555,10 +1649,10 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<TensorR
     type Output = TensorRank2Vec2D<D, I, K>;
     fn mul(self, tensor_rank_2_list_2d: TensorRank2Vec2D<D, J, K>) -> Self::Output {
         tensor_rank_2_list_2d
-            .iter()
+            .into_iter()
             .map(|tensor_rank_2_list_2d_entry| {
                 tensor_rank_2_list_2d_entry
-                    .iter()
+                    .into_iter()
                     .map(|tensor_rank_2| &self * tensor_rank_2)
                     .collect()
             })
@@ -1572,10 +1666,10 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<TensorR
     type Output = TensorRank2Vec2D<D, I, K>;
     fn mul(self, tensor_rank_2_list_2d: TensorRank2Vec2D<D, J, K>) -> Self::Output {
         tensor_rank_2_list_2d
-            .iter()
+            .into_iter()
             .map(|tensor_rank_2_list_2d_entry| {
                 tensor_rank_2_list_2d_entry
-                    .iter()
+                    .into_iter()
                     .map(|tensor_rank_2| self * tensor_rank_2)
                     .collect()
             })

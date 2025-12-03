@@ -4,16 +4,18 @@ use conspire::{
     constitutive::solid::{
         elastic::AppliedLoad as AppliedDeformation,
         elastic_hyperviscous::{AlmansiHamel, SecondOrderMinimize as _},
+        elastic_viscoplastic::{AppliedLoad, FirstOrderRoot},
         hyperelastic::{NeoHookean, SecondOrderMinimize as _},
+        hyperelastic_viscoplastic::SaintVenantKirchhoff,
         viscoelastic::AppliedLoad as AppliedDeformationRate,
     },
     fem::{
-        Connectivity, ElasticHyperviscousFiniteElementBlock, ElementBlock, FiniteElementBlock,
-        FiniteElementBlockMethods, LinearTetrahedron, ReferenceNodalCoordinatesBlock,
-        SecondOrderMinimize, ViscoelasticFiniteElementBlock,
+        Connectivity, ElasticHyperviscousFiniteElementBlock, ElasticViscoplasticFiniteElementBlock,
+        ElementBlock, FiniteElementBlock, FiniteElementBlockMethods, LinearTetrahedron,
+        ReferenceNodalCoordinatesBlock, SecondOrderMinimize, ViscoelasticFiniteElementBlock,
     },
     math::{
-        Matrix, Tensor, TestError, Vector, assert_eq_within, assert_eq_within_tols,
+        Matrix, Scalar, Tensor, TestError, Vector, assert_eq_within, assert_eq_within_tols,
         integrate::DormandPrince,
         optimize::{EqualityConstraint, NewtonRaphson},
     },
@@ -7433,6 +7435,145 @@ fn temporary_hyperelastic() -> Result<(), TestError> {
     Ok(())
 }
 
+fn bcs_temporary_elastic_viscoplastic(t: Scalar) -> Vector {
+    let strain_rate = 1.0; // also set below
+    let ref_coordinates = coordinates();
+    let length = ref_coordinates
+        .iter()
+        .filter(|coordinate| coordinate[0].abs() == 0.5)
+        .count()
+        + 3;
+    let mut vector = Vector::zero(length);
+    let mut index = 0;
+    coordinates().iter().for_each(|coordinate| {
+        if coordinate[0].abs() == 0.5 {
+            if coordinate[0] > 0.0 {
+                vector[index] = coordinate[0] + strain_rate * t
+            } else {
+                vector[index] = coordinate[0]
+            }
+            index += 1;
+        }
+    });
+    vector[length - 3] = -0.5;
+    vector[length - 2] = -0.5;
+    vector[length - 1] = -0.5;
+    vector
+}
+
+#[ignore]
+#[test]
+fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
+    use conspire::math::{Scalar, integrate::BogackiShampine};
+    let tol = 1e-4;
+    let tspan = [0.0, 2.0];
+    let ref_coordinates = coordinates();
+    let mut connectivity = connectivity();
+    connectivity
+        .iter_mut()
+        .flatten()
+        .for_each(|entry| *entry -= 1);
+    let num_nodes = ref_coordinates.len();
+    let model = SaintVenantKirchhoff {
+        bulk_modulus: 13.0,
+        shear_modulus: 3.0,
+        initial_yield_stress: 3.0,
+        hardening_slope: 1.0,
+        rate_sensitivity: 0.25,
+        reference_flow_rate: 0.1,
+    };
+    let block = ElementBlock::<LinearTetrahedron<_>, N>::new(&model, connectivity, coordinates());
+    let length = ref_coordinates
+        .iter()
+        .filter(|coordinate| coordinate[0].abs() == 0.5)
+        .count()
+        + 3;
+    let width = num_nodes * 3;
+    let mut matrix = Matrix::zero(length, width);
+    let mut index = 0;
+    coordinates()
+        .iter()
+        .enumerate()
+        .for_each(|(node, coordinate)| {
+            if coordinate[0].abs() == 0.5 {
+                matrix[index][3 * node] = 1.0;
+                index += 1;
+            }
+        });
+    matrix[length - 3][132 * 3 + 1] = 1.0;
+    matrix[length - 2][132 * 3 + 2] = 1.0;
+    matrix[length - 1][142 * 3 + 2] = 1.0;
+    let mut time = std::time::Instant::now();
+    println!("Solving...");
+    let (times, coordinates_history, state_variables_history) = block.root(
+        (matrix, |t: Scalar| bcs_temporary_elastic_viscoplastic(t)),
+        BogackiShampine {
+            abs_tol: tol,
+            rel_tol: tol,
+            ..Default::default()
+        },
+        &tspan,
+        NewtonRaphson::default(),
+    )?;
+    println!("Done ({:?}).", time.elapsed());
+    time = std::time::Instant::now();
+    println!("Verifying...");
+    let (_, deformation_gradients, state_variables) = model.root(
+        AppliedLoad::UniaxialStress(|t| 1.0 + 1.0 * t, times.as_slice()),
+        BogackiShampine::default(),
+        NewtonRaphson::default(),
+    )?;
+    coordinates_history
+        .iter()
+        .zip(
+            state_variables_history
+                .iter()
+                .zip(deformation_gradients.iter().zip(state_variables.iter())),
+        )
+        .try_for_each(
+            |(
+                coordinates,
+                (state_variables_block, (deformation_gradient, state_variables_model)),
+            )| {
+                block
+                    .deformation_gradients(coordinates)
+                    .iter()
+                    .try_for_each(|deformation_gradients| {
+                        deformation_gradients
+                            .iter()
+                            .try_for_each(|deformation_gradient_g| {
+                                assert_eq_within(
+                                    deformation_gradient_g,
+                                    deformation_gradient,
+                                    1e1 * tol,
+                                    1e1 * tol,
+                                )
+                            })
+                    })?;
+                let (deformation_gradient_p, yield_stress) = state_variables_model.into();
+                state_variables_block
+                    .iter()
+                    .try_for_each(|state_variables_element| {
+                        state_variables_element
+                            .iter()
+                            .try_for_each(|state_variables_g| {
+                                let (deformation_gradient_p_g, yield_stress_g) =
+                                    state_variables_g.into();
+                                assert_eq_within(
+                                    deformation_gradient_p_g,
+                                    deformation_gradient_p,
+                                    1e1 * tol,
+                                    1e1 * tol,
+                                )?;
+                                assert_eq_within(yield_stress_g, yield_stress, 1e1 * tol, 1e1 * tol)
+                            })
+                    })
+            },
+        )?;
+    println!("Done ({:?}).", time.elapsed());
+    Ok(())
+}
+
 #[test]
 fn temporary_hyperviscoelastic() -> Result<(), TestError> {
     let tol = 1e-4;
@@ -7522,8 +7663,8 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
                                 assert_eq_within(
                                     deformation_gradient_g,
                                     deformation_gradient,
-                                    &tol,
-                                    &tol,
+                                    tol,
+                                    tol,
                                 )
                             })
                     })?;
@@ -7536,8 +7677,8 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
                                 assert_eq_within(
                                     deformation_gradient_rate_g,
                                     deformation_gradient_rate,
-                                    &tol,
-                                    &tol,
+                                    tol,
+                                    tol,
                                 )
                             },
                         )

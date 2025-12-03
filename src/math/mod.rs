@@ -24,7 +24,8 @@ pub use matrix::{
     vector::Vector,
 };
 pub use tensor::{
-    Hessian, Jacobian, Rank2, Scalar, Solution, Tensor, TensorArray, TensorVec,
+    Hessian, Jacobian, Rank2, Scalar, Scalars, ScalarsVec, Solution, Tensor, TensorArray,
+    TensorError, TensorVec,
     list::TensorList,
     rank_0::{TensorRank0, list::TensorRank0List},
     rank_1::{
@@ -32,19 +33,27 @@ pub use tensor::{
         vec::TensorRank1Vec, vec_2d::TensorRank1Vec2D, zero as tensor_rank_1_zero,
     },
     rank_2::{
-        IDENTITY, IDENTITY_00, IDENTITY_10, TensorRank2, ZERO, ZERO_10, list::TensorRank2List,
-        list_2d::TensorRank2List2D, tensor_rank_2, vec::TensorRank2Vec, vec_2d::TensorRank2Vec2D,
+        IDENTITY, IDENTITY_00, IDENTITY_10, IDENTITY_22, TensorRank2, ZERO, ZERO_10,
+        list::{TensorRank2List, vec::TensorRank2ListVec},
+        list_2d::TensorRank2List2D,
+        tensor_rank_2,
+        vec::TensorRank2Vec,
+        vec_2d::TensorRank2Vec2D,
     },
     rank_3::{LEVI_CIVITA, TensorRank3, levi_civita},
     rank_4::{
         ContractAllIndicesWithFirstIndicesOf, ContractFirstSecondIndicesWithSecondIndicesOf,
         ContractFirstThirdFourthIndicesWithFirstIndicesOf,
         ContractSecondFourthIndicesWithFirstIndicesOf, ContractSecondIndexWithFirstIndexOf,
-        ContractThirdFourthIndicesWithFirstSecondIndicesOf, IDENTITY_1010, TensorRank4,
-        list::TensorRank4List,
+        ContractThirdFourthIndicesWithFirstSecondIndicesOf, ContractThirdIndexWithFirstIndexOf,
+        IDENTITY_1010, TensorRank4, list::TensorRank4List,
     },
     test::{TestError, assert_eq, assert_eq_within, assert_eq_within_tols},
-    tuple::{TensorTuple, TensorTupleVec},
+    tuple::{
+        TensorTuple,
+        list::{TensorTupleList, vec::TensorTupleListVec, vec_2d::TensorTupleListVec2D},
+        vec::TensorTupleVec,
+    },
     vec::TensorVector,
 };
 

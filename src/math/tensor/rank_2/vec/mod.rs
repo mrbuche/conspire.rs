@@ -14,7 +14,7 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2Vec<D, I, J> {
 
 #[cfg(test)]
 impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2Vec<D, I, J> {
-    fn error_fd(&self, comparator: &Self, epsilon: &TensorRank0) -> Option<(bool, usize)> {
+    fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
             .zip(comparator.iter())
@@ -27,9 +27,9 @@ impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2
                             .iter()
                             .zip(comparator_a_i.iter())
                             .filter(|&(&self_a_ij, &comparator_a_ij)| {
-                                &(self_a_ij / comparator_a_ij - 1.0).abs() >= epsilon
-                                    && (&self_a_ij.abs() >= epsilon
-                                        || &comparator_a_ij.abs() >= epsilon)
+                                (self_a_ij / comparator_a_ij - 1.0).abs() >= epsilon
+                                    && (self_a_ij.abs() >= epsilon
+                                        || comparator_a_ij.abs() >= epsilon)
                             })
                             .count()
                     })

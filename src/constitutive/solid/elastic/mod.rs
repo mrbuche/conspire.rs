@@ -10,6 +10,8 @@ pub mod doc;
 #[cfg(test)]
 pub mod test;
 
+pub mod internal_variables;
+
 mod almansi_hamel;
 mod hencky;
 mod saint_venant_kirchhoff;
@@ -21,7 +23,7 @@ pub use self::{
 use super::*;
 use crate::math::{
     Matrix, Vector,
-    optimize::{self, EqualityConstraint},
+    optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
 };
 
 /// Possible applied loads.
@@ -125,9 +127,7 @@ where
         deformation_gradient: &DeformationGradient,
     ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
         Ok(deformation_gradient.inverse()
-            * self.cauchy_stress(deformation_gradient)?
-            * deformation_gradient.inverse_transpose()
-            * deformation_gradient.determinant())
+            * self.first_piola_kirchhoff_stress(deformation_gradient)?)
     }
     /// Calculates and returns the tangent stiffness associated with the second Piola-Kirchhoff stress.
     ///
@@ -174,7 +174,7 @@ pub trait ZerothOrderRoot {
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl optimize::ZerothOrderRootFinding<DeformationGradient>,
+        solver: impl ZerothOrderRootFinding<DeformationGradient>,
     ) -> Result<DeformationGradient, ConstitutiveError>;
 }
 
@@ -188,7 +188,7 @@ pub trait FirstOrderRoot {
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl optimize::FirstOrderRootFinding<
+        solver: impl FirstOrderRootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
@@ -203,9 +203,9 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl optimize::ZerothOrderRootFinding<DeformationGradient>,
+        solver: impl ZerothOrderRootFinding<DeformationGradient>,
     ) -> Result<DeformationGradient, ConstitutiveError> {
-        match match applied_load {
+        let (matrix, vector) = match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_11) => {
                 let mut matrix = Matrix::zero(4, 9);
                 let mut vector = Vector::zero(4);
@@ -214,13 +214,7 @@ where
                 matrix[2][2] = 1.0;
                 matrix[3][5] = 1.0;
                 vector[0] = deformation_gradient_11;
-                solver.root(
-                    |deformation_gradient: &DeformationGradient| {
-                        Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
-                    },
-                    DeformationGradient::identity(),
-                    EqualityConstraint::Linear(matrix, vector),
-                )
+                (matrix, vector)
             }
             AppliedLoad::BiaxialStress(deformation_gradient_11, deformation_gradient_22) => {
                 let mut matrix = Matrix::zero(5, 9);
@@ -232,15 +226,16 @@ where
                 matrix[4][4] = 1.0;
                 vector[0] = deformation_gradient_11;
                 vector[4] = deformation_gradient_22;
-                solver.root(
-                    |deformation_gradient: &DeformationGradient| {
-                        Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
-                    },
-                    DeformationGradient::identity(),
-                    EqualityConstraint::Linear(matrix, vector),
-                )
+                (matrix, vector)
             }
-        } {
+        };
+        match solver.root(
+            |deformation_gradient: &DeformationGradient| {
+                Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
+            },
+            DeformationGradient::identity(),
+            EqualityConstraint::Linear(matrix, vector),
+        ) {
             Ok(deformation_gradient) => Ok(deformation_gradient),
             Err(error) => Err(ConstitutiveError::Upstream(
                 format!("{error}"),
@@ -257,13 +252,13 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl optimize::FirstOrderRootFinding<
+        solver: impl FirstOrderRootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
         >,
     ) -> Result<DeformationGradient, ConstitutiveError> {
-        match match applied_load {
+        let (matrix, vector) = match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_11) => {
                 let mut matrix = Matrix::zero(4, 9);
                 let mut vector = Vector::zero(4);
@@ -272,16 +267,7 @@ where
                 matrix[2][2] = 1.0;
                 matrix[3][5] = 1.0;
                 vector[0] = deformation_gradient_11;
-                solver.root(
-                    |deformation_gradient: &DeformationGradient| {
-                        Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
-                    },
-                    |deformation_gradient: &DeformationGradient| {
-                        Ok(self.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)?)
-                    },
-                    DeformationGradient::identity(),
-                    EqualityConstraint::Linear(matrix, vector),
-                )
+                (matrix, vector)
             }
             AppliedLoad::BiaxialStress(deformation_gradient_11, deformation_gradient_22) => {
                 let mut matrix = Matrix::zero(5, 9);
@@ -293,18 +279,19 @@ where
                 matrix[4][4] = 1.0;
                 vector[0] = deformation_gradient_11;
                 vector[4] = deformation_gradient_22;
-                solver.root(
-                    |deformation_gradient: &DeformationGradient| {
-                        Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
-                    },
-                    |deformation_gradient: &DeformationGradient| {
-                        Ok(self.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)?)
-                    },
-                    DeformationGradient::identity(),
-                    EqualityConstraint::Linear(matrix, vector),
-                )
+                (matrix, vector)
             }
-        } {
+        };
+        match solver.root(
+            |deformation_gradient: &DeformationGradient| {
+                Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
+            },
+            |deformation_gradient: &DeformationGradient| {
+                Ok(self.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)?)
+            },
+            DeformationGradient::identity(),
+            EqualityConstraint::Linear(matrix, vector),
+        ) {
             Ok(deformation_gradient) => Ok(deformation_gradient),
             Err(error) => Err(ConstitutiveError::Upstream(
                 format!("{error}"),

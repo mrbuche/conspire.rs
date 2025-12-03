@@ -3,15 +3,16 @@
 mod block;
 
 pub use block::{
-    ElasticFiniteElementBlock, ElasticHyperviscousFiniteElementBlock, ElementBlock,
-    FiniteElementBlock, FiniteElementBlockError, FiniteElementBlockMethods, FirstOrderMinimize,
-    FirstOrderRoot, HyperelasticFiniteElementBlock, HyperviscoelasticFiniteElementBlock,
-    SecondOrderMinimize, SurfaceFiniteElementBlock, ViscoelasticFiniteElementBlock,
-    ZerothOrderRoot,
+    ElasticFiniteElementBlock, ElasticHyperviscousFiniteElementBlock, ElasticViscoplasticBCs,
+    ElasticViscoplasticFiniteElementBlock, ElementBlock, FiniteElementBlock,
+    FiniteElementBlockError, FiniteElementBlockMethods, FirstOrderMinimize, FirstOrderRoot,
+    HyperelasticFiniteElementBlock, HyperviscoelasticFiniteElementBlock, SecondOrderMinimize,
+    SurfaceFiniteElementBlock, ViscoelasticFiniteElementBlock, ViscoplasticStateVariables,
+    ViscoplasticStateVariablesHistory, ZerothOrderRoot,
     element::{
-        ElasticFiniteElement, FiniteElement, FiniteElementError, FiniteElementMethods,
-        HyperelasticFiniteElement, HyperviscoelasticFiniteElement, SurfaceFiniteElement,
-        ViscoelasticFiniteElement,
+        ElasticFiniteElement, ElasticViscoplasticFiniteElement, FiniteElement, FiniteElementError,
+        FiniteElementMethods, HyperelasticFiniteElement, HyperviscoelasticFiniteElement,
+        SurfaceFiniteElement, ViscoelasticFiniteElement,
         composite::tetrahedron::Tetrahedron as CompositeTetrahedron,
         linear::{
             hexahedron::Hexahedron as LinearHexahedron,
@@ -30,16 +31,16 @@ use crate::{
         },
     },
     math::{
-        ContractSecondFourthIndicesWithFirstIndicesOf, Tensor, TensorRank1, TensorRank1List,
-        TensorRank1List2D, TensorRank1Vec, TensorRank1Vec2D, TensorRank2, TensorRank2List,
-        TensorRank2List2D, TensorRank2Vec2D,
+        ContractSecondFourthIndicesWithFirstIndicesOf, Scalar, Scalars, Tensor, TensorRank1,
+        TensorRank1List, TensorRank1List2D, TensorRank1Vec, TensorRank1Vec2D, TensorRank2,
+        TensorRank2List, TensorRank2List2D, TensorRank2Vec2D,
     },
     mechanics::{
         Coordinates, CurrentCoordinates, DeformationGradient, DeformationGradientList,
         DeformationGradientRate, DeformationGradientRateList,
         FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStresses,
-        FirstPiolaKirchhoffTangentStiffnesses, Forces, ReferenceCoordinates, Scalar, Scalars,
-        Stiffnesses, Vectors, Vectors2D,
+        FirstPiolaKirchhoffTangentStiffnesses, Forces, ReferenceCoordinates, Stiffnesses, Vectors,
+        Vectors2D,
     },
 };
 

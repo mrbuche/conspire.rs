@@ -26,17 +26,17 @@ pub struct ArrudaBoyce {
 
 impl ArrudaBoyce {
     /// Returns the number of links.
-    pub fn number_of_links(&self) -> &Scalar {
-        &self.number_of_links
+    pub fn number_of_links(&self) -> Scalar {
+        self.number_of_links
     }
 }
 
 impl Solid for ArrudaBoyce {
-    fn bulk_modulus(&self) -> &Scalar {
-        &self.bulk_modulus
+    fn bulk_modulus(&self) -> Scalar {
+        self.bulk_modulus
     }
-    fn shear_modulus(&self) -> &Scalar {
-        &self.shear_modulus
+    fn shear_modulus(&self) -> Scalar {
+        self.shear_modulus
     }
 }
 

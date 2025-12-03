@@ -33,11 +33,11 @@ pub struct AlmansiHamel {
 }
 
 impl Solid for AlmansiHamel {
-    fn bulk_modulus(&self) -> &Scalar {
-        &self.bulk_modulus
+    fn bulk_modulus(&self) -> Scalar {
+        self.bulk_modulus
     }
-    fn shear_modulus(&self) -> &Scalar {
-        &self.shear_modulus
+    fn shear_modulus(&self) -> Scalar {
+        self.shear_modulus
     }
 }
 
@@ -50,7 +50,7 @@ impl Thermoelastic for AlmansiHamel {
     fn cauchy_stress(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: &Scalar,
+        temperature: Scalar,
     ) -> Result<CauchyStress, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         let inverse_deformation_gradient = deformation_gradient.inverse();
@@ -74,7 +74,7 @@ impl Thermoelastic for AlmansiHamel {
     fn cauchy_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: &Scalar,
+        temperature: Scalar,
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         let inverse_transpose_deformation_gradient = deformation_gradient.inverse_transpose();
@@ -106,10 +106,10 @@ impl Thermoelastic for AlmansiHamel {
                 &inverse_transpose_deformation_gradient,
             ))
     }
-    fn coefficient_of_thermal_expansion(&self) -> &Scalar {
-        &self.coefficient_of_thermal_expansion
+    fn coefficient_of_thermal_expansion(&self) -> Scalar {
+        self.coefficient_of_thermal_expansion
     }
-    fn reference_temperature(&self) -> &Scalar {
-        &self.reference_temperature
+    fn reference_temperature(&self) -> Scalar {
+        self.reference_temperature
     }
 }

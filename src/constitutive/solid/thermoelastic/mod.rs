@@ -22,7 +22,7 @@ where
     fn cauchy_stress(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: &Scalar,
+        temperature: Scalar,
     ) -> Result<CauchyStress, ConstitutiveError> {
         Ok(deformation_gradient
             * self.second_piola_kirchhoff_stress(deformation_gradient, temperature)?
@@ -37,7 +37,7 @@ where
     fn cauchy_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: &Scalar,
+        temperature: Scalar,
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
         let deformation_gradient_inverse_transpose = deformation_gradient.inverse_transpose();
         let cauchy_stress = self.cauchy_stress(deformation_gradient, temperature)?;
@@ -64,7 +64,7 @@ where
     fn first_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: &Scalar,
+        temperature: Scalar,
     ) -> Result<FirstPiolaKirchhoffStress, ConstitutiveError> {
         Ok(self.cauchy_stress(deformation_gradient, temperature)?
             * deformation_gradient.inverse_transpose()
@@ -78,7 +78,7 @@ where
     fn first_piola_kirchhoff_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: &Scalar,
+        temperature: Scalar,
     ) -> Result<FirstPiolaKirchhoffTangentStiffness, ConstitutiveError> {
         let deformation_gradient_inverse_transpose = deformation_gradient.inverse_transpose();
         let first_piola_kirchhoff_stress =
@@ -104,7 +104,7 @@ where
     fn second_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: &Scalar,
+        temperature: Scalar,
     ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
         Ok(deformation_gradient.inverse()
             * self.cauchy_stress(deformation_gradient, temperature)?
@@ -119,7 +119,7 @@ where
     fn second_piola_kirchhoff_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: &Scalar,
+        temperature: Scalar,
     ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
         let deformation_gradient_inverse_transpose = deformation_gradient.inverse_transpose();
         let deformation_gradient_inverse = deformation_gradient_inverse_transpose.transpose();
@@ -146,7 +146,7 @@ where
             ))
     }
     /// Returns the coefficient of thermal expansion.
-    fn coefficient_of_thermal_expansion(&self) -> &Scalar;
+    fn coefficient_of_thermal_expansion(&self) -> Scalar;
     /// Returns the reference temperature.
-    fn reference_temperature(&self) -> &Scalar;
+    fn reference_temperature(&self) -> Scalar;
 }

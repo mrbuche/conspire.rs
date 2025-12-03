@@ -2,11 +2,7 @@
 mod test;
 
 use crate::{
-    constitutive::{
-        ConstitutiveError,
-        hybrid::{Additive, Hybrid},
-        solid::hyperelastic::Hyperelastic,
-    },
+    constitutive::{ConstitutiveError, hybrid::Additive, solid::hyperelastic::Hyperelastic},
     mechanics::{DeformationGradient, Scalar},
 };
 
@@ -24,11 +20,7 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
     ) -> Result<Scalar, ConstitutiveError> {
-        Ok(self
-            .constitutive_model_1()
-            .helmholtz_free_energy_density(deformation_gradient)?
-            + self
-                .constitutive_model_2()
-                .helmholtz_free_energy_density(deformation_gradient)?)
+        Ok(self.0.helmholtz_free_energy_density(deformation_gradient)?
+            + self.1.helmholtz_free_energy_density(deformation_gradient)?)
     }
 }

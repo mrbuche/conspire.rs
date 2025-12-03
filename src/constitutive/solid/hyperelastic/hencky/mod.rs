@@ -20,11 +20,11 @@ pub struct Hencky {
 }
 
 impl Solid for Hencky {
-    fn bulk_modulus(&self) -> &Scalar {
-        &self.bulk_modulus
+    fn bulk_modulus(&self) -> Scalar {
+        self.bulk_modulus
     }
-    fn shear_modulus(&self) -> &Scalar {
-        &self.shear_modulus
+    fn shear_modulus(&self) -> Scalar {
+        self.shear_modulus
     }
 }
 
@@ -36,7 +36,7 @@ impl Elastic for Hencky {
     ) -> Result<CauchyStress, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         let (deviatoric_strain, strain_trace) =
-            (deformation_gradient.left_cauchy_green().logm() * 0.5).deviatoric_and_trace();
+            (deformation_gradient.left_cauchy_green().logm()? * 0.5).deviatoric_and_trace();
         Ok(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
             + IDENTITY * (self.bulk_modulus() * strain_trace / jacobian))
     }
@@ -48,10 +48,10 @@ impl Elastic for Hencky {
         let jacobian = self.jacobian(deformation_gradient)?;
         let left_cauchy_green = deformation_gradient.left_cauchy_green();
         let (deviatoric_strain, strain_trace) =
-            (left_cauchy_green.logm() * 0.5).deviatoric_and_trace();
+            (left_cauchy_green.logm()? * 0.5).deviatoric_and_trace();
         let scaled_deformation_gradient = deformation_gradient * self.shear_modulus() / jacobian;
         Ok((left_cauchy_green
-            .dlogm()
+            .dlogm()?
             .contract_third_fourth_indices_with_first_second_indices_of(
                 &(CauchyTangentStiffness::dyad_il_jk(&scaled_deformation_gradient, &IDENTITY)
                     + CauchyTangentStiffness::dyad_ik_jl(&IDENTITY, &scaled_deformation_gradient)),
@@ -73,7 +73,7 @@ impl Hyperelastic for Hencky {
         deformation_gradient: &DeformationGradient,
     ) -> Result<Scalar, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
-        let strain = deformation_gradient.left_cauchy_green().logm() * 0.5;
+        let strain = deformation_gradient.left_cauchy_green().logm()? * 0.5;
         Ok(self.shear_modulus() * strain.squared_trace()
             + 0.5
                 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())

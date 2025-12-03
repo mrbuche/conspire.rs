@@ -155,8 +155,8 @@ fn div_assign_tensor_rank_0_ref() -> Result<(), TestError> {
 fn error() {
     let b = get_tensor_rank_1_b();
     let c = get_tensor_rank_1_c();
-    assert_eq!(b.error_count(&b, &ABS_TOL, &REL_TOL), None);
-    assert_eq!(b.error_count(&c, &ABS_TOL, &REL_TOL), Some(3));
+    assert_eq!(b.error_count(&b, ABS_TOL, REL_TOL), None);
+    assert_eq!(b.error_count(&c, ABS_TOL, REL_TOL), Some(3));
 }
 
 #[test]

@@ -33,11 +33,11 @@ pub struct SaintVenantKirchhoff {
 }
 
 impl Solid for SaintVenantKirchhoff {
-    fn bulk_modulus(&self) -> &Scalar {
-        &self.bulk_modulus
+    fn bulk_modulus(&self) -> Scalar {
+        self.bulk_modulus
     }
-    fn shear_modulus(&self) -> &Scalar {
-        &self.shear_modulus
+    fn shear_modulus(&self) -> Scalar {
+        self.shear_modulus
     }
 }
 
@@ -50,7 +50,7 @@ impl Thermoelastic for SaintVenantKirchhoff {
     fn second_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: &Scalar,
+        temperature: Scalar,
     ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let (deviatoric_strain, strain_trace) =
@@ -72,7 +72,7 @@ impl Thermoelastic for SaintVenantKirchhoff {
     fn second_piola_kirchhoff_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
-        _: &Scalar,
+        _: Scalar,
     ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let scaled_deformation_gradient_transpose =
@@ -88,11 +88,11 @@ impl Thermoelastic for SaintVenantKirchhoff {
             deformation_gradient,
         ))
     }
-    fn coefficient_of_thermal_expansion(&self) -> &Scalar {
-        &self.coefficient_of_thermal_expansion
+    fn coefficient_of_thermal_expansion(&self) -> Scalar {
+        self.coefficient_of_thermal_expansion
     }
-    fn reference_temperature(&self) -> &Scalar {
-        &self.reference_temperature
+    fn reference_temperature(&self) -> Scalar {
+        self.reference_temperature
     }
 }
 
@@ -105,7 +105,7 @@ impl Thermohyperelastic for SaintVenantKirchhoff {
     fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: &Scalar,
+        temperature: Scalar,
     ) -> Result<Scalar, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let strain = (deformation_gradient.right_cauchy_green() - IDENTITY_00) * 0.5;

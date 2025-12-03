@@ -5,7 +5,7 @@ use crate::constitutive::solid::thermohyperelastic::{
 };
 
 test_thermohyperelastic_thermal_conduction_constitutive_model!(
-    ThermohyperelasticThermalConduction::construct(
+    ThermohyperelasticThermalConduction::from((
         SaintVenantKirchhoff {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
@@ -15,7 +15,7 @@ test_thermohyperelastic_thermal_conduction_constitutive_model!(
         Fourier {
             thermal_conductivity: THERMAL_CONDUCTIVITY
         }
-    ),
+    )),
     SaintVenantKirchhoff {
         bulk_modulus: BULK_MODULUS,
         shear_modulus: SHEAR_MODULUS,
@@ -48,11 +48,11 @@ macro_rules! test_thermohyperelastic_thermal_conduction_constitutive_model
             assert_eq(
                 &$thermohyperelastic_thermal_conduction_constitutive_model
                 .helmholtz_free_energy_density(
-                    &get_deformation_gradient(), &get_temperature()
+                    &get_deformation_gradient(), get_temperature()
                 )?,
                 &$thermohyperelastic_constitutive_model
                 .helmholtz_free_energy_density(
-                    &get_deformation_gradient(), &get_temperature()
+                    &get_deformation_gradient(), get_temperature()
                 )?
             )
         }

@@ -2,7 +2,9 @@
 
 pub mod elastic;
 pub mod elastic_hyperviscous;
+pub mod elastic_viscoplastic;
 pub mod hyperelastic;
+pub mod hyperelastic_viscoplastic;
 pub mod hyperviscoelastic;
 pub mod thermoelastic;
 pub mod thermohyperelastic;
@@ -35,7 +37,7 @@ where
     Self: Debug,
 {
     /// Returns the bulk modulus.
-    fn bulk_modulus(&self) -> &Scalar;
+    fn bulk_modulus(&self) -> Scalar;
     /// Returns the shear modulus.
-    fn shear_modulus(&self) -> &Scalar;
+    fn shear_modulus(&self) -> Scalar;
 }
