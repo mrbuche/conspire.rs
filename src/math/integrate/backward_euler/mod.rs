@@ -15,9 +15,7 @@ use std::{
     ops::{Div, Mul, Sub},
 };
 
-/// Implicit, single-stage, first-order, fixed-step, Runge-Kutta method.[^cite]
-///
-/// [^cite]: Also known as the backward Euler method.
+#[doc = include_str!("doc.md")]
 #[derive(Debug)]
 pub struct BackwardEuler {
     /// Cut back factor for the time step.
