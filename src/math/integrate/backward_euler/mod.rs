@@ -3,12 +3,13 @@ mod test;
 
 use super::{
     super::{
-        Hessian, Jacobian, Scalar, Solution, TensorArray, TensorVec, Vector,
+        Hessian, Jacobian, Scalar, Solution, Tensor, TensorArray, TensorVec, Vector,
         interpolate::InterpolateSolution,
         optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
     },
-    ImplicitFirstOrder, ImplicitZerothOrder, IntegrationError,
+    ImplicitFirstOrder, ImplicitZerothOrder, IntegrationError, OdeSolver,
 };
+use crate::ABS_TOL;
 use std::{
     fmt::Debug,
     ops::{Div, Mul, Sub},
@@ -17,8 +18,38 @@ use std::{
 /// Implicit, single-stage, first-order, fixed-step, Runge-Kutta method.[^cite]
 ///
 /// [^cite]: Also known as the backward Euler method.
-#[derive(Debug, Default)]
-pub struct BackwardEuler {}
+#[derive(Debug)]
+pub struct BackwardEuler {
+    /// Cut back factor for the time step.
+    pub dt_cut: Scalar,
+    /// Minimum value for the time step.
+    pub dt_min: Scalar,
+}
+
+impl Default for BackwardEuler {
+    fn default() -> Self {
+        Self {
+            dt_cut: 0.5,
+            dt_min: ABS_TOL,
+        }
+    }
+}
+
+impl<Y, U> OdeSolver<Y, U> for BackwardEuler
+where
+    Y: Tensor,
+    U: TensorVec<Item = Y>,
+{
+    fn abs_tol(&self) -> Scalar {
+        unimplemented!()
+    }
+    fn dt_cut(&self) -> Scalar {
+        self.dt_cut
+    }
+    fn dt_min(&self) -> Scalar {
+        self.dt_min
+    }
+}
 
 impl<Y, U> ImplicitZerothOrder<Y, U> for BackwardEuler
 where
