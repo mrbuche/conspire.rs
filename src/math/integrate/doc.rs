@@ -1,4 +1,5 @@
 pub const EXPLICIT: &str = include_str!("explicit.md");
+pub const EXPLICIT_IV: &str = include_str!("explicit_iv.md");
 pub const IMPLICIT: &str = include_str!("implicit.md");
 
 pub fn bogacki_shampine<'a>() -> Vec<[&'a str; 2]> {
