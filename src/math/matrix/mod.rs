@@ -76,6 +76,15 @@ impl TensorVec for Matrix {
     }
 }
 
+impl From<Matrix> for Vec<Vec<Scalar>>
+{
+    fn from(matrix: Matrix) -> Self {
+        matrix.into_iter().map(|vector|
+            vector.into()
+        ).collect()
+    }
+}
+
 impl FromIterator<Vector> for Matrix {
     fn from_iter<Ii: IntoIterator<Item = Vector>>(into_iterator: Ii) -> Self {
         Self(Vec::from_iter(into_iterator))
