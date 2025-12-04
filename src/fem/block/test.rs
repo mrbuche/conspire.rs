@@ -1,18 +1,17 @@
 macro_rules! test_finite_element_block {
     ($element: ident) => {
-        macro_rules! setup_constitutive {
+        macro_rules! setup_block {
             ($constitutive_model: expr, $constitutive_model_type: ident) => {
-                fn get_block<'a>() -> ElementBlock<$element<'a, $constitutive_model_type>, N> {
-                    ElementBlock::<$element<$constitutive_model_type>, N>::new(
-                        &$constitutive_model,
+                fn get_block() -> ElementBlock<$constitutive_model_type, $element, N> {
+                    ElementBlock::<$constitutive_model_type, $element, N>::new(
+                        $constitutive_model,
                         get_connectivity(),
                         get_reference_coordinates_block(),
                     )
                 }
-                fn get_block_transformed<'a>()
-                -> ElementBlock<$element<'a, $constitutive_model_type>, N> {
-                    ElementBlock::<$element<$constitutive_model_type>, N>::new(
-                        &$constitutive_model,
+                fn get_block_transformed() -> ElementBlock<$constitutive_model_type, $element, N> {
+                    ElementBlock::<$constitutive_model_type, $element, N>::new(
+                        $constitutive_model,
                         get_connectivity(),
                         get_reference_coordinates_transformed_block(),
                     )
@@ -27,20 +26,19 @@ pub(crate) use test_finite_element_block;
 macro_rules! test_surface_finite_element_block {
     ($element: ident) => {
         use super::element::test::THICKNESS;
-        macro_rules! setup_constitutive {
+        macro_rules! setup_block {
             ($constitutive_model: expr, $constitutive_model_type: ident) => {
-                fn get_block<'a>() -> ElementBlock<$element<'a, $constitutive_model_type>, N> {
-                    ElementBlock::<$element<$constitutive_model_type>, N>::new(
-                        &$constitutive_model,
+                fn get_block() -> ElementBlock<$constitutive_model_type, $element, N> {
+                    ElementBlock::<$constitutive_model_type, $element, N>::new(
+                        $constitutive_model,
                         get_connectivity(),
                         get_reference_coordinates_block(),
                         THICKNESS,
                     )
                 }
-                fn get_block_transformed<'a>()
-                -> ElementBlock<$element<'a, $constitutive_model_type>, N> {
-                    ElementBlock::<$element<$constitutive_model_type>, N>::new(
-                        &$constitutive_model,
+                fn get_block_transformed() -> ElementBlock<$constitutive_model_type, $element, N> {
+                    ElementBlock::<$constitutive_model_type, $element, N>::new(
+                        $constitutive_model,
                         get_connectivity(),
                         get_reference_coordinates_transformed_block(),
                         THICKNESS,
@@ -275,7 +273,7 @@ pub(crate) use test_finite_element_block_inner;
 
 macro_rules! test_nodal_forces_and_nodal_stiffnesses {
     ($block: ident, $element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {
-        setup_constitutive!($constitutive_model, $constitutive_model_type);
+        setup_block!($constitutive_model, $constitutive_model_type);
         fn get_coordinates_transformed_block() -> NodalCoordinatesBlock {
             get_coordinates_block()
                 .iter()

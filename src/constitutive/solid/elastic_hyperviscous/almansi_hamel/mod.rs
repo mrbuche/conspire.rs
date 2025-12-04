@@ -34,7 +34,7 @@ use crate::{
 ///
 /// **Notes**
 /// - The Almansi-Hamel strain measure is given by $`\mathbf{e}=\tfrac{1}{2}(\mathbf{1}-\mathbf{B}^{-1})`$.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct AlmansiHamel {
     /// The bulk modulus $`\kappa`$.
     pub bulk_modulus: Scalar,

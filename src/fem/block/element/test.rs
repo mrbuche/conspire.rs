@@ -14,40 +14,26 @@ macro_rules! test_finite_element {
         fn velocities() -> NodalVelocities<N> {
             get_deformation_gradient_rate() * reference_coordinates()
         }
-        fn element<'a>() -> $element<'a, AlmansiHamel> {
-            $element::new(
-                &AlmansiHamel {
-                    bulk_modulus: BULK_MODULUS,
-                    shear_modulus: SHEAR_MODULUS,
-                },
-                reference_coordinates(),
-            )
+        fn element() -> $element {
+            $element::new(reference_coordinates())
         }
-        fn element_transformed<'a>() -> $element<'a, AlmansiHamel> {
-            $element::new(
-                &AlmansiHamel {
-                    bulk_modulus: BULK_MODULUS,
-                    shear_modulus: SHEAR_MODULUS,
-                },
-                reference_coordinates_transformed(),
-            )
+        fn element_transformed() -> $element {
+            $element::new(reference_coordinates_transformed())
         }
         #[test]
         fn size() {
             assert_eq!(
-                std::mem::size_of::<$element::<AlmansiHamel>>(),
-                std::mem::size_of::<&AlmansiHamel>()
-                    + std::mem::size_of::<GradientVectors<G, N>>()
-                    + std::mem::size_of::<Scalars<G>>()
+                std::mem::size_of::<$element>(),
+                std::mem::size_of::<GradientVectors<G, N>>() + std::mem::size_of::<Scalars<G>>()
             )
         }
-        macro_rules! setup_constitutive {
-            ($constitutive_model: expr, $constitutive_model_type: ident) => {
-                fn get_element<'a>() -> $element<'a, $constitutive_model_type> {
-                    $element::new(&$constitutive_model, reference_coordinates())
+        macro_rules! setup_element {
+            () => {
+                fn get_element() -> $element {
+                    $element::new(reference_coordinates())
                 }
-                fn get_element_transformed<'a>() -> $element<'a, $constitutive_model_type> {
-                    $element::new(&$constitutive_model, reference_coordinates_transformed())
+                fn get_element_transformed() -> $element {
+                    $element::new(reference_coordinates_transformed())
                 }
             };
         }
@@ -85,47 +71,28 @@ macro_rules! test_surface_finite_element {
         fn velocities() -> NodalVelocities<N> {
             get_deformation_gradient_rate() * reference_coordinates()
         }
-        fn element<'a>() -> $element<'a, AlmansiHamel> {
-            $element::new(
-                &AlmansiHamel {
-                    bulk_modulus: BULK_MODULUS,
-                    shear_modulus: SHEAR_MODULUS,
-                },
-                reference_coordinates(),
-                THICKNESS,
-            )
+        fn element() -> $element {
+            $element::new(reference_coordinates(), THICKNESS)
         }
-        fn element_transformed<'a>() -> $element<'a, AlmansiHamel> {
-            $element::<AlmansiHamel>::new(
-                &AlmansiHamel {
-                    bulk_modulus: BULK_MODULUS,
-                    shear_modulus: SHEAR_MODULUS,
-                },
-                reference_coordinates_transformed(),
-                THICKNESS,
-            )
+        fn element_transformed() -> $element {
+            $element::new(reference_coordinates_transformed(), THICKNESS)
         }
         #[test]
         fn size() {
             assert_eq!(
-                std::mem::size_of::<$element::<AlmansiHamel>>(),
-                std::mem::size_of::<&AlmansiHamel>()
-                    + std::mem::size_of::<GradientVectors<G, N>>()
+                std::mem::size_of::<$element>(),
+                std::mem::size_of::<GradientVectors<G, N>>()
                     + std::mem::size_of::<Scalars<G>>()
                     + std::mem::size_of::<Normals<P>>()
             )
         }
-        macro_rules! setup_constitutive {
-            ($constitutive_model: expr, $constitutive_model_type: ident) => {
-                fn get_element<'a>() -> $element<'a, $constitutive_model_type> {
-                    $element::new(&$constitutive_model, reference_coordinates(), THICKNESS)
+        macro_rules! setup_element {
+            () => {
+                fn get_element() -> $element {
+                    $element::new(reference_coordinates(), THICKNESS)
                 }
-                fn get_element_transformed<'a>() -> $element<'a, $constitutive_model_type> {
-                    $element::new(
-                        &$constitutive_model,
-                        reference_coordinates_transformed(),
-                        THICKNESS,
-                    )
+                fn get_element_transformed() -> $element {
+                    $element::new(reference_coordinates_transformed(), THICKNESS)
                 }
             };
         }
@@ -138,9 +105,9 @@ macro_rules! test_surface_finite_element {
             use super::*;
             #[test]
             fn objectivity() -> Result<(), TestError> {
-                $element::<AlmansiHamel>::bases(&coordinates_transformed())
+                $element::bases(&coordinates_transformed())
                     .iter()
-                    .zip($element::<AlmansiHamel>::bases(&coordinates()).iter())
+                    .zip($element::bases(&coordinates()).iter())
                     .try_for_each(|(basis_transformed, basis)| {
                         basis_transformed.iter().zip(basis.iter()).try_for_each(
                             |(basis_transformed_m, basis_m)| {
@@ -159,9 +126,9 @@ macro_rules! test_surface_finite_element {
             fn basis() -> Result<(), TestError> {
                 let mut surface_identity = DeformationGradient::identity();
                 surface_identity[2][2] = 0.0;
-                $element::<AlmansiHamel>::bases(&coordinates())
+                $element::bases(&coordinates())
                     .iter()
-                    .zip($element::<AlmansiHamel>::dual_bases(&coordinates()).iter())
+                    .zip($element::dual_bases(&coordinates()).iter())
                     .try_for_each(|(basis, dual_basis)| {
                         assert_eq_within_tols(
                             &basis
@@ -180,9 +147,9 @@ macro_rules! test_surface_finite_element {
             use super::*;
             #[test]
             fn objectivity() -> Result<(), TestError> {
-                $element::<AlmansiHamel>::dual_bases(&coordinates_transformed())
+                $element::dual_bases(&coordinates_transformed())
                     .iter()
-                    .zip($element::<AlmansiHamel>::dual_bases(&coordinates()).iter())
+                    .zip($element::dual_bases(&coordinates()).iter())
                     .try_for_each(|(basis_transformed, basis)| {
                         basis_transformed.iter().zip(basis.iter()).try_for_each(
                             |(basis_transformed_m, basis_m)| {
@@ -212,14 +179,10 @@ macro_rules! test_surface_finite_element {
                                                 let mut nodal_coordinates = coordinates();
                                                 nodal_coordinates[a][m] += 0.5 * EPSILON;
                                                 finite_difference =
-                                                    $element::<AlmansiHamel>::normals(
-                                                        &nodal_coordinates,
-                                                    )[p][i];
+                                                    $element::normals(&nodal_coordinates)[p][i];
                                                 nodal_coordinates[a][m] -= EPSILON;
                                                 finite_difference -=
-                                                    $element::<AlmansiHamel>::normals(
-                                                        &nodal_coordinates,
-                                                    )[p][i];
+                                                    $element::normals(&nodal_coordinates)[p][i];
                                                 finite_difference / EPSILON
                                             })
                                             .collect()
@@ -230,18 +193,18 @@ macro_rules! test_surface_finite_element {
                     })
                     .collect();
                 assert_eq_from_fd(
-                    &$element::<AlmansiHamel>::normal_gradients(&coordinates()),
+                    &$element::normal_gradients(&coordinates()),
                     &normal_gradients_from_fd,
                 )
             }
             #[test]
             fn normal() -> Result<(), TestError> {
-                $element::<AlmansiHamel>::bases(&coordinates())
+                $element::bases(&coordinates())
                     .iter()
                     .zip(
-                        $element::<AlmansiHamel>::dual_bases(&coordinates())
+                        $element::dual_bases(&coordinates())
                             .iter()
-                            .zip($element::<AlmansiHamel>::normals(&coordinates()).iter()),
+                            .zip($element::normals(&coordinates()).iter()),
                     )
                     .try_for_each(|(basis, (dual_basis, normal))| {
                         assert_eq_within_tols(&(&basis[0] * normal), &0.0)?;
@@ -252,15 +215,15 @@ macro_rules! test_surface_finite_element {
             }
             #[test]
             fn normalized() -> Result<(), TestError> {
-                $element::<AlmansiHamel>::normals(&coordinates())
+                $element::normals(&coordinates())
                     .iter()
                     .try_for_each(|normal| assert_eq_within_tols(&normal.norm(), &1.0))
             }
             #[test]
             fn objectivity() -> Result<(), TestError> {
-                $element::<AlmansiHamel>::normals(&coordinates_transformed())
+                $element::normals(&coordinates_transformed())
                     .iter()
-                    .zip($element::<AlmansiHamel>::normals(&coordinates()).iter())
+                    .zip($element::normals(&coordinates()).iter())
                     .try_for_each(|(normal_transformed, normal)| {
                         assert_eq_within_tols(
                             &(get_rotation_current_configuration().transpose()
@@ -274,9 +237,9 @@ macro_rules! test_surface_finite_element {
             use super::*;
             #[test]
             fn objectivity() -> Result<(), TestError> {
-                $element::<AlmansiHamel>::normal_gradients(&coordinates_transformed())
+                $element::normal_gradients(&coordinates_transformed())
                     .iter()
-                    .zip($element::<AlmansiHamel>::normal_gradients(&coordinates()).iter())
+                    .zip($element::normal_gradients(&coordinates()).iter())
                     .try_for_each(|(normal_gradient_transformed, normal_gradient)| {
                         normal_gradient_transformed
                             .iter()
@@ -312,14 +275,10 @@ macro_rules! test_surface_finite_element {
                                                 let mut nodal_coordinates = coordinates();
                                                 nodal_coordinates[a][k] += 0.5 * EPSILON;
                                                 finite_difference =
-                                                    $element::<AlmansiHamel>::normals(
-                                                        &nodal_coordinates,
-                                                    )[p][i];
+                                                    $element::normals(&nodal_coordinates)[p][i];
                                                 nodal_coordinates[a][k] -= EPSILON;
                                                 finite_difference -=
-                                                    $element::<AlmansiHamel>::normals(
-                                                        &nodal_coordinates,
-                                                    )[p][i];
+                                                    $element::normals(&nodal_coordinates)[p][i];
                                                 finite_difference / EPSILON * velocity_a_k
                                             })
                                             .sum::<Scalar>()
@@ -330,24 +289,21 @@ macro_rules! test_surface_finite_element {
                     })
                     .collect();
                 assert_eq_from_fd(
-                    &$element::<AlmansiHamel>::normal_rates(&coordinates(), &velocities()),
+                    &$element::normal_rates(&coordinates(), &velocities()),
                     &normal_rates_from_fd,
                 )
             }
             #[test]
             fn objectivity() -> Result<(), TestError> {
-                $element::<AlmansiHamel>::normals(&coordinates_transformed())
+                $element::normals(&coordinates_transformed())
                     .iter()
                     .zip(
-                        $element::<AlmansiHamel>::normal_rates(
+                        $element::normal_rates(
                             &coordinates_transformed(),
                             &velocities_transformed(),
                         )
                         .iter()
-                        .zip(
-                            $element::<AlmansiHamel>::normal_rates(&coordinates(), &velocities())
-                                .iter(),
-                        ),
+                        .zip($element::normal_rates(&coordinates(), &velocities()).iter()),
                     )
                     .try_for_each(
                         |(normal_transformed, (normal_rate_transformed, normal_rate))| {
@@ -366,10 +322,10 @@ macro_rules! test_surface_finite_element {
             use super::*;
             #[test]
             fn normal() -> Result<(), TestError> {
-                $element::<AlmansiHamel>::bases(&reference_coordinates())
+                $element::bases(&reference_coordinates())
                     .iter()
                     .zip(
-                        $element::<AlmansiHamel>::dual_bases(&reference_coordinates())
+                        $element::dual_bases(&reference_coordinates())
                             .iter()
                             .zip(element().reference_normals().iter()),
                     )
@@ -628,7 +584,7 @@ macro_rules! test_finite_element_inner {
                     use super::*;
                     #[test]
                     fn shape_functions() -> Result<(), TestError> {
-                        $element::<AlmansiHamel>::shape_functions_at_integration_points()
+                        $element::shape_functions_at_integration_points()
                             .iter()
                             .try_for_each(|shape_functions| {
                                 assert_eq_within_tols(&shape_functions.iter().sum(), &1.0)
@@ -637,9 +593,8 @@ macro_rules! test_finite_element_inner {
                     #[test]
                     fn standard_gradient_operators() -> Result<(), TestError> {
                         let mut sum = [0.0; 3];
-                        $element::<AlmansiHamel>::standard_gradient_operators()
-                            .iter()
-                            .try_for_each(|standard_gradient_operator| {
+                        $element::standard_gradient_operators().iter().try_for_each(
+                            |standard_gradient_operator| {
                                 standard_gradient_operator.iter().for_each(|row| {
                                     row.iter()
                                         .zip(sum.iter_mut())
@@ -647,196 +602,197 @@ macro_rules! test_finite_element_inner {
                                 });
                                 sum.iter()
                                     .try_for_each(|sum_i| assert_eq_within_tols(sum_i, &0.0))
-                            })
+                            },
+                        )
                     }
                 }
             }
-            mod elastic {
-                use super::*;
-                use crate::constitutive::solid::elastic::{
-                    AlmansiHamel, Hencky, SaintVenantKirchhoff,
-                    test::{BULK_MODULUS, SHEAR_MODULUS},
-                };
-                mod almansi_hamel {
-                    use super::*;
-                    test_finite_element_with_elastic_constitutive_model!(
-                        $element,
-                        AlmansiHamel {
-                            bulk_modulus: BULK_MODULUS,
-                            shear_modulus: SHEAR_MODULUS,
-                        },
-                        AlmansiHamel
-                    );
-                }
-                mod hencky {
-                    use super::*;
-                    test_finite_element_with_elastic_constitutive_model!(
-                        $element,
-                        Hencky {
-                            bulk_modulus: BULK_MODULUS,
-                            shear_modulus: SHEAR_MODULUS,
-                        },
-                        Hencky
-                    );
-                }
-                mod saint_venant_kirchhoff {
-                    use super::*;
-                    test_finite_element_with_elastic_constitutive_model!(
-                        $element,
-                        SaintVenantKirchhoff {
-                            bulk_modulus: BULK_MODULUS,
-                            shear_modulus: SHEAR_MODULUS,
-                        },
-                        SaintVenantKirchhoff
-                    );
-                }
-            }
-            mod hyperelastic {
-                use super::*;
-                use crate::constitutive::solid::hyperelastic::{
-                    ArrudaBoyce, Fung, Gent, Hencky, MooneyRivlin, NeoHookean,
-                    SaintVenantKirchhoff, Yeoh,
-                    test::{
-                        EXPONENT, EXTENSIBILITY, EXTRA_MODULUS, NUM_YEOH_EXTRA_MODULI,
-                        NUMBER_OF_LINKS, YEOH_EXTRA_MODULI,
-                    },
-                };
-                mod arruda_boyce {
-                    use super::*;
-                    test_finite_element_with_hyperelastic_constitutive_model!(
-                        $element,
-                        ArrudaBoyce {
-                            bulk_modulus: BULK_MODULUS,
-                            shear_modulus: SHEAR_MODULUS,
-                            number_of_links: NUMBER_OF_LINKS,
-                        },
-                        ArrudaBoyce
-                    );
-                }
-                mod fung {
-                    use super::*;
-                    test_finite_element_with_hyperelastic_constitutive_model!(
-                        $element,
-                        Fung {
-                            bulk_modulus: BULK_MODULUS,
-                            shear_modulus: SHEAR_MODULUS,
-                            exponent: EXPONENT,
-                            extra_modulus: EXTRA_MODULUS,
-                        },
-                        Fung
-                    );
-                }
-                mod gent {
-                    use super::*;
-                    test_finite_element_with_hyperelastic_constitutive_model!(
-                        $element,
-                        Gent {
-                            bulk_modulus: BULK_MODULUS,
-                            shear_modulus: SHEAR_MODULUS,
-                            extensibility: EXTENSIBILITY,
-                        },
-                        Gent
-                    );
-                }
-                mod hencky {
-                    use super::*;
-                    test_finite_element_with_hyperelastic_constitutive_model!(
-                        $element,
-                        Hencky {
-                            bulk_modulus: BULK_MODULUS,
-                            shear_modulus: SHEAR_MODULUS,
-                        },
-                        Hencky
-                    );
-                }
-                mod mooney_rivlin {
-                    use super::*;
-                    test_finite_element_with_hyperelastic_constitutive_model!(
-                        $element,
-                        MooneyRivlin {
-                            bulk_modulus: BULK_MODULUS,
-                            shear_modulus: SHEAR_MODULUS,
-                            extra_modulus: EXTRA_MODULUS,
-                        },
-                        MooneyRivlin
-                    );
-                }
-                mod neo_hookean {
-                    use super::*;
-                    test_finite_element_with_hyperelastic_constitutive_model!(
-                        $element,
-                        NeoHookean {
-                            bulk_modulus: BULK_MODULUS,
-                            shear_modulus: SHEAR_MODULUS,
-                        },
-                        NeoHookean
-                    );
-                }
-                mod saint_venant_kirchhoff {
-                    use super::*;
-                    test_finite_element_with_hyperelastic_constitutive_model!(
-                        $element,
-                        SaintVenantKirchhoff {
-                            bulk_modulus: BULK_MODULUS,
-                            shear_modulus: SHEAR_MODULUS,
-                        },
-                        SaintVenantKirchhoff
-                    );
-                }
-                mod yeoh {
-                    use super::*;
-                    type YeohType = Yeoh<NUM_YEOH_EXTRA_MODULI>;
-                    test_finite_element_with_hyperelastic_constitutive_model!(
-                        $element,
-                        Yeoh {
-                            bulk_modulus: BULK_MODULUS,
-                            shear_modulus: SHEAR_MODULUS,
-                            extra_moduli: YEOH_EXTRA_MODULI,
-                        },
-                        YeohType
-                    );
-                }
-            }
-            mod elastic_hyperviscous {
-                use super::*;
-                use crate::constitutive::solid::elastic_hyperviscous::{
-                    AlmansiHamel,
-                    test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
-                };
-                mod almansi_hamel {
-                    use super::*;
-                    test_finite_element_with_elastic_hyperviscous_constitutive_model!(
-                        $element,
-                        AlmansiHamel {
-                            bulk_modulus: BULK_MODULUS,
-                            shear_modulus: SHEAR_MODULUS,
-                            bulk_viscosity: BULK_VISCOSITY,
-                            shear_viscosity: SHEAR_VISCOSITY,
-                        },
-                        AlmansiHamel
-                    );
-                }
-            }
-            mod hyperviscoelastic {
-                use super::*;
-                use crate::constitutive::solid::hyperviscoelastic::{
-                    SaintVenantKirchhoff,
-                    test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
-                };
-                mod saint_venant_kirchhoff {
-                    use super::*;
-                    test_finite_element_with_hyperviscoelastic_constitutive_model!(
-                        $element,
-                        SaintVenantKirchhoff {
-                            bulk_modulus: BULK_MODULUS,
-                            shear_modulus: SHEAR_MODULUS,
-                            bulk_viscosity: BULK_VISCOSITY,
-                            shear_viscosity: SHEAR_VISCOSITY,
-                        },
-                        SaintVenantKirchhoff
-                    );
-                }
-            }
+            // mod elastic {
+            //     use super::*;
+            //     use crate::constitutive::solid::elastic::{
+            //         AlmansiHamel, Hencky, SaintVenantKirchhoff,
+            //         test::{BULK_MODULUS, SHEAR_MODULUS},
+            //     };
+            //     mod almansi_hamel {
+            //         use super::*;
+            //         test_finite_element_with_elastic_constitutive_model!(
+            //             $element,
+            //             AlmansiHamel {
+            //                 bulk_modulus: BULK_MODULUS,
+            //                 shear_modulus: SHEAR_MODULUS,
+            //             },
+            //             AlmansiHamel
+            //         );
+            //     }
+            //     mod hencky {
+            //         use super::*;
+            //         test_finite_element_with_elastic_constitutive_model!(
+            //             $element,
+            //             Hencky {
+            //                 bulk_modulus: BULK_MODULUS,
+            //                 shear_modulus: SHEAR_MODULUS,
+            //             },
+            //             Hencky
+            //         );
+            //     }
+            //     mod saint_venant_kirchhoff {
+            //         use super::*;
+            //         test_finite_element_with_elastic_constitutive_model!(
+            //             $element,
+            //             SaintVenantKirchhoff {
+            //                 bulk_modulus: BULK_MODULUS,
+            //                 shear_modulus: SHEAR_MODULUS,
+            //             },
+            //             SaintVenantKirchhoff
+            //         );
+            //     }
+            // }
+            // mod hyperelastic {
+            //     use super::*;
+            //     use crate::constitutive::solid::hyperelastic::{
+            //         ArrudaBoyce, Fung, Gent, Hencky, MooneyRivlin, NeoHookean,
+            //         SaintVenantKirchhoff, Yeoh,
+            //         test::{
+            //             EXPONENT, EXTENSIBILITY, EXTRA_MODULUS, NUM_YEOH_EXTRA_MODULI,
+            //             NUMBER_OF_LINKS, YEOH_EXTRA_MODULI,
+            //         },
+            //     };
+            //     mod arruda_boyce {
+            //         use super::*;
+            //         test_finite_element_with_hyperelastic_constitutive_model!(
+            //             $element,
+            //             ArrudaBoyce {
+            //                 bulk_modulus: BULK_MODULUS,
+            //                 shear_modulus: SHEAR_MODULUS,
+            //                 number_of_links: NUMBER_OF_LINKS,
+            //             },
+            //             ArrudaBoyce
+            //         );
+            //     }
+            //     mod fung {
+            //         use super::*;
+            //         test_finite_element_with_hyperelastic_constitutive_model!(
+            //             $element,
+            //             Fung {
+            //                 bulk_modulus: BULK_MODULUS,
+            //                 shear_modulus: SHEAR_MODULUS,
+            //                 exponent: EXPONENT,
+            //                 extra_modulus: EXTRA_MODULUS,
+            //             },
+            //             Fung
+            //         );
+            //     }
+            //     mod gent {
+            //         use super::*;
+            //         test_finite_element_with_hyperelastic_constitutive_model!(
+            //             $element,
+            //             Gent {
+            //                 bulk_modulus: BULK_MODULUS,
+            //                 shear_modulus: SHEAR_MODULUS,
+            //                 extensibility: EXTENSIBILITY,
+            //             },
+            //             Gent
+            //         );
+            //     }
+            //     mod hencky {
+            //         use super::*;
+            //         test_finite_element_with_hyperelastic_constitutive_model!(
+            //             $element,
+            //             Hencky {
+            //                 bulk_modulus: BULK_MODULUS,
+            //                 shear_modulus: SHEAR_MODULUS,
+            //             },
+            //             Hencky
+            //         );
+            //     }
+            //     mod mooney_rivlin {
+            //         use super::*;
+            //         test_finite_element_with_hyperelastic_constitutive_model!(
+            //             $element,
+            //             MooneyRivlin {
+            //                 bulk_modulus: BULK_MODULUS,
+            //                 shear_modulus: SHEAR_MODULUS,
+            //                 extra_modulus: EXTRA_MODULUS,
+            //             },
+            //             MooneyRivlin
+            //         );
+            //     }
+            //     mod neo_hookean {
+            //         use super::*;
+            //         test_finite_element_with_hyperelastic_constitutive_model!(
+            //             $element,
+            //             NeoHookean {
+            //                 bulk_modulus: BULK_MODULUS,
+            //                 shear_modulus: SHEAR_MODULUS,
+            //             },
+            //             NeoHookean
+            //         );
+            //     }
+            //     mod saint_venant_kirchhoff {
+            //         use super::*;
+            //         test_finite_element_with_hyperelastic_constitutive_model!(
+            //             $element,
+            //             SaintVenantKirchhoff {
+            //                 bulk_modulus: BULK_MODULUS,
+            //                 shear_modulus: SHEAR_MODULUS,
+            //             },
+            //             SaintVenantKirchhoff
+            //         );
+            //     }
+            //     mod yeoh {
+            //         use super::*;
+            //         type YeohType = Yeoh<NUM_YEOH_EXTRA_MODULI>;
+            //         test_finite_element_with_hyperelastic_constitutive_model!(
+            //             $element,
+            //             Yeoh {
+            //                 bulk_modulus: BULK_MODULUS,
+            //                 shear_modulus: SHEAR_MODULUS,
+            //                 extra_moduli: YEOH_EXTRA_MODULI,
+            //             },
+            //             YeohType
+            //         );
+            //     }
+            // }
+            // mod elastic_hyperviscous {
+            //     use super::*;
+            //     use crate::constitutive::solid::elastic_hyperviscous::{
+            //         AlmansiHamel,
+            //         test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
+            //     };
+            //     mod almansi_hamel {
+            //         use super::*;
+            //         test_finite_element_with_elastic_hyperviscous_constitutive_model!(
+            //             $element,
+            //             AlmansiHamel {
+            //                 bulk_modulus: BULK_MODULUS,
+            //                 shear_modulus: SHEAR_MODULUS,
+            //                 bulk_viscosity: BULK_VISCOSITY,
+            //                 shear_viscosity: SHEAR_VISCOSITY,
+            //             },
+            //             AlmansiHamel
+            //         );
+            //     }
+            // }
+            // mod hyperviscoelastic {
+            //     use super::*;
+            //     use crate::constitutive::solid::hyperviscoelastic::{
+            //         SaintVenantKirchhoff,
+            //         test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
+            //     };
+            //     mod saint_venant_kirchhoff {
+            //         use super::*;
+            //         test_finite_element_with_hyperviscoelastic_constitutive_model!(
+            //             $element,
+            //             SaintVenantKirchhoff {
+            //                 bulk_modulus: BULK_MODULUS,
+            //                 shear_modulus: SHEAR_MODULUS,
+            //                 bulk_viscosity: BULK_VISCOSITY,
+            //                 shear_viscosity: SHEAR_VISCOSITY,
+            //             },
+            //             SaintVenantKirchhoff
+            //         );
+            //     }
+            // }
         }
     };
 }
@@ -844,7 +800,7 @@ pub(crate) use test_finite_element_inner;
 
 macro_rules! test_nodal_forces_and_nodal_stiffnesses {
     ($element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {
-        setup_constitutive!($constitutive_model, $constitutive_model_type);
+        setup_element!();
         mod nodal_forces {
             use super::*;
             mod deformed {

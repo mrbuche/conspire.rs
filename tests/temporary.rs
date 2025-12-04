@@ -7378,7 +7378,8 @@ fn temporary_hyperelastic() -> Result<(), TestError> {
         bulk_modulus: 13.0,
         shear_modulus: 3.0,
     };
-    let block = ElementBlock::<LinearTetrahedron<_>, N>::new(&model, connectivity, coordinates());
+    let block =
+        ElementBlock::<_, LinearTetrahedron, N>::new(model.clone(), connectivity, coordinates());
     let length = ref_coordinates
         .iter()
         .filter(|coordinate| coordinate[0].abs() == 0.5)
@@ -7482,7 +7483,8 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
         rate_sensitivity: 0.25,
         reference_flow_rate: 0.1,
     };
-    let block = ElementBlock::<LinearTetrahedron<_>, N>::new(&model, connectivity, coordinates());
+    let block =
+        ElementBlock::<_, LinearTetrahedron, N>::new(model.clone(), connectivity, coordinates());
     let length = ref_coordinates
         .iter()
         .filter(|coordinate| coordinate[0].abs() == 0.5)
@@ -7592,7 +7594,8 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
         bulk_viscosity: 11.0,
         shear_viscosity: 1.0,
     };
-    let block = ElementBlock::<LinearTetrahedron<_>, N>::new(&model, connectivity, coordinates());
+    let block =
+        ElementBlock::<_, LinearTetrahedron, N>::new(model.clone(), connectivity, coordinates());
     let length = ref_coordinates
         .iter()
         .filter(|coordinate| coordinate[0].abs() == 0.5)

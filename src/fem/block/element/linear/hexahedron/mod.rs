@@ -14,16 +14,12 @@ const Q: usize = N;
 
 const SQRT_3: Scalar = 1.732_050_807_568_877_2;
 
-pub type Hexahedron<'a, C> = Element<'a, C, G, N>;
+pub type Hexahedron = Element<G, N>;
 
-impl<'a, C> FiniteElement<'a, C, G, N> for Hexahedron<'a, C> {
-    fn new(
-        constitutive_model: &'a C,
-        reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
-    ) -> Self {
+impl FiniteElement<G, N> for Hexahedron {
+    fn new(reference_nodal_coordinates: ReferenceNodalCoordinates<N>) -> Self {
         let (gradient_vectors, integration_weights) = Self::initialize(reference_nodal_coordinates);
         Self {
-            constitutive_model,
             gradient_vectors,
             integration_weights,
         }
@@ -47,7 +43,7 @@ impl<'a, C> FiniteElement<'a, C, G, N> for Hexahedron<'a, C> {
     }
 }
 
-impl<'a, C> Hexahedron<'a, C> {
+impl Hexahedron {
     fn initialize(
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
     ) -> (GradientVectors<G, N>, Scalars<G>) {

@@ -23,18 +23,20 @@ use crate::{
     mechanics::{DeformationGradientPlastic, Times},
 };
 use std::{
+    any::type_name,
     array::from_fn,
     fmt::{self, Debug, Display, Formatter},
     iter::repeat_n,
 };
 
-pub struct ElementBlock<F, const N: usize> {
+pub struct ElementBlock<C, F, const N: usize> {
+    constitutive_model: C,
     connectivity: Connectivity<N>,
     coordinates: ReferenceNodalCoordinatesBlock,
     elements: Vec<F>,
 }
 
-impl<F, const N: usize> Debug for ElementBlock<F, N> {
+impl<C, F, const N: usize> Debug for ElementBlock<C, F, N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let element = match N {
             3 => "LinearTriangle",
@@ -45,7 +47,14 @@ impl<F, const N: usize> Debug for ElementBlock<F, N> {
         };
         write!(
             f,
-            "ElementBlock {{ elements: [{element}; {}] }}",
+            "ElementBlock {{ constitutive_model: {}, elements: [{element}; {}] }}",
+            type_name::<C>()
+                .rsplit("::")
+                .next()
+                .unwrap()
+                .split("<")
+                .next()
+                .unwrap(),
             self.connectivity.len()
         )
     }
@@ -53,8 +62,9 @@ impl<F, const N: usize> Debug for ElementBlock<F, N> {
 
 pub trait FiniteElementBlockMethods<C, F, const G: usize, const N: usize>
 where
-    F: FiniteElementMethods<C, G, N>,
+    F: FiniteElementMethods<G, N>,
 {
+    fn constitutive_model(&self) -> &C;
     fn connectivity(&self) -> &Connectivity<N>;
     fn coordinates(&self) -> &ReferenceNodalCoordinatesBlock;
     fn deformation_gradients(
@@ -69,24 +79,24 @@ where
     ) -> NodalCoordinates<N>;
 }
 
-pub trait FiniteElementBlock<'a, C, F, const G: usize, const N: usize>
+pub trait FiniteElementBlock<C, F, const G: usize, const N: usize>
 where
-    F: FiniteElement<'a, C, G, N>,
+    F: FiniteElement<G, N>,
 {
     fn new(
-        constitutive_model: &'a C,
+        constitutive_model: C,
         connectivity: Connectivity<N>,
         reference_nodal_coordinates: ReferenceNodalCoordinatesBlock,
     ) -> Self;
     fn reset(&mut self);
 }
 
-pub trait SurfaceFiniteElementBlock<'a, C, F, const G: usize, const N: usize, const P: usize>
+pub trait SurfaceFiniteElementBlock<C, F, const G: usize, const N: usize, const P: usize>
 where
-    F: SurfaceFiniteElement<'a, C, G, N, P>,
+    F: SurfaceFiniteElement<G, N, P>,
 {
     fn new(
-        constitutive_model: &'a C,
+        constitutive_model: C,
         connectivity: Connectivity<N>,
         reference_nodal_coordinates: ReferenceNodalCoordinatesBlock,
         thickness: Scalar,
@@ -147,10 +157,13 @@ impl Display for FiniteElementBlockError {
 }
 
 impl<C, F, const G: usize, const N: usize> FiniteElementBlockMethods<C, F, G, N>
-    for ElementBlock<F, N>
+    for ElementBlock<C, F, N>
 where
-    F: FiniteElementMethods<C, G, N>,
+    F: FiniteElementMethods<G, N>,
 {
+    fn constitutive_model(&self) -> &C {
+        &self.constitutive_model
+    }
     fn connectivity(&self) -> &Connectivity<N> {
         &self.connectivity
     }
@@ -186,13 +199,12 @@ where
     }
 }
 
-impl<'a, C, F, const G: usize, const N: usize> FiniteElementBlock<'a, C, F, G, N>
-    for ElementBlock<F, N>
+impl<C, F, const G: usize, const N: usize> FiniteElementBlock<C, F, G, N> for ElementBlock<C, F, N>
 where
-    F: FiniteElement<'a, C, G, N>,
+    F: FiniteElement<G, N>,
 {
     fn new(
-        constitutive_model: &'a C,
+        constitutive_model: C,
         connectivity: Connectivity<N>,
         coordinates: ReferenceNodalCoordinatesBlock,
     ) -> Self {
@@ -200,7 +212,6 @@ where
             .iter()
             .map(|element_connectivity| {
                 <F>::new(
-                    constitutive_model,
                     element_connectivity
                         .iter()
                         .map(|&node| coordinates[node].clone())
@@ -209,6 +220,7 @@ where
             })
             .collect();
         Self {
+            constitutive_model,
             connectivity,
             coordinates,
             elements,
@@ -219,13 +231,13 @@ where
     }
 }
 
-impl<'a, C, F, const G: usize, const N: usize, const P: usize>
-    SurfaceFiniteElementBlock<'a, C, F, G, N, P> for ElementBlock<F, N>
+impl<C, F, const G: usize, const N: usize, const P: usize> SurfaceFiniteElementBlock<C, F, G, N, P>
+    for ElementBlock<C, F, N>
 where
-    F: SurfaceFiniteElement<'a, C, G, N, P>,
+    F: SurfaceFiniteElement<G, N, P>,
 {
     fn new(
-        constitutive_model: &'a C,
+        constitutive_model: C,
         connectivity: Connectivity<N>,
         coordinates: ReferenceNodalCoordinatesBlock,
         thickness: Scalar,
@@ -234,7 +246,6 @@ where
             .iter()
             .map(|element_connectivity| {
                 <F>::new(
-                    constitutive_model,
                     element_connectivity
                         .iter()
                         .map(|&node| coordinates[node].clone())
@@ -244,6 +255,7 @@ where
             })
             .collect();
         Self {
+            constitutive_model,
             connectivity,
             coordinates,
             elements,
@@ -508,7 +520,7 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize> ElasticFiniteElementBlock<C, F, G, N>
-    for ElementBlock<F, N>
+    for ElementBlock<C, F, N>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, N>,
@@ -526,6 +538,7 @@ where
             .try_for_each(|(element, element_connectivity)| {
                 element
                     .nodal_forces(
+                        self.constitutive_model(),
                         &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
                     )?
                     .iter()
@@ -552,6 +565,7 @@ where
             .try_for_each(|(element, element_connectivity)| {
                 element
                     .nodal_stiffnesses(
+                        self.constitutive_model(),
                         &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
                     )?
                     .iter()
@@ -574,7 +588,7 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N> for ElementBlock<F, N>
+impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N> for ElementBlock<C, F, N>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, N>,
@@ -593,7 +607,7 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> FirstOrderRoot<C, F, G, N> for ElementBlock<F, N>
+impl<C, F, const G: usize, const N: usize> FirstOrderRoot<C, F, G, N> for ElementBlock<C, F, N>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, N>,
@@ -620,7 +634,7 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize> HyperelasticFiniteElementBlock<C, F, G, N>
-    for ElementBlock<F, N>
+    for ElementBlock<C, F, N>
 where
     C: Hyperelastic,
     F: HyperelasticFiniteElement<C, G, N>,
@@ -636,6 +650,7 @@ where
             .zip(self.connectivity().iter())
             .map(|(element, element_connectivity)| {
                 element.helmholtz_free_energy(
+                    self.constitutive_model(),
                     &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
                 )
             })
@@ -650,7 +665,7 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> FirstOrderMinimize<C, F, G, N> for ElementBlock<F, N>
+impl<C, F, const G: usize, const N: usize> FirstOrderMinimize<C, F, G, N> for ElementBlock<C, F, N>
 where
     C: Hyperelastic,
     F: HyperelasticFiniteElement<C, G, N>,
@@ -672,7 +687,7 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> SecondOrderMinimize<C, F, G, N> for ElementBlock<F, N>
+impl<C, F, const G: usize, const N: usize> SecondOrderMinimize<C, F, G, N> for ElementBlock<C, F, N>
 where
     C: Hyperelastic,
     F: HyperelasticFiniteElement<C, G, N>,
@@ -709,7 +724,7 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize> ElasticViscoplasticFiniteElementBlock<C, F, G, N>
-    for ElementBlock<F, N>
+    for ElementBlock<C, F, N>
 where
     C: ElasticViscoplastic,
     F: ElasticViscoplasticFiniteElement<C, G, N>,
@@ -730,6 +745,7 @@ where
                 |((element, element_connectivity), state_variables_element)| {
                     element
                         .nodal_forces(
+                            self.constitutive_model(),
                             &self
                                 .nodal_coordinates_element(element_connectivity, nodal_coordinates),
                             state_variables_element,
@@ -762,6 +778,7 @@ where
                 |((element, element_connectivity), state_variables_element)| {
                     element
                         .nodal_stiffnesses(
+                            self.constitutive_model(),
                             &self
                                 .nodal_coordinates_element(element_connectivity, nodal_coordinates),
                             state_variables_element,
@@ -798,6 +815,7 @@ where
             .map(
                 |((element, element_connectivity), element_state_variables)| {
                     element.state_variables_evolution(
+                        self.constitutive_model(),
                         &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
                         element_state_variables,
                     )
@@ -855,11 +873,11 @@ where
                 time,
                 self.elements()
                     .iter()
-                    .map(|element| {
+                    .map(|_| {
                         from_fn(|_| {
                             (
                                 DeformationGradientPlastic::identity(),
-                                element.constitutive_model().initial_yield_stress(),
+                                self.constitutive_model().initial_yield_stress(),
                             )
                                 .into()
                         })
@@ -899,7 +917,7 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize> ViscoelasticFiniteElementBlock<C, F, G, N>
-    for ElementBlock<F, N>
+    for ElementBlock<C, F, N>
 where
     C: Viscoelastic,
     F: ViscoelasticFiniteElement<C, G, N>,
@@ -934,6 +952,7 @@ where
             .try_for_each(|(element, element_connectivity)| {
                 element
                     .nodal_forces(
+                        self.constitutive_model(),
                         &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
                         &self.nodal_velocities_element(element_connectivity, nodal_velocities),
                     )?
@@ -962,6 +981,7 @@ where
             .try_for_each(|(element, element_connectivity)| {
                 element
                     .nodal_stiffnesses(
+                        self.constitutive_model(),
                         &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
                         &self.nodal_velocities_element(element_connectivity, nodal_velocities),
                     )?
@@ -1040,7 +1060,7 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize> ElasticHyperviscousFiniteElementBlock<C, F, G, N>
-    for ElementBlock<F, N>
+    for ElementBlock<C, F, N>
 where
     C: ElasticHyperviscous,
     F: ElasticHyperviscousFiniteElement<C, G, N>,
@@ -1057,6 +1077,7 @@ where
             .zip(self.connectivity().iter())
             .map(|(element, element_connectivity)| {
                 element.viscous_dissipation(
+                    self.constitutive_model(),
                     &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
                     &self.nodal_velocities_element(element_connectivity, nodal_velocities),
                 )
@@ -1081,6 +1102,7 @@ where
             .zip(self.connectivity().iter())
             .map(|(element, element_connectivity)| {
                 element.dissipation_potential(
+                    self.constitutive_model(),
                     &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
                     &self.nodal_velocities_element(element_connectivity, nodal_velocities),
                 )
@@ -1153,7 +1175,7 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize> HyperviscoelasticFiniteElementBlock<C, F, G, N>
-    for ElementBlock<F, N>
+    for ElementBlock<C, F, N>
 where
     C: Hyperviscoelastic,
     F: HyperviscoelasticFiniteElement<C, G, N>,
@@ -1169,6 +1191,7 @@ where
             .zip(self.connectivity().iter())
             .map(|(element, element_connectivity)| {
                 element.helmholtz_free_energy(
+                    self.constitutive_model(),
                     &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
                 )
             })
