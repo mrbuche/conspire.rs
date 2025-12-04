@@ -16,7 +16,6 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2Vec2D<D, I, J> {
     }
 }
 
-// can put into tensor/vec/ ?
 impl<const D: usize, const I: usize, const J: usize> From<TensorRank2Vec2D<D, I, J>>
     for Vec<TensorRank0>
 {
