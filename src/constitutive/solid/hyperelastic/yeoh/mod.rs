@@ -14,7 +14,7 @@ use std::iter::once;
 const SEVEN_THIRDS: Scalar = 7.0 / 3.0;
 
 #[doc = include_str!("doc.md")]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Yeoh<const N: usize> {
     /// The bulk modulus $`\kappa`$.
     pub bulk_modulus: Scalar,

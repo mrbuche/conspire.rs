@@ -14,7 +14,7 @@ use crate::{
 };
 
 #[doc = include_str!("doc.md")]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Hencky {
     /// The bulk modulus $`\kappa`$.
     pub bulk_modulus: Scalar,

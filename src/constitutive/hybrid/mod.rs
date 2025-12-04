@@ -12,6 +12,7 @@ use std::{
 };
 
 /// A hybrid constitutive model based on the additive decomposition.
+#[derive(Clone)]
 pub struct Additive<C1, C2>(C1, C2);
 
 impl<C1, C2> From<(C1, C2)> for Additive<C1, C2> {
@@ -21,6 +22,7 @@ impl<C1, C2> From<(C1, C2)> for Additive<C1, C2> {
 }
 
 /// A hybrid constitutive model based on the multiplicative decomposition.
+#[derive(Clone)]
 pub struct Multiplicative<C1, C2>(C1, C2);
 
 impl<C1, C2> From<(C1, C2)> for Multiplicative<C1, C2> {

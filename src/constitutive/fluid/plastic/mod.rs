@@ -6,7 +6,7 @@ use std::fmt::Debug;
 /// Required methods for plastic constitutive models.
 pub trait Plastic
 where
-    Self: Debug,
+    Self: Clone + Debug,
 {
     /// Returns the initial yield stress.
     fn initial_yield_stress(&self) -> Scalar;

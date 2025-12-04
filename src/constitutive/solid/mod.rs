@@ -34,7 +34,7 @@ impl<C> Constitutive for C where C: Solid {}
 /// Required methods for solid constitutive models.
 pub trait Solid
 where
-    Self: Debug,
+    Self: Clone + Debug,
 {
     /// Returns the bulk modulus.
     fn bulk_modulus(&self) -> Scalar;

@@ -20,7 +20,7 @@ use super::*;
 ///
 /// **Notes**
 /// - The Green-Saint Venant strain measure is given by $`\mathbf{E}=\tfrac{1}{2}(\mathbf{C}-\mathbf{1})`$.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct SaintVenantKirchhoff {
     /// The bulk modulus $`\kappa`$.
     pub bulk_modulus: Scalar,
