@@ -1,10 +1,11 @@
 use crate::math::{
-    Hessian, SquareMatrix, Tensor, TensorRank2, TensorRank2Vec, tensor::vec::TensorVector,
+    Hessian, SquareMatrix, Tensor, TensorRank0, TensorRank2, TensorRank2Vec,
+    tensor::vec::TensorVector,
 };
 use std::ops::Mul;
 
 #[cfg(test)]
-use crate::math::{TensorRank0, tensor::test::ErrorTensor};
+use crate::math::tensor::test::ErrorTensor;
 
 pub type TensorRank2Vec2D<const D: usize, const I: usize, const J: usize> =
     TensorVector<TensorRank2Vec<D, I, J>>;
@@ -12,6 +13,24 @@ pub type TensorRank2Vec2D<const D: usize, const I: usize, const J: usize> =
 impl<const D: usize, const I: usize, const J: usize> TensorRank2Vec2D<D, I, J> {
     pub fn zero(len: usize) -> Self {
         (0..len).map(|_| TensorRank2Vec::zero(len)).collect()
+    }
+}
+
+// can put into tensor/vec/ ?
+impl<const D: usize, const I: usize, const J: usize> From<TensorRank2Vec2D<D, I, J>>
+    for Vec<TensorRank0>
+{
+    fn from(tensor_rank_2_vec_2d: TensorRank2Vec2D<D, I, J>) -> Self {
+        tensor_rank_2_vec_2d
+            .into_iter()
+            .flat_map(|tensor_rank_2_vec_1d| {
+                tensor_rank_2_vec_1d.into_iter().flat_map(|tensor_rank_2| {
+                    tensor_rank_2
+                        .into_iter()
+                        .flat_map(|tensor_rank_1| tensor_rank_1.into_iter())
+                })
+            })
+            .collect()
     }
 }
 

@@ -127,6 +127,12 @@ impl From<Vec<Scalar>> for Vector {
     }
 }
 
+impl From<Vector> for Vec<Scalar> {
+    fn from(vector: Vector) -> Self {
+        vector.0
+    }
+}
+
 impl<const D: usize, const I: usize> From<TensorRank1Vec<D, I>> for Vector {
     fn from(tensor_rank_1_vec: TensorRank1Vec<D, I>) -> Self {
         let length = tensor_rank_1_vec.len() * D;
