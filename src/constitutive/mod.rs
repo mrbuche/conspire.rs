@@ -19,7 +19,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 /// Required methods for constitutive models.
 pub trait Constitutive
 where
-    Self: Debug,
+    Self: Clone + Debug,
 {
     /// Calculates and returns the Jacobian.
     fn jacobian<const I: usize, const J: usize>(

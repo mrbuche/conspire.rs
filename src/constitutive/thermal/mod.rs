@@ -8,6 +8,6 @@ use std::fmt::Debug;
 /// Required methods for thermal constitutive models.
 pub trait Thermal
 where
-    Self: Debug,
+    Self: Clone + Debug,
 {
 }

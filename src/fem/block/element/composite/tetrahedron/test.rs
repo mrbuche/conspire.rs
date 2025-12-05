@@ -1,5 +1,21 @@
-use super::*;
-use crate::fem::block::{element::test::test_finite_element, test::test_finite_element_block};
+use crate::{
+    fem::{
+        Connectivity, ElementBlock, GradientVectors, NodalCoordinates, NodalCoordinatesBlock,
+        NodalForcesBlock, NodalStiffnessesBlock, NodalVelocities, NodalVelocitiesBlock,
+        ReferenceNodalCoordinates, ReferenceNodalCoordinatesBlock,
+        block::{
+            FiniteElementBlock,
+            element::{
+                FiniteElement, FiniteElementMethods,
+                composite::tetrahedron::{G, N, Q, Tetrahedron},
+                test::test_finite_element,
+            },
+            test::test_finite_element_block,
+        },
+    },
+    math::{Scalars, Tensor, TensorRank2, optimize::EqualityConstraint},
+    mechanics::{DeformationGradient, DeformationGradientList, DeformationGradientRateList},
+};
 
 const D: usize = 35;
 
@@ -277,13 +293,13 @@ use crate::math::test::{TestError, assert_eq_within_tols};
 
 #[test]
 fn normalized_projection_matrix() -> Result<(), TestError> {
-    Tetrahedron::<AlmansiHamel>::shape_function_integrals_products()
+    Tetrahedron::shape_function_integrals_products()
         .iter()
         .map(|dummy| dummy * 1.0)
         .sum::<TensorRank2<Q, 9, 9>>()
         .iter()
         .zip(
-            Tetrahedron::<AlmansiHamel>::inverse_normalized_projection_matrix()
+            Tetrahedron::inverse_normalized_projection_matrix()
                 .inverse()
                 .iter(),
         )
@@ -299,8 +315,8 @@ fn normalized_projection_matrix() -> Result<(), TestError> {
 #[test]
 fn standard_gradient_operators_transposed() -> Result<(), TestError> {
     let standard_gradient_operators_transposed =
-        Tetrahedron::<AlmansiHamel>::standard_gradient_operators_transposed();
-    Tetrahedron::<AlmansiHamel>::standard_gradient_operators()
+        Tetrahedron::standard_gradient_operators_transposed();
+    Tetrahedron::standard_gradient_operators()
         .iter()
         .enumerate()
         .try_for_each(|(i, standard_gradient_operators_i)| {

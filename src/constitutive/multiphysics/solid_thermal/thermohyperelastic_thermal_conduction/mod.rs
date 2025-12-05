@@ -18,7 +18,7 @@ use crate::{
 };
 
 /// A thermohyperelastic-thermal conduction constitutive model.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ThermohyperelasticThermalConduction<C1, C2>
 where
     C1: Thermohyperelastic,

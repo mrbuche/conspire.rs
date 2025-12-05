@@ -1,11 +1,16 @@
 #[cfg(test)]
 mod test;
 
-use super::*;
 use crate::{
-    math::{TensorRank1List, tensor_rank_1},
-    mechanics::Scalar,
+    fem::{
+        GradientVectors, ReferenceNodalCoordinates, StandardGradientOperators,
+        block::element::{Element, FiniteElement},
+    },
+    math::{Scalar, Scalars, TensorRank1List, tensor_rank_1},
 };
+
+#[cfg(test)]
+use crate::fem::ShapeFunctionsAtIntegrationPoints;
 
 const G: usize = 1;
 const M: usize = 3;
@@ -15,16 +20,12 @@ const P: usize = G;
 #[cfg(test)]
 const Q: usize = N;
 
-pub type Tetrahedron<'a, C> = Element<'a, C, G, N>;
+pub type Tetrahedron = Element<G, N>;
 
-impl<'a, C> FiniteElement<'a, C, G, N> for Tetrahedron<'a, C> {
-    fn new(
-        constitutive_model: &'a C,
-        reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
-    ) -> Self {
+impl FiniteElement<G, N> for Tetrahedron {
+    fn new(reference_nodal_coordinates: ReferenceNodalCoordinates<N>) -> Self {
         let (gradient_vectors, integration_weights) = Self::initialize(reference_nodal_coordinates);
         Self {
-            constitutive_model,
             gradient_vectors,
             integration_weights,
         }
@@ -44,7 +45,7 @@ impl<'a, C> FiniteElement<'a, C, G, N> for Tetrahedron<'a, C> {
     }
 }
 
-impl<'a, C> Tetrahedron<'a, C> {
+impl Tetrahedron {
     fn initialize(
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
     ) -> (GradientVectors<G, N>, Scalars<G>) {

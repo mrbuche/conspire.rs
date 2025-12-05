@@ -50,7 +50,7 @@ where
 }
 
 /// The viscoplastic flow model.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ViscoplasticFlow {
     /// The initial yield stress $`Y_0`$.
     pub initial_yield_stress: Scalar,

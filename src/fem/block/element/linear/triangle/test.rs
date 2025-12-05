@@ -1,6 +1,23 @@
-use super::*;
-use crate::fem::block::{
-    element::test::test_surface_finite_element, test::test_surface_finite_element_block,
+use crate::{
+    fem::{
+        Connectivity, ElementBlock, GradientVectors, NodalCoordinates, NodalCoordinatesBlock,
+        NodalForcesBlock, NodalStiffnessesBlock, NodalVelocities, NodalVelocitiesBlock, Normals,
+        ReferenceNodalCoordinates, ReferenceNodalCoordinatesBlock,
+        block::{
+            SurfaceFiniteElementBlock,
+            element::{
+                FiniteElementMethods, SurfaceFiniteElement, SurfaceFiniteElementMethods,
+                linear::triangle::{G, N, P, Triangle},
+                test::test_surface_finite_element,
+            },
+            test::test_surface_finite_element_block,
+        },
+    },
+    math::{Scalar, Scalars, Tensor, optimize::EqualityConstraint},
+    mechanics::{
+        DeformationGradient, DeformationGradientList, DeformationGradientRate,
+        DeformationGradientRateList,
+    },
 };
 
 const D: usize = 16;

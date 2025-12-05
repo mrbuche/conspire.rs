@@ -1,7 +1,9 @@
 pub mod square;
 pub mod vector;
 
-use crate::math::{Scalar, Tensor, TensorRank1, TensorRank1Vec, TensorRank2, TensorTuple};
+use crate::math::{
+    Scalar, Tensor, TensorRank1, TensorRank1Vec, TensorRank2, TensorTuple, TensorVec,
+};
 use std::ops::{Index, IndexMut, Mul};
 use vector::Vector;
 
@@ -42,6 +44,43 @@ impl Matrix {
     }
     pub fn zero(height: usize, width: usize) -> Self {
         (0..height).map(|_| Vector::zero(width)).collect()
+    }
+}
+
+impl TensorVec for Matrix {
+    type Item = Vector;
+    fn append(&mut self, other: &mut Self) {
+        self.0.append(&mut other.0)
+    }
+    fn capacity(&self) -> usize {
+        self.0.capacity()
+    }
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+    fn new() -> Self {
+        Self(Vec::new())
+    }
+    fn push(&mut self, item: Self::Item) {
+        self.0.push(item)
+    }
+    fn remove(&mut self, index: usize) -> Self::Item {
+        self.0.remove(index)
+    }
+    fn retain<F>(&mut self, f: F)
+    where
+        F: FnMut(&Self::Item) -> bool,
+    {
+        self.0.retain(f)
+    }
+    fn swap_remove(&mut self, index: usize) -> Self::Item {
+        self.0.swap_remove(index)
+    }
+}
+
+impl From<Matrix> for Vec<Vec<Scalar>> {
+    fn from(matrix: Matrix) -> Self {
+        matrix.into_iter().map(|vector| vector.into()).collect()
     }
 }
 

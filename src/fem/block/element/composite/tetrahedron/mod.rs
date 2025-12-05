@@ -1,8 +1,19 @@
 #[cfg(test)]
 mod test;
 
-use super::*;
-use crate::math::{TensorRank1List, tensor_rank_1, tensor_rank_1_zero, tensor_rank_2};
+use crate::{
+    fem::{
+        GradientVectors, NormalizedProjectionMatrix, ParametricGradientOperators, ProjectionMatrix,
+        ReferenceNodalCoordinates, ShapeFunctionIntegrals, ShapeFunctionIntegralsProducts,
+        ShapeFunctionsAtIntegrationPoints, StandardGradientOperators,
+        StandardGradientOperatorsTransposed,
+        block::element::{Element, FiniteElement},
+    },
+    math::{
+        Scalar, Scalars, Tensor, TensorRank1, TensorRank1List, tensor_rank_1, tensor_rank_1_zero,
+        tensor_rank_2,
+    },
+};
 
 const G: usize = 4;
 const M: usize = 3;
@@ -10,16 +21,12 @@ const N: usize = 10;
 const P: usize = 12;
 const Q: usize = 4;
 
-pub type Tetrahedron<'a, C> = Element<'a, C, G, N>;
+pub type Tetrahedron = Element<G, N>;
 
-impl<'a, C> FiniteElement<'a, C, G, N> for Tetrahedron<'a, C> {
-    fn new(
-        constitutive_model: &'a C,
-        reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
-    ) -> Self {
+impl FiniteElement<G, N> for Tetrahedron {
+    fn new(reference_nodal_coordinates: ReferenceNodalCoordinates<N>) -> Self {
         let (gradient_vectors, integration_weights) = Self::initialize(reference_nodal_coordinates);
         Self {
-            constitutive_model,
             gradient_vectors,
             integration_weights,
         }
@@ -45,7 +52,7 @@ impl<'a, C> FiniteElement<'a, C, G, N> for Tetrahedron<'a, C> {
     }
 }
 
-impl<'a, C> Tetrahedron<'a, C> {
+impl Tetrahedron {
     fn initialize(
         reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
     ) -> (GradientVectors<G, N>, Scalars<G>) {

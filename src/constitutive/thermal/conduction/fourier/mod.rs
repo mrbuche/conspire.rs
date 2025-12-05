@@ -13,7 +13,7 @@ use super::{HeatFlux, Scalar, TemperatureGradient, Thermal, ThermalConduction};
 ///
 /// **Internal variables**
 /// - None.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Fourier {
     /// The thermal conductivity $`k`$.
     pub thermal_conductivity: Scalar,

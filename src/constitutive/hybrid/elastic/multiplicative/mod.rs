@@ -29,7 +29,7 @@ where
     // C1: Elastic,
     // C2: Elastic,
     C1: Solid,
-    C2: std::fmt::Debug,
+    C2: Clone + std::fmt::Debug,
 {
     fn bulk_modulus(&self) -> Scalar {
         todo!() // can do right when switch to the _foo methods
