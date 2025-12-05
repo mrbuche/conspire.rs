@@ -1,8 +1,19 @@
 #[cfg(test)]
 mod test;
 
-use super::*;
-use crate::math::{TensorRank1List, tensor_rank_1, tensor_rank_1_zero, tensor_rank_2};
+use crate::{
+    fem::{
+        GradientVectors, NormalizedProjectionMatrix, ParametricGradientOperators, ProjectionMatrix,
+        ReferenceNodalCoordinates, ShapeFunctionIntegrals, ShapeFunctionIntegralsProducts,
+        ShapeFunctionsAtIntegrationPoints, StandardGradientOperators,
+        StandardGradientOperatorsTransposed,
+        block::element::{Element, FiniteElement},
+    },
+    math::{
+        Scalar, Scalars, Tensor, TensorRank1, TensorRank1List, tensor_rank_1, tensor_rank_1_zero,
+        tensor_rank_2,
+    },
+};
 
 const G: usize = 4;
 const M: usize = 3;

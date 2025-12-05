@@ -1,11 +1,35 @@
 #[cfg(test)]
 mod test;
 
-use super::*;
 use crate::{
-    math::{IDENTITY, TensorRank1List, tensor_rank_1},
-    mechanics::Scalar,
+    constitutive::{
+        ConstitutiveError,
+        solid::{
+            elastic::Elastic, elastic_hyperviscous::ElasticHyperviscous,
+            hyperelastic::Hyperelastic, hyperviscoelastic::Hyperviscoelastic,
+            viscoelastic::Viscoelastic,
+        },
+    },
+    fem::{
+        FiniteElementError, GradientVectors, NodalCoordinates, NodalForces, NodalStiffnesses,
+        NodalVelocities, ReferenceNodalCoordinates, StandardGradientOperators,
+        block::element::{
+            ElasticFiniteElement, ElasticHyperviscousFiniteElement, FiniteElementMethods,
+            HyperelasticFiniteElement, HyperviscoelasticFiniteElement, SurfaceElement,
+            SurfaceFiniteElement, SurfaceFiniteElementMethods, SurfaceFiniteElementMethodsExtra,
+            ViscoelasticFiniteElement,
+        },
+    },
+    math::{IDENTITY, Scalar, Scalars, Tensor, TensorRank1List, tensor_rank_1},
+    mechanics::{
+        DeformationGradient, DeformationGradientList, DeformationGradientRate,
+        DeformationGradientRateList, FirstPiolaKirchhoffRateTangentStiffnesses,
+        FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses,
+    },
 };
+
+#[cfg(test)]
+use crate::fem::ShapeFunctionsAtIntegrationPoints;
 
 const G: usize = 1;
 const M: usize = 2;

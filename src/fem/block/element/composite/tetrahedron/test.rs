@@ -1,5 +1,21 @@
-use super::*;
-use crate::fem::block::{element::test::test_finite_element, test::test_finite_element_block};
+use crate::{
+    fem::{
+        Connectivity, ElementBlock, GradientVectors, NodalCoordinates, NodalCoordinatesBlock,
+        NodalForcesBlock, NodalStiffnessesBlock, NodalVelocities, NodalVelocitiesBlock,
+        ReferenceNodalCoordinates, ReferenceNodalCoordinatesBlock,
+        block::{
+            FiniteElementBlock,
+            element::{
+                FiniteElement, FiniteElementMethods,
+                composite::tetrahedron::{G, N, Q, Tetrahedron},
+                test::test_finite_element,
+            },
+            test::test_finite_element_block,
+        },
+    },
+    math::{Scalars, Tensor, TensorRank2, optimize::EqualityConstraint},
+    mechanics::{DeformationGradient, DeformationGradientList, DeformationGradientRateList},
+};
 
 const D: usize = 35;
 

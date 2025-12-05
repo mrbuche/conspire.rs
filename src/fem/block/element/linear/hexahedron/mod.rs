@@ -1,8 +1,17 @@
 #[cfg(test)]
 mod test;
 
-use super::*;
-use crate::{math::tensor_rank_1, mechanics::Scalar};
+use crate::{
+    fem::{
+        GradientVectors, ReferenceNodalCoordinates, ShapeFunctionsGradients,
+        StandardGradientOperators,
+        block::element::{Element, FiniteElement},
+    },
+    math::{Scalar, Scalars, Tensor, tensor_rank_1},
+};
+
+#[cfg(test)]
+use crate::fem::{ShapeFunctions, ShapeFunctionsAtIntegrationPoints};
 
 const G: usize = 8;
 const M: usize = 3;

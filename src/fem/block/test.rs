@@ -25,7 +25,7 @@ pub(crate) use test_finite_element_block;
 
 macro_rules! test_surface_finite_element_block {
     ($element: ident) => {
-        use super::element::test::THICKNESS;
+        use crate::fem::block::element::test::THICKNESS;
         macro_rules! setup_block {
             ($constitutive_model: expr, $constitutive_model_type: ident) => {
                 fn get_block() -> ElementBlock<$constitutive_model_type, $element, N> {
@@ -81,9 +81,7 @@ macro_rules! test_finite_element_block_inner {
                         AlmansiHamel, SaintVenantKirchhoff,
                         test::{BULK_MODULUS, SHEAR_MODULUS},
                     },
-                    fem::block::{
-                        ElasticFiniteElementBlock, FiniteElementBlock, FiniteElementBlockMethods,
-                    },
+                    fem::block::{ElasticFiniteElementBlock, FiniteElementBlockMethods},
                 };
                 mod almansi_hamel {
                     use super::*;
@@ -131,7 +129,7 @@ macro_rules! test_finite_element_block_inner {
                         },
                     },
                     fem::block::{
-                        ElasticFiniteElementBlock, FiniteElementBlock, FiniteElementBlockMethods,
+                        ElasticFiniteElementBlock, FiniteElementBlockMethods,
                         HyperelasticFiniteElementBlock,
                     },
                 };
@@ -244,8 +242,8 @@ macro_rules! test_finite_element_block_inner {
                         test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
                     },
                     fem::block::{
-                        ElasticHyperviscousFiniteElementBlock, FiniteElementBlock,
-                        FiniteElementBlockMethods, ViscoelasticFiniteElementBlock,
+                        ElasticHyperviscousFiniteElementBlock, FiniteElementBlockMethods,
+                        ViscoelasticFiniteElementBlock,
                     },
                 };
                 mod almansi_hamel {
@@ -271,8 +269,8 @@ macro_rules! test_finite_element_block_inner {
                         test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
                     },
                     fem::block::{
-                        ElasticHyperviscousFiniteElementBlock, FiniteElementBlock,
-                        FiniteElementBlockMethods, ViscoelasticFiniteElementBlock,
+                        ElasticHyperviscousFiniteElementBlock, FiniteElementBlockMethods,
+                        ViscoelasticFiniteElementBlock,
                     },
                 };
                 mod saint_venant_kirchhoff {

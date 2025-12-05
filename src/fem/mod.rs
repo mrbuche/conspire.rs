@@ -31,13 +31,12 @@ use crate::{
         },
     },
     math::{
-        ContractSecondFourthIndicesWithFirstIndicesOf, Scalar, Scalars, Tensor, TensorRank1,
-        TensorRank1List, TensorRank1List2D, TensorRank1Vec, TensorRank1Vec2D, TensorRank2,
-        TensorRank2List, TensorRank2List2D, TensorRank2Vec2D,
+        ContractSecondFourthIndicesWithFirstIndicesOf, Scalar, Scalars, Tensor, TensorRank1List,
+        TensorRank1List2D, TensorRank1Vec, TensorRank1Vec2D, TensorRank2, TensorRank2List,
+        TensorRank2List2D, TensorRank2Vec2D,
     },
     mechanics::{
-        Coordinates, CurrentCoordinates, DeformationGradient, DeformationGradientList,
-        DeformationGradientRate, DeformationGradientRateList,
+        Coordinates, CurrentCoordinates, DeformationGradientList, DeformationGradientRateList,
         FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStresses,
         FirstPiolaKirchhoffTangentStiffnesses, Forces, ReferenceCoordinates, Stiffnesses, Vectors,
         Vectors2D,
@@ -69,7 +68,7 @@ type ProjectionMatrix<const Q: usize> = TensorRank2<Q, 9, 9>;
 type ReferenceNodalCoordinates<const D: usize> = ReferenceCoordinates<D>;
 type ReferenceNormals<const P: usize> = Vectors<0, P>;
 #[cfg(test)]
-type ShapeFunctions<const Q: usize> = TensorRank1<Q, 9>;
+type ShapeFunctions<const Q: usize> = crate::math::TensorRank1<Q, 9>;
 type ShapeFunctionsGradients<const M: usize, const Q: usize> = TensorRank1List<M, 9, Q>;
 type ShapeFunctionIntegrals<const P: usize, const Q: usize> = TensorRank1List<Q, 9, P>;
 type ShapeFunctionIntegralsProducts<const P: usize, const Q: usize> = TensorRank2List<Q, 9, 9, P>;

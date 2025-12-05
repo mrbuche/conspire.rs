@@ -4,6 +4,7 @@ use crate::{
         NodalForcesBlock, NodalStiffnessesBlock, NodalVelocities, NodalVelocitiesBlock,
         ReferenceNodalCoordinates, ReferenceNodalCoordinatesBlock,
         block::{
+            FiniteElementBlock,
             element::{
                 FiniteElement, FiniteElementMethods,
                 linear::tetrahedron::{G, N, Tetrahedron},
@@ -13,10 +14,7 @@ use crate::{
         },
     },
     math::{Scalars, Tensor, optimize::EqualityConstraint},
-    mechanics::{
-        DeformationGradient, DeformationGradientList, DeformationGradientRate,
-        DeformationGradientRateList,
-    },
+    mechanics::{DeformationGradient, DeformationGradientList, DeformationGradientRateList},
 };
 
 const D: usize = 14;
