@@ -76,9 +76,14 @@ macro_rules! test_finite_element_block_inner {
             };
             mod elastic {
                 use super::*;
-                use crate::constitutive::solid::elastic::{
-                    AlmansiHamel, SaintVenantKirchhoff,
-                    test::{BULK_MODULUS, SHEAR_MODULUS},
+                use crate::{
+                    constitutive::solid::elastic::{
+                        AlmansiHamel, SaintVenantKirchhoff,
+                        test::{BULK_MODULUS, SHEAR_MODULUS},
+                    },
+                    fem::block::{
+                        ElasticFiniteElementBlock, FiniteElementBlock, FiniteElementBlockMethods,
+                    },
                 };
                 mod almansi_hamel {
                     use super::*;
@@ -116,11 +121,18 @@ macro_rules! test_finite_element_block_inner {
             }
             mod hyperelastic {
                 use super::*;
-                use crate::constitutive::solid::hyperelastic::{
-                    ArrudaBoyce, Fung, Gent, MooneyRivlin, NeoHookean, SaintVenantKirchhoff, Yeoh,
-                    test::{
-                        EXPONENT, EXTENSIBILITY, EXTRA_MODULUS, NUM_YEOH_EXTRA_MODULI,
-                        NUMBER_OF_LINKS, YEOH_EXTRA_MODULI,
+                use crate::{
+                    constitutive::solid::hyperelastic::{
+                        ArrudaBoyce, Fung, Gent, MooneyRivlin, NeoHookean, SaintVenantKirchhoff,
+                        Yeoh,
+                        test::{
+                            EXPONENT, EXTENSIBILITY, EXTRA_MODULUS, NUM_YEOH_EXTRA_MODULI,
+                            NUMBER_OF_LINKS, YEOH_EXTRA_MODULI,
+                        },
+                    },
+                    fem::block::{
+                        ElasticFiniteElementBlock, FiniteElementBlock, FiniteElementBlockMethods,
+                        HyperelasticFiniteElementBlock,
                     },
                 };
                 mod arruda_boyce {
@@ -226,9 +238,15 @@ macro_rules! test_finite_element_block_inner {
             }
             mod elastic_hyperviscous {
                 use super::*;
-                use crate::constitutive::solid::elastic_hyperviscous::{
-                    AlmansiHamel,
-                    test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
+                use crate::{
+                    constitutive::solid::elastic_hyperviscous::{
+                        AlmansiHamel,
+                        test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
+                    },
+                    fem::block::{
+                        ElasticHyperviscousFiniteElementBlock, FiniteElementBlock,
+                        FiniteElementBlockMethods, ViscoelasticFiniteElementBlock,
+                    },
                 };
                 mod almansi_hamel {
                     use super::*;
@@ -247,9 +265,15 @@ macro_rules! test_finite_element_block_inner {
             }
             mod hyperviscoelastic {
                 use super::*;
-                use crate::constitutive::solid::hyperviscoelastic::{
-                    SaintVenantKirchhoff,
-                    test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
+                use crate::{
+                    constitutive::solid::hyperviscoelastic::{
+                        SaintVenantKirchhoff,
+                        test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
+                    },
+                    fem::block::{
+                        ElasticHyperviscousFiniteElementBlock, FiniteElementBlock,
+                        FiniteElementBlockMethods, ViscoelasticFiniteElementBlock,
+                    },
                 };
                 mod saint_venant_kirchhoff {
                     use super::*;

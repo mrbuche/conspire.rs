@@ -1,7 +1,9 @@
 pub mod square;
 pub mod vector;
 
-use crate::math::{Scalar, Tensor, TensorVec, TensorRank1, TensorRank1Vec, TensorRank2, TensorTuple};
+use crate::math::{
+    Scalar, Tensor, TensorRank1, TensorRank1Vec, TensorRank2, TensorTuple, TensorVec,
+};
 use std::ops::{Index, IndexMut, Mul};
 use vector::Vector;
 
@@ -76,12 +78,9 @@ impl TensorVec for Matrix {
     }
 }
 
-impl From<Matrix> for Vec<Vec<Scalar>>
-{
+impl From<Matrix> for Vec<Vec<Scalar>> {
     fn from(matrix: Matrix) -> Self {
-        matrix.into_iter().map(|vector|
-            vector.into()
-        ).collect()
+        matrix.into_iter().map(|vector| vector.into()).collect()
     }
 }
 
