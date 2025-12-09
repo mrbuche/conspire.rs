@@ -20,7 +20,7 @@ use crate::{
             ViscoelasticFiniteElement,
         },
     },
-    math::{IDENTITY, Scalar, Scalars, Tensor, TensorRank1List, tensor_rank_1},
+    math::{IDENTITY, Scalar, Tensor, TensorRank1List, tensor_rank_1},
     mechanics::{
         DeformationGradient, DeformationGradientList, DeformationGradientRate,
         DeformationGradientRateList, FirstPiolaKirchhoffRateTangentStiffnesses,

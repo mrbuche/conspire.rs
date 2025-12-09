@@ -4,12 +4,21 @@ mod test;
 pub mod composite;
 pub mod linear;
 
+pub mod solid;
+
+pub use solid::{
+    SolidElement, SolidFiniteElement, elastic::ElasticFiniteElement,
+    elastic_hyperviscous::ElasticHyperviscousFiniteElement,
+    elastic_viscoplastic::ElasticViscoplasticFiniteElement,
+    hyperelastic::HyperelasticFiniteElement, hyperviscoelastic::HyperviscoelasticFiniteElement,
+    viscoelastic::ViscoelasticFiniteElement, viscoplastic::ViscoplasticStateVariables,
+};
+
 use super::*;
 use crate::{
-    constitutive::solid::Solid,
     defeat_message,
-    math::{IDENTITY, LEVI_CIVITA, TensorTupleList, tensor_rank_1_zero},
-    mechanics::{HeatFluxes, Scalar, TemperatureGradients},
+    math::{IDENTITY, LEVI_CIVITA, tensor_rank_1_zero},
+    mechanics::{Scalar, TemperatureGradients},
 };
 use std::fmt::{Debug, Display};
 
@@ -18,46 +27,43 @@ pub struct Foo<const G: usize, T> {
     integration_weights: Scalars<G>,
 }
 
-pub type SolidElement<const G: usize, const N: usize> = Foo<G, GradientVectors<G, N>>;
+pub enum FiniteElementError {
+    Upstream(String, String),
+}
 
-impl<const G: usize, const N: usize> SolidFiniteElement<G, N> for SolidElement<G, N> {
-    fn deformation_gradients(
-        &self,
-        nodal_coordinates: &NodalCoordinates<N>,
-    ) -> DeformationGradientList<G> {
-        self.gradient_vectors()
-            .iter()
-            .map(|gradient_vectors| {
-                nodal_coordinates
-                    .iter()
-                    .zip(gradient_vectors.iter())
-                    .map(|(nodal_coordinate, gradient_vector)| {
-                        (nodal_coordinate, gradient_vector).into()
-                    })
-                    .sum()
-            })
-            .collect()
+impl From<FiniteElementError> for TestError {
+    fn from(error: FiniteElementError) -> Self {
+        Self {
+            message: error.to_string(),
+        }
     }
-    fn deformation_gradient_rates(
-        &self,
-        _: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
-    ) -> DeformationGradientRateList<G> {
-        self.gradient_vectors()
-            .iter()
-            .map(|gradient_vectors| {
-                nodal_velocities
-                    .iter()
-                    .zip(gradient_vectors.iter())
-                    .map(|(nodal_velocity, gradient_vector)| {
-                        (nodal_velocity, gradient_vector).into()
-                    })
-                    .sum()
-            })
-            .collect()
+}
+
+impl Debug for FiniteElementError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let error = match self {
+            Self::Upstream(error, element) => {
+                format!(
+                    "{error}\x1b[0;91m\n\
+                    In finite element: {element}."
+                )
+            }
+        };
+        write!(f, "\n{error}\n\x1b[0;2;31m{}\x1b[0m\n", defeat_message())
     }
-    fn gradient_vectors(&self) -> &GradientVectors<G, N> {
-        &self.bar
+}
+
+impl Display for FiniteElementError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let error = match self {
+            Self::Upstream(error, element) => {
+                format!(
+                    "{error}\x1b[0;91m\n\
+                    In finite element: {element}."
+                )
+            }
+        };
+        write!(f, "{error}\x1b[0m")
     }
 }
 
@@ -119,19 +125,6 @@ pub trait SurfaceFiniteElement<const G: usize, const N: usize, const P: usize> {
     fn new(reference_nodal_coordinates: ReferenceNodalCoordinates<N>, thickness: Scalar) -> Self;
 }
 
-pub trait SolidFiniteElement<const G: usize, const N: usize> {
-    fn deformation_gradients(
-        &self,
-        nodal_coordinates: &NodalCoordinates<N>,
-    ) -> DeformationGradientList<G>;
-    fn deformation_gradient_rates(
-        &self,
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
-    ) -> DeformationGradientRateList<G>;
-    fn gradient_vectors(&self) -> &GradientVectors<G, N>;
-}
-
 pub trait SurfaceFiniteElementMethods<
     const G: usize,
     const M: usize,
@@ -153,46 +146,6 @@ pub trait SurfaceFiniteElementMethods<
 // make this a const fn and remove inherent impl of it once Rust stabilizes const fn trait methods
 pub trait SurfaceFiniteElementMethodsExtra<const M: usize, const N: usize, const P: usize> {
     fn standard_gradient_operators() -> StandardGradientOperators<M, N, P>;
-}
-
-pub enum FiniteElementError {
-    Upstream(String, String),
-}
-
-impl From<FiniteElementError> for TestError {
-    fn from(error: FiniteElementError) -> Self {
-        Self {
-            message: error.to_string(),
-        }
-    }
-}
-
-impl Debug for FiniteElementError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::Upstream(error, element) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In finite element: {element}."
-                )
-            }
-        };
-        write!(f, "\n{error}\n\x1b[0;2;31m{}\x1b[0m\n", defeat_message())
-    }
-}
-
-impl Display for FiniteElementError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::Upstream(error, element) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In finite element: {element}."
-                )
-            }
-        };
-        write!(f, "{error}\x1b[0m")
-    }
 }
 
 impl<const G: usize, const N: usize> SolidFiniteElement<G, N> for Element<G, N> {
@@ -370,113 +323,6 @@ where
                 ).collect()
         }).collect()
     }
-}
-
-pub trait ElasticFiniteElement<C, const G: usize, const N: usize>
-where
-    C: Elastic,
-    Self: Debug + SolidFiniteElement<G, N>,
-{
-    fn nodal_forces(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<NodalForces<N>, FiniteElementError>;
-    fn nodal_stiffnesses(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<NodalStiffnesses<N>, FiniteElementError>;
-}
-
-pub trait HyperelasticFiniteElement<C, const G: usize, const N: usize>
-where
-    C: Hyperelastic,
-    Self: ElasticFiniteElement<C, G, N>,
-{
-    fn helmholtz_free_energy(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<Scalar, FiniteElementError>;
-}
-
-pub type ViscoplasticStateVariables<const G: usize> =
-    TensorTupleList<DeformationGradientPlastic, Scalar, G>;
-
-pub trait ElasticViscoplasticFiniteElement<C, const G: usize, const N: usize>
-where
-    C: ElasticViscoplastic,
-    Self: Debug + SolidFiniteElement<G, N>,
-{
-    fn nodal_forces(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-        state_variables: &ViscoplasticStateVariables<G>,
-    ) -> Result<NodalForces<N>, FiniteElementError>;
-    fn nodal_stiffnesses(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-        state_variables: &ViscoplasticStateVariables<G>,
-    ) -> Result<NodalStiffnesses<N>, FiniteElementError>;
-    fn state_variables_evolution(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-        state_variables: &ViscoplasticStateVariables<G>,
-    ) -> Result<ViscoplasticStateVariables<G>, FiniteElementError>;
-}
-
-pub trait ViscoelasticFiniteElement<C, const G: usize, const N: usize>
-where
-    C: Viscoelastic,
-    Self: SolidFiniteElement<G, N>,
-{
-    fn nodal_forces(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
-    ) -> Result<NodalForces<N>, FiniteElementError>;
-    fn nodal_stiffnesses(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
-    ) -> Result<NodalStiffnesses<N>, FiniteElementError>;
-}
-
-pub trait ElasticHyperviscousFiniteElement<C, const G: usize, const N: usize>
-where
-    C: ElasticHyperviscous,
-    Self: ViscoelasticFiniteElement<C, G, N>,
-{
-    fn viscous_dissipation(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
-    ) -> Result<Scalar, FiniteElementError>;
-    fn dissipation_potential(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
-    ) -> Result<Scalar, FiniteElementError>;
-}
-
-pub trait HyperviscoelasticFiniteElement<C, const G: usize, const N: usize>
-where
-    C: Hyperviscoelastic,
-    Self: ElasticHyperviscousFiniteElement<C, G, N>,
-{
-    fn helmholtz_free_energy(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<Scalar, FiniteElementError>;
 }
 
 impl<C, const G: usize, const N: usize> ElasticFiniteElement<C, G, N> for Element<G, N>
