@@ -1239,67 +1239,69 @@ impl<C, F, const G: usize, const N: usize> ThermalConductionFiniteElementBlock<C
 where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, N>,
-    Self: FiniteElementBlockMethods<C, F, G, N>,
+    // Self: FiniteElementBlockMethods<C, F, G, N>,
 {
     fn nodal_forces(
         &self,
         nodal_temperatures: &NodalTemperaturesBlock,
     ) -> Result<NodalForcesBlockThermal, FiniteElementBlockError> {
-        let mut nodal_forces = NodalForcesBlockThermal::zero(nodal_temperatures.len());
-        match self
-            .elements()
-            .iter()
-            .zip(self.connectivity().iter())
-            .try_for_each(|(element, element_connectivity)| {
-                element
-                    .nodal_forces(
-                        self.constitutive_model(),
-                        &self.nodal_temperatures_element(element_connectivity, nodal_temperatures),
-                    )?
-                    .iter()
-                    .zip(element_connectivity.iter())
-                    .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
-                Ok::<(), FiniteElementError>(())
-            }) {
-            Ok(()) => Ok(nodal_forces),
-            Err(error) => Err(FiniteElementBlockError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+        todo!()
+        // let mut nodal_forces = NodalForcesBlockThermal::zero(nodal_temperatures.len());
+        // match self
+        //     .elements()
+        //     .iter()
+        //     .zip(self.connectivity().iter())
+        //     .try_for_each(|(element, element_connectivity)| {
+        //         element
+        //             .nodal_forces(
+        //                 self.constitutive_model(),
+        //                 &self.nodal_temperatures_element(element_connectivity, nodal_temperatures),
+        //             )?
+        //             .iter()
+        //             .zip(element_connectivity.iter())
+        //             .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
+        //         Ok::<(), FiniteElementError>(())
+        //     }) {
+        //     Ok(()) => Ok(nodal_forces),
+        //     Err(error) => Err(FiniteElementBlockError::Upstream(
+        //         format!("{error}"),
+        //         format!("{self:?}"),
+        //     )),
+        // }
     }
     fn nodal_stiffnesses(
         &self,
         nodal_temperatures: &NodalTemperaturesBlock,
     ) -> Result<NodalStiffnessesBlockThermal, FiniteElementBlockError> {
-        let mut nodal_stiffnesses = NodalStiffnessesBlockThermal::zero(nodal_temperatures.len());
-        match self
-            .elements()
-            .iter()
-            .zip(self.connectivity().iter())
-            .try_for_each(|(element, element_connectivity)| {
-                element
-                    .nodal_stiffnesses(
-                        self.constitutive_model(),
-                        &self.nodal_temperatures_element(element_connectivity, nodal_temperatures),
-                    )?
-                    .iter()
-                    .zip(element_connectivity.iter())
-                    .for_each(|(object, &node_a)| {
-                        object.iter().zip(element_connectivity.iter()).for_each(
-                            |(nodal_stiffness, &node_b)| {
-                                nodal_stiffnesses[node_a][node_b] += nodal_stiffness
-                            },
-                        )
-                    });
-                Ok::<(), FiniteElementError>(())
-            }) {
-            Ok(()) => Ok(nodal_stiffnesses),
-            Err(error) => Err(FiniteElementBlockError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+        todo!()
+        // let mut nodal_stiffnesses = NodalStiffnessesBlockThermal::zero(nodal_temperatures.len());
+        // match self
+        //     .elements()
+        //     .iter()
+        //     .zip(self.connectivity().iter())
+        //     .try_for_each(|(element, element_connectivity)| {
+        //         element
+        //             .nodal_stiffnesses(
+        //                 self.constitutive_model(),
+        //                 &self.nodal_temperatures_element(element_connectivity, nodal_temperatures),
+        //             )?
+        //             .iter()
+        //             .zip(element_connectivity.iter())
+        //             .for_each(|(object, &node_a)| {
+        //                 object.iter().zip(element_connectivity.iter()).for_each(
+        //                     |(nodal_stiffness, &node_b)| {
+        //                         nodal_stiffnesses[node_a][node_b] += nodal_stiffness
+        //                     },
+        //                 )
+        //             });
+        //         Ok::<(), FiniteElementError>(())
+        //     }) {
+        //     Ok(()) => Ok(nodal_stiffnesses),
+        //     Err(error) => Err(FiniteElementBlockError::Upstream(
+        //         format!("{error}"),
+        //         format!("{self:?}"),
+        //     )),
+        // }
     }
 }
 

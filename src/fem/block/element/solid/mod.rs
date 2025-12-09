@@ -7,13 +7,13 @@ pub mod viscoelastic;
 pub mod viscoplastic;
 
 use crate::{
-    fem::{GradientVectors, NodalCoordinates, NodalVelocities, block::element::Foo},
+    fem::{GradientVectors, NodalCoordinates, NodalVelocities, block::element::Element},
     math::{Scalars, Tensor},
     mechanics::{DeformationGradientList, DeformationGradientRateList},
 };
 use std::fmt::{self, Debug, Formatter};
 
-pub type SolidElement<const G: usize, const N: usize> = Foo<G, GradientVectors<G, N>>;
+pub type SolidElement<const G: usize, const N: usize> = Element<G, GradientVectors<G, N>>;
 
 impl<const G: usize, const N: usize> SolidElement<G, N> {
     fn integration_weights(&self) -> &Scalars<G> {

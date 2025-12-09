@@ -7,7 +7,7 @@ use crate::{
         ReferenceNodalCoordinates, ShapeFunctionIntegrals, ShapeFunctionIntegralsProducts,
         ShapeFunctionsAtIntegrationPoints, StandardGradientOperators,
         StandardGradientOperatorsTransposed,
-        block::element::{Element, FiniteElement},
+        block::element::{FiniteElement, SolidElement},
     },
     math::{
         Scalar, Scalars, Tensor, TensorRank1, TensorRank1List, tensor_rank_1, tensor_rank_1_zero,
@@ -21,13 +21,13 @@ const N: usize = 10;
 const P: usize = 12;
 const Q: usize = 4;
 
-pub type Tetrahedron = Element<G, N>;
+pub type Tetrahedron = SolidElement<G, N>;
 
 impl FiniteElement<G, N> for Tetrahedron {
     fn new(reference_nodal_coordinates: ReferenceNodalCoordinates<N>) -> Self {
         let (gradient_vectors, integration_weights) = Self::initialize(reference_nodal_coordinates);
         Self {
-            gradient_vectors,
+            data: gradient_vectors,
             integration_weights,
         }
     }
@@ -47,7 +47,7 @@ impl FiniteElement<G, N> for Tetrahedron {
     }
     fn reset(&mut self) {
         let (gradient_vectors, integration_weights) = Self::initialize(Self::reference());
-        self.gradient_vectors = gradient_vectors;
+        self.data = gradient_vectors;
         self.integration_weights = integration_weights;
     }
 }

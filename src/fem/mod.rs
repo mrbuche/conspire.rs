@@ -22,25 +22,18 @@ pub use block::{
 };
 
 use crate::{
-    constitutive::{
-        ConstitutiveError,
-        solid::{
-            elastic::Elastic, elastic_hyperviscous::ElasticHyperviscous,
-            hyperelastic::Hyperelastic, hyperviscoelastic::Hyperviscoelastic,
-            viscoelastic::Viscoelastic,
-        },
+    constitutive::solid::{
+        elastic::Elastic, elastic_hyperviscous::ElasticHyperviscous, hyperelastic::Hyperelastic,
+        hyperviscoelastic::Hyperviscoelastic, viscoelastic::Viscoelastic,
     },
     math::{
-        ContractSecondFourthIndicesWithFirstIndicesOf, Scalar, Scalars, SquareMatrix, Tensor,
-        TensorRank0List, TensorRank0List2D, TensorRank1List, TensorRank1List2D, TensorRank1Vec,
-        TensorRank1Vec2D, TensorRank2, TensorRank2List, TensorRank2List2D, TensorRank2Vec2D,
-        Vector,
+        Scalar, Scalars, SquareMatrix, Tensor, TensorRank0List, TensorRank0List2D, TensorRank1List,
+        TensorRank1List2D, TensorRank1Vec, TensorRank1Vec2D, TensorRank2, TensorRank2List,
+        TensorRank2List2D, TensorRank2Vec2D, Vector,
     },
     mechanics::{
         Coordinates, CurrentCoordinates, DeformationGradientList, DeformationGradientRateList,
-        FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStresses,
-        FirstPiolaKirchhoffTangentStiffnesses, Forces, ReferenceCoordinates, Stiffnesses, Vectors,
-        Vectors2D,
+        Forces, ReferenceCoordinates, Stiffnesses, Vectors, Vectors2D,
     },
 };
 
