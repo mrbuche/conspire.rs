@@ -13,10 +13,53 @@ use crate::{
 };
 use std::fmt::{Debug, Display};
 
-// pub struct Foo<const G: usize, T> {
-//     bar: T,
-//     integration_weights: Scalars<G>,
-// }
+pub struct Foo<const G: usize, T> {
+    bar: T,
+    integration_weights: Scalars<G>,
+}
+
+pub type SolidElement<const G: usize, const N: usize> = Foo<G, GradientVectors<G, N>>;
+
+impl<const G: usize, const N: usize> SolidFiniteElement<G, N> for SolidElement<G, N> {
+    fn deformation_gradients(
+        &self,
+        nodal_coordinates: &NodalCoordinates<N>,
+    ) -> DeformationGradientList<G> {
+        self.gradient_vectors()
+            .iter()
+            .map(|gradient_vectors| {
+                nodal_coordinates
+                    .iter()
+                    .zip(gradient_vectors.iter())
+                    .map(|(nodal_coordinate, gradient_vector)| {
+                        (nodal_coordinate, gradient_vector).into()
+                    })
+                    .sum()
+            })
+            .collect()
+    }
+    fn deformation_gradient_rates(
+        &self,
+        _: &NodalCoordinates<N>,
+        nodal_velocities: &NodalVelocities<N>,
+    ) -> DeformationGradientRateList<G> {
+        self.gradient_vectors()
+            .iter()
+            .map(|gradient_vectors| {
+                nodal_velocities
+                    .iter()
+                    .zip(gradient_vectors.iter())
+                    .map(|(nodal_velocity, gradient_vector)| {
+                        (nodal_velocity, gradient_vector).into()
+                    })
+                    .sum()
+            })
+            .collect()
+    }
+    fn gradient_vectors(&self) -> &GradientVectors<G, N> {
+        &self.bar
+    }
+}
 
 pub struct Element<const G: usize, const N: usize> {
     gradient_vectors: GradientVectors<G, N>,
@@ -1030,7 +1073,11 @@ where
         // similarly for element blocks
         // gradient_vectors should be a field only for Solid elements too
         // and then something else a field for thermal elements
-        // also new() will have to depend on <C>
+        // also new() will have to depend on <C>?
+        //
+        // also, could export something like
+        // pub type LinearTetrahedralFiniteElements<C> = ElementBlock::<C, LinearTetrahedron<C>, N>
+        // so that specification is easier and cleaner
         //
         todo!()
     }
