@@ -81,7 +81,7 @@ macro_rules! test_finite_element_block_inner {
                         AlmansiHamel, SaintVenantKirchhoff,
                         test::{BULK_MODULUS, SHEAR_MODULUS},
                     },
-                    fem::block::{ElasticFiniteElementBlock, FiniteElementBlockMethods},
+                    fem::block::{ElasticFiniteElementBlock, SolidFiniteElementBlock},
                 };
                 mod almansi_hamel {
                     use super::*;
@@ -129,7 +129,7 @@ macro_rules! test_finite_element_block_inner {
                         },
                     },
                     fem::block::{
-                        ElasticFiniteElementBlock, FiniteElementBlockMethods,
+                        ElasticFiniteElementBlock, SolidFiniteElementBlock,
                         HyperelasticFiniteElementBlock,
                     },
                 };
@@ -242,7 +242,7 @@ macro_rules! test_finite_element_block_inner {
                         test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
                     },
                     fem::block::{
-                        ElasticHyperviscousFiniteElementBlock, FiniteElementBlockMethods,
+                        ElasticHyperviscousFiniteElementBlock, SolidFiniteElementBlock,
                         ViscoelasticFiniteElementBlock,
                     },
                 };
@@ -269,7 +269,7 @@ macro_rules! test_finite_element_block_inner {
                         test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
                     },
                     fem::block::{
-                        ElasticHyperviscousFiniteElementBlock, FiniteElementBlockMethods,
+                        ElasticHyperviscousFiniteElementBlock, SolidFiniteElementBlock,
                         ViscoelasticFiniteElementBlock,
                     },
                 };

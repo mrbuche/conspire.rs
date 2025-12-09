@@ -11,7 +11,7 @@ use conspire::{
     },
     fem::{
         Connectivity, ElasticHyperviscousFiniteElementBlock, ElasticViscoplasticFiniteElementBlock,
-        ElementBlock, FiniteElementBlock, FiniteElementBlockMethods, LinearTetrahedron,
+        ElementBlock, SolidFiniteElementBlock, FiniteElementBlock, LinearTetrahedron,
         ReferenceNodalCoordinatesBlock, SecondOrderMinimize, ViscoelasticFiniteElementBlock,
     },
     math::{

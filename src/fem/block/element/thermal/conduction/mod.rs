@@ -4,7 +4,8 @@ use crate::{
         NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures,
         block::element::{FiniteElementError, ThermalElement, ThermalFiniteElement},
     },
-    mechanics::TemperatureGradients,
+    mechanics::{TemperatureGradients, HeatFluxes},
+    math::Tensor,
 };
 
 impl<C, const G: usize, const N: usize> ThermalFiniteElement<C, G, N> for ThermalElement<G, N> {}
@@ -34,46 +35,46 @@ impl<C, const G: usize, const N: usize> ThermalConductionFiniteElement<C, G, N>
     for ThermalElement<G, N>
 where
     C: ThermalConduction,
+    Self: ThermalFiniteElement<C, G, N>,
 {
     fn nodal_forces(
         &self,
         constitutive_model: &C,
         nodal_temperatures: &NodalTemperatures<N>,
     ) -> Result<NodalForcesThermal<N>, FiniteElementError> {
-        todo!()
-        // match self
-        //     .temperature_gradients(nodal_temperatures)
-        //     .iter()
-        //     .map(|temperature_gradient| {
-        //         constitutive_model.heat_flux(temperature_gradient)
-        //     })
-        //     .collect::<Result<HeatFluxes<G>, _>>()
-        // {
-        //     Ok(heat_fluxes) => todo!(),
-        //     // Ok(heat_fluxes) => Ok(heat_fluxes
-        //     //     .iter()
-        //     //     .zip(
-        //     //         self.gradient_vectors()
-        //     //             .iter()
-        //     //             .zip(self.integration_weights().iter()),
-        //     //     )
-        //     //     .map(
-        //     //         |(heat_flux, (gradient_vectors, integration_weight))| {
-        //     //             gradient_vectors
-        //     //                 .iter()
-        //     //                 .map(|gradient_vector| {
-        //     //                     (heat_flux * gradient_vector)
-        //     //                         * integration_weight
-        //     //                 })
-        //     //                 .collect()
-        //     //         },
-        //     //     )
-        //     //     .sum()),
-        //     Err(error) => Err(FiniteElementError::Upstream(
-        //         format!("{error}"),
-        //         format!("{self:?}"),
-        //     )),
-        // }
+        match self
+            .temperature_gradients(nodal_temperatures)
+            .iter()
+            .map(|temperature_gradient| {
+                constitutive_model.heat_flux(temperature_gradient)
+            })
+            .collect::<Result<HeatFluxes<G>, _>>()
+        {
+            Ok(heat_fluxes) => todo!(),
+            // Ok(heat_fluxes) => Ok(heat_fluxes
+            //     .iter()
+            //     .zip(
+            //         self.gradient_vectors()
+            //             .iter()
+            //             .zip(self.integration_weights().iter()),
+            //     )
+            //     .map(
+            //         |(heat_flux, (gradient_vectors, integration_weight))| {
+            //             gradient_vectors
+            //                 .iter()
+            //                 .map(|gradient_vector| {
+            //                     (heat_flux * gradient_vector)
+            //                         * integration_weight
+            //                 })
+            //                 .collect()
+            //         },
+            //     )
+            //     .sum()),
+            Err(error) => Err(FiniteElementError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
     fn nodal_stiffnesses(
         &self,
