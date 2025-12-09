@@ -6,7 +6,7 @@ use crate::{
         block::{
             SurfaceFiniteElementBlock,
             element::{
-                FiniteElementMethods, SurfaceFiniteElement, SurfaceFiniteElementMethods,
+                SolidFiniteElement, SurfaceFiniteElement, SurfaceFiniteElementMethods,
                 linear::triangle::{G, N, P, Triangle},
                 test::test_surface_finite_element,
             },

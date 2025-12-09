@@ -6,6 +6,7 @@ pub mod linear;
 
 use super::*;
 use crate::{
+    constitutive::solid::Solid,
     defeat_message,
     math::{IDENTITY, LEVI_CIVITA, TensorTupleList, tensor_rank_1_zero},
     mechanics::{HeatFluxes, Scalar, TemperatureGradients},
@@ -65,19 +66,17 @@ impl<const G: usize, const N: usize, const P: usize> SurfaceElement<G, N, P> {
     }
 }
 
-pub trait FiniteElement<const G: usize, const N: usize>
-{
+pub trait FiniteElement<const G: usize, const N: usize> {
     fn new(reference_nodal_coordinates: ReferenceNodalCoordinates<N>) -> Self;
     fn reference() -> ReferenceNodalCoordinates<N>;
     fn reset(&mut self);
 }
 
-pub trait SurfaceFiniteElement<const G: usize, const N: usize, const P: usize>
-{
+pub trait SurfaceFiniteElement<const G: usize, const N: usize, const P: usize> {
     fn new(reference_nodal_coordinates: ReferenceNodalCoordinates<N>, thickness: Scalar) -> Self;
 }
 
-pub trait FiniteElementMethods<const G: usize, const N: usize> {
+pub trait SolidFiniteElement<const G: usize, const N: usize> {
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
@@ -153,7 +152,7 @@ impl Display for FiniteElementError {
     }
 }
 
-impl<const G: usize, const N: usize> FiniteElementMethods<G, N> for Element<G, N> {
+impl<const G: usize, const N: usize> SolidFiniteElement<G, N> for Element<G, N> {
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
@@ -333,7 +332,7 @@ where
 pub trait ElasticFiniteElement<C, const G: usize, const N: usize>
 where
     C: Elastic,
-    Self: Debug + FiniteElementMethods<G, N>,
+    Self: Debug + SolidFiniteElement<G, N>,
 {
     fn nodal_forces(
         &self,
@@ -365,7 +364,7 @@ pub type ViscoplasticStateVariables<const G: usize> =
 pub trait ElasticViscoplasticFiniteElement<C, const G: usize, const N: usize>
 where
     C: ElasticViscoplastic,
-    Self: Debug + FiniteElementMethods<G, N>,
+    Self: Debug + SolidFiniteElement<G, N>,
 {
     fn nodal_forces(
         &self,
@@ -390,7 +389,7 @@ where
 pub trait ViscoelasticFiniteElement<C, const G: usize, const N: usize>
 where
     C: Viscoelastic,
-    Self: FiniteElementMethods<G, N>,
+    Self: SolidFiniteElement<G, N>,
 {
     fn nodal_forces(
         &self,
@@ -907,7 +906,7 @@ where
 pub trait ThermalConductionFiniteElement<C, const G: usize, const N: usize>
 where
     C: ThermalConduction,
-    Self: Debug + FiniteElementMethods<G, N>,
+    Self: Debug + SolidFiniteElement<G, N>,
 {
     fn nodal_forces(
         &self,

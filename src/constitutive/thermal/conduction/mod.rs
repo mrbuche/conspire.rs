@@ -5,7 +5,7 @@ pub mod test;
 
 mod fourier;
 
-use super::{HeatFlux, Scalar, TemperatureGradient, Thermal, super::ConstitutiveError};
+use super::{super::ConstitutiveError, HeatFlux, Scalar, TemperatureGradient, Thermal};
 
 pub use fourier::Fourier;
 
@@ -15,5 +15,8 @@ where
     Self: Thermal,
 {
     /// Calculates and returns the heat flux.
-    fn heat_flux(&self, temperature_gradient: &TemperatureGradient) -> Result<HeatFlux, ConstitutiveError>;
+    fn heat_flux(
+        &self,
+        temperature_gradient: &TemperatureGradient,
+    ) -> Result<HeatFlux, ConstitutiveError>;
 }

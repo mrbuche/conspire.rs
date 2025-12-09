@@ -6,7 +6,7 @@ use crate::{
         block::{
             FiniteElementBlock,
             element::{
-                FiniteElement, FiniteElementMethods,
+                FiniteElement, SolidFiniteElement,
                 composite::tetrahedron::{G, N, Q, Tetrahedron},
                 test::test_finite_element,
             },

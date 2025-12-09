@@ -14,8 +14,8 @@ use crate::{
         FiniteElementError, GradientVectors, NodalCoordinates, NodalForces, NodalStiffnesses,
         NodalVelocities, ReferenceNodalCoordinates, StandardGradientOperators,
         block::element::{
-            ElasticFiniteElement, ElasticHyperviscousFiniteElement, FiniteElementMethods,
-            HyperelasticFiniteElement, HyperviscoelasticFiniteElement, SurfaceElement,
+            ElasticFiniteElement, ElasticHyperviscousFiniteElement, HyperelasticFiniteElement,
+            HyperviscoelasticFiniteElement, SolidFiniteElement, SurfaceElement,
             SurfaceFiniteElement, SurfaceFiniteElementMethods, SurfaceFiniteElementMethodsExtra,
             ViscoelasticFiniteElement,
         },
@@ -109,7 +109,7 @@ impl SurfaceFiniteElementMethodsExtra<M, N, P> for Triangle {
     }
 }
 
-impl FiniteElementMethods<G, N> for Triangle {
+impl SolidFiniteElement<G, N> for Triangle {
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,

@@ -5,8 +5,8 @@ pub mod element;
 
 use self::element::{
     ElasticFiniteElement, ElasticHyperviscousFiniteElement, ElasticViscoplasticFiniteElement,
-    FiniteElement, FiniteElementError, FiniteElementMethods, HyperelasticFiniteElement,
-    HyperviscoelasticFiniteElement, SurfaceFiniteElement, ThermalConductionFiniteElement,
+    FiniteElement, FiniteElementError, HyperelasticFiniteElement, HyperviscoelasticFiniteElement,
+    SolidFiniteElement, SurfaceFiniteElement, ThermalConductionFiniteElement,
     ViscoelasticFiniteElement,
 };
 use super::*;
@@ -65,7 +65,7 @@ impl<C, F, const N: usize> Debug for ElementBlock<C, F, N> {
 
 pub trait FiniteElementBlockMethods<C, F, const G: usize, const N: usize>
 where
-    F: FiniteElementMethods<G, N>,
+    F: SolidFiniteElement<G, N>,
 {
     fn constitutive_model(&self) -> &C;
     fn connectivity(&self) -> &Connectivity<N>;
@@ -162,7 +162,7 @@ impl Display for FiniteElementBlockError {
 impl<C, F, const G: usize, const N: usize> FiniteElementBlockMethods<C, F, G, N>
     for ElementBlock<C, F, N>
 where
-    F: FiniteElementMethods<G, N>,
+    F: SolidFiniteElement<G, N>,
 {
     fn constitutive_model(&self) -> &C {
         &self.constitutive_model

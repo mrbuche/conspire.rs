@@ -11,7 +11,7 @@ pub use block::{
     ViscoplasticStateVariablesHistory, ZerothOrderRoot,
     element::{
         ElasticFiniteElement, ElasticViscoplasticFiniteElement, FiniteElement, FiniteElementError,
-        FiniteElementMethods, HyperelasticFiniteElement, HyperviscoelasticFiniteElement,
+        HyperelasticFiniteElement, HyperviscoelasticFiniteElement, SolidFiniteElement,
         SurfaceFiniteElement, ViscoelasticFiniteElement,
         composite::tetrahedron::Tetrahedron as CompositeTetrahedron,
         linear::{
