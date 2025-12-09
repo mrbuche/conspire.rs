@@ -160,9 +160,6 @@ impl FiniteElementMethods<G, N> for Triangle {
     fn gradient_vectors(&self) -> &GradientVectors<G, N> {
         &self.gradient_vectors
     }
-    fn integration_weights(&self) -> &Scalars<G> {
-        &self.integration_weights
-    }
 }
 
 impl<C> ElasticFiniteElement<C, G, N> for Triangle

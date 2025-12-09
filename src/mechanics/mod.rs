@@ -216,7 +216,10 @@ pub type Forces<const W: usize> = TensorRank1List<3, 1, W>;
 pub type FrameSpin = TensorRank2<3, 1, 1>;
 
 /// The heat flux.
-pub type HeatFlux = TensorRank1<3, 1>;
+pub type HeatFlux = TensorRank1<3, 0>;
+
+/// A list of heat fluxes.
+pub type HeatFluxes<const N: usize> = TensorRank1List<3, 0, N>;
 
 /// The left Cauchy-Green deformation $`\mathbf{B}`$.
 pub type LeftCauchyGreenDeformation = TensorRank2<3, 1, 1>;
@@ -276,7 +279,10 @@ pub type StretchingRate = TensorRank2<3, 1, 1>;
 pub type StretchingRatePlastic = TensorRank2<3, 2, 2>;
 
 /// The temperature gradient.
-pub type TemperatureGradient = TensorRank1<3, 1>;
+pub type TemperatureGradient = TensorRank1<3, 0>;
+
+/// A list of temperature gradients.
+pub type TemperatureGradients<const N: usize> = TensorRank1List<3, 0, N>;
 
 /// A vector of times.
 pub type Times = crate::math::Vector;

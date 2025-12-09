@@ -289,10 +289,10 @@ fn not_a_tensor() {
     )
 }
 
-#[test]
-fn welp() {
-    let _ = get_translation_current_configuration()
-        + get_translation_rate_current_configuration()
-            * get_translation_reference_configuration()[0]
-        + get_temperature_gradient() * get_temperature();
-}
+// #[test]
+// fn welp() {
+//     let _ = get_translation_current_configuration()
+//         + get_translation_rate_current_configuration()
+//             * get_translation_reference_configuration()[0]
+//         + get_temperature_gradient() * get_temperature();
+// }

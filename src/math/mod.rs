@@ -27,7 +27,7 @@ pub use tensor::{
     Hessian, Jacobian, Rank2, Scalar, Scalars, ScalarsVec, Solution, Tensor, TensorArray,
     TensorError, TensorVec,
     list::TensorList,
-    rank_0::{TensorRank0, list::TensorRank0List},
+    rank_0::{TensorRank0, list::TensorRank0List, list_2d::TensorRank0List2D},
     rank_1::{
         TensorRank1, list::TensorRank1List, list_2d::TensorRank1List2D, tensor_rank_1,
         vec::TensorRank1Vec, vec_2d::TensorRank1Vec2D, zero as tensor_rank_1_zero,

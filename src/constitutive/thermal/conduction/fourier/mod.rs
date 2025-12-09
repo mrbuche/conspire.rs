@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use super::{HeatFlux, Scalar, TemperatureGradient, Thermal, ThermalConduction};
+use super::{HeatFlux, Scalar, TemperatureGradient, Thermal, ThermalConduction, ConstitutiveError};
 
 /// The Fourier thermal conduction constitutive model.
 ///
@@ -33,7 +33,7 @@ impl ThermalConduction for Fourier {
     /// ```math
     /// \mathbf{q}(\nabla T) = -k\nabla T
     /// ```
-    fn heat_flux(&self, temperature_gradient: &TemperatureGradient) -> HeatFlux {
-        temperature_gradient * -self.thermal_conductivity()
+    fn heat_flux(&self, temperature_gradient: &TemperatureGradient) -> Result<HeatFlux, ConstitutiveError> {
+        Ok(temperature_gradient * -self.thermal_conductivity())
     }
 }

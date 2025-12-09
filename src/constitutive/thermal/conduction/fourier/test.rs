@@ -1,6 +1,6 @@
 use super::{super::test::THERMAL_CONDUCTIVITY, Fourier, TemperatureGradient, ThermalConduction};
 use crate::{
-    math::{Scalar, Tensor, TensorArray},
+    math::{Scalar, Tensor, TensorArray, test::assert_eq},
     mechanics::test::get_temperature_gradient,
 };
 
@@ -13,23 +13,23 @@ fn size() {
 }
 
 #[test]
-fn thermal_conductivity() {
+fn thermal_conductivity() -> Result<(), crate::math::test::TestError> {
     let model = Fourier {
         thermal_conductivity: THERMAL_CONDUCTIVITY,
     };
     model
-        .heat_flux(&get_temperature_gradient())
+        .heat_flux(&get_temperature_gradient())?
         .iter()
         .zip((get_temperature_gradient() / -model.thermal_conductivity()).iter())
-        .for_each(|(heat_flux_i, entry_i)| assert_eq!(heat_flux_i, entry_i))
+        .try_for_each(|(heat_flux_i, entry_i)| assert_eq(heat_flux_i, entry_i))
 }
 
 #[test]
-fn zero() {
+fn zero() -> Result<(), crate::math::test::TestError> {
     Fourier {
         thermal_conductivity: THERMAL_CONDUCTIVITY,
     }
-    .heat_flux(&TemperatureGradient::new([0.0, 0.0, 0.0]))
+    .heat_flux(&TemperatureGradient::new([0.0, 0.0, 0.0]))?
     .iter()
-    .for_each(|heat_flux_i| assert_eq!(heat_flux_i, &0.0))
+    .try_for_each(|heat_flux_i| assert_eq(heat_flux_i, &0.0))
 }
