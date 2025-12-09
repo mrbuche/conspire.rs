@@ -60,6 +60,9 @@ impl<const G: usize, const N: usize, const P: usize> SurfaceElement<G, N, P> {
     fn integration_weights(&self) -> &Scalars<G> {
         &self.integration_weights
     }
+    fn reference_normals(&self) -> &ReferenceNormals<P> {
+        &self.reference_normals
+    }
 }
 
 pub trait FiniteElement<const G: usize, const N: usize>
@@ -70,8 +73,6 @@ pub trait FiniteElement<const G: usize, const N: usize>
 }
 
 pub trait SurfaceFiniteElement<const G: usize, const N: usize, const P: usize>
-where
-    Self: FiniteElementMethods<G, N>,
 {
     fn new(reference_nodal_coordinates: ReferenceNodalCoordinates<N>, thickness: Scalar) -> Self;
 }
@@ -105,7 +106,6 @@ pub trait SurfaceFiniteElementMethods<
         nodal_coordinates: &NodalCoordinates<N>,
         nodal_velocities: &NodalVelocities<N>,
     ) -> NormalRates<P>;
-    fn reference_normals(&self) -> &ReferenceNormals<P>;
 }
 
 // make this a const fn and remove inherent impl of it once Rust stabilizes const fn trait methods
@@ -327,9 +327,6 @@ where
                     ).sum::<Scalar>() / normalization
                 ).collect()
         }).collect()
-    }
-    fn reference_normals(&self) -> &ReferenceNormals<P> {
-        &self.reference_normals
     }
 }
 
