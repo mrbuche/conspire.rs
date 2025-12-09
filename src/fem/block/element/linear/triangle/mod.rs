@@ -287,7 +287,7 @@ where
             .iter()
             .zip(self.integration_weights().iter())
             .map(|(deformation_gradient, integration_weight)| {
-                Ok::<Scalar, ConstitutiveError>(
+                Ok::<_, ConstitutiveError>(
                     constitutive_model.helmholtz_free_energy_density(deformation_gradient)?
                         * integration_weight,
                 )
@@ -441,7 +441,7 @@ where
             )
             .map(
                 |(deformation_gradient, (deformation_gradient_rate, integration_weight))| {
-                    Ok::<Scalar, ConstitutiveError>(
+                    Ok::<_, ConstitutiveError>(
                         constitutive_model
                             .viscous_dissipation(deformation_gradient, deformation_gradient_rate)?
                             * integration_weight,
@@ -473,7 +473,7 @@ where
             )
             .map(
                 |(deformation_gradient, (deformation_gradient_rate, integration_weight))| {
-                    Ok::<Scalar, ConstitutiveError>(
+                    Ok::<_, ConstitutiveError>(
                         constitutive_model.dissipation_potential(
                             deformation_gradient,
                             deformation_gradient_rate,
@@ -506,7 +506,7 @@ where
             .iter()
             .zip(self.integration_weights().iter())
             .map(|(deformation_gradient, integration_weight)| {
-                Ok::<Scalar, ConstitutiveError>(
+                Ok::<_, ConstitutiveError>(
                     constitutive_model.helmholtz_free_energy_density(deformation_gradient)?
                         * integration_weight,
                 )

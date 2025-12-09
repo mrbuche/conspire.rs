@@ -36,7 +36,7 @@ where
             .iter()
             .zip(self.integration_weights().iter())
             .map(|(deformation_gradient, integration_weight)| {
-                Ok::<Scalar, ConstitutiveError>(
+                Ok::<_, ConstitutiveError>(
                     constitutive_model.helmholtz_free_energy_density(deformation_gradient)?
                         * integration_weight,
                 )

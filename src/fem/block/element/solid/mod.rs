@@ -23,14 +23,13 @@ impl<const G: usize, const N: usize> SolidElement<G, N> {
 
 impl<const G: usize, const N: usize> Debug for SolidElement<G, N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        // let element = match (G, N) {
-        //     (1, 4) => "LinearTetrahedron",
-        //     (8, 8) => "LinearHexahedron",
-        //     (4, 10) => "CompositeTetrahedron",
-        //     _ => panic!(),
-        // };
-        // write!(f, "{element} {{ G: {G}, N: {N} }}",)
-        todo!()
+        let element = match (G, N) {
+            (1, 4) => "LinearTetrahedron",
+            (8, 8) => "LinearHexahedron",
+            (4, 10) => "CompositeTetrahedron",
+            _ => panic!(),
+        };
+        write!(f, "{element} {{ Solid, G: {G}, N: {N} }}",)
     }
 }
 
@@ -84,6 +83,6 @@ impl<const G: usize, const N: usize> SolidFiniteElement<G, N> for SolidElement<G
             .collect()
     }
     fn gradient_vectors(&self) -> &GradientVectors<G, N> {
-        &self.bar
+        &self.data
     }
 }

@@ -49,7 +49,7 @@ where
             )
             .map(
                 |(deformation_gradient, (deformation_gradient_rate, integration_weight))| {
-                    Ok::<Scalar, ConstitutiveError>(
+                    Ok::<_, ConstitutiveError>(
                         constitutive_model
                             .viscous_dissipation(deformation_gradient, deformation_gradient_rate)?
                             * integration_weight,
@@ -81,7 +81,7 @@ where
             )
             .map(
                 |(deformation_gradient, (deformation_gradient_rate, integration_weight))| {
-                    Ok::<Scalar, ConstitutiveError>(
+                    Ok::<_, ConstitutiveError>(
                         constitutive_model.dissipation_potential(
                             deformation_gradient,
                             deformation_gradient_rate,
