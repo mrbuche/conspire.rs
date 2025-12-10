@@ -2,10 +2,7 @@ use crate::{
     constitutive::solid::elastic::Elastic,
     fem::{
         NodalCoordinates, NodalForces, NodalStiffnesses,
-        block::element::{
-            FiniteElementError,
-            solid::{SolidElement, SolidFiniteElement},
-        },
+        block::element::{Element, FiniteElementError, solid::SolidFiniteElement},
     },
     math::{ContractSecondFourthIndicesWithFirstIndicesOf, Tensor},
     mechanics::{FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses},
@@ -29,7 +26,7 @@ where
     ) -> Result<NodalStiffnesses<N>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize> ElasticFiniteElement<C, G, N> for SolidElement<G, N>
+impl<C, const G: usize, const N: usize> ElasticFiniteElement<C, G, N> for Element<G, N>
 where
     C: Elastic,
 {

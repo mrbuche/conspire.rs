@@ -3,7 +3,7 @@ use crate::{
     fem::{
         NodalCoordinates, NodalForces, NodalStiffnesses,
         block::element::{
-            FiniteElementError, SolidElement, SolidFiniteElement, ViscoplasticStateVariables,
+            Element, FiniteElementError, SolidFiniteElement, ViscoplasticStateVariables,
         },
     },
     math::{ContractSecondFourthIndicesWithFirstIndicesOf, Tensor},
@@ -36,8 +36,7 @@ where
     ) -> Result<ViscoplasticStateVariables<G>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize> ElasticViscoplasticFiniteElement<C, G, N>
-    for SolidElement<G, N>
+impl<C, const G: usize, const N: usize> ElasticViscoplasticFiniteElement<C, G, N> for Element<G, N>
 where
     C: ElasticViscoplastic,
 {

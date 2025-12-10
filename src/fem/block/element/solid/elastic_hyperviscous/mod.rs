@@ -3,7 +3,7 @@ use crate::{
     fem::{
         NodalCoordinates, NodalVelocities,
         block::element::{
-            FiniteElementError, SolidElement, SolidFiniteElement, ViscoelasticFiniteElement,
+            Element, FiniteElementError, SolidFiniteElement, ViscoelasticFiniteElement,
         },
     },
     math::{Scalar, Tensor},
@@ -28,8 +28,7 @@ where
     ) -> Result<Scalar, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize> ElasticHyperviscousFiniteElement<C, G, N>
-    for SolidElement<G, N>
+impl<C, const G: usize, const N: usize> ElasticHyperviscousFiniteElement<C, G, N> for Element<G, N>
 where
     C: ElasticHyperviscous,
 {

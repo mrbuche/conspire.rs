@@ -7,12 +7,14 @@ pub use block::{
     ElasticViscoplasticFiniteElementBlock, ElementBlock, FiniteElementBlock,
     FiniteElementBlockError, FiniteElementBlockMethods, FirstOrderMinimize, FirstOrderRoot,
     HyperelasticFiniteElementBlock, HyperviscoelasticFiniteElementBlock, SecondOrderMinimize,
-    SolidFiniteElementBlock, SurfaceFiniteElementBlock, ViscoelasticFiniteElementBlock,
-    ViscoplasticStateVariables, ViscoplasticStateVariablesHistory, ZerothOrderRoot,
+    SolidFiniteElementBlock, SurfaceFiniteElementBlock, ThermalConductionFiniteElementBlock,
+    ViscoelasticFiniteElementBlock, ViscoplasticStateVariables, ViscoplasticStateVariablesHistory,
+    ZerothOrderRoot,
     element::{
         ElasticFiniteElement, ElasticViscoplasticFiniteElement, FiniteElement, FiniteElementError,
         HyperelasticFiniteElement, HyperviscoelasticFiniteElement, SolidFiniteElement,
-        SurfaceFiniteElement, ViscoelasticFiniteElement,
+        SurfaceFiniteElement, ThermalConductionFiniteElement, ThermalFiniteElement,
+        ViscoelasticFiniteElement,
         composite::tetrahedron::Tetrahedron as CompositeTetrahedron,
         linear::{
             hexahedron::Hexahedron as LinearHexahedron,

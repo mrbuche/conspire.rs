@@ -3,8 +3,8 @@ use crate::{
     fem::{
         NodalCoordinates,
         block::element::{
-            FiniteElementError,
-            solid::{SolidElement, SolidFiniteElement, elastic::ElasticFiniteElement},
+            Element, FiniteElementError,
+            solid::{SolidFiniteElement, elastic::ElasticFiniteElement},
         },
     },
     math::{Scalar, Tensor},
@@ -22,7 +22,7 @@ where
     ) -> Result<Scalar, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize> HyperelasticFiniteElement<C, G, N> for SolidElement<G, N>
+impl<C, const G: usize, const N: usize> HyperelasticFiniteElement<C, G, N> for Element<G, N>
 where
     C: Hyperelastic,
 {

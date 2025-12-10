@@ -7,7 +7,7 @@ use crate::{
         ReferenceNodalCoordinates, ShapeFunctionIntegrals, ShapeFunctionIntegralsProducts,
         ShapeFunctionsAtIntegrationPoints, StandardGradientOperators,
         StandardGradientOperatorsTransposed,
-        block::element::{FiniteElement, SolidElement},
+        block::element::{Element, FiniteElement},
     },
     math::{
         Scalar, Scalars, Tensor, TensorRank1, TensorRank1List, tensor_rank_1, tensor_rank_1_zero,
@@ -21,7 +21,7 @@ const N: usize = 10;
 const P: usize = 12;
 const Q: usize = 4;
 
-pub type Tetrahedron = SolidElement<G, N>;
+pub type Tetrahedron = Element<G, N>;
 
 impl From<ReferenceNodalCoordinates<N>> for Tetrahedron {
     fn from(reference_nodal_coordinates: ReferenceNodalCoordinates<N>) -> Self {

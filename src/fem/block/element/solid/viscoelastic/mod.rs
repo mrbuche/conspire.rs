@@ -2,7 +2,7 @@ use crate::{
     constitutive::solid::viscoelastic::Viscoelastic,
     fem::{
         NodalCoordinates, NodalForces, NodalStiffnesses, NodalVelocities,
-        block::element::{FiniteElementError, SolidElement, SolidFiniteElement},
+        block::element::{Element, FiniteElementError, SolidFiniteElement},
     },
     math::{ContractSecondFourthIndicesWithFirstIndicesOf, Tensor},
     mechanics::{FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStresses},
@@ -27,7 +27,7 @@ where
     ) -> Result<NodalStiffnesses<N>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize> ViscoelasticFiniteElement<C, G, N> for SolidElement<G, N>
+impl<C, const G: usize, const N: usize> ViscoelasticFiniteElement<C, G, N> for Element<G, N>
 where
     C: Viscoelastic,
 {

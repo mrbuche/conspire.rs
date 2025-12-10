@@ -9,13 +9,13 @@ mod thermal;
 
 pub use self::{
     solid::{
-        SolidElement, SolidFiniteElement, elastic::ElasticFiniteElement,
+        SolidFiniteElement, elastic::ElasticFiniteElement,
         elastic_hyperviscous::ElasticHyperviscousFiniteElement,
         elastic_viscoplastic::ElasticViscoplasticFiniteElement,
         hyperelastic::HyperelasticFiniteElement, hyperviscoelastic::HyperviscoelasticFiniteElement,
         viscoelastic::ViscoelasticFiniteElement, viscoplastic::ViscoplasticStateVariables,
     },
-    thermal::{ThermalElement, ThermalFiniteElement, conduction::ThermalConductionFiniteElement},
+    thermal::{ThermalFiniteElement, conduction::ThermalConductionFiniteElement},
 };
 
 use super::*;
@@ -24,7 +24,33 @@ use crate::{
     math::{IDENTITY, LEVI_CIVITA, tensor_rank_1_zero},
     mechanics::Scalar,
 };
-use std::fmt::{Debug, Display};
+use std::fmt::{self, Debug, Display, Formatter};
+
+pub struct Element<const G: usize, const N: usize> {
+    gradient_vectors: GradientVectors<G, N>,
+    integration_weights: Scalars<G>,
+}
+
+impl<const G: usize, const N: usize> Element<G, N> {
+    fn gradient_vectors(&self) -> &GradientVectors<G, N> {
+        &self.gradient_vectors
+    }
+    fn integration_weights(&self) -> &Scalars<G> {
+        &self.integration_weights
+    }
+}
+
+impl<const G: usize, const N: usize> Debug for Element<G, N> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let element = match (G, N) {
+            (1, 4) => "LinearTetrahedron",
+            (8, 8) => "LinearHexahedron",
+            (4, 10) => "CompositeTetrahedron",
+            _ => panic!(),
+        };
+        write!(f, "{element} {{ G: {G}, N: {N} }}",)
+    }
+}
 
 pub trait FiniteElement<const G: usize, const N: usize>
 where

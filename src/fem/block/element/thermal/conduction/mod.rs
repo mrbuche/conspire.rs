@@ -2,16 +2,16 @@ use crate::{
     constitutive::thermal::conduction::ThermalConduction,
     fem::{
         NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures,
-        block::element::{FiniteElementError, ThermalElement, ThermalFiniteElement},
+        block::element::{Element, FiniteElementError, thermal::ThermalFiniteElement},
     },
     math::Tensor,
-    mechanics::{HeatFluxes, TemperatureGradients},
+    mechanics::HeatFluxes,
 };
 
 pub trait ThermalConductionFiniteElement<C, const G: usize, const N: usize>
 where
     C: ThermalConduction,
-    Self: ThermalFiniteElement<C, G, N>,
+    Self: ThermalFiniteElement<G, N>,
 {
     fn nodal_forces(
         &self,
@@ -23,17 +23,12 @@ where
         constitutive_model: &C,
         nodal_temperatures: &NodalTemperatures<N>,
     ) -> Result<NodalStiffnessesThermal<N>, FiniteElementError>;
-    fn temperature_gradients(
-        &self,
-        nodal_temperatures: &NodalTemperatures<N>,
-    ) -> TemperatureGradients<G>;
 }
 
-impl<C, const G: usize, const N: usize> ThermalConductionFiniteElement<C, G, N>
-    for ThermalElement<G, N>
+impl<C, const G: usize, const N: usize> ThermalConductionFiniteElement<C, G, N> for Element<G, N>
 where
     C: ThermalConduction,
-    Self: ThermalFiniteElement<C, G, N>,
+    Self: ThermalFiniteElement<G, N>,
 {
     fn nodal_forces(
         &self,
@@ -49,20 +44,16 @@ where
             Ok(heat_fluxes) => Ok(heat_fluxes
                 .iter()
                 .zip(
-                    self.standard_gradient_operators()
+                    self.gradient_vectors()
                         .iter()
                         .zip(self.integration_weights().iter()),
                 )
-                .map(
-                    |(heat_flux, (standard_gradient_operators, integration_weight))| {
-                        standard_gradient_operators
-                            .iter()
-                            .map(|standard_gradient_operator| {
-                                (heat_flux * standard_gradient_operator) * integration_weight
-                            })
-                            .collect()
-                    },
-                )
+                .map(|(heat_flux, (gradient_vectors, integration_weight))| {
+                    gradient_vectors
+                        .iter()
+                        .map(|gradient_vector| (heat_flux * gradient_vector) * integration_weight)
+                        .collect()
+                })
                 .sum()),
             Err(error) => Err(FiniteElementError::Upstream(
                 format!("{error}"),
@@ -122,22 +113,5 @@ where
         //         format!("{self:?}"),
         //     )),
         // }
-    }
-    fn temperature_gradients(
-        &self,
-        nodal_temperatures: &NodalTemperatures<N>,
-    ) -> TemperatureGradients<G> {
-        //
-        // deformation_gradients(), deformation_gradient_rates(), etc. should be impl for Solid
-        // similarly for element blocks
-        // gradient_vectors should be a field only for Solid elements too
-        // and then something else a field for thermal elements
-        // also new() will have to depend on <C>?
-        //
-        // also, could export something like
-        // pub type LinearTetrahedralFiniteElements<C> = ElementBlock::<C, LinearTetrahedron<C>, N>
-        // so that specification is easier and cleaner
-        //
-        todo!()
     }
 }

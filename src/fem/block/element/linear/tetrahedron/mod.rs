@@ -4,7 +4,7 @@ mod test;
 use crate::{
     fem::{
         GradientVectors, ReferenceNodalCoordinates, StandardGradientOperators,
-        block::element::{FiniteElement, SolidElement},
+        block::element::{Element, FiniteElement},
     },
     math::{Scalar, Scalars, TensorRank1List, tensor_rank_1},
 };
@@ -20,7 +20,7 @@ const P: usize = G;
 #[cfg(test)]
 const Q: usize = N;
 
-pub type Tetrahedron = SolidElement<G, N>;
+pub type Tetrahedron = Element<G, N>;
 
 impl From<ReferenceNodalCoordinates<N>> for Tetrahedron {
     fn from(reference_nodal_coordinates: ReferenceNodalCoordinates<N>) -> Self {

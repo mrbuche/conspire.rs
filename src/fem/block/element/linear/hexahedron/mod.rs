@@ -5,7 +5,7 @@ use crate::{
     fem::{
         GradientVectors, ReferenceNodalCoordinates, ShapeFunctionsGradients,
         StandardGradientOperators,
-        block::element::{FiniteElement, SolidElement},
+        block::element::{Element, FiniteElement},
     },
     math::{Scalar, Scalars, Tensor, tensor_rank_1},
 };
@@ -23,7 +23,7 @@ const Q: usize = N;
 
 const SQRT_3: Scalar = 1.732_050_807_568_877_2;
 
-pub type Hexahedron = SolidElement<G, N>;
+pub type Hexahedron = Element<G, N>;
 
 impl From<ReferenceNodalCoordinates<N>> for Hexahedron {
     fn from(reference_nodal_coordinates: ReferenceNodalCoordinates<N>) -> Self {
