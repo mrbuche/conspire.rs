@@ -20,7 +20,7 @@ use crate::{
             ViscoelasticFiniteElement,
         },
     },
-    math::{IDENTITY, Scalar, Tensor, TensorRank1List, tensor_rank_1},
+    math::{IDENTITY, Scalar, Scalars, Tensor, TensorRank1List, tensor_rank_1},
     mechanics::{
         DeformationGradient, DeformationGradientList, DeformationGradientRate,
         DeformationGradientRateList, FirstPiolaKirchhoffRateTangentStiffnesses,
@@ -159,6 +159,9 @@ impl SolidFiniteElement<G, N> for Triangle {
     }
     fn gradient_vectors(&self) -> &GradientVectors<G, N> {
         &self.gradient_vectors
+    }
+    fn integration_weights(&self) -> &Scalars<G> {
+        &self.integration_weights
     }
 }
 

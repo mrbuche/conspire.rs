@@ -7,8 +7,8 @@ pub use block::{
     ElasticViscoplasticFiniteElementBlock, ElementBlock, FiniteElementBlock,
     FiniteElementBlockError, FiniteElementBlockMethods, FirstOrderMinimize, FirstOrderRoot,
     HyperelasticFiniteElementBlock, HyperviscoelasticFiniteElementBlock, SecondOrderMinimize,
-    SurfaceFiniteElementBlock, ViscoelasticFiniteElementBlock, ViscoplasticStateVariables,
-    ViscoplasticStateVariablesHistory, ZerothOrderRoot, SolidFiniteElementBlock,
+    SolidFiniteElementBlock, SurfaceFiniteElementBlock, ViscoelasticFiniteElementBlock,
+    ViscoplasticStateVariables, ViscoplasticStateVariablesHistory, ZerothOrderRoot,
     element::{
         ElasticFiniteElement, ElasticViscoplasticFiniteElement, FiniteElement, FiniteElementError,
         HyperelasticFiniteElement, HyperviscoelasticFiniteElement, SolidFiniteElement,
@@ -63,17 +63,17 @@ type Normals<const P: usize> = Vectors<1, P>;
 type NormalGradients<const O: usize, const P: usize> = TensorRank2List2D<3, 1, 1, O, P>;
 type NormalRates<const P: usize> = Vectors<1, P>;
 type NormalizedProjectionMatrix<const Q: usize> = TensorRank2<Q, 9, 9>;
-type ParametricGradientOperators<const P: usize> = TensorRank2List<3, 0, 9, P>;
+type ParametricGradientOperators<const P: usize> = TensorRank2List<3, 0, 0, P>;
 type ProjectionMatrix<const Q: usize> = TensorRank2<Q, 9, 9>;
 type ReferenceNodalCoordinates<const D: usize> = ReferenceCoordinates<D>;
 type ReferenceNormals<const P: usize> = Vectors<0, P>;
 #[cfg(test)]
 type ShapeFunctions<const Q: usize> = crate::math::TensorRank1<Q, 9>;
-type ShapeFunctionsGradients<const M: usize, const Q: usize> = TensorRank1List<M, 9, Q>;
+type ShapeFunctionsGradients<const M: usize, const Q: usize> = TensorRank1List<M, 0, Q>;
 type ShapeFunctionIntegrals<const P: usize, const Q: usize> = TensorRank1List<Q, 9, P>;
 type ShapeFunctionIntegralsProducts<const P: usize, const Q: usize> = TensorRank2List<Q, 9, 9, P>;
 type ShapeFunctionsAtIntegrationPoints<const G: usize, const Q: usize> = TensorRank1List<Q, 9, G>;
 type StandardGradientOperators<const M: usize, const O: usize, const P: usize> =
-    TensorRank1List2D<M, 9, O, P>;
+    TensorRank1List2D<M, 0, O, P>;
 type StandardGradientOperatorsTransposed<const M: usize, const O: usize, const P: usize> =
-    TensorRank1List2D<M, 9, P, O>;
+    TensorRank1List2D<M, 0, P, O>;

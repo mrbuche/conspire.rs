@@ -4,11 +4,9 @@ use crate::{
         NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures,
         block::element::{FiniteElementError, ThermalElement, ThermalFiniteElement},
     },
-    mechanics::{TemperatureGradients, HeatFluxes},
     math::Tensor,
+    mechanics::{HeatFluxes, TemperatureGradients},
 };
-
-impl<C, const G: usize, const N: usize> ThermalFiniteElement<C, G, N> for ThermalElement<G, N> {}
 
 pub trait ThermalConductionFiniteElement<C, const G: usize, const N: usize>
 where
@@ -45,31 +43,27 @@ where
         match self
             .temperature_gradients(nodal_temperatures)
             .iter()
-            .map(|temperature_gradient| {
-                constitutive_model.heat_flux(temperature_gradient)
-            })
+            .map(|temperature_gradient| constitutive_model.heat_flux(temperature_gradient))
             .collect::<Result<HeatFluxes<G>, _>>()
         {
-            Ok(heat_fluxes) => todo!(),
-            // Ok(heat_fluxes) => Ok(heat_fluxes
-            //     .iter()
-            //     .zip(
-            //         self.gradient_vectors()
-            //             .iter()
-            //             .zip(self.integration_weights().iter()),
-            //     )
-            //     .map(
-            //         |(heat_flux, (gradient_vectors, integration_weight))| {
-            //             gradient_vectors
-            //                 .iter()
-            //                 .map(|gradient_vector| {
-            //                     (heat_flux * gradient_vector)
-            //                         * integration_weight
-            //                 })
-            //                 .collect()
-            //         },
-            //     )
-            //     .sum()),
+            Ok(heat_fluxes) => Ok(heat_fluxes
+                .iter()
+                .zip(
+                    self.standard_gradient_operators()
+                        .iter()
+                        .zip(self.integration_weights().iter()),
+                )
+                .map(
+                    |(heat_flux, (standard_gradient_operators, integration_weight))| {
+                        standard_gradient_operators
+                            .iter()
+                            .map(|standard_gradient_operator| {
+                                (heat_flux * standard_gradient_operator) * integration_weight
+                            })
+                            .collect()
+                    },
+                )
+                .sum()),
             Err(error) => Err(FiniteElementError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),

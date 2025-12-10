@@ -7,18 +7,19 @@ pub mod viscoelastic;
 pub mod viscoplastic;
 
 use crate::{
-    fem::{GradientVectors, NodalCoordinates, NodalVelocities, block::element::Element},
+    fem::{GradientVectors, NodalCoordinates, NodalVelocities},
     math::{Scalars, Tensor},
     mechanics::{DeformationGradientList, DeformationGradientRateList},
 };
 use std::fmt::{self, Debug, Formatter};
 
-pub type SolidElement<const G: usize, const N: usize> = Element<G, GradientVectors<G, N>>;
+// pub type SolidElement<const G: usize, const N: usize> = Element<G, GradientVectors<G, N>>;
 
-impl<const G: usize, const N: usize> SolidElement<G, N> {
-    fn integration_weights(&self) -> &Scalars<G> {
-        &self.integration_weights
-    }
+pub struct SolidElement<const G: usize, const N: usize> {
+    pub gradient_vectors: GradientVectors<G, N>,
+    pub integration_weights: Scalars<G>,
+    // gradient_vectors: GradientVectors<G, N>,
+    // integration_weights: Scalars<G>,
 }
 
 impl<const G: usize, const N: usize> Debug for SolidElement<G, N> {
@@ -44,6 +45,7 @@ pub trait SolidFiniteElement<const G: usize, const N: usize> {
         nodal_velocities: &NodalVelocities<N>,
     ) -> DeformationGradientRateList<G>;
     fn gradient_vectors(&self) -> &GradientVectors<G, N>;
+    fn integration_weights(&self) -> &Scalars<G>;
 }
 
 impl<const G: usize, const N: usize> SolidFiniteElement<G, N> for SolidElement<G, N> {
@@ -83,6 +85,9 @@ impl<const G: usize, const N: usize> SolidFiniteElement<G, N> for SolidElement<G
             .collect()
     }
     fn gradient_vectors(&self) -> &GradientVectors<G, N> {
-        &self.data
+        &self.gradient_vectors
+    }
+    fn integration_weights(&self) -> &Scalars<G> {
+        &self.integration_weights
     }
 }

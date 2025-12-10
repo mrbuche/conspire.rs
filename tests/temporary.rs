@@ -11,8 +11,8 @@ use conspire::{
     },
     fem::{
         Connectivity, ElasticHyperviscousFiniteElementBlock, ElasticViscoplasticFiniteElementBlock,
-        ElementBlock, SolidFiniteElementBlock, FiniteElementBlock, LinearTetrahedron,
-        ReferenceNodalCoordinatesBlock, SecondOrderMinimize, ViscoelasticFiniteElementBlock,
+        ElementBlock, FiniteElementBlock, LinearTetrahedron, ReferenceNodalCoordinatesBlock,
+        SecondOrderMinimize, SolidFiniteElementBlock, ViscoelasticFiniteElementBlock,
     },
     math::{
         Matrix, Scalar, Tensor, TestError, Vector, assert_eq_within, assert_eq_within_tols,

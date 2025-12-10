@@ -26,13 +26,10 @@ use crate::{
 };
 use std::fmt::{Debug, Display};
 
-pub struct Element<const G: usize, T> {
-    data: T,
-    integration_weights: Scalars<G>,
-}
-
-pub trait FiniteElement<const G: usize, const N: usize> {
-    fn new(reference_nodal_coordinates: ReferenceNodalCoordinates<N>) -> Self;
+pub trait FiniteElement<const G: usize, const N: usize>
+where
+    Self: From<ReferenceNodalCoordinates<N>>,
+{
     fn reference() -> ReferenceNodalCoordinates<N>;
     fn reset(&mut self);
 }

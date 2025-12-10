@@ -25,14 +25,17 @@ const SQRT_3: Scalar = 1.732_050_807_568_877_2;
 
 pub type Hexahedron = SolidElement<G, N>;
 
-impl FiniteElement<G, N> for Hexahedron {
-    fn new(reference_nodal_coordinates: ReferenceNodalCoordinates<N>) -> Self {
+impl From<ReferenceNodalCoordinates<N>> for Hexahedron {
+    fn from(reference_nodal_coordinates: ReferenceNodalCoordinates<N>) -> Self {
         let (gradient_vectors, integration_weights) = Self::initialize(reference_nodal_coordinates);
         Self {
-            data: gradient_vectors,
+            gradient_vectors,
             integration_weights,
         }
     }
+}
+
+impl FiniteElement<G, N> for Hexahedron {
     fn reference() -> ReferenceNodalCoordinates<N> {
         ReferenceNodalCoordinates::const_from([
             tensor_rank_1([-1.0, -1.0, -1.0]),
@@ -47,7 +50,7 @@ impl FiniteElement<G, N> for Hexahedron {
     }
     fn reset(&mut self) {
         let (gradient_vectors, integration_weights) = Self::initialize(Self::reference());
-        self.data = gradient_vectors;
+        self.gradient_vectors = gradient_vectors;
         self.integration_weights = integration_weights;
     }
 }

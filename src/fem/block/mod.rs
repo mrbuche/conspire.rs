@@ -63,8 +63,7 @@ impl<C, F, const N: usize> Debug for ElementBlock<C, F, N> {
     }
 }
 
-pub trait FiniteElementBlockMethods<C, F, const G: usize, const N: usize>
-{
+pub trait FiniteElementBlockMethods<C, F, const G: usize, const N: usize> {
     fn constitutive_model(&self) -> &C;
     fn connectivity(&self) -> &Connectivity<N>;
     fn coordinates(&self) -> &ReferenceNodalCoordinatesBlock;
@@ -194,7 +193,7 @@ where
         let elements = connectivity
             .iter()
             .map(|element_connectivity| {
-                <F>::new(
+                <F>::from(
                     element_connectivity
                         .iter()
                         .map(|&node| coordinates[node].clone())

@@ -129,8 +129,8 @@ macro_rules! test_finite_element_block_inner {
                         },
                     },
                     fem::block::{
-                        ElasticFiniteElementBlock, SolidFiniteElementBlock,
-                        HyperelasticFiniteElementBlock,
+                        ElasticFiniteElementBlock, HyperelasticFiniteElementBlock,
+                        SolidFiniteElementBlock,
                     },
                 };
                 mod arruda_boyce {

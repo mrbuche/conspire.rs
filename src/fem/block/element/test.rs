@@ -15,10 +15,10 @@ macro_rules! test_finite_element {
             get_deformation_gradient_rate() * reference_coordinates()
         }
         fn element() -> $element {
-            $element::new(reference_coordinates())
+            $element::from(reference_coordinates())
         }
         fn element_transformed() -> $element {
-            $element::new(reference_coordinates_transformed())
+            $element::from(reference_coordinates_transformed())
         }
         #[test]
         fn size() {
@@ -30,10 +30,10 @@ macro_rules! test_finite_element {
         macro_rules! setup_element {
             () => {
                 fn get_element() -> $element {
-                    $element::new(reference_coordinates())
+                    $element::from(reference_coordinates())
                 }
                 fn get_element_transformed() -> $element {
-                    $element::new(reference_coordinates_transformed())
+                    $element::from(reference_coordinates_transformed())
                 }
             };
         }
