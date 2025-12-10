@@ -4,8 +4,7 @@ use crate::{
         NodalForcesBlockThermal, NodalStiffnessesBlockThermal, NodalTemperatures,
         NodalTemperaturesBlock,
         block::{
-            ElementBlock, FiniteElementBlockError, FiniteElementBlockMethods, FirstOrderRoot,
-            ZerothOrderRoot,
+            ElementBlock, FiniteElementBlockError, FirstOrderRoot, ZerothOrderRoot,
             element::{FiniteElementError, ThermalConductionFiniteElement, ThermalFiniteElement},
         },
     },
@@ -15,16 +14,22 @@ use crate::{
             EqualityConstraint, FirstOrderRootFinding, OptimizationError, ZerothOrderRootFinding,
         },
     },
+    mechanics::TemperatureGradients,
 };
 
 pub trait ThermalFiniteElementBlock<C, F, const G: usize, const N: usize>
 where
     F: ThermalFiniteElement<G, N>,
 {
-    // fn temperature_gradients(
-    //     &self,
-    //     nodal_temperatures: &NodalTemperaturesBlock,
-    // ) -> Vec<TemperatureGradientList<G>>;
+    fn nodal_temperatures_element(
+        &self,
+        element_connectivity: &[usize; N],
+        nodal_temperatures: &NodalTemperaturesBlock,
+    ) -> NodalTemperatures<N>;
+    fn temperature_gradients(
+        &self,
+        nodal_temperatures: &NodalTemperaturesBlock,
+    ) -> Vec<TemperatureGradients<G>>;
 }
 
 impl<C, F, const G: usize, const N: usize> ThermalFiniteElementBlock<C, F, G, N>
@@ -32,20 +37,30 @@ impl<C, F, const G: usize, const N: usize> ThermalFiniteElementBlock<C, F, G, N>
 where
     F: ThermalFiniteElement<G, N>,
 {
-    // fn temperature_gradients(
-    //     &self,
-    //     nodal_temperatures: &NodalTemperaturesBlock,
-    // ) -> Vec<TemperatureGradientList<G>> {
-    //     self.elements()
-    //         .iter()
-    //         .zip(self.connectivity().iter())
-    //         .map(|(element, element_connectivity)| {
-    //             element.deformation_gradients(
-    //                 &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
-    //             )
-    //         })
-    //         .collect()
-    // }
+    fn nodal_temperatures_element(
+        &self,
+        element_connectivity: &[usize; N],
+        nodal_temperatures: &NodalTemperaturesBlock,
+    ) -> NodalTemperatures<N> {
+        element_connectivity
+            .iter()
+            .map(|&node| nodal_temperatures[node])
+            .collect()
+    }
+    fn temperature_gradients(
+        &self,
+        nodal_temperatures: &NodalTemperaturesBlock,
+    ) -> Vec<TemperatureGradients<G>> {
+        self.elements()
+            .iter()
+            .zip(self.connectivity().iter())
+            .map(|(element, element_connectivity)| {
+                element.temperature_gradients(
+                    &self.nodal_temperatures_element(element_connectivity, nodal_temperatures),
+                )
+            })
+            .collect()
+    }
 }
 
 pub trait ThermalConductionFiniteElementBlock<C, F, const G: usize, const N: usize>
@@ -61,16 +76,6 @@ where
         &self,
         nodal_temperatures: &NodalTemperaturesBlock,
     ) -> Result<NodalStiffnessesBlockThermal, FiniteElementBlockError>;
-    fn nodal_temperatures_element(
-        &self,
-        element_connectivity: &[usize; N],
-        nodal_temperatures: &NodalTemperaturesBlock,
-    ) -> NodalTemperatures<N> {
-        element_connectivity
-            .iter()
-            .map(|&node| nodal_temperatures[node])
-            .collect()
-    }
 }
 
 impl<C, F, const G: usize, const N: usize> ThermalConductionFiniteElementBlock<C, F, G, N>
@@ -78,7 +83,6 @@ impl<C, F, const G: usize, const N: usize> ThermalConductionFiniteElementBlock<C
 where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, N>,
-    Self: FiniteElementBlockMethods<C, F, G, N>, // do you need this? commented out in solid
 {
     fn nodal_forces(
         &self,
@@ -147,7 +151,6 @@ impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N, NodalTemp
 where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, N>,
-    Self: FiniteElementBlockMethods<C, F, G, N>, // do you need this? commented out in solid
 {
     fn root(
         &self,
@@ -175,7 +178,6 @@ impl<C, F, const G: usize, const N: usize>
 where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, N>,
-    Self: FiniteElementBlockMethods<C, F, G, N>, // do you need this? commented out in solid
 {
     fn root(
         &self,

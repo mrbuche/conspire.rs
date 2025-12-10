@@ -37,6 +37,31 @@ pub struct ElementBlock<C, F, const N: usize> {
     elements: Vec<F>,
 }
 
+impl<C, F, const N: usize> ElementBlock<C, F, N> {
+    fn constitutive_model(&self) -> &C {
+        &self.constitutive_model
+    }
+    fn connectivity(&self) -> &Connectivity<N> {
+        &self.connectivity
+    }
+    fn coordinates(&self) -> &ReferenceNodalCoordinatesBlock {
+        &self.coordinates
+    }
+    fn elements(&self) -> &[F] {
+        &self.elements
+    }
+    fn nodal_coordinates_element(
+        &self,
+        element_connectivity: &[usize; N],
+        nodal_coordinates: &NodalCoordinatesBlock,
+    ) -> NodalCoordinates<N> {
+        element_connectivity
+            .iter()
+            .map(|&node| nodal_coordinates[node].clone())
+            .collect()
+    }
+}
+
 impl<C, F, const N: usize> Debug for ElementBlock<C, F, N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let element = match N {
@@ -59,18 +84,6 @@ impl<C, F, const N: usize> Debug for ElementBlock<C, F, N> {
             self.connectivity.len()
         )
     }
-}
-
-pub trait FiniteElementBlockMethods<C, F, const G: usize, const N: usize> {
-    fn constitutive_model(&self) -> &C;
-    fn connectivity(&self) -> &Connectivity<N>;
-    fn coordinates(&self) -> &ReferenceNodalCoordinatesBlock;
-    fn elements(&self) -> &[F];
-    fn nodal_coordinates_element(
-        &self,
-        element_connectivity: &[usize; N],
-        nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> NodalCoordinates<N>;
 }
 
 pub trait FiniteElementBlock<C, F, const G: usize, const N: usize>
@@ -147,35 +160,6 @@ impl Display for FiniteElementBlockError {
             }
         };
         write!(f, "{error}\x1b[0m")
-    }
-}
-
-impl<C, F, const G: usize, const N: usize> FiniteElementBlockMethods<C, F, G, N>
-    for ElementBlock<C, F, N>
-where
-    F: SolidFiniteElement<G, N>, // this restriction is not great, but causes errors somehow without it?
-{
-    fn constitutive_model(&self) -> &C {
-        &self.constitutive_model
-    }
-    fn connectivity(&self) -> &Connectivity<N> {
-        &self.connectivity
-    }
-    fn coordinates(&self) -> &ReferenceNodalCoordinatesBlock {
-        &self.coordinates
-    }
-    fn elements(&self) -> &[F] {
-        &self.elements
-    }
-    fn nodal_coordinates_element(
-        &self,
-        element_connectivity: &[usize; N],
-        nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> NodalCoordinates<N> {
-        element_connectivity
-            .iter()
-            .map(|&node| nodal_coordinates[node].clone())
-            .collect()
     }
 }
 
@@ -577,7 +561,6 @@ impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N, NodalCoor
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, N>,
-    // Self: FiniteElementBlockMethods<C, F, G, N>,
 {
     fn root(
         &self,
@@ -598,7 +581,6 @@ impl<C, F, const G: usize, const N: usize>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, N>,
-    // Self: SolidFiniteElementBlock<C, F, G, N>,
 {
     fn root(
         &self,
@@ -657,7 +639,6 @@ impl<C, F, const G: usize, const N: usize> FirstOrderMinimize<C, F, G, N, NodalC
 where
     C: Hyperelastic,
     F: HyperelasticFiniteElement<C, G, N>,
-    // Self: ElasticFiniteElementBlock<C, F, G, N>,
 {
     fn minimize(
         &self,
@@ -681,7 +662,6 @@ impl<C, F, const G: usize, const N: usize>
 where
     C: Hyperelastic,
     F: HyperelasticFiniteElement<C, G, N>,
-    // Self: ElasticFiniteElementBlock<C, F, G, N>,
 {
     fn minimize(
         &self,
@@ -1032,7 +1012,7 @@ where
         solver: &impl FirstOrderRootFinding<
             NodalForcesBlock,
             NodalStiffnessesBlock,
-            NodalCoordinatesBlock,
+            NodalVelocitiesBlock,
         >,
         initial_guess: &NodalVelocitiesBlock,
     ) -> Result<NodalVelocitiesBlock, OptimizationError> {
@@ -1141,7 +1121,7 @@ where
             Scalar,
             NodalForcesBlock,
             NodalStiffnessesBlock,
-            NodalCoordinatesBlock,
+            NodalVelocitiesBlock,
         >,
         initial_guess: &NodalVelocitiesBlock,
     ) -> Result<NodalVelocitiesBlock, OptimizationError> {
