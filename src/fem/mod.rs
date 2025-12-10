@@ -7,9 +7,8 @@ pub use block::{
     ElasticViscoplasticFiniteElementBlock, ElementBlock, FiniteElementBlock,
     FiniteElementBlockError, FiniteElementBlockMethods, FirstOrderMinimize, FirstOrderRoot,
     HyperelasticFiniteElementBlock, HyperviscoelasticFiniteElementBlock, SecondOrderMinimize,
-    SolidFiniteElementBlock, SurfaceFiniteElementBlock, ThermalConductionFiniteElementBlock,
-    ViscoelasticFiniteElementBlock, ViscoplasticStateVariables, ViscoplasticStateVariablesHistory,
-    ZerothOrderRoot,
+    SolidFiniteElementBlock, SurfaceFiniteElementBlock, ViscoelasticFiniteElementBlock,
+    ViscoplasticStateVariables, ViscoplasticStateVariablesHistory, ZerothOrderRoot,
     element::{
         ElasticFiniteElement, ElasticViscoplasticFiniteElement, FiniteElement, FiniteElementError,
         HyperelasticFiniteElement, HyperviscoelasticFiniteElement, SolidFiniteElement,
@@ -21,6 +20,7 @@ pub use block::{
             tetrahedron::Tetrahedron as LinearTetrahedron, triangle::Triangle as LinearTriangle,
         },
     },
+    thermal::ThermalConductionFiniteElementBlock,
 };
 
 use crate::{

@@ -2,18 +2,16 @@
 mod test;
 
 pub mod element;
+pub mod thermal;
 
 use self::element::{
     ElasticFiniteElement, ElasticHyperviscousFiniteElement, ElasticViscoplasticFiniteElement,
     FiniteElement, FiniteElementError, HyperelasticFiniteElement, HyperviscoelasticFiniteElement,
-    SolidFiniteElement, SurfaceFiniteElement, ThermalConductionFiniteElement,
-    ViscoelasticFiniteElement,
+    SolidFiniteElement, SurfaceFiniteElement, ViscoelasticFiniteElement,
 };
 use super::*;
 use crate::{
-    constitutive::{
-        solid::elastic_viscoplastic::ElasticViscoplastic, thermal::conduction::ThermalConduction,
-    },
+    constitutive::solid::elastic_viscoplastic::ElasticViscoplastic,
     defeat_message,
     math::{
         Banded, TensorArray, TensorTupleListVec, TensorTupleListVec2D, TestError,
@@ -155,7 +153,7 @@ impl Display for FiniteElementBlockError {
 impl<C, F, const G: usize, const N: usize> FiniteElementBlockMethods<C, F, G, N>
     for ElementBlock<C, F, N>
 where
-    F: SolidFiniteElement<G, N>,
+    F: SolidFiniteElement<G, N>, // this restriction is not great, but causes errors somehow without it?
 {
     fn constitutive_model(&self) -> &C {
         &self.constitutive_model
@@ -245,6 +243,38 @@ where
     }
 }
 
+pub trait ZerothOrderRoot<C, E, const G: usize, const N: usize, X> {
+    fn root(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: impl ZerothOrderRootFinding<X>,
+    ) -> Result<X, OptimizationError>;
+}
+
+pub trait FirstOrderRoot<C, E, const G: usize, const N: usize, F, J, X> {
+    fn root(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: impl FirstOrderRootFinding<F, J, X>,
+    ) -> Result<X, OptimizationError>;
+}
+
+pub trait FirstOrderMinimize<C, E, const G: usize, const N: usize, X> {
+    fn minimize(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: impl FirstOrderOptimization<Scalar, X>,
+    ) -> Result<X, OptimizationError>;
+}
+
+pub trait SecondOrderMinimize<C, E, const G: usize, const N: usize, J, H, X> {
+    fn minimize(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: impl SecondOrderOptimization<Scalar, J, H, X>,
+    ) -> Result<X, OptimizationError>;
+}
+
 pub trait SolidFiniteElementBlock<C, F, const G: usize, const N: usize>
 where
     F: SolidFiniteElement<G, N>,
@@ -291,46 +321,6 @@ where
     ) -> Result<NodalStiffnessesBlock, FiniteElementBlockError>;
 }
 
-// pub trait ZerothOrderRoot<C, F, const G: usize, const N: usize>
-// where
-//     C: Elastic,
-//     F: ElasticFiniteElement<C, G, N>,
-// {
-//     fn root(
-//         &self,
-//         equality_constraint: EqualityConstraint,
-//         solver: impl ZerothOrderRootFinding<NodalCoordinatesBlock>,
-//     ) -> Result<NodalCoordinatesBlock, OptimizationError>;
-// }
-
-//
-// Should be able to apply this to viscoelastic too now.
-//
-pub trait ZerothOrderRoot<C, F, const G: usize, const N: usize, X>
-{
-    fn root(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<X>,
-    ) -> Result<X, OptimizationError>;
-}
-
-pub trait FirstOrderRoot<C, F, const G: usize, const N: usize>
-where
-    C: Elastic,
-    F: ElasticFiniteElement<C, G, N>,
-{
-    fn root(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderRootFinding<
-            NodalForcesBlock,
-            NodalStiffnessesBlock,
-            NodalCoordinatesBlock,
-        >,
-    ) -> Result<NodalCoordinatesBlock, OptimizationError>;
-}
-
 pub trait HyperelasticFiniteElementBlock<C, F, const G: usize, const N: usize>
 where
     C: Hyperelastic,
@@ -341,37 +331,6 @@ where
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<Scalar, FiniteElementBlockError>;
-}
-
-pub trait FirstOrderMinimize<C, F, const G: usize, const N: usize>
-where
-    C: Hyperelastic,
-    F: HyperelasticFiniteElement<C, G, N>,
-    Self: ElasticFiniteElementBlock<C, F, G, N>,
-{
-    fn minimize(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<Scalar, NodalForcesBlock>,
-    ) -> Result<NodalCoordinatesBlock, OptimizationError>;
-}
-
-pub trait SecondOrderMinimize<C, F, const G: usize, const N: usize>
-where
-    C: Hyperelastic,
-    F: HyperelasticFiniteElement<C, G, N>,
-    Self: ElasticFiniteElementBlock<C, F, G, N>,
-{
-    fn minimize(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl SecondOrderOptimization<
-            Scalar,
-            NodalForcesBlock,
-            NodalStiffnessesBlock,
-            NodalCoordinatesBlock,
-        >,
-    ) -> Result<NodalCoordinatesBlock, OptimizationError>;
 }
 
 pub type ViscoplasticStateVariables<const G: usize> =
@@ -613,11 +572,12 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N, NodalCoordinatesBlock> for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N, NodalCoordinatesBlock>
+    for ElementBlock<C, F, N>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, N>,
-    Self: FiniteElementBlockMethods<C, F, G, N>,
+    // Self: FiniteElementBlockMethods<C, F, G, N>,
 {
     fn root(
         &self,
@@ -632,11 +592,13 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> FirstOrderRoot<C, F, G, N> for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const N: usize>
+    FirstOrderRoot<C, F, G, N, NodalForcesBlock, NodalStiffnessesBlock, NodalCoordinatesBlock>
+    for ElementBlock<C, F, N>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, N>,
-    Self: SolidFiniteElementBlock<C, F, G, N>,
+    // Self: SolidFiniteElementBlock<C, F, G, N>,
 {
     fn root(
         &self,
@@ -690,11 +652,12 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> FirstOrderMinimize<C, F, G, N> for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const N: usize> FirstOrderMinimize<C, F, G, N, NodalCoordinatesBlock>
+    for ElementBlock<C, F, N>
 where
     C: Hyperelastic,
     F: HyperelasticFiniteElement<C, G, N>,
-    Self: ElasticFiniteElementBlock<C, F, G, N>,
+    // Self: ElasticFiniteElementBlock<C, F, G, N>,
 {
     fn minimize(
         &self,
@@ -712,11 +675,13 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> SecondOrderMinimize<C, F, G, N> for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const N: usize>
+    SecondOrderMinimize<C, F, G, N, NodalForcesBlock, NodalStiffnessesBlock, NodalCoordinatesBlock>
+    for ElementBlock<C, F, N>
 where
     C: Hyperelastic,
     F: HyperelasticFiniteElement<C, G, N>,
-    Self: ElasticFiniteElementBlock<C, F, G, N>,
+    // Self: ElasticFiniteElementBlock<C, F, G, N>,
 {
     fn minimize(
         &self,
@@ -1228,119 +1193,6 @@ where
                 format!("{self:?}"),
             )),
         }
-    }
-}
-
-pub trait ThermalConductionFiniteElementBlock<C, F, const G: usize, const N: usize>
-where
-    C: ThermalConduction,
-    F: ThermalConductionFiniteElement<C, G, N>,
-{
-    fn nodal_forces(
-        &self,
-        nodal_temperatures: &NodalTemperaturesBlock,
-    ) -> Result<NodalForcesBlockThermal, FiniteElementBlockError>;
-    fn nodal_stiffnesses(
-        &self,
-        nodal_temperatures: &NodalTemperaturesBlock,
-    ) -> Result<NodalStiffnessesBlockThermal, FiniteElementBlockError>;
-    fn nodal_temperatures_element(
-        &self,
-        element_connectivity: &[usize; N],
-        nodal_temperatures: &NodalTemperaturesBlock,
-    ) -> NodalTemperatures<N> {
-        element_connectivity
-            .iter()
-            .map(|&node| nodal_temperatures[node])
-            .collect()
-    }
-}
-
-impl<C, F, const G: usize, const N: usize> ThermalConductionFiniteElementBlock<C, F, G, N>
-    for ElementBlock<C, F, N>
-where
-    C: ThermalConduction,
-    F: ThermalConductionFiniteElement<C, G, N>,
-    Self: FiniteElementBlockMethods<C, F, G, N>,
-{
-    fn nodal_forces(
-        &self,
-        nodal_temperatures: &NodalTemperaturesBlock,
-    ) -> Result<NodalForcesBlockThermal, FiniteElementBlockError> {
-        let mut nodal_forces = NodalForcesBlockThermal::zero(nodal_temperatures.len());
-        match self
-            .elements()
-            .iter()
-            .zip(self.connectivity().iter())
-            .try_for_each(|(element, element_connectivity)| {
-                element
-                    .nodal_forces(
-                        self.constitutive_model(),
-                        &self.nodal_temperatures_element(element_connectivity, nodal_temperatures),
-                    )?
-                    .iter()
-                    .zip(element_connectivity.iter())
-                    .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
-                Ok::<(), FiniteElementError>(())
-            }) {
-            Ok(()) => Ok(nodal_forces),
-            Err(error) => Err(FiniteElementBlockError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
-    }
-    fn nodal_stiffnesses(
-        &self,
-        nodal_temperatures: &NodalTemperaturesBlock,
-    ) -> Result<NodalStiffnessesBlockThermal, FiniteElementBlockError> {
-        let mut nodal_stiffnesses = NodalStiffnessesBlockThermal::zero(nodal_temperatures.len());
-        match self
-            .elements()
-            .iter()
-            .zip(self.connectivity().iter())
-            .try_for_each(|(element, element_connectivity)| {
-                element
-                    .nodal_stiffnesses(
-                        self.constitutive_model(),
-                        &self.nodal_temperatures_element(element_connectivity, nodal_temperatures),
-                    )?
-                    .iter()
-                    .zip(element_connectivity.iter())
-                    .for_each(|(object, &node_a)| {
-                        object.iter().zip(element_connectivity.iter()).for_each(
-                            |(nodal_stiffness, &node_b)| {
-                                nodal_stiffnesses[node_a][node_b] += nodal_stiffness
-                            },
-                        )
-                    });
-                Ok::<(), FiniteElementError>(())
-            }) {
-            Ok(()) => Ok(nodal_stiffnesses),
-            Err(error) => Err(FiniteElementBlockError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
-    }
-}
-
-impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N, NodalTemperaturesBlock> for ElementBlock<C, F, N>
-where
-    C: ThermalConduction,
-    F: ThermalConductionFiniteElement<C, G, N>,
-    Self: FiniteElementBlockMethods<C, F, G, N>,
-{
-    fn root(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<NodalTemperaturesBlock>,
-    ) -> Result<NodalTemperaturesBlock, OptimizationError> {
-        solver.root(
-            |nodal_temperatures: &NodalTemperaturesBlock| Ok(self.nodal_forces(nodal_temperatures)?),
-            todo!("Initial temperature guess?"),
-            equality_constraint,
-        )
     }
 }
 
