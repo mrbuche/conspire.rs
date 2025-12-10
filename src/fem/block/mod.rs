@@ -291,16 +291,28 @@ where
     ) -> Result<NodalStiffnessesBlock, FiniteElementBlockError>;
 }
 
-pub trait ZerothOrderRoot<C, F, const G: usize, const N: usize>
-where
-    C: Elastic,
-    F: ElasticFiniteElement<C, G, N>,
+// pub trait ZerothOrderRoot<C, F, const G: usize, const N: usize>
+// where
+//     C: Elastic,
+//     F: ElasticFiniteElement<C, G, N>,
+// {
+//     fn root(
+//         &self,
+//         equality_constraint: EqualityConstraint,
+//         solver: impl ZerothOrderRootFinding<NodalCoordinatesBlock>,
+//     ) -> Result<NodalCoordinatesBlock, OptimizationError>;
+// }
+
+//
+// Should be able to apply this to viscoelastic too now.
+//
+pub trait ZerothOrderRoot<C, F, const G: usize, const N: usize, X>
 {
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<NodalCoordinatesBlock>,
-    ) -> Result<NodalCoordinatesBlock, OptimizationError>;
+        solver: impl ZerothOrderRootFinding<X>,
+    ) -> Result<X, OptimizationError>;
 }
 
 pub trait FirstOrderRoot<C, F, const G: usize, const N: usize>
@@ -601,7 +613,7 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N> for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N, NodalCoordinatesBlock> for ElementBlock<C, F, N>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, N>,
@@ -1310,6 +1322,25 @@ where
                 format!("{self:?}"),
             )),
         }
+    }
+}
+
+impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N, NodalTemperaturesBlock> for ElementBlock<C, F, N>
+where
+    C: ThermalConduction,
+    F: ThermalConductionFiniteElement<C, G, N>,
+    Self: FiniteElementBlockMethods<C, F, G, N>,
+{
+    fn root(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: impl ZerothOrderRootFinding<NodalTemperaturesBlock>,
+    ) -> Result<NodalTemperaturesBlock, OptimizationError> {
+        solver.root(
+            |nodal_temperatures: &NodalTemperaturesBlock| Ok(self.nodal_forces(nodal_temperatures)?),
+            todo!("Initial temperature guess?"),
+            equality_constraint,
+        )
     }
 }
 
