@@ -173,7 +173,7 @@ where
     let mut solution_change = solution.clone();
     let mut step_size = INITIAL_STEP_SIZE;
     let mut step_trial;
-    for _ in 0..gradient_descent.max_steps {
+    for _ in 0..=gradient_descent.max_steps {
         residual = if let Some(ref extra) = constraint {
             jacobian(&solution)? - extra
         } else {
@@ -222,7 +222,7 @@ where
     let mut solution_change = solution.clone();
     let mut step_size = INITIAL_STEP_SIZE;
     let mut step_trial;
-    for iteration in 0..gradient_descent.max_steps {
+    for iteration in 0..=gradient_descent.max_steps {
         residual = jacobian(&solution)?;
         residual.zero_out(&indices);
         residual_norm = residual.norm_inf();
@@ -285,7 +285,7 @@ where
     let mut step_size_multipliers = INITIAL_STEP_SIZE;
     let mut step_trial_multipliers;
     let mut step_size;
-    for _ in 0..gradient_descent.max_steps {
+    for _ in 0..=gradient_descent.max_steps {
         residual_solution = jacobian(&solution)? - &multipliers * &constraint_matrix;
         residual_multipliers = &constraint_rhs - &constraint_matrix * &solution;
         if residual_solution.norm_inf() < gradient_descent.abs_tol
@@ -346,7 +346,7 @@ where
     let mut solution = initial_guess;
     let mut step_size = INITIAL_STEP_SIZE;
     let mut step_trial;
-    for _ in 0..gradient_descent.max_steps {
+    for _ in 0..=gradient_descent.max_steps {
         if let Ok(result) = unconstrained(
             gradient_descent,
             |_: &X| {

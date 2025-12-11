@@ -159,7 +159,7 @@ where
     ) -> Result<NodalTemperaturesBlock, OptimizationError> {
         solver.root(
             |nodal_temperatures: &NodalTemperaturesBlock| Ok(self.nodal_forces(nodal_temperatures)?),
-            todo!("Initial temperature guess?"),
+            NodalTemperaturesBlock::zero(self.coordinates().len()),
             equality_constraint,
         )
     }
@@ -193,7 +193,7 @@ where
             |nodal_temperatures: &NodalTemperaturesBlock| {
                 Ok(self.nodal_stiffnesses(nodal_temperatures)?)
             },
-            todo!("Initial temperature guess?"),
+            NodalTemperaturesBlock::zero(self.coordinates().len()),
             equality_constraint,
         )
     }

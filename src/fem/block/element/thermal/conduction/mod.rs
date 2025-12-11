@@ -5,7 +5,7 @@ use crate::{
         block::element::{Element, FiniteElementError, thermal::ThermalFiniteElement},
     },
     math::Tensor,
-    mechanics::HeatFluxes,
+    mechanics::{HeatFluxes, HeatFluxTangents}
 };
 
 pub trait ThermalConductionFiniteElement<C, const G: usize, const N: usize>
@@ -51,7 +51,7 @@ where
                 .map(|(heat_flux, (gradient_vectors, integration_weight))| {
                     gradient_vectors
                         .iter()
-                        .map(|gradient_vector| (heat_flux * gradient_vector) * integration_weight)
+                        .map(|gradient_vector| -(heat_flux * gradient_vector) * integration_weight)
                         .collect()
                 })
                 .sum()),
@@ -66,52 +66,47 @@ where
         constitutive_model: &C,
         nodal_temperatures: &NodalTemperatures<N>,
     ) -> Result<NodalStiffnessesThermal<N>, FiniteElementError> {
-        todo!()
-        // match self
-        //     .deformation_gradients(nodal_coordinates)
-        //     .iter()
-        //     .map(|deformation_gradient| {
-        //         constitutive_model.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)
-        //     })
-        //     .collect::<Result<FirstPiolaKirchhoffTangentStiffnesses<G>, _>>()
-        // {
-        //     Ok(first_piola_kirchhoff_tangent_stiffnesses) => {
-        //         Ok(first_piola_kirchhoff_tangent_stiffnesses
-        //             .iter()
-        //             .zip(
-        //                 self.gradient_vectors()
-        //                     .iter()
-        //                     .zip(self.integration_weights().iter()),
-        //             )
-        //             .map(
-        //                 |(
-        //                     first_piola_kirchhoff_tangent_stiffness,
-        //                     (gradient_vectors, integration_weight),
-        //                 )| {
-        //                     gradient_vectors
-        //                         .iter()
-        //                         .map(|gradient_vector_a| {
-        //                             gradient_vectors
-        //                                 .iter()
-        //                                 .map(|gradient_vector_b| {
-        //                                     first_piola_kirchhoff_tangent_stiffness
-        //                                     .contract_second_fourth_indices_with_first_indices_of(
-        //                                         gradient_vector_a,
-        //                                         gradient_vector_b,
-        //                                     )
-        //                                     * integration_weight
-        //                                 })
-        //                                 .collect()
-        //                         })
-        //                         .collect()
-        //                 },
-        //             )
-        //             .sum())
-        //     }
-        //     Err(error) => Err(FiniteElementError::Upstream(
-        //         format!("{error}"),
-        //         format!("{self:?}"),
-        //     )),
-        // }
+        match self
+            .temperature_gradients(nodal_temperatures)
+            .iter()
+            .map(|temperature_gradient| {
+                constitutive_model.heat_flux_tangent(temperature_gradient)
+            })
+            .collect::<Result<HeatFluxTangents<G>, _>>()
+        {
+            Ok(heat_flux_tangents) => {
+                Ok(heat_flux_tangents
+                    .iter()
+                    .zip(
+                        self.gradient_vectors()
+                            .iter()
+                            .zip(self.integration_weights().iter()),
+                    )
+                    .map(
+                        |(
+                            heat_flux_tangent,
+                            (gradient_vectors, integration_weight),
+                        )| {
+                            gradient_vectors
+                                .iter()
+                                .map(|gradient_vector_a| {
+                                    gradient_vectors
+                                        .iter()
+                                        .map(|gradient_vector_b| {
+                                            -(gradient_vector_a * (heat_flux_tangent * gradient_vector_b))
+                                            * integration_weight
+                                        })
+                                        .collect()
+                                })
+                                .collect()
+                        },
+                    )
+                    .sum())
+            }
+            Err(error) => Err(FiniteElementError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
 }

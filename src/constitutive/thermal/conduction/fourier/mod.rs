@@ -1,7 +1,14 @@
 #[cfg(test)]
 mod test;
 
-use super::{ConstitutiveError, HeatFlux, Scalar, TemperatureGradient, Thermal, ThermalConduction};
+use crate::{
+    constitutive::{
+        ConstitutiveError,
+        thermal::{Thermal, conduction::ThermalConduction},
+    },
+    math::IDENTITY_00,
+    mechanics::{HeatFlux, Scalar, TemperatureGradient, HeatFluxTangent},
+};
 
 /// The Fourier thermal conduction constitutive model.
 ///
@@ -38,5 +45,16 @@ impl ThermalConduction for Fourier {
         temperature_gradient: &TemperatureGradient,
     ) -> Result<HeatFlux, ConstitutiveError> {
         Ok(temperature_gradient * -self.thermal_conductivity())
+    }
+    /// Calculates and returns the tangent to the heat flux.
+    ///
+    /// ```math
+    /// \frac{\partial\mathbf{q}}{\partial\nabla T} = -k\mathbf{I}
+    /// ```
+    fn heat_flux_tangent(
+        &self,
+        temperature_gradient: &TemperatureGradient,
+    ) -> Result<HeatFluxTangent, ConstitutiveError> {
+        Ok(IDENTITY_00 * -self.thermal_conductivity())
     }
 }

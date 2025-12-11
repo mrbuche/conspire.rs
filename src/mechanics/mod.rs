@@ -221,6 +221,12 @@ pub type HeatFlux = TensorRank1<3, 0>;
 /// A list of heat fluxes.
 pub type HeatFluxes<const N: usize> = TensorRank1List<3, 0, N>;
 
+/// The heat flux tangent.
+pub type HeatFluxTangent = TensorRank2<3, 0, 0>;
+
+/// A list of heat flux tangents.
+pub type HeatFluxTangents<const N: usize> = TensorRank2List<3, 0, 0, N>;
+
 /// The left Cauchy-Green deformation $`\mathbf{B}`$.
 pub type LeftCauchyGreenDeformation = TensorRank2<3, 1, 1>;
 
