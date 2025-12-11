@@ -4,17 +4,19 @@ use crate::{
         NodalForcesBlockThermal, NodalStiffnessesBlockThermal, NodalTemperatures,
         NodalTemperaturesBlock,
         block::{
-            ElementBlock, FiniteElementBlockError, FirstOrderRoot, ZerothOrderRoot,
+            ElementBlock, FiniteElementBlockError, FirstOrderMinimize, FirstOrderRoot,
+            SecondOrderMinimize, ZerothOrderRoot, band,
             element::{FiniteElementError, ThermalConductionFiniteElement, ThermalFiniteElement},
         },
     },
     math::{
         Tensor,
         optimize::{
-            EqualityConstraint, FirstOrderRootFinding, OptimizationError, ZerothOrderRootFinding,
+            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
+            SecondOrderOptimization, ZerothOrderRootFinding,
         },
     },
-    mechanics::TemperatureGradients,
+    mechanics::{Scalar, TemperatureGradients},
 };
 
 pub trait ThermalFiniteElementBlock<C, F, const G: usize, const N: usize>
@@ -195,6 +197,69 @@ where
             },
             NodalTemperaturesBlock::zero(self.coordinates().len()),
             equality_constraint,
+        )
+    }
+}
+
+impl<C, F, const G: usize, const N: usize> FirstOrderMinimize<C, F, G, N, NodalTemperaturesBlock>
+    for ElementBlock<C, F, N>
+where
+    C: ThermalConduction,
+    F: ThermalConductionFiniteElement<C, G, N>,
+{
+    fn minimize(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: impl FirstOrderOptimization<Scalar, NodalTemperaturesBlock>,
+    ) -> Result<NodalTemperaturesBlock, OptimizationError> {
+        solver.minimize(
+            |nodal_temperatures: &NodalTemperaturesBlock| todo!(),
+            |nodal_temperatures: &NodalTemperaturesBlock| Ok(self.nodal_forces(nodal_temperatures)?),
+            NodalTemperaturesBlock::zero(self.coordinates().len()),
+            equality_constraint,
+        )
+    }
+}
+
+impl<C, F, const G: usize, const N: usize>
+    SecondOrderMinimize<
+        C,
+        F,
+        G,
+        N,
+        NodalForcesBlockThermal,
+        NodalStiffnessesBlockThermal,
+        NodalTemperaturesBlock,
+    > for ElementBlock<C, F, N>
+where
+    C: ThermalConduction,
+    F: ThermalConductionFiniteElement<C, G, N>,
+{
+    fn minimize(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: impl SecondOrderOptimization<
+            Scalar,
+            NodalForcesBlockThermal,
+            NodalStiffnessesBlockThermal,
+            NodalTemperaturesBlock,
+        >,
+    ) -> Result<NodalTemperaturesBlock, OptimizationError> {
+        let banded = band(
+            self.connectivity(),
+            &equality_constraint,
+            self.coordinates().len(),
+            1,
+        );
+        solver.minimize(
+            |nodal_temperatures: &NodalTemperaturesBlock| todo!(),
+            |nodal_temperatures: &NodalTemperaturesBlock| Ok(self.nodal_forces(nodal_temperatures)?),
+            |nodal_temperatures: &NodalTemperaturesBlock| {
+                Ok(self.nodal_stiffnesses(nodal_temperatures)?)
+            },
+            NodalTemperaturesBlock::zero(self.coordinates().len()),
+            equality_constraint,
+            Some(banded),
         )
     }
 }

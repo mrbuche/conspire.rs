@@ -5,7 +5,7 @@ use crate::{
         block::element::{Element, FiniteElementError, thermal::ThermalFiniteElement},
     },
     math::Tensor,
-    mechanics::{HeatFluxes, HeatFluxTangents}
+    mechanics::{HeatFluxTangents, HeatFluxes},
 };
 
 pub trait ThermalConductionFiniteElement<C, const G: usize, const N: usize>
@@ -69,40 +69,34 @@ where
         match self
             .temperature_gradients(nodal_temperatures)
             .iter()
-            .map(|temperature_gradient| {
-                constitutive_model.heat_flux_tangent(temperature_gradient)
-            })
+            .map(|temperature_gradient| constitutive_model.heat_flux_tangent(temperature_gradient))
             .collect::<Result<HeatFluxTangents<G>, _>>()
         {
-            Ok(heat_flux_tangents) => {
-                Ok(heat_flux_tangents
-                    .iter()
-                    .zip(
-                        self.gradient_vectors()
+            Ok(heat_flux_tangents) => Ok(heat_flux_tangents
+                .iter()
+                .zip(
+                    self.gradient_vectors()
+                        .iter()
+                        .zip(self.integration_weights().iter()),
+                )
+                .map(
+                    |(heat_flux_tangent, (gradient_vectors, integration_weight))| {
+                        gradient_vectors
                             .iter()
-                            .zip(self.integration_weights().iter()),
-                    )
-                    .map(
-                        |(
-                            heat_flux_tangent,
-                            (gradient_vectors, integration_weight),
-                        )| {
-                            gradient_vectors
-                                .iter()
-                                .map(|gradient_vector_a| {
-                                    gradient_vectors
-                                        .iter()
-                                        .map(|gradient_vector_b| {
-                                            -(gradient_vector_a * (heat_flux_tangent * gradient_vector_b))
+                            .map(|gradient_vector_a| {
+                                gradient_vectors
+                                    .iter()
+                                    .map(|gradient_vector_b| {
+                                        -(gradient_vector_a
+                                            * (heat_flux_tangent * gradient_vector_b))
                                             * integration_weight
-                                        })
-                                        .collect()
-                                })
-                                .collect()
-                        },
-                    )
-                    .sum())
-            }
+                                    })
+                                    .collect()
+                            })
+                            .collect()
+                    },
+                )
+                .sum()),
             Err(error) => Err(FiniteElementError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),

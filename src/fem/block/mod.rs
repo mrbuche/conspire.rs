@@ -677,6 +677,7 @@ where
             self.connectivity(),
             &equality_constraint,
             self.coordinates().len(),
+            3,
         );
         solver.minimize(
             |nodal_coordinates: &NodalCoordinatesBlock| {
@@ -1125,8 +1126,12 @@ where
         >,
         initial_guess: &NodalVelocitiesBlock,
     ) -> Result<NodalVelocitiesBlock, OptimizationError> {
-        let num_coords = nodal_coordinates.len();
-        let banded = band(self.connectivity(), equality_constraint, num_coords);
+        let banded = band(
+            self.connectivity(),
+            equality_constraint,
+            nodal_coordinates.len(),
+            3,
+        );
         solver.minimize(
             |nodal_velocities: &NodalVelocitiesBlock| {
                 Ok(self.dissipation_potential(nodal_coordinates, nodal_velocities)?)
@@ -1180,6 +1185,7 @@ fn band<const N: usize>(
     connectivity: &Connectivity<N>,
     equality_constraint: &EqualityConstraint,
     number_of_nodes: usize,
+    dimension: usize,
 ) -> Banded {
     match equality_constraint {
         EqualityConstraint::Fixed(indices) => {
@@ -1199,27 +1205,29 @@ fn band<const N: usize>(
                 .iter()
                 .map(|nodes| (0..number_of_nodes).map(|b| nodes.contains(&b)).collect())
                 .collect();
-            let structure_3d: Vec<Vec<bool>> = structure
+            let structure_nd: Vec<Vec<bool>> = structure
                 .iter()
                 .flat_map(|row| {
                     repeat_n(
-                        row.iter().flat_map(|entry| repeat_n(*entry, 3)).collect(),
-                        3,
+                        row.iter()
+                            .flat_map(|entry| repeat_n(*entry, dimension))
+                            .collect(),
+                        dimension,
                     )
                 })
                 .collect();
-            let mut keep = vec![true; structure_3d.len()];
+            let mut keep = vec![true; structure_nd.len()];
             indices.iter().for_each(|&index| keep[index] = false);
-            let banded = structure_3d
+            let banded = structure_nd
                 .into_iter()
                 .zip(keep.iter())
                 .filter(|(_, keep)| **keep)
-                .map(|(structure_3d_a, _)| {
-                    structure_3d_a
+                .map(|(structure_nd_a, _)| {
+                    structure_nd_a
                         .into_iter()
                         .zip(keep.iter())
                         .filter(|(_, keep)| **keep)
-                        .map(|(structure_3d_ab, _)| structure_3d_ab)
+                        .map(|(structure_nd_ab, _)| structure_nd_ab)
                         .collect::<Vec<bool>>()
                 })
                 .collect::<Vec<Vec<bool>>>();
@@ -1242,27 +1250,29 @@ fn band<const N: usize>(
                 .iter()
                 .map(|nodes| (0..number_of_nodes).map(|b| nodes.contains(&b)).collect())
                 .collect();
-            let structure_3d: Vec<Vec<bool>> = structure
+            let structure_nd: Vec<Vec<bool>> = structure
                 .iter()
                 .flat_map(|row| {
                     repeat_n(
-                        row.iter().flat_map(|entry| repeat_n(*entry, 3)).collect(),
-                        3,
+                        row.iter()
+                            .flat_map(|entry| repeat_n(*entry, dimension))
+                            .collect(),
+                        dimension,
                     )
                 })
                 .collect();
-            let num_coords = 3 * number_of_nodes;
+            let num_coords = dimension * number_of_nodes;
             assert_eq!(matrix.width(), num_coords);
             let num_dof = matrix.len() + matrix.width();
             let mut banded = vec![vec![false; num_dof]; num_dof];
-            structure_3d
+            structure_nd
                 .iter()
                 .zip(banded.iter_mut())
-                .for_each(|(structure_3d_i, banded_i)| {
-                    structure_3d_i
+                .for_each(|(structure_nd_i, banded_i)| {
+                    structure_nd_i
                         .iter()
                         .zip(banded_i.iter_mut())
-                        .for_each(|(structure_3d_ij, banded_ij)| *banded_ij = *structure_3d_ij)
+                        .for_each(|(structure_nd_ij, banded_ij)| *banded_ij = *structure_nd_ij)
                 });
             let mut index = num_coords;
             matrix.iter().for_each(|matrix_i| {
@@ -1293,16 +1303,18 @@ fn band<const N: usize>(
                 .iter()
                 .map(|nodes| (0..number_of_nodes).map(|b| nodes.contains(&b)).collect())
                 .collect();
-            let structure_3d: Vec<Vec<bool>> = structure
+            let structure_nd: Vec<Vec<bool>> = structure
                 .iter()
                 .flat_map(|row| {
                     repeat_n(
-                        row.iter().flat_map(|entry| repeat_n(*entry, 3)).collect(),
-                        3,
+                        row.iter()
+                            .flat_map(|entry| repeat_n(*entry, dimension))
+                            .collect(),
+                        dimension,
                     )
                 })
                 .collect();
-            Banded::from(structure_3d)
+            Banded::from(structure_nd)
         }
     }
 }

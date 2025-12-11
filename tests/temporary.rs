@@ -16,8 +16,8 @@ use conspire::{
         Connectivity, ElasticHyperviscousFiniteElementBlock, ElasticViscoplasticFiniteElementBlock,
         ElementBlock, FiniteElementBlock, LinearTetrahedron, ReferenceNodalCoordinatesBlock,
         SecondOrderMinimize, SolidFiniteElementBlock, ThermalFiniteElementBlock,
-        ViscoelasticFiniteElementBlock, FirstOrderRoot as FirstOrderRootFem
-    }, 
+        ViscoelasticFiniteElementBlock,
+    },
     math::{
         Matrix, Scalar, Tensor, TestError, Vector, assert_eq_within, assert_eq_within_tols,
         integrate::DormandPrince,
@@ -7736,7 +7736,7 @@ fn temporary_thermal_conduction() -> Result<(), TestError> {
         });
     let mut time = std::time::Instant::now();
     println!("Solving...");
-    let solution = block.root(
+    let solution = block.minimize(
         EqualityConstraint::Linear(matrix, vector),
         NewtonRaphson {
             max_steps: 1,

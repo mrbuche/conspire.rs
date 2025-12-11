@@ -7,7 +7,7 @@ use crate::{
         thermal::{Thermal, conduction::ThermalConduction},
     },
     math::IDENTITY_00,
-    mechanics::{HeatFlux, Scalar, TemperatureGradient, HeatFluxTangent},
+    mechanics::{HeatFlux, HeatFluxTangent, Scalar, TemperatureGradient},
 };
 
 /// The Fourier thermal conduction constitutive model.
@@ -53,7 +53,7 @@ impl ThermalConduction for Fourier {
     /// ```
     fn heat_flux_tangent(
         &self,
-        temperature_gradient: &TemperatureGradient,
+        _temperature_gradient: &TemperatureGradient,
     ) -> Result<HeatFluxTangent, ConstitutiveError> {
         Ok(IDENTITY_00 * -self.thermal_conductivity())
     }

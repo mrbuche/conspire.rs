@@ -26,7 +26,5 @@ where
     fn heat_flux_tangent(
         &self,
         temperature_gradient: &TemperatureGradient,
-    ) -> Result<HeatFluxTangent, ConstitutiveError> {
-        todo!("remove this default impl")
-    }
+    ) -> Result<HeatFluxTangent, ConstitutiveError>;
 }
