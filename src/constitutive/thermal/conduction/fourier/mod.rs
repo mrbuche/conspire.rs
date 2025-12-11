@@ -35,6 +35,17 @@ impl Fourier {
 impl Thermal for Fourier {}
 
 impl ThermalConduction for Fourier {
+    /// Calculates and returns the potential.
+    ///
+    /// ```math
+    /// a(\nabla T) = \frac{1}{2}k\nabla T\cdot\nabla T
+    /// ```
+    fn potential(
+        &self,
+        temperature_gradient: &TemperatureGradient,
+    ) -> Result<Scalar, ConstitutiveError> {
+        Ok(0.5 * self.thermal_conductivity() * (temperature_gradient * temperature_gradient))
+    }
     /// Calculates and returns the heat flux.
     ///
     /// ```math

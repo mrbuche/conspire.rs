@@ -70,6 +70,10 @@ where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, N>,
 {
+    fn nodal_potential(
+        &self,
+        nodal_temperatures: &NodalTemperaturesBlock,
+    ) -> Result<Scalar, FiniteElementBlockError>;
     fn nodal_forces(
         &self,
         nodal_temperatures: &NodalTemperaturesBlock,
@@ -86,6 +90,29 @@ where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, N>,
 {
+    fn nodal_potential(
+        &self,
+        nodal_temperatures: &NodalTemperaturesBlock,
+    ) -> Result<Scalar, FiniteElementBlockError> {
+        match self
+            .elements()
+            .iter()
+            .zip(self.connectivity().iter())
+            .map(|(element, element_connectivity)| {
+                element.nodal_potential(
+                    self.constitutive_model(),
+                    &self.nodal_temperatures_element(element_connectivity, nodal_temperatures),
+                )
+            })
+            .sum()
+        {
+            Ok(nodal_potential) => Ok(nodal_potential),
+            Err(error) => Err(FiniteElementBlockError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
+    }
     fn nodal_forces(
         &self,
         nodal_temperatures: &NodalTemperaturesBlock,
@@ -213,7 +240,7 @@ where
         solver: impl FirstOrderOptimization<Scalar, NodalTemperaturesBlock>,
     ) -> Result<NodalTemperaturesBlock, OptimizationError> {
         solver.minimize(
-            |nodal_temperatures: &NodalTemperaturesBlock| todo!(),
+            |nodal_temperatures: &NodalTemperaturesBlock| Ok(self.nodal_potential(nodal_temperatures)?),
             |nodal_temperatures: &NodalTemperaturesBlock| Ok(self.nodal_forces(nodal_temperatures)?),
             NodalTemperaturesBlock::zero(self.coordinates().len()),
             equality_constraint,
@@ -252,7 +279,7 @@ where
             1,
         );
         solver.minimize(
-            |nodal_temperatures: &NodalTemperaturesBlock| todo!(),
+            |nodal_temperatures: &NodalTemperaturesBlock| Ok(self.nodal_potential(nodal_temperatures)?),
             |nodal_temperatures: &NodalTemperaturesBlock| Ok(self.nodal_forces(nodal_temperatures)?),
             |nodal_temperatures: &NodalTemperaturesBlock| {
                 Ok(self.nodal_stiffnesses(nodal_temperatures)?)

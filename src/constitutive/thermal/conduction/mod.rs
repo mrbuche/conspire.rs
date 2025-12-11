@@ -7,7 +7,7 @@ mod fourier;
 
 use crate::{
     constitutive::{ConstitutiveError, thermal::Thermal},
-    mechanics::{HeatFlux, HeatFluxTangent, TemperatureGradient},
+    mechanics::{HeatFlux, HeatFluxTangent, Scalar, TemperatureGradient},
 };
 
 pub use fourier::Fourier;
@@ -17,6 +17,11 @@ pub trait ThermalConduction
 where
     Self: Thermal,
 {
+    /// Calculates and returns the potential.
+    fn potential(
+        &self,
+        temperature_gradient: &TemperatureGradient,
+    ) -> Result<Scalar, ConstitutiveError>;
     /// Calculates and returns the heat flux.
     fn heat_flux(
         &self,

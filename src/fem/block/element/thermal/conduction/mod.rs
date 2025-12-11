@@ -1,11 +1,11 @@
 use crate::{
-    constitutive::thermal::conduction::ThermalConduction,
+    constitutive::{ConstitutiveError, thermal::conduction::ThermalConduction},
     fem::{
         NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures,
         block::element::{Element, FiniteElementError, thermal::ThermalFiniteElement},
     },
     math::Tensor,
-    mechanics::{HeatFluxTangents, HeatFluxes},
+    mechanics::{HeatFluxTangents, HeatFluxes, Scalar},
 };
 
 pub trait ThermalConductionFiniteElement<C, const G: usize, const N: usize>
@@ -13,6 +13,11 @@ where
     C: ThermalConduction,
     Self: ThermalFiniteElement<G, N>,
 {
+    fn nodal_potential(
+        &self,
+        constitutive_model: &C,
+        nodal_temperatures: &NodalTemperatures<N>,
+    ) -> Result<Scalar, FiniteElementError>;
     fn nodal_forces(
         &self,
         constitutive_model: &C,
@@ -30,6 +35,29 @@ where
     C: ThermalConduction,
     Self: ThermalFiniteElement<G, N>,
 {
+    fn nodal_potential(
+        &self,
+        constitutive_model: &C,
+        nodal_temperatures: &NodalTemperatures<N>,
+    ) -> Result<Scalar, FiniteElementError> {
+        match self
+            .temperature_gradients(nodal_temperatures)
+            .iter()
+            .zip(self.integration_weights().iter())
+            .map(|(temperature_gradient, integration_weight)| {
+                Ok::<_, ConstitutiveError>(
+                    constitutive_model.potential(temperature_gradient)? * integration_weight,
+                )
+            })
+            .sum()
+        {
+            Ok(nodal_potential) => Ok(nodal_potential),
+            Err(error) => Err(FiniteElementError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
+    }
     fn nodal_forces(
         &self,
         constitutive_model: &C,

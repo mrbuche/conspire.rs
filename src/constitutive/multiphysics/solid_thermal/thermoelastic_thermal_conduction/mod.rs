@@ -136,6 +136,13 @@ where
     C2: ThermalConduction,
     Self: SolidThermal<C1, C2>,
 {
+    fn potential(
+        &self,
+        temperature_gradient: &TemperatureGradient,
+    ) -> Result<Scalar, ConstitutiveError> {
+        self.thermal_constitutive_model()
+            .potential(temperature_gradient)
+    }
     fn heat_flux(
         &self,
         temperature_gradient: &TemperatureGradient,
