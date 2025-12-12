@@ -1,6 +1,6 @@
 macro_rules! test_thermal {
     ($element: ident) => {
-        mod thermal {
+        mod thermal_element {
             use super::{N, element};
             use crate::{
                 EPSILON,

@@ -201,4 +201,4 @@ test_finite_element!(Tetrahedron);
 test_finite_element_block!(Tetrahedron);
 
 crate::fem::block::element::thermal::conduction::test::test_thermal!(Tetrahedron);
-// crate::fem::block::thermal::conduction::test::test_thermal!(Tetrahedron);
+crate::fem::block::thermal::conduction::test::test_thermal!(Tetrahedron);
