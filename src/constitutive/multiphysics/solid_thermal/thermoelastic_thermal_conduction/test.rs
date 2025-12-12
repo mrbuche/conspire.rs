@@ -106,8 +106,8 @@ macro_rules! test_thermoelastic_thermal_conduction_constitutive_model {
         fn heat_flux() -> Result<(), crate::math::test::TestError> {
             crate::math::test::assert_eq(
                 &$thermoelastic_thermal_conduction_constitutive_model
-                    .heat_flux(&get_temperature_gradient()),
-                &$thermal_conduction_constitutive_model.heat_flux(&get_temperature_gradient()),
+                    .heat_flux(&get_temperature_gradient())?,
+                &$thermal_conduction_constitutive_model.heat_flux(&get_temperature_gradient())?,
             )
         }
         #[test]

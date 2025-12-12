@@ -5,6 +5,7 @@ mod test;
 use super::test::ErrorTensor;
 
 pub mod list;
+pub mod list_2d;
 
 use super::{Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, Vector};
 use std::ops::Sub;

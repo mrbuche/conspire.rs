@@ -2,11 +2,12 @@
 mod test;
 
 pub mod element;
+pub mod thermal;
 
 use self::element::{
     ElasticFiniteElement, ElasticHyperviscousFiniteElement, ElasticViscoplasticFiniteElement,
-    FiniteElement, FiniteElementError, FiniteElementMethods, HyperelasticFiniteElement,
-    HyperviscoelasticFiniteElement, SurfaceFiniteElement, ViscoelasticFiniteElement,
+    FiniteElement, FiniteElementError, HyperelasticFiniteElement, HyperviscoelasticFiniteElement,
+    SolidFiniteElement, SurfaceFiniteElement, ViscoelasticFiniteElement,
 };
 use super::*;
 use crate::{
@@ -36,6 +37,31 @@ pub struct ElementBlock<C, F, const N: usize> {
     elements: Vec<F>,
 }
 
+impl<C, F, const N: usize> ElementBlock<C, F, N> {
+    fn constitutive_model(&self) -> &C {
+        &self.constitutive_model
+    }
+    fn connectivity(&self) -> &Connectivity<N> {
+        &self.connectivity
+    }
+    fn coordinates(&self) -> &ReferenceNodalCoordinatesBlock {
+        &self.coordinates
+    }
+    fn elements(&self) -> &[F] {
+        &self.elements
+    }
+    fn nodal_coordinates_element(
+        &self,
+        element_connectivity: &[usize; N],
+        nodal_coordinates: &NodalCoordinatesBlock,
+    ) -> NodalCoordinates<N> {
+        element_connectivity
+            .iter()
+            .map(|&node| nodal_coordinates[node].clone())
+            .collect()
+    }
+}
+
 impl<C, F, const N: usize> Debug for ElementBlock<C, F, N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let element = match N {
@@ -58,25 +84,6 @@ impl<C, F, const N: usize> Debug for ElementBlock<C, F, N> {
             self.connectivity.len()
         )
     }
-}
-
-pub trait FiniteElementBlockMethods<C, F, const G: usize, const N: usize>
-where
-    F: FiniteElementMethods<G, N>,
-{
-    fn constitutive_model(&self) -> &C;
-    fn connectivity(&self) -> &Connectivity<N>;
-    fn coordinates(&self) -> &ReferenceNodalCoordinatesBlock;
-    fn deformation_gradients(
-        &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> Vec<DeformationGradientList<G>>;
-    fn elements(&self) -> &[F];
-    fn nodal_coordinates_element(
-        &self,
-        element_connectivity: &[usize; N],
-        nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> NodalCoordinates<N>;
 }
 
 pub trait FiniteElementBlock<C, F, const G: usize, const N: usize>
@@ -156,49 +163,6 @@ impl Display for FiniteElementBlockError {
     }
 }
 
-impl<C, F, const G: usize, const N: usize> FiniteElementBlockMethods<C, F, G, N>
-    for ElementBlock<C, F, N>
-where
-    F: FiniteElementMethods<G, N>,
-{
-    fn constitutive_model(&self) -> &C {
-        &self.constitutive_model
-    }
-    fn connectivity(&self) -> &Connectivity<N> {
-        &self.connectivity
-    }
-    fn coordinates(&self) -> &ReferenceNodalCoordinatesBlock {
-        &self.coordinates
-    }
-    fn deformation_gradients(
-        &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> Vec<DeformationGradientList<G>> {
-        self.elements()
-            .iter()
-            .zip(self.connectivity().iter())
-            .map(|(element, element_connectivity)| {
-                element.deformation_gradients(
-                    &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
-                )
-            })
-            .collect()
-    }
-    fn elements(&self) -> &[F] {
-        &self.elements
-    }
-    fn nodal_coordinates_element(
-        &self,
-        element_connectivity: &[usize; N],
-        nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> NodalCoordinates<N> {
-        element_connectivity
-            .iter()
-            .map(|&node| nodal_coordinates[node].clone())
-            .collect()
-    }
-}
-
 impl<C, F, const G: usize, const N: usize> FiniteElementBlock<C, F, G, N> for ElementBlock<C, F, N>
 where
     F: FiniteElement<G, N>,
@@ -211,7 +175,7 @@ where
         let elements = connectivity
             .iter()
             .map(|element_connectivity| {
-                <F>::new(
+                <F>::from(
                     element_connectivity
                         .iter()
                         .map(|&node| coordinates[node].clone())
@@ -263,6 +227,69 @@ where
     }
 }
 
+pub trait ZerothOrderRoot<C, E, const G: usize, const N: usize, X> {
+    fn root(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: impl ZerothOrderRootFinding<X>,
+    ) -> Result<X, OptimizationError>;
+}
+
+pub trait FirstOrderRoot<C, E, const G: usize, const N: usize, F, J, X> {
+    fn root(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: impl FirstOrderRootFinding<F, J, X>,
+    ) -> Result<X, OptimizationError>;
+}
+
+pub trait FirstOrderMinimize<C, E, const G: usize, const N: usize, X> {
+    fn minimize(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: impl FirstOrderOptimization<Scalar, X>,
+    ) -> Result<X, OptimizationError>;
+}
+
+pub trait SecondOrderMinimize<C, E, const G: usize, const N: usize, J, H, X> {
+    fn minimize(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: impl SecondOrderOptimization<Scalar, J, H, X>,
+    ) -> Result<X, OptimizationError>;
+}
+
+pub trait SolidFiniteElementBlock<C, F, const G: usize, const N: usize>
+where
+    F: SolidFiniteElement<G, N>,
+{
+    fn deformation_gradients(
+        &self,
+        nodal_coordinates: &NodalCoordinatesBlock,
+    ) -> Vec<DeformationGradientList<G>>;
+}
+
+impl<C, F, const G: usize, const N: usize> SolidFiniteElementBlock<C, F, G, N>
+    for ElementBlock<C, F, N>
+where
+    F: SolidFiniteElement<G, N>,
+{
+    fn deformation_gradients(
+        &self,
+        nodal_coordinates: &NodalCoordinatesBlock,
+    ) -> Vec<DeformationGradientList<G>> {
+        self.elements()
+            .iter()
+            .zip(self.connectivity().iter())
+            .map(|(element, element_connectivity)| {
+                element.deformation_gradients(
+                    &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
+                )
+            })
+            .collect()
+    }
+}
+
 pub trait ElasticFiniteElementBlock<C, F, const G: usize, const N: usize>
 where
     C: Elastic,
@@ -278,34 +305,6 @@ where
     ) -> Result<NodalStiffnessesBlock, FiniteElementBlockError>;
 }
 
-pub trait ZerothOrderRoot<C, F, const G: usize, const N: usize>
-where
-    C: Elastic,
-    F: ElasticFiniteElement<C, G, N>,
-{
-    fn root(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<NodalCoordinatesBlock>,
-    ) -> Result<NodalCoordinatesBlock, OptimizationError>;
-}
-
-pub trait FirstOrderRoot<C, F, const G: usize, const N: usize>
-where
-    C: Elastic,
-    F: ElasticFiniteElement<C, G, N>,
-{
-    fn root(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderRootFinding<
-            NodalForcesBlock,
-            NodalStiffnessesBlock,
-            NodalCoordinatesBlock,
-        >,
-    ) -> Result<NodalCoordinatesBlock, OptimizationError>;
-}
-
 pub trait HyperelasticFiniteElementBlock<C, F, const G: usize, const N: usize>
 where
     C: Hyperelastic,
@@ -316,37 +315,6 @@ where
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
     ) -> Result<Scalar, FiniteElementBlockError>;
-}
-
-pub trait FirstOrderMinimize<C, F, const G: usize, const N: usize>
-where
-    C: Hyperelastic,
-    F: HyperelasticFiniteElement<C, G, N>,
-    Self: ElasticFiniteElementBlock<C, F, G, N>,
-{
-    fn minimize(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<Scalar, NodalForcesBlock>,
-    ) -> Result<NodalCoordinatesBlock, OptimizationError>;
-}
-
-pub trait SecondOrderMinimize<C, F, const G: usize, const N: usize>
-where
-    C: Hyperelastic,
-    F: HyperelasticFiniteElement<C, G, N>,
-    Self: ElasticFiniteElementBlock<C, F, G, N>,
-{
-    fn minimize(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl SecondOrderOptimization<
-            Scalar,
-            NodalForcesBlock,
-            NodalStiffnessesBlock,
-            NodalCoordinatesBlock,
-        >,
-    ) -> Result<NodalCoordinatesBlock, OptimizationError>;
 }
 
 pub type ViscoplasticStateVariables<const G: usize> =
@@ -524,7 +492,7 @@ impl<C, F, const G: usize, const N: usize> ElasticFiniteElementBlock<C, F, G, N>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, N>,
-    Self: FiniteElementBlockMethods<C, F, G, N>,
+    Self: SolidFiniteElementBlock<C, F, G, N>,
 {
     fn nodal_forces(
         &self,
@@ -588,11 +556,11 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N> for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N, NodalCoordinatesBlock>
+    for ElementBlock<C, F, N>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, N>,
-    Self: FiniteElementBlockMethods<C, F, G, N>,
 {
     fn root(
         &self,
@@ -607,11 +575,12 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> FirstOrderRoot<C, F, G, N> for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const N: usize>
+    FirstOrderRoot<C, F, G, N, NodalForcesBlock, NodalStiffnessesBlock, NodalCoordinatesBlock>
+    for ElementBlock<C, F, N>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, N>,
-    Self: FiniteElementBlockMethods<C, F, G, N>,
 {
     fn root(
         &self,
@@ -665,11 +634,11 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> FirstOrderMinimize<C, F, G, N> for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const N: usize> FirstOrderMinimize<C, F, G, N, NodalCoordinatesBlock>
+    for ElementBlock<C, F, N>
 where
     C: Hyperelastic,
     F: HyperelasticFiniteElement<C, G, N>,
-    Self: ElasticFiniteElementBlock<C, F, G, N>,
 {
     fn minimize(
         &self,
@@ -687,11 +656,12 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> SecondOrderMinimize<C, F, G, N> for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const N: usize>
+    SecondOrderMinimize<C, F, G, N, NodalForcesBlock, NodalStiffnessesBlock, NodalCoordinatesBlock>
+    for ElementBlock<C, F, N>
 where
     C: Hyperelastic,
     F: HyperelasticFiniteElement<C, G, N>,
-    Self: ElasticFiniteElementBlock<C, F, G, N>,
 {
     fn minimize(
         &self,
@@ -707,6 +677,7 @@ where
             self.connectivity(),
             &equality_constraint,
             self.coordinates().len(),
+            3,
         );
         solver.minimize(
             |nodal_coordinates: &NodalCoordinatesBlock| {
@@ -728,7 +699,7 @@ impl<C, F, const G: usize, const N: usize> ElasticViscoplasticFiniteElementBlock
 where
     C: ElasticViscoplastic,
     F: ElasticViscoplasticFiniteElement<C, G, N>,
-    Self: FiniteElementBlockMethods<C, F, G, N>,
+    Self: SolidFiniteElementBlock<C, F, G, N>,
 {
     fn nodal_forces(
         &self,
@@ -921,7 +892,7 @@ impl<C, F, const G: usize, const N: usize> ViscoelasticFiniteElementBlock<C, F, 
 where
     C: Viscoelastic,
     F: ViscoelasticFiniteElement<C, G, N>,
-    Self: FiniteElementBlockMethods<C, F, G, N>,
+    Self: SolidFiniteElementBlock<C, F, G, N>,
 {
     fn deformation_gradient_rates(
         &self,
@@ -1042,7 +1013,7 @@ where
         solver: &impl FirstOrderRootFinding<
             NodalForcesBlock,
             NodalStiffnessesBlock,
-            NodalCoordinatesBlock,
+            NodalVelocitiesBlock,
         >,
         initial_guess: &NodalVelocitiesBlock,
     ) -> Result<NodalVelocitiesBlock, OptimizationError> {
@@ -1151,12 +1122,16 @@ where
             Scalar,
             NodalForcesBlock,
             NodalStiffnessesBlock,
-            NodalCoordinatesBlock,
+            NodalVelocitiesBlock,
         >,
         initial_guess: &NodalVelocitiesBlock,
     ) -> Result<NodalVelocitiesBlock, OptimizationError> {
-        let num_coords = nodal_coordinates.len();
-        let banded = band(self.connectivity(), equality_constraint, num_coords);
+        let banded = band(
+            self.connectivity(),
+            equality_constraint,
+            nodal_coordinates.len(),
+            3,
+        );
         solver.minimize(
             |nodal_velocities: &NodalVelocitiesBlock| {
                 Ok(self.dissipation_potential(nodal_coordinates, nodal_velocities)?)
@@ -1210,6 +1185,7 @@ fn band<const N: usize>(
     connectivity: &Connectivity<N>,
     equality_constraint: &EqualityConstraint,
     number_of_nodes: usize,
+    dimension: usize,
 ) -> Banded {
     match equality_constraint {
         EqualityConstraint::Fixed(indices) => {
@@ -1229,27 +1205,29 @@ fn band<const N: usize>(
                 .iter()
                 .map(|nodes| (0..number_of_nodes).map(|b| nodes.contains(&b)).collect())
                 .collect();
-            let structure_3d: Vec<Vec<bool>> = structure
+            let structure_nd: Vec<Vec<bool>> = structure
                 .iter()
                 .flat_map(|row| {
                     repeat_n(
-                        row.iter().flat_map(|entry| repeat_n(*entry, 3)).collect(),
-                        3,
+                        row.iter()
+                            .flat_map(|entry| repeat_n(*entry, dimension))
+                            .collect(),
+                        dimension,
                     )
                 })
                 .collect();
-            let mut keep = vec![true; structure_3d.len()];
+            let mut keep = vec![true; structure_nd.len()];
             indices.iter().for_each(|&index| keep[index] = false);
-            let banded = structure_3d
+            let banded = structure_nd
                 .into_iter()
                 .zip(keep.iter())
                 .filter(|(_, keep)| **keep)
-                .map(|(structure_3d_a, _)| {
-                    structure_3d_a
+                .map(|(structure_nd_a, _)| {
+                    structure_nd_a
                         .into_iter()
                         .zip(keep.iter())
                         .filter(|(_, keep)| **keep)
-                        .map(|(structure_3d_ab, _)| structure_3d_ab)
+                        .map(|(structure_nd_ab, _)| structure_nd_ab)
                         .collect::<Vec<bool>>()
                 })
                 .collect::<Vec<Vec<bool>>>();
@@ -1272,27 +1250,29 @@ fn band<const N: usize>(
                 .iter()
                 .map(|nodes| (0..number_of_nodes).map(|b| nodes.contains(&b)).collect())
                 .collect();
-            let structure_3d: Vec<Vec<bool>> = structure
+            let structure_nd: Vec<Vec<bool>> = structure
                 .iter()
                 .flat_map(|row| {
                     repeat_n(
-                        row.iter().flat_map(|entry| repeat_n(*entry, 3)).collect(),
-                        3,
+                        row.iter()
+                            .flat_map(|entry| repeat_n(*entry, dimension))
+                            .collect(),
+                        dimension,
                     )
                 })
                 .collect();
-            let num_coords = 3 * number_of_nodes;
+            let num_coords = dimension * number_of_nodes;
             assert_eq!(matrix.width(), num_coords);
             let num_dof = matrix.len() + matrix.width();
             let mut banded = vec![vec![false; num_dof]; num_dof];
-            structure_3d
+            structure_nd
                 .iter()
                 .zip(banded.iter_mut())
-                .for_each(|(structure_3d_i, banded_i)| {
-                    structure_3d_i
+                .for_each(|(structure_nd_i, banded_i)| {
+                    structure_nd_i
                         .iter()
                         .zip(banded_i.iter_mut())
-                        .for_each(|(structure_3d_ij, banded_ij)| *banded_ij = *structure_3d_ij)
+                        .for_each(|(structure_nd_ij, banded_ij)| *banded_ij = *structure_nd_ij)
                 });
             let mut index = num_coords;
             matrix.iter().for_each(|matrix_i| {
@@ -1323,16 +1303,18 @@ fn band<const N: usize>(
                 .iter()
                 .map(|nodes| (0..number_of_nodes).map(|b| nodes.contains(&b)).collect())
                 .collect();
-            let structure_3d: Vec<Vec<bool>> = structure
+            let structure_nd: Vec<Vec<bool>> = structure
                 .iter()
                 .flat_map(|row| {
                     repeat_n(
-                        row.iter().flat_map(|entry| repeat_n(*entry, 3)).collect(),
-                        3,
+                        row.iter()
+                            .flat_map(|entry| repeat_n(*entry, dimension))
+                            .collect(),
+                        dimension,
                     )
                 })
                 .collect();
-            Banded::from(structure_3d)
+            Banded::from(structure_nd)
         }
     }
 }

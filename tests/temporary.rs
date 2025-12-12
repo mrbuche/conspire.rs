@@ -1,24 +1,29 @@
 #![cfg(feature = "fem")]
 
 use conspire::{
-    constitutive::solid::{
-        elastic::AppliedLoad as AppliedDeformation,
-        elastic_hyperviscous::{AlmansiHamel, SecondOrderMinimize as _},
-        elastic_viscoplastic::{AppliedLoad, FirstOrderRoot},
-        hyperelastic::{NeoHookean, SecondOrderMinimize as _},
-        hyperelastic_viscoplastic::SaintVenantKirchhoff,
-        viscoelastic::AppliedLoad as AppliedDeformationRate,
+    constitutive::{
+        solid::{
+            elastic::AppliedLoad as AppliedDeformation,
+            elastic_hyperviscous::{AlmansiHamel, SecondOrderMinimize as _},
+            elastic_viscoplastic::{AppliedLoad, FirstOrderRoot},
+            hyperelastic::{NeoHookean, SecondOrderMinimize as _},
+            hyperelastic_viscoplastic::SaintVenantKirchhoff,
+            viscoelastic::AppliedLoad as AppliedDeformationRate,
+        },
+        thermal::conduction::Fourier,
     },
     fem::{
         Connectivity, ElasticHyperviscousFiniteElementBlock, ElasticViscoplasticFiniteElementBlock,
-        ElementBlock, FiniteElementBlock, FiniteElementBlockMethods, LinearTetrahedron,
-        ReferenceNodalCoordinatesBlock, SecondOrderMinimize, ViscoelasticFiniteElementBlock,
+        ElementBlock, FiniteElementBlock, LinearTetrahedron, ReferenceNodalCoordinatesBlock,
+        SecondOrderMinimize, SolidFiniteElementBlock, ThermalFiniteElementBlock,
+        ViscoelasticFiniteElementBlock,
     },
     math::{
         Matrix, Scalar, Tensor, TestError, Vector, assert_eq_within, assert_eq_within_tols,
         integrate::DormandPrince,
         optimize::{EqualityConstraint, NewtonRaphson},
     },
+    mechanics::TemperatureGradient,
 };
 
 const N: usize = 4;
@@ -7688,6 +7693,70 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
                     })
             },
         )?;
+    println!("Done ({:?}).", time.elapsed());
+    Ok(())
+}
+
+#[test]
+fn temporary_thermal_conduction() -> Result<(), TestError> {
+    let temperature = 13.0;
+    let ref_coordinates = coordinates();
+    let mut connectivity = connectivity();
+    connectivity
+        .iter_mut()
+        .flatten()
+        .for_each(|entry| *entry -= 1);
+    let num_nodes = ref_coordinates.len();
+    let model = Fourier {
+        thermal_conductivity: 1.0,
+    };
+    let block =
+        ElementBlock::<_, LinearTetrahedron, N>::new(model.clone(), connectivity, coordinates());
+    let length = ref_coordinates
+        .iter()
+        .filter(|coordinate| coordinate[0].abs() == 0.5)
+        .count();
+    let width = num_nodes;
+    let mut matrix = Matrix::zero(length, width);
+    let mut vector = Vector::zero(length);
+    let mut index = 0;
+    coordinates()
+        .iter()
+        .enumerate()
+        .for_each(|(node, coordinate)| {
+            if coordinate[0].abs() == 0.5 {
+                matrix[index][node] = 1.0;
+                if coordinate[0] > 0.0 {
+                    vector[index] = temperature
+                } else {
+                    vector[index] = 0.0
+                }
+                index += 1;
+            }
+        });
+    let mut time = std::time::Instant::now();
+    println!("Solving...");
+    let solution = block.minimize(
+        EqualityConstraint::Linear(matrix, vector),
+        NewtonRaphson {
+            max_steps: 1,
+            ..Default::default()
+        },
+    )?;
+    println!("Done ({:?}).", time.elapsed());
+    time = std::time::Instant::now();
+    println!("Verifying...");
+    let temperature_gradient = TemperatureGradient::from([temperature, 0.0, 0.0]);
+    block
+        .temperature_gradients(&solution)
+        .iter()
+        .try_for_each(|temperature_gradients_e| {
+            temperature_gradients_e
+                .iter()
+                .try_for_each(|temperature_gradient_g| {
+                    assert_eq_within_tols(temperature_gradient_g, &temperature_gradient)
+                })
+        })?;
     println!("Done ({:?}).", time.elapsed());
     Ok(())
 }

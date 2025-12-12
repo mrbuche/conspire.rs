@@ -14,13 +14,13 @@ use crate::{
         FiniteElementError, GradientVectors, NodalCoordinates, NodalForces, NodalStiffnesses,
         NodalVelocities, ReferenceNodalCoordinates, StandardGradientOperators,
         block::element::{
-            ElasticFiniteElement, ElasticHyperviscousFiniteElement, FiniteElementMethods,
-            HyperelasticFiniteElement, HyperviscoelasticFiniteElement, SurfaceElement,
+            ElasticFiniteElement, ElasticHyperviscousFiniteElement, HyperelasticFiniteElement,
+            HyperviscoelasticFiniteElement, SolidFiniteElement, SurfaceElement,
             SurfaceFiniteElement, SurfaceFiniteElementMethods, SurfaceFiniteElementMethodsExtra,
             ViscoelasticFiniteElement,
         },
     },
-    math::{IDENTITY, Scalar, Scalars, Tensor, TensorRank1List, tensor_rank_1},
+    math::{IDENTITY, Scalar, Scalars, Tensor},
     mechanics::{
         DeformationGradient, DeformationGradientList, DeformationGradientRate,
         DeformationGradientRateList, FirstPiolaKirchhoffRateTangentStiffnesses,
@@ -92,14 +92,10 @@ impl Triangle {
     }
     #[cfg(test)]
     const fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, Q> {
-        ShapeFunctionsAtIntegrationPoints::const_from([tensor_rank_1([1.0 / 3.0; Q])])
+        ShapeFunctionsAtIntegrationPoints::<G, Q>::const_from([[1.0 / 3.0; Q]])
     }
     const fn standard_gradient_operators() -> StandardGradientOperators<M, N, P> {
-        StandardGradientOperators::const_from([TensorRank1List::const_from([
-            tensor_rank_1([-1.0, -1.0]),
-            tensor_rank_1([1.0, 0.0]),
-            tensor_rank_1([0.0, 1.0]),
-        ])])
+        StandardGradientOperators::<M, N, P>::const_from([[[-1.0, -1.0], [1.0, 0.0], [0.0, 1.0]]])
     }
 }
 
@@ -109,7 +105,7 @@ impl SurfaceFiniteElementMethodsExtra<M, N, P> for Triangle {
     }
 }
 
-impl FiniteElementMethods<G, N> for Triangle {
+impl SolidFiniteElement<G, N> for Triangle {
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinates<N>,
@@ -290,7 +286,7 @@ where
             .iter()
             .zip(self.integration_weights().iter())
             .map(|(deformation_gradient, integration_weight)| {
-                Ok::<Scalar, ConstitutiveError>(
+                Ok::<_, ConstitutiveError>(
                     constitutive_model.helmholtz_free_energy_density(deformation_gradient)?
                         * integration_weight,
                 )
@@ -444,7 +440,7 @@ where
             )
             .map(
                 |(deformation_gradient, (deformation_gradient_rate, integration_weight))| {
-                    Ok::<Scalar, ConstitutiveError>(
+                    Ok::<_, ConstitutiveError>(
                         constitutive_model
                             .viscous_dissipation(deformation_gradient, deformation_gradient_rate)?
                             * integration_weight,
@@ -476,7 +472,7 @@ where
             )
             .map(
                 |(deformation_gradient, (deformation_gradient_rate, integration_weight))| {
-                    Ok::<Scalar, ConstitutiveError>(
+                    Ok::<_, ConstitutiveError>(
                         constitutive_model.dissipation_potential(
                             deformation_gradient,
                             deformation_gradient_rate,
@@ -509,7 +505,7 @@ where
             .iter()
             .zip(self.integration_weights().iter())
             .map(|(deformation_gradient, integration_weight)| {
-                Ok::<Scalar, ConstitutiveError>(
+                Ok::<_, ConstitutiveError>(
                     constitutive_model.helmholtz_free_energy_density(deformation_gradient)?
                         * integration_weight,
                 )

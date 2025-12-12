@@ -165,12 +165,12 @@ where
     let mut solution = initial_guess;
     let mut step_size;
     let mut tangent;
-    for _ in 0..newton_raphson.max_steps {
+    for _ in 0..=newton_raphson.max_steps {
         residual = jacobian(&solution)?;
-        tangent = hessian(&solution)?;
         if residual.norm_inf() < newton_raphson.abs_tol {
             return Ok(solution);
         } else {
+            tangent = hessian(&solution)?;
             decrement = &residual / tangent;
             step_size = newton_raphson.backtracking_line_search(
                 &function, &jacobian, &solution, &residual, &decrement, 1.0,
@@ -211,14 +211,15 @@ where
     let mut solution = initial_guess;
     let mut step_size;
     let mut tangent;
-    for _ in 0..newton_raphson.max_steps {
+    for _ in 0..=newton_raphson.max_steps {
         residual = jacobian(&solution)?.retain_from(&retained);
-        tangent = hessian(&solution)?.retain_from(&retained);
         if residual.norm_inf() < newton_raphson.abs_tol {
             return Ok(solution);
         } else if let Some(ref band) = banded {
+            tangent = hessian(&solution)?.retain_from(&retained);
             decrement = tangent.solve_lu_banded(&residual, band)?
         } else {
+            tangent = hessian(&solution)?.retain_from(&retained);
             decrement = tangent.solve_lu(&residual)?
         }
         if !matches!(newton_raphson.line_search, LineSearch::None) {
@@ -285,17 +286,18 @@ where
                     tangent[j][i + num_variables] = -constraint_matrix_ij;
                 })
         });
-    for _ in 0..newton_raphson.max_steps {
+    for _ in 0..=newton_raphson.max_steps {
         (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
             &constraint_rhs - &constraint_matrix * &solution,
             &mut residual,
         );
-        hessian(&solution)?.fill_into(&mut tangent);
         if residual.norm_inf() < newton_raphson.abs_tol {
             return Ok(solution);
         } else if let Some(ref band) = banded {
+            hessian(&solution)?.fill_into(&mut tangent);
             decrement = tangent.solve_lu_banded(&residual, band)?
         } else {
+            hessian(&solution)?.fill_into(&mut tangent);
             decrement = tangent.solve_lu(&residual)?
         }
         solution.decrement_from_chained(&mut multipliers, decrement)

@@ -12,8 +12,8 @@ use crate::{
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffStress,
-        FirstPiolaKirchhoffTangentStiffness, HeatFlux, Scalar, SecondPiolaKirchhoffStress,
-        SecondPiolaKirchhoffTangentStiffness, TemperatureGradient,
+        FirstPiolaKirchhoffTangentStiffness, HeatFlux, HeatFluxTangent, Scalar,
+        SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness, TemperatureGradient,
     },
 };
 
@@ -152,9 +152,26 @@ where
     C2: ThermalConduction,
     Self: SolidThermal<C1, C2>,
 {
-    fn heat_flux(&self, temperature_gradient: &TemperatureGradient) -> HeatFlux {
+    fn potential(
+        &self,
+        temperature_gradient: &TemperatureGradient,
+    ) -> Result<Scalar, ConstitutiveError> {
+        self.thermal_constitutive_model()
+            .potential(temperature_gradient)
+    }
+    fn heat_flux(
+        &self,
+        temperature_gradient: &TemperatureGradient,
+    ) -> Result<HeatFlux, ConstitutiveError> {
         self.thermal_constitutive_model()
             .heat_flux(temperature_gradient)
+    }
+    fn heat_flux_tangent(
+        &self,
+        temperature_gradient: &TemperatureGradient,
+    ) -> Result<HeatFluxTangent, ConstitutiveError> {
+        self.thermal_constitutive_model()
+            .heat_flux_tangent(temperature_gradient)
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::math::{Tensor, TensorList, TensorRank0, TensorTuple, TensorVec};
+use crate::math::{Tensor, TensorRank0, TensorVec};
 use std::{
     fmt::{Display, Formatter, Result},
     iter::Sum,
@@ -54,28 +54,6 @@ where
 {
     fn from(vec: Vec<T>) -> Self {
         Self(vec)
-    }
-}
-
-impl<T1, T2, const N: usize> From<TensorVector<TensorList<TensorTuple<T1, T2>, N>>>
-    for (
-        TensorVector<TensorList<T1, N>>,
-        TensorVector<TensorList<T2, N>>,
-    )
-where
-    T1: Tensor,
-    T2: Tensor,
-{
-    fn from(tensor_tuple_list_vec: TensorVector<TensorList<TensorTuple<T1, T2>, N>>) -> Self {
-        tensor_tuple_list_vec
-            .into_iter()
-            .map(|tensor_tuple_list| {
-                tensor_tuple_list
-                    .into_iter()
-                    .map(|tensor_tuple| tensor_tuple.into())
-                    .unzip()
-            })
-            .unzip()
     }
 }
 

@@ -28,16 +28,17 @@ use super::test::ErrorTensor;
 #[derive(Clone, Debug, PartialEq)]
 pub struct TensorRank1<const D: usize, const I: usize>([TensorRank0; D]);
 
+impl<const D: usize, const I: usize> TensorRank1<D, I> {
+    /// Associated function for const type conversion.
+    pub const fn const_from(array: [TensorRank0; D]) -> Self {
+        Self(array)
+    }
+}
+
 impl<const D: usize, const I: usize> Default for TensorRank1<D, I> {
     fn default() -> Self {
         Self::zero()
     }
-}
-
-pub const fn tensor_rank_1<const D: usize, const I: usize>(
-    array: [TensorRank0; D],
-) -> TensorRank1<D, I> {
-    TensorRank1(array)
 }
 
 impl<const D: usize, const I: usize> Display for TensorRank1<D, I> {

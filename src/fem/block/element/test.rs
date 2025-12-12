@@ -15,10 +15,10 @@ macro_rules! test_finite_element {
             get_deformation_gradient_rate() * reference_coordinates()
         }
         fn element() -> $element {
-            $element::new(reference_coordinates())
+            $element::from(reference_coordinates())
         }
         fn element_transformed() -> $element {
-            $element::new(reference_coordinates_transformed())
+            $element::from(reference_coordinates_transformed())
         }
         #[test]
         fn size() {
@@ -30,10 +30,10 @@ macro_rules! test_finite_element {
         macro_rules! setup_element {
             () => {
                 fn get_element() -> $element {
-                    $element::new(reference_coordinates())
+                    $element::from(reference_coordinates())
                 }
                 fn get_element_transformed() -> $element {
-                    $element::new(reference_coordinates_transformed())
+                    $element::from(reference_coordinates_transformed())
                 }
             };
         }
@@ -435,10 +435,10 @@ macro_rules! test_finite_element_inner {
             };
             mod constitutive_model_independent {
                 use super::{
-                    DeformationGradientList, DeformationGradientRateList, FiniteElementMethods, G,
-                    NodalVelocities, Rank2, Tensor, TensorArray, TestError, assert_eq_within_tols,
-                    coordinates, coordinates_transformed, element, element_transformed,
-                    get_deformation_gradient, get_deformation_gradient_rate,
+                    DeformationGradientList, DeformationGradientRateList, G, NodalVelocities,
+                    Rank2, SolidFiniteElement, Tensor, TensorArray, TestError,
+                    assert_eq_within_tols, coordinates, coordinates_transformed, element,
+                    element_transformed, get_deformation_gradient, get_deformation_gradient_rate,
                     get_rotation_current_configuration, get_rotation_rate_current_configuration,
                     get_rotation_reference_configuration, reference_coordinates,
                     reference_coordinates_transformed, velocities, velocities_transformed,

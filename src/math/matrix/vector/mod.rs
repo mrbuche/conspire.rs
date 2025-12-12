@@ -2,8 +2,8 @@
 use crate::math::test::ErrorTensor;
 
 use crate::math::{
-    Jacobian, Matrix, Scalar, Solution, Tensor, TensorRank1Vec, TensorRank2, TensorTuple,
-    TensorVec, write_tensor_rank_0,
+    Jacobian, Matrix, Scalar, Solution, SquareMatrix, Tensor, TensorRank1Vec, TensorRank2,
+    TensorTuple, TensorVec, write_tensor_rank_0,
 };
 use std::{
     fmt::{Display, Formatter, Result},
@@ -549,5 +549,12 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
         let (tensor_rank_2_a, tensor_rank_2_b) = tensor_tuple.into();
         &self.iter().take(D * D).copied().collect::<Vector>() * tensor_rank_2_a
             + &self.iter().skip(D * D).copied().collect::<Vector>() * tensor_rank_2_b
+    }
+}
+
+impl Div<SquareMatrix> for &Vector {
+    type Output = Vector;
+    fn div(self, _square_matrix: SquareMatrix) -> Self::Output {
+        todo!()
     }
 }

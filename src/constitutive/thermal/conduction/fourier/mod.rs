@@ -1,7 +1,14 @@
 #[cfg(test)]
 mod test;
 
-use super::{HeatFlux, Scalar, TemperatureGradient, Thermal, ThermalConduction};
+use crate::{
+    constitutive::{
+        ConstitutiveError,
+        thermal::{Thermal, conduction::ThermalConduction},
+    },
+    math::IDENTITY_00,
+    mechanics::{HeatFlux, HeatFluxTangent, Scalar, TemperatureGradient},
+};
 
 /// The Fourier thermal conduction constitutive model.
 ///
@@ -28,12 +35,37 @@ impl Fourier {
 impl Thermal for Fourier {}
 
 impl ThermalConduction for Fourier {
+    /// Calculates and returns the potential.
+    ///
+    /// ```math
+    /// u(\nabla T) = \frac{1}{2}k\nabla T\cdot\nabla T
+    /// ```
+    fn potential(
+        &self,
+        temperature_gradient: &TemperatureGradient,
+    ) -> Result<Scalar, ConstitutiveError> {
+        Ok(0.5 * self.thermal_conductivity() * (temperature_gradient * temperature_gradient))
+    }
     /// Calculates and returns the heat flux.
     ///
     /// ```math
     /// \mathbf{q}(\nabla T) = -k\nabla T
     /// ```
-    fn heat_flux(&self, temperature_gradient: &TemperatureGradient) -> HeatFlux {
-        temperature_gradient * -self.thermal_conductivity()
+    fn heat_flux(
+        &self,
+        temperature_gradient: &TemperatureGradient,
+    ) -> Result<HeatFlux, ConstitutiveError> {
+        Ok(temperature_gradient * -self.thermal_conductivity())
+    }
+    /// Calculates and returns the tangent to the heat flux.
+    ///
+    /// ```math
+    /// \frac{\partial\mathbf{q}}{\partial\nabla T} = -k\mathbf{I}
+    /// ```
+    fn heat_flux_tangent(
+        &self,
+        _temperature_gradient: &TemperatureGradient,
+    ) -> Result<HeatFluxTangent, ConstitutiveError> {
+        Ok(IDENTITY_00 * -self.thermal_conductivity())
     }
 }

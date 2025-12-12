@@ -12,7 +12,7 @@ mod maximum_extensibility {
     #[test]
     fn cauchy_stress() {
         let deformation_gradient =
-            DeformationGradient::new([[16.0, 0.0, 0.0], [0.0, 0.25, 0.0], [0.0, 0.0, 0.25]]);
+            DeformationGradient::from([[16.0, 0.0, 0.0], [0.0, 0.25, 0.0], [0.0, 0.0, 0.25]]);
         let model = ArrudaBoyce {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
@@ -29,7 +29,7 @@ mod maximum_extensibility {
     #[test]
     fn cauchy_tangent_stiffness() {
         let deformation_gradient =
-            DeformationGradient::new([[16.0, 0.0, 0.0], [0.0, 0.25, 0.0], [0.0, 0.0, 0.25]]);
+            DeformationGradient::from([[16.0, 0.0, 0.0], [0.0, 0.25, 0.0], [0.0, 0.0, 0.25]]);
         let model = ArrudaBoyce {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
@@ -46,7 +46,7 @@ mod maximum_extensibility {
     #[test]
     fn helmholtz_free_energy_density() {
         let deformation_gradient =
-            DeformationGradient::new([[16.0, 0.0, 0.0], [0.0, 0.25, 0.0], [0.0, 0.0, 0.25]]);
+            DeformationGradient::from([[16.0, 0.0, 0.0], [0.0, 0.25, 0.0], [0.0, 0.0, 0.25]]);
         let model = ArrudaBoyce {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,

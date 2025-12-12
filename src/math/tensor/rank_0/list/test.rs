@@ -13,14 +13,6 @@ fn get_other_tensor_rank_0_list() -> TensorRank0List<4> {
 }
 
 #[test]
-fn const_fn_tensor_rank_0_list() {
-    get_tensor_rank_0_list()
-        .iter()
-        .zip(TensorRank0List::const_from(get_array()).iter())
-        .for_each(|(tensor_rank_0_list_i, value_i)| assert_eq!(tensor_rank_0_list_i, value_i));
-}
-
-#[test]
 fn full_contraction() {
     assert_eq!(
         get_tensor_rank_0_list().full_contraction(&get_other_tensor_rank_0_list()),

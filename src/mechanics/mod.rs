@@ -115,6 +115,9 @@ pub type CauchyTangentStiffnessElastic = TensorRank4<3, 1, 1, 1, 2>;
 /// The rate tangent stiffness associated with the Cauchy stress $`\boldsymbol{\mathcal{V}}`$.
 pub type CauchyRateTangentStiffness = TensorRank4<3, 1, 1, 1, 0>;
 
+/// A coordinate.
+pub type Coordinate<const I: usize> = TensorRank1<3, I>;
+
 /// A list of coordinates.
 pub type Coordinates<const I: usize, const W: usize> = TensorRank1List<3, I, W>;
 
@@ -216,7 +219,16 @@ pub type Forces<const W: usize> = TensorRank1List<3, 1, W>;
 pub type FrameSpin = TensorRank2<3, 1, 1>;
 
 /// The heat flux.
-pub type HeatFlux = TensorRank1<3, 1>;
+pub type HeatFlux = TensorRank1<3, 0>;
+
+/// A list of heat fluxes.
+pub type HeatFluxes<const N: usize> = TensorRank1List<3, 0, N>;
+
+/// The heat flux tangent.
+pub type HeatFluxTangent = TensorRank2<3, 0, 0>;
+
+/// A list of heat flux tangents.
+pub type HeatFluxTangents<const N: usize> = TensorRank2List<3, 0, 0, N>;
 
 /// The left Cauchy-Green deformation $`\mathbf{B}`$.
 pub type LeftCauchyGreenDeformation = TensorRank2<3, 1, 1>;
@@ -276,7 +288,10 @@ pub type StretchingRate = TensorRank2<3, 1, 1>;
 pub type StretchingRatePlastic = TensorRank2<3, 2, 2>;
 
 /// The temperature gradient.
-pub type TemperatureGradient = TensorRank1<3, 1>;
+pub type TemperatureGradient = TensorRank1<3, 0>;
+
+/// A list of temperature gradients.
+pub type TemperatureGradients<const N: usize> = TensorRank1List<3, 0, N>;
 
 /// A vector of times.
 pub type Times = crate::math::Vector;
