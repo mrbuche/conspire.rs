@@ -29,8 +29,9 @@ impl FiniteElement<G, N> for Tetrahedron {
         let standard_gradient_operator = &Self::standard_gradient_operators()[0];
         let (operator, jacobian) = (reference_nodal_coordinates * standard_gradient_operator)
             .inverse_transpose_and_determinant();
-        let gradient_vectors = GradientVectors::const_from([operator * standard_gradient_operator]);
-        let integration_weights = Scalars::<G>::foo([jacobian * Self::integration_weight()]);
+        let gradient_vectors = GradientVectors::from([operator * standard_gradient_operator]);
+        let integration_weights =
+            Scalars::<G>::const_from_array([jacobian * Self::integration_weight()]);
         (gradient_vectors, integration_weights)
     }
     fn reset(&mut self) {
@@ -45,7 +46,7 @@ impl Tetrahedron {
         1.0 / 6.0
     }
     const fn reference() -> ReferenceNodalCoordinates<N> {
-        ReferenceNodalCoordinates::<N>::foo([
+        ReferenceNodalCoordinates::<N>::const_from_array([
             [0.0, 0.0, 0.0],
             [1.0, 0.0, 0.0],
             [0.0, 1.0, 0.0],
@@ -54,10 +55,10 @@ impl Tetrahedron {
     }
     #[cfg(test)]
     const fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, Q> {
-        ShapeFunctionsAtIntegrationPoints::<G, Q>::foo([[0.25; Q]])
+        ShapeFunctionsAtIntegrationPoints::<G, Q>::const_from_array([[0.25; Q]])
     }
     const fn standard_gradient_operators() -> StandardGradientOperators<M, N, P> {
-        StandardGradientOperators::<M, N, P>::foo([[
+        StandardGradientOperators::<M, N, P>::const_from_array([[
             [-1.0, -1.0, -1.0],
             [1.0, 0.0, 0.0],
             [0.0, 1.0, 0.0],

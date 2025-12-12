@@ -69,9 +69,6 @@ type ParametricGradientOperators<const P: usize> = TensorRank2List<3, 0, 0, P>;
 type ProjectionMatrix<const Q: usize> = TensorRank2<Q, 9, 9>;
 type ReferenceNodalCoordinates<const D: usize> = ReferenceCoordinates<D>;
 type ReferenceNormals<const P: usize> = Vectors<0, P>;
-#[cfg(test)]
-type ShapeFunctions<const Q: usize> = crate::math::TensorRank1<Q, 9>;
-type ShapeFunctionsGradients<const M: usize, const Q: usize> = TensorRank1List<M, 0, Q>;
 type ShapeFunctionIntegrals<const P: usize, const Q: usize> = TensorRank1List<Q, 9, P>;
 type ShapeFunctionIntegralsProducts<const P: usize, const Q: usize> = TensorRank2List<Q, 9, 9, P>;
 type ShapeFunctionsAtIntegrationPoints<const G: usize, const Q: usize> = TensorRank1List<Q, 9, G>;

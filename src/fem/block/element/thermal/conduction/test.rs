@@ -15,8 +15,6 @@ macro_rules! test_thermal {
             };
             mod finite_difference {
                 use super::*;
-                const TEMPERATURE: NodalTemperatures<N> =
-                    NodalTemperatures::const_from([0.62895714, 0.73331084, 0.3058115, 0.08179408]);
                 const MODEL: Fourier = Fourier {
                     thermal_conductivity: 1.0,
                 };
@@ -24,10 +22,12 @@ macro_rules! test_thermal {
                 fn potential() -> Result<(), TestError> {
                     let constitutive_model = MODEL;
                     let element = element();
+                    let temperature =
+                        NodalTemperatures::from([0.62895714, 0.73331084, 0.3058115, 0.08179408]);
                     let mut finite_difference = 0.0;
                     let nodal_forces_fd: NodalForcesThermal<N> = (0..N)
                         .map(|node| {
-                            let mut nodal_temperatures = TEMPERATURE;
+                            let mut nodal_temperatures = temperature.clone();
                             nodal_temperatures[node] += 0.5 * EPSILON;
                             finite_difference =
                                 element.potential(&constitutive_model, &nodal_temperatures)?;
@@ -41,7 +41,7 @@ macro_rules! test_thermal {
                         &nodal_forces_fd,
                         &element.nodal_forces(
                             &constitutive_model,
-                            &NodalTemperatures::from(TEMPERATURE),
+                            &NodalTemperatures::from(temperature),
                         )?,
                     )
                 }
@@ -49,12 +49,14 @@ macro_rules! test_thermal {
                 fn nodal_forces() -> Result<(), TestError> {
                     let constitutive_model = MODEL;
                     let element = element();
+                    let temperature =
+                        NodalTemperatures::from([0.62895714, 0.73331084, 0.3058115, 0.08179408]);
                     let mut finite_difference = 0.0;
                     let nodal_stiffnesses_fd: NodalStiffnessesThermal<N> = (0..N)
                         .map(|node_a| {
                             (0..N)
                                 .map(|node_b| {
-                                    let mut nodal_temperatures = TEMPERATURE;
+                                    let mut nodal_temperatures = temperature.clone();
                                     nodal_temperatures[node_b] += 0.5 * EPSILON;
                                     finite_difference = element
                                         .nodal_forces(&constitutive_model, &nodal_temperatures)?
@@ -72,7 +74,7 @@ macro_rules! test_thermal {
                         &nodal_stiffnesses_fd,
                         &element.nodal_stiffnesses(
                             &constitutive_model,
-                            &NodalTemperatures::from(TEMPERATURE),
+                            &NodalTemperatures::from(temperature),
                         )?,
                     )
                 }

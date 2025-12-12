@@ -48,8 +48,6 @@ macro_rules! const_from_impl {
         }
     }
 }
-// const_from_impl!(1, 0);
-// const_from_impl!(2, 0, 1);
 const_from_impl!(3, 0, 1, 2);
 const_from_impl!(4, 0, 1, 2, 3);
 

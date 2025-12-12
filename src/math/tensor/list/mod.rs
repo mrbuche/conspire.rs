@@ -1,4 +1,4 @@
-use crate::math::{Tensor, TensorArray, TensorRank0, TensorRank1};
+use crate::math::{Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank2};
 use std::{
     array::{IntoIter, from_fn},
     fmt::{Display, Formatter, Result},
@@ -12,21 +12,21 @@ pub struct TensorList<T, const N: usize>([T; N])
 where
     T: Tensor;
 
-impl<T, const N: usize> TensorList<T, N>
-where
-    T: Tensor,
-{
-    /// Associated function for const type conversion.
-    pub const fn const_from(array: [T; N]) -> Self {
-        Self(array)
-    }
-}
+// impl<T, const N: usize> TensorList<T, N>
+// where
+//     T: Tensor,
+// {
+//     /// Associated function for const type conversion.
+//     pub const fn const_from(array: [T; N]) -> Self {
+//         Self(array)
+//     }
+// }
 
 macro_rules! const_from_impl_tensor_rank_0_list {
     ($len:literal, $($i:literal),*) => {
         impl TensorList<TensorRank0, $len> {
             /// Associated function for const type conversion.
-            pub const fn foo(array: [TensorRank0; $len]) -> Self {
+            pub const fn const_from_array(array: [TensorRank0; $len]) -> Self {
                 Self([
                     $(array[$i]),*
                 ])
@@ -40,7 +40,7 @@ macro_rules! const_from_impl_tensor_rank_1_list {
     ($dim:literal, $len:literal, $($i:literal),*) => {
         impl<const I: usize> TensorList<TensorRank1<$dim, I>, $len> {
             /// Associated function for const type conversion.
-            pub const fn foo(array: [[TensorRank0; $dim]; $len]) -> Self {
+            pub const fn const_from_array(array: [[TensorRank0; $dim]; $len]) -> Self {
                 Self([
                     $(TensorRank1::const_from(array[$i])),*
                 ])
@@ -48,24 +48,48 @@ macro_rules! const_from_impl_tensor_rank_1_list {
         }
     }
 }
+const_from_impl_tensor_rank_1_list!(2, 3, 0, 1, 2);
 const_from_impl_tensor_rank_1_list!(3, 4, 0, 1, 2, 3);
 const_from_impl_tensor_rank_1_list!(3, 8, 0, 1, 2, 3, 4, 5, 6, 7);
 const_from_impl_tensor_rank_1_list!(3, 10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+const_from_impl_tensor_rank_1_list!(3, 12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
+const_from_impl_tensor_rank_1_list!(3, 1, 0);
 const_from_impl_tensor_rank_1_list!(4, 1, 0);
+const_from_impl_tensor_rank_1_list!(4, 4, 0, 1, 2, 3);
+const_from_impl_tensor_rank_1_list!(4, 12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
+const_from_impl_tensor_rank_1_list!(8, 8, 0, 1, 2, 3, 4, 5, 6, 7);
 
 macro_rules! const_from_impl_tensor_rank_1_list_2d {
     ($dim:literal, $len_1:literal, $len_2:literal, $($i:literal),*) => {
         impl<const I: usize> TensorList<TensorList<TensorRank1<$dim, I>, $len_1>, $len_2> {
             /// Associated function for const type conversion.
-            pub const fn foo(array: [[[TensorRank0; $dim]; $len_1]; $len_2]) -> Self {
+            pub const fn const_from_array(array: [[[TensorRank0; $dim]; $len_1]; $len_2]) -> Self {
                 Self([
-                    $(TensorList::<TensorRank1<$dim, I>, $len_1>::foo(array[$i])),*
+                    $(TensorList::<TensorRank1<$dim, I>, $len_1>::const_from_array(array[$i])),*
                 ])
             }
         }
     }
 }
+const_from_impl_tensor_rank_1_list_2d!(2, 3, 1, 0);
 const_from_impl_tensor_rank_1_list_2d!(3, 4, 1, 0);
+const_from_impl_tensor_rank_1_list_2d!(3, 10, 12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
+const_from_impl_tensor_rank_1_list_2d!(3, 12, 10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+const_from_impl_tensor_rank_1_list_2d!(3, 8, 8, 0, 1, 2, 3, 4, 5, 6, 7);
+
+macro_rules! const_from_impl_tensor_rank_2_list {
+    ($dim:literal, $len:literal, $($i:literal),*) => {
+        impl<const I: usize, const J: usize> TensorList<TensorRank2<$dim, I, J>, $len> {
+            /// Associated function for const type conversion.
+            pub const fn const_from_array(array: [[[TensorRank0; $dim]; $dim]; $len]) -> Self {
+                Self([
+                    $(TensorRank2::<$dim, I, J>::const_from(array[$i])),*
+                ])
+            }
+        }
+    }
+}
+const_from_impl_tensor_rank_2_list!(4, 12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
 
 impl<T, const N: usize> Default for TensorList<T, N>
 where

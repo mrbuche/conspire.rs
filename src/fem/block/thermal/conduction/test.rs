@@ -34,8 +34,7 @@ macro_rules! test_thermal {
                             let mut nodal_temperatures = NodalTemperaturesBlock::zero(D);
                             nodal_temperatures[node] += 0.5 * EPSILON;
                             finite_difference = block.potential(&nodal_temperatures)?;
-                            nodal_temperatures = NodalTemperaturesBlock::zero(D);
-                            nodal_temperatures[node] -= 0.5 * EPSILON;
+                            nodal_temperatures[node] -= EPSILON;
                             finite_difference -= block.potential(&nodal_temperatures)?;
                             Ok(finite_difference / EPSILON)
                         })
@@ -62,8 +61,7 @@ macro_rules! test_thermal {
                                     nodal_temperatures[node_b] += 0.5 * EPSILON;
                                     finite_difference =
                                         block.nodal_forces(&nodal_temperatures)?[node_a];
-                                    nodal_temperatures = NodalTemperaturesBlock::zero(D);
-                                    nodal_temperatures[node_b] -= 0.5 * EPSILON;
+                                    nodal_temperatures[node_b] -= EPSILON;
                                     finite_difference -=
                                         block.nodal_forces(&nodal_temperatures)?[node_a];
                                     Ok(finite_difference / EPSILON)
