@@ -20,7 +20,7 @@ pub use block::{
             tetrahedron::Tetrahedron as LinearTetrahedron, triangle::Triangle as LinearTriangle,
         },
     },
-    thermal::{ThermalConductionFiniteElementBlock, ThermalFiniteElementBlock},
+    thermal::{ThermalFiniteElementBlock, conduction::ThermalConductionFiniteElementBlock},
 };
 
 use crate::{

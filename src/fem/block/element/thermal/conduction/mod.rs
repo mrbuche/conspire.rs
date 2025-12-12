@@ -7,8 +7,8 @@ use crate::{
         NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures,
         block::element::{Element, FiniteElementError, thermal::ThermalFiniteElement},
     },
-    math::Tensor,
-    mechanics::{HeatFluxTangents, HeatFluxes, Scalar},
+    math::{Scalar, Tensor},
+    mechanics::{HeatFluxTangents, HeatFluxes},
 };
 
 pub trait ThermalConductionFiniteElement<C, const G: usize, const N: usize>
