@@ -23,30 +23,14 @@ const Q: usize = 4;
 
 pub type Tetrahedron = Element<G, N>;
 
-impl From<ReferenceNodalCoordinates<N>> for Tetrahedron {
-    fn from(reference_nodal_coordinates: ReferenceNodalCoordinates<N>) -> Self {
-        let (gradient_vectors, integration_weights) = Self::initialize(reference_nodal_coordinates);
-        Self {
-            gradient_vectors,
-            integration_weights,
-        }
-    }
-}
-
 impl FiniteElement<G, N> for Tetrahedron {
-    fn reference() -> ReferenceNodalCoordinates<N> {
-        ReferenceNodalCoordinates::const_from([
-            Coordinate::const_from([0.0, 0.0, 0.0]),
-            Coordinate::const_from([1.0, 0.0, 0.0]),
-            Coordinate::const_from([0.0, 1.0, 0.0]),
-            Coordinate::const_from([0.0, 0.0, 1.0]),
-            Coordinate::const_from([0.25, 0.25, 0.0]),
-            Coordinate::const_from([0.25, 0.0, 0.25]),
-            Coordinate::const_from([0.0, 0.25, 0.25]),
-            Coordinate::const_from([0.5, 0.5, 0.0]),
-            Coordinate::const_from([0.5, 0.0, 0.5]),
-            Coordinate::const_from([0.0, 0.5, 0.5]),
-        ])
+    fn initialize(
+        reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
+    ) -> (GradientVectors<G, N>, Scalars<G>) {
+        let gradient_vectors = Self::projected_gradient_vectors(&reference_nodal_coordinates);
+        let integration_weights =
+            Self::reference_jacobians(&reference_nodal_coordinates) * Self::integration_weight();
+        (gradient_vectors, integration_weights)
     }
     fn reset(&mut self) {
         let (gradient_vectors, integration_weights) = Self::initialize(Self::reference());
@@ -56,14 +40,6 @@ impl FiniteElement<G, N> for Tetrahedron {
 }
 
 impl Tetrahedron {
-    fn initialize(
-        reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
-    ) -> (GradientVectors<G, N>, Scalars<G>) {
-        let gradient_vectors = Self::projected_gradient_vectors(&reference_nodal_coordinates);
-        let integration_weights =
-            Self::reference_jacobians(&reference_nodal_coordinates) * Self::integration_weight();
-        (gradient_vectors, integration_weights)
-    }
     const fn integration_weight() -> Scalar {
         1.0 / 24.0
     }
@@ -143,6 +119,20 @@ impl Tetrahedron {
                     .collect()
             })
             .collect()
+    }
+    const fn reference() -> ReferenceNodalCoordinates<N> {
+        ReferenceNodalCoordinates::<N>::foo([
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+            [0.25, 0.25, 0.0],
+            [0.25, 0.0, 0.25],
+            [0.0, 0.25, 0.25],
+            [0.5, 0.5, 0.0],
+            [0.5, 0.0, 0.5],
+            [0.0, 0.5, 0.5],
+        ])
     }
     fn reference_jacobians(
         reference_nodal_coordinates: &ReferenceNodalCoordinates<N>,

@@ -22,7 +22,21 @@ where
     }
 }
 
-macro_rules! const_from_impl {
+macro_rules! const_from_impl_tensor_rank_0_list {
+    ($len:literal, $($i:literal),*) => {
+        impl TensorList<TensorRank0, $len> {
+            /// Associated function for const type conversion.
+            pub const fn foo(array: [TensorRank0; $len]) -> Self {
+                Self([
+                    $(array[$i]),*
+                ])
+            }
+        }
+    }
+}
+const_from_impl_tensor_rank_0_list!(1, 0);
+
+macro_rules! const_from_impl_tensor_rank_1_list {
     ($dim:literal, $len:literal, $($i:literal),*) => {
         impl<const I: usize> TensorList<TensorRank1<$dim, I>, $len> {
             /// Associated function for const type conversion.
@@ -34,7 +48,24 @@ macro_rules! const_from_impl {
         }
     }
 }
-const_from_impl!(3, 4, 0, 1, 2, 3);
+const_from_impl_tensor_rank_1_list!(3, 4, 0, 1, 2, 3);
+const_from_impl_tensor_rank_1_list!(3, 8, 0, 1, 2, 3, 4, 5, 6, 7);
+const_from_impl_tensor_rank_1_list!(3, 10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+const_from_impl_tensor_rank_1_list!(4, 1, 0);
+
+macro_rules! const_from_impl_tensor_rank_1_list_2d {
+    ($dim:literal, $len_1:literal, $len_2:literal, $($i:literal),*) => {
+        impl<const I: usize> TensorList<TensorList<TensorRank1<$dim, I>, $len_1>, $len_2> {
+            /// Associated function for const type conversion.
+            pub const fn foo(array: [[[TensorRank0; $dim]; $len_1]; $len_2]) -> Self {
+                Self([
+                    $(TensorList::<TensorRank1<$dim, I>, $len_1>::foo(array[$i])),*
+                ])
+            }
+        }
+    }
+}
+const_from_impl_tensor_rank_1_list_2d!(3, 4, 1, 0);
 
 impl<T, const N: usize> Default for TensorList<T, N>
 where

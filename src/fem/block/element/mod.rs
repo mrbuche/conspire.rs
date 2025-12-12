@@ -40,6 +40,19 @@ impl<const G: usize, const N: usize> Element<G, N> {
     }
 }
 
+impl<const G: usize, const N: usize> From<ReferenceNodalCoordinates<N>> for Element<G, N>
+where
+    Self: FiniteElement<G, N>,
+{
+    fn from(reference_nodal_coordinates: ReferenceNodalCoordinates<N>) -> Self {
+        let (gradient_vectors, integration_weights) = Self::initialize(reference_nodal_coordinates);
+        Self {
+            gradient_vectors,
+            integration_weights,
+        }
+    }
+}
+
 impl<const G: usize, const N: usize> Debug for Element<G, N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let element = match (G, N) {
@@ -56,7 +69,9 @@ pub trait FiniteElement<const G: usize, const N: usize>
 where
     Self: From<ReferenceNodalCoordinates<N>>,
 {
-    fn reference() -> ReferenceNodalCoordinates<N>;
+    fn initialize(
+        reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
+    ) -> (GradientVectors<G, N>, Scalars<G>);
     fn reset(&mut self);
 }
 
