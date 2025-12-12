@@ -118,7 +118,7 @@ impl Tetrahedron {
             .collect()
     }
     const fn reference() -> ReferenceNodalCoordinates<N> {
-        ReferenceNodalCoordinates::<N>::const_from_array([
+        ReferenceNodalCoordinates::<N>::const_from([
             [0.0, 0.0, 0.0],
             [1.0, 0.0, 0.0],
             [0.0, 1.0, 0.0],
@@ -165,7 +165,7 @@ impl Tetrahedron {
     const fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, Q> {
         const DIAG: Scalar = 0.585_410_196_624_968_5;
         const OFF: Scalar = 0.138_196_601_125_010_5;
-        ShapeFunctionsAtIntegrationPoints::<G, Q>::const_from_array([
+        ShapeFunctionsAtIntegrationPoints::<G, Q>::const_from([
             [DIAG, OFF, OFF, OFF],
             [OFF, DIAG, OFF, OFF],
             [OFF, OFF, DIAG, OFF],
@@ -173,7 +173,7 @@ impl Tetrahedron {
         ])
     }
     const fn shape_function_integrals() -> ShapeFunctionIntegrals<P, Q> {
-        ShapeFunctionIntegrals::<P, Q>::const_from_array([
+        ShapeFunctionIntegrals::<P, Q>::const_from([
             [200.0, 40.0, 40.0, 40.0],
             [40.0, 200.0, 40.0, 40.0],
             [40.0, 40.0, 200.0, 40.0],
@@ -189,7 +189,7 @@ impl Tetrahedron {
         ])
     }
     const fn shape_function_integrals_products() -> ShapeFunctionIntegralsProducts<P, Q> {
-        ShapeFunctionIntegralsProducts::<P, Q>::const_from_array([
+        ShapeFunctionIntegralsProducts::<P, Q>::const_from([
             [
                 [128.0, 24.0, 24.0, 24.0],
                 [24.0, 8.0, 4.0, 4.0],
@@ -265,7 +265,7 @@ impl Tetrahedron {
         ])
     }
     const fn standard_gradient_operators() -> StandardGradientOperators<M, N, P> {
-        StandardGradientOperators::<M, N, P>::const_from_array([
+        StandardGradientOperators::<M, N, P>::const_from([
             [
                 [-2.0, -2.0, -2.0],
                 [0.0, 0.0, 0.0],
@@ -414,7 +414,7 @@ impl Tetrahedron {
     }
     const fn standard_gradient_operators_transposed() -> StandardGradientOperatorsTransposed<M, N, P>
     {
-        StandardGradientOperatorsTransposed::<M, N, P>::const_from_array([
+        StandardGradientOperatorsTransposed::<M, N, P>::const_from([
             [
                 [-2.0, -2.0, -2.0],
                 [0.0, 0.0, 0.0],

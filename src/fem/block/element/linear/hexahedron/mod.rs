@@ -4,9 +4,9 @@ mod test;
 use crate::{
     fem::{
         GradientVectors, ReferenceNodalCoordinates, StandardGradientOperators,
-        block::element::{Element, FiniteElement},
+        block::element::{Element, FiniteElement, linear::linear_finite_element},
     },
-    math::{Scalar, Scalars, Tensor},
+    math::{Scalar, Scalars},
 };
 
 #[cfg(test)]
@@ -24,33 +24,7 @@ const SQRT_3_OVER_3: Scalar = 0.577_350_269_189_625_8;
 
 pub type Hexahedron = Element<G, N>;
 
-impl FiniteElement<G, N> for Hexahedron {
-    fn initialize(
-        reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
-    ) -> (GradientVectors<G, N>, Scalars<G>) {
-        let standard_gradient_operators = Self::standard_gradient_operators();
-        let gradient_vectors = standard_gradient_operators
-            .iter()
-            .map(|standard_gradient_operator| {
-                (&reference_nodal_coordinates * standard_gradient_operator).inverse_transpose()
-                    * standard_gradient_operator
-            })
-            .collect();
-        let integration_weights = standard_gradient_operators
-            .into_iter()
-            .map(|standard_gradient_operator| {
-                (&reference_nodal_coordinates * standard_gradient_operator).determinant()
-                    * Self::integration_weight()
-            })
-            .collect();
-        (gradient_vectors, integration_weights)
-    }
-    fn reset(&mut self) {
-        let (gradient_vectors, integration_weights) = Self::initialize(Self::reference());
-        self.gradient_vectors = gradient_vectors;
-        self.integration_weights = integration_weights;
-    }
-}
+linear_finite_element!(Hexahedron);
 
 impl Hexahedron {
     const fn integration_point(point: usize) -> [Scalar; M] {
@@ -70,7 +44,7 @@ impl Hexahedron {
         1.0
     }
     const fn reference() -> ReferenceNodalCoordinates<N> {
-        ReferenceNodalCoordinates::<N>::const_from_array([
+        ReferenceNodalCoordinates::<N>::const_from([
             [-1.0, -1.0, -1.0],
             [1.0, -1.0, -1.0],
             [1.0, 1.0, -1.0],
@@ -96,7 +70,7 @@ impl Hexahedron {
     }
     #[cfg(test)]
     const fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, Q> {
-        ShapeFunctionsAtIntegrationPoints::<G, Q>::const_from_array([
+        ShapeFunctionsAtIntegrationPoints::<G, Q>::const_from([
             Self::shape_functions(Self::integration_point(0)),
             Self::shape_functions(Self::integration_point(1)),
             Self::shape_functions(Self::integration_point(2)),
@@ -152,7 +126,7 @@ impl Hexahedron {
         ]
     }
     const fn standard_gradient_operators() -> StandardGradientOperators<M, N, P> {
-        StandardGradientOperators::<M, N, P>::const_from_array([
+        StandardGradientOperators::<M, N, P>::const_from([
             Self::shape_functions_gradients(Self::integration_point(0)),
             Self::shape_functions_gradients(Self::integration_point(1)),
             Self::shape_functions_gradients(Self::integration_point(2)),
