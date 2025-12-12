@@ -38,7 +38,7 @@ impl ThermalConduction for Fourier {
     /// Calculates and returns the potential.
     ///
     /// ```math
-    /// a(\nabla T) = \frac{1}{2}k\nabla T\cdot\nabla T
+    /// u(\nabla T) = \frac{1}{2}k\nabla T\cdot\nabla T
     /// ```
     fn potential(
         &self,

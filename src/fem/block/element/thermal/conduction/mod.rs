@@ -1,3 +1,6 @@
+#[cfg(test)]
+pub mod test;
+
 use crate::{
     constitutive::{ConstitutiveError, thermal::conduction::ThermalConduction},
     fem::{
@@ -13,7 +16,7 @@ where
     C: ThermalConduction,
     Self: ThermalFiniteElement<G, N>,
 {
-    fn nodal_potential(
+    fn potential(
         &self,
         constitutive_model: &C,
         nodal_temperatures: &NodalTemperatures<N>,
@@ -35,7 +38,7 @@ where
     C: ThermalConduction,
     Self: ThermalFiniteElement<G, N>,
 {
-    fn nodal_potential(
+    fn potential(
         &self,
         constitutive_model: &C,
         nodal_temperatures: &NodalTemperatures<N>,
@@ -51,7 +54,7 @@ where
             })
             .sum()
         {
-            Ok(nodal_potential) => Ok(nodal_potential),
+            Ok(potential) => Ok(potential),
             Err(error) => Err(FiniteElementError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
