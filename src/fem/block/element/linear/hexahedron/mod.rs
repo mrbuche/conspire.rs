@@ -7,7 +7,8 @@ use crate::{
         StandardGradientOperators,
         block::element::{Element, FiniteElement},
     },
-    math::{Scalar, Scalars, Tensor, tensor_rank_1},
+    math::{Scalar, Scalars, Tensor},
+    mechanics::Coordinate,
 };
 
 #[cfg(test)]
@@ -38,14 +39,14 @@ impl From<ReferenceNodalCoordinates<N>> for Hexahedron {
 impl FiniteElement<G, N> for Hexahedron {
     fn reference() -> ReferenceNodalCoordinates<N> {
         ReferenceNodalCoordinates::const_from([
-            tensor_rank_1([-1.0, -1.0, -1.0]),
-            tensor_rank_1([1.0, -1.0, -1.0]),
-            tensor_rank_1([1.0, 1.0, -1.0]),
-            tensor_rank_1([-1.0, 1.0, -1.0]),
-            tensor_rank_1([-1.0, -1.0, 1.0]),
-            tensor_rank_1([1.0, -1.0, 1.0]),
-            tensor_rank_1([1.0, 1.0, 1.0]),
-            tensor_rank_1([-1.0, 1.0, 1.0]),
+            Coordinate::const_from([-1.0, -1.0, -1.0]),
+            Coordinate::const_from([1.0, -1.0, -1.0]),
+            Coordinate::const_from([1.0, 1.0, -1.0]),
+            Coordinate::const_from([-1.0, 1.0, -1.0]),
+            Coordinate::const_from([-1.0, -1.0, 1.0]),
+            Coordinate::const_from([1.0, -1.0, 1.0]),
+            Coordinate::const_from([1.0, 1.0, 1.0]),
+            Coordinate::const_from([-1.0, 1.0, 1.0]),
         ])
     }
     fn reset(&mut self) {
@@ -94,7 +95,7 @@ impl Hexahedron {
     }
     #[cfg(test)]
     const fn shape_functions([xi_1, xi_2, xi_3]: [Scalar; M]) -> ShapeFunctions<N> {
-        tensor_rank_1([
+        ShapeFunctions::const_from([
             (1.0 - xi_1) * (1.0 - xi_2) * (1.0 - xi_3) / 8.0,
             (1.0 + xi_1) * (1.0 - xi_2) * (1.0 - xi_3) / 8.0,
             (1.0 + xi_1) * (1.0 + xi_2) * (1.0 - xi_3) / 8.0,
@@ -122,42 +123,42 @@ impl Hexahedron {
         [xi_1, xi_2, xi_3]: [Scalar; M],
     ) -> ShapeFunctionsGradients<M, N> {
         ShapeFunctionsGradients::const_from([
-            tensor_rank_1([
+            Coordinate::const_from([
                 -(1.0 - xi_2) * (1.0 - xi_3) / 8.0,
                 -(1.0 - xi_1) * (1.0 - xi_3) / 8.0,
                 -(1.0 - xi_1) * (1.0 - xi_2) / 8.0,
             ]),
-            tensor_rank_1([
+            Coordinate::const_from([
                 (1.0 - xi_2) * (1.0 - xi_3) / 8.0,
                 -(1.0 + xi_1) * (1.0 - xi_3) / 8.0,
                 -(1.0 + xi_1) * (1.0 - xi_2) / 8.0,
             ]),
-            tensor_rank_1([
+            Coordinate::const_from([
                 (1.0 + xi_2) * (1.0 - xi_3) / 8.0,
                 (1.0 + xi_1) * (1.0 - xi_3) / 8.0,
                 -(1.0 + xi_1) * (1.0 + xi_2) / 8.0,
             ]),
-            tensor_rank_1([
+            Coordinate::const_from([
                 -(1.0 + xi_2) * (1.0 - xi_3) / 8.0,
                 (1.0 - xi_1) * (1.0 - xi_3) / 8.0,
                 -(1.0 - xi_1) * (1.0 + xi_2) / 8.0,
             ]),
-            tensor_rank_1([
+            Coordinate::const_from([
                 -(1.0 - xi_2) * (1.0 + xi_3) / 8.0,
                 -(1.0 - xi_1) * (1.0 + xi_3) / 8.0,
                 (1.0 - xi_1) * (1.0 - xi_2) / 8.0,
             ]),
-            tensor_rank_1([
+            Coordinate::const_from([
                 (1.0 - xi_2) * (1.0 + xi_3) / 8.0,
                 -(1.0 + xi_1) * (1.0 + xi_3) / 8.0,
                 (1.0 + xi_1) * (1.0 - xi_2) / 8.0,
             ]),
-            tensor_rank_1([
+            Coordinate::const_from([
                 (1.0 + xi_2) * (1.0 + xi_3) / 8.0,
                 (1.0 + xi_1) * (1.0 + xi_3) / 8.0,
                 (1.0 + xi_1) * (1.0 + xi_2) / 8.0,
             ]),
-            tensor_rank_1([
+            Coordinate::const_from([
                 -(1.0 + xi_2) * (1.0 + xi_3) / 8.0,
                 (1.0 - xi_1) * (1.0 + xi_3) / 8.0,
                 (1.0 - xi_1) * (1.0 + xi_2) / 8.0,

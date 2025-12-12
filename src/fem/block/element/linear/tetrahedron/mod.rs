@@ -6,11 +6,11 @@ use crate::{
         GradientVectors, ReferenceNodalCoordinates, StandardGradientOperators,
         block::element::{Element, FiniteElement},
     },
-    math::{Scalar, Scalars, TensorRank1List, tensor_rank_1},
+    math::{Scalar, Scalars, TensorRank1List},
 };
 
 #[cfg(test)]
-use crate::fem::ShapeFunctionsAtIntegrationPoints;
+use crate::{fem::ShapeFunctionsAtIntegrationPoints, math::TensorRank1};
 
 const G: usize = 1;
 const M: usize = 3;
@@ -34,11 +34,11 @@ impl From<ReferenceNodalCoordinates<N>> for Tetrahedron {
 
 impl FiniteElement<G, N> for Tetrahedron {
     fn reference() -> ReferenceNodalCoordinates<N> {
-        ReferenceNodalCoordinates::const_from([
-            tensor_rank_1([0.0, 0.0, 0.0]),
-            tensor_rank_1([1.0, 0.0, 0.0]),
-            tensor_rank_1([0.0, 1.0, 0.0]),
-            tensor_rank_1([0.0, 0.0, 1.0]),
+        ReferenceNodalCoordinates::foo([
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
         ])
     }
     fn reset(&mut self) {
@@ -64,14 +64,14 @@ impl Tetrahedron {
     }
     #[cfg(test)]
     const fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, Q> {
-        ShapeFunctionsAtIntegrationPoints::const_from([tensor_rank_1([0.25; Q])])
+        ShapeFunctionsAtIntegrationPoints::const_from([TensorRank1::const_from([0.25; Q])])
     }
     const fn standard_gradient_operators() -> StandardGradientOperators<M, N, P> {
-        StandardGradientOperators::const_from([TensorRank1List::const_from([
-            tensor_rank_1([-1.0, -1.0, -1.0]),
-            tensor_rank_1([1.0, 0.0, 0.0]),
-            tensor_rank_1([0.0, 1.0, 0.0]),
-            tensor_rank_1([0.0, 0.0, 1.0]),
+        StandardGradientOperators::const_from([TensorRank1List::foo([
+            [-1.0, -1.0, -1.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
         ])])
     }
 }

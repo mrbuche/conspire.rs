@@ -115,6 +115,9 @@ pub type CauchyTangentStiffnessElastic = TensorRank4<3, 1, 1, 1, 2>;
 /// The rate tangent stiffness associated with the Cauchy stress $`\boldsymbol{\mathcal{V}}`$.
 pub type CauchyRateTangentStiffness = TensorRank4<3, 1, 1, 1, 0>;
 
+/// A coordinate.
+pub type Coordinate<const I: usize> = TensorRank1<3, I>;
+
 /// A list of coordinates.
 pub type Coordinates<const I: usize, const W: usize> = TensorRank1List<3, I, W>;
 

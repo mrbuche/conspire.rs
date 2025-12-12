@@ -20,7 +20,7 @@ use crate::{
             ViscoelasticFiniteElement,
         },
     },
-    math::{IDENTITY, Scalar, Scalars, Tensor, TensorRank1List, tensor_rank_1},
+    math::{IDENTITY, Scalar, Scalars, Tensor, TensorRank1, TensorRank1List},
     mechanics::{
         DeformationGradient, DeformationGradientList, DeformationGradientRate,
         DeformationGradientRateList, FirstPiolaKirchhoffRateTangentStiffnesses,
@@ -92,13 +92,13 @@ impl Triangle {
     }
     #[cfg(test)]
     const fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, Q> {
-        ShapeFunctionsAtIntegrationPoints::const_from([tensor_rank_1([1.0 / 3.0; Q])])
+        ShapeFunctionsAtIntegrationPoints::const_from([TensorRank1::const_from([1.0 / 3.0; Q])])
     }
     const fn standard_gradient_operators() -> StandardGradientOperators<M, N, P> {
         StandardGradientOperators::const_from([TensorRank1List::const_from([
-            tensor_rank_1([-1.0, -1.0]),
-            tensor_rank_1([1.0, 0.0]),
-            tensor_rank_1([0.0, 1.0]),
+            TensorRank1::const_from([-1.0, -1.0]),
+            TensorRank1::const_from([1.0, 0.0]),
+            TensorRank1::const_from([0.0, 1.0]),
         ])])
     }
 }

@@ -18,12 +18,12 @@ use crate::{
 
 #[test]
 fn finite_difference() -> Result<(), TestError> {
-    let deformation_gradient = DeformationGradient::new([
+    let deformation_gradient = DeformationGradient::from([
         [1.31924942, 1.36431217, 0.41764434],
         [0.09959341, 1.38409741, 1.48320137],
         [0.21114106, 1.16675104, 1.98146028],
     ]);
-    let deformation_gradient_p = DeformationGradientPlastic::new([
+    let deformation_gradient_p = DeformationGradientPlastic::from([
         [0.79610657, 1.36265438, 0.58765375],
         [0.71714877, 1.83110678, 0.69670465],
         [1.82260662, 2.1921719, 3.16928404],

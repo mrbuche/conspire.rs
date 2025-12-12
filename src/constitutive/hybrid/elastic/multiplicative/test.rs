@@ -16,12 +16,12 @@ use crate::{
 
 #[test]
 fn finite_difference_foo_0() -> Result<(), TestError> {
-    let deformation_gradient = DeformationGradient::new([
+    let deformation_gradient = DeformationGradient::from([
         [1.31924942, 1.36431217, 0.41764434],
         [0.09959341, 1.38409741, 1.48320137],
         [0.21114106, 1.16675104, 1.98146028],
     ]);
-    let deformation_gradient_2 = DeformationGradient2::new([
+    let deformation_gradient_2 = DeformationGradient2::from([
         [0.84598947, 1.44803635, 0.62447529],
         [0.76208429, 1.94584131, 0.74035917],
         [1.93680854, 2.32953025, 3.36786684],
@@ -66,12 +66,12 @@ fn finite_difference_foo_0() -> Result<(), TestError> {
 
 #[test]
 fn finite_difference_foo_1() -> Result<(), TestError> {
-    let deformation_gradient = DeformationGradient::new([
+    let deformation_gradient = DeformationGradient::from([
         [1.31924942, 1.36431217, 0.41764434],
         [0.09959341, 1.38409741, 1.48320137],
         [0.21114106, 1.16675104, 1.98146028],
     ]);
-    let deformation_gradient_2 = DeformationGradient2::new([
+    let deformation_gradient_2 = DeformationGradient2::from([
         [0.84598947, 1.44803635, 0.62447529],
         [0.76208429, 1.94584131, 0.74035917],
         [1.93680854, 2.32953025, 3.36786684],
@@ -117,12 +117,12 @@ fn finite_difference_foo_1() -> Result<(), TestError> {
 
 #[test]
 fn finite_difference_foo_2() -> Result<(), TestError> {
-    let deformation_gradient = DeformationGradient::new([
+    let deformation_gradient = DeformationGradient::from([
         [1.31924942, 1.36431217, 0.41764434],
         [0.09959341, 1.38409741, 1.48320137],
         [0.21114106, 1.16675104, 1.98146028],
     ]);
-    let deformation_gradient_2 = DeformationGradient2::new([
+    let deformation_gradient_2 = DeformationGradient2::from([
         [0.84598947, 1.44803635, 0.62447529],
         [0.76208429, 1.94584131, 0.74035917],
         [1.93680854, 2.32953025, 3.36786684],
@@ -170,12 +170,12 @@ fn finite_difference_foo_2() -> Result<(), TestError> {
 
 #[test]
 fn finite_difference_foo_3() -> Result<(), TestError> {
-    let deformation_gradient = DeformationGradient::new([
+    let deformation_gradient = DeformationGradient::from([
         [1.31924942, 1.36431217, 0.41764434],
         [0.09959341, 1.38409741, 1.48320137],
         [0.21114106, 1.16675104, 1.98146028],
     ]);
-    let deformation_gradient_2 = DeformationGradient2::new([
+    let deformation_gradient_2 = DeformationGradient2::from([
         [0.84598947, 1.44803635, 0.62447529],
         [0.76208429, 1.94584131, 0.74035917],
         [1.93680854, 2.32953025, 3.36786684],

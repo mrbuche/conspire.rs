@@ -1,4 +1,4 @@
-use crate::math::{Tensor, TensorArray, TensorRank0};
+use crate::math::{Tensor, TensorArray, TensorRank0, TensorRank1};
 use std::{
     array::{IntoIter, from_fn},
     fmt::{Display, Formatter, Result},
@@ -21,6 +21,20 @@ where
         Self(array)
     }
 }
+
+macro_rules! const_from_impl {
+    ($dim:literal, $len:literal, $($i:literal),*) => {
+        impl<const I: usize> TensorList<TensorRank1<$dim, I>, $len> {
+            /// Associated function for const type conversion.
+            pub const fn foo(array: [[TensorRank0; $dim]; $len]) -> Self {
+                Self([
+                    $(TensorRank1::const_from(array[$i])),*
+                ])
+            }
+        }
+    }
+}
+const_from_impl!(3, 4, 0, 1, 2, 3);
 
 impl<T, const N: usize> Default for TensorList<T, N>
 where

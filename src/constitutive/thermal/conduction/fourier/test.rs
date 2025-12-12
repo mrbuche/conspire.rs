@@ -1,6 +1,6 @@
 use super::{super::test::THERMAL_CONDUCTIVITY, Fourier, TemperatureGradient, ThermalConduction};
 use crate::{
-    math::{Scalar, Tensor, TensorArray, test::assert_eq},
+    math::{Scalar, Tensor, test::assert_eq},
     mechanics::test::get_temperature_gradient,
 };
 
@@ -29,7 +29,7 @@ fn zero() -> Result<(), crate::math::test::TestError> {
     Fourier {
         thermal_conductivity: THERMAL_CONDUCTIVITY,
     }
-    .heat_flux(&TemperatureGradient::new([0.0, 0.0, 0.0]))?
+    .heat_flux(&TemperatureGradient::from([0.0, 0.0, 0.0]))?
     .iter()
     .try_for_each(|heat_flux_i| assert_eq(heat_flux_i, &0.0))
 }
