@@ -1,7 +1,7 @@
 use crate::{
     constitutive::solid::elastic_hyperviscous::ElasticHyperviscous,
     fem::{
-        NodalCoordinatesBlock, NodalCoordinatesHistory, NodalForcesBlock, NodalStiffnessesBlock,
+        NodalCoordinatesBlock, NodalCoordinatesHistory, NodalForcesSolid, NodalStiffnessesSolid,
         NodalVelocitiesBlock, NodalVelocitiesHistory,
         block::{
             ElementBlock, FiniteElementBlockError, band, element::ElasticHyperviscousFiniteElement,
@@ -39,8 +39,8 @@ where
         time: &[Scalar],
         solver: impl SecondOrderOptimization<
             Scalar,
-            NodalForcesBlock,
-            NodalStiffnessesBlock,
+            NodalForcesSolid,
+            NodalStiffnessesSolid,
             NodalCoordinatesBlock,
         >,
     ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError>;
@@ -51,8 +51,8 @@ where
         nodal_coordinates: &NodalCoordinatesBlock,
         solver: &impl SecondOrderOptimization<
             Scalar,
-            NodalForcesBlock,
-            NodalStiffnessesBlock,
+            NodalForcesSolid,
+            NodalStiffnessesSolid,
             NodalCoordinatesBlock,
         >,
         initial_guess: &NodalVelocitiesBlock,
@@ -123,8 +123,8 @@ where
         time: &[Scalar],
         solver: impl SecondOrderOptimization<
             Scalar,
-            NodalForcesBlock,
-            NodalStiffnessesBlock,
+            NodalForcesSolid,
+            NodalStiffnessesSolid,
             NodalCoordinatesBlock,
         >,
     ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError> {
@@ -149,8 +149,8 @@ where
         nodal_coordinates: &NodalCoordinatesBlock,
         solver: &impl SecondOrderOptimization<
             Scalar,
-            NodalForcesBlock,
-            NodalStiffnessesBlock,
+            NodalForcesSolid,
+            NodalStiffnessesSolid,
             NodalVelocitiesBlock,
         >,
         initial_guess: &NodalVelocitiesBlock,

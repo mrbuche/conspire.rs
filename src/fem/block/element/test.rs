@@ -611,7 +611,10 @@ macro_rules! test_finite_element_inner {
                         AlmansiHamel, Hencky, SaintVenantKirchhoff,
                         test::{BULK_MODULUS, SHEAR_MODULUS},
                     },
-                    fem::{NodalForces, NodalStiffnesses, block::element::ElasticFiniteElement},
+                    fem::{
+                        ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
+                        block::element::ElasticFiniteElement,
+                    },
                 };
                 mod almansi_hamel {
                     use super::*;
@@ -659,7 +662,7 @@ macro_rules! test_finite_element_inner {
                         },
                     },
                     fem::{
-                        NodalForces, NodalStiffnesses,
+                        ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
                         block::element::{ElasticFiniteElement, HyperelasticFiniteElement},
                     },
                 };
@@ -766,7 +769,7 @@ macro_rules! test_finite_element_inner {
                         test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
                     },
                     fem::{
-                        NodalForces, NodalStiffnesses,
+                        ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
                         block::element::{
                             ElasticHyperviscousFiniteElement, ViscoelasticFiniteElement,
                         },
@@ -794,7 +797,7 @@ macro_rules! test_finite_element_inner {
                         test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
                     },
                     fem::{
-                        NodalForces, NodalStiffnesses,
+                        ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
                         block::element::{
                             ElasticHyperviscousFiniteElement, HyperviscoelasticFiniteElement,
                             ViscoelasticFiniteElement,
@@ -855,14 +858,14 @@ macro_rules! test_nodal_forces_and_nodal_stiffnesses {
                 fn objectivity() -> Result<(), TestError> {
                     assert_eq_within_tols(
                         &get_nodal_forces(false, true, true)?,
-                        &NodalForces::zero(),
+                        &ElementNodalForcesSolid::zero(),
                     )
                 }
                 #[test]
                 fn zero() -> Result<(), TestError> {
                     assert_eq_within_tols(
                         &get_nodal_forces(false, false, false)?,
-                        &NodalForces::zero(),
+                        &ElementNodalForcesSolid::zero(),
                     )
                 }
             }
@@ -926,7 +929,7 @@ macro_rules! test_helmholtz_free_energy {
         }
         fn get_finite_difference_of_helmholtz_free_energy(
             is_deformed: bool,
-        ) -> Result<NodalForces<N>, TestError> {
+        ) -> Result<ElementNodalForcesSolid<N>, TestError> {
             let element = get_element();
             let mut finite_difference = 0.0;
             (0..N)
@@ -1023,7 +1026,7 @@ macro_rules! test_helmholtz_free_energy {
                 fn finite_difference() -> Result<(), TestError> {
                     assert_eq_from_fd(
                         &get_finite_difference_of_helmholtz_free_energy(false)?,
-                        &NodalForces::zero(),
+                        &ElementNodalForcesSolid::zero(),
                     )
                 }
                 #[test]
@@ -1154,7 +1157,7 @@ macro_rules! test_finite_element_with_elastic_or_hyperelastic_constitutive_model
             is_deformed: bool,
             is_rotated: bool,
             _: bool,
-        ) -> Result<NodalForces<N>, TestError> {
+        ) -> Result<ElementNodalForcesSolid<N>, TestError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
@@ -1178,7 +1181,7 @@ macro_rules! test_finite_element_with_elastic_or_hyperelastic_constitutive_model
         fn get_nodal_stiffnesses(
             is_deformed: bool,
             is_rotated: bool,
-        ) -> Result<NodalStiffnesses<N>, TestError> {
+        ) -> Result<ElementNodalStiffnessesSolid<N>, TestError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
@@ -1206,7 +1209,7 @@ macro_rules! test_finite_element_with_elastic_or_hyperelastic_constitutive_model
         }
         fn get_finite_difference_of_nodal_forces(
             is_deformed: bool,
-        ) -> Result<NodalStiffnesses<N>, TestError> {
+        ) -> Result<ElementNodalStiffnessesSolid<N>, TestError> {
             let element = get_element();
             let mut finite_difference = 0.0;
             (0..N)
@@ -1304,7 +1307,7 @@ macro_rules! test_finite_element_with_viscoelastic_constitutive_model {
             is_deformed: bool,
             is_rotated: bool,
             is_xtra: bool,
-        ) -> Result<NodalForces<N>, TestError> {
+        ) -> Result<ElementNodalForcesSolid<N>, TestError> {
             if is_xtra {
                 if is_rotated {
                     if is_deformed {
@@ -1372,7 +1375,7 @@ macro_rules! test_finite_element_with_viscoelastic_constitutive_model {
         fn get_nodal_stiffnesses(
             is_deformed: bool,
             is_rotated: bool,
-        ) -> Result<NodalStiffnesses<N>, TestError> {
+        ) -> Result<ElementNodalStiffnessesSolid<N>, TestError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
@@ -1411,7 +1414,7 @@ macro_rules! test_finite_element_with_viscoelastic_constitutive_model {
         }
         fn get_finite_difference_of_nodal_forces(
             is_deformed: bool,
-        ) -> Result<NodalStiffnesses<N>, TestError> {
+        ) -> Result<ElementNodalStiffnessesSolid<N>, TestError> {
             let element = get_element();
             let mut finite_difference = 0.0;
             (0..N)
@@ -1540,7 +1543,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
         }
         fn get_finite_difference_of_viscous_dissipation(
             is_deformed: bool,
-        ) -> Result<NodalForces<N>, TestError> {
+        ) -> Result<ElementNodalForcesSolid<N>, TestError> {
             let element = get_element();
             let mut finite_difference = 0.0;
             (0..N)
@@ -1577,7 +1580,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
         }
         fn get_finite_difference_of_dissipation_potential(
             is_deformed: bool,
-        ) -> Result<NodalForces<N>, TestError> {
+        ) -> Result<ElementNodalForcesSolid<N>, TestError> {
             let element = get_element();
             let mut finite_difference = 0.0;
             (0..N)
@@ -1677,7 +1680,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                 fn finite_difference() -> Result<(), TestError> {
                     assert_eq_from_fd(
                         &get_finite_difference_of_viscous_dissipation(false)?,
-                        &NodalForces::zero(),
+                        &ElementNodalForcesSolid::zero(),
                     )
                 }
                 #[test]
@@ -1779,7 +1782,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                 fn finite_difference() -> Result<(), TestError> {
                     assert_eq_from_fd(
                         &get_finite_difference_of_dissipation_potential(false)?,
-                        &NodalForces::zero(),
+                        &ElementNodalForcesSolid::zero(),
                     )
                 }
                 #[test]

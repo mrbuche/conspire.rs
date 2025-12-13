@@ -1,7 +1,7 @@
 use crate::{
     fem::{
         Connectivity, ElementBlock, GradientVectors, NodalCoordinates, NodalCoordinatesBlock,
-        NodalForcesBlock, NodalStiffnessesBlock, NodalVelocities, NodalVelocitiesBlock, Normals,
+        NodalForcesSolid, NodalStiffnessesSolid, NodalVelocities, NodalVelocitiesBlock, Normals,
         ReferenceNodalCoordinates, ReferenceNodalCoordinatesBlock,
         block::{
             SurfaceFiniteElementBlock,

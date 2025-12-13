@@ -1,7 +1,7 @@
 use crate::{
     constitutive::solid::elastic::Elastic,
     fem::{
-        NodalCoordinates, NodalForces, NodalStiffnesses,
+        ElementNodalForcesSolid, ElementNodalStiffnessesSolid, NodalCoordinates,
         block::element::{Element, FiniteElementError, solid::SolidFiniteElement},
     },
     math::{ContractSecondFourthIndicesWithFirstIndicesOf, Tensor},
@@ -18,12 +18,12 @@ where
         &self,
         constitutive_model: &C,
         nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<NodalForces<N>, FiniteElementError>;
+    ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError>;
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
         nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<NodalStiffnesses<N>, FiniteElementError>;
+    ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError>;
 }
 
 impl<C, const G: usize, const N: usize> ElasticFiniteElement<C, G, N> for Element<G, N>
@@ -34,7 +34,7 @@ where
         &self,
         constitutive_model: &C,
         nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<NodalForces<N>, FiniteElementError> {
+    ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
@@ -72,7 +72,7 @@ where
         &self,
         constitutive_model: &C,
         nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<NodalStiffnesses<N>, FiniteElementError> {
+    ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()

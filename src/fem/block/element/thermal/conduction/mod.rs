@@ -3,13 +3,16 @@ pub mod test;
 
 use crate::{
     constitutive::{ConstitutiveError, thermal::conduction::ThermalConduction},
-    fem::{
-        NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures,
-        block::element::{Element, FiniteElementError, thermal::ThermalFiniteElement},
+    fem::block::element::{
+        Element, FiniteElementError,
+        thermal::{ElementNodalTemperatures, ThermalFiniteElement},
     },
-    math::{Scalar, Tensor},
+    math::{Scalar, Tensor, TensorRank0List, TensorRank0List2D},
     mechanics::{HeatFluxTangents, HeatFluxes},
 };
+
+pub type ElementNodalForcesThermal<const D: usize> = TensorRank0List<D>;
+pub type ElementNodalStiffnessesThermal<const D: usize> = TensorRank0List2D<D>;
 
 pub trait ThermalConductionFiniteElement<C, const G: usize, const N: usize>
 where
@@ -19,18 +22,18 @@ where
     fn potential(
         &self,
         constitutive_model: &C,
-        nodal_temperatures: &NodalTemperatures<N>,
+        nodal_temperatures: &ElementNodalTemperatures<N>,
     ) -> Result<Scalar, FiniteElementError>;
     fn nodal_forces(
         &self,
         constitutive_model: &C,
-        nodal_temperatures: &NodalTemperatures<N>,
-    ) -> Result<NodalForcesThermal<N>, FiniteElementError>;
+        nodal_temperatures: &ElementNodalTemperatures<N>,
+    ) -> Result<ElementNodalForcesThermal<N>, FiniteElementError>;
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
-        nodal_temperatures: &NodalTemperatures<N>,
-    ) -> Result<NodalStiffnessesThermal<N>, FiniteElementError>;
+        nodal_temperatures: &ElementNodalTemperatures<N>,
+    ) -> Result<ElementNodalStiffnessesThermal<N>, FiniteElementError>;
 }
 
 impl<C, const G: usize, const N: usize> ThermalConductionFiniteElement<C, G, N> for Element<G, N>
@@ -41,7 +44,7 @@ where
     fn potential(
         &self,
         constitutive_model: &C,
-        nodal_temperatures: &NodalTemperatures<N>,
+        nodal_temperatures: &ElementNodalTemperatures<N>,
     ) -> Result<Scalar, FiniteElementError> {
         match self
             .temperature_gradients(nodal_temperatures)
@@ -64,8 +67,8 @@ where
     fn nodal_forces(
         &self,
         constitutive_model: &C,
-        nodal_temperatures: &NodalTemperatures<N>,
-    ) -> Result<NodalForcesThermal<N>, FiniteElementError> {
+        nodal_temperatures: &ElementNodalTemperatures<N>,
+    ) -> Result<ElementNodalForcesThermal<N>, FiniteElementError> {
         match self
             .temperature_gradients(nodal_temperatures)
             .iter()
@@ -95,8 +98,8 @@ where
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
-        nodal_temperatures: &NodalTemperatures<N>,
-    ) -> Result<NodalStiffnessesThermal<N>, FiniteElementError> {
+        nodal_temperatures: &ElementNodalTemperatures<N>,
+    ) -> Result<ElementNodalStiffnessesThermal<N>, FiniteElementError> {
         match self
             .temperature_gradients(nodal_temperatures)
             .iter()

@@ -3,23 +3,23 @@ pub mod test;
 
 use crate::{
     constitutive::thermal::conduction::ThermalConduction,
-    fem::{
-        NodalStiffnessesBlockThermal,
-        block::{
-            ElementBlock, FiniteElementBlockError, FirstOrderMinimize, FirstOrderRoot,
-            SecondOrderMinimize, ZerothOrderRoot, band,
-            element::{FiniteElementError, thermal::conduction::ThermalConductionFiniteElement},
-            thermal::{NodalForcesBlockThermal, NodalTemperaturesBlock, ThermalFiniteElementBlock},
-        },
+    fem::block::{
+        ElementBlock, FiniteElementBlockError, FirstOrderMinimize, FirstOrderRoot,
+        SecondOrderMinimize, ZerothOrderRoot, band,
+        element::{FiniteElementError, thermal::conduction::ThermalConductionFiniteElement},
+        thermal::{NodalTemperatures, ThermalFiniteElementBlock},
     },
     math::{
-        Scalar, Tensor,
+        Scalar, SquareMatrix, Tensor, Vector,
         optimize::{
             EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
             SecondOrderOptimization, ZerothOrderRootFinding,
         },
     },
 };
+
+pub type NodalForcesThermal = Vector;
+pub type NodalStiffnessesThermal = SquareMatrix;
 
 pub trait ThermalConductionFiniteElementBlock<C, F, const G: usize, const N: usize>
 where
@@ -28,16 +28,16 @@ where
 {
     fn potential(
         &self,
-        nodal_temperatures: &NodalTemperaturesBlock,
+        nodal_temperatures: &NodalTemperatures,
     ) -> Result<Scalar, FiniteElementBlockError>;
     fn nodal_forces(
         &self,
-        nodal_temperatures: &NodalTemperaturesBlock,
-    ) -> Result<NodalForcesBlockThermal, FiniteElementBlockError>;
+        nodal_temperatures: &NodalTemperatures,
+    ) -> Result<NodalForcesThermal, FiniteElementBlockError>;
     fn nodal_stiffnesses(
         &self,
-        nodal_temperatures: &NodalTemperaturesBlock,
-    ) -> Result<NodalStiffnessesBlockThermal, FiniteElementBlockError>;
+        nodal_temperatures: &NodalTemperatures,
+    ) -> Result<NodalStiffnessesThermal, FiniteElementBlockError>;
 }
 
 impl<C, F, const G: usize, const N: usize> ThermalConductionFiniteElementBlock<C, F, G, N>
@@ -48,7 +48,7 @@ where
 {
     fn potential(
         &self,
-        nodal_temperatures: &NodalTemperaturesBlock,
+        nodal_temperatures: &NodalTemperatures,
     ) -> Result<Scalar, FiniteElementBlockError> {
         match self
             .elements()
@@ -71,9 +71,9 @@ where
     }
     fn nodal_forces(
         &self,
-        nodal_temperatures: &NodalTemperaturesBlock,
-    ) -> Result<NodalForcesBlockThermal, FiniteElementBlockError> {
-        let mut nodal_forces = NodalForcesBlockThermal::zero(nodal_temperatures.len());
+        nodal_temperatures: &NodalTemperatures,
+    ) -> Result<NodalForcesThermal, FiniteElementBlockError> {
+        let mut nodal_forces = NodalForcesThermal::zero(nodal_temperatures.len());
         match self
             .elements()
             .iter()
@@ -98,9 +98,9 @@ where
     }
     fn nodal_stiffnesses(
         &self,
-        nodal_temperatures: &NodalTemperaturesBlock,
-    ) -> Result<NodalStiffnessesBlockThermal, FiniteElementBlockError> {
-        let mut nodal_stiffnesses = NodalStiffnessesBlockThermal::zero(nodal_temperatures.len());
+        nodal_temperatures: &NodalTemperatures,
+    ) -> Result<NodalStiffnessesThermal, FiniteElementBlockError> {
+        let mut nodal_stiffnesses = NodalStiffnessesThermal::zero(nodal_temperatures.len());
         match self
             .elements()
             .iter()
@@ -131,7 +131,7 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N, NodalTemperaturesBlock>
+impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N, NodalTemperatures>
     for ElementBlock<C, F, N>
 where
     C: ThermalConduction,
@@ -140,26 +140,19 @@ where
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<NodalTemperaturesBlock>,
-    ) -> Result<NodalTemperaturesBlock, OptimizationError> {
+        solver: impl ZerothOrderRootFinding<NodalTemperatures>,
+    ) -> Result<NodalTemperatures, OptimizationError> {
         solver.root(
-            |nodal_temperatures: &NodalTemperaturesBlock| Ok(self.nodal_forces(nodal_temperatures)?),
-            NodalTemperaturesBlock::zero(self.coordinates().len()),
+            |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
+            NodalTemperatures::zero(self.coordinates().len()),
             equality_constraint,
         )
     }
 }
 
 impl<C, F, const G: usize, const N: usize>
-    FirstOrderRoot<
-        C,
-        F,
-        G,
-        N,
-        NodalForcesBlockThermal,
-        NodalStiffnessesBlockThermal,
-        NodalTemperaturesBlock,
-    > for ElementBlock<C, F, N>
+    FirstOrderRoot<C, F, G, N, NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures>
+    for ElementBlock<C, F, N>
 where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, N>,
@@ -168,23 +161,23 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl FirstOrderRootFinding<
-            NodalForcesBlockThermal,
-            NodalStiffnessesBlockThermal,
-            NodalTemperaturesBlock,
+            NodalForcesThermal,
+            NodalStiffnessesThermal,
+            NodalTemperatures,
         >,
-    ) -> Result<NodalTemperaturesBlock, OptimizationError> {
+    ) -> Result<NodalTemperatures, OptimizationError> {
         solver.root(
-            |nodal_temperatures: &NodalTemperaturesBlock| Ok(self.nodal_forces(nodal_temperatures)?),
-            |nodal_temperatures: &NodalTemperaturesBlock| {
+            |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
+            |nodal_temperatures: &NodalTemperatures| {
                 Ok(self.nodal_stiffnesses(nodal_temperatures)?)
             },
-            NodalTemperaturesBlock::zero(self.coordinates().len()),
+            NodalTemperatures::zero(self.coordinates().len()),
             equality_constraint,
         )
     }
 }
 
-impl<C, F, const G: usize, const N: usize> FirstOrderMinimize<C, F, G, N, NodalTemperaturesBlock>
+impl<C, F, const G: usize, const N: usize> FirstOrderMinimize<C, F, G, N, NodalTemperatures>
     for ElementBlock<C, F, N>
 where
     C: ThermalConduction,
@@ -193,27 +186,20 @@ where
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<Scalar, NodalTemperaturesBlock>,
-    ) -> Result<NodalTemperaturesBlock, OptimizationError> {
+        solver: impl FirstOrderOptimization<Scalar, NodalTemperatures>,
+    ) -> Result<NodalTemperatures, OptimizationError> {
         solver.minimize(
-            |nodal_temperatures: &NodalTemperaturesBlock| Ok(self.potential(nodal_temperatures)?),
-            |nodal_temperatures: &NodalTemperaturesBlock| Ok(self.nodal_forces(nodal_temperatures)?),
-            NodalTemperaturesBlock::zero(self.coordinates().len()),
+            |nodal_temperatures: &NodalTemperatures| Ok(self.potential(nodal_temperatures)?),
+            |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
+            NodalTemperatures::zero(self.coordinates().len()),
             equality_constraint,
         )
     }
 }
 
 impl<C, F, const G: usize, const N: usize>
-    SecondOrderMinimize<
-        C,
-        F,
-        G,
-        N,
-        NodalForcesBlockThermal,
-        NodalStiffnessesBlockThermal,
-        NodalTemperaturesBlock,
-    > for ElementBlock<C, F, N>
+    SecondOrderMinimize<C, F, G, N, NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures>
+    for ElementBlock<C, F, N>
 where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, N>,
@@ -223,11 +209,11 @@ where
         equality_constraint: EqualityConstraint,
         solver: impl SecondOrderOptimization<
             Scalar,
-            NodalForcesBlockThermal,
-            NodalStiffnessesBlockThermal,
-            NodalTemperaturesBlock,
+            NodalForcesThermal,
+            NodalStiffnessesThermal,
+            NodalTemperatures,
         >,
-    ) -> Result<NodalTemperaturesBlock, OptimizationError> {
+    ) -> Result<NodalTemperatures, OptimizationError> {
         let banded = band(
             self.connectivity(),
             &equality_constraint,
@@ -235,12 +221,12 @@ where
             1,
         );
         solver.minimize(
-            |nodal_temperatures: &NodalTemperaturesBlock| Ok(self.potential(nodal_temperatures)?),
-            |nodal_temperatures: &NodalTemperaturesBlock| Ok(self.nodal_forces(nodal_temperatures)?),
-            |nodal_temperatures: &NodalTemperaturesBlock| {
+            |nodal_temperatures: &NodalTemperatures| Ok(self.potential(nodal_temperatures)?),
+            |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
+            |nodal_temperatures: &NodalTemperatures| {
                 Ok(self.nodal_stiffnesses(nodal_temperatures)?)
             },
-            NodalTemperaturesBlock::zero(self.coordinates().len()),
+            NodalTemperatures::zero(self.coordinates().len()),
             equality_constraint,
             Some(banded),
         )

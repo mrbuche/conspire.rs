@@ -11,8 +11,8 @@ use crate::{
         },
     },
     fem::{
-        FiniteElementError, GradientVectors, NodalCoordinates, NodalForces, NodalStiffnesses,
-        NodalVelocities, ReferenceNodalCoordinates, StandardGradientOperators,
+        ElementNodalForcesSolid, ElementNodalStiffnessesSolid, FiniteElementError, GradientVectors,
+        NodalCoordinates, NodalVelocities, ReferenceNodalCoordinates, StandardGradientOperators,
         block::element::{
             ElasticFiniteElement, ElasticHyperviscousFiniteElement, HyperelasticFiniteElement,
             HyperviscoelasticFiniteElement, SolidFiniteElement, SurfaceElement,
@@ -169,7 +169,7 @@ where
         &self,
         constitutive_model: &C,
         nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<NodalForces<N>, FiniteElementError> {
+    ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
@@ -207,7 +207,7 @@ where
         &self,
         constitutive_model: &C,
         nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<NodalStiffnesses<N>, FiniteElementError> {
+    ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError> {
         match self.deformation_gradients(nodal_coordinates).iter()
             .map(|deformation_gradient| {
                 constitutive_model.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)
@@ -311,7 +311,7 @@ where
         constitutive_model: &C,
         nodal_coordinates: &NodalCoordinates<N>,
         nodal_velocities: &NodalVelocities<N>,
-    ) -> Result<NodalForces<N>, FiniteElementError> {
+    ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
@@ -355,7 +355,7 @@ where
         constitutive_model: &C,
         nodal_coordinates: &NodalCoordinates<N>,
         nodal_velocities: &NodalVelocities<N>,
-    ) -> Result<NodalStiffnesses<N>, FiniteElementError> {
+    ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError> {
         match self.deformation_gradients(nodal_coordinates).iter().zip(self.deformation_gradient_rates(nodal_coordinates, nodal_velocities).iter())
             .map(|(deformation_gradient, deformation_gradient_rate)| {
                 constitutive_model.first_piola_kirchhoff_rate_tangent_stiffness(deformation_gradient, deformation_gradient_rate)

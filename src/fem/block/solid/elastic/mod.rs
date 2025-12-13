@@ -1,7 +1,7 @@
 use crate::{
     constitutive::solid::elastic::Elastic,
     fem::{
-        NodalCoordinatesBlock, NodalForcesBlock, NodalStiffnessesBlock,
+        NodalCoordinatesBlock, NodalForcesSolid, NodalStiffnessesSolid,
         block::{
             ElementBlock, FiniteElementBlockError, FirstOrderRoot, ZerothOrderRoot,
             element::{ElasticFiniteElement, FiniteElementError},
@@ -24,11 +24,11 @@ where
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> Result<NodalForcesBlock, FiniteElementBlockError>;
+    ) -> Result<NodalForcesSolid, FiniteElementBlockError>;
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> Result<NodalStiffnessesBlock, FiniteElementBlockError>;
+    ) -> Result<NodalStiffnessesSolid, FiniteElementBlockError>;
 }
 
 impl<C, F, const G: usize, const N: usize> ElasticFiniteElementBlock<C, F, G, N>
@@ -41,8 +41,8 @@ where
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> Result<NodalForcesBlock, FiniteElementBlockError> {
-        let mut nodal_forces = NodalForcesBlock::zero(nodal_coordinates.len());
+    ) -> Result<NodalForcesSolid, FiniteElementBlockError> {
+        let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
         match self
             .elements()
             .iter()
@@ -68,8 +68,8 @@ where
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> Result<NodalStiffnessesBlock, FiniteElementBlockError> {
-        let mut nodal_stiffnesses = NodalStiffnessesBlock::zero(nodal_coordinates.len());
+    ) -> Result<NodalStiffnessesSolid, FiniteElementBlockError> {
+        let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
         match self
             .elements()
             .iter()
@@ -120,7 +120,7 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize>
-    FirstOrderRoot<C, F, G, N, NodalForcesBlock, NodalStiffnessesBlock, NodalCoordinatesBlock>
+    FirstOrderRoot<C, F, G, N, NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinatesBlock>
     for ElementBlock<C, F, N>
 where
     C: Elastic,
@@ -130,8 +130,8 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl FirstOrderRootFinding<
-            NodalForcesBlock,
-            NodalStiffnessesBlock,
+            NodalForcesSolid,
+            NodalStiffnessesSolid,
             NodalCoordinatesBlock,
         >,
     ) -> Result<NodalCoordinatesBlock, OptimizationError> {

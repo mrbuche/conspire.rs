@@ -1,7 +1,7 @@
 use crate::{
     constitutive::solid::hyperelastic::Hyperelastic,
     fem::{
-        NodalCoordinatesBlock, NodalForcesBlock, NodalStiffnessesBlock,
+        NodalCoordinatesBlock, NodalForcesSolid, NodalStiffnessesSolid,
         block::{
             ElementBlock, FiniteElementBlockError, FirstOrderMinimize, SecondOrderMinimize, band,
             element::HyperelasticFiniteElement, solid::elastic::ElasticFiniteElementBlock,
@@ -68,7 +68,7 @@ where
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<Scalar, NodalForcesBlock>,
+        solver: impl FirstOrderOptimization<Scalar, NodalForcesSolid>,
     ) -> Result<NodalCoordinatesBlock, OptimizationError> {
         solver.minimize(
             |nodal_coordinates: &NodalCoordinatesBlock| {
@@ -82,7 +82,7 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize>
-    SecondOrderMinimize<C, F, G, N, NodalForcesBlock, NodalStiffnessesBlock, NodalCoordinatesBlock>
+    SecondOrderMinimize<C, F, G, N, NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinatesBlock>
     for ElementBlock<C, F, N>
 where
     C: Hyperelastic,
@@ -93,8 +93,8 @@ where
         equality_constraint: EqualityConstraint,
         solver: impl SecondOrderOptimization<
             Scalar,
-            NodalForcesBlock,
-            NodalStiffnessesBlock,
+            NodalForcesSolid,
+            NodalStiffnessesSolid,
             NodalCoordinatesBlock,
         >,
     ) -> Result<NodalCoordinatesBlock, OptimizationError> {

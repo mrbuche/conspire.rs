@@ -1,11 +1,13 @@
 pub mod conduction;
 
 use crate::{
-    fem::{NodalTemperatures, block::element::Element},
-    math::Tensor,
+    fem::block::element::Element,
+    math::{Tensor, TensorRank0List},
     mechanics::TemperatureGradients,
 };
 use std::fmt::Debug;
+
+pub type ElementNodalTemperatures<const D: usize> = TensorRank0List<D>;
 
 pub trait ThermalFiniteElement<const G: usize, const N: usize>
 where
@@ -13,7 +15,7 @@ where
 {
     fn temperature_gradients(
         &self,
-        nodal_temperatures: &NodalTemperatures<N>,
+        nodal_temperatures: &ElementNodalTemperatures<N>,
     ) -> TemperatureGradients<G>;
 }
 
@@ -23,7 +25,7 @@ where
 {
     fn temperature_gradients(
         &self,
-        nodal_temperatures: &NodalTemperatures<N>,
+        nodal_temperatures: &ElementNodalTemperatures<N>,
     ) -> TemperatureGradients<G> {
         self.gradient_vectors()
             .iter()
