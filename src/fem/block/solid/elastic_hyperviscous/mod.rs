@@ -1,0 +1,179 @@
+use crate::{
+    constitutive::solid::elastic_hyperviscous::ElasticHyperviscous,
+    fem::{
+        NodalCoordinatesBlock, NodalCoordinatesHistory, NodalForcesBlock, NodalStiffnessesBlock,
+        NodalVelocitiesBlock, NodalVelocitiesHistory,
+        block::{
+            ElementBlock, FiniteElementBlockError, band, element::ElasticHyperviscousFiniteElement,
+            solid::viscoelastic::ViscoelasticFiniteElementBlock,
+        },
+    },
+    math::{
+        Scalar, Tensor,
+        integrate::{Explicit, IntegrationError},
+        optimize::{EqualityConstraint, OptimizationError, SecondOrderOptimization},
+    },
+    mechanics::Times,
+};
+
+pub trait ElasticHyperviscousFiniteElementBlock<C, F, const G: usize, const N: usize>
+where
+    C: ElasticHyperviscous,
+    F: ElasticHyperviscousFiniteElement<C, G, N>,
+    Self: ViscoelasticFiniteElementBlock<C, F, G, N>,
+{
+    fn viscous_dissipation(
+        &self,
+        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_velocities: &NodalVelocitiesBlock,
+    ) -> Result<Scalar, FiniteElementBlockError>;
+    fn dissipation_potential(
+        &self,
+        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_velocities: &NodalVelocitiesBlock,
+    ) -> Result<Scalar, FiniteElementBlockError>;
+    fn minimize(
+        &self,
+        equality_constraint: EqualityConstraint,
+        integrator: impl Explicit<NodalVelocitiesBlock, NodalVelocitiesHistory>,
+        time: &[Scalar],
+        solver: impl SecondOrderOptimization<
+            Scalar,
+            NodalForcesBlock,
+            NodalStiffnessesBlock,
+            NodalCoordinatesBlock,
+        >,
+    ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError>;
+    #[doc(hidden)]
+    fn minimize_inner(
+        &self,
+        equality_constraint: &EqualityConstraint,
+        nodal_coordinates: &NodalCoordinatesBlock,
+        solver: &impl SecondOrderOptimization<
+            Scalar,
+            NodalForcesBlock,
+            NodalStiffnessesBlock,
+            NodalCoordinatesBlock,
+        >,
+        initial_guess: &NodalVelocitiesBlock,
+    ) -> Result<NodalVelocitiesBlock, OptimizationError>;
+}
+
+impl<C, F, const G: usize, const N: usize> ElasticHyperviscousFiniteElementBlock<C, F, G, N>
+    for ElementBlock<C, F, N>
+where
+    C: ElasticHyperviscous,
+    F: ElasticHyperviscousFiniteElement<C, G, N>,
+    Self: ViscoelasticFiniteElementBlock<C, F, G, N>,
+{
+    fn viscous_dissipation(
+        &self,
+        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_velocities: &NodalVelocitiesBlock,
+    ) -> Result<Scalar, FiniteElementBlockError> {
+        match self
+            .elements()
+            .iter()
+            .zip(self.connectivity().iter())
+            .map(|(element, element_connectivity)| {
+                element.viscous_dissipation(
+                    self.constitutive_model(),
+                    &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
+                    &self.nodal_velocities_element(element_connectivity, nodal_velocities),
+                )
+            })
+            .sum()
+        {
+            Ok(viscous_dissipation) => Ok(viscous_dissipation),
+            Err(error) => Err(FiniteElementBlockError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
+    }
+    fn dissipation_potential(
+        &self,
+        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_velocities: &NodalVelocitiesBlock,
+    ) -> Result<Scalar, FiniteElementBlockError> {
+        match self
+            .elements()
+            .iter()
+            .zip(self.connectivity().iter())
+            .map(|(element, element_connectivity)| {
+                element.dissipation_potential(
+                    self.constitutive_model(),
+                    &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
+                    &self.nodal_velocities_element(element_connectivity, nodal_velocities),
+                )
+            })
+            .sum()
+        {
+            Ok(dissipation_potential) => Ok(dissipation_potential),
+            Err(error) => Err(FiniteElementBlockError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
+    }
+    fn minimize(
+        &self,
+        equality_constraint: EqualityConstraint,
+        integrator: impl Explicit<NodalVelocitiesBlock, NodalVelocitiesHistory>,
+        time: &[Scalar],
+        solver: impl SecondOrderOptimization<
+            Scalar,
+            NodalForcesBlock,
+            NodalStiffnessesBlock,
+            NodalCoordinatesBlock,
+        >,
+    ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError> {
+        let mut solution = NodalVelocitiesBlock::zero(self.coordinates().len());
+        integrator.integrate(
+            |_: Scalar, nodal_coordinates: &NodalCoordinatesBlock| {
+                solution = self.minimize_inner(
+                    &equality_constraint,
+                    nodal_coordinates,
+                    &solver,
+                    &solution,
+                )?;
+                Ok(solution.clone())
+            },
+            time,
+            self.coordinates().clone().into(),
+        )
+    }
+    fn minimize_inner(
+        &self,
+        equality_constraint: &EqualityConstraint,
+        nodal_coordinates: &NodalCoordinatesBlock,
+        solver: &impl SecondOrderOptimization<
+            Scalar,
+            NodalForcesBlock,
+            NodalStiffnessesBlock,
+            NodalVelocitiesBlock,
+        >,
+        initial_guess: &NodalVelocitiesBlock,
+    ) -> Result<NodalVelocitiesBlock, OptimizationError> {
+        let banded = band(
+            self.connectivity(),
+            equality_constraint,
+            nodal_coordinates.len(),
+            3,
+        );
+        solver.minimize(
+            |nodal_velocities: &NodalVelocitiesBlock| {
+                Ok(self.dissipation_potential(nodal_coordinates, nodal_velocities)?)
+            },
+            |nodal_velocities: &NodalVelocitiesBlock| {
+                Ok(self.nodal_forces(nodal_coordinates, nodal_velocities)?)
+            },
+            |nodal_velocities: &NodalVelocitiesBlock| {
+                Ok(self.nodal_stiffnesses(nodal_coordinates, nodal_velocities)?)
+            },
+            initial_guess.clone(),
+            equality_constraint.clone(),
+            Some(banded),
+        )
+    }
+}

@@ -3,12 +3,8 @@
 mod block;
 
 pub use block::{
-    ElasticFiniteElementBlock, ElasticHyperviscousFiniteElementBlock, ElasticViscoplasticBCs,
-    ElasticViscoplasticFiniteElementBlock, ElementBlock, FiniteElementBlock,
-    FiniteElementBlockError, FirstOrderMinimize, FirstOrderRoot, HyperelasticFiniteElementBlock,
-    HyperviscoelasticFiniteElementBlock, SecondOrderMinimize, SolidFiniteElementBlock,
-    SurfaceFiniteElementBlock, ViscoelasticFiniteElementBlock, ViscoplasticStateVariables,
-    ViscoplasticStateVariablesHistory, ZerothOrderRoot,
+    ElementBlock, FiniteElementBlock, FiniteElementBlockError, FirstOrderMinimize, FirstOrderRoot,
+    SecondOrderMinimize, SurfaceFiniteElementBlock, ZerothOrderRoot,
     element::{
         ElasticFiniteElement, ElasticViscoplasticFiniteElement, FiniteElement, FiniteElementError,
         HyperelasticFiniteElement, HyperviscoelasticFiniteElement, SolidFiniteElement,
@@ -20,22 +16,29 @@ pub use block::{
             tetrahedron::Tetrahedron as LinearTetrahedron, triangle::Triangle as LinearTriangle,
         },
     },
+    solid::{
+        SolidFiniteElementBlock,
+        elastic::ElasticFiniteElementBlock,
+        elastic_hyperviscous::ElasticHyperviscousFiniteElementBlock,
+        elastic_viscoplastic::{
+            ElasticViscoplasticBCs, ElasticViscoplasticFiniteElementBlock,
+            ViscoplasticStateVariables, ViscoplasticStateVariablesHistory,
+        },
+        hyperelastic::HyperelasticFiniteElementBlock,
+        hyperviscoelastic::HyperviscoelasticFiniteElementBlock,
+        viscoelastic::ViscoelasticFiniteElementBlock,
+    },
     thermal::{ThermalFiniteElementBlock, conduction::ThermalConductionFiniteElementBlock},
 };
 
 use crate::{
-    constitutive::solid::{
-        elastic::Elastic, elastic_hyperviscous::ElasticHyperviscous, hyperelastic::Hyperelastic,
-        hyperviscoelastic::Hyperviscoelastic, viscoelastic::Viscoelastic,
-    },
     math::{
-        Scalar, Scalars, SquareMatrix, Tensor, TensorRank0List, TensorRank0List2D, TensorRank1List,
+        Scalar, SquareMatrix, Tensor, TensorRank0List, TensorRank0List2D, TensorRank1List,
         TensorRank1List2D, TensorRank1Vec, TensorRank1Vec2D, TensorRank2, TensorRank2List,
         TensorRank2List2D, TensorRank2Vec2D, Vector,
     },
     mechanics::{
-        Coordinates, CurrentCoordinates, DeformationGradientList, DeformationGradientRateList,
-        Forces, ReferenceCoordinates, Stiffnesses, Vectors, Vectors2D,
+        CurrentCoordinates, Forces, ReferenceCoordinates, Stiffnesses, Vectors, Vectors2D,
     },
 };
 

@@ -18,11 +18,14 @@ pub use self::{
     thermal::{ThermalFiniteElement, conduction::ThermalConductionFiniteElement},
 };
 
-use super::*;
 use crate::{
     defeat_message,
-    math::{IDENTITY, LEVI_CIVITA, tensor_rank_1_zero},
-    mechanics::Scalar,
+    fem::{
+        Bases, GradientVectors, NodalCoordinates, NodalVelocities, NormalGradients, NormalRates,
+        Normals, ReferenceNodalCoordinates, ReferenceNormals, StandardGradientOperators,
+    },
+    math::{IDENTITY, LEVI_CIVITA, Scalar, Scalars, Tensor, TensorArray, TensorRank2, TestError},
+    mechanics::{Coordinates, Normal},
 };
 use std::fmt::{self, Debug, Display, Formatter};
 
@@ -228,7 +231,7 @@ where
     fn normal_gradients(nodal_coordinates: &NodalCoordinates<N>) -> NormalGradients<N, P> {
         let levi_civita_symbol = LEVI_CIVITA;
         let mut normalization: Scalar = 0.0;
-        let mut normal_vector = tensor_rank_1_zero();
+        let mut normal_vector = Normal::zero();
         Self::standard_gradient_operators().iter()
         .zip(Self::bases(nodal_coordinates).iter())
         .map(|(standard_gradient_operator, basis_vectors)|{
