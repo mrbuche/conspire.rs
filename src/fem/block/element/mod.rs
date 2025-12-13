@@ -3,19 +3,15 @@ mod test;
 
 pub mod composite;
 pub mod linear;
+pub mod solid;
+pub mod thermal;
 
-mod solid;
-mod thermal;
-
-pub use self::{
-    solid::{
-        SolidFiniteElement, elastic::ElasticFiniteElement,
-        elastic_hyperviscous::ElasticHyperviscousFiniteElement,
-        elastic_viscoplastic::ElasticViscoplasticFiniteElement,
-        hyperelastic::HyperelasticFiniteElement, hyperviscoelastic::HyperviscoelasticFiniteElement,
-        viscoelastic::ViscoelasticFiniteElement, viscoplastic::ViscoplasticStateVariables,
-    },
-    thermal::{ThermalFiniteElement, conduction::ThermalConductionFiniteElement},
+pub use self::solid::{
+    SolidFiniteElement, elastic::ElasticFiniteElement,
+    elastic_hyperviscous::ElasticHyperviscousFiniteElement,
+    elastic_viscoplastic::ElasticViscoplasticFiniteElement,
+    hyperelastic::HyperelasticFiniteElement, hyperviscoelastic::HyperviscoelasticFiniteElement,
+    viscoelastic::ViscoelasticFiniteElement, viscoplastic::ViscoplasticStateVariables,
 };
 
 use crate::{

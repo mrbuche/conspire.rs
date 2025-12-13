@@ -1,6 +1,6 @@
 //! Finite element library.
 
-mod block;
+pub mod block;
 
 pub use block::{
     ElementBlock, FiniteElementBlock, FiniteElementBlockError, FirstOrderMinimize, FirstOrderRoot,
@@ -8,8 +8,7 @@ pub use block::{
     element::{
         ElasticFiniteElement, ElasticViscoplasticFiniteElement, FiniteElement, FiniteElementError,
         HyperelasticFiniteElement, HyperviscoelasticFiniteElement, SolidFiniteElement,
-        SurfaceFiniteElement, ThermalConductionFiniteElement, ThermalFiniteElement,
-        ViscoelasticFiniteElement,
+        SurfaceFiniteElement, ViscoelasticFiniteElement,
         composite::tetrahedron::Tetrahedron as CompositeTetrahedron,
         linear::{
             hexahedron::Hexahedron as LinearHexahedron,
@@ -28,14 +27,13 @@ pub use block::{
         hyperviscoelastic::HyperviscoelasticFiniteElementBlock,
         viscoelastic::ViscoelasticFiniteElementBlock,
     },
-    thermal::{ThermalFiniteElementBlock, conduction::ThermalConductionFiniteElementBlock},
 };
 
 use crate::{
     math::{
         Scalar, SquareMatrix, Tensor, TensorRank0List, TensorRank0List2D, TensorRank1List,
         TensorRank1List2D, TensorRank1Vec, TensorRank1Vec2D, TensorRank2, TensorRank2List,
-        TensorRank2List2D, TensorRank2Vec2D, Vector,
+        TensorRank2List2D, TensorRank2Vec2D,
     },
     mechanics::{
         CurrentCoordinates, Forces, ReferenceCoordinates, Stiffnesses, Vectors, Vectors2D,
@@ -47,7 +45,6 @@ pub type ReferenceNodalCoordinatesBlock = TensorRank1Vec<3, 0>;
 pub type NodalCoordinatesBlock = TensorRank1Vec<3, 1>;
 pub type NodalVelocitiesBlock = TensorRank1Vec<3, 1>;
 pub type NodalForcesBlock = TensorRank1Vec<3, 1>;
-pub type NodalForcesBlockThermal = Vector;
 pub type NodalStiffnessesBlock = TensorRank2Vec2D<3, 1, 1>;
 pub type NodalStiffnessesBlockThermal = SquareMatrix;
 
@@ -62,7 +59,6 @@ type NodalForcesThermal<const D: usize> = TensorRank0List<D>;
 type NodalStiffnesses<const D: usize> = Stiffnesses<D>;
 type NodalStiffnessesThermal<const D: usize> = TensorRank0List2D<D>;
 type NodalTemperatures<const D: usize> = TensorRank0List<D>;
-type NodalTemperaturesBlock = Vector;
 type NodalVelocities<const D: usize> = CurrentCoordinates<D>;
 type Normals<const P: usize> = Vectors<1, P>;
 type NormalGradients<const O: usize, const P: usize> = TensorRank2List2D<3, 1, 1, O, P>;

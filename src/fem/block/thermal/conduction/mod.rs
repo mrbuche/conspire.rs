@@ -4,12 +4,12 @@ pub mod test;
 use crate::{
     constitutive::thermal::conduction::ThermalConduction,
     fem::{
-        NodalForcesBlockThermal, NodalStiffnessesBlockThermal, NodalTemperaturesBlock,
+        NodalStiffnessesBlockThermal,
         block::{
             ElementBlock, FiniteElementBlockError, FirstOrderMinimize, FirstOrderRoot,
             SecondOrderMinimize, ZerothOrderRoot, band,
-            element::{FiniteElementError, ThermalConductionFiniteElement},
-            thermal::ThermalFiniteElementBlock,
+            element::{FiniteElementError, thermal::conduction::ThermalConductionFiniteElement},
+            thermal::{NodalForcesBlockThermal, NodalTemperaturesBlock, ThermalFiniteElementBlock},
         },
     },
     math::{

@@ -6,11 +6,13 @@ macro_rules! test_thermal {
                 EPSILON,
                 constitutive::thermal::conduction::Fourier,
                 fem::{
-                    ElementBlock, FiniteElementBlock, NodalForcesBlockThermal,
-                    NodalStiffnessesBlockThermal, NodalTemperaturesBlock,
+                    ElementBlock, FiniteElementBlock, NodalStiffnessesBlockThermal,
                     block::{
                         FiniteElementBlockError,
-                        thermal::conduction::ThermalConductionFiniteElementBlock,
+                        thermal::{
+                            NodalForcesBlockThermal, NodalTemperaturesBlock,
+                            conduction::ThermalConductionFiniteElementBlock,
+                        },
                     },
                 },
                 math::test::{TestError, assert_eq_from_fd},

@@ -2,11 +2,15 @@ pub mod conduction;
 
 use crate::{
     fem::{
-        NodalTemperatures, NodalTemperaturesBlock,
-        block::{ElementBlock, element::ThermalFiniteElement},
+        NodalTemperatures,
+        block::{ElementBlock, element::thermal::ThermalFiniteElement},
     },
+    math::Vector,
     mechanics::TemperatureGradients,
 };
+
+pub type NodalTemperaturesBlock = Vector;
+pub type NodalForcesBlockThermal = Vector;
 
 pub trait ThermalFiniteElementBlock<C, F, const G: usize, const N: usize>
 where
