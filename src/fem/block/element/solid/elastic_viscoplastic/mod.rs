@@ -1,11 +1,9 @@
 use crate::{
     constitutive::solid::elastic_viscoplastic::ElasticViscoplastic,
-    fem::{
-        ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
-        block::element::{
-            Element, ElementNodalCoordinates, FiniteElementError, SolidFiniteElement,
-            ViscoplasticStateVariables,
-        },
+    fem::block::element::{
+        Element, ElementNodalCoordinates, FiniteElementError, SolidFiniteElement,
+        ViscoplasticStateVariables,
+        solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
     },
     math::{ContractSecondFourthIndicesWithFirstIndicesOf, Tensor},
     mechanics::{FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses},

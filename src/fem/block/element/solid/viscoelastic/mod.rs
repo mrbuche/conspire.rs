@@ -1,11 +1,9 @@
 use crate::{
     constitutive::solid::viscoelastic::Viscoelastic,
-    fem::{
-        ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
-        block::element::{
-            Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElementError,
-            SolidFiniteElement,
-        },
+    fem::block::element::{
+        Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElementError,
+        SolidFiniteElement,
+        solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
     },
     math::{ContractSecondFourthIndicesWithFirstIndicesOf, Tensor},
     mechanics::{FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStresses},

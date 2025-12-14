@@ -1,10 +1,8 @@
 use crate::{
     constitutive::solid::elastic::Elastic,
-    fem::{
-        ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
-        block::element::{
-            Element, ElementNodalCoordinates, FiniteElementError, solid::SolidFiniteElement,
-        },
+    fem::block::element::{
+        Element, ElementNodalCoordinates, FiniteElementError,
+        solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement},
     },
     math::{ContractSecondFourthIndicesWithFirstIndicesOf, Tensor},
     mechanics::{FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses},

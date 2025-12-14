@@ -3,9 +3,10 @@ mod test;
 
 use crate::{
     fem::{
-        GradientVectors, StandardGradientOperators,
+        StandardGradientOperators,
         block::element::{
-            Element, ElementNodalReferenceCoordinates, FiniteElement, linear::linear_finite_element,
+            Element, ElementNodalReferenceCoordinates, FiniteElement, GradientVectors,
+            linear::linear_finite_element,
         },
     },
     math::{Scalar, Scalars},

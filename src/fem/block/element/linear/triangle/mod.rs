@@ -11,14 +11,14 @@ use crate::{
         },
     },
     fem::{
-        ElementNodalForcesSolid, ElementNodalStiffnessesSolid, GradientVectors,
         StandardGradientOperators,
         block::element::{
             ElasticFiniteElement, ElasticHyperviscousFiniteElement, ElementNodalCoordinates,
             ElementNodalReferenceCoordinates, ElementNodalVelocities, FiniteElementError,
-            HyperelasticFiniteElement, HyperviscoelasticFiniteElement, SolidFiniteElement,
-            SurfaceElement, SurfaceFiniteElement, SurfaceFiniteElementMethods,
+            GradientVectors, HyperelasticFiniteElement, HyperviscoelasticFiniteElement,
+            SolidFiniteElement, SurfaceElement, SurfaceFiniteElement, SurfaceFiniteElementMethods,
             SurfaceFiniteElementMethodsExtra, ViscoelasticFiniteElement,
+            solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
         },
     },
     math::{IDENTITY, Scalar, Scalars, Tensor},

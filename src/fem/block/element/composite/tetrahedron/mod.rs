@@ -3,10 +3,12 @@ mod test;
 
 use crate::{
     fem::{
-        GradientVectors, NormalizedProjectionMatrix, ParametricGradientOperators, ProjectionMatrix,
+        NormalizedProjectionMatrix, ParametricGradientOperators, ProjectionMatrix,
         ShapeFunctionIntegrals, ShapeFunctionIntegralsProducts, ShapeFunctionsAtIntegrationPoints,
         StandardGradientOperators, StandardGradientOperatorsTransposed,
-        block::element::{Element, ElementNodalReferenceCoordinates, FiniteElement},
+        block::element::{
+            Element, ElementNodalReferenceCoordinates, FiniteElement, GradientVectors,
+        },
     },
     math::{Scalar, Scalars, Tensor, TensorRank1},
 };

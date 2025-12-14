@@ -1,12 +1,12 @@
 use crate::{
     fem::{
-        GradientVectors, NodalCoordinates, NodalForcesSolid, NodalReferenceCoordinates,
-        NodalStiffnessesSolid, NodalVelocities,
+        NodalCoordinates, NodalForcesSolid, NodalReferenceCoordinates, NodalStiffnessesSolid,
+        NodalVelocities,
         block::{
             Connectivity, ElementBlock, FiniteElementBlock,
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
-                SolidFiniteElement,
+                GradientVectors, SolidFiniteElement,
                 linear::hexahedron::{G, Hexahedron, N},
                 test::test_finite_element,
             },

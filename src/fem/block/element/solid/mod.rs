@@ -7,13 +7,15 @@ pub mod viscoelastic;
 pub mod viscoplastic;
 
 use crate::{
-    fem::{
-        GradientVectors,
-        block::element::{Element, ElementNodalCoordinates, ElementNodalVelocities},
+    fem::block::element::{
+        Element, ElementNodalCoordinates, ElementNodalVelocities, GradientVectors,
     },
     math::{Scalars, Tensor},
-    mechanics::{DeformationGradientList, DeformationGradientRateList},
+    mechanics::{DeformationGradientList, DeformationGradientRateList, Forces, Stiffnesses},
 };
+
+pub type ElementNodalForcesSolid<const N: usize> = Forces<N>;
+pub type ElementNodalStiffnessesSolid<const N: usize> = Stiffnesses<N>;
 
 pub trait SolidFiniteElement<const G: usize, const N: usize> {
     fn deformation_gradients(

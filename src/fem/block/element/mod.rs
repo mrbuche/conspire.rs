@@ -17,17 +17,17 @@ pub use self::solid::{
 use crate::{
     defeat_message,
     fem::{
-        Bases, GradientVectors, NormalGradients, NormalRates, Normals, ReferenceNormals,
-        StandardGradientOperators,
+        Bases, NormalGradients, NormalRates, Normals, ReferenceNormals, StandardGradientOperators,
     },
     math::{IDENTITY, LEVI_CIVITA, Scalar, Scalars, Tensor, TensorArray, TensorRank2, TestError},
-    mechanics::{Coordinates, CurrentCoordinates, Normal, ReferenceCoordinates},
+    mechanics::{Coordinates, CurrentCoordinates, Normal, ReferenceCoordinates, Vectors2D},
 };
 use std::fmt::{self, Debug, Display, Formatter};
 
 pub type ElementNodalCoordinates<const N: usize> = CurrentCoordinates<N>;
 pub type ElementNodalVelocities<const N: usize> = CurrentCoordinates<N>;
 pub type ElementNodalReferenceCoordinates<const N: usize> = ReferenceCoordinates<N>;
+pub type GradientVectors<const G: usize, const N: usize> = Vectors2D<0, N, G>;
 
 pub struct Element<const G: usize, const N: usize> {
     gradient_vectors: GradientVectors<G, N>,
