@@ -2,12 +2,13 @@
 mod test;
 
 use crate::{
-    fem::{
-        NormalizedProjectionMatrix, ParametricGradientOperators, ProjectionMatrix,
-        ShapeFunctionIntegrals, ShapeFunctionIntegralsProducts, ShapeFunctionsAtIntegrationPoints,
-        block::element::{
-            Element, ElementNodalReferenceCoordinates, FiniteElement, GradientVectors,
-            StandardGradientOperators, StandardGradientOperatorsTransposed,
+    fem::block::element::{
+        Element, ElementNodalReferenceCoordinates, FiniteElement, GradientVectors,
+        ShapeFunctionsAtIntegrationPoints, StandardGradientOperators,
+        StandardGradientOperatorsTransposed,
+        composite::{
+            NormalizedProjectionMatrix, ParametricGradientOperators, ProjectionMatrix,
+            ShapeFunctionIntegrals, ShapeFunctionIntegralsProducts,
         },
     },
     math::{Scalar, Scalars, Tensor, TensorRank1},

@@ -1,0 +1,51 @@
+use crate::{
+    fem::{
+        NodalReferenceCoordinates,
+        block::{Connectivity, ElementBlock, element::surface::SurfaceFiniteElement},
+    },
+    math::Scalar,
+};
+
+pub trait SurfaceFiniteElementBlock<C, F, const G: usize, const N: usize, const P: usize>
+where
+    F: SurfaceFiniteElement<G, N, P>,
+{
+    fn new(
+        constitutive_model: C,
+        connectivity: Connectivity<N>,
+        reference_nodal_coordinates: NodalReferenceCoordinates,
+        thickness: Scalar,
+    ) -> Self;
+}
+
+impl<C, F, const G: usize, const N: usize, const P: usize> SurfaceFiniteElementBlock<C, F, G, N, P>
+    for ElementBlock<C, F, N>
+where
+    F: SurfaceFiniteElement<G, N, P>,
+{
+    fn new(
+        constitutive_model: C,
+        connectivity: Connectivity<N>,
+        coordinates: NodalReferenceCoordinates,
+        thickness: Scalar,
+    ) -> Self {
+        let elements = connectivity
+            .iter()
+            .map(|element_connectivity| {
+                <F>::new(
+                    element_connectivity
+                        .iter()
+                        .map(|&node| coordinates[node].clone())
+                        .collect(),
+                    thickness,
+                )
+            })
+            .collect();
+        Self {
+            constitutive_model,
+            connectivity,
+            coordinates,
+            elements,
+        }
+    }
+}

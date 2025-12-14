@@ -3,14 +3,14 @@ mod test;
 
 pub mod element;
 pub mod solid;
+pub mod surface;
 pub mod thermal;
 
-use super::*;
 use crate::{
     defeat_message,
-    fem::block::element::{FiniteElement, surface::SurfaceFiniteElement},
+    fem::{NodalReferenceCoordinates, block::element::FiniteElement},
     math::{
-        Banded, TestError,
+        Banded, Scalar, Tensor, TestError,
         optimize::{
             EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
             SecondOrderOptimization, ZerothOrderRootFinding,
@@ -83,16 +83,36 @@ where
     fn reset(&mut self);
 }
 
-pub trait SurfaceFiniteElementBlock<C, F, const G: usize, const N: usize, const P: usize>
+impl<C, F, const G: usize, const N: usize> FiniteElementBlock<C, F, G, N> for ElementBlock<C, F, N>
 where
-    F: SurfaceFiniteElement<G, N, P>,
+    F: FiniteElement<G, N>,
 {
     fn new(
         constitutive_model: C,
         connectivity: Connectivity<N>,
-        reference_nodal_coordinates: NodalReferenceCoordinates,
-        thickness: Scalar,
-    ) -> Self;
+        coordinates: NodalReferenceCoordinates,
+    ) -> Self {
+        let elements = connectivity
+            .iter()
+            .map(|element_connectivity| {
+                <F>::from(
+                    element_connectivity
+                        .iter()
+                        .map(|&node| coordinates[node].clone())
+                        .collect(),
+                )
+            })
+            .collect();
+        Self {
+            constitutive_model,
+            connectivity,
+            coordinates,
+            elements,
+        }
+    }
+    fn reset(&mut self) {
+        self.elements.iter_mut().for_each(|element| element.reset())
+    }
 }
 
 pub enum FiniteElementBlockError {
@@ -145,70 +165,6 @@ impl Display for FiniteElementBlockError {
             }
         };
         write!(f, "{error}\x1b[0m")
-    }
-}
-
-impl<C, F, const G: usize, const N: usize> FiniteElementBlock<C, F, G, N> for ElementBlock<C, F, N>
-where
-    F: FiniteElement<G, N>,
-{
-    fn new(
-        constitutive_model: C,
-        connectivity: Connectivity<N>,
-        coordinates: NodalReferenceCoordinates,
-    ) -> Self {
-        let elements = connectivity
-            .iter()
-            .map(|element_connectivity| {
-                <F>::from(
-                    element_connectivity
-                        .iter()
-                        .map(|&node| coordinates[node].clone())
-                        .collect(),
-                )
-            })
-            .collect();
-        Self {
-            constitutive_model,
-            connectivity,
-            coordinates,
-            elements,
-        }
-    }
-    fn reset(&mut self) {
-        self.elements.iter_mut().for_each(|element| element.reset())
-    }
-}
-
-impl<C, F, const G: usize, const N: usize, const P: usize> SurfaceFiniteElementBlock<C, F, G, N, P>
-    for ElementBlock<C, F, N>
-where
-    F: SurfaceFiniteElement<G, N, P>,
-{
-    fn new(
-        constitutive_model: C,
-        connectivity: Connectivity<N>,
-        coordinates: NodalReferenceCoordinates,
-        thickness: Scalar,
-    ) -> Self {
-        let elements = connectivity
-            .iter()
-            .map(|element_connectivity| {
-                <F>::new(
-                    element_connectivity
-                        .iter()
-                        .map(|&node| coordinates[node].clone())
-                        .collect(),
-                    thickness,
-                )
-            })
-            .collect();
-        Self {
-            constitutive_model,
-            connectivity,
-            coordinates,
-            elements,
-        }
     }
 }
 

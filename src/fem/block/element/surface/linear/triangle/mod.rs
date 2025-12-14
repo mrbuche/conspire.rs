@@ -34,7 +34,7 @@ use crate::{
 };
 
 #[cfg(test)]
-use crate::fem::ShapeFunctionsAtIntegrationPoints;
+use crate::fem::block::element::ShapeFunctionsAtIntegrationPoints;
 
 const G: usize = 1;
 const M: usize = 2;

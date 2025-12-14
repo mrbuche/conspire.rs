@@ -10,7 +10,7 @@ use crate::{
 };
 
 #[cfg(test)]
-use crate::fem::ShapeFunctionsAtIntegrationPoints;
+use crate::fem::block::element::ShapeFunctionsAtIntegrationPoints;
 
 const G: usize = 8;
 const M: usize = 3;

@@ -3,7 +3,7 @@ use crate::{
         NodalCoordinates, NodalForcesSolid, NodalReferenceCoordinates, NodalStiffnessesSolid,
         NodalVelocities,
         block::{
-            Connectivity, ElementBlock, SurfaceFiniteElementBlock,
+            Connectivity, ElementBlock,
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
                 GradientVectors,
@@ -14,6 +14,7 @@ use crate::{
                 },
                 test::test_surface_finite_element,
             },
+            surface::SurfaceFiniteElementBlock,
             test::test_surface_finite_element_block,
         },
     },

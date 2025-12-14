@@ -9,7 +9,7 @@ pub mod thermal;
 
 use crate::{
     defeat_message,
-    math::{Scalars, TensorRank1List2D, TestError},
+    math::{Scalars, TensorRank1List, TensorRank1List2D, TestError},
     mechanics::{CurrentCoordinates, ReferenceCoordinates, Vectors2D},
 };
 use std::fmt::{self, Debug, Display, Formatter};
@@ -18,6 +18,8 @@ pub type ElementNodalCoordinates<const N: usize> = CurrentCoordinates<N>;
 pub type ElementNodalVelocities<const N: usize> = CurrentCoordinates<N>;
 pub type ElementNodalReferenceCoordinates<const N: usize> = ReferenceCoordinates<N>;
 pub type GradientVectors<const G: usize, const N: usize> = Vectors2D<0, N, G>;
+pub type ShapeFunctionsAtIntegrationPoints<const G: usize, const Q: usize> =
+    TensorRank1List<Q, 9, G>;
 pub type StandardGradientOperators<const M: usize, const O: usize, const P: usize> =
     TensorRank1List2D<M, 0, O, P>;
 pub type StandardGradientOperatorsTransposed<const M: usize, const O: usize, const P: usize> =
