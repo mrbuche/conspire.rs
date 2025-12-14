@@ -10,15 +10,13 @@ use crate::{
     mechanics::{Forces, Stiffnesses, Vectors, Vectors2D},
 };
 
-pub type Connectivity<const N: usize> = Vec<[usize; N]>;
 pub type NodalCoordinates = TensorRank1Vec<3, 1>;
-pub type NodalVelocities = TensorRank1Vec<3, 1>;
+pub type NodalCoordinatesHistory = TensorRank1Vec2D<3, 1>;
 pub type NodalForcesSolid = TensorRank1Vec<3, 1>;
 pub type NodalStiffnessesSolid = TensorRank2Vec2D<3, 1, 1>;
-pub type ReferenceNodalCoordinates = TensorRank1Vec<3, 0>;
-
-pub type NodalCoordinatesHistory = TensorRank1Vec2D<3, 1>;
+pub type NodalVelocities = TensorRank1Vec<3, 1>;
 pub type NodalVelocitiesHistory = TensorRank1Vec2D<3, 1>;
+pub type ReferenceNodalCoordinates = TensorRank1Vec<3, 0>;
 
 type Bases<const I: usize, const P: usize> = TensorRank1List2D<3, I, 2, P>;
 type GradientVectors<const G: usize, const N: usize> = Vectors2D<0, N, G>;

@@ -1,9 +1,9 @@
 use crate::{
     fem::{
-        Connectivity, GradientVectors, NodalCoordinates, NodalForcesSolid, NodalStiffnessesSolid,
+        GradientVectors, NodalCoordinates, NodalForcesSolid, NodalStiffnessesSolid,
         NodalVelocities, ReferenceNodalCoordinates,
         block::{
-            ElementBlock, FiniteElementBlock,
+            Connectivity, ElementBlock, FiniteElementBlock,
             element::{
                 ElementNodalCoordinates, ElementNodalVelocities, ElementReferenceNodalCoordinates,
                 SolidFiniteElement,

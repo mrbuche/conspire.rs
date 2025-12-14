@@ -13,9 +13,9 @@ use conspire::{
         thermal::conduction::Fourier,
     },
     fem::{
-        Connectivity, ReferenceNodalCoordinates,
+        ReferenceNodalCoordinates,
         block::{
-            ElementBlock, FiniteElementBlock, SecondOrderMinimize,
+            Connectivity, ElementBlock, FiniteElementBlock, SecondOrderMinimize,
             element::linear::tetrahedron::Tetrahedron as LinearTetrahedron,
             solid::{
                 SolidFiniteElementBlock,

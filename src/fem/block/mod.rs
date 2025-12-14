@@ -23,6 +23,8 @@ use std::{
     iter::repeat_n,
 };
 
+pub type Connectivity<const N: usize> = Vec<[usize; N]>;
+
 pub struct ElementBlock<C, F, const N: usize> {
     constitutive_model: C,
     connectivity: Connectivity<N>,
