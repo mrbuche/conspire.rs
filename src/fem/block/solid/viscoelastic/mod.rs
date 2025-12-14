@@ -2,7 +2,7 @@ use crate::{
     constitutive::solid::viscoelastic::Viscoelastic,
     fem::{
         NodalCoordinates, NodalCoordinatesHistory, NodalForcesSolid, NodalStiffnessesSolid,
-        NodalVelocitiesBlock, NodalVelocitiesHistory,
+        NodalVelocities, NodalVelocitiesHistory,
         block::{
             ElementBlock, FiniteElementBlockError,
             element::{ElementNodalVelocities, FiniteElementError, ViscoelasticFiniteElement},
@@ -25,27 +25,27 @@ where
     fn deformation_gradient_rates(
         &self,
         nodal_coordinates: &NodalCoordinates,
-        nodal_velocities: &NodalVelocitiesBlock,
+        nodal_velocities: &NodalVelocities,
     ) -> Vec<DeformationGradientRateList<G>>;
     fn element_nodal_velocities(
         &self,
         element_connectivity: &[usize; N],
-        nodal_velocities: &NodalVelocitiesBlock,
+        nodal_velocities: &NodalVelocities,
     ) -> ElementNodalVelocities<N>;
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates,
-        nodal_velocities: &NodalVelocitiesBlock,
+        nodal_velocities: &NodalVelocities,
     ) -> Result<NodalForcesSolid, FiniteElementBlockError>;
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates,
-        nodal_velocities: &NodalVelocitiesBlock,
+        nodal_velocities: &NodalVelocities,
     ) -> Result<NodalStiffnessesSolid, FiniteElementBlockError>;
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
-        integrator: impl Explicit<NodalVelocitiesBlock, NodalVelocitiesHistory>,
+        integrator: impl Explicit<NodalVelocities, NodalVelocitiesHistory>,
         time: &[Scalar],
         solver: impl FirstOrderRootFinding<NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>,
     ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError>;
@@ -55,8 +55,8 @@ where
         equality_constraint: &EqualityConstraint,
         nodal_coordinates: &NodalCoordinates,
         solver: &impl FirstOrderRootFinding<NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>,
-        initial_guess: &NodalVelocitiesBlock,
-    ) -> Result<NodalVelocitiesBlock, OptimizationError>;
+        initial_guess: &NodalVelocities,
+    ) -> Result<NodalVelocities, OptimizationError>;
 }
 
 impl<C, F, const G: usize, const N: usize> ViscoelasticFiniteElementBlock<C, F, G, N>
@@ -69,7 +69,7 @@ where
     fn deformation_gradient_rates(
         &self,
         nodal_coordinates: &NodalCoordinates,
-        nodal_velocities: &NodalVelocitiesBlock,
+        nodal_velocities: &NodalVelocities,
     ) -> Vec<DeformationGradientRateList<G>> {
         self.elements()
             .iter()
@@ -85,7 +85,7 @@ where
     fn element_nodal_velocities(
         &self,
         element_connectivity: &[usize; N],
-        nodal_velocities: &NodalVelocitiesBlock,
+        nodal_velocities: &NodalVelocities,
     ) -> ElementNodalVelocities<N> {
         element_connectivity
             .iter()
@@ -95,7 +95,7 @@ where
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates,
-        nodal_velocities: &NodalVelocitiesBlock,
+        nodal_velocities: &NodalVelocities,
     ) -> Result<NodalForcesSolid, FiniteElementBlockError> {
         let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
         match self
@@ -124,7 +124,7 @@ where
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates,
-        nodal_velocities: &NodalVelocitiesBlock,
+        nodal_velocities: &NodalVelocities,
     ) -> Result<NodalStiffnessesSolid, FiniteElementBlockError> {
         let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
         match self
@@ -159,11 +159,11 @@ where
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
-        integrator: impl Explicit<NodalVelocitiesBlock, NodalVelocitiesHistory>,
+        integrator: impl Explicit<NodalVelocities, NodalVelocitiesHistory>,
         time: &[Scalar],
         solver: impl FirstOrderRootFinding<NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>,
     ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError> {
-        let mut solution = NodalVelocitiesBlock::zero(self.coordinates().len());
+        let mut solution = NodalVelocities::zero(self.coordinates().len());
         integrator.integrate(
             |_: Scalar, nodal_coordinates: &NodalCoordinates| {
                 solution =
@@ -178,18 +178,14 @@ where
         &self,
         equality_constraint: &EqualityConstraint,
         nodal_coordinates: &NodalCoordinates,
-        solver: &impl FirstOrderRootFinding<
-            NodalForcesSolid,
-            NodalStiffnessesSolid,
-            NodalVelocitiesBlock,
-        >,
-        initial_guess: &NodalVelocitiesBlock,
-    ) -> Result<NodalVelocitiesBlock, OptimizationError> {
+        solver: &impl FirstOrderRootFinding<NodalForcesSolid, NodalStiffnessesSolid, NodalVelocities>,
+        initial_guess: &NodalVelocities,
+    ) -> Result<NodalVelocities, OptimizationError> {
         solver.root(
-            |nodal_velocities: &NodalVelocitiesBlock| {
+            |nodal_velocities: &NodalVelocities| {
                 Ok(self.nodal_forces(nodal_coordinates, nodal_velocities)?)
             },
-            |nodal_velocities: &NodalVelocitiesBlock| {
+            |nodal_velocities: &NodalVelocities| {
                 Ok(self.nodal_stiffnesses(nodal_coordinates, nodal_velocities)?)
             },
             initial_guess.clone(),

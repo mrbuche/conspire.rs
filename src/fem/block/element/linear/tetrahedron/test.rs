@@ -1,7 +1,7 @@
 use crate::{
     fem::{
         Connectivity, GradientVectors, NodalCoordinates, NodalForcesSolid, NodalStiffnessesSolid,
-        NodalVelocitiesBlock, ReferenceNodalCoordinates,
+        NodalVelocities, ReferenceNodalCoordinates,
         block::{
             ElementBlock, FiniteElementBlock,
             element::{
@@ -95,8 +95,8 @@ fn get_reference_coordinates_block() -> ReferenceNodalCoordinates {
     ])
 }
 
-fn get_velocities_block() -> NodalVelocitiesBlock {
-    NodalVelocitiesBlock::from([
+fn get_velocities_block() -> NodalVelocities {
+    NodalVelocities::from([
         [0.00888030, -0.09877116, 0.07861759],
         [0.02037718, -0.09870374, -0.04739945],
         [-0.02023814, -0.00392495, 0.00612573],
