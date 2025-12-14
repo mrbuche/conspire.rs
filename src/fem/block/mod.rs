@@ -26,7 +26,7 @@ use std::{
 pub struct ElementBlock<C, F, const N: usize> {
     constitutive_model: C,
     connectivity: Connectivity<N>,
-    coordinates: ReferenceNodalCoordinatesBlock,
+    coordinates: ReferenceNodalCoordinates,
     elements: Vec<F>,
 }
 
@@ -37,21 +37,11 @@ impl<C, F, const N: usize> ElementBlock<C, F, N> {
     fn connectivity(&self) -> &Connectivity<N> {
         &self.connectivity
     }
-    fn coordinates(&self) -> &ReferenceNodalCoordinatesBlock {
+    fn coordinates(&self) -> &ReferenceNodalCoordinates {
         &self.coordinates
     }
     fn elements(&self) -> &[F] {
         &self.elements
-    }
-    fn nodal_coordinates_element(
-        &self,
-        element_connectivity: &[usize; N],
-        nodal_coordinates: &NodalCoordinatesBlock,
-    ) -> NodalCoordinates<N> {
-        element_connectivity
-            .iter()
-            .map(|&node| nodal_coordinates[node].clone())
-            .collect()
     }
 }
 
@@ -86,7 +76,7 @@ where
     fn new(
         constitutive_model: C,
         connectivity: Connectivity<N>,
-        reference_nodal_coordinates: ReferenceNodalCoordinatesBlock,
+        reference_nodal_coordinates: ReferenceNodalCoordinates,
     ) -> Self;
     fn reset(&mut self);
 }
@@ -98,7 +88,7 @@ where
     fn new(
         constitutive_model: C,
         connectivity: Connectivity<N>,
-        reference_nodal_coordinates: ReferenceNodalCoordinatesBlock,
+        reference_nodal_coordinates: ReferenceNodalCoordinates,
         thickness: Scalar,
     ) -> Self;
 }
@@ -163,7 +153,7 @@ where
     fn new(
         constitutive_model: C,
         connectivity: Connectivity<N>,
-        coordinates: ReferenceNodalCoordinatesBlock,
+        coordinates: ReferenceNodalCoordinates,
     ) -> Self {
         let elements = connectivity
             .iter()
@@ -196,7 +186,7 @@ where
     fn new(
         constitutive_model: C,
         connectivity: Connectivity<N>,
-        coordinates: ReferenceNodalCoordinatesBlock,
+        coordinates: ReferenceNodalCoordinates,
         thickness: Scalar,
     ) -> Self {
         let elements = connectivity

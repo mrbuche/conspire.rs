@@ -81,7 +81,9 @@ macro_rules! test_finite_element_block_inner {
                         AlmansiHamel, SaintVenantKirchhoff,
                         test::{BULK_MODULUS, SHEAR_MODULUS},
                     },
-                    fem::block::{ElasticFiniteElementBlock, SolidFiniteElementBlock},
+                    fem::block::solid::{
+                        SolidFiniteElementBlock, elastic::ElasticFiniteElementBlock,
+                    },
                 };
                 mod almansi_hamel {
                     use super::*;
@@ -128,9 +130,9 @@ macro_rules! test_finite_element_block_inner {
                             NUMBER_OF_LINKS, YEOH_EXTRA_MODULI,
                         },
                     },
-                    fem::block::{
-                        ElasticFiniteElementBlock, HyperelasticFiniteElementBlock,
-                        SolidFiniteElementBlock,
+                    fem::block::solid::{
+                        SolidFiniteElementBlock, elastic::ElasticFiniteElementBlock,
+                        hyperelastic::HyperelasticFiniteElementBlock,
                     },
                 };
                 mod arruda_boyce {
@@ -241,9 +243,10 @@ macro_rules! test_finite_element_block_inner {
                         AlmansiHamel,
                         test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
                     },
-                    fem::block::{
-                        ElasticHyperviscousFiniteElementBlock, SolidFiniteElementBlock,
-                        ViscoelasticFiniteElementBlock,
+                    fem::block::solid::{
+                        SolidFiniteElementBlock,
+                        elastic_hyperviscous::ElasticHyperviscousFiniteElementBlock,
+                        viscoelastic::ViscoelasticFiniteElementBlock,
                     },
                 };
                 mod almansi_hamel {
@@ -268,9 +271,10 @@ macro_rules! test_finite_element_block_inner {
                         SaintVenantKirchhoff,
                         test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
                     },
-                    fem::block::{
-                        ElasticHyperviscousFiniteElementBlock, SolidFiniteElementBlock,
-                        ViscoelasticFiniteElementBlock,
+                    fem::block::solid::{
+                        SolidFiniteElementBlock,
+                        elastic_hyperviscous::ElasticHyperviscousFiniteElementBlock,
+                        viscoelastic::ViscoelasticFiniteElementBlock,
                     },
                 };
                 mod saint_venant_kirchhoff {
@@ -296,7 +300,7 @@ pub(crate) use test_finite_element_block_inner;
 macro_rules! test_nodal_forces_and_nodal_stiffnesses {
     ($block: ident, $element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {
         setup_block!($constitutive_model, $constitutive_model_type);
-        fn get_coordinates_transformed_block() -> NodalCoordinatesBlock {
+        fn get_coordinates_transformed_block() -> NodalCoordinates {
             get_coordinates_block()
                 .iter()
                 .map(|coordinate| {
@@ -305,7 +309,7 @@ macro_rules! test_nodal_forces_and_nodal_stiffnesses {
                 })
                 .collect()
         }
-        fn get_reference_coordinates_transformed_block() -> ReferenceNodalCoordinatesBlock {
+        fn get_reference_coordinates_transformed_block() -> ReferenceNodalCoordinates {
             get_reference_coordinates_block()
                 .iter()
                 .map(|reference_coordinate| {
@@ -836,7 +840,7 @@ pub(crate) use test_finite_element_block_with_hyperelastic_constitutive_model;
 
 macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
     ($block: ident, $element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {
-        fn get_velocities_transformed_block() -> NodalCoordinatesBlock {
+        fn get_velocities_transformed_block() -> NodalCoordinates {
             get_coordinates_block()
                 .iter()
                 .zip(get_velocities_block().iter())

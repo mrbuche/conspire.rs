@@ -1,11 +1,12 @@
 use crate::{
     constitutive::solid::elastic_hyperviscous::ElasticHyperviscous,
     fem::{
-        NodalCoordinatesBlock, NodalCoordinatesHistory, NodalForcesSolid, NodalStiffnessesSolid,
+        NodalCoordinates, NodalCoordinatesHistory, NodalForcesSolid, NodalStiffnessesSolid,
         NodalVelocitiesBlock, NodalVelocitiesHistory,
         block::{
-            ElementBlock, FiniteElementBlockError, band, element::ElasticHyperviscousFiniteElement,
-            solid::viscoelastic::ViscoelasticFiniteElementBlock,
+            ElementBlock, FiniteElementBlockError, band,
+            element::ElasticHyperviscousFiniteElement,
+            solid::{SolidFiniteElementBlock, viscoelastic::ViscoelasticFiniteElementBlock},
         },
     },
     math::{
@@ -24,12 +25,12 @@ where
 {
     fn viscous_dissipation(
         &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_coordinates: &NodalCoordinates,
         nodal_velocities: &NodalVelocitiesBlock,
     ) -> Result<Scalar, FiniteElementBlockError>;
     fn dissipation_potential(
         &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_coordinates: &NodalCoordinates,
         nodal_velocities: &NodalVelocitiesBlock,
     ) -> Result<Scalar, FiniteElementBlockError>;
     fn minimize(
@@ -41,19 +42,19 @@ where
             Scalar,
             NodalForcesSolid,
             NodalStiffnessesSolid,
-            NodalCoordinatesBlock,
+            NodalCoordinates,
         >,
     ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError>;
     #[doc(hidden)]
     fn minimize_inner(
         &self,
         equality_constraint: &EqualityConstraint,
-        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_coordinates: &NodalCoordinates,
         solver: &impl SecondOrderOptimization<
             Scalar,
             NodalForcesSolid,
             NodalStiffnessesSolid,
-            NodalCoordinatesBlock,
+            NodalCoordinates,
         >,
         initial_guess: &NodalVelocitiesBlock,
     ) -> Result<NodalVelocitiesBlock, OptimizationError>;
@@ -68,7 +69,7 @@ where
 {
     fn viscous_dissipation(
         &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_coordinates: &NodalCoordinates,
         nodal_velocities: &NodalVelocitiesBlock,
     ) -> Result<Scalar, FiniteElementBlockError> {
         match self
@@ -78,8 +79,8 @@ where
             .map(|(element, element_connectivity)| {
                 element.viscous_dissipation(
                     self.constitutive_model(),
-                    &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
-                    &self.nodal_velocities_element(element_connectivity, nodal_velocities),
+                    &self.element_nodal_coordinates(element_connectivity, nodal_coordinates),
+                    &self.element_nodal_velocities(element_connectivity, nodal_velocities),
                 )
             })
             .sum()
@@ -93,7 +94,7 @@ where
     }
     fn dissipation_potential(
         &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_coordinates: &NodalCoordinates,
         nodal_velocities: &NodalVelocitiesBlock,
     ) -> Result<Scalar, FiniteElementBlockError> {
         match self
@@ -103,8 +104,8 @@ where
             .map(|(element, element_connectivity)| {
                 element.dissipation_potential(
                     self.constitutive_model(),
-                    &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
-                    &self.nodal_velocities_element(element_connectivity, nodal_velocities),
+                    &self.element_nodal_coordinates(element_connectivity, nodal_coordinates),
+                    &self.element_nodal_velocities(element_connectivity, nodal_velocities),
                 )
             })
             .sum()
@@ -125,12 +126,12 @@ where
             Scalar,
             NodalForcesSolid,
             NodalStiffnessesSolid,
-            NodalCoordinatesBlock,
+            NodalCoordinates,
         >,
     ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError> {
         let mut solution = NodalVelocitiesBlock::zero(self.coordinates().len());
         integrator.integrate(
-            |_: Scalar, nodal_coordinates: &NodalCoordinatesBlock| {
+            |_: Scalar, nodal_coordinates: &NodalCoordinates| {
                 solution = self.minimize_inner(
                     &equality_constraint,
                     nodal_coordinates,
@@ -146,7 +147,7 @@ where
     fn minimize_inner(
         &self,
         equality_constraint: &EqualityConstraint,
-        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_coordinates: &NodalCoordinates,
         solver: &impl SecondOrderOptimization<
             Scalar,
             NodalForcesSolid,

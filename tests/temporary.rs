@@ -13,10 +13,18 @@ use conspire::{
         thermal::conduction::Fourier,
     },
     fem::{
-        Connectivity, ElasticHyperviscousFiniteElementBlock, ElasticViscoplasticFiniteElementBlock,
-        ElementBlock, FiniteElementBlock, LinearTetrahedron, ReferenceNodalCoordinatesBlock,
-        SecondOrderMinimize, SolidFiniteElementBlock, ViscoelasticFiniteElementBlock,
-        block::thermal::ThermalFiniteElementBlock,
+        Connectivity, ReferenceNodalCoordinates,
+        block::{
+            ElementBlock, FiniteElementBlock, SecondOrderMinimize,
+            element::linear::tetrahedron::Tetrahedron as LinearTetrahedron,
+            solid::{
+                SolidFiniteElementBlock,
+                elastic_hyperviscous::ElasticHyperviscousFiniteElementBlock,
+                elastic_viscoplastic::ElasticViscoplasticFiniteElementBlock,
+                viscoelastic::ViscoelasticFiniteElementBlock,
+            },
+            thermal::ThermalFiniteElementBlock,
+        },
     },
     math::{
         Matrix, Scalar, Tensor, TestError, Vector, assert_eq_within, assert_eq_within_tols,
@@ -6033,8 +6041,8 @@ fn connectivity() -> Connectivity<N> {
     ]
 }
 
-fn coordinates() -> ReferenceNodalCoordinatesBlock {
-    ReferenceNodalCoordinatesBlock::from([
+fn coordinates() -> ReferenceNodalCoordinates {
+    ReferenceNodalCoordinates::from([
         [5.000000e-01, -5.000000e-01, 5.000000e-01],
         [5.000000e-01, 5.000000e-01, 5.000000e-01],
         [5.000000e-01, -4.000000e-01, 5.000000e-01],

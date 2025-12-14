@@ -1,9 +1,10 @@
 use crate::{
     constitutive::solid::elastic_viscoplastic::ElasticViscoplastic,
     fem::{
-        ElementNodalForcesSolid, ElementNodalStiffnessesSolid, NodalCoordinates,
+        ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
         block::element::{
-            Element, FiniteElementError, SolidFiniteElement, ViscoplasticStateVariables,
+            Element, ElementNodalCoordinates, FiniteElementError, SolidFiniteElement,
+            ViscoplasticStateVariables,
         },
     },
     math::{ContractSecondFourthIndicesWithFirstIndicesOf, Tensor},
@@ -19,19 +20,19 @@ where
     fn nodal_forces(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
         state_variables: &ViscoplasticStateVariables<G>,
     ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError>;
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
         state_variables: &ViscoplasticStateVariables<G>,
     ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError>;
     fn state_variables_evolution(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
         state_variables: &ViscoplasticStateVariables<G>,
     ) -> Result<ViscoplasticStateVariables<G>, FiniteElementError>;
 }
@@ -43,7 +44,7 @@ where
     fn nodal_forces(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
         state_variables: &ViscoplasticStateVariables<G>,
     ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
         match self
@@ -85,7 +86,7 @@ where
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
         state_variables: &ViscoplasticStateVariables<G>,
     ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError> {
         match self
@@ -143,7 +144,7 @@ where
     fn state_variables_evolution(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
         state_variables: &ViscoplasticStateVariables<G>,
     ) -> Result<ViscoplasticStateVariables<G>, FiniteElementError> {
         match self

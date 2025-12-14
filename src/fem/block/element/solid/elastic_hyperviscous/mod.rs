@@ -1,10 +1,8 @@
 use crate::{
     constitutive::{ConstitutiveError, solid::elastic_hyperviscous::ElasticHyperviscous},
-    fem::{
-        NodalCoordinates, NodalVelocities,
-        block::element::{
-            Element, FiniteElementError, SolidFiniteElement, ViscoelasticFiniteElement,
-        },
+    fem::block::element::{
+        Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElementError,
+        SolidFiniteElement, ViscoelasticFiniteElement,
     },
     math::{Scalar, Tensor},
 };
@@ -17,14 +15,14 @@ where
     fn viscous_dissipation(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
     ) -> Result<Scalar, FiniteElementError>;
     fn dissipation_potential(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
     ) -> Result<Scalar, FiniteElementError>;
 }
 
@@ -35,8 +33,8 @@ where
     fn viscous_dissipation(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
     ) -> Result<Scalar, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
@@ -67,8 +65,8 @@ where
     fn dissipation_potential(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
     ) -> Result<Scalar, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)

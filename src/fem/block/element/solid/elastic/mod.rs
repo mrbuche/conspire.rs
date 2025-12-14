@@ -1,8 +1,10 @@
 use crate::{
     constitutive::solid::elastic::Elastic,
     fem::{
-        ElementNodalForcesSolid, ElementNodalStiffnessesSolid, NodalCoordinates,
-        block::element::{Element, FiniteElementError, solid::SolidFiniteElement},
+        ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
+        block::element::{
+            Element, ElementNodalCoordinates, FiniteElementError, solid::SolidFiniteElement,
+        },
     },
     math::{ContractSecondFourthIndicesWithFirstIndicesOf, Tensor},
     mechanics::{FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses},
@@ -17,12 +19,12 @@ where
     fn nodal_forces(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError>;
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError>;
 }
 
@@ -33,7 +35,7 @@ where
     fn nodal_forces(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
@@ -71,7 +73,7 @@ where
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)

@@ -7,7 +7,10 @@ pub mod viscoelastic;
 pub mod viscoplastic;
 
 use crate::{
-    fem::{GradientVectors, NodalCoordinates, NodalVelocities, block::element::Element},
+    fem::{
+        GradientVectors,
+        block::element::{Element, ElementNodalCoordinates, ElementNodalVelocities},
+    },
     math::{Scalars, Tensor},
     mechanics::{DeformationGradientList, DeformationGradientRateList},
 };
@@ -15,12 +18,12 @@ use crate::{
 pub trait SolidFiniteElement<const G: usize, const N: usize> {
     fn deformation_gradients(
         &self,
-        nodal_coordinates: &NodalCoordinates<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> DeformationGradientList<G>;
     fn deformation_gradient_rates(
         &self,
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
     ) -> DeformationGradientRateList<G>;
     fn gradient_vectors(&self) -> &GradientVectors<G, N>;
     fn integration_weights(&self) -> &Scalars<G>;
@@ -29,7 +32,7 @@ pub trait SolidFiniteElement<const G: usize, const N: usize> {
 impl<const G: usize, const N: usize> SolidFiniteElement<G, N> for Element<G, N> {
     fn deformation_gradients(
         &self,
-        nodal_coordinates: &NodalCoordinates<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> DeformationGradientList<G> {
         self.gradient_vectors()
             .iter()
@@ -46,8 +49,8 @@ impl<const G: usize, const N: usize> SolidFiniteElement<G, N> for Element<G, N> 
     }
     fn deformation_gradient_rates(
         &self,
-        _: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
+        _: &ElementNodalCoordinates<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
     ) -> DeformationGradientRateList<G> {
         self.gradient_vectors()
             .iter()

@@ -1,10 +1,11 @@
 use crate::{
     constitutive::solid::hyperelastic::Hyperelastic,
     fem::{
-        NodalCoordinatesBlock, NodalForcesSolid, NodalStiffnessesSolid,
+        NodalCoordinates, NodalForcesSolid, NodalStiffnessesSolid,
         block::{
             ElementBlock, FiniteElementBlockError, FirstOrderMinimize, SecondOrderMinimize, band,
-            element::HyperelasticFiniteElement, solid::elastic::ElasticFiniteElementBlock,
+            element::HyperelasticFiniteElement,
+            solid::{SolidFiniteElementBlock, elastic::ElasticFiniteElementBlock},
         },
     },
     math::{
@@ -23,7 +24,7 @@ where
 {
     fn helmholtz_free_energy(
         &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_coordinates: &NodalCoordinates,
     ) -> Result<Scalar, FiniteElementBlockError>;
 }
 
@@ -36,7 +37,7 @@ where
 {
     fn helmholtz_free_energy(
         &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_coordinates: &NodalCoordinates,
     ) -> Result<Scalar, FiniteElementBlockError> {
         match self
             .elements()
@@ -45,7 +46,7 @@ where
             .map(|(element, element_connectivity)| {
                 element.helmholtz_free_energy(
                     self.constitutive_model(),
-                    &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
+                    &self.element_nodal_coordinates(element_connectivity, nodal_coordinates),
                 )
             })
             .sum()
@@ -59,7 +60,7 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> FirstOrderMinimize<C, F, G, N, NodalCoordinatesBlock>
+impl<C, F, const G: usize, const N: usize> FirstOrderMinimize<C, F, G, N, NodalCoordinates>
     for ElementBlock<C, F, N>
 where
     C: Hyperelastic,
@@ -69,12 +70,12 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl FirstOrderOptimization<Scalar, NodalForcesSolid>,
-    ) -> Result<NodalCoordinatesBlock, OptimizationError> {
+    ) -> Result<NodalCoordinates, OptimizationError> {
         solver.minimize(
-            |nodal_coordinates: &NodalCoordinatesBlock| {
+            |nodal_coordinates: &NodalCoordinates| {
                 Ok(self.helmholtz_free_energy(nodal_coordinates)?)
             },
-            |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
+            |nodal_coordinates: &NodalCoordinates| Ok(self.nodal_forces(nodal_coordinates)?),
             self.coordinates().clone().into(),
             equality_constraint,
         )
@@ -82,7 +83,7 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize>
-    SecondOrderMinimize<C, F, G, N, NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinatesBlock>
+    SecondOrderMinimize<C, F, G, N, NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>
     for ElementBlock<C, F, N>
 where
     C: Hyperelastic,
@@ -95,9 +96,9 @@ where
             Scalar,
             NodalForcesSolid,
             NodalStiffnessesSolid,
-            NodalCoordinatesBlock,
+            NodalCoordinates,
         >,
-    ) -> Result<NodalCoordinatesBlock, OptimizationError> {
+    ) -> Result<NodalCoordinates, OptimizationError> {
         let banded = band(
             self.connectivity(),
             &equality_constraint,
@@ -105,13 +106,11 @@ where
             3,
         );
         solver.minimize(
-            |nodal_coordinates: &NodalCoordinatesBlock| {
+            |nodal_coordinates: &NodalCoordinates| {
                 Ok(self.helmholtz_free_energy(nodal_coordinates)?)
             },
-            |nodal_coordinates: &NodalCoordinatesBlock| Ok(self.nodal_forces(nodal_coordinates)?),
-            |nodal_coordinates: &NodalCoordinatesBlock| {
-                Ok(self.nodal_stiffnesses(nodal_coordinates)?)
-            },
+            |nodal_coordinates: &NodalCoordinates| Ok(self.nodal_forces(nodal_coordinates)?),
+            |nodal_coordinates: &NodalCoordinates| Ok(self.nodal_stiffnesses(nodal_coordinates)?),
             self.coordinates().clone().into(),
             equality_constraint,
             Some(banded),

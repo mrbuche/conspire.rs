@@ -1,10 +1,14 @@
 use crate::{
     constitutive::solid::hyperviscoelastic::Hyperviscoelastic,
     fem::{
-        NodalCoordinatesBlock,
+        NodalCoordinates,
         block::{
-            ElementBlock, FiniteElementBlockError, element::HyperviscoelasticFiniteElement,
-            solid::elastic_hyperviscous::ElasticHyperviscousFiniteElementBlock,
+            ElementBlock, FiniteElementBlockError,
+            element::HyperviscoelasticFiniteElement,
+            solid::{
+                SolidFiniteElementBlock,
+                elastic_hyperviscous::ElasticHyperviscousFiniteElementBlock,
+            },
         },
     },
     math::Scalar,
@@ -18,7 +22,7 @@ where
 {
     fn helmholtz_free_energy(
         &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_coordinates: &NodalCoordinates,
     ) -> Result<Scalar, FiniteElementBlockError>;
 }
 
@@ -31,7 +35,7 @@ where
 {
     fn helmholtz_free_energy(
         &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_coordinates: &NodalCoordinates,
     ) -> Result<Scalar, FiniteElementBlockError> {
         match self
             .elements()
@@ -40,7 +44,7 @@ where
             .map(|(element, element_connectivity)| {
                 element.helmholtz_free_energy(
                     self.constitutive_model(),
-                    &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
+                    &self.element_nodal_coordinates(element_connectivity, nodal_coordinates),
                 )
             })
             .sum()

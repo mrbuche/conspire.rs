@@ -1,11 +1,8 @@
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperelastic::Hyperelastic},
-    fem::{
-        NodalCoordinates,
-        block::element::{
-            Element, FiniteElementError,
-            solid::{SolidFiniteElement, elastic::ElasticFiniteElement},
-        },
+    fem::block::element::{
+        Element, ElementNodalCoordinates, FiniteElementError,
+        solid::{SolidFiniteElement, elastic::ElasticFiniteElement},
     },
     math::{Scalar, Tensor},
 };
@@ -18,7 +15,7 @@ where
     fn helmholtz_free_energy(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<Scalar, FiniteElementError>;
 }
 
@@ -29,7 +26,7 @@ where
     fn helmholtz_free_energy(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<Scalar, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)

@@ -5,16 +5,13 @@ macro_rules! test_thermal {
             use crate::{
                 EPSILON,
                 constitutive::thermal::conduction::Fourier,
-                fem::{
-                    ElementBlock, FiniteElementBlock,
-                    block::{
-                        FiniteElementBlockError,
-                        thermal::{
-                            NodalTemperatures,
-                            conduction::{
-                                NodalForcesThermal, NodalStiffnessesThermal,
-                                ThermalConductionFiniteElementBlock,
-                            },
+                fem::block::{
+                    ElementBlock, FiniteElementBlock, FiniteElementBlockError,
+                    thermal::{
+                        NodalTemperatures,
+                        conduction::{
+                            NodalForcesThermal, NodalStiffnessesThermal,
+                            ThermalConductionFiniteElementBlock,
                         },
                     },
                 },

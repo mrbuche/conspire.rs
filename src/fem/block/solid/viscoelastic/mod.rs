@@ -1,11 +1,11 @@
 use crate::{
     constitutive::solid::viscoelastic::Viscoelastic,
     fem::{
-        NodalCoordinatesBlock, NodalCoordinatesHistory, NodalForcesSolid, NodalStiffnessesSolid,
-        NodalVelocities, NodalVelocitiesBlock, NodalVelocitiesHistory,
+        NodalCoordinates, NodalCoordinatesHistory, NodalForcesSolid, NodalStiffnessesSolid,
+        NodalVelocitiesBlock, NodalVelocitiesHistory,
         block::{
             ElementBlock, FiniteElementBlockError,
-            element::{FiniteElementError, ViscoelasticFiniteElement},
+            element::{ElementNodalVelocities, FiniteElementError, ViscoelasticFiniteElement},
             solid::SolidFiniteElementBlock,
         },
     },
@@ -24,45 +24,37 @@ where
 {
     fn deformation_gradient_rates(
         &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_coordinates: &NodalCoordinates,
         nodal_velocities: &NodalVelocitiesBlock,
     ) -> Vec<DeformationGradientRateList<G>>;
+    fn element_nodal_velocities(
+        &self,
+        element_connectivity: &[usize; N],
+        nodal_velocities: &NodalVelocitiesBlock,
+    ) -> ElementNodalVelocities<N>;
     fn nodal_forces(
         &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_coordinates: &NodalCoordinates,
         nodal_velocities: &NodalVelocitiesBlock,
     ) -> Result<NodalForcesSolid, FiniteElementBlockError>;
     fn nodal_stiffnesses(
         &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_coordinates: &NodalCoordinates,
         nodal_velocities: &NodalVelocitiesBlock,
     ) -> Result<NodalStiffnessesSolid, FiniteElementBlockError>;
-    fn nodal_velocities_element(
-        &self,
-        element_connectivity: &[usize; N],
-        nodal_velocities: &NodalVelocitiesBlock,
-    ) -> NodalVelocities<N>;
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
         integrator: impl Explicit<NodalVelocitiesBlock, NodalVelocitiesHistory>,
         time: &[Scalar],
-        solver: impl FirstOrderRootFinding<
-            NodalForcesSolid,
-            NodalStiffnessesSolid,
-            NodalCoordinatesBlock,
-        >,
+        solver: impl FirstOrderRootFinding<NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>,
     ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError>;
     #[doc(hidden)]
     fn root_inner(
         &self,
         equality_constraint: &EqualityConstraint,
-        nodal_coordinates: &NodalCoordinatesBlock,
-        solver: &impl FirstOrderRootFinding<
-            NodalForcesSolid,
-            NodalStiffnessesSolid,
-            NodalCoordinatesBlock,
-        >,
+        nodal_coordinates: &NodalCoordinates,
+        solver: &impl FirstOrderRootFinding<NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>,
         initial_guess: &NodalVelocitiesBlock,
     ) -> Result<NodalVelocitiesBlock, OptimizationError>;
 }
@@ -76,7 +68,7 @@ where
 {
     fn deformation_gradient_rates(
         &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_coordinates: &NodalCoordinates,
         nodal_velocities: &NodalVelocitiesBlock,
     ) -> Vec<DeformationGradientRateList<G>> {
         self.elements()
@@ -84,15 +76,25 @@ where
             .zip(self.connectivity().iter())
             .map(|(element, element_connectivity)| {
                 element.deformation_gradient_rates(
-                    &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
-                    &self.nodal_velocities_element(element_connectivity, nodal_velocities),
+                    &self.element_nodal_coordinates(element_connectivity, nodal_coordinates),
+                    &self.element_nodal_velocities(element_connectivity, nodal_velocities),
                 )
             })
             .collect()
     }
+    fn element_nodal_velocities(
+        &self,
+        element_connectivity: &[usize; N],
+        nodal_velocities: &NodalVelocitiesBlock,
+    ) -> ElementNodalVelocities<N> {
+        element_connectivity
+            .iter()
+            .map(|&node| nodal_velocities[node].clone())
+            .collect()
+    }
     fn nodal_forces(
         &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_coordinates: &NodalCoordinates,
         nodal_velocities: &NodalVelocitiesBlock,
     ) -> Result<NodalForcesSolid, FiniteElementBlockError> {
         let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
@@ -104,8 +106,8 @@ where
                 element
                     .nodal_forces(
                         self.constitutive_model(),
-                        &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
-                        &self.nodal_velocities_element(element_connectivity, nodal_velocities),
+                        &self.element_nodal_coordinates(element_connectivity, nodal_coordinates),
+                        &self.element_nodal_velocities(element_connectivity, nodal_velocities),
                     )?
                     .iter()
                     .zip(element_connectivity.iter())
@@ -121,7 +123,7 @@ where
     }
     fn nodal_stiffnesses(
         &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_coordinates: &NodalCoordinates,
         nodal_velocities: &NodalVelocitiesBlock,
     ) -> Result<NodalStiffnessesSolid, FiniteElementBlockError> {
         let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
@@ -133,8 +135,8 @@ where
                 element
                     .nodal_stiffnesses(
                         self.constitutive_model(),
-                        &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
-                        &self.nodal_velocities_element(element_connectivity, nodal_velocities),
+                        &self.element_nodal_coordinates(element_connectivity, nodal_coordinates),
+                        &self.element_nodal_velocities(element_connectivity, nodal_velocities),
                     )?
                     .iter()
                     .zip(element_connectivity.iter())
@@ -154,30 +156,16 @@ where
             )),
         }
     }
-    fn nodal_velocities_element(
-        &self,
-        element_connectivity: &[usize; N],
-        nodal_velocities: &NodalVelocitiesBlock,
-    ) -> NodalVelocities<N> {
-        element_connectivity
-            .iter()
-            .map(|&node| nodal_velocities[node].clone())
-            .collect()
-    }
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
         integrator: impl Explicit<NodalVelocitiesBlock, NodalVelocitiesHistory>,
         time: &[Scalar],
-        solver: impl FirstOrderRootFinding<
-            NodalForcesSolid,
-            NodalStiffnessesSolid,
-            NodalCoordinatesBlock,
-        >,
+        solver: impl FirstOrderRootFinding<NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>,
     ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError> {
         let mut solution = NodalVelocitiesBlock::zero(self.coordinates().len());
         integrator.integrate(
-            |_: Scalar, nodal_coordinates: &NodalCoordinatesBlock| {
+            |_: Scalar, nodal_coordinates: &NodalCoordinates| {
                 solution =
                     self.root_inner(&equality_constraint, nodal_coordinates, &solver, &solution)?;
                 Ok(solution.clone())
@@ -189,7 +177,7 @@ where
     fn root_inner(
         &self,
         equality_constraint: &EqualityConstraint,
-        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_coordinates: &NodalCoordinates,
         solver: &impl FirstOrderRootFinding<
             NodalForcesSolid,
             NodalStiffnessesSolid,

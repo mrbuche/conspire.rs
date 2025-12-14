@@ -1,7 +1,7 @@
 use crate::{
     constitutive::solid::elastic_viscoplastic::ElasticViscoplastic,
     fem::{
-        NodalCoordinatesBlock, NodalCoordinatesHistory, NodalForcesSolid, NodalStiffnessesSolid,
+        NodalCoordinates, NodalCoordinatesHistory, NodalForcesSolid, NodalStiffnessesSolid,
         block::{
             ElementBlock, FiniteElementBlockError,
             element::{ElasticViscoplasticFiniteElement, FiniteElementError},
@@ -32,17 +32,17 @@ where
 {
     fn nodal_forces(
         &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_coordinates: &NodalCoordinates,
         state_variables: &ViscoplasticStateVariables<G>,
     ) -> Result<NodalForcesSolid, FiniteElementBlockError>;
     fn nodal_stiffnesses(
         &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_coordinates: &NodalCoordinates,
         state_variables: &ViscoplasticStateVariables<G>,
     ) -> Result<NodalStiffnessesSolid, FiniteElementBlockError>;
     fn state_variables_evolution(
         &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_coordinates: &NodalCoordinates,
         state_variables: &ViscoplasticStateVariables<G>,
     ) -> Result<ViscoplasticStateVariables<G>, FiniteElementBlockError>;
     fn root(
@@ -50,16 +50,12 @@ where
         bcs: ElasticViscoplasticBCs,
         integrator: impl ExplicitIV<
             ViscoplasticStateVariables<G>,
-            NodalCoordinatesBlock,
+            NodalCoordinates,
             ViscoplasticStateVariablesHistory<G>,
             NodalCoordinatesHistory,
         >,
         time: &[Scalar],
-        solver: impl FirstOrderRootFinding<
-            NodalForcesSolid,
-            NodalStiffnessesSolid,
-            NodalCoordinatesBlock,
-        >,
+        solver: impl FirstOrderRootFinding<NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>,
     ) -> Result<
         (
             Times,
@@ -73,13 +69,9 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         state_variables: &ViscoplasticStateVariables<G>,
-        solver: &impl FirstOrderRootFinding<
-            NodalForcesSolid,
-            NodalStiffnessesSolid,
-            NodalCoordinatesBlock,
-        >,
-        initial_guess: &NodalCoordinatesBlock,
-    ) -> Result<NodalCoordinatesBlock, OptimizationError>;
+        solver: &impl FirstOrderRootFinding<NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>,
+        initial_guess: &NodalCoordinates,
+    ) -> Result<NodalCoordinates, OptimizationError>;
 }
 
 impl<C, F, const G: usize, const N: usize> ElasticViscoplasticFiniteElementBlock<C, F, G, N>
@@ -91,7 +83,7 @@ where
 {
     fn nodal_forces(
         &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_coordinates: &NodalCoordinates,
         state_variables: &ViscoplasticStateVariables<G>,
     ) -> Result<NodalForcesSolid, FiniteElementBlockError> {
         let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
@@ -106,7 +98,7 @@ where
                         .nodal_forces(
                             self.constitutive_model(),
                             &self
-                                .nodal_coordinates_element(element_connectivity, nodal_coordinates),
+                                .element_nodal_coordinates(element_connectivity, nodal_coordinates),
                             state_variables_element,
                         )?
                         .iter()
@@ -124,7 +116,7 @@ where
     }
     fn nodal_stiffnesses(
         &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_coordinates: &NodalCoordinates,
         state_variables: &ViscoplasticStateVariables<G>,
     ) -> Result<NodalStiffnessesSolid, FiniteElementBlockError> {
         let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
@@ -139,7 +131,7 @@ where
                         .nodal_stiffnesses(
                             self.constitutive_model(),
                             &self
-                                .nodal_coordinates_element(element_connectivity, nodal_coordinates),
+                                .element_nodal_coordinates(element_connectivity, nodal_coordinates),
                             state_variables_element,
                         )?
                         .iter()
@@ -163,7 +155,7 @@ where
     }
     fn state_variables_evolution(
         &self,
-        nodal_coordinates: &NodalCoordinatesBlock,
+        nodal_coordinates: &NodalCoordinates,
         state_variables: &ViscoplasticStateVariables<G>,
     ) -> Result<ViscoplasticStateVariables<G>, FiniteElementBlockError> {
         match self
@@ -175,7 +167,7 @@ where
                 |((element, element_connectivity), element_state_variables)| {
                     element.state_variables_evolution(
                         self.constitutive_model(),
-                        &self.nodal_coordinates_element(element_connectivity, nodal_coordinates),
+                        &self.element_nodal_coordinates(element_connectivity, nodal_coordinates),
                         element_state_variables,
                     )
                 },
@@ -194,16 +186,12 @@ where
         bcs: ElasticViscoplasticBCs,
         integrator: impl ExplicitIV<
             ViscoplasticStateVariables<G>,
-            NodalCoordinatesBlock,
+            NodalCoordinates,
             ViscoplasticStateVariablesHistory<G>,
             NodalCoordinatesHistory,
         >,
         time: &[Scalar],
-        solver: impl FirstOrderRootFinding<
-            NodalForcesSolid,
-            NodalStiffnessesSolid,
-            NodalCoordinatesBlock,
-        >,
+        solver: impl FirstOrderRootFinding<NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>,
     ) -> Result<
         (
             Times,
@@ -216,12 +204,12 @@ where
             .integrate(
                 |_: Scalar,
                  state_variables: &ViscoplasticStateVariables<G>,
-                 nodal_coordinates: &NodalCoordinatesBlock| {
+                 nodal_coordinates: &NodalCoordinates| {
                     Ok(self.state_variables_evolution(nodal_coordinates, state_variables)?)
                 },
                 |t: Scalar,
                  state_variables: &ViscoplasticStateVariables<G>,
-                 nodal_coordinates: &NodalCoordinatesBlock| {
+                 nodal_coordinates: &NodalCoordinates| {
                     Ok(self.root_inner(
                         EqualityConstraint::Linear(bcs.0.clone(), bcs.1(t)),
                         state_variables,
@@ -255,18 +243,14 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         state_variables: &ViscoplasticStateVariables<G>,
-        solver: &impl FirstOrderRootFinding<
-            NodalForcesSolid,
-            NodalStiffnessesSolid,
-            NodalCoordinatesBlock,
-        >,
-        initial_guess: &NodalCoordinatesBlock,
-    ) -> Result<NodalCoordinatesBlock, OptimizationError> {
+        solver: &impl FirstOrderRootFinding<NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>,
+        initial_guess: &NodalCoordinates,
+    ) -> Result<NodalCoordinates, OptimizationError> {
         solver.root(
-            |nodal_coordinates: &NodalCoordinatesBlock| {
+            |nodal_coordinates: &NodalCoordinates| {
                 Ok(self.nodal_forces(nodal_coordinates, state_variables)?)
             },
-            |nodal_coordinates: &NodalCoordinatesBlock| {
+            |nodal_coordinates: &NodalCoordinates| {
                 Ok(self.nodal_stiffnesses(nodal_coordinates, state_variables)?)
             },
             initial_guess.clone(),

@@ -1,8 +1,11 @@
 use crate::{
     constitutive::solid::viscoelastic::Viscoelastic,
     fem::{
-        ElementNodalForcesSolid, ElementNodalStiffnessesSolid, NodalCoordinates, NodalVelocities,
-        block::element::{Element, FiniteElementError, SolidFiniteElement},
+        ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
+        block::element::{
+            Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElementError,
+            SolidFiniteElement,
+        },
     },
     math::{ContractSecondFourthIndicesWithFirstIndicesOf, Tensor},
     mechanics::{FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStresses},
@@ -16,14 +19,14 @@ where
     fn nodal_forces(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
     ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError>;
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
     ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError>;
 }
 
@@ -34,8 +37,8 @@ where
     fn nodal_forces(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
     ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
@@ -78,8 +81,8 @@ where
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
     ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)

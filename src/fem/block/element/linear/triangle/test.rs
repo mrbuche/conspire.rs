@@ -1,11 +1,11 @@
 use crate::{
     fem::{
-        Connectivity, ElementBlock, GradientVectors, NodalCoordinates, NodalCoordinatesBlock,
-        NodalForcesSolid, NodalStiffnessesSolid, NodalVelocities, NodalVelocitiesBlock, Normals,
-        ReferenceNodalCoordinates, ReferenceNodalCoordinatesBlock,
+        Connectivity, GradientVectors, NodalCoordinates, NodalForcesSolid, NodalStiffnessesSolid,
+        NodalVelocitiesBlock, Normals, ReferenceNodalCoordinates,
         block::{
-            SurfaceFiniteElementBlock,
+            ElementBlock, SurfaceFiniteElementBlock,
             element::{
+                ElementNodalCoordinates, ElementNodalVelocities, ElementReferenceNodalCoordinates,
                 SolidFiniteElement, SurfaceFiniteElement, SurfaceFiniteElementMethods,
                 linear::triangle::{G, N, P, Triangle},
                 test::test_surface_finite_element,
@@ -45,8 +45,8 @@ fn get_connectivity() -> Connectivity<N> {
     ]
 }
 
-fn get_coordinates_block() -> NodalCoordinatesBlock {
-    NodalCoordinatesBlock::from([
+fn get_coordinates_block() -> NodalCoordinates {
+    NodalCoordinates::from([
         [0.48219277, 0.03953903, 0.54126292],
         [-0.53252101, 0.02114387, 0.48863541],
         [0.11774076, 0.00839197, 0.46116171],
@@ -66,12 +66,12 @@ fn get_coordinates_block() -> NodalCoordinatesBlock {
     ])
 }
 
-fn reference_coordinates() -> ReferenceNodalCoordinates<N> {
-    ReferenceNodalCoordinates::new([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+fn reference_coordinates() -> ElementReferenceNodalCoordinates<N> {
+    ElementReferenceNodalCoordinates::new([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
 }
 
-fn get_reference_coordinates_block() -> ReferenceNodalCoordinatesBlock {
-    ReferenceNodalCoordinatesBlock::from([
+fn get_reference_coordinates_block() -> ReferenceNodalCoordinates {
+    ReferenceNodalCoordinates::from([
         [0.5, 0.0, 0.5],
         [-0.5, 0.0, 0.5],
         [1.0 / 6.0, 0.0, 0.5],

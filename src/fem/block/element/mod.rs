@@ -17,13 +17,17 @@ pub use self::solid::{
 use crate::{
     defeat_message,
     fem::{
-        Bases, GradientVectors, NodalCoordinates, NodalVelocities, NormalGradients, NormalRates,
-        Normals, ReferenceNodalCoordinates, ReferenceNormals, StandardGradientOperators,
+        Bases, GradientVectors, NormalGradients, NormalRates, Normals, ReferenceNormals,
+        StandardGradientOperators,
     },
     math::{IDENTITY, LEVI_CIVITA, Scalar, Scalars, Tensor, TensorArray, TensorRank2, TestError},
-    mechanics::{Coordinates, Normal},
+    mechanics::{Coordinates, CurrentCoordinates, Normal, ReferenceCoordinates},
 };
 use std::fmt::{self, Debug, Display, Formatter};
+
+pub type ElementNodalCoordinates<const N: usize> = CurrentCoordinates<N>;
+pub type ElementNodalVelocities<const N: usize> = CurrentCoordinates<N>;
+pub type ElementReferenceNodalCoordinates<const N: usize> = ReferenceCoordinates<N>;
 
 pub struct Element<const G: usize, const N: usize> {
     gradient_vectors: GradientVectors<G, N>,
@@ -39,11 +43,11 @@ impl<const G: usize, const N: usize> Element<G, N> {
     }
 }
 
-impl<const G: usize, const N: usize> From<ReferenceNodalCoordinates<N>> for Element<G, N>
+impl<const G: usize, const N: usize> From<ElementReferenceNodalCoordinates<N>> for Element<G, N>
 where
     Self: FiniteElement<G, N>,
 {
-    fn from(reference_nodal_coordinates: ReferenceNodalCoordinates<N>) -> Self {
+    fn from(reference_nodal_coordinates: ElementReferenceNodalCoordinates<N>) -> Self {
         let (gradient_vectors, integration_weights) = Self::initialize(reference_nodal_coordinates);
         Self {
             gradient_vectors,
@@ -66,10 +70,10 @@ impl<const G: usize, const N: usize> Debug for Element<G, N> {
 
 pub trait FiniteElement<const G: usize, const N: usize>
 where
-    Self: From<ReferenceNodalCoordinates<N>>,
+    Self: From<ElementReferenceNodalCoordinates<N>>,
 {
     fn initialize(
-        reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
+        reference_nodal_coordinates: ElementReferenceNodalCoordinates<N>,
     ) -> (GradientVectors<G, N>, Scalars<G>);
     fn reset(&mut self);
 }
@@ -140,7 +144,10 @@ impl<const G: usize, const N: usize, const P: usize> SurfaceElement<G, N, P> {
 }
 
 pub trait SurfaceFiniteElement<const G: usize, const N: usize, const P: usize> {
-    fn new(reference_nodal_coordinates: ReferenceNodalCoordinates<N>, thickness: Scalar) -> Self;
+    fn new(
+        reference_nodal_coordinates: ElementReferenceNodalCoordinates<N>,
+        thickness: Scalar,
+    ) -> Self;
 }
 
 pub trait SurfaceFiniteElementMethods<
@@ -153,11 +160,11 @@ pub trait SurfaceFiniteElementMethods<
 {
     fn bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> Bases<I, P>;
     fn dual_bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> Bases<I, P>;
-    fn normals(nodal_coordinates: &NodalCoordinates<N>) -> Normals<P>;
-    fn normal_gradients(nodal_coordinates: &NodalCoordinates<N>) -> NormalGradients<N, P>;
+    fn normals(nodal_coordinates: &ElementNodalCoordinates<N>) -> Normals<P>;
+    fn normal_gradients(nodal_coordinates: &ElementNodalCoordinates<N>) -> NormalGradients<N, P>;
     fn normal_rates(
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
     ) -> NormalRates<P>;
 }
 
@@ -218,13 +225,13 @@ where
             })
             .collect()
     }
-    fn normals(nodal_coordinates: &NodalCoordinates<N>) -> Normals<P> {
+    fn normals(nodal_coordinates: &ElementNodalCoordinates<N>) -> Normals<P> {
         Self::bases(nodal_coordinates)
             .iter()
             .map(|basis_vectors| basis_vectors[0].cross(&basis_vectors[1]).normalized())
             .collect()
     }
-    fn normal_gradients(nodal_coordinates: &NodalCoordinates<N>) -> NormalGradients<N, P> {
+    fn normal_gradients(nodal_coordinates: &ElementNodalCoordinates<N>) -> NormalGradients<N, P> {
         let levi_civita_symbol = LEVI_CIVITA;
         let mut normalization: Scalar = 0.0;
         let mut normal_vector = Normal::zero();
@@ -260,8 +267,8 @@ where
         }).collect()
     }
     fn normal_rates(
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
     ) -> NormalRates<P> {
         let identity = IDENTITY;
         let levi_civita_symbol = LEVI_CIVITA;
