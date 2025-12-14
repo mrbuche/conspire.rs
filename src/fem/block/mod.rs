@@ -28,7 +28,7 @@ pub type Connectivity<const N: usize> = Vec<[usize; N]>;
 pub struct ElementBlock<C, F, const N: usize> {
     constitutive_model: C,
     connectivity: Connectivity<N>,
-    coordinates: ReferenceNodalCoordinates,
+    coordinates: NodalReferenceCoordinates,
     elements: Vec<F>,
 }
 
@@ -39,7 +39,7 @@ impl<C, F, const N: usize> ElementBlock<C, F, N> {
     fn connectivity(&self) -> &Connectivity<N> {
         &self.connectivity
     }
-    fn coordinates(&self) -> &ReferenceNodalCoordinates {
+    fn coordinates(&self) -> &NodalReferenceCoordinates {
         &self.coordinates
     }
     fn elements(&self) -> &[F] {
@@ -78,7 +78,7 @@ where
     fn new(
         constitutive_model: C,
         connectivity: Connectivity<N>,
-        reference_nodal_coordinates: ReferenceNodalCoordinates,
+        reference_nodal_coordinates: NodalReferenceCoordinates,
     ) -> Self;
     fn reset(&mut self);
 }
@@ -90,7 +90,7 @@ where
     fn new(
         constitutive_model: C,
         connectivity: Connectivity<N>,
-        reference_nodal_coordinates: ReferenceNodalCoordinates,
+        reference_nodal_coordinates: NodalReferenceCoordinates,
         thickness: Scalar,
     ) -> Self;
 }
@@ -155,7 +155,7 @@ where
     fn new(
         constitutive_model: C,
         connectivity: Connectivity<N>,
-        coordinates: ReferenceNodalCoordinates,
+        coordinates: NodalReferenceCoordinates,
     ) -> Self {
         let elements = connectivity
             .iter()
@@ -188,7 +188,7 @@ where
     fn new(
         constitutive_model: C,
         connectivity: Connectivity<N>,
-        coordinates: ReferenceNodalCoordinates,
+        coordinates: NodalReferenceCoordinates,
         thickness: Scalar,
     ) -> Self {
         let elements = connectivity

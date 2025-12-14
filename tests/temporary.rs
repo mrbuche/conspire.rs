@@ -13,7 +13,7 @@ use conspire::{
         thermal::conduction::Fourier,
     },
     fem::{
-        ReferenceNodalCoordinates,
+        NodalReferenceCoordinates,
         block::{
             Connectivity, ElementBlock, FiniteElementBlock, SecondOrderMinimize,
             element::linear::tetrahedron::Tetrahedron as LinearTetrahedron,
@@ -6041,8 +6041,8 @@ fn connectivity() -> Connectivity<N> {
     ]
 }
 
-fn coordinates() -> ReferenceNodalCoordinates {
-    ReferenceNodalCoordinates::from([
+fn coordinates() -> NodalReferenceCoordinates {
+    NodalReferenceCoordinates::from([
         [5.000000e-01, -5.000000e-01, 5.000000e-01],
         [5.000000e-01, 5.000000e-01, 5.000000e-01],
         [5.000000e-01, -4.000000e-01, 5.000000e-01],

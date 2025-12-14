@@ -384,7 +384,7 @@ macro_rules! setup {
                 })
                 .collect()
         }
-        fn reference_coordinates_transformed() -> ElementReferenceNodalCoordinates<N> {
+        fn reference_coordinates_transformed() -> ElementNodalReferenceCoordinates<N> {
             reference_coordinates()
                 .iter()
                 .map(|reference_coordinate| {

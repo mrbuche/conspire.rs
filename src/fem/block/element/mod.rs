@@ -27,7 +27,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 
 pub type ElementNodalCoordinates<const N: usize> = CurrentCoordinates<N>;
 pub type ElementNodalVelocities<const N: usize> = CurrentCoordinates<N>;
-pub type ElementReferenceNodalCoordinates<const N: usize> = ReferenceCoordinates<N>;
+pub type ElementNodalReferenceCoordinates<const N: usize> = ReferenceCoordinates<N>;
 
 pub struct Element<const G: usize, const N: usize> {
     gradient_vectors: GradientVectors<G, N>,
@@ -43,11 +43,11 @@ impl<const G: usize, const N: usize> Element<G, N> {
     }
 }
 
-impl<const G: usize, const N: usize> From<ElementReferenceNodalCoordinates<N>> for Element<G, N>
+impl<const G: usize, const N: usize> From<ElementNodalReferenceCoordinates<N>> for Element<G, N>
 where
     Self: FiniteElement<G, N>,
 {
-    fn from(reference_nodal_coordinates: ElementReferenceNodalCoordinates<N>) -> Self {
+    fn from(reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>) -> Self {
         let (gradient_vectors, integration_weights) = Self::initialize(reference_nodal_coordinates);
         Self {
             gradient_vectors,
@@ -70,10 +70,10 @@ impl<const G: usize, const N: usize> Debug for Element<G, N> {
 
 pub trait FiniteElement<const G: usize, const N: usize>
 where
-    Self: From<ElementReferenceNodalCoordinates<N>>,
+    Self: From<ElementNodalReferenceCoordinates<N>>,
 {
     fn initialize(
-        reference_nodal_coordinates: ElementReferenceNodalCoordinates<N>,
+        reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,
     ) -> (GradientVectors<G, N>, Scalars<G>);
     fn reset(&mut self);
 }
@@ -145,7 +145,7 @@ impl<const G: usize, const N: usize, const P: usize> SurfaceElement<G, N, P> {
 
 pub trait SurfaceFiniteElement<const G: usize, const N: usize, const P: usize> {
     fn new(
-        reference_nodal_coordinates: ElementReferenceNodalCoordinates<N>,
+        reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,
         thickness: Scalar,
     ) -> Self;
 }

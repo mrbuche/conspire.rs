@@ -5,7 +5,7 @@ use crate::{
     fem::{
         GradientVectors, StandardGradientOperators,
         block::element::{
-            Element, ElementReferenceNodalCoordinates, FiniteElement, linear::linear_finite_element,
+            Element, ElementNodalReferenceCoordinates, FiniteElement, linear::linear_finite_element,
         },
     },
     math::{Scalar, Scalars},
@@ -45,8 +45,8 @@ impl Hexahedron {
     const fn integration_weight() -> Scalar {
         1.0
     }
-    const fn reference() -> ElementReferenceNodalCoordinates<N> {
-        ElementReferenceNodalCoordinates::<N>::const_from([
+    const fn reference() -> ElementNodalReferenceCoordinates<N> {
+        ElementNodalReferenceCoordinates::<N>::const_from([
             [-1.0, -1.0, -1.0],
             [1.0, -1.0, -1.0],
             [1.0, 1.0, -1.0],

@@ -1,11 +1,11 @@
 use crate::{
     fem::{
-        GradientVectors, NodalCoordinates, NodalForcesSolid, NodalStiffnessesSolid,
-        NodalVelocities, ReferenceNodalCoordinates,
+        GradientVectors, NodalCoordinates, NodalForcesSolid, NodalReferenceCoordinates,
+        NodalStiffnessesSolid, NodalVelocities,
         block::{
             Connectivity, ElementBlock, FiniteElementBlock,
             element::{
-                ElementNodalCoordinates, ElementNodalVelocities, ElementReferenceNodalCoordinates,
+                ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
                 SolidFiniteElement,
                 linear::hexahedron::{G, Hexahedron, N},
                 test::test_finite_element,
@@ -64,8 +64,8 @@ fn get_coordinates_block() -> NodalCoordinates {
     ])
 }
 
-fn reference_coordinates() -> ElementReferenceNodalCoordinates<N> {
-    ElementReferenceNodalCoordinates::new([
+fn reference_coordinates() -> ElementNodalReferenceCoordinates<N> {
+    ElementNodalReferenceCoordinates::new([
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 0.0],
         [1.0, 1.0, 0.0],
@@ -77,8 +77,8 @@ fn reference_coordinates() -> ElementReferenceNodalCoordinates<N> {
     ])
 }
 
-fn get_reference_coordinates_block() -> ReferenceNodalCoordinates {
-    ReferenceNodalCoordinates::from([
+fn get_reference_coordinates_block() -> NodalReferenceCoordinates {
+    NodalReferenceCoordinates::from([
         [-0.5, -0.5, -0.5],
         [0.0, -0.5, -0.5],
         [0.5, -0.5, -0.5],

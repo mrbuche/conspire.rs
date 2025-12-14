@@ -15,7 +15,7 @@ use crate::{
         StandardGradientOperators,
         block::element::{
             ElasticFiniteElement, ElasticHyperviscousFiniteElement, ElementNodalCoordinates,
-            ElementNodalVelocities, ElementReferenceNodalCoordinates, FiniteElementError,
+            ElementNodalReferenceCoordinates, ElementNodalVelocities, FiniteElementError,
             HyperelasticFiniteElement, HyperviscoelasticFiniteElement, SolidFiniteElement,
             SurfaceElement, SurfaceFiniteElement, SurfaceFiniteElementMethods,
             SurfaceFiniteElementMethodsExtra, ViscoelasticFiniteElement,
@@ -44,7 +44,7 @@ pub type Triangle = SurfaceElement<G, N, P>;
 
 impl SurfaceFiniteElement<G, N, P> for Triangle {
     fn new(
-        reference_nodal_coordinates: ElementReferenceNodalCoordinates<N>,
+        reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,
         thickness: Scalar,
     ) -> Self {
         let integration_weights = Self::bases(&reference_nodal_coordinates)

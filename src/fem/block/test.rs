@@ -309,7 +309,7 @@ macro_rules! test_nodal_forces_and_nodal_stiffnesses {
                 })
                 .collect()
         }
-        fn get_reference_coordinates_transformed_block() -> ReferenceNodalCoordinates {
+        fn get_reference_coordinates_transformed_block() -> NodalReferenceCoordinates {
             get_reference_coordinates_block()
                 .iter()
                 .map(|reference_coordinate| {
