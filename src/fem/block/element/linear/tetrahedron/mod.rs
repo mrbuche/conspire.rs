@@ -2,12 +2,9 @@
 mod test;
 
 use crate::{
-    fem::{
-        StandardGradientOperators,
-        block::element::{
-            Element, ElementNodalReferenceCoordinates, FiniteElement, GradientVectors,
-            linear::linear_finite_element,
-        },
+    fem::block::element::{
+        Element, ElementNodalReferenceCoordinates, FiniteElement, GradientVectors,
+        StandardGradientOperators, linear::linear_finite_element,
     },
     math::{Scalar, Scalars},
 };

@@ -10,16 +10,13 @@ use crate::{
             viscoelastic::Viscoelastic,
         },
     },
-    fem::{
-        StandardGradientOperators,
-        block::element::{
-            ElasticFiniteElement, ElasticHyperviscousFiniteElement, ElementNodalCoordinates,
-            ElementNodalReferenceCoordinates, ElementNodalVelocities, FiniteElementError,
-            GradientVectors, HyperelasticFiniteElement, HyperviscoelasticFiniteElement,
-            SolidFiniteElement, SurfaceElement, SurfaceFiniteElement, SurfaceFiniteElementMethods,
-            SurfaceFiniteElementMethodsExtra, ViscoelasticFiniteElement,
-            solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
-        },
+    fem::block::element::{
+        ElasticFiniteElement, ElasticHyperviscousFiniteElement, ElementNodalCoordinates,
+        ElementNodalReferenceCoordinates, ElementNodalVelocities, FiniteElementError,
+        GradientVectors, HyperelasticFiniteElement, HyperviscoelasticFiniteElement,
+        SolidFiniteElement, StandardGradientOperators, SurfaceElement, SurfaceFiniteElement,
+        SurfaceFiniteElementMethods, SurfaceFiniteElementMethodsExtra, ViscoelasticFiniteElement,
+        solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
     },
     math::{IDENTITY, Scalar, Scalars, Tensor},
     mechanics::{

@@ -1,12 +1,12 @@
 use crate::{
     fem::{
         NodalCoordinates, NodalForcesSolid, NodalReferenceCoordinates, NodalStiffnessesSolid,
-        NodalVelocities, Normals,
+        NodalVelocities,
         block::{
             Connectivity, ElementBlock, SurfaceFiniteElementBlock,
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
-                GradientVectors, SolidFiniteElement, SurfaceFiniteElement,
+                GradientVectors, Normals, SolidFiniteElement, SurfaceFiniteElement,
                 SurfaceFiniteElementMethods,
                 linear::triangle::{G, N, P, Triangle},
                 test::test_surface_finite_element,

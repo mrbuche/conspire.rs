@@ -16,18 +16,27 @@ pub use self::solid::{
 
 use crate::{
     defeat_message,
-    fem::{
-        Bases, NormalGradients, NormalRates, Normals, ReferenceNormals, StandardGradientOperators,
+    math::{
+        IDENTITY, LEVI_CIVITA, Scalar, Scalars, Tensor, TensorArray, TensorRank1List2D,
+        TensorRank2, TestError,
     },
-    math::{IDENTITY, LEVI_CIVITA, Scalar, Scalars, Tensor, TensorArray, TensorRank2, TestError},
-    mechanics::{Coordinates, CurrentCoordinates, Normal, ReferenceCoordinates, Vectors2D},
+    mechanics::{Coordinates, CurrentCoordinates, ReferenceCoordinates, Vectors2D},
 };
 use std::fmt::{self, Debug, Display, Formatter};
+
+// move surface elements stuff to surface/
+use crate::mechanics::{
+    Normal, NormalGradients, NormalRates, Normals, ReferenceNormals, SurfaceBases,
+};
 
 pub type ElementNodalCoordinates<const N: usize> = CurrentCoordinates<N>;
 pub type ElementNodalVelocities<const N: usize> = CurrentCoordinates<N>;
 pub type ElementNodalReferenceCoordinates<const N: usize> = ReferenceCoordinates<N>;
 pub type GradientVectors<const G: usize, const N: usize> = Vectors2D<0, N, G>;
+pub type StandardGradientOperators<const M: usize, const O: usize, const P: usize> =
+    TensorRank1List2D<M, 0, O, P>;
+pub type StandardGradientOperatorsTransposed<const M: usize, const O: usize, const P: usize> =
+    TensorRank1List2D<M, 0, P, O>;
 
 pub struct Element<const G: usize, const N: usize> {
     gradient_vectors: GradientVectors<G, N>,
@@ -158,8 +167,8 @@ pub trait SurfaceFiniteElementMethods<
 > where
     Self: SurfaceFiniteElementMethodsExtra<M, N, P>,
 {
-    fn bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> Bases<I, P>;
-    fn dual_bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> Bases<I, P>;
+    fn bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> SurfaceBases<I, P>;
+    fn dual_bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> SurfaceBases<I, P>;
     fn normals(nodal_coordinates: &ElementNodalCoordinates<N>) -> Normals<P>;
     fn normal_gradients(nodal_coordinates: &ElementNodalCoordinates<N>) -> NormalGradients<N, P>;
     fn normal_rates(
@@ -178,7 +187,7 @@ impl<const G: usize, const M: usize, const N: usize, const P: usize>
 where
     Self: SurfaceFiniteElementMethodsExtra<M, N, P>,
 {
-    fn bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> Bases<I, P> {
+    fn bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> SurfaceBases<I, P> {
         Self::standard_gradient_operators()
             .iter()
             .map(|standard_gradient_operator| {
@@ -197,7 +206,7 @@ where
             })
             .collect()
     }
-    fn dual_bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> Bases<I, P> {
+    fn dual_bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> SurfaceBases<I, P> {
         Self::bases(nodal_coordinates)
             .iter()
             .map(|basis_vectors| {

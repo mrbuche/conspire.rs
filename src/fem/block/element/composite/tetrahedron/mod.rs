@@ -5,9 +5,9 @@ use crate::{
     fem::{
         NormalizedProjectionMatrix, ParametricGradientOperators, ProjectionMatrix,
         ShapeFunctionIntegrals, ShapeFunctionIntegralsProducts, ShapeFunctionsAtIntegrationPoints,
-        StandardGradientOperators, StandardGradientOperatorsTransposed,
         block::element::{
             Element, ElementNodalReferenceCoordinates, FiniteElement, GradientVectors,
+            StandardGradientOperators, StandardGradientOperatorsTransposed,
         },
     },
     math::{Scalar, Scalars, Tensor, TensorRank1},
