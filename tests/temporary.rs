@@ -16,7 +16,7 @@ use conspire::{
         NodalReferenceCoordinates,
         block::{
             Connectivity, ElementBlock, FiniteElementBlock, SecondOrderMinimize,
-            element::linear::tetrahedron::Tetrahedron as LinearTetrahedron,
+            element::linear::Tetrahedron as LinearTetrahedron,
             solid::{
                 SolidFiniteElementBlock,
                 elastic_hyperviscous::ElasticHyperviscousFiniteElementBlock,

@@ -5,7 +5,10 @@ use crate::{
         NodalVelocities, NodalVelocitiesHistory,
         block::{
             ElementBlock, FiniteElementBlockError,
-            element::{ElementNodalVelocities, FiniteElementError, ViscoelasticFiniteElement},
+            element::{
+                ElementNodalVelocities, FiniteElementError,
+                solid::viscoelastic::ViscoelasticFiniteElement,
+            },
             solid::SolidFiniteElementBlock,
         },
     },

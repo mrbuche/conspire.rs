@@ -4,7 +4,7 @@ use crate::{
         NodalCoordinates,
         block::{
             ElementBlock, FiniteElementBlockError,
-            element::HyperviscoelasticFiniteElement,
+            element::solid::hyperviscoelastic::HyperviscoelasticFiniteElement,
             solid::{
                 SolidFiniteElementBlock,
                 elastic_hyperviscous::ElasticHyperviscousFiniteElementBlock,

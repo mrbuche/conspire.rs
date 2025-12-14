@@ -1,1 +1,3 @@
-pub mod tetrahedron;
+mod tetrahedron;
+
+pub use tetrahedron::Tetrahedron;

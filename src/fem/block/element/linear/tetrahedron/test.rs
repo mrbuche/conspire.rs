@@ -6,8 +6,9 @@ use crate::{
             Connectivity, ElementBlock, FiniteElementBlock,
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
-                GradientVectors, SolidFiniteElement,
+                GradientVectors,
                 linear::tetrahedron::{G, N, Tetrahedron},
+                solid::SolidFiniteElement,
                 test::test_finite_element,
             },
             test::test_finite_element_block,

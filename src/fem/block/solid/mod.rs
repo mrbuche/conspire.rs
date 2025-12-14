@@ -10,7 +10,7 @@ use crate::{
         NodalCoordinates,
         block::{
             ElementBlock,
-            element::{ElementNodalCoordinates, SolidFiniteElement},
+            element::{ElementNodalCoordinates, solid::SolidFiniteElement},
         },
     },
     mechanics::DeformationGradientList,

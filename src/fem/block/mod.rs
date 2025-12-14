@@ -8,7 +8,7 @@ pub mod thermal;
 use super::*;
 use crate::{
     defeat_message,
-    fem::block::element::{FiniteElement, SurfaceFiniteElement},
+    fem::block::element::{FiniteElement, surface::SurfaceFiniteElement},
     math::{
         Banded, TestError,
         optimize::{

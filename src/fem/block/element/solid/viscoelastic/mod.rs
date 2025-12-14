@@ -2,8 +2,7 @@ use crate::{
     constitutive::solid::viscoelastic::Viscoelastic,
     fem::block::element::{
         Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElementError,
-        SolidFiniteElement,
-        solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
+        solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement},
     },
     math::{ContractSecondFourthIndicesWithFirstIndicesOf, Tensor},
     mechanics::{FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStresses},

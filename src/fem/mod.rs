@@ -15,6 +15,9 @@ pub type NodalStiffnessesSolid = TensorRank2Vec2D<3, 1, 1>;
 pub type NodalVelocities = TensorRank1Vec<3, 1>;
 pub type NodalVelocitiesHistory = TensorRank1Vec2D<3, 1>;
 
+//
+// get rid of these
+//
 type NormalizedProjectionMatrix<const Q: usize> = TensorRank2<Q, 9, 9>;
 type ParametricGradientOperators<const P: usize> = TensorRank2List<3, 0, 0, P>;
 type ProjectionMatrix<const Q: usize> = TensorRank2<Q, 9, 9>;

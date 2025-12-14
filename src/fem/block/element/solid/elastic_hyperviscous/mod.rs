@@ -2,7 +2,7 @@ use crate::{
     constitutive::{ConstitutiveError, solid::elastic_hyperviscous::ElasticHyperviscous},
     fem::block::element::{
         Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElementError,
-        SolidFiniteElement, ViscoelasticFiniteElement,
+        solid::{SolidFiniteElement, viscoelastic::ViscoelasticFiniteElement},
     },
     math::{Scalar, Tensor},
 };

@@ -1,8 +1,8 @@
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperviscoelastic::Hyperviscoelastic},
     fem::block::element::{
-        ElasticHyperviscousFiniteElement, Element, ElementNodalCoordinates, FiniteElementError,
-        SolidFiniteElement,
+        Element, ElementNodalCoordinates, FiniteElementError,
+        solid::{SolidFiniteElement, elastic_hyperviscous::ElasticHyperviscousFiniteElement},
     },
     math::{Scalar, Tensor},
 };

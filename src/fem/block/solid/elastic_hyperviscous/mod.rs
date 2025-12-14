@@ -5,7 +5,7 @@ use crate::{
         NodalVelocities, NodalVelocitiesHistory,
         block::{
             ElementBlock, FiniteElementBlockError, band,
-            element::ElasticHyperviscousFiniteElement,
+            element::solid::elastic_hyperviscous::ElasticHyperviscousFiniteElement,
             solid::{SolidFiniteElementBlock, viscoelastic::ViscoelasticFiniteElementBlock},
         },
     },

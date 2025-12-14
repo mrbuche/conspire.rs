@@ -1,6 +1,8 @@
-pub mod hexahedron;
-pub mod tetrahedron;
-pub mod triangle;
+mod hexahedron;
+mod tetrahedron;
+
+pub use hexahedron::Hexahedron;
+pub use tetrahedron::Tetrahedron;
 
 macro_rules! linear_finite_element {
     ($element:ident) => {

@@ -4,7 +4,9 @@ use crate::{
         NodalCoordinates, NodalCoordinatesHistory, NodalForcesSolid, NodalStiffnessesSolid,
         block::{
             ElementBlock, FiniteElementBlockError,
-            element::{ElasticViscoplasticFiniteElement, FiniteElementError},
+            element::{
+                FiniteElementError, solid::elastic_viscoplastic::ElasticViscoplasticFiniteElement,
+            },
             solid::SolidFiniteElementBlock,
         },
     },

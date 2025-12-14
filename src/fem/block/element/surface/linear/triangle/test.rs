@@ -6,9 +6,12 @@ use crate::{
             Connectivity, ElementBlock, SurfaceFiniteElementBlock,
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
-                GradientVectors, Normals, SolidFiniteElement, SurfaceFiniteElement,
-                SurfaceFiniteElementMethods,
-                linear::triangle::{G, N, P, Triangle},
+                GradientVectors,
+                solid::SolidFiniteElement,
+                surface::{
+                    Normals, SurfaceFiniteElement, SurfaceFiniteElementMethods,
+                    linear::triangle::{G, N, P, Triangle},
+                },
                 test::test_surface_finite_element,
             },
             test::test_surface_finite_element_block,

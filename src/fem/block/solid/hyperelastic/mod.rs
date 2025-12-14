@@ -4,7 +4,7 @@ use crate::{
         NodalCoordinates, NodalForcesSolid, NodalStiffnessesSolid,
         block::{
             ElementBlock, FiniteElementBlockError, FirstOrderMinimize, SecondOrderMinimize, band,
-            element::HyperelasticFiniteElement,
+            element::solid::hyperelastic::HyperelasticFiniteElement,
             solid::{SolidFiniteElementBlock, elastic::ElasticFiniteElementBlock},
         },
     },

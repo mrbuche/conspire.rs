@@ -611,9 +611,9 @@ macro_rules! test_finite_element_inner {
                         AlmansiHamel, Hencky, SaintVenantKirchhoff,
                         test::{BULK_MODULUS, SHEAR_MODULUS},
                     },
-                    fem::block::element::{
-                        ElasticFiniteElement,
-                        solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
+                    fem::block::element::solid::{
+                        ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
+                        elastic::ElasticFiniteElement,
                     },
                 };
                 mod almansi_hamel {
@@ -661,9 +661,9 @@ macro_rules! test_finite_element_inner {
                             YEOH_EXTRA_MODULI,
                         },
                     },
-                    fem::block::element::{
-                        ElasticFiniteElement, HyperelasticFiniteElement,
-                        solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
+                    fem::block::element::solid::{
+                        ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
+                        elastic::ElasticFiniteElement, hyperelastic::HyperelasticFiniteElement,
                     },
                 };
                 mod arruda_boyce {
@@ -768,9 +768,10 @@ macro_rules! test_finite_element_inner {
                         AlmansiHamel,
                         test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
                     },
-                    fem::block::element::{
-                        ElasticHyperviscousFiniteElement, ViscoelasticFiniteElement,
-                        solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
+                    fem::block::element::solid::{
+                        ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
+                        elastic_hyperviscous::ElasticHyperviscousFiniteElement,
+                        viscoelastic::ViscoelasticFiniteElement,
                     },
                 };
                 mod almansi_hamel {
@@ -794,10 +795,11 @@ macro_rules! test_finite_element_inner {
                         SaintVenantKirchhoff,
                         test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
                     },
-                    fem::block::element::{
-                        ElasticHyperviscousFiniteElement, HyperviscoelasticFiniteElement,
-                        ViscoelasticFiniteElement,
-                        solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
+                    fem::block::element::solid::{
+                        ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
+                        elastic_hyperviscous::ElasticHyperviscousFiniteElement,
+                        hyperviscoelastic::HyperviscoelasticFiniteElement,
+                        viscoelastic::ViscoelasticFiniteElement,
                     },
                 };
                 mod saint_venant_kirchhoff {

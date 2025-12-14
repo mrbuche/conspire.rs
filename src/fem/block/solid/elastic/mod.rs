@@ -4,7 +4,7 @@ use crate::{
         NodalCoordinates, NodalForcesSolid, NodalStiffnessesSolid,
         block::{
             ElementBlock, FiniteElementBlockError, FirstOrderRoot, ZerothOrderRoot,
-            element::{ElasticFiniteElement, FiniteElementError},
+            element::{FiniteElementError, solid::elastic::ElasticFiniteElement},
             solid::SolidFiniteElementBlock,
         },
     },
