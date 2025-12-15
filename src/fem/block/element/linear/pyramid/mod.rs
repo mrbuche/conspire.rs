@@ -12,51 +12,43 @@ use crate::{
 #[cfg(test)]
 use crate::fem::block::element::ShapeFunctionsAtIntegrationPoints;
 
-const G: usize = 8;
+const G: usize = 5;
 const M: usize = 3;
-const N: usize = 8;
+const N: usize = 5;
 const P: usize = N;
 
 #[cfg(test)]
 const Q: usize = N;
 
-const SQRT_3_OVER_3: Scalar = 0.577_350_269_189_625_8;
-
-pub type Hexahedron = Element<G, N>;
+pub type Pyramid = Element<G, N>;
 
 linear_finite_element!(
-    Hexahedron,
-    8,
-    [1.0; G]
+    Pyramid,
+    5,
+    [5.0 / 27.0, 5.0 / 27.0, 5.0 / 27.0, 5.0 / 27.0, 16.0 / 27.0]
 );
 
-impl Hexahedron {
+impl Pyramid {
     const fn integration_point(point: usize) -> [Scalar; M] {
         match point {
-            0 => [-SQRT_3_OVER_3, -SQRT_3_OVER_3, -SQRT_3_OVER_3],
-            1 => [-SQRT_3_OVER_3, -SQRT_3_OVER_3, SQRT_3_OVER_3],
-            2 => [-SQRT_3_OVER_3, SQRT_3_OVER_3, -SQRT_3_OVER_3],
-            3 => [-SQRT_3_OVER_3, SQRT_3_OVER_3, SQRT_3_OVER_3],
-            4 => [SQRT_3_OVER_3, -SQRT_3_OVER_3, -SQRT_3_OVER_3],
-            5 => [SQRT_3_OVER_3, -SQRT_3_OVER_3, SQRT_3_OVER_3],
-            6 => [SQRT_3_OVER_3, SQRT_3_OVER_3, -SQRT_3_OVER_3],
-            7 => [SQRT_3_OVER_3, SQRT_3_OVER_3, SQRT_3_OVER_3],
+            0 => [-0.5, 0.0, 1.0 / 6.0],
+            1 => [0.5, 0.0, 1.0 / 6.0],
+            2 => [0.0, -0.5, 1.0 / 6.0],
+            3 => [0.0, 0.5, 1.0 / 6.0],
+            4 => [0.0, 0.0, 0.25],
             _ => panic!(),
         }
     }
     // const fn integration_weight() -> Scalars<G> {
-    //     Scalars::<G>::const_from([1.0; G])
+    //     Scalars::<G>::const_from([5.0 / 27.0, 5.0 / 27.0, 5.0 / 27.0, 5.0 / 27.0, 16.0 / 27.0])
     // }
     const fn reference() -> ElementNodalReferenceCoordinates<N> {
         ElementNodalReferenceCoordinates::<N>::const_from([
-            [-1.0, -1.0, -1.0],
-            [1.0, -1.0, -1.0],
-            [1.0, 1.0, -1.0],
-            [-1.0, 1.0, -1.0],
-            [-1.0, -1.0, 1.0],
-            [1.0, -1.0, 1.0],
-            [1.0, 1.0, 1.0],
-            [-1.0, 1.0, 1.0],
+            [-1.0, -1.0, 0.0],
+            [1.0, -1.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [-1.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
         ])
     }
     #[cfg(test)]
@@ -66,10 +58,7 @@ impl Hexahedron {
             (1.0 + xi_1) * (1.0 - xi_2) * (1.0 - xi_3) / 8.0,
             (1.0 + xi_1) * (1.0 + xi_2) * (1.0 - xi_3) / 8.0,
             (1.0 - xi_1) * (1.0 + xi_2) * (1.0 - xi_3) / 8.0,
-            (1.0 - xi_1) * (1.0 - xi_2) * (1.0 + xi_3) / 8.0,
-            (1.0 + xi_1) * (1.0 - xi_2) * (1.0 + xi_3) / 8.0,
-            (1.0 + xi_1) * (1.0 + xi_2) * (1.0 + xi_3) / 8.0,
-            (1.0 - xi_1) * (1.0 + xi_2) * (1.0 + xi_3) / 8.0,
+            (1.0 + xi_3) / 2.0,
         ]
     }
     #[cfg(test)]
@@ -80,9 +69,6 @@ impl Hexahedron {
             Self::shape_functions(Self::integration_point(2)),
             Self::shape_functions(Self::integration_point(3)),
             Self::shape_functions(Self::integration_point(4)),
-            Self::shape_functions(Self::integration_point(5)),
-            Self::shape_functions(Self::integration_point(6)),
-            Self::shape_functions(Self::integration_point(7)),
         ])
     }
     const fn shape_functions_gradients([xi_1, xi_2, xi_3]: [Scalar; M]) -> [[Scalar; M]; N] {
@@ -108,24 +94,9 @@ impl Hexahedron {
                 -(1.0 - xi_1) * (1.0 + xi_2) / 8.0,
             ],
             [
-                -(1.0 - xi_2) * (1.0 + xi_3) / 8.0,
-                -(1.0 - xi_1) * (1.0 + xi_3) / 8.0,
-                (1.0 - xi_1) * (1.0 - xi_2) / 8.0,
-            ],
-            [
-                (1.0 - xi_2) * (1.0 + xi_3) / 8.0,
-                -(1.0 + xi_1) * (1.0 + xi_3) / 8.0,
-                (1.0 + xi_1) * (1.0 - xi_2) / 8.0,
-            ],
-            [
-                (1.0 + xi_2) * (1.0 + xi_3) / 8.0,
-                (1.0 + xi_1) * (1.0 + xi_3) / 8.0,
-                (1.0 + xi_1) * (1.0 + xi_2) / 8.0,
-            ],
-            [
-                -(1.0 + xi_2) * (1.0 + xi_3) / 8.0,
-                (1.0 - xi_1) * (1.0 + xi_3) / 8.0,
-                (1.0 - xi_1) * (1.0 + xi_2) / 8.0,
+                0.0,
+                0.0,
+                0.5,
             ],
         ]
     }
@@ -136,9 +107,6 @@ impl Hexahedron {
     //         Self::shape_functions_gradients(Self::integration_point(2)),
     //         Self::shape_functions_gradients(Self::integration_point(3)),
     //         Self::shape_functions_gradients(Self::integration_point(4)),
-    //         Self::shape_functions_gradients(Self::integration_point(5)),
-    //         Self::shape_functions_gradients(Self::integration_point(6)),
-    //         Self::shape_functions_gradients(Self::integration_point(7)),
     //     ])
     // }
 }

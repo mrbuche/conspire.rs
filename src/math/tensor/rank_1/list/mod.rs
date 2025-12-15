@@ -30,6 +30,12 @@ impl From<TensorRank1List<3, 0, 8>> for TensorRank1List<3, 1, 8> {
     }
 }
 
+impl From<TensorRank1List<3, 0, 5>> for TensorRank1List<3, 1, 5> {
+    fn from(tensor_rank_1_list: TensorRank1List<3, 0, 5>) -> Self {
+        unsafe { transmute::<TensorRank1List<3, 0, 5>, Self>(tensor_rank_1_list) }
+    }
+}
+
 impl From<TensorRank1List<3, 0, 10>> for TensorRank1List<3, 1, 10> {
     fn from(tensor_rank_1_list: TensorRank1List<3, 0, 10>) -> Self {
         unsafe { transmute::<TensorRank1List<3, 0, 10>, Self>(tensor_rank_1_list) }
