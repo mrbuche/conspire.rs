@@ -5,12 +5,14 @@ macro_rules! test_thermal {
             use crate::{
                 EPSILON,
                 constitutive::thermal::conduction::Fourier,
-                fem::{
-                    ElementBlock, FiniteElementBlock, NodalForcesBlockThermal,
-                    NodalStiffnessesBlockThermal, NodalTemperaturesBlock,
-                    block::{
-                        FiniteElementBlockError,
-                        thermal::conduction::ThermalConductionFiniteElementBlock,
+                fem::block::{
+                    ElementBlock, FiniteElementBlock, FiniteElementBlockError,
+                    thermal::{
+                        NodalTemperatures,
+                        conduction::{
+                            NodalForcesThermal, NodalStiffnessesThermal,
+                            ThermalConductionFiniteElementBlock,
+                        },
                     },
                 },
                 math::test::{TestError, assert_eq_from_fd},
@@ -29,9 +31,9 @@ macro_rules! test_thermal {
                         get_reference_coordinates_block(),
                     );
                     let mut finite_difference = 0.0;
-                    let nodal_forces_fd: NodalForcesBlockThermal = (0..D)
+                    let nodal_forces_fd: NodalForcesThermal = (0..D)
                         .map(|node| {
-                            let mut nodal_temperatures = NodalTemperaturesBlock::zero(D);
+                            let mut nodal_temperatures = NodalTemperatures::zero(D);
                             nodal_temperatures[node] += 0.5 * EPSILON;
                             finite_difference = block.potential(&nodal_temperatures)?;
                             nodal_temperatures[node] -= EPSILON;
@@ -41,7 +43,7 @@ macro_rules! test_thermal {
                         .collect::<Result<_, FiniteElementBlockError>>()?;
                     assert_eq_from_fd(
                         &nodal_forces_fd,
-                        &block.nodal_forces(&NodalTemperaturesBlock::zero(D))?,
+                        &block.nodal_forces(&NodalTemperatures::zero(D))?,
                     )
                 }
                 #[test]
@@ -53,11 +55,11 @@ macro_rules! test_thermal {
                         get_reference_coordinates_block(),
                     );
                     let mut finite_difference = 0.0;
-                    let nodal_stiffnesses_fd: NodalStiffnessesBlockThermal = (0..D)
+                    let nodal_stiffnesses_fd: NodalStiffnessesThermal = (0..D)
                         .map(|node_a| {
                             (0..D)
                                 .map(|node_b| {
-                                    let mut nodal_temperatures = NodalTemperaturesBlock::zero(D);
+                                    let mut nodal_temperatures = NodalTemperatures::zero(D);
                                     nodal_temperatures[node_b] += 0.5 * EPSILON;
                                     finite_difference =
                                         block.nodal_forces(&nodal_temperatures)?[node_a];
@@ -71,7 +73,7 @@ macro_rules! test_thermal {
                         .collect::<Result<_, FiniteElementBlockError>>()?;
                     assert_eq_from_fd(
                         &nodal_stiffnesses_fd,
-                        &block.nodal_stiffnesses(&NodalTemperaturesBlock::zero(D))?,
+                        &block.nodal_stiffnesses(&NodalTemperatures::zero(D))?,
                     )
                 }
             }

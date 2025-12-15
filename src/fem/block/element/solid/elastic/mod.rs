@@ -1,8 +1,8 @@
 use crate::{
     constitutive::solid::elastic::Elastic,
-    fem::{
-        NodalCoordinates, NodalForces, NodalStiffnesses,
-        block::element::{Element, FiniteElementError, solid::SolidFiniteElement},
+    fem::block::element::{
+        Element, ElementNodalCoordinates, FiniteElementError,
+        solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement},
     },
     math::{ContractSecondFourthIndicesWithFirstIndicesOf, Tensor},
     mechanics::{FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses},
@@ -17,13 +17,13 @@ where
     fn nodal_forces(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<NodalForces<N>, FiniteElementError>;
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+    ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError>;
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<NodalStiffnesses<N>, FiniteElementError>;
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+    ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError>;
 }
 
 impl<C, const G: usize, const N: usize> ElasticFiniteElement<C, G, N> for Element<G, N>
@@ -33,8 +33,8 @@ where
     fn nodal_forces(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<NodalForces<N>, FiniteElementError> {
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+    ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
@@ -71,8 +71,8 @@ where
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<NodalStiffnesses<N>, FiniteElementError> {
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+    ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()

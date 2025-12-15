@@ -97,6 +97,12 @@ impl<const I: usize, const J: usize> Deformation<I, J> for DeformationGradientGe
     }
 }
 
+/// A basis.
+pub type Basis<const I: usize> = TensorRank1List<3, I, 3>;
+
+/// A list of bases.
+pub type Bases<const I: usize, const N: usize> = TensorRank1List2D<3, I, 3, N>;
+
 /// The Cauchy stress $`\boldsymbol{\sigma}`$.
 pub type CauchyStress = TensorRank2<3, 1, 1>;
 
@@ -242,11 +248,29 @@ pub type MandelStressElastic = TensorRank2<3, 2, 2>;
 /// A normal.
 pub type Normal = TensorRank1<3, 1>;
 
+/// A list of normals.
+pub type Normals<const N: usize> = TensorRank1List<3, 1, N>;
+
+/// A list of normal gradients.
+pub type NormalGradients<const O: usize, const P: usize> = TensorRank2List2D<3, 1, 1, O, P>;
+
+/// A normal rate.
+pub type NormalRate = TensorRank1<3, 1>;
+
+/// A list of normal rates.
+pub type NormalRates<const N: usize> = TensorRank1List<3, 1, N>;
+
 /// A coordinate in the reference configuration.
 pub type ReferenceCoordinate = TensorRank1<3, 0>;
 
 /// A list of coordinates in the reference configuration.
 pub type ReferenceCoordinates<const W: usize> = TensorRank1List<3, 0, W>;
+
+/// A reference normal.
+pub type ReferenceNormal = TensorRank1<3, 0>;
+
+/// A list of reference normals.
+pub type ReferenceNormals<const N: usize> = TensorRank1List<3, 0, N>;
 
 /// The right Cauchy-Green deformation $`\mathbf{C}`$.
 pub type RightCauchyGreenDeformation = TensorRank2<3, 0, 0>;
@@ -286,6 +310,12 @@ pub type StretchingRate = TensorRank2<3, 1, 1>;
 
 /// The plastic stretching rate $`\mathbf{D}^\mathrm{p}`$.
 pub type StretchingRatePlastic = TensorRank2<3, 2, 2>;
+
+/// A surface basis.
+pub type SurfaceBasis<const I: usize> = TensorRank1List<3, I, 2>;
+
+/// A list of surface bases.
+pub type SurfaceBases<const I: usize, const N: usize> = TensorRank1List2D<3, I, 2, N>;
 
 /// The temperature gradient.
 pub type TemperatureGradient = TensorRank1<3, 0>;

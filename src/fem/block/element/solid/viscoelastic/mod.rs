@@ -1,8 +1,8 @@
 use crate::{
     constitutive::solid::viscoelastic::Viscoelastic,
-    fem::{
-        NodalCoordinates, NodalForces, NodalStiffnesses, NodalVelocities,
-        block::element::{Element, FiniteElementError, SolidFiniteElement},
+    fem::block::element::{
+        Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElementError,
+        solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement},
     },
     math::{ContractSecondFourthIndicesWithFirstIndicesOf, Tensor},
     mechanics::{FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStresses},
@@ -16,15 +16,15 @@ where
     fn nodal_forces(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
-    ) -> Result<NodalForces<N>, FiniteElementError>;
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
+    ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError>;
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
-    ) -> Result<NodalStiffnesses<N>, FiniteElementError>;
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
+    ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError>;
 }
 
 impl<C, const G: usize, const N: usize> ViscoelasticFiniteElement<C, G, N> for Element<G, N>
@@ -34,9 +34,9 @@ where
     fn nodal_forces(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
-    ) -> Result<NodalForces<N>, FiniteElementError> {
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
+    ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
@@ -78,9 +78,9 @@ where
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
-    ) -> Result<NodalStiffnesses<N>, FiniteElementError> {
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
+    ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()

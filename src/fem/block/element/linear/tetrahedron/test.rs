@@ -1,13 +1,14 @@
 use crate::{
     fem::{
-        Connectivity, ElementBlock, GradientVectors, NodalCoordinates, NodalCoordinatesBlock,
-        NodalForcesBlock, NodalStiffnessesBlock, NodalVelocities, NodalVelocitiesBlock,
-        ReferenceNodalCoordinates, ReferenceNodalCoordinatesBlock,
+        NodalCoordinates, NodalForcesSolid, NodalReferenceCoordinates, NodalStiffnessesSolid,
+        NodalVelocities,
         block::{
-            FiniteElementBlock,
+            Connectivity, ElementBlock, FiniteElementBlock,
             element::{
-                SolidFiniteElement,
+                ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
+                GradientVectors,
                 linear::tetrahedron::{G, N, Tetrahedron},
+                solid::SolidFiniteElement,
                 test::test_finite_element,
             },
             test::test_finite_element_block,
@@ -48,8 +49,8 @@ fn get_connectivity() -> Connectivity<N> {
     ]
 }
 
-fn get_coordinates_block() -> NodalCoordinatesBlock {
-    NodalCoordinatesBlock::from([
+fn get_coordinates_block() -> NodalCoordinates {
+    NodalCoordinates::from([
         [0.48419081, -0.52698494, 0.42026988],
         [0.43559430, 0.52696224, 0.54477963],
         [-0.56594965, 0.57076191, 0.51683869],
@@ -67,8 +68,8 @@ fn get_coordinates_block() -> NodalCoordinatesBlock {
     ])
 }
 
-fn reference_coordinates() -> ReferenceNodalCoordinates<N> {
-    ReferenceNodalCoordinates::new([
+fn reference_coordinates() -> ElementNodalReferenceCoordinates<N> {
+    ElementNodalReferenceCoordinates::new([
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 0.0],
         [0.0, 1.0, 0.0],
@@ -76,8 +77,8 @@ fn reference_coordinates() -> ReferenceNodalCoordinates<N> {
     ])
 }
 
-fn get_reference_coordinates_block() -> ReferenceNodalCoordinatesBlock {
-    ReferenceNodalCoordinatesBlock::from([
+fn get_reference_coordinates_block() -> NodalReferenceCoordinates {
+    NodalReferenceCoordinates::from([
         [0.5, -0.5, 0.5],
         [0.5, 0.5, 0.5],
         [-0.5, 0.5, 0.5],
@@ -95,8 +96,8 @@ fn get_reference_coordinates_block() -> ReferenceNodalCoordinatesBlock {
     ])
 }
 
-fn get_velocities_block() -> NodalVelocitiesBlock {
-    NodalVelocitiesBlock::from([
+fn get_velocities_block() -> NodalVelocities {
+    NodalVelocities::from([
         [0.00888030, -0.09877116, 0.07861759],
         [0.02037718, -0.09870374, -0.04739945],
         [-0.02023814, -0.00392495, 0.00612573],

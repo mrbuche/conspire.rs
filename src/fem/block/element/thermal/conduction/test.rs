@@ -5,10 +5,14 @@ macro_rules! test_thermal {
             use crate::{
                 EPSILON,
                 constitutive::thermal::conduction::Fourier,
-                fem::{
-                    NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures,
-                    block::element::{
-                        FiniteElementError, thermal::conduction::ThermalConductionFiniteElement,
+                fem::block::element::{
+                    FiniteElementError,
+                    thermal::{
+                        ElementNodalTemperatures,
+                        conduction::{
+                            ElementNodalForcesThermal, ElementNodalStiffnessesThermal,
+                            ThermalConductionFiniteElement,
+                        },
                     },
                 },
                 math::test::{TestError, assert_eq_from_fd},
@@ -22,10 +26,11 @@ macro_rules! test_thermal {
                 fn potential() -> Result<(), TestError> {
                     let constitutive_model = MODEL;
                     let element = element();
-                    let temperature =
-                        NodalTemperatures::from([0.62895714, 0.73331084, 0.3058115, 0.08179408]);
+                    let temperature = ElementNodalTemperatures::from([
+                        0.62895714, 0.73331084, 0.3058115, 0.08179408,
+                    ]);
                     let mut finite_difference = 0.0;
-                    let nodal_forces_fd: NodalForcesThermal<N> = (0..N)
+                    let nodal_forces_fd: ElementNodalForcesThermal<N> = (0..N)
                         .map(|node| {
                             let mut nodal_temperatures = temperature.clone();
                             nodal_temperatures[node] += 0.5 * EPSILON;
@@ -41,7 +46,7 @@ macro_rules! test_thermal {
                         &nodal_forces_fd,
                         &element.nodal_forces(
                             &constitutive_model,
-                            &NodalTemperatures::from(temperature),
+                            &ElementNodalTemperatures::from(temperature),
                         )?,
                     )
                 }
@@ -49,10 +54,11 @@ macro_rules! test_thermal {
                 fn nodal_forces() -> Result<(), TestError> {
                     let constitutive_model = MODEL;
                     let element = element();
-                    let temperature =
-                        NodalTemperatures::from([0.62895714, 0.73331084, 0.3058115, 0.08179408]);
+                    let temperature = ElementNodalTemperatures::from([
+                        0.62895714, 0.73331084, 0.3058115, 0.08179408,
+                    ]);
                     let mut finite_difference = 0.0;
-                    let nodal_stiffnesses_fd: NodalStiffnessesThermal<N> = (0..N)
+                    let nodal_stiffnesses_fd: ElementNodalStiffnessesThermal<N> = (0..N)
                         .map(|node_a| {
                             (0..N)
                                 .map(|node_b| {
@@ -74,7 +80,7 @@ macro_rules! test_thermal {
                         &nodal_stiffnesses_fd,
                         &element.nodal_stiffnesses(
                             &constitutive_model,
-                            &NodalTemperatures::from(temperature),
+                            &ElementNodalTemperatures::from(temperature),
                         )?,
                     )
                 }

@@ -1,10 +1,8 @@
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperviscoelastic::Hyperviscoelastic},
-    fem::{
-        NodalCoordinates,
-        block::element::{
-            ElasticHyperviscousFiniteElement, Element, FiniteElementError, SolidFiniteElement,
-        },
+    fem::block::element::{
+        Element, ElementNodalCoordinates, FiniteElementError,
+        solid::{SolidFiniteElement, elastic_hyperviscous::ElasticHyperviscousFiniteElement},
     },
     math::{Scalar, Tensor},
 };
@@ -17,7 +15,7 @@ where
     fn helmholtz_free_energy(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<Scalar, FiniteElementError>;
 }
 
@@ -28,7 +26,7 @@ where
     fn helmholtz_free_energy(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<Scalar, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)

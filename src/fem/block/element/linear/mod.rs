@@ -1,12 +1,14 @@
-pub mod hexahedron;
-pub mod tetrahedron;
-pub mod triangle;
+mod hexahedron;
+mod tetrahedron;
+
+pub use hexahedron::Hexahedron;
+pub use tetrahedron::Tetrahedron;
 
 macro_rules! linear_finite_element {
     ($element:ident) => {
         impl FiniteElement<G, N> for $element {
             fn initialize(
-                reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
+                reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,
             ) -> (GradientVectors<G, N>, Scalars<G>) {
                 let gradient_vectors = Self::standard_gradient_operators()
                     .into_iter()

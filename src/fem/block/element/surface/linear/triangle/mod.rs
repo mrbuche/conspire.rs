@@ -10,14 +10,19 @@ use crate::{
             viscoelastic::Viscoelastic,
         },
     },
-    fem::{
-        FiniteElementError, GradientVectors, NodalCoordinates, NodalForces, NodalStiffnesses,
-        NodalVelocities, ReferenceNodalCoordinates, StandardGradientOperators,
-        block::element::{
-            ElasticFiniteElement, ElasticHyperviscousFiniteElement, HyperelasticFiniteElement,
-            HyperviscoelasticFiniteElement, SolidFiniteElement, SurfaceElement,
-            SurfaceFiniteElement, SurfaceFiniteElementMethods, SurfaceFiniteElementMethodsExtra,
-            ViscoelasticFiniteElement,
+    fem::block::element::{
+        ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
+        FiniteElementError, GradientVectors, StandardGradientOperators,
+        solid::{
+            ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement,
+            elastic::ElasticFiniteElement, elastic_hyperviscous::ElasticHyperviscousFiniteElement,
+            hyperelastic::HyperelasticFiniteElement,
+            hyperviscoelastic::HyperviscoelasticFiniteElement,
+            viscoelastic::ViscoelasticFiniteElement,
+        },
+        surface::{
+            SurfaceElement, SurfaceFiniteElement, SurfaceFiniteElementMethods,
+            SurfaceFiniteElementMethodsExtra,
         },
     },
     math::{IDENTITY, Scalar, Scalars, Tensor},
@@ -29,7 +34,7 @@ use crate::{
 };
 
 #[cfg(test)]
-use crate::fem::ShapeFunctionsAtIntegrationPoints;
+use crate::fem::block::element::ShapeFunctionsAtIntegrationPoints;
 
 const G: usize = 1;
 const M: usize = 2;
@@ -42,7 +47,10 @@ const Q: usize = N;
 pub type Triangle = SurfaceElement<G, N, P>;
 
 impl SurfaceFiniteElement<G, N, P> for Triangle {
-    fn new(reference_nodal_coordinates: ReferenceNodalCoordinates<N>, thickness: Scalar) -> Self {
+    fn new(
+        reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,
+        thickness: Scalar,
+    ) -> Self {
         let integration_weights = Self::bases(&reference_nodal_coordinates)
             .iter()
             .map(|reference_basis| {
@@ -108,7 +116,7 @@ impl SurfaceFiniteElementMethodsExtra<M, N, P> for Triangle {
 impl SolidFiniteElement<G, N> for Triangle {
     fn deformation_gradients(
         &self,
-        nodal_coordinates: &NodalCoordinates<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> DeformationGradientList<G> {
         self.gradient_vectors()
             .iter()
@@ -131,8 +139,8 @@ impl SolidFiniteElement<G, N> for Triangle {
     }
     fn deformation_gradient_rates(
         &self,
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
     ) -> DeformationGradientRateList<G> {
         self.gradient_vectors()
             .iter()
@@ -168,8 +176,8 @@ where
     fn nodal_forces(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<NodalForces<N>, FiniteElementError> {
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+    ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
@@ -206,8 +214,8 @@ where
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-    ) -> Result<NodalStiffnesses<N>, FiniteElementError> {
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+    ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError> {
         match self.deformation_gradients(nodal_coordinates).iter()
             .map(|deformation_gradient| {
                 constitutive_model.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)
@@ -279,7 +287,7 @@ where
     fn helmholtz_free_energy(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<Scalar, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
@@ -309,9 +317,9 @@ where
     fn nodal_forces(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
-    ) -> Result<NodalForces<N>, FiniteElementError> {
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
+    ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
@@ -353,9 +361,9 @@ where
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
-    ) -> Result<NodalStiffnesses<N>, FiniteElementError> {
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
+    ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError> {
         match self.deformation_gradients(nodal_coordinates).iter().zip(self.deformation_gradient_rates(nodal_coordinates, nodal_velocities).iter())
             .map(|(deformation_gradient, deformation_gradient_rate)| {
                 constitutive_model.first_piola_kirchhoff_rate_tangent_stiffness(deformation_gradient, deformation_gradient_rate)
@@ -427,8 +435,8 @@ where
     fn viscous_dissipation(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
     ) -> Result<Scalar, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
@@ -459,8 +467,8 @@ where
     fn dissipation_potential(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
     ) -> Result<Scalar, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
@@ -498,7 +506,7 @@ where
     fn helmholtz_free_energy(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<Scalar, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)

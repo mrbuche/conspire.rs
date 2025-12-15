@@ -3,28 +3,27 @@ mod test;
 
 pub mod composite;
 pub mod linear;
+pub mod solid;
+pub mod surface;
+pub mod thermal;
 
-mod solid;
-mod thermal;
-
-pub use self::{
-    solid::{
-        SolidFiniteElement, elastic::ElasticFiniteElement,
-        elastic_hyperviscous::ElasticHyperviscousFiniteElement,
-        elastic_viscoplastic::ElasticViscoplasticFiniteElement,
-        hyperelastic::HyperelasticFiniteElement, hyperviscoelastic::HyperviscoelasticFiniteElement,
-        viscoelastic::ViscoelasticFiniteElement, viscoplastic::ViscoplasticStateVariables,
-    },
-    thermal::{ThermalFiniteElement, conduction::ThermalConductionFiniteElement},
-};
-
-use super::*;
 use crate::{
     defeat_message,
-    math::{IDENTITY, LEVI_CIVITA, tensor_rank_1_zero},
-    mechanics::Scalar,
+    math::{Scalars, TensorRank1List, TensorRank1List2D, TestError},
+    mechanics::{CurrentCoordinates, ReferenceCoordinates, Vectors2D},
 };
 use std::fmt::{self, Debug, Display, Formatter};
+
+pub type ElementNodalCoordinates<const N: usize> = CurrentCoordinates<N>;
+pub type ElementNodalVelocities<const N: usize> = CurrentCoordinates<N>;
+pub type ElementNodalReferenceCoordinates<const N: usize> = ReferenceCoordinates<N>;
+pub type GradientVectors<const G: usize, const N: usize> = Vectors2D<0, N, G>;
+pub type ShapeFunctionsAtIntegrationPoints<const G: usize, const Q: usize> =
+    TensorRank1List<Q, 9, G>;
+pub type StandardGradientOperators<const M: usize, const O: usize, const P: usize> =
+    TensorRank1List2D<M, 0, O, P>;
+pub type StandardGradientOperatorsTransposed<const M: usize, const O: usize, const P: usize> =
+    TensorRank1List2D<M, 0, P, O>;
 
 pub struct Element<const G: usize, const N: usize> {
     gradient_vectors: GradientVectors<G, N>,
@@ -40,11 +39,11 @@ impl<const G: usize, const N: usize> Element<G, N> {
     }
 }
 
-impl<const G: usize, const N: usize> From<ReferenceNodalCoordinates<N>> for Element<G, N>
+impl<const G: usize, const N: usize> From<ElementNodalReferenceCoordinates<N>> for Element<G, N>
 where
     Self: FiniteElement<G, N>,
 {
-    fn from(reference_nodal_coordinates: ReferenceNodalCoordinates<N>) -> Self {
+    fn from(reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>) -> Self {
         let (gradient_vectors, integration_weights) = Self::initialize(reference_nodal_coordinates);
         Self {
             gradient_vectors,
@@ -67,10 +66,10 @@ impl<const G: usize, const N: usize> Debug for Element<G, N> {
 
 pub trait FiniteElement<const G: usize, const N: usize>
 where
-    Self: From<ReferenceNodalCoordinates<N>>,
+    Self: From<ElementNodalReferenceCoordinates<N>>,
 {
     fn initialize(
-        reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
+        reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,
     ) -> (GradientVectors<G, N>, Scalars<G>);
     fn reset(&mut self);
 }
@@ -112,193 +111,5 @@ impl Display for FiniteElementError {
             }
         };
         write!(f, "{error}\x1b[0m")
-    }
-}
-
-pub struct SurfaceElement<const G: usize, const N: usize, const P: usize> {
-    gradient_vectors: GradientVectors<G, N>,
-    integration_weights: Scalars<G>,
-    reference_normals: ReferenceNormals<P>,
-}
-
-impl<const G: usize, const N: usize, const P: usize> Debug for SurfaceElement<G, N, P> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let element = match (G, N, P) {
-            (1, 3, 1) => "LinearTriangle",
-            _ => panic!(),
-        };
-        write!(f, "{element} {{ G: {G}, N: {N} , P: {P} }}",)
-    }
-}
-
-impl<const G: usize, const N: usize, const P: usize> SurfaceElement<G, N, P> {
-    fn integration_weights(&self) -> &Scalars<G> {
-        &self.integration_weights
-    }
-    fn reference_normals(&self) -> &ReferenceNormals<P> {
-        &self.reference_normals
-    }
-}
-
-pub trait SurfaceFiniteElement<const G: usize, const N: usize, const P: usize> {
-    fn new(reference_nodal_coordinates: ReferenceNodalCoordinates<N>, thickness: Scalar) -> Self;
-}
-
-pub trait SurfaceFiniteElementMethods<
-    const G: usize,
-    const M: usize,
-    const N: usize,
-    const P: usize,
-> where
-    Self: SurfaceFiniteElementMethodsExtra<M, N, P>,
-{
-    fn bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> Bases<I, P>;
-    fn dual_bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> Bases<I, P>;
-    fn normals(nodal_coordinates: &NodalCoordinates<N>) -> Normals<P>;
-    fn normal_gradients(nodal_coordinates: &NodalCoordinates<N>) -> NormalGradients<N, P>;
-    fn normal_rates(
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
-    ) -> NormalRates<P>;
-}
-
-// make this a const fn and remove inherent impl of it once Rust stabilizes const fn trait methods
-pub trait SurfaceFiniteElementMethodsExtra<const M: usize, const N: usize, const P: usize> {
-    fn standard_gradient_operators() -> StandardGradientOperators<M, N, P>;
-}
-
-impl<const G: usize, const M: usize, const N: usize, const P: usize>
-    SurfaceFiniteElementMethods<G, M, N, P> for SurfaceElement<G, N, P>
-where
-    Self: SurfaceFiniteElementMethodsExtra<M, N, P>,
-{
-    fn bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> Bases<I, P> {
-        Self::standard_gradient_operators()
-            .iter()
-            .map(|standard_gradient_operator| {
-                standard_gradient_operator
-                    .iter()
-                    .zip(nodal_coordinates.iter())
-                    .map(|(standard_gradient_operator_a, nodal_coordinate_a)| {
-                        standard_gradient_operator_a
-                            .iter()
-                            .map(|standard_gradient_operator_a_m| {
-                                nodal_coordinate_a * standard_gradient_operator_a_m
-                            })
-                            .collect()
-                    })
-                    .sum()
-            })
-            .collect()
-    }
-    fn dual_bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> Bases<I, P> {
-        Self::bases(nodal_coordinates)
-            .iter()
-            .map(|basis_vectors| {
-                basis_vectors
-                    .iter()
-                    .map(|basis_vectors_m| {
-                        basis_vectors
-                            .iter()
-                            .map(|basis_vectors_n| basis_vectors_m * basis_vectors_n)
-                            .collect()
-                    })
-                    .collect::<TensorRank2<2, I, I>>()
-                    .inverse()
-                    .iter()
-                    .map(|metric_tensor_m| {
-                        metric_tensor_m
-                            .iter()
-                            .zip(basis_vectors.iter())
-                            .map(|(metric_tensor_mn, basis_vectors_n)| {
-                                basis_vectors_n * metric_tensor_mn
-                            })
-                            .sum()
-                    })
-                    .collect()
-            })
-            .collect()
-    }
-    fn normals(nodal_coordinates: &NodalCoordinates<N>) -> Normals<P> {
-        Self::bases(nodal_coordinates)
-            .iter()
-            .map(|basis_vectors| basis_vectors[0].cross(&basis_vectors[1]).normalized())
-            .collect()
-    }
-    fn normal_gradients(nodal_coordinates: &NodalCoordinates<N>) -> NormalGradients<N, P> {
-        let levi_civita_symbol = LEVI_CIVITA;
-        let mut normalization: Scalar = 0.0;
-        let mut normal_vector = tensor_rank_1_zero();
-        Self::standard_gradient_operators().iter()
-        .zip(Self::bases(nodal_coordinates).iter())
-        .map(|(standard_gradient_operator, basis_vectors)|{
-            normalization = basis_vectors[0].cross(&basis_vectors[1]).norm();
-            normal_vector = basis_vectors[0].cross(&basis_vectors[1])/normalization;
-            standard_gradient_operator.iter()
-            .map(|standard_gradient_operator_a|
-                levi_civita_symbol.iter()
-                .map(|levi_civita_symbol_m|
-                    IDENTITY.iter()
-                    .zip(normal_vector.iter())
-                    .map(|(identity_i, normal_vector_i)|
-                        levi_civita_symbol_m.iter()
-                        .zip(basis_vectors[0].iter()
-                        .zip(basis_vectors[1].iter()))
-                        .map(|(levi_civita_symbol_mn, (basis_vector_0_n, basis_vector_1_n))|
-                            levi_civita_symbol_mn.iter()
-                            .zip(identity_i.iter()
-                            .zip(normal_vector.iter()))
-                            .map(|(levi_civita_symbol_mno, (identity_io, normal_vector_o))|
-                                levi_civita_symbol_mno * (identity_io - normal_vector_i * normal_vector_o)
-                            ).sum::<Scalar>() * (
-                                standard_gradient_operator_a[0] * basis_vector_1_n
-                              - standard_gradient_operator_a[1] * basis_vector_0_n
-                            )
-                        ).sum::<Scalar>() / normalization
-                    ).collect()
-                ).collect()
-            ).collect()
-        }).collect()
-    }
-    fn normal_rates(
-        nodal_coordinates: &NodalCoordinates<N>,
-        nodal_velocities: &NodalVelocities<N>,
-    ) -> NormalRates<P> {
-        let identity = IDENTITY;
-        let levi_civita_symbol = LEVI_CIVITA;
-        let mut normalization = 0.0;
-        Self::bases(nodal_coordinates)
-            .iter()
-            .zip(Self::normals(nodal_coordinates).iter()
-            .zip(Self::standard_gradient_operators().iter()))
-            .map(|(basis, (normal, standard_gradient_operator))| {
-                normalization = basis[0].cross(&basis[1]).norm();
-                identity.iter()
-                .zip(normal.iter())
-                .map(|(identity_i, normal_vector_i)|
-                    nodal_velocities.iter()
-                    .zip(standard_gradient_operator.iter())
-                    .map(|(nodal_velocity_a, standard_gradient_operator_a)|
-                        levi_civita_symbol.iter()
-                        .zip(nodal_velocity_a.iter())
-                        .map(|(levi_civita_symbol_m, nodal_velocity_a_m)|
-                            levi_civita_symbol_m.iter()
-                            .zip(basis[0].iter()
-                            .zip(basis[1].iter()))
-                            .map(|(levi_civita_symbol_mn, (basis_vector_0_n, basis_vector_1_n))|
-                                levi_civita_symbol_mn.iter()
-                                .zip(identity_i.iter()
-                                .zip(normal.iter()))
-                                .map(|(levi_civita_symbol_mno, (identity_io, normal_vector_o))|
-                                    levi_civita_symbol_mno * (identity_io - normal_vector_i * normal_vector_o)
-                                ).sum::<Scalar>() * (
-                                    standard_gradient_operator_a[0] * basis_vector_1_n
-                                - standard_gradient_operator_a[1] * basis_vector_0_n
-                                )
-                            ).sum::<Scalar>() * nodal_velocity_a_m
-                        ).sum::<Scalar>()
-                    ).sum::<Scalar>() / normalization
-                ).collect()
-        }).collect()
     }
 }

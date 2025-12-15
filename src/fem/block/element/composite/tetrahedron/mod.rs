@@ -2,12 +2,14 @@
 mod test;
 
 use crate::{
-    fem::{
-        GradientVectors, NormalizedProjectionMatrix, ParametricGradientOperators, ProjectionMatrix,
-        ReferenceNodalCoordinates, ShapeFunctionIntegrals, ShapeFunctionIntegralsProducts,
+    fem::block::element::{
+        Element, ElementNodalReferenceCoordinates, FiniteElement, GradientVectors,
         ShapeFunctionsAtIntegrationPoints, StandardGradientOperators,
         StandardGradientOperatorsTransposed,
-        block::element::{Element, FiniteElement},
+        composite::{
+            NormalizedProjectionMatrix, ParametricGradientOperators, ProjectionMatrix,
+            ShapeFunctionIntegrals, ShapeFunctionIntegralsProducts,
+        },
     },
     math::{Scalar, Scalars, Tensor, TensorRank1},
 };
@@ -22,7 +24,7 @@ pub type Tetrahedron = Element<G, N>;
 
 impl FiniteElement<G, N> for Tetrahedron {
     fn initialize(
-        reference_nodal_coordinates: ReferenceNodalCoordinates<N>,
+        reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,
     ) -> (GradientVectors<G, N>, Scalars<G>) {
         let gradient_vectors = Self::projected_gradient_vectors(&reference_nodal_coordinates);
         let integration_weights =
@@ -65,7 +67,7 @@ impl Tetrahedron {
             .inverse()
     }
     fn projected_gradient_vectors(
-        reference_nodal_coordinates: &ReferenceNodalCoordinates<N>,
+        reference_nodal_coordinates: &ElementNodalReferenceCoordinates<N>,
     ) -> GradientVectors<G, N> {
         let parametric_gradient_operators = Self::standard_gradient_operators()
             .iter()
@@ -117,8 +119,8 @@ impl Tetrahedron {
             })
             .collect()
     }
-    const fn reference() -> ReferenceNodalCoordinates<N> {
-        ReferenceNodalCoordinates::<N>::const_from([
+    const fn reference() -> ElementNodalReferenceCoordinates<N> {
+        ElementNodalReferenceCoordinates::<N>::const_from([
             [0.0, 0.0, 0.0],
             [1.0, 0.0, 0.0],
             [0.0, 1.0, 0.0],
@@ -132,7 +134,7 @@ impl Tetrahedron {
         ])
     }
     fn reference_jacobians(
-        reference_nodal_coordinates: &ReferenceNodalCoordinates<N>,
+        reference_nodal_coordinates: &ElementNodalReferenceCoordinates<N>,
     ) -> Scalars<G> {
         let vector = Self::inverse_normalized_projection_matrix()
             * Self::shape_function_integrals()
@@ -150,7 +152,7 @@ impl Tetrahedron {
             .collect()
     }
     fn reference_jacobians_subelements(
-        reference_nodal_coordinates: &ReferenceNodalCoordinates<N>,
+        reference_nodal_coordinates: &ElementNodalReferenceCoordinates<N>,
     ) -> Scalars<P> {
         Self::standard_gradient_operators()
             .iter()
