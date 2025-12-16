@@ -49,7 +49,7 @@ where
         match self
             .temperature_gradients(nodal_temperatures)
             .iter()
-            .zip(self.integration_weights().iter())
+            .zip(self.integration_weights())
             .map(|(temperature_gradient, integration_weight)| {
                 Ok::<_, ConstitutiveError>(
                     constitutive_model.potential(temperature_gradient)? * integration_weight,
@@ -80,7 +80,7 @@ where
                 .zip(
                     self.gradient_vectors()
                         .iter()
-                        .zip(self.integration_weights().iter()),
+                        .zip(self.integration_weights()),
                 )
                 .map(|(heat_flux, (gradient_vectors, integration_weight))| {
                     gradient_vectors
@@ -111,7 +111,7 @@ where
                 .zip(
                     self.gradient_vectors()
                         .iter()
-                        .zip(self.integration_weights().iter()),
+                        .zip(self.integration_weights()),
                 )
                 .map(
                     |(heat_flux_tangent, (gradient_vectors, integration_weight))| {

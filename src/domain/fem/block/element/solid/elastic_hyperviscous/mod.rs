@@ -42,7 +42,7 @@ where
             .zip(
                 self.deformation_gradient_rates(nodal_coordinates, nodal_velocities)
                     .iter()
-                    .zip(self.integration_weights().iter()),
+                    .zip(self.integration_weights()),
             )
             .map(
                 |(deformation_gradient, (deformation_gradient_rate, integration_weight))| {
@@ -74,7 +74,7 @@ where
             .zip(
                 self.deformation_gradient_rates(nodal_coordinates, nodal_velocities)
                     .iter()
-                    .zip(self.integration_weights().iter()),
+                    .zip(self.integration_weights()),
             )
             .map(
                 |(deformation_gradient, (deformation_gradient_rate, integration_weight))| {

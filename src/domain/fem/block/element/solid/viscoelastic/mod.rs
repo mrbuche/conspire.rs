@@ -55,7 +55,7 @@ where
                 .zip(
                     self.gradient_vectors()
                         .iter()
-                        .zip(self.integration_weights().iter()),
+                        .zip(self.integration_weights()),
                 )
                 .map(
                     |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
@@ -103,7 +103,7 @@ where
                         self.gradient_vectors().iter().zip(
                             self.gradient_vectors()
                                 .iter()
-                                .zip(self.integration_weights().iter()),
+                                .zip(self.integration_weights()),
                         ),
                     )
                     .map(

@@ -93,7 +93,7 @@ where
             .elements()
             .iter()
             .zip(self.connectivity())
-            .zip(state_variables.iter())
+            .zip(state_variables)
             .try_for_each(|((element, nodes), state_variables_element)| {
                 element
                     .nodal_forces(
@@ -102,7 +102,7 @@ where
                         state_variables_element,
                     )?
                     .iter()
-                    .zip(nodes.iter())
+                    .zip(nodes)
                     .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
                 Ok::<(), FiniteElementError>(())
             }) {
@@ -123,7 +123,7 @@ where
             .elements()
             .iter()
             .zip(self.connectivity())
-            .zip(state_variables.iter())
+            .zip(state_variables)
             .try_for_each(|((element, nodes), state_variables_element)| {
                 element
                     .nodal_stiffnesses(
@@ -132,11 +132,11 @@ where
                         state_variables_element,
                     )?
                     .iter()
-                    .zip(nodes.iter())
+                    .zip(nodes)
                     .for_each(|(object, &node_a)| {
                         object
                             .iter()
-                            .zip(nodes.iter())
+                            .zip(nodes)
                             .for_each(|(nodal_stiffness, &node_b)| {
                                 nodal_stiffnesses[node_a][node_b] += nodal_stiffness
                             })
@@ -159,7 +159,7 @@ where
             .elements()
             .iter()
             .zip(self.connectivity())
-            .zip(state_variables.iter())
+            .zip(state_variables)
             .map(|((element, nodes), element_state_variables)| {
                 element.state_variables_evolution(
                     self.constitutive_model(),

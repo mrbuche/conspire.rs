@@ -31,7 +31,7 @@ where
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
-            .zip(self.integration_weights().iter())
+            .zip(self.integration_weights())
             .map(|(deformation_gradient, integration_weight)| {
                 Ok::<_, ConstitutiveError>(
                     constitutive_model.helmholtz_free_energy_density(deformation_gradient)?

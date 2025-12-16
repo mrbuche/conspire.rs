@@ -82,7 +82,7 @@ where
             .map(|standard_gradient_operator| {
                 standard_gradient_operator
                     .iter()
-                    .zip(nodal_coordinates.iter())
+                    .zip(nodal_coordinates)
                     .map(|(standard_gradient_operator_a, nodal_coordinate_a)| {
                         standard_gradient_operator_a
                             .iter()
@@ -113,7 +113,7 @@ where
                     .map(|metric_tensor_m| {
                         metric_tensor_m
                             .iter()
-                            .zip(basis_vectors.iter())
+                            .zip(basis_vectors)
                             .map(|(metric_tensor_mn, basis_vectors_n)| {
                                 basis_vectors_n * metric_tensor_mn
                             })
@@ -134,7 +134,7 @@ where
         let mut normalization: Scalar = 0.0;
         let mut normal_vector = Normal::zero();
         Self::standard_gradient_operators().iter()
-        .zip(Self::bases(nodal_coordinates).iter())
+        .zip(Self::bases(nodal_coordinates))
         .map(|(standard_gradient_operator, basis_vectors)|{
             normalization = basis_vectors[0].cross(&basis_vectors[1]).norm();
             normal_vector = basis_vectors[0].cross(&basis_vectors[1])/normalization;
@@ -174,7 +174,7 @@ where
         Self::bases(nodal_coordinates)
             .iter()
             .zip(Self::normals(nodal_coordinates).iter()
-            .zip(Self::standard_gradient_operators().iter()))
+            .zip(Self::standard_gradient_operators()))
             .map(|(basis, (normal, standard_gradient_operator))| {
                 normalization = basis[0].cross(&basis[1]).norm();
                 identity.iter()

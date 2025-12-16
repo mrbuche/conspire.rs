@@ -123,7 +123,7 @@ impl SolidFiniteElement<G, N> for Triangle {
             .zip(
                 Self::normals(nodal_coordinates)
                     .iter()
-                    .zip(self.reference_normals().iter()),
+                    .zip(self.reference_normals()),
             )
             .map(|(gradient_vectors, normal_and_reference_normal)| {
                 nodal_coordinates
@@ -147,7 +147,7 @@ impl SolidFiniteElement<G, N> for Triangle {
             .zip(
                 Self::normal_rates(nodal_coordinates, nodal_velocities)
                     .iter()
-                    .zip(self.reference_normals().iter()),
+                    .zip(self.reference_normals()),
             )
             .map(|(gradient_vectors, normal_rate_and_reference_normal)| {
                 nodal_velocities
@@ -185,7 +185,7 @@ where
                 .zip(
                     self.gradient_vectors()
                         .iter()
-                        .zip(self.integration_weights().iter()),
+                        .zip(self.integration_weights()),
                 )
                 .map(
                     |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
@@ -223,7 +223,7 @@ where
                     .iter()
                     .zip(self.integration_weights().iter()
                     .zip(self.reference_normals().iter()
-                    .zip(Self::normal_gradients(nodal_coordinates).iter())
+                    .zip(Self::normal_gradients(nodal_coordinates))
                 )
                 ),
             )
@@ -286,7 +286,7 @@ where
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
-            .zip(self.integration_weights().iter())
+            .zip(self.integration_weights())
             .map(|(deformation_gradient, integration_weight)| {
                 Ok::<_, ConstitutiveError>(
                     constitutive_model.helmholtz_free_energy_density(deformation_gradient)?
@@ -332,7 +332,7 @@ where
                 .zip(
                     self.gradient_vectors()
                         .iter()
-                        .zip(self.integration_weights().iter()),
+                        .zip(self.integration_weights()),
                 )
                 .map(
                     |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
@@ -371,7 +371,7 @@ where
                     .iter()
                     .zip(self.integration_weights().iter()
                     .zip(self.reference_normals().iter()
-                    .zip(Self::normal_gradients(nodal_coordinates).iter())
+                    .zip(Self::normal_gradients(nodal_coordinates))
                 )
                 ),
             )
@@ -438,7 +438,7 @@ where
             .zip(
                 self.deformation_gradient_rates(nodal_coordinates, nodal_velocities)
                     .iter()
-                    .zip(self.integration_weights().iter()),
+                    .zip(self.integration_weights()),
             )
             .map(
                 |(deformation_gradient, (deformation_gradient_rate, integration_weight))| {
@@ -470,7 +470,7 @@ where
             .zip(
                 self.deformation_gradient_rates(nodal_coordinates, nodal_velocities)
                     .iter()
-                    .zip(self.integration_weights().iter()),
+                    .zip(self.integration_weights()),
             )
             .map(
                 |(deformation_gradient, (deformation_gradient_rate, integration_weight))| {
@@ -505,7 +505,7 @@ where
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
-            .zip(self.integration_weights().iter())
+            .zip(self.integration_weights())
             .map(|(deformation_gradient, integration_weight)| {
                 Ok::<_, ConstitutiveError>(
                     constitutive_model.helmholtz_free_energy_density(deformation_gradient)?

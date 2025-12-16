@@ -49,7 +49,7 @@ where
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
-            .zip(state_variables.iter())
+            .zip(state_variables)
             .map(|(deformation_gradient, state_variable)| {
                 let (deformation_gradient_p, _) = state_variable.into();
                 constitutive_model
@@ -62,7 +62,7 @@ where
                 .zip(
                     self.gradient_vectors()
                         .iter()
-                        .zip(self.integration_weights().iter()),
+                        .zip(self.integration_weights()),
                 )
                 .map(
                     |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
@@ -91,7 +91,7 @@ where
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
-            .zip(state_variables.iter())
+            .zip(state_variables)
             .map(|(deformation_gradient, state_variable)| {
                 let (deformation_gradient_p, _) = state_variable.into();
                 constitutive_model.first_piola_kirchhoff_tangent_stiffness(
@@ -107,7 +107,7 @@ where
                     .zip(
                         self.gradient_vectors()
                             .iter()
-                            .zip(self.integration_weights().iter()),
+                            .zip(self.integration_weights()),
                     )
                     .map(
                         |(
@@ -149,7 +149,7 @@ where
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
-            .zip(state_variables.iter())
+            .zip(state_variables)
             .map(|(deformation_gradient, state_variable)| {
                 constitutive_model.state_variables_evolution(deformation_gradient, state_variable)
             })

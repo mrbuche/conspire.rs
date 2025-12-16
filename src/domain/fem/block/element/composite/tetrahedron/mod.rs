@@ -57,7 +57,7 @@ impl Tetrahedron {
     ) -> NormalizedProjectionMatrix<Q> {
         Self::shape_function_integrals_products()
             .iter()
-            .zip(reference_jacobians_subelements.iter())
+            .zip(reference_jacobians_subelements)
             .map(
                 |(shape_function_integrals_products, reference_jacobian_subelement)| {
                     shape_function_integrals_products * reference_jacobian_subelement
@@ -139,7 +139,9 @@ impl Tetrahedron {
         let vector = Self::inverse_normalized_projection_matrix()
             * Self::shape_function_integrals()
                 .iter()
-                .zip(Self::reference_jacobians_subelements(reference_nodal_coordinates).iter())
+                .zip(Self::reference_jacobians_subelements(
+                    reference_nodal_coordinates,
+                ))
                 .map(|(shape_function_integral, reference_jacobian_subelement)| {
                     shape_function_integral * reference_jacobian_subelement
                 })
