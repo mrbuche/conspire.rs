@@ -6,8 +6,22 @@ pub use hexahedron::Hexahedron;
 pub use pyramid::Pyramid;
 pub use tetrahedron::Tetrahedron;
 
-macro_rules! linear_finite_element {
+macro_rules! implement {
     ($element:ident) => {
+        #[cfg(test)]
+        mod test;
+        #[cfg(test)]
+        use crate::fem::block::element::ShapeFunctionsAtIntegrationPoints;
+        use crate::{
+            fem::block::element::{
+                Element, ElementNodalReferenceCoordinates, FiniteElement, GradientVectors,
+                StandardGradientOperators,
+            },
+            math::{Scalar, Scalars},
+        };
+        const P: usize = G;
+        #[cfg(test)]
+        const Q: usize = N;
         impl FiniteElement<G, N> for $element {
             fn initialize(
                 reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,
@@ -63,4 +77,4 @@ macro_rules! linear_finite_element {
         }
     };
 }
-pub(crate) use linear_finite_element;
+pub(crate) use implement;

@@ -1,28 +1,10 @@
-#[cfg(test)]
-mod test;
-
-use crate::{
-    fem::block::element::{
-        Element, ElementNodalReferenceCoordinates, FiniteElement, GradientVectors,
-        StandardGradientOperators, linear::linear_finite_element,
-    },
-    math::{Scalar, Scalars},
-};
-
-#[cfg(test)]
-use crate::fem::block::element::ShapeFunctionsAtIntegrationPoints;
-
 const G: usize = 1;
 const M: usize = 3;
 const N: usize = 4;
-const P: usize = G;
-
-#[cfg(test)]
-const Q: usize = N;
 
 pub type Tetrahedron = Element<G, N>;
 
-linear_finite_element!(Tetrahedron);
+crate::fem::block::element::linear::implement!(Tetrahedron);
 
 impl Tetrahedron {
     const fn integration_points() -> [[Scalar; M]; G] {

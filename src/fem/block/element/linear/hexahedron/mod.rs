@@ -1,30 +1,12 @@
-#[cfg(test)]
-mod test;
-
-use crate::{
-    fem::block::element::{
-        Element, ElementNodalReferenceCoordinates, FiniteElement, GradientVectors,
-        StandardGradientOperators, linear::linear_finite_element,
-    },
-    math::{Scalar, Scalars},
-};
-
-#[cfg(test)]
-use crate::fem::block::element::ShapeFunctionsAtIntegrationPoints;
-
 const G: usize = 8;
 const M: usize = 3;
 const N: usize = 8;
-const P: usize = N;
-
-#[cfg(test)]
-const Q: usize = N;
-
-const SQRT_3_OVER_3: Scalar = 0.577_350_269_189_625_8;
 
 pub type Hexahedron = Element<G, N>;
 
-linear_finite_element!(Hexahedron);
+crate::fem::block::element::linear::implement!(Hexahedron);
+
+const SQRT_3_OVER_3: Scalar = 0.577_350_269_189_625_8;
 
 impl Hexahedron {
     const fn integration_points() -> [[Scalar; M]; G] {

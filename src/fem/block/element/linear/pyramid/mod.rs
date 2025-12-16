@@ -1,28 +1,10 @@
-#[cfg(test)]
-mod test;
-
-use crate::{
-    fem::block::element::{
-        Element, ElementNodalReferenceCoordinates, FiniteElement, GradientVectors,
-        StandardGradientOperators, linear::linear_finite_element,
-    },
-    math::{Scalar, Scalars},
-};
-
-#[cfg(test)]
-use crate::fem::block::element::ShapeFunctionsAtIntegrationPoints;
-
 const G: usize = 5;
 const M: usize = 3;
 const N: usize = 5;
-const P: usize = N;
-
-#[cfg(test)]
-const Q: usize = N;
 
 pub type Pyramid = Element<G, N>;
 
-linear_finite_element!(Pyramid);
+crate::fem::block::element::linear::implement!(Pyramid);
 
 impl Pyramid {
     const fn integration_points() -> [[Scalar; M]; G] {
