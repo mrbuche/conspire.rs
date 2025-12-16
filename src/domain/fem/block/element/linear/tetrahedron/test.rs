@@ -14,7 +14,7 @@ use crate::{
             test::test_finite_element_block,
         },
     },
-    math::{Scalars, Tensor, optimize::EqualityConstraint},
+    math::{ScalarList, Tensor, optimize::EqualityConstraint},
     mechanics::{DeformationGradient, DeformationGradientList, DeformationGradientRateList},
 };
 

@@ -15,8 +15,8 @@ impl Pyramid {
             [0.0, 0.0, 0.25],
         ]
     }
-    const fn integration_weight() -> Scalars<G> {
-        Scalars::<G>::const_from([5.0 / 27.0, 5.0 / 27.0, 5.0 / 27.0, 5.0 / 27.0, 16.0 / 27.0])
+    const fn integration_weight() -> ScalarList<G> {
+        ScalarList::<G>::const_from([5.0 / 27.0, 5.0 / 27.0, 5.0 / 27.0, 5.0 / 27.0, 16.0 / 27.0])
     }
     const fn reference() -> ElementNodalReferenceCoordinates<N> {
         ElementNodalReferenceCoordinates::<N>::const_from([

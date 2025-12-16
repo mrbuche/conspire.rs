@@ -9,8 +9,8 @@ impl Tetrahedron {
     const fn integration_points() -> [[Scalar; M]; G] {
         [[0.25; M]]
     }
-    const fn integration_weight() -> Scalars<G> {
-        Scalars::<G>::const_from([1.0 / 6.0])
+    const fn integration_weight() -> ScalarList<G> {
+        ScalarList::<G>::const_from([1.0 / 6.0])
     }
     const fn reference() -> ElementNodalReferenceCoordinates<N> {
         ElementNodalReferenceCoordinates::<N>::const_from([

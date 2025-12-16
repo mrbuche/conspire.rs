@@ -5,7 +5,7 @@ use crate::{
         ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
         GradientVectors, StandardGradientOperators,
     },
-    math::{IDENTITY, LEVI_CIVITA, Scalar, Scalars, Tensor, TensorArray, TensorRank2},
+    math::{IDENTITY, LEVI_CIVITA, Scalar, ScalarList, Tensor, TensorArray, TensorRank2},
     mechanics::{
         Coordinates, Normal, NormalGradients, NormalRates, Normals, ReferenceNormals, SurfaceBases,
     },
@@ -14,7 +14,7 @@ use std::fmt::{self, Debug, Formatter};
 
 pub struct SurfaceElement<const G: usize, const N: usize, const P: usize> {
     gradient_vectors: GradientVectors<G, N>,
-    integration_weights: Scalars<G>,
+    integration_weights: ScalarList<G>,
     reference_normals: ReferenceNormals<P>,
 }
 
@@ -32,7 +32,7 @@ impl<const G: usize, const N: usize, const P: usize> SurfaceElement<G, N, P> {
     fn gradient_vectors(&self) -> &GradientVectors<G, N> {
         &self.gradient_vectors
     }
-    fn integration_weights(&self) -> &Scalars<G> {
+    fn integration_weights(&self) -> &ScalarList<G> {
         &self.integration_weights
     }
     fn reference_normals(&self) -> &ReferenceNormals<P> {

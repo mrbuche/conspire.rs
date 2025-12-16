@@ -23,7 +23,7 @@ macro_rules! implement {
                 Element, ElementNodalReferenceCoordinates, FiniteElement, GradientVectors,
                 StandardGradientOperators,
             },
-            math::{Scalar, Scalars},
+            math::{Scalar, ScalarList},
         };
         const M: usize = 3;
         const P: usize = G;
@@ -32,7 +32,7 @@ macro_rules! implement {
         impl FiniteElement<G, N> for $element {
             fn initialize(
                 reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,
-            ) -> (GradientVectors<G, N>, Scalars<G>) {
+            ) -> (GradientVectors<G, N>, ScalarList<G>) {
                 let gradient_vectors = Self::standard_gradient_operators()
                     .into_iter()
                     .map(|standard_gradient_operator| {

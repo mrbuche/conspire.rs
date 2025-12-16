@@ -6,7 +6,7 @@ use crate::{
         solid::SolidFiniteElement,
         test::test_finite_element,
     },
-    math::{Scalars, Tensor},
+    math::{ScalarList, Tensor},
     mechanics::{DeformationGradient, DeformationGradientList, DeformationGradientRateList},
 };
 

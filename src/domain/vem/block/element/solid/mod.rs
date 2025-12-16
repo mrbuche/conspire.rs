@@ -1,11 +1,11 @@
 use crate::{
-    math::{Scalars, Tensor},
+    math::Tensor,
     mechanics::{DeformationGradientRates, DeformationGradients, Forces, Stiffnesses},
     vem::block::element::{Element, ElementNodalCoordinates, ElementNodalVelocities},
 };
 
-// pub type ElementNodalForcesSolid<const N: usize> = Forces<N>;
-// pub type ElementNodalStiffnessesSolid<const N: usize> = Stiffnesses<N>;
+pub type ElementNodalForcesSolid = Forces;
+pub type ElementNodalStiffnessesSolid = Stiffnesses;
 
 pub trait SolidVirtualElement {
     fn deformation_gradients(
@@ -17,8 +17,6 @@ pub trait SolidVirtualElement {
         nodal_coordinates: &ElementNodalCoordinates,
         nodal_velocities: &ElementNodalVelocities,
     ) -> DeformationGradientRates;
-    // fn gradient_vectors(&self) -> &GradientVectors<G, N>;
-    // fn integration_weights(&self) -> &Scalars<G>;
 }
 
 impl SolidVirtualElement for Element {

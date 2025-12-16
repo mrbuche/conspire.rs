@@ -9,7 +9,7 @@ pub mod thermal;
 
 use crate::{
     defeat_message,
-    math::{Scalars, TensorRank1List, TensorRank1List2D, TestError},
+    math::{ScalarList, TensorRank1List, TensorRank1List2D, TestError},
     mechanics::{CurrentCoordinates, ReferenceCoordinates, Vectors2D},
 };
 use std::fmt::{self, Debug, Display, Formatter};
@@ -27,14 +27,14 @@ pub type StandardGradientOperatorsTransposed<const M: usize, const O: usize, con
 
 pub struct Element<const G: usize, const N: usize> {
     gradient_vectors: GradientVectors<G, N>,
-    integration_weights: Scalars<G>,
+    integration_weights: ScalarList<G>,
 }
 
 impl<const G: usize, const N: usize> Element<G, N> {
     fn gradient_vectors(&self) -> &GradientVectors<G, N> {
         &self.gradient_vectors
     }
-    fn integration_weights(&self) -> &Scalars<G> {
+    fn integration_weights(&self) -> &ScalarList<G> {
         &self.integration_weights
     }
 }
@@ -72,7 +72,7 @@ where
 {
     fn initialize(
         reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,
-    ) -> (GradientVectors<G, N>, Scalars<G>);
+    ) -> (GradientVectors<G, N>, ScalarList<G>);
     fn reset(&mut self);
 }
 

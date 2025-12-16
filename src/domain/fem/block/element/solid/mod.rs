@@ -9,11 +9,11 @@ pub mod viscoplastic;
 use crate::{
     fem::block::element::{Element, ElementNodalCoordinates, ElementNodalVelocities},
     math::Tensor,
-    mechanics::{DeformationGradientList, DeformationGradientRateList, Forces, Stiffnesses},
+    mechanics::{DeformationGradientList, DeformationGradientRateList, ForceList, StiffnessList},
 };
 
-pub type ElementNodalForcesSolid<const N: usize> = Forces<N>;
-pub type ElementNodalStiffnessesSolid<const N: usize> = Stiffnesses<N>;
+pub type ElementNodalForcesSolid<const N: usize> = ForceList<N>;
+pub type ElementNodalStiffnessesSolid<const N: usize> = StiffnessList<N>;
 
 pub trait SolidFiniteElement<const G: usize, const N: usize> {
     fn deformation_gradients(

@@ -18,8 +18,8 @@ impl Wedge {
             [1.0 / 6.0, 2.0 / 3.0, FRAC_1_SQRT_3],
         ]
     }
-    const fn integration_weight() -> Scalars<G> {
-        Scalars::<G>::const_from([1.0 / 6.0; G])
+    const fn integration_weight() -> ScalarList<G> {
+        ScalarList::<G>::const_from([1.0 / 6.0; G])
     }
     const fn reference() -> ElementNodalReferenceCoordinates<N> {
         ElementNodalReferenceCoordinates::<N>::const_from([

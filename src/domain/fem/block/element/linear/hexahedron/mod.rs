@@ -20,8 +20,8 @@ impl Hexahedron {
             [FRAC_1_SQRT_3, FRAC_1_SQRT_3, FRAC_1_SQRT_3],
         ]
     }
-    const fn integration_weight() -> Scalars<G> {
-        Scalars::<G>::const_from([1.0; G])
+    const fn integration_weight() -> ScalarList<G> {
+        ScalarList::<G>::const_from([1.0; G])
     }
     const fn reference() -> ElementNodalReferenceCoordinates<N> {
         ElementNodalReferenceCoordinates::<N>::const_from([

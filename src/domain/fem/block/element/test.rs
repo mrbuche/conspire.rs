@@ -24,7 +24,7 @@ macro_rules! test_finite_element {
         fn size() {
             assert_eq!(
                 std::mem::size_of::<$element>(),
-                std::mem::size_of::<GradientVectors<G, N>>() + std::mem::size_of::<Scalars<G>>()
+                std::mem::size_of::<GradientVectors<G, N>>() + std::mem::size_of::<ScalarList<G>>()
             )
         }
         macro_rules! setup_element {
@@ -82,7 +82,7 @@ macro_rules! test_surface_finite_element {
             assert_eq!(
                 std::mem::size_of::<$element>(),
                 std::mem::size_of::<GradientVectors<G, N>>()
-                    + std::mem::size_of::<Scalars<G>>()
+                    + std::mem::size_of::<ScalarList<G>>()
                     + std::mem::size_of::<Normals<P>>()
             )
         }

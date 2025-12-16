@@ -6,8 +6,9 @@ pub mod test;
 use crate::{
     defeat_message,
     math::{
-        Rank2, Tensor, TensorRank1, TensorRank1List, TensorRank1List2D, TensorRank2,
-        TensorRank2List, TensorRank2List2D, TensorRank2Vec, TensorRank4, TensorRank4List,
+        Rank2, Tensor, TensorRank1, TensorRank1List, TensorRank1List2D, TensorRank1Vec,
+        TensorRank2, TensorRank2List, TensorRank2List2D, TensorRank2Vec, TensorRank2Vec2D,
+        TensorRank4, TensorRank4List,
     },
 };
 use std::fmt::{self, Debug, Display, Formatter};
@@ -219,7 +220,10 @@ pub type FirstPiolaKirchhoffRateTangentStiffnesses<const W: usize> =
 pub type Force = TensorRank1<3, 1>;
 
 /// A list of forces.
-pub type Forces<const W: usize> = TensorRank1List<3, 1, W>;
+pub type ForceList<const N: usize> = TensorRank1List<3, 1, N>;
+
+/// A vector of forces.
+pub type Forces = TensorRank1Vec<3, 1>;
 
 /// The frame spin $`\mathbf{\Omega}=\dot{\mathbf{Q}}\cdot\mathbf{Q}^T`$.
 pub type FrameSpin = TensorRank2<3, 1, 1>;
@@ -303,7 +307,10 @@ pub type SecondPiolaKirchhoffRateTangentStiffness = TensorRank4<3, 0, 0, 1, 0>;
 pub type Stiffness = TensorRank2<3, 1, 1>;
 
 /// A list of stiffnesses.
-pub type Stiffnesses<const W: usize> = TensorRank2List2D<3, 1, 1, W, W>;
+pub type StiffnessList<const N: usize> = TensorRank2List2D<3, 1, 1, N, N>;
+
+/// A vector of stiffnesses.
+pub type Stiffnesses = TensorRank2Vec2D<3, 1, 1>;
 
 /// The stretching rate $`\mathbf{D}`$.
 pub type StretchingRate = TensorRank2<3, 1, 1>;
