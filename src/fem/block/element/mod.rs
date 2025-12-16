@@ -57,6 +57,7 @@ impl<const G: usize, const N: usize> Debug for Element<G, N> {
         let element = match (G, N) {
             (1, 4) => "LinearTetrahedron",
             (5, 5) => "LinearPyramid",
+            (6, 6) => "LinearWedge",
             (8, 8) => "LinearHexahedron",
             (4, 10) => "CompositeTetrahedron",
             _ => panic!(),

@@ -26,6 +26,7 @@ macro_rules! const_from_impl_tensor_rank_0_list {
 }
 const_from_impl_tensor_rank_0_list!(1, 0);
 const_from_impl_tensor_rank_0_list!(5, 0, 1, 2, 3, 4);
+const_from_impl_tensor_rank_0_list!(6, 0, 1, 2, 3, 4, 5);
 const_from_impl_tensor_rank_0_list!(8, 0, 1, 2, 3, 4, 5, 6, 7);
 
 macro_rules! const_from_impl_tensor_rank_1_list {
@@ -43,6 +44,7 @@ macro_rules! const_from_impl_tensor_rank_1_list {
 const_from_impl_tensor_rank_1_list!(2, 3, 0, 1, 2);
 const_from_impl_tensor_rank_1_list!(3, 4, 0, 1, 2, 3);
 const_from_impl_tensor_rank_1_list!(3, 5, 0, 1, 2, 3, 4);
+const_from_impl_tensor_rank_1_list!(3, 6, 0, 1, 2, 3, 4, 5);
 const_from_impl_tensor_rank_1_list!(3, 8, 0, 1, 2, 3, 4, 5, 6, 7);
 const_from_impl_tensor_rank_1_list!(3, 10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
 const_from_impl_tensor_rank_1_list!(3, 12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
@@ -51,6 +53,7 @@ const_from_impl_tensor_rank_1_list!(4, 1, 0);
 const_from_impl_tensor_rank_1_list!(4, 4, 0, 1, 2, 3);
 const_from_impl_tensor_rank_1_list!(4, 12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
 const_from_impl_tensor_rank_1_list!(5, 5, 0, 1, 2, 3, 4);
+const_from_impl_tensor_rank_1_list!(6, 6, 0, 1, 2, 3, 4, 5);
 const_from_impl_tensor_rank_1_list!(8, 8, 0, 1, 2, 3, 4, 5, 6, 7);
 
 macro_rules! const_from_impl_tensor_rank_1_list_2d {
@@ -68,9 +71,10 @@ macro_rules! const_from_impl_tensor_rank_1_list_2d {
 const_from_impl_tensor_rank_1_list_2d!(2, 3, 1, 0);
 const_from_impl_tensor_rank_1_list_2d!(3, 4, 1, 0);
 const_from_impl_tensor_rank_1_list_2d!(3, 5, 5, 0, 1, 2, 3, 4);
+const_from_impl_tensor_rank_1_list_2d!(3, 6, 6, 0, 1, 2, 3, 4, 5);
+const_from_impl_tensor_rank_1_list_2d!(3, 8, 8, 0, 1, 2, 3, 4, 5, 6, 7);
 const_from_impl_tensor_rank_1_list_2d!(3, 10, 12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
 const_from_impl_tensor_rank_1_list_2d!(3, 12, 10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
-const_from_impl_tensor_rank_1_list_2d!(3, 8, 8, 0, 1, 2, 3, 4, 5, 6, 7);
 
 macro_rules! const_from_impl_tensor_rank_2_list {
     ($dim:literal, $len:literal, $($i:literal),*) => {

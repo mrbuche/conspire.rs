@@ -5,7 +5,7 @@ pub type Hexahedron = Element<G, N>;
 
 crate::fem::block::element::linear::implement!(Hexahedron);
 
-const SQRT_3_OVER_3: Scalar = 0.577_350_269_189_625_8;
+use super::SQRT_3_OVER_3;
 
 impl Hexahedron {
     const fn integration_points() -> [[Scalar; M]; G] {
