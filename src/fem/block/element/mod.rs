@@ -56,6 +56,7 @@ impl<const G: usize, const N: usize> Debug for Element<G, N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let element = match (G, N) {
             (1, 4) => "LinearTetrahedron",
+            (5, 5) => "LinearPyramid",
             (8, 8) => "LinearHexahedron",
             (4, 10) => "CompositeTetrahedron",
             _ => panic!(),

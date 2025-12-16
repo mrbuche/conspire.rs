@@ -7,7 +7,7 @@ pub use pyramid::Pyramid;
 pub use tetrahedron::Tetrahedron;
 
 macro_rules! linear_finite_element {
-    ($element:ident, $g:expr, $weights:expr) => {
+    ($element:ident) => {
         impl FiniteElement<G, N> for $element {
             fn initialize(
                 reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,
@@ -37,18 +37,28 @@ macro_rules! linear_finite_element {
             }
         }
         impl $element {
-            // const fn integration_point(point: usize) -> [Scalar; M] {
-            //     todo!()
-            // }
-            const fn integration_weight() -> Scalars<G> {
-                Scalars::<G>::const_from($weights)
+            #[cfg(test)]
+            const fn shape_functions_at_integration_points()
+            -> ShapeFunctionsAtIntegrationPoints<G, Q> {
+                let mut g = 0;
+                let mut shape_functions = [[0.0; Q]; G];
+                let integration_points = Self::integration_points();
+                while g < G {
+                    shape_functions[g] = Self::shape_functions(integration_points[g]);
+                    g += 1;
+                }
+                ShapeFunctionsAtIntegrationPoints::<G, Q>::const_from(shape_functions)
             }
             const fn standard_gradient_operators() -> StandardGradientOperators<M, N, P> {
-                StandardGradientOperators::<M, N, P>::const_from([
-                    $(
-                        Self::shape_functions_gradients(Self::integration_point($g)),
-                    )*
-                ])
+                let mut g = 0;
+                let mut shape_functions_gradients = [[[0.0; M]; N]; G];
+                let integration_points = Self::integration_points();
+                while g < G {
+                    shape_functions_gradients[g] =
+                        Self::shape_functions_gradients(integration_points[g]);
+                    g += 1;
+                }
+                StandardGradientOperators::<M, N, P>::const_from(shape_functions_gradients)
             }
         }
     };
