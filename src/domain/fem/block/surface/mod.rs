@@ -13,7 +13,7 @@ where
     fn new(
         constitutive_model: C,
         connectivity: Connectivity<N>,
-        reference_nodal_coordinates: NodalReferenceCoordinates,
+        coordinates: NodalReferenceCoordinates,
         thickness: Scalar,
     ) -> Self;
 }
@@ -31,9 +31,9 @@ where
     ) -> Self {
         let elements = connectivity
             .iter()
-            .map(|element_connectivity| {
+            .map(|nodes| {
                 <F>::new(
-                    element_connectivity
+                    nodes
                         .iter()
                         .map(|&node| coordinates[node].clone())
                         .collect(),
