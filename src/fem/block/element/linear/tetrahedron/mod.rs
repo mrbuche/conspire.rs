@@ -1,5 +1,4 @@
 const G: usize = 1;
-const M: usize = 3;
 const N: usize = 4;
 
 pub type Tetrahedron = Element<G, N>;

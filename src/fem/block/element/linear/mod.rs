@@ -19,6 +19,7 @@ macro_rules! implement {
             },
             math::{Scalar, Scalars},
         };
+        const M: usize = 3;
         const P: usize = G;
         #[cfg(test)]
         const Q: usize = N;

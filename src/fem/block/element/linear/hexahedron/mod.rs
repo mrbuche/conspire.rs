@@ -1,5 +1,4 @@
 const G: usize = 8;
-const M: usize = 3;
 const N: usize = 8;
 
 pub type Hexahedron = Element<G, N>;

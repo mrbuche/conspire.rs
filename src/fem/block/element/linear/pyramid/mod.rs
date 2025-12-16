@@ -1,5 +1,4 @@
 const G: usize = 5;
-const M: usize = 3;
 const N: usize = 5;
 
 pub type Pyramid = Element<G, N>;
