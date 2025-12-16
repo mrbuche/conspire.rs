@@ -37,7 +37,7 @@ impl<const G: usize, const N: usize> SolidFiniteElement<G, N> for Element<G, N> 
             .map(|gradient_vectors| {
                 nodal_coordinates
                     .iter()
-                    .zip(gradient_vectors.iter())
+                    .zip(gradient_vectors)
                     .map(|(nodal_coordinate, gradient_vector)| {
                         (nodal_coordinate, gradient_vector).into()
                     })
@@ -55,7 +55,7 @@ impl<const G: usize, const N: usize> SolidFiniteElement<G, N> for Element<G, N> 
             .map(|gradient_vectors| {
                 nodal_velocities
                     .iter()
-                    .zip(gradient_vectors.iter())
+                    .zip(gradient_vectors)
                     .map(|(nodal_velocity, gradient_vector)| {
                         (nodal_velocity, gradient_vector).into()
                     })

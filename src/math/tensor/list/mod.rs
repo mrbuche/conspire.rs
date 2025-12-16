@@ -1,9 +1,10 @@
 use crate::math::{Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank2};
 use std::{
-    array::{IntoIter, from_fn},
+    array::{self, from_fn},
     fmt::{Display, Formatter, Result},
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
+    slice,
 };
 
 #[repr(transparent)]
@@ -188,9 +189,20 @@ where
     T: Tensor,
 {
     type Item = T;
-    type IntoIter = IntoIter<Self::Item, N>;
+    type IntoIter = array::IntoIter<Self::Item, N>;
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
+    }
+}
+
+impl<'a, T, const N: usize> IntoIterator for &'a TensorList<T, N>
+where
+    T: Tensor,
+{
+    type Item = &'a T;
+    type IntoIter = slice::Iter<'a, T>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
     }
 }
 

@@ -26,37 +26,37 @@ impl SolidVirtualElement for Element {
         &self,
         nodal_coordinates: &ElementNodalCoordinates,
     ) -> DeformationGradients {
-        // self.gradient_vectors()
-        //     .iter()
-        //     .map(|gradient_vectors| {
-        //         nodal_coordinates
-        //             .iter()
-        //             .zip(gradient_vectors)
-        //             .map(|(nodal_coordinate, gradient_vector)| {
-        //                 (nodal_coordinate, gradient_vector).into()
-        //             })
-        //             .sum()
-        //     })
-        //     .collect()
-        todo!()
+        self.gradient_vectors()
+            .iter()
+            .map(|gradient_vectors| {
+                nodal_coordinates
+                    .iter()
+                    .flatten()
+                    .zip(gradient_vectors)
+                    .map(|(nodal_coordinate, gradient_vector)| {
+                        (nodal_coordinate, gradient_vector).into()
+                    })
+                    .sum()
+            })
+            .collect()
     }
     fn deformation_gradient_rates(
         &self,
         _: &ElementNodalCoordinates,
         nodal_velocities: &ElementNodalVelocities,
     ) -> DeformationGradientRates {
-        // self.gradient_vectors()
-        //     .iter()
-        //     .map(|gradient_vectors| {
-        //         nodal_velocities
-        //             .iter()
-        //             .zip(gradient_vectors)
-        //             .map(|(nodal_velocity, gradient_vector)| {
-        //                 (nodal_velocity, gradient_vector).into()
-        //             })
-        //             .sum()
-        //     })
-        //     .collect()
-        todo!()
+        self.gradient_vectors()
+            .iter()
+            .map(|gradient_vectors| {
+                nodal_velocities
+                    .iter()
+                    .flatten()
+                    .zip(gradient_vectors)
+                    .map(|(nodal_velocity, gradient_vector)| {
+                        (nodal_velocity, gradient_vector).into()
+                    })
+                    .sum()
+            })
+            .collect()
     }
 }

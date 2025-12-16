@@ -7,8 +7,8 @@ use crate::{
     defeat_message,
     math::{
         Rank2, Tensor, TensorRank1, TensorRank1List, TensorRank1List2D, TensorRank1Vec,
-        TensorRank2, TensorRank2List, TensorRank2List2D, TensorRank2Vec, TensorRank2Vec2D,
-        TensorRank4, TensorRank4List, TensorRank4Vec,
+        TensorRank1Vec2D, TensorRank2, TensorRank2List, TensorRank2List2D, TensorRank2Vec,
+        TensorRank2Vec2D, TensorRank4, TensorRank4List, TensorRank4Vec,
     },
 };
 use std::fmt::{self, Debug, Display, Formatter};
@@ -350,7 +350,11 @@ pub type Traction = TensorRank1<3, 1>;
 pub type Vector<const I: usize> = TensorRank1<3, I>;
 
 /// A list of vectors.
-pub type Vectors<const I: usize, const W: usize> = TensorRank1List<3, I, W>;
+pub type VectorList<const I: usize, const W: usize> = TensorRank1List<3, I, W>;
 
 /// A 2D list of vectors.
-pub type Vectors2D<const I: usize, const W: usize, const X: usize> = TensorRank1List2D<3, I, W, X>;
+pub type VectorList2D<const I: usize, const W: usize, const X: usize> =
+    TensorRank1List2D<3, I, W, X>;
+
+/// A vector of vectors.
+pub type Vectors2D<const I: usize> = TensorRank1Vec2D<3, I>;

@@ -3,7 +3,7 @@ use std::{
     fmt::{Display, Formatter, Result},
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
-    vec::IntoIter,
+    slice, vec,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -144,9 +144,20 @@ where
     T: Tensor,
 {
     type Item = T;
-    type IntoIter = IntoIter<Self::Item>;
+    type IntoIter = vec::IntoIter<Self::Item>;
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a TensorVector<T>
+where
+    T: Tensor,
+{
+    type Item = &'a T;
+    type IntoIter = slice::Iter<'a, T>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
     }
 }
 

@@ -3,22 +3,24 @@ pub mod solid;
 use crate::{
     defeat_message,
     math::{Scalars, TensorRank1Vec2D, TestError},
+    mechanics::Vectors2D,
 };
 use std::fmt::{self, Debug, Display, Formatter};
 
 pub type ElementNodalCoordinates = TensorRank1Vec2D<3, 1>;
 pub type ElementNodalVelocities = TensorRank1Vec2D<3, 1>;
 pub type ElementNodalReferenceCoordinates = TensorRank1Vec2D<3, 0>;
+pub type GradientVectors = Vectors2D<0>;
 
 pub struct Element {
-    // gradient_vectors: GradientVectors<G, N>,
+    gradient_vectors: GradientVectors,
     integration_weights: Scalars,
 }
 
 impl Element {
-    // fn gradient_vectors(&self) -> &GradientVectors<G, N> {
-    //     &self.gradient_vectors
-    // }
+    fn gradient_vectors(&self) -> &GradientVectors {
+        &self.gradient_vectors
+    }
     fn integration_weights(&self) -> &Scalars {
         &self.integration_weights
     }
@@ -34,9 +36,9 @@ pub trait VirtualElement
 where
     Self: From<ElementNodalReferenceCoordinates>,
 {
-    // fn initialize(
-    //     reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,
-    // ) -> (GradientVectors<G, N>, ScalarList<G>);
+    fn initialize(
+        reference_nodal_coordinates: ElementNodalReferenceCoordinates,
+    ) -> (GradientVectors, Scalars);
 }
 
 pub enum VirtualElementError {

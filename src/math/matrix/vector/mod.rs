@@ -13,7 +13,7 @@ use std::{
         Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, RangeFrom, RangeTo, Sub,
         SubAssign,
     },
-    vec::IntoIter,
+    slice, vec,
 };
 
 /// A vector.
@@ -234,9 +234,17 @@ impl Jacobian for Vector {
 
 impl IntoIterator for Vector {
     type Item = Scalar;
-    type IntoIter = IntoIter<Self::Item>;
+    type IntoIter = vec::IntoIter<Self::Item>;
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a Vector {
+    type Item = &'a Scalar;
+    type IntoIter = slice::Iter<'a, Scalar>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
     }
 }
 

@@ -42,26 +42,25 @@ where
             })
             .collect::<Result<FirstPiolaKirchhoffStresses, _>>()
         {
-            Ok(first_piola_kirchhoff_stresses) => todo!(),
-            // Ok(first_piola_kirchhoff_stresses
-            // .iter()
-            // .zip(
-            //     self.gradient_vectors()
-            //         .iter()
-            //         .zip(self.integration_weights().iter()),
-            // )
-            // .map(
-            //     |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
-            //         gradient_vectors
-            //             .iter()
-            //             .map(|gradient_vector| {
-            //                 (first_piola_kirchhoff_stress * gradient_vector)
-            //                     * integration_weight
-            //             })
-            //             .collect()
-            //     },
-            // )
-            // .sum()),
+            Ok(first_piola_kirchhoff_stresses) => Ok(first_piola_kirchhoff_stresses
+                .iter()
+                .zip(
+                    self.gradient_vectors()
+                        .iter()
+                        .zip(self.integration_weights()),
+                )
+                .map(
+                    |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
+                        gradient_vectors
+                            .iter()
+                            .map(|gradient_vector| {
+                                (first_piola_kirchhoff_stress * gradient_vector)
+                                    * integration_weight
+                            })
+                            .collect()
+                    },
+                )
+                .sum()),
             Err(error) => Err(VirtualElementError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
@@ -81,40 +80,39 @@ where
             })
             .collect::<Result<FirstPiolaKirchhoffTangentStiffnesses, _>>()
         {
-            Ok(first_piola_kirchhoff_tangent_stiffnesses) => todo!(),
-            // {
-            //     Ok(first_piola_kirchhoff_tangent_stiffnesses
-            //         .iter()
-            //         .zip(
-            //             self.gradient_vectors()
-            //                 .iter()
-            //                 .zip(self.integration_weights().iter()),
-            //         )
-            //         .map(
-            //             |(
-            //                 first_piola_kirchhoff_tangent_stiffness,
-            //                 (gradient_vectors, integration_weight),
-            //             )| {
-            //                 gradient_vectors
-            //                     .iter()
-            //                     .map(|gradient_vector_a| {
-            //                         gradient_vectors
-            //                             .iter()
-            //                             .map(|gradient_vector_b| {
-            //                                 first_piola_kirchhoff_tangent_stiffness
-            //                                 .contract_second_fourth_indices_with_first_indices_of(
-            //                                     gradient_vector_a,
-            //                                     gradient_vector_b,
-            //                                 )
-            //                                 * integration_weight
-            //                             })
-            //                             .collect()
-            //                     })
-            //                     .collect()
-            //             },
-            //         )
-            //         .sum())
-            // }
+            Ok(first_piola_kirchhoff_tangent_stiffnesses) => {
+                Ok(first_piola_kirchhoff_tangent_stiffnesses
+                    .iter()
+                    .zip(
+                        self.gradient_vectors()
+                            .iter()
+                            .zip(self.integration_weights()),
+                    )
+                    .map(
+                        |(
+                            first_piola_kirchhoff_tangent_stiffness,
+                            (gradient_vectors, integration_weight),
+                        )| {
+                            gradient_vectors
+                                .iter()
+                                .map(|gradient_vector_a| {
+                                    gradient_vectors
+                                        .iter()
+                                        .map(|gradient_vector_b| {
+                                            first_piola_kirchhoff_tangent_stiffness
+                                            .contract_second_fourth_indices_with_first_indices_of(
+                                                gradient_vector_a,
+                                                gradient_vector_b,
+                                            )
+                                            * integration_weight
+                                        })
+                                        .collect()
+                                })
+                                .collect()
+                        },
+                    )
+                    .sum())
+            }
             Err(error) => Err(VirtualElementError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
