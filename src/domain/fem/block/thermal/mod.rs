@@ -2,7 +2,7 @@ pub mod conduction;
 
 use crate::{
     fem::block::{
-        ElementBlock,
+        Block,
         element::thermal::{ElementNodalTemperatures, ThermalFiniteElement},
     },
     math::Vector,
@@ -26,8 +26,7 @@ where
     ) -> Vec<TemperatureGradients<G>>;
 }
 
-impl<C, F, const G: usize, const N: usize> ThermalFiniteElementBlock<C, F, G, N>
-    for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const N: usize> ThermalFiniteElementBlock<C, F, G, N> for Block<C, F, N>
 where
     F: ThermalFiniteElement<G, N>,
 {

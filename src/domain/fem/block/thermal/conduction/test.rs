@@ -6,7 +6,7 @@ macro_rules! test_thermal {
                 EPSILON,
                 constitutive::thermal::conduction::Fourier,
                 fem::block::{
-                    ElementBlock, FiniteElementBlock, FiniteElementBlockError,
+                    Block, FiniteElementBlock, FiniteElementBlockError,
                     thermal::{
                         NodalTemperatures,
                         conduction::{
@@ -25,7 +25,7 @@ macro_rules! test_thermal {
                 #[test]
                 fn potential() -> Result<(), TestError> {
                     let constitutive_model = MODEL;
-                    let block = ElementBlock::<Fourier, $element, N>::new(
+                    let block = Block::<Fourier, $element, N>::new(
                         constitutive_model,
                         get_connectivity(),
                         get_reference_coordinates_block(),
@@ -49,7 +49,7 @@ macro_rules! test_thermal {
                 #[test]
                 fn nodal_forces() -> Result<(), TestError> {
                     let constitutive_model = MODEL;
-                    let block = ElementBlock::<Fourier, $element, N>::new(
+                    let block = Block::<Fourier, $element, N>::new(
                         constitutive_model,
                         get_connectivity(),
                         get_reference_coordinates_block(),

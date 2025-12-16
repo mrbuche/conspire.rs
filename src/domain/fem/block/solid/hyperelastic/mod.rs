@@ -3,7 +3,7 @@ use crate::{
     fem::{
         NodalCoordinates,
         block::{
-            ElementBlock, FiniteElementBlockError, FirstOrderMinimize, SecondOrderMinimize, band,
+            Block, FiniteElementBlockError, FirstOrderMinimize, SecondOrderMinimize, band,
             element::solid::hyperelastic::HyperelasticFiniteElement,
             solid::{
                 NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElementBlock,
@@ -32,7 +32,7 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize> HyperelasticFiniteElementBlock<C, F, G, N>
-    for ElementBlock<C, F, N>
+    for Block<C, F, N>
 where
     C: Hyperelastic,
     F: HyperelasticFiniteElement<C, G, N>,
@@ -64,7 +64,7 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize> FirstOrderMinimize<C, F, G, N, NodalCoordinates>
-    for ElementBlock<C, F, N>
+    for Block<C, F, N>
 where
     C: Hyperelastic,
     F: HyperelasticFiniteElement<C, G, N>,
@@ -87,7 +87,7 @@ where
 
 impl<C, F, const G: usize, const N: usize>
     SecondOrderMinimize<C, F, G, N, NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>
-    for ElementBlock<C, F, N>
+    for Block<C, F, N>
 where
     C: Hyperelastic,
     F: HyperelasticFiniteElement<C, G, N>,

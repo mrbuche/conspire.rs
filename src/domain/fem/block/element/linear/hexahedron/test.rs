@@ -2,7 +2,7 @@ use crate::{
     fem::{
         NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
         block::{
-            Connectivity, ElementBlock, FiniteElementBlock,
+            Block, Connectivity, FiniteElementBlock,
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
                 GradientVectors,

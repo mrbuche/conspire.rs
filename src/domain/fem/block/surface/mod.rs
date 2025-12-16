@@ -1,7 +1,7 @@
 use crate::{
     fem::{
         NodalReferenceCoordinates,
-        block::{Connectivity, ElementBlock, element::surface::SurfaceFiniteElement},
+        block::{Block, Connectivity, element::surface::SurfaceFiniteElement},
     },
     math::Scalar,
 };

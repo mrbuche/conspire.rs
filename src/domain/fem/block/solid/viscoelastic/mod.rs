@@ -3,7 +3,7 @@ use crate::{
     fem::{
         NodalCoordinates, NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
         block::{
-            ElementBlock, FiniteElementBlockError,
+            Block, FiniteElementBlockError,
             element::{
                 ElementNodalVelocities, FiniteElementError,
                 solid::viscoelastic::ViscoelasticFiniteElement,
@@ -62,7 +62,7 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize> ViscoelasticFiniteElementBlock<C, F, G, N>
-    for ElementBlock<C, F, N>
+    for Block<C, F, N>
 where
     C: Viscoelastic,
     F: ViscoelasticFiniteElement<C, G, N>,

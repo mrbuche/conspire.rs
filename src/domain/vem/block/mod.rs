@@ -54,14 +54,22 @@ impl<C, F> Debug for Block<C, F> {
 pub trait VirtualElementBlock<C, F>
 where
     F: VirtualElement,
-    Self: From<(C, NodalReferenceCoordinates, Connectivity, Connectivity)>
-{}
+    Self: From<(C, NodalReferenceCoordinates, Connectivity, Connectivity)>,
+{
+}
 
 impl<C, F> From<(C, NodalReferenceCoordinates, Connectivity, Connectivity)> for Block<C, F>
 where
-    F: VirtualElement
+    F: VirtualElement,
 {
-    fn from((constitutive_model, coordinates, element_faces, face_nodes): (C, NodalReferenceCoordinates, Connectivity, Connectivity)) -> Self {
+    fn from(
+        (constitutive_model, coordinates, element_faces, face_nodes): (
+            C,
+            NodalReferenceCoordinates,
+            Connectivity,
+            Connectivity,
+        ),
+    ) -> Self {
         let elements = element_faces
             .iter()
             .map(|faces| {
@@ -87,4 +95,3 @@ where
         }
     }
 }
-

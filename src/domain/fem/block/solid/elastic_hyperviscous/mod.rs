@@ -3,7 +3,7 @@ use crate::{
     fem::{
         NodalCoordinates, NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
         block::{
-            ElementBlock, FiniteElementBlockError, band,
+            Block, FiniteElementBlockError, band,
             element::solid::elastic_hyperviscous::ElasticHyperviscousFiniteElement,
             solid::{
                 NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElementBlock,
@@ -63,7 +63,7 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize> ElasticHyperviscousFiniteElementBlock<C, F, G, N>
-    for ElementBlock<C, F, N>
+    for Block<C, F, N>
 where
     C: ElasticHyperviscous,
     F: ElasticHyperviscousFiniteElement<C, G, N>,

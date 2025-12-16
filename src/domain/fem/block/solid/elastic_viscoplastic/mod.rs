@@ -3,7 +3,7 @@ use crate::{
     fem::{
         NodalCoordinates, NodalCoordinatesHistory,
         block::{
-            ElementBlock, FiniteElementBlockError,
+            Block, FiniteElementBlockError,
             element::{
                 FiniteElementError, solid::elastic_viscoplastic::ElasticViscoplasticFiniteElement,
             },
@@ -77,7 +77,7 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize> ElasticViscoplasticFiniteElementBlock<C, F, G, N>
-    for ElementBlock<C, F, N>
+    for Block<C, F, N>
 where
     C: ElasticViscoplastic,
     F: ElasticViscoplasticFiniteElement<C, G, N>,

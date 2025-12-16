@@ -9,7 +9,7 @@ use crate::{
     fem::{
         NodalCoordinates,
         block::{
-            ElementBlock,
+            Block,
             element::{ElementNodalCoordinates, solid::SolidFiniteElement},
         },
     },
@@ -33,8 +33,7 @@ where
     ) -> ElementNodalCoordinates<N>;
 }
 
-impl<C, F, const G: usize, const N: usize> SolidFiniteElementBlock<C, F, G, N>
-    for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const N: usize> SolidFiniteElementBlock<C, F, G, N> for Block<C, F, N>
 where
     F: SolidFiniteElement<G, N>,
 {

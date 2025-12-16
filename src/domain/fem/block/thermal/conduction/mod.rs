@@ -4,8 +4,8 @@ pub mod test;
 use crate::{
     constitutive::thermal::conduction::ThermalConduction,
     fem::block::{
-        ElementBlock, FiniteElementBlockError, FirstOrderMinimize, FirstOrderRoot,
-        SecondOrderMinimize, ZerothOrderRoot, band,
+        Block, FiniteElementBlockError, FirstOrderMinimize, FirstOrderRoot, SecondOrderMinimize,
+        ZerothOrderRoot, band,
         element::{FiniteElementError, thermal::conduction::ThermalConductionFiniteElement},
         thermal::{NodalTemperatures, ThermalFiniteElementBlock},
     },
@@ -41,7 +41,7 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize> ThermalConductionFiniteElementBlock<C, F, G, N>
-    for ElementBlock<C, F, N>
+    for Block<C, F, N>
 where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, N>,
@@ -132,7 +132,7 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N, NodalTemperatures>
-    for ElementBlock<C, F, N>
+    for Block<C, F, N>
 where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, N>,
@@ -152,7 +152,7 @@ where
 
 impl<C, F, const G: usize, const N: usize>
     FirstOrderRoot<C, F, G, N, NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures>
-    for ElementBlock<C, F, N>
+    for Block<C, F, N>
 where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, N>,
@@ -178,7 +178,7 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize> FirstOrderMinimize<C, F, G, N, NodalTemperatures>
-    for ElementBlock<C, F, N>
+    for Block<C, F, N>
 where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, N>,
@@ -199,7 +199,7 @@ where
 
 impl<C, F, const G: usize, const N: usize>
     SecondOrderMinimize<C, F, G, N, NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures>
-    for ElementBlock<C, F, N>
+    for Block<C, F, N>
 where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, N>,

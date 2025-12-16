@@ -3,7 +3,7 @@ use crate::{
     fem::{
         NodalCoordinates,
         block::{
-            ElementBlock, FiniteElementBlockError, FirstOrderRoot, ZerothOrderRoot,
+            Block, FiniteElementBlockError, FirstOrderRoot, ZerothOrderRoot,
             element::{FiniteElementError, solid::elastic::ElasticFiniteElement},
             solid::{NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElementBlock},
         },
@@ -31,8 +31,7 @@ where
     ) -> Result<NodalStiffnessesSolid, FiniteElementBlockError>;
 }
 
-impl<C, F, const G: usize, const N: usize> ElasticFiniteElementBlock<C, F, G, N>
-    for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const N: usize> ElasticFiniteElementBlock<C, F, G, N> for Block<C, F, N>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, N>,
@@ -101,7 +100,7 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N, NodalCoordinates>
-    for ElementBlock<C, F, N>
+    for Block<C, F, N>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, N>,
@@ -121,7 +120,7 @@ where
 
 impl<C, F, const G: usize, const N: usize>
     FirstOrderRoot<C, F, G, N, NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>
-    for ElementBlock<C, F, N>
+    for Block<C, F, N>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, N>,
