@@ -1,12 +1,14 @@
 use crate::{
     constitutive::solid::elastic_hyperviscous::ElasticHyperviscous,
     fem::{
-        NodalCoordinates, NodalCoordinatesHistory, NodalForcesSolid, NodalStiffnessesSolid,
-        NodalVelocities, NodalVelocitiesHistory,
+        NodalCoordinates, NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
         block::{
             ElementBlock, FiniteElementBlockError, band,
             element::solid::elastic_hyperviscous::ElasticHyperviscousFiniteElement,
-            solid::{SolidFiniteElementBlock, viscoelastic::ViscoelasticFiniteElementBlock},
+            solid::{
+                NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElementBlock,
+                viscoelastic::ViscoelasticFiniteElementBlock,
+            },
         },
     },
     math::{

@@ -16,6 +16,8 @@ use crate::{
     mechanics::DeformationGradientList,
 };
 
+pub use crate::domain::{NodalForcesSolid, NodalStiffnessesSolid};
+
 pub trait SolidFiniteElementBlock<C, F, const G: usize, const N: usize>
 where
     F: SolidFiniteElement<G, N>,

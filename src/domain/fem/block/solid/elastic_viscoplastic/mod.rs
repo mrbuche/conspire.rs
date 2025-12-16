@@ -1,13 +1,13 @@
 use crate::{
     constitutive::solid::elastic_viscoplastic::ElasticViscoplastic,
     fem::{
-        NodalCoordinates, NodalCoordinatesHistory, NodalForcesSolid, NodalStiffnessesSolid,
+        NodalCoordinates, NodalCoordinatesHistory,
         block::{
             ElementBlock, FiniteElementBlockError,
             element::{
                 FiniteElementError, solid::elastic_viscoplastic::ElasticViscoplasticFiniteElement,
             },
-            solid::SolidFiniteElementBlock,
+            solid::{NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElementBlock},
         },
     },
     math::{

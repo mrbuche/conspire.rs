@@ -1,7 +1,6 @@
 use crate::{
     fem::{
-        NodalCoordinates, NodalForcesSolid, NodalReferenceCoordinates, NodalStiffnessesSolid,
-        NodalVelocities,
+        NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
         block::{
             Connectivity, ElementBlock, FiniteElementBlock,
             element::{
@@ -11,6 +10,7 @@ use crate::{
                 solid::SolidFiniteElement,
                 test::test_finite_element,
             },
+            solid::{NodalForcesSolid, NodalStiffnessesSolid},
             test::test_finite_element_block,
         },
     },

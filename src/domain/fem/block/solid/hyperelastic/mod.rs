@@ -1,11 +1,14 @@
 use crate::{
     constitutive::solid::hyperelastic::Hyperelastic,
     fem::{
-        NodalCoordinates, NodalForcesSolid, NodalStiffnessesSolid,
+        NodalCoordinates,
         block::{
             ElementBlock, FiniteElementBlockError, FirstOrderMinimize, SecondOrderMinimize, band,
             element::solid::hyperelastic::HyperelasticFiniteElement,
-            solid::{SolidFiniteElementBlock, elastic::ElasticFiniteElementBlock},
+            solid::{
+                NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElementBlock,
+                elastic::ElasticFiniteElementBlock,
+            },
         },
     },
     math::{
