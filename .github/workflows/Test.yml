@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        features: [math, mechanics, constitutive, fem]
+        features: [math, mechanics, constitutive, fem, vem]
         os: [macos-latest, windows-latest, ubuntu-latest]
         toolchain: [beta, nightly, stable]
     runs-on: ${{ matrix.os }}
@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        features: [math, mechanics, constitutive] #, fem]
+        features: [math, mechanics, constitutive] #, fem, vem]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

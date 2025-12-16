@@ -12,7 +12,7 @@ use crate::{
     },
     fem::block::element::{
         ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
-        FiniteElementError, GradientVectors, StandardGradientOperators,
+        FiniteElementError, StandardGradientOperators,
         solid::{
             ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement,
             elastic::ElasticFiniteElement, elastic_hyperviscous::ElasticHyperviscousFiniteElement,
@@ -25,7 +25,7 @@ use crate::{
             SurfaceFiniteElementMethodsExtra,
         },
     },
-    math::{IDENTITY, Scalar, Scalars, Tensor},
+    math::{IDENTITY, Scalar, Tensor},
     mechanics::{
         DeformationGradient, DeformationGradientList, DeformationGradientRate,
         DeformationGradientRateList, FirstPiolaKirchhoffRateTangentStiffnesses,
@@ -160,12 +160,6 @@ impl SolidFiniteElement<G, N> for Triangle {
                     + DeformationGradientRate::from(normal_rate_and_reference_normal)
             })
             .collect()
-    }
-    fn gradient_vectors(&self) -> &GradientVectors<G, N> {
-        &self.gradient_vectors
-    }
-    fn integration_weights(&self) -> &Scalars<G> {
-        &self.integration_weights
     }
 }
 

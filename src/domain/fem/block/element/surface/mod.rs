@@ -29,6 +29,9 @@ impl<const G: usize, const N: usize, const P: usize> Debug for SurfaceElement<G,
 }
 
 impl<const G: usize, const N: usize, const P: usize> SurfaceElement<G, N, P> {
+    fn gradient_vectors(&self) -> &GradientVectors<G, N> {
+        &self.gradient_vectors
+    }
     fn integration_weights(&self) -> &Scalars<G> {
         &self.integration_weights
     }

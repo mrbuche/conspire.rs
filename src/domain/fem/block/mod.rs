@@ -66,7 +66,7 @@ impl<C, F, const N: usize> Debug for ElementBlock<C, F, N> {
                 .split("<")
                 .next()
                 .unwrap(),
-            self.connectivity.len()
+            self.elements().len()
         )
     }
 }
@@ -78,7 +78,7 @@ where
     fn new(
         constitutive_model: C,
         connectivity: Connectivity<N>,
-        reference_nodal_coordinates: NodalReferenceCoordinates,
+        coordinates: NodalReferenceCoordinates,
     ) -> Self;
     fn reset(&mut self);
 }
@@ -94,9 +94,9 @@ where
     ) -> Self {
         let elements = connectivity
             .iter()
-            .map(|element_connectivity| {
+            .map(|nodes| {
                 <F>::from(
-                    element_connectivity
+                    nodes
                         .iter()
                         .map(|&node| coordinates[node].clone())
                         .collect(),
