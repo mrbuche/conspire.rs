@@ -18,6 +18,7 @@ domain = ['constitutive']
 fem = ['domain']
 math = []
 mechanics = ['math']
+vem = ['domain']
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }
