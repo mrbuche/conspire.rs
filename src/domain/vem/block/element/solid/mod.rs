@@ -1,3 +1,5 @@
+pub mod elastic;
+
 use crate::{
     math::Tensor,
     mechanics::{DeformationGradientRates, DeformationGradients, Forces, Stiffnesses},
@@ -29,7 +31,7 @@ impl SolidVirtualElement for Element {
         //     .map(|gradient_vectors| {
         //         nodal_coordinates
         //             .iter()
-        //             .zip(gradient_vectors.iter())
+        //             .zip(gradient_vectors)
         //             .map(|(nodal_coordinate, gradient_vector)| {
         //                 (nodal_coordinate, gradient_vector).into()
         //             })
@@ -48,7 +50,7 @@ impl SolidVirtualElement for Element {
         //     .map(|gradient_vectors| {
         //         nodal_velocities
         //             .iter()
-        //             .zip(gradient_vectors.iter())
+        //             .zip(gradient_vectors)
         //             .map(|(nodal_velocity, gradient_vector)| {
         //                 (nodal_velocity, gradient_vector).into()
         //             })

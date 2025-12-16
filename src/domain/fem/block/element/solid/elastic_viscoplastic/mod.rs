@@ -8,14 +8,13 @@ use crate::{
         },
     },
     math::{ContractSecondFourthIndicesWithFirstIndicesOf, Tensor},
-    mechanics::{FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses},
+    mechanics::{FirstPiolaKirchhoffStressList, FirstPiolaKirchhoffTangentStiffnessList},
 };
-use std::fmt::Debug;
 
 pub trait ElasticViscoplasticFiniteElement<C, const G: usize, const N: usize>
 where
     C: ElasticViscoplastic,
-    Self: Debug + SolidFiniteElement<G, N>,
+    Self: SolidFiniteElement<G, N>,
 {
     fn nodal_forces(
         &self,
@@ -56,7 +55,7 @@ where
                 constitutive_model
                     .first_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_p)
             })
-            .collect::<Result<FirstPiolaKirchhoffStresses<G>, _>>()
+            .collect::<Result<FirstPiolaKirchhoffStressList<G>, _>>()
         {
             Ok(first_piola_kirchhoff_stresses) => Ok(first_piola_kirchhoff_stresses
                 .iter()
@@ -100,7 +99,7 @@ where
                     deformation_gradient_p,
                 )
             })
-            .collect::<Result<FirstPiolaKirchhoffTangentStiffnesses<G>, _>>()
+            .collect::<Result<FirstPiolaKirchhoffTangentStiffnessList<G>, _>>()
         {
             Ok(first_piola_kirchhoff_tangent_stiffnesses) => {
                 Ok(first_piola_kirchhoff_tangent_stiffnesses

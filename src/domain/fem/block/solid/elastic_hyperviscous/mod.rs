@@ -6,7 +6,7 @@ use crate::{
             Block, FiniteElementBlockError, band,
             element::solid::elastic_hyperviscous::ElasticHyperviscousFiniteElement,
             solid::{
-                NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElementBlock,
+                NodalForcesSolid, NodalStiffnessesSolid,
                 viscoelastic::ViscoelasticFiniteElementBlock,
             },
         },
@@ -77,12 +77,12 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.connectivity().iter())
-            .map(|(element, element_connectivity)| {
+            .zip(self.connectivity())
+            .map(|(element, nodes)| {
                 element.viscous_dissipation(
                     self.constitutive_model(),
-                    &self.element_nodal_coordinates(element_connectivity, nodal_coordinates),
-                    &self.element_nodal_velocities(element_connectivity, nodal_velocities),
+                    &Self::element_coordinates(nodal_coordinates, nodes),
+                    &self.element_velocities(nodal_velocities, nodes),
                 )
             })
             .sum()
@@ -102,12 +102,12 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.connectivity().iter())
-            .map(|(element, element_connectivity)| {
+            .zip(self.connectivity())
+            .map(|(element, nodes)| {
                 element.dissipation_potential(
                     self.constitutive_model(),
-                    &self.element_nodal_coordinates(element_connectivity, nodal_coordinates),
-                    &self.element_nodal_velocities(element_connectivity, nodal_velocities),
+                    &Self::element_coordinates(nodal_coordinates, nodes),
+                    &self.element_velocities(nodal_velocities, nodes),
                 )
             })
             .sum()

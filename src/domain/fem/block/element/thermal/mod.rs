@@ -5,24 +5,17 @@ use crate::{
     math::{Tensor, TensorRank0List},
     mechanics::TemperatureGradients,
 };
-use std::fmt::Debug;
 
 pub type ElementNodalTemperatures<const D: usize> = TensorRank0List<D>;
 
-pub trait ThermalFiniteElement<const G: usize, const N: usize>
-where
-    Self: Debug,
-{
+pub trait ThermalFiniteElement<const G: usize, const N: usize> {
     fn temperature_gradients(
         &self,
         nodal_temperatures: &ElementNodalTemperatures<N>,
     ) -> TemperatureGradients<G>;
 }
 
-impl<const G: usize, const N: usize> ThermalFiniteElement<G, N> for Element<G, N>
-where
-    Self: Debug,
-{
+impl<const G: usize, const N: usize> ThermalFiniteElement<G, N> for Element<G, N> {
     fn temperature_gradients(
         &self,
         nodal_temperatures: &ElementNodalTemperatures<N>,

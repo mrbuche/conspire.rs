@@ -45,7 +45,7 @@ pub use tensor::{
         ContractFirstThirdFourthIndicesWithFirstIndicesOf,
         ContractSecondFourthIndicesWithFirstIndicesOf, ContractSecondIndexWithFirstIndexOf,
         ContractThirdFourthIndicesWithFirstSecondIndicesOf, ContractThirdIndexWithFirstIndexOf,
-        IDENTITY_1010, TensorRank4, list::TensorRank4List,
+        IDENTITY_1010, TensorRank4, list::TensorRank4List, vec::TensorRank4Vec,
     },
     test::{TestError, assert_eq, assert_eq_within, assert_eq_within_tols},
     tuple::{

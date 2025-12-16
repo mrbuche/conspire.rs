@@ -1,7 +1,10 @@
 pub mod solid;
 
-use crate::math::{Scalars, TensorRank1Vec2D};
-use std::fmt::{self, Debug, Formatter};
+use crate::{
+    defeat_message,
+    math::{Scalars, TensorRank1Vec2D, TestError},
+};
+use std::fmt::{self, Debug, Display, Formatter};
 
 pub type ElementNodalCoordinates = TensorRank1Vec2D<3, 1>;
 pub type ElementNodalVelocities = TensorRank1Vec2D<3, 1>;
@@ -34,4 +37,44 @@ where
     // fn initialize(
     //     reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,
     // ) -> (GradientVectors<G, N>, ScalarList<G>);
+}
+
+pub enum VirtualElementError {
+    Upstream(String, String),
+}
+
+impl From<VirtualElementError> for TestError {
+    fn from(error: VirtualElementError) -> Self {
+        Self {
+            message: error.to_string(),
+        }
+    }
+}
+
+impl Debug for VirtualElementError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let error = match self {
+            Self::Upstream(error, element) => {
+                format!(
+                    "{error}\x1b[0;91m\n\
+                    In virtual element: {element}."
+                )
+            }
+        };
+        write!(f, "\n{error}\n\x1b[0;2;31m{}\x1b[0m\n", defeat_message())
+    }
+}
+
+impl Display for VirtualElementError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let error = match self {
+            Self::Upstream(error, element) => {
+                format!(
+                    "{error}\x1b[0;91m\n\
+                    In virtual element: {element}."
+                )
+            }
+        };
+        write!(f, "{error}\x1b[0m")
+    }
 }

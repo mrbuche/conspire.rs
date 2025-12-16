@@ -7,7 +7,8 @@ use crate::{
     },
     math::{IDENTITY, LEVI_CIVITA, Scalar, ScalarList, Tensor, TensorArray, TensorRank2},
     mechanics::{
-        Coordinates, Normal, NormalGradients, NormalRates, Normals, ReferenceNormals, SurfaceBases,
+        CoordinateList, Normal, NormalGradients, NormalRates, Normals, ReferenceNormals,
+        SurfaceBases,
     },
 };
 use std::fmt::{self, Debug, Formatter};
@@ -55,8 +56,8 @@ pub trait SurfaceFiniteElementMethods<
 > where
     Self: SurfaceFiniteElementMethodsExtra<M, N, P>,
 {
-    fn bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> SurfaceBases<I, P>;
-    fn dual_bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> SurfaceBases<I, P>;
+    fn bases<const I: usize>(nodal_coordinates: &CoordinateList<I, N>) -> SurfaceBases<I, P>;
+    fn dual_bases<const I: usize>(nodal_coordinates: &CoordinateList<I, N>) -> SurfaceBases<I, P>;
     fn normals(nodal_coordinates: &ElementNodalCoordinates<N>) -> Normals<P>;
     fn normal_gradients(nodal_coordinates: &ElementNodalCoordinates<N>) -> NormalGradients<N, P>;
     fn normal_rates(
@@ -75,7 +76,7 @@ impl<const G: usize, const M: usize, const N: usize, const P: usize>
 where
     Self: SurfaceFiniteElementMethodsExtra<M, N, P>,
 {
-    fn bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> SurfaceBases<I, P> {
+    fn bases<const I: usize>(nodal_coordinates: &CoordinateList<I, N>) -> SurfaceBases<I, P> {
         Self::standard_gradient_operators()
             .iter()
             .map(|standard_gradient_operator| {
@@ -94,7 +95,7 @@ where
             })
             .collect()
     }
-    fn dual_bases<const I: usize>(nodal_coordinates: &Coordinates<I, N>) -> SurfaceBases<I, P> {
+    fn dual_bases<const I: usize>(nodal_coordinates: &CoordinateList<I, N>) -> SurfaceBases<I, P> {
         Self::bases(nodal_coordinates)
             .iter()
             .map(|basis_vectors| {

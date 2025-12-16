@@ -5,10 +5,7 @@ use crate::{
         block::{
             Block, FiniteElementBlockError, FirstOrderMinimize, SecondOrderMinimize, band,
             element::solid::hyperelastic::HyperelasticFiniteElement,
-            solid::{
-                NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElementBlock,
-                elastic::ElasticFiniteElementBlock,
-            },
+            solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticFiniteElementBlock},
         },
     },
     math::{
@@ -45,11 +42,11 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.connectivity().iter())
-            .map(|(element, element_connectivity)| {
+            .zip(self.connectivity())
+            .map(|(element, nodes)| {
                 element.helmholtz_free_energy(
                     self.constitutive_model(),
-                    &self.element_nodal_coordinates(element_connectivity, nodal_coordinates),
+                    &Self::element_coordinates(nodal_coordinates, nodes),
                 )
             })
             .sum()

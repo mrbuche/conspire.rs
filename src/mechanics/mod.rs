@@ -8,7 +8,7 @@ use crate::{
     math::{
         Rank2, Tensor, TensorRank1, TensorRank1List, TensorRank1List2D, TensorRank1Vec,
         TensorRank2, TensorRank2List, TensorRank2List2D, TensorRank2Vec, TensorRank2Vec2D,
-        TensorRank4, TensorRank4List,
+        TensorRank4, TensorRank4List, TensorRank4Vec,
     },
 };
 use std::fmt::{self, Debug, Display, Formatter};
@@ -126,7 +126,10 @@ pub type CauchyRateTangentStiffness = TensorRank4<3, 1, 1, 1, 0>;
 pub type Coordinate<const I: usize> = TensorRank1<3, I>;
 
 /// A list of coordinates.
-pub type Coordinates<const I: usize, const W: usize> = TensorRank1List<3, I, W>;
+pub type CoordinateList<const I: usize, const N: usize> = TensorRank1List<3, I, N>;
+
+/// A vector of coordinates.
+pub type Coordinates<const I: usize> = TensorRank1Vec<3, I>;
 
 /// A coordinate in the current configuration.
 pub type CurrentCoordinate = TensorRank1<3, 1>;
@@ -192,7 +195,10 @@ pub type FirstPiolaKirchhoffStress2 = TensorRank2<3, 2, 0>;
 pub type FirstPiolaKirchhoffStressElastic = FirstPiolaKirchhoffStress1;
 
 /// A list of first Piola-Kirchhoff stresses.
-pub type FirstPiolaKirchhoffStresses<const W: usize> = TensorRank2List<3, 1, 0, W>;
+pub type FirstPiolaKirchhoffStressList<const N: usize> = TensorRank2List<3, 1, 0, N>;
+
+/// A vector of first Piola-Kirchhoff stresses.
+pub type FirstPiolaKirchhoffStresses = TensorRank2Vec<3, 1, 0>;
 
 /// The tangent stiffness associated with the first Piola-Kirchhoff stress $`\boldsymbol{\mathcal{C}}`$.
 pub type FirstPiolaKirchhoffTangentStiffness = TensorRank4<3, 1, 0, 1, 0>;
@@ -207,7 +213,11 @@ pub type FirstPiolaKirchhoffTangentStiffness2 = TensorRank4<3, 2, 0, 2, 0>;
 pub type FirstPiolaKirchhoffTangentStiffnessElastic = FirstPiolaKirchhoffTangentStiffness1;
 
 /// A list of first Piola-Kirchhoff tangent stiffnesses.
-pub type FirstPiolaKirchhoffTangentStiffnesses<const W: usize> = TensorRank4List<3, 1, 0, 1, 0, W>;
+pub type FirstPiolaKirchhoffTangentStiffnessList<const N: usize> =
+    TensorRank4List<3, 1, 0, 1, 0, N>;
+
+/// A vector of first Piola-Kirchhoff tangent stiffnesses.
+pub type FirstPiolaKirchhoffTangentStiffnesses = TensorRank4Vec<3, 1, 0, 1, 0>;
 
 /// The rate tangent stiffness associated with the first Piola-Kirchhoff stress $`\boldsymbol{\mathcal{U}}`$.
 pub type FirstPiolaKirchhoffRateTangentStiffness = TensorRank4<3, 1, 0, 1, 0>;

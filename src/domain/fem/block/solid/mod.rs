@@ -8,10 +8,7 @@ pub mod viscoelastic;
 use crate::{
     fem::{
         NodalCoordinates,
-        block::{
-            Block,
-            element::{ElementNodalCoordinates, solid::SolidFiniteElement},
-        },
+        block::{Block, element::solid::SolidFiniteElement},
     },
     mechanics::DeformationGradientList,
 };
@@ -26,11 +23,6 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates,
     ) -> Vec<DeformationGradientList<G>>;
-    fn element_nodal_coordinates(
-        &self,
-        element_connectivity: &[usize; N],
-        nodal_coordinates: &NodalCoordinates,
-    ) -> ElementNodalCoordinates<N>;
 }
 
 impl<C, F, const G: usize, const N: usize> SolidFiniteElementBlock<C, F, G, N> for Block<C, F, N>
@@ -43,22 +35,10 @@ where
     ) -> Vec<DeformationGradientList<G>> {
         self.elements()
             .iter()
-            .zip(self.connectivity().iter())
-            .map(|(element, element_connectivity)| {
-                element.deformation_gradients(
-                    &self.element_nodal_coordinates(element_connectivity, nodal_coordinates),
-                )
+            .zip(self.connectivity())
+            .map(|(element, nodes)| {
+                element.deformation_gradients(&Self::element_coordinates(nodal_coordinates, nodes))
             })
-            .collect()
-    }
-    fn element_nodal_coordinates(
-        &self,
-        element_connectivity: &[usize; N],
-        nodal_coordinates: &NodalCoordinates,
-    ) -> ElementNodalCoordinates<N> {
-        element_connectivity
-            .iter()
-            .map(|&node| nodal_coordinates[node].clone())
             .collect()
     }
 }

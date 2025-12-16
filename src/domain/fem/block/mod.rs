@@ -16,6 +16,7 @@ use crate::{
             SecondOrderOptimization, ZerothOrderRootFinding,
         },
     },
+    mechanics::{CoordinateList, Coordinates},
 };
 use std::{
     any::type_name,
@@ -44,6 +45,15 @@ impl<C, F, const N: usize> Block<C, F, N> {
     }
     fn elements(&self) -> &[F] {
         &self.elements
+    }
+    fn element_coordinates<const I: usize>(
+        coordinates: &Coordinates<I>,
+        nodes: &[usize; N],
+    ) -> CoordinateList<I, N> {
+        nodes
+            .iter()
+            .map(|&node| coordinates[node].clone())
+            .collect()
     }
 }
 
@@ -94,14 +104,7 @@ where
     ) -> Self {
         let elements = connectivity
             .iter()
-            .map(|nodes| {
-                <F>::from(
-                    nodes
-                        .iter()
-                        .map(|&node| coordinates[node].clone())
-                        .collect(),
-                )
-            })
+            .map(|nodes| <F>::from(Self::element_coordinates(&coordinates, nodes)))
             .collect();
         Self {
             constitutive_model,

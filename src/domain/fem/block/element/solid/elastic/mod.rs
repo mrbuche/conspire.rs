@@ -5,14 +5,13 @@ use crate::{
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement},
     },
     math::{ContractSecondFourthIndicesWithFirstIndicesOf, Tensor},
-    mechanics::{FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses},
+    mechanics::{FirstPiolaKirchhoffStressList, FirstPiolaKirchhoffTangentStiffnessList},
 };
-use std::fmt::Debug;
 
 pub trait ElasticFiniteElement<C, const G: usize, const N: usize>
 where
     C: Elastic,
-    Self: Debug + SolidFiniteElement<G, N>,
+    Self: SolidFiniteElement<G, N>,
 {
     fn nodal_forces(
         &self,
@@ -41,7 +40,7 @@ where
             .map(|deformation_gradient| {
                 constitutive_model.first_piola_kirchhoff_stress(deformation_gradient)
             })
-            .collect::<Result<FirstPiolaKirchhoffStresses<G>, _>>()
+            .collect::<Result<FirstPiolaKirchhoffStressList<G>, _>>()
         {
             Ok(first_piola_kirchhoff_stresses) => Ok(first_piola_kirchhoff_stresses
                 .iter()
@@ -79,7 +78,7 @@ where
             .map(|deformation_gradient| {
                 constitutive_model.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)
             })
-            .collect::<Result<FirstPiolaKirchhoffTangentStiffnesses<G>, _>>()
+            .collect::<Result<FirstPiolaKirchhoffTangentStiffnessList<G>, _>>()
         {
             Ok(first_piola_kirchhoff_tangent_stiffnesses) => {
                 Ok(first_piola_kirchhoff_tangent_stiffnesses

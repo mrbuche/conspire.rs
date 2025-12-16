@@ -21,6 +21,7 @@ use super::{
 };
 
 pub mod list;
+pub mod vec;
 
 /// A *d*-dimensional tensor of rank 4.
 ///

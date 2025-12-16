@@ -92,23 +92,20 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.connectivity().iter())
+            .zip(self.connectivity())
             .zip(state_variables.iter())
-            .try_for_each(
-                |((element, element_connectivity), state_variables_element)| {
-                    element
-                        .nodal_forces(
-                            self.constitutive_model(),
-                            &self
-                                .element_nodal_coordinates(element_connectivity, nodal_coordinates),
-                            state_variables_element,
-                        )?
-                        .iter()
-                        .zip(element_connectivity.iter())
-                        .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
-                    Ok::<(), FiniteElementError>(())
-                },
-            ) {
+            .try_for_each(|((element, nodes), state_variables_element)| {
+                element
+                    .nodal_forces(
+                        self.constitutive_model(),
+                        &Self::element_coordinates(nodal_coordinates, nodes),
+                        state_variables_element,
+                    )?
+                    .iter()
+                    .zip(nodes.iter())
+                    .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
+                Ok::<(), FiniteElementError>(())
+            }) {
             Ok(()) => Ok(nodal_forces),
             Err(error) => Err(FiniteElementBlockError::Upstream(
                 format!("{error}"),
@@ -125,29 +122,27 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.connectivity().iter())
+            .zip(self.connectivity())
             .zip(state_variables.iter())
-            .try_for_each(
-                |((element, element_connectivity), state_variables_element)| {
-                    element
-                        .nodal_stiffnesses(
-                            self.constitutive_model(),
-                            &self
-                                .element_nodal_coordinates(element_connectivity, nodal_coordinates),
-                            state_variables_element,
-                        )?
-                        .iter()
-                        .zip(element_connectivity.iter())
-                        .for_each(|(object, &node_a)| {
-                            object.iter().zip(element_connectivity.iter()).for_each(
-                                |(nodal_stiffness, &node_b)| {
-                                    nodal_stiffnesses[node_a][node_b] += nodal_stiffness
-                                },
-                            )
-                        });
-                    Ok::<(), FiniteElementError>(())
-                },
-            ) {
+            .try_for_each(|((element, nodes), state_variables_element)| {
+                element
+                    .nodal_stiffnesses(
+                        self.constitutive_model(),
+                        &Self::element_coordinates(nodal_coordinates, nodes),
+                        state_variables_element,
+                    )?
+                    .iter()
+                    .zip(nodes.iter())
+                    .for_each(|(object, &node_a)| {
+                        object
+                            .iter()
+                            .zip(nodes.iter())
+                            .for_each(|(nodal_stiffness, &node_b)| {
+                                nodal_stiffnesses[node_a][node_b] += nodal_stiffness
+                            })
+                    });
+                Ok::<(), FiniteElementError>(())
+            }) {
             Ok(()) => Ok(nodal_stiffnesses),
             Err(error) => Err(FiniteElementBlockError::Upstream(
                 format!("{error}"),
@@ -163,17 +158,15 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.connectivity().iter())
+            .zip(self.connectivity())
             .zip(state_variables.iter())
-            .map(
-                |((element, element_connectivity), element_state_variables)| {
-                    element.state_variables_evolution(
-                        self.constitutive_model(),
-                        &self.element_nodal_coordinates(element_connectivity, nodal_coordinates),
-                        element_state_variables,
-                    )
-                },
-            )
+            .map(|((element, nodes), element_state_variables)| {
+                element.state_variables_evolution(
+                    self.constitutive_model(),
+                    &Self::element_coordinates(nodal_coordinates, nodes),
+                    element_state_variables,
+                )
+            })
             .collect()
         {
             Ok(state_variables_evolution) => Ok(state_variables_evolution),

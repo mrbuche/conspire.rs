@@ -45,15 +45,15 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.connectivity().iter())
-            .try_for_each(|(element, element_connectivity)| {
+            .zip(self.connectivity())
+            .try_for_each(|(element, nodes)| {
                 element
                     .nodal_forces(
                         self.constitutive_model(),
-                        &self.element_nodal_coordinates(element_connectivity, nodal_coordinates),
+                        &Self::element_coordinates(nodal_coordinates, nodes),
                     )?
                     .iter()
-                    .zip(element_connectivity.iter())
+                    .zip(nodes.iter())
                     .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
                 Ok::<(), FiniteElementError>(())
             }) {
@@ -72,21 +72,22 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.connectivity().iter())
-            .try_for_each(|(element, element_connectivity)| {
+            .zip(self.connectivity())
+            .try_for_each(|(element, nodes)| {
                 element
                     .nodal_stiffnesses(
                         self.constitutive_model(),
-                        &self.element_nodal_coordinates(element_connectivity, nodal_coordinates),
+                        &Self::element_coordinates(nodal_coordinates, nodes),
                     )?
                     .iter()
-                    .zip(element_connectivity.iter())
+                    .zip(nodes.iter())
                     .for_each(|(object, &node_a)| {
-                        object.iter().zip(element_connectivity.iter()).for_each(
-                            |(nodal_stiffness, &node_b)| {
+                        object
+                            .iter()
+                            .zip(nodes.iter())
+                            .for_each(|(nodal_stiffness, &node_b)| {
                                 nodal_stiffnesses[node_a][node_b] += nodal_stiffness
-                            },
-                        )
+                            })
                     });
                 Ok::<(), FiniteElementError>(())
             }) {

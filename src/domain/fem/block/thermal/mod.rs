@@ -46,7 +46,7 @@ where
     ) -> Vec<TemperatureGradients<G>> {
         self.elements()
             .iter()
-            .zip(self.connectivity().iter())
+            .zip(self.connectivity())
             .map(|(element, element_connectivity)| {
                 element.temperature_gradients(
                     &self.nodal_temperatures_element(element_connectivity, nodal_temperatures),

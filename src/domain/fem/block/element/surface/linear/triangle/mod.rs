@@ -29,7 +29,7 @@ use crate::{
     mechanics::{
         DeformationGradient, DeformationGradientList, DeformationGradientRate,
         DeformationGradientRateList, FirstPiolaKirchhoffRateTangentStiffnesses,
-        FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses,
+        FirstPiolaKirchhoffStressList, FirstPiolaKirchhoffTangentStiffnessList,
     },
 };
 
@@ -178,7 +178,7 @@ where
             .map(|deformation_gradient| {
                 constitutive_model.first_piola_kirchhoff_stress(deformation_gradient)
             })
-            .collect::<Result<FirstPiolaKirchhoffStresses<G>, _>>()
+            .collect::<Result<FirstPiolaKirchhoffStressList<G>, _>>()
         {
             Ok(first_piola_kirchhoff_stresses) => Ok(first_piola_kirchhoff_stresses
                 .iter()
@@ -214,7 +214,7 @@ where
             .map(|deformation_gradient| {
                 constitutive_model.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)
             })
-            .collect::<Result<FirstPiolaKirchhoffTangentStiffnesses<G>, _>>()
+            .collect::<Result<FirstPiolaKirchhoffTangentStiffnessList<G>, _>>()
             {
             Ok(first_piola_kirchhoff_tangent_stiffnesses) => Ok(first_piola_kirchhoff_tangent_stiffnesses
             .iter()
@@ -325,7 +325,7 @@ where
                 constitutive_model
                     .first_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_rate)
             })
-            .collect::<Result<FirstPiolaKirchhoffStresses<G>, _>>()
+            .collect::<Result<FirstPiolaKirchhoffStressList<G>, _>>()
         {
             Ok(first_piola_kirchhoff_stresses) => Ok(first_piola_kirchhoff_stresses
                 .iter()

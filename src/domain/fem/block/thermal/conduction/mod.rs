@@ -53,7 +53,7 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.connectivity().iter())
+            .zip(self.connectivity())
             .map(|(element, element_connectivity)| {
                 element.potential(
                     self.constitutive_model(),
@@ -77,7 +77,7 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.connectivity().iter())
+            .zip(self.connectivity())
             .try_for_each(|(element, element_connectivity)| {
                 element
                     .nodal_forces(
@@ -104,7 +104,7 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.connectivity().iter())
+            .zip(self.connectivity())
             .try_for_each(|(element, element_connectivity)| {
                 element
                     .nodal_stiffnesses(

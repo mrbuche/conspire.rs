@@ -5,7 +5,7 @@ use crate::{
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement},
     },
     math::{ContractSecondFourthIndicesWithFirstIndicesOf, Tensor},
-    mechanics::{FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStresses},
+    mechanics::{FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStressList},
 };
 
 pub trait ViscoelasticFiniteElement<C, const G: usize, const N: usize>
@@ -48,7 +48,7 @@ where
                 constitutive_model
                     .first_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_rate)
             })
-            .collect::<Result<FirstPiolaKirchhoffStresses<G>, _>>()
+            .collect::<Result<FirstPiolaKirchhoffStressList<G>, _>>()
         {
             Ok(first_piola_kirchhoff_stresses) => Ok(first_piola_kirchhoff_stresses
                 .iter()
