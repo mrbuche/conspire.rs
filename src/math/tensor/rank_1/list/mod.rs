@@ -10,31 +10,21 @@ use crate::math::{TensorRank0, tensor::test::ErrorTensor};
 pub type TensorRank1List<const D: usize, const I: usize, const W: usize> =
     TensorList<TensorRank1<D, I>, W>;
 
-impl From<TensorRank1List<3, 0, 3>> for TensorRank1List<3, 1, 3> {
-    fn from(tensor_rank_1_list: TensorRank1List<3, 0, 3>) -> Self {
-        unsafe {
-            transmute::<TensorRank1List<3, 0, 3>, TensorRank1List<3, 1, 3>>(tensor_rank_1_list)
+macro_rules! from_len {
+    ($len:literal) => {
+        impl From<TensorRank1List<3, 0, $len>> for TensorRank1List<3, 1, $len> {
+            fn from(tensor_rank_1_list: TensorRank1List<3, 0, $len>) -> Self {
+                unsafe { transmute::<TensorRank1List<3, 0, $len>, Self>(tensor_rank_1_list) }
+            }
         }
-    }
+    };
 }
-
-impl From<TensorRank1List<3, 0, 4>> for TensorRank1List<3, 1, 4> {
-    fn from(tensor_rank_1_list: TensorRank1List<3, 0, 4>) -> Self {
-        unsafe { transmute::<TensorRank1List<3, 0, 4>, Self>(tensor_rank_1_list) }
-    }
-}
-
-impl From<TensorRank1List<3, 0, 8>> for TensorRank1List<3, 1, 8> {
-    fn from(tensor_rank_1_list: TensorRank1List<3, 0, 8>) -> Self {
-        unsafe { transmute::<TensorRank1List<3, 0, 8>, Self>(tensor_rank_1_list) }
-    }
-}
-
-impl From<TensorRank1List<3, 0, 10>> for TensorRank1List<3, 1, 10> {
-    fn from(tensor_rank_1_list: TensorRank1List<3, 0, 10>) -> Self {
-        unsafe { transmute::<TensorRank1List<3, 0, 10>, Self>(tensor_rank_1_list) }
-    }
-}
+from_len!(3);
+from_len!(4);
+from_len!(5);
+from_len!(6);
+from_len!(8);
+from_len!(10);
 
 impl<const D: usize, const I: usize, const J: usize, const W: usize> Mul<TensorRank1List<D, J, W>>
     for TensorRank1List<D, I, W>
