@@ -1,11 +1,11 @@
 use crate::{
     constitutive::solid::elastic::Elastic,
     fem::{
-        NodalCoordinates, NodalForcesSolid, NodalStiffnessesSolid,
+        NodalCoordinates,
         block::{
             ElementBlock, FiniteElementBlockError, FirstOrderRoot, ZerothOrderRoot,
             element::{FiniteElementError, solid::elastic::ElasticFiniteElement},
-            solid::SolidFiniteElementBlock,
+            solid::{NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElementBlock},
         },
     },
     math::{

@@ -1,7 +1,3 @@
-//! Finite element library.
-
-pub mod block;
-
 use crate::math::{TensorRank1Vec, TensorRank1Vec2D, TensorRank2Vec2D};
 
 pub type NodalCoordinates = TensorRank1Vec<3, 1>;
