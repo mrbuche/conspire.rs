@@ -25,14 +25,14 @@ use std::{
 
 pub type Connectivity<const N: usize> = Vec<[usize; N]>;
 
-pub struct ElementBlock<C, F, const N: usize> {
+pub struct Block<C, F, const N: usize> {
     constitutive_model: C,
     connectivity: Connectivity<N>,
     coordinates: NodalReferenceCoordinates,
     elements: Vec<F>,
 }
 
-impl<C, F, const N: usize> ElementBlock<C, F, N> {
+impl<C, F, const N: usize> Block<C, F, N> {
     fn constitutive_model(&self) -> &C {
         &self.constitutive_model
     }
@@ -47,7 +47,7 @@ impl<C, F, const N: usize> ElementBlock<C, F, N> {
     }
 }
 
-impl<C, F, const N: usize> Debug for ElementBlock<C, F, N> {
+impl<C, F, const N: usize> Debug for Block<C, F, N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let element = match N {
             3 => "LinearTriangle",
@@ -58,7 +58,7 @@ impl<C, F, const N: usize> Debug for ElementBlock<C, F, N> {
         };
         write!(
             f,
-            "ElementBlock {{ constitutive_model: {}, elements: [{element}; {}] }}",
+            "Block {{ constitutive_model: {}, elements: [{element}; {}] }}",
             type_name::<C>()
                 .rsplit("::")
                 .next()
@@ -83,7 +83,7 @@ where
     fn reset(&mut self);
 }
 
-impl<C, F, const G: usize, const N: usize> FiniteElementBlock<C, F, G, N> for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const N: usize> FiniteElementBlock<C, F, G, N> for Block<C, F, N>
 where
     F: FiniteElement<G, N>,
 {

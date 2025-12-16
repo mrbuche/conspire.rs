@@ -19,7 +19,7 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize, const P: usize> SurfaceFiniteElementBlock<C, F, G, N, P>
-    for ElementBlock<C, F, N>
+    for Block<C, F, N>
 where
     F: SurfaceFiniteElement<G, N, P>,
 {

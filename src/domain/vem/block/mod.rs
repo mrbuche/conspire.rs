@@ -8,7 +8,7 @@ use std::{
 
 pub type Connectivity = Vec<Vec<usize>>;
 
-pub struct ElementBlock<C, F> {
+pub struct Block<C, F> {
     constitutive_model: C,
     coordinates: NodalReferenceCoordinates,
     elements: Vec<F>,
@@ -16,7 +16,7 @@ pub struct ElementBlock<C, F> {
     face_nodes: Connectivity,
 }
 
-impl<C, F> ElementBlock<C, F> {
+impl<C, F> Block<C, F> {
     fn constitutive_model(&self) -> &C {
         &self.constitutive_model
     }
@@ -34,7 +34,7 @@ impl<C, F> ElementBlock<C, F> {
     }
 }
 
-impl<C, F> Debug for ElementBlock<C, F> {
+impl<C, F> Debug for Block<C, F> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -54,25 +54,14 @@ impl<C, F> Debug for ElementBlock<C, F> {
 pub trait VirtualElementBlock<C, F>
 where
     F: VirtualElement,
-{
-    fn new(
-        constitutive_model: C,
-        coordinates: NodalReferenceCoordinates,
-        element_faces: Connectivity,
-        face_nodes: Connectivity,
-    ) -> Self;
-}
+    Self: From<(C, NodalReferenceCoordinates, Connectivity, Connectivity)>
+{}
 
-impl<C, F> VirtualElementBlock<C, F> for ElementBlock<C, F>
+impl<C, F> From<(C, NodalReferenceCoordinates, Connectivity, Connectivity)> for Block<C, F>
 where
-    F: VirtualElement,
+    F: VirtualElement
 {
-    fn new(
-        constitutive_model: C,
-        coordinates: NodalReferenceCoordinates,
-        element_faces: Connectivity,
-        face_nodes: Connectivity,
-    ) -> Self {
+    fn from((constitutive_model, coordinates, element_faces, face_nodes): (C, NodalReferenceCoordinates, Connectivity, Connectivity)) -> Self {
         let elements = element_faces
             .iter()
             .map(|faces| {
@@ -98,3 +87,4 @@ where
         }
     }
 }
+
