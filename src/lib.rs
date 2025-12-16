@@ -17,6 +17,10 @@ pub mod math;
 #[cfg(feature = "mechanics")]
 pub mod mechanics;
 
+#[cfg(feature = "vem")]
+#[path = "domain/vem/mod.rs"]
+pub mod vem;
+
 #[cfg(test)]
 mod test;
 
