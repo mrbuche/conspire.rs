@@ -5,17 +5,17 @@ pub type Wedge = Element<G, N>;
 
 crate::fem::block::element::linear::implement!(Wedge);
 
-use super::SQRT_3_OVER_3;
+use super::FRAC_1_SQRT_3;
 
 impl Wedge {
     const fn integration_points() -> [[Scalar; M]; G] {
         [
-            [1.0 / 6.0, 1.0 / 6.0, SQRT_3_OVER_3],
-            [2.0 / 3.0, 1.0 / 6.0, SQRT_3_OVER_3],
-            [1.0 / 6.0, 2.0 / 3.0, -SQRT_3_OVER_3],
-            [1.0 / 6.0, 1.0 / 6.0, SQRT_3_OVER_3],
-            [2.0 / 3.0, 1.0 / 6.0, SQRT_3_OVER_3],
-            [1.0 / 6.0, 2.0 / 3.0, SQRT_3_OVER_3],
+            [1.0 / 6.0, 1.0 / 6.0, FRAC_1_SQRT_3],
+            [2.0 / 3.0, 1.0 / 6.0, FRAC_1_SQRT_3],
+            [1.0 / 6.0, 2.0 / 3.0, -FRAC_1_SQRT_3],
+            [1.0 / 6.0, 1.0 / 6.0, FRAC_1_SQRT_3],
+            [2.0 / 3.0, 1.0 / 6.0, FRAC_1_SQRT_3],
+            [1.0 / 6.0, 2.0 / 3.0, FRAC_1_SQRT_3],
         ]
     }
     const fn integration_weight() -> Scalars<G> {

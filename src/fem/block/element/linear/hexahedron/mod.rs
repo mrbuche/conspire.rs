@@ -5,19 +5,19 @@ pub type Hexahedron = Element<G, N>;
 
 crate::fem::block::element::linear::implement!(Hexahedron);
 
-use super::SQRT_3_OVER_3;
+use super::FRAC_1_SQRT_3;
 
 impl Hexahedron {
     const fn integration_points() -> [[Scalar; M]; G] {
         [
-            [-SQRT_3_OVER_3, -SQRT_3_OVER_3, -SQRT_3_OVER_3],
-            [-SQRT_3_OVER_3, -SQRT_3_OVER_3, SQRT_3_OVER_3],
-            [-SQRT_3_OVER_3, SQRT_3_OVER_3, -SQRT_3_OVER_3],
-            [-SQRT_3_OVER_3, SQRT_3_OVER_3, SQRT_3_OVER_3],
-            [SQRT_3_OVER_3, -SQRT_3_OVER_3, -SQRT_3_OVER_3],
-            [SQRT_3_OVER_3, -SQRT_3_OVER_3, SQRT_3_OVER_3],
-            [SQRT_3_OVER_3, SQRT_3_OVER_3, -SQRT_3_OVER_3],
-            [SQRT_3_OVER_3, SQRT_3_OVER_3, SQRT_3_OVER_3],
+            [-FRAC_1_SQRT_3, -FRAC_1_SQRT_3, -FRAC_1_SQRT_3],
+            [-FRAC_1_SQRT_3, -FRAC_1_SQRT_3, FRAC_1_SQRT_3],
+            [-FRAC_1_SQRT_3, FRAC_1_SQRT_3, -FRAC_1_SQRT_3],
+            [-FRAC_1_SQRT_3, FRAC_1_SQRT_3, FRAC_1_SQRT_3],
+            [FRAC_1_SQRT_3, -FRAC_1_SQRT_3, -FRAC_1_SQRT_3],
+            [FRAC_1_SQRT_3, -FRAC_1_SQRT_3, FRAC_1_SQRT_3],
+            [FRAC_1_SQRT_3, FRAC_1_SQRT_3, -FRAC_1_SQRT_3],
+            [FRAC_1_SQRT_3, FRAC_1_SQRT_3, FRAC_1_SQRT_3],
         ]
     }
     const fn integration_weight() -> Scalars<G> {

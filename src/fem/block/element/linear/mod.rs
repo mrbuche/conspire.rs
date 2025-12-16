@@ -10,7 +10,7 @@ pub use wedge::Wedge;
 
 use crate::math::Scalar;
 
-const SQRT_3_OVER_3: Scalar = 0.577_350_269_189_625_8;
+const FRAC_1_SQRT_3: Scalar = 0.577_350_269_189_625_8;
 
 macro_rules! implement {
     ($element:ident) => {
