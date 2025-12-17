@@ -53,7 +53,7 @@ pub use tensor::{
         list::{TensorTupleList, vec::TensorTupleListVec, vec_2d::TensorTupleListVec2D},
         vec::TensorTupleVec,
     },
-    vec::TensorVector,
+    vec::{TensorRank1RefVec, TensorVector},
 };
 
 use std::fmt;

@@ -1,4 +1,4 @@
-use crate::math::{Tensor, TensorRank0, TensorVec};
+use crate::math::{Tensor, TensorRank0, TensorRank1, TensorVec};
 use std::{
     fmt::{Display, Formatter, Result},
     iter::Sum,
@@ -7,9 +7,18 @@ use std::{
 };
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct TensorVector<T>(Vec<T>)
-where
-    T: Tensor;
+pub struct TensorVector<T>(Vec<T>);
+// where
+//     T: Tensor;
+
+pub type TensorRank1RefVec<'a, const D: usize, const I: usize> =
+    TensorVector<&'a TensorRank1<D, I>>;
+
+impl<'a, const D: usize, const I: usize> TensorRank1RefVec<'a, D, I> {
+    pub fn iter(&self) -> impl Iterator<Item = &&TensorRank1<D, I>> {
+        self.0.iter()
+    }
+}
 
 impl<T> TensorVector<T>
 where
@@ -131,8 +140,8 @@ where
 }
 
 impl<T> FromIterator<T> for TensorVector<T>
-where
-    T: Tensor,
+// where
+//     T: Tensor,
 {
     fn from_iter<Ii: IntoIterator<Item = T>>(into_iterator: Ii) -> Self {
         Self(Vec::from_iter(into_iterator))

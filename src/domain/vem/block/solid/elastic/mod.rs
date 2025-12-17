@@ -45,15 +45,15 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.element_faces())
-            .try_for_each(|(element, faces)| {
+            .zip(self.element_faces().iter().zip(self.element_nodes()))
+            .try_for_each(|(element, (faces, nodes))| {
                 element
                     .nodal_forces(
                         self.constitutive_model(),
                         self.element_coordinates(nodal_coordinates, faces),
                     )?
                     .iter()
-                    .zip(self.element_nodes(faces))
+                    .zip(nodes)
                     .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
                 Ok::<(), VirtualElementError>(())
             }) {
@@ -72,21 +72,22 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.element_faces())
-            .try_for_each(|(element, faces)| {
+            .zip(self.element_faces().iter().zip(self.element_nodes()))
+            .try_for_each(|(element, (faces, nodes))| {
                 element
                     .nodal_stiffnesses(
                         self.constitutive_model(),
                         self.element_coordinates(nodal_coordinates, faces),
                     )?
                     .iter()
-                    .zip(self.element_nodes(faces))
+                    .zip(nodes)
                     .for_each(|(object, &node_a)| {
-                        object.iter().zip(self.element_nodes(faces)).for_each(
-                            |(nodal_stiffness, &node_b)| {
+                        object
+                            .iter()
+                            .zip(nodes)
+                            .for_each(|(nodal_stiffness, &node_b)| {
                                 nodal_stiffnesses[node_a][node_b] += nodal_stiffness
-                            },
-                        )
+                            })
                     });
                 Ok::<(), VirtualElementError>(())
             }) {

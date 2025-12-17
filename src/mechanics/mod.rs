@@ -6,9 +6,9 @@ pub mod test;
 use crate::{
     defeat_message,
     math::{
-        Rank2, Tensor, TensorRank1, TensorRank1List, TensorRank1List2D, TensorRank1Vec,
-        TensorRank1Vec2D, TensorRank2, TensorRank2List, TensorRank2List2D, TensorRank2Vec,
-        TensorRank2Vec2D, TensorRank4, TensorRank4List, TensorRank4Vec,
+        Rank2, Tensor, TensorRank1, TensorRank1List, TensorRank1List2D, TensorRank1RefVec,
+        TensorRank1Vec, TensorRank1Vec2D, TensorRank2, TensorRank2List, TensorRank2List2D,
+        TensorRank2Vec, TensorRank2Vec2D, TensorRank4, TensorRank4List, TensorRank4Vec,
     },
 };
 use std::fmt::{self, Debug, Display, Formatter};
@@ -131,11 +131,17 @@ pub type CoordinateList<const I: usize, const N: usize> = TensorRank1List<3, I, 
 /// A vector of coordinates.
 pub type Coordinates<const I: usize> = TensorRank1Vec<3, I>;
 
+/// A vector of references to coordinates.
+pub type CoordinatesRef<'a, const I: usize> = TensorRank1RefVec<'a, 3, I>;
+
 /// A coordinate in the current configuration.
 pub type CurrentCoordinate = TensorRank1<3, 1>;
 
 /// A list of coordinates in the current configuration.
 pub type CurrentCoordinates<const W: usize> = TensorRank1List<3, 1, W>;
+
+/// A vector of references to current coordinates.
+pub type CurrentCoordinatesRef<'a> = TensorRank1RefVec<'a, 3, 1>;
 
 /// A velocity in the current configuration.
 pub type CurrentVelocity = TensorRank1<3, 1>;
