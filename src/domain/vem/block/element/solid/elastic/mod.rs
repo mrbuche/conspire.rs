@@ -16,12 +16,12 @@ where
     fn nodal_forces<'a>(
         &'a self,
         constitutive_model: &'a C,
-        nodal_coordinates: Vec<Vec<&'a crate::math::TensorRank1<3, 1>>>,
+        nodal_coordinates: ElementNodalCoordinates<'a>,
     ) -> Result<ElementNodalForcesSolid, VirtualElementError>;
     fn nodal_stiffnesses<'a>(
         &'a self,
         constitutive_model: &'a C,
-        nodal_coordinates: Vec<Vec<&'a crate::math::TensorRank1<3, 1>>>,
+        nodal_coordinates: ElementNodalCoordinates<'a>,
     ) -> Result<ElementNodalStiffnessesSolid, VirtualElementError>;
 }
 
@@ -32,7 +32,7 @@ where
     fn nodal_forces<'a>(
         &'a self,
         constitutive_model: &'a C,
-        nodal_coordinates: Vec<Vec<&'a crate::math::TensorRank1<3, 1>>>,
+        nodal_coordinates: ElementNodalCoordinates<'a>,
     ) -> Result<ElementNodalForcesSolid, VirtualElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
@@ -70,7 +70,7 @@ where
     fn nodal_stiffnesses<'a>(
         &'a self,
         constitutive_model: &'a C,
-        nodal_coordinates: Vec<Vec<&'a crate::math::TensorRank1<3, 1>>>,
+        nodal_coordinates: ElementNodalCoordinates<'a>,
     ) -> Result<ElementNodalStiffnessesSolid, VirtualElementError> {
         match self
             .deformation_gradients(nodal_coordinates)

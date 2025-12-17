@@ -2,13 +2,12 @@ pub mod solid;
 
 use crate::{
     defeat_message,
-    math::{Scalars, TensorRank1Vec2D, TestError},
+    math::{Scalars, TensorRank1, TensorRank1Vec2D, TestError},
     mechanics::Vectors2D,
 };
 use std::fmt::{self, Debug, Display, Formatter};
 
-pub type ElementNodalCoordinates = TensorRank1Vec2D<3, 1>;
-pub type ElementNodalVelocities = TensorRank1Vec2D<3, 1>;
+pub type ElementNodalCoordinates<'a> = Vec<Vec<&'a TensorRank1<3, 1>>>;
 pub type ElementNodalReferenceCoordinates = TensorRank1Vec2D<3, 0>;
 pub type GradientVectors = Vectors2D<0>;
 

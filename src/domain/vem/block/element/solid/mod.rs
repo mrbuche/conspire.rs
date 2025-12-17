@@ -2,8 +2,8 @@ pub mod elastic;
 
 use crate::{
     math::Tensor,
-    mechanics::{DeformationGradientRates, DeformationGradients, Forces, Stiffnesses},
-    vem::block::element::{Element, ElementNodalCoordinates, ElementNodalVelocities},
+    mechanics::{DeformationGradients, Forces, Stiffnesses},
+    vem::block::element::{Element, ElementNodalCoordinates},
 };
 
 pub type ElementNodalForcesSolid = Forces;
@@ -12,14 +12,14 @@ pub type ElementNodalStiffnessesSolid = Stiffnesses;
 pub trait SolidVirtualElement {
     fn deformation_gradients<'a>(
         &'a self,
-        nodal_coordinates: Vec<Vec<&'a crate::math::TensorRank1<3, 1>>>,
+        nodal_coordinates: ElementNodalCoordinates<'a>,
     ) -> DeformationGradients;
 }
 
 impl SolidVirtualElement for Element {
     fn deformation_gradients<'a>(
         &'a self,
-        nodal_coordinates: Vec<Vec<&'a crate::math::TensorRank1<3, 1>>>,
+        nodal_coordinates: ElementNodalCoordinates<'a>,
     ) -> DeformationGradients {
         self.gradient_vectors()
             .iter()

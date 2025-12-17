@@ -4,13 +4,12 @@ pub mod solid;
 use crate::{
     defeat_message,
     math::{
-        Scalar, TensorRank1Vec2D, TestError,
+        Scalar, TestError,
         optimize::{
             EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
             SecondOrderOptimization, ZerothOrderRootFinding,
         },
     },
-    mechanics::Coordinates,
     vem::{
         NodalCoordinates, NodalReferenceCoordinates,
         block::element::{ElementNodalCoordinates, VirtualElement},
@@ -44,14 +43,11 @@ impl<C, F> Block<C, F> {
     fn element_faces(&self) -> &Connectivity {
         &self.element_faces
     }
-    // fn face_nodes(&self) -> &Connectivity {
-    //     &self.face_nodes
-    // }
-    fn element_coordinates<'a>(
+    fn element_coordinates<'a>( // can probably just flatten this here since only end up using down in defgrad, where flatten
         &self,
         coordinates: &'a NodalCoordinates,
         faces: &'a [usize],
-    ) -> Vec<Vec<&'a crate::math::TensorRank1<3, 1>>> {
+    ) -> ElementNodalCoordinates<'a> {
         faces
             .iter()
             .map(|&face| {
