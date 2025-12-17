@@ -1,3 +1,5 @@
+pub mod elastic;
+
 use crate::{
     mechanics::DeformationGradients,
     vem::{
@@ -30,11 +32,7 @@ where
             .iter()
             .zip(self.element_faces())
             .map(|(element, faces)| {
-                element.deformation_gradients(&Self::element_coordinates(
-                    nodal_coordinates,
-                    faces,
-                    self.face_nodes(),
-                ))
+                element.deformation_gradients(self.element_coordinates(nodal_coordinates, faces))
             })
             .collect()
     }
