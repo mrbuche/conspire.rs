@@ -7,7 +7,7 @@ use crate::{
 };
 use std::fmt::{self, Debug, Display, Formatter};
 
-pub type ElementNodalCoordinates<'a> = Vec<Vec<&'a TensorRank1<3, 1>>>;
+pub type ElementNodalCoordinates<'a> = Vec<&'a TensorRank1<3, 1>>;
 pub type ElementNodalReferenceCoordinates = TensorRank1Vec2D<3, 0>;
 pub type GradientVectors = Vectors2D<0>;
 

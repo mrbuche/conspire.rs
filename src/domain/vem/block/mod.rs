@@ -43,19 +43,14 @@ impl<C, F> Block<C, F> {
     fn element_faces(&self) -> &Connectivity {
         &self.element_faces
     }
-    fn element_coordinates<'a>( // can probably just flatten this here since only end up using down in defgrad, where flatten
+    fn element_coordinates<'a>(
         &self,
         coordinates: &'a NodalCoordinates,
         faces: &'a [usize],
     ) -> ElementNodalCoordinates<'a> {
         faces
             .iter()
-            .map(|&face| {
-                self.face_nodes[face]
-                    .iter()
-                    .map(|&node| &coordinates[node])
-                    .collect()
-            })
+            .flat_map(|&face| self.face_nodes[face].iter().map(|&node| &coordinates[node]))
             .collect()
     }
     fn element_nodes<'a>(&'a self, faces: &'a [usize]) -> Vec<&'a usize> {
