@@ -21,7 +21,7 @@ jobs:
       - name: Dev
         run: |
           mkdir -p _site/
-          cargo rustdoc --release --features fem,vem -- --html-in-header .github/katex.html
+          cargo rustdoc --release --features all -- --html-in-header .github/katex.html
           mv target/doc/conspire/ target/doc/latest/
           cp -r target/doc/* _site/
       - name: Upload
