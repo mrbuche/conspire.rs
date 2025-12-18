@@ -33,16 +33,16 @@ use crate::{
     },
 };
 
-#[cfg(test)]
-use crate::fem::block::element::ShapeFunctionsAtIntegrationPoints;
+// #[cfg(test)]
+// use crate::fem::block::element::ShapeFunctionsAtIntegrationPoints;
 
 const G: usize = 1;
 const M: usize = 2;
 const N: usize = 3;
 const P: usize = G;
 
-#[cfg(test)]
-const Q: usize = N;
+// #[cfg(test)]
+// const Q: usize = N;
 
 pub type Triangle = SurfaceElement<G, N, P>;
 
@@ -98,10 +98,10 @@ impl Triangle {
     const fn integration_weight() -> Scalar {
         1.0 / 2.0
     }
-    #[cfg(test)]
-    const fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, Q> {
-        ShapeFunctionsAtIntegrationPoints::<G, Q>::const_from([[1.0 / 3.0; Q]])
-    }
+    // #[cfg(test)]
+    // const fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, Q> {
+    //     ShapeFunctionsAtIntegrationPoints::<G, Q>::const_from([[1.0 / 3.0; Q]])
+    // }
     const fn standard_gradient_operators() -> StandardGradientOperators<M, N, P> {
         StandardGradientOperators::<M, N, P>::const_from([[[-1.0, -1.0], [1.0, 0.0], [0.0, 1.0]]])
     }

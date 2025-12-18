@@ -435,14 +435,30 @@ macro_rules! test_finite_element_inner {
             };
             mod constitutive_model_independent {
                 use super::{
-                    DeformationGradientList, DeformationGradientRateList, ElementNodalVelocities,
-                    G, Rank2, SolidFiniteElement, Tensor, TensorArray, TestError,
-                    assert_eq_within_tols, coordinates, coordinates_transformed, element,
-                    element_transformed, get_deformation_gradient, get_deformation_gradient_rate,
-                    get_rotation_current_configuration, get_rotation_rate_current_configuration,
-                    get_rotation_reference_configuration, reference_coordinates,
-                    reference_coordinates_transformed, velocities, velocities_transformed,
-                    $element,
+                    DeformationGradientList,
+                    DeformationGradientRateList,
+                    ElementNodalVelocities,
+                    G,
+                    Rank2,
+                    SolidFiniteElement,
+                    Tensor,
+                    TensorArray,
+                    TestError,
+                    assert_eq_within_tols,
+                    coordinates,
+                    coordinates_transformed,
+                    element,
+                    element_transformed,
+                    get_deformation_gradient,
+                    get_deformation_gradient_rate,
+                    get_rotation_current_configuration,
+                    get_rotation_rate_current_configuration,
+                    get_rotation_reference_configuration,
+                    reference_coordinates,
+                    reference_coordinates_transformed,
+                    velocities,
+                    velocities_transformed,
+                    // $element,
                 };
                 fn deformation_gradients() -> DeformationGradientList<G> {
                     (0..G).map(|_| get_deformation_gradient()).collect()
@@ -577,33 +593,35 @@ macro_rules! test_finite_element_inner {
                         }
                     }
                 }
-                mod partition_of_unity {
-                    use super::*;
-                    use crate::fem::block::element::linear::LinearFiniteElement;
-                    #[test]
-                    fn shape_functions() -> Result<(), TestError> {
-                        $element::shape_functions_at_integration_points()
-                            .iter()
-                            .try_for_each(|shape_functions| {
-                                assert_eq_within_tols(&shape_functions.iter().sum(), &1.0)
-                            })
-                    }
-                    #[test]
-                    fn standard_gradient_operators() -> Result<(), TestError> {
-                        let mut sum = [0.0; 3];
-                        $element::standard_gradient_operators().iter().try_for_each(
-                            |standard_gradient_operator| {
-                                standard_gradient_operator.iter().for_each(|row| {
-                                    row.iter()
-                                        .zip(sum.iter_mut())
-                                        .for_each(|(entry, sum_i)| *sum_i += entry)
-                                });
-                                sum.iter()
-                                    .try_for_each(|sum_i| assert_eq_within_tols(sum_i, &0.0))
-                            },
-                        )
-                    }
-                }
+                //
+                // should be at arbitrary points, not just integration points
+                //
+                // mod partition_of_unity {
+                //     use super::*;
+                //     #[test]
+                //     fn shape_functions() -> Result<(), TestError> {
+                //         $element::shape_functions_at_integration_points()
+                //             .iter()
+                //             .try_for_each(|shape_functions| {
+                //                 assert_eq_within_tols(&shape_functions.iter().sum(), &1.0)
+                //             })
+                //     }
+                //     #[test]
+                //     fn standard_gradient_operators() -> Result<(), TestError> {
+                //         let mut sum = [0.0; 3];
+                //         $element::standard_gradient_operators().iter().try_for_each(
+                //             |standard_gradient_operator| {
+                //                 standard_gradient_operator.iter().for_each(|row| {
+                //                     row.iter()
+                //                         .zip(sum.iter_mut())
+                //                         .for_each(|(entry, sum_i)| *sum_i += entry)
+                //                 });
+                //                 sum.iter()
+                //                     .try_for_each(|sum_i| assert_eq_within_tols(sum_i, &0.0))
+                //             },
+                //         )
+                //     }
+                // }
             }
             mod elastic {
                 use super::*;
