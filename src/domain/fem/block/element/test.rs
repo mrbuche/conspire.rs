@@ -579,6 +579,7 @@ macro_rules! test_finite_element_inner {
                 }
                 mod partition_of_unity {
                     use super::*;
+                    use crate::fem::block::element::linear::LinearFiniteElement;
                     #[test]
                     fn shape_functions() -> Result<(), TestError> {
                         $element::shape_functions_at_integration_points()

@@ -9,17 +9,23 @@ pub mod thermal;
 
 use crate::{
     defeat_message,
-    math::{ScalarList, TensorRank1List, TensorRank1List2D, TestError},
+    math::{ScalarList, TensorRank1, TensorRank1List, TensorRank1List2D, TestError},
     mechanics::{CurrentCoordinates, ReferenceCoordinates, VectorList2D},
 };
 use std::fmt::{self, Debug, Display, Formatter};
+
+const A: usize = 9;
 
 pub type ElementNodalCoordinates<const N: usize> = CurrentCoordinates<N>;
 pub type ElementNodalVelocities<const N: usize> = CurrentCoordinates<N>;
 pub type ElementNodalReferenceCoordinates<const N: usize> = ReferenceCoordinates<N>;
 pub type GradientVectors<const G: usize, const N: usize> = VectorList2D<0, N, G>;
-pub type ShapeFunctionsAtIntegrationPoints<const G: usize, const Q: usize> =
-    TensorRank1List<Q, 9, G>;
+pub type ParametricCoordinate<const M: usize> = TensorRank1<M, A>;
+pub type ParametricCoordinates<const G: usize, const M: usize> = TensorRank1List<M, A, G>;
+pub type ShapeFunctions<const N: usize> = TensorRank1<N, A>;
+pub type ShapeFunctionsAtIntegrationPoints<const G: usize, const N: usize> =
+    TensorRank1List<N, A, G>;
+pub type ShapeFunctionsGradients<const M: usize, const N: usize> = TensorRank1List<M, 0, N>;
 pub type StandardGradientOperators<const M: usize, const O: usize, const P: usize> =
     TensorRank1List2D<M, 0, O, P>;
 pub type StandardGradientOperatorsTransposed<const M: usize, const O: usize, const P: usize> =
