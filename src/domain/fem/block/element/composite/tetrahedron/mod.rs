@@ -62,15 +62,16 @@ impl Tetrahedron {
     const fn integration_weight() -> Scalar {
         1.0 / 24.0
     }
-    const fn inverse_normalized_projection_matrix() -> NormalizedProjectionMatrix<Q> {
+    fn inverse_normalized_projection_matrix() -> NormalizedProjectionMatrix<Q> {
         const DIAG: Scalar = 4.0 / 640.0;
         const OFF: Scalar = -1.0 / 640.0;
-        NormalizedProjectionMatrix::<Q>::const_from([
+        [
             [DIAG, OFF, OFF, OFF],
             [OFF, DIAG, OFF, OFF],
             [OFF, OFF, DIAG, OFF],
             [OFF, OFF, OFF, DIAG],
-        ])
+        ]
+        .into()
     }
     fn inverse_projection_matrix(
         reference_jacobians_subelements: &ScalarList<P>,
@@ -172,15 +173,16 @@ impl Tetrahedron {
             .map(|parametric_gradient_operator| parametric_gradient_operator.determinant())
             .collect()
     }
-    const fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, Q> {
+    fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, Q> {
         const DIAG: Scalar = 0.585_410_196_624_968_5;
         const OFF: Scalar = 0.138_196_601_125_010_5;
-        ShapeFunctionsAtIntegrationPoints::<G, Q>::const_from([
+        [
             [DIAG, OFF, OFF, OFF],
             [OFF, DIAG, OFF, OFF],
             [OFF, OFF, DIAG, OFF],
             [OFF, OFF, OFF, DIAG],
-        ])
+        ]
+        .into()
     }
     fn shape_function_integrals() -> ShapeFunctionIntegrals<P, Q> {
         [
@@ -199,8 +201,8 @@ impl Tetrahedron {
         ]
         .into()
     }
-    const fn shape_function_integrals_products() -> ShapeFunctionIntegralsProducts<P, Q> {
-        ShapeFunctionIntegralsProducts::<P, Q>::const_from([
+    fn shape_function_integrals_products() -> ShapeFunctionIntegralsProducts<P, Q> {
+        [
             [
                 [128.0, 24.0, 24.0, 24.0],
                 [24.0, 8.0, 4.0, 4.0],
@@ -273,10 +275,11 @@ impl Tetrahedron {
                 [13.0, 5.0, 7.0, 5.0],
                 [13.0, 5.0, 5.0, 7.0],
             ],
-        ])
+        ]
+        .into()
     }
-    const fn standard_gradient_operators() -> StandardGradientOperators<M, N, P> {
-        StandardGradientOperators::<M, N, P>::const_from([
+    fn standard_gradient_operators() -> StandardGradientOperators<M, N, P> {
+        [
             [
                 [-2.0, -2.0, -2.0],
                 [0.0, 0.0, 0.0],
@@ -421,11 +424,11 @@ impl Tetrahedron {
                 [2.0 / 3.0, 2.0 / 3.0, 2.0 / 3.0],
                 [2.0 / 3.0, 2.0 / 3.0, 2.0 / 3.0],
             ],
-        ])
+        ]
+        .into()
     }
-    const fn standard_gradient_operators_transposed() -> StandardGradientOperatorsTransposed<M, N, P>
-    {
-        StandardGradientOperatorsTransposed::<M, N, P>::const_from([
+    fn standard_gradient_operators_transposed() -> StandardGradientOperatorsTransposed<M, N, P> {
+        [
             [
                 [-2.0, -2.0, -2.0],
                 [0.0, 0.0, 0.0],
@@ -566,6 +569,7 @@ impl Tetrahedron {
                 [2.0 / 3.0, 2.0, 2.0],
                 [2.0 / 3.0, 2.0 / 3.0, 2.0 / 3.0],
             ],
-        ])
+        ]
+        .into()
     }
 }

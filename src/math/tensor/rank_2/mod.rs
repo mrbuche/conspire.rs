@@ -36,24 +36,17 @@ use super::test::ErrorTensor;
 #[derive(Clone, Debug, PartialEq)]
 pub struct TensorRank2<const D: usize, const I: usize, const J: usize>([TensorRank1<D, J>; D]);
 
-macro_rules! const_from_impl {
-    ($dim:literal, $($i:literal),*) => {
-        impl<const I: usize, const J: usize> TensorRank2<$dim, I, J> {
-            /// Associated function for const type conversion.
-            pub const fn const_from(array: [[TensorRank0; $dim]; $dim]) -> Self {
-                Self([
-                    $(TensorRank1::const_from(array[$i])),*
-                ])
-            }
-        }
-    }
-}
-const_from_impl!(3, 0, 1, 2);
-const_from_impl!(4, 0, 1, 2, 3);
-
 impl<const D: usize, const I: usize, const J: usize> Default for TensorRank2<D, I, J> {
     fn default() -> Self {
         Self::zero()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> From<[[TensorRank0; D]; D]>
+    for TensorRank2<D, I, J>
+{
+    fn from(array: [[TensorRank0; D]; D]) -> Self {
+        array.into_iter().map(|entry| entry.into()).collect()
     }
 }
 
@@ -260,14 +253,6 @@ impl<const D: usize, const I: usize, const J: usize> From<TensorRank2<D, I, J>>
             .iter()
             .map(|entry| entry.iter().copied().collect())
             .collect()
-    }
-}
-
-impl<const D: usize, const I: usize, const J: usize> From<[[TensorRank0; D]; D]>
-    for TensorRank2<D, I, J>
-{
-    fn from(array: [[TensorRank0; D]; D]) -> Self {
-        array.into_iter().map(TensorRank1::const_from).collect()
     }
 }
 
