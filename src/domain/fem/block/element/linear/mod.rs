@@ -55,12 +55,12 @@ impl<const G: usize, const N: usize> FiniteElement<G, N> for LinearElement<G, N>
 where
     Self: LinearFiniteElement<G, N> + FiniteElementSpecific<G, M, N>,
 {
-    fn reset(&mut self) {
-        todo!()
-        // let (gradient_vectors, integration_weights) = Self::initialize(Self::parametric_reference());
-        // self.gradient_vectors = gradient_vectors;
-        // self.integration_weights = integration_weights;
-    }
+    // fn reset(&mut self) {
+    //     todo!()
+    //     // let (gradient_vectors, integration_weights) = Self::initialize(Self::parametric_reference());
+    //     // self.gradient_vectors = gradient_vectors;
+    //     // self.integration_weights = integration_weights;
+    // }
 }
 
 pub trait LinearFiniteElement<const G: usize, const N: usize>

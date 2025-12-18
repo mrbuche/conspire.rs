@@ -62,6 +62,15 @@ impl<const G: usize, const N: usize, const O: usize> Debug for Element<G, N, O> 
     }
 }
 
+impl<const G: usize, const N: usize, const O: usize> Default for Element<G, N, O>
+where
+    Self: FiniteElement<G, N>,
+{
+    fn default() -> Self {
+        Self::from(Self::parametric_reference())
+    }
+}
+
 //
 // get reset() functionality by implementing Default instead?
 // seems more idiomatic
@@ -73,9 +82,9 @@ impl<const G: usize, const N: usize, const O: usize> Debug for Element<G, N, O> 
 //
 pub trait FiniteElement<const G: usize, const N: usize>
 where
-    Self: From<ElementNodalReferenceCoordinates<N>> + FiniteElementSpecific<G, 3, N>,
+    Self: Default + From<ElementNodalReferenceCoordinates<N>> + FiniteElementSpecific<G, 3, N>,
 {
-    fn reset(&mut self);
+    // fn reset(&mut self);
 }
 
 pub trait FiniteElementSpecific<const G: usize, const M: usize, const N: usize> {

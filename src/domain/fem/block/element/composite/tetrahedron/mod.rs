@@ -70,23 +70,15 @@ impl FiniteElementSpecific<G, M, N> for Tetrahedron {
 }
 
 impl FiniteElement<G, N> for Tetrahedron {
-    fn reset(&mut self) {
-        let (gradient_vectors, integration_weights) =
-            Self::initialize(Self::parametric_reference());
-        self.gradient_vectors = gradient_vectors;
-        self.integration_weights = integration_weights;
-    }
+    // fn reset(&mut self) {
+    //     let (gradient_vectors, integration_weights) =
+    //         Self::initialize(Self::parametric_reference());
+    //     self.gradient_vectors = gradient_vectors;
+    //     self.integration_weights = integration_weights;
+    // }
 }
 
 impl Tetrahedron {
-    fn initialize(
-        reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,
-    ) -> (GradientVectors<G, N>, ScalarList<G>) {
-        let gradient_vectors = Self::projected_gradient_vectors(&reference_nodal_coordinates);
-        let integration_weights =
-            Self::reference_jacobians(&reference_nodal_coordinates) * Self::integration_weight();
-        (gradient_vectors, integration_weights)
-    }
     const fn integration_weight() -> Scalar {
         1.0 / 24.0
     }

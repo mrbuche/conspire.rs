@@ -114,7 +114,9 @@ where
         }
     }
     fn reset(&mut self) {
-        self.elements.iter_mut().for_each(|element| element.reset())
+        self.elements
+            .iter_mut()
+            .for_each(|element| *element = F::default())
     }
 }
 
