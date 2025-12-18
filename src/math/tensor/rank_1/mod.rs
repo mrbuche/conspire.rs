@@ -161,9 +161,6 @@ impl<const D: usize, const I: usize> TensorArray for TensorRank1<D, I> {
     fn identity() -> Self {
         ones()
     }
-    fn new(array: Self::Array) -> Self {
-        array.into_iter().collect()
-    }
     fn zero() -> Self {
         zero()
     }

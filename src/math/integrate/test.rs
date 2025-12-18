@@ -105,7 +105,7 @@ macro_rules! test_explicit {
                 .integrate(
                     |_: TensorRank0, x: &TensorRank1<3, 1>| Ok(&a * x),
                     &[0.0, 1.0],
-                    TensorRank1::new([1.0, 1.0, 1.0]),
+                    TensorRank1::from([1.0, 1.0, 1.0]),
                 )?;
             time.iter()
                 .zip(solution.iter().zip(function.iter()))
@@ -134,9 +134,9 @@ macro_rules! test_explicit {
         fn second_order_tensor_rank_0() -> Result<(), TestError> {
             let (time, solution, function): (Vector, TensorRank1Vec<2, 1>, _) = $integration
                 .integrate(
-                    |t: TensorRank0, y: &TensorRank1<2, 1>| Ok(TensorRank1::new([y[1], -t.sin()])),
+                    |t: TensorRank0, y: &TensorRank1<2, 1>| Ok(TensorRank1::from([y[1], -t.sin()])),
                     &[0.0, 6.0],
-                    TensorRank1::new([0.0, 1.0]),
+                    TensorRank1::from([0.0, 1.0]),
                 )?;
             time.iter()
                 .zip(solution.iter().zip(function.iter()))
@@ -152,10 +152,10 @@ macro_rules! test_explicit {
             let (time, solution, function): (Vector, TensorRank1Vec<3, 1>, _) = $integration
                 .integrate(
                     |t: TensorRank0, y: &TensorRank1<3, 1>| {
-                        Ok(TensorRank1::new([y[1], y[2], -t.cos()]))
+                        Ok(TensorRank1::from([y[1], y[2], -t.cos()]))
                     },
                     &[0.0, 1.0],
-                    TensorRank1::new([0.0, 1.0, 0.0]),
+                    TensorRank1::from([0.0, 1.0, 0.0]),
                 )?;
             time.iter()
                 .zip(solution.iter().zip(function.iter()))
@@ -173,10 +173,10 @@ macro_rules! test_explicit {
             let (time, solution, function): (Vector, TensorRank1Vec<4, 1>, _) = $integration
                 .integrate(
                     |t: TensorRank0, y: &TensorRank1<4, 1>| {
-                        Ok(TensorRank1::new([y[1], y[2], y[3], t.sin()]))
+                        Ok(TensorRank1::from([y[1], y[2], y[3], t.sin()]))
                     },
                     &[0.0, 0.6],
-                    TensorRank1::new([0.0, 1.0, 0.0, -1.0]),
+                    TensorRank1::from([0.0, 1.0, 0.0, -1.0]),
                 )?;
             time.iter()
                 .zip(solution.iter().zip(function.iter()))
@@ -196,10 +196,10 @@ macro_rules! test_explicit {
             let (time, solution, function): (Vector, TensorRank1Vec<5, 1>, _) = $integration
                 .integrate(
                     |t: TensorRank0, y: &TensorRank1<5, 1>| {
-                        Ok(TensorRank1::new([y[1], -t.sin(), y[3], y[4], -t.cos()]))
+                        Ok(TensorRank1::from([y[1], -t.sin(), y[3], y[4], -t.cos()]))
                     },
                     &[0.0, 1.0],
-                    TensorRank1::new([0.0, 1.0, 0.0, 1.0, 0.0]),
+                    TensorRank1::from([0.0, 1.0, 0.0, 1.0, 0.0]),
                 )?;
             time.iter()
                 .zip(solution.iter().zip(function.iter()))
@@ -226,14 +226,14 @@ macro_rules! test_explicit {
                 |t: TensorRank0, y: &TensorTuple<TensorRank1<2, 1>, TensorRank1<3, 1>>| {
                     let (y_1, y_2) = y.into();
                     Ok(TensorTuple::from((
-                        TensorRank1::new([y_1[1], -t.sin()]),
-                        TensorRank1::new([y_2[1], y_2[2], -t.cos()]),
+                        TensorRank1::from([y_1[1], -t.sin()]),
+                        TensorRank1::from([y_2[1], y_2[2], -t.cos()]),
                     )))
                 },
                 &[0.0, 1.0],
                 TensorTuple::from((
-                    TensorRank1::new([0.0, 1.0]),
-                    TensorRank1::new([0.0, 1.0, 0.0]),
+                    TensorRank1::from([0.0, 1.0]),
+                    TensorRank1::from([0.0, 1.0, 0.0]),
                 )),
             )?;
             time.iter()
@@ -271,19 +271,19 @@ macro_rules! test_explicit {
                     let (y_1, y_23) = y.into();
                     let (y_2, y_3) = y_23.into();
                     Ok(TensorTuple::from((
-                        TensorRank1::new([y_1[1], -t.sin()]),
+                        TensorRank1::from([y_1[1], -t.sin()]),
                         TensorTuple::from((
-                            TensorRank1::new([y_2[1], y_2[2], -t.cos()]),
-                            TensorRank1::new([y_3[1], y_3[2], y_3[3], t.sin()]),
+                            TensorRank1::from([y_2[1], y_2[2], -t.cos()]),
+                            TensorRank1::from([y_3[1], y_3[2], y_3[3], t.sin()]),
                         )),
                     )))
                 },
                 &[0.0, 0.6],
                 TensorTuple::from((
-                    TensorRank1::new([0.0, 1.0]),
+                    TensorRank1::from([0.0, 1.0]),
                     TensorTuple::from((
-                        TensorRank1::new([0.0, 1.0, 0.0]),
-                        TensorRank1::new([0.0, 1.0, 0.0, -1.0]),
+                        TensorRank1::from([0.0, 1.0, 0.0]),
+                        TensorRank1::from([0.0, 1.0, 0.0, -1.0]),
                     )),
                 )),
             )?;

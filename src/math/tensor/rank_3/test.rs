@@ -34,11 +34,11 @@ fn get_array() -> [[[TensorRank0; 4]; 4]; 4] {
 }
 
 fn get_tensor_rank_3() -> TensorRank3<4, 1, 1, 1> {
-    TensorRank3::new(get_array())
+    TensorRank3::from(get_array())
 }
 
 fn get_other_tensor_rank_3() -> TensorRank3<4, 1, 1, 1> {
-    TensorRank3::new([
+    TensorRank3::from([
         [
             [2.0, 1.0, 1.0, 2.0],
             [3.0, 1.0, 1.0, 2.0],
@@ -67,7 +67,7 @@ fn get_other_tensor_rank_3() -> TensorRank3<4, 1, 1, 1> {
 }
 
 fn get_other_tensor_rank_3_add_tensor_rank_3() -> TensorRank3<4, 1, 1, 1> {
-    TensorRank3::new([
+    TensorRank3::from([
         [
             [3.0, 3.0, 2.0, 4.0],
             [3.0, 4.0, 2.0, 5.0],
@@ -96,7 +96,7 @@ fn get_other_tensor_rank_3_add_tensor_rank_3() -> TensorRank3<4, 1, 1, 1> {
 }
 
 fn get_other_tensor_rank_3_sub_tensor_rank_3() -> TensorRank3<4, 1, 1, 1> {
-    TensorRank3::new([
+    TensorRank3::from([
         [
             [-1.0, 1.0, 0.0, 0.0],
             [-3.0, 2.0, 0.0, 1.0],
@@ -507,7 +507,7 @@ fn mul_assign_tensor_rank_0_ref() {
 }
 
 #[test]
-fn new() {
+fn from() {
     get_tensor_rank_3()
         .iter()
         .zip(get_array().iter())

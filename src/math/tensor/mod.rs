@@ -265,8 +265,6 @@ pub trait TensorArray {
     fn as_array(&self) -> Self::Array;
     /// Returns the identity tensor.
     fn identity() -> Self;
-    /// Returns a tensor given an array.
-    fn new(array: Self::Array) -> Self;
     /// Returns the zero tensor.
     fn zero() -> Self;
 }

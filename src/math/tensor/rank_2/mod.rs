@@ -788,7 +788,7 @@ impl<const I: usize> TensorRank2<3, I, I> {
     /// Returns the invariants of the 3x3 symmetric tensor.
     pub fn invariants(&self) -> TensorRank0List<3> {
         let trace = self.trace();
-        TensorRank0List::new([
+        TensorRank0List::from([
             trace,
             0.5 * (trace.powi(2) - self.squared_trace()),
             self.determinant(),
@@ -807,7 +807,7 @@ fn solve_cubic_symmetric(
     if p.abs() < ABS_TOL {
         let t = (-q).cbrt();
         let lambda = t + c2 / 3.0;
-        return Ok(TensorRank0List::new([lambda; _]));
+        return Ok(TensorRank0List::from([lambda; _]));
     }
     let discriminant = -4.0 * p * p * p - 27.0 * q * q;
     if discriminant >= ABS_TOL {
@@ -821,7 +821,7 @@ fn solve_cubic_symmetric(
             2.0 * sqrt_term * ((theta + 2.0 * TAU) / 3.0).cos() + c2 / 3.0,
         ];
         lambdas.sort_by(|a, b| b.partial_cmp(a).unwrap());
-        Ok(TensorRank0List::new(lambdas))
+        Ok(TensorRank0List::from(lambdas))
     } else {
         Err(TensorError::SymmetricMatrixComplexEigenvalues)
     }
@@ -1003,9 +1003,6 @@ impl<const D: usize, const I: usize, const J: usize> TensorArray for TensorRank2
         (0..D)
             .map(|i| (0..D).map(|j| ((i == j) as u8) as TensorRank0).collect())
             .collect()
-    }
-    fn new(array: Self::Array) -> Self {
-        array.into_iter().map(Self::Item::new).collect()
     }
     fn zero() -> Self {
         Self(from_fn(|_| Self::Item::zero()))

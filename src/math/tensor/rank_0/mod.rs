@@ -121,9 +121,6 @@ impl TensorArray for TensorRank0 {
     fn identity() -> Self {
         1.0
     }
-    fn new(array: Self::Array) -> Self {
-        array
-    }
     fn zero() -> Self {
         0.0
     }

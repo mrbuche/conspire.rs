@@ -10,7 +10,6 @@ use crate::EPSILON;
 
 #[cfg(test)]
 use super::{
-    TensorArray,
     rank_1::{TensorRank1, list::TensorRank1List},
 };
 
@@ -158,8 +157,8 @@ fn assert_eq_fail() {
 #[should_panic(expected = "Assertion `left ≈= right` failed in 2 places.")]
 fn assert_eq_from_fd_fail() {
     assert_eq_from_fd(
-        &TensorRank1::<_, 1>::new([1.0, 2.0, 3.0]),
-        &TensorRank1::<_, 1>::new([3.0, 2.0, 1.0]),
+        &TensorRank1::<_, 1>::from([1.0, 2.0, 3.0]),
+        &TensorRank1::<_, 1>::from([3.0, 2.0, 1.0]),
     )
     .unwrap()
 }
@@ -167,16 +166,16 @@ fn assert_eq_from_fd_fail() {
 #[test]
 fn assert_eq_from_fd_success() -> Result<(), TestError> {
     assert_eq_from_fd(
-        &TensorRank1::<_, 1>::new([1.0, 2.0, 3.0]),
-        &TensorRank1::<_, 1>::new([1.0, 2.0, 3.0]),
+        &TensorRank1::<_, 1>::from([1.0, 2.0, 3.0]),
+        &TensorRank1::<_, 1>::from([1.0, 2.0, 3.0]),
     )
 }
 
 #[test]
 fn assert_eq_from_fd_weak() -> Result<(), TestError> {
     assert_eq_from_fd(
-        &TensorRank1List::<_, 1, 1>::new([[EPSILON * 1.01]]),
-        &TensorRank1List::<_, 1, 1>::new([[EPSILON * 1.02]]),
+        &TensorRank1List::<_, 1, 1>::from([[EPSILON * 1.01]]),
+        &TensorRank1List::<_, 1, 1>::from([[EPSILON * 1.02]]),
     )
 }
 
@@ -184,8 +183,8 @@ fn assert_eq_from_fd_weak() -> Result<(), TestError> {
 #[should_panic(expected = "Assertion `left ≈= right` failed in 2 places.")]
 fn assert_eq_within_tols_fail() {
     assert_eq_within_tols(
-        &TensorRank1::<_, 1>::new([1.0, 2.0, 3.0]),
-        &TensorRank1::<_, 1>::new([3.0, 2.0, 1.0]),
+        &TensorRank1::<_, 1>::from([1.0, 2.0, 3.0]),
+        &TensorRank1::<_, 1>::from([3.0, 2.0, 1.0]),
     )
     .unwrap()
 }

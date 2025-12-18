@@ -14,11 +14,11 @@ fn get_array() -> [[TensorRank0; 3]; 8] {
 }
 
 fn get_tensor_rank_1_list() -> TensorRank1List<3, 1, 8> {
-    TensorRank1List::new(get_array())
+    TensorRank1List::from(get_array())
 }
 
 fn get_other_tensor_rank_1_list() -> TensorRank1List<3, 1, 8> {
-    TensorRank1List::new([
+    TensorRank1List::from([
         [3.0, 3.0, 6.0],
         [2.0, 4.0, 3.0],
         [6.0, 2.0, 5.0],
@@ -31,7 +31,7 @@ fn get_other_tensor_rank_1_list() -> TensorRank1List<3, 1, 8> {
 }
 
 fn get_tensor_rank_1_list_add_other_tensor_rank_1_list() -> TensorRank1List<3, 1, 8> {
-    TensorRank1List::new([
+    TensorRank1List::from([
         [8.0, 3.0, 6.0],
         [7.0, 9.0, 9.0],
         [9.0, 3.0, 9.0],
@@ -44,7 +44,7 @@ fn get_tensor_rank_1_list_add_other_tensor_rank_1_list() -> TensorRank1List<3, 1
 }
 
 fn get_tensor_rank_1_list_sub_other_tensor_rank_1_list() -> TensorRank1List<3, 1, 8> {
-    TensorRank1List::new([
+    TensorRank1List::from([
         [2.0, -3.0, -6.0],
         [3.0, 1.0, 3.0],
         [-3.0, -1.0, -1.0],
@@ -57,7 +57,7 @@ fn get_tensor_rank_1_list_sub_other_tensor_rank_1_list() -> TensorRank1List<3, 1
 }
 
 fn get_tensor_rank_1_list_mul_other_tensor_rank_1_list() -> TensorRank2<3, 1, 1> {
-    TensorRank2::new([[69.0, 70.0, 90.0], [57.0, 73.0, 75.0], [63.0, 70.0, 65.0]])
+    TensorRank2::from([[69.0, 70.0, 90.0], [57.0, 73.0, 75.0], [63.0, 70.0, 65.0]])
 }
 
 #[test]
@@ -364,7 +364,7 @@ fn mul_tensor_rank_1_list_ref_to_self_ref() {
 }
 
 #[test]
-fn new() {
+fn from() {
     get_tensor_rank_1_list()
         .iter()
         .zip(get_array().iter())

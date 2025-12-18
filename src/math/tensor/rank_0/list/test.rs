@@ -5,11 +5,11 @@ fn get_array() -> [TensorRank0; 4] {
 }
 
 fn get_tensor_rank_0_list() -> TensorRank0List<4> {
-    TensorRank0List::new(get_array())
+    TensorRank0List::from(get_array())
 }
 
 fn get_other_tensor_rank_0_list() -> TensorRank0List<4> {
-    TensorRank0List::new([5.0, 6.0, 7.0, 8.0])
+    TensorRank0List::from([5.0, 6.0, 7.0, 8.0])
 }
 
 #[test]
@@ -86,7 +86,7 @@ fn mul_tensor_rank_1_list_ref_to_self_ref() {
 }
 
 #[test]
-fn new() {
+fn from() {
     get_tensor_rank_0_list()
         .iter()
         .zip(get_array().iter())

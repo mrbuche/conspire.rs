@@ -44,6 +44,14 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     }
 }
 
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> From<[[[[TensorRank0; D]; D]; D]; D]>
+    for TensorRank4<D, I, J, K, L>
+{
+    fn from(array: [[[[TensorRank0; D]; D]; D]; D]) -> Self {
+        array.into_iter().map(|entry| entry.into()).collect()
+    }
+}
+
 pub const IDENTITY_1010: TensorRank4<3, 1, 0, 1, 0> = TensorRank4(get_identity_1010_parts());
 
 impl<const I: usize, const J: usize, const K: usize> From<TensorRank4<3, I, J, K, 0>>
@@ -364,9 +372,6 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     }
     fn identity() -> Self {
         Self::dyad_ij_kl(&TensorRank2::identity(), &TensorRank2::identity())
-    }
-    fn new(array: Self::Array) -> Self {
-        array.into_iter().map(Self::Item::new).collect()
     }
     fn zero() -> Self {
         Self(from_fn(|_| Self::Item::zero()))

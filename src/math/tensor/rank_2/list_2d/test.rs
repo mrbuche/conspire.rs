@@ -14,15 +14,15 @@ fn get_array() -> [[[[TensorRank0; 3]; 3]; 2]; 2] {
 }
 
 fn get_tensor_rank_2_list_2d() -> TensorRank2List2D<3, 1, 1, 2, 2> {
-    TensorRank2List2D::new(get_array())
+    TensorRank2List2D::from(get_array())
 }
 
 fn get_tensor_rank_2() -> TensorRank2<3, 1, 1> {
-    TensorRank2::new([[1.0, 4.0, 6.0], [7.0, 2.0, 5.0], [9.0, 8.0, 3.0]])
+    TensorRank2::from([[1.0, 4.0, 6.0], [7.0, 2.0, 5.0], [9.0, 8.0, 3.0]])
 }
 
 fn get_tensor_rank_2_list_2d_mul_tensor_rank_2() -> TensorRank2List2D<3, 1, 1, 2, 2> {
-    TensorRank2List2D::new([
+    TensorRank2List2D::from([
         [
             [[83.0, 60.0, 44.0], [66.0, 72.0, 67.0], [92.0, 76.0, 103.0]],
             [[44.0, 40.0, 37.0], [59.0, 50.0, 67.0], [39.0, 26.0, 49.0]],
@@ -151,7 +151,7 @@ fn mul_tensor_rank_2_ref_to_self() {
 }
 
 #[test]
-fn new() {
+fn from() {
     get_tensor_rank_2_list_2d()
         .iter()
         .zip(get_array().iter())
