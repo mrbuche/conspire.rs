@@ -9,9 +9,7 @@ use std::{
 use crate::EPSILON;
 
 #[cfg(test)]
-use super::{
-    rank_1::{TensorRank1, list::TensorRank1List},
-};
+use super::rank_1::{TensorRank1, list::TensorRank1List};
 
 #[cfg(test)]
 pub trait ErrorTensor {

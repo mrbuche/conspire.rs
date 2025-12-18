@@ -3,10 +3,7 @@ pub const THICKNESS: Scalar = 1.23;
 
 macro_rules! test_finite_element {
     ($element: ident) => {
-        use crate::{
-            math::TensorArray,
-            mechanics::test::{get_deformation_gradient, get_deformation_gradient_rate},
-        };
+        use crate::mechanics::test::{get_deformation_gradient, get_deformation_gradient_rate};
         crate::fem::block::element::test::setup!();
         fn coordinates() -> ElementNodalCoordinates<N> {
             get_deformation_gradient() * reference_coordinates()
@@ -50,10 +47,10 @@ macro_rules! test_surface_finite_element {
             mechanics::RotationCurrentConfiguration,
         };
         fn get_deformation_gradient_special() -> DeformationGradient {
-            DeformationGradient::new([[0.62, 0.20, 0.00], [0.32, 0.98, 0.00], [0.00, 0.00, 1.00]])
+            DeformationGradient::from([[0.62, 0.20, 0.00], [0.32, 0.98, 0.00], [0.00, 0.00, 1.00]])
         }
         fn get_deformation_gradient_rate_special() -> DeformationGradientRate {
-            DeformationGradient::new([[0.53, 0.58, 0.00], [0.28, 0.77, 0.00], [0.00, 0.00, 0.00]])
+            DeformationGradient::from([[0.53, 0.58, 0.00], [0.28, 0.77, 0.00], [0.00, 0.00, 0.00]])
         }
         fn get_deformation_gradient() -> DeformationGradient {
             get_deformation_gradient_rotation() * get_deformation_gradient_special()

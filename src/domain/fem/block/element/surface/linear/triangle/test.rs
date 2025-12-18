@@ -72,7 +72,7 @@ fn get_coordinates_block() -> NodalCoordinates {
 }
 
 fn reference_coordinates() -> ElementNodalReferenceCoordinates<N> {
-    ElementNodalReferenceCoordinates::new([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+    ElementNodalReferenceCoordinates::from([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
 }
 
 fn get_reference_coordinates_block() -> NodalReferenceCoordinates {

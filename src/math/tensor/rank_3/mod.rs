@@ -46,8 +46,8 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Default
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const K: usize> From<[[[TensorRank0; D]; D]; D]>
-    for TensorRank3<D, I, J, K>
+impl<const D: usize, const I: usize, const J: usize, const K: usize>
+    From<[[[TensorRank0; D]; D]; D]> for TensorRank3<D, I, J, K>
 {
     fn from(array: [[[TensorRank0; D]; D]; D]) -> Self {
         array.into_iter().map(|entry| entry.into()).collect()
