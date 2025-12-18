@@ -1,7 +1,7 @@
 const G: usize = 1;
 const N: usize = 4;
 
-pub type Tetrahedron = Element<G, N>;
+pub type Tetrahedron = LinearElement<G, N>;
 
 crate::fem::block::element::linear::implement!(Tetrahedron);
 

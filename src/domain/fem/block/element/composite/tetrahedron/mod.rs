@@ -3,12 +3,12 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        Element, ElementNodalReferenceCoordinates, FiniteElement, GradientVectors,
+        ElementNodalReferenceCoordinates, FiniteElement, GradientVectors,
         ShapeFunctionsAtIntegrationPoints, StandardGradientOperators,
         StandardGradientOperatorsTransposed,
         composite::{
-            NormalizedProjectionMatrix, ParametricGradientOperators, ProjectionMatrix,
-            ShapeFunctionIntegrals, ShapeFunctionIntegralsProducts,
+            CompositeElement, NormalizedProjectionMatrix, ParametricGradientOperators,
+            ProjectionMatrix, ShapeFunctionIntegrals, ShapeFunctionIntegralsProducts,
         },
     },
     math::{Scalar, ScalarList, Tensor, TensorRank1},
@@ -20,7 +20,7 @@ const N: usize = 10;
 const P: usize = 12;
 const Q: usize = 4;
 
-pub type Tetrahedron = Element<G, N>;
+pub type Tetrahedron = CompositeElement<G, N>;
 
 impl FiniteElement<G, N> for Tetrahedron {
     fn initialize(

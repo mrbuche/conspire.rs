@@ -36,7 +36,8 @@ where
     ) -> Result<ViscoplasticStateVariables<G>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize> ElasticViscoplasticFiniteElement<C, G, N> for Element<G, N>
+impl<C, const G: usize, const N: usize, const O: usize> ElasticViscoplasticFiniteElement<C, G, N>
+    for Element<G, N, O>
 where
     C: ElasticViscoplastic,
 {

@@ -36,7 +36,8 @@ where
     ) -> Result<ElementNodalStiffnessesThermal<N>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize> ThermalConductionFiniteElement<C, G, N> for Element<G, N>
+impl<C, const G: usize, const N: usize, const O: usize> ThermalConductionFiniteElement<C, G, N>
+    for Element<G, N, O>
 where
     C: ThermalConduction,
     Self: ThermalFiniteElement<G, N>,

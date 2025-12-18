@@ -19,7 +19,8 @@ where
     ) -> Result<Scalar, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize> HyperviscoelasticFiniteElement<C, G, N> for Element<G, N>
+impl<C, const G: usize, const N: usize, const O: usize> HyperviscoelasticFiniteElement<C, G, N>
+    for Element<G, N, O>
 where
     C: Hyperviscoelastic,
 {

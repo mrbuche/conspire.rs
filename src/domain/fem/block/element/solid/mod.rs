@@ -27,7 +27,7 @@ pub trait SolidFiniteElement<const G: usize, const N: usize> {
     ) -> DeformationGradientRateList<G>;
 }
 
-impl<const G: usize, const N: usize> SolidFiniteElement<G, N> for Element<G, N> {
+impl<const G: usize, const N: usize, const O: usize> SolidFiniteElement<G, N> for Element<G, N, O> {
     fn deformation_gradients(
         &self,
         nodal_coordinates: &ElementNodalCoordinates<N>,

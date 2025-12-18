@@ -27,7 +27,8 @@ where
     ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize> ViscoelasticFiniteElement<C, G, N> for Element<G, N>
+impl<C, const G: usize, const N: usize, const O: usize> ViscoelasticFiniteElement<C, G, N>
+    for Element<G, N, O>
 where
     C: Viscoelastic,
 {

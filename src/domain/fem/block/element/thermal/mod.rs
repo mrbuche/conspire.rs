@@ -15,7 +15,9 @@ pub trait ThermalFiniteElement<const G: usize, const N: usize> {
     ) -> TemperatureGradients<G>;
 }
 
-impl<const G: usize, const N: usize> ThermalFiniteElement<G, N> for Element<G, N> {
+impl<const G: usize, const N: usize, const O: usize> ThermalFiniteElement<G, N>
+    for Element<G, N, O>
+{
     fn temperature_gradients(
         &self,
         nodal_temperatures: &ElementNodalTemperatures<N>,

@@ -25,12 +25,12 @@ pub type StandardGradientOperators<const M: usize, const O: usize, const P: usiz
 pub type StandardGradientOperatorsTransposed<const M: usize, const O: usize, const P: usize> =
     TensorRank1List2D<M, 0, P, O>;
 
-pub struct Element<const G: usize, const N: usize> {
+pub struct Element<const G: usize, const N: usize, const O: usize> {
     gradient_vectors: GradientVectors<G, N>,
     integration_weights: ScalarList<G>,
 }
 
-impl<const G: usize, const N: usize> Element<G, N> {
+impl<const G: usize, const N: usize, const O: usize> Element<G, N, O> {
     fn gradient_vectors(&self) -> &GradientVectors<G, N> {
         &self.gradient_vectors
     }
@@ -39,7 +39,8 @@ impl<const G: usize, const N: usize> Element<G, N> {
     }
 }
 
-impl<const G: usize, const N: usize> From<ElementNodalReferenceCoordinates<N>> for Element<G, N>
+impl<const G: usize, const N: usize, const O: usize> From<ElementNodalReferenceCoordinates<N>>
+    for Element<G, N, O>
 where
     Self: FiniteElement<G, N>,
 {
@@ -52,8 +53,11 @@ where
     }
 }
 
-impl<const G: usize, const N: usize> Debug for Element<G, N> {
+impl<const G: usize, const N: usize, const O: usize> Debug for Element<G, N, O> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        //
+        // Can match on D for prefix (Linear, Composite, etc.) too.
+        //
         let element = match (G, N) {
             (1, 4) => "LinearTetrahedron",
             (5, 5) => "LinearPyramid",

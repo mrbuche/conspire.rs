@@ -8,9 +8,11 @@ pub use pyramid::Pyramid;
 pub use tetrahedron::Tetrahedron;
 pub use wedge::Wedge;
 
-use crate::math::Scalar;
+use crate::{fem::block::element::Element, math::Scalar};
 
 const FRAC_1_SQRT_3: Scalar = 0.577_350_269_189_625_8;
+
+pub type LinearElement<const G: usize, const N: usize> = Element<G, N, 1>;
 
 macro_rules! implement {
     ($element:ident) => {
@@ -20,8 +22,8 @@ macro_rules! implement {
         use crate::fem::block::element::ShapeFunctionsAtIntegrationPoints;
         use crate::{
             fem::block::element::{
-                Element, ElementNodalReferenceCoordinates, FiniteElement, GradientVectors,
-                StandardGradientOperators,
+                ElementNodalReferenceCoordinates, FiniteElement, GradientVectors,
+                StandardGradientOperators, linear::LinearElement,
             },
             math::{Scalar, ScalarList},
         };

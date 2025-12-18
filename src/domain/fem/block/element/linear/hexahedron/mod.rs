@@ -1,7 +1,7 @@
 const G: usize = 8;
 const N: usize = 8;
 
-pub type Hexahedron = Element<G, N>;
+pub type Hexahedron = LinearElement<G, N>;
 
 crate::fem::block::element::linear::implement!(Hexahedron);
 

@@ -1,7 +1,7 @@
 const G: usize = 5;
 const N: usize = 5;
 
-pub type Pyramid = Element<G, N>;
+pub type Pyramid = LinearElement<G, N>;
 
 crate::fem::block::element::linear::implement!(Pyramid);
 

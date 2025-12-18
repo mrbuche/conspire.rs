@@ -1,7 +1,7 @@
 const G: usize = 6;
 const N: usize = 6;
 
-pub type Wedge = Element<G, N>;
+pub type Wedge = LinearElement<G, N>;
 
 crate::fem::block::element::linear::implement!(Wedge);
 

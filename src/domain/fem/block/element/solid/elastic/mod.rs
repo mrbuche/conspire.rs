@@ -25,7 +25,8 @@ where
     ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize> ElasticFiniteElement<C, G, N> for Element<G, N>
+impl<C, const G: usize, const N: usize, const O: usize> ElasticFiniteElement<C, G, N>
+    for Element<G, N, O>
 where
     C: Elastic,
 {
