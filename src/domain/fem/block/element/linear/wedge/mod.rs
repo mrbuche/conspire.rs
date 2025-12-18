@@ -3,8 +3,8 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        ElementNodalReferenceCoordinates, ParametricCoordinate, ParametricCoordinates,
-        ShapeFunctions, ShapeFunctionsGradients,
+        ElementNodalReferenceCoordinates, FiniteElementSpecific, ParametricCoordinate,
+        ParametricCoordinates, ShapeFunctions, ShapeFunctionsGradients,
         linear::{FRAC_1_SQRT_3, LinearElement, LinearFiniteElement, M},
     },
     math::ScalarList,
@@ -15,7 +15,7 @@ const N: usize = 6;
 
 pub type Wedge = LinearElement<G, N>;
 
-impl LinearFiniteElement<G, N> for Wedge {
+impl FiniteElementSpecific<G, M, N> for Wedge {
     fn integration_points() -> ParametricCoordinates<G, M> {
         // [
         // [1.0 / 6.0, 1.0 / 6.0, -FRAC_1_SQRT_3],
@@ -34,10 +34,7 @@ impl LinearFiniteElement<G, N> for Wedge {
             [1.0 / 6.0, 2.0 / 3.0, FRAC_1_SQRT_3],
         ])
     }
-    fn parametric_weights() -> ScalarList<G> {
-        [1.0 / 6.0; G].into()
-    }
-    fn reference() -> ElementNodalReferenceCoordinates<N> {
+    fn parametric_reference() -> ElementNodalReferenceCoordinates<N> {
         // [
         //  [0.0, 0.0, 0.0],
         // [1.0, 0.0, 0.0],
@@ -55,6 +52,12 @@ impl LinearFiniteElement<G, N> for Wedge {
             [0.0, 1.0, 1.0],
         ])
     }
+    fn parametric_weights() -> ScalarList<G> {
+        [1.0 / 6.0; G].into()
+    }
+}
+
+impl LinearFiniteElement<G, N> for Wedge {
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
         let [xi_1, xi_2, xi_3] = parametric_coordinate.into();
         // [

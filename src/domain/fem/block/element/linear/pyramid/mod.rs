@@ -3,8 +3,8 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        ElementNodalReferenceCoordinates, ParametricCoordinate, ParametricCoordinates,
-        ShapeFunctions, ShapeFunctionsGradients,
+        ElementNodalReferenceCoordinates, FiniteElementSpecific, ParametricCoordinate,
+        ParametricCoordinates, ShapeFunctions, ShapeFunctionsGradients,
         linear::{LinearElement, LinearFiniteElement, M},
     },
     math::ScalarList,
@@ -15,7 +15,7 @@ const N: usize = 5;
 
 pub type Pyramid = LinearElement<G, N>;
 
-impl LinearFiniteElement<G, N> for Pyramid {
+impl FiniteElementSpecific<G, M, N> for Pyramid {
     fn integration_points() -> ParametricCoordinates<G, M> {
         // [
         // [-0.5, 0.0, 1.0 / 6.0],
@@ -32,10 +32,7 @@ impl LinearFiniteElement<G, N> for Pyramid {
             [0.0, 0.0, 0.25],
         ])
     }
-    fn parametric_weights() -> ScalarList<G> {
-        [5.0 / 27.0, 5.0 / 27.0, 5.0 / 27.0, 5.0 / 27.0, 16.0 / 27.0].into()
-    }
-    fn reference() -> ElementNodalReferenceCoordinates<N> {
+    fn parametric_reference() -> ElementNodalReferenceCoordinates<N> {
         // [
         //  [-1.0, -1.0, 0.0],
         // [1.0, -1.0, 0.0],
@@ -51,6 +48,12 @@ impl LinearFiniteElement<G, N> for Pyramid {
             [0.0, 0.0, 1.0],
         ])
     }
+    fn parametric_weights() -> ScalarList<G> {
+        [5.0 / 27.0, 5.0 / 27.0, 5.0 / 27.0, 5.0 / 27.0, 16.0 / 27.0].into()
+    }
+}
+
+impl LinearFiniteElement<G, N> for Pyramid {
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
         let [xi_1, xi_2, xi_3] = parametric_coordinate.into();
         // [

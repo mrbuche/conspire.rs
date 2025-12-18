@@ -10,11 +10,11 @@ pub use wedge::Wedge;
 
 use crate::{
     fem::block::element::{
-        Element, ElementNodalReferenceCoordinates, FiniteElement, GradientVectors,
-        ParametricCoordinate, ParametricCoordinates, ShapeFunctions,
-        ShapeFunctionsAtIntegrationPoints, ShapeFunctionsGradients, StandardGradientOperators,
+        Element, ElementNodalReferenceCoordinates, FiniteElement, FiniteElementSpecific,
+        ParametricCoordinate, ShapeFunctions, ShapeFunctionsAtIntegrationPoints,
+        ShapeFunctionsGradients, StandardGradientOperators,
     },
-    math::{Scalar, ScalarList},
+    math::Scalar,
 };
 
 const M: usize = 3;
@@ -23,13 +23,12 @@ const FRAC_1_SQRT_3: Scalar = 0.577_350_269_189_625_8;
 
 pub type LinearElement<const G: usize, const N: usize> = Element<G, N, 1>;
 
-impl<const G: usize, const N: usize> FiniteElement<G, N> for LinearElement<G, N>
+impl<const G: usize, const N: usize> From<ElementNodalReferenceCoordinates<N>>
+    for LinearElement<G, N>
 where
-    Self: LinearFiniteElement<G, N>,
+    Self: FiniteElement<G, N> + LinearFiniteElement<G, N>,
 {
-    fn initialize(
-        reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,
-    ) -> (GradientVectors<G, N>, ScalarList<G>) {
+    fn from(reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>) -> Self {
         let gradient_vectors = Self::shape_functions_gradients_at_integration_points()
             .into_iter()
             .map(|standard_gradient_operator| {
@@ -45,19 +44,29 @@ where
                     * integration_weight
             })
             .collect();
-        (gradient_vectors, integration_weights)
-    }
-    fn reset(&mut self) {
-        let (gradient_vectors, integration_weights) = Self::initialize(Self::reference());
-        self.gradient_vectors = gradient_vectors;
-        self.integration_weights = integration_weights;
+        Self {
+            gradient_vectors,
+            integration_weights,
+        }
     }
 }
 
-pub trait LinearFiniteElement<const G: usize, const N: usize> {
-    fn integration_points() -> ParametricCoordinates<G, M>;
-    fn parametric_weights() -> ScalarList<G>;
-    fn reference() -> ElementNodalReferenceCoordinates<N>;
+impl<const G: usize, const N: usize> FiniteElement<G, N> for LinearElement<G, N>
+where
+    Self: LinearFiniteElement<G, N> + FiniteElementSpecific<G, M, N>,
+{
+    fn reset(&mut self) {
+        todo!()
+        // let (gradient_vectors, integration_weights) = Self::initialize(Self::parametric_reference());
+        // self.gradient_vectors = gradient_vectors;
+        // self.integration_weights = integration_weights;
+    }
+}
+
+pub trait LinearFiniteElement<const G: usize, const N: usize>
+where
+    Self: FiniteElementSpecific<G, M, N>,
+{
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N>;
     fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, N> {
         Self::integration_points()

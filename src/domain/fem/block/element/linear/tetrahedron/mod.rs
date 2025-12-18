@@ -3,8 +3,8 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        ElementNodalReferenceCoordinates, ParametricCoordinate, ParametricCoordinates,
-        ShapeFunctions, ShapeFunctionsGradients,
+        ElementNodalReferenceCoordinates, FiniteElementSpecific, ParametricCoordinate,
+        ParametricCoordinates, ShapeFunctions, ShapeFunctionsGradients,
         linear::{LinearElement, LinearFiniteElement, M},
     },
     math::ScalarList,
@@ -15,17 +15,14 @@ const N: usize = 4;
 
 pub type Tetrahedron = LinearElement<G, N>;
 
-impl LinearFiniteElement<G, N> for Tetrahedron {
+impl FiniteElementSpecific<G, M, N> for Tetrahedron {
     fn integration_points() -> ParametricCoordinates<G, M> {
         // [
         // [0.25; M],
         // .into()
         ParametricCoordinates::<G, M>::const_from([[0.25; M]])
     }
-    fn parametric_weights() -> ScalarList<G> {
-        [1.0 / 6.0; G].into()
-    }
-    fn reference() -> ElementNodalReferenceCoordinates<N> {
+    fn parametric_reference() -> ElementNodalReferenceCoordinates<N> {
         // [
         // [0.0, 0.0, 0.0],
         // [1.0, 0.0, 0.0],
@@ -39,6 +36,12 @@ impl LinearFiniteElement<G, N> for Tetrahedron {
             [0.0, 0.0, 1.0],
         ])
     }
+    fn parametric_weights() -> ScalarList<G> {
+        [1.0 / 6.0; G].into()
+    }
+}
+
+impl LinearFiniteElement<G, N> for Tetrahedron {
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
         let [xi_1, xi_2, xi_3] = parametric_coordinate.into();
         // [

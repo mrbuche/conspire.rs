@@ -3,8 +3,8 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        ElementNodalReferenceCoordinates, FiniteElement, GradientVectors,
-        ShapeFunctionsAtIntegrationPoints, StandardGradientOperators,
+        ElementNodalReferenceCoordinates, FiniteElement, FiniteElementSpecific, GradientVectors,
+        ParametricCoordinates, ShapeFunctionsAtIntegrationPoints, StandardGradientOperators,
         StandardGradientOperatorsTransposed,
         composite::{
             CompositeElement, NormalizedProjectionMatrix, ParametricGradientOperators,
@@ -22,7 +22,63 @@ const Q: usize = 4;
 
 pub type Tetrahedron = CompositeElement<G, N>;
 
+impl From<ElementNodalReferenceCoordinates<N>> for Tetrahedron {
+    fn from(reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>) -> Self {
+        let gradient_vectors = Self::projected_gradient_vectors(&reference_nodal_coordinates);
+        let integration_weights =
+            Self::reference_jacobians(&reference_nodal_coordinates) * Self::integration_weight();
+        Self {
+            gradient_vectors,
+            integration_weights,
+        }
+    }
+}
+
+impl FiniteElementSpecific<G, M, N> for Tetrahedron {
+    fn integration_points() -> ParametricCoordinates<G, M> {
+        todo!()
+    }
+    fn parametric_reference() -> ElementNodalReferenceCoordinates<N> {
+        // [
+        // [0.0, 0.0, 0.0],
+        // [1.0, 0.0, 0.0],
+        // [0.0, 1.0, 0.0],
+        // [0.0, 0.0, 1.0],
+        // [0.25, 0.25, 0.0],
+        // [0.25, 0.0, 0.25],
+        // [0.0, 0.25, 0.25],
+        // [0.5, 0.5, 0.0],
+        // [0.5, 0.0, 0.5],
+        // [0.0, 0.5, 0.5],
+        // ].into()
+        ElementNodalReferenceCoordinates::<N>::const_from([
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+            [0.25, 0.25, 0.0],
+            [0.25, 0.0, 0.25],
+            [0.0, 0.25, 0.25],
+            [0.5, 0.5, 0.0],
+            [0.5, 0.0, 0.5],
+            [0.0, 0.5, 0.5],
+        ])
+    }
+    fn parametric_weights() -> ScalarList<G> {
+        [1.0 / 24.0; G].into()
+    }
+}
+
 impl FiniteElement<G, N> for Tetrahedron {
+    fn reset(&mut self) {
+        let (gradient_vectors, integration_weights) =
+            Self::initialize(Self::parametric_reference());
+        self.gradient_vectors = gradient_vectors;
+        self.integration_weights = integration_weights;
+    }
+}
+
+impl Tetrahedron {
     fn initialize(
         reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,
     ) -> (GradientVectors<G, N>, ScalarList<G>) {
@@ -31,14 +87,6 @@ impl FiniteElement<G, N> for Tetrahedron {
             Self::reference_jacobians(&reference_nodal_coordinates) * Self::integration_weight();
         (gradient_vectors, integration_weights)
     }
-    fn reset(&mut self) {
-        let (gradient_vectors, integration_weights) = Self::initialize(Self::reference());
-        self.gradient_vectors = gradient_vectors;
-        self.integration_weights = integration_weights;
-    }
-}
-
-impl Tetrahedron {
     const fn integration_weight() -> Scalar {
         1.0 / 24.0
     }
@@ -118,20 +166,6 @@ impl Tetrahedron {
                     .collect()
             })
             .collect()
-    }
-    const fn reference() -> ElementNodalReferenceCoordinates<N> {
-        ElementNodalReferenceCoordinates::<N>::const_from([
-            [0.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [0.0, 0.0, 1.0],
-            [0.25, 0.25, 0.0],
-            [0.25, 0.0, 0.25],
-            [0.0, 0.25, 0.25],
-            [0.5, 0.5, 0.0],
-            [0.5, 0.0, 0.5],
-            [0.0, 0.5, 0.5],
-        ])
     }
     fn reference_jacobians(
         reference_nodal_coordinates: &ElementNodalReferenceCoordinates<N>,
