@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        ElementNodalReferenceCoordinates, FiniteElementSpecific, ParametricCoordinate,
+        ElementNodalReferenceCoordinates, FiniteElement, ParametricCoordinate,
         ParametricCoordinates, ShapeFunctions, ShapeFunctionsGradients,
         linear::{LinearElement, LinearFiniteElement, M},
     },
@@ -15,7 +15,7 @@ const N: usize = 5;
 
 pub type Pyramid = LinearElement<G, N>;
 
-impl FiniteElementSpecific<G, M, N> for Pyramid {
+impl FiniteElement<G, M, N> for Pyramid {
     fn integration_points() -> ParametricCoordinates<G, M> {
         // [
         // [-0.5, 0.0, 1.0 / 6.0],

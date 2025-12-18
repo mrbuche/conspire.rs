@@ -64,30 +64,17 @@ impl<const G: usize, const N: usize, const O: usize> Debug for Element<G, N, O> 
 
 impl<const G: usize, const N: usize, const O: usize> Default for Element<G, N, O>
 where
-    Self: FiniteElement<G, N>,
+    Self: FiniteElement<G, 3, N>,
 {
     fn default() -> Self {
-        Self::from(Self::parametric_reference())
+        Self::parametric_reference().into()
     }
 }
 
-//
-// get reset() functionality by implementing Default instead?
-// seems more idiomatic
-// maybe should consolidate reference AND reset into one default() function!
-// or just can reset()...
-// then can have 'FiniteElementSpecific' just be 'FiniteElement'
-// and it can probably be applied to surface elements too!
-// And can maybe put in the trait bounds From<> and Default on 'FiniteElement'?
-//
-pub trait FiniteElement<const G: usize, const N: usize>
+pub trait FiniteElement<const G: usize, const M: usize, const N: usize>
 where
-    Self: Default + From<ElementNodalReferenceCoordinates<N>> + FiniteElementSpecific<G, 3, N>,
+    Self: Default + From<ElementNodalReferenceCoordinates<N>>,
 {
-    // fn reset(&mut self);
-}
-
-pub trait FiniteElementSpecific<const G: usize, const M: usize, const N: usize> {
     fn integration_points() -> ParametricCoordinates<G, M>;
     fn parametric_reference() -> ElementNodalReferenceCoordinates<N>;
     fn parametric_weights() -> ScalarList<G>;

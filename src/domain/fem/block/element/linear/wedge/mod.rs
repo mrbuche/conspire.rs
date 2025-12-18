@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        ElementNodalReferenceCoordinates, FiniteElementSpecific, ParametricCoordinate,
+        ElementNodalReferenceCoordinates, FiniteElement, ParametricCoordinate,
         ParametricCoordinates, ShapeFunctions, ShapeFunctionsGradients,
         linear::{FRAC_1_SQRT_3, LinearElement, LinearFiniteElement, M},
     },
@@ -15,7 +15,7 @@ const N: usize = 6;
 
 pub type Wedge = LinearElement<G, N>;
 
-impl FiniteElementSpecific<G, M, N> for Wedge {
+impl FiniteElement<G, M, N> for Wedge {
     fn integration_points() -> ParametricCoordinates<G, M> {
         // [
         // [1.0 / 6.0, 1.0 / 6.0, -FRAC_1_SQRT_3],

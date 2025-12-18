@@ -83,7 +83,7 @@ impl<C, F, const N: usize> Debug for Block<C, F, N> {
 
 pub trait FiniteElementBlock<C, F, const G: usize, const N: usize>
 where
-    F: FiniteElement<G, N>,
+    F: FiniteElement<G, 3, N>,
 {
     fn new(
         constitutive_model: C,
@@ -95,7 +95,7 @@ where
 
 impl<C, F, const G: usize, const N: usize> FiniteElementBlock<C, F, G, N> for Block<C, F, N>
 where
-    F: FiniteElement<G, N>,
+    F: FiniteElement<G, 3, N>,
 {
     fn new(
         constitutive_model: C,
@@ -104,7 +104,7 @@ where
     ) -> Self {
         let elements = connectivity
             .iter()
-            .map(|nodes| <F>::from(Self::element_coordinates(&coordinates, nodes)))
+            .map(|nodes| Self::element_coordinates(&coordinates, nodes).into())
             .collect();
         Self {
             constitutive_model,

@@ -3,8 +3,8 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        ElementNodalReferenceCoordinates, FiniteElement, FiniteElementSpecific, GradientVectors,
-        ParametricCoordinates, ShapeFunctionsAtIntegrationPoints, StandardGradientOperators,
+        ElementNodalReferenceCoordinates, FiniteElement, GradientVectors, ParametricCoordinates,
+        ShapeFunctionsAtIntegrationPoints, StandardGradientOperators,
         StandardGradientOperatorsTransposed,
         composite::{
             CompositeElement, NormalizedProjectionMatrix, ParametricGradientOperators,
@@ -34,7 +34,7 @@ impl From<ElementNodalReferenceCoordinates<N>> for Tetrahedron {
     }
 }
 
-impl FiniteElementSpecific<G, M, N> for Tetrahedron {
+impl FiniteElement<G, M, N> for Tetrahedron {
     fn integration_points() -> ParametricCoordinates<G, M> {
         todo!()
     }
@@ -67,15 +67,6 @@ impl FiniteElementSpecific<G, M, N> for Tetrahedron {
     fn parametric_weights() -> ScalarList<G> {
         [1.0 / 24.0; G].into()
     }
-}
-
-impl FiniteElement<G, N> for Tetrahedron {
-    // fn reset(&mut self) {
-    //     let (gradient_vectors, integration_weights) =
-    //         Self::initialize(Self::parametric_reference());
-    //     self.gradient_vectors = gradient_vectors;
-    //     self.integration_weights = integration_weights;
-    // }
 }
 
 impl Tetrahedron {

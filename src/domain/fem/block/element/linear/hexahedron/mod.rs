@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        ElementNodalReferenceCoordinates, FiniteElementSpecific, ParametricCoordinate,
+        ElementNodalReferenceCoordinates, FiniteElement, ParametricCoordinate,
         ParametricCoordinates, ShapeFunctions, ShapeFunctionsGradients,
         linear::{FRAC_1_SQRT_3, LinearElement, LinearFiniteElement, M},
     },
@@ -15,7 +15,7 @@ const N: usize = 8;
 
 pub type Hexahedron = LinearElement<G, N>;
 
-impl FiniteElementSpecific<G, M, N> for Hexahedron {
+impl FiniteElement<G, M, N> for Hexahedron {
     fn integration_points() -> ParametricCoordinates<G, M> {
         // [
         //     [-FRAC_1_SQRT_3, -FRAC_1_SQRT_3, -FRAC_1_SQRT_3],

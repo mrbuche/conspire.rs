@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        ElementNodalReferenceCoordinates, FiniteElementSpecific, ParametricCoordinate,
+        ElementNodalReferenceCoordinates, FiniteElement, ParametricCoordinate,
         ParametricCoordinates, ShapeFunctions, ShapeFunctionsGradients,
         linear::{LinearElement, LinearFiniteElement, M},
     },
@@ -15,7 +15,7 @@ const N: usize = 4;
 
 pub type Tetrahedron = LinearElement<G, N>;
 
-impl FiniteElementSpecific<G, M, N> for Tetrahedron {
+impl FiniteElement<G, M, N> for Tetrahedron {
     fn integration_points() -> ParametricCoordinates<G, M> {
         // [
         // [0.25; M],
