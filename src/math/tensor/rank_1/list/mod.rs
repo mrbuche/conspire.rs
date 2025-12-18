@@ -1,30 +1,33 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::{Tensor, TensorRank1, TensorRank2, tensor::list::TensorList};
-use std::{mem::transmute, ops::Mul};
+use crate::math::{Tensor, TensorRank0, TensorRank1, TensorRank2, tensor::list::TensorList};
+use std::ops::Mul;
 
 #[cfg(test)]
-use crate::math::{TensorRank0, tensor::test::ErrorTensor};
+use crate::math::tensor::test::ErrorTensor;
 
-pub type TensorRank1List<const D: usize, const I: usize, const W: usize> =
-    TensorList<TensorRank1<D, I>, W>;
+pub type TensorRank1List<const D: usize, const I: usize, const N: usize> =
+    TensorList<TensorRank1<D, I>, N>;
 
-macro_rules! from_len {
-    ($len:literal) => {
-        impl From<TensorRank1List<3, 0, $len>> for TensorRank1List<3, 1, $len> {
-            fn from(tensor_rank_1_list: TensorRank1List<3, 0, $len>) -> Self {
-                unsafe { transmute::<TensorRank1List<3, 0, $len>, Self>(tensor_rank_1_list) }
-            }
-        }
-    };
+impl<const D: usize, const I: usize, const N: usize> From<[[TensorRank0; D]; N]>
+    for TensorRank1List<D, I, N>
+{
+    fn from(array: [[TensorRank0; D]; N]) -> Self {
+        array.into_iter().map(|entry| entry.into()).collect()
+    }
 }
-from_len!(3);
-from_len!(4);
-from_len!(5);
-from_len!(6);
-from_len!(8);
-from_len!(10);
+
+impl<const D: usize, const M: usize, const N: usize> From<TensorRank1List<D, 0, M>>
+    for TensorRank1List<D, 1, N>
+{
+    fn from(tensor_rank_1_list: TensorRank1List<D, 0, M>) -> Self {
+        tensor_rank_1_list
+            .into_iter()
+            .map(|entry| entry.into())
+            .collect()
+    }
+}
 
 impl<const D: usize, const I: usize, const J: usize, const W: usize> Mul<TensorRank1List<D, J, W>>
     for TensorRank1List<D, I, W>

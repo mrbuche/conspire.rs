@@ -39,19 +39,7 @@ impl FiniteElement<G, M, N> for Tetrahedron {
         todo!()
     }
     fn parametric_reference() -> ElementNodalReferenceCoordinates<N> {
-        // [
-        // [0.0, 0.0, 0.0],
-        // [1.0, 0.0, 0.0],
-        // [0.0, 1.0, 0.0],
-        // [0.0, 0.0, 1.0],
-        // [0.25, 0.25, 0.0],
-        // [0.25, 0.0, 0.25],
-        // [0.0, 0.25, 0.25],
-        // [0.5, 0.5, 0.0],
-        // [0.5, 0.0, 0.5],
-        // [0.0, 0.5, 0.5],
-        // ].into()
-        ElementNodalReferenceCoordinates::<N>::const_from([
+        [
             [0.0, 0.0, 0.0],
             [1.0, 0.0, 0.0],
             [0.0, 1.0, 0.0],
@@ -62,7 +50,8 @@ impl FiniteElement<G, M, N> for Tetrahedron {
             [0.5, 0.5, 0.0],
             [0.5, 0.0, 0.5],
             [0.0, 0.5, 0.5],
-        ])
+        ]
+        .into()
     }
     fn parametric_weights() -> ScalarList<G> {
         [1.0 / 24.0; G].into()
@@ -193,8 +182,8 @@ impl Tetrahedron {
             [OFF, OFF, OFF, DIAG],
         ])
     }
-    const fn shape_function_integrals() -> ShapeFunctionIntegrals<P, Q> {
-        ShapeFunctionIntegrals::<P, Q>::const_from([
+    fn shape_function_integrals() -> ShapeFunctionIntegrals<P, Q> {
+        [
             [200.0, 40.0, 40.0, 40.0],
             [40.0, 200.0, 40.0, 40.0],
             [40.0, 40.0, 200.0, 40.0],
@@ -207,7 +196,8 @@ impl Tetrahedron {
             [30.0, 30.0, 70.0, 30.0],
             [50.0, 10.0, 50.0, 50.0],
             [70.0, 30.0, 30.0, 30.0],
-        ])
+        ]
+        .into()
     }
     const fn shape_function_integrals_products() -> ShapeFunctionIntegralsProducts<P, Q> {
         ShapeFunctionIntegralsProducts::<P, Q>::const_from([

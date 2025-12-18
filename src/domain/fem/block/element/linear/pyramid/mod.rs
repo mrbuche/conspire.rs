@@ -17,36 +17,24 @@ pub type Pyramid = LinearElement<G, N>;
 
 impl FiniteElement<G, M, N> for Pyramid {
     fn integration_points() -> ParametricCoordinates<G, M> {
-        // [
-        // [-0.5, 0.0, 1.0 / 6.0],
-        // [0.5, 0.0, 1.0 / 6.0],
-        // [0.0, -0.5, 1.0 / 6.0],
-        // [0.0, 0.5, 1.0 / 6.0],
-        // [0.0, 0.0, 0.25],
-        // .into()
-        ParametricCoordinates::<G, M>::const_from([
+        [
             [-0.5, 0.0, 1.0 / 6.0],
             [0.5, 0.0, 1.0 / 6.0],
             [0.0, -0.5, 1.0 / 6.0],
             [0.0, 0.5, 1.0 / 6.0],
             [0.0, 0.0, 0.25],
-        ])
+        ]
+        .into()
     }
     fn parametric_reference() -> ElementNodalReferenceCoordinates<N> {
-        // [
-        //  [-1.0, -1.0, 0.0],
-        // [1.0, -1.0, 0.0],
-        // [1.0, 1.0, 0.0],
-        // [-1.0, 1.0, 0.0],
-        // [0.0, 0.0, 1.0],
-        // ].into()
-        ElementNodalReferenceCoordinates::<N>::const_from([
+        [
             [-1.0, -1.0, 0.0],
             [1.0, -1.0, 0.0],
             [1.0, 1.0, 0.0],
             [-1.0, 1.0, 0.0],
             [0.0, 0.0, 1.0],
-        ])
+        ]
+        .into()
     }
     fn parametric_weights() -> ScalarList<G> {
         [5.0 / 27.0, 5.0 / 27.0, 5.0 / 27.0, 5.0 / 27.0, 16.0 / 27.0].into()
@@ -56,49 +44,20 @@ impl FiniteElement<G, M, N> for Pyramid {
 impl LinearFiniteElement<G, N> for Pyramid {
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
         let [xi_1, xi_2, xi_3] = parametric_coordinate.into();
-        // [
-        // (1.0 - xi_1) * (1.0 - xi_2) * (1.0 - xi_3) / 8.0,
-        // (1.0 + xi_1) * (1.0 - xi_2) * (1.0 - xi_3) / 8.0,
-        // (1.0 + xi_1) * (1.0 + xi_2) * (1.0 - xi_3) / 8.0,
-        // (1.0 - xi_1) * (1.0 + xi_2) * (1.0 - xi_3) / 8.0,
-        // (1.0 + xi_3) / 2.0,
-        // ].into()
-        ShapeFunctions::<N>::const_from([
+        [
             (1.0 - xi_1) * (1.0 - xi_2) * (1.0 - xi_3) / 8.0,
             (1.0 + xi_1) * (1.0 - xi_2) * (1.0 - xi_3) / 8.0,
             (1.0 + xi_1) * (1.0 + xi_2) * (1.0 - xi_3) / 8.0,
             (1.0 - xi_1) * (1.0 + xi_2) * (1.0 - xi_3) / 8.0,
             (1.0 + xi_3) / 2.0,
-        ])
+        ]
+        .into()
     }
     fn shape_functions_gradients(
         parametric_coordinate: ParametricCoordinate<M>,
     ) -> ShapeFunctionsGradients<M, N> {
         let [xi_1, xi_2, xi_3] = parametric_coordinate.into();
-        //         [
-        // [
-        //     -(1.0 - xi_2) * (1.0 - xi_3) / 8.0,
-        //     -(1.0 - xi_1) * (1.0 - xi_3) / 8.0,
-        //     -(1.0 - xi_1) * (1.0 - xi_2) / 8.0,
-        // ],
-        // [
-        //     (1.0 - xi_2) * (1.0 - xi_3) / 8.0,
-        //     -(1.0 + xi_1) * (1.0 - xi_3) / 8.0,
-        //     -(1.0 + xi_1) * (1.0 - xi_2) / 8.0,
-        // ],
-        // [
-        //     (1.0 + xi_2) * (1.0 - xi_3) / 8.0,
-        //     (1.0 + xi_1) * (1.0 - xi_3) / 8.0,
-        //     -(1.0 + xi_1) * (1.0 + xi_2) / 8.0,
-        // ],
-        // [
-        //     -(1.0 + xi_2) * (1.0 - xi_3) / 8.0,
-        //     (1.0 - xi_1) * (1.0 - xi_3) / 8.0,
-        //     -(1.0 - xi_1) * (1.0 + xi_2) / 8.0,
-        // ],
-        // [0.0, 0.0, 0.5],
-        //         ].into()
-        ShapeFunctionsGradients::<M, N>::const_from([
+        [
             [
                 -(1.0 - xi_2) * (1.0 - xi_3) / 8.0,
                 -(1.0 - xi_1) * (1.0 - xi_3) / 8.0,
@@ -120,6 +79,7 @@ impl LinearFiniteElement<G, N> for Pyramid {
                 -(1.0 - xi_1) * (1.0 + xi_2) / 8.0,
             ],
             [0.0, 0.0, 0.5],
-        ])
+        ]
+        .into()
     }
 }
