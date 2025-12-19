@@ -9,11 +9,7 @@ pub use tetrahedron::Tetrahedron;
 pub use wedge::Wedge;
 
 use crate::{
-    fem::block::element::{
-        Element, ElementNodalReferenceCoordinates, FiniteElement, ParametricCoordinate,
-        ShapeFunctions, ShapeFunctionsAtIntegrationPoints, ShapeFunctionsGradients,
-        StandardGradientOperators,
-    },
+    fem::block::element::{Element, ElementNodalReferenceCoordinates, FiniteElement},
     math::Scalar,
 };
 
@@ -55,20 +51,4 @@ pub trait LinearFiniteElement<const G: usize, const N: usize>
 where
     Self: FiniteElement<G, M, N>,
 {
-    fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N>;
-    fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, N> {
-        Self::integration_points()
-            .into_iter()
-            .map(|integration_point| Self::shape_functions(integration_point))
-            .collect()
-    }
-    fn shape_functions_gradients(
-        parametric_coordinate: ParametricCoordinate<M>,
-    ) -> ShapeFunctionsGradients<M, N>;
-    fn shape_functions_gradients_at_integration_points() -> StandardGradientOperators<M, N, G> {
-        Self::integration_points()
-            .into_iter()
-            .map(|integration_point| Self::shape_functions_gradients(integration_point))
-            .collect()
-    }
 }

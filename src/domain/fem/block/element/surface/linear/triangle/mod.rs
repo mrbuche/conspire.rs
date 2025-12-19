@@ -12,7 +12,8 @@ use crate::{
     },
     fem::block::element::{
         ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
-        FiniteElementError, StandardGradientOperators,
+        FiniteElement, FiniteElementError, ParametricCoordinate, ParametricCoordinates,
+        ShapeFunctions, ShapeFunctionsGradients,
         solid::{
             ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement,
             elastic::ElasticFiniteElement, elastic_hyperviscous::ElasticHyperviscousFiniteElement,
@@ -20,12 +21,9 @@ use crate::{
             hyperviscoelastic::HyperviscoelasticFiniteElement,
             viscoelastic::ViscoelasticFiniteElement,
         },
-        surface::{
-            SurfaceElement, SurfaceFiniteElement, SurfaceFiniteElementMethods,
-            SurfaceFiniteElementMethodsExtra,
-        },
+        surface::{SurfaceElement, SurfaceFiniteElement, SurfaceFiniteElementMethods},
     },
-    math::{IDENTITY, Scalar, Tensor},
+    math::{IDENTITY, Scalar, ScalarList, Tensor},
     mechanics::{
         DeformationGradient, DeformationGradientList, DeformationGradientRate,
         DeformationGradientRateList, FirstPiolaKirchhoffRateTangentStiffnesses,
@@ -33,18 +31,33 @@ use crate::{
     },
 };
 
-// #[cfg(test)]
-// use crate::fem::block::element::ShapeFunctionsAtIntegrationPoints;
-
 const G: usize = 1;
 const M: usize = 2;
 const N: usize = 3;
 const P: usize = G;
 
-// #[cfg(test)]
-// const Q: usize = N;
-
 pub type Triangle = SurfaceElement<G, N, P>;
+
+impl FiniteElement<G, M, N> for Triangle {
+    fn integration_points() -> ParametricCoordinates<G, M> {
+        [[0.25; M]].into()
+    }
+    fn parametric_reference() -> ElementNodalReferenceCoordinates<N> {
+        [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]].into()
+    }
+    fn parametric_weights() -> ScalarList<G> {
+        [1.0 / 2.0; G].into()
+    }
+    fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
+        let [xi_1, xi_2] = parametric_coordinate.into();
+        [1.0 - xi_1 - xi_2, xi_1, xi_2].into()
+    }
+    fn shape_functions_gradients(
+        _parametric_coordinate: ParametricCoordinate<M>,
+    ) -> ShapeFunctionsGradients<M, N> {
+        [[-1.0, -1.0], [1.0, 0.0], [0.0, 1.0]].into()
+    }
+}
 
 impl SurfaceFiniteElement<G, N, P> for Triangle {
     fn new(
@@ -60,7 +73,7 @@ impl SurfaceFiniteElement<G, N, P> for Triangle {
             })
             .collect();
         let reference_dual_bases = Self::dual_bases(&reference_nodal_coordinates);
-        let gradient_vectors = Self::standard_gradient_operators()
+        let gradient_vectors = Self::shape_functions_gradients_at_integration_points()
             .iter()
             .zip(reference_dual_bases.iter())
             .map(|(standard_gradient_operator, reference_dual_basis)| {
@@ -97,19 +110,6 @@ impl SurfaceFiniteElement<G, N, P> for Triangle {
 impl Triangle {
     const fn integration_weight() -> Scalar {
         1.0 / 2.0
-    }
-    // #[cfg(test)]
-    // const fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, Q> {
-    //     ShapeFunctionsAtIntegrationPoints::<G, Q>::const_from([[1.0 / 3.0; Q]])
-    // }
-    fn standard_gradient_operators() -> StandardGradientOperators<M, N, P> {
-        [[[-1.0, -1.0], [1.0, 0.0], [0.0, 1.0]]].into()
-    }
-}
-
-impl SurfaceFiniteElementMethodsExtra<M, N, P> for Triangle {
-    fn standard_gradient_operators() -> StandardGradientOperators<M, N, P> {
-        Self::standard_gradient_operators()
     }
 }
 

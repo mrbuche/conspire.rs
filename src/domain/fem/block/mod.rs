@@ -8,7 +8,7 @@ pub mod thermal;
 
 use crate::{
     defeat_message,
-    fem::{NodalReferenceCoordinates, block::element::FiniteElement},
+    fem::{NodalReferenceCoordinates, block::element::FiniteElementCreation},
     math::{
         Banded, Scalar, Tensor, TestError,
         optimize::{
@@ -81,10 +81,7 @@ impl<C, F, const N: usize> Debug for Block<C, F, N> {
     }
 }
 
-pub trait FiniteElementBlock<C, F, const G: usize, const N: usize>
-where
-    F: FiniteElement<G, 3, N>,
-{
+pub trait FiniteElementBlock<C, F, const G: usize, const N: usize> {
     fn new(
         constitutive_model: C,
         connectivity: Connectivity<N>,
@@ -95,7 +92,7 @@ where
 
 impl<C, F, const G: usize, const N: usize> FiniteElementBlock<C, F, G, N> for Block<C, F, N>
 where
-    F: FiniteElement<G, 3, N>,
+    F: FiniteElementCreation<G, 3, N>,
 {
     fn new(
         constitutive_model: C,

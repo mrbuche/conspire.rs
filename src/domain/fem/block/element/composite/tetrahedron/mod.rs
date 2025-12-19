@@ -3,9 +3,9 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        ElementNodalReferenceCoordinates, FiniteElement, GradientVectors, ParametricCoordinates,
-        ShapeFunctionsAtIntegrationPoints, StandardGradientOperators,
-        StandardGradientOperatorsTransposed,
+        ElementNodalReferenceCoordinates, FiniteElement, GradientVectors, ParametricCoordinate,
+        ParametricCoordinates, ShapeFunctions, ShapeFunctionsAtIntegrationPoints,
+        ShapeFunctionsGradients, StandardGradientOperators, StandardGradientOperatorsTransposed,
         composite::{
             CompositeElement, NormalizedProjectionMatrix, ParametricGradientOperators,
             ProjectionMatrix, ShapeFunctionIntegrals, ShapeFunctionIntegralsProducts,
@@ -55,6 +55,14 @@ impl FiniteElement<G, M, N> for Tetrahedron {
     }
     fn parametric_weights() -> ScalarList<G> {
         [1.0 / 24.0; G].into()
+    }
+    fn shape_functions(_parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
+        todo!("Should this be N or Q?")
+    }
+    fn shape_functions_gradients(
+        _parametric_coordinate: ParametricCoordinate<M>,
+    ) -> ShapeFunctionsGradients<M, N> {
+        todo!("Should this be N or Q?")
     }
 }
 

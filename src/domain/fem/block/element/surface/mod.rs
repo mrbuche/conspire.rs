@@ -3,7 +3,7 @@ pub mod linear;
 use crate::{
     fem::block::element::{
         ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
-        GradientVectors, StandardGradientOperators,
+        FiniteElement, GradientVectors,
     },
     math::{IDENTITY, LEVI_CIVITA, Scalar, ScalarList, Tensor, TensorArray, TensorRank2},
     mechanics::{
@@ -54,7 +54,7 @@ pub trait SurfaceFiniteElementMethods<
     const N: usize,
     const P: usize,
 > where
-    Self: SurfaceFiniteElementMethodsExtra<M, N, P>,
+    Self: FiniteElement<G, M, N>,
 {
     fn bases<const I: usize>(nodal_coordinates: &CoordinateList<I, N>) -> SurfaceBases<I, P>;
     fn dual_bases<const I: usize>(nodal_coordinates: &CoordinateList<I, N>) -> SurfaceBases<I, P>;
@@ -66,18 +66,13 @@ pub trait SurfaceFiniteElementMethods<
     ) -> NormalRates<P>;
 }
 
-// make this a const fn and remove inherent impl of it once Rust stabilizes const fn trait methods
-pub trait SurfaceFiniteElementMethodsExtra<const M: usize, const N: usize, const P: usize> {
-    fn standard_gradient_operators() -> StandardGradientOperators<M, N, P>;
-}
-
 impl<const G: usize, const M: usize, const N: usize, const P: usize>
     SurfaceFiniteElementMethods<G, M, N, P> for SurfaceElement<G, N, P>
 where
-    Self: SurfaceFiniteElementMethodsExtra<M, N, P>,
+    Self: FiniteElement<G, M, N>,
 {
     fn bases<const I: usize>(nodal_coordinates: &CoordinateList<I, N>) -> SurfaceBases<I, P> {
-        Self::standard_gradient_operators()
+        Self::shape_functions_gradients_at_integration_points()
             .iter()
             .map(|standard_gradient_operator| {
                 standard_gradient_operator
@@ -133,7 +128,7 @@ where
         let levi_civita_symbol = LEVI_CIVITA;
         let mut normalization: Scalar = 0.0;
         let mut normal_vector = Normal::zero();
-        Self::standard_gradient_operators().iter()
+        Self::shape_functions_gradients_at_integration_points().iter()
         .zip(Self::bases(nodal_coordinates))
         .map(|(standard_gradient_operator, basis_vectors)|{
             normalization = basis_vectors[0].cross(&basis_vectors[1]).norm();
@@ -174,7 +169,7 @@ where
         Self::bases(nodal_coordinates)
             .iter()
             .zip(Self::normals(nodal_coordinates).iter()
-            .zip(Self::standard_gradient_operators()))
+            .zip(Self::shape_functions_gradients_at_integration_points()))
             .map(|(basis, (normal, standard_gradient_operator))| {
                 normalization = basis[0].cross(&basis[1]).norm();
                 identity.iter()

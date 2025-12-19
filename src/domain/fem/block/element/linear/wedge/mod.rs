@@ -41,9 +41,6 @@ impl FiniteElement<G, M, N> for Wedge {
     fn parametric_weights() -> ScalarList<G> {
         [1.0 / 6.0; G].into()
     }
-}
-
-impl LinearFiniteElement<G, N> for Wedge {
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
         let [xi_1, xi_2, xi_3] = parametric_coordinate.into();
         [
@@ -79,3 +76,5 @@ impl LinearFiniteElement<G, N> for Wedge {
         .into()
     }
 }
+
+impl LinearFiniteElement<G, N> for Wedge {}

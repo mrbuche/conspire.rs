@@ -39,9 +39,6 @@ impl FiniteElement<G, M, N> for Pyramid {
     fn parametric_weights() -> ScalarList<G> {
         [5.0 / 27.0, 5.0 / 27.0, 5.0 / 27.0, 5.0 / 27.0, 16.0 / 27.0].into()
     }
-}
-
-impl LinearFiniteElement<G, N> for Pyramid {
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
         let [xi_1, xi_2, xi_3] = parametric_coordinate.into();
         [
@@ -83,3 +80,5 @@ impl LinearFiniteElement<G, N> for Pyramid {
         .into()
     }
 }
+
+impl LinearFiniteElement<G, N> for Pyramid {}
