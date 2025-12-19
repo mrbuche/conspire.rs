@@ -25,6 +25,7 @@ impl<const G: usize, const N: usize, const O: usize> Debug for SurfaceElement<G,
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let element = match (G, N, O) {
             (1, 3, 1) => "LinearTriangle",
+            (4, 4, 1) => "LinearQuadrilateral",
             _ => panic!(),
         };
         write!(f, "{element} {{ G: {G}, N: {N} }}",)

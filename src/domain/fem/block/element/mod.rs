@@ -9,12 +9,13 @@ pub mod thermal;
 
 use crate::{
     defeat_message,
-    math::{ScalarList, TensorRank1, TensorRank1List, TensorRank1List2D, TestError},
+    math::{Scalar, ScalarList, TensorRank1, TensorRank1List, TensorRank1List2D, TestError},
     mechanics::{CurrentCoordinates, ReferenceCoordinates, VectorList2D},
 };
 use std::fmt::{self, Debug, Display, Formatter};
 
 const A: usize = 9;
+const FRAC_1_SQRT_3: Scalar = 0.577_350_269_189_625_8;
 
 pub type ElementNodalCoordinates<const N: usize> = CurrentCoordinates<N>;
 pub type ElementNodalVelocities<const N: usize> = CurrentCoordinates<N>;

@@ -3,9 +3,9 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        ElementNodalReferenceCoordinates, FiniteElement, ParametricCoordinate,
+        ElementNodalReferenceCoordinates, FRAC_1_SQRT_3, FiniteElement, ParametricCoordinate,
         ParametricCoordinates, ShapeFunctions, ShapeFunctionsGradients,
-        linear::{FRAC_1_SQRT_3, LinearElement, LinearFiniteElement, M},
+        linear::{LinearElement, LinearFiniteElement, M},
     },
     math::ScalarList,
 };

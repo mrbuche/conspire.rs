@@ -8,14 +8,9 @@ pub use pyramid::Pyramid;
 pub use tetrahedron::Tetrahedron;
 pub use wedge::Wedge;
 
-use crate::{
-    fem::block::element::{Element, ElementNodalReferenceCoordinates, FiniteElement},
-    math::Scalar,
-};
+use crate::fem::block::element::{Element, ElementNodalReferenceCoordinates, FiniteElement};
 
 const M: usize = 3;
-
-const FRAC_1_SQRT_3: Scalar = 0.577_350_269_189_625_8;
 
 pub type LinearElement<const G: usize, const N: usize> = Element<G, N, 1>;
 
