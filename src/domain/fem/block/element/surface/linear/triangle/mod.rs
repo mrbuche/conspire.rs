@@ -66,10 +66,9 @@ impl SurfaceFiniteElement<G, N, P> for Triangle {
     ) -> Self {
         let integration_weights = Self::bases(&reference_nodal_coordinates)
             .iter()
-            .map(|reference_basis| {
-                reference_basis[0].cross(&reference_basis[1]).norm()
-                    * Self::integration_weight()
-                    * thickness
+            .zip(Self::parametric_weights())
+            .map(|(reference_basis, parametric_weight)| {
+                reference_basis[0].cross(&reference_basis[1]).norm() * parametric_weight * thickness
             })
             .collect();
         let reference_dual_bases = Self::dual_bases(&reference_nodal_coordinates);
@@ -104,12 +103,6 @@ impl SurfaceFiniteElement<G, N, P> for Triangle {
             integration_weights,
             reference_normals,
         }
-    }
-}
-
-impl Triangle {
-    const fn integration_weight() -> Scalar {
-        1.0 / 2.0
     }
 }
 
