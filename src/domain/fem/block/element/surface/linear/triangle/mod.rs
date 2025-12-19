@@ -25,17 +25,17 @@ use crate::{
     },
     math::{IDENTITY, Scalar, ScalarList, Tensor},
     mechanics::{
-        DeformationGradient, DeformationGradientList, DeformationGradientRate,
-        DeformationGradientRateList, FirstPiolaKirchhoffRateTangentStiffnesses,
-        FirstPiolaKirchhoffStressList, FirstPiolaKirchhoffTangentStiffnessList,
+        FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStressList,
+        FirstPiolaKirchhoffTangentStiffnessList,
     },
 };
 
 const G: usize = 1;
 const M: usize = 2;
 const N: usize = 3;
+const O: usize = 1;
 
-pub type Triangle = SurfaceElement<G, N>;
+pub type Triangle = SurfaceElement<G, N, O>;
 
 impl FiniteElement<G, M, N> for Triangle {
     fn integration_points() -> ParametricCoordinates<G, M> {
@@ -104,56 +104,6 @@ impl From<(ElementNodalReferenceCoordinates<N>, Scalar)> for Triangle
             integration_weights,
             reference_normals,
         }
-    }
-}
-
-impl SolidFiniteElement<G, N> for Triangle {
-    fn deformation_gradients(
-        &self,
-        nodal_coordinates: &ElementNodalCoordinates<N>,
-    ) -> DeformationGradientList<G> {
-        self.gradient_vectors()
-            .iter()
-            .zip(
-                Self::normals(nodal_coordinates)
-                    .iter()
-                    .zip(self.reference_normals()),
-            )
-            .map(|(gradient_vectors, normal_and_reference_normal)| {
-                nodal_coordinates
-                    .iter()
-                    .zip(gradient_vectors.iter())
-                    .map(|(nodal_coordinate, gradient_vector)| {
-                        (nodal_coordinate, gradient_vector).into()
-                    })
-                    .sum::<DeformationGradient>()
-                    + DeformationGradient::from(normal_and_reference_normal)
-            })
-            .collect()
-    }
-    fn deformation_gradient_rates(
-        &self,
-        nodal_coordinates: &ElementNodalCoordinates<N>,
-        nodal_velocities: &ElementNodalVelocities<N>,
-    ) -> DeformationGradientRateList<G> {
-        self.gradient_vectors()
-            .iter()
-            .zip(
-                Self::normal_rates(nodal_coordinates, nodal_velocities)
-                    .iter()
-                    .zip(self.reference_normals()),
-            )
-            .map(|(gradient_vectors, normal_rate_and_reference_normal)| {
-                nodal_velocities
-                    .iter()
-                    .zip(gradient_vectors.iter())
-                    .map(|(nodal_velocity, gradient_vector)| {
-                        (nodal_velocity, gradient_vector).into()
-                    })
-                    .sum::<DeformationGradientRate>()
-                    + DeformationGradientRate::from(normal_rate_and_reference_normal)
-            })
-            .collect()
     }
 }
 

@@ -13,13 +13,15 @@ use crate::{
 };
 use std::fmt::{self, Debug, Formatter};
 
-pub struct SurfaceElement<const G: usize, const N: usize> {
+const M: usize = 2;
+
+pub struct SurfaceElement<const G: usize, const N: usize, const O: usize> {
     gradient_vectors: GradientVectors<G, N>,
     integration_weights: ScalarList<G>,
     reference_normals: ReferenceNormals<G>,
 }
 
-impl<const G: usize, const N: usize> Debug for SurfaceElement<G, N> {
+impl<const G: usize, const N: usize, const O: usize> Debug for SurfaceElement<G, N, O> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let element = match (G, N) {
             (1, 3) => "LinearTriangle",
@@ -29,21 +31,25 @@ impl<const G: usize, const N: usize> Debug for SurfaceElement<G, N> {
     }
 }
 
-impl<const G: usize, const N: usize> SurfaceElement<G, N> {
-    fn gradient_vectors(&self) -> &GradientVectors<G, N> {
+//
+// move gradient_vectors and integration_weights to FiniteElement trait so public
+// and then reference_normals to SurfaceFiniteElementMethods => SurfaceFiniteElement
+//
+impl<const G: usize, const N: usize, const O: usize> SurfaceElement<G, N, O> {
+    pub fn gradient_vectors(&self) -> &GradientVectors<G, N> {
         &self.gradient_vectors
     }
-    fn integration_weights(&self) -> &ScalarList<G> {
+    pub fn integration_weights(&self) -> &ScalarList<G> {
         &self.integration_weights
     }
-    fn reference_normals(&self) -> &ReferenceNormals<G> {
+    pub fn reference_normals(&self) -> &ReferenceNormals<G> {
         &self.reference_normals
     }
 }
 
-impl<const G: usize, const N: usize> Default for SurfaceElement<G, N>
+impl<const G: usize, const N: usize, const O: usize> Default for SurfaceElement<G, N, O>
 where
-    Self: FiniteElement<G, 2, N> + From<(ElementNodalReferenceCoordinates<N>, Scalar)>,
+    Self: FiniteElement<G, M, N> + From<(ElementNodalReferenceCoordinates<N>, Scalar)>,
 {
     fn default() -> Self {
         (Self::parametric_reference(), 1.0).into()
@@ -56,12 +62,14 @@ where
 {
 }
 
-impl<const G: usize, const N: usize> SurfaceFiniteElementCreation<G, N> for SurfaceElement<G, N> where
-    Self: Default + From<(ElementNodalReferenceCoordinates<N>, Scalar)>
+impl<const G: usize, const N: usize, const O: usize> SurfaceFiniteElementCreation<G, N>
+    for SurfaceElement<G, N, O>
+where
+    Self: Default + From<(ElementNodalReferenceCoordinates<N>, Scalar)>,
 {
 }
 
-pub trait SurfaceFiniteElementMethods<const G: usize, const M: usize, const N: usize>
+pub trait SurfaceFiniteElementMethods<const G: usize, const N: usize>
 where
     Self: FiniteElement<G, M, N>,
 {
@@ -75,8 +83,8 @@ where
     ) -> NormalRates<G>;
 }
 
-impl<const G: usize, const M: usize, const N: usize> SurfaceFiniteElementMethods<G, M, N>
-    for SurfaceElement<G, N>
+impl<const G: usize, const N: usize, const O: usize> SurfaceFiniteElementMethods<G, N>
+    for SurfaceElement<G, N, O>
 where
     Self: FiniteElement<G, M, N>,
 {
