@@ -67,15 +67,12 @@ impl<const G: usize, const N: usize, const O: usize> Element<G, N, O> {
 
 impl<const G: usize, const N: usize, const O: usize> Debug for Element<G, N, O> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        //
-        // Can match on D for prefix (Linear, Composite, etc.) too.
-        //
-        let element = match (G, N) {
-            (1, 4) => "LinearTetrahedron",
-            (5, 5) => "LinearPyramid",
-            (6, 6) => "LinearWedge",
-            (8, 8) => "LinearHexahedron",
-            (4, 10) => "CompositeTetrahedron",
+        let element = match (G, N, O) {
+            (1, 4, 1) => "LinearTetrahedron",
+            (5, 5, 1) => "LinearPyramid",
+            (6, 6, 1) => "LinearWedge",
+            (8, 8, 1) => "LinearHexahedron",
+            (4, 10, 0) => "CompositeTetrahedron",
             _ => panic!(),
         };
         write!(f, "{element} {{ G: {G}, N: {N} }}",)

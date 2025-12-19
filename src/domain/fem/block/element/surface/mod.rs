@@ -23,8 +23,8 @@ pub struct SurfaceElement<const G: usize, const N: usize, const O: usize> {
 
 impl<const G: usize, const N: usize, const O: usize> Debug for SurfaceElement<G, N, O> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let element = match (G, N) {
-            (1, 3) => "LinearTriangle",
+        let element = match (G, N, O) {
+            (1, 3, 1) => "LinearTriangle",
             _ => panic!(),
         };
         write!(f, "{element} {{ G: {G}, N: {N} }}",)
@@ -208,5 +208,55 @@ where
     }
     fn reference_normals(&self) -> &ReferenceNormals<G> {
         &self.reference_normals
+    }
+}
+
+impl<const G: usize, const N: usize, const O: usize>
+    From<(ElementNodalReferenceCoordinates<N>, Scalar)> for SurfaceElement<G, N, O>
+where
+    Self: SurfaceFiniteElement<G, N>,
+{
+    fn from(
+        (reference_nodal_coordinates, thickness): (ElementNodalReferenceCoordinates<N>, Scalar),
+    ) -> Self {
+        let integration_weights = Self::bases(&reference_nodal_coordinates)
+            .iter()
+            .zip(Self::parametric_weights())
+            .map(|(reference_basis, parametric_weight)| {
+                reference_basis[0].cross(&reference_basis[1]).norm() * parametric_weight * thickness
+            })
+            .collect();
+        let reference_dual_bases = Self::dual_bases(&reference_nodal_coordinates);
+        let gradient_vectors = Self::shape_functions_gradients_at_integration_points()
+            .iter()
+            .zip(reference_dual_bases.iter())
+            .map(|(standard_gradient_operator, reference_dual_basis)| {
+                standard_gradient_operator
+                    .iter()
+                    .map(|standard_gradient_operator_a| {
+                        standard_gradient_operator_a
+                            .iter()
+                            .zip(reference_dual_basis.iter())
+                            .map(|(standard_gradient_operator_a_m, reference_dual_basis_m)| {
+                                reference_dual_basis_m * standard_gradient_operator_a_m
+                            })
+                            .sum()
+                    })
+                    .collect()
+            })
+            .collect();
+        let reference_normals = reference_dual_bases
+            .iter()
+            .map(|reference_dual_basis| {
+                reference_dual_basis[0]
+                    .cross(&reference_dual_basis[1])
+                    .normalized()
+            })
+            .collect();
+        Self {
+            gradient_vectors,
+            integration_weights,
+            reference_normals,
+        }
     }
 }
