@@ -4,7 +4,7 @@ pub mod test;
 use crate::{
     constitutive::{ConstitutiveError, thermal::conduction::ThermalConduction},
     fem::block::element::{
-        Element, FiniteElementError,
+        Element, FiniteElement, FiniteElementError,
         thermal::{ElementNodalTemperatures, ThermalFiniteElement},
     },
     math::{Scalar, Tensor, TensorRank0List, TensorRank0List2D},
@@ -14,10 +14,10 @@ use crate::{
 pub type ElementNodalForcesThermal<const D: usize> = TensorRank0List<D>;
 pub type ElementNodalStiffnessesThermal<const D: usize> = TensorRank0List2D<D>;
 
-pub trait ThermalConductionFiniteElement<C, const G: usize, const N: usize>
+pub trait ThermalConductionFiniteElement<C, const G: usize, const M: usize, const N: usize>
 where
     C: ThermalConduction,
-    Self: ThermalFiniteElement<G, N>,
+    Self: ThermalFiniteElement<G, M, N>,
 {
     fn potential(
         &self,
@@ -36,11 +36,11 @@ where
     ) -> Result<ElementNodalStiffnessesThermal<N>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize> ThermalConductionFiniteElement<C, G, N>
-    for Element<G, N, O>
+impl<C, const G: usize, const M: usize, const N: usize, const O: usize>
+    ThermalConductionFiniteElement<C, G, M, N> for Element<G, N, O>
 where
     C: ThermalConduction,
-    Self: ThermalFiniteElement<G, N>,
+    Self: ThermalFiniteElement<G, M, N>,
 {
     fn potential(
         &self,

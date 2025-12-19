@@ -19,11 +19,16 @@ use crate::{
     mechanics::Times,
 };
 
-pub trait ElasticHyperviscousFiniteElementBlock<C, F, const G: usize, const N: usize>
-where
+pub trait ElasticHyperviscousFiniteElementBlock<
+    C,
+    F,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+> where
     C: ElasticHyperviscous,
-    F: ElasticHyperviscousFiniteElement<C, G, N>,
-    Self: ViscoelasticFiniteElementBlock<C, F, G, N>,
+    F: ElasticHyperviscousFiniteElement<C, G, M, N>,
+    Self: ViscoelasticFiniteElementBlock<C, F, G, M, N>,
 {
     fn viscous_dissipation(
         &self,
@@ -62,12 +67,12 @@ where
     ) -> Result<NodalVelocities, OptimizationError>;
 }
 
-impl<C, F, const G: usize, const N: usize> ElasticHyperviscousFiniteElementBlock<C, F, G, N>
-    for Block<C, F, N>
+impl<C, F, const G: usize, const M: usize, const N: usize>
+    ElasticHyperviscousFiniteElementBlock<C, F, G, M, N> for Block<C, F, N>
 where
     C: ElasticHyperviscous,
-    F: ElasticHyperviscousFiniteElement<C, G, N>,
-    Self: ViscoelasticFiniteElementBlock<C, F, G, N>,
+    F: ElasticHyperviscousFiniteElement<C, G, M, N>,
+    Self: ViscoelasticFiniteElementBlock<C, F, G, M, N>,
 {
     fn viscous_dissipation(
         &self,

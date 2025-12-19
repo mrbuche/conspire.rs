@@ -31,22 +31,6 @@ impl<const G: usize, const N: usize, const O: usize> Debug for SurfaceElement<G,
     }
 }
 
-//
-// move gradient_vectors and integration_weights to FiniteElement trait so public
-// and then reference_normals to SurfaceFiniteElementMethods => SurfaceFiniteElement
-//
-impl<const G: usize, const N: usize, const O: usize> SurfaceElement<G, N, O> {
-    pub fn gradient_vectors(&self) -> &GradientVectors<G, N> {
-        &self.gradient_vectors
-    }
-    pub fn integration_weights(&self) -> &ScalarList<G> {
-        &self.integration_weights
-    }
-    pub fn reference_normals(&self) -> &ReferenceNormals<G> {
-        &self.reference_normals
-    }
-}
-
 impl<const G: usize, const N: usize, const O: usize> Default for SurfaceElement<G, N, O>
 where
     Self: FiniteElement<G, M, N> + From<(ElementNodalReferenceCoordinates<N>, Scalar)>,
@@ -69,21 +53,23 @@ where
 {
 }
 
-pub trait SurfaceFiniteElementMethods<const G: usize, const N: usize>
+pub trait SurfaceFiniteElement<const G: usize, const N: usize>
 where
     Self: FiniteElement<G, M, N>,
 {
     fn bases<const I: usize>(nodal_coordinates: &CoordinateList<I, N>) -> SurfaceBases<I, G>;
     fn dual_bases<const I: usize>(nodal_coordinates: &CoordinateList<I, N>) -> SurfaceBases<I, G>;
+    fn gradient_vectors(&self) -> &GradientVectors<G, N>;
     fn normals(nodal_coordinates: &ElementNodalCoordinates<N>) -> Normals<G>;
     fn normal_gradients(nodal_coordinates: &ElementNodalCoordinates<N>) -> NormalGradients<N, G>;
     fn normal_rates(
         nodal_coordinates: &ElementNodalCoordinates<N>,
         nodal_velocities: &ElementNodalVelocities<N>,
     ) -> NormalRates<G>;
+    fn reference_normals(&self) -> &ReferenceNormals<G>;
 }
 
-impl<const G: usize, const N: usize, const O: usize> SurfaceFiniteElementMethods<G, N>
+impl<const G: usize, const N: usize, const O: usize> SurfaceFiniteElement<G, N>
     for SurfaceElement<G, N, O>
 where
     Self: FiniteElement<G, M, N>,
@@ -134,6 +120,9 @@ where
                     .collect()
             })
             .collect()
+    }
+    fn gradient_vectors(&self) -> &GradientVectors<G, N> {
+        &self.gradient_vectors
     }
     fn normals(nodal_coordinates: &ElementNodalCoordinates<N>) -> Normals<G> {
         Self::bases(nodal_coordinates)
@@ -216,5 +205,8 @@ where
                     ).sum::<Scalar>() / normalization
                 ).collect()
         }).collect()
+    }
+    fn reference_normals(&self) -> &ReferenceNormals<G> {
+        &self.reference_normals
     }
 }

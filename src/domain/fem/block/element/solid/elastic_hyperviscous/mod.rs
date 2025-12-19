@@ -1,16 +1,17 @@
 use crate::{
     constitutive::{ConstitutiveError, solid::elastic_hyperviscous::ElasticHyperviscous},
     fem::block::element::{
-        Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElementError,
+        Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElement,
+        FiniteElementError,
         solid::{SolidFiniteElement, viscoelastic::ViscoelasticFiniteElement},
     },
     math::{Scalar, Tensor},
 };
 
-pub trait ElasticHyperviscousFiniteElement<C, const G: usize, const N: usize>
+pub trait ElasticHyperviscousFiniteElement<C, const G: usize, const M: usize, const N: usize>
 where
     C: ElasticHyperviscous,
-    Self: ViscoelasticFiniteElement<C, G, N>,
+    Self: ViscoelasticFiniteElement<C, G, M, N>,
 {
     fn viscous_dissipation(
         &self,
@@ -26,10 +27,11 @@ where
     ) -> Result<Scalar, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize> ElasticHyperviscousFiniteElement<C, G, N>
-    for Element<G, N, O>
+impl<C, const G: usize, const M: usize, const N: usize, const O: usize>
+    ElasticHyperviscousFiniteElement<C, G, M, N> for Element<G, N, O>
 where
     C: ElasticHyperviscous,
+    Self: ViscoelasticFiniteElement<C, G, M, N>,
 {
     fn viscous_dissipation(
         &self,

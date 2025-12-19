@@ -170,7 +170,7 @@ impl Display for FiniteElementBlockError {
     }
 }
 
-pub trait ZerothOrderRoot<C, E, const G: usize, const N: usize, X> {
+pub trait ZerothOrderRoot<C, E, const G: usize, const M: usize, const N: usize, X> {
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
@@ -178,7 +178,7 @@ pub trait ZerothOrderRoot<C, E, const G: usize, const N: usize, X> {
     ) -> Result<X, OptimizationError>;
 }
 
-pub trait FirstOrderRoot<C, E, const G: usize, const N: usize, F, J, X> {
+pub trait FirstOrderRoot<C, E, const G: usize, const M: usize, const N: usize, F, J, X> {
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
@@ -186,7 +186,7 @@ pub trait FirstOrderRoot<C, E, const G: usize, const N: usize, F, J, X> {
     ) -> Result<X, OptimizationError>;
 }
 
-pub trait FirstOrderMinimize<C, E, const G: usize, const N: usize, X> {
+pub trait FirstOrderMinimize<C, E, const G: usize, const M: usize, const N: usize, X> {
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
@@ -194,7 +194,7 @@ pub trait FirstOrderMinimize<C, E, const G: usize, const N: usize, X> {
     ) -> Result<X, OptimizationError>;
 }
 
-pub trait SecondOrderMinimize<C, E, const G: usize, const N: usize, J, H, X> {
+pub trait SecondOrderMinimize<C, E, const G: usize, const M: usize, const N: usize, J, H, X> {
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,

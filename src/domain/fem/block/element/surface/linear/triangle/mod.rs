@@ -5,9 +5,8 @@ use crate::{
     constitutive::{
         ConstitutiveError,
         solid::{
-            elastic::Elastic, elastic_hyperviscous::ElasticHyperviscous,
-            hyperelastic::Hyperelastic, hyperviscoelastic::Hyperviscoelastic,
-            viscoelastic::Viscoelastic,
+            elastic_hyperviscous::ElasticHyperviscous, hyperelastic::Hyperelastic,
+            hyperviscoelastic::Hyperviscoelastic, viscoelastic::Viscoelastic,
         },
     },
     fem::block::element::{
@@ -16,18 +15,15 @@ use crate::{
         ShapeFunctions, ShapeFunctionsGradients,
         solid::{
             ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement,
-            elastic::ElasticFiniteElement, elastic_hyperviscous::ElasticHyperviscousFiniteElement,
+            elastic_hyperviscous::ElasticHyperviscousFiniteElement,
             hyperelastic::HyperelasticFiniteElement,
             hyperviscoelastic::HyperviscoelasticFiniteElement,
             viscoelastic::ViscoelasticFiniteElement,
         },
-        surface::{SurfaceElement, SurfaceFiniteElementMethods},
+        surface::{SurfaceElement, SurfaceFiniteElement},
     },
     math::{IDENTITY, Scalar, ScalarList, Tensor},
-    mechanics::{
-        FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStressList,
-        FirstPiolaKirchhoffTangentStiffnessList,
-    },
+    mechanics::{FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStressList},
 };
 
 const G: usize = 1;
@@ -40,6 +36,9 @@ pub type Triangle = SurfaceElement<G, N, O>;
 impl FiniteElement<G, M, N> for Triangle {
     fn integration_points() -> ParametricCoordinates<G, M> {
         [[0.25; M]].into()
+    }
+    fn integration_weights(&self) -> &ScalarList<G> {
+        &self.integration_weights
     }
     fn parametric_reference() -> ElementNodalReferenceCoordinates<N> {
         [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]].into()
@@ -60,7 +59,7 @@ impl FiniteElement<G, M, N> for Triangle {
 
 impl From<(ElementNodalReferenceCoordinates<N>, Scalar)> for Triangle
 // where
-//     Self: LinearFiniteElement<G, N>,
+//     Self: SurfaceFiniteElement<G, N>,
 {
     fn from(
         (reference_nodal_coordinates, thickness): (ElementNodalReferenceCoordinates<N>, Scalar),
@@ -107,118 +106,7 @@ impl From<(ElementNodalReferenceCoordinates<N>, Scalar)> for Triangle
     }
 }
 
-impl<C> ElasticFiniteElement<C, G, N> for Triangle
-where
-    C: Elastic,
-{
-    fn nodal_forces(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &ElementNodalCoordinates<N>,
-    ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
-        match self
-            .deformation_gradients(nodal_coordinates)
-            .iter()
-            .map(|deformation_gradient| {
-                constitutive_model.first_piola_kirchhoff_stress(deformation_gradient)
-            })
-            .collect::<Result<FirstPiolaKirchhoffStressList<G>, _>>()
-        {
-            Ok(first_piola_kirchhoff_stresses) => Ok(first_piola_kirchhoff_stresses
-                .iter()
-                .zip(
-                    self.gradient_vectors()
-                        .iter()
-                        .zip(self.integration_weights()),
-                )
-                .map(
-                    |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
-                        gradient_vectors
-                            .iter()
-                            .map(|gradient_vector| {
-                                (first_piola_kirchhoff_stress * gradient_vector)
-                                    * integration_weight
-                            })
-                            .collect()
-                    },
-                )
-                .sum()),
-            Err(error) => Err(FiniteElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
-    }
-    fn nodal_stiffnesses(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &ElementNodalCoordinates<N>,
-    ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError> {
-        match self.deformation_gradients(nodal_coordinates).iter()
-            .map(|deformation_gradient| {
-                constitutive_model.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)
-            })
-            .collect::<Result<FirstPiolaKirchhoffTangentStiffnessList<G>, _>>()
-            {
-            Ok(first_piola_kirchhoff_tangent_stiffnesses) => Ok(first_piola_kirchhoff_tangent_stiffnesses
-            .iter()
-            .zip(
-                self.gradient_vectors()
-                    .iter()
-                    .zip(self.integration_weights().iter()
-                    .zip(self.reference_normals().iter()
-                    .zip(Self::normal_gradients(nodal_coordinates))
-                )
-                ),
-            )
-            .map(
-                |(
-                    first_piola_kirchhoff_tangent_stiffness,
-                    (gradient_vectors, (integration_weight, (reference_normal, normal_gradients))),
-                )| {
-                    gradient_vectors.iter()
-                    .map(|gradient_vector_a|
-                        gradient_vectors.iter()
-                        .zip(normal_gradients.iter())
-                        .map(|(gradient_vector_b, normal_gradient_b)|
-                            first_piola_kirchhoff_tangent_stiffness.iter()
-                            .map(|first_piola_kirchhoff_tangent_stiffness_m|
-                                IDENTITY.iter()
-                                .zip(normal_gradient_b.iter())
-                                .map(|(identity_n, normal_gradient_b_n)|
-                                    first_piola_kirchhoff_tangent_stiffness_m.iter()
-                                    .zip(gradient_vector_a.iter())
-                                    .map(|(first_piola_kirchhoff_tangent_stiffness_mj, gradient_vector_a_j)|
-                                        first_piola_kirchhoff_tangent_stiffness_mj.iter()
-                                        .zip(identity_n.iter()
-                                        .zip(normal_gradient_b_n.iter()))
-                                        .map(|(first_piola_kirchhoff_tangent_stiffness_mjk, (identity_nk, normal_gradient_b_n_k))|
-                                            first_piola_kirchhoff_tangent_stiffness_mjk.iter()
-                                            .zip(gradient_vector_b.iter()
-                                            .zip(reference_normal.iter()))
-                                            .map(|(first_piola_kirchhoff_tangent_stiffness_mjkl, (gradient_vector_b_l, reference_normal_l))|
-                                                first_piola_kirchhoff_tangent_stiffness_mjkl * gradient_vector_a_j * (
-                                                    identity_nk * gradient_vector_b_l + normal_gradient_b_n_k * reference_normal_l
-                                                ) * integration_weight
-                                            ).sum::<Scalar>()
-                                        ).sum::<Scalar>()
-                                    ).sum::<Scalar>()
-                                ).collect()
-                            ).collect()
-                        ).collect()
-                    ).collect()
-                }
-            )
-            .sum()),
-            Err(error) => Err(FiniteElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
-    }
-}
-
-impl<C> HyperelasticFiniteElement<C, G, N> for Triangle
+impl<C> HyperelasticFiniteElement<C, G, 2, N> for Triangle
 where
     C: Hyperelastic,
 {
@@ -248,7 +136,7 @@ where
     }
 }
 
-impl<C> ViscoelasticFiniteElement<C, G, N> for Triangle
+impl<C> ViscoelasticFiniteElement<C, G, 2, N> for Triangle
 where
     C: Viscoelastic,
 {
@@ -366,7 +254,7 @@ where
     }
 }
 
-impl<C> ElasticHyperviscousFiniteElement<C, G, N> for Triangle
+impl<C> ElasticHyperviscousFiniteElement<C, G, 2, N> for Triangle
 where
     C: ElasticHyperviscous,
 {
@@ -437,7 +325,7 @@ where
     }
 }
 
-impl<C> HyperviscoelasticFiniteElement<C, G, N> for Triangle
+impl<C> HyperviscoelasticFiniteElement<C, G, 2, N> for Triangle
 where
     C: Hyperviscoelastic,
 {

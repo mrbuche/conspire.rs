@@ -1,16 +1,16 @@
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperelastic::Hyperelastic},
     fem::block::element::{
-        Element, ElementNodalCoordinates, FiniteElementError,
+        Element, ElementNodalCoordinates, FiniteElement, FiniteElementError,
         solid::{SolidFiniteElement, elastic::ElasticFiniteElement},
     },
     math::{Scalar, Tensor},
 };
 
-pub trait HyperelasticFiniteElement<C, const G: usize, const N: usize>
+pub trait HyperelasticFiniteElement<C, const G: usize, const M: usize, const N: usize>
 where
     C: Hyperelastic,
-    Self: ElasticFiniteElement<C, G, N>,
+    Self: ElasticFiniteElement<C, G, M, N>,
 {
     fn helmholtz_free_energy(
         &self,
@@ -19,10 +19,11 @@ where
     ) -> Result<Scalar, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize> HyperelasticFiniteElement<C, G, N>
+impl<C, const G: usize, const N: usize, const O: usize> HyperelasticFiniteElement<C, G, 3, N>
     for Element<G, N, O>
 where
     C: Hyperelastic,
+    Self: ElasticFiniteElement<C, G, 3, N>,
 {
     fn helmholtz_free_energy(
         &self,

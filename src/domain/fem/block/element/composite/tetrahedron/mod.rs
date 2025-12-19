@@ -38,6 +38,9 @@ impl FiniteElement<G, M, N> for Tetrahedron {
     fn integration_points() -> ParametricCoordinates<G, M> {
         todo!()
     }
+    fn integration_weights(&self) -> &ScalarList<G> {
+        &self.integration_weights
+    }
     fn parametric_reference() -> ElementNodalReferenceCoordinates<N> {
         [
             [0.0, 0.0, 0.0],

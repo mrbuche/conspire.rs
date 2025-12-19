@@ -11,9 +11,9 @@ use crate::{
 
 pub type NodalTemperatures = Vector;
 
-pub trait ThermalFiniteElementBlock<C, F, const G: usize, const N: usize>
+pub trait ThermalFiniteElementBlock<C, F, const G: usize, const M: usize, const N: usize>
 where
-    F: ThermalFiniteElement<G, N>,
+    F: ThermalFiniteElement<G, M, N>,
 {
     fn nodal_temperatures_element(
         &self,
@@ -26,9 +26,10 @@ where
     ) -> Vec<TemperatureGradients<G>>;
 }
 
-impl<C, F, const G: usize, const N: usize> ThermalFiniteElementBlock<C, F, G, N> for Block<C, F, N>
+impl<C, F, const G: usize, const M: usize, const N: usize> ThermalFiniteElementBlock<C, F, G, M, N>
+    for Block<C, F, N>
 where
-    F: ThermalFiniteElement<G, N>,
+    F: ThermalFiniteElement<G, M, N>,
 {
     fn nodal_temperatures_element(
         &self,

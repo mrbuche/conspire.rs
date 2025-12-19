@@ -16,10 +16,10 @@ use crate::{
     },
 };
 
-pub trait ElasticFiniteElementBlock<C, F, const G: usize, const N: usize>
+pub trait ElasticFiniteElementBlock<C, F, const G: usize, const M: usize, const N: usize>
 where
     C: Elastic,
-    F: ElasticFiniteElement<C, G, N>,
+    F: ElasticFiniteElement<C, G, M, N>,
 {
     fn nodal_forces(
         &self,
@@ -31,11 +31,12 @@ where
     ) -> Result<NodalStiffnessesSolid, FiniteElementBlockError>;
 }
 
-impl<C, F, const G: usize, const N: usize> ElasticFiniteElementBlock<C, F, G, N> for Block<C, F, N>
+impl<C, F, const G: usize, const M: usize, const N: usize> ElasticFiniteElementBlock<C, F, G, M, N>
+    for Block<C, F, N>
 where
     C: Elastic,
-    F: ElasticFiniteElement<C, G, N>,
-    Self: SolidFiniteElementBlock<C, F, G, N>,
+    F: ElasticFiniteElement<C, G, M, N>,
+    Self: SolidFiniteElementBlock<C, F, G, M, N>,
 {
     fn nodal_forces(
         &self,
@@ -100,11 +101,11 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N, NodalCoordinates>
-    for Block<C, F, N>
+impl<C, F, const G: usize, const M: usize, const N: usize>
+    ZerothOrderRoot<C, F, G, M, N, NodalCoordinates> for Block<C, F, N>
 where
     C: Elastic,
-    F: ElasticFiniteElement<C, G, N>,
+    F: ElasticFiniteElement<C, G, M, N>,
 {
     fn root(
         &self,
@@ -119,12 +120,12 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize>
-    FirstOrderRoot<C, F, G, N, NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>
+impl<C, F, const G: usize, const M: usize, const N: usize>
+    FirstOrderRoot<C, F, G, M, N, NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>
     for Block<C, F, N>
 where
     C: Elastic,
-    F: ElasticFiniteElement<C, G, N>,
+    F: ElasticFiniteElement<C, G, M, N>,
 {
     fn root(
         &self,

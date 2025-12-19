@@ -29,6 +29,9 @@ impl FiniteElement<G, M, N> for Hexahedron {
         ]
         .into()
     }
+    fn integration_weights(&self) -> &ScalarList<G> {
+        &self.integration_weights
+    }
     fn parametric_reference() -> ElementNodalReferenceCoordinates<N> {
         [
             [-1.0, -1.0, -1.0],

@@ -16,11 +16,11 @@ use crate::{
     },
 };
 
-pub trait HyperelasticFiniteElementBlock<C, F, const G: usize, const N: usize>
+pub trait HyperelasticFiniteElementBlock<C, F, const G: usize, const M: usize, const N: usize>
 where
     C: Hyperelastic,
-    F: HyperelasticFiniteElement<C, G, N>,
-    Self: ElasticFiniteElementBlock<C, F, G, N>,
+    F: HyperelasticFiniteElement<C, G, M, N>,
+    Self: ElasticFiniteElementBlock<C, F, G, M, N>,
 {
     fn helmholtz_free_energy(
         &self,
@@ -28,12 +28,12 @@ where
     ) -> Result<Scalar, FiniteElementBlockError>;
 }
 
-impl<C, F, const G: usize, const N: usize> HyperelasticFiniteElementBlock<C, F, G, N>
-    for Block<C, F, N>
+impl<C, F, const G: usize, const M: usize, const N: usize>
+    HyperelasticFiniteElementBlock<C, F, G, M, N> for Block<C, F, N>
 where
     C: Hyperelastic,
-    F: HyperelasticFiniteElement<C, G, N>,
-    Self: ElasticFiniteElementBlock<C, F, G, N>,
+    F: HyperelasticFiniteElement<C, G, M, N>,
+    Self: ElasticFiniteElementBlock<C, F, G, M, N>,
 {
     fn helmholtz_free_energy(
         &self,
@@ -60,11 +60,11 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> FirstOrderMinimize<C, F, G, N, NodalCoordinates>
-    for Block<C, F, N>
+impl<C, F, const G: usize, const M: usize, const N: usize>
+    FirstOrderMinimize<C, F, G, M, N, NodalCoordinates> for Block<C, F, N>
 where
     C: Hyperelastic,
-    F: HyperelasticFiniteElement<C, G, N>,
+    F: HyperelasticFiniteElement<C, G, M, N>,
 {
     fn minimize(
         &self,
@@ -82,12 +82,12 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize>
-    SecondOrderMinimize<C, F, G, N, NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>
+impl<C, F, const G: usize, const M: usize, const N: usize>
+    SecondOrderMinimize<C, F, G, M, N, NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>
     for Block<C, F, N>
 where
     C: Hyperelastic,
-    F: HyperelasticFiniteElement<C, G, N>,
+    F: HyperelasticFiniteElement<C, G, M, N>,
 {
     fn minimize(
         &self,

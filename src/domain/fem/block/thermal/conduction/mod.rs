@@ -21,10 +21,10 @@ use crate::{
 pub type NodalForcesThermal = Vector;
 pub type NodalStiffnessesThermal = SquareMatrix;
 
-pub trait ThermalConductionFiniteElementBlock<C, F, const G: usize, const N: usize>
+pub trait ThermalConductionFiniteElementBlock<C, F, const G: usize, const M: usize, const N: usize>
 where
     C: ThermalConduction,
-    F: ThermalConductionFiniteElement<C, G, N>,
+    F: ThermalConductionFiniteElement<C, G, M, N>,
 {
     fn potential(
         &self,
@@ -40,11 +40,11 @@ where
     ) -> Result<NodalStiffnessesThermal, FiniteElementBlockError>;
 }
 
-impl<C, F, const G: usize, const N: usize> ThermalConductionFiniteElementBlock<C, F, G, N>
-    for Block<C, F, N>
+impl<C, F, const G: usize, const M: usize, const N: usize>
+    ThermalConductionFiniteElementBlock<C, F, G, M, N> for Block<C, F, N>
 where
     C: ThermalConduction,
-    F: ThermalConductionFiniteElement<C, G, N>,
+    F: ThermalConductionFiniteElement<C, G, M, N>,
 {
     fn potential(
         &self,
@@ -131,11 +131,11 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N, NodalTemperatures>
-    for Block<C, F, N>
+impl<C, F, const G: usize, const M: usize, const N: usize>
+    ZerothOrderRoot<C, F, G, M, N, NodalTemperatures> for Block<C, F, N>
 where
     C: ThermalConduction,
-    F: ThermalConductionFiniteElement<C, G, N>,
+    F: ThermalConductionFiniteElement<C, G, M, N>,
 {
     fn root(
         &self,
@@ -150,12 +150,12 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize>
-    FirstOrderRoot<C, F, G, N, NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures>
+impl<C, F, const G: usize, const M: usize, const N: usize>
+    FirstOrderRoot<C, F, G, M, N, NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures>
     for Block<C, F, N>
 where
     C: ThermalConduction,
-    F: ThermalConductionFiniteElement<C, G, N>,
+    F: ThermalConductionFiniteElement<C, G, M, N>,
 {
     fn root(
         &self,
@@ -177,11 +177,11 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> FirstOrderMinimize<C, F, G, N, NodalTemperatures>
-    for Block<C, F, N>
+impl<C, F, const G: usize, const M: usize, const N: usize>
+    FirstOrderMinimize<C, F, G, M, N, NodalTemperatures> for Block<C, F, N>
 where
     C: ThermalConduction,
-    F: ThermalConductionFiniteElement<C, G, N>,
+    F: ThermalConductionFiniteElement<C, G, M, N>,
 {
     fn minimize(
         &self,
@@ -197,12 +197,20 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize>
-    SecondOrderMinimize<C, F, G, N, NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures>
-    for Block<C, F, N>
+impl<C, F, const G: usize, const M: usize, const N: usize>
+    SecondOrderMinimize<
+        C,
+        F,
+        G,
+        M,
+        N,
+        NodalForcesThermal,
+        NodalStiffnessesThermal,
+        NodalTemperatures,
+    > for Block<C, F, N>
 where
     C: ThermalConduction,
-    F: ThermalConductionFiniteElement<C, G, N>,
+    F: ThermalConductionFiniteElement<C, G, M, N>,
 {
     fn minimize(
         &self,

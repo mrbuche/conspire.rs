@@ -8,8 +8,8 @@ pub mod viscoplastic;
 
 use crate::{
     fem::block::element::{
-        Element, ElementNodalCoordinates, ElementNodalVelocities,
-        surface::{SurfaceElement, SurfaceFiniteElementMethods},
+        Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElement,
+        surface::{SurfaceElement, SurfaceFiniteElement},
     },
     math::Tensor,
     mechanics::{
@@ -21,7 +21,10 @@ use crate::{
 pub type ElementNodalForcesSolid<const N: usize> = ForceList<N>;
 pub type ElementNodalStiffnessesSolid<const N: usize> = StiffnessList<N>;
 
-pub trait SolidFiniteElement<const G: usize, const N: usize> {
+pub trait SolidFiniteElement<const G: usize, const M: usize, const N: usize>
+where
+    Self: FiniteElement<G, M, N>,
+{
     fn deformation_gradients(
         &self,
         nodal_coordinates: &ElementNodalCoordinates<N>,
@@ -33,7 +36,11 @@ pub trait SolidFiniteElement<const G: usize, const N: usize> {
     ) -> DeformationGradientRateList<G>;
 }
 
-impl<const G: usize, const N: usize, const O: usize> SolidFiniteElement<G, N> for Element<G, N, O> {
+impl<const G: usize, const N: usize, const O: usize> SolidFiniteElement<G, 3, N>
+    for Element<G, N, O>
+where
+    Self: FiniteElement<G, 3, N>,
+{
     fn deformation_gradients(
         &self,
         nodal_coordinates: &ElementNodalCoordinates<N>,
@@ -71,10 +78,10 @@ impl<const G: usize, const N: usize, const O: usize> SolidFiniteElement<G, N> fo
     }
 }
 
-impl<const G: usize, const N: usize, const O: usize> SolidFiniteElement<G, N>
+impl<const G: usize, const N: usize, const O: usize> SolidFiniteElement<G, 2, N>
     for SurfaceElement<G, N, O>
 where
-    SurfaceElement<G, N, O>: SurfaceFiniteElementMethods<G, N>,
+    Self: SurfaceFiniteElement<G, N>,
 {
     fn deformation_gradients(
         &self,

@@ -1,7 +1,7 @@
 use crate::{
     constitutive::solid::elastic_viscoplastic::ElasticViscoplastic,
     fem::block::element::{
-        Element, ElementNodalCoordinates, FiniteElementError,
+        Element, ElementNodalCoordinates, FiniteElement, FiniteElementError,
         solid::{
             ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement,
             viscoplastic::ViscoplasticStateVariables,
@@ -11,10 +11,10 @@ use crate::{
     mechanics::{FirstPiolaKirchhoffStressList, FirstPiolaKirchhoffTangentStiffnessList},
 };
 
-pub trait ElasticViscoplasticFiniteElement<C, const G: usize, const N: usize>
+pub trait ElasticViscoplasticFiniteElement<C, const G: usize, const M: usize, const N: usize>
 where
     C: ElasticViscoplastic,
-    Self: SolidFiniteElement<G, N>,
+    Self: SolidFiniteElement<G, M, N>,
 {
     fn nodal_forces(
         &self,
@@ -36,10 +36,11 @@ where
     ) -> Result<ViscoplasticStateVariables<G>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize> ElasticViscoplasticFiniteElement<C, G, N>
+impl<C, const G: usize, const N: usize, const O: usize> ElasticViscoplasticFiniteElement<C, G, 3, N>
     for Element<G, N, O>
 where
     C: ElasticViscoplastic,
+    Self: SolidFiniteElement<G, 3, N>,
 {
     fn nodal_forces(
         &self,

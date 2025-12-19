@@ -15,9 +15,9 @@ use crate::{
 
 pub use crate::domain::{NodalForcesSolid, NodalStiffnessesSolid};
 
-pub trait SolidFiniteElementBlock<C, F, const G: usize, const N: usize>
+pub trait SolidFiniteElementBlock<C, F, const G: usize, const M: usize, const N: usize>
 where
-    F: SolidFiniteElement<G, N>,
+    F: SolidFiniteElement<G, M, N>,
 {
     fn deformation_gradients(
         &self,
@@ -25,9 +25,10 @@ where
     ) -> Vec<DeformationGradientList<G>>;
 }
 
-impl<C, F, const G: usize, const N: usize> SolidFiniteElementBlock<C, F, G, N> for Block<C, F, N>
+impl<C, F, const G: usize, const M: usize, const N: usize> SolidFiniteElementBlock<C, F, G, M, N>
+    for Block<C, F, N>
 where
-    F: SolidFiniteElement<G, N>,
+    F: SolidFiniteElement<G, M, N>,
 {
     fn deformation_gradients(
         &self,

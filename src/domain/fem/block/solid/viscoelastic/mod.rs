@@ -19,10 +19,10 @@ use crate::{
     mechanics::{DeformationGradientRateList, Times},
 };
 
-pub trait ViscoelasticFiniteElementBlock<C, F, const G: usize, const N: usize>
+pub trait ViscoelasticFiniteElementBlock<C, F, const G: usize, const M: usize, const N: usize>
 where
     C: Viscoelastic,
-    F: ViscoelasticFiniteElement<C, G, N>,
+    F: ViscoelasticFiniteElement<C, G, M, N>,
 {
     fn deformation_gradient_rates(
         &self,
@@ -61,12 +61,12 @@ where
     ) -> Result<NodalVelocities, OptimizationError>;
 }
 
-impl<C, F, const G: usize, const N: usize> ViscoelasticFiniteElementBlock<C, F, G, N>
-    for Block<C, F, N>
+impl<C, F, const G: usize, const M: usize, const N: usize>
+    ViscoelasticFiniteElementBlock<C, F, G, M, N> for Block<C, F, N>
 where
     C: Viscoelastic,
-    F: ViscoelasticFiniteElement<C, G, N>,
-    Self: SolidFiniteElementBlock<C, F, G, N>,
+    F: ViscoelasticFiniteElement<C, G, M, N>,
+    Self: SolidFiniteElementBlock<C, F, G, M, N>,
 {
     fn deformation_gradient_rates(
         &self,

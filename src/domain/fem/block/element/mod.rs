@@ -33,6 +33,7 @@ pub type StandardGradientOperatorsTransposed<const M: usize, const O: usize, con
 
 pub trait FiniteElement<const G: usize, const M: usize, const N: usize> {
     fn integration_points() -> ParametricCoordinates<G, M>;
+    fn integration_weights(&self) -> &ScalarList<G>;
     fn parametric_reference() -> ElementNodalReferenceCoordinates<N>;
     fn parametric_weights() -> ScalarList<G>;
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N>;
@@ -61,9 +62,6 @@ pub struct Element<const G: usize, const N: usize, const O: usize> {
 impl<const G: usize, const N: usize, const O: usize> Element<G, N, O> {
     fn gradient_vectors(&self) -> &GradientVectors<G, N> {
         &self.gradient_vectors
-    }
-    fn integration_weights(&self) -> &ScalarList<G> {
-        &self.integration_weights
     }
 }
 

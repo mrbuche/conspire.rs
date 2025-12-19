@@ -27,10 +27,15 @@ pub type ViscoplasticStateVariablesHistory<const G: usize> =
 
 pub type ElasticViscoplasticBCs = (crate::math::Matrix, fn(Scalar) -> crate::math::Vector);
 
-pub trait ElasticViscoplasticFiniteElementBlock<C, F, const G: usize, const N: usize>
-where
+pub trait ElasticViscoplasticFiniteElementBlock<
+    C,
+    F,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+> where
     C: ElasticViscoplastic,
-    F: ElasticViscoplasticFiniteElement<C, G, N>,
+    F: ElasticViscoplasticFiniteElement<C, G, M, N>,
 {
     fn nodal_forces(
         &self,
@@ -76,12 +81,12 @@ where
     ) -> Result<NodalCoordinates, OptimizationError>;
 }
 
-impl<C, F, const G: usize, const N: usize> ElasticViscoplasticFiniteElementBlock<C, F, G, N>
-    for Block<C, F, N>
+impl<C, F, const G: usize, const M: usize, const N: usize>
+    ElasticViscoplasticFiniteElementBlock<C, F, G, M, N> for Block<C, F, N>
 where
     C: ElasticViscoplastic,
-    F: ElasticViscoplasticFiniteElement<C, G, N>,
-    Self: SolidFiniteElementBlock<C, F, G, N>,
+    F: ElasticViscoplasticFiniteElement<C, G, M, N>,
+    Self: SolidFiniteElementBlock<C, F, G, M, N>,
 {
     fn nodal_forces(
         &self,

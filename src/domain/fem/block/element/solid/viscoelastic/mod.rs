@@ -1,17 +1,18 @@
 use crate::{
     constitutive::solid::viscoelastic::Viscoelastic,
     fem::block::element::{
-        Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElementError,
+        Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElement,
+        FiniteElementError,
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement},
     },
     math::{ContractSecondFourthIndicesWithFirstIndicesOf, Tensor},
     mechanics::{FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStressList},
 };
 
-pub trait ViscoelasticFiniteElement<C, const G: usize, const N: usize>
+pub trait ViscoelasticFiniteElement<C, const G: usize, const M: usize, const N: usize>
 where
     C: Viscoelastic,
-    Self: SolidFiniteElement<G, N>,
+    Self: SolidFiniteElement<G, M, N>,
 {
     fn nodal_forces(
         &self,
@@ -27,10 +28,11 @@ where
     ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize> ViscoelasticFiniteElement<C, G, N>
+impl<C, const G: usize, const N: usize, const O: usize> ViscoelasticFiniteElement<C, G, 3, N>
     for Element<G, N, O>
 where
     C: Viscoelastic,
+    Self: SolidFiniteElement<G, 3, N>,
 {
     fn nodal_forces(
         &self,
