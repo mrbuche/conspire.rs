@@ -4,17 +4,16 @@ mod test;
 use crate::{
     fem::block::element::{
         ElementNodalReferenceCoordinates, FiniteElement, ParametricCoordinate,
-        ParametricCoordinates, ShapeFunctions, ShapeFunctionsGradients, surface::SurfaceElement,
+        ParametricCoordinates, ShapeFunctions, ShapeFunctionsGradients,
+        surface::{M, linear::LinearSurfaceElement},
     },
     math::ScalarList,
 };
 
 const G: usize = 1;
-const M: usize = 2;
 const N: usize = 3;
-const O: usize = 1;
 
-pub type Triangle = SurfaceElement<G, N, O>;
+pub type Triangle = LinearSurfaceElement<G, N>;
 
 impl FiniteElement<G, M, N> for Triangle {
     fn integration_points() -> ParametricCoordinates<G, M> {

@@ -1,8 +1,7 @@
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperelastic::Hyperelastic},
     fem::block::element::{
-        Element, ElementNodalCoordinates, FiniteElement, FiniteElementError,
-        solid::{SolidFiniteElement, elastic::ElasticFiniteElement},
+        Element, ElementNodalCoordinates, FiniteElementError, solid::elastic::ElasticFiniteElement,
         surface::SurfaceElement,
     },
     math::{Scalar, Tensor},
@@ -31,24 +30,7 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<Scalar, FiniteElementError> {
-        match self
-            .deformation_gradients(nodal_coordinates)
-            .iter()
-            .zip(self.integration_weights())
-            .map(|(deformation_gradient, integration_weight)| {
-                Ok::<_, ConstitutiveError>(
-                    constitutive_model.helmholtz_free_energy_density(deformation_gradient)?
-                        * integration_weight,
-                )
-            })
-            .sum()
-        {
-            Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
-            Err(error) => Err(FiniteElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+        helmholtz_free_energy::<_, _, _, _, _, O>(self, constitutive_model, nodal_coordinates)
     }
 }
 
@@ -63,23 +45,35 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<Scalar, FiniteElementError> {
-        match self
-            .deformation_gradients(nodal_coordinates)
-            .iter()
-            .zip(self.integration_weights())
-            .map(|(deformation_gradient, integration_weight)| {
-                Ok::<_, ConstitutiveError>(
-                    constitutive_model.helmholtz_free_energy_density(deformation_gradient)?
-                        * integration_weight,
-                )
-            })
-            .sum()
-        {
-            Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
-            Err(error) => Err(FiniteElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+        helmholtz_free_energy::<_, _, _, _, _, O>(self, constitutive_model, nodal_coordinates)
+    }
+}
+
+fn helmholtz_free_energy<C, F, const G: usize, const M: usize, const N: usize, const O: usize>(
+    finite_element: &F,
+    constitutive_model: &C,
+    nodal_coordinates: &ElementNodalCoordinates<N>,
+) -> Result<Scalar, FiniteElementError>
+where
+    C: Hyperelastic,
+    F: ElasticFiniteElement<C, G, M, N>,
+{
+    match finite_element
+        .deformation_gradients(nodal_coordinates)
+        .iter()
+        .zip(finite_element.integration_weights())
+        .map(|(deformation_gradient, integration_weight)| {
+            Ok::<_, ConstitutiveError>(
+                constitutive_model.helmholtz_free_energy_density(deformation_gradient)?
+                    * integration_weight,
+            )
+        })
+        .sum()
+    {
+        Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
+        Err(error) => Err(FiniteElementError::Upstream(
+            format!("{error}"),
+            format!("{finite_element:?}"),
+        )),
     }
 }

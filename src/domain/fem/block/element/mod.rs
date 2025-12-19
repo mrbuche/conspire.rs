@@ -31,7 +31,10 @@ pub type StandardGradientOperators<const M: usize, const O: usize, const P: usiz
 pub type StandardGradientOperatorsTransposed<const M: usize, const O: usize, const P: usize> =
     TensorRank1List2D<M, 0, P, O>;
 
-pub trait FiniteElement<const G: usize, const M: usize, const N: usize> {
+pub trait FiniteElement<const G: usize, const M: usize, const N: usize>
+where
+    Self: Debug,
+{
     fn integration_points() -> ParametricCoordinates<G, M>;
     fn integration_weights(&self) -> &ScalarList<G>;
     fn parametric_reference() -> ElementNodalReferenceCoordinates<N>;
