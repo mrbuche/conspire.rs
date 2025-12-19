@@ -21,7 +21,7 @@ use crate::{
             hyperviscoelastic::HyperviscoelasticFiniteElement,
             viscoelastic::ViscoelasticFiniteElement,
         },
-        surface::{SurfaceElement, SurfaceFiniteElement, SurfaceFiniteElementMethods},
+        surface::{SurfaceElement, SurfaceFiniteElementMethods},
     },
     math::{IDENTITY, Scalar, ScalarList, Tensor},
     mechanics::{
@@ -34,9 +34,8 @@ use crate::{
 const G: usize = 1;
 const M: usize = 2;
 const N: usize = 3;
-const P: usize = G;
 
-pub type Triangle = SurfaceElement<G, N, P>;
+pub type Triangle = SurfaceElement<G, N>;
 
 impl FiniteElement<G, M, N> for Triangle {
     fn integration_points() -> ParametricCoordinates<G, M> {
@@ -59,10 +58,12 @@ impl FiniteElement<G, M, N> for Triangle {
     }
 }
 
-impl SurfaceFiniteElement<G, N, P> for Triangle {
-    fn new(
-        reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,
-        thickness: Scalar,
+impl From<(ElementNodalReferenceCoordinates<N>, Scalar)> for Triangle
+// where
+//     Self: LinearFiniteElement<G, N>,
+{
+    fn from(
+        (reference_nodal_coordinates, thickness): (ElementNodalReferenceCoordinates<N>, Scalar),
     ) -> Self {
         let integration_weights = Self::bases(&reference_nodal_coordinates)
             .iter()

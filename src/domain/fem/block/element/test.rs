@@ -69,10 +69,10 @@ macro_rules! test_surface_finite_element {
             get_deformation_gradient_rate() * reference_coordinates()
         }
         fn element() -> $element {
-            $element::new(reference_coordinates(), THICKNESS)
+            $element::from((reference_coordinates(), THICKNESS))
         }
         fn element_transformed() -> $element {
-            $element::new(reference_coordinates_transformed(), THICKNESS)
+            $element::from((reference_coordinates_transformed(), THICKNESS))
         }
         #[test]
         fn size() {
@@ -80,16 +80,16 @@ macro_rules! test_surface_finite_element {
                 std::mem::size_of::<$element>(),
                 std::mem::size_of::<GradientVectors<G, N>>()
                     + std::mem::size_of::<ScalarList<G>>()
-                    + std::mem::size_of::<Normals<P>>()
+                    + std::mem::size_of::<Normals<G>>()
             )
         }
         macro_rules! setup_element {
             () => {
                 fn get_element() -> $element {
-                    $element::new(reference_coordinates(), THICKNESS)
+                    $element::from((reference_coordinates(), THICKNESS))
                 }
                 fn get_element_transformed() -> $element {
-                    $element::new(reference_coordinates_transformed(), THICKNESS)
+                    $element::from((reference_coordinates_transformed(), THICKNESS))
                 }
             };
         }
@@ -165,7 +165,7 @@ macro_rules! test_surface_finite_element {
             #[test]
             fn finite_difference() -> Result<(), TestError> {
                 let mut finite_difference = 0.0;
-                let normal_gradients_from_fd = (0..P)
+                let normal_gradients_from_fd = (0..G)
                     .map(|p| {
                         (0..N)
                             .map(|a| {
@@ -257,7 +257,7 @@ macro_rules! test_surface_finite_element {
             #[test]
             fn finite_difference() -> Result<(), TestError> {
                 let mut finite_difference = 0.0;
-                let normal_rates_from_fd = (0..P)
+                let normal_rates_from_fd = (0..G)
                     .map(|p| {
                         (0..3)
                             .map(|i| {

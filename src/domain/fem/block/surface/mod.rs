@@ -1,15 +1,12 @@
 use crate::{
     fem::{
         NodalReferenceCoordinates,
-        block::{Block, Connectivity, element::surface::SurfaceFiniteElement},
+        block::{Block, Connectivity, element::surface::SurfaceFiniteElementCreation},
     },
     math::Scalar,
 };
 
-pub trait SurfaceFiniteElementBlock<C, F, const G: usize, const N: usize, const P: usize>
-where
-    F: SurfaceFiniteElement<G, N, P>,
-{
+pub trait SurfaceFiniteElementBlock<C, F, const G: usize, const N: usize> {
     fn new(
         constitutive_model: C,
         connectivity: Connectivity<N>,
@@ -18,10 +15,9 @@ where
     ) -> Self;
 }
 
-impl<C, F, const G: usize, const N: usize, const P: usize> SurfaceFiniteElementBlock<C, F, G, N, P>
-    for Block<C, F, N>
+impl<C, F, const G: usize, const N: usize> SurfaceFiniteElementBlock<C, F, G, N> for Block<C, F, N>
 where
-    F: SurfaceFiniteElement<G, N, P>,
+    F: SurfaceFiniteElementCreation<G, N>,
 {
     fn new(
         constitutive_model: C,
@@ -32,13 +28,13 @@ where
         let elements = connectivity
             .iter()
             .map(|nodes| {
-                <F>::new(
+                <F>::from((
                     nodes
                         .iter()
                         .map(|&node| coordinates[node].clone())
                         .collect(),
                     thickness,
-                )
+                ))
             })
             .collect();
         Self {

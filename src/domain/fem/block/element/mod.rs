@@ -31,6 +31,28 @@ pub type StandardGradientOperators<const M: usize, const O: usize, const P: usiz
 pub type StandardGradientOperatorsTransposed<const M: usize, const O: usize, const P: usize> =
     TensorRank1List2D<M, 0, P, O>;
 
+pub trait FiniteElement<const G: usize, const M: usize, const N: usize> {
+    fn integration_points() -> ParametricCoordinates<G, M>;
+    fn parametric_reference() -> ElementNodalReferenceCoordinates<N>;
+    fn parametric_weights() -> ScalarList<G>;
+    fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N>;
+    fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, N> {
+        Self::integration_points()
+            .into_iter()
+            .map(|integration_point| Self::shape_functions(integration_point))
+            .collect()
+    }
+    fn shape_functions_gradients(
+        parametric_coordinate: ParametricCoordinate<M>,
+    ) -> ShapeFunctionsGradients<M, N>;
+    fn shape_functions_gradients_at_integration_points() -> StandardGradientOperators<M, N, G> {
+        Self::integration_points()
+            .into_iter()
+            .map(|integration_point| Self::shape_functions_gradients(integration_point))
+            .collect()
+    }
+}
+
 pub struct Element<const G: usize, const N: usize, const O: usize> {
     gradient_vectors: GradientVectors<G, N>,
     integration_weights: ScalarList<G>,
@@ -71,35 +93,13 @@ where
     }
 }
 
-pub trait FiniteElement<const G: usize, const M: usize, const N: usize> {
-    fn integration_points() -> ParametricCoordinates<G, M>;
-    fn parametric_reference() -> ElementNodalReferenceCoordinates<N>;
-    fn parametric_weights() -> ScalarList<G>;
-    fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N>;
-    fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, N> {
-        Self::integration_points()
-            .into_iter()
-            .map(|integration_point| Self::shape_functions(integration_point))
-            .collect()
-    }
-    fn shape_functions_gradients(
-        parametric_coordinate: ParametricCoordinate<M>,
-    ) -> ShapeFunctionsGradients<M, N>;
-    fn shape_functions_gradients_at_integration_points() -> StandardGradientOperators<M, N, G> {
-        Self::integration_points()
-            .into_iter()
-            .map(|integration_point| Self::shape_functions_gradients(integration_point))
-            .collect()
-    }
-}
-
-pub trait FiniteElementCreation<const G: usize, const M: usize, const N: usize>
+pub trait FiniteElementCreation<const G: usize, const N: usize>
 where
     Self: Default + From<ElementNodalReferenceCoordinates<N>>,
 {
 }
 
-impl<const G: usize, const M: usize, const N: usize, const O: usize> FiniteElementCreation<G, M, N>
+impl<const G: usize, const N: usize, const O: usize> FiniteElementCreation<G, N>
     for Element<G, N, O>
 where
     Self: Default + From<ElementNodalReferenceCoordinates<N>>,

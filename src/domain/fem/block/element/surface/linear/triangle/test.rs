@@ -8,8 +8,8 @@ use crate::{
                 GradientVectors,
                 solid::SolidFiniteElement,
                 surface::{
-                    Normals, SurfaceFiniteElement, SurfaceFiniteElementMethods,
-                    linear::triangle::{G, N, P, Triangle},
+                    Normals, SurfaceFiniteElementMethods,
+                    linear::triangle::{G, N, Triangle},
                 },
                 test::test_surface_finite_element,
             },

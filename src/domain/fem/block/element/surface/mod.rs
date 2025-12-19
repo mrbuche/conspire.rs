@@ -13,65 +13,74 @@ use crate::{
 };
 use std::fmt::{self, Debug, Formatter};
 
-pub struct SurfaceElement<const G: usize, const N: usize, const P: usize> {
+pub struct SurfaceElement<const G: usize, const N: usize> {
     gradient_vectors: GradientVectors<G, N>,
     integration_weights: ScalarList<G>,
-    reference_normals: ReferenceNormals<P>,
+    reference_normals: ReferenceNormals<G>,
 }
 
-impl<const G: usize, const N: usize, const P: usize> Debug for SurfaceElement<G, N, P> {
+impl<const G: usize, const N: usize> Debug for SurfaceElement<G, N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let element = match (G, N, P) {
-            (1, 3, 1) => "LinearTriangle",
+        let element = match (G, N) {
+            (1, 3) => "LinearTriangle",
             _ => panic!(),
         };
-        write!(f, "{element} {{ G: {G}, N: {N} , P: {P} }}",)
+        write!(f, "{element} {{ G: {G}, N: {N} }}",)
     }
 }
 
-impl<const G: usize, const N: usize, const P: usize> SurfaceElement<G, N, P> {
+impl<const G: usize, const N: usize> SurfaceElement<G, N> {
     fn gradient_vectors(&self) -> &GradientVectors<G, N> {
         &self.gradient_vectors
     }
     fn integration_weights(&self) -> &ScalarList<G> {
         &self.integration_weights
     }
-    fn reference_normals(&self) -> &ReferenceNormals<P> {
+    fn reference_normals(&self) -> &ReferenceNormals<G> {
         &self.reference_normals
     }
 }
 
-pub trait SurfaceFiniteElement<const G: usize, const N: usize, const P: usize> {
-    fn new(
-        reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,
-        thickness: Scalar,
-    ) -> Self;
-}
-
-pub trait SurfaceFiniteElementMethods<
-    const G: usize,
-    const M: usize,
-    const N: usize,
-    const P: usize,
-> where
-    Self: FiniteElement<G, M, N>,
+impl<const G: usize, const N: usize> Default for SurfaceElement<G, N>
+where
+    Self: FiniteElement<G, 2, N> + From<(ElementNodalReferenceCoordinates<N>, Scalar)>,
 {
-    fn bases<const I: usize>(nodal_coordinates: &CoordinateList<I, N>) -> SurfaceBases<I, P>;
-    fn dual_bases<const I: usize>(nodal_coordinates: &CoordinateList<I, N>) -> SurfaceBases<I, P>;
-    fn normals(nodal_coordinates: &ElementNodalCoordinates<N>) -> Normals<P>;
-    fn normal_gradients(nodal_coordinates: &ElementNodalCoordinates<N>) -> NormalGradients<N, P>;
-    fn normal_rates(
-        nodal_coordinates: &ElementNodalCoordinates<N>,
-        nodal_velocities: &ElementNodalVelocities<N>,
-    ) -> NormalRates<P>;
+    fn default() -> Self {
+        (Self::parametric_reference(), 1.0).into()
+    }
 }
 
-impl<const G: usize, const M: usize, const N: usize, const P: usize>
-    SurfaceFiniteElementMethods<G, M, N, P> for SurfaceElement<G, N, P>
+pub trait SurfaceFiniteElementCreation<const G: usize, const N: usize>
+where
+    Self: Default + From<(ElementNodalReferenceCoordinates<N>, Scalar)>,
+{
+}
+
+impl<const G: usize, const N: usize> SurfaceFiniteElementCreation<G, N> for SurfaceElement<G, N> where
+    Self: Default + From<(ElementNodalReferenceCoordinates<N>, Scalar)>
+{
+}
+
+pub trait SurfaceFiniteElementMethods<const G: usize, const M: usize, const N: usize>
 where
     Self: FiniteElement<G, M, N>,
 {
-    fn bases<const I: usize>(nodal_coordinates: &CoordinateList<I, N>) -> SurfaceBases<I, P> {
+    fn bases<const I: usize>(nodal_coordinates: &CoordinateList<I, N>) -> SurfaceBases<I, G>;
+    fn dual_bases<const I: usize>(nodal_coordinates: &CoordinateList<I, N>) -> SurfaceBases<I, G>;
+    fn normals(nodal_coordinates: &ElementNodalCoordinates<N>) -> Normals<G>;
+    fn normal_gradients(nodal_coordinates: &ElementNodalCoordinates<N>) -> NormalGradients<N, G>;
+    fn normal_rates(
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
+    ) -> NormalRates<G>;
+}
+
+impl<const G: usize, const M: usize, const N: usize> SurfaceFiniteElementMethods<G, M, N>
+    for SurfaceElement<G, N>
+where
+    Self: FiniteElement<G, M, N>,
+{
+    fn bases<const I: usize>(nodal_coordinates: &CoordinateList<I, N>) -> SurfaceBases<I, G> {
         Self::shape_functions_gradients_at_integration_points()
             .iter()
             .map(|standard_gradient_operator| {
@@ -90,7 +99,7 @@ where
             })
             .collect()
     }
-    fn dual_bases<const I: usize>(nodal_coordinates: &CoordinateList<I, N>) -> SurfaceBases<I, P> {
+    fn dual_bases<const I: usize>(nodal_coordinates: &CoordinateList<I, N>) -> SurfaceBases<I, G> {
         Self::bases(nodal_coordinates)
             .iter()
             .map(|basis_vectors| {
@@ -118,13 +127,13 @@ where
             })
             .collect()
     }
-    fn normals(nodal_coordinates: &ElementNodalCoordinates<N>) -> Normals<P> {
+    fn normals(nodal_coordinates: &ElementNodalCoordinates<N>) -> Normals<G> {
         Self::bases(nodal_coordinates)
             .iter()
             .map(|basis_vectors| basis_vectors[0].cross(&basis_vectors[1]).normalized())
             .collect()
     }
-    fn normal_gradients(nodal_coordinates: &ElementNodalCoordinates<N>) -> NormalGradients<N, P> {
+    fn normal_gradients(nodal_coordinates: &ElementNodalCoordinates<N>) -> NormalGradients<N, G> {
         let levi_civita_symbol = LEVI_CIVITA;
         let mut normalization: Scalar = 0.0;
         let mut normal_vector = Normal::zero();
@@ -162,7 +171,7 @@ where
     fn normal_rates(
         nodal_coordinates: &ElementNodalCoordinates<N>,
         nodal_velocities: &ElementNodalVelocities<N>,
-    ) -> NormalRates<P> {
+    ) -> NormalRates<G> {
         let identity = IDENTITY;
         let levi_civita_symbol = LEVI_CIVITA;
         let mut normalization = 0.0;

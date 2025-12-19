@@ -92,7 +92,7 @@ pub trait FiniteElementBlock<C, F, const G: usize, const N: usize> {
 
 impl<C, F, const G: usize, const N: usize> FiniteElementBlock<C, F, G, N> for Block<C, F, N>
 where
-    F: FiniteElementCreation<G, 3, N>,
+    F: FiniteElementCreation<G, N>,
 {
     fn new(
         constitutive_model: C,
