@@ -25,7 +25,7 @@ use crate::{
     },
 };
 
-const D: usize = 16;
+pub const D: usize = 16;
 
 fn get_connectivity() -> Connectivity<N> {
     vec![
@@ -50,7 +50,7 @@ fn get_connectivity() -> Connectivity<N> {
     ]
 }
 
-fn get_coordinates_block() -> NodalCoordinates {
+pub fn get_coordinates_block() -> NodalCoordinates {
     NodalCoordinates::from([
         [0.48219277, 0.03953903, 0.54126292],
         [-0.53252101, 0.02114387, 0.48863541],
@@ -75,7 +75,7 @@ fn reference_coordinates() -> ElementNodalReferenceCoordinates<N> {
     ElementNodalReferenceCoordinates::from([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
 }
 
-fn get_reference_coordinates_block() -> NodalReferenceCoordinates {
+pub fn get_reference_coordinates_block() -> NodalReferenceCoordinates {
     NodalReferenceCoordinates::from([
         [0.5, 0.0, 0.5],
         [-0.5, 0.0, 0.5],
@@ -96,7 +96,7 @@ fn get_reference_coordinates_block() -> NodalReferenceCoordinates {
     ])
 }
 
-fn get_velocities_block() -> NodalVelocities {
+pub fn get_velocities_block() -> NodalVelocities {
     NodalVelocities::from([
         [-0.08580606, -0.03719631, -0.06520447],
         [0.07911747, 0.05345331, -0.01990356],
@@ -117,7 +117,7 @@ fn get_velocities_block() -> NodalVelocities {
     ])
 }
 
-fn equality_constraint() -> (
+pub fn equality_constraint() -> (
     crate::constitutive::solid::elastic::AppliedLoad,
     crate::math::Matrix,
     crate::math::Vector,
@@ -186,7 +186,7 @@ fn equality_constraint() -> (
     )
 }
 
-fn applied_velocity(
+pub fn applied_velocity(
     times: &crate::math::Vector,
 ) -> crate::constitutive::solid::viscoelastic::AppliedLoad<'_> {
     crate::constitutive::solid::viscoelastic::AppliedLoad::BiaxialStress(
@@ -196,7 +196,7 @@ fn applied_velocity(
     )
 }
 
-fn applied_velocities() -> (crate::math::Matrix, crate::math::Vector) {
+pub fn applied_velocities() -> (crate::math::Matrix, crate::math::Vector) {
     let velocity = 0.23;
     let mut a = crate::math::Matrix::zero(25, 48);
     a[0][0] = 1.0;
