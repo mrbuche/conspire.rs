@@ -95,7 +95,7 @@ where
 }
 
 fn viscous_dissipation<C, F, const G: usize, const M: usize, const N: usize, const O: usize>(
-    finite_element: &F,
+    element: &F,
     constitutive_model: &C,
     nodal_coordinates: &ElementNodalCoordinates<N>,
     nodal_velocities: &ElementNodalVelocities<N>,
@@ -104,14 +104,14 @@ where
     C: ElasticHyperviscous,
     F: ViscoelasticFiniteElement<C, G, M, N>,
 {
-    match finite_element
+    match element
         .deformation_gradients(nodal_coordinates)
         .iter()
         .zip(
-            finite_element
+            element
                 .deformation_gradient_rates(nodal_coordinates, nodal_velocities)
                 .iter()
-                .zip(finite_element.integration_weights()),
+                .zip(element.integration_weights()),
         )
         .map(
             |(deformation_gradient, (deformation_gradient_rate, integration_weight))| {
@@ -127,13 +127,13 @@ where
         Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
         Err(error) => Err(FiniteElementError::Upstream(
             format!("{error}"),
-            format!("{finite_element:?}"),
+            format!("{element:?}"),
         )),
     }
 }
 
 fn dissipation_potential<C, F, const G: usize, const M: usize, const N: usize, const O: usize>(
-    finite_element: &F,
+    element: &F,
     constitutive_model: &C,
     nodal_coordinates: &ElementNodalCoordinates<N>,
     nodal_velocities: &ElementNodalVelocities<N>,
@@ -142,14 +142,14 @@ where
     C: ElasticHyperviscous,
     F: ViscoelasticFiniteElement<C, G, M, N>,
 {
-    match finite_element
+    match element
         .deformation_gradients(nodal_coordinates)
         .iter()
         .zip(
-            finite_element
+            element
                 .deformation_gradient_rates(nodal_coordinates, nodal_velocities)
                 .iter()
-                .zip(finite_element.integration_weights()),
+                .zip(element.integration_weights()),
         )
         .map(
             |(deformation_gradient, (deformation_gradient_rate, integration_weight))| {
@@ -165,7 +165,7 @@ where
         Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
         Err(error) => Err(FiniteElementError::Upstream(
             format!("{error}"),
-            format!("{finite_element:?}"),
+            format!("{element:?}"),
         )),
     }
 }

@@ -1,7 +1,7 @@
 use crate::{
     constitutive::solid::elastic::Elastic,
     fem::block::element::{
-        Element, ElementNodalCoordinates, FiniteElement, FiniteElementError,
+        Element, ElementNodalCoordinates, FiniteElement, FiniteElementError, GradientVectors,
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement},
         surface::{SurfaceElement, SurfaceFiniteElement},
     },
@@ -37,38 +37,12 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
-        match self
-            .deformation_gradients(nodal_coordinates)
-            .iter()
-            .map(|deformation_gradient| {
-                constitutive_model.first_piola_kirchhoff_stress(deformation_gradient)
-            })
-            .collect::<Result<FirstPiolaKirchhoffStressList<G>, _>>()
-        {
-            Ok(first_piola_kirchhoff_stresses) => Ok(first_piola_kirchhoff_stresses
-                .iter()
-                .zip(
-                    self.gradient_vectors()
-                        .iter()
-                        .zip(self.integration_weights()),
-                )
-                .map(
-                    |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
-                        gradient_vectors
-                            .iter()
-                            .map(|gradient_vector| {
-                                (first_piola_kirchhoff_stress * gradient_vector)
-                                    * integration_weight
-                            })
-                            .collect()
-                    },
-                )
-                .sum()),
-            Err(error) => Err(FiniteElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+        nodal_forces::<_, _, _, _, _, O>(
+            self,
+            constitutive_model,
+            self.gradient_vectors(),
+            nodal_coordinates,
+        )
     }
     fn nodal_stiffnesses(
         &self,
@@ -128,45 +102,19 @@ impl<C, const G: usize, const N: usize, const O: usize> ElasticFiniteElement<C, 
     for SurfaceElement<G, N, O>
 where
     C: Elastic,
-    Self: SurfaceFiniteElement<G, N>,
+    Self: SolidFiniteElement<G, 2, N>,
 {
     fn nodal_forces(
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
-        match self
-            .deformation_gradients(nodal_coordinates)
-            .iter()
-            .map(|deformation_gradient| {
-                constitutive_model.first_piola_kirchhoff_stress(deformation_gradient)
-            })
-            .collect::<Result<FirstPiolaKirchhoffStressList<G>, _>>()
-        {
-            Ok(first_piola_kirchhoff_stresses) => Ok(first_piola_kirchhoff_stresses
-                .iter()
-                .zip(
-                    self.gradient_vectors()
-                        .iter()
-                        .zip(self.integration_weights()),
-                )
-                .map(
-                    |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
-                        gradient_vectors
-                            .iter()
-                            .map(|gradient_vector| {
-                                (first_piola_kirchhoff_stress * gradient_vector)
-                                    * integration_weight
-                            })
-                            .collect()
-                    },
-                )
-                .sum()),
-            Err(error) => Err(FiniteElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+        nodal_forces::<_, _, _, _, _, O>(
+            self,
+            constitutive_model,
+            self.gradient_vectors(),
+            nodal_coordinates,
+        )
     }
     fn nodal_stiffnesses(
         &self,
@@ -234,5 +182,44 @@ where
                 format!("{self:?}"),
             )),
         }
+    }
+}
+
+fn nodal_forces<C, F, const G: usize, const M: usize, const N: usize, const O: usize>(
+    element: &F,
+    constitutive_model: &C,
+    gradient_vectors: &GradientVectors<G, N>,
+    nodal_coordinates: &ElementNodalCoordinates<N>,
+) -> Result<ElementNodalForcesSolid<N>, FiniteElementError>
+where
+    C: Elastic,
+    F: SolidFiniteElement<G, M, N>,
+{
+    match element
+        .deformation_gradients(nodal_coordinates)
+        .iter()
+        .map(|deformation_gradient| {
+            constitutive_model.first_piola_kirchhoff_stress(deformation_gradient)
+        })
+        .collect::<Result<FirstPiolaKirchhoffStressList<G>, _>>()
+    {
+        Ok(first_piola_kirchhoff_stresses) => Ok(first_piola_kirchhoff_stresses
+            .iter()
+            .zip(gradient_vectors.iter().zip(element.integration_weights()))
+            .map(
+                |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
+                    gradient_vectors
+                        .iter()
+                        .map(|gradient_vector| {
+                            (first_piola_kirchhoff_stress * gradient_vector) * integration_weight
+                        })
+                        .collect()
+                },
+            )
+            .sum()),
+        Err(error) => Err(FiniteElementError::Upstream(
+            format!("{error}"),
+            format!("{element:?}"),
+        )),
     }
 }

@@ -50,7 +50,7 @@ where
 }
 
 fn helmholtz_free_energy<C, F, const G: usize, const M: usize, const N: usize, const O: usize>(
-    finite_element: &F,
+    element: &F,
     constitutive_model: &C,
     nodal_coordinates: &ElementNodalCoordinates<N>,
 ) -> Result<Scalar, FiniteElementError>
@@ -58,10 +58,10 @@ where
     C: Hyperviscoelastic,
     F: ElasticHyperviscousFiniteElement<C, G, M, N>,
 {
-    match finite_element
+    match element
         .deformation_gradients(nodal_coordinates)
         .iter()
-        .zip(finite_element.integration_weights())
+        .zip(element.integration_weights())
         .map(|(deformation_gradient, integration_weight)| {
             Ok::<_, ConstitutiveError>(
                 constitutive_model.helmholtz_free_energy_density(deformation_gradient)?
@@ -73,7 +73,7 @@ where
         Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
         Err(error) => Err(FiniteElementError::Upstream(
             format!("{error}"),
-            format!("{finite_element:?}"),
+            format!("{element:?}"),
         )),
     }
 }
