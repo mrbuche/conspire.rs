@@ -3,6 +3,7 @@ mod test;
 
 pub mod composite;
 pub mod linear;
+pub mod quadratic;
 pub mod solid;
 pub mod surface;
 pub mod thermal;
@@ -76,6 +77,7 @@ impl<const G: usize, const N: usize, const O: usize> Debug for Element<G, N, O> 
             (5, 5, 1) => "LinearPyramid",
             (6, 6, 1) => "LinearWedge",
             (8, 8, 1) => "LinearHexahedron",
+            (4, 10, 2) => "QuadraticTetrahedron",
             (4, 10, 0) => "CompositeTetrahedron",
             _ => panic!(),
         };
@@ -103,6 +105,33 @@ impl<const G: usize, const N: usize, const O: usize> FiniteElementCreation<G, N>
 where
     Self: Default + From<ElementNodalReferenceCoordinates<N>>,
 {
+}
+
+fn basic_from<const G: usize, const N: usize, const O: usize>(
+    reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,
+) -> Element<G, N, O>
+where
+    Element<G, N, O>: FiniteElement<G, 3, N>,
+{
+    let gradient_vectors = Element::shape_functions_gradients_at_integration_points()
+        .into_iter()
+        .map(|standard_gradient_operator| {
+            (&reference_nodal_coordinates * &standard_gradient_operator).inverse_transpose()
+                * standard_gradient_operator
+        })
+        .collect();
+    let integration_weights = Element::shape_functions_gradients_at_integration_points()
+        .into_iter()
+        .zip(Element::parametric_weights())
+        .map(|(standard_gradient_operator, integration_weight)| {
+            (&reference_nodal_coordinates * standard_gradient_operator).determinant()
+                * integration_weight
+        })
+        .collect();
+    Element {
+        gradient_vectors,
+        integration_weights,
+    }
 }
 
 pub enum FiniteElementError {

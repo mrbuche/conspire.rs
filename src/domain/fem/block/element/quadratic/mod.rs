@@ -1,12 +1,15 @@
-mod hexahedron;
-mod pyramid;
-mod tetrahedron;
-mod wedge;
+#[cfg(test)]
+pub mod test;
 
-pub use hexahedron::Hexahedron;
-pub use pyramid::Pyramid;
+// mod hexahedron;
+// mod pyramid;
+mod tetrahedron;
+// mod wedge;
+
+// pub use hexahedron::Hexahedron;
+// pub use pyramid::Pyramid;
 pub use tetrahedron::Tetrahedron;
-pub use wedge::Wedge;
+// pub use wedge::Wedge;
 
 use crate::fem::block::element::{
     Element, ElementNodalReferenceCoordinates, FiniteElement, basic_from,
@@ -14,18 +17,18 @@ use crate::fem::block::element::{
 
 const M: usize = 3;
 
-pub type LinearElement<const G: usize, const N: usize> = Element<G, N, 1>;
+pub type QuadraticElement<const G: usize, const N: usize> = Element<G, N, 2>;
 
-pub trait LinearFiniteElement<const G: usize, const N: usize>
+pub trait QuadraticFiniteElement<const G: usize, const N: usize>
 where
     Self: FiniteElement<G, M, N>,
 {
 }
 
 impl<const G: usize, const N: usize> From<ElementNodalReferenceCoordinates<N>>
-    for LinearElement<G, N>
+    for QuadraticElement<G, N>
 where
-    Self: LinearFiniteElement<G, N>,
+    Self: QuadraticFiniteElement<G, N>,
 {
     fn from(reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>) -> Self {
         basic_from(reference_nodal_coordinates)
