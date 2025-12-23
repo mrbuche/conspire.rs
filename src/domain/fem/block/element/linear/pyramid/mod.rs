@@ -3,6 +3,7 @@ mod test;
 
 use crate::{
     fem::block::element::{
+        FRAC_1_SQRT_3,
         ElementNodalReferenceCoordinates, FiniteElement, ParametricCoordinate,
         ParametricCoordinates, ShapeFunctions, ShapeFunctionsGradients,
         linear::{LinearElement, LinearFiniteElement, M},
@@ -28,10 +29,10 @@ impl FiniteElement<G, M, N> for Pyramid {
         // ]
         // .into()
         [
-        [-0.577_350_269_189_626, -0.577_350_269_189_626, 0.122_540_333_076_253],
-        [ 0.577_350_269_189_626, -0.577_350_269_189_626, 0.122_540_333_076_253],
-        [ 0.577_350_269_189_626,  0.577_350_269_189_626, 0.122_540_333_076_253],
-        [-0.577_350_269_189_626,  0.577_350_269_189_626, 0.122_540_333_076_253],
+        [-FRAC_1_SQRT_3, -FRAC_1_SQRT_3, 0.122_540_333_076_253],
+        [ FRAC_1_SQRT_3, -FRAC_1_SQRT_3, 0.122_540_333_076_253],
+        [ FRAC_1_SQRT_3,  FRAC_1_SQRT_3, 0.122_540_333_076_253],
+        [-FRAC_1_SQRT_3,  FRAC_1_SQRT_3, 0.122_540_333_076_253],
         [ 0.0,                     0.0,                   0.544_151_844_011_225],
     ]
     .into()
@@ -54,14 +55,14 @@ impl FiniteElement<G, M, N> for Pyramid {
     
     fn parametric_weights() -> ScalarList<G> {
         // [81.0 / 100.0 / 4.0, 81.0 / 100.0 / 4.0, 81.0 / 100.0 / 4.0, 81.0 / 100.0 / 4.0, 125.0 / 27.0 / 100.0].into()
-        [
-        0.148_148_148_148_148,
-        0.148_148_148_148_148,
-        0.148_148_148_148_148,
-        0.148_148_148_148_148,
-        0.407_407_407_407_407,
-    ]
-    .into()
+        // [
+        //     4.0 / 27.0,
+        //     4.0 / 27.0,
+        //     4.0 / 27.0,
+        //     4.0 / 27.0,
+        //     11.0 / 27.0,
+        // ].into()
+        [5.0 / 27.0, 5.0 / 27.0, 5.0 / 27.0, 5.0 / 27.0, 16.0 / 27.0].into()
     }
     
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
