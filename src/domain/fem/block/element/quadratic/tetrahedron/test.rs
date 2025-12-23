@@ -178,7 +178,7 @@ pub fn equality_constraint() -> (
     crate::math::Vector,
 ) {
     let strain = 0.55;
-    let mut a = crate::math::Matrix::zero(21, 105);
+    let mut a = crate::math::Matrix::zero(21, 3 * D);
     a[0][0] = 1.0;
     a[1][3] = 1.0;
     a[2][12] = 1.0;
@@ -240,7 +240,7 @@ pub fn applied_velocity(
 
 pub fn applied_velocities() -> (crate::math::Matrix, crate::math::Vector) {
     let velocity = 0.23;
-    let mut a = crate::math::Matrix::zero(21, 105);
+    let mut a = crate::math::Matrix::zero(21, 3 * D);
     a[0][0] = 1.0;
     a[1][3] = 1.0;
     a[2][12] = 1.0;

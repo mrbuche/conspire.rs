@@ -59,16 +59,9 @@ impl<C, F, const N: usize> Block<C, F, N> {
 
 impl<C, F, const N: usize> Debug for Block<C, F, N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let element = match N {
-            3 => "LinearTriangle",
-            4 => "LinearTetrahedron",
-            8 => "LinearHexahedron",
-            10 => "Quadratic or Composite Tetrahedron",
-            _ => panic!(),
-        };
         write!(
             f,
-            "Block {{ constitutive_model: {}, elements: [{element}; {}] }}",
+            "Block {{ constitutive_model: {}, elements: {} }}",
             type_name::<C>()
                 .rsplit("::")
                 .next()
