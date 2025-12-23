@@ -32,9 +32,9 @@ impl FiniteElement<G, M, N> for Wedge {
     }
     fn parametric_reference() -> ElementNodalReferenceCoordinates<N> {
         [
-            [0.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
+            [0.0, 0.0, -1.0],
+            [1.0, 0.0, -1.0],
+            [0.0, 1.0, -1.0],
             [0.0, 0.0, 1.0],
             [1.0, 0.0, 1.0],
             [0.0, 1.0, 1.0],
