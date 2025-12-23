@@ -7,7 +7,7 @@ use crate::{
         ParametricCoordinates, ShapeFunctions, ShapeFunctionsGradients,
         quadratic::{M, QuadraticElement, QuadraticFiniteElement},
     },
-    math::ScalarList,
+    math::{Scalar, ScalarList},
 };
 
 const G: usize = 4;
@@ -17,11 +17,13 @@ pub type Tetrahedron = QuadraticElement<G, N>;
 
 impl FiniteElement<G, M, N> for Tetrahedron {
     fn integration_points() -> ParametricCoordinates<G, M> {
+        const ALPHA: Scalar = 0.585_410_196_624_968;
+        const BETA: Scalar = 0.138_196_601_125_010;
         [
-            [1.0 / 4.0, 1.0 / 4.0, 1.0 / 4.0],
-            [1.0 / 2.0, 1.0 / 6.0, 1.0 / 6.0],
-            [1.0 / 6.0, 1.0 / 2.0, 1.0 / 6.0],
-            [1.0 / 6.0, 1.0 / 6.0, 1.0 / 2.0],
+            [BETA, BETA, BETA],
+            [ALPHA, BETA, BETA],
+            [BETA, ALPHA, BETA],
+            [BETA, BETA, ALPHA],
         ]
         .into()
     }

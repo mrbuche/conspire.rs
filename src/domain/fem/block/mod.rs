@@ -63,7 +63,7 @@ impl<C, F, const N: usize> Debug for Block<C, F, N> {
             3 => "LinearTriangle",
             4 => "LinearTetrahedron",
             8 => "LinearHexahedron",
-            10 => "CompositeTetrahedron",
+            10 => "Quadratic or Composite Tetrahedron",
             _ => panic!(),
         };
         write!(
