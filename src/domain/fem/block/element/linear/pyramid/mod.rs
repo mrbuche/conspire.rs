@@ -19,8 +19,9 @@ pub type Pyramid = LinearElement<G, N>;
 fn todo() {
     todo!(
         "Need to figure out how to do this right right way and understand why it is right.
-        Does it make it the basis function continuous with the 4 tetrahedra and 1 hexahedron sharing the faces?
-        If so, maybe should not have the block test, and maybe similarly for wedges."
+        There is also the shape functions in Bedrosian, are they different or not?
+        And what is so bad about the simple one (degenerated hex) according to Bedrosian?
+        Maybe just go with them being condensations of hex8s and hex20s for now."
     )
 }
 
