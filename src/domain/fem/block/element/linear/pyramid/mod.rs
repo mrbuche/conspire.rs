@@ -21,7 +21,8 @@ fn todo() {
         "Need to figure out how to do this right right way and understand why it is right.
         There is also the shape functions in Bedrosian, are they different or not?
         And what is so bad about the simple one (degenerated hex) according to Bedrosian?
-        Maybe just go with them being condensations of hex8s and hex20s for now."
+        Maybe just go with them being condensations of hex8s and hex20s for now.
+        And just take pyramids, wedges, and other odd ones out of block testing."
     )
 }
 
