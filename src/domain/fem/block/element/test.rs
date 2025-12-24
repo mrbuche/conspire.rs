@@ -409,6 +409,15 @@ macro_rules! test_finite_element_inner {
     ($element: ident) => {
         mod element {
             use super::*;
+            // use super::{
+            //     DeformationGradientList, DeformationGradientRateList, ElementNodalVelocities, G,
+            //     Rank2, SolidFiniteElement, Tensor, TensorArray, TestError, assert_eq_within_tols,
+            //     coordinates, coordinates_transformed, element, element_transformed,
+            //     get_deformation_gradient, get_deformation_gradient_rate,
+            //     get_rotation_current_configuration, get_rotation_rate_current_configuration,
+            //     get_rotation_reference_configuration, reference_coordinates,
+            //     reference_coordinates_transformed, velocities, velocities_transformed, $element,
+            // };
             use crate::{
                 EPSILON,
                 fem::block::element::test::{
@@ -430,33 +439,69 @@ macro_rules! test_finite_element_inner {
                     },
                 },
             };
-            mod constitutive_model_independent {
-                use super::{
-                    DeformationGradientList,
-                    DeformationGradientRateList,
-                    ElementNodalVelocities,
-                    G,
-                    Rank2,
-                    SolidFiniteElement,
-                    Tensor,
-                    TensorArray,
-                    TestError,
-                    assert_eq_within_tols,
-                    coordinates,
-                    coordinates_transformed,
-                    element,
-                    element_transformed,
-                    get_deformation_gradient,
-                    get_deformation_gradient_rate,
-                    get_rotation_current_configuration,
-                    get_rotation_rate_current_configuration,
-                    get_rotation_reference_configuration,
-                    reference_coordinates,
-                    reference_coordinates_transformed,
-                    velocities,
-                    velocities_transformed,
-                    // $element,
-                };
+            mod shape_functions {
+                use super::*;
+                use crate::EPSILON;
+                #[test]
+                fn finite_difference() -> Result<(), TestError> {
+                    let mut finite_difference = 0.0;
+                    $element::integration_points()
+                        .into_iter()
+                        .zip($element::shape_functions_gradients_at_integration_points())
+                        .try_for_each(|(mut integration_point, shape_functions_gradients)| {
+                            assert_eq_from_fd(
+                                &shape_functions_gradients,
+                                &(0..N)
+                                    .map(|n| {
+                                        (0..M)
+                                            .map(|m| {
+                                                integration_point[m] += 0.5 * EPSILON;
+                                                finite_difference = $element::shape_functions(
+                                                    integration_point.clone(),
+                                                )[n];
+                                                integration_point[m] -= EPSILON;
+                                                finite_difference -= $element::shape_functions(
+                                                    integration_point.clone(),
+                                                )[n];
+                                                integration_point[m] += 0.5 * EPSILON;
+                                                finite_difference / EPSILON
+                                            })
+                                            .collect()
+                                    })
+                                    .collect(),
+                            )
+                        })
+                }
+                #[test]
+                fn partition_of_unity() -> Result<(), TestError> {
+                    $element::shape_functions_at_integration_points()
+                        .iter()
+                        .try_for_each(|shape_functions| {
+                            assert_eq_within_tols(&shape_functions.iter().sum(), &1.0)
+                        })
+                }
+            }
+            mod shape_functions_gradients {
+                use super::*;
+                #[test]
+                fn partition_of_unity() -> Result<(), TestError> {
+                    let mut sums = [0.0; M];
+                    $element::shape_functions_gradients_at_integration_points()
+                        .iter()
+                        .try_for_each(|shape_functions_gradients| {
+                            sums = [0.0; M];
+                            shape_functions_gradients.iter().for_each(|row| {
+                                row.iter()
+                                    .zip(sums.iter_mut())
+                                    .for_each(|(entry, sum)| *sum += entry)
+                            });
+                            sums.iter()
+                                .try_for_each(|sum| assert_eq_within_tols(sum, &0.0))
+                        })
+                }
+            }
+            mod solid {
+                use super::*;
                 fn deformation_gradients() -> DeformationGradientList<G> {
                     (0..G).map(|_| get_deformation_gradient()).collect()
                 }
@@ -590,35 +635,6 @@ macro_rules! test_finite_element_inner {
                         }
                     }
                 }
-                //
-                // should be at arbitrary points, not just integration points
-                //
-                // mod partition_of_unity {
-                //     use super::*;
-                //     #[test]
-                //     fn shape_functions() -> Result<(), TestError> {
-                //         $element::shape_functions_at_integration_points()
-                //             .iter()
-                //             .try_for_each(|shape_functions| {
-                //                 assert_eq_within_tols(&shape_functions.iter().sum(), &1.0)
-                //             })
-                //     }
-                //     #[test]
-                //     fn standard_gradient_operators() -> Result<(), TestError> {
-                //         let mut sum = [0.0; 3];
-                //         $element::standard_gradient_operators().iter().try_for_each(
-                //             |standard_gradient_operator| {
-                //                 standard_gradient_operator.iter().for_each(|row| {
-                //                     row.iter()
-                //                         .zip(sum.iter_mut())
-                //                         .for_each(|(entry, sum_i)| *sum_i += entry)
-                //                 });
-                //                 sum.iter()
-                //                     .try_for_each(|sum_i| assert_eq_within_tols(sum_i, &0.0))
-                //             },
-                //         )
-                //     }
-                // }
             }
             mod elastic {
                 use super::*;

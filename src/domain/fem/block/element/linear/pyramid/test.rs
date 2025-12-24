@@ -1,8 +1,8 @@
 use crate::{
     fem::block::element::{
         ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
-        GradientVectors,
-        linear::pyramid::{G, N, Pyramid},
+        FiniteElement, GradientVectors,
+        linear::pyramid::{G, M, N, Pyramid},
         solid::SolidFiniteElement,
         test::test_finite_element,
     },

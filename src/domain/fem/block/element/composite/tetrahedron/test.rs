@@ -5,8 +5,8 @@ use crate::{
             Block, FiniteElementBlock,
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
-                GradientVectors,
-                composite::tetrahedron::{G, N, Q, Tetrahedron},
+                FiniteElement, GradientVectors,
+                composite::tetrahedron::{G, M, N, Q, Tetrahedron},
                 quadratic::test::{
                     TETRAHEDRON_D as D, tetrahedron_applied_velocities as applied_velocities,
                     tetrahedron_applied_velocity as applied_velocity,
@@ -58,7 +58,7 @@ fn normalized_projection_matrix() -> Result<(), TestError> {
 fn standard_gradient_operators_transposed() -> Result<(), TestError> {
     let standard_gradient_operators_transposed =
         Tetrahedron::standard_gradient_operators_transposed();
-    Tetrahedron::standard_gradient_operators()
+    Tetrahedron::shape_functions_gradients_at_integration_points()
         .iter()
         .enumerate()
         .try_for_each(|(i, standard_gradient_operators_i)| {

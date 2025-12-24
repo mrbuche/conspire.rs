@@ -5,8 +5,8 @@ use crate::{
             Block, Connectivity, FiniteElementBlock,
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
-                GradientVectors,
-                linear::hexahedron::{G, Hexahedron, N},
+                FiniteElement, GradientVectors,
+                linear::hexahedron::{G, Hexahedron, M, N},
                 solid::SolidFiniteElement,
                 test::test_finite_element,
             },

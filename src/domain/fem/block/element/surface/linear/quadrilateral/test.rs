@@ -5,12 +5,12 @@ use crate::{
             Block, Connectivity,
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
-                GradientVectors,
+                FiniteElement, GradientVectors,
                 solid::SolidFiniteElement,
                 surface::{
                     Normals, SurfaceFiniteElement,
                     linear::{
-                        quadrilateral::{G, N, Quadrilateral},
+                        quadrilateral::{G, M, N, Quadrilateral},
                         triangle::test::{
                             D, applied_velocities, applied_velocity, equality_constraint,
                             get_coordinates_block, get_reference_coordinates_block,

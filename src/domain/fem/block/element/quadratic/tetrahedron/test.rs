@@ -5,8 +5,8 @@ use crate::{
             Block, Connectivity, FiniteElementBlock,
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
-                GradientVectors,
-                quadratic::tetrahedron::{G, N, Tetrahedron},
+                FiniteElement, GradientVectors,
+                quadratic::tetrahedron::{G, M, N, Tetrahedron},
                 solid::SolidFiniteElement,
                 test::test_finite_element,
             },

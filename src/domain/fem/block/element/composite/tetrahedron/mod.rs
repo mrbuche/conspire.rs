@@ -101,7 +101,7 @@ impl Tetrahedron {
     fn projected_gradient_vectors(
         reference_nodal_coordinates: &ElementNodalReferenceCoordinates<N>,
     ) -> GradientVectors<G, N> {
-        let parametric_gradient_operators = Self::standard_gradient_operators()
+        let parametric_gradient_operators = Self::shape_functions_gradients_at_integration_points()
             .iter()
             .map(|standard_gradient_operator| {
                 reference_nodal_coordinates * standard_gradient_operator
@@ -174,7 +174,7 @@ impl Tetrahedron {
     fn reference_jacobians_subelements(
         reference_nodal_coordinates: &ElementNodalReferenceCoordinates<N>,
     ) -> ScalarList<P> {
-        Self::standard_gradient_operators()
+        Self::shape_functions_gradients_at_integration_points()
             .iter()
             .map(|standard_gradient_operator| {
                 reference_nodal_coordinates * standard_gradient_operator
@@ -289,7 +289,7 @@ impl Tetrahedron {
         ]
         .into()
     }
-    fn standard_gradient_operators() -> StandardGradientOperators<M, N, P> {
+    fn shape_functions_gradients_at_integration_points() -> StandardGradientOperators<M, N, P> {
         [
             [
                 [-2.0, -2.0, -2.0],
