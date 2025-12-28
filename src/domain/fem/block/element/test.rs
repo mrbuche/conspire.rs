@@ -472,13 +472,34 @@ macro_rules! test_finite_element_inner {
                             )
                         })
                 }
-                #[test]
-                fn partition_of_unity() -> Result<(), TestError> {
-                    $element::shape_functions_at_integration_points()
-                        .iter()
-                        .try_for_each(|shape_functions| {
-                            assert_eq_within_tols(&shape_functions.iter().sum(), &1.0)
-                        })
+                mod partition_of_unity {
+                    use super::*;
+                    #[test]
+                    fn integration_points() -> Result<(), TestError> {
+                        $element::shape_functions_at_integration_points()
+                            .iter()
+                            .try_for_each(|shape_functions| {
+                                assert_eq_within_tols(&shape_functions.iter().sum(), &1.0)
+                            })
+                    }
+                    #[test]
+                    fn nodes() -> Result<(), TestError> {
+                        $element::parametric_reference()
+                            .into_iter()
+                            .enumerate()
+                            .try_for_each(|(node_a, coordinate_a)| {
+                                $element::shape_functions(coordinate_a)
+                                    .into_iter()
+                                    .enumerate()
+                                    .try_for_each(|(node_b, shape_function_b)| {
+                                        if node_a == node_b {
+                                            assert_eq(&shape_function_b, &1.0)
+                                        } else {
+                                            assert_eq(&shape_function_b, &0.0)
+                                        }
+                                    })
+                            })
+                    }
                 }
             }
             mod shape_functions_gradients {

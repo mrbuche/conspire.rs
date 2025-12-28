@@ -45,6 +45,12 @@ impl<const D: usize> From<TensorRank1<D, 0>> for TensorRank1<D, 1> {
     }
 }
 
+impl<const D: usize> From<TensorRank1<D, 9>> for TensorRank1<D, 0> {
+    fn from(tensor_rank_1: TensorRank1<D, 9>) -> Self {
+        Self(tensor_rank_1.0)
+    }
+}
+
 impl<const D: usize, const I: usize> Display for TensorRank1<D, I> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "\x1B[s")?;

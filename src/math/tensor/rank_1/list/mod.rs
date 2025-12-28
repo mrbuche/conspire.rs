@@ -18,10 +18,17 @@ impl<const D: usize, const I: usize, const N: usize> From<[[TensorRank0; D]; N]>
     }
 }
 
-impl<const D: usize, const M: usize, const N: usize> From<TensorRank1List<D, 0, M>>
-    for TensorRank1List<D, 1, N>
-{
-    fn from(tensor_rank_1_list: TensorRank1List<D, 0, M>) -> Self {
+impl<const D: usize, const N: usize> From<TensorRank1List<D, 9, N>> for TensorRank1List<D, 0, N> {
+    fn from(tensor_rank_1_list: TensorRank1List<D, 9, N>) -> Self {
+        tensor_rank_1_list
+            .into_iter()
+            .map(|entry| entry.into())
+            .collect()
+    }
+}
+
+impl<const D: usize, const N: usize> From<TensorRank1List<D, 0, N>> for TensorRank1List<D, 1, N> {
+    fn from(tensor_rank_1_list: TensorRank1List<D, 0, N>) -> Self {
         tensor_rank_1_list
             .into_iter()
             .map(|entry| entry.into())

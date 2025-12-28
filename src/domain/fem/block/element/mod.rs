@@ -24,6 +24,7 @@ pub type ElementNodalReferenceCoordinates<const N: usize> = ReferenceCoordinates
 pub type GradientVectors<const G: usize, const N: usize> = VectorList2D<0, N, G>;
 pub type ParametricCoordinate<const M: usize> = TensorRank1<M, A>;
 pub type ParametricCoordinates<const G: usize, const M: usize> = TensorRank1List<M, A, G>;
+pub type ParametricReference<const M: usize, const N: usize> = TensorRank1List<M, A, N>;
 pub type ShapeFunctions<const N: usize> = TensorRank1<N, A>;
 pub type ShapeFunctionsAtIntegrationPoints<const G: usize, const N: usize> =
     TensorRank1List<N, A, G>;
@@ -39,7 +40,7 @@ where
 {
     fn integration_points() -> ParametricCoordinates<G, M>;
     fn integration_weights(&self) -> &ScalarList<G>;
-    fn parametric_reference() -> ElementNodalReferenceCoordinates<N>;
+    fn parametric_reference() -> ParametricReference<M, N>;
     fn parametric_weights() -> ScalarList<G>;
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N>;
     fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, N> {
@@ -90,7 +91,7 @@ where
     Self: FiniteElement<G, 3, N> + From<ElementNodalReferenceCoordinates<N>>,
 {
     fn default() -> Self {
-        Self::parametric_reference().into()
+        ElementNodalReferenceCoordinates::from(Self::parametric_reference()).into()
     }
 }
 

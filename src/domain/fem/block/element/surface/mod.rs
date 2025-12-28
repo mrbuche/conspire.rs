@@ -37,7 +37,8 @@ where
     Self: FiniteElement<G, M, N> + From<(ElementNodalReferenceCoordinates<N>, Scalar)>,
 {
     fn default() -> Self {
-        (Self::parametric_reference(), 1.0).into()
+        // (Self::parametric_reference(), 1.0).into()
+        todo!()
     }
 }
 

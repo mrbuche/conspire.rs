@@ -3,8 +3,8 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        ElementNodalReferenceCoordinates, FRAC_1_SQRT_3, FiniteElement, ParametricCoordinate,
-        ParametricCoordinates, ShapeFunctions, ShapeFunctionsGradients,
+        FRAC_1_SQRT_3, FiniteElement, ParametricCoordinate, ParametricCoordinates,
+        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         surface::{M, linear::LinearSurfaceElement},
     },
     math::ScalarList,
@@ -28,14 +28,8 @@ impl FiniteElement<G, M, N> for Quadrilateral {
     fn integration_weights(&self) -> &ScalarList<G> {
         &self.integration_weights
     }
-    fn parametric_reference() -> ElementNodalReferenceCoordinates<N> {
-        [
-            [-1.0, -1.0, 0.0],
-            [1.0, -1.0, 0.0],
-            [1.0, 1.0, 0.0],
-            [-1.0, 1.0, 0.0],
-        ]
-        .into()
+    fn parametric_reference() -> ParametricReference<M, N> {
+        [[-1.0, -1.0], [1.0, -1.0], [1.0, 1.0], [-1.0, 1.0]].into()
     }
     fn parametric_weights() -> ScalarList<G> {
         [1.0; G].into()

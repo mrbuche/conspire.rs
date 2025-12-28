@@ -3,8 +3,8 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        ElementNodalReferenceCoordinates, FiniteElement, ParametricCoordinate,
-        ParametricCoordinates, ShapeFunctions, ShapeFunctionsGradients,
+        FiniteElement, ParametricCoordinate, ParametricCoordinates, ParametricReference,
+        ShapeFunctions, ShapeFunctionsGradients,
         linear::{LinearElement, LinearFiniteElement, M},
     },
     math::ScalarList,
@@ -29,7 +29,7 @@ impl FiniteElement<G, M, N> for Pyramid {
     fn integration_weights(&self) -> &ScalarList<G> {
         &self.integration_weights
     }
-    fn parametric_reference() -> ElementNodalReferenceCoordinates<N> {
+    fn parametric_reference() -> ParametricReference<M, N> {
         [
             [-1.0, -1.0, 0.0],
             [1.0, -1.0, 0.0],
