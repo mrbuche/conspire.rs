@@ -99,7 +99,7 @@ impl FiniteElement<G, M, N> for Pyramid {
 }
 
 fn bottom(xi_3: Scalar) -> Scalar {
-    const SMALL: Scalar = 1e1 * f64::EPSILON;
+    const SMALL: Scalar = 4e1 * f64::EPSILON;
     if (1.0 - xi_3).abs() > SMALL {
         1.0 - xi_3
     } else {
