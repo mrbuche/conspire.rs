@@ -16,7 +16,7 @@ use crate::{
 use std::fmt::{self, Debug, Display, Formatter};
 
 const A: usize = 9;
-const FRAC_1_SQRT_3: Scalar = 0.577_350_269_189_625_8;
+const FRAC_1_SQRT_3: Scalar = 0.577_350_269_189_625_8; // experimental feature
 
 pub type ElementNodalCoordinates<const N: usize> = CurrentCoordinates<N>;
 pub type ElementNodalVelocities<const N: usize> = CurrentCoordinates<N>;
@@ -75,8 +75,8 @@ impl<const G: usize, const N: usize, const O: usize> Debug for Element<G, N, O> 
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let element = match (G, N, O) {
             (1, 4, 1) => "LinearTetrahedron",
-            (5, 5, 1) => "LinearPyramid",
             (6, 6, 1) => "LinearWedge",
+            (8, 5, 1) => "LinearPyramid",
             (8, 8, 1) => "LinearHexahedron",
             (4, 10, 2) => "QuadraticTetrahedron",
             (4, 10, 0) => "CompositeTetrahedron",

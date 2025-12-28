@@ -472,6 +472,24 @@ macro_rules! test_finite_element_inner {
                             )
                         })
                 }
+                #[test]
+                fn kronecker_delta() -> Result<(), TestError> {
+                    $element::parametric_reference()
+                        .into_iter()
+                        .enumerate()
+                        .try_for_each(|(node_a, coordinate_a)| {
+                            $element::shape_functions(coordinate_a)
+                                .into_iter()
+                                .enumerate()
+                                .try_for_each(|(node_b, shape_function_b)| {
+                                    if node_a == node_b {
+                                        assert_eq(&shape_function_b, &1.0)
+                                    } else {
+                                        assert_eq(&shape_function_b, &0.0)
+                                    }
+                                })
+                        })
+                }
                 mod partition_of_unity {
                     use super::*;
                     #[test]
@@ -482,43 +500,48 @@ macro_rules! test_finite_element_inner {
                                 assert_eq_within_tols(&shape_functions.iter().sum(), &1.0)
                             })
                     }
-                    #[test]
-                    fn nodes() -> Result<(), TestError> {
-                        $element::parametric_reference()
-                            .into_iter()
-                            .enumerate()
-                            .try_for_each(|(node_a, coordinate_a)| {
-                                $element::shape_functions(coordinate_a)
-                                    .into_iter()
-                                    .enumerate()
-                                    .try_for_each(|(node_b, shape_function_b)| {
-                                        if node_a == node_b {
-                                            assert_eq(&shape_function_b, &1.0)
-                                        } else {
-                                            assert_eq(&shape_function_b, &0.0)
-                                        }
-                                    })
-                            })
-                    }
                 }
             }
             mod shape_functions_gradients {
                 use super::*;
-                #[test]
-                fn partition_of_unity() -> Result<(), TestError> {
-                    let mut sums = [0.0; M];
-                    $element::shape_functions_gradients_at_integration_points()
-                        .iter()
-                        .try_for_each(|shape_functions_gradients| {
-                            sums = [0.0; M];
-                            shape_functions_gradients.iter().for_each(|row| {
-                                row.iter()
-                                    .zip(sums.iter_mut())
-                                    .for_each(|(entry, sum)| *sum += entry)
-                            });
-                            sums.iter()
-                                .try_for_each(|sum| assert_eq_within_tols(sum, &0.0))
-                        })
+                mod partition_of_unity {
+                    use super::*;
+                    #[test]
+                    fn integration_points() -> Result<(), TestError> {
+                        let mut sums = [0.0; M];
+                        $element::shape_functions_gradients_at_integration_points()
+                            .iter()
+                            .try_for_each(|shape_functions_gradients| {
+                                sums = [0.0; M];
+                                shape_functions_gradients.iter().for_each(|row| {
+                                    row.iter()
+                                        .zip(sums.iter_mut())
+                                        .for_each(|(entry, sum)| *sum += entry)
+                                });
+                                sums.iter()
+                                    .try_for_each(|sum| assert_eq_within_tols(sum, &0.0))
+                            })
+                    }
+                    #[test]
+                    fn nodes() -> Result<(), TestError> {
+                        let mut sums = [0.0; M];
+                        $element::parametric_reference()
+                            .into_iter()
+                            .try_for_each(|coordinate| {
+                                $element::shape_functions_gradients(coordinate)
+                                    .into_iter()
+                                    .try_for_each(|shape_functions_gradients| {
+                                        sums = [0.0; M];
+                                        shape_functions_gradients.iter().for_each(|row| {
+                                            row.iter()
+                                                .zip(sums.iter_mut())
+                                                .for_each(|(entry, sum)| *sum += entry)
+                                        });
+                                        sums.iter()
+                                            .try_for_each(|sum| assert_eq_within_tols(sum, &0.0))
+                                    })
+                            })
+                    }
                 }
             }
             mod solid {

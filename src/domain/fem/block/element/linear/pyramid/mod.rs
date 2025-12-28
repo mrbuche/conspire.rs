@@ -3,28 +3,21 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        FiniteElement, ParametricCoordinate, ParametricCoordinates, ParametricReference,
-        ShapeFunctions, ShapeFunctionsGradients,
+        FRAC_1_SQRT_3, FiniteElement, ParametricCoordinate, ParametricCoordinates,
+        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         linear::{LinearElement, LinearFiniteElement, M},
     },
     math::{Scalar, ScalarList},
 };
 
-const G: usize = 5;
+const G: usize = 8;
 const N: usize = 5;
 
 pub type Pyramid = LinearElement<G, N>;
 
 impl FiniteElement<G, M, N> for Pyramid {
     fn integration_points() -> ParametricCoordinates<G, M> {
-        [
-            [-0.5, 0.0, 1.0 / 6.0],
-            [0.5, 0.0, 1.0 / 6.0],
-            [0.0, -0.5, 1.0 / 6.0],
-            [0.0, 0.5, 1.0 / 6.0],
-            [0.0, 0.0, 0.25],
-        ]
-        .into()
+        integration_points_and_weights().0
     }
     fn integration_weights(&self) -> &ScalarList<G> {
         &self.integration_weights
@@ -40,7 +33,7 @@ impl FiniteElement<G, M, N> for Pyramid {
         .into()
     }
     fn parametric_weights() -> ScalarList<G> {
-        [5.0 / 27.0, 5.0 / 27.0, 5.0 / 27.0, 5.0 / 27.0, 16.0 / 27.0].into()
+        integration_points_and_weights().1
     }
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
         let [xi_1, xi_2, xi_3] = parametric_coordinate.into();
@@ -94,6 +87,31 @@ fn bottom(xi_3: Scalar) -> Scalar {
     } else {
         SMALL
     }
+}
+
+fn integration_points_and_weights() -> (ParametricCoordinates<G, M>, ScalarList<G>) {
+    const X: [Scalar; 2] = [0.455_848_155_988_775, 0.877_485_177_344_559];
+    const B: [Scalar; 2] = [0.100_785_882_079_825, 0.232_547_451_253_508];
+    const U1_2D: [Scalar; 4] = [-FRAC_1_SQRT_3, FRAC_1_SQRT_3, FRAC_1_SQRT_3, -FRAC_1_SQRT_3];
+    const U2_2D: [Scalar; 4] = [-FRAC_1_SQRT_3, -FRAC_1_SQRT_3, FRAC_1_SQRT_3, FRAC_1_SQRT_3];
+    const W_2D: [Scalar; 4] = [1.0; _];
+    let mut points = [[0.0; M]; G];
+    let mut weights = [0.0; G];
+    let mut i = 0;
+    X.into_iter().zip(B).for_each(|(x, b)| {
+        U1_2D
+            .into_iter()
+            .zip(U2_2D)
+            .zip(W_2D)
+            .for_each(|((u1, u2), w)| {
+                points[i][0] = x * u1;
+                points[i][1] = x * u2;
+                points[i][2] = 1.0 - x;
+                weights[i] = w * b;
+                i += 1;
+            })
+    });
+    (points.into(), weights.into())
 }
 
 impl LinearFiniteElement<G, N> for Pyramid {}
