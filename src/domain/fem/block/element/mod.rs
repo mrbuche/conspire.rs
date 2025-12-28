@@ -74,11 +74,12 @@ impl<const G: usize, const N: usize, const O: usize> Element<G, N, O> {
 impl<const G: usize, const N: usize, const O: usize> Debug for Element<G, N, O> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let element = match (G, N, O) {
+            (8, 8, 1) => "LinearHexahedron",
+            (8, 5, 1) => "LinearPyramid",
             (1, 4, 1) => "LinearTetrahedron",
             (6, 6, 1) => "LinearWedge",
-            (8, 5, 1) => "LinearPyramid",
-            (8, 8, 1) => "LinearHexahedron",
             (4, 10, 2) => "QuadraticTetrahedron",
+            (27, 13, 2) => "QuadraticPyramid",
             (4, 10, 0) => "CompositeTetrahedron",
             _ => panic!(),
         };
