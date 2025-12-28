@@ -46,10 +46,10 @@ impl FiniteElement<G, M, N> for Pyramid {
         let [xi_1, xi_2, xi_3] = parametric_coordinate.into();
         let bottom = bottom(xi_3);
         [
-            (1.0 - xi_1 - xi_3) * (1.0 - xi_2 - xi_3) / bottom / 4.0,
-            (1.0 + xi_1 - xi_3) * (1.0 - xi_2 - xi_3) / bottom / 4.0,
-            (1.0 + xi_1 - xi_3) * (1.0 + xi_2 - xi_3) / bottom / 4.0,
-            (1.0 - xi_1 - xi_3) * (1.0 + xi_2 - xi_3) / bottom / 4.0,
+            ((1.0 - xi_1) * (1.0 - xi_2) - xi_3 + xi_1 * xi_2 * xi_3 / bottom) / 4.0,
+            ((1.0 + xi_1) * (1.0 - xi_2) - xi_3 - xi_1 * xi_2 * xi_3 / bottom) / 4.0,
+            ((1.0 + xi_1) * (1.0 + xi_2) - xi_3 + xi_1 * xi_2 * xi_3 / bottom) / 4.0,
+            ((1.0 - xi_1) * (1.0 + xi_2) - xi_3 - xi_1 * xi_2 * xi_3 / bottom) / 4.0,
             xi_3,
         ]
         .into()
@@ -59,38 +59,27 @@ impl FiniteElement<G, M, N> for Pyramid {
     ) -> ShapeFunctionsGradients<M, N> {
         let [xi_1, xi_2, xi_3] = parametric_coordinate.into();
         let bottom = bottom(xi_3);
+        let bottom_squared = bottom * bottom;
         [
             [
-                -(1.0 - xi_2 - xi_3) / bottom / 4.0,
-                -(1.0 - xi_1 - xi_3) / bottom / 4.0,
-                (-(1.0 - xi_2 - xi_3) - (1.0 - xi_1 - xi_3)
-                    + (1.0 - xi_1 - xi_3) * (1.0 - xi_2 - xi_3) / bottom)
-                    / bottom
-                    / 4.0,
+                (-(1.0 - xi_2) + xi_2 * xi_3 / bottom) / 4.0,
+                (-(1.0 - xi_1) + xi_1 * xi_3 / bottom) / 4.0,
+                (-1.0 + xi_1 * xi_2 / bottom_squared) / 4.0,
             ],
             [
-                (1.0 - xi_2 - xi_3) / bottom / 4.0,
-                -(1.0 + xi_1 - xi_3) / bottom / 4.0,
-                (-(1.0 - xi_2 - xi_3) - (1.0 + xi_1 - xi_3)
-                    + (1.0 + xi_1 - xi_3) * (1.0 - xi_2 - xi_3) / bottom)
-                    / bottom
-                    / 4.0,
+                ((1.0 - xi_2) - xi_2 * xi_3 / bottom) / 4.0,
+                (-(1.0 + xi_1) - xi_1 * xi_3 / bottom) / 4.0,
+                (-1.0 - xi_1 * xi_2 / bottom_squared) / 4.0,
             ],
             [
-                (1.0 + xi_2 - xi_3) / bottom / 4.0,
-                (1.0 + xi_1 - xi_3) / bottom / 4.0,
-                (-(1.0 + xi_2 - xi_3) - (1.0 + xi_1 - xi_3)
-                    + (1.0 + xi_1 - xi_3) * (1.0 + xi_2 - xi_3) / bottom)
-                    / bottom
-                    / 4.0,
+                ((1.0 + xi_2) + xi_2 * xi_3 / bottom) / 4.0,
+                ((1.0 + xi_1) + xi_1 * xi_3 / bottom) / 4.0,
+                (-1.0 + xi_1 * xi_2 / bottom_squared) / 4.0,
             ],
             [
-                -(1.0 + xi_2 - xi_3) / bottom / 4.0,
-                (1.0 - xi_1 - xi_3) / bottom / 4.0,
-                (-(1.0 + xi_2 - xi_3) - (1.0 - xi_1 - xi_3)
-                    + (1.0 - xi_1 - xi_3) * (1.0 + xi_2 - xi_3) / bottom)
-                    / bottom
-                    / 4.0,
+                (-(1.0 + xi_2) - xi_2 * xi_3 / bottom) / 4.0,
+                ((1.0 - xi_1) - xi_1 * xi_3 / bottom) / 4.0,
+                (-1.0 - xi_1 * xi_2 / bottom_squared) / 4.0,
             ],
             [0.0, 0.0, 1.0],
         ]
