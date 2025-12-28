@@ -7,7 +7,7 @@ use crate::{
         ShapeFunctions, ShapeFunctionsGradients,
         linear::{LinearElement, LinearFiniteElement, M},
     },
-    math::ScalarList,
+    math::{Scalar, ScalarList},
 };
 
 const G: usize = 5;
@@ -44,12 +44,13 @@ impl FiniteElement<G, M, N> for Pyramid {
     }
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
         let [xi_1, xi_2, xi_3] = parametric_coordinate.into();
+        let bottom = bottom(xi_3);
         [
-            (1.0 - xi_1) * (1.0 - xi_2) * (1.0 - xi_3) / 8.0,
-            (1.0 + xi_1) * (1.0 - xi_2) * (1.0 - xi_3) / 8.0,
-            (1.0 + xi_1) * (1.0 + xi_2) * (1.0 - xi_3) / 8.0,
-            (1.0 - xi_1) * (1.0 + xi_2) * (1.0 - xi_3) / 8.0,
-            (1.0 + xi_3) / 2.0,
+            (1.0 - xi_1 - xi_3) * (1.0 - xi_2 - xi_3) / bottom / 4.0,
+            (1.0 + xi_1 - xi_3) * (1.0 - xi_2 - xi_3) / bottom / 4.0,
+            (1.0 + xi_1 - xi_3) * (1.0 + xi_2 - xi_3) / bottom / 4.0,
+            (1.0 - xi_1 - xi_3) * (1.0 + xi_2 - xi_3) / bottom / 4.0,
+            xi_3,
         ]
         .into()
     }
@@ -57,30 +58,52 @@ impl FiniteElement<G, M, N> for Pyramid {
         parametric_coordinate: ParametricCoordinate<M>,
     ) -> ShapeFunctionsGradients<M, N> {
         let [xi_1, xi_2, xi_3] = parametric_coordinate.into();
+        let bottom = bottom(xi_3);
         [
             [
-                -(1.0 - xi_2) * (1.0 - xi_3) / 8.0,
-                -(1.0 - xi_1) * (1.0 - xi_3) / 8.0,
-                -(1.0 - xi_1) * (1.0 - xi_2) / 8.0,
+                -(1.0 - xi_2 - xi_3) / bottom / 4.0,
+                -(1.0 - xi_1 - xi_3) / bottom / 4.0,
+                (-(1.0 - xi_2 - xi_3) - (1.0 - xi_1 - xi_3)
+                    + (1.0 - xi_1 - xi_3) * (1.0 - xi_2 - xi_3) / bottom)
+                    / bottom
+                    / 4.0,
             ],
             [
-                (1.0 - xi_2) * (1.0 - xi_3) / 8.0,
-                -(1.0 + xi_1) * (1.0 - xi_3) / 8.0,
-                -(1.0 + xi_1) * (1.0 - xi_2) / 8.0,
+                (1.0 - xi_2 - xi_3) / bottom / 4.0,
+                -(1.0 + xi_1 - xi_3) / bottom / 4.0,
+                (-(1.0 - xi_2 - xi_3) - (1.0 + xi_1 - xi_3)
+                    + (1.0 + xi_1 - xi_3) * (1.0 - xi_2 - xi_3) / bottom)
+                    / bottom
+                    / 4.0,
             ],
             [
-                (1.0 + xi_2) * (1.0 - xi_3) / 8.0,
-                (1.0 + xi_1) * (1.0 - xi_3) / 8.0,
-                -(1.0 + xi_1) * (1.0 + xi_2) / 8.0,
+                (1.0 + xi_2 - xi_3) / bottom / 4.0,
+                (1.0 + xi_1 - xi_3) / bottom / 4.0,
+                (-(1.0 + xi_2 - xi_3) - (1.0 + xi_1 - xi_3)
+                    + (1.0 + xi_1 - xi_3) * (1.0 + xi_2 - xi_3) / bottom)
+                    / bottom
+                    / 4.0,
             ],
             [
-                -(1.0 + xi_2) * (1.0 - xi_3) / 8.0,
-                (1.0 - xi_1) * (1.0 - xi_3) / 8.0,
-                -(1.0 - xi_1) * (1.0 + xi_2) / 8.0,
+                -(1.0 + xi_2 - xi_3) / bottom / 4.0,
+                (1.0 - xi_1 - xi_3) / bottom / 4.0,
+                (-(1.0 + xi_2 - xi_3) - (1.0 - xi_1 - xi_3)
+                    + (1.0 - xi_1 - xi_3) * (1.0 + xi_2 - xi_3) / bottom)
+                    / bottom
+                    / 4.0,
             ],
-            [0.0, 0.0, 0.5],
+            [0.0, 0.0, 1.0],
         ]
         .into()
+    }
+}
+
+fn bottom(xi_3: Scalar) -> Scalar {
+    const SMALL: Scalar = 1e1 * f64::EPSILON;
+    if (1.0 - xi_3).abs() > SMALL {
+        1.0 - xi_3
+    } else {
+        SMALL
     }
 }
 
