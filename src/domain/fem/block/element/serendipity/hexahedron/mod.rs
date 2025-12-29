@@ -3,9 +3,9 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        FRAC_SQRT_3_5, FiniteElement, ParametricCoordinate, ParametricCoordinates,
-        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
-        quadratic::{QuadraticElement, QuadraticFiniteElement},
+        FiniteElement, ParametricCoordinate, ParametricCoordinates, ParametricReference,
+        ShapeFunctions, ShapeFunctionsGradients,
+        quadratic::{Hexahedron as QuadraticHexahedron, QuadraticElement, QuadraticFiniteElement},
         serendipity::M,
     },
     math::ScalarList,
@@ -18,18 +18,7 @@ pub type Hexahedron = QuadraticElement<G, N>;
 
 impl FiniteElement<G, M, N> for Hexahedron {
     fn integration_points() -> ParametricCoordinates<G, M> {
-        let pts = [-FRAC_SQRT_3_5, 0.0, FRAC_SQRT_3_5];
-        let mut points = [[0.0; M]; G];
-        let mut idx = 0;
-        for &z in &pts {
-            for &y in &pts {
-                for &x in &pts {
-                    points[idx] = [x, y, z];
-                    idx += 1;
-                }
-            }
-        }
-        points.into()
+        QuadraticHexahedron::integration_points()
     }
     fn integration_weights(&self) -> &ScalarList<G> {
         &self.integration_weights
@@ -60,20 +49,7 @@ impl FiniteElement<G, M, N> for Hexahedron {
         .into()
     }
     fn parametric_weights() -> ScalarList<G> {
-        const W1: f64 = 5.0 / 9.0;
-        const W2: f64 = 8.0 / 9.0;
-        let wts = [W1, W2, W1];
-        let mut weights = [0.0; G];
-        let mut idx = 0;
-        for &wz in &wts {
-            for &wy in &wts {
-                for &wx in &wts {
-                    weights[idx] = wx * wy * wz;
-                    idx += 1;
-                }
-            }
-        }
-        weights.into()
+        QuadraticHexahedron::parametric_weights()
     }
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
         let [xi_1, xi_2, xi_3] = parametric_coordinate.into();
