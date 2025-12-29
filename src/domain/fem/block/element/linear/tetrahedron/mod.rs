@@ -10,7 +10,7 @@ use crate::{
     math::ScalarList,
 };
 
-const G: usize = 1;
+const G: usize = 1; // Switch to G=4 when need mass matrix.
 const N: usize = 4;
 
 pub type Tetrahedron = LinearElement<G, N>;

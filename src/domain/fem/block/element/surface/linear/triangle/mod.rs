@@ -10,7 +10,7 @@ use crate::{
     math::ScalarList,
 };
 
-const G: usize = 1;
+const G: usize = 1; // Switch to G=3 when need mass matrix.
 const N: usize = 3;
 
 pub type Triangle = LinearSurfaceElement<G, N>;
