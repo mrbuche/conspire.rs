@@ -11,6 +11,7 @@ use crate::{
             CompositeElement, NormalizedProjectionMatrix, ParametricGradientOperators,
             ProjectionMatrix, ShapeFunctionIntegrals, ShapeFunctionIntegralsProducts,
         },
+        quadratic::Tetrahedron as QuadraticTetrahedron,
     },
     math::{Scalar, ScalarList, Tensor, TensorRank1},
 };
@@ -37,7 +38,7 @@ impl From<ElementNodalReferenceCoordinates<N>> for Tetrahedron {
 
 impl FiniteElement<G, M, N> for Tetrahedron {
     fn integration_points() -> ParametricCoordinates<G, M> {
-        todo!()
+        QuadraticTetrahedron::integration_points() // temporary
     }
     fn integration_weights(&self) -> &ScalarList<G> {
         &self.integration_weights
@@ -48,10 +49,10 @@ impl FiniteElement<G, M, N> for Tetrahedron {
             [1.0, 0.0, 0.0],
             [0.0, 1.0, 0.0],
             [0.0, 0.0, 1.0],
-            [0.25, 0.25, 0.0],
-            [0.25, 0.0, 0.25],
-            [0.0, 0.25, 0.25],
+            [0.5, 0.0, 0.0],
             [0.5, 0.5, 0.0],
+            [0.0, 0.5, 0.0],
+            [0.0, 0.0, 0.5],
             [0.5, 0.0, 0.5],
             [0.0, 0.5, 0.5],
         ]
@@ -60,13 +61,13 @@ impl FiniteElement<G, M, N> for Tetrahedron {
     fn parametric_weights() -> ScalarList<G> {
         [1.0 / 24.0; G].into()
     }
-    fn shape_functions(_parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
-        todo!("Should this be N or Q?")
+    fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
+        QuadraticTetrahedron::shape_functions(parametric_coordinate) // temporary
     }
     fn shape_functions_gradients(
-        _parametric_coordinate: ParametricCoordinate<M>,
+        parametric_coordinate: ParametricCoordinate<M>,
     ) -> ShapeFunctionsGradients<M, N> {
-        todo!("Should this be N or Q?")
+        QuadraticTetrahedron::shape_functions_gradients(parametric_coordinate) // temporary
     }
 }
 
