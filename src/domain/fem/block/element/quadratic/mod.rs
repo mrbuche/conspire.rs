@@ -1,15 +1,15 @@
 #[cfg(test)]
 pub mod test;
 
-// mod hexahedron;
+mod hexahedron;
 mod pyramid;
 mod tetrahedron;
-// mod wedge;
+mod wedge;
 
-// pub use hexahedron::Hexahedron;
+pub use hexahedron::Hexahedron;
 pub use pyramid::Pyramid;
 pub use tetrahedron::Tetrahedron;
-// pub use wedge::Wedge;
+pub use wedge::Wedge;
 
 use crate::fem::block::element::{
     Element, ElementNodalReferenceCoordinates, FiniteElement, basic_from,
