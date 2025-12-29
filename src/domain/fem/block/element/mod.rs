@@ -4,6 +4,7 @@ mod test;
 pub mod composite;
 pub mod linear;
 pub mod quadratic;
+pub mod serendipity;
 pub mod solid;
 pub mod surface;
 pub mod thermal;
@@ -16,7 +17,8 @@ use crate::{
 use std::fmt::{self, Debug, Display, Formatter};
 
 const A: usize = 9;
-const FRAC_1_SQRT_3: Scalar = 0.577_350_269_189_625_8; // experimental feature
+const FRAC_1_SQRT_3: Scalar = 0.577_350_269_189_625_8; // nightly feature
+const FRAC_SQRT_3_5: Scalar = 0.774_596_669_241_483;
 
 pub type ElementNodalCoordinates<const N: usize> = CurrentCoordinates<N>;
 pub type ElementNodalVelocities<const N: usize> = CurrentCoordinates<N>;
@@ -81,10 +83,11 @@ impl<const G: usize, const N: usize, const O: usize> Debug for Element<G, N, O> 
             (4, 10, 2) => "QuadraticTetrahedron",
             (27, 13, 2) => "QuadraticPyramid",
             (18, 15, 2) => "QuadraticWedge",
+            (27, 20, 2) => "SerendipityHexahedron",
             (4, 10, 0) => "CompositeTetrahedron",
             _ => panic!(),
         };
-        write!(f, "{element} {{ G: {G}, N: {N} }}",)
+        write!(f, "{element} {{ integration points: {G}, nodes: {N} }}",)
     }
 }
 

@@ -3,8 +3,8 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        FiniteElement, ParametricCoordinate, ParametricCoordinates, ParametricReference,
-        ShapeFunctions, ShapeFunctionsGradients,
+        FRAC_SQRT_3_5, FiniteElement, ParametricCoordinate, ParametricCoordinates,
+        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         quadratic::{M, QuadraticElement, QuadraticFiniteElement},
     },
     math::{Scalar, ScalarList},
@@ -19,23 +19,22 @@ impl FiniteElement<G, M, N> for Wedge {
     fn integration_points() -> ParametricCoordinates<G, M> {
         const ONE_SIXTH: Scalar = 1.0 / 12.0;
         const TWO_THIRDS: Scalar = 2.0 / 3.0;
-        let sqrt_3_5 = (3.0_f64 / 5.0_f64).sqrt();
         [
-            [ONE_SIXTH, ONE_SIXTH, sqrt_3_5],
-            [ONE_SIXTH, TWO_THIRDS, sqrt_3_5],
-            [TWO_THIRDS, ONE_SIXTH, sqrt_3_5],
-            [ONE_SIXTH, ONE_SIXTH, -sqrt_3_5],
-            [ONE_SIXTH, TWO_THIRDS, -sqrt_3_5],
-            [TWO_THIRDS, ONE_SIXTH, -sqrt_3_5],
+            [ONE_SIXTH, ONE_SIXTH, FRAC_SQRT_3_5],
+            [ONE_SIXTH, TWO_THIRDS, FRAC_SQRT_3_5],
+            [TWO_THIRDS, ONE_SIXTH, FRAC_SQRT_3_5],
+            [ONE_SIXTH, ONE_SIXTH, -FRAC_SQRT_3_5],
+            [ONE_SIXTH, TWO_THIRDS, -FRAC_SQRT_3_5],
+            [TWO_THIRDS, ONE_SIXTH, -FRAC_SQRT_3_5],
             [ONE_SIXTH, ONE_SIXTH, 0.0],
             [ONE_SIXTH, TWO_THIRDS, 0.0],
             [TWO_THIRDS, ONE_SIXTH, 0.0],
-            [0.5, 0.5, sqrt_3_5],
-            [0.5, 0.0, sqrt_3_5],
-            [0.0, 0.5, sqrt_3_5],
-            [0.5, 0.5, -sqrt_3_5],
-            [0.5, 0.0, -sqrt_3_5],
-            [0.0, 0.5, -sqrt_3_5],
+            [0.5, 0.5, FRAC_SQRT_3_5],
+            [0.5, 0.0, FRAC_SQRT_3_5],
+            [0.0, 0.5, FRAC_SQRT_3_5],
+            [0.5, 0.5, -FRAC_SQRT_3_5],
+            [0.5, 0.0, -FRAC_SQRT_3_5],
+            [0.0, 0.5, -FRAC_SQRT_3_5],
             [0.5, 0.5, 0.0],
             [0.5, 0.0, 0.0],
             [0.0, 0.5, 0.0],

@@ -3,11 +3,11 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        FiniteElement, ParametricCoordinate, ParametricCoordinates, ParametricReference,
-        ShapeFunctions, ShapeFunctionsGradients,
+        FRAC_SQRT_3_5, FiniteElement, ParametricCoordinate, ParametricCoordinates,
+        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         quadratic::{M, QuadraticElement, QuadraticFiniteElement},
     },
-    math::{Scalar, ScalarList},
+    math::{Scalar, ScalarList, TensorRank1},
 };
 
 const G: usize = 27;
@@ -17,7 +17,37 @@ pub type Pyramid = QuadraticElement<G, N>;
 
 impl FiniteElement<G, M, N> for Pyramid {
     fn integration_points() -> ParametricCoordinates<G, M> {
-        integration_points_and_weights().0
+        const X: [f64; 3] = [0.294997790111502, 0.652996233961648, 0.927005975926850];
+        let u1_2d = [
+            -FRAC_SQRT_3_5,
+            0.0,
+            FRAC_SQRT_3_5,
+            -FRAC_SQRT_3_5,
+            0.0,
+            FRAC_SQRT_3_5,
+            -FRAC_SQRT_3_5,
+            0.0,
+            FRAC_SQRT_3_5,
+        ];
+        let u2_2d = [
+            -FRAC_SQRT_3_5,
+            -FRAC_SQRT_3_5,
+            -FRAC_SQRT_3_5,
+            0.0,
+            0.0,
+            0.0,
+            FRAC_SQRT_3_5,
+            FRAC_SQRT_3_5,
+            FRAC_SQRT_3_5,
+        ];
+        X.into_iter()
+            .flat_map(|x| {
+                u1_2d
+                    .into_iter()
+                    .zip(u2_2d)
+                    .map(move |(u1, u2)| TensorRank1::from([x * u1, x * u2, 1.0 - x]))
+            })
+            .collect()
     }
     fn integration_weights(&self) -> &ScalarList<G> {
         &self.integration_weights
@@ -41,7 +71,23 @@ impl FiniteElement<G, M, N> for Pyramid {
         .into()
     }
     fn parametric_weights() -> ScalarList<G> {
-        integration_points_and_weights().1
+        const B: [f64; 3] = [0.029950703008581, 0.146246269259866, 0.157136361064887];
+        const W1: f64 = 5.0 / 9.0;
+        const W2: f64 = 8.0 / 9.0;
+        let w_2d = [
+            W1 * W1,
+            W2 * W1,
+            W1 * W1,
+            W1 * W2,
+            W2 * W2,
+            W1 * W2,
+            W1 * W1,
+            W2 * W1,
+            W1 * W1,
+        ];
+        B.into_iter()
+            .flat_map(|b| w_2d.into_iter().map(move |w| w * b))
+            .collect()
     }
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
         let [xi_1, xi_2, xi_3] = parametric_coordinate.into();
@@ -159,44 +205,6 @@ fn bottom(xi_3: Scalar) -> Scalar {
     } else {
         SMALL
     }
-}
-
-fn integration_points_and_weights() -> (ParametricCoordinates<G, M>, ScalarList<G>) {
-    const X: [f64; 3] = [0.294997790111502, 0.652996233961648, 0.927005975926850];
-    const B: [f64; 3] = [0.029950703008581, 0.146246269259866, 0.157136361064887];
-    const A_2D: f64 = 0.774596669241483; // sqrt(3/5)
-    let u1_2d = [-A_2D, 0.0, A_2D, -A_2D, 0.0, A_2D, -A_2D, 0.0, A_2D];
-    let u2_2d = [-A_2D, -A_2D, -A_2D, 0.0, 0.0, 0.0, A_2D, A_2D, A_2D];
-    const W1: f64 = 5.0 / 9.0;
-    const W2: f64 = 8.0 / 9.0;
-    let w_2d = [
-        W1 * W1,
-        W2 * W1,
-        W1 * W1,
-        W1 * W2,
-        W2 * W2,
-        W1 * W2,
-        W1 * W1,
-        W2 * W1,
-        W1 * W1,
-    ];
-    let mut points = [[0.0; M]; G];
-    let mut weights = [0.0; G];
-    let mut i = 0;
-    X.into_iter().zip(B).for_each(|(x, b)| {
-        u1_2d
-            .into_iter()
-            .zip(u2_2d)
-            .zip(w_2d)
-            .for_each(|((u1, u2), w)| {
-                points[i][0] = x * u1;
-                points[i][1] = x * u2;
-                points[i][2] = 1.0 - x;
-                weights[i] = w * b;
-                i += 1;
-            })
-    });
-    (points.into(), weights.into())
 }
 
 impl QuadraticFiniteElement<G, N> for Pyramid {}
