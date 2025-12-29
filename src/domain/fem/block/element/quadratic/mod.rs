@@ -1,12 +1,10 @@
 #[cfg(test)]
 pub mod test;
 
-mod hexahedron;
 mod pyramid;
 mod tetrahedron;
 mod wedge;
 
-pub use hexahedron::Hexahedron;
 pub use pyramid::Pyramid;
 pub use tetrahedron::Tetrahedron;
 pub use wedge::Wedge;

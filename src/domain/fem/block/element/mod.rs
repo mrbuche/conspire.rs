@@ -78,7 +78,6 @@ impl<const G: usize, const N: usize, const O: usize> Debug for Element<G, N, O> 
             (8, 5, 1) => "LinearPyramid",
             (1, 4, 1) => "LinearTetrahedron",
             (6, 6, 1) => "LinearWedge",
-            (27, 27, 2) => "QuadraticHexahedron",
             (4, 10, 2) => "QuadraticTetrahedron",
             (27, 13, 2) => "QuadraticPyramid",
             (18, 15, 2) => "QuadraticWedge",
