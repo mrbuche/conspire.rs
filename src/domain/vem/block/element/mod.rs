@@ -8,7 +8,7 @@ use crate::{
 use std::fmt::{self, Debug, Display, Formatter};
 
 pub type ElementNodalCoordinates<'a> = CurrentCoordinatesRef<'a>;
-pub type ElementNodalReferenceCoordinates = TensorRank1Vec2D<3, 0>; // may be able to flatten this too
+pub type ElementNodalReferenceCoordinates = TensorRank1Vec2D<3, 0>;
 pub type GradientVectors = Vectors2D<0>;
 
 pub struct Element {
@@ -16,7 +16,15 @@ pub struct Element {
     integration_weights: Scalars,
 }
 
-impl Element {
+pub trait VirtualElement
+where
+    Self: From<ElementNodalReferenceCoordinates>,
+{
+    fn gradient_vectors(&self) -> &GradientVectors;
+    fn integration_weights(&self) -> &Scalars;
+}
+
+impl VirtualElement for Element {
     fn gradient_vectors(&self) -> &GradientVectors {
         &self.gradient_vectors
     }
@@ -25,19 +33,21 @@ impl Element {
     }
 }
 
+impl From<ElementNodalReferenceCoordinates> for Element {
+    fn from(_reference_nodal_coordinates: ElementNodalReferenceCoordinates) -> Self {
+        //
+        // the integration weight is the element volume
+        //
+        // need stabilization terms in nodal forces/etc.
+        //
+        todo!()
+    }
+}
+
 impl Debug for Element {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "VirtualElement {{ ... }}",)
     }
-}
-
-pub trait VirtualElement
-where
-    Self: From<ElementNodalReferenceCoordinates>,
-{
-    fn initialize(
-        reference_nodal_coordinates: ElementNodalReferenceCoordinates,
-    ) -> (GradientVectors, Scalars);
 }
 
 pub enum VirtualElementError {

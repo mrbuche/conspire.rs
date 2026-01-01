@@ -3,7 +3,7 @@ use crate::{
     math::{ContractSecondFourthIndicesWithFirstIndicesOf, Tensor},
     mechanics::{FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses},
     vem::block::element::{
-        Element, ElementNodalCoordinates, VirtualElementError,
+        Element, ElementNodalCoordinates, VirtualElement, VirtualElementError,
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidVirtualElement},
     },
 };

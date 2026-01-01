@@ -61,7 +61,7 @@ impl<C, F, const N: usize> Debug for Block<C, F, N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Block {{ constitutive_model: {}, {} elements }}",
+            "Block {{ constitutive model: {}, {} elements }}",
             type_name::<C>()
                 .rsplit("::")
                 .next()

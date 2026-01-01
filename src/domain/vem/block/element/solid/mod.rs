@@ -3,7 +3,7 @@ pub mod elastic;
 use crate::{
     math::Tensor,
     mechanics::{DeformationGradients, Forces, Stiffnesses},
-    vem::block::element::{Element, ElementNodalCoordinates},
+    vem::block::element::{Element, ElementNodalCoordinates, VirtualElement},
 };
 
 pub type ElementNodalForcesSolid = Forces;

@@ -63,7 +63,7 @@ impl<C, F> Debug for Block<C, F> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "ElementBlock {{ constitutive_model: {}, elements: [Virtual; {}] }}",
+            "Block {{ constitutive model: {}, elements: [Virtual; {}] }}",
             type_name::<C>()
                 .rsplit("::")
                 .next()
