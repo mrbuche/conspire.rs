@@ -26,14 +26,14 @@ use std::{
 
 pub type Connectivity<const N: usize> = Vec<[usize; N]>;
 
-pub struct Block<C, F, const G: usize, const N: usize> {
+pub struct Block<C, F, const G: usize, const M: usize, const N: usize> {
     constitutive_model: C,
     connectivity: Connectivity<N>,
     coordinates: NodalReferenceCoordinates,
     elements: Vec<F>,
 }
 
-impl<C, F, const G: usize, const N: usize> Block<C, F, G, N> {
+impl<C, F, const G: usize, const M: usize, const N: usize> Block<C, F, G, M, N> {
     fn constitutive_model(&self) -> &C {
         &self.constitutive_model
     }
@@ -57,7 +57,7 @@ impl<C, F, const G: usize, const N: usize> Block<C, F, G, N> {
     }
 }
 
-impl<C, F, const G: usize, const N: usize> Debug for Block<C, F, G, N> {
+impl<C, F, const G: usize, const M: usize, const N: usize> Debug for Block<C, F, G, M, N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -81,8 +81,8 @@ where
     fn reset(&mut self);
 }
 
-impl<C, F, const G: usize, const N: usize> From<(C, Connectivity<N>, NodalReferenceCoordinates)>
-    for Block<C, F, G, N>
+impl<C, F, const G: usize, const M: usize, const N: usize>
+    From<(C, Connectivity<N>, NodalReferenceCoordinates)> for Block<C, F, G, M, N>
 where
     F: FiniteElementCreation<G, N>,
 {
@@ -106,7 +106,8 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> FiniteElementBlock<C, F, G, N> for Block<C, F, G, N>
+impl<C, F, const G: usize, const M: usize, const N: usize> FiniteElementBlock<C, F, G, N>
+    for Block<C, F, G, M, N>
 where
     F: FiniteElementCreation<G, N>,
 {

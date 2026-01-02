@@ -15,7 +15,7 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize>
-    From<(C, Connectivity<N>, NodalReferenceCoordinates, Scalar)> for Block<C, F, G, N>
+    From<(C, Connectivity<N>, NodalReferenceCoordinates, Scalar)> for Block<C, F, G, M, N>
 where
     F: SurfaceFiniteElementCreation<G, N>,
 {
@@ -49,7 +49,7 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize> SurfaceFiniteElementBlock<C, F, G, N>
-    for Block<C, F, G, N>
+    for Block<C, F, G, M, N>
 where
     F: SurfaceFiniteElementCreation<G, N>,
 {

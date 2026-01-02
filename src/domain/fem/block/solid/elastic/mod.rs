@@ -32,7 +32,7 @@ where
 }
 
 impl<C, F, const G: usize, const M: usize, const N: usize> ElasticFiniteElementBlock<C, F, G, M, N>
-    for Block<C, F, G, N>
+    for Block<C, F, G, M, N>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, M, N>,
@@ -102,7 +102,7 @@ where
 }
 
 impl<C, F, const G: usize, const M: usize, const N: usize>
-    ZerothOrderRoot<C, F, G, M, N, NodalCoordinates> for Block<C, F, G, N>
+    ZerothOrderRoot<C, F, G, M, N, NodalCoordinates> for Block<C, F, G, M, N>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, M, N>,
@@ -122,7 +122,7 @@ where
 
 impl<C, F, const G: usize, const M: usize, const N: usize>
     FirstOrderRoot<C, F, G, M, N, NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>
-    for Block<C, F, G, N>
+    for Block<C, F, G, M, N>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, M, N>,

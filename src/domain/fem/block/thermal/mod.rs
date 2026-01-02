@@ -27,7 +27,7 @@ where
 }
 
 impl<C, F, const G: usize, const M: usize, const N: usize> ThermalFiniteElementBlock<C, F, G, M, N>
-    for Block<C, F, G, N>
+    for Block<C, F, G, M, N>
 where
     F: ThermalFiniteElement<G, M, N>,
 {

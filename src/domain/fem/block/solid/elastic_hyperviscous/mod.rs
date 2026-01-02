@@ -68,7 +68,7 @@ pub trait ElasticHyperviscousFiniteElementBlock<
 }
 
 impl<C, F, const G: usize, const M: usize, const N: usize>
-    ElasticHyperviscousFiniteElementBlock<C, F, G, M, N> for Block<C, F, G, N>
+    ElasticHyperviscousFiniteElementBlock<C, F, G, M, N> for Block<C, F, G, M, N>
 where
     C: ElasticHyperviscous,
     F: ElasticHyperviscousFiniteElement<C, G, M, N>,

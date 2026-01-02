@@ -82,7 +82,7 @@ pub trait ElasticViscoplasticFiniteElementBlock<
 }
 
 impl<C, F, const G: usize, const M: usize, const N: usize>
-    ElasticViscoplasticFiniteElementBlock<C, F, G, M, N> for Block<C, F, G, N>
+    ElasticViscoplasticFiniteElementBlock<C, F, G, M, N> for Block<C, F, G, M, N>
 where
     C: ElasticViscoplastic,
     F: ElasticViscoplasticFiniteElement<C, G, M, N>,

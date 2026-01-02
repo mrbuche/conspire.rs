@@ -41,7 +41,7 @@ where
 }
 
 impl<C, F, const G: usize, const M: usize, const N: usize>
-    ThermalConductionFiniteElementBlock<C, F, G, M, N> for Block<C, F, G, N>
+    ThermalConductionFiniteElementBlock<C, F, G, M, N> for Block<C, F, G, M, N>
 where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, M, N>,
@@ -132,7 +132,7 @@ where
 }
 
 impl<C, F, const G: usize, const M: usize, const N: usize>
-    ZerothOrderRoot<C, F, G, M, N, NodalTemperatures> for Block<C, F, G, N>
+    ZerothOrderRoot<C, F, G, M, N, NodalTemperatures> for Block<C, F, G, M, N>
 where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, M, N>,
@@ -152,7 +152,7 @@ where
 
 impl<C, F, const G: usize, const M: usize, const N: usize>
     FirstOrderRoot<C, F, G, M, N, NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures>
-    for Block<C, F, G, N>
+    for Block<C, F, G, M, N>
 where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, M, N>,
@@ -178,7 +178,7 @@ where
 }
 
 impl<C, F, const G: usize, const M: usize, const N: usize>
-    FirstOrderMinimize<C, F, G, M, N, NodalTemperatures> for Block<C, F, G, N>
+    FirstOrderMinimize<C, F, G, M, N, NodalTemperatures> for Block<C, F, G, M, N>
 where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, M, N>,
@@ -207,7 +207,7 @@ impl<C, F, const G: usize, const M: usize, const N: usize>
         NodalForcesThermal,
         NodalStiffnessesThermal,
         NodalTemperatures,
-    > for Block<C, F, G, N>
+    > for Block<C, F, G, M, N>
 where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, M, N>,

@@ -24,12 +24,10 @@ where
 {
 }
 
-//
-// Might need Block to depend on G and M.
-//
-impl<C, F, const G: usize, const N: usize> SolidFiniteElementModel for Block<C, F, G, N>
+impl<C, F, const G: usize, const M: usize, const N: usize> SolidFiniteElementModel
+    for Block<C, F, G, M, N>
 where
     C: Solid,
-    F: SolidFiniteElement<G, 3, N>,
+    F: SolidFiniteElement<G, M, N>,
 {
 }

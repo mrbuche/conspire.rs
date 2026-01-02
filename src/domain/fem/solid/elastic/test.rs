@@ -14,28 +14,30 @@ use crate::{
     math::TensorVec,
 };
 
+const M: usize = 3;
+
 #[test]
 fn f3d() {
     let constitutive = NeoHookean {
         bulk_modulus: 13.0,
         shear_modulus: 3.0,
     };
-    let hexahedra = Block::<_, Hexahedron, 27, 20>::from((
+    let hexahedra = Block::<_, Hexahedron, 27, M, 20>::from((
         constitutive.clone(),
         vec![],
         NodalReferenceCoordinates::new(),
     ));
-    let pyramids = Block::<_, Pyramid, 27, 13>::from((
+    let pyramids = Block::<_, Pyramid, 27, M, 13>::from((
         constitutive.clone(),
         vec![],
         NodalReferenceCoordinates::new(),
     ));
-    let tetrahedra = Block::<_, Tetrahedron, 4, 10>::from((
+    let tetrahedra = Block::<_, Tetrahedron, 4, M, 10>::from((
         constitutive.clone(),
         vec![],
         NodalReferenceCoordinates::new(),
     ));
-    let wedges = Block::<_, Wedge, 18, 15>::from((
+    let wedges = Block::<_, Wedge, 18, M, 15>::from((
         constitutive.clone(),
         vec![],
         NodalReferenceCoordinates::new(),
