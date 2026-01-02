@@ -42,9 +42,7 @@ fn f3d() {
         vec![],
         NodalReferenceCoordinates::new(),
     ));
-    let blocks = wedges;
-    // let blocks = Blocks(pyramids, wedges);
-    // let blocks = Blocks(hexahedra, (pyramids, (tetrahedra, wedges)));
+    let blocks = Blocks(hexahedra, Blocks(pyramids, Blocks(tetrahedra, wedges)));
     let model = Model {
         blocks,
         coordinates: NodalReferenceCoordinates::new(),
