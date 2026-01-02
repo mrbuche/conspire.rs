@@ -1,5 +1,6 @@
 use crate::math::{Tensor, TensorRank0, TensorRank1, TensorVec};
 use std::{
+    collections::VecDeque,
     fmt::{Display, Formatter, Result},
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
@@ -63,6 +64,33 @@ where
 {
     fn from(vec: Vec<T>) -> Self {
         Self(vec)
+    }
+}
+
+impl<T> From<TensorVector<T>> for Vec<T>
+where
+    T: Tensor,
+{
+    fn from(tensor_vector: TensorVector<T>) -> Self {
+        tensor_vector.0
+    }
+}
+
+impl<T> From<VecDeque<T>> for TensorVector<T>
+where
+    T: Tensor,
+{
+    fn from(vec_deque: VecDeque<T>) -> Self {
+        Self(vec_deque.into())
+    }
+}
+
+impl<T> From<TensorVector<T>> for VecDeque<T>
+where
+    T: Tensor,
+{
+    fn from(tensor_vector: TensorVector<T>) -> Self {
+        tensor_vector.0.into()
     }
 }
 

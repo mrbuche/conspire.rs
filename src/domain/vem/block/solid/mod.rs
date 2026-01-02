@@ -30,7 +30,7 @@ where
     ) -> Vec<DeformationGradients> {
         self.elements()
             .iter()
-            .zip(self.element_faces())
+            .zip(self.elements_faces())
             .map(|(element, faces)| {
                 element.deformation_gradients(self.element_coordinates(nodal_coordinates, faces))
             })

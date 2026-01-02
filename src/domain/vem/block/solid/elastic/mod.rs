@@ -45,7 +45,7 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.element_faces().iter().zip(self.element_nodes()))
+            .zip(self.elements_faces().iter().zip(self.elements_nodes()))
             .try_for_each(|(element, (faces, nodes))| {
                 element
                     .nodal_forces(
@@ -72,7 +72,7 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.element_faces().iter().zip(self.element_nodes()))
+            .zip(self.elements_faces().iter().zip(self.elements_nodes()))
             .try_for_each(|(element, (faces, nodes))| {
                 element
                     .nodal_stiffnesses(

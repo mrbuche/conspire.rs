@@ -34,6 +34,9 @@ where
         constitutive_model: &'a C,
         nodal_coordinates: ElementNodalCoordinates<'a>,
     ) -> Result<ElementNodalForcesSolid, VirtualElementError> {
+        //
+        // need stabilization terms
+        //
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
@@ -72,6 +75,9 @@ where
         constitutive_model: &'a C,
         nodal_coordinates: ElementNodalCoordinates<'a>,
     ) -> Result<ElementNodalStiffnessesSolid, VirtualElementError> {
+        //
+        // need stabilization terms
+        //
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()

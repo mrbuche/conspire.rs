@@ -363,4 +363,7 @@ pub type VectorList2D<const I: usize, const W: usize, const X: usize> =
     TensorRank1List2D<3, I, W, X>;
 
 /// A vector of vectors.
+pub type Vectors<const I: usize> = TensorRank1Vec<3, I>;
+
+/// A 2D vector of vectors.
 pub type Vectors2D<const I: usize> = TensorRank1Vec2D<3, I>;

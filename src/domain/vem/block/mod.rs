@@ -26,9 +26,9 @@ pub struct Block<C, F> {
     constitutive_model: C,
     coordinates: NodalReferenceCoordinates,
     elements: Vec<F>,
-    element_faces: Connectivity,
-    element_nodes: Connectivity,
-    face_nodes: Connectivity,
+    elements_faces: Connectivity,
+    elements_nodes: Connectivity,
+    faces_nodes: Connectivity,
 }
 
 impl<C, F> Block<C, F> {
@@ -48,14 +48,14 @@ impl<C, F> Block<C, F> {
     ) -> ElementNodalCoordinates<'a> {
         faces
             .iter()
-            .flat_map(|&face| self.face_nodes[face].iter().map(|&node| &coordinates[node]))
+            .flat_map(|&face| self.faces_nodes[face].iter().map(|&node| &coordinates[node]))
             .collect()
     }
-    fn element_faces(&self) -> &Connectivity {
-        &self.element_faces
+    fn elements_faces(&self) -> &Connectivity {
+        &self.elements_faces
     }
-    fn element_nodes(&self) -> &Connectivity {
-        &self.element_nodes
+    fn elements_nodes(&self) -> &Connectivity {
+        &self.elements_nodes
     }
 }
 
@@ -88,32 +88,35 @@ where
     F: VirtualElement,
 {
     fn from(
-        (constitutive_model, coordinates, element_faces, face_nodes): (
+        (constitutive_model, coordinates, elements_faces, faces_nodes): (
             C,
             NodalReferenceCoordinates,
             Connectivity,
             Connectivity,
         ),
     ) -> Self {
-        let (elements, element_nodes) = element_faces
+        let (elements, elements_nodes) = elements_faces
             .iter()
-            .map(|faces| {
+            .map(|element_faces| {
+                let element_nodes: Vec<usize> = 
+                    element_faces
+                        .iter()
+                        .flat_map(|&face| faces_nodes[face].clone())
+                        .collect();
                 (
-                    <F>::from(
-                        faces
+                    <F>::from((
+                        element_faces
                             .iter()
                             .map(|&face| {
-                                face_nodes[face]
+                                faces_nodes[face]
                                     .iter()
                                     .map(|&node| coordinates[node].clone())
                                     .collect()
                             })
                             .collect(),
-                    ),
-                    faces
-                        .iter()
-                        .flat_map(|&face| face_nodes[face].clone())
-                        .collect(),
+                        element_nodes.clone(),
+                    )),
+                    element_nodes
                 )
             })
             .unzip();
@@ -121,9 +124,9 @@ where
             constitutive_model,
             coordinates,
             elements,
-            element_faces,
-            element_nodes,
-            face_nodes,
+            elements_faces,
+            elements_nodes,
+            faces_nodes,
         }
     }
 }
