@@ -83,6 +83,33 @@ pub trait FiniteElementBlock<C, F, const G: usize, const N: usize> {
     fn reset(&mut self);
 }
 
+// //
+// // Block would need to depend on G. Might need that for fem/stuff anyway
+// //
+// impl<C, F, const G: usize, const N: usize> From<(C, Connectivity<N>, NodalReferenceCoordinates)> for Block<C, F, N>
+// where
+//     F: FiniteElementCreation<G, N>,
+// {
+//     fn from(
+//         (constitutive_model, connectivity, coordinates): (
+//             C,
+//             Connectivity<N>,
+//             NodalReferenceCoordinates,
+//         ),
+//     ) -> Self {
+//         let elements = connectivity
+//             .iter()
+//             .map(|nodes| Self::element_coordinates(&coordinates, nodes).into())
+//             .collect();
+//         Self {
+//             constitutive_model,
+//             connectivity,
+//             coordinates,
+//             elements,
+//         }
+//     }
+// }
+
 impl<C, F, const G: usize, const N: usize> FiniteElementBlock<C, F, G, N> for Block<C, F, N>
 where
     F: FiniteElementCreation<G, N>,
