@@ -6,24 +6,26 @@ use crate::{
     math::Scalar,
 };
 
-pub trait SurfaceFiniteElementBlock<C, F, const G: usize, const N: usize> {
-    fn new(
-        constitutive_model: C,
-        connectivity: Connectivity<N>,
-        coordinates: NodalReferenceCoordinates,
-        thickness: Scalar,
-    ) -> Self;
+const M: usize = 2;
+
+pub trait SurfaceFiniteElementBlock<C, F, const G: usize, const N: usize>
+where
+    Self: From<(C, Connectivity<N>, NodalReferenceCoordinates, Scalar)>,
+{
 }
 
-impl<C, F, const G: usize, const N: usize> SurfaceFiniteElementBlock<C, F, G, N> for Block<C, F, N>
+impl<C, F, const G: usize, const N: usize>
+    From<(C, Connectivity<N>, NodalReferenceCoordinates, Scalar)> for Block<C, F, G, N>
 where
     F: SurfaceFiniteElementCreation<G, N>,
 {
-    fn new(
-        constitutive_model: C,
-        connectivity: Connectivity<N>,
-        coordinates: NodalReferenceCoordinates,
-        thickness: Scalar,
+    fn from(
+        (constitutive_model, connectivity, coordinates, thickness): (
+            C,
+            Connectivity<N>,
+            NodalReferenceCoordinates,
+            Scalar,
+        ),
     ) -> Self {
         let elements = connectivity
             .iter()
@@ -44,4 +46,11 @@ where
             elements,
         }
     }
+}
+
+impl<C, F, const G: usize, const N: usize> SurfaceFiniteElementBlock<C, F, G, N>
+    for Block<C, F, G, N>
+where
+    F: SurfaceFiniteElementCreation<G, N>,
+{
 }

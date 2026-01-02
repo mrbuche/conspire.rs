@@ -86,10 +86,10 @@ where
 //
 // Might need Block to depend on G and M.
 //
-impl<C, F, const N: usize> ElasticFiniteElementModel for Block<C, F, N>
+impl<C, F, const G: usize, const N: usize> ElasticFiniteElementModel for Block<C, F, G, N>
 where
     C: Elastic,
-    F: ElasticFiniteElement<C, 18, 3, N>,
+    F: ElasticFiniteElement<C, G, 3, N>,
 {
     fn nodal_forces(
         &self,

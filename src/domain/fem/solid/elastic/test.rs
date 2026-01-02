@@ -3,7 +3,7 @@ use crate::{
     fem::{
         Blocks, Model, NodalCoordinates, NodalReferenceCoordinates,
         block::{
-            Block, FiniteElementBlock,
+            Block,
             element::{
                 quadratic::{Pyramid, Tetrahedron, Wedge},
                 serendipity::Hexahedron,
@@ -20,26 +20,26 @@ fn f3d() {
         bulk_modulus: 13.0,
         shear_modulus: 3.0,
     };
-    let hexahedra = Block::<_, Hexahedron, 20>::new(
+    let hexahedra = Block::<_, Hexahedron, 27, 20>::from((
         constitutive.clone(),
         vec![],
         NodalReferenceCoordinates::new(),
-    );
-    let pyramids = Block::<_, Pyramid, 13>::new(
+    ));
+    let pyramids = Block::<_, Pyramid, 27, 13>::from((
         constitutive.clone(),
         vec![],
         NodalReferenceCoordinates::new(),
-    );
-    let tetrahedra = Block::<_, Tetrahedron, 10>::new(
+    ));
+    let tetrahedra = Block::<_, Tetrahedron, 4, 10>::from((
         constitutive.clone(),
         vec![],
         NodalReferenceCoordinates::new(),
-    );
-    let wedges = Block::<_, Wedge, 15>::new(
+    ));
+    let wedges = Block::<_, Wedge, 18, 15>::from((
         constitutive.clone(),
         vec![],
         NodalReferenceCoordinates::new(),
-    );
+    ));
     let blocks = wedges;
     // let blocks = Blocks(pyramids, wedges);
     // let blocks = Blocks(hexahedra, (pyramids, (tetrahedra, wedges)));

@@ -29,7 +29,7 @@ where
 }
 
 impl<C, F, const G: usize, const M: usize, const N: usize>
-    HyperelasticFiniteElementBlock<C, F, G, M, N> for Block<C, F, N>
+    HyperelasticFiniteElementBlock<C, F, G, M, N> for Block<C, F, G, N>
 where
     C: Hyperelastic,
     F: HyperelasticFiniteElement<C, G, M, N>,
@@ -61,7 +61,7 @@ where
 }
 
 impl<C, F, const G: usize, const M: usize, const N: usize>
-    FirstOrderMinimize<C, F, G, M, N, NodalCoordinates> for Block<C, F, N>
+    FirstOrderMinimize<C, F, G, M, N, NodalCoordinates> for Block<C, F, G, N>
 where
     C: Hyperelastic,
     F: HyperelasticFiniteElement<C, G, M, N>,
@@ -84,7 +84,7 @@ where
 
 impl<C, F, const G: usize, const M: usize, const N: usize>
     SecondOrderMinimize<C, F, G, M, N, NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>
-    for Block<C, F, N>
+    for Block<C, F, G, N>
 where
     C: Hyperelastic,
     F: HyperelasticFiniteElement<C, G, M, N>,

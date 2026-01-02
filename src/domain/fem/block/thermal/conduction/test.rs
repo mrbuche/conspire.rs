@@ -1,12 +1,12 @@
 macro_rules! test_thermal {
     ($element: ident) => {
         mod thermal_block {
-            use super::{D, N, get_connectivity, get_reference_coordinates_block, $element};
+            use super::{D, G, N, get_connectivity, get_reference_coordinates_block, $element};
             use crate::{
                 EPSILON,
                 constitutive::thermal::conduction::Fourier,
                 fem::block::{
-                    Block, FiniteElementBlock, FiniteElementBlockError,
+                    Block, FiniteElementBlockError,
                     thermal::{
                         NodalTemperatures,
                         conduction::{
@@ -25,11 +25,11 @@ macro_rules! test_thermal {
                 #[test]
                 fn potential() -> Result<(), TestError> {
                     let constitutive_model = MODEL;
-                    let block = Block::<Fourier, $element, N>::new(
+                    let block = Block::<Fourier, $element, G, N>::from((
                         constitutive_model,
                         get_connectivity(),
                         get_reference_coordinates_block(),
-                    );
+                    ));
                     let mut finite_difference = 0.0;
                     let nodal_forces_fd: NodalForcesThermal = (0..D)
                         .map(|node| {
@@ -49,11 +49,11 @@ macro_rules! test_thermal {
                 #[test]
                 fn nodal_forces() -> Result<(), TestError> {
                     let constitutive_model = MODEL;
-                    let block = Block::<Fourier, $element, N>::new(
+                    let block = Block::<Fourier, $element, G, N>::from((
                         constitutive_model,
                         get_connectivity(),
                         get_reference_coordinates_block(),
-                    );
+                    ));
                     let mut finite_difference = 0.0;
                     let nodal_stiffnesses_fd: NodalStiffnessesThermal = (0..D)
                         .map(|node_a| {

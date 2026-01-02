@@ -26,7 +26,7 @@ where
 }
 
 impl<C, F, const G: usize, const M: usize, const N: usize> SolidFiniteElementBlock<C, F, G, M, N>
-    for Block<C, F, N>
+    for Block<C, F, G, N>
 where
     F: SolidFiniteElement<G, M, N>,
 {

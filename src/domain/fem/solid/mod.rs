@@ -27,9 +27,9 @@ where
 //
 // Might need Block to depend on G and M.
 //
-impl<C, F, const N: usize> SolidFiniteElementModel for Block<C, F, N>
+impl<C, F, const G: usize, const N: usize> SolidFiniteElementModel for Block<C, F, G, N>
 where
     C: Solid,
-    F: SolidFiniteElement<18, 3, N>,
+    F: SolidFiniteElement<G, 3, N>,
 {
 }

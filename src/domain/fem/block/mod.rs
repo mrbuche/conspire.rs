@@ -26,14 +26,14 @@ use std::{
 
 pub type Connectivity<const N: usize> = Vec<[usize; N]>;
 
-pub struct Block<C, F, const N: usize> {
+pub struct Block<C, F, const G: usize, const N: usize> {
     constitutive_model: C,
     connectivity: Connectivity<N>,
     coordinates: NodalReferenceCoordinates,
     elements: Vec<F>,
 }
 
-impl<C, F, const N: usize> Block<C, F, N> {
+impl<C, F, const G: usize, const N: usize> Block<C, F, G, N> {
     fn constitutive_model(&self) -> &C {
         &self.constitutive_model
     }
@@ -57,7 +57,7 @@ impl<C, F, const N: usize> Block<C, F, N> {
     }
 }
 
-impl<C, F, const N: usize> Debug for Block<C, F, N> {
+impl<C, F, const G: usize, const N: usize> Debug for Block<C, F, G, N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -74,50 +74,24 @@ impl<C, F, const N: usize> Debug for Block<C, F, N> {
     }
 }
 
-pub trait FiniteElementBlock<C, F, const G: usize, const N: usize> {
-    fn new(
-        constitutive_model: C,
-        connectivity: Connectivity<N>,
-        coordinates: NodalReferenceCoordinates,
-    ) -> Self;
+pub trait FiniteElementBlock<C, F, const G: usize, const N: usize>
+where
+    Self: From<(C, Connectivity<N>, NodalReferenceCoordinates)>,
+{
     fn reset(&mut self);
 }
 
-// //
-// // Block would need to depend on G. Might need that for fem/stuff anyway
-// //
-// impl<C, F, const G: usize, const N: usize> From<(C, Connectivity<N>, NodalReferenceCoordinates)> for Block<C, F, N>
-// where
-//     F: FiniteElementCreation<G, N>,
-// {
-//     fn from(
-//         (constitutive_model, connectivity, coordinates): (
-//             C,
-//             Connectivity<N>,
-//             NodalReferenceCoordinates,
-//         ),
-//     ) -> Self {
-//         let elements = connectivity
-//             .iter()
-//             .map(|nodes| Self::element_coordinates(&coordinates, nodes).into())
-//             .collect();
-//         Self {
-//             constitutive_model,
-//             connectivity,
-//             coordinates,
-//             elements,
-//         }
-//     }
-// }
-
-impl<C, F, const G: usize, const N: usize> FiniteElementBlock<C, F, G, N> for Block<C, F, N>
+impl<C, F, const G: usize, const N: usize> From<(C, Connectivity<N>, NodalReferenceCoordinates)>
+    for Block<C, F, G, N>
 where
     F: FiniteElementCreation<G, N>,
 {
-    fn new(
-        constitutive_model: C,
-        connectivity: Connectivity<N>,
-        coordinates: NodalReferenceCoordinates,
+    fn from(
+        (constitutive_model, connectivity, coordinates): (
+            C,
+            Connectivity<N>,
+            NodalReferenceCoordinates,
+        ),
     ) -> Self {
         let elements = connectivity
             .iter()
@@ -130,6 +104,12 @@ where
             elements,
         }
     }
+}
+
+impl<C, F, const G: usize, const N: usize> FiniteElementBlock<C, F, G, N> for Block<C, F, G, N>
+where
+    F: FiniteElementCreation<G, N>,
+{
     fn reset(&mut self) {
         self.elements
             .iter_mut()
