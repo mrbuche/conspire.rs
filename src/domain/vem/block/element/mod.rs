@@ -37,7 +37,12 @@ impl VirtualElement for Element {
 }
 
 impl From<(ElementNodalReferenceCoordinates, Vec<usize>)> for Element {
-    fn from((reference_nodal_coordinates, element_nodes): (ElementNodalReferenceCoordinates, Vec<usize>)) -> Self {
+    fn from(
+        (reference_nodal_coordinates, element_nodes): (
+            ElementNodalReferenceCoordinates,
+            Vec<usize>,
+        ),
+    ) -> Self {
         let faces_info: Vec<(Vec<[ReferenceCoordinate; 3]>, ReferenceCoordinate, Scalar)> =
             reference_nodal_coordinates
                 .into_iter()
@@ -221,7 +226,7 @@ fn temporary_poly() {
                     .collect()
             })
             .collect::<ElementNodalReferenceCoordinates>(),
-            face_node_connectivity.iter().flatten().copied().collect(),
+        face_node_connectivity.iter().flatten().copied().collect(),
     ));
     let length = (coordinates[face_node_connectivity[0][0]].clone()
         - coordinates[face_node_connectivity[0][1]].clone())
@@ -230,11 +235,13 @@ fn temporary_poly() {
     assert!((element.integration_weights()[0] - volume).abs() < 1e-14);
     use crate::vem::NodalCoordinates;
     let coordinates_current = NodalCoordinates::from(coordinates);
-    let coordinates_0 = coordinates_current.iter().map(|coordinate|
-        coordinate.into()
-    ).collect();
+    let coordinates_0 = coordinates_current
+        .iter()
+        .map(|coordinate| coordinate.into())
+        .collect();
     use crate::vem::block::element::solid::SolidVirtualElement;
-    element.deformation_gradients(coordinates_0).iter().for_each(|deformation_gradient|
-        println!("{:?}", deformation_gradient)
-    )
+    element
+        .deformation_gradients(coordinates_0)
+        .iter()
+        .for_each(|deformation_gradient| println!("{:?}", deformation_gradient))
 }

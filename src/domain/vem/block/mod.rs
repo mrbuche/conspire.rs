@@ -48,7 +48,11 @@ impl<C, F> Block<C, F> {
     ) -> ElementNodalCoordinates<'a> {
         faces
             .iter()
-            .flat_map(|&face| self.faces_nodes[face].iter().map(|&node| &coordinates[node]))
+            .flat_map(|&face| {
+                self.faces_nodes[face]
+                    .iter()
+                    .map(|&node| &coordinates[node])
+            })
             .collect()
     }
     fn elements_faces(&self) -> &Connectivity {
@@ -98,11 +102,10 @@ where
         let (elements, elements_nodes) = elements_faces
             .iter()
             .map(|element_faces| {
-                let element_nodes: Vec<usize> = 
-                    element_faces
-                        .iter()
-                        .flat_map(|&face| faces_nodes[face].clone())
-                        .collect();
+                let element_nodes: Vec<usize> = element_faces
+                    .iter()
+                    .flat_map(|&face| faces_nodes[face].clone())
+                    .collect();
                 (
                     <F>::from((
                         element_faces
@@ -116,7 +119,7 @@ where
                             .collect(),
                         element_nodes.clone(),
                     )),
-                    element_nodes
+                    element_nodes,
                 )
             })
             .unzip();
