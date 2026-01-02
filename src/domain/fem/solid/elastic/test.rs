@@ -48,5 +48,6 @@ fn f3d() {
         coordinates: NodalReferenceCoordinates::new(),
     };
     model.nodal_forces(&NodalCoordinates::new()).unwrap();
+    model.nodal_stiffnesses(&NodalCoordinates::new()).unwrap();
     todo!()
 }
