@@ -81,8 +81,8 @@ where
     fn reset(&mut self);
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize>
-    From<(C, Connectivity<N>, NodalReferenceCoordinates)> for Block<C, F, G, M, N>
+impl<C, F, const G: usize, const N: usize>
+    From<(C, Connectivity<N>, NodalReferenceCoordinates)> for Block<C, F, G, 3, N>
 where
     F: FiniteElementCreation<G, N>,
 {
@@ -106,8 +106,8 @@ where
     }
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize> FiniteElementBlock<C, F, G, N>
-    for Block<C, F, G, M, N>
+impl<C, F, const G: usize, const N: usize> FiniteElementBlock<C, F, G, N>
+    for Block<C, F, G, 3, N>
 where
     F: FiniteElementCreation<G, N>,
 {
