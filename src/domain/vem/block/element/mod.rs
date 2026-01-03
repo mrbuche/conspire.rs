@@ -3,7 +3,7 @@ pub mod solid;
 use crate::{
     defeat_message,
     math::{Scalar, Scalars, Tensor, TensorRank1Vec2D, TestError},
-    mechanics::{CurrentCoordinatesRef, ReferenceCoordinate, Vectors, Vectors2D},
+    mechanics::{CurrentCoordinatesRef, ReferenceCoordinate, Vectors2D},
 };
 use std::{
     collections::VecDeque,
@@ -21,7 +21,12 @@ pub struct Element {
 
 pub trait VirtualElement
 where
-    Self: From<(ElementNodalReferenceCoordinates, Vec<usize>)>,
+    for<'a> Self: From<(
+        ElementNodalReferenceCoordinates,
+        Vec<usize>,
+        &'a [usize],
+        &'a [Vec<usize>],
+    )>,
 {
     fn gradient_vectors(&self) -> &GradientVectors;
     fn integration_weights(&self) -> &Scalars;
@@ -36,90 +41,105 @@ impl VirtualElement for Element {
     }
 }
 
-impl From<(ElementNodalReferenceCoordinates, Vec<usize>)> for Element {
+impl
+    From<(
+        ElementNodalReferenceCoordinates,
+        Vec<usize>,
+        &[usize],
+        &[Vec<usize>],
+    )> for Element
+{
     fn from(
-        (reference_nodal_coordinates, element_nodes): (
+        (reference_nodal_coordinates, element_faces, element_nodes, faces_nodes): (
             ElementNodalReferenceCoordinates,
             Vec<usize>,
+            &[usize],
+            &[Vec<usize>],
         ),
     ) -> Self {
-        let faces_info: Vec<(Vec<[ReferenceCoordinate; 3]>, ReferenceCoordinate, Scalar)> =
-            reference_nodal_coordinates
-                .into_iter()
-                .map(|face_coordinates| {
-                    let num_nodes_face = face_coordinates.len() as Scalar;
-                    let face_center = face_coordinates
-                        .iter()
-                        .cloned()
-                        .sum::<ReferenceCoordinate>()
-                        / num_nodes_face;
-                    let mut face_coordinates_one_ahead = VecDeque::from(face_coordinates.clone());
-                    let first_entry = face_coordinates_one_ahead.pop_front().unwrap();
-                    face_coordinates_one_ahead.push_back(first_entry);
-                    (
-                        face_coordinates
-                            .into_iter()
-                            .zip(face_coordinates_one_ahead)
-                            .map(|(node_a_coordinates, node_b_coordinates)| {
-                                let e_1 = &node_a_coordinates - &node_b_coordinates;
-                                let e_2 = &node_b_coordinates - &face_center;
-                                [node_a_coordinates, node_b_coordinates, e_1.cross(&e_2)]
-                            })
-                            .collect(),
-                        face_center,
-                        num_nodes_face,
-                    )
-                })
-                .collect();
-        let element_volume = faces_info
+        let element_volume = reference_nodal_coordinates
             .iter()
-            .map(|(face_info, node_c, _)| {
-                face_info
+            .map(|face_coordinates| {
+                let face_center = face_coordinates
                     .iter()
-                    .map(|[node_a, node_b, outward]| {
-                        // (node_a[0] + node_b[0] + node_c[0]) * outward[0]
-                        node_a * outward
+                    .cloned()
+                    .sum::<ReferenceCoordinate>()
+                    / (face_coordinates.len() as Scalar);
+                let mut face_coordinates_one_ahead = VecDeque::from(face_coordinates.clone());
+                let first_entry = face_coordinates_one_ahead.pop_front().unwrap();
+                face_coordinates_one_ahead.push_back(first_entry);
+                face_coordinates
+                    .into_iter()
+                    .zip(face_coordinates_one_ahead)
+                    .map(|(node_a_coordinates, node_b_coordinates)| {
+                        let e_1 = node_a_coordinates - &node_b_coordinates;
+                        let e_2 = &node_b_coordinates - &face_center;
+                        node_a_coordinates * e_1.cross(&e_2)
                     })
                     .sum::<Scalar>()
             })
             .sum::<Scalar>()
             / 6.0;
         let integration_weights = Scalars::from([element_volume]);
-
-        let num_nodes = element_nodes.len() as Scalar;
-        // element_nodes.into_iter().map(|node|
-        // NEED FACE NODES? THEN WOULD NEED ELEMENT FACES? THEN SHOULD JUST DO THE COORDINATES PART IN HERE INSTEAD OF IN BLOCK
-        // ).collect()
-
-        // let gradient_vectors = vec![
-        //     (0..num_nodes).map(|node|
-        //         faces_info
-        //             .into_iter()
-        //             .map(|(face_info, _, num_nodes_face)| {
-
-        //             })
-        //         .sum::<Vectors<0>>()
-        //         * ((1.0 - 1.0 / num_nodes) / element_volume / 6.0),
-        //     )
-        // ]
-        // .into();
-
         let gradient_vectors = vec![
-            faces_info
-                .into_iter()
-                .map(|(face_info, _, num_nodes_face)| {
-                    let mut face_info_one_back = VecDeque::from(face_info.clone());
-                    let last_entry = face_info_one_back.pop_back().unwrap();
-                    face_info_one_back.push_front(last_entry);
-                    face_info
-                        .into_iter()
-                        .zip(face_info_one_back)
-                        .map(|([_, _, outward], [_, _, outward_back])| outward + outward_back)
-                        .collect::<Vectors<0>>()
-                        * (1.0 + 1.0 / num_nodes_face)
+            element_nodes
+                .iter()
+                .map(|&node| {
+                    element_faces
+                        .iter()
+                        .zip(reference_nodal_coordinates.iter())
+                        .filter_map(|(&face, face_coordinates)| {
+                            if faces_nodes[face].contains(&node) {
+                                let num_nodes_face = face_coordinates.len() as Scalar;
+                                let face_center = face_coordinates
+                                    .iter()
+                                    .cloned()
+                                    .sum::<ReferenceCoordinate>()
+                                    / num_nodes_face;
+                                let mut face_coordinates_one_ahead =
+                                    VecDeque::from(face_coordinates.clone());
+                                let first_entry = face_coordinates_one_ahead.pop_front().unwrap();
+                                face_coordinates_one_ahead.push_back(first_entry);
+                                Some(
+                                    face_coordinates
+                                        .into_iter()
+                                        .zip(face_coordinates_one_ahead)
+                                        .zip(faces_nodes[face].iter())
+                                        .map(
+                                            |(
+                                                (node_a_coordinates, node_b_coordinates),
+                                                &node_a,
+                                            )| {
+                                                let node_a_spot = faces_nodes[face]
+                                                    .iter()
+                                                    .position(|&n| n == node_a)
+                                                    .unwrap();
+                                                let node_b =
+                                                    if node_a_spot + 1 == faces_nodes[face].len() {
+                                                        faces_nodes[face][0]
+                                                    } else {
+                                                        faces_nodes[face][node_a_spot + 1]
+                                                    };
+                                                let factor = if node == node_a || node == node_b {
+                                                    1.0 + 1.0 / num_nodes_face
+                                                } else {
+                                                    1.0 / num_nodes_face
+                                                };
+                                                let e_1 = &node_b_coordinates - node_a_coordinates;
+                                                let e_2 = &face_center - node_b_coordinates;
+                                                e_1.cross(&e_2) * factor
+                                            },
+                                        )
+                                        .sum::<ReferenceCoordinate>(),
+                                )
+                            } else {
+                                None
+                            }
+                        })
+                        .sum::<ReferenceCoordinate>()
+                        / (element_volume * 6.0)
                 })
-                .sum::<Vectors<0>>()
-                * ((1.0 - 1.0 / num_nodes) / element_volume / 6.0),
+                .collect(),
         ]
         .into();
         Self {
@@ -177,71 +197,131 @@ impl Display for VirtualElementError {
 
 #[test]
 fn temporary_poly() {
-    let phi = (1.0 + 5.0_f64.sqrt()) / 2.0; // Golden ratio
     use crate::vem::NodalReferenceCoordinates;
+    // let phi = (1.0 + 5.0_f64.sqrt()) / 2.0;
+    // let coordinates = NodalReferenceCoordinates::from(vec![
+    //     [-1.0, -1.0, -1.0],
+    //     [-1.0, -1.0, 1.0],
+    //     [-1.0, 1.0, -1.0],
+    //     [-1.0, 1.0, 1.0],
+    //     [1.0, -1.0, -1.0],
+    //     [1.0, -1.0, 1.0],
+    //     [1.0, 1.0, -1.0],
+    //     [1.0, 1.0, 1.0],
+    //     [0.0, -phi, -1.0 / phi],
+    //     [0.0, -phi, 1.0 / phi],
+    //     [0.0, phi, -1.0 / phi],
+    //     [0.0, phi, 1.0 / phi],
+    //     [-phi, -1.0 / phi, 0.0],
+    //     [-phi, 1.0 / phi, 0.0],
+    //     [phi, -1.0 / phi, 0.0],
+    //     [phi, 1.0 / phi, 0.0],
+    //     [-1.0 / phi, 0.0, -phi],
+    //     [1.0 / phi, 0.0, -phi],
+    //     [-1.0 / phi, 0.0, phi],
+    //     [1.0 / phi, 0.0, phi],
+    // ]);
     let coordinates = NodalReferenceCoordinates::from(vec![
-        [-1.0, -1.0, -1.0],
-        [-1.0, -1.0, 1.0],
-        [-1.0, 1.0, -1.0],
-        [-1.0, 1.0, 1.0],
-        [1.0, -1.0, -1.0],
-        [1.0, -1.0, 1.0],
-        [1.0, 1.0, -1.0],
-        [1.0, 1.0, 1.0],
-        [0.0, -phi, -1.0 / phi],
-        [0.0, -phi, 1.0 / phi],
-        [0.0, phi, -1.0 / phi],
-        [0.0, phi, 1.0 / phi],
-        [-phi, -1.0 / phi, 0.0],
-        [-phi, 1.0 / phi, 0.0],
-        [phi, -1.0 / phi, 0.0],
-        [phi, 1.0 / phi, 0.0],
-        [-1.0 / phi, 0.0, -phi],
-        [1.0 / phi, 0.0, -phi],
-        [-1.0 / phi, 0.0, phi],
-        [1.0 / phi, 0.0, phi],
+        [-0.7727027, -0.65398245, -0.80050964],
+        [-0.55585269, -1.31907453, 1.32652506],
+        [-0.68068751, 0.86362469, -0.58348725],
+        [-1.2475506, 1.06566759, 1.45034587],
+        [1.47277602, -1.10640079, -0.90724596],
+        [1.10274756, -0.69153902, 1.27617253],
+        [0.64323505, 1.36639746, -1.48447683],
+        [0.91277928, 0.97322043, 0.67055],
+        [-0.19978796, -2.0201241, -0.50145446],
+        [-0.07547771, -1.54630032, 0.22127876],
+        [0.37534904, 1.50203587, -0.81372091],
+        [-0.20273152, 1.4672534, 0.27738481],
+        [-1.98854772, -0.25595864, 0.16143842],
+        [-1.80085125, 0.19913772, -0.19452172],
+        [1.3154974, -0.72436122, 0.17437191],
+        [2.09624968, 1.01585944, 0.29687302],
+        [-0.61664715, 0.18078644, -1.94806432],
+        [0.86740811, -0.38259605, -1.2754194],
+        [-1.08169702, -0.39837623, 1.63255916],
+        [0.12293689, -0.48172557, 1.4158596],
     ]);
-    let face_node_connectivity = [
-        [16, 17, 4, 8, 0],
-        [12, 13, 2, 16, 0],
-        [8, 9, 1, 12, 0],
-        [9, 5, 19, 18, 1],
-        [18, 3, 13, 12, 1],
-        [10, 6, 17, 16, 2],
-        [13, 3, 11, 10, 2],
-        [7, 11, 3, 18, 19],
-        [14, 5, 9, 8, 4],
-        [6, 15, 14, 4, 17],
-        [5, 14, 15, 7, 19],
-        [6, 10, 11, 7, 15],
+    let face_node_connectivity = vec![
+        vec![16, 17, 4, 8, 0],
+        vec![12, 13, 2, 16, 0],
+        vec![8, 9, 1, 12, 0],
+        vec![9, 5, 19, 18, 1],
+        vec![18, 3, 13, 12, 1],
+        vec![10, 6, 17, 16, 2],
+        vec![13, 3, 11, 10, 2],
+        vec![7, 11, 3, 18, 19],
+        vec![14, 5, 9, 8, 4],
+        vec![6, 15, 14, 4, 17],
+        vec![5, 14, 15, 7, 19],
+        vec![6, 10, 11, 7, 15],
     ];
-    let element_face_connectivity = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-    let element = Element::from((
-        element_face_connectivity
-            .iter()
-            .map(|&face| {
-                face_node_connectivity[face]
-                    .iter()
-                    .map(|&node| coordinates[node].clone())
-                    .collect()
-            })
-            .collect::<ElementNodalReferenceCoordinates>(),
-        face_node_connectivity.iter().flatten().copied().collect(),
+    let element_face_connectivity = vec![vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]];
+    use crate::constitutive::solid::hyperelastic::NeoHookean;
+    use crate::vem::block::{
+        Block,
+        solid::{SolidVirtualElementBlock, elastic::ElasticVirtualElementBlock},
+    };
+    let block = Block::<_, Element>::from((
+        NeoHookean {
+            shear_modulus: 3.0,
+            bulk_modulus: 13.0,
+        },
+        coordinates.clone(),
+        element_face_connectivity.clone(),
+        face_node_connectivity.clone(),
     ));
-    let length = (coordinates[face_node_connectivity[0][0]].clone()
-        - coordinates[face_node_connectivity[0][1]].clone())
-    .norm();
-    let volume = (15.0 + 7.0 * 5.0_f64.sqrt()) / 4.0 * length.powi(3);
-    assert!((element.integration_weights()[0] - volume).abs() < 1e-14);
+    use crate::domain::NodalForcesSolid;
+    use crate::math::{TensorArray, assert_eq_within_tols};
+    use crate::mechanics::DeformationGradient;
     use crate::vem::NodalCoordinates;
     let coordinates_current = NodalCoordinates::from(coordinates);
-    let coordinates_0 = coordinates_current
-        .iter()
-        .map(|coordinate| coordinate.into())
-        .collect();
-    use crate::vem::block::element::solid::SolidVirtualElement;
-    element
-        .deformation_gradients(coordinates_0)
-        .iter()
-        .for_each(|deformation_gradient| println!("{:?}", deformation_gradient))
+    assert_eq_within_tols(
+        &DeformationGradient::identity(),
+        &block.deformation_gradients(&coordinates_current)[0][0],
+    )
+    .unwrap();
+    assert_eq_within_tols(
+        &NodalForcesSolid::zero(coordinates_current.len()),
+        &block.nodal_forces(&coordinates_current).unwrap(),
+    )
+    .unwrap();
+    // let mut element_nodes: Vec<usize> = element_face_connectivity
+    //     .iter()
+    //     .flat_map(|&face| face_node_connectivity[face].clone())
+    //     .collect();
+    // element_nodes.sort();
+    // element_nodes.dedup();
+    // let element = Element::from((
+    //     element_face_connectivity
+    //         .iter()
+    //         .map(|&face| {
+    //             face_node_connectivity[face]
+    //                 .iter()
+    //                 .map(|&node| coordinates[node].clone())
+    //                 .collect()
+    //         })
+    //         .collect::<ElementNodalReferenceCoordinates>(),
+    //     element_face_connectivity.clone(),
+    //     element_nodes,
+    //     face_node_connectivity.clone(),
+    // ));
+    // // let length = (coordinates[face_node_connectivity[0][0]].clone()
+    // //     - coordinates[face_node_connectivity[0][1]].clone())
+    // // .norm();
+    // // let volume = (15.0 + 7.0 * 5.0_f64.sqrt()) / 4.0 * length.powi(3);
+    // // assert!((element.integration_weights()[0] - volume).abs() < 1e-14);
+    // use crate::vem::NodalCoordinates;
+    // let coordinates_current = NodalCoordinates::from(coordinates);
+    // let coordinates_0 = coordinates_current.iter().collect();
+    // use crate::math::{TensorArray, assert_eq_within_tols};
+    // use crate::mechanics::DeformationGradient;
+    // use crate::vem::block::element::solid::SolidVirtualElement;
+    // element
+    //     .deformation_gradients(coordinates_0)
+    //     .iter()
+    //     .for_each(|deformation_gradient| {
+    //         assert_eq_within_tols(&DeformationGradient::identity(), deformation_gradient).unwrap()
+    //     })
 }

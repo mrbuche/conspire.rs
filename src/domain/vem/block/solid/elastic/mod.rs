@@ -45,12 +45,12 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.elements_faces().iter().zip(self.elements_nodes()))
-            .try_for_each(|(element, (faces, nodes))| {
+            .zip(self.elements_nodes())
+            .try_for_each(|(element, nodes)| {
                 element
                     .nodal_forces(
                         self.constitutive_model(),
-                        self.element_coordinates(nodal_coordinates, faces),
+                        self.element_coordinates(nodal_coordinates, nodes),
                     )?
                     .iter()
                     .zip(nodes)
@@ -72,12 +72,12 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.elements_faces().iter().zip(self.elements_nodes()))
-            .try_for_each(|(element, (faces, nodes))| {
+            .zip(self.elements_nodes())
+            .try_for_each(|(element, nodes)| {
                 element
                     .nodal_stiffnesses(
                         self.constitutive_model(),
-                        self.element_coordinates(nodal_coordinates, faces),
+                        self.element_coordinates(nodal_coordinates, nodes),
                     )?
                     .iter()
                     .zip(nodes)
