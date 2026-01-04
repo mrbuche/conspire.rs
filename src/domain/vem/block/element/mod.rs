@@ -196,31 +196,85 @@ impl Display for VirtualElementError {
 }
 
 #[test]
-fn temporary_poly() {
+fn temporary_poly_0() {
     use crate::vem::NodalReferenceCoordinates;
-    // let phi = (1.0 + 5.0_f64.sqrt()) / 2.0;
-    // let coordinates = NodalReferenceCoordinates::from(vec![
-    //     [-1.0, -1.0, -1.0],
-    //     [-1.0, -1.0, 1.0],
-    //     [-1.0, 1.0, -1.0],
-    //     [-1.0, 1.0, 1.0],
-    //     [1.0, -1.0, -1.0],
-    //     [1.0, -1.0, 1.0],
-    //     [1.0, 1.0, -1.0],
-    //     [1.0, 1.0, 1.0],
-    //     [0.0, -phi, -1.0 / phi],
-    //     [0.0, -phi, 1.0 / phi],
-    //     [0.0, phi, -1.0 / phi],
-    //     [0.0, phi, 1.0 / phi],
-    //     [-phi, -1.0 / phi, 0.0],
-    //     [-phi, 1.0 / phi, 0.0],
-    //     [phi, -1.0 / phi, 0.0],
-    //     [phi, 1.0 / phi, 0.0],
-    //     [-1.0 / phi, 0.0, -phi],
-    //     [1.0 / phi, 0.0, -phi],
-    //     [-1.0 / phi, 0.0, phi],
-    //     [1.0 / phi, 0.0, phi],
-    // ]);
+    let phi = (1.0 + 5.0_f64.sqrt()) / 2.0;
+    let coordinates = NodalReferenceCoordinates::from(vec![
+        [-1.0, -1.0, -1.0],
+        [-1.0, -1.0, 1.0],
+        [-1.0, 1.0, -1.0],
+        [-1.0, 1.0, 1.0],
+        [1.0, -1.0, -1.0],
+        [1.0, -1.0, 1.0],
+        [1.0, 1.0, -1.0],
+        [1.0, 1.0, 1.0],
+        [0.0, -phi, -1.0 / phi],
+        [0.0, -phi, 1.0 / phi],
+        [0.0, phi, -1.0 / phi],
+        [0.0, phi, 1.0 / phi],
+        [-phi, -1.0 / phi, 0.0],
+        [-phi, 1.0 / phi, 0.0],
+        [phi, -1.0 / phi, 0.0],
+        [phi, 1.0 / phi, 0.0],
+        [-1.0 / phi, 0.0, -phi],
+        [1.0 / phi, 0.0, -phi],
+        [-1.0 / phi, 0.0, phi],
+        [1.0 / phi, 0.0, phi],
+    ]);
+    let face_node_connectivity = vec![
+        vec![16, 17, 4, 8, 0],
+        vec![12, 13, 2, 16, 0],
+        vec![8, 9, 1, 12, 0],
+        vec![9, 5, 19, 18, 1],
+        vec![18, 3, 13, 12, 1],
+        vec![10, 6, 17, 16, 2],
+        vec![13, 3, 11, 10, 2],
+        vec![7, 11, 3, 18, 19],
+        vec![14, 5, 9, 8, 4],
+        vec![6, 15, 14, 4, 17],
+        vec![5, 14, 15, 7, 19],
+        vec![6, 10, 11, 7, 15],
+    ];
+    let element_face_connectivity = vec![vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]];
+    use crate::constitutive::solid::hyperelastic::NeoHookean;
+    use crate::vem::block::{
+        Block,
+        solid::{SolidVirtualElementBlock, elastic::ElasticVirtualElementBlock},
+    };
+    let block = Block::<_, Element>::from((
+        NeoHookean {
+            shear_modulus: 3.0,
+            bulk_modulus: 13.0,
+        },
+        coordinates.clone(),
+        element_face_connectivity.clone(),
+        face_node_connectivity.clone(),
+    ));
+    use crate::domain::NodalForcesSolid;
+    use crate::math::{TensorArray, assert_eq_within_tols};
+    use crate::mechanics::DeformationGradient;
+    use crate::vem::NodalCoordinates;
+    let coordinates_current = NodalCoordinates::from(coordinates.clone());
+    assert_eq_within_tols(
+        &DeformationGradient::identity(),
+        &block.deformation_gradients(&coordinates_current)[0][0],
+    )
+    .unwrap();
+    assert_eq_within_tols(
+        &NodalForcesSolid::zero(coordinates_current.len()),
+        &block.nodal_forces(&coordinates_current).unwrap(),
+    )
+    .unwrap();
+    let length = (coordinates[face_node_connectivity[0][0]].clone()
+        - coordinates[face_node_connectivity[0][1]].clone())
+    .norm();
+    let volume = (15.0 + 7.0 * 5.0_f64.sqrt()) / 4.0 * length.powi(3);
+    assert!((block.elements()[0].integration_weights()[0] - volume).abs() < 1e-14);
+}
+
+#[test]
+fn temporary_poly_1() {
+    use crate::vem::NodalReferenceCoordinates;
     let coordinates = NodalReferenceCoordinates::from(vec![
         [-0.7727027, -0.65398245, -0.80050964],
         [-0.55585269, -1.31907453, 1.32652506],
@@ -276,7 +330,7 @@ fn temporary_poly() {
     use crate::math::{TensorArray, assert_eq_within_tols};
     use crate::mechanics::DeformationGradient;
     use crate::vem::NodalCoordinates;
-    let coordinates_current = NodalCoordinates::from(coordinates);
+    let coordinates_current = NodalCoordinates::from(coordinates.clone());
     assert_eq_within_tols(
         &DeformationGradient::identity(),
         &block.deformation_gradients(&coordinates_current)[0][0],
@@ -287,41 +341,14 @@ fn temporary_poly() {
         &block.nodal_forces(&coordinates_current).unwrap(),
     )
     .unwrap();
-    // let mut element_nodes: Vec<usize> = element_face_connectivity
-    //     .iter()
-    //     .flat_map(|&face| face_node_connectivity[face].clone())
-    //     .collect();
-    // element_nodes.sort();
-    // element_nodes.dedup();
-    // let element = Element::from((
-    //     element_face_connectivity
-    //         .iter()
-    //         .map(|&face| {
-    //             face_node_connectivity[face]
-    //                 .iter()
-    //                 .map(|&node| coordinates[node].clone())
-    //                 .collect()
-    //         })
-    //         .collect::<ElementNodalReferenceCoordinates>(),
-    //     element_face_connectivity.clone(),
-    //     element_nodes,
-    //     face_node_connectivity.clone(),
-    // ));
-    // // let length = (coordinates[face_node_connectivity[0][0]].clone()
-    // //     - coordinates[face_node_connectivity[0][1]].clone())
-    // // .norm();
-    // // let volume = (15.0 + 7.0 * 5.0_f64.sqrt()) / 4.0 * length.powi(3);
-    // // assert!((element.integration_weights()[0] - volume).abs() < 1e-14);
-    // use crate::vem::NodalCoordinates;
-    // let coordinates_current = NodalCoordinates::from(coordinates);
-    // let coordinates_0 = coordinates_current.iter().collect();
-    // use crate::math::{TensorArray, assert_eq_within_tols};
-    // use crate::mechanics::DeformationGradient;
-    // use crate::vem::block::element::solid::SolidVirtualElement;
-    // element
-    //     .deformation_gradients(coordinates_0)
-    //     .iter()
-    //     .for_each(|deformation_gradient| {
-    //         assert_eq_within_tols(&DeformationGradient::identity(), deformation_gradient).unwrap()
-    //     })
+    use crate::mechanics::test::{get_deformation_gradient, get_translation_current_configuration};
+    let coordinates_current: NodalCoordinates = coordinates
+        .iter()
+        .map(|coord| get_deformation_gradient() * coord + get_translation_current_configuration())
+        .collect();
+    assert_eq_within_tols(
+        &get_deformation_gradient(),
+        &block.deformation_gradients(&coordinates_current)[0][0],
+    )
+    .unwrap();
 }
