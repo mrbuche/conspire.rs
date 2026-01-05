@@ -1,4 +1,4 @@
-use crate::{
+use conspire::{
     constitutive::solid::hyperelastic::NeoHookean,
     fem::{
         Blocks, Model, NodalCoordinates, NodalReferenceCoordinates,
@@ -17,7 +17,7 @@ use crate::{
 const M: usize = 3;
 
 #[test]
-fn f3d() {
+fn foo() {
     let constitutive = NeoHookean {
         bulk_modulus: 13.0,
         shear_modulus: 3.0,

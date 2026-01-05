@@ -32,7 +32,7 @@ pub struct Model<B> {
 }
 
 #[derive(Debug)]
-pub struct Blocks<B1, B2>(B1, B2);
+pub struct Blocks<B1, B2>(pub B1, pub B2); // pub is temporary
 
 pub struct Connectivities<C1, C2>(C1, C2);
 

@@ -1,6 +1,3 @@
-#[cfg(test)]
-mod test;
-
 use crate::{
     constitutive::solid::elastic::Elastic,
     domain::{NodalCoordinates, NodalForcesSolid, NodalStiffnessesSolid},
