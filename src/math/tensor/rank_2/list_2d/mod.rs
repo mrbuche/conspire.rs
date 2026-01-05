@@ -1,19 +1,27 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::{Tensor, TensorRank2, TensorRank2List, tensor::list::TensorList};
+use crate::math::{Tensor, TensorRank0, TensorRank2, TensorRank2List, tensor::list::TensorList};
 use std::ops::Mul;
 
 #[cfg(test)]
-use crate::math::{TensorRank0, tensor::test::ErrorTensor};
+use crate::math::tensor::test::ErrorTensor;
 
 pub type TensorRank2List2D<
     const D: usize,
     const I: usize,
     const J: usize,
-    const W: usize,
-    const X: usize,
-> = TensorList<TensorRank2List<D, I, J, W>, X>;
+    const M: usize,
+    const N: usize,
+> = TensorList<TensorRank2List<D, I, J, M>, N>;
+
+impl<const D: usize, const I: usize, const J: usize, const M: usize, const N: usize>
+    From<[[[[TensorRank0; D]; D]; M]; N]> for TensorRank2List2D<D, I, J, M, N>
+{
+    fn from(array: [[[[TensorRank0; D]; D]; M]; N]) -> Self {
+        array.into_iter().map(|entry| entry.into()).collect()
+    }
+}
 
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: usize, const X: usize>
     Mul<TensorRank2<D, J, K>> for TensorRank2List2D<D, I, J, W, X>

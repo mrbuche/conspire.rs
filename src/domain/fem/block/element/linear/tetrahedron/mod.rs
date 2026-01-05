@@ -1,35 +1,54 @@
+#[cfg(test)]
+mod test;
+
+use crate::{
+    fem::block::element::{
+        FiniteElement, ParametricCoordinate, ParametricCoordinates, ParametricReference,
+        ShapeFunctions, ShapeFunctionsGradients,
+        linear::{LinearElement, LinearFiniteElement, M},
+    },
+    math::ScalarList,
+};
+
 const G: usize = 1;
 const N: usize = 4;
 
-pub type Tetrahedron = Element<G, N>;
+pub type Tetrahedron = LinearElement<G, N>;
 
-crate::fem::block::element::linear::implement!(Tetrahedron);
-
-impl Tetrahedron {
-    const fn integration_points() -> [[Scalar; M]; G] {
-        [[0.25; M]]
+impl FiniteElement<G, M, N> for Tetrahedron {
+    fn integration_points() -> ParametricCoordinates<G, M> {
+        [[0.25; M]].into()
     }
-    const fn integration_weight() -> Scalars<G> {
-        Scalars::<G>::const_from([1.0 / 6.0])
+    fn integration_weights(&self) -> &ScalarList<G> {
+        &self.integration_weights
     }
-    const fn reference() -> ElementNodalReferenceCoordinates<N> {
-        ElementNodalReferenceCoordinates::<N>::const_from([
+    fn parametric_reference() -> ParametricReference<M, N> {
+        [
             [0.0, 0.0, 0.0],
             [1.0, 0.0, 0.0],
             [0.0, 1.0, 0.0],
             [0.0, 0.0, 1.0],
-        ])
+        ]
+        .into()
     }
-    #[cfg(test)]
-    const fn shape_functions([xi_1, xi_2, xi_3]: [Scalar; M]) -> [Scalar; N] {
-        [1.0 - xi_1 - xi_2 - xi_3, xi_1, xi_2, xi_3]
+    fn parametric_weights() -> ScalarList<G> {
+        [1.0 / 6.0; G].into()
     }
-    const fn shape_functions_gradients([_xi_1, _xi_2, _xi_3]: [Scalar; M]) -> [[Scalar; M]; N] {
+    fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
+        let [xi_1, xi_2, xi_3] = parametric_coordinate.into();
+        [1.0 - xi_1 - xi_2 - xi_3, xi_1, xi_2, xi_3].into()
+    }
+    fn shape_functions_gradients(
+        _parametric_coordinate: ParametricCoordinate<M>,
+    ) -> ShapeFunctionsGradients<M, N> {
         [
             [-1.0, -1.0, -1.0],
             [1.0, 0.0, 0.0],
             [0.0, 1.0, 0.0],
             [0.0, 0.0, 1.0],
         ]
+        .into()
     }
 }
+
+impl LinearFiniteElement<G, N> for Tetrahedron {}

@@ -1,63 +1,77 @@
+#[cfg(test)]
+mod test;
+
+use crate::{
+    fem::block::element::{
+        FRAC_1_SQRT_3, FiniteElement, ParametricCoordinate, ParametricCoordinates,
+        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
+        linear::{LinearElement, LinearFiniteElement, M},
+    },
+    math::ScalarList,
+};
+
 const G: usize = 6;
 const N: usize = 6;
 
-pub type Wedge = Element<G, N>;
+pub type Wedge = LinearElement<G, N>;
 
-crate::fem::block::element::linear::implement!(Wedge);
-
-use super::FRAC_1_SQRT_3;
-
-impl Wedge {
-    const fn integration_points() -> [[Scalar; M]; G] {
+impl FiniteElement<G, M, N> for Wedge {
+    fn integration_points() -> ParametricCoordinates<G, M> {
         [
-            [1.0 / 6.0, 1.0 / 6.0, -FRAC_1_SQRT_3],
             [2.0 / 3.0, 1.0 / 6.0, -FRAC_1_SQRT_3],
             [1.0 / 6.0, 2.0 / 3.0, -FRAC_1_SQRT_3],
-            [1.0 / 6.0, 1.0 / 6.0, FRAC_1_SQRT_3],
+            [1.0 / 6.0, 1.0 / 6.0, -FRAC_1_SQRT_3],
             [2.0 / 3.0, 1.0 / 6.0, FRAC_1_SQRT_3],
             [1.0 / 6.0, 2.0 / 3.0, FRAC_1_SQRT_3],
+            [1.0 / 6.0, 1.0 / 6.0, FRAC_1_SQRT_3],
         ]
+        .into()
     }
-    const fn integration_weight() -> Scalars<G> {
-        Scalars::<G>::const_from([1.0 / 6.0; G])
+    fn integration_weights(&self) -> &ScalarList<G> {
+        &self.integration_weights
     }
-    const fn reference() -> ElementNodalReferenceCoordinates<N> {
-        ElementNodalReferenceCoordinates::<N>::const_from([
-            [0.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
+    fn parametric_reference() -> ParametricReference<M, N> {
+        [
+            [0.0, 0.0, -1.0],
+            [1.0, 0.0, -1.0],
+            [0.0, 1.0, -1.0],
             [0.0, 0.0, 1.0],
             [1.0, 0.0, 1.0],
             [0.0, 1.0, 1.0],
-        ])
-    }
-    #[cfg(test)]
-    const fn shape_functions([xi_1, xi_2, xi_3]: [Scalar; M]) -> [Scalar; N] {
-        [
-            (1.0 - xi_1 - xi_2) * (1.0 - xi_3) / 2.0,
-            xi_1 * (1.0 - xi_3) / 2.0,
-            xi_2 * (1.0 - xi_3) / 2.0,
-            (1.0 - xi_1 - xi_2) * (1.0 + xi_3) / 2.0,
-            xi_1 * (1.0 + xi_3) / 2.0,
-            xi_2 * (1.0 + xi_3) / 2.0,
         ]
+        .into()
     }
-    const fn shape_functions_gradients([xi_1, xi_2, xi_3]: [Scalar; M]) -> [[Scalar; M]; N] {
+    fn parametric_weights() -> ScalarList<G> {
+        [1.0 / 6.0; G].into()
+    }
+    fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
+        let [xi_1, xi_2, xi_3] = parametric_coordinate.into();
+        let xi_0 = 1.0 - xi_1 - xi_2;
         [
-            [
-                -(1.0 - xi_3) / 2.0,
-                -(1.0 - xi_3) / 2.0,
-                -(1.0 - xi_1 - xi_2) / 2.0,
-            ],
-            [(1.0 - xi_3) / 2.0, 0.0, -xi_1 / 2.0],
-            [0.0, (1.0 - xi_3) / 2.0, -xi_2 / 2.0],
-            [
-                -(1.0 + xi_3) / 2.0,
-                -(1.0 + xi_3) / 2.0,
-                (1.0 - xi_1 - xi_2) / 2.0,
-            ],
-            [(1.0 + xi_3) / 2.0, 0.0, xi_1 / 2.0],
-            [0.0, (1.0 + xi_3) / 2.0, xi_2 / 2.0],
+            0.5 * xi_0 * (1.0 - xi_3),
+            0.5 * xi_1 * (1.0 - xi_3),
+            0.5 * xi_2 * (1.0 - xi_3),
+            0.5 * xi_0 * (1.0 + xi_3),
+            0.5 * xi_1 * (1.0 + xi_3),
+            0.5 * xi_2 * (1.0 + xi_3),
         ]
+        .into()
+    }
+    fn shape_functions_gradients(
+        parametric_coordinate: ParametricCoordinate<M>,
+    ) -> ShapeFunctionsGradients<M, N> {
+        let [xi_1, xi_2, xi_3] = parametric_coordinate.into();
+        let xi_0 = 1.0 - xi_1 - xi_2;
+        [
+            [-0.5 * (1.0 - xi_3), -0.5 * (1.0 - xi_3), -0.5 * xi_0],
+            [0.5 * (1.0 - xi_3), 0.0, -0.5 * xi_1],
+            [0.0, 0.5 * (1.0 - xi_3), -0.5 * xi_2],
+            [-0.5 * (1.0 + xi_3), -0.5 * (1.0 + xi_3), 0.5 * xi_0],
+            [0.5 * (1.0 + xi_3), 0.0, 0.5 * xi_1],
+            [0.0, 0.5 * (1.0 + xi_3), 0.5 * xi_2],
+        ]
+        .into()
     }
 }
+
+impl LinearFiniteElement<G, N> for Wedge {}

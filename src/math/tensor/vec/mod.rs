@@ -1,15 +1,25 @@
-use crate::math::{Tensor, TensorRank0, TensorVec};
+use crate::math::{Tensor, TensorRank0, TensorRank1, TensorVec};
 use std::{
+    collections::VecDeque,
     fmt::{Display, Formatter, Result},
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
-    vec::IntoIter,
+    slice, vec,
 };
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct TensorVector<T>(Vec<T>)
-where
-    T: Tensor;
+pub struct TensorVector<T>(Vec<T>);
+// where
+//     T: Tensor;
+
+pub type TensorRank1RefVec<'a, const D: usize, const I: usize> =
+    TensorVector<&'a TensorRank1<D, I>>;
+
+impl<'a, const D: usize, const I: usize> TensorRank1RefVec<'a, D, I> {
+    pub fn iter(&self) -> impl Iterator<Item = &&TensorRank1<D, I>> {
+        self.0.iter()
+    }
+}
 
 impl<T> TensorVector<T>
 where
@@ -54,6 +64,33 @@ where
 {
     fn from(vec: Vec<T>) -> Self {
         Self(vec)
+    }
+}
+
+impl<T> From<TensorVector<T>> for Vec<T>
+where
+    T: Tensor,
+{
+    fn from(tensor_vector: TensorVector<T>) -> Self {
+        tensor_vector.0
+    }
+}
+
+impl<T> From<VecDeque<T>> for TensorVector<T>
+where
+    T: Tensor,
+{
+    fn from(vec_deque: VecDeque<T>) -> Self {
+        Self(vec_deque.into())
+    }
+}
+
+impl<T> From<TensorVector<T>> for VecDeque<T>
+where
+    T: Tensor,
+{
+    fn from(tensor_vector: TensorVector<T>) -> Self {
+        tensor_vector.0.into()
     }
 }
 
@@ -131,8 +168,8 @@ where
 }
 
 impl<T> FromIterator<T> for TensorVector<T>
-where
-    T: Tensor,
+// where
+//     T: Tensor,
 {
     fn from_iter<Ii: IntoIterator<Item = T>>(into_iterator: Ii) -> Self {
         Self(Vec::from_iter(into_iterator))
@@ -144,9 +181,20 @@ where
     T: Tensor,
 {
     type Item = T;
-    type IntoIter = IntoIter<Self::Item>;
+    type IntoIter = vec::IntoIter<Self::Item>;
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a TensorVector<T>
+where
+    T: Tensor,
+{
+    type Item = &'a T;
+    type IntoIter = slice::Iter<'a, T>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
     }
 }
 

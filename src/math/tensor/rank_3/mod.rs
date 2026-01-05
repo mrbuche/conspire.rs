@@ -22,7 +22,7 @@ use super::{
 
 /// Returns the rank-3 Levi-Civita symbol.
 pub fn levi_civita<const I: usize, const J: usize, const K: usize>() -> TensorRank3<3, I, J, K> {
-    TensorRank3::new([
+    TensorRank3::from([
         [[0.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]],
         [[0.0, 0.0, -1.0], [0.0, 0.0, 0.0], [1.0, 0.0, 0.0]],
         [[0.0, 1.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
@@ -43,6 +43,14 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Default
 {
     fn default() -> Self {
         Self::zero()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize, const K: usize>
+    From<[[[TensorRank0; D]; D]; D]> for TensorRank3<D, I, J, K>
+{
+    fn from(array: [[[TensorRank0; D]; D]; D]) -> Self {
+        array.into_iter().map(|entry| entry.into()).collect()
     }
 }
 
@@ -146,9 +154,6 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> TensorArray
     }
     fn identity() -> Self {
         panic!()
-    }
-    fn new(array: Self::Array) -> Self {
-        array.into_iter().map(Self::Item::new).collect()
     }
     fn zero() -> Self {
         Self(from_fn(|_| Self::Item::zero()))

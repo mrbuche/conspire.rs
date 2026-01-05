@@ -9,7 +9,6 @@ pub mod vec_2d;
 use std::{
     fmt::{self, Display, Formatter},
     iter::Sum,
-    mem::transmute,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
@@ -24,7 +23,6 @@ use super::test::ErrorTensor;
 /// A *d*-dimensional tensor of rank 1.
 ///
 /// `D` is the dimension, `I` is the configuration.
-#[repr(transparent)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct TensorRank1<const D: usize, const I: usize>([TensorRank0; D]);
 
@@ -38,6 +36,18 @@ impl<const D: usize, const I: usize> TensorRank1<D, I> {
 impl<const D: usize, const I: usize> Default for TensorRank1<D, I> {
     fn default() -> Self {
         Self::zero()
+    }
+}
+
+impl<const D: usize> From<TensorRank1<D, 0>> for TensorRank1<D, 1> {
+    fn from(tensor_rank_1: TensorRank1<D, 0>) -> Self {
+        Self(tensor_rank_1.0)
+    }
+}
+
+impl<const D: usize> From<TensorRank1<D, 9>> for TensorRank1<D, 0> {
+    fn from(tensor_rank_1: TensorRank1<D, 9>) -> Self {
+        Self(tensor_rank_1.0)
     }
 }
 
@@ -157,9 +167,6 @@ impl<const D: usize, const I: usize> TensorArray for TensorRank1<D, I> {
     fn identity() -> Self {
         ones()
     }
-    fn new(array: Self::Array) -> Self {
-        array.into_iter().collect()
-    }
     fn zero() -> Self {
         zero()
     }
@@ -173,12 +180,6 @@ pub const fn ones<const D: usize, const I: usize>() -> TensorRank1<D, I> {
 /// Returns the rank-1 zero tensor as a constant.
 pub const fn zero<const D: usize, const I: usize>() -> TensorRank1<D, I> {
     TensorRank1([0.0; D])
-}
-
-impl From<TensorRank1<3, 0>> for TensorRank1<3, 1> {
-    fn from(tensor_rank_1: TensorRank1<3, 0>) -> Self {
-        unsafe { transmute::<TensorRank1<3, 0>, TensorRank1<3, 1>>(tensor_rank_1) }
-    }
 }
 
 impl<const D: usize, const I: usize> From<[TensorRank0; D]> for TensorRank1<D, I> {

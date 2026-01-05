@@ -24,8 +24,8 @@ pub use matrix::{
     vector::Vector,
 };
 pub use tensor::{
-    Hessian, Jacobian, Rank2, Scalar, Scalars, ScalarsVec, Solution, Tensor, TensorArray,
-    TensorError, TensorVec,
+    Hessian, Jacobian, Rank2, Scalar, ScalarList, ScalarListVec, Scalars, Solution, Tensor,
+    TensorArray, TensorError, TensorVec,
     list::TensorList,
     rank_0::{TensorRank0, list::TensorRank0List, list_2d::TensorRank0List2D},
     rank_1::{
@@ -45,7 +45,7 @@ pub use tensor::{
         ContractFirstThirdFourthIndicesWithFirstIndicesOf,
         ContractSecondFourthIndicesWithFirstIndicesOf, ContractSecondIndexWithFirstIndexOf,
         ContractThirdFourthIndicesWithFirstSecondIndicesOf, ContractThirdIndexWithFirstIndexOf,
-        IDENTITY_1010, TensorRank4, list::TensorRank4List,
+        IDENTITY_1010, TensorRank4, list::TensorRank4List, vec::TensorRank4Vec,
     },
     test::{TestError, assert_eq, assert_eq_within, assert_eq_within_tols},
     tuple::{
@@ -53,7 +53,7 @@ pub use tensor::{
         list::{TensorTupleList, vec::TensorTupleListVec, vec_2d::TensorTupleListVec2D},
         vec::TensorTupleVec,
     },
-    vec::TensorVector,
+    vec::{TensorRank1RefVec, TensorVector},
 };
 
 use std::fmt;

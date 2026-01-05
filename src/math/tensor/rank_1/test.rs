@@ -9,27 +9,27 @@ fn get_array() -> [TensorRank0; 4] {
 }
 
 fn get_tensor_rank_1() -> TensorRank1<4, 1> {
-    TensorRank1::new(get_array())
+    TensorRank1::from(get_array())
 }
 
 fn get_tensor_rank_1_a() -> TensorRank1<4, 1> {
-    TensorRank1::new([5.0, 7.0, 6.0, 8.0])
+    TensorRank1::from([5.0, 7.0, 6.0, 8.0])
 }
 
 fn get_tensor_rank_1_b() -> TensorRank1<3, 1> {
-    TensorRank1::new([7.0, 2.0, 3.0])
+    TensorRank1::from([7.0, 2.0, 3.0])
 }
 
 fn get_tensor_rank_1_c() -> TensorRank1<3, 1> {
-    TensorRank1::new([4.0, 5.0, 6.0])
+    TensorRank1::from([4.0, 5.0, 6.0])
 }
 
 fn get_tensor_rank_1_b_cross_c() -> TensorRank1<3, 1> {
-    TensorRank1::new([-3.0, -30.0, 27.0])
+    TensorRank1::from([-3.0, -30.0, 27.0])
 }
 
 fn get_tensor_rank_1_add_tensor_rank_1_a() -> TensorRank1<4, 1> {
-    TensorRank1::new([6.0, 9.0, 9.0, 12.0])
+    TensorRank1::from([6.0, 9.0, 9.0, 12.0])
 }
 
 fn get_tensor_rank_1_mul_tensor_rank_1_a() -> TensorRank0 {
@@ -37,7 +37,7 @@ fn get_tensor_rank_1_mul_tensor_rank_1_a() -> TensorRank0 {
 }
 
 fn get_tensor_rank_1_sub_tensor_rank_1_a() -> TensorRank1<4, 1> {
-    TensorRank1::new([-4.0, -5.0, -3.0, -4.0])
+    TensorRank1::from([-4.0, -5.0, -3.0, -4.0])
 }
 
 #[test]
@@ -272,7 +272,7 @@ fn mul_tensor_rank_1_ref_to_self_ref() {
 }
 
 #[test]
-fn new() {
+fn from() {
     get_tensor_rank_1()
         .iter()
         .zip(get_array().iter())
@@ -372,7 +372,7 @@ fn sub_assign_tensor_rank_1_ref() {
 fn write() {
     let _ = format!(
         "{}",
-        TensorRank1::<12, 1>::new([
+        TensorRank1::<12, 1>::from([
             0.0,
             0.123456789,
             -1.123456789,

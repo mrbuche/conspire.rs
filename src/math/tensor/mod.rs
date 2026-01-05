@@ -24,11 +24,14 @@ use std::{
 /// A scalar.
 pub type Scalar = TensorRank0;
 
+/// A vector of scalars.
+pub type Scalars = Vector;
+
 /// A list of scalars.
-pub type Scalars<const W: usize> = TensorRank0List<W>;
+pub type ScalarList<const N: usize> = TensorRank0List<N>;
 
 /// A vector of lists of scalars.
-pub type ScalarsVec<const W: usize> = TensorRank0ListVec<W>;
+pub type ScalarListVec<const N: usize> = TensorRank0ListVec<N>;
 
 /// Possible errors for tensors.
 #[derive(PartialEq)]
@@ -262,8 +265,6 @@ pub trait TensorArray {
     fn as_array(&self) -> Self::Array;
     /// Returns the identity tensor.
     fn identity() -> Self;
-    /// Returns a tensor given an array.
-    fn new(array: Self::Array) -> Self;
     /// Returns the zero tensor.
     fn zero() -> Self;
 }

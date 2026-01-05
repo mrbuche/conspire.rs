@@ -29,7 +29,7 @@ mod minimize {
             &GradientDescent::default().minimize(
                 rosenbrock,
                 rosenbrock_derivative,
-                TensorRank1::new([-1.0, 1.0]),
+                TensorRank1::from([-1.0, 1.0]),
                 EqualityConstraint::None,
             )?,
             &TensorRank1::<2, 1>::identity(),
@@ -51,7 +51,7 @@ mod root {
         assert_eq_within_tols(
             &GradientDescent::default().root(
                 rosenbrock_derivative,
-                TensorRank1::new([-1.0, 1.0]),
+                TensorRank1::from([-1.0, 1.0]),
                 EqualityConstraint::None,
             )?,
             &TensorRank1::<2, 1>::identity(),

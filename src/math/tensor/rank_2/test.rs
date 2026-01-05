@@ -38,43 +38,43 @@ fn get_array_dim_9() -> [[TensorRank0; 9]; 9] {
 }
 
 fn get_tensor_rank_1_a() -> TensorRank1<4, 1> {
-    TensorRank1::new([1.0, 2.0, 3.0, 4.0])
+    TensorRank1::from([1.0, 2.0, 3.0, 4.0])
 }
 
 fn get_tensor_rank_1_b() -> TensorRank1<4, 1> {
-    TensorRank1::new([5.0, 7.0, 6.0, 8.0])
+    TensorRank1::from([5.0, 7.0, 6.0, 8.0])
 }
 
 fn get_tensor_rank_2_dim_2() -> TensorRank2<2, 1, 1> {
-    TensorRank2::new(get_array_dim_2())
+    TensorRank2::from(get_array_dim_2())
 }
 
 fn get_tensor_rank_2<const I: usize, const J: usize>() -> TensorRank2<3, I, J> {
-    TensorRank2::new(get_array_dim_3())
+    TensorRank2::from(get_array_dim_3())
 }
 
 fn get_tensor_rank_2_dim_3() -> TensorRank2<3, 1, 1> {
-    TensorRank2::new(get_array_dim_3())
+    TensorRank2::from(get_array_dim_3())
 }
 
 fn get_tensor_rank_2_dim_4() -> TensorRank2<4, 1, 1> {
-    TensorRank2::new(get_array_dim_4())
+    TensorRank2::from(get_array_dim_4())
 }
 
 fn get_tensor_rank_2_dim_9() -> TensorRank2<9, 1, 1> {
-    TensorRank2::new(get_array_dim_9())
+    TensorRank2::from(get_array_dim_9())
 }
 
 fn get_other_tensor_rank_2_dim_2() -> TensorRank2<2, 1, 1> {
-    TensorRank2::new([[5.0, 6.0], [7.0, 8.0]])
+    TensorRank2::from([[5.0, 6.0], [7.0, 8.0]])
 }
 
 fn get_other_tensor_rank_2_dim_3() -> TensorRank2<3, 1, 1> {
-    TensorRank2::new([[3.0, 2.0, 3.0], [6.0, 5.0, 2.0], [4.0, 5.0, 0.0]])
+    TensorRank2::from([[3.0, 2.0, 3.0], [6.0, 5.0, 2.0], [4.0, 5.0, 0.0]])
 }
 
 fn get_other_tensor_rank_2_dim_4() -> TensorRank2<4, 1, 1> {
-    TensorRank2::new([
+    TensorRank2::from([
         [3.0, 2.0, 3.0, 5.0],
         [6.0, 5.0, 2.0, 4.0],
         [4.0, 5.0, 0.0, 4.0],
@@ -83,7 +83,7 @@ fn get_other_tensor_rank_2_dim_4() -> TensorRank2<4, 1, 1> {
 }
 
 fn get_diagonal_tensor_rank_2_dim_4() -> TensorRank2<4, 1, 1> {
-    TensorRank2::new([
+    TensorRank2::from([
         [3.0, 0.0, 0.0, 0.0],
         [0.0, 5.0, 0.0, 0.0],
         [0.0, 0.0, 0.0, 0.0],
@@ -92,7 +92,7 @@ fn get_diagonal_tensor_rank_2_dim_4() -> TensorRank2<4, 1, 1> {
 }
 
 fn get_other_tensor_rank_2_dim_9() -> TensorRank2<9, 1, 1> {
-    TensorRank2::new([
+    TensorRank2::from([
         [0.0, 4.0, 2.0, 0.0, 1.0, 4.0, 2.0, 4.0, 1.0],
         [1.0, 2.0, 2.0, 1.0, 0.0, 3.0, 0.0, 2.0, 0.0],
         [3.0, 0.0, 2.0, 3.0, 3.0, 0.0, 0.0, 0.0, 2.0],
@@ -106,11 +106,11 @@ fn get_other_tensor_rank_2_dim_9() -> TensorRank2<9, 1, 1> {
 }
 
 fn get_other_tensor_rank_2_mul_tensor_rank_1_dim_4() -> TensorRank1<4, 1> {
-    TensorRank1::new([51.0, 14.0, 22.0, 27.0])
+    TensorRank1::from([51.0, 14.0, 22.0, 27.0])
 }
 
 fn get_other_tensor_rank_2_add_tensor_rank_2_dim_4() -> TensorRank2<4, 1, 1> {
-    TensorRank2::new([
+    TensorRank2::from([
         [4.0, 6.0, 9.0, 11.0],
         [7.0, 10.0, 3.0, 4.0],
         [5.0, 8.0, 5.0, 4.0],
@@ -119,7 +119,7 @@ fn get_other_tensor_rank_2_add_tensor_rank_2_dim_4() -> TensorRank2<4, 1, 1> {
 }
 
 fn get_other_tensor_rank_2_sub_tensor_rank_2_dim_4() -> TensorRank2<4, 1, 1> {
-    TensorRank2::new([
+    TensorRank2::from([
         [-2.0, 2.0, 3.0, 1.0],
         [-5.0, 0.0, -1.0, -4.0],
         [-3.0, -2.0, 5.0, -4.0],
@@ -128,7 +128,7 @@ fn get_other_tensor_rank_2_sub_tensor_rank_2_dim_4() -> TensorRank2<4, 1, 1> {
 }
 
 fn get_other_tensor_rank_2_mul_tensor_rank_2_dim_4() -> TensorRank2<4, 1, 1> {
-    TensorRank2::new([
+    TensorRank2::from([
         [75.0, 76.0, 17.0, 81.0],
         [37.0, 32.0, 13.0, 29.0],
         [41.0, 42.0, 9.0, 37.0],
@@ -137,7 +137,7 @@ fn get_other_tensor_rank_2_mul_tensor_rank_2_dim_4() -> TensorRank2<4, 1, 1> {
 }
 
 fn get_tensor_rank_1_list() -> TensorRank1List<3, 1, 8> {
-    TensorRank1List::new([
+    TensorRank1List::from([
         [5.0, 0.0, 0.0],
         [5.0, 5.0, 6.0],
         [3.0, 1.0, 4.0],
@@ -150,7 +150,7 @@ fn get_tensor_rank_1_list() -> TensorRank1List<3, 1, 8> {
 }
 
 fn get_tensor_rank_2_list_2d() -> TensorRank2List2D<3, 1, 1, 2, 2> {
-    TensorRank2List2D::new([
+    TensorRank2List2D::from([
         [
             [[1.0, 4.0, 6.0], [7.0, 2.0, 5.0], [9.0, 8.0, 3.0]],
             [[3.0, 2.0, 3.0], [6.0, 5.0, 2.0], [4.0, 5.0, 0.0]],
@@ -163,7 +163,7 @@ fn get_tensor_rank_2_list_2d() -> TensorRank2List2D<3, 1, 1, 2, 2> {
 }
 
 fn get_tensor_rank_2_mul_tensor_rank_2_list_2d() -> TensorRank2List2D<3, 1, 1, 2, 2> {
-    TensorRank2List2D::new([
+    TensorRank2List2D::from([
         [
             [[83.0, 60.0, 44.0], [66.0, 72.0, 67.0], [92.0, 76.0, 103.0]],
             [[51.0, 52.0, 11.0], [53.0, 49.0, 25.0], [87.0, 73.0, 43.0]],
@@ -176,7 +176,7 @@ fn get_tensor_rank_2_mul_tensor_rank_2_list_2d() -> TensorRank2List2D<3, 1, 1, 2
 }
 
 fn get_tensor_rank_4() -> TensorRank4<3, 1, 1, 2, 3> {
-    TensorRank4::new([
+    TensorRank4::from([
         [
             [[7.0, 3.0, 7.0], [3.0, 2.0, 7.0], [9.0, 8.0, 4.0]],
             [[1.0, 10.0, 7.0], [0.0, 3.0, 3.0], [4.0, 8.0, 8.0]],
@@ -196,7 +196,7 @@ fn get_tensor_rank_4() -> TensorRank4<3, 1, 1, 2, 3> {
 }
 
 fn get_tensor_rank_2_div_tensor_rank_4() -> TensorRank2<3, 2, 3> {
-    TensorRank2::new([
+    TensorRank2::from([
         [-0.8591023283605275, 0.5463144610682097, 0.48148464803521684],
         [0.14461826142457423, 2.8819091589827597, 0.3555608669979796],
         [
@@ -1110,7 +1110,7 @@ fn mul_tensor_rank_2_list_2d_to_self_ref() {
 }
 
 #[test]
-fn new() {
+fn from() {
     get_tensor_rank_2_dim_4()
         .iter()
         .zip(get_array_dim_4().iter())

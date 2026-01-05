@@ -3,22 +3,19 @@ use crate::{
     fem::{
         NodalCoordinates,
         block::{
-            ElementBlock, FiniteElementBlockError,
+            Block, FiniteElementBlockError,
             element::solid::hyperviscoelastic::HyperviscoelasticFiniteElement,
-            solid::{
-                SolidFiniteElementBlock,
-                elastic_hyperviscous::ElasticHyperviscousFiniteElementBlock,
-            },
+            solid::elastic_hyperviscous::ElasticHyperviscousFiniteElementBlock,
         },
     },
     math::Scalar,
 };
 
-pub trait HyperviscoelasticFiniteElementBlock<C, F, const G: usize, const N: usize>
+pub trait HyperviscoelasticFiniteElementBlock<C, F, const G: usize, const M: usize, const N: usize>
 where
     C: Hyperviscoelastic,
-    F: HyperviscoelasticFiniteElement<C, G, N>,
-    Self: ElasticHyperviscousFiniteElementBlock<C, F, G, N>,
+    F: HyperviscoelasticFiniteElement<C, G, M, N>,
+    Self: ElasticHyperviscousFiniteElementBlock<C, F, G, M, N>,
 {
     fn helmholtz_free_energy(
         &self,
@@ -26,12 +23,12 @@ where
     ) -> Result<Scalar, FiniteElementBlockError>;
 }
 
-impl<C, F, const G: usize, const N: usize> HyperviscoelasticFiniteElementBlock<C, F, G, N>
-    for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const M: usize, const N: usize>
+    HyperviscoelasticFiniteElementBlock<C, F, G, M, N> for Block<C, F, G, M, N>
 where
     C: Hyperviscoelastic,
-    F: HyperviscoelasticFiniteElement<C, G, N>,
-    Self: ElasticHyperviscousFiniteElementBlock<C, F, G, N>,
+    F: HyperviscoelasticFiniteElement<C, G, M, N>,
+    Self: ElasticHyperviscousFiniteElementBlock<C, F, G, M, N>,
 {
     fn helmholtz_free_energy(
         &self,
@@ -40,11 +37,11 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.connectivity().iter())
-            .map(|(element, element_connectivity)| {
+            .zip(self.connectivity())
+            .map(|(element, nodes)| {
                 element.helmholtz_free_energy(
                     self.constitutive_model(),
-                    &self.element_nodal_coordinates(element_connectivity, nodal_coordinates),
+                    &Self::element_coordinates(nodal_coordinates, nodes),
                 )
             })
             .sum()

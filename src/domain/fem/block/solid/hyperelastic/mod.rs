@@ -3,12 +3,9 @@ use crate::{
     fem::{
         NodalCoordinates,
         block::{
-            ElementBlock, FiniteElementBlockError, FirstOrderMinimize, SecondOrderMinimize, band,
+            Block, FiniteElementBlockError, FirstOrderMinimize, SecondOrderMinimize, band,
             element::solid::hyperelastic::HyperelasticFiniteElement,
-            solid::{
-                NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElementBlock,
-                elastic::ElasticFiniteElementBlock,
-            },
+            solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticFiniteElementBlock},
         },
     },
     math::{
@@ -19,11 +16,11 @@ use crate::{
     },
 };
 
-pub trait HyperelasticFiniteElementBlock<C, F, const G: usize, const N: usize>
+pub trait HyperelasticFiniteElementBlock<C, F, const G: usize, const M: usize, const N: usize>
 where
     C: Hyperelastic,
-    F: HyperelasticFiniteElement<C, G, N>,
-    Self: ElasticFiniteElementBlock<C, F, G, N>,
+    F: HyperelasticFiniteElement<C, G, M, N>,
+    Self: ElasticFiniteElementBlock<C, F, G, M, N>,
 {
     fn helmholtz_free_energy(
         &self,
@@ -31,12 +28,12 @@ where
     ) -> Result<Scalar, FiniteElementBlockError>;
 }
 
-impl<C, F, const G: usize, const N: usize> HyperelasticFiniteElementBlock<C, F, G, N>
-    for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const M: usize, const N: usize>
+    HyperelasticFiniteElementBlock<C, F, G, M, N> for Block<C, F, G, M, N>
 where
     C: Hyperelastic,
-    F: HyperelasticFiniteElement<C, G, N>,
-    Self: ElasticFiniteElementBlock<C, F, G, N>,
+    F: HyperelasticFiniteElement<C, G, M, N>,
+    Self: ElasticFiniteElementBlock<C, F, G, M, N>,
 {
     fn helmholtz_free_energy(
         &self,
@@ -45,11 +42,11 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.connectivity().iter())
-            .map(|(element, element_connectivity)| {
+            .zip(self.connectivity())
+            .map(|(element, nodes)| {
                 element.helmholtz_free_energy(
                     self.constitutive_model(),
-                    &self.element_nodal_coordinates(element_connectivity, nodal_coordinates),
+                    &Self::element_coordinates(nodal_coordinates, nodes),
                 )
             })
             .sum()
@@ -63,11 +60,11 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> FirstOrderMinimize<C, F, G, N, NodalCoordinates>
-    for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const M: usize, const N: usize>
+    FirstOrderMinimize<C, F, G, M, N, NodalCoordinates> for Block<C, F, G, M, N>
 where
     C: Hyperelastic,
-    F: HyperelasticFiniteElement<C, G, N>,
+    F: HyperelasticFiniteElement<C, G, M, N>,
 {
     fn minimize(
         &self,
@@ -85,12 +82,12 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize>
-    SecondOrderMinimize<C, F, G, N, NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>
-    for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const M: usize, const N: usize>
+    SecondOrderMinimize<C, F, G, M, N, NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>
+    for Block<C, F, G, M, N>
 where
     C: Hyperelastic,
-    F: HyperelasticFiniteElement<C, G, N>,
+    F: HyperelasticFiniteElement<C, G, M, N>,
 {
     fn minimize(
         &self,

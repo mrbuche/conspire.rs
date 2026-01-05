@@ -21,6 +21,7 @@ use super::{
 };
 
 pub mod list;
+pub mod vec;
 
 /// A *d*-dimensional tensor of rank 4.
 ///
@@ -40,6 +41,14 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
 {
     fn default() -> Self {
         Self::zero()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
+    From<[[[[TensorRank0; D]; D]; D]; D]> for TensorRank4<D, I, J, K, L>
+{
+    fn from(array: [[[[TensorRank0; D]; D]; D]; D]) -> Self {
+        array.into_iter().map(|entry| entry.into()).collect()
     }
 }
 
@@ -363,9 +372,6 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     }
     fn identity() -> Self {
         Self::dyad_ij_kl(&TensorRank2::identity(), &TensorRank2::identity())
-    }
-    fn new(array: Self::Array) -> Self {
-        array.into_iter().map(Self::Item::new).collect()
     }
     fn zero() -> Self {
         Self(from_fn(|_| Self::Item::zero()))

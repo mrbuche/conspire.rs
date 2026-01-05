@@ -1,21 +1,20 @@
 use crate::{
     constitutive::solid::elastic_viscoplastic::ElasticViscoplastic,
     fem::block::element::{
-        Element, ElementNodalCoordinates, FiniteElementError,
+        Element, ElementNodalCoordinates, FiniteElement, FiniteElementError,
         solid::{
             ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement,
             viscoplastic::ViscoplasticStateVariables,
         },
     },
     math::{ContractSecondFourthIndicesWithFirstIndicesOf, Tensor},
-    mechanics::{FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses},
+    mechanics::{FirstPiolaKirchhoffStressList, FirstPiolaKirchhoffTangentStiffnessList},
 };
-use std::fmt::Debug;
 
-pub trait ElasticViscoplasticFiniteElement<C, const G: usize, const N: usize>
+pub trait ElasticViscoplasticFiniteElement<C, const G: usize, const M: usize, const N: usize>
 where
     C: ElasticViscoplastic,
-    Self: Debug + SolidFiniteElement<G, N>,
+    Self: SolidFiniteElement<G, M, N>,
 {
     fn nodal_forces(
         &self,
@@ -37,9 +36,11 @@ where
     ) -> Result<ViscoplasticStateVariables<G>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize> ElasticViscoplasticFiniteElement<C, G, N> for Element<G, N>
+impl<C, const G: usize, const N: usize, const O: usize> ElasticViscoplasticFiniteElement<C, G, 3, N>
+    for Element<G, N, O>
 where
     C: ElasticViscoplastic,
+    Self: SolidFiniteElement<G, 3, N>,
 {
     fn nodal_forces(
         &self,
@@ -50,20 +51,20 @@ where
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
-            .zip(state_variables.iter())
+            .zip(state_variables)
             .map(|(deformation_gradient, state_variable)| {
                 let (deformation_gradient_p, _) = state_variable.into();
                 constitutive_model
                     .first_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_p)
             })
-            .collect::<Result<FirstPiolaKirchhoffStresses<G>, _>>()
+            .collect::<Result<FirstPiolaKirchhoffStressList<G>, _>>()
         {
             Ok(first_piola_kirchhoff_stresses) => Ok(first_piola_kirchhoff_stresses
                 .iter()
                 .zip(
                     self.gradient_vectors()
                         .iter()
-                        .zip(self.integration_weights().iter()),
+                        .zip(self.integration_weights()),
                 )
                 .map(
                     |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
@@ -92,7 +93,7 @@ where
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
-            .zip(state_variables.iter())
+            .zip(state_variables)
             .map(|(deformation_gradient, state_variable)| {
                 let (deformation_gradient_p, _) = state_variable.into();
                 constitutive_model.first_piola_kirchhoff_tangent_stiffness(
@@ -100,7 +101,7 @@ where
                     deformation_gradient_p,
                 )
             })
-            .collect::<Result<FirstPiolaKirchhoffTangentStiffnesses<G>, _>>()
+            .collect::<Result<FirstPiolaKirchhoffTangentStiffnessList<G>, _>>()
         {
             Ok(first_piola_kirchhoff_tangent_stiffnesses) => {
                 Ok(first_piola_kirchhoff_tangent_stiffnesses
@@ -108,7 +109,7 @@ where
                     .zip(
                         self.gradient_vectors()
                             .iter()
-                            .zip(self.integration_weights().iter()),
+                            .zip(self.integration_weights()),
                     )
                     .map(
                         |(
@@ -150,7 +151,7 @@ where
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
-            .zip(state_variables.iter())
+            .zip(state_variables)
             .map(|(deformation_gradient, state_variable)| {
                 constitutive_model.state_variables_evolution(deformation_gradient, state_variable)
             })

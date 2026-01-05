@@ -8,7 +8,7 @@ pub mod thermal;
 
 use crate::{
     defeat_message,
-    fem::{NodalReferenceCoordinates, block::element::FiniteElement},
+    fem::{NodalReferenceCoordinates, block::element::FiniteElementCreation},
     math::{
         Banded, Scalar, Tensor, TestError,
         optimize::{
@@ -16,6 +16,7 @@ use crate::{
             SecondOrderOptimization, ZerothOrderRootFinding,
         },
     },
+    mechanics::{CoordinateList, Coordinates},
 };
 use std::{
     any::type_name,
@@ -25,14 +26,14 @@ use std::{
 
 pub type Connectivity<const N: usize> = Vec<[usize; N]>;
 
-pub struct ElementBlock<C, F, const N: usize> {
+pub struct Block<C, F, const G: usize, const M: usize, const N: usize> {
     constitutive_model: C,
     connectivity: Connectivity<N>,
     coordinates: NodalReferenceCoordinates,
     elements: Vec<F>,
 }
 
-impl<C, F, const N: usize> ElementBlock<C, F, N> {
+impl<C, F, const G: usize, const M: usize, const N: usize> Block<C, F, G, M, N> {
     fn constitutive_model(&self) -> &C {
         &self.constitutive_model
     }
@@ -45,20 +46,22 @@ impl<C, F, const N: usize> ElementBlock<C, F, N> {
     fn elements(&self) -> &[F] {
         &self.elements
     }
+    fn element_coordinates<const I: usize>(
+        coordinates: &Coordinates<I>,
+        nodes: &[usize; N],
+    ) -> CoordinateList<I, N> {
+        nodes
+            .iter()
+            .map(|&node| coordinates[node].clone())
+            .collect()
+    }
 }
 
-impl<C, F, const N: usize> Debug for ElementBlock<C, F, N> {
+impl<C, F, const G: usize, const M: usize, const N: usize> Debug for Block<C, F, G, M, N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let element = match N {
-            3 => "LinearTriangle",
-            4 => "LinearTetrahedron",
-            8 => "LinearHexahedron",
-            10 => "CompositeTetrahedron",
-            _ => panic!(),
-        };
         write!(
             f,
-            "ElementBlock {{ constitutive_model: {}, elements: [{element}; {}] }}",
+            "Block {{ constitutive model: {}, {} elements }}",
             type_name::<C>()
                 .rsplit("::")
                 .next()
@@ -73,35 +76,26 @@ impl<C, F, const N: usize> Debug for ElementBlock<C, F, N> {
 
 pub trait FiniteElementBlock<C, F, const G: usize, const N: usize>
 where
-    F: FiniteElement<G, N>,
+    Self: From<(C, Connectivity<N>, NodalReferenceCoordinates)>,
 {
-    fn new(
-        constitutive_model: C,
-        connectivity: Connectivity<N>,
-        coordinates: NodalReferenceCoordinates,
-    ) -> Self;
     fn reset(&mut self);
 }
 
-impl<C, F, const G: usize, const N: usize> FiniteElementBlock<C, F, G, N> for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const N: usize> From<(C, Connectivity<N>, NodalReferenceCoordinates)>
+    for Block<C, F, G, 3, N>
 where
-    F: FiniteElement<G, N>,
+    F: FiniteElementCreation<G, N>,
 {
-    fn new(
-        constitutive_model: C,
-        connectivity: Connectivity<N>,
-        coordinates: NodalReferenceCoordinates,
+    fn from(
+        (constitutive_model, connectivity, coordinates): (
+            C,
+            Connectivity<N>,
+            NodalReferenceCoordinates,
+        ),
     ) -> Self {
         let elements = connectivity
             .iter()
-            .map(|nodes| {
-                <F>::from(
-                    nodes
-                        .iter()
-                        .map(|&node| coordinates[node].clone())
-                        .collect(),
-                )
-            })
+            .map(|nodes| Self::element_coordinates(&coordinates, nodes).into())
             .collect();
         Self {
             constitutive_model,
@@ -110,8 +104,16 @@ where
             elements,
         }
     }
+}
+
+impl<C, F, const G: usize, const N: usize> FiniteElementBlock<C, F, G, N> for Block<C, F, G, 3, N>
+where
+    F: FiniteElementCreation<G, N>,
+{
     fn reset(&mut self) {
-        self.elements.iter_mut().for_each(|element| element.reset())
+        self.elements
+            .iter_mut()
+            .for_each(|element| *element = F::default())
     }
 }
 
@@ -168,7 +170,7 @@ impl Display for FiniteElementBlockError {
     }
 }
 
-pub trait ZerothOrderRoot<C, E, const G: usize, const N: usize, X> {
+pub trait ZerothOrderRoot<C, E, const G: usize, const M: usize, const N: usize, X> {
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
@@ -176,7 +178,7 @@ pub trait ZerothOrderRoot<C, E, const G: usize, const N: usize, X> {
     ) -> Result<X, OptimizationError>;
 }
 
-pub trait FirstOrderRoot<C, E, const G: usize, const N: usize, F, J, X> {
+pub trait FirstOrderRoot<C, E, const G: usize, const M: usize, const N: usize, F, J, X> {
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
@@ -184,7 +186,7 @@ pub trait FirstOrderRoot<C, E, const G: usize, const N: usize, F, J, X> {
     ) -> Result<X, OptimizationError>;
 }
 
-pub trait FirstOrderMinimize<C, E, const G: usize, const N: usize, X> {
+pub trait FirstOrderMinimize<C, E, const G: usize, const M: usize, const N: usize, X> {
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
@@ -192,7 +194,7 @@ pub trait FirstOrderMinimize<C, E, const G: usize, const N: usize, X> {
     ) -> Result<X, OptimizationError>;
 }
 
-pub trait SecondOrderMinimize<C, E, const G: usize, const N: usize, J, H, X> {
+pub trait SecondOrderMinimize<C, E, const G: usize, const M: usize, const N: usize, J, H, X> {
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,

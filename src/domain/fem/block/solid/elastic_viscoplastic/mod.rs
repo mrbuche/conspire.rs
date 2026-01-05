@@ -3,7 +3,7 @@ use crate::{
     fem::{
         NodalCoordinates, NodalCoordinatesHistory,
         block::{
-            ElementBlock, FiniteElementBlockError,
+            Block, FiniteElementBlockError,
             element::{
                 FiniteElementError, solid::elastic_viscoplastic::ElasticViscoplasticFiniteElement,
             },
@@ -27,10 +27,15 @@ pub type ViscoplasticStateVariablesHistory<const G: usize> =
 
 pub type ElasticViscoplasticBCs = (crate::math::Matrix, fn(Scalar) -> crate::math::Vector);
 
-pub trait ElasticViscoplasticFiniteElementBlock<C, F, const G: usize, const N: usize>
-where
+pub trait ElasticViscoplasticFiniteElementBlock<
+    C,
+    F,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+> where
     C: ElasticViscoplastic,
-    F: ElasticViscoplasticFiniteElement<C, G, N>,
+    F: ElasticViscoplasticFiniteElement<C, G, M, N>,
 {
     fn nodal_forces(
         &self,
@@ -76,12 +81,12 @@ where
     ) -> Result<NodalCoordinates, OptimizationError>;
 }
 
-impl<C, F, const G: usize, const N: usize> ElasticViscoplasticFiniteElementBlock<C, F, G, N>
-    for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const M: usize, const N: usize>
+    ElasticViscoplasticFiniteElementBlock<C, F, G, M, N> for Block<C, F, G, M, N>
 where
     C: ElasticViscoplastic,
-    F: ElasticViscoplasticFiniteElement<C, G, N>,
-    Self: SolidFiniteElementBlock<C, F, G, N>,
+    F: ElasticViscoplasticFiniteElement<C, G, M, N>,
+    Self: SolidFiniteElementBlock<C, F, G, M, N>,
 {
     fn nodal_forces(
         &self,
@@ -92,23 +97,20 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.connectivity().iter())
-            .zip(state_variables.iter())
-            .try_for_each(
-                |((element, element_connectivity), state_variables_element)| {
-                    element
-                        .nodal_forces(
-                            self.constitutive_model(),
-                            &self
-                                .element_nodal_coordinates(element_connectivity, nodal_coordinates),
-                            state_variables_element,
-                        )?
-                        .iter()
-                        .zip(element_connectivity.iter())
-                        .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
-                    Ok::<(), FiniteElementError>(())
-                },
-            ) {
+            .zip(self.connectivity())
+            .zip(state_variables)
+            .try_for_each(|((element, nodes), state_variables_element)| {
+                element
+                    .nodal_forces(
+                        self.constitutive_model(),
+                        &Self::element_coordinates(nodal_coordinates, nodes),
+                        state_variables_element,
+                    )?
+                    .iter()
+                    .zip(nodes)
+                    .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
+                Ok::<(), FiniteElementError>(())
+            }) {
             Ok(()) => Ok(nodal_forces),
             Err(error) => Err(FiniteElementBlockError::Upstream(
                 format!("{error}"),
@@ -125,29 +127,27 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.connectivity().iter())
-            .zip(state_variables.iter())
-            .try_for_each(
-                |((element, element_connectivity), state_variables_element)| {
-                    element
-                        .nodal_stiffnesses(
-                            self.constitutive_model(),
-                            &self
-                                .element_nodal_coordinates(element_connectivity, nodal_coordinates),
-                            state_variables_element,
-                        )?
-                        .iter()
-                        .zip(element_connectivity.iter())
-                        .for_each(|(object, &node_a)| {
-                            object.iter().zip(element_connectivity.iter()).for_each(
-                                |(nodal_stiffness, &node_b)| {
-                                    nodal_stiffnesses[node_a][node_b] += nodal_stiffness
-                                },
-                            )
-                        });
-                    Ok::<(), FiniteElementError>(())
-                },
-            ) {
+            .zip(self.connectivity())
+            .zip(state_variables)
+            .try_for_each(|((element, nodes), state_variables_element)| {
+                element
+                    .nodal_stiffnesses(
+                        self.constitutive_model(),
+                        &Self::element_coordinates(nodal_coordinates, nodes),
+                        state_variables_element,
+                    )?
+                    .iter()
+                    .zip(nodes)
+                    .for_each(|(object, &node_a)| {
+                        object
+                            .iter()
+                            .zip(nodes)
+                            .for_each(|(nodal_stiffness, &node_b)| {
+                                nodal_stiffnesses[node_a][node_b] += nodal_stiffness
+                            })
+                    });
+                Ok::<(), FiniteElementError>(())
+            }) {
             Ok(()) => Ok(nodal_stiffnesses),
             Err(error) => Err(FiniteElementBlockError::Upstream(
                 format!("{error}"),
@@ -163,17 +163,15 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.connectivity().iter())
-            .zip(state_variables.iter())
-            .map(
-                |((element, element_connectivity), element_state_variables)| {
-                    element.state_variables_evolution(
-                        self.constitutive_model(),
-                        &self.element_nodal_coordinates(element_connectivity, nodal_coordinates),
-                        element_state_variables,
-                    )
-                },
-            )
+            .zip(self.connectivity())
+            .zip(state_variables)
+            .map(|((element, nodes), element_state_variables)| {
+                element.state_variables_evolution(
+                    self.constitutive_model(),
+                    &Self::element_coordinates(nodal_coordinates, nodes),
+                    element_state_variables,
+                )
+            })
             .collect()
         {
             Ok(state_variables_evolution) => Ok(state_variables_evolution),

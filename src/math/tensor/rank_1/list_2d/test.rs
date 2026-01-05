@@ -26,7 +26,7 @@ fn get_array() -> [[[TensorRank0; 3]; 8]; 2] {
 }
 
 fn get_tensor_rank_1_list_2d() -> TensorRank1List2D<3, 1, 8, 2> {
-    TensorRank1List2D::new(get_array())
+    TensorRank1List2D::from(get_array())
 }
 
 #[test]
@@ -66,7 +66,7 @@ fn iter_mut() {
 }
 
 #[test]
-fn new() {
+fn from() {
     get_tensor_rank_1_list_2d()
         .iter()
         .zip(get_array().iter())

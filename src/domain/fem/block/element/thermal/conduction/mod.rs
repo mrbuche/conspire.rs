@@ -4,7 +4,7 @@ pub mod test;
 use crate::{
     constitutive::{ConstitutiveError, thermal::conduction::ThermalConduction},
     fem::block::element::{
-        Element, FiniteElementError,
+        Element, FiniteElement, FiniteElementError,
         thermal::{ElementNodalTemperatures, ThermalFiniteElement},
     },
     math::{Scalar, Tensor, TensorRank0List, TensorRank0List2D},
@@ -14,10 +14,10 @@ use crate::{
 pub type ElementNodalForcesThermal<const D: usize> = TensorRank0List<D>;
 pub type ElementNodalStiffnessesThermal<const D: usize> = TensorRank0List2D<D>;
 
-pub trait ThermalConductionFiniteElement<C, const G: usize, const N: usize>
+pub trait ThermalConductionFiniteElement<C, const G: usize, const M: usize, const N: usize>
 where
     C: ThermalConduction,
-    Self: ThermalFiniteElement<G, N>,
+    Self: ThermalFiniteElement<G, M, N>,
 {
     fn potential(
         &self,
@@ -36,10 +36,11 @@ where
     ) -> Result<ElementNodalStiffnessesThermal<N>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize> ThermalConductionFiniteElement<C, G, N> for Element<G, N>
+impl<C, const G: usize, const M: usize, const N: usize, const O: usize>
+    ThermalConductionFiniteElement<C, G, M, N> for Element<G, N, O>
 where
     C: ThermalConduction,
-    Self: ThermalFiniteElement<G, N>,
+    Self: ThermalFiniteElement<G, M, N>,
 {
     fn potential(
         &self,
@@ -49,7 +50,7 @@ where
         match self
             .temperature_gradients(nodal_temperatures)
             .iter()
-            .zip(self.integration_weights().iter())
+            .zip(self.integration_weights())
             .map(|(temperature_gradient, integration_weight)| {
                 Ok::<_, ConstitutiveError>(
                     constitutive_model.potential(temperature_gradient)? * integration_weight,
@@ -80,7 +81,7 @@ where
                 .zip(
                     self.gradient_vectors()
                         .iter()
-                        .zip(self.integration_weights().iter()),
+                        .zip(self.integration_weights()),
                 )
                 .map(|(heat_flux, (gradient_vectors, integration_weight))| {
                     gradient_vectors
@@ -111,7 +112,7 @@ where
                 .zip(
                     self.gradient_vectors()
                         .iter()
-                        .zip(self.integration_weights().iter()),
+                        .zip(self.integration_weights()),
                 )
                 .map(
                     |(heat_flux_tangent, (gradient_vectors, integration_weight))| {

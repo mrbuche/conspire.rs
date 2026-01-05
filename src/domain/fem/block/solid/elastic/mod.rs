@@ -3,7 +3,7 @@ use crate::{
     fem::{
         NodalCoordinates,
         block::{
-            ElementBlock, FiniteElementBlockError, FirstOrderRoot, ZerothOrderRoot,
+            Block, FiniteElementBlockError, FirstOrderRoot, ZerothOrderRoot,
             element::{FiniteElementError, solid::elastic::ElasticFiniteElement},
             solid::{NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElementBlock},
         },
@@ -16,10 +16,10 @@ use crate::{
     },
 };
 
-pub trait ElasticFiniteElementBlock<C, F, const G: usize, const N: usize>
+pub trait ElasticFiniteElementBlock<C, F, const G: usize, const M: usize, const N: usize>
 where
     C: Elastic,
-    F: ElasticFiniteElement<C, G, N>,
+    F: ElasticFiniteElement<C, G, M, N>,
 {
     fn nodal_forces(
         &self,
@@ -31,12 +31,12 @@ where
     ) -> Result<NodalStiffnessesSolid, FiniteElementBlockError>;
 }
 
-impl<C, F, const G: usize, const N: usize> ElasticFiniteElementBlock<C, F, G, N>
-    for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const M: usize, const N: usize> ElasticFiniteElementBlock<C, F, G, M, N>
+    for Block<C, F, G, M, N>
 where
     C: Elastic,
-    F: ElasticFiniteElement<C, G, N>,
-    Self: SolidFiniteElementBlock<C, F, G, N>,
+    F: ElasticFiniteElement<C, G, M, N>,
+    Self: SolidFiniteElementBlock<C, F, G, M, N>,
 {
     fn nodal_forces(
         &self,
@@ -46,15 +46,15 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.connectivity().iter())
-            .try_for_each(|(element, element_connectivity)| {
+            .zip(self.connectivity())
+            .try_for_each(|(element, nodes)| {
                 element
                     .nodal_forces(
                         self.constitutive_model(),
-                        &self.element_nodal_coordinates(element_connectivity, nodal_coordinates),
+                        &Self::element_coordinates(nodal_coordinates, nodes),
                     )?
                     .iter()
-                    .zip(element_connectivity.iter())
+                    .zip(nodes)
                     .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
                 Ok::<(), FiniteElementError>(())
             }) {
@@ -73,21 +73,22 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.connectivity().iter())
-            .try_for_each(|(element, element_connectivity)| {
+            .zip(self.connectivity())
+            .try_for_each(|(element, nodes)| {
                 element
                     .nodal_stiffnesses(
                         self.constitutive_model(),
-                        &self.element_nodal_coordinates(element_connectivity, nodal_coordinates),
+                        &Self::element_coordinates(nodal_coordinates, nodes),
                     )?
                     .iter()
-                    .zip(element_connectivity.iter())
+                    .zip(nodes)
                     .for_each(|(object, &node_a)| {
-                        object.iter().zip(element_connectivity.iter()).for_each(
-                            |(nodal_stiffness, &node_b)| {
+                        object
+                            .iter()
+                            .zip(nodes)
+                            .for_each(|(nodal_stiffness, &node_b)| {
                                 nodal_stiffnesses[node_a][node_b] += nodal_stiffness
-                            },
-                        )
+                            })
                     });
                 Ok::<(), FiniteElementError>(())
             }) {
@@ -100,11 +101,11 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> ZerothOrderRoot<C, F, G, N, NodalCoordinates>
-    for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const M: usize, const N: usize>
+    ZerothOrderRoot<C, F, G, M, N, NodalCoordinates> for Block<C, F, G, M, N>
 where
     C: Elastic,
-    F: ElasticFiniteElement<C, G, N>,
+    F: ElasticFiniteElement<C, G, M, N>,
 {
     fn root(
         &self,
@@ -119,12 +120,12 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize>
-    FirstOrderRoot<C, F, G, N, NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>
-    for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const M: usize, const N: usize>
+    FirstOrderRoot<C, F, G, M, N, NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>
+    for Block<C, F, G, M, N>
 where
     C: Elastic,
-    F: ElasticFiniteElement<C, G, N>,
+    F: ElasticFiniteElement<C, G, M, N>,
 {
     fn root(
         &self,

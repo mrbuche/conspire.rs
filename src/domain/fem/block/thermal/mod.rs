@@ -2,7 +2,7 @@ pub mod conduction;
 
 use crate::{
     fem::block::{
-        ElementBlock,
+        Block,
         element::thermal::{ElementNodalTemperatures, ThermalFiniteElement},
     },
     math::Vector,
@@ -11,9 +11,9 @@ use crate::{
 
 pub type NodalTemperatures = Vector;
 
-pub trait ThermalFiniteElementBlock<C, F, const G: usize, const N: usize>
+pub trait ThermalFiniteElementBlock<C, F, const G: usize, const M: usize, const N: usize>
 where
-    F: ThermalFiniteElement<G, N>,
+    F: ThermalFiniteElement<G, M, N>,
 {
     fn nodal_temperatures_element(
         &self,
@@ -26,10 +26,10 @@ where
     ) -> Vec<TemperatureGradients<G>>;
 }
 
-impl<C, F, const G: usize, const N: usize> ThermalFiniteElementBlock<C, F, G, N>
-    for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const M: usize, const N: usize> ThermalFiniteElementBlock<C, F, G, M, N>
+    for Block<C, F, G, M, N>
 where
-    F: ThermalFiniteElement<G, N>,
+    F: ThermalFiniteElement<G, M, N>,
 {
     fn nodal_temperatures_element(
         &self,
@@ -47,7 +47,7 @@ where
     ) -> Vec<TemperatureGradients<G>> {
         self.elements()
             .iter()
-            .zip(self.connectivity().iter())
+            .zip(self.connectivity())
             .map(|(element, element_connectivity)| {
                 element.temperature_gradients(
                     &self.nodal_temperatures_element(element_connectivity, nodal_temperatures),

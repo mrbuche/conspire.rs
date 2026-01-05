@@ -1,44 +1,42 @@
 use crate::{
     fem::{
         NodalReferenceCoordinates,
-        block::{Connectivity, ElementBlock, element::surface::SurfaceFiniteElement},
+        block::{Block, Connectivity, element::surface::SurfaceFiniteElementCreation},
     },
     math::Scalar,
 };
 
-pub trait SurfaceFiniteElementBlock<C, F, const G: usize, const N: usize, const P: usize>
+const M: usize = 2;
+
+pub trait SurfaceFiniteElementBlock<C, F, const G: usize, const N: usize>
 where
-    F: SurfaceFiniteElement<G, N, P>,
+    Self: From<(C, Connectivity<N>, NodalReferenceCoordinates, Scalar)>,
 {
-    fn new(
-        constitutive_model: C,
-        connectivity: Connectivity<N>,
-        coordinates: NodalReferenceCoordinates,
-        thickness: Scalar,
-    ) -> Self;
 }
 
-impl<C, F, const G: usize, const N: usize, const P: usize> SurfaceFiniteElementBlock<C, F, G, N, P>
-    for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const N: usize>
+    From<(C, Connectivity<N>, NodalReferenceCoordinates, Scalar)> for Block<C, F, G, M, N>
 where
-    F: SurfaceFiniteElement<G, N, P>,
+    F: SurfaceFiniteElementCreation<G, N>,
 {
-    fn new(
-        constitutive_model: C,
-        connectivity: Connectivity<N>,
-        coordinates: NodalReferenceCoordinates,
-        thickness: Scalar,
+    fn from(
+        (constitutive_model, connectivity, coordinates, thickness): (
+            C,
+            Connectivity<N>,
+            NodalReferenceCoordinates,
+            Scalar,
+        ),
     ) -> Self {
         let elements = connectivity
             .iter()
             .map(|nodes| {
-                <F>::new(
+                <F>::from((
                     nodes
                         .iter()
                         .map(|&node| coordinates[node].clone())
                         .collect(),
                     thickness,
-                )
+                ))
             })
             .collect();
         Self {
@@ -48,4 +46,11 @@ where
             elements,
         }
     }
+}
+
+impl<C, F, const G: usize, const N: usize> SurfaceFiniteElementBlock<C, F, G, N>
+    for Block<C, F, G, M, N>
+where
+    F: SurfaceFiniteElementCreation<G, N>,
+{
 }

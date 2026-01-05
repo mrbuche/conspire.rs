@@ -3,7 +3,7 @@ use crate::{
     fem::{
         NodalCoordinates, NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
         block::{
-            ElementBlock, FiniteElementBlockError,
+            Block, FiniteElementBlockError,
             element::{
                 ElementNodalVelocities, FiniteElementError,
                 solid::viscoelastic::ViscoelasticFiniteElement,
@@ -19,20 +19,20 @@ use crate::{
     mechanics::{DeformationGradientRateList, Times},
 };
 
-pub trait ViscoelasticFiniteElementBlock<C, F, const G: usize, const N: usize>
+pub trait ViscoelasticFiniteElementBlock<C, F, const G: usize, const M: usize, const N: usize>
 where
     C: Viscoelastic,
-    F: ViscoelasticFiniteElement<C, G, N>,
+    F: ViscoelasticFiniteElement<C, G, M, N>,
 {
     fn deformation_gradient_rates(
         &self,
         nodal_coordinates: &NodalCoordinates,
         nodal_velocities: &NodalVelocities,
     ) -> Vec<DeformationGradientRateList<G>>;
-    fn element_nodal_velocities(
+    fn element_velocities(
         &self,
-        element_connectivity: &[usize; N],
         nodal_velocities: &NodalVelocities,
+        nodes: &[usize; N],
     ) -> ElementNodalVelocities<N>;
     fn nodal_forces(
         &self,
@@ -61,12 +61,12 @@ where
     ) -> Result<NodalVelocities, OptimizationError>;
 }
 
-impl<C, F, const G: usize, const N: usize> ViscoelasticFiniteElementBlock<C, F, G, N>
-    for ElementBlock<C, F, N>
+impl<C, F, const G: usize, const M: usize, const N: usize>
+    ViscoelasticFiniteElementBlock<C, F, G, M, N> for Block<C, F, G, M, N>
 where
     C: Viscoelastic,
-    F: ViscoelasticFiniteElement<C, G, N>,
-    Self: SolidFiniteElementBlock<C, F, G, N>,
+    F: ViscoelasticFiniteElement<C, G, M, N>,
+    Self: SolidFiniteElementBlock<C, F, G, M, N>,
 {
     fn deformation_gradient_rates(
         &self,
@@ -75,24 +75,21 @@ where
     ) -> Vec<DeformationGradientRateList<G>> {
         self.elements()
             .iter()
-            .zip(self.connectivity().iter())
-            .map(|(element, element_connectivity)| {
+            .zip(self.connectivity())
+            .map(|(element, nodes)| {
                 element.deformation_gradient_rates(
-                    &self.element_nodal_coordinates(element_connectivity, nodal_coordinates),
-                    &self.element_nodal_velocities(element_connectivity, nodal_velocities),
+                    &Self::element_coordinates(nodal_coordinates, nodes),
+                    &self.element_velocities(nodal_velocities, nodes),
                 )
             })
             .collect()
     }
-    fn element_nodal_velocities(
+    fn element_velocities(
         &self,
-        element_connectivity: &[usize; N],
-        nodal_velocities: &NodalVelocities,
+        velocities: &NodalVelocities,
+        nodes: &[usize; N],
     ) -> ElementNodalVelocities<N> {
-        element_connectivity
-            .iter()
-            .map(|&node| nodal_velocities[node].clone())
-            .collect()
+        nodes.iter().map(|&node| velocities[node].clone()).collect()
     }
     fn nodal_forces(
         &self,
@@ -103,16 +100,16 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.connectivity().iter())
-            .try_for_each(|(element, element_connectivity)| {
+            .zip(self.connectivity())
+            .try_for_each(|(element, nodes)| {
                 element
                     .nodal_forces(
                         self.constitutive_model(),
-                        &self.element_nodal_coordinates(element_connectivity, nodal_coordinates),
-                        &self.element_nodal_velocities(element_connectivity, nodal_velocities),
+                        &Self::element_coordinates(nodal_coordinates, nodes),
+                        &self.element_velocities(nodal_velocities, nodes),
                     )?
                     .iter()
-                    .zip(element_connectivity.iter())
+                    .zip(nodes)
                     .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
                 Ok::<(), FiniteElementError>(())
             }) {
@@ -132,22 +129,23 @@ where
         match self
             .elements()
             .iter()
-            .zip(self.connectivity().iter())
-            .try_for_each(|(element, element_connectivity)| {
+            .zip(self.connectivity())
+            .try_for_each(|(element, nodes)| {
                 element
                     .nodal_stiffnesses(
                         self.constitutive_model(),
-                        &self.element_nodal_coordinates(element_connectivity, nodal_coordinates),
-                        &self.element_nodal_velocities(element_connectivity, nodal_velocities),
+                        &Self::element_coordinates(nodal_coordinates, nodes),
+                        &self.element_velocities(nodal_velocities, nodes),
                     )?
                     .iter()
-                    .zip(element_connectivity.iter())
+                    .zip(nodes)
                     .for_each(|(object, &node_a)| {
-                        object.iter().zip(element_connectivity.iter()).for_each(
-                            |(nodal_stiffness, &node_b)| {
+                        object
+                            .iter()
+                            .zip(nodes)
+                            .for_each(|(nodal_stiffness, &node_b)| {
                                 nodal_stiffnesses[node_a][node_b] += nodal_stiffness
-                            },
-                        )
+                            })
                     });
                 Ok::<(), FiniteElementError>(())
             }) {

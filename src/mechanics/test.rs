@@ -18,18 +18,18 @@ impl From<DeformationError> for TestError {
 }
 
 pub fn get_deformation_gradient() -> DeformationGradient {
-    DeformationGradient::new([
-        [0.63595746, 0.69157849, 0.71520784],
-        [0.80589604, 0.83687323, 0.19312595],
-        [0.05387420, 0.86551549, 0.41880244],
+    DeformationGradient::from([
+        [1.04936674, -0.12393166, -0.1092162],
+        [0.01618241, 1.08463046, -0.14924521],
+        [-0.14722667, 0.03234422, 0.93774805],
     ])
 }
 
 pub fn get_deformation_gradient_rate() -> DeformationGradientRate {
-    DeformationGradientRate::new([
-        [0.17414455, 0.97269465, 0.87856299],
-        [0.96651379, 0.84670298, 0.66739030],
-        [0.16205052, 0.85112927, 0.38711266],
+    DeformationGradientRate::from([
+        [0.01269584, -0.08578593, 0.03126217],
+        [-0.06238938, 0.02411277, -0.14343523],
+        [-0.09273372, -0.06585107, 0.05344082],
     ])
 }
 
@@ -78,14 +78,14 @@ pub fn get_right_cauchy_green_rotated() -> RightCauchyGreenDeformation {
 }
 
 pub fn get_frame_spin() -> FrameSpin {
-    FrameSpin::new([[0.0, 0.1, -0.2], [-0.1, 0.0, 0.8], [0.2, -0.8, 0.0]])
+    FrameSpin::from([[0.0, 0.1, -0.2], [-0.1, 0.0, 0.8], [0.2, -0.8, 0.0]])
 }
 
 pub fn get_rotation_current_configuration() -> RotationCurrentConfiguration {
     let sqrt_2 = (2.0 as Scalar).sqrt();
     let sqrt_3 = (3.0 as Scalar).sqrt();
     let sqrt_6 = (6.0 as Scalar).sqrt();
-    RotationCurrentConfiguration::new([
+    RotationCurrentConfiguration::from([
         [0.25 * sqrt_2, -0.25 * sqrt_6, 0.5 * sqrt_2],
         [
             0.125 * sqrt_2 + 0.75,
@@ -108,7 +108,7 @@ pub fn get_rotation_reference_configuration() -> RotationReferenceConfiguration 
     let sqrt_2 = (2.0 as Scalar).sqrt();
     let sqrt_3 = (3.0 as Scalar).sqrt();
     let sqrt_6 = (6.0 as Scalar).sqrt();
-    RotationReferenceConfiguration::new([
+    RotationReferenceConfiguration::from([
         [0.25 * sqrt_6, -0.25 * sqrt_6, 0.5],
         [
             0.125 * sqrt_6 + 0.25 * sqrt_2,
@@ -124,15 +124,15 @@ pub fn get_rotation_reference_configuration() -> RotationReferenceConfiguration 
 }
 
 pub fn get_translation_current_configuration() -> CurrentCoordinate {
-    CurrentCoordinate::new([1.1, 2.2, 3.3])
+    CurrentCoordinate::from([1.1, 2.2, 3.3])
 }
 
 pub fn get_translation_rate_current_configuration() -> CurrentVelocity {
-    CurrentVelocity::new([0.4, -0.7, 1.2])
+    CurrentVelocity::from([0.4, -0.7, 1.2])
 }
 
 pub fn get_translation_reference_configuration() -> ReferenceCoordinate {
-    ReferenceCoordinate::new([4.4, 5.5, 6.6])
+    ReferenceCoordinate::from([4.4, 5.5, 6.6])
 }
 
 pub fn get_temperature() -> Scalar {
@@ -140,7 +140,7 @@ pub fn get_temperature() -> Scalar {
 }
 
 pub fn get_temperature_gradient() -> TemperatureGradient {
-    TemperatureGradient::new([12.3, -5.0, 8.8])
+    TemperatureGradient::from([12.3, -5.0, 8.8])
 }
 
 #[test]

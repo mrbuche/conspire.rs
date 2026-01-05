@@ -2,11 +2,11 @@ use crate::{
     fem::{
         NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
         block::{
-            Connectivity, ElementBlock, FiniteElementBlock,
+            Block, Connectivity,
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
-                GradientVectors,
-                linear::hexahedron::{G, Hexahedron, N},
+                FiniteElement, GradientVectors,
+                linear::hexahedron::{G, Hexahedron, M, N},
                 solid::SolidFiniteElement,
                 test::test_finite_element,
             },
@@ -14,7 +14,7 @@ use crate::{
             test::test_finite_element_block,
         },
     },
-    math::{Scalars, Tensor, optimize::EqualityConstraint},
+    math::{ScalarList, Tensor, optimize::EqualityConstraint},
     mechanics::{DeformationGradient, DeformationGradientList, DeformationGradientRateList},
 };
 
@@ -66,7 +66,7 @@ fn get_coordinates_block() -> NodalCoordinates {
 }
 
 fn reference_coordinates() -> ElementNodalReferenceCoordinates<N> {
-    ElementNodalReferenceCoordinates::new([
+    ElementNodalReferenceCoordinates::from([
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 0.0],
         [1.0, 1.0, 0.0],
@@ -148,7 +148,7 @@ fn equality_constraint() -> (
     crate::math::Vector,
 ) {
     let strain = 0.55;
-    let mut a = crate::math::Matrix::zero(21, 81);
+    let mut a = crate::math::Matrix::zero(21, 3 * D);
     a[0][6] = 1.0;
     a[1][15] = 1.0;
     a[2][24] = 1.0;
@@ -210,7 +210,7 @@ fn applied_velocity(
 
 fn applied_velocities() -> (crate::math::Matrix, crate::math::Vector) {
     let velocity = 0.23;
-    let mut a = crate::math::Matrix::zero(21, 81);
+    let mut a = crate::math::Matrix::zero(21, 3 * D);
     a[0][6] = 1.0;
     a[1][15] = 1.0;
     a[2][24] = 1.0;
