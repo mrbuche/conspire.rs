@@ -39,7 +39,7 @@ where
             .map(|(element, nodes)| {
                 element.helmholtz_free_energy(
                     self.constitutive_model(),
-                    self.element_coordinates(nodal_coordinates, nodes),
+                    Self::element_coordinates(nodal_coordinates, nodes),
                 )
             })
             .sum()

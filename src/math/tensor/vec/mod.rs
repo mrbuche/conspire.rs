@@ -12,6 +12,8 @@ pub struct TensorVector<T>(Vec<T>);
 // where
 //     T: Tensor;
 
+// NEED TO MOVE SOMEWHERE ELSE
+
 pub type TensorRank1RefVec<'a, const D: usize, const I: usize> =
     TensorVector<&'a TensorRank1<D, I>>;
 
@@ -19,7 +21,22 @@ impl<'a, const D: usize, const I: usize> TensorRank1RefVec<'a, D, I> {
     pub fn iter(&self) -> impl Iterator<Item = &&TensorRank1<D, I>> {
         self.0.iter()
     }
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
 }
+
+impl<'a, const D: usize, const I: usize> Index<usize> for TensorRank1RefVec<'a, D, I> {
+    type Output = TensorRank1<D, I>;
+    fn index(&self, index: usize) -> &Self::Output {
+        self.0[index]
+    }
+}
+
+// NEED TO MOVE SOMEWHERE ELSE
 
 impl<T> TensorVector<T>
 where

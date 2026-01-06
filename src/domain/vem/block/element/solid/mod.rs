@@ -11,18 +11,24 @@ use crate::{
 pub type ElementNodalForcesSolid = Forces;
 pub type ElementNodalStiffnessesSolid = Stiffnesses;
 
-pub trait SolidVirtualElement {
+pub trait SolidVirtualElement
+where
+    Self: VirtualElement,
+{
     fn deformation_gradients<'a>(
         &'a self,
         nodal_coordinates: ElementNodalCoordinates<'a>,
     ) -> DeformationGradients;
     fn tetrahedra_deformation_gradients_and_volumes<'a>(
         &'a self,
-        nodal_coordinates: ElementNodalCoordinates<'a>,
+        nodal_coordinates: &ElementNodalCoordinates<'a>,
     ) -> Vec<(DeformationGradient, Scalar)>;
 }
 
-impl SolidVirtualElement for Element {
+impl SolidVirtualElement for Element
+where
+    Self: VirtualElement,
+{
     fn deformation_gradients<'a>(
         &'a self,
         nodal_coordinates: ElementNodalCoordinates<'a>,
@@ -42,15 +48,16 @@ impl SolidVirtualElement for Element {
     }
     fn tetrahedra_deformation_gradients_and_volumes<'a>(
         &'a self,
-        nodal_coordinates: ElementNodalCoordinates<'a>,
+        nodal_coordinates: &ElementNodalCoordinates<'a>,
     ) -> Vec<(DeformationGradient, Scalar)> {
         self.tetrahedra()
             .iter()
-            .map(|tetrahedron| {
+            .zip(self.tetrahedra_coordinates(nodal_coordinates))
+            .map(|(tetrahedron, tetrahedron_coordinates)| {
                 let element_volume: Scalar = tetrahedron.integration_weights().into_iter().sum();
                 (
                     tetrahedron
-                        .deformation_gradients(todo!())
+                        .deformation_gradients(&tetrahedron_coordinates)
                         .into_iter()
                         .zip(tetrahedron.integration_weights())
                         .map(|(deformation_gradient, integration_weight)| {

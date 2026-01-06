@@ -3,12 +3,13 @@ pub mod solid;
 use crate::{
     defeat_message,
     fem::block::element::{
+        ElementNodalCoordinates as FemElementNodalCoordinates,
         ElementNodalReferenceCoordinates as FemElementNodalReferenceCoordinates, FiniteElement,
         linear::Tetrahedron,
     },
     math::{Scalar, Scalars, Tensor, TensorRank1Vec2D, TestError},
-    mechanics::{CurrentCoordinatesRef, ReferenceCoordinate, Vectors2D},
-    vem::NodalReferenceCoordinates,
+    mechanics::{CurrentCoordinate, CurrentCoordinatesRef, ReferenceCoordinate, Vectors2D},
+    vem::{NodalCoordinates, NodalReferenceCoordinates},
 };
 use std::{
     collections::VecDeque,
@@ -19,27 +20,67 @@ pub type ElementNodalCoordinates<'a> = CurrentCoordinatesRef<'a>;
 pub type ElementNodalReferenceCoordinates = TensorRank1Vec2D<3, 0>;
 pub type GradientVectors = Vectors2D<0>;
 
+pub type TetrahedraCoordinates = Vec<FemElementNodalCoordinates<4>>;
+
 pub struct Element {
+    faces_nodes: Vec<Vec<usize>>,
     gradient_vectors: GradientVectors,
     integration_weights: Scalars,
     tetrahedra: Vec<Tetrahedron>,
+    tetrahedra_nodes: Vec<[usize; 3]>,
 }
 
 pub trait VirtualElement
 where
     for<'a> Self: From<(
         ElementNodalReferenceCoordinates,
-        Vec<usize>,
+        &'a [usize],
         &'a [usize],
         &'a [Vec<usize>],
     )>,
 {
+    fn element_center<'a>(nodal_coordinates: &ElementNodalCoordinates<'a>) -> CurrentCoordinate;
+    fn faces_centers<'a>(
+        &'a self,
+        nodal_coordinates: &ElementNodalCoordinates<'a>,
+    ) -> NodalCoordinates;
+    fn faces_nodes(&self) -> &[Vec<usize>];
     fn gradient_vectors(&self) -> &GradientVectors;
     fn integration_weights(&self) -> &Scalars;
     fn tetrahedra(&self) -> &[Tetrahedron];
+    fn tetrahedra_coordinates<'a>(
+        &'a self,
+        nodal_coordinates: &ElementNodalCoordinates<'a>,
+    ) -> TetrahedraCoordinates;
+    fn tetrahedra_nodes(&self) -> &[[usize; 3]];
 }
 
 impl VirtualElement for Element {
+    fn element_center<'a>(nodal_coordinates: &ElementNodalCoordinates<'a>) -> CurrentCoordinate {
+        nodal_coordinates
+            .iter()
+            .map(|&nodal_coordinate| nodal_coordinate.clone())
+            .sum::<CurrentCoordinate>()
+            / nodal_coordinates.len() as Scalar
+    }
+    fn faces_centers<'a>(
+        &'a self,
+        nodal_coordinates: &ElementNodalCoordinates<'a>,
+    ) -> NodalCoordinates {
+        self.faces_nodes()
+            .iter()
+            .map(|face_nodes| {
+                face_nodes
+                    .iter()
+                    .map(|&face_node| nodal_coordinates[face_node].clone())
+                    .sum::<CurrentCoordinate>()
+                    / (face_nodes.len() as Scalar)
+            })
+            .collect()
+    }
+    fn faces_nodes(&self) -> &[Vec<usize>] {
+        &self.faces_nodes
+    }
     fn gradient_vectors(&self) -> &GradientVectors {
         &self.gradient_vectors
     }
@@ -49,30 +90,66 @@ impl VirtualElement for Element {
     fn tetrahedra(&self) -> &[Tetrahedron] {
         &self.tetrahedra
     }
+    fn tetrahedra_coordinates<'a>(
+        &'a self,
+        nodal_coordinates: &ElementNodalCoordinates<'a>,
+    ) -> TetrahedraCoordinates {
+        let element_center = Self::element_center(nodal_coordinates);
+        let faces_centers = self.faces_centers(nodal_coordinates);
+        self.tetrahedra_nodes()
+            .iter()
+            .map(|&[face, node_b, node_a]| {
+                [
+                    faces_centers[face].clone(),
+                    nodal_coordinates[node_b].clone(),
+                    nodal_coordinates[node_a].clone(),
+                    element_center.clone(),
+                ]
+                .into()
+            })
+            .collect()
+    }
+    fn tetrahedra_nodes(&self) -> &[[usize; 3]] {
+        &self.tetrahedra_nodes
+    }
 }
 
 impl
     From<(
         ElementNodalReferenceCoordinates,
-        Vec<usize>,
+        &[usize],
         &[usize],
         &[Vec<usize>],
     )> for Element
 {
     fn from(
-        (reference_nodal_coordinates, element_faces, element_nodes, faces_nodes): (
+        (reference_nodal_coordinates, element_faces, element_nodes, block_faces_nodes): (
             ElementNodalReferenceCoordinates,
-            Vec<usize>,
+            &[usize],
             &[usize],
             &[Vec<usize>],
         ),
     ) -> Self {
+        let faces_nodes = element_faces
+            .iter()
+            .map(|&element_face| {
+                block_faces_nodes[element_face]
+                    .iter()
+                    .map(|face_node| {
+                        element_nodes
+                            .iter()
+                            .position(|element_node| face_node == element_node)
+                            .unwrap()
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
         let mut nodal_coordinates =
             NodalReferenceCoordinates::from(vec![
                 ReferenceCoordinate::from([0.0, 0.0, 0.0]);
                 element_nodes.len()
             ]);
-        faces_nodes
+        block_faces_nodes
             .iter()
             .flatten()
             .zip(reference_nodal_coordinates.iter().flatten())
@@ -104,6 +181,34 @@ impl
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
+        let tetrahedra_nodes = faces_nodes
+            .iter()
+            .enumerate()
+            .flat_map(|(face, face_nodes)| {
+                let mut face_nodes_one_ahead = VecDeque::from(face_nodes.clone());
+                let first_entry = face_nodes_one_ahead.pop_front().unwrap();
+                face_nodes_one_ahead.push_back(first_entry);
+                face_nodes
+                    .iter()
+                    .zip(face_nodes_one_ahead)
+                    .map(|(&node_a, node_b)| [face, node_b, node_a])
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        // let tetrahedra_nodes: Vec<_> = element_faces
+        //     .iter()
+        //     .zip(faces_nodes.iter())
+        //     .flat_map(|(&element_face, local_face_nodes)| {
+        //         let face_nodes = &block_faces_nodes[element_face];
+        //         let mut face_nodes_one_ahead = VecDeque::from(face_nodes.clone());
+        //         let first_entry = face_nodes_one_ahead.pop_front().unwrap();
+        //         face_nodes_one_ahead.push_back(first_entry);
+        //         face_nodes
+        //             .iter()
+        //             .zip(face_nodes_one_ahead)
+        //             .map(|(&node_a, node_b)| [node_a, node_b])
+        //     })
+        //     .collect::<Vec<_>>();
         let element_volume = tetrahedra
             .iter()
             .map(|tetrahedron| tetrahedron.volume())
@@ -117,7 +222,8 @@ impl
                         .iter()
                         .zip(reference_nodal_coordinates.iter())
                         .filter_map(|(&face, face_coordinates)| {
-                            if faces_nodes[face].contains(&node) {
+                            let face_nodes = &block_faces_nodes[face];
+                            if face_nodes.contains(&node) {
                                 let num_nodes_face = face_coordinates.len() as Scalar;
                                 let face_center = face_coordinates
                                     .iter()
@@ -132,22 +238,22 @@ impl
                                     face_coordinates
                                         .into_iter()
                                         .zip(face_coordinates_one_ahead)
-                                        .zip(faces_nodes[face].iter())
+                                        .zip(face_nodes.iter())
                                         .map(
                                             |(
                                                 (node_a_coordinates, node_b_coordinates),
                                                 &node_a,
                                             )| {
-                                                let node_a_spot = faces_nodes[face]
+                                                let node_a_spot = face_nodes
                                                     .iter()
                                                     .position(|&n| n == node_a)
                                                     .unwrap();
-                                                let node_b =
-                                                    if node_a_spot + 1 == faces_nodes[face].len() {
-                                                        faces_nodes[face][0]
-                                                    } else {
-                                                        faces_nodes[face][node_a_spot + 1]
-                                                    };
+                                                let node_b = if node_a_spot + 1 == face_nodes.len()
+                                                {
+                                                    face_nodes[0]
+                                                } else {
+                                                    face_nodes[node_a_spot + 1]
+                                                };
                                                 let factor = if node == node_a || node == node_b {
                                                     1.0 + 1.0 / num_nodes_face
                                                 } else {
@@ -171,9 +277,11 @@ impl
         ]
         .into();
         Self {
+            faces_nodes,
             gradient_vectors,
             integration_weights,
             tetrahedra,
+            tetrahedra_nodes,
         }
     }
 }

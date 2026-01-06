@@ -33,7 +33,7 @@ where
             .iter()
             .zip(self.elements_nodes())
             .map(|(element, nodes)| {
-                element.deformation_gradients(self.element_coordinates(nodal_coordinates, nodes))
+                element.deformation_gradients(Self::element_coordinates(nodal_coordinates, nodes))
             })
             .collect()
     }

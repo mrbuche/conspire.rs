@@ -31,12 +31,22 @@ where
     ) -> Result<Scalar, VirtualElementError> {
         //
         // NEED BETA
+        //
         let beta = 0.1;
-        //
-        // GET COORDINATES FOR TETRAHEDRA HERE
-        //
         // GET RID OF UNWRAPS
         //
+        let stabilization = self
+            .tetrahedra_deformation_gradients_and_volumes(&nodal_coordinates)
+            .iter()
+            .map(|(deformation_gradient, integration_weight)| {
+                Ok::<_, ConstitutiveError>(
+                    constitutive_model.helmholtz_free_energy_density(deformation_gradient)?
+                        * integration_weight,
+                )
+            })
+            .sum::<Result<Scalar, _>>()
+            .unwrap();
+
         match Ok::<_, ConstitutiveError>(
             self.deformation_gradients(nodal_coordinates)
                 .iter()
@@ -50,19 +60,7 @@ where
                 .sum::<Result<Scalar, _>>()
                 .unwrap()
                 * (1.0 - beta)
-                + self
-                    .tetrahedra_deformation_gradients_and_volumes(todo!())
-                    .iter()
-                    .map(|(deformation_gradient, integration_weight)| {
-                        Ok::<_, ConstitutiveError>(
-                            constitutive_model
-                                .helmholtz_free_energy_density(deformation_gradient)?
-                                * integration_weight,
-                        )
-                    })
-                    .sum::<Result<Scalar, _>>()
-                    .unwrap()
-                    * beta,
+                + stabilization * beta,
         ) {
             Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
             Err(error) => Err(VirtualElementError::Upstream(
