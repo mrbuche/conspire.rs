@@ -248,6 +248,15 @@ impl<'a> IntoIterator for &'a Vector {
     }
 }
 
+impl Extend<Scalar> for Vector {
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = Scalar>,
+    {
+        self.0.extend(iter)
+    }
+}
+
 impl TensorVec for Vector {
     type Item = Scalar;
     fn append(&mut self, other: &mut Self) {
