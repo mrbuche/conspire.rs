@@ -26,6 +26,7 @@ pub struct Element {
     faces_nodes: Vec<Vec<usize>>,
     gradient_vectors: GradientVectors,
     integration_weights: Scalars,
+    stabilization: Scalar,
     tetrahedra: Vec<Tetrahedron>,
     tetrahedra_nodes: Vec<[usize; 3]>,
 }
@@ -47,6 +48,7 @@ where
     fn faces_nodes(&self) -> &[Vec<usize>];
     fn gradient_vectors(&self) -> &GradientVectors;
     fn integration_weights(&self) -> &Scalars;
+    fn stabilization(&self) -> Scalar;
     fn tetrahedra(&self) -> &[Tetrahedron];
     fn tetrahedra_coordinates<'a>(
         &'a self,
@@ -86,6 +88,9 @@ impl VirtualElement for Element {
     }
     fn integration_weights(&self) -> &Scalars {
         &self.integration_weights
+    }
+    fn stabilization(&self) -> Scalar {
+        self.stabilization
     }
     fn tetrahedra(&self) -> &[Tetrahedron] {
         &self.tetrahedra
@@ -195,20 +200,6 @@ impl
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
-        // let tetrahedra_nodes: Vec<_> = element_faces
-        //     .iter()
-        //     .zip(faces_nodes.iter())
-        //     .flat_map(|(&element_face, local_face_nodes)| {
-        //         let face_nodes = &block_faces_nodes[element_face];
-        //         let mut face_nodes_one_ahead = VecDeque::from(face_nodes.clone());
-        //         let first_entry = face_nodes_one_ahead.pop_front().unwrap();
-        //         face_nodes_one_ahead.push_back(first_entry);
-        //         face_nodes
-        //             .iter()
-        //             .zip(face_nodes_one_ahead)
-        //             .map(|(&node_a, node_b)| [node_a, node_b])
-        //     })
-        //     .collect::<Vec<_>>();
         let element_volume = tetrahedra
             .iter()
             .map(|tetrahedron| tetrahedron.volume())
@@ -280,6 +271,7 @@ impl
             faces_nodes,
             gradient_vectors,
             integration_weights,
+            stabilization: 0.1,
             tetrahedra,
             tetrahedra_nodes,
         }
@@ -567,10 +559,6 @@ fn temporary_poly_2() {
     ]);
     use crate::EPSILON;
     use crate::vem::block::solid::hyperelastic::HyperelasticVirtualElementBlock;
-    println!(
-        "ENERGY: {}",
-        block.helmholtz_free_energy(&coordinates).unwrap()
-    );
     let mut finite_difference = 0.0;
     let nodal_forces_fd = (0..coordinates.len())
         .map(|node| {
@@ -587,10 +575,6 @@ fn temporary_poly_2() {
         })
         .collect();
     use crate::math::test::assert_eq_from_fd;
-    println!(
-        "{:?}",
-        block.nodal_forces(&coordinates).unwrap() - &nodal_forces_fd
-    );
     assert_eq_from_fd(&block.nodal_forces(&coordinates).unwrap(), &nodal_forces_fd).unwrap();
     let mut finite_difference = 0.0;
     let nodal_stiffnesses_fd = (0..coordinates.len())
