@@ -41,6 +41,8 @@ where
         //
         // also need some tetnode-to-polynode map for nodal forces
         // and how to compute F exactly? tet volume-weighted average?
+        // and how to include forces from face center and element centers?
+        // finite difference tests ought to help
         //
         match self
             .deformation_gradients(nodal_coordinates)

@@ -381,3 +381,84 @@ fn temporary_poly_1() {
     )
     .unwrap();
 }
+
+#[test]
+fn temporary_poly_2() {
+    use crate::vem::NodalReferenceCoordinates;
+    let phi = (1.0 + 5.0_f64.sqrt()) / 2.0;
+    let coordinates_0 = NodalReferenceCoordinates::from(vec![
+        [-1.0, -1.0, -1.0],
+        [-1.0, -1.0, 1.0],
+        [-1.0, 1.0, -1.0],
+        [-1.0, 1.0, 1.0],
+        [1.0, -1.0, -1.0],
+        [1.0, -1.0, 1.0],
+        [1.0, 1.0, -1.0],
+        [1.0, 1.0, 1.0],
+        [0.0, -phi, -1.0 / phi],
+        [0.0, -phi, 1.0 / phi],
+        [0.0, phi, -1.0 / phi],
+        [0.0, phi, 1.0 / phi],
+        [-phi, -1.0 / phi, 0.0],
+        [-phi, 1.0 / phi, 0.0],
+        [phi, -1.0 / phi, 0.0],
+        [phi, 1.0 / phi, 0.0],
+        [-1.0 / phi, 0.0, -phi],
+        [1.0 / phi, 0.0, -phi],
+        [-1.0 / phi, 0.0, phi],
+        [1.0 / phi, 0.0, phi],
+    ]);
+    let face_node_connectivity = vec![
+        vec![16, 17, 4, 8, 0],
+        vec![12, 13, 2, 16, 0],
+        vec![8, 9, 1, 12, 0],
+        vec![9, 5, 19, 18, 1],
+        vec![18, 3, 13, 12, 1],
+        vec![10, 6, 17, 16, 2],
+        vec![13, 3, 11, 10, 2],
+        vec![7, 11, 3, 18, 19],
+        vec![14, 5, 9, 8, 4],
+        vec![6, 15, 14, 4, 17],
+        vec![5, 14, 15, 7, 19],
+        vec![6, 10, 11, 7, 15],
+    ];
+    let element_face_connectivity = vec![vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]];
+    use crate::constitutive::solid::hyperelastic::NeoHookean;
+    use crate::vem::block::{
+        Block,
+        solid::{SolidVirtualElementBlock, elastic::ElasticVirtualElementBlock},
+    };
+    let block = Block::<_, Element>::from((
+        NeoHookean {
+            shear_modulus: 3.0,
+            bulk_modulus: 13.0,
+        },
+        coordinates_0,
+        element_face_connectivity.clone(),
+        face_node_connectivity.clone(),
+    ));
+    let coordinates = NodalReferenceCoordinates::from(vec![
+        [-0.7727027, -0.65398245, -0.80050964],
+        [-0.55585269, -1.31907453, 1.32652506],
+        [-0.68068751, 0.86362469, -0.58348725],
+        [-1.2475506, 1.06566759, 1.45034587],
+        [1.47277602, -1.10640079, -0.90724596],
+        [1.10274756, -0.69153902, 1.27617253],
+        [0.64323505, 1.36639746, -1.48447683],
+        [0.91277928, 0.97322043, 0.67055],
+        [-0.19978796, -2.0201241, -0.50145446],
+        [-0.07547771, -1.54630032, 0.22127876],
+        [0.37534904, 1.50203587, -0.81372091],
+        [-0.20273152, 1.4672534, 0.27738481],
+        [-1.98854772, -0.25595864, 0.16143842],
+        [-1.80085125, 0.19913772, -0.19452172],
+        [1.3154974, -0.72436122, 0.17437191],
+        [2.09624968, 1.01585944, 0.29687302],
+        [-0.61664715, 0.18078644, -1.94806432],
+        [0.86740811, -0.38259605, -1.2754194],
+        [-1.08169702, -0.39837623, 1.63255916],
+        [0.12293689, -0.48172557, 1.4158596],
+    ]);
+    use crate::EPSILON;
+    todo!("do finite difference tests")
+}
