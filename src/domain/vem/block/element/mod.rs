@@ -2,8 +2,13 @@ pub mod solid;
 
 use crate::{
     defeat_message,
+    fem::block::element::{
+        ElementNodalReferenceCoordinates as FemElementNodalReferenceCoordinates,
+        linear::Tetrahedron,
+    },
     math::{Scalar, Scalars, Tensor, TensorRank1Vec2D, TestError},
     mechanics::{CurrentCoordinatesRef, ReferenceCoordinate, Vectors2D},
+    vem::NodalReferenceCoordinates,
 };
 use std::{
     collections::VecDeque,
@@ -17,6 +22,7 @@ pub type GradientVectors = Vectors2D<0>;
 pub struct Element {
     gradient_vectors: GradientVectors,
     integration_weights: Scalars,
+    tetrahedra: Vec<Tetrahedron>,
 }
 
 pub trait VirtualElement
@@ -30,6 +36,7 @@ where
 {
     fn gradient_vectors(&self) -> &GradientVectors;
     fn integration_weights(&self) -> &Scalars;
+    fn tetrahedra(&self) -> &[Tetrahedron];
 }
 
 impl VirtualElement for Element {
@@ -38,6 +45,9 @@ impl VirtualElement for Element {
     }
     fn integration_weights(&self) -> &Scalars {
         &self.integration_weights
+    }
+    fn tetrahedra(&self) -> &[Tetrahedron] {
+        &self.tetrahedra
     }
 }
 
@@ -57,9 +67,22 @@ impl
             &[Vec<usize>],
         ),
     ) -> Self {
-        let element_volume = reference_nodal_coordinates
+        let mut nodal_coordinates =
+            NodalReferenceCoordinates::from(vec![
+                ReferenceCoordinate::from([0.0, 0.0, 0.0]);
+                element_nodes.len()
+            ]);
+        faces_nodes
             .iter()
-            .map(|face_coordinates| {
+            .flatten()
+            .zip(reference_nodal_coordinates.iter().flatten())
+            .for_each(|(&node, coordinates)| nodal_coordinates[node] = coordinates.clone());
+        let element_center = nodal_coordinates.into_iter().sum::<ReferenceCoordinate>()
+            / (element_nodes.len() as Scalar);
+        let mut element_volume = 0.0;
+        let tetrahedra = reference_nodal_coordinates
+            .iter()
+            .flat_map(|face_coordinates| {
                 let face_center = face_coordinates
                     .iter()
                     .cloned()
@@ -69,17 +92,22 @@ impl
                 let first_entry = face_coordinates_one_ahead.pop_front().unwrap();
                 face_coordinates_one_ahead.push_back(first_entry);
                 face_coordinates
-                    .into_iter()
+                    .iter()
                     .zip(face_coordinates_one_ahead)
                     .map(|(node_a_coordinates, node_b_coordinates)| {
                         let e_1 = node_a_coordinates - &node_b_coordinates;
                         let e_2 = &node_b_coordinates - &face_center;
-                        node_a_coordinates * e_1.cross(&e_2)
+                        element_volume += node_a_coordinates * e_1.cross(&e_2) / 6.0;
+                        Tetrahedron::from(FemElementNodalReferenceCoordinates::from([
+                            face_center.clone(),
+                            node_b_coordinates.clone(),
+                            node_a_coordinates.clone(),
+                            element_center.clone(),
+                        ]))
                     })
-                    .sum::<Scalar>()
+                    .collect::<Vec<_>>()
             })
-            .sum::<Scalar>()
-            / 6.0;
+            .collect();
         let integration_weights = Scalars::from([element_volume]);
         let gradient_vectors = vec![
             element_nodes
@@ -145,6 +173,7 @@ impl
         Self {
             gradient_vectors,
             integration_weights,
+            tetrahedra,
         }
     }
 }
@@ -269,7 +298,7 @@ fn temporary_poly_0() {
         - coordinates[face_node_connectivity[0][1]].clone())
     .norm();
     let volume = (15.0 + 7.0 * 5.0_f64.sqrt()) / 4.0 * length.powi(3);
-    assert!((block.elements()[0].integration_weights()[0] - volume).abs() < 1e-14);
+    assert!((block.elements()[0].integration_weights()[0] / volume - 1.0).abs() < 1e-14);
 }
 
 #[test]
