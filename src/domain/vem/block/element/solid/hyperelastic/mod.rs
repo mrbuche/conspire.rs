@@ -32,8 +32,8 @@ where
     ) -> Result<Scalar, VirtualElementError> {
         //
         // NEED BETA
-        //
         let beta = 0.1;
+        // Should beta be an outside const, block field, or element field?
         //
         // GET RID OF UNWRAPS
         //

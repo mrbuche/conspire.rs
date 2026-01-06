@@ -20,8 +20,7 @@ pub type ElementNodalCoordinates<'a> = CurrentCoordinatesRef<'a>;
 pub type ElementNodalReferenceCoordinates = TensorRank1Vec2D<3, 0>;
 pub type GradientVectors = Vectors2D<0>;
 
-const NUM_NODES_TET: usize = 4;
-pub type TetrahedraCoordinates = Vec<FemElementNodalCoordinates<NUM_NODES_TET>>;
+pub type TetrahedraCoordinates = Vec<FemElementNodalCoordinates<4>>;
 
 pub struct Element {
     faces_nodes: Vec<Vec<usize>>,
