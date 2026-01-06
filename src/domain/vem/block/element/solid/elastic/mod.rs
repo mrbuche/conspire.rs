@@ -37,8 +37,10 @@ where
         //
         // need stabilization terms
         // (1-beta)*vem + beta*fem
+        // Should beta be an outside const, block field, or element field?
         //
-        // does the fem part simplify at all due to averaging/etc.?
+        // also need some tetnode-to-polynode map for nodal forces
+        // and how to compute F exactly? tet volume-weighted average?
         //
         match self
             .deformation_gradients(nodal_coordinates)

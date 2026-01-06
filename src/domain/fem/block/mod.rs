@@ -8,7 +8,10 @@ pub mod thermal;
 
 use crate::{
     defeat_message,
-    fem::{NodalReferenceCoordinates, block::element::FiniteElementCreation},
+    fem::{
+        NodalReferenceCoordinates,
+        block::element::{FiniteElement, FiniteElementCreation},
+    },
     math::{
         Banded, Scalar, Tensor, TestError,
         optimize::{
@@ -33,7 +36,10 @@ pub struct Block<C, F, const G: usize, const M: usize, const N: usize> {
     elements: Vec<F>,
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize> Block<C, F, G, M, N> {
+impl<C, F, const G: usize, const M: usize, const N: usize> Block<C, F, G, M, N>
+where
+    F: FiniteElement<G, M, N>,
+{
     fn constitutive_model(&self) -> &C {
         &self.constitutive_model
     }
@@ -55,9 +61,15 @@ impl<C, F, const G: usize, const M: usize, const N: usize> Block<C, F, G, M, N> 
             .map(|&node| coordinates[node].clone())
             .collect()
     }
+    pub fn volume(&self) -> Scalar {
+        self.elements().iter().map(|element| element.volume()).sum()
+    }
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize> Debug for Block<C, F, G, M, N> {
+impl<C, F, const G: usize, const M: usize, const N: usize> Debug for Block<C, F, G, M, N>
+where
+    F: FiniteElement<G, M, N>,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -84,7 +96,7 @@ where
 impl<C, F, const G: usize, const N: usize> From<(C, Connectivity<N>, NodalReferenceCoordinates)>
     for Block<C, F, G, 3, N>
 where
-    F: FiniteElementCreation<G, N>,
+    F: FiniteElement<G, 3, N> + FiniteElementCreation<G, N>,
 {
     fn from(
         (constitutive_model, connectivity, coordinates): (
@@ -108,7 +120,7 @@ where
 
 impl<C, F, const G: usize, const N: usize> FiniteElementBlock<C, F, G, N> for Block<C, F, G, 3, N>
 where
-    F: FiniteElementCreation<G, N>,
+    F: FiniteElement<G, 3, N> + FiniteElementCreation<G, N>,
 {
     fn reset(&mut self) {
         self.elements

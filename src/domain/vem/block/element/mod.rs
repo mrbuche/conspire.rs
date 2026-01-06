@@ -3,7 +3,7 @@ pub mod solid;
 use crate::{
     defeat_message,
     fem::block::element::{
-        ElementNodalReferenceCoordinates as FemElementNodalReferenceCoordinates,
+        ElementNodalReferenceCoordinates as FemElementNodalReferenceCoordinates, FiniteElement,
         linear::Tetrahedron,
     },
     math::{Scalar, Scalars, Tensor, TensorRank1Vec2D, TestError},
@@ -79,7 +79,6 @@ impl
             .for_each(|(&node, coordinates)| nodal_coordinates[node] = coordinates.clone());
         let element_center = nodal_coordinates.into_iter().sum::<ReferenceCoordinate>()
             / (element_nodes.len() as Scalar);
-        let mut element_volume = 0.0;
         let tetrahedra = reference_nodal_coordinates
             .iter()
             .flat_map(|face_coordinates| {
@@ -95,19 +94,20 @@ impl
                     .iter()
                     .zip(face_coordinates_one_ahead)
                     .map(|(node_a_coordinates, node_b_coordinates)| {
-                        let e_1 = node_a_coordinates - &node_b_coordinates;
-                        let e_2 = &node_b_coordinates - &face_center;
-                        element_volume += node_a_coordinates * e_1.cross(&e_2) / 6.0;
                         Tetrahedron::from(FemElementNodalReferenceCoordinates::from([
                             face_center.clone(),
-                            node_b_coordinates.clone(),
+                            node_b_coordinates,
                             node_a_coordinates.clone(),
                             element_center.clone(),
                         ]))
                     })
                     .collect::<Vec<_>>()
             })
-            .collect();
+            .collect::<Vec<_>>();
+        let element_volume = tetrahedra
+            .iter()
+            .map(|tetrahedron| tetrahedron.volume())
+            .sum();
         let integration_weights = Scalars::from([element_volume]);
         let gradient_vectors = vec![
             element_nodes

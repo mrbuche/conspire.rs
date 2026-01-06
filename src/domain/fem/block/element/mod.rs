@@ -60,6 +60,9 @@ where
             .map(|integration_point| Self::shape_functions_gradients(integration_point))
             .collect()
     }
+    fn volume(&self) -> Scalar {
+        self.integration_weights().into_iter().sum()
+    }
 }
 
 pub struct Element<const G: usize, const N: usize, const O: usize> {
