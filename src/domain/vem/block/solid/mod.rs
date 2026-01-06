@@ -1,4 +1,5 @@
 pub mod elastic;
+pub mod hyperelastic;
 
 use crate::{
     mechanics::DeformationGradients,

@@ -424,10 +424,7 @@ fn temporary_poly_2() {
     ];
     let element_face_connectivity = vec![vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]];
     use crate::constitutive::solid::hyperelastic::NeoHookean;
-    use crate::vem::block::{
-        Block,
-        solid::{SolidVirtualElementBlock, elastic::ElasticVirtualElementBlock},
-    };
+    use crate::vem::block::{Block, solid::elastic::ElasticVirtualElementBlock};
     let block = Block::<_, Element>::from((
         NeoHookean {
             shear_modulus: 3.0,
@@ -437,7 +434,8 @@ fn temporary_poly_2() {
         element_face_connectivity.clone(),
         face_node_connectivity.clone(),
     ));
-    let coordinates = NodalReferenceCoordinates::from(vec![
+    use crate::vem::NodalCoordinates;
+    let coordinates = NodalCoordinates::from(vec![
         [-0.7727027, -0.65398245, -0.80050964],
         [-0.55585269, -1.31907453, 1.32652506],
         [-0.68068751, 0.86362469, -0.58348725],
@@ -460,5 +458,52 @@ fn temporary_poly_2() {
         [0.12293689, -0.48172557, 1.4158596],
     ]);
     use crate::EPSILON;
-    todo!("do finite difference tests")
+    use crate::vem::block::solid::hyperelastic::HyperelasticVirtualElementBlock;
+    let mut finite_difference = 0.0;
+    let nodal_forces_fd = (0..coordinates.len())
+        .map(|node| {
+            (0..3)
+                .map(|i| {
+                    let mut nodal_coordinates = coordinates.clone();
+                    nodal_coordinates[node][i] += 0.5 * EPSILON;
+                    finite_difference = block.helmholtz_free_energy(&nodal_coordinates).unwrap();
+                    nodal_coordinates[node][i] -= EPSILON;
+                    finite_difference -= block.helmholtz_free_energy(&nodal_coordinates).unwrap();
+                    finite_difference / EPSILON
+                })
+                .collect()
+        })
+        .collect();
+    use crate::math::test::assert_eq_from_fd;
+    assert_eq_from_fd(&block.nodal_forces(&coordinates).unwrap(), &nodal_forces_fd).unwrap();
+    let mut finite_difference = 0.0;
+    let nodal_stiffnesses_fd = (0..coordinates.len())
+        .map(|a| {
+            (0..coordinates.len())
+                .map(|b| {
+                    (0..3)
+                        .map(|i| {
+                            (0..3)
+                                .map(|j| {
+                                    let mut nodal_coordinates = coordinates.clone();
+                                    nodal_coordinates[b][j] += 0.5 * EPSILON;
+                                    finite_difference =
+                                        block.nodal_forces(&nodal_coordinates).unwrap()[a][i];
+                                    nodal_coordinates[b][j] -= EPSILON;
+                                    finite_difference -=
+                                        block.nodal_forces(&nodal_coordinates).unwrap()[a][i];
+                                    finite_difference / EPSILON
+                                })
+                                .collect()
+                        })
+                        .collect()
+                })
+                .collect()
+        })
+        .collect();
+    assert_eq_from_fd(
+        &block.nodal_stiffnesses(&coordinates).unwrap(),
+        &nodal_stiffnesses_fd,
+    )
+    .unwrap();
 }
