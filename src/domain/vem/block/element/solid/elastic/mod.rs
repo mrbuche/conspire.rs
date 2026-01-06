@@ -3,9 +3,11 @@ use crate::{
     math::{ContractSecondFourthIndicesWithFirstIndicesOf, Tensor},
     mechanics::{FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses},
     vem::block::element::{
+        NUM_NODES_TET,
         Element, ElementNodalCoordinates, VirtualElement, VirtualElementError,
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidVirtualElement},
     },
+    fem::block::element::solid::{ElementNodalForcesSolid as FemElementNodalForcesSolid, elastic::ElasticFiniteElement}
 };
 
 pub trait ElasticVirtualElement<C>
@@ -39,11 +41,18 @@ where
         // (1-beta)*vem + beta*fem
         // Should beta be an outside const, block field, or element field?
         //
-        // also need some tetnode-to-polynode map for nodal forces
-        // and how to compute F exactly? tet volume-weighted average?
-        // and how to include forces from face center and element centers?
-        // finite difference tests ought to help
-        //
+        let stabilization = self
+            .tetrahedra()
+            .iter()
+            .zip(self.tetrahedra_coordinates(&nodal_coordinates).iter())
+            .map(|(tetrahedron, tetrahedron_coordinates)| {
+                tetrahedron.nodal_forces(constitutive_model, tetrahedron_coordinates)
+            })
+            .sum::<Result<FemElementNodalForcesSolid<NUM_NODES_TET>, _>>()
+            .unwrap();
+
+        // need to apply to right nodes
+
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()

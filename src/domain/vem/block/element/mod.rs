@@ -20,7 +20,8 @@ pub type ElementNodalCoordinates<'a> = CurrentCoordinatesRef<'a>;
 pub type ElementNodalReferenceCoordinates = TensorRank1Vec2D<3, 0>;
 pub type GradientVectors = Vectors2D<0>;
 
-pub type TetrahedraCoordinates = Vec<FemElementNodalCoordinates<4>>;
+const NUM_NODES_TET: usize = 4;
+pub type TetrahedraCoordinates = Vec<FemElementNodalCoordinates<NUM_NODES_TET>>;
 
 pub struct Element {
     faces_nodes: Vec<Vec<usize>>,
@@ -567,6 +568,10 @@ fn temporary_poly_2() {
     ]);
     use crate::EPSILON;
     use crate::vem::block::solid::hyperelastic::HyperelasticVirtualElementBlock;
+    println!(
+        "ENERGY: {}",
+        block.helmholtz_free_energy(&coordinates).unwrap()
+    );
     let mut finite_difference = 0.0;
     let nodal_forces_fd = (0..coordinates.len())
         .map(|node| {

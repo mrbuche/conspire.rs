@@ -1,5 +1,6 @@
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperelastic::Hyperelastic},
+    fem::block::element::solid::hyperelastic::HyperelasticFiniteElement,
     math::{Scalar, Tensor},
     vem::block::element::{
         Element, ElementNodalCoordinates, VirtualElement, VirtualElementError,
@@ -33,16 +34,27 @@ where
         // NEED BETA
         //
         let beta = 0.1;
+        //
         // GET RID OF UNWRAPS
         //
+        // let stabilization = self
+        //     .tetrahedra_deformation_gradients_and_volumes(&nodal_coordinates)
+        //     .iter()
+        //     .map(|(deformation_gradient, integration_weight)| {
+        //         Ok::<_, ConstitutiveError>(
+        //             constitutive_model.helmholtz_free_energy_density(deformation_gradient)?
+        //                 * integration_weight,
+        //         )
+        //     })
+        //     .sum::<Result<Scalar, _>>()
+        //     .unwrap();
+
         let stabilization = self
-            .tetrahedra_deformation_gradients_and_volumes(&nodal_coordinates)
+            .tetrahedra()
             .iter()
-            .map(|(deformation_gradient, integration_weight)| {
-                Ok::<_, ConstitutiveError>(
-                    constitutive_model.helmholtz_free_energy_density(deformation_gradient)?
-                        * integration_weight,
-                )
+            .zip(self.tetrahedra_coordinates(&nodal_coordinates).iter())
+            .map(|(tetrahedron, tetrahedron_coordinates)| {
+                tetrahedron.helmholtz_free_energy(constitutive_model, tetrahedron_coordinates)
             })
             .sum::<Result<Scalar, _>>()
             .unwrap();

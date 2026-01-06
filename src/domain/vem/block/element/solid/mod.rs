@@ -2,9 +2,8 @@ pub mod elastic;
 pub mod hyperelastic;
 
 use crate::{
-    fem::block::element::{FiniteElement, solid::SolidFiniteElement},
-    math::{Scalar, Tensor},
-    mechanics::{DeformationGradient, DeformationGradients, Forces, Stiffnesses},
+    math::Tensor,
+    mechanics::{DeformationGradients, Forces, Stiffnesses},
     vem::block::element::{Element, ElementNodalCoordinates, VirtualElement},
 };
 
@@ -19,10 +18,6 @@ where
         &'a self,
         nodal_coordinates: ElementNodalCoordinates<'a>,
     ) -> DeformationGradients;
-    fn tetrahedra_deformation_gradients_and_volumes<'a>(
-        &'a self,
-        nodal_coordinates: &ElementNodalCoordinates<'a>,
-    ) -> Vec<(DeformationGradient, Scalar)>;
 }
 
 impl SolidVirtualElement for Element
@@ -43,29 +38,6 @@ where
                         (nodal_coordinate, gradient_vector).into()
                     })
                     .sum()
-            })
-            .collect()
-    }
-    fn tetrahedra_deformation_gradients_and_volumes<'a>(
-        &'a self,
-        nodal_coordinates: &ElementNodalCoordinates<'a>,
-    ) -> Vec<(DeformationGradient, Scalar)> {
-        self.tetrahedra()
-            .iter()
-            .zip(self.tetrahedra_coordinates(nodal_coordinates))
-            .map(|(tetrahedron, tetrahedron_coordinates)| {
-                let element_volume: Scalar = tetrahedron.integration_weights().into_iter().sum();
-                (
-                    tetrahedron
-                        .deformation_gradients(&tetrahedron_coordinates)
-                        .into_iter()
-                        .zip(tetrahedron.integration_weights())
-                        .map(|(deformation_gradient, integration_weight)| {
-                            deformation_gradient * integration_weight / element_volume
-                        })
-                        .sum(),
-                    element_volume,
-                )
             })
             .collect()
     }
