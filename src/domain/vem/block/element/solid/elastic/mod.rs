@@ -35,7 +35,10 @@ where
         nodal_coordinates: ElementNodalCoordinates<'a>,
     ) -> Result<ElementNodalForcesSolid, VirtualElementError> {
         //
-        // need stabilization terms; (1-beta)*vem + beta*fem
+        // need stabilization terms
+        // (1-beta)*vem + beta*fem
+        //
+        // does the fem part simplify at all due to averaging/etc.?
         //
         match self
             .deformation_gradients(nodal_coordinates)
