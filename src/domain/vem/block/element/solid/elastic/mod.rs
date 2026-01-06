@@ -1,13 +1,14 @@
 use crate::{
     constitutive::solid::elastic::Elastic,
+    fem::block::element::solid::{
+        ElementNodalForcesSolid as FemElementNodalForcesSolid, elastic::ElasticFiniteElement,
+    },
     math::{ContractSecondFourthIndicesWithFirstIndicesOf, Tensor},
     mechanics::{FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses},
     vem::block::element::{
-        NUM_NODES_TET,
-        Element, ElementNodalCoordinates, VirtualElement, VirtualElementError,
+        Element, ElementNodalCoordinates, NUM_NODES_TET, VirtualElement, VirtualElementError,
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidVirtualElement},
     },
-    fem::block::element::solid::{ElementNodalForcesSolid as FemElementNodalForcesSolid, elastic::ElasticFiniteElement}
 };
 
 pub trait ElasticVirtualElement<C>
@@ -52,6 +53,8 @@ where
             .unwrap();
 
         // need to apply to right nodes
+
+        // dont forget to multiply beta and (1-beta) too
 
         match self
             .deformation_gradients(nodal_coordinates)
