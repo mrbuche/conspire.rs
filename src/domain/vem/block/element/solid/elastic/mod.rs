@@ -37,7 +37,7 @@ where
     ) -> Result<ElementNodalForcesSolid, VirtualElementError> {
         //
         // NEED BETA
-        let beta = 0.1;
+        let beta = 1.0; // 0.1;
         // Should beta be an outside const, block field, or element field?
         //
         // GET RID OF UNWRAPS

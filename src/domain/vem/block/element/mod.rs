@@ -587,6 +587,10 @@ fn temporary_poly_2() {
         })
         .collect();
     use crate::math::test::assert_eq_from_fd;
+    println!(
+        "{:?}",
+        block.nodal_forces(&coordinates).unwrap() - &nodal_forces_fd
+    );
     assert_eq_from_fd(&block.nodal_forces(&coordinates).unwrap(), &nodal_forces_fd).unwrap();
     let mut finite_difference = 0.0;
     let nodal_stiffnesses_fd = (0..coordinates.len())
