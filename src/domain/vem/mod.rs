@@ -2,7 +2,4 @@
 
 pub mod block;
 
-pub use crate::domain::{
-    NodalCoordinates, NodalCoordinatesHistory, NodalReferenceCoordinates, NodalVelocities,
-    NodalVelocitiesHistory,
-};
+pub use crate::fem::{NodalCoordinates, NodalReferenceCoordinates};

@@ -25,9 +25,6 @@ repos:
         args: ['--features', 'vem', '--', '-D',  'warnings']
         name: cargo clippy vem
     -   id: clippy
-        args: ['--features', 'all', '--', '-D',  'warnings']
-        name: cargo clippy all
-    -   id: clippy
-        args: ['--features', 'all,doc', '--', '-D',  'warnings']
+        args: ['--features', 'vem,doc', '--', '-D',  'warnings']
         name: cargo clippy doc
     -   id: fmt

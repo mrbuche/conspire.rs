@@ -8,7 +8,7 @@ use crate::{
     },
 };
 
-pub use crate::domain::{NodalForcesSolid, NodalStiffnessesSolid};
+pub use crate::fem::solid::{NodalForcesSolid, NodalStiffnessesSolid};
 
 pub trait SolidVirtualElementBlock<C, F>
 where

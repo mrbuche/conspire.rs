@@ -250,7 +250,7 @@ fn temporary_poly_0() {
         element_face_connectivity.clone(),
         face_node_connectivity.clone(),
     ));
-    use crate::domain::NodalForcesSolid;
+    use crate::fem::solid::NodalForcesSolid;
     use crate::math::{TensorArray, assert_eq_within_tols};
     use crate::mechanics::DeformationGradient;
     use crate::vem::NodalCoordinates;
@@ -326,7 +326,7 @@ fn temporary_poly_1() {
         element_face_connectivity.clone(),
         face_node_connectivity.clone(),
     ));
-    use crate::domain::NodalForcesSolid;
+    use crate::fem::solid::NodalForcesSolid;
     use crate::math::{TensorArray, assert_eq_within_tols};
     use crate::mechanics::DeformationGradient;
     use crate::vem::NodalCoordinates;
