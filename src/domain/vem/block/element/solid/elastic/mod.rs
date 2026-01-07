@@ -35,9 +35,6 @@ where
         constitutive_model: &'a C,
         nodal_coordinates: ElementNodalCoordinates<'a>,
     ) -> Result<ElementNodalForcesSolid, VirtualElementError> {
-        //
-        // GET RID OF UNWRAPS
-        //
         let mut tetrahedra_forces =
             ElementNodalForcesSolid::from(vec![[0.0; 3]; nodal_coordinates.len()]);
         let num_nodes = nodal_coordinates.len() as Scalar;
@@ -112,6 +109,12 @@ where
         constitutive_model: &'a C,
         nodal_coordinates: ElementNodalCoordinates<'a>,
     ) -> Result<ElementNodalStiffnessesSolid, VirtualElementError> {
+        // let mut tetrahedra_stiffnesses =
+        //     ElementNodalStiffnessesSolid::from(vec![
+        //         vec![[[0.0; 3]; 3]; nodal_coordinates.len()];
+        //         nodal_coordinates.len()
+        //     ]);
+        // let num_nodes = nodal_coordinates.len() as Scalar;
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
