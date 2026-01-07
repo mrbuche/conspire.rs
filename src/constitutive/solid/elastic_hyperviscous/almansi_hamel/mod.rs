@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     constitutive::{
-        Constitutive, ConstitutiveError,
+        ConstitutiveError,
         fluid::viscous::Viscous,
         solid::{
             Solid, TWO_THIRDS, elastic_hyperviscous::ElasticHyperviscous,

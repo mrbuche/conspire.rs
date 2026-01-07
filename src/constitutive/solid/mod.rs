@@ -21,10 +21,11 @@ use crate::{
     },
     mechanics::{
         CauchyRateTangentStiffness, CauchyStress, CauchyTangentStiffness, Deformation,
-        DeformationGradient, DeformationGradientRate, DeformationGradientRates,
-        DeformationGradients, FirstPiolaKirchhoffRateTangentStiffness, FirstPiolaKirchhoffStress,
-        FirstPiolaKirchhoffTangentStiffness, Scalar, SecondPiolaKirchhoffRateTangentStiffness,
-        SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness, Times,
+        DeformationError, DeformationGradient, DeformationGradientGeneral, DeformationGradientRate,
+        DeformationGradientRates, DeformationGradients, FirstPiolaKirchhoffRateTangentStiffness,
+        FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness, Scalar,
+        SecondPiolaKirchhoffRateTangentStiffness, SecondPiolaKirchhoffStress,
+        SecondPiolaKirchhoffTangentStiffness, Times,
     },
 };
 use std::fmt::Debug;
@@ -34,10 +35,22 @@ impl<C> Constitutive for C where C: Solid {}
 /// Required methods for solid constitutive models.
 pub trait Solid
 where
-    Self: Clone + Debug,
+    Self: Constitutive,
 {
     /// Returns the bulk modulus.
     fn bulk_modulus(&self) -> Scalar;
     /// Returns the shear modulus.
     fn shear_modulus(&self) -> Scalar;
+    /// Calculates and returns the Jacobian.
+    fn jacobian<const I: usize, const J: usize>(
+        &self,
+        deformation_gradient: &DeformationGradientGeneral<I, J>,
+    ) -> Result<Scalar, ConstitutiveError> {
+        match deformation_gradient.jacobian() {
+            Err(DeformationError::InvalidJacobian(jacobian)) => Err(
+                ConstitutiveError::InvalidJacobian(jacobian, format!("{self:?}")),
+            ),
+            Ok(jacobian) => Ok(jacobian),
+        }
+    }
 }
