@@ -1,7 +1,7 @@
 use crate::{
     constitutive::solid::elastic::Elastic,
     fem::block::element::{FiniteElementError, solid::elastic::ElasticFiniteElement},
-    math::{ContractSecondFourthIndicesWithFirstIndicesOf, Scalar, Tensor},
+    math::{ContractSecondFourthIndicesWithFirstIndicesOf, Scalar, Tensor, TensorRank2Vec, TensorArray, TensorRank2},
     mechanics::{FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses},
     vem::block::element::{
         Element, ElementNodalCoordinates, VirtualElement, VirtualElementError,
@@ -109,12 +109,36 @@ where
         constitutive_model: &'a C,
         nodal_coordinates: ElementNodalCoordinates<'a>,
     ) -> Result<ElementNodalStiffnessesSolid, VirtualElementError> {
-        // let mut tetrahedra_stiffnesses =
-        //     ElementNodalStiffnessesSolid::from(vec![
-        //         vec![[[0.0; 3]; 3]; nodal_coordinates.len()];
-        //         nodal_coordinates.len()
-        //     ]);
-        // let num_nodes = nodal_coordinates.len() as Scalar;
+        let mut tetrahedra_stiffnesses =
+            ElementNodalStiffnessesSolid::from(vec![
+                TensorRank2Vec::from(vec![
+                    TensorRank2::zero(); nodal_coordinates.len()
+                ]);
+                nodal_coordinates.len()
+            ]);
+        let num_nodes = nodal_coordinates.len() as Scalar;
+        self
+            .tetrahedra()
+            .iter()
+            .zip(self.tetrahedra_coordinates(&nodal_coordinates).iter())
+            .zip(self.tetrahedra_nodes.iter())
+            .try_for_each(
+                |((tetrahedron, tetrahedron_coordinates), &[face, node_b, node_a])| {
+                    let num_nodes_face = self.faces_nodes()[face].len() as Scalar;
+                    let nodal_stiffnesses =
+                        tetrahedron.nodal_stiffnesses(constitutive_model, tetrahedron_coordinates)?;
+                    // self.faces_nodes()[face].iter().for_each(|&face_node| {
+                    //     tetrahedra_forces[face_node] += &nodal_forces[0] / num_nodes_face;
+                    // });
+                    // tetrahedra_forces[node_b] += &nodal_forces[1];
+                    // tetrahedra_forces[node_a] += &nodal_forces[2];
+                    // tetrahedra_forces.iter_mut().for_each(|entry| {
+                    //     *entry += &nodal_forces[3] / num_nodes;
+                    // });
+                    Ok::<(), FiniteElementError>(())
+                },
+            );
+
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
