@@ -20,9 +20,9 @@ use crate::{
                 },
                 test::test_surface_finite_element,
             },
-            solid::{NodalForcesSolid, NodalStiffnessesSolid},
             test::test_surface_finite_element_block,
         },
+        solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{Scalar, ScalarList, Tensor, optimize::EqualityConstraint},
     mechanics::{

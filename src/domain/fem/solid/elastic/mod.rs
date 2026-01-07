@@ -1,13 +1,13 @@
 use crate::{
     constitutive::solid::elastic::Elastic,
-    domain::{NodalCoordinates, NodalForcesSolid, NodalStiffnessesSolid},
     fem::{
         Blocks, FiniteElementModel, FiniteElementModelError, FirstOrderRoot, Model,
+        NodalCoordinates,
         block::{
             Block, element::solid::elastic::ElasticFiniteElement,
             solid::elastic::ElasticFiniteElementBlock,
         },
-        solid::SolidFiniteElementModel,
+        solid::{NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElementModel},
     },
     math::optimize::{EqualityConstraint, FirstOrderRootFinding, OptimizationError},
 };

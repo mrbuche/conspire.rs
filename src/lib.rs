@@ -4,9 +4,6 @@
 #[cfg(feature = "constitutive")]
 pub mod constitutive;
 
-#[cfg(feature = "domain")]
-mod domain;
-
 #[cfg(feature = "fem")]
 #[path = "domain/fem/mod.rs"]
 pub mod fem;

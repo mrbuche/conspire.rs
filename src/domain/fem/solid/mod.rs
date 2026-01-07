@@ -6,8 +6,13 @@ use crate::{
         Blocks, Model,
         block::{Block, element::solid::SolidFiniteElement},
     },
+    math::TensorRank2Vec2D,
+    mechanics::Forces,
 };
 use std::fmt::Debug;
+
+pub type NodalForcesSolid = Forces;
+pub type NodalStiffnessesSolid = TensorRank2Vec2D<3, 1, 1>;
 
 pub trait SolidFiniteElementModel
 where

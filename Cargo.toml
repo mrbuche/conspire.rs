@@ -12,14 +12,12 @@ repository = "https://github.com/mrbuche/conspire.rs"
 version = "0.5.13"
 
 [features]
-all = ['fem', 'vem']
 constitutive = ['mechanics']
 doc = []
-domain = ['constitutive']
-fem = ['domain']
+fem = ['constitutive']
 math = []
 mechanics = ['math']
-vem = ['domain']
+vem = ['fem']
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }

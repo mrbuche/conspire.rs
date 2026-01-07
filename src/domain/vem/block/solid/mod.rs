@@ -1,4 +1,5 @@
 pub mod elastic;
+pub mod hyperelastic;
 
 use crate::{
     mechanics::DeformationGradients,
@@ -8,7 +9,7 @@ use crate::{
     },
 };
 
-pub use crate::domain::{NodalForcesSolid, NodalStiffnessesSolid};
+pub use crate::fem::solid::{NodalForcesSolid, NodalStiffnessesSolid};
 
 pub trait SolidVirtualElementBlock<C, F>
 where
@@ -32,7 +33,7 @@ where
             .iter()
             .zip(self.elements_nodes())
             .map(|(element, nodes)| {
-                element.deformation_gradients(self.element_coordinates(nodal_coordinates, nodes))
+                element.deformation_gradients(Self::element_coordinates(nodal_coordinates, nodes))
             })
             .collect()
     }

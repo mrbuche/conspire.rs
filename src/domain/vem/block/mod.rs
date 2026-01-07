@@ -26,7 +26,9 @@ pub struct Block<C, F> {
     constitutive_model: C,
     coordinates: NodalReferenceCoordinates,
     elements: Vec<F>,
+    elements_faces: Connectivity,
     elements_nodes: Connectivity,
+    faces_nodes: Connectivity,
 }
 
 impl<C, F> Block<C, F> {
@@ -40,14 +42,19 @@ impl<C, F> Block<C, F> {
         &self.elements
     }
     fn element_coordinates<'a>(
-        &self,
         coordinates: &'a NodalCoordinates,
         nodes: &[usize],
     ) -> ElementNodalCoordinates<'a> {
         nodes.iter().map(|&node| &coordinates[node]).collect()
     }
-    fn elements_nodes(&self) -> &Connectivity {
+    pub fn elements_faces(&self) -> &[Vec<usize>] {
+        &self.elements_faces
+    }
+    fn elements_nodes(&self) -> &[Vec<usize>] {
         &self.elements_nodes
+    }
+    pub fn faces_nodes(&self) -> &[Vec<usize>] {
+        &self.faces_nodes
     }
 }
 
@@ -88,7 +95,7 @@ where
         ),
     ) -> Self {
         let (elements, elements_nodes) = elements_faces
-            .into_iter()
+            .iter()
             .map(|element_faces| {
                 let element_coordinates = element_faces
                     .iter()
@@ -120,7 +127,9 @@ where
             constitutive_model,
             coordinates,
             elements,
+            elements_faces,
             elements_nodes,
+            faces_nodes,
         }
     }
 }

@@ -3,13 +3,20 @@
 pub mod block;
 pub mod solid;
 
-pub use crate::domain::{
-    NodalCoordinates, NodalCoordinatesHistory, NodalForcesSolid, NodalReferenceCoordinates,
-    NodalVelocities, NodalVelocitiesHistory,
+use crate::{
+    math::{
+        TensorRank1Vec2D,
+        optimize::{EqualityConstraint, FirstOrderRootFinding, OptimizationError},
+    },
+    mechanics::Coordinates,
 };
-
-use crate::math::optimize::{EqualityConstraint, FirstOrderRootFinding, OptimizationError};
 use std::fmt::{self, Debug, Display, Formatter};
+
+pub type NodalCoordinates = Coordinates<1>;
+pub type NodalCoordinatesHistory = TensorRank1Vec2D<3, 1>;
+pub type NodalReferenceCoordinates = Coordinates<0>;
+pub type NodalVelocities = Coordinates<1>;
+pub type NodalVelocitiesHistory = TensorRank1Vec2D<3, 1>;
 
 // Consider using a model-to-block node map to avoid all the extra allocations/operations in nodal_forces etc.
 // Would need to use a new trait for Blocks with the map in the receiver, and keep those maps in a Model field.

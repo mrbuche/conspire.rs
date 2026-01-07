@@ -1,4 +1,5 @@
 pub mod elastic;
+pub mod hyperelastic;
 
 use crate::{
     math::Tensor,
@@ -9,14 +10,20 @@ use crate::{
 pub type ElementNodalForcesSolid = Forces;
 pub type ElementNodalStiffnessesSolid = Stiffnesses;
 
-pub trait SolidVirtualElement {
+pub trait SolidVirtualElement
+where
+    Self: VirtualElement,
+{
     fn deformation_gradients<'a>(
         &'a self,
         nodal_coordinates: ElementNodalCoordinates<'a>,
     ) -> DeformationGradients;
 }
 
-impl SolidVirtualElement for Element {
+impl SolidVirtualElement for Element
+where
+    Self: VirtualElement,
+{
     fn deformation_gradients<'a>(
         &'a self,
         nodal_coordinates: ElementNodalCoordinates<'a>,

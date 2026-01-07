@@ -9,11 +9,10 @@ use crate::{
     fem::{
         NodalCoordinates,
         block::{Block, element::solid::SolidFiniteElement},
+        solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     mechanics::DeformationGradientList,
 };
-
-pub use crate::domain::{NodalForcesSolid, NodalStiffnessesSolid};
 
 pub trait SolidFiniteElementBlock<C, F, const G: usize, const M: usize, const N: usize>
 where
