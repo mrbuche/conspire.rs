@@ -6,7 +6,7 @@ use crate::{
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
                 FiniteElement, GradientVectors,
-                composite::tetrahedron::{G, M, N, Q, Tetrahedron},
+                composite::tetrahedron::{G, M, N, P, Tetrahedron},
                 quadratic::test::{
                     TETRAHEDRON_D as D, tetrahedron_applied_velocities as applied_velocities,
                     tetrahedron_applied_velocity as applied_velocity,
@@ -38,7 +38,7 @@ fn normalized_projection_matrix() -> Result<(), TestError> {
     Tetrahedron::shape_function_integrals_products()
         .iter()
         .map(|dummy| dummy * 1.0)
-        .sum::<TensorRank2<Q, 9, 9>>()
+        .sum::<TensorRank2<P, 9, 9>>()
         .iter()
         .zip(
             Tetrahedron::inverse_normalized_projection_matrix()

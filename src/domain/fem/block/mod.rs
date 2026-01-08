@@ -29,16 +29,16 @@ use std::{
 
 pub type Connectivity<const N: usize> = Vec<[usize; N]>;
 
-pub struct Block<C, F, const G: usize, const M: usize, const N: usize> {
+pub struct Block<C, F, const G: usize, const M: usize, const N: usize, const P: usize> {
     constitutive_model: C,
     connectivity: Connectivity<N>,
     coordinates: NodalReferenceCoordinates,
     elements: Vec<F>,
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize> Block<C, F, G, M, N>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> Block<C, F, G, M, N, P>
 where
-    F: FiniteElement<G, M, N>,
+    F: FiniteElement<G, M, N, P>,
 {
     fn constitutive_model(&self) -> &C {
         &self.constitutive_model
@@ -66,9 +66,9 @@ where
     }
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize> Debug for Block<C, F, G, M, N>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> Debug for Block<C, F, G, M, N, P>
 where
-    F: FiniteElement<G, M, N>,
+    F: FiniteElement<G, M, N, P>,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
@@ -93,10 +93,10 @@ where
     fn reset(&mut self);
 }
 
-impl<C, F, const G: usize, const N: usize> From<(C, Connectivity<N>, NodalReferenceCoordinates)>
-    for Block<C, F, G, 3, N>
+impl<C, F, const G: usize, const N: usize, const P: usize> From<(C, Connectivity<N>, NodalReferenceCoordinates)>
+    for Block<C, F, G, 3, N, P>
 where
-    F: FiniteElement<G, 3, N> + FiniteElementCreation<G, N>,
+    F: FiniteElement<G, 3, N, P> + FiniteElementCreation<G, N>,
 {
     fn from(
         (constitutive_model, connectivity, coordinates): (
@@ -118,9 +118,9 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> FiniteElementBlock<C, F, G, N> for Block<C, F, G, 3, N>
+impl<C, F, const G: usize, const N: usize, const P: usize> FiniteElementBlock<C, F, G, N> for Block<C, F, G, 3, N, P>
 where
-    F: FiniteElement<G, 3, N> + FiniteElementCreation<G, N>,
+    F: FiniteElement<G, 3, N, P> + FiniteElementCreation<G, N>,
 {
     fn reset(&mut self) {
         self.elements

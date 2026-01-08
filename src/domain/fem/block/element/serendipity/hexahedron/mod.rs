@@ -13,10 +13,11 @@ use crate::{
 
 const G: usize = 27;
 const N: usize = 20;
+const P: usize = N;
 
 pub type Hexahedron = QuadraticElement<G, N>;
 
-impl FiniteElement<G, M, N> for Hexahedron {
+impl FiniteElement<G, M, N, P> for Hexahedron {
     fn integration_points() -> ParametricCoordinates<G, M> {
         QuadraticHexahedron::integration_points()
     }

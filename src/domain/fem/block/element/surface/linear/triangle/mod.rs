@@ -14,10 +14,11 @@ use crate::{
 
 const G: usize = 1;
 const N: usize = 3;
+const P: usize = N;
 
 pub type Triangle = LinearSurfaceElement<G, N>;
 
-impl FiniteElement<G, M, N> for Triangle {
+impl FiniteElement<G, M, N, P> for Triangle {
     fn integration_points() -> ParametricCoordinates<G, M> {
         [[1.0 / 3.0; M]].into()
     }

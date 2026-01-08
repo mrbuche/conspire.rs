@@ -12,10 +12,11 @@ use crate::{
 
 const G: usize = 8;
 const N: usize = 8;
+const P: usize = N;
 
 pub type Hexahedron = LinearElement<G, N>;
 
-impl FiniteElement<G, M, N> for Hexahedron {
+impl FiniteElement<G, M, N, P> for Hexahedron {
     fn integration_points() -> ParametricCoordinates<G, M> {
         [
             [-FRAC_1_SQRT_3, -FRAC_1_SQRT_3, -FRAC_1_SQRT_3],
@@ -112,4 +113,4 @@ impl FiniteElement<G, M, N> for Hexahedron {
     }
 }
 
-impl LinearFiniteElement<G, N> for Hexahedron {}
+impl LinearFiniteElement<G, N,> for Hexahedron {}

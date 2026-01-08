@@ -37,6 +37,7 @@ use conspire::{
 const G: usize = 1;
 const M: usize = 3;
 const N: usize = 4;
+const P: usize = 4;
 
 fn connectivity() -> Connectivity<N> {
     vec![
@@ -7394,7 +7395,7 @@ fn temporary_hyperelastic() -> Result<(), TestError> {
         shear_modulus: 3.0,
     };
     let block =
-        Block::<_, LinearTetrahedron, G, M, N>::from((model.clone(), connectivity, coordinates()));
+        Block::<_, LinearTetrahedron, G, M, N, P>::from((model.clone(), connectivity, coordinates()));
     let length = ref_coordinates
         .iter()
         .filter(|coordinate| coordinate[0].abs() == 0.5)
@@ -7499,7 +7500,7 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
         reference_flow_rate: 0.1,
     };
     let block =
-        Block::<_, LinearTetrahedron, G, M, N>::from((model.clone(), connectivity, coordinates()));
+        Block::<_, LinearTetrahedron, G, M, N, P>::from((model.clone(), connectivity, coordinates()));
     let length = ref_coordinates
         .iter()
         .filter(|coordinate| coordinate[0].abs() == 0.5)
@@ -7610,7 +7611,7 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
         shear_viscosity: 1.0,
     };
     let block =
-        Block::<_, LinearTetrahedron, G, M, N>::from((model.clone(), connectivity, coordinates()));
+        Block::<_, LinearTetrahedron, G, M, N, P>::from((model.clone(), connectivity, coordinates()));
     let length = ref_coordinates
         .iter()
         .filter(|coordinate| coordinate[0].abs() == 0.5)
@@ -7721,7 +7722,7 @@ fn temporary_thermal_conduction() -> Result<(), TestError> {
         thermal_conductivity: 1.0,
     };
     let block =
-        Block::<_, LinearTetrahedron, G, M, N>::from((model.clone(), connectivity, coordinates()));
+        Block::<_, LinearTetrahedron, G, M, N, P>::from((model.clone(), connectivity, coordinates()));
     let length = ref_coordinates
         .iter()
         .filter(|coordinate| coordinate[0].abs() == 0.5)

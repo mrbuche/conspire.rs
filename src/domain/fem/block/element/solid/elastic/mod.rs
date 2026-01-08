@@ -9,10 +9,10 @@ use crate::{
     mechanics::{FirstPiolaKirchhoffStressList, FirstPiolaKirchhoffTangentStiffnessList},
 };
 
-pub trait ElasticFiniteElement<C, const G: usize, const M: usize, const N: usize>
+pub trait ElasticFiniteElement<C, const G: usize, const M: usize, const N: usize, const P: usize>
 where
     C: Elastic,
-    Self: SolidFiniteElement<G, M, N>,
+    Self: SolidFiniteElement<G, M, N, P>,
 {
     fn nodal_forces(
         &self,
@@ -26,18 +26,18 @@ where
     ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize> ElasticFiniteElement<C, G, 3, N>
+impl<C, const G: usize, const N: usize, const O: usize, const P: usize> ElasticFiniteElement<C, G, 3, N, P>
     for Element<G, N, O>
 where
     C: Elastic,
-    Self: SolidFiniteElement<G, 3, N>,
+    Self: SolidFiniteElement<G, 3, N, P>,
 {
     fn nodal_forces(
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
-        nodal_forces::<_, _, _, _, _, O>(
+        nodal_forces::<_, _, _, _, _, O, _>(
             self,
             constitutive_model,
             self.gradient_vectors(),
@@ -98,18 +98,18 @@ where
     }
 }
 
-impl<C, const G: usize, const N: usize, const O: usize> ElasticFiniteElement<C, G, 2, N>
+impl<C, const G: usize, const N: usize, const O: usize> ElasticFiniteElement<C, G, 2, N, N>
     for SurfaceElement<G, N, O>
 where
     C: Elastic,
-    Self: SolidFiniteElement<G, 2, N>,
+    Self: SolidFiniteElement<G, 2, N, N>,
 {
     fn nodal_forces(
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
-        nodal_forces::<_, _, _, _, _, O>(
+        nodal_forces::<_, _, _, _, _, O, _>(
             self,
             constitutive_model,
             self.gradient_vectors(),
@@ -185,7 +185,7 @@ where
     }
 }
 
-fn nodal_forces<C, F, const G: usize, const M: usize, const N: usize, const O: usize>(
+fn nodal_forces<C, F, const G: usize, const M: usize, const N: usize, const O: usize, const P: usize>(
     element: &F,
     constitutive_model: &C,
     gradient_vectors: &GradientVectors<G, N>,
@@ -193,7 +193,7 @@ fn nodal_forces<C, F, const G: usize, const M: usize, const N: usize, const O: u
 ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError>
 where
     C: Elastic,
-    F: SolidFiniteElement<G, M, N>,
+    F: SolidFiniteElement<G, M, N, P>,
 {
     match element
         .deformation_gradients(nodal_coordinates)

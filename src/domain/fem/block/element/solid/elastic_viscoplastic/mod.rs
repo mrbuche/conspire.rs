@@ -11,10 +11,10 @@ use crate::{
     mechanics::{FirstPiolaKirchhoffStressList, FirstPiolaKirchhoffTangentStiffnessList},
 };
 
-pub trait ElasticViscoplasticFiniteElement<C, const G: usize, const M: usize, const N: usize>
+pub trait ElasticViscoplasticFiniteElement<C, const G: usize, const M: usize, const N: usize, const P: usize>
 where
     C: ElasticViscoplastic,
-    Self: SolidFiniteElement<G, M, N>,
+    Self: SolidFiniteElement<G, M, N, P>,
 {
     fn nodal_forces(
         &self,
@@ -36,11 +36,11 @@ where
     ) -> Result<ViscoplasticStateVariables<G>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize> ElasticViscoplasticFiniteElement<C, G, 3, N>
+impl<C, const G: usize, const N: usize, const O: usize, const P: usize> ElasticViscoplasticFiniteElement<C, G, 3, N, P>
     for Element<G, N, O>
 where
     C: ElasticViscoplastic,
-    Self: SolidFiniteElement<G, 3, N>,
+    Self: SolidFiniteElement<G, 3, N, P>,
 {
     fn nodal_forces(
         &self,

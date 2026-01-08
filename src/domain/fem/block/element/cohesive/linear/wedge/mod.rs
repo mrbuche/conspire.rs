@@ -8,6 +8,7 @@ use crate::{
         cohesive::{
             CohesiveFiniteElement, M, MidSurface, Separations, linear::LinearCohesiveElement,
         },
+        surface::linear::Triangle as LinearTriangle
     },
     math::{ScalarList, Tensor},
 };
@@ -20,7 +21,7 @@ const P: usize = 3;
 
 pub type Wedge = LinearCohesiveElement<G, N, P>;
 
-impl FiniteElement<G, M, N> for Wedge {
+impl FiniteElement<G, M, N, P> for Wedge {
     fn integration_points() -> ParametricCoordinates<G, M> {
         [
             [1.0 / 6.0, 1.0 / 6.0],
@@ -46,18 +47,13 @@ impl FiniteElement<G, M, N> for Wedge {
     fn parametric_weights() -> ScalarList<G> {
         [1.0 / 6.0; G].into()
     }
-    fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
-        let [xi_1, xi_2] = parametric_coordinate.into();
-        // [1.0 - xi_1 - xi_2, xi_1, xi_2].into()
-        todo!(
-            "These are correct but N=6; need to use P in trait, will fix composite tet too (that one test)"
-        )
+    fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<P> {
+        LinearTriangle::shape_functions(parametric_coordinate)
     }
     fn shape_functions_gradients(
-        _parametric_coordinate: ParametricCoordinate<M>,
-    ) -> ShapeFunctionsGradients<M, N> {
-        // [[-1.0, -1.0], [1.0, 0.0], [0.0, 1.0]].into()
-        todo!("These are correct but N=6...")
+        parametric_coordinate: ParametricCoordinate<M>,
+    ) -> ShapeFunctionsGradients<M, P> {
+        LinearTriangle::shape_functions_gradients(parametric_coordinate)
     }
 }
 

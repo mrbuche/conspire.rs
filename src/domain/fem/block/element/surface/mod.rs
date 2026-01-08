@@ -40,7 +40,7 @@ impl<const G: usize, const N: usize, const O: usize> Debug for SurfaceElement<G,
 
 impl<const G: usize, const N: usize, const O: usize> Default for SurfaceElement<G, N, O>
 where
-    Self: FiniteElement<G, M, N> + From<(ElementNodalReferenceCoordinates<N>, Scalar)>,
+    Self: FiniteElement<G, M, N, N> + From<(ElementNodalReferenceCoordinates<N>, Scalar)>,
 {
     fn default() -> Self {
         // (Self::parametric_reference(), 1.0).into()
@@ -63,7 +63,7 @@ where
 
 pub trait SurfaceFiniteElement<const G: usize, const N: usize, const P: usize>
 where
-    Self: FiniteElement<G, M, N>,
+    Self: FiniteElement<G, M, N, P>,
 {
     fn bases<const I: usize>(
         nodal_coordinates: &ElementNodalEitherCoordinates<I, P>,
@@ -217,10 +217,10 @@ where
     }
 }
 
-impl<const G: usize, const N: usize, const O: usize> SurfaceFiniteElement<G, N, N>
+impl<const G: usize, const N: usize, const O: usize, const P: usize> SurfaceFiniteElement<G, N, P>
     for SurfaceElement<G, N, O>
 where
-    Self: FiniteElement<G, M, N>,
+    Self: FiniteElement<G, M, N, P>,
 {
 }
 

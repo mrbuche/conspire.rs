@@ -6,7 +6,7 @@ use crate::{
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
                 FiniteElement, GradientVectors,
-                linear::tetrahedron::{G, M, N, Tetrahedron},
+                linear::tetrahedron::{G, M, N, P, Tetrahedron},
                 solid::SolidFiniteElement,
                 test::test_finite_element,
             },

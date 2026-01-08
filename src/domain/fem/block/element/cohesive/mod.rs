@@ -54,7 +54,7 @@ impl<const G: usize, const N: usize, const O: usize, const P: usize> Debug
 impl<const G: usize, const N: usize, const O: usize, const P: usize> Default
     for CohesiveElement<G, N, O, P>
 where
-    Self: FiniteElement<G, M, N> + From<ElementNodalReferenceCoordinates<P>>,
+    Self: FiniteElement<G, M, N, P> + From<ElementNodalReferenceCoordinates<P>>,
 {
     fn default() -> Self {
         // (Self::parametric_reference(), 1.0).into()
@@ -78,7 +78,7 @@ where
 impl<const G: usize, const N: usize, const O: usize, const P: usize> SurfaceFiniteElement<G, N, P>
     for CohesiveElement<G, N, O, P>
 where
-    Self: FiniteElement<G, M, N>,
+    Self: FiniteElement<G, M, N, P>,
 {
 }
 
