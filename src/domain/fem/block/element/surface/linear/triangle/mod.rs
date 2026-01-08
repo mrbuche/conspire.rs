@@ -10,6 +10,8 @@ use crate::{
     math::ScalarList,
 };
 
+// When implement G=3, share the methods with cohesive linear wedge.
+
 const G: usize = 1;
 const N: usize = 3;
 
@@ -17,7 +19,7 @@ pub type Triangle = LinearSurfaceElement<G, N>;
 
 impl FiniteElement<G, M, N> for Triangle {
     fn integration_points() -> ParametricCoordinates<G, M> {
-        [[0.25; M]].into()
+        [[1.0 / 3.0; M]].into()
     }
     fn integration_weights(&self) -> &ScalarList<G> {
         &self.integration_weights
