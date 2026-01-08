@@ -304,6 +304,9 @@ pub type RotationRateCurrentConfiguration = TensorRank2<3, 1, 1>;
 /// The rotation of the reference configuration $`\mathbf{Q}_0`$.
 pub type RotationReferenceConfiguration = TensorRank2<3, 0, 0>;
 
+/// A separation.
+pub type Separation = Displacement;
+
 /// The second Piola-Kirchhoff stress $`\mathbf{S}`$.
 pub type SecondPiolaKirchhoffStress = TensorRank2<3, 0, 0>;
 
