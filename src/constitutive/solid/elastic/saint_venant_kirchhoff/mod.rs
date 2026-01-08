@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     constitutive::{
-        Constitutive, ConstitutiveError,
+        ConstitutiveError,
         solid::{Solid, TWO_THIRDS, elastic::Elastic},
     },
     math::{IDENTITY, Rank2},

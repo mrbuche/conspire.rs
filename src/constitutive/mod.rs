@@ -12,7 +12,6 @@ pub mod thermal;
 use crate::{
     defeat_message,
     math::{Scalar, TensorError, TestError},
-    mechanics::{Deformation, DeformationError, DeformationGradientGeneral},
 };
 use std::fmt::{self, Debug, Display, Formatter};
 
@@ -21,18 +20,6 @@ pub trait Constitutive
 where
     Self: Clone + Debug,
 {
-    /// Calculates and returns the Jacobian.
-    fn jacobian<const I: usize, const J: usize>(
-        &self,
-        deformation_gradient: &DeformationGradientGeneral<I, J>,
-    ) -> Result<Scalar, ConstitutiveError> {
-        match deformation_gradient.jacobian() {
-            Err(DeformationError::InvalidJacobian(jacobian)) => Err(
-                ConstitutiveError::InvalidJacobian(jacobian, format!("{self:?}")),
-            ),
-            Ok(jacobian) => Ok(jacobian),
-        }
-    }
 }
 
 /// Possible errors encountered in constitutive models.
