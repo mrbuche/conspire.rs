@@ -6,7 +6,7 @@ use crate::{
         ElementNodalVelocities, FiniteElement, GradientVectors,
     },
     math::{IDENTITY, LEVI_CIVITA, Scalar, ScalarList, Tensor, TensorArray, TensorRank2},
-    mechanics::{Normal, NormalGradients, NormalRates, Normals, ReferenceNormals, SurfaceBases},
+    mechanics::{Bases, Normal, NormalGradients, NormalRates, Normals, ReferenceNormals, SurfaceBases},
 };
 use std::fmt::{self, Debug, Formatter};
 
@@ -90,7 +90,7 @@ where
         nodal_coordinates: &ElementNodalEitherCoordinates<I, P>,
     ) -> SurfaceBases<I, G> {
         Self::bases(nodal_coordinates)
-            .iter()
+            .into_iter()
             .map(|basis_vectors| {
                 basis_vectors
                     .iter()
@@ -106,7 +106,7 @@ where
                     .map(|metric_tensor_m| {
                         metric_tensor_m
                             .iter()
-                            .zip(basis_vectors)
+                            .zip(basis_vectors.iter())
                             .map(|(metric_tensor_mn, basis_vectors_n)| {
                                 basis_vectors_n * metric_tensor_mn
                             })
@@ -116,9 +116,26 @@ where
             })
             .collect()
     }
+    fn full_bases(
+        nodal_coordinates: &ElementNodalCoordinates<P>,
+    ) -> Bases<G> {
+        Self::bases(nodal_coordinates)
+            .into_iter()
+            .map(|basis_vectors| {
+                //
+                // Are g_1, g_2 orthonormal?
+                // Should they be?
+                // Can use R=[g_1, g_2, n] and R^[-1]=R^T if they are.
+                //
+                let [g_1, g_2] = basis_vectors.into();
+                let normal = g_1.cross(&g_2).normalized();
+                [g_1, g_2, normal].into()
+            })
+            .collect()
+    }
     fn normals(nodal_coordinates: &ElementNodalCoordinates<P>) -> Normals<G> {
         Self::bases(nodal_coordinates)
-            .iter()
+            .into_iter()
             .map(|basis_vectors| basis_vectors[0].cross(&basis_vectors[1]).normalized())
             .collect()
     }

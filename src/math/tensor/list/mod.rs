@@ -30,6 +30,15 @@ where
     }
 }
 
+impl<T, const N: usize> From<TensorList<T, N>> for [T; N]
+where
+    T: Tensor,
+{
+    fn from(tensor_list: TensorList<T, N>) -> Self {
+        tensor_list.0
+    }
+}
+
 impl<T, const N: usize> Display for TensorList<T, N>
 where
     T: Tensor,

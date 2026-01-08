@@ -99,10 +99,10 @@ impl<const I: usize, const J: usize> Deformation<I, J> for DeformationGradientGe
 }
 
 /// A basis.
-pub type Basis<const I: usize> = TensorRank1List<3, I, 3>;
+pub type Basis = TensorRank1List<3, 1, 3>;
 
 /// A list of bases.
-pub type Bases<const I: usize, const N: usize> = TensorRank1List2D<3, I, 3, N>;
+pub type Bases<const N: usize> = TensorRank1List2D<3, 1, 3, N>;
 
 /// The Cauchy stress $`\boldsymbol{\sigma}`$.
 pub type CauchyStress = TensorRank2<3, 1, 1>;

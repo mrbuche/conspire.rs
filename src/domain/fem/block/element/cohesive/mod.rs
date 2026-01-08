@@ -7,10 +7,12 @@ use crate::{
         ShapeFunctionsAtIntegrationPoints, surface::SurfaceFiniteElement,
     },
     math::{ScalarList, Tensor},
+    mechanics::CurrentCoordinate,
 };
 use std::fmt::{self, Debug, Formatter};
 
 pub type MidSurface<const P: usize> = ElementNodalCoordinates<P>;
+pub type Separation = CurrentCoordinate;
 pub type Separations<const P: usize> = ElementNodalCoordinates<P>;
 
 const M: usize = 2;
@@ -87,20 +89,22 @@ where
     fn nodal_mid_surface(nodal_coordinates: &ElementNodalCoordinates<N>) -> MidSurface<P>;
     fn nodal_separations(nodal_coordinates: &ElementNodalCoordinates<N>) -> Separations<P>;
     fn separations(nodal_coordinates: &ElementNodalCoordinates<N>) -> Separations<G> {
-
-        todo!("Just have this do the rotation to element coordinates before returning.");
-
         //
         // Will not work until is ShapeFunctions<P> instead of ShapeFunctions<N>.
         //
+        let mid_surface = Self::nodal_mid_surface(nodal_coordinates);
         Self::shape_functions_at_integration_points()
             .iter()
-            .map(|shape_functions| {
-                Self::nodal_separations(nodal_coordinates)
+            .zip(Self::full_bases(&mid_surface))
+            .map(|(shape_functions, basis)| {
+                let separation = Self::nodal_separations(nodal_coordinates)
                     .iter()
                     .zip(shape_functions.iter())
                     .map(|(nodal_separation, shape_function)| nodal_separation * shape_function)
-                    .sum()
+                    .sum::<Separation>();
+                basis.into_iter().map(|basis_vector|
+                    basis_vector * &separation
+                ).collect()
             })
             .collect()
     }
