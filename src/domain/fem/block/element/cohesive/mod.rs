@@ -4,6 +4,7 @@ pub mod linear;
 use crate::{
     fem::block::element::{
         ElementNodalCoordinates, ElementNodalReferenceCoordinates, FiniteElement,
+        ShapeFunctionsAtIntegrationPoints,
     },
     math::{ScalarList, Tensor},
 };
@@ -22,6 +23,9 @@ pub struct CohesiveElement<const G: usize, const N: usize, const O: usize, const
     //
     // No, do not store, they are the same for every element!
     // Override the shape_functions_at_integration_points() default trait impl instead!
+    //
+    // No! Use signed shape functions, will need in nodal force and nodal stiffnesses!
+    // And do not need to store!
     //
 }
 
@@ -90,4 +94,6 @@ where
             })
             .collect()
     }
+    fn signed_shape_functions() -> ShapeFunctionsAtIntegrationPoints<G, N>;
+    // put signs() as requirement here instead to impl only that in element?
 }

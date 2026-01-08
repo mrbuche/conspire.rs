@@ -1,7 +1,7 @@
 use crate::{
-    constitutive::cohesive::{elastic::Elastic},
+    constitutive::cohesive::elastic::Elastic,
     fem::block::element::{
-        ElementNodalCoordinates, FiniteElementError,
+        ElementNodalCoordinates, FiniteElement, FiniteElementError,
         cohesive::{CohesiveElement, CohesiveFiniteElement},
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
     },
@@ -37,35 +37,36 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
+        //
+        // Need to rotate separations into element coordinate system before sending to constitutive.
+        //
         match Self::separations(nodal_coordinates)
             .iter()
-            .map(|separation| {
-                constitutive_model.traction(separation)
-            })
+            .map(|separation| constitutive_model.traction(separation))
             .collect::<Result<TractionList<G>, _>>()
         {
-            Ok(_) => todo!("Need to do whole -/+ thing too."),
-            Err(_)  => todo!(),
+            //
+            // Need to rotate tractions back to global coordinate system before using below.
+            //
+            Ok(tractions) => Ok(tractions
+                .iter()
+                .zip(
+                    Self::signed_shape_functions()
+                        .iter()
+                        .zip(self.integration_weights()),
+                )
+                .map(|(traction, (signed_shape_functions, integration_weight))| {
+                    signed_shape_functions
+                        .iter()
+                        .map(|signed_shape_function| traction * (signed_shape_function * integration_weight))
+                        .collect()
+                })
+                .sum()),
+            Err(error) => Err(FiniteElementError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
         }
-        //     Ok(first_piola_kirchhoff_stresses) => Ok(first_piola_kirchhoff_stresses
-        //         .iter()
-        //         .zip(gradient_vectors.iter().zip(element.integration_weights()))
-        //         .map(
-        //             |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
-        //                 gradient_vectors
-        //                     .iter()
-        //                     .map(|gradient_vector| {
-        //                         (first_piola_kirchhoff_stress * gradient_vector) * integration_weight
-        //                     })
-        //                     .collect()
-        //             },
-        //         )
-        //         .sum()),
-        //     Err(error) => Err(FiniteElementError::Upstream(
-        //         format!("{error}"),
-        //         format!("{element:?}"),
-        //     )),
-        // }
     }
     fn nodal_stiffnesses(
         &self,

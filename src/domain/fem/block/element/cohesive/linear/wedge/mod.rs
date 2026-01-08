@@ -4,12 +4,13 @@
 use crate::{
     fem::block::element::{
         ElementNodalCoordinates, FiniteElement, ParametricCoordinate, ParametricCoordinates,
-        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
+        ParametricReference, ShapeFunctions, ShapeFunctionsAtIntegrationPoints,
+        ShapeFunctionsGradients,
         cohesive::{
             CohesiveFiniteElement, M, MidSurface, Separations, linear::LinearCohesiveElement,
         },
     },
-    math::{ScalarList, Tensor},
+    math::{Scalar, ScalarList, Tensor},
 };
 
 // This should share some methods with LinearTriangle<G=3> when get to it.
@@ -17,6 +18,7 @@ use crate::{
 const G: usize = 3;
 const N: usize = 6;
 const P: usize = 3;
+const SIGNS: [Scalar; N] = [1.0, 1.0, 1.0, -1.0, -1.0, -1.0];
 
 pub type Wedge = LinearCohesiveElement<G, N, P>;
 
@@ -78,6 +80,18 @@ impl CohesiveFiniteElement<G, N, P> for Wedge {
             .take(P)
             .zip(nodal_coordinates.iter().skip(P))
             .map(|(coordinates_bottom, coordinates_top)| coordinates_top - coordinates_bottom)
+            .collect()
+    }
+    fn signed_shape_functions() -> ShapeFunctionsAtIntegrationPoints<G, N> {
+        Self::shape_functions_at_integration_points()
+            .iter()
+            .map(|shape_functions| {
+                shape_functions
+                    .iter()
+                    .zip(SIGNS)
+                    .map(|(shape_function, sign)| shape_function * sign)
+                    .collect()
+            })
             .collect()
     }
 }
