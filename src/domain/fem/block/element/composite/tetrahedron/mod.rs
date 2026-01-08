@@ -11,6 +11,7 @@ use crate::{
             CompositeElement, NormalizedProjectionMatrix, ParametricGradientOperators,
             ProjectionMatrix, ShapeFunctionIntegrals, ShapeFunctionIntegralsProducts,
         },
+        linear::Tetrahedron as LinearTetrahedron,
         quadratic::Tetrahedron as QuadraticTetrahedron,
     },
     math::{Scalar, ScalarList, Tensor, TensorRank1},
@@ -38,7 +39,7 @@ impl From<ElementNodalReferenceCoordinates<N>> for Tetrahedron {
 
 impl FiniteElement<G, M, N, P> for Tetrahedron {
     fn integration_points() -> ParametricCoordinates<G, M> {
-        QuadraticTetrahedron::integration_points() // temporary
+        QuadraticTetrahedron::integration_points() // should use LinearTetrahedron<G=3>
     }
     fn integration_weights(&self) -> &ScalarList<G> {
         &self.integration_weights
@@ -62,12 +63,12 @@ impl FiniteElement<G, M, N, P> for Tetrahedron {
         [1.0 / 24.0; G].into()
     }
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<P> {
-        todo!()
+        LinearTetrahedron::shape_functions(parametric_coordinate) // should use LinearTetrahedron<G=3>
     }
     fn shape_functions_gradients(
         parametric_coordinate: ParametricCoordinate<M>,
     ) -> ShapeFunctionsGradients<M, P> {
-        todo!()
+        LinearTetrahedron::shape_functions_gradients(parametric_coordinate) // should use LinearTetrahedron<G=3>
     }
 }
 
