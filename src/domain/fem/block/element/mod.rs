@@ -13,7 +13,7 @@ pub mod thermal;
 use crate::{
     defeat_message,
     math::{Scalar, ScalarList, TensorRank1, TensorRank1List, TensorRank1List2D, TestError},
-    mechanics::{CurrentCoordinates, ReferenceCoordinates, VectorList2D},
+    mechanics::{CoordinateList, CurrentCoordinates, ReferenceCoordinates, VectorList2D},
 };
 use std::fmt::{self, Debug, Display, Formatter};
 
@@ -23,6 +23,7 @@ const FRAC_SQRT_3_5: Scalar = 0.774_596_669_241_483;
 
 pub type ElementNodalCoordinates<const N: usize> = CurrentCoordinates<N>;
 pub type ElementNodalVelocities<const N: usize> = CurrentCoordinates<N>;
+pub type ElementNodalEitherCoordinates<const I: usize, const N: usize> = CoordinateList<I, N>;
 pub type ElementNodalReferenceCoordinates<const N: usize> = ReferenceCoordinates<N>;
 pub type GradientVectors<const G: usize, const N: usize> = VectorList2D<0, N, G>;
 pub type ParametricCoordinate<const M: usize> = TensorRank1<M, A>;

@@ -37,9 +37,6 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
-        //
-        // Need to rotate separations into element coordinate system before sending to constitutive.
-        //
         match Self::separations(nodal_coordinates)
             .iter()
             .map(|separation| constitutive_model.traction(separation))
@@ -58,7 +55,9 @@ where
                 .map(|(traction, (signed_shape_functions, integration_weight))| {
                     signed_shape_functions
                         .iter()
-                        .map(|signed_shape_function| traction * (signed_shape_function * integration_weight))
+                        .map(|signed_shape_function| {
+                            traction * (signed_shape_function * integration_weight)
+                        })
                         .collect()
                 })
                 .sum()),

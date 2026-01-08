@@ -4,7 +4,7 @@ pub mod linear;
 use crate::{
     fem::block::element::{
         ElementNodalCoordinates, ElementNodalReferenceCoordinates, FiniteElement,
-        ShapeFunctionsAtIntegrationPoints,
+        ShapeFunctionsAtIntegrationPoints, surface::SurfaceFiniteElement,
     },
     math::{ScalarList, Tensor},
 };
@@ -73,13 +73,23 @@ where
 {
 }
 
-pub trait CohesiveFiniteElement<const G: usize, const N: usize, const P: usize>
+impl<const G: usize, const N: usize, const O: usize, const P: usize> SurfaceFiniteElement<G, N, P>
+    for CohesiveElement<G, N, O, P>
 where
     Self: FiniteElement<G, M, N>,
+{
+}
+
+pub trait CohesiveFiniteElement<const G: usize, const N: usize, const P: usize>
+where
+    Self: SurfaceFiniteElement<G, N, P>,
 {
     fn nodal_mid_surface(nodal_coordinates: &ElementNodalCoordinates<N>) -> MidSurface<P>;
     fn nodal_separations(nodal_coordinates: &ElementNodalCoordinates<N>) -> Separations<P>;
     fn separations(nodal_coordinates: &ElementNodalCoordinates<N>) -> Separations<G> {
+
+        todo!("Just have this do the rotation to element coordinates before returning.");
+
         //
         // Will not work until is ShapeFunctions<P> instead of ShapeFunctions<N>.
         //

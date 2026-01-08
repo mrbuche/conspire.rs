@@ -4,8 +4,7 @@
 use crate::{
     fem::block::element::{
         ElementNodalCoordinates, FiniteElement, ParametricCoordinate, ParametricCoordinates,
-        ParametricReference, ShapeFunctions,
-        ShapeFunctionsGradients,
+        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         cohesive::{
             CohesiveFiniteElement, M, MidSurface, Separations, linear::LinearCohesiveElement,
         },

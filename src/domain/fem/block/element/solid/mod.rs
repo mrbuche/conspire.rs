@@ -81,7 +81,7 @@ where
 impl<const G: usize, const N: usize, const O: usize> SolidFiniteElement<G, 2, N>
     for SurfaceElement<G, N, O>
 where
-    Self: SurfaceFiniteElement<G, N>,
+    Self: SurfaceFiniteElement<G, N, N>,
 {
     fn deformation_gradients(
         &self,
