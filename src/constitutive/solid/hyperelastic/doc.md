@@ -1,4 +1,4 @@
-Hyperelastic constitutive models are completely defined by a Helmholtz free energy density function of the deformation gradient.
+Hyperelastic solid constitutive models are defined by a Helmholtz free energy density function of the deformation gradient.
 
 ```math
 \mathbf{P}:\dot{\mathbf{F}} - \dot{a}(\mathbf{F}) \geq 0

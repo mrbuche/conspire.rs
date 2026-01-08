@@ -17,7 +17,7 @@ use crate::{
     },
 };
 
-/// The Almansi-Hamel viscoelastic constitutive model.
+/// The Almansi-Hamel viscoelastic solid constitutive model.
 ///
 /// **Parameters**
 /// - The bulk modulus $`\kappa`$.

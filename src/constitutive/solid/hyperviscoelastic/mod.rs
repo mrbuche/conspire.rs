@@ -1,8 +1,8 @@
-//! Hyperviscoelastic constitutive models.
+//! Hyperviscoelastic solid constitutive models.
 //!
 //! ---
 //!
-//! Hyperviscoelastic constitutive models are defined by a Helmholtz free energy density function and a viscous dissipation function.
+//! Hyperviscoelastic solid constitutive models are defined by a Helmholtz free energy density and a viscous dissipation function.
 //!
 //! ```math
 //! \mathbf{P}:\dot{\mathbf{F}} - \dot{a}(\mathbf{F}) - \phi(\mathbf{F},\dot{\mathbf{F}}) \geq 0
@@ -27,7 +27,7 @@ pub use saint_venant_kirchhoff::SaintVenantKirchhoff;
 
 use super::{elastic_hyperviscous::ElasticHyperviscous, *};
 
-/// Required methods for hyperviscoelastic constitutive models.
+/// Required methods for hyperviscoelastic solid constitutive models.
 pub trait Hyperviscoelastic
 where
     Self: ElasticHyperviscous,

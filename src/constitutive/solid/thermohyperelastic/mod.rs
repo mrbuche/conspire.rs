@@ -1,4 +1,4 @@
-//! Thermohyperelastic constitutive models.
+//! Thermohyperelastic solid constitutive models.
 
 #[cfg(test)]
 pub mod test;
@@ -9,7 +9,7 @@ pub use saint_venant_kirchhoff::SaintVenantKirchhoff;
 
 use super::{thermoelastic::Thermoelastic, *};
 
-/// Required methods for thermohyperelastic constitutive models.
+/// Required methods for thermohyperelastic solid constitutive models.
 pub trait Thermohyperelastic
 where
     Self: Thermoelastic,

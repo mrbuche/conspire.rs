@@ -1,4 +1,4 @@
-//! Elastic-viscoplastic constitutive models.
+//! Elastic-viscoplastic solid constitutive models.
 
 use crate::{
     constitutive::{ConstitutiveError, fluid::viscoplastic::Viscoplastic, solid::Solid},
@@ -32,7 +32,7 @@ pub enum AppliedLoad<'a> {
     // BiaxialStress(fn(Scalar) -> Scalar, fn(Scalar) -> Scalar, &'a [Scalar]),
 }
 
-/// Required methods for elastic-viscoplastic constitutive models.
+/// Required methods for elastic-viscoplastic solid constitutive models.
 pub trait ElasticViscoplastic
 where
     Self: Solid + Viscoplastic,
@@ -195,7 +195,7 @@ where
     }
 }
 
-/// Zeroth-order root-finding methods for elastic-viscoplastic constitutive models.
+/// Zeroth-order root-finding methods for elastic-viscoplastic solid constitutive models.
 pub trait ZerothOrderRoot {
     /// Solve for the unknown components of the deformation gradients under an applied load.
     ///
@@ -223,7 +223,7 @@ pub trait ZerothOrderRoot {
     ) -> Result<DeformationGradient, OptimizationError>;
 }
 
-/// First-order root-finding methods for elastic-viscoplastic constitutive models.
+/// First-order root-finding methods for elastic-viscoplastic solid constitutive models.
 pub trait FirstOrderRoot {
     /// Solve for the unknown components of the deformation gradients under an applied load.
     ///

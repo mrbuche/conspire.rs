@@ -1,9 +1,9 @@
-//! Plastic constitutive models.
+//! Plastic fluid constitutive models.
 
 use crate::math::Scalar;
 use std::fmt::Debug;
 
-/// Required methods for plastic constitutive models.
+/// Required methods for plastic fluid constitutive models.
 pub trait Plastic
 where
     Self: Clone + Debug,

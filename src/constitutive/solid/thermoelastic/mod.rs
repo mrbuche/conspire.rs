@@ -1,4 +1,4 @@
-//! Thermoelastic constitutive models.
+//! Thermoelastic solid constitutive models.
 
 #[cfg(test)]
 pub mod test;
@@ -9,7 +9,7 @@ pub use almansi_hamel::AlmansiHamel;
 
 use super::*;
 
-/// Required methods for thermoelastic constitutive models.
+/// Required methods for thermoelastic solid constitutive models.
 pub trait Thermoelastic
 where
     Self: Solid,

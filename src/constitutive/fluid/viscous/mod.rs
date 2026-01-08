@@ -1,8 +1,8 @@
-//! Viscous constitutive models.
+//! Viscous fluid constitutive models.
 
 use crate::math::Scalar;
 
-/// Required methods for viscous constitutive models.
+/// Required methods for viscous fluid constitutive models.
 pub trait Viscous {
     /// Returns the bulk viscosity.
     fn bulk_viscosity(&self) -> Scalar;

@@ -1,4 +1,4 @@
-The Hencky elastic constitutive model.
+The Hencky elastic solid constitutive model.
 
 **Parameters**
 - The bulk modulus $`\kappa`$.

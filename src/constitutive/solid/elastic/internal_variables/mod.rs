@@ -1,4 +1,4 @@
-//! Elastic constitutive models with internal variables.
+//! Elastic solid constitutive models with internal variables.
 
 use crate::{
     constitutive::{
@@ -17,7 +17,7 @@ use crate::{
     },
 };
 
-/// Required methods for elastic constitutive models with internal variables.
+/// Required methods for elastic solid constitutive models with internal variables.
 pub trait ElasticIV<V, T1, T2, T3>
 where
     Self: Solid,
@@ -171,7 +171,7 @@ where
     fn internal_variables_constraints(&self) -> (&[usize], usize);
 }
 
-/// Zeroth-order root-finding methods for elastic constitutive models with internal variables.
+/// Zeroth-order root-finding methods for elastic solid constitutive models with internal variables.
 pub trait ZerothOrderRoot<V, T1, T2, T3>
 where
     V: Tensor,
@@ -190,7 +190,7 @@ where
     ) -> Result<(DeformationGradient, V), ConstitutiveError>;
 }
 
-/// First-order root-finding methods for elastic constitutive models with internal variables.
+/// First-order root-finding methods for elastic solid constitutive models with internal variables.
 pub trait FirstOrderRoot<V, T1, T2, T3>
 where
     T1: Tensor,

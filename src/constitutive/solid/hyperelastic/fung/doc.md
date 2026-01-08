@@ -1,4 +1,4 @@
-The Fung hyperelastic constitutive model.[^1]
+The Fung hyperelastic solid constitutive model.[^1]
 
 **Parameters**
 - The bulk modulus $`\kappa`$.

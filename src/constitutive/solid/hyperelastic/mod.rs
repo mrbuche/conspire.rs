@@ -1,4 +1,4 @@
-//! Hyperelastic constitutive models.
+//! Hyperelastic solid constitutive models.
 //!
 //! ---
 //!
@@ -32,7 +32,7 @@ use crate::math::{
     optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
 };
 
-/// Required methods for hyperelastic constitutive models.
+/// Required methods for hyperelastic solid constitutive models.
 pub trait Hyperelastic
 where
     Self: Elastic,
@@ -48,7 +48,7 @@ where
     ) -> Result<Scalar, ConstitutiveError>;
 }
 
-/// First-order minimization methods for elastic constitutive models.
+/// First-order minimization methods for elastic solid constitutive models.
 pub trait FirstOrderMinimize {
     /// Solve for the unknown components of the deformation gradient under an applied load.
     ///
@@ -62,7 +62,7 @@ pub trait FirstOrderMinimize {
     ) -> Result<DeformationGradient, ConstitutiveError>;
 }
 
-/// Second-order minimization methods for elastic constitutive models.
+/// Second-order minimization methods for elastic solid constitutive models.
 pub trait SecondOrderMinimize {
     /// Solve for the unknown components of the deformation gradient under an applied load.
     ///

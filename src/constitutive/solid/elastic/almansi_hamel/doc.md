@@ -1,4 +1,4 @@
-The Almansi-Hamel elastic constitutive model.
+The Almansi-Hamel elastic solid constitutive model.
 
 **Parameters**
 - The bulk modulus $`\kappa`$.
