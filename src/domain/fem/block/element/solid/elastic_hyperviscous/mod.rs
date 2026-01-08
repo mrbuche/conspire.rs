@@ -7,8 +7,13 @@ use crate::{
     math::{Scalar, Tensor},
 };
 
-pub trait ElasticHyperviscousFiniteElement<C, const G: usize, const M: usize, const N: usize, const P: usize>
-where
+pub trait ElasticHyperviscousFiniteElement<
+    C,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+    const P: usize,
+> where
     C: ElasticHyperviscous,
     Self: ViscoelasticFiniteElement<C, G, M, N, P>,
 {
@@ -26,8 +31,8 @@ where
     ) -> Result<Scalar, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize> ElasticHyperviscousFiniteElement<C, G, 3, N, P>
-    for Element<G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
+    ElasticHyperviscousFiniteElement<C, G, 3, N, P> for Element<G, N, O>
 where
     C: ElasticHyperviscous,
     Self: ViscoelasticFiniteElement<C, G, 3, N, P>,
@@ -60,8 +65,8 @@ where
     }
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize> ElasticHyperviscousFiniteElement<C, G, 2, N, P>
-    for SurfaceElement<G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
+    ElasticHyperviscousFiniteElement<C, G, 2, N, P> for SurfaceElement<G, N, O>
 where
     C: ElasticHyperviscous,
     Self: ViscoelasticFiniteElement<C, G, 2, N, P>,
@@ -94,7 +99,15 @@ where
     }
 }
 
-fn viscous_dissipation<C, F, const G: usize, const M: usize, const N: usize, const O: usize, const P: usize>(
+fn viscous_dissipation<
+    C,
+    F,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+    const O: usize,
+    const P: usize,
+>(
     element: &F,
     constitutive_model: &C,
     nodal_coordinates: &ElementNodalCoordinates<N>,
@@ -132,7 +145,15 @@ where
     }
 }
 
-fn dissipation_potential<C, F, const G: usize, const M: usize, const N: usize, const O: usize, const P: usize>(
+fn dissipation_potential<
+    C,
+    F,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+    const O: usize,
+    const P: usize,
+>(
     element: &F,
     constitutive_model: &C,
     nodal_coordinates: &ElementNodalCoordinates<N>,

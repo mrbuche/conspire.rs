@@ -21,8 +21,14 @@ use crate::{
 pub type NodalForcesThermal = Vector;
 pub type NodalStiffnessesThermal = SquareMatrix;
 
-pub trait ThermalConductionFiniteElementBlock<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-where
+pub trait ThermalConductionFiniteElementBlock<
+    C,
+    F,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+    const P: usize,
+> where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, M, N, P>,
 {

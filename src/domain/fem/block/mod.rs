@@ -10,7 +10,7 @@ use crate::{
     defeat_message,
     fem::{
         NodalReferenceCoordinates,
-        block::element::{FiniteElement, FiniteElementCreation},
+        block::element::{ElementNodalReferenceCoordinates, FiniteElement},
     },
     math::{
         Banded, Scalar, Tensor, TestError,
@@ -66,7 +66,8 @@ where
     }
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> Debug for Block<C, F, G, M, N, P>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> Debug
+    for Block<C, F, G, M, N, P>
 where
     F: FiniteElement<G, M, N, P>,
 {
@@ -93,10 +94,10 @@ where
     fn reset(&mut self);
 }
 
-impl<C, F, const G: usize, const N: usize, const P: usize> From<(C, Connectivity<N>, NodalReferenceCoordinates)>
-    for Block<C, F, G, 3, N, P>
+impl<C, F, const G: usize, const N: usize, const P: usize>
+    From<(C, Connectivity<N>, NodalReferenceCoordinates)> for Block<C, F, G, 3, N, P>
 where
-    F: FiniteElement<G, 3, N, P> + FiniteElementCreation<G, N>,
+    F: FiniteElement<G, 3, N, P> + From<ElementNodalReferenceCoordinates<N>>,
 {
     fn from(
         (constitutive_model, connectivity, coordinates): (
@@ -118,9 +119,10 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize, const P: usize> FiniteElementBlock<C, F, G, N> for Block<C, F, G, 3, N, P>
+impl<C, F, const G: usize, const N: usize, const P: usize> FiniteElementBlock<C, F, G, N>
+    for Block<C, F, G, 3, N, P>
 where
-    F: FiniteElement<G, 3, N, P> + FiniteElementCreation<G, N>,
+    F: Default + FiniteElement<G, 3, N, P> + From<ElementNodalReferenceCoordinates<N>>,
 {
     fn reset(&mut self) {
         self.elements

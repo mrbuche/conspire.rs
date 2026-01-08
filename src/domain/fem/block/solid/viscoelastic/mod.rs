@@ -19,8 +19,14 @@ use crate::{
     mechanics::{DeformationGradientRateList, Times},
 };
 
-pub trait ViscoelasticFiniteElementBlock<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-where
+pub trait ViscoelasticFiniteElementBlock<
+    C,
+    F,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+    const P: usize,
+> where
     C: Viscoelastic,
     F: ViscoelasticFiniteElement<C, G, M, N, P>,
 {

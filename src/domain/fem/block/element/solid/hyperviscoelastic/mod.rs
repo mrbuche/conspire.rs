@@ -7,8 +7,13 @@ use crate::{
     math::{Scalar, Tensor},
 };
 
-pub trait HyperviscoelasticFiniteElement<C, const G: usize, const M: usize, const N: usize, const P: usize>
-where
+pub trait HyperviscoelasticFiniteElement<
+    C,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+    const P: usize,
+> where
     C: Hyperviscoelastic,
     Self: ElasticHyperviscousFiniteElement<C, G, M, N, P>,
 {
@@ -19,8 +24,8 @@ where
     ) -> Result<Scalar, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize> HyperviscoelasticFiniteElement<C, G, 3, N, P>
-    for Element<G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
+    HyperviscoelasticFiniteElement<C, G, 3, N, P> for Element<G, N, O>
 where
     C: Hyperviscoelastic,
     Self: ElasticHyperviscousFiniteElement<C, G, 3, N, P>,
@@ -34,8 +39,8 @@ where
     }
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize> HyperviscoelasticFiniteElement<C, G, 2, N, P>
-    for SurfaceElement<G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
+    HyperviscoelasticFiniteElement<C, G, 2, N, P> for SurfaceElement<G, N, O>
 where
     C: Hyperviscoelastic,
     Self: ElasticHyperviscousFiniteElement<C, G, 2, N, P>,
@@ -49,7 +54,15 @@ where
     }
 }
 
-fn helmholtz_free_energy<C, F, const G: usize, const M: usize, const N: usize, const O: usize, const P: usize>(
+fn helmholtz_free_energy<
+    C,
+    F,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+    const O: usize,
+    const P: usize,
+>(
     element: &F,
     constitutive_model: &C,
     nodal_coordinates: &ElementNodalCoordinates<N>,

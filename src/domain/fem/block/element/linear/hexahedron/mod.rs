@@ -113,4 +113,4 @@ impl FiniteElement<G, M, N, P> for Hexahedron {
     }
 }
 
-impl LinearFiniteElement<G, N,> for Hexahedron {}
+impl LinearFiniteElement<G, N> for Hexahedron {}

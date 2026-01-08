@@ -26,8 +26,8 @@ where
     ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize> ElasticFiniteElement<C, G, 3, N, P>
-    for Element<G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
+    ElasticFiniteElement<C, G, 3, N, P> for Element<G, N, O>
 where
     C: Elastic,
     Self: SolidFiniteElement<G, 3, N, P>,
@@ -185,7 +185,15 @@ where
     }
 }
 
-fn nodal_forces<C, F, const G: usize, const M: usize, const N: usize, const O: usize, const P: usize>(
+fn nodal_forces<
+    C,
+    F,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+    const O: usize,
+    const P: usize,
+>(
     element: &F,
     constitutive_model: &C,
     gradient_vectors: &GradientVectors<G, N>,

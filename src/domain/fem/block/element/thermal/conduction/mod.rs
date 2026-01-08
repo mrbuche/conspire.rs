@@ -14,8 +14,13 @@ use crate::{
 pub type ElementNodalForcesThermal<const D: usize> = TensorRank0List<D>;
 pub type ElementNodalStiffnessesThermal<const D: usize> = TensorRank0List2D<D>;
 
-pub trait ThermalConductionFiniteElement<C, const G: usize, const M: usize, const N: usize, const P: usize>
-where
+pub trait ThermalConductionFiniteElement<
+    C,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+    const P: usize,
+> where
     C: ThermalConduction,
     Self: ThermalFiniteElement<G, M, N, P>,
 {

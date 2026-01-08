@@ -16,8 +16,14 @@ use crate::{
     },
 };
 
-pub trait ElasticFiniteElementBlock<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-where
+pub trait ElasticFiniteElementBlock<
+    C,
+    F,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+    const P: usize,
+> where
     C: Elastic,
     F: ElasticFiniteElement<C, G, M, N, P>,
 {
@@ -31,8 +37,8 @@ where
     ) -> Result<NodalStiffnessesSolid, FiniteElementBlockError>;
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> ElasticFiniteElementBlock<C, F, G, M, N, P>
-    for Block<C, F, G, M, N, P>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
+    ElasticFiniteElementBlock<C, F, G, M, N, P> for Block<C, F, G, M, N, P>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, M, N, P>,

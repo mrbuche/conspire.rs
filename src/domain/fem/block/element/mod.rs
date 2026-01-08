@@ -2,7 +2,7 @@
 mod test;
 
 pub mod cohesive;
-// pub mod composite;
+pub mod composite;
 pub mod linear;
 pub mod quadratic;
 pub mod serendipity;
@@ -104,19 +104,6 @@ where
     fn default() -> Self {
         ElementNodalReferenceCoordinates::from(Self::parametric_reference()).into()
     }
-}
-
-pub trait FiniteElementCreation<const G: usize, const N: usize>
-where
-    Self: Default + From<ElementNodalReferenceCoordinates<N>>,
-{
-}
-
-impl<const G: usize, const N: usize, const O: usize> FiniteElementCreation<G, N>
-    for Element<G, N, O>
-where
-    Self: Default + From<ElementNodalReferenceCoordinates<N>>,
-{
 }
 
 fn basic_from<const G: usize, const N: usize, const O: usize>(

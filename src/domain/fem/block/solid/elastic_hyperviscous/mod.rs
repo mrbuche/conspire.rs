@@ -24,7 +24,8 @@ pub trait ElasticHyperviscousFiniteElementBlock<
     F,
     const G: usize,
     const M: usize,
-    const N: usize, const P: usize,
+    const N: usize,
+    const P: usize,
 > where
     C: ElasticHyperviscous,
     F: ElasticHyperviscousFiniteElement<C, G, M, N, P>,

@@ -6,7 +6,9 @@ use crate::{
         ElementNodalVelocities, FiniteElement, GradientVectors,
     },
     math::{IDENTITY, LEVI_CIVITA, Scalar, ScalarList, Tensor, TensorArray, TensorRank2},
-    mechanics::{Bases, Normal, NormalGradients, NormalRates, Normals, ReferenceNormals, SurfaceBases},
+    mechanics::{
+        Bases, Normal, NormalGradients, NormalRates, Normals, ReferenceNormals, SurfaceBases,
+    },
 };
 use std::fmt::{self, Debug, Formatter};
 
@@ -36,29 +38,6 @@ impl<const G: usize, const N: usize, const O: usize> Debug for SurfaceElement<G,
         };
         write!(f, "{element} {{ G: {G}, N: {N} }}",)
     }
-}
-
-impl<const G: usize, const N: usize, const O: usize> Default for SurfaceElement<G, N, O>
-where
-    Self: FiniteElement<G, M, N, N> + From<(ElementNodalReferenceCoordinates<N>, Scalar)>,
-{
-    fn default() -> Self {
-        // (Self::parametric_reference(), 1.0).into()
-        todo!()
-    }
-}
-
-pub trait SurfaceFiniteElementCreation<const G: usize, const N: usize>
-where
-    Self: Default + From<(ElementNodalReferenceCoordinates<N>, Scalar)>,
-{
-}
-
-impl<const G: usize, const N: usize, const O: usize> SurfaceFiniteElementCreation<G, N>
-    for SurfaceElement<G, N, O>
-where
-    Self: Default + From<(ElementNodalReferenceCoordinates<N>, Scalar)>,
-{
 }
 
 pub trait SurfaceFiniteElement<const G: usize, const N: usize, const P: usize>
@@ -116,9 +95,7 @@ where
             })
             .collect()
     }
-    fn full_bases(
-        nodal_coordinates: &ElementNodalCoordinates<P>,
-    ) -> Bases<G> {
+    fn full_bases(nodal_coordinates: &ElementNodalCoordinates<P>) -> Bases<G> {
         Self::bases(nodal_coordinates)
             .into_iter()
             .map(|basis_vectors| {

@@ -9,7 +9,8 @@ macro_rules! test_finite_element_block {
                         get_reference_coordinates_block(),
                     ))
                 }
-                fn get_block_transformed() -> Block<$constitutive_model_type, $element, G, M, N, P> {
+                fn get_block_transformed() -> Block<$constitutive_model_type, $element, G, M, N, P>
+                {
                     Block::<$constitutive_model_type, $element, G, M, N, P>::from((
                         $constitutive_model,
                         get_connectivity(),
@@ -36,7 +37,8 @@ macro_rules! test_surface_finite_element_block {
                         THICKNESS,
                     ))
                 }
-                fn get_block_transformed() -> Block<$constitutive_model_type, $element, G, M, N, P> {
+                fn get_block_transformed() -> Block<$constitutive_model_type, $element, G, M, N, P>
+                {
                     Block::<$constitutive_model_type, $element, G, M, N, P>::from((
                         $constitutive_model,
                         get_connectivity(),

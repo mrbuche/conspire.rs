@@ -1,7 +1,9 @@
 macro_rules! test_thermal {
     ($element: ident) => {
         mod thermal_block {
-            use super::{D, G, M, N, P, get_connectivity, get_reference_coordinates_block, $element};
+            use super::{
+                D, G, M, N, P, get_connectivity, get_reference_coordinates_block, $element,
+            };
             use crate::{
                 EPSILON,
                 constitutive::thermal::conduction::Fourier,

@@ -32,7 +32,8 @@ pub trait ElasticViscoplasticFiniteElementBlock<
     F,
     const G: usize,
     const M: usize,
-    const N: usize, const P: usize,
+    const N: usize,
+    const P: usize,
 > where
     C: ElasticViscoplastic,
     F: ElasticViscoplasticFiniteElement<C, G, M, N, P>,

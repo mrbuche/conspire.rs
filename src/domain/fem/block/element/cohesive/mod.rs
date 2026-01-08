@@ -51,30 +51,6 @@ impl<const G: usize, const N: usize, const O: usize, const P: usize> Debug
     }
 }
 
-impl<const G: usize, const N: usize, const O: usize, const P: usize> Default
-    for CohesiveElement<G, N, O, P>
-where
-    Self: FiniteElement<G, M, N, P> + From<ElementNodalReferenceCoordinates<P>>,
-{
-    fn default() -> Self {
-        // (Self::parametric_reference(), 1.0).into()
-        todo!()
-    }
-}
-
-pub trait CohesiveFiniteElementCreation<const G: usize, const P: usize>
-where
-    Self: Default + From<ElementNodalReferenceCoordinates<P>>,
-{
-}
-
-impl<const G: usize, const N: usize, const O: usize, const P: usize>
-    CohesiveFiniteElementCreation<G, P> for CohesiveElement<G, N, O, P>
-where
-    Self: Default + From<ElementNodalReferenceCoordinates<P>>,
-{
-}
-
 impl<const G: usize, const N: usize, const O: usize, const P: usize> SurfaceFiniteElement<G, N, P>
     for CohesiveElement<G, N, O, P>
 where
@@ -102,9 +78,10 @@ where
                     .zip(shape_functions.iter())
                     .map(|(nodal_separation, shape_function)| nodal_separation * shape_function)
                     .sum::<Separation>();
-                basis.into_iter().map(|basis_vector|
-                    basis_vector * &separation
-                ).collect()
+                basis
+                    .into_iter()
+                    .map(|basis_vector| basis_vector * &separation)
+                    .collect()
             })
             .collect()
     }

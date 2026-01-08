@@ -16,8 +16,14 @@ use crate::{
     },
 };
 
-pub trait HyperelasticFiniteElementBlock<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-where
+pub trait HyperelasticFiniteElementBlock<
+    C,
+    F,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+    const P: usize,
+> where
     C: Hyperelastic,
     F: HyperelasticFiniteElement<C, G, M, N, P>,
     Self: ElasticFiniteElementBlock<C, F, G, M, N, P>,

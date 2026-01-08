@@ -18,8 +18,8 @@ where
     ) -> TemperatureGradients<G>;
 }
 
-impl<const G: usize, const M: usize, const N: usize, const O: usize, const P: usize> ThermalFiniteElement<G, M, N, P>
-    for Element<G, N, O>
+impl<const G: usize, const M: usize, const N: usize, const O: usize, const P: usize>
+    ThermalFiniteElement<G, M, N, P> for Element<G, N, O>
 where
     Self: FiniteElement<G, M, N, P>,
 {

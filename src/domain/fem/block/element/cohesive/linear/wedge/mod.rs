@@ -8,7 +8,7 @@ use crate::{
         cohesive::{
             CohesiveFiniteElement, M, MidSurface, Separations, linear::LinearCohesiveElement,
         },
-        surface::linear::Triangle as LinearTriangle
+        surface::linear::Triangle as LinearTriangle,
     },
     math::{ScalarList, Tensor},
 };
