@@ -355,6 +355,9 @@ pub type Times = crate::math::Vector;
 /// A traction.
 pub type Traction = TensorRank1<3, 1>;
 
+/// A list of tractions.
+pub type TractionList<const N: usize> = TensorRank1List<3, 1, N>;
+
 /// A vector.
 pub type Vector<const I: usize> = TensorRank1<3, I>;
 

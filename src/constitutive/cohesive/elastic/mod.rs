@@ -1,7 +1,7 @@
 //! Elastic cohesive constitutive models.
 
 use crate::{
-    constitutive::{Constitutive, cohesive::Cohesive},
+    constitutive::{Constitutive, ConstitutiveError, cohesive::Cohesive},
     mechanics::{Scalar, Separation, Stiffness, Traction},
 };
 
@@ -10,8 +10,8 @@ pub trait Elastic
 where
     Self: Cohesive,
 {
-    fn traction(&self, separation: &Separation) -> Traction;
-    fn stiffness(&self, separation: &Separation) -> Stiffness;
+    fn traction(&self, separation: &Separation) -> Result<Traction, ConstitutiveError>;
+    fn stiffness(&self, separation: &Separation) -> Result<Stiffness, ConstitutiveError>;
 }
 
 /// The linear elastic cohesive constitutive model.
@@ -28,20 +28,20 @@ impl Constitutive for LinearElastic {}
 impl Cohesive for LinearElastic {}
 
 impl Elastic for LinearElastic {
-    fn traction(&self, separation: &Separation) -> Traction {
-        [
+    fn traction(&self, separation: &Separation) -> Result<Traction, ConstitutiveError> {
+        Ok([
             separation[0] * self.tangential_stiffness,
             separation[1] * self.tangential_stiffness,
             separation[2] * self.normal_stiffness,
         ]
-        .into()
+        .into())
     }
-    fn stiffness(&self, _separation: &Separation) -> Stiffness {
-        [
+    fn stiffness(&self, _separation: &Separation) -> Result<Stiffness, ConstitutiveError> {
+        Ok([
             [self.tangential_stiffness, 0.0, 0.0],
             [0.0, self.tangential_stiffness, 0.0],
             [0.0, 0.0, self.normal_stiffness],
         ]
-        .into()
+        .into())
     }
 }

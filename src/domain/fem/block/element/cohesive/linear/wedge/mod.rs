@@ -3,11 +3,13 @@
 
 use crate::{
     fem::block::element::{
-        FiniteElement, ParametricCoordinate, ParametricCoordinates, ParametricReference,
-        ShapeFunctions, ShapeFunctionsGradients,
-        cohesive::{M, linear::LinearCohesiveElement},
+        ElementNodalCoordinates, FiniteElement, ParametricCoordinate, ParametricCoordinates,
+        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
+        cohesive::{
+            CohesiveFiniteElement, M, MidSurface, Separations, linear::LinearCohesiveElement,
+        },
     },
-    math::ScalarList,
+    math::{ScalarList, Tensor},
 };
 
 // This should share some methods with LinearTriangle<G=3> when get to it.
@@ -56,5 +58,26 @@ impl FiniteElement<G, M, N> for Wedge {
     ) -> ShapeFunctionsGradients<M, N> {
         // [[-1.0, -1.0], [1.0, 0.0], [0.0, 1.0]].into()
         todo!("These are correct but N=6...")
+    }
+}
+
+impl CohesiveFiniteElement<G, N, P> for Wedge {
+    fn nodal_mid_surface(nodal_coordinates: &ElementNodalCoordinates<N>) -> MidSurface<P> {
+        nodal_coordinates
+            .iter()
+            .take(P)
+            .zip(nodal_coordinates.iter().skip(P))
+            .map(|(coordinates_bottom, coordinates_top)| {
+                (coordinates_top + coordinates_bottom) * 0.5
+            })
+            .collect()
+    }
+    fn nodal_separations(nodal_coordinates: &ElementNodalCoordinates<N>) -> Separations<P> {
+        nodal_coordinates
+            .iter()
+            .take(P)
+            .zip(nodal_coordinates.iter().skip(P))
+            .map(|(coordinates_bottom, coordinates_top)| coordinates_top - coordinates_bottom)
+            .collect()
     }
 }

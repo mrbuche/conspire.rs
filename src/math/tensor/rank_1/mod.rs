@@ -357,6 +357,17 @@ impl<const D: usize, const I: usize> Add<TensorRank1<D, I>> for &TensorRank1<D, 
     }
 }
 
+impl<const D: usize, const I: usize> Add<Self> for &TensorRank1<D, I> {
+    type Output = TensorRank1<D, I>;
+    fn add(self, tensor_rank_1: Self) -> Self::Output {
+        tensor_rank_1
+            .iter()
+            .zip(self.iter())
+            .map(|(tensor_rank_1_i, self_i)| self_i + *tensor_rank_1_i)
+            .collect()
+    }
+}
+
 impl<const D: usize, const I: usize> AddAssign for TensorRank1<D, I> {
     fn add_assign(&mut self, tensor_rank_1: Self) {
         self.iter_mut()
