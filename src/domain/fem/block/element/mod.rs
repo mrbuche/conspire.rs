@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+pub mod cohesive;
 pub mod composite;
 pub mod linear;
 pub mod quadratic;
