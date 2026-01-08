@@ -94,6 +94,17 @@ where
             })
             .collect()
     }
-    fn signed_shape_functions() -> ShapeFunctionsAtIntegrationPoints<G, N>;
-    // put signs() as requirement here instead to impl only that in element?
+    fn signed_shape_functions() -> ShapeFunctionsAtIntegrationPoints<G, N> {
+        Self::shape_functions_at_integration_points()
+            .iter()
+            .map(|shape_functions| {
+                shape_functions
+                    .iter()
+                    .zip(Self::signs())
+                    .map(|(shape_function, sign)| shape_function * sign)
+                    .collect()
+            })
+            .collect()
+    }
+    fn signs() -> ScalarList<N>;
 }
