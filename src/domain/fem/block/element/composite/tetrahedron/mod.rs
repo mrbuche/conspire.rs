@@ -39,7 +39,7 @@ impl From<ElementNodalReferenceCoordinates<N>> for Tetrahedron {
 
 impl FiniteElement<G, M, N, P> for Tetrahedron {
     fn integration_points() -> ParametricCoordinates<G, M> {
-        QuadraticTetrahedron::integration_points() // should use LinearTetrahedron<G=3>
+        QuadraticTetrahedron::integration_points() // should use LinearTetrahedron<G=4>
     }
     fn integration_weights(&self) -> &ScalarList<G> {
         &self.integration_weights
@@ -63,12 +63,12 @@ impl FiniteElement<G, M, N, P> for Tetrahedron {
         [1.0 / 24.0; G].into()
     }
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<P> {
-        LinearTetrahedron::shape_functions(parametric_coordinate) // should use LinearTetrahedron<G=3>
+        LinearTetrahedron::shape_functions(parametric_coordinate) // should use LinearTetrahedron<G=4>
     }
     fn shape_functions_gradients(
         parametric_coordinate: ParametricCoordinate<M>,
     ) -> ShapeFunctionsGradients<M, P> {
-        LinearTetrahedron::shape_functions_gradients(parametric_coordinate) // should use LinearTetrahedron<G=3>
+        LinearTetrahedron::shape_functions_gradients(parametric_coordinate) // should use LinearTetrahedron<G=4>
     }
 }
 

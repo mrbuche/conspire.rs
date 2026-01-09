@@ -27,7 +27,7 @@ where
 }
 
 impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
-    ElasticCohesiveElement<C, G, N, P> for CohesiveElement<G, N, O, P>
+    ElasticCohesiveElement<C, G, N, P> for CohesiveElement<G, N, O>
 where
     C: Elastic,
     Self: CohesiveFiniteElement<G, N, P>,

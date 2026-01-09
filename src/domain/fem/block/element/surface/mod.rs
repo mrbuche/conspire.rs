@@ -107,6 +107,7 @@ where
                 let [g_1, g_2] = basis_vectors.into();
                 let normal = g_1.cross(&g_2).normalized();
                 [g_1, g_2, normal].into()
+                // [g_1.normalized(), g_2.normalized(), normal].into()
             })
             .collect()
     }

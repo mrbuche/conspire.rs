@@ -1,14 +1,13 @@
-// #[cfg(test)]
-// pub mod test;
+#[cfg(test)]
+pub mod test;
 
 use crate::{
     fem::block::element::{
-        ElementNodalCoordinates, FiniteElement, ParametricCoordinate, ParametricCoordinates,
-        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
-        cohesive::{
-            CohesiveFiniteElement, M, MidSurface, Separations, linear::LinearCohesiveElement,
-        },
-        surface::linear::Triangle as LinearTriangle,
+        ElementNodalCoordinates, ElementNodalEitherCoordinates, ElementNodalReferenceCoordinates,
+        FiniteElement, ParametricCoordinate, ParametricCoordinates, ParametricReference,
+        ShapeFunctions, ShapeFunctionsGradients,
+        cohesive::{CohesiveFiniteElement, M, Separations, linear::LinearCohesiveElement},
+        surface::{SurfaceFiniteElement, linear::Triangle as LinearTriangle},
     },
     math::{ScalarList, Tensor},
 };
@@ -19,7 +18,7 @@ const G: usize = 3;
 const N: usize = 6;
 const P: usize = 3;
 
-pub type Wedge = LinearCohesiveElement<G, N, P>;
+pub type Wedge = LinearCohesiveElement<G, N>;
 
 impl FiniteElement<G, M, N, P> for Wedge {
     fn integration_points() -> ParametricCoordinates<G, M> {
@@ -57,8 +56,26 @@ impl FiniteElement<G, M, N, P> for Wedge {
     }
 }
 
+impl From<ElementNodalReferenceCoordinates<N>> for Wedge {
+    fn from(reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>) -> Self {
+        let integration_weights =
+            Self::bases(&Self::nodal_mid_surface(&reference_nodal_coordinates))
+                .iter()
+                .zip(Self::parametric_weights())
+                .map(|(reference_basis, parametric_weight)| {
+                    reference_basis[0].cross(&reference_basis[1]).norm() * parametric_weight
+                })
+                .collect();
+        Self {
+            integration_weights,
+        }
+    }
+}
+
 impl CohesiveFiniteElement<G, N, P> for Wedge {
-    fn nodal_mid_surface(nodal_coordinates: &ElementNodalCoordinates<N>) -> MidSurface<P> {
+    fn nodal_mid_surface<const I: usize>(
+        nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
+    ) -> ElementNodalEitherCoordinates<I, P> {
         nodal_coordinates
             .iter()
             .take(P)
