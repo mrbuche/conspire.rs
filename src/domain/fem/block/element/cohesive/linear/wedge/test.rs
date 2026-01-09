@@ -6,8 +6,9 @@ use crate::{
             elastic::ElasticCohesiveElement,
             linear::wedge::{N, P, Wedge},
         },
+        solid::ElementNodalForcesSolid,
     },
-    math::{Scalar, Tensor, assert_eq_within_tols, test::TestError},
+    math::{Rank2, Scalar, Tensor, TensorRank2, assert_eq_within_tols, test::TestError},
     mechanics::test::get_rotation_reference_configuration,
 };
 
@@ -53,16 +54,12 @@ fn temporary_2() -> Result<(), TestError> {
     let area = wedge.integration_weights().into_iter().sum::<Scalar>();
     let tangential_force = TANGENTIAL_TRACTION_P * area;
     let normal_force = NORMAL_TRACTION_P * area;
-
-println!("{:?}", wedge.nodal_forces(&MODEL, &coordinates.clone().into())?);
-println!("{tangential_force}, {normal_force}");
-
     assert_eq_within_tols(
         &wedge.nodal_forces(&MODEL, &coordinates.into())?,
         &[
-            [-tangential_force, 0.0, normal_force],
-            [-tangential_force, 0.0, normal_force],
-            [-tangential_force, 0.0, normal_force],
+            [tangential_force, 0.0, normal_force],
+            [tangential_force, 0.0, normal_force],
+            [tangential_force, 0.0, normal_force],
             [-tangential_force, 0.0, -normal_force],
             [-tangential_force, 0.0, -normal_force],
             [-tangential_force, 0.0, -normal_force],
@@ -86,5 +83,41 @@ fn temporary_3() -> Result<(), TestError> {
 
 #[test]
 fn temporary_4() -> Result<(), TestError> {
-    todo!("rotate normal/shear")
+    let coordinates_0 = ElementNodalReferenceCoordinates::from(COORDINATES)
+        .iter()
+        .map(|coordinate| get_rotation_reference_configuration() * coordinate)
+        .collect::<ElementNodalReferenceCoordinates<N>>();
+    let wedge = Wedge::from(coordinates_0);
+    let mut coordinates = ElementNodalReferenceCoordinates::from(COORDINATES);
+    coordinates.iter_mut().skip(P).for_each(|coordinate| {
+        coordinate[0] += TANGENTIAL_DISPLACEMENT;
+        coordinate[2] += NORMAL_DISPLACEMENT;
+    });
+    coordinates = coordinates
+        .into_iter()
+        .map(|coordinate| get_rotation_reference_configuration() * coordinate)
+        .collect();
+    let area = wedge.integration_weights().into_iter().sum::<Scalar>();
+    let tangential_force = TANGENTIAL_TRACTION_P * area;
+    let normal_force = NORMAL_TRACTION_P * area;
+    let nodal_forces_rotated_back = wedge
+        .nodal_forces(&MODEL, &coordinates.into())?
+        .into_iter()
+        .map(|nodal_force| {
+            TensorRank2::<3, 1, 1>::from(get_rotation_reference_configuration().transpose())
+                * nodal_force
+        })
+        .collect::<ElementNodalForcesSolid<N>>();
+    assert_eq_within_tols(
+        &nodal_forces_rotated_back,
+        &[
+            [tangential_force, 0.0, normal_force],
+            [tangential_force, 0.0, normal_force],
+            [tangential_force, 0.0, normal_force],
+            [-tangential_force, 0.0, -normal_force],
+            [-tangential_force, 0.0, -normal_force],
+            [-tangential_force, 0.0, -normal_force],
+        ]
+        .into(),
+    )
 }

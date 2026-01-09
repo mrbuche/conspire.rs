@@ -60,7 +60,7 @@ impl From<ElementNodalReferenceCoordinates<N>> for Wedge {
     fn from(reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>) -> Self {
         let integration_weights =
             Self::bases(&Self::nodal_mid_surface(&reference_nodal_coordinates))
-                .iter()
+                .into_iter()
                 .zip(Self::parametric_weights())
                 .map(|(reference_basis, parametric_weight)| {
                     reference_basis[0].cross(&reference_basis[1]).norm() * parametric_weight

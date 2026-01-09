@@ -6,9 +6,7 @@ use crate::{
         ElementNodalVelocities, FiniteElement, GradientVectors,
     },
     math::{IDENTITY, LEVI_CIVITA, Scalar, ScalarList, Tensor, TensorArray, TensorRank2},
-    mechanics::{
-        Bases, Normal, NormalGradients, NormalRates, Normals, ReferenceNormals, SurfaceBases,
-    },
+    mechanics::{Normal, NormalGradients, NormalRates, Normals, ReferenceNormals, SurfaceBases},
 };
 use std::fmt::{self, Debug, Formatter};
 
@@ -92,22 +90,6 @@ where
                             .sum()
                     })
                     .collect()
-            })
-            .collect()
-    }
-    fn full_bases(nodal_coordinates: &ElementNodalCoordinates<P>) -> Bases<G> {
-        Self::bases(nodal_coordinates)
-            .into_iter()
-            .map(|basis_vectors| {
-                //
-                // Are g_1, g_2 orthonormal?
-                // Should they be?
-                // Can use R=[g_1, g_2, n] and R^[-1]=R^T if they are.
-                //
-                let [g_1, g_2] = basis_vectors.into();
-                let normal = g_1.cross(&g_2).normalized();
-                [g_1, g_2, normal].into()
-                // [g_1.normalized(), g_2.normalized(), normal].into()
             })
             .collect()
     }
@@ -211,7 +193,7 @@ where
         (reference_nodal_coordinates, thickness): (ElementNodalReferenceCoordinates<N>, Scalar),
     ) -> Self {
         let integration_weights = Self::bases(&reference_nodal_coordinates)
-            .iter()
+            .into_iter()
             .zip(Self::parametric_weights())
             .map(|(reference_basis, parametric_weight)| {
                 reference_basis[0].cross(&reference_basis[1]).norm() * parametric_weight * thickness
@@ -219,7 +201,7 @@ where
             .collect();
         let reference_dual_bases = Self::dual_bases(&reference_nodal_coordinates);
         let gradient_vectors = Self::shape_functions_gradients_at_integration_points()
-            .iter()
+            .into_iter()
             .zip(reference_dual_bases.iter())
             .map(|(standard_gradient_operator, reference_dual_basis)| {
                 standard_gradient_operator
@@ -237,7 +219,7 @@ where
             })
             .collect();
         let reference_normals = reference_dual_bases
-            .iter()
+            .into_iter()
             .map(|reference_dual_basis| {
                 reference_dual_basis[0]
                     .cross(&reference_dual_basis[1])

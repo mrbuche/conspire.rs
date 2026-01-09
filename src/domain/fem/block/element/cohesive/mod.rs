@@ -7,7 +7,7 @@ use crate::{
         ShapeFunctionsAtIntegrationPoints, surface::SurfaceFiniteElement,
     },
     math::{ScalarList, Tensor},
-    mechanics::CurrentCoordinate,
+    mechanics::{Basis, CurrentCoordinate, RotationCurrentConfigurationList},
 };
 use std::fmt::{self, Debug, Formatter};
 
@@ -47,20 +47,14 @@ where
     ) -> ElementNodalEitherCoordinates<I, P>;
     fn nodal_separations(nodal_coordinates: &ElementNodalCoordinates<N>) -> Separations<P>;
     fn separations(nodal_coordinates: &ElementNodalCoordinates<N>) -> Separations<G> {
-        let mid_surface = Self::nodal_mid_surface(nodal_coordinates);
         Self::shape_functions_at_integration_points()
-            .iter()
-            .zip(Self::full_bases(&mid_surface))
-            .map(|(shape_functions, basis)| {
-                let separation = Self::nodal_separations(nodal_coordinates)
-                    .iter()
+            .into_iter()
+            .map(|shape_functions| {
+                Self::nodal_separations(nodal_coordinates)
+                    .into_iter()
                     .zip(shape_functions.iter())
                     .map(|(nodal_separation, shape_function)| nodal_separation * shape_function)
-                    .sum::<Separation>();
-                basis
-                    .into_iter()
-                    .map(|basis_vector| basis_vector * &separation)
-                    .collect()
+                    .sum()
             })
             .collect()
     }
@@ -78,4 +72,18 @@ where
             .collect()
     }
     fn signs() -> ScalarList<N>;
+    fn rotations(
+        nodal_coordinates: &ElementNodalCoordinates<P>,
+    ) -> RotationCurrentConfigurationList<G> {
+        Self::bases(nodal_coordinates)
+            .into_iter()
+            .map(|basis_vectors| {
+                let [mut g_1, mut g_2] = basis_vectors.into();
+                let normal = g_1.cross(&g_2).normalized();
+                g_1.normalize();
+                g_2 = normal.cross(&g_1);
+                Basis::from([g_1, g_2, normal]).into()
+            })
+            .collect()
+    }
 }

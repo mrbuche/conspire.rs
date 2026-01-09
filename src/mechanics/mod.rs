@@ -298,6 +298,9 @@ pub type RightCauchyGreenDeformation = TensorRank2<3, 0, 0>;
 /// The rotation of the current configuration $`\mathbf{Q}`$.
 pub type RotationCurrentConfiguration = TensorRank2<3, 1, 1>;
 
+/// A list of rotations of the current configuration.
+pub type RotationCurrentConfigurationList<const N: usize> = TensorRank2List<3, 1, 1, N>;
+
 /// The rate of rotation of the current configuration $`\dot{\mathbf{Q}}`$.
 pub type RotationRateCurrentConfiguration = TensorRank2<3, 1, 1>;
 

@@ -5,7 +5,7 @@ use crate::{
         cohesive::{CohesiveElement, CohesiveFiniteElement},
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
     },
-    math::Tensor,
+    math::{Rank2, Tensor},
     mechanics::TractionList,
 };
 
@@ -37,29 +37,32 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
+        let rotations = Self::rotations(&Self::nodal_mid_surface(nodal_coordinates));
         match Self::separations(nodal_coordinates)
-            .iter()
-            .map(|separation| constitutive_model.traction(separation))
+            .into_iter()
+            .zip(rotations.iter())
+            .map(|(separation, rotation)| constitutive_model.traction(&(rotation * separation)))
             .collect::<Result<TractionList<G>, _>>()
         {
-            //
-            // Need to rotate tractions back to global coordinate system before using below.
-            //
             Ok(tractions) => Ok(tractions
-                .iter()
+                .into_iter()
+                .zip(rotations)
                 .zip(
                     Self::signed_shape_functions()
-                        .iter()
+                        .into_iter()
                         .zip(self.integration_weights()),
                 )
-                .map(|(traction, (signed_shape_functions, integration_weight))| {
-                    signed_shape_functions
-                        .iter()
-                        .map(|signed_shape_function| {
-                            traction * (signed_shape_function * integration_weight)
-                        })
-                        .collect()
-                })
+                .map(
+                    |((traction, rotation), (signed_shape_functions, integration_weight))| {
+                        let rotated_traction = rotation.transpose() * traction;
+                        signed_shape_functions
+                            .iter()
+                            .map(|signed_shape_function| {
+                                &rotated_traction * (signed_shape_function * integration_weight)
+                            })
+                            .collect()
+                    },
+                )
                 .sum()),
             Err(error) => Err(FiniteElementError::Upstream(
                 format!("{error}"),
