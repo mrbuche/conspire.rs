@@ -14,7 +14,7 @@ where
     fn traction(&self, separation: Separation, normal: Normal) -> Result<Traction, ConstitutiveError> {
         let normal_component = &separation * &normal;
         let normal_separation = &normal * normal_component;
-        let tangential_separation = separation - &normal_separation;
+        let tangential_separation = separation - normal_separation;
         let tangential_component = tangential_separation.norm();
         let [normal_traction, tangential_traction] = self.tractions(normal_component, tangential_component)?;
         if tangential_component > 0.0 {
