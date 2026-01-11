@@ -4,6 +4,7 @@ use crate::{
         ElementNodalCoordinates, FiniteElement, FiniteElementError,
         cohesive::{CohesiveElement, CohesiveFiniteElement},
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
+        surface::SurfaceFiniteElement,
     },
     math::{Rank2, Tensor},
     mechanics::TractionList,
@@ -37,11 +38,14 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
+        let normals = Self::normals(&Self::nodal_mid_surface(nodal_coordinates));
         let rotations = Self::rotations(&Self::nodal_mid_surface(nodal_coordinates));
         match Self::separations(nodal_coordinates)
             .into_iter()
-            .zip(rotations.iter())
-            .map(|(separation, rotation)| constitutive_model.traction(&(rotation * separation)))
+            .zip(normals)
+            .map(|(separation,normal)|
+                constitutive_model.traction(separation, normal)
+            )
             .collect::<Result<TractionList<G>, _>>()
         {
             Ok(tractions) => Ok(tractions
@@ -54,6 +58,9 @@ where
                 )
                 .map(
                     |((traction, rotation), (signed_shape_functions, integration_weight))| {
+                        //
+                        // How to transform tractions back correctly using only the normal?
+                        //
                         let rotated_traction = rotation.transpose() * traction;
                         signed_shape_functions
                             .iter()

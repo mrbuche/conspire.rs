@@ -2,7 +2,8 @@
 
 use crate::{
     constitutive::{Constitutive, ConstitutiveError, cohesive::Cohesive},
-    mechanics::{Scalar, Separation, Stiffness, Traction},
+    mechanics::{Scalar, Normal, Separation, Stiffness, Traction},
+    math::Tensor,
 };
 
 /// Required methods for elastic cohesive constitutive models.
@@ -10,7 +11,19 @@ pub trait Elastic
 where
     Self: Cohesive,
 {
-    fn traction(&self, separation: &Separation) -> Result<Traction, ConstitutiveError>;
+    fn traction(&self, separation: Separation, normal: Normal) -> Result<Traction, ConstitutiveError> {
+        let normal_component = &separation * &normal;
+        let normal_separation = &normal * normal_component;
+        let tangential_separation = separation - &normal_separation;
+        let tangential_component = tangential_separation.norm();
+        let [normal_traction, tangential_traction] = self.tractions(normal_component, tangential_component)?;
+        if tangential_component > 0.0 {
+            Ok(normal * normal_traction + (tangential_separation / tangential_component) * tangential_traction)
+        } else {
+            Ok(normal * normal_traction)
+        }
+    }
+    fn tractions(&self, normal_separation: Scalar, tangential_separation: Scalar) -> Result<[Scalar; 2], ConstitutiveError>;
     fn stiffness(&self, separation: &Separation) -> Result<Stiffness, ConstitutiveError>;
 }
 
@@ -28,13 +41,8 @@ impl Constitutive for LinearElastic {}
 impl Cohesive for LinearElastic {}
 
 impl Elastic for LinearElastic {
-    fn traction(&self, separation: &Separation) -> Result<Traction, ConstitutiveError> {
-        Ok([
-            separation[0] * self.tangential_stiffness,
-            separation[1] * self.tangential_stiffness,
-            separation[2] * self.normal_stiffness,
-        ]
-        .into())
+    fn tractions(&self, normal_separation: Scalar, tangential_separation: Scalar) -> Result<[Scalar; 2], ConstitutiveError> {
+        Ok([normal_separation * self.normal_stiffness, tangential_separation * self.tangential_stiffness])
     }
     fn stiffness(&self, _separation: &Separation) -> Result<Stiffness, ConstitutiveError> {
         Ok([
