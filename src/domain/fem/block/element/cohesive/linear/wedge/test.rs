@@ -54,7 +54,6 @@ fn temporary_2() -> Result<(), TestError> {
     let area = wedge.integration_weights().into_iter().sum::<Scalar>();
     let tangential_force = TANGENTIAL_TRACTION_P * area;
     let normal_force = NORMAL_TRACTION_P * area;
-    println!("{:?}", wedge.nodal_forces(&MODEL, &coordinates.clone().into())?);
     assert_eq_within_tols(
         &wedge.nodal_forces(&MODEL, &coordinates.into())?,
         &[

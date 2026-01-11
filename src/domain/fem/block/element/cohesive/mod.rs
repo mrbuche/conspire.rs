@@ -7,7 +7,7 @@ use crate::{
         ShapeFunctionsAtIntegrationPoints, surface::SurfaceFiniteElement,
     },
     math::{ScalarList, Tensor},
-    mechanics::{Basis, CurrentCoordinate, RotationCurrentConfigurationList},
+    mechanics::CurrentCoordinate,
 };
 use std::fmt::{self, Debug, Formatter};
 
@@ -72,18 +72,4 @@ where
             .collect()
     }
     fn signs() -> ScalarList<N>;
-    fn rotations(
-        nodal_coordinates: &ElementNodalCoordinates<P>,
-    ) -> RotationCurrentConfigurationList<G> {
-        Self::bases(nodal_coordinates)
-            .into_iter()
-            .map(|basis_vectors| {
-                let [mut g_1, mut g_2] = basis_vectors.into();
-                let normal = g_1.cross(&g_2).normalized();
-                g_1.normalize();
-                g_2 = normal.cross(&g_1);
-                Basis::from([g_1, g_2, normal]).into()
-            })
-            .collect()
-    }
 }
