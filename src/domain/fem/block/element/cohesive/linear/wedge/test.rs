@@ -121,3 +121,8 @@ fn temporary_4() -> Result<(), TestError> {
         .into(),
     )
 }
+
+#[test]
+fn temporary_5() -> Result<(), TestError> {
+    todo!("Do FD of forces against stiffnesses for noisy X and noisy nontrivial x.")
+}
