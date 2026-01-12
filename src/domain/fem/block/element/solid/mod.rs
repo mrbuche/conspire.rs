@@ -14,12 +14,12 @@ use crate::{
     math::Tensor,
     mechanics::{
         DeformationGradient, DeformationGradientList, DeformationGradientRate,
-        DeformationGradientRateList, ForceList, StiffnessList,
+        DeformationGradientRateList, ForceList, StiffnessList2D,
     },
 };
 
 pub type ElementNodalForcesSolid<const N: usize> = ForceList<N>;
-pub type ElementNodalStiffnessesSolid<const N: usize> = StiffnessList<N>;
+pub type ElementNodalStiffnessesSolid<const N: usize> = StiffnessList2D<N>;
 
 pub trait SolidFiniteElement<const G: usize, const M: usize, const N: usize, const P: usize>
 where

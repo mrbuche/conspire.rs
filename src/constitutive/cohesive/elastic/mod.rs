@@ -2,9 +2,12 @@
 
 use crate::{
     constitutive::{Constitutive, ConstitutiveError, cohesive::Cohesive},
-    math::Tensor,
+    math::{Tensor, TensorRank1, TensorRank2},
     mechanics::{Normal, Scalar, Separation, Stiffness, Traction},
 };
+
+pub type Tractions = TensorRank1<2, 8>;
+pub type Stiffnesses = TensorRank2<2, 8, 8>;
 
 /// Required methods for elastic cohesive constitutive models.
 pub trait Elastic
@@ -20,8 +23,9 @@ where
         let normal_separation = &normal * normal_component;
         let tangential_separation = separation - normal_separation;
         let tangential_component = tangential_separation.norm();
-        let [normal_traction, tangential_traction] =
-            self.tractions(normal_component, tangential_component)?;
+        let [normal_traction, tangential_traction] = self
+            .tractions(normal_component, tangential_component)?
+            .into();
         if tangential_component > 0.0 {
             Ok(normal * normal_traction
                 + (tangential_separation / tangential_component) * tangential_traction)
@@ -33,11 +37,26 @@ where
         &self,
         normal_separation: Scalar,
         tangential_separation: Scalar,
-    ) -> Result<[Scalar; 2], ConstitutiveError>;
-    fn stiffness(&self, separation: &Separation) -> Result<(), ConstitutiveError> {
+    ) -> Result<Tractions, ConstitutiveError>;
+    fn stiffness(
+        &self,
+        separation: Separation,
+        normal: Normal,
+    ) -> Result<Stiffness, ConstitutiveError> {
+        let normal_component = &separation * &normal;
+        let normal_separation = &normal * normal_component;
+        let tangential_separation = separation - normal_separation;
+        let tangential_component = tangential_separation.norm();
+        let [[knn, knt], [ktn, ktt]] = self
+            .stiffnesses(normal_component, tangential_component)?
+            .into();
         todo!()
     }
-    fn stiffnesses(&self, separation: &Separation) -> Result<Stiffness, ConstitutiveError>;
+    fn stiffnesses(
+        &self,
+        normal_separation: Scalar,
+        tangential_separation: Scalar,
+    ) -> Result<Stiffnesses, ConstitutiveError>;
 }
 
 /// The linear elastic cohesive constitutive model.
@@ -58,17 +77,21 @@ impl Elastic for LinearElastic {
         &self,
         normal_separation: Scalar,
         tangential_separation: Scalar,
-    ) -> Result<[Scalar; 2], ConstitutiveError> {
+    ) -> Result<Tractions, ConstitutiveError> {
         Ok([
             normal_separation * self.normal_stiffness,
             tangential_separation * self.tangential_stiffness,
-        ])
+        ]
+        .into())
     }
-    fn stiffnesses(&self, _separation: &Separation) -> Result<Stiffness, ConstitutiveError> {
+    fn stiffnesses(
+        &self,
+        _normal_separation: Scalar,
+        _tangential_separation: Scalar,
+    ) -> Result<Stiffnesses, ConstitutiveError> {
         Ok([
-            [self.tangential_stiffness, 0.0, 0.0],
-            [0.0, self.tangential_stiffness, 0.0],
-            [0.0, 0.0, self.normal_stiffness],
+            [self.normal_stiffness, 0.0],
+            [0.0, self.tangential_stiffness],
         ]
         .into())
     }

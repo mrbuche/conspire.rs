@@ -329,7 +329,10 @@ pub type SecondPiolaKirchhoffRateTangentStiffness = TensorRank4<3, 0, 0, 1, 0>;
 pub type Stiffness = TensorRank2<3, 1, 1>;
 
 /// A list of stiffnesses.
-pub type StiffnessList<const N: usize> = TensorRank2List2D<3, 1, 1, N, N>;
+pub type StiffnessList<const N: usize> = TensorRank2List<3, 1, 1, N>;
+
+/// A 2D list of stiffnesses.
+pub type StiffnessList2D<const N: usize> = TensorRank2List2D<3, 1, 1, N, N>;
 
 /// A vector of stiffnesses.
 pub type Stiffnesses = TensorRank2Vec2D<3, 1, 1>;

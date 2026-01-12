@@ -7,7 +7,7 @@ use crate::{
         surface::SurfaceFiniteElement,
     },
     math::Tensor,
-    mechanics::TractionList,
+    mechanics::{StiffnessList, TractionList},
 };
 
 pub trait ElasticCohesiveElement<C, const G: usize, const N: usize, const P: usize>
@@ -72,6 +72,43 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError> {
-        todo!()
+        let normals = Self::normals(&Self::nodal_mid_surface(nodal_coordinates));
+        match Self::separations(nodal_coordinates)
+            .into_iter()
+            .zip(normals)
+            .map(|(separation, normal)| constitutive_model.stiffness(separation, normal))
+            .collect::<Result<StiffnessList<G>, _>>()
+        {
+            Ok(stiffnesses) => Ok(stiffnesses
+                .into_iter()
+                .zip(
+                    Self::signed_shape_functions()
+                        .into_iter()
+                        .zip(self.integration_weights()),
+                )
+                .map(
+                    |(stiffness, (signed_shape_functions, integration_weight))| {
+                        signed_shape_functions
+                            .iter()
+                            .map(|signed_shape_function_a| {
+                                signed_shape_functions
+                                    .iter()
+                                    .map(|signed_shape_function_b| {
+                                        &stiffness
+                                            * (signed_shape_function_a
+                                                * signed_shape_function_b
+                                                * integration_weight)
+                                    })
+                                    .collect() // need to add part with normal gradients
+                            })
+                            .collect()
+                    },
+                )
+                .sum()),
+            Err(error) => Err(FiniteElementError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
 }

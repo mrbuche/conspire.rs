@@ -1,14 +1,18 @@
 use crate::{
+    EPSILON,
     constitutive::cohesive::elastic::LinearElastic,
     fem::block::element::{
-        ElementNodalReferenceCoordinates, FiniteElement,
+        ElementNodalCoordinates, ElementNodalReferenceCoordinates, FiniteElement,
         cohesive::{
             elastic::ElasticCohesiveElement,
             linear::wedge::{N, P, Wedge},
         },
-        solid::ElementNodalForcesSolid,
+        solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
     },
-    math::{Rank2, Scalar, Tensor, TensorRank2, assert_eq_within_tols, test::TestError},
+    math::{
+        Rank2, Scalar, Tensor, TensorRank2, assert_eq_within_tols,
+        test::{TestError, assert_eq_from_fd},
+    },
     mechanics::test::get_rotation_reference_configuration,
 };
 
@@ -124,5 +128,43 @@ fn temporary_4() -> Result<(), TestError> {
 
 #[test]
 fn temporary_5() -> Result<(), TestError> {
-    todo!("Do FD of forces against stiffnesses for noisy X and noisy nontrivial x.")
+    let coordinates_0 = ElementNodalReferenceCoordinates::from(COORDINATES);
+    let coordinates = ElementNodalCoordinates::from(coordinates_0.clone());
+    let wedge = Wedge::from(coordinates_0);
+    let mut finite_difference = 0.0;
+    let nodal_stiffnesses_fd = (0..N)
+        .map(|a| {
+            (0..N)
+                .map(|b| {
+                    (0..3)
+                        .map(|i| {
+                            (0..3)
+                                .map(|j| {
+                                    let mut nodal_coordinates = coordinates.clone();
+                                    nodal_coordinates[b][j] += 0.5 * EPSILON;
+                                    finite_difference =
+                                        wedge.nodal_forces(&MODEL, &nodal_coordinates)?[a][i];
+                                    nodal_coordinates[b][j] -= EPSILON;
+                                    finite_difference -=
+                                        wedge.nodal_forces(&MODEL, &nodal_coordinates)?[a][i];
+                                    Ok(finite_difference / EPSILON)
+                                })
+                                .collect()
+                        })
+                        .collect()
+                })
+                .collect()
+        })
+        .collect::<Result<ElementNodalStiffnessesSolid<N>, TestError>>()?;
+    assert_eq_from_fd(
+        &wedge.nodal_stiffnesses(&MODEL, &coordinates)?,
+        &nodal_stiffnesses_fd,
+    )
+}
+
+#[test]
+fn temporary_6() -> Result<(), TestError> {
+    todo!(
+        "Do temporary_5 but with noisy deformation AND noisy initial (but still overlapping) configuration."
+    )
 }
