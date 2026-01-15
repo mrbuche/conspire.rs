@@ -6,9 +6,11 @@ use crate::{
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
         surface::SurfaceFiniteElement,
     },
-    math::Tensor,
-    mechanics::{StiffnessList, TractionList},
+    math::{Tensor, TensorRank2List2D},
+    mechanics::TractionList,
 };
+
+pub type StiffnessCohesiveList<const N: usize> = TensorRank2List2D<3, 1, 1, 2, N>;
 
 pub trait ElasticCohesiveElement<C, const G: usize, const N: usize, const P: usize>
 where
@@ -77,7 +79,7 @@ where
             .into_iter()
             .zip(normals)
             .map(|(separation, normal)| constitutive_model.stiffness(separation, normal))
-            .collect::<Result<StiffnessList<G>, _>>()
+            .collect::<Result<StiffnessCohesiveList<G>, _>>()
         {
             Ok(stiffnesses) => Ok(stiffnesses
                 .into_iter()
@@ -88,18 +90,19 @@ where
                 )
                 .map(
                     |(stiffness, (signed_shape_functions, integration_weight))| {
+                        let [stiffness_u, stiffness_n] = stiffness.into();
                         signed_shape_functions
                             .iter()
                             .map(|signed_shape_function_a| {
                                 signed_shape_functions
                                     .iter()
                                     .map(|signed_shape_function_b| {
-                                        &stiffness
+                                        &stiffness_u
                                             * (signed_shape_function_a
                                                 * signed_shape_function_b
                                                 * integration_weight)
                                     })
-                                    .collect() // need to add part with normal gradients
+                                    .collect() // need to add part with normal gradients, make sure 6 fails first
                             })
                             .collect()
                     },
