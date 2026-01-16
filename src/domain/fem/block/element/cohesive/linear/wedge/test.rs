@@ -164,7 +164,53 @@ fn temporary_5() -> Result<(), TestError> {
 
 #[test]
 fn temporary_6() -> Result<(), TestError> {
-    todo!(
-        "Do temporary_5 but with noisy deformation AND noisy initial (but still overlapping) configuration."
+    let coordinates_0 = ElementNodalReferenceCoordinates::from([
+        [-0.57177033, -0.20395894, 0.23629102],
+        [1.49477913, 1.72253902, 1.40527015],
+        [-2.31789525, -0.2546453, 2.40281722],
+        [-0.57177033, -0.20395894, 0.23629102],
+        [1.49477913, 1.72253902, 1.40527015],
+        [-2.31789525, -0.2546453, 2.40281722],
+    ]);
+    let wedge = Wedge::from(coordinates_0);
+    let coordinates = ElementNodalCoordinates::from([
+        [-0.589159, -0.293693, 0.171611],
+        [1.419824, 1.79346, 1.466893],
+        [-2.258207, -0.161917, 2.327105],
+        [4.787346, 3.952276, 4.088873],
+        [6.796329, 6.039429, 5.384155],
+        [3.118298, 4.084052, 6.244367],
+    ]);
+    //
+    // Add noise to coordinates after passes without it!
+    //
+    let mut finite_difference = 0.0;
+    let nodal_stiffnesses_fd = (0..N)
+        .map(|a| {
+            (0..N)
+                .map(|b| {
+                    (0..3)
+                        .map(|i| {
+                            (0..3)
+                                .map(|j| {
+                                    let mut nodal_coordinates = coordinates.clone();
+                                    nodal_coordinates[b][j] += 0.5 * EPSILON;
+                                    finite_difference =
+                                        wedge.nodal_forces(&MODEL, &nodal_coordinates)?[a][i];
+                                    nodal_coordinates[b][j] -= EPSILON;
+                                    finite_difference -=
+                                        wedge.nodal_forces(&MODEL, &nodal_coordinates)?[a][i];
+                                    Ok(finite_difference / EPSILON)
+                                })
+                                .collect()
+                        })
+                        .collect()
+                })
+                .collect()
+        })
+        .collect::<Result<ElementNodalStiffnessesSolid<N>, TestError>>()?;
+    assert_eq_from_fd(
+        &wedge.nodal_stiffnesses(&MODEL, &coordinates)?,
+        &nodal_stiffnesses_fd,
     )
 }

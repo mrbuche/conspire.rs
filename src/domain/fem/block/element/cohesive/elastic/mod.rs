@@ -74,7 +74,9 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError> {
-        let normals = Self::normals(&Self::nodal_mid_surface(nodal_coordinates));
+        let nodal_mid_surface = Self::nodal_mid_surface(nodal_coordinates);
+        let normals = Self::normals(&nodal_mid_surface);
+        let normal_gradients = Self::normal_gradients(&nodal_mid_surface);
         match Self::separations(nodal_coordinates)
             .into_iter()
             .zip(normals)
@@ -86,10 +88,10 @@ where
                 .zip(
                     Self::signed_shape_functions()
                         .into_iter()
-                        .zip(self.integration_weights()),
+                        .zip(normal_gradients.into_iter().zip(self.integration_weights())),
                 )
                 .map(
-                    |(stiffness, (signed_shape_functions, integration_weight))| {
+                    |(stiffness, (signed_shape_functions, (normal_gradient, integration_weight)))| {
                         let [stiffness_u, stiffness_n] = stiffness.into();
                         signed_shape_functions
                             .iter()
