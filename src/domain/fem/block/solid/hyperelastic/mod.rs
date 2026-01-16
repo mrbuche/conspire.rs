@@ -16,11 +16,17 @@ use crate::{
     },
 };
 
-pub trait HyperelasticFiniteElementBlock<C, F, const G: usize, const M: usize, const N: usize>
-where
+pub trait HyperelasticFiniteElementBlock<
+    C,
+    F,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+    const P: usize,
+> where
     C: Hyperelastic,
-    F: HyperelasticFiniteElement<C, G, M, N>,
-    Self: ElasticFiniteElementBlock<C, F, G, M, N>,
+    F: HyperelasticFiniteElement<C, G, M, N, P>,
+    Self: ElasticFiniteElementBlock<C, F, G, M, N, P>,
 {
     fn helmholtz_free_energy(
         &self,
@@ -28,12 +34,12 @@ where
     ) -> Result<Scalar, FiniteElementBlockError>;
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize>
-    HyperelasticFiniteElementBlock<C, F, G, M, N> for Block<C, F, G, M, N>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
+    HyperelasticFiniteElementBlock<C, F, G, M, N, P> for Block<C, F, G, M, N, P>
 where
     C: Hyperelastic,
-    F: HyperelasticFiniteElement<C, G, M, N>,
-    Self: ElasticFiniteElementBlock<C, F, G, M, N>,
+    F: HyperelasticFiniteElement<C, G, M, N, P>,
+    Self: ElasticFiniteElementBlock<C, F, G, M, N, P>,
 {
     fn helmholtz_free_energy(
         &self,
@@ -60,11 +66,11 @@ where
     }
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize>
-    FirstOrderMinimize<C, F, G, M, N, NodalCoordinates> for Block<C, F, G, M, N>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
+    FirstOrderMinimize<C, F, G, M, N, NodalCoordinates> for Block<C, F, G, M, N, P>
 where
     C: Hyperelastic,
-    F: HyperelasticFiniteElement<C, G, M, N>,
+    F: HyperelasticFiniteElement<C, G, M, N, P>,
 {
     fn minimize(
         &self,
@@ -82,12 +88,12 @@ where
     }
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
     SecondOrderMinimize<C, F, G, M, N, NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>
-    for Block<C, F, G, M, N>
+    for Block<C, F, G, M, N, P>
 where
     C: Hyperelastic,
-    F: HyperelasticFiniteElement<C, G, M, N>,
+    F: HyperelasticFiniteElement<C, G, M, N, P>,
 {
     fn minimize(
         &self,

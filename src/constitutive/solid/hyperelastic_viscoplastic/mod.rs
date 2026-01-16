@@ -1,4 +1,4 @@
-//! Hyperelastic-viscoplastic constitutive models.
+//! Hyperelastic-viscoplastic solid constitutive models.
 
 mod hencky;
 mod saint_venant_kirchhoff;
@@ -11,7 +11,7 @@ use crate::{
     mechanics::{DeformationGradient, DeformationGradientPlastic, Scalar},
 };
 
-/// Required methods for hyperelastic-viscoplastic constitutive models.
+/// Required methods for hyperelastic-viscoplastic solid constitutive models.
 pub trait HyperelasticViscoplastic
 where
     Self: ElasticViscoplastic,

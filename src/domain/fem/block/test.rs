@@ -2,15 +2,16 @@ macro_rules! test_finite_element_block {
     ($element: ident) => {
         macro_rules! setup_block {
             ($constitutive_model: expr, $constitutive_model_type: ident) => {
-                fn get_block() -> Block<$constitutive_model_type, $element, G, M, N> {
-                    Block::<$constitutive_model_type, $element, G, M, N>::from((
+                fn get_block() -> Block<$constitutive_model_type, $element, G, M, N, P> {
+                    Block::<$constitutive_model_type, $element, G, M, N, P>::from((
                         $constitutive_model,
                         get_connectivity(),
                         get_reference_coordinates_block(),
                     ))
                 }
-                fn get_block_transformed() -> Block<$constitutive_model_type, $element, G, M, N> {
-                    Block::<$constitutive_model_type, $element, G, M, N>::from((
+                fn get_block_transformed() -> Block<$constitutive_model_type, $element, G, M, N, P>
+                {
+                    Block::<$constitutive_model_type, $element, G, M, N, P>::from((
                         $constitutive_model,
                         get_connectivity(),
                         get_reference_coordinates_transformed_block(),
@@ -28,16 +29,17 @@ macro_rules! test_surface_finite_element_block {
         use crate::fem::block::element::test::THICKNESS;
         macro_rules! setup_block {
             ($constitutive_model: expr, $constitutive_model_type: ident) => {
-                fn get_block() -> Block<$constitutive_model_type, $element, G, M, N> {
-                    Block::<$constitutive_model_type, $element, G, M, N>::from((
+                fn get_block() -> Block<$constitutive_model_type, $element, G, M, N, P> {
+                    Block::<$constitutive_model_type, $element, G, M, N, P>::from((
                         $constitutive_model,
                         get_connectivity(),
                         get_reference_coordinates_block(),
                         THICKNESS,
                     ))
                 }
-                fn get_block_transformed() -> Block<$constitutive_model_type, $element, G, M, N> {
-                    Block::<$constitutive_model_type, $element, G, M, N>::from((
+                fn get_block_transformed() -> Block<$constitutive_model_type, $element, G, M, N, P>
+                {
+                    Block::<$constitutive_model_type, $element, G, M, N, P>::from((
                         $constitutive_model,
                         get_connectivity(),
                         get_reference_coordinates_transformed_block(),

@@ -11,6 +11,7 @@ use crate::{
             CompositeElement, NormalizedProjectionMatrix, ParametricGradientOperators,
             ProjectionMatrix, ShapeFunctionIntegrals, ShapeFunctionIntegralsProducts,
         },
+        linear::Tetrahedron as LinearTetrahedron,
         quadratic::Tetrahedron as QuadraticTetrahedron,
     },
     math::{Scalar, ScalarList, Tensor, TensorRank1},
@@ -19,8 +20,8 @@ use crate::{
 const G: usize = 4;
 const M: usize = 3;
 const N: usize = 10;
-const P: usize = 12;
-const Q: usize = 4;
+const P: usize = 4;
+const Q: usize = 12;
 
 pub type Tetrahedron = CompositeElement<G, N>;
 
@@ -36,9 +37,9 @@ impl From<ElementNodalReferenceCoordinates<N>> for Tetrahedron {
     }
 }
 
-impl FiniteElement<G, M, N> for Tetrahedron {
+impl FiniteElement<G, M, N, P> for Tetrahedron {
     fn integration_points() -> ParametricCoordinates<G, M> {
-        QuadraticTetrahedron::integration_points() // temporary
+        QuadraticTetrahedron::integration_points() // should use LinearTetrahedron<G=4>
     }
     fn integration_weights(&self) -> &ScalarList<G> {
         &self.integration_weights
@@ -61,13 +62,13 @@ impl FiniteElement<G, M, N> for Tetrahedron {
     fn parametric_weights() -> ScalarList<G> {
         [1.0 / 24.0; G].into()
     }
-    fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
-        QuadraticTetrahedron::shape_functions(parametric_coordinate) // temporary
+    fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<P> {
+        LinearTetrahedron::shape_functions(parametric_coordinate) // should use LinearTetrahedron<G=4>
     }
     fn shape_functions_gradients(
         parametric_coordinate: ParametricCoordinate<M>,
-    ) -> ShapeFunctionsGradients<M, N> {
-        QuadraticTetrahedron::shape_functions_gradients(parametric_coordinate) // temporary
+    ) -> ShapeFunctionsGradients<M, P> {
+        LinearTetrahedron::shape_functions_gradients(parametric_coordinate) // should use LinearTetrahedron<G=4>
     }
 }
 
@@ -75,7 +76,7 @@ impl Tetrahedron {
     const fn integration_weight() -> Scalar {
         1.0 / 24.0
     }
-    fn inverse_normalized_projection_matrix() -> NormalizedProjectionMatrix<Q> {
+    fn inverse_normalized_projection_matrix() -> NormalizedProjectionMatrix<P> {
         const DIAG: Scalar = 4.0 / 640.0;
         const OFF: Scalar = -1.0 / 640.0;
         [
@@ -87,8 +88,8 @@ impl Tetrahedron {
         .into()
     }
     fn inverse_projection_matrix(
-        reference_jacobians_subelements: &ScalarList<P>,
-    ) -> NormalizedProjectionMatrix<Q> {
+        reference_jacobians_subelements: &ScalarList<Q>,
+    ) -> NormalizedProjectionMatrix<P> {
         Self::shape_function_integrals_products()
             .iter()
             .zip(reference_jacobians_subelements)
@@ -97,7 +98,7 @@ impl Tetrahedron {
                     shape_function_integrals_products * reference_jacobian_subelement
                 },
             )
-            .sum::<ProjectionMatrix<Q>>()
+            .sum::<ProjectionMatrix<P>>()
             .inverse()
     }
     fn projected_gradient_vectors(
@@ -108,7 +109,7 @@ impl Tetrahedron {
             .map(|standard_gradient_operator| {
                 reference_nodal_coordinates * standard_gradient_operator
             })
-            .collect::<ParametricGradientOperators<P>>();
+            .collect::<ParametricGradientOperators<Q>>();
         let reference_jacobians_subelements =
             Self::reference_jacobians_subelements(reference_nodal_coordinates);
         let inverse_projection_matrix =
@@ -165,7 +166,7 @@ impl Tetrahedron {
                 .map(|(shape_function_integral, reference_jacobian_subelement)| {
                     shape_function_integral * reference_jacobian_subelement
                 })
-                .sum::<TensorRank1<Q, 9>>();
+                .sum::<TensorRank1<P, 9>>();
         Self::shape_functions_at_integration_points()
             .iter()
             .map(|shape_functions_at_integration_point| {
@@ -175,18 +176,18 @@ impl Tetrahedron {
     }
     fn reference_jacobians_subelements(
         reference_nodal_coordinates: &ElementNodalReferenceCoordinates<N>,
-    ) -> ScalarList<P> {
+    ) -> ScalarList<Q> {
         Self::shape_functions_gradients_at_integration_points()
             .iter()
             .map(|standard_gradient_operator| {
                 reference_nodal_coordinates * standard_gradient_operator
             })
-            .collect::<ParametricGradientOperators<P>>()
+            .collect::<ParametricGradientOperators<Q>>()
             .iter()
             .map(|parametric_gradient_operator| parametric_gradient_operator.determinant())
             .collect()
     }
-    fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, Q> {
+    fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, P> {
         const DIAG: Scalar = 0.585_410_196_624_968_5;
         const OFF: Scalar = 0.138_196_601_125_010_5;
         [
@@ -197,7 +198,7 @@ impl Tetrahedron {
         ]
         .into()
     }
-    fn shape_function_integrals() -> ShapeFunctionIntegrals<P, Q> {
+    fn shape_function_integrals() -> ShapeFunctionIntegrals<Q, P> {
         [
             [200.0, 40.0, 40.0, 40.0],
             [40.0, 200.0, 40.0, 40.0],
@@ -214,7 +215,7 @@ impl Tetrahedron {
         ]
         .into()
     }
-    fn shape_function_integrals_products() -> ShapeFunctionIntegralsProducts<P, Q> {
+    fn shape_function_integrals_products() -> ShapeFunctionIntegralsProducts<Q, P> {
         [
             [
                 [128.0, 24.0, 24.0, 24.0],
@@ -291,7 +292,7 @@ impl Tetrahedron {
         ]
         .into()
     }
-    fn shape_functions_gradients_at_integration_points() -> StandardGradientOperators<M, N, P> {
+    fn shape_functions_gradients_at_integration_points() -> StandardGradientOperators<M, N, Q> {
         [
             [
                 [-2.0, -2.0, -2.0],
@@ -440,7 +441,7 @@ impl Tetrahedron {
         ]
         .into()
     }
-    fn standard_gradient_operators_transposed() -> StandardGradientOperatorsTransposed<M, N, P> {
+    fn standard_gradient_operators_transposed() -> StandardGradientOperatorsTransposed<M, N, Q> {
         [
             [
                 [-2.0, -2.0, -2.0],

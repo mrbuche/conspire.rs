@@ -33,9 +33,10 @@ pub trait ElasticViscoplasticFiniteElementBlock<
     const G: usize,
     const M: usize,
     const N: usize,
+    const P: usize,
 > where
     C: ElasticViscoplastic,
-    F: ElasticViscoplasticFiniteElement<C, G, M, N>,
+    F: ElasticViscoplasticFiniteElement<C, G, M, N, P>,
 {
     fn nodal_forces(
         &self,
@@ -81,12 +82,12 @@ pub trait ElasticViscoplasticFiniteElementBlock<
     ) -> Result<NodalCoordinates, OptimizationError>;
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize>
-    ElasticViscoplasticFiniteElementBlock<C, F, G, M, N> for Block<C, F, G, M, N>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
+    ElasticViscoplasticFiniteElementBlock<C, F, G, M, N, P> for Block<C, F, G, M, N, P>
 where
     C: ElasticViscoplastic,
-    F: ElasticViscoplasticFiniteElement<C, G, M, N>,
-    Self: SolidFiniteElementBlock<C, F, G, M, N>,
+    F: ElasticViscoplasticFiniteElement<C, G, M, N, P>,
+    Self: SolidFiniteElementBlock<C, F, G, M, N, P>,
 {
     fn nodal_forces(
         &self,

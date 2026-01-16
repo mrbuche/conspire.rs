@@ -2,14 +2,11 @@ pub mod linear;
 
 use crate::{
     fem::block::element::{
-        ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
-        FiniteElement, GradientVectors,
+        ElementNodalCoordinates, ElementNodalEitherCoordinates, ElementNodalReferenceCoordinates,
+        ElementNodalVelocities, FiniteElement, GradientVectors,
     },
     math::{IDENTITY, LEVI_CIVITA, Scalar, ScalarList, Tensor, TensorArray, TensorRank2},
-    mechanics::{
-        CoordinateList, Normal, NormalGradients, NormalRates, Normals, ReferenceNormals,
-        SurfaceBases,
-    },
+    mechanics::{Normal, NormalGradients, NormalRates, Normals, ReferenceNormals, SurfaceBases},
 };
 use std::fmt::{self, Debug, Formatter};
 
@@ -19,6 +16,15 @@ pub struct SurfaceElement<const G: usize, const N: usize, const O: usize> {
     gradient_vectors: GradientVectors<G, N>,
     integration_weights: ScalarList<G>,
     reference_normals: ReferenceNormals<G>,
+}
+
+impl<const G: usize, const N: usize, const O: usize> SurfaceElement<G, N, O> {
+    pub fn gradient_vectors(&self) -> &GradientVectors<G, N> {
+        &self.gradient_vectors
+    }
+    pub fn reference_normals(&self) -> &ReferenceNormals<G> {
+        &self.reference_normals
+    }
 }
 
 impl<const G: usize, const N: usize, const O: usize> Debug for SurfaceElement<G, N, O> {
@@ -32,62 +38,24 @@ impl<const G: usize, const N: usize, const O: usize> Debug for SurfaceElement<G,
     }
 }
 
-impl<const G: usize, const N: usize, const O: usize> Default for SurfaceElement<G, N, O>
+pub trait SurfaceFiniteElement<const G: usize, const N: usize, const P: usize>
 where
-    Self: FiniteElement<G, M, N> + From<(ElementNodalReferenceCoordinates<N>, Scalar)>,
+    Self: FiniteElement<G, M, N, P>,
 {
-    fn default() -> Self {
-        // (Self::parametric_reference(), 1.0).into()
-        todo!()
-    }
-}
-
-pub trait SurfaceFiniteElementCreation<const G: usize, const N: usize>
-where
-    Self: Default + From<(ElementNodalReferenceCoordinates<N>, Scalar)>,
-{
-}
-
-impl<const G: usize, const N: usize, const O: usize> SurfaceFiniteElementCreation<G, N>
-    for SurfaceElement<G, N, O>
-where
-    Self: Default + From<(ElementNodalReferenceCoordinates<N>, Scalar)>,
-{
-}
-
-pub trait SurfaceFiniteElement<const G: usize, const N: usize>
-where
-    Self: FiniteElement<G, M, N>,
-{
-    fn bases<const I: usize>(nodal_coordinates: &CoordinateList<I, N>) -> SurfaceBases<I, G>;
-    fn dual_bases<const I: usize>(nodal_coordinates: &CoordinateList<I, N>) -> SurfaceBases<I, G>;
-    fn gradient_vectors(&self) -> &GradientVectors<G, N>;
-    fn normals(nodal_coordinates: &ElementNodalCoordinates<N>) -> Normals<G>;
-    fn normal_gradients(nodal_coordinates: &ElementNodalCoordinates<N>) -> NormalGradients<N, G>;
-    fn normal_rates(
-        nodal_coordinates: &ElementNodalCoordinates<N>,
-        nodal_velocities: &ElementNodalVelocities<N>,
-    ) -> NormalRates<G>;
-    fn reference_normals(&self) -> &ReferenceNormals<G>;
-}
-
-impl<const G: usize, const N: usize, const O: usize> SurfaceFiniteElement<G, N>
-    for SurfaceElement<G, N, O>
-where
-    Self: FiniteElement<G, M, N>,
-{
-    fn bases<const I: usize>(nodal_coordinates: &CoordinateList<I, N>) -> SurfaceBases<I, G> {
+    fn bases<const I: usize>(
+        nodal_coordinates: &ElementNodalEitherCoordinates<I, P>,
+    ) -> SurfaceBases<I, G> {
         Self::shape_functions_gradients_at_integration_points()
             .iter()
-            .map(|standard_gradient_operator| {
-                standard_gradient_operator
+            .map(|shape_functions_gradients| {
+                shape_functions_gradients
                     .iter()
                     .zip(nodal_coordinates)
-                    .map(|(standard_gradient_operator_a, nodal_coordinate_a)| {
-                        standard_gradient_operator_a
+                    .map(|(shape_functions_gradient, nodal_coordinate)| {
+                        shape_functions_gradient
                             .iter()
-                            .map(|standard_gradient_operator_a_m| {
-                                nodal_coordinate_a * standard_gradient_operator_a_m
+                            .map(|standard_gradient_operator_m| {
+                                nodal_coordinate * standard_gradient_operator_m
                             })
                             .collect()
                     })
@@ -95,16 +63,18 @@ where
             })
             .collect()
     }
-    fn dual_bases<const I: usize>(nodal_coordinates: &CoordinateList<I, N>) -> SurfaceBases<I, G> {
+    fn dual_bases<const I: usize>(
+        nodal_coordinates: &ElementNodalEitherCoordinates<I, P>,
+    ) -> SurfaceBases<I, G> {
         Self::bases(nodal_coordinates)
-            .iter()
+            .into_iter()
             .map(|basis_vectors| {
                 basis_vectors
                     .iter()
-                    .map(|basis_vectors_m| {
+                    .map(|basis_vector_m| {
                         basis_vectors
                             .iter()
-                            .map(|basis_vectors_n| basis_vectors_m * basis_vectors_n)
+                            .map(|basis_vector_n| basis_vector_m * basis_vector_n)
                             .collect()
                     })
                     .collect::<TensorRank2<2, I, I>>()
@@ -113,7 +83,7 @@ where
                     .map(|metric_tensor_m| {
                         metric_tensor_m
                             .iter()
-                            .zip(basis_vectors)
+                            .zip(basis_vectors.iter())
                             .map(|(metric_tensor_mn, basis_vectors_n)| {
                                 basis_vectors_n * metric_tensor_mn
                             })
@@ -123,16 +93,13 @@ where
             })
             .collect()
     }
-    fn gradient_vectors(&self) -> &GradientVectors<G, N> {
-        &self.gradient_vectors
-    }
-    fn normals(nodal_coordinates: &ElementNodalCoordinates<N>) -> Normals<G> {
+    fn normals(nodal_coordinates: &ElementNodalCoordinates<P>) -> Normals<G> {
         Self::bases(nodal_coordinates)
-            .iter()
+            .into_iter()
             .map(|basis_vectors| basis_vectors[0].cross(&basis_vectors[1]).normalized())
             .collect()
     }
-    fn normal_gradients(nodal_coordinates: &ElementNodalCoordinates<N>) -> NormalGradients<N, G> {
+    fn normal_gradients(nodal_coordinates: &ElementNodalCoordinates<P>) -> NormalGradients<P, G> {
         let levi_civita_symbol = LEVI_CIVITA;
         let mut normalization: Scalar = 0.0;
         let mut normal_vector = Normal::zero();
@@ -168,8 +135,8 @@ where
         }).collect()
     }
     fn normal_rates(
-        nodal_coordinates: &ElementNodalCoordinates<N>,
-        nodal_velocities: &ElementNodalVelocities<N>,
+        nodal_coordinates: &ElementNodalCoordinates<P>,
+        nodal_velocities: &ElementNodalVelocities<P>,
     ) -> NormalRates<G> {
         let identity = IDENTITY;
         let levi_civita_symbol = LEVI_CIVITA;
@@ -208,21 +175,25 @@ where
                 ).collect()
         }).collect()
     }
-    fn reference_normals(&self) -> &ReferenceNormals<G> {
-        &self.reference_normals
-    }
+}
+
+impl<const G: usize, const N: usize, const O: usize, const P: usize> SurfaceFiniteElement<G, N, P>
+    for SurfaceElement<G, N, O>
+where
+    Self: FiniteElement<G, M, N, P>,
+{
 }
 
 impl<const G: usize, const N: usize, const O: usize>
     From<(ElementNodalReferenceCoordinates<N>, Scalar)> for SurfaceElement<G, N, O>
 where
-    Self: SurfaceFiniteElement<G, N>,
+    Self: SurfaceFiniteElement<G, N, N>,
 {
     fn from(
         (reference_nodal_coordinates, thickness): (ElementNodalReferenceCoordinates<N>, Scalar),
     ) -> Self {
         let integration_weights = Self::bases(&reference_nodal_coordinates)
-            .iter()
+            .into_iter()
             .zip(Self::parametric_weights())
             .map(|(reference_basis, parametric_weight)| {
                 reference_basis[0].cross(&reference_basis[1]).norm() * parametric_weight * thickness
@@ -230,7 +201,7 @@ where
             .collect();
         let reference_dual_bases = Self::dual_bases(&reference_nodal_coordinates);
         let gradient_vectors = Self::shape_functions_gradients_at_integration_points()
-            .iter()
+            .into_iter()
             .zip(reference_dual_bases.iter())
             .map(|(standard_gradient_operator, reference_dual_basis)| {
                 standard_gradient_operator
@@ -248,7 +219,7 @@ where
             })
             .collect();
         let reference_normals = reference_dual_bases
-            .iter()
+            .into_iter()
             .map(|reference_dual_basis| {
                 reference_dual_basis[0]
                     .cross(&reference_dual_basis[1])

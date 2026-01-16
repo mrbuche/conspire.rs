@@ -46,7 +46,15 @@ impl<const D: usize, const I: usize, const J: usize> From<[[TensorRank0; D]; D]>
     for TensorRank2<D, I, J>
 {
     fn from(array: [[TensorRank0; D]; D]) -> Self {
-        array.into_iter().map(|entry| entry.into()).collect()
+        Self(from_fn(|i| array[i].into()))
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> From<TensorRank2<D, I, J>>
+    for [[TensorRank0; D]; D]
+{
+    fn from(tensor_rank_2: TensorRank2<D, I, J>) -> Self {
+        from_fn(|i| from_fn(|j| tensor_rank_2[i][j]))
     }
 }
 
@@ -168,6 +176,14 @@ pub const ZERO_10: TensorRank2<3, 1, 0> = TensorRank2([
     tensor_rank_1_zero(),
     tensor_rank_1_zero(),
 ]);
+
+impl<const D: usize, const I: usize, const J: usize> From<TensorRank1List<D, J, D>>
+    for TensorRank2<D, I, J>
+{
+    fn from(tensor_rank_1_list: TensorRank1List<D, J, D>) -> Self {
+        tensor_rank_1_list.into_iter().collect()
+    }
+}
 
 impl<const D: usize, const I: usize, const J: usize> From<(TensorRank1<D, I>, TensorRank1<D, J>)>
     for TensorRank2<D, I, J>

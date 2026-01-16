@@ -11,11 +11,17 @@ use crate::{
     math::Scalar,
 };
 
-pub trait HyperviscoelasticFiniteElementBlock<C, F, const G: usize, const M: usize, const N: usize>
-where
+pub trait HyperviscoelasticFiniteElementBlock<
+    C,
+    F,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+    const P: usize,
+> where
     C: Hyperviscoelastic,
-    F: HyperviscoelasticFiniteElement<C, G, M, N>,
-    Self: ElasticHyperviscousFiniteElementBlock<C, F, G, M, N>,
+    F: HyperviscoelasticFiniteElement<C, G, M, N, P>,
+    Self: ElasticHyperviscousFiniteElementBlock<C, F, G, M, N, P>,
 {
     fn helmholtz_free_energy(
         &self,
@@ -23,12 +29,12 @@ where
     ) -> Result<Scalar, FiniteElementBlockError>;
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize>
-    HyperviscoelasticFiniteElementBlock<C, F, G, M, N> for Block<C, F, G, M, N>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
+    HyperviscoelasticFiniteElementBlock<C, F, G, M, N, P> for Block<C, F, G, M, N, P>
 where
     C: Hyperviscoelastic,
-    F: HyperviscoelasticFiniteElement<C, G, M, N>,
-    Self: ElasticHyperviscousFiniteElementBlock<C, F, G, M, N>,
+    F: HyperviscoelasticFiniteElement<C, G, M, N, P>,
+    Self: ElasticHyperviscousFiniteElementBlock<C, F, G, M, N, P>,
 {
     fn helmholtz_free_energy(
         &self,

@@ -3,7 +3,7 @@ mod test;
 
 use super::*;
 
-/// The Saint Venant-Kirchhoff thermohyperelastic constitutive model.
+/// The Saint Venant-Kirchhoff thermohyperelastic solid constitutive model.
 ///
 /// **Parameters**
 /// - The bulk modulus $`\kappa`$.

@@ -12,10 +12,11 @@ use crate::{
 
 const G: usize = 8;
 const N: usize = 5;
+const P: usize = N;
 
 pub type Pyramid = LinearElement<G, N>;
 
-impl FiniteElement<G, M, N> for Pyramid {
+impl FiniteElement<G, M, N, P> for Pyramid {
     fn integration_points() -> ParametricCoordinates<G, M> {
         integration_points_and_weights().0
     }

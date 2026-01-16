@@ -1,4 +1,4 @@
-The Hencky hyperelastic constitutive model.
+The Hencky hyperelastic solid constitutive model.
 
 **Parameters**
 - The bulk modulus $`\kappa`$.

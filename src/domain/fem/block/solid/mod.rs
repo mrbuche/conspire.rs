@@ -14,9 +14,15 @@ use crate::{
     mechanics::DeformationGradientList,
 };
 
-pub trait SolidFiniteElementBlock<C, F, const G: usize, const M: usize, const N: usize>
-where
-    F: SolidFiniteElement<G, M, N>,
+pub trait SolidFiniteElementBlock<
+    C,
+    F,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+    const P: usize,
+> where
+    F: SolidFiniteElement<G, M, N, P>,
 {
     fn deformation_gradients(
         &self,
@@ -24,10 +30,10 @@ where
     ) -> Vec<DeformationGradientList<G>>;
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize> SolidFiniteElementBlock<C, F, G, M, N>
-    for Block<C, F, G, M, N>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
+    SolidFiniteElementBlock<C, F, G, M, N, P> for Block<C, F, G, M, N, P>
 where
-    F: SolidFiniteElement<G, M, N>,
+    F: SolidFiniteElement<G, M, N, P>,
 {
     fn deformation_gradients(
         &self,

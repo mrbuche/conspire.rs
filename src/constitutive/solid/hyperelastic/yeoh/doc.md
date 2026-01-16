@@ -1,4 +1,4 @@
-The Yeoh hyperelastic constitutive model.[^1]
+The Yeoh hyperelastic solid constitutive model.[^1]
 
 **Parameters**
 - The bulk modulus $`\kappa`$.

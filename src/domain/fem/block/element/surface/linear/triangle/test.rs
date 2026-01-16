@@ -9,7 +9,7 @@ use crate::{
                 solid::SolidFiniteElement,
                 surface::{
                     Normals, SurfaceFiniteElement,
-                    linear::triangle::{G, M, N, Triangle},
+                    linear::triangle::{G, M, N, P, Triangle},
                 },
                 test::test_surface_finite_element,
             },

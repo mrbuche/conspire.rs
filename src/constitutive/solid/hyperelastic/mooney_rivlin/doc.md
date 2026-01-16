@@ -1,4 +1,4 @@
-The Mooney-Rivlin hyperelastic constitutive model.[^1]<sup>,</sup>[^2]
+The Mooney-Rivlin hyperelastic solid constitutive model.[^1]<sup>,</sup>[^2]
 
 **Parameters**
 - The bulk modulus $`\kappa`$.

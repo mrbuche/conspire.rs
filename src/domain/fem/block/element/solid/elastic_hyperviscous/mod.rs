@@ -7,10 +7,15 @@ use crate::{
     math::{Scalar, Tensor},
 };
 
-pub trait ElasticHyperviscousFiniteElement<C, const G: usize, const M: usize, const N: usize>
-where
+pub trait ElasticHyperviscousFiniteElement<
+    C,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+    const P: usize,
+> where
     C: ElasticHyperviscous,
-    Self: ViscoelasticFiniteElement<C, G, M, N>,
+    Self: ViscoelasticFiniteElement<C, G, M, N, P>,
 {
     fn viscous_dissipation(
         &self,
@@ -26,11 +31,11 @@ where
     ) -> Result<Scalar, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize> ElasticHyperviscousFiniteElement<C, G, 3, N>
-    for Element<G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
+    ElasticHyperviscousFiniteElement<C, G, 3, N, P> for Element<G, N, O>
 where
     C: ElasticHyperviscous,
-    Self: ViscoelasticFiniteElement<C, G, 3, N>,
+    Self: ViscoelasticFiniteElement<C, G, 3, N, P>,
 {
     fn viscous_dissipation(
         &self,
@@ -38,7 +43,7 @@ where
         nodal_coordinates: &ElementNodalCoordinates<N>,
         nodal_velocities: &ElementNodalVelocities<N>,
     ) -> Result<Scalar, FiniteElementError> {
-        viscous_dissipation::<_, _, _, _, _, O>(
+        viscous_dissipation::<_, _, _, _, _, O, _>(
             self,
             constitutive_model,
             nodal_coordinates,
@@ -51,7 +56,7 @@ where
         nodal_coordinates: &ElementNodalCoordinates<N>,
         nodal_velocities: &ElementNodalVelocities<N>,
     ) -> Result<Scalar, FiniteElementError> {
-        dissipation_potential::<_, _, _, _, _, O>(
+        dissipation_potential::<_, _, _, _, _, O, _>(
             self,
             constitutive_model,
             nodal_coordinates,
@@ -60,11 +65,11 @@ where
     }
 }
 
-impl<C, const G: usize, const N: usize, const O: usize> ElasticHyperviscousFiniteElement<C, G, 2, N>
-    for SurfaceElement<G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
+    ElasticHyperviscousFiniteElement<C, G, 2, N, P> for SurfaceElement<G, N, O>
 where
     C: ElasticHyperviscous,
-    Self: ViscoelasticFiniteElement<C, G, 2, N>,
+    Self: ViscoelasticFiniteElement<C, G, 2, N, P>,
 {
     fn viscous_dissipation(
         &self,
@@ -72,7 +77,7 @@ where
         nodal_coordinates: &ElementNodalCoordinates<N>,
         nodal_velocities: &ElementNodalVelocities<N>,
     ) -> Result<Scalar, FiniteElementError> {
-        viscous_dissipation::<_, _, _, _, _, O>(
+        viscous_dissipation::<_, _, _, _, _, O, _>(
             self,
             constitutive_model,
             nodal_coordinates,
@@ -85,7 +90,7 @@ where
         nodal_coordinates: &ElementNodalCoordinates<N>,
         nodal_velocities: &ElementNodalVelocities<N>,
     ) -> Result<Scalar, FiniteElementError> {
-        dissipation_potential::<_, _, _, _, _, O>(
+        dissipation_potential::<_, _, _, _, _, O, _>(
             self,
             constitutive_model,
             nodal_coordinates,
@@ -94,7 +99,15 @@ where
     }
 }
 
-fn viscous_dissipation<C, F, const G: usize, const M: usize, const N: usize, const O: usize>(
+fn viscous_dissipation<
+    C,
+    F,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+    const O: usize,
+    const P: usize,
+>(
     element: &F,
     constitutive_model: &C,
     nodal_coordinates: &ElementNodalCoordinates<N>,
@@ -102,7 +115,7 @@ fn viscous_dissipation<C, F, const G: usize, const M: usize, const N: usize, con
 ) -> Result<Scalar, FiniteElementError>
 where
     C: ElasticHyperviscous,
-    F: ViscoelasticFiniteElement<C, G, M, N>,
+    F: ViscoelasticFiniteElement<C, G, M, N, P>,
 {
     match element
         .deformation_gradients(nodal_coordinates)
@@ -132,7 +145,15 @@ where
     }
 }
 
-fn dissipation_potential<C, F, const G: usize, const M: usize, const N: usize, const O: usize>(
+fn dissipation_potential<
+    C,
+    F,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+    const O: usize,
+    const P: usize,
+>(
     element: &F,
     constitutive_model: &C,
     nodal_coordinates: &ElementNodalCoordinates<N>,
@@ -140,7 +161,7 @@ fn dissipation_potential<C, F, const G: usize, const M: usize, const N: usize, c
 ) -> Result<Scalar, FiniteElementError>
 where
     C: ElasticHyperviscous,
-    F: ViscoelasticFiniteElement<C, G, M, N>,
+    F: ViscoelasticFiniteElement<C, G, M, N, P>,
 {
     match element
         .deformation_gradients(nodal_coordinates)

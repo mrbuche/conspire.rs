@@ -1,4 +1,4 @@
-The Saint Venant-Kirchhoff elastic constitutive model.
+The Saint Venant-Kirchhoff elastic solid constitutive model.
 
 **Parameters**
 - The bulk modulus $`\kappa`$.

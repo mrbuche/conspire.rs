@@ -3,7 +3,7 @@ mod test;
 
 use super::*;
 
-/// The Almansi-Hamel thermoelastic constitutive model.
+/// The Almansi-Hamel thermoelastic solid constitutive model.
 ///
 /// **Parameters**
 /// - The bulk modulus $`\kappa`$.

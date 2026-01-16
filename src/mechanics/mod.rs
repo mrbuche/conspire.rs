@@ -99,10 +99,10 @@ impl<const I: usize, const J: usize> Deformation<I, J> for DeformationGradientGe
 }
 
 /// A basis.
-pub type Basis<const I: usize> = TensorRank1List<3, I, 3>;
+pub type Basis = TensorRank1List<3, 1, 3>;
 
 /// A list of bases.
-pub type Bases<const I: usize, const N: usize> = TensorRank1List2D<3, I, 3, N>;
+pub type Bases<const N: usize> = TensorRank1List2D<3, 1, 3, N>;
 
 /// The Cauchy stress $`\boldsymbol{\sigma}`$.
 pub type CauchyStress = TensorRank2<3, 1, 1>;
@@ -298,11 +298,17 @@ pub type RightCauchyGreenDeformation = TensorRank2<3, 0, 0>;
 /// The rotation of the current configuration $`\mathbf{Q}`$.
 pub type RotationCurrentConfiguration = TensorRank2<3, 1, 1>;
 
+/// A list of rotations of the current configuration.
+pub type RotationCurrentConfigurationList<const N: usize> = TensorRank2List<3, 1, 1, N>;
+
 /// The rate of rotation of the current configuration $`\dot{\mathbf{Q}}`$.
 pub type RotationRateCurrentConfiguration = TensorRank2<3, 1, 1>;
 
 /// The rotation of the reference configuration $`\mathbf{Q}_0`$.
 pub type RotationReferenceConfiguration = TensorRank2<3, 0, 0>;
+
+/// A separation.
+pub type Separation = Displacement;
 
 /// The second Piola-Kirchhoff stress $`\mathbf{S}`$.
 pub type SecondPiolaKirchhoffStress = TensorRank2<3, 0, 0>;
@@ -323,7 +329,10 @@ pub type SecondPiolaKirchhoffRateTangentStiffness = TensorRank4<3, 0, 0, 1, 0>;
 pub type Stiffness = TensorRank2<3, 1, 1>;
 
 /// A list of stiffnesses.
-pub type StiffnessList<const N: usize> = TensorRank2List2D<3, 1, 1, N, N>;
+pub type StiffnessList<const N: usize> = TensorRank2List<3, 1, 1, N>;
+
+/// A 2D list of stiffnesses.
+pub type StiffnessList2D<const N: usize> = TensorRank2List2D<3, 1, 1, N, N>;
 
 /// A vector of stiffnesses.
 pub type Stiffnesses = TensorRank2Vec2D<3, 1, 1>;
@@ -351,6 +360,9 @@ pub type Times = crate::math::Vector;
 
 /// A traction.
 pub type Traction = TensorRank1<3, 1>;
+
+/// A list of tractions.
+pub type TractionList<const N: usize> = TensorRank1List<3, 1, N>;
 
 /// A vector.
 pub type Vector<const I: usize> = TensorRank1<3, I>;

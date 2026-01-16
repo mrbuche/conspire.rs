@@ -1,8 +1,8 @@
-//! Elastic-hyperviscous constitutive models.
+//! Elastic-hyperviscous solid constitutive models.
 //!
 //! ---
 //!
-//! Elastic-hyperviscous constitutive models are defined by an elastic stress tensor function and a viscous dissipation function.
+//! Elastic-hyperviscous solid constitutive models are defined by an elastic stress tensor function and a viscous dissipation function.
 //!
 //! ```math
 //! \mathbf{P}:\dot{\mathbf{F}} - \mathbf{P}^e(\mathbf{F}):\dot{\mathbf{F}} - \phi(\mathbf{F},\dot{\mathbf{F}}) \geq 0
@@ -37,7 +37,7 @@ use crate::math::{
     },
 };
 
-/// Required methods for elastic-hyperviscous constitutive models.
+/// Required methods for elastic-hyperviscous solid constitutive models.
 pub trait ElasticHyperviscous
 where
     Self: Viscoelastic,
@@ -69,7 +69,7 @@ where
     ) -> Result<Scalar, ConstitutiveError>;
 }
 
-/// First-order optimization methods for elastic-hyperviscous constitutive models.
+/// First-order optimization methods for elastic-hyperviscous solid constitutive models.
 pub trait FirstOrderMinimize {
     /// Solve for the unknown components of the deformation gradient and rate under an applied load.
     ///
@@ -92,7 +92,7 @@ pub trait FirstOrderMinimize {
     ) -> Result<DeformationGradientRate, OptimizationError>;
 }
 
-/// Second-order optimization methods for elastic-hyperviscous constitutive models.
+/// Second-order optimization methods for elastic-hyperviscous solid constitutive models.
 pub trait SecondOrderMinimize {
     /// Solve for the unknown components of the deformation gradient and rate under an applied load.
     ///

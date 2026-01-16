@@ -17,7 +17,7 @@ use crate::{
     },
 };
 
-/// The Saint Venant-Kirchhoff hyperviscoelastic constitutive model.
+/// The Saint Venant-Kirchhoff hyperviscoelastic solid constitutive model.
 ///
 /// **Parameters**
 /// - The bulk modulus $`\kappa`$.

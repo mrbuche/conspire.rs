@@ -1,4 +1,4 @@
-The Gent hyperelastic constitutive model.[^1]
+The Gent hyperelastic solid constitutive model.[^1]
 
 **Parameters**
 - The bulk modulus $`\kappa`$.

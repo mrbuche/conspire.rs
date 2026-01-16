@@ -12,10 +12,11 @@ use crate::{
 
 const G: usize = 6;
 const N: usize = 6;
+const P: usize = N;
 
 pub type Wedge = LinearElement<G, N>;
 
-impl FiniteElement<G, M, N> for Wedge {
+impl FiniteElement<G, M, N, P> for Wedge {
     fn integration_points() -> ParametricCoordinates<G, M> {
         [
             [2.0 / 3.0, 1.0 / 6.0, -FRAC_1_SQRT_3],

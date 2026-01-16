@@ -7,10 +7,15 @@ use crate::{
     math::{Scalar, Tensor},
 };
 
-pub trait HyperelasticFiniteElement<C, const G: usize, const M: usize, const N: usize>
-where
+pub trait HyperelasticFiniteElement<
+    C,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+    const P: usize,
+> where
     C: Hyperelastic,
-    Self: ElasticFiniteElement<C, G, M, N>,
+    Self: ElasticFiniteElement<C, G, M, N, P>,
 {
     fn helmholtz_free_energy(
         &self,
@@ -19,44 +24,52 @@ where
     ) -> Result<Scalar, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize> HyperelasticFiniteElement<C, G, 3, N>
-    for Element<G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
+    HyperelasticFiniteElement<C, G, 3, N, P> for Element<G, N, O>
 where
     C: Hyperelastic,
-    Self: ElasticFiniteElement<C, G, 3, N>,
+    Self: ElasticFiniteElement<C, G, 3, N, P>,
 {
     fn helmholtz_free_energy(
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<Scalar, FiniteElementError> {
-        helmholtz_free_energy::<_, _, _, _, _, O>(self, constitutive_model, nodal_coordinates)
+        helmholtz_free_energy::<_, _, _, _, _, O, _>(self, constitutive_model, nodal_coordinates)
     }
 }
 
-impl<C, const G: usize, const N: usize, const O: usize> HyperelasticFiniteElement<C, G, 2, N>
-    for SurfaceElement<G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
+    HyperelasticFiniteElement<C, G, 2, N, P> for SurfaceElement<G, N, O>
 where
     C: Hyperelastic,
-    Self: ElasticFiniteElement<C, G, 2, N>,
+    Self: ElasticFiniteElement<C, G, 2, N, P>,
 {
     fn helmholtz_free_energy(
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<Scalar, FiniteElementError> {
-        helmholtz_free_energy::<_, _, _, _, _, O>(self, constitutive_model, nodal_coordinates)
+        helmholtz_free_energy::<_, _, _, _, _, O, _>(self, constitutive_model, nodal_coordinates)
     }
 }
 
-fn helmholtz_free_energy<C, F, const G: usize, const M: usize, const N: usize, const O: usize>(
+fn helmholtz_free_energy<
+    C,
+    F,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+    const O: usize,
+    const P: usize,
+>(
     element: &F,
     constitutive_model: &C,
     nodal_coordinates: &ElementNodalCoordinates<N>,
 ) -> Result<Scalar, FiniteElementError>
 where
     C: Hyperelastic,
-    F: ElasticFiniteElement<C, G, M, N>,
+    F: ElasticFiniteElement<C, G, M, N, P>,
 {
     match element
         .deformation_gradients(nodal_coordinates)

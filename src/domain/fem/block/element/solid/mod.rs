@@ -14,16 +14,16 @@ use crate::{
     math::Tensor,
     mechanics::{
         DeformationGradient, DeformationGradientList, DeformationGradientRate,
-        DeformationGradientRateList, ForceList, StiffnessList,
+        DeformationGradientRateList, ForceList, StiffnessList2D,
     },
 };
 
 pub type ElementNodalForcesSolid<const N: usize> = ForceList<N>;
-pub type ElementNodalStiffnessesSolid<const N: usize> = StiffnessList<N>;
+pub type ElementNodalStiffnessesSolid<const N: usize> = StiffnessList2D<N>;
 
-pub trait SolidFiniteElement<const G: usize, const M: usize, const N: usize>
+pub trait SolidFiniteElement<const G: usize, const M: usize, const N: usize, const P: usize>
 where
-    Self: FiniteElement<G, M, N>,
+    Self: FiniteElement<G, M, N, P>,
 {
     fn deformation_gradients(
         &self,
@@ -36,10 +36,10 @@ where
     ) -> DeformationGradientRateList<G>;
 }
 
-impl<const G: usize, const N: usize, const O: usize> SolidFiniteElement<G, 3, N>
+impl<const G: usize, const N: usize, const O: usize, const P: usize> SolidFiniteElement<G, 3, N, P>
     for Element<G, N, O>
 where
-    Self: FiniteElement<G, 3, N>,
+    Self: FiniteElement<G, 3, N, P>,
 {
     fn deformation_gradients(
         &self,
@@ -78,10 +78,10 @@ where
     }
 }
 
-impl<const G: usize, const N: usize, const O: usize> SolidFiniteElement<G, 2, N>
+impl<const G: usize, const N: usize, const O: usize> SolidFiniteElement<G, 2, N, N>
     for SurfaceElement<G, N, O>
 where
-    Self: SurfaceFiniteElement<G, N>,
+    Self: SurfaceFiniteElement<G, N, N>,
 {
     fn deformation_gradients(
         &self,

@@ -14,10 +14,15 @@ use crate::{
 pub type ElementNodalForcesThermal<const D: usize> = TensorRank0List<D>;
 pub type ElementNodalStiffnessesThermal<const D: usize> = TensorRank0List2D<D>;
 
-pub trait ThermalConductionFiniteElement<C, const G: usize, const M: usize, const N: usize>
-where
+pub trait ThermalConductionFiniteElement<
+    C,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+    const P: usize,
+> where
     C: ThermalConduction,
-    Self: ThermalFiniteElement<G, M, N>,
+    Self: ThermalFiniteElement<G, M, N, P>,
 {
     fn potential(
         &self,
@@ -36,11 +41,11 @@ where
     ) -> Result<ElementNodalStiffnessesThermal<N>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const M: usize, const N: usize, const O: usize>
-    ThermalConductionFiniteElement<C, G, M, N> for Element<G, N, O>
+impl<C, const G: usize, const M: usize, const N: usize, const O: usize, const P: usize>
+    ThermalConductionFiniteElement<C, G, M, N, P> for Element<G, N, O>
 where
     C: ThermalConduction,
-    Self: ThermalFiniteElement<G, M, N>,
+    Self: ThermalFiniteElement<G, M, N, P>,
 {
     fn potential(
         &self,

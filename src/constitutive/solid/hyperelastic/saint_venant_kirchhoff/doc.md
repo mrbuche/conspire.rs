@@ -1,4 +1,4 @@
-The Saint Venant-Kirchhoff hyperelastic constitutive model.
+The Saint Venant-Kirchhoff hyperelastic solid constitutive model.
 
 **Parameters**
 - The bulk modulus $`\kappa`$.

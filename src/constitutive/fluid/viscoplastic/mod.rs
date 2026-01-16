@@ -1,4 +1,4 @@
-//! Viscoplastic constitutive models.
+//! Viscoplastic fluid constitutive models.
 
 use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::Plastic},
@@ -8,7 +8,7 @@ use crate::{
 
 const TWO_THIRDS: Scalar = 2.0 / 3.0;
 
-/// Required methods for viscoplastic constitutive models.
+/// Required methods for viscoplastic fluid constitutive models.
 pub trait Viscoplastic
 where
     Self: Plastic,

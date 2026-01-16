@@ -25,10 +25,11 @@ pub trait ElasticHyperviscousFiniteElementBlock<
     const G: usize,
     const M: usize,
     const N: usize,
+    const P: usize,
 > where
     C: ElasticHyperviscous,
-    F: ElasticHyperviscousFiniteElement<C, G, M, N>,
-    Self: ViscoelasticFiniteElementBlock<C, F, G, M, N>,
+    F: ElasticHyperviscousFiniteElement<C, G, M, N, P>,
+    Self: ViscoelasticFiniteElementBlock<C, F, G, M, N, P>,
 {
     fn viscous_dissipation(
         &self,
@@ -67,12 +68,12 @@ pub trait ElasticHyperviscousFiniteElementBlock<
     ) -> Result<NodalVelocities, OptimizationError>;
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize>
-    ElasticHyperviscousFiniteElementBlock<C, F, G, M, N> for Block<C, F, G, M, N>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
+    ElasticHyperviscousFiniteElementBlock<C, F, G, M, N, P> for Block<C, F, G, M, N, P>
 where
     C: ElasticHyperviscous,
-    F: ElasticHyperviscousFiniteElement<C, G, M, N>,
-    Self: ViscoelasticFiniteElementBlock<C, F, G, M, N>,
+    F: ElasticHyperviscousFiniteElement<C, G, M, N, P>,
+    Self: ViscoelasticFiniteElementBlock<C, F, G, M, N, P>,
 {
     fn viscous_dissipation(
         &self,

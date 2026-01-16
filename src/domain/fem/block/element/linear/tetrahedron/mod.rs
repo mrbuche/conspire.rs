@@ -12,10 +12,11 @@ use crate::{
 
 const G: usize = 1;
 const N: usize = 4;
+const P: usize = N;
 
 pub type Tetrahedron = LinearElement<G, N>;
 
-impl FiniteElement<G, M, N> for Tetrahedron {
+impl FiniteElement<G, M, N, P> for Tetrahedron {
     fn integration_points() -> ParametricCoordinates<G, M> {
         [[0.25; M]].into()
     }

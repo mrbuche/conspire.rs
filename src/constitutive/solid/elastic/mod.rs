@@ -1,4 +1,4 @@
-//! Elastic constitutive models.
+//! Elastic solid constitutive models.
 //!
 //! ---
 //!
@@ -34,7 +34,7 @@ pub enum AppliedLoad {
     BiaxialStress(Scalar, Scalar),
 }
 
-/// Required methods for elastic constitutive models.
+/// Required methods for elastic solid constitutive models.
 pub trait Elastic
 where
     Self: Solid,
@@ -164,7 +164,7 @@ where
     }
 }
 
-/// Zeroth-order root-finding methods for elastic constitutive models.
+/// Zeroth-order root-finding methods for elastic solid constitutive models.
 pub trait ZerothOrderRoot {
     /// Solve for the unknown components of the deformation gradient under an applied load.
     ///
@@ -178,7 +178,7 @@ pub trait ZerothOrderRoot {
     ) -> Result<DeformationGradient, ConstitutiveError>;
 }
 
-/// First-order root-finding methods for elastic constitutive models.
+/// First-order root-finding methods for elastic solid constitutive models.
 pub trait FirstOrderRoot {
     /// Solve for the unknown components of the deformation gradient under an applied load.
     ///

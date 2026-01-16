@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+pub mod cohesive;
 pub mod composite;
 pub mod linear;
 pub mod quadratic;
@@ -12,7 +13,7 @@ pub mod thermal;
 use crate::{
     defeat_message,
     math::{Scalar, ScalarList, TensorRank1, TensorRank1List, TensorRank1List2D, TestError},
-    mechanics::{CurrentCoordinates, ReferenceCoordinates, VectorList2D},
+    mechanics::{CoordinateList, CurrentCoordinates, ReferenceCoordinates, VectorList2D},
 };
 use std::fmt::{self, Debug, Display, Formatter};
 
@@ -22,6 +23,7 @@ const FRAC_SQRT_3_5: Scalar = 0.774_596_669_241_483;
 
 pub type ElementNodalCoordinates<const N: usize> = CurrentCoordinates<N>;
 pub type ElementNodalVelocities<const N: usize> = CurrentCoordinates<N>;
+pub type ElementNodalEitherCoordinates<const I: usize, const N: usize> = CoordinateList<I, N>;
 pub type ElementNodalReferenceCoordinates<const N: usize> = ReferenceCoordinates<N>;
 pub type GradientVectors<const G: usize, const N: usize> = VectorList2D<0, N, G>;
 pub type ParametricCoordinate<const M: usize> = TensorRank1<M, A>;
@@ -36,7 +38,7 @@ pub type StandardGradientOperators<const M: usize, const O: usize, const P: usiz
 pub type StandardGradientOperatorsTransposed<const M: usize, const O: usize, const P: usize> =
     TensorRank1List2D<M, 0, P, O>;
 
-pub trait FiniteElement<const G: usize, const M: usize, const N: usize>
+pub trait FiniteElement<const G: usize, const M: usize, const N: usize, const P: usize>
 where
     Self: Debug,
 {
@@ -44,8 +46,8 @@ where
     fn integration_weights(&self) -> &ScalarList<G>;
     fn parametric_reference() -> ParametricReference<M, N>;
     fn parametric_weights() -> ScalarList<G>;
-    fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N>;
-    fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, N> {
+    fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<P>;
+    fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, P> {
         Self::integration_points()
             .into_iter()
             .map(|integration_point| Self::shape_functions(integration_point))
@@ -53,8 +55,8 @@ where
     }
     fn shape_functions_gradients(
         parametric_coordinate: ParametricCoordinate<M>,
-    ) -> ShapeFunctionsGradients<M, N>;
-    fn shape_functions_gradients_at_integration_points() -> StandardGradientOperators<M, N, G> {
+    ) -> ShapeFunctionsGradients<M, P>;
+    fn shape_functions_gradients_at_integration_points() -> StandardGradientOperators<M, P, G> {
         Self::integration_points()
             .into_iter()
             .map(|integration_point| Self::shape_functions_gradients(integration_point))
@@ -97,31 +99,18 @@ impl<const G: usize, const N: usize, const O: usize> Debug for Element<G, N, O> 
 
 impl<const G: usize, const N: usize, const O: usize> Default for Element<G, N, O>
 where
-    Self: FiniteElement<G, 3, N> + From<ElementNodalReferenceCoordinates<N>>,
+    Self: FiniteElement<G, 3, N, N> + From<ElementNodalReferenceCoordinates<N>>,
 {
     fn default() -> Self {
         ElementNodalReferenceCoordinates::from(Self::parametric_reference()).into()
     }
 }
 
-pub trait FiniteElementCreation<const G: usize, const N: usize>
-where
-    Self: Default + From<ElementNodalReferenceCoordinates<N>>,
-{
-}
-
-impl<const G: usize, const N: usize, const O: usize> FiniteElementCreation<G, N>
-    for Element<G, N, O>
-where
-    Self: Default + From<ElementNodalReferenceCoordinates<N>>,
-{
-}
-
 fn basic_from<const G: usize, const N: usize, const O: usize>(
     reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,
 ) -> Element<G, N, O>
 where
-    Element<G, N, O>: FiniteElement<G, 3, N>,
+    Element<G, N, O>: FiniteElement<G, 3, N, N>,
 {
     let gradient_vectors = Element::shape_functions_gradients_at_integration_points()
         .into_iter()

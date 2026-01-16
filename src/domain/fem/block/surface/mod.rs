@@ -1,7 +1,7 @@
 use crate::{
     fem::{
         NodalReferenceCoordinates,
-        block::{Block, Connectivity, element::surface::SurfaceFiniteElementCreation},
+        block::{Block, Connectivity, element::ElementNodalReferenceCoordinates},
     },
     math::Scalar,
 };
@@ -14,10 +14,10 @@ where
 {
 }
 
-impl<C, F, const G: usize, const N: usize>
-    From<(C, Connectivity<N>, NodalReferenceCoordinates, Scalar)> for Block<C, F, G, M, N>
+impl<C, F, const G: usize, const N: usize, const P: usize>
+    From<(C, Connectivity<N>, NodalReferenceCoordinates, Scalar)> for Block<C, F, G, M, N, P>
 where
-    F: SurfaceFiniteElementCreation<G, N>,
+    F: From<(ElementNodalReferenceCoordinates<N>, Scalar)>,
 {
     fn from(
         (constitutive_model, connectivity, coordinates, thickness): (
@@ -48,9 +48,9 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize> SurfaceFiniteElementBlock<C, F, G, N>
-    for Block<C, F, G, M, N>
+impl<C, F, const G: usize, const N: usize, const P: usize> SurfaceFiniteElementBlock<C, F, G, N>
+    for Block<C, F, G, M, N, P>
 where
-    F: SurfaceFiniteElementCreation<G, N>,
+    F: From<(ElementNodalReferenceCoordinates<N>, Scalar)>,
 {
 }

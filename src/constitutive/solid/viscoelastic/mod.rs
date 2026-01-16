@@ -1,8 +1,8 @@
-//! Viscoelastic constitutive models.
+//! Viscoelastic solid constitutive models.
 //!
 //! ---
 //!
-//! Viscoelastic constitutive models cannot be defined by a Helmholtz free energy density function and viscous dissipation function.
+//! Viscoelastic solid constitutive models cannot be defined by a Helmholtz free energy density and a viscous dissipation function.
 //! These constitutive models are therefore defined by a relation for the stress as a function of the deformation gradient and rate.
 //! Consequently, the rate tangent stiffness associated with the first Piola-Kirchhoff stress is not symmetric for these models.
 //!
@@ -61,7 +61,7 @@ pub enum AppliedLoad<'a> {
     BiaxialStress(fn(Scalar) -> Scalar, fn(Scalar) -> Scalar, &'a [Scalar]),
 }
 
-/// Required methods for viscoelastic constitutive models.
+/// Required methods for viscoelastic solid constitutive models.
 pub trait Viscoelastic
 where
     Self: Solid + Viscous,
@@ -170,7 +170,7 @@ where
     }
 }
 
-/// Zeroth-order root-finding methods for viscoelastic constitutive models.
+/// Zeroth-order root-finding methods for viscoelastic solid constitutive models.
 pub trait ZerothOrderRoot {
     /// Solve for the unknown components of the deformation gradient and rate under an applied load.
     ///
@@ -193,7 +193,7 @@ pub trait ZerothOrderRoot {
     ) -> Result<DeformationGradientRate, OptimizationError>;
 }
 
-/// Zeroth-order root-finding methods for viscoelastic constitutive models.
+/// Zeroth-order root-finding methods for viscoelastic solid constitutive models.
 pub trait FirstOrderRoot {
     /// Solve for the unknown components of the deformation gradient and rate under an applied load.
     ///

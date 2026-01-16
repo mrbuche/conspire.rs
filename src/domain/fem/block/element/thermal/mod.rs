@@ -8,9 +8,9 @@ use crate::{
 
 pub type ElementNodalTemperatures<const D: usize> = TensorRank0List<D>;
 
-pub trait ThermalFiniteElement<const G: usize, const M: usize, const N: usize>
+pub trait ThermalFiniteElement<const G: usize, const M: usize, const N: usize, const P: usize>
 where
-    Self: FiniteElement<G, M, N>,
+    Self: FiniteElement<G, M, N, P>,
 {
     fn temperature_gradients(
         &self,
@@ -18,10 +18,10 @@ where
     ) -> TemperatureGradients<G>;
 }
 
-impl<const G: usize, const M: usize, const N: usize, const O: usize> ThermalFiniteElement<G, M, N>
-    for Element<G, N, O>
+impl<const G: usize, const M: usize, const N: usize, const O: usize, const P: usize>
+    ThermalFiniteElement<G, M, N, P> for Element<G, N, O>
 where
-    Self: FiniteElement<G, M, N>,
+    Self: FiniteElement<G, M, N, P>,
 {
     fn temperature_gradients(
         &self,

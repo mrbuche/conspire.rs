@@ -80,11 +80,11 @@ where
     }
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize> ElasticFiniteElementModel
-    for Block<C, F, G, M, N>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> ElasticFiniteElementModel
+    for Block<C, F, G, M, N, P>
 where
     C: Elastic,
-    F: ElasticFiniteElement<C, G, M, N>,
+    F: ElasticFiniteElement<C, G, M, N, P>,
 {
     fn nodal_forces(
         &self,

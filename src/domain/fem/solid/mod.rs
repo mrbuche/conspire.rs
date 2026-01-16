@@ -29,10 +29,10 @@ where
 {
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize> SolidFiniteElementModel
-    for Block<C, F, G, M, N>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> SolidFiniteElementModel
+    for Block<C, F, G, M, N, P>
 where
     C: Solid,
-    F: SolidFiniteElement<G, M, N>,
+    F: SolidFiniteElement<G, M, N, P>,
 {
 }
