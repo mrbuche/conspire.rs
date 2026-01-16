@@ -97,7 +97,7 @@ impl CohesiveFiniteElement<G, N, P> for Wedge {
     fn normal_gradients_full(
         nodal_mid_surface: &ElementNodalCoordinates<P>,
     ) -> NormalGradients<N, G> {
-        Self::normal_gradients(&nodal_mid_surface)
+        Self::normal_gradients(nodal_mid_surface)
             .into_iter()
             .map(|normal_gradient| {
                 normal_gradient
