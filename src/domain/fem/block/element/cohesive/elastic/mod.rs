@@ -6,7 +6,7 @@ use crate::{
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
         surface::SurfaceFiniteElement,
     },
-    math::{Tensor, TensorRank2List2D},
+    math::{Rank2, Tensor, TensorRank2List2D},
     mechanics::TractionList,
 };
 
@@ -76,7 +76,7 @@ where
     ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError> {
         let nodal_mid_surface = Self::nodal_mid_surface(nodal_coordinates);
         let normals = Self::normals(&nodal_mid_surface);
-        let normal_gradients = Self::normal_gradients(&nodal_mid_surface);
+        let normal_gradients = Self::normal_gradients_full(&nodal_mid_surface);
         match Self::separations(nodal_coordinates)
             .into_iter()
             .zip(normals)
@@ -91,20 +91,23 @@ where
                         .zip(normal_gradients.into_iter().zip(self.integration_weights())),
                 )
                 .map(
-                    |(stiffness, (signed_shape_functions, (normal_gradient, integration_weight)))| {
+                    |(
+                        stiffness,
+                        (signed_shape_functions, (normal_gradient, integration_weight)),
+                    )| {
                         let [stiffness_u, stiffness_n] = stiffness.into();
                         signed_shape_functions
                             .iter()
                             .map(|signed_shape_function_a| {
                                 signed_shape_functions
                                     .iter()
-                                    .map(|signed_shape_function_b| {
-                                        &stiffness_u
-                                            * (signed_shape_function_a
-                                                * signed_shape_function_b
-                                                * integration_weight)
+                                    .zip(normal_gradient.iter())
+                                    .map(|(signed_shape_function_b, normal_gradient_b)| {
+                                        (&stiffness_u * signed_shape_function_b
+                                            + (&stiffness_n * normal_gradient_b.transpose()) * 0.5)
+                                            * (signed_shape_function_a * integration_weight)
                                     })
-                                    .collect() // need to add part with normal gradients, make sure 6 fails first
+                                    .collect()
                             })
                             .collect()
                     },

@@ -61,12 +61,12 @@ fn temporary_2() -> Result<(), TestError> {
     assert_eq_within_tols(
         &wedge.nodal_forces(&MODEL, &coordinates.into())?,
         &[
-            [tangential_force, 0.0, normal_force],
-            [tangential_force, 0.0, normal_force],
-            [tangential_force, 0.0, normal_force],
             [-tangential_force, 0.0, -normal_force],
             [-tangential_force, 0.0, -normal_force],
             [-tangential_force, 0.0, -normal_force],
+            [tangential_force, 0.0, normal_force],
+            [tangential_force, 0.0, normal_force],
+            [tangential_force, 0.0, normal_force],
         ]
         .into(),
     )
@@ -115,12 +115,12 @@ fn temporary_4() -> Result<(), TestError> {
     assert_eq_within_tols(
         &nodal_forces_rotated_back,
         &[
-            [tangential_force, 0.0, normal_force],
-            [tangential_force, 0.0, normal_force],
-            [tangential_force, 0.0, normal_force],
             [-tangential_force, 0.0, -normal_force],
             [-tangential_force, 0.0, -normal_force],
             [-tangential_force, 0.0, -normal_force],
+            [tangential_force, 0.0, normal_force],
+            [tangential_force, 0.0, normal_force],
+            [tangential_force, 0.0, normal_force],
         ]
         .into(),
     )
@@ -174,16 +174,13 @@ fn temporary_6() -> Result<(), TestError> {
     ]);
     let wedge = Wedge::from(coordinates_0);
     let coordinates = ElementNodalCoordinates::from([
-        [-0.589159, -0.293693, 0.171611],
-        [1.419824, 1.79346, 1.466893],
-        [-2.258207, -0.161917, 2.327105],
-        [4.787346, 3.952276, 4.088873],
-        [6.796329, 6.039429, 5.384155],
-        [3.118298, 4.084052, 6.244367],
+        [-0.64542355, -0.31521986, 0.2103109],
+        [1.50161765, 1.80846799, 1.49664724],
+        [-2.29750971, -0.08562506, 2.28063606],
+        [4.72044386, 3.95736046, 4.01544368],
+        [6.80745386, 6.13361434, 5.46225216],
+        [3.14323173, 3.98543986, 6.22717385],
     ]);
-    //
-    // Add noise to coordinates after passes without it!
-    //
     let mut finite_difference = 0.0;
     let nodal_stiffnesses_fd = (0..N)
         .map(|a| {

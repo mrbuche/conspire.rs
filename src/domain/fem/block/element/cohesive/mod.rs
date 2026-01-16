@@ -7,7 +7,7 @@ use crate::{
         ShapeFunctionsAtIntegrationPoints, surface::SurfaceFiniteElement,
     },
     math::{ScalarList, Tensor},
-    mechanics::CurrentCoordinate,
+    mechanics::{CurrentCoordinate, NormalGradients},
 };
 use std::fmt::{self, Debug, Formatter};
 
@@ -46,6 +46,9 @@ where
         nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> ElementNodalEitherCoordinates<I, P>;
     fn nodal_separations(nodal_coordinates: &ElementNodalCoordinates<N>) -> Separations<P>;
+    fn normal_gradients_full(
+        nodal_mid_surface: &ElementNodalCoordinates<P>,
+    ) -> NormalGradients<N, G>;
     fn separations(nodal_coordinates: &ElementNodalCoordinates<N>) -> Separations<G> {
         Self::shape_functions_at_integration_points()
             .into_iter()

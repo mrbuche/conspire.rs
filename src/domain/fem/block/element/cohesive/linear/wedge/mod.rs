@@ -10,6 +10,7 @@ use crate::{
         surface::{SurfaceFiniteElement, linear::Triangle as LinearTriangle},
     },
     math::{ScalarList, Tensor},
+    mechanics::NormalGradients,
 };
 
 // This should share some methods with LinearTriangle<G=3> when get to it.
@@ -93,7 +94,21 @@ impl CohesiveFiniteElement<G, N, P> for Wedge {
             .map(|(coordinates_bottom, coordinates_top)| coordinates_top - coordinates_bottom)
             .collect()
     }
+    fn normal_gradients_full(
+        nodal_mid_surface: &ElementNodalCoordinates<P>,
+    ) -> NormalGradients<N, G> {
+        Self::normal_gradients(&nodal_mid_surface)
+            .into_iter()
+            .map(|normal_gradient| {
+                normal_gradient
+                    .iter()
+                    .chain(normal_gradient.iter())
+                    .cloned()
+                    .collect()
+            })
+            .collect()
+    }
     fn signs() -> ScalarList<N> {
-        [1.0, 1.0, 1.0, -1.0, -1.0, -1.0].into()
+        [-1.0, -1.0, -1.0, 1.0, 1.0, 1.0].into()
     }
 }
