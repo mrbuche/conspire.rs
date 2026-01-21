@@ -56,11 +56,6 @@ where
         coordinates: &Coordinates<I>,
         nodes: &[usize; N],
     ) -> CoordinateList<I, N> {
-        //
-        // Can have elements into_iter (consume) coordinates and use refs to node coordinates within.
-        // Should time at least one thing before and after.
-        //
-        let foo: [&crate::math::TensorRank1<3, I>; N] = std::array::from_fn(|i| &coordinates[nodes[i]]);
         nodes
             .iter()
             .map(|&node| coordinates[node].clone())
