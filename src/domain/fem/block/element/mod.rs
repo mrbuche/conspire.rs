@@ -12,7 +12,9 @@ pub mod thermal;
 
 use crate::{
     defeat_message,
-    math::{Scalar, ScalarList, TensorRank1, TensorRank1List, TensorRank1List2D, TestError},
+    math::{
+        Scalar, ScalarList, Tensor, TensorRank1, TensorRank1List, TensorRank1List2D, TestError,
+    },
     mechanics::{CoordinateList, CurrentCoordinates, ReferenceCoordinates, VectorList2D},
 };
 use std::fmt::{self, Debug, Display, Formatter};
@@ -44,8 +46,17 @@ where
 {
     fn integration_points() -> ParametricCoordinates<G, M>;
     fn integration_weights(&self) -> &ScalarList<G>;
+    fn minimum_scaled_jacobian(nodal_coordinates: &ElementNodalCoordinates<N>) -> Scalar {
+        Self::scaled_jacobians(nodal_coordinates)
+            .into_iter()
+            .reduce(Scalar::min)
+            .unwrap()
+    }
     fn parametric_reference() -> ParametricReference<M, N>;
     fn parametric_weights() -> ScalarList<G>;
+    fn scaled_jacobians(nodal_coordinates: &ElementNodalCoordinates<N>) -> ScalarList<N> {
+        todo!()
+    }
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<P>;
     fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, P> {
         Self::integration_points()

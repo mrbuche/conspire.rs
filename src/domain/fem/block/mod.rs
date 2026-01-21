@@ -13,7 +13,7 @@ use crate::{
         block::element::{ElementNodalReferenceCoordinates, FiniteElement},
     },
     math::{
-        Banded, Scalar, Tensor, TestError,
+        Banded, Scalar, Scalars, Tensor, TestError,
         optimize::{
             EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
             SecondOrderOptimization, ZerothOrderRootFinding,
@@ -56,9 +56,24 @@ where
         coordinates: &Coordinates<I>,
         nodes: &[usize; N],
     ) -> CoordinateList<I, N> {
+        //
+        // Can have elements into_iter (consume) coordinates and use refs to node coordinates within.
+        // Should time at least one thing before and after.
+        //
+        let foo: [&crate::math::TensorRank1<3, I>; N] = std::array::from_fn(|i| &coordinates[nodes[i]]);
         nodes
             .iter()
             .map(|&node| coordinates[node].clone())
+            .collect()
+    }
+    fn minimum_scaled_jacobians(&self) -> Scalars {
+        self.connectivity()
+            .iter()
+            .map(|nodes| {
+                F::minimum_scaled_jacobian(
+                    &Self::element_coordinates(self.coordinates(), nodes).into(),
+                )
+            })
             .collect()
     }
     pub fn volume(&self) -> Scalar {
