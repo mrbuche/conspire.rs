@@ -52,7 +52,7 @@ impl FiniteElement<G, M, N, P> for Triangle {
     }
 }
 
-fn angles<const I: usize>(nodal_coordinates: ElementNodalEitherCoordinates<I, P>) -> ScalarList<P> {
+fn angles<const I: usize>(nodal_coordinates: ElementNodalEitherCoordinates<I, N>) -> ScalarList<N> {
     let l_10 = (&nodal_coordinates[1] - &nodal_coordinates[0]).normalized();
     let l_02 = (&nodal_coordinates[0] - &nodal_coordinates[2]).normalized();
     let l_21 = (&nodal_coordinates[2] - &nodal_coordinates[1]).normalized();
