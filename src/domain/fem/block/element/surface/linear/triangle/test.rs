@@ -258,3 +258,9 @@ pub fn applied_velocities() -> (crate::math::Matrix, crate::math::Vector) {
 
 test_surface_finite_element!(Triangle);
 test_surface_finite_element_block!(Triangle);
+
+#[test]
+fn foo() {
+    let mut coords = reference_coordinates();
+    println!("{:?}", Triangle::scaled_jacobians(coords));
+}

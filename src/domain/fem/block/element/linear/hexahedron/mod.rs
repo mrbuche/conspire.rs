@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        ElementNodalCoordinates, FRAC_1_SQRT_3, FiniteElement, ParametricCoordinate,
+        ElementNodalEitherCoordinates, FRAC_1_SQRT_3, FiniteElement, ParametricCoordinate,
         ParametricCoordinates, ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         linear::{LinearElement, LinearFiniteElement, M},
     },
@@ -60,7 +60,9 @@ impl FiniteElement<G, M, N, P> for Hexahedron {
     fn parametric_weights() -> ScalarList<G> {
         [1.0; G].into()
     }
-    fn scaled_jacobians(nodal_coordinates: &ElementNodalCoordinates<N>) -> ScalarList<P> {
+    fn scaled_jacobians<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> ScalarList<P> {
         // use CORNERS
         // use Scalar::EPSILON ~ 1e-16 and Scalar::INFINITY and Scalar::NEG_INFINITY
         // or just let nans be nans

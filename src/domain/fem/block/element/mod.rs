@@ -44,7 +44,9 @@ where
 {
     fn integration_points() -> ParametricCoordinates<G, M>;
     fn integration_weights(&self) -> &ScalarList<G>;
-    fn minimum_scaled_jacobian(nodal_coordinates: &ElementNodalCoordinates<N>) -> Scalar {
+    fn minimum_scaled_jacobian<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> Scalar {
         Self::scaled_jacobians(nodal_coordinates)
             .into_iter()
             .reduce(Scalar::min)
@@ -52,7 +54,9 @@ where
     }
     fn parametric_reference() -> ParametricReference<M, N>;
     fn parametric_weights() -> ScalarList<G>;
-    fn scaled_jacobians(nodal_coordinates: &ElementNodalCoordinates<N>) -> ScalarList<P>;
+    fn scaled_jacobians<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> ScalarList<P>;
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<P>;
     fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, P> {
         Self::integration_points()

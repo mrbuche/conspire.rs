@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        ElementNodalCoordinates, FRAC_SQRT_3_5, FiniteElement, ParametricCoordinate,
+        ElementNodalEitherCoordinates, FRAC_SQRT_3_5, FiniteElement, ParametricCoordinate,
         ParametricCoordinates, ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         quadratic::{M, QuadraticElement, QuadraticFiniteElement},
     },
@@ -92,7 +92,9 @@ impl FiniteElement<G, M, N, P> for Wedge {
         ]
         .into()
     }
-    fn scaled_jacobians(_nodal_coordinates: &ElementNodalCoordinates<N>) -> ScalarList<P> {
+    fn scaled_jacobians<const I: usize>(
+        _nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> ScalarList<P> {
         todo!()
     }
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {

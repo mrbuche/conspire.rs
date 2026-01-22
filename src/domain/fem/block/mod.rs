@@ -62,12 +62,11 @@ where
             .collect()
     }
     pub fn minimum_scaled_jacobians(&self) -> Scalars {
+        // should take in coordinates?
         self.connectivity()
             .iter()
             .map(|nodes| {
-                F::minimum_scaled_jacobian(
-                    &Self::element_coordinates(self.coordinates(), nodes).into(),
-                )
+                F::minimum_scaled_jacobian(Self::element_coordinates(self.coordinates(), nodes))
             })
             .collect()
     }

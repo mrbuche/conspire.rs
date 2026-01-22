@@ -47,8 +47,10 @@ impl FiniteElement<G, M, N, P> for Wedge {
     fn parametric_weights() -> ScalarList<G> {
         [1.0 / 6.0; G].into()
     }
-    fn scaled_jacobians(nodal_coordinates: &ElementNodalCoordinates<N>) -> ScalarList<P> {
-        LinearTriangle::scaled_jacobians(&Self::nodal_mid_surface(nodal_coordinates))
+    fn scaled_jacobians<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> ScalarList<P> {
+        LinearTriangle::scaled_jacobians(Self::nodal_mid_surface(&nodal_coordinates))
     }
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<P> {
         LinearTriangle::shape_functions(parametric_coordinate)
