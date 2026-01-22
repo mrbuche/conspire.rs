@@ -61,7 +61,7 @@ where
             .map(|&node| coordinates[node].clone())
             .collect()
     }
-    fn minimum_scaled_jacobians(&self) -> Scalars {
+    pub fn minimum_scaled_jacobians(&self) -> Scalars {
         self.connectivity()
             .iter()
             .map(|nodes| {

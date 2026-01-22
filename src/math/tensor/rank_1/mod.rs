@@ -7,9 +7,10 @@ pub mod vec;
 pub mod vec_2d;
 
 use std::{
+    array::from_fn,
     fmt::{self, Display, Formatter},
     iter::Sum,
-    ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign},
 };
 
 use super::{
@@ -246,6 +247,20 @@ impl<const D: usize, const I: usize> Sum for TensorRank1<D, I> {
             acc
         })
         .unwrap_or_else(Self::default)
+    }
+}
+
+impl<const D: usize, const I: usize> Neg for TensorRank1<D, I> {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        from_fn(|i| -self[i]).into()
+    }
+}
+
+impl<const D: usize, const I: usize> Neg for &TensorRank1<D, I> {
+    type Output = TensorRank1<D, I>;
+    fn neg(self) -> Self::Output {
+        from_fn(|i| -self[i]).into()
     }
 }
 

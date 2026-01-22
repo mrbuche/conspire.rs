@@ -3,8 +3,8 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        ElementNodalReferenceCoordinates, FiniteElement, GradientVectors, ParametricCoordinate,
-        ParametricCoordinates, ParametricReference, ShapeFunctions,
+        ElementNodalCoordinates, ElementNodalReferenceCoordinates, FiniteElement, GradientVectors,
+        ParametricCoordinate, ParametricCoordinates, ParametricReference, ShapeFunctions,
         ShapeFunctionsAtIntegrationPoints, ShapeFunctionsGradients, StandardGradientOperators,
         StandardGradientOperatorsTransposed,
         composite::{
@@ -61,6 +61,9 @@ impl FiniteElement<G, M, N, P> for Tetrahedron {
     }
     fn parametric_weights() -> ScalarList<G> {
         [1.0 / 24.0; G].into()
+    }
+    fn scaled_jacobians(_nodal_coordinates: &ElementNodalCoordinates<N>) -> ScalarList<P> {
+        todo!()
     }
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<P> {
         LinearTetrahedron::shape_functions(parametric_coordinate) // should use LinearTetrahedron<G=4>

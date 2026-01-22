@@ -3,8 +3,8 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        FRAC_SQRT_3_5, FiniteElement, ParametricCoordinate, ParametricCoordinates,
-        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
+        ElementNodalCoordinates, FRAC_SQRT_3_5, FiniteElement, ParametricCoordinate,
+        ParametricCoordinates, ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         quadratic::{M, QuadraticElement, QuadraticFiniteElement},
     },
     math::{Scalar, ScalarList, TensorRank1},
@@ -75,6 +75,9 @@ impl FiniteElement<G, M, N, P> for Hexahedron {
                     .flat_map(move |wy| WEIGHTS.into_iter().map(move |wx| wx * wy * wz))
             })
             .collect()
+    }
+    fn scaled_jacobians(_nodal_coordinates: &ElementNodalCoordinates<N>) -> ScalarList<P> {
+        todo!()
     }
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
         let [xi_1, xi_2, xi_3] = parametric_coordinate.into();

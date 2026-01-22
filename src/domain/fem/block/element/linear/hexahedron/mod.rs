@@ -14,7 +14,7 @@ const G: usize = 8;
 const N: usize = 8;
 const P: usize = N;
 
-const CORNERS: [[usize; 4]; N] = [
+const CORNERS: [[usize; 3]; N] = [
     [1, 3, 4],
     [2, 0, 5],
     [3, 1, 6],
@@ -60,7 +60,7 @@ impl FiniteElement<G, M, N, P> for Hexahedron {
     fn parametric_weights() -> ScalarList<G> {
         [1.0; G].into()
     }
-    fn scaled_jacobians(nodal_coordinates: &ElementNodalCoordinates<N>) -> ScalarList<N> {
+    fn scaled_jacobians(nodal_coordinates: &ElementNodalCoordinates<N>) -> ScalarList<P> {
         // use CORNERS
         // use Scalar::EPSILON ~ 1e-16 and Scalar::INFINITY and Scalar::NEG_INFINITY
         // or just let nans be nans

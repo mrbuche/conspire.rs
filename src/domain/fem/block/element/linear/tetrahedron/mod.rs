@@ -3,8 +3,8 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        FiniteElement, ParametricCoordinate, ParametricCoordinates, ParametricReference,
-        ShapeFunctions, ShapeFunctionsGradients,
+        ElementNodalCoordinates, FiniteElement, ParametricCoordinate, ParametricCoordinates,
+        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         linear::{LinearElement, LinearFiniteElement, M},
     },
     math::ScalarList,
@@ -34,6 +34,9 @@ impl FiniteElement<G, M, N, P> for Tetrahedron {
     }
     fn parametric_weights() -> ScalarList<G> {
         [1.0 / 6.0; G].into()
+    }
+    fn scaled_jacobians(_nodal_coordinates: &ElementNodalCoordinates<N>) -> ScalarList<P> {
+        todo!()
     }
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
         let [xi_1, xi_2, xi_3] = parametric_coordinate.into();
