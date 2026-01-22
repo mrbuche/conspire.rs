@@ -61,13 +61,13 @@ where
             .map(|&node| coordinates[node].clone())
             .collect()
     }
-    pub fn minimum_scaled_jacobians(&self) -> Scalars {
-        // should take in coordinates?
+    pub fn minimum_scaled_jacobians<const I: usize>(
+        &self,
+        coordinates: &Coordinates<I>,
+    ) -> Scalars {
         self.connectivity()
             .iter()
-            .map(|nodes| {
-                F::minimum_scaled_jacobian(Self::element_coordinates(self.coordinates(), nodes))
-            })
+            .map(|nodes| F::minimum_scaled_jacobian(Self::element_coordinates(coordinates, nodes)))
             .collect()
     }
     pub fn volume(&self) -> Scalar {
