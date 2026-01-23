@@ -5,7 +5,7 @@ use crate::{
         ElementNodalCoordinates, ElementNodalReferenceCoordinates, FiniteElement,
         cohesive::{
             elastic::ElasticCohesiveElement,
-            linear::wedge::{N, P, Wedge},
+            linear::hexahedron::{Hexahedron, N, P},
         },
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
     },
@@ -21,15 +21,17 @@ const NORMAL_STIFFNESS: Scalar = 3.4;
 const TANGENTIAL_STIFFNESS: Scalar = 5.6;
 const TANGENTIAL_DISPLACEMENT: Scalar = 7.8;
 
-const TANGENTIAL_TRACTION_P: Scalar = TANGENTIAL_STIFFNESS * TANGENTIAL_DISPLACEMENT / P as Scalar;
-const NORMAL_TRACTION_P: Scalar = NORMAL_STIFFNESS * NORMAL_DISPLACEMENT / P as Scalar;
+const TANGENTIAL_TRACTION: Scalar = TANGENTIAL_STIFFNESS * TANGENTIAL_DISPLACEMENT;
+const NORMAL_TRACTION: Scalar = NORMAL_STIFFNESS * NORMAL_DISPLACEMENT;
 
 const COORDINATES: [[Scalar; 3]; N] = [
     [-0.47979299, 0.48230032, 0.0],
     [2.69165013, 0.37308724, 0.0],
+    [2.69165013, 3.2116273, 0.0],
     [-0.47600989, 3.2116273, 0.0],
     [-0.47979299, 0.48230032, 0.0],
     [2.69165013, 0.37308724, 0.0],
+    [2.69165013, 3.2116273, 0.0],
     [-0.47600989, 3.2116273, 0.0],
 ];
 const MODEL: LinearElastic = LinearElastic {
@@ -40,7 +42,7 @@ const MODEL: LinearElastic = LinearElastic {
 #[test]
 fn temporary_1() -> Result<(), TestError> {
     let coordinates = ElementNodalReferenceCoordinates::from(COORDINATES);
-    let element = Wedge::from(coordinates.clone());
+    let element = Hexahedron::from(coordinates.clone());
     assert_eq_within_tols(
         &element.nodal_forces(&MODEL, &coordinates.into())?,
         &[[0.0; 3]; N].into(),
@@ -50,25 +52,33 @@ fn temporary_1() -> Result<(), TestError> {
 #[test]
 fn temporary_2() -> Result<(), TestError> {
     let mut coordinates = ElementNodalReferenceCoordinates::from(COORDINATES);
-    let element = Wedge::from(coordinates.clone());
+    let element = Hexahedron::from(coordinates.clone());
     coordinates.iter_mut().skip(P).for_each(|coordinate| {
         coordinate[0] += TANGENTIAL_DISPLACEMENT;
         coordinate[2] += NORMAL_DISPLACEMENT
     });
     let area = element.integration_weights().into_iter().sum::<Scalar>();
-    let tangential_force = TANGENTIAL_TRACTION_P * area;
-    let normal_force = NORMAL_TRACTION_P * area;
+    // Different than wedge since shape function gradients not constant.
+    // Instead the total force is computed and compared to the traction.
+    let forces = element.nodal_forces(&MODEL, &coordinates.into())?;
     assert_eq_within_tols(
-        &element.nodal_forces(&MODEL, &coordinates.into())?,
-        &[
-            [-tangential_force, 0.0, -normal_force],
-            [-tangential_force, 0.0, -normal_force],
-            [-tangential_force, 0.0, -normal_force],
-            [tangential_force, 0.0, normal_force],
-            [tangential_force, 0.0, normal_force],
-            [tangential_force, 0.0, normal_force],
-        ]
-        .into(),
+        &forces.iter().take(P).map(|force| -force[0]).sum(),
+        &(TANGENTIAL_TRACTION * area),
+    )?;
+    assert_eq_within_tols(
+        &forces.iter().skip(P).map(|force| force[0]).sum(),
+        &(TANGENTIAL_TRACTION * area),
+    )?;
+    forces
+        .iter()
+        .try_for_each(|force| assert_eq_within_tols(&force[1], &0.0))?;
+    assert_eq_within_tols(
+        &forces.iter().take(P).map(|force| -force[2]).sum(),
+        &(NORMAL_TRACTION * area),
+    )?;
+    assert_eq_within_tols(
+        &forces.iter().skip(P).map(|force| force[2]).sum(),
+        &(NORMAL_TRACTION * area),
     )
 }
 
@@ -78,7 +88,7 @@ fn temporary_3() -> Result<(), TestError> {
         .iter()
         .map(|coordinate| get_rotation_reference_configuration() * coordinate)
         .collect::<ElementNodalReferenceCoordinates<N>>();
-    let element = Wedge::from(coordinates.clone());
+    let element = Hexahedron::from(coordinates.clone());
     assert_eq_within_tols(
         &element.nodal_forces(&MODEL, &coordinates.into())?,
         &[[0.0; 3]; N].into(),
@@ -91,7 +101,7 @@ fn temporary_4() -> Result<(), TestError> {
         .iter()
         .map(|coordinate| get_rotation_reference_configuration() * coordinate)
         .collect::<ElementNodalReferenceCoordinates<N>>();
-    let element = Wedge::from(coordinates_0);
+    let element = Hexahedron::from(coordinates_0);
     let mut coordinates = ElementNodalReferenceCoordinates::from(COORDINATES);
     coordinates.iter_mut().skip(P).for_each(|coordinate| {
         coordinate[0] += TANGENTIAL_DISPLACEMENT;
@@ -102,9 +112,9 @@ fn temporary_4() -> Result<(), TestError> {
         .map(|coordinate| get_rotation_reference_configuration() * coordinate)
         .collect();
     let area = element.integration_weights().into_iter().sum::<Scalar>();
-    let tangential_force = TANGENTIAL_TRACTION_P * area;
-    let normal_force = NORMAL_TRACTION_P * area;
-    let nodal_forces_rotated_back = element
+    // Different than wedge since shape function gradients not constant.
+    // Instead the total force is computed and compared to the traction.
+    let forces = element
         .nodal_forces(&MODEL, &coordinates.into())?
         .into_iter()
         .map(|nodal_force| {
@@ -113,16 +123,23 @@ fn temporary_4() -> Result<(), TestError> {
         })
         .collect::<ElementNodalForcesSolid<N>>();
     assert_eq_within_tols(
-        &nodal_forces_rotated_back,
-        &[
-            [-tangential_force, 0.0, -normal_force],
-            [-tangential_force, 0.0, -normal_force],
-            [-tangential_force, 0.0, -normal_force],
-            [tangential_force, 0.0, normal_force],
-            [tangential_force, 0.0, normal_force],
-            [tangential_force, 0.0, normal_force],
-        ]
-        .into(),
+        &forces.iter().take(P).map(|force| -force[0]).sum(),
+        &(TANGENTIAL_TRACTION * area),
+    )?;
+    assert_eq_within_tols(
+        &forces.iter().skip(P).map(|force| force[0]).sum(),
+        &(TANGENTIAL_TRACTION * area),
+    )?;
+    forces
+        .iter()
+        .try_for_each(|force| assert_eq_within_tols(&force[1], &0.0))?;
+    assert_eq_within_tols(
+        &forces.iter().take(P).map(|force| -force[2]).sum(),
+        &(NORMAL_TRACTION * area),
+    )?;
+    assert_eq_within_tols(
+        &forces.iter().skip(P).map(|force| force[2]).sum(),
+        &(NORMAL_TRACTION * area),
     )
 }
 
@@ -130,7 +147,7 @@ fn temporary_4() -> Result<(), TestError> {
 fn temporary_5() -> Result<(), TestError> {
     let coordinates_0 = ElementNodalReferenceCoordinates::from(COORDINATES);
     let coordinates = ElementNodalCoordinates::from(coordinates_0.clone());
-    let element = Wedge::from(coordinates_0);
+    let element = Hexahedron::from(coordinates_0);
     let mut finite_difference = 0.0;
     let nodal_stiffnesses_fd = (0..N)
         .map(|a| {
@@ -167,18 +184,22 @@ fn temporary_6() -> Result<(), TestError> {
     let coordinates_0 = ElementNodalReferenceCoordinates::from([
         [-0.57177033, -0.20395894, 0.23629102],
         [1.49477913, 1.72253902, 1.40527015],
+        [1.49477913, -0.2546453, 1.40527015],
         [-2.31789525, -0.2546453, 2.40281722],
         [-0.57177033, -0.20395894, 0.23629102],
         [1.49477913, 1.72253902, 1.40527015],
+        [1.49477913, -0.2546453, 1.40527015],
         [-2.31789525, -0.2546453, 2.40281722],
     ]);
-    let element = Wedge::from(coordinates_0);
+    let element = Hexahedron::from(coordinates_0);
     let coordinates = ElementNodalCoordinates::from([
         [-0.64542355, -0.31521986, 0.2103109],
         [1.50161765, 1.80846799, 1.49664724],
+        [1.50161765, -0.08562506, 1.49664724],
         [-2.29750971, -0.08562506, 2.28063606],
         [4.72044386, 3.95736046, 4.01544368],
         [6.80745386, 6.13361434, 5.46225216],
+        [6.80745386, 3.98543986, 5.46225216],
         [3.14323173, 3.98543986, 6.22717385],
     ]);
     let mut finite_difference = 0.0;
