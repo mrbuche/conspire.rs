@@ -10,58 +10,51 @@ use crate::{
             CohesiveFiniteElement, M, Separations,
             linear::{LinearCohesiveElement, LinearCohesiveFiniteElement},
         },
-        surface::linear::Triangle,
+        surface::linear::Quadrilateral,
     },
     math::ScalarList,
     mechanics::NormalGradients,
 };
 
-// This should share integration_points() and parametric_weights() with Triangle<G=3> when get to it.
+const G: usize = 4;
+const N: usize = 8;
+const P: usize = 4;
 
-const G: usize = 3;
-const N: usize = 6;
-const P: usize = 3;
+pub type Hexahedron = LinearCohesiveElement<G, N>;
 
-pub type Wedge = LinearCohesiveElement<G, N>;
-
-impl FiniteElement<G, M, N, P> for Wedge {
+impl FiniteElement<G, M, N, P> for Hexahedron {
     fn integration_points() -> ParametricCoordinates<G, M> {
-        [
-            [1.0 / 6.0, 1.0 / 6.0],
-            [2.0 / 3.0, 1.0 / 6.0],
-            [1.0 / 6.0, 2.0 / 3.0],
-        ]
-        .into()
+        Quadrilateral::integration_points()
     }
     fn integration_weights(&self) -> &ScalarList<G> {
         &self.integration_weights
     }
     fn parametric_reference() -> ParametricReference<M, N> {
-        Triangle::parametric_reference()
+        Quadrilateral::parametric_reference()
             .into_iter()
-            .chain(Triangle::parametric_reference())
+            .chain(Quadrilateral::parametric_reference())
             .collect()
     }
     fn parametric_weights() -> ScalarList<G> {
-        [1.0 / 6.0; G].into()
+        Quadrilateral::parametric_weights()
     }
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<P> {
-        Triangle::shape_functions(parametric_coordinate)
+        Quadrilateral::shape_functions(parametric_coordinate)
     }
     fn shape_functions_gradients(
         parametric_coordinate: ParametricCoordinate<M>,
     ) -> ShapeFunctionsGradients<M, P> {
-        Triangle::shape_functions_gradients(parametric_coordinate)
+        Quadrilateral::shape_functions_gradients(parametric_coordinate)
     }
 }
 
-impl From<ElementNodalReferenceCoordinates<N>> for Wedge {
+impl From<ElementNodalReferenceCoordinates<N>> for Hexahedron {
     fn from(reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>) -> Self {
         Self::from_linear(reference_nodal_coordinates)
     }
 }
 
-impl CohesiveFiniteElement<G, N, P> for Wedge {
+impl CohesiveFiniteElement<G, N, P> for Hexahedron {
     fn nodal_mid_surface<const I: usize>(
         nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> ElementNodalEitherCoordinates<I, P> {
@@ -80,4 +73,4 @@ impl CohesiveFiniteElement<G, N, P> for Wedge {
     }
 }
 
-impl LinearCohesiveFiniteElement<G, N, P> for Wedge {}
+impl LinearCohesiveFiniteElement<G, N, P> for Hexahedron {}
