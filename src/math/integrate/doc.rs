@@ -9,6 +9,20 @@ pub fn euler<'a>() -> Vec<[&'a str; 2]> {
     ]]
 }
 
+pub fn heun<'a>() -> Vec<[&'a str; 2]> {
+    vec![[
+        "math/integrate/explicit/heun",
+        include_str!("ode/explicit/fixed_step/heun/doc.md"),
+    ]]
+}
+
+pub fn midpoint<'a>() -> Vec<[&'a str; 2]> {
+    vec![[
+        "math/integrate/explicit/midpoint",
+        include_str!("ode/explicit/fixed_step/midpoint/doc.md"),
+    ]]
+}
+
 pub fn bogacki_shampine<'a>() -> Vec<[&'a str; 2]> {
     vec![[
         "math/integrate/explicit/bogacki_shampine",
