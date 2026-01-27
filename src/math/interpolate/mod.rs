@@ -35,7 +35,7 @@ where
 }
 
 /// Solution interpolation schemes with internal variables.
-pub trait InterpolateSolutionIV<Y, Z, U, V>
+pub trait InterpolateSolutionInternalVariables<Y, Z, U, V>
 where
     Y: Tensor,
     Z: Tensor,

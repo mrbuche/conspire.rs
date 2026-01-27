@@ -155,12 +155,15 @@ where
     Y: Tensor,
     U: TensorVec<Item = Y>,
 {
-    fn abs_tol(&self) -> Scalar {
-        self.abs_tol
-    }
 }
 
 impl VariableStep for Verner9 {
+    fn abs_tol(&self) -> Scalar {
+        self.abs_tol
+    }
+    fn rel_tol(&self) -> Scalar {
+        self.rel_tol
+    }
     fn dt_beta(&self) -> Scalar {
         self.dt_beta
     }
@@ -190,6 +193,16 @@ where
     ) -> Result<(Vector, U, U), IntegrationError> {
         self.integrate_variable_step(function, time, initial_condition)
     }
+}
+
+impl<Y, U> VariableStepExplicit<Y, U> for Verner9
+where
+    Self: OdeSolver<Y, U>,
+    Y: Tensor,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    U: TensorVec<Item = Y>,
+{
+    const SLOPES: usize = 16;
     fn slopes(
         &self,
         mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
@@ -339,16 +352,6 @@ where
         self.time_step(e, dt);
         Ok(())
     }
-}
-
-impl<Y, U> VariableStepExplicit<Y, U> for Verner9
-where
-    Self: OdeSolver<Y, U>,
-    Y: Tensor,
-    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
-    U: TensorVec<Item = Y>,
-{
-    const SLOPES: usize = 16;
 }
 
 impl<Y, U> InterpolateSolution<Y, U> for Verner9

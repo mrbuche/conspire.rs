@@ -38,9 +38,6 @@ where
     Y: Tensor,
     U: TensorVec<Item = Y>,
 {
-    fn abs_tol(&self) -> Scalar {
-        unimplemented!()
-    }
 }
 
 impl<Y, U> ImplicitZerothOrder<Y, U> for BackwardEuler

@@ -33,7 +33,7 @@ pub type Ode89 = Verner9;
 
 use super::{
     Scalar, Solution, Tensor, TensorArray, TensorVec, TestError, Vector, assert_eq_within_tols,
-    interpolate::{InterpolateSolution, InterpolateSolutionIV},
+    interpolate::{InterpolateSolution, InterpolateSolutionInternalVariables},
     optimize::{FirstOrderRootFinding, ZerothOrderRootFinding},
 };
 use crate::defeat_message;
@@ -49,12 +49,17 @@ where
     Y: Tensor,
     U: TensorVec<Item = Y>,
 {
-    /// Returns the absolute error tolerance.
-    fn abs_tol(&self) -> Scalar;
 }
+
+/// Fixed-step ordinary differential equation solvers.
+pub trait FixedStep {}
 
 /// Variable-step ordinary differential equation solvers.
 pub trait VariableStep {
+    /// Returns the absolute error tolerance.
+    fn abs_tol(&self) -> Scalar;
+    /// Returns the relative error tolerance.
+    fn rel_tol(&self) -> Scalar;
     /// Returns the multiplier for adaptive time steps.
     fn dt_beta(&self) -> Scalar;
     /// Returns the exponent for adaptive time steps.
@@ -79,7 +84,25 @@ where
         time: &[Scalar],
         initial_condition: Y,
     ) -> Result<(Vector, U, U), IntegrationError>;
-    #[doc(hidden)]
+}
+
+/// Fixed-step explicit ordinary differential equation solvers.
+pub trait FixedStepExplicit<Y, U>
+where
+    // Self: InterpolateSolution<Y, U> + Explicit<Y, U> + VariableStep,
+    Self: Explicit<Y, U> + VariableStep,
+    Y: Tensor,
+    U: TensorVec<Item = Y>,
+{
+    const SLOPES: usize;
+    fn integrate_fixed_step(
+        &self,
+        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        time: &[Scalar],
+        initial_condition: Y,
+    ) -> Result<(Vector, U, U), IntegrationError> {
+        todo!()
+    }
     fn slopes(
         &self,
         function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
@@ -88,9 +111,8 @@ where
         dt: Scalar,
         k: &mut [Y],
         y_trial: &mut Y,
-    ) -> Result<Scalar, String>;
+    ) -> Result<(), String>;
     #[allow(clippy::too_many_arguments)]
-    #[doc(hidden)]
     fn step(
         &self,
         function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
@@ -102,7 +124,6 @@ where
         dt: &mut Scalar,
         k: &mut [Y],
         y_trial: &Y,
-        e: Scalar,
     ) -> Result<(), String>;
 }
 
@@ -196,6 +217,29 @@ where
             Ok((t_sol, y_sol, dydt_sol))
         }
     }
+    fn slopes(
+        &self,
+        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        y: &Y,
+        t: Scalar,
+        dt: Scalar,
+        k: &mut [Y],
+        y_trial: &mut Y,
+    ) -> Result<Scalar, String>;
+    #[allow(clippy::too_many_arguments)]
+    fn step(
+        &self,
+        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        y: &mut Y,
+        t: &mut Scalar,
+        y_sol: &mut U,
+        t_sol: &mut Vector,
+        dydt_sol: &mut U,
+        dt: &mut Scalar,
+        k: &mut [Y],
+        y_trial: &Y,
+        e: Scalar,
+    ) -> Result<(), String>;
     /// Provides the adaptive time step as a function of the error.
     ///
     /// ```math
@@ -212,7 +256,7 @@ where
 /// Explicit ordinary differential equation solvers with internal variables.
 pub trait ExplicitInternalVariables<Y, Z, U, V>
 where
-    Self: InterpolateSolutionIV<Y, Z, U, V> + OdeSolver<Y, U> + VariableStep,
+    Self: InterpolateSolutionInternalVariables<Y, Z, U, V> + OdeSolver<Y, U> + VariableStep,
     Y: Tensor,
     Z: Tensor,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -326,7 +370,6 @@ where
         }
     }
     #[allow(clippy::too_many_arguments)]
-    #[doc(hidden)]
     fn slopes(
         &self,
         function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
@@ -340,7 +383,6 @@ where
         z_trial: &mut Z,
     ) -> Result<Scalar, String>;
     #[allow(clippy::too_many_arguments)]
-    #[doc(hidden)]
     fn step(
         &self,
         function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
