@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod test;
 
-use super::{
-    super::{
-        Scalar, Tensor, TensorVec, Vector,
-        interpolate::{InterpolateSolution, InterpolateSolutionInternalVariables},
+use crate::math::{
+    Scalar, Tensor, TensorVec, Vector,
+    integrate::{
+        Explicit, ExplicitInternalVariables, IntegrationError, OdeSolver, VariableStep,
+        VariableStepExplicit,
     },
-    Explicit, ExplicitInternalVariables, IntegrationError, OdeSolver, VariableStep,
-    VariableStepExplicit,
+    interpolate::{InterpolateSolution, InterpolateSolutionInternalVariables},
 };
 use crate::{ABS_TOL, REL_TOL};
 use std::ops::{Mul, Sub};

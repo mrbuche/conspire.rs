@@ -1,9 +1,19 @@
+#[cfg(test)]
+mod test;
+
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
     integrate::{FixedStep, IntegrationError, OdeSolver, VariableStep},
     interpolate::InterpolateSolution,
 };
 use std::ops::{Mul, Sub};
+
+pub mod internal_variables;
+
+pub mod bogacki_shampine;
+pub mod dormand_prince;
+pub mod verner_8;
+pub mod verner_9;
 
 /// Explicit ordinary differential equation solvers.
 pub trait Explicit<Y, U>

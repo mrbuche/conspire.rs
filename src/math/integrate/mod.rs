@@ -8,20 +8,13 @@ mod ode;
 
 pub use ode::{
     FixedStep, OdeSolver, VariableStep,
-    explicit::{Explicit, FixedStepExplicit, VariableStepExplicit},
-    explicit_iv::ExplicitInternalVariables,
+    explicit::{
+        Explicit, FixedStepExplicit, VariableStepExplicit, bogacki_shampine::BogackiShampine,
+        dormand_prince::DormandPrince, internal_variables::ExplicitInternalVariables,
+        verner_8::Verner8, verner_9::Verner9,
+    },
     implicit::{ImplicitFirstOrder, ImplicitZerothOrder, backward_euler::BackwardEuler},
 };
-
-mod bogacki_shampine;
-mod dormand_prince;
-mod verner_8;
-mod verner_9;
-
-pub use bogacki_shampine::BogackiShampine;
-pub use dormand_prince::DormandPrince;
-pub use verner_8::Verner8;
-pub use verner_9::Verner9;
 
 /// Alias for [`BackwardEuler`].
 pub type Ode1be = BackwardEuler;

@@ -2,7 +2,6 @@ use crate::math::{Scalar, Tensor, TensorVec};
 use std::fmt::Debug;
 
 pub mod explicit;
-pub mod explicit_iv;
 pub mod implicit;
 
 /// Ordinary differential equation solvers.
