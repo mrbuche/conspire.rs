@@ -2,33 +2,33 @@ use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
     integrate::{Explicit, FixedStep, FixedStepExplicit, IntegrationError, OdeSolver},
 };
-use std::ops::Mul;
+use std::ops::{Add, Mul};
 
 #[doc = include_str!("doc.md")]
 #[derive(Debug, Default)]
-pub struct Midpoint {
+pub struct Ralston {
     /// Fixed value for the time step.
     dt: Scalar,
 }
 
-impl<Y, U> OdeSolver<Y, U> for Midpoint
+impl<Y, U> OdeSolver<Y, U> for Ralston
 where
     Y: Tensor,
     U: TensorVec<Item = Y>,
 {
 }
 
-impl FixedStep for Midpoint {
+impl FixedStep for Ralston {
     fn dt(&self) -> Scalar {
         self.dt
     }
 }
 
-impl<Y, U> Explicit<Y, U> for Midpoint
+impl<Y, U> Explicit<Y, U> for Ralston
 where
     Self: OdeSolver<Y, U>,
     Y: Tensor,
-    for<'a> &'a Y: Mul<Scalar, Output = Y>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Add<Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
     const SLOPES: usize = 2;
@@ -42,11 +42,11 @@ where
     }
 }
 
-impl<Y, U> FixedStepExplicit<Y, U> for Midpoint
+impl<Y, U> FixedStepExplicit<Y, U> for Ralston
 where
     Self: OdeSolver<Y, U>,
     Y: Tensor,
-    for<'a> &'a Y: Mul<Scalar, Output = Y>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Add<Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
     fn step(
@@ -61,9 +61,9 @@ where
         y_trial: &mut Y,
     ) -> Result<(), String> {
         k[0] = function(*t, y)?;
-        *y_trial = &k[0] * (0.5 * dt) + y.clone();
-        k[1] = function(*t + 0.5 * dt, y_trial)?;
-        *y_trial = &k[1] * dt + y.clone();
+        *y_trial = &k[0] * (0.75 * dt) + y.clone();
+        k[1] = function(*t + 0.75 * dt, y_trial)?;
+        *y_trial = (&k[0] + &k[1] * 2.0) * (dt / 3.0) + y.clone();
         *t += dt;
         *y = y_trial.clone();
         y_sol.push(y.clone());

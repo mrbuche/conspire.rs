@@ -23,6 +23,13 @@ pub fn midpoint<'a>() -> Vec<[&'a str; 2]> {
     ]]
 }
 
+pub fn ralston<'a>() -> Vec<[&'a str; 2]> {
+    vec![[
+        "math/integrate/explicit/ralston",
+        include_str!("ode/explicit/fixed_step/ralston/doc.md"),
+    ]]
+}
+
 pub fn bogacki_shampine<'a>() -> Vec<[&'a str; 2]> {
     vec![[
         "math/integrate/explicit/bogacki_shampine",

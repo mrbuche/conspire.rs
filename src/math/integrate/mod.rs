@@ -10,14 +10,35 @@ pub use ode::{
     FixedStep, OdeSolver, VariableStep,
     explicit::{
         Explicit,
-        fixed_step::{FixedStepExplicit, euler::Euler, heun::Heun, midpoint::Midpoint},
+        fixed_step::{
+            FixedStepExplicit,
+            euler::Euler,
+            heun::Heun,
+            midpoint::Midpoint,
+            ralston::Ralston,
+            // bogacki_shampine::BogackiShampine as BogackiShampineFixedStep
+            // dormand_prince::DormandPrince as DormandPrinceFixedStep
+        },
         internal_variables::ExplicitInternalVariables,
         variable_step::{
-            VariableStepExplicit, bogacki_shampine::BogackiShampine, dormand_prince::DormandPrince,
-            verner_8::Verner8, verner_9::Verner9,
+            VariableStepExplicit,
+            bogacki_shampine::BogackiShampine,
+            dormand_prince::DormandPrince,
+            // heun_euler::HeunEuler,
+            // midpoint_euler::MidpointEuler,
+            // ralston_euler::RalstonEuler,
+            verner_8::Verner8,
+            verner_9::Verner9,
         },
     },
-    implicit::{ImplicitFirstOrder, ImplicitZerothOrder, backward_euler::BackwardEuler},
+    implicit::{
+        ImplicitFirstOrder,
+        ImplicitZerothOrder,
+        backward_euler::BackwardEuler,
+        // crank_nicolson::CrankNicolson,
+        // midpoint::Midpoint as ImplicitMidpoint,
+        // trapezoid::Trapezoid,
+    },
 };
 
 /// Alias for [`Euler`].
@@ -32,8 +53,14 @@ pub type Ode2 = Heun;
 /// Alias for [`BogackiShampine`].
 pub type Ode23 = BogackiShampine;
 
+// /// Alias for [`BogackiShampineFixedStep`].
+// pub type Ode3 = BogackiShampineFixedStep;
+
 /// Alias for [`DormandPrince`].
 pub type Ode45 = DormandPrince;
+
+// /// Alias for [`DormandPrinceFixedStep`].
+// pub type Ode5 = DormandPrinceFixedStep;
 
 /// Alias for [`Verner8`].
 pub type Ode78 = Verner8;

@@ -6,6 +6,7 @@ use crate::math::{
 pub mod euler;
 pub mod heun;
 pub mod midpoint;
+pub mod ralston;
 
 /// Fixed-step explicit ordinary differential equation solvers.
 pub trait FixedStepExplicit<Y, U>
