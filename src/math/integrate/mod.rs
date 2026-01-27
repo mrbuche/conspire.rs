@@ -9,15 +9,25 @@ mod ode;
 pub use ode::{
     FixedStep, OdeSolver, VariableStep,
     explicit::{
-        Explicit, FixedStepExplicit, VariableStepExplicit, bogacki_shampine::BogackiShampine,
-        dormand_prince::DormandPrince, internal_variables::ExplicitInternalVariables,
-        verner_8::Verner8, verner_9::Verner9,
+        Explicit,
+        fixed_step::{FixedStepExplicit, euler::Euler, heun::Heun, midpoint::Midpoint},
+        internal_variables::ExplicitInternalVariables,
+        variable_step::{
+            VariableStepExplicit, bogacki_shampine::BogackiShampine, dormand_prince::DormandPrince,
+            verner_8::Verner8, verner_9::Verner9,
+        },
     },
     implicit::{ImplicitFirstOrder, ImplicitZerothOrder, backward_euler::BackwardEuler},
 };
 
+/// Alias for [`Euler`].
+pub type Ode1 = Euler;
+
 /// Alias for [`BackwardEuler`].
 pub type Ode1be = BackwardEuler;
+
+/// Alias for [`Heun`].
+pub type Ode2 = Heun;
 
 /// Alias for [`BogackiShampine`].
 pub type Ode23 = BogackiShampine;
