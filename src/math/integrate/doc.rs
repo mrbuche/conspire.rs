@@ -1,6 +1,6 @@
-pub const EXPLICIT: &str = include_str!("explicit.md");
-pub const EXPLICIT_IV: &str = include_str!("explicit_iv.md");
-pub const IMPLICIT: &str = include_str!("implicit.md");
+pub const EXPLICIT: &str = include_str!("ode/explicit/doc.md");
+pub const EXPLICIT_IV: &str = include_str!("ode/explicit_iv/doc.md");
+pub const IMPLICIT: &str = include_str!("ode/implicit/doc.md");
 
 pub fn bogacki_shampine<'a>() -> Vec<[&'a str; 2]> {
     vec![[
@@ -33,6 +33,6 @@ pub fn verner_9<'a>() -> Vec<[&'a str; 2]> {
 pub fn backward_euler<'a>() -> Vec<[&'a str; 2]> {
     vec![[
         "math/integrate/implicit/backward_euler",
-        include_str!("backward_euler/doc.md"),
+        include_str!("ode/implicit/backward_euler/doc.md"),
     ]]
 }

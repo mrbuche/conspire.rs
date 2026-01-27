@@ -1,36 +1,22 @@
 #[cfg(test)]
 mod test;
 
-use super::{
-    super::{
-        Hessian, Jacobian, Scalar, Solution, Tensor, TensorArray, TensorVec, Vector,
-        interpolate::InterpolateSolution,
-        optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
-    },
-    ImplicitFirstOrder, ImplicitZerothOrder, IntegrationError, OdeSolver,
+use crate::math::{
+    Hessian, Jacobian, Scalar, Solution, Tensor, TensorArray, TensorVec, Vector,
+    integrate::{FixedStep, ImplicitFirstOrder, ImplicitZerothOrder, IntegrationError, OdeSolver},
+    interpolate::InterpolateSolution,
+    optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
 };
-use crate::ABS_TOL;
 use std::{
     fmt::Debug,
     ops::{Div, Mul, Sub},
 };
 
 #[doc = include_str!("doc.md")]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct BackwardEuler {
-    /// Cut back factor for the time step.
-    pub dt_cut: Scalar,
-    /// Minimum value for the time step.
-    pub dt_min: Scalar,
-}
-
-impl Default for BackwardEuler {
-    fn default() -> Self {
-        Self {
-            dt_cut: 0.5,
-            dt_min: ABS_TOL,
-        }
-    }
+    /// Fixed value for the time step.
+    dt: Scalar,
 }
 
 impl<Y, U> OdeSolver<Y, U> for BackwardEuler
@@ -38,6 +24,12 @@ where
     Y: Tensor,
     U: TensorVec<Item = Y>,
 {
+}
+
+impl FixedStep for BackwardEuler {
+    fn dt(&self) -> Scalar {
+        self.dt
+    }
 }
 
 impl<Y, U> ImplicitZerothOrder<Y, U> for BackwardEuler
@@ -57,16 +49,31 @@ where
     ) -> Result<(Vector, U, U), IntegrationError> {
         let t_0 = time[0];
         let t_f = time[time.len() - 1];
+        let mut t_sol: Vector;
         if time.len() < 2 {
             return Err(IntegrationError::LengthTimeLessThanTwo);
         } else if t_0 >= t_f {
             return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
+        } else if time.len() == 2 {
+            if self.dt() <= 0.0 || self.dt().is_nan() {
+                return Err(IntegrationError::TimeStepNotSet(
+                    time[0],
+                    time[1],
+                    format!("{self:?}"),
+                ));
+            } else {
+                let num_steps = ((t_f - t_0) / self.dt()).ceil() as usize;
+                t_sol = (0..num_steps)
+                    .map(|step| t_0 + (step as Scalar) * self.dt())
+                    .collect();
+                t_sol.push(t_f);
+            }
+        } else {
+            t_sol = time.iter().copied().collect();
         }
         let mut index = 0;
         let mut t = t_0;
         let mut dt;
-        let mut t_sol = Vector::new();
-        t_sol.push(t_0);
         let mut t_trial;
         let mut y = initial_condition.clone();
         let mut y_sol = U::new();
@@ -75,7 +82,7 @@ where
         dydt_sol.push(function(t, &y.clone())?);
         let mut y_trial;
         while t < t_f {
-            t_trial = time[index + 1];
+            t_trial = t_sol[index + 1];
             dt = t_trial - t;
             y_trial = match solver.root(
                 |y_trial: &Y| Ok(y_trial - &y - &(&function(t_trial, y_trial)? * dt)),
@@ -85,14 +92,13 @@ where
                 Ok(solution) => solution,
                 Err(error) => {
                     return Err(IntegrationError::Upstream(
-                        format!("{error:?}"),
+                        format!("{error}"),
                         format!("{self:?}"),
                     ));
                 }
             };
             t = t_trial;
             y = y_trial;
-            t_sol.push(t);
             y_sol.push(y.clone());
             dydt_sol.push(function(t, &y)?);
             index += 1;
@@ -120,17 +126,32 @@ where
     ) -> Result<(Vector, U, U), IntegrationError> {
         let t_0 = time[0];
         let t_f = time[time.len() - 1];
+        let mut t_sol: Vector;
         if time.len() < 2 {
             return Err(IntegrationError::LengthTimeLessThanTwo);
         } else if t_0 >= t_f {
             return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
+        } else if time.len() == 2 {
+            if self.dt() <= 0.0 || self.dt().is_nan() {
+                return Err(IntegrationError::TimeStepNotSet(
+                    time[0],
+                    time[1],
+                    format!("{self:?}"),
+                ));
+            } else {
+                let num_steps = ((t_f - t_0) / self.dt()).ceil() as usize;
+                t_sol = (0..num_steps)
+                    .map(|step| t_0 + (step as Scalar) * self.dt())
+                    .collect();
+                t_sol.push(t_f);
+            }
+        } else {
+            t_sol = time.iter().copied().collect();
         }
         let mut index = 0;
         let mut t = t_0;
         let mut dt;
         let identity = J::identity();
-        let mut t_sol = Vector::new();
-        t_sol.push(t_0);
         let mut t_trial;
         let mut y = initial_condition.clone();
         let mut y_sol = U::new();
@@ -139,7 +160,7 @@ where
         dydt_sol.push(function(t, &y.clone())?);
         let mut y_trial;
         while t < t_f {
-            t_trial = time[index + 1];
+            t_trial = t_sol[index + 1];
             dt = t_trial - t;
             y_trial = match solver.root(
                 |y_trial: &Y| Ok(y_trial - &y - &(&function(t_trial, y_trial)? * dt)),
@@ -150,14 +171,13 @@ where
                 Ok(solution) => solution,
                 Err(error) => {
                     return Err(IntegrationError::Upstream(
-                        format!("{error:?}"),
+                        format!("{error}"),
                         format!("{self:?}"),
                     ));
                 }
             };
             t = t_trial;
             y = y_trial;
-            t_sol.push(t);
             y_sol.push(y.clone());
             dydt_sol.push(function(t, &y)?);
             index += 1;

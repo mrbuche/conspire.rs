@@ -162,6 +162,7 @@ where
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
+    const SLOPES: usize = 13;
     fn integrate(
         &self,
         function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
@@ -179,7 +180,6 @@ where
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
-    const SLOPES: usize = 13;
     fn slopes(
         &self,
         mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
