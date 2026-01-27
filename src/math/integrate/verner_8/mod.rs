@@ -3,7 +3,7 @@ mod test;
 
 use super::{
     super::{Scalar, Tensor, TensorVec, Vector, interpolate::InterpolateSolution},
-    Explicit, IntegrationError, OdeSolver, VariableStep,
+    Explicit, IntegrationError, OdeSolver, VariableStep, VariableStepExplicit,
 };
 use crate::{ABS_TOL, REL_TOL};
 use std::ops::{Mul, Sub};
@@ -138,6 +138,12 @@ where
 }
 
 impl VariableStep for Verner8 {
+    fn dt_beta(&self) -> Scalar {
+        self.dt_beta
+    }
+    fn dt_expn(&self) -> Scalar {
+        self.dt_expn
+    }
     fn dt_cut(&self) -> Scalar {
         self.dt_cut
     }
@@ -153,12 +159,13 @@ where
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
-    const SLOPES: usize = 13;
-    fn dt_beta(&self) -> Scalar {
-        self.dt_beta
-    }
-    fn dt_expn(&self) -> Scalar {
-        self.dt_expn
+    fn integrate(
+        &self,
+        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        time: &[Scalar],
+        initial_condition: Y,
+    ) -> Result<(Vector, U, U), IntegrationError> {
+        self.integrate_variable_step(function, time, initial_condition)
     }
     fn slopes(
         &self,
@@ -286,6 +293,16 @@ where
         self.time_step(e, dt);
         Ok(())
     }
+}
+
+impl<Y, U> VariableStepExplicit<Y, U> for Verner8
+where
+    Self: OdeSolver<Y, U>,
+    Y: Tensor,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    U: TensorVec<Item = Y>,
+{
+    const SLOPES: usize = 13;
 }
 
 impl<Y, U> InterpolateSolution<Y, U> for Verner8

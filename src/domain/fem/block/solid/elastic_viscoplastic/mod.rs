@@ -12,7 +12,7 @@ use crate::{
     },
     math::{
         Scalar, Tensor, TensorArray, TensorTupleListVec, TensorTupleListVec2D,
-        integrate::{ExplicitIV, IntegrationError},
+        integrate::{ExplicitInternalVariables, IntegrationError},
         optimize::{EqualityConstraint, FirstOrderRootFinding, OptimizationError},
     },
     mechanics::{DeformationGradientPlastic, Times},
@@ -56,7 +56,7 @@ pub trait ElasticViscoplasticFiniteElementBlock<
     fn root(
         &self,
         bcs: ElasticViscoplasticBCs,
-        integrator: impl ExplicitIV<
+        integrator: impl ExplicitInternalVariables<
             ViscoplasticStateVariables<G>,
             NodalCoordinates,
             ViscoplasticStateVariablesHistory<G>,
@@ -185,7 +185,7 @@ where
     fn root(
         &self,
         bcs: ElasticViscoplasticBCs,
-        integrator: impl ExplicitIV<
+        integrator: impl ExplicitInternalVariables<
             ViscoplasticStateVariables<G>,
             NodalCoordinates,
             ViscoplasticStateVariablesHistory<G>,

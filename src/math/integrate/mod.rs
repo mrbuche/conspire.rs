@@ -42,7 +42,7 @@ use std::{
     ops::{Div, Mul, Sub},
 };
 
-/// Required methods for ordinary differential equation solvers.
+/// Ordinary differential equation solvers.
 pub trait OdeSolver<Y, U>
 where
     Self: Debug,
@@ -53,34 +53,69 @@ where
     fn abs_tol(&self) -> Scalar;
 }
 
-/// Required methods for variable-step ordinary differential equation solvers.
-pub trait VariableStep
-// where
-//     Self: OdeSolver<Y, U>,
-//     Y: Tensor,
-//     U: TensorVec<Item = Y>,
-{
+/// Variable-step ordinary differential equation solvers.
+pub trait VariableStep {
+    /// Returns the multiplier for adaptive time steps.
+    fn dt_beta(&self) -> Scalar;
+    /// Returns the exponent for adaptive time steps.
+    fn dt_expn(&self) -> Scalar;
     /// Returns the cut back factor for function errors.
     fn dt_cut(&self) -> Scalar;
     /// Returns the minimum value for the time step.
     fn dt_min(&self) -> Scalar;
 }
 
-/// Required methods for explicit ordinary differential equation solvers.
+/// Explicit ordinary differential equation solvers.
 pub trait Explicit<Y, U>
 where
-    Self: InterpolateSolution<Y, U> + OdeSolver<Y, U> + VariableStep,
+    Self: OdeSolver<Y, U>,
+    Y: Tensor,
+    U: TensorVec<Item = Y>,
+{
+    #[doc = include_str!("explicit.md")]
+    fn integrate(
+        &self,
+        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        time: &[Scalar],
+        initial_condition: Y,
+    ) -> Result<(Vector, U, U), IntegrationError>;
+    #[doc(hidden)]
+    fn slopes(
+        &self,
+        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        y: &Y,
+        t: Scalar,
+        dt: Scalar,
+        k: &mut [Y],
+        y_trial: &mut Y,
+    ) -> Result<Scalar, String>;
+    #[allow(clippy::too_many_arguments)]
+    #[doc(hidden)]
+    fn step(
+        &self,
+        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        y: &mut Y,
+        t: &mut Scalar,
+        y_sol: &mut U,
+        t_sol: &mut Vector,
+        dydt_sol: &mut U,
+        dt: &mut Scalar,
+        k: &mut [Y],
+        y_trial: &Y,
+        e: Scalar,
+    ) -> Result<(), String>;
+}
+
+/// Variable-step explicit ordinary differential equation solvers.
+pub trait VariableStepExplicit<Y, U>
+where
+    Self: InterpolateSolution<Y, U> + Explicit<Y, U> + VariableStep,
     Y: Tensor,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
     const SLOPES: usize;
-    /// Returns the multiplier for adaptive time steps.
-    fn dt_beta(&self) -> Scalar;
-    /// Returns the exponent for adaptive time steps.
-    fn dt_expn(&self) -> Scalar;
-    #[doc = include_str!("explicit.md")]
-    fn integrate(
+    fn integrate_variable_step(
         &self,
         mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
         time: &[Scalar],
@@ -161,31 +196,6 @@ where
             Ok((t_sol, y_sol, dydt_sol))
         }
     }
-    #[doc(hidden)]
-    fn slopes(
-        &self,
-        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
-        y: &Y,
-        t: Scalar,
-        dt: Scalar,
-        k: &mut [Y],
-        y_trial: &mut Y,
-    ) -> Result<Scalar, String>;
-    #[allow(clippy::too_many_arguments)]
-    #[doc(hidden)]
-    fn step(
-        &self,
-        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
-        y: &mut Y,
-        t: &mut Scalar,
-        y_sol: &mut U,
-        t_sol: &mut Vector,
-        dydt_sol: &mut U,
-        dt: &mut Scalar,
-        k: &mut [Y],
-        y_trial: &Y,
-        e: Scalar,
-    ) -> Result<(), String>;
     /// Provides the adaptive time step as a function of the error.
     ///
     /// ```math
@@ -199,8 +209,8 @@ where
     }
 }
 
-/// Required methods for explicit ordinary differential equation solvers with internal variables.
-pub trait ExplicitIV<Y, Z, U, V>
+/// Explicit ordinary differential equation solvers with internal variables.
+pub trait ExplicitInternalVariables<Y, Z, U, V>
 where
     Self: InterpolateSolutionIV<Y, Z, U, V> + OdeSolver<Y, U> + VariableStep,
     Y: Tensor,
@@ -349,7 +359,7 @@ where
     ) -> Result<(), String>;
 }
 
-/// Required methods for zeroth-order implicit ordinary differential equation solvers.
+/// Zeroth-order implicit ordinary differential equation solvers.
 pub trait ImplicitZerothOrder<Y, U>
 where
     Self: InterpolateSolution<Y, U> + OdeSolver<Y, U>,
@@ -367,7 +377,7 @@ where
     ) -> Result<(Vector, U, U), IntegrationError>;
 }
 
-/// Required methods for first-order implicit ordinary differential equation solvers.
+/// First-order implicit ordinary differential equation solvers.
 pub trait ImplicitFirstOrder<Y, J, U>
 where
     Self: InterpolateSolution<Y, U> + OdeSolver<Y, U>,
