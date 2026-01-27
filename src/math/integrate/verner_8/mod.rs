@@ -3,7 +3,7 @@ mod test;
 
 use super::{
     super::{Scalar, Tensor, TensorVec, Vector, interpolate::InterpolateSolution},
-    Explicit, IntegrationError, OdeSolver,
+    Explicit, IntegrationError, OdeSolver, VariableStep,
 };
 use crate::{ABS_TOL, REL_TOL};
 use std::ops::{Mul, Sub};
@@ -135,6 +135,9 @@ where
     fn abs_tol(&self) -> Scalar {
         self.abs_tol
     }
+}
+
+impl VariableStep for Verner8 {
     fn dt_cut(&self) -> Scalar {
         self.dt_cut
     }

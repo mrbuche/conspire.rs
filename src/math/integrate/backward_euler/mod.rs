@@ -41,12 +41,6 @@ where
     fn abs_tol(&self) -> Scalar {
         unimplemented!()
     }
-    fn dt_cut(&self) -> Scalar {
-        self.dt_cut
-    }
-    fn dt_min(&self) -> Scalar {
-        self.dt_min
-    }
 }
 
 impl<Y, U> ImplicitZerothOrder<Y, U> for BackwardEuler

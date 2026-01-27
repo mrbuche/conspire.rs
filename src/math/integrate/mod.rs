@@ -42,7 +42,7 @@ use std::{
     ops::{Div, Mul, Sub},
 };
 
-/// Base trait for ordinary differential equation solvers.
+/// Required methods for ordinary differential equation solvers.
 pub trait OdeSolver<Y, U>
 where
     Self: Debug,
@@ -51,16 +51,25 @@ where
 {
     /// Returns the absolute error tolerance.
     fn abs_tol(&self) -> Scalar;
+}
+
+/// Required methods for variable-step ordinary differential equation solvers.
+pub trait VariableStep
+// where
+//     Self: OdeSolver<Y, U>,
+//     Y: Tensor,
+//     U: TensorVec<Item = Y>,
+{
     /// Returns the cut back factor for function errors.
     fn dt_cut(&self) -> Scalar;
     /// Returns the minimum value for the time step.
     fn dt_min(&self) -> Scalar;
 }
 
-/// Base trait for explicit ordinary differential equation solvers.
+/// Required methods for explicit ordinary differential equation solvers.
 pub trait Explicit<Y, U>
 where
-    Self: InterpolateSolution<Y, U> + OdeSolver<Y, U>,
+    Self: InterpolateSolution<Y, U> + OdeSolver<Y, U> + VariableStep,
     Y: Tensor,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -190,10 +199,10 @@ where
     }
 }
 
-/// Base trait for explicit ordinary differential equation solvers with internal variables.
+/// Required methods for explicit ordinary differential equation solvers with internal variables.
 pub trait ExplicitIV<Y, Z, U, V>
 where
-    Self: InterpolateSolutionIV<Y, Z, U, V> + OdeSolver<Y, U>,
+    Self: InterpolateSolutionIV<Y, Z, U, V> + OdeSolver<Y, U> + VariableStep,
     Y: Tensor,
     Z: Tensor,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -340,7 +349,7 @@ where
     ) -> Result<(), String>;
 }
 
-/// Base trait for zeroth-order implicit ordinary differential equation solvers.
+/// Required methods for zeroth-order implicit ordinary differential equation solvers.
 pub trait ImplicitZerothOrder<Y, U>
 where
     Self: InterpolateSolution<Y, U> + OdeSolver<Y, U>,
@@ -358,7 +367,7 @@ where
     ) -> Result<(Vector, U, U), IntegrationError>;
 }
 
-/// Base trait for first-order implicit ordinary differential equation solvers.
+/// Required methods for first-order implicit ordinary differential equation solvers.
 pub trait ImplicitFirstOrder<Y, J, U>
 where
     Self: InterpolateSolution<Y, U> + OdeSolver<Y, U>,
