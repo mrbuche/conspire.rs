@@ -30,6 +30,20 @@ pub fn ralston<'a>() -> Vec<[&'a str; 2]> {
     ]]
 }
 
+pub fn bogacki_shampine_fixed_step<'a>() -> Vec<[&'a str; 2]> {
+    vec![[
+        "math/integrate/explicit/bogacki_shampine_fixed_step",
+        include_str!("ode/explicit/fixed_step/bogacki_shampine/doc.md"),
+    ]]
+}
+
+pub fn dormand_prince_fixed_step<'a>() -> Vec<[&'a str; 2]> {
+    vec![[
+        "math/integrate/explicit/dormand_prince_fixed_step",
+        include_str!("ode/explicit/fixed_step/dormand_prince/doc.md"),
+    ]]
+}
+
 pub fn bogacki_shampine<'a>() -> Vec<[&'a str; 2]> {
     vec![[
         "math/integrate/explicit/bogacki_shampine",

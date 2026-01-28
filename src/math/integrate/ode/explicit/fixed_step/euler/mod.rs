@@ -54,15 +54,14 @@ where
 {
     fn step(
         &self,
-        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
-        y: &mut Y,
-        t: &mut Scalar,
+        _function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        y: &Y,
+        _t: Scalar,
         dt: Scalar,
         k: &mut [Y],
         y_trial: &mut Y,
     ) -> Result<(), String> {
-        k[0] = function(*t, y)?;
-        *y_trial = &k[0] * dt + y.clone();
+        *y_trial = &k[0] * dt + y;
         Ok(())
     }
 }

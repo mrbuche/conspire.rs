@@ -11,13 +11,9 @@ pub use ode::{
     explicit::{
         Explicit,
         fixed_step::{
-            FixedStepExplicit,
-            euler::Euler,
-            heun::Heun,
-            midpoint::Midpoint,
-            ralston::Ralston,
-            // bogacki_shampine::BogackiShampine as BogackiShampineFixedStep
-            // dormand_prince::DormandPrince as DormandPrinceFixedStep
+            FixedStepExplicit, bogacki_shampine::BogackiShampine as BogackiShampineFixedStep,
+            dormand_prince::DormandPrince as DormandPrinceFixedStep, euler::Euler, heun::Heun,
+            midpoint::Midpoint, ralston::Ralston,
         },
         internal_variables::ExplicitInternalVariables,
         variable_step::{
@@ -53,14 +49,14 @@ pub type Ode2 = Heun;
 /// Alias for [`BogackiShampine`].
 pub type Ode23 = BogackiShampine;
 
-// /// Alias for [`BogackiShampineFixedStep`].
-// pub type Ode3 = BogackiShampineFixedStep;
+/// Alias for [`BogackiShampineFixedStep`].
+pub type Ode3 = BogackiShampineFixedStep;
 
 /// Alias for [`DormandPrince`].
 pub type Ode45 = DormandPrince;
 
-// /// Alias for [`DormandPrinceFixedStep`].
-// pub type Ode5 = DormandPrinceFixedStep;
+/// Alias for [`DormandPrinceFixedStep`].
+pub type Ode5 = DormandPrinceFixedStep;
 
 /// Alias for [`Verner8`].
 pub type Ode78 = Verner8;

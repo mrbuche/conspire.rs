@@ -6,6 +6,8 @@ use crate::math::{
     integrate::{Explicit, FixedStep, IntegrationError},
 };
 
+pub mod bogacki_shampine;
+pub mod dormand_prince;
 pub mod euler;
 pub mod heun;
 pub mod midpoint;
@@ -63,7 +65,8 @@ where
         while t < t_f {
             t_trial = t_sol[index + 1];
             dt = t_trial - t;
-            if let Err(error) = self.step(&mut function, &mut y, &mut t, dt, &mut k, &mut y_trial) {
+            k[0] = function(t, &y)?;
+            if let Err(error) = self.step(&mut function, &y, t, dt, &mut k, &mut y_trial) {
                 return Err(IntegrationError::Upstream(error, format!("{self:?}")));
             } else {
                 t += dt;
@@ -79,8 +82,8 @@ where
     fn step(
         &self,
         function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
-        y: &mut Y,
-        t: &mut Scalar,
+        y: &Y,
+        t: Scalar,
         dt: Scalar,
         k: &mut [Y],
         y_trial: &mut Y,

@@ -88,6 +88,26 @@ where
     }
 }
 
+pub fn slopes<Y>(
+    mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+    y: &Y,
+    t: Scalar,
+    dt: Scalar,
+    k: &mut [Y],
+    y_trial: &mut Y,
+) -> Result<(), String>
+where
+    Y: Tensor,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+{
+    *y_trial = &k[0] * (0.5 * dt) + y;
+    k[1] = function(t + 0.5 * dt, y_trial)?;
+    *y_trial = &k[1] * (0.75 * dt) + y;
+    k[2] = function(t + 0.75 * dt, y_trial)?;
+    *y_trial = (&k[0] * 2.0 + &k[1] * 3.0 + &k[2] * 4.0) * (dt / 9.0) + y;
+    Ok(())
+}
+
 impl<Y, U> VariableStepExplicit<Y, U> for BogackiShampine
 where
     Self: OdeSolver<Y, U>,
@@ -104,11 +124,7 @@ where
         k: &mut [Y],
         y_trial: &mut Y,
     ) -> Result<Scalar, String> {
-        *y_trial = &k[0] * (0.5 * dt) + y;
-        k[1] = function(t + 0.5 * dt, y_trial)?;
-        *y_trial = &k[1] * (0.75 * dt) + y;
-        k[2] = function(t + 0.75 * dt, y_trial)?;
-        *y_trial = (&k[0] * 2.0 + &k[1] * 3.0 + &k[2] * 4.0) * (dt / 9.0) + y;
+        slopes(&mut function, y, t, dt, k, y_trial)?;
         k[3] = function(t + dt, y_trial)?;
         Ok(((&k[0] * -5.0 + &k[1] * 6.0 + &k[2] * 8.0 + &k[3] * -9.0) * (dt / 72.0)).norm_inf())
     }

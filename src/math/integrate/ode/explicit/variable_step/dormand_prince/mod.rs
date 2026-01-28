@@ -109,6 +109,42 @@ where
     }
 }
 
+pub fn slopes<Y>(
+    mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+    y: &Y,
+    t: Scalar,
+    dt: Scalar,
+    k: &mut [Y],
+    y_trial: &mut Y,
+) -> Result<(), String>
+where
+    Y: Tensor,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+{
+    *y_trial = &k[0] * (0.2 * dt) + y;
+    k[1] = function(t + 0.2 * dt, y_trial)?;
+    *y_trial = &k[0] * (0.075 * dt) + &k[1] * (0.225 * dt) + y;
+    k[2] = function(t + 0.3 * dt, y_trial)?;
+    *y_trial = &k[0] * (C_44_45 * dt) - &k[1] * (C_56_15 * dt) + &k[2] * (C_32_9 * dt) + y;
+    k[3] = function(t + 0.8 * dt, y_trial)?;
+    *y_trial = &k[0] * (C_19372_6561 * dt) - &k[1] * (C_25360_2187 * dt)
+        + &k[2] * (C_64448_6561 * dt)
+        - &k[3] * (C_212_729 * dt)
+        + y;
+    k[4] = function(t + C_8_9 * dt, y_trial)?;
+    *y_trial = &k[0] * (C_9017_3168 * dt) - &k[1] * (C_355_33 * dt)
+        + &k[2] * (C_46732_5247 * dt)
+        + &k[3] * (C_49_176 * dt)
+        - &k[4] * (C_5103_18656 * dt)
+        + y;
+    k[5] = function(t + dt, y_trial)?;
+    *y_trial = (&k[0] * C_35_384 + &k[2] * C_500_1113 + &k[3] * C_125_192 - &k[4] * C_2187_6784
+        + &k[5] * C_11_84)
+        * dt
+        + y;
+    Ok(())
+}
+
 impl<Y, U> VariableStepExplicit<Y, U> for DormandPrince
 where
     Self: OdeSolver<Y, U>,
@@ -125,28 +161,7 @@ where
         k: &mut [Y],
         y_trial: &mut Y,
     ) -> Result<Scalar, String> {
-        *y_trial = &k[0] * (0.2 * dt) + y;
-        k[1] = function(t + 0.2 * dt, y_trial)?;
-        *y_trial = &k[0] * (0.075 * dt) + &k[1] * (0.225 * dt) + y;
-        k[2] = function(t + 0.3 * dt, y_trial)?;
-        *y_trial = &k[0] * (C_44_45 * dt) - &k[1] * (C_56_15 * dt) + &k[2] * (C_32_9 * dt) + y;
-        k[3] = function(t + 0.8 * dt, y_trial)?;
-        *y_trial = &k[0] * (C_19372_6561 * dt) - &k[1] * (C_25360_2187 * dt)
-            + &k[2] * (C_64448_6561 * dt)
-            - &k[3] * (C_212_729 * dt)
-            + y;
-        k[4] = function(t + C_8_9 * dt, y_trial)?;
-        *y_trial = &k[0] * (C_9017_3168 * dt) - &k[1] * (C_355_33 * dt)
-            + &k[2] * (C_46732_5247 * dt)
-            + &k[3] * (C_49_176 * dt)
-            - &k[4] * (C_5103_18656 * dt)
-            + y;
-        k[5] = function(t + dt, y_trial)?;
-        *y_trial = (&k[0] * C_35_384 + &k[2] * C_500_1113 + &k[3] * C_125_192
-            - &k[4] * C_2187_6784
-            + &k[5] * C_11_84)
-            * dt
-            + y;
+        slopes(&mut function, y, t, dt, k, y_trial)?;
         k[6] = function(t + dt, y_trial)?;
         Ok(
             ((&k[0] * C_71_57600 - &k[2] * C_71_16695 + &k[3] * C_71_1920
