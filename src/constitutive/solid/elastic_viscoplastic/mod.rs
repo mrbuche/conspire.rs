@@ -5,7 +5,7 @@ use crate::{
     math::{
         ContractFirstSecondIndicesWithSecondIndicesOf, ContractSecondIndexWithFirstIndexOf,
         IDENTITY, Matrix, Rank2, TensorArray, TensorTuple, TensorTupleVec, Vector,
-        integrate::ExplicitIV,
+        integrate::ExplicitInternalVariables,
         optimize::{
             EqualityConstraint, FirstOrderRootFinding, OptimizationError, ZerothOrderRootFinding,
         },
@@ -205,7 +205,7 @@ pub trait ZerothOrderRoot {
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ExplicitIV<
+        integrator: impl ExplicitInternalVariables<
             StateVariables,
             DeformationGradient,
             StateVariablesHistory,
@@ -233,7 +233,7 @@ pub trait FirstOrderRoot {
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ExplicitIV<
+        integrator: impl ExplicitInternalVariables<
             StateVariables,
             DeformationGradient,
             StateVariablesHistory,
@@ -266,7 +266,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ExplicitIV<
+        integrator: impl ExplicitInternalVariables<
             StateVariables,
             DeformationGradient,
             StateVariablesHistory,
@@ -344,7 +344,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ExplicitIV<
+        integrator: impl ExplicitInternalVariables<
             StateVariables,
             DeformationGradient,
             StateVariablesHistory,

@@ -1,12 +1,13 @@
 #[cfg(test)]
 mod test;
 
-use super::{
-    super::{
-        Scalar, Tensor, TensorVec, Vector,
-        interpolate::{InterpolateSolution, InterpolateSolutionIV},
+use crate::math::{
+    Scalar, Tensor, TensorVec, Vector,
+    integrate::{
+        Explicit, ExplicitInternalVariables, IntegrationError, OdeSolver, VariableStep,
+        VariableStepExplicit,
     },
-    Explicit, ExplicitIV, IntegrationError, OdeSolver,
+    interpolate::{InterpolateSolution, InterpolateSolutionInternalVariables},
 };
 use crate::{ABS_TOL, REL_TOL};
 use std::ops::{Mul, Sub};
@@ -46,8 +47,20 @@ where
     Y: Tensor,
     U: TensorVec<Item = Y>,
 {
+}
+
+impl VariableStep for BogackiShampine {
     fn abs_tol(&self) -> Scalar {
         self.abs_tol
+    }
+    fn rel_tol(&self) -> Scalar {
+        self.rel_tol
+    }
+    fn dt_beta(&self) -> Scalar {
+        self.dt_beta
+    }
+    fn dt_expn(&self) -> Scalar {
+        self.dt_expn
     }
     fn dt_cut(&self) -> Scalar {
         self.dt_cut
@@ -65,12 +78,43 @@ where
     U: TensorVec<Item = Y>,
 {
     const SLOPES: usize = 4;
-    fn dt_beta(&self) -> Scalar {
-        self.dt_beta
+    fn integrate(
+        &self,
+        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        time: &[Scalar],
+        initial_condition: Y,
+    ) -> Result<(Vector, U, U), IntegrationError> {
+        self.integrate_variable_step(function, time, initial_condition)
     }
-    fn dt_expn(&self) -> Scalar {
-        self.dt_expn
-    }
+}
+
+pub fn slopes<Y>(
+    mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+    y: &Y,
+    t: Scalar,
+    dt: Scalar,
+    k: &mut [Y],
+    y_trial: &mut Y,
+) -> Result<(), String>
+where
+    Y: Tensor,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+{
+    *y_trial = &k[0] * (0.5 * dt) + y;
+    k[1] = function(t + 0.5 * dt, y_trial)?;
+    *y_trial = &k[1] * (0.75 * dt) + y;
+    k[2] = function(t + 0.75 * dt, y_trial)?;
+    *y_trial = (&k[0] * 2.0 + &k[1] * 3.0 + &k[2] * 4.0) * (dt / 9.0) + y;
+    Ok(())
+}
+
+impl<Y, U> VariableStepExplicit<Y, U> for BogackiShampine
+where
+    Self: OdeSolver<Y, U>,
+    Y: Tensor,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    U: TensorVec<Item = Y>,
+{
     fn slopes(
         &self,
         mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
@@ -80,11 +124,7 @@ where
         k: &mut [Y],
         y_trial: &mut Y,
     ) -> Result<Scalar, String> {
-        *y_trial = &k[0] * (0.5 * dt) + y;
-        k[1] = function(t + 0.5 * dt, y_trial)?;
-        *y_trial = &k[1] * (0.75 * dt) + y;
-        k[2] = function(t + 0.75 * dt, y_trial)?;
-        *y_trial = (&k[0] * 2.0 + &k[1] * 3.0 + &k[2] * 4.0) * (dt / 9.0) + y;
+        slopes(&mut function, y, t, dt, k, y_trial)?;
         k[3] = function(t + dt, y_trial)?;
         Ok(((&k[0] * -5.0 + &k[1] * 6.0 + &k[2] * 8.0 + &k[3] * -9.0) * (dt / 72.0)).norm_inf())
     }
@@ -164,7 +204,7 @@ where
     }
 }
 
-impl<Y, Z, U, V> ExplicitIV<Y, Z, U, V> for BogackiShampine
+impl<Y, Z, U, V> ExplicitInternalVariables<Y, Z, U, V> for BogackiShampine
 where
     Self: OdeSolver<Y, U>,
     Y: Tensor,
@@ -228,7 +268,7 @@ where
     }
 }
 
-impl<Y, Z, U, V> InterpolateSolutionIV<Y, Z, U, V> for BogackiShampine
+impl<Y, Z, U, V> InterpolateSolutionInternalVariables<Y, Z, U, V> for BogackiShampine
 where
     Y: Tensor,
     Z: Tensor,
