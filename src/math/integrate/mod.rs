@@ -43,6 +43,9 @@ pub type Ode1 = Euler;
 /// Alias for [`BackwardEuler`].
 pub type Ode1be = BackwardEuler;
 
+// /// Alias for [`HeunEuler`].
+// pub type Ode12 = HeunEuler;
+
 /// Alias for [`Heun`].
 pub type Ode2 = Heun;
 
