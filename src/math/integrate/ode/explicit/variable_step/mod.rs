@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
     integrate::{Explicit, IntegrationError, VariableStep},

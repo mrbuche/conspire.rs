@@ -1,1 +1,3 @@
-crate::math::integrate::ode::explicit::test::test_explicit!(super::BogackiShampine::default());
+crate::math::integrate::ode::explicit::variable_step::test::test_explicit_variable_step!(
+    super::BogackiShampine::default()
+);

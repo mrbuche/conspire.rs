@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
     integrate::{Explicit, FixedStep, IntegrationError},
@@ -60,19 +63,15 @@ where
         while t < t_f {
             t_trial = t_sol[index + 1];
             dt = t_trial - t;
-            if let Err(error) = self.step(
-                &mut function,
-                &mut y,
-                &mut t,
-                &mut y_sol,
-                &mut dydt_sol,
-                dt,
-                &mut k,
-                &mut y_trial,
-            ) {
+            if let Err(error) = self.step(&mut function, &mut y, &mut t, dt, &mut k, &mut y_trial) {
                 return Err(IntegrationError::Upstream(error, format!("{self:?}")));
+            } else {
+                t += dt;
+                y = y_trial.clone();
+                y_sol.push(y.clone());
+                dydt_sol.push(k[0].clone());
+                index += 1;
             }
-            index += 1;
         }
         Ok((t_sol, y_sol, dydt_sol))
     }
@@ -82,8 +81,6 @@ where
         function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
         y: &mut Y,
         t: &mut Scalar,
-        y_sol: &mut U,
-        dydt_sol: &mut U,
         dt: Scalar,
         k: &mut [Y],
         y_trial: &mut Y,

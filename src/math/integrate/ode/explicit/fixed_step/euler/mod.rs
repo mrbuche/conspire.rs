@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
     integrate::{Explicit, FixedStep, FixedStepExplicit, IntegrationError, OdeSolver},
@@ -54,18 +57,12 @@ where
         mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
         y: &mut Y,
         t: &mut Scalar,
-        y_sol: &mut U,
-        dydt_sol: &mut U,
         dt: Scalar,
         k: &mut [Y],
         y_trial: &mut Y,
     ) -> Result<(), String> {
         k[0] = function(*t, y)?;
         *y_trial = &k[0] * dt + y.clone();
-        *t += dt;
-        *y = y_trial.clone();
-        y_sol.push(y.clone());
-        dydt_sol.push(k[0].clone());
         Ok(())
     }
 }

@@ -1,4 +1,4 @@
-Explicit, two-stage, second-order, fixed-step, Runge-Kutta method.[^1]<sup>,</sup>[^2]
+Explicit, two-stage, second-order, fixed-step, Runge-Kutta method.[^1]
 
 ```math
 \frac{dy}{dt} = f(t, y)
@@ -16,5 +16,4 @@ k_2 = f(t_{n+1}, y_n + h k_1)
 y_{n+1} = y_n + \frac{h}{2}\left(k_1 + k_2\right)
 ```
 
-[^1]: Also known as the explicit trapezoidal rule.
-[^2]: CITE PAPER
+[^1]: Also known as the Heun method or the explicit trapezoidal rule.
