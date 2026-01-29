@@ -38,7 +38,7 @@ where
 {
     fn residual(
         &self,
-        function: impl Fn(Scalar, &Y) -> Result<Y, IntegrationError>,
+        mut function: impl FnMut(Scalar, &Y) -> Result<Y, IntegrationError>,
         t: Scalar,
         y: &Y,
         _t_trial: Scalar,
@@ -58,7 +58,7 @@ where
 {
     fn hessian(
         &self,
-        jacobian: impl Fn(Scalar, &Y) -> Result<J, IntegrationError>,
+        mut jacobian: impl FnMut(Scalar, &Y) -> Result<J, IntegrationError>,
         t: Scalar,
         y: &Y,
         _t_trial: Scalar,

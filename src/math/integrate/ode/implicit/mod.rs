@@ -21,7 +21,7 @@ where
     #[doc = include_str!("doc.md")]
     fn integrate(
         &self,
-        function: impl Fn(Scalar, &Y) -> Result<Y, IntegrationError>,
+        mut function: impl FnMut(Scalar, &Y) -> Result<Y, IntegrationError>,
         time: &[Scalar],
         initial_condition: Y,
         solver: impl ZerothOrderRootFinding<Y>,
@@ -64,7 +64,7 @@ where
             t_trial = t_sol[index + 1];
             dt = t_trial - t;
             y_trial = match solver.root(
-                |y_trial: &Y| self.residual(&function, t, &y, t_trial, y_trial, dt),
+                |y_trial: &Y| self.residual(&mut function, t, &y, t_trial, y_trial, dt),
                 y.clone(),
                 EqualityConstraint::None,
             ) {
@@ -86,7 +86,7 @@ where
     }
     fn residual(
         &self,
-        function: impl Fn(Scalar, &Y) -> Result<Y, IntegrationError>,
+        function: impl FnMut(Scalar, &Y) -> Result<Y, IntegrationError>,
         t: Scalar,
         y: &Y,
         t_trial: Scalar,
@@ -105,8 +105,8 @@ where
     #[doc = include_str!("doc.md")]
     fn integrate(
         &self,
-        function: impl Fn(Scalar, &Y) -> Result<Y, IntegrationError>,
-        jacobian: impl Fn(Scalar, &Y) -> Result<J, IntegrationError>,
+        mut function: impl FnMut(Scalar, &Y) -> Result<Y, IntegrationError>,
+        mut jacobian: impl FnMut(Scalar, &Y) -> Result<J, IntegrationError>,
         time: &[Scalar],
         initial_condition: Y,
         solver: impl FirstOrderRootFinding<Y, J, Y>,
@@ -149,8 +149,8 @@ where
             t_trial = t_sol[index + 1];
             dt = t_trial - t;
             y_trial = match solver.root(
-                |y_trial: &Y| self.residual(&function, t, &y, t_trial, y_trial, dt),
-                |y_trial: &Y| self.hessian(&jacobian, t, &y, t_trial, y_trial, dt),
+                |y_trial: &Y| self.residual(&mut function, t, &y, t_trial, y_trial, dt),
+                |y_trial: &Y| self.hessian(&mut jacobian, t, &y, t_trial, y_trial, dt),
                 y.clone(),
                 EqualityConstraint::None,
             ) {
@@ -172,7 +172,7 @@ where
     }
     fn hessian(
         &self,
-        jacobian: impl Fn(Scalar, &Y) -> Result<J, IntegrationError>,
+        jacobian: impl FnMut(Scalar, &Y) -> Result<J, IntegrationError>,
         t: Scalar,
         y: &Y,
         t_trial: Scalar,

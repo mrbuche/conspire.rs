@@ -66,7 +66,7 @@ where
 {
     fn root(
         &self,
-        function: impl Fn(&X) -> Result<X, String>,
+        function: impl FnMut(&X) -> Result<X, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizationError> {
@@ -116,8 +116,8 @@ where
 {
     fn minimize(
         &self,
-        function: impl Fn(&X) -> Result<Scalar, String>,
-        jacobian: impl Fn(&X) -> Result<X, String>,
+        function: impl FnMut(&X) -> Result<Scalar, String>,
+        jacobian: impl FnMut(&X) -> Result<X, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizationError> {
@@ -153,8 +153,8 @@ where
 
 fn unconstrained<X>(
     gradient_descent: &GradientDescent,
-    function: impl Fn(&X) -> Result<Scalar, String>,
-    jacobian: impl Fn(&X) -> Result<X, String>,
+    mut function: impl FnMut(&X) -> Result<Scalar, String>,
+    mut jacobian: impl FnMut(&X) -> Result<X, String>,
     initial_guess: X,
     linear_equality_constraint: Option<(&Matrix, &Vector)>,
 ) -> Result<X, OptimizationError>
@@ -190,7 +190,12 @@ where
                 step_size = step_trial.abs()
             }
             step_size = gradient_descent.backtracking_line_search(
-                &function, &jacobian, &solution, &residual, &residual, step_size,
+                &mut function,
+                &mut jacobian,
+                &solution,
+                &residual,
+                &residual,
+                step_size,
             )?;
             residual_change = residual.clone();
             solution_change = solution.clone();
@@ -205,8 +210,8 @@ where
 
 fn constrained_fixed<X>(
     gradient_descent: &GradientDescent,
-    function: impl Fn(&X) -> Result<Scalar, String>,
-    jacobian: impl Fn(&X) -> Result<X, String>,
+    mut function: impl FnMut(&X) -> Result<Scalar, String>,
+    mut jacobian: impl FnMut(&X) -> Result<X, String>,
     initial_guess: X,
     indices: Vec<usize>,
 ) -> Result<X, OptimizationError>
@@ -244,7 +249,12 @@ where
                 step_size = step_trial.abs()
             }
             step_size = gradient_descent.backtracking_line_search(
-                &function, &jacobian, &solution, &residual, &residual, step_size,
+                &mut function,
+                &mut jacobian,
+                &solution,
+                &residual,
+                &residual,
+                step_size,
             )?;
             residual_change = residual.clone();
             solution_change = solution.clone();
@@ -259,7 +269,7 @@ where
 
 fn constrained<X>(
     gradient_descent: &GradientDescent,
-    jacobian: impl Fn(&X) -> Result<X, String>,
+    mut jacobian: impl FnMut(&X) -> Result<X, String>,
     initial_guess: X,
     constraint_matrix: Matrix,
     constraint_rhs: Vector,
@@ -325,7 +335,7 @@ where
 
 fn constrained_dual<X>(
     gradient_descent: &GradientDescent,
-    jacobian: impl Fn(&X) -> Result<X, String>,
+    mut jacobian: impl FnMut(&X) -> Result<X, String>,
     initial_guess: X,
     constraint_matrix: Matrix,
     constraint_rhs: Vector,
@@ -352,7 +362,7 @@ where
             |_: &X| {
                 panic!("Line search needs the exact penalty function in constrained optimization.")
             },
-            &jacobian,
+            &mut jacobian,
             solution.clone(),
             Some((&constraint_matrix, &multipliers)),
         ) {

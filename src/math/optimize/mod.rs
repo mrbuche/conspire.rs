@@ -27,7 +27,7 @@ use std::{
 pub trait ZerothOrderRootFinding<X> {
     fn root(
         &self,
-        function: impl Fn(&X) -> Result<X, String>,
+        function: impl FnMut(&X) -> Result<X, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizationError>;
@@ -37,8 +37,8 @@ pub trait ZerothOrderRootFinding<X> {
 pub trait FirstOrderRootFinding<F, J, X> {
     fn root(
         &self,
-        function: impl Fn(&X) -> Result<F, String>,
-        jacobian: impl Fn(&X) -> Result<J, String>,
+        function: impl FnMut(&X) -> Result<F, String>,
+        jacobian: impl FnMut(&X) -> Result<J, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizationError>;
@@ -48,8 +48,8 @@ pub trait FirstOrderRootFinding<F, J, X> {
 pub trait FirstOrderOptimization<F, X> {
     fn minimize(
         &self,
-        function: impl Fn(&X) -> Result<F, String>,
-        jacobian: impl Fn(&X) -> Result<X, String>,
+        function: impl FnMut(&X) -> Result<F, String>,
+        jacobian: impl FnMut(&X) -> Result<X, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizationError>;
@@ -59,9 +59,9 @@ pub trait FirstOrderOptimization<F, X> {
 pub trait SecondOrderOptimization<F, J, H, X> {
     fn minimize(
         &self,
-        function: impl Fn(&X) -> Result<F, String>,
-        jacobian: impl Fn(&X) -> Result<J, String>,
-        hessian: impl Fn(&X) -> Result<H, String>,
+        function: impl FnMut(&X) -> Result<F, String>,
+        jacobian: impl FnMut(&X) -> Result<J, String>,
+        hessian: impl FnMut(&X) -> Result<H, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
         banded: Option<Banded>,
@@ -74,8 +74,8 @@ where
 {
     fn backtracking_line_search(
         &self,
-        function: impl Fn(&X) -> Result<Scalar, String>,
-        jacobian: impl Fn(&X) -> Result<J, String>,
+        mut function: impl FnMut(&X) -> Result<Scalar, String>,
+        mut jacobian: impl FnMut(&X) -> Result<J, String>,
         argument: &X,
         jacobian0: &J,
         decrement: &X,
@@ -91,7 +91,12 @@ where
             Ok(step_size)
         } else {
             match self.get_line_search().backtrack(
-                &function, &jacobian, argument, jacobian0, decrement, step_size,
+                &mut function,
+                &mut jacobian,
+                argument,
+                jacobian0,
+                decrement,
+                step_size,
             ) {
                 Ok(step_size) => Ok(step_size),
                 Err(error) => Err(OptimizationError::Upstream(
