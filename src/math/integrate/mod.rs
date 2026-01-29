@@ -20,6 +20,7 @@ pub use ode::{
             VariableStepExplicit,
             bogacki_shampine::BogackiShampine,
             dormand_prince::DormandPrince,
+            internal_variables::VariableStepExplicitInternalVariables,
             // heun_euler::HeunEuler,
             // midpoint_euler::MidpointEuler,
             // ralston_euler::RalstonEuler,
