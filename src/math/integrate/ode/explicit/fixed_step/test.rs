@@ -25,6 +25,7 @@ macro_rules! test_explicit_fixed_step {
         }
         #[test]
         fn eval_times() -> Result<(), TestError> {
+            assert_eq(&$integration.dt(), &TIME_STEP)?;
             let (time, solution, function): (Vector, Vector, _) = $integration.integrate(
                 |_: Scalar, x: &Scalar| Ok(-x),
                 &zero_to_one::<LENGTH>(),

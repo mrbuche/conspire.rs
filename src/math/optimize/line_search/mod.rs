@@ -61,8 +61,8 @@ impl Display for LineSearch {
 impl LineSearch {
     pub fn backtrack<X, J>(
         &self,
-        function: impl Fn(&X) -> Result<Scalar, String>,
-        jacobian: impl Fn(&X) -> Result<J, String>,
+        mut function: impl FnMut(&X) -> Result<Scalar, String>,
+        mut jacobian: impl FnMut(&X) -> Result<J, String>,
         argument: &X,
         jacobian0: &J,
         decrement: &X,

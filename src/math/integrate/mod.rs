@@ -20,6 +20,7 @@ pub use ode::{
             VariableStepExplicit,
             bogacki_shampine::BogackiShampine,
             dormand_prince::DormandPrince,
+            internal_variables::VariableStepExplicitInternalVariables,
             // heun_euler::HeunEuler,
             // midpoint_euler::MidpointEuler,
             // ralston_euler::RalstonEuler,
@@ -28,12 +29,8 @@ pub use ode::{
         },
     },
     implicit::{
-        ImplicitFirstOrder,
-        ImplicitZerothOrder,
-        backward_euler::BackwardEuler,
-        // crank_nicolson::CrankNicolson,
-        // midpoint::Midpoint as ImplicitMidpoint,
-        // trapezoid::Trapezoid,
+        ImplicitFirstOrder, ImplicitZerothOrder, backward_euler::BackwardEuler,
+        midpoint::Midpoint as ImplicitMidpoint, trapezoidal::Trapezoidal,
     },
 };
 

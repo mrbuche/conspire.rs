@@ -1,34 +1,28 @@
-#[cfg(test)]
-mod test;
-
 use crate::math::{
-    Scalar, Tensor, TensorVec, Vector,
+    Scalar, Tensor, TensorVec, Vector, assert_eq_within_tols,
     integrate::{Explicit, IntegrationError, VariableStep},
-    interpolate::InterpolateSolution,
+    interpolate::InterpolateSolutionInternalVariables,
 };
 use std::ops::{Mul, Sub};
 
-pub mod internal_variables;
-
-pub mod bogacki_shampine;
-pub mod dormand_prince;
-pub mod verner_8;
-pub mod verner_9;
-
-/// Variable-step explicit ordinary differential equation solvers.
-pub trait VariableStepExplicit<Y, U>
+/// Variable-step explicit ordinary differential equation solvers with internal variables.
+pub trait VariableStepExplicitInternalVariables<Y, Z, U, V>
 where
-    Self: InterpolateSolution<Y, U> + Explicit<Y, U> + VariableStep,
+    Self: InterpolateSolutionInternalVariables<Y, Z, U, V> + Explicit<Y, U> + VariableStep,
     Y: Tensor,
+    Z: Tensor,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Z>,
 {
-    fn integrate_variable_step(
+    fn integrate_and_evaluate_variable_step(
         &self,
-        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        mut function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        mut evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
         time: &[Scalar],
         initial_condition: Y,
-    ) -> Result<(Vector, U, U), IntegrationError> {
+        initial_evaluation: Z,
+    ) -> Result<(Vector, U, U, V), IntegrationError> {
         let t_0 = time[0];
         let t_f = time[time.len() - 1];
         if time.len() < 2 {
@@ -38,31 +32,54 @@ where
         }
         let mut t = t_0;
         let mut dt = t_f - t_0;
-        let mut k = vec![Y::default(); Self::SLOPES];
-        k[0] = function(t, &initial_condition)?;
         let mut t_sol = Vector::new();
         t_sol.push(t_0);
-        let mut y = initial_condition.clone();
+        let mut y = initial_condition;
+        let mut z = initial_evaluation;
+        if assert_eq_within_tols(&evaluate(t, &y, &z)?, &z).is_err() {
+            return Err(IntegrationError::InconsistentInitialConditions);
+        }
+        let mut k = vec![Y::default(); Self::SLOPES];
+        k[0] = function(t, &y, &z)?;
         let mut y_sol = U::new();
-        y_sol.push(initial_condition.clone());
+        y_sol.push(y.clone());
+        let mut z_sol = V::new();
+        z_sol.push(z.clone());
         let mut dydt_sol = U::new();
         dydt_sol.push(k[0].clone());
         let mut y_trial = Y::default();
+        let mut z_trial = Z::default();
         while t < t_f {
-            match self.slopes(&mut function, &y, t, dt, &mut k, &mut y_trial) {
+            match self.slopes(
+                &mut function,
+                &mut evaluate,
+                &y,
+                &z,
+                t,
+                dt,
+                &mut k,
+                &mut y_trial,
+                &mut z_trial,
+            ) {
                 Ok(e) => {
-                    if let Err(error) = self.step(
-                        &mut function,
-                        &mut y,
-                        &mut t,
-                        &mut y_sol,
-                        &mut t_sol,
-                        &mut dydt_sol,
-                        &mut dt,
-                        &mut k,
-                        &y_trial,
-                        e,
-                    ) {
+                    if let Some(error) = self
+                        .step(
+                            &mut function,
+                            &mut y,
+                            &mut z,
+                            &mut t,
+                            &mut y_sol,
+                            &mut z_sol,
+                            &mut t_sol,
+                            &mut dydt_sol,
+                            &mut dt,
+                            &mut k,
+                            &y_trial,
+                            &z_trial,
+                            e,
+                        )
+                        .err()
+                    {
                         dt *= self.dt_cut();
                         if dt < self.dt_min() {
                             return Err(IntegrationError::MinimumStepSizeUpstream(
@@ -95,44 +112,41 @@ where
         }
         if time.len() > 2 {
             let t_int = Vector::from(time);
-            let (y_int, dydt_int) = self.interpolate(&t_int, &t_sol, &y_sol, function)?;
-            Ok((t_int, y_int, dydt_int))
+            let (y_int, dydt_int, z_int) =
+                self.interpolate(&t_int, &t_sol, &y_sol, &z_sol, function, evaluate)?;
+            Ok((t_int, y_int, dydt_int, z_int))
         } else {
-            Ok((t_sol, y_sol, dydt_sol))
+            Ok((t_sol, y_sol, dydt_sol, z_sol))
         }
     }
+    #[allow(clippy::too_many_arguments)]
     fn slopes(
         &self,
-        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
         y: &Y,
+        z: &Z,
         t: Scalar,
         dt: Scalar,
         k: &mut [Y],
         y_trial: &mut Y,
+        z_trial: &mut Z,
     ) -> Result<Scalar, String>;
     #[allow(clippy::too_many_arguments)]
     fn step(
         &self,
-        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
         y: &mut Y,
+        z: &mut Z,
         t: &mut Scalar,
         y_sol: &mut U,
+        z_sol: &mut V,
         t_sol: &mut Vector,
         dydt_sol: &mut U,
         dt: &mut Scalar,
         k: &mut [Y],
         y_trial: &Y,
+        z_trial: &Z,
         e: Scalar,
     ) -> Result<(), String>;
-    /// Provides the adaptive time step as a function of the error.
-    ///
-    /// ```math
-    /// h_{n+1} = \beta h \left(\frac{e_\mathrm{tol}}{e_{n+1}}\right)^{1/p}
-    /// ```
-    fn time_step(&self, error: Scalar, dt: &mut Scalar) {
-        if error > 0.0 {
-            *dt *= (self.dt_beta() * (self.abs_tol() / error).powf(1.0 / self.dt_expn()))
-                .max(self.dt_cut())
-        }
-    }
 }

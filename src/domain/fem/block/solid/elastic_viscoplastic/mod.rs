@@ -202,7 +202,7 @@ where
         IntegrationError,
     > {
         let (time_history, state_variables_history, _, nodal_coordinates_history) = integrator
-            .integrate(
+            .integrate_and_evaluate(
                 |_: Scalar,
                  state_variables: &ViscoplasticStateVariables<G>,
                  nodal_coordinates: &NodalCoordinates| {

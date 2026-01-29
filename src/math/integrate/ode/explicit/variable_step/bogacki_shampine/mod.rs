@@ -5,7 +5,7 @@ use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
     integrate::{
         Explicit, ExplicitInternalVariables, IntegrationError, OdeSolver, VariableStep,
-        VariableStepExplicit,
+        VariableStepExplicit, VariableStepExplicitInternalVariables,
     },
     interpolate::{InterpolateSolution, InterpolateSolutionInternalVariables},
 };
@@ -213,7 +213,33 @@ where
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
 {
-    const SLOPES: usize = 4;
+    fn integrate_and_evaluate(
+        &self,
+        function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
+        time: &[Scalar],
+        initial_condition: Y,
+        initial_evaluation: Z,
+    ) -> Result<(Vector, U, U, V), IntegrationError> {
+        self.integrate_and_evaluate_variable_step(
+            function,
+            evaluate,
+            time,
+            initial_condition,
+            initial_evaluation,
+        )
+    }
+}
+
+impl<Y, Z, U, V> VariableStepExplicitInternalVariables<Y, Z, U, V> for BogackiShampine
+where
+    Self: OdeSolver<Y, U>,
+    Y: Tensor,
+    Z: Tensor,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Z>,
+{
     fn slopes(
         &self,
         mut function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,

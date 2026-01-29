@@ -59,8 +59,8 @@ where
 {
     fn root(
         &self,
-        function: impl Fn(&X) -> Result<F, String>,
-        jacobian: impl Fn(&X) -> Result<J, String>,
+        function: impl FnMut(&X) -> Result<F, String>,
+        jacobian: impl FnMut(&X) -> Result<J, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizationError> {
@@ -106,9 +106,9 @@ where
 {
     fn minimize(
         &self,
-        function: impl Fn(&X) -> Result<Scalar, String>,
-        jacobian: impl Fn(&X) -> Result<J, String>,
-        hessian: impl Fn(&X) -> Result<H, String>,
+        function: impl FnMut(&X) -> Result<Scalar, String>,
+        jacobian: impl FnMut(&X) -> Result<J, String>,
+        hessian: impl FnMut(&X) -> Result<H, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
         banded: Option<Banded>,
@@ -148,9 +148,9 @@ where
 
 fn unconstrained<J, H, X>(
     newton_raphson: &NewtonRaphson,
-    function: impl Fn(&X) -> Result<Scalar, String>,
-    jacobian: impl Fn(&X) -> Result<J, String>,
-    hessian: impl Fn(&X) -> Result<H, String>,
+    mut function: impl FnMut(&X) -> Result<Scalar, String>,
+    mut jacobian: impl FnMut(&X) -> Result<J, String>,
+    mut hessian: impl FnMut(&X) -> Result<H, String>,
     initial_guess: X,
 ) -> Result<X, OptimizationError>
 where
@@ -173,7 +173,12 @@ where
             tangent = hessian(&solution)?;
             decrement = &residual / tangent;
             step_size = newton_raphson.backtracking_line_search(
-                &function, &jacobian, &solution, &residual, &decrement, 1.0,
+                &mut function,
+                &mut jacobian,
+                &solution,
+                &residual,
+                &decrement,
+                1.0,
             )?;
             if step_size != 1.0 {
                 decrement *= step_size
@@ -190,9 +195,9 @@ where
 #[allow(clippy::too_many_arguments)]
 fn constrained_fixed<J, H, X>(
     newton_raphson: &NewtonRaphson,
-    function: impl Fn(&X) -> Result<Scalar, String>,
-    jacobian: impl Fn(&X) -> Result<J, String>,
-    hessian: impl Fn(&X) -> Result<H, String>,
+    mut function: impl FnMut(&X) -> Result<Scalar, String>,
+    mut jacobian: impl FnMut(&X) -> Result<J, String>,
+    mut hessian: impl FnMut(&X) -> Result<H, String>,
     initial_guess: X,
     banded: Option<Banded>,
     indices: Vec<usize>,
@@ -223,14 +228,15 @@ where
             decrement = tangent.solve_lu(&residual)?
         }
         if !matches!(newton_raphson.line_search, LineSearch::None) {
+            let jac = jacobian(&solution)?;
             let mut decrement_full = &solution * 0.0;
             decrement_full.decrement_from_retained(&retained, &decrement);
             decrement_full *= -1.0;
             step_size = newton_raphson.backtracking_line_search(
-                &function,
-                &jacobian,
+                &mut function,
+                &mut jacobian,
                 &solution,
-                &jacobian(&solution)?,
+                &jac,
                 &decrement_full,
                 1.0,
             )?;
@@ -249,9 +255,9 @@ where
 #[allow(clippy::too_many_arguments)]
 fn constrained<J, H, X>(
     newton_raphson: &NewtonRaphson,
-    _function: impl Fn(&X) -> Result<Scalar, String>,
-    jacobian: impl Fn(&X) -> Result<J, String>,
-    hessian: impl Fn(&X) -> Result<H, String>,
+    _function: impl FnMut(&X) -> Result<Scalar, String>,
+    mut jacobian: impl FnMut(&X) -> Result<J, String>,
+    mut hessian: impl FnMut(&X) -> Result<H, String>,
     initial_guess: X,
     banded: Option<Banded>,
     constraint_matrix: Matrix,
