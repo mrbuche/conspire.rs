@@ -78,3 +78,10 @@ pub fn backward_euler<'a>() -> Vec<[&'a str; 2]> {
         include_str!("ode/implicit/backward_euler/doc.md"),
     ]]
 }
+
+pub fn implicit_midpoint<'a>() -> Vec<[&'a str; 2]> {
+    vec![[
+        "math/integrate/implicit/implicit_midpoint",
+        include_str!("ode/implicit/midpoint/doc.md"),
+    ]]
+}

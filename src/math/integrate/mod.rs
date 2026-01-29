@@ -28,12 +28,8 @@ pub use ode::{
         },
     },
     implicit::{
-        ImplicitFirstOrder,
-        ImplicitZerothOrder,
-        backward_euler::BackwardEuler,
-        // crank_nicolson::CrankNicolson,
-        // midpoint::Midpoint as ImplicitMidpoint,
-        // trapezoid::Trapezoid,
+        ImplicitFirstOrder, ImplicitZerothOrder, backward_euler::BackwardEuler,
+        midpoint::Midpoint as ImplicitMidpoint, trapezoidal::Trapezoidal,
     },
 };
 
