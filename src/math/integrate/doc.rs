@@ -85,3 +85,10 @@ pub fn implicit_midpoint<'a>() -> Vec<[&'a str; 2]> {
         include_str!("ode/implicit/midpoint/doc.md"),
     ]]
 }
+
+pub fn trapezoidal<'a>() -> Vec<[&'a str; 2]> {
+    vec![[
+        "math/integrate/implicit/trapezoidal",
+        include_str!("ode/implicit/trapezoidal/doc.md"),
+    ]]
+}
