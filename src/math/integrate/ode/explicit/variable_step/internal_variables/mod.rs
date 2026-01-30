@@ -50,7 +50,7 @@ where
         let mut y_trial = Y::default();
         let mut z_trial = Z::default();
         while t < t_f {
-            match self.slopes(
+            match self.slopes_and_eval_with_error(
                 &mut function,
                 &mut evaluate,
                 &y,
@@ -119,8 +119,70 @@ where
             Ok((t_sol, y_sol, dydt_sol, z_sol))
         }
     }
+    fn interpolate_and_evaluate_variable_step(
+        time: &Vector,
+        tp: &Vector,
+        yp: &U,
+        zp: &V,
+        mut function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        mut evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
+    ) -> Result<(U, U, V), IntegrationError> {
+        let mut dt;
+        let mut i;
+        let mut k = vec![Y::default(); Self::SLOPES];
+        let mut t;
+        let mut y;
+        let mut z;
+        let mut y_int = U::new();
+        let mut z_int = V::new();
+        let mut dydt_int = U::new();
+        let mut y_trial = Y::default();
+        let mut z_trial = Z::default();
+        for time_k in time.iter() {
+            i = tp.iter().position(|tp_i| tp_i >= time_k).unwrap();
+            if time_k == &tp[i] {
+                t = tp[i];
+                y_trial = yp[i].clone();
+                z_trial = zp[i].clone();
+                dt = 0.0;
+            } else {
+                t = tp[i - 1];
+                y = &yp[i - 1];
+                z = &zp[i - 1];
+                dt = time_k - t;
+                k[0] = function(t, y, z)?;
+                Self::slopes_and_eval(
+                    &mut function,
+                    &mut evaluate,
+                    y,
+                    z,
+                    t,
+                    dt,
+                    &mut k,
+                    &mut y_trial,
+                    &mut z_trial,
+                )?;
+            }
+            dydt_int.push(function(t + dt, &y_trial, &z_trial)?);
+            y_int.push(y_trial.clone());
+            z_int.push(z_trial.clone());
+        }
+        Ok((y_int, dydt_int, z_int))
+    }
     #[allow(clippy::too_many_arguments)]
-    fn slopes(
+    fn slopes_and_eval(
+        function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
+        y: &Y,
+        z: &Z,
+        t: Scalar,
+        dt: Scalar,
+        k: &mut [Y],
+        y_trial: &mut Y,
+        z_trial: &mut Z,
+    ) -> Result<(), String>;
+    #[allow(clippy::too_many_arguments)]
+    fn slopes_and_eval_with_error(
         &self,
         function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
         evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,

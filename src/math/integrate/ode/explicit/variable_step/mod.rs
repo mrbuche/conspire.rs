@@ -49,7 +49,7 @@ where
         dydt_sol.push(k[0].clone());
         let mut y_trial = Y::default();
         while t < t_f {
-            match self.slopes(&mut function, &y, t, dt, &mut k, &mut y_trial) {
+            match self.slopes_with_error(&mut function, &y, t, dt, &mut k, &mut y_trial) {
                 Ok(e) => {
                     if let Err(error) = self.step(
                         &mut function,
@@ -101,7 +101,47 @@ where
             Ok((t_sol, y_sol, dydt_sol))
         }
     }
+    fn interpolate_variable_step(
+        time: &Vector,
+        tp: &Vector,
+        yp: &U,
+        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+    ) -> Result<(U, U), IntegrationError> {
+        let mut dt;
+        let mut i;
+        let mut k = vec![Y::default(); Self::SLOPES];
+        let mut t;
+        let mut y;
+        let mut y_int = U::new();
+        let mut dydt_int = U::new();
+        let mut y_trial = Y::default();
+        for time_k in time.iter() {
+            i = tp.iter().position(|tp_i| tp_i >= time_k).unwrap();
+            if time_k == &tp[i] {
+                t = tp[i];
+                y_trial = yp[i].clone();
+                dt = 0.0;
+            } else {
+                t = tp[i - 1];
+                y = &yp[i - 1];
+                dt = time_k - t;
+                k[0] = function(t, y)?;
+                Self::slopes(&mut function, y, t, dt, &mut k, &mut y_trial)?;
+            }
+            dydt_int.push(function(t + dt, &y_trial)?);
+            y_int.push(y_trial.clone());
+        }
+        Ok((y_int, dydt_int))
+    }
     fn slopes(
+        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        y: &Y,
+        t: Scalar,
+        dt: Scalar,
+        k: &mut [Y],
+        y_trial: &mut Y,
+    ) -> Result<(), String>;
+    fn slopes_with_error(
         &self,
         function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
         y: &Y,
@@ -113,17 +153,27 @@ where
     #[allow(clippy::too_many_arguments)]
     fn step(
         &self,
-        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
         y: &mut Y,
         t: &mut Scalar,
         y_sol: &mut U,
         t_sol: &mut Vector,
         dydt_sol: &mut U,
         dt: &mut Scalar,
-        k: &mut [Y],
+        _k: &mut [Y],
         y_trial: &Y,
         e: Scalar,
-    ) -> Result<(), String>;
+    ) -> Result<(), String> {
+        if e < self.abs_tol() || e / y_trial.norm_inf() < self.rel_tol() {
+            *t += *dt;
+            *y = y_trial.clone();
+            t_sol.push(*t);
+            y_sol.push(y.clone());
+            dydt_sol.push(function(*t, y)?);
+        }
+        self.time_step(e, dt);
+        Ok(())
+    }
     /// Provides the adaptive time step as a function of the error.
     ///
     /// ```math
@@ -134,5 +184,39 @@ where
             *dt *= (self.dt_beta() * (self.abs_tol() / error).powf(1.0 / self.dt_expn()))
                 .max(self.dt_cut())
         }
+    }
+}
+
+/// First-same-as-last property for variable-step explicit ordinary differential equation solvers.
+pub trait VariableStepExplicitFirstSameAsLast<Y, U>
+where
+    Self: VariableStepExplicit<Y, U>,
+    Y: Tensor,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    U: TensorVec<Item = Y>,
+{
+    #[allow(clippy::too_many_arguments)]
+    fn step_fsal(
+        &self,
+        y: &mut Y,
+        t: &mut Scalar,
+        y_sol: &mut U,
+        t_sol: &mut Vector,
+        dydt_sol: &mut U,
+        dt: &mut Scalar,
+        k: &mut [Y],
+        y_trial: &Y,
+        e: Scalar,
+    ) -> Result<(), String> {
+        if e < self.abs_tol() || e / y_trial.norm_inf() < self.rel_tol() {
+            k[0] = k[Self::SLOPES - 1].clone();
+            *t += *dt;
+            *y = y_trial.clone();
+            t_sol.push(*t);
+            y_sol.push(y.clone());
+            dydt_sol.push(k[0].clone());
+        }
+        self.time_step(e, dt);
+        Ok(())
     }
 }

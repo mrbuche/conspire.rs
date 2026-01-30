@@ -29,7 +29,6 @@ impl FixedStep for Ralston {
 
 impl<Y, U> Explicit<Y, U> for Ralston
 where
-    Self: OdeSolver<Y, U>,
     Y: Tensor,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Add<Y, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -47,7 +46,6 @@ where
 
 impl<Y, U> FixedStepExplicit<Y, U> for Ralston
 where
-    Self: OdeSolver<Y, U>,
     Y: Tensor,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Add<Y, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -61,6 +59,7 @@ where
         k: &mut [Y],
         y_trial: &mut Y,
     ) -> Result<(), String> {
+        k[0] = function(t, y)?;
         *y_trial = &k[0] * (0.75 * dt) + y;
         k[1] = function(t + 0.75 * dt, y_trial)?;
         *y_trial = (&k[0] + &k[1] * 2.0) * (dt / 3.0) + y;

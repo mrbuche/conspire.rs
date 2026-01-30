@@ -18,6 +18,7 @@ pub use ode::{
         internal_variables::ExplicitInternalVariables,
         variable_step::{
             VariableStepExplicit,
+            VariableStepExplicitFirstSameAsLast,
             bogacki_shampine::BogackiShampine,
             dormand_prince::DormandPrince,
             internal_variables::VariableStepExplicitInternalVariables,
