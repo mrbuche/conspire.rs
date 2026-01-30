@@ -6,7 +6,7 @@ use crate::math::{
     integrate::{
         Explicit, ExplicitInternalVariables, IntegrationError, OdeSolver, VariableStep,
         VariableStepExplicit, VariableStepExplicitFirstSameAsLast,
-        VariableStepExplicitInternalVariables,
+        VariableStepExplicitInternalVariables, VariableStepExplicitInternalVariablesFirstSameAsLast
     },
     interpolate::{InterpolateSolution, InterpolateSolutionInternalVariables},
 };

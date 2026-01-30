@@ -338,18 +338,7 @@ where
         z_trial: &Z,
         e: Scalar,
     ) -> Result<(), String> {
-        if e < self.abs_tol || e / y_trial.norm_inf() < self.rel_tol {
-            k[0] = k[Self::SLOPES - 1].clone();
-            *t += *dt;
-            *y = y_trial.clone();
-            *z = z_trial.clone();
-            t_sol.push(*t);
-            y_sol.push(y.clone());
-            z_sol.push(z.clone());
-            dydt_sol.push(k[0].clone());
-        }
-        self.time_step(e, dt);
-        Ok(())
+        self.step_fsal(y, z, t, y_sol, z_sol, t_sol, dydt_sol, dt, k, y_trial, z_trial, e)
     }
 }
 

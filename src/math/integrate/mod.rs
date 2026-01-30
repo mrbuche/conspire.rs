@@ -21,7 +21,7 @@ pub use ode::{
             VariableStepExplicitFirstSameAsLast,
             bogacki_shampine::BogackiShampine,
             dormand_prince::DormandPrince,
-            internal_variables::VariableStepExplicitInternalVariables,
+            internal_variables::{VariableStepExplicitInternalVariables, VariableStepExplicitInternalVariablesFirstSameAsLast},
             // heun_euler::HeunEuler,
             // midpoint_euler::MidpointEuler,
             // ralston_euler::RalstonEuler,
