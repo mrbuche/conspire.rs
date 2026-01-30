@@ -303,6 +303,7 @@ where
             + &k[11] * (A_16_12 * dt)
             + &k[12] * (A_16_13 * dt)
             + y;
+        k[15] = function(t + dt, y_trial)?;
         *y_trial = (&k[0] * B_1
             + &k[7] * B_8
             + &k[8] * B_9
@@ -326,7 +327,6 @@ where
         y_trial: &mut Y,
     ) -> Result<Scalar, String> {
         Self::slopes(&mut function, y, t, dt, k, y_trial)?;
-        k[15] = function(t + dt, y_trial)?;
         Ok(((&k[0] * D_1
             + &k[7] * D_8
             + &k[8] * D_9
