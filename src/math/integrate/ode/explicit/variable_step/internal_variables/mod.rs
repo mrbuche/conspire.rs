@@ -1,6 +1,6 @@
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector, assert_eq_within_tols,
-    integrate::{Explicit, IntegrationError, VariableStep},
+    integrate::{IntegrationError, VariableStepExplicit},
     interpolate::InterpolateSolutionInternalVariables,
 };
 use std::ops::{Mul, Sub};
@@ -8,7 +8,7 @@ use std::ops::{Mul, Sub};
 /// Variable-step explicit ordinary differential equation solvers with internal variables.
 pub trait VariableStepExplicitInternalVariables<Y, Z, U, V>
 where
-    Self: InterpolateSolutionInternalVariables<Y, Z, U, V> + Explicit<Y, U> + VariableStep,
+    Self: InterpolateSolutionInternalVariables<Y, Z, U, V> + VariableStepExplicit<Y, U>,
     Y: Tensor,
     Z: Tensor,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -63,7 +63,7 @@ where
             ) {
                 Ok(e) => {
                     if let Some(error) = self
-                        .step(
+                        .step_and_eval(
                             &mut function,
                             &mut y,
                             &mut z,
@@ -113,7 +113,7 @@ where
         if time.len() > 2 {
             let t_int = Vector::from(time);
             let (y_int, dydt_int, z_int) =
-                self.interpolate(&t_int, &t_sol, &y_sol, &z_sol, function, evaluate)?;
+                self.interpolate_and_evaluate(&t_int, &t_sol, &y_sol, &z_sol, function, evaluate)?;
             Ok((t_int, y_int, dydt_int, z_int))
         } else {
             Ok((t_sol, y_sol, dydt_sol, z_sol))
@@ -195,9 +195,9 @@ where
         z_trial: &mut Z,
     ) -> Result<Scalar, String>;
     #[allow(clippy::too_many_arguments)]
-    fn step(
+    fn step_and_eval(
         &self,
-        function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        mut function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
         y: &mut Y,
         z: &mut Z,
         t: &mut Scalar,
@@ -206,7 +206,7 @@ where
         t_sol: &mut Vector,
         dydt_sol: &mut U,
         dt: &mut Scalar,
-        k: &mut [Y],
+        _k: &mut [Y],
         y_trial: &Y,
         z_trial: &Z,
         e: Scalar,
@@ -218,7 +218,7 @@ where
             t_sol.push(*t);
             y_sol.push(y.clone());
             z_sol.push(z.clone());
-            dydt_sol.push(k[0].clone());
+            dydt_sol.push(function(*t, y, z)?);
         }
         self.time_step(e, dt);
         Ok(())
@@ -236,7 +236,7 @@ where
     V: TensorVec<Item = Z>,
 {
     #[allow(clippy::too_many_arguments)]
-    fn step_fsal(
+    fn step_and_eval_fsal(
         &self,
         y: &mut Y,
         z: &mut Z,

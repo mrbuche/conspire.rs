@@ -7,6 +7,7 @@ use crate::math::{
         Explicit, ExplicitInternalVariables, IntegrationError, OdeSolver, VariableStep,
         VariableStepExplicit, VariableStepExplicitFirstSameAsLast,
         VariableStepExplicitInternalVariables,
+        VariableStepExplicitInternalVariablesFirstSameAsLast,
     },
     interpolate::{InterpolateSolution, InterpolateSolutionInternalVariables},
 };
@@ -322,7 +323,7 @@ where
                 .norm_inf(),
         )
     }
-    fn step(
+    fn step_and_eval(
         &self,
         _function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
         y: &mut Y,
@@ -338,8 +339,20 @@ where
         z_trial: &Z,
         e: Scalar,
     ) -> Result<(), String> {
-        self.step_fsal(y, z, t, y_sol, z_sol, t_sol, dydt_sol, dt, k, y_trial, z_trial, e)
+        self.step_and_eval_fsal(
+            y, z, t, y_sol, z_sol, t_sol, dydt_sol, dt, k, y_trial, z_trial, e,
+        )
     }
+}
+
+impl<Y, Z, U, V> VariableStepExplicitInternalVariablesFirstSameAsLast<Y, Z, U, V> for DormandPrince
+where
+    Y: Tensor,
+    Z: Tensor,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Z>,
+{
 }
 
 impl<Y, Z, U, V> InterpolateSolutionInternalVariables<Y, Z, U, V> for DormandPrince
@@ -350,7 +363,7 @@ where
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
 {
-    fn interpolate(
+    fn interpolate_and_evaluate(
         &self,
         time: &Vector,
         tp: &Vector,

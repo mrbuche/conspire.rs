@@ -44,7 +44,7 @@ where
     V: TensorVec<Item = Z>,
 {
     /// Solution interpolation with internal variables.
-    fn interpolate(
+    fn interpolate_and_evaluate(
         &self,
         time: &Vector,
         tp: &Vector,

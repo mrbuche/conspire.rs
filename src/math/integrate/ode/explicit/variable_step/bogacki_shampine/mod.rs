@@ -6,7 +6,8 @@ use crate::math::{
     integrate::{
         Explicit, ExplicitInternalVariables, IntegrationError, OdeSolver, VariableStep,
         VariableStepExplicit, VariableStepExplicitFirstSameAsLast,
-        VariableStepExplicitInternalVariables, VariableStepExplicitInternalVariablesFirstSameAsLast
+        VariableStepExplicitInternalVariables,
+        VariableStepExplicitInternalVariablesFirstSameAsLast,
     },
     interpolate::{InterpolateSolution, InterpolateSolutionInternalVariables},
 };
@@ -253,7 +254,7 @@ where
         k[3] = function(t + dt, y_trial, z_trial)?;
         Ok(((&k[0] * -5.0 + &k[1] * 6.0 + &k[2] * 8.0 + &k[3] * -9.0) * (dt / 72.0)).norm_inf())
     }
-    fn step(
+    fn step_and_eval(
         &self,
         _function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
         y: &mut Y,
@@ -269,19 +270,21 @@ where
         z_trial: &Z,
         e: Scalar,
     ) -> Result<(), String> {
-        if e < self.abs_tol || e / y_trial.norm_inf() < self.rel_tol {
-            k[0] = k[Self::SLOPES - 1].clone();
-            *t += *dt;
-            *y = y_trial.clone();
-            *z = z_trial.clone();
-            t_sol.push(*t);
-            y_sol.push(y.clone());
-            z_sol.push(z.clone());
-            dydt_sol.push(k[0].clone());
-        }
-        self.time_step(e, dt);
-        Ok(())
+        self.step_and_eval_fsal(
+            y, z, t, y_sol, z_sol, t_sol, dydt_sol, dt, k, y_trial, z_trial, e,
+        )
     }
+}
+
+impl<Y, Z, U, V> VariableStepExplicitInternalVariablesFirstSameAsLast<Y, Z, U, V>
+    for BogackiShampine
+where
+    Y: Tensor,
+    Z: Tensor,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Z>,
+{
 }
 
 impl<Y, Z, U, V> InterpolateSolutionInternalVariables<Y, Z, U, V> for BogackiShampine
@@ -292,7 +295,7 @@ where
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
 {
-    fn interpolate(
+    fn interpolate_and_evaluate(
         &self,
         time: &Vector,
         tp: &Vector,
