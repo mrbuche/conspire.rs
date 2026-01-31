@@ -96,6 +96,9 @@ where
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
+    fn error(dt: Scalar, k: &[Y]) -> Result<Scalar, String> {
+        Ok(((&k[0] * -5.0 + &k[1] * 6.0 + &k[2] * 8.0 + &k[3] * -9.0) * (dt / 72.0)).norm_inf())
+    }
     fn slopes(
         mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
         y: &Y,
@@ -111,18 +114,16 @@ where
         *y_trial = (&k[0] * 2.0 + &k[1] * 3.0 + &k[2] * 4.0) * (dt / 9.0) + y;
         Ok(())
     }
-    fn slopes_with_error(
+    fn slopes_and_error(
         &self,
-        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
         y: &Y,
         t: Scalar,
         dt: Scalar,
         k: &mut [Y],
         y_trial: &mut Y,
     ) -> Result<Scalar, String> {
-        Self::slopes(&mut function, y, t, dt, k, y_trial)?;
-        k[3] = function(t + dt, y_trial)?;
-        Ok(((&k[0] * -5.0 + &k[1] * 6.0 + &k[2] * 8.0 + &k[3] * -9.0) * (dt / 72.0)).norm_inf())
+        Self::slopes_and_error_fsal(function, y, t, dt, k, y_trial)
     }
     fn step(
         &self,
@@ -228,10 +229,10 @@ where
         *z_trial = evaluate(t + dt, y_trial, z_trial)?;
         Ok(())
     }
-    fn slopes_and_eval_with_error(
+    fn slopes_and_eval_and_error(
         &self,
-        mut function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        mut evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
+        function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
         y: &Y,
         z: &Z,
         t: Scalar,
@@ -240,19 +241,7 @@ where
         y_trial: &mut Y,
         z_trial: &mut Z,
     ) -> Result<Scalar, String> {
-        Self::slopes_and_eval(
-            &mut function,
-            &mut evaluate,
-            y,
-            z,
-            t,
-            dt,
-            k,
-            y_trial,
-            z_trial,
-        )?;
-        k[3] = function(t + dt, y_trial, z_trial)?;
-        Ok(((&k[0] * -5.0 + &k[1] * 6.0 + &k[2] * 8.0 + &k[3] * -9.0) * (dt / 72.0)).norm_inf())
+        Self::slopes_and_eval_and_error_fsal(function, evaluate, y, z, t, dt, k, y_trial, z_trial)
     }
     fn step_and_eval(
         &self,

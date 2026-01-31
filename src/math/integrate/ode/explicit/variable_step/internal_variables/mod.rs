@@ -50,7 +50,7 @@ where
         let mut y_trial = Y::default();
         let mut z_trial = Z::default();
         while t < t_f {
-            match self.slopes_and_eval_with_error(
+            match self.slopes_and_eval_and_error(
                 &mut function,
                 &mut evaluate,
                 &y,
@@ -182,10 +182,10 @@ where
         z_trial: &mut Z,
     ) -> Result<(), String>;
     #[allow(clippy::too_many_arguments)]
-    fn slopes_and_eval_with_error(
+    fn slopes_and_eval_and_error(
         &self,
-        function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
+        mut function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        mut evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
         y: &Y,
         z: &Z,
         t: Scalar,
@@ -193,7 +193,20 @@ where
         k: &mut [Y],
         y_trial: &mut Y,
         z_trial: &mut Z,
-    ) -> Result<Scalar, String>;
+    ) -> Result<Scalar, String> {
+        Self::slopes_and_eval(
+            &mut function,
+            &mut evaluate,
+            y,
+            z,
+            t,
+            dt,
+            k,
+            y_trial,
+            z_trial,
+        )?;
+        Self::error(dt, k)
+    }
     #[allow(clippy::too_many_arguments)]
     fn step_and_eval(
         &self,
@@ -235,6 +248,32 @@ where
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
 {
+    #[allow(clippy::too_many_arguments)]
+    fn slopes_and_eval_and_error_fsal(
+        mut function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        mut evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
+        y: &Y,
+        z: &Z,
+        t: Scalar,
+        dt: Scalar,
+        k: &mut [Y],
+        y_trial: &mut Y,
+        z_trial: &mut Z,
+    ) -> Result<Scalar, String> {
+        Self::slopes_and_eval(
+            &mut function,
+            &mut evaluate,
+            y,
+            z,
+            t,
+            dt,
+            k,
+            y_trial,
+            z_trial,
+        )?;
+        k[Self::SLOPES - 1] = function(t + dt, y_trial, z_trial)?;
+        Self::error(dt, k)
+    }
     #[allow(clippy::too_many_arguments)]
     fn step_and_eval_fsal(
         &self,

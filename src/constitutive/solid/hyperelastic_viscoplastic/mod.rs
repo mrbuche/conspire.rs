@@ -1,5 +1,8 @@
 //! Hyperelastic-viscoplastic solid constitutive models.
 
+#[cfg(test)]
+pub mod test;
+
 mod hencky;
 mod saint_venant_kirchhoff;
 

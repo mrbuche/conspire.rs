@@ -49,7 +49,7 @@ where
         dydt_sol.push(k[0].clone());
         let mut y_trial = Y::default();
         while t < t_f {
-            match self.slopes_with_error(&mut function, &y, t, dt, &mut k, &mut y_trial) {
+            match self.slopes_and_error(&mut function, &y, t, dt, &mut k, &mut y_trial) {
                 Ok(e) => {
                     if let Err(error) = self.step(
                         &mut function,
@@ -133,6 +133,7 @@ where
         }
         Ok((y_int, dydt_int))
     }
+    fn error(dt: Scalar, k: &[Y]) -> Result<Scalar, String>;
     fn slopes(
         function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
         y: &Y,
@@ -141,15 +142,18 @@ where
         k: &mut [Y],
         y_trial: &mut Y,
     ) -> Result<(), String>;
-    fn slopes_with_error(
+    fn slopes_and_error(
         &self,
-        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
         y: &Y,
         t: Scalar,
         dt: Scalar,
         k: &mut [Y],
         y_trial: &mut Y,
-    ) -> Result<Scalar, String>;
+    ) -> Result<Scalar, String> {
+        Self::slopes(&mut function, y, t, dt, k, y_trial)?;
+        Self::error(dt, k)
+    }
     #[allow(clippy::too_many_arguments)]
     fn step(
         &self,
@@ -195,6 +199,18 @@ where
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
+    fn slopes_and_error_fsal(
+        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        y: &Y,
+        t: Scalar,
+        dt: Scalar,
+        k: &mut [Y],
+        y_trial: &mut Y,
+    ) -> Result<Scalar, String> {
+        Self::slopes(&mut function, y, t, dt, k, y_trial)?;
+        k[Self::SLOPES - 1] = function(t + dt, y_trial)?;
+        Self::error(dt, k)
+    }
     #[allow(clippy::too_many_arguments)]
     fn step_fsal(
         &self,

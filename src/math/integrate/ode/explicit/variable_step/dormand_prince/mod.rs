@@ -120,6 +120,16 @@ where
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
+    fn error(dt: Scalar, k: &[Y]) -> Result<Scalar, String> {
+        Ok(
+            ((&k[0] * C_71_57600 - &k[2] * C_71_16695 + &k[3] * C_71_1920
+                - &k[4] * C_17253_339200
+                + &k[5] * C_22_525
+                - &k[6] * 0.025)
+                * dt)
+                .norm_inf(),
+        )
+    }
     fn slopes(
         mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
         y: &Y,
@@ -152,25 +162,16 @@ where
             + y;
         Ok(())
     }
-    fn slopes_with_error(
+    fn slopes_and_error(
         &self,
-        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
         y: &Y,
         t: Scalar,
         dt: Scalar,
         k: &mut [Y],
         y_trial: &mut Y,
     ) -> Result<Scalar, String> {
-        Self::slopes(&mut function, y, t, dt, k, y_trial)?;
-        k[6] = function(t + dt, y_trial)?;
-        Ok(
-            ((&k[0] * C_71_57600 - &k[2] * C_71_16695 + &k[3] * C_71_1920
-                - &k[4] * C_17253_339200
-                + &k[5] * C_22_525
-                - &k[6] * 0.025)
-                * dt)
-                .norm_inf(),
-        )
+        Self::slopes_and_error_fsal(function, y, t, dt, k, y_trial)
     }
     fn step(
         &self,
@@ -290,10 +291,10 @@ where
         *z_trial = evaluate(t + dt, y_trial, z_trial)?;
         Ok(())
     }
-    fn slopes_and_eval_with_error(
+    fn slopes_and_eval_and_error(
         &self,
-        mut function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        mut evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
+        function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
         y: &Y,
         z: &Z,
         t: Scalar,
@@ -302,26 +303,7 @@ where
         y_trial: &mut Y,
         z_trial: &mut Z,
     ) -> Result<Scalar, String> {
-        Self::slopes_and_eval(
-            &mut function,
-            &mut evaluate,
-            y,
-            z,
-            t,
-            dt,
-            k,
-            y_trial,
-            z_trial,
-        )?;
-        k[6] = function(t + dt, y_trial, z_trial)?;
-        Ok(
-            ((&k[0] * C_71_57600 - &k[2] * C_71_16695 + &k[3] * C_71_1920
-                - &k[4] * C_17253_339200
-                + &k[5] * C_22_525
-                - &k[6] * 0.025)
-                * dt)
-                .norm_inf(),
-        )
+        Self::slopes_and_eval_and_error_fsal(function, evaluate, y, z, t, dt, k, y_trial, z_trial)
     }
     fn step_and_eval(
         &self,
