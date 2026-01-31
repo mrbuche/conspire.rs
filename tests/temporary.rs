@@ -7484,7 +7484,7 @@ fn bcs_temporary_elastic_viscoplastic(t: Scalar) -> Vector {
 #[ignore]
 #[test]
 fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
-    use conspire::math::Scalar;
+    use conspire::math::{Scalar, integrate::BogackiShampine};
     let tol = 1e-4;
     let tspan = [0.0, 2.0];
     let ref_coordinates = coordinates();
@@ -7531,7 +7531,7 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
     println!("Solving...");
     let (times, coordinates_history, state_variables_history) = block.root(
         (matrix, |t: Scalar| bcs_temporary_elastic_viscoplastic(t)),
-        DormandPrince {
+        BogackiShampine {
             abs_tol: tol,
             rel_tol: tol,
             ..Default::default()
@@ -7544,7 +7544,7 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
     println!("Verifying...");
     let (_, deformation_gradients, state_variables) = model.root(
         AppliedLoad::UniaxialStress(|t| 1.0 + 1.0 * t, times.as_slice()),
-        DormandPrince::default(),
+        BogackiShampine::default(),
         NewtonRaphson::default(),
     )?;
     coordinates_history
