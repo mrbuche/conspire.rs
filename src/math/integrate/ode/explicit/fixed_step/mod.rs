@@ -65,7 +65,6 @@ where
         while t < t_f {
             t_trial = t_sol[index + 1];
             dt = t_trial - t;
-            k[0] = function(t, &y)?;
             if let Err(error) = self.step(&mut function, &y, t, dt, &mut k, &mut y_trial) {
                 return Err(IntegrationError::Upstream(error, format!("{self:?}")));
             } else {

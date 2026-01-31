@@ -29,7 +29,6 @@ impl FixedStep for Euler {
 
 impl<Y, U> Explicit<Y, U> for Euler
 where
-    Self: OdeSolver<Y, U>,
     Y: Tensor,
     for<'a> &'a Y: Mul<Scalar, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -47,20 +46,20 @@ where
 
 impl<Y, U> FixedStepExplicit<Y, U> for Euler
 where
-    Self: OdeSolver<Y, U>,
     Y: Tensor,
     for<'a> &'a Y: Mul<Scalar, Output = Y>,
     U: TensorVec<Item = Y>,
 {
     fn step(
         &self,
-        _function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
         y: &Y,
-        _t: Scalar,
+        t: Scalar,
         dt: Scalar,
         k: &mut [Y],
         y_trial: &mut Y,
     ) -> Result<(), String> {
+        k[0] = function(t, y)?;
         *y_trial = &k[0] * dt + y;
         Ok(())
     }

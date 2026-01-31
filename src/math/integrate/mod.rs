@@ -18,9 +18,13 @@ pub use ode::{
         internal_variables::ExplicitInternalVariables,
         variable_step::{
             VariableStepExplicit,
+            VariableStepExplicitFirstSameAsLast,
             bogacki_shampine::BogackiShampine,
             dormand_prince::DormandPrince,
-            internal_variables::VariableStepExplicitInternalVariables,
+            internal_variables::{
+                VariableStepExplicitInternalVariables,
+                VariableStepExplicitInternalVariablesFirstSameAsLast,
+            },
             // heun_euler::HeunEuler,
             // midpoint_euler::MidpointEuler,
             // ralston_euler::RalstonEuler,

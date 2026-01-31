@@ -3,8 +3,11 @@ mod test;
 
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
-    integrate::{Explicit, IntegrationError, OdeSolver, VariableStep, VariableStepExplicit},
-    interpolate::InterpolateSolution,
+    integrate::{
+        Explicit, ExplicitInternalVariables, IntegrationError, OdeSolver, VariableStep,
+        VariableStepExplicit, VariableStepExplicitInternalVariables,
+    },
+    interpolate::{InterpolateSolution, InterpolateSolutionInternalVariables},
 };
 use crate::{ABS_TOL, REL_TOL};
 use std::ops::{Mul, Sub};
@@ -181,7 +184,6 @@ impl VariableStep for Verner9 {
 
 impl<Y, U> Explicit<Y, U> for Verner9
 where
-    Self: OdeSolver<Y, U>,
     Y: Tensor,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -199,20 +201,33 @@ where
 
 impl<Y, U> VariableStepExplicit<Y, U> for Verner9
 where
-    Self: OdeSolver<Y, U>,
+    Self: Explicit<Y, U>,
     Y: Tensor,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
+    fn error(dt: Scalar, k: &[Y]) -> Result<Scalar, String> {
+        Ok(((&k[0] * D_1
+            + &k[7] * D_8
+            + &k[8] * D_9
+            + &k[9] * D_10
+            + &k[10] * D_11
+            + &k[11] * D_12
+            + &k[12] * D_13
+            + &k[13] * D_14
+            + &k[14] * D_15
+            + &k[15] * D_16)
+            * dt)
+            .norm_inf())
+    }
     fn slopes(
-        &self,
         mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
         y: &Y,
         t: Scalar,
         dt: Scalar,
         k: &mut [Y],
         y_trial: &mut Y,
-    ) -> Result<Scalar, String> {
+    ) -> Result<(), String> {
         k[0] = function(t, y)?;
         *y_trial = &k[0] * (A_2_1 * dt) + y;
         k[1] = function(t + C_2 * dt, y_trial)?;
@@ -317,40 +332,6 @@ where
             + &k[14] * B_15)
             * dt
             + y;
-        Ok(((&k[0] * D_1
-            + &k[7] * D_8
-            + &k[8] * D_9
-            + &k[9] * D_10
-            + &k[10] * D_11
-            + &k[11] * D_12
-            + &k[12] * D_13
-            + &k[13] * D_14
-            + &k[14] * D_15
-            + &k[15] * D_16)
-            * dt)
-            .norm_inf())
-    }
-    fn step(
-        &self,
-        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
-        y: &mut Y,
-        t: &mut Scalar,
-        y_sol: &mut U,
-        t_sol: &mut Vector,
-        dydt_sol: &mut U,
-        dt: &mut Scalar,
-        _k: &mut [Y],
-        y_trial: &Y,
-        e: Scalar,
-    ) -> Result<(), String> {
-        if e < self.abs_tol || e / y_trial.norm_inf() < self.rel_tol {
-            *t += *dt;
-            *y = y_trial.clone();
-            t_sol.push(*t);
-            y_sol.push(y.clone());
-            dydt_sol.push(function(*t, y)?);
-        }
-        self.time_step(e, dt);
         Ok(())
     }
 }
@@ -366,137 +347,199 @@ where
         time: &Vector,
         tp: &Vector,
         yp: &U,
-        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
     ) -> Result<(U, U), IntegrationError> {
-        let mut dt;
-        let mut i;
-        let mut k_1;
-        let mut k_2;
-        let mut k_3;
-        let mut k_4;
-        let mut k_5;
-        let mut k_6;
-        let mut k_7;
-        let mut k_8;
-        let mut k_9;
-        let mut k_10;
-        let mut k_11;
-        let mut k_12;
-        let mut k_13;
-        let mut k_14;
-        let mut k_15;
-        let mut t;
-        let mut y;
-        let mut y_int = U::new();
-        let mut dydt_int = U::new();
-        let mut y_trial;
-        for time_k in time.iter() {
-            i = tp.iter().position(|tp_i| tp_i >= time_k).unwrap();
-            if time_k == &tp[i] {
-                t = tp[i];
-                y_trial = yp[i].clone();
-                dt = 0.0;
-            } else {
-                t = tp[i - 1];
-                y = yp[i - 1].clone();
-                dt = time_k - t;
-                k_1 = function(t, &y)?;
-                y_trial = &k_1 * (A_2_1 * dt) + &y;
-                k_2 = function(t + C_2 * dt, &y_trial)?;
-                y_trial = &k_1 * (A_3_1 * dt) + &k_2 * (A_3_2 * dt) + &y;
-                k_3 = function(t + C_3 * dt, &y_trial)?;
-                y_trial = &k_1 * (A_4_1 * dt) + &k_3 * (A_4_3 * dt) + &y;
-                k_4 = function(t + C_4 * dt, &y_trial)?;
-                y_trial = &k_1 * (A_5_1 * dt) + &k_3 * (A_5_3 * dt) + &k_4 * (A_5_4 * dt) + &y;
-                k_5 = function(t + C_5 * dt, &y_trial)?;
-                y_trial = &k_1 * (A_6_1 * dt) + &k_4 * (A_6_4 * dt) + &k_5 * (A_6_5 * dt) + &y;
-                k_6 = function(t + C_6 * dt, &y_trial)?;
-                y_trial = &k_1 * (A_7_1 * dt)
-                    + &k_4 * (A_7_4 * dt)
-                    + &k_5 * (A_7_5 * dt)
-                    + &k_6 * (A_7_6 * dt)
-                    + &y;
-                k_7 = function(t + C_7 * dt, &y_trial)?;
-                y_trial = &k_1 * (A_8_1 * dt) + &k_6 * (A_8_6 * dt) + &k_7 * (A_8_7 * dt) + &y;
-                k_8 = function(t + C_8 * dt, &y_trial)?;
-                y_trial = &k_1 * (A_9_1 * dt)
-                    + &k_6 * (A_9_6 * dt)
-                    + &k_7 * (A_9_7 * dt)
-                    + &k_8 * (A_9_8 * dt)
-                    + &y;
-                k_9 = function(t + C_9 * dt, &y_trial)?;
-                y_trial = &k_1 * (A_10_1 * dt)
-                    + &k_6 * (A_10_6 * dt)
-                    + &k_7 * (A_10_7 * dt)
-                    + &k_8 * (A_10_8 * dt)
-                    + &k_9 * (A_10_9 * dt)
-                    + &y;
-                k_10 = function(t + C_10 * dt, &y_trial)?;
-                y_trial = &k_1 * (A_11_1 * dt)
-                    + &k_6 * (A_11_6 * dt)
-                    + &k_7 * (A_11_7 * dt)
-                    + &k_8 * (A_11_8 * dt)
-                    + &k_9 * (A_11_9 * dt)
-                    + &k_10 * (A_11_10 * dt)
-                    + &y;
-                k_11 = function(t + C_11 * dt, &y_trial)?;
-                y_trial = &k_1 * (A_12_1 * dt)
-                    + &k_6 * (A_12_6 * dt)
-                    + &k_7 * (A_12_7 * dt)
-                    + &k_8 * (A_12_8 * dt)
-                    + &k_9 * (A_12_9 * dt)
-                    + &k_10 * (A_12_10 * dt)
-                    + &k_11 * (A_12_11 * dt)
-                    + &y;
-                k_12 = function(t + C_12 * dt, &y_trial)?;
-                y_trial = &k_1 * (A_13_1 * dt)
-                    + &k_6 * (A_13_6 * dt)
-                    + &k_7 * (A_13_7 * dt)
-                    + &k_8 * (A_13_8 * dt)
-                    + &k_9 * (A_13_9 * dt)
-                    + &k_10 * (A_13_10 * dt)
-                    + &k_11 * (A_13_11 * dt)
-                    + &k_12 * (A_13_12 * dt)
-                    + &y;
-                k_13 = function(t + C_13 * dt, &y_trial)?;
-                y_trial = &k_1 * (A_14_1 * dt)
-                    + &k_6 * (A_14_6 * dt)
-                    + &k_7 * (A_14_7 * dt)
-                    + &k_8 * (A_14_8 * dt)
-                    + &k_9 * (A_14_9 * dt)
-                    + &k_10 * (A_14_10 * dt)
-                    + &k_11 * (A_14_11 * dt)
-                    + &k_12 * (A_14_12 * dt)
-                    + &k_13 * (A_14_13 * dt)
-                    + &y;
-                k_14 = function(t + C_14 * dt, &y_trial)?;
-                y_trial = &k_1 * (A_15_1 * dt)
-                    + &k_6 * (A_15_6 * dt)
-                    + &k_7 * (A_15_7 * dt)
-                    + &k_8 * (A_15_8 * dt)
-                    + &k_9 * (A_15_9 * dt)
-                    + &k_10 * (A_15_10 * dt)
-                    + &k_11 * (A_15_11 * dt)
-                    + &k_12 * (A_15_12 * dt)
-                    + &k_13 * (A_15_13 * dt)
-                    + &k_14 * (A_15_14 * dt)
-                    + &y;
-                k_15 = function(t + dt, &y_trial)?;
-                y_trial = (&k_1 * B_1
-                    + &k_8 * B_8
-                    + &k_9 * B_9
-                    + &k_10 * B_10
-                    + &k_11 * B_11
-                    + &k_12 * B_12
-                    + &k_13 * B_13
-                    + &k_14 * B_14
-                    + &k_15 * B_15)
-                    * dt
-                    + &y;
-            }
-            dydt_int.push(function(t + dt, &y_trial)?);
-            y_int.push(y_trial);
-        }
-        Ok((y_int, dydt_int))
+        Self::interpolate_variable_step(time, tp, yp, function)
+    }
+}
+
+impl<Y, Z, U, V> ExplicitInternalVariables<Y, Z, U, V> for Verner9
+where
+    Y: Tensor,
+    Z: Tensor,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Z>,
+{
+    fn integrate_and_evaluate(
+        &self,
+        function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
+        time: &[Scalar],
+        initial_condition: Y,
+        initial_evaluation: Z,
+    ) -> Result<(Vector, U, U, V), IntegrationError> {
+        self.integrate_and_evaluate_variable_step(
+            function,
+            evaluate,
+            time,
+            initial_condition,
+            initial_evaluation,
+        )
+    }
+}
+
+impl<Y, Z, U, V> VariableStepExplicitInternalVariables<Y, Z, U, V> for Verner9
+where
+    Self: ExplicitInternalVariables<Y, Z, U, V>,
+    Y: Tensor,
+    Z: Tensor,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Z>,
+{
+    fn slopes_and_eval(
+        mut function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        mut evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
+        y: &Y,
+        z: &Z,
+        t: Scalar,
+        dt: Scalar,
+        k: &mut [Y],
+        y_trial: &mut Y,
+        z_trial: &mut Z,
+    ) -> Result<(), String> {
+        k[0] = function(t, y, z)?;
+        *y_trial = &k[0] * (A_2_1 * dt) + y;
+        *z_trial = evaluate(t + C_2 * dt, y_trial, z)?;
+        k[1] = function(t + C_2 * dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_3_1 * dt) + &k[1] * (A_3_2 * dt) + y;
+        *z_trial = evaluate(t + C_3 * dt, y_trial, z_trial)?;
+        k[2] = function(t + C_3 * dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_4_1 * dt) + &k[2] * (A_4_3 * dt) + y;
+        *z_trial = evaluate(t + C_4 * dt, y_trial, z_trial)?;
+        k[3] = function(t + C_4 * dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_5_1 * dt) + &k[2] * (A_5_3 * dt) + &k[3] * (A_5_4 * dt) + y;
+        *z_trial = evaluate(t + C_5 * dt, y_trial, z_trial)?;
+        k[4] = function(t + C_5 * dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_6_1 * dt) + &k[3] * (A_6_4 * dt) + &k[4] * (A_6_5 * dt) + y;
+        *z_trial = evaluate(t + C_6 * dt, y_trial, z_trial)?;
+        k[5] = function(t + C_6 * dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_7_1 * dt)
+            + &k[3] * (A_7_4 * dt)
+            + &k[4] * (A_7_5 * dt)
+            + &k[5] * (A_7_6 * dt)
+            + y;
+        *z_trial = evaluate(t + C_7 * dt, y_trial, z_trial)?;
+        k[6] = function(t + C_7 * dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_8_1 * dt) + &k[5] * (A_8_6 * dt) + &k[6] * (A_8_7 * dt) + y;
+        *z_trial = evaluate(t + C_8 * dt, y_trial, z_trial)?;
+        k[7] = function(t + C_8 * dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_9_1 * dt)
+            + &k[5] * (A_9_6 * dt)
+            + &k[6] * (A_9_7 * dt)
+            + &k[7] * (A_9_8 * dt)
+            + y;
+        *z_trial = evaluate(t + C_9 * dt, y_trial, z_trial)?;
+        k[8] = function(t + C_9 * dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_10_1 * dt)
+            + &k[5] * (A_10_6 * dt)
+            + &k[6] * (A_10_7 * dt)
+            + &k[7] * (A_10_8 * dt)
+            + &k[8] * (A_10_9 * dt)
+            + y;
+        *z_trial = evaluate(t + C_10 * dt, y_trial, z_trial)?;
+        k[9] = function(t + C_10 * dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_11_1 * dt)
+            + &k[5] * (A_11_6 * dt)
+            + &k[6] * (A_11_7 * dt)
+            + &k[7] * (A_11_8 * dt)
+            + &k[8] * (A_11_9 * dt)
+            + &k[9] * (A_11_10 * dt)
+            + y;
+        *z_trial = evaluate(t + C_11 * dt, y_trial, z_trial)?;
+        k[10] = function(t + C_11 * dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_12_1 * dt)
+            + &k[5] * (A_12_6 * dt)
+            + &k[6] * (A_12_7 * dt)
+            + &k[7] * (A_12_8 * dt)
+            + &k[8] * (A_12_9 * dt)
+            + &k[9] * (A_12_10 * dt)
+            + &k[10] * (A_12_11 * dt)
+            + y;
+        *z_trial = evaluate(t + C_12 * dt, y_trial, z_trial)?;
+        k[11] = function(t + C_12 * dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_13_1 * dt)
+            + &k[5] * (A_13_6 * dt)
+            + &k[6] * (A_13_7 * dt)
+            + &k[7] * (A_13_8 * dt)
+            + &k[8] * (A_13_9 * dt)
+            + &k[9] * (A_13_10 * dt)
+            + &k[10] * (A_13_11 * dt)
+            + &k[11] * (A_13_12 * dt)
+            + y;
+        *z_trial = evaluate(t + C_13 * dt, y_trial, z_trial)?;
+        k[12] = function(t + C_13 * dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_14_1 * dt)
+            + &k[5] * (A_14_6 * dt)
+            + &k[6] * (A_14_7 * dt)
+            + &k[7] * (A_14_8 * dt)
+            + &k[8] * (A_14_9 * dt)
+            + &k[9] * (A_14_10 * dt)
+            + &k[10] * (A_14_11 * dt)
+            + &k[11] * (A_14_12 * dt)
+            + &k[12] * (A_14_13 * dt)
+            + y;
+        *z_trial = evaluate(t + C_14 * dt, y_trial, z_trial)?;
+        k[13] = function(t + C_14 * dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_15_1 * dt)
+            + &k[5] * (A_15_6 * dt)
+            + &k[6] * (A_15_7 * dt)
+            + &k[7] * (A_15_8 * dt)
+            + &k[8] * (A_15_9 * dt)
+            + &k[9] * (A_15_10 * dt)
+            + &k[10] * (A_15_11 * dt)
+            + &k[11] * (A_15_12 * dt)
+            + &k[12] * (A_15_13 * dt)
+            + &k[13] * (A_15_14 * dt)
+            + y;
+        *z_trial = evaluate(t + dt, y_trial, z_trial)?;
+        k[14] = function(t + dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_16_1 * dt)
+            + &k[5] * (A_16_6 * dt)
+            + &k[6] * (A_16_7 * dt)
+            + &k[7] * (A_16_8 * dt)
+            + &k[8] * (A_16_9 * dt)
+            + &k[9] * (A_16_10 * dt)
+            + &k[10] * (A_16_11 * dt)
+            + &k[11] * (A_16_12 * dt)
+            + &k[12] * (A_16_13 * dt)
+            + y;
+        *z_trial = evaluate(t + dt, y_trial, z_trial)?;
+        k[15] = function(t + dt, y_trial, z_trial)?;
+        *y_trial = (&k[0] * B_1
+            + &k[7] * B_8
+            + &k[8] * B_9
+            + &k[9] * B_10
+            + &k[10] * B_11
+            + &k[11] * B_12
+            + &k[12] * B_13
+            + &k[13] * B_14
+            + &k[14] * B_15)
+            * dt
+            + y;
+        *z_trial = evaluate(t + dt, y_trial, z_trial)?;
+        Ok(())
+    }
+}
+
+impl<Y, Z, U, V> InterpolateSolutionInternalVariables<Y, Z, U, V> for Verner9
+where
+    Y: Tensor,
+    Z: Tensor,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Z>,
+{
+    fn interpolate_and_evaluate(
+        &self,
+        time: &Vector,
+        tp: &Vector,
+        yp: &U,
+        zp: &V,
+        function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
+    ) -> Result<(U, U, V), IntegrationError> {
+        Self::interpolate_and_evaluate_variable_step(time, tp, yp, zp, function, evaluate)
     }
 }

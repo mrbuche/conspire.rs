@@ -29,7 +29,6 @@ impl FixedStep for Heun {
 
 impl<Y, U> Explicit<Y, U> for Heun
 where
-    Self: OdeSolver<Y, U>,
     Y: Tensor,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Add<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -47,7 +46,6 @@ where
 
 impl<Y, U> FixedStepExplicit<Y, U> for Heun
 where
-    Self: OdeSolver<Y, U>,
     Y: Tensor,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Add<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -64,6 +62,7 @@ where
         *y_trial = &k[0] * dt + y;
         k[1] = function(t + dt, y_trial)?;
         *y_trial = (&k[0] + &k[1]) * (0.5 * dt) + y;
+        k[0] = k[1].clone();
         Ok(())
     }
 }
