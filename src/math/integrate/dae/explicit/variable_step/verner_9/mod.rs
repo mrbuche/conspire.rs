@@ -3,8 +3,7 @@ use crate::math::{
     integrate::{
         DaeSolver, DaeSolverFirstOrderRoot, DaeSolverZerothOrderRoot, IntegrationError,
         VariableStepExplicitDaeSolver, VariableStepExplicitDaeSolverFirstOrderRoot,
-        VariableStepExplicitDaeSolverFirstSameAsLast, VariableStepExplicitDaeSolverZerothOrderRoot,
-        ode::explicit::variable_step::verner_9::*,
+        VariableStepExplicitDaeSolverZerothOrderRoot, ode::explicit::variable_step::verner_9::*,
     },
     optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
 };
@@ -161,126 +160,6 @@ where
         *z_trial = solution(t + dt, y_trial, z_trial)?;
         Ok(())
     }
-    fn slopes_solve_and_error(
-        &self,
-        evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        solution: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
-        y: &Y,
-        z: &Z,
-        t: Scalar,
-        dt: Scalar,
-        k: &mut [Y],
-        y_trial: &mut Y,
-        z_trial: &mut Z,
-    ) -> Result<Scalar, String> {
-        Self::slopes_solve_and_error_fsal(evolution, solution, y, z, t, dt, k, y_trial, z_trial)
-    }
-    fn step_solve(
-        &self,
-        _: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        y: &mut Y,
-        z: &mut Z,
-        t: &mut Scalar,
-        y_sol: &mut U,
-        z_sol: &mut V,
-        t_sol: &mut Vector,
-        dydt_sol: &mut U,
-        dt: &mut Scalar,
-        k: &mut [Y],
-        y_trial: &Y,
-        z_trial: &Z,
-        e: Scalar,
-    ) -> Result<(), String> {
-        self.step_solve_fsal(
-            y, z, t, y_sol, z_sol, t_sol, dydt_sol, dt, k, y_trial, z_trial, e,
-        )
-    }
 }
 
-impl<Y, Z, U, V> VariableStepExplicitDaeSolverFirstSameAsLast<Y, Z, U, V> for Verner9
-where
-    Y: Tensor,
-    Z: Tensor,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Z>,
-    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
-{
-}
-
-impl<Y, Z, U, V> DaeSolverZerothOrderRoot<Y, Z, U, V> for Verner9
-where
-    Y: Tensor,
-    Z: Tensor,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Z>,
-    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
-{
-    fn integrate_dae(
-        &self,
-        evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        function: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
-        solver: impl ZerothOrderRootFinding<Z>,
-        time: &[Scalar],
-        initial_condition: (Y, Z),
-        equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
-    ) -> Result<(Vector, U, U, V), IntegrationError> {
-        self.integrate_dae_variable_step_root_0(
-            evolution,
-            function,
-            solver,
-            time,
-            initial_condition,
-            equality_constraint,
-        )
-    }
-}
-
-impl<Y, Z, U, V> VariableStepExplicitDaeSolverZerothOrderRoot<Y, Z, U, V> for Verner9
-where
-    Y: Tensor,
-    Z: Tensor,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Z>,
-    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
-{
-}
-
-impl<F, J, Y, Z, U, V> DaeSolverFirstOrderRoot<F, J, Y, Z, U, V> for Verner9
-where
-    Y: Tensor,
-    Z: Tensor,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Z>,
-    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
-{
-    fn integrate_dae(
-        &self,
-        evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        function: impl FnMut(Scalar, &Y, &Z) -> Result<F, String>,
-        jacobian: impl FnMut(Scalar, &Y, &Z) -> Result<J, String>,
-        solver: impl FirstOrderRootFinding<F, J, Z>,
-        time: &[Scalar],
-        initial_condition: (Y, Z),
-        equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
-    ) -> Result<(Vector, U, U, V), IntegrationError> {
-        self.integrate_dae_variable_step_root_1(
-            evolution,
-            function,
-            jacobian,
-            solver,
-            time,
-            initial_condition,
-            equality_constraint,
-        )
-    }
-}
-
-impl<F, J, Y, Z, U, V> VariableStepExplicitDaeSolverFirstOrderRoot<F, J, Y, Z, U, V> for Verner9
-where
-    Y: Tensor,
-    Z: Tensor,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Z>,
-    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
-{
-}
+super::implement_solvers!(Verner9);
