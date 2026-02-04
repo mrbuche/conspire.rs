@@ -7,7 +7,6 @@ use std::fmt::Debug;
 
 pub mod explicit;
 
-/// Differential-algebraic equation integrators.
 pub trait DaeSolver<Y, Z, U, V>
 where
     Self: Debug,

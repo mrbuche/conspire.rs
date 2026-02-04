@@ -1,5 +1,4 @@
 pub const EXPLICIT: &str = include_str!("ode/explicit/doc.md");
-pub const EXPLICIT_IV: &str = include_str!("ode/explicit/internal_variables/doc.md");
 pub const IMPLICIT: &str = include_str!("ode/implicit/doc.md");
 
 pub fn euler<'a>() -> Vec<[&'a str; 2]> {
