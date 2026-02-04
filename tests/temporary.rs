@@ -7481,6 +7481,10 @@ fn bcs_temporary_elastic_viscoplastic(t: Scalar) -> Vector {
     vector
 }
 
+fn foo(t: Scalar) -> EqualityConstraint {
+    todo!()
+}
+
 #[ignore]
 #[test]
 fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
@@ -7530,14 +7534,15 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
     let mut time = std::time::Instant::now();
     println!("Solving...");
     let (times, coordinates_history, state_variables_history) = block.root(
-        (matrix, |t: Scalar| bcs_temporary_elastic_viscoplastic(t)),
         BogackiShampine {
             abs_tol: tol,
             rel_tol: tol,
             ..Default::default()
         },
-        &tspan,
         NewtonRaphson::default(),
+        &tspan,
+        foo,
+        // |t: Scalar| EqualityConstraint::Linear(matrix, bcs_temporary_elastic_viscoplastic(t)),
     )?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
