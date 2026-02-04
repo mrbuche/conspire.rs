@@ -11,9 +11,9 @@ where
     Self: InterpolateSolutionInternalVariables<Y, Z, U, V> + VariableStepExplicit<Y, U>,
     Y: Tensor,
     Z: Tensor,
-    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
 {
     fn integrate_and_evaluate_variable_step(
         &self,
@@ -244,9 +244,9 @@ where
     Self: VariableStepExplicitInternalVariables<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
-    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
 {
     #[allow(clippy::too_many_arguments)]
     fn slopes_and_eval_and_error_fsal(

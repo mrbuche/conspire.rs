@@ -4,8 +4,16 @@ pub mod doc;
 #[cfg(test)]
 mod test;
 
+mod dae;
 mod ode;
 
+pub use dae::{
+    DaeSolver, DaeSolverZerothOrderRoot,
+    explicit::variable_step::{
+        VariableStepExplicitDaeSolver, VariableStepExplicitDaeSolverFirstSameAsLast,
+        VariableStepExplicitDaeSolverZerothOrderRoot,
+    },
+};
 pub use ode::{
     FixedStep, OdeSolver, VariableStep,
     explicit::{

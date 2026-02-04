@@ -1,0 +1,220 @@
+use crate::math::{
+    Scalar, Tensor, TensorVec, Vector,
+    integrate::{
+        DaeSolver, DaeSolverZerothOrderRoot, IntegrationError, VariableStepExplicitDaeSolver,
+        VariableStepExplicitDaeSolverFirstSameAsLast, VariableStepExplicitDaeSolverZerothOrderRoot,
+        ode::explicit::variable_step::verner_8::*,
+    },
+    optimize::{EqualityConstraint, ZerothOrderRootFinding},
+};
+use std::ops::{Mul, Sub};
+
+impl<Y, Z, U, V> DaeSolver<Y, Z, U, V> for Verner8
+where
+    Y: Tensor,
+    Z: Tensor,
+    U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Z>,
+{
+}
+
+impl<Y, Z, U, V> VariableStepExplicitDaeSolver<Y, Z, U, V> for Verner8
+where
+    Self: DaeSolver<Y, Z, U, V>,
+    Y: Tensor,
+    Z: Tensor,
+    U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Z>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+{
+    fn slopes_solve(
+        mut evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        mut solution: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
+        y: &Y,
+        z: &Z,
+        t: Scalar,
+        dt: Scalar,
+        k: &mut [Y],
+        y_trial: &mut Y,
+        z_trial: &mut Z,
+    ) -> Result<(), String> {
+        k[0] = evolution(t, y, z)?;
+        *y_trial = &k[0] * (A_2_1 * dt) + y;
+        *z_trial = solution(t + C_2 * dt, y_trial, z)?;
+        k[1] = evolution(t + C_2 * dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_3_1 * dt) + &k[1] * (A_3_2 * dt) + y;
+        *z_trial = solution(t + C_3 * dt, y_trial, z_trial)?;
+        k[2] = evolution(t + C_3 * dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_4_1 * dt) + &k[2] * (A_4_3 * dt) + y;
+        *z_trial = solution(t + C_4 * dt, y_trial, z_trial)?;
+        k[3] = evolution(t + C_4 * dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_5_1 * dt) + &k[2] * (A_5_3 * dt) + &k[3] * (A_5_4 * dt) + y;
+        *z_trial = solution(t + C_5 * dt, y_trial, z_trial)?;
+        k[4] = evolution(t + C_5 * dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_6_1 * dt) + &k[3] * (A_6_4 * dt) + &k[4] * (A_6_5 * dt) + y;
+        *z_trial = solution(t + C_6 * dt, y_trial, z_trial)?;
+        k[5] = evolution(t + C_6 * dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_7_1 * dt)
+            + &k[3] * (A_7_4 * dt)
+            + &k[4] * (A_7_5 * dt)
+            + &k[5] * (A_7_6 * dt)
+            + y;
+        *z_trial = solution(t + C_7 * dt, y_trial, z_trial)?;
+        k[6] = evolution(t + C_7 * dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_8_1 * dt)
+            + &k[3] * (A_8_4 * dt)
+            + &k[4] * (A_8_5 * dt)
+            + &k[5] * (A_8_6 * dt)
+            + &k[6] * (A_8_7 * dt)
+            + y;
+        *z_trial = solution(t + C_8 * dt, y_trial, z_trial)?;
+        k[7] = evolution(t + C_8 * dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_9_1 * dt)
+            + &k[3] * (A_9_4 * dt)
+            + &k[4] * (A_9_5 * dt)
+            + &k[5] * (A_9_6 * dt)
+            + &k[6] * (A_9_7 * dt)
+            + &k[7] * (A_9_8 * dt)
+            + y;
+        *z_trial = solution(t + C_9 * dt, y_trial, z_trial)?;
+        k[8] = evolution(t + C_9 * dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_10_1 * dt)
+            + &k[3] * (A_10_4 * dt)
+            + &k[4] * (A_10_5 * dt)
+            + &k[5] * (A_10_6 * dt)
+            + &k[6] * (A_10_7 * dt)
+            + &k[7] * (A_10_8 * dt)
+            + &k[8] * (A_10_9 * dt)
+            + y;
+        *z_trial = solution(t + C_10 * dt, y_trial, z_trial)?;
+        k[9] = evolution(t + C_10 * dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_11_1 * dt)
+            + &k[3] * (A_11_4 * dt)
+            + &k[4] * (A_11_5 * dt)
+            + &k[5] * (A_11_6 * dt)
+            + &k[6] * (A_11_7 * dt)
+            + &k[7] * (A_11_8 * dt)
+            + &k[8] * (A_11_9 * dt)
+            + &k[9] * (A_11_10 * dt)
+            + y;
+        *z_trial = solution(t + C_11 * dt, y_trial, z_trial)?;
+        k[10] = evolution(t + C_11 * dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_12_1 * dt)
+            + &k[3] * (A_12_4 * dt)
+            + &k[4] * (A_12_5 * dt)
+            + &k[5] * (A_12_6 * dt)
+            + &k[6] * (A_12_7 * dt)
+            + &k[7] * (A_12_8 * dt)
+            + &k[8] * (A_12_9 * dt)
+            + &k[9] * (A_12_10 * dt)
+            + &k[10] * (A_12_11 * dt)
+            + y;
+        *z_trial = solution(t + dt, y_trial, z_trial)?;
+        k[11] = evolution(t + dt, y_trial, z_trial)?;
+        *y_trial = &k[0] * (A_13_1 * dt)
+            + &k[3] * (A_13_4 * dt)
+            + &k[4] * (A_13_5 * dt)
+            + &k[5] * (A_13_6 * dt)
+            + &k[6] * (A_13_7 * dt)
+            + &k[7] * (A_13_8 * dt)
+            + &k[8] * (A_13_9 * dt)
+            + &k[9] * (A_13_10 * dt)
+            + y;
+        *z_trial = solution(t + dt, y_trial, z_trial)?;
+        k[12] = evolution(t + dt, y_trial, z_trial)?;
+        *y_trial = (&k[0] * B_1
+            + &k[5] * B_6
+            + &k[6] * B_7
+            + &k[7] * B_8
+            + &k[8] * B_9
+            + &k[9] * B_10
+            + &k[10] * B_11
+            + &k[11] * B_12)
+            * dt
+            + y;
+        *z_trial = solution(t + dt, y_trial, z_trial)?;
+        Ok(())
+    }
+    fn slopes_solve_and_error(
+        &self,
+        evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        solution: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
+        y: &Y,
+        z: &Z,
+        t: Scalar,
+        dt: Scalar,
+        k: &mut [Y],
+        y_trial: &mut Y,
+        z_trial: &mut Z,
+    ) -> Result<Scalar, String> {
+        Self::slopes_solve_and_error_fsal(evolution, solution, y, z, t, dt, k, y_trial, z_trial)
+    }
+    fn step_solve(
+        &self,
+        _: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        y: &mut Y,
+        z: &mut Z,
+        t: &mut Scalar,
+        y_sol: &mut U,
+        z_sol: &mut V,
+        t_sol: &mut Vector,
+        dydt_sol: &mut U,
+        dt: &mut Scalar,
+        k: &mut [Y],
+        y_trial: &Y,
+        z_trial: &Z,
+        e: Scalar,
+    ) -> Result<(), String> {
+        self.step_solve_fsal(
+            y, z, t, y_sol, z_sol, t_sol, dydt_sol, dt, k, y_trial, z_trial, e,
+        )
+    }
+}
+
+impl<Y, Z, U, V> VariableStepExplicitDaeSolverFirstSameAsLast<Y, Z, U, V> for Verner8
+where
+    Y: Tensor,
+    Z: Tensor,
+    U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Z>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+{
+}
+
+impl<Y, Z, U, V> DaeSolverZerothOrderRoot<Y, Z, U, V> for Verner8
+where
+    Y: Tensor,
+    Z: Tensor,
+    U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Z>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+{
+    fn integrate_dae(
+        &self,
+        evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        function: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
+        solver: impl ZerothOrderRootFinding<Z>,
+        time: &[Scalar],
+        initial_condition: (Y, Z),
+        equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
+    ) -> Result<(Vector, U, U, V), IntegrationError> {
+        self.integrate_dae_variable_step(
+            evolution,
+            function,
+            solver,
+            time,
+            initial_condition,
+            equality_constraint,
+        )
+    }
+}
+
+impl<Y, Z, U, V> VariableStepExplicitDaeSolverZerothOrderRoot<Y, Z, U, V> for Verner8
+where
+    Y: Tensor,
+    Z: Tensor,
+    U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Z>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+{
+}
