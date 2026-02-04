@@ -1,11 +1,12 @@
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
     integrate::{
-        DaeSolver, DaeSolverZerothOrderRoot, IntegrationError, VariableStepExplicitDaeSolver,
+        DaeSolver, DaeSolverFirstOrderRoot, DaeSolverZerothOrderRoot, IntegrationError,
+        VariableStepExplicitDaeSolver, VariableStepExplicitDaeSolverFirstOrderRoot,
         VariableStepExplicitDaeSolverFirstSameAsLast, VariableStepExplicitDaeSolverZerothOrderRoot,
         ode::explicit::variable_step::dormand_prince::*,
     },
-    optimize::{EqualityConstraint, ZerothOrderRootFinding},
+    optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
 };
 use std::ops::{Mul, Sub};
 
@@ -131,7 +132,7 @@ where
         initial_condition: (Y, Z),
         equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
     ) -> Result<(Vector, U, U, V), IntegrationError> {
-        self.integrate_dae_variable_step(
+        self.integrate_dae_variable_step_root_0(
             evolution,
             function,
             solver,
@@ -143,6 +144,47 @@ where
 }
 
 impl<Y, Z, U, V> VariableStepExplicitDaeSolverZerothOrderRoot<Y, Z, U, V> for DormandPrince
+where
+    Y: Tensor,
+    Z: Tensor,
+    U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Z>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+{
+}
+
+impl<F, J, Y, Z, U, V> DaeSolverFirstOrderRoot<F, J, Y, Z, U, V> for DormandPrince
+where
+    Y: Tensor,
+    Z: Tensor,
+    U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Z>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+{
+    fn integrate_dae(
+        &self,
+        evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        function: impl FnMut(Scalar, &Y, &Z) -> Result<F, String>,
+        jacobian: impl FnMut(Scalar, &Y, &Z) -> Result<J, String>,
+        solver: impl FirstOrderRootFinding<F, J, Z>,
+        time: &[Scalar],
+        initial_condition: (Y, Z),
+        equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
+    ) -> Result<(Vector, U, U, V), IntegrationError> {
+        self.integrate_dae_variable_step_root_1(
+            evolution,
+            function,
+            jacobian,
+            solver,
+            time,
+            initial_condition,
+            equality_constraint,
+        )
+    }
+}
+
+impl<F, J, Y, Z, U, V> VariableStepExplicitDaeSolverFirstOrderRoot<F, J, Y, Z, U, V>
+    for DormandPrince
 where
     Y: Tensor,
     Z: Tensor,
