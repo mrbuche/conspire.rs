@@ -1,11 +1,17 @@
 use crate::math::{
-    Scalar, Tensor, TensorVec, Vector,
+    Banded, Scalar, Tensor, TensorVec, Vector,
     integrate::{
-        DaeSolver, DaeSolverFirstOrderRoot, DaeSolverZerothOrderRoot, IntegrationError,
-        VariableStepExplicitDaeSolver, VariableStepExplicitDaeSolverFirstOrderRoot,
+        DaeSolver, DaeSolverFirstOrderMinimize, DaeSolverFirstOrderRoot,
+        DaeSolverSecondOrderMinimize, DaeSolverZerothOrderRoot, IntegrationError,
+        VariableStepExplicitDaeSolver, VariableStepExplicitDaeSolverFirstOrderMinimize,
+        VariableStepExplicitDaeSolverFirstOrderRoot,
+        VariableStepExplicitDaeSolverSecondOrderMinimize,
         VariableStepExplicitDaeSolverZerothOrderRoot, ode::explicit::variable_step::verner_8::*,
     },
-    optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
+    optimize::{
+        EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, SecondOrderOptimization,
+        ZerothOrderRootFinding,
+    },
 };
 use std::ops::{Mul, Sub};
 
