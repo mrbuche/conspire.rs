@@ -7,7 +7,6 @@ use crate::math::{
 };
 
 pub mod fixed_step;
-pub mod internal_variables;
 pub mod variable_step;
 
 /// Explicit ordinary differential equation solvers.

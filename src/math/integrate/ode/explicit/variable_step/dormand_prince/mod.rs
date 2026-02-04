@@ -4,12 +4,10 @@ mod test;
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
     integrate::{
-        Explicit, ExplicitInternalVariables, IntegrationError, OdeSolver, VariableStep,
-        VariableStepExplicit, VariableStepExplicitFirstSameAsLast,
-        VariableStepExplicitInternalVariables,
-        VariableStepExplicitInternalVariablesFirstSameAsLast,
+        Explicit, IntegrationError, OdeSolver, VariableStep, VariableStepExplicit,
+        VariableStepExplicitFirstSameAsLast,
     },
-    interpolate::{InterpolateSolution, InterpolateSolutionInternalVariables},
+    interpolate::InterpolateSolution,
 };
 use crate::{ABS_TOL, REL_TOL};
 use std::ops::{Mul, Sub};
@@ -212,148 +210,5 @@ where
         function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
     ) -> Result<(U, U), IntegrationError> {
         Self::interpolate_variable_step(time, tp, yp, function)
-    }
-}
-
-impl<Y, Z, U, V> ExplicitInternalVariables<Y, Z, U, V> for DormandPrince
-where
-    Y: Tensor,
-    Z: Tensor,
-    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Z>,
-{
-    fn integrate_and_evaluate(
-        &self,
-        function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
-        time: &[Scalar],
-        initial_condition: Y,
-        initial_evaluation: Z,
-    ) -> Result<(Vector, U, U, V), IntegrationError> {
-        self.integrate_and_evaluate_variable_step(
-            function,
-            evaluate,
-            time,
-            initial_condition,
-            initial_evaluation,
-        )
-    }
-}
-
-impl<Y, Z, U, V> VariableStepExplicitInternalVariables<Y, Z, U, V> for DormandPrince
-where
-    Self: ExplicitInternalVariables<Y, Z, U, V>,
-    Y: Tensor,
-    Z: Tensor,
-    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Z>,
-{
-    fn slopes_and_eval(
-        mut function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        mut evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
-        y: &Y,
-        z: &Z,
-        t: Scalar,
-        dt: Scalar,
-        k: &mut [Y],
-        y_trial: &mut Y,
-        z_trial: &mut Z,
-    ) -> Result<(), String> {
-        *y_trial = &k[0] * (0.2 * dt) + y;
-        *z_trial = evaluate(t + 0.2 * dt, y_trial, z)?;
-        k[1] = function(t + 0.2 * dt, y_trial, z_trial)?;
-        *y_trial = &k[0] * (0.075 * dt) + &k[1] * (0.225 * dt) + y;
-        *z_trial = evaluate(t + 0.3 * dt, y_trial, z_trial)?;
-        k[2] = function(t + 0.3 * dt, y_trial, z_trial)?;
-        *y_trial = &k[0] * (C_44_45 * dt) - &k[1] * (C_56_15 * dt) + &k[2] * (C_32_9 * dt) + y;
-        *z_trial = evaluate(t + 0.8 * dt, y_trial, z_trial)?;
-        k[3] = function(t + 0.8 * dt, y_trial, z_trial)?;
-        *y_trial = &k[0] * (C_19372_6561 * dt) - &k[1] * (C_25360_2187 * dt)
-            + &k[2] * (C_64448_6561 * dt)
-            - &k[3] * (C_212_729 * dt)
-            + y;
-        *z_trial = evaluate(t + C_8_9 * dt, y_trial, z_trial)?;
-        k[4] = function(t + C_8_9 * dt, y_trial, z_trial)?;
-        *y_trial = &k[0] * (C_9017_3168 * dt) - &k[1] * (C_355_33 * dt)
-            + &k[2] * (C_46732_5247 * dt)
-            + &k[3] * (C_49_176 * dt)
-            - &k[4] * (C_5103_18656 * dt)
-            + y;
-        *z_trial = evaluate(t + dt, y_trial, z_trial)?;
-        k[5] = function(t + dt, y_trial, z_trial)?;
-        *y_trial = (&k[0] * C_35_384 + &k[2] * C_500_1113 + &k[3] * C_125_192
-            - &k[4] * C_2187_6784
-            + &k[5] * C_11_84)
-            * dt
-            + y;
-        *z_trial = evaluate(t + dt, y_trial, z_trial)?;
-        Ok(())
-    }
-    fn slopes_and_eval_and_error(
-        &self,
-        function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
-        y: &Y,
-        z: &Z,
-        t: Scalar,
-        dt: Scalar,
-        k: &mut [Y],
-        y_trial: &mut Y,
-        z_trial: &mut Z,
-    ) -> Result<Scalar, String> {
-        Self::slopes_and_eval_and_error_fsal(function, evaluate, y, z, t, dt, k, y_trial, z_trial)
-    }
-    fn step_and_eval(
-        &self,
-        _function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        y: &mut Y,
-        z: &mut Z,
-        t: &mut Scalar,
-        y_sol: &mut U,
-        z_sol: &mut V,
-        t_sol: &mut Vector,
-        dydt_sol: &mut U,
-        dt: &mut Scalar,
-        k: &mut [Y],
-        y_trial: &Y,
-        z_trial: &Z,
-        e: Scalar,
-    ) -> Result<(), String> {
-        self.step_and_eval_fsal(
-            y, z, t, y_sol, z_sol, t_sol, dydt_sol, dt, k, y_trial, z_trial, e,
-        )
-    }
-}
-
-impl<Y, Z, U, V> VariableStepExplicitInternalVariablesFirstSameAsLast<Y, Z, U, V> for DormandPrince
-where
-    Y: Tensor,
-    Z: Tensor,
-    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Z>,
-{
-}
-
-impl<Y, Z, U, V> InterpolateSolutionInternalVariables<Y, Z, U, V> for DormandPrince
-where
-    Y: Tensor,
-    Z: Tensor,
-    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Z>,
-{
-    fn interpolate_and_evaluate(
-        &self,
-        time: &Vector,
-        tp: &Vector,
-        yp: &U,
-        zp: &V,
-        function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
-    ) -> Result<(U, U, V), IntegrationError> {
-        Self::interpolate_and_evaluate_variable_step(time, tp, yp, zp, function, evaluate)
     }
 }
