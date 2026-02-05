@@ -136,7 +136,7 @@ where
             3,
         );
         let (time_history, state_variables_history, _, nodal_coordinates_history) = integrator
-            .integrate_dae(
+            .integrate(
                 |_: Scalar,
                  state_variables: &ViscoplasticStateVariables<G>,
                  nodal_coordinates: &NodalCoordinates| {

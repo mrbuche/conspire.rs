@@ -336,6 +336,33 @@ where
     }
 }
 
+pub trait VariableStepExplicitDaeSimpleZerothOrderRoot<Y, U>
+where
+    Self: VariableStepExplicit<Y, U>,
+    Y: Tensor,
+    U: TensorVec<Item = Y>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+{
+    fn integrate_gen_variable_step_root_0(
+        &self,
+        mut function: impl FnMut(Scalar, &Y, &Y) -> Result<Y, String>,
+        solver: impl ZerothOrderRootFinding<Y>,
+        time: &[Scalar],
+        initial_condition: (Y, Y),
+        mut equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
+    ) -> Result<(Vector, U, U), IntegrationError> {
+        let (y_0, dydt_0) = initial_condition;
+        let evolution = |t: Scalar, y: &Y| -> Result<Y, String> {
+            Ok(solver.root(
+                |dydt| function(t, y, dydt),
+                dydt_0.clone(),
+                equality_constraint(t),
+            )?)
+        };
+        self.integrate(evolution, time, y_0)
+    }
+}
+
 pub trait VariableStepExplicitDaeSolverFirstOrderRoot<F, J, Y, Z, U, V>
 where
     Self: DaeSolver<Y, Z, U, V> + VariableStepExplicitDaeSolver<Y, Z, U, V>,
@@ -446,7 +473,7 @@ macro_rules! implement_solvers {
             V: TensorVec<Item = Z>,
             for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
         {
-            fn integrate_dae(
+            fn integrate(
                 &self,
                 evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
                 function: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
@@ -474,26 +501,40 @@ macro_rules! implement_solvers {
             for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
         {
         }
-        use crate::math::integrate::DaeGeneralZerothOrderRoot; // temporary placement of this import
-        impl<Y, Z, U, V> DaeGeneralZerothOrderRoot<Y, Z, U, V> for $integrator
+        use crate::math::integrate::{
+            DaeSimpleZerothOrderRoot,
+            VariableStepExplicitDaeSimpleZerothOrderRoot
+        }; // temporary placement of this import
+        impl<Y, U> DaeSimpleZerothOrderRoot<Y, U> for $integrator
         where
             Y: Tensor,
-            Z: Tensor,
             U: TensorVec<Item = Y>,
-            V: TensorVec<Item = Z>,
             for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
         {
-            fn integrate_dae(
+            fn integrate(
                 &self,
-                function: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
-                solver: impl ZerothOrderRootFinding<Z>,
+                function: impl FnMut(Scalar, &Y, &Y) -> Result<Y, String>,
+                solver: impl ZerothOrderRootFinding<Y>,
                 time: &[Scalar],
-                initial_condition: (Y, Z),
+                initial_condition: (Y, Y),
                 equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
-            ) -> Result<(Vector, U, V), IntegrationError> {
-                // make sure re-use previous solution for next guess for dydt
-                todo!()
+            ) -> Result<(Vector, U, U), IntegrationError> {
+                self.integrate_gen_variable_step_root_0(
+                    function,
+                    solver,
+                    time,
+                    initial_condition,
+                    equality_constraint,
+                )
             }
+        }
+        impl<Y, U> VariableStepExplicitDaeSimpleZerothOrderRoot<Y, U>
+            for $integrator
+        where
+            Y: Tensor,
+            U: TensorVec<Item = Y>,
+            for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+        {
         }
         impl<F, J, Y, Z, U, V> DaeSolverFirstOrderRoot<F, J, Y, Z, U, V> for $integrator
         where
@@ -503,7 +544,7 @@ macro_rules! implement_solvers {
             V: TensorVec<Item = Z>,
             for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
         {
-            fn integrate_dae(
+            fn integrate(
                 &self,
                 evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
                 function: impl FnMut(Scalar, &Y, &Z) -> Result<F, String>,
@@ -542,7 +583,7 @@ macro_rules! implement_solvers {
             V: TensorVec<Item = Z>,
             for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
         {
-            fn integrate_dae(
+            fn integrate(
                 &self,
                 evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
                 function: impl FnMut(Scalar, &Y, &Z) -> Result<F, String>,
@@ -581,7 +622,7 @@ macro_rules! implement_solvers {
             V: TensorVec<Item = Z>,
             for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
         {
-            fn integrate_dae(
+            fn integrate(
                 &self,
                 evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
                 function: impl FnMut(Scalar, &Y, &Z) -> Result<F, String>,

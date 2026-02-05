@@ -117,7 +117,7 @@ where
                 matrix[1][1] = 1.0;
                 matrix[2][2] = 1.0;
                 matrix[3][5] = 1.0;
-                integrator.integrate_dae(
+                integrator.integrate(
                     |_: Scalar,
                      state_variables: &StateVariables,
                      deformation_gradient: &DeformationGradient| {
@@ -199,7 +199,7 @@ where
                 matrix[1][1] = 1.0;
                 matrix[2][2] = 1.0;
                 matrix[3][5] = 1.0;
-                integrator.integrate_dae(
+                integrator.integrate(
                     |_: Scalar,
                      state_variables: &StateVariables,
                      deformation_gradient: &DeformationGradient| {
