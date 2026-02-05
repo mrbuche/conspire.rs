@@ -46,13 +46,42 @@ macro_rules! test_model {
                         m_e_dev_mag,
                     )
                 }
+                let (t, f, f_p) = model.minimize(
+                    AppliedLoad::UniaxialStress(|t| 1.0 + t, &[0.0, 2.0]),
+                    $integrator {
+                        abs_tol: 1e-6,
+                        rel_tol: 1e-6,
+                        ..Default::default()
+                    },
+                    $solver,
+                )?;
+                for (t_i, (f_i, s_i)) in t.iter().zip(f.iter().zip(f_p.iter())) {
+                    let (f_p_i, y_i) = s_i.into();
+                    let f_e = f_i * f_p_i.inverse();
+                    let c_e = model.cauchy_stress(f_i, f_p_i)?;
+                    let m_e = f_e.transpose() * &c_e * f_e.inverse_transpose();
+                    let m_e_dev_mag = m_e.deviatoric().norm();
+                    println!(
+                        "[{}, {}, {}, {}, {}, {}, {}],",
+                        t_i,
+                        f_i[0][0],
+                        f_p_i[0][0],
+                        y_i,
+                        c_e[0][0],
+                        f_p_i.determinant(),
+                        m_e_dev_mag,
+                    )
+                }
             };
         }
         macro_rules! test_model_with_integrator {
             ($integrator:ident) => {
                 #[test]
-                fn root_0() -> Result<(), TestError> {
-                    use crate::constitutive::solid::elastic_viscoplastic::ZerothOrderRoot;
+                fn root_o_and_minimize_1() -> Result<(), TestError> {
+                    use crate::constitutive::solid::{
+                        elastic_viscoplastic::ZerothOrderRoot,
+                        hyperelastic_viscoplastic::FirstOrderMinimize,
+                    };
                     test_integrator_with_solver!(
                         $integrator,
                         GradientDescent {
@@ -63,8 +92,11 @@ macro_rules! test_model {
                     Ok(())
                 }
                 #[test]
-                fn root_1() -> Result<(), TestError> {
-                    use crate::constitutive::solid::elastic_viscoplastic::FirstOrderRoot;
+                fn root_1_and_minimize_2() -> Result<(), TestError> {
+                    use crate::constitutive::solid::{
+                        elastic_viscoplastic::FirstOrderRoot,
+                        hyperelastic_viscoplastic::SecondOrderMinimize,
+                    };
                     test_integrator_with_solver!($integrator, NewtonRaphson::default());
                     Ok(())
                 }
