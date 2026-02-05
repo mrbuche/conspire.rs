@@ -37,6 +37,7 @@ pub trait ElasticViscoplasticFiniteElementBlock<
 > where
     C: ElasticViscoplastic,
     F: ElasticViscoplasticFiniteElement<C, G, M, N, P>,
+    Self: SolidFiniteElementBlock<C, F, G, M, N, P>,
 {
     fn nodal_forces(
         &self,

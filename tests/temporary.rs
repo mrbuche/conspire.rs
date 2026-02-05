@@ -5,9 +5,9 @@ use conspire::{
         solid::{
             elastic::AppliedLoad as AppliedDeformation,
             elastic_hyperviscous::{AlmansiHamel, SecondOrderMinimize as _},
-            elastic_viscoplastic::{AppliedLoad, FirstOrderRoot},
+            elastic_viscoplastic::AppliedLoad,
             hyperelastic::{NeoHookean, SecondOrderMinimize as _},
-            hyperelastic_viscoplastic::SaintVenantKirchhoff,
+            hyperelastic_viscoplastic::{SaintVenantKirchhoff, SecondOrderMinimize as _},
             viscoelastic::AppliedLoad as AppliedDeformationRate,
         },
         thermal::conduction::Fourier,
@@ -20,7 +20,7 @@ use conspire::{
             solid::{
                 SolidFiniteElementBlock,
                 elastic_hyperviscous::ElasticHyperviscousFiniteElementBlock,
-                elastic_viscoplastic::ElasticViscoplasticFiniteElementBlock,
+                hyperelastic_viscoplastic::HyperelasticViscoplasticFiniteElementBlock,
                 viscoelastic::ViscoelasticFiniteElementBlock,
             },
             thermal::ThermalFiniteElementBlock,
@@ -7506,7 +7506,6 @@ fn bcs_temporary_elastic_viscoplastic(t: Scalar) -> EqualityConstraint {
     EqualityConstraint::Linear(matrix, bcs_temporary_elastic_viscoplastic_vector(t))
 }
 
-#[ignore]
 #[test]
 fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
     use conspire::math::integrate::BogackiShampine;
@@ -7532,7 +7531,7 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
     ));
     let mut time = std::time::Instant::now();
     println!("Solving...");
-    let (times, coordinates_history, state_variables_history) = block.root(
+    let (times, coordinates_history, state_variables_history) = block.minimize(
         BogackiShampine {
             abs_tol: tol,
             rel_tol: tol,
@@ -7545,7 +7544,7 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
     println!("Verifying...");
-    let (_, deformation_gradients, state_variables) = model.root(
+    let (_, deformation_gradients, state_variables) = model.minimize(
         AppliedLoad::UniaxialStress(|t| 1.0 + 1.0 * t, times.as_slice()),
         BogackiShampine::default(),
         NewtonRaphson::default(),
