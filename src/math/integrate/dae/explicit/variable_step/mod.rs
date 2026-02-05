@@ -474,6 +474,27 @@ macro_rules! implement_solvers {
             for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
         {
         }
+        use crate::math::integrate::DaeGeneralZerothOrderRoot; // temporary placement of this import
+        impl<Y, Z, U, V> DaeGeneralZerothOrderRoot<Y, Z, U, V> for $integrator
+        where
+            Y: Tensor,
+            Z: Tensor,
+            U: TensorVec<Item = Y>,
+            V: TensorVec<Item = Z>,
+            for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+        {
+            fn integrate_dae(
+                &self,
+                function: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
+                solver: impl ZerothOrderRootFinding<Z>,
+                time: &[Scalar],
+                initial_condition: (Y, Z),
+                equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
+            ) -> Result<(Vector, U, V), IntegrationError> {
+                // make sure re-use previous solution for next guess for dydt
+                todo!()
+            }
+        }
         impl<F, J, Y, Z, U, V> DaeSolverFirstOrderRoot<F, J, Y, Z, U, V> for $integrator
         where
             Y: Tensor,

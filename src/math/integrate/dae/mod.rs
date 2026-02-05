@@ -39,6 +39,24 @@ where
     ) -> Result<(Vector, U, U, V), IntegrationError>;
 }
 
+pub trait DaeGeneralZerothOrderRoot<Y, Z, U, V>
+where
+    Self: DaeSolver<Y, Z, U, V>,
+    Y: Tensor,
+    Z: Tensor,
+    U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Z>,
+{
+    fn integrate_dae(
+        &self,
+        function: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
+        solver: impl ZerothOrderRootFinding<Z>,
+        time: &[Scalar],
+        initial_condition: (Y, Z),
+        equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
+    ) -> Result<(Vector, U, V), IntegrationError>;
+}
+
 pub trait DaeSolverFirstOrderRoot<F, J, Y, Z, U, V>
 where
     Self: DaeSolver<Y, Z, U, V>,

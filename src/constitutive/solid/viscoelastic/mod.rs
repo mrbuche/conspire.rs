@@ -47,7 +47,7 @@ pub mod test;
 use super::{super::fluid::viscous::Viscous, *};
 use crate::math::{
     Matrix, Vector,
-    integrate::Explicit,
+    integrate::{Explicit, DaeGeneralZerothOrderRoot},
     optimize::{
         EqualityConstraint, FirstOrderRootFinding, OptimizationError, ZerothOrderRootFinding,
     },
@@ -180,7 +180,7 @@ pub trait ZerothOrderRoot {
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
+        integrator: impl DaeGeneralZerothOrderRoot<DeformationGradientRate, DeformationGradient, DeformationGradientRates, DeformationGradients>,
         solver: impl ZerothOrderRootFinding<DeformationGradient>,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
     #[doc(hidden)]
@@ -231,7 +231,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl Explicit<DeformationGradientRate, DeformationGradientRates>,
+        integrator: impl DaeGeneralZerothOrderRoot<DeformationGradientRate, DeformationGradient, DeformationGradientRates, DeformationGradients>,
         solver: impl ZerothOrderRootFinding<DeformationGradientRate>,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
         let mut solution = DeformationGradientRate::zero();
@@ -243,19 +243,20 @@ where
                 matrix[1][1] = 1.0;
                 matrix[2][2] = 1.0;
                 matrix[3][5] = 1.0;
-                integrator.integrate(
-                    |t: Scalar, deformation_gradient: &DeformationGradient| {
-                        vector[0] = deformation_gradient_rate_11(t);
-                        solution = self.root_inner_0(
+                integrator.integrate_dae(
+                    |_: Scalar, deformation_gradient: &DeformationGradient, deformation_gradient_rate: &DeformationGradientRate| {
+                        Ok(self.first_piola_kirchhoff_stress(
                             deformation_gradient,
-                            EqualityConstraint::Linear(matrix.clone(), vector.clone()),
-                            &solver,
-                            &solution,
-                        )?;
-                        Ok(solution.clone())
+                            deformation_gradient_rate,
+                        )?)
                     },
+                    solver,
                     time,
-                    DeformationGradient::identity(),
+                    (DeformationGradientRate::zero(), DeformationGradient::identity()),
+                    |t: Scalar| {
+                        vector[0] = deformation_gradient_rate_11(t);
+                        EqualityConstraint::Linear(matrix.clone(), vector.clone())
+                    },
                 )
             }
             AppliedLoad::BiaxialStress(
@@ -263,28 +264,29 @@ where
                 deformation_gradient_rate_22,
                 time,
             ) => {
-                let mut matrix = Matrix::zero(5, 9);
-                let mut vector = Vector::zero(5);
-                matrix[0][0] = 1.0;
-                matrix[1][1] = 1.0;
-                matrix[2][2] = 1.0;
-                matrix[3][5] = 1.0;
-                matrix[4][4] = 1.0;
-                integrator.integrate(
-                    |t: Scalar, deformation_gradient: &DeformationGradient| {
-                        vector[0] = deformation_gradient_rate_11(t);
-                        vector[4] = deformation_gradient_rate_22(t);
-                        solution = self.root_inner_0(
-                            deformation_gradient,
-                            EqualityConstraint::Linear(matrix.clone(), vector.clone()),
-                            &solver,
-                            &solution,
-                        )?;
-                        Ok(solution.clone())
-                    },
-                    time,
-                    DeformationGradient::identity(),
-                )
+                todo!()
+                // let mut matrix = Matrix::zero(5, 9);
+                // let mut vector = Vector::zero(5);
+                // matrix[0][0] = 1.0;
+                // matrix[1][1] = 1.0;
+                // matrix[2][2] = 1.0;
+                // matrix[3][5] = 1.0;
+                // matrix[4][4] = 1.0;
+                // integrator.integrate(
+                //     |t: Scalar, deformation_gradient: &DeformationGradient| {
+                //         vector[0] = deformation_gradient_rate_11(t);
+                //         vector[4] = deformation_gradient_rate_22(t);
+                //         solution = self.root_inner_0(
+                //             deformation_gradient,
+                //             EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+                //             &solver,
+                //             &solution,
+                //         )?;
+                //         Ok(solution.clone())
+                //     },
+                //     time,
+                //     DeformationGradient::identity(),
+                // )
             }
         } {
             Ok(results) => Ok(results),

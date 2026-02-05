@@ -9,7 +9,7 @@ mod ode;
 
 pub use dae::{
     DaeSolver, DaeSolverFirstOrderMinimize, DaeSolverFirstOrderRoot, DaeSolverSecondOrderMinimize,
-    DaeSolverZerothOrderRoot,
+    DaeSolverZerothOrderRoot, DaeGeneralZerothOrderRoot,
     explicit::variable_step::{
         VariableStepExplicitDaeSolver, VariableStepExplicitDaeSolverFirstOrderMinimize,
         VariableStepExplicitDaeSolverFirstOrderRoot, VariableStepExplicitDaeSolverFirstSameAsLast,
