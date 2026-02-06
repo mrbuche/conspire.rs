@@ -47,7 +47,7 @@ pub mod test;
 use super::{super::fluid::viscous::Viscous, *};
 use crate::math::{
     Matrix, Vector,
-    integrate::{DaeSimpleZerothOrderRoot, Explicit},
+    integrate::{Explicit, ImplicitDaeZerothOrderRoot},
     optimize::{
         EqualityConstraint, FirstOrderRootFinding, OptimizationError, ZerothOrderRootFinding,
     },
@@ -180,7 +180,7 @@ pub trait ZerothOrderRoot {
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl DaeSimpleZerothOrderRoot<DeformationGradient, DeformationGradients>,
+        integrator: impl ImplicitDaeZerothOrderRoot<DeformationGradient, DeformationGradients>,
         solver: impl ZerothOrderRootFinding<DeformationGradient>,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
     #[doc(hidden)]
@@ -231,7 +231,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl DaeSimpleZerothOrderRoot<DeformationGradient, DeformationGradients>,
+        integrator: impl ImplicitDaeZerothOrderRoot<DeformationGradient, DeformationGradients>,
         solver: impl ZerothOrderRootFinding<DeformationGradientRate>,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
         match match applied_load {

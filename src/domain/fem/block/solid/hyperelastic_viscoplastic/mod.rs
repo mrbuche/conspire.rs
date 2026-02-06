@@ -16,7 +16,7 @@ use crate::{
     },
     math::{
         Scalar, Tensor, TensorArray,
-        integrate::{DaeSolverSecondOrderMinimize, IntegrationError},
+        integrate::{ExplicitDaeSecondOrderMinimize, IntegrationError},
         optimize::SecondOrderOptimization,
     },
     mechanics::{DeformationGradientPlastic, Times},
@@ -42,7 +42,7 @@ pub trait HyperelasticViscoplasticFiniteElementBlock<
     ) -> Result<Scalar, FiniteElementBlockError>;
     fn minimize(
         &self,
-        integrator: impl DaeSolverSecondOrderMinimize<
+        integrator: impl ExplicitDaeSecondOrderMinimize<
             Scalar,
             NodalForcesSolid,
             NodalStiffnessesSolid,
@@ -104,7 +104,7 @@ where
     }
     fn minimize(
         &self,
-        integrator: impl DaeSolverSecondOrderMinimize<
+        integrator: impl ExplicitDaeSecondOrderMinimize<
             Scalar,
             NodalForcesSolid,
             NodalStiffnessesSolid,

@@ -1,12 +1,7 @@
 use crate::math::{
     Banded, Scalar, Tensor, TensorVec, Vector,
     integrate::{
-        DaeSolver, DaeSolverFirstOrderMinimize, DaeSolverFirstOrderRoot,
-        DaeSolverSecondOrderMinimize, DaeSolverZerothOrderRoot, IntegrationError,
-        VariableStepExplicitDaeSolver, VariableStepExplicitDaeSolverFirstOrderMinimize,
-        VariableStepExplicitDaeSolverFirstOrderRoot, VariableStepExplicitDaeSolverFirstSameAsLast,
-        VariableStepExplicitDaeSolverSecondOrderMinimize,
-        VariableStepExplicitDaeSolverZerothOrderRoot,
+        ExplicitDaeVariableStep, ExplicitDaeVariableStepFirstSameAsLast, IntegrationError,
         ode::explicit::variable_step::dormand_prince::*,
     },
     optimize::{
@@ -16,18 +11,9 @@ use crate::math::{
 };
 use std::ops::{Mul, Sub};
 
-impl<Y, Z, U, V> DaeSolver<Y, Z, U, V> for DormandPrince
+impl<Y, Z, U, V> ExplicitDaeVariableStep<Y, Z, U, V> for DormandPrince
 where
-    Y: Tensor,
-    Z: Tensor,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Z>,
-{
-}
-
-impl<Y, Z, U, V> VariableStepExplicitDaeSolver<Y, Z, U, V> for DormandPrince
-where
-    Self: DaeSolver<Y, Z, U, V>,
+    Self: ExplicitDaeZerothOrderRoot<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
@@ -111,7 +97,7 @@ where
     }
 }
 
-impl<Y, Z, U, V> VariableStepExplicitDaeSolverFirstSameAsLast<Y, Z, U, V> for DormandPrince
+impl<Y, Z, U, V> ExplicitDaeVariableStepFirstSameAsLast<Y, Z, U, V> for DormandPrince
 where
     Y: Tensor,
     Z: Tensor,

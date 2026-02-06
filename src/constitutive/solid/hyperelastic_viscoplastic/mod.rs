@@ -18,7 +18,7 @@ use crate::{
     },
     math::{
         Matrix, TensorArray, Vector,
-        integrate::{DaeSolverFirstOrderMinimize, DaeSolverSecondOrderMinimize},
+        integrate::{ExplicitDaeFirstOrderMinimize, ExplicitDaeSecondOrderMinimize},
         optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
     },
     mechanics::{
@@ -54,7 +54,7 @@ pub trait FirstOrderMinimize {
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl DaeSolverFirstOrderMinimize<
+        integrator: impl ExplicitDaeFirstOrderMinimize<
             Scalar,
             StateVariables,
             DeformationGradient,
@@ -75,7 +75,7 @@ pub trait SecondOrderMinimize {
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl DaeSolverSecondOrderMinimize<
+        integrator: impl ExplicitDaeSecondOrderMinimize<
             Scalar,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
@@ -100,7 +100,7 @@ where
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl DaeSolverFirstOrderMinimize<
+        integrator: impl ExplicitDaeFirstOrderMinimize<
             Scalar,
             StateVariables,
             DeformationGradient,
@@ -175,7 +175,7 @@ where
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl DaeSolverSecondOrderMinimize<
+        integrator: impl ExplicitDaeSecondOrderMinimize<
             Scalar,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,

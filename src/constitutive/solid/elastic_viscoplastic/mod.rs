@@ -5,7 +5,7 @@ use crate::{
     math::{
         ContractFirstSecondIndicesWithSecondIndicesOf, ContractSecondIndexWithFirstIndexOf,
         IDENTITY, Matrix, Rank2, TensorArray, TensorTuple, TensorTupleVec, Vector,
-        integrate::{DaeSolverFirstOrderRoot, DaeSolverZerothOrderRoot},
+        integrate::{ExplicitDaeFirstOrderRoot, ExplicitDaeZerothOrderRoot},
         optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
     },
     mechanics::{
@@ -203,7 +203,7 @@ pub trait ZerothOrderRoot {
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl DaeSolverZerothOrderRoot<
+        integrator: impl ExplicitDaeZerothOrderRoot<
             StateVariables,
             DeformationGradient,
             StateVariablesHistory,
@@ -223,7 +223,7 @@ pub trait FirstOrderRoot {
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl DaeSolverFirstOrderRoot<
+        integrator: impl ExplicitDaeFirstOrderRoot<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             StateVariables,
@@ -246,7 +246,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl DaeSolverZerothOrderRoot<
+        integrator: impl ExplicitDaeZerothOrderRoot<
             StateVariables,
             DeformationGradient,
             StateVariablesHistory,
@@ -311,7 +311,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl DaeSolverFirstOrderRoot<
+        integrator: impl ExplicitDaeFirstOrderRoot<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             StateVariables,

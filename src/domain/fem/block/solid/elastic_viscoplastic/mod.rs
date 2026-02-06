@@ -12,7 +12,7 @@ use crate::{
     },
     math::{
         Scalar, Tensor, TensorArray, TensorTupleListVec, TensorTupleListVec2D,
-        integrate::{DaeSolverFirstOrderRoot, IntegrationError},
+        integrate::{ExplicitDaeFirstOrderRoot, IntegrationError},
         optimize::{EqualityConstraint, FirstOrderRootFinding},
     },
     mechanics::{DeformationGradientPlastic, Times},
@@ -56,7 +56,7 @@ pub trait ElasticViscoplasticFiniteElementBlock<
     ) -> Result<ViscoplasticStateVariables<G>, FiniteElementBlockError>;
     fn root(
         &self,
-        integrator: impl DaeSolverFirstOrderRoot<
+        integrator: impl ExplicitDaeFirstOrderRoot<
             NodalForcesSolid,
             NodalStiffnessesSolid,
             ViscoplasticStateVariables<G>,
@@ -179,7 +179,7 @@ where
     }
     fn root(
         &self,
-        integrator: impl DaeSolverFirstOrderRoot<
+        integrator: impl ExplicitDaeFirstOrderRoot<
             NodalForcesSolid,
             NodalStiffnessesSolid,
             ViscoplasticStateVariables<G>,

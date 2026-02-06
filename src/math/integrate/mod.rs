@@ -8,14 +8,18 @@ mod dae;
 mod ode;
 
 pub use dae::{
-    DaeSimpleZerothOrderRoot, DaeSolver, DaeSolverFirstOrderMinimize, DaeSolverFirstOrderRoot,
-    DaeSolverSecondOrderMinimize, DaeSolverZerothOrderRoot, 
+    ExplicitDaeFirstOrderMinimize, ExplicitDaeFirstOrderRoot, ExplicitDaeSecondOrderMinimize,
+    ExplicitDaeZerothOrderRoot, ImplicitDaeFirstOrderMinimize, ImplicitDaeFirstOrderRoot,
+    ImplicitDaeSecondOrderMinimize, ImplicitDaeZerothOrderRoot,
     explicit::variable_step::{
-        VariableStepExplicitDaeSolver, VariableStepExplicitDaeSolverFirstOrderMinimize,
-        VariableStepExplicitDaeSolverFirstOrderRoot, VariableStepExplicitDaeSolverFirstSameAsLast,
-        VariableStepExplicitDaeSolverSecondOrderMinimize,
-        VariableStepExplicitDaeSolverZerothOrderRoot,
-        VariableStepExplicitDaeSimpleZerothOrderRoot,
+        ExplicitDaeVariableStep, ExplicitDaeVariableStepExplicitFirstOrderMinimize,
+        ExplicitDaeVariableStepExplicitFirstOrderRoot,
+        ExplicitDaeVariableStepExplicitSecondOrderMinimize,
+        ExplicitDaeVariableStepExplicitZerothOrderRoot, ExplicitDaeVariableStepFirstSameAsLast,
+        ImplicitDaeVariableStepExplicitFirstOrderMinimize,
+        ImplicitDaeVariableStepExplicitFirstOrderRoot,
+        ImplicitDaeVariableStepExplicitSecondOrderMinimize,
+        ImplicitDaeVariableStepExplicitZerothOrderRoot,
     },
 };
 pub use ode::{

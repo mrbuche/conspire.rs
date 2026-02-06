@@ -1,12 +1,7 @@
 use crate::math::{
     Banded, Scalar, Tensor, TensorVec, Vector,
     integrate::{
-        DaeSolver, DaeSolverFirstOrderMinimize, DaeSolverFirstOrderRoot,
-        DaeSolverSecondOrderMinimize, DaeSolverZerothOrderRoot, IntegrationError,
-        VariableStepExplicitDaeSolver, VariableStepExplicitDaeSolverFirstOrderMinimize,
-        VariableStepExplicitDaeSolverFirstOrderRoot,
-        VariableStepExplicitDaeSolverSecondOrderMinimize,
-        VariableStepExplicitDaeSolverZerothOrderRoot, ode::explicit::variable_step::verner_9::*,
+        ExplicitDaeVariableStep, IntegrationError, ode::explicit::variable_step::verner_9::*,
     },
     optimize::{
         EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, SecondOrderOptimization,
@@ -15,18 +10,8 @@ use crate::math::{
 };
 use std::ops::{Mul, Sub};
 
-impl<Y, Z, U, V> DaeSolver<Y, Z, U, V> for Verner9
+impl<Y, Z, U, V> ExplicitDaeVariableStep<Y, Z, U, V> for Verner9
 where
-    Y: Tensor,
-    Z: Tensor,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Z>,
-{
-}
-
-impl<Y, Z, U, V> VariableStepExplicitDaeSolver<Y, Z, U, V> for Verner9
-where
-    Self: DaeSolver<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,

@@ -1,12 +1,8 @@
 use crate::math::{
     Banded, Scalar, Tensor, TensorVec, Vector,
     integrate::{
-        BogackiShampine, DaeSolver, DaeSolverFirstOrderMinimize, DaeSolverFirstOrderRoot,
-        DaeSolverSecondOrderMinimize, DaeSolverZerothOrderRoot, IntegrationError,
-        VariableStepExplicitDaeSolver, VariableStepExplicitDaeSolverFirstOrderMinimize,
-        VariableStepExplicitDaeSolverFirstOrderRoot, VariableStepExplicitDaeSolverFirstSameAsLast,
-        VariableStepExplicitDaeSolverSecondOrderMinimize,
-        VariableStepExplicitDaeSolverZerothOrderRoot,
+        BogackiShampine, ExplicitDaeVariableStep, ExplicitDaeVariableStepFirstSameAsLast,
+        IntegrationError,
     },
     optimize::{
         EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, SecondOrderOptimization,
@@ -15,18 +11,9 @@ use crate::math::{
 };
 use std::ops::{Mul, Sub};
 
-impl<Y, Z, U, V> DaeSolver<Y, Z, U, V> for BogackiShampine
+impl<Y, Z, U, V> ExplicitDaeVariableStep<Y, Z, U, V> for BogackiShampine
 where
-    Y: Tensor,
-    Z: Tensor,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Z>,
-{
-}
-
-impl<Y, Z, U, V> VariableStepExplicitDaeSolver<Y, Z, U, V> for BogackiShampine
-where
-    Self: DaeSolver<Y, Z, U, V>,
+    Self: ExplicitDaeZerothOrderRoot<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
@@ -90,7 +77,7 @@ where
     }
 }
 
-impl<Y, Z, U, V> VariableStepExplicitDaeSolverFirstSameAsLast<Y, Z, U, V> for BogackiShampine
+impl<Y, Z, U, V> ExplicitDaeVariableStepFirstSameAsLast<Y, Z, U, V> for BogackiShampine
 where
     Y: Tensor,
     Z: Tensor,

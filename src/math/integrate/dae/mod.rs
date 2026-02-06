@@ -6,23 +6,12 @@ use crate::math::{
         ZerothOrderRootFinding,
     },
 };
-use std::fmt::Debug;
 
 pub mod explicit;
+// pub mod implicit;
 
-pub trait DaeSolver<Y, Z, U, V>
+pub trait ExplicitDaeZerothOrderRoot<Y, Z, U, V>
 where
-    Self: Debug,
-    Y: Tensor,
-    Z: Tensor,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Z>,
-{
-}
-
-pub trait DaeSolverZerothOrderRoot<Y, Z, U, V>
-where
-    Self: DaeSolver<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
@@ -39,24 +28,8 @@ where
     ) -> Result<(Vector, U, U, V), IntegrationError>;
 }
 
-pub trait DaeSimpleZerothOrderRoot<Y, U>
+pub trait ExplicitDaeFirstOrderRoot<F, J, Y, Z, U, V>
 where
-    Y: Tensor,
-    U: TensorVec<Item = Y>,
-{
-    fn integrate(
-        &self,
-        function: impl FnMut(Scalar, &Y, &Y) -> Result<Y, String>,
-        solver: impl ZerothOrderRootFinding<Y>,
-        time: &[Scalar],
-        initial_condition: (Y, Y),
-        equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
-    ) -> Result<(Vector, U, U), IntegrationError>;
-}
-
-pub trait DaeSolverFirstOrderRoot<F, J, Y, Z, U, V>
-where
-    Self: DaeSolver<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
@@ -75,9 +48,8 @@ where
     ) -> Result<(Vector, U, U, V), IntegrationError>;
 }
 
-pub trait DaeSolverFirstOrderMinimize<F, Y, Z, U, V>
+pub trait ExplicitDaeFirstOrderMinimize<F, Y, Z, U, V>
 where
-    Self: DaeSolver<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
@@ -96,9 +68,8 @@ where
     ) -> Result<(Vector, U, U, V), IntegrationError>;
 }
 
-pub trait DaeSolverSecondOrderMinimize<F, J, H, Y, Z, U, V>
+pub trait ExplicitDaeSecondOrderMinimize<F, J, H, Y, Z, U, V>
 where
-    Self: DaeSolver<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
@@ -117,4 +88,71 @@ where
         equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
         banded: Option<Banded>,
     ) -> Result<(Vector, U, U, V), IntegrationError>;
+}
+
+pub trait ImplicitDaeZerothOrderRoot<Y, U>
+where
+    Y: Tensor,
+    U: TensorVec<Item = Y>,
+{
+    fn integrate(
+        &self,
+        function: impl FnMut(Scalar, &Y, &Y) -> Result<Y, String>,
+        solver: impl ZerothOrderRootFinding<Y>,
+        time: &[Scalar],
+        initial_condition: (Y, Y),
+        equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
+    ) -> Result<(Vector, U, U), IntegrationError>;
+}
+
+pub trait ImplicitDaeFirstOrderRoot<F, J, Y, U>
+where
+    Y: Tensor,
+    U: TensorVec<Item = Y>,
+{
+    fn integrate(
+        &self,
+        function: impl FnMut(Scalar, &Y, &Y) -> Result<F, String>,
+        jacobian: impl FnMut(Scalar, &Y, &Y) -> Result<J, String>,
+        solver: impl FirstOrderRootFinding<F, J, Y>,
+        time: &[Scalar],
+        initial_condition: (Y, Y),
+        equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
+    ) -> Result<(Vector, U, U), IntegrationError>;
+}
+
+pub trait ImplicitDaeFirstOrderMinimize<F, Y, U>
+where
+    Y: Tensor,
+    U: TensorVec<Item = Y>,
+{
+    #[allow(clippy::too_many_arguments)]
+    fn integrate(
+        &self,
+        function: impl FnMut(Scalar, &Y, &Y) -> Result<F, String>,
+        jacobian: impl FnMut(Scalar, &Y, &Y) -> Result<Y, String>,
+        solver: impl FirstOrderOptimization<F, Y>,
+        time: &[Scalar],
+        initial_condition: (Y, Y),
+        equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
+    ) -> Result<(Vector, U, U), IntegrationError>;
+}
+
+pub trait ImplicitDaeSecondOrderMinimize<F, J, H, Y, U>
+where
+    Y: Tensor,
+    U: TensorVec<Item = Y>,
+{
+    #[allow(clippy::too_many_arguments)]
+    fn integrate(
+        &self,
+        function: impl FnMut(Scalar, &Y, &Y) -> Result<F, String>,
+        jacobian: impl FnMut(Scalar, &Y, &Y) -> Result<J, String>,
+        hessian: impl FnMut(Scalar, &Y, &Y) -> Result<H, String>,
+        solver: impl SecondOrderOptimization<F, J, H, Y>,
+        time: &[Scalar],
+        initial_condition: (Y, Y),
+        equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
+        banded: Option<Banded>,
+    ) -> Result<(Vector, U, U), IntegrationError>;
 }

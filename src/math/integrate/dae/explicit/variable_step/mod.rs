@@ -1,6 +1,6 @@
 use crate::math::{
     Banded, Scalar, Tensor, TensorVec, Vector, assert_eq_within_tols,
-    integrate::{DaeSolver, IntegrationError, VariableStepExplicit},
+    integrate::{IntegrationError, VariableStepExplicit},
     optimize::{
         EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, SecondOrderOptimization,
         ZerothOrderRootFinding,
@@ -13,9 +13,9 @@ pub mod dormand_prince;
 pub mod verner_8;
 pub mod verner_9;
 
-pub trait VariableStepExplicitDaeSolver<Y, Z, U, V>
+pub trait ExplicitDaeVariableStep<Y, Z, U, V>
 where
-    Self: DaeSolver<Y, Z, U, V> + VariableStepExplicit<Y, U>,
+    Self: VariableStepExplicit<Y, U>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
@@ -245,9 +245,9 @@ where
     }
 }
 
-pub trait VariableStepExplicitDaeSolverFirstSameAsLast<Y, Z, U, V>
+pub trait ExplicitDaeVariableStepFirstSameAsLast<Y, Z, U, V>
 where
-    Self: VariableStepExplicitDaeSolver<Y, Z, U, V>,
+    Self: ExplicitDaeVariableStep<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
@@ -311,16 +311,16 @@ where
     }
 }
 
-pub trait VariableStepExplicitDaeSolverZerothOrderRoot<Y, Z, U, V>
+pub trait ExplicitDaeVariableStepExplicitZerothOrderRoot<Y, Z, U, V>
 where
-    Self: DaeSolver<Y, Z, U, V> + VariableStepExplicitDaeSolver<Y, Z, U, V>,
+    Self: ExplicitDaeVariableStep<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
 {
-    fn integrate_dae_variable_step_root_0(
+    fn integrate_explicit_dae_variable_step_explicit_root_0(
         &self,
         evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
         mut function: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
@@ -336,36 +336,9 @@ where
     }
 }
 
-pub trait VariableStepExplicitDaeSimpleZerothOrderRoot<Y, U>
+pub trait ExplicitDaeVariableStepExplicitFirstOrderRoot<F, J, Y, Z, U, V>
 where
-    Self: VariableStepExplicit<Y, U>,
-    Y: Tensor,
-    U: TensorVec<Item = Y>,
-    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
-{
-    fn integrate_gen_variable_step_root_0(
-        &self,
-        mut function: impl FnMut(Scalar, &Y, &Y) -> Result<Y, String>,
-        solver: impl ZerothOrderRootFinding<Y>,
-        time: &[Scalar],
-        initial_condition: (Y, Y),
-        mut equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
-    ) -> Result<(Vector, U, U), IntegrationError> {
-        let (y_0, dydt_0) = initial_condition;
-        let evolution = |t: Scalar, y: &Y| -> Result<Y, String> {
-            Ok(solver.root(
-                |dydt| function(t, y, dydt),
-                dydt_0.clone(),
-                equality_constraint(t),
-            )?)
-        };
-        self.integrate(evolution, time, y_0)
-    }
-}
-
-pub trait VariableStepExplicitDaeSolverFirstOrderRoot<F, J, Y, Z, U, V>
-where
-    Self: DaeSolver<Y, Z, U, V> + VariableStepExplicitDaeSolver<Y, Z, U, V>,
+    Self: ExplicitDaeVariableStep<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
@@ -373,7 +346,7 @@ where
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
 {
     #[allow(clippy::too_many_arguments)]
-    fn integrate_dae_variable_step_root_1(
+    fn integrate_explicit_dae_variable_step_explicit_root_1(
         &self,
         evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
         mut function: impl FnMut(Scalar, &Y, &Z) -> Result<F, String>,
@@ -395,9 +368,9 @@ where
     }
 }
 
-pub trait VariableStepExplicitDaeSolverFirstOrderMinimize<F, Y, Z, U, V>
+pub trait ExplicitDaeVariableStepExplicitFirstOrderMinimize<F, Y, Z, U, V>
 where
-    Self: DaeSolver<Y, Z, U, V> + VariableStepExplicitDaeSolver<Y, Z, U, V>,
+    Self: ExplicitDaeVariableStep<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
@@ -405,7 +378,7 @@ where
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
 {
     #[allow(clippy::too_many_arguments)]
-    fn integrate_dae_variable_step_minimize_1(
+    fn integrate_explicit_dae_variable_step_explicit_minimize_1(
         &self,
         evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
         mut function: impl FnMut(Scalar, &Y, &Z) -> Result<F, String>,
@@ -427,9 +400,9 @@ where
     }
 }
 
-pub trait VariableStepExplicitDaeSolverSecondOrderMinimize<F, J, H, Y, Z, U, V>
+pub trait ExplicitDaeVariableStepExplicitSecondOrderMinimize<F, J, H, Y, Z, U, V>
 where
-    Self: DaeSolver<Y, Z, U, V> + VariableStepExplicitDaeSolver<Y, Z, U, V>,
+    Self: ExplicitDaeVariableStep<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
@@ -437,7 +410,7 @@ where
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
 {
     #[allow(clippy::too_many_arguments)]
-    fn integrate_dae_variable_step_minimize_2(
+    fn integrate_explicit_dae_variable_step_explicit_minimize_2(
         &self,
         evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
         mut function: impl FnMut(Scalar, &Y, &Z) -> Result<F, String>,
@@ -463,9 +436,153 @@ where
     }
 }
 
+pub trait ImplicitDaeVariableStepExplicitZerothOrderRoot<Y, U>
+where
+    Self: VariableStepExplicit<Y, U>,
+    Y: Tensor,
+    U: TensorVec<Item = Y>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+{
+    fn integrate_implicit_dae_variable_step_explicit_root_0(
+        &self,
+        mut function: impl FnMut(Scalar, &Y, &Y) -> Result<Y, String>,
+        solver: impl ZerothOrderRootFinding<Y>,
+        time: &[Scalar],
+        initial_condition: (Y, Y),
+        mut equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
+    ) -> Result<(Vector, U, U), IntegrationError> {
+        //
+        // NEED TO RE-IMPLEMENT SO PREVIOUS SOLUTION IS USED AS THE NEXT GUESS
+        //
+        let (y_0, dydt_0) = initial_condition;
+        let evolution = |t: Scalar, y: &Y| -> Result<Y, String> {
+            Ok(solver.root(
+                |dydt| function(t, y, dydt),
+                dydt_0.clone(),
+                equality_constraint(t),
+            )?)
+        };
+        self.integrate(evolution, time, y_0)
+    }
+}
+
+pub trait ImplicitDaeVariableStepExplicitFirstOrderRoot<F, J, Y, U>
+where
+    Self: VariableStepExplicit<Y, U>,
+    Y: Tensor,
+    U: TensorVec<Item = Y>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+{
+    fn integrate_implicit_dae_variable_step_explicit_root_1(
+        &self,
+        mut function: impl FnMut(Scalar, &Y, &Y) -> Result<F, String>,
+        mut jacobian: impl FnMut(Scalar, &Y, &Y) -> Result<J, String>,
+        solver: impl FirstOrderRootFinding<F, J, Y>,
+        time: &[Scalar],
+        initial_condition: (Y, Y),
+        mut equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
+    ) -> Result<(Vector, U, U), IntegrationError> {
+        //
+        // NEED TO RE-IMPLEMENT SO PREVIOUS SOLUTION IS USED AS THE NEXT GUESS
+        //
+        let (y_0, dydt_0) = initial_condition;
+        let evolution = |t: Scalar, y: &Y| -> Result<Y, String> {
+            Ok(solver.root(
+                |dydt| function(t, y, dydt),
+                |dydt| jacobian(t, y, dydt),
+                dydt_0.clone(),
+                equality_constraint(t),
+            )?)
+        };
+        self.integrate(evolution, time, y_0)
+    }
+}
+
+pub trait ImplicitDaeVariableStepExplicitFirstOrderMinimize<F, Y, U>
+where
+    Self: VariableStepExplicit<Y, U>,
+    Y: Tensor,
+    U: TensorVec<Item = Y>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+{
+    #[allow(clippy::too_many_arguments)]
+    fn integrate_implicit_dae_variable_step_explicit_minimize_1(
+        &self,
+        mut function: impl FnMut(Scalar, &Y, &Y) -> Result<F, String>,
+        mut jacobian: impl FnMut(Scalar, &Y, &Y) -> Result<Y, String>,
+        solver: impl FirstOrderOptimization<F, Y>,
+        time: &[Scalar],
+        initial_condition: (Y, Y),
+        mut equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
+    ) -> Result<(Vector, U, U), IntegrationError> {
+        //
+        // NEED TO RE-IMPLEMENT SO PREVIOUS SOLUTION IS USED AS THE NEXT GUESS
+        //
+        let (y_0, dydt_0) = initial_condition;
+        let evolution = |t: Scalar, y: &Y| -> Result<Y, String> {
+            Ok(solver.minimize(
+                |dydt| function(t, y, dydt),
+                |dydt| jacobian(t, y, dydt),
+                dydt_0.clone(),
+                equality_constraint(t),
+            )?)
+        };
+        self.integrate(evolution, time, y_0)
+    }
+}
+
+pub trait ImplicitDaeVariableStepExplicitSecondOrderMinimize<F, J, H, Y, U>
+where
+    Self: VariableStepExplicit<Y, U>,
+    Y: Tensor,
+    U: TensorVec<Item = Y>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+{
+    #[allow(clippy::too_many_arguments)]
+    fn integrate_implicit_dae_variable_step_explicit_minimize_2(
+        &self,
+        mut function: impl FnMut(Scalar, &Y, &Y) -> Result<F, String>,
+        mut jacobian: impl FnMut(Scalar, &Y, &Y) -> Result<J, String>,
+        mut hessian: impl FnMut(Scalar, &Y, &Y) -> Result<H, String>,
+        solver: impl SecondOrderOptimization<F, J, H, Y>,
+        time: &[Scalar],
+        initial_condition: (Y, Y),
+        mut equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
+        banded: Option<Banded>,
+    ) -> Result<(Vector, U, U), IntegrationError> {
+        //
+        // NEED TO RE-IMPLEMENT SO PREVIOUS SOLUTION IS USED AS THE NEXT GUESS
+        //
+        let (y_0, dydt_0) = initial_condition;
+        let evolution = |t: Scalar, y: &Y| -> Result<Y, String> {
+            Ok(solver.minimize(
+                |dydt| function(t, y, dydt),
+                |dydt| jacobian(t, y, dydt),
+                |dydt| hessian(t, y, dydt),
+                dydt_0.clone(),
+                equality_constraint(t),
+                banded.clone(),
+            )?)
+        };
+        self.integrate(evolution, time, y_0)
+    }
+}
+
 macro_rules! implement_solvers {
     ($integrator:ident) => {
-        impl<Y, Z, U, V> DaeSolverZerothOrderRoot<Y, Z, U, V> for $integrator
+        use crate::math::integrate::{
+            ExplicitDaeFirstOrderMinimize, ExplicitDaeFirstOrderRoot,
+            ExplicitDaeSecondOrderMinimize, ExplicitDaeVariableStepExplicitFirstOrderMinimize,
+            ExplicitDaeVariableStepExplicitFirstOrderRoot,
+            ExplicitDaeVariableStepExplicitSecondOrderMinimize,
+            ExplicitDaeVariableStepExplicitZerothOrderRoot, ExplicitDaeZerothOrderRoot,
+            ImplicitDaeFirstOrderMinimize, ImplicitDaeFirstOrderRoot,
+            ImplicitDaeSecondOrderMinimize, ImplicitDaeVariableStepExplicitFirstOrderMinimize,
+            ImplicitDaeVariableStepExplicitFirstOrderRoot,
+            ImplicitDaeVariableStepExplicitSecondOrderMinimize,
+            ImplicitDaeVariableStepExplicitZerothOrderRoot, ImplicitDaeZerothOrderRoot,
+        };
+        impl<Y, Z, U, V> ExplicitDaeZerothOrderRoot<Y, Z, U, V> for $integrator
         where
             Y: Tensor,
             Z: Tensor,
@@ -482,7 +599,7 @@ macro_rules! implement_solvers {
                 initial_condition: (Y, Z),
                 equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
             ) -> Result<(Vector, U, U, V), IntegrationError> {
-                self.integrate_dae_variable_step_root_0(
+                self.integrate_explicit_dae_variable_step_explicit_root_0(
                     evolution,
                     function,
                     solver,
@@ -492,7 +609,7 @@ macro_rules! implement_solvers {
                 )
             }
         }
-        impl<Y, Z, U, V> VariableStepExplicitDaeSolverZerothOrderRoot<Y, Z, U, V> for $integrator
+        impl<Y, Z, U, V> ExplicitDaeVariableStepExplicitZerothOrderRoot<Y, Z, U, V> for $integrator
         where
             Y: Tensor,
             Z: Tensor,
@@ -501,42 +618,7 @@ macro_rules! implement_solvers {
             for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
         {
         }
-        use crate::math::integrate::{
-            DaeSimpleZerothOrderRoot,
-            VariableStepExplicitDaeSimpleZerothOrderRoot
-        }; // temporary placement of this import
-        impl<Y, U> DaeSimpleZerothOrderRoot<Y, U> for $integrator
-        where
-            Y: Tensor,
-            U: TensorVec<Item = Y>,
-            for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
-        {
-            fn integrate(
-                &self,
-                function: impl FnMut(Scalar, &Y, &Y) -> Result<Y, String>,
-                solver: impl ZerothOrderRootFinding<Y>,
-                time: &[Scalar],
-                initial_condition: (Y, Y),
-                equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
-            ) -> Result<(Vector, U, U), IntegrationError> {
-                self.integrate_gen_variable_step_root_0(
-                    function,
-                    solver,
-                    time,
-                    initial_condition,
-                    equality_constraint,
-                )
-            }
-        }
-        impl<Y, U> VariableStepExplicitDaeSimpleZerothOrderRoot<Y, U>
-            for $integrator
-        where
-            Y: Tensor,
-            U: TensorVec<Item = Y>,
-            for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
-        {
-        }
-        impl<F, J, Y, Z, U, V> DaeSolverFirstOrderRoot<F, J, Y, Z, U, V> for $integrator
+        impl<F, J, Y, Z, U, V> ExplicitDaeFirstOrderRoot<F, J, Y, Z, U, V> for $integrator
         where
             Y: Tensor,
             Z: Tensor,
@@ -554,7 +636,7 @@ macro_rules! implement_solvers {
                 initial_condition: (Y, Z),
                 equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
             ) -> Result<(Vector, U, U, V), IntegrationError> {
-                self.integrate_dae_variable_step_root_1(
+                self.integrate_explicit_dae_variable_step_explicit_root_1(
                     evolution,
                     function,
                     jacobian,
@@ -565,7 +647,7 @@ macro_rules! implement_solvers {
                 )
             }
         }
-        impl<F, J, Y, Z, U, V> VariableStepExplicitDaeSolverFirstOrderRoot<F, J, Y, Z, U, V>
+        impl<F, J, Y, Z, U, V> ExplicitDaeVariableStepExplicitFirstOrderRoot<F, J, Y, Z, U, V>
             for $integrator
         where
             Y: Tensor,
@@ -575,7 +657,7 @@ macro_rules! implement_solvers {
             for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
         {
         }
-        impl<F, Y, Z, U, V> DaeSolverFirstOrderMinimize<F, Y, Z, U, V> for $integrator
+        impl<F, Y, Z, U, V> ExplicitDaeFirstOrderMinimize<F, Y, Z, U, V> for $integrator
         where
             Y: Tensor,
             Z: Tensor,
@@ -593,7 +675,7 @@ macro_rules! implement_solvers {
                 initial_condition: (Y, Z),
                 equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
             ) -> Result<(Vector, U, U, V), IntegrationError> {
-                self.integrate_dae_variable_step_minimize_1(
+                self.integrate_explicit_dae_variable_step_explicit_minimize_1(
                     evolution,
                     function,
                     jacobian,
@@ -604,7 +686,7 @@ macro_rules! implement_solvers {
                 )
             }
         }
-        impl<F, Y, Z, U, V> VariableStepExplicitDaeSolverFirstOrderMinimize<F, Y, Z, U, V>
+        impl<F, Y, Z, U, V> ExplicitDaeVariableStepExplicitFirstOrderMinimize<F, Y, Z, U, V>
             for $integrator
         where
             Y: Tensor,
@@ -614,7 +696,8 @@ macro_rules! implement_solvers {
             for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
         {
         }
-        impl<F, J, H, Y, Z, U, V> DaeSolverSecondOrderMinimize<F, J, H, Y, Z, U, V> for $integrator
+        impl<F, J, H, Y, Z, U, V> ExplicitDaeSecondOrderMinimize<F, J, H, Y, Z, U, V>
+            for $integrator
         where
             Y: Tensor,
             Z: Tensor,
@@ -634,7 +717,7 @@ macro_rules! implement_solvers {
                 equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
                 banded: Option<Banded>,
             ) -> Result<(Vector, U, U, V), IntegrationError> {
-                self.integrate_dae_variable_step_minimize_2(
+                self.integrate_explicit_dae_variable_step_explicit_minimize_2(
                     evolution,
                     function,
                     jacobian,
@@ -648,12 +731,143 @@ macro_rules! implement_solvers {
             }
         }
         impl<F, J, H, Y, Z, U, V>
-            VariableStepExplicitDaeSolverSecondOrderMinimize<F, J, H, Y, Z, U, V> for $integrator
+            ExplicitDaeVariableStepExplicitSecondOrderMinimize<F, J, H, Y, Z, U, V> for $integrator
         where
             Y: Tensor,
             Z: Tensor,
             U: TensorVec<Item = Y>,
             V: TensorVec<Item = Z>,
+            for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+        {
+        }
+        impl<Y, U> ImplicitDaeZerothOrderRoot<Y, U> for $integrator
+        where
+            Y: Tensor,
+            U: TensorVec<Item = Y>,
+            for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+        {
+            fn integrate(
+                &self,
+                function: impl FnMut(Scalar, &Y, &Y) -> Result<Y, String>,
+                solver: impl ZerothOrderRootFinding<Y>,
+                time: &[Scalar],
+                initial_condition: (Y, Y),
+                equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
+            ) -> Result<(Vector, U, U), IntegrationError> {
+                self.integrate_implicit_dae_variable_step_explicit_root_0(
+                    function,
+                    solver,
+                    time,
+                    initial_condition,
+                    equality_constraint,
+                )
+            }
+        }
+        impl<Y, U> ImplicitDaeVariableStepExplicitZerothOrderRoot<Y, U> for $integrator
+        where
+            Y: Tensor,
+            U: TensorVec<Item = Y>,
+            for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+        {
+        }
+        impl<F, J, Y, U> ImplicitDaeFirstOrderRoot<F, J, Y, U> for $integrator
+        where
+            Y: Tensor,
+            U: TensorVec<Item = Y>,
+            for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+        {
+            fn integrate(
+                &self,
+                function: impl FnMut(Scalar, &Y, &Y) -> Result<F, String>,
+                jacobian: impl FnMut(Scalar, &Y, &Y) -> Result<J, String>,
+                solver: impl FirstOrderRootFinding<F, J, Y>,
+                time: &[Scalar],
+                initial_condition: (Y, Y),
+                equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
+            ) -> Result<(Vector, U, U), IntegrationError> {
+                self.integrate_implicit_dae_variable_step_explicit_root_1(
+                    function,
+                    jacobian,
+                    solver,
+                    time,
+                    initial_condition,
+                    equality_constraint,
+                )
+            }
+        }
+        impl<F, J, Y, U> ImplicitDaeVariableStepExplicitFirstOrderRoot<F, J, Y, U> for $integrator
+        where
+            Y: Tensor,
+            U: TensorVec<Item = Y>,
+            for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+        {
+        }
+        impl<F, Y, U> ImplicitDaeFirstOrderMinimize<F, Y, U> for $integrator
+        where
+            Y: Tensor,
+            U: TensorVec<Item = Y>,
+            for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+        {
+            fn integrate(
+                &self,
+                function: impl FnMut(Scalar, &Y, &Y) -> Result<F, String>,
+                jacobian: impl FnMut(Scalar, &Y, &Y) -> Result<Y, String>,
+                solver: impl FirstOrderOptimization<F, Y>,
+                time: &[Scalar],
+                initial_condition: (Y, Y),
+                equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
+            ) -> Result<(Vector, U, U), IntegrationError> {
+                self.integrate_implicit_dae_variable_step_explicit_minimize_1(
+                    function,
+                    jacobian,
+                    solver,
+                    time,
+                    initial_condition,
+                    equality_constraint,
+                )
+            }
+        }
+        impl<F, Y, U> ImplicitDaeVariableStepExplicitFirstOrderMinimize<F, Y, U> for $integrator
+        where
+            Y: Tensor,
+            U: TensorVec<Item = Y>,
+            for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+        {
+        }
+        impl<F, J, H, Y, U> ImplicitDaeSecondOrderMinimize<F, J, H, Y, U> for $integrator
+        where
+            Y: Tensor,
+            U: TensorVec<Item = Y>,
+            for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+        {
+            fn integrate(
+                &self,
+                function: impl FnMut(Scalar, &Y, &Y) -> Result<F, String>,
+                jacobian: impl FnMut(Scalar, &Y, &Y) -> Result<J, String>,
+                hessian: impl FnMut(Scalar, &Y, &Y) -> Result<H, String>,
+                solver: impl SecondOrderOptimization<F, J, H, Y>,
+                time: &[Scalar],
+                initial_condition: (Y, Y),
+                equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
+                banded: Option<Banded>,
+            ) -> Result<(Vector, U, U), IntegrationError> {
+                self.integrate_implicit_dae_variable_step_explicit_minimize_2(
+                    function,
+                    jacobian,
+                    hessian,
+                    solver,
+                    time,
+                    initial_condition,
+                    equality_constraint,
+                    banded,
+                )
+            }
+        }
+        impl<F, J, H, Y, U> ImplicitDaeVariableStepExplicitSecondOrderMinimize<F, J, H, Y, U>
+            for $integrator
+        where
+            Y: Tensor,
+            U: TensorVec<Item = Y>,
             for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
         {
         }
