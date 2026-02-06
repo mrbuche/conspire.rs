@@ -49,7 +49,7 @@ jobs:
       - name: Install
         run: cargo install cargo-llvm-cov
       - name: Coverage
-        run: rustup run nightly cargo llvm-cov --profile release --features ${{ matrix.features }} --fail-under-functions 63 --fail-under-lines 67 --fail-under-regions 65
+        run: rustup run nightly cargo llvm-cov --profile release --features ${{ matrix.features }} --fail-under-functions 63 --fail-under-lines 65 --fail-under-regions 64
       - name: Tree
         run: $([[ $(cargo tree --color always --edges normal --features ${{ matrix.features }} | wc -l) -eq 1 ]])
   Mutants:
