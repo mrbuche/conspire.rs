@@ -4,8 +4,24 @@ pub mod doc;
 #[cfg(test)]
 mod test;
 
+mod dae;
 mod ode;
 
+pub use dae::{
+    ExplicitDaeFirstOrderMinimize, ExplicitDaeFirstOrderRoot, ExplicitDaeSecondOrderMinimize,
+    ExplicitDaeZerothOrderRoot, ImplicitDaeFirstOrderMinimize, ImplicitDaeFirstOrderRoot,
+    ImplicitDaeSecondOrderMinimize, ImplicitDaeZerothOrderRoot,
+    explicit::variable_step::{
+        ExplicitDaeVariableStep, ExplicitDaeVariableStepExplicitFirstOrderMinimize,
+        ExplicitDaeVariableStepExplicitFirstOrderRoot,
+        ExplicitDaeVariableStepExplicitSecondOrderMinimize,
+        ExplicitDaeVariableStepExplicitZerothOrderRoot, ExplicitDaeVariableStepFirstSameAsLast,
+        ImplicitDaeVariableStep, ImplicitDaeVariableStepExplicitFirstOrderMinimize,
+        ImplicitDaeVariableStepExplicitFirstOrderRoot,
+        ImplicitDaeVariableStepExplicitSecondOrderMinimize,
+        ImplicitDaeVariableStepExplicitZerothOrderRoot,
+    },
+};
 pub use ode::{
     FixedStep, OdeSolver, VariableStep,
     explicit::{
@@ -15,16 +31,11 @@ pub use ode::{
             dormand_prince::DormandPrince as DormandPrinceFixedStep, euler::Euler, heun::Heun,
             midpoint::Midpoint, ralston::Ralston,
         },
-        internal_variables::ExplicitInternalVariables,
         variable_step::{
             VariableStepExplicit,
             VariableStepExplicitFirstSameAsLast,
             bogacki_shampine::BogackiShampine,
             dormand_prince::DormandPrince,
-            internal_variables::{
-                VariableStepExplicitInternalVariables,
-                VariableStepExplicitInternalVariablesFirstSameAsLast,
-            },
             // heun_euler::HeunEuler,
             // midpoint_euler::MidpointEuler,
             // ralston_euler::RalstonEuler,

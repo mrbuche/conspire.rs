@@ -34,27 +34,6 @@ where
     ) -> Result<(U, U), IntegrationError>;
 }
 
-/// Solution interpolation schemes with internal variables.
-pub trait InterpolateSolutionInternalVariables<Y, Z, U, V>
-where
-    Y: Tensor,
-    Z: Tensor,
-    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Z>,
-{
-    /// Solution interpolation with internal variables.
-    fn interpolate_and_evaluate(
-        &self,
-        time: &Vector,
-        tp: &Vector,
-        yp: &U,
-        zp: &V,
-        function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
-    ) -> Result<(U, U, V), IntegrationError>;
-}
-
 impl<F, T> Interpolate1D<F, T> for LinearInterpolation
 where
     F: TensorVec<Item = T>,

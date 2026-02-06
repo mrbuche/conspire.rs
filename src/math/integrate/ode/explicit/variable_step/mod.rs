@@ -8,8 +8,6 @@ use crate::math::{
 };
 use std::ops::{Mul, Sub};
 
-pub mod internal_variables;
-
 pub mod bogacki_shampine;
 pub mod dormand_prince;
 pub mod verner_8;

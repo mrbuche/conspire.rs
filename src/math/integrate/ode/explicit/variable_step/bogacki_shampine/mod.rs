@@ -4,12 +4,10 @@ mod test;
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
     integrate::{
-        Explicit, ExplicitInternalVariables, IntegrationError, OdeSolver, VariableStep,
-        VariableStepExplicit, VariableStepExplicitFirstSameAsLast,
-        VariableStepExplicitInternalVariables,
-        VariableStepExplicitInternalVariablesFirstSameAsLast,
+        Explicit, IntegrationError, OdeSolver, VariableStep, VariableStepExplicit,
+        VariableStepExplicitFirstSameAsLast,
     },
-    interpolate::{InterpolateSolution, InterpolateSolutionInternalVariables},
+    interpolate::InterpolateSolution,
 };
 use crate::{ABS_TOL, REL_TOL};
 use std::ops::{Mul, Sub};
@@ -170,129 +168,5 @@ where
         function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
     ) -> Result<(U, U), IntegrationError> {
         Self::interpolate_variable_step(time, tp, yp, function)
-    }
-}
-
-impl<Y, Z, U, V> ExplicitInternalVariables<Y, Z, U, V> for BogackiShampine
-where
-    Y: Tensor,
-    Z: Tensor,
-    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Z>,
-{
-    fn integrate_and_evaluate(
-        &self,
-        function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
-        time: &[Scalar],
-        initial_condition: Y,
-        initial_evaluation: Z,
-    ) -> Result<(Vector, U, U, V), IntegrationError> {
-        self.integrate_and_evaluate_variable_step(
-            function,
-            evaluate,
-            time,
-            initial_condition,
-            initial_evaluation,
-        )
-    }
-}
-
-impl<Y, Z, U, V> VariableStepExplicitInternalVariables<Y, Z, U, V> for BogackiShampine
-where
-    Self: ExplicitInternalVariables<Y, Z, U, V>,
-    Y: Tensor,
-    Z: Tensor,
-    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Z>,
-{
-    fn slopes_and_eval(
-        mut function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        mut evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
-        y: &Y,
-        z: &Z,
-        t: Scalar,
-        dt: Scalar,
-        k: &mut [Y],
-        y_trial: &mut Y,
-        z_trial: &mut Z,
-    ) -> Result<(), String> {
-        *y_trial = &k[0] * (0.5 * dt) + y;
-        *z_trial = evaluate(t + 0.5 * dt, y_trial, z)?;
-        k[1] = function(t + 0.5 * dt, y_trial, z_trial)?;
-        *y_trial = &k[1] * (0.75 * dt) + y;
-        *z_trial = evaluate(t + 0.75 * dt, y_trial, z_trial)?;
-        k[2] = function(t + 0.75 * dt, y_trial, z_trial)?;
-        *y_trial = (&k[0] * 2.0 + &k[1] * 3.0 + &k[2] * 4.0) * (dt / 9.0) + y;
-        *z_trial = evaluate(t + dt, y_trial, z_trial)?;
-        Ok(())
-    }
-    fn slopes_and_eval_and_error(
-        &self,
-        function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
-        y: &Y,
-        z: &Z,
-        t: Scalar,
-        dt: Scalar,
-        k: &mut [Y],
-        y_trial: &mut Y,
-        z_trial: &mut Z,
-    ) -> Result<Scalar, String> {
-        Self::slopes_and_eval_and_error_fsal(function, evaluate, y, z, t, dt, k, y_trial, z_trial)
-    }
-    fn step_and_eval(
-        &self,
-        _function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        y: &mut Y,
-        z: &mut Z,
-        t: &mut Scalar,
-        y_sol: &mut U,
-        z_sol: &mut V,
-        t_sol: &mut Vector,
-        dydt_sol: &mut U,
-        dt: &mut Scalar,
-        k: &mut [Y],
-        y_trial: &Y,
-        z_trial: &Z,
-        e: Scalar,
-    ) -> Result<(), String> {
-        self.step_and_eval_fsal(
-            y, z, t, y_sol, z_sol, t_sol, dydt_sol, dt, k, y_trial, z_trial, e,
-        )
-    }
-}
-
-impl<Y, Z, U, V> VariableStepExplicitInternalVariablesFirstSameAsLast<Y, Z, U, V>
-    for BogackiShampine
-where
-    Y: Tensor,
-    Z: Tensor,
-    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Z>,
-{
-}
-
-impl<Y, Z, U, V> InterpolateSolutionInternalVariables<Y, Z, U, V> for BogackiShampine
-where
-    Y: Tensor,
-    Z: Tensor,
-    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Z>,
-{
-    fn interpolate_and_evaluate(
-        &self,
-        time: &Vector,
-        tp: &Vector,
-        yp: &U,
-        zp: &V,
-        function: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        evaluate: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
-    ) -> Result<(U, U, V), IntegrationError> {
-        Self::interpolate_and_evaluate_variable_step(time, tp, yp, zp, function, evaluate)
     }
 }

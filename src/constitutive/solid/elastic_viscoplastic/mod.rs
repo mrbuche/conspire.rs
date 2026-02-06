@@ -5,10 +5,8 @@ use crate::{
     math::{
         ContractFirstSecondIndicesWithSecondIndicesOf, ContractSecondIndexWithFirstIndexOf,
         IDENTITY, Matrix, Rank2, TensorArray, TensorTuple, TensorTupleVec, Vector,
-        integrate::ExplicitInternalVariables,
-        optimize::{
-            EqualityConstraint, FirstOrderRootFinding, OptimizationError, ZerothOrderRootFinding,
-        },
+        integrate::{ExplicitDaeFirstOrderRoot, ExplicitDaeZerothOrderRoot},
+        optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient,
@@ -205,7 +203,7 @@ pub trait ZerothOrderRoot {
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ExplicitInternalVariables<
+        integrator: impl ExplicitDaeZerothOrderRoot<
             StateVariables,
             DeformationGradient,
             StateVariablesHistory,
@@ -213,14 +211,6 @@ pub trait ZerothOrderRoot {
         >,
         solver: impl ZerothOrderRootFinding<DeformationGradient>,
     ) -> Result<(Times, DeformationGradients, StateVariablesHistory), ConstitutiveError>;
-    #[doc(hidden)]
-    fn root_inner_0(
-        &self,
-        deformation_gradient_p: &DeformationGradientPlastic,
-        equality_constraint: EqualityConstraint,
-        solver: &impl ZerothOrderRootFinding<DeformationGradient>,
-        initial_guess: &DeformationGradient,
-    ) -> Result<DeformationGradient, OptimizationError>;
 }
 
 /// First-order root-finding methods for elastic-viscoplastic solid constitutive models.
@@ -233,7 +223,9 @@ pub trait FirstOrderRoot {
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ExplicitInternalVariables<
+        integrator: impl ExplicitDaeFirstOrderRoot<
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
             StateVariables,
             DeformationGradient,
             StateVariablesHistory,
@@ -245,18 +237,6 @@ pub trait FirstOrderRoot {
             DeformationGradient,
         >,
     ) -> Result<(Times, DeformationGradients, StateVariablesHistory), ConstitutiveError>;
-    #[doc(hidden)]
-    fn root_inner_1(
-        &self,
-        deformation_gradient_p: &DeformationGradientPlastic,
-        equality_constraint: EqualityConstraint,
-        solver: &impl FirstOrderRootFinding<
-            FirstPiolaKirchhoffStress,
-            FirstPiolaKirchhoffTangentStiffness,
-            DeformationGradient,
-        >,
-        initial_guess: &DeformationGradient,
-    ) -> Result<DeformationGradient, OptimizationError>;
 }
 
 impl<T> ZerothOrderRoot for T
@@ -266,7 +246,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ExplicitInternalVariables<
+        integrator: impl ExplicitDaeZerothOrderRoot<
             StateVariables,
             DeformationGradient,
             StateVariablesHistory,
@@ -282,30 +262,34 @@ where
                 matrix[1][1] = 1.0;
                 matrix[2][2] = 1.0;
                 matrix[3][5] = 1.0;
-                integrator.integrate_and_evaluate(
+                integrator.integrate(
                     |_: Scalar,
                      state_variables: &StateVariables,
                      deformation_gradient: &DeformationGradient| {
                         Ok(self.state_variables_evolution(deformation_gradient, state_variables)?)
                     },
-                    |t: Scalar,
+                    |_: Scalar,
                      state_variables: &StateVariables,
                      deformation_gradient: &DeformationGradient| {
                         let (deformation_gradient_p, _) = state_variables.into();
-                        vector[0] = deformation_gradient_11(t);
-                        Ok(self.root_inner_0(
-                            deformation_gradient_p,
-                            EqualityConstraint::Linear(matrix.clone(), vector.clone()),
-                            &solver,
+                        Ok(self.first_piola_kirchhoff_stress(
                             deformation_gradient,
+                            deformation_gradient_p,
                         )?)
                     },
+                    solver,
                     time,
-                    StateVariables::from((
-                        DeformationGradientPlastic::identity(),
-                        self.initial_yield_stress(),
-                    )),
-                    DeformationGradient::identity(),
+                    (
+                        StateVariables::from((
+                            DeformationGradientPlastic::identity(),
+                            self.initial_yield_stress(),
+                        )),
+                        DeformationGradient::identity(),
+                    ),
+                    |t: Scalar| {
+                        vector[0] = deformation_gradient_11(t);
+                        EqualityConstraint::Linear(matrix.clone(), vector.clone())
+                    },
                 )
             }
         } {
@@ -318,23 +302,6 @@ where
             )),
         }
     }
-    #[doc(hidden)]
-    fn root_inner_0(
-        &self,
-        deformation_gradient_p: &DeformationGradientPlastic,
-        equality_constraint: EqualityConstraint,
-        solver: &impl ZerothOrderRootFinding<DeformationGradient>,
-        initial_guess: &DeformationGradient,
-    ) -> Result<DeformationGradient, OptimizationError> {
-        solver.root(
-            |deformation_gradient: &DeformationGradient| {
-                Ok(self
-                    .first_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_p)?)
-            },
-            initial_guess.clone(),
-            equality_constraint,
-        )
-    }
 }
 
 impl<T> FirstOrderRoot for T
@@ -344,7 +311,9 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ExplicitInternalVariables<
+        integrator: impl ExplicitDaeFirstOrderRoot<
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
             StateVariables,
             DeformationGradient,
             StateVariablesHistory,
@@ -364,30 +333,43 @@ where
                 matrix[1][1] = 1.0;
                 matrix[2][2] = 1.0;
                 matrix[3][5] = 1.0;
-                integrator.integrate_and_evaluate(
+                integrator.integrate(
                     |_: Scalar,
                      state_variables: &StateVariables,
                      deformation_gradient: &DeformationGradient| {
                         Ok(self.state_variables_evolution(deformation_gradient, state_variables)?)
                     },
-                    |t: Scalar,
+                    |_: Scalar,
                      state_variables: &StateVariables,
                      deformation_gradient: &DeformationGradient| {
                         let (deformation_gradient_p, _) = state_variables.into();
-                        vector[0] = deformation_gradient_11(t);
-                        Ok(self.root_inner_1(
-                            deformation_gradient_p,
-                            EqualityConstraint::Linear(matrix.clone(), vector.clone()),
-                            &solver,
+                        Ok(self.first_piola_kirchhoff_stress(
                             deformation_gradient,
+                            deformation_gradient_p,
                         )?)
                     },
+                    |_: Scalar,
+                     state_variables: &StateVariables,
+                     deformation_gradient: &DeformationGradient| {
+                        let (deformation_gradient_p, _) = state_variables.into();
+                        Ok(self.first_piola_kirchhoff_tangent_stiffness(
+                            deformation_gradient,
+                            deformation_gradient_p,
+                        )?)
+                    },
+                    solver,
                     time,
-                    StateVariables::from((
-                        DeformationGradientPlastic::identity(),
-                        self.initial_yield_stress(),
-                    )),
-                    DeformationGradient::identity(),
+                    (
+                        StateVariables::from((
+                            DeformationGradientPlastic::identity(),
+                            self.initial_yield_stress(),
+                        )),
+                        DeformationGradient::identity(),
+                    ),
+                    |t: Scalar| {
+                        vector[0] = deformation_gradient_11(t);
+                        EqualityConstraint::Linear(matrix.clone(), vector.clone())
+                    },
                 )
             }
         } {
@@ -399,32 +381,5 @@ where
                 format!("{self:?}"),
             )),
         }
-    }
-    #[doc(hidden)]
-    fn root_inner_1(
-        &self,
-        deformation_gradient_p: &DeformationGradientPlastic,
-        equality_constraint: EqualityConstraint,
-        solver: &impl FirstOrderRootFinding<
-            FirstPiolaKirchhoffStress,
-            FirstPiolaKirchhoffTangentStiffness,
-            DeformationGradient,
-        >,
-        initial_guess: &DeformationGradient,
-    ) -> Result<DeformationGradient, OptimizationError> {
-        solver.root(
-            |deformation_gradient: &DeformationGradient| {
-                Ok(self
-                    .first_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_p)?)
-            },
-            |deformation_gradient: &DeformationGradient| {
-                Ok(self.first_piola_kirchhoff_tangent_stiffness(
-                    deformation_gradient,
-                    deformation_gradient_p,
-                )?)
-            },
-            initial_guess.clone(),
-            equality_constraint,
-        )
     }
 }

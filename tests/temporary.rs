@@ -5,9 +5,9 @@ use conspire::{
         solid::{
             elastic::AppliedLoad as AppliedDeformation,
             elastic_hyperviscous::{AlmansiHamel, SecondOrderMinimize as _},
-            elastic_viscoplastic::{AppliedLoad, FirstOrderRoot},
+            elastic_viscoplastic::AppliedLoad,
             hyperelastic::{NeoHookean, SecondOrderMinimize as _},
-            hyperelastic_viscoplastic::SaintVenantKirchhoff,
+            hyperelastic_viscoplastic::{SaintVenantKirchhoff, SecondOrderMinimize as _},
             viscoelastic::AppliedLoad as AppliedDeformationRate,
         },
         thermal::conduction::Fourier,
@@ -20,7 +20,7 @@ use conspire::{
             solid::{
                 SolidFiniteElementBlock,
                 elastic_hyperviscous::ElasticHyperviscousFiniteElementBlock,
-                elastic_viscoplastic::ElasticViscoplasticFiniteElementBlock,
+                hyperelastic_viscoplastic::HyperelasticViscoplasticFiniteElementBlock,
                 viscoelastic::ViscoelasticFiniteElementBlock,
             },
             thermal::ThermalFiniteElementBlock,
@@ -7455,7 +7455,7 @@ fn temporary_hyperelastic() -> Result<(), TestError> {
     Ok(())
 }
 
-fn bcs_temporary_elastic_viscoplastic(t: Scalar) -> Vector {
+fn bcs_temporary_elastic_viscoplastic_vector(t: Scalar) -> Vector {
     let strain_rate = 1.0; // also set below
     let ref_coordinates = coordinates();
     let length = ref_coordinates
@@ -7481,33 +7481,9 @@ fn bcs_temporary_elastic_viscoplastic(t: Scalar) -> Vector {
     vector
 }
 
-#[ignore]
-#[test]
-fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
-    use conspire::math::{Scalar, integrate::BogackiShampine};
-    let tol = 1e-4;
-    let tspan = [0.0, 2.0];
-    let ref_coordinates = coordinates();
-    let mut connectivity = connectivity();
-    connectivity
-        .iter_mut()
-        .flatten()
-        .for_each(|entry| *entry -= 1);
-    let num_nodes = ref_coordinates.len();
-    let model = SaintVenantKirchhoff {
-        bulk_modulus: 13.0,
-        shear_modulus: 3.0,
-        initial_yield_stress: 3.0,
-        hardening_slope: 1.0,
-        rate_sensitivity: 0.25,
-        reference_flow_rate: 0.1,
-    };
-    let block = Block::<_, LinearTetrahedron, G, M, N, P>::from((
-        model.clone(),
-        connectivity,
-        coordinates(),
-    ));
-    let length = ref_coordinates
+fn bcs_temporary_elastic_viscoplastic(t: Scalar) -> EqualityConstraint {
+    let num_nodes = coordinates().len();
+    let length = coordinates()
         .iter()
         .filter(|coordinate| coordinate[0].abs() == 0.5)
         .count()
@@ -7527,22 +7503,48 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
     matrix[length - 3][132 * 3 + 1] = 1.0;
     matrix[length - 2][132 * 3 + 2] = 1.0;
     matrix[length - 1][142 * 3 + 2] = 1.0;
+    EqualityConstraint::Linear(matrix, bcs_temporary_elastic_viscoplastic_vector(t))
+}
+
+#[test]
+fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
+    use conspire::math::integrate::BogackiShampine;
+    let tol = 1e-4;
+    let tspan = [0.0, 2.0];
+    let mut connectivity = connectivity();
+    connectivity
+        .iter_mut()
+        .flatten()
+        .for_each(|entry| *entry -= 1);
+    let model = SaintVenantKirchhoff {
+        bulk_modulus: 13.0,
+        shear_modulus: 3.0,
+        initial_yield_stress: 3.0,
+        hardening_slope: 1.0,
+        rate_sensitivity: 0.25,
+        reference_flow_rate: 0.1,
+    };
+    let block = Block::<_, LinearTetrahedron, G, M, N, P>::from((
+        model.clone(),
+        connectivity,
+        coordinates(),
+    ));
     let mut time = std::time::Instant::now();
     println!("Solving...");
-    let (times, coordinates_history, state_variables_history) = block.root(
-        (matrix, |t: Scalar| bcs_temporary_elastic_viscoplastic(t)),
+    let (times, coordinates_history, state_variables_history) = block.minimize(
         BogackiShampine {
             abs_tol: tol,
             rel_tol: tol,
             ..Default::default()
         },
-        &tspan,
         NewtonRaphson::default(),
+        &tspan,
+        bcs_temporary_elastic_viscoplastic,
     )?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
     println!("Verifying...");
-    let (_, deformation_gradients, state_variables) = model.root(
+    let (_, deformation_gradients, state_variables) = model.minimize(
         AppliedLoad::UniaxialStress(|t| 1.0 + 1.0 * t, times.as_slice()),
         BogackiShampine::default(),
         NewtonRaphson::default(),
