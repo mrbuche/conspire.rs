@@ -16,7 +16,7 @@ pub use dae::{
         ExplicitDaeVariableStepExplicitFirstOrderRoot,
         ExplicitDaeVariableStepExplicitSecondOrderMinimize,
         ExplicitDaeVariableStepExplicitZerothOrderRoot, ExplicitDaeVariableStepFirstSameAsLast,
-        ImplicitDaeVariableStepExplicitFirstOrderMinimize,
+        ImplicitDaeVariableStep, ImplicitDaeVariableStepExplicitFirstOrderMinimize,
         ImplicitDaeVariableStepExplicitFirstOrderRoot,
         ImplicitDaeVariableStepExplicitSecondOrderMinimize,
         ImplicitDaeVariableStepExplicitZerothOrderRoot,

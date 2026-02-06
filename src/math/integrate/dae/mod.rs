@@ -100,7 +100,7 @@ where
         function: impl FnMut(Scalar, &Y, &Y) -> Result<Y, String>,
         solver: impl ZerothOrderRootFinding<Y>,
         time: &[Scalar],
-        initial_condition: (Y, Y),
+        initial_condition: Y,
         equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
     ) -> Result<(Vector, U, U), IntegrationError>;
 }
@@ -116,7 +116,7 @@ where
         jacobian: impl FnMut(Scalar, &Y, &Y) -> Result<J, String>,
         solver: impl FirstOrderRootFinding<F, J, Y>,
         time: &[Scalar],
-        initial_condition: (Y, Y),
+        initial_condition: Y,
         equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
     ) -> Result<(Vector, U, U), IntegrationError>;
 }
@@ -133,7 +133,7 @@ where
         jacobian: impl FnMut(Scalar, &Y, &Y) -> Result<Y, String>,
         solver: impl FirstOrderOptimization<F, Y>,
         time: &[Scalar],
-        initial_condition: (Y, Y),
+        initial_condition: Y,
         equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
     ) -> Result<(Vector, U, U), IntegrationError>;
 }
@@ -151,7 +151,7 @@ where
         hessian: impl FnMut(Scalar, &Y, &Y) -> Result<H, String>,
         solver: impl SecondOrderOptimization<F, J, H, Y>,
         time: &[Scalar],
-        initial_condition: (Y, Y),
+        initial_condition: Y,
         equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
         banded: Option<Banded>,
     ) -> Result<(Vector, U, U), IntegrationError>;

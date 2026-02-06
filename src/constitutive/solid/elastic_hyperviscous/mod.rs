@@ -153,10 +153,7 @@ where
                     },
                     solver,
                     time,
-                    (
-                        DeformationGradient::identity(),
-                        DeformationGradientRate::zero(),
-                    ),
+                    DeformationGradient::identity(),
                     |t: Scalar| {
                         vector[0] = deformation_gradient_rate_11(t);
                         EqualityConstraint::Linear(matrix.clone(), vector.clone())
@@ -194,10 +191,7 @@ where
                     },
                     solver,
                     time,
-                    (
-                        DeformationGradient::identity(),
-                        DeformationGradientRate::zero(),
-                    ),
+                    DeformationGradient::identity(),
                     |t: Scalar| {
                         vector[0] = deformation_gradient_rate_11(t);
                         vector[4] = deformation_gradient_rate_22(t);
@@ -271,10 +265,7 @@ where
                     },
                     solver,
                     time,
-                    (
-                        DeformationGradient::identity(),
-                        DeformationGradientRate::zero(),
-                    ),
+                    DeformationGradient::identity(),
                     |t: Scalar| {
                         vector[0] = deformation_gradient_rate_11(t);
                         EqualityConstraint::Linear(matrix.clone(), vector.clone())
@@ -321,10 +312,7 @@ where
                     },
                     solver,
                     time,
-                    (
-                        DeformationGradient::identity(),
-                        DeformationGradientRate::zero(),
-                    ),
+                    DeformationGradient::identity(),
                     |t: Scalar| {
                         vector[0] = deformation_gradient_rate_11(t);
                         vector[4] = deformation_gradient_rate_22(t);

@@ -184,10 +184,7 @@ where
             },
             solver,
             time,
-            (
-                self.coordinates().clone().into(),
-                NodalVelocities::zero(self.coordinates().len()),
-            ),
+            self.coordinates().clone().into(),
             |_: Scalar| equality_constraint.clone(),
         )
     }
