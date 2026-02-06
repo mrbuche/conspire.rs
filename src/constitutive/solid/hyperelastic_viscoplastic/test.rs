@@ -77,7 +77,7 @@ macro_rules! test_model {
         macro_rules! test_model_with_integrator {
             ($integrator:ident) => {
                 #[test]
-                fn root_o_and_minimize_1() -> Result<(), TestError> {
+                fn root_0_and_minimize_1() -> Result<(), TestError> {
                     use crate::constitutive::solid::{
                         elastic_viscoplastic::ZerothOrderRoot,
                         hyperelastic_viscoplastic::FirstOrderMinimize,
