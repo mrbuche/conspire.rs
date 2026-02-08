@@ -4,7 +4,7 @@ use crate::{
         hybrid::Multiplicative,
         solid::{
             elastic::AlmansiHamel,
-            elastic_viscoplastic::{AppliedLoad, ElasticViscoplastic},
+            elastic_viscoplastic::{AppliedLoad, ElasticPlasticOrViscoplastic},
         },
     },
     math::{

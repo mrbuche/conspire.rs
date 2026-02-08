@@ -163,14 +163,7 @@ where
                     self.elements()
                         .iter()
                         .map(|_| {
-                            from_fn(|_| {
-                                (
-                                    DeformationGradientPlastic::identity(),
-                                    self.constitutive_model().initial_yield_stress(),
-                                )
-                                    .into()
-                            })
-                            .into()
+                            from_fn(|_| (DeformationGradientPlastic::identity(), 0.0).into()).into()
                         })
                         .collect(),
                     self.coordinates().clone().into(),

@@ -6,7 +6,8 @@ use crate::{
         ConstitutiveError,
         fluid::{plastic::Plastic, viscoplastic::Viscoplastic},
         solid::{
-            Solid, TWO_THIRDS, elastic_viscoplastic::ElasticViscoplastic,
+            Solid, TWO_THIRDS,
+            elastic_viscoplastic::{ElasticPlasticOrViscoplastic, ElasticViscoplastic},
             hyperelastic_viscoplastic::HyperelasticViscoplastic,
         },
     },
@@ -25,7 +26,7 @@ pub struct Hencky {
     /// The shear modulus $`\mu`$.
     pub shear_modulus: Scalar,
     /// The initial yield stress $`Y_0`$.
-    pub initial_yield_stress: Scalar,
+    pub yield_stress: Scalar,
     /// The isotropic hardening slope $`H`$.
     pub hardening_slope: Scalar,
     /// The rate sensitivity parameter $`m`$.
@@ -45,7 +46,7 @@ impl Solid for Hencky {
 
 impl Plastic for Hencky {
     fn initial_yield_stress(&self) -> Scalar {
-        self.initial_yield_stress
+        self.yield_stress
     }
     fn hardening_slope(&self) -> Scalar {
         self.hardening_slope
@@ -61,7 +62,7 @@ impl Viscoplastic for Hencky {
     }
 }
 
-impl ElasticViscoplastic for Hencky {
+impl ElasticPlasticOrViscoplastic for Hencky {
     #[doc = include_str!("cauchy_stress.md")]
     fn cauchy_stress(
         &self,
@@ -112,6 +113,8 @@ impl ElasticViscoplastic for Hencky {
             )))
     }
 }
+
+impl ElasticViscoplastic for Hencky {}
 
 impl HyperelasticViscoplastic for Hencky {
     #[doc = include_str!("helmholtz_free_energy_density.md")]

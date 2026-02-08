@@ -3,7 +3,7 @@ use crate::{
         fluid::viscoplastic::ViscoplasticFlow,
         hybrid::Multiplicative,
         solid::{
-            elastic_viscoplastic::{AppliedLoad, ElasticViscoplastic},
+            elastic_viscoplastic::{AppliedLoad, ElasticPlasticOrViscoplastic},
             hyperelastic::SaintVenantKirchhoff,
         },
     },

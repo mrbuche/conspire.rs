@@ -7519,7 +7519,7 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
     let model = SaintVenantKirchhoff {
         bulk_modulus: 13.0,
         shear_modulus: 3.0,
-        initial_yield_stress: 3.0,
+        yield_stress: 2.0,
         hardening_slope: 1.0,
         rate_sensitivity: 0.25,
         reference_flow_rate: 0.1,

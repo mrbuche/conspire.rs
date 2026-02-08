@@ -1,18 +1,41 @@
 //! Viscoplastic fluid constitutive models.
 
 use crate::{
-    constitutive::{ConstitutiveError, fluid::plastic::Plastic},
-    math::{Scalar, Tensor, TensorArray},
-    mechanics::{MandelStressElastic, StretchingRatePlastic},
+    constitutive::{
+        ConstitutiveError,
+        fluid::plastic::{Plastic, StateVariables},
+    },
+    math::{Rank2, Scalar, Tensor, TensorArray},
+    mechanics::{DeformationGradientPlastic, MandelStressElastic, StretchingRatePlastic},
 };
-
-const TWO_THIRDS: Scalar = 2.0 / 3.0;
 
 /// Required methods for viscoplastic fluid constitutive models.
 pub trait Viscoplastic
 where
     Self: Plastic,
 {
+    /// Calculates and returns the plastic evolution.
+    ///
+    /// ```math
+    /// \dot{\mathbf{F}}_\mathrm{p} = \mathbf{D}_\mathrm{p}\cdot\mathbf{F}_\mathrm{p}\quad\text{and}\quad\dot{\varepsilon}_\mathrm{p} = |\mathbf{D}_\mathrm{p}|
+    /// ```
+    fn plastic_evolution(
+        &self,
+        mandel_stress: MandelStressElastic,
+        deformation_gradient_p: &DeformationGradientPlastic,
+        equivalent_plastic_strain: Scalar,
+    ) -> Result<StateVariables, ConstitutiveError> {
+        let plastic_stretching_rate = self.plastic_stretching_rate(
+            mandel_stress.deviatoric(),
+            self.yield_stress(equivalent_plastic_strain)?,
+        )?;
+        let equivalent_plastic_strain_rate = plastic_stretching_rate.norm();
+        Ok((
+            plastic_stretching_rate * deformation_gradient_p,
+            equivalent_plastic_strain_rate,
+        )
+            .into())
+    }
     /// Calculates and returns the rate of plastic stretching.
     ///
     /// ```math
@@ -20,14 +43,14 @@ where
     /// ```
     fn plastic_stretching_rate(
         &self,
-        deviatoric_mandel_stress_e: MandelStressElastic,
+        deviatoric_mandel_stress: MandelStressElastic,
         yield_stress: Scalar,
     ) -> Result<StretchingRatePlastic, ConstitutiveError> {
-        let magnitude = deviatoric_mandel_stress_e.norm();
+        let magnitude = deviatoric_mandel_stress.norm();
         if magnitude == 0.0 {
             Ok(StretchingRatePlastic::zero())
         } else {
-            Ok(deviatoric_mandel_stress_e
+            Ok(deviatoric_mandel_stress
                 * (self.reference_flow_rate() / magnitude
                     * (magnitude / yield_stress).powf(1.0 / self.rate_sensitivity())))
         }
@@ -36,17 +59,6 @@ where
     fn rate_sensitivity(&self) -> Scalar;
     /// Returns the reference flow rate.
     fn reference_flow_rate(&self) -> Scalar;
-    /// Calculates and returns the evolution of the yield stress.
-    ///
-    /// ```math
-    /// \dot{Y} = \sqrt{\frac{2}{3}}\,H\,|\mathbf{D}_\mathrm{p}|
-    /// ```
-    fn yield_stress_evolution(
-        &self,
-        plastic_stretching_rate: &StretchingRatePlastic,
-    ) -> Result<Scalar, ConstitutiveError> {
-        Ok(self.hardening_slope() * plastic_stretching_rate.norm() * TWO_THIRDS.sqrt())
-    }
 }
 
 /// The viscoplastic flow model.
