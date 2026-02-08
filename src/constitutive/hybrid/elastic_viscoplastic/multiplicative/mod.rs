@@ -6,7 +6,10 @@ use crate::{
         ConstitutiveError,
         fluid::{plastic::Plastic, viscoplastic::Viscoplastic},
         hybrid::Multiplicative,
-        solid::{elastic::Elastic, elastic_viscoplastic::ElasticViscoplastic},
+        solid::{
+            elastic::Elastic,
+            elastic_viscoplastic::{ElasticPlasticOrViscoplastic, ElasticViscoplastic},
+        },
     },
     math::{
         ContractFirstSecondIndicesWithSecondIndicesOf, ContractSecondIndexWithFirstIndexOf, Rank2,
@@ -61,7 +64,7 @@ where
     }
 }
 
-impl<C1, C2> ElasticViscoplastic for Multiplicative<C1, C2>
+impl<C1, C2> ElasticPlasticOrViscoplastic for Multiplicative<C1, C2>
 where
     C1: Elastic,
     C2: Viscoplastic,
@@ -140,4 +143,11 @@ where
             &deformation_gradient_p_inverse,
         ))
     }
+}
+
+impl<C1, C2> ElasticViscoplastic for Multiplicative<C1, C2>
+where
+    C1: Elastic,
+    C2: Viscoplastic,
+{
 }

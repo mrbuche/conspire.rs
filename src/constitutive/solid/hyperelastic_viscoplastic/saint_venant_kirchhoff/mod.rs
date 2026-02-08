@@ -6,7 +6,8 @@ use crate::{
         ConstitutiveError,
         fluid::{plastic::Plastic, viscoplastic::Viscoplastic},
         solid::{
-            Solid, TWO_THIRDS, elastic_viscoplastic::ElasticViscoplastic,
+            Solid, TWO_THIRDS,
+            elastic_viscoplastic::{ElasticPlasticOrViscoplastic, ElasticViscoplastic},
             hyperelastic_viscoplastic::HyperelasticViscoplastic,
         },
     },
@@ -61,7 +62,7 @@ impl Viscoplastic for SaintVenantKirchhoff {
     }
 }
 
-impl ElasticViscoplastic for SaintVenantKirchhoff {
+impl ElasticPlasticOrViscoplastic for SaintVenantKirchhoff {
     #[doc = include_str!("second_piola_kirchhoff_stress.md")]
     fn second_piola_kirchhoff_stress(
         &self,
@@ -106,6 +107,8 @@ impl ElasticViscoplastic for SaintVenantKirchhoff {
         )
     }
 }
+
+impl ElasticViscoplastic for SaintVenantKirchhoff {}
 
 impl HyperelasticViscoplastic for SaintVenantKirchhoff {
     #[doc = include_str!("helmholtz_free_energy_density.md")]
