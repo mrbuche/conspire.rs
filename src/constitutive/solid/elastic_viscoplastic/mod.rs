@@ -8,7 +8,7 @@ use crate::{
         optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
     },
     mechanics::{
-        Deformation, DeformationGradient, DeformationGradientPlastic, DeformationGradients,
+        DeformationGradient, DeformationGradientPlastic, DeformationGradients,
         FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness, Scalar, Times,
     },
 };
@@ -33,7 +33,7 @@ where
         state_variables: &StateVariables,
     ) -> Result<StateVariables, ConstitutiveError> {
         let (deformation_gradient_p, yield_stress) = state_variables.into();
-        let jacobian = deformation_gradient.jacobian().unwrap();
+        let jacobian = self.jacobian(deformation_gradient)?;
         let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
         let cauchy_stress = self.cauchy_stress(deformation_gradient, deformation_gradient_p)?;
         let mandel_stress_e = (deformation_gradient_e.transpose()
