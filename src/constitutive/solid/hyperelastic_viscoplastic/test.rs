@@ -1,7 +1,9 @@
 macro_rules! test_model {
     ($model:ident) => {
         use crate::{
-            constitutive::solid::elastic_viscoplastic::{AppliedLoad, ElasticViscoplastic},
+            constitutive::solid::elastic_viscoplastic::{
+                AppliedLoad, ElasticPlasticOrViscoplastic,
+            },
             math::{
                 Rank2, Tensor, TensorArray,
                 integrate::{BogackiShampine, DormandPrince, Verner8, Verner9},
@@ -15,7 +17,7 @@ macro_rules! test_model {
                 let model = $model {
                     bulk_modulus: 13.0,
                     shear_modulus: 3.0,
-                    initial_yield_stress: 3.0,
+                    yield_stress: 3.0,
                     hardening_slope: 1.0,
                     rate_sensitivity: 0.25,
                     reference_flow_rate: 0.1,
@@ -117,7 +119,7 @@ macro_rules! test_model {
             let model = $model {
                 bulk_modulus: 13.0,
                 shear_modulus: 3.0,
-                initial_yield_stress: 3.0,
+                yield_stress: 3.0,
                 hardening_slope: 1.0,
                 rate_sensitivity: 0.25,
                 reference_flow_rate: 0.1,

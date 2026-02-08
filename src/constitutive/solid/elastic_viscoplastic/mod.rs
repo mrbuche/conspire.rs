@@ -1,7 +1,13 @@
 //! Elastic-viscoplastic solid constitutive models.
 
 use crate::{
-    constitutive::{ConstitutiveError, fluid::viscoplastic::Viscoplastic},
+    constitutive::{
+        ConstitutiveError,
+        fluid::{
+            plastic::{StateVariables, StateVariablesHistory},
+            viscoplastic::Viscoplastic,
+        },
+    },
     math::{
         Matrix, Rank2, TensorArray, Vector,
         integrate::{ExplicitDaeFirstOrderRoot, ExplicitDaeZerothOrderRoot},
@@ -13,9 +19,7 @@ use crate::{
     },
 };
 
-pub use crate::constitutive::solid::elastic_plastic::{
-    AppliedLoad, ElasticPlasticOrViscoplastic, StateVariables, StateVariablesHistory,
-};
+pub use crate::constitutive::solid::elastic_plastic::{AppliedLoad, ElasticPlasticOrViscoplastic};
 
 /// Required methods for elastic-viscoplastic solid constitutive models.
 pub trait ElasticViscoplastic
@@ -23,16 +27,12 @@ where
     Self: ElasticPlasticOrViscoplastic + Viscoplastic,
 {
     /// Calculates and returns the evolution of the state variables.
-    ///
-    /// ```math
-    /// \dot{\mathbf{F}}_\mathrm{p} = \mathbf{D}_\mathrm{p}\cdot\mathbf{F}_\mathrm{p}
-    /// ```
     fn state_variables_evolution(
         &self,
         deformation_gradient: &DeformationGradient,
         state_variables: &StateVariables,
     ) -> Result<StateVariables, ConstitutiveError> {
-        let (deformation_gradient_p, yield_stress) = state_variables.into();
+        let (deformation_gradient_p, &equivalent_plastic_strain) = state_variables.into();
         let jacobian = self.jacobian(deformation_gradient)?;
         let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
         let cauchy_stress = self.cauchy_stress(deformation_gradient, deformation_gradient_p)?;
@@ -40,12 +40,11 @@ where
             * cauchy_stress
             * deformation_gradient_e.inverse_transpose())
             * jacobian;
-        let plastic_stretching_rate =
-            self.plastic_stretching_rate(mandel_stress_e.deviatoric(), *yield_stress)?;
-        Ok(StateVariables::from((
-            &plastic_stretching_rate * deformation_gradient_p,
-            self.yield_stress_evolution(&plastic_stretching_rate)?,
-        )))
+        self.plastic_evolution(
+            mandel_stress_e,
+            deformation_gradient_p,
+            equivalent_plastic_strain,
+        )
     }
 }
 
@@ -136,10 +135,7 @@ where
                     solver,
                     time,
                     (
-                        StateVariables::from((
-                            DeformationGradientPlastic::identity(),
-                            self.initial_yield_stress(),
-                        )),
+                        StateVariables::from((DeformationGradientPlastic::identity(), 0.0)),
                         DeformationGradient::identity(),
                     ),
                     |t: Scalar| {
@@ -216,10 +212,7 @@ where
                     solver,
                     time,
                     (
-                        StateVariables::from((
-                            DeformationGradientPlastic::identity(),
-                            self.initial_yield_stress(),
-                        )),
+                        StateVariables::from((DeformationGradientPlastic::identity(), 0.0)),
                         DeformationGradient::identity(),
                     ),
                     |t: Scalar| {

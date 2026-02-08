@@ -4,7 +4,7 @@ use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::Plastic, solid::Solid},
     math::{
         ContractFirstSecondIndicesWithSecondIndicesOf, ContractSecondIndexWithFirstIndexOf,
-        IDENTITY, Rank2, TensorTuple, TensorTupleVec,
+        IDENTITY, Rank2,
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic,
@@ -12,17 +12,6 @@ use crate::{
         SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,
     },
 };
-
-// State variable for EP is the EQPS, for visco is the yield stress.
-// Should probably just integrate EP as the state variable for both,
-// seems like the yield stress is calculated from it the same either way.
-// Then even more methods can be shared between plastic and viscoplastic.
-
-/// Elastic-plastic state variables.
-pub type StateVariables = TensorTuple<DeformationGradientPlastic, Scalar>;
-
-/// Elastic-plastic state variables history.
-pub type StateVariablesHistory = TensorTupleVec<DeformationGradientPlastic, Scalar>;
 
 /// Possible applied loads.
 pub enum AppliedLoad<'a> {

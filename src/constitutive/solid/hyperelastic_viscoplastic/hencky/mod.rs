@@ -26,7 +26,7 @@ pub struct Hencky {
     /// The shear modulus $`\mu`$.
     pub shear_modulus: Scalar,
     /// The initial yield stress $`Y_0`$.
-    pub initial_yield_stress: Scalar,
+    pub yield_stress: Scalar,
     /// The isotropic hardening slope $`H`$.
     pub hardening_slope: Scalar,
     /// The rate sensitivity parameter $`m`$.
@@ -46,7 +46,7 @@ impl Solid for Hencky {
 
 impl Plastic for Hencky {
     fn initial_yield_stress(&self) -> Scalar {
-        self.initial_yield_stress
+        self.yield_stress
     }
     fn hardening_slope(&self) -> Scalar {
         self.hardening_slope

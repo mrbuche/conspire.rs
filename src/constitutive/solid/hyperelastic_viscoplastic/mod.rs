@@ -12,9 +12,8 @@ pub use saint_venant_kirchhoff::SaintVenantKirchhoff;
 use crate::{
     constitutive::{
         ConstitutiveError,
-        solid::elastic_viscoplastic::{
-            AppliedLoad, ElasticViscoplastic, StateVariables, StateVariablesHistory,
-        },
+        fluid::plastic::{StateVariables, StateVariablesHistory},
+        solid::elastic_viscoplastic::{AppliedLoad, ElasticViscoplastic},
     },
     math::{
         Matrix, TensorArray, Vector,
@@ -144,10 +143,7 @@ where
                     solver,
                     time,
                     (
-                        StateVariables::from((
-                            DeformationGradientPlastic::identity(),
-                            self.initial_yield_stress(),
-                        )),
+                        StateVariables::from((DeformationGradientPlastic::identity(), 0.0)),
                         DeformationGradient::identity(),
                     ),
                     |t: Scalar| {
@@ -235,10 +231,7 @@ where
                     solver,
                     time,
                     (
-                        StateVariables::from((
-                            DeformationGradientPlastic::identity(),
-                            self.initial_yield_stress(),
-                        )),
+                        StateVariables::from((DeformationGradientPlastic::identity(), 0.0)),
                         DeformationGradient::identity(),
                     ),
                     |t: Scalar| {
