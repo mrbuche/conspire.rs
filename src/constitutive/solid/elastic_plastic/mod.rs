@@ -13,6 +13,11 @@ use crate::{
     },
 };
 
+// State variable for EP is the EQPS, for visco is the yield stress.
+// Should probably just integrate EP as the state variable for both,
+// seems like the yield stress is calculated from it the same either way.
+// Then even more methods can be shared between plastic and viscoplastic.
+
 /// Elastic-plastic state variables.
 pub type StateVariables = TensorTuple<DeformationGradientPlastic, Scalar>;
 
