@@ -12,14 +12,18 @@ pub use dae::{
     ExplicitDaeZerothOrderRoot, ImplicitDaeFirstOrderMinimize, ImplicitDaeFirstOrderRoot,
     ImplicitDaeSecondOrderMinimize, ImplicitDaeZerothOrderRoot,
     explicit::variable_step::{
-        ExplicitDaeVariableStep, ExplicitDaeVariableStepExplicitFirstOrderMinimize,
-        ExplicitDaeVariableStepExplicitFirstOrderRoot,
-        ExplicitDaeVariableStepExplicitSecondOrderMinimize,
-        ExplicitDaeVariableStepExplicitZerothOrderRoot, ExplicitDaeVariableStepFirstSameAsLast,
-        ImplicitDaeVariableStep, ImplicitDaeVariableStepExplicitFirstOrderMinimize,
-        ImplicitDaeVariableStepExplicitFirstOrderRoot,
-        ImplicitDaeVariableStepExplicitSecondOrderMinimize,
-        ImplicitDaeVariableStepExplicitZerothOrderRoot,
+        explicit::{
+            ExplicitDaeVariableStep, ExplicitDaeVariableStepExplicitFirstOrderMinimize,
+            ExplicitDaeVariableStepExplicitFirstOrderRoot,
+            ExplicitDaeVariableStepExplicitSecondOrderMinimize,
+            ExplicitDaeVariableStepExplicitZerothOrderRoot, ExplicitDaeVariableStepFirstSameAsLast,
+        },
+        implicit::{
+            ImplicitDaeVariableStep, ImplicitDaeVariableStepExplicitFirstOrderMinimize,
+            ImplicitDaeVariableStepExplicitFirstOrderRoot,
+            ImplicitDaeVariableStepExplicitSecondOrderMinimize,
+            ImplicitDaeVariableStepExplicitZerothOrderRoot,
+        },
     },
 };
 pub use ode::{
