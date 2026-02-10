@@ -250,6 +250,72 @@ where
     }
 }
 
+pub trait ExplicitDaeVariableStepFirstSameAsLast<Y, Z, U, V>
+where
+    Self: ExplicitDaeVariableStep<Y, Z, U, V>,
+    Y: Tensor,
+    Z: Tensor,
+    U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Z>,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+{
+    #[allow(clippy::too_many_arguments)]
+    fn slopes_solve_and_error_fsal(
+        mut evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        mut solution: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
+        y: &Y,
+        z: &Z,
+        t: Scalar,
+        dt: Scalar,
+        k: &mut [Y],
+        y_trial: &mut Y,
+        z_trial: &mut Z,
+    ) -> Result<Scalar, String> {
+        Self::slopes_solve(
+            &mut evolution,
+            &mut solution,
+            y,
+            z,
+            t,
+            dt,
+            k,
+            y_trial,
+            z_trial,
+        )?;
+        k[Self::SLOPES - 1] = evolution(t + dt, y_trial, z_trial)?;
+        Self::error(dt, k)
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn step_solve_fsal(
+        &self,
+        y: &mut Y,
+        z: &mut Z,
+        t: &mut Scalar,
+        y_sol: &mut U,
+        z_sol: &mut V,
+        t_sol: &mut Vector,
+        dydt_sol: &mut U,
+        dt: &mut Scalar,
+        k: &mut [Y],
+        y_trial: &Y,
+        z_trial: &Z,
+        e: Scalar,
+    ) -> Result<(), String> {
+        if e < self.abs_tol() || e / y_trial.norm_inf() < self.rel_tol() {
+            k[0] = k[Self::SLOPES - 1].clone();
+            *t += *dt;
+            *y = y_trial.clone();
+            *z = z_trial.clone();
+            t_sol.push(*t);
+            y_sol.push(y.clone());
+            z_sol.push(z.clone());
+            dydt_sol.push(k[0].clone());
+        }
+        self.time_step(e, dt);
+        Ok(())
+    }
+}
+
 pub trait ImplicitDaeVariableStep<Y, U>
 where
     Self: VariableStepExplicit<Y, U>,
@@ -401,72 +467,6 @@ where
     U: TensorVec<Item = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
 {
-}
-
-pub trait ExplicitDaeVariableStepFirstSameAsLast<Y, Z, U, V>
-where
-    Self: ExplicitDaeVariableStep<Y, Z, U, V>,
-    Y: Tensor,
-    Z: Tensor,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Z>,
-    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
-{
-    #[allow(clippy::too_many_arguments)]
-    fn slopes_solve_and_error_fsal(
-        mut evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        mut solution: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
-        y: &Y,
-        z: &Z,
-        t: Scalar,
-        dt: Scalar,
-        k: &mut [Y],
-        y_trial: &mut Y,
-        z_trial: &mut Z,
-    ) -> Result<Scalar, String> {
-        Self::slopes_solve(
-            &mut evolution,
-            &mut solution,
-            y,
-            z,
-            t,
-            dt,
-            k,
-            y_trial,
-            z_trial,
-        )?;
-        k[Self::SLOPES - 1] = evolution(t + dt, y_trial, z_trial)?;
-        Self::error(dt, k)
-    }
-    #[allow(clippy::too_many_arguments)]
-    fn step_solve_fsal(
-        &self,
-        y: &mut Y,
-        z: &mut Z,
-        t: &mut Scalar,
-        y_sol: &mut U,
-        z_sol: &mut V,
-        t_sol: &mut Vector,
-        dydt_sol: &mut U,
-        dt: &mut Scalar,
-        k: &mut [Y],
-        y_trial: &Y,
-        z_trial: &Z,
-        e: Scalar,
-    ) -> Result<(), String> {
-        if e < self.abs_tol() || e / y_trial.norm_inf() < self.rel_tol() {
-            k[0] = k[Self::SLOPES - 1].clone();
-            *t += *dt;
-            *y = y_trial.clone();
-            *z = z_trial.clone();
-            t_sol.push(*t);
-            y_sol.push(y.clone());
-            z_sol.push(z.clone());
-            dydt_sol.push(k[0].clone());
-        }
-        self.time_step(e, dt);
-        Ok(())
-    }
 }
 
 pub trait ExplicitDaeVariableStepExplicitZerothOrderRoot<Y, Z, U, V>
