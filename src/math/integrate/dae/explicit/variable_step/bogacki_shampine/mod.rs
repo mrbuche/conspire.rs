@@ -1,19 +1,12 @@
 use crate::math::{
-    Banded, Scalar, Tensor, TensorVec, Vector,
-    integrate::{
-        BogackiShampine, ExplicitDaeVariableStep, ExplicitDaeVariableStepFirstSameAsLast,
-        IntegrationError,
-    },
-    optimize::{
-        EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, SecondOrderOptimization,
-        ZerothOrderRootFinding,
-    },
+    Scalar, Tensor, TensorVec, Vector,
+    integrate::{BogackiShampine, ExplicitDaeVariableStep, ExplicitDaeVariableStepFirstSameAsLast},
 };
 use std::ops::{Mul, Sub};
 
 impl<Y, Z, U, V> ExplicitDaeVariableStep<Y, Z, U, V> for BogackiShampine
 where
-    Self: ExplicitDaeZerothOrderRoot<Y, Z, U, V>,
+    Self: ExplicitDaeVariableStepFirstSameAsLast<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
@@ -86,5 +79,3 @@ where
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
 {
 }
-
-super::implement_solvers!(BogackiShampine);

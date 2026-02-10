@@ -1,12 +1,6 @@
 use crate::math::{
-    Banded, Scalar, Tensor, TensorVec, Vector,
-    integrate::{
-        ExplicitDaeVariableStep, IntegrationError, ode::explicit::variable_step::verner_9::*,
-    },
-    optimize::{
-        EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, SecondOrderOptimization,
-        ZerothOrderRootFinding,
-    },
+    Scalar, Tensor, TensorVec,
+    integrate::{ExplicitDaeVariableStep, ode::explicit::variable_step::verner_9::*},
 };
 use std::ops::{Mul, Sub};
 
@@ -152,5 +146,3 @@ where
         Ok(())
     }
 }
-
-super::implement_solvers!(Verner9);
