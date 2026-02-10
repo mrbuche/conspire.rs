@@ -43,6 +43,20 @@ pub fn dormand_prince_fixed_step<'a>() -> Vec<[&'a str; 2]> {
     ]]
 }
 
+pub fn verner_8_fixed_step<'a>() -> Vec<[&'a str; 2]> {
+    vec![[
+        "math/integrate/explicit/verner_8_fixed_step",
+        include_str!("ode/explicit/fixed_step/verner_8/doc.md"),
+    ]]
+}
+
+pub fn verner_9_fixed_step<'a>() -> Vec<[&'a str; 2]> {
+    vec![[
+        "math/integrate/explicit/verner_9_fixed_step",
+        include_str!("ode/explicit/fixed_step/verner_9/doc.md"),
+    ]]
+}
+
 pub fn bogacki_shampine<'a>() -> Vec<[&'a str; 2]> {
     vec![[
         "math/integrate/explicit/bogacki_shampine",

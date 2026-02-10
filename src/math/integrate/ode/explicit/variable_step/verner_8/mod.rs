@@ -272,7 +272,9 @@ where
             + &k[8] * (A_13_9 * dt)
             + &k[9] * (A_13_10 * dt)
             + y;
-        k[12] = function(t + dt, y_trial)?;
+        if k.len() == Self::SLOPES {
+            k[12] = function(t + dt, y_trial)?;
+        }
         *y_trial = (&k[0] * B_1
             + &k[5] * B_6
             + &k[6] * B_7
