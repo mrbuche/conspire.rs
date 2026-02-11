@@ -1,10 +1,12 @@
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
-    integrate::{BogackiShampine, ExplicitDaeVariableStep, ExplicitDaeVariableStepFirstSameAsLast},
+    integrate::{
+        BogackiShampine, ExplicitDaeVariableStepExplicit, ExplicitDaeVariableStepFirstSameAsLast,
+    },
 };
 use std::ops::{Mul, Sub};
 
-impl<Y, Z, U, V> ExplicitDaeVariableStep<Y, Z, U, V> for BogackiShampine
+impl<Y, Z, U, V> ExplicitDaeVariableStepExplicit<Y, Z, U, V> for BogackiShampine
 where
     Self: ExplicitDaeVariableStepFirstSameAsLast<Y, Z, U, V>,
     Y: Tensor,

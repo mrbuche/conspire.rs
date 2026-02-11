@@ -5,7 +5,7 @@ use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
     integrate::{
         DormandPrince as DormandPrinceVariableStep, Explicit, FixedStep, FixedStepExplicit,
-        IntegrationError, OdeSolver, VariableStepExplicit,
+        IntegrationError, OdeIntegrator, VariableStepExplicit,
     },
 };
 use std::ops::{Mul, Sub};
@@ -17,7 +17,7 @@ pub struct DormandPrince {
     dt: Scalar,
 }
 
-impl<Y, U> OdeSolver<Y, U> for DormandPrince
+impl<Y, U> OdeIntegrator<Y, U> for DormandPrince
 where
     Y: Tensor,
     U: TensorVec<Item = Y>,

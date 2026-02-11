@@ -3,7 +3,9 @@ mod test;
 
 use crate::math::{
     Scalar, Tensor, TensorArray, TensorVec,
-    integrate::{FixedStep, ImplicitFirstOrder, ImplicitZerothOrder, IntegrationError, OdeSolver},
+    integrate::{
+        FixedStep, ImplicitFirstOrder, ImplicitZerothOrder, IntegrationError, OdeIntegrator,
+    },
 };
 use std::{
     fmt::Debug,
@@ -17,7 +19,7 @@ pub struct BackwardEuler {
     dt: Scalar,
 }
 
-impl<Y, U> OdeSolver<Y, U> for BackwardEuler
+impl<Y, U> OdeIntegrator<Y, U> for BackwardEuler
 where
     Y: Tensor,
     U: TensorVec<Item = Y>,

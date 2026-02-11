@@ -3,7 +3,7 @@ mod test;
 
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
-    integrate::{Explicit, IntegrationError, OdeSolver, VariableStep, VariableStepExplicit},
+    integrate::{Explicit, IntegrationError, OdeIntegrator, VariableStep, VariableStepExplicit},
     interpolate::InterpolateSolution,
 };
 use crate::{ABS_TOL, REL_TOL};
@@ -128,7 +128,7 @@ impl Default for Verner8 {
     }
 }
 
-impl<Y, U> OdeSolver<Y, U> for Verner8
+impl<Y, U> OdeIntegrator<Y, U> for Verner8
 where
     Y: Tensor,
     U: TensorVec<Item = Y>,

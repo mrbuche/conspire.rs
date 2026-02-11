@@ -13,13 +13,13 @@ pub use dae::{
     ImplicitDaeSecondOrderMinimize, ImplicitDaeZerothOrderRoot,
     explicit::variable_step::{
         explicit::{
-            ExplicitDaeVariableStep, ExplicitDaeVariableStepExplicitFirstOrderMinimize,
+            ExplicitDaeVariableStepExplicit, ExplicitDaeVariableStepExplicitFirstOrderMinimize,
             ExplicitDaeVariableStepExplicitFirstOrderRoot,
             ExplicitDaeVariableStepExplicitSecondOrderMinimize,
             ExplicitDaeVariableStepExplicitZerothOrderRoot, ExplicitDaeVariableStepFirstSameAsLast,
         },
         implicit::{
-            ImplicitDaeVariableStep, ImplicitDaeVariableStepExplicitFirstOrderMinimize,
+            ImplicitDaeVariableStepExplicit, ImplicitDaeVariableStepExplicitFirstOrderMinimize,
             ImplicitDaeVariableStepExplicitFirstOrderRoot,
             ImplicitDaeVariableStepExplicitSecondOrderMinimize,
             ImplicitDaeVariableStepExplicitZerothOrderRoot,
@@ -27,7 +27,7 @@ pub use dae::{
     },
 };
 pub use ode::{
-    FixedStep, OdeSolver, VariableStep,
+    FixedStep, OdeIntegrator, VariableStep,
     explicit::{
         Explicit,
         fixed_step::{

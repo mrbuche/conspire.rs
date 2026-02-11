@@ -11,7 +11,8 @@ use crate::math::{
 };
 use std::ops::{Mul, Sub};
 
-pub trait ImplicitDaeVariableStep<Y, U>
+/// Variable-step explicit integrators for implicit differential-algebraic equations.
+pub trait ImplicitDaeVariableStepExplicit<Y, U>
 where
     Self: VariableStepExplicit<Y, U>,
     Y: Tensor,
@@ -155,7 +156,7 @@ where
     }
 }
 
-impl<I, Y, U> ImplicitDaeVariableStep<Y, U> for I
+impl<I, Y, U> ImplicitDaeVariableStepExplicit<Y, U> for I
 where
     Self: VariableStepExplicit<Y, U>,
     Y: Tensor,
@@ -164,9 +165,10 @@ where
 {
 }
 
+/// Variable-step explicit integrators for implicit differential-algebraic equations using zeroth-order root-finding.
 pub trait ImplicitDaeVariableStepExplicitZerothOrderRoot<Y, U>
 where
-    Self: ImplicitDaeVariableStep<Y, U>,
+    Self: ImplicitDaeVariableStepExplicit<Y, U>,
     Y: Tensor,
     U: TensorVec<Item = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -192,7 +194,7 @@ where
 
 impl<I, Y, U> ImplicitDaeVariableStepExplicitZerothOrderRoot<Y, U> for I
 where
-    I: ImplicitDaeVariableStep<Y, U>,
+    I: ImplicitDaeVariableStepExplicit<Y, U>,
     Y: Tensor,
     U: TensorVec<Item = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -224,9 +226,10 @@ where
     }
 }
 
+/// Variable-step explicit integrators for implicit differential-algebraic equations using first-order root-finding.
 pub trait ImplicitDaeVariableStepExplicitFirstOrderRoot<F, J, Y, U>
 where
-    Self: ImplicitDaeVariableStep<Y, U>,
+    Self: ImplicitDaeVariableStepExplicit<Y, U>,
     Y: Tensor,
     U: TensorVec<Item = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -254,7 +257,7 @@ where
 
 impl<I, F, J, Y, U> ImplicitDaeVariableStepExplicitFirstOrderRoot<F, J, Y, U> for I
 where
-    I: ImplicitDaeVariableStep<Y, U>,
+    I: ImplicitDaeVariableStepExplicit<Y, U>,
     Y: Tensor,
     U: TensorVec<Item = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -288,9 +291,10 @@ where
     }
 }
 
+/// Variable-step explicit integrators for implicit differential-algebraic equations using first-order minimization.
 pub trait ImplicitDaeVariableStepExplicitFirstOrderMinimize<F, Y, U>
 where
-    Self: ImplicitDaeVariableStep<Y, U>,
+    Self: ImplicitDaeVariableStepExplicit<Y, U>,
     Y: Tensor,
     U: TensorVec<Item = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -319,7 +323,7 @@ where
 
 impl<I, F, Y, U> ImplicitDaeVariableStepExplicitFirstOrderMinimize<F, Y, U> for I
 where
-    I: ImplicitDaeVariableStep<Y, U>,
+    I: ImplicitDaeVariableStepExplicit<Y, U>,
     Y: Tensor,
     U: TensorVec<Item = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -353,9 +357,10 @@ where
     }
 }
 
+/// Variable-step explicit integrators for implicit differential-algebraic equations using second-order minimization.
 pub trait ImplicitDaeVariableStepExplicitSecondOrderMinimize<F, J, H, Y, U>
 where
-    Self: ImplicitDaeVariableStep<Y, U>,
+    Self: ImplicitDaeVariableStepExplicit<Y, U>,
     Y: Tensor,
     U: TensorVec<Item = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -388,7 +393,7 @@ where
 
 impl<I, F, J, H, Y, U> ImplicitDaeVariableStepExplicitSecondOrderMinimize<F, J, H, Y, U> for I
 where
-    I: ImplicitDaeVariableStep<Y, U>,
+    I: ImplicitDaeVariableStepExplicit<Y, U>,
     Y: Tensor,
     U: TensorVec<Item = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,

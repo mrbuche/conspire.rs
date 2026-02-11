@@ -10,6 +10,7 @@ use crate::math::{
 pub mod explicit;
 // pub mod implicit;
 
+/// Integrators for explicit differential-algebraic equations using zeroth-order root-finding.
 pub trait ExplicitDaeZerothOrderRoot<Y, Z, U, V>
 where
     Y: Tensor,
@@ -28,6 +29,7 @@ where
     ) -> Result<(Vector, U, U, V), IntegrationError>;
 }
 
+/// Integrators for explicit differential-algebraic equations using first-order root-finding.
 pub trait ExplicitDaeFirstOrderRoot<F, J, Y, Z, U, V>
 where
     Y: Tensor,
@@ -48,6 +50,7 @@ where
     ) -> Result<(Vector, U, U, V), IntegrationError>;
 }
 
+/// Integrators for explicit differential-algebraic equations using first-order minimization.
 pub trait ExplicitDaeFirstOrderMinimize<F, Y, Z, U, V>
 where
     Y: Tensor,
@@ -68,6 +71,7 @@ where
     ) -> Result<(Vector, U, U, V), IntegrationError>;
 }
 
+/// Integrators for explicit differential-algebraic equations using second-order minimization.
 pub trait ExplicitDaeSecondOrderMinimize<F, J, H, Y, Z, U, V>
 where
     Y: Tensor,
@@ -90,6 +94,7 @@ where
     ) -> Result<(Vector, U, U, V), IntegrationError>;
 }
 
+/// Integrators for implicit differential-algebraic equations using zeroth-order root-finding.
 pub trait ImplicitDaeZerothOrderRoot<Y, U>
 where
     Y: Tensor,
@@ -105,6 +110,7 @@ where
     ) -> Result<(Vector, U, U), IntegrationError>;
 }
 
+/// Integrators for implicit differential-algebraic equations using first-order root-finding.
 pub trait ImplicitDaeFirstOrderRoot<F, J, Y, U>
 where
     Y: Tensor,
@@ -121,6 +127,7 @@ where
     ) -> Result<(Vector, U, U), IntegrationError>;
 }
 
+/// Integrators for implicit differential-algebraic equations using first-order minimization.
 pub trait ImplicitDaeFirstOrderMinimize<F, Y, U>
 where
     Y: Tensor,
@@ -138,6 +145,7 @@ where
     ) -> Result<(Vector, U, U), IntegrationError>;
 }
 
+/// Integrators for implicit differential-algebraic equations using second-order minimization.
 pub trait ImplicitDaeSecondOrderMinimize<F, J, H, Y, U>
 where
     Y: Tensor,

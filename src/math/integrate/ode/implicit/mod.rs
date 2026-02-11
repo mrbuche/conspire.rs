@@ -3,7 +3,7 @@ mod test;
 
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
-    integrate::{FixedStep, IntegrationError, OdeSolver},
+    integrate::{FixedStep, IntegrationError, OdeIntegrator},
     optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
 };
 
@@ -11,10 +11,10 @@ pub mod backward_euler;
 pub mod midpoint;
 pub mod trapezoidal;
 
-/// Zeroth-order implicit ordinary differential equation solvers.
+/// Implicit integrators for ordinary differential equations using zeroth-order root-finding.
 pub trait ImplicitZerothOrder<Y, U>
 where
-    Self: FixedStep + OdeSolver<Y, U>,
+    Self: FixedStep + OdeIntegrator<Y, U>,
     Y: Tensor,
     U: TensorVec<Item = Y>,
 {
@@ -95,7 +95,7 @@ where
     ) -> Result<Y, String>;
 }
 
-/// First-order implicit ordinary differential equation solvers.
+/// Implicit integrators for ordinary differential equations using first-order root-finding.
 pub trait ImplicitFirstOrder<Y, J, U>
 where
     Self: ImplicitZerothOrder<Y, U>,

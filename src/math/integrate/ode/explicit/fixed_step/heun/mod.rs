@@ -3,7 +3,7 @@ mod test;
 
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
-    integrate::{Explicit, FixedStep, FixedStepExplicit, IntegrationError, OdeSolver},
+    integrate::{Explicit, FixedStep, FixedStepExplicit, IntegrationError, OdeIntegrator},
 };
 use std::ops::{Add, Mul};
 
@@ -14,7 +14,7 @@ pub struct Heun {
     dt: Scalar,
 }
 
-impl<Y, U> OdeSolver<Y, U> for Heun
+impl<Y, U> OdeIntegrator<Y, U> for Heun
 where
     Y: Tensor,
     U: TensorVec<Item = Y>,

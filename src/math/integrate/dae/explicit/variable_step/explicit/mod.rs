@@ -11,7 +11,8 @@ use crate::math::{
 };
 use std::ops::{Mul, Sub};
 
-pub trait ExplicitDaeVariableStep<Y, Z, U, V>
+/// Variable-step explicit integrators for explicit differential-algebraic equations.
+pub trait ExplicitDaeVariableStepExplicit<Y, Z, U, V>
 where
     Self: VariableStepExplicit<Y, U>,
     Y: Tensor,
@@ -243,9 +244,10 @@ where
     }
 }
 
+/// First-same-as-last property for explicit differential-algebraic equation integrators.
 pub trait ExplicitDaeVariableStepFirstSameAsLast<Y, Z, U, V>
 where
-    Self: ExplicitDaeVariableStep<Y, Z, U, V>,
+    Self: ExplicitDaeVariableStepExplicit<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
@@ -309,9 +311,10 @@ where
     }
 }
 
+/// Variable-step explicit integrators for explicit differential-algebraic equations using zeroth-order root-finding.
 pub trait ExplicitDaeVariableStepExplicitZerothOrderRoot<Y, Z, U, V>
 where
-    Self: ExplicitDaeVariableStep<Y, Z, U, V>,
+    Self: ExplicitDaeVariableStepExplicit<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
@@ -336,7 +339,7 @@ where
 
 impl<I, Y, Z, U, V> ExplicitDaeVariableStepExplicitZerothOrderRoot<Y, Z, U, V> for I
 where
-    I: ExplicitDaeVariableStep<Y, Z, U, V>,
+    I: ExplicitDaeVariableStepExplicit<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
@@ -374,9 +377,10 @@ where
     }
 }
 
+/// Variable-step explicit integrators for explicit differential-algebraic equations using first-order root-finding.
 pub trait ExplicitDaeVariableStepExplicitFirstOrderRoot<F, J, Y, Z, U, V>
 where
-    Self: ExplicitDaeVariableStep<Y, Z, U, V>,
+    Self: ExplicitDaeVariableStepExplicit<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
@@ -408,7 +412,7 @@ where
 
 impl<I, F, J, Y, Z, U, V> ExplicitDaeVariableStepExplicitFirstOrderRoot<F, J, Y, Z, U, V> for I
 where
-    I: ExplicitDaeVariableStep<Y, Z, U, V>,
+    I: ExplicitDaeVariableStepExplicit<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
@@ -448,9 +452,10 @@ where
     }
 }
 
+/// Variable-step explicit integrators for explicit differential-algebraic equations using first-order minimization.
 pub trait ExplicitDaeVariableStepExplicitFirstOrderMinimize<F, Y, Z, U, V>
 where
-    Self: ExplicitDaeVariableStep<Y, Z, U, V>,
+    Self: ExplicitDaeVariableStepExplicit<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
@@ -482,7 +487,7 @@ where
 
 impl<I, F, Y, Z, U, V> ExplicitDaeVariableStepExplicitFirstOrderMinimize<F, Y, Z, U, V> for I
 where
-    I: ExplicitDaeVariableStep<Y, Z, U, V>,
+    I: ExplicitDaeVariableStepExplicit<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
@@ -522,9 +527,10 @@ where
     }
 }
 
+/// Variable-step explicit integrators for explicit differential-algebraic equations using second-order minimization.
 pub trait ExplicitDaeVariableStepExplicitSecondOrderMinimize<F, J, H, Y, Z, U, V>
 where
-    Self: ExplicitDaeVariableStep<Y, Z, U, V>,
+    Self: ExplicitDaeVariableStepExplicit<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
@@ -561,7 +567,7 @@ where
 impl<I, F, J, H, Y, Z, U, V> ExplicitDaeVariableStepExplicitSecondOrderMinimize<F, J, H, Y, Z, U, V>
     for I
 where
-    I: ExplicitDaeVariableStep<Y, Z, U, V>,
+    I: ExplicitDaeVariableStepExplicit<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,

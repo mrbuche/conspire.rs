@@ -3,7 +3,9 @@ mod test;
 
 use crate::math::{
     Scalar, Tensor, TensorArray, TensorVec,
-    integrate::{FixedStep, ImplicitFirstOrder, ImplicitZerothOrder, IntegrationError, OdeSolver},
+    integrate::{
+        FixedStep, ImplicitFirstOrder, ImplicitZerothOrder, IntegrationError, OdeIntegrator,
+    },
 };
 use std::{
     fmt::Debug,
@@ -17,7 +19,7 @@ pub struct Trapezoidal {
     dt: Scalar,
 }
 
-impl<Y, U> OdeSolver<Y, U> for Trapezoidal
+impl<Y, U> OdeIntegrator<Y, U> for Trapezoidal
 where
     Y: Tensor,
     U: TensorVec<Item = Y>,

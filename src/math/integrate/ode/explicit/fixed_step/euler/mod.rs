@@ -3,7 +3,7 @@ mod test;
 
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
-    integrate::{Explicit, FixedStep, FixedStepExplicit, IntegrationError, OdeSolver},
+    integrate::{Explicit, FixedStep, FixedStepExplicit, IntegrationError, OdeIntegrator},
 };
 use std::ops::Mul;
 
@@ -14,7 +14,7 @@ pub struct Euler {
     dt: Scalar,
 }
 
-impl<Y, U> OdeSolver<Y, U> for Euler
+impl<Y, U> OdeIntegrator<Y, U> for Euler
 where
     Y: Tensor,
     U: TensorVec<Item = Y>,

@@ -1,13 +1,13 @@
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
     integrate::{
-        ExplicitDaeVariableStep, ExplicitDaeVariableStepFirstSameAsLast,
+        ExplicitDaeVariableStepExplicit, ExplicitDaeVariableStepFirstSameAsLast,
         ode::explicit::variable_step::dormand_prince::*,
     },
 };
 use std::ops::{Mul, Sub};
 
-impl<Y, Z, U, V> ExplicitDaeVariableStep<Y, Z, U, V> for DormandPrince
+impl<Y, Z, U, V> ExplicitDaeVariableStepExplicit<Y, Z, U, V> for DormandPrince
 where
     Self: ExplicitDaeVariableStepFirstSameAsLast<Y, Z, U, V>,
     Y: Tensor,

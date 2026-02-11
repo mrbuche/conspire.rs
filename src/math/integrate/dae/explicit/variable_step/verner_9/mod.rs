@@ -1,10 +1,10 @@
 use crate::math::{
     Scalar, Tensor, TensorVec,
-    integrate::{ExplicitDaeVariableStep, ode::explicit::variable_step::verner_9::*},
+    integrate::{ExplicitDaeVariableStepExplicit, ode::explicit::variable_step::verner_9::*},
 };
 use std::ops::{Mul, Sub};
 
-impl<Y, Z, U, V> ExplicitDaeVariableStep<Y, Z, U, V> for Verner9
+impl<Y, Z, U, V> ExplicitDaeVariableStepExplicit<Y, Z, U, V> for Verner9
 where
     Y: Tensor,
     Z: Tensor,

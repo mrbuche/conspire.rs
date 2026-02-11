@@ -4,8 +4,8 @@ mod test;
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
     integrate::{
-        Explicit, FixedStep, FixedStepExplicit, IntegrationError, OdeSolver, VariableStepExplicit,
-        Verner9 as Verner9VariableStep,
+        Explicit, FixedStep, FixedStepExplicit, IntegrationError, OdeIntegrator,
+        VariableStepExplicit, Verner9 as Verner9VariableStep,
     },
 };
 use std::ops::{Mul, Sub};
@@ -17,7 +17,7 @@ pub struct Verner9 {
     dt: Scalar,
 }
 
-impl<Y, U> OdeSolver<Y, U> for Verner9
+impl<Y, U> OdeIntegrator<Y, U> for Verner9
 where
     Y: Tensor,
     U: TensorVec<Item = Y>,

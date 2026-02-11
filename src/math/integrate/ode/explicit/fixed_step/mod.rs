@@ -15,7 +15,7 @@ pub mod ralston;
 pub mod verner_8;
 pub mod verner_9;
 
-/// Fixed-step explicit ordinary differential equation solvers.
+/// Fixed-step explicit integrators for ordinary differential equations.
 pub trait FixedStepExplicit<Y, U>
 where
     Self: Explicit<Y, U> + FixedStep,
