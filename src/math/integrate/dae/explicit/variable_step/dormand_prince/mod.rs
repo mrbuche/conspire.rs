@@ -1,19 +1,15 @@
 use crate::math::{
-    Banded, Scalar, Tensor, TensorVec, Vector,
+    Scalar, Tensor, TensorVec, Vector,
     integrate::{
-        ExplicitDaeVariableStep, ExplicitDaeVariableStepFirstSameAsLast, IntegrationError,
+        ExplicitDaeVariableStepExplicit, ExplicitDaeVariableStepFirstSameAsLast,
         ode::explicit::variable_step::dormand_prince::*,
-    },
-    optimize::{
-        EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, SecondOrderOptimization,
-        ZerothOrderRootFinding,
     },
 };
 use std::ops::{Mul, Sub};
 
-impl<Y, Z, U, V> ExplicitDaeVariableStep<Y, Z, U, V> for DormandPrince
+impl<Y, Z, U, V> ExplicitDaeVariableStepExplicit<Y, Z, U, V> for DormandPrince
 where
-    Self: ExplicitDaeZerothOrderRoot<Y, Z, U, V>,
+    Self: ExplicitDaeVariableStepFirstSameAsLast<Y, Z, U, V>,
     Y: Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
@@ -106,5 +102,3 @@ where
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
 {
 }
-
-super::implement_solvers!(DormandPrince);

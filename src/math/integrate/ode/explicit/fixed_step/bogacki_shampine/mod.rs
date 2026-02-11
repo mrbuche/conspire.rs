@@ -5,7 +5,7 @@ use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
     integrate::{
         BogackiShampine as BogackiShampineVariableStep, Explicit, FixedStep, FixedStepExplicit,
-        IntegrationError, OdeSolver, VariableStepExplicit,
+        IntegrationError, OdeIntegrator, VariableStepExplicit,
     },
 };
 use std::ops::{Mul, Sub};
@@ -17,7 +17,7 @@ pub struct BogackiShampine {
     dt: Scalar,
 }
 
-impl<Y, U> OdeSolver<Y, U> for BogackiShampine
+impl<Y, U> OdeIntegrator<Y, U> for BogackiShampine
 where
     Y: Tensor,
     U: TensorVec<Item = Y>,

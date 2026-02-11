@@ -12,24 +12,29 @@ pub use dae::{
     ExplicitDaeZerothOrderRoot, ImplicitDaeFirstOrderMinimize, ImplicitDaeFirstOrderRoot,
     ImplicitDaeSecondOrderMinimize, ImplicitDaeZerothOrderRoot,
     explicit::variable_step::{
-        ExplicitDaeVariableStep, ExplicitDaeVariableStepExplicitFirstOrderMinimize,
-        ExplicitDaeVariableStepExplicitFirstOrderRoot,
-        ExplicitDaeVariableStepExplicitSecondOrderMinimize,
-        ExplicitDaeVariableStepExplicitZerothOrderRoot, ExplicitDaeVariableStepFirstSameAsLast,
-        ImplicitDaeVariableStep, ImplicitDaeVariableStepExplicitFirstOrderMinimize,
-        ImplicitDaeVariableStepExplicitFirstOrderRoot,
-        ImplicitDaeVariableStepExplicitSecondOrderMinimize,
-        ImplicitDaeVariableStepExplicitZerothOrderRoot,
+        explicit::{
+            ExplicitDaeVariableStepExplicit, ExplicitDaeVariableStepExplicitFirstOrderMinimize,
+            ExplicitDaeVariableStepExplicitFirstOrderRoot,
+            ExplicitDaeVariableStepExplicitSecondOrderMinimize,
+            ExplicitDaeVariableStepExplicitZerothOrderRoot, ExplicitDaeVariableStepFirstSameAsLast,
+        },
+        implicit::{
+            ImplicitDaeVariableStepExplicit, ImplicitDaeVariableStepExplicitFirstOrderMinimize,
+            ImplicitDaeVariableStepExplicitFirstOrderRoot,
+            ImplicitDaeVariableStepExplicitSecondOrderMinimize,
+            ImplicitDaeVariableStepExplicitZerothOrderRoot,
+        },
     },
 };
 pub use ode::{
-    FixedStep, OdeSolver, VariableStep,
+    FixedStep, OdeIntegrator, VariableStep,
     explicit::{
         Explicit,
         fixed_step::{
             FixedStepExplicit, bogacki_shampine::BogackiShampine as BogackiShampineFixedStep,
             dormand_prince::DormandPrince as DormandPrinceFixedStep, euler::Euler, heun::Heun,
-            midpoint::Midpoint, ralston::Ralston,
+            midpoint::Midpoint, ralston::Ralston, verner_8::Verner8 as Verner8FixedStep,
+            verner_9::Verner9 as Verner9FixedStep,
         },
         variable_step::{
             VariableStepExplicit,
@@ -76,8 +81,14 @@ pub type Ode5 = DormandPrinceFixedStep;
 /// Alias for [`Verner8`].
 pub type Ode78 = Verner8;
 
+/// Alias for [`Verner8FixedStep`].
+pub type Ode8 = Verner8FixedStep;
+
 /// Alias for [`Verner9`].
 pub type Ode89 = Verner9;
+
+/// Alias for [`Verner9FixedStep`].
+pub type Ode9 = Verner9FixedStep;
 
 use crate::{
     defeat_message,

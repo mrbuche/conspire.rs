@@ -4,8 +4,8 @@ use std::fmt::Debug;
 pub mod explicit;
 pub mod implicit;
 
-/// Ordinary differential equation solvers.
-pub trait OdeSolver<Y, U>
+/// Integrators for ordinary differential equations.
+pub trait OdeIntegrator<Y, U>
 where
     Self: Debug,
     Y: Tensor,
@@ -13,13 +13,13 @@ where
 {
 }
 
-/// Fixed-step ordinary differential equation solvers.
+/// Fixed-step integrators for ordinary differential equations.
 pub trait FixedStep {
     /// Returns the time step.
     fn dt(&self) -> Scalar;
 }
 
-/// Variable-step ordinary differential equation solvers.
+/// Variable-step integrators for ordinary differential equations.
 pub trait VariableStep {
     /// Returns the absolute error tolerance.
     fn abs_tol(&self) -> Scalar;

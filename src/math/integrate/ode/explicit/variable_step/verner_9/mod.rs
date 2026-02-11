@@ -3,7 +3,7 @@ mod test;
 
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
-    integrate::{Explicit, IntegrationError, OdeSolver, VariableStep, VariableStepExplicit},
+    integrate::{Explicit, IntegrationError, OdeIntegrator, VariableStep, VariableStepExplicit},
     interpolate::InterpolateSolution,
 };
 use crate::{ABS_TOL, REL_TOL};
@@ -151,7 +151,7 @@ impl Default for Verner9 {
     }
 }
 
-impl<Y, U> OdeSolver<Y, U> for Verner9
+impl<Y, U> OdeIntegrator<Y, U> for Verner9
 where
     Y: Tensor,
     U: TensorVec<Item = Y>,
@@ -317,7 +317,9 @@ where
             + &k[11] * (A_16_12 * dt)
             + &k[12] * (A_16_13 * dt)
             + y;
-        k[15] = function(t + dt, y_trial)?;
+        if k.len() == Self::SLOPES {
+            k[15] = function(t + dt, y_trial)?;
+        }
         *y_trial = (&k[0] * B_1
             + &k[7] * B_8
             + &k[8] * B_9

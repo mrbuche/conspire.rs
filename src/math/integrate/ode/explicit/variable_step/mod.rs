@@ -13,7 +13,7 @@ pub mod dormand_prince;
 pub mod verner_8;
 pub mod verner_9;
 
-/// Variable-step explicit ordinary differential equation solvers.
+/// Variable-step explicit integrators for ordinary differential equations.
 pub trait VariableStepExplicit<Y, U>
 where
     Self: InterpolateSolution<Y, U> + Explicit<Y, U> + VariableStep,
@@ -189,7 +189,7 @@ where
     }
 }
 
-/// First-same-as-last property for variable-step explicit ordinary differential equation solvers.
+/// First-same-as-last property for explicit ordinary differential equation integrators.
 pub trait VariableStepExplicitFirstSameAsLast<Y, U>
 where
     Self: VariableStepExplicit<Y, U>,

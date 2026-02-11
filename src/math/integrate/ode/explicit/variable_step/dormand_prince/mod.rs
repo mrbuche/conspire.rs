@@ -4,7 +4,7 @@ mod test;
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
     integrate::{
-        Explicit, IntegrationError, OdeSolver, VariableStep, VariableStepExplicit,
+        Explicit, IntegrationError, OdeIntegrator, VariableStep, VariableStepExplicit,
         VariableStepExplicitFirstSameAsLast,
     },
     interpolate::InterpolateSolution,
@@ -66,7 +66,7 @@ impl Default for DormandPrince {
     }
 }
 
-impl<Y, U> OdeSolver<Y, U> for DormandPrince
+impl<Y, U> OdeIntegrator<Y, U> for DormandPrince
 where
     Y: Tensor,
     U: TensorVec<Item = Y>,

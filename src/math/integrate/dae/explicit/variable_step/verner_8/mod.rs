@@ -1,16 +1,10 @@
 use crate::math::{
-    Banded, Scalar, Tensor, TensorVec, Vector,
-    integrate::{
-        ExplicitDaeVariableStep, IntegrationError, ode::explicit::variable_step::verner_8::*,
-    },
-    optimize::{
-        EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, SecondOrderOptimization,
-        ZerothOrderRootFinding,
-    },
+    Scalar, Tensor, TensorVec,
+    integrate::{ExplicitDaeVariableStepExplicit, ode::explicit::variable_step::verner_8::*},
 };
 use std::ops::{Mul, Sub};
 
-impl<Y, Z, U, V> ExplicitDaeVariableStep<Y, Z, U, V> for Verner8
+impl<Y, Z, U, V> ExplicitDaeVariableStepExplicit<Y, Z, U, V> for Verner8
 where
     Y: Tensor,
     Z: Tensor,
@@ -127,5 +121,3 @@ where
         Ok(())
     }
 }
-
-super::implement_solvers!(Verner8);
