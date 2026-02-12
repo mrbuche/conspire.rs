@@ -65,7 +65,7 @@ where
 #[derive(Clone, Debug)]
 pub struct ViscoplasticFlow {
     /// The initial yield stress $`Y_0`$.
-    pub initial_yield_stress: Scalar,
+    pub yield_stress: Scalar,
     /// The isotropic hardening slope $`H`$.
     pub hardening_slope: Scalar,
     /// The rate sensitivity parameter $`m`$.
@@ -76,7 +76,7 @@ pub struct ViscoplasticFlow {
 
 impl Plastic for ViscoplasticFlow {
     fn initial_yield_stress(&self) -> Scalar {
-        self.initial_yield_stress
+        self.yield_stress
     }
     fn hardening_slope(&self) -> Scalar {
         self.hardening_slope

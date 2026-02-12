@@ -4,7 +4,7 @@ mod test;
 use crate::{
     constitutive::{
         ConstitutiveError,
-        hybrid::{Multiplicative, MultiplicativeTrait},
+        hybrid::Multiplicative,
         solid::hyperelastic::Hyperelastic,
     },
     mechanics::{DeformationGradient, Scalar},

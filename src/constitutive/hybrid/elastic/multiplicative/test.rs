@@ -1,8 +1,30 @@
-use crate::constitutive::hybrid::{
-    Multiplicative, elastic::test::test_hybrid_elastic_constitutive_models_no_tangents,
+use crate::{
+    constitutive::{
+        hybrid::Multiplicative,
+        solid::{
+            elastic::{
+                AlmansiHamel,
+                test::{BULK_MODULUS, SHEAR_MODULUS},
+            },
+            hyperelastic::NeoHookean,
+        },
+    },
+    math::{TensorArray, TestError},
 };
 
-test_hybrid_elastic_constitutive_models_no_tangents!(Multiplicative);
+#[test]
+fn todo_1() {
+    todo!("probably don't need the no_tangent stuff now")
+}
+
+// test_hybrid_elastic_constitutive_models_no_tangents!(Multiplicative);
+
+#[test]
+fn todo_2() {
+    todo!(
+        "any way to still test elastic_iv stuff with elastic test suite? maybe with some default (undeformed, deformed) values and macros?"
+    )
+}
 
 use crate::{
     constitutive::solid::elastic::{AppliedLoad, internal_variables::ElasticIV},
@@ -15,7 +37,7 @@ use crate::{
 };
 
 #[test]
-fn finite_difference_foo_0() -> Result<(), TestError> {
+fn finite_difference_0() -> Result<(), TestError> {
     let deformation_gradient = DeformationGradient::from([
         [1.31924942, 1.36431217, 0.41764434],
         [0.09959341, 1.38409741, 1.48320137],
@@ -36,19 +58,18 @@ fn finite_difference_foo_0() -> Result<(), TestError> {
             shear_modulus: SHEAR_MODULUS,
         },
     ));
-    let tangent =
-        model.cauchy_tangent_stiffness_foo(&deformation_gradient, &deformation_gradient_2)?;
+    let tangent = model.cauchy_tangent_stiffness(&deformation_gradient, &deformation_gradient_2)?;
     let mut fd = CauchyTangentStiffness::zero();
     for k in 0..3 {
         for l in 0..3 {
             let mut deformation_gradient_plus = deformation_gradient.clone();
             deformation_gradient_plus[k][l] += 0.5 * crate::EPSILON;
             let cauchy_stress_plus =
-                model.cauchy_stress_foo(&deformation_gradient_plus, &deformation_gradient_2)?;
+                model.cauchy_stress(&deformation_gradient_plus, &deformation_gradient_2)?;
             let mut deformation_gradient_minus = deformation_gradient.clone();
             deformation_gradient_minus[k][l] -= 0.5 * crate::EPSILON;
             let cauchy_stress_minus =
-                model.cauchy_stress_foo(&deformation_gradient_minus, &deformation_gradient_2)?;
+                model.cauchy_stress(&deformation_gradient_minus, &deformation_gradient_2)?;
             for i in 0..3 {
                 for j in 0..3 {
                     fd[i][j][k][l] =
@@ -65,7 +86,7 @@ fn finite_difference_foo_0() -> Result<(), TestError> {
 }
 
 #[test]
-fn finite_difference_foo_1() -> Result<(), TestError> {
+fn finite_difference_1() -> Result<(), TestError> {
     let deformation_gradient = DeformationGradient::from([
         [1.31924942, 1.36431217, 0.41764434],
         [0.09959341, 1.38409741, 1.48320137],
@@ -116,7 +137,7 @@ fn finite_difference_foo_1() -> Result<(), TestError> {
 }
 
 #[test]
-fn finite_difference_foo_2() -> Result<(), TestError> {
+fn finite_difference_2() -> Result<(), TestError> {
     let deformation_gradient = DeformationGradient::from([
         [1.31924942, 1.36431217, 0.41764434],
         [0.09959341, 1.38409741, 1.48320137],
@@ -144,13 +165,13 @@ fn finite_difference_foo_2() -> Result<(), TestError> {
         for l in 0..3 {
             let mut deformation_gradient_2_plus = deformation_gradient_2.clone();
             deformation_gradient_2_plus[k][l] += 0.5 * crate::EPSILON;
-            let residual_plus = model.first_piola_kirchhoff_stress_foo(
+            let residual_plus = model.first_piola_kirchhoff_stress(
                 &deformation_gradient,
                 &deformation_gradient_2_plus,
             )?;
             let mut deformation_gradient_2_minus = deformation_gradient_2.clone();
             deformation_gradient_2_minus[k][l] -= 0.5 * crate::EPSILON;
-            let residual_minus = model.first_piola_kirchhoff_stress_foo(
+            let residual_minus = model.first_piola_kirchhoff_stress(
                 &deformation_gradient,
                 &deformation_gradient_2_minus,
             )?;
@@ -169,7 +190,7 @@ fn finite_difference_foo_2() -> Result<(), TestError> {
 }
 
 #[test]
-fn finite_difference_foo_3() -> Result<(), TestError> {
+fn finite_difference_3() -> Result<(), TestError> {
     let deformation_gradient = DeformationGradient::from([
         [1.31924942, 1.36431217, 0.41764434],
         [0.09959341, 1.38409741, 1.48320137],
@@ -222,35 +243,7 @@ fn finite_difference_foo_3() -> Result<(), TestError> {
 const STRETCH: Scalar = 1.5;
 
 #[test]
-fn root_0_not_foo() -> Result<(), TestError> {
-    use crate::constitutive::solid::elastic::ZerothOrderRoot;
-    let model = Multiplicative::from((
-        AlmansiHamel {
-            bulk_modulus: BULK_MODULUS,
-            shear_modulus: SHEAR_MODULUS,
-        },
-        NeoHookean {
-            bulk_modulus: BULK_MODULUS,
-            shear_modulus: SHEAR_MODULUS,
-        },
-    ));
-    let time = std::time::Instant::now();
-    let _f = model.root(
-        AppliedLoad::UniaxialStress(STRETCH),
-        GradientDescent {
-            dual: true,
-            ..Default::default()
-        },
-    )?;
-    println!("old_0 {:?}", time.elapsed());
-    // let f_1 = &f * f_2.inverse();
-    // println!("{}\n{}\n{}", f, f_1, f_2,);
-    // println!("{}", f);
-    Ok(())
-}
-
-#[test]
-fn root_0_foo() -> Result<(), TestError> {
+fn root_0() -> Result<(), TestError> {
     use crate::constitutive::solid::elastic::internal_variables::ZerothOrderRoot;
     let model = Multiplicative::from((
         AlmansiHamel {
@@ -276,7 +269,7 @@ fn root_0_foo() -> Result<(), TestError> {
 }
 
 #[test]
-fn root_1_foo() -> Result<(), TestError> {
+fn root_1() -> Result<(), TestError> {
     use crate::constitutive::solid::elastic::internal_variables::FirstOrderRoot;
     let model = Multiplicative::from((
         AlmansiHamel {
