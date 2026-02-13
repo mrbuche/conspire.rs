@@ -5,10 +5,17 @@ mod elastic_viscoplastic;
 mod hyperelastic;
 mod hyperelastic_viscoplastic;
 
+pub use elastic::{additive::ElasticAdditive, multiplicative::ElasticMultiplicative};
+
 use std::{
     any::type_name,
     fmt::{self, Debug, Formatter},
 };
+
+// #[test]
+// fn todo() {
+//     todo!("Might as well get rid of the From impls once done since cannot get them through Deref.")
+// }
 
 /// A hybrid constitutive model based on the additive decomposition.
 #[derive(Clone)]

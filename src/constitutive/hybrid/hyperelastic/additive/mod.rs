@@ -2,11 +2,11 @@
 mod test;
 
 use crate::{
-    constitutive::{ConstitutiveError, hybrid::Additive, solid::hyperelastic::Hyperelastic},
+    constitutive::{ConstitutiveError, hybrid::ElasticAdditive, solid::hyperelastic::Hyperelastic},
     mechanics::{DeformationGradient, Scalar},
 };
 
-impl<C1, C2> Hyperelastic for Additive<C1, C2>
+impl<C1, C2> Hyperelastic for ElasticAdditive<C1, C2>
 where
     C1: Hyperelastic,
     C2: Hyperelastic,

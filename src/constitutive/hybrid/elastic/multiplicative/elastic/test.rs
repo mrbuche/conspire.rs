@@ -1,6 +1,6 @@
 use crate::{
     constitutive::{
-        hybrid::Multiplicative,
+        hybrid::ElasticMultiplicative,
         solid::{
             elastic::{
                 AlmansiHamel,
@@ -11,20 +11,6 @@ use crate::{
     },
     math::{TensorArray, TestError},
 };
-
-#[test]
-fn todo_1() {
-    todo!("probably don't need the no_tangent stuff now")
-}
-
-// test_hybrid_elastic_constitutive_models_no_tangents!(Multiplicative);
-
-#[test]
-fn todo_2() {
-    todo!(
-        "any way to still test elastic_iv stuff with elastic test suite? maybe with some default (undeformed, deformed) values and macros?"
-    )
-}
 
 use crate::{
     constitutive::solid::elastic::{AppliedLoad, internal_variables::ElasticIV},
@@ -48,7 +34,7 @@ fn finite_difference_0() -> Result<(), TestError> {
         [0.76208429, 1.94584131, 0.74035917],
         [1.93680854, 2.32953025, 3.36786684],
     ]);
-    let model = Multiplicative::from((
+    let model = ElasticMultiplicative::from((
         AlmansiHamel {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
@@ -97,7 +83,7 @@ fn finite_difference_1() -> Result<(), TestError> {
         [0.76208429, 1.94584131, 0.74035917],
         [1.93680854, 2.32953025, 3.36786684],
     ]);
-    let model = Multiplicative::from((
+    let model = ElasticMultiplicative::from((
         AlmansiHamel {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
@@ -148,7 +134,7 @@ fn finite_difference_2() -> Result<(), TestError> {
         [0.76208429, 1.94584131, 0.74035917],
         [1.93680854, 2.32953025, 3.36786684],
     ]);
-    let model = Multiplicative::from((
+    let model = ElasticMultiplicative::from((
         AlmansiHamel {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
@@ -201,7 +187,7 @@ fn finite_difference_3() -> Result<(), TestError> {
         [0.76208429, 1.94584131, 0.74035917],
         [1.93680854, 2.32953025, 3.36786684],
     ]);
-    let model = Multiplicative::from((
+    let model = ElasticMultiplicative::from((
         AlmansiHamel {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
@@ -245,7 +231,7 @@ const STRETCH: Scalar = 1.5;
 #[test]
 fn root_0() -> Result<(), TestError> {
     use crate::constitutive::solid::elastic::internal_variables::ZerothOrderRoot;
-    let model = Multiplicative::from((
+    let model = ElasticMultiplicative::from((
         AlmansiHamel {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
@@ -271,7 +257,7 @@ fn root_0() -> Result<(), TestError> {
 #[test]
 fn root_1() -> Result<(), TestError> {
     use crate::constitutive::solid::elastic::internal_variables::FirstOrderRoot;
-    let model = Multiplicative::from((
+    let model = ElasticMultiplicative::from((
         AlmansiHamel {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,

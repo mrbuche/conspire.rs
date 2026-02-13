@@ -227,29 +227,7 @@ where
         applied_load: AppliedLoad,
         solver: impl ZerothOrderRootFinding<Self::Variables>,
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {
-        let (extra_constraints, num_vars) = self.internal_variables_constraints();
-        let (matrix, vector) = match applied_load {
-            AppliedLoad::UniaxialStress(deformation_gradient_11) => {
-                let num_constraints = 4;
-                let num_constraints_vars = extra_constraints.len();
-                let mut matrix = Matrix::zero(num_constraints + num_constraints_vars, 9 + num_vars);
-                let mut vector = Vector::zero(num_constraints + num_constraints_vars);
-                matrix[0][0] = 1.0;
-                matrix[1][1] = 1.0;
-                matrix[2][2] = 1.0;
-                matrix[3][5] = 1.0;
-                let mut i = num_constraints;
-                extra_constraints.iter().for_each(|&j| {
-                    matrix[i][j] = 1.0;
-                    i += 1;
-                });
-                vector[0] = deformation_gradient_11;
-                (matrix, vector)
-            }
-            AppliedLoad::BiaxialStress(_, _) => {
-                todo!()
-            }
-        };
+        let (matrix, vector) = bcs(self, applied_load);
         match solver.root(
             |variables: &Self::Variables| {
                 let (deformation_gradient, internal_variables) = variables.into();
@@ -291,29 +269,7 @@ where
             Self::Variables,
         >,
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {
-        let (extra_constraints, num_vars) = self.internal_variables_constraints();
-        let (matrix, vector) = match applied_load {
-            AppliedLoad::UniaxialStress(deformation_gradient_11) => {
-                let num_constraints = 4;
-                let num_constraints_vars = extra_constraints.len();
-                let mut matrix = Matrix::zero(num_constraints + num_constraints_vars, 9 + num_vars);
-                let mut vector = Vector::zero(num_constraints + num_constraints_vars);
-                matrix[0][0] = 1.0;
-                matrix[1][1] = 1.0;
-                matrix[2][2] = 1.0;
-                matrix[3][5] = 1.0;
-                let mut i = num_constraints;
-                extra_constraints.iter().for_each(|&j| {
-                    matrix[i][j] = 1.0;
-                    i += 1;
-                });
-                vector[0] = deformation_gradient_11;
-                (matrix, vector)
-            }
-            AppliedLoad::BiaxialStress(_, _) => {
-                todo!()
-            }
-        };
+        let (matrix, vector) = bcs(self, applied_load);
         match solver.root(
             |variables: &Self::Variables| {
                 let (deformation_gradient, internal_variables) = variables.into();
@@ -343,6 +299,36 @@ where
                 format!("{error}"),
                 format!("{self:?}"),
             )),
+        }
+    }
+}
+
+#[doc(hidden)]
+pub fn bcs<C, V, T1, T2, T3>(model: &C, applied_load: AppliedLoad) -> (Matrix, Vector)
+where
+    C: ElasticIV<V, T1, T2, T3>,
+{
+    let (extra_constraints, num_vars) = model.internal_variables_constraints();
+    match applied_load {
+        AppliedLoad::UniaxialStress(deformation_gradient_11) => {
+            let num_constraints = 4;
+            let num_constraints_vars = extra_constraints.len();
+            let mut matrix = Matrix::zero(num_constraints + num_constraints_vars, 9 + num_vars);
+            let mut vector = Vector::zero(num_constraints + num_constraints_vars);
+            matrix[0][0] = 1.0;
+            matrix[1][1] = 1.0;
+            matrix[2][2] = 1.0;
+            matrix[3][5] = 1.0;
+            let mut i = num_constraints;
+            extra_constraints.iter().for_each(|&j| {
+                matrix[i][j] = 1.0;
+                i += 1;
+            });
+            vector[0] = deformation_gradient_11;
+            (matrix, vector)
+        }
+        AppliedLoad::BiaxialStress(_, _) => {
+            todo!()
         }
     }
 }
