@@ -6,7 +6,7 @@ use crate::{
         fluid::plastic::{Plastic, StateVariables},
     },
     math::{Rank2, Scalar, Tensor, TensorArray},
-    mechanics::{DeformationGradientPlastic, MandelStressElastic, StretchingRatePlastic},
+    mechanics::{MandelStressElastic, StretchingRatePlastic},
 };
 
 /// Required methods for viscoplastic fluid constitutive models.
@@ -22,9 +22,9 @@ where
     fn plastic_evolution(
         &self,
         mandel_stress: MandelStressElastic,
-        deformation_gradient_p: &DeformationGradientPlastic,
-        equivalent_plastic_strain: Scalar,
+        state_variables: &StateVariables,
     ) -> Result<StateVariables, ConstitutiveError> {
+        let (deformation_gradient_p, &equivalent_plastic_strain) = state_variables.into();
         let plastic_stretching_rate = self.plastic_stretching_rate(
             mandel_stress.deviatoric(),
             self.yield_stress(equivalent_plastic_strain)?,

@@ -169,7 +169,7 @@ where
         deformation_gradient: &DeformationGradient,
         state_variables: &StateVariables,
     ) -> Result<StateVariables, ConstitutiveError> {
-        let (deformation_gradient_p, &equivalent_plastic_strain) = state_variables.into();
+        let (deformation_gradient_p, _) = state_variables.into();
         let jacobian = self.0.jacobian(deformation_gradient)?;
         let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
         let cauchy_stress = self
@@ -179,10 +179,6 @@ where
             * cauchy_stress
             * deformation_gradient_e.inverse_transpose())
             * jacobian;
-        self.0.plastic_evolution(
-            mandel_stress_e,
-            deformation_gradient_p,
-            equivalent_plastic_strain,
-        )
+        self.0.plastic_evolution(mandel_stress_e, state_variables)
     }
 }
