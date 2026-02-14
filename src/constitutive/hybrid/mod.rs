@@ -5,7 +5,8 @@ mod elastic_viscoplastic;
 mod hyperelastic;
 mod hyperelastic_viscoplastic;
 
-use crate::{constitutive::ConstitutiveError, mechanics::DeformationGradient};
+pub use elastic::{additive::ElasticAdditive, multiplicative::ElasticMultiplicative};
+
 use std::{
     any::type_name,
     fmt::{self, Debug, Formatter},
@@ -29,14 +30,6 @@ impl<C1, C2> From<(C1, C2)> for Multiplicative<C1, C2> {
     fn from((constitutive_model_1, constitutive_model_2): (C1, C2)) -> Self {
         Self(constitutive_model_1, constitutive_model_2)
     }
-}
-
-/// Required methods for hybrid constitutive models based on the multiplicative decomposition.
-pub trait MultiplicativeTrait {
-    fn deformation_gradients(
-        &self,
-        deformation_gradient: &DeformationGradient,
-    ) -> Result<(DeformationGradient, DeformationGradient), ConstitutiveError>;
 }
 
 impl<C1, C2> Debug for Additive<C1, C2> {

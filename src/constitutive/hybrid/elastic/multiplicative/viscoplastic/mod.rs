@@ -7,6 +7,7 @@ use crate::{
         fluid::{plastic::Plastic, viscoplastic::Viscoplastic},
         hybrid::Multiplicative,
         solid::{
+            Solid,
             elastic::Elastic,
             elastic_viscoplastic::{ElasticPlasticOrViscoplastic, ElasticViscoplastic},
         },
@@ -24,19 +25,18 @@ use crate::{
     },
 };
 
-// impl<C1, C2> Solid for Multiplicative<C1, C2>
-// where
-//     C1: Elastic,
-//     C2: Viscoplastic,
-// {
-//     fn bulk_modulus(&self) -> Scalar {
-//         self.0.bulk_modulus()
-//     }
-//     fn shear_modulus(&self) -> Scalar {
-//         self.0.shear_modulus()
-//     }
-// }
-// You can de-conflict this with elastic/ using specialization if it ever gets stabilized.
+impl<C1, C2> Solid for Multiplicative<C1, C2>
+where
+    C1: Elastic,
+    C2: Viscoplastic,
+{
+    fn bulk_modulus(&self) -> Scalar {
+        self.0.bulk_modulus()
+    }
+    fn shear_modulus(&self) -> Scalar {
+        self.0.shear_modulus()
+    }
+}
 
 impl<C1, C2> Plastic for Multiplicative<C1, C2>
 where
