@@ -4,7 +4,10 @@ mod test;
 use crate::{
     constitutive::{
         ConstitutiveError,
-        fluid::{plastic::Plastic, viscoplastic::Viscoplastic},
+        fluid::{
+            plastic::Plastic,
+            viscoplastic::{Viscoplastic, ViscoplasticStateVariables},
+        },
         hybrid::Multiplicative,
         solid::{
             Solid,
@@ -14,13 +17,13 @@ use crate::{
     },
     math::{
         ContractFirstSecondIndicesWithSecondIndicesOf, ContractSecondIndexWithFirstIndexOf, Rank2,
-        Scalar,
+        Scalar, Tensor,
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, CauchyTangentStiffnessElastic, DeformationGradient,
         DeformationGradientPlastic, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStressElastic,
         FirstPiolaKirchhoffTangentStiffness, FirstPiolaKirchhoffTangentStiffnessElastic,
-        SecondPiolaKirchhoffStress, SecondPiolaKirchhoffStressElastic,
+        MandelStressElastic, SecondPiolaKirchhoffStress, SecondPiolaKirchhoffStressElastic,
         SecondPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffTangentStiffnessElastic,
     },
 };
@@ -28,7 +31,7 @@ use crate::{
 impl<C1, C2> Solid for Multiplicative<C1, C2>
 where
     C1: Elastic,
-    C2: Viscoplastic,
+    C2: Plastic,
 {
     fn bulk_modulus(&self) -> Scalar {
         self.0.bulk_modulus()
@@ -41,7 +44,7 @@ where
 impl<C1, C2> Plastic for Multiplicative<C1, C2>
 where
     C1: Elastic,
-    C2: Viscoplastic,
+    C2: Plastic,
 {
     fn initial_yield_stress(&self) -> Scalar {
         self.1.initial_yield_stress()
@@ -51,11 +54,22 @@ where
     }
 }
 
-impl<C1, C2> Viscoplastic for Multiplicative<C1, C2>
+impl<C1, C2, Y> Viscoplastic<Y> for Multiplicative<C1, C2>
 where
     C1: Elastic,
-    C2: Viscoplastic,
+    C2: Viscoplastic<Y>,
+    Y: Tensor,
 {
+    fn initial_state(&self) -> ViscoplasticStateVariables<Y> {
+        self.1.initial_state()
+    }
+    fn plastic_evolution(
+        &self,
+        mandel_stress: MandelStressElastic,
+        state_variables: &ViscoplasticStateVariables<Y>,
+    ) -> Result<ViscoplasticStateVariables<Y>, ConstitutiveError> {
+        self.1.plastic_evolution(mandel_stress, state_variables)
+    }
     fn rate_sensitivity(&self) -> Scalar {
         self.1.rate_sensitivity()
     }
@@ -67,7 +81,7 @@ where
 impl<C1, C2> ElasticPlasticOrViscoplastic for Multiplicative<C1, C2>
 where
     C1: Elastic,
-    C2: Viscoplastic,
+    C2: Plastic,
 {
     fn cauchy_stress(
         &self,
@@ -145,9 +159,10 @@ where
     }
 }
 
-impl<C1, C2> ElasticViscoplastic for Multiplicative<C1, C2>
+impl<C1, C2, Y> ElasticViscoplastic<Y> for Multiplicative<C1, C2>
 where
     C1: Elastic,
-    C2: Viscoplastic,
+    C2: Viscoplastic<Y>,
+    Y: Tensor,
 {
 }

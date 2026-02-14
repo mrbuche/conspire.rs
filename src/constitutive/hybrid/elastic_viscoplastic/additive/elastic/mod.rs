@@ -2,8 +2,8 @@ use crate::{
     constitutive::{
         ConstitutiveError,
         fluid::{
-            plastic::{Plastic, StateVariables},
-            viscoplastic::Viscoplastic,
+            plastic::Plastic,
+            viscoplastic::{Viscoplastic, ViscoplasticStateVariables},
         },
         hybrid::Additive,
         solid::{
@@ -11,17 +11,17 @@ use crate::{
             elastic_viscoplastic::ElasticViscoplastic,
         },
     },
-    math::Rank2,
+    math::Tensor,
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic,
-        FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness, Scalar,
-        SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,
+        FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness, MandelStressElastic,
+        Scalar, SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,
     },
 };
 
 impl<C1, C2> Solid for Additive<C1, C2>
 where
-    C1: ElasticViscoplastic,
+    C1: Solid,
     C2: Elastic,
 {
     fn bulk_modulus(&self) -> Scalar {
@@ -34,7 +34,7 @@ where
 
 impl<C1, C2> Plastic for Additive<C1, C2>
 where
-    C1: ElasticViscoplastic,
+    C1: Plastic,
     C2: Elastic,
 {
     fn initial_yield_stress(&self) -> Scalar {
@@ -45,11 +45,22 @@ where
     }
 }
 
-impl<C1, C2> Viscoplastic for Additive<C1, C2>
+impl<C1, C2, Y> Viscoplastic<Y> for Additive<C1, C2>
 where
-    C1: ElasticViscoplastic,
+    C1: ElasticViscoplastic<Y>,
     C2: Elastic,
+    Y: Tensor,
 {
+    fn initial_state(&self) -> ViscoplasticStateVariables<Y> {
+        self.0.initial_state()
+    }
+    fn plastic_evolution(
+        &self,
+        mandel_stress: MandelStressElastic,
+        state_variables: &ViscoplasticStateVariables<Y>,
+    ) -> Result<ViscoplasticStateVariables<Y>, ConstitutiveError> {
+        self.0.plastic_evolution(mandel_stress, state_variables)
+    }
     fn rate_sensitivity(&self) -> Scalar {
         self.0.rate_sensitivity()
     }
@@ -60,7 +71,7 @@ where
 
 impl<C1, C2> ElasticPlasticOrViscoplastic for Additive<C1, C2>
 where
-    C1: ElasticViscoplastic,
+    C1: ElasticPlasticOrViscoplastic,
     C2: Elastic,
 {
     /// Calculates and returns the Cauchy stress.
@@ -159,26 +170,18 @@ where
     }
 }
 
-impl<C1, C2> ElasticViscoplastic for Additive<C1, C2>
+impl<C1, C2, Y> ElasticViscoplastic<Y> for Additive<C1, C2>
 where
-    C1: ElasticViscoplastic,
+    C1: ElasticViscoplastic<Y>,
     C2: Elastic,
+    Y: Tensor,
 {
     fn state_variables_evolution(
         &self,
         deformation_gradient: &DeformationGradient,
-        state_variables: &StateVariables,
-    ) -> Result<StateVariables, ConstitutiveError> {
-        let (deformation_gradient_p, _) = state_variables.into();
-        let jacobian = self.0.jacobian(deformation_gradient)?;
-        let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
-        let cauchy_stress = self
-            .0
-            .cauchy_stress(deformation_gradient, deformation_gradient_p)?;
-        let mandel_stress_e = (deformation_gradient_e.transpose()
-            * cauchy_stress
-            * deformation_gradient_e.inverse_transpose())
-            * jacobian;
-        self.0.plastic_evolution(mandel_stress_e, state_variables)
+        state_variables: &ViscoplasticStateVariables<Y>,
+    ) -> Result<ViscoplasticStateVariables<Y>, ConstitutiveError> {
+        self.0
+            .state_variables_evolution(deformation_gradient, state_variables)
     }
 }
