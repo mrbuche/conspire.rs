@@ -12,11 +12,6 @@ use std::{
     fmt::{self, Debug, Formatter},
 };
 
-// #[test]
-// fn todo() {
-//     todo!("Might as well get rid of the From impls once done since cannot get them through Deref.")
-// }
-
 /// A hybrid constitutive model based on the additive decomposition.
 #[derive(Clone)]
 pub struct Additive<C1, C2>(C1, C2);
