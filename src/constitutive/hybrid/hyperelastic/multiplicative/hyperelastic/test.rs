@@ -2,23 +2,16 @@ use crate::{
     constitutive::{
         hybrid::ElasticMultiplicative,
         solid::{
-            elastic::{
-                AlmansiHamel,
-                test::{BULK_MODULUS, SHEAR_MODULUS},
-            },
-            hyperelastic::NeoHookean,
+            elastic::test::{BULK_MODULUS, SHEAR_MODULUS},
+            hyperelastic::{NeoHookean, SaintVenantKirchhoff},
         },
     },
-    math::{TensorArray, TestError},
+    math::TestError,
 };
 
 use crate::{
-    constitutive::solid::elastic::{AppliedLoad, internal_variables::ElasticIV},
-    math::{
-        TensorRank4,
-        optimize::{GradientDescent, NewtonRaphson},
-        test::{ErrorTensor, assert_eq_from_fd},
-    },
+    constitutive::solid::elastic::AppliedLoad,
+    math::optimize::{GradientDescent, NewtonRaphson},
     mechanics::*,
 };
 
@@ -32,7 +25,7 @@ fn minimize_1() -> Result<(), TestError> {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
         },
-        NeoHookean {
+        SaintVenantKirchhoff {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
         },
@@ -55,7 +48,7 @@ fn minimize_2() -> Result<(), TestError> {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
         },
-        NeoHookean {
+        SaintVenantKirchhoff {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
         },
