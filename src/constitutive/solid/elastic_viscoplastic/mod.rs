@@ -36,11 +36,11 @@ where
         let jacobian = self.jacobian(deformation_gradient)?;
         let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
         let cauchy_stress = self.cauchy_stress(deformation_gradient, deformation_gradient_p)?;
-        let mandel_stress_e = (deformation_gradient_e.transpose()
+        let mandel_stress = (deformation_gradient_e.transpose()
             * cauchy_stress
             * deformation_gradient_e.inverse_transpose())
             * jacobian;
-        self.plastic_evolution(mandel_stress_e, state_variables)
+        self.plastic_evolution(mandel_stress, state_variables)
     }
 }
 

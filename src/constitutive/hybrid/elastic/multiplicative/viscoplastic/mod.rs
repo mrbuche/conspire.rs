@@ -8,7 +8,7 @@ use crate::{
             plastic::Plastic,
             viscoplastic::{Viscoplastic, ViscoplasticStateVariables},
         },
-        hybrid::Multiplicative,
+        hybrid::ElasticMultiplicativeViscoplastic,
         solid::{
             Solid,
             elastic::Elastic,
@@ -28,10 +28,11 @@ use crate::{
     },
 };
 
-impl<C1, C2> Solid for Multiplicative<C1, C2>
+impl<C1, C2, Y2> Solid for ElasticMultiplicativeViscoplastic<C1, C2, Y2>
 where
     C1: Elastic,
-    C2: Plastic,
+    C2: Viscoplastic<Y2>,
+    Y2: Tensor,
 {
     fn bulk_modulus(&self) -> Scalar {
         self.0.bulk_modulus()
@@ -41,10 +42,11 @@ where
     }
 }
 
-impl<C1, C2> Plastic for Multiplicative<C1, C2>
+impl<C1, C2, Y2> Plastic for ElasticMultiplicativeViscoplastic<C1, C2, Y2>
 where
     C1: Elastic,
-    C2: Plastic,
+    C2: Viscoplastic<Y2>,
+    Y2: Tensor,
 {
     fn initial_yield_stress(&self) -> Scalar {
         self.1.initial_yield_stress()
@@ -54,20 +56,20 @@ where
     }
 }
 
-impl<C1, C2, Y> Viscoplastic<Y> for Multiplicative<C1, C2>
+impl<C1, C2, Y2> Viscoplastic<Y2> for ElasticMultiplicativeViscoplastic<C1, C2, Y2>
 where
     C1: Elastic,
-    C2: Viscoplastic<Y>,
-    Y: Tensor,
+    C2: Viscoplastic<Y2>,
+    Y2: Tensor,
 {
-    fn initial_state(&self) -> ViscoplasticStateVariables<Y> {
+    fn initial_state(&self) -> ViscoplasticStateVariables<Y2> {
         self.1.initial_state()
     }
     fn plastic_evolution(
         &self,
         mandel_stress: MandelStressElastic,
-        state_variables: &ViscoplasticStateVariables<Y>,
-    ) -> Result<ViscoplasticStateVariables<Y>, ConstitutiveError> {
+        state_variables: &ViscoplasticStateVariables<Y2>,
+    ) -> Result<ViscoplasticStateVariables<Y2>, ConstitutiveError> {
         self.1.plastic_evolution(mandel_stress, state_variables)
     }
     fn rate_sensitivity(&self) -> Scalar {
@@ -78,10 +80,11 @@ where
     }
 }
 
-impl<C1, C2> ElasticPlasticOrViscoplastic for Multiplicative<C1, C2>
+impl<C1, C2, Y2> ElasticPlasticOrViscoplastic for ElasticMultiplicativeViscoplastic<C1, C2, Y2>
 where
     C1: Elastic,
-    C2: Plastic,
+    C2: Viscoplastic<Y2>,
+    Y2: Tensor,
 {
     fn cauchy_stress(
         &self,
@@ -159,10 +162,10 @@ where
     }
 }
 
-impl<C1, C2, Y> ElasticViscoplastic<Y> for Multiplicative<C1, C2>
+impl<C1, C2, Y2> ElasticViscoplastic<Y2> for ElasticMultiplicativeViscoplastic<C1, C2, Y2>
 where
     C1: Elastic,
-    C2: Viscoplastic<Y>,
-    Y: Tensor,
+    C2: Viscoplastic<Y2>,
+    Y2: Tensor,
 {
 }
