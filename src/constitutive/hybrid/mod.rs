@@ -1,5 +1,8 @@
 //! Hybrid constitutive models.
 
+#[cfg(test)]
+mod test;
+
 mod elastic;
 mod elastic_viscoplastic;
 mod hyperelastic;
