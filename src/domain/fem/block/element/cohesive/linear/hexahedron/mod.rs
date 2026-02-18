@@ -38,6 +38,11 @@ impl FiniteElement<G, M, N, P> for Hexahedron {
     fn parametric_weights() -> ScalarList<G> {
         Quadrilateral::parametric_weights()
     }
+    fn scaled_jacobians<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> ScalarList<P> {
+        Quadrilateral::scaled_jacobians(Self::nodal_mid_surface(&nodal_coordinates))
+    }
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<P> {
         Quadrilateral::shape_functions(parametric_coordinate)
     }
