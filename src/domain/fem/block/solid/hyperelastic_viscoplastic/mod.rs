@@ -15,11 +15,11 @@ use crate::{
         },
     },
     math::{
-        Scalar, Tensor, TensorArray,
+        Scalar, Tensor,
         integrate::{ExplicitDaeSecondOrderMinimize, IntegrationError},
         optimize::SecondOrderOptimization,
     },
-    mechanics::{DeformationGradientPlastic, Times},
+    mechanics::Times,
 };
 use std::array::from_fn;
 
@@ -30,15 +30,17 @@ pub trait HyperelasticViscoplasticFiniteElementBlock<
     const M: usize,
     const N: usize,
     const P: usize,
+    Y,
 > where
-    C: HyperelasticViscoplastic,
-    F: HyperelasticViscoplasticFiniteElement<C, G, M, N, P>,
-    Self: ElasticViscoplasticFiniteElementBlock<C, F, G, M, N, P>,
+    C: HyperelasticViscoplastic<Y>,
+    F: HyperelasticViscoplasticFiniteElement<C, G, M, N, P, Y>,
+    Self: ElasticViscoplasticFiniteElementBlock<C, F, G, M, N, P, Y>,
+    Y: Tensor,
 {
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates,
-        state_variables: &ViscoplasticStateVariables<G>,
+        state_variables: &ViscoplasticStateVariables<G, Y>,
     ) -> Result<Scalar, FiniteElementBlockError>;
     fn minimize(
         &self,
@@ -46,9 +48,9 @@ pub trait HyperelasticViscoplasticFiniteElementBlock<
             Scalar,
             NodalForcesSolid,
             NodalStiffnessesSolid,
-            ViscoplasticStateVariables<G>,
+            ViscoplasticStateVariables<G, Y>,
             NodalCoordinates,
-            ViscoplasticStateVariablesHistory<G>,
+            ViscoplasticStateVariablesHistory<G, Y>,
             NodalCoordinatesHistory,
         >,
         solver: impl SecondOrderOptimization<
@@ -63,23 +65,24 @@ pub trait HyperelasticViscoplasticFiniteElementBlock<
         (
             Times,
             NodalCoordinatesHistory,
-            ViscoplasticStateVariablesHistory<G>,
+            ViscoplasticStateVariablesHistory<G, Y>,
         ),
         IntegrationError,
     >;
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-    HyperelasticViscoplasticFiniteElementBlock<C, F, G, M, N, P> for Block<C, F, G, M, N, P>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, Y>
+    HyperelasticViscoplasticFiniteElementBlock<C, F, G, M, N, P, Y> for Block<C, F, G, M, N, P>
 where
-    C: HyperelasticViscoplastic,
-    F: HyperelasticViscoplasticFiniteElement<C, G, M, N, P>,
-    Self: ElasticViscoplasticFiniteElementBlock<C, F, G, M, N, P>,
+    C: HyperelasticViscoplastic<Y>,
+    F: HyperelasticViscoplasticFiniteElement<C, G, M, N, P, Y>,
+    Self: ElasticViscoplasticFiniteElementBlock<C, F, G, M, N, P, Y>,
+    Y: Tensor,
 {
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates,
-        state_variables: &ViscoplasticStateVariables<G>,
+        state_variables: &ViscoplasticStateVariables<G, Y>,
     ) -> Result<Scalar, FiniteElementBlockError> {
         match self
             .elements()
@@ -108,9 +111,9 @@ where
             Scalar,
             NodalForcesSolid,
             NodalStiffnessesSolid,
-            ViscoplasticStateVariables<G>,
+            ViscoplasticStateVariables<G, Y>,
             NodalCoordinates,
-            ViscoplasticStateVariablesHistory<G>,
+            ViscoplasticStateVariablesHistory<G, Y>,
             NodalCoordinatesHistory,
         >,
         solver: impl SecondOrderOptimization<
@@ -125,7 +128,7 @@ where
         (
             Times,
             NodalCoordinatesHistory,
-            ViscoplasticStateVariablesHistory<G>,
+            ViscoplasticStateVariablesHistory<G, Y>,
         ),
         IntegrationError,
     > {
@@ -138,22 +141,22 @@ where
         let (time_history, state_variables_history, _, nodal_coordinates_history) = integrator
             .integrate(
                 |_: Scalar,
-                 state_variables: &ViscoplasticStateVariables<G>,
+                 state_variables: &ViscoplasticStateVariables<G, Y>,
                  nodal_coordinates: &NodalCoordinates| {
                     Ok(self.state_variables_evolution(nodal_coordinates, state_variables)?)
                 },
                 |_t: Scalar,
-                 state_variables: &ViscoplasticStateVariables<G>,
+                 state_variables: &ViscoplasticStateVariables<G, Y>,
                  nodal_coordinates: &NodalCoordinates| {
                     Ok(self.helmholtz_free_energy(nodal_coordinates, state_variables)?)
                 },
                 |_t: Scalar,
-                 state_variables: &ViscoplasticStateVariables<G>,
+                 state_variables: &ViscoplasticStateVariables<G, Y>,
                  nodal_coordinates: &NodalCoordinates| {
                     Ok(self.nodal_forces(nodal_coordinates, state_variables)?)
                 },
                 |_t: Scalar,
-                 state_variables: &ViscoplasticStateVariables<G>,
+                 state_variables: &ViscoplasticStateVariables<G, Y>,
                  nodal_coordinates: &NodalCoordinates| {
                     Ok(self.nodal_stiffnesses(nodal_coordinates, state_variables)?)
                 },
@@ -162,9 +165,7 @@ where
                 (
                     self.elements()
                         .iter()
-                        .map(|_| {
-                            from_fn(|_| (DeformationGradientPlastic::identity(), 0.0).into()).into()
-                        })
+                        .map(|_| from_fn(|_| self.constitutive_model().initial_state()).into())
                         .collect(),
                     self.coordinates().clone().into(),
                 ),

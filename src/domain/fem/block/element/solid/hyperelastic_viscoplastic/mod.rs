@@ -16,29 +16,32 @@ pub trait HyperelasticViscoplasticFiniteElement<
     const M: usize,
     const N: usize,
     const P: usize,
+    Y,
 > where
-    C: HyperelasticViscoplastic,
-    Self: ElasticViscoplasticFiniteElement<C, G, M, N, P>,
+    C: HyperelasticViscoplastic<Y>,
+    Self: ElasticViscoplasticFiniteElement<C, G, M, N, P, Y>,
+    Y: Tensor,
 {
     fn helmholtz_free_energy(
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
-        state_variables: &ViscoplasticStateVariables<G>,
+        state_variables: &ViscoplasticStateVariables<G, Y>,
     ) -> Result<Scalar, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
-    HyperelasticViscoplasticFiniteElement<C, G, 3, N, P> for Element<G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize, const P: usize, Y>
+    HyperelasticViscoplasticFiniteElement<C, G, 3, N, P, Y> for Element<G, N, O>
 where
-    C: HyperelasticViscoplastic,
-    Self: ElasticViscoplasticFiniteElement<C, G, 3, N, P>,
+    C: HyperelasticViscoplastic<Y>,
+    Self: ElasticViscoplasticFiniteElement<C, G, 3, N, P, Y>,
+    Y: Tensor,
 {
     fn helmholtz_free_energy(
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
-        state_variables: &ViscoplasticStateVariables<G>,
+        state_variables: &ViscoplasticStateVariables<G, Y>,
     ) -> Result<Scalar, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)

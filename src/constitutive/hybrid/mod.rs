@@ -4,8 +4,16 @@ mod elastic;
 mod elastic_viscoplastic;
 mod hyperelastic;
 mod hyperelastic_viscoplastic;
+mod viscoplastic;
 
-pub use elastic::{additive::ElasticAdditive, multiplicative::ElasticMultiplicative};
+pub use self::{
+    elastic::{
+        additive::ElasticAdditive,
+        multiplicative::{ElasticMultiplicative, ElasticMultiplicativeViscoplastic},
+    },
+    elastic_viscoplastic::additive::ElasticViscoplasticAdditiveElastic,
+    viscoplastic::additive::ElasticViscoplasticAdditiveViscoplastic,
+};
 
 use std::{
     any::type_name,
@@ -16,21 +24,9 @@ use std::{
 #[derive(Clone)]
 pub struct Additive<C1, C2>(C1, C2);
 
-impl<C1, C2> From<(C1, C2)> for Additive<C1, C2> {
-    fn from((constitutive_model_1, constitutive_model_2): (C1, C2)) -> Self {
-        Self(constitutive_model_1, constitutive_model_2)
-    }
-}
-
 /// A hybrid constitutive model based on the multiplicative decomposition.
 #[derive(Clone)]
 pub struct Multiplicative<C1, C2>(C1, C2);
-
-impl<C1, C2> From<(C1, C2)> for Multiplicative<C1, C2> {
-    fn from((constitutive_model_1, constitutive_model_2): (C1, C2)) -> Self {
-        Self(constitutive_model_1, constitutive_model_2)
-    }
-}
 
 impl<C1, C2> Debug for Additive<C1, C2> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
