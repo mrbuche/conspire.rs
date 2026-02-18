@@ -7,7 +7,8 @@ use crate::{
         ParametricCoordinates, ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         linear::{LinearElement, LinearFiniteElement, M},
     },
-    math::{Scalar, ScalarList},
+    math::{ScalarList, Tensor, TensorArray},
+    mechanics::Coordinate,
 };
 
 const G: usize = 8;
@@ -63,10 +64,21 @@ impl FiniteElement<G, M, N, P> for Hexahedron {
     fn scaled_jacobians<const I: usize>(
         nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
     ) -> ScalarList<P> {
-        // use CORNERS
-        // use Scalar::EPSILON ~ 1e-16 and Scalar::INFINITY and Scalar::NEG_INFINITY
-        // or just let nans be nans
-        todo!()
+        let mut u = Coordinate::zero();
+        let mut v = Coordinate::zero();
+        let mut w = Coordinate::zero();
+        let mut n = Coordinate::zero();
+        CORNERS
+            .into_iter()
+            .enumerate()
+            .map(|(node, [node_a, node_b, node_c])| {
+                u = &nodal_coordinates[node_a] - &nodal_coordinates[node];
+                v = &nodal_coordinates[node_b] - &nodal_coordinates[node];
+                w = &nodal_coordinates[node_c] - &nodal_coordinates[node];
+                n = u.cross(&v);
+                (&n * &w) / u.norm() / v.norm() / w.norm()
+            })
+            .collect()
     }
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
         let [xi_1, xi_2, xi_3] = parametric_coordinate.into();
