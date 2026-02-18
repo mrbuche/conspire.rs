@@ -6,14 +6,17 @@ use crate::{
         ElementNodalCoordinates, ElementNodalEitherCoordinates, ElementNodalReferenceCoordinates,
         FiniteElement, ParametricCoordinate, ParametricCoordinates, ParametricReference,
         ShapeFunctions, ShapeFunctionsGradients,
-        cohesive::{CohesiveFiniteElement, M, Separations, linear::LinearCohesiveElement},
-        surface::{SurfaceFiniteElement, linear::Triangle as LinearTriangle},
+        cohesive::{
+            CohesiveFiniteElement, M, Separations,
+            linear::{LinearCohesiveElement, LinearCohesiveFiniteElement},
+        },
+        surface::linear::Triangle,
     },
-    math::{ScalarList, Tensor},
+    math::ScalarList,
     mechanics::NormalGradients,
 };
 
-// This should share some methods with LinearTriangle<G=3> when get to it.
+// This should share integration_points() and parametric_weights() with Triangle<G=3> when get to it.
 
 const G: usize = 3;
 const N: usize = 6;
@@ -34,15 +37,10 @@ impl FiniteElement<G, M, N, P> for Wedge {
         &self.integration_weights
     }
     fn parametric_reference() -> ParametricReference<M, N> {
-        [
-            [0.0, 0.0],
-            [1.0, 0.0],
-            [0.0, 1.0],
-            [0.0, 0.0],
-            [1.0, 0.0],
-            [0.0, 1.0],
-        ]
-        .into()
+        Triangle::parametric_reference()
+            .into_iter()
+            .chain(Triangle::parametric_reference())
+            .collect()
     }
     fn parametric_weights() -> ScalarList<G> {
         [1.0 / 6.0; G].into()
@@ -53,28 +51,18 @@ impl FiniteElement<G, M, N, P> for Wedge {
         LinearTriangle::scaled_jacobians(Self::nodal_mid_surface(&nodal_coordinates))
     }
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<P> {
-        LinearTriangle::shape_functions(parametric_coordinate)
+        Triangle::shape_functions(parametric_coordinate)
     }
     fn shape_functions_gradients(
         parametric_coordinate: ParametricCoordinate<M>,
     ) -> ShapeFunctionsGradients<M, P> {
-        LinearTriangle::shape_functions_gradients(parametric_coordinate)
+        Triangle::shape_functions_gradients(parametric_coordinate)
     }
 }
 
 impl From<ElementNodalReferenceCoordinates<N>> for Wedge {
     fn from(reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>) -> Self {
-        let integration_weights =
-            Self::bases(&Self::nodal_mid_surface(&reference_nodal_coordinates))
-                .into_iter()
-                .zip(Self::parametric_weights())
-                .map(|(reference_basis, parametric_weight)| {
-                    reference_basis[0].cross(&reference_basis[1]).norm() * parametric_weight
-                })
-                .collect();
-        Self {
-            integration_weights,
-        }
+        Self::from_linear(reference_nodal_coordinates)
     }
 }
 
@@ -82,38 +70,19 @@ impl CohesiveFiniteElement<G, N, P> for Wedge {
     fn nodal_mid_surface<const I: usize>(
         nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> ElementNodalEitherCoordinates<I, P> {
-        nodal_coordinates
-            .iter()
-            .take(P)
-            .zip(nodal_coordinates.iter().skip(P))
-            .map(|(coordinates_bottom, coordinates_top)| {
-                (coordinates_top + coordinates_bottom) * 0.5
-            })
-            .collect()
+        Self::nodal_mid_surface_linear(nodal_coordinates)
     }
     fn nodal_separations(nodal_coordinates: &ElementNodalCoordinates<N>) -> Separations<P> {
-        nodal_coordinates
-            .iter()
-            .take(P)
-            .zip(nodal_coordinates.iter().skip(P))
-            .map(|(coordinates_bottom, coordinates_top)| coordinates_top - coordinates_bottom)
-            .collect()
+        Self::nodal_separations_linear(nodal_coordinates)
     }
     fn normal_gradients_full(
         nodal_mid_surface: &ElementNodalCoordinates<P>,
     ) -> NormalGradients<N, G> {
-        Self::normal_gradients(nodal_mid_surface)
-            .into_iter()
-            .map(|normal_gradient| {
-                normal_gradient
-                    .iter()
-                    .chain(normal_gradient.iter())
-                    .cloned()
-                    .collect()
-            })
-            .collect()
+        Self::normal_gradients_full_linear(nodal_mid_surface)
     }
     fn signs() -> ScalarList<N> {
-        [-1.0, -1.0, -1.0, 1.0, 1.0, 1.0].into()
+        Self::signs_linear()
     }
 }
+
+impl LinearCohesiveFiniteElement<G, N, P> for Wedge {}

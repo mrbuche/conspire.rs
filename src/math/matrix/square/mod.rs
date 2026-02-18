@@ -19,6 +19,7 @@ use std::{
 };
 
 /// Rearrangement structure for a banded matrix.
+#[derive(Clone)] // temporary for dae integrators
 pub struct Banded {
     bandwidth: usize,
     inverse: Vec<usize>,

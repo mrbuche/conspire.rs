@@ -10,6 +10,8 @@ pub mod doc;
 #[cfg(test)]
 pub mod test;
 
+pub mod internal_variables;
+
 mod arruda_boyce;
 mod fung;
 mod gent;
@@ -24,13 +26,10 @@ pub use self::{
     neo_hookean::NeoHookean, saint_venant_kirchhoff::SaintVenantKirchhoff, yeoh::Yeoh,
 };
 use super::{
-    elastic::{AppliedLoad, Elastic},
+    elastic::{AppliedLoad, Elastic, bcs},
     *,
 };
-use crate::math::{
-    Matrix, Vector,
-    optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
-};
+use crate::math::optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization};
 
 /// Required methods for hyperelastic solid constitutive models.
 pub trait Hyperelastic
@@ -90,48 +89,17 @@ where
         applied_load: AppliedLoad,
         solver: impl FirstOrderOptimization<Scalar, DeformationGradient>,
     ) -> Result<DeformationGradient, ConstitutiveError> {
-        match match applied_load {
-            AppliedLoad::UniaxialStress(deformation_gradient_11) => {
-                let mut matrix = Matrix::zero(4, 9);
-                let mut vector = Vector::zero(4);
-                matrix[0][0] = 1.0;
-                matrix[1][1] = 1.0;
-                matrix[2][2] = 1.0;
-                matrix[3][5] = 1.0;
-                vector[0] = deformation_gradient_11;
-                solver.minimize(
-                    |deformation_gradient: &DeformationGradient| {
-                        Ok(self.helmholtz_free_energy_density(deformation_gradient)?)
-                    },
-                    |deformation_gradient: &DeformationGradient| {
-                        Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
-                    },
-                    DeformationGradient::identity(),
-                    EqualityConstraint::Linear(matrix, vector),
-                )
-            }
-            AppliedLoad::BiaxialStress(deformation_gradient_11, deformation_gradient_22) => {
-                let mut matrix = Matrix::zero(5, 9);
-                let mut vector = Vector::zero(5);
-                matrix[0][0] = 1.0;
-                matrix[1][1] = 1.0;
-                matrix[2][2] = 1.0;
-                matrix[3][5] = 1.0;
-                matrix[4][4] = 1.0;
-                vector[0] = deformation_gradient_11;
-                vector[4] = deformation_gradient_22;
-                solver.minimize(
-                    |deformation_gradient: &DeformationGradient| {
-                        Ok(self.helmholtz_free_energy_density(deformation_gradient)?)
-                    },
-                    |deformation_gradient: &DeformationGradient| {
-                        Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
-                    },
-                    DeformationGradient::identity(),
-                    EqualityConstraint::Linear(matrix, vector),
-                )
-            }
-        } {
+        let (matrix, vector) = bcs(applied_load);
+        match solver.minimize(
+            |deformation_gradient: &DeformationGradient| {
+                Ok(self.helmholtz_free_energy_density(deformation_gradient)?)
+            },
+            |deformation_gradient: &DeformationGradient| {
+                Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
+            },
+            DeformationGradient::identity(),
+            EqualityConstraint::Linear(matrix, vector),
+        ) {
             Ok(deformation_gradient) => Ok(deformation_gradient),
             Err(error) => Err(ConstitutiveError::Upstream(
                 format!("{error}"),
@@ -155,56 +123,21 @@ where
             DeformationGradient,
         >,
     ) -> Result<DeformationGradient, ConstitutiveError> {
-        match match applied_load {
-            AppliedLoad::UniaxialStress(deformation_gradient_11) => {
-                let mut matrix = Matrix::zero(4, 9);
-                let mut vector = Vector::zero(4);
-                matrix[0][0] = 1.0;
-                matrix[1][1] = 1.0;
-                matrix[2][2] = 1.0;
-                matrix[3][5] = 1.0;
-                vector[0] = deformation_gradient_11;
-                solver.minimize(
-                    |deformation_gradient: &DeformationGradient| {
-                        Ok(self.helmholtz_free_energy_density(deformation_gradient)?)
-                    },
-                    |deformation_gradient: &DeformationGradient| {
-                        Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
-                    },
-                    |deformation_gradient: &DeformationGradient| {
-                        Ok(self.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)?)
-                    },
-                    DeformationGradient::identity(),
-                    EqualityConstraint::Linear(matrix, vector),
-                    None,
-                )
-            }
-            AppliedLoad::BiaxialStress(deformation_gradient_11, deformation_gradient_22) => {
-                let mut matrix = Matrix::zero(5, 9);
-                let mut vector = Vector::zero(5);
-                matrix[0][0] = 1.0;
-                matrix[1][1] = 1.0;
-                matrix[2][2] = 1.0;
-                matrix[3][5] = 1.0;
-                matrix[4][4] = 1.0;
-                vector[0] = deformation_gradient_11;
-                vector[4] = deformation_gradient_22;
-                solver.minimize(
-                    |deformation_gradient: &DeformationGradient| {
-                        Ok(self.helmholtz_free_energy_density(deformation_gradient)?)
-                    },
-                    |deformation_gradient: &DeformationGradient| {
-                        Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
-                    },
-                    |deformation_gradient: &DeformationGradient| {
-                        Ok(self.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)?)
-                    },
-                    DeformationGradient::identity(),
-                    EqualityConstraint::Linear(matrix, vector),
-                    None,
-                )
-            }
-        } {
+        let (matrix, vector) = bcs(applied_load);
+        match solver.minimize(
+            |deformation_gradient: &DeformationGradient| {
+                Ok(self.helmholtz_free_energy_density(deformation_gradient)?)
+            },
+            |deformation_gradient: &DeformationGradient| {
+                Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
+            },
+            |deformation_gradient: &DeformationGradient| {
+                Ok(self.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)?)
+            },
+            DeformationGradient::identity(),
+            EqualityConstraint::Linear(matrix, vector),
+            None,
+        ) {
             Ok(deformation_gradient) => Ok(deformation_gradient),
             Err(error) => Err(ConstitutiveError::Upstream(
                 format!("{error}"),

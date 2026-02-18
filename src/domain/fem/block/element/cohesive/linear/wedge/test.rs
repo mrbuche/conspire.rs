@@ -40,9 +40,9 @@ const MODEL: LinearElastic = LinearElastic {
 #[test]
 fn temporary_1() -> Result<(), TestError> {
     let coordinates = ElementNodalReferenceCoordinates::from(COORDINATES);
-    let wedge = Wedge::from(coordinates.clone());
+    let element = Wedge::from(coordinates.clone());
     assert_eq_within_tols(
-        &wedge.nodal_forces(&MODEL, &coordinates.into())?,
+        &element.nodal_forces(&MODEL, &coordinates.into())?,
         &[[0.0; 3]; N].into(),
     )
 }
@@ -50,16 +50,16 @@ fn temporary_1() -> Result<(), TestError> {
 #[test]
 fn temporary_2() -> Result<(), TestError> {
     let mut coordinates = ElementNodalReferenceCoordinates::from(COORDINATES);
-    let wedge = Wedge::from(coordinates.clone());
+    let element = Wedge::from(coordinates.clone());
     coordinates.iter_mut().skip(P).for_each(|coordinate| {
         coordinate[0] += TANGENTIAL_DISPLACEMENT;
         coordinate[2] += NORMAL_DISPLACEMENT
     });
-    let area = wedge.integration_weights().into_iter().sum::<Scalar>();
+    let area = element.integration_weights().into_iter().sum::<Scalar>();
     let tangential_force = TANGENTIAL_TRACTION_P * area;
     let normal_force = NORMAL_TRACTION_P * area;
     assert_eq_within_tols(
-        &wedge.nodal_forces(&MODEL, &coordinates.into())?,
+        &element.nodal_forces(&MODEL, &coordinates.into())?,
         &[
             [-tangential_force, 0.0, -normal_force],
             [-tangential_force, 0.0, -normal_force],
@@ -78,9 +78,9 @@ fn temporary_3() -> Result<(), TestError> {
         .iter()
         .map(|coordinate| get_rotation_reference_configuration() * coordinate)
         .collect::<ElementNodalReferenceCoordinates<N>>();
-    let wedge = Wedge::from(coordinates.clone());
+    let element = Wedge::from(coordinates.clone());
     assert_eq_within_tols(
-        &wedge.nodal_forces(&MODEL, &coordinates.into())?,
+        &element.nodal_forces(&MODEL, &coordinates.into())?,
         &[[0.0; 3]; N].into(),
     )
 }
@@ -91,7 +91,7 @@ fn temporary_4() -> Result<(), TestError> {
         .iter()
         .map(|coordinate| get_rotation_reference_configuration() * coordinate)
         .collect::<ElementNodalReferenceCoordinates<N>>();
-    let wedge = Wedge::from(coordinates_0);
+    let element = Wedge::from(coordinates_0);
     let mut coordinates = ElementNodalReferenceCoordinates::from(COORDINATES);
     coordinates.iter_mut().skip(P).for_each(|coordinate| {
         coordinate[0] += TANGENTIAL_DISPLACEMENT;
@@ -101,10 +101,10 @@ fn temporary_4() -> Result<(), TestError> {
         .into_iter()
         .map(|coordinate| get_rotation_reference_configuration() * coordinate)
         .collect();
-    let area = wedge.integration_weights().into_iter().sum::<Scalar>();
+    let area = element.integration_weights().into_iter().sum::<Scalar>();
     let tangential_force = TANGENTIAL_TRACTION_P * area;
     let normal_force = NORMAL_TRACTION_P * area;
-    let nodal_forces_rotated_back = wedge
+    let nodal_forces_rotated_back = element
         .nodal_forces(&MODEL, &coordinates.into())?
         .into_iter()
         .map(|nodal_force| {
@@ -130,7 +130,7 @@ fn temporary_4() -> Result<(), TestError> {
 fn temporary_5() -> Result<(), TestError> {
     let coordinates_0 = ElementNodalReferenceCoordinates::from(COORDINATES);
     let coordinates = ElementNodalCoordinates::from(coordinates_0.clone());
-    let wedge = Wedge::from(coordinates_0);
+    let element = Wedge::from(coordinates_0);
     let mut finite_difference = 0.0;
     let nodal_stiffnesses_fd = (0..N)
         .map(|a| {
@@ -143,10 +143,10 @@ fn temporary_5() -> Result<(), TestError> {
                                     let mut nodal_coordinates = coordinates.clone();
                                     nodal_coordinates[b][j] += 0.5 * EPSILON;
                                     finite_difference =
-                                        wedge.nodal_forces(&MODEL, &nodal_coordinates)?[a][i];
+                                        element.nodal_forces(&MODEL, &nodal_coordinates)?[a][i];
                                     nodal_coordinates[b][j] -= EPSILON;
                                     finite_difference -=
-                                        wedge.nodal_forces(&MODEL, &nodal_coordinates)?[a][i];
+                                        element.nodal_forces(&MODEL, &nodal_coordinates)?[a][i];
                                     Ok(finite_difference / EPSILON)
                                 })
                                 .collect()
@@ -157,7 +157,7 @@ fn temporary_5() -> Result<(), TestError> {
         })
         .collect::<Result<ElementNodalStiffnessesSolid<N>, TestError>>()?;
     assert_eq_from_fd(
-        &wedge.nodal_stiffnesses(&MODEL, &coordinates)?,
+        &element.nodal_stiffnesses(&MODEL, &coordinates)?,
         &nodal_stiffnesses_fd,
     )
 }
@@ -172,7 +172,7 @@ fn temporary_6() -> Result<(), TestError> {
         [1.49477913, 1.72253902, 1.40527015],
         [-2.31789525, -0.2546453, 2.40281722],
     ]);
-    let wedge = Wedge::from(coordinates_0);
+    let element = Wedge::from(coordinates_0);
     let coordinates = ElementNodalCoordinates::from([
         [-0.64542355, -0.31521986, 0.2103109],
         [1.50161765, 1.80846799, 1.49664724],
@@ -193,10 +193,10 @@ fn temporary_6() -> Result<(), TestError> {
                                     let mut nodal_coordinates = coordinates.clone();
                                     nodal_coordinates[b][j] += 0.5 * EPSILON;
                                     finite_difference =
-                                        wedge.nodal_forces(&MODEL, &nodal_coordinates)?[a][i];
+                                        element.nodal_forces(&MODEL, &nodal_coordinates)?[a][i];
                                     nodal_coordinates[b][j] -= EPSILON;
                                     finite_difference -=
-                                        wedge.nodal_forces(&MODEL, &nodal_coordinates)?[a][i];
+                                        element.nodal_forces(&MODEL, &nodal_coordinates)?[a][i];
                                     Ok(finite_difference / EPSILON)
                                 })
                                 .collect()
@@ -207,7 +207,7 @@ fn temporary_6() -> Result<(), TestError> {
         })
         .collect::<Result<ElementNodalStiffnessesSolid<N>, TestError>>()?;
     assert_eq_from_fd(
-        &wedge.nodal_stiffnesses(&MODEL, &coordinates)?,
+        &element.nodal_stiffnesses(&MODEL, &coordinates)?,
         &nodal_stiffnesses_fd,
     )
 }

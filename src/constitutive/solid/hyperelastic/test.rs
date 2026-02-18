@@ -39,23 +39,6 @@ macro_rules! use_elastic_macros {
 }
 pub(crate) use use_elastic_macros;
 
-macro_rules! use_elastic_macros_no_tangents {
-    () => {
-        use crate::constitutive::solid::elastic::test::{
-            cauchy_stress_from_deformation_gradient,
-            cauchy_stress_from_deformation_gradient_rotated,
-            cauchy_stress_from_deformation_gradient_simple,
-            first_piola_kirchhoff_stress_from_deformation_gradient,
-            first_piola_kirchhoff_stress_from_deformation_gradient_rotated,
-            first_piola_kirchhoff_stress_from_deformation_gradient_simple,
-            second_piola_kirchhoff_stress_from_deformation_gradient,
-            second_piola_kirchhoff_stress_from_deformation_gradient_rotated,
-            second_piola_kirchhoff_stress_from_deformation_gradient_simple,
-        };
-    };
-}
-pub(crate) use use_elastic_macros_no_tangents;
-
 macro_rules! test_solid_hyperelastic_constitutive_model_no_minimize
 {
     ($constitutive_model: expr) =>
