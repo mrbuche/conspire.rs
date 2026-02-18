@@ -11,7 +11,7 @@ use crate::{
         },
     },
     math::{
-        Scalar, Tensor, TensorArray, TensorTupleListVec, TensorTupleListVec2D,
+        Scalar, Tensor, TensorTupleListVec, TensorTupleListVec2D,
         integrate::{ExplicitDaeFirstOrderRoot, IntegrationError},
         optimize::{EqualityConstraint, FirstOrderRootFinding},
     },
@@ -19,11 +19,11 @@ use crate::{
 };
 use std::array::from_fn;
 
-pub type ViscoplasticStateVariables<const G: usize> =
-    TensorTupleListVec<DeformationGradientPlastic, Scalar, G>;
+pub type ViscoplasticStateVariables<const G: usize, Y> =
+    TensorTupleListVec<DeformationGradientPlastic, Y, G>;
 
-pub type ViscoplasticStateVariablesHistory<const G: usize> =
-    TensorTupleListVec2D<DeformationGradientPlastic, Scalar, G>;
+pub type ViscoplasticStateVariablesHistory<const G: usize, Y> =
+    TensorTupleListVec2D<DeformationGradientPlastic, Y, G>;
 
 pub type ElasticViscoplasticBCs = fn(Scalar) -> EqualityConstraint;
 
@@ -34,34 +34,36 @@ pub trait ElasticViscoplasticFiniteElementBlock<
     const M: usize,
     const N: usize,
     const P: usize,
+    Y,
 > where
-    C: ElasticViscoplastic,
-    F: ElasticViscoplasticFiniteElement<C, G, M, N, P>,
+    C: ElasticViscoplastic<Y>,
+    F: ElasticViscoplasticFiniteElement<C, G, M, N, P, Y>,
     Self: SolidFiniteElementBlock<C, F, G, M, N, P>,
+    Y: Tensor,
 {
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates,
-        state_variables: &ViscoplasticStateVariables<G>,
+        state_variables: &ViscoplasticStateVariables<G, Y>,
     ) -> Result<NodalForcesSolid, FiniteElementBlockError>;
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates,
-        state_variables: &ViscoplasticStateVariables<G>,
+        state_variables: &ViscoplasticStateVariables<G, Y>,
     ) -> Result<NodalStiffnessesSolid, FiniteElementBlockError>;
     fn state_variables_evolution(
         &self,
         nodal_coordinates: &NodalCoordinates,
-        state_variables: &ViscoplasticStateVariables<G>,
-    ) -> Result<ViscoplasticStateVariables<G>, FiniteElementBlockError>;
+        state_variables: &ViscoplasticStateVariables<G, Y>,
+    ) -> Result<ViscoplasticStateVariables<G, Y>, FiniteElementBlockError>;
     fn root(
         &self,
         integrator: impl ExplicitDaeFirstOrderRoot<
             NodalForcesSolid,
             NodalStiffnessesSolid,
-            ViscoplasticStateVariables<G>,
+            ViscoplasticStateVariables<G, Y>,
             NodalCoordinates,
-            ViscoplasticStateVariablesHistory<G>,
+            ViscoplasticStateVariablesHistory<G, Y>,
             NodalCoordinatesHistory,
         >,
         solver: impl FirstOrderRootFinding<NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>,
@@ -71,23 +73,24 @@ pub trait ElasticViscoplasticFiniteElementBlock<
         (
             Times,
             NodalCoordinatesHistory,
-            ViscoplasticStateVariablesHistory<G>,
+            ViscoplasticStateVariablesHistory<G, Y>,
         ),
         IntegrationError,
     >;
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-    ElasticViscoplasticFiniteElementBlock<C, F, G, M, N, P> for Block<C, F, G, M, N, P>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, Y>
+    ElasticViscoplasticFiniteElementBlock<C, F, G, M, N, P, Y> for Block<C, F, G, M, N, P>
 where
-    C: ElasticViscoplastic,
-    F: ElasticViscoplasticFiniteElement<C, G, M, N, P>,
+    C: ElasticViscoplastic<Y>,
+    F: ElasticViscoplasticFiniteElement<C, G, M, N, P, Y>,
     Self: SolidFiniteElementBlock<C, F, G, M, N, P>,
+    Y: Tensor,
 {
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates,
-        state_variables: &ViscoplasticStateVariables<G>,
+        state_variables: &ViscoplasticStateVariables<G, Y>,
     ) -> Result<NodalForcesSolid, FiniteElementBlockError> {
         let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
         match self
@@ -117,7 +120,7 @@ where
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates,
-        state_variables: &ViscoplasticStateVariables<G>,
+        state_variables: &ViscoplasticStateVariables<G, Y>,
     ) -> Result<NodalStiffnessesSolid, FiniteElementBlockError> {
         let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
         match self
@@ -154,8 +157,8 @@ where
     fn state_variables_evolution(
         &self,
         nodal_coordinates: &NodalCoordinates,
-        state_variables: &ViscoplasticStateVariables<G>,
-    ) -> Result<ViscoplasticStateVariables<G>, FiniteElementBlockError> {
+        state_variables: &ViscoplasticStateVariables<G, Y>,
+    ) -> Result<ViscoplasticStateVariables<G, Y>, FiniteElementBlockError> {
         match self
             .elements()
             .iter()
@@ -182,9 +185,9 @@ where
         integrator: impl ExplicitDaeFirstOrderRoot<
             NodalForcesSolid,
             NodalStiffnessesSolid,
-            ViscoplasticStateVariables<G>,
+            ViscoplasticStateVariables<G, Y>,
             NodalCoordinates,
-            ViscoplasticStateVariablesHistory<G>,
+            ViscoplasticStateVariablesHistory<G, Y>,
             NodalCoordinatesHistory,
         >,
         solver: impl FirstOrderRootFinding<NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>,
@@ -194,24 +197,24 @@ where
         (
             Times,
             NodalCoordinatesHistory,
-            ViscoplasticStateVariablesHistory<G>,
+            ViscoplasticStateVariablesHistory<G, Y>,
         ),
         IntegrationError,
     > {
         let (time_history, state_variables_history, _, nodal_coordinates_history) = integrator
             .integrate(
                 |_: Scalar,
-                 state_variables: &ViscoplasticStateVariables<G>,
+                 state_variables: &ViscoplasticStateVariables<G, Y>,
                  nodal_coordinates: &NodalCoordinates| {
                     Ok(self.state_variables_evolution(nodal_coordinates, state_variables)?)
                 },
                 |_t: Scalar,
-                 state_variables: &ViscoplasticStateVariables<G>,
+                 state_variables: &ViscoplasticStateVariables<G, Y>,
                  nodal_coordinates: &NodalCoordinates| {
                     Ok(self.nodal_forces(nodal_coordinates, state_variables)?)
                 },
                 |_t: Scalar,
-                 state_variables: &ViscoplasticStateVariables<G>,
+                 state_variables: &ViscoplasticStateVariables<G, Y>,
                  nodal_coordinates: &NodalCoordinates| {
                     Ok(self.nodal_stiffnesses(nodal_coordinates, state_variables)?)
                 },
@@ -220,9 +223,7 @@ where
                 (
                     self.elements()
                         .iter()
-                        .map(|_| {
-                            from_fn(|_| (DeformationGradientPlastic::identity(), 0.0).into()).into()
-                        })
+                        .map(|_| from_fn(|_| self.constitutive_model().initial_state()).into())
                         .collect(),
                     self.coordinates().clone().into(),
                 ),

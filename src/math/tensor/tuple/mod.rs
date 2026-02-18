@@ -12,7 +12,7 @@ use std::{
 };
 
 #[derive(Clone, Debug)]
-pub struct TensorTuple<T1, T2>(T1, T2)
+pub struct TensorTuple<T1, T2>(pub T1, pub T2)
 where
     T1: Tensor,
     T2: Tensor;

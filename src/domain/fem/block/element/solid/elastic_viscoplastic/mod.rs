@@ -17,41 +17,44 @@ pub trait ElasticViscoplasticFiniteElement<
     const M: usize,
     const N: usize,
     const P: usize,
+    Y,
 > where
-    C: ElasticViscoplastic,
+    C: ElasticViscoplastic<Y>,
     Self: SolidFiniteElement<G, M, N, P>,
+    Y: Tensor,
 {
     fn nodal_forces(
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
-        state_variables: &ViscoplasticStateVariables<G>,
+        state_variables: &ViscoplasticStateVariables<G, Y>,
     ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError>;
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
-        state_variables: &ViscoplasticStateVariables<G>,
+        state_variables: &ViscoplasticStateVariables<G, Y>,
     ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError>;
     fn state_variables_evolution(
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
-        state_variables: &ViscoplasticStateVariables<G>,
-    ) -> Result<ViscoplasticStateVariables<G>, FiniteElementError>;
+        state_variables: &ViscoplasticStateVariables<G, Y>,
+    ) -> Result<ViscoplasticStateVariables<G, Y>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
-    ElasticViscoplasticFiniteElement<C, G, 3, N, P> for Element<G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize, const P: usize, Y>
+    ElasticViscoplasticFiniteElement<C, G, 3, N, P, Y> for Element<G, N, O>
 where
-    C: ElasticViscoplastic,
+    C: ElasticViscoplastic<Y>,
     Self: SolidFiniteElement<G, 3, N, P>,
+    Y: Tensor,
 {
     fn nodal_forces(
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
-        state_variables: &ViscoplasticStateVariables<G>,
+        state_variables: &ViscoplasticStateVariables<G, Y>,
     ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
@@ -93,7 +96,7 @@ where
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
-        state_variables: &ViscoplasticStateVariables<G>,
+        state_variables: &ViscoplasticStateVariables<G, Y>,
     ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
@@ -151,8 +154,8 @@ where
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
-        state_variables: &ViscoplasticStateVariables<G>,
-    ) -> Result<ViscoplasticStateVariables<G>, FiniteElementError> {
+        state_variables: &ViscoplasticStateVariables<G, Y>,
+    ) -> Result<ViscoplasticStateVariables<G, Y>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
@@ -160,7 +163,7 @@ where
             .map(|(deformation_gradient, state_variable)| {
                 constitutive_model.state_variables_evolution(deformation_gradient, state_variable)
             })
-            .collect::<Result<ViscoplasticStateVariables<G>, _>>()
+            .collect::<Result<ViscoplasticStateVariables<G, Y>, _>>()
         {
             Ok(state_variables_evolution) => Ok(state_variables_evolution),
             Err(error) => Err(FiniteElementError::Upstream(

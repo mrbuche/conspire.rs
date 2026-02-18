@@ -4,17 +4,20 @@ mod test;
 use crate::{
     constitutive::{
         ConstitutiveError,
-        fluid::{plastic::Plastic, viscoplastic::Viscoplastic},
+        fluid::{
+            plastic::Plastic,
+            viscoplastic::{Viscoplastic, ViscoplasticStateVariables, default_plastic_evolution},
+        },
         solid::{
             Solid, TWO_THIRDS,
             elastic_viscoplastic::{ElasticPlasticOrViscoplastic, ElasticViscoplastic},
             hyperelastic_viscoplastic::HyperelasticViscoplastic,
         },
     },
-    math::{ContractThirdFourthIndicesWithFirstSecondIndicesOf, IDENTITY, Rank2},
+    math::{ContractThirdFourthIndicesWithFirstSecondIndicesOf, IDENTITY, Rank2, TensorArray},
     mechanics::{
         CauchyStress, CauchyTangentStiffness, CauchyTangentStiffnessElastic, Deformation,
-        DeformationGradient, DeformationGradientPlastic, Scalar,
+        DeformationGradient, DeformationGradientPlastic, MandelStressElastic, Scalar,
     },
 };
 
@@ -53,7 +56,17 @@ impl Plastic for Hencky {
     }
 }
 
-impl Viscoplastic for Hencky {
+impl Viscoplastic<Scalar> for Hencky {
+    fn initial_state(&self) -> ViscoplasticStateVariables<Scalar> {
+        (DeformationGradientPlastic::identity(), 0.0).into()
+    }
+    fn plastic_evolution(
+        &self,
+        mandel_stress: MandelStressElastic,
+        state_variables: &ViscoplasticStateVariables<Scalar>,
+    ) -> Result<ViscoplasticStateVariables<Scalar>, ConstitutiveError> {
+        default_plastic_evolution(self, mandel_stress, state_variables)
+    }
     fn rate_sensitivity(&self) -> Scalar {
         self.rate_sensitivity
     }
@@ -114,9 +127,9 @@ impl ElasticPlasticOrViscoplastic for Hencky {
     }
 }
 
-impl ElasticViscoplastic for Hencky {}
+impl ElasticViscoplastic<Scalar> for Hencky {}
 
-impl HyperelasticViscoplastic for Hencky {
+impl HyperelasticViscoplastic<Scalar> for Hencky {
     #[doc = include_str!("helmholtz_free_energy_density.md")]
     fn helmholtz_free_energy_density(
         &self,

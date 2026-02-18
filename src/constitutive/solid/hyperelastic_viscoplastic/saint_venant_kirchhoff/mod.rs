@@ -4,16 +4,19 @@ mod test;
 use crate::{
     constitutive::{
         ConstitutiveError,
-        fluid::{plastic::Plastic, viscoplastic::Viscoplastic},
+        fluid::{
+            plastic::Plastic,
+            viscoplastic::{Viscoplastic, ViscoplasticStateVariables, default_plastic_evolution},
+        },
         solid::{
             Solid, TWO_THIRDS,
             elastic_viscoplastic::{ElasticPlasticOrViscoplastic, ElasticViscoplastic},
             hyperelastic_viscoplastic::HyperelasticViscoplastic,
         },
     },
-    math::{IDENTITY_22, Rank2},
+    math::{IDENTITY_22, Rank2, TensorArray},
     mechanics::{
-        Deformation, DeformationGradient, DeformationGradientPlastic, Scalar,
+        Deformation, DeformationGradient, DeformationGradientPlastic, MandelStressElastic, Scalar,
         SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,
     },
 };
@@ -53,7 +56,17 @@ impl Plastic for SaintVenantKirchhoff {
     }
 }
 
-impl Viscoplastic for SaintVenantKirchhoff {
+impl Viscoplastic<Scalar> for SaintVenantKirchhoff {
+    fn initial_state(&self) -> ViscoplasticStateVariables<Scalar> {
+        (DeformationGradientPlastic::identity(), 0.0).into()
+    }
+    fn plastic_evolution(
+        &self,
+        mandel_stress: MandelStressElastic,
+        state_variables: &ViscoplasticStateVariables<Scalar>,
+    ) -> Result<ViscoplasticStateVariables<Scalar>, ConstitutiveError> {
+        default_plastic_evolution(self, mandel_stress, state_variables)
+    }
     fn rate_sensitivity(&self) -> Scalar {
         self.rate_sensitivity
     }
@@ -108,9 +121,9 @@ impl ElasticPlasticOrViscoplastic for SaintVenantKirchhoff {
     }
 }
 
-impl ElasticViscoplastic for SaintVenantKirchhoff {}
+impl ElasticViscoplastic<Scalar> for SaintVenantKirchhoff {}
 
-impl HyperelasticViscoplastic for SaintVenantKirchhoff {
+impl HyperelasticViscoplastic<Scalar> for SaintVenantKirchhoff {
     #[doc = include_str!("helmholtz_free_energy_density.md")]
     fn helmholtz_free_energy_density(
         &self,
