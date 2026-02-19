@@ -591,7 +591,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
                         self_ij
                             .iter()
                             .map(|self_ijk| self_ijk * (tensor_rank_1_b * tensor_rank_1_a_j))
-                            .collect()
+                            .collect::<TensorRank1<D, K>>()
                     })
                     .sum()
             })

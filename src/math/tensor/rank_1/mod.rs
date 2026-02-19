@@ -250,6 +250,18 @@ impl<const D: usize, const I: usize> Sum for TensorRank1<D, I> {
     }
 }
 
+impl<'a, const D: usize, const I: usize> Sum<&'a Self> for TensorRank1<D, I> {
+    fn sum<Ii>(iter: Ii) -> Self
+    where
+        Ii: Iterator<Item = &'a Self>,
+    {
+        iter.fold(Self::default(), |mut acc, item| {
+            acc += item;
+            acc
+        })
+    }
+}
+
 impl<const D: usize, const I: usize> Neg for TensorRank1<D, I> {
     type Output = Self;
     fn neg(self) -> Self::Output {
