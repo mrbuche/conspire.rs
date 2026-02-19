@@ -9,7 +9,7 @@ keywords = ["conspire", "mrbuche"]
 license = "GPL-3.0"
 name = "conspire"
 repository = "https://github.com/mrbuche/conspire.rs"
-version = "0.5.13"
+version = "0.5.14"
 
 [features]
 constitutive = ['mechanics']
