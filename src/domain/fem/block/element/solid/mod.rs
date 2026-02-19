@@ -53,7 +53,7 @@ where
                     .iter()
                     .zip(gradient_vectors)
                     .map(|(nodal_coordinate, gradient_vector)| {
-                        (nodal_coordinate, gradient_vector).into()
+                        DeformationGradient::from((nodal_coordinate, gradient_vector))
                     })
                     .sum()
             })
@@ -71,7 +71,7 @@ where
                     .iter()
                     .zip(gradient_vectors)
                     .map(|(nodal_velocity, gradient_vector)| {
-                        (nodal_velocity, gradient_vector).into()
+                        DeformationGradientRate::from((nodal_velocity, gradient_vector))
                     })
                     .sum()
             })
@@ -100,7 +100,7 @@ where
                     .iter()
                     .zip(gradient_vectors)
                     .map(|(nodal_coordinate, gradient_vector)| {
-                        (nodal_coordinate, gradient_vector).into()
+                        DeformationGradient::from((nodal_coordinate, gradient_vector))
                     })
                     .sum::<DeformationGradient>()
                     + DeformationGradient::from(normal_and_reference_normal)
@@ -124,7 +124,7 @@ where
                     .iter()
                     .zip(gradient_vectors)
                     .map(|(nodal_velocity, gradient_vector)| {
-                        (nodal_velocity, gradient_vector).into()
+                        DeformationGradientRate::from((nodal_velocity, gradient_vector))
                     })
                     .sum::<DeformationGradientRate>()
                     + DeformationGradientRate::from(normal_rate_and_reference_normal)

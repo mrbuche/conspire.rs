@@ -43,7 +43,7 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize> Mul<TensorR
     fn mul(self, tensor_rank_1_list: TensorRank1List<D, J, W>) -> Self::Output {
         self.into_iter()
             .zip(tensor_rank_1_list)
-            .map(|(self_entry, entry)| (self_entry, entry).into())
+            .map(|(self_entry, entry)| Self::Output::from((self_entry, entry)))
             .sum()
     }
 }
@@ -55,7 +55,7 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize> Mul<&Tensor
     fn mul(self, tensor_rank_1_list: &TensorRank1List<D, J, W>) -> Self::Output {
         self.into_iter()
             .zip(tensor_rank_1_list.iter())
-            .map(|(self_entry, entry)| (self_entry, entry).into())
+            .map(|(self_entry, entry)| Self::Output::from((self_entry, entry)))
             .sum()
     }
 }
@@ -67,7 +67,7 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize> Mul<TensorR
     fn mul(self, tensor_rank_1_list: TensorRank1List<D, J, W>) -> Self::Output {
         self.iter()
             .zip(tensor_rank_1_list)
-            .map(|(self_entry, entry)| (self_entry, entry).into())
+            .map(|(self_entry, entry)| Self::Output::from((self_entry, entry)))
             .sum()
     }
 }
@@ -79,7 +79,7 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize> Mul<&Tensor
     fn mul(self, tensor_rank_1_list: &TensorRank1List<D, J, W>) -> Self::Output {
         self.iter()
             .zip(tensor_rank_1_list.iter())
-            .map(|(self_entry, entry)| (self_entry, entry).into())
+            .map(|(self_entry, entry)| Self::Output::from((self_entry, entry)))
             .sum()
     }
 }

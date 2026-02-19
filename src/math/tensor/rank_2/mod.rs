@@ -1221,6 +1221,18 @@ impl<const D: usize, const I: usize, const J: usize> Sum for TensorRank2<D, I, J
     }
 }
 
+impl<'a, const D: usize, const I: usize, const J: usize> Sum<&'a Self> for TensorRank2<D, I, J> {
+    fn sum<Ii>(iter: Ii) -> Self
+    where
+        Ii: Iterator<Item = &'a Self>,
+    {
+        iter.fold(Self::default(), |mut acc, item| {
+            acc += item;
+            acc
+        })
+    }
+}
+
 impl<const D: usize, const I: usize, const J: usize> Div<TensorRank0> for TensorRank2<D, I, J> {
     type Output = Self;
     fn div(mut self, tensor_rank_0: TensorRank0) -> Self::Output {

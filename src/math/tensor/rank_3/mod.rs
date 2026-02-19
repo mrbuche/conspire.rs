@@ -205,6 +205,20 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Sum
     }
 }
 
+impl<'a, const D: usize, const I: usize, const J: usize, const K: usize> Sum<&'a Self>
+    for TensorRank3<D, I, J, K>
+{
+    fn sum<Ii>(iter: Ii) -> Self
+    where
+        Ii: Iterator<Item = &'a Self>,
+    {
+        iter.fold(Self::default(), |mut acc, item| {
+            acc += item;
+            acc
+        })
+    }
+}
+
 impl<const D: usize, const I: usize, const J: usize, const K: usize> Div<TensorRank0>
     for TensorRank3<D, I, J, K>
 {

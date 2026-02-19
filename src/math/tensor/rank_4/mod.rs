@@ -423,6 +423,20 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     }
 }
 
+impl<'a, const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
+    Sum<&'a Self> for TensorRank4<D, I, J, K, L>
+{
+    fn sum<Ii>(iter: Ii) -> Self
+    where
+        Ii: Iterator<Item = &'a Self>,
+    {
+        iter.fold(Self::default(), |mut acc, item| {
+            acc += item;
+            acc
+        })
+    }
+}
+
 pub trait ContractAllIndicesWithFirstIndicesOf<TIM, TJN, TKO, TLP> {
     type Output;
     fn contract_all_indices_with_first_indices_of(
@@ -620,7 +634,9 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
                         self_ij
                             .iter()
                             .zip(tensor_rank_2.iter())
-                            .map(|(self_ijm, tensor_rank_2_m)| (tensor_rank_2_m, self_ijm).into())
+                            .map(|(self_ijm, tensor_rank_2_m)| {
+                                TensorRank2::<D, K, L>::from((tensor_rank_2_m, self_ijm))
+                            })
                             .sum()
                     })
                     .collect()
@@ -686,7 +702,7 @@ impl<
                                     .into_iter()
                                     .zip(tensor_k.iter())
                                     .map(|(self_ijkl, tensor_kl)| tensor_kl * self_ijkl)
-                                    .sum()
+                                    .sum::<TensorRank2<D, M, N>>()
                             })
                             .sum()
                     })
