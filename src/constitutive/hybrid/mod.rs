@@ -4,15 +4,16 @@ mod elastic;
 mod elastic_viscoplastic;
 mod hyperelastic;
 mod hyperelastic_viscoplastic;
-mod viscoplastic;
+// mod viscoplastic;
 
 pub use self::{
     elastic::{
         additive::ElasticAdditive,
         multiplicative::{ElasticMultiplicative, ElasticMultiplicativeViscoplastic},
     },
-    elastic_viscoplastic::additive::ElasticViscoplasticAdditiveElastic,
-    viscoplastic::additive::ElasticViscoplasticAdditiveViscoplastic,
+    elastic_viscoplastic::additive::{
+        ElasticViscoplasticAdditiveElastic, ElasticViscoplasticAdditiveViscoplastic,
+    },
 };
 
 use std::{
