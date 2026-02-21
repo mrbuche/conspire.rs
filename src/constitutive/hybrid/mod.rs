@@ -4,7 +4,6 @@ mod elastic;
 mod elastic_viscoplastic;
 mod hyperelastic;
 mod hyperelastic_viscoplastic;
-// mod viscoplastic;
 
 pub use self::{
     elastic::{
