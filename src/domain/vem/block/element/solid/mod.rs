@@ -3,7 +3,7 @@ pub mod hyperelastic;
 
 use crate::{
     math::Tensor,
-    mechanics::{DeformationGradients, Forces, Stiffnesses},
+    mechanics::{DeformationGradient, DeformationGradients, Forces, Stiffnesses},
     vem::block::element::{Element, ElementNodalCoordinates, VirtualElement},
 };
 
@@ -35,7 +35,7 @@ where
                     .iter()
                     .zip(gradient_vectors)
                     .map(|(&nodal_coordinate, gradient_vector)| {
-                        (nodal_coordinate, gradient_vector).into()
+                        DeformationGradient::from((nodal_coordinate, gradient_vector))
                     })
                     .sum()
             })
