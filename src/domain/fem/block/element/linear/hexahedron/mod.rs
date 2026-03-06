@@ -3,8 +3,9 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        ElementNodalEitherCoordinates, FRAC_1_SQRT_3, FiniteElement, ParametricCoordinate,
-        ParametricCoordinates, ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
+        ElementNodalEitherCoordinates, FRAC_1_SQRT_3, FiniteElement, FiniteElementImprovement,
+        FiniteElementMetrics, ParametricCoordinate, ParametricCoordinates, ParametricReference,
+        ShapeFunctions, ShapeFunctionsGradients,
         linear::{LinearElement, LinearFiniteElement, M},
     },
     math::{ScalarList, Tensor, TensorArray},
@@ -45,23 +46,6 @@ impl FiniteElement<G, M, N, P> for Hexahedron {
     fn integration_weights(&self) -> &ScalarList<G> {
         &self.integration_weights
     }
-    fn jacobians<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> ScalarList<P> {
-        let mut u = Coordinate::zero();
-        let mut v = Coordinate::zero();
-        let mut w = Coordinate::zero();
-        CORNERS
-            .into_iter()
-            .enumerate()
-            .map(|(node, [node_a, node_b, node_c])| {
-                u = &nodal_coordinates[node_a] - &nodal_coordinates[node];
-                v = &nodal_coordinates[node_b] - &nodal_coordinates[node];
-                w = &nodal_coordinates[node_c] - &nodal_coordinates[node];
-                u.cross(&v) * &w
-            })
-            .collect()
-    }
     fn parametric_reference() -> ParametricReference<M, N> {
         [
             [-1.0, -1.0, -1.0],
@@ -77,23 +61,6 @@ impl FiniteElement<G, M, N, P> for Hexahedron {
     }
     fn parametric_weights() -> ScalarList<G> {
         [1.0; G].into()
-    }
-    fn scaled_jacobians<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> ScalarList<P> {
-        let mut u = Coordinate::zero();
-        let mut v = Coordinate::zero();
-        let mut w = Coordinate::zero();
-        CORNERS
-            .into_iter()
-            .enumerate()
-            .map(|(node, [node_a, node_b, node_c])| {
-                u = &nodal_coordinates[node_a] - &nodal_coordinates[node];
-                v = &nodal_coordinates[node_b] - &nodal_coordinates[node];
-                w = &nodal_coordinates[node_c] - &nodal_coordinates[node];
-                (u.cross(&v) * &w) / u.norm() / v.norm() / w.norm()
-            })
-            .collect()
     }
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
         let [xi_1, xi_2, xi_3] = parametric_coordinate.into();
@@ -160,3 +127,43 @@ impl FiniteElement<G, M, N, P> for Hexahedron {
 }
 
 impl LinearFiniteElement<G, N> for Hexahedron {}
+
+impl FiniteElementMetrics<G, M, N, P> for Hexahedron {
+    fn scaled_jacobians<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> ScalarList<P> {
+        let mut u = Coordinate::zero();
+        let mut v = Coordinate::zero();
+        let mut w = Coordinate::zero();
+        CORNERS
+            .into_iter()
+            .enumerate()
+            .map(|(node, [node_a, node_b, node_c])| {
+                u = &nodal_coordinates[node_a] - &nodal_coordinates[node];
+                v = &nodal_coordinates[node_b] - &nodal_coordinates[node];
+                w = &nodal_coordinates[node_c] - &nodal_coordinates[node];
+                (u.cross(&v) * &w) / u.norm() / v.norm() / w.norm()
+            })
+            .collect()
+    }
+}
+
+impl FiniteElementImprovement<G, M, N, P> for Hexahedron {
+    fn jacobians<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> ScalarList<P> {
+        let mut u = Coordinate::zero();
+        let mut v = Coordinate::zero();
+        let mut w = Coordinate::zero();
+        CORNERS
+            .into_iter()
+            .enumerate()
+            .map(|(node, [node_a, node_b, node_c])| {
+                u = &nodal_coordinates[node_a] - &nodal_coordinates[node];
+                v = &nodal_coordinates[node_b] - &nodal_coordinates[node];
+                w = &nodal_coordinates[node_c] - &nodal_coordinates[node];
+                u.cross(&v) * &w
+            })
+            .collect()
+    }
+}

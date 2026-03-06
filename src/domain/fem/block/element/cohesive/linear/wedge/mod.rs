@@ -4,8 +4,8 @@ pub mod test;
 use crate::{
     fem::block::element::{
         ElementNodalCoordinates, ElementNodalEitherCoordinates, ElementNodalReferenceCoordinates,
-        FiniteElement, ParametricCoordinate, ParametricCoordinates, ParametricReference,
-        ShapeFunctions, ShapeFunctionsGradients,
+        FiniteElement, FiniteElementMetrics, ParametricCoordinate, ParametricCoordinates,
+        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         cohesive::{
             CohesiveFiniteElement, M, Separations,
             linear::{LinearCohesiveElement, LinearCohesiveFiniteElement},
@@ -36,11 +36,6 @@ impl FiniteElement<G, M, N, P> for Wedge {
     fn integration_weights(&self) -> &ScalarList<G> {
         &self.integration_weights
     }
-    fn jacobians<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> ScalarList<P> {
-        Triangle::jacobians(Self::nodal_mid_surface(&nodal_coordinates))
-    }
     fn parametric_reference() -> ParametricReference<M, N> {
         Triangle::parametric_reference()
             .into_iter()
@@ -49,11 +44,6 @@ impl FiniteElement<G, M, N, P> for Wedge {
     }
     fn parametric_weights() -> ScalarList<G> {
         [1.0 / 6.0; G].into()
-    }
-    fn scaled_jacobians<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> ScalarList<P> {
-        Triangle::scaled_jacobians(Self::nodal_mid_surface(&nodal_coordinates))
     }
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<P> {
         Triangle::shape_functions(parametric_coordinate)
@@ -91,3 +81,11 @@ impl CohesiveFiniteElement<G, N, P> for Wedge {
 }
 
 impl LinearCohesiveFiniteElement<G, N, P> for Wedge {}
+
+impl FiniteElementMetrics<G, M, N, P> for Wedge {
+    fn scaled_jacobians<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> ScalarList<P> {
+        Triangle::scaled_jacobians(Self::nodal_mid_surface(&nodal_coordinates))
+    }
+}

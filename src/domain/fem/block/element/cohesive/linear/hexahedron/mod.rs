@@ -4,8 +4,8 @@ pub mod test;
 use crate::{
     fem::block::element::{
         ElementNodalCoordinates, ElementNodalEitherCoordinates, ElementNodalReferenceCoordinates,
-        FiniteElement, ParametricCoordinate, ParametricCoordinates, ParametricReference,
-        ShapeFunctions, ShapeFunctionsGradients,
+        FiniteElement, FiniteElementMetrics, ParametricCoordinate, ParametricCoordinates,
+        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         cohesive::{
             CohesiveFiniteElement, M, Separations,
             linear::{LinearCohesiveElement, LinearCohesiveFiniteElement},
@@ -29,11 +29,6 @@ impl FiniteElement<G, M, N, P> for Hexahedron {
     fn integration_weights(&self) -> &ScalarList<G> {
         &self.integration_weights
     }
-    fn jacobians<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> ScalarList<P> {
-        Quadrilateral::jacobians(Self::nodal_mid_surface(&nodal_coordinates))
-    }
     fn parametric_reference() -> ParametricReference<M, N> {
         Quadrilateral::parametric_reference()
             .into_iter()
@@ -42,11 +37,6 @@ impl FiniteElement<G, M, N, P> for Hexahedron {
     }
     fn parametric_weights() -> ScalarList<G> {
         Quadrilateral::parametric_weights()
-    }
-    fn scaled_jacobians<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> ScalarList<P> {
-        Quadrilateral::scaled_jacobians(Self::nodal_mid_surface(&nodal_coordinates))
     }
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<P> {
         Quadrilateral::shape_functions(parametric_coordinate)
@@ -84,3 +74,11 @@ impl CohesiveFiniteElement<G, N, P> for Hexahedron {
 }
 
 impl LinearCohesiveFiniteElement<G, N, P> for Hexahedron {}
+
+impl FiniteElementMetrics<G, M, N, P> for Hexahedron {
+    fn scaled_jacobians<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> ScalarList<P> {
+        Quadrilateral::scaled_jacobians(Self::nodal_mid_surface(&nodal_coordinates))
+    }
+}

@@ -3,8 +3,8 @@ pub mod test;
 
 use crate::{
     fem::block::element::{
-        ElementNodalEitherCoordinates, FiniteElement, ParametricCoordinate, ParametricCoordinates,
-        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
+        ElementNodalEitherCoordinates, FiniteElement, FiniteElementMetrics, ParametricCoordinate,
+        ParametricCoordinates, ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         surface::{M, linear::LinearSurfaceElement},
     },
     math::{ScalarList, Tensor},
@@ -26,25 +26,11 @@ impl FiniteElement<G, M, N, P> for Triangle {
     fn integration_weights(&self) -> &ScalarList<G> {
         &self.integration_weights
     }
-    fn jacobians<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> ScalarList<P> {
-        todo!()
-    }
     fn parametric_reference() -> ParametricReference<M, N> {
         [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]].into()
     }
     fn parametric_weights() -> ScalarList<G> {
         [1.0 / 2.0; G].into()
-    }
-    fn scaled_jacobians<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> ScalarList<P> {
-        let sin_60 = FRAC_PI_3.sin();
-        angles(nodal_coordinates)
-            .into_iter()
-            .map(|angle| angle.sin() / sin_60)
-            .collect()
     }
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
         let [xi_1, xi_2] = parametric_coordinate.into();
@@ -67,4 +53,16 @@ fn angles<const I: usize>(nodal_coordinates: ElementNodalEitherCoordinates<I, N>
         (-l_21 * l_02).acos(),
     ]
     .into()
+}
+
+impl FiniteElementMetrics<G, M, N, P> for Triangle {
+    fn scaled_jacobians<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> ScalarList<P> {
+        let sin_60 = FRAC_PI_3.sin();
+        angles(nodal_coordinates)
+            .into_iter()
+            .map(|angle| angle.sin() / sin_60)
+            .collect()
+    }
 }

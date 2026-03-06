@@ -10,7 +10,10 @@ use crate::{
     defeat_message,
     fem::{
         NodalReferenceCoordinates,
-        block::element::{ElementNodalReferenceCoordinates, FiniteElement},
+        block::element::{
+            ElementNodalReferenceCoordinates, FiniteElement, FiniteElementImprovement,
+            FiniteElementMetrics,
+        },
     },
     math::{
         Banded, Scalar, ScalarListVec, Scalars, Tensor, TestError,
@@ -59,30 +62,6 @@ where
         nodes
             .iter()
             .map(|&node| coordinates[node].clone())
-            .collect()
-    }
-    pub fn jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<P> {
-        self.connectivity()
-            .iter()
-            .map(|nodes| F::jacobians(Self::element_coordinates(coordinates, nodes)))
-            .collect()
-    }
-    pub fn minimum_scaled_jacobians<const I: usize>(
-        &self,
-        coordinates: &Coordinates<I>,
-    ) -> Scalars {
-        self.connectivity()
-            .iter()
-            .map(|nodes| F::minimum_scaled_jacobian(Self::element_coordinates(coordinates, nodes)))
-            .collect()
-    }
-    pub fn scaled_jacobians<const I: usize>(
-        &self,
-        coordinates: &Coordinates<I>,
-    ) -> ScalarListVec<P> {
-        self.connectivity()
-            .iter()
-            .map(|nodes| F::scaled_jacobians(Self::element_coordinates(coordinates, nodes)))
             .collect()
     }
     pub fn volume(&self) -> Scalar {
@@ -152,6 +131,62 @@ where
         self.elements
             .iter_mut()
             .for_each(|element| *element = F::default())
+    }
+}
+
+pub trait FiniteElementBlockMetrics<C, F, const G: usize, const N: usize, const P: usize>
+where
+    Self: FiniteElementBlock<C, F, G, N>,
+{
+    fn minimum_scaled_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> Scalars;
+    fn scaled_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<P>;
+}
+
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
+    FiniteElementBlockMetrics<C, F, G, N, P> for Block<C, F, G, M, N, P>
+where
+    Self: FiniteElementBlock<C, F, G, N>,
+    F: FiniteElementMetrics<G, M, N, P>,
+{
+    fn minimum_scaled_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> Scalars {
+        self.connectivity()
+            .iter()
+            .map(|nodes| F::minimum_scaled_jacobian(Self::element_coordinates(coordinates, nodes)))
+            .collect()
+    }
+    fn scaled_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<P> {
+        self.connectivity()
+            .iter()
+            .map(|nodes| F::scaled_jacobians(Self::element_coordinates(coordinates, nodes)))
+            .collect()
+    }
+}
+
+pub trait FiniteElementBlockImprovement<C, F, const G: usize, const N: usize, const P: usize>
+where
+    Self: FiniteElementBlock<C, F, G, N>,
+{
+    fn jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<P>;
+    fn minimum_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> Scalars;
+}
+
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
+    FiniteElementBlockImprovement<C, F, G, N, P> for Block<C, F, G, M, N, P>
+where
+    Self: FiniteElementBlock<C, F, G, N>,
+    F: FiniteElementImprovement<G, M, N, P>,
+{
+    fn jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<P> {
+        self.connectivity()
+            .iter()
+            .map(|nodes| F::jacobians(Self::element_coordinates(coordinates, nodes)))
+            .collect()
+    }
+    fn minimum_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> Scalars {
+        self.connectivity()
+            .iter()
+            .map(|nodes| F::minimum_jacobian(Self::element_coordinates(coordinates, nodes)))
+            .collect()
     }
 }
 

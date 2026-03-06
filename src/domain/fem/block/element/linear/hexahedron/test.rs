@@ -5,7 +5,7 @@ use crate::{
             Block, Connectivity,
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
-                FiniteElement, GradientVectors,
+                FiniteElement, FiniteElementImprovement, FiniteElementMetrics, GradientVectors,
                 linear::hexahedron::{G, Hexahedron, M, N, P},
                 solid::SolidFiniteElement,
                 test::test_finite_element,
@@ -259,3 +259,37 @@ fn applied_velocities() -> (crate::math::Matrix, crate::math::Vector) {
 
 test_finite_element!(Hexahedron);
 test_finite_element_block!(Hexahedron);
+
+mod metrics {
+    use super::*;
+    use crate::math::{TestError, assert_eq_within_tols};
+    #[test]
+    fn scaled_jacobians() -> Result<(), TestError> {
+        [
+            reference_coordinates(),
+            Hexahedron::parametric_reference().into(),
+        ]
+        .into_iter()
+        .try_for_each(|coordinates| {
+            Hexahedron::scaled_jacobians(coordinates)
+                .iter()
+                .try_for_each(|scaled_jacobian| assert_eq_within_tols(scaled_jacobian, &1.0))
+        })
+    }
+    mod improvement {
+        use super::*;
+        #[test]
+        fn jacobians() -> Result<(), TestError> {
+            Hexahedron::jacobians(reference_coordinates())
+                .iter()
+                .try_for_each(|jacobian| assert_eq_within_tols(jacobian, &1.0))?;
+            Hexahedron::jacobians(Hexahedron::parametric_reference())
+                .iter()
+                .try_for_each(|jacobian| assert_eq_within_tols(jacobian, &8.0))?;
+            let scale = 1.23;
+            Hexahedron::jacobians(reference_coordinates() * scale)
+                .iter()
+                .try_for_each(|jacobian| assert_eq_within_tols(jacobian, &scale.powi(3)))
+        }
+    }
+}

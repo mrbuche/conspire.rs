@@ -44,22 +44,8 @@ where
 {
     fn integration_points() -> ParametricCoordinates<G, M>;
     fn integration_weights(&self) -> &ScalarList<G>;
-    fn jacobians<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> ScalarList<P>;
-    fn minimum_scaled_jacobian<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> Scalar {
-        Self::scaled_jacobians(nodal_coordinates)
-            .into_iter()
-            .reduce(Scalar::min)
-            .unwrap()
-    }
     fn parametric_reference() -> ParametricReference<M, N>;
     fn parametric_weights() -> ScalarList<G>;
-    fn scaled_jacobians<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> ScalarList<P>;
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<P>;
     fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, P> {
         Self::integration_points()
@@ -78,6 +64,40 @@ where
     }
     fn volume(&self) -> Scalar {
         self.integration_weights().into_iter().sum()
+    }
+}
+
+pub trait FiniteElementMetrics<const G: usize, const M: usize, const N: usize, const P: usize>
+where
+    Self: FiniteElement<G, M, N, P>,
+{
+    fn minimum_scaled_jacobian<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> Scalar {
+        Self::scaled_jacobians(nodal_coordinates)
+            .into_iter()
+            .reduce(Scalar::min)
+            .unwrap()
+    }
+    fn scaled_jacobians<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> ScalarList<P>;
+}
+
+pub trait FiniteElementImprovement<const G: usize, const M: usize, const N: usize, const P: usize>
+where
+    Self: FiniteElementMetrics<G, M, N, P>,
+{
+    fn jacobians<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> ScalarList<P>;
+    fn minimum_jacobian<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> Scalar {
+        Self::jacobians(nodal_coordinates)
+            .into_iter()
+            .reduce(Scalar::min)
+            .unwrap()
     }
 }
 
