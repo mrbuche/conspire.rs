@@ -138,6 +138,7 @@ pub trait FiniteElementBlockMetrics<C, F, const G: usize, const N: usize>
 where
     Self: FiniteElementBlock<C, F, G, N>,
 {
+    fn minimum_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> Scalars;
     fn minimum_scaled_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> Scalars;
 }
 
@@ -147,6 +148,12 @@ where
     Self: FiniteElementBlock<C, F, G, N>,
     F: FiniteElementMetrics<G, M, N, P>,
 {
+    fn minimum_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> Scalars {
+        self.connectivity()
+            .iter()
+            .map(|nodes| F::minimum_jacobian(Self::element_coordinates(coordinates, nodes)))
+            .collect()
+    }
     fn minimum_scaled_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> Scalars {
         self.connectivity()
             .iter()
@@ -160,7 +167,6 @@ where
     Self: FiniteElementBlock<C, F, G, N>,
 {
     fn jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<P>;
-    fn minimum_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> Scalars;
     fn scaled_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<P>;
 }
 
@@ -174,12 +180,6 @@ where
         self.connectivity()
             .iter()
             .map(|nodes| F::jacobians(Self::element_coordinates(coordinates, nodes)))
-            .collect()
-    }
-    fn minimum_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> Scalars {
-        self.connectivity()
-            .iter()
-            .map(|nodes| F::minimum_jacobian(Self::element_coordinates(coordinates, nodes)))
             .collect()
     }
     fn scaled_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<P> {
