@@ -13,7 +13,7 @@ use crate::{
         block::element::{ElementNodalReferenceCoordinates, FiniteElement},
     },
     math::{
-        Banded, Scalar, Scalars, Tensor, TestError,
+        Banded, Scalar, ScalarListVec, Scalars, Tensor, TestError,
         optimize::{
             EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
             SecondOrderOptimization, ZerothOrderRootFinding,
@@ -61,6 +61,12 @@ where
             .map(|&node| coordinates[node].clone())
             .collect()
     }
+    pub fn jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<P> {
+        self.connectivity()
+            .iter()
+            .map(|nodes| F::jacobians(Self::element_coordinates(coordinates, nodes)))
+            .collect()
+    }
     pub fn minimum_scaled_jacobians<const I: usize>(
         &self,
         coordinates: &Coordinates<I>,
@@ -68,6 +74,15 @@ where
         self.connectivity()
             .iter()
             .map(|nodes| F::minimum_scaled_jacobian(Self::element_coordinates(coordinates, nodes)))
+            .collect()
+    }
+    pub fn scaled_jacobians<const I: usize>(
+        &self,
+        coordinates: &Coordinates<I>,
+    ) -> ScalarListVec<P> {
+        self.connectivity()
+            .iter()
+            .map(|nodes| F::scaled_jacobians(Self::element_coordinates(coordinates, nodes)))
             .collect()
     }
     pub fn volume(&self) -> Scalar {

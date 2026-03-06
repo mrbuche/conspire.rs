@@ -44,6 +44,11 @@ impl FiniteElement<G, M, N, P> for Tetrahedron {
     fn integration_weights(&self) -> &ScalarList<G> {
         &self.integration_weights
     }
+    fn jacobians<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> ScalarList<P> {
+        LinearTetrahedron::jacobians(Self::corner_coordinates(nodal_coordinates))
+    }
     fn parametric_reference() -> ParametricReference<M, N> {
         [
             [0.0, 0.0, 0.0],

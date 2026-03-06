@@ -36,6 +36,11 @@ impl FiniteElement<G, M, N, P> for Wedge {
     fn integration_weights(&self) -> &ScalarList<G> {
         &self.integration_weights
     }
+    fn jacobians<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> ScalarList<P> {
+        Triangle::jacobians(Self::nodal_mid_surface(&nodal_coordinates))
+    }
     fn parametric_reference() -> ParametricReference<M, N> {
         Triangle::parametric_reference()
             .into_iter()

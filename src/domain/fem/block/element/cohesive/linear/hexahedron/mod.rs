@@ -29,6 +29,11 @@ impl FiniteElement<G, M, N, P> for Hexahedron {
     fn integration_weights(&self) -> &ScalarList<G> {
         &self.integration_weights
     }
+    fn jacobians<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> ScalarList<P> {
+        Quadrilateral::jacobians(Self::nodal_mid_surface(&nodal_coordinates))
+    }
     fn parametric_reference() -> ParametricReference<M, N> {
         Quadrilateral::parametric_reference()
             .into_iter()

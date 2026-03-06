@@ -44,6 +44,9 @@ where
 {
     fn integration_points() -> ParametricCoordinates<G, M>;
     fn integration_weights(&self) -> &ScalarList<G>;
+    fn jacobians<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> ScalarList<P>;
     fn minimum_scaled_jacobian<const I: usize>(
         nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
     ) -> Scalar {
