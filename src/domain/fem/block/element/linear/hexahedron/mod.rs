@@ -8,7 +8,7 @@ use crate::{
         ShapeFunctions, ShapeFunctionsGradients,
         linear::{LinearElement, LinearFiniteElement, M},
     },
-    math::{ScalarList, Tensor, TensorArray},
+    math::{Scalar, ScalarList, Tensor, TensorArray},
     mechanics::Coordinate,
 };
 
@@ -129,22 +129,21 @@ impl FiniteElement<G, M, N, P> for Hexahedron {
 impl LinearFiniteElement<G, N> for Hexahedron {}
 
 impl FiniteElementMetrics<G, M, N, P> for Hexahedron {
-    fn scaled_jacobians<const I: usize>(
+    fn minimum_jacobian<const I: usize>(
         nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> ScalarList<P> {
-        let mut u = Coordinate::zero();
-        let mut v = Coordinate::zero();
-        let mut w = Coordinate::zero();
-        CORNERS
+    ) -> Scalar {
+        Self::jacobians(nodal_coordinates)
             .into_iter()
-            .enumerate()
-            .map(|(node, [node_a, node_b, node_c])| {
-                u = &nodal_coordinates[node_a] - &nodal_coordinates[node];
-                v = &nodal_coordinates[node_b] - &nodal_coordinates[node];
-                w = &nodal_coordinates[node_c] - &nodal_coordinates[node];
-                (u.cross(&v) * &w) / u.norm() / v.norm() / w.norm()
-            })
-            .collect()
+            .reduce(Scalar::min)
+            .unwrap()
+    }
+    fn minimum_scaled_jacobian<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> Scalar {
+        Self::scaled_jacobians(nodal_coordinates)
+            .into_iter()
+            .reduce(Scalar::min)
+            .unwrap()
     }
 }
 
@@ -163,6 +162,23 @@ impl FiniteElementImprovement<G, M, N, P> for Hexahedron {
                 v = &nodal_coordinates[node_b] - &nodal_coordinates[node];
                 w = &nodal_coordinates[node_c] - &nodal_coordinates[node];
                 u.cross(&v) * &w
+            })
+            .collect()
+    }
+    fn scaled_jacobians<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> ScalarList<P> {
+        let mut u = Coordinate::zero();
+        let mut v = Coordinate::zero();
+        let mut w = Coordinate::zero();
+        CORNERS
+            .into_iter()
+            .enumerate()
+            .map(|(node, [node_a, node_b, node_c])| {
+                u = &nodal_coordinates[node_a] - &nodal_coordinates[node];
+                v = &nodal_coordinates[node_b] - &nodal_coordinates[node];
+                w = &nodal_coordinates[node_c] - &nodal_coordinates[node];
+                (u.cross(&v) * &w) / u.norm() / v.norm() / w.norm()
             })
             .collect()
     }

@@ -12,7 +12,7 @@ use crate::{
         },
         surface::linear::Triangle,
     },
-    math::ScalarList,
+    math::{Scalar, ScalarList},
     mechanics::NormalGradients,
 };
 
@@ -83,9 +83,14 @@ impl CohesiveFiniteElement<G, N, P> for Wedge {
 impl LinearCohesiveFiniteElement<G, N, P> for Wedge {}
 
 impl FiniteElementMetrics<G, M, N, P> for Wedge {
-    fn scaled_jacobians<const I: usize>(
+    fn minimum_jacobian<const I: usize>(
         nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> ScalarList<P> {
-        Triangle::scaled_jacobians(Self::nodal_mid_surface(&nodal_coordinates))
+    ) -> Scalar {
+        Triangle::minimum_jacobian(Self::nodal_mid_surface(&nodal_coordinates))
+    }
+    fn minimum_scaled_jacobian<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> Scalar {
+        Triangle::minimum_scaled_jacobian(Self::nodal_mid_surface(&nodal_coordinates))
     }
 }

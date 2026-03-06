@@ -7,7 +7,7 @@ use crate::{
         ParametricCoordinates, ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         surface::{M, linear::LinearSurfaceElement},
     },
-    math::{ScalarList, Tensor},
+    math::{Scalar, ScalarList, Tensor},
 };
 use std::f64::consts::FRAC_PI_3;
 
@@ -56,13 +56,29 @@ fn angles<const I: usize>(nodal_coordinates: ElementNodalEitherCoordinates<I, N>
 }
 
 impl FiniteElementMetrics<G, M, N, P> for Triangle {
-    fn scaled_jacobians<const I: usize>(
+    fn minimum_jacobian<const I: usize>(
         nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> ScalarList<P> {
-        let sin_60 = FRAC_PI_3.sin();
-        angles(nodal_coordinates)
-            .into_iter()
-            .map(|angle| angle.sin() / sin_60)
-            .collect()
+    ) -> Scalar {
+        0.5 * (&nodal_coordinates[1] - &nodal_coordinates[0])
+            .cross(&(&nodal_coordinates[2] - &nodal_coordinates[1]))
+            .norm()
     }
+    fn minimum_scaled_jacobian<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> Scalar {
+        scaled_jacobians(nodal_coordinates)
+            .into_iter()
+            .reduce(Scalar::min)
+            .unwrap()
+    }
+}
+
+fn scaled_jacobians<const I: usize>(
+    nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+) -> ScalarList<P> {
+    let sin_60 = FRAC_PI_3.sin();
+    angles(nodal_coordinates)
+        .into_iter()
+        .map(|angle| angle.sin() / sin_60)
+        .collect()
 }

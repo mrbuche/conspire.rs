@@ -5,7 +5,7 @@ use crate::{
             Block, Connectivity,
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
-                FiniteElement, FiniteElementImprovement, FiniteElementMetrics, GradientVectors,
+                FiniteElement, GradientVectors,
                 linear::hexahedron::{G, Hexahedron, M, N, P},
                 solid::SolidFiniteElement,
                 test::test_finite_element,
@@ -262,7 +262,10 @@ test_finite_element_block!(Hexahedron);
 
 mod metrics {
     use super::*;
-    use crate::math::{TestError, assert_eq_within_tols};
+    use crate::{
+        fem::block::element::FiniteElementImprovement,
+        math::{TestError, assert_eq_within_tols},
+    };
     #[test]
     fn scaled_jacobians() -> Result<(), TestError> {
         [

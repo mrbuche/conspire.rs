@@ -71,17 +71,12 @@ pub trait FiniteElementMetrics<const G: usize, const M: usize, const N: usize, c
 where
     Self: FiniteElement<G, M, N, P>,
 {
+    fn minimum_jacobian<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> Scalar;
     fn minimum_scaled_jacobian<const I: usize>(
         nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> Scalar {
-        Self::scaled_jacobians(nodal_coordinates)
-            .into_iter()
-            .reduce(Scalar::min)
-            .unwrap()
-    }
-    fn scaled_jacobians<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> ScalarList<P>;
+    ) -> Scalar;
 }
 
 pub trait FiniteElementImprovement<const G: usize, const M: usize, const N: usize, const P: usize>
@@ -91,14 +86,9 @@ where
     fn jacobians<const I: usize>(
         nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
     ) -> ScalarList<P>;
-    fn minimum_jacobian<const I: usize>(
+    fn scaled_jacobians<const I: usize>(
         nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> Scalar {
-        Self::jacobians(nodal_coordinates)
-            .into_iter()
-            .reduce(Scalar::min)
-            .unwrap()
-    }
+    ) -> ScalarList<P>;
 }
 
 pub struct Element<const G: usize, const N: usize, const O: usize> {

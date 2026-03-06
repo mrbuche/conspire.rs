@@ -8,7 +8,7 @@ use crate::{
         ShapeFunctionsGradients,
         surface::{M, linear::LinearSurfaceElement},
     },
-    math::{ScalarList, Tensor, TensorArray},
+    math::{Scalar, ScalarList, Tensor, TensorArray},
     mechanics::Coordinate,
 };
 
@@ -64,24 +64,62 @@ impl FiniteElement<G, M, N, P> for Quadrilateral {
 }
 
 impl FiniteElementMetrics<G, M, N, P> for Quadrilateral {
-    fn scaled_jacobians<const I: usize>(
+    fn minimum_jacobian<const I: usize>(
         nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> ScalarList<P> {
-        let mut u = Coordinate::zero();
-        let mut v = Coordinate::zero();
-        let x = (&nodal_coordinates[1] - &nodal_coordinates[0])
-            + (&nodal_coordinates[2] - &nodal_coordinates[3]);
-        let y = (&nodal_coordinates[2] - &nodal_coordinates[1])
-            + (&nodal_coordinates[3] - &nodal_coordinates[0]);
-        let nc = x.cross(&y).normalized();
-        CORNERS
+    ) -> Scalar {
+        jacobians(nodal_coordinates)
             .into_iter()
-            .enumerate()
-            .map(|(node, [node_a, node_b])| {
-                u = &nodal_coordinates[node_a] - &nodal_coordinates[node];
-                v = &nodal_coordinates[node_b] - &nodal_coordinates[node];
-                (u.cross(&v) * &nc) / u.norm() / v.norm()
-            })
-            .collect()
+            .reduce(Scalar::min)
+            .unwrap()
     }
+    fn minimum_scaled_jacobian<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> Scalar {
+        scaled_jacobians(nodal_coordinates)
+            .into_iter()
+            .reduce(Scalar::min)
+            .unwrap()
+    }
+}
+
+fn jacobians<const I: usize>(
+    nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+) -> ScalarList<P> {
+    let mut u = Coordinate::zero();
+    let mut v = Coordinate::zero();
+    let x = (&nodal_coordinates[1] - &nodal_coordinates[0])
+        + (&nodal_coordinates[2] - &nodal_coordinates[3]);
+    let y = (&nodal_coordinates[2] - &nodal_coordinates[1])
+        + (&nodal_coordinates[3] - &nodal_coordinates[0]);
+    let nc = x.cross(&y).normalized();
+    CORNERS
+        .into_iter()
+        .enumerate()
+        .map(|(node, [node_a, node_b])| {
+            u = &nodal_coordinates[node_a] - &nodal_coordinates[node];
+            v = &nodal_coordinates[node_b] - &nodal_coordinates[node];
+            u.cross(&v) * &nc
+        })
+        .collect()
+}
+
+fn scaled_jacobians<const I: usize>(
+    nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+) -> ScalarList<P> {
+    let mut u = Coordinate::zero();
+    let mut v = Coordinate::zero();
+    let x = (&nodal_coordinates[1] - &nodal_coordinates[0])
+        + (&nodal_coordinates[2] - &nodal_coordinates[3]);
+    let y = (&nodal_coordinates[2] - &nodal_coordinates[1])
+        + (&nodal_coordinates[3] - &nodal_coordinates[0]);
+    let nc = x.cross(&y).normalized();
+    CORNERS
+        .into_iter()
+        .enumerate()
+        .map(|(node, [node_a, node_b])| {
+            u = &nodal_coordinates[node_a] - &nodal_coordinates[node];
+            v = &nodal_coordinates[node_b] - &nodal_coordinates[node];
+            (u.cross(&v) * &nc) / u.norm() / v.norm()
+        })
+        .collect()
 }

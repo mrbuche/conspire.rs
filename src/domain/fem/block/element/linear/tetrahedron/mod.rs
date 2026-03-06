@@ -7,7 +7,7 @@ use crate::{
         ParametricCoordinates, ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         linear::{LinearElement, LinearFiniteElement, M},
     },
-    math::{ScalarList, Tensor},
+    math::{Scalar, ScalarList, Tensor},
 };
 use std::f64::consts::SQRT_2;
 
@@ -58,21 +58,20 @@ impl FiniteElement<G, M, N, P> for Tetrahedron {
 impl LinearFiniteElement<G, N> for Tetrahedron {}
 
 impl FiniteElementMetrics<G, M, N, P> for Tetrahedron {
-    fn scaled_jacobians<const I: usize>(
+    fn minimum_jacobian<const I: usize>(
         nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> ScalarList<P> {
-        let numerator = ((&nodal_coordinates[1] - &nodal_coordinates[0])
-            .cross(&(&nodal_coordinates[2] - &nodal_coordinates[0]))
-            * (&nodal_coordinates[3] - &nodal_coordinates[0]))
-            * SQRT_2;
-        let lengths = lengths(nodal_coordinates);
-        [
-            numerator / (lengths[0] * lengths[2] * lengths[3]),
-            numerator / (lengths[0] * lengths[1] * lengths[4]),
-            numerator / (lengths[1] * lengths[2] * lengths[5]),
-            numerator / (lengths[3] * lengths[4] * lengths[5]),
-        ]
-        .into()
+    ) -> Scalar {
+        (&nodal_coordinates[0] - &nodal_coordinates[2])
+            .cross(&(&nodal_coordinates[1] - &nodal_coordinates[0]))
+            * (&nodal_coordinates[3] - &nodal_coordinates[0])
+    }
+    fn minimum_scaled_jacobian<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> Scalar {
+        scaled_jacobians(nodal_coordinates)
+            .into_iter()
+            .reduce(Scalar::min)
+            .unwrap()
     }
 }
 
@@ -97,4 +96,21 @@ fn lengths<const I: usize>(
         .into_iter()
         .map(|edge| edge.norm())
         .collect()
+}
+
+fn scaled_jacobians<const I: usize>(
+    nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+) -> ScalarList<P> {
+    let numerator = ((&nodal_coordinates[1] - &nodal_coordinates[0])
+        .cross(&(&nodal_coordinates[2] - &nodal_coordinates[0]))
+        * (&nodal_coordinates[3] - &nodal_coordinates[0]))
+        * SQRT_2;
+    let lengths = lengths(nodal_coordinates);
+    [
+        numerator / (lengths[0] * lengths[2] * lengths[3]),
+        numerator / (lengths[0] * lengths[1] * lengths[4]),
+        numerator / (lengths[1] * lengths[2] * lengths[5]),
+        numerator / (lengths[3] * lengths[4] * lengths[5]),
+    ]
+    .into()
 }

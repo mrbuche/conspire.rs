@@ -134,16 +134,15 @@ where
     }
 }
 
-pub trait FiniteElementBlockMetrics<C, F, const G: usize, const N: usize, const P: usize>
+pub trait FiniteElementBlockMetrics<C, F, const G: usize, const N: usize>
 where
     Self: FiniteElementBlock<C, F, G, N>,
 {
     fn minimum_scaled_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> Scalars;
-    fn scaled_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<P>;
 }
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-    FiniteElementBlockMetrics<C, F, G, N, P> for Block<C, F, G, M, N, P>
+    FiniteElementBlockMetrics<C, F, G, N> for Block<C, F, G, M, N, P>
 where
     Self: FiniteElementBlock<C, F, G, N>,
     F: FiniteElementMetrics<G, M, N, P>,
@@ -154,12 +153,6 @@ where
             .map(|nodes| F::minimum_scaled_jacobian(Self::element_coordinates(coordinates, nodes)))
             .collect()
     }
-    fn scaled_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<P> {
-        self.connectivity()
-            .iter()
-            .map(|nodes| F::scaled_jacobians(Self::element_coordinates(coordinates, nodes)))
-            .collect()
-    }
 }
 
 pub trait FiniteElementBlockImprovement<C, F, const G: usize, const N: usize, const P: usize>
@@ -168,6 +161,7 @@ where
 {
     fn jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<P>;
     fn minimum_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> Scalars;
+    fn scaled_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<P>;
 }
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
@@ -186,6 +180,12 @@ where
         self.connectivity()
             .iter()
             .map(|nodes| F::minimum_jacobian(Self::element_coordinates(coordinates, nodes)))
+            .collect()
+    }
+    fn scaled_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<P> {
+        self.connectivity()
+            .iter()
+            .map(|nodes| F::scaled_jacobians(Self::element_coordinates(coordinates, nodes)))
             .collect()
     }
 }
