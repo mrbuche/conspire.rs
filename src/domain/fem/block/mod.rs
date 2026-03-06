@@ -162,32 +162,18 @@ where
     }
 }
 
-pub trait FiniteElementBlockImprovement<C, F, const G: usize, const N: usize, const P: usize>
+pub trait FiniteElementBlockImprovement<C, F, const G: usize, const N: usize>
 where
     Self: FiniteElementBlock<C, F, G, N>,
 {
-    fn jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<P>;
-    fn scaled_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<P>;
 }
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-    FiniteElementBlockImprovement<C, F, G, N, P> for Block<C, F, G, M, N, P>
+    FiniteElementBlockImprovement<C, F, G, N> for Block<C, F, G, M, N, P>
 where
     Self: FiniteElementBlock<C, F, G, N>,
     F: FiniteElementImprovement<G, M, N, P>,
 {
-    fn jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<P> {
-        self.connectivity()
-            .iter()
-            .map(|nodes| F::jacobians(Self::element_coordinates(coordinates, nodes)))
-            .collect()
-    }
-    fn scaled_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<P> {
-        self.connectivity()
-            .iter()
-            .map(|nodes| F::scaled_jacobians(Self::element_coordinates(coordinates, nodes)))
-            .collect()
-    }
 }
 
 pub enum FiniteElementBlockError {

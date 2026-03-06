@@ -13,7 +13,7 @@ pub mod thermal;
 use crate::{
     defeat_message,
     math::{Scalar, ScalarList, TensorRank1, TensorRank1List, TensorRank1List2D, TestError},
-    mechanics::{CoordinateList, CurrentCoordinates, ReferenceCoordinates, VectorList2D},
+    mechanics::{CoordinateList, CurrentCoordinates, ReferenceCoordinates, VectorList, VectorList2D},
 };
 use std::fmt::{self, Debug, Display, Formatter};
 
@@ -83,12 +83,9 @@ pub trait FiniteElementImprovement<const G: usize, const M: usize, const N: usiz
 where
     Self: FiniteElementMetrics<G, M, N, P>,
 {
-    fn jacobians<const I: usize>(
+    fn minimum_jacobian_gradients<const I: usize>(
         nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> ScalarList<P>;
-    fn scaled_jacobians<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> ScalarList<P>;
+    ) -> VectorList<I, N>;
 }
 
 pub struct Element<const G: usize, const N: usize, const O: usize> {

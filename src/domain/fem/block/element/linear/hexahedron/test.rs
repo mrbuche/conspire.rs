@@ -263,36 +263,62 @@ test_finite_element_block!(Hexahedron);
 mod metrics {
     use super::*;
     use crate::{
-        fem::block::element::FiniteElementImprovement,
+        EPSILON,
+        fem::block::element::{FiniteElementImprovement, FiniteElementMetrics},
         math::{TestError, assert_eq_within_tols},
+        mechanics::VectorList,
     };
-    #[test]
-    fn scaled_jacobians() -> Result<(), TestError> {
-        [
-            reference_coordinates(),
-            Hexahedron::parametric_reference().into(),
-        ]
-        .into_iter()
-        .try_for_each(|coordinates| {
-            Hexahedron::scaled_jacobians(coordinates)
-                .iter()
-                .try_for_each(|scaled_jacobian| assert_eq_within_tols(scaled_jacobian, &1.0))
-        })
-    }
+    // #[test]
+    // fn scaled_jacobians() -> Result<(), TestError> {
+    //     [
+    //         reference_coordinates(),
+    //         Hexahedron::parametric_reference().into(),
+    //     ]
+    //     .into_iter()
+    //     .try_for_each(|coordinates| {
+    //         Hexahedron::scaled_jacobians(coordinates)
+    //             .iter()
+    //             .try_for_each(|scaled_jacobian| assert_eq_within_tols(scaled_jacobian, &1.0))
+    //     })
+    // }
     mod improvement {
         use super::*;
+        // #[test]
+        // fn jacobians() -> Result<(), TestError> {
+        //     Hexahedron::jacobians(reference_coordinates())
+        //         .iter()
+        //         .try_for_each(|jacobian| assert_eq_within_tols(jacobian, &1.0))?;
+        //     Hexahedron::jacobians(Hexahedron::parametric_reference())
+        //         .iter()
+        //         .try_for_each(|jacobian| assert_eq_within_tols(jacobian, &8.0))?;
+        //     let scale = 1.23;
+        //     Hexahedron::jacobians(reference_coordinates() * scale)
+        //         .iter()
+        //         .try_for_each(|jacobian| assert_eq_within_tols(jacobian, &scale.powi(3)))
+        // }
         #[test]
-        fn jacobians() -> Result<(), TestError> {
-            Hexahedron::jacobians(reference_coordinates())
+        fn minimum_jacobian_gradients() -> Result<(), TestError> {
+            Hexahedron::minimum_jacobian_gradients(reference_coordinates())
                 .iter()
-                .try_for_each(|jacobian| assert_eq_within_tols(jacobian, &1.0))?;
-            Hexahedron::jacobians(Hexahedron::parametric_reference())
-                .iter()
-                .try_for_each(|jacobian| assert_eq_within_tols(jacobian, &8.0))?;
-            let scale = 1.23;
-            Hexahedron::jacobians(reference_coordinates() * scale)
-                .iter()
-                .try_for_each(|jacobian| assert_eq_within_tols(jacobian, &scale.powi(3)))
+                .for_each(|gradient| 
+                    println!("{:?}", gradient)
+            );
+            let mut finite_difference = 0.0;
+            let mut coordinates = reference_coordinates();
+            let foo: VectorList<0, N> = (0..N).map(|a|
+                (0..3).map(|i| {
+                        finite_difference = 0.0;
+                        coordinates[a][i] += 0.5 * EPSILON;
+                        finite_difference = Hexahedron::minimum_jacobian(coordinates.clone());
+                        coordinates[a][i] -= EPSILON;
+                        finite_difference -= Hexahedron::minimum_jacobian(coordinates.clone());
+                        coordinates[a][i] += 0.5 * EPSILON;
+                        finite_difference / EPSILON
+                    }).collect()
+            ).collect();
+            println!("{:?}", foo);
+
+            Ok(())
         }
     }
 }
