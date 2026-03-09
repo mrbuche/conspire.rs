@@ -264,10 +264,10 @@ mod metrics {
     use super::*;
     use crate::{
         EPSILON,
-        fem::block::element::{FiniteElementImprovement, FiniteElementMetrics},
-        math::{Scalar, TestError, assert_eq_within_tols, test::assert_eq_from_fd},
-        mechanics::VectorList,
+        fem::block::element::FiniteElementImprovement,
+        math::{Scalar, TestError, test::assert_eq_from_fd},
     };
+    const EXPONENT: Scalar = 1e0;
     fn perturbed_coordinates() -> ElementNodalReferenceCoordinates<N> {
         ElementNodalReferenceCoordinates::from([
             [-0.03955949, -0.09918099, -0.04601137],
@@ -280,41 +280,14 @@ mod metrics {
             [0.09720765, 1.0973989, 0.94534801],
         ])
     }
-    // #[test]
-    // fn scaled_jacobians() -> Result<(), TestError> {
-    //     [
-    //         reference_coordinates(),
-    //         Hexahedron::parametric_reference().into(),
-    //     ]
-    //     .into_iter()
-    //     .try_for_each(|coordinates| {
-    //         Hexahedron::scaled_jacobians(coordinates)
-    //             .iter()
-    //             .try_for_each(|scaled_jacobian| assert_eq_within_tols(scaled_jacobian, &1.0))
-    //     })
-    // }
-    mod improvement {
+    mod jacobian {
         use super::*;
-        // #[test]
-        // fn jacobians() -> Result<(), TestError> {
-        //     Hexahedron::jacobians(reference_coordinates())
-        //         .iter()
-        //         .try_for_each(|jacobian| assert_eq_within_tols(jacobian, &1.0))?;
-        //     Hexahedron::jacobians(Hexahedron::parametric_reference())
-        //         .iter()
-        //         .try_for_each(|jacobian| assert_eq_within_tols(jacobian, &8.0))?;
-        //     let scale = 1.23;
-        //     Hexahedron::jacobians(reference_coordinates() * scale)
-        //         .iter()
-        //         .try_for_each(|jacobian| assert_eq_within_tols(jacobian, &scale.powi(3)))
-        // }
         mod finite_difference {
             use super::*;
-            const EXPONENT: Scalar = 1e0;
             mod undeformed {
                 use super::*;
                 #[test]
-                fn jacobian_objective() -> Result<(), TestError> {
+                fn objective() -> Result<(), TestError> {
                     let mut finite_difference = 0.0;
                     let mut coords = reference_coordinates();
                     let jacobian_gradients_fd = (0..N)
@@ -343,7 +316,7 @@ mod metrics {
             mod deformed {
                 use super::*;
                 #[test]
-                fn jacobian_objective() -> Result<(), TestError> {
+                fn objective() -> Result<(), TestError> {
                     let mut finite_difference = 0.0;
                     let mut coords = perturbed_coordinates();
                     let jacobian_gradients_fd = (0..N)
@@ -365,6 +338,78 @@ mod metrics {
                         .collect();
                     assert_eq_from_fd(
                         &Hexahedron::jacobian_gradients(EXPONENT, perturbed_coordinates()),
+                        &jacobian_gradients_fd,
+                    )
+                }
+            }
+        }
+    }
+    mod scaled_jacobian {
+        use super::*;
+        mod finite_difference {
+            use super::*;
+            mod undeformed {
+                use super::*;
+                #[test]
+                fn objective() -> Result<(), TestError> {
+                    let mut finite_difference = 0.0;
+                    let mut coords = reference_coordinates();
+                    let jacobian_gradients_fd = (0..N)
+                        .map(|a| {
+                            (0..3)
+                                .map(|i| {
+                                    finite_difference = 0.0;
+                                    coords[a][i] += 0.5 * EPSILON;
+                                    finite_difference = Hexahedron::scaled_jacobian_objective(
+                                        EXPONENT,
+                                        coords.clone(),
+                                    );
+                                    coords[a][i] -= EPSILON;
+                                    finite_difference -= Hexahedron::scaled_jacobian_objective(
+                                        EXPONENT,
+                                        coords.clone(),
+                                    );
+                                    coords[a][i] += 0.5 * EPSILON;
+                                    finite_difference / EPSILON
+                                })
+                                .collect()
+                        })
+                        .collect();
+                    assert_eq_from_fd(
+                        &Hexahedron::scaled_jacobian_gradients(EXPONENT, reference_coordinates()),
+                        &jacobian_gradients_fd,
+                    )
+                }
+            }
+            mod deformed {
+                use super::*;
+                #[test]
+                fn objective() -> Result<(), TestError> {
+                    let mut finite_difference = 0.0;
+                    let mut coords = perturbed_coordinates();
+                    let jacobian_gradients_fd = (0..N)
+                        .map(|a| {
+                            (0..3)
+                                .map(|i| {
+                                    finite_difference = 0.0;
+                                    coords[a][i] += 0.5 * EPSILON;
+                                    finite_difference = Hexahedron::scaled_jacobian_objective(
+                                        EXPONENT,
+                                        coords.clone(),
+                                    );
+                                    coords[a][i] -= EPSILON;
+                                    finite_difference -= Hexahedron::scaled_jacobian_objective(
+                                        EXPONENT,
+                                        coords.clone(),
+                                    );
+                                    coords[a][i] += 0.5 * EPSILON;
+                                    finite_difference / EPSILON
+                                })
+                                .collect()
+                        })
+                        .collect();
+                    assert_eq_from_fd(
+                        &Hexahedron::scaled_jacobian_gradients(EXPONENT, perturbed_coordinates()),
                         &jacobian_gradients_fd,
                     )
                 }

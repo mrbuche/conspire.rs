@@ -140,7 +140,7 @@ impl FiniteElementMetrics<G, M, N, P> for Hexahedron {
     fn minimum_scaled_jacobian<const I: usize>(
         nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
     ) -> Scalar {
-        Self::scaled_jacobians(nodal_coordinates)
+        Self::scaled_jacobians(&nodal_coordinates)
             .into_iter()
             .reduce(Scalar::min)
             .unwrap()
@@ -191,7 +191,7 @@ impl FiniteElementImprovement<G, M, N, P> for Hexahedron {
         gradients
     }
     fn scaled_jacobians<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+        nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> ScalarList<N> {
         let mut u = Coordinate::zero();
         let mut v = Coordinate::zero();
@@ -206,5 +206,57 @@ impl FiniteElementImprovement<G, M, N, P> for Hexahedron {
                 (u.cross(&v) * &w) / u.norm() / v.norm() / w.norm()
             })
             .collect()
+    }
+    fn scaled_jacobian_gradients<const I: usize>(
+        exponent: Scalar,
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> VectorList<I, N> {
+        let mut weights = Self::scaled_jacobians_relative(&nodal_coordinates)
+            .0
+            .into_iter()
+            .map(|scaled_jacobian| (-exponent * scaled_jacobian).exp())
+            .collect::<ScalarList<N>>();
+        weights /= weights.iter().sum::<Scalar>();
+        let mut gradients = VectorList::<I, N>::zero();
+        CORNERS.into_iter().enumerate().zip(weights).for_each(
+            |((node, [node_a, node_b, node_c]), weight)| {
+                let u = &nodal_coordinates[node_a] - &nodal_coordinates[node];
+                let v = &nodal_coordinates[node_b] - &nodal_coordinates[node];
+                let w = &nodal_coordinates[node_c] - &nodal_coordinates[node];
+
+                let lu2 = u.norm_squared();
+                let lv2 = v.norm_squared();
+                let lw2 = w.norm_squared();
+
+                let lu = lu2.sqrt();
+                let lv = lv2.sqrt();
+                let lw = lw2.sqrt();
+
+                let d = lu * lv * lw;
+                let s = (u.cross(&v) * &w) / d; // THIS IS SJ
+
+                // dJ/dx (same as unscaled Jacobian)
+                let dja = v.cross(&w);
+                let djb = w.cross(&u);
+                let djc = u.cross(&v);
+                let dji = -(&dja + &djb + &djc);
+
+                let dln_a = &u / lu2;
+                let dln_b = &v / lv2;
+                let dln_c = &w / lw2;
+                let dln_i = -(&dln_a + &dln_b + &dln_c);
+
+                let dsa = dja / d - &dln_a * s;
+                let dsb = djb / d - &dln_b * s;
+                let dsc = djc / d - &dln_c * s;
+                let dsi = dji / d - &dln_i * s;
+
+                gradients[node_a] += dsa * weight;
+                gradients[node_b] += dsb * weight;
+                gradients[node_c] += dsc * weight;
+                gradients[node] += dsi * weight;
+            },
+        );
+        gradients
     }
 }
