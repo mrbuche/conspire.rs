@@ -16,7 +16,7 @@ use crate::{
         },
     },
     math::{
-        Banded, Scalar, ScalarListVec, Scalars, Tensor, TestError,
+        Banded, Scalar, Scalars, Tensor, TestError,
         optimize::{
             EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
             SecondOrderOptimization, ZerothOrderRootFinding,

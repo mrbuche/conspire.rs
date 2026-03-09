@@ -12,8 +12,12 @@ pub mod thermal;
 
 use crate::{
     defeat_message,
-    math::{Scalar, ScalarList, TensorRank1, TensorRank1List, TensorRank1List2D, TestError},
-    mechanics::{CoordinateList, CurrentCoordinates, ReferenceCoordinates, VectorList, VectorList2D},
+    math::{
+        Scalar, ScalarList, Tensor, TensorRank1, TensorRank1List, TensorRank1List2D, TestError,
+    },
+    mechanics::{
+        CoordinateList, CurrentCoordinates, ReferenceCoordinates, VectorList, VectorList2D,
+    },
 };
 use std::fmt::{self, Debug, Display, Formatter};
 
@@ -83,9 +87,50 @@ pub trait FiniteElementImprovement<const G: usize, const M: usize, const N: usiz
 where
     Self: FiniteElementMetrics<G, M, N, P>,
 {
-    fn minimum_jacobian_gradients<const I: usize>(
+    fn jacobians<const I: usize>(
+        nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
+    ) -> ScalarList<N>;
+    fn jacobians_relative<const I: usize>(
+        nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
+    ) -> (ScalarList<N>, Scalar) {
+        let mut jacobians = Self::jacobians(nodal_coordinates);
+        let minimum_jacobian = jacobians.iter().copied().reduce(Scalar::min).unwrap();
+        jacobians
+            .iter_mut()
+            .for_each(|jacboian| *jacboian -= minimum_jacobian);
+        (jacobians, minimum_jacobian)
+    }
+    fn jacobian_objective<const I: usize>(
+        exponent: Scalar,
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> Scalar {
+        let (jacobians, minimum_jacobian) = Self::jacobians_relative(&nodal_coordinates);
+        minimum_jacobian
+            - jacobians
+                .into_iter()
+                .map(|jacobian| (-exponent * jacobian).exp())
+                .sum::<Scalar>()
+                .ln()
+                / exponent
+    }
+    fn jacobian_gradients<const I: usize>(
+        exponent: Scalar,
         nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
     ) -> VectorList<I, N>;
+    fn scaled_jacobians<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> ScalarList<N>;
+    fn scaled_jacobian_objective<const I: usize>(
+        exponent: Scalar,
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> Scalar {
+        Self::scaled_jacobians(nodal_coordinates)
+            .into_iter()
+            .map(|scaled_jacobian| (-exponent * scaled_jacobian).exp())
+            .sum::<Scalar>()
+            .ln()
+            / -exponent
+    }
 }
 
 pub struct Element<const G: usize, const N: usize, const O: usize> {

@@ -132,7 +132,7 @@ impl FiniteElementMetrics<G, M, N, P> for Hexahedron {
     fn minimum_jacobian<const I: usize>(
         nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
     ) -> Scalar {
-        jacobians(nodal_coordinates)
+        Self::jacobians(&nodal_coordinates)
             .into_iter()
             .reduce(Scalar::min)
             .unwrap()
@@ -140,56 +140,59 @@ impl FiniteElementMetrics<G, M, N, P> for Hexahedron {
     fn minimum_scaled_jacobian<const I: usize>(
         nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
     ) -> Scalar {
-        scaled_jacobians(nodal_coordinates)
+        Self::scaled_jacobians(nodal_coordinates)
             .into_iter()
             .reduce(Scalar::min)
             .unwrap()
     }
 }
 
-fn jacobians<const I: usize>(
-    nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-) -> ScalarList<N> {
-    let mut u = Coordinate::zero();
-    let mut v = Coordinate::zero();
-    let mut w = Coordinate::zero();
-    CORNERS
-        .into_iter()
-        .enumerate()
-        .map(|(node, [node_a, node_b, node_c])| {
-            u = &nodal_coordinates[node_a] - &nodal_coordinates[node];
-            v = &nodal_coordinates[node_b] - &nodal_coordinates[node];
-            w = &nodal_coordinates[node_c] - &nodal_coordinates[node];
-            u.cross(&v) * &w
-        })
-        .collect()
-}
-
-fn scaled_jacobians<const I: usize>(
-    nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-) -> ScalarList<N> {
-    let mut u = Coordinate::zero();
-    let mut v = Coordinate::zero();
-    let mut w = Coordinate::zero();
-    CORNERS
-        .into_iter()
-        .enumerate()
-        .map(|(node, [node_a, node_b, node_c])| {
-            u = &nodal_coordinates[node_a] - &nodal_coordinates[node];
-            v = &nodal_coordinates[node_b] - &nodal_coordinates[node];
-            w = &nodal_coordinates[node_c] - &nodal_coordinates[node];
-            (u.cross(&v) * &w) / u.norm() / v.norm() / w.norm()
-        })
-        .collect()
-}
-
 impl FiniteElementImprovement<G, M, N, P> for Hexahedron {
-    fn minimum_jacobian_gradients<const I: usize>(
+    fn jacobians<const I: usize>(
+        nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
+    ) -> ScalarList<N> {
+        CORNERS
+            .into_iter()
+            .enumerate()
+            .map(|(node, [node_a, node_b, node_c])| {
+                let u = &nodal_coordinates[node_a] - &nodal_coordinates[node];
+                let v = &nodal_coordinates[node_b] - &nodal_coordinates[node];
+                let w = &nodal_coordinates[node_c] - &nodal_coordinates[node];
+                u.cross(&v) * &w
+            })
+            .collect()
+    }
+    fn jacobian_gradients<const I: usize>(
+        exponent: Scalar,
         nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
     ) -> VectorList<I, N> {
-
-        // need to find which is the minimum J (the node) and handle accordingly/correctly?
-
+        let mut weights = Self::jacobians_relative(&nodal_coordinates)
+            .0
+            .into_iter()
+            .map(|jacobian| (-exponent * jacobian).exp())
+            .collect::<ScalarList<N>>();
+        weights /= weights.iter().sum::<Scalar>();
+        let mut gradients = VectorList::<I, N>::zero();
+        CORNERS.into_iter().enumerate().zip(weights).for_each(
+            |((node, [node_a, node_b, node_c]), weight)| {
+                let u = &nodal_coordinates[node_a] - &nodal_coordinates[node];
+                let v = &nodal_coordinates[node_b] - &nodal_coordinates[node];
+                let w = &nodal_coordinates[node_c] - &nodal_coordinates[node];
+                let dxa = v.cross(&w);
+                let dxb = w.cross(&u);
+                let dxc = u.cross(&v);
+                let dxi = &dxa + &dxb + &dxc;
+                gradients[node_a] += dxa * weight;
+                gradients[node_b] += dxb * weight;
+                gradients[node_c] += dxc * weight;
+                gradients[node] -= dxi * weight;
+            },
+        );
+        gradients
+    }
+    fn scaled_jacobians<const I: usize>(
+        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    ) -> ScalarList<N> {
         let mut u = Coordinate::zero();
         let mut v = Coordinate::zero();
         let mut w = Coordinate::zero();
@@ -200,7 +203,7 @@ impl FiniteElementImprovement<G, M, N, P> for Hexahedron {
                 u = &nodal_coordinates[node_a] - &nodal_coordinates[node];
                 v = &nodal_coordinates[node_b] - &nodal_coordinates[node];
                 w = &nodal_coordinates[node_c] - &nodal_coordinates[node];
-                v.cross(&u) - v.cross(&w) - w.cross(&u)
+                (u.cross(&v) * &w) / u.norm() / v.norm() / w.norm()
             })
             .collect()
     }
