@@ -268,8 +268,8 @@ mod metrics {
         math::{Scalar, TestError, test::assert_eq_from_fd},
     };
     const EXPONENT: Scalar = 1e0;
-    fn perturbed_coordinates() -> ElementNodalReferenceCoordinates<N> {
-        ElementNodalReferenceCoordinates::from([
+    fn perturbed_coordinates() -> ElementNodalCoordinates<N> {
+        ElementNodalCoordinates::from([
             [-0.03955949, -0.09918099, -0.04601137],
             [0.96107849, 0.05457956, 0.07703762],
             [1.05307941, 1.09890332, -0.03599377],
@@ -296,11 +296,15 @@ mod metrics {
                                 .map(|i| {
                                     finite_difference = 0.0;
                                     coords[a][i] += 0.5 * EPSILON;
-                                    finite_difference =
-                                        Hexahedron::jacobian_objective(EXPONENT, coords.clone());
+                                    finite_difference = Hexahedron::jacobian_objective(
+                                        EXPONENT,
+                                        coords.clone().into(),
+                                    );
                                     coords[a][i] -= EPSILON;
-                                    finite_difference -=
-                                        Hexahedron::jacobian_objective(EXPONENT, coords.clone());
+                                    finite_difference -= Hexahedron::jacobian_objective(
+                                        EXPONENT,
+                                        coords.clone().into(),
+                                    );
                                     coords[a][i] += 0.5 * EPSILON;
                                     finite_difference / EPSILON
                                 })
@@ -308,7 +312,7 @@ mod metrics {
                         })
                         .collect();
                     assert_eq_from_fd(
-                        &Hexahedron::jacobian_gradients(EXPONENT, reference_coordinates()),
+                        &Hexahedron::jacobian_gradients(EXPONENT, reference_coordinates().into()),
                         &jacobian_gradients_fd,
                     )
                 }
@@ -362,12 +366,12 @@ mod metrics {
                                     coords[a][i] += 0.5 * EPSILON;
                                     finite_difference = Hexahedron::scaled_jacobian_objective(
                                         EXPONENT,
-                                        coords.clone(),
+                                        coords.clone().into(),
                                     );
                                     coords[a][i] -= EPSILON;
                                     finite_difference -= Hexahedron::scaled_jacobian_objective(
                                         EXPONENT,
-                                        coords.clone(),
+                                        coords.clone().into(),
                                     );
                                     coords[a][i] += 0.5 * EPSILON;
                                     finite_difference / EPSILON
@@ -376,7 +380,10 @@ mod metrics {
                         })
                         .collect();
                     assert_eq_from_fd(
-                        &Hexahedron::scaled_jacobian_gradients(EXPONENT, reference_coordinates()),
+                        &Hexahedron::scaled_jacobian_gradients(
+                            EXPONENT,
+                            reference_coordinates().into(),
+                        ),
                         &jacobian_gradients_fd,
                     )
                 }

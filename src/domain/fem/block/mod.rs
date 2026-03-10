@@ -9,20 +9,20 @@ pub mod thermal;
 use crate::{
     defeat_message,
     fem::{
-        NodalReferenceCoordinates,
+        NodalCoordinates, NodalReferenceCoordinates,
         block::element::{
             ElementNodalReferenceCoordinates, FiniteElement, FiniteElementImprovement,
             FiniteElementMetrics,
         },
     },
     math::{
-        Banded, Scalar, Scalars, Tensor, TestError,
+        Banded, Scalar, ScalarListVec, Scalars, Tensor, TestError,
         optimize::{
             EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
             SecondOrderOptimization, ZerothOrderRootFinding,
         },
     },
-    mechanics::{CoordinateList, Coordinates},
+    mechanics::{CoordinateList, Coordinates, Forces},
 };
 use std::{
     any::type_name,
@@ -166,6 +166,16 @@ pub trait FiniteElementBlockImprovement<C, F, const G: usize, const N: usize>
 where
     Self: FiniteElementBlock<C, F, G, N>,
 {
+    fn improve(
+        &self,
+        solver: impl FirstOrderOptimization<Scalar, Forces>,
+    ) -> Result<NodalCoordinates, OptimizationError>;
+    fn jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<N>;
+    fn scaled_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<N>;
+    fn scaled_jacobian_objective(&self, exponent: Scalar, coordinates: &NodalCoordinates)
+    -> Scalar;
+    fn scaled_jacobian_gradients(&self, exponent: Scalar, coordinates: &NodalCoordinates)
+    -> Forces;
 }
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
@@ -174,6 +184,61 @@ where
     Self: FiniteElementBlock<C, F, G, N>,
     F: FiniteElementImprovement<G, M, N, P>,
 {
+    fn improve(
+        &self,
+        solver: impl FirstOrderOptimization<Scalar, Forces>,
+    ) -> Result<NodalCoordinates, OptimizationError> {
+        todo!()
+        // solver.minimize(
+        //     |nodal_coordinates: &NodalCoordinates| {
+        //         Ok(self.helmholtz_free_energy(nodal_coordinates)?)
+        //     },
+        //     |nodal_coordinates: &NodalCoordinates| Ok(self.nodal_forces(nodal_coordinates)?),
+        //     self.coordinates().clone().into(),
+        //     equality_constraint,
+        // )
+    }
+    fn jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<N> {
+        self.connectivity()
+            .iter()
+            .map(|nodes| F::jacobians(&Self::element_coordinates(coordinates, nodes)))
+            .collect()
+    }
+    fn scaled_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<N> {
+        self.connectivity()
+            .iter()
+            .map(|nodes| F::scaled_jacobians(&Self::element_coordinates(coordinates, nodes)))
+            .collect()
+    }
+    fn scaled_jacobian_objective(
+        &self,
+        exponent: Scalar,
+        coordinates: &NodalCoordinates,
+    ) -> Scalar {
+        self.connectivity()
+            .iter()
+            .map(|nodes| {
+                F::scaled_jacobian_objective(
+                    exponent,
+                    Self::element_coordinates(coordinates, nodes),
+                )
+            })
+            .sum()
+    }
+    fn scaled_jacobian_gradients(
+        &self,
+        exponent: Scalar,
+        coordinates: &NodalCoordinates,
+    ) -> Forces {
+        let mut nodal_forces = Forces::zero(coordinates.len());
+        self.connectivity().iter().for_each(|nodes| {
+            F::scaled_jacobian_gradients(exponent, Self::element_coordinates(coordinates, nodes))
+                .into_iter()
+                .zip(nodes)
+                .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force)
+        });
+        nodal_forces
+    }
 }
 
 pub enum FiniteElementBlockError {

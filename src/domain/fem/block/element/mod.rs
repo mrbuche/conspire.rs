@@ -16,7 +16,7 @@ use crate::{
         Scalar, ScalarList, Tensor, TensorRank1, TensorRank1List, TensorRank1List2D, TestError,
     },
     mechanics::{
-        CoordinateList, CurrentCoordinates, ReferenceCoordinates, VectorList, VectorList2D,
+        CoordinateList, CurrentCoordinates, ForceList, ReferenceCoordinates, VectorList2D,
     },
 };
 use std::fmt::{self, Debug, Display, Formatter};
@@ -111,17 +111,17 @@ where
     ) -> (ScalarList<N>, Scalar) {
         relative(Self::jacobians(nodal_coordinates))
     }
-    fn jacobian_objective<const I: usize>(
+    fn jacobian_objective(
         exponent: Scalar,
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+        nodal_coordinates: ElementNodalCoordinates<N>,
     ) -> Scalar {
         let (jacobians, minimum_jacobian) = Self::jacobians_relative(&nodal_coordinates);
         objective(exponent, jacobians, minimum_jacobian)
     }
-    fn jacobian_gradients<const I: usize>(
+    fn jacobian_gradients(
         exponent: Scalar,
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> VectorList<I, N>;
+        nodal_coordinates: ElementNodalCoordinates<N>,
+    ) -> ForceList<N>;
     fn scaled_jacobians<const I: usize>(
         nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> ScalarList<N>;
@@ -130,18 +130,18 @@ where
     ) -> (ScalarList<N>, Scalar) {
         relative(Self::scaled_jacobians(nodal_coordinates))
     }
-    fn scaled_jacobian_objective<const I: usize>(
+    fn scaled_jacobian_objective(
         exponent: Scalar,
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+        nodal_coordinates: ElementNodalCoordinates<N>,
     ) -> Scalar {
         let (scaled_jacobians, minimum_scaled_jacobian) =
             Self::scaled_jacobians_relative(&nodal_coordinates);
         objective(exponent, scaled_jacobians, minimum_scaled_jacobian)
     }
-    fn scaled_jacobian_gradients<const I: usize>(
+    fn scaled_jacobian_gradients(
         exponent: Scalar,
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> VectorList<I, N>;
+        nodal_coordinates: ElementNodalCoordinates<N>,
+    ) -> ForceList<N>;
 }
 
 pub struct Element<const G: usize, const N: usize, const O: usize> {

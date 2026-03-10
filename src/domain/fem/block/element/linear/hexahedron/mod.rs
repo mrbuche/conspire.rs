@@ -3,13 +3,13 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        ElementNodalEitherCoordinates, FRAC_1_SQRT_3, FiniteElement, FiniteElementImprovement,
-        FiniteElementMetrics, ParametricCoordinate, ParametricCoordinates, ParametricReference,
-        ShapeFunctions, ShapeFunctionsGradients,
+        ElementNodalCoordinates, ElementNodalEitherCoordinates, FRAC_1_SQRT_3, FiniteElement,
+        FiniteElementImprovement, FiniteElementMetrics, ParametricCoordinate,
+        ParametricCoordinates, ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         linear::{LinearElement, LinearFiniteElement, M},
     },
     math::{Scalar, ScalarList, Tensor, TensorArray},
-    mechanics::{Coordinate, VectorList},
+    mechanics::{Coordinate, ForceList},
 };
 
 const G: usize = 8;
@@ -162,17 +162,17 @@ impl FiniteElementImprovement<G, M, N, P> for Hexahedron {
             })
             .collect()
     }
-    fn jacobian_gradients<const I: usize>(
+    fn jacobian_gradients(
         exponent: Scalar,
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> VectorList<I, N> {
+        nodal_coordinates: ElementNodalCoordinates<N>,
+    ) -> ForceList<N> {
         let mut weights = Self::jacobians_relative(&nodal_coordinates)
             .0
             .into_iter()
             .map(|jacobian| (-exponent * jacobian).exp())
             .collect::<ScalarList<N>>();
         weights /= weights.iter().sum::<Scalar>();
-        let mut gradients = VectorList::<I, N>::zero();
+        let mut gradients = ForceList::<N>::zero();
         CORNERS.into_iter().enumerate().zip(weights).for_each(
             |((node, [node_a, node_b, node_c]), weight)| {
                 let u = &nodal_coordinates[node_a] - &nodal_coordinates[node];
@@ -207,17 +207,17 @@ impl FiniteElementImprovement<G, M, N, P> for Hexahedron {
             })
             .collect()
     }
-    fn scaled_jacobian_gradients<const I: usize>(
+    fn scaled_jacobian_gradients(
         exponent: Scalar,
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> VectorList<I, N> {
+        nodal_coordinates: ElementNodalCoordinates<N>,
+    ) -> ForceList<N> {
         let mut weights = Self::scaled_jacobians_relative(&nodal_coordinates)
             .0
             .into_iter()
             .map(|scaled_jacobian| (-exponent * scaled_jacobian).exp())
             .collect::<ScalarList<N>>();
         weights /= weights.iter().sum::<Scalar>();
-        let mut gradients = VectorList::<I, N>::zero();
+        let mut gradients = ForceList::zero();
         CORNERS.into_iter().enumerate().zip(weights).for_each(
             |((node, [node_a, node_b, node_c]), weight)| {
                 let u = &nodal_coordinates[node_a] - &nodal_coordinates[node];
