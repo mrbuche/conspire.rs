@@ -202,10 +202,16 @@ where
             solution -= residual * step_size;
         }
     }
-    Err(OptimizationError::MaximumStepsReached(
-        gradient_descent.max_steps,
-        format!("{gradient_descent:?}"),
-    ))
+    if let Some(rel_tol) = gradient_descent.rel_tol
+        && rel_tol == 0.0
+    {
+        Ok(solution)
+    } else {
+        Err(OptimizationError::MaximumStepsReached(
+            gradient_descent.max_steps,
+            format!("{gradient_descent:?}"),
+        ))
+    }
 }
 
 fn constrained_fixed<X>(
