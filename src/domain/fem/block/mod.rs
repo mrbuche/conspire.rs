@@ -172,6 +172,8 @@ where
         equality_constraint: EqualityConstraint,
         solver: impl FirstOrderOptimization<Scalar, Forces>,
     ) -> Result<NodalCoordinates, OptimizationError>;
+    fn objective(&self, exponent: Scalar, coordinates: &NodalCoordinates) -> Scalar;
+    fn gradients(&self, exponent: Scalar, coordinates: &NodalCoordinates) -> Forces;
     fn jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<N>;
     fn scaled_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<N>;
     fn scaled_jacobian_objective(&self, exponent: Scalar, coordinates: &NodalCoordinates)
@@ -202,6 +204,52 @@ where
             self.coordinates().clone().into(),
             equality_constraint,
         )
+    }
+    fn objective(&self, exponent: Scalar, coordinates: &NodalCoordinates) -> Scalar {
+        self.connectivity()
+            .iter()
+            .map(|nodes| {
+                let element_coordinates = Self::element_coordinates(coordinates, nodes);
+                if F::minimum_jacobian(element_coordinates.clone()) > 0.0 {
+                    F::scaled_jacobian_objective(exponent, element_coordinates)
+                } else {
+                    F::jacobian_objective(exponent, element_coordinates)
+                }
+            })
+            .sum()
+    }
+    fn gradients(&self, exponent: Scalar, coordinates: &NodalCoordinates) -> Forces {
+        let mut nodal_forces = Forces::zero(coordinates.len());
+        self.connectivity().iter().for_each(|nodes| {
+            let element_coordinates = Self::element_coordinates(coordinates, nodes);
+            if F::minimum_jacobian(element_coordinates.clone()) > 0.0 {
+                F::scaled_jacobian_gradients(
+                    exponent,
+                    Self::element_coordinates(coordinates, nodes),
+                )
+                .into_iter()
+                .zip(nodes)
+                .for_each(|(nodal_force, &node)| {
+                    if nodal_force.iter().all(|entry| !entry.is_nan()) {
+                        nodal_forces[node] += nodal_force
+                    } else {
+                        panic!()
+                    }
+                })
+            } else {
+                F::jacobian_gradients(exponent, Self::element_coordinates(coordinates, nodes))
+                    .into_iter()
+                    .zip(nodes)
+                    .for_each(|(nodal_force, &node)| {
+                        if nodal_force.iter().all(|entry| !entry.is_nan()) {
+                            nodal_forces[node] += nodal_force
+                        } else {
+                            panic!()
+                        }
+                    })
+            }
+        });
+        nodal_forces
     }
     fn jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<N> {
         self.connectivity()
