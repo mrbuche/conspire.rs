@@ -196,10 +196,10 @@ where
     ) -> Result<NodalCoordinates, OptimizationError> {
         solver.minimize(
             |nodal_coordinates: &NodalCoordinates| {
-                Ok(self.scaled_jacobian_objective(exponent, nodal_coordinates))
+                Ok(self.objective(exponent, nodal_coordinates))
             },
             |nodal_coordinates: &NodalCoordinates| {
-                Ok(self.scaled_jacobian_gradients(exponent, nodal_coordinates))
+                Ok(self.gradients(exponent, nodal_coordinates))
             },
             self.coordinates().clone().into(),
             equality_constraint,
