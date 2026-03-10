@@ -240,7 +240,11 @@ where
             F::scaled_jacobian_gradients(exponent, Self::element_coordinates(coordinates, nodes))
                 .into_iter()
                 .zip(nodes)
-                .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force)
+                .for_each(|(nodal_force, &node)| {
+                    if nodal_force.iter().all(|entry| !entry.is_nan()) {
+                        nodal_forces[node] += nodal_force
+                    }
+                })
         });
         nodal_forces
     }
