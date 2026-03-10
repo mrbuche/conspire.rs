@@ -195,12 +195,8 @@ where
         solver: impl FirstOrderOptimization<Scalar, Forces>,
     ) -> Result<NodalCoordinates, OptimizationError> {
         solver.minimize(
-            |nodal_coordinates: &NodalCoordinates| {
-                Ok(self.objective(exponent, nodal_coordinates))
-            },
-            |nodal_coordinates: &NodalCoordinates| {
-                Ok(self.gradients(exponent, nodal_coordinates))
-            },
+            |nodal_coordinates: &NodalCoordinates| Ok(self.objective(exponent, nodal_coordinates)),
+            |nodal_coordinates: &NodalCoordinates| Ok(self.gradients(exponent, nodal_coordinates)),
             self.coordinates().clone().into(),
             equality_constraint,
         )
