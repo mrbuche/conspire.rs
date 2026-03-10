@@ -182,10 +182,10 @@ impl FiniteElementImprovement<G, M, N, P> for Hexahedron {
                 let dxb = w.cross(&u);
                 let dxc = u.cross(&v);
                 let dxi = &dxa + &dxb + &dxc;
-                gradients[node_a] += dxa * weight;
-                gradients[node_b] += dxb * weight;
-                gradients[node_c] += dxc * weight;
-                gradients[node] -= dxi * weight;
+                gradients[node_a] -= dxa * weight;
+                gradients[node_b] -= dxb * weight;
+                gradients[node_c] -= dxc * weight;
+                gradients[node] += dxi * weight;
             },
         );
         gradients
@@ -251,10 +251,10 @@ impl FiniteElementImprovement<G, M, N, P> for Hexahedron {
                 let dsc = djc / d - &dln_c * s;
                 let dsi = dji / d - &dln_i * s;
 
-                gradients[node_a] += dsa * weight;
-                gradients[node_b] += dsb * weight;
-                gradients[node_c] += dsc * weight;
-                gradients[node] += dsi * weight;
+                gradients[node_a] -= dsa * weight;
+                gradients[node_b] -= dsb * weight;
+                gradients[node_c] -= dsc * weight;
+                gradients[node] -= dsi * weight;
             },
         );
         gradients

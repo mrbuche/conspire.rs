@@ -168,6 +168,8 @@ where
 {
     fn improve(
         &self,
+        exponent: Scalar,
+        equality_constraint: EqualityConstraint,
         solver: impl FirstOrderOptimization<Scalar, Forces>,
     ) -> Result<NodalCoordinates, OptimizationError>;
     fn jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<N>;
@@ -186,17 +188,20 @@ where
 {
     fn improve(
         &self,
+        exponent: Scalar,
+        equality_constraint: EqualityConstraint,
         solver: impl FirstOrderOptimization<Scalar, Forces>,
     ) -> Result<NodalCoordinates, OptimizationError> {
-        todo!()
-        // solver.minimize(
-        //     |nodal_coordinates: &NodalCoordinates| {
-        //         Ok(self.helmholtz_free_energy(nodal_coordinates)?)
-        //     },
-        //     |nodal_coordinates: &NodalCoordinates| Ok(self.nodal_forces(nodal_coordinates)?),
-        //     self.coordinates().clone().into(),
-        //     equality_constraint,
-        // )
+        solver.minimize(
+            |nodal_coordinates: &NodalCoordinates| {
+                Ok(self.scaled_jacobian_objective(exponent, nodal_coordinates))
+            },
+            |nodal_coordinates: &NodalCoordinates| {
+                Ok(self.scaled_jacobian_gradients(exponent, nodal_coordinates))
+            },
+            self.coordinates().clone().into(),
+            equality_constraint,
+        )
     }
     fn jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<N> {
         self.connectivity()

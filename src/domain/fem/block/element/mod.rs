@@ -90,13 +90,13 @@ fn relative<const N: usize>(mut values: ScalarList<N>) -> (ScalarList<N>, Scalar
 }
 
 fn objective<const N: usize>(exponent: Scalar, values: ScalarList<N>, offset: Scalar) -> Scalar {
-    offset
-        - values
-            .into_iter()
-            .map(|value| (-exponent * value).exp())
-            .sum::<Scalar>()
-            .ln()
-            / exponent
+    values
+        .into_iter()
+        .map(|value| (-exponent * value).exp())
+        .sum::<Scalar>()
+        .ln()
+        / exponent
+        - offset
 }
 
 pub trait FiniteElementImprovement<const G: usize, const M: usize, const N: usize, const P: usize>
