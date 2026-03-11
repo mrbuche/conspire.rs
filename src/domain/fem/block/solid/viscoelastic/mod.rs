@@ -111,7 +111,7 @@ where
                         &Self::element_coordinates(nodal_coordinates, nodes),
                         &self.element_velocities(nodal_velocities, nodes),
                     )?
-                    .iter()
+                    .into_iter()
                     .zip(nodes)
                     .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
                 Ok::<(), FiniteElementError>(())
@@ -140,11 +140,11 @@ where
                         &Self::element_coordinates(nodal_coordinates, nodes),
                         &self.element_velocities(nodal_velocities, nodes),
                     )?
-                    .iter()
+                    .into_iter()
                     .zip(nodes)
                     .for_each(|(object, &node_a)| {
                         object
-                            .iter()
+                            .into_iter()
                             .zip(nodes)
                             .for_each(|(nodal_stiffness, &node_b)| {
                                 nodal_stiffnesses[node_a][node_b] += nodal_stiffness
