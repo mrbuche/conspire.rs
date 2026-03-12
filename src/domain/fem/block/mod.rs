@@ -151,13 +151,13 @@ where
     fn minimum_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> Scalars {
         self.connectivity()
             .iter()
-            .map(|nodes| F::minimum_jacobian(Self::element_coordinates(coordinates, nodes)))
+            .map(|nodes| F::minimum_jacobian(&Self::element_coordinates(coordinates, nodes)))
             .collect()
     }
     fn minimum_scaled_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> Scalars {
         self.connectivity()
             .iter()
-            .map(|nodes| F::minimum_scaled_jacobian(Self::element_coordinates(coordinates, nodes)))
+            .map(|nodes| F::minimum_scaled_jacobian(&Self::element_coordinates(coordinates, nodes)))
             .collect()
     }
 }
@@ -206,7 +206,7 @@ where
             .iter()
             .map(|nodes| {
                 let element_coordinates = Self::element_coordinates(coordinates, nodes);
-                if F::minimum_jacobian(element_coordinates.clone()) > 0.0 {
+                if F::minimum_jacobian(&element_coordinates) > 0.0 {
                     F::scaled_jacobian_objective(exponent, element_coordinates)
                 } else {
                     F::jacobian_objective(exponent, element_coordinates)
@@ -218,7 +218,7 @@ where
         let mut nodal_forces = Forces::zero(coordinates.len());
         self.connectivity().iter().for_each(|nodes| {
             let element_coordinates = Self::element_coordinates(coordinates, nodes);
-            if F::minimum_jacobian(element_coordinates.clone()) > 0.0 {
+            if F::minimum_jacobian(&element_coordinates) > 0.0 {
                 F::scaled_jacobian_gradients(
                     exponent,
                     Self::element_coordinates(coordinates, nodes),

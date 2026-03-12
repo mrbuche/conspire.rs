@@ -76,10 +76,10 @@ where
     Self: FiniteElement<G, M, N, P>,
 {
     fn minimum_jacobian<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+        nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> Scalar;
     fn minimum_scaled_jacobian<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+        nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> Scalar;
 }
 

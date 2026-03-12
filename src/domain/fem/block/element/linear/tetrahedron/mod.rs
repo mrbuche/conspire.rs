@@ -59,14 +59,14 @@ impl LinearFiniteElement<G, N> for Tetrahedron {}
 
 impl FiniteElementMetrics<G, M, N, P> for Tetrahedron {
     fn minimum_jacobian<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+        nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> Scalar {
         (&nodal_coordinates[0] - &nodal_coordinates[2])
             .cross(&(&nodal_coordinates[1] - &nodal_coordinates[0]))
             * (&nodal_coordinates[3] - &nodal_coordinates[0])
     }
     fn minimum_scaled_jacobian<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+        nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> Scalar {
         scaled_jacobians(nodal_coordinates)
             .into_iter()
@@ -76,7 +76,7 @@ impl FiniteElementMetrics<G, M, N, P> for Tetrahedron {
 }
 
 fn edges<const I: usize>(
-    nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
 ) -> ElementNodalEitherCoordinates<I, 6> {
     [
         &nodal_coordinates[1] - &nodal_coordinates[0],
@@ -90,7 +90,7 @@ fn edges<const I: usize>(
 }
 
 fn lengths<const I: usize>(
-    nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
 ) -> ScalarList<EDGES> {
     edges(nodal_coordinates)
         .into_iter()
@@ -99,7 +99,7 @@ fn lengths<const I: usize>(
 }
 
 fn scaled_jacobians<const I: usize>(
-    nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
 ) -> ScalarList<P> {
     let numerator = ((&nodal_coordinates[1] - &nodal_coordinates[0])
         .cross(&(&nodal_coordinates[2] - &nodal_coordinates[0]))

@@ -43,7 +43,9 @@ impl FiniteElement<G, M, N, P> for Triangle {
     }
 }
 
-fn angles<const I: usize>(nodal_coordinates: ElementNodalEitherCoordinates<I, N>) -> ScalarList<N> {
+fn angles<const I: usize>(
+    nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
+) -> ScalarList<N> {
     let l_10 = (&nodal_coordinates[1] - &nodal_coordinates[0]).normalized();
     let l_02 = (&nodal_coordinates[0] - &nodal_coordinates[2]).normalized();
     let l_21 = (&nodal_coordinates[2] - &nodal_coordinates[1]).normalized();
@@ -57,14 +59,14 @@ fn angles<const I: usize>(nodal_coordinates: ElementNodalEitherCoordinates<I, N>
 
 impl FiniteElementMetrics<G, M, N, P> for Triangle {
     fn minimum_jacobian<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+        nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> Scalar {
         0.5 * (&nodal_coordinates[1] - &nodal_coordinates[0])
             .cross(&(&nodal_coordinates[2] - &nodal_coordinates[1]))
             .norm()
     }
     fn minimum_scaled_jacobian<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+        nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> Scalar {
         scaled_jacobians(nodal_coordinates)
             .into_iter()
@@ -74,7 +76,7 @@ impl FiniteElementMetrics<G, M, N, P> for Triangle {
 }
 
 fn scaled_jacobians<const I: usize>(
-    nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
 ) -> ScalarList<P> {
     let sin_60 = FRAC_PI_3.sin();
     angles(nodal_coordinates)

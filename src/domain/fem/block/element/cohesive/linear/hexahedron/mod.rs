@@ -77,13 +77,13 @@ impl LinearCohesiveFiniteElement<G, N, P> for Hexahedron {}
 
 impl FiniteElementMetrics<G, M, N, P> for Hexahedron {
     fn minimum_jacobian<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+        nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> Scalar {
-        Quadrilateral::minimum_jacobian(Self::nodal_mid_surface(&nodal_coordinates))
+        Quadrilateral::minimum_jacobian(&Self::nodal_mid_surface(nodal_coordinates))
     }
     fn minimum_scaled_jacobian<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+        nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> Scalar {
-        Quadrilateral::minimum_scaled_jacobian(Self::nodal_mid_surface(&nodal_coordinates))
+        Quadrilateral::minimum_scaled_jacobian(&Self::nodal_mid_surface(nodal_coordinates))
     }
 }

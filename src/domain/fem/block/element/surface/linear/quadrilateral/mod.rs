@@ -65,7 +65,7 @@ impl FiniteElement<G, M, N, P> for Quadrilateral {
 
 impl FiniteElementMetrics<G, M, N, P> for Quadrilateral {
     fn minimum_jacobian<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+        nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> Scalar {
         jacobians(nodal_coordinates)
             .into_iter()
@@ -73,7 +73,7 @@ impl FiniteElementMetrics<G, M, N, P> for Quadrilateral {
             .unwrap()
     }
     fn minimum_scaled_jacobian<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+        nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> Scalar {
         scaled_jacobians(nodal_coordinates)
             .into_iter()
@@ -83,7 +83,7 @@ impl FiniteElementMetrics<G, M, N, P> for Quadrilateral {
 }
 
 fn jacobians<const I: usize>(
-    nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
 ) -> ScalarList<P> {
     let mut u = Coordinate::zero();
     let mut v = Coordinate::zero();
@@ -104,7 +104,7 @@ fn jacobians<const I: usize>(
 }
 
 fn scaled_jacobians<const I: usize>(
-    nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+    nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
 ) -> ScalarList<P> {
     let mut u = Coordinate::zero();
     let mut v = Coordinate::zero();

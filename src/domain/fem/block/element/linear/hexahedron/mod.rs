@@ -130,17 +130,17 @@ impl LinearFiniteElement<G, N> for Hexahedron {}
 
 impl FiniteElementMetrics<G, M, N, P> for Hexahedron {
     fn minimum_jacobian<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+        nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> Scalar {
-        Self::jacobians(&nodal_coordinates)
+        Self::jacobians(nodal_coordinates)
             .into_iter()
             .reduce(Scalar::min)
             .unwrap()
     }
     fn minimum_scaled_jacobian<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
+        nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> Scalar {
-        Self::scaled_jacobians(&nodal_coordinates)
+        Self::scaled_jacobians(nodal_coordinates)
             .into_iter()
             .reduce(Scalar::min)
             .unwrap()
