@@ -12,11 +12,12 @@ repository = "https://github.com/mrbuche/conspire.rs"
 version = "0.5.15"
 
 [features]
-constitutive = ['mechanics']
+constitutive = ['physics']
 doc = []
 fem = ['constitutive']
 math = []
 mechanics = ['math']
+physics = ['mechanics']
 vem = ['fem']
 
 [lints.rust]
