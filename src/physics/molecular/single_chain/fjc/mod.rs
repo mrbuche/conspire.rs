@@ -41,6 +41,9 @@ impl Isometric for FreelyJointedChain {
         //
         // Need to Error when reach extensibility
         //
+        // Converting to u8 for Nb is totally fine but maybe need to Error above that too.
+        // Nb >=2 also seems like an issue.
+        //
         let orders = [0, 1]; // why was this an input argument?
         let n = self.number_of_links() as u128;
         let p: i32 = self.number_of_links() as i32 - 2;
