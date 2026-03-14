@@ -31,16 +31,21 @@ impl Thermodynamics for FreelyJointedChain {
 }
 
 impl Isometric for FreelyJointedChain {
-    fn nondimensional_helmholtz_free_energy(&self, nondimensional_extension: Scalar) -> Scalar {
+    fn nondimensional_helmholtz_free_energy(&self, _nondimensional_extension: Scalar) -> Scalar {
+        //
+        // Need to Error when reach extensibility
+        //
         todo!()
     }
     fn nondimensional_force(&self, nondimensional_extension: Scalar) -> Scalar {
-        let orders = [0, 1];
-        let number_of_links_f64 = self.number_of_links();
+        //
+        // Need to Error when reach extensibility
+        //
+        let orders = [0, 1]; // why was this an input argument?
         let n = self.number_of_links() as u128;
         let p: i32 = self.number_of_links() as i32 - 2;
         let m = -nondimensional_extension * 0.5 + 0.5;
-        let k = (number_of_links_f64 * m).ceil() as u128;
+        let k = (self.number_of_links() * m).ceil() as u128;
         let sums: Vec<f64> = orders
             .iter()
             .map(|order| {
@@ -53,13 +58,13 @@ impl Isometric for FreelyJointedChain {
                                 / (1..=*s).product::<u128>()
                                 / (1..=n - s).product::<u128>())
                                 as f64)
-                            * (m - (*s as f64) / number_of_links_f64).powi(p - order)
+                            * (m - (*s as f64) / self.number_of_links()).powi(p - order)
                     })
                     .sum()
             })
             .collect();
-        (1.0 / nondimensional_extension + (0.5 * number_of_links_f64 - 1.0) * sums[1] / sums[0])
-            / number_of_links_f64
+        (1.0 / nondimensional_extension + (0.5 * self.number_of_links() - 1.0) * sums[1] / sums[0])
+            / self.number_of_links()
     }
 }
 
@@ -74,6 +79,9 @@ impl Isotensional for FreelyJointedChain {
 
 impl Legendre for FreelyJointedChain {
     fn nondimensional_force(&self, nondimensional_extension: Scalar) -> Scalar {
+        //
+        // Need to Error when reach extensibility
+        //
         inverse_langevin(nondimensional_extension)
     }
 }

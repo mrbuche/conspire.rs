@@ -67,7 +67,7 @@ where
         Isotensional::nondimensional_gibbs_free_energy(self, nondimensional_force)
             + self.number_of_links() * nondimensional_force * nondimensional_extension
     }
-    fn nondimensional_force(&self, nondimensional_extension: Scalar) -> Scalar {
+    fn nondimensional_force(&self, _nondimensional_extension: Scalar) -> Scalar {
         todo!("default impl invert isotensional nondimensional extension")
     }
     fn nondimensional_gibbs_free_energy(&self, nondimensional_force: Scalar) -> Scalar {
@@ -76,7 +76,7 @@ where
         Isometric::nondimensional_helmholtz_free_energy(self, nondimensional_extension)
             - self.number_of_links() * nondimensional_force * nondimensional_extension
     }
-    fn nondimensional_extension(&self, nondimensional_force: Scalar) -> Scalar {
+    fn nondimensional_extension(&self, _nondimensional_force: Scalar) -> Scalar {
         todo!("default impl invert isometric nondimensional force")
     }
 }

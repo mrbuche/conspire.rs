@@ -4,10 +4,9 @@ mod test;
 use crate::{
     constitutive::{
         ConstitutiveError,
-        solid::{FIVE_THIRDS, Solid, TWO_THIRDS, elastic::Elastic, hyperelastic::Hyperelastic},
+        solid::{Solid, elastic::Elastic, hyperelastic::Hyperelastic},
     },
-    math::{IDENTITY, Rank2},
-    mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient, Scalar},
+    mechanics::{CauchyStress, CauchyTangentStiffness, DeformationGradient, Scalar},
 };
 
 #[doc = include_str!("doc.md")]
@@ -39,14 +38,14 @@ impl Elastic for EightChain {
     #[doc = include_str!("cauchy_stress.md")]
     fn cauchy_stress(
         &self,
-        deformation_gradient: &DeformationGradient,
+        _deformation_gradient: &DeformationGradient,
     ) -> Result<CauchyStress, ConstitutiveError> {
         todo!()
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
     fn cauchy_tangent_stiffness(
         &self,
-        deformation_gradient: &DeformationGradient,
+        _deformation_gradient: &DeformationGradient,
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
         todo!()
     }
@@ -56,7 +55,7 @@ impl Hyperelastic for EightChain {
     #[doc = include_str!("helmholtz_free_energy_density.md")]
     fn helmholtz_free_energy_density(
         &self,
-        deformation_gradient: &DeformationGradient,
+        _deformation_gradient: &DeformationGradient,
     ) -> Result<Scalar, ConstitutiveError> {
         todo!()
     }
