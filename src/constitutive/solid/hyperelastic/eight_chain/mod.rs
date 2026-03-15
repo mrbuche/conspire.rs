@@ -10,9 +10,13 @@ use crate::{
     mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient, Scalar},
     physics::molecular::single_chain::Thermodynamics as SingleChainThermodynamics,
 };
+use std::{
+    any::type_name,
+    fmt::{self, Debug, Formatter},
+};
 
 #[doc = include_str!("doc.md")]
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct EightChain<T>
 where
     T: SingleChainThermodynamics,
@@ -25,44 +29,64 @@ where
     pub single_chain_model: T,
 }
 
-// should there be an initial length field specification? (otherwise need number of links N_b)
-// could require a second trait that has number_of_links
-// but what if want to use something like WLC?
-// so then if sqrt(N) is average (RMS?) length, the trait should give that
-// but initial length also would be normalized by l, which also isnt always there
-// so maybe just stick with discrete models for now
+impl<T> Debug for EightChain<T>
+where
+    T: SingleChainThermodynamics,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "EightChain {{ bulk_modulus: {}, shear_modulus: {}, single_chain_model: {} }}",
+            self.bulk_modulus,
+            self.shear_modulus,
+            type_name::<T>()
+                .rsplit("::")
+                .next()
+                .unwrap()
+                .split("<")
+                .next()
+                .unwrap(),
+        )
+    }
+}
 
 impl<T> EightChain<T>
 where
     T: SingleChainThermodynamics,
 {
-    /// ???
+    /// Returns the nondimensional force in a single chain.
     fn nondimensional_force(
         &self,
         nondimensional_extension: Scalar,
-        // ) -> Result<Scalar, SingleChainError> {
-    ) -> Scalar {
-        // SingleChainThermodynamics::nondimensional_force(&self.single_chain_model, nondimensional_extension)
-        SingleChainThermodynamics::nondimensional_force(
+    ) -> Result<Scalar, ConstitutiveError> {
+        match SingleChainThermodynamics::nondimensional_force(
             &self.single_chain_model,
             nondimensional_extension,
-        )
-        .unwrap()
+        ) {
+            Ok(nondimensional_force) => Ok(nondimensional_force),
+            Err(error) => Err(ConstitutiveError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
-    /// ???
+    /// Returns the nondimensional stiffness in a single chain.
     fn nondimensional_stiffness(
         &self,
         nondimensional_extension: Scalar,
-        // ) -> Result<Scalar, SingleChainError> {
-    ) -> Scalar {
-        // SingleChainThermodynamics::nondimensional_force(&self.single_chain_model, nondimensional_extension)
-        SingleChainThermodynamics::nondimensional_stiffness(
+    ) -> Result<Scalar, ConstitutiveError> {
+        match SingleChainThermodynamics::nondimensional_stiffness(
             &self.single_chain_model,
             nondimensional_extension,
-        )
-        .unwrap()
+        ) {
+            Ok(nondimensional_stiffness) => Ok(nondimensional_stiffness),
+            Err(error) => Err(ConstitutiveError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
     }
-    /// Returns the number of links.
+    /// Returns the number of links in a single chain.
     pub fn number_of_links(&self) -> Scalar {
         self.single_chain_model.number_of_links() as Scalar
     }
@@ -103,8 +127,8 @@ where
             (isochoric_left_cauchy_green_deformation_trace / 3.0 / self.number_of_links()).sqrt();
         let gamma_0 = (1.0 / self.number_of_links()).sqrt();
         Ok(deviatoric_isochoric_left_cauchy_green_deformation
-            * (self.shear_modulus() * self.nondimensional_force(gamma)
-                / self.nondimensional_force(gamma_0)
+            * (self.shear_modulus() * self.nondimensional_force(gamma)?
+                / self.nondimensional_force(gamma_0)?
                 * gamma_0
                 / gamma
                 / jacobian)
@@ -126,9 +150,9 @@ where
         let gamma =
             (isochoric_left_cauchy_green_deformation_trace / 3.0 / self.number_of_links()).sqrt();
         let gamma_0 = (1.0 / self.number_of_links()).sqrt();
-        let eta = self.nondimensional_force(gamma);
+        let eta = self.nondimensional_force(gamma)?;
         let scaled_shear_modulus =
-            gamma_0 / self.nondimensional_force(gamma_0) * self.shear_modulus() * eta
+            gamma_0 / self.nondimensional_force(gamma_0)? * self.shear_modulus() * eta
                 / gamma
                 / jacobian.powf(FIVE_THIRDS);
         let scaled_deviatoric_isochoric_left_cauchy_green_deformation =
@@ -137,14 +161,11 @@ where
             &scaled_deviatoric_isochoric_left_cauchy_green_deformation,
             &(deviatoric_isochoric_left_cauchy_green_deformation
                 * &inverse_transpose_deformation_gradient
-                * ((self.nondimensional_stiffness(gamma) / eta - 1.0 / gamma)
+                * ((self.nondimensional_stiffness(gamma)? / eta - 1.0 / gamma)
                     / 3.0
                     / self.number_of_links()
                     / gamma)),
         );
-        //
-        // Need to replace above with something that uses nondimensional_stiffness()
-        //
         Ok(
             (CauchyTangentStiffness::dyad_ik_jl(&IDENTITY, deformation_gradient)
                 + CauchyTangentStiffness::dyad_il_jk(deformation_gradient, &IDENTITY)
@@ -176,9 +197,9 @@ where
             deformation_gradient.left_cauchy_green() / jacobian.powf(TWO_THIRDS);
         let gamma =
             (isochoric_left_cauchy_green_deformation.trace() / 3.0 / self.number_of_links()).sqrt();
-        let eta = self.nondimensional_force(gamma);
+        let eta = self.nondimensional_force(gamma)?;
         let gamma_0 = (1.0 / self.number_of_links()).sqrt();
-        let eta_0 = self.nondimensional_force(gamma_0);
+        let eta_0 = self.nondimensional_force(gamma_0)?;
         //
         // If end up re-using so much of ArrudaBoyce should make helper function to share.
         //

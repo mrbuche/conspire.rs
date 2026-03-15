@@ -25,7 +25,10 @@ where
         nondimensional_extension: Scalar,
     ) -> Result<(), SingleChainError> {
         if nondimensional_extension.abs() >= self.maximum_nondimensional_extension() {
-            Err(SingleChainError::MaximumExtensibility)
+            Err(SingleChainError::MaximumExtensibility(
+                format!("{:?}", self.maximum_nondimensional_extension()),
+                format!("{self:?}"),
+            ))
         } else {
             Ok(())
         }
@@ -34,7 +37,7 @@ where
 
 #[derive(Debug)]
 pub enum SingleChainError {
-    MaximumExtensibility,
+    MaximumExtensibility(String, String),
     Upstream(String, String),
 }
 
@@ -55,9 +58,13 @@ impl From<SingleChainError> for String {
 impl From<&SingleChainError> for String {
     fn from(error: &SingleChainError) -> Self {
         match error {
-            SingleChainError::MaximumExtensibility => {
-                "\x1b[1;91mMaximum extensibility reached.\x1b[0;91m".to_string()
-            }
+            SingleChainError::MaximumExtensibility(
+                maximum_nondimensional_extension,
+                single_chain_model,
+            ) => format!(
+                "\x1b[1;91mMaximum extensibility ({maximum_nondimensional_extension}) reached.\x1b[0;91m\n\
+                    In single-chain model: {single_chain_model}."
+            ),
             SingleChainError::Upstream(error, single_chain_model) => format!(
                 "{error}\x1b[0;91m\n\
                     In single-chain model: {single_chain_model}."

@@ -76,8 +76,7 @@ impl Isometric for FreelyJointedChain {
         if nondimensional_extension == 0.0 {
             Ok(Scalar::NAN)
         } else {
-            let [s0, s1, s2] =
-                treloar_sums(self.number_of_links(), nondimensional_extension);
+            let [s0, s1, s2] = treloar_sums(self.number_of_links(), nondimensional_extension);
 
             if !s0.is_finite() || s0 == 0.0 {
                 return Ok(Scalar::NAN);
@@ -91,8 +90,7 @@ impl Isometric for FreelyJointedChain {
             let ds1dx = -((p - 1.0) / 2.0) * s2;
             let d_ratio_dx = (ds1dx * s0 - s1 * ds0dx) / (s0 * s0);
 
-            Ok(-1.0 / (n * nondimensional_extension * nondimensional_extension)
-                + b * d_ratio_dx)
+            Ok(-1.0 / (n * nondimensional_extension * nondimensional_extension) + b * d_ratio_dx)
         }
     }
     fn nondimensional_spherical_distribution(
@@ -174,14 +172,14 @@ fn treloar_sums(num_links: u8, x: Scalar) -> [Scalar; 3] {
         } else {
             t.powi(p)
         };
-        let t1 = if p - 1 >= 0 {
+        let t1 = if p > 0 {
             t.powi(p - 1)
         } else if t == 0.0 {
             0.0
         } else {
             t.powi(p - 1)
         };
-        let t2 = if p - 2 >= 0 {
+        let t2 = if p > 1 {
             t.powi(p - 2)
         } else if t == 0.0 {
             0.0

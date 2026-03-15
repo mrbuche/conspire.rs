@@ -33,7 +33,7 @@ fn foo() {
 
 #[test]
 fn finite_difference() -> Result<(), TestError> {
-        [Ensemble::Isometric, Ensemble::Isotensional]
+    [Ensemble::Isometric, Ensemble::Isotensional]
         .into_iter()
         .try_for_each(|ensemble| {
             (3..16).into_iter().try_for_each(|number_of_links| {
@@ -42,12 +42,10 @@ fn finite_difference() -> Result<(), TestError> {
                     number_of_links,
                     ensemble,
                 };
-                // (0..NUM)
                 (30..NUM)
                     .map(|k| k as Scalar / NUM as Scalar)
                     .into_iter()
                     .try_for_each(|mut nondimensional_extension| {
-println!("{number_of_links}, {nondimensional_extension}");
                         let nondimensional_force =
                             model.nondimensional_force(nondimensional_extension)?;
                         let nondimensional_stiffness =

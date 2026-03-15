@@ -733,7 +733,7 @@ macro_rules! test_finite_element_inner {
                 use super::*;
                 use crate::{
                     constitutive::solid::hyperelastic::{
-                        ArrudaBoyce, EightChain, Fung, Gent, Hencky, MooneyRivlin, NeoHookean,
+                        ArrudaBoyce, Fung, Gent, Hencky, MooneyRivlin, NeoHookean,
                         SaintVenantKirchhoff, Yeoh,
                         test::{
                             EXPONENT, EXTENSIBILITY, EXTRA_MODULUS, NUMBER_OF_LINKS,
@@ -757,17 +757,6 @@ macro_rules! test_finite_element_inner {
                         ArrudaBoyce
                     );
                 }
-                // mod eight_chain {
-                //     use super::*;
-                //     test_finite_element_with_hyperelastic_constitutive_model!(
-                //         $element,
-                //         EightChain {
-                //             bulk_modulus: BULK_MODULUS,
-                //             shear_modulus: SHEAR_MODULUS,
-                //         },
-                //         EightChain
-                //     );
-                // }
                 mod fung {
                     use super::*;
                     test_finite_element_with_hyperelastic_constitutive_model!(
