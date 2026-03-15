@@ -70,6 +70,32 @@ where
             }
         }
     }
+    fn nondimensional_radial_distribution(
+        &self,
+        nondimensional_extension: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        match self.ensemble() {
+            Ensemble::Isometric => {
+                Isometric::nondimensional_radial_distribution(self, nondimensional_extension)
+            }
+            Ensemble::Isotensional => {
+                Legendre::nondimensional_radial_distribution(self, nondimensional_extension)
+            }
+        }
+    }
+    fn nondimensional_spherical_distribution(
+        &self,
+        nondimensional_extension: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        match self.ensemble() {
+            Ensemble::Isometric => {
+                Isometric::nondimensional_spherical_distribution(self, nondimensional_extension)
+            }
+            Ensemble::Isotensional => {
+                Legendre::nondimensional_spherical_distribution(self, nondimensional_extension)
+            }
+        }
+    }
     fn nondimensional_gibbs_free_energy(
         &self,
         nondimensional_force: Scalar,
@@ -170,7 +196,7 @@ where
         )
     }
     /// ```math
-    /// \mathcal{P}(\gamma) \propto e^{-\vartheta(\gamma)}
+    /// \mathcal{P}(\gamma) \propto e^{-\beta\psi(\gamma)}
     /// ```
     fn nondimensional_spherical_distribution(
         &self,
@@ -301,6 +327,25 @@ where
         let nondimensional_force = Legendre::nondimensional_force(self, nondimensional_extension)?;
         Ok(1.0 / Isotensional::nondimensional_compliance(self, nondimensional_force)?)
     }
+    /// ```math
+    /// \mathcal{g}(\gamma) = 4\pi\gamma^2\mathcal{P}(\gamma)
+    /// ```
+    fn nondimensional_radial_distribution(
+        &self,
+        nondimensional_extension: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        Ok(
+            Legendre::nondimensional_spherical_distribution(self, nondimensional_extension)?
+                * (4.0 * PI * nondimensional_extension.powi(2)),
+        )
+    }
+    /// ```math
+    /// \mathcal{P}(\gamma) \propto e^{-\beta\psi(\gamma)}
+    /// ```
+    fn nondimensional_spherical_distribution(
+        &self,
+        nondimensional_extension: Scalar,
+    ) -> Result<Scalar, SingleChainError>;
     /// ```math
     /// \beta\varphi(\eta) = \beta\psi(\gamma) - N_b\eta\gamma(\eta)
     /// ```

@@ -21,6 +21,9 @@ pub struct IdealChain {
 }
 
 impl SingleChain for IdealChain {
+    fn link_length(&self) -> Scalar {
+        self.link_length
+    }
     fn number_of_links(&self) -> u8 {
         self.number_of_links
     }
@@ -111,7 +114,7 @@ impl Legendre for IdealChain {
         &self,
         nondimensional_extension: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        Ok(3.0 * nondimensional_extension)
+        Isometric::nondimensional_force(self, nondimensional_extension)
     }
     /// ```math
     /// \gamma(\eta) = \frac{\eta}{3}
@@ -120,6 +123,15 @@ impl Legendre for IdealChain {
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        Ok(nondimensional_force / 3.0)
+        Isotensional::nondimensional_extension(self, nondimensional_force)
+    }
+    /// ```math
+    /// \mathcal{P}(\gamma) = \left(\frac{3}{2\pi N_b}\right)^{3/2}\exp\left(-\frac{3}{2}\,N_b\gamma^2\right)
+    /// ```
+    fn nondimensional_spherical_distribution(
+        &self,
+        nondimensional_extension: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        Isometric::nondimensional_spherical_distribution(self, nondimensional_extension)
     }
 }

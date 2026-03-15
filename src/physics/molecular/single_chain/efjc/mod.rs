@@ -26,6 +26,9 @@ impl ExtensibleFreelyJointedChain {
 }
 
 impl SingleChain for ExtensibleFreelyJointedChain {
+    fn link_length(&self) -> Scalar {
+        self.link_length
+    }
     fn number_of_links(&self) -> u8 {
         self.number_of_links
     }

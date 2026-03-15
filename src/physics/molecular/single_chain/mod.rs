@@ -1,10 +1,12 @@
 mod efjc;
 mod fjc;
+mod frc;
 mod ideal;
 mod thermodynamics;
 
 pub use efjc::ExtensibleFreelyJointedChain;
 pub use fjc::FreelyJointedChain;
+pub use frc::FreelyRotatingChain;
 pub use ideal::IdealChain;
 pub use thermodynamics::{Ensemble, Isometric, Isotensional, Legendre, Thermodynamics};
 
@@ -15,6 +17,7 @@ pub trait SingleChain
 where
     Self: Clone + Debug,
 {
+    fn link_length(&self) -> Scalar;
     fn number_of_links(&self) -> u8;
 }
 
