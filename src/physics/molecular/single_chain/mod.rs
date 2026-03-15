@@ -1,8 +1,11 @@
+mod efjc;
 mod fjc;
-// mod ideal;
+mod ideal;
 mod thermodynamics;
 
+pub use efjc::ExtensibleFreelyJointedChain;
 pub use fjc::FreelyJointedChain;
+pub use ideal::IdealChain;
 pub use thermodynamics::{Ensemble, Isometric, Isotensional, Legendre, Thermodynamics};
 
 use crate::math::{Scalar, TestError};

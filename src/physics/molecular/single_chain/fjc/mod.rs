@@ -55,6 +55,9 @@ impl Isometric for FreelyJointedChain {
             Ok(nondimensional_extension.abs().ln() - s0.ln())
         }
     }
+    /// ```math
+    /// \eta(\gamma) = \frac{1}{N_b\gamma} + \left(\frac{1}{2} - \frac{1}{N_b}\right)\frac{\sum_{s=0}^{s_\mathrm{max}}(-1)^s\binom{N_b}{s}\left(m - \frac{s}{N_b}\right)^{N_b - 3}}{\sum_{s=0}^{s_\mathrm{max}}(-1)^s\binom{N_b}{s}\left(m - \frac{s}{N_b}\right)^{N_b - 2}}
+    /// ```
     fn nondimensional_force(
         &self,
         nondimensional_extension: Scalar,
@@ -68,6 +71,9 @@ impl Isometric for FreelyJointedChain {
             Ok((1.0 / nondimensional_extension + (0.5 * n - 1.0) * s1 / s0) / n)
         }
     }
+    /// ```math
+    /// k(\gamma) = \frac{\partial\eta}{\partial\gamma}
+    /// ```
     fn nondimensional_stiffness(
         &self,
         nondimensional_extension: Scalar,
@@ -93,6 +99,9 @@ impl Isometric for FreelyJointedChain {
             Ok(-1.0 / (n * nondimensional_extension * nondimensional_extension) + b * d_ratio_dx)
         }
     }
+    /// ```math
+    /// \mathcal{P}(\gamma) = \frac{1}{8\pi\gamma}\frac{N_b^{N_b}}{(N_b - 2)!}\sum_{s=0}^{s_\mathrm{max}}(-1)^s\binom{N_b}{s}\left(m - \frac{s}{N_b}\right)^{N_b - 2}
+    /// ```
     fn nondimensional_spherical_distribution(
         &self,
         nondimensional_extension: Scalar,
@@ -113,6 +122,9 @@ impl Isometric for FreelyJointedChain {
 }
 
 impl Isotensional for FreelyJointedChain {
+    /// ```math
+    /// \beta\varphi(\eta) = N_b\ln\left(\frac{\eta}{\sinh(\eta)}\right)
+    /// ```
     fn nondimensional_gibbs_free_energy(
         &self,
         nondimensional_force: Scalar,
@@ -120,12 +132,18 @@ impl Isotensional for FreelyJointedChain {
         Ok(self.number_of_links() as Scalar
             * (nondimensional_force / nondimensional_force.sinh()).ln())
     }
+    /// ```math
+    /// \gamma(\eta) = \mathcal{L}(\eta)
+    /// ```
     fn nondimensional_extension(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
         Ok(langevin(nondimensional_force))
     }
+    /// ```math
+    /// c(\eta) = \mathcal{L}'(\eta)
+    /// ```
     fn nondimensional_compliance(
         &self,
         nondimensional_force: Scalar,
@@ -135,6 +153,9 @@ impl Isotensional for FreelyJointedChain {
 }
 
 impl Legendre for FreelyJointedChain {
+    /// ```math
+    /// \eta(\gamma) = \mathcal{L}^{-1}(\gamma)
+    /// ```
     fn nondimensional_force(
         &self,
         nondimensional_extension: Scalar,

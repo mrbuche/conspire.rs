@@ -124,10 +124,16 @@ pub trait Isometric
 where
     Self: SingleChain,
 {
+    /// ```math
+    /// \beta\psi(\gamma) = -\ln Q(\gamma)
+    /// ```
     fn nondimensional_helmholtz_free_energy(
         &self,
         nondimensional_extension: Scalar,
     ) -> Result<Scalar, SingleChainError>;
+    /// ```math
+    /// \vartheta(\gamma) = \beta\psi(\gamma) / N_b
+    /// ```
     fn nondimensional_helmholtz_free_energy_per_link(
         &self,
         nondimensional_extension: Scalar,
@@ -137,14 +143,23 @@ where
                 / (self.number_of_links() as Scalar),
         )
     }
+    /// ```math
+    /// \eta(\gamma) = \frac{\partial\vartheta}{\partial\gamma}
+    /// ```
     fn nondimensional_force(
         &self,
         nondimensional_extension: Scalar,
     ) -> Result<Scalar, SingleChainError>;
+    /// ```math
+    /// k(\gamma) = \frac{\partial\eta}{\partial\gamma}
+    /// ```
     fn nondimensional_stiffness(
         &self,
         nondimensional_extension: Scalar,
     ) -> Result<Scalar, SingleChainError>;
+    /// ```math
+    /// \mathcal{g}(\gamma) = 4\pi\gamma^2\mathcal{P}(\gamma)
+    /// ```
     fn nondimensional_radial_distribution(
         &self,
         nondimensional_extension: Scalar,
@@ -154,6 +169,9 @@ where
                 * (4.0 * PI * nondimensional_extension.powi(2)),
         )
     }
+    /// ```math
+    /// \mathcal{P}(\gamma) \propto e^{-\vartheta(\gamma)}
+    /// ```
     fn nondimensional_spherical_distribution(
         &self,
         nondimensional_extension: Scalar,
@@ -164,10 +182,16 @@ pub trait Isotensional
 where
     Self: SingleChain,
 {
+    /// ```math
+    /// \beta\varphi(\eta) = -\ln Z(\eta)
+    /// ```
     fn nondimensional_gibbs_free_energy(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError>;
+    /// ```math
+    /// \varrho(\eta) = \beta\varphi(\eta) / N_b
+    /// ```
     fn nondimensional_gibbs_free_energy_per_link(
         &self,
         nondimensional_force: Scalar,
@@ -175,10 +199,16 @@ where
         Ok(self.nondimensional_gibbs_free_energy(nondimensional_force)?
             / (self.number_of_links() as Scalar))
     }
+    /// ```math
+    /// \gamma(\eta) = -\frac{\partial\varrho}{\partial\eta}
+    /// ```
     fn nondimensional_extension(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError>;
+    /// ```math
+    /// c(\eta) = \frac{\partial\gamma}{\partial\eta}
+    /// ```
     fn nondimensional_compliance(
         &self,
         nondimensional_force: Scalar,
@@ -189,6 +219,9 @@ pub trait Legendre
 where
     Self: Isometric + Isotensional + SingleChain,
 {
+    /// ```math
+    /// \beta\psi(\gamma) = \beta\varphi(\eta) + N_b\eta(\gamma)\gamma
+    /// ```
     fn nondimensional_helmholtz_free_energy(
         &self,
         nondimensional_extension: Scalar,
@@ -201,6 +234,9 @@ where
                     * nondimensional_extension,
         )
     }
+    /// ```math
+    /// \vartheta(\gamma) = \varrho(\eta) + \eta(\gamma)\gamma
+    /// ```
     fn nondimensional_helmholtz_free_energy_per_link(
         &self,
         nondimensional_extension: Scalar,
@@ -210,6 +246,9 @@ where
                 / (self.number_of_links() as Scalar),
         )
     }
+    /// ```math
+    /// \eta(\gamma) = \gamma^{-1}(\gamma)
+    /// ```
     fn nondimensional_force(
         &self,
         nondimensional_extension: Scalar,
@@ -252,6 +291,9 @@ where
             )),
         }
     }
+    /// ```math
+    /// k(\gamma) = \left(\frac{\partial\gamma}{\partial\eta}\right)^{-1}
+    /// ```
     fn nondimensional_stiffness(
         &self,
         nondimensional_extension: Scalar,
@@ -259,6 +301,9 @@ where
         let nondimensional_force = Legendre::nondimensional_force(self, nondimensional_extension)?;
         Ok(1.0 / Isotensional::nondimensional_compliance(self, nondimensional_force)?)
     }
+    /// ```math
+    /// \beta\varphi(\eta) = \beta\psi(\gamma) - N_b\eta\gamma(\eta)
+    /// ```
     fn nondimensional_gibbs_free_energy(
         &self,
         nondimensional_force: Scalar,
@@ -272,6 +317,9 @@ where
                     * nondimensional_extension,
         )
     }
+    /// ```math
+    /// \varrho(\eta) = \vartheta(\gamma) - \eta\gamma(\eta)
+    /// ```
     fn nondimensional_gibbs_free_energy_per_link(
         &self,
         nondimensional_force: Scalar,
@@ -281,6 +329,9 @@ where
                 / (self.number_of_links() as Scalar),
         )
     }
+    /// ```math
+    /// \gamma(\eta) = \eta^{-1}(\eta)
+    /// ```
     fn nondimensional_extension(
         &self,
         nondimensional_force: Scalar,
@@ -323,6 +374,9 @@ where
             )),
         }
     }
+    /// ```math
+    /// c(\eta) = \left(\frac{\partial\eta}{\partial\gamma}\right)^{-1}
+    /// ```
     fn nondimensional_compliance(
         &self,
         nondimensional_force: Scalar,

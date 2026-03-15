@@ -10,28 +10,6 @@ use crate::{
 const NUM: usize = 1000;
 
 #[test]
-fn foo() {
-    let fjc = FreelyJointedChain {
-        link_length: 1.0,
-        number_of_links: 6,
-        ensemble: Ensemble::Isometric,
-    };
-    let force = fjc.nondimensional_force(-0.8);
-    println!("{:?}", force);
-    let h = fjc.nondimensional_helmholtz_free_energy(1e-3);
-    println!("{:?}", h);
-    let g = crate::physics::molecular::single_chain::Isometric::nondimensional_radial_distribution(
-        &fjc, 0.2,
-    );
-    println!("{:?}", g);
-    let p =
-        crate::physics::molecular::single_chain::Isometric::nondimensional_spherical_distribution(
-            &fjc, 0.01,
-        );
-    println!("{:?}", p)
-}
-
-#[test]
 fn finite_difference() -> Result<(), TestError> {
     [Ensemble::Isometric, Ensemble::Isotensional]
         .into_iter()
