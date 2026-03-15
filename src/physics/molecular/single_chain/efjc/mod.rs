@@ -30,3 +30,5 @@ impl SingleChain for ExtensibleFreelyJointedChain {
         self.number_of_links
     }
 }
+
+// Need to make all Thermodynamics/etc. methods functions of the temperature too.
