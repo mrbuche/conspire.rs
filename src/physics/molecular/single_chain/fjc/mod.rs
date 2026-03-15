@@ -153,16 +153,17 @@ fn treloar_sums(num_links: u8, x: Scalar) -> [Scalar; 3] {
     let n = num_links as Scalar;
     let p = (num_links - 2) as i32;
     let m = 0.5 * (1.0 - x);
-    // let k = ((n * m).ceil() as usize)
-    //     .saturating_sub(1)
-    //     .min(num_links as usize);
-    let k = ((n * m).floor() as usize).min(num_links as usize);
-
+    let k = ((n * m).ceil() as usize)
+        .saturating_sub(1)
+        .min(num_links as usize);
+    let k_float = n * m;
+    if (k_float - k_float.round()).abs() == 0.0 {
+        return [Scalar::NAN; 3];
+    }
     let mut binom = 1.0;
     let mut s0 = 0.0;
     let mut s1 = 0.0;
     let mut s2 = 0.0;
-
     for s in 0..=k {
         let sign = if s % 2 == 0 { 1.0 } else { -1.0 };
         let t = m - (s as Scalar) / n;
@@ -187,14 +188,11 @@ fn treloar_sums(num_links: u8, x: Scalar) -> [Scalar; 3] {
         } else {
             t.powi(p - 2)
         };
-
         s0 += sign * binom * t0;
         s1 += sign * binom * t1;
         s2 += sign * binom * t2;
-
         let sf = s as Scalar;
         binom *= (n - sf) / (sf + 1.0);
     }
-
     [s0, s1, s2]
 }

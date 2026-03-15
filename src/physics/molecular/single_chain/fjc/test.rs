@@ -43,7 +43,7 @@ fn finite_difference() -> Result<(), TestError> {
                     ensemble,
                 };
                 // (0..NUM)
-                (50..500)
+                (30..NUM)
                     .map(|k| k as Scalar / NUM as Scalar)
                     .into_iter()
                     .try_for_each(|mut nondimensional_extension| {
