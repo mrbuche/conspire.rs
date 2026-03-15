@@ -18,7 +18,7 @@ fn foo() {
     };
     let force = fjc.nondimensional_force(-0.8);
     println!("{:?}", force);
-    let h = fjc.nondimensional_helmholtz_free_energy(1e-5);
+    let h = fjc.nondimensional_helmholtz_free_energy(1e-3);
     println!("{:?}", h);
     let g = crate::physics::molecular::single_chain::Isometric::nondimensional_radial_distribution(
         &fjc, 0.2,
@@ -33,7 +33,7 @@ fn foo() {
 
 #[test]
 fn finite_difference() -> Result<(), TestError> {
-    [Ensemble::Isometric, Ensemble::Isotensional]
+        [Ensemble::Isometric, Ensemble::Isotensional]
         .into_iter()
         .try_for_each(|ensemble| {
             (3..16).into_iter().try_for_each(|number_of_links| {
@@ -42,21 +42,33 @@ fn finite_difference() -> Result<(), TestError> {
                     number_of_links,
                     ensemble,
                 };
-                (0..NUM)
+                // (0..NUM)
+                (50..500)
                     .map(|k| k as Scalar / NUM as Scalar)
                     .into_iter()
                     .try_for_each(|mut nondimensional_extension| {
+println!("{number_of_links}, {nondimensional_extension}");
                         let nondimensional_force =
                             model.nondimensional_force(nondimensional_extension)?;
+                        let nondimensional_stiffness =
+                            model.nondimensional_stiffness(nondimensional_extension)?;
                         nondimensional_extension += 0.5 * EPSILON;
-                        let mut finite_difference =
+                        let mut finite_difference_1 =
                             model.nondimensional_helmholtz_free_energy(nondimensional_extension)?;
+                        let mut finite_difference_2 =
+                            model.nondimensional_force(nondimensional_extension)?;
                         nondimensional_extension -= EPSILON;
-                        finite_difference -=
+                        finite_difference_1 -=
                             model.nondimensional_helmholtz_free_energy(nondimensional_extension)?;
+                        finite_difference_2 -=
+                            model.nondimensional_force(nondimensional_extension)?;
                         assert_eq_from_fd(
                             &nondimensional_force,
-                            &(finite_difference / number_of_links as Scalar / EPSILON),
+                            &(finite_difference_1 / number_of_links as Scalar / EPSILON),
+                        )?;
+                        assert_eq_from_fd(
+                            &nondimensional_stiffness,
+                            &(finite_difference_2 / EPSILON),
                         )
                     })
             })

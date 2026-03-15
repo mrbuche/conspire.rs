@@ -30,25 +30,6 @@ pub enum ConstitutiveError {
     Upstream(String, String),
 }
 
-impl From<ConstitutiveError> for String {
-    fn from(error: ConstitutiveError) -> Self {
-        match error {
-            ConstitutiveError::Custom(message, constitutive_model) => format!(
-                "\x1b[1;91m{message}\x1b[0;91m\n\
-                        In constitutive model: {constitutive_model}."
-            ),
-            ConstitutiveError::InvalidJacobian(jacobian, constitutive_model) => format!(
-                "\x1b[1;91mInvalid Jacobian: {jacobian:.6e}.\x1b[0;91m\n\
-                        In constitutive model: {constitutive_model}."
-            ),
-            ConstitutiveError::Upstream(error, constitutive_model) => format!(
-                "{error}\x1b[0;91m\n\
-                    In constitutive model: {constitutive_model}."
-            ),
-        }
-    }
-}
-
 impl From<ConstitutiveError> for TestError {
     fn from(error: ConstitutiveError) -> Self {
         Self {
@@ -66,51 +47,45 @@ impl From<TensorError> for ConstitutiveError {
     }
 }
 
+impl From<ConstitutiveError> for String {
+    fn from(error: ConstitutiveError) -> Self {
+        Self::from(&error)
+    }
+}
+
+impl From<&ConstitutiveError> for String {
+    fn from(error: &ConstitutiveError) -> Self {
+        match error {
+            ConstitutiveError::Custom(message, constitutive_model) => format!(
+                "\x1b[1;91m{message}\x1b[0;91m\n\
+                        In constitutive model: {constitutive_model}."
+            ),
+            ConstitutiveError::InvalidJacobian(jacobian, constitutive_model) => format!(
+                "\x1b[1;91mInvalid Jacobian: {jacobian:.6e}.\x1b[0;91m\n\
+                        In constitutive model: {constitutive_model}."
+            ),
+            ConstitutiveError::Upstream(error, constitutive_model) => format!(
+                "{error}\x1b[0;91m\n\
+                    In constitutive model: {constitutive_model}."
+            ),
+        }
+    }
+}
+
 impl Debug for ConstitutiveError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::Custom(message, constitutive_model) => format!(
-                "\x1b[1;91m{message}\x1b[0;91m\n\
-                 In constitutive model: {constitutive_model}."
-            ),
-            Self::InvalidJacobian(jacobian, constitutive_model) => {
-                format!(
-                    "\x1b[1;91mInvalid Jacobian: {jacobian:.6e}.\x1b[0;91m\n\
-                    In constitutive model: {constitutive_model}."
-                )
-            }
-            Self::Upstream(error, constitutive_model) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In constitutive model: {constitutive_model}."
-                )
-            }
-        };
-        write!(f, "\n{}\n\x1b[0;2;31m{}\x1b[0m\n", error, defeat_message())
+        write!(
+            f,
+            "\n{}\n\x1b[0;2;31m{}\x1b[0m\n",
+            String::from(self),
+            defeat_message()
+        )
     }
 }
 
 impl Display for ConstitutiveError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::Custom(message, constitutive_model) => format!(
-                "\x1b[1;91m{message}\x1b[0;91m\n\
-                 In constitutive model: {constitutive_model}."
-            ),
-            Self::InvalidJacobian(jacobian, constitutive_model) => {
-                format!(
-                    "\x1b[1;91mInvalid Jacobian: {jacobian:.6e}.\x1b[0;91m\n\
-                    In constitutive model: {constitutive_model}."
-                )
-            }
-            Self::Upstream(error, constitutive_model) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In constitutive model: {constitutive_model}."
-                )
-            }
-        };
-        write!(f, "{error}\x1b[0m")
+        write!(f, "{}\x1b[0m", String::from(self))
     }
 }
 

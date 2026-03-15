@@ -8,7 +8,10 @@ pub use thermodynamics::{Ensemble, Isometric, Isotensional, Legendre, Thermodyna
 use crate::math::{Scalar, TestError};
 use std::fmt::{self, Debug, Display, Formatter};
 
-pub trait SingleChain {
+pub trait SingleChain
+where
+    Self: Clone + Debug,
+{
     fn number_of_links(&self) -> u8;
 }
 
@@ -32,6 +35,7 @@ where
 #[derive(Debug)]
 pub enum SingleChainError {
     MaximumExtensibility,
+    Upstream(String, String),
 }
 
 impl From<SingleChainError> for TestError {
@@ -42,13 +46,28 @@ impl From<SingleChainError> for TestError {
     }
 }
 
-impl Display for SingleChainError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
+impl From<SingleChainError> for String {
+    fn from(error: SingleChainError) -> Self {
+        Self::from(&error)
+    }
+}
+
+impl From<&SingleChainError> for String {
+    fn from(error: &SingleChainError) -> Self {
+        match error {
             SingleChainError::MaximumExtensibility => {
                 "\x1b[1;91mMaximum extensibility reached.\x1b[0;91m".to_string()
             }
-        };
-        write!(f, "{error}\x1b[0m")
+            SingleChainError::Upstream(error, single_chain_model) => format!(
+                "{error}\x1b[0;91m\n\
+                    In single-chain model: {single_chain_model}."
+            ),
+        }
+    }
+}
+
+impl Display for SingleChainError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}\x1b[0m", String::from(self))
     }
 }

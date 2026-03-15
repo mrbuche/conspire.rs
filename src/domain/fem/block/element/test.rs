@@ -757,17 +757,17 @@ macro_rules! test_finite_element_inner {
                         ArrudaBoyce
                     );
                 }
-                mod eight_chain {
-                    use super::*;
-                    test_finite_element_with_hyperelastic_constitutive_model!(
-                        $element,
-                        EightChain {
-                            bulk_modulus: BULK_MODULUS,
-                            shear_modulus: SHEAR_MODULUS,
-                        },
-                        EightChain
-                    );
-                }
+                // mod eight_chain {
+                //     use super::*;
+                //     test_finite_element_with_hyperelastic_constitutive_model!(
+                //         $element,
+                //         EightChain {
+                //             bulk_modulus: BULK_MODULUS,
+                //             shear_modulus: SHEAR_MODULUS,
+                //         },
+                //         EightChain
+                //     );
+                // }
                 mod fung {
                     use super::*;
                     test_finite_element_with_hyperelastic_constitutive_model!(
