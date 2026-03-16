@@ -1,7 +1,13 @@
+#[cfg(test)]
+mod test;
+
 use crate::{
-    math::Scalar,
-    physics::molecular::single_chain::{Ensemble, Inextensible, SingleChain},
+    random_uniform,
+    math::{Scalar, Tensor, TensorArray},
+    mechanics::{CurrentCoordinate, CurrentCoordinates},
+    physics::molecular::single_chain::{Ensemble, Inextensible, MonteCarlo, SingleChain},
 };
+use std::f64::consts::TAU;
 
 /// The freely-rotating chain model.
 #[derive(Clone, Debug)]
@@ -30,8 +36,48 @@ impl Inextensible for FreelyRotatingChain {
     /// \lim_{\eta\to\infty}\gamma(\eta) = \frac{\sin\left(\frac{N_b \theta_b}{2}\right)}{N_b \sin\left(\frac{\theta_b}{2}\right)}
     /// ```
     fn maximum_nondimensional_extension(&self) -> Scalar {
-        ((self.number_of_links as Scalar * self.link_angle / 2.0).sin()
-            / (self.link_angle / 2.0).sin())
-            / (self.number_of_links as Scalar)
+        1.0
+        // ((self.number_of_links as Scalar * self.link_angle / 2.0).sin()
+        //     / (self.link_angle / 2.0).sin())
+        //     / (self.number_of_links as Scalar)
+    }
+}
+
+impl MonteCarlo for FreelyRotatingChain {
+    fn random_configuration<const N: usize>(&self) -> CurrentCoordinates<N> {
+        let cos_theta = 2.0 * random_uniform() - 1.0;
+        let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
+        let phi = TAU * random_uniform();
+        let (sin_phi, cos_phi) = phi.sin_cos();
+        const AY: CurrentCoordinate = CurrentCoordinate::const_from([0.0, 1.0, 0.0]);
+        const AZ: CurrentCoordinate = CurrentCoordinate::const_from([0.0, 0.0, 1.0]);
+        let mut a = AY;
+        let mut b = CurrentCoordinate::const_from([
+            sin_theta * cos_phi,
+            sin_theta * sin_phi,
+            cos_theta,
+        ]);
+        let mut position = CurrentCoordinate::zero();
+        let (sin_theta, cos_theta) = self.link_angle.sin_cos();
+        (0..N)
+            .map(|link| {
+                if link > 0 {
+                    a = if b[1].abs() < 0.9 {
+                        AY
+                    } else {
+                        AZ
+                    };
+                    let u = a.cross(&b).normalized();
+                    // let v = b.cross(&u).normalized();
+                    let v = b.cross(&u);
+                    let phi = TAU * random_uniform();
+                    let (sin_phi, cos_phi) = phi.sin_cos();
+                    b = &b * cos_theta + (&u * cos_phi + &v * sin_phi) * sin_theta;
+                    // b.normalize();
+                }
+                position += &b;
+                position.clone()
+            })
+            .collect()
     }
 }
