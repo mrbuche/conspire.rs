@@ -2,7 +2,6 @@
 mod test;
 
 use crate::{
-    random_uniform,
     math::{
         Scalar, TensorArray,
         special::{inverse_langevin, langevin, langevin_derivative},
@@ -12,6 +11,7 @@ use crate::{
         Ensemble, Inextensible, Isometric, Isotensional, Legendre, MonteCarlo, SingleChain,
         SingleChainError, Thermodynamics,
     },
+    random_uniform,
 };
 use std::f64::consts::{PI, TAU};
 
@@ -196,7 +196,7 @@ impl MonteCarlo for FreelyJointedChain {
         (0..N)
             .map(|_| {
                 let cos_theta = 2.0 * random_uniform() - 1.0;
-                let sin_theta = (1.0 - cos_theta * cos_theta).max(0.0).sqrt();
+                let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
                 let phi = TAU * random_uniform();
                 let (sin_phi, cos_phi) = phi.sin_cos();
                 position[0] += sin_theta * cos_phi;

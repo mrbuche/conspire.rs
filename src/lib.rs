@@ -25,7 +25,7 @@ pub mod vem;
 mod test;
 
 use std::{
-    sync::atomic::{AtomicU64, Ordering},
+    cell::Cell,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -76,49 +76,62 @@ fn victory_message<'a>() -> &'a str {
     }
 }
 
-fn get_random() -> u8 {
-    static STATE: AtomicU64 = AtomicU64::new(0);
-    let mut s = STATE.load(Ordering::Relaxed);
+thread_local! {
+    static STATE: Cell<u64> = const { Cell::new(0) };
+}
+
+fn seed() -> u64 {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
+    let t = now.as_nanos() as u64;
+    let x = 0u8;
+    let addr = (&x as *const u8 as usize) as u64;
+    let mut s = t ^ addr.wrapping_mul(0x9E3779B97F4A7C15);
     if s == 0 {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default();
-        s = 1 + now.as_nanos() as u64;
+        s = 1;
     }
-    s ^= s << 13;
-    s ^= s >> 7;
-    s ^= s << 17;
-    STATE.store(s, Ordering::Relaxed);
-    (s >> 56) as u8
+    s
+}
+
+fn next_u64() -> u64 {
+    STATE.with(|st| {
+        let mut s = st.get();
+        if s == 0 {
+            s = seed();
+        }
+        s ^= s >> 12;
+        s ^= s << 25;
+        s ^= s >> 27;
+        st.set(s);
+        s.wrapping_mul(0x2545F4914F6CDD1D)
+    })
+}
+
+fn get_random() -> u8 {
+    (next_u64() >> 56) as u8
 }
 
 fn random_u8(max: u8) -> u8 {
     if max == u8::MAX {
         return get_random();
     }
-    // let range = (max as u16) + 1;
-    // let threshold = ((256_u16 / range) * range) as u8;
-    let mut attempts = 0;
+    let bound = (max as u16) + 1;
+    let threshold = (256u16 / bound) * bound;
     loop {
-        let val = get_random();
-        // if val < threshold {
-        //     return val % (max + 1);
-        // }
-        attempts += 1;
-        if attempts > 10 {
-            return val % (max + 1);
+        let v = get_random() as u16;
+        if v < threshold {
+            return (v % bound) as u8;
         }
     }
 }
 
-fn random_u64() -> u64 {
-    let mut value: u64 = 0;
-    for _ in 0..8 {
-        value = (value << 8) | (crate::get_random() as u64);
-    }
-    value
-}
+// fn random_u64() -> u64 {
+//     next_u64()
+// }
 
+#[cfg(feature = "physics")]
 fn random_uniform() -> f64 {
-    (random_u64() as f64) / (u64::MAX as f64)
+    let x = next_u64() >> 11;
+    (x as f64) * (1.0 / ((1u64 << 53) as f64))
 }

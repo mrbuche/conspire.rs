@@ -6,7 +6,7 @@ use crate::{
     mechanics::CurrentCoordinates,
     physics::molecular::single_chain::{Inextensible, SingleChain, SingleChainError},
 };
-use std::{thread, f64::consts::PI};
+use std::{f64::consts::PI, thread};
 
 #[derive(Clone, Copy, Debug)]
 pub enum Ensemble {
@@ -470,22 +470,16 @@ where
                 .collect();
             (bin_centers, bin_values)
         })
-
     }
-    fn foo<const N: usize>(
-        &self,
-        num_bins: usize,
-        num_samples: usize,
-    ) -> Vec<usize> {
+    fn foo<const N: usize>(&self, num_bins: usize, num_samples: usize) -> Vec<usize> {
         let mut bin_counts = vec![0; num_bins];
         let num_links = N as Scalar;
         let max_extension = self.maximum_nondimensional_extension();
         for _ in 0..num_samples {
             let configuration = self.random_configuration::<N>();
             let nondimensional_extension = configuration[N - 1].norm() / num_links;
-            let bin_index = ((nondimensional_extension / max_extension * num_bins as Scalar)
-                as usize)
-                .min(num_bins - 1);
+            let bin_index =
+                (nondimensional_extension / max_extension * num_bins as Scalar) as usize;
             bin_counts[bin_index] += 1;
         }
         bin_counts
