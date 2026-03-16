@@ -76,6 +76,22 @@ fn victory_message<'a>() -> &'a str {
     }
 }
 
+fn get_random() -> u8 {
+    static STATE: AtomicU64 = AtomicU64::new(0);
+    let mut s = STATE.load(Ordering::Relaxed);
+    if s == 0 {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default();
+        s = 1 + now.as_nanos() as u64;
+    }
+    s ^= s << 13;
+    s ^= s >> 7;
+    s ^= s << 17;
+    STATE.store(s, Ordering::Relaxed);
+    (s >> 56) as u8
+}
+
 fn random_u8(max: u8) -> u8 {
     if max == u8::MAX {
         return get_random();
@@ -95,18 +111,14 @@ fn random_u8(max: u8) -> u8 {
     }
 }
 
-fn get_random() -> u8 {
-    static STATE: AtomicU64 = AtomicU64::new(0);
-    let mut s = STATE.load(Ordering::Relaxed);
-    if s == 0 {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default();
-        s = 1 + now.as_nanos() as u64;
+fn random_u64() -> u64 {
+    let mut value: u64 = 0;
+    for _ in 0..8 {
+        value = (value << 8) | (crate::get_random() as u64);
     }
-    s ^= s << 13;
-    s ^= s >> 7;
-    s ^= s << 17;
-    STATE.store(s, Ordering::Relaxed);
-    (s >> 56) as u8
+    value
+}
+
+fn random_uniform() -> f64 {
+    (random_u64() as f64) / (u64::MAX as f64)
 }

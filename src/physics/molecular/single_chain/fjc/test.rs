@@ -18,7 +18,7 @@ fn foo() {
         ensemble: Ensemble::Isometric,
     };
     let (gamma, g) =
-        MonteCarlo::nondimensional_radial_distribution::<N>(&model, 333, 1_000_000_00, 1);
+        MonteCarlo::nondimensional_radial_distribution::<N>(&model, 333, 1_000_000_00, 4);
     gamma
         .into_iter()
         .zip(g)

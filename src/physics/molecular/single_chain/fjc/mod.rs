@@ -2,6 +2,7 @@
 mod test;
 
 use crate::{
+    random_uniform,
     math::{
         Scalar, TensorArray,
         special::{inverse_langevin, langevin, langevin_derivative},
@@ -189,19 +190,6 @@ impl Legendre for FreelyJointedChain {
     }
 }
 
-fn random_u64() -> u64 {
-    let mut value: u64 = 0;
-    for _ in 0..8 {
-        value = (value << 8) | (crate::get_random() as u64);
-    }
-    value
-}
-
-fn random_uniform() -> f64 {
-    // Uniform in [0,1)
-    (random_u64() as f64) / (u64::MAX as f64)
-}
-
 impl MonteCarlo for FreelyJointedChain {
     fn random_configuration<const N: usize>(&self) -> CurrentCoordinates<N> {
         let mut position = CurrentCoordinate::zero();
@@ -210,8 +198,9 @@ impl MonteCarlo for FreelyJointedChain {
                 let cos_theta = 2.0 * random_uniform() - 1.0;
                 let sin_theta = (1.0 - cos_theta * cos_theta).max(0.0).sqrt();
                 let phi = TAU * random_uniform();
-                position[0] += sin_theta * phi.cos();
-                position[1] += sin_theta * phi.sin();
+                let (sin_phi, cos_phi) = phi.sin_cos();
+                position[0] += sin_theta * cos_phi;
+                position[1] += sin_theta * sin_phi;
                 position[2] += cos_theta;
                 position.clone()
             })
