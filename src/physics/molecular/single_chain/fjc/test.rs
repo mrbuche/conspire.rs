@@ -4,10 +4,26 @@ use crate::{
         Scalar,
         test::{TestError, assert_eq_from_fd},
     },
-    physics::molecular::single_chain::{Ensemble, FreelyJointedChain, Thermodynamics},
+    physics::molecular::single_chain::{Ensemble, FreelyJointedChain, MonteCarlo, Thermodynamics},
 };
 
 const NUM: usize = 1000;
+
+#[test]
+fn foo() {
+    const N: usize = 5;
+    let model = FreelyJointedChain {
+        link_length: 1.0,
+        number_of_links: N as u8,
+        ensemble: Ensemble::Isometric,
+    };
+    let (gamma, g) =
+        MonteCarlo::nondimensional_radial_distribution::<N>(&model, 333, 1_000_000_00, 1);
+    gamma
+        .into_iter()
+        .zip(g)
+        .for_each(|(gamma_i, g_i)| println!("[{gamma_i}, {g_i}],"))
+}
 
 #[test]
 fn finite_difference() -> Result<(), TestError> {

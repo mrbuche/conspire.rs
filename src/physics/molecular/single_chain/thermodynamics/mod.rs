@@ -1,9 +1,10 @@
 use crate::{
     math::{
-        Scalar,
+        Scalar, Tensor, Vector,
         optimize::{EqualityConstraint, LineSearch, NewtonRaphson, SecondOrderOptimization},
     },
-    physics::molecular::single_chain::{SingleChain, SingleChainError},
+    mechanics::CurrentCoordinates,
+    physics::molecular::single_chain::{Inextensible, SingleChain, SingleChainError},
 };
 use std::f64::consts::PI;
 
@@ -430,4 +431,40 @@ where
             Legendre::nondimensional_extension(self, nondimensional_force)?;
         Ok(1.0 / Isometric::nondimensional_stiffness(self, nondimensional_extension)?)
     }
+}
+
+pub trait MonteCarlo
+where
+    Self: Inextensible,
+{
+    fn nondimensional_radial_distribution<const N: usize>(
+        &self,
+        num_bins: usize,
+        num_samples: usize,
+        threads: usize,
+    ) -> (Vector, Vector) {
+        //
+        // make this a function that calls an inner function doing the below for each thread and combines results at end.
+        //
+        let mut bin_counts = vec![0; num_bins];
+        let max_extension = self.maximum_nondimensional_extension();
+        for _ in 0..num_samples {
+            let configuration = self.random_configuration::<N>();
+            let nondimensional_extension = configuration[N - 1].norm() / N as Scalar;
+            let bin_index = ((nondimensional_extension / max_extension * num_bins as Scalar)
+                as usize)
+                .min(num_bins - 1);
+            bin_counts[bin_index] += 1;
+        }
+        let bin_width = max_extension / (num_bins as Scalar);
+        let bin_centers = (0..num_bins)
+            .map(|i| (i as Scalar + 0.5) * bin_width)
+            .collect();
+        let bin_values = bin_counts
+            .into_iter()
+            .map(|count| count as Scalar / num_samples as Scalar / bin_width)
+            .collect();
+        (bin_centers, bin_values)
+    }
+    fn random_configuration<const N: usize>(&self) -> CurrentCoordinates<N>;
 }

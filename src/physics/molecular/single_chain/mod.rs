@@ -8,7 +8,7 @@ pub use efjc::ExtensibleFreelyJointedChain;
 pub use fjc::FreelyJointedChain;
 pub use frc::FreelyRotatingChain;
 pub use ideal::IdealChain;
-pub use thermodynamics::{Ensemble, Isometric, Isotensional, Legendre, Thermodynamics};
+pub use thermodynamics::{Ensemble, Isometric, Isotensional, Legendre, MonteCarlo, Thermodynamics};
 
 use crate::math::{Scalar, TestError};
 use std::fmt::{self, Debug, Display, Formatter};
