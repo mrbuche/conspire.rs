@@ -2,7 +2,10 @@
 mod test;
 
 use crate::{
-    math::{Scalar, special::sinhc},
+    math::{
+        Scalar,
+        special::{langevin, langevin_derivative, sinhc},
+    },
     physics::{
         BOLTZMANN_CONSTANT,
         molecular::single_chain::{
@@ -106,7 +109,7 @@ impl Isotensional for ExtensibleFreelyJointedChain {
             let eta = nondimensional_force;
             let kappa = self.nondimensional_link_stiffness(temperature);
             let eta_coth = 1.0 / eta.tanh();
-            let gamma_0 = eta_coth - 1.0 / eta;
+            let gamma_0 = langevin(eta);
             let delta_lambda = eta / kappa;
             Ok(gamma_0
                 + delta_lambda
@@ -126,52 +129,17 @@ impl Isotensional for ExtensibleFreelyJointedChain {
             Ok(1.0 / 3.0 + (5.0 / 3.0 * kappa + 1.0) / kappa / (kappa + 1.0))
         } else {
             let eta = nondimensional_force;
-            // Helpful shorthands
-            let t = eta.tanh();
-            let cth = 1.0 / t;
-            let inv_eta = 1.0 / eta;
-            let inv_eta2 = inv_eta * inv_eta;
-
-            // gamma0 = coth(eta) - 1/eta
-            let gamma0 = cth - inv_eta;
-
-            // delta = eta/kappa
-            let delta = eta / kappa;
-
-            // q = coth(eta)
-            let q = cth;
-
-            // g = 1 - gamma0*coth(eta) = 1 - gamma0*q
-            let g = 1.0 - gamma0 * q;
-
-            // h = 1 + delta*coth(eta) = 1 + delta*q
-            let h = 1.0 + delta * q;
-
-            // Derivatives:
-            // d/deta coth(eta) = -csch^2(eta) = -(1/sinh^2(eta)) = -(1/tanh^2(eta) - 1)
-            let dcth = 1.0 - 1.0 / (t * t); // = -(1/t^2 - 1)
-
-            // gamma0' = coth'(eta) + 1/eta^2
-            let dgamma0 = dcth + inv_eta2;
-
-            // delta' = 1/kappa
-            let ddelta = 1.0 / kappa;
-
-            // g' = -(gamma0'*q + gamma0*q')
-            let dg = -(dgamma0 * q + gamma0 * dcth);
-
-            // h' = delta'*q + delta*q'
-            let dh = ddelta * q + delta * dcth;
-
-            // gamma = gamma0 + delta * (1 + g/h)
-            // compliance c = gamma' = gamma0' + delta'*(1+g/h) + delta*(g/h)'
-            // (g/h)' = (g'*h - g*h')/h^2
-            let one_plus_g_over_h = 1.0 + g / h;
-            let d_g_over_h = (dg * h - g * dh) / (h * h);
-
-            let compliance = dgamma0 + ddelta * one_plus_g_over_h + delta * d_g_over_h;
-
-            Ok(compliance)
+            let eta_tanh = eta.tanh();
+            let eta_coth = 1.0 / eta_tanh;
+            let gamma_0 = langevin(eta);
+            let delta_lambda = eta / kappa;
+            let c_0 = langevin_derivative(eta);
+            let g = 1.0 - gamma_0 * eta_coth;
+            let h = 1.0 + delta_lambda * eta_coth;
+            let dcth = 1.0 - 1.0 / (eta_tanh * eta_tanh);
+            let dg = -(c_0 * eta_coth + gamma_0 * dcth);
+            let dh = eta_coth / kappa + delta_lambda * dcth;
+            Ok(c_0 + (1.0 + g / h) / kappa + delta_lambda * (dg * h - g * dh) / (h * h))
         }
     }
 }
