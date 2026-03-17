@@ -14,7 +14,7 @@ use std::f64::consts::TAU;
 
 /// The square-well freely-jointed chain model.
 #[derive(Clone, Debug)]
-pub struct Foo {
+pub struct SquareWellFreelyJointedChain {
     /// The link length $`\ell_b`$.
     pub link_length: Scalar,
     /// The number of links $`N_b`$.
@@ -25,7 +25,7 @@ pub struct Foo {
     pub ensemble: Ensemble,
 }
 
-impl SingleChain for Foo {
+impl SingleChain for SquareWellFreelyJointedChain {
     fn link_length(&self) -> Scalar {
         self.link_length
     }
@@ -34,7 +34,7 @@ impl SingleChain for Foo {
     }
 }
 
-impl Inextensible for Foo {
+impl Inextensible for SquareWellFreelyJointedChain {
     /// ```math
     /// \lim_{\eta\to\infty}\gamma(\eta) = 1 + \frac{w_b}{\ell_b} = \varsigma
     /// ```
@@ -43,13 +43,13 @@ impl Inextensible for Foo {
     }
 }
 
-impl Thermodynamics for Foo {
+impl Thermodynamics for SquareWellFreelyJointedChain {
     fn ensemble(&self) -> Ensemble {
         self.ensemble
     }
 }
 
-impl Isometric for Foo {
+impl Isometric for SquareWellFreelyJointedChain {
     fn nondimensional_helmholtz_free_energy(
         &self,
         _nondimensional_extension: Scalar,
@@ -76,7 +76,7 @@ impl Isometric for Foo {
     }
 }
 
-impl Isotensional for Foo {
+impl Isotensional for SquareWellFreelyJointedChain {
     /// ```math
     /// \beta\varphi(\eta) = N_b\ln\left[\frac{\eta^3}{\varsigma\eta\cosh(\varsigma\eta) - \sinh(\varsigma\eta) - \eta\cosh(\eta) + \sinh(\eta)}\right]
     /// ```
@@ -142,7 +142,7 @@ impl Isotensional for Foo {
     }
 }
 
-impl Legendre for Foo {
+impl Legendre for SquareWellFreelyJointedChain {
     fn nondimensional_spherical_distribution(
         &self,
         _nondimensional_extension: Scalar,
@@ -151,7 +151,7 @@ impl Legendre for Foo {
     }
 }
 
-impl MonteCarlo for Foo {
+impl MonteCarlo for SquareWellFreelyJointedChain {
     fn random_configuration<const N: usize>(&self) -> CurrentCoordinates<N> {
         let mut position = CurrentCoordinate::zero();
         let max_strain = self.maximum_nondimensional_extension() - 1.0;

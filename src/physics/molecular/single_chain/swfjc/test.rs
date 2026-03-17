@@ -4,7 +4,9 @@ use crate::{
         Scalar,
         test::{TestError, assert_eq_from_fd},
     },
-    physics::molecular::single_chain::{Ensemble, Foo, MonteCarlo, Thermodynamics},
+    physics::molecular::single_chain::{
+        Ensemble, MonteCarlo, SquareWellFreelyJointedChain, Thermodynamics,
+    },
 };
 
 const NUM: usize = 1000;
@@ -12,7 +14,7 @@ const NUM: usize = 1000;
 #[test]
 fn monte_carlo() {
     const N: usize = 5;
-    let model = Foo {
+    let model = SquareWellFreelyJointedChain {
         link_length: 1.0,
         number_of_links: N as u8,
         well_width: 0.3,
@@ -31,7 +33,7 @@ fn finite_difference() -> Result<(), TestError> {
         .into_iter()
         .try_for_each(|ensemble| {
             (3..16).into_iter().try_for_each(|number_of_links| {
-                let model = Foo {
+                let model = SquareWellFreelyJointedChain {
                     link_length: 1.0,
                     number_of_links,
                     well_width: 0.3,

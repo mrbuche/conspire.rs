@@ -9,7 +9,7 @@ pub use efjc::ExtensibleFreelyJointedChain;
 pub use fjc::FreelyJointedChain;
 pub use frc::FreelyRotatingChain;
 pub use ideal::IdealChain;
-pub use swfjc::Foo;
+pub use swfjc::SquareWellFreelyJointedChain;
 pub use thermodynamics::{Ensemble, Isometric, Isotensional, Legendre, MonteCarlo, Thermodynamics};
 
 use crate::math::{Scalar, TestError};
