@@ -4,7 +4,7 @@ mod test;
 use crate::{
     math::{
         Scalar, TensorArray,
-        special::{inverse_langevin, langevin, langevin_derivative},
+        special::{inverse_langevin, langevin, langevin_derivative, sinhc},
     },
     mechanics::{CurrentCoordinate, CurrentCoordinates},
     physics::molecular::single_chain::{
@@ -137,8 +137,7 @@ impl Isotensional for FreelyJointedChain {
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        Ok(self.number_of_links() as Scalar
-            * (nondimensional_force / nondimensional_force.sinh()).ln())
+        Ok(self.number_of_links() as Scalar * -sinhc(nondimensional_force).ln())
     }
     /// ```math
     /// \gamma(\eta) = \mathcal{L}(\eta)

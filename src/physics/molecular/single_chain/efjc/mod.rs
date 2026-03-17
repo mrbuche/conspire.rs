@@ -1,8 +1,17 @@
+#[cfg(test)]
+mod test;
+
 use crate::{
-    math::Scalar,
+    math::{
+        Scalar,
+        special::{langevin, sinhc},
+    },
     physics::{
         BOLTZMANN_CONSTANT,
-        molecular::single_chain::{Ensemble, SingleChain},
+        molecular::single_chain::{
+            Ensemble, Isometric, Isotensional, Legendre, SingleChain, SingleChainError,
+            Thermodynamics,
+        },
     },
 };
 
@@ -34,4 +43,101 @@ impl SingleChain for ExtensibleFreelyJointedChain {
     }
 }
 
-// Need to make all Thermodynamics/etc. methods functions of the temperature too.
+impl Thermodynamics for ExtensibleFreelyJointedChain {
+    fn ensemble(&self) -> Ensemble {
+        self.ensemble
+    }
+}
+
+impl Isometric for ExtensibleFreelyJointedChain {
+    fn nondimensional_helmholtz_free_energy(
+        &self,
+        _nondimensional_extension: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        unimplemented!()
+    }
+    fn nondimensional_force(
+        &self,
+        _nondimensional_extension: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        unimplemented!()
+    }
+    fn nondimensional_stiffness(
+        &self,
+        _nondimensional_extension: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        unimplemented!()
+    }
+    fn nondimensional_spherical_distribution(
+        &self,
+        _nondimensional_extension: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        unimplemented!()
+    }
+}
+
+impl Isotensional for ExtensibleFreelyJointedChain {
+    /// ```math
+    /// \beta\varphi(\eta) = ???
+    /// ```
+    fn nondimensional_gibbs_free_energy(
+        &self,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        let temperature = crate::physics::ROOM_TEMPERATURE;
+        //
+        // uFJC impl will use this and an enum for potentials
+        // then put exact here for EFJC
+        // and separate helper functions for the common terms between both
+        //
+        let eta = nondimensional_force;
+        let kappa = self.nondimensional_link_stiffness(temperature);
+        Ok(self.number_of_links() as Scalar
+            * -((sinhc(eta) * (1.0 + eta / kappa / eta.tanh())).ln() + 0.5 * eta.powi(2) / kappa))
+    }
+    /// ```math
+    /// \gamma(\eta) = ???
+    /// ```
+    fn nondimensional_extension(
+        &self,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        let temperature = crate::physics::ROOM_TEMPERATURE;
+        if nondimensional_force == 0.0 {
+            Ok(0.0)
+        } else {
+            let eta = nondimensional_force;
+            let kappa = self.nondimensional_link_stiffness(temperature);
+            let eta_coth = 1.0 / eta.tanh();
+            let gamma_0 = eta_coth - 1.0 / eta;
+            let delta_lambda = eta / kappa;
+            Ok(gamma_0
+                + delta_lambda
+                    * (1.0 + (1.0 - gamma_0 * eta_coth) / (1.0 + delta_lambda * eta_coth)))
+        }
+    }
+    /// ```math
+    /// c(\eta) = ???
+    /// ```
+    fn nondimensional_compliance(
+        &self,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        let temperature = crate::physics::ROOM_TEMPERATURE;
+        if nondimensional_force == 0.0 {
+            let kappa = self.nondimensional_link_stiffness(temperature);
+            Ok(1.0 / 3.0 + (5.0 / 3.0 * kappa + 1.0) / kappa / (kappa + 1.0))
+        } else {
+            todo!()
+        }
+    }
+}
+
+impl Legendre for ExtensibleFreelyJointedChain {
+    fn nondimensional_spherical_distribution(
+        &self,
+        _nondimensional_extension: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        unimplemented!()
+    }
+}

@@ -97,7 +97,11 @@ pub fn langevin(x: Scalar) -> Scalar {
 /// \mathcal{L}'(x) = x^{-2} - \sinh^{-2}(x)
 /// ```
 pub fn langevin_derivative(x: Scalar) -> Scalar {
-    1.0 / x.powi(2) - 1.0 / x.sinh().powi(2)
+    if x == 0.0 {
+        1.0 / 3.0
+    } else {
+        1.0 / x.powi(2) - 1.0 / x.sinh().powi(2)
+    }
 }
 
 /// Returns the Rosenbrock function.
@@ -162,3 +166,12 @@ where
 // {
 //     todo!()
 // }
+
+/// Returns the hyperbolic sinc function.
+///
+/// ```math
+/// \mathrm{sinhc}(x) = \frac{\sinh(x)}{x}
+/// ```
+pub fn sinhc(x: Scalar) -> Scalar {
+    if x == 0.0 { 0.0 } else { x.sinh() / x }
+}
