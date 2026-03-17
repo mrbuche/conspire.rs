@@ -450,7 +450,7 @@ where
             let mut handles = Vec::with_capacity(num_threads);
             for t in 0..num_threads {
                 let samples_t = base + usize::from(t < remainder);
-                handles.push(s.spawn(move || self.foo::<N>(num_bins, samples_t)));
+                handles.push(s.spawn(move || self.nondimensional_radial_distribution_inner::<N>(num_bins, samples_t)));
             }
             let mut total_counts = vec![0; num_bins];
             for h in handles {
@@ -471,7 +471,7 @@ where
             (bin_centers, bin_values)
         })
     }
-    fn foo<const N: usize>(&self, num_bins: usize, num_samples: usize) -> Vec<usize> {
+    fn nondimensional_radial_distribution_inner<const N: usize>(&self, num_bins: usize, num_samples: usize) -> Vec<usize> {
         let mut bin_counts = vec![0; num_bins];
         let num_links = N as Scalar;
         let max_extension = self.maximum_nondimensional_extension();
