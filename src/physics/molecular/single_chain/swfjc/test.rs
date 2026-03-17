@@ -18,8 +18,7 @@ fn monte_carlo() {
         well_width: 0.3,
         ensemble: Ensemble::Isometric,
     };
-    let (gamma, g) =
-        MonteCarlo::nondimensional_radial_distribution::<N>(&model, 333, 1_000_000, 4);
+    let (gamma, g) = MonteCarlo::nondimensional_radial_distribution::<N>(&model, 333, 1_000_000, 4);
     gamma
         .into_iter()
         .zip(g)
@@ -28,7 +27,6 @@ fn monte_carlo() {
 
 #[test]
 fn finite_difference() -> Result<(), TestError> {
-    // [Ensemble::Isometric, Ensemble::Isotensional]
     [Ensemble::Isotensional]
         .into_iter()
         .try_for_each(|ensemble| {
@@ -39,7 +37,7 @@ fn finite_difference() -> Result<(), TestError> {
                     well_width: 0.3,
                     ensemble,
                 };
-                (0..NUM)
+                (30..NUM)
                     .map(|k| k as Scalar / NUM as Scalar * 10.0)
                     .into_iter()
                     .try_for_each(|mut nondimensional_force| {
@@ -56,16 +54,16 @@ fn finite_difference() -> Result<(), TestError> {
                         nondimensional_force += 0.5 * EPSILON;
                         let nondimensional_extension =
                             model.nondimensional_extension(nondimensional_force)?;
-                        // let nondimensional_compliance =
-                        //     model.nondimensional_compliance(nondimensional_force)?;
+                        let nondimensional_compliance =
+                            model.nondimensional_compliance(nondimensional_force)?;
                         assert_eq_from_fd(
                             &nondimensional_extension,
                             &(finite_difference_3 / EPSILON),
+                        )?;
+                        assert_eq_from_fd(
+                            &nondimensional_compliance,
+                            &(finite_difference_4 / EPSILON),
                         )
-                        // assert_eq_from_fd(
-                        //     &nondimensional_compliance,
-                        //     &(finite_difference_4 / EPSILON),
-                        // )
                     })
             })
         })

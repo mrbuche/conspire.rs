@@ -5,8 +5,8 @@ use crate::{
     math::{Scalar, TensorArray},
     mechanics::{CurrentCoordinate, CurrentCoordinates},
     physics::molecular::single_chain::{
-        Ensemble, Inextensible, Isometric, Isotensional, MonteCarlo, SingleChain, Legendre, SingleChainError,
-        Thermodynamics,
+        Ensemble, Inextensible, Isometric, Isotensional, Legendre, MonteCarlo, SingleChain,
+        SingleChainError, Thermodynamics,
     },
     random_uniform,
 };
@@ -104,40 +104,45 @@ impl Isotensional for Foo {
         if nondimensional_force == 0.0 {
             Ok(0.0)
         } else {
+            let eta = nondimensional_force;
+            let eta_sinh = eta.sinh();
             let varsigma = self.maximum_nondimensional_extension();
-            let varsigma_eta = varsigma * nondimensional_force;
+            let varsigma_eta = varsigma * eta;
             let varsigma_eta_sinh = varsigma_eta.sinh();
-            let eta_sinh = nondimensional_force.sinh();
-            Ok(
-                nondimensional_force * (varsigma.powi(2) * varsigma_eta_sinh - eta_sinh)
-                    / (varsigma_eta * varsigma_eta.cosh()
-                        - varsigma_eta_sinh
-                        - nondimensional_force * nondimensional_force.cosh()
-                        + eta_sinh)
-                    - 3.0 / nondimensional_force,
-            )
+            Ok(eta * (varsigma.powi(2) * varsigma_eta_sinh - eta_sinh)
+                / (varsigma_eta * varsigma_eta.cosh() - varsigma_eta_sinh - eta * eta.cosh()
+                    + eta_sinh)
+                - 3.0 / eta)
         }
     }
     /// ```math
-    /// c(\eta) = ???
+    /// c(\eta) = \frac{\left(\varsigma^2\sinh(\varsigma\eta)+\varsigma^3\eta\cosh(\varsigma\eta)-\sinh(\eta)-\eta\cosh(\eta)\right)\left(\varsigma\eta\cosh(\varsigma\eta)-\sinh(\varsigma\eta)-\eta\cosh(\eta)+\sinh(\eta)\right)-\left(\varsigma^2\eta\sinh(\varsigma\eta)-\eta\sinh(\eta)\right)^2}{\left(\varsigma\eta\cosh(\varsigma\eta)-\sinh(\varsigma\eta)-\eta\cosh(\eta)+\sinh(\eta)\right)^2}+\frac{3}{\eta^2}
     /// ```
     fn nondimensional_compliance(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        let a = self.maximum_nondimensional_extension();
-        let x = nondimensional_force;
+        if nondimensional_force == 0.0 {
+            Ok(Scalar::NAN)
+        } else {
+            let eta = nondimensional_force;
+            let eta_sinh = eta.sinh();
+            let eta_cosh = eta.cosh();
+            let varsigma = self.maximum_nondimensional_extension();
+            let varsigma_eta = varsigma * nondimensional_force;
+            let varsigma_eta_sinh = varsigma_eta.sinh();
+            let varsigma_eta_cosh = varsigma_eta.cosh();
+            let a = eta * (varsigma * varsigma * varsigma_eta_sinh - eta_sinh);
+            let b =
+                varsigma_eta * varsigma_eta_cosh - varsigma_eta_sinh - eta * eta_cosh + eta_sinh;
+            let a_prime = (varsigma * varsigma * varsigma_eta_sinh - eta_sinh)
+                + eta * (varsigma * varsigma * varsigma * varsigma_eta_cosh - eta_cosh);
+            Ok((a_prime * b - a * a) / (b * b) + 3.0 / (eta * eta))
+        }
     }
 }
 
 impl Legendre for Foo {
-    fn nondimensional_force(
-        &self,
-        nondimensional_extension: Scalar,
-    ) -> Result<Scalar, SingleChainError> {
-        self.nondimensional_extension_check(nondimensional_extension)?;
-        todo!("can probably get pretty close with Langevin guess and then converge")
-    }
     fn nondimensional_spherical_distribution(
         &self,
         _nondimensional_extension: Scalar,
