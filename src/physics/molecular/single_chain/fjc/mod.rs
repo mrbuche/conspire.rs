@@ -131,7 +131,7 @@ impl Isometric for FreelyJointedChain {
 
 impl Isotensional for FreelyJointedChain {
     /// ```math
-    /// \beta\varphi(\eta) = N_b\ln\left(\frac{\eta}{\sinh(\eta)}\right)
+    /// \beta\varphi(\eta) = N_b\ln\left[\frac{\eta}{\sinh(\eta)}\right]
     /// ```
     fn nondimensional_gibbs_free_energy(
         &self,

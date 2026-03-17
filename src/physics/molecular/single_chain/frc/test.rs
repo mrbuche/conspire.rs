@@ -1,17 +1,15 @@
 use crate::physics::molecular::single_chain::{Ensemble, FreelyRotatingChain, MonteCarlo};
 
 #[test]
-fn bar() {
-    const N: usize = 5;
+fn monte_carlo() {
+    const N: usize = 8;
     let model = FreelyRotatingChain {
-        link_angle: 0.6,
+        link_angle: 0.4363323129985824,
         link_length: 1.0,
         number_of_links: N as u8,
         ensemble: Ensemble::Isometric,
     };
-    let (gamma, g) =
-        MonteCarlo::nondimensional_radial_distribution::<N>(&model, 333, 10_000_000, 4);
-        // MonteCarlo::nondimensional_radial_distribution::<N>(&model, 1_000, 10_000_000, 4);
+    let (gamma, g) = MonteCarlo::nondimensional_radial_distribution::<N>(&model, 333, 1_000_000, 4);
     gamma
         .into_iter()
         .zip(g)

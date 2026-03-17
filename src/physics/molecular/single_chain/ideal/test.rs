@@ -20,7 +20,7 @@ fn finite_difference() -> Result<(), TestError> {
                     number_of_links,
                     ensemble,
                 };
-                (30..NUM)
+                (0..NUM)
                     .map(|k| k as Scalar / NUM as Scalar)
                     .into_iter()
                     .try_for_each(|mut nondimensional_extension| {

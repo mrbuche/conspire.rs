@@ -10,15 +10,14 @@ use crate::{
 const NUM: usize = 1000;
 
 #[test]
-fn foo() {
+fn monte_carlo() {
     const N: usize = 5;
     let model = FreelyJointedChain {
         link_length: 1.0,
         number_of_links: N as u8,
         ensemble: Ensemble::Isometric,
     };
-    let (gamma, g) =
-        MonteCarlo::nondimensional_radial_distribution::<N>(&model, 333, 10_000_000, 4);
+    let (gamma, g) = MonteCarlo::nondimensional_radial_distribution::<N>(&model, 333, 1_000_000, 4);
     gamma
         .into_iter()
         .zip(g)
