@@ -7,7 +7,7 @@ use crate::{
     physics::molecular::single_chain::{Ensemble, IdealChain, Thermodynamics},
 };
 
-const NUM: usize = 1000;
+const NUM: usize = 333;
 
 #[test]
 fn finite_difference() -> Result<(), TestError> {

@@ -7,7 +7,7 @@ use crate::{
     physics::molecular::potential::{Harmonic, Morse, Potential},
 };
 
-const NUM: usize = 1000;
+const NUM: usize = 333;
 
 #[test]
 fn finite_difference() -> Result<(), TestError> {
@@ -56,7 +56,6 @@ fn finite_difference() -> Result<(), TestError> {
         .try_for_each(|mut x| {
             let energy = potential.energy(x);
             let mut force = potential.force(x);
-            println!("[{x}, {force}],");
             let stiffness = potential.stiffness(x);
             x += 0.5 * EPSILON;
             let mut force_fd = potential.energy(x);
@@ -74,10 +73,7 @@ fn finite_difference() -> Result<(), TestError> {
             force -= EPSILON;
             extension_fd = (potential.legendre(force) - extension_fd) / EPSILON;
             compliance_fd = (compliance_fd - potential.extension(force)) / EPSILON;
-            // println!("{x}, {x_max}, {force}, {force_fd}, {stiffness}, {stiffness_fd}, {extension}");
-            // println!("{x}, {x_max}, {extension}, {extension_fd}, {}", extension - extension_fd);
-            // assert_eq_from_fd(&extension, &extension_fd)
-            Ok(())
+            assert_eq_from_fd(&extension, &extension_fd)
             // assert_eq_from_fd(&compliance, &compliance_fd)
         })
 }

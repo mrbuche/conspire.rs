@@ -41,6 +41,9 @@ impl Potential for Morse {
     fn maximum_force(&self) -> Scalar {
         0.5 * self.parameter * self.depth
     }
+    /// ```math
+    /// \text{arg max }u(x) = x_0 + \frac{1}{a}\,\ln(2)
+    /// ```
     fn peak(&self) -> Scalar {
         self.rest_length + 2.0_f64.ln() / self.parameter
     }
