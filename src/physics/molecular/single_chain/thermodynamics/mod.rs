@@ -221,8 +221,10 @@ where
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        Ok(self.nondimensional_gibbs_free_energy_per_link(nondimensional_force)?
-            * (self.number_of_links() as Scalar))
+        Ok(
+            self.nondimensional_gibbs_free_energy_per_link(nondimensional_force)?
+                * (self.number_of_links() as Scalar),
+        )
     }
     /// ```math
     /// \varrho(\eta) = \beta\varphi(\eta) / N_b
