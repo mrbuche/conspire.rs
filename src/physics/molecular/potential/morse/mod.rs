@@ -20,20 +20,29 @@ impl Potential for Morse {
         2.0 * self.parameter.powi(2) * self.depth * exp * (2.0 * exp - 1.0)
     }
     /// ```math
-    /// \Delta x = \frac{1}{a}\,\ln\left(\frac{2}{1 \pm \sqrt{1 - f/f_\mathrm{max}}}\right)
+    /// \Delta x = \frac{1}{a}\,\ln\left(\frac{2}{1 + \sqrt{1 - f/f_\mathrm{max}}}\right)
     /// ```
     fn extension(&self, force: Scalar) -> Scalar {
         let y = force / self.maximum_force();
-        if y < 1.0 {
-            (2.0 / (1.0 + (1.0 - y).sqrt()))
-                .ln() / self.parameter
+        if 0.0 <= y && y <= 1.0 {
+            (2.0 / (1.0 + (1.0 - y).sqrt())).ln() / self.parameter
         } else {
-            (2.0 / (1.0 - (1.0 - y).sqrt()))
-                .ln() / self.parameter
+            Scalar::NAN
         }
     }
+    /// ```math
+    /// c(f) = \frac{1}{a^2u_0}\,\frac{\left(1-f/f_\mathrm{max}\right)^{-1/2}}{1+\sqrt{1-f/f_\mathrm{max}}}
+    /// ```
     fn compliance(&self, force: Scalar) -> Scalar {
-        todo!()
+        let y = force / self.maximum_force();
+        if 0.0 <= y && y < 1.0 {
+            let s = (1.0 - y).sqrt();
+            1.0 / (self.parameter.powi(2) * self.depth) / (s * (1.0 + s))
+        } else if y == 0.0 {
+            Scalar::INFINITY
+        } else {
+            Scalar::NAN
+        }
     }
     /// ```math
     /// f_\mathrm{max} = \frac{au_0}{2}
