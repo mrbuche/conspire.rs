@@ -131,13 +131,13 @@ impl Isometric for FreelyJointedChain {
 
 impl Isotensional for FreelyJointedChain {
     /// ```math
-    /// \beta\varphi(\eta) = N_b\ln\left[\frac{\eta}{\sinh(\eta)}\right]
+    /// \varrho(\eta) = N_b\ln\left[\frac{\eta}{\sinh(\eta)}\right]
     /// ```
-    fn nondimensional_gibbs_free_energy(
+    fn nondimensional_gibbs_free_energy_per_link(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        Ok(self.number_of_links() as Scalar * -sinhc(nondimensional_force).ln())
+        Ok(-sinhc(nondimensional_force).ln())
     }
     /// ```math
     /// \gamma(\eta) = \mathcal{L}(\eta)

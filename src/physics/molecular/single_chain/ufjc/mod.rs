@@ -99,9 +99,9 @@ where
     T: Potential,
 {
     /// ```math
-    /// \beta\varphi(\eta) = ???
+    /// \varrho(\eta) = \ln\left[\frac{\eta}{\sinh(\eta)}\right] - \ln\left[1 + \frac{\eta}{c\kappa}\,\coth(\eta)\right] - \beta v(\eta)
     /// ```
-    fn nondimensional_gibbs_free_energy(
+    fn nondimensional_gibbs_free_energy_per_link(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
@@ -113,11 +113,13 @@ where
         //
         let eta = nondimensional_force;
         let kappa = self.nondimensional_link_stiffness(temperature);
-        Ok(self.number_of_links() as Scalar
-            * -((sinhc(eta) * (1.0 + eta / kappa / eta.tanh())).ln() + 0.5 * eta.powi(2) / kappa))
+        let c = todo!("need third derivative");
+        let beta_v = todo!("potentials dont use temperature so hard to use eta");
+        todo!()
+        // Ok(-((sinhc(eta) * (1.0 + eta / c / kappa / eta.tanh())).ln() + beta_v))
     }
     /// ```math
-    /// \gamma(\eta) = ???
+    /// \gamma(\eta) = \mathcal{L}(\eta) + \frac{\eta}{\kappa}\left[\frac{1 - \mathcal{L}(\eta)\coth(\eta)}{c + (\eta/\kappa)\coth(\eta)}\right] + \Delta\lambda(\eta)
     /// ```
     fn nondimensional_extension(
         &self,

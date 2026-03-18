@@ -78,9 +78,9 @@ impl Isometric for ExtensibleFreelyJointedChain {
 
 impl Isotensional for ExtensibleFreelyJointedChain {
     /// ```math
-    /// \beta\varphi(\eta) = ???
+    /// \varrho(\eta) = ???
     /// ```
-    fn nondimensional_gibbs_free_energy(
+    fn nondimensional_gibbs_free_energy_per_link(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
@@ -92,8 +92,7 @@ impl Isotensional for ExtensibleFreelyJointedChain {
         //
         let eta = nondimensional_force;
         let kappa = self.nondimensional_link_stiffness(temperature);
-        Ok(self.number_of_links() as Scalar
-            * -((sinhc(eta) * (1.0 + eta / kappa / eta.tanh())).ln() + 0.5 * eta.powi(2) / kappa))
+        Ok(-((sinhc(eta) * (1.0 + eta / kappa / eta.tanh())).ln() + 0.5 * eta.powi(2) / kappa))
     }
     /// ```math
     /// \gamma(\eta) = ???
