@@ -4,8 +4,11 @@ use crate::{
         Scalar,
         test::{TestError, assert_eq_from_fd},
     },
-    physics::molecular::single_chain::{
-        Ensemble, MonteCarlo, SquareWellFreelyJointedChain, Thermodynamics,
+    physics::{
+        ROOM_TEMPERATURE,
+        molecular::single_chain::{
+            Ensemble, MonteCarlo, SquareWellFreelyJointedChain, Thermodynamics,
+        },
     },
 };
 
@@ -18,7 +21,7 @@ fn monte_carlo() {
         link_length: 1.0,
         number_of_links: N as u8,
         well_width: 0.3,
-        ensemble: Ensemble::Isometric,
+        ensemble: Ensemble::Isometric(ROOM_TEMPERATURE),
     };
     let (gamma, g) = MonteCarlo::nondimensional_radial_distribution::<N>(&model, 333, 1_000_000, 4);
     gamma
@@ -29,7 +32,7 @@ fn monte_carlo() {
 
 #[test]
 fn finite_difference() -> Result<(), TestError> {
-    [Ensemble::Isotensional]
+    [Ensemble::Isotensional(ROOM_TEMPERATURE)]
         .into_iter()
         .try_for_each(|ensemble| {
             (3..16).into_iter().try_for_each(|number_of_links| {

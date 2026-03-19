@@ -1,6 +1,6 @@
 use super::super::test::*;
 use super::*;
-use crate::physics::molecular::single_chain::Ensemble;
+use crate::physics::{ROOM_TEMPERATURE, molecular::single_chain::Ensemble};
 
 mod freely_jointed_chain {
     use super::*;
@@ -23,7 +23,7 @@ mod freely_jointed_chain {
         const FJC: FreelyJointedChain = FreelyJointedChain {
             link_length: 1.0,
             number_of_links: NUMBER_OF_LINKS as u8,
-            ensemble: Ensemble::Isotensional,
+            ensemble: Ensemble::Isotensional(ROOM_TEMPERATURE),
         };
         test_solid_hyperelastic_constitutive_model!(EightChain {
             bulk_modulus: BULK_MODULUS,

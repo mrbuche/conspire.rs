@@ -14,7 +14,7 @@ const NUM: usize = 333;
 
 #[test]
 fn finite_difference() -> Result<(), TestError> {
-    [Ensemble::Isotensional]
+    [Ensemble::Isotensional(ROOM_TEMPERATURE)]
         .into_iter()
         .try_for_each(|ensemble| {
             (3..16).into_iter().try_for_each(|number_of_links| {

@@ -36,10 +36,19 @@ impl<T> Foo<T>
 where
     T: Potential,
 {
-    pub fn nondimensional_link_stiffness(&self, temperature: Scalar) -> Scalar {
-        self.link_potential.stiffness(0.0) * self.link_length().powi(2)
-            / BOLTZMANN_CONSTANT
-            / temperature
+    fn correction(&self) -> Scalar {
+        1.0 / (1.0
+            - 0.5
+                * self
+                    .link_potential
+                    .nondimensional_anharmonicity(1.0, self.temperature())
+                / self
+                    .link_potential
+                    .nondimensional_stiffness(1.0, self.temperature()))
+    }
+    fn nondimensional_link_stiffness(&self) -> Scalar {
+        self.link_potential
+            .nondimensional_stiffness(0.0, self.temperature())
     }
 }
 
@@ -105,18 +114,14 @@ where
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        let temperature = crate::physics::ROOM_TEMPERATURE;
-        //
-        // uFJC impl will use this and an enum for potentials
-        // then put exact here for EFJC
-        // and separate helper functions for the common terms between both
-        //
         let eta = nondimensional_force;
-        let kappa = self.nondimensional_link_stiffness(temperature);
-        let c = todo!("need third derivative");
-        let beta_v = todo!("potentials dont use temperature so hard to use eta");
-        todo!()
-        // Ok(-((sinhc(eta) * (1.0 + eta / c / kappa / eta.tanh())).ln() + beta_v))
+        let kappa = self.nondimensional_link_stiffness();
+        let beta_v = self
+            .link_potential
+            .nondimensional_legendre(eta, self.temperature());
+        let c = self.correction();
+        // Ok(-((sinhc(eta) * (1.0 + eta / c / kappa / eta.tanh())).ln() - beta_v))
+        Ok(-((sinhc(eta) * (1.0 + eta / kappa / eta.tanh())).ln() + 0.5 * eta.powi(2) / kappa))
     }
     /// ```math
     /// \gamma(\eta) = \mathcal{L}(\eta) + \frac{\eta}{\kappa}\left[\frac{1 - \mathcal{L}(\eta)\coth(\eta)}{c + (\eta/\kappa)\coth(\eta)}\right] + \Delta\lambda(\eta)
@@ -125,20 +130,21 @@ where
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        let temperature = crate::physics::ROOM_TEMPERATURE;
         if nondimensional_force == 0.0 {
             Ok(0.0)
         } else {
             let eta = nondimensional_force;
-            let kappa = self.nondimensional_link_stiffness(temperature);
             let eta_coth = 1.0 / eta.tanh();
             let gamma_0 = langevin(eta);
-            let c = todo!("need third derivative");
-            let delta_lambda = todo!("potentials dont use temperature so hard to use eta");
-            todo!()
-            // Ok(gamma_0
-            //     + delta_lambda
-            //         * (1.0 + (1.0 - gamma_0 * eta_coth) / (c + (eta / kappa) * eta_coth)))
+            let kappa = self.nondimensional_link_stiffness();
+            let delta_lambda = self
+                .link_potential
+                .nondimensional_extension(eta, self.temperature());
+            let c = self.correction();
+println!("{}", delta_lambda);
+            Ok(gamma_0
+                + delta_lambda
+                    * (1.0 + (1.0 - gamma_0 * eta_coth) / (c + (eta / kappa) * eta_coth)))
         }
     }
     /// ```math
@@ -148,8 +154,7 @@ where
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        let temperature = crate::physics::ROOM_TEMPERATURE;
-        let kappa = self.nondimensional_link_stiffness(temperature);
+        let kappa = self.nondimensional_link_stiffness();
         if nondimensional_force == 0.0 {
             Ok(1.0 / 3.0 + (5.0 / 3.0 * kappa + 1.0) / kappa / (kappa + 1.0))
         } else {

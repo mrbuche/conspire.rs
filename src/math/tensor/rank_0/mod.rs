@@ -16,7 +16,10 @@ pub type TensorRank0 = f64;
 #[cfg(test)]
 impl ErrorTensor for TensorRank0 {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
-        if (self / comparator - 1.0).abs() >= epsilon && (self - comparator).abs() >= epsilon {
+        if ((self / comparator - 1.0).abs() >= epsilon && (self - comparator).abs() >= epsilon)
+            || self.is_nan()
+            || comparator.is_nan()
+        {
             Some((true, 1))
         } else {
             None
@@ -70,7 +73,10 @@ impl Tensor for TensorRank0 {
         tol_abs: TensorRank0,
         tol_rel: TensorRank0,
     ) -> Option<usize> {
-        if self.sub_abs(other) < tol_abs || self.sub_rel(other) < tol_rel {
+        if (self.sub_abs(other) < tol_abs || self.sub_rel(other) < tol_rel)
+            && !self.is_nan()
+            && !other.is_nan()
+        {
             None
         } else {
             Some(1)

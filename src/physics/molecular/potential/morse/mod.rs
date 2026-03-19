@@ -34,6 +34,13 @@ impl Potential for Morse {
         2.0 * self.parameter.powi(2) * self.depth * exp * (2.0 * exp - 1.0)
     }
     /// ```math
+    /// h(x) = 2a^3u_0e^{-a(x - x_0)}\left[1 - 4e^{-a(x - x_0)}\right]
+    /// ```
+    fn anharmonicity(&self, length: Scalar) -> Scalar {
+        let exp = (self.parameter * (self.rest_length - length)).exp();
+        2.0 * self.parameter.powi(3) * self.depth * exp * (1.0 - 4.0 * exp)
+    }
+    /// ```math
     /// \Delta x(f) = \frac{1}{a}\,\ln\left(\frac{2}{1 + \sqrt{1 - f/f_\mathrm{max}}}\right)
     /// ```
     fn extension(&self, force: Scalar) -> Scalar {

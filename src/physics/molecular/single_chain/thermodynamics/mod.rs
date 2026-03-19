@@ -10,8 +10,8 @@ use std::{f64::consts::PI, thread};
 
 #[derive(Clone, Copy, Debug)]
 pub enum Ensemble {
-    Isometric,
-    Isotensional,
+    Isometric(Scalar),
+    Isotensional(Scalar),
 }
 
 pub trait Thermodynamics
@@ -19,15 +19,21 @@ where
     Self: Isometric + Isotensional + Legendre + SingleChain,
 {
     fn ensemble(&self) -> Ensemble;
+    fn temperature(&self) -> Scalar {
+        match self.ensemble() {
+            Ensemble::Isometric(temperature) => temperature,
+            Ensemble::Isotensional(temperature) => temperature,
+        }
+    }
     fn nondimensional_helmholtz_free_energy(
         &self,
         nondimensional_extension: Scalar,
     ) -> Result<Scalar, SingleChainError> {
         match self.ensemble() {
-            Ensemble::Isometric => {
+            Ensemble::Isometric(_) => {
                 Isometric::nondimensional_helmholtz_free_energy(self, nondimensional_extension)
             }
-            Ensemble::Isotensional => {
+            Ensemble::Isotensional(_) => {
                 Legendre::nondimensional_helmholtz_free_energy(self, nondimensional_extension)
             }
         }
@@ -37,11 +43,11 @@ where
         nondimensional_extension: Scalar,
     ) -> Result<Scalar, SingleChainError> {
         match self.ensemble() {
-            Ensemble::Isometric => Isometric::nondimensional_helmholtz_free_energy_per_link(
+            Ensemble::Isometric(_) => Isometric::nondimensional_helmholtz_free_energy_per_link(
                 self,
                 nondimensional_extension,
             ),
-            Ensemble::Isotensional => Legendre::nondimensional_helmholtz_free_energy_per_link(
+            Ensemble::Isotensional(_) => Legendre::nondimensional_helmholtz_free_energy_per_link(
                 self,
                 nondimensional_extension,
             ),
@@ -52,8 +58,10 @@ where
         nondimensional_extension: Scalar,
     ) -> Result<Scalar, SingleChainError> {
         match self.ensemble() {
-            Ensemble::Isometric => Isometric::nondimensional_force(self, nondimensional_extension),
-            Ensemble::Isotensional => {
+            Ensemble::Isometric(_) => {
+                Isometric::nondimensional_force(self, nondimensional_extension)
+            }
+            Ensemble::Isotensional(_) => {
                 Legendre::nondimensional_force(self, nondimensional_extension)
             }
         }
@@ -63,10 +71,10 @@ where
         nondimensional_extension: Scalar,
     ) -> Result<Scalar, SingleChainError> {
         match self.ensemble() {
-            Ensemble::Isometric => {
+            Ensemble::Isometric(_) => {
                 Isometric::nondimensional_stiffness(self, nondimensional_extension)
             }
-            Ensemble::Isotensional => {
+            Ensemble::Isotensional(_) => {
                 Legendre::nondimensional_stiffness(self, nondimensional_extension)
             }
         }
@@ -76,10 +84,10 @@ where
         nondimensional_extension: Scalar,
     ) -> Result<Scalar, SingleChainError> {
         match self.ensemble() {
-            Ensemble::Isometric => {
+            Ensemble::Isometric(_) => {
                 Isometric::nondimensional_radial_distribution(self, nondimensional_extension)
             }
-            Ensemble::Isotensional => {
+            Ensemble::Isotensional(_) => {
                 Legendre::nondimensional_radial_distribution(self, nondimensional_extension)
             }
         }
@@ -89,10 +97,10 @@ where
         nondimensional_extension: Scalar,
     ) -> Result<Scalar, SingleChainError> {
         match self.ensemble() {
-            Ensemble::Isometric => {
+            Ensemble::Isometric(_) => {
                 Isometric::nondimensional_spherical_distribution(self, nondimensional_extension)
             }
-            Ensemble::Isotensional => {
+            Ensemble::Isotensional(_) => {
                 Legendre::nondimensional_spherical_distribution(self, nondimensional_extension)
             }
         }
@@ -102,10 +110,10 @@ where
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
         match self.ensemble() {
-            Ensemble::Isometric => {
+            Ensemble::Isometric(_) => {
                 Legendre::nondimensional_gibbs_free_energy(self, nondimensional_force)
             }
-            Ensemble::Isotensional => {
+            Ensemble::Isotensional(_) => {
                 Isotensional::nondimensional_gibbs_free_energy(self, nondimensional_force)
             }
         }
@@ -115,10 +123,10 @@ where
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
         match self.ensemble() {
-            Ensemble::Isometric => {
+            Ensemble::Isometric(_) => {
                 Legendre::nondimensional_gibbs_free_energy_per_link(self, nondimensional_force)
             }
-            Ensemble::Isotensional => {
+            Ensemble::Isotensional(_) => {
                 Isotensional::nondimensional_gibbs_free_energy_per_link(self, nondimensional_force)
             }
         }
@@ -128,8 +136,10 @@ where
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
         match self.ensemble() {
-            Ensemble::Isometric => Legendre::nondimensional_extension(self, nondimensional_force),
-            Ensemble::Isotensional => {
+            Ensemble::Isometric(_) => {
+                Legendre::nondimensional_extension(self, nondimensional_force)
+            }
+            Ensemble::Isotensional(_) => {
                 Isotensional::nondimensional_extension(self, nondimensional_force)
             }
         }
@@ -139,8 +149,10 @@ where
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
         match self.ensemble() {
-            Ensemble::Isometric => Legendre::nondimensional_compliance(self, nondimensional_force),
-            Ensemble::Isotensional => {
+            Ensemble::Isometric(_) => {
+                Legendre::nondimensional_compliance(self, nondimensional_force)
+            }
+            Ensemble::Isotensional(_) => {
                 Isotensional::nondimensional_compliance(self, nondimensional_force)
             }
         }

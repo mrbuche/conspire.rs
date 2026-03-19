@@ -1,4 +1,7 @@
-use crate::physics::molecular::single_chain::{Ensemble, FreelyRotatingChain, MonteCarlo};
+use crate::physics::{
+    ROOM_TEMPERATURE,
+    molecular::single_chain::{Ensemble, FreelyRotatingChain, MonteCarlo},
+};
 
 #[test]
 fn monte_carlo() {
@@ -7,7 +10,7 @@ fn monte_carlo() {
         link_angle: 0.4363323129985824,
         link_length: 1.0,
         number_of_links: N as u8,
-        ensemble: Ensemble::Isometric,
+        ensemble: Ensemble::Isometric(ROOM_TEMPERATURE),
     };
     let (gamma, g) = MonteCarlo::nondimensional_radial_distribution::<N>(&model, 333, 1_000_000, 4);
     gamma

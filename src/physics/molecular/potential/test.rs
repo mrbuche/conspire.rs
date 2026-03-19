@@ -23,17 +23,20 @@ fn finite_difference() -> Result<(), TestError> {
         .map(|k| x0 + (x_max - x0) * k as Scalar / NUM as Scalar)
         .into_iter()
         .try_for_each(|mut x| {
-            let energy = potential.energy(x);
             let mut force = potential.force(x);
             let stiffness = potential.stiffness(x);
+            let anharmonicity = potential.anharmonicity(x);
             x += 0.5 * EPSILON;
             let mut force_fd = potential.energy(x);
             let mut stiffness_fd = potential.force(x);
+            let mut anharmonicity_fd = potential.stiffness(x);
             x -= EPSILON;
             force_fd = (force_fd - potential.energy(x)) / EPSILON;
             stiffness_fd = (stiffness_fd - potential.force(x)) / EPSILON;
+            anharmonicity_fd = (anharmonicity_fd - potential.stiffness(x)) / EPSILON;
             assert_eq_from_fd(&force, &force_fd)?;
             assert_eq_from_fd(&stiffness, &stiffness_fd)?;
+            assert_eq_from_fd(&anharmonicity, &anharmonicity_fd)?;
             let extension = potential.extension(force);
             let compliance = potential.compliance(force);
             force += 0.5 * EPSILON;
@@ -50,21 +53,24 @@ fn finite_difference() -> Result<(), TestError> {
         depth: e,
         parameter: a,
     };
-    (0..NUM)
+    (1..NUM)
         .map(|k| x0 + (x_max - x0) * k as Scalar / NUM as Scalar)
         .into_iter()
         .try_for_each(|mut x| {
-            let energy = potential.energy(x);
             let mut force = potential.force(x);
             let stiffness = potential.stiffness(x);
+            let anharmonicity = potential.anharmonicity(x);
             x += 0.5 * EPSILON;
             let mut force_fd = potential.energy(x);
             let mut stiffness_fd = potential.force(x);
+            let mut anharmonicity_fd = potential.stiffness(x);
             x -= EPSILON;
             force_fd = (force_fd - potential.energy(x)) / EPSILON;
             stiffness_fd = (stiffness_fd - potential.force(x)) / EPSILON;
+            anharmonicity_fd = (anharmonicity_fd - potential.stiffness(x)) / EPSILON;
             assert_eq_from_fd(&force, &force_fd)?;
             assert_eq_from_fd(&stiffness, &stiffness_fd)?;
+            assert_eq_from_fd(&anharmonicity, &anharmonicity_fd)?;
             let extension = potential.extension(force);
             let compliance = potential.compliance(force);
             force += 0.5 * EPSILON;

@@ -29,6 +29,12 @@ impl Potential for Harmonic {
         self.stiffness
     }
     /// ```math
+    /// h(x) = 0.0
+    /// ```
+    fn anharmonicity(&self, _length: Scalar) -> Scalar {
+        0.0
+    }
+    /// ```math
     /// \Delta x(f) = \frac{f}{k}
     /// ```
     fn extension(&self, force: Scalar) -> Scalar {
@@ -37,7 +43,7 @@ impl Potential for Harmonic {
     /// ```math
     /// c(f) = \frac{1}{k}
     /// ```
-    fn compliance(&self, force: Scalar) -> Scalar {
+    fn compliance(&self, _force: Scalar) -> Scalar {
         1.0 / self.stiffness
     }
     /// ```math

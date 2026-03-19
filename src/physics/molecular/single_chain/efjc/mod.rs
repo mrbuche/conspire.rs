@@ -29,8 +29,8 @@ pub struct ExtensibleFreelyJointedChain {
 }
 
 impl ExtensibleFreelyJointedChain {
-    pub fn nondimensional_link_stiffness(&self, temperature: Scalar) -> Scalar {
-        self.link_stiffness * self.link_length.powi(2) / BOLTZMANN_CONSTANT / temperature
+    fn nondimensional_link_stiffness(&self) -> Scalar {
+        self.link_stiffness * self.link_length().powi(2) / BOLTZMANN_CONSTANT / self.temperature()
     }
 }
 
@@ -84,14 +84,13 @@ impl Isotensional for ExtensibleFreelyJointedChain {
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        let temperature = crate::physics::ROOM_TEMPERATURE;
         //
         // uFJC impl will use this and an enum for potentials
         // then put exact here for EFJC
         // and separate helper functions for the common terms between both
         //
         let eta = nondimensional_force;
-        let kappa = self.nondimensional_link_stiffness(temperature);
+        let kappa = self.nondimensional_link_stiffness();
         Ok(-((sinhc(eta) * (1.0 + eta / kappa / eta.tanh())).ln() + 0.5 * eta.powi(2) / kappa))
     }
     /// ```math
@@ -101,12 +100,11 @@ impl Isotensional for ExtensibleFreelyJointedChain {
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        let temperature = crate::physics::ROOM_TEMPERATURE;
         if nondimensional_force == 0.0 {
             Ok(0.0)
         } else {
             let eta = nondimensional_force;
-            let kappa = self.nondimensional_link_stiffness(temperature);
+            let kappa = self.nondimensional_link_stiffness();
             let eta_coth = 1.0 / eta.tanh();
             let gamma_0 = langevin(eta);
             let delta_lambda = eta / kappa;
@@ -122,8 +120,7 @@ impl Isotensional for ExtensibleFreelyJointedChain {
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        let temperature = crate::physics::ROOM_TEMPERATURE;
-        let kappa = self.nondimensional_link_stiffness(temperature);
+        let kappa = self.nondimensional_link_stiffness();
         if nondimensional_force == 0.0 {
             Ok(1.0 / 3.0 + (5.0 / 3.0 * kappa + 1.0) / kappa / (kappa + 1.0))
         } else {
