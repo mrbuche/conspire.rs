@@ -111,13 +111,13 @@ where
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        let eta = nondimensional_force;
-        let kappa = self.nondimensional_link_stiffness();
-        let beta_v = self
-            .link_potential
-            .nondimensional_legendre(eta, self.temperature());
-        let c = self.correction();
-        Ok(-((sinhc(eta) * (1.0 + eta / c / kappa / eta.tanh())).ln() - beta_v))
+        nondimensional_gibbs_free_energy_per_link(
+            nondimensional_force,
+            self.nondimensional_link_stiffness(),
+            self.link_potential
+                .nondimensional_legendre(nondimensional_force, self.temperature()),
+            self.correction(),
+        )
     }
     /// ```math
     /// \gamma(\eta) = \mathcal{L}(\eta) + \frac{\eta}{\kappa}\left[\frac{1 - \mathcal{L}(\eta)\coth(\eta)}{c + (\eta/\kappa)\coth(\eta)}\right] + \Delta\lambda(\eta)
@@ -126,22 +126,13 @@ where
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        if nondimensional_force == 0.0 {
-            Ok(0.0)
-        } else {
-            let eta = nondimensional_force;
-            let eta_coth = 1.0 / eta.tanh();
-            let gamma_0 = langevin(eta);
-            let kappa = self.nondimensional_link_stiffness();
-            let eta_over_kappa = eta / kappa;
-            let delta_lambda = self
-                .link_potential
-                .nondimensional_extension(eta, self.temperature());
-            let c = self.correction();
-            Ok(gamma_0
-                + eta_over_kappa * (1.0 - gamma_0 * eta_coth) / (c + eta_over_kappa * eta_coth)
-                + delta_lambda)
-        }
+        nondimensional_extension(
+            nondimensional_force,
+            self.nondimensional_link_stiffness(),
+            self.link_potential
+                .nondimensional_extension(nondimensional_force, self.temperature()),
+            self.correction(),
+        )
     }
     /// ```math
     /// c(\eta) = \mathcal{L}(\eta) + \frac{\partial}{\partial\eta}\left\{\frac{\eta}{\kappa}\left[\frac{1 - \mathcal{L}(\eta)\coth(\eta)}{c + (\eta/\kappa)\coth(\eta)}\right]\right\} + \zeta(\eta)
@@ -150,30 +141,13 @@ where
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        let kappa = self.nondimensional_link_stiffness();
-        let c = self.correction();
-        if nondimensional_force == 0.0 {
-            let p = self
-                .link_potential
-                .nondimensional_compliance(0.0, self.temperature());
-            Ok(1.0 / 3.0 + 2.0 / 3.0 / c / kappa + p)
-        } else {
-            let eta = nondimensional_force;
-            let eta_tanh = eta.tanh();
-            let eta_coth = 1.0 / eta_tanh;
-            let gamma_0 = langevin(eta);
-            let eta_over_kappa = eta / kappa;
-            let c_0 = langevin_derivative(eta);
-            let g = 1.0 - gamma_0 * eta_coth;
-            let h = c + eta_over_kappa * eta_coth;
-            let dcth = 1.0 - 1.0 / (eta_tanh * eta_tanh);
-            let dg = -(c_0 * eta_coth + gamma_0 * dcth);
-            let dh = eta_coth / kappa + eta_over_kappa * dcth;
-            let p = self
-                .link_potential
-                .nondimensional_compliance(eta, self.temperature());
-            Ok(c_0 + (g / h) / kappa + eta_over_kappa * (dg * h - g * dh) / (h * h) + p)
-        }
+        nondimensional_compliance(
+            nondimensional_force,
+            self.nondimensional_link_stiffness(),
+            self.link_potential
+                .nondimensional_compliance(nondimensional_force, self.temperature()),
+            self.correction(),
+        )
     }
 }
 
@@ -186,5 +160,55 @@ where
         _nondimensional_extension: Scalar,
     ) -> Result<Scalar, SingleChainError> {
         unimplemented!()
+    }
+}
+
+pub fn nondimensional_gibbs_free_energy_per_link(
+    eta: Scalar,
+    kappa: Scalar,
+    beta_v: Scalar,
+    c: Scalar,
+) -> Result<Scalar, SingleChainError> {
+    Ok(-((sinhc(eta) * (1.0 + eta / c / kappa / eta.tanh())).ln() - beta_v))
+}
+
+pub fn nondimensional_extension(
+    eta: Scalar,
+    kappa: Scalar,
+    delta_lambda: Scalar,
+    c: Scalar,
+) -> Result<Scalar, SingleChainError> {
+    if eta == 0.0 {
+        Ok(0.0)
+    } else {
+        let eta_coth = 1.0 / eta.tanh();
+        let gamma_0 = langevin(eta);
+        let eta_over_kappa = eta / kappa;
+        Ok(gamma_0
+            + eta_over_kappa * (1.0 - gamma_0 * eta_coth) / (c + eta_over_kappa * eta_coth)
+            + delta_lambda)
+    }
+}
+
+pub fn nondimensional_compliance(
+    eta: Scalar,
+    kappa: Scalar,
+    zeta: Scalar,
+    c: Scalar,
+) -> Result<Scalar, SingleChainError> {
+    if eta == 0.0 {
+        Ok(1.0 / 3.0 + 2.0 / 3.0 / c / kappa + zeta)
+    } else {
+        let eta_tanh = eta.tanh();
+        let eta_coth = 1.0 / eta_tanh;
+        let gamma_0 = langevin(eta);
+        let eta_over_kappa = eta / kappa;
+        let c_0 = langevin_derivative(eta);
+        let g = 1.0 - gamma_0 * eta_coth;
+        let h = c + eta_over_kappa * eta_coth;
+        let dcth = 1.0 - 1.0 / (eta_tanh * eta_tanh);
+        let dg = -(c_0 * eta_coth + gamma_0 * dcth);
+        let dh = eta_coth / kappa + eta_over_kappa * dcth;
+        Ok(c_0 + (g / h) / kappa + eta_over_kappa * (dg * h - g * dh) / (h * h) + zeta)
     }
 }

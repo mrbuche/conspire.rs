@@ -4,13 +4,17 @@ mod test;
 use crate::{
     math::{
         Scalar,
-        special::{langevin, langevin_derivative, sinhc},
+        special::{langevin, langevin_derivative},
     },
     physics::{
         BOLTZMANN_CONSTANT,
         molecular::single_chain::{
             Ensemble, Isometric, Isotensional, Legendre, SingleChain, SingleChainError,
             Thermodynamics,
+            ufjc::{
+                nondimensional_extension as nondimensional_extension_asymptotic,
+                nondimensional_gibbs_free_energy_per_link as nondimensional_gibbs_free_energy_per_link_asymptotic,
+            },
         },
     },
 };
@@ -84,14 +88,12 @@ impl Isotensional for ExtensibleFreelyJointedChain {
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        //
-        // uFJC impl will use this and an enum for potentials
-        // then put exact here for EFJC
-        // and separate helper functions for the common terms between both
-        //
-        let eta = nondimensional_force;
-        let kappa = self.nondimensional_link_stiffness();
-        Ok(-((sinhc(eta) * (1.0 + eta / kappa / eta.tanh())).ln() + 0.5 * eta.powi(2) / kappa))
+        nondimensional_gibbs_free_energy_per_link_asymptotic(
+            nondimensional_force,
+            self.nondimensional_link_stiffness(),
+            -0.5 * nondimensional_force.powi(2) / self.nondimensional_link_stiffness(),
+            1.0,
+        )
     }
     /// ```math
     /// \gamma(\eta) = ???
@@ -100,18 +102,12 @@ impl Isotensional for ExtensibleFreelyJointedChain {
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        if nondimensional_force == 0.0 {
-            Ok(0.0)
-        } else {
-            let eta = nondimensional_force;
-            let kappa = self.nondimensional_link_stiffness();
-            let eta_coth = 1.0 / eta.tanh();
-            let gamma_0 = langevin(eta);
-            let delta_lambda = eta / kappa;
-            Ok(gamma_0
-                + delta_lambda
-                    * (1.0 + (1.0 - gamma_0 * eta_coth) / (1.0 + delta_lambda * eta_coth)))
-        }
+        nondimensional_extension_asymptotic(
+            nondimensional_force,
+            self.nondimensional_link_stiffness(),
+            nondimensional_force / self.nondimensional_link_stiffness(),
+            1.0,
+        )
     }
     /// ```math
     /// c(\eta) = ???
