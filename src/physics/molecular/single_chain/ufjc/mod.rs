@@ -15,9 +15,9 @@ use crate::{
     },
 };
 
-/// The extensible freely-jointed chain model.
+/// The freely-jointed chain model with an arbitrary link potential.
 #[derive(Clone, Debug)]
-pub struct Foo<T>
+pub struct Ufjc<T>
 where
     T: Potential,
 {
@@ -29,7 +29,7 @@ where
     pub ensemble: Ensemble,
 }
 
-impl<T> Foo<T>
+impl<T> Ufjc<T>
 where
     T: Potential,
 {
@@ -49,7 +49,7 @@ where
     }
 }
 
-impl<T> SingleChain for Foo<T>
+impl<T> SingleChain for Ufjc<T>
 where
     T: Potential,
 {
@@ -61,7 +61,7 @@ where
     }
 }
 
-impl<T> Thermodynamics for Foo<T>
+impl<T> Thermodynamics for Ufjc<T>
 where
     T: Potential,
 {
@@ -70,7 +70,7 @@ where
     }
 }
 
-impl<T> Isometric for Foo<T>
+impl<T> Isometric for Ufjc<T>
 where
     T: Potential,
 {
@@ -100,7 +100,7 @@ where
     }
 }
 
-impl<T> Isotensional for Foo<T>
+impl<T> Isotensional for Ufjc<T>
 where
     T: Potential,
 {
@@ -151,7 +151,7 @@ where
     }
 }
 
-impl<T> Legendre for Foo<T>
+impl<T> Legendre for Ufjc<T>
 where
     T: Potential,
 {

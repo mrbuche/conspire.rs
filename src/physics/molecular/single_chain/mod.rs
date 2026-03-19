@@ -12,7 +12,7 @@ pub use frc::FreelyRotatingChain;
 pub use ideal::IdealChain;
 pub use swfjc::SquareWellFreelyJointedChain;
 pub use thermodynamics::{Ensemble, Isometric, Isotensional, Legendre, MonteCarlo, Thermodynamics};
-pub use ufjc::Foo;
+pub use ufjc::Ufjc;
 
 use crate::math::{Scalar, TestError};
 use std::fmt::{self, Debug, Display, Formatter};

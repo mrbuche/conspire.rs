@@ -7,7 +7,7 @@ use crate::{
     physics::{
         molecular::{
             potential::{Harmonic, Morse},
-            single_chain::{Ensemble, Foo, Thermodynamics},
+            single_chain::{Ensemble, Ufjc, Thermodynamics},
         },
         {BOLTZMANN_CONSTANT, ROOM_TEMPERATURE},
     },
@@ -25,7 +25,7 @@ fn finite_difference() -> Result<(), TestError> {
         .into_iter()
         .try_for_each(|ensemble| {
             (3..16).into_iter().try_for_each(|number_of_links| {
-                let model = Foo {
+                let model = Ufjc {
                     link_potential: Harmonic {
                         rest_length: x0,
                         stiffness: e,
@@ -67,7 +67,7 @@ fn finite_difference() -> Result<(), TestError> {
         .into_iter()
         .try_for_each(|ensemble| {
             (3..16).into_iter().try_for_each(|number_of_links| {
-                let model = Foo {
+                let model = Ufjc {
                     link_potential: Morse {
                         rest_length: x0,
                         depth: e,
