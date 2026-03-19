@@ -80,7 +80,7 @@ impl Isometric for FreelyJointedChain {
         }
     }
     /// ```math
-    /// k(\gamma) = \frac{\partial\eta}{\partial\gamma}
+    /// \kappa(\gamma) = \frac{\partial\eta}{\partial\gamma}
     /// ```
     fn nondimensional_stiffness(
         &self,
@@ -149,7 +149,7 @@ impl Isotensional for FreelyJointedChain {
         Ok(langevin(nondimensional_force))
     }
     /// ```math
-    /// c(\eta) = \mathcal{L}'(\eta)
+    /// \zeta(\eta) = \mathcal{L}'(\eta)
     /// ```
     fn nondimensional_compliance(
         &self,

@@ -117,7 +117,7 @@ impl Isotensional for SquareWellFreelyJointedChain {
         }
     }
     /// ```math
-    /// c(\eta) = \frac{\left(\varsigma^2\sinh(\varsigma\eta)+\varsigma^3\eta\cosh(\varsigma\eta)-\sinh(\eta)-\eta\cosh(\eta)\right)\left(\varsigma\eta\cosh(\varsigma\eta)-\sinh(\varsigma\eta)-\eta\cosh(\eta)+\sinh(\eta)\right)-\left(\varsigma^2\eta\sinh(\varsigma\eta)-\eta\sinh(\eta)\right)^2}{\left(\varsigma\eta\cosh(\varsigma\eta)-\sinh(\varsigma\eta)-\eta\cosh(\eta)+\sinh(\eta)\right)^2}+\frac{3}{\eta^2}
+    /// \zeta(\eta) = \frac{\left(\varsigma^2\sinh(\varsigma\eta)+\varsigma^3\eta\cosh(\varsigma\eta)-\sinh(\eta)-\eta\cosh(\eta)\right)\left(\varsigma\eta\cosh(\varsigma\eta)-\sinh(\varsigma\eta)-\eta\cosh(\eta)+\sinh(\eta)\right)-\left(\varsigma^2\eta\sinh(\varsigma\eta)-\eta\sinh(\eta)\right)^2}{\left(\varsigma\eta\cosh(\varsigma\eta)-\sinh(\varsigma\eta)-\eta\cosh(\eta)+\sinh(\eta)\right)^2}+\frac{3}{\eta^2}
     /// ```
     fn nondimensional_compliance(
         &self,

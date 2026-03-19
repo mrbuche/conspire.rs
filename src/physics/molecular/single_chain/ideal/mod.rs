@@ -55,7 +55,7 @@ impl Isometric for IdealChain {
         Ok(3.0 * nondimensional_extension)
     }
     /// ```math
-    /// k(\gamma) = 3
+    /// \kappa(\gamma) = 3
     /// ```
     fn nondimensional_stiffness(
         &self,
@@ -96,7 +96,7 @@ impl Isotensional for IdealChain {
         Ok(nondimensional_force / 3.0)
     }
     /// ```math
-    /// c(\eta) = \frac{1}{3}
+    /// \zeta(\eta) = \frac{1}{3}
     /// ```
     fn nondimensional_compliance(
         &self,
