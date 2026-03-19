@@ -144,15 +144,19 @@ where
         }
     }
     /// ```math
-    /// c(\eta) = \mathcal{L}(\eta) + ??? + \zeta(\eta)
+    /// c(\eta) = \mathcal{L}(\eta) + \frac{\partial}{\partial\eta}\left\{\frac{\eta}{\kappa}\left[\frac{1 - \mathcal{L}(\eta)\coth(\eta)}{c + (\eta/\kappa)\coth(\eta)}\right]\right\} + \zeta(\eta)
     /// ```
     fn nondimensional_compliance(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
         let kappa = self.nondimensional_link_stiffness();
+        let c = self.correction();
         if nondimensional_force == 0.0 {
-            Ok(1.0 / 3.0 + (5.0 / 3.0 * kappa + 1.0) / kappa / (kappa + 1.0))
+            let p = self
+                .link_potential
+                .nondimensional_compliance(0.0, self.temperature());
+            Ok(1.0 / 3.0 + 2.0 / 3.0 / c / kappa + p)
         } else {
             let eta = nondimensional_force;
             let eta_tanh = eta.tanh();
@@ -161,14 +165,13 @@ where
             let eta_over_kappa = eta / kappa;
             let c_0 = langevin_derivative(eta);
             let g = 1.0 - gamma_0 * eta_coth;
-            let h = 1.0 + eta_over_kappa * eta_coth;
+            let h = c + eta_over_kappa * eta_coth;
             let dcth = 1.0 - 1.0 / (eta_tanh * eta_tanh);
             let dg = -(c_0 * eta_coth + gamma_0 * dcth);
             let dh = eta_coth / kappa + eta_over_kappa * dcth;
             let p = self
                 .link_potential
                 .nondimensional_compliance(eta, self.temperature());
-            let c = self.correction();
             Ok(c_0 + (g / h) / kappa + eta_over_kappa * (dg * h - g * dh) / (h * h) + p)
         }
     }
