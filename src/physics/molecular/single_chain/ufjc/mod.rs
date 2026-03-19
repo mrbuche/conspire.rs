@@ -144,7 +144,7 @@ where
         }
     }
     /// ```math
-    /// c(\eta) = ???
+    /// c(\eta) = \mathcal{L}(\eta) + ??? + \zeta(\eta)
     /// ```
     fn nondimensional_compliance(
         &self,

@@ -102,7 +102,7 @@ where
     /// ```
     fn compliance(&self, force: Scalar) -> Scalar;
     /// ```math
-    /// p(x) = \frac{\partial\Delta\lambda}{\partial\eta}
+    /// \zeta(x) = \frac{\partial\Delta\lambda}{\partial\eta}
     /// ```
     fn nondimensional_compliance(
         &self,
