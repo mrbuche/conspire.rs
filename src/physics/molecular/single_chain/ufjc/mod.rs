@@ -18,7 +18,7 @@ use crate::{
 /// The freely-jointed chain model with an arbitrary link potential.[^1]
 /// [^1]: M.R. Buche, M.N. Silberstein, and S.J. Grutzik, [Physical Review E **106**, 024502 (2022)](https://doi.org/10.1103/PhysRevE.106.024502).
 #[derive(Clone, Debug)]
-pub struct Ufjc<T>
+pub struct ArbitraryPotentialFreelyJointedChain<T>
 where
     T: Potential,
 {
@@ -30,7 +30,7 @@ where
     pub ensemble: Ensemble,
 }
 
-impl<T> Ufjc<T>
+impl<T> ArbitraryPotentialFreelyJointedChain<T>
 where
     T: Potential,
 {
@@ -50,7 +50,7 @@ where
     }
 }
 
-impl<T> SingleChain for Ufjc<T>
+impl<T> SingleChain for ArbitraryPotentialFreelyJointedChain<T>
 where
     T: Potential,
 {
@@ -62,7 +62,7 @@ where
     }
 }
 
-impl<T> Thermodynamics for Ufjc<T>
+impl<T> Thermodynamics for ArbitraryPotentialFreelyJointedChain<T>
 where
     T: Potential,
 {
@@ -71,7 +71,7 @@ where
     }
 }
 
-impl<T> Isometric for Ufjc<T>
+impl<T> Isometric for ArbitraryPotentialFreelyJointedChain<T>
 where
     T: Potential,
 {
@@ -101,7 +101,7 @@ where
     }
 }
 
-impl<T> Isotensional for Ufjc<T>
+impl<T> Isotensional for ArbitraryPotentialFreelyJointedChain<T>
 where
     T: Potential,
 {
@@ -152,7 +152,7 @@ where
     }
 }
 
-impl<T> Legendre for Ufjc<T>
+impl<T> Legendre for ArbitraryPotentialFreelyJointedChain<T>
 where
     T: Potential,
 {
