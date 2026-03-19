@@ -12,7 +12,8 @@ use crate::{
 };
 use std::f64::consts::TAU;
 
-/// The square-well freely-jointed chain model.
+/// The square-well freely-jointed chain model.[^1]
+/// [^1]: M.R. Buche, M.N. Silberstein, and S.J. Grutzik, [Physical Review E **106**, 024502 (2022)](https://doi.org/10.1103/PhysRevE.106.024502).
 #[derive(Clone, Debug)]
 pub struct SquareWellFreelyJointedChain {
     /// The link length $`\ell_b`$.

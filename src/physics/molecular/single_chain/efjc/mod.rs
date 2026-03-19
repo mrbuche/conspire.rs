@@ -2,16 +2,14 @@
 mod test;
 
 use crate::{
-    math::{
-        Scalar,
-        special::{langevin, langevin_derivative},
-    },
+    math::Scalar,
     physics::{
         BOLTZMANN_CONSTANT,
         molecular::single_chain::{
             Ensemble, Isometric, Isotensional, Legendre, SingleChain, SingleChainError,
             Thermodynamics,
             ufjc::{
+                nondimensional_compliance as nondimensional_compliance_asymptotic,
                 nondimensional_extension as nondimensional_extension_asymptotic,
                 nondimensional_gibbs_free_energy_per_link as nondimensional_gibbs_free_energy_per_link_asymptotic,
             },
@@ -19,7 +17,9 @@ use crate::{
     },
 };
 
-/// The extensible freely-jointed chain model.
+/// The extensible freely-jointed chain model.[^1]<sup>,</sup>[^2]
+/// [^1]: N. Balabaev and T. Khazanovich, [Russian Journal of Physical Chemistry B  **3**, 242 (2009)](https://doi.org/10.1134/S1990793109020109).
+/// [^2]: M.R. Buche, M.N. Silberstein, and S.J. Grutzik, [Physical Review E **106**, 024502 (2022)](https://doi.org/10.1103/PhysRevE.106.024502).
 #[derive(Clone, Debug)]
 pub struct ExtensibleFreelyJointedChain {
     /// The link length $`\ell_b`$.
@@ -116,23 +116,12 @@ impl Isotensional for ExtensibleFreelyJointedChain {
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        let kappa = self.nondimensional_link_stiffness();
-        if nondimensional_force == 0.0 {
-            Ok(1.0 / 3.0 + (5.0 / 3.0 * kappa + 1.0) / kappa / (kappa + 1.0))
-        } else {
-            let eta = nondimensional_force;
-            let eta_tanh = eta.tanh();
-            let eta_coth = 1.0 / eta_tanh;
-            let gamma_0 = langevin(eta);
-            let delta_lambda = eta / kappa;
-            let c_0 = langevin_derivative(eta);
-            let g = 1.0 - gamma_0 * eta_coth;
-            let h = 1.0 + delta_lambda * eta_coth;
-            let dcth = 1.0 - 1.0 / (eta_tanh * eta_tanh);
-            let dg = -(c_0 * eta_coth + gamma_0 * dcth);
-            let dh = eta_coth / kappa + delta_lambda * dcth;
-            Ok(c_0 + (1.0 + g / h) / kappa + delta_lambda * (dg * h - g * dh) / (h * h))
-        }
+        nondimensional_compliance_asymptotic(
+            nondimensional_force,
+            self.nondimensional_link_stiffness(),
+            1.0 / self.nondimensional_link_stiffness(),
+            1.0,
+        )
     }
 }
 

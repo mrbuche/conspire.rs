@@ -7,7 +7,7 @@ use crate::{
     physics::{
         molecular::{
             potential::{Harmonic, Morse},
-            single_chain::{Ensemble, Ufjc, Thermodynamics},
+            single_chain::{Ensemble, Thermodynamics, Ufjc},
         },
         {BOLTZMANN_CONSTANT, ROOM_TEMPERATURE},
     },
