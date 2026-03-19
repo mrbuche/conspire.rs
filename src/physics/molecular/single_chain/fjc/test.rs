@@ -45,7 +45,7 @@ fn finite_difference() -> Result<(), TestError> {
                 .map(|k| k as Scalar / NUM as Scalar)
                 .into_iter()
                 .try_for_each(|mut nondimensional_extension| {
-println!("{}", nondimensional_extension);
+                    println!("{}", nondimensional_extension);
                     let nondimensional_force =
                         model.nondimensional_force(nondimensional_extension)?;
                     let nondimensional_stiffness =

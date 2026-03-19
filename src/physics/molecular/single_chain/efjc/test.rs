@@ -14,18 +14,19 @@ const NUM: usize = 333;
 
 #[test]
 fn finite_difference() -> Result<(), TestError> {
+    let link_stiffness = 1e3;
     [Ensemble::Isotensional(ROOM_TEMPERATURE)]
         .into_iter()
         .try_for_each(|ensemble| {
             (3..16).into_iter().try_for_each(|number_of_links| {
                 let model = ExtensibleFreelyJointedChain {
                     link_length: 1.0,
-                    link_stiffness: 1000.0,
+                    link_stiffness,
                     number_of_links,
                     ensemble,
                 };
-                (30..NUM)
-                    .map(|k| k as Scalar / NUM as Scalar * 10.0)
+                (1..NUM)
+                    .map(|k| k as Scalar / NUM as Scalar * 0.3 * link_stiffness)
                     .into_iter()
                     .try_for_each(|mut nondimensional_force| {
                         nondimensional_force += 0.5 * EPSILON;

@@ -15,6 +15,7 @@ fn finite_difference() -> Result<(), TestError> {
     let a = 1.1;
     let x0 = 1.5;
     let x_max = x0 + 0.98 * 2.0_f64.ln() / a;
+    let t = 1e-1;
     let potential = Harmonic {
         rest_length: x0,
         stiffness: e,
@@ -73,13 +74,19 @@ fn finite_difference() -> Result<(), TestError> {
             assert_eq_from_fd(&anharmonicity, &anharmonicity_fd)?;
             let extension = potential.extension(force);
             let compliance = potential.compliance(force);
+            let nondimensional_extension = potential.nondimensional_extension(force, t);
             force += 0.5 * EPSILON;
             let mut extension_fd = potential.legendre(force);
             let mut compliance_fd = potential.extension(force);
+            let mut nondimensional_extension_fd = potential.nondimensional_legendre(force, t);
             force -= EPSILON;
             extension_fd = (potential.legendre(force) - extension_fd) / EPSILON;
             compliance_fd = (compliance_fd - potential.extension(force)) / EPSILON;
+            nondimensional_extension_fd = (potential.nondimensional_legendre(force, t)
+                - nondimensional_extension_fd)
+                / EPSILON;
             assert_eq_from_fd(&extension, &extension_fd)?;
-            assert_eq_from_fd(&compliance, &compliance_fd)
+            assert_eq_from_fd(&compliance, &compliance_fd)?;
+            assert_eq_from_fd(&nondimensional_extension, &nondimensional_extension_fd)
         })
 }

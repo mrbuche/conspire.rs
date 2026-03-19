@@ -102,6 +102,17 @@ where
     /// ```
     fn compliance(&self, force: Scalar) -> Scalar;
     /// ```math
+    /// p(x) = \frac{\partial\Delta\lambda}{\partial\eta}
+    /// ```
+    fn nondimensional_compliance(
+        &self,
+        nondimensional_force: Scalar,
+        temperature: Scalar,
+    ) -> Scalar {
+        let force = nondimensional_force / self.rest_length() * BOLTZMANN_CONSTANT * temperature;
+        self.compliance(force) / self.rest_length().powi(2) * BOLTZMANN_CONSTANT * temperature
+    }
+    /// ```math
     /// \text{arg max }u(x) = x_\mathrm{peak}
     /// ```
     fn peak(&self) -> Scalar;

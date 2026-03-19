@@ -6,14 +6,11 @@ use crate::{
         Scalar,
         special::{langevin, langevin_derivative, sinhc},
     },
-    physics::{
-        BOLTZMANN_CONSTANT,
-        molecular::{
-            potential::Potential,
-            single_chain::{
-                Ensemble, Isometric, Isotensional, Legendre, SingleChain, SingleChainError,
-                Thermodynamics,
-            },
+    physics::molecular::{
+        potential::Potential,
+        single_chain::{
+            Ensemble, Isometric, Isotensional, Legendre, SingleChain, SingleChainError,
+            Thermodynamics,
         },
     },
 };
@@ -120,8 +117,7 @@ where
             .link_potential
             .nondimensional_legendre(eta, self.temperature());
         let c = self.correction();
-        // Ok(-((sinhc(eta) * (1.0 + eta / c / kappa / eta.tanh())).ln() - beta_v))
-        Ok(-((sinhc(eta) * (1.0 + eta / kappa / eta.tanh())).ln() + 0.5 * eta.powi(2) / kappa))
+        Ok(-((sinhc(eta) * (1.0 + eta / c / kappa / eta.tanh())).ln() - beta_v))
     }
     /// ```math
     /// \gamma(\eta) = \mathcal{L}(\eta) + \frac{\eta}{\kappa}\left[\frac{1 - \mathcal{L}(\eta)\coth(\eta)}{c + (\eta/\kappa)\coth(\eta)}\right] + \Delta\lambda(\eta)
@@ -137,14 +133,14 @@ where
             let eta_coth = 1.0 / eta.tanh();
             let gamma_0 = langevin(eta);
             let kappa = self.nondimensional_link_stiffness();
+            let eta_over_kappa = eta / kappa;
             let delta_lambda = self
                 .link_potential
                 .nondimensional_extension(eta, self.temperature());
             let c = self.correction();
-println!("{}", delta_lambda);
             Ok(gamma_0
-                + delta_lambda
-                    * (1.0 + (1.0 - gamma_0 * eta_coth) / (c + (eta / kappa) * eta_coth)))
+                + eta_over_kappa * (1.0 - gamma_0 * eta_coth) / (c + eta_over_kappa * eta_coth)
+                + delta_lambda)
         }
     }
     /// ```math
@@ -162,14 +158,18 @@ println!("{}", delta_lambda);
             let eta_tanh = eta.tanh();
             let eta_coth = 1.0 / eta_tanh;
             let gamma_0 = langevin(eta);
-            let delta_lambda = eta / kappa;
+            let eta_over_kappa = eta / kappa;
             let c_0 = langevin_derivative(eta);
             let g = 1.0 - gamma_0 * eta_coth;
-            let h = 1.0 + delta_lambda * eta_coth;
+            let h = 1.0 + eta_over_kappa * eta_coth;
             let dcth = 1.0 - 1.0 / (eta_tanh * eta_tanh);
             let dg = -(c_0 * eta_coth + gamma_0 * dcth);
-            let dh = eta_coth / kappa + delta_lambda * dcth;
-            Ok(c_0 + (1.0 + g / h) / kappa + delta_lambda * (dg * h - g * dh) / (h * h))
+            let dh = eta_coth / kappa + eta_over_kappa * dcth;
+            let p = self
+                .link_potential
+                .nondimensional_compliance(eta, self.temperature());
+            let c = self.correction();
+            Ok(c_0 + (g / h) / kappa + eta_over_kappa * (dg * h - g * dh) / (h * h) + p)
         }
     }
 }
