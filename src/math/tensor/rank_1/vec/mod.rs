@@ -64,9 +64,27 @@ impl From<TensorRank1Vec<3, 0>> for TensorRank1Vec<3, 1> {
     }
 }
 
+impl From<&TensorRank1Vec<3, 0>> for TensorRank1Vec<3, 1> {
+    fn from(tensor_rank_1_vec: &TensorRank1Vec<3, 0>) -> Self {
+        tensor_rank_1_vec
+            .iter()
+            .map(|tensor_rank_1| tensor_rank_1.into())
+            .collect()
+    }
+}
+
 impl From<TensorRank1Vec<3, 1>> for TensorRank1Vec<3, 0> {
     fn from(tensor_rank_1_vec: TensorRank1Vec<3, 1>) -> Self {
         unsafe { transmute(tensor_rank_1_vec) }
+    }
+}
+
+impl From<&TensorRank1Vec<3, 1>> for TensorRank1Vec<3, 0> {
+    fn from(tensor_rank_1_vec: &TensorRank1Vec<3, 1>) -> Self {
+        tensor_rank_1_vec
+            .iter()
+            .map(|tensor_rank_1| tensor_rank_1.into())
+            .collect()
     }
 }
 
