@@ -220,17 +220,18 @@ where
                         from_fn(|node| map_global_to_local[element_node_connectivity[element][node]])
                     })
                     .collect();
-                let elements = block
-                    .into_iter()
-                    .map(|element| finite_elements[element].clone())
-                    .collect();
+                // let elements = block
+                //     .into_iter()
+                //     .map(|element| finite_elements[element].clone())
+                //     .collect();
                 (
-                    Self {
-                        constitutive_model,
-                        connectivity,
-                        coordinates,
-                        elements,
-                    },
+                    (constitutive_model, connectivity, coordinates).into(),
+                    // Self {
+                    //     constitutive_model,
+                    //     connectivity,
+                    //     coordinates,
+                    //     elements,
+                    // },
                     block_boundary_nodes,
                     map_global_to_local,
                     block_nodes,
