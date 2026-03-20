@@ -16,6 +16,7 @@ pub type Separations<const P: usize> = ElementNodalCoordinates<P>;
 
 const M: usize = 2;
 
+#[derive(Clone)]
 pub struct CohesiveElement<const G: usize, const N: usize, const O: usize> {
     integration_weights: ScalarList<G>,
 }
