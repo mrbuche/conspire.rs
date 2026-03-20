@@ -3,8 +3,10 @@ mod fjc;
 mod frc;
 mod ideal;
 mod swfjc;
-mod thermodynamics;
 mod ufjc;
+
+/// Single-chain models of polymer statistical thermodynamics.
+mod thermodynamics;
 
 pub use efjc::ExtensibleFreelyJointedChain;
 pub use fjc::FreelyJointedChain;

@@ -46,6 +46,12 @@ impl<const D: usize> From<TensorRank1<D, 0>> for TensorRank1<D, 1> {
     }
 }
 
+impl<const D: usize> From<TensorRank1<D, 1>> for TensorRank1<D, 0> {
+    fn from(tensor_rank_1: TensorRank1<D, 1>) -> Self {
+        Self(tensor_rank_1.0)
+    }
+}
+
 impl<const D: usize> From<TensorRank1<D, 9>> for TensorRank1<D, 0> {
     fn from(tensor_rank_1: TensorRank1<D, 9>) -> Self {
         Self(tensor_rank_1.0)

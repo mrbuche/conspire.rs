@@ -1,5 +1,6 @@
 //! Physics library.
 
+/// Molecular physics models.
 pub mod molecular;
 
 use crate::math::Scalar;
