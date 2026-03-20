@@ -115,7 +115,7 @@ pub trait FiniteElementBlock<C, F, const G: usize, const N: usize>
 where
     Self: From<(C, Connectivity<N>, NodalReferenceCoordinates)>,
 {
-    fn isolate(self, elements: &[usize]) -> Vec<(Self, Vec<usize>)>;
+    fn isolate(self, elements: &[usize]) -> Vec<(Self, Vec<usize>, Vec<usize>)>;
     fn reset(&mut self);
 }
 
@@ -150,7 +150,7 @@ where
     C: Constitutive,
     F: Default + FiniteElement<G, 3, N, P> + From<ElementNodalReferenceCoordinates<N>>,
 {
-    fn isolate(self, elements: &[usize]) -> Vec<(Self, Vec<usize>)> {
+    fn isolate(self, elements: &[usize]) -> Vec<(Self, Vec<usize>, Vec<usize>)> {
         let node_element_connectivity = self.node_element_connectivity();
         let element_node_connectivity = self.connectivity;
         let constitutive_model = self.constitutive_model;
@@ -232,6 +232,7 @@ where
                         elements,
                     },
                     block_boundary_nodes,
+                    node_map,
                 )
             })
             .collect()
