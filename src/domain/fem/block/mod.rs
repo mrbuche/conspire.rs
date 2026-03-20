@@ -201,8 +201,6 @@ where
                     .collect::<Vec<_>>();
                 block_nodes.sort_unstable();
                 block_nodes.dedup();
-                let mut block_boundary_nodes = block_nodes.clone();
-                block_boundary_nodes.retain(|node| nodes.binary_search(node).is_err());
                 let mut node_num = 0;
                 let mut map_global_to_local = vec![0; block_nodes.iter().max().unwrap() + 1];
                 let constitutive_model = constitutive_model.clone();
@@ -224,6 +222,9 @@ where
                 //     .into_iter()
                 //     .map(|element| finite_elements[element].clone())
                 //     .collect();
+                let mut block_boundary_nodes = block_nodes.clone();
+                block_boundary_nodes.retain(|node| nodes.binary_search(node).is_err());
+                let local_boundary_nodes = block_boundary_nodes.into_iter().map(|node| map_global_to_local[node]).collect();
                 (
                     (constitutive_model, connectivity, coordinates).into(),
                     // Self {
@@ -232,7 +233,7 @@ where
                     //     coordinates,
                     //     elements,
                     // },
-                    block_boundary_nodes,
+                    local_boundary_nodes,
                     map_global_to_local,
                     block_nodes,
                 )
