@@ -115,7 +115,7 @@ pub trait FiniteElementBlock<C, F, const G: usize, const N: usize>
 where
     Self: From<(C, Connectivity<N>, NodalReferenceCoordinates)>,
 {
-    fn isolate(self, elements: &[usize]) -> Vec<(Self, Vec<usize>, Vec<usize>)>;
+    fn isolate(self, elements: &[usize]) -> Vec<(Self, Vec<usize>, Vec<usize>, Vec<usize>)>;
     fn reset(&mut self);
 }
 
@@ -150,7 +150,7 @@ where
     C: Constitutive,
     F: Default + FiniteElement<G, 3, N, P> + From<ElementNodalReferenceCoordinates<N>>,
 {
-    fn isolate(self, elements: &[usize]) -> Vec<(Self, Vec<usize>, Vec<usize>)> {
+    fn isolate(self, elements: &[usize]) -> Vec<(Self, Vec<usize>, Vec<usize>, Vec<usize>)> {
         let node_element_connectivity = self.node_element_connectivity();
         let element_node_connectivity = self.connectivity;
         let constitutive_model = self.constitutive_model;
@@ -204,12 +204,12 @@ where
                 let mut block_boundary_nodes = block_nodes.clone();
                 block_boundary_nodes.retain(|node| nodes.binary_search(node).is_err());
                 let mut node_num = 0;
-                let mut node_map = vec![0; block_nodes.iter().max().unwrap() + 1];
+                let mut map_global_to_local = vec![0; block_nodes.iter().max().unwrap() + 1];
                 let constitutive_model = constitutive_model.clone();
                 let coordinates = block_nodes
-                    .into_iter()
-                    .map(|node| {
-                        node_map[node] = node_num;
+                    .iter()
+                    .map(|&node| {
+                        map_global_to_local[node] = node_num;
                         node_num += 1;
                         nodal_coordinates[node].clone()
                     })
@@ -217,7 +217,7 @@ where
                 let connectivity = block_elements
                     .into_iter()
                     .map(|element| {
-                        from_fn(|node| node_map[element_node_connectivity[element][node]])
+                        from_fn(|node| map_global_to_local[element_node_connectivity[element][node]])
                     })
                     .collect();
                 let elements = block
@@ -232,7 +232,8 @@ where
                         elements,
                     },
                     block_boundary_nodes,
-                    node_map,
+                    map_global_to_local,
+                    block_nodes,
                 )
             })
             .collect()
