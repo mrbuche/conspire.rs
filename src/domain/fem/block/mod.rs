@@ -115,7 +115,7 @@ pub trait FiniteElementBlock<C, F, const G: usize, const N: usize>
 where
     Self: From<(C, Connectivity<N>, NodalReferenceCoordinates)>,
 {
-    fn isolate(self, elements: &[usize]) -> Vec<Self>;
+    fn isolate(self, elements: &[usize]) -> Vec<(Self, Vec<usize>)>;
     fn reset(&mut self);
 }
 
@@ -150,7 +150,7 @@ where
     C: Constitutive,
     F: Default + FiniteElement<G, 3, N, P> + From<ElementNodalReferenceCoordinates<N>>,
 {
-    fn isolate(self, elements: &[usize]) -> Vec<Self> {
+    fn isolate(self, elements: &[usize]) -> Vec<(Self, Vec<usize>)> {
         let node_element_connectivity = self.node_element_connectivity();
         let element_node_connectivity = self.connectivity;
         let constitutive_model = self.constitutive_model;
@@ -190,8 +190,8 @@ where
                 nodes.sort_unstable();
                 nodes.dedup();
                 let mut block_elements = nodes
-                    .into_iter()
-                    .flat_map(|node| node_element_connectivity[node].iter().copied())
+                    .iter()
+                    .flat_map(|&node| node_element_connectivity[node].iter().copied())
                     .collect::<Vec<_>>();
                 block_elements.sort_unstable();
                 block_elements.dedup();
@@ -201,6 +201,8 @@ where
                     .collect::<Vec<_>>();
                 block_nodes.sort_unstable();
                 block_nodes.dedup();
+                let mut block_boundary_nodes = block_nodes.clone();
+                block_boundary_nodes.retain(|node| nodes.binary_search(node).is_err());
                 let mut node_num = 0;
                 let mut node_map = vec![0; block_nodes.iter().max().unwrap() + 1];
                 let constitutive_model = constitutive_model.clone();
@@ -222,12 +224,15 @@ where
                     .into_iter()
                     .map(|element| finite_elements[element].clone())
                     .collect();
-                Self {
-                    constitutive_model,
-                    connectivity,
-                    coordinates,
-                    elements,
-                }
+                (
+                    Self {
+                        constitutive_model,
+                        connectivity,
+                        coordinates,
+                        elements,
+                    },
+                    block_boundary_nodes,
+                )
             })
             .collect()
     }
