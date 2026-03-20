@@ -115,7 +115,7 @@ pub trait FiniteElementBlock<C, F, const G: usize, const N: usize>
 where
     Self: From<(C, Connectivity<N>, NodalReferenceCoordinates)>,
 {
-    fn isolate(self, elements: &[usize]) -> Vec<(Self, Vec<usize>, Vec<usize>, Vec<usize>)>;
+    fn isolate(self, elements: &[usize]) -> Vec<(Self, [Vec<usize>; 3])>;
     fn reset(&mut self);
 }
 
@@ -150,7 +150,7 @@ where
     C: Constitutive,
     F: Default + FiniteElement<G, 3, N, P> + From<ElementNodalReferenceCoordinates<N>>,
 {
-    fn isolate(self, elements: &[usize]) -> Vec<(Self, Vec<usize>, Vec<usize>, Vec<usize>)> {
+    fn isolate(self, elements: &[usize]) -> Vec<(Self, [Vec<usize>; 3])> {
         let node_element_connectivity = self.node_element_connectivity();
         let element_node_connectivity = self.connectivity;
         let constitutive_model = self.constitutive_model;
@@ -195,47 +195,47 @@ where
                     .collect::<Vec<_>>();
                 block_elements.sort_unstable();
                 block_elements.dedup();
-                let mut block_nodes = block_elements
+                let mut global_nodes = block_elements
                     .iter()
                     .flat_map(|&element| element_node_connectivity[element])
                     .collect::<Vec<_>>();
-                block_nodes.sort_unstable();
-                block_nodes.dedup();
+                global_nodes.sort_unstable();
+                global_nodes.dedup();
                 let mut node_num = 0;
-                let mut map_global_to_local = vec![0; block_nodes.iter().max().unwrap() + 1];
+                let mut local_nodes = vec![0; global_nodes.iter().max().unwrap() + 1];
                 let constitutive_model = constitutive_model.clone();
-                let coordinates = block_nodes
+                let coordinates = global_nodes
                     .iter()
                     .map(|&node| {
-                        map_global_to_local[node] = node_num;
+                        local_nodes[node] = node_num;
                         node_num += 1;
                         nodal_coordinates[node].clone()
                     })
                     .collect();
                 let connectivity = block_elements
-                    .into_iter()
-                    .map(|element| {
-                        from_fn(|node| map_global_to_local[element_node_connectivity[element][node]])
+                    .iter()
+                    .map(|&element| {
+                        from_fn(|node| local_nodes[element_node_connectivity[element][node]])
                     })
                     .collect();
-                // let elements = block
-                //     .into_iter()
-                //     .map(|element| finite_elements[element].clone())
-                //     .collect();
-                let mut block_boundary_nodes = block_nodes.clone();
-                block_boundary_nodes.retain(|node| nodes.binary_search(node).is_err());
-                let local_boundary_nodes = block_boundary_nodes.into_iter().map(|node| map_global_to_local[node]).collect();
+                let elements = block_elements
+                    .into_iter()
+                    .map(|element| finite_elements[element].clone())
+                    .collect();
+                let mut global_boundary_nodes = global_nodes.clone();
+                global_boundary_nodes.retain(|node| nodes.binary_search(node).is_err());
+                let boundary_nodes = global_boundary_nodes
+                    .into_iter()
+                    .map(|node| local_nodes[node])
+                    .collect();
                 (
-                    (constitutive_model, connectivity, coordinates).into(),
-                    // Self {
-                    //     constitutive_model,
-                    //     connectivity,
-                    //     coordinates,
-                    //     elements,
-                    // },
-                    local_boundary_nodes,
-                    map_global_to_local,
-                    block_nodes,
+                    Self {
+                        constitutive_model,
+                        connectivity,
+                        coordinates,
+                        elements,
+                    },
+                    [boundary_nodes, local_nodes, global_nodes],
                 )
             })
             .collect()
