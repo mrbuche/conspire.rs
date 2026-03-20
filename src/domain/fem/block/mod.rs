@@ -197,7 +197,7 @@ where
                 block_elements.dedup();
                 let mut block_nodes = block_elements
                     .iter()
-                    .flat_map(|&stencil_element| element_node_connectivity[stencil_element])
+                    .flat_map(|&element| element_node_connectivity[element])
                     .collect::<Vec<_>>();
                 block_nodes.sort_unstable();
                 block_nodes.dedup();
