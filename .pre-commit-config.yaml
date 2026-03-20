@@ -16,6 +16,9 @@ repos:
         args: ['--features', 'mechanics', '--', '-D',  'warnings']
         name: cargo clippy mechanics
     -   id: clippy
+        args: ['--features', 'physics', '--', '-D',  'warnings']
+        name: cargo clippy physics
+    -   id: clippy
         args: ['--features', 'constitutive', '--', '-D',  'warnings']
         name: cargo clippy constitutive
     -   id: clippy
