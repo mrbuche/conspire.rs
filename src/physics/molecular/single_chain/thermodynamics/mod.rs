@@ -3,10 +3,12 @@ use crate::{
         Scalar, Tensor, Vector,
         optimize::{EqualityConstraint, LineSearch, NewtonRaphson, SecondOrderOptimization},
     },
-    mechanics::CurrentCoordinates,
+    mechanics::Coordinates,
     physics::molecular::single_chain::{Inextensible, SingleChain, SingleChainError},
 };
 use std::{f64::consts::PI, thread};
+
+pub type Configuration = Coordinates<1>;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Ensemble {
@@ -459,7 +461,7 @@ pub trait MonteCarlo
 where
     Self: Inextensible + Sync,
 {
-    fn nondimensional_radial_distribution<const N: usize>(
+    fn nondimensional_radial_distribution(
         &self,
         num_bins: usize,
         num_samples: usize,
@@ -473,7 +475,7 @@ where
             for t in 0..num_threads {
                 let samples_t = base + usize::from(t < remainder);
                 handles.push(s.spawn(move || {
-                    self.nondimensional_radial_distribution_inner::<N>(num_bins, samples_t)
+                    self.nondimensional_radial_distribution_inner(num_bins, samples_t)
                 }));
             }
             let mut total_counts = vec![0; num_bins];
@@ -495,22 +497,23 @@ where
             (bin_centers, bin_values)
         })
     }
-    fn nondimensional_radial_distribution_inner<const N: usize>(
+    fn nondimensional_radial_distribution_inner(
         &self,
         num_bins: usize,
         num_samples: usize,
     ) -> Vec<usize> {
         let mut bin_counts = vec![0; num_bins];
-        let num_links = N as Scalar;
+        let num_links = self.number_of_links() as Scalar;
+        let end_index = self.number_of_links() as usize - 1;
         let max_extension = self.maximum_nondimensional_extension();
         for _ in 0..num_samples {
-            let configuration = self.random_configuration::<N>();
-            let nondimensional_extension = configuration[N - 1].norm() / num_links;
+            let configuration = self.random_configuration();
+            let nondimensional_extension = configuration[end_index].norm() / num_links;
             let bin_index =
                 (nondimensional_extension / max_extension * num_bins as Scalar) as usize;
             bin_counts[bin_index] += 1;
         }
         bin_counts
     }
-    fn random_configuration<const N: usize>(&self) -> CurrentCoordinates<N>;
+    fn random_configuration(&self) -> Configuration;
 }

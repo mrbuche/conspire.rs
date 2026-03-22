@@ -3,8 +3,10 @@ mod test;
 
 use crate::{
     math::{Scalar, Tensor, TensorArray},
-    mechanics::{CurrentCoordinate, CurrentCoordinates},
-    physics::molecular::single_chain::{Ensemble, Inextensible, MonteCarlo, SingleChain},
+    mechanics::CurrentCoordinate,
+    physics::molecular::single_chain::{
+        Configuration, Ensemble, Inextensible, MonteCarlo, SingleChain,
+    },
     random_uniform,
 };
 use std::f64::consts::TAU;
@@ -38,7 +40,7 @@ impl Inextensible for FreelyRotatingChain {
 }
 
 impl MonteCarlo for FreelyRotatingChain {
-    fn random_configuration<const N: usize>(&self) -> CurrentCoordinates<N> {
+    fn random_configuration(&self) -> Configuration {
         let cos_theta = 2.0 * random_uniform() - 1.0;
         let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
         let phi = TAU * random_uniform();
@@ -50,7 +52,7 @@ impl MonteCarlo for FreelyRotatingChain {
             CurrentCoordinate::const_from([sin_theta * cos_phi, sin_theta * sin_phi, cos_theta]);
         let mut position = CurrentCoordinate::zero();
         let (sin_theta, cos_theta) = self.link_angle.sin_cos();
-        (0..N)
+        (0..self.number_of_links())
             .map(|link| {
                 if link > 0 {
                     a = if b[1].abs() < 0.9 { AY } else { AZ };

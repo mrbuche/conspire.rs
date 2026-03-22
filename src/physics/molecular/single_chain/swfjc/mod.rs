@@ -3,10 +3,10 @@ mod test;
 
 use crate::{
     math::{Scalar, TensorArray},
-    mechanics::{CurrentCoordinate, CurrentCoordinates},
+    mechanics::CurrentCoordinate,
     physics::molecular::single_chain::{
-        Ensemble, Inextensible, Isometric, Isotensional, Legendre, MonteCarlo, SingleChain,
-        SingleChainError, Thermodynamics,
+        Configuration, Ensemble, Inextensible, Isometric, Isotensional, Legendre, MonteCarlo,
+        SingleChain, SingleChainError, Thermodynamics,
     },
     random_uniform,
 };
@@ -153,10 +153,10 @@ impl Legendre for SquareWellFreelyJointedChain {
 }
 
 impl MonteCarlo for SquareWellFreelyJointedChain {
-    fn random_configuration<const N: usize>(&self) -> CurrentCoordinates<N> {
+    fn random_configuration(&self) -> Configuration {
         let mut position = CurrentCoordinate::zero();
         let max_strain = self.maximum_nondimensional_extension() - 1.0;
-        (0..N)
+        (0..self.number_of_links())
             .map(|_| {
                 let cos_theta = 2.0 * random_uniform() - 1.0;
                 let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();

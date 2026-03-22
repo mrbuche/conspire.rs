@@ -13,7 +13,9 @@ pub use fjc::FreelyJointedChain;
 pub use frc::FreelyRotatingChain;
 pub use ideal::IdealChain;
 pub use swfjc::SquareWellFreelyJointedChain;
-pub use thermodynamics::{Ensemble, Isometric, Isotensional, Legendre, MonteCarlo, Thermodynamics};
+pub use thermodynamics::{
+    Configuration, Ensemble, Isometric, Isotensional, Legendre, MonteCarlo, Thermodynamics,
+};
 pub use ufjc::ArbitraryPotentialFreelyJointedChain;
 
 use crate::math::{Scalar, TestError};
