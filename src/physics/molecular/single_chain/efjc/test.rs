@@ -5,12 +5,31 @@ use crate::{
         test::{TestError, assert_eq_from_fd},
     },
     physics::{
-        ROOM_TEMPERATURE,
-        molecular::single_chain::{Ensemble, ExtensibleFreelyJointedChain, Thermodynamics},
+        BOLTZMANN_CONSTANT, ROOM_TEMPERATURE,
+        molecular::single_chain::{
+            Ensemble, ExtensibleFreelyJointedChain, MonteCarloExtensible, Thermodynamics,
+        },
     },
 };
 
+const BETA: Scalar = 1.0 / BOLTZMANN_CONSTANT / ROOM_TEMPERATURE;
 const NUM: usize = 333;
+
+#[test]
+fn monte_carlo() {
+    let model = ExtensibleFreelyJointedChain {
+        link_length: 1.0,
+        link_stiffness: 50.0 / BETA,
+        number_of_links: 3,
+        ensemble: Ensemble::Isometric(ROOM_TEMPERATURE),
+    };
+    let (gamma, g) =
+        MonteCarloExtensible::nondimensional_radial_distribution(&model, 333, 10_000_000, 4, 1.6);
+    gamma
+        .into_iter()
+        .zip(g)
+        .for_each(|(gamma_i, g_i)| println!("[{gamma_i}, {g_i}],"))
+}
 
 #[test]
 fn finite_difference() -> Result<(), TestError> {

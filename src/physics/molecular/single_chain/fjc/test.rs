@@ -6,7 +6,9 @@ use crate::{
     },
     physics::{
         ROOM_TEMPERATURE,
-        molecular::single_chain::{Ensemble, FreelyJointedChain, MonteCarlo, Thermodynamics},
+        molecular::single_chain::{
+            Ensemble, FreelyJointedChain, MonteCarloInextensible, Thermodynamics,
+        },
     },
 };
 
@@ -20,7 +22,8 @@ fn monte_carlo() {
         number_of_links: N as u8,
         ensemble: Ensemble::Isometric(ROOM_TEMPERATURE),
     };
-    let (gamma, g) = MonteCarlo::nondimensional_radial_distribution(&model, 333, 1_000_000, 4);
+    let (gamma, g) =
+        MonteCarloInextensible::nondimensional_radial_distribution(&model, 333, 1_000_000, 4);
     gamma
         .into_iter()
         .zip(g)

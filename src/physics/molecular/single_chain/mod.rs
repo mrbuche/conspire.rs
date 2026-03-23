@@ -14,7 +14,8 @@ pub use frc::FreelyRotatingChain;
 pub use ideal::IdealChain;
 pub use swfjc::SquareWellFreelyJointedChain;
 pub use thermodynamics::{
-    Configuration, Ensemble, Isometric, Isotensional, Legendre, MonteCarlo, Thermodynamics,
+    Configuration, Ensemble, Isometric, Isotensional, Legendre, MonteCarlo, MonteCarloExtensible,
+    MonteCarloInextensible, Thermodynamics,
 };
 pub use ufjc::ArbitraryPotentialFreelyJointedChain;
 
@@ -47,6 +48,12 @@ where
             Ok(())
         }
     }
+}
+
+pub trait Extensible
+where
+    Self: SingleChain,
+{
 }
 
 #[derive(Debug)]
