@@ -2,12 +2,11 @@
 mod test;
 
 use crate::{
-    math::{Scalar, Tensor, TensorArray},
+    math::{Scalar, Tensor, TensorArray, random_uniform},
     mechanics::CurrentCoordinate,
     physics::molecular::single_chain::{
         Configuration, Ensemble, Inextensible, MonteCarlo, SingleChain,
     },
-    random_uniform,
 };
 use std::f64::consts::TAU;
 

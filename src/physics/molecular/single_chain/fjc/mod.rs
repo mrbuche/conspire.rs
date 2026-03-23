@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     math::{
-        Scalar, TensorArray,
+        Scalar, TensorArray, random_uniform,
         special::{inverse_langevin, langevin, langevin_derivative, sinhc},
     },
     mechanics::CurrentCoordinate,
@@ -11,7 +11,6 @@ use crate::{
         Configuration, Ensemble, Inextensible, Isometric, Isotensional, Legendre, MonteCarlo,
         SingleChain, SingleChainError, Thermodynamics,
     },
-    random_uniform,
 };
 use std::f64::consts::{PI, TAU};
 

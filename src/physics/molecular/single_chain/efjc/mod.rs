@@ -2,8 +2,7 @@
 mod test;
 
 use crate::{
-    foo,
-    math::{Scalar, TensorArray, special::erf},
+    math::{Scalar, TensorArray, random_uniform, random_x2_normal, special::erf},
     mechanics::CurrentCoordinate,
     physics::{
         BOLTZMANN_CONSTANT,
@@ -17,7 +16,6 @@ use crate::{
             },
         },
     },
-    random_uniform, random_x2_normal,
 };
 use std::f64::consts::{PI, TAU};
 
@@ -176,8 +174,7 @@ impl MonteCarlo for ExtensibleFreelyJointedChain {
                 let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
                 let phi = TAU * random_uniform();
                 let (sin_phi, cos_phi) = phi.sin_cos();
-                // let link_stretch = random_x2_normal(1.0, std, 3.0);
-                let link_stretch = foo(1.0, std);
+                let link_stretch = random_x2_normal(1.0, std);
                 position[0] += link_stretch * sin_theta * cos_phi;
                 position[1] += link_stretch * sin_theta * sin_phi;
                 position[2] += link_stretch * cos_theta;
