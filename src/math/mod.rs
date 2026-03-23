@@ -15,16 +15,16 @@ pub mod interpolate;
 /// Optimization and root finding.
 pub mod optimize;
 
-mod graph;
 mod matrix;
+mod sets;
 mod tensor;
 
-pub use graph::disjoint_set_union;
 pub use matrix::{
     Matrix,
     square::{Banded, SquareMatrix},
     vector::Vector,
 };
+pub use sets::disjoint_set_union;
 pub use tensor::{
     Hessian, Jacobian, Rank2, Scalar, ScalarList, ScalarListVec, Scalars, Solution, Tensor,
     TensorArray, TensorError, TensorVec,

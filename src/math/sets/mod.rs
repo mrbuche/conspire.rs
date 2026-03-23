@@ -35,26 +35,26 @@ impl DisjointSetUnion {
     }
 }
 
-pub fn disjoint_set_union<T>(graph_nodes: &[T], num_nodes: usize) -> IntoValues<usize, Vec<usize>>
+pub fn disjoint_set_union<T>(set_members: &[T], num_members: usize) -> IntoValues<usize, Vec<usize>>
 where
     for<'a> &'a T: IntoIterator<Item = &'a usize>,
 {
-    let mut node_graphs = vec![vec![]; num_nodes];
-    graph_nodes.iter().enumerate().for_each(|(graph, nodes)| {
-        nodes
+    let mut member_sets = vec![vec![]; num_members];
+    set_members.iter().enumerate().for_each(|(set, members)| {
+        members
             .into_iter()
-            .for_each(|&node| node_graphs[node].push(graph))
+            .for_each(|&member| member_sets[member].push(set))
     });
-    let num_graphs = graph_nodes.len();
-    let mut dsu = DisjointSetUnion::new(num_graphs);
-    node_graphs
+    let num_sets = set_members.len();
+    let mut dsu = DisjointSetUnion::new(num_sets);
+    member_sets
         .into_iter()
         .filter(|v| v.len() >= 2)
-        .for_each(|graphs| {
-            let first = graphs[0];
-            graphs[1..].iter().for_each(|&s| dsu.union(first, s))
+        .for_each(|sets| {
+            let first = sets[0];
+            sets[1..].iter().for_each(|&s| dsu.union(first, s))
         });
-    let mut graphs: HashMap<usize, Vec<usize>> = HashMap::new();
-    (0..num_graphs).for_each(|s| graphs.entry(dsu.find(s)).or_default().push(s));
-    graphs.into_values()
+    let mut disjoint_sets: HashMap<usize, Vec<usize>> = HashMap::new();
+    (0..num_sets).for_each(|s| disjoint_sets.entry(dsu.find(s)).or_default().push(s));
+    disjoint_sets.into_values()
 }
