@@ -1,4 +1,5 @@
 mod efjc;
+mod efrc;
 mod fjc;
 mod frc;
 mod ideal;
@@ -9,6 +10,7 @@ mod ufjc;
 mod thermodynamics;
 
 pub use efjc::ExtensibleFreelyJointedChain;
+pub use efrc::ExtensibleFreelyRotatingChain;
 pub use fjc::FreelyJointedChain;
 pub use frc::FreelyRotatingChain;
 pub use ideal::IdealChain;

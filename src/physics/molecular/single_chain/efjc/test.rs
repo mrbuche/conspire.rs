@@ -12,19 +12,19 @@ use crate::{
     },
 };
 
-const BETA: Scalar = 1.0 / BOLTZMANN_CONSTANT / ROOM_TEMPERATURE;
+const STIFFNESS: Scalar = 5.0 * BOLTZMANN_CONSTANT * ROOM_TEMPERATURE;
 const NUM: usize = 333;
 
 #[test]
 fn monte_carlo() {
     let model = ExtensibleFreelyJointedChain {
         link_length: 1.0,
-        link_stiffness: 50.0 / BETA,
+        link_stiffness: STIFFNESS,
         number_of_links: 3,
         ensemble: Ensemble::Isometric(ROOM_TEMPERATURE),
     };
     let (gamma, g) =
-        MonteCarloExtensible::nondimensional_radial_distribution(&model, 333, 10_000_000, 4, 1.6);
+        MonteCarloExtensible::nondimensional_radial_distribution(&model, 333, 1_000_000, 4, 3.0);
     gamma
         .into_iter()
         .zip(g)
