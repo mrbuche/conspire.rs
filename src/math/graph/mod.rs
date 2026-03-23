@@ -50,9 +50,9 @@ where
     node_graphs
         .into_iter()
         .filter(|v| v.len() >= 2)
-        .for_each(|elements| {
-            let first = elements[0];
-            elements[1..].iter().for_each(|&s| dsu.union(first, s))
+        .for_each(|graphs| {
+            let first = graphs[0];
+            graphs[1..].iter().for_each(|&s| dsu.union(first, s))
         });
     let mut graphs: HashMap<usize, Vec<usize>> = HashMap::new();
     (0..num_graphs).for_each(|s| graphs.entry(dsu.find(s)).or_default().push(s));
