@@ -15,9 +15,11 @@ pub mod interpolate;
 /// Optimization and root finding.
 pub mod optimize;
 
+mod graph;
 mod matrix;
 mod tensor;
 
+pub use graph::disjoint_set_union;
 pub use matrix::{
     Matrix,
     square::{Banded, SquareMatrix},

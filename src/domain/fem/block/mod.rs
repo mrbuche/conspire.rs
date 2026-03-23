@@ -14,7 +14,7 @@ use crate::{
         block::element::{ElementNodalReferenceCoordinates, FiniteElement},
     },
     math::{
-        Banded, Scalar, Scalars, Tensor, TestError,
+        Banded, Scalar, Scalars, Tensor, TestError, disjoint_set_union,
         optimize::{
             EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
             SecondOrderOptimization, ZerothOrderRootFinding,
@@ -25,7 +25,6 @@ use crate::{
 use std::{
     any::type_name,
     array::from_fn,
-    collections::HashMap,
     fmt::{self, Debug, Display, Formatter},
     iter::repeat_n,
 };
@@ -156,32 +155,12 @@ where
         let constitutive_model = self.constitutive_model;
         let nodal_coordinates = self.coordinates;
         let finite_elements = self.elements;
+        let num_nodes = nodal_coordinates.len();
         let element_nodes: Connectivity<N> = elements
             .iter()
             .map(|&element| element_node_connectivity[element])
             .collect();
-        let num_elements = element_nodes.len();
-        let mut node_elements = vec![vec![]; nodal_coordinates.len()];
-        element_nodes
-            .iter()
-            .enumerate()
-            .for_each(|(element, nodes)| {
-                nodes
-                    .iter()
-                    .for_each(|&node| node_elements[node].push(element))
-            });
-        let mut dsu = Dsu::new(num_elements);
-        node_elements
-            .into_iter()
-            .filter(|v| v.len() >= 2)
-            .for_each(|elements| {
-                let first = elements[0];
-                elements[1..].iter().for_each(|&s| dsu.union(first, s))
-            });
-        let mut blocks: HashMap<usize, Vec<usize>> = HashMap::new();
-        (0..num_elements).for_each(|s| blocks.entry(dsu.find(s)).or_default().push(s));
-        blocks
-            .into_values()
+        disjoint_set_union(&element_nodes, num_nodes)
             .map(|block| {
                 let mut nodes = block
                     .iter()
@@ -244,41 +223,6 @@ where
         self.elements
             .iter_mut()
             .for_each(|element| *element = F::default())
-    }
-}
-
-struct Dsu {
-    parent: Vec<usize>,
-    rank: Vec<u8>,
-}
-
-impl Dsu {
-    fn new(n: usize) -> Self {
-        Self {
-            parent: (0..n).collect(),
-            rank: vec![0; n],
-        }
-    }
-    fn find(&mut self, x: usize) -> usize {
-        if self.parent[x] != x {
-            let p = self.parent[x];
-            self.parent[x] = self.find(p);
-        }
-        self.parent[x]
-    }
-    fn union(&mut self, a: usize, b: usize) {
-        let mut ra = self.find(a);
-        let mut rb = self.find(b);
-        if ra == rb {
-            return;
-        }
-        if self.rank[ra] < self.rank[rb] {
-            std::mem::swap(&mut ra, &mut rb);
-        }
-        self.parent[rb] = ra;
-        if self.rank[ra] == self.rank[rb] {
-            self.rank[ra] += 1;
-        }
     }
 }
 
