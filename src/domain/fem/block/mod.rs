@@ -161,13 +161,8 @@ where
             .map(|&element| element_node_connectivity[element])
             .collect();
         disjoint_set_union(&element_nodes, num_nodes)
-            .map(|block| {
-                let mut nodes = block
-                    .iter()
-                    .flat_map(|&element| element_nodes[element])
-                    .collect::<Vec<_>>();
-                nodes.sort_unstable();
-                nodes.dedup();
+            .into_iter()
+            .map(|nodes| {
                 let mut block_elements = nodes
                     .iter()
                     .flat_map(|&node| node_element_connectivity[node].iter().copied())
@@ -180,6 +175,9 @@ where
                     .collect::<Vec<_>>();
                 global_nodes.sort_unstable();
                 global_nodes.dedup();
+                //
+                // Above is the graph 1-hop thing that can be generalized.
+                //
                 let mut local_nodes = vec![0; global_nodes.iter().max().unwrap() + 1];
                 let mut global_boundary_nodes = global_nodes.clone();
                 global_boundary_nodes.retain(|node| nodes.binary_search(node).is_err());

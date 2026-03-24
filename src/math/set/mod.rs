@@ -1,4 +1,4 @@
-use std::collections::{HashMap, hash_map::IntoValues};
+use std::collections::HashMap;
 
 struct DisjointSetUnion {
     parent: Vec<usize>,
@@ -35,17 +35,17 @@ impl DisjointSetUnion {
     }
 }
 
-pub fn disjoint_set_union<T>(set_members: &[T], num_members: usize) -> IntoValues<usize, Vec<usize>>
-where
-    for<'a> &'a T: IntoIterator<Item = &'a usize>,
-{
+pub fn disjoint_set_union<const N: usize>(
+    set_members: &[[usize; N]],
+    num_members: usize,
+) -> Vec<Vec<usize>> {
+    let num_sets = set_members.len();
     let mut member_sets = vec![vec![]; num_members];
     set_members.iter().enumerate().for_each(|(set, members)| {
         members
-            .into_iter()
+            .iter()
             .for_each(|&member| member_sets[member].push(set))
     });
-    let num_sets = set_members.len();
     let mut dsu = DisjointSetUnion::new(num_sets);
     member_sets
         .into_iter()
@@ -54,7 +54,18 @@ where
             let first = sets[0];
             sets[1..].iter().for_each(|&s| dsu.union(first, s))
         });
-    let mut disjoint_sets: HashMap<usize, Vec<usize>> = HashMap::new();
+    let mut disjoint_sets = HashMap::<_, Vec<_>>::new();
     (0..num_sets).for_each(|s| disjoint_sets.entry(dsu.find(s)).or_default().push(s));
-    disjoint_sets.into_values()
+    disjoint_sets
+        .into_values()
+        .map(|sets| {
+            let mut members = sets
+                .into_iter()
+                .flat_map(|set| set_members[set])
+                .collect::<Vec<_>>();
+            members.sort_unstable();
+            members.dedup();
+            members
+        })
+        .collect()
 }
