@@ -24,7 +24,11 @@ pub use matrix::{
     square::{Banded, SquareMatrix},
     vector::Vector,
 };
-pub use set::disjoint_set_union;
+pub use set::{
+    Set,
+    dsu::disjoint_set_union,
+    sets::{InverseSets, Sets},
+};
 pub use tensor::{
     Hessian, Jacobian, Rank2, Scalar, ScalarList, ScalarListVec, Scalars, Solution, Tensor,
     TensorArray, TensorError, TensorVec,
