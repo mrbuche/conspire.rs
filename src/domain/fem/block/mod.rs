@@ -175,9 +175,6 @@ where
                     .collect::<Vec<_>>();
                 global_nodes.sort_unstable();
                 global_nodes.dedup();
-                //
-                // Above is the graph 1-hop thing that can be generalized.
-                //
                 let mut local_nodes = vec![0; global_nodes.iter().max().unwrap() + 1];
                 let mut global_boundary_nodes = global_nodes.clone();
                 global_boundary_nodes.retain(|node| nodes.binary_search(node).is_err());
