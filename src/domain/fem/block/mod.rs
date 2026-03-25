@@ -176,7 +176,8 @@ where
                 let connectivity = block_elements
                     .iter()
                     .map(|&element| from_fn(|node| local_nodes[element_nodes[element][node]]))
-                    .collect::<Vec<_>>().into();
+                    .collect::<Vec<_>>()
+                    .into();
                 let elements = block_elements
                     .into_iter()
                     .map(|element| self.elements[element].clone())

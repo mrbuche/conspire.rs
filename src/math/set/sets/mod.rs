@@ -1,6 +1,3 @@
-#[cfg(test)]
-mod test;
-
 pub struct Sets<R, S, T, U, V>
 where
     R: IntoIterator<Item = S>,
