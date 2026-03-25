@@ -3,10 +3,12 @@ use crate::{
         Scalar, Tensor, Vector,
         optimize::{EqualityConstraint, LineSearch, NewtonRaphson, SecondOrderOptimization},
     },
-    mechanics::CurrentCoordinates,
-    physics::molecular::single_chain::{Inextensible, SingleChain, SingleChainError},
+    mechanics::Coordinates,
+    physics::molecular::single_chain::{Extensible, Inextensible, SingleChain, SingleChainError},
 };
 use std::{f64::consts::PI, thread};
+
+pub type Configuration = Coordinates<1>;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Ensemble {
@@ -457,60 +459,118 @@ where
 
 pub trait MonteCarlo
 where
-    Self: Inextensible + Sync,
+    Self: SingleChain + Sync,
 {
-    fn nondimensional_radial_distribution<const N: usize>(
+    fn random_configuration(&self) -> Configuration;
+}
+
+pub trait MonteCarloExtensible
+where
+    Self: Extensible + MonteCarlo,
+{
+    fn nondimensional_radial_distribution(
+        &self,
+        num_bins: usize,
+        num_samples: usize,
+        num_threads: usize,
+        maximum_nondimensional_extension: Scalar,
+    ) -> (Vector, Vector) {
+        nondimensional_radial_distribution(
+            self,
+            num_bins,
+            num_samples,
+            num_threads,
+            maximum_nondimensional_extension,
+        )
+    }
+}
+
+impl<T> MonteCarloExtensible for T where T: Extensible + MonteCarlo {}
+
+pub trait MonteCarloInextensible
+where
+    Self: Inextensible + MonteCarlo,
+{
+    fn nondimensional_radial_distribution(
         &self,
         num_bins: usize,
         num_samples: usize,
         num_threads: usize,
     ) -> (Vector, Vector) {
-        let base = num_samples / num_threads;
-        let remainder = num_samples % num_threads;
-        let max_extension = self.maximum_nondimensional_extension();
-        thread::scope(|s| {
-            let mut handles = Vec::with_capacity(num_threads);
-            for t in 0..num_threads {
-                let samples_t = base + usize::from(t < remainder);
-                handles.push(s.spawn(move || {
-                    self.nondimensional_radial_distribution_inner::<N>(num_bins, samples_t)
-                }));
-            }
-            let mut total_counts = vec![0; num_bins];
-            for h in handles {
-                let counts = h.join().expect("thread done goofed");
-                for (tot, c) in total_counts.iter_mut().zip(counts) {
-                    *tot += c;
-                }
-            }
-            let bin_width = max_extension / (num_bins as Scalar);
-            let bin_centers = (0..num_bins)
-                .map(|i| (i as Scalar + 0.5) * bin_width)
-                .collect();
-            let total_samples = num_samples as Scalar;
-            let bin_values = total_counts
-                .into_iter()
-                .map(|count| count as Scalar / total_samples / bin_width)
-                .collect();
-            (bin_centers, bin_values)
-        })
+        nondimensional_radial_distribution(
+            self,
+            num_bins,
+            num_samples,
+            num_threads,
+            self.maximum_nondimensional_extension(),
+        )
     }
-    fn nondimensional_radial_distribution_inner<const N: usize>(
-        &self,
-        num_bins: usize,
-        num_samples: usize,
-    ) -> Vec<usize> {
-        let mut bin_counts = vec![0; num_bins];
-        let num_links = N as Scalar;
-        let max_extension = self.maximum_nondimensional_extension();
-        for _ in 0..num_samples {
-            let configuration = self.random_configuration::<N>();
-            let nondimensional_extension = configuration[N - 1].norm() / num_links;
-            let bin_index =
-                (nondimensional_extension / max_extension * num_bins as Scalar) as usize;
-            bin_counts[bin_index] += 1;
+}
+
+impl<T> MonteCarloInextensible for T where T: Inextensible + MonteCarlo {}
+
+fn nondimensional_radial_distribution<T: MonteCarlo>(
+    model: &T,
+    num_bins: usize,
+    num_samples: usize,
+    num_threads: usize,
+    maximum_nondimensional_extension: Scalar,
+) -> (Vector, Vector) {
+    let base = num_samples / num_threads;
+    let remainder = num_samples % num_threads;
+    thread::scope(|s| {
+        let mut handles = Vec::with_capacity(num_threads);
+        for t in 0..num_threads {
+            let samples_t = base + usize::from(t < remainder);
+            handles.push(s.spawn(move || {
+                nondimensional_radial_distribution_inner(
+                    model,
+                    num_bins,
+                    samples_t,
+                    maximum_nondimensional_extension,
+                )
+            }));
         }
-        bin_counts
+        let mut total_counts = vec![0; num_bins];
+        for h in handles {
+            let counts = h.join().expect("thread done goofed");
+            for (tot, c) in total_counts.iter_mut().zip(counts) {
+                *tot += c;
+            }
+        }
+        let bin_width = maximum_nondimensional_extension / (num_bins as Scalar);
+        let bin_centers = (0..num_bins)
+            .map(|i| (i as Scalar + 0.5) * bin_width)
+            .collect();
+        let total_samples = num_samples as Scalar;
+        let bin_values = total_counts
+            .into_iter()
+            .map(|count| count as Scalar / total_samples / bin_width)
+            .collect();
+        (bin_centers, bin_values)
+    })
+}
+
+fn nondimensional_radial_distribution_inner<T: MonteCarlo>(
+    model: &T,
+    num_bins: usize,
+    num_samples: usize,
+    maximum_nondimensional_extension: Scalar,
+) -> Vec<usize> {
+    let mut bin_counts = vec![0; num_bins];
+    let num_links = model.number_of_links() as Scalar;
+    let end_index = model.number_of_links() as usize - 1;
+    for _ in 0..num_samples {
+        let configuration = model.random_configuration();
+        let nondimensional_extension = configuration[end_index].norm() / num_links;
+        if nondimensional_extension > maximum_nondimensional_extension {
+            panic!(
+                "Sample {nondimensional_extension} above maximum {maximum_nondimensional_extension}"
+            )
+        }
+        let bin_index = (nondimensional_extension / maximum_nondimensional_extension
+            * num_bins as Scalar) as usize;
+        bin_counts[bin_index] += 1;
     }
-    fn random_configuration<const N: usize>(&self) -> CurrentCoordinates<N>;
+    bin_counts
 }

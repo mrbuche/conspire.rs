@@ -1,4 +1,5 @@
 mod efjc;
+mod efrc;
 mod fjc;
 mod frc;
 mod ideal;
@@ -9,11 +10,15 @@ mod ufjc;
 mod thermodynamics;
 
 pub use efjc::ExtensibleFreelyJointedChain;
+pub use efrc::ExtensibleFreelyRotatingChain;
 pub use fjc::FreelyJointedChain;
 pub use frc::FreelyRotatingChain;
 pub use ideal::IdealChain;
 pub use swfjc::SquareWellFreelyJointedChain;
-pub use thermodynamics::{Ensemble, Isometric, Isotensional, Legendre, MonteCarlo, Thermodynamics};
+pub use thermodynamics::{
+    Configuration, Ensemble, Isometric, Isotensional, Legendre, MonteCarlo, MonteCarloExtensible,
+    MonteCarloInextensible, Thermodynamics,
+};
 pub use ufjc::ArbitraryPotentialFreelyJointedChain;
 
 use crate::math::{Scalar, TestError};
@@ -45,6 +50,12 @@ where
             Ok(())
         }
     }
+}
+
+pub trait Extensible
+where
+    Self: SingleChain,
+{
 }
 
 #[derive(Debug)]

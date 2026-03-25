@@ -2,12 +2,13 @@
 mod test;
 
 use crate::{
-    math::{Scalar, special::erf},
+    math::{Scalar, TensorArray, random_uniform, random_x2_normal, special::erf},
+    mechanics::CurrentCoordinate,
     physics::{
         BOLTZMANN_CONSTANT,
         molecular::single_chain::{
-            Ensemble, Isometric, Isotensional, Legendre, SingleChain, SingleChainError,
-            Thermodynamics,
+            Configuration, Ensemble, Extensible, Isometric, Isotensional, Legendre, MonteCarlo,
+            SingleChain, SingleChainError, Thermodynamics,
             ufjc::{
                 // nondimensional_compliance as nondimensional_compliance_asymptotic,
                 nondimensional_extension as nondimensional_extension_asymptotic,
@@ -16,7 +17,7 @@ use crate::{
         },
     },
 };
-use std::f64::consts::PI;
+use std::f64::consts::{PI, TAU};
 
 /// The extensible freely-jointed chain model.[^1]<sup>,</sup>[^2]
 /// [^1]: N. Balabaev and T. Khazanovich, [Russian Journal of Physical Chemistry B  **3**, 242 (2009)](https://doi.org/10.1134/S1990793109020109).
@@ -47,6 +48,8 @@ impl SingleChain for ExtensibleFreelyJointedChain {
         self.number_of_links
     }
 }
+
+impl Extensible for ExtensibleFreelyJointedChain {}
 
 impl Thermodynamics for ExtensibleFreelyJointedChain {
     fn ensemble(&self) -> Ensemble {
@@ -158,5 +161,25 @@ impl Legendre for ExtensibleFreelyJointedChain {
         _nondimensional_extension: Scalar,
     ) -> Result<Scalar, SingleChainError> {
         unimplemented!()
+    }
+}
+
+impl MonteCarlo for ExtensibleFreelyJointedChain {
+    fn random_configuration(&self) -> Configuration {
+        let mut position = CurrentCoordinate::zero();
+        let std = 1.0 / self.nondimensional_link_stiffness().sqrt();
+        (0..self.number_of_links())
+            .map(|_| {
+                let cos_theta = 2.0 * random_uniform() - 1.0;
+                let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
+                let phi = TAU * random_uniform();
+                let (sin_phi, cos_phi) = phi.sin_cos();
+                let link_stretch = random_x2_normal(1.0, std);
+                position[0] += link_stretch * sin_theta * cos_phi;
+                position[1] += link_stretch * sin_theta * sin_phi;
+                position[2] += link_stretch * cos_theta;
+                position.clone()
+            })
+            .collect()
     }
 }
