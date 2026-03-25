@@ -137,20 +137,5 @@ impl MonteCarlo for ExtensibleFreelyRotatingChain {
                 position.clone()
             })
             .collect()
-        // let mut position = CurrentCoordinate::zero();
-        // let std = 1.0 / self.nondimensional_link_stiffness().sqrt();
-        // (0..self.number_of_links())
-        //     .map(|_| {
-        //         let cos_theta = 2.0 * random_uniform() - 1.0;
-        //         let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
-        //         let phi = TAU * random_uniform();
-        //         let (sin_phi, cos_phi) = phi.sin_cos();
-        //         let link_stretch = random_x2_normal(1.0, std);
-        //         position[0] += link_stretch * sin_theta * cos_phi;
-        //         position[1] += link_stretch * sin_theta * sin_phi;
-        //         position[2] += link_stretch * cos_theta;
-        //         position.clone()
-        //     })
-        //     .collect()
     }
 }
