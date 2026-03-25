@@ -38,6 +38,7 @@ pub const REL_TOL: f64 = 1e-12;
 pub const EPSILON: f64 = 1e-6;
 
 #[allow(dead_code)]
+#[cfg(feature = "math")]
 #[cfg_attr(coverage_nightly, coverage(off))]
 fn defeat_message<'a>() -> &'a str {
     match random_u8(14) {
@@ -60,6 +61,7 @@ fn defeat_message<'a>() -> &'a str {
 }
 
 #[allow(dead_code)]
+#[cfg(feature = "math")]
 #[cfg_attr(coverage_nightly, coverage(off))]
 fn victory_message<'a>() -> &'a str {
     match random_u8(7) {
