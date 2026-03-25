@@ -63,16 +63,16 @@ where
     }
 }
 
-pub trait InverseSets<R, S, T, U, V>
+pub trait InverseSets<R, S, T, U, V, W>
 where
     R: IntoIterator<Item = S>,
     S: IntoIterator<Item = T>,
     U: IntoIterator<Item = V>,
 {
-    fn inverse(&self) -> Sets<R, S, T, U, V>;
+    fn inverse(&self) -> (Sets<R, S, T, U, V>, W);
 }
 
-impl<R, S, U, V> InverseSets<Vec<Vec<V>>, Vec<V>, V, Vec<usize>, usize>
+impl<R, S, U, V> InverseSets<Vec<Vec<V>>, Vec<V>, V, Vec<usize>, usize, Vec<usize>>
     for Sets<R, S, usize, U, V>
 where
     R: IntoIterator<Item = S>,
@@ -83,7 +83,7 @@ where
     for<'a> &'a U: IntoIterator<Item = &'a V>,
     V: Copy,
 {
-    fn inverse(&self) -> Sets<Vec<Vec<V>>, Vec<V>, V, Vec<usize>, usize> {
+    fn inverse(&self) -> (Sets<Vec<Vec<V>>, Vec<V>, V, Vec<usize>, usize>, Vec<usize>) {
         let sets = self.unique_members();
         let mut members = vec![vec![]; sets.len()];
         let max_member = sets.iter().max().unwrap();
@@ -99,6 +99,6 @@ where
                     .into_iter()
                     .for_each(|&member| members[map[member]].push(set))
             });
-        Sets { members, sets }
+        (Sets { members, sets }, map)
     }
 }

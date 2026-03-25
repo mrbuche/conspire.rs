@@ -73,9 +73,6 @@ where
             .map(|nodes| F::minimum_scaled_jacobian(Self::element_coordinates(coordinates, nodes)))
             .collect()
     }
-    fn node_element_connectivity(&self) -> (Vec<usize>, Vec<Vec<usize>>) {
-        self.connectivity.inverse().into()
-    }
     pub fn volume(&self) -> Scalar {
         self.elements().iter().map(|element| element.volume()).sum()
     }
@@ -143,18 +140,19 @@ where
     F: Default + FiniteElement<G, 3, N, P> + From<ElementNodalReferenceCoordinates<N>>,
 {
     fn isolate(self, isolated_elements: &[usize]) -> Vec<(Self, [Vec<usize>; 3])> {
-        let (_, node_elements) = self.node_element_connectivity();
+        let (graph, map) = self.connectivity.inverse();
+        let (_, node_elements) = graph.into();
         let (_, element_nodes) = self.connectivity.into();
         let isolated_element_nodes: Connectivity<N> = isolated_elements
             .iter()
-            .map(|&element| element_nodes[element])
+            .map(|&isolated_element| element_nodes[isolated_element])
             .collect();
         disjoint_set_union(&isolated_element_nodes, self.coordinates.len())
             .into_iter()
-            .map(|nodes| {
-                let mut block_elements = nodes
+            .map(|isolated_nodes| {
+                let mut block_elements = isolated_nodes
                     .iter()
-                    .flat_map(|&node| node_elements[node].iter().copied())
+                    .flat_map(|&node| node_elements[map[node]].iter().copied())
                     .collect::<Vec<_>>();
                 block_elements.sort_unstable();
                 block_elements.dedup();
@@ -166,7 +164,7 @@ where
                 global_nodes.dedup();
                 let mut local_nodes = vec![0; global_nodes.iter().max().unwrap() + 1];
                 let mut global_boundary_nodes = global_nodes.clone();
-                global_boundary_nodes.retain(|node| nodes.binary_search(node).is_err());
+                global_boundary_nodes.retain(|node| isolated_nodes.binary_search(node).is_err());
                 let boundary_nodes = global_boundary_nodes
                     .into_iter()
                     .map(|node| local_nodes[node])
