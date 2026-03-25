@@ -24,10 +24,8 @@ pub mod vem;
 #[cfg(test)]
 mod test;
 
-use std::{
-    cell::Cell,
-    time::{SystemTime, UNIX_EPOCH},
-};
+#[cfg(feature = "math")]
+use crate::math::random_u8;
 
 /// Absolute tolerance.
 pub const ABS_TOL: f64 = 1e-12;
@@ -40,6 +38,7 @@ pub const REL_TOL: f64 = 1e-12;
 pub const EPSILON: f64 = 1e-6;
 
 #[allow(dead_code)]
+#[cfg(feature = "math")]
 #[cfg_attr(coverage_nightly, coverage(off))]
 fn defeat_message<'a>() -> &'a str {
     match random_u8(14) {
@@ -62,6 +61,7 @@ fn defeat_message<'a>() -> &'a str {
 }
 
 #[allow(dead_code)]
+#[cfg(feature = "math")]
 #[cfg_attr(coverage_nightly, coverage(off))]
 fn victory_message<'a>() -> &'a str {
     match random_u8(7) {
@@ -74,64 +74,4 @@ fn victory_message<'a>() -> &'a str {
         6 => "That's Numberwang!",
         7.. => "That was totes yeet, yo!",
     }
-}
-
-thread_local! {
-    static STATE: Cell<u64> = const { Cell::new(0) };
-}
-
-fn seed() -> u64 {
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default();
-    let t = now.as_nanos() as u64;
-    let x = 0u8;
-    let addr = (&x as *const u8 as usize) as u64;
-    let mut s = t ^ addr.wrapping_mul(0x9E3779B97F4A7C15);
-    if s == 0 {
-        s = 1;
-    }
-    s
-}
-
-fn next_u64() -> u64 {
-    STATE.with(|st| {
-        let mut s = st.get();
-        if s == 0 {
-            s = seed();
-        }
-        s ^= s >> 12;
-        s ^= s << 25;
-        s ^= s >> 27;
-        st.set(s);
-        s.wrapping_mul(0x2545F4914F6CDD1D)
-    })
-}
-
-fn get_random() -> u8 {
-    (next_u64() >> 56) as u8
-}
-
-fn random_u8(max: u8) -> u8 {
-    if max == u8::MAX {
-        return get_random();
-    }
-    let bound = (max as u16) + 1;
-    let threshold = (256u16 / bound) * bound;
-    loop {
-        let v = get_random() as u16;
-        if v < threshold {
-            return (v % bound) as u8;
-        }
-    }
-}
-
-// fn random_u64() -> u64 {
-//     next_u64()
-// }
-
-#[cfg(feature = "physics")]
-fn random_uniform() -> f64 {
-    let x = next_u64() >> 11;
-    (x as f64) * (1.0 / ((1u64 << 53) as f64))
 }

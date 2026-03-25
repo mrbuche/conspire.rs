@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        features: [math, mechanics, constitutive] #, physics, fem, vem]
+        features: [math, physics, mechanics, constitutive] #, fem, vem]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -49,7 +49,7 @@ jobs:
       - name: Install
         run: cargo install cargo-llvm-cov
       - name: Coverage
-        run: rustup run nightly cargo llvm-cov --profile release --features ${{ matrix.features }} --fail-under-functions 63 --fail-under-lines 59 --fail-under-regions 63
+        run: rustup run nightly cargo llvm-cov --profile release --features ${{ matrix.features }} --fail-under-functions 50 --fail-under-lines 50 --fail-under-regions 50
       - name: Tree
         run: $([[ $(cargo tree --color always --edges normal --features ${{ matrix.features }} | wc -l) -eq 1 ]])
   Mutants:

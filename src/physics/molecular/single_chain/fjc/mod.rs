@@ -3,15 +3,14 @@ mod test;
 
 use crate::{
     math::{
-        Scalar, TensorArray,
+        Scalar, TensorArray, random_uniform,
         special::{inverse_langevin, langevin, langevin_derivative, sinhc},
     },
-    mechanics::{CurrentCoordinate, CurrentCoordinates},
+    mechanics::CurrentCoordinate,
     physics::molecular::single_chain::{
-        Ensemble, Inextensible, Isometric, Isotensional, Legendre, MonteCarlo, SingleChain,
-        SingleChainError, Thermodynamics,
+        Configuration, Ensemble, Inextensible, Isometric, Isotensional, Legendre, MonteCarlo,
+        SingleChain, SingleChainError, Thermodynamics,
     },
-    random_uniform,
 };
 use std::f64::consts::{PI, TAU};
 
@@ -190,9 +189,9 @@ impl Legendre for FreelyJointedChain {
 }
 
 impl MonteCarlo for FreelyJointedChain {
-    fn random_configuration<const N: usize>(&self) -> CurrentCoordinates<N> {
+    fn random_configuration(&self) -> Configuration {
         let mut position = CurrentCoordinate::zero();
-        (0..N)
+        (0..self.number_of_links())
             .map(|_| {
                 let cos_theta = 2.0 * random_uniform() - 1.0;
                 let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
