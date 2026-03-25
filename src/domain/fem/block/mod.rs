@@ -14,7 +14,7 @@ use crate::{
         block::element::{ElementNodalReferenceCoordinates, FiniteElement},
     },
     math::{
-        Banded, Scalar, Scalars, Tensor, TestError,
+        Banded, InverseSets, Scalar, Scalars, Sets, Tensor, TestError, disjoint_set_union,
         optimize::{
             EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
             SecondOrderOptimization, ZerothOrderRootFinding,
@@ -25,16 +25,16 @@ use crate::{
 use std::{
     any::type_name,
     array::from_fn,
-    collections::HashMap,
     fmt::{self, Debug, Display, Formatter},
     iter::repeat_n,
 };
 
 pub type Connectivity<const N: usize> = Vec<[usize; N]>;
+pub type Graph<const N: usize> = Sets<Vec<[usize; N]>, [usize; N], usize, Vec<usize>, usize>;
 
 pub struct Block<C, F, const G: usize, const M: usize, const N: usize, const P: usize> {
     constitutive_model: C,
-    connectivity: Connectivity<N>,
+    connectivity: Graph<N>,
     coordinates: NodalReferenceCoordinates,
     elements: Vec<F>,
 }
@@ -47,7 +47,7 @@ where
         &self.constitutive_model
     }
     fn connectivity(&self) -> &Connectivity<N> {
-        &self.connectivity
+        self.connectivity.members()
     }
     fn coordinates(&self) -> &NodalReferenceCoordinates {
         &self.coordinates
@@ -72,18 +72,6 @@ where
             .iter()
             .map(|nodes| F::minimum_scaled_jacobian(Self::element_coordinates(coordinates, nodes)))
             .collect()
-    }
-    fn node_element_connectivity(&self) -> Vec<Vec<usize>> {
-        let mut node_element_connectivity = vec![vec![]; self.coordinates().len()];
-        self.connectivity()
-            .iter()
-            .enumerate()
-            .for_each(|(element, connectivity)| {
-                connectivity
-                    .iter()
-                    .for_each(|&node| node_element_connectivity[node].push(element))
-            });
-        node_element_connectivity
     }
     pub fn volume(&self) -> Scalar {
         self.elements().iter().map(|element| element.volume()).sum()
@@ -135,6 +123,7 @@ where
             .iter()
             .map(|nodes| Self::element_coordinates(&coordinates, nodes).into())
             .collect();
+        let connectivity = connectivity.into();
         Self {
             constitutive_model,
             connectivity,
@@ -150,83 +139,54 @@ where
     C: Constitutive,
     F: Default + FiniteElement<G, 3, N, P> + From<ElementNodalReferenceCoordinates<N>>,
 {
-    fn isolate(self, elements: &[usize]) -> Vec<(Self, [Vec<usize>; 3])> {
-        let node_element_connectivity = self.node_element_connectivity();
-        let element_node_connectivity = self.connectivity;
-        let constitutive_model = self.constitutive_model;
-        let nodal_coordinates = self.coordinates;
-        let finite_elements = self.elements;
-        let element_nodes: Connectivity<N> = elements
+    fn isolate(self, isolated_elements: &[usize]) -> Vec<(Self, [Vec<usize>; 3])> {
+        let (graph, map) = self.connectivity.inverse();
+        let (_, node_elements) = graph.into();
+        let (_, element_nodes) = self.connectivity.into();
+        let isolated_element_nodes: Connectivity<N> = isolated_elements
             .iter()
-            .map(|&element| element_node_connectivity[element])
+            .map(|&isolated_element| element_nodes[isolated_element])
             .collect();
-        let num_elements = element_nodes.len();
-        let mut node_elements = vec![vec![]; nodal_coordinates.len()];
-        element_nodes
-            .iter()
-            .enumerate()
-            .for_each(|(element, nodes)| {
-                nodes
-                    .iter()
-                    .for_each(|&node| node_elements[node].push(element))
-            });
-        let mut dsu = Dsu::new(num_elements);
-        node_elements
+        disjoint_set_union(&isolated_element_nodes, self.coordinates.len())
             .into_iter()
-            .filter(|v| v.len() >= 2)
-            .for_each(|elements| {
-                let first = elements[0];
-                elements[1..].iter().for_each(|&s| dsu.union(first, s))
-            });
-        let mut blocks: HashMap<usize, Vec<usize>> = HashMap::new();
-        (0..num_elements).for_each(|s| blocks.entry(dsu.find(s)).or_default().push(s));
-        blocks
-            .into_values()
-            .map(|block| {
-                let mut nodes = block
+            .map(|isolated_nodes| {
+                let mut block_elements = isolated_nodes
                     .iter()
-                    .flat_map(|&element| element_nodes[element])
-                    .collect::<Vec<_>>();
-                nodes.sort_unstable();
-                nodes.dedup();
-                let mut block_elements = nodes
-                    .iter()
-                    .flat_map(|&node| node_element_connectivity[node].iter().copied())
+                    .flat_map(|&node| node_elements[map[node]].iter().copied())
                     .collect::<Vec<_>>();
                 block_elements.sort_unstable();
                 block_elements.dedup();
                 let mut global_nodes = block_elements
                     .iter()
-                    .flat_map(|&element| element_node_connectivity[element])
+                    .flat_map(|&element| element_nodes[element])
                     .collect::<Vec<_>>();
                 global_nodes.sort_unstable();
                 global_nodes.dedup();
-                let mut local_nodes = vec![0; global_nodes.iter().max().unwrap() + 1];
-                let mut global_boundary_nodes = global_nodes.clone();
-                global_boundary_nodes.retain(|node| nodes.binary_search(node).is_err());
-                let boundary_nodes = global_boundary_nodes
-                    .into_iter()
-                    .map(|node| local_nodes[node])
-                    .collect();
-                let constitutive_model = constitutive_model.clone();
+                let constitutive_model = self.constitutive_model.clone();
                 let mut node_num = 0;
+                let mut local_nodes = vec![0; global_nodes.iter().max().unwrap() + 1];
                 let coordinates = global_nodes
                     .iter()
                     .map(|&node| {
                         local_nodes[node] = node_num;
                         node_num += 1;
-                        nodal_coordinates[node].clone()
+                        self.coordinates[node].clone()
                     })
                     .collect();
                 let connectivity = block_elements
                     .iter()
-                    .map(|&element| {
-                        from_fn(|node| local_nodes[element_node_connectivity[element][node]])
-                    })
-                    .collect();
+                    .map(|&element| from_fn(|node| local_nodes[element_nodes[element][node]]))
+                    .collect::<Vec<_>>()
+                    .into();
                 let elements = block_elements
                     .into_iter()
-                    .map(|element| finite_elements[element].clone())
+                    .map(|element| self.elements[element].clone())
+                    .collect();
+                let mut global_boundary_nodes = global_nodes.clone();
+                global_boundary_nodes.retain(|node| isolated_nodes.binary_search(node).is_err());
+                let boundary_nodes = global_boundary_nodes
+                    .into_iter()
+                    .map(|node| local_nodes[node])
                     .collect();
                 (
                     Self {
@@ -244,41 +204,6 @@ where
         self.elements
             .iter_mut()
             .for_each(|element| *element = F::default())
-    }
-}
-
-struct Dsu {
-    parent: Vec<usize>,
-    rank: Vec<u8>,
-}
-
-impl Dsu {
-    fn new(n: usize) -> Self {
-        Self {
-            parent: (0..n).collect(),
-            rank: vec![0; n],
-        }
-    }
-    fn find(&mut self, x: usize) -> usize {
-        if self.parent[x] != x {
-            let p = self.parent[x];
-            self.parent[x] = self.find(p);
-        }
-        self.parent[x]
-    }
-    fn union(&mut self, a: usize, b: usize) {
-        let mut ra = self.find(a);
-        let mut rb = self.find(b);
-        if ra == rb {
-            return;
-        }
-        if self.rank[ra] < self.rank[rb] {
-            std::mem::swap(&mut ra, &mut rb);
-        }
-        self.parent[rb] = ra;
-        if self.rank[ra] == self.rank[rb] {
-            self.rank[ra] += 1;
-        }
     }
 }
 
