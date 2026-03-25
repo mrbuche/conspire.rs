@@ -140,6 +140,11 @@ where
     F: Default + FiniteElement<G, 3, N, P> + From<ElementNodalReferenceCoordinates<N>>,
 {
     fn isolate(self, isolated_elements: &[usize]) -> Vec<(Self, [Vec<usize>; 3])> {
+        //
+        // Need to make sure this still works.
+        // Is the map needed for the binary search too?
+        // Is there a way to do this all without the map?
+        //
         let (graph, map) = self.connectivity.inverse();
         let (_, node_elements) = graph.into();
         let (_, element_nodes) = self.connectivity.into();
