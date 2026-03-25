@@ -39,11 +39,10 @@ where
                 ))
             })
             .collect();
-        let connectivity_new = connectivity.clone().into();
+        let connectivity = connectivity.into();
         Self {
             constitutive_model,
             connectivity,
-            connectivity_new,
             coordinates,
             elements,
         }

@@ -25,7 +25,6 @@ pub use matrix::{
     vector::Vector,
 };
 pub use set::{
-    Set,
     dsu::disjoint_set_union,
     sets::{InverseSets, Sets},
 };
