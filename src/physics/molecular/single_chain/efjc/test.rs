@@ -24,7 +24,7 @@ fn monte_carlo() {
         ensemble: Ensemble::Isometric(ROOM_TEMPERATURE),
     };
     let (gamma, g) =
-        MonteCarloExtensible::nondimensional_radial_distribution(&model, 333, 1_000_000, 4, 3.0);
+        MonteCarloExtensible::nondimensional_radial_distribution(&model, 333, 10_000, 1, 3.0);
     gamma
         .into_iter()
         .zip(g)
