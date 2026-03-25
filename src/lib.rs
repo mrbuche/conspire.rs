@@ -24,6 +24,7 @@ pub mod vem;
 #[cfg(test)]
 mod test;
 
+#[cfg(feature = "math")]
 use crate::math::random_u8;
 
 /// Absolute tolerance.
