@@ -167,19 +167,9 @@ where
                     .collect::<Vec<_>>();
                 global_nodes.sort_unstable();
                 global_nodes.dedup();
-                let mut local_nodes = vec![0; global_nodes.iter().max().unwrap() + 1];
-                let mut global_boundary_nodes = global_nodes.clone();
-                global_boundary_nodes.retain(|node| isolated_nodes.binary_search(node).is_err());
-                let boundary_nodes = global_boundary_nodes
-                    .into_iter()
-                    .map(|node| local_nodes[node])
-                    .collect();
                 let constitutive_model = self.constitutive_model.clone();
-                let connectivity = block_elements
-                    .iter()
-                    .map(|&element| from_fn(|node| local_nodes[element_nodes[element][node]]))
-                    .collect::<Vec<_>>().into();
                 let mut node_num = 0;
+                let mut local_nodes = vec![0; global_nodes.iter().max().unwrap() + 1];
                 let coordinates = global_nodes
                     .iter()
                     .map(|&node| {
@@ -188,9 +178,19 @@ where
                         self.coordinates[node].clone()
                     })
                     .collect();
+                let connectivity = block_elements
+                    .iter()
+                    .map(|&element| from_fn(|node| local_nodes[element_nodes[element][node]]))
+                    .collect::<Vec<_>>().into();
                 let elements = block_elements
                     .into_iter()
                     .map(|element| self.elements[element].clone())
+                    .collect();
+                let mut global_boundary_nodes = global_nodes.clone();
+                global_boundary_nodes.retain(|node| isolated_nodes.binary_search(node).is_err());
+                let boundary_nodes = global_boundary_nodes
+                    .into_iter()
+                    .map(|node| local_nodes[node])
                     .collect();
                 (
                     Self {
