@@ -2,7 +2,7 @@
 mod test;
 
 use crate::{
-    math::{Scalar, Tensor, TensorArray, random_uniform},
+    math::{Scalar, Tensor, random_uniform},
     mechanics::CurrentCoordinate,
     physics::molecular::single_chain::{
         Configuration, Ensemble, Inextensible, MonteCarlo, SingleChain,
@@ -39,7 +39,10 @@ impl Inextensible for FreelyRotatingChain {
 }
 
 impl MonteCarlo for FreelyRotatingChain {
-    fn random_configuration(&self) -> Configuration {
+    fn random_nondimensional_link_vectors(&self, nondimensional_force: Scalar) -> Configuration {
+        if nondimensional_force != 0.0 {
+            todo!()
+        }
         let cos_theta = 2.0 * random_uniform() - 1.0;
         let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
         let phi = TAU * random_uniform();
@@ -49,7 +52,6 @@ impl MonteCarlo for FreelyRotatingChain {
         let mut a = AY;
         let mut b =
             CurrentCoordinate::const_from([sin_theta * cos_phi, sin_theta * sin_phi, cos_theta]);
-        let mut position = CurrentCoordinate::zero();
         let (sin_theta, cos_theta) = self.link_angle.sin_cos();
         (0..self.number_of_links())
             .map(|link| {
@@ -61,8 +63,7 @@ impl MonteCarlo for FreelyRotatingChain {
                     let (sin_phi, cos_phi) = phi.sin_cos();
                     b = &b * cos_theta + (&u * cos_phi + &v * sin_phi) * sin_theta;
                 }
-                position += &b;
-                position.clone()
+                b.clone()
             })
             .collect()
     }

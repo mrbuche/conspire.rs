@@ -7,7 +7,7 @@ use crate::{
     physics::{
         ROOM_TEMPERATURE,
         molecular::single_chain::{
-            Ensemble, FreelyJointedChain, MonteCarloInextensible, Thermodynamics,
+            Ensemble, FreelyJointedChain, MonteCarlo, MonteCarloInextensible, Thermodynamics,
         },
     },
 };
@@ -28,6 +28,18 @@ fn monte_carlo() {
         .into_iter()
         .zip(g)
         .for_each(|(gamma_i, g_i)| println!("[{gamma_i}, {g_i}],"))
+}
+
+#[test]
+fn monte_carlo_cosines() {
+    const N: usize = 5;
+    let model = FreelyJointedChain {
+        link_length: 1.0,
+        number_of_links: N as u8,
+        ensemble: Ensemble::Isometric(ROOM_TEMPERATURE),
+    };
+    let cosines = model.cosine_powers(3.3, 2, 10_000, 1);
+    println!("{:?}", cosines);
 }
 
 #[test]

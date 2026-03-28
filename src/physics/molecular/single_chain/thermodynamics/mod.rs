@@ -1,12 +1,12 @@
 use crate::{
     math::{
-        Scalar, Tensor, Vector,
+        Matrix, Scalar, Tensor, TensorArray, Vector,
         optimize::{EqualityConstraint, LineSearch, NewtonRaphson, SecondOrderOptimization},
     },
-    mechanics::Coordinates,
+    mechanics::{Coordinates, CurrentCoordinate},
     physics::molecular::single_chain::{Extensible, Inextensible, SingleChain, SingleChainError},
 };
-use std::{f64::consts::PI, thread};
+use std::{f64::consts::PI, thread::scope};
 
 pub type Configuration = Coordinates<1>;
 
@@ -461,7 +461,81 @@ pub trait MonteCarlo
 where
     Self: SingleChain + Sync,
 {
-    fn random_configuration(&self) -> Configuration;
+    fn cosine_powers(
+        &self,
+        nondimensional_force: Scalar,
+        number_of_powers: usize,
+        number_of_samples: usize,
+        number_of_threads: usize,
+    ) -> Matrix {
+        cosine_powers(
+            self,
+            nondimensional_force,
+            number_of_powers,
+            number_of_samples,
+            number_of_threads,
+        )
+    }
+    fn random_nondimensional_link_vectors(&self, nondimensional_force: Scalar) -> Configuration;
+    fn random_configuration(&self) -> Configuration {
+        let mut position = CurrentCoordinate::zero();
+        self.random_nondimensional_link_vectors(0.0)
+            .into_iter()
+            .map(|displacement| {
+                position += displacement;
+                position.clone()
+            })
+            .collect()
+    }
+}
+
+fn cosine_powers<T: MonteCarlo>(
+    model: &T,
+    nondimensional_force: Scalar,
+    number_of_powers: usize,
+    number_of_samples: usize,
+    number_of_threads: usize,
+) -> Matrix {
+    let base = number_of_samples / number_of_threads;
+    let remainder = number_of_samples % number_of_threads;
+    scope(|s| {
+        (0..number_of_threads)
+            .map(|t| {
+                s.spawn(move || {
+                    cosine_powers_inner(
+                        model,
+                        nondimensional_force,
+                        number_of_powers,
+                        base + usize::from(t < remainder),
+                    )
+                })
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(|handle| handle.join().unwrap() / number_of_samples as Scalar)
+            .sum()
+    })
+}
+
+fn cosine_powers_inner<T: MonteCarlo>(
+    model: &T,
+    nondimensional_force: Scalar,
+    number_of_powers: usize,
+    number_of_samples: usize,
+) -> Matrix {
+    let mut cosines = Matrix::zero(model.number_of_links() as usize, number_of_powers);
+    for _ in 0..number_of_samples {
+        cosines
+            .iter_mut()
+            .zip(model.random_nondimensional_link_vectors(nondimensional_force))
+            .for_each(|(powers, link)| {
+                powers
+                    .iter_mut()
+                    .enumerate()
+                    .for_each(|(power, entry)| *entry += link[2].powi(power as i32 + 1))
+            })
+    }
+    cosines
 }
 
 pub trait MonteCarloExtensible
@@ -511,38 +585,39 @@ impl<T> MonteCarloInextensible for T where T: Inextensible + MonteCarlo {}
 
 fn nondimensional_radial_distribution<T: MonteCarlo>(
     model: &T,
-    num_bins: usize,
-    num_samples: usize,
-    num_threads: usize,
+    number_of_bins: usize,
+    number_of_samples: usize,
+    number_of_threads: usize,
     maximum_nondimensional_extension: Scalar,
 ) -> (Vector, Vector) {
-    let base = num_samples / num_threads;
-    let remainder = num_samples % num_threads;
-    thread::scope(|s| {
-        let mut handles = Vec::with_capacity(num_threads);
-        for t in 0..num_threads {
-            let samples_t = base + usize::from(t < remainder);
-            handles.push(s.spawn(move || {
-                nondimensional_radial_distribution_inner(
-                    model,
-                    num_bins,
-                    samples_t,
-                    maximum_nondimensional_extension,
-                )
-            }));
-        }
-        let mut total_counts = vec![0; num_bins];
-        for h in handles {
-            let counts = h.join().expect("thread done goofed");
-            for (tot, c) in total_counts.iter_mut().zip(counts) {
-                *tot += c;
-            }
-        }
-        let bin_width = maximum_nondimensional_extension / (num_bins as Scalar);
-        let bin_centers = (0..num_bins)
+    let base = number_of_samples / number_of_threads;
+    let remainder = number_of_samples % number_of_threads;
+    scope(|s| {
+        let mut total_counts = vec![0; number_of_bins];
+        (0..number_of_threads)
+            .map(|t| {
+                s.spawn(move || {
+                    nondimensional_radial_distribution_inner(
+                        model,
+                        number_of_bins,
+                        base + usize::from(t < remainder),
+                        maximum_nondimensional_extension,
+                    )
+                })
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .for_each(|handle| {
+                total_counts
+                    .iter_mut()
+                    .zip(handle.join().unwrap())
+                    .for_each(|(tot, c)| *tot += c)
+            });
+        let bin_width = maximum_nondimensional_extension / (number_of_bins as Scalar);
+        let bin_centers = (0..number_of_bins)
             .map(|i| (i as Scalar + 0.5) * bin_width)
             .collect();
-        let total_samples = num_samples as Scalar;
+        let total_samples = number_of_samples as Scalar;
         let bin_values = total_counts
             .into_iter()
             .map(|count| count as Scalar / total_samples / bin_width)

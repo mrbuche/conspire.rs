@@ -2,7 +2,7 @@
 mod test;
 
 use crate::{
-    math::{Scalar, Tensor, TensorArray, random_uniform, random_x2_normal},
+    math::{Scalar, Tensor, random_uniform, random_x2_normal},
     mechanics::CurrentCoordinate,
     physics::{
         BOLTZMANN_CONSTANT,
@@ -110,7 +110,10 @@ impl Legendre for ExtensibleFreelyRotatingChain {
 }
 
 impl MonteCarlo for ExtensibleFreelyRotatingChain {
-    fn random_configuration(&self) -> Configuration {
+    fn random_nondimensional_link_vectors(&self, nondimensional_force: Scalar) -> Configuration {
+        if nondimensional_force != 0.0 {
+            todo!()
+        }
         let std = 1.0 / self.nondimensional_link_stiffness().sqrt();
         let cos_theta = 2.0 * random_uniform() - 1.0;
         let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
@@ -121,7 +124,6 @@ impl MonteCarlo for ExtensibleFreelyRotatingChain {
         let mut a = AY;
         let mut b =
             CurrentCoordinate::const_from([sin_theta * cos_phi, sin_theta * sin_phi, cos_theta]);
-        let mut position = CurrentCoordinate::zero();
         let (sin_theta, cos_theta) = self.link_angle.sin_cos();
         (0..self.number_of_links())
             .map(|link| {
@@ -133,8 +135,7 @@ impl MonteCarlo for ExtensibleFreelyRotatingChain {
                     let (sin_phi, cos_phi) = phi.sin_cos();
                     b = &b * cos_theta + (&u * cos_phi + &v * sin_phi) * sin_theta;
                 }
-                position += &b * random_x2_normal(1.0, std);
-                position.clone()
+                &b * random_x2_normal(1.0, std)
             })
             .collect()
     }

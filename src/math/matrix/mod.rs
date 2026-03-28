@@ -4,12 +4,21 @@ pub mod vector;
 use crate::math::{
     Scalar, Tensor, TensorRank1, TensorRank1Vec, TensorRank2, TensorTuple, TensorVec,
 };
-use std::ops::{Index, IndexMut, Mul};
+use std::{
+    iter::Sum,
+    ops::{AddAssign, Div, DivAssign, Index, IndexMut, Mul},
+};
 use vector::Vector;
 
 /// A matrix.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Matrix(Vec<Vector>);
+
+impl Default for Matrix {
+    fn default() -> Self {
+        Self::zero(0, 0)
+    }
+}
 
 impl Matrix {
     pub fn height(&self) -> usize {
@@ -111,6 +120,33 @@ impl IntoIterator for Matrix {
     }
 }
 
+impl Sum for Matrix {
+    fn sum<Ii>(iter: Ii) -> Self
+    where
+        Ii: Iterator<Item = Self>,
+    {
+        iter.reduce(|mut acc, item| {
+            acc += item;
+            acc
+        })
+        .unwrap_or_else(Self::default)
+    }
+}
+
+impl Div<Scalar> for Matrix {
+    type Output = Self;
+    fn div(mut self, scalar: Scalar) -> Self::Output {
+        self /= scalar;
+        self
+    }
+}
+
+impl DivAssign<Scalar> for Matrix {
+    fn div_assign(&mut self, scalar: Scalar) {
+        self.iter_mut().for_each(|entry| *entry /= &scalar);
+    }
+}
+
 impl Mul<Vector> for &Matrix {
     type Output = Vector;
     fn mul(self, vector: Vector) -> Self::Output {
@@ -129,6 +165,14 @@ impl Mul<&Scalar> for &Matrix {
     type Output = Vector;
     fn mul(self, _tensor_rank_0: &Scalar) -> Self::Output {
         unimplemented!()
+    }
+}
+
+impl AddAssign for Matrix {
+    fn add_assign(&mut self, matrix: Self) {
+        self.iter_mut()
+            .zip(matrix)
+            .for_each(|(self_i, matrix_i)| *self_i += matrix_i);
     }
 }
 

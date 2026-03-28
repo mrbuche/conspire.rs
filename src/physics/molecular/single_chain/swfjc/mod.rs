@@ -2,7 +2,7 @@
 mod test;
 
 use crate::{
-    math::{Scalar, TensorArray, random_uniform},
+    math::{Scalar, random_uniform},
     mechanics::CurrentCoordinate,
     physics::molecular::single_chain::{
         Configuration, Ensemble, Inextensible, Isometric, Isotensional, Legendre, MonteCarlo,
@@ -152,20 +152,24 @@ impl Legendre for SquareWellFreelyJointedChain {
 }
 
 impl MonteCarlo for SquareWellFreelyJointedChain {
-    fn random_configuration(&self) -> Configuration {
-        let mut position = CurrentCoordinate::zero();
+    fn random_nondimensional_link_vectors(&self, nondimensional_force: Scalar) -> Configuration {
         let max_strain = self.maximum_nondimensional_extension() - 1.0;
         (0..self.number_of_links())
             .map(|_| {
-                let cos_theta = 2.0 * random_uniform() - 1.0;
+                let cos_theta = if nondimensional_force == 0.0 {
+                    2.0 * random_uniform() - 1.0
+                } else {
+                    todo!("Force biases the link stretch too.")
+                };
                 let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
                 let phi = TAU * random_uniform();
                 let (sin_phi, cos_phi) = phi.sin_cos();
                 let lambda = 1.0 + max_strain * random_uniform();
-                position[0] += lambda * sin_theta * cos_phi;
-                position[1] += lambda * sin_theta * sin_phi;
-                position[2] += lambda * cos_theta;
-                position.clone()
+                CurrentCoordinate::from([
+                    lambda * sin_theta * cos_phi,
+                    lambda * sin_theta * sin_phi,
+                    lambda * cos_theta,
+                ])
             })
             .collect()
     }

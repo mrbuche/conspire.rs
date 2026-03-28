@@ -1236,7 +1236,7 @@ impl<'a, const D: usize, const I: usize, const J: usize> Sum<&'a Self> for Tenso
 impl<const D: usize, const I: usize, const J: usize> Div<TensorRank0> for TensorRank2<D, I, J> {
     type Output = Self;
     fn div(mut self, tensor_rank_0: TensorRank0) -> Self::Output {
-        self /= &tensor_rank_0;
+        self /= tensor_rank_0;
         self
     }
 }
