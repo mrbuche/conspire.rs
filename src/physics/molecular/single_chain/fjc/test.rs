@@ -16,10 +16,9 @@ const NUM: usize = 333;
 
 #[test]
 fn monte_carlo() {
-    const N: usize = 5;
     let model = FreelyJointedChain {
         link_length: 1.0,
-        number_of_links: N as u8,
+        number_of_links: 5,
         ensemble: Ensemble::Isometric(ROOM_TEMPERATURE),
     };
     let (gamma, g) =
@@ -32,13 +31,15 @@ fn monte_carlo() {
 
 #[test]
 fn monte_carlo_cosines() {
-    const N: usize = 5;
     let model = FreelyJointedChain {
         link_length: 1.0,
-        number_of_links: N as u8,
-        ensemble: Ensemble::Isometric(ROOM_TEMPERATURE),
+        number_of_links: 5,
+        ensemble: Ensemble::Isotensional(ROOM_TEMPERATURE),
     };
-    let cosines = model.cosine_powers(3.3, 2, 10_000, 1);
+    let eta = 3.3;
+    println!("{}", model.nondimensional_extension(eta).unwrap());
+    let cosines = model.cosine_powers(eta, 2, 1_000_000_000, 24);
+    // let cosines = model.cosine_powers(3.3, 2, 10_000, 1);
     println!("{:?}", cosines);
 }
 

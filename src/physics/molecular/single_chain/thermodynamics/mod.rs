@@ -523,16 +523,20 @@ fn cosine_powers_inner<T: MonteCarlo>(
     number_of_powers: usize,
     number_of_samples: usize,
 ) -> Matrix {
+    //
+    // Could implemented differently for extensible models to also return <lambda*cos(theta)> for each link.
+    //
     let mut cosines = Matrix::zero(model.number_of_links() as usize, number_of_powers);
     for _ in 0..number_of_samples {
         cosines
             .iter_mut()
             .zip(model.random_nondimensional_link_vectors(nondimensional_force))
             .for_each(|(powers, link)| {
+                let unit = link.normalized();
                 powers
                     .iter_mut()
                     .enumerate()
-                    .for_each(|(power, entry)| *entry += link[2].powi(power as i32 + 1))
+                    .for_each(|(power, entry)| *entry += unit[2].powi(power as i32 + 1))
             })
     }
     cosines

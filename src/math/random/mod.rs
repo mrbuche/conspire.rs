@@ -67,7 +67,7 @@ thread_local! {
     static NORMAL_SPARE: Cell<Option<f64>> = const { Cell::new(None) };
 }
 
-fn random_normal_standard() -> f64 {
+pub fn random_normal_standard() -> f64 {
     NORMAL_SPARE.with(|spare| {
         if let Some(z) = spare.take() {
             return z;

@@ -20,7 +20,7 @@ fn monte_carlo() {
     let model = ExtensibleFreelyJointedChain {
         link_length: 1.0,
         link_stiffness: STIFFNESS,
-        number_of_links: 3,
+        number_of_links: 5,
         ensemble: Ensemble::Isometric(ROOM_TEMPERATURE),
     };
     let (gamma, g) =

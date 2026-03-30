@@ -192,7 +192,7 @@ impl MonteCarlo for FreelyJointedChain {
     fn random_nondimensional_link_vectors(&self, nondimensional_force: Scalar) -> Configuration {
         let eta = nondimensional_force;
         let eta_exp = eta.exp();
-        let eta_nexp = (-eta).exp();
+        let eta_nexp = 1.0 / eta_exp;
         (0..self.number_of_links())
             .map(|_| {
                 let cos_theta = if eta == 0.0 {

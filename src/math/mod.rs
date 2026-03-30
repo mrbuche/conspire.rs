@@ -25,7 +25,9 @@ pub use matrix::{
     square::{Banded, SquareMatrix},
     vector::Vector,
 };
-pub use random::{random_normal, random_u8, random_u64, random_uniform, random_x2_normal};
+pub use random::{
+    random_normal, random_normal_standard, random_u8, random_u64, random_uniform, random_x2_normal,
+};
 pub use set::{
     dsu::disjoint_set_union,
     sets::{InverseSets, Sets},
