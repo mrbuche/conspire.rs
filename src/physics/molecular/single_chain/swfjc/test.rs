@@ -6,9 +6,7 @@ use crate::{
     },
     physics::{
         ROOM_TEMPERATURE,
-        molecular::single_chain::{
-            Ensemble, MonteCarloInextensible, SquareWellFreelyJointedChain, Thermodynamics,
-        },
+        molecular::single_chain::{Ensemble, SquareWellFreelyJointedChain, Thermodynamics},
     },
 };
 
@@ -16,6 +14,7 @@ const NUM: usize = 333;
 
 #[test]
 fn monte_carlo() {
+    use crate::physics::molecular::single_chain::MonteCarloInextensible;
     const N: usize = 5;
     let model = SquareWellFreelyJointedChain {
         link_length: 1.0,

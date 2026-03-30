@@ -6,9 +6,7 @@ use crate::{
     },
     physics::{
         BOLTZMANN_CONSTANT, ROOM_TEMPERATURE,
-        molecular::single_chain::{
-            Ensemble, ExtensibleFreelyJointedChain, MonteCarloExtensible, Thermodynamics,
-        },
+        molecular::single_chain::{Ensemble, ExtensibleFreelyJointedChain, Thermodynamics},
     },
 };
 
@@ -17,6 +15,7 @@ const NUM: usize = 333;
 
 #[test]
 fn monte_carlo() {
+    use crate::physics::molecular::single_chain::MonteCarloExtensible;
     let model = ExtensibleFreelyJointedChain {
         link_length: 1.0,
         link_stiffness: STIFFNESS,

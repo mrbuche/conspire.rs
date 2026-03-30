@@ -461,21 +461,6 @@ pub trait MonteCarlo
 where
     Self: SingleChain + Sync,
 {
-    fn cosine_powers(
-        &self,
-        nondimensional_force: Scalar,
-        number_of_powers: usize,
-        number_of_samples: usize,
-        number_of_threads: usize,
-    ) -> Matrix {
-        cosine_powers(
-            self,
-            nondimensional_force,
-            number_of_powers,
-            number_of_samples,
-            number_of_threads,
-        )
-    }
     fn random_nondimensional_link_vectors(&self, nondimensional_force: Scalar) -> Configuration;
     fn random_configuration(&self) -> Configuration {
         let mut position = CurrentCoordinate::zero();
@@ -489,63 +474,38 @@ where
     }
 }
 
-fn cosine_powers<T: MonteCarlo>(
-    model: &T,
-    nondimensional_force: Scalar,
-    number_of_powers: usize,
-    number_of_samples: usize,
-    number_of_threads: usize,
-) -> Matrix {
-    let base = number_of_samples / number_of_threads;
-    let remainder = number_of_samples % number_of_threads;
-    scope(|s| {
-        (0..number_of_threads)
-            .map(|t| {
-                s.spawn(move || {
-                    cosine_powers_inner(
-                        model,
-                        nondimensional_force,
-                        number_of_powers,
-                        base + usize::from(t < remainder),
-                    )
-                })
-            })
-            .collect::<Vec<_>>()
-            .into_iter()
-            .map(|handle| handle.join().unwrap() / number_of_samples as Scalar)
-            .sum()
-    })
-}
-
-fn cosine_powers_inner<T: MonteCarlo>(
-    model: &T,
-    nondimensional_force: Scalar,
-    number_of_powers: usize,
-    number_of_samples: usize,
-) -> Matrix {
-    //
-    // Could implemented differently for extensible models to also return <lambda*cos(theta)> for each link.
-    //
-    let mut cosines = Matrix::zero(model.number_of_links() as usize, number_of_powers);
-    for _ in 0..number_of_samples {
-        cosines
-            .iter_mut()
-            .zip(model.random_nondimensional_link_vectors(nondimensional_force))
-            .for_each(|(powers, link)| {
-                let unit = link.normalized();
-                powers
-                    .iter_mut()
-                    .enumerate()
-                    .for_each(|(power, entry)| *entry += unit[2].powi(power as i32 + 1))
-            })
-    }
-    cosines
-}
-
 pub trait MonteCarloExtensible
 where
     Self: Extensible + MonteCarlo,
 {
+    fn cosine_powers(
+        &self,
+        nondimensional_force: Scalar,
+        number_of_powers: usize,
+        number_of_samples: usize,
+        number_of_threads: usize,
+    ) -> Matrix {
+        cosine_powers(
+            self,
+            nondimensional_force,
+            number_of_powers,
+            number_of_samples,
+            number_of_threads,
+            true,
+        )
+    }
+    fn nondimensional_extension(
+        &self,
+        nondimensional_force: Scalar,
+        num_samples: usize,
+        num_threads: usize,
+    ) -> Scalar {
+        self.cosine_powers(nondimensional_force, 0, num_samples, num_threads)
+            .into_iter()
+            .flatten()
+            .sum::<Scalar>()
+            / self.number_of_links() as Scalar
+    }
     fn nondimensional_radial_distribution(
         &self,
         num_bins: usize,
@@ -569,6 +529,34 @@ pub trait MonteCarloInextensible
 where
     Self: Inextensible + MonteCarlo,
 {
+    fn cosine_powers(
+        &self,
+        nondimensional_force: Scalar,
+        number_of_powers: usize,
+        number_of_samples: usize,
+        number_of_threads: usize,
+    ) -> Matrix {
+        cosine_powers(
+            self,
+            nondimensional_force,
+            number_of_powers,
+            number_of_samples,
+            number_of_threads,
+            false,
+        )
+    }
+    fn nondimensional_extension(
+        &self,
+        nondimensional_force: Scalar,
+        num_samples: usize,
+        num_threads: usize,
+    ) -> Scalar {
+        self.cosine_powers(nondimensional_force, 1, num_samples, num_threads)
+            .into_iter()
+            .flatten()
+            .sum::<Scalar>()
+            / self.number_of_links() as Scalar
+    }
     fn nondimensional_radial_distribution(
         &self,
         num_bins: usize,
@@ -586,6 +574,71 @@ where
 }
 
 impl<T> MonteCarloInextensible for T where T: Inextensible + MonteCarlo {}
+
+fn cosine_powers<T: MonteCarlo>(
+    model: &T,
+    nondimensional_force: Scalar,
+    number_of_powers: usize,
+    number_of_samples: usize,
+    number_of_threads: usize,
+    is_extensible: bool,
+) -> Matrix {
+    let base = number_of_samples / number_of_threads;
+    let remainder = number_of_samples % number_of_threads;
+    scope(|s| {
+        (0..number_of_threads)
+            .map(|t| {
+                s.spawn(move || {
+                    cosine_powers_inner(
+                        model,
+                        nondimensional_force,
+                        number_of_powers,
+                        base + usize::from(t < remainder),
+                        is_extensible,
+                    )
+                })
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(|handle| handle.join().unwrap() / number_of_samples as Scalar)
+            .sum()
+    })
+}
+
+fn cosine_powers_inner<T: MonteCarlo>(
+    model: &T,
+    nondimensional_force: Scalar,
+    number_of_powers: usize,
+    number_of_samples: usize,
+    is_extensible: bool,
+) -> Matrix {
+    let mut cosines = Matrix::zero(
+        model.number_of_links() as usize,
+        number_of_powers + is_extensible as usize,
+    );
+    for _ in 0..number_of_samples {
+        cosines
+            .iter_mut()
+            .zip(model.random_nondimensional_link_vectors(nondimensional_force))
+            .for_each(|(powers, link)| {
+                if is_extensible {
+                    powers[0] += link[2];
+                    let unit = link.normalized();
+                    powers
+                        .iter_mut()
+                        .skip(1)
+                        .enumerate()
+                        .for_each(|(power, entry)| *entry += unit[2].powi(power as i32 + 1))
+                } else {
+                    powers
+                        .iter_mut()
+                        .enumerate()
+                        .for_each(|(power, entry)| *entry += link[2].powi(power as i32 + 1))
+                }
+            })
+    }
+    cosines
+}
 
 fn nondimensional_radial_distribution<T: MonteCarlo>(
     model: &T,
