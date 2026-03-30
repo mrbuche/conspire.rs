@@ -39,6 +39,7 @@ where
                 ))
             })
             .collect();
+        let connectivity = connectivity.into();
         Self {
             constitutive_model,
             connectivity,

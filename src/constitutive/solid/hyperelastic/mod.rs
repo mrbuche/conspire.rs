@@ -13,6 +13,7 @@ pub mod test;
 pub mod internal_variables;
 
 mod arruda_boyce;
+mod eight_chain;
 mod fung;
 mod gent;
 mod hencky;
@@ -22,8 +23,9 @@ mod saint_venant_kirchhoff;
 mod yeoh;
 
 pub use self::{
-    arruda_boyce::ArrudaBoyce, fung::Fung, gent::Gent, hencky::Hencky, mooney_rivlin::MooneyRivlin,
-    neo_hookean::NeoHookean, saint_venant_kirchhoff::SaintVenantKirchhoff, yeoh::Yeoh,
+    arruda_boyce::ArrudaBoyce, eight_chain::EightChain, fung::Fung, gent::Gent, hencky::Hencky,
+    mooney_rivlin::MooneyRivlin, neo_hookean::NeoHookean,
+    saint_venant_kirchhoff::SaintVenantKirchhoff, yeoh::Yeoh,
 };
 use super::{
     elastic::{AppliedLoad, Elastic, bcs},

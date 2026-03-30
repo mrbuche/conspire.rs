@@ -90,7 +90,7 @@ where
                         self.constitutive_model(),
                         &self.nodal_temperatures_element(element_connectivity, nodal_temperatures),
                     )?
-                    .iter()
+                    .into_iter()
                     .zip(element_connectivity)
                     .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
                 Ok::<(), FiniteElementError>(())
@@ -117,10 +117,10 @@ where
                         self.constitutive_model(),
                         &self.nodal_temperatures_element(element_connectivity, nodal_temperatures),
                     )?
-                    .iter()
+                    .into_iter()
                     .zip(element_connectivity)
                     .for_each(|(object, &node_a)| {
-                        object.iter().zip(element_connectivity).for_each(
+                        object.into_iter().zip(element_connectivity).for_each(
                             |(nodal_stiffness, &node_b)| {
                                 nodal_stiffnesses[node_a][node_b] += nodal_stiffness
                             },

@@ -7,6 +7,7 @@ pub mod surface;
 pub mod thermal;
 
 use crate::{
+    constitutive::Constitutive,
     defeat_message,
     fem::{
         NodalCoordinates, NodalReferenceCoordinates,
@@ -16,7 +17,8 @@ use crate::{
         },
     },
     math::{
-        Banded, Scalar, ScalarListVec, Scalars, Tensor, TestError,
+        Banded, InverseSets, Scalar, ScalarListVec, Scalars, Sets, Tensor, TestError,
+        disjoint_set_union,
         optimize::{
             EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
             SecondOrderOptimization, ZerothOrderRootFinding,
@@ -26,15 +28,17 @@ use crate::{
 };
 use std::{
     any::type_name,
+    array::from_fn,
     fmt::{self, Debug, Display, Formatter},
     iter::repeat_n,
 };
 
 pub type Connectivity<const N: usize> = Vec<[usize; N]>;
+pub type Graph<const N: usize> = Sets<Vec<[usize; N]>, [usize; N], usize, Vec<usize>, usize>;
 
 pub struct Block<C, F, const G: usize, const M: usize, const N: usize, const P: usize> {
     constitutive_model: C,
-    connectivity: Connectivity<N>,
+    connectivity: Graph<N>,
     coordinates: NodalReferenceCoordinates,
     elements: Vec<F>,
 }
@@ -47,7 +51,7 @@ where
         &self.constitutive_model
     }
     fn connectivity(&self) -> &Connectivity<N> {
-        &self.connectivity
+        self.connectivity.members()
     }
     fn coordinates(&self) -> &NodalReferenceCoordinates {
         &self.coordinates
@@ -94,6 +98,7 @@ pub trait FiniteElementBlock<C, F, const G: usize, const N: usize>
 where
     Self: From<(C, Connectivity<N>, NodalReferenceCoordinates)>,
 {
+    fn isolate(self, elements: &[usize]) -> Vec<(Self, [Vec<usize>; 3])>;
     fn reset(&mut self);
 }
 
@@ -113,6 +118,7 @@ where
             .iter()
             .map(|nodes| Self::element_coordinates(&coordinates, nodes).into())
             .collect();
+        let connectivity = connectivity.into();
         Self {
             constitutive_model,
             connectivity,
@@ -125,8 +131,70 @@ where
 impl<C, F, const G: usize, const N: usize, const P: usize> FiniteElementBlock<C, F, G, N>
     for Block<C, F, G, 3, N, P>
 where
+    C: Constitutive,
     F: Default + FiniteElement<G, 3, N, P> + From<ElementNodalReferenceCoordinates<N>>,
 {
+    fn isolate(self, isolated_elements: &[usize]) -> Vec<(Self, [Vec<usize>; 3])> {
+        let (graph, map) = self.connectivity.inverse();
+        let (_, node_elements) = graph.into();
+        let (_, element_nodes) = self.connectivity.into();
+        let isolated_element_nodes: Connectivity<N> = isolated_elements
+            .iter()
+            .map(|&isolated_element| element_nodes[isolated_element])
+            .collect();
+        disjoint_set_union(&isolated_element_nodes, self.coordinates.len())
+            .into_iter()
+            .map(|isolated_nodes| {
+                let mut block_elements = isolated_nodes
+                    .iter()
+                    .flat_map(|&node| node_elements[map[node]].iter().copied())
+                    .collect::<Vec<_>>();
+                block_elements.sort_unstable();
+                block_elements.dedup();
+                let mut global_nodes = block_elements
+                    .iter()
+                    .flat_map(|&element| element_nodes[element])
+                    .collect::<Vec<_>>();
+                global_nodes.sort_unstable();
+                global_nodes.dedup();
+                let constitutive_model = self.constitutive_model.clone();
+                let mut node_num = 0;
+                let mut local_nodes = vec![0; global_nodes.iter().max().unwrap() + 1];
+                let coordinates = global_nodes
+                    .iter()
+                    .map(|&node| {
+                        local_nodes[node] = node_num;
+                        node_num += 1;
+                        self.coordinates[node].clone()
+                    })
+                    .collect();
+                let connectivity = block_elements
+                    .iter()
+                    .map(|&element| from_fn(|node| local_nodes[element_nodes[element][node]]))
+                    .collect::<Vec<_>>()
+                    .into();
+                let elements = block_elements
+                    .into_iter()
+                    .map(|element| self.elements[element].clone())
+                    .collect();
+                let mut global_boundary_nodes = global_nodes.clone();
+                global_boundary_nodes.retain(|node| isolated_nodes.binary_search(node).is_err());
+                let boundary_nodes = global_boundary_nodes
+                    .into_iter()
+                    .map(|node| local_nodes[node])
+                    .collect();
+                (
+                    Self {
+                        constitutive_model,
+                        connectivity,
+                        coordinates,
+                        elements,
+                    },
+                    [boundary_nodes, local_nodes, global_nodes],
+                )
+            })
+            .collect()
+    }
     fn reset(&mut self) {
         self.elements
             .iter_mut()

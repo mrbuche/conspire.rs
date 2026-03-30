@@ -1,11 +1,13 @@
 use super::super::test::*;
 use super::*;
 
-test_solid_hyperelastic_constitutive_model!(ArrudaBoyce {
+const ARRUDABOYCE: ArrudaBoyce = ArrudaBoyce {
     bulk_modulus: BULK_MODULUS,
     shear_modulus: SHEAR_MODULUS,
-    number_of_links: NUMBER_OF_LINKS,
-});
+    number_of_links: 8.0,
+};
+
+test_solid_hyperelastic_constitutive_model!(ARRUDABOYCE);
 
 mod maximum_extensibility {
     use super::*;
@@ -13,11 +15,7 @@ mod maximum_extensibility {
     fn cauchy_stress() {
         let deformation_gradient =
             DeformationGradient::from([[16.0, 0.0, 0.0], [0.0, 0.25, 0.0], [0.0, 0.0, 0.25]]);
-        let model = ArrudaBoyce {
-            bulk_modulus: BULK_MODULUS,
-            shear_modulus: SHEAR_MODULUS,
-            number_of_links: 8.0,
-        };
+        let model = ARRUDABOYCE;
         assert_eq!(
             model.cauchy_stress(&deformation_gradient),
             Err(ConstitutiveError::Custom(
@@ -30,11 +28,7 @@ mod maximum_extensibility {
     fn cauchy_tangent_stiffness() {
         let deformation_gradient =
             DeformationGradient::from([[16.0, 0.0, 0.0], [0.0, 0.25, 0.0], [0.0, 0.0, 0.25]]);
-        let model = ArrudaBoyce {
-            bulk_modulus: BULK_MODULUS,
-            shear_modulus: SHEAR_MODULUS,
-            number_of_links: 8.0,
-        };
+        let model = ARRUDABOYCE;
         assert_eq!(
             model.cauchy_tangent_stiffness(&deformation_gradient),
             Err(ConstitutiveError::Custom(
@@ -47,11 +41,7 @@ mod maximum_extensibility {
     fn helmholtz_free_energy_density() {
         let deformation_gradient =
             DeformationGradient::from([[16.0, 0.0, 0.0], [0.0, 0.25, 0.0], [0.0, 0.0, 0.25]]);
-        let model = ArrudaBoyce {
-            bulk_modulus: BULK_MODULUS,
-            shear_modulus: SHEAR_MODULUS,
-            number_of_links: 8.0,
-        };
+        let model = ARRUDABOYCE;
         assert_eq!(
             model.helmholtz_free_energy_density(&deformation_gradient),
             Err(ConstitutiveError::Custom(

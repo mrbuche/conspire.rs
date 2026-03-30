@@ -12,6 +12,7 @@ use std::fmt::{self, Debug, Formatter};
 
 const M: usize = 2;
 
+#[derive(Clone)]
 pub struct SurfaceElement<const G: usize, const N: usize, const O: usize> {
     gradient_vectors: GradientVectors<G, N>,
     integration_weights: ScalarList<G>,

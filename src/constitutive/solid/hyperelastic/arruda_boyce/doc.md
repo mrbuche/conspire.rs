@@ -12,7 +12,7 @@ The Arruda-Boyce hyperelastic solid constitutive model.[^1]
 - None.
 
 **Notes**
-- The nondimensional end-to-end length per link of the chains is $`\gamma=\sqrt{\mathrm{tr}(\mathbf{B}^*)/3N_b}`$.
+- The nondimensional end-to-end length per link of a chain is $`\gamma=\sqrt{\mathrm{tr}(\mathbf{B}^*)/3N_b}`$.
 - The nondimensional force is given by the inverse Langevin function as $`\eta=\mathcal{L}^{-1}(\gamma)`$.
 - The initial values are given by $`\gamma_0=\sqrt{1/3N_b}`$ and $`\eta_0=\mathcal{L}^{-1}(\gamma_0)`$.
 - The Arruda-Boyce model reduces to the [Neo-Hookean model](super::NeoHookean) when $`N_b\to\infty`$.

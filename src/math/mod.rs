@@ -16,12 +16,19 @@ pub mod interpolate;
 pub mod optimize;
 
 mod matrix;
+mod random;
+mod set;
 mod tensor;
 
 pub use matrix::{
     Matrix,
     square::{Banded, SquareMatrix},
     vector::Vector,
+};
+pub use random::{random_normal, random_u8, random_u64, random_uniform, random_x2_normal};
+pub use set::{
+    dsu::disjoint_set_union,
+    sets::{InverseSets, Sets},
 };
 pub use tensor::{
     Hessian, Jacobian, Rank2, Scalar, ScalarList, ScalarListVec, Scalars, Solution, Tensor,

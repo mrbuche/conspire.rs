@@ -14,6 +14,9 @@ pub mod math;
 #[cfg(feature = "mechanics")]
 pub mod mechanics;
 
+#[cfg(feature = "physics")]
+pub mod physics;
+
 #[cfg(feature = "vem")]
 #[path = "domain/vem/mod.rs"]
 pub mod vem;
@@ -21,10 +24,8 @@ pub mod vem;
 #[cfg(test)]
 mod test;
 
-use std::{
-    sync::atomic::{AtomicU64, Ordering},
-    time::{SystemTime, UNIX_EPOCH},
-};
+#[cfg(feature = "math")]
+use crate::math::random_u8;
 
 /// Absolute tolerance.
 pub const ABS_TOL: f64 = 1e-12;
@@ -37,6 +38,7 @@ pub const REL_TOL: f64 = 1e-12;
 pub const EPSILON: f64 = 1e-6;
 
 #[allow(dead_code)]
+#[cfg(feature = "math")]
 #[cfg_attr(coverage_nightly, coverage(off))]
 fn defeat_message<'a>() -> &'a str {
     match random_u8(14) {
@@ -59,6 +61,7 @@ fn defeat_message<'a>() -> &'a str {
 }
 
 #[allow(dead_code)]
+#[cfg(feature = "math")]
 #[cfg_attr(coverage_nightly, coverage(off))]
 fn victory_message<'a>() -> &'a str {
     match random_u8(7) {
@@ -71,39 +74,4 @@ fn victory_message<'a>() -> &'a str {
         6 => "That's Numberwang!",
         7.. => "That was totes yeet, yo!",
     }
-}
-
-fn random_u8(max: u8) -> u8 {
-    if max == u8::MAX {
-        return get_random();
-    }
-    // let range = (max as u16) + 1;
-    // let threshold = ((256_u16 / range) * range) as u8;
-    let mut attempts = 0;
-    loop {
-        let val = get_random();
-        // if val < threshold {
-        //     return val % (max + 1);
-        // }
-        attempts += 1;
-        if attempts > 10 {
-            return val % (max + 1);
-        }
-    }
-}
-
-fn get_random() -> u8 {
-    static STATE: AtomicU64 = AtomicU64::new(0);
-    let mut s = STATE.load(Ordering::Relaxed);
-    if s == 0 {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default();
-        s = 1 + now.as_nanos() as u64;
-    }
-    s ^= s << 13;
-    s ^= s >> 7;
-    s ^= s << 17;
-    STATE.store(s, Ordering::Relaxed);
-    (s >> 56) as u8
 }

@@ -25,6 +25,31 @@ pub fn arruda_boyce<'a>() -> Vec<[&'a str; 2]> {
     ]
 }
 
+pub fn eight_chain<'a>() -> Vec<[&'a str; 2]> {
+    vec![
+        [
+            "constitutive/solid/hyperelastic/eight_chain",
+            include_str!("eight_chain/doc.md"),
+        ],
+        [
+            "cauchy_stress",
+            include_str!("eight_chain/cauchy_stress.md"),
+        ],
+        [
+            "cauchy_tangent_stiffness",
+            include_str!("eight_chain/cauchy_tangent_stiffness.md"),
+        ],
+        ["first_piola_kirchhoff_stress", ""],
+        ["first_piola_kirchhoff_tangent_stiffness", ""],
+        ["second_piola_kirchhoff_stress", ""],
+        ["second_piola_kirchhoff_tangent_stiffness", ""],
+        [
+            "helmholtz_free_energy_density",
+            include_str!("eight_chain/helmholtz_free_energy_density.md"),
+        ],
+    ]
+}
+
 pub fn fung<'a>() -> Vec<[&'a str; 2]> {
     vec![
         [

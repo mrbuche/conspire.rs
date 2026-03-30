@@ -44,7 +44,7 @@ pub type StandardGradientOperatorsTransposed<const M: usize, const O: usize, con
 
 pub trait FiniteElement<const G: usize, const M: usize, const N: usize, const P: usize>
 where
-    Self: Debug,
+    Self: Clone + Debug,
 {
     fn integration_points() -> ParametricCoordinates<G, M>;
     fn integration_weights(&self) -> &ScalarList<G>;
@@ -144,6 +144,7 @@ where
     ) -> ForceList<N>;
 }
 
+#[derive(Clone)]
 pub struct Element<const G: usize, const N: usize, const O: usize> {
     gradient_vectors: GradientVectors<G, N>,
     integration_weights: ScalarList<G>,
