@@ -276,12 +276,11 @@ mod minimum_scaled_jacobian {
     /// The expected value is 0.0.
     #[test]
     fn flat() -> Result<(), TestError> {
-        let mut nodal_coordinates = reference_coordinates();
-        // Collapse upper face onto lower face.
-        nodal_coordinates[4] = nodal_coordinates[0].clone();
-        nodal_coordinates[5] = nodal_coordinates[1].clone();
-        nodal_coordinates[6] = nodal_coordinates[2].clone();
-        nodal_coordinates[7] = nodal_coordinates[3].clone();
+        let nodal_coordinates = reference_coordinates()
+            .into_iter()
+            .take(4)
+            .chain(reference_coordinates().into_iter().take(4))
+            .collect();
         let msj = Hexahedron::minimum_scaled_jacobian(nodal_coordinates);
         assert_eq_within_tols(&msj, &0.0)
     }
