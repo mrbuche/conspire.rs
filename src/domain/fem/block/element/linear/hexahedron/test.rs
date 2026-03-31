@@ -263,17 +263,11 @@ test_finite_element_block!(Hexahedron);
 mod minimum_scaled_jacobian {
     use super::*;
     use crate::math::test::{TestError, assert_eq_within_tols};
-    /// Tests the scaled Jacobian calculation for an ideal, unit hexahedron.
-    ///
-    /// The expected value is 1.0.
     #[test]
     fn ideal() -> Result<(), TestError> {
         let msj = Hexahedron::minimum_scaled_jacobian(reference_coordinates());
         assert_eq_within_tols(&msj, &1.0)
     }
-    /// Tests the scaled Jacobian calculation for a degenerate, flat hexahedron.
-    ///
-    /// The expected value is 0.0.
     #[test]
     fn flat() -> Result<(), TestError> {
         let nodal_coordinates = reference_coordinates()
@@ -284,9 +278,6 @@ mod minimum_scaled_jacobian {
         let msj = Hexahedron::minimum_scaled_jacobian(nodal_coordinates);
         assert_eq_within_tols(&msj, &0.0)
     }
-    /// Tests the scaled Jacobian calculation for an inverted ideal hexahedron.
-    ///
-    /// The expected value is -1.0.
     #[test]
     fn inverted_ideal() -> Result<(), TestError> {
         let nodal_coordinates = reference_coordinates()
