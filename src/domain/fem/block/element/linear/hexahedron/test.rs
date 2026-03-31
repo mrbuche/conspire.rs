@@ -259,3 +259,63 @@ fn applied_velocities() -> (crate::math::Matrix, crate::math::Vector) {
 
 test_finite_element!(Hexahedron);
 test_finite_element_block!(Hexahedron);
+
+mod minimum_scaled_jacobian {
+    use super::*;
+    use crate::math::test::{TestError, assert_eq_within_tols};
+    /// Tests the scaled Jacobian calculation for an ideal, unit hexahedron.
+    ///
+    /// The expected value is 1.0.
+    #[test]
+    fn ideal() -> Result<(), TestError> {
+        let msj = Hexahedron::minimum_scaled_jacobian::<0>(reference_coordinates());
+        assert_eq_within_tols(&msj, &1.0)
+    }
+    /// Tests the scaled Jacobian calculation for a degenerate, flat hexahedron.
+    ///
+    /// The expected value is 0.0.
+    #[test]
+    fn flat() -> Result<(), TestError> {
+        let mut nodal_coordinates = reference_coordinates();
+        // Collapse upper face onto lower face.
+        nodal_coordinates[4] = nodal_coordinates[0].clone();
+        nodal_coordinates[5] = nodal_coordinates[1].clone();
+        nodal_coordinates[6] = nodal_coordinates[2].clone();
+        nodal_coordinates[7] = nodal_coordinates[3].clone();
+        let msj = Hexahedron::minimum_scaled_jacobian::<0>(nodal_coordinates);
+        assert_eq_within_tols(&msj, &0.0)
+    }
+    /// Tests the scaled Jacobian calculation for an inverted ideal hexahedron.
+    ///
+    /// The expected value is -1.0.
+    #[test]
+    fn inverted_ideal() -> Result<(), TestError> {
+        let mut nodal_coordinates = reference_coordinates();
+
+        // Swap the bottom face for the top, and vice versa.
+        let tmp0 = nodal_coordinates[0].clone();
+        let tmp1 = nodal_coordinates[1].clone();
+        let tmp2 = nodal_coordinates[2].clone();
+        let tmp3 = nodal_coordinates[3].clone();
+        let tmp4 = nodal_coordinates[4].clone();
+        let tmp5 = nodal_coordinates[5].clone();
+        let tmp6 = nodal_coordinates[6].clone();
+        let tmp7 = nodal_coordinates[7].clone();
+
+        nodal_coordinates[0] = tmp4;
+        nodal_coordinates[4] = tmp0;
+
+        nodal_coordinates[1] = tmp5;
+        nodal_coordinates[5] = tmp1;
+
+        nodal_coordinates[2] = tmp6;
+        nodal_coordinates[6] = tmp2;
+
+        nodal_coordinates[3] = tmp7;
+        nodal_coordinates[7] = tmp3;
+
+        let msj = Hexahedron::minimum_scaled_jacobian::<0>(nodal_coordinates);
+        // assert!(msj < 0.0);
+        assert_eq_within_tols(&msj, &-1.0)
+    }
+}
