@@ -293,7 +293,7 @@ mod minimum_scaled_jacobian {
         let mininum_scaled_jacobians_gold = [0.19173666980464177, 0.3743932367172326];
         let element_node_connectivity = [0, 1, 3, 2, 4, 5, 7, 6];
         let nodal_coordinates_set = [
-            ElementNodalCoordinates::<N>::from([
+            ElementNodalCoordinates::from([
                 [0.110000e0, 0.120000e0, -0.130000e0],
                 [1.200000e0, -0.200000e0, 0.000000e0],
                 [-0.500000e0, 1.866025e0, -0.200000e0],
@@ -303,7 +303,7 @@ mod minimum_scaled_jacobian {
                 [-0.500000e0, 0.600000e0, 1.400000e0],
                 [0.500000e0, 0.866025e0, 1.200000e0],
             ]),
-            ElementNodalCoordinates::<N>::from([
+            ElementNodalCoordinates::from([
                 [0.100000e0, 0.200000e0, 0.300000e0],
                 [1.200000e0, 0.300000e0, 0.400000e0],
                 [-0.200000e0, 1.200000e0, -0.100000e0],
@@ -322,7 +322,6 @@ mod minimum_scaled_jacobian {
                     .iter()
                     .map(|&node| nodal_coordinates[node].clone())
                     .collect();
-
                 assert_eq_within_tols(
                     &Hexahedron::minimum_scaled_jacobian(sequential_coordinates),
                     &msj_gold,
