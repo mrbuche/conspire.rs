@@ -147,6 +147,10 @@ where
         exponent: Scalar,
         nodal_coordinates: ElementNodalCoordinates<N>,
     ) -> ForceList<N>;
+    fn scaled_jacobian_tangents(
+        exponent: Scalar,
+        nodal_coordinates: ElementNodalCoordinates<N>,
+    ) -> StiffnessList2D<N>;
 }
 
 #[derive(Clone)]

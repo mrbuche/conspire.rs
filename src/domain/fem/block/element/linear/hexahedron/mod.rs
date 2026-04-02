@@ -378,4 +378,10 @@ impl FiniteElementImprovement<G, M, N, P> for Hexahedron {
         );
         gradients
     }
+    fn scaled_jacobian_tangents(
+        exponent: Scalar,
+        nodal_coordinates: ElementNodalCoordinates<N>,
+    ) -> StiffnessList2D<N> {
+        StiffnessList2D::zero()
+    }
 }
