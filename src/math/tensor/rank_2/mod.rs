@@ -1391,6 +1391,13 @@ impl<const D: usize, const I: usize, const J: usize> Add<TensorRank2<D, I, J>>
     }
 }
 
+impl<const D: usize, const I: usize, const J: usize> Add for &TensorRank2<D, I, J> {
+    type Output = TensorRank2<D, I, J>;
+    fn add(self, tensor_rank_2: Self) -> Self::Output {
+        self.clone() + tensor_rank_2
+    }
+}
+
 impl<const D: usize, const I: usize, const J: usize> AddAssign for TensorRank2<D, I, J> {
     fn add_assign(&mut self, tensor_rank_2: Self) {
         self.iter_mut()

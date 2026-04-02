@@ -16,7 +16,8 @@ use crate::{
         Scalar, ScalarList, Tensor, TensorRank1, TensorRank1List, TensorRank1List2D, TestError,
     },
     mechanics::{
-        CoordinateList, CurrentCoordinates, ForceList, ReferenceCoordinates, VectorList2D,
+        CoordinateList, CurrentCoordinates, ForceList, ReferenceCoordinates, StiffnessList2D,
+        VectorList2D,
     },
 };
 use std::fmt::{self, Debug, Display, Formatter};
@@ -122,6 +123,10 @@ where
         exponent: Scalar,
         nodal_coordinates: ElementNodalCoordinates<N>,
     ) -> ForceList<N>;
+    fn jacobian_tangents(
+        exponent: Scalar,
+        nodal_coordinates: ElementNodalCoordinates<N>,
+    ) -> StiffnessList2D<N>;
     fn scaled_jacobians<const I: usize>(
         nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> ScalarList<N>;

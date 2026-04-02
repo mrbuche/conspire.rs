@@ -316,6 +316,46 @@ mod metrics {
                         &jacobian_gradients_fd,
                     )
                 }
+                #[test]
+                fn gradients() -> Result<(), TestError> {
+                    let mut finite_difference = 0.0;
+                    let mut coords = reference_coordinates();
+                    let jacobian_tangents_fd = (0..N)
+                        .map(|a| {
+                            (0..N)
+                                .map(|b| {
+                                    (0..3)
+                                        .map(|i| {
+                                            (0..3)
+                                                .map(|j| {
+                                                    finite_difference = 0.0;
+                                                    coords[b][j] += 0.5 * EPSILON;
+                                                    finite_difference =
+                                                        Hexahedron::jacobian_gradients(
+                                                            EXPONENT,
+                                                            coords.clone().into(),
+                                                        )[a][i];
+                                                    coords[b][j] -= EPSILON;
+                                                    finite_difference -=
+                                                        Hexahedron::jacobian_gradients(
+                                                            EXPONENT,
+                                                            coords.clone().into(),
+                                                        )[a][i];
+                                                    coords[b][j] += 0.5 * EPSILON;
+                                                    finite_difference / EPSILON
+                                                })
+                                                .collect()
+                                        })
+                                        .collect()
+                                })
+                                .collect()
+                        })
+                        .collect();
+                    assert_eq_from_fd(
+                        &Hexahedron::jacobian_tangents(EXPONENT, reference_coordinates().into()),
+                        &jacobian_tangents_fd,
+                    )
+                }
             }
             mod deformed {
                 use super::*;
@@ -343,6 +383,46 @@ mod metrics {
                     assert_eq_from_fd(
                         &Hexahedron::jacobian_gradients(EXPONENT, perturbed_coordinates()),
                         &jacobian_gradients_fd,
+                    )
+                }
+                #[test]
+                fn gradients() -> Result<(), TestError> {
+                    let mut finite_difference = 0.0;
+                    let mut coords = perturbed_coordinates();
+                    let jacobian_tangents_fd = (0..N)
+                        .map(|a| {
+                            (0..N)
+                                .map(|b| {
+                                    (0..3)
+                                        .map(|i| {
+                                            (0..3)
+                                                .map(|j| {
+                                                    finite_difference = 0.0;
+                                                    coords[b][j] += 0.5 * EPSILON;
+                                                    finite_difference =
+                                                        Hexahedron::jacobian_gradients(
+                                                            EXPONENT,
+                                                            coords.clone(),
+                                                        )[a][i];
+                                                    coords[b][j] -= EPSILON;
+                                                    finite_difference -=
+                                                        Hexahedron::jacobian_gradients(
+                                                            EXPONENT,
+                                                            coords.clone(),
+                                                        )[a][i];
+                                                    coords[b][j] += 0.5 * EPSILON;
+                                                    finite_difference / EPSILON
+                                                })
+                                                .collect()
+                                        })
+                                        .collect()
+                                })
+                                .collect()
+                        })
+                        .collect();
+                    assert_eq_from_fd(
+                        &Hexahedron::jacobian_tangents(EXPONENT, perturbed_coordinates()),
+                        &jacobian_tangents_fd,
                     )
                 }
             }

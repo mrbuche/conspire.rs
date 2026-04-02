@@ -9,7 +9,7 @@ use crate::{
         linear::{LinearElement, LinearFiniteElement, M},
     },
     math::{Scalar, ScalarList, Tensor, TensorArray},
-    mechanics::{Coordinate, ForceList},
+    mechanics::{Coordinate, ForceList, Stiffness, StiffnessList2D},
 };
 
 const G: usize = 8;
@@ -189,6 +189,125 @@ impl FiniteElementImprovement<G, M, N, P> for Hexahedron {
             },
         );
         gradients
+    }
+    fn jacobian_tangents(
+        exponent: Scalar,
+        nodal_coordinates: ElementNodalCoordinates<N>,
+    ) -> StiffnessList2D<N> {
+        // Force convention: F = -∇f (matches your jacobian_gradients signs)
+        // Tangent (stiffness): K = ∂F/∂x = -∇² f
+
+        // Helper: rank-2 tensor [p]_x such that [p]_x * q = p.cross(q)
+        fn cross_mat<const I: usize>(p: &Coordinate<I>) -> Stiffness {
+            let px = p[0];
+            let py = p[1];
+            let pz = p[2];
+            [[0.0, -pz, py], [pz, 0.0, -px], [-py, px, 0.0]].into()
+        }
+
+        let mut weights = Self::jacobians_relative(&nodal_coordinates)
+            .0
+            .into_iter()
+            .map(|j| (-exponent * j).exp())
+            .collect::<ScalarList<N>>();
+        weights /= weights.iter().sum::<Scalar>();
+
+        // We need:
+        //   G = Σ w_i g_i   where g_i = ∇J_i (24-vector, but we store as per-node 3-vectors)
+        //   A = Σ w_i g_i g_i^T (block outer products)
+        //   Hsum = Σ w_i H_i where H_i = ∇²J_i (block 8x8 of 3x3)
+        //
+        // Then K = -Hsum + β (A - G G^T)
+
+        let mut g = ForceList::<N>::zero();
+        let mut a = StiffnessList2D::<N>::zero();
+        let mut hsum = StiffnessList2D::<N>::zero();
+
+        CORNERS.into_iter().enumerate().zip(weights).for_each(
+            |((i, [a_node, b_node, c_node]), wi)| {
+                // edge vectors for this corner i
+                let u = &nodal_coordinates[a_node] - &nodal_coordinates[i];
+                let v = &nodal_coordinates[b_node] - &nodal_coordinates[i];
+                let w = &nodal_coordinates[c_node] - &nodal_coordinates[i];
+
+                // per-corner gradient of J (node-wise 3-vectors)
+                // (mathematical) ∇J:
+                let g_a = v.cross(&w);
+                let g_b = w.cross(&u);
+                let g_c = u.cross(&v);
+                let g_i = -(&g_a + &g_b + &g_c);
+
+                // accumulate g = Σ wi * ∇J_i   (still "math gradient", not force)
+                g[a_node] += &g_a * wi;
+                g[b_node] += &g_b * wi;
+                g[c_node] += &g_c * wi;
+                g[i] += &g_i * wi;
+
+                // accumulate A = Σ wi * (∇J_i)(∇J_i)^T as blocks
+                let nodes = [i, a_node, b_node, c_node];
+                let grads = [g_i, g_a, g_b, g_c];
+                nodes.iter().zip(grads.iter()).for_each(|(&p, grads_pp)| {
+                    nodes.iter().zip(grads.iter()).for_each(|(&q, grads_qq)| {
+                        a[p][q] += Stiffness::from((grads_pp, grads_qq)) * wi
+                    })
+                });
+
+                // accumulate Hsum = Σ wi * ∇²J_i using 3x3 blocks
+                let ux = cross_mat(&u);
+                let vx = cross_mat(&v);
+                let wx = cross_mat(&w);
+
+                // Neighbor-neighbor
+                // H_ab = -[w]_x ; H_ba = [w]_x
+                hsum[a_node][b_node] -= &wx * wi;
+                hsum[b_node][a_node] += &wx * wi;
+
+                // H_bc = -[u]_x ; H_cb = [u]_x
+                hsum[b_node][c_node] -= &ux * wi;
+                hsum[c_node][b_node] += &ux * wi;
+
+                // H_ca = -[v]_x ; H_ac = [v]_x
+                hsum[c_node][a_node] -= &vx * wi;
+                hsum[a_node][c_node] += &vx * wi;
+
+                // Corner-neighbor
+                // H_ia = [v]_x+[w]_x ; H_ai = -(...) etc.
+                let hia = &vx - &wx;
+                let hib = wx - &ux;
+                let hic = ux - vx;
+
+                hsum[i][a_node] += &hia * wi;
+                hsum[a_node][i] -= hia * wi;
+
+                hsum[i][b_node] += &hib * wi;
+                hsum[b_node][i] -= hib * wi;
+
+                hsum[i][c_node] += &hic * wi;
+                hsum[c_node][i] -= hic * wi;
+
+                // diagonal blocks are zero; no need to add
+            },
+        );
+
+        // Now build K = -Hsum + β (A - G G^T), and then negate because Force = -∇f?
+        // Careful with conventions:
+        //
+        // f = softmin(J)
+        // ∇f = Σ w_i ∇J_i  = g
+        // ∇²f = Hsum - β (A - g g^T)
+        // Force F = -∇f
+        // Tangent K = ∂F/∂x = -∇²f = -Hsum + β (A - g g^T)
+
+        // Build GG^T in block form
+        let mut gg = StiffnessList2D::<N>::zero();
+        gg.iter_mut().zip(g.iter()).for_each(|(gg_p, g_p)| {
+            gg_p.iter_mut()
+                .zip(g.iter())
+                .for_each(|(gg_pq, g_q)| *gg_pq += Stiffness::from((g_p, g_q)))
+        });
+
+        // K = -Hsum + β (A - GG)
+        (a - gg) * exponent - hsum
     }
     fn scaled_jacobians<const I: usize>(
         nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
