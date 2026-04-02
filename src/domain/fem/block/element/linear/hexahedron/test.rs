@@ -290,9 +290,8 @@ mod minimum_scaled_jacobian {
     }
     #[test]
     fn valence_3_and_4_noised() -> Result<(), TestError> {
-        let mininum_scaled_jacobians_gold = [0.19173666980464177, 0.3743932367172326];
         let element_node_connectivity = [0, 1, 3, 2, 4, 5, 7, 6];
-        let nodal_coordinates_set = [
+        [
             ElementNodalCoordinates::from([
                 [0.110000e0, 0.120000e0, -0.130000e0],
                 [1.200000e0, -0.200000e0, 0.000000e0],
@@ -313,19 +312,18 @@ mod minimum_scaled_jacobian {
                 [0.000000e0, 1.000000e0, 1.000000e0],
                 [1.010000e0, 1.020000e0, 1.030000e0],
             ]),
-        ];
-        nodal_coordinates_set
-            .into_iter()
-            .zip(mininum_scaled_jacobians_gold)
-            .try_for_each(|(nodal_coordinates, msj_gold)| {
-                let sequential_coordinates = element_node_connectivity
-                    .iter()
-                    .map(|&node| nodal_coordinates[node].clone())
-                    .collect();
-                assert_eq_within_tols(
-                    &Hexahedron::minimum_scaled_jacobian(sequential_coordinates),
-                    &msj_gold,
-                )
-            })
+        ]
+        .into_iter()
+        .zip([0.19173666980464177, 0.3743932367172326])
+        .try_for_each(|(nodal_coordinates, msj_gold)| {
+            let sequential_coordinates = element_node_connectivity
+                .iter()
+                .map(|&node| nodal_coordinates[node].clone())
+                .collect();
+            assert_eq_within_tols(
+                &Hexahedron::minimum_scaled_jacobian(sequential_coordinates),
+                &msj_gold,
+            )
+        })
     }
 }
