@@ -173,7 +173,7 @@ where
 /// \mathrm{sinhc}(x) = \frac{\sinh(x)}{x}
 /// ```
 pub fn sinhc(x: Scalar) -> Scalar {
-    if x == 0.0 { 0.0 } else { x.sinh() / x }
+    if x == 0.0 { 1.0 } else { x.sinh() / x }
 }
 
 /// Returns the error function.
