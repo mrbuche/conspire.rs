@@ -291,7 +291,7 @@ mod minimum_scaled_jacobian {
     #[test]
     fn valence_3_and_4_noised() -> Result<(), TestError> {
         let mininum_scaled_jacobians_gold = [0.19173666980464177, 0.3743932367172326];
-        let element_node_connectivity = [[0, 1, 3, 2, 4, 5, 7, 6]];
+        let element_node_connectivity = [0, 1, 3, 2, 4, 5, 7, 6];
         let nodal_coordinates_set = [
             ElementNodalCoordinates::<N>::from([
                 [0.110000e0, 0.120000e0, -0.130000e0],
@@ -318,9 +318,9 @@ mod minimum_scaled_jacobian {
             .into_iter()
             .zip(mininum_scaled_jacobians_gold)
             .try_for_each(|(nodal_coordinates, msj_gold)| {
-                let sequential_coordinates = element_node_connectivity[0]
-                    .into_iter()
-                    .map(|i| nodal_coordinates[i].clone())
+                let sequential_coordinates = element_node_connectivity
+                    .iter()
+                    .map(|&node| nodal_coordinates[node].clone())
                     .collect();
 
                 assert_eq_within_tols(
