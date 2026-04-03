@@ -578,6 +578,23 @@ where
             .sum::<Scalar>()
             / self.number_of_links() as Scalar
     }
+    fn nondimensional_longitudinal_distribution(
+        &self,
+        nondimensional_force: Scalar,
+        num_bins: usize,
+        num_samples: usize,
+        num_threads: usize,
+    ) -> (Vector, Vector) {
+        nondimensional_radial_distribution(
+            self,
+            Distribution::Longitudinal,
+            nondimensional_force,
+            num_bins,
+            num_samples,
+            num_threads,
+            self.maximum_nondimensional_extension(),
+        )
+    }
     fn nondimensional_radial_distribution(
         &self,
         nondimensional_force: Scalar,
