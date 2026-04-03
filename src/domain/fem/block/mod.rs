@@ -24,7 +24,7 @@ use crate::{
             SecondOrderOptimization, ZerothOrderRootFinding,
         },
     },
-    mechanics::{CoordinateList, Coordinates, Forces},
+    mechanics::{CoordinateList, Coordinates, Forces, Stiffnesses},
 };
 use std::{
     any::type_name,
@@ -238,10 +238,11 @@ where
         &self,
         exponent: Scalar,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<Scalar, Forces>,
+        solver: impl SecondOrderOptimization<Scalar, Forces, Stiffnesses, NodalCoordinates>,
     ) -> Result<NodalCoordinates, OptimizationError>;
     fn objective(&self, exponent: Scalar, coordinates: &NodalCoordinates) -> Scalar;
     fn gradients(&self, exponent: Scalar, coordinates: &NodalCoordinates) -> Forces;
+    fn tangents(&self, exponent: Scalar, coordinates: &NodalCoordinates) -> Stiffnesses;
     fn jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<N>;
     fn scaled_jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<N>;
     fn scaled_jacobian_objective(&self, exponent: Scalar, coordinates: &NodalCoordinates)
@@ -260,13 +261,15 @@ where
         &self,
         exponent: Scalar,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<Scalar, Forces>,
+        solver: impl SecondOrderOptimization<Scalar, Forces, Stiffnesses, NodalCoordinates>,
     ) -> Result<NodalCoordinates, OptimizationError> {
         solver.minimize(
             |nodal_coordinates: &NodalCoordinates| Ok(self.objective(exponent, nodal_coordinates)),
             |nodal_coordinates: &NodalCoordinates| Ok(self.gradients(exponent, nodal_coordinates)),
+            |nodal_coordinates: &NodalCoordinates| Ok(self.tangents(exponent, nodal_coordinates)),
             self.coordinates().clone().into(),
             equality_constraint,
+            None, // could be banded
         )
     }
     fn objective(&self, exponent: Scalar, coordinates: &NodalCoordinates) -> Scalar {
@@ -314,6 +317,55 @@ where
             }
         });
         nodal_forces
+    }
+    fn tangents(&self, exponent: Scalar, coordinates: &NodalCoordinates) -> Stiffnesses {
+        let mut nodal_stiffnesses = Stiffnesses::zero(coordinates.len());
+        self.connectivity().iter().for_each(|nodes| {
+            let element_coordinates = Self::element_coordinates(coordinates, nodes);
+            if F::minimum_jacobian(&element_coordinates) > 0.0 {
+                F::scaled_jacobian_tangents(
+                    exponent,
+                    Self::element_coordinates(coordinates, nodes),
+                )
+                .into_iter()
+                .zip(nodes)
+                .for_each(|(object, &node_a)| {
+                    object
+                        .into_iter()
+                        .zip(nodes)
+                        .for_each(|(nodal_stiffness, &node_b)| {
+                            if nodal_stiffness
+                                .iter()
+                                .any(|object| object.iter().all(|entry| !entry.is_nan()))
+                            {
+                                nodal_stiffnesses[node_a][node_b] += nodal_stiffness
+                            } else {
+                                panic!()
+                            }
+                        })
+                });
+            } else {
+                F::jacobian_tangents(exponent, Self::element_coordinates(coordinates, nodes))
+                    .into_iter()
+                    .zip(nodes)
+                    .for_each(|(object, &node_a)| {
+                        object
+                            .into_iter()
+                            .zip(nodes)
+                            .for_each(|(nodal_stiffness, &node_b)| {
+                                if nodal_stiffness
+                                    .iter()
+                                    .any(|object| object.iter().all(|entry| !entry.is_nan()))
+                                {
+                                    nodal_stiffnesses[node_a][node_b] += nodal_stiffness
+                                } else {
+                                    panic!()
+                                }
+                            })
+                    });
+            }
+        });
+        nodal_stiffnesses
     }
     fn jacobians<const I: usize>(&self, coordinates: &Coordinates<I>) -> ScalarListVec<N> {
         self.connectivity()

@@ -116,7 +116,7 @@ where
         exponent: Scalar,
         nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> ScalarList<N> {
-        let mut weights = Self::jacobians_relative(&nodal_coordinates)
+        let mut weights = Self::jacobians_relative(nodal_coordinates)
             .0
             .into_iter()
             .map(|jacobian| (-exponent * jacobian).exp())
@@ -151,7 +151,7 @@ where
         exponent: Scalar,
         nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> ScalarList<N> {
-        let mut weights = Self::scaled_jacobians_relative(&nodal_coordinates)
+        let mut weights = Self::scaled_jacobians_relative(nodal_coordinates)
             .0
             .into_iter()
             .map(|scaled_jacobian| (-exponent * scaled_jacobian).exp())
