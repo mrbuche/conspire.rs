@@ -462,9 +462,9 @@ where
     Self: SingleChain + Sync,
 {
     fn random_nondimensional_link_vectors(&self, nondimensional_force: Scalar) -> Configuration;
-    fn random_configuration(&self) -> Configuration {
+    fn random_configuration(&self, nondimensional_force: Scalar) -> Configuration {
         let mut position = CurrentCoordinate::zero();
-        self.random_nondimensional_link_vectors(0.0)
+        self.random_nondimensional_link_vectors(nondimensional_force)
             .into_iter()
             .map(|displacement| {
                 position += displacement;
@@ -508,6 +508,7 @@ where
     }
     fn nondimensional_radial_distribution(
         &self,
+        nondimensional_force: Scalar,
         num_bins: usize,
         num_samples: usize,
         num_threads: usize,
@@ -515,6 +516,7 @@ where
     ) -> (Vector, Vector) {
         nondimensional_radial_distribution(
             self,
+            nondimensional_force,
             num_bins,
             num_samples,
             num_threads,
@@ -559,12 +561,14 @@ where
     }
     fn nondimensional_radial_distribution(
         &self,
+        nondimensional_force: Scalar,
         num_bins: usize,
         num_samples: usize,
         num_threads: usize,
     ) -> (Vector, Vector) {
         nondimensional_radial_distribution(
             self,
+            nondimensional_force,
             num_bins,
             num_samples,
             num_threads,
@@ -642,6 +646,7 @@ fn cosine_powers_inner<T: MonteCarlo>(
 
 fn nondimensional_radial_distribution<T: MonteCarlo>(
     model: &T,
+    nondimensional_force: Scalar,
     number_of_bins: usize,
     number_of_samples: usize,
     number_of_threads: usize,
@@ -656,6 +661,7 @@ fn nondimensional_radial_distribution<T: MonteCarlo>(
                 s.spawn(move || {
                     nondimensional_radial_distribution_inner(
                         model,
+                        nondimensional_force,
                         number_of_bins,
                         base + usize::from(t < remainder),
                         maximum_nondimensional_extension,
@@ -685,6 +691,7 @@ fn nondimensional_radial_distribution<T: MonteCarlo>(
 
 fn nondimensional_radial_distribution_inner<T: MonteCarlo>(
     model: &T,
+    nondimensional_force: Scalar,
     num_bins: usize,
     num_samples: usize,
     maximum_nondimensional_extension: Scalar,
@@ -693,7 +700,7 @@ fn nondimensional_radial_distribution_inner<T: MonteCarlo>(
     let num_links = model.number_of_links() as Scalar;
     let end_index = model.number_of_links() as usize - 1;
     for _ in 0..num_samples {
-        let configuration = model.random_configuration();
+        let configuration = model.random_configuration(nondimensional_force);
         let nondimensional_extension = configuration[end_index].norm() / num_links;
         if nondimensional_extension > maximum_nondimensional_extension {
             panic!(
