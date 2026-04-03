@@ -506,6 +506,24 @@ where
             .sum::<Scalar>()
             / self.number_of_links() as Scalar
     }
+    fn nondimensional_longitudinal_distribution(
+        &self,
+        nondimensional_force: Scalar,
+        num_bins: usize,
+        num_samples: usize,
+        num_threads: usize,
+        maximum_nondimensional_extension: Scalar,
+    ) -> (Vector, Vector) {
+        nondimensional_radial_distribution(
+            self,
+            Distribution::Longitudinal,
+            nondimensional_force,
+            num_bins,
+            num_samples,
+            num_threads,
+            maximum_nondimensional_extension,
+        )
+    }
     fn nondimensional_radial_distribution(
         &self,
         nondimensional_force: Scalar,
@@ -516,6 +534,7 @@ where
     ) -> (Vector, Vector) {
         nondimensional_radial_distribution(
             self,
+            Distribution::Radial,
             nondimensional_force,
             num_bins,
             num_samples,
@@ -568,6 +587,7 @@ where
     ) -> (Vector, Vector) {
         nondimensional_radial_distribution(
             self,
+            Distribution::Radial,
             nondimensional_force,
             num_bins,
             num_samples,
@@ -644,8 +664,16 @@ fn cosine_powers_inner<T: MonteCarlo>(
     cosines
 }
 
+#[derive(Clone, Copy)]
+enum Distribution {
+    Radial,
+    Longitudinal,
+    // Transverse,
+}
+
 fn nondimensional_radial_distribution<T: MonteCarlo>(
     model: &T,
+    distribution: Distribution,
     nondimensional_force: Scalar,
     number_of_bins: usize,
     number_of_samples: usize,
@@ -659,8 +687,9 @@ fn nondimensional_radial_distribution<T: MonteCarlo>(
         (0..number_of_threads)
             .map(|t| {
                 s.spawn(move || {
-                    nondimensional_radial_distribution_inner(
+                    nondimensional_distribution_inner(
                         model,
+                        distribution,
                         nondimensional_force,
                         number_of_bins,
                         base + usize::from(t < remainder),
@@ -688,9 +717,9 @@ fn nondimensional_radial_distribution<T: MonteCarlo>(
         (bin_centers, bin_values)
     })
 }
-
-fn nondimensional_radial_distribution_inner<T: MonteCarlo>(
+fn nondimensional_distribution_inner<T: MonteCarlo>(
     model: &T,
+    distribution: Distribution,
     nondimensional_force: Scalar,
     num_bins: usize,
     num_samples: usize,
@@ -701,7 +730,10 @@ fn nondimensional_radial_distribution_inner<T: MonteCarlo>(
     let end_index = model.number_of_links() as usize - 1;
     for _ in 0..num_samples {
         let configuration = model.random_configuration(nondimensional_force);
-        let nondimensional_extension = configuration[end_index].norm() / num_links;
+        let nondimensional_extension = match distribution {
+            Distribution::Radial => configuration[end_index].norm() / num_links,
+            Distribution::Longitudinal => configuration[end_index][2] / num_links,
+        };
         if nondimensional_extension > maximum_nondimensional_extension {
             panic!(
                 "Sample {nondimensional_extension} above maximum {maximum_nondimensional_extension}"
