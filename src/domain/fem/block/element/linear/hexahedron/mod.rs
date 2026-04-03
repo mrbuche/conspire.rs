@@ -8,7 +8,7 @@ use crate::{
         ParametricCoordinates, ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         linear::{LinearElement, LinearFiniteElement, M},
     },
-    math::{Scalar, ScalarList, Tensor, TensorArray},
+    math::{IDENTITY, Scalar, ScalarList, Tensor, TensorArray},
     mechanics::{Coordinate, ForceList, Stiffness, StiffnessList2D},
 };
 
@@ -166,12 +166,7 @@ impl FiniteElementImprovement<G, M, N, P> for Hexahedron {
         exponent: Scalar,
         nodal_coordinates: ElementNodalCoordinates<N>,
     ) -> ForceList<N> {
-        let mut weights = Self::jacobians_relative(&nodal_coordinates)
-            .0
-            .into_iter()
-            .map(|jacobian| (-exponent * jacobian).exp())
-            .collect::<ScalarList<N>>();
-        weights /= weights.iter().sum::<Scalar>();
+        let weights = Self::jacobians_weights(exponent, &nodal_coordinates);
         let mut gradients = ForceList::<N>::zero();
         CORNERS.into_iter().enumerate().zip(weights).for_each(
             |((node, [node_a, node_b, node_c]), weight)| {
@@ -205,12 +200,7 @@ impl FiniteElementImprovement<G, M, N, P> for Hexahedron {
             [[0.0, -pz, py], [pz, 0.0, -px], [-py, px, 0.0]].into()
         }
 
-        let mut weights = Self::jacobians_relative(&nodal_coordinates)
-            .0
-            .into_iter()
-            .map(|j| (-exponent * j).exp())
-            .collect::<ScalarList<N>>();
-        weights /= weights.iter().sum::<Scalar>();
+        let weights = Self::jacobians_weights(exponent, &nodal_coordinates);
 
         // We need:
         //   G = Σ w_i g_i   where g_i = ∇J_i (24-vector, but we store as per-node 3-vectors)
@@ -330,12 +320,7 @@ impl FiniteElementImprovement<G, M, N, P> for Hexahedron {
         exponent: Scalar,
         nodal_coordinates: ElementNodalCoordinates<N>,
     ) -> ForceList<N> {
-        let mut weights = Self::scaled_jacobians_relative(&nodal_coordinates)
-            .0
-            .into_iter()
-            .map(|scaled_jacobian| (-exponent * scaled_jacobian).exp())
-            .collect::<ScalarList<N>>();
-        weights /= weights.iter().sum::<Scalar>();
+        let weights = Self::scaled_jacobians_weights(exponent, &nodal_coordinates);
         let mut gradients = ForceList::zero();
         CORNERS.into_iter().enumerate().zip(weights).for_each(
             |((node, [node_a, node_b, node_c]), weight)| {
@@ -382,6 +367,209 @@ impl FiniteElementImprovement<G, M, N, P> for Hexahedron {
         exponent: Scalar,
         nodal_coordinates: ElementNodalCoordinates<N>,
     ) -> StiffnessList2D<N> {
-        StiffnessList2D::zero()
+        // Force convention: F = -∇f
+        // Tangent: K = ∂F/∂x = -∇² f
+
+        fn cross_mat<const I: usize>(p: &Coordinate<I>) -> Stiffness {
+            let px = p[0];
+            let py = p[1];
+            let pz = p[2];
+            [[0.0, -pz, py], [pz, 0.0, -px], [-py, px, 0.0]].into()
+        }
+
+        let weights = Self::scaled_jacobians_weights(exponent, &nodal_coordinates);
+
+        // For softmin Hessian assembly:
+        //   g = Σ w_i ∇S_i
+        //   A = Σ w_i (∇S_i)(∇S_i)^T
+        //   Hsum = Σ w_i ∇²S_i
+        let mut g = ForceList::<N>::zero();
+        let mut a = StiffnessList2D::<N>::zero();
+        let mut hsum = StiffnessList2D::<N>::zero();
+
+        CORNERS.into_iter().enumerate().zip(weights).for_each(
+            |((i, [a_node, b_node, c_node]), wi)| {
+                let u = &nodal_coordinates[a_node] - &nodal_coordinates[i];
+                let v = &nodal_coordinates[b_node] - &nodal_coordinates[i];
+                let w = &nodal_coordinates[c_node] - &nodal_coordinates[i];
+
+                // Regularize if you ever risk zero lengths (recommended)
+                // let eps2 = 1e-30;
+                let ru2 = u.norm_squared(); // + eps2;
+                let rv2 = v.norm_squared(); // + eps2;
+                let rw2 = w.norm_squared(); // + eps2;
+
+                let ru = ru2.sqrt();
+                let rv = rv2.sqrt();
+                let rw = rw2.sqrt();
+                let d = ru * rv * rw;
+                let inv_d = 1.0 / d;
+
+                // J, S
+                let j = u.cross(&v) * &w;
+                let s = j * inv_d;
+
+                // ---- ∇J (node-wise)
+                let gJ_a = v.cross(&w);
+                let gJ_b = w.cross(&u);
+                let gJ_c = u.cross(&v);
+                let gJ_i = -(&gJ_a + &gJ_b + &gJ_c);
+
+                // ---- ∇ ln D (node-wise)
+                let dln_a = &u / ru2;
+                let dln_b = &v / rv2;
+                let dln_c = &w / rw2;
+                let dln_i = -(&dln_a + &dln_b + &dln_c);
+
+                // ---- ∇S (node-wise): ∇S = (1/D)∇J - S ∇lnD
+                let gS_a = &gJ_a * inv_d - &dln_a * s;
+                let gS_b = &gJ_b * inv_d - &dln_b * s;
+                let gS_c = &gJ_c * inv_d - &dln_c * s;
+                let gS_i = &gJ_i * inv_d - &dln_i * s;
+
+                // accumulate g = Σ wi ∇S
+                g[a_node] += &gS_a * wi;
+                g[b_node] += &gS_b * wi;
+                g[c_node] += &gS_c * wi;
+                g[i] += &gS_i * wi;
+
+                // accumulate A = Σ wi (∇S)(∇S)^T (only the 4 nodes)
+                {
+                    let nodes = [i, a_node, b_node, c_node];
+                    let grads = [&gS_i, &gS_a, &gS_b, &gS_c];
+                    nodes.iter().zip(grads.iter()).for_each(|(&p, gp)| {
+                        nodes.iter().zip(grads.iter()).for_each(|(&q, gq)| {
+                            a[p][q] += Stiffness::from((*gp, *gq)) * wi;
+                        })
+                    });
+                }
+
+                // ---- Build HJ = ∇²J by differentiating the known gradients (consistent)
+                let ux = cross_mat(&u);
+                let vx = cross_mat(&v);
+                let wx = cross_mat(&w);
+
+                let nodes = [i, a_node, b_node, c_node];
+
+                let mut hj = StiffnessList2D::<N>::zero();
+
+                // gJ_a = v×w:
+                hj[a_node][b_node] -= &wx;
+                hj[a_node][c_node] += &vx;
+                hj[a_node][i] += &wx - &vx;
+
+                // gJ_b = w×u:
+                hj[b_node][c_node] -= &ux;
+                hj[b_node][a_node] += &wx;
+                hj[b_node][i] += &ux - &wx;
+
+                // gJ_c = u×v:
+                hj[c_node][a_node] -= &vx;
+                hj[c_node][b_node] += &ux;
+                hj[c_node][i] += &vx - &ux;
+
+                // gJ_i = -(gJ_a+gJ_b+gJ_c)
+                for &q in nodes.iter() {
+                    hj[i][q] = (&hj[a_node][q] + &hj[b_node][q] + &hj[c_node][q]) * -1.0;
+                }
+
+                // ---- Build Hln = ∇² ln D
+                // For one edge term ln||u||, Hessian wrt u is: (1/ru2)I - 2/(ru2^2) u u^T
+                let I = IDENTITY;
+                let uuT = Stiffness::from((&u, &u));
+                let vvT = Stiffness::from((&v, &v));
+                let wwT = Stiffness::from((&w, &w));
+
+                let Lu = &I / ru2 - uuT * (2.0 / (ru2 * ru2));
+                let Lv = &I / rv2 - vvT * (2.0 / (rv2 * rv2));
+                let Lw = &I / rw2 - wwT * (2.0 / (rw2 * rw2));
+
+                let mut hln = StiffnessList2D::<N>::zero();
+                // u term contributes to (a,a),(i,i),(a,i),(i,a)
+                hln[a_node][a_node] += &Lu;
+                hln[i][i] += &Lu;
+                hln[a_node][i] -= &Lu;
+                hln[i][a_node] -= &Lu;
+                // v term contributes to (b,b),(i,i),(b,i),(i,b)
+                hln[b_node][b_node] += &Lv;
+                hln[i][i] += &Lv;
+                hln[b_node][i] -= &Lv;
+                hln[i][b_node] -= &Lv;
+                // w term contributes to (c,c),(i,i),(c,i),(i,c)
+                hln[c_node][c_node] += &Lw;
+                hln[i][i] += &Lw;
+                hln[c_node][i] -= &Lw;
+                hln[i][c_node] -= &Lw;
+
+                // ---- Build HS = ∇²S using the fully explicit safe formula:
+                //
+                // HS = (1/D) HJ
+                //    - (1/D) ( gJ ⊗ dln + dln ⊗ gJ )
+                //    - S * Hln
+                //    + S * ( dln ⊗ dln )
+                //
+                // This is the derivative of: ∇S = (1/D)∇J - S∇lnD
+                let mut hs = StiffnessList2D::<N>::zero();
+
+                let gradsJ = [
+                    (i, &gJ_i),
+                    (a_node, &gJ_a),
+                    (b_node, &gJ_b),
+                    (c_node, &gJ_c),
+                ];
+                let gradsL = [
+                    (i, &dln_i),
+                    (a_node, &dln_a),
+                    (b_node, &dln_b),
+                    (c_node, &dln_c),
+                ];
+
+                for &p in nodes.iter() {
+                    for &q in nodes.iter() {
+                        // (1/D) HJ
+                        hs[p][q] += &hj[p][q] * inv_d;
+
+                        // - S * Hln
+                        hs[p][q] -= &hln[p][q] * s;
+                    }
+                }
+
+                // - (1/D)( gJ ⊗ dln + dln ⊗ gJ )  + S(dln ⊗ dln)
+                for &(p, gpJ) in gradsJ.iter() {
+                    for &(q, gqL) in gradsL.iter() {
+                        hs[p][q] -= Stiffness::from((gpJ, gqL)) * inv_d;
+                    }
+                }
+                for &(p, gpL) in gradsL.iter() {
+                    for &(q, gqJ) in gradsJ.iter() {
+                        hs[p][q] -= Stiffness::from((gpL, gqJ)) * inv_d;
+                    }
+                }
+                for &(p, gpL) in gradsL.iter() {
+                    for &(q, gqL) in gradsL.iter() {
+                        hs[p][q] += Stiffness::from((gpL, gqL)) * s;
+                    }
+                }
+
+                // Accumulate weighted HS into Hsum
+                for &p in nodes.iter() {
+                    for &q in nodes.iter() {
+                        hsum[p][q] += &hs[p][q] * wi;
+                    }
+                }
+            },
+        );
+
+        // Build GG^T
+        let mut gg = StiffnessList2D::<N>::zero();
+        gg.iter_mut().zip(g.iter()).for_each(|(gg_p, g_p)| {
+            gg_p.iter_mut()
+                .zip(g.iter())
+                .for_each(|(gg_pq, g_q)| *gg_pq += Stiffness::from((g_p, g_q)))
+        });
+
+        // Force tangent for softmin:
+        // K = -Hsum + β (A - G G^T)
+        (a - gg) * exponent - hsum
     }
 }

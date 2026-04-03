@@ -112,6 +112,18 @@ where
     ) -> (ScalarList<N>, Scalar) {
         relative(Self::jacobians(nodal_coordinates))
     }
+    fn jacobians_weights<const I: usize>(
+        exponent: Scalar,
+        nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
+    ) -> ScalarList<N> {
+        let mut weights = Self::jacobians_relative(&nodal_coordinates)
+            .0
+            .into_iter()
+            .map(|jacobian| (-exponent * jacobian).exp())
+            .collect::<ScalarList<N>>();
+        weights /= weights.iter().sum::<Scalar>();
+        weights
+    }
     fn jacobian_objective(
         exponent: Scalar,
         nodal_coordinates: ElementNodalCoordinates<N>,
@@ -134,6 +146,18 @@ where
         nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> (ScalarList<N>, Scalar) {
         relative(Self::scaled_jacobians(nodal_coordinates))
+    }
+    fn scaled_jacobians_weights<const I: usize>(
+        exponent: Scalar,
+        nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
+    ) -> ScalarList<N> {
+        let mut weights = Self::scaled_jacobians_relative(&nodal_coordinates)
+            .0
+            .into_iter()
+            .map(|scaled_jacobian| (-exponent * scaled_jacobian).exp())
+            .collect::<ScalarList<N>>();
+        weights /= weights.iter().sum::<Scalar>();
+        weights
     }
     fn scaled_jacobian_objective(
         exponent: Scalar,
