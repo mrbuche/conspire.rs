@@ -914,12 +914,11 @@ fn nondimensional_angular_distribution_inner<T: MonteCarlo>(
     maximum_nondimensional_extension: Scalar,
 ) -> Vec<usize> {
     let mut bin_counts = vec![0; num_bins];
-    let num_links = model.number_of_links() as Scalar;
     let end_index = model.number_of_links() as usize - 1;
     for _ in 0..num_samples {
         let configuration = model.random_configuration(nondimensional_force);
         let nondimensional_extension =
-            configuration[end_index][2] / configuration[end_index].norm() / num_links;
+            configuration[end_index][2] / configuration[end_index].norm();
         if nondimensional_extension.abs() > maximum_nondimensional_extension {
             panic!(
                 "Sample {nondimensional_extension} outside [-{maximum_nondimensional_extension}, {maximum_nondimensional_extension}]"
