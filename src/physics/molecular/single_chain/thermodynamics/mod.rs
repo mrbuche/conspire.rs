@@ -899,10 +899,20 @@ fn nondimensional_transverse_distribution<T: MonteCarlo>(
                     .zip(handle.join().unwrap())
                     .for_each(|(tot, c)| *tot += c)
             });
-        let bin_width = maximum_nondimensional_extension / (number_of_bins as Scalar);
-        let bin_centers = (0..number_of_bins)
-            .map(|i| (i as Scalar + 0.5) * bin_width)
-            .collect();
+        let bin_width = if cartesian {
+            2.0 * maximum_nondimensional_extension / (number_of_bins as Scalar)
+        } else {
+            maximum_nondimensional_extension / (number_of_bins as Scalar)
+        };
+        let bin_centers = if cartesian {
+            (0..number_of_bins)
+                .map(|i| -maximum_nondimensional_extension + (i as Scalar + 0.5) * bin_width)
+                .collect()
+        } else {
+            (0..number_of_bins)
+                .map(|i| (i as Scalar + 0.5) * bin_width)
+                .collect()
+        };
         let total_samples = number_of_samples as Scalar;
         let bin_values = total_counts
             .into_iter()
@@ -1017,8 +1027,14 @@ fn nondimensional_transverse_distribution_inner<T: MonteCarlo>(
                 "Sample {nondimensional_extension} outside [-{maximum_nondimensional_extension}, {maximum_nondimensional_extension}]"
             )
         }
-        let bin_index = (nondimensional_extension / maximum_nondimensional_extension
-            * num_bins as Scalar) as usize;
+        let bin_index = if cartesian {
+            ((nondimensional_extension + maximum_nondimensional_extension)
+                / (2.0 * maximum_nondimensional_extension)
+                * num_bins as Scalar) as usize
+        } else {
+            (nondimensional_extension / maximum_nondimensional_extension * num_bins as Scalar)
+                as usize
+        };
         bin_counts[bin_index] += 1;
     }
     bin_counts
