@@ -265,7 +265,10 @@ mod metrics {
     use crate::{
         EPSILON,
         fem::block::element::FiniteElementImprovement,
-        math::{Scalar, TestError, test::assert_eq_from_fd},
+        math::{
+            Scalar, TestError,
+            test::{assert_eq_from_fd, assert_eq_within_tols},
+        },
     };
     const EXPONENT: Scalar = 1e0;
     fn perturbed_coordinates() -> ElementNodalCoordinates<N> {
@@ -427,6 +430,42 @@ mod metrics {
                 }
             }
         }
+        mod symmetry {
+            use super::*;
+            #[test]
+            fn undeformed() -> Result<(), TestError> {
+                let hessian =
+                    Hexahedron::jacobian_tangents(EXPONENT, reference_coordinates().into());
+                hessian.iter().enumerate().try_for_each(|(a, entry_a)| {
+                    entry_a.iter().enumerate().try_for_each(|(b, entry_ab)| {
+                        entry_ab.iter().enumerate().try_for_each(|(i, entry_ab_i)| {
+                            entry_ab_i
+                                .iter()
+                                .enumerate()
+                                .try_for_each(|(j, entry_ab_ij)| {
+                                    assert_eq_within_tols(&hessian[b][a][j][i], entry_ab_ij)
+                                })
+                        })
+                    })
+                })
+            }
+            #[test]
+            fn deformed() -> Result<(), TestError> {
+                let hessian = Hexahedron::jacobian_tangents(EXPONENT, perturbed_coordinates());
+                hessian.iter().enumerate().try_for_each(|(a, entry_a)| {
+                    entry_a.iter().enumerate().try_for_each(|(b, entry_ab)| {
+                        entry_ab.iter().enumerate().try_for_each(|(i, entry_ab_i)| {
+                            entry_ab_i
+                                .iter()
+                                .enumerate()
+                                .try_for_each(|(j, entry_ab_ij)| {
+                                    assert_eq_within_tols(&hessian[b][a][j][i], entry_ab_ij)
+                                })
+                        })
+                    })
+                })
+            }
+        }
     }
     mod scaled_jacobian {
         use super::*;
@@ -583,6 +622,43 @@ mod metrics {
                         &jacobian_tangents_fd,
                     )
                 }
+            }
+        }
+        mod symmetry {
+            use super::*;
+            #[test]
+            fn undeformed() -> Result<(), TestError> {
+                let hessian =
+                    Hexahedron::scaled_jacobian_tangents(EXPONENT, reference_coordinates().into());
+                hessian.iter().enumerate().try_for_each(|(a, entry_a)| {
+                    entry_a.iter().enumerate().try_for_each(|(b, entry_ab)| {
+                        entry_ab.iter().enumerate().try_for_each(|(i, entry_ab_i)| {
+                            entry_ab_i
+                                .iter()
+                                .enumerate()
+                                .try_for_each(|(j, entry_ab_ij)| {
+                                    assert_eq_within_tols(&hessian[b][a][j][i], entry_ab_ij)
+                                })
+                        })
+                    })
+                })
+            }
+            #[test]
+            fn deformed() -> Result<(), TestError> {
+                let hessian =
+                    Hexahedron::scaled_jacobian_tangents(EXPONENT, perturbed_coordinates());
+                hessian.iter().enumerate().try_for_each(|(a, entry_a)| {
+                    entry_a.iter().enumerate().try_for_each(|(b, entry_ab)| {
+                        entry_ab.iter().enumerate().try_for_each(|(i, entry_ab_i)| {
+                            entry_ab_i
+                                .iter()
+                                .enumerate()
+                                .try_for_each(|(j, entry_ab_ij)| {
+                                    assert_eq_within_tols(&hessian[b][a][j][i], entry_ab_ij)
+                                })
+                        })
+                    })
+                })
             }
         }
     }
