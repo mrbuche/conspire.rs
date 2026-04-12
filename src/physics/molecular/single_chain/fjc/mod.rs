@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     math::{
-        Scalar, TensorArray, random_uniform,
+        Scalar, random_uniform,
         special::{inverse_langevin, langevin, langevin_derivative, sinhc},
     },
     mechanics::CurrentCoordinate,
@@ -189,18 +189,21 @@ impl Legendre for FreelyJointedChain {
 }
 
 impl MonteCarlo for FreelyJointedChain {
-    fn random_configuration(&self) -> Configuration {
-        let mut position = CurrentCoordinate::zero();
+    fn random_nondimensional_link_vectors(&self, nondimensional_force: Scalar) -> Configuration {
+        let eta = nondimensional_force;
+        let eta_exp = eta.exp();
+        let eta_nexp = 1.0 / eta_exp;
         (0..self.number_of_links())
             .map(|_| {
-                let cos_theta = 2.0 * random_uniform() - 1.0;
+                let cos_theta = if eta == 0.0 {
+                    2.0 * random_uniform() - 1.0
+                } else {
+                    (eta_nexp + random_uniform() * (eta_exp - eta_nexp)).ln() / eta
+                };
                 let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
                 let phi = TAU * random_uniform();
                 let (sin_phi, cos_phi) = phi.sin_cos();
-                position[0] += sin_theta * cos_phi;
-                position[1] += sin_theta * sin_phi;
-                position[2] += cos_theta;
-                position.clone()
+                CurrentCoordinate::from([sin_theta * cos_phi, sin_theta * sin_phi, cos_theta])
             })
             .collect()
     }

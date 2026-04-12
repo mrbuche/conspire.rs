@@ -6,9 +6,7 @@ use crate::{
     },
     physics::{
         ROOM_TEMPERATURE,
-        molecular::single_chain::{
-            Ensemble, MonteCarloInextensible, SquareWellFreelyJointedChain, Thermodynamics,
-        },
+        molecular::single_chain::{Ensemble, SquareWellFreelyJointedChain, Thermodynamics},
     },
 };
 
@@ -16,6 +14,7 @@ const NUM: usize = 333;
 
 #[test]
 fn monte_carlo() {
+    use crate::physics::molecular::single_chain::MonteCarloInextensible;
     const N: usize = 5;
     let model = SquareWellFreelyJointedChain {
         link_length: 1.0,
@@ -24,7 +23,7 @@ fn monte_carlo() {
         ensemble: Ensemble::Isometric(ROOM_TEMPERATURE),
     };
     let (gamma, g) =
-        MonteCarloInextensible::nondimensional_radial_distribution(&model, 333, 10_000, 1);
+        MonteCarloInextensible::nondimensional_radial_distribution(&model, 0.0, 333, 10_000, 1);
     gamma
         .into_iter()
         .zip(g)

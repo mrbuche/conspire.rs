@@ -6,9 +6,7 @@ use crate::{
     },
     physics::{
         ROOM_TEMPERATURE,
-        molecular::single_chain::{
-            Ensemble, FreelyJointedChain, MonteCarloInextensible, Thermodynamics,
-        },
+        molecular::single_chain::{Ensemble, FreelyJointedChain, Thermodynamics},
     },
 };
 
@@ -16,18 +14,37 @@ const NUM: usize = 333;
 
 #[test]
 fn monte_carlo() {
-    const N: usize = 5;
+    use crate::physics::molecular::single_chain::MonteCarloInextensible;
     let model = FreelyJointedChain {
-        link_length: 1.0,
-        number_of_links: N as u8,
+        link_length: 19.0,
+        number_of_links: 5,
         ensemble: Ensemble::Isometric(ROOM_TEMPERATURE),
     };
     let (gamma, g) =
-        MonteCarloInextensible::nondimensional_radial_distribution(&model, 333, 10_000, 1);
+        MonteCarloInextensible::nondimensional_radial_distribution(&model, 0.0, 333, 10_000, 1);
     gamma
         .into_iter()
         .zip(g)
         .for_each(|(gamma_i, g_i)| println!("[{gamma_i}, {g_i}],"))
+}
+
+#[test]
+fn monte_carlo_cosines() {
+    use crate::physics::molecular::single_chain::MonteCarloInextensible;
+    let model = FreelyJointedChain {
+        link_length: 1.0,
+        number_of_links: 5,
+        ensemble: Ensemble::Isotensional(ROOM_TEMPERATURE),
+    };
+    let eta = 3.3;
+    println!(
+        "{}",
+        Thermodynamics::nondimensional_extension(&model, eta).unwrap()
+    );
+    let cosines = model.cosine_powers(eta, 2, 10_000, 1);
+    println!("{:?}", cosines);
+    let gamma = MonteCarloInextensible::nondimensional_extension(&model, eta, 10_000, 1);
+    println!("{:?}", gamma);
 }
 
 #[test]

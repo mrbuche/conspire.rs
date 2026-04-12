@@ -6,9 +6,7 @@ use crate::{
     },
     physics::{
         BOLTZMANN_CONSTANT, ROOM_TEMPERATURE,
-        molecular::single_chain::{
-            Ensemble, ExtensibleFreelyJointedChain, MonteCarloExtensible, Thermodynamics,
-        },
+        molecular::single_chain::{Ensemble, ExtensibleFreelyJointedChain, Thermodynamics},
     },
 };
 
@@ -17,14 +15,15 @@ const NUM: usize = 333;
 
 #[test]
 fn monte_carlo() {
+    use crate::physics::molecular::single_chain::MonteCarloExtensible;
     let model = ExtensibleFreelyJointedChain {
         link_length: 1.0,
         link_stiffness: STIFFNESS,
-        number_of_links: 3,
+        number_of_links: 5,
         ensemble: Ensemble::Isometric(ROOM_TEMPERATURE),
     };
     let (gamma, g) =
-        MonteCarloExtensible::nondimensional_radial_distribution(&model, 333, 10_000, 1, 3.0);
+        MonteCarloExtensible::nondimensional_radial_distribution(&model, 0.0, 333, 10_000, 1, 3.0);
     gamma
         .into_iter()
         .zip(g)
