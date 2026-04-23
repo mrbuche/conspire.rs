@@ -370,7 +370,12 @@ where
     fn nondimensional_spherical_distribution(
         &self,
         nondimensional_extension: Scalar,
-    ) -> Result<Scalar, SingleChainError>;
+    ) -> Result<Scalar, SingleChainError> {
+        Ok(
+            Legendre::nondimensional_radial_distribution(self, nondimensional_extension)?
+                / (4.0 * PI * nondimensional_extension.powi(2)),
+        )
+    }
     /// ```math
     /// \beta\varphi(\eta) = \beta\psi(\gamma) - N_b\eta\gamma(\eta)
     /// ```

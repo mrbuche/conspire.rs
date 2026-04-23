@@ -5,7 +5,8 @@ use crate::{
     math::{Scalar, Tensor, random_uniform},
     mechanics::CurrentCoordinate,
     physics::molecular::single_chain::{
-        Configuration, Ensemble, Inextensible, MonteCarlo, SingleChain,
+        Configuration, Ensemble, Inextensible, Isometric, Isotensional, Legendre, MonteCarlo,
+        SingleChain, SingleChainError, Thermodynamics,
     },
 };
 use std::f64::consts::TAU;
@@ -37,6 +38,62 @@ impl Inextensible for FreelyRotatingChain {
         1.0
     }
 }
+
+impl Thermodynamics for FreelyRotatingChain {
+    fn ensemble(&self) -> Ensemble {
+        self.ensemble
+    }
+}
+
+impl Isometric for FreelyRotatingChain {
+    fn nondimensional_helmholtz_free_energy(
+        &self,
+        _nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        unimplemented!()
+    }
+    fn nondimensional_force(
+        &self,
+        _nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        unimplemented!()
+    }
+    fn nondimensional_stiffness(
+        &self,
+        _nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        unimplemented!()
+    }
+    fn nondimensional_spherical_distribution(
+        &self,
+        _nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        unimplemented!()
+    }
+}
+
+impl Isotensional for FreelyRotatingChain {
+    fn nondimensional_gibbs_free_energy_per_link(
+        &self,
+        _nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        unimplemented!()
+    }
+    fn nondimensional_extension(
+        &self,
+        _nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        unimplemented!()
+    }
+    fn nondimensional_compliance(
+        &self,
+        _nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        unimplemented!()
+    }
+}
+
+impl Legendre for FreelyRotatingChain {}
 
 impl MonteCarlo for FreelyRotatingChain {
     fn random_nondimensional_link_vectors(&self, nondimensional_force: Scalar) -> Configuration {
