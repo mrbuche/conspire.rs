@@ -6,7 +6,7 @@ use crate::math::{
 };
 use std::{
     iter::Sum,
-    ops::{AddAssign, Div, DivAssign, Index, IndexMut, Mul},
+    ops::{AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign},
 };
 use vector::Vector;
 
@@ -161,10 +161,24 @@ impl Mul<&Vector> for &Matrix {
     }
 }
 
+impl Mul<Scalar> for Matrix {
+    type Output = Matrix;
+    fn mul(mut self, scalar: Scalar) -> Self::Output {
+        self *= scalar;
+        self
+    }
+}
+
 impl Mul<&Scalar> for &Matrix {
     type Output = Vector;
-    fn mul(self, _tensor_rank_0: &Scalar) -> Self::Output {
+    fn mul(self, _scalar: &Scalar) -> Self::Output {
         unimplemented!()
+    }
+}
+
+impl MulAssign<Scalar> for Matrix {
+    fn mul_assign(&mut self, scalar: Scalar) {
+        self.iter_mut().for_each(|entry| *entry *= &scalar);
     }
 }
 

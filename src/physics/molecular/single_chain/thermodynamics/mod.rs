@@ -598,6 +598,20 @@ where
             false,
         )
     }
+    fn cosine_correlations(
+        &self,
+        nondimensional_force: Scalar,
+        number_of_samples: usize,
+        number_of_threads: usize,
+    ) -> (Vector, Vector, Matrix) {
+        cosine_correlations(
+            self,
+            nondimensional_force,
+            number_of_samples,
+            number_of_threads,
+            false,
+        )
+    }
     fn nondimensional_extension(
         &self,
         nondimensional_force: Scalar,
@@ -757,6 +771,78 @@ fn cosine_powers_inner<T: MonteCarlo>(
             })
     }
     cosines
+}
+
+pub fn cosine_correlations<T: MonteCarlo>(
+    model: &T,
+    nondimensional_force: Scalar,
+    number_of_samples: usize,
+    number_of_threads: usize,
+    is_extensible: bool,
+) -> (Vector, Vector, Matrix) {
+    let base = number_of_samples / number_of_threads;
+    let remainder = number_of_samples % number_of_threads;
+    let scale = 1.0 / number_of_samples as Scalar;
+    scope(|s| {
+        (0..number_of_threads)
+            .map(|t| {
+                s.spawn(move || {
+                    cosine_correlations_inner(
+                        model,
+                        nondimensional_force,
+                        base + usize::from(t < remainder),
+                        is_extensible,
+                    )
+                })
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(|handle| handle.join().unwrap())
+            .reduce(|mut acc, (cos_sum, cos_sq_sum, cos_sq_cos_sum)| {
+                acc.0 += cos_sum;
+                acc.1 += cos_sq_sum;
+                acc.2 += cos_sq_cos_sum;
+                acc
+            })
+            .map(|(cos_sum, cos_sq_sum, cos_sq_cos_sum)| {
+                (cos_sum * scale, cos_sq_sum * scale, cos_sq_cos_sum * scale)
+            })
+            .unwrap()
+    })
+}
+
+fn cosine_correlations_inner<T: MonteCarlo>(
+    model: &T,
+    nondimensional_force: Scalar,
+    number_of_samples: usize,
+    is_extensible: bool,
+) -> (Vector, Vector, Matrix) {
+    let num_links = model.number_of_links() as usize;
+    let mut cos_sum = Vector::zero(num_links);
+    let mut cos_sq_sum = Vector::zero(num_links);
+    let mut cos_sq_cos_sum = Matrix::zero(num_links, num_links);
+    for _ in 0..number_of_samples {
+        let links = model.random_nondimensional_link_vectors(nondimensional_force);
+        for (i, link) in links.iter().enumerate() {
+            let cos_theta = if is_extensible {
+                link[2] / link.norm()
+            } else {
+                link[2]
+            };
+            cos_sum[i] += cos_theta;
+            let cos_sq = cos_theta.powi(2);
+            cos_sq_sum[i] += cos_sq;
+            for j in 0..num_links {
+                let cos_theta_j = if is_extensible {
+                    links[j][2] / links[j].norm()
+                } else {
+                    links[j][2]
+                };
+                cos_sq_cos_sum[i][j] += cos_sq * cos_theta_j;
+            }
+        }
+    }
+    (cos_sum, cos_sq_sum, cos_sq_cos_sum)
 }
 
 fn nondimensional_angular_distribution<T: MonteCarlo>(
