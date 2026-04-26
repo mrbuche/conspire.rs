@@ -2,7 +2,7 @@ use crate::{
     EPSILON,
     math::{
         Scalar,
-        test::{TestError, assert_eq_from_fd},
+        test::{TestError, assert_eq_from_fd, assert_eq_within_tols},
     },
     physics::molecular::potential::{Harmonic, Morse, Potential},
 };
@@ -27,6 +27,7 @@ fn finite_difference() -> Result<(), TestError> {
             let mut force = potential.force(x);
             let stiffness = potential.stiffness(x);
             let anharmonicity = potential.anharmonicity(x);
+            assert_eq_within_tols(&potential.energy(x), &potential.energy_at_force(force))?;
             x += 0.5 * EPSILON;
             let mut force_fd = potential.energy(x);
             let mut stiffness_fd = potential.force(x);
@@ -40,6 +41,12 @@ fn finite_difference() -> Result<(), TestError> {
             assert_eq_from_fd(&anharmonicity, &anharmonicity_fd)?;
             let extension = potential.extension(force);
             let compliance = potential.compliance(force);
+            let nondimensional_extension = potential.nondimensional_extension(force, t);
+            let nondimensional_force = potential.nondimensional_force(nondimensional_extension, t);
+            assert_eq_within_tols(
+                &potential.nondimensional_energy(nondimensional_extension, t),
+                &potential.nondimensional_energy_at_nondimensional_force(nondimensional_force, t),
+            )?;
             force += 0.5 * EPSILON;
             let mut extension_fd = potential.legendre(force);
             let mut compliance_fd = potential.extension(force);
@@ -61,6 +68,7 @@ fn finite_difference() -> Result<(), TestError> {
             let mut force = potential.force(x);
             let stiffness = potential.stiffness(x);
             let anharmonicity = potential.anharmonicity(x);
+            assert_eq_within_tols(&potential.energy(x), &potential.energy_at_force(force))?;
             x += 0.5 * EPSILON;
             let mut force_fd = potential.energy(x);
             let mut stiffness_fd = potential.force(x);
@@ -75,6 +83,11 @@ fn finite_difference() -> Result<(), TestError> {
             let extension = potential.extension(force);
             let compliance = potential.compliance(force);
             let nondimensional_extension = potential.nondimensional_extension(force, t);
+            // let nondimensional_force = potential.nondimensional_force(nondimensional_extension, t);
+            // assert_eq_within_tols(
+            //     &potential.nondimensional_energy(nondimensional_extension, t),
+            //     &potential.nondimensional_energy_at_nondimensional_force(nondimensional_force, t),
+            // )?;
             force += 0.5 * EPSILON;
             let mut extension_fd = potential.legendre(force);
             let mut compliance_fd = potential.extension(force);
