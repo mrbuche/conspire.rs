@@ -174,7 +174,10 @@ where
                 unimplemented!()
             }
             Ensemble::Isotensional(_) => {
-                IsotensionalExtensible::nondimensional_link_energy_average(self, nondimensional_force)
+                IsotensionalExtensible::nondimensional_link_energy_average(
+                    self,
+                    nondimensional_force,
+                )
             }
         }
     }
@@ -187,7 +190,10 @@ where
                 unimplemented!()
             }
             Ensemble::Isotensional(_) => {
-                IsotensionalExtensible::nondimensional_link_energy_variance(self, nondimensional_force)
+                IsotensionalExtensible::nondimensional_link_energy_variance(
+                    self,
+                    nondimensional_force,
+                )
             }
         }
     }
