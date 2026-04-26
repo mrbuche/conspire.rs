@@ -161,15 +161,12 @@ where
     T: Potential,
 {
     /// ```math
-    /// \langle\beta u\rangle = \frac{1}{2} + \frac{\eta}{\eta + \kappa\tanh(\eta)} + \beta u[\lambda(\eta)]
+    /// \langle\beta u\rangle = \frac{1}{2} + \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)} + \beta u[\lambda(\eta)]
     /// ```
     fn nondimensional_link_energy_average(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        //
-        // Need the 'c' parameter!
-        //
         Ok(0.5
             + helper(nondimensional_force, self.nondimensional_link_stiffness())
             + self
@@ -180,16 +177,14 @@ where
                 ))
     }
     /// ```math
-    /// \sigma_{\beta u}^2(\eta) = \frac{1}{2} + \frac{\eta}{\eta + \kappa\tanh(\eta)}\left[2 - \frac{\eta}{\eta + \kappa\tanh(\eta)}\right] + ???
+    /// \sigma_{\beta u}^2(\eta) = \frac{1}{2} + \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\left[2 - \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\right] + ???
     /// ```
     fn nondimensional_link_energy_variance(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
         //
-        // Need the 'c' parameter!
-        //
-        // Need to match last term correctly!
+        // Need to match last term correctly for nonlinear potentials.
         //
         let hlpr = helper(nondimensional_force, self.nondimensional_link_stiffness());
         Ok(0.5
@@ -199,8 +194,8 @@ where
 }
 
 fn helper(nondimensional_force: Scalar, nondimensional_stiffness: Scalar) -> Scalar {
-    nondimensional_force
-        / (nondimensional_force + nondimensional_stiffness * nondimensional_force.tanh())
+    let eta_over_kappa = nondimensional_force / nondimensional_stiffness;
+    eta_over_kappa / (eta_over_kappa + self.correction() * nondimensional_force.tanh())
 }
 
 impl<T> Legendre for ArbitraryPotentialFreelyJointedChain<T>
