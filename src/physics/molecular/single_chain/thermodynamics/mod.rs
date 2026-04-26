@@ -178,6 +178,19 @@ where
             }
         }
     }
+    fn nondimensional_link_energy_deviation(
+        &self,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        match self.ensemble() {
+            Ensemble::Isometric(_) => {
+                unimplemented!()
+            }
+            Ensemble::Isotensional(_) => {
+                IsotensionalExtensible::nondimensional_link_energy_deviation(self, nondimensional_force)
+            }
+        }
+    }
 }
 
 pub trait Isometric
