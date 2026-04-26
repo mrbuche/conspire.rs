@@ -167,6 +167,9 @@ where
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
+        //
+        // Need the 'c' parameter!
+        //
         Ok(0.5
             + helper(nondimensional_force, self.nondimensional_link_stiffness())
             + self
@@ -183,7 +186,11 @@ where
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        // todo!("Need to match nonlinear potentials.");
+        //
+        // Need the 'c' parameter!
+        //
+        // Need to match last term correctly!
+        //
         let hlpr = helper(nondimensional_force, self.nondimensional_link_stiffness());
         Ok(0.5
             + hlpr * (2.0 - hlpr)
