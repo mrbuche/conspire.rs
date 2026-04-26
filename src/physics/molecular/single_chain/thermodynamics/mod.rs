@@ -165,7 +165,7 @@ pub trait ThermodynamicsExtensible
 where
     Self: IsotensionalExtensible + Thermodynamics,
 {
-    fn nondimensional_link_energy(
+    fn nondimensional_link_energy_mean(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
@@ -174,11 +174,11 @@ where
                 unimplemented!()
             }
             Ensemble::Isotensional(_) => {
-                IsotensionalExtensible::nondimensional_link_energy(self, nondimensional_force)
+                IsotensionalExtensible::nondimensional_link_energy_mean(self, nondimensional_force)
             }
         }
     }
-    fn nondimensional_link_energy_deviation(
+    fn nondimensional_link_energy_variance(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
@@ -187,7 +187,7 @@ where
                 unimplemented!()
             }
             Ensemble::Isotensional(_) => {
-                IsotensionalExtensible::nondimensional_link_energy_deviation(self, nondimensional_force)
+                IsotensionalExtensible::nondimensional_link_energy_variance(self, nondimensional_force)
             }
         }
     }
@@ -302,11 +302,11 @@ pub trait IsotensionalExtensible
 where
     Self: Extensible + Isotensional,
 {
-    fn nondimensional_link_energy(
+    fn nondimensional_link_energy_mean(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError>;
-    fn nondimensional_link_energy_deviation(
+    fn nondimensional_link_energy_variance(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError>;
