@@ -11,6 +11,7 @@ pub use morse::Morse;
 use crate::{math::Scalar, physics::BOLTZMANN_CONSTANT};
 use std::fmt::Debug;
 
+#[derive(Clone, Debug)]
 pub trait Potential
 where
     Self: Clone + Debug,
