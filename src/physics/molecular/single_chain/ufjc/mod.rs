@@ -169,7 +169,7 @@ where
     ) -> Result<Scalar, SingleChainError> {
         Ok(0.5
             + helper(nondimensional_force, self.nondimensional_link_stiffness())
-            0.5 * nondimensional_force.powi(2) / self.nondimensional_link_stiffness()
+            + 0.5 * nondimensional_force.powi(2) / self.nondimensional_link_stiffness()
             // + self
             //     .link_potential
             //     .nondimensional_energy_at_nondimensional_force(
