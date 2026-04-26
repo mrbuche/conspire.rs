@@ -163,7 +163,7 @@ where
     /// ```math
     /// \langle\beta u\rangle = \frac{1}{2} + \frac{\eta}{\eta + \kappa\tanh(\eta)} + \beta u[\lambda(\eta)]
     /// ```
-    fn nondimensional_link_energy_mean(
+    fn nondimensional_link_energy_average(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
