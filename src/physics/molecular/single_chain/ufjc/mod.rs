@@ -168,7 +168,11 @@ where
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
         Ok(0.5
-            + helper(nondimensional_force, self.nondimensional_link_stiffness())
+            + helper(
+                nondimensional_force,
+                self.nondimensional_link_stiffness(),
+                self.correction(),
+            )
             + self
                 .link_potential
                 .nondimensional_energy_at_nondimensional_force(
@@ -186,16 +190,24 @@ where
         //
         // Need to match last term correctly for nonlinear potentials.
         //
-        let hlpr = helper(nondimensional_force, self.nondimensional_link_stiffness());
+        let hlpr = helper(
+            nondimensional_force,
+            self.nondimensional_link_stiffness(),
+            self.correction(),
+        );
         Ok(0.5
             + hlpr * (2.0 - hlpr)
             + nondimensional_force.powi(2) / self.nondimensional_link_stiffness())
     }
 }
 
-fn helper(nondimensional_force: Scalar, nondimensional_stiffness: Scalar) -> Scalar {
+fn helper(
+    nondimensional_force: Scalar,
+    nondimensional_stiffness: Scalar,
+    correction: Scalar,
+) -> Scalar {
     let eta_over_kappa = nondimensional_force / nondimensional_stiffness;
-    eta_over_kappa / (eta_over_kappa + self.correction() * nondimensional_force.tanh())
+    eta_over_kappa / (eta_over_kappa + correction * nondimensional_force.tanh())
 }
 
 impl<T> Legendre for ArbitraryPotentialFreelyJointedChain<T>
