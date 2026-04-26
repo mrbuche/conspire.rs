@@ -159,13 +159,13 @@ impl Isotensional for ExtensibleFreelyJointedChain {
 }
 
 impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
-    fn nondimensional_link_energy(
+    fn nondimensional_link_energy_mean(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
         todo!("Need to calculate the TSTs and add to uFJC.")
     }
-    fn nondimensional_link_energy_deviation(
+    fn nondimensional_link_energy_variance(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {

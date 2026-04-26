@@ -163,7 +163,7 @@ where
     /// ```math
     /// \langle\beta u\rangle = \frac{1}{2} + \frac{\eta}{\eta + \kappa\tanh(\eta)} + \beta u[\lambda(\eta)]
     /// ```
-    fn nondimensional_link_energy(
+    fn nondimensional_link_energy_mean(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
@@ -176,7 +176,10 @@ where
                     self.temperature(),
                 ))
     }
-    fn nondimensional_link_energy_deviation(
+    /// ```math
+    /// \sigma_{\beta u}^2(\eta) = \frac{1}{2} + \frac{\eta}{\eta + \kappa\tanh(\eta)}\left[2 - \frac{\eta}{\eta + \kappa\tanh(\eta)}\right] + ???
+    /// ```
+    fn nondimensional_link_energy_variance(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
