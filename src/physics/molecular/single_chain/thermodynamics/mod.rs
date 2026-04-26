@@ -165,7 +165,7 @@ pub trait ThermodynamicsExtensible
 where
     Self: IsotensionalExtensible + Thermodynamics,
 {
-    fn nondimensional_link_energy_mean(
+    fn nondimensional_link_energy_average(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
@@ -174,7 +174,7 @@ where
                 unimplemented!()
             }
             Ensemble::Isotensional(_) => {
-                IsotensionalExtensible::nondimensional_link_energy_mean(self, nondimensional_force)
+                IsotensionalExtensible::nondimensional_link_energy_average(self, nondimensional_force)
             }
         }
     }
@@ -302,7 +302,7 @@ pub trait IsotensionalExtensible
 where
     Self: Extensible + Isotensional,
 {
-    fn nondimensional_link_energy_mean(
+    fn nondimensional_link_energy_average(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError>;

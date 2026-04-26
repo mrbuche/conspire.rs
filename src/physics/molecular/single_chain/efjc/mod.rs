@@ -159,7 +159,7 @@ impl Isotensional for ExtensibleFreelyJointedChain {
 }
 
 impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
-    fn nondimensional_link_energy_mean(
+    fn nondimensional_link_energy_average(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
