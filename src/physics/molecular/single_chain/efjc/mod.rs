@@ -7,8 +7,9 @@ use crate::{
     physics::{
         BOLTZMANN_CONSTANT,
         molecular::single_chain::{
-            Configuration, Ensemble, Extensible, Isometric, Isotensional, Legendre, MonteCarlo,
-            SingleChain, SingleChainError, Thermodynamics,
+            Configuration, Ensemble, Extensible, Isometric, Isotensional, IsotensionalExtensible,
+            Legendre, MonteCarlo, SingleChain, SingleChainError, Thermodynamics,
+            ThermodynamicsExtensible,
             ufjc::{
                 // nondimensional_compliance as nondimensional_compliance_asymptotic,
                 nondimensional_extension as nondimensional_extension_asymptotic,
@@ -56,6 +57,8 @@ impl Thermodynamics for ExtensibleFreelyJointedChain {
         self.ensemble
     }
 }
+
+impl ThermodynamicsExtensible for ExtensibleFreelyJointedChain {}
 
 impl Isometric for ExtensibleFreelyJointedChain {
     fn nondimensional_helmholtz_free_energy(
@@ -152,6 +155,21 @@ impl Isotensional for ExtensibleFreelyJointedChain {
         _nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
         unimplemented!()
+    }
+}
+
+impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
+    fn nondimensional_link_energy(
+        &self,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        todo!("Need to calculate the TSTs and add to uFJC.")
+    }
+    fn nondimensional_link_energy_deviation(
+        &self,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        todo!("Need to calculate the TSTs and add to uFJC.")
     }
 }
 

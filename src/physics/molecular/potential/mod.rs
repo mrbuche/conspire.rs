@@ -27,6 +27,25 @@ where
         self.energy(length) / BOLTZMANN_CONSTANT / temperature
     }
     /// ```math
+    /// u = u(x(f))
+    /// ```
+    fn energy_at_force(&self, force: Scalar) -> Scalar {
+        let extension = self.extension(force);
+        let length = self.rest_length() + extension;
+        self.energy(length)
+    }
+    /// ```math
+    /// \beta u = \beta u(\lambda(\eta))
+    /// ```
+    fn nondimensional_energy_at_nondimensional_force(
+        &self,
+        nondimensional_force: Scalar,
+        temperature: Scalar,
+    ) -> Scalar {
+        let force = nondimensional_force / self.rest_length() * BOLTZMANN_CONSTANT * temperature;
+        self.energy_at_force(force) / BOLTZMANN_CONSTANT / temperature
+    }
+    /// ```math
     /// f(x) = \frac{\partial u}{\partial x}
     /// ```
     fn force(&self, length: Scalar) -> Scalar;

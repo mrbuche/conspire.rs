@@ -161,6 +161,25 @@ where
     }
 }
 
+pub trait ThermodynamicsExtensible
+where
+    Self: IsotensionalExtensible + Thermodynamics,
+{
+    fn nondimensional_link_energy(
+        &self,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        match self.ensemble() {
+            Ensemble::Isometric(_) => {
+                unimplemented!()
+            }
+            Ensemble::Isotensional(_) => {
+                IsotensionalExtensible::nondimensional_link_energy(self, nondimensional_force)
+            }
+        }
+    }
+}
+
 pub trait Isometric
 where
     Self: SingleChain,
@@ -261,6 +280,20 @@ where
     /// c(\eta) = \frac{\partial\gamma}{\partial\eta}
     /// ```
     fn nondimensional_compliance(
+        &self,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError>;
+}
+
+pub trait IsotensionalExtensible
+where
+    Self: Extensible + Isotensional,
+{
+    fn nondimensional_link_energy(
+        &self,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError>;
+    fn nondimensional_link_energy_deviation(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError>;

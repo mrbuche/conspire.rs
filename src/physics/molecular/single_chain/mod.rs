@@ -16,8 +16,8 @@ pub use frc::FreelyRotatingChain;
 pub use ideal::IdealChain;
 pub use swfjc::SquareWellFreelyJointedChain;
 pub use thermodynamics::{
-    Configuration, Ensemble, Isometric, Isotensional, Legendre, MonteCarlo, MonteCarloExtensible,
-    MonteCarloInextensible, Thermodynamics,
+    Configuration, Ensemble, Isometric, Isotensional, IsotensionalExtensible, Legendre, MonteCarlo,
+    MonteCarloExtensible, MonteCarloInextensible, Thermodynamics, ThermodynamicsExtensible,
 };
 pub use ufjc::ArbitraryPotentialFreelyJointedChain;
 

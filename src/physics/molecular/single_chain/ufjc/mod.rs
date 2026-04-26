@@ -9,8 +9,8 @@ use crate::{
     physics::molecular::{
         potential::Potential,
         single_chain::{
-            Ensemble, Isometric, Isotensional, Legendre, SingleChain, SingleChainError,
-            Thermodynamics,
+            Ensemble, Extensible, Isometric, Isotensional, IsotensionalExtensible, Legendre,
+            SingleChain, SingleChainError, Thermodynamics, ThermodynamicsExtensible,
         },
     },
 };
@@ -62,6 +62,8 @@ where
     }
 }
 
+impl<T> Extensible for ArbitraryPotentialFreelyJointedChain<T> where T: Potential {}
+
 impl<T> Thermodynamics for ArbitraryPotentialFreelyJointedChain<T>
 where
     T: Potential,
@@ -70,6 +72,8 @@ where
         self.ensemble
     }
 }
+
+impl<T> ThermodynamicsExtensible for ArbitraryPotentialFreelyJointedChain<T> where T: Potential {}
 
 impl<T> Isometric for ArbitraryPotentialFreelyJointedChain<T>
 where
@@ -150,6 +154,43 @@ where
             self.correction(),
         )
     }
+}
+
+impl<T> IsotensionalExtensible for ArbitraryPotentialFreelyJointedChain<T>
+where
+    T: Potential,
+{
+    /// ```math
+    /// \langle\beta u\rangle(\eta) = \frac{1}{2} + \frac{\eta}{\eta + \kappa\tanh\eta} + \frac{\eta^2}{2\kappa}
+    /// ```
+    fn nondimensional_link_energy(
+        &self,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        Ok(0.5
+            + helper(nondimensional_force, self.nondimensional_link_stiffness())
+            + self
+                .link_potential
+                .nondimensional_energy_at_nondimensional_force(
+                    nondimensional_force,
+                    self.temperature(),
+                ))
+    }
+    fn nondimensional_link_energy_deviation(
+        &self,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        // todo!("Need to match nonlinear potentials.");
+        let hlpr = helper(nondimensional_force, self.nondimensional_link_stiffness());
+        Ok(0.5
+            + hlpr * (2.0 - hlpr)
+            + nondimensional_force.powi(2) / self.nondimensional_link_stiffness())
+    }
+}
+
+fn helper(nondimensional_force: Scalar, nondimensional_stiffness: Scalar) -> Scalar {
+    nondimensional_force
+        / (nondimensional_force + nondimensional_stiffness * nondimensional_force.tanh())
 }
 
 impl<T> Legendre for ArbitraryPotentialFreelyJointedChain<T>
