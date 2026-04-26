@@ -161,7 +161,7 @@ where
     T: Potential,
 {
     /// ```math
-    /// \langle\beta u\rangle(\eta) = \frac{1}{2} + \frac{\eta}{\eta + \kappa\tanh\eta} + ???
+    /// \langle\beta u\rangle = \frac{1}{2} + \frac{\eta}{\eta + \kappa\tanh(\eta)} + \beta u[\lambda(\eta)]
     /// ```
     fn nondimensional_link_energy(
         &self,
