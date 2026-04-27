@@ -197,6 +197,24 @@ where
             }
         }
     }
+    fn nondimensional_link_length_probability(
+        &self,
+        nondimensional_length: Scalar,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        match self.ensemble() {
+            Ensemble::Isometric(_) => {
+                unimplemented!()
+            }
+            Ensemble::Isotensional(_) => {
+                IsotensionalExtensible::nondimensional_link_length_probability(
+                    self,
+                    nondimensional_length,
+                    nondimensional_force,
+                )
+            }
+        }
+    }
 }
 
 pub trait Isometric
@@ -314,6 +332,11 @@ where
     ) -> Result<Scalar, SingleChainError>;
     fn nondimensional_link_energy_variance(
         &self,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError>;
+    fn nondimensional_link_length_probability(
+        &self,
+        nondimensional_length: Scalar,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError>;
 }

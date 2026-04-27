@@ -171,6 +171,13 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
     ) -> Result<Scalar, SingleChainError> {
         todo!("Need to calculate the TSTs and add to uFJC.")
     }
+    fn nondimensional_link_length_probability(
+        &self,
+        nondimensional_length: Scalar,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        todo!("Need to calculate the TSTs and add to uFJC.")
+    }
 }
 
 impl Legendre for ExtensibleFreelyJointedChain {

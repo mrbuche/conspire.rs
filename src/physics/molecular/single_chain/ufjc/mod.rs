@@ -14,6 +14,7 @@ use crate::{
         },
     },
 };
+use std::f64::consts::TAU;
 
 /// The freely-jointed chain model with an arbitrary link potential.[^1]
 /// [^1]: M.R. Buche, M.N. Silberstein, and S.J. Grutzik, [Physical Review E **106**, 024502 (2022)](https://doi.org/10.1103/PhysRevE.106.024502).
@@ -198,6 +199,25 @@ where
         Ok(0.5
             + hlpr * (2.0 - hlpr)
             + nondimensional_force.powi(2) / self.nondimensional_link_stiffness())
+    }
+    /// ```math
+    /// p(\lambda\,|\,\eta) = \left(\frac{2\pi}{\kappa}\right)^{-1/2}\frac{\lambda\sinh(\lambda\eta)}{\sinh(\eta)}\,\frac{e^{-\beta u(\lambda)}\,e^{-\eta^2/2\kappa}}{1 + (\eta/c\kappa)\coth(\eta)}
+    /// ```
+    fn nondimensional_link_length_probability(
+        &self,
+        nondimensional_length: Scalar,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        let kappa = self.nondimensional_link_stiffness();
+        let lambda = nondimensional_length;
+        let eta = nondimensional_force;
+        let beta_u_twice = kappa * (lambda - 1.0).powi(2) / 2.0 + eta.powi(2) / 2.0 / kappa;
+        Ok((kappa / TAU).sqrt()
+            * lambda
+            * ((eta * (lambda - 1.0) - beta_u_twice).exp()
+                - (-eta * (lambda + 1.0) - beta_u_twice).exp())
+            / (1.0 - (-2.0 * eta).exp())
+            / (1.0 + eta / kappa / eta.tanh()))
     }
 }
 
