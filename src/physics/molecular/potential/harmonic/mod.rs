@@ -1,4 +1,7 @@
-use crate::{math::Scalar, physics::molecular::potential::Potential};
+use crate::{
+    math::{Scalar, ScalarList},
+    physics::molecular::potential::Potential,
+};
 
 /// The harmonic potential.
 #[derive(Clone, Debug)]
@@ -25,8 +28,9 @@ impl Potential for Harmonic {
     /// ```math
     /// f = \pm\sqrt{2ku}
     /// ```
-    fn force_at_energy(&self, energy: Scalar) -> Scalar {
-        (2.0 * self.stiffness * energy).sqrt()
+    fn forces_at_energy(&self, energy: Scalar) -> ScalarList<2> {
+        let force = (2.0 * self.stiffness * energy).sqrt();
+        [force, -force].into()
     }
     /// ```math
     /// k(x) = k
@@ -49,8 +53,9 @@ impl Potential for Harmonic {
     /// ```math
     /// \Delta x = \pm\sqrt{\frac{2u}{k}}
     /// ```
-    fn extension_at_energy(&self, energy: Scalar) -> Scalar {
-        (2.0 * energy / self.stiffness).sqrt()
+    fn extensions_at_energy(&self, energy: Scalar) -> ScalarList<2> {
+        let extension = (2.0 * energy / self.stiffness).sqrt();
+        [extension, -extension].into()
     }
     /// ```math
     /// c(f) = \frac{1}{k}
