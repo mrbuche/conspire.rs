@@ -23,6 +23,12 @@ impl Potential for Harmonic {
         self.stiffness * (length - self.rest_length)
     }
     /// ```math
+    /// f = \pm\sqrt{2ku}
+    /// ```
+    fn force_at_energy(&self, energy: Scalar) -> Scalar {
+        (2.0 * self.stiffness * energy).sqrt()
+    }
+    /// ```math
     /// k(x) = k
     /// ```
     fn stiffness(&self, _length: Scalar) -> Scalar {
@@ -39,6 +45,12 @@ impl Potential for Harmonic {
     /// ```
     fn extension(&self, force: Scalar) -> Scalar {
         force / self.stiffness
+    }
+    /// ```math
+    /// \Delta x = \pm\sqrt{\frac{2u}{k}}
+    /// ```
+    fn extension_at_energy(&self, energy: Scalar) -> Scalar {
+        (2.0 * energy / self.stiffness).sqrt()
     }
     /// ```math
     /// c(f) = \frac{1}{k}

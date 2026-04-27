@@ -111,7 +111,7 @@ where
     T: Potential,
 {
     /// ```math
-    /// \varrho(\eta) = \ln\left[\frac{\eta}{\sinh(\eta)}\right] - \ln\left[1 + \frac{\eta}{c\kappa}\,\coth(\eta)\right] - \beta v(\eta)
+    /// \varrho(\eta) = \ln\left[\frac{\eta}{\sinh(\eta)}\right] - \ln\left[1 + \frac{\eta}{c\kappa}\,\coth(\eta)\right] - \nu(\eta)
     /// ```
     fn nondimensional_gibbs_free_energy_per_link(
         &self,
@@ -162,7 +162,7 @@ where
     T: Potential,
 {
     /// ```math
-    /// \langle\beta u\rangle = \frac{1}{2} + \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)} + \beta u[\lambda(\eta)]
+    /// \langle\upsilon\rangle = \frac{1}{2} + \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)} + \upsilon[\lambda(\eta)]
     /// ```
     fn nondimensional_link_energy_average(
         &self,
@@ -182,7 +182,7 @@ where
                 ))
     }
     /// ```math
-    /// \sigma_{\beta u}^2(\eta) = \frac{1}{2} + \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\left[2 - \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\right] + ???
+    /// \sigma_\upsilon^2(\eta) = \frac{1}{2} + \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\left[2 - \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\right] + ???
     /// ```
     fn nondimensional_link_energy_variance(
         &self,
@@ -201,14 +201,30 @@ where
             + nondimensional_force.powi(2) / self.nondimensional_link_stiffness())
     }
     /// ```math
-    /// p(\beta u\,|\,\eta) = ???
+    /// p(\upsilon\,|\,\eta) = \left(\frac{\partial\upsilon}{\partial\lambda}\right)^{-1} p(\lambda\,|\,\eta)
     /// ```
     fn nondimensional_link_energy_probability(
         &self,
         nondimensional_energy: Scalar,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        todo!()
+        Ok(
+            IsotensionalExtensible::nondimensional_link_length_probability(
+                self,
+                1.0 + self
+                    .link_potential
+                    .nondimensional_extension_at_nondimensional_energy(
+                        nondimensional_energy,
+                        self.temperature(),
+                    ),
+                nondimensional_force,
+            )? / self
+                .link_potential
+                .nondimensional_force_at_nondimensional_energy(
+                    nondimensional_energy,
+                    self.temperature(),
+                ),
+        )
     }
     /// ```math
     /// \langle\lambda\rangle = 1 + \frac{1}{\kappa}\big[1 + \eta\coth(\eta)\big] + ???
@@ -232,10 +248,10 @@ where
         //
         // Need to match last term correctly for nonlinear potentials.
         //
-        1.0 / self.nondimensional_link_stiffness()
+        Ok(1.0 / self.nondimensional_link_stiffness())
     }
     /// ```math
-    /// p(\lambda\,|\,\eta) = \left(\frac{2\pi}{\kappa}\right)^{-1/2}\frac{\lambda\sinh(\lambda\eta)}{\sinh(\eta)}\,\frac{e^{-\beta u(\lambda)}\,e^{-\eta^2/2\kappa}}{1 + (\eta/c\kappa)\coth(\eta)}
+    /// p(\lambda\,|\,\eta) = \left(\frac{2\pi}{\kappa}\right)^{-1/2}\frac{\lambda\sinh(\lambda\eta)}{\sinh(\eta)}\,\frac{e^{-\upsilon(\lambda)}\,e^{-\eta^2/2\kappa}}{1 + (\eta/c\kappa)\coth(\eta)}
     /// ```
     fn nondimensional_link_length_probability(
         &self,
@@ -245,11 +261,11 @@ where
         let kappa = self.nondimensional_link_stiffness();
         let lambda = nondimensional_length;
         let eta = nondimensional_force;
-        let beta_u_twice = kappa * (lambda - 1.0).powi(2) / 2.0 + eta.powi(2) / 2.0 / kappa;
+        let upsilon_twice = kappa * (lambda - 1.0).powi(2) / 2.0 + eta.powi(2) / 2.0 / kappa;
         Ok((kappa / TAU).sqrt()
             * lambda
-            * ((eta * (lambda - 1.0) - beta_u_twice).exp()
-                - (-eta * (lambda + 1.0) - beta_u_twice).exp())
+            * ((eta * (lambda - 1.0) - upsilon_twice).exp()
+                - (-eta * (lambda + 1.0) - upsilon_twice).exp())
             / (1.0 - (-2.0 * eta).exp())
             / (1.0 + eta / kappa / eta.tanh()))
     }
@@ -279,10 +295,10 @@ where
 pub fn nondimensional_gibbs_free_energy_per_link(
     eta: Scalar,
     kappa: Scalar,
-    beta_v: Scalar,
+    nu: Scalar,
     c: Scalar,
 ) -> Result<Scalar, SingleChainError> {
-    Ok(-((sinhc(eta) * (1.0 + eta / c / kappa / eta.tanh())).ln() - beta_v))
+    Ok(-((sinhc(eta) * (1.0 + eta / c / kappa / eta.tanh())).ln() - nu))
 }
 
 pub fn nondimensional_extension(

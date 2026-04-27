@@ -11,6 +11,7 @@ pub use morse::Morse;
 use crate::{math::Scalar, physics::BOLTZMANN_CONSTANT};
 use std::fmt::Debug;
 
+/// Potential models.
 pub trait Potential
 where
     Self: Clone + Debug,
@@ -20,7 +21,7 @@ where
     /// ```
     fn energy(&self, length: Scalar) -> Scalar;
     /// ```math
-    /// \beta u = \beta u(\lambda)
+    /// \upsilon(\lambda) = \beta u
     /// ```
     fn nondimensional_energy(&self, nondimensional_length: Scalar, temperature: Scalar) -> Scalar {
         let length = self.rest_length() * nondimensional_length;
@@ -35,7 +36,7 @@ where
         self.energy(length)
     }
     /// ```math
-    /// \beta u = \beta u[\lambda(\eta)]
+    /// \upsilon = \upsilon[\lambda(\eta)]
     /// ```
     fn nondimensional_energy_at_nondimensional_force(
         &self,
@@ -50,11 +51,26 @@ where
     /// ```
     fn force(&self, length: Scalar) -> Scalar;
     /// ```math
-    /// \eta(\lambda) = \frac{\partial\beta u}{\partial \lambda}
+    /// \eta(\lambda) = \frac{\partial\upsilon}{\partial \lambda}
     /// ```
     fn nondimensional_force(&self, nondimensional_length: Scalar, temperature: Scalar) -> Scalar {
         let length = self.rest_length() * nondimensional_length;
         self.force(length) * self.rest_length() / BOLTZMANN_CONSTANT / temperature
+    }
+    /// ```math
+    /// f = x^{-1}[u^{-1}(u)]
+    /// ```
+    fn force_at_energy(&self, energy: Scalar) -> Scalar;
+    /// ```math
+    /// \eta = \lambda^{-1}[\upsilon^{-1}(\upsilon)]
+    /// ```
+    fn nondimensional_force_at_nondimensional_energy(
+        &self,
+        nondimensional_energy: Scalar,
+        temperature: Scalar,
+    ) -> Scalar {
+        let energy = nondimensional_energy * BOLTZMANN_CONSTANT * temperature;
+        self.force_at_energy(energy) * self.rest_length() / BOLTZMANN_CONSTANT / temperature
     }
     /// ```math
     /// k(x) = \frac{\partial f}{\partial x}
@@ -95,7 +111,7 @@ where
         self.energy(length) - force * extension
     }
     /// ```math
-    /// \beta v(\eta) = \beta u(\lambda) - \eta\Delta\lambda
+    /// \nu(\eta) = \upsilon(\lambda) - \eta\Delta\lambda
     /// ```
     fn nondimensional_legendre(&self, nondimensional_force: Scalar, temperature: Scalar) -> Scalar {
         let force = nondimensional_force / self.rest_length() * BOLTZMANN_CONSTANT * temperature;
@@ -106,7 +122,7 @@ where
     /// ```
     fn extension(&self, force: Scalar) -> Scalar;
     /// ```math
-    /// \Delta \lambda(\eta) = -\frac{\partial\beta v}{\partial\eta}
+    /// \Delta\lambda(\eta) = -\frac{\partial\nu}{\partial\eta}
     /// ```
     fn nondimensional_extension(
         &self,
@@ -115,6 +131,21 @@ where
     ) -> Scalar {
         let force = nondimensional_force / self.rest_length() * BOLTZMANN_CONSTANT * temperature;
         self.extension(force) / self.rest_length()
+    }
+    /// ```math
+    /// \Delta x = u^{-1}(u) - x_0
+    /// ```
+    fn extension_at_energy(&self, energy: Scalar) -> Scalar;
+    /// ```math
+    /// \Delta\lambda = \upsilon^{-1}(\upsilon) - 1
+    /// ```
+    fn nondimensional_extension_at_nondimensional_energy(
+        &self,
+        nondimensional_energy: Scalar,
+        temperature: Scalar,
+    ) -> Scalar {
+        let energy = nondimensional_energy * BOLTZMANN_CONSTANT * temperature;
+        self.extension_at_energy(energy) / self.rest_length()
     }
     /// ```math
     /// c(x) = \frac{\partial\Delta x}{\partial f}
