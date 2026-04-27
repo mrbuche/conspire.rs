@@ -197,6 +197,56 @@ where
             }
         }
     }
+    fn nondimensional_link_energy_probability(
+        &self,
+        nondimensional_energy: Scalar,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        match self.ensemble() {
+            Ensemble::Isometric(_) => {
+                unimplemented!()
+            }
+            Ensemble::Isotensional(_) => {
+                IsotensionalExtensible::nondimensional_link_energy_probability(
+                    self,
+                    nondimensional_energy,
+                    nondimensional_force,
+                )
+            }
+        }
+    }
+    fn nondimensional_link_length_average(
+        &self,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        match self.ensemble() {
+            Ensemble::Isometric(_) => {
+                unimplemented!()
+            }
+            Ensemble::Isotensional(_) => {
+                IsotensionalExtensible::nondimensional_link_length_average(
+                    self,
+                    nondimensional_force,
+                )
+            }
+        }
+    }
+    fn nondimensional_link_length_variance(
+        &self,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        match self.ensemble() {
+            Ensemble::Isometric(_) => {
+                unimplemented!()
+            }
+            Ensemble::Isotensional(_) => {
+                IsotensionalExtensible::nondimensional_link_length_variance(
+                    self,
+                    nondimensional_force,
+                )
+            }
+        }
+    }
     fn nondimensional_link_length_probability(
         &self,
         nondimensional_length: Scalar,
@@ -331,6 +381,19 @@ where
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError>;
     fn nondimensional_link_energy_variance(
+        &self,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError>;
+    fn nondimensional_link_energy_probability(
+        &self,
+        nondimensional_energy: Scalar,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError>;
+    fn nondimensional_link_length_average(
+        &self,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError>;
+    fn nondimensional_link_length_variance(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError>;
