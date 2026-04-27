@@ -1,4 +1,7 @@
-use crate::{math::Scalar, physics::molecular::potential::Potential};
+use crate::{
+    math::{Scalar, ScalarList},
+    physics::molecular::potential::Potential,
+};
 
 /// The Morse potential.[^1]
 /// [^1]: P.M. Morse, [Physical Review **34**, 57 (1929)](https://doi.org/10.1103/PhysRev.34.57).
@@ -29,13 +32,14 @@ impl Potential for Morse {
     /// ```math
     /// f(u) = \pm 2a\sqrt{u/u_0}\left(1 \mp \sqrt{u/u_0}\right)
     /// ```
-    fn force_at_energy(&self, energy: Scalar) -> Scalar {
+    fn forces_at_energy(&self, energy: Scalar) -> ScalarList<2> {
         let y = energy / self.depth;
-        if (0.0..=1.0).contains(&y) {
+        let tensile = if (0.0..=1.0).contains(&y) {
             2.0 * self.parameter * y.sqrt() * (1.0 - y.sqrt())
         } else {
             Scalar::NAN
-        }
+        };
+        [tensile, -2.0 * self.parameter * y.sqrt() * (1.0 + y.sqrt())].into()
     }
     /// ```math
     /// k(x) = 2a^2u_0e^{-a(x - x_0)}\left[2e^{-a(x - x_0)} - 1\right]
@@ -65,13 +69,14 @@ impl Potential for Morse {
     /// ```math
     /// \Delta x(u) = \frac{1}{a}\,\ln\left(\frac{1}{1\mp\sqrt{u/u_0}}\right)
     /// ```
-    fn extension_at_energy(&self, energy: Scalar) -> Scalar {
+    fn extensions_at_energy(&self, energy: Scalar) -> ScalarList<2> {
         let y = energy / self.depth;
-        if (0.0..=1.0).contains(&y) {
+        let tensile = if (0.0..=1.0).contains(&y) {
             (1.0 / (1.0 - y.sqrt())).ln() / self.parameter
         } else {
             Scalar::NAN
-        }
+        };
+        [tensile, (1.0 / (1.0 + y.sqrt())).ln() / self.parameter].into()
     }
     /// ```math
     /// c(f) = \frac{1}{a^2u_0}\,\frac{\left(1-f/f_\mathrm{max}\right)^{-1/2}}{1+\sqrt{1-f/f_\mathrm{max}}}

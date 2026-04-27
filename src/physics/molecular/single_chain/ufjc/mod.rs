@@ -201,30 +201,53 @@ where
             + nondimensional_force.powi(2) / self.nondimensional_link_stiffness())
     }
     /// ```math
-    /// p(\upsilon\,|\,\eta) = \left(\frac{\partial\upsilon}{\partial\lambda}\right)^{-1} p(\lambda\,|\,\eta)
+    /// p(\upsilon\,|\,\eta) = \left(\frac{\partial\upsilon}{\partial\lambda}\right)^{-1} \Big[p(\lambda_+\,|\,\eta) + p(\lambda_-\,|\,\eta)\Big]
     /// ```
     fn nondimensional_link_energy_probability(
         &self,
         nondimensional_energy: Scalar,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        Ok(
-            IsotensionalExtensible::nondimensional_link_length_probability(
-                self,
-                1.0 + self
-                    .link_potential
-                    .nondimensional_extension_at_nondimensional_energy(
+        self.link_potential
+            .nondimensional_forces_at_nondimensional_energy(
+                nondimensional_energy,
+                self.temperature(),
+            )
+            .into_iter()
+            .zip(
+                self.link_potential
+                    .nondimensional_extensions_at_nondimensional_energy(
                         nondimensional_energy,
                         self.temperature(),
                     ),
-                nondimensional_force,
-            )? / self
-                .link_potential
-                .nondimensional_force_at_nondimensional_energy(
-                    nondimensional_energy,
-                    self.temperature(),
-                ),
-        )
+            )
+            .map(|(eta, delta_lambda)| {
+                Ok(
+                    IsotensionalExtensible::nondimensional_link_length_probability(
+                        self,
+                        1.0 + delta_lambda,
+                        nondimensional_force,
+                    )? / eta,
+                )
+            })
+            .sum()
+        // Ok(
+        //     IsotensionalExtensible::nondimensional_link_length_probability(
+        //         self,
+        //         1.0 + self
+        //             .link_potential
+        //             .nondimensional_extensions_at_nondimensional_energy(
+        //                 nondimensional_energy,
+        //                 self.temperature(),
+        //             )[0],
+        //         nondimensional_force,
+        //     )? / self
+        //         .link_potential
+        //         .nondimensional_forces_at_nondimensional_energy(
+        //             nondimensional_energy,
+        //             self.temperature(),
+        //         )[0],
+        // )
     }
     /// ```math
     /// \langle\lambda\rangle = 1 + \frac{1}{\kappa}\big[1 + \eta\coth(\eta)\big] + ???

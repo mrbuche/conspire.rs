@@ -8,7 +8,10 @@ mod morse;
 pub use harmonic::Harmonic;
 pub use morse::Morse;
 
-use crate::{math::Scalar, physics::BOLTZMANN_CONSTANT};
+use crate::{
+    math::{Scalar, ScalarList},
+    physics::BOLTZMANN_CONSTANT,
+};
 use std::fmt::Debug;
 
 /// Potential models.
@@ -60,17 +63,17 @@ where
     /// ```math
     /// f = x^{-1}[u^{-1}(u)]
     /// ```
-    fn force_at_energy(&self, energy: Scalar) -> Scalar;
+    fn forces_at_energy(&self, energy: Scalar) -> ScalarList<2>;
     /// ```math
     /// \eta = \lambda^{-1}[\upsilon^{-1}(\upsilon)]
     /// ```
-    fn nondimensional_force_at_nondimensional_energy(
+    fn nondimensional_forces_at_nondimensional_energy(
         &self,
         nondimensional_energy: Scalar,
         temperature: Scalar,
-    ) -> Scalar {
+    ) -> ScalarList<2> {
         let energy = nondimensional_energy * BOLTZMANN_CONSTANT * temperature;
-        self.force_at_energy(energy) * self.rest_length() / BOLTZMANN_CONSTANT / temperature
+        self.forces_at_energy(energy) * self.rest_length() / BOLTZMANN_CONSTANT / temperature
     }
     /// ```math
     /// k(x) = \frac{\partial f}{\partial x}
@@ -135,17 +138,17 @@ where
     /// ```math
     /// \Delta x = u^{-1}(u) - x_0
     /// ```
-    fn extension_at_energy(&self, energy: Scalar) -> Scalar;
+    fn extensions_at_energy(&self, energy: Scalar) -> ScalarList<2>;
     /// ```math
     /// \Delta\lambda = \upsilon^{-1}(\upsilon) - 1
     /// ```
-    fn nondimensional_extension_at_nondimensional_energy(
+    fn nondimensional_extensions_at_nondimensional_energy(
         &self,
         nondimensional_energy: Scalar,
         temperature: Scalar,
-    ) -> Scalar {
+    ) -> ScalarList<2> {
         let energy = nondimensional_energy * BOLTZMANN_CONSTANT * temperature;
-        self.extension_at_energy(energy) / self.rest_length()
+        self.extensions_at_energy(energy) / self.rest_length()
     }
     /// ```math
     /// c(x) = \frac{\partial\Delta x}{\partial f}

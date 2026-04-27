@@ -10,6 +10,16 @@ use crate::{
 const NUM: usize = 333;
 
 #[test]
+fn test_forces_at_energy_consistency() {
+    todo!()
+}
+
+#[test]
+fn test_extensions_at_energy_consistency() {
+    todo!()
+}
+
+#[test]
 fn finite_difference() -> Result<(), TestError> {
     let e = 1.2;
     let a = 1.1;
