@@ -232,7 +232,7 @@ where
         //
         // Need to match last term correctly for nonlinear potentials.
         //
-        todo!()
+        1.0 / self.nondimensional_link_stiffness()
     }
     /// ```math
     /// p(\lambda\,|\,\eta) = \left(\frac{2\pi}{\kappa}\right)^{-1/2}\frac{\lambda\sinh(\lambda\eta)}{\sinh(\eta)}\,\frac{e^{-\beta u(\lambda)}\,e^{-\eta^2/2\kappa}}{1 + (\eta/c\kappa)\coth(\eta)}
