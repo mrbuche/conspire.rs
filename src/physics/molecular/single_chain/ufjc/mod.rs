@@ -201,6 +201,40 @@ where
             + nondimensional_force.powi(2) / self.nondimensional_link_stiffness())
     }
     /// ```math
+    /// p(\beta u\,|\,\eta) = ???
+    /// ```
+    fn nondimensional_link_energy_probability(
+        &self,
+        nondimensional_energy: Scalar,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        todo!()
+    }
+    /// ```math
+    /// \langle\lambda\rangle = 1 + \frac{1}{\kappa}\big[1 + \eta\coth(\eta)\big] + ???
+    /// ```
+    fn nondimensional_link_length_average(
+        &self,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        //
+        // Need to match last term correctly for nonlinear potentials.
+        //
+        todo!()
+    }
+    /// ```math
+    /// \sigma_\lambda^2 = \frac{1}{\kappa} + ???
+    /// ```
+    fn nondimensional_link_length_variance(
+        &self,
+        nondimensional_force: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        //
+        // Need to match last term correctly for nonlinear potentials.
+        //
+        todo!()
+    }
+    /// ```math
     /// p(\lambda\,|\,\eta) = \left(\frac{2\pi}{\kappa}\right)^{-1/2}\frac{\lambda\sinh(\lambda\eta)}{\sinh(\eta)}\,\frac{e^{-\beta u(\lambda)}\,e^{-\eta^2/2\kappa}}{1 + (\eta/c\kappa)\coth(\eta)}
     /// ```
     fn nondimensional_link_length_probability(
