@@ -216,38 +216,21 @@ where
             .into_iter()
             .zip(
                 self.link_potential
-                    .nondimensional_extensions_at_nondimensional_energy(
+                    .nondimensional_lengths_at_nondimensional_energy(
                         nondimensional_energy,
                         self.temperature(),
                     ),
             )
-            .map(|(eta, delta_lambda)| {
+            .map(|(eta, nondimensional_length)| {
                 Ok(
                     IsotensionalExtensible::nondimensional_link_length_probability(
                         self,
-                        1.0 + delta_lambda,
+                        nondimensional_length,
                         nondimensional_force,
                     )? / eta,
                 )
             })
             .sum()
-        // Ok(
-        //     IsotensionalExtensible::nondimensional_link_length_probability(
-        //         self,
-        //         1.0 + self
-        //             .link_potential
-        //             .nondimensional_extensions_at_nondimensional_energy(
-        //                 nondimensional_energy,
-        //                 self.temperature(),
-        //             )[0],
-        //         nondimensional_force,
-        //     )? / self
-        //         .link_potential
-        //         .nondimensional_forces_at_nondimensional_energy(
-        //             nondimensional_energy,
-        //             self.temperature(),
-        //         )[0],
-        // )
     }
     /// ```math
     /// \langle\lambda\rangle = 1 + \frac{1}{\kappa}\big[1 + \eta\coth(\eta)\big] + ???
@@ -274,7 +257,7 @@ where
         Ok(1.0 / self.nondimensional_link_stiffness())
     }
     /// ```math
-    /// p(\lambda\,|\,\eta) = \left(\frac{2\pi}{\kappa}\right)^{-1/2}\frac{\lambda\sinh(\lambda\eta)}{\sinh(\eta)}\,\frac{e^{-\upsilon(\lambda)}\,e^{-\eta^2/2\kappa}}{1 + (\eta/c\kappa)\coth(\eta)}
+    /// p(\lambda\,|\,\eta) = \left(\frac{2\pi}{\kappa}\right)^{-1/2}\frac{\mathrm{sinhc}(\lambda\eta)}{\mathrm{sinhc}(\eta)}\,\frac{e^{-\upsilon(\lambda)}\,e^{-\eta^2/2\kappa}}{1 + (\eta/c\kappa)\coth(\eta)}
     /// ```
     fn nondimensional_link_length_probability(
         &self,

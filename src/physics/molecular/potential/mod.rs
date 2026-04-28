@@ -136,6 +136,18 @@ where
         self.extension(force) / self.rest_length()
     }
     /// ```math
+    /// x(f) = x_0 + \Delta x(f)
+    /// ```
+    fn length(&self, force: Scalar) -> Scalar {
+        self.rest_length() + self.extension(force)
+    }
+    /// ```math
+    /// \lambda(\eta) = 1 + \Delta\lambda(\eta)
+    /// ```
+    fn nondimensional_length(&self, nondimensional_force: Scalar, temperature: Scalar) -> Scalar {
+        1.0 + self.nondimensional_extension(nondimensional_force, temperature)
+    }
+    /// ```math
     /// \Delta x = u^{-1}(u) - x_0
     /// ```
     fn extensions_at_energy(&self, energy: Scalar) -> ScalarList<2>;
@@ -149,6 +161,23 @@ where
     ) -> ScalarList<2> {
         let energy = nondimensional_energy * BOLTZMANN_CONSTANT * temperature;
         self.extensions_at_energy(energy) / self.rest_length()
+    }
+    /// ```math
+    /// x = u^{-1}(u)
+    /// ```
+    fn lengths_at_energy(&self, energy: Scalar) -> ScalarList<2> {
+        self.extensions_at_energy(energy) + ScalarList::from([self.rest_length(); 2])
+    }
+    /// ```math
+    /// \lambda = \upsilon^{-1}(\upsilon)
+    /// ```
+    fn nondimensional_lengths_at_nondimensional_energy(
+        &self,
+        nondimensional_energy: Scalar,
+        temperature: Scalar,
+    ) -> ScalarList<2> {
+        self.nondimensional_extensions_at_nondimensional_energy(nondimensional_energy, temperature)
+            + ScalarList::from([1.0; 2])
     }
     /// ```math
     /// c(x) = \frac{\partial\Delta x}{\partial f}
