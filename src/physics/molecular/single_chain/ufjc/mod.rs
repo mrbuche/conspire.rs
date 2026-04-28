@@ -201,7 +201,7 @@ where
             + nondimensional_force.powi(2) / self.nondimensional_link_stiffness())
     }
     /// ```math
-    /// p(\upsilon\,|\,\eta) = \left(\frac{\partial\upsilon}{\partial\lambda}\right)^{-1} \Big[p(\lambda_+\,|\,\eta) + p(\lambda_-\,|\,\eta)\Big]
+    /// p(\upsilon\,|\,\eta) = \left|\frac{\partial\upsilon}{\partial\lambda}\right|^{-1} \Big[p(\lambda_+\,|\,\eta) + p(\lambda_-\,|\,\eta)\Big]
     /// ```
     fn nondimensional_link_energy_probability(
         &self,
