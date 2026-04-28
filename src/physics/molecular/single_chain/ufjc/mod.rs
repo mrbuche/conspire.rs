@@ -227,7 +227,7 @@ where
                         self,
                         nondimensional_length,
                         nondimensional_force,
-                    )? / eta,
+                    )? / eta.abs(),
                 )
             })
             .sum()
