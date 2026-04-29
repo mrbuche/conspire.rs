@@ -214,7 +214,7 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
         )
     }
     /// ```math
-    /// \sigma_\upsilon^2 = \frac{1}{2} + \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\left[2 - \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\right] + \frac{g''(\upsilon)}{1 + g(\upsilon)} - \left[\frac{g'(\upsilon)}{1 + g(\upsilon)}\right]^2
+    /// \sigma_\upsilon^2 = \frac{1}{2} + \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\left[2 - \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\right] + ???
     /// ```
     fn nondimensional_link_energy_variance(
         &self,
