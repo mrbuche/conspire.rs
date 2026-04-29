@@ -221,80 +221,63 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
         let eta = nondimensional_force;
-    let kappa = self.nondimensional_link_stiffness();
+        let kappa = self.nondimensional_link_stiffness();
 
-    let eta_over_kappa = eta / kappa;
-    let exp_eta = eta.exp();
-    let exp_neg_eta = (-eta).exp();
+        let mean = |kappa_trial: Scalar| -> Result<Scalar, SingleChainError> {
+            let upsilon = 0.5 * eta.powi(2) / kappa_trial;
 
-    let sqrt_2_kappa = (2.0 * kappa).sqrt();
-    let x_plus = (eta + kappa) / sqrt_2_kappa;
-    let x_minus = (eta - kappa) / sqrt_2_kappa;
+            let eta_over_kappa = eta / kappa_trial;
+            let neg_2_eta_exp = (-2.0 * eta).exp();
+            let eta_coth = 1.0 / eta.tanh();
 
-    let erf_plus = erf(&x_plus);
-    let erf_minus = erf(&x_minus);
+            let sqrt_2_kappa = (2.0 * kappa_trial).sqrt();
+            let x_plus = (eta + kappa_trial) / sqrt_2_kappa;
+            let x_minus = (eta - kappa_trial) / sqrt_2_kappa;
 
-    let exp_minus_x_plus_sq = (-(x_plus * x_plus)).exp();
-    let exp_minus_x_minus_sq = (-(x_minus * x_minus)).exp();
+            let erf_plus = erf(&x_plus);
+            let erf_minus = erf(&x_minus);
 
-    let one_plus_erf_plus = 1.0 + erf_plus;
-    let one_minus_erf_minus = 1.0 - erf_minus;
+            let a = (eta_over_kappa + 1.0) * erf_plus
+                - (eta_over_kappa - 1.0) * neg_2_eta_exp * erf_minus;
 
-    let u_plus = eta_over_kappa + 1.0;
-    let u_minus = eta_over_kappa - 1.0;
+            let d = 2.0 * (1.0 - neg_2_eta_exp) * (1.0 + eta_over_kappa * eta_coth);
 
-    let q_plus = exp_eta * u_plus * one_plus_erf_plus;
-    let q_minus = exp_neg_eta * u_minus * one_minus_erf_minus;
-    let q = q_plus + q_minus;
+            let f = 0.5 + a / d;
 
-    let du_plus_dkappa = -eta / kappa.powi(2);
-    let du_minus_dkappa = -eta / kappa.powi(2);
+            let dx_plus_dkappa = (kappa_trial - eta) / (2.0 * kappa_trial).powf(1.5);
+            let dx_minus_dkappa = -(kappa_trial + eta) / (2.0 * kappa_trial).powf(1.5);
 
-    let d2u_plus_dkappa2 = 2.0 * eta / kappa.powi(3);
-    let d2u_minus_dkappa2 = 2.0 * eta / kappa.powi(3);
+            let derf_plus_dkappa = (2.0 / PI.sqrt()) * (-(x_plus.powi(2))).exp() * dx_plus_dkappa;
+            let derf_minus_dkappa =
+                (2.0 / PI.sqrt()) * (-(x_minus.powi(2))).exp() * dx_minus_dkappa;
 
-    let dx_plus_dkappa = (kappa - eta) / (2.0 * kappa).powf(1.5);
-    let dx_minus_dkappa = -(eta + kappa) / (2.0 * kappa).powf(1.5);
+            let da_dkappa = -eta / kappa_trial.powi(2) * erf_plus
+                + (eta_over_kappa + 1.0) * derf_plus_dkappa
+                + eta / kappa_trial.powi(2) * neg_2_eta_exp * erf_minus
+                - (eta_over_kappa - 1.0) * neg_2_eta_exp * derf_minus_dkappa;
 
-    let d2x_plus_dkappa2 = (3.0 * eta - kappa) / (2.0 * kappa).powf(2.5);
-    let d2x_minus_dkappa2 = (eta + 3.0 * kappa) / (2.0 * kappa).powf(2.5);
+            let dd_dkappa = -2.0 * (1.0 - neg_2_eta_exp) * eta * eta_coth / kappa_trial.powi(2);
 
-    let derf_plus_dkappa = (2.0 / PI.sqrt()) * exp_minus_x_plus_sq * dx_plus_dkappa;
-    let derf_minus_dkappa = (2.0 / PI.sqrt()) * exp_minus_x_minus_sq * dx_minus_dkappa;
+            let df_dkappa = (da_dkappa * d - a * dd_dkappa) / d.powi(2);
 
-    let d2erf_plus_dkappa2 = (2.0 / PI.sqrt())
-        * exp_minus_x_plus_sq
-        * (d2x_plus_dkappa2 - 2.0 * x_plus * dx_plus_dkappa.powi(2));
+            Ok(
+                nondimensional_link_energy_average_asymptotic(eta, kappa_trial, upsilon, 1.0)?
+                    - kappa_trial * df_dkappa / f,
+            )
+        };
 
-    let d2erf_minus_dkappa2 = (2.0 / PI.sqrt())
-        * exp_minus_x_minus_sq
-        * (d2x_minus_dkappa2 - 2.0 * x_minus * dx_minus_dkappa.powi(2));
+        let mut h = 1e-5 * kappa.abs().max(1e-6);
+        if kappa - h <= 0.0 {
+            h = 0.5 * kappa;
+        }
 
-    let dq_plus_dkappa =
-        exp_eta * (du_plus_dkappa * one_plus_erf_plus + u_plus * derf_plus_dkappa);
+        let mean_0 = mean(kappa)?;
+        let mean_plus = mean(kappa + h)?;
+        let mean_minus = mean(kappa - h)?;
 
-    let dq_minus_dkappa =
-        exp_neg_eta * (du_minus_dkappa * one_minus_erf_minus - u_minus * derf_minus_dkappa);
+        let dmean_dkappa = (mean_plus - mean_minus) / (2.0 * h);
 
-    let dq_dkappa = dq_plus_dkappa + dq_minus_dkappa;
-
-    let d2q_plus_dkappa2 = exp_eta
-        * (d2u_plus_dkappa2 * one_plus_erf_plus
-            + 2.0 * du_plus_dkappa * derf_plus_dkappa
-            + u_plus * d2erf_plus_dkappa2);
-
-    let d2q_minus_dkappa2 = exp_neg_eta
-        * (d2u_minus_dkappa2 * one_minus_erf_minus
-            - 2.0 * du_minus_dkappa * derf_minus_dkappa
-            - u_minus * d2erf_minus_dkappa2);
-
-    let d2q_dkappa2 = d2q_plus_dkappa2 + d2q_minus_dkappa2;
-
-    Ok(
-        0.5
-            + eta.powi(2) / kappa
-            + kappa.powi(2) * (d2q_dkappa2 / q - (dq_dkappa / q).powi(2)),
-    )
+        Ok(mean_0 - kappa * dmean_dkappa)
     }
     fn nondimensional_link_energy_probability(
         &self,
