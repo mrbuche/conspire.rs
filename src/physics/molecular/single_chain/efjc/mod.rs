@@ -235,43 +235,39 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
         let erf_plus  = erf(&x_plus);
         let erf_minus = erf(&x_minus);
 
-        let exp_xp2 = (-(x_plus  * x_plus )).exp();
+        let exp_xp2 = (-(x_plus  * x_plus)).exp();
         let exp_xm2 = (-(x_minus * x_minus)).exp();
 
-        // a and d (same as average)
         let a = (eta_over_kappa + 1.0) * erf_plus
             - (eta_over_kappa - 1.0) * neg_2_eta_exp * erf_minus;
         let d = 2.0 * (1.0 - neg_2_eta_exp) * (1.0 + eta_over_kappa * eta_coth);
         let f = 0.5 + a / d;
 
-        // First derivatives of x_±
-        let dx_p = (kappa - eta) / (2.0 * kappa).powf(1.5);
-        let dx_m = -(eta + kappa) / (2.0 * kappa).powf(1.5);
-
-        // Second derivatives of x_±
-        let d2x_p = (3.0 * eta - kappa) / (2.0 * kappa).powf(2.5);
-        let d2x_m = (eta + 3.0 * kappa) / (2.0 * kappa).powf(2.5);
-
-        // First derivatives of erf(x_±)
         let tpi = 2.0 / PI.sqrt();
+        let k32 = (2.0 * kappa).powf(1.5);
+        let k52 = (2.0 * kappa).powf(2.5);
+
+        let dx_p =  (kappa - eta) / k32;
+        let dx_m = -(eta + kappa) / k32;
+
+        let d2x_p = (3.0 * eta - kappa) / k52;
+        let d2x_m = (eta + 3.0 * kappa) / k52;
+
         let derf_p = tpi * exp_xp2 * dx_p;
         let derf_m = tpi * exp_xm2 * dx_m;
 
-        // Second derivatives of erf(x_±)
-        let d2erf_p = tpi * exp_xp2 * (d2x_p - 2.0 * x_plus  * dx_p.powi(2));
-        let d2erf_m = tpi * exp_xm2 * (d2x_m - 2.0 * x_minus * dx_m.powi(2));
+        let d2erf_p = tpi * exp_xp2 * (d2x_p - 2.0 * x_plus  * dx_p * dx_p);
+        let d2erf_m = tpi * exp_xm2 * (d2x_m - 2.0 * x_minus * dx_m * dx_m);
 
-        // First and second derivatives of (η/κ ± 1) and the e^{-2η} factor
-        let du_p  =  -eta / kappa.powi(2);               // d/dκ (η/κ + 1)
-        let d2u_p = 2.0 * eta / kappa.powi(3);
-        let du_m  =  -eta / kappa.powi(2) * neg_2_eta_exp;   // d/dκ [(η/κ − 1)e^{-2η}]
-        let d2u_m = 2.0 * eta / kappa.powi(3) * neg_2_eta_exp;
+        let du_p  = -eta / kappa.powi(2);
+        let d2u_p =  2.0 * eta / kappa.powi(3);
+        // u_minus = (η/κ - 1)·e^{-2η}, κ-derivatives only hit η/κ
+        let du_m  = -eta / kappa.powi(2) * neg_2_eta_exp;
+        let d2u_m =  2.0 * eta / kappa.powi(3) * neg_2_eta_exp;
 
-        // First derivative of a
         let da = du_p * erf_plus  + (eta_over_kappa + 1.0) * derf_p
             - du_m * erf_minus - (eta_over_kappa - 1.0) * neg_2_eta_exp * derf_m;
 
-        // Second derivative of a
         let d2a = d2u_p * erf_plus
                 + 2.0 * du_p * derf_p
                 + (eta_over_kappa + 1.0) * d2erf_p
@@ -279,19 +275,25 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
                 - 2.0 * du_m * derf_m
                 - (eta_over_kappa - 1.0) * neg_2_eta_exp * d2erf_m;
 
-        // First and second derivatives of d
         let d_pre = 2.0 * (1.0 - neg_2_eta_exp);
-        let dd   = -d_pre * eta * eta_coth / kappa.powi(2);
-        let d2d  =  2.0 * d_pre * eta * eta_coth / kappa.powi(3);
+        let dd  = -d_pre * eta * eta_coth / kappa.powi(2);
+        let d2d =  2.0 * d_pre * eta * eta_coth / kappa.powi(3);
 
-        // First and second derivatives of f = 1/2 + a/d
         let df  = (da * d - a * dd) / d.powi(2);
         let d2f = (d2a * d - a * d2d) / d.powi(2)
                 - 2.0 * (da * d - a * dd) * dd / d.powi(3);
 
+        // // h(2-h) is already exact via helper; only the υ→η²/κ term needs replacing
+        // // exact: -κ²·∂²ln(f)/∂κ² replaces η²/κ
+        // let hlpr = helper(eta, kappa, 1.0);
+        // Ok(
+        //     0.5 + hlpr * (2.0 - hlpr)
+        //         - kappa.powi(2) * (d2f / f - (df / f).powi(2)),
+        // )
         Ok(
             nondimensional_link_energy_variance_asymptotic(eta, kappa, upsilon, 1.0)?
-                - kappa.powi(2) * (d2f / f - (df / f).powi(2)),
+                - eta.powi(2) / kappa                                          // remove asymptotic υ term
+                - kappa.powi(2) * (d2f / f - (df / f).powi(2)),               // replace with exact
         )
     }
     fn nondimensional_link_energy_probability(
