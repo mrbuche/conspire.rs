@@ -98,16 +98,18 @@ impl Isotensional for ExtensibleFreelyJointedChain {
         let eta = nondimensional_force;
         let kappa = self.nondimensional_link_stiffness();
         let eta_over_kappa = eta / kappa;
-        let eta_exp = eta.exp();
+        let neg_2_eta_exp = (-2.0 * eta).exp();
         Ok(nondimensional_gibbs_free_energy_per_link_asymptotic(
             eta,
             kappa,
             -0.5 * eta.powi(2) / kappa,
             1.0,
         )? - (0.5
-            + ((eta_over_kappa + 1.0) * eta_exp * erf(&((eta + kappa) / (2.0 * kappa).sqrt()))
-                - (eta_over_kappa - 1.0) / eta_exp * erf(&((eta - kappa) / (2.0 * kappa).sqrt())))
-                / (4.0 * eta.sinh() * (1.0 + eta / eta.tanh() / kappa)))
+            + ((eta_over_kappa + 1.0) * erf(&((eta + kappa) / (2.0 * kappa).sqrt()))
+                - (eta_over_kappa - 1.0)
+                    * neg_2_eta_exp
+                    * erf(&((eta - kappa) / (2.0 * kappa).sqrt())))
+                / (2.0 * (1.0 - neg_2_eta_exp) * (1.0 + eta / eta.tanh() / kappa)))
             .ln())
     }
     /// ```math
@@ -120,29 +122,30 @@ impl Isotensional for ExtensibleFreelyJointedChain {
         let eta = nondimensional_force;
         let kappa = self.nondimensional_link_stiffness();
         let eta_over_kappa = eta / kappa;
-        let denominator = 4.0 * eta.sinh() * (1.0 + eta / eta.tanh() / kappa);
-        let fraction = ((eta_over_kappa + 1.0)
-            * eta.exp()
-            * erf(&((eta + kappa) / (2.0 * kappa).sqrt()))
-            - (eta_over_kappa - 1.0) / eta.exp() * erf(&((eta - kappa) / (2.0 * kappa).sqrt())))
+        let neg_2_eta_exp = (-2.0 * eta).exp();
+        let denominator = 2.0 * (1.0 - neg_2_eta_exp) * (1.0 + eta / eta.tanh() / kappa);
+        let fraction = ((eta_over_kappa + 1.0) * erf(&((eta + kappa) / (2.0 * kappa).sqrt()))
+            - (eta_over_kappa - 1.0)
+                * neg_2_eta_exp
+                * erf(&((eta - kappa) / (2.0 * kappa).sqrt())))
             / denominator;
         Ok(
             nondimensional_extension_asymptotic(eta, kappa, eta_over_kappa, 1.0)?
-                + (eta.exp()
-                    * ((2.0 / PI / kappa).sqrt()
-                        * (eta_over_kappa + 1.0)
-                        * (-(eta + kappa).powi(2) / 2.0 / kappa).exp()
-                        + (1.0 + (1.0 + eta) / kappa))
-                    - 1.0 / eta.exp()
+                + (((2.0 / PI / kappa).sqrt()
+                    * (eta_over_kappa + 1.0)
+                    * (-(eta + kappa).powi(2) / 2.0 / kappa).exp()
+                    + (1.0 + (1.0 + eta) / kappa))
+                    - 1.0
+                        * neg_2_eta_exp
                         * ((2.0 / PI / kappa).sqrt()
                             * (eta_over_kappa - 1.0)
                             * (-(eta - kappa).powi(2) / 2.0 / kappa).exp()
                             + (1.0 + (1.0 - eta) / kappa)
                                 * erf(&((eta - kappa) / (2.0 * kappa).sqrt())))
                     - fraction
-                        * (4.0
-                            * (eta.cosh() * (1.0 + (1.0 + eta / eta.tanh()) / kappa)
-                                - eta_over_kappa / eta.sinh())))
+                        * (2.0
+                            * ((1.0 + neg_2_eta_exp) * (1.0 + (1.0 + eta / eta.tanh()) / kappa)
+                                - 4.0 * eta_over_kappa / (1.0 / neg_2_eta_exp - 1.0))))
                     / denominator
                     / (1.0 + fraction),
         )
