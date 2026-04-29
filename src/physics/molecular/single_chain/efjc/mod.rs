@@ -220,53 +220,7 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        let eta = nondimensional_force;
-        let kappa = self.nondimensional_link_stiffness();
-
-        let rho = |kappa_trial: Scalar| -> Result<Scalar, SingleChainError> {
-            let eta_over_kappa = eta / kappa_trial;
-            let neg_2_eta_exp = (-2.0 * eta).exp();
-            let eta_coth = 1.0 / eta.tanh();
-
-            let sqrt_2_kappa = (2.0 * kappa_trial).sqrt();
-            let x_plus = (eta + kappa_trial) / sqrt_2_kappa;
-            let x_minus = (eta - kappa_trial) / sqrt_2_kappa;
-
-            let erf_plus = erf(&x_plus);
-            let erf_minus = erf(&x_minus);
-
-            let a = (eta_over_kappa + 1.0) * erf_plus
-                - (eta_over_kappa - 1.0) * neg_2_eta_exp * erf_minus;
-            let d = 2.0 * (1.0 - neg_2_eta_exp) * (1.0 + eta_over_kappa * eta_coth);
-
-            let f = 0.5 + a / d;
-
-            Ok(nondimensional_gibbs_free_energy_per_link_asymptotic(
-                eta,
-                kappa_trial,
-                -0.5 * eta.powi(2) / kappa_trial,
-                1.0,
-            )? - f.ln())
-        };
-
-        let mut h = kappa * f64::EPSILON.powf(1.0 / 3.0);
-        if kappa - h <= 0.0 {
-            h = 0.5 * kappa;
-        }
-
-        let rho_0 = rho(kappa)?;
-        let rho_plus = rho(kappa + h)?;
-        let rho_minus = rho(kappa - h)?;
-
-        let d2rho = (rho_plus - 2.0 * rho_0 + rho_minus) / (h * h);
-
-        let upsilon = 0.5 * eta.powi(2) / kappa;
-
-        Ok(
-            nondimensional_link_energy_variance_asymptotic(eta, kappa, upsilon, 1.0)?
-                - eta.powi(2) / kappa
-                - kappa.powi(2) * d2rho,
-        )
+        todo!()
     }
     fn nondimensional_link_energy_probability(
         &self,
