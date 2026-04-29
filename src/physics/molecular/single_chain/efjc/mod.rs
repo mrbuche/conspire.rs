@@ -261,8 +261,10 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
         let df_dkappa = (da_dkappa * d - a * dd_dkappa) / d.powi(2);
 
         // Second derivatives.
-        let d2x_plus_dkappa2 = (3.0 * eta - kappa) / (2.0 * (2.0 * kappa).powf(2.5));
-        let d2x_minus_dkappa2 = (kappa + 3.0 * eta) / (2.0 * (2.0 * kappa).powf(2.5));
+        let d2x_plus_dkappa2 = (3.0 * eta - kappa) / (2.0 * kappa).powf(2.5);
+        let d2x_minus_dkappa2 = (eta + 3.0 * kappa) / (2.0 * kappa).powf(2.5);
+        // let d2x_plus_dkappa2 = (3.0 * eta - kappa) / (2.0 * (2.0 * kappa).powf(2.5));
+        // let d2x_minus_dkappa2 = (kappa + 3.0 * eta) / (2.0 * (2.0 * kappa).powf(2.5));
 
         let d2erf_plus_dkappa2 = (2.0 / PI.sqrt())
             * exp_minus_x_plus_sq
