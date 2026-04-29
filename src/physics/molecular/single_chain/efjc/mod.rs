@@ -262,7 +262,7 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
 
             Ok(
                 nondimensional_link_energy_average_asymptotic(eta, kappa_trial, upsilon, 1.0)?
-                    - kappa_trial * df_dkappa / f,
+                    + kappa_trial * df_dkappa / f,
             )
         };
 
