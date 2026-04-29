@@ -228,6 +228,7 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
         let neg_2_eta_exp = (-2.0 * eta).exp();
         let eta_coth = 1.0 / eta.tanh();
 
+        // x_± and erf(x_±)
         let sqrt_2_kappa = (2.0 * kappa).sqrt();
         let x_plus = (eta + kappa) / sqrt_2_kappa;
         let x_minus = (eta - kappa) / sqrt_2_kappa;
@@ -235,37 +236,31 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
         let erf_plus = erf(&x_plus);
         let erf_minus = erf(&x_minus);
 
-        let exp_minus_x_plus_sq = (-(x_plus.powi(2))).exp();
-        let exp_minus_x_minus_sq = (-(x_minus.powi(2))).exp();
+        let exp_minus_x_plus_sq = (-(x_plus * x_plus)).exp();
+        let exp_minus_x_minus_sq = (-(x_minus * x_minus)).exp();
 
-        let a =
-            (eta_over_kappa + 1.0) * erf_plus - (eta_over_kappa - 1.0) * neg_2_eta_exp * erf_minus;
+        // a and d
+        let u_plus = eta_over_kappa + 1.0;
+        let u_minus = (eta_over_kappa - 1.0) * neg_2_eta_exp;
 
+        let a = u_plus * erf_plus - u_minus * erf_minus;
         let d = 2.0 * (1.0 - neg_2_eta_exp) * (1.0 + eta_over_kappa * eta_coth);
 
         let f = 0.5 + a / d;
 
+        // First derivatives of x_±
         let dx_plus_dkappa = (kappa - eta) / (2.0 * kappa).powf(1.5);
-        let dx_minus_dkappa = -(kappa + eta) / (2.0 * kappa).powf(1.5);
+        let dx_minus_dkappa = -(eta + kappa) / (2.0 * kappa).powf(1.5);
 
+        // Second derivatives of x_±
+        let d2x_plus_dkappa2 = (3.0 * eta - kappa) / (2.0 * kappa).powf(2.5);
+        let d2x_minus_dkappa2 = (eta + 3.0 * kappa) / (2.0 * kappa).powf(2.5);
+
+        // First derivatives of erf(x_±)
         let derf_plus_dkappa = (2.0 / PI.sqrt()) * exp_minus_x_plus_sq * dx_plus_dkappa;
         let derf_minus_dkappa = (2.0 / PI.sqrt()) * exp_minus_x_minus_sq * dx_minus_dkappa;
 
-        let da_dkappa = -eta / kappa.powi(2) * erf_plus
-            + (eta_over_kappa + 1.0) * derf_plus_dkappa
-            + eta / kappa.powi(2) * neg_2_eta_exp * erf_minus
-            - (eta_over_kappa - 1.0) * neg_2_eta_exp * derf_minus_dkappa;
-
-        let dd_dkappa = -2.0 * (1.0 - neg_2_eta_exp) * eta * eta_coth / kappa.powi(2);
-
-        let df_dkappa = (da_dkappa * d - a * dd_dkappa) / d.powi(2);
-
-        // Second derivatives.
-        let d2x_plus_dkappa2 = (3.0 * eta - kappa) / (2.0 * kappa).powf(2.5);
-        let d2x_minus_dkappa2 = (eta + 3.0 * kappa) / (2.0 * kappa).powf(2.5);
-        // let d2x_plus_dkappa2 = (3.0 * eta - kappa) / (2.0 * (2.0 * kappa).powf(2.5));
-        // let d2x_minus_dkappa2 = (kappa + 3.0 * eta) / (2.0 * (2.0 * kappa).powf(2.5));
-
+        // Second derivatives of erf(x_±)
         let d2erf_plus_dkappa2 = (2.0 / PI.sqrt())
             * exp_minus_x_plus_sq
             * (d2x_plus_dkappa2 - 2.0 * x_plus * dx_plus_dkappa.powi(2));
@@ -274,14 +269,33 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
             * exp_minus_x_minus_sq
             * (d2x_minus_dkappa2 - 2.0 * x_minus * dx_minus_dkappa.powi(2));
 
-        let d2a_dkappa2 = 2.0 * eta / kappa.powi(3) * erf_plus
-            - 2.0 * eta / kappa.powi(2) * derf_plus_dkappa
-            + (eta_over_kappa + 1.0) * d2erf_plus_dkappa2
-            - 2.0 * eta / kappa.powi(3) * neg_2_eta_exp * erf_minus
-            + 2.0 * eta / kappa.powi(2) * neg_2_eta_exp * derf_minus_dkappa
-            - (eta_over_kappa - 1.0) * neg_2_eta_exp * d2erf_minus_dkappa2;
+        // First and second derivatives of u_±
+        let du_plus_dkappa = -eta / kappa.powi(2);
+        let d2u_plus_dkappa2 = 2.0 * eta / kappa.powi(3);
 
-        let d2d_dkappa2 = 4.0 * (1.0 - neg_2_eta_exp) * eta * eta_coth / kappa.powi(3);
+        let du_minus_dkappa = -eta / kappa.powi(2) * neg_2_eta_exp;
+        let d2u_minus_dkappa2 = 2.0 * eta / kappa.powi(3) * neg_2_eta_exp;
+
+        // First derivative of a
+        let da_dkappa = du_plus_dkappa * erf_plus + u_plus * derf_plus_dkappa
+            - du_minus_dkappa * erf_minus
+            - u_minus * derf_minus_dkappa;
+
+        // Second derivative of a
+        let d2a_dkappa2 = d2u_plus_dkappa2 * erf_plus
+            + 2.0 * du_plus_dkappa * derf_plus_dkappa
+            + u_plus * d2erf_plus_dkappa2
+            - d2u_minus_dkappa2 * erf_minus
+            - 2.0 * du_minus_dkappa * derf_minus_dkappa
+            - u_minus * d2erf_minus_dkappa2;
+
+        // First and second derivatives of d
+        let d_prefactor = 2.0 * (1.0 - neg_2_eta_exp);
+        let dd_dkappa = -d_prefactor * eta * eta_coth / kappa.powi(2);
+        let d2d_dkappa2 = 2.0 * d_prefactor * eta * eta_coth / kappa.powi(3);
+
+        // First and second derivatives of f = 1/2 + a/d
+        let df_dkappa = (da_dkappa * d - a * dd_dkappa) / d.powi(2);
 
         let d2f_dkappa2 = (d2a_dkappa2 * d - a * d2d_dkappa2) / d.powi(2)
             - 2.0 * (da_dkappa * d - a * dd_dkappa) * dd_dkappa / d.powi(3);
