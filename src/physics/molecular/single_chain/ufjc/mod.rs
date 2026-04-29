@@ -168,18 +168,16 @@ where
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        Ok(0.5
-            + helper(
-                nondimensional_force,
-                self.nondimensional_link_stiffness(),
-                self.correction(),
-            )
-            + self
-                .link_potential
+        nondimensional_link_energy_average(
+            nondimensional_force,
+            self.nondimensional_link_stiffness(),
+            self.link_potential
                 .nondimensional_energy_at_nondimensional_force(
                     nondimensional_force,
                     self.temperature(),
-                ))
+                ),
+            self.correction(),
+        )
     }
     /// ```math
     /// \sigma_\upsilon^2(\eta) = \frac{1}{2} + \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\left[2 - \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\right] + ???
@@ -349,4 +347,13 @@ pub fn nondimensional_compliance(
         let dh = eta_coth / kappa + eta_over_kappa * dcth;
         Ok(c_0 + (g / h) / kappa + eta_over_kappa * (dg * h - g * dh) / (h * h) + zeta)
     }
+}
+
+pub fn nondimensional_link_energy_average(
+    eta: Scalar,
+    kappa: Scalar,
+    upsilon: Scalar,
+    c: Scalar,
+) -> Result<Scalar, SingleChainError> {
+    Ok(0.5 + helper(eta, kappa, c) + upsilon)
 }
