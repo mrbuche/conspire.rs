@@ -15,6 +15,7 @@ use crate::{
                 nondimensional_extension as nondimensional_extension_asymptotic,
                 nondimensional_gibbs_free_energy_per_link as nondimensional_gibbs_free_energy_per_link_asymptotic,
                 nondimensional_link_energy_average as nondimensional_link_energy_average_asymptotic,
+                nondimensional_link_energy_variance as nondimensional_link_energy_variance_asymptotic,
             },
         },
     },
@@ -90,7 +91,7 @@ impl Isometric for ExtensibleFreelyJointedChain {
 
 impl Isotensional for ExtensibleFreelyJointedChain {
     /// ```math
-    /// \varrho(\eta) = \varrho_a(\eta) - \ln\left[1 + g(\eta)\right]
+    /// \varrho(\eta) = \ln\left[\frac{\eta}{\sinh(\eta)}\right] - \ln\left[1 + \frac{\eta}{c\kappa}\,\coth(\eta)\right] - \nu(\eta) - \ln\left[1 + g(\eta)\right]
     /// ```
     fn nondimensional_gibbs_free_energy_per_link(
         &self,
@@ -114,7 +115,7 @@ impl Isotensional for ExtensibleFreelyJointedChain {
             .ln())
     }
     /// ```math
-    /// \gamma(\eta) = \gamma_a(\eta) + \frac{g'(\eta)}{1 + g(\eta)}
+    /// \gamma(\eta) = \mathcal{L}(\eta) + \frac{\eta}{\kappa}\left[\frac{1 - \mathcal{L}(\eta)\coth(\eta)}{c + (\eta/\kappa)\coth(\eta)}\right] + \Delta\lambda(\eta) + \frac{g'(\eta)}{1 + g(\eta)}
     /// ```
     fn nondimensional_extension(
         &self,
@@ -152,7 +153,7 @@ impl Isotensional for ExtensibleFreelyJointedChain {
         )
     }
     /// ```math
-    /// \zeta(\eta) = \zeta_a(\eta) + \frac{g''(\eta)}{1 + g(\eta)} - \left[\frac{g'(\eta)}{1 + g(\eta)}\right]^2
+    /// \zeta(\eta) = \mathcal{L}(\eta) + \frac{\partial}{\partial\eta}\left\{\frac{\eta}{\kappa}\left[\frac{1 - \mathcal{L}(\eta)\coth(\eta)}{c + (\eta/\kappa)\coth(\eta)}\right]\right\} + \zeta(\eta) + \frac{g''(\eta)}{1 + g(\eta)} - \left[\frac{g'(\eta)}{1 + g(\eta)}\right]^2
     /// ```
     fn nondimensional_compliance(
         &self,
@@ -164,7 +165,7 @@ impl Isotensional for ExtensibleFreelyJointedChain {
 
 impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
     /// ```math
-    /// \langle\upsilon\rangle = \langle\upsilon\rangle_a + \frac{g'(\upsilon)}{1 + g(\upsilon)}
+    /// \langle\upsilon\rangle = \frac{1}{2} + \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)} + \frac{\eta^2}{2\kappa} + \frac{g'(\upsilon)}{1 + g(\upsilon)}
     /// ```
     fn nondimensional_link_energy_average(
         &self,
@@ -212,11 +213,81 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
                 - kappa * df_dkappa / f,
         )
     }
+    /// ```math
+    /// \sigma_\upsilon^2 = \frac{1}{2} + \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\left[2 - \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\right] + \frac{g''(\upsilon)}{1 + g(\upsilon)} - \left[\frac{g'(\upsilon)}{1 + g(\upsilon)}\right]^2
+    /// ```
     fn nondimensional_link_energy_variance(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        todo!("Need to calculate the TSTs and add to uFJC.")
+        let eta = nondimensional_force;
+        let kappa = self.nondimensional_link_stiffness();
+        let upsilon = 0.5 * eta.powi(2) / kappa;
+
+        let eta_over_kappa = eta / kappa;
+        let neg_2_eta_exp = (-2.0 * eta).exp();
+        let eta_coth = 1.0 / eta.tanh();
+
+        let sqrt_2_kappa = (2.0 * kappa).sqrt();
+        let x_plus = (eta + kappa) / sqrt_2_kappa;
+        let x_minus = (eta - kappa) / sqrt_2_kappa;
+
+        let erf_plus = erf(&x_plus);
+        let erf_minus = erf(&x_minus);
+
+        let exp_minus_x_plus_sq = (-(x_plus.powi(2))).exp();
+        let exp_minus_x_minus_sq = (-(x_minus.powi(2))).exp();
+
+        let a =
+            (eta_over_kappa + 1.0) * erf_plus - (eta_over_kappa - 1.0) * neg_2_eta_exp * erf_minus;
+
+        let d = 2.0 * (1.0 - neg_2_eta_exp) * (1.0 + eta_over_kappa * eta_coth);
+
+        let f = 0.5 + a / d;
+
+        let dx_plus_dkappa = (kappa - eta) / (2.0 * kappa).powf(1.5);
+        let dx_minus_dkappa = -(kappa + eta) / (2.0 * kappa).powf(1.5);
+
+        let derf_plus_dkappa = (2.0 / PI.sqrt()) * exp_minus_x_plus_sq * dx_plus_dkappa;
+        let derf_minus_dkappa = (2.0 / PI.sqrt()) * exp_minus_x_minus_sq * dx_minus_dkappa;
+
+        let da_dkappa = -eta / kappa.powi(2) * erf_plus
+            + (eta_over_kappa + 1.0) * derf_plus_dkappa
+            + eta / kappa.powi(2) * neg_2_eta_exp * erf_minus
+            - (eta_over_kappa - 1.0) * neg_2_eta_exp * derf_minus_dkappa;
+
+        let dd_dkappa = -2.0 * (1.0 - neg_2_eta_exp) * eta * eta_coth / kappa.powi(2);
+
+        let df_dkappa = (da_dkappa * d - a * dd_dkappa) / d.powi(2);
+
+        // Second derivatives.
+        let d2x_plus_dkappa2 = (3.0 * eta - kappa) / (2.0 * (2.0 * kappa).powf(2.5));
+        let d2x_minus_dkappa2 = (kappa + 3.0 * eta) / (2.0 * (2.0 * kappa).powf(2.5));
+
+        let d2erf_plus_dkappa2 = (2.0 / PI.sqrt())
+            * exp_minus_x_plus_sq
+            * (d2x_plus_dkappa2 - 2.0 * x_plus * dx_plus_dkappa.powi(2));
+
+        let d2erf_minus_dkappa2 = (2.0 / PI.sqrt())
+            * exp_minus_x_minus_sq
+            * (d2x_minus_dkappa2 - 2.0 * x_minus * dx_minus_dkappa.powi(2));
+
+        let d2a_dkappa2 = 2.0 * eta / kappa.powi(3) * erf_plus
+            - 2.0 * eta / kappa.powi(2) * derf_plus_dkappa
+            + (eta_over_kappa + 1.0) * d2erf_plus_dkappa2
+            - 2.0 * eta / kappa.powi(3) * neg_2_eta_exp * erf_minus
+            + 2.0 * eta / kappa.powi(2) * neg_2_eta_exp * derf_minus_dkappa
+            - (eta_over_kappa - 1.0) * neg_2_eta_exp * d2erf_minus_dkappa2;
+
+        let d2d_dkappa2 = 4.0 * (1.0 - neg_2_eta_exp) * eta * eta_coth / kappa.powi(3);
+
+        let d2f_dkappa2 = (d2a_dkappa2 * d - a * d2d_dkappa2) / d.powi(2)
+            - 2.0 * (da_dkappa * d - a * dd_dkappa) * dd_dkappa / d.powi(3);
+
+        Ok(
+            nondimensional_link_energy_variance_asymptotic(eta, kappa, upsilon, 1.0)?
+                + kappa.powi(2) * (d2f_dkappa2 / f - (df_dkappa / f).powi(2)),
+        )
     }
     fn nondimensional_link_energy_probability(
         &self,

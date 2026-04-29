@@ -186,17 +186,16 @@ where
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        //
-        // Need to match last term correctly for nonlinear potentials.
-        //
-        let hlpr = helper(
+        nondimensional_link_energy_variance(
             nondimensional_force,
             self.nondimensional_link_stiffness(),
+            self.link_potential
+                .nondimensional_energy_at_nondimensional_force(
+                    nondimensional_force,
+                    self.temperature(),
+                ),
             self.correction(),
-        );
-        Ok(0.5
-            + hlpr * (2.0 - hlpr)
-            + nondimensional_force.powi(2) / self.nondimensional_link_stiffness())
+        )
     }
     /// ```math
     /// p(\upsilon\,|\,\eta) = \left|\frac{\partial\upsilon}{\partial\lambda}\right|^{-1} \Big[p(\lambda_+\,|\,\eta) + p(\lambda_-\,|\,\eta)\Big]
@@ -275,27 +274,6 @@ where
     }
 }
 
-fn helper(
-    nondimensional_force: Scalar,
-    nondimensional_stiffness: Scalar,
-    correction: Scalar,
-) -> Scalar {
-    let eta_over_kappa = nondimensional_force / nondimensional_stiffness;
-    eta_over_kappa / (eta_over_kappa + correction * nondimensional_force.tanh())
-}
-
-impl<T> Legendre for ArbitraryPotentialFreelyJointedChain<T>
-where
-    T: Potential,
-{
-    fn nondimensional_spherical_distribution(
-        &self,
-        _nondimensional_extension: Scalar,
-    ) -> Result<Scalar, SingleChainError> {
-        unimplemented!()
-    }
-}
-
 pub fn nondimensional_gibbs_free_energy_per_link(
     eta: Scalar,
     kappa: Scalar,
@@ -349,6 +327,27 @@ pub fn nondimensional_compliance(
     }
 }
 
+fn helper(
+    nondimensional_force: Scalar,
+    nondimensional_stiffness: Scalar,
+    correction: Scalar,
+) -> Scalar {
+    let eta_over_kappa = nondimensional_force / nondimensional_stiffness;
+    eta_over_kappa / (eta_over_kappa + correction * nondimensional_force.tanh())
+}
+
+impl<T> Legendre for ArbitraryPotentialFreelyJointedChain<T>
+where
+    T: Potential,
+{
+    fn nondimensional_spherical_distribution(
+        &self,
+        _nondimensional_extension: Scalar,
+    ) -> Result<Scalar, SingleChainError> {
+        unimplemented!()
+    }
+}
+
 pub fn nondimensional_link_energy_average(
     eta: Scalar,
     kappa: Scalar,
@@ -356,4 +355,17 @@ pub fn nondimensional_link_energy_average(
     c: Scalar,
 ) -> Result<Scalar, SingleChainError> {
     Ok(0.5 + helper(eta, kappa, c) + upsilon)
+}
+
+pub fn nondimensional_link_energy_variance(
+    eta: Scalar,
+    kappa: Scalar,
+    upsilon: Scalar,
+    c: Scalar,
+) -> Result<Scalar, SingleChainError> {
+    //
+    // Need to match last term correctly for nonlinear potentials.
+    //
+    let hlpr = helper(eta, kappa, c);
+    Ok(0.5 + hlpr * (2.0 - hlpr) + eta.powi(2) / kappa)
 }
