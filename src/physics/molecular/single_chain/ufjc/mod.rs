@@ -367,5 +367,5 @@ pub fn nondimensional_link_energy_variance(
     // Need to match last term correctly for nonlinear potentials.
     //
     let hlpr = helper(eta, kappa, c);
-    Ok(0.5 + hlpr * (1.0 - hlpr) + eta.powi(2) / kappa)
+    Ok(0.5 + hlpr * (2.0 - hlpr) + eta.powi(2) / kappa)
 }
