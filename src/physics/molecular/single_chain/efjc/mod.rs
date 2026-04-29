@@ -223,9 +223,7 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
         let eta = nondimensional_force;
         let kappa = self.nondimensional_link_stiffness();
 
-        let mean = |kappa_trial: Scalar| -> Result<Scalar, SingleChainError> {
-            let upsilon = 0.5 * eta.powi(2) / kappa_trial;
-
+        let rho = |kappa_trial: Scalar| -> Result<Scalar, SingleChainError> {
             let eta_over_kappa = eta / kappa_trial;
             let neg_2_eta_exp = (-2.0 * eta).exp();
             let eta_coth = 1.0 / eta.tanh();
@@ -239,46 +237,36 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
 
             let a = (eta_over_kappa + 1.0) * erf_plus
                 - (eta_over_kappa - 1.0) * neg_2_eta_exp * erf_minus;
-
             let d = 2.0 * (1.0 - neg_2_eta_exp) * (1.0 + eta_over_kappa * eta_coth);
 
             let f = 0.5 + a / d;
 
-            let dx_plus_dkappa = (kappa_trial - eta) / (2.0 * kappa_trial).powf(1.5);
-            let dx_minus_dkappa = -(kappa_trial + eta) / (2.0 * kappa_trial).powf(1.5);
-
-            let derf_plus_dkappa = (2.0 / PI.sqrt()) * (-(x_plus.powi(2))).exp() * dx_plus_dkappa;
-            let derf_minus_dkappa =
-                (2.0 / PI.sqrt()) * (-(x_minus.powi(2))).exp() * dx_minus_dkappa;
-
-            let da_dkappa = -eta / kappa_trial.powi(2) * erf_plus
-                + (eta_over_kappa + 1.0) * derf_plus_dkappa
-                + eta / kappa_trial.powi(2) * neg_2_eta_exp * erf_minus
-                - (eta_over_kappa - 1.0) * neg_2_eta_exp * derf_minus_dkappa;
-
-            let dd_dkappa = -2.0 * (1.0 - neg_2_eta_exp) * eta * eta_coth / kappa_trial.powi(2);
-
-            let df_dkappa = (da_dkappa * d - a * dd_dkappa) / d.powi(2);
-
-            Ok(
-                nondimensional_link_energy_average_asymptotic(eta, kappa_trial, upsilon, 1.0)?
-                    - kappa_trial * df_dkappa / f,
-            )
+            Ok(nondimensional_gibbs_free_energy_per_link_asymptotic(
+                eta,
+                kappa_trial,
+                -0.5 * eta.powi(2) / kappa_trial,
+                1.0,
+            )? - f.ln())
         };
 
-        // let mut h = 1e-5 * kappa.abs().max(1e-6);
-        let mut h = kappa * f64::EPSILON.powf(1.0 / 4.0);
+        let mut h = kappa * f64::EPSILON.powf(1.0 / 3.0);
         if kappa - h <= 0.0 {
             h = 0.5 * kappa;
         }
 
-        let mean_0 = mean(kappa)?;
-        let mean_plus = mean(kappa + h)?;
-        let mean_minus = mean(kappa - h)?;
+        let rho_0 = rho(kappa)?;
+        let rho_plus = rho(kappa + h)?;
+        let rho_minus = rho(kappa - h)?;
 
-        let dmean_dkappa = (mean_plus - mean_minus) / (2.0 * h);
+        let d2rho = (rho_plus - 2.0 * rho_0 + rho_minus) / (h * h);
 
-        Ok(mean_0 - kappa * dmean_dkappa)
+        let upsilon = 0.5 * eta.powi(2) / kappa;
+
+        Ok(
+            nondimensional_link_energy_variance_asymptotic(eta, kappa, upsilon, 1.0)?
+                - eta.powi(2) / kappa
+                - kappa.powi(2) * d2rho,
+        )
     }
     fn nondimensional_link_energy_probability(
         &self,
