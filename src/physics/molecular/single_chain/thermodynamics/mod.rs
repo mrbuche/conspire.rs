@@ -383,6 +383,9 @@ where
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError>;
+    /// ```math
+    /// \sigma_\upsilon^2 = -\varepsilon^2\frac{\partial^2\varrho}{\partial\varepsilon^2}
+    /// ```
     fn nondimensional_link_energy_variance(
         &self,
         nondimensional_force: Scalar,
