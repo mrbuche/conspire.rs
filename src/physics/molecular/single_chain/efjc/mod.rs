@@ -176,6 +176,7 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
 
         let eta_over_kappa = eta / kappa;
         let neg_2_eta_exp = (-2.0 * eta).exp();
+        let eta_coth = 1.0 / eta.tanh();
 
         let sqrt_2_kappa = (2.0 * kappa).sqrt();
         let x_plus = (eta + kappa) / sqrt_2_kappa;
@@ -184,35 +185,31 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
         let erf_plus = erf(&x_plus);
         let erf_minus = erf(&x_minus);
 
-        let numerator =
+        let a =
             (eta_over_kappa + 1.0) * erf_plus - (eta_over_kappa - 1.0) * neg_2_eta_exp * erf_minus;
 
-        let denominator = 2.0 * (1.0 - neg_2_eta_exp) * (1.0 + eta / eta.tanh() / kappa);
+        let d = 2.0 * (1.0 - neg_2_eta_exp) * (1.0 + eta_over_kappa * eta_coth);
 
-        let fraction = numerator / denominator;
+        let f = 0.5 + a / d;
 
         let dx_plus_dkappa = (kappa - eta) / (2.0 * kappa).powf(1.5);
         let dx_minus_dkappa = -(kappa + eta) / (2.0 * kappa).powf(1.5);
 
-        let dnumerator_dkappa = -eta / kappa.powi(2) * erf_plus
-            + (eta_over_kappa + 1.0)
-                * (2.0 / PI.sqrt())
-                * (-(x_plus.powi(2))).exp()
-                * dx_plus_dkappa
+        let derf_plus_dkappa = (2.0 / PI.sqrt()) * (-(x_plus.powi(2))).exp() * dx_plus_dkappa;
+        let derf_minus_dkappa = (2.0 / PI.sqrt()) * (-(x_minus.powi(2))).exp() * dx_minus_dkappa;
+
+        let da_dkappa = -eta / kappa.powi(2) * erf_plus
+            + (eta_over_kappa + 1.0) * derf_plus_dkappa
             + eta / kappa.powi(2) * neg_2_eta_exp * erf_minus
-            - (eta_over_kappa - 1.0)
-                * neg_2_eta_exp
-                * (2.0 / PI.sqrt())
-                * (-(x_minus.powi(2))).exp()
-                * dx_minus_dkappa;
+            - (eta_over_kappa - 1.0) * neg_2_eta_exp * derf_minus_dkappa;
 
-        let ddenominator_dkappa = -2.0 * (1.0 - neg_2_eta_exp) * eta / kappa.powi(2) / eta.tanh();
+        let dd_dkappa = -2.0 * (1.0 - neg_2_eta_exp) * eta * eta_coth / kappa.powi(2);
 
-        let dfraction_dkappa = (dnumerator_dkappa - fraction * ddenominator_dkappa) / denominator;
+        let df_dkappa = (da_dkappa * d - a * dd_dkappa) / d.powi(2);
 
         Ok(
             nondimensional_link_energy_average_asymptotic(eta, kappa, upsilon, 1.0)?
-                + dfraction_dkappa / (1.0 + fraction),
+                + df_dkappa / f,
         )
     }
     fn nondimensional_link_energy_variance(
