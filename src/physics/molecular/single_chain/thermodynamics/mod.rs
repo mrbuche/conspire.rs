@@ -376,6 +376,9 @@ pub trait IsotensionalExtensible
 where
     Self: Extensible + Isotensional,
 {
+    /// ```math
+    /// \langle\upsilon\rangle = \varepsilon\,\frac{\partial\varrho}{\partial\varepsilon}
+    /// ```
     fn nondimensional_link_energy_average(
         &self,
         nondimensional_force: Scalar,
