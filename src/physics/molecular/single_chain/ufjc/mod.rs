@@ -4,7 +4,7 @@ mod test;
 use crate::{
     math::{
         Scalar,
-        special::{langevin, langevin_derivative, sinhc},
+        special::{langevin, langevin_derivative},
     },
     physics::molecular::{
         potential::Potential,
@@ -304,7 +304,10 @@ pub fn nondimensional_gibbs_free_energy_per_link(
     nu: Scalar,
     c: Scalar,
 ) -> Result<Scalar, SingleChainError> {
-    Ok(-((sinhc(eta) * (1.0 + eta / c / kappa / eta.tanh())).ln() - nu))
+    Ok(nu
+        - eta
+        - (0.5 - 0.5 * (-2.0 * eta).exp()).ln()
+        - (1.0 / eta + 1.0 / c / kappa / eta.tanh()).ln())
 }
 
 pub fn nondimensional_extension(
