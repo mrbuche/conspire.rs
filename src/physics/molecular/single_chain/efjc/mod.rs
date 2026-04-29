@@ -302,7 +302,7 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
 
         Ok(
             nondimensional_link_energy_variance_asymptotic(eta, kappa, upsilon, 1.0)?
-                + kappa.powi(2) * (d2f_dkappa2 / f - (df_dkappa / f).powi(2)),
+                - kappa.powi(2) * (d2f_dkappa2 / f - (df_dkappa / f).powi(2)),
         )
     }
     fn nondimensional_link_energy_probability(
