@@ -230,12 +230,18 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
     ) -> Result<Scalar, SingleChainError> {
         todo!("Need to calculate the TSTs and add to uFJC.")
     }
+    /// ```math
+    /// \langle\lambda\rangle = 1 + \frac{1/\kappa + (\eta/\kappa)(1 - \eta/\kappa)[\coth(\eta) - 1]}{1 + (\eta/\kappa)\coth(\eta)} + \frac{\eta}{\kappa} + ???
+    /// ```
     fn nondimensional_link_length_average(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
         todo!("Need to calculate the TSTs and add to uFJC.")
     }
+    /// ```math
+    /// \sigma_\lambda^2 = \frac{1}{\kappa} + ???
+    /// ```
     fn nondimensional_link_length_variance(
         &self,
         nondimensional_force: Scalar,
