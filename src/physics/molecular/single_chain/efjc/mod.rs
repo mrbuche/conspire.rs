@@ -91,7 +91,7 @@ impl Isometric for ExtensibleFreelyJointedChain {
 
 impl Isotensional for ExtensibleFreelyJointedChain {
     /// ```math
-    /// \varrho(\eta) = \ln\left[\frac{\eta}{\sinh(\eta)}\right] - \ln\left[1 + \frac{\eta}{\kappa}\,\coth(\eta)\right] - \nu(\eta) - \ln\left[1 + g(\eta)\right]
+    /// \varrho(\eta) = \ln\left[\frac{\eta}{\sinh(\eta)}\right] - \ln\left[1 + \frac{\eta}{\kappa}\,\coth(\eta)\right] - \frac{\eta^2}{2\kappa} - \ln\left[1 + g(\eta)\right]
     /// ```
     fn nondimensional_gibbs_free_energy_per_link(
         &self,
@@ -115,7 +115,7 @@ impl Isotensional for ExtensibleFreelyJointedChain {
             .ln())
     }
     /// ```math
-    /// \gamma(\eta) = \mathcal{L}(\eta) + \frac{\eta}{\kappa}\left[\frac{1 - \mathcal{L}(\eta)\coth(\eta)}{1 + (\eta/\kappa)\coth(\eta)}\right] + \Delta\lambda(\eta) + \frac{g'(\eta)}{1 + g(\eta)}
+    /// \gamma(\eta) = \mathcal{L}(\eta) + \frac{\eta}{\kappa}\left[\frac{1 - \mathcal{L}(\eta)\coth(\eta)}{1 + (\eta/\kappa)\coth(\eta)}\right] + \frac{\eta}{\kappa} + \frac{g'(\eta)}{1 + g(\eta)}
     /// ```
     fn nondimensional_extension(
         &self,
@@ -153,7 +153,7 @@ impl Isotensional for ExtensibleFreelyJointedChain {
         )
     }
     /// ```math
-    /// \zeta(\eta) = \mathcal{L}(\eta) + \frac{\partial}{\partial\eta}\left\{\frac{\eta}{\kappa}\left[\frac{1 - \mathcal{L}(\eta)\coth(\eta)}{1 + (\eta/\kappa)\coth(\eta)}\right]\right\} + \zeta(\eta) + \frac{g''(\eta)}{1 + g(\eta)} - \left[\frac{g'(\eta)}{1 + g(\eta)}\right]^2
+    /// \zeta(\eta) = \mathcal{L}'(\eta) + \frac{\partial}{\partial\eta}\left\{\frac{\eta}{\kappa}\left[\frac{1 - \mathcal{L}(\eta)\coth(\eta)}{1 + (\eta/\kappa)\coth(\eta)}\right]\right\} + \frac{1}{\kappa} + \frac{g''(\eta)}{1 + g(\eta)} - \left[\frac{g'(\eta)}{1 + g(\eta)}\right]^2
     /// ```
     fn nondimensional_compliance(
         &self,
@@ -165,7 +165,7 @@ impl Isotensional for ExtensibleFreelyJointedChain {
 
 impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
     /// ```math
-    /// \langle\upsilon\rangle = \frac{1}{2} + \frac{\eta/\kappa}{\eta/\kappa + \tanh(\eta)} + \frac{\eta^2}{2\kappa} + \frac{g'(\upsilon)}{1 + g(\upsilon)}
+    /// \langle\upsilon\rangle = \frac{1}{2} + \frac{\eta/\kappa}{\eta/\kappa + \tanh(\eta)} + \frac{\eta^2}{2\kappa} + \frac{g'(\kappa)}{1 + g(\kappa)}
     /// ```
     fn nondimensional_link_energy_average(
         &self,
@@ -241,6 +241,9 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
     ) -> Result<Scalar, SingleChainError> {
         todo!("Need to calculate the TSTs and add to uFJC.")
     }
+    /// ```math
+    /// p(\lambda\,|\,\eta) = \left(\frac{2\pi}{\kappa}\right)^{-1/2}\frac{\mathrm{sinhc}(\lambda\eta)}{\mathrm{sinhc}(\eta)}\,\frac{e^{-\kappa(\lambda-1)^2/2}\,e^{-\eta^2/2\kappa}}{1 + (\eta/\kappa)\coth(\eta)}
+    /// ```
     fn nondimensional_link_length_probability(
         &self,
         nondimensional_length: Scalar,
