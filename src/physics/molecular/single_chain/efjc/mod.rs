@@ -16,6 +16,7 @@ use crate::{
                 nondimensional_gibbs_free_energy_per_link as nondimensional_gibbs_free_energy_per_link_asymptotic,
                 nondimensional_link_energy_average as nondimensional_link_energy_average_asymptotic,
                 nondimensional_link_energy_variance as nondimensional_link_energy_variance_asymptotic,
+                nondimensional_link_length_average as nondimensional_link_length_average_asymptotic,
             },
         },
     },

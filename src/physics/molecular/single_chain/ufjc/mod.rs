@@ -230,16 +230,19 @@ where
             .sum()
     }
     /// ```math
-    /// \langle\lambda\rangle = 1 + \frac{1}{\kappa}\big[1 + \eta\coth(\eta)\big] + ???
+    /// \langle\lambda\rangle = 1 + \frac{1/\kappa + (\eta/\kappa)(1 - \eta/\kappa)[\coth(\eta) - c]}{c + (\eta/\kappa)\coth(\eta)} + \Delta\lambda(\eta)
     /// ```
     fn nondimensional_link_length_average(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        //
-        // Need to match last term correctly for nonlinear potentials.
-        //
-        todo!()
+        nondimensional_link_length_average(
+            nondimensional_force,
+            self.nondimensional_link_stiffness(),
+            self.link_potential
+                .nondimensional_extension(nondimensional_force, self.temperature()),
+            self.correction(),
+        )
     }
     /// ```math
     /// \sigma_\lambda^2 = \frac{1}{\kappa} + ???
@@ -365,4 +368,22 @@ pub fn nondimensional_link_energy_variance(
 ) -> Result<Scalar, SingleChainError> {
     let hlpr = helper(eta, kappa, c);
     Ok(0.5 + hlpr * (2.0 - hlpr) + 2.0 * upsilon)
+}
+
+pub fn nondimensional_link_length_average(
+    eta: Scalar,
+    kappa: Scalar,
+    delta_lambda: Scalar,
+    c: Scalar,
+) -> Result<Scalar, SingleChainError> {
+    if eta == 0.0 {
+        Ok(1.0 + 2.0 / (c * kappa + 1.0))
+    } else {
+        let eta_coth = 1.0 / eta.tanh();
+        let eta_over_kappa = eta / kappa;
+        Ok(1.0
+            + (1.0 / kappa + eta_over_kappa * (1.0 - eta_over_kappa) * (eta_coth - c))
+                / (c + eta_over_kappa * eta_coth)
+            + delta_lambda)
+    }
 }
