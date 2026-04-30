@@ -180,7 +180,7 @@ where
         )
     }
     /// ```math
-    /// \sigma_\upsilon^2(\eta) = \frac{1}{2} + \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\left[2 - \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\right] + ???
+    /// \sigma_\upsilon^2(\eta) = \frac{1}{2} + \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\left[2 - \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\right] + 2\upsilon[\lambda(\eta)]
     /// ```
     fn nondimensional_link_energy_variance(
         &self,
@@ -363,9 +363,6 @@ pub fn nondimensional_link_energy_variance(
     upsilon: Scalar,
     c: Scalar,
 ) -> Result<Scalar, SingleChainError> {
-    //
-    // Need to match last term correctly for nonlinear potentials.
-    //
     let hlpr = helper(eta, kappa, c);
-    Ok(0.5 + hlpr * (2.0 - hlpr) + eta.powi(2) / kappa)
+    Ok(0.5 + hlpr * (2.0 - hlpr) + 2.0 * upsilon)
 }
