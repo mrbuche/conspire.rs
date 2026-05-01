@@ -47,7 +47,7 @@ where
     }
     fn nondimensional_link_stiffness(&self) -> Scalar {
         self.link_potential
-            .nondimensional_stiffness(0.0, self.temperature())
+            .nondimensional_stiffness(1.0, self.temperature())
     }
 }
 

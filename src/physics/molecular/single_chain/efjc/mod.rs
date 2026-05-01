@@ -280,7 +280,7 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
             nondimensional_length,
             nondimensional_force,
             kappa,
-            0.5 * kappa * (nondimensional_length - 1.0),
+            0.5 * kappa * (nondimensional_length - 1.0) ** 2,
             1.0,
         )
     }
