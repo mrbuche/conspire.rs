@@ -17,6 +17,7 @@ use crate::{
                 nondimensional_link_energy_average as nondimensional_link_energy_average_asymptotic,
                 nondimensional_link_energy_variance as nondimensional_link_energy_variance_asymptotic,
                 nondimensional_link_length_average as nondimensional_link_length_average_asymptotic,
+                nondimensional_link_length_probability as nondimensional_link_length_probability_exact,
             },
         },
     },
@@ -223,12 +224,30 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
     ) -> Result<Scalar, SingleChainError> {
         todo!()
     }
+    /// ```math
+    /// p(\upsilon\,|\,\eta) = \left|\frac{\partial\upsilon}{\partial\lambda}\right|^{-1} \Big[p(\lambda_+\,|\,\eta) + p(\lambda_-\,|\,\eta)\Big]
+    /// ```
     fn nondimensional_link_energy_probability(
         &self,
         nondimensional_energy: Scalar,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        todo!("Need to calculate the TSTs and add to uFJC.")
+        let kappa = self.nondimensional_link_stiffness();
+        let eta = (2.0 * kappa * nondimensional_energy).sqrt();
+        let delta_lambda = (2.0 * nondimensional_energy / kappa).sqrt();
+        [eta, -eta]
+            .into_iter()
+            .zip([1.0 + delta_lambda, 1.0 - delta_lambda])
+            .map(|(eta, nondimensional_length)| {
+                Ok(
+                    IsotensionalExtensible::nondimensional_link_length_probability(
+                        self,
+                        nondimensional_length,
+                        nondimensional_force,
+                    )? / eta.abs(),
+                )
+            })
+            .sum()
     }
     /// ```math
     /// \langle\lambda\rangle = 1 + \frac{1/\kappa + (\eta/\kappa)(1 - \eta/\kappa)[\coth(\eta) - 1]}{1 + (\eta/\kappa)\coth(\eta)} + \frac{\eta}{\kappa} + ???
@@ -256,7 +275,14 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
         nondimensional_length: Scalar,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        todo!("Need to calculate the TSTs and add to uFJC.")
+        let kappa = self.nondimensional_link_stiffness();
+        nondimensional_link_length_probability_exact(
+            nondimensional_length,
+            nondimensional_force,
+            kappa,
+            0.5 * nondimensional_force.powi(2) / kappa,
+            1.0,
+        )
     }
 }
 
