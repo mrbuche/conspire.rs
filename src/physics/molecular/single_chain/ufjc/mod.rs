@@ -264,16 +264,14 @@ where
         nondimensional_length: Scalar,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        let kappa = self.nondimensional_link_stiffness();
-        let lambda = nondimensional_length;
-        let eta = nondimensional_force;
-        let upsilon_twice = kappa * (lambda - 1.0).powi(2) / 2.0 + eta.powi(2) / 2.0 / kappa;
-        Ok((kappa / TAU).sqrt()
-            * lambda
-            * ((eta * (lambda - 1.0) - upsilon_twice).exp()
-                - (-eta * (lambda + 1.0) - upsilon_twice).exp())
-            / (1.0 - (-2.0 * eta).exp())
-            / (1.0 + eta / kappa / eta.tanh()))
+        nondimensional_link_length_probability(
+            nondimensional_length,
+            nondimensional_force,
+            self.nondimensional_link_stiffness(),
+            self.link_potential
+                .nondimensional_extension(nondimensional_force, self.temperature()),
+            self.correction(),
+        )
     }
 }
 
@@ -386,4 +384,20 @@ pub fn nondimensional_link_length_average(
                 / (c + eta_over_kappa * eta_coth)
             + delta_lambda)
     }
+}
+
+pub fn nondimensional_link_length_probability(
+    lambda: Scalar,
+    eta: Scalar,
+    kappa: Scalar,
+    upsilon: Scalar,
+    c: Scalar,
+) -> Result<Scalar, SingleChainError> {
+    let upsilon_twice = upsilon + eta.powi(2) / 2.0 / kappa;
+    Ok((kappa / TAU).sqrt()
+        * lambda
+        * ((eta * (lambda - 1.0) - upsilon_twice).exp()
+            - (-eta * (lambda + 1.0) - upsilon_twice).exp())
+        / (1.0 - (-2.0 * eta).exp())
+        / (1.0 + eta / kappa / c / eta.tanh()))
 }
