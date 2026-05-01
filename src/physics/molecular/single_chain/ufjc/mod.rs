@@ -269,7 +269,7 @@ where
             nondimensional_force,
             self.nondimensional_link_stiffness(),
             self.link_potential
-                .nondimensional_extension(nondimensional_force, self.temperature()),
+                .nondimensional_energy(nondimensional_length, self.temperature()),
             self.correction(),
         )
     }
