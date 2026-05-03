@@ -233,13 +233,18 @@ impl IsotensionalExtensible for ArbitraryPotentialFreelyJointedChain<Harmonic> {
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        nondimensional_link_length_average(
-            nondimensional_force,
-            self.nondimensional_link_stiffness(),
-            self.link_potential
-                .nondimensional_extension(nondimensional_force, self.temperature()),
-            self.correction(),
-        )
+        let eta = nondimensional_force;
+        let kappa = self.nondimensional_link_stiffness();
+        if eta == 0.0 {
+            Ok(1.0 + 2.0 / (1.0 * kappa + 1.0))
+        } else {
+            let eta_coth = 1.0 / eta.tanh();
+            let eta_over_kappa = eta / kappa;
+            Ok(1.0
+                + (1.0 / kappa + eta_over_kappa * (1.0 - eta_over_kappa) * (eta_coth - 1.0))
+                    / (1.0 + eta_over_kappa * eta_coth)
+                + eta_over_kappa)
+        }
     }
     /// ```math
     /// \sigma_\lambda^2 = 1 + \frac{3/\kappa + 2\eta^2/\kappa^2 + (3/\kappa + 2)(\eta/\kappa)\coth(\eta)}{1 + (\eta/\kappa)\coth(\eta)} + \Delta\lambda^2(\eta) - \langle\lambda\rangle^2
@@ -248,13 +253,24 @@ impl IsotensionalExtensible for ArbitraryPotentialFreelyJointedChain<Harmonic> {
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        nondimensional_link_length_variance(
-            nondimensional_force,
-            self.nondimensional_link_stiffness(),
-            self.link_potential
-                .nondimensional_extension(nondimensional_force, self.temperature()),
-            self.correction(),
-        )
+        let eta = nondimensional_force;
+        let kappa = self.nondimensional_link_stiffness();
+        let mean_squared =
+            ThermodynamicsExtensible::nondimensional_link_length_average(self, eta)?.powi(2);
+        if eta == 0.0 {
+            Ok(1.0 + 3.0 / kappa + 2.0 / (kappa + 1.0) - mean_squared)
+        } else {
+            let eta_coth = 1.0 / eta.tanh();
+            let eta_over_kappa = eta / kappa;
+            let eta_over_kappa_coth = eta_over_kappa * eta_coth;
+            Ok(1.0
+                + (3.0 / kappa
+                    + 2.0 * eta_over_kappa.powi(2)
+                    + (3.0 / kappa + 2.0) * eta_over_kappa_coth)
+                    / (1.0 + eta_over_kappa_coth)
+                + eta_over_kappa.powi(2)
+                - mean_squared)
+        }
     }
     /// ```math
     /// p(\lambda\,|\,\eta) = \left(\frac{2\pi}{\kappa}\right)^{-1/2}\frac{\mathrm{sinhc}(\lambda\eta)}{\mathrm{sinhc}(\eta)}\,\frac{e^{-\upsilon(\lambda)}\,e^{-\eta^2/2\kappa}}{1 + (\eta/c\kappa)\coth(\eta)}
@@ -366,47 +382,6 @@ pub fn nondimensional_link_energy_variance(
 ) -> Result<Scalar, SingleChainError> {
     let hlpr = helper(eta, kappa, c);
     Ok(0.5 + hlpr * (2.0 - hlpr) + 2.0 * upsilon)
-}
-
-pub fn nondimensional_link_length_average(
-    eta: Scalar,
-    kappa: Scalar,
-    delta_lambda: Scalar,
-    c: Scalar,
-) -> Result<Scalar, SingleChainError> {
-    if eta == 0.0 {
-        Ok(1.0 + 2.0 / (c * kappa + 1.0))
-    } else {
-        let eta_coth = 1.0 / eta.tanh();
-        let eta_over_kappa = eta / kappa;
-        Ok(1.0
-            + (1.0 / kappa + eta_over_kappa * (1.0 - eta_over_kappa) * (eta_coth - c))
-                / (c + eta_over_kappa * eta_coth)
-            + delta_lambda)
-    }
-}
-
-pub fn nondimensional_link_length_variance(
-    eta: Scalar,
-    kappa: Scalar,
-    delta_lambda: Scalar,
-    c: Scalar,
-) -> Result<Scalar, SingleChainError> {
-    let mean_squared = nondimensional_link_length_average(eta, kappa, delta_lambda, c)?.powi(2);
-    if eta == 0.0 {
-        Ok(1.0 + 3.0 / kappa + 2.0 / (kappa + 1.0) - mean_squared)
-    } else {
-        let eta_coth = 1.0 / eta.tanh();
-        let eta_over_kappa = eta / kappa;
-        let eta_over_kappa_coth = eta_over_kappa * eta_coth;
-        Ok(1.0
-            + (3.0 / kappa
-                + 2.0 * eta_over_kappa.powi(2)
-                + (3.0 / kappa + 2.0) * eta_over_kappa_coth)
-                / (c + eta_over_kappa_coth)
-            + delta_lambda.powi(2)
-            - mean_squared)
-    }
 }
 
 pub fn nondimensional_link_length_probability(
