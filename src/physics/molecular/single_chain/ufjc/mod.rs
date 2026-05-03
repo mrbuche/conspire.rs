@@ -7,7 +7,7 @@ use crate::{
         special::{langevin, langevin_derivative},
     },
     physics::molecular::{
-        potential::Potential,
+        potential::{Harmonic, Potential},
         single_chain::{
             Ensemble, Extensible, Isometric, Isotensional, IsotensionalExtensible, Legendre,
             SingleChain, SingleChainError, Thermodynamics, ThermodynamicsExtensible,
@@ -74,7 +74,7 @@ where
     }
 }
 
-impl<T> ThermodynamicsExtensible for ArbitraryPotentialFreelyJointedChain<T> where T: Potential {}
+impl ThermodynamicsExtensible for ArbitraryPotentialFreelyJointedChain<Harmonic> {}
 
 impl<T> Isometric for ArbitraryPotentialFreelyJointedChain<T>
 where
@@ -157,10 +157,7 @@ where
     }
 }
 
-impl<T> IsotensionalExtensible for ArbitraryPotentialFreelyJointedChain<T>
-where
-    T: Potential,
-{
+impl IsotensionalExtensible for ArbitraryPotentialFreelyJointedChain<Harmonic> {
     /// ```math
     /// \langle\upsilon\rangle = \frac{1}{2} + \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)} + \upsilon[\lambda(\eta)]
     /// ```
@@ -230,7 +227,7 @@ where
             .sum()
     }
     /// ```math
-    /// \langle\lambda\rangle = 1 + \frac{1/\kappa + (\eta/\kappa)(1 - \eta/\kappa)[\coth(\eta) - c]}{c + (\eta/\kappa)\coth(\eta)} + \Delta\lambda(\eta)
+    /// \langle\lambda\rangle = 1 + \frac{1/\kappa + (\eta/\kappa)(1 - \eta/\kappa)[\coth(\eta) - 1]}{1 + (\eta/\kappa)\coth(\eta)} + \Delta\lambda(\eta)
     /// ```
     fn nondimensional_link_length_average(
         &self,
@@ -245,16 +242,19 @@ where
         )
     }
     /// ```math
-    /// \sigma_\lambda^2 = \frac{1}{\kappa} + ???
+    /// \sigma_\lambda^2 = 1 + \frac{3/\kappa + 2\eta^2/\kappa^2 + (3/\kappa + 2)(\eta/\kappa)\coth(\eta)}{1 + (\eta/\kappa)\coth(\eta)} + \Delta\lambda^2(\eta) - \langle\lambda\rangle^2
     /// ```
     fn nondimensional_link_length_variance(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        //
-        // Need to match last term correctly for nonlinear potentials.
-        //
-        Ok(1.0 / self.nondimensional_link_stiffness())
+        nondimensional_link_length_variance(
+            nondimensional_force,
+            self.nondimensional_link_stiffness(),
+            self.link_potential
+                .nondimensional_extension(nondimensional_force, self.temperature()),
+            self.correction(),
+        )
     }
     /// ```math
     /// p(\lambda\,|\,\eta) = \left(\frac{2\pi}{\kappa}\right)^{-1/2}\frac{\mathrm{sinhc}(\lambda\eta)}{\mathrm{sinhc}(\eta)}\,\frac{e^{-\upsilon(\lambda)}\,e^{-\eta^2/2\kappa}}{1 + (\eta/c\kappa)\coth(\eta)}
@@ -383,6 +383,27 @@ pub fn nondimensional_link_length_average(
             + (1.0 / kappa + eta_over_kappa * (1.0 - eta_over_kappa) * (eta_coth - c))
                 / (c + eta_over_kappa * eta_coth)
             + delta_lambda)
+    }
+}
+
+pub fn nondimensional_link_length_variance(
+    eta: Scalar,
+    kappa: Scalar,
+    delta_lambda: Scalar,
+    c: Scalar,
+) -> Result<Scalar, SingleChainError> {
+    if eta == 0.0 {
+        unimplemented!()
+    } else {
+        let eta_coth = 1.0 / eta.tanh();
+        let eta_over_kappa = eta / kappa;
+        let eta_over_kappa_coth = eta_over_kappa * eta_coth;
+        Ok(1.0
+            + (3.0 / kappa
+                + 2.0 * eta_over_kappa.powi(2)
+                + (3.0 / kappa + 2.0) * eta_over_kappa_coth)
+                / (c + eta_over_kappa_coth)
+            + delta_lambda.powi(2))
     }
 }
 

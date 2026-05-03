@@ -18,6 +18,7 @@ use crate::{
                 nondimensional_link_energy_variance as nondimensional_link_energy_variance_asymptotic,
                 nondimensional_link_length_average as nondimensional_link_length_average_asymptotic,
                 nondimensional_link_length_probability as nondimensional_link_length_probability_exact,
+                nondimensional_link_length_variance as nondimensional_link_length_variance_asymptotic,
             },
         },
     },
@@ -222,7 +223,11 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        todo!()
+        let eta = nondimensional_force;
+        let kappa = self.nondimensional_link_stiffness();
+        let upsilon = 0.5 * eta.powi(2) / kappa;
+        let _ = nondimensional_link_energy_variance_asymptotic(eta, kappa, upsilon, 1.0)?;
+        todo!("Need to calculate the TSTs and add to uFJC.")
     }
     /// ```math
     /// p(\upsilon\,|\,\eta) = \left|\frac{\partial\upsilon}{\partial\lambda}\right|^{-1} \Big[p(\lambda_+\,|\,\eta) + p(\lambda_-\,|\,\eta)\Big]
@@ -250,21 +255,29 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
             .sum()
     }
     /// ```math
-    /// \langle\lambda\rangle = 1 + \frac{1/\kappa + (\eta/\kappa)(1 - \eta/\kappa)[\coth(\eta) - 1]}{1 + (\eta/\kappa)\coth(\eta)} + \frac{\eta}{\kappa} + ???
+    /// \langle\lambda\rangle = ???
     /// ```
     fn nondimensional_link_length_average(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
+        let eta = nondimensional_force;
+        let kappa = self.nondimensional_link_stiffness();
+        let eta_over_kappa = eta / kappa;
+        let _ = nondimensional_link_length_average_asymptotic(eta, kappa, eta_over_kappa, 1.0)?;
         todo!("Need to calculate the TSTs and add to uFJC.")
     }
     /// ```math
-    /// \sigma_\lambda^2 = \frac{1}{\kappa} + ???
+    /// \sigma_\lambda^2 = ???
     /// ```
     fn nondimensional_link_length_variance(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
+        let eta = nondimensional_force;
+        let kappa = self.nondimensional_link_stiffness();
+        let eta_over_kappa = eta / kappa;
+        let _ = nondimensional_link_length_variance_asymptotic(eta, kappa, eta_over_kappa, 1.0)?;
         todo!("Need to calculate the TSTs and add to uFJC.")
     }
     /// ```math
