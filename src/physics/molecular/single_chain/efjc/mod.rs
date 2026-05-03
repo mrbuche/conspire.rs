@@ -253,9 +253,6 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
             })
             .sum()
     }
-    /// ```math
-    /// \langle\lambda\rangle = \int_0^\infty p(\lambda\,|\,\eta)\,\lambda\,d\lambda
-    /// ```
     fn nondimensional_link_length_average(
         &self,
         nondimensional_force: Scalar,
@@ -273,9 +270,6 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
                 / ((eta / kappa + 1.0) * erfd_p + (eta / kappa - 1.0) * exp_n2_eta_erfc_m),
         )
     }
-    /// ```math
-    /// \sigma_\lambda^2 = \langle\lambda^2\rangle - \langle\lambda\rangle^2
-    /// ```
     fn nondimensional_link_length_variance(
         &self,
         nondimensional_force: Scalar,

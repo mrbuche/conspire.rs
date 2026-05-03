@@ -395,10 +395,16 @@ where
         nondimensional_energy: Scalar,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError>;
+    /// ```math
+    /// \langle\lambda\rangle = \int_0^\infty p(\lambda\,|\,\eta)\,\lambda\,d\lambda
+    /// ```
     fn nondimensional_link_length_average(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError>;
+    /// ```math
+    /// \sigma_\lambda^2 = \langle\lambda^2\rangle - \langle\lambda\rangle^2
+    /// ```
     fn nondimensional_link_length_variance(
         &self,
         nondimensional_force: Scalar,
