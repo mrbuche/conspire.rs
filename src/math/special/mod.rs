@@ -181,7 +181,7 @@ pub fn sinhc(x: Scalar) -> Scalar {
 /// ```math
 /// \mathrm{erf}(x) = \frac{2}{\sqrt{\pi}}\int_0^x e^{-t^2}\,dt
 /// ```
-pub fn erf(x: &f64) -> f64 {
+pub fn erf(x: Scalar) -> f64 {
     1.0 - erfc(x)
 }
 
@@ -190,33 +190,33 @@ pub fn erf(x: &f64) -> f64 {
 /// ```math
 /// \mathrm{erfc}(x) = 1 - \mathrm{erf}(x)
 /// ```
-pub fn erfc(x: &f64) -> f64 {
+pub fn erfc(x: Scalar) -> f64 {
     erfcx(x) / (x.powi(2)).exp()
 }
 
-fn erfcx(x: &f64) -> f64 {
-    if x >= &0.0 {
-        if x >= &50.0 {
-            if x > &5e7 {
+fn erfcx(x: Scalar) -> f64 {
+    if x >= 0.0 {
+        if x >= 50.0 {
+            if x > 5e7 {
                 0.564_189_583_547_756_3 / x
             } else {
                 0.564_189_583_547_756_3 * (x.powi(2) * (x.powi(2) + 4.5) + 2.0)
                     / (x * (x.powi(2) * (x.powi(2) + 5.0) + 3.75))
             }
         } else {
-            erfcx_helper(&(400.0 / (4.0 + x)))
+            erfcx_helper(400.0 / (4.0 + x))
         }
-    } else if x < &-26.7 {
+    } else if x < -26.7 {
         f64::MAX
-    } else if x < &-6.1 {
+    } else if x < -6.1 {
         2.0 * (x.powi(2)).exp()
     } else {
-        2.0 * (x.powi(2)).exp() - erfcx_helper(&(400.0 / (4.0 - x)))
+        2.0 * (x.powi(2)).exp() - erfcx_helper(400.0 / (4.0 - x))
     }
 }
 
-pub fn erfcx_helper(x: &f64) -> f64 {
-    let xi = *x as u8;
+pub fn erfcx_helper(x: Scalar) -> f64 {
+    let xi = x as u8;
     match xi {
         0_u8 => {
             let t = 2.0 * x - 1.0;
