@@ -2,7 +2,10 @@
 mod test;
 
 use crate::{
-    math::{Scalar, random_uniform, random_x2_normal, special::erf},
+    math::{
+        Scalar, random_uniform, random_x2_normal,
+        special::{erf, erfc},
+    },
     mechanics::CurrentCoordinate,
     physics::{
         BOLTZMANN_CONSTANT,
@@ -261,15 +264,15 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
         let eta = nondimensional_force;
         let kappa = self.nondimensional_link_stiffness();
         let eta_over_kappa = eta / kappa;
-        let erfc_p = 1.0 + erf((eta + kappa) / (2.0 * kappa).sqrt());
-        let erfc_m = 1.0 - erf((eta - kappa) / (2.0 * kappa).sqrt());
+        let erfd_p = 1.0 + erf((eta + kappa) / (2.0 * kappa).sqrt());
+        let erfc_m = erfc((eta - kappa) / (2.0 * kappa).sqrt());
         let exp_n2_eta_erfc_m = (-2.0 * eta).exp() * erfc_m;
         Ok(
-            (4.0 * (-0.5 * (eta.powi(2) / kappa + kappa)).exp() / (TAU * kappa).sqrt()
+            (4.0 * (-0.5 * (eta.powi(2) / kappa + kappa) - eta).exp() / (TAU * kappa).sqrt()
                 * eta_over_kappa
-                + (1.0 / kappa + (eta_over_kappa + 1.0).powi(2)) * erfc_p
+                + (1.0 / kappa + (eta_over_kappa + 1.0).powi(2)) * erfd_p
                 - exp_n2_eta_erfc_m * (1.0 / kappa + (eta_over_kappa - 1.0).powi(2)))
-                / ((eta / kappa + 1.0) * erfc_p + (eta / kappa - 1.0) * exp_n2_eta_erfc_m),
+                / ((eta / kappa + 1.0) * erfd_p + (eta / kappa - 1.0) * exp_n2_eta_erfc_m),
         )
     }
     /// ```math

@@ -18,14 +18,24 @@ fn foo() {
     use crate::physics::molecular::single_chain::ThermodynamicsExtensible;
     let model = ExtensibleFreelyJointedChain {
         link_length: 1.0,
-        link_stiffness: 3.0 / 5.0 * STIFFNESS,
+        link_stiffness: 0.01 / 5.0 * STIFFNESS,
         number_of_links: 5,
         ensemble: Ensemble::Isotensional(ROOM_TEMPERATURE),
     };
     println!(
-        "{}",
+        "{} {}",
+        1e-6,
         model.nondimensional_link_length_average(1e-6).unwrap()
-    )
+    );
+    println!(
+        "{} {}",
+        10.0 * model.link_stiffness / BOLTZMANN_CONSTANT / ROOM_TEMPERATURE,
+        model
+            .nondimensional_link_length_average(
+                10.0 * model.link_stiffness / BOLTZMANN_CONSTANT / ROOM_TEMPERATURE
+            )
+            .unwrap()
+    );
 }
 
 #[test]
