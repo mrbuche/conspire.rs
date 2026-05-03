@@ -14,6 +14,21 @@ const STIFFNESS: Scalar = 5.0 * BOLTZMANN_CONSTANT * ROOM_TEMPERATURE;
 const NUM: usize = 333;
 
 #[test]
+fn foo() {
+    use crate::physics::molecular::single_chain::ThermodynamicsExtensible;
+    let model = ExtensibleFreelyJointedChain {
+        link_length: 1.0,
+        link_stiffness: 3.0 / 5.0 * STIFFNESS,
+        number_of_links: 5,
+        ensemble: Ensemble::Isotensional(ROOM_TEMPERATURE),
+    };
+    println!(
+        "{}",
+        model.nondimensional_link_length_average(1e-6).unwrap()
+    )
+}
+
+#[test]
 fn monte_carlo() {
     use crate::physics::molecular::single_chain::MonteCarloExtensible;
     let model = ExtensibleFreelyJointedChain {

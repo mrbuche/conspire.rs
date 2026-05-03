@@ -16,7 +16,6 @@ use crate::{
                 nondimensional_gibbs_free_energy_per_link as nondimensional_gibbs_free_energy_per_link_asymptotic,
                 nondimensional_link_energy_average as nondimensional_link_energy_average_asymptotic,
                 nondimensional_link_energy_variance as nondimensional_link_energy_variance_asymptotic,
-                nondimensional_link_length_average as nondimensional_link_length_average_asymptotic,
                 nondimensional_link_length_probability as nondimensional_link_length_probability_exact,
                 nondimensional_link_length_variance as nondimensional_link_length_variance_asymptotic,
             },
@@ -110,10 +109,10 @@ impl Isotensional for ExtensibleFreelyJointedChain {
             -0.5 * eta.powi(2) / kappa,
             1.0,
         )? - (0.5
-            + ((eta_over_kappa + 1.0) * erf(&((eta + kappa) / (2.0 * kappa).sqrt()))
+            + ((eta_over_kappa + 1.0) * erf((eta + kappa) / (2.0 * kappa).sqrt())
                 - (eta_over_kappa - 1.0)
                     * neg_2_eta_exp
-                    * erf(&((eta - kappa) / (2.0 * kappa).sqrt())))
+                    * erf((eta - kappa) / (2.0 * kappa).sqrt()))
                 / (2.0 * (1.0 - neg_2_eta_exp) * (1.0 + eta / eta.tanh() / kappa)))
             .ln())
     }
@@ -129,10 +128,8 @@ impl Isotensional for ExtensibleFreelyJointedChain {
         let eta_over_kappa = eta / kappa;
         let neg_2_eta_exp = (-2.0 * eta).exp();
         let denominator = 2.0 * (1.0 - neg_2_eta_exp) * (1.0 + eta / eta.tanh() / kappa);
-        let fraction = ((eta_over_kappa + 1.0) * erf(&((eta + kappa) / (2.0 * kappa).sqrt()))
-            - (eta_over_kappa - 1.0)
-                * neg_2_eta_exp
-                * erf(&((eta - kappa) / (2.0 * kappa).sqrt())))
+        let fraction = ((eta_over_kappa + 1.0) * erf((eta + kappa) / (2.0 * kappa).sqrt())
+            - (eta_over_kappa - 1.0) * neg_2_eta_exp * erf((eta - kappa) / (2.0 * kappa).sqrt()))
             / denominator;
         Ok(
             nondimensional_extension_asymptotic(eta, kappa, eta_over_kappa, 1.0)?
@@ -146,7 +143,7 @@ impl Isotensional for ExtensibleFreelyJointedChain {
                             * (eta_over_kappa - 1.0)
                             * (-(eta - kappa).powi(2) / 2.0 / kappa).exp()
                             + (1.0 + (1.0 - eta) / kappa)
-                                * erf(&((eta - kappa) / (2.0 * kappa).sqrt())))
+                                * erf((eta - kappa) / (2.0 * kappa).sqrt()))
                     - fraction
                         * (2.0
                             * ((1.0 + neg_2_eta_exp) * (1.0 + (1.0 + eta / eta.tanh()) / kappa)
@@ -186,8 +183,8 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
         let x_plus = (eta + kappa) / sqrt_2_kappa;
         let x_minus = (eta - kappa) / sqrt_2_kappa;
 
-        let erf_plus = erf(&x_plus);
-        let erf_minus = erf(&x_minus);
+        let erf_plus = erf(x_plus);
+        let erf_minus = erf(x_minus);
 
         let a =
             (eta_over_kappa + 1.0) * erf_plus - (eta_over_kappa - 1.0) * neg_2_eta_exp * erf_minus;
@@ -255,7 +252,7 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
             .sum()
     }
     /// ```math
-    /// \langle\lambda\rangle = ???
+    /// \langle\lambda\rangle = \int_0^\infty p(\lambda\,|\,\eta)\,\lambda\,d\lambda
     /// ```
     fn nondimensional_link_length_average(
         &self,
@@ -264,11 +261,19 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
         let eta = nondimensional_force;
         let kappa = self.nondimensional_link_stiffness();
         let eta_over_kappa = eta / kappa;
-        let _ = nondimensional_link_length_average_asymptotic(eta, kappa, eta_over_kappa, 1.0)?;
-        todo!("Need to calculate the TSTs and add to uFJC.")
+        let erfc_p = 1.0 + erf((eta + kappa) / (2.0 * kappa).sqrt());
+        let erfc_m = 1.0 - erf((eta - kappa) / (2.0 * kappa).sqrt());
+        let exp_n2_eta_erfc_m = (-2.0 * eta).exp() * erfc_m;
+        Ok(
+            (4.0 * (-0.5 * (eta.powi(2) / kappa + kappa)).exp() / (TAU * kappa).sqrt()
+                * eta_over_kappa
+                + (1.0 / kappa + (eta_over_kappa + 1.0).powi(2)) * erfc_p
+                - exp_n2_eta_erfc_m * (1.0 / kappa + (eta_over_kappa - 1.0).powi(2)))
+                / ((eta / kappa + 1.0) * erfc_p + (eta / kappa - 1.0) * exp_n2_eta_erfc_m),
+        )
     }
     /// ```math
-    /// \sigma_\lambda^2 = ???
+    /// \sigma_\lambda^2 = \langle\lambda^2\rangle - \langle\lambda\rangle^2
     /// ```
     fn nondimensional_link_length_variance(
         &self,
