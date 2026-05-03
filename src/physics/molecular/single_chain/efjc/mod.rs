@@ -17,8 +17,6 @@ use crate::{
                 // nondimensional_compliance as nondimensional_compliance_asymptotic,
                 nondimensional_extension as nondimensional_extension_asymptotic,
                 nondimensional_gibbs_free_energy_per_link as nondimensional_gibbs_free_energy_per_link_asymptotic,
-                nondimensional_link_energy_average as nondimensional_link_energy_average_asymptotic,
-                nondimensional_link_energy_variance as nondimensional_link_energy_variance_asymptotic,
                 nondimensional_link_length_probability as nondimensional_link_length_probability_exact,
             },
         },
@@ -173,47 +171,7 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        let eta = nondimensional_force;
-        let kappa = self.nondimensional_link_stiffness();
-        let upsilon = 0.5 * eta.powi(2) / kappa;
-
-        let eta_over_kappa = eta / kappa;
-        let neg_2_eta_exp = (-2.0 * eta).exp();
-        let eta_coth = 1.0 / eta.tanh();
-
-        let sqrt_2_kappa = (2.0 * kappa).sqrt();
-        let x_plus = (eta + kappa) / sqrt_2_kappa;
-        let x_minus = (eta - kappa) / sqrt_2_kappa;
-
-        let erf_plus = erf(x_plus);
-        let erf_minus = erf(x_minus);
-
-        let a =
-            (eta_over_kappa + 1.0) * erf_plus - (eta_over_kappa - 1.0) * neg_2_eta_exp * erf_minus;
-
-        let d = 2.0 * (1.0 - neg_2_eta_exp) * (1.0 + eta_over_kappa * eta_coth);
-
-        let f = 0.5 + a / d;
-
-        let dx_plus_dkappa = (kappa - eta) / (2.0 * kappa).powf(1.5);
-        let dx_minus_dkappa = -(kappa + eta) / (2.0 * kappa).powf(1.5);
-
-        let derf_plus_dkappa = (2.0 / PI.sqrt()) * (-(x_plus.powi(2))).exp() * dx_plus_dkappa;
-        let derf_minus_dkappa = (2.0 / PI.sqrt()) * (-(x_minus.powi(2))).exp() * dx_minus_dkappa;
-
-        let da_dkappa = -eta / kappa.powi(2) * erf_plus
-            + (eta_over_kappa + 1.0) * derf_plus_dkappa
-            + eta / kappa.powi(2) * neg_2_eta_exp * erf_minus
-            - (eta_over_kappa - 1.0) * neg_2_eta_exp * derf_minus_dkappa;
-
-        let dd_dkappa = -2.0 * (1.0 - neg_2_eta_exp) * eta * eta_coth / kappa.powi(2);
-
-        let df_dkappa = (da_dkappa * d - a * dd_dkappa) / d.powi(2);
-
-        Ok(
-            nondimensional_link_energy_average_asymptotic(eta, kappa, upsilon, 1.0)?
-                - kappa * df_dkappa / f,
-        )
+        todo!()
     }
     /// ```math
     /// \sigma_\upsilon^2 = \frac{1}{2} + \frac{\eta/\kappa}{\eta/\kappa + \tanh(\eta)}\left[2 - \frac{\eta/\kappa}{\eta/\kappa + \tanh(\eta)}\right] + \frac{\eta^2}{\kappa} + ???
@@ -222,11 +180,7 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        let eta = nondimensional_force;
-        let kappa = self.nondimensional_link_stiffness();
-        let upsilon = 0.5 * eta.powi(2) / kappa;
-        let _ = nondimensional_link_energy_variance_asymptotic(eta, kappa, upsilon, 1.0)?;
-        todo!("Need to calculate the TSTs and add to uFJC.")
+        todo!()
     }
     /// ```math
     /// p(\upsilon\,|\,\eta) = \left|\frac{\partial\upsilon}{\partial\lambda}\right|^{-1} \Big[p(\lambda_+\,|\,\eta) + p(\lambda_-\,|\,\eta)\Big]

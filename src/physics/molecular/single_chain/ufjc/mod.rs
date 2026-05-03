@@ -165,16 +165,18 @@ impl IsotensionalExtensible for ArbitraryPotentialFreelyJointedChain<Harmonic> {
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        nondimensional_link_energy_average(
-            nondimensional_force,
-            self.nondimensional_link_stiffness(),
-            self.link_potential
+        Ok(0.5
+            + helper(
+                nondimensional_force,
+                self.nondimensional_link_stiffness(),
+                self.correction(),
+            )
+            + self
+                .link_potential
                 .nondimensional_energy_at_nondimensional_force(
                     nondimensional_force,
                     self.temperature(),
-                ),
-            self.correction(),
-        )
+                ))
     }
     /// ```math
     /// \sigma_\upsilon^2(\eta) = \frac{1}{2} + \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\left[2 - \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\right] + 2\upsilon[\lambda(\eta)]
@@ -183,16 +185,20 @@ impl IsotensionalExtensible for ArbitraryPotentialFreelyJointedChain<Harmonic> {
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        nondimensional_link_energy_variance(
+        let hlpr = helper(
             nondimensional_force,
             self.nondimensional_link_stiffness(),
-            self.link_potential
-                .nondimensional_energy_at_nondimensional_force(
-                    nondimensional_force,
-                    self.temperature(),
-                ),
             self.correction(),
-        )
+        );
+        Ok(0.5
+            + hlpr * (2.0 - hlpr)
+            + 2.0
+                * self
+                    .link_potential
+                    .nondimensional_energy_at_nondimensional_force(
+                        nondimensional_force,
+                        self.temperature(),
+                    ))
     }
     /// ```math
     /// p(\upsilon\,|\,\eta) = \left|\frac{\partial\upsilon}{\partial\lambda}\right|^{-1} \Big[p(\lambda_+\,|\,\eta) + p(\lambda_-\,|\,\eta)\Big]
@@ -363,25 +369,6 @@ where
     ) -> Result<Scalar, SingleChainError> {
         unimplemented!()
     }
-}
-
-pub fn nondimensional_link_energy_average(
-    eta: Scalar,
-    kappa: Scalar,
-    upsilon: Scalar,
-    c: Scalar,
-) -> Result<Scalar, SingleChainError> {
-    Ok(0.5 + helper(eta, kappa, c) + upsilon)
-}
-
-pub fn nondimensional_link_energy_variance(
-    eta: Scalar,
-    kappa: Scalar,
-    upsilon: Scalar,
-    c: Scalar,
-) -> Result<Scalar, SingleChainError> {
-    let hlpr = helper(eta, kappa, c);
-    Ok(0.5 + hlpr * (2.0 - hlpr) + 2.0 * upsilon)
 }
 
 pub fn nondimensional_link_length_probability(
