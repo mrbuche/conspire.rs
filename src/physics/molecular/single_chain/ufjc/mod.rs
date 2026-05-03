@@ -392,8 +392,9 @@ pub fn nondimensional_link_length_variance(
     delta_lambda: Scalar,
     c: Scalar,
 ) -> Result<Scalar, SingleChainError> {
+    let mean_squared = nondimensional_link_length_average(eta, kappa, delta_lambda, c)?.powi(2);
     if eta == 0.0 {
-        unimplemented!()
+        Ok(1.0 + 3.0 / kappa + 2.0 / (kappa + 1.0) - mean_squared)
     } else {
         let eta_coth = 1.0 / eta.tanh();
         let eta_over_kappa = eta / kappa;
@@ -403,7 +404,8 @@ pub fn nondimensional_link_length_variance(
                 + 2.0 * eta_over_kappa.powi(2)
                 + (3.0 / kappa + 2.0) * eta_over_kappa_coth)
                 / (c + eta_over_kappa_coth)
-            + delta_lambda.powi(2))
+            + delta_lambda.powi(2)
+            - mean_squared)
     }
 }
 
