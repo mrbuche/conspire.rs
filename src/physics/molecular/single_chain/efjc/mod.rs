@@ -165,16 +165,26 @@ impl Isotensional for ExtensibleFreelyJointedChain {
 
 impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
     /// ```math
-    /// \langle\upsilon\rangle = \frac{1}{2} + \frac{\eta/\kappa}{\eta/\kappa + \tanh(\eta)} + \frac{\eta^2}{2\kappa} + \frac{g'(\kappa)}{1 + g(\kappa)}
+    /// \langle\upsilon\rangle = \frac{\kappa}{2}\Big(\langle\lambda^2\rangle - 2\langle\lambda\rangle + 1\Big)
     /// ```
     fn nondimensional_link_energy_average(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        todo!()
+        Ok(0.5
+            * self.nondimensional_link_stiffness()
+            * (nondimensional_link_length_squared_average(
+                nondimensional_force,
+                self.nondimensional_link_stiffness(),
+            )? - 2.0
+                * ThermodynamicsExtensible::nondimensional_link_length_average(
+                    self,
+                    nondimensional_force,
+                )?
+                + 1.0))
     }
     /// ```math
-    /// \sigma_\upsilon^2 = \frac{1}{2} + \frac{\eta/\kappa}{\eta/\kappa + \tanh(\eta)}\left[2 - \frac{\eta/\kappa}{\eta/\kappa + \tanh(\eta)}\right] + \frac{\eta^2}{\kappa} + ???
+    /// \sigma_\upsilon^2 = \frac{\kappa}{4}\Big(\langle\lambda^4\rangle - 4\langle\lambda^3\rangle + 6\langle\lambda^2\rangle - 4\langle\lambda\rangle + 1\Big) - \langle\upsilon\rangle^2
     /// ```
     fn nondimensional_link_energy_variance(
         &self,
@@ -228,21 +238,14 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        let eta = nondimensional_force;
-        let kappa = self.nondimensional_link_stiffness();
-        let eta_over_kappa = eta / kappa;
-        let erfd_p_pre = (eta / kappa + 1.0) * (1.0 + erf((eta + kappa) / (2.0 * kappa).sqrt()));
-        let exp_n2_eta_erfc_m_pre =
-            (eta / kappa - 1.0) * (-2.0 * eta).exp() * erfc((eta - kappa) / (2.0 * kappa).sqrt());
-        Ok(
-            (2.0 * (-0.5 * (eta.powi(2) / kappa + kappa) - eta).exp() / (TAU * kappa).sqrt()
-                * ((2.0 / kappa + (eta / kappa + 1.0).powi(2))
-                    - (2.0 / kappa + (eta / kappa - 1.0).powi(2)))
-                + (3.0 / kappa + (eta_over_kappa + 1.0).powi(2)) * erfd_p_pre
-                + (3.0 / kappa + (eta_over_kappa - 1.0).powi(2)) * exp_n2_eta_erfc_m_pre)
-                / (erfd_p_pre + exp_n2_eta_erfc_m_pre)
-                - ThermodynamicsExtensible::nondimensional_link_length_average(self, eta)?.powi(2),
-        )
+        Ok(nondimensional_link_length_squared_average(
+            nondimensional_force,
+            self.nondimensional_link_stiffness(),
+        )? - ThermodynamicsExtensible::nondimensional_link_length_average(
+            self,
+            nondimensional_force,
+        )?
+        .powi(2))
     }
     /// ```math
     /// p(\lambda\,|\,\eta) = \left(\frac{2\pi}{\kappa}\right)^{-1/2}\frac{\mathrm{sinhc}(\lambda\eta)}{\mathrm{sinhc}(\eta)}\,\frac{e^{-\kappa(\lambda-1)^2/2}\,e^{-\eta^2/2\kappa}}{1 + (\eta/\kappa)\coth(\eta)}
@@ -294,4 +297,22 @@ impl MonteCarlo for ExtensibleFreelyJointedChain {
             })
             .collect()
     }
+}
+
+fn nondimensional_link_length_squared_average(
+    eta: Scalar,
+    kappa: Scalar,
+) -> Result<Scalar, SingleChainError> {
+    let eta_over_kappa = eta / kappa;
+    let erfd_p_pre = (eta / kappa + 1.0) * (1.0 + erf((eta + kappa) / (2.0 * kappa).sqrt()));
+    let exp_n2_eta_erfc_m_pre =
+        (eta / kappa - 1.0) * (-2.0 * eta).exp() * erfc((eta - kappa) / (2.0 * kappa).sqrt());
+    Ok(
+        (2.0 * (-0.5 * (eta.powi(2) / kappa + kappa) - eta).exp() / (TAU * kappa).sqrt()
+            * ((2.0 / kappa + (eta / kappa + 1.0).powi(2))
+                - (2.0 / kappa + (eta / kappa - 1.0).powi(2)))
+            + (3.0 / kappa + (eta_over_kappa + 1.0).powi(2)) * erfd_p_pre
+            + (3.0 / kappa + (eta_over_kappa - 1.0).powi(2)) * exp_n2_eta_erfc_m_pre)
+            / (erfd_p_pre + exp_n2_eta_erfc_m_pre),
+    )
 }
