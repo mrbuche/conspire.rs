@@ -14,6 +14,21 @@ const STIFFNESS: Scalar = 5.0 * BOLTZMANN_CONSTANT * ROOM_TEMPERATURE;
 const NUM: usize = 333;
 
 #[test]
+fn foo() {
+    for kappa in [1e-2, 3.0] {
+        println!("{kappa}");
+        println!(
+            "{}",
+            super::nondimensional_link_length_quad_average(kappa, 1e-6).unwrap()
+        );
+        println!(
+            "{}",
+            super::nondimensional_link_length_quad_average(kappa, 10.0 * kappa).unwrap()
+        );
+    }
+}
+
+#[test]
 fn monte_carlo() {
     use crate::physics::molecular::single_chain::MonteCarloExtensible;
     let model = ExtensibleFreelyJointedChain {

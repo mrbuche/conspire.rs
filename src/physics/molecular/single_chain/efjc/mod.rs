@@ -174,8 +174,8 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
         Ok(0.5
             * self.nondimensional_link_stiffness()
             * (nondimensional_link_length_squared_average(
-                nondimensional_force,
                 self.nondimensional_link_stiffness(),
+                nondimensional_force,
             )? - 2.0
                 * ThermodynamicsExtensible::nondimensional_link_length_average(
                     self,
@@ -184,13 +184,38 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
                 + 1.0))
     }
     /// ```math
-    /// \sigma_\upsilon^2 = \frac{\kappa}{4}\Big(\langle\lambda^4\rangle - 4\langle\lambda^3\rangle + 6\langle\lambda^2\rangle - 4\langle\lambda\rangle + 1\Big) - \langle\upsilon\rangle^2
+    /// \sigma_\upsilon^2 = \frac{\kappa^2}{4}\Big(\langle\lambda^4\rangle - 4\langle\lambda^3\rangle + 6\langle\lambda^2\rangle - 4\langle\lambda\rangle + 1\Big) - \langle\upsilon\rangle^2
     /// ```
     fn nondimensional_link_energy_variance(
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        todo!()
+        Ok(0.25
+            * self.nondimensional_link_stiffness().powi(2)
+            * (nondimensional_link_length_quad_average(
+                self.nondimensional_link_stiffness(),
+                nondimensional_force,
+            )? - 4.0
+                * nondimensional_link_length_cubed_average(
+                    self.nondimensional_link_stiffness(),
+                    nondimensional_force,
+                )?
+                + 6.0
+                    * nondimensional_link_length_squared_average(
+                        self.nondimensional_link_stiffness(),
+                        nondimensional_force,
+                    )?
+                - 4.0
+                    * ThermodynamicsExtensible::nondimensional_link_length_average(
+                        self,
+                        nondimensional_force,
+                    )?
+                + 1.0)
+            - ThermodynamicsExtensible::nondimensional_link_energy_average(
+                self,
+                nondimensional_force,
+            )?
+            .powi(2))
     }
     /// ```math
     /// p(\upsilon\,|\,\eta) = \left|\frac{\partial\upsilon}{\partial\lambda}\right|^{-1} \Big[p(\lambda_+\,|\,\eta) + p(\lambda_-\,|\,\eta)\Big]
@@ -239,8 +264,8 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
         Ok(nondimensional_link_length_squared_average(
-            nondimensional_force,
             self.nondimensional_link_stiffness(),
+            nondimensional_force,
         )? - ThermodynamicsExtensible::nondimensional_link_length_average(
             self,
             nondimensional_force,
@@ -300,8 +325,8 @@ impl MonteCarlo for ExtensibleFreelyJointedChain {
 }
 
 fn nondimensional_link_length_squared_average(
-    eta: Scalar,
     kappa: Scalar,
+    eta: Scalar,
 ) -> Result<Scalar, SingleChainError> {
     let eta_over_kappa = eta / kappa;
     let erfd_p_pre = (eta / kappa + 1.0) * (1.0 + erf((eta + kappa) / (2.0 * kappa).sqrt()));
@@ -315,4 +340,93 @@ fn nondimensional_link_length_squared_average(
             + (3.0 / kappa + (eta_over_kappa - 1.0).powi(2)) * exp_n2_eta_erfc_m_pre)
             / (erfd_p_pre + exp_n2_eta_erfc_m_pre),
     )
+}
+
+fn nondimensional_link_length_cubed_average(
+    kappa: Scalar,
+    eta: Scalar,
+) -> Result<Scalar, SingleChainError> {
+    let eta_over_kappa = eta / kappa;
+    let x_p = (eta + kappa) / (2.0 * kappa).sqrt();
+    let x_m = (eta - kappa) / (2.0 * kappa).sqrt();
+    let one_plus_erf_p = 1.0 + erf(x_p);
+    let erfc_m = erfc(x_m);
+    let exp_n2_eta = (-2.0 * eta).exp();
+    let denominator =
+        (eta_over_kappa + 1.0) * one_plus_erf_p + exp_n2_eta * (eta_over_kappa - 1.0) * erfc_m;
+    let p_p = eta.powi(4)
+        + 4.0 * eta.powi(3) * kappa
+        + 6.0 * eta.powi(2) * kappa * (1.0 + kappa)
+        + 4.0 * eta * kappa.powi(2) * (3.0 + kappa)
+        + kappa.powi(2) * (3.0 + 6.0 * kappa + kappa.powi(2));
+    let p_m = eta.powi(4) - 4.0 * eta.powi(3) * kappa + 6.0 * eta.powi(2) * kappa * (1.0 + kappa)
+        - 4.0 * eta * kappa.powi(2) * (3.0 + kappa)
+        + kappa.powi(2) * (3.0 + 6.0 * kappa + kappa.powi(2));
+    let boundary =
+        2.0 * eta * (eta.powi(2) + 5.0 * kappa + 3.0 * kappa.powi(2)) * (2.0 / PI).sqrt()
+            / kappa.powf(3.5)
+            * (-(eta.powi(2) / (2.0 * kappa) + eta + 0.5 * kappa)).exp();
+    let branch_terms = (p_p * one_plus_erf_p - exp_n2_eta * p_m * erfc_m) / kappa.powi(4);
+    Ok((boundary + branch_terms) / denominator)
+}
+
+fn nondimensional_link_length_quad_average(
+    kappa: Scalar,
+    eta: Scalar,
+) -> Result<Scalar, SingleChainError> {
+    let sqrt_kappa = kappa.sqrt();
+    let sqrt_2 = 2.0_f64.sqrt();
+    let sqrt_pi = PI.sqrt();
+    let sqrt_2_pi = (2.0 * PI).sqrt();
+    let x_p = (eta + kappa) / (2.0 * kappa).sqrt();
+    let x_m = (eta - kappa) / (2.0 * kappa).sqrt();
+    let erf_p = erf(x_p);
+    let erfc_m = erfc(x_m);
+    let exp_p = ((eta + kappa).powi(2) / (2.0 * kappa)).exp();
+    let exp_m = ((eta - kappa).powi(2) / (2.0 * kappa)).exp();
+    let exp_n2_eta = (-2.0 * eta).exp();
+    let denominator =
+        (eta / kappa + 1.0) * (1.0 + erf_p) + exp_n2_eta * (eta / kappa - 1.0) * erfc_m;
+    let poly_p = eta.powi(5)
+        + 5.0 * eta.powi(4) * kappa
+        + 10.0 * eta.powi(3) * kappa * (1.0 + kappa)
+        + 10.0 * eta.powi(2) * kappa.powi(2) * (3.0 + kappa)
+        + 5.0 * eta * kappa.powi(2) * (3.0 + 6.0 * kappa + kappa.powi(2))
+        + kappa.powi(3) * (15.0 + 10.0 * kappa + kappa.powi(2));
+    let inner = -2.0 * (eta - kappa).powi(4) * sqrt_kappa
+        - 18.0 * (eta - kappa).powi(2) * kappa.powf(1.5)
+        + 18.0 * kappa.powf(3.5)
+        + 2.0 * kappa.powf(4.5)
+        + 2.0
+            * sqrt_2
+            * eta.powi(3)
+            * kappa
+            * (2.0 * sqrt_2 * sqrt_kappa + 5.0 * exp_p * sqrt_pi + 5.0 * exp_p * kappa * sqrt_pi)
+        + eta.powi(5) * exp_p * sqrt_2_pi
+        + 15.0 * exp_p * kappa.powi(3) * sqrt_2_pi
+        + 10.0 * exp_p * kappa.powi(4) * sqrt_2_pi
+        + exp_p * kappa.powi(5) * sqrt_2_pi
+        + eta.powi(4) * (2.0 * sqrt_kappa + 5.0 * exp_p * kappa * sqrt_2_pi)
+        + 2.0
+            * eta.powi(2)
+            * kappa.powf(1.5)
+            * (9.0
+                + 6.0 * kappa
+                + 15.0 * exp_p * sqrt_kappa * sqrt_2_pi
+                + 5.0 * exp_p * kappa.powf(1.5) * sqrt_2_pi)
+        + eta
+            * kappa.powi(2)
+            * (36.0 * sqrt_kappa
+                + 8.0 * kappa.powf(1.5)
+                + 15.0 * exp_p * sqrt_2_pi
+                + 30.0 * exp_p * kappa * sqrt_2_pi
+                + 5.0 * exp_p * kappa.powi(2) * sqrt_2_pi)
+        + exp_m * (eta - kappa).powi(5) * sqrt_2_pi * erfc_m
+        + 10.0 * exp_m * (eta - kappa).powi(3) * kappa * sqrt_2_pi * erfc_m
+        + 15.0 * exp_m * (eta - kappa) * kappa.powi(2) * sqrt_2_pi * erfc_m
+        + exp_p * poly_p * sqrt_2_pi * erf_p;
+    let numerator = (-(eta.powi(2) / (2.0 * kappa) + eta + 0.5 * kappa)).exp()
+        / (TAU.sqrt() * kappa.powi(5))
+        * inner;
+    Ok(numerator / denominator)
 }
