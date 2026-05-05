@@ -17,7 +17,6 @@ use crate::{
                 // nondimensional_compliance as nondimensional_compliance_asymptotic,
                 nondimensional_extension as nondimensional_extension_asymptotic,
                 nondimensional_gibbs_free_energy_per_link as nondimensional_gibbs_free_energy_per_link_asymptotic,
-                nondimensional_link_length_probability as nondimensional_link_length_probability_exact,
             },
         },
     },
@@ -273,21 +272,27 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
         .powi(2))
     }
     /// ```math
-    /// p(\lambda\,|\,\eta) = \left(\frac{2\pi}{\kappa}\right)^{-1/2}\frac{\mathrm{sinhc}(\lambda\eta)}{\mathrm{sinhc}(\eta)}\,\frac{e^{-\kappa(\lambda-1)^2/2}\,e^{-\eta^2/2\kappa}}{1 + (\eta/\kappa)\coth(\eta)}
+    /// p(\lambda\,|\,\eta) = \left(\frac{2\pi}{\kappa}\right)^{-1/2}\frac{\lambda\sinh(\lambda\eta)\,e^{-\upsilon(\lambda)}\,e^{-\eta^2/2\kappa}}{e^\eta(1+\eta/\kappa)(1+\mathrm{erf}_+) - e^{-\eta}(1-\eta/\kappa)(1-\mathrm{erf}_-)}
     /// ```
     fn nondimensional_link_length_probability(
         &self,
         nondimensional_length: Scalar,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
+        let eta = nondimensional_force;
+        let lambda = nondimensional_length;
         let kappa = self.nondimensional_link_stiffness();
-        nondimensional_link_length_probability_exact(
-            nondimensional_length,
-            nondimensional_force,
-            kappa,
-            0.5 * kappa * (nondimensional_length - 1.0).powi(2),
-            1.0,
-        )
+        let eta_over_kappa = eta / kappa;
+        let upsilon_twice = 0.5 * kappa * ((lambda - 1.0).powi(2) + eta_over_kappa.powi(2));
+        Ok((kappa / TAU).sqrt()
+            * 0.5
+            * lambda
+            * ((eta * (lambda - 1.0) - upsilon_twice).exp()
+                - (-eta * (lambda + 1.0) - upsilon_twice).exp())
+            / ((1.0 + eta_over_kappa) * (1.0 + erf((eta + kappa) / (2.0 * kappa).sqrt()))
+                - (1.0 - eta_over_kappa)
+                    * (-2.0 * eta).exp()
+                    * erfc((eta - kappa) / (2.0 * kappa).sqrt())))
     }
 }
 
