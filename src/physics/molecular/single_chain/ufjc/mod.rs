@@ -179,7 +179,7 @@ impl IsotensionalExtensible for ArbitraryPotentialFreelyJointedChain<Harmonic> {
                 ))
     }
     /// ```math
-    /// \sigma_\upsilon^2(\eta) = \frac{1}{2} + \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\left[2 - \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\right] + 2\upsilon[\lambda(\eta)]
+    /// \sigma_\upsilon^2 = \frac{1}{2} + \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\left[2 - \frac{\eta/\kappa}{\eta/\kappa + c\tanh(\eta)}\right] + 2\upsilon[\lambda(\eta)]
     /// ```
     fn nondimensional_link_energy_variance(
         &self,
