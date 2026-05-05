@@ -390,6 +390,9 @@ where
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError>;
+    /// ```math
+    /// p(\upsilon\,|\,\eta) = \int p(\lambda\,|\,\eta)\,\delta[\upsilon - \upsilon(\lambda)]\,d\lambda
+    /// ```
     fn nondimensional_link_energy_probability(
         &self,
         nondimensional_energy: Scalar,
@@ -409,6 +412,9 @@ where
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError>;
+    /// ```math
+    /// p(\lambda\,|\,\eta) = \frac{z_0(\eta,\lambda)}{z(\eta)}\,e^{-\upsilon(\lambda)}
+    /// ```
     fn nondimensional_link_length_probability(
         &self,
         nondimensional_length: Scalar,

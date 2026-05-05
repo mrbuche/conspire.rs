@@ -279,21 +279,26 @@ impl IsotensionalExtensible for ArbitraryPotentialFreelyJointedChain<Harmonic> {
         }
     }
     /// ```math
-    /// p(\lambda\,|\,\eta) = \left(\frac{2\pi}{\kappa}\right)^{-1/2}\frac{\mathrm{sinhc}(\lambda\eta)}{\mathrm{sinhc}(\eta)}\,\frac{e^{-\upsilon(\lambda)}\,e^{-\eta^2/2\kappa}}{1 + (\eta/c\kappa)\coth(\eta)}
+    /// p(\lambda\,|\,\eta) = \left(\frac{2\pi}{\kappa}\right)^{-1/2}\frac{\mathrm{sinhc}(\lambda\eta)}{\mathrm{sinhc}(\eta)}\,\frac{\lambda^2\,e^{-\upsilon(\lambda)}\,e^{-\eta^2/2\kappa}}{1 + (\eta/c\kappa)\coth(\eta)}
     /// ```
     fn nondimensional_link_length_probability(
         &self,
         nondimensional_length: Scalar,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        nondimensional_link_length_probability(
-            nondimensional_length,
-            nondimensional_force,
-            self.nondimensional_link_stiffness(),
-            self.link_potential
-                .nondimensional_energy(nondimensional_length, self.temperature()),
-            self.correction(),
-        )
+        let eta = nondimensional_force;
+        let lambda = nondimensional_length;
+        let kappa = self.nondimensional_link_stiffness();
+        let upsilon_twice = self
+            .link_potential
+            .nondimensional_energy(nondimensional_length, self.temperature())
+            + eta.powi(2) / 2.0 / kappa;
+        Ok((kappa / TAU).sqrt()
+            * lambda
+            * ((eta * (lambda - 1.0) - upsilon_twice).exp()
+                - (-eta * (lambda + 1.0) - upsilon_twice).exp())
+            / (1.0 - (-2.0 * eta).exp())
+            / (1.0 + eta / kappa / self.correction() / eta.tanh()))
     }
 }
 
@@ -369,20 +374,4 @@ where
     ) -> Result<Scalar, SingleChainError> {
         unimplemented!()
     }
-}
-
-pub fn nondimensional_link_length_probability(
-    lambda: Scalar,
-    eta: Scalar,
-    kappa: Scalar,
-    upsilon: Scalar,
-    c: Scalar,
-) -> Result<Scalar, SingleChainError> {
-    let upsilon_twice = upsilon + eta.powi(2) / 2.0 / kappa;
-    Ok((kappa / TAU).sqrt()
-        * lambda
-        * ((eta * (lambda - 1.0) - upsilon_twice).exp()
-            - (-eta * (lambda + 1.0) - upsilon_twice).exp())
-        / (1.0 - (-2.0 * eta).exp())
-        / (1.0 + eta / kappa / c / eta.tanh()))
 }
