@@ -76,7 +76,12 @@ impl FiniteElement<G, M, N, P> for Hexahedron {
                 v = &nodal_coordinates[node_b] - &nodal_coordinates[node];
                 w = &nodal_coordinates[node_c] - &nodal_coordinates[node];
                 n = u.cross(&v);
-                (&n * &w) / u.norm() / v.norm() / w.norm()
+                let product = u.norm() * v.norm() * w.norm();
+                if product > 0.0 {
+                    (&n * &w) / product
+                } else {
+                    0.0
+                }
             })
             .collect()
     }
