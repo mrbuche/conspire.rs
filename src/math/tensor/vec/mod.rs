@@ -254,6 +254,9 @@ where
     fn remove(&mut self, index: usize) -> Self::Item {
         self.0.remove(index)
     }
+    fn reserve(&mut self, additional: usize) {
+        self.0.reserve(additional)
+    }
     fn retain<F>(&mut self, f: F)
     where
         F: FnMut(&Self::Item) -> bool,

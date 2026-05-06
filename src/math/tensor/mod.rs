@@ -287,11 +287,13 @@ where
     /// Appends an element to the back of the Vec.
     fn push(&mut self, item: Self::Item);
     /// Removes an element from the Vec and returns it, shifting elements to the left.
-    fn remove(&mut self, _index: usize) -> Self::Item;
+    fn remove(&mut self, index: usize) -> Self::Item;
+    /// Reserves capacity for at least additional more elements to be inserted in the given Vec.
+    fn reserve(&mut self, additional: usize);
     /// Retains only the elements specified by the predicate.
     fn retain<F>(&mut self, f: F)
     where
         F: FnMut(&Self::Item) -> bool;
     /// Removes an element from the Vec and returns it, replacing it with the last element.
-    fn swap_remove(&mut self, _index: usize) -> Self::Item;
+    fn swap_remove(&mut self, index: usize) -> Self::Item;
 }
