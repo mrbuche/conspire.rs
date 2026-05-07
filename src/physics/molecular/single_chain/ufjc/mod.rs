@@ -233,7 +233,7 @@ impl IsotensionalExtensible for ArbitraryPotentialFreelyJointedChain<Harmonic> {
             .sum()
     }
     /// ```math
-    /// \langle\lambda\rangle = 1 + \frac{1/\kappa + (\eta/\kappa)[\coth(\eta) - 1]}{1 + (\eta/\kappa)\coth(\eta)} + \Delta\lambda(\eta)
+    /// \langle\lambda\rangle = 1 + \frac{1/\kappa + (\eta/\kappa)(1 - \eta/\kappa)[\coth(\eta) - 1]}{1 + (\eta/\kappa)\coth(\eta)} + \Delta\lambda(\eta)
     /// ```
     fn nondimensional_link_length_average(
         &self,
@@ -247,13 +247,13 @@ impl IsotensionalExtensible for ArbitraryPotentialFreelyJointedChain<Harmonic> {
             let eta_coth = 1.0 / eta.tanh();
             let eta_over_kappa = eta / kappa;
             Ok(1.0
-                + (1.0 / kappa + eta_over_kappa * (eta_coth - 1.0))
+                + (1.0 / kappa + eta_over_kappa * (1.0 - eta_over_kappa) * (eta_coth - 1.0))
                     / (1.0 + eta_over_kappa * eta_coth)
                 + eta_over_kappa)
         }
     }
     /// ```math
-    /// \sigma_\lambda^2 = 1 + \frac{3/\kappa + 2(\eta/\kappa)\coth(\eta)}{1 + (\eta/\kappa)\coth(\eta)} + \Delta\lambda^2(\eta) - \langle\lambda\rangle^2
+    /// \sigma_\lambda^2 = 1 + \frac{3/\kappa + 2\eta^2/\kappa^2 + (3/\kappa + 2)(\eta/\kappa)\coth(\eta)}{1 + (\eta/\kappa)\coth(\eta)} + \Delta\lambda^2(\eta) - \langle\lambda\rangle^2
     /// ```
     fn nondimensional_link_length_variance(
         &self,
@@ -270,7 +270,10 @@ impl IsotensionalExtensible for ArbitraryPotentialFreelyJointedChain<Harmonic> {
             let eta_over_kappa = eta / kappa;
             let eta_over_kappa_coth = eta_over_kappa * eta_coth;
             Ok(1.0
-                + (3.0 / kappa + 2.0 * eta_over_kappa_coth) / (1.0 + eta_over_kappa_coth)
+                + (3.0 / kappa
+                    + 2.0 * eta_over_kappa.powi(2)
+                    + (3.0 / kappa + 2.0) * eta_over_kappa_coth)
+                    / (1.0 + eta_over_kappa_coth)
                 + eta_over_kappa.powi(2)
                 - mean_squared)
         }
