@@ -233,7 +233,7 @@ impl IsotensionalExtensible for ArbitraryPotentialFreelyJointedChain<Harmonic> {
             .sum()
     }
     /// ```math
-    /// \langle\lambda\rangle = 1 + \frac{1/\kappa + (\eta/\kappa)(1 - \eta/\kappa)[\coth(\eta) - 1]}{1 + (\eta/\kappa)\coth(\eta)} + \Delta\lambda(\eta)
+    /// \langle\lambda\rangle = 1 + \frac{1/\kappa + (\eta/\kappa)(1 - \eta/\kappa)(\coth(\eta) - 1)}{1 + (\eta/\kappa)\coth(\eta)} + \Delta\lambda(\eta)
     /// ```
     fn nondimensional_link_length_average(
         &self,
