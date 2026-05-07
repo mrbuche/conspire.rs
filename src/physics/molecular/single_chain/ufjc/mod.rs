@@ -247,7 +247,7 @@ impl IsotensionalExtensible for ArbitraryPotentialFreelyJointedChain<Harmonic> {
             let eta_coth = 1.0 / eta.tanh();
             let eta_over_kappa = eta / kappa;
             Ok(1.0
-                + (1.0 / kappa + eta_over_kappa * (eta_coth - 1.0))
+                + (1.0 / kappa + eta_over_kappa * (1.0 - eta_over_kappa) * (eta_coth - 1.0))
                     / (1.0 + eta_over_kappa * eta_coth)
                 + eta_over_kappa)
         }
