@@ -241,6 +241,9 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
             })
             .sum()
     }
+    /// ```math
+    /// \langle\lambda\rangle = \frac{\mu_1^+(\kappa,\eta) - \mu_1^-(\kappa,\eta) + \nu_1(\kappa,\eta)}{\mu_0^+(\kappa,\eta) - \mu_0^-(\kappa,\eta)}
+    /// ```
     fn nondimensional_link_length_average(
         &self,
         nondimensional_force: Scalar,
@@ -258,6 +261,9 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
                 / ((eta / kappa + 1.0) * erfd_p + (eta / kappa - 1.0) * exp_n2_eta_erfc_m),
         )
     }
+    /// ```math
+    /// \sigma_\lambda^2 = \frac{\mu_2^+(\kappa,\eta) - \mu_2^-(\kappa,\eta) + \nu_2^+(\kappa,\eta) - \nu_2^-(\kappa,\eta)}{\mu_0^+(\kappa,\eta) - \mu_0^-(\kappa,\eta)} - \langle\lambda\rangle^2
+    /// ```
     fn nondimensional_link_length_variance(
         &self,
         nondimensional_force: Scalar,
@@ -272,7 +278,7 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
         .powi(2))
     }
     /// ```math
-    /// p(\lambda\,|\,\eta) = \left(\frac{2\pi}{\kappa}\right)^{-1/2}\frac{4\lambda\sinh(\eta\lambda)\,e^{-\upsilon(\lambda)}\,e^{-\eta^2/2\kappa}}{e^\eta(1+\eta/\kappa)(1+\mathrm{erf}_+) - e^{-\eta}(1-\eta/\kappa)(1-\mathrm{erf}_-)}
+    /// p(\lambda\,|\,\eta) = \left(\frac{2\pi}{\kappa}\right)^{-1/2}\frac{4\lambda\sinh(\eta\lambda)\,e^{-\upsilon(\lambda)}\,e^{-\eta^2/2\kappa}}{\mu_0^+(\kappa,\eta) - \mu_0^-(\kappa,\eta)}
     /// ```
     fn nondimensional_link_length_probability(
         &self,
