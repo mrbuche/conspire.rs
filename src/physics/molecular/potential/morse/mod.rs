@@ -61,7 +61,7 @@ impl Potential for Morse {
     /// ```
     fn extension(&self, force: Scalar) -> Scalar {
         let y = force / self.peak_force();
-        if (-1.0..=1.0).contains(&y) {
+        if y <= 1.0 {
             (2.0 / (1.0 + (1.0 - y).sqrt())).ln() / self.parameter
         } else {
             Scalar::NAN
