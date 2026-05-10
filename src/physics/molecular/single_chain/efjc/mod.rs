@@ -278,7 +278,7 @@ impl IsotensionalExtensible for ExtensibleFreelyJointedChain {
         .powi(2))
     }
     /// ```math
-    /// p(\lambda\,|\,\eta) = \left(\frac{2\pi}{\kappa}\right)^{-1/2}\frac{4\lambda\sinh(\eta\lambda)\,e^{-\upsilon(\lambda)}\,e^{-\eta^2/2\kappa}}{\mu_0^+(\kappa,\eta) - \mu_0^-(\kappa,\eta)}
+    /// p(\lambda\,|\,\eta) = \sqrt{\frac{\kappa}{2\pi}}\,\frac{4\lambda\sinh(\eta\lambda)\,e^{-\upsilon(\lambda)}\,e^{-\eta^2/2\kappa}}{\mu_0^+(\kappa,\eta) - \mu_0^-(\kappa,\eta)}
     /// ```
     fn nondimensional_link_length_probability(
         &self,

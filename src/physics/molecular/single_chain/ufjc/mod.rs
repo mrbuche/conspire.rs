@@ -279,7 +279,7 @@ impl IsotensionalExtensible for ArbitraryPotentialFreelyJointedChain<Harmonic> {
         }
     }
     /// ```math
-    /// p(\lambda\,|\,\eta) = \left(\frac{2\pi}{\kappa}\right)^{-1/2}\frac{\mathrm{sinhc}(\eta\lambda)}{\mathrm{sinhc}(\eta)}\,\frac{\lambda^2\,e^{-\upsilon(\lambda)}\,e^{-\eta^2/2\kappa}}{1 + (\eta/c\kappa)\coth(\eta)}
+    /// p(\lambda\,|\,\eta) = \sqrt{\frac{\kappa}{2\pi}}\,\frac{\mathrm{sinhc}(\eta\lambda)}{\mathrm{sinhc}(\eta)}\,\frac{\lambda^2\,e^{-\upsilon(\lambda)}\,e^{-\eta^2/2\kappa}}{1 + (\eta/c\kappa)\coth(\eta)}
     /// ```
     fn nondimensional_link_length_probability(
         &self,
