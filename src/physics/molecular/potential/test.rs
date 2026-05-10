@@ -10,13 +10,30 @@ use crate::{
 const NUM: usize = 333;
 
 #[test]
-fn test_forces_at_energy_consistency() {
-    todo!()
-}
-
-#[test]
-fn test_extensions_at_energy_consistency() {
-    todo!()
+fn test_consistency() -> Result<(), TestError> {
+    let model = Harmonic {
+        rest_length: 1.5,
+        stiffness: 1.2,
+    };
+    let energy = model.energy(1.7);
+    let forces = model.forces_at_energy(energy);
+    let extensions = model.extensions_at_energy(energy);
+    assert_eq_within_tols(&energy, &model.energy_at_force(forces[0]))?;
+    assert_eq_within_tols(&energy, &model.energy_at_force(forces[1]))?;
+    assert_eq_within_tols(&energy, &model.energy(extensions[0] + model.rest_length))?;
+    assert_eq_within_tols(&energy, &model.energy(extensions[1] + model.rest_length))?;
+    let model = Morse {
+        rest_length: 1.5,
+        depth: 1.9,
+        parameter: 1.1,
+    };
+    let energy = model.energy(1.51);
+    let forces = model.forces_at_energy(energy);
+    let extensions = model.extensions_at_energy(energy);
+    assert_eq_within_tols(&energy, &model.energy_at_force(forces[0]))?;
+    assert_eq_within_tols(&energy, &model.energy_at_force(forces[1]))?;
+    assert_eq_within_tols(&energy, &model.energy(extensions[0] + model.rest_length))?;
+    assert_eq_within_tols(&energy, &model.energy(extensions[1] + model.rest_length))
 }
 
 #[test]
