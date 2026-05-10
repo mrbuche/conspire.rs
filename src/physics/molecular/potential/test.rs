@@ -2,12 +2,39 @@ use crate::{
     EPSILON,
     math::{
         Scalar,
-        test::{TestError, assert_eq_from_fd},
+        test::{TestError, assert_eq_from_fd, assert_eq_within_tols},
     },
     physics::molecular::potential::{Harmonic, Morse, Potential},
 };
 
 const NUM: usize = 333;
+
+#[test]
+fn test_consistency() -> Result<(), TestError> {
+    let model = Harmonic {
+        rest_length: 1.5,
+        stiffness: 1.2,
+    };
+    let energy = model.energy(1.7);
+    let forces = model.forces_at_energy(energy);
+    let extensions = model.extensions_at_energy(energy);
+    assert_eq_within_tols(&energy, &model.energy_at_force(forces[0]))?;
+    assert_eq_within_tols(&energy, &model.energy_at_force(forces[1]))?;
+    assert_eq_within_tols(&energy, &model.energy(extensions[0] + model.rest_length))?;
+    assert_eq_within_tols(&energy, &model.energy(extensions[1] + model.rest_length))?;
+    let model = Morse {
+        rest_length: 1.5,
+        depth: 1.9,
+        parameter: 1.1,
+    };
+    let energy = model.energy(1.51);
+    let forces = model.forces_at_energy(energy);
+    let extensions = model.extensions_at_energy(energy);
+    assert_eq_within_tols(&energy, &model.energy_at_force(forces[0]))?;
+    assert_eq_within_tols(&energy, &model.energy_at_force(forces[1]))?;
+    assert_eq_within_tols(&energy, &model.energy(extensions[0] + model.rest_length))?;
+    assert_eq_within_tols(&energy, &model.energy(extensions[1] + model.rest_length))
+}
 
 #[test]
 fn finite_difference() -> Result<(), TestError> {
@@ -27,6 +54,7 @@ fn finite_difference() -> Result<(), TestError> {
             let mut force = potential.force(x);
             let stiffness = potential.stiffness(x);
             let anharmonicity = potential.anharmonicity(x);
+            assert_eq_within_tols(&potential.energy(x), &potential.energy_at_force(force))?;
             x += 0.5 * EPSILON;
             let mut force_fd = potential.energy(x);
             let mut stiffness_fd = potential.force(x);
@@ -40,6 +68,12 @@ fn finite_difference() -> Result<(), TestError> {
             assert_eq_from_fd(&anharmonicity, &anharmonicity_fd)?;
             let extension = potential.extension(force);
             let compliance = potential.compliance(force);
+            let nondimensional_extension = potential.nondimensional_extension(force, t);
+            let nondimensional_force = potential.nondimensional_force(nondimensional_extension, t);
+            assert_eq_within_tols(
+                &potential.nondimensional_energy(nondimensional_extension, t),
+                &potential.nondimensional_energy_at_nondimensional_force(nondimensional_force, t),
+            )?;
             force += 0.5 * EPSILON;
             let mut extension_fd = potential.legendre(force);
             let mut compliance_fd = potential.extension(force);
@@ -61,6 +95,7 @@ fn finite_difference() -> Result<(), TestError> {
             let mut force = potential.force(x);
             let stiffness = potential.stiffness(x);
             let anharmonicity = potential.anharmonicity(x);
+            assert_eq_within_tols(&potential.energy(x), &potential.energy_at_force(force))?;
             x += 0.5 * EPSILON;
             let mut force_fd = potential.energy(x);
             let mut stiffness_fd = potential.force(x);
@@ -75,6 +110,11 @@ fn finite_difference() -> Result<(), TestError> {
             let extension = potential.extension(force);
             let compliance = potential.compliance(force);
             let nondimensional_extension = potential.nondimensional_extension(force, t);
+            // let nondimensional_force = potential.nondimensional_force(nondimensional_extension, t);
+            // assert_eq_within_tols(
+            //     &potential.nondimensional_energy(nondimensional_extension, t),
+            //     &potential.nondimensional_energy_at_nondimensional_force(nondimensional_force, t),
+            // )?;
             force += 0.5 * EPSILON;
             let mut extension_fd = potential.legendre(force);
             let mut compliance_fd = potential.extension(force);
