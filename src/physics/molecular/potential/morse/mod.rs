@@ -30,16 +30,17 @@ impl Potential for Morse {
         2.0 * self.parameter * self.depth * exp * (1.0 - exp)
     }
     /// ```math
-    /// f(u) = \pm 2a\sqrt{u/u_0}\left(1 \mp \sqrt{u/u_0}\right)
+    /// f(u) = \pm 2a u_0\sqrt{u/u_0}\left(1 \mp \sqrt{u/u_0}\right)
     /// ```
     fn forces_at_energy(&self, energy: Scalar) -> ScalarList<2> {
         let y = energy / self.depth;
+        let f = 2.0 * self.parameter * self.depth * y.sqrt();
         let tensile = if (0.0..=1.0).contains(&y) {
-            2.0 * self.parameter * y.sqrt() * (1.0 - y.sqrt())
+            f * (1.0 - y.sqrt())
         } else {
             Scalar::NAN
         };
-        [tensile, -2.0 * self.parameter * y.sqrt() * (1.0 + y.sqrt())].into()
+        [tensile, -f * (1.0 + y.sqrt())].into()
     }
     /// ```math
     /// k(x) = 2a^2u_0e^{-a(x - x_0)}\left[2e^{-a(x - x_0)} - 1\right]
@@ -60,7 +61,7 @@ impl Potential for Morse {
     /// ```
     fn extension(&self, force: Scalar) -> Scalar {
         let y = force / self.peak_force();
-        if (0.0..=1.0).contains(&y) {
+        if (-1.0..=1.0).contains(&y) {
             (2.0 / (1.0 + (1.0 - y).sqrt())).ln() / self.parameter
         } else {
             Scalar::NAN
