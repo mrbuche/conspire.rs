@@ -984,11 +984,12 @@ fn nondimensional_longitudinal_extension_reweighted_inner<T: MonteCarlo>(
     let mut x_max = Scalar::NEG_INFINITY;
     let mut z_scaled = 0.0;
     let mut ext_scaled = 0.0;
+    let num_links = model.number_of_links() as Scalar;
 
     for _ in 0..number_of_samples {
         let links = model.random_nondimensional_link_vectors(0.0);
 
-        let extension_sum: Scalar = links.iter().map(|link| link[2]).sum();
+        let extension_sum: Scalar = links.iter().map(|link| link[2]).sum::<Scalar>() / num_links;
         let x = nondimensional_force * extension_sum;
 
         if x > x_max {
