@@ -90,87 +90,107 @@ pub fn random_normal(mean: f64, std: f64) -> f64 {
     mean + std * random_normal_standard()
 }
 
-fn random_exp1() -> f64 {
-    let mut u = random_uniform();
-    while u <= 0.0 {
-        u = random_uniform();
-    }
-    -u.ln()
-}
-
-fn random_gamma_k3_scale1() -> f64 {
-    random_exp1() + random_exp1() + random_exp1()
-}
-
-pub fn random_x2_normal(mean: f64, std: f64) -> f64 {
-    let m = mean / std;
-    let z_star = if m >= -1.0 { m + 1.0 } else { 0.0 };
-    let h_min = 0.5 * (z_star - m).powi(2) - z_star;
-    loop {
-        let z = random_gamma_k3_scale1();
-        let h = 0.5 * (z - m).powi(2) - z;
-        let acceptance_probability = (-(h - h_min)).exp();
-        if random_uniform() < acceptance_probability {
-            return std * z;
-        }
-    }
-}
-
-// use crate::math::special::erf;
-
-// fn primitive_x2_normal(lambda: f64, mean: f64, std: f64) -> f64 {
-//     let t = (lambda - mean) / (std * 2.0_f64.sqrt());
-//     let a = std * (std::f64::consts::PI / 2.0).sqrt() * (mean * mean + std * std);
-//     let b = std * std * (lambda + mean) * (-t * t).exp();
-//     a * erf(t) - b
+// fn random_exp1() -> f64 {
+//     let mut u = random_uniform();
+//     while u <= 0.0 {
+//         u = random_uniform();
+//     }
+//     -u.ln()
 // }
 
-// fn cdf_x2_normal(lambda: f64, mean: f64, std: f64) -> f64 {
-//     if lambda <= 0.0 {
-//         return 0.0;
-//     }
-//     let z0 = primitive_x2_normal(0.0, mean, std);
-//     let z = primitive_x2_normal(lambda, mean, std);
-//     let zinf = std * (std::f64::consts::PI / 2.0).sqrt() * (mean * mean + std * std);
-//     (z - z0) / (zinf - z0)
-// }
-
-// fn pdf_x2_normal(lambda: f64, mean: f64, std: f64) -> f64 {
-//     if lambda <= 0.0 {
-//         0.0
-//     } else {
-//         lambda * lambda * (-(lambda - mean).powi(2) / (2.0 * std * std)).exp()
-//     }
+// fn random_gamma_k3_scale1() -> f64 {
+//     random_exp1() + random_exp1() + random_exp1()
 // }
 
 // pub fn random_x2_normal(mean: f64, std: f64) -> f64 {
-//     let u = random_uniform();
-
-//     let mut lo = 0.0;
-//     let mut hi = mean + 10.0 * std + 10.0;
-//     while cdf_x2_normal(hi, mean, std) < u {
-//         hi *= 2.0;
-//     }
-
-//     let mut x = mean.max(1e-12);
-//     for _ in 0..50 {
-//         let fx = cdf_x2_normal(x, mean, std) - u;
-//         let dfx = pdf_x2_normal(x, mean, std)
-//             / (primitive_x2_normal(f64::INFINITY, mean, std) - primitive_x2_normal(0.0, mean, std)); // better to precompute norm
-//         let mut x_new = if dfx > 0.0 {
-//             x - fx / dfx
-//         } else {
-//             0.5 * (lo + hi)
-//         };
-//         if !x_new.is_finite() || x_new <= lo || x_new >= hi {
-//             x_new = 0.5 * (lo + hi);
+//     let m = mean / std;
+//     let z_star = if m >= -1.0 { m + 1.0 } else { 0.0 };
+//     let h_min = 0.5 * (z_star - m).powi(2) - z_star;
+//     loop {
+//         let z = random_gamma_k3_scale1();
+//         let h = 0.5 * (z - m).powi(2) - z;
+//         let acceptance_probability = (-(h - h_min)).exp();
+//         if random_uniform() < acceptance_probability {
+//             return std * z;
 //         }
-//         if cdf_x2_normal(x_new, mean, std) < u {
-//             lo = x_new;
-//         } else {
-//             hi = x_new;
-//         }
-//         x = x_new;
 //     }
-//     x
 // }
+
+use crate::math::special::erf;
+
+use std::f64::consts::{PI, SQRT_2};
+
+fn x2_normal_primitive(lambda: f64, mean: f64, std: f64) -> f64 {
+    let t = (lambda - mean) / (std * SQRT_2);
+    std * (PI / 2.0).sqrt() * (mean * mean + std * std) * erf(t)
+        - std * std * (lambda + mean) * (-t * t).exp()
+}
+
+fn x2_normal_norm(mean: f64, std: f64) -> f64 {
+    let at_infinity = std * (PI / 2.0).sqrt() * (mean * mean + std * std);
+    let at_zero = x2_normal_primitive(0.0, mean, std);
+    at_infinity - at_zero
+}
+
+fn x2_normal_cdf(lambda: f64, mean: f64, std: f64, norm: f64) -> f64 {
+    if lambda <= 0.0 {
+        return 0.0;
+    }
+    let at_zero = x2_normal_primitive(0.0, mean, std);
+    (x2_normal_primitive(lambda, mean, std) - at_zero) / norm
+}
+
+fn x2_normal_pdf(lambda: f64, mean: f64, std: f64, norm: f64) -> f64 {
+    if lambda <= 0.0 {
+        0.0
+    } else {
+        lambda * lambda * (-(lambda - mean).powi(2) / (2.0 * std * std)).exp() / norm
+    }
+}
+
+pub fn random_x2_normal(mean: f64, std: f64) -> f64 {
+    let norm = x2_normal_norm(mean, std);
+    let u = random_uniform();
+
+    let mut lo = 0.0;
+    let mut hi = mean + 8.0 * std;
+    if hi <= 0.0 {
+        hi = 1.0;
+    }
+    while x2_normal_cdf(hi, mean, std, norm) < u {
+        hi *= 2.0;
+    }
+
+    let mut x = mean.max(1e-12);
+
+    for _ in 0..50 {
+        let fx = x2_normal_cdf(x, mean, std, norm) - u;
+        let dfx = x2_normal_pdf(x, mean, std, norm);
+
+        let mut x_new = if dfx > 0.0 {
+            x - fx / dfx
+        } else {
+            0.5 * (lo + hi)
+        };
+
+        if !x_new.is_finite() || x_new <= lo || x_new >= hi {
+            x_new = 0.5 * (lo + hi);
+        }
+
+        let f_new = x2_normal_cdf(x_new, mean, std, norm);
+
+        if f_new < u {
+            lo = x_new;
+        } else {
+            hi = x_new;
+        }
+
+        x = x_new;
+
+        if (hi - lo) <= 1e-14 * (1.0 + x.abs()) {
+            break;
+        }
+    }
+
+    x
+}
