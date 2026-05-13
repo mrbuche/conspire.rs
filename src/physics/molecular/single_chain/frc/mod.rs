@@ -98,7 +98,7 @@ impl Legendre for FreelyRotatingChain {}
 impl MonteCarlo for FreelyRotatingChain {
     fn random_nondimensional_link_vectors(&self, nondimensional_force: Scalar) -> Configuration {
         if nondimensional_force != 0.0 {
-            todo!()
+            unimplemented!()
         }
         let cos_theta = 2.0 * random_uniform() - 1.0;
         let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();

@@ -6,7 +6,7 @@ use crate::math::{
 };
 use std::{
     iter::Sum,
-    ops::{AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign},
+    ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 use vector::Vector;
 
@@ -185,11 +185,67 @@ impl MulAssign<Scalar> for Matrix {
     }
 }
 
+impl Add for Matrix {
+    type Output = Self;
+    fn add(mut self, matrix: Self) -> Self::Output {
+        self += matrix;
+        self
+    }
+}
+
+impl Add<&Self> for Matrix {
+    type Output = Self;
+    fn add(mut self, matrix: &Self) -> Self::Output {
+        self += matrix;
+        self
+    }
+}
+
 impl AddAssign for Matrix {
     fn add_assign(&mut self, matrix: Self) {
         self.iter_mut()
             .zip(matrix)
             .for_each(|(self_i, matrix_i)| *self_i += matrix_i);
+    }
+}
+
+impl AddAssign<&Self> for Matrix {
+    fn add_assign(&mut self, matrix: &Self) {
+        self.iter_mut()
+            .zip(matrix.iter())
+            .for_each(|(self_entry, scalar)| *self_entry += scalar);
+    }
+}
+
+impl Sub for Matrix {
+    type Output = Self;
+    fn sub(mut self, matrix: Self) -> Self::Output {
+        self -= matrix;
+        self
+    }
+}
+
+impl Sub<&Self> for Matrix {
+    type Output = Self;
+    fn sub(mut self, matrix: &Self) -> Self::Output {
+        self -= matrix;
+        self
+    }
+}
+
+impl SubAssign for Matrix {
+    fn sub_assign(&mut self, matrix: Self) {
+        self.iter_mut()
+            .zip(matrix)
+            .for_each(|(self_i, matrix_i)| *self_i -= matrix_i);
+    }
+}
+
+impl SubAssign<&Self> for Matrix {
+    fn sub_assign(&mut self, matrix: &Self) {
+        self.iter_mut()
+            .zip(matrix.iter())
+            .for_each(|(self_entry, scalar)| *self_entry -= scalar);
     }
 }
 
