@@ -112,7 +112,7 @@ impl Legendre for ExtensibleFreelyRotatingChain {
 impl MonteCarlo for ExtensibleFreelyRotatingChain {
     fn random_nondimensional_link_vectors(&self, nondimensional_force: Scalar) -> Configuration {
         if nondimensional_force != 0.0 {
-            todo!()
+            unimplemented!()
         }
         let std = 1.0 / self.nondimensional_link_stiffness().sqrt();
         let cos_theta = 2.0 * random_uniform() - 1.0;
