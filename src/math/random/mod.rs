@@ -118,73 +118,59 @@ pub fn random_normal(mean: f64, std: f64) -> f64 {
 
 use crate::math::special::erf;
 
-fn stretch_cdf_unnormalized(lambda: f64, kappa: f64) -> f64 {
+fn primitive_x2_normal(lambda: f64, mean: f64, std: f64) -> f64 {
+    let t = (lambda - mean) / (std * 2.0_f64.sqrt());
+    let a = std * (std::f64::consts::PI / 2.0).sqrt() * (mean * mean + std * std);
+    let b = std * std * (lambda + mean) * (-t * t).exp();
+    a * erf(t) - b
+}
+
+fn cdf_x2_normal(lambda: f64, mean: f64, std: f64) -> f64 {
     if lambda <= 0.0 {
         return 0.0;
     }
-
-    let s = (kappa / 2.0).sqrt();
-    let u = s * (lambda - 1.0);
-    let u0 = -s;
-
-    let a = (2.0 / kappa).sqrt();
-    let b = 2.0 / kappa;
-
-    fn primitive(u: f64, a: f64, b: f64) -> f64 {
-        let erf_term = 0.5 * std::f64::consts::PI.sqrt() * (1.0 + 0.5 * b) * erf(u);
-        let exp_term = -(a + 0.5 * b * u) * (-u * u).exp();
-        erf_term + exp_term
-    }
-
-    a * (primitive(u, a, b) - primitive(u0, a, b))
+    let z0 = primitive_x2_normal(0.0, mean, std);
+    let z = primitive_x2_normal(lambda, mean, std);
+    let zinf = std * (std::f64::consts::PI / 2.0).sqrt() * (mean * mean + std * std);
+    (z - z0) / (zinf - z0)
 }
 
-fn stretch_pdf_unnormalized(lambda: f64, kappa: f64) -> f64 {
+fn pdf_x2_normal(lambda: f64, mean: f64, std: f64) -> f64 {
     if lambda <= 0.0 {
         0.0
     } else {
-        lambda * lambda * (-0.5 * kappa * (lambda - 1.0).powi(2)).exp()
+        lambda * lambda * (-(lambda - mean).powi(2) / (2.0 * std * std)).exp()
     }
 }
 
 pub fn random_x2_normal(mean: f64, std: f64) -> f64 {
-    assert!(mean == 1.0, "current implementation assumes mean=1");
-    let kappa = 1.0 / (std * std);
-
-    let z_inf = stretch_cdf_unnormalized(f64::INFINITY, kappa); // replace with closed form limit
     let u = random_uniform();
 
-    let target = u * z_inf;
-
-    // bracket
     let mut lo = 0.0;
-    let mut hi = 1.0 + 10.0 * std.max(1.0 / kappa.sqrt());
-    while stretch_cdf_unnormalized(hi, kappa) < target {
+    let mut hi = mean + 10.0 * std + 10.0;
+    while cdf_x2_normal(hi, mean, std) < u {
         hi *= 2.0;
     }
 
-    let mut x = 1.0;
-    for _ in 0..20 {
-        let fx = stretch_cdf_unnormalized(x, kappa) - target;
-        let dfx = stretch_pdf_unnormalized(x, kappa);
+    let mut x = mean.max(1e-12);
+    for _ in 0..50 {
+        let fx = cdf_x2_normal(x, mean, std) - u;
+        let dfx = pdf_x2_normal(x, mean, std)
+            / (primitive_x2_normal(f64::INFINITY, mean, std) - primitive_x2_normal(0.0, mean, std)); // better to precompute norm
         let mut x_new = if dfx > 0.0 {
             x - fx / dfx
         } else {
             0.5 * (lo + hi)
         };
-
-        if !(lo < x_new && x_new < hi && x_new.is_finite()) {
+        if !x_new.is_finite() || x_new <= lo || x_new >= hi {
             x_new = 0.5 * (lo + hi);
         }
-
-        if stretch_cdf_unnormalized(x_new, kappa) < target {
+        if cdf_x2_normal(x_new, mean, std) < u {
             lo = x_new;
         } else {
             hi = x_new;
         }
-
         x = x_new;
     }
-
     x
 }
