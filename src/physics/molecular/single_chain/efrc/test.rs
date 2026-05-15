@@ -26,7 +26,7 @@ fn monte_carlo() {
 }
 
 #[test]
-fn foo() {
+fn bias() {
     let kappa = 100.0;
     let model = ExtensibleFreelyRotatingChain {
         link_angle: std::f64::consts::PI * 60.0 / 180.0,

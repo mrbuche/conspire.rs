@@ -641,6 +641,12 @@ where
         number_of_samples: usize,
         number_of_threads: usize,
     ) -> Scalar {
+        //
+        // Does not work well above a certain force (see EFRC for bias method).
+        //
+        // Should set up to use random_nondimensional_link_vectors when implemented to work for a given force,
+        // and use the re-weighting (possibly with the above bias method) when unimplemented under force.
+        //
         nondimensional_longitudinal_extension_reweighted(
             self,
             nondimensional_force,
