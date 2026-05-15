@@ -24,3 +24,20 @@ fn monte_carlo() {
         .zip(g)
         .for_each(|(gamma_i, g_i)| println!("[{gamma_i}, {g_i}],"))
 }
+
+#[test]
+fn foo() {
+    let kappa = 100.0;
+    let model = ExtensibleFreelyRotatingChain {
+        link_angle: std::f64::consts::PI * 60.0 / 180.0,
+        link_length: 1.0,
+        link_stiffness: kappa * BOLTZMANN_CONSTANT * ROOM_TEMPERATURE,
+        number_of_links: 5,
+        ensemble: Ensemble::Isometric(ROOM_TEMPERATURE),
+    };
+    use crate::physics::molecular::single_chain::thermodynamics::MonteCarlo;
+    println!(
+        "{}",
+        model.nondimensional_longitudinal_extension(0.1 * kappa, 1_000_000, 64)
+    )
+}
