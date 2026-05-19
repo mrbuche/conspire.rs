@@ -1,8 +1,5 @@
 use crate::{
-    math::{
-        Scalar, random_uniform,
-        special::{langevin, langevin_derivative},
-    },
+    math::{Scalar, random_uniform},
     mechanics::CurrentCoordinate,
     physics::molecular::{
         potential::{Harmonic, Potential},
@@ -29,14 +26,14 @@ where
 /// The arbitrary discrete single-chain model.
 #[derive(Clone, Debug)]
 pub struct ArbitraryDiscrete {
+    /// The number of links $`N_b`$.
+    pub number_of_links: u8,
     /// The link potential $`u_b`$.
     pub link_potential: ArbitraryDiscretePotential<Harmonic>,
     /// The angular potential $`u_\theta`$.
     pub angular_potential: ArbitraryDiscretePotential<Harmonic>,
     /// The torsional potential $`u_\phi`$.
     pub torsional_potential: ArbitraryDiscretePotential<Harmonic>,
-    /// The number of links $`N_b`$.
-    pub number_of_links: u8,
     /// The thermodynamic ensemble.
     pub ensemble: Ensemble,
 }
@@ -97,36 +94,9 @@ impl Isotensional for ArbitraryDiscrete {
     }
     fn nondimensional_extension(
         &self,
-        nondimensional_force: Scalar,
+        _nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        match &self.link_potential {
-            ArbitraryDiscretePotential::Strong(link_potential) => match &self.angular_potential {
-                ArbitraryDiscretePotential::Rigid(_) => match &self.torsional_potential {
-                    ArbitraryDiscretePotential::Free => todo!("(E)FRC with weak torsional."),
-                    _ => panic!(),
-                },
-                ArbitraryDiscretePotential::Weak(angular_potential) => match &self
-                    .torsional_potential
-                {
-                    ArbitraryDiscretePotential::Free => {
-                        let langevin = langevin(nondimensional_force);
-                        let num_links = self.number_of_links as Scalar;
-                        Ok(langevin
-                            + nondimensional_force
-                                / link_potential.nondimensional_stiffness(1.0, self.temperature())
-                                * (2.0 - langevin / nondimensional_force.tanh())
-                            + 2.0 * (num_links - 1.0) / num_links
-                                * angular_potential
-                                    .nondimensional_stiffness(1.0, self.temperature())
-                                * langevin
-                                * langevin_derivative(nondimensional_force))
-                    }
-                    _ => panic!(),
-                },
-                _ => panic!(),
-            },
-            _ => panic!(),
-        }
+        unimplemented!()
     }
     fn nondimensional_compliance(
         &self,
