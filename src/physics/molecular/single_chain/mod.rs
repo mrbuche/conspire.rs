@@ -1,3 +1,4 @@
+mod arbitrary;
 mod efjc;
 mod efrc;
 mod fjc;
@@ -9,6 +10,7 @@ mod ufjc;
 /// Single-chain models of polymer statistical thermodynamics.
 mod thermodynamics;
 
+pub use arbitrary::{ArbitraryDiscrete, ArbitraryDiscretePotential};
 pub use efjc::ExtensibleFreelyJointedChain;
 pub use efrc::ExtensibleFreelyRotatingChain;
 pub use fjc::FreelyJointedChain;
