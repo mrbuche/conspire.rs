@@ -1,83 +1,63 @@
-use crate::geometry::{BoundingBox, BoundingBoxUnion, Coordinate};
+pub mod item;
+pub mod node;
 
-pub struct BoundingVolumeHierarchy<const D: usize, const I: usize> {
-    items: Vec<usize>,
-    nodes: Vec<Node<D, I>>,
+use crate::geometry::{
+    // BoundingBox, BoundingBoxUnite, Coordinate,
+    bvh::{item::Items, node::Nodes},
+};
+
+pub struct BoundingVolumeHierarchy<const D: usize, const I: usize, T> {
+    items: Items<D, I, T>,
+    nodes: Nodes<D, I>,
 }
 
-pub struct Item<const D: usize, const I: usize> {
-    bounding_box: BoundingBox<D, I>,
-    centroid: Coordinate<D, I>,
-    index: usize,
-}
+// impl<const D: usize, const I: usize> BoundingVolumeHierarchy<D, I> {
+//     fn build_node(
+//         nodes: &mut Vec<Node<D, I>>,
+//         items_out: &mut Vec<usize>,
+//         items: &mut [Item<D, I>],
+//         leaf_size: usize,
+//     ) -> usize {
+//         let bounding_box = bbox_of_items(items);
+//         let node_index = nodes.len();
 
-pub struct Node<const D: usize, const I: usize> {
-    bounding_box: BoundingBox<D, I>,
-    kind: NodeKind,
-}
+//         nodes.push(Node {
+//             bounding_box: bounding_box.clone(),
+//             kind: NodeKind::Leaf { start: 0, end: 0 },
+//         });
 
-pub enum NodeKind {
-    Leaf { start: usize, end: usize },
-    Tree { left: usize, right: usize },
-}
+//         if items.len() <= leaf_size {
+//             let start = items_out.len();
+//             items_out.extend(items.iter().map(|item| item.index));
+//             let end = items_out.len();
 
-fn bbox_of_items<const D: usize, const I: usize>(items: &[Item<D, I>]) -> BoundingBox<D, I> {
-    assert!(!items.is_empty());
+//             nodes[node_index] = Node {
+//                 bounding_box,
+//                 kind: NodeKind::Leaf { start, end },
+//             };
 
-    items.iter()
-        .skip(1)
-        .fold(items[0].bounding_box.clone(), |bbox, item| {
-            bbox.union(&item.bounding_box)
-        })
-}
+//             return node_index;
+//         }
 
-impl<const D: usize, const I: usize> BoundingVolumeHierarchy<D, I> {
-    fn build_node(
-        nodes: &mut Vec<Node<D, I>>,
-        items_out: &mut Vec<usize>,
-        items: &mut [Item<D, I>],
-        leaf_size: usize,
-    ) -> usize {
-        let bounding_box = bbox_of_items(items);
-        let node_index = nodes.len();
+//         let axis = bounding_box.longest_axis();
 
-        nodes.push(Node {
-            bounding_box: bounding_box.clone(),
-            kind: NodeKind::Leaf { start: 0, end: 0 },
-        });
+//         items.sort_by(|a, b| {
+//             a.centroid[axis]
+//                 .partial_cmp(&b.centroid[axis])
+//                 .unwrap_or(Ordering::Equal)
+//         });
 
-        if items.len() <= leaf_size {
-            let start = items_out.len();
-            items_out.extend(items.iter().map(|item| item.index));
-            let end = items_out.len();
+//         let mid = items.len() / 2;
+//         let (left_items, right_items) = items.split_at_mut(mid);
 
-            nodes[node_index] = Node {
-                bounding_box,
-                kind: NodeKind::Leaf { start, end },
-            };
+//         let left = Self::build_node(nodes, items_out, left_items, leaf_size);
+//         let right = Self::build_node(nodes, items_out, right_items, leaf_size);
 
-            return node_index;
-        }
+//         nodes[node_index] = Node {
+//             bounding_box,
+//             kind: NodeKind::Tree { left, right },
+//         };
 
-        let axis = bounding_box.longest_axis();
-
-        items.sort_by(|a, b| {
-            a.centroid[axis]
-                .partial_cmp(&b.centroid[axis])
-                .unwrap_or(Ordering::Equal)
-        });
-
-        let mid = items.len() / 2;
-        let (left_items, right_items) = items.split_at_mut(mid);
-
-        let left = Self::build_node(nodes, items_out, left_items, leaf_size);
-        let right = Self::build_node(nodes, items_out, right_items, leaf_size);
-
-        nodes[node_index] = Node {
-            bounding_box,
-            kind: NodeKind::Tree { left, right },
-        };
-
-        node_index
-    }
-}
+//         node_index
+//     }
+// }

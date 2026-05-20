@@ -2,7 +2,7 @@ mod bbox;
 mod bvh;
 
 pub use self::{
-    bbox::{BoundingBox, Union as BoundingBoxUnion},
+    bbox::{BoundingBox, Unite as BoundingBoxUnite},
     bvh::BoundingVolumeHierarchy,
 };
 

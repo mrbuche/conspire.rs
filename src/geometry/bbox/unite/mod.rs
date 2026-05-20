@@ -1,14 +1,14 @@
 #[cfg(test)]
-mod test;
+pub mod test;
 
 use crate::{
-    geometry::bbox::{BoundingBox, Union},
+    geometry::bbox::{BoundingBox, Unite},
     math::Tensor,
 };
 
-impl<const D: usize, const I: usize> Union<Self> for BoundingBox<D, I> {
+impl<const D: usize, const I: usize> Unite<Self> for BoundingBox<D, I> {
     type Output = Self;
-    fn union(self, other: Self) -> Self::Output {
+    fn unite(self, other: Self) -> Self::Output {
         let mut minimum = self.minimum;
         let mut maximum = self.maximum;
         minimum
@@ -23,9 +23,9 @@ impl<const D: usize, const I: usize> Union<Self> for BoundingBox<D, I> {
     }
 }
 
-impl<const D: usize, const I: usize> Union<BoundingBox<D, I>> for &BoundingBox<D, I> {
+impl<const D: usize, const I: usize> Unite<BoundingBox<D, I>> for &BoundingBox<D, I> {
     type Output = BoundingBox<D, I>;
-    fn union(self, other: BoundingBox<D, I>) -> Self::Output {
+    fn unite(self, other: BoundingBox<D, I>) -> Self::Output {
         let mut minimum = self.minimum.clone();
         let mut maximum = self.maximum.clone();
         minimum
@@ -40,9 +40,9 @@ impl<const D: usize, const I: usize> Union<BoundingBox<D, I>> for &BoundingBox<D
     }
 }
 
-impl<const D: usize, const I: usize> Union<&Self> for BoundingBox<D, I> {
+impl<const D: usize, const I: usize> Unite<&Self> for BoundingBox<D, I> {
     type Output = Self;
-    fn union(self, other: &Self) -> Self::Output {
+    fn unite(self, other: &Self) -> Self::Output {
         let mut minimum = self.minimum;
         let mut maximum = self.maximum;
         minimum
@@ -57,9 +57,9 @@ impl<const D: usize, const I: usize> Union<&Self> for BoundingBox<D, I> {
     }
 }
 
-impl<const D: usize, const I: usize> Union<Self> for &BoundingBox<D, I> {
+impl<const D: usize, const I: usize> Unite<Self> for &BoundingBox<D, I> {
     type Output = BoundingBox<D, I>;
-    fn union(self, other: Self) -> Self::Output {
+    fn unite(self, other: Self) -> Self::Output {
         let mut minimum = self.minimum.clone();
         let mut maximum = self.maximum.clone();
         minimum
