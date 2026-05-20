@@ -1,9 +1,14 @@
 mod bbox;
 mod bvh;
+mod mesh;
 
 pub use self::{
     bbox::{BoundingBox, Unite as BoundingBoxUnite},
     bvh::BoundingVolumeHierarchy,
+    mesh::{
+        Mesh,
+        tessellation::{Tessellation, triangular::TriangularTessellation},
+    },
 };
 
 use crate::math::{TensorRank1, TensorRank1List, TensorRank1Vec};
