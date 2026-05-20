@@ -13,9 +13,16 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign},
 };
 
-use super::{
-    super::write_tensor_rank_0, Jacobian, Solution, Tensor, TensorArray, Vector,
-    rank_0::TensorRank0, rank_2::TensorRank2,
+use crate::{
+    ABS_TOL,
+    math::{
+        matrix::vector::Vector,
+        tensor::{
+            Jacobian, Solution, Tensor, TensorArray, rank_0::TensorRank0,
+            rank_1::list::TensorRank1List, rank_2::TensorRank2,
+        },
+        write_tensor_rank_0,
+    },
 };
 
 #[cfg(test)]
@@ -102,6 +109,31 @@ impl<const D: usize, const I: usize> TensorRank1<D, I> {
         } else {
             panic!()
         }
+    }
+    pub fn orthonormal_basis(&self) -> TensorRank1List<D, I, D> {
+        let norm = self.norm();
+        assert!(
+            norm > ABS_TOL,
+            "Cannot build an orthonormal basis from the zero vector"
+        );
+        let mut basis = TensorRank1List::zero();
+        basis[0] = self / norm;
+        let mut filled = 1;
+        for i in 0..D {
+            if filled == D {
+                break;
+            }
+            let mut v = zero();
+            v[i] = 1.0;
+            basis.iter().take(filled).for_each(|q| v -= q * (&v * q));
+            let v_norm = v.norm();
+            if v_norm > ABS_TOL {
+                basis[filled] = v / v_norm;
+                filled += 1;
+            }
+        }
+        assert!(filled == D, "Failed to construct full orthonormal basis");
+        basis
     }
 }
 
