@@ -15,8 +15,9 @@ version = "0.6.3"
 constitutive = ['physics']
 doc = []
 fem = ['constitutive']
+geometry = ['math']
 math = []
-mechanics = ['math']
+mechanics = ['geometry']
 physics = ['mechanics']
 vem = ['fem']
 

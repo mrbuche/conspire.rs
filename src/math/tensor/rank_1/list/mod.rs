@@ -10,6 +10,27 @@ use crate::math::tensor::test::ErrorTensor;
 pub type TensorRank1List<const D: usize, const I: usize, const N: usize> =
     TensorList<TensorRank1<D, I>, N>;
 
+impl<const D: usize, const I: usize, const N: usize> TensorRank1List<D, I, N> {
+    pub fn bounding_box(&self) -> TensorRank1List<D, I, 2> {
+        self.iter()
+            .skip(1)
+            .fold(
+                [self[0].clone(), self[0].clone()],
+                |[mut min, mut max], entry| {
+                    entry
+                        .iter()
+                        .zip(min.iter_mut().zip(max.iter_mut()))
+                        .for_each(|(&entry_i, (min_i, max_i))| {
+                            *min_i = min_i.min(entry_i);
+                            *max_i = max_i.max(entry_i);
+                        });
+                    [min, max]
+                },
+            )
+            .into()
+    }
+}
+
 impl<const D: usize, const I: usize, const N: usize> From<[[TensorRank0; D]; N]>
     for TensorRank1List<D, I, N>
 {

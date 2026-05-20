@@ -9,6 +9,9 @@ pub mod constitutive;
 pub mod fem;
 
 #[cfg(feature = "math")]
+pub mod geometry;
+
+#[cfg(feature = "math")]
 pub mod math;
 
 #[cfg(feature = "mechanics")]

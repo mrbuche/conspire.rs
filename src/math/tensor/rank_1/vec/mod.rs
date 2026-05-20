@@ -2,8 +2,8 @@
 mod test;
 
 use crate::math::{
-    Jacobian, Solution, Tensor, TensorRank0, TensorRank1, TensorRank2Vec2D, Vector,
-    tensor::vec::TensorVector,
+    Jacobian, Solution, Tensor, TensorRank0, TensorRank1, TensorRank1List, TensorRank2Vec2D,
+    Vector, tensor::vec::TensorVector,
 };
 use std::{
     mem::{forget, transmute},
@@ -16,6 +16,24 @@ use crate::math::tensor::test::ErrorTensor;
 pub type TensorRank1Vec<const D: usize, const I: usize> = TensorVector<TensorRank1<D, I>>;
 
 impl<const D: usize, const I: usize> TensorRank1Vec<D, I> {
+    pub fn bounding_box(&self) -> TensorRank1List<D, I, 2> {
+        self.iter()
+            .skip(1)
+            .fold(
+                [self[0].clone(), self[0].clone()],
+                |[mut min, mut max], entry| {
+                    entry
+                        .iter()
+                        .zip(min.iter_mut().zip(max.iter_mut()))
+                        .for_each(|(&entry_i, (min_i, max_i))| {
+                            *min_i = min_i.min(entry_i);
+                            *max_i = max_i.max(entry_i);
+                        });
+                    [min, max]
+                },
+            )
+            .into()
+    }
     pub fn zero(len: usize) -> Self {
         (0..len).map(|_| super::zero()).collect()
     }
