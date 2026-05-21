@@ -1,6 +1,7 @@
 pub mod base;
 pub mod from;
-pub mod io;
+pub mod read;
+pub mod write;
 
 use crate::geometry::{Coordinates, mesh::TriangularMesh};
 

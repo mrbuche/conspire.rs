@@ -296,4 +296,6 @@ where
         F: FnMut(&Self::Item) -> bool;
     /// Removes an element from the Vec and returns it, replacing it with the last element.
     fn swap_remove(&mut self, index: usize) -> Self::Item;
+    /// Constructs a new, empty vector with at least the specified capacity.
+    fn with_capacity(capacity: usize) -> Self;
 }
