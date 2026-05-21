@@ -1,0 +1,27 @@
+#[cfg(test)]
+mod test;
+
+use crate::{geometry::bbox::BoundingBox, math::Tensor};
+
+impl<const D: usize, const I: usize> BoundingBox<D, I> {
+    pub fn longest_axis(&self) -> usize {
+        self.maximum
+            .iter()
+            .zip(self.minimum.iter())
+            .enumerate()
+            .map(|(i, (&max, &min))| (i, max - min))
+            .max_by(|(_, length_a), (_, length_b)| length_a.partial_cmp(length_b).unwrap())
+            .unwrap()
+            .0
+    }
+    pub fn shortest_axis(&self) -> usize {
+        self.maximum
+            .iter()
+            .zip(self.minimum.iter())
+            .enumerate()
+            .map(|(i, (&max, &min))| (i, max - min))
+            .min_by(|(_, length_a), (_, length_b)| length_a.partial_cmp(length_b).unwrap())
+            .unwrap()
+            .0
+    }
+}

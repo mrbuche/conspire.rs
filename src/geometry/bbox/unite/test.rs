@@ -12,7 +12,7 @@ pub const BBOX_1: BoundingBox<D, I> = BoundingBox {
 };
 
 pub const BBOX_2: BoundingBox<D, I> = BoundingBox {
-    minimum: Coordinate::const_from([0.5, 0.5, 0.5]),
+    minimum: Coordinate::const_from([0.25, 0.0, 0.5]),
     maximum: Coordinate::const_from([2.0, 2.0, 2.0]),
 };
 

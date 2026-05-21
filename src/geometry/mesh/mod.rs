@@ -3,23 +3,35 @@ pub mod tessellation;
 use crate::geometry::Coordinates;
 
 pub struct Mesh<const D: usize, const I: usize, const M: usize, T> {
-    coordinates: Coordinates<D, I>,
     connectivity: T,
+    coordinates: Coordinates<D, I>,
 }
 
-impl<const D: usize, const I: usize, const M: usize, T> Mesh<D, I, M, T> {
-    pub fn centroids(&self);
-    pub fn bounding_boxes(&self);
-    pub fn centroids_and_bounding_boxes(&self);
-    // and/or do Items From <&Mesh>
+// impl<const D: usize, const I: usize, const M: usize, T> Mesh<D, I, M, T> {
+//     pub fn centroids(&self);
+//     pub fn bounding_boxes(&self);
+//     pub fn centroids_and_bounding_boxes(&self);
+//     // and/or do Items From <&Mesh>
+// }
+
+// move to from/mod.rs?
+impl<const D: usize, const I: usize, const M: usize, T> From<(T, Coordinates<D, I>)>
+    for Mesh<D, I, M, T>
+{
+    fn from((connectivity, coordinates): (T, Coordinates<D, I>)) -> Self {
+        Self {
+            coordinates,
+            connectivity,
+        }
+    }
 }
 
 // move to from/mod.rs?
 impl<const D: usize, const I: usize, const M: usize, T> From<Mesh<D, I, M, T>>
-    for (Coordinates<D, I>, T)
+    for (T, Coordinates<D, I>)
 {
     fn from(mesh: Mesh<D, I, M, T>) -> Self {
-        (mesh.coordinates, mesh.connectivity)
+        (mesh.connectivity, mesh.coordinates)
     }
 }
 
