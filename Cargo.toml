@@ -17,7 +17,7 @@ doc = []
 fem = ['constitutive']
 geometry = ['math']
 math = []
-mechanics = ['geometry']
+mechanics = ['math']
 physics = ['mechanics']
 vem = ['fem']
 

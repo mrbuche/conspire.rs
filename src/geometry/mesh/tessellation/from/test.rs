@@ -1,8 +1,5 @@
 use crate::{
-    geometry::{
-        Coordinates,
-        mesh::{TriangularMesh, tessellation::Tessellation},
-    },
+    geometry::mesh::{TriangularMesh, tessellation::Tessellation},
     math::Tensor,
 };
 
