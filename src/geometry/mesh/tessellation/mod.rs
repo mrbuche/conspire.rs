@@ -1,4 +1,5 @@
 pub mod from;
+pub mod io;
 
 use crate::geometry::{Coordinates, mesh::TriangularMesh};
 
@@ -14,4 +15,16 @@ impl<const I: usize, T> Tessellation<I, T> {
     pub fn normals(&self) -> &Coordinates<3, I> {
         &self.normals
     }
+}
+
+// below should be more general that tessellations only
+
+use std::{
+    io::{Result as ResultIO},
+    path::Path,
+};
+
+pub trait Write
+{
+    fn write<P: AsRef<Path>>(&self, path: P) -> ResultIO<()>;
 }

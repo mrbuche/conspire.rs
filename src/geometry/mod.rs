@@ -5,7 +5,10 @@ mod mesh;
 pub use self::{
     bbox::{BoundingBox, Unite as BoundingBoxUnite},
     bvh::BoundingVolumeHierarchy,
-    mesh::{Mesh, tessellation::Tessellation},
+    mesh::{
+        Mesh,
+        tessellation::{Tessellation, Write as WriteTessellation},
+    },
 };
 
 use crate::math::{TensorRank1, TensorRank1List, TensorRank1RefVec, TensorRank1Vec};
