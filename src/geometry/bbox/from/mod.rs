@@ -1,10 +1,17 @@
 #[cfg(test)]
 mod test;
 
-use crate::geometry::{CoordinateList, Coordinates, bbox::BoundingBox};
+use crate::geometry::{CoordinateList, Coordinates, CoordinatesRef, bbox::BoundingBox};
 
 impl<const D: usize, const I: usize> From<Coordinates<D, I>> for BoundingBox<D, I> {
     fn from(coordinates: Coordinates<D, I>) -> Self {
+        let [minimum, maximum] = coordinates.bounding_box().into();
+        Self { minimum, maximum }
+    }
+}
+
+impl<'a, const D: usize, const I: usize> From<CoordinatesRef<'a, D, I>> for BoundingBox<D, I> {
+    fn from(coordinates: CoordinatesRef<'a, D, I>) -> Self {
         let [minimum, maximum] = coordinates.bounding_box().into();
         Self { minimum, maximum }
     }

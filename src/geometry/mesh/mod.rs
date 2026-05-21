@@ -1,3 +1,4 @@
+pub mod base;
 pub mod tessellation;
 
 use crate::geometry::Coordinates;
@@ -7,12 +8,10 @@ pub struct Mesh<const D: usize, const I: usize, const M: usize, T> {
     coordinates: Coordinates<D, I>,
 }
 
-// impl<const D: usize, const I: usize, const M: usize, T> Mesh<D, I, M, T> {
-//     pub fn centroids(&self);
-//     pub fn bounding_boxes(&self);
-//     pub fn centroids_and_bounding_boxes(&self);
-//     // and/or do Items From <&Mesh>
-// }
+pub type PrimitiveMesh<const D: usize, const I: usize, const M: usize, const N: usize, T> =
+    Mesh<D, I, M, Vec<[T; N]>>;
+
+pub type TriangularMesh<const I: usize, T> = PrimitiveMesh<3, I, 2, 3, T>;
 
 // move to from/mod.rs?
 impl<const D: usize, const I: usize, const M: usize, T> From<(T, Coordinates<D, I>)>
@@ -34,11 +33,3 @@ impl<const D: usize, const I: usize, const M: usize, T> From<Mesh<D, I, M, T>>
         (mesh.connectivity, mesh.coordinates)
     }
 }
-
-pub type PrimitiveMesh<const D: usize, const I: usize, const M: usize, const N: usize, T> =
-    Mesh<D, I, M, Vec<[T; N]>>;
-
-pub type TriangularMesh<const I: usize, T> = PrimitiveMesh<3, I, 2, 3, T>;
-
-// pub type PolygonalMesh<const I: usize, T> = Mesh<3, I, 2, Vec<Vec<T>>>;
-// pub type PolyhedralMesh<const I: usize, T> = Mesh<3, I, 3, (Vec<Vec<T>>, Vec<Vec<T>>)>;

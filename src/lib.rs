@@ -8,7 +8,7 @@ pub mod constitutive;
 #[path = "domain/fem/mod.rs"]
 pub mod fem;
 
-#[cfg(feature = "math")]
+#[cfg(feature = "geometry")]
 pub mod geometry;
 
 #[cfg(feature = "math")]

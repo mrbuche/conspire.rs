@@ -1,7 +1,6 @@
-#[cfg(test)]
-mod test;
+pub mod from;
 
-use crate::geometry::BoundingBox;
+use crate::geometry::bbox::BoundingBox;
 
 pub enum NodeKind {
     Leaf { start: usize, end: usize },
