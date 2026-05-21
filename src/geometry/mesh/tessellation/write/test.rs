@@ -3,11 +3,10 @@ use crate::{
         Coordinate, Write,
         mesh::{TriangularMesh, tessellation::Tessellation},
     },
-    math::test::TestError,
+    math::test::{TestError, assert_eq},
 };
-use std::path::Path;
 
-const CONNECTIVITY: [[usize; 3]; 12] = [
+pub const CONNECTIVITY: [[usize; 3]; 12] = [
     [0, 2, 1],
     [0, 3, 2],
     [4, 5, 6],
@@ -22,7 +21,7 @@ const CONNECTIVITY: [[usize; 3]; 12] = [
     [1, 6, 5],
 ];
 
-const COORDINATES: [Coordinate<3, 1>; 8] = [
+pub const COORDINATES: [Coordinate<3, 1>; 8] = [
     Coordinate::const_from([0.0, 0.0, 0.0]),
     Coordinate::const_from([1.0, 0.0, 0.0]),
     Coordinate::const_from([1.0, 1.0, 0.0]),
@@ -33,7 +32,7 @@ const COORDINATES: [Coordinate<3, 1>; 8] = [
     Coordinate::const_from([0.0, 1.0, 1.0]),
 ];
 
-const NORMALS: [Coordinate<3, 1>; 12] = [
+pub const NORMALS: [Coordinate<3, 1>; 12] = [
     Coordinate::const_from([0.0, 0.0, -1.0]),
     Coordinate::const_from([0.0, 0.0, -1.0]),
     Coordinate::const_from([0.0, 0.0, 1.0]),
@@ -49,13 +48,11 @@ const NORMALS: [Coordinate<3, 1>; 12] = [
 ];
 
 #[test]
-fn todo() -> Result<(), TestError> {
+fn consistency() -> Result<(), TestError> {
     let mesh = TriangularMesh::from((CONNECTIVITY.into(), COORDINATES.into()));
     let tessellation_1 = Tessellation::from(mesh);
-    // can test three fields against the above here
-    tessellation_1.write("target/foo.stl")?;
-    let tessellation_2 = Tessellation::<1, usize>::try_from(Path::new("target/foo.stl"))?;
-    // impl PartialEq for Tessellation to make test at the end much easier
-    // and/or something that returns TestError
-    Ok(())
+    assert_eq!(tessellation_1.mesh.connectivity, CONNECTIVITY);
+    assert_eq(&tessellation_1.mesh.coordinates, &COORDINATES.into())?;
+    assert_eq(&tessellation_1.normals, &NORMALS.into())?;
+    Ok(tessellation_1.write("target/foo.stl")?)
 }
