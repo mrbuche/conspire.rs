@@ -3,6 +3,7 @@ use crate::{ABS_TOL, REL_TOL, defeat_message};
 use std::{
     cmp::PartialEq,
     fmt::{self, Debug, Display, Formatter},
+    io::Error as ErrorIO,
 };
 
 #[cfg(test)]
@@ -128,6 +129,14 @@ impl From<&str> for TestError {
 
 impl From<TensorError> for TestError {
     fn from(error: TensorError) -> Self {
+        Self {
+            message: error.to_string(),
+        }
+    }
+}
+
+impl From<ErrorIO> for TestError {
+    fn from(error: ErrorIO) -> Self {
         Self {
             message: error.to_string(),
         }
