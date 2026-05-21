@@ -7,7 +7,7 @@ use crate::{
         ParametricCoordinates, ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         surface::{M, linear::LinearSurfaceElement},
     },
-    math::{ScalarList, Tensor, TensorArray},
+    math::{CrossProduct, ScalarList, Tensor, TensorArray},
     mechanics::Coordinate,
 };
 

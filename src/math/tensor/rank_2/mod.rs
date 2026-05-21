@@ -19,7 +19,10 @@ use super::{
     super::assert_eq_within_tols,
     Hessian, Jacobian, Rank2, Solution, SquareMatrix, Tensor, TensorArray, TensorError, Vector,
     rank_0::{TensorRank0, list::TensorRank0List},
-    rank_1::{TensorRank1, list::TensorRank1List, vec::TensorRank1Vec, zero as tensor_rank_1_zero},
+    rank_1::{
+        CrossProduct, TensorRank1, list::TensorRank1List, vec::TensorRank1Vec,
+        zero as tensor_rank_1_zero,
+    },
     rank_4::TensorRank4,
 };
 use crate::ABS_TOL;

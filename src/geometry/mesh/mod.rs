@@ -7,6 +7,14 @@ pub struct Mesh<const D: usize, const I: usize, const M: usize, T> {
     connectivity: T,
 }
 
+impl<const D: usize, const I: usize, const M: usize, T> Mesh<D, I, M, T> {
+    pub fn centroids(&self);
+    pub fn bounding_boxes(&self);
+    pub fn centroids_and_bounding_boxes(&self);
+    // and/or do Items From <&Mesh>
+}
+
+// move to from/mod.rs?
 impl<const D: usize, const I: usize, const M: usize, T> From<Mesh<D, I, M, T>>
     for (Coordinates<D, I>, T)
 {

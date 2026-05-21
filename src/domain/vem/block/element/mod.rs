@@ -7,7 +7,7 @@ use crate::{
         ElementNodalReferenceCoordinates as FemElementNodalReferenceCoordinates, FiniteElement,
         linear::Tetrahedron,
     },
-    math::{Scalar, Scalars, Tensor, TensorRank1Vec2D, TestError},
+    math::{CrossProduct, Scalar, Scalars, Tensor, TensorRank1Vec2D, TestError},
     mechanics::{CurrentCoordinate, CurrentCoordinatesRef, ReferenceCoordinate, Vectors2D},
     vem::{NodalCoordinates, NodalReferenceCoordinates},
 };
@@ -252,7 +252,7 @@ impl
                                                 };
                                                 let e_1 = &node_b_coordinates - node_a_coordinates;
                                                 let e_2 = &face_center - node_b_coordinates;
-                                                e_1.cross(&e_2) * factor
+                                                e_1.cross(e_2) * factor
                                             },
                                         )
                                         .sum::<ReferenceCoordinate>(),

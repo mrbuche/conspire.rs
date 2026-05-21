@@ -7,7 +7,7 @@ use crate::{
         ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         linear::{LinearElement, LinearFiniteElement, M},
     },
-    math::{ScalarList, Tensor},
+    math::{CrossProduct, ScalarList, Tensor},
 };
 use std::f64::consts::SQRT_2;
 
@@ -42,7 +42,7 @@ impl FiniteElement<G, M, N, P> for Tetrahedron {
         nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
     ) -> ScalarList<P> {
         let numerator = ((&nodal_coordinates[1] - &nodal_coordinates[0])
-            .cross(&(&nodal_coordinates[2] - &nodal_coordinates[0]))
+            .cross(&nodal_coordinates[2] - &nodal_coordinates[0])
             * (&nodal_coordinates[3] - &nodal_coordinates[0]))
             * SQRT_2;
         let lengths = lengths(nodal_coordinates);

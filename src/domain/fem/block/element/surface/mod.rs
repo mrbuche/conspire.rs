@@ -5,7 +5,9 @@ use crate::{
         ElementNodalCoordinates, ElementNodalEitherCoordinates, ElementNodalReferenceCoordinates,
         ElementNodalVelocities, FiniteElement, GradientVectors,
     },
-    math::{IDENTITY, LEVI_CIVITA, Scalar, ScalarList, Tensor, TensorArray, TensorRank2},
+    math::{
+        CrossProduct, IDENTITY, LEVI_CIVITA, Scalar, ScalarList, Tensor, TensorArray, TensorRank2,
+    },
     mechanics::{Normal, NormalGradients, NormalRates, Normals, ReferenceNormals, SurfaceBases},
 };
 use std::fmt::{self, Debug, Formatter};
