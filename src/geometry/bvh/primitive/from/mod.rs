@@ -27,10 +27,7 @@ where
     V: Copy + From<usize> + Into<usize>,
 {
     fn from(mesh: &Mesh<D, I, M, T>) -> Self {
-        let (bounding_boxes, centroids) = mesh.bounding_boxes_and_centroids();
-        bounding_boxes
-            .into_iter()
-            .zip(centroids)
+        mesh.bounding_boxes_and_centroids()
             .enumerate()
             .map(|(primitive, (bounding_box, centroid))| Primitive {
                 bounding_box,
