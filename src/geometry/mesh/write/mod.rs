@@ -1,7 +1,13 @@
 #[cfg(test)]
 mod test;
 
-use crate::geometry::{Write, mesh::Mesh};
+use crate::{
+    geometry::{
+        Write,
+        mesh::{PrimitiveMesh, exodus::write as write_exodus},
+    },
+    math::Scalar,
+};
 use std::{io::Result as ResultIO, path::Path};
 
 pub enum Output<P>
@@ -17,17 +23,20 @@ where
 {
     fn as_ref(&self) -> &Path {
         match self {
-            Output::Exodus(p) => p.as_ref(),
+            Output::Exodus(path) => path.as_ref(),
         }
     }
 }
 
-impl<const D: usize, const I: usize, const M: usize, P, T> Write<Output<P>> for Mesh<D, I, M, T>
+impl<const D: usize, const I: usize, const M: usize, const N: usize, P, T> Write<Output<P>>
+    for PrimitiveMesh<D, I, M, N, T>
 where
     P: AsRef<Path>,
+    T: Copy + Into<usize>,
 {
     fn write(&self, output: Output<P>) -> ResultIO<()> {
-        let [xs, ys, zs] = self.coordinates.into();
-        todo!()
+        match output {
+            Output::Exodus(path) => write_exodus(self, path),
+        }
     }
 }

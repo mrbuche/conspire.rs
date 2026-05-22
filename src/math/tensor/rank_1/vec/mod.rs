@@ -6,6 +6,7 @@ use crate::math::{
     Vector, tensor::vec::TensorVector,
 };
 use std::{
+    array::from_fn,
     mem::{forget, transmute},
     ops::{Div, Sub},
 };
@@ -73,6 +74,48 @@ impl<const D: usize, const I: usize> From<TensorRank1Vec<D, I>> for Vec<Vec<Tens
             .into_iter()
             .map(|tensor_rank_1| tensor_rank_1.into())
             .collect()
+    }
+}
+
+impl<const D: usize, const I: usize> TryFrom<[Vec<TensorRank0>; D]> for TensorRank1Vec<D, I> {
+    type Error = String;
+    fn try_from(vec_array: [Vec<TensorRank0>; D]) -> Result<Self, Self::Error> {
+        let length = vec_array[0].len();
+        if vec_array.iter().any(|vec| vec.len() != length) {
+            Err("Vector length mismatch in type conversion".to_string())
+        } else {
+            Ok((0..length)
+                .map(|j| TensorRank1::const_from(from_fn(|i| vec_array[i][j])))
+                .collect())
+        }
+    }
+}
+
+impl<const D: usize, const I: usize> From<TensorRank1Vec<D, I>> for [Vec<TensorRank0>; D] {
+    fn from(tensor_rank_1_vec: TensorRank1Vec<D, I>) -> Self {
+        let length = tensor_rank_1_vec.len();
+        let mut output = from_fn(|_| Vec::with_capacity(length));
+        tensor_rank_1_vec.into_iter().for_each(|tensor_rank_1| {
+            output
+                .iter_mut()
+                .zip(tensor_rank_1)
+                .for_each(|(entry, value)| entry.push(value))
+        });
+        output
+    }
+}
+
+impl<const D: usize, const I: usize> From<&TensorRank1Vec<D, I>> for [Vec<TensorRank0>; D] {
+    fn from(tensor_rank_1_vec: &TensorRank1Vec<D, I>) -> Self {
+        let length = tensor_rank_1_vec.len();
+        let mut output = from_fn(|_| Vec::with_capacity(length));
+        tensor_rank_1_vec.iter().for_each(|tensor_rank_1| {
+            output
+                .iter_mut()
+                .zip(tensor_rank_1.iter())
+                .for_each(|(entry, &value)| entry.push(value))
+        });
+        output
     }
 }
 

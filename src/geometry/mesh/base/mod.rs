@@ -7,16 +7,26 @@ use crate::{
         bbox::{BoundingBox, BoundingBoxes},
         mesh::Mesh,
     },
-    math::Scalar,
+    math::{Scalar, Tensor},
 };
 use std::iter::ExactSizeIterator;
 
 impl<const D: usize, const I: usize, const M: usize, T, U, V> Mesh<D, I, M, T>
 where
     for<'a> &'a T: IntoIterator<Item = &'a U>,
-    for<'a> &'a U: ExactSizeIterator + IntoIterator<Item = &'a V>,
+    for<'a> &'a U: IntoIterator<Item = &'a V>,
+    for<'a> <&'a U as IntoIterator>::IntoIter: ExactSizeIterator,
     V: Copy + Into<usize>,
 {
+    pub fn connectivity(&self) -> &T {
+        &self.connectivity
+    }
+    pub fn coordinates(&self) -> &Coordinates<D, I> {
+        &self.coordinates
+    }
+    pub fn number_of_nodes(&self) -> usize {
+        self.coordinates.len()
+    }
     pub fn bounding_boxes(&self) -> BoundingBoxes<D, I> {
         (&self.connectivity)
             .into_iter()
@@ -33,11 +43,12 @@ where
         (&self.connectivity)
             .into_iter()
             .map(|nodes| {
+                let count = nodes.into_iter().len() as Scalar;
                 nodes
                     .into_iter()
                     .map(|&node| &self.coordinates[node.into()])
                     .sum::<Coordinate<_, _>>()
-                    / nodes.len() as Scalar
+                    / count
             })
             .collect()
     }
@@ -45,6 +56,7 @@ where
         &self,
     ) -> impl Iterator<Item = (BoundingBox<D, I>, Coordinate<D, I>)> {
         (&self.connectivity).into_iter().map(|nodes| {
+            let count = nodes.into_iter().len() as Scalar;
             (
                 nodes
                     .into_iter()
@@ -55,7 +67,7 @@ where
                     .into_iter()
                     .map(|&node| &self.coordinates[node.into()])
                     .sum::<Coordinate<_, _>>()
-                    / nodes.len() as Scalar,
+                    / count,
             )
         })
     }
