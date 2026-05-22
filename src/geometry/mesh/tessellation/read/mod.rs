@@ -2,7 +2,10 @@
 mod test;
 
 use crate::{
-    geometry::{Coordinate, Coordinates, mesh::tessellation::Tessellation},
+    geometry::{
+        Coordinate, Coordinates,
+        mesh::tessellation::{D, Tessellation},
+    },
     math::TensorVec,
 };
 use std::{
@@ -26,8 +29,8 @@ where
         let triangle_count = u32::from_le_bytes(count_bytes) as usize;
         let mut connectivity = Vec::with_capacity(triangle_count);
         let mut normals = Coordinates::with_capacity(triangle_count);
-        let mut vertex_map = HashMap::with_capacity(3 * triangle_count);
-        let mut unique_vertices_f32 = Vec::with_capacity(3 * triangle_count);
+        let mut vertex_map = HashMap::with_capacity(D * triangle_count);
+        let mut unique_vertices_f32 = Vec::with_capacity(D * triangle_count);
         (0..triangle_count).try_for_each(|_| {
             let normal_f32 = read_vec3_f32(&mut reader)?;
             let v0 = read_vec3_f32(&mut reader)?;
@@ -47,7 +50,7 @@ where
             ]));
             Ok::<(), ErrorIO>(())
         })?;
-        let coordinates: Coordinates<3, I> = unique_vertices_f32
+        let coordinates: Coordinates<D, I> = unique_vertices_f32
             .into_iter()
             .map(|v| Coordinate::const_from([v[0] as f64, v[1] as f64, v[2] as f64]))
             .collect();
@@ -56,7 +59,7 @@ where
     }
 }
 
-fn read_vec3_f32<R: Read>(reader: &mut R) -> Result<[f32; 3], ErrorIO> {
+fn read_vec3_f32<R: Read>(reader: &mut R) -> Result<[f32; D], ErrorIO> {
     Ok([read_f32(reader)?, read_f32(reader)?, read_f32(reader)?])
 }
 
@@ -67,9 +70,9 @@ fn read_f32<R: Read>(reader: &mut R) -> Result<f32, ErrorIO> {
 }
 
 fn dedup_vertex(
-    vertex_map: &mut HashMap<[u32; 3], usize>,
-    unique_vertices: &mut Vec<[f32; 3]>,
-    vertex: [f32; 3],
+    vertex_map: &mut HashMap<[u32; D], usize>,
+    unique_vertices: &mut Vec<[f32; D]>,
+    vertex: [f32; D],
 ) -> usize {
     let key = [
         vertex[0].to_bits(),
