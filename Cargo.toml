@@ -14,7 +14,7 @@ version = "0.6.3"
 [features]
 constitutive = ['physics']
 doc = []
-exodus = []
+exodus = ['geometry']
 fem = ['constitutive']
 geometry = ['math']
 math = []
