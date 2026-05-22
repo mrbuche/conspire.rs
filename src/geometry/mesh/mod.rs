@@ -1,3 +1,6 @@
+#[cfg(feature = "exodus")]
+pub mod exodus;
+
 pub mod base;
 pub mod from;
 pub mod into;
