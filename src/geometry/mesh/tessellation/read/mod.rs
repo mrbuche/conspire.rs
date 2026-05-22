@@ -17,7 +17,6 @@ where
     T: Copy + From<usize>,
 {
     type Error = ErrorIO;
-
     fn try_from(path: &Path) -> Result<Self, Self::Error> {
         let mut reader = BufReader::new(File::open(path)?);
         let mut header = [0u8; 80];

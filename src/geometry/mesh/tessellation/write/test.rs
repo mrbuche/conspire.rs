@@ -50,9 +50,9 @@ pub const NORMALS: [Coordinate<3, 1>; 12] = [
 #[test]
 fn consistency() -> Result<(), TestError> {
     let mesh = TriangularMesh::from((CONNECTIVITY.into(), COORDINATES.into()));
-    let tessellation_1 = Tessellation::from(mesh);
-    assert_eq!(tessellation_1.mesh.connectivity, CONNECTIVITY);
-    assert_eq(&tessellation_1.mesh.coordinates, &COORDINATES.into())?;
-    assert_eq(&tessellation_1.normals, &NORMALS.into())?;
-    Ok(tessellation_1.write("target/foo.stl")?)
+    let tessellation = Tessellation::from(mesh);
+    assert_eq!(tessellation.mesh.connectivity, CONNECTIVITY);
+    assert_eq(&tessellation.mesh.coordinates, &COORDINATES.into())?;
+    assert_eq(&tessellation.normals, &NORMALS.into())?;
+    Ok(tessellation.write("target/foo.stl")?)
 }
