@@ -1,6 +1,6 @@
 use crate::{
     geometry::{
-        Coordinate, Write,
+        Coordinate, Coordinates, Write,
         mesh::{TriangularMesh, tessellation::Tessellation},
     },
     math::test::{TestError, assert_eq},
@@ -49,7 +49,9 @@ pub const NORMALS: [Coordinate<3, 1>; 12] = [
 
 #[test]
 fn consistency() -> Result<(), TestError> {
-    let mesh = TriangularMesh::from((CONNECTIVITY.into(), COORDINATES.into()));
+    let connectivity = CONNECTIVITY.to_vec();
+    let coordinates = Coordinates::from(COORDINATES);
+    let mesh = TriangularMesh::from((connectivity, coordinates));
     let tessellation = Tessellation::from(mesh);
     assert_eq!(tessellation.mesh.connectivity, CONNECTIVITY);
     assert_eq(&tessellation.mesh.coordinates, &COORDINATES.into())?;

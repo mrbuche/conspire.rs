@@ -1,5 +1,6 @@
 pub mod base;
 pub mod from;
+pub mod into;
 pub mod tessellation;
 
 use crate::geometry::Coordinates;

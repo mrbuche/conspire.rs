@@ -14,10 +14,39 @@ impl<const D: usize, const I: usize, const M: usize, T> From<(T, Coordinates<D, 
     }
 }
 
-impl<const D: usize, const I: usize, const M: usize, T> From<Mesh<D, I, M, T>>
-    for (T, Coordinates<D, I>)
+impl<const D: usize, const I: usize, const M: usize, T> From<(T, &Coordinates<D, I>)>
+    for Mesh<D, I, M, T>
 {
-    fn from(mesh: Mesh<D, I, M, T>) -> Self {
-        (mesh.connectivity, mesh.coordinates)
+    fn from((connectivity, coordinates): (T, &Coordinates<D, I>)) -> Self {
+        Self {
+            coordinates: coordinates.clone(),
+            connectivity,
+        }
+    }
+}
+
+impl<const D: usize, const I: usize, const M: usize, T> From<(&T, Coordinates<D, I>)>
+    for Mesh<D, I, M, T>
+where
+    T: Clone,
+{
+    fn from((connectivity, coordinates): (&T, Coordinates<D, I>)) -> Self {
+        Self {
+            coordinates,
+            connectivity: connectivity.clone(),
+        }
+    }
+}
+
+impl<const D: usize, const I: usize, const M: usize, T> From<(&T, &Coordinates<D, I>)>
+    for Mesh<D, I, M, T>
+where
+    T: Clone,
+{
+    fn from((connectivity, coordinates): (&T, &Coordinates<D, I>)) -> Self {
+        Self {
+            coordinates: coordinates.clone(),
+            connectivity: connectivity.clone(),
+        }
     }
 }
