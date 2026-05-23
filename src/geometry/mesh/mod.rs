@@ -1,4 +1,4 @@
-#[cfg(feature = "exodus")]
+#[cfg(feature = "netcdf")]
 pub mod exodus;
 
 pub mod base;

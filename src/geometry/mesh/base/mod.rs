@@ -9,13 +9,11 @@ use crate::{
     },
     math::{Scalar, Tensor},
 };
-use std::iter::ExactSizeIterator;
 
 impl<const D: usize, const I: usize, const M: usize, T, U, V> Mesh<D, I, M, T>
 where
     for<'a> &'a T: IntoIterator<Item = &'a U>,
     for<'a> &'a U: IntoIterator<Item = &'a V>,
-    for<'a> <&'a U as IntoIterator>::IntoIter: ExactSizeIterator,
     V: Copy + Into<usize>,
 {
     pub fn connectivity(&self) -> &T {
@@ -43,7 +41,7 @@ where
         (&self.connectivity)
             .into_iter()
             .map(|nodes| {
-                let count = nodes.into_iter().len() as Scalar;
+                let count = nodes.into_iter().count() as Scalar;
                 nodes
                     .into_iter()
                     .map(|&node| &self.coordinates[node.into()])
@@ -56,7 +54,7 @@ where
         &self,
     ) -> impl Iterator<Item = (BoundingBox<D, I>, Coordinate<D, I>)> {
         (&self.connectivity).into_iter().map(|nodes| {
-            let count = nodes.into_iter().len() as Scalar;
+            let count = nodes.into_iter().count() as Scalar;
             (
                 nodes
                     .into_iter()

@@ -6,7 +6,6 @@ use crate::geometry::{
     bvh::primitive::{Primitive, Primitives},
     mesh::Mesh,
 };
-use std::iter::ExactSizeIterator;
 
 impl<const D: usize, const I: usize, T> From<&[Primitive<D, I, T>]> for BoundingBox<D, I> {
     fn from(primitives: &[Primitive<D, I, T>]) -> Self {
@@ -24,7 +23,6 @@ impl<const D: usize, const I: usize, const M: usize, T, U, V> From<&Mesh<D, I, M
 where
     for<'a> &'a T: IntoIterator<Item = &'a U>,
     for<'a> &'a U: IntoIterator<Item = &'a V>,
-    for<'a> <&'a U as IntoIterator>::IntoIter: ExactSizeIterator,
     V: Copy + From<usize> + Into<usize>,
 {
     fn from(mesh: &Mesh<D, I, M, T>) -> Self {

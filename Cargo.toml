@@ -14,11 +14,12 @@ version = "0.6.3"
 [features]
 constitutive = ['physics']
 doc = []
-exodus = ['geometry']
 fem = ['constitutive']
 geometry = ['math']
+io = []
 math = []
 mechanics = ['math']
+netcdf = ['io']
 physics = ['mechanics']
 vem = ['fem']
 

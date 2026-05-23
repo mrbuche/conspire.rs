@@ -11,6 +11,9 @@ pub mod fem;
 #[cfg(feature = "geometry")]
 pub mod geometry;
 
+#[cfg(feature = "io")]
+pub mod io;
+
 #[cfg(feature = "math")]
 pub mod math;
 

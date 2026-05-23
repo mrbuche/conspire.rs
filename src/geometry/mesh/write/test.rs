@@ -1,13 +1,16 @@
+use crate::geometry::Coordinate;
+
+#[cfg(feature = "netcdf")]
 use crate::{
     geometry::{
-        Coordinate, Coordinates, Write,
+        Coordinates, Write,
         mesh::{TriangularMesh, tessellation::Tessellation, write::Output},
     },
     math::test::{TestError, assert_eq},
 };
-use std::{io::Result as ResultIO, path::Path};
 
-// have the other tessellation test re-use this stuff
+#[cfg(feature = "netcdf")]
+use std::{io::Result as ResultIO, path::Path};
 
 pub const CONNECTIVITY: [[usize; 3]; 12] = [
     [0, 2, 1],
@@ -36,7 +39,8 @@ pub const COORDINATES: [Coordinate<3, 1>; 8] = [
 ];
 
 #[test]
-fn foo() -> Result<(), TestError> {
+#[cfg(feature = "netcdf")]
+fn exodus() -> Result<(), TestError> {
     let connectivity = CONNECTIVITY.to_vec();
     let coordinates = Coordinates::from(COORDINATES);
     let mesh = TriangularMesh::from((connectivity, coordinates));
