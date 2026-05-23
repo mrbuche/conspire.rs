@@ -9,7 +9,6 @@ fn main() {
             if Path::new(&netcdf).exists() {
                 println!("cargo:rustc-link-search=native={}", lib_dir);
                 println!("cargo:rustc-link-arg=-Wl,-rpath,{}", lib_dir);
-                println!("cargo:rustc-link-lib=exodus");
                 println!("cargo:rustc-link-lib=netcdf");
                 return;
             }

@@ -39,11 +39,13 @@ where
 {
     fn write(&self, output: Output<P>) -> ResultIO<()> {
         match output {
-            Output::Abaqus(_) => todo!(),
+            Output::Abaqus(_) => {}
             #[cfg(feature = "netcdf")]
-            Output::Exodus(path) => WriteExodus::write(self, Output::Exodus(path))?,
-            Output::Mesh(_) => todo!(),
-        };
+            Output::Exodus(path) => {
+                WriteExodus::write(self, Output::Exodus(path))?;
+            }
+            Output::Mesh(_) => {}
+        }
         Ok(())
     }
 }
