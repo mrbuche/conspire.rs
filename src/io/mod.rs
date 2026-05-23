@@ -1,2 +1,4 @@
 #[cfg(feature = "netcdf")]
-pub mod netcdf;
+mod netcdf;
+
+pub use netcdf::NetCDF;

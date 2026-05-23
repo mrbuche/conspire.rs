@@ -5,7 +5,7 @@ use crate::geometry::{Write, mesh::PrimitiveMesh};
 use std::{io::Result as ResultIO, path::Path};
 
 #[cfg(feature = "netcdf")]
-use crate::geometry::mesh::exodus::write as write_exodus;
+use crate::geometry::mesh::exodus::Write as WriteExodus;
 
 pub enum Output<P>
 where
@@ -41,8 +41,9 @@ where
         match output {
             Output::Abaqus(_) => todo!(),
             #[cfg(feature = "netcdf")]
-            Output::Exodus(path) => write_exodus(self, path),
+            Output::Exodus(path) => WriteExodus::write(self, Output::Exodus(path))?,
             Output::Mesh(_) => todo!(),
-        }
+        };
+        Ok(())
     }
 }
