@@ -1,4 +1,4 @@
-use crate::geometry::ntree::{Orthotree, OrthotreeError, node::base::Split};
+use crate::geometry::ntree::{Orthotree, error::OrthotreeError, node::base::Split};
 use std::{array::from_fn, ops::AddAssign};
 
 impl<const D: usize, const N: usize, T, U> Orthotree<D, N, T, U>

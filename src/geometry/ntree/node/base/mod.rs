@@ -1,5 +1,5 @@
 use crate::geometry::ntree::{
-    OrthotreeError,
+    error::OrthotreeError,
     node::{Kind, Node, orthants::Orthants},
 };
 use std::{array::from_fn, ops::AddAssign};
