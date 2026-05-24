@@ -1,11 +1,13 @@
 mod bbox;
 mod bvh;
 mod mesh;
+mod ntree;
 
 pub use self::{
     bbox::{BoundingBox, BoundingBoxes, Unite as BoundingBoxUnite},
     bvh::BoundingVolumeHierarchy,
     mesh::{Mesh, tessellation::Tessellation},
+    ntree::{Octree, Orthotree, Quadtree},
 };
 use std::path::Path;
 
