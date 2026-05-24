@@ -1,5 +1,5 @@
 mod random_u8 {
-    use crate::random_u8;
+    use crate::math::random_u8;
     #[test]
     fn u8_max() {
         random_u8(u8::MAX);

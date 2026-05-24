@@ -27,9 +27,6 @@ pub mod physics;
 #[path = "domain/vem/mod.rs"]
 pub mod vem;
 
-#[cfg(test)]
-mod test;
-
 #[cfg(feature = "math")]
 use crate::math::random_u8;
 
