@@ -4,13 +4,13 @@ use crate::geometry::Coordinate;
 use crate::{
     geometry::{
         Coordinates, Write,
-        mesh::{TriangularMesh, tessellation::Tessellation, write::Output},
+        mesh::{TriangularMesh, write::Output},
     },
-    math::test::{TestError, assert_eq},
+    math::test::TestError,
 };
 
 #[cfg(feature = "netcdf")]
-use std::{io::Result as ResultIO, path::Path};
+use std::path::Path;
 
 pub const CONNECTIVITY: [[usize; 3]; 12] = [
     [0, 2, 1],

@@ -1,6 +1,7 @@
 pub mod base;
 pub mod ffi;
 pub mod from;
+pub mod variable;
 
 use std::ffi::{NulError, c_int};
 

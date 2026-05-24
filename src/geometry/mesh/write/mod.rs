@@ -1,11 +1,11 @@
 #[cfg(test)]
 pub mod test;
 
-use crate::geometry::{Write, mesh::PrimitiveMesh};
-use std::{io::Result as ResultIO, path::Path};
-
-#[cfg(feature = "netcdf")]
-use crate::geometry::mesh::exodus::Write as WriteExodus;
+use crate::geometry::{
+    Write,
+    mesh::{PrimitiveMesh, exodus::WriteExodus},
+};
+use std::{io::Error as ErrorIO, path::Path};
 
 pub enum Output<P>
 where
@@ -37,13 +37,12 @@ where
     P: AsRef<Path>,
     T: Copy + Into<usize>,
 {
-    fn write(&self, output: Output<P>) -> ResultIO<()> {
+    type Error = ErrorIO;
+    fn write(&self, output: Output<P>) -> Result<(), Self::Error> {
         match output {
             Output::Abaqus(_) => {}
             #[cfg(feature = "netcdf")]
-            Output::Exodus(path) => {
-                WriteExodus::write(self, Output::Exodus(path))?;
-            }
+            Output::Exodus(path) => self.write_exodus(path)?,
             Output::Mesh(_) => {}
         }
         Ok(())

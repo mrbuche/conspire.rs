@@ -7,7 +7,7 @@ use crate::{
 };
 use std::{
     fs::File,
-    io::{BufWriter, Result as ResultIO, Write as WriteIO},
+    io::{BufWriter, Error as ErrorIO, Write as WriteIO},
     path::Path,
 };
 
@@ -16,7 +16,8 @@ where
     P: AsRef<Path>,
     T: Copy + Into<usize>,
 {
-    fn write(&self, path: P) -> ResultIO<()> {
+    type Error = ErrorIO;
+    fn write(&self, path: P) -> Result<(), Self::Error> {
         let mut writer = BufWriter::new(File::create(path)?);
         writer.write_all(&[0_u8; 80])?;
         writer.write_all(&(self.mesh.connectivity.len() as u32).to_le_bytes())?;

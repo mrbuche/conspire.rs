@@ -7,7 +7,7 @@ pub use self::{
     bvh::BoundingVolumeHierarchy,
     mesh::{Mesh, tessellation::Tessellation},
 };
-use std::{io::Result as ResultIO, path::Path};
+use std::path::Path;
 
 use crate::math::{TensorRank1, TensorRank1List, TensorRank1RefVec, TensorRank1Vec};
 
@@ -20,5 +20,6 @@ pub trait Write<P>
 where
     P: AsRef<Path>,
 {
-    fn write(&self, path: P) -> ResultIO<()>;
+    type Error;
+    fn write(&self, path: P) -> Result<(), Self::Error>;
 }
