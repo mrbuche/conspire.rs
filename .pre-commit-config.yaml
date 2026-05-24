@@ -16,8 +16,8 @@ repos:
         args: ['--features', 'geometry', '--', '-D',  'warnings']
         name: cargo clippy geometry
     -   id: clippy
-        args: ['--features', 'exodus geometry', '--', '-D',  'warnings']
-        name: cargo clippy exodus geometry
+        args: ['--features', 'geometry netcdf', '--', '-D',  'warnings']
+        name: cargo clippy geometry netcdf
     -   id: clippy
         args: ['--features', 'mechanics', '--', '-D',  'warnings']
         name: cargo clippy mechanics

@@ -16,7 +16,7 @@ jobs:
         features:
           - math
           - geometry
-          - exodus geometry
+          - geometry netcdf
           - mechanics
           - physics
           - constitutive
@@ -48,7 +48,7 @@ jobs:
         features:
           - math
           - geometry
-          - exodus geometry
+          - geometry netcdf
           - mechanics
           - physics
           - constitutive
