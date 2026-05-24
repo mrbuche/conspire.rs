@@ -3,7 +3,7 @@ mod bvh;
 mod mesh;
 
 pub use self::{
-    bbox::{BoundingBox, Unite as BoundingBoxUnite},
+    bbox::{BoundingBox, BoundingBoxes, Unite as BoundingBoxUnite},
     bvh::BoundingVolumeHierarchy,
     mesh::{Mesh, tessellation::Tessellation},
 };

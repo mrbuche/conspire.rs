@@ -1,7 +1,7 @@
 use crate::{
     geometry::{
-        Coordinates,
-        mesh::{TriangularMesh, tessellation::Tessellation},
+        Coordinate, Coordinates,
+        mesh::{TriangularMesh, from::test::mesh, tessellation::Tessellation},
     },
     math::{
         Tensor,
@@ -9,8 +9,29 @@ use crate::{
     },
 };
 
+pub use crate::geometry::mesh::from::test::{CONNECTIVITY, COORDINATES};
+
+pub const NORMALS: [Coordinate<3, 0>; 12] = [
+    Coordinate::const_from([0.0, 0.0, -1.0]),
+    Coordinate::const_from([0.0, 0.0, -1.0]),
+    Coordinate::const_from([0.0, 0.0, 1.0]),
+    Coordinate::const_from([0.0, 0.0, 1.0]),
+    Coordinate::const_from([0.0, -1.0, 0.0]),
+    Coordinate::const_from([0.0, -1.0, 0.0]),
+    Coordinate::const_from([0.0, 1.0, 0.0]),
+    Coordinate::const_from([0.0, 1.0, 0.0]),
+    Coordinate::const_from([-1.0, 0.0, 0.0]),
+    Coordinate::const_from([-1.0, 0.0, 0.0]),
+    Coordinate::const_from([1.0, 0.0, 0.0]),
+    Coordinate::const_from([1.0, 0.0, 0.0]),
+];
+
+pub fn tessellation() -> Tessellation<0, usize> {
+    Tessellation::from(mesh())
+}
+
 #[test]
-fn from_triangluar_mesh() -> Result<(), TestError> {
+fn triangluar_mesh() -> Result<(), TestError> {
     let connectivity: Vec<[usize; _]> = vec![[0, 1, 2], [0, 3, 1]];
     let coordinates = Coordinates::<_, 0>::from(vec![
         [0.0, 0.0, 0.0],

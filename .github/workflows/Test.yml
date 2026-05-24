@@ -65,11 +65,11 @@ jobs:
       - name: Toolchain
         uses: actions-rs/toolchain@88dc2356392166efad76775c878094f4e83ff746
         with:
-          toolchain: nightly
+          toolchain: stable
       - name: Install
         run: cargo install cargo-llvm-cov
       - name: Coverage
-        run: rustup run nightly cargo llvm-cov --profile release --features ${{ matrix.features }} --fail-under-functions 50 --fail-under-lines 50 --fail-under-regions 50
+        run: cargo llvm-cov test --profile release --features ${{ matrix.features }} --fail-under-functions 50 --fail-under-lines 50 --fail-under-regions 50
       - name: Tree
         run: $([[ $(cargo tree --color always --edges normal --features ${{ matrix.features }} | wc -l) -eq 1 ]])
   Mutants:

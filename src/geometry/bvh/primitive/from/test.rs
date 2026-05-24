@@ -1,29 +1,6 @@
-use crate::geometry::{
-    Coordinate,
-    bbox::{
-        BoundingBox,
-        unite::test::{BBOX_1, BBOX_1U2, BBOX_2, D, I},
-    },
-    bvh::primitive::Primitive,
-};
-
-type T = usize;
-
-const PRIMITIVE_1: Primitive<D, I, T> = Primitive {
-    bounding_box: BBOX_1,
-    centroid: Coordinate::const_from([0.5, 0.5, 0.5]),
-    index: 1,
-};
-
-const PRIMITIVE_2: Primitive<D, I, T> = Primitive {
-    bounding_box: BBOX_2,
-    centroid: Coordinate::const_from([1.5, 1.5, 1.5]),
-    index: 2,
-};
+use crate::geometry::{bvh::primitive::Primitives, mesh::from::test::mesh};
 
 #[test]
-fn bbox_from_primitives_slice() {
-    let primitives = vec![PRIMITIVE_1, PRIMITIVE_2];
-    let bbox = BoundingBox::from(primitives.as_slice());
-    assert_eq!(bbox, BBOX_1U2)
+fn mesh_ref() {
+    let _ = Primitives::from(&mesh());
 }

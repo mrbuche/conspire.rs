@@ -1,11 +1,11 @@
 #[cfg(test)]
-pub mod test;
+mod test;
 
-use crate::geometry::{
-    Write,
-    mesh::{PrimitiveMesh, exodus::WriteExodus},
-};
+use crate::geometry::{Write, mesh::PrimitiveMesh};
 use std::{io::Error as ErrorIO, path::Path};
+
+#[cfg(feature = "netcdf")]
+use crate::geometry::exodus::WriteExodus;
 
 pub enum Output<P>
 where
