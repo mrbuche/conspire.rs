@@ -1,3 +1,3 @@
 pub enum OrthotreeError {
-    SubdivideTree,
+    IndexOutOfBounds,
 }

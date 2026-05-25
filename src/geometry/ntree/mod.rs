@@ -1,12 +1,12 @@
 pub mod base;
 pub mod error;
 pub mod index;
-pub mod node;
+pub mod leaf;
 
-use crate::geometry::ntree::node::Nodes;
+use crate::geometry::ntree::leaf::Leaves;
 
 pub struct Orthotree<const D: usize, const N: usize, T, U> {
-    nodes: Nodes<D, N, T, U>,
+    leaves: Leaves<D, T, U>,
 }
 
 pub type Quadtree<T, U> = Orthotree<2, 4, T, U>;
