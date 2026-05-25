@@ -3,7 +3,10 @@ mod test;
 
 use crate::io::netcdf::{
     NetCDF,
-    ffi::{NC_GLOBAL, nc_close, nc_create, nc_def_dim, nc_enddef, nc_inq_varid, nc_put_att_text},
+    ffi::{
+        NC_FLOAT, NC_GLOBAL, NC_INT, nc_close, nc_create, nc_def_dim, nc_enddef, nc_inq_varid,
+        nc_put_att_float, nc_put_att_int, nc_put_att_text,
+    },
 };
 use std::ffi::{CString, NulError, c_int, c_ulong};
 
@@ -45,14 +48,36 @@ impl NetCDF {
         assert_eq!(status, 0, "nc_enddef failed with status={status}");
     }
     pub fn global(&mut self) -> Result<(), NulError> {
-        // let api_version: [f32; 1] = [8.25];
-        // let file_size: [u32; 1] = [1];
-        // let floating_point_word_size: [u32; 1] = [8];
-        // let version: [f32; 1] = [8.25];
+        self.put_attribute_float("api_version", 8.25)?;
+        self.put_attribute_int("file_size", 1)?;
+        self.put_attribute_int("floating_point_word_size", 8)?;
+        self.put_attribute_float("version", 8.25)?;
         self.put_attribute_text(
             "title",
             format!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")).as_str(),
         )
+    }
+    pub fn put_attribute_float(&mut self, name: &str, value: f32) -> Result<(), NulError> {
+        let name_c_str = CString::new(name)?;
+        let status = unsafe {
+            nc_put_att_float(self.ncid, NC_GLOBAL, name_c_str.as_ptr(), NC_FLOAT, 1, &value)
+        };
+        assert_eq!(
+            status, 0,
+            "nc_put_att_float failed for {name} with status={status}"
+        );
+        Ok(())
+    }
+    pub fn put_attribute_int(&mut self, name: &str, value: i32) -> Result<(), NulError> {
+        let name_c_str = CString::new(name)?;
+        let status = unsafe {
+            nc_put_att_int(self.ncid, NC_GLOBAL, name_c_str.as_ptr(), NC_INT, 1, &value)
+        };
+        assert_eq!(
+            status, 0,
+            "nc_put_att_int failed for {name} with status={status}"
+        );
+        Ok(())
     }
     pub fn put_attribute_text(&mut self, name: &str, value: &str) -> Result<(), NulError> {
         put_attribute_text(self, NC_GLOBAL, name, value)

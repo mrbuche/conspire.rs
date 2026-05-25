@@ -5,7 +5,7 @@ use crate::geometry::{Write, mesh::PrimitiveMesh};
 use std::{io::Error as ErrorIO, path::Path};
 
 #[cfg(feature = "netcdf")]
-use crate::geometry::exodus::WriteExodus;
+use super::exodus::WriteExodus;
 
 pub enum Output<P>
 where

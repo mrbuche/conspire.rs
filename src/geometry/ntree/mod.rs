@@ -1,6 +1,9 @@
-pub mod base;
+pub mod balance;
 pub mod error;
+pub mod from;
+pub mod into;
 pub mod leaf;
+pub mod subdivide;
 
 use crate::geometry::ntree::leaf::Leaves;
 

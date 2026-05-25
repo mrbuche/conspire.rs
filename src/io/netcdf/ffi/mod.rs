@@ -20,6 +20,22 @@ unsafe extern "C" {
     pub fn nc_enddef(ncid: c_int) -> c_int;
     pub fn nc_inq_dimid(ncid: c_int, name: *const c_char, idp: *mut c_int) -> c_int;
     pub fn nc_inq_varid(ncid: c_int, name: *const c_char, idp: *mut c_int) -> c_int;
+    pub fn nc_put_att_float(
+        ncid: c_int,
+        varid: c_int,
+        name: *const c_char,
+        xtype: c_int,
+        len: usize,
+        op: *const f32,
+    ) -> c_int;
+    pub fn nc_put_att_int(
+        ncid: c_int,
+        varid: c_int,
+        name: *const c_char,
+        xtype: c_int,
+        len: usize,
+        op: *const c_int,
+    ) -> c_int;
     pub fn nc_put_att_text(
         ncid: c_int,
         varid: c_int,

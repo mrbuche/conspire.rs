@@ -95,6 +95,7 @@ where
     netcdf.define_variable::<i32>("connect1", 2, &["num_el_in_blk1", "num_nod_per_el1"])?;
     let element_type = match [D, M, N] {
         [3, 2, 3] => "TRI3",
+        [3, 3, 8] => "HEX8",
         _ => unimplemented!(),
     };
     netcdf.put_variable_attribute_text("eb_prop1", "name", "ID")?;

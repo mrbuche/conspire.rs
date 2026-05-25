@@ -6,9 +6,14 @@ mod ntree;
 pub use self::{
     bbox::{BoundingBox, BoundingBoxes, Unite as BoundingBoxUnite},
     bvh::BoundingVolumeHierarchy,
-    mesh::{Mesh, tessellation::Tessellation},
-    ntree::{Octree, Orthotree, Quadtree},
+    mesh::{
+        HexahedralMesh, Mesh, PrimitiveMesh, PyramidalMesh, QuadrilateralMesh, TetrahedralMesh,
+        TriangularMesh, WedgeMesh, tessellation::Tessellation,
+    },
+    ntree::{Octree, Orthotree, Quadtree, balance::Balancing, subdivide::Pairing},
 };
+#[cfg(feature = "netcdf")]
+pub use self::mesh::exodus::WriteExodus;
 use std::path::Path;
 
 use crate::math::{TensorRank1, TensorRank1List, TensorRank1RefVec, TensorRank1Vec};
