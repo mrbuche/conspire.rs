@@ -1,6 +1,5 @@
 pub mod base;
 pub mod error;
-pub mod index;
 pub mod leaf;
 
 use crate::geometry::ntree::leaf::Leaves;

@@ -1,4 +1,4 @@
-pub mod base;
+pub mod split;
 
 pub struct Leaf<const D: usize, T, U> {
     pub(crate) corner: [T; D],
