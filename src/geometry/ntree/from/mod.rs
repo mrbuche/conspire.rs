@@ -11,7 +11,7 @@ use crate::{
 use std::array::from_fn;
 
 const D: usize = 3;
-const L: usize = 6;
+const L: usize = 4;
 const M: usize = 6;
 const N: usize = 8;
 
