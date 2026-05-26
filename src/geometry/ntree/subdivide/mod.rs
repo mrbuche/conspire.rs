@@ -1,7 +1,7 @@
 use crate::geometry::ntree::{
     Orthotree,
     error::OrthotreeError,
-    node::{Kind, Node, split::Split},
+    node::{Kind, Node, sentinel::Sentinel, split::Split},
 };
 use std::{array::from_fn, ops::AddAssign};
 
@@ -14,7 +14,7 @@ pub enum Pairing {
 impl<const D: usize, const M: usize, const N: usize, T, U> Orthotree<D, M, N, T, U>
 where
     T: AddAssign + Copy + Default + PartialEq + Split,
-    U: Copy + From<usize>,
+    U: Copy + From<usize> + Into<usize> + PartialEq + Sentinel,
 {
     pub fn subdivide(&mut self, index: usize, pairing: Pairing) -> Result<(), OrthotreeError> {
         if index >= self.nodes.len() {
@@ -33,11 +33,11 @@ where
                 while i < siblings.len() {
                     let current = siblings[i];
                     for &neighbor in &self.nodes[current].facets {
-                        if neighbor != usize::MAX
-                            && self.nodes[neighbor].length == length
-                            && !siblings.contains(&neighbor)
+                        if neighbor != U::MAX
+                            && self.nodes[neighbor.into()].length == length
+                            && !siblings.contains(&neighbor.into())
                         {
-                            siblings.push(neighbor);
+                            siblings.push(neighbor.into());
                         }
                     }
                     i += 1;
@@ -77,7 +77,7 @@ where
                     if (i >> axis) & 1 == sign {
                         parent_facets[f]
                     } else {
-                        first + (i ^ (1 << axis))
+                        U::from(first + (i ^ (1 << axis)))
                     }
                 }),
                 kind: Kind::Leaf,

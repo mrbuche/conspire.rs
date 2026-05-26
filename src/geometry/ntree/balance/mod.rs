@@ -1,4 +1,8 @@
-use crate::geometry::ntree::{Orthotree, node::split::Split, subdivide::Pairing};
+use crate::geometry::ntree::{
+    Orthotree,
+    node::{sentinel::Sentinel, split::Split},
+    subdivide::Pairing,
+};
 use std::ops::AddAssign;
 
 pub enum Balancing {
@@ -9,7 +13,7 @@ pub enum Balancing {
 impl<const D: usize, const M: usize, const N: usize, T, U> Orthotree<D, M, N, T, U>
 where
     T: AddAssign + Copy + Default + PartialEq + Split,
-    U: Copy + From<usize> + Into<usize>,
+    U: Copy + From<usize> + Into<usize> + PartialEq + Sentinel,
 {
     pub fn balance(&mut self, balancing: Balancing) {
         let mut queue: Vec<usize> = (0..self.nodes.len())
@@ -29,17 +33,17 @@ where
     fn violates_balance(&self, index: usize, balancing: &Balancing) -> bool {
         for f in 0..M {
             let n = self.nodes[index].facets[f];
-            if n == usize::MAX {
+            if n == U::MAX {
                 continue;
             }
-            if !self.nodes[n].is_tree() {
+            if !self.nodes[n.into()].is_tree() {
                 continue;
             }
             let axis = f / 2;
             let mirror_sign = 1 - f % 2;
             let facing: Vec<U> = (0..N)
                 .filter(|&i| (i >> axis) & 1 == mirror_sign)
-                .map(|i| self.nodes[n].orthants()[i])
+                .map(|i| self.nodes[n.into()].orthants()[i])
                 .collect();
             if facing.iter().any(|&c| self.nodes[c.into()].is_tree()) {
                 return true;
@@ -48,7 +52,7 @@ where
                 for &c in &facing {
                     for g in (0..M).filter(|&g| g / 2 != axis) {
                         let e = self.nodes[c.into()].facets[g];
-                        if e != usize::MAX && self.nodes[e].is_tree() {
+                        if e != U::MAX && self.nodes[e.into()].is_tree() {
                             return true;
                         }
                     }
