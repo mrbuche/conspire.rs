@@ -10,47 +10,43 @@ where
     U: Copy,
 {
     pub fn subdivide(&self, indices: [U; N]) -> Result<[Self; N], OrthotreeError> {
+        debug_assert_eq!(M, 2 * D);
+        debug_assert_eq!(N, 1usize << D);
+
         match self.kind {
             Kind::Leaf => {
                 let length = self.length.split();
-                let corner = self.corner;
+                let parent_corner = self.corner;
                 let parent_facets = self.facets;
 
                 Ok(from_fn(|i| {
-                    let child_corner = from_fn(|axis| {
+                    let corner = from_fn(|axis| {
                         if ((i >> axis) & 1) == 1 {
-                            let mut c = corner[axis];
+                            let mut c = parent_corner[axis];
                             c += length;
                             c
                         } else {
-                            corner[axis]
+                            parent_corner[axis]
                         }
                     });
 
-                    let child_facets = from_fn(|f| {
+                    let facets = from_fn(|f| {
                         let axis = f / 2;
-                        let is_plus_face = (f % 2) == 1;
+                        let is_plus_face = (f & 1) == 1;
                         let child_on_high_side = ((i >> axis) & 1) == 1;
 
-                        match (child_on_high_side, is_plus_face) {
-                            // child is on low side:
-                            //   - face is inherited
-                            //   + face is internal
-                            (false, false) => parent_facets[f],
-                            (false, true) => Some(indices[i ^ (1 << axis)]),
-
-                            // child is on high side:
-                            //   - face is internal
-                            //   + face is inherited
-                            (true, false) => Some(indices[i ^ (1 << axis)]),
-                            (true, true) => parent_facets[f],
+                        if child_on_high_side == is_plus_face {
+                            parent_facets[f]
+                        } else {
+                            let high_child = i | (1 << axis);
+                            Some(indices[high_child])
                         }
                     });
 
                     Node {
-                        corner: child_corner,
+                        corner,
                         length,
-                        facets: child_facets,
+                        facets,
                         kind: Kind::Leaf,
                     }
                 }))
