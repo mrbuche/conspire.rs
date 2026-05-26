@@ -3,6 +3,8 @@ mod bvh;
 mod mesh;
 mod ntree;
 
+#[cfg(feature = "netcdf")]
+pub use self::mesh::exodus::WriteExodus;
 pub use self::{
     bbox::{BoundingBox, BoundingBoxes, Unite as BoundingBoxUnite},
     bvh::BoundingVolumeHierarchy,
@@ -11,10 +13,8 @@ pub use self::{
         TriangularMesh, WedgeMesh, tessellation::Tessellation,
     },
     // ntree::{Octree, Orthotree, Quadtree, balance::Balancing, subdivide::Pairing},
-    ntree::{Octree, Orthotree, Quadtree, BinaryTree, Hexadecatree},
+    ntree::{BinaryTree, Hexadecatree, Octree, Orthotree, Quadtree},
 };
-#[cfg(feature = "netcdf")]
-pub use self::mesh::exodus::WriteExodus;
 use std::path::Path;
 
 use crate::math::{TensorRank1, TensorRank1List, TensorRank1RefVec, TensorRank1Vec};

@@ -2,13 +2,13 @@
 pub mod error;
 // pub mod from;
 // pub mod into;
-pub mod leaf;
-// pub mod subdivide;
+pub mod node;
+pub mod subdivide;
 
-use crate::geometry::ntree::leaf::Node;
+use crate::geometry::ntree::node::Nodes;
 
 pub struct Orthotree<const D: usize, const M: usize, const N: usize, T, U> {
-    root: Node<D, M, N, T, U>,
+    nodes: Nodes<D, M, N, T, U>,
 }
 
 pub type BinaryTree<T, U> = Orthotree<1, 2, 2, T, U>;

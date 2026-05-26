@@ -60,7 +60,14 @@ impl NetCDF {
     pub fn put_attribute_float(&mut self, name: &str, value: f32) -> Result<(), NulError> {
         let name_c_str = CString::new(name)?;
         let status = unsafe {
-            nc_put_att_float(self.ncid, NC_GLOBAL, name_c_str.as_ptr(), NC_FLOAT, 1, &value)
+            nc_put_att_float(
+                self.ncid,
+                NC_GLOBAL,
+                name_c_str.as_ptr(),
+                NC_FLOAT,
+                1,
+                &value,
+            )
         };
         assert_eq!(
             status, 0,
@@ -70,9 +77,8 @@ impl NetCDF {
     }
     pub fn put_attribute_int(&mut self, name: &str, value: i32) -> Result<(), NulError> {
         let name_c_str = CString::new(name)?;
-        let status = unsafe {
-            nc_put_att_int(self.ncid, NC_GLOBAL, name_c_str.as_ptr(), NC_INT, 1, &value)
-        };
+        let status =
+            unsafe { nc_put_att_int(self.ncid, NC_GLOBAL, name_c_str.as_ptr(), NC_INT, 1, &value) };
         assert_eq!(
             status, 0,
             "nc_put_att_int failed for {name} with status={status}"
