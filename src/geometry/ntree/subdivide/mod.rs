@@ -1,54 +1,41 @@
 use crate::geometry::ntree::{
-    Orthotree,
     error::OrthotreeError,
-    node::{Kind, sentinel::Sentinel, split::Split},
+    node::{split::Split, Kind, sentinel::Sentinel},
+    Orthotree,
 };
-use std::{array::from_fn, collections::HashSet, ops::Add};
-
-const NUM_SUBCELLS_FACE: usize = 4;
-type SubcellsOnFace = [usize; NUM_SUBCELLS_FACE];
-
-const SUBCELLS_ON_OWN_FACE_0: SubcellsOnFace = [0, 2, 4, 6]; // -x
-const SUBCELLS_ON_OWN_FACE_1: SubcellsOnFace = [1, 3, 5, 7]; // +x
-const SUBCELLS_ON_OWN_FACE_2: SubcellsOnFace = [0, 1, 4, 5]; // -y
-const SUBCELLS_ON_OWN_FACE_3: SubcellsOnFace = [2, 3, 6, 7]; // +y
-const SUBCELLS_ON_OWN_FACE_4: SubcellsOnFace = [0, 1, 2, 3]; // -z
-const SUBCELLS_ON_OWN_FACE_5: SubcellsOnFace = [4, 5, 6, 7]; // +z
-
-const fn subcells_on_own_face(face: usize) -> SubcellsOnFace {
-    match face {
-        0 => SUBCELLS_ON_OWN_FACE_0,
-        1 => SUBCELLS_ON_OWN_FACE_1,
-        2 => SUBCELLS_ON_OWN_FACE_2,
-        3 => SUBCELLS_ON_OWN_FACE_3,
-        4 => SUBCELLS_ON_OWN_FACE_4,
-        5 => SUBCELLS_ON_OWN_FACE_5,
-        _ => panic!(),
-    }
-}
-
-const fn subcells_on_neighbor_face(face: usize) -> SubcellsOnFace {
-    match face {
-        0 => SUBCELLS_ON_OWN_FACE_1,
-        1 => SUBCELLS_ON_OWN_FACE_0,
-        2 => SUBCELLS_ON_OWN_FACE_3,
-        3 => SUBCELLS_ON_OWN_FACE_2,
-        4 => SUBCELLS_ON_OWN_FACE_5,
-        5 => SUBCELLS_ON_OWN_FACE_4,
-        _ => panic!(),
-    }
-}
+use std::{array::from_fn, ops::Add};
 
 const fn mirror_face(face: usize) -> usize {
-    match face {
-        0 => 1,
-        1 => 0,
-        2 => 3,
-        3 => 2,
-        4 => 5,
-        5 => 4,
-        _ => panic!(),
-    }
+    face ^ 1
+}
+
+const fn insert_bit(x: usize, axis: usize, bit: usize) -> usize {
+    let low_mask = (1usize << axis) - 1;
+    let low = x & low_mask;
+    let high = x >> axis;
+    low | (bit << axis) | (high << (axis + 1))
+}
+
+// fn subcells_on_own_face<const D: usize>(face: usize) -> [usize; 1 << (D - 1)] {
+//     let axis = face / 2;
+//     let sign = face % 2;
+//     from_fn(|k| insert_bit(k, axis, sign))
+// }
+
+// fn subcells_on_neighbor_face<const D: usize>(face: usize) -> [usize; 1 << (D - 1)] {
+//     subcells_on_own_face::<D>(mirror_face(face))
+// }
+
+fn subcells_on_own_face<const D: usize>(face: usize) -> Vec<usize> {
+    let axis = face / 2;
+    let sign = face % 2;
+    (0..(1usize << (D - 1)))
+        .map(|k| insert_bit(k, axis, sign))
+        .collect()
+}
+
+fn subcells_on_neighbor_face<const D: usize>(face: usize) -> Vec<usize> {
+    subcells_on_own_face::<D>(mirror_face(face))
 }
 
 #[derive(Clone, Copy)]
@@ -57,12 +44,14 @@ pub enum Pairing {
     None,
 }
 
-impl<T, U> Orthotree<3, 6, 8, T, U>
+impl<const D: usize, const M: usize, const N: usize, T, U> Orthotree<D, M, N, T, U>
 where
     T: Add<Output = T> + Copy + PartialEq + Split + Into<usize>,
     U: Copy + From<usize> + Into<usize> + PartialEq + Sentinel,
 {
     pub fn subdivide(&mut self, index: U) -> Result<(), OrthotreeError> {
+        // debug_assert_eq!(M, 2 * D);
+        // debug_assert_eq!(N, 1usize << D);
         let new_indices = from_fn(|n| (self.nodes.len() + n).into());
         let mut new_cells = self[index].subdivide(new_indices)?;
         self[index]
@@ -74,19 +63,112 @@ where
                 if let Some(neighbor) = face_cell
                     && let Some(kids) = self[neighbor].orthants().copied()
                 {
-                    subcells_on_own_face(face)
-                        .iter()
-                        .zip(subcells_on_neighbor_face(face).iter())
-                        .for_each(|(&subcell, &neighbor_subcell)| {
+                    subcells_on_own_face::<D>(face)
+                        .into_iter()
+                        .zip(subcells_on_neighbor_face::<D>(face))
+                        .for_each(|(subcell, neighbor_subcell)| {
                             new_cells[subcell].facets[face] = Some(kids[neighbor_subcell]);
                             self[kids[neighbor_subcell]].facets[mirror_face(face)] =
                                 Some(new_indices[subcell]);
                         });
                 }
             });
+
         self.nodes.extend(new_cells);
         self[index].kind = Kind::Tree(new_indices);
         Ok(())
+    }
+}
+
+// use crate::geometry::ntree::{
+//     Orthotree,
+//     error::OrthotreeError,
+//     node::{Kind, sentinel::Sentinel, split::Split},
+// };
+// use std::{array::from_fn, collections::HashSet, ops::Add};
+
+// const NUM_SUBCELLS_FACE: usize = 4;
+// type SubcellsOnFace = [usize; NUM_SUBCELLS_FACE];
+
+// const SUBCELLS_ON_OWN_FACE_0: SubcellsOnFace = [0, 2, 4, 6]; // -x
+// const SUBCELLS_ON_OWN_FACE_1: SubcellsOnFace = [1, 3, 5, 7]; // +x
+// const SUBCELLS_ON_OWN_FACE_2: SubcellsOnFace = [0, 1, 4, 5]; // -y
+// const SUBCELLS_ON_OWN_FACE_3: SubcellsOnFace = [2, 3, 6, 7]; // +y
+// const SUBCELLS_ON_OWN_FACE_4: SubcellsOnFace = [0, 1, 2, 3]; // -z
+// const SUBCELLS_ON_OWN_FACE_5: SubcellsOnFace = [4, 5, 6, 7]; // +z
+
+// const fn subcells_on_own_face(face: usize) -> SubcellsOnFace {
+//     match face {
+//         0 => SUBCELLS_ON_OWN_FACE_0,
+//         1 => SUBCELLS_ON_OWN_FACE_1,
+//         2 => SUBCELLS_ON_OWN_FACE_2,
+//         3 => SUBCELLS_ON_OWN_FACE_3,
+//         4 => SUBCELLS_ON_OWN_FACE_4,
+//         5 => SUBCELLS_ON_OWN_FACE_5,
+//         _ => panic!(),
+//     }
+// }
+
+// const fn subcells_on_neighbor_face(face: usize) -> SubcellsOnFace {
+//     match face {
+//         0 => SUBCELLS_ON_OWN_FACE_1,
+//         1 => SUBCELLS_ON_OWN_FACE_0,
+//         2 => SUBCELLS_ON_OWN_FACE_3,
+//         3 => SUBCELLS_ON_OWN_FACE_2,
+//         4 => SUBCELLS_ON_OWN_FACE_5,
+//         5 => SUBCELLS_ON_OWN_FACE_4,
+//         _ => panic!(),
+//     }
+// }
+
+// const fn mirror_face(face: usize) -> usize {
+//     match face {
+//         0 => 1,
+//         1 => 0,
+//         2 => 3,
+//         3 => 2,
+//         4 => 5,
+//         5 => 4,
+//         _ => panic!(),
+//     }
+// }
+
+// #[derive(Clone, Copy)]
+// pub enum Pairing {
+//     Regular,
+//     None,
+// }
+
+// impl<T, U> Orthotree<3, 6, 8, T, U>
+// where
+//     T: Add<Output = T> + Copy + PartialEq + Split + Into<usize>,
+//     U: Copy + From<usize> + Into<usize> + PartialEq + Sentinel,
+// {
+//     pub fn subdivide(&mut self, index: U) -> Result<(), OrthotreeError> {
+//         let new_indices = from_fn(|n| (self.nodes.len() + n).into());
+//         let mut new_cells = self[index].subdivide(new_indices)?;
+//         self[index]
+//             .facets
+//             .clone()
+//             .iter()
+//             .enumerate()
+//             .for_each(|(face, &face_cell)| {
+//                 if let Some(neighbor) = face_cell
+//                     && let Some(kids) = self[neighbor].orthants().copied()
+//                 {
+//                     subcells_on_own_face(face)
+//                         .iter()
+//                         .zip(subcells_on_neighbor_face(face).iter())
+//                         .for_each(|(&subcell, &neighbor_subcell)| {
+//                             new_cells[subcell].facets[face] = Some(kids[neighbor_subcell]);
+//                             self[kids[neighbor_subcell]].facets[mirror_face(face)] =
+//                                 Some(new_indices[subcell]);
+//                         });
+//                 }
+//             });
+//         self.nodes.extend(new_cells);
+//         self[index].kind = Kind::Tree(new_indices);
+//         Ok(())
         // match pairing {
         //     Pairing::None => self.subdivide_node(index.into()),
         //     Pairing::Regular => {
@@ -117,7 +199,7 @@ where
         //         Ok(())
         //     }
         // }
-    }
+    // }
     // fn subdivide_node(&mut self, index: usize) -> Result<(), OrthotreeError> {
     //     let first = self.nodes.len();
     //     let indices = from_fn(|n| (first + n).into());
@@ -146,7 +228,7 @@ where
     //     self.nodes[index].kind = Kind::Tree(indices);
     //     Ok(())
     // }
-}
+// }
 
 // impl<const D: usize, const M: usize, const N: usize, T, U> Orthotree<D, M, N, T, U>
 // where
