@@ -4,6 +4,7 @@ pub mod from;
 pub mod index;
 pub mod into;
 pub mod node;
+pub mod pair;
 pub mod prune;
 pub mod subdivide;
 

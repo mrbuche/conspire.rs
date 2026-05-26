@@ -5,13 +5,6 @@ use crate::geometry::ntree::{
 };
 use std::{array::from_fn, ops::Add};
 
-#[derive(Clone, Copy)]
-pub enum Pairing {
-    Generalized,
-    Regular,
-    None,
-}
-
 const fn mirror_facet(facet: usize) -> usize {
     facet ^ 1
 }
