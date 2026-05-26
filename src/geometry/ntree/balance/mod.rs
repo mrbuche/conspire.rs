@@ -1,7 +1,7 @@
 use crate::geometry::ntree::{
     Orthotree,
+    error::OrthotreeError,
     node::{sentinel::Sentinel, split::Split},
-    error::OrthotreeError
 };
 use std::{array::from_fn, ops::Add};
 
@@ -14,9 +14,12 @@ pub enum Balancing {
     All,
 }
 
+const D: usize = 3;
+const L: usize = 6;
+const M: usize = 6;
 const N: usize = 8;
 
-impl<T, U> Orthotree<3, 6, 8, T, U>
+impl<T, U> Orthotree<D, L, M, N, T, U>
 where
     T: Add<Output = T> + Copy + PartialEq + Split + Into<usize>,
     U: Copy + From<usize> + Into<usize> + PartialEq + Sentinel,

@@ -1,7 +1,8 @@
 use crate::geometry::ntree::{Orthotree, node::Node};
 use std::ops::{Index, IndexMut};
 
-impl<const D: usize, const M: usize, const N: usize, T, U> Index<U> for Orthotree<D, M, N, T, U>
+impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U> Index<U>
+    for Orthotree<D, L, M, N, T, U>
 where
     U: Into<usize>,
 {
@@ -11,7 +12,8 @@ where
     }
 }
 
-impl<const D: usize, const M: usize, const N: usize, T, U> IndexMut<U> for Orthotree<D, M, N, T, U>
+impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U> IndexMut<U>
+    for Orthotree<D, L, M, N, T, U>
 where
     U: Into<usize>,
 {

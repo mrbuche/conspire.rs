@@ -1,6 +1,7 @@
 use crate::geometry::ntree::Orthotree;
 
-impl<const D: usize, const M: usize, const N: usize, T, U> Orthotree<D, M, N, T, U>
+impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U>
+    Orthotree<D, L, M, N, T, U>
 where
     T: Copy + Into<usize>,
 {

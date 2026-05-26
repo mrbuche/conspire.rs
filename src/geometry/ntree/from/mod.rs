@@ -11,10 +11,11 @@ use crate::{
 use std::array::from_fn;
 
 const D: usize = 3;
+const L: usize = 6;
 const M: usize = 6;
 const N: usize = 8;
 
-impl<const I: usize> From<(Coordinates<3, I>, f64)> for Orthotree<D, M, N, u16, usize> {
+impl<const I: usize> From<(Coordinates<3, I>, f64)> for Orthotree<D, L, M, N, u16, usize> {
     fn from((coordinates, min_length): (Coordinates<D, I>, f64)) -> Self {
         if coordinates.is_empty() {
             return Self {
@@ -88,8 +89,8 @@ fn morton_key<const D: usize>(coord: &[u16; D]) -> u64 {
     key
 }
 
-fn find_leaf<const D: usize, const M: usize, const N: usize>(
-    tree: &Orthotree<D, M, N, u16, usize>,
+fn find_leaf<const D: usize, const L: usize, const M: usize, const N: usize>(
+    tree: &Orthotree<D, L, M, N, u16, usize>,
     coord: &[u16; D],
 ) -> usize {
     let mut index = 0;
