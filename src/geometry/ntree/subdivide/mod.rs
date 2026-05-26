@@ -5,14 +5,53 @@ use crate::geometry::ntree::{
 };
 use std::{array::from_fn, ops::AddAssign};
 
-impl<const D: usize, const M: usize, const N: usize, T> Orthotree<D, M, N, T, usize>
+#[derive(Clone, Copy)]
+pub enum Pairing {
+    Regular,
+    None,
+}
+
+impl<const D: usize, const M: usize, const N: usize, T, U> Orthotree<D, M, N, T, U>
 where
-    T: AddAssign + Copy + Default + Split,
+    T: AddAssign + Copy + Default + PartialEq + Split,
+    U: Copy,
 {
-    pub fn subdivide(&mut self, index: usize) -> Result<(), OrthotreeError> {
+    pub fn subdivide(&mut self, index: usize, pairing: Pairing) -> Result<(), OrthotreeError> {
         if index >= self.nodes.len() {
             return Err(OrthotreeError::IndexOutOfBounds);
         }
+        let Kind::Leaf = self.nodes[index].kind else {
+            return Err(OrthotreeError::IndexOutOfBounds);
+        };
+        match pairing {
+            Pairing::None => self.subdivide_node(index),
+            Pairing::Regular => {
+                let length = self.nodes[index].length;
+                let mut siblings = Vec::with_capacity(N);
+                siblings.push(index);
+                let mut i = 0;
+                while i < siblings.len() {
+                    let current = siblings[i];
+                    for &neighbor in &self.nodes[current].facets {
+                        if neighbor != usize::MAX
+                            && self.nodes[neighbor].length == length
+                            && !siblings.contains(&neighbor)
+                        {
+                            siblings.push(neighbor);
+                        }
+                    }
+                    i += 1;
+                }
+                for sibling in siblings {
+                    if self.nodes[sibling].is_leaf() {
+                        self.subdivide_node(sibling)?;
+                    }
+                }
+                Ok(())
+            }
+        }
+    }
+    fn subdivide_node(&mut self, index: usize) -> Result<(), OrthotreeError> {
         let Kind::Leaf = self.nodes[index].kind else {
             return Err(OrthotreeError::IndexOutOfBounds);
         };
@@ -44,9 +83,7 @@ where
                 kind: Kind::Leaf,
             });
         }
-        self.nodes[index].kind = Kind::Tree {
-            orthants: from_fn(|i| first + i),
-        };
+        self.nodes[index].kind = Kind::Tree(from_fn(|i| first + i));
         Ok(())
     }
 }

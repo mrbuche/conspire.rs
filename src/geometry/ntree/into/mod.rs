@@ -2,50 +2,44 @@ use crate::{
     geometry::{
         Coordinates,
         mesh::PrimitiveMesh,
-        ntree::{Orthotree, leaf::morton::Morton},
+        ntree::Orthotree,
     },
     math::TensorRank1,
 };
-use std::{array::from_fn, collections::HashMap, ops::AddAssign};
+use std::{array::from_fn, collections::HashMap};
 
-impl<const D: usize, const N: usize, const I: usize, T, U, V> From<Orthotree<D, N, T, U>>
-    for PrimitiveMesh<D, I, D, N, V>
+impl<const D: usize, const M: usize, const N: usize, const I: usize, U, V>
+    From<Orthotree<D, M, N, u16, U>> for PrimitiveMesh<D, I, D, N, V>
 where
-    T: AddAssign + Copy + Into<u64>,
     V: Copy + From<usize>,
 {
-    fn from(orthotree: Orthotree<D, N, T, U>) -> Self {
+    fn from(orthotree: Orthotree<D, M, N, u16, U>) -> Self {
         let mut coord_map: HashMap<u64, usize> = HashMap::new();
         let mut coords: Vec<TensorRank1<D, I>> = Vec::new();
         let face_mask: usize = if D <= 2 { (1 << D) - 1 } else { 3 };
         let connectivity: Vec<[V; N]> = orthotree
-            .leaves
+            .nodes
             .iter()
-            .map(|leaf| {
+            .filter(|node| node.is_leaf())
+            .map(|node| {
                 from_fn(|i| {
                     let face = i & face_mask;
-                    let morton_i = (i & !face_mask) | (face ^ (face >> 1));
-                    let vertex: [T; D] = from_fn(|ax| {
-                        if (morton_i >> ax) & 1 == 1 {
-                            let mut c = leaf.corner[ax];
-                            c += leaf.length;
-                            c
+                    let vertex_i = (i & !face_mask) | (face ^ (face >> 1));
+                    let vertex: [u16; D] = from_fn(|ax| {
+                        if (vertex_i >> ax) & 1 == 1 {
+                            node.corner[ax] + node.length
                         } else {
-                            leaf.corner[ax]
+                            node.corner[ax]
                         }
                     });
-                    let key = vertex.morton();
+                    let key: u64 = (0..D).fold(0u64, |acc, ax| {
+                        acc | ((vertex[ax] as u64) << (16 * ax))
+                    });
                     if let Some(&idx) = coord_map.get(&key) {
                         V::from(idx)
                     } else {
                         let idx = coords.len();
-                        coords.push(
-                            from_fn(|ax| {
-                                let v: u64 = vertex[ax].into();
-                                v as f64
-                            })
-                            .into(),
-                        );
+                        coords.push(from_fn(|ax| vertex[ax] as f64).into());
                         coord_map.insert(key, idx);
                         V::from(idx)
                     }

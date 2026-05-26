@@ -12,8 +12,10 @@ pub use self::{
         HexahedralMesh, Mesh, PrimitiveMesh, PyramidalMesh, QuadrilateralMesh, TetrahedralMesh,
         TriangularMesh, WedgeMesh, tessellation::Tessellation,
     },
-    // ntree::{Octree, Orthotree, Quadtree, balance::Balancing, subdivide::Pairing},
-    ntree::{BinaryTree, Hexadecatree, Octree, Orthotree, Quadtree},
+    ntree::{
+        BinaryTree, Hexadecatree, Octree, Orthotree, Quadtree, balance::Balancing,
+        subdivide::Pairing,
+    },
 };
 use std::path::Path;
 
