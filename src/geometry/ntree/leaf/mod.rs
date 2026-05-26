@@ -1,11 +1,16 @@
 pub mod morton;
 pub mod split;
 
-#[derive(Copy, Clone)]
-pub struct Leaf<const D: usize, T, U> {
-    pub(crate) corner: [T; D],
-    pub(crate) length: T,
-    pub(crate) data: U,
+pub enum Kind<const M: usize, const N: usize, U> {
+    Leaf,
+    Tree {
+        facets: [U; M],
+        orthants: [U; N],
+    },
 }
 
-pub type Leaves<const D: usize, T, U> = Vec<Leaf<D, T, U>>;
+pub struct Node<const D: usize, const M: usize, const N: usize, T, U> {
+    pub(crate) corner: [T; D],
+    pub(crate) length: T,
+    pub(crate) kind: Kind<M, N, U>,
+}
