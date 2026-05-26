@@ -49,7 +49,7 @@ where
                         self[index.into()].get_faces().iter().enumerate()
                     {
                         if let Some(neighbor) = face_cell
-                            && let Some(kids) = self[*neighbor].get_cells()
+                            && let Some(kids) = self[*neighbor].orthants()
                         {
                             if strong {
                                 edges = from_fn(|_| false);
@@ -330,7 +330,7 @@ where
         let mut index = 0;
         let mut paired = true;
         while index < self.nodes.len() {
-            if let Some(nodes) = self[index.into()].get_cells() {
+            if let Some(nodes) = self[index.into()].orthants() {
                 let any_tree = nodes.iter().any(|&subcell| self[subcell].is_tree());
                 let all_tree = nodes.iter().all(|&subcell| self[subcell].is_tree());
                 if any_tree && !all_tree {

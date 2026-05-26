@@ -72,7 +72,7 @@ where
             .enumerate()
             .for_each(|(face, &face_cell)| {
                 if let Some(neighbor) = face_cell
-                    && let Some(kids) = self[neighbor].get_cells().copied()
+                    && let Some(kids) = self[neighbor].orthants().copied()
                 {
                     subcells_on_own_face(face)
                         .iter()

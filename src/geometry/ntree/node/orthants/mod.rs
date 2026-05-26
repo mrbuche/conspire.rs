@@ -10,21 +10,15 @@ where
     pub fn is_tree(&self) -> bool {
         matches!(self.kind, Kind::Tree(_))
     }
-    pub fn orthants(&self) -> &Orthants<N, U> {
-        match &self.kind {
-            Kind::Leaf => panic!(),
-            Kind::Tree(orthants) => orthants,
-        }
-    }
-    //
-    // temporary
-    //
-    pub fn get_cells(&self) -> Option<&Orthants<N, U>> {
+    pub fn orthants(&self) -> Option<&Orthants<N, U>> {
         match &self.kind {
             Kind::Leaf => None,
             Kind::Tree(orthants) => Some(orthants),
         }
     }
+    //
+    // temporary
+    //
     pub fn get_faces(&self) -> &[Option<U>; M] {
         &self.facets
     }
