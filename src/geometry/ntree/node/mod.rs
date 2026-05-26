@@ -1,6 +1,7 @@
 pub mod orthants;
-// pub mod sentinel;
-// pub mod split;
+pub mod sentinel;
+pub mod split;
+pub mod subdivide;
 
 pub enum Kind<const N: usize, U> {
     Leaf,

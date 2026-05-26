@@ -1,14 +1,24 @@
-// use crate::geometry::ntree::{
-//     Orthotree,
-//     error::OrthotreeError,
-//     node::{Kind, Node, sentinel::Sentinel, split::Split},
-// };
-// use std::{array::from_fn, collections::HashSet, ops::AddAssign};
+use crate::geometry::ntree::{
+    Orthotree,
+    error::OrthotreeError,
+    node::{Kind, Node, sentinel::Sentinel, split::Split},
+};
+use std::{array::from_fn, collections::HashSet, ops::AddAssign};
 
 #[derive(Clone, Copy)]
 pub enum Pairing {
     Regular,
     None,
+}
+
+impl<const D: usize, const M: usize, const N: usize, T, U> Orthotree<D, M, N, T, U>
+where
+    U: From<usize>,
+{
+    pub fn subdivide(&mut self, index: usize, pairing: Pairing) -> Result<(), OrthotreeError> {
+        let new_indices: [U; N] = from_fn(|n| (self.nodes.len() + n).into());
+        todo!()
+    }
 }
 
 // impl<const D: usize, const M: usize, const N: usize, T, U> Orthotree<D, M, N, T, U>
