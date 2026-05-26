@@ -11,7 +11,7 @@ pub enum Kind<const N: usize, U> {
 pub struct Node<const D: usize, const M: usize, const N: usize, T, U> {
     pub(crate) corner: [T; D],
     pub(crate) length: T,
-    pub(crate) facets: [U; M],
+    pub(crate) facets: [Option<U>; M],
     pub(crate) kind: Kind<N, U>,
 }
 

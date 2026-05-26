@@ -7,7 +7,7 @@ use std::{array::from_fn, ops::AddAssign};
 impl<T, U> Node<3, 6, 8, T, U>
 where
     T: AddAssign + Copy + Split,
-    U: Copy + std::default::Default,
+    U: Copy
 {
     pub fn subdivide(&self, indices: [U; 8]) -> Result<[Self; 8], OrthotreeError> {
         match self.kind {
@@ -28,49 +28,49 @@ where
                     Node {
                         corner: [min_x, min_y, min_z],
                         length,
-                        facets: [U::default(), indices[1], indices[2], U::default(), U::default(), indices[4]],
+                        facets: [None, Some(indices[1]), Some(indices[2]), None, None, Some(indices[4])],
                         kind: Kind::Leaf,
                     },
                     Node {
                         corner: [val_x, min_y, min_z],
                         length,
-                        facets: [U::default(), U::default(), indices[3], indices[0], U::default(), indices[5]],
+                        facets: [None, None, Some(indices[3]), Some(indices[0]), None, Some(indices[5])],
                         kind: Kind::Leaf,
                     },
                     Node {
                         corner: [min_x, val_y, min_z],
                         length,
-                        facets: [indices[0], indices[3], U::default(), U::default(), U::default(), indices[6]],
+                        facets: [Some(indices[0]), Some(indices[3]), None, None, None, Some(indices[6])],
                         kind: Kind::Leaf,
                     },
                     Node {
                         corner: [val_x, val_y, min_z],
                         length,
-                        facets: [indices[1], U::default(), U::default(), indices[2], U::default(), indices[7]],
+                        facets: [Some(indices[1]), None, None, Some(indices[2]), None, Some(indices[7])],
                         kind: Kind::Leaf,
                     },
                     Node {
                         corner: [min_x, min_y, val_z],
                         length,
-                        facets: [U::default(), indices[5], indices[6], U::default(), indices[0], U::default()],
+                        facets: [None, Some(indices[5]), Some(indices[6]), None, Some(indices[0]), None],
                         kind: Kind::Leaf,
                     },
                     Node {
                         corner: [val_x, min_y, val_z],
                         length,
-                        facets: [U::default(), U::default(), indices[7], indices[4], indices[1], U::default()],
+                        facets: [None, None, Some(indices[7]), Some(indices[4]), Some(indices[1]), None],
                         kind: Kind::Leaf,
                     },
                     Node {
                         corner: [min_x, val_y, val_z],
                         length,
-                        facets: [indices[4], indices[7], U::default(), U::default(), indices[2], U::default()],
+                        facets: [Some(indices[4]), Some(indices[7]), None, None, Some(indices[2]), None],
                         kind: Kind::Leaf,
                     },
                     Node {
                         corner: [val_x, val_y, val_z],
                         length,
-                        facets: [indices[5], U::default(), U::default(), indices[6], indices[3], U::default()],
+                        facets: [Some(indices[5]), None, None, Some(indices[6]), Some(indices[3]), None],
                         kind: Kind::Leaf,
                     },
                 ])

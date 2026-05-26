@@ -25,7 +25,7 @@ impl<const I: usize> From<(Coordinates<3, I>, f64)>
                 nodes: vec![Node {
                     corner: [0u16; D],
                     length: 1,
-                    facets: [usize::MAX; M],
+                    facets: [None; M],
                     kind: Kind::Leaf,
                 }],
             };
@@ -53,7 +53,7 @@ impl<const I: usize> From<(Coordinates<3, I>, f64)>
             nodes: vec![Node {
                 corner: [0u16; D],
                 length: root_length,
-                facets: [usize::MAX; M],
+                facets: [None; M],
                 kind: Kind::Leaf,
             }],
         };
