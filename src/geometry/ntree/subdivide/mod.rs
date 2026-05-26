@@ -1,7 +1,7 @@
 use crate::geometry::ntree::{
     Orthotree,
     error::OrthotreeError,
-    node::{Kind, sentinel::Sentinel, split::Split},
+    node::{Kind, split::Split},
 };
 use std::{array::from_fn, ops::Add};
 
@@ -19,8 +19,8 @@ const fn insert_bit(x: usize, axis: usize, bit: usize) -> usize {
 impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U>
     Orthotree<D, L, M, N, T, U>
 where
-    T: Add<Output = T> + Copy + PartialEq + Split + Into<usize>,
-    U: Copy + From<usize> + Into<usize> + PartialEq + Sentinel,
+    T: Add<Output = T> + Copy + Split + Into<usize>,
+    U: Copy + From<usize> + Into<usize>,
 {
     fn nodes_on_face(facet: usize) -> [usize; L] {
         from_fn(|k| insert_bit(k, facet / 2, facet % 2))

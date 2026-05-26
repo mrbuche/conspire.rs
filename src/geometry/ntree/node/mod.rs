@@ -1,5 +1,4 @@
 pub mod orthants;
-pub mod sentinel;
 pub mod split;
 pub mod subdivide;
 

@@ -1,8 +1,4 @@
-use crate::geometry::ntree::{
-    Orthotree,
-    error::OrthotreeError,
-    node::{sentinel::Sentinel, split::Split},
-};
+use crate::geometry::ntree::{Orthotree, error::OrthotreeError, node::split::Split};
 use std::ops::Add;
 
 #[derive(Clone, Copy)]
@@ -15,8 +11,8 @@ pub enum Pairing {
 impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U>
     Orthotree<D, L, M, N, T, U>
 where
-    T: Add<Output = T> + Copy + PartialEq + Split + Into<usize>,
-    U: Copy + From<usize> + Into<usize> + PartialEq + Sentinel,
+    T: Add<Output = T> + Copy + Split + Into<usize>,
+    U: Copy + From<usize> + Into<usize>,
 {
     pub fn pair(&mut self, pairing: Pairing) -> Result<bool, OrthotreeError> {
         match pairing {
