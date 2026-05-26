@@ -9,7 +9,7 @@ pub enum Balancing {
 impl<const D: usize, const M: usize, const N: usize, T, U> Orthotree<D, M, N, T, U>
 where
     T: AddAssign + Copy + Default + PartialEq + Split,
-    U: Copy,
+    U: Copy + From<usize> + Into<usize>,
 {
     pub fn balance(&mut self, balancing: Balancing) {
         let mut queue: Vec<usize> = (0..self.nodes.len())
@@ -37,7 +37,7 @@ where
             }
             let axis = f / 2;
             let mirror_sign = 1 - f % 2;
-            let facing: Vec<usize> = (0..N)
+            let facing: Vec<U> = (0..N)
                 .filter(|&i| (i >> axis) & 1 == mirror_sign)
                 .map(|i| self.nodes[n].orthants()[i])
                 .collect();

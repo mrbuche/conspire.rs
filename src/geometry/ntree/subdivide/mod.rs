@@ -14,7 +14,7 @@ pub enum Pairing {
 impl<const D: usize, const M: usize, const N: usize, T, U> Orthotree<D, M, N, T, U>
 where
     T: AddAssign + Copy + Default + PartialEq + Split,
-    U: Copy,
+    U: Copy + From<usize>,
 {
     pub fn subdivide(&mut self, index: usize, pairing: Pairing) -> Result<(), OrthotreeError> {
         if index >= self.nodes.len() {
@@ -83,7 +83,7 @@ where
                 kind: Kind::Leaf,
             });
         }
-        self.nodes[index].kind = Kind::Tree(from_fn(|i| first + i));
+        self.nodes[index].kind = Kind::Tree(from_fn(|i| U::from(first + i)));
         Ok(())
     }
 }

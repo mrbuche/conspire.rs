@@ -12,7 +12,7 @@ use crate::{
 use std::array::from_fn;
 
 impl<const D: usize, const M: usize, const N: usize, const I: usize>
-    From<(Coordinates<D, I>, f64)> for Orthotree<D, M, N, u16, ()>
+    From<(Coordinates<D, I>, f64)> for Orthotree<D, M, N, u16, usize>
 {
     fn from((coordinates, min_length): (Coordinates<D, I>, f64)) -> Self {
         if coordinates.is_empty() {
@@ -88,7 +88,7 @@ fn find_leaf<const D: usize, const M: usize, const N: usize, U>(
                         acc
                     }
                 });
-                index = orthants[child_i];
+                index = orthants[child_i].into();
             }
         }
     }
