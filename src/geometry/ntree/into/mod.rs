@@ -1,9 +1,5 @@
 use crate::{
-    geometry::{
-        Coordinates,
-        mesh::PrimitiveMesh,
-        ntree::Orthotree,
-    },
+    geometry::{Coordinates, mesh::PrimitiveMesh, ntree::Orthotree},
     math::TensorRank1,
 };
 use std::{array::from_fn, collections::HashMap};
@@ -32,9 +28,8 @@ where
                             node.corner[ax]
                         }
                     });
-                    let key: u64 = (0..D).fold(0u64, |acc, ax| {
-                        acc | ((vertex[ax] as u64) << (16 * ax))
-                    });
+                    let key: u64 =
+                        (0..D).fold(0u64, |acc, ax| acc | ((vertex[ax] as u64) << (16 * ax)));
                     if let Some(&idx) = coord_map.get(&key) {
                         V::from(idx)
                     } else {

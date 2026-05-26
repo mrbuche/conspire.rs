@@ -11,8 +11,8 @@ use crate::{
 };
 use std::array::from_fn;
 
-impl<const D: usize, const M: usize, const N: usize, const I: usize>
-    From<(Coordinates<D, I>, f64)> for Orthotree<D, M, N, u16, usize>
+impl<const D: usize, const M: usize, const N: usize, const I: usize> From<(Coordinates<D, I>, f64)>
+    for Orthotree<D, M, N, u16, usize>
 {
     fn from((coordinates, min_length): (Coordinates<D, I>, f64)) -> Self {
         if coordinates.is_empty() {
@@ -54,8 +54,8 @@ impl<const D: usize, const M: usize, const N: usize, const I: usize>
         let mut int_coords: Vec<[u16; D]> = Vec::new();
         for point in &coordinates {
             int_coords.push(from_fn(|ax| {
-                let v = ((point[ax] - center[ax]) / min_length + root_length as f64 / 2.0)
-                    .floor() as i64;
+                let v = ((point[ax] - center[ax]) / min_length + root_length as f64 / 2.0).floor()
+                    as i64;
                 v.clamp(0, root_length as i64 - 1) as u16
             }));
         }
