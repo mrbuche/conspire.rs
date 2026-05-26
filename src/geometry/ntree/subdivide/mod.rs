@@ -62,10 +62,9 @@ where
     T: Add<Output = T> + Copy + PartialEq + Split + Into<usize>,
     U: Copy + From<usize> + Into<usize> + PartialEq + Sentinel,
 {
-    fn subdivide_one(&mut self, index: U) -> Result<(), OrthotreeError> {
+    pub fn subdivide(&mut self, index: U, pairing: Pairing) -> Result<(), OrthotreeError> {
         let new_indices = from_fn(|n| (self.nodes.len() + n).into());
         let mut new_cells = self[index].subdivide(new_indices)?;
-
         self[index]
             .facets
             .clone()
@@ -85,137 +84,69 @@ where
                         });
                 }
             });
-
         self.nodes.extend(new_cells);
         self[index].kind = Kind::Tree(new_indices);
         Ok(())
+        // match pairing {
+        //     Pairing::None => self.subdivide_node(index.into()),
+        //     Pairing::Regular => {
+        //         let length = self[index].length;
+        //         let start: usize = index.into();
+        //         let mut seen: HashSet<usize> = HashSet::from([start]);
+        //         let mut siblings: Vec<usize> = vec![start];
+        //         let mut i = 0;
+        //         while i < siblings.len() {
+        //             let current = siblings[i];
+        //             for &neighbor in &self.nodes[current].facets {
+        //                 if neighbor != U::MAX {
+        //                     let n: usize = neighbor.into();
+        //                     if self.nodes[n].length == length
+        //                         && self.nodes[n].is_leaf()
+        //                         && !seen.contains(&n)
+        //                     {
+        //                         seen.insert(n);
+        //                         siblings.push(n);
+        //                     }
+        //                 }
+        //             }
+        //             i += 1;
+        //         }
+        //         for sibling in siblings {
+        //             self.subdivide_node(sibling)?;
+        //         }
+        //         Ok(())
+        //     }
+        // }
     }
-
-    // could also store parent node indices, even temporarily?
-    fn parent(&self, child: U) -> Option<U> {
-        self.nodes.iter().enumerate().find_map(|(i, node)| {
-            node.orthants()
-                .and_then(|kids| kids.contains(&child).then(|| i.into()))
-        })
-    }
-
-    pub fn subdivide(&mut self, index: U, pairing: Pairing) -> Result<(), OrthotreeError> {
-        match pairing {
-            Pairing::None => self.subdivide_one(index),
-            Pairing::Regular => {
-                if let Some(parent) = self.parent(index) {
-                    if let Some(siblings) = self[parent].orthants().copied() {
-                        let to_subdivide: Vec<U> = siblings
-                            .into_iter()
-                            .filter(|&sibling| self[sibling].is_leaf())
-                            .collect();
-
-                        for sibling in to_subdivide {
-                            self.subdivide_one(sibling)?;
-                        }
-
-                        Ok(())
-                    } else {
-                        self.subdivide_one(index)
-                    }
-                } else {
-                    self.subdivide_one(index)
-                }
-            }
-        }
-    }
+    // fn subdivide_node(&mut self, index: usize) -> Result<(), OrthotreeError> {
+    //     let first = self.nodes.len();
+    //     let indices = from_fn(|n| (first + n).into());
+    //     let parent_facets = self.nodes[index].facets;
+    //     let mut new_nodes = self.nodes[index].subdivide(indices)?;
+    //     for (f, &n_parent) in parent_facets.iter().enumerate() {
+    //         if n_parent == U::MAX {
+    //             continue;
+    //         }
+    //         let n_idx: usize = n_parent.into();
+    //         if !self.nodes[n_idx].is_tree() {
+    //             continue;
+    //         }
+    //         let axis = f / 2;
+    //         let sign = f % 2;
+    //         let opposite_f = axis * 2 + (1 - sign);
+    //         for (ci, node) in new_nodes.iter_mut().enumerate() {
+    //             if (ci >> axis) & 1 == sign {
+    //                 let n_child = self.nodes[n_idx].orthants()[ci ^ (1 << axis)];
+    //                 node.facets[f] = n_child;
+    //                 self.nodes[n_child.into()].facets[opposite_f] = U::from(first + ci);
+    //             }
+    //         }
+    //     }
+    //     self.nodes.extend(new_nodes);
+    //     self.nodes[index].kind = Kind::Tree(indices);
+    //     Ok(())
+    // }
 }
-
-// impl<T, U> Orthotree<3, 6, 8, T, U>
-// where
-//     T: Add<Output = T> + Copy + PartialEq + Split + Into<usize>,
-//     U: Copy + From<usize> + Into<usize> + PartialEq + Sentinel,
-// {
-//     pub fn subdivide(&mut self, index: U, pairing: Pairing) -> Result<(), OrthotreeError> {
-//         let new_indices = from_fn(|n| (self.nodes.len() + n).into());
-//         let mut new_cells = self[index].subdivide(new_indices)?;
-//         self[index]
-//             .facets
-//             .clone()
-//             .iter()
-//             .enumerate()
-//             .for_each(|(face, &face_cell)| {
-//                 if let Some(neighbor) = face_cell
-//                     && let Some(kids) = self[neighbor].orthants().copied()
-//                 {
-//                     subcells_on_own_face(face)
-//                         .iter()
-//                         .zip(subcells_on_neighbor_face(face).iter())
-//                         .for_each(|(&subcell, &neighbor_subcell)| {
-//                             new_cells[subcell].facets[face] = Some(kids[neighbor_subcell]);
-//                             self[kids[neighbor_subcell]].facets[mirror_face(face)] =
-//                                 Some(new_indices[subcell]);
-//                         });
-//                 }
-//             });
-//         self.nodes.extend(new_cells);
-//         self[index].kind = Kind::Tree(new_indices);
-//         Ok(())
-//         // match pairing {
-//         //     Pairing::None => self.subdivide_node(index.into()),
-//         //     Pairing::Regular => {
-//         //         let length = self[index].length;
-//         //         let start: usize = index.into();
-//         //         let mut seen: HashSet<usize> = HashSet::from([start]);
-//         //         let mut siblings: Vec<usize> = vec![start];
-//         //         let mut i = 0;
-//         //         while i < siblings.len() {
-//         //             let current = siblings[i];
-//         //             for &neighbor in &self.nodes[current].facets {
-//         //                 if neighbor != U::MAX {
-//         //                     let n: usize = neighbor.into();
-//         //                     if self.nodes[n].length == length
-//         //                         && self.nodes[n].is_leaf()
-//         //                         && !seen.contains(&n)
-//         //                     {
-//         //                         seen.insert(n);
-//         //                         siblings.push(n);
-//         //                     }
-//         //                 }
-//         //             }
-//         //             i += 1;
-//         //         }
-//         //         for sibling in siblings {
-//         //             self.subdivide_node(sibling)?;
-//         //         }
-//         //         Ok(())
-//         //     }
-//         // }
-//     }
-//     // fn subdivide_node(&mut self, index: usize) -> Result<(), OrthotreeError> {
-//     //     let first = self.nodes.len();
-//     //     let indices = from_fn(|n| (first + n).into());
-//     //     let parent_facets = self.nodes[index].facets;
-//     //     let mut new_nodes = self.nodes[index].subdivide(indices)?;
-//     //     for (f, &n_parent) in parent_facets.iter().enumerate() {
-//     //         if n_parent == U::MAX {
-//     //             continue;
-//     //         }
-//     //         let n_idx: usize = n_parent.into();
-//     //         if !self.nodes[n_idx].is_tree() {
-//     //             continue;
-//     //         }
-//     //         let axis = f / 2;
-//     //         let sign = f % 2;
-//     //         let opposite_f = axis * 2 + (1 - sign);
-//     //         for (ci, node) in new_nodes.iter_mut().enumerate() {
-//     //             if (ci >> axis) & 1 == sign {
-//     //                 let n_child = self.nodes[n_idx].orthants()[ci ^ (1 << axis)];
-//     //                 node.facets[f] = n_child;
-//     //                 self.nodes[n_child.into()].facets[opposite_f] = U::from(first + ci);
-//     //             }
-//     //         }
-//     //     }
-//     //     self.nodes.extend(new_nodes);
-//     //     self.nodes[index].kind = Kind::Tree(indices);
-//     //     Ok(())
-//     // }
-// }
 
 // impl<const D: usize, const M: usize, const N: usize, T, U> Orthotree<D, M, N, T, U>
 // where
