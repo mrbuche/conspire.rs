@@ -13,7 +13,7 @@ pub enum Balancing {
 impl<T, U> Orthotree<3, 6, 8, T, U>
 where
     T: AddAssign + Copy + PartialEq + Split + Into<usize>,
-    U: Copy + From<usize> + Into<usize> + PartialEq + Sentinel,
+    U: Copy + From<usize> + Into<usize> + PartialEq + Sentinel + std::default::Default,
 {
     pub fn balance(&mut self, balancing: Balancing) {
         let mut any_subdivision = true;
