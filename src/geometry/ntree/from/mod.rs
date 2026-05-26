@@ -21,7 +21,7 @@ impl<const D: usize, const M: usize, const N: usize, const I: usize>
                     corner: [0u16; D],
                     length: 1,
                     facets: [usize::MAX; M],
-                    kind: Kind::Leaf(()),
+                    kind: Kind::Leaf,
                 }],
             };
         }
@@ -48,30 +48,45 @@ impl<const D: usize, const M: usize, const N: usize, const I: usize>
                 corner: [0u16; D],
                 length: root_length,
                 facets: [usize::MAX; M],
-                kind: Kind::Leaf(()),
+                kind: Kind::Leaf,
             }],
         };
+        let mut int_coords: Vec<[u16; D]> = Vec::new();
         for point in &coordinates {
-            let int_coord: [u16; D] = from_fn(|ax| {
-                let v = ((point[ax] - center[ax]) / min_length
-                    + root_length as f64 / 2.0)
+            int_coords.push(from_fn(|ax| {
+                let v = ((point[ax] - center[ax]) / min_length + root_length as f64 / 2.0)
                     .floor() as i64;
                 v.clamp(0, root_length as i64 - 1) as u16
-            });
+            }));
+        }
+        int_coords.sort_unstable_by_key(morton_key);
+        int_coords.dedup();
+        for int_coord in &int_coords {
             loop {
-                let index = find_leaf(&tree, &int_coord);
+                let index = find_leaf(&tree, int_coord);
                 if tree.nodes[index].length <= 1 {
                     break;
                 }
-                tree.subdivide(index, Pairing::Regular).ok();
+                tree.subdivide(index, Pairing::None).ok();
             }
         }
         tree
     }
 }
 
-fn find_leaf<const D: usize, const M: usize, const N: usize, U>(
-    tree: &Orthotree<D, M, N, u16, U>,
+fn morton_key<const D: usize>(coord: &[u16; D]) -> u64 {
+    let dims = D.min(4);
+    let mut key = 0u64;
+    for bit in 0..16u32 {
+        for (ax, &c) in coord.iter().enumerate().take(dims) {
+            key |= ((c as u64 >> bit) & 1) << (bit * dims as u32 + ax as u32);
+        }
+    }
+    key
+}
+
+fn find_leaf<const D: usize, const M: usize, const N: usize>(
+    tree: &Orthotree<D, M, N, u16, usize>,
     coord: &[u16; D],
 ) -> usize {
     let mut index = 0;
@@ -88,7 +103,7 @@ fn find_leaf<const D: usize, const M: usize, const N: usize, U>(
                         acc
                     }
                 });
-                index = orthants[child_i].into();
+                index = orthants[child_i];
             }
         }
     }
