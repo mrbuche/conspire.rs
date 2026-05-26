@@ -77,9 +77,8 @@ where
             .enumerate()
             .for_each(|(face, &face_cell)| {
                 if let Some(neighbor) = face_cell
-                    // && let Some(kids) = self[neighbor].orthants()
+                    && let Some(kids) = self[neighbor].get_cells().copied()
                 {
-                    let kids = self[neighbor].orthants().clone();
                     subcells_on_own_face(face)
                         .iter()
                         .zip(subcells_on_neighbor_face(face).iter())
@@ -91,6 +90,7 @@ where
                 }
             });
         self.nodes.extend(new_cells);
+        self[index].kind = Kind::Tree(new_indices);
         Ok(())
         // match pairing {
         //     Pairing::None => self.subdivide_node(index.into()),
