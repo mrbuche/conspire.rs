@@ -6,14 +6,13 @@ use std::{array::from_fn, ops::AddAssign};
 
 impl<const D: usize, const M: usize, const N: usize, T, U> Node<D, M, N, T, U>
 where
-    T: AddAssign + Copy + Split + std::fmt::Display,
+    T: AddAssign + Copy + Split,
     U: Copy,
 {
     pub fn subdivide(&self, indices: [U; N]) -> Result<[Self; N], OrthotreeError> {
         match self.kind {
             Kind::Leaf => {
                 let length = self.length.split();
-                println!("subdividing leaf of length {length}");
                 let corner = self.corner;
                 let facets = self.facets;
                 Ok(from_fn(|i| Node {
