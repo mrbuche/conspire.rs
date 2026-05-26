@@ -16,42 +16,31 @@ where
         match self.kind {
             Kind::Leaf => {
                 let length = self.length.split();
-                let parent_corner = self.corner;
+                let corner = self.corner;
 
-                Ok(from_fn(|i| {
-                    let corner = from_fn(|axis| {
+                Ok(from_fn(|i| Node {
+                    corner: from_fn(|axis| {
                         if ((i >> axis) & 1) == 1 {
-                            let mut c = parent_corner[axis];
+                            let mut c = corner[axis];
                             c += length;
                             c
                         } else {
-                            parent_corner[axis]
+                            corner[axis]
                         }
-                    });
-
-                    let facets = from_fn(|f| {
+                    }),
+                    length,
+                    facets: from_fn(|f| {
                         let axis = f / 2;
-                        let is_plus_face = (f & 1) == 1;
-                        let child_on_high_side = ((i >> axis) & 1) == 1;
+                        let sign = f % 2; // 0 = -axis, 1 = +axis
+                        let bit = (i >> axis) & 1;
 
-                        if child_on_high_side == is_plus_face {
+                        if bit == sign {
                             None
                         } else {
-                            let interface_index = if child_on_high_side {
-                                i
-                            } else {
-                                i | (1 << axis)
-                            };
-                            Some(indices[interface_index])
+                            Some(indices[i ^ (1 << axis)])
                         }
-                    });
-
-                    Node {
-                        corner,
-                        length,
-                        facets,
-                        kind: Kind::Leaf,
-                    }
+                    }),
+                    kind: Kind::Leaf,
                 }))
             }
             Kind::Tree(_) => Err(OrthotreeError::CannotSubdivideTree),
