@@ -17,7 +17,7 @@ pub enum Balancing {
 impl<T, U> Orthotree<3, 6, 8, T, U>
 where
     T: AddAssign + Copy + PartialEq + Split + Into<usize>,
-    U: Copy + From<usize> + Into<usize> + PartialEq + Sentinel
+    U: Copy + From<usize> + Into<usize> + PartialEq + Sentinel,
 {
     pub fn balance_and_pair(&mut self, strong: bool) {
         let mut balanced = false;
@@ -43,7 +43,9 @@ where
             // let time = Instant::now();
             while index < self.nodes.len() {
                 if !self[index.into()].is_voxel() && self[index.into()].is_leaf() {
-                    'faces: for (face, face_cell) in self[index.into()].get_faces().iter().enumerate() {
+                    'faces: for (face, face_cell) in
+                        self[index.into()].get_faces().iter().enumerate()
+                    {
                         if let Some(neighbor) = face_cell
                             && let Some(kids) = self[*neighbor].get_cells()
                         {
@@ -54,59 +56,59 @@ where
                             if match face {
                                 0 => {
                                     if strong {
-                                        if let Some(edge_cell) = self[kids[3]].get_faces()[1] {
+                                        if let Some(edge_cell) = self[kids[1]].get_faces()[2] {
                                             edges[0] = self[edge_cell].is_tree()
                                         }
-                                        if let Some(edge_cell) = self[kids[7]].get_faces()[1] {
+                                        if let Some(edge_cell) = self[kids[5]].get_faces()[2] {
                                             edges[1] = self[edge_cell].is_tree()
                                         }
-                                        if let Some(edge_cell) = self[kids[6]].get_faces()[5] {
+                                        if let Some(edge_cell) = self[kids[5]].get_faces()[5] {
+                                            edges[2] = self[edge_cell].is_tree()
+                                        }
+                                        if let Some(edge_cell) = self[kids[7]].get_faces()[5] {
                                             if let Some(vertex_cell) =
                                                 self[edge_cell].get_faces()[3]
                                             {
                                                 vertices[0] = self[vertex_cell].is_tree()
                                             }
-                                            edges[2] = self[edge_cell].is_tree()
-                                        }
-                                        if let Some(edge_cell) = self[kids[7]].get_faces()[5] {
                                             edges[3] = self[edge_cell].is_tree()
                                         }
-                                        if let Some(edge_cell) = self[kids[2]].get_faces()[3] {
+                                        if let Some(edge_cell) = self[kids[3]].get_faces()[3] {
                                             edges[4] = self[edge_cell].is_tree()
                                         }
-                                        if let Some(edge_cell) = self[kids[6]].get_faces()[3] {
+                                        if let Some(edge_cell) = self[kids[7]].get_faces()[3] {
                                             edges[5] = self[edge_cell].is_tree()
                                         }
-                                        if let Some(edge_cell) = self[kids[2]].get_faces()[4] {
+                                        if let Some(edge_cell) = self[kids[1]].get_faces()[4] {
+                                            edges[6] = self[edge_cell].is_tree()
+                                        }
+                                        if let Some(edge_cell) = self[kids[3]].get_faces()[4] {
                                             if let Some(vertex_cell) =
                                                 self[edge_cell].get_faces()[3]
                                             {
                                                 vertices[1] = self[vertex_cell].is_tree()
                                             }
-                                            edges[6] = self[edge_cell].is_tree()
-                                        }
-                                        if let Some(edge_cell) = self[kids[3]].get_faces()[4] {
                                             edges[7] = self[edge_cell].is_tree()
                                         }
                                     }
-                                    self[kids[2]].is_tree()
+                                    self[kids[1]].is_tree()
                                         || self[kids[3]].is_tree()
-                                        || self[kids[6]].is_tree()
+                                        || self[kids[5]].is_tree()
                                         || self[kids[7]].is_tree()
-                                        || edges.into_iter().any(|edge: bool| edge)
+                                        || edges.into_iter().any(|edge| edge)
                                         || vertices.into_iter().any(|vertex| vertex)
                                 }
                                 1 => {
                                     if strong {
-                                        if let Some(edge_cell) = self[kids[2]].get_faces()[2] {
+                                        if let Some(edge_cell) = self[kids[2]].get_faces()[3] {
                                             edges[0] = self[edge_cell].is_tree()
                                         }
-                                        if let Some(edge_cell) = self[kids[6]].get_faces()[2] {
+                                        if let Some(edge_cell) = self[kids[6]].get_faces()[3] {
                                             edges[1] = self[edge_cell].is_tree()
                                         }
                                         if let Some(edge_cell) = self[kids[4]].get_faces()[5] {
                                             if let Some(vertex_cell) =
-                                                self[edge_cell].get_faces()[0]
+                                                self[edge_cell].get_faces()[2]
                                             {
                                                 vertices[0] = self[vertex_cell].is_tree()
                                             }
@@ -115,15 +117,15 @@ where
                                         if let Some(edge_cell) = self[kids[6]].get_faces()[5] {
                                             edges[3] = self[edge_cell].is_tree()
                                         }
-                                        if let Some(edge_cell) = self[kids[0]].get_faces()[0] {
+                                        if let Some(edge_cell) = self[kids[0]].get_faces()[2] {
                                             edges[4] = self[edge_cell].is_tree()
                                         }
-                                        if let Some(edge_cell) = self[kids[4]].get_faces()[0] {
+                                        if let Some(edge_cell) = self[kids[4]].get_faces()[2] {
                                             edges[5] = self[edge_cell].is_tree()
                                         }
                                         if let Some(edge_cell) = self[kids[0]].get_faces()[4] {
                                             if let Some(vertex_cell) =
-                                                self[edge_cell].get_faces()[0]
+                                                self[edge_cell].get_faces()[2]
                                             {
                                                 vertices[1] = self[vertex_cell].is_tree()
                                             }
@@ -142,10 +144,54 @@ where
                                 }
                                 2 => {
                                     if strong {
-                                        if let Some(edge_cell) = self[kids[0]].get_faces()[3] {
+                                        if let Some(edge_cell) = self[kids[3]].get_faces()[1] {
                                             edges[0] = self[edge_cell].is_tree()
                                         }
-                                        if let Some(edge_cell) = self[kids[4]].get_faces()[3] {
+                                        if let Some(edge_cell) = self[kids[7]].get_faces()[1] {
+                                            edges[1] = self[edge_cell].is_tree()
+                                        }
+                                        if let Some(edge_cell) = self[kids[6]].get_faces()[5] {
+                                            if let Some(vertex_cell) =
+                                                self[edge_cell].get_faces()[0]
+                                            {
+                                                vertices[0] = self[vertex_cell].is_tree()
+                                            }
+                                            edges[2] = self[edge_cell].is_tree()
+                                        }
+                                        if let Some(edge_cell) = self[kids[7]].get_faces()[5] {
+                                            edges[3] = self[edge_cell].is_tree()
+                                        }
+                                        if let Some(edge_cell) = self[kids[2]].get_faces()[0] {
+                                            edges[4] = self[edge_cell].is_tree()
+                                        }
+                                        if let Some(edge_cell) = self[kids[6]].get_faces()[0] {
+                                            edges[5] = self[edge_cell].is_tree()
+                                        }
+                                        if let Some(edge_cell) = self[kids[2]].get_faces()[4] {
+                                            if let Some(vertex_cell) =
+                                                self[edge_cell].get_faces()[0]
+                                            {
+                                                vertices[1] = self[vertex_cell].is_tree()
+                                            }
+                                            edges[6] = self[edge_cell].is_tree()
+                                        }
+                                        if let Some(edge_cell) = self[kids[3]].get_faces()[4] {
+                                            edges[7] = self[edge_cell].is_tree()
+                                        }
+                                    }
+                                    self[kids[2]].is_tree()
+                                        || self[kids[3]].is_tree()
+                                        || self[kids[6]].is_tree()
+                                        || self[kids[7]].is_tree()
+                                        || edges.into_iter().any(|edge: bool| edge)
+                                        || vertices.into_iter().any(|vertex| vertex)
+                                }
+                                3 => {
+                                    if strong {
+                                        if let Some(edge_cell) = self[kids[0]].get_faces()[0] {
+                                            edges[0] = self[edge_cell].is_tree()
+                                        }
+                                        if let Some(edge_cell) = self[kids[4]].get_faces()[0] {
                                             edges[1] = self[edge_cell].is_tree()
                                         }
                                         if let Some(edge_cell) = self[kids[4]].get_faces()[5] {
@@ -184,50 +230,6 @@ where
                                         || edges.into_iter().any(|edge| edge)
                                         || vertices.into_iter().any(|vertex| vertex)
                                 }
-                                3 => {
-                                    if strong {
-                                        if let Some(edge_cell) = self[kids[1]].get_faces()[0] {
-                                            edges[0] = self[edge_cell].is_tree()
-                                        }
-                                        if let Some(edge_cell) = self[kids[5]].get_faces()[0] {
-                                            edges[1] = self[edge_cell].is_tree()
-                                        }
-                                        if let Some(edge_cell) = self[kids[5]].get_faces()[5] {
-                                            edges[2] = self[edge_cell].is_tree()
-                                        }
-                                        if let Some(edge_cell) = self[kids[7]].get_faces()[5] {
-                                            if let Some(vertex_cell) =
-                                                self[edge_cell].get_faces()[2]
-                                            {
-                                                vertices[0] = self[vertex_cell].is_tree()
-                                            }
-                                            edges[3] = self[edge_cell].is_tree()
-                                        }
-                                        if let Some(edge_cell) = self[kids[3]].get_faces()[2] {
-                                            edges[4] = self[edge_cell].is_tree()
-                                        }
-                                        if let Some(edge_cell) = self[kids[7]].get_faces()[2] {
-                                            edges[5] = self[edge_cell].is_tree()
-                                        }
-                                        if let Some(edge_cell) = self[kids[1]].get_faces()[4] {
-                                            edges[6] = self[edge_cell].is_tree()
-                                        }
-                                        if let Some(edge_cell) = self[kids[3]].get_faces()[4] {
-                                            if let Some(vertex_cell) =
-                                                self[edge_cell].get_faces()[2]
-                                            {
-                                                vertices[1] = self[vertex_cell].is_tree()
-                                            }
-                                            edges[7] = self[edge_cell].is_tree()
-                                        }
-                                    }
-                                    self[kids[1]].is_tree()
-                                        || self[kids[3]].is_tree()
-                                        || self[kids[5]].is_tree()
-                                        || self[kids[7]].is_tree()
-                                        || edges.into_iter().any(|edge| edge)
-                                        || vertices.into_iter().any(|vertex| vertex)
-                                }
                                 4 => {
                                     if strong {
                                         if let Some(edge_cell) = self[kids[5]].get_faces()[1] {
@@ -236,22 +238,22 @@ where
                                         if let Some(edge_cell) = self[kids[7]].get_faces()[1] {
                                             edges[1] = self[edge_cell].is_tree()
                                         }
-                                        if let Some(edge_cell) = self[kids[6]].get_faces()[2] {
+                                        if let Some(edge_cell) = self[kids[6]].get_faces()[3] {
                                             edges[2] = self[edge_cell].is_tree()
                                         }
-                                        if let Some(edge_cell) = self[kids[7]].get_faces()[2] {
+                                        if let Some(edge_cell) = self[kids[7]].get_faces()[3] {
                                             edges[3] = self[edge_cell].is_tree()
                                         }
-                                        if let Some(edge_cell) = self[kids[4]].get_faces()[3] {
+                                        if let Some(edge_cell) = self[kids[4]].get_faces()[0] {
                                             edges[4] = self[edge_cell].is_tree()
                                         }
-                                        if let Some(edge_cell) = self[kids[6]].get_faces()[3] {
+                                        if let Some(edge_cell) = self[kids[6]].get_faces()[0] {
                                             edges[5] = self[edge_cell].is_tree()
                                         }
-                                        if let Some(edge_cell) = self[kids[4]].get_faces()[0] {
+                                        if let Some(edge_cell) = self[kids[4]].get_faces()[2] {
                                             edges[6] = self[edge_cell].is_tree()
                                         }
-                                        if let Some(edge_cell) = self[kids[5]].get_faces()[0] {
+                                        if let Some(edge_cell) = self[kids[5]].get_faces()[2] {
                                             edges[7] = self[edge_cell].is_tree()
                                         }
                                     }
@@ -269,22 +271,22 @@ where
                                         if let Some(edge_cell) = self[kids[3]].get_faces()[1] {
                                             edges[1] = self[edge_cell].is_tree()
                                         }
-                                        if let Some(edge_cell) = self[kids[2]].get_faces()[2] {
+                                        if let Some(edge_cell) = self[kids[2]].get_faces()[3] {
                                             edges[2] = self[edge_cell].is_tree()
                                         }
-                                        if let Some(edge_cell) = self[kids[3]].get_faces()[2] {
+                                        if let Some(edge_cell) = self[kids[3]].get_faces()[3] {
                                             edges[3] = self[edge_cell].is_tree()
                                         }
-                                        if let Some(edge_cell) = self[kids[0]].get_faces()[3] {
+                                        if let Some(edge_cell) = self[kids[0]].get_faces()[0] {
                                             edges[4] = self[edge_cell].is_tree()
                                         }
-                                        if let Some(edge_cell) = self[kids[2]].get_faces()[3] {
+                                        if let Some(edge_cell) = self[kids[2]].get_faces()[0] {
                                             edges[5] = self[edge_cell].is_tree()
                                         }
-                                        if let Some(edge_cell) = self[kids[0]].get_faces()[0] {
+                                        if let Some(edge_cell) = self[kids[0]].get_faces()[2] {
                                             edges[6] = self[edge_cell].is_tree()
                                         }
-                                        if let Some(edge_cell) = self[kids[1]].get_faces()[0] {
+                                        if let Some(edge_cell) = self[kids[1]].get_faces()[2] {
                                             edges[7] = self[edge_cell].is_tree()
                                         }
                                     }
@@ -484,4 +486,3 @@ where
 //         false
 //     }
 // }
-

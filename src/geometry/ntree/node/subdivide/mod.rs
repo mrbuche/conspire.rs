@@ -7,7 +7,7 @@ use std::{array::from_fn, ops::AddAssign};
 impl<T, U> Node<3, 6, 8, T, U>
 where
     T: AddAssign + Copy + Split,
-    U: Copy
+    U: Copy,
 {
     pub fn subdivide(&self, indices: [U; 8]) -> Result<[Self; 8], OrthotreeError> {
         match self.kind {
@@ -28,49 +28,105 @@ where
                     Node {
                         corner: [min_x, min_y, min_z],
                         length,
-                        facets: [None, Some(indices[1]), Some(indices[2]), None, None, Some(indices[4])],
+                        facets: [
+                            None,
+                            Some(indices[1]),
+                            None,
+                            Some(indices[2]),
+                            None,
+                            Some(indices[4]),
+                        ],
                         kind: Kind::Leaf,
                     },
                     Node {
                         corner: [val_x, min_y, min_z],
                         length,
-                        facets: [None, None, Some(indices[3]), Some(indices[0]), None, Some(indices[5])],
+                        facets: [
+                            Some(indices[0]),
+                            None,
+                            None,
+                            Some(indices[3]),
+                            None,
+                            Some(indices[5]),
+                        ],
                         kind: Kind::Leaf,
                     },
                     Node {
                         corner: [min_x, val_y, min_z],
                         length,
-                        facets: [Some(indices[0]), Some(indices[3]), None, None, None, Some(indices[6])],
+                        facets: [
+                            None,
+                            Some(indices[3]),
+                            Some(indices[0]),
+                            None,
+                            None,
+                            Some(indices[6]),
+                        ],
                         kind: Kind::Leaf,
                     },
                     Node {
                         corner: [val_x, val_y, min_z],
                         length,
-                        facets: [Some(indices[1]), None, None, Some(indices[2]), None, Some(indices[7])],
+                        facets: [
+                            Some(indices[2]),
+                            None,
+                            Some(indices[1]),
+                            None,
+                            None,
+                            Some(indices[7]),
+                        ],
                         kind: Kind::Leaf,
                     },
                     Node {
                         corner: [min_x, min_y, val_z],
                         length,
-                        facets: [None, Some(indices[5]), Some(indices[6]), None, Some(indices[0]), None],
+                        facets: [
+                            None,
+                            Some(indices[5]),
+                            None,
+                            Some(indices[6]),
+                            Some(indices[0]),
+                            None,
+                        ],
                         kind: Kind::Leaf,
                     },
                     Node {
                         corner: [val_x, min_y, val_z],
                         length,
-                        facets: [None, None, Some(indices[7]), Some(indices[4]), Some(indices[1]), None],
+                        facets: [
+                            Some(indices[4]),
+                            None,
+                            None,
+                            Some(indices[7]),
+                            Some(indices[1]),
+                            None,
+                        ],
                         kind: Kind::Leaf,
                     },
                     Node {
                         corner: [min_x, val_y, val_z],
                         length,
-                        facets: [Some(indices[4]), Some(indices[7]), None, None, Some(indices[2]), None],
+                        facets: [
+                            None,
+                            Some(indices[7]),
+                            Some(indices[4]),
+                            None,
+                            Some(indices[2]),
+                            None,
+                        ],
                         kind: Kind::Leaf,
                     },
                     Node {
                         corner: [val_x, val_y, val_z],
                         length,
-                        facets: [Some(indices[5]), None, None, Some(indices[6]), Some(indices[3]), None],
+                        facets: [
+                            Some(indices[6]),
+                            None,
+                            Some(indices[5]),
+                            None,
+                            Some(indices[3]),
+                            None,
+                        ],
                         kind: Kind::Leaf,
                     },
                 ])

@@ -1,6 +1,9 @@
 use crate::geometry::ntree::node::{Kind, Node, Orthants};
 
-impl<const D: usize, const M: usize, const N: usize, T, U> Node<D, M, N, T, U> where T: Copy + Into<usize> {
+impl<const D: usize, const M: usize, const N: usize, T, U> Node<D, M, N, T, U>
+where
+    T: Copy + Into<usize>,
+{
     pub fn is_leaf(&self) -> bool {
         matches!(self.kind, Kind::Leaf)
     }

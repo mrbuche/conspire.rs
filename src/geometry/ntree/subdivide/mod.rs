@@ -7,12 +7,13 @@ use std::{array::from_fn, collections::HashSet, ops::AddAssign};
 
 const NUM_SUBCELLS_FACE: usize = 4;
 type SubcellsOnFace = [usize; NUM_SUBCELLS_FACE];
-const SUBCELLS_ON_OWN_FACE_0: SubcellsOnFace = [0, 1, 4, 5];
-const SUBCELLS_ON_OWN_FACE_1: SubcellsOnFace = [1, 3, 5, 7];
-const SUBCELLS_ON_OWN_FACE_2: SubcellsOnFace = [2, 3, 6, 7];
-const SUBCELLS_ON_OWN_FACE_3: SubcellsOnFace = [0, 2, 4, 6];
-const SUBCELLS_ON_OWN_FACE_4: SubcellsOnFace = [0, 1, 2, 3];
-const SUBCELLS_ON_OWN_FACE_5: SubcellsOnFace = [4, 5, 6, 7];
+
+const SUBCELLS_ON_OWN_FACE_0: SubcellsOnFace = [0, 2, 4, 6]; // -x
+const SUBCELLS_ON_OWN_FACE_1: SubcellsOnFace = [1, 3, 5, 7]; // +x
+const SUBCELLS_ON_OWN_FACE_2: SubcellsOnFace = [0, 1, 4, 5]; // -y
+const SUBCELLS_ON_OWN_FACE_3: SubcellsOnFace = [2, 3, 6, 7]; // +y
+const SUBCELLS_ON_OWN_FACE_4: SubcellsOnFace = [0, 1, 2, 3]; // -z
+const SUBCELLS_ON_OWN_FACE_5: SubcellsOnFace = [4, 5, 6, 7]; // +z
 
 const fn subcells_on_own_face(face: usize) -> SubcellsOnFace {
     match face {
@@ -22,37 +23,31 @@ const fn subcells_on_own_face(face: usize) -> SubcellsOnFace {
         3 => SUBCELLS_ON_OWN_FACE_3,
         4 => SUBCELLS_ON_OWN_FACE_4,
         5 => SUBCELLS_ON_OWN_FACE_5,
-        _ => {
-            panic!()
-        }
+        _ => panic!(),
     }
 }
 
 const fn subcells_on_neighbor_face(face: usize) -> SubcellsOnFace {
     match face {
-        0 => SUBCELLS_ON_OWN_FACE_2,
-        1 => SUBCELLS_ON_OWN_FACE_3,
-        2 => SUBCELLS_ON_OWN_FACE_0,
-        3 => SUBCELLS_ON_OWN_FACE_1,
+        0 => SUBCELLS_ON_OWN_FACE_1,
+        1 => SUBCELLS_ON_OWN_FACE_0,
+        2 => SUBCELLS_ON_OWN_FACE_3,
+        3 => SUBCELLS_ON_OWN_FACE_2,
         4 => SUBCELLS_ON_OWN_FACE_5,
         5 => SUBCELLS_ON_OWN_FACE_4,
-        _ => {
-            panic!()
-        }
+        _ => panic!(),
     }
 }
 
 const fn mirror_face(face: usize) -> usize {
     match face {
-        0 => 2,
-        1 => 3,
-        2 => 0,
-        3 => 1,
+        0 => 1,
+        1 => 0,
+        2 => 3,
+        3 => 2,
         4 => 5,
         5 => 4,
-        _ => {
-            panic!()
-        }
+        _ => panic!(),
     }
 }
 
@@ -65,7 +60,7 @@ pub enum Pairing {
 impl<T, U> Orthotree<3, 6, 8, T, U>
 where
     T: AddAssign + Copy + PartialEq + Split + Into<usize>,
-    U: Copy + From<usize> + Into<usize> + PartialEq + Sentinel
+    U: Copy + From<usize> + Into<usize> + PartialEq + Sentinel,
 {
     pub fn subdivide(&mut self, index: U, pairing: Pairing) -> Result<(), OrthotreeError> {
         let new_indices = from_fn(|n| (self.nodes.len() + n).into());

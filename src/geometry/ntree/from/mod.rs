@@ -15,10 +15,7 @@ const D: usize = 3;
 const M: usize = 6;
 const N: usize = 8;
 
-impl<const I: usize> From<(Coordinates<3, I>, f64)>
-// impl<const D: usize, const M: usize, const N: usize, const I: usize> From<(Coordinates<D, I>, f64)>
-    for Orthotree<D, M, N, u16, usize>
-{
+impl<const I: usize> From<(Coordinates<3, I>, f64)> for Orthotree<D, M, N, u16, usize> {
     fn from((coordinates, min_length): (Coordinates<D, I>, f64)) -> Self {
         if coordinates.is_empty() {
             return Self {
