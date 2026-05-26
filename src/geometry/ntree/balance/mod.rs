@@ -1,7 +1,6 @@
 use crate::geometry::ntree::{
     Orthotree,
     node::{sentinel::Sentinel, split::Split},
-    subdivide::Pairing,
     error::OrthotreeError
 };
 use std::{array::from_fn, ops::Add};
@@ -306,7 +305,7 @@ where
                         }
                     }
                     if subdivide {
-                        self.subdivide(index.into(), Pairing::None).unwrap();
+                        self.subdivide(index.into()).unwrap();
                         balanced = false;
                         balanced_already = false;
                         subdivide = false;
@@ -341,7 +340,7 @@ where
                         .collect();
                     for node in leaves {
                         paired = false;
-                        self.subdivide(node, Pairing::None)?;
+                        self.subdivide(node)?;
                     }
                 }
             }

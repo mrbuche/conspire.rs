@@ -62,7 +62,7 @@ where
     T: Add<Output = T> + Copy + PartialEq + Split + Into<usize>,
     U: Copy + From<usize> + Into<usize> + PartialEq + Sentinel,
 {
-    pub fn subdivide(&mut self, index: U, pairing: Pairing) -> Result<(), OrthotreeError> {
+    pub fn subdivide(&mut self, index: U) -> Result<(), OrthotreeError> {
         let new_indices = from_fn(|n| (self.nodes.len() + n).into());
         let mut new_cells = self[index].subdivide(new_indices)?;
         self[index]

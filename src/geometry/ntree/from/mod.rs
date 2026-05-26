@@ -4,7 +4,6 @@ use crate::{
         ntree::{
             Orthotree,
             node::{Kind, Node},
-            subdivide::Pairing,
         },
     },
     math::TensorVec,
@@ -70,7 +69,7 @@ impl<const I: usize> From<(Coordinates<3, I>, f64)> for Orthotree<D, M, N, u16, 
                 if tree.nodes[index].length <= 1 {
                     break;
                 } else {
-                    tree.subdivide(index, Pairing::None).ok();
+                    tree.subdivide(index).ok();
                 }
             }
         }
