@@ -13,10 +13,12 @@ pub enum Pairing {
 
 impl<const D: usize, const M: usize, const N: usize, T, U> Orthotree<D, M, N, T, U>
 where
-    U: From<usize>,
+    T: AddAssign + Copy + Split,
+    U: Copy + From<usize> + Into<usize>,
 {
-    pub fn subdivide(&mut self, index: usize, pairing: Pairing) -> Result<(), OrthotreeError> {
-        let new_indices: [U; N] = from_fn(|n| (self.nodes.len() + n).into());
+    pub fn subdivide(&mut self, index: U, pairing: Pairing) -> Result<(), OrthotreeError> {
+        let indices = from_fn(|n| (self.nodes.len() + n).into());
+        let nodes = self[index].subdivide(indices)?;
         todo!()
     }
 }
