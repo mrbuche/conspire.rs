@@ -1,6 +1,6 @@
 use crate::geometry::ntree::{
     error::OrthotreeError,
-    node::{Kind, Node, Orthants, split::Split},
+    node::{Kind, Node, split::Split},
 };
 use std::{array::from_fn, ops::AddAssign};
 
