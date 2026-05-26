@@ -3,7 +3,7 @@ use crate::geometry::ntree::{
     error::OrthotreeError,
     node::{Kind, sentinel::Sentinel, split::Split},
 };
-use std::{array::from_fn, collections::HashSet, ops::AddAssign};
+use std::{array::from_fn, collections::HashSet, ops::Add};
 
 const NUM_SUBCELLS_FACE: usize = 4;
 type SubcellsOnFace = [usize; NUM_SUBCELLS_FACE];
@@ -59,7 +59,7 @@ pub enum Pairing {
 
 impl<T, U> Orthotree<3, 6, 8, T, U>
 where
-    T: AddAssign + Copy + PartialEq + Split + Into<usize>,
+    T: Add<Output = T> + Copy + PartialEq + Split + Into<usize>,
     U: Copy + From<usize> + Into<usize> + PartialEq + Sentinel,
 {
     pub fn subdivide(&mut self, index: U, pairing: Pairing) -> Result<(), OrthotreeError> {

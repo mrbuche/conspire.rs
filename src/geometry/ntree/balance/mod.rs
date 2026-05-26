@@ -3,7 +3,7 @@ use crate::geometry::ntree::{
     node::{sentinel::Sentinel, split::Split},
     subdivide::Pairing,
 };
-use std::{array::from_fn, ops::AddAssign};
+use std::{array::from_fn, ops::Add};
 
 const NUM_EDGES: usize = 8;
 const NUM_FACES: usize = 6;
@@ -16,7 +16,7 @@ pub enum Balancing {
 
 impl<T, U> Orthotree<3, 6, 8, T, U>
 where
-    T: AddAssign + Copy + PartialEq + Split + Into<usize>,
+    T: Add<Output = T> + Copy + PartialEq + Split + Into<usize>,
     U: Copy + From<usize> + Into<usize> + PartialEq + Sentinel,
 {
     pub fn balance_and_pair(&mut self, strong: bool) {
