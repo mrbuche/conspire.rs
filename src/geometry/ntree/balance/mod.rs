@@ -12,7 +12,7 @@ pub enum Balancing {
 
 impl<const D: usize, const M: usize, const N: usize, T, U> Orthotree<D, M, N, T, U>
 where
-    T: AddAssign + Copy + Split,
+    T: AddAssign + Copy + Split + std::fmt::Display + Into<usize>,
     U: Copy + From<usize> + Into<usize> + PartialEq + Sentinel,
 {
     pub fn balance(&mut self, balancing: Balancing) {
@@ -20,7 +20,7 @@ where
             .filter(|&i| self.nodes[i].is_leaf())
             .collect();
         while let Some(index) = queue.pop() {
-            if !self.nodes[index].is_leaf() {
+            if !self.nodes[index].is_leaf() || self.nodes[index].length.into() > 1 {
                 continue;
             }
             if self.violates_balance(index, &balancing) {

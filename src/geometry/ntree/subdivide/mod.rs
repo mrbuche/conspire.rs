@@ -13,7 +13,7 @@ pub enum Pairing {
 
 impl<const D: usize, const M: usize, const N: usize, T, U> Orthotree<D, M, N, T, U>
 where
-    T: AddAssign + Copy + Split,
+    T: AddAssign + Copy + Split + std::fmt::Display,
     U: Copy + From<usize> + Into<usize> + PartialEq + Sentinel,
 {
     pub fn subdivide(&mut self, index: U, pairing: Pairing) -> Result<(), OrthotreeError> {

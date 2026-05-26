@@ -42,6 +42,7 @@ impl<const D: usize, const M: usize, const N: usize, const I: usize> From<(Coord
             (max_extent / min_length).log2().ceil().max(0.0) as u32
         };
         let root_length: u16 = 1u16.checked_shl(levels).unwrap_or(u16::MAX);
+        println!("levels: {levels}, root_length: {root_length}");
         let center: [f64; D] = from_fn(|ax| (min_coord[ax] + max_coord[ax]) / 2.0);
         let mut tree = Self {
             nodes: vec![Node {
@@ -66,8 +67,9 @@ impl<const D: usize, const M: usize, const N: usize, const I: usize> From<(Coord
                 let index = find_leaf(&tree, int_coord);
                 if tree.nodes[index].length <= 1 {
                     break;
+                } else {
+                    tree.subdivide(index, Pairing::None).ok();
                 }
-                tree.subdivide(index, Pairing::None).ok();
             }
         }
         tree
