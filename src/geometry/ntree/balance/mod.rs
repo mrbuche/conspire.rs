@@ -14,6 +14,8 @@ pub enum Balancing {
     All,
 }
 
+const N: usize = 8;
+
 impl<T, U> Orthotree<3, 6, 8, T, U>
 where
     T: Add<Output = T> + Copy + PartialEq + Split + Into<usize>,
@@ -40,8 +42,6 @@ where
             balanced = true;
             index = 0;
             subdivide = false;
-            // #[cfg(feature = "profile")]
-            // let time = Instant::now();
             while index < self.nodes.len() {
                 if !self[index.into()].is_voxel() && self[index.into()].is_leaf() {
                     'faces: for (face, face_cell) in
@@ -313,12 +313,6 @@ where
                 }
                 index += 1;
             }
-            // #[cfg(feature = "profile")]
-            // println!(
-            //     "             \x1b[1;93mBalancing iteration {}\x1b[0m {:?} ",
-            //     iteration,
-            //     time.elapsed()
-            // );
             if balanced {
                 break;
             }
@@ -330,14 +324,18 @@ where
         let mut paired = true;
         while index < self.nodes.len() {
             if let Some(nodes) = self[index.into()].orthants() {
-                let any_tree = nodes.iter().any(|&subcell| self[subcell].is_tree());
-                let all_tree = nodes.iter().all(|&subcell| self[subcell].is_tree());
-                if any_tree && !all_tree {
-                    let leaves: Vec<_> = nodes
-                        .iter()
-                        .copied()
-                        .filter(|&subcell| self[subcell].is_leaf())
-                        .collect();
+                let mut any_leaf = false;
+                let mut any_tree = false;
+                let mut leaves = Vec::with_capacity(N);
+                for &node in nodes.iter() {
+                    if self[node].is_leaf() {
+                        any_leaf = true;
+                        leaves.push(node);
+                    } else if self[node].is_tree() {
+                        any_tree = true;
+                    }
+                }
+                if any_tree && any_leaf {
                     for node in leaves {
                         paired = false;
                         self.subdivide(node)?;
