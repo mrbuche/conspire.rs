@@ -5,6 +5,13 @@ use crate::geometry::ntree::{
 };
 use std::{array::from_fn, ops::Add};
 
+#[derive(Clone, Copy)]
+pub enum Pairing {
+    Generalized,
+    Regular,
+    None,
+}
+
 const fn mirror_facet(facet: usize) -> usize {
     facet ^ 1
 }
@@ -14,12 +21,6 @@ const fn insert_bit(x: usize, axis: usize, bit: usize) -> usize {
     let low = x & low_mask;
     let high = x >> axis;
     low | (bit << axis) | (high << (axis + 1))
-}
-
-#[derive(Clone, Copy)]
-pub enum Pairing {
-    Regular,
-    None,
 }
 
 impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U>

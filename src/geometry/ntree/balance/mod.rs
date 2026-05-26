@@ -2,17 +2,17 @@ use crate::geometry::ntree::{
     Orthotree,
     error::OrthotreeError,
     node::{sentinel::Sentinel, split::Split},
+    subdivide::Pairing,
 };
 use std::{array::from_fn, ops::Add};
 
-const NUM_EDGES: usize = 8;
-const NUM_FACES: usize = 6;
-const NUM_OCTANTS: usize = 8;
-
+#[derive(Clone, Copy)]
 pub enum Balancing {
-    Faces,
-    All,
+    Strong,
+    Weak,
 }
+
+const NUM_EDGES: usize = 8;
 
 const D: usize = 3;
 const L: usize = 4;
@@ -24,22 +24,27 @@ where
     T: Add<Output = T> + Copy + PartialEq + Split + Into<usize>,
     U: Copy + From<usize> + Into<usize> + PartialEq + Sentinel,
 {
-    pub fn balance_and_pair(&mut self, strong: bool) -> Result<(), OrthotreeError> {
+    pub fn equilibrate(
+        &mut self,
+        balancing: Balancing,
+        pairing: Pairing,
+    ) -> Result<(), OrthotreeError> {
         let mut balanced = false;
         let mut paired = false;
         while !balanced || !paired {
-            balanced = self.balance(strong);
-            paired = self.pair()?;
+            balanced = self.balance(balancing);
+            paired = self.pair(pairing)?;
         }
         Ok(())
     }
-    pub fn balance(&mut self, strong: bool) -> bool {
+    pub fn balance(&mut self, balancing: Balancing) -> bool {
         let mut balanced;
         let mut balanced_already = true;
         let mut edges = [false; NUM_EDGES];
         let mut index;
         let mut subdivide;
         let mut vertices = [false; 2];
+        let strong = matches!(balancing, Balancing::Strong);
         #[allow(unused_variables)]
         for iteration in 1.. {
             balanced = true;
@@ -322,32 +327,38 @@ where
         }
         balanced_already
     }
-    pub fn pair(&mut self) -> Result<bool, OrthotreeError> {
-        let mut index = 0;
-        let mut paired = true;
-        while index < self.nodes.len() {
-            if let Some(nodes) = self[index.into()].orthants() {
-                let mut any_leaf = false;
-                let mut any_tree = false;
-                let mut leaves = Vec::with_capacity(N);
-                for &node in nodes.iter() {
-                    if self[node].is_leaf() {
-                        any_leaf = true;
-                        leaves.push(node);
-                    } else if self[node].is_tree() {
-                        any_tree = true;
+    pub fn pair(&mut self, pairing: Pairing) -> Result<bool, OrthotreeError> {
+        match pairing {
+            Pairing::Generalized => unimplemented!(),
+            Pairing::Regular => {
+                let mut index = 0;
+                let mut paired = true;
+                while index < self.nodes.len() {
+                    if let Some(nodes) = self[index.into()].orthants() {
+                        let mut any_leaf = false;
+                        let mut any_tree = false;
+                        let mut leaves = Vec::with_capacity(N);
+                        for &node in nodes.iter() {
+                            if self[node].is_leaf() {
+                                any_leaf = true;
+                                leaves.push(node);
+                            } else if self[node].is_tree() {
+                                any_tree = true;
+                            }
+                        }
+                        if any_tree && any_leaf {
+                            for node in leaves {
+                                paired = false;
+                                self.subdivide(node)?;
+                            }
+                        }
                     }
+                    index += 1;
                 }
-                if any_tree && any_leaf {
-                    for node in leaves {
-                        paired = false;
-                        self.subdivide(node)?;
-                    }
-                }
+                Ok(paired)
             }
-            index += 1;
+            Pairing::None => Ok(true),
         }
-        Ok(paired)
     }
 
     // fn violates_balance(&self, index: usize, balancing: &Balancing) -> bool {

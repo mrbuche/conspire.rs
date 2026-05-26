@@ -44,7 +44,6 @@ impl<const I: usize> From<(Coordinates<3, I>, f64)> for Orthotree<D, L, M, N, u1
             (max_extent / min_length).log2().ceil().max(0.0) as u32
         };
         let root_length: u16 = 1u16.checked_shl(levels).unwrap_or(u16::MAX);
-        println!("levels: {levels}, root_length: {root_length}");
         let center: [f64; D] = from_fn(|ax| (min_coord[ax] + max_coord[ax]) / 2.0);
         let mut tree = Self {
             nodes: vec![Node {
