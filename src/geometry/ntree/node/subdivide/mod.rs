@@ -17,7 +17,6 @@ where
             Kind::Leaf => {
                 let length = self.length.split();
                 let parent_corner = self.corner;
-                let parent_facets = self.facets;
 
                 Ok(from_fn(|i| {
                     let corner = from_fn(|axis| {
@@ -36,10 +35,14 @@ where
                         let child_on_high_side = ((i >> axis) & 1) == 1;
 
                         if child_on_high_side == is_plus_face {
-                            parent_facets[f]
+                            None
                         } else {
-                            let high_child = i | (1 << axis);
-                            Some(indices[high_child])
+                            let interface_index = if child_on_high_side {
+                                i
+                            } else {
+                                i | (1 << axis)
+                            };
+                            Some(indices[interface_index])
                         }
                     });
 
