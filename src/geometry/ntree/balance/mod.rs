@@ -2,6 +2,7 @@ use crate::geometry::ntree::{
     Orthotree,
     node::{sentinel::Sentinel, split::Split},
     subdivide::Pairing,
+    error::OrthotreeError
 };
 use std::{array::from_fn, ops::Add};
 
@@ -19,13 +20,14 @@ where
     T: Add<Output = T> + Copy + PartialEq + Split + Into<usize>,
     U: Copy + From<usize> + Into<usize> + PartialEq + Sentinel,
 {
-    pub fn balance_and_pair(&mut self, strong: bool) {
+    pub fn balance_and_pair(&mut self, strong: bool) -> Result<(), OrthotreeError> {
         let mut balanced = false;
         let mut paired = false;
         while !balanced || !paired {
             balanced = self.balance(strong);
-            paired = self.pair();
+            paired = self.pair()?;
         }
+        Ok(())
     }
     pub fn balance(&mut self, strong: bool) -> bool {
         let mut balanced;
@@ -324,42 +326,28 @@ where
         }
         balanced_already
     }
-    pub fn pair(&mut self) -> bool {
-        // #[cfg(feature = "profile")]
-        // let time = Instant::now();
-        let mut block = 0;
+    pub fn pair(&mut self) -> Result<bool, OrthotreeError> {
         let mut index = 0;
-        let mut paired_already = true;
-        let mut subsubcells: Vec<bool>;
+        let mut paired = true;
         while index < self.nodes.len() {
-            if let Some(subcells) = self[index.into()].get_cells() {
-                subsubcells = subcells
-                    .into_iter()
-                    .map(|&subcell| self[subcell].is_tree())
-                    .collect();
-                if subsubcells.iter().any(|&subsubcell| subsubcell)
-                    && !subsubcells.iter().all(|&subsubcell| subsubcell)
-                {
-                    subcells
-                        .into_iter()
-                        .filter(|&&subcell| self[subcell].is_leaf())
+            if let Some(nodes) = self[index.into()].get_cells() {
+                let any_tree = nodes.iter().any(|&subcell| self[subcell].is_tree());
+                let all_tree = nodes.iter().all(|&subcell| self[subcell].is_tree());
+                if any_tree && !all_tree {
+                    let leaves: Vec<_> = nodes
+                        .iter()
                         .copied()
-                        .collect::<Vec<_>>()
-                        .into_iter()
-                        .for_each(|subcell| {
-                            paired_already = false;
-                            self.subdivide(subcell, Pairing::None).unwrap();
-                        })
+                        .filter(|&subcell| self[subcell].is_leaf())
+                        .collect();
+                    for node in leaves {
+                        paired = false;
+                        self.subdivide(node, Pairing::None)?;
+                    }
                 }
             }
             index += 1;
         }
-        // #[cfg(feature = "profile")]
-        // println!(
-        //     "           \x1b[1;93m  Pairing hanging nodes\x1b[0m {:?} ",
-        //     time.elapsed()
-        // );
-        paired_already
+        Ok(paired)
     }
 
     // fn violates_balance(&self, index: usize, balancing: &Balancing) -> bool {
