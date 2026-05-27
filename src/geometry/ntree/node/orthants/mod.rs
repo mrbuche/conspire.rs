@@ -3,9 +3,12 @@ use std::{array::from_fn, ops::Add};
 
 impl<const D: usize, const M: usize, const N: usize, T, U> Node<D, M, N, T, U>
 where
-    T: Add<Output = T> + Copy + Split,
+    T: Add<Output = T> + Copy + Into<usize> + Split,
 {
     pub fn center(&self) -> [T; D] {
+        if self.is_unit() {
+            panic!()
+        }
         let half = self.length.split();
         from_fn(|axis| self.corner[axis] + half)
     }

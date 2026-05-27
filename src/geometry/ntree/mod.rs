@@ -5,6 +5,7 @@ pub mod error;
 pub mod from;
 pub mod index;
 pub mod into;
+pub mod leaves;
 pub mod node;
 pub mod pair;
 pub mod prune;
