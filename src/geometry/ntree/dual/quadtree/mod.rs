@@ -50,6 +50,7 @@ where
             &mut node_index,
             &mut nodes_map,
         );
+        vertex_template_1(self, &center_nodes, &mut connectivity);
         (connectivity, coordinates).into()
     }
 }
@@ -358,6 +359,25 @@ fn edge_template_1<const I: usize, T, U, V>(
                     foo,
                     center_nodes[g_2b.into()],
                 ]);
+            }
+        }
+    });
+}
+
+fn vertex_template_1<T, U, V>(
+    tree: &Quadtree<T, U>,
+    center_nodes: &[V],
+    connectivity: &mut Vec<[V; N]>,
+) where
+    T: Copy + Into<usize>,
+    U: Copy + Into<usize>,
+    V: Copy,
+{
+    tree.iter().for_each(|node| {
+        let node_leaves = tree.leaves_and_facets(node);
+        if let Some((leaf_0, facets_0)) = node_leaves[0] {
+            if let Some(n_leaf_2) = facets_0[1] && tree[n_leaf_2].is_leaf() {
+                todo!()
             }
         }
     });
