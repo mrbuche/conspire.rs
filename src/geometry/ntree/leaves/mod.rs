@@ -67,10 +67,7 @@ where
     //         }
     //     }
     // }
-    pub fn orthants_leaves(
-        &self,
-        node: &Node<D, M, N, T, U>,
-    ) -> [Option<[Option<U>; N]>; N] {
+    pub fn orthants_leaves(&self, node: &Node<D, M, N, T, U>) -> [Option<[Option<U>; N]>; N] {
         match &node.kind {
             Kind::Leaf => from_fn(|_| None),
             Kind::Tree(orthants) => from_fn(|i| match &self[orthants[i]].kind {
