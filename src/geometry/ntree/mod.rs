@@ -11,10 +11,12 @@ pub mod pair;
 pub mod prune;
 pub mod subdivide;
 
-use crate::geometry::ntree::node::Nodes;
+use crate::geometry::ntree::{balance::Balancing, node::Nodes, pair::Pairing};
 
 pub struct Orthotree<const D: usize, const L: usize, const M: usize, const N: usize, T, U> {
+    balanced: Balancing,
     nodes: Nodes<D, M, N, T, U>,
+    paired: Pairing,
 }
 
 pub type BinaryTree<T, U> = Orthotree<1, 1, 2, 2, T, U>;

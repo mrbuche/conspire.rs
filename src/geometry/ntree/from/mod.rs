@@ -3,7 +3,9 @@ use crate::{
         Coordinates,
         ntree::{
             Orthotree,
+            balance::Balancing,
             node::{Kind, Node},
+            pair::Pairing,
         },
     },
     math::TensorVec,
@@ -16,12 +18,14 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, const I: us
     fn from((coordinates, min_length): (Coordinates<D, I>, f64)) -> Self {
         if coordinates.is_empty() {
             return Self {
+                balanced: Balancing::None,
                 nodes: vec![Node {
                     corner: [0u16; D],
                     length: 1,
                     facets: [None; M],
                     kind: Kind::Leaf,
                 }],
+                paired: Pairing::None,
             };
         }
         let mut min_coord: [f64; D] = from_fn(|_| f64::INFINITY);
@@ -43,12 +47,14 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, const I: us
         let root_length: u16 = 1u16.checked_shl(levels).unwrap_or(u16::MAX);
         let center: [f64; D] = from_fn(|ax| (min_coord[ax] + max_coord[ax]) / 2.0);
         let mut tree = Self {
+            balanced: Balancing::None,
             nodes: vec![Node {
                 corner: [0u16; D],
                 length: root_length,
                 facets: [None; M],
                 kind: Kind::Leaf,
             }],
+            paired: Pairing::None,
         };
         let mut int_coords: Vec<[u16; D]> = Vec::new();
         for point in &coordinates {

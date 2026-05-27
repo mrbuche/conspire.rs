@@ -7,6 +7,7 @@ use crate::geometry::ntree::{error::OrthotreeError, pair::Pairing};
 pub enum Balancing {
     Strong,
     Weak,
+    None,
 }
 
 pub trait Balance {

@@ -2,7 +2,10 @@
 mod test;
 
 use crate::{
-    geometry::{Coordinates, Dualization, QuadrilateralMesh, Quadtree, ntree::node::split::Split},
+    geometry::{
+        Coordinates, Dualization, QuadrilateralMesh, Quadtree,
+        ntree::{balance::Balancing, node::split::Split, pair::Pairing},
+    },
     math::{Scalar, TensorVec},
 };
 use std::{array::from_fn, collections::HashMap, ops::Add};
@@ -20,6 +23,8 @@ where
     V: Copy + Default + From<usize>,
 {
     fn dualize(&mut self) -> QuadrilateralMesh<D, I, V> {
+        assert!(!matches!(self.balanced, Balancing::None));
+        assert!(!matches!(self.paired, Pairing::None));
         let num = self.len();
         let mut center_nodes = vec![V::default(); num];
         let mut coordinates = Coordinates::with_capacity(num);
@@ -54,6 +59,9 @@ where
         vertex_transition_2(self, &center_nodes, &mut connectivity);
         vertex_transition_3(self, &center_nodes, &mut connectivity);
         vertex_transition_4(self, &center_nodes, &mut connectivity);
+        if matches!(self.balanced, Balancing::Weak) {
+            vertex_transition_5(self, &center_nodes, &mut connectivity);
+        }
         (connectivity, coordinates).into()
     }
 }
@@ -655,4 +663,86 @@ fn vertex_transition_4<T, U, V>(
             ]);
         }
     })
+}
+
+fn vertex_transition_5<T, U, V>(
+    tree: &Quadtree<T, U>,
+    center_nodes: &[V],
+    connectivity: &mut Vec<[V; N]>,
+) where
+    T: Copy + Into<usize>,
+    U: Copy + Into<usize>,
+    V: Copy,
+{
+    tree.iter()
+        .enumerate()
+        .filter_map(|(index, node)| {
+            if node.is_leaf() {
+                Some((index, node.facets()))
+            } else {
+                None
+            }
+        })
+        .for_each(|(leaf, &[facet_0, facet_1, facet_2, facet_3])| {
+            if let Some(left) = facet_0
+                && let Some(left_leaf) = tree.leaves(&tree[left])[1]
+                && let Some(below) = facet_2
+                && let Some(below_leaf) = tree.leaves(&tree[below])[2]
+                && let Some(diag) = tree[below].facets()[0]
+                && let Some(diag_orth) = tree.orthants_leaves(&tree[diag])[3]
+                && let Some(diag_leaf) = diag_orth[3]
+            {
+                connectivity.push([
+                    center_nodes[leaf],
+                    center_nodes[left_leaf.into()],
+                    center_nodes[diag_leaf.into()],
+                    center_nodes[below_leaf.into()],
+                ]);
+            }
+            if let Some(right) = facet_1
+                && let Some(right_leaf) = tree.leaves(&tree[right])[0]
+                && let Some(below) = facet_2
+                && let Some(below_leaf) = tree.leaves(&tree[below])[3]
+                && let Some(diag) = tree[below].facets()[1]
+                && let Some(diag_orth) = tree.orthants_leaves(&tree[diag])[2]
+                && let Some(diag_leaf) = diag_orth[2]
+            {
+                connectivity.push([
+                    center_nodes[leaf],
+                    center_nodes[below_leaf.into()],
+                    center_nodes[diag_leaf.into()],
+                    center_nodes[right_leaf.into()],
+                ]);
+            }
+            if let Some(left) = facet_0
+                && let Some(left_leaf) = tree.leaves(&tree[left])[3]
+                && let Some(above) = facet_3
+                && let Some(above_leaf) = tree.leaves(&tree[above])[0]
+                && let Some(diag) = tree[above].facets()[0]
+                && let Some(diag_orth) = tree.orthants_leaves(&tree[diag])[1]
+                && let Some(diag_leaf) = diag_orth[1]
+            {
+                connectivity.push([
+                    center_nodes[leaf],
+                    center_nodes[above_leaf.into()],
+                    center_nodes[diag_leaf.into()],
+                    center_nodes[left_leaf.into()],
+                ]);
+            }
+            if let Some(right) = facet_1
+                && let Some(right_leaf) = tree.leaves(&tree[right])[2]
+                && let Some(above) = facet_3
+                && let Some(above_leaf) = tree.leaves(&tree[above])[1]
+                && let Some(diag) = tree[above].facets()[1]
+                && let Some(diag_orth) = tree.orthants_leaves(&tree[diag])[0]
+                && let Some(diag_leaf) = diag_orth[0]
+            {
+                connectivity.push([
+                    center_nodes[leaf],
+                    center_nodes[right_leaf.into()],
+                    center_nodes[diag_leaf.into()],
+                    center_nodes[above_leaf.into()],
+                ]);
+            }
+        })
 }

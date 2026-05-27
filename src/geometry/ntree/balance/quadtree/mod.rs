@@ -21,6 +21,7 @@ where
     U: Copy + From<usize> + Into<usize>,
 {
     fn balance(&mut self, balancing: Balancing) -> bool {
+        self.balanced = balancing;
         let mut balanced;
         let mut balanced_already = true;
         let mut index;
@@ -93,6 +94,7 @@ where
         balanced_already
     }
     fn pair_up(&mut self, pairing: Pairing) -> Result<bool, OrthotreeError> {
+        self.paired = pairing;
         self.pair(pairing)
     }
 }

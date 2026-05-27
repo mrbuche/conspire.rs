@@ -8,7 +8,7 @@ fn from_circle() {
     let coordinates = circle();
     let mut quadtree = Quadtree::<u16, usize>::from((coordinates, 1.0));
     quadtree
-        .equilibrate(Balancing::Strong, Pairing::Regular)
+        .equilibrate(Balancing::Weak, Pairing::Regular)
         .unwrap();
     let mesh: QuadrilateralMesh<_, 0, usize> = quadtree.dualize();
     (&mesh).write_exodus("target/dual.exo").unwrap();

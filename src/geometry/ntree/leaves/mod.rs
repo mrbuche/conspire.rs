@@ -52,21 +52,6 @@ where
             }),
         }
     }
-    // pub fn leaves_and_facets<'a>(
-    //     &self,
-    //     node: &'a Node<D, M, N, T, U>,
-    // ) -> Option<(&'a [U; N], &'a [Option<U>; M])> {
-    //     match &node.kind {
-    //         Kind::Leaf => None,
-    //         Kind::Tree(orthants) => {
-    //             if orthants.iter().any(|&orthant| self[orthant].is_tree()) {
-    //                 None
-    //             } else {
-    //                 Some((orthants, &node.facets))
-    //             }
-    //         }
-    //     }
-    // }
     pub fn orthants_leaves(&self, node: &Node<D, M, N, T, U>) -> [Option<[Option<U>; N]>; N] {
         match &node.kind {
             Kind::Leaf => from_fn(|_| None),
