@@ -51,6 +51,7 @@ where
             &mut nodes_map,
         );
         vertex_transition_1(self, &center_nodes, &mut connectivity);
+        vertex_transition_2(self, &center_nodes, &mut connectivity);
         (connectivity, coordinates).into()
     }
 }
@@ -365,6 +366,89 @@ fn edge_transition_1<const I: usize, T, U, V>(
 }
 
 fn vertex_transition_1<T, U, V>(
+    tree: &Quadtree<T, U>,
+    center_nodes: &[V],
+    connectivity: &mut Vec<[V; N]>,
+) where
+    T: Copy + Into<usize>,
+    U: Copy + Into<usize>,
+    V: Copy,
+{
+    tree.iter().for_each(|node| {
+        let [leaf_0, leaf_1, leaf_2, leaf_3] = tree.leaves(node);
+        // let [leaf_0, leaf_1, leaf_2, leaf_3] = tree.leaves_and_facets(node);
+
+        if let Some(curr_leaf) = leaf_0
+            && let Some(left) = node.facets()[0]
+            && let Some(left_leaf) = tree.leaves(&tree[left])[1]
+            && let Some(below) = node.facets()[2]
+            && let Some(below_leaf) = tree.leaves(&tree[below])[2]
+            && let Some(diag) = tree[below].facets()[0]
+            && let Some(diag_orth_0) = tree.orthants_leaves(&tree[diag])[3]
+            && let Some(diag_corner_leaf) = diag_orth_0[3]
+        {
+            connectivity.push([
+                center_nodes[curr_leaf.into()],
+                center_nodes[left_leaf.into()],
+                center_nodes[diag_corner_leaf.into()],
+                center_nodes[below_leaf.into()],
+            ]);
+        }
+
+        if let Some(curr_leaf) = leaf_1
+            && let Some(right) = node.facets()[1]
+            && let Some(right_leaf) = tree.leaves(&tree[right])[0]
+            && let Some(below) = node.facets()[2]
+            && let Some(below_leaf) = tree.leaves(&tree[below])[3]
+            && let Some(diag) = tree[below].facets()[1]
+            && let Some(diag_orth_2) = tree.orthants_leaves(&tree[diag])[2]
+            && let Some(diag_corner_leaf) = diag_orth_2[2]
+        {
+            connectivity.push([
+                center_nodes[right_leaf.into()],
+                center_nodes[curr_leaf.into()],
+                center_nodes[below_leaf.into()],
+                center_nodes[diag_corner_leaf.into()],
+            ]);
+        }
+
+        if let Some(curr_leaf) = leaf_2
+            && let Some(left) = node.facets()[0]
+            && let Some(left_leaf) = tree.leaves(&tree[left])[3]
+            && let Some(above) = node.facets()[3]
+            && let Some(above_leaf) = tree.leaves(&tree[above])[0]
+            && let Some(diag) = tree[above].facets()[0]
+            && let Some(diag_orth_1) = tree.orthants_leaves(&tree[diag])[1]
+            && let Some(diag_corner_leaf) = diag_orth_1[1]
+        {
+            connectivity.push([
+                center_nodes[left_leaf.into()],
+                center_nodes[diag_corner_leaf.into()],
+                center_nodes[above_leaf.into()],
+                center_nodes[curr_leaf.into()],
+            ]);
+        }
+
+        if let Some(curr_leaf) = leaf_3
+            && let Some(right) = node.facets()[1]
+            && let Some(right_leaf) = tree.leaves(&tree[right])[2]
+            && let Some(above) = node.facets()[3]
+            && let Some(above_leaf) = tree.leaves(&tree[above])[1]
+            && let Some(diag) = tree[above].facets()[1]
+            && let Some(diag_orth_0) = tree.orthants_leaves(&tree[diag])[0]
+            && let Some(diag_corner_leaf) = diag_orth_0[0]
+        {
+            connectivity.push([
+                center_nodes[diag_corner_leaf.into()],
+                center_nodes[right_leaf.into()],
+                center_nodes[curr_leaf.into()],
+                center_nodes[above_leaf.into()],
+            ]);
+        }
+    });
+}
+
+fn vertex_transition_2<T, U, V>(
     tree: &Quadtree<T, U>,
     center_nodes: &[V],
     connectivity: &mut Vec<[V; N]>,
