@@ -172,77 +172,192 @@ fn edge_template_1<const I: usize, T, U, V>(
     };
     tree.iter().for_each(|node| {
         let node_leaves = tree.leaves(node);
-        for face in 0..M {
-            // Derive per-face slot/sub-slot indices via bit logic.
-            //   axis = face normal direction (0 = x, 1 = y)
-            //   side = which side of node (0 = -, 1 = +)
-            //   perp = the in-face axis
-            let axis = face / 2;
-            let side = face % 2;
-            let perp = 1 - axis;
-            let make_slot = |v_axis: usize, v_perp: usize| (v_axis << axis) | (v_perp << perp);
-            let leaf_low_s = make_slot(side, 0);
-            let leaf_high_s = make_slot(side, 1);
-            let mirror_low_s = make_slot(1 - side, 0);
-            let mirror_high_s = make_slot(1 - side, 1);
-            let sub_low_i = make_slot(1 - side, 0);
-            let sub_high_i = make_slot(1 - side, 1);
-            if let Some(neighbor) = node.facets()[face]
-                && let Some(leaf_low) = node_leaves[leaf_low_s]
-                && let Some(leaf_high) = node_leaves[leaf_high_s]
+        // face 0 (node's -x face)
+        if let Some(neighbor) = node.facets()[0]
+            && let Some(leaf_0) = node_leaves[0]
+            && let Some(leaf_2) = node_leaves[2]
+        {
+            let n_orthants = tree.orthants_leaves(&tree[neighbor]);
+            if let Some(o1_kids) = n_orthants[1]
+                && let Some(g_0a) = o1_kids[1]
+                && let Some(g_0b) = o1_kids[3]
+                && let Some(o3_kids) = n_orthants[3]
+                && let Some(g_2a) = o3_kids[1]
+                && let Some(g_2b) = o3_kids[3]
             {
-                let n_orthants = tree.orthants_leaves(&tree[neighbor]);
-                if let Some(o_low) = n_orthants[mirror_low_s]
-                    && let Some(g_outer_low) = o_low[sub_low_i]
-                    && let Some(g_inner_low) = o_low[sub_high_i]
-                    && let Some(o_high) = n_orthants[mirror_high_s]
-                    && let Some(g_inner_high) = o_high[sub_low_i]
-                    && let Some(g_outer_high) = o_high[sub_high_i]
-                {
-                    let length: Scalar = tree[g_inner_high].length.into();
-                    let half = length * 0.5;
-                    let face_line: Scalar = {
-                        let c: Scalar = tree[g_inner_high].corner[axis].into();
-                        c + (1 - side) as Scalar * length
-                    };
-                    let foo_perp: Scalar = {
-                        let c: Scalar = tree[g_inner_low].corner[perp].into();
-                        c + half
-                    };
-                    let bar_perp: Scalar = {
-                        let c: Scalar = tree[g_inner_high].corner[perp].into();
-                        c + half
-                    };
-                    let mut foo_pos = [0.0; D];
-                    foo_pos[axis] = face_line;
-                    foo_pos[perp] = foo_perp;
-                    let mut bar_pos = [0.0; D];
-                    bar_pos[axis] = face_line;
-                    bar_pos[perp] = bar_perp;
-                    let foo = get_or_add(foo_pos);
-                    let bar = get_or_add(bar_pos);
-                    let ll = center_nodes[leaf_low.into()];
-                    let lh = center_nodes[leaf_high.into()];
-                    let gol = center_nodes[g_outer_low.into()];
-                    let gil = center_nodes[g_inner_low.into()];
-                    let gih = center_nodes[g_inner_high.into()];
-                    let goh = center_nodes[g_outer_high.into()];
-                    // Natural CCW order (for axis XOR side == 0, i.e. faces 0, 3).
-                    let mut q1 = [gil, foo, bar, gih];
-                    let mut q2 = [foo, ll, lh, bar];
-                    let mut q3 = [gih, bar, lh, goh];
-                    let mut q4 = [gol, ll, foo, gil];
-                    // For faces 1, 2 the geometry is mirrored, so reverse CCW.
-                    if (axis ^ side) != 0 {
-                        for q in [&mut q1, &mut q2, &mut q3, &mut q4] {
-                            q.swap(1, 3);
-                        }
-                    }
-                    connectivity.push(q1);
-                    connectivity.push(q2);
-                    connectivity.push(q3);
-                    connectivity.push(q4);
-                }
+                let length: Scalar = tree[g_2a].length.into();
+                let x0: Scalar = tree[g_2a].corner[0].into();
+                let y0c: Scalar = tree[g_2a].corner[1].into();
+                let x1 = x0 + length;
+                let y0 = y0c - length * 0.5;
+                let y1 = y0 + length;
+                let foo = get_or_add([x1, y0]);
+                let bar = get_or_add([x1, y1]);
+                connectivity.push([
+                    center_nodes[g_0b.into()],
+                    foo,
+                    bar,
+                    center_nodes[g_2a.into()],
+                ]);
+                connectivity.push([
+                    foo,
+                    center_nodes[leaf_0.into()],
+                    center_nodes[leaf_2.into()],
+                    bar,
+                ]);
+                connectivity.push([
+                    center_nodes[g_2a.into()],
+                    bar,
+                    center_nodes[leaf_2.into()],
+                    center_nodes[g_2b.into()],
+                ]);
+                connectivity.push([
+                    center_nodes[g_0a.into()],
+                    center_nodes[leaf_0.into()],
+                    foo,
+                    center_nodes[g_0b.into()],
+                ]);
+            }
+        }
+        // face 1 (node's +x face)
+        if let Some(neighbor) = node.facets()[1]
+            && let Some(leaf_1) = node_leaves[1]
+            && let Some(leaf_3) = node_leaves[3]
+        {
+            let n_orthants = tree.orthants_leaves(&tree[neighbor]);
+            if let Some(o0_kids) = n_orthants[0]
+                && let Some(g_1a) = o0_kids[0]
+                && let Some(g_1b) = o0_kids[2]
+                && let Some(o2_kids) = n_orthants[2]
+                && let Some(g_3a) = o2_kids[0]
+                && let Some(g_3b) = o2_kids[2]
+            {
+                let length: Scalar = tree[g_3a].length.into();
+                let x0: Scalar = tree[g_3a].corner[0].into();
+                let y0c: Scalar = tree[g_3a].corner[1].into();
+                let x1 = x0;
+                let y0 = y0c - length * 0.5;
+                let y1 = y0 + length;
+                let foo = get_or_add([x1, y0]);
+                let bar = get_or_add([x1, y1]);
+                connectivity.push([
+                    foo,
+                    center_nodes[g_1b.into()],
+                    center_nodes[g_3a.into()],
+                    bar,
+                ]);
+                connectivity.push([
+                    foo,
+                    bar,
+                    center_nodes[leaf_3.into()],
+                    center_nodes[leaf_1.into()],
+                ]);
+                connectivity.push([
+                    center_nodes[g_3a.into()],
+                    center_nodes[g_3b.into()],
+                    center_nodes[leaf_3.into()],
+                    bar,
+                ]);
+                connectivity.push([
+                    center_nodes[g_1a.into()],
+                    center_nodes[g_1b.into()],
+                    foo,
+                    center_nodes[leaf_1.into()],
+                ]);
+            }
+        }
+        // face 2 (node's -y face)
+        if let Some(neighbor) = node.facets()[2]
+            && let Some(leaf_0) = node_leaves[0]
+            && let Some(leaf_1) = node_leaves[1]
+        {
+            let n_orthants = tree.orthants_leaves(&tree[neighbor]);
+            if let Some(o2_kids) = n_orthants[2]
+                && let Some(g_0a) = o2_kids[2]
+                && let Some(g_0b) = o2_kids[3]
+                && let Some(o3_kids) = n_orthants[3]
+                && let Some(g_1a) = o3_kids[2]
+                && let Some(g_1b) = o3_kids[3]
+            {
+                let length: Scalar = tree[g_1a].length.into();
+                let x0c: Scalar = tree[g_1a].corner[0].into();
+                let y0: Scalar = tree[g_1a].corner[1].into();
+                let y1 = y0 + length;
+                let x0 = x0c - length * 0.5;
+                let x1 = x0 + length;
+                let foo = get_or_add([x0, y1]);
+                let bar = get_or_add([x1, y1]);
+                connectivity.push([
+                    center_nodes[g_0b.into()],
+                    center_nodes[g_1a.into()],
+                    bar,
+                    foo,
+                ]);
+                connectivity.push([
+                    foo,
+                    bar,
+                    center_nodes[leaf_1.into()],
+                    center_nodes[leaf_0.into()],
+                ]);
+                connectivity.push([
+                    center_nodes[g_1a.into()],
+                    center_nodes[g_1b.into()],
+                    center_nodes[leaf_1.into()],
+                    bar,
+                ]);
+                connectivity.push([
+                    center_nodes[g_0a.into()],
+                    center_nodes[g_0b.into()],
+                    foo,
+                    center_nodes[leaf_0.into()],
+                ]);
+            }
+        }
+        // face 3 (node's +y face)
+        if let Some(neighbor) = node.facets()[3]
+            && let Some(leaf_2) = node_leaves[2]
+            && let Some(leaf_3) = node_leaves[3]
+        {
+            let n_orthants = tree.orthants_leaves(&tree[neighbor]);
+            if let Some(o0_kids) = n_orthants[0]
+                && let Some(g_2a) = o0_kids[0]
+                && let Some(g_2b) = o0_kids[1]
+                && let Some(o1_kids) = n_orthants[1]
+                && let Some(g_3a) = o1_kids[0]
+                && let Some(g_3b) = o1_kids[1]
+            {
+                let length: Scalar = tree[g_3a].length.into();
+                let x0c: Scalar = tree[g_3a].corner[0].into();
+                let y0c: Scalar = tree[g_3a].corner[1].into();
+                let y1 = y0c;
+                let x0 = x0c - length * 0.5;
+                let x1 = x0 + length;
+                let foo = get_or_add([x0, y1]);
+                let bar = get_or_add([x1, y1]);
+                connectivity.push([
+                    foo,
+                    bar,
+                    center_nodes[g_3a.into()],
+                    center_nodes[g_2b.into()],
+                ]);
+                connectivity.push([
+                    foo,
+                    center_nodes[leaf_2.into()],
+                    center_nodes[leaf_3.into()],
+                    bar,
+                ]);
+                connectivity.push([
+                    center_nodes[g_3a.into()],
+                    bar,
+                    center_nodes[leaf_3.into()],
+                    center_nodes[g_3b.into()],
+                ]);
+                connectivity.push([
+                    center_nodes[g_2a.into()],
+                    center_nodes[leaf_2.into()],
+                    foo,
+                    center_nodes[g_2b.into()],
+                ]);
             }
         }
     });
