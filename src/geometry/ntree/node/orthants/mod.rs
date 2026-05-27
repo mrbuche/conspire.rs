@@ -1,4 +1,15 @@
-use crate::geometry::ntree::node::{Kind, Node, Orthants};
+use crate::geometry::ntree::node::{Kind, Node, Orthants, split::Split};
+use std::{array::from_fn, ops::Add};
+
+impl<const D: usize, const M: usize, const N: usize, T, U> Node<D, M, N, T, U>
+where
+    T: Add<Output = T> + Copy + Split,
+{
+    pub fn center(&self) -> [T; D] {
+        let half = self.length.split();
+        from_fn(|axis| self.corner[axis] + half)
+    }
+}
 
 impl<const D: usize, const M: usize, const N: usize, T, U> Node<D, M, N, T, U>
 where

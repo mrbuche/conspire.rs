@@ -20,7 +20,7 @@ where
             Pairing::Regular => {
                 let mut index = 0;
                 let mut paired = true;
-                while index < self.nodes.len() {
+                while index < self.len() {
                     if let Some(nodes) = self[index.into()].orthants() {
                         let mut any_leaf = false;
                         let mut any_tree = false;

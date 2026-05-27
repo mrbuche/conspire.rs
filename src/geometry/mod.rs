@@ -13,7 +13,10 @@ pub use self::{
         TriangularMesh, WedgeMesh, tessellation::Tessellation,
     },
     ntree::{
-        BinaryTree, Hexadecatree, Octree, Orthotree, Quadtree, balance::Balancing, pair::Pairing,
+        BinaryTree, Hexadecatree, Octree, Orthotree, Quadtree,
+        balance::{Balance, Balancing},
+        dual::Dualization,
+        pair::Pairing,
     },
 };
 use std::path::Path;

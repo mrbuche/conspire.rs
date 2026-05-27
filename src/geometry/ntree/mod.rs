@@ -1,4 +1,6 @@
 pub mod balance;
+pub mod deref;
+pub mod dual;
 pub mod error;
 pub mod from;
 pub mod index;

@@ -1,5 +1,9 @@
 use crate::geometry::ntree::{
-    Orthotree, balance::Balancing, error::OrthotreeError, node::split::Split, pair::Pairing,
+    Orthotree,
+    balance::{Balance, Balancing},
+    error::OrthotreeError,
+    node::split::Split,
+    pair::Pairing,
 };
 use std::{array::from_fn, ops::Add};
 
@@ -10,25 +14,12 @@ const L: usize = 4;
 const M: usize = 6;
 const N: usize = 8;
 
-impl<T, U> Orthotree<D, L, M, N, T, U>
+impl<T, U> Balance for Orthotree<D, L, M, N, T, U>
 where
     T: Add<Output = T> + Copy + Split + Into<usize>,
     U: Copy + From<usize> + Into<usize>,
 {
-    pub fn equilibrate(
-        &mut self,
-        balancing: Balancing,
-        pairing: Pairing,
-    ) -> Result<(), OrthotreeError> {
-        let mut balanced = false;
-        let mut paired = false;
-        while !balanced || !paired {
-            balanced = self.balance(balancing);
-            paired = self.pair(pairing)?;
-        }
-        Ok(())
-    }
-    pub fn balance(&mut self, balancing: Balancing) -> bool {
+    fn balance(&mut self, balancing: Balancing) -> bool {
         let mut balanced;
         let mut balanced_already = true;
         let mut edges = [false; NUM_EDGES];
@@ -40,7 +31,7 @@ where
             balanced = true;
             index = 0;
             subdivide = false;
-            while index < self.nodes.len() {
+            while index < self.len() {
                 if !self[index.into()].is_unit() && self[index.into()].is_leaf() {
                     'faces: for (face, face_cell) in self[index.into()].facets().iter().enumerate()
                     {
@@ -299,5 +290,8 @@ where
             }
         }
         balanced_already
+    }
+    fn pair_up(&mut self, pairing: Pairing) -> Result<bool, OrthotreeError> {
+        self.pair(pairing)
     }
 }
