@@ -176,7 +176,6 @@ fn edge_transition_1<const I: usize, T, U, V>(
     };
     tree.iter().for_each(|node| {
         let node_leaves = tree.leaves(node);
-        // face 0 (node's -x face)
         if let Some(neighbor) = node.facets()[0]
             && let Some(leaf_0) = node_leaves[0]
             && let Some(leaf_2) = node_leaves[2]
@@ -195,35 +194,34 @@ fn edge_transition_1<const I: usize, T, U, V>(
                 let x1 = x0 + length;
                 let y0 = y0c - length * 0.5;
                 let y1 = y0 + length;
-                let foo = get_or_add([x1, y0]);
-                let bar = get_or_add([x1, y1]);
+                let new_1 = get_or_add([x1, y0]);
+                let new_2 = get_or_add([x1, y1]);
                 connectivity.push([
                     center_nodes[g_0b.into()],
-                    foo,
-                    bar,
+                    new_1,
+                    new_2,
                     center_nodes[g_2a.into()],
                 ]);
                 connectivity.push([
-                    foo,
+                    new_1,
                     center_nodes[leaf_0.into()],
                     center_nodes[leaf_2.into()],
-                    bar,
+                    new_2,
                 ]);
                 connectivity.push([
                     center_nodes[g_2a.into()],
-                    bar,
+                    new_2,
                     center_nodes[leaf_2.into()],
                     center_nodes[g_2b.into()],
                 ]);
                 connectivity.push([
                     center_nodes[g_0a.into()],
                     center_nodes[leaf_0.into()],
-                    foo,
+                    new_1,
                     center_nodes[g_0b.into()],
                 ]);
             }
         }
-        // face 1 (node's +x face)
         if let Some(neighbor) = node.facets()[1]
             && let Some(leaf_1) = node_leaves[1]
             && let Some(leaf_3) = node_leaves[3]
@@ -242,17 +240,17 @@ fn edge_transition_1<const I: usize, T, U, V>(
                 let x1 = x0;
                 let y0 = y0c - length * 0.5;
                 let y1 = y0 + length;
-                let foo = get_or_add([x1, y0]);
-                let bar = get_or_add([x1, y1]);
+                let new_1 = get_or_add([x1, y0]);
+                let new_2 = get_or_add([x1, y1]);
                 connectivity.push([
-                    foo,
+                    new_1,
                     center_nodes[g_1b.into()],
                     center_nodes[g_3a.into()],
-                    bar,
+                    new_2,
                 ]);
                 connectivity.push([
-                    foo,
-                    bar,
+                    new_1,
+                    new_2,
                     center_nodes[leaf_3.into()],
                     center_nodes[leaf_1.into()],
                 ]);
@@ -260,17 +258,16 @@ fn edge_transition_1<const I: usize, T, U, V>(
                     center_nodes[g_3a.into()],
                     center_nodes[g_3b.into()],
                     center_nodes[leaf_3.into()],
-                    bar,
+                    new_2,
                 ]);
                 connectivity.push([
                     center_nodes[g_1a.into()],
                     center_nodes[g_1b.into()],
-                    foo,
+                    new_1,
                     center_nodes[leaf_1.into()],
                 ]);
             }
         }
-        // face 2 (node's -y face)
         if let Some(neighbor) = node.facets()[2]
             && let Some(leaf_0) = node_leaves[0]
             && let Some(leaf_1) = node_leaves[1]
@@ -289,17 +286,17 @@ fn edge_transition_1<const I: usize, T, U, V>(
                 let y1 = y0 + length;
                 let x0 = x0c - length * 0.5;
                 let x1 = x0 + length;
-                let foo = get_or_add([x0, y1]);
-                let bar = get_or_add([x1, y1]);
+                let new_1 = get_or_add([x0, y1]);
+                let new_2 = get_or_add([x1, y1]);
                 connectivity.push([
                     center_nodes[g_0b.into()],
                     center_nodes[g_1a.into()],
-                    bar,
-                    foo,
+                    new_2,
+                    new_1,
                 ]);
                 connectivity.push([
-                    foo,
-                    bar,
+                    new_1,
+                    new_2,
                     center_nodes[leaf_1.into()],
                     center_nodes[leaf_0.into()],
                 ]);
@@ -307,17 +304,16 @@ fn edge_transition_1<const I: usize, T, U, V>(
                     center_nodes[g_1a.into()],
                     center_nodes[g_1b.into()],
                     center_nodes[leaf_1.into()],
-                    bar,
+                    new_2,
                 ]);
                 connectivity.push([
                     center_nodes[g_0a.into()],
                     center_nodes[g_0b.into()],
-                    foo,
+                    new_1,
                     center_nodes[leaf_0.into()],
                 ]);
             }
         }
-        // face 3 (node's +y face)
         if let Some(neighbor) = node.facets()[3]
             && let Some(leaf_2) = node_leaves[2]
             && let Some(leaf_3) = node_leaves[3]
@@ -336,30 +332,30 @@ fn edge_transition_1<const I: usize, T, U, V>(
                 let y1 = y0c;
                 let x0 = x0c - length * 0.5;
                 let x1 = x0 + length;
-                let foo = get_or_add([x0, y1]);
-                let bar = get_or_add([x1, y1]);
+                let new_1 = get_or_add([x0, y1]);
+                let new_2 = get_or_add([x1, y1]);
                 connectivity.push([
-                    foo,
-                    bar,
+                    new_1,
+                    new_2,
                     center_nodes[g_3a.into()],
                     center_nodes[g_2b.into()],
                 ]);
                 connectivity.push([
-                    foo,
+                    new_1,
                     center_nodes[leaf_2.into()],
                     center_nodes[leaf_3.into()],
-                    bar,
+                    new_2,
                 ]);
                 connectivity.push([
                     center_nodes[g_3a.into()],
-                    bar,
+                    new_2,
                     center_nodes[leaf_3.into()],
                     center_nodes[g_3b.into()],
                 ]);
                 connectivity.push([
                     center_nodes[g_2a.into()],
                     center_nodes[leaf_2.into()],
-                    foo,
+                    new_1,
                     center_nodes[g_2b.into()],
                 ]);
             }
@@ -378,8 +374,6 @@ fn vertex_transition_1<T, U, V>(
 {
     tree.iter().for_each(|node| {
         let [leaf_0, leaf_1, leaf_2, leaf_3] = tree.leaves(node);
-        // let [leaf_0, leaf_1, leaf_2, leaf_3] = tree.leaves_and_facets(node);
-
         if let Some(curr_leaf) = leaf_0
             && let Some(left) = node.facets()[0]
             && let Some(left_leaf) = tree.leaves(&tree[left])[1]
@@ -396,7 +390,6 @@ fn vertex_transition_1<T, U, V>(
                 center_nodes[below_leaf.into()],
             ]);
         }
-
         if let Some(curr_leaf) = leaf_1
             && let Some(right) = node.facets()[1]
             && let Some(right_leaf) = tree.leaves(&tree[right])[0]
@@ -413,7 +406,6 @@ fn vertex_transition_1<T, U, V>(
                 center_nodes[right_leaf.into()],
             ]);
         }
-
         if let Some(curr_leaf) = leaf_2
             && let Some(left) = node.facets()[0]
             && let Some(left_leaf) = tree.leaves(&tree[left])[3]
@@ -430,7 +422,6 @@ fn vertex_transition_1<T, U, V>(
                 center_nodes[left_leaf.into()],
             ]);
         }
-
         if let Some(curr_leaf) = leaf_3
             && let Some(right) = node.facets()[1]
             && let Some(right_leaf) = tree.leaves(&tree[right])[2]
@@ -461,8 +452,6 @@ fn vertex_transition_2<T, U, V>(
 {
     tree.iter().for_each(|node| {
         let [leaf_0, leaf_1, leaf_2, leaf_3] = tree.leaves(node);
-        // let [leaf_0, leaf_1, leaf_2, leaf_3] = tree.leaves_and_facets(node);
-
         if let Some(curr_leaf) = leaf_2
             && let Some(above) = node.facets()[3]
             && let Some(above_leaf) = tree.leaves(&tree[above])[0]
@@ -480,7 +469,6 @@ fn vertex_transition_2<T, U, V>(
                 center_nodes[above_leaf.into()],
             ]);
         }
-
         if let Some(curr_leaf) = leaf_1
             && let Some(below) = node.facets()[2]
             && let Some(below_leaf) = tree.leaves(&tree[below])[3]
@@ -498,7 +486,6 @@ fn vertex_transition_2<T, U, V>(
                 center_nodes[curr_leaf.into()],
             ]);
         }
-
         if let Some(curr_leaf) = leaf_0
             && let Some(left) = node.facets()[0]
             && let Some(left_leaf) = tree.leaves(&tree[left])[1]
@@ -516,7 +503,6 @@ fn vertex_transition_2<T, U, V>(
                 center_nodes[below_corner_leaf.into()],
             ]);
         }
-
         if let Some(curr_leaf) = leaf_3
             && let Some(right) = node.facets()[1]
             && let Some(right_leaf) = tree.leaves(&tree[right])[2]
@@ -548,8 +534,6 @@ fn vertex_transition_3<T, U, V>(
 {
     tree.iter().for_each(|node| {
         let [leaf_0, leaf_1, _, _] = tree.leaves(node);
-        // let [leaf_0, leaf_1, leaf_2, leaf_3] = tree.leaves_and_facets(node);
-
         if let Some(curr_leaf) = leaf_0
             && let Some(left) = node.facets()[0]
             && let Some(left_orth) = tree.orthants_leaves(&tree[left])[1]
@@ -567,7 +551,6 @@ fn vertex_transition_3<T, U, V>(
                 center_nodes[below_leaf.into()],
             ]);
         }
-
         if let Some(curr_leaf) = leaf_1
             && let Some(right) = node.facets()[1]
             && let Some(right_orth) = tree.orthants_leaves(&tree[right])[0]
@@ -597,4 +580,79 @@ fn vertex_transition_4<T, U, V>(
     U: Copy + Into<usize>,
     V: Copy,
 {
+    tree.iter().for_each(|node| {
+        let [leaf_0, leaf_1, leaf_2, leaf_3] = tree.leaves(node);
+        if let Some(leaf) = leaf_0
+            && let Some(left) = node.facets()[0]
+            && let Some(left_orth) = tree.orthants_leaves(&tree[left])[1]
+            && let Some(left_leaf) = left_orth[1]
+            && let Some(below) = node.facets()[2]
+            && let Some(below_orth) = tree.orthants_leaves(&tree[below])[2]
+            && let Some(below_leaf) = below_orth[2]
+            && let Some(diag) = tree[below].facets()[0]
+            && let Some(diag_orth) = tree.orthants_leaves(&tree[diag])[3]
+            && let Some(diag_leaf) = diag_orth[3]
+        {
+            connectivity.push([
+                center_nodes[leaf.into()],
+                center_nodes[left_leaf.into()],
+                center_nodes[diag_leaf.into()],
+                center_nodes[below_leaf.into()],
+            ]);
+        }
+        if let Some(leaf) = leaf_1
+            && let Some(right) = node.facets()[1]
+            && let Some(right_orth) = tree.orthants_leaves(&tree[right])[0]
+            && let Some(right_leaf) = right_orth[0]
+            && let Some(below) = node.facets()[2]
+            && let Some(below_orth) = tree.orthants_leaves(&tree[below])[3]
+            && let Some(below_leaf) = below_orth[3]
+            && let Some(diag) = tree[below].facets()[1]
+            && let Some(diag_orth) = tree.orthants_leaves(&tree[diag])[2]
+            && let Some(diag_leaf) = diag_orth[2]
+        {
+            connectivity.push([
+                center_nodes[leaf.into()],
+                center_nodes[below_leaf.into()],
+                center_nodes[diag_leaf.into()],
+                center_nodes[right_leaf.into()],
+            ]);
+        }
+        if let Some(leaf) = leaf_2
+            && let Some(left) = node.facets()[0]
+            && let Some(left_orth) = tree.orthants_leaves(&tree[left])[3]
+            && let Some(left_leaf) = left_orth[3]
+            && let Some(above) = node.facets()[3]
+            && let Some(above_orth) = tree.orthants_leaves(&tree[above])[0]
+            && let Some(above_leaf) = above_orth[0]
+            && let Some(diag) = tree[above].facets()[0]
+            && let Some(diag_orth) = tree.orthants_leaves(&tree[diag])[1]
+            && let Some(diag_leaf) = diag_orth[1]
+        {
+            connectivity.push([
+                center_nodes[leaf.into()],
+                center_nodes[above_leaf.into()],
+                center_nodes[diag_leaf.into()],
+                center_nodes[left_leaf.into()],
+            ]);
+        }
+        if let Some(leaf) = leaf_3
+            && let Some(right) = node.facets()[1]
+            && let Some(right_orth) = tree.orthants_leaves(&tree[right])[2]
+            && let Some(right_leaf) = right_orth[2]
+            && let Some(above) = node.facets()[3]
+            && let Some(above_orth) = tree.orthants_leaves(&tree[above])[1]
+            && let Some(above_leaf) = above_orth[1]
+            && let Some(diag) = tree[above].facets()[1]
+            && let Some(diag_orth) = tree.orthants_leaves(&tree[diag])[0]
+            && let Some(diag_leaf) = diag_orth[0]
+        {
+            connectivity.push([
+                center_nodes[leaf.into()],
+                center_nodes[right_leaf.into()],
+                center_nodes[diag_leaf.into()],
+                center_nodes[above_leaf.into()],
+            ]);
+        }
+    })
 }
