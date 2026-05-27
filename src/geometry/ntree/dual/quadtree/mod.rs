@@ -147,6 +147,39 @@ fn base_template_3<T, U, V>(
     });
 }
 
+fn vertex_template_1<T, U, V>(
+    tree: &Quadtree<T, U>,
+    center_nodes: &[V],
+    connectivity: &mut Vec<[V; N]>,
+) where
+    T: Copy + Into<usize>,
+    U: Copy + Into<usize>,
+    V: Copy,
+{
+    // Vertex configuration at node's (-x, -y) corner:
+    //   node (+x,+y of vertex): L leaf       (right side, "just has leaves").
+    //   ny   (+x,-y of vertex): L leaf.
+    //   nx   (-x,+y of vertex): L tree with all-leaf-children at L+1 (left side, "has subleaves").
+    //   diag (-x,-y of vertex): L tree with all-leaf-children at L+1.
+    tree.iter().enumerate().for_each(|(node_idx, node)| {
+        if node.is_leaf()
+            && let Some(nx) = node.facets()[0]
+            && let Some(ny) = node.facets()[2]
+            && tree[ny].is_leaf()
+            && let Some(nx_leaves) = tree.all_leaves(&tree[nx])
+            && let Some(diag) = tree[nx].facets()[2]
+            && let Some(diag_leaves) = tree.all_leaves(&tree[diag])
+        {
+            connectivity.push([
+                center_nodes[diag_leaves[3].into()],
+                center_nodes[ny.into()],
+                center_nodes[node_idx],
+                center_nodes[nx_leaves[1].into()],
+            ]);
+        }
+    });
+}
+
 fn edge_template_1<const I: usize, T, U, V>(
     tree: &Quadtree<T, U>,
     center_nodes: &[V],
@@ -359,25 +392,6 @@ fn edge_template_1<const I: usize, T, U, V>(
                     foo,
                     center_nodes[g_2b.into()],
                 ]);
-            }
-        }
-    });
-}
-
-fn vertex_template_1<T, U, V>(
-    tree: &Quadtree<T, U>,
-    center_nodes: &[V],
-    connectivity: &mut Vec<[V; N]>,
-) where
-    T: Copy + Into<usize>,
-    U: Copy + Into<usize>,
-    V: Copy,
-{
-    tree.iter().for_each(|node| {
-        let node_leaves = tree.leaves_and_facets(node);
-        if let Some((leaf_0, facets_0)) = node_leaves[0] {
-            if let Some(n_leaf_2) = facets_0[1] && tree[n_leaf_2].is_leaf() {
-                todo!()
             }
         }
     });
