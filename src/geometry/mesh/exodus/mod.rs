@@ -94,16 +94,19 @@ where
     netcdf.define_variable::<i32>("eb_prop1", 1, &["num_el_blk"])?;
     netcdf.define_variable::<i32>("connect1", 2, &["num_el_in_blk1", "num_nod_per_el1"])?;
     let element_type = match [D, M, N] {
+        [2, 2, 3] => "TRI3",
+        [2, 2, 4] => "QUAD4",
         [3, 2, 3] => "TRI3",
         [3, 3, 8] => "HEX8",
         _ => unimplemented!(),
     };
     netcdf.put_variable_attribute_text("eb_prop1", "name", "ID")?;
     netcdf.put_variable_attribute_text("connect1", "elem_type", element_type)?;
+    netcdf.define_variable::<f64>("coordx", 1, &["num_nodes"])?;
+    netcdf.define_variable::<f64>("coordy", 1, &["num_nodes"])?;
     match D {
+        2 => {}
         3 => {
-            netcdf.define_variable::<f64>("coordx", 1, &["num_nodes"])?;
-            netcdf.define_variable::<f64>("coordy", 1, &["num_nodes"])?;
             netcdf.define_variable::<f64>("coordz", 1, &["num_nodes"])?;
         }
         _ => unimplemented!(),
@@ -119,10 +122,11 @@ fn write_exodus_ending<const D: usize>(
 ) -> Result<(), NulError> {
     netcdf.put_variable("eb_prop1", &[1])?;
     netcdf.put_variable("connect1", &connectivity.0)?;
+    netcdf.put_variable("coordx", &coordinates[0])?;
+    netcdf.put_variable("coordy", &coordinates[1])?;
     match D {
+        2 => {}
         3 => {
-            netcdf.put_variable("coordx", &coordinates[0])?;
-            netcdf.put_variable("coordy", &coordinates[1])?;
             netcdf.put_variable("coordz", &coordinates[2])?;
         }
         _ => unimplemented!(),

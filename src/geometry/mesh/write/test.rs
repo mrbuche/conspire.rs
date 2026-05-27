@@ -1,8 +1,8 @@
 #[cfg(feature = "netcdf")]
 use crate::{
     geometry::{
-        Coordinates, Write,
-        mesh::{TriangularMesh, from::test::mesh, write::Output},
+        Write,
+        mesh::{from::test::mesh, write::Output},
     },
     math::test::TestError,
 };

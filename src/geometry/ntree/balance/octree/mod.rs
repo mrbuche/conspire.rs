@@ -36,8 +36,7 @@ where
         let mut subdivide;
         let mut vertices = [false; 2];
         let strong = matches!(balancing, Balancing::Strong);
-        #[allow(unused_variables)]
-        for iteration in 1.. {
+        loop {
             balanced = true;
             index = 0;
             subdivide = false;

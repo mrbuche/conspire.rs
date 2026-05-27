@@ -22,5 +22,5 @@ pub type PyramidalMesh<const I: usize, T> = PrimitiveMesh<3, I, 3, 5, T>;
 pub type TetrahedralMesh<const I: usize, T> = PrimitiveMesh<3, I, 3, 4, T>;
 pub type WedgeMesh<const I: usize, T> = PrimitiveMesh<3, I, 3, 6, T>;
 
-pub type QuadrilateralMesh<const I: usize, T> = PrimitiveMesh<3, I, 2, 4, T>;
+pub type QuadrilateralMesh<const D: usize, const I: usize, T> = PrimitiveMesh<D, I, 2, 4, T>;
 pub type TriangularMesh<const I: usize, T> = PrimitiveMesh<3, I, 2, 3, T>;

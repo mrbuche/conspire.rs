@@ -1,0 +1,25 @@
+use crate::geometry::{Balancing, Coordinates, Pairing, QuadrilateralMesh, Quadtree, WriteExodus};
+use std::f64::consts::TAU;
+
+#[test]
+fn from_circle() {
+    let num_points = 256;
+    let radius = 100.0;
+    let center = [128.0, 128.0];
+    let coordinates: Coordinates<_, 0> = (0..num_points)
+        .map(|i| {
+            let theta = TAU * (i as f64) / (num_points as f64);
+            [
+                center[0] + radius * theta.cos(),
+                center[1] + radius * theta.sin(),
+            ]
+            .into()
+        })
+        .collect();
+    let mut quadtree = Quadtree::<u16, usize>::from((coordinates, 1.0));
+    quadtree
+        .equilibrate(Balancing::Strong, Pairing::Regular)
+        .unwrap();
+    let mesh = QuadrilateralMesh::<_, 0, usize>::from(quadtree);
+    mesh.write_exodus("target/quadtree.exo").unwrap();
+}
