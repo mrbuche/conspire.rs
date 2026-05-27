@@ -39,10 +39,10 @@ where
             });
         let mut connectivity = Vec::with_capacity(num);
         let mut nodes_map: NodeMap<V> = HashMap::new();
-        base_template_1(self, &center_nodes, &mut connectivity);
-        base_template_2(self, &center_nodes, &mut connectivity);
-        base_template_3(self, &center_nodes, &mut connectivity);
-        edge_template_1(
+        base_transition_1(self, &center_nodes, &mut connectivity);
+        base_transition_2(self, &center_nodes, &mut connectivity);
+        base_transition_3(self, &center_nodes, &mut connectivity);
+        edge_transition_1(
             self,
             &center_nodes,
             &mut coordinates,
@@ -50,12 +50,12 @@ where
             &mut node_index,
             &mut nodes_map,
         );
-        vertex_template_1(self, &center_nodes, &mut connectivity);
+        vertex_transition_1(self, &center_nodes, &mut connectivity);
         (connectivity, coordinates).into()
     }
 }
 
-fn base_template_1<T, U, V>(
+fn base_transition_1<T, U, V>(
     tree: &Quadtree<T, U>,
     center_nodes: &[V],
     connectivity: &mut Vec<[V; N]>,
@@ -76,7 +76,7 @@ fn base_template_1<T, U, V>(
     ))
 }
 
-fn base_template_2<T, U, V>(
+fn base_transition_2<T, U, V>(
     tree: &Quadtree<T, U>,
     center_nodes: &[V],
     connectivity: &mut Vec<[V; N]>,
@@ -118,7 +118,7 @@ fn base_template_2<T, U, V>(
     });
 }
 
-fn base_template_3<T, U, V>(
+fn base_transition_3<T, U, V>(
     tree: &Quadtree<T, U>,
     center_nodes: &[V],
     connectivity: &mut Vec<[V; N]>,
@@ -147,40 +147,7 @@ fn base_template_3<T, U, V>(
     });
 }
 
-fn vertex_template_1<T, U, V>(
-    tree: &Quadtree<T, U>,
-    center_nodes: &[V],
-    connectivity: &mut Vec<[V; N]>,
-) where
-    T: Copy + Into<usize>,
-    U: Copy + Into<usize>,
-    V: Copy,
-{
-    // Vertex configuration at node's (-x, -y) corner:
-    //   node (+x,+y of vertex): L leaf       (right side, "just has leaves").
-    //   ny   (+x,-y of vertex): L leaf.
-    //   nx   (-x,+y of vertex): L tree with all-leaf-children at L+1 (left side, "has subleaves").
-    //   diag (-x,-y of vertex): L tree with all-leaf-children at L+1.
-    tree.iter().enumerate().for_each(|(node_idx, node)| {
-        if node.is_leaf()
-            && let Some(nx) = node.facets()[0]
-            && let Some(ny) = node.facets()[2]
-            && tree[ny].is_leaf()
-            && let Some(nx_leaves) = tree.all_leaves(&tree[nx])
-            && let Some(diag) = tree[nx].facets()[2]
-            && let Some(diag_leaves) = tree.all_leaves(&tree[diag])
-        {
-            connectivity.push([
-                center_nodes[diag_leaves[3].into()],
-                center_nodes[ny.into()],
-                center_nodes[node_idx],
-                center_nodes[nx_leaves[1].into()],
-            ]);
-        }
-    });
-}
-
-fn edge_template_1<const I: usize, T, U, V>(
+fn edge_transition_1<const I: usize, T, U, V>(
     tree: &Quadtree<T, U>,
     center_nodes: &[V],
     coordinates: &mut Coordinates<D, I>,
@@ -393,6 +360,93 @@ fn edge_template_1<const I: usize, T, U, V>(
                     center_nodes[g_2b.into()],
                 ]);
             }
+        }
+    });
+}
+
+fn vertex_transition_1<T, U, V>(
+    tree: &Quadtree<T, U>,
+    center_nodes: &[V],
+    connectivity: &mut Vec<[V; N]>,
+) where
+    T: Copy + Into<usize>,
+    U: Copy + Into<usize>,
+    V: Copy,
+{
+    tree.iter().for_each(|node| {
+        let [leaf_0, leaf_1, leaf_2, leaf_3] = tree.leaves(node);
+        // let [leaf_0, leaf_1, leaf_2, leaf_3] = tree.leaves_and_facets(node);
+
+        if let Some(curr_leaf) = leaf_2
+            && let Some(above) = node.facets()[3]
+            && let Some(above_leaf) = tree.leaves(&tree[above])[0]
+            && let Some(left) = node.facets()[0]
+            && let Some(left_orth_3) = tree.orthants_leaves(&tree[left])[3]
+            && let Some(left_corner_leaf) = left_orth_3[3]
+            && let Some(diag) = tree[left].facets()[3]
+            && let Some(diag_orth_1) = tree.orthants_leaves(&tree[diag])[1]
+            && let Some(diag_corner_leaf) = diag_orth_1[1]
+        {
+            connectivity.push([
+                center_nodes[diag_corner_leaf.into()],
+                center_nodes[left_corner_leaf.into()],
+                center_nodes[curr_leaf.into()],
+                center_nodes[above_leaf.into()],
+            ]);
+        }
+
+        if let Some(curr_leaf) = leaf_1
+            && let Some(below) = node.facets()[2]
+            && let Some(below_leaf) = tree.leaves(&tree[below])[3]
+            && let Some(right) = node.facets()[1]
+            && let Some(right_orth_0) = tree.orthants_leaves(&tree[right])[0]
+            && let Some(right_corner_leaf) = right_orth_0[0]
+            && let Some(diag) = tree[right].facets()[2]
+            && let Some(diag_orth_2) = tree.orthants_leaves(&tree[diag])[2]
+            && let Some(diag_corner_leaf) = diag_orth_2[2]
+        {
+            connectivity.push([
+                center_nodes[below_leaf.into()],
+                center_nodes[diag_corner_leaf.into()],
+                center_nodes[right_corner_leaf.into()],
+                center_nodes[curr_leaf.into()],
+            ]);
+        }
+
+        if let Some(curr_leaf) = leaf_0
+            && let Some(left) = node.facets()[0]
+            && let Some(left_leaf) = tree.leaves(&tree[left])[1]
+            && let Some(below) = node.facets()[2]
+            && let Some(below_orth_2) = tree.orthants_leaves(&tree[below])[2]
+            && let Some(below_corner_leaf) = below_orth_2[2]
+            && let Some(diag) = tree[below].facets()[0]
+            && let Some(diag_orth_3) = tree.orthants_leaves(&tree[diag])[3]
+            && let Some(diag_corner_leaf) = diag_orth_3[3]
+        {
+            connectivity.push([
+                center_nodes[below_corner_leaf.into()],
+                center_nodes[curr_leaf.into()],
+                center_nodes[left_leaf.into()],
+                center_nodes[diag_corner_leaf.into()],
+            ]);
+        }
+
+        if let Some(curr_leaf) = leaf_3
+            && let Some(right) = node.facets()[1]
+            && let Some(right_leaf) = tree.leaves(&tree[right])[2]
+            && let Some(above) = node.facets()[3]
+            && let Some(above_orth_1) = tree.orthants_leaves(&tree[above])[1]
+            && let Some(above_corner_leaf) = above_orth_1[1]
+            && let Some(diag) = tree[above].facets()[1]
+            && let Some(diag_orth_0) = tree.orthants_leaves(&tree[diag])[0]
+            && let Some(diag_corner_leaf) = diag_orth_0[0]
+        {
+            connectivity.push([
+                center_nodes[curr_leaf.into()],
+                center_nodes[right_leaf.into()],
+                center_nodes[diag_corner_leaf.into()],
+                center_nodes[above_corner_leaf.into()],
+            ]);
         }
     });
 }
