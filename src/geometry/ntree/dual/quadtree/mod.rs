@@ -30,7 +30,7 @@ where
             .for_each(|(index, leaf)| {
                 center_nodes[index] = V::from(node_index);
                 let length: Scalar = leaf.length.into();
-                let center: [Scalar; D] = from_fn(|i| {
+                let center = from_fn(|i| {
                     let c: Scalar = leaf.corner[i].into();
                     c + length * 0.5
                 });
@@ -163,7 +163,7 @@ fn edge_transition_1<const I: usize, T, U, V>(
     V: Copy + From<usize>,
 {
     let mut get_or_add = |pos: [Scalar; D]| -> V {
-        let key: [usize; D] = pos.map(|p| (2.0 * p) as usize);
+        let key = pos.map(|p| (2.0 * p) as usize);
         if let Some(&v) = nodes_map.get(&key) {
             v
         } else {
