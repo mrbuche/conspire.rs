@@ -11,12 +11,11 @@ use crate::{
 use std::{array::from_fn, collections::HashMap, ops::Add};
 
 const D: usize = 2;
-const M: usize = 2;
 const N: usize = 4;
 
 type NodeMap<V> = HashMap<[usize; D], V>;
 
-impl<const I: usize, T, U, V> Dualization<D, I, M, N, V> for Quadtree<T, U>
+impl<const I: usize, T, U, V> Dualization<D, I, 2, N, V> for Quadtree<T, U>
 where
     T: Add<Output = T> + Copy + Into<Scalar> + Into<usize> + Split,
     U: Copy + Into<usize>,
