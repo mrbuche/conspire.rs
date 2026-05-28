@@ -31,7 +31,7 @@ where
         let (center_nodes, mut coordinates, mut node_index, mut connectivity) = self.initialize();
         self.uniform_transitions(&center_nodes, &mut connectivity);
         let mut nodes_map: NodeMap<V> = HashMap::new();
-        edge_transition_1(
+        facet_transition_1(
             self,
             &center_nodes,
             &mut coordinates,
@@ -50,7 +50,7 @@ where
     }
 }
 
-fn edge_transition_1<const I: usize, T, U, V>(
+fn facet_transition_1<const I: usize, T, U, V>(
     tree: &Quadtree<T, U>,
     center_nodes: &[V],
     coordinates: &mut Coordinates<D, I>,
