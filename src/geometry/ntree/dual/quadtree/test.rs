@@ -11,7 +11,7 @@ fn from_circle() {
         .equilibrate(Balancing::Weak, Pairing::Regular)
         .unwrap();
     let mesh: QuadrilateralMesh<_, 0, usize> = quadtree.dualize();
-    (&mesh).write_exodus("target/dual.exo").unwrap();
+    (&mesh).write_exodus("target/dual_quadtree.exo").unwrap();
     let (connectivity, coordinates) = mesh.into();
     connectivity
         .into_iter()

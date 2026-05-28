@@ -8,14 +8,13 @@ use crate::{
         ntree::{
             Quadtree,
             balance::Balancing,
-            dual::{Dualization, uniform_transition_1},
+            dual::{Dualization, Uniform},
             node::split::Split,
-            pair::Pairing,
         },
     },
     math::{Scalar, TensorVec},
 };
-use std::{array::from_fn, collections::HashMap, ops::Add};
+use std::{collections::HashMap, ops::Add};
 
 const D: usize = 2;
 const N: usize = 4;
@@ -29,30 +28,9 @@ where
     V: Copy + Default + From<usize>,
 {
     fn dualize(&mut self) -> QuadrilateralMesh<D, I, V> {
-        assert!(!matches!(self.balanced, Balancing::None));
-        assert!(!matches!(self.paired, Pairing::None));
-        let num = self.len();
-        let mut center_nodes = vec![V::default(); num];
-        let mut coordinates = Coordinates::with_capacity(num);
-        let mut node_index = 0;
-        self.iter()
-            .enumerate()
-            .filter(|(_, node)| node.is_leaf())
-            .for_each(|(index, leaf)| {
-                center_nodes[index] = V::from(node_index);
-                let length: Scalar = leaf.length.into();
-                let center = from_fn(|i| {
-                    let c: Scalar = leaf.corner[i].into();
-                    c + length * 0.5
-                });
-                coordinates.push(center.into());
-                node_index += 1;
-            });
-        let mut connectivity = Vec::with_capacity(num);
+        let (center_nodes, mut coordinates, mut node_index, mut connectivity) = self.initialize();
+        self.uniform_transitions(&center_nodes, &mut connectivity);
         let mut nodes_map: NodeMap<V> = HashMap::new();
-        uniform_transition_1(self, &center_nodes, &mut connectivity);
-        base_transition_2(self, &center_nodes, &mut connectivity);
-        base_transition_3(self, &center_nodes, &mut connectivity);
         edge_transition_1(
             self,
             &center_nodes,
@@ -70,77 +48,6 @@ where
         }
         (connectivity, coordinates).into()
     }
-}
-
-fn base_transition_2<T, U, V>(
-    tree: &Quadtree<T, U>,
-    center_nodes: &[V],
-    connectivity: &mut Vec<[V; N]>,
-) where
-    T: Copy + Into<usize>,
-    U: Copy + Into<usize>,
-    V: Copy,
-{
-    tree.iter().for_each(|node| {
-        let node_leaves = tree.leaves_and_facets(node);
-        if let Some((leaf_0, facets_0)) = node_leaves[0]
-            && let Some((leaf_2, facets_2)) = node_leaves[2]
-            && let Some(n_leaf_1) = facets_0[0]
-            && tree[n_leaf_1].is_leaf()
-            && let Some(n_leaf_3) = facets_2[0]
-            && tree[n_leaf_3].is_leaf()
-        {
-            connectivity.push([
-                center_nodes[n_leaf_1.into()],
-                center_nodes[leaf_0.into()],
-                center_nodes[leaf_2.into()],
-                center_nodes[n_leaf_3.into()],
-            ]);
-        }
-        if let Some((leaf_0, facets_0)) = node_leaves[0]
-            && let Some((leaf_1, facets_1)) = node_leaves[1]
-            && let Some(n_leaf_2) = facets_0[1]
-            && tree[n_leaf_2].is_leaf()
-            && let Some(n_leaf_3) = facets_1[1]
-            && tree[n_leaf_3].is_leaf()
-        {
-            connectivity.push([
-                center_nodes[n_leaf_2.into()],
-                center_nodes[n_leaf_3.into()],
-                center_nodes[leaf_1.into()],
-                center_nodes[leaf_0.into()],
-            ]);
-        }
-    });
-}
-
-fn base_transition_3<T, U, V>(
-    tree: &Quadtree<T, U>,
-    center_nodes: &[V],
-    connectivity: &mut Vec<[V; N]>,
-) where
-    T: Copy + Into<usize>,
-    U: Copy + Into<usize>,
-    V: Copy,
-{
-    tree.iter().for_each(|node| {
-        let node_leaves = tree.leaves_and_facets(node);
-        if let Some((leaf_0, facets_0)) = node_leaves[0]
-            && let Some(n_leaf_1) = facets_0[0]
-            && tree[n_leaf_1].is_leaf()
-            && let Some(n_leaf_2) = facets_0[1]
-            && tree[n_leaf_2].is_leaf()
-            && let Some(n_leaf_diag) = tree[n_leaf_1].facets()[2]
-            && tree[n_leaf_diag].is_leaf()
-        {
-            connectivity.push([
-                center_nodes[n_leaf_diag.into()],
-                center_nodes[n_leaf_2.into()],
-                center_nodes[leaf_0.into()],
-                center_nodes[n_leaf_1.into()],
-            ]);
-        }
-    });
 }
 
 fn edge_transition_1<const I: usize, T, U, V>(
