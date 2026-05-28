@@ -3,8 +3,15 @@ mod test;
 
 use crate::{
     geometry::{
-        Coordinates, Dualization, QuadrilateralMesh, Quadtree,
-        ntree::{balance::Balancing, node::split::Split, pair::Pairing},
+        Coordinates,
+        mesh::QuadrilateralMesh,
+        ntree::{
+            Quadtree,
+            balance::Balancing,
+            dual::{Dualization, uniform_transition_1},
+            node::split::Split,
+            pair::Pairing,
+        },
     },
     math::{Scalar, TensorVec},
 };
@@ -43,7 +50,7 @@ where
             });
         let mut connectivity = Vec::with_capacity(num);
         let mut nodes_map: NodeMap<V> = HashMap::new();
-        base_transition_1(self, &center_nodes, &mut connectivity);
+        uniform_transition_1(self, &center_nodes, &mut connectivity);
         base_transition_2(self, &center_nodes, &mut connectivity);
         base_transition_3(self, &center_nodes, &mut connectivity);
         edge_transition_1(
@@ -63,27 +70,6 @@ where
         }
         (connectivity, coordinates).into()
     }
-}
-
-fn base_transition_1<T, U, V>(
-    tree: &Quadtree<T, U>,
-    center_nodes: &[V],
-    connectivity: &mut Vec<[V; N]>,
-) where
-    T: Copy + Into<usize>,
-    U: Copy + Into<usize>,
-    V: Copy,
-{
-    connectivity.extend(tree.iter().filter_map(|node| tree.all_leaves(node)).map(
-        |&[leaf_0, leaf_1, leaf_2, leaf_3]| {
-            [
-                center_nodes[leaf_0.into()],
-                center_nodes[leaf_1.into()],
-                center_nodes[leaf_3.into()],
-                center_nodes[leaf_2.into()],
-            ]
-        },
-    ))
 }
 
 fn base_transition_2<T, U, V>(
