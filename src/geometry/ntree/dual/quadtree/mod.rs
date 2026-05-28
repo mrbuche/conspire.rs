@@ -8,18 +8,16 @@ use crate::{
         ntree::{
             Quadtree,
             balance::Balancing,
-            dual::{Dualization, Uniform},
+            dual::{Dualization, NodeMap, Uniform},
             node::split::Split,
         },
     },
     math::{Scalar, TensorVec},
 };
-use std::{collections::HashMap, ops::Add};
+use std::ops::Add;
 
 const D: usize = 2;
 const N: usize = 4;
-
-type NodeMap<V> = HashMap<[usize; D], V>;
 
 impl<const I: usize, T, U, V> Dualization<D, I, 2, N, V> for Quadtree<T, U>
 where
@@ -30,8 +28,8 @@ where
     fn dualize(&mut self) -> QuadrilateralMesh<D, I, V> {
         let (center_nodes, mut coordinates, mut node_index, mut connectivity) = self.initialize();
         self.uniform_transitions(&center_nodes, &mut connectivity);
-        let mut nodes_map: NodeMap<V> = HashMap::new();
-        facet_transition(
+        let mut nodes_map = NodeMap::<D, V>::new();
+        edge_transition(
             self,
             &center_nodes,
             &mut coordinates,
@@ -50,13 +48,13 @@ where
     }
 }
 
-fn facet_transition<const I: usize, T, U, V>(
+fn edge_transition<const I: usize, T, U, V>(
     tree: &Quadtree<T, U>,
     center_nodes: &[V],
     coordinates: &mut Coordinates<D, I>,
     connectivity: &mut Vec<[V; N]>,
     node_index: &mut usize,
-    nodes_map: &mut NodeMap<V>,
+    nodes_map: &mut NodeMap<D, V>,
 ) where
     T: Copy + Into<Scalar> + Into<usize>,
     U: Copy + Into<usize>,

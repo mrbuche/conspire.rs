@@ -9,7 +9,9 @@ use crate::{
     },
     math::{Scalar, TensorVec},
 };
-use std::array::from_fn;
+use std::{array::from_fn, collections::HashMap};
+
+type NodeMap<const D: usize, V> = HashMap<[usize; D], V>;
 
 pub trait Dualization<const D: usize, const I: usize, const M: usize, const N: usize, T> {
     fn dualize(&mut self) -> PrimitiveMesh<D, I, M, N, T>;
