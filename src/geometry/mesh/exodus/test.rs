@@ -3,14 +3,14 @@ use crate::geometry::mesh::{Connectivity, MeshNew, PrimitiveConnectivity, exodus
 #[test]
 fn two_cubes() {
     let connectivities = vec![
-        Connectivity::<3, i32>::Hexahedral(
+        Connectivity::<i32>::Hexahedral(
             PrimitiveConnectivity(
                 vec![
                     [0, 1, 4, 3, 6, 7, 10, 9],
                 ]
             )
         ),
-        Connectivity::<3, i32>::Hexahedral(
+        Connectivity::<i32>::Hexahedral(
             PrimitiveConnectivity(
                 vec![
                     [1, 2, 5, 4, 7, 8, 11, 10],
