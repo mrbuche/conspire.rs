@@ -13,12 +13,12 @@ use std::{array::from_fn, collections::HashMap};
 
 type NodeMap<const D: usize, V> = HashMap<[usize; D], V>;
 
-pub trait Dualization<const D: usize, const I: usize, const M: usize, const N: usize, T> {
-    fn dualize(&mut self) -> PrimitiveMesh<D, I, M, N, T>;
+pub trait Dualization<const D: usize, const M: usize, const N: usize, T> {
+    fn dualize(&mut self) -> PrimitiveMesh<D, M, N, T>;
 }
 
 pub trait Uniform<const D: usize, const N: usize, V> {
-    fn initialize<const I: usize>(&self) -> (Vec<V>, Coordinates<D, I>, usize, Vec<[V; N]>);
+    fn initialize(&self) -> (Vec<V>, Coordinates<D>, usize, Vec<[V; N]>);
     fn uniform_transitions(&self, center_nodes: &[V], connectivity: &mut Vec<[V; N]>);
     fn uniform_transition_1(&self, center_nodes: &[V], connectivity: &mut Vec<[V; N]>);
     fn uniform_transition_2(&self, center_nodes: &[V], connectivity: &mut Vec<[V; N]>);
@@ -33,7 +33,7 @@ where
     U: Copy + Into<usize>,
     V: Copy + Default + From<usize>,
 {
-    fn initialize<const I: usize>(&self) -> (Vec<V>, Coordinates<D, I>, usize, Vec<[V; N]>) {
+    fn initialize(&self) -> (Vec<V>, Coordinates<D>, usize, Vec<[V; N]>) {
         assert!(!matches!(self.balanced, Balancing::None));
         assert!(!matches!(self.paired, Pairing::None));
         let num = self.len();

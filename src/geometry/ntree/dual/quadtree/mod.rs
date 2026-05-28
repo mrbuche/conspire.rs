@@ -19,13 +19,13 @@ use std::ops::Add;
 const D: usize = 2;
 const N: usize = 4;
 
-impl<const I: usize, T, U, V> Dualization<D, I, 2, N, V> for Quadtree<T, U>
+impl<T, U, V> Dualization<D, 2, N, V> for Quadtree<T, U>
 where
     T: Add<Output = T> + Copy + Into<Scalar> + Into<usize> + Split,
     U: Copy + Into<usize>,
     V: Copy + Default + From<usize>,
 {
-    fn dualize(&mut self) -> QuadrilateralMesh<D, I, V> {
+    fn dualize(&mut self) -> QuadrilateralMesh<D, V> {
         let (center_nodes, mut coordinates, mut node_index, mut connectivity) = self.initialize();
         self.uniform_transitions(&center_nodes, &mut connectivity);
         let mut nodes_map = NodeMap::<D, V>::new();
@@ -48,10 +48,10 @@ where
     }
 }
 
-fn edge_transition<const I: usize, T, U, V>(
+fn edge_transition<T, U, V>(
     tree: &Quadtree<T, U>,
     center_nodes: &[V],
-    coordinates: &mut Coordinates<D, I>,
+    coordinates: &mut Coordinates<D>,
     connectivity: &mut Vec<[V; N]>,
     node_index: &mut usize,
     nodes_map: &mut NodeMap<D, V>,

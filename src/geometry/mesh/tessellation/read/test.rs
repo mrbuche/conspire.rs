@@ -16,6 +16,6 @@ fn consistency() -> Result<(), TestError> {
     // assert_eq!(tessellation.mesh.connectivity, CONNECTIVITY);
     // assert_eq(&tessellation.mesh.coordinates, &COORDINATES.into())?;
     // assert_eq(&tessellation.normals, &NORMALS.into())
-    let _ = Tessellation::<1, usize>::try_from(Path::new("target/foo.stl"))?;
+    let _ = Tessellation::<usize>::try_from(Path::new("target/foo.stl"))?;
     Ok(())
 }

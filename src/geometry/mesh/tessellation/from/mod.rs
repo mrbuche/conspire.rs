@@ -6,11 +6,11 @@ use crate::{
     math::{CrossProduct, Tensor},
 };
 
-impl<const I: usize, T> From<TriangularMesh<I, T>> for Tessellation<I, T>
+impl<T> From<TriangularMesh<T>> for Tessellation<T>
 where
     T: Copy + Into<usize>,
 {
-    fn from(mesh: TriangularMesh<I, T>) -> Self {
+    fn from(mesh: TriangularMesh<T>) -> Self {
         let normals = mesh
             .connectivity
             .iter()

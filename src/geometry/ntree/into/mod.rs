@@ -1,17 +1,14 @@
-use crate::{
-    geometry::{Coordinates, mesh::PrimitiveMesh, ntree::Orthotree},
-    math::TensorRank1,
-};
+use crate::geometry::{Coordinate, Coordinates, mesh::PrimitiveMesh, ntree::Orthotree};
 use std::{array::from_fn, collections::HashMap};
 
-impl<const D: usize, const L: usize, const M: usize, const N: usize, const I: usize, U, V>
-    From<Orthotree<D, L, M, N, u16, U>> for PrimitiveMesh<D, I, D, N, V>
+impl<const D: usize, const L: usize, const M: usize, const N: usize, U, V>
+    From<Orthotree<D, L, M, N, u16, U>> for PrimitiveMesh<D, D, N, V>
 where
     V: Copy + From<usize>,
 {
     fn from(orthotree: Orthotree<D, L, M, N, u16, U>) -> Self {
         let mut coord_map: HashMap<u64, usize> = HashMap::new();
-        let mut coords: Vec<TensorRank1<D, I>> = Vec::new();
+        let mut coords: Vec<Coordinate<D>> = Vec::new();
         let face_mask: usize = if D <= 2 { (1 << D) - 1 } else { 3 };
         let connectivity: Vec<[V; N]> = orthotree
             .nodes

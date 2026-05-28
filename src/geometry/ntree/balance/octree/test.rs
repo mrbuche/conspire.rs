@@ -3,7 +3,7 @@ use crate::geometry::{
 };
 use std::f64::consts::PI;
 
-pub fn sphere() -> Coordinates<3, 0> {
+pub fn sphere() -> Coordinates<3> {
     let num_points = 256;
     let radius = 100.0;
     let center = [128.0, 128.0, 128.0];
@@ -31,6 +31,6 @@ fn from_sphere() {
         .equilibrate(Balancing::Strong, Pairing::Regular)
         .unwrap();
     octree.prune();
-    let mesh = HexahedralMesh::<0, usize>::from(octree);
+    let mesh = HexahedralMesh::<usize>::from(octree);
     mesh.write_exodus("target/octree.exo").unwrap();
 }

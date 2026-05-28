@@ -44,8 +44,8 @@ where
     }
 }
 
-impl<const D: usize, const I: usize, const M: usize, const N: usize, P, T> WriteExodus<P>
-    for PrimitiveMesh<D, I, M, N, T>
+impl<const D: usize, const M: usize, const N: usize, P, T> WriteExodus<P>
+    for PrimitiveMesh<D, M, N, T>
 where
     P: AsRef<Path>,
     T: Copy + Into<usize>,
@@ -57,8 +57,8 @@ where
     }
 }
 
-impl<const D: usize, const I: usize, const M: usize, const N: usize, P, T> WriteExodus<P>
-    for &PrimitiveMesh<D, I, M, N, T>
+impl<const D: usize, const M: usize, const N: usize, P, T> WriteExodus<P>
+    for &PrimitiveMesh<D, M, N, T>
 where
     P: AsRef<Path>,
     T: Copy + Into<usize>,
@@ -73,8 +73,8 @@ where
     }
 }
 
-fn write_exodus_prelude<const D: usize, const I: usize, const M: usize, const N: usize, P, T>(
-    mesh: &PrimitiveMesh<D, I, M, N, T>,
+fn write_exodus_prelude<const D: usize, const M: usize, const N: usize, P, T>(
+    mesh: &PrimitiveMesh<D, M, N, T>,
     output: P,
 ) -> Result<NetCDF, NulError>
 where

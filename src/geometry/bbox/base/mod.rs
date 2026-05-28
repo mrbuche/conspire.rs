@@ -3,7 +3,7 @@ mod test;
 
 use crate::{geometry::bbox::BoundingBox, math::Tensor};
 
-impl<const D: usize, const I: usize> BoundingBox<D, I> {
+impl<const D: usize> BoundingBox<D> {
     pub fn longest_axis(&self) -> usize {
         self.maximum
             .iter()

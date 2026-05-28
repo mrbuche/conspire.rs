@@ -6,7 +6,7 @@ use crate::{
     math::Tensor,
 };
 
-impl<const D: usize, const I: usize> Unite<Self> for BoundingBox<D, I> {
+impl<const D: usize> Unite<Self> for BoundingBox<D> {
     type Output = Self;
     fn unite(self, other: Self) -> Self::Output {
         let mut minimum = self.minimum;
@@ -23,9 +23,9 @@ impl<const D: usize, const I: usize> Unite<Self> for BoundingBox<D, I> {
     }
 }
 
-impl<const D: usize, const I: usize> Unite<BoundingBox<D, I>> for &BoundingBox<D, I> {
-    type Output = BoundingBox<D, I>;
-    fn unite(self, other: BoundingBox<D, I>) -> Self::Output {
+impl<const D: usize> Unite<BoundingBox<D>> for &BoundingBox<D> {
+    type Output = BoundingBox<D>;
+    fn unite(self, other: BoundingBox<D>) -> Self::Output {
         let mut minimum = self.minimum.clone();
         let mut maximum = self.maximum.clone();
         minimum
@@ -40,7 +40,7 @@ impl<const D: usize, const I: usize> Unite<BoundingBox<D, I>> for &BoundingBox<D
     }
 }
 
-impl<const D: usize, const I: usize> Unite<&Self> for BoundingBox<D, I> {
+impl<const D: usize> Unite<&Self> for BoundingBox<D> {
     type Output = Self;
     fn unite(self, other: &Self) -> Self::Output {
         let mut minimum = self.minimum;
@@ -57,8 +57,8 @@ impl<const D: usize, const I: usize> Unite<&Self> for BoundingBox<D, I> {
     }
 }
 
-impl<const D: usize, const I: usize> Unite<Self> for &BoundingBox<D, I> {
-    type Output = BoundingBox<D, I>;
+impl<const D: usize> Unite<Self> for &BoundingBox<D> {
+    type Output = BoundingBox<D>;
     fn unite(self, other: Self) -> Self::Output {
         let mut minimum = self.minimum.clone();
         let mut maximum = self.maximum.clone();

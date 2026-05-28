@@ -11,7 +11,7 @@ use std::{
     path::Path,
 };
 
-impl<const I: usize, T, P> Write<P> for Tessellation<I, T>
+impl<T, P> Write<P> for Tessellation<T>
 where
     P: AsRef<Path>,
     T: Copy + Into<usize>,

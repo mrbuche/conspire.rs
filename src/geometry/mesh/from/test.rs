@@ -20,7 +20,7 @@ pub const CONNECTIVITY: [[usize; 3]; 12] = [
     [1, 6, 5],
 ];
 
-pub const COORDINATES: [Coordinate<3, 0>; 8] = [
+pub const COORDINATES: [Coordinate<3>; 8] = [
     Coordinate::const_from([0.0, 0.0, 0.0]),
     Coordinate::const_from([1.0, 0.0, 0.0]),
     Coordinate::const_from([1.0, 1.0, 0.0]),
@@ -31,7 +31,7 @@ pub const COORDINATES: [Coordinate<3, 0>; 8] = [
     Coordinate::const_from([0.0, 1.0, 1.0]),
 ];
 
-pub fn mesh() -> TriangularMesh<0, usize> {
+pub fn mesh() -> TriangularMesh<usize> {
     let connectivity = CONNECTIVITY.to_vec();
     let coordinates = Coordinates::from(COORDINATES);
     TriangularMesh::from((connectivity, coordinates))

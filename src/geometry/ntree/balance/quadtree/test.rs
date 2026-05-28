@@ -3,7 +3,7 @@ use crate::geometry::{
 };
 use std::f64::consts::TAU;
 
-pub fn circle() -> Coordinates<2, 0> {
+pub fn circle() -> Coordinates<2> {
     let num_points = 256;
     let radius = 100.0;
     let center = [128.0, 128.0];
@@ -27,6 +27,6 @@ fn from_circle() {
         .equilibrate(Balancing::Strong, Pairing::Regular)
         .unwrap();
     quadtree.prune();
-    let mesh = QuadrilateralMesh::<_, 0, usize>::from(quadtree);
+    let mesh = QuadrilateralMesh::<2, usize>::from(quadtree);
     mesh.write_exodus("target/quadtree.exo").unwrap();
 }

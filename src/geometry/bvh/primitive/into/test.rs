@@ -2,20 +2,20 @@ use crate::geometry::{
     Coordinate,
     bbox::{
         BoundingBox,
-        unite::test::{BBOX_1, BBOX_1U2, BBOX_2, D, I},
+        unite::test::{BBOX_1, BBOX_1U2, BBOX_2, D},
     },
     bvh::primitive::Primitive,
 };
 
 type T = usize;
 
-const PRIMITIVE_1: Primitive<D, I, T> = Primitive {
+const PRIMITIVE_1: Primitive<D, T> = Primitive {
     bounding_box: BBOX_1,
     centroid: Coordinate::const_from([0.5, 0.5, 0.5]),
     index: 1,
 };
 
-const PRIMITIVE_2: Primitive<D, I, T> = Primitive {
+const PRIMITIVE_2: Primitive<D, T> = Primitive {
     bounding_box: BBOX_2,
     centroid: Coordinate::const_from([1.5, 1.5, 1.5]),
     index: 2,

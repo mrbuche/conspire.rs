@@ -17,13 +17,13 @@ use crate::{
 const D: usize = 3;
 const N: usize = 8;
 
-impl<const I: usize, T, U, V> Dualization<D, I, 3, N, V> for Octree<T, U>
+impl<T, U, V> Dualization<D, 3, N, V> for Octree<T, U>
 where
     T: Copy + Into<Scalar> + Into<usize>,
     U: Copy + Into<usize>,
     V: Copy + Default + From<usize>,
 {
-    fn dualize(&mut self) -> HexahedralMesh<I, V> {
+    fn dualize(&mut self) -> HexahedralMesh<V> {
         let (center_nodes, mut coordinates, mut node_index, mut connectivity) = self.initialize();
         self.uniform_transitions(&center_nodes, &mut connectivity);
         let mut nodes_map = NodeMap::<D, V>::new();
@@ -42,10 +42,10 @@ where
     }
 }
 
-fn face_transition<const I: usize, T, U, V>(
+fn face_transition<T, U, V>(
     _tree: &Octree<T, U>,
     _center_nodes: &[V],
-    _coordinates: &mut Coordinates<D, I>,
+    _coordinates: &mut Coordinates<D>,
     _connectivity: &mut Vec<[V; N]>,
     _node_index: &mut usize,
     _nodes_map: &mut NodeMap<D, V>,

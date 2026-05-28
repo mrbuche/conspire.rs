@@ -10,7 +10,7 @@ fn from_sphere() {
     octree
         .equilibrate(Balancing::Strong, Pairing::Regular)
         .unwrap();
-    let mesh: HexahedralMesh<0, usize> = octree.dualize();
+    let mesh: HexahedralMesh<usize> = octree.dualize();
     (&mesh).write_exodus("target/dual_octree.exo").unwrap();
     let (connectivity, coordinates) = mesh.into();
     assert!(!connectivity.is_empty(), "no hexes produced");

@@ -3,8 +3,8 @@ mod test;
 
 use crate::geometry::{BoundingBox, BoundingBoxUnite, bvh::primitive::Primitive};
 
-impl<const D: usize, const I: usize, T> From<&[Primitive<D, I, T>]> for BoundingBox<D, I> {
-    fn from(primitives: &[Primitive<D, I, T>]) -> Self {
+impl<const D: usize, T> From<&[Primitive<D, T>]> for BoundingBox<D> {
+    fn from(primitives: &[Primitive<D, T>]) -> Self {
         primitives
             .iter()
             .skip(1)

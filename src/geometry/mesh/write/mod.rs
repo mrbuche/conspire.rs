@@ -31,8 +31,8 @@ where
     }
 }
 
-impl<const D: usize, const I: usize, const M: usize, const N: usize, P, T> Write<Output<P>>
-    for PrimitiveMesh<D, I, M, N, T>
+impl<const D: usize, const M: usize, const N: usize, P, T> Write<Output<P>>
+    for PrimitiveMesh<D, M, N, T>
 where
     P: AsRef<Path>,
     T: Copy + Into<usize>,

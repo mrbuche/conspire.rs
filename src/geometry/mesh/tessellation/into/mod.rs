@@ -9,14 +9,14 @@ use crate::geometry::{
     },
 };
 
-impl<const I: usize, T> From<Tessellation<I, T>> for TriangularMesh<I, T> {
-    fn from(tessellation: Tessellation<I, T>) -> Self {
+impl<T> From<Tessellation<T>> for TriangularMesh<T> {
+    fn from(tessellation: Tessellation<T>) -> Self {
         tessellation.mesh
     }
 }
 
-impl<const I: usize, T> From<Tessellation<I, T>> for (Vec<[T; N]>, Coordinates<D, I>) {
-    fn from(tessellation: Tessellation<I, T>) -> Self {
+impl<T> From<Tessellation<T>> for (Vec<[T; N]>, Coordinates<D>) {
+    fn from(tessellation: Tessellation<T>) -> Self {
         (
             tessellation.mesh.connectivity,
             tessellation.mesh.coordinates,
@@ -24,10 +24,8 @@ impl<const I: usize, T> From<Tessellation<I, T>> for (Vec<[T; N]>, Coordinates<D
     }
 }
 
-impl<const I: usize, T> From<Tessellation<I, T>>
-    for (Vec<[T; N]>, Coordinates<D, I>, Coordinates<D, I>)
-{
-    fn from(tessellation: Tessellation<I, T>) -> Self {
+impl<T> From<Tessellation<T>> for (Vec<[T; N]>, Coordinates<D>, Coordinates<D>) {
+    fn from(tessellation: Tessellation<T>) -> Self {
         (
             tessellation.mesh.connectivity,
             tessellation.mesh.coordinates,

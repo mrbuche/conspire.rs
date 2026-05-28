@@ -9,19 +9,18 @@ pub mod write;
 
 use crate::geometry::Coordinates;
 
-pub struct Mesh<const D: usize, const I: usize, const M: usize, T> {
+pub struct Mesh<const D: usize, const M: usize, T> {
     connectivity: T,
-    coordinates: Coordinates<D, I>,
+    coordinates: Coordinates<D>,
 }
 
-pub type PrimitiveMesh<const D: usize, const I: usize, const M: usize, const N: usize, T> =
-    Mesh<D, I, M, Vec<[T; N]>>;
+pub type PrimitiveMesh<const D: usize, const M: usize, const N: usize, T> = Mesh<D, M, Vec<[T; N]>>;
 
-pub type HexahedralMesh<const I: usize, T> = PrimitiveMesh<3, I, 3, 8, T>;
-pub type TetrahedralMesh<const I: usize, T> = PrimitiveMesh<3, I, 3, 4, T>;
+pub type HexahedralMesh<T> = PrimitiveMesh<3, 3, 8, T>;
+pub type TetrahedralMesh<T> = PrimitiveMesh<3, 3, 4, T>;
 
-pub type QuadrilateralMesh<const D: usize, const I: usize, T> = PrimitiveMesh<D, I, 2, 4, T>;
-pub type TriangularMesh<const I: usize, T> = PrimitiveMesh<3, I, 2, 3, T>;
+pub type QuadrilateralMesh<const D: usize, T> = PrimitiveMesh<D, 2, 4, T>;
+pub type TriangularMesh<T> = PrimitiveMesh<3, 2, 3, T>;
 
 // Can bring in Sets, but should generalize across two concrete types
 // (with/without id numbers stored) and avoid extra storage.
@@ -138,7 +137,7 @@ where
 
 pub struct MeshNew<const D: usize, T> {
     connectivities: Connectivities<T>,
-    coordinates: Coordinates<D, 0>,
+    coordinates: Coordinates<D>,
 }
 
 impl<const D: usize, T> MeshNew<D, T>
@@ -148,7 +147,7 @@ where
     fn connectivities(&self) -> &[Connectivity<T>] {
         &self.connectivities
     }
-    fn coordinates(&self) -> &Coordinates<D, 0> {
+    fn coordinates(&self) -> &Coordinates<D> {
         &self.coordinates
     }
     fn number_of_blocks(&self) -> usize {

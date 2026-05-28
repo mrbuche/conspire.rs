@@ -2,8 +2,8 @@ pub mod from;
 
 use crate::geometry::bbox::BoundingBox;
 
-pub struct Node<const D: usize, const I: usize> {
-    bounding_box: BoundingBox<D, I>,
+pub struct Node<const D: usize> {
+    bounding_box: BoundingBox<D>,
     kind: NodeKind,
 }
 
@@ -12,4 +12,4 @@ pub enum NodeKind {
     Tree { left: usize, right: usize },
 }
 
-pub type Nodes<const D: usize, const I: usize> = Vec<Node<D, I>>;
+pub type Nodes<const D: usize> = Vec<Node<D>>;

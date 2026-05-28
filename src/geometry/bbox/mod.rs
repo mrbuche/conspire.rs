@@ -5,12 +5,12 @@ pub mod unite;
 use crate::geometry::Coordinate;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct BoundingBox<const D: usize, const I: usize> {
-    minimum: Coordinate<D, I>,
-    maximum: Coordinate<D, I>,
+pub struct BoundingBox<const D: usize> {
+    minimum: Coordinate<D>,
+    maximum: Coordinate<D>,
 }
 
-pub type BoundingBoxes<const D: usize, const I: usize> = Vec<BoundingBox<D, I>>;
+pub type BoundingBoxes<const D: usize> = Vec<BoundingBox<D>>;
 
 pub trait Unite<T> {
     type Output;

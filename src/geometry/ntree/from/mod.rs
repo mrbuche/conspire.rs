@@ -12,10 +12,10 @@ use crate::{
 };
 use std::array::from_fn;
 
-impl<const D: usize, const L: usize, const M: usize, const N: usize, const I: usize>
-    From<(Coordinates<D, I>, f64)> for Orthotree<D, L, M, N, u16, usize>
+impl<const D: usize, const L: usize, const M: usize, const N: usize> From<(Coordinates<D>, f64)>
+    for Orthotree<D, L, M, N, u16, usize>
 {
-    fn from((coordinates, min_length): (Coordinates<D, I>, f64)) -> Self {
+    fn from((coordinates, min_length): (Coordinates<D>, f64)) -> Self {
         if coordinates.is_empty() {
             return Self {
                 balanced: Balancing::None,

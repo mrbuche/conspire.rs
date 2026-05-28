@@ -15,7 +15,7 @@ use std::{
     path::Path,
 };
 
-impl<const I: usize, T> TryFrom<&Path> for Tessellation<I, T>
+impl<T> TryFrom<&Path> for Tessellation<T>
 where
     T: Copy + From<usize>,
 {
@@ -50,7 +50,7 @@ where
             ]));
             Ok::<(), ErrorIO>(())
         })?;
-        let coordinates: Coordinates<D, I> = unique_vertices_f32
+        let coordinates: Coordinates<D> = unique_vertices_f32
             .into_iter()
             .map(|v| Coordinate::const_from([v[0] as f64, v[1] as f64, v[2] as f64]))
             .collect();

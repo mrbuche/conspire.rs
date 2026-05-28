@@ -6,7 +6,7 @@ use crate::geometry::{
 
 const KIND: NodeKind = NodeKind::Leaf { start: 0, end: 1 };
 
-fn bbox() -> BoundingBox<3, 0> {
+fn bbox() -> BoundingBox<3> {
     BoundingBox::from(Coordinates::from([[0.0, 0.0, 0.0], [5.0, 5.0, 5.0]]))
 }
 
