@@ -1,12 +1,6 @@
 use crate::geometry::mesh::connectivity::{Connectivity, iter::ElementIter};
 use std::{fmt::Debug, num::TryFromIntError};
 
-#[cfg(feature = "netcdf")]
-pub enum FlatConnectivity<I> {
-    Primitive(Vec<I>),
-    Polytopal(Vec<I>, Vec<I>),
-}
-
 pub trait ConnectivityImpl {
     fn is_empty(&self) -> bool;
     fn number_of_elements(&self) -> usize;
@@ -24,6 +18,12 @@ pub trait ConnectivityImpl {
     fn flat_connectivity<I>(&self) -> FlatConnectivity<I>
     where
         I: Debug + TryFrom<usize, Error = TryFromIntError>;
+}
+
+#[cfg(feature = "netcdf")]
+pub enum FlatConnectivity<I> {
+    Primitive(Vec<I>),
+    Polytopal(Vec<I>, Vec<I>),
 }
 
 impl Connectivity {

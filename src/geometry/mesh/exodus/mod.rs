@@ -99,10 +99,10 @@ where
                     } else {
                         panic!()
                     }
-                    if let Some(ebepecnt) = connectivity.number_of_nodes_per_face::<i32>() {
+                    if let Some(fbepecnt) = connectivity.number_of_nodes_per_face::<i32>() {
                         netcdf.define_dimension(
                             &format!("num_nod_per_fa{}", block),
-                            ebepecnt.into_iter().map(|c| c as usize).sum(),
+                            fbepecnt.into_iter().map(|c| c as usize).sum(),
                         )?;
                         netcdf.define_variable::<i32>(
                             &format!("fbconn{}", block),
