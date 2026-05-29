@@ -1,9 +1,17 @@
 use crate::geometry::mesh::connectivity::{Connectivity, iter::ElementIter};
+use std::{fmt::Debug, num::TryFromIntError};
 
 pub trait ConnectivityImpl {
     fn is_empty(&self) -> bool;
-    fn len(&self) -> usize;
+    fn number_of_elements(&self) -> usize;
+    fn number_of_faces(&self) -> Option<usize>;
+    fn number_of_faces_per_element<I>(&self) -> Option<Vec<I>>
+    where
+        I: Debug + TryFrom<usize, Error = TryFromIntError>;
     fn number_of_nodes_per_element(&self) -> Option<usize>;
+    fn number_of_nodes_per_face<I>(&self) -> Option<Vec<I>>
+    where
+        I: Debug + TryFrom<usize, Error = TryFromIntError>;
     #[cfg(feature = "netcdf")]
     fn exodus_element_type(&self) -> &str;
     #[cfg(feature = "netcdf")]
@@ -24,14 +32,37 @@ impl Connectivity {
     pub fn iter(&self) -> ElementIter<'_> {
         self.into_iter()
     }
-    pub fn len(&self) -> usize {
+    pub fn number_of_elements(&self) -> usize {
         match self {
-            Connectivity::Hexahedral(c) => c.len(),
-            Connectivity::Polyhedral(c) => c.len(),
-            Connectivity::Polygonal(c) => c.len(),
-            Connectivity::Quadrilateral(c) => c.len(),
-            Connectivity::Tetrahedral(c) => c.len(),
-            Connectivity::Triangular(c) => c.len(),
+            Connectivity::Hexahedral(c) => c.number_of_elements(),
+            Connectivity::Polyhedral(c) => c.number_of_elements(),
+            Connectivity::Polygonal(c) => c.number_of_elements(),
+            Connectivity::Quadrilateral(c) => c.number_of_elements(),
+            Connectivity::Tetrahedral(c) => c.number_of_elements(),
+            Connectivity::Triangular(c) => c.number_of_elements(),
+        }
+    }
+    pub fn number_of_faces(&self) -> Option<usize> {
+        match self {
+            Connectivity::Hexahedral(c) => c.number_of_faces(),
+            Connectivity::Polyhedral(c) => c.number_of_faces(),
+            Connectivity::Polygonal(c) => c.number_of_faces(),
+            Connectivity::Quadrilateral(c) => c.number_of_faces(),
+            Connectivity::Tetrahedral(c) => c.number_of_faces(),
+            Connectivity::Triangular(c) => c.number_of_faces(),
+        }
+    }
+    pub fn number_of_faces_per_element<I>(&self) -> Option<Vec<I>>
+    where
+        I: Debug + TryFrom<usize, Error = TryFromIntError>,
+    {
+        match self {
+            Connectivity::Hexahedral(c) => c.number_of_faces_per_element(),
+            Connectivity::Polyhedral(c) => c.number_of_faces_per_element(),
+            Connectivity::Polygonal(c) => c.number_of_faces_per_element(),
+            Connectivity::Quadrilateral(c) => c.number_of_faces_per_element(),
+            Connectivity::Tetrahedral(c) => c.number_of_faces_per_element(),
+            Connectivity::Triangular(c) => c.number_of_faces_per_element(),
         }
     }
     pub fn number_of_nodes_per_element(&self) -> Option<usize> {
@@ -42,6 +73,19 @@ impl Connectivity {
             Connectivity::Quadrilateral(c) => c.number_of_nodes_per_element(),
             Connectivity::Tetrahedral(c) => c.number_of_nodes_per_element(),
             Connectivity::Triangular(c) => c.number_of_nodes_per_element(),
+        }
+    }
+    pub fn number_of_nodes_per_face<I>(&self) -> Option<Vec<I>>
+    where
+        I: Debug + TryFrom<usize, Error = TryFromIntError>,
+    {
+        match self {
+            Connectivity::Hexahedral(c) => c.number_of_nodes_per_face(),
+            Connectivity::Polyhedral(c) => c.number_of_nodes_per_face(),
+            Connectivity::Polygonal(c) => c.number_of_nodes_per_face(),
+            Connectivity::Quadrilateral(c) => c.number_of_nodes_per_face(),
+            Connectivity::Tetrahedral(c) => c.number_of_nodes_per_face(),
+            Connectivity::Triangular(c) => c.number_of_nodes_per_face(),
         }
     }
     #[cfg(feature = "netcdf")]

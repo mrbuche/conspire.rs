@@ -63,14 +63,38 @@ impl<const D: usize> Mesh<D> {
     pub fn coordinates(&self) -> &Coordinates<D> {
         &self.coordinates
     }
-    pub fn number_of_blocks(&self) -> usize {
+    pub fn number_of_element_blocks(&self) -> usize {
         self.connectivities.len()
+    }
+    pub fn number_of_face_blocks(&self) -> Option<usize> {
+        let number_of_face_blocks = self
+            .connectivities
+            .iter()
+            .filter(|connectivity| connectivity.number_of_faces().is_some())
+            .count();
+        if number_of_face_blocks > 0 {
+            Some(number_of_face_blocks)
+        } else {
+            None
+        }
     }
     pub fn number_of_elements(&self) -> usize {
         self.connectivities
             .iter()
-            .map(|connectivity| connectivity.len())
+            .map(|connectivity| connectivity.number_of_elements())
             .sum()
+    }
+    pub fn number_of_faces(&self) -> Option<usize> {
+        let number_of_faces = self
+            .connectivities
+            .iter()
+            .filter_map(|connectivity| connectivity.number_of_faces())
+            .sum();
+        if number_of_faces > 0 {
+            Some(number_of_faces)
+        } else {
+            None
+        }
     }
     pub fn number_of_nodes(&self) -> usize {
         self.coordinates.len()

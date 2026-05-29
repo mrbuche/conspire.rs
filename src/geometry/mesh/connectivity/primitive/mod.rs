@@ -1,5 +1,5 @@
 use crate::geometry::mesh::connectivity::base::ConnectivityImpl;
-use std::slice::Iter;
+use std::{fmt::Debug, num::TryFromIntError, slice::Iter};
 
 pub struct PrimitiveConnectivity<const M: usize, const N: usize>(Vec<[usize; N]>);
 
@@ -35,11 +35,26 @@ impl<const M: usize, const N: usize> ConnectivityImpl for PrimitiveConnectivity<
     fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
-    fn len(&self) -> usize {
+    fn number_of_elements(&self) -> usize {
         self.0.len()
+    }
+    fn number_of_faces(&self) -> Option<usize> {
+        None
+    }
+    fn number_of_faces_per_element<I>(&self) -> Option<Vec<I>>
+    where
+        I: Debug + TryFrom<usize, Error = TryFromIntError>,
+    {
+        None
     }
     fn number_of_nodes_per_element(&self) -> Option<usize> {
         Some(N)
+    }
+    fn number_of_nodes_per_face<I>(&self) -> Option<Vec<I>>
+    where
+        I: Debug + TryFrom<usize, Error = TryFromIntError>,
+    {
+        None
     }
     #[cfg(feature = "netcdf")]
     fn exodus_element_type(&self) -> &str {

@@ -24,15 +24,26 @@ where
         netcdf.global()?;
         netcdf.define_dimension("num_dim", D)?;
         netcdf.define_dimension("num_elem", self.number_of_elements())?;
-        netcdf.define_dimension("num_el_blk", self.number_of_blocks())?;
+        netcdf.define_dimension("num_el_blk", self.number_of_element_blocks())?;
         netcdf.define_variable::<i32>("eb_prop1", 1, &["num_el_blk"])?;
         netcdf.put_variable_attribute_text("eb_prop1", "name", "ID")?;
+        if let Some(num_fa_blk) = self.number_of_face_blocks() {
+            netcdf.define_dimension("num_fa_blk", num_fa_blk)?;
+            netcdf.define_variable::<i32>("fa_prop1", 1, &["num_fa_blk"])?;
+            netcdf.put_variable_attribute_text("fa_prop1", "name", "ID")?;
+        }
+        if let Some(num_face) = self.number_of_faces() {
+            netcdf.define_dimension("num_face", num_face)?;
+        }
         self.connectivities()
             .iter()
             .enumerate()
             .try_for_each(|(block, connectivity)| {
                 let block = block + 1;
-                netcdf.define_dimension(&format!("num_el_in_blk{}", block), connectivity.len())?;
+                netcdf.define_dimension(
+                    &format!("num_el_in_blk{}", block),
+                    connectivity.number_of_elements(),
+                )?;
                 if let Some(num) = connectivity.number_of_nodes_per_element() {
                     netcdf.define_dimension(&format!("num_nod_per_el{}", block), num)?;
                     netcdf.define_variable::<i32>(
@@ -49,8 +60,78 @@ where
                         connectivity.exodus_element_type(),
                     )
                 } else {
-                    netcdf.define_dimension(&format!("num_nod_per_el{}", block), num)?;
-                    Ok(())
+                    if let Some(ebepecnt) = connectivity.number_of_faces_per_element::<i32>() {
+                        netcdf.define_dimension(
+                            &format!("num_fac_per_el{}", block),
+                            ebepecnt.into_iter().map(|c| c as usize).sum(),
+                        )?;
+                        netcdf.define_variable::<i32>(
+                            &format!("facconn{}", block),
+                            1,
+                            &[&format!("num_fac_per_el{}", block)],
+                        )?;
+                        netcdf.put_variable_attribute_text(
+                            &format!("facconn{}", block),
+                            "elem_type",
+                            connectivity.exodus_element_type(),
+                        )?;
+                        netcdf.define_variable::<i32>(
+                            &format!("ebepecnt{}", block),
+                            1,
+                            &[&format!("num_el_in_blk{}", block)],
+                        )?;
+                        netcdf.put_variable_attribute_text(
+                            &format!("ebepecnt{}", block),
+                            "entity_type1",
+                            "FACE",
+                        )?;
+                        netcdf.put_variable_attribute_text(
+                            &format!("ebepecnt{}", block),
+                            "entity_type2",
+                            "ELEM",
+                        )?;
+                    } else {
+                        panic!()
+                    }
+                    if let Some(num_fa_in_blk) = connectivity.number_of_faces() {
+                        netcdf
+                            .define_dimension(&format!("num_fa_in_blk{}", block), num_fa_in_blk)?;
+                    } else {
+                        panic!()
+                    }
+                    if let Some(ebepecnt) = connectivity.number_of_nodes_per_face::<i32>() {
+                        netcdf.define_dimension(
+                            &format!("num_nod_per_fa{}", block),
+                            ebepecnt.into_iter().map(|c| c as usize).sum(),
+                        )?;
+                        netcdf.define_variable::<i32>(
+                            &format!("fbconn{}", block),
+                            1,
+                            &[&format!("num_nod_per_fa{}", block)],
+                        )?;
+                        netcdf.put_variable_attribute_text(
+                            &format!("fbconn{}", block),
+                            "elem_type",
+                            "nsided",
+                        )?;
+                        netcdf.define_variable::<i32>(
+                            &format!("fbepecnt{}", block),
+                            1,
+                            &[&format!("num_fa_in_blk{}", block)],
+                        )?;
+                        netcdf.put_variable_attribute_text(
+                            &format!("fbepecnt{}", block),
+                            "entity_type1",
+                            "NODE",
+                        )?;
+                        netcdf.put_variable_attribute_text(
+                            &format!("fbepecnt{}", block),
+                            "entity_type2",
+                            "FACE",
+                        )
+                    } else {
+                        panic!()
+                    }
                 }
             })?;
         netcdf.define_dimension("num_nodes", self.number_of_nodes())?;
@@ -65,10 +146,13 @@ where
             _ => unimplemented!(),
         }
         netcdf.end_definition();
-        let block_ids: Vec<i32> = (1..self.number_of_blocks() + 1)
+        let block_ids: Vec<i32> = (1..self.number_of_element_blocks() + 1)
             .map(|index| index as i32)
             .collect();
         netcdf.put_variable("eb_prop1", &block_ids)?;
+        if let Some(_) = self.number_of_face_blocks() {
+            netcdf.put_variable("fa_prop1", &block_ids)?;
+        }
         self.connectivities()
             .iter()
             .enumerate()
@@ -77,7 +161,16 @@ where
                 if let Some(flat) = connectivity.primitive_connectivity_flattened() {
                     netcdf.put_variable(&format!("connect{}", block), &flat)
                 } else {
-                    Ok(())
+                    if let Some(ebepecnt) = connectivity.number_of_faces_per_element::<i32>() {
+                        netcdf.put_variable(&format!("ebepecnt{}", block), &ebepecnt)?;
+                    } else {
+                        panic!()
+                    }
+                    if let Some(fbepecnt) = connectivity.number_of_nodes_per_face::<i32>() {
+                        netcdf.put_variable(&format!("fbepecnt{}", block), &fbepecnt)
+                    } else {
+                        panic!()
+                    }
                 }
             })?;
         let coordinates: [Vec<f64>; D] = self.coordinates().into();
