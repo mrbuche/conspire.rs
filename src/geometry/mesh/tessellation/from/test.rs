@@ -1,7 +1,7 @@
 use crate::{
     geometry::{
         Coordinate, Coordinates,
-        mesh::{Mesh, from::test::mesh, tessellation::Tessellation},
+        mesh::{Connectivity, Mesh, from::test::mesh, tessellation::Tessellation},
     },
     math::{
         Tensor,
@@ -31,18 +31,22 @@ pub fn tessellation() -> Tessellation {
 }
 
 #[test]
-fn triangluar_mesh() -> Result<(), TestError> {
-    let connectivity: Vec<[usize; _]> = vec![[0, 1, 2], [0, 3, 1]];
+fn triangular_mesh() -> Result<(), TestError> {
+    let connectivities = vec![Connectivity::Triangular(
+        vec![[0_usize, 1, 2], [0, 3, 1]].into(),
+    )];
     let coordinates = Coordinates::from(vec![
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 0.0],
         [0.0, 1.0, 0.0],
         [0.0, -1.0, 0.0],
     ]);
-    let mesh = Mesh::from((connectivity, coordinates));
+    let mesh = Mesh::from((connectivities, coordinates));
     let tessellation = Tessellation::from(mesh);
+    let up = Coordinate::const_from([0.0, 0.0, 1.0]);
     tessellation
-        .normals
+        .normals()
         .iter()
-        .try_for_each(|normal| assert_eq(normal, &[0.0, 0.0, 1.0].into()))
+        .flat_map(|block| block.iter())
+        .try_for_each(|normal| assert_eq(normal, &up))
 }

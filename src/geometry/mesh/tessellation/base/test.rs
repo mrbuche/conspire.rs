@@ -1,17 +1,22 @@
-use crate::geometry::mesh::{
-    // from::test::mesh as trimesh,
-    tessellation::from::test::{NORMALS, tessellation},
+use crate::{
+    geometry::mesh::tessellation::from::test::{NORMALS, tessellation},
+    math::Tensor,
 };
 
 #[test]
 fn mesh() {
-    // let mesh = trimesh();
     let tessellation = tessellation();
     let _ = tessellation.mesh();
-    // assert_eq!(tessellation.mesh(), &mesh)
 }
 
 #[test]
 fn normals() {
-    assert_eq!(tessellation().normals(), &NORMALS.into())
+    let tess = tessellation();
+    let normals = tess.normals();
+    // Tessellation has one block matching mesh's one Triangular block;
+    // its normals are the per-element list.
+    normals[0]
+        .iter()
+        .zip(NORMALS.iter())
+        .for_each(|(a, b)| assert_eq!(a, b))
 }

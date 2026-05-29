@@ -6,7 +6,7 @@ use iter::ElementIter;
 // (with/without id numbers stored) and avoid extra storage.
 
 pub struct PrimitiveConnectivity<const M: usize, const N: usize>(pub(crate) Vec<[usize; N]>);
-pub struct PolytopalConnectivity<const M: usize>(pub(crate) Vec<Vec<usize>>);
+pub struct PolytopalConnectivity<const M: usize>(Vec<Vec<usize>>);
 
 impl<const M: usize, const N: usize> From<Vec<[usize; N]>> for PrimitiveConnectivity<M, N> {
     fn from(connectivity: Vec<[usize; N]>) -> Self {

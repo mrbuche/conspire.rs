@@ -1,6 +1,6 @@
 mod base;
 mod connectivity;
-mod from;
+pub(crate) mod from;
 mod into;
 mod tessellation;
 mod write;
@@ -9,7 +9,7 @@ mod write;
 mod exodus;
 
 pub use self::{
-    connectivity::{Connectivities, Connectivity},
+    connectivity::{Connectivities, Connectivity, PolytopalConnectivity, PrimitiveConnectivity},
     tessellation::Tessellation,
 };
 

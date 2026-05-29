@@ -1,6 +1,11 @@
 use crate::geometry::{
-    Balance, Balancing, Coordinates, Octree, Pairing,
+    Coordinates,
     mesh::{Connectivity, Mesh, WriteExodus},
+    ntree::{
+        Octree,
+        balance::{Balance, Balancing},
+        pair::Pairing,
+    },
 };
 use std::f64::consts::PI;
 

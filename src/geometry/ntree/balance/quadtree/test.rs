@@ -1,6 +1,11 @@
 use crate::geometry::{
-    Balance, Balancing, Coordinates, Pairing, Quadtree,
+    Coordinates,
     mesh::{Connectivity, Mesh, WriteExodus},
+    ntree::{
+        Quadtree,
+        balance::{Balance, Balancing},
+        pair::Pairing,
+    },
 };
 use std::f64::consts::TAU;
 

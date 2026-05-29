@@ -1,9 +1,7 @@
-use crate::geometry::Coordinate;
-
 use crate::{
     geometry::{
-        Coordinates,
-        mesh::{Connectivities, Connectivity, Mesh},
+        Coordinate, Coordinates,
+        mesh::{Connectivity, Mesh},
     },
     math::test::TestError,
 };
@@ -35,10 +33,9 @@ pub const COORDINATES: [Coordinate<3>; 8] = [
 ];
 
 pub fn mesh() -> Mesh<3> {
-    todo!("need more from methods for connectivity")
-    // let connectivity = Connectivities(vec![Connectivity::Triangular(CONNECTIVITY.to_vec())]);
-    // let coordinates = Coordinates::from(COORDINATES);
-    // Mesh::from((connectivity, coordinates))
+    let connectivities = vec![Connectivity::Triangular(CONNECTIVITY.to_vec().into())];
+    let coordinates = Coordinates::from(COORDINATES);
+    Mesh::from((connectivities, coordinates))
 }
 
 #[test]

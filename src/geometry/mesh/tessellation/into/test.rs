@@ -1,19 +1,40 @@
-use crate::geometry::mesh::{
-    Mesh,
-    tessellation::from::test::{CONNECTIVITY, COORDINATES, NORMALS, tessellation},
+use crate::{
+    geometry::{
+        Coordinates,
+        mesh::{
+            Connectivity, Mesh, PrimitiveConnectivity,
+            tessellation::from::test::{CONNECTIVITY, COORDINATES, NORMALS, tessellation},
+        },
+    },
+    math::Tensor,
 };
 
 #[test]
-fn triangluar_mesh() {
-    let mesh = Mesh::from(tessellation());
-    assert_eq!(mesh.connectivity, CONNECTIVITY.to_vec());
-    assert_eq!(mesh.coordinates, COORDINATES.into())
+fn triangular_mesh() {
+    let mesh: Mesh<3> = Mesh::from(tessellation());
+    match &mesh.connectivities()[0] {
+        Connectivity::Triangular(PrimitiveConnectivity(t)) => {
+            assert_eq!(t, &CONNECTIVITY.to_vec())
+        }
+        _ => panic!("expected Triangular block"),
+    }
+    let expected_coords: Coordinates<3> = COORDINATES.into();
+    assert_eq!(mesh.coordinates(), &expected_coords)
 }
 
 #[test]
-fn connectivity_and_coordinates_and_normals() {
-    let (connectivity, coordinates, normals) = tessellation().into();
-    assert_eq!(connectivity, CONNECTIVITY.to_vec());
-    assert_eq!(coordinates, COORDINATES.into());
-    assert_eq!(normals, NORMALS.into())
+fn connectivities_and_coordinates_and_normals() {
+    let (connectivities, coordinates, normals) = tessellation().into();
+    match &connectivities[0] {
+        Connectivity::Triangular(PrimitiveConnectivity(t)) => {
+            assert_eq!(t, &CONNECTIVITY.to_vec())
+        }
+        _ => panic!("expected Triangular block"),
+    }
+    let expected_coords: Coordinates<3> = COORDINATES.into();
+    assert_eq!(coordinates, expected_coords);
+    normals[0]
+        .iter()
+        .zip(NORMALS.iter())
+        .for_each(|(a, b)| assert_eq!(a, b))
 }
