@@ -2,7 +2,7 @@ use crate::{
     geometry::{
         Coordinates, Write,
         mesh::{
-            Connectivity, PrimitiveConnectivity,
+            Connectivity,
             tessellation::from::test::{CONNECTIVITY, COORDINATES, NORMALS, tessellation},
         },
     },
@@ -16,8 +16,8 @@ use crate::{
 fn consistency() -> Result<(), TestError> {
     let tessellation = tessellation();
     match &tessellation.mesh().connectivities()[0] {
-        Connectivity::Triangular(PrimitiveConnectivity(t)) => {
-            assert_eq!(t, &CONNECTIVITY.to_vec())
+        Connectivity::Triangular(triangles) => {
+            assert!(triangles.iter().eq(CONNECTIVITY.iter()))
         }
         _ => panic!("expected Triangular block"),
     }

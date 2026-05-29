@@ -2,7 +2,7 @@ use crate::{
     geometry::{
         Coordinates,
         mesh::{
-            Connectivity, Mesh, PrimitiveConnectivity,
+            Connectivity, Mesh,
             from::test::{CONNECTIVITY, COORDINATES, mesh},
         },
     },
@@ -25,8 +25,8 @@ fn bounding_boxes_and_centroids() {
 fn connectivities() {
     let mesh = mesh();
     match &mesh.connectivities()[0] {
-        Connectivity::Triangular(PrimitiveConnectivity(t)) => {
-            assert_eq!(t, &CONNECTIVITY.to_vec())
+        Connectivity::Triangular(triangles) => {
+            assert!(triangles.iter().eq(CONNECTIVITY.iter()))
         }
         _ => panic!("expected Triangular block"),
     }

@@ -1,5 +1,5 @@
 use crate::geometry::{
-    mesh::{Connectivity, Mesh, PrimitiveConnectivity, WriteExodus},
+    mesh::{Connectivity, Mesh, WriteExodus},
     ntree::{
         Octree,
         balance::{Balance, Balancing, octree::test::sphere},
@@ -21,7 +21,7 @@ fn from_sphere() {
     let hexes: Vec<[usize; 8]> = connectivities
         .into_iter()
         .flat_map(|block| match block {
-            Connectivity::Hexahedral(PrimitiveConnectivity(hexes)) => hexes,
+            Connectivity::Hexahedral(hexes) => hexes,
             _ => panic!("expected only hexahedral blocks"),
         })
         .collect();

@@ -2,7 +2,7 @@ use crate::{
     geometry::{
         Coordinates,
         mesh::{
-            Connectivity, Mesh, PrimitiveConnectivity,
+            Connectivity, Mesh,
             tessellation::from::test::{CONNECTIVITY, COORDINATES, NORMALS, tessellation},
         },
     },
@@ -13,8 +13,8 @@ use crate::{
 fn triangular_mesh() {
     let mesh: Mesh<3> = Mesh::from(tessellation());
     match &mesh.connectivities()[0] {
-        Connectivity::Triangular(PrimitiveConnectivity(t)) => {
-            assert_eq!(t, &CONNECTIVITY.to_vec())
+        Connectivity::Triangular(triangles) => {
+            assert!(triangles.iter().eq(CONNECTIVITY.iter()))
         }
         _ => panic!("expected Triangular block"),
     }
@@ -26,8 +26,8 @@ fn triangular_mesh() {
 fn connectivities_and_coordinates_and_normals() {
     let (connectivities, coordinates, normals) = tessellation().into();
     match &connectivities[0] {
-        Connectivity::Triangular(PrimitiveConnectivity(t)) => {
-            assert_eq!(t, &CONNECTIVITY.to_vec())
+        Connectivity::Triangular(triangles) => {
+            assert!(triangles.iter().eq(CONNECTIVITY.iter()))
         }
         _ => panic!("expected Triangular block"),
     }

@@ -29,7 +29,6 @@ where
             .zip(self.normals.iter())
             .try_for_each(|(connectivity, normals)| match connectivity {
                 Connectivity::Triangular(triangles) => triangles
-                    .0
                     .iter()
                     .zip(normals.iter())
                     .try_for_each(|(nodes, normal)| {
@@ -45,7 +44,7 @@ where
                         })?;
                         writer.write_all(&0_u16.to_le_bytes())
                     }),
-                _ => panic!(),
+                _ => panic!("STL only supports triangular blocks"),
             })?;
         writer.flush()
     }

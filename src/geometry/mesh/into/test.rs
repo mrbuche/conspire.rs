@@ -1,7 +1,7 @@
 use crate::geometry::{
     Coordinates,
     mesh::{
-        Connectivity, PrimitiveConnectivity,
+        Connectivity,
         from::test::{CONNECTIVITY, COORDINATES, mesh},
     },
 };
@@ -12,8 +12,8 @@ fn connectivities_and_coordinates() {
     let expected: Coordinates<3> = COORDINATES.into();
     assert_eq!(coordinates, expected);
     match connectivities.into_iter().next().unwrap() {
-        Connectivity::Triangular(PrimitiveConnectivity(t)) => {
-            assert_eq!(t, CONNECTIVITY.to_vec())
+        Connectivity::Triangular(triangles) => {
+            assert!(triangles.into_iter().eq(CONNECTIVITY))
         }
         _ => panic!("expected Triangular block"),
     }

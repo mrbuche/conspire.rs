@@ -17,7 +17,7 @@ impl From<Mesh<D>> for Tessellation {
             .map(|connectivity| {
                 match connectivity {
                     Connectivity::Triangular(triangles) => {
-                        triangles.0.iter().map(|&[node_0, node_1, node_2]| {
+                        triangles.iter().map(|&[node_0, node_1, node_2]| {
                             let u = &mesh.coordinates[node_1] - &mesh.coordinates[node_0];
                             let v = &mesh.coordinates[node_2] - &mesh.coordinates[node_0];
                             u.cross(v).normalized()

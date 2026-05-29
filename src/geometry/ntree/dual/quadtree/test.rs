@@ -1,5 +1,5 @@
 use crate::geometry::{
-    mesh::{Connectivity, Mesh, PrimitiveConnectivity, WriteExodus},
+    mesh::{Connectivity, Mesh, WriteExodus},
     ntree::{
         Quadtree,
         balance::{Balance, Balancing, quadtree::test::circle},
@@ -21,7 +21,7 @@ fn from_circle() {
     let quads: Vec<[usize; 4]> = connectivities
         .into_iter()
         .flat_map(|block| match block {
-            Connectivity::Quadrilateral(PrimitiveConnectivity(quads)) => quads,
+            Connectivity::Quadrilateral(quads) => quads,
             _ => panic!("expected only quadrilateral blocks"),
         })
         .collect();

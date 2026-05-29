@@ -9,7 +9,7 @@ mod write;
 mod exodus;
 
 pub use self::{
-    connectivity::{Connectivities, Connectivity, PolytopalConnectivity, PrimitiveConnectivity},
+    connectivity::{Connectivities, Connectivity},
     tessellation::Tessellation,
 };
 

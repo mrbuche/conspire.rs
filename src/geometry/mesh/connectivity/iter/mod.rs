@@ -29,12 +29,12 @@ impl<'a> IntoIterator for &'a Connectivity {
     type IntoIter = ElementIter<'a>;
     fn into_iter(self) -> ElementIter<'a> {
         match self {
-            Connectivity::Hexahedral(c) => ElementIter::Hexahedral(c.0.iter()),
-            Connectivity::Polyhedral(c) => ElementIter::Polyhedral(c.0.iter()),
-            Connectivity::Polygonal(c) => ElementIter::Polygonal(c.0.iter()),
-            Connectivity::Quadrilateral(c) => ElementIter::Quadrilateral(c.0.iter()),
-            Connectivity::Tetrahedral(c) => ElementIter::Tetrahedral(c.0.iter()),
-            Connectivity::Triangular(c) => ElementIter::Triangular(c.0.iter()),
+            Connectivity::Hexahedral(c) => ElementIter::Hexahedral(c.iter()),
+            Connectivity::Polyhedral(c) => ElementIter::Polyhedral(c.iter()),
+            Connectivity::Polygonal(c) => ElementIter::Polygonal(c.iter()),
+            Connectivity::Quadrilateral(c) => ElementIter::Quadrilateral(c.iter()),
+            Connectivity::Tetrahedral(c) => ElementIter::Tetrahedral(c.iter()),
+            Connectivity::Triangular(c) => ElementIter::Triangular(c.iter()),
         }
     }
 }
