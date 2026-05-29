@@ -1,21 +1,14 @@
-use crate::geometry::{
-    Coordinate, Coordinates,
-    mesh::{Connectivity, PrimitiveConnectivity},
-    ntree::Orthotree,
-};
+use crate::geometry::{Coordinate, Coordinates, mesh::Connectivity, ntree::Orthotree};
 use std::{array::from_fn, collections::HashMap};
 
-impl<const D: usize, const L: usize, const M: usize, const N: usize, U, V>
-    From<Orthotree<D, L, M, N, u16, U>> for (Vec<[V; N]>, Coordinates<D>)
-where
-    V: Copy + TryFrom<usize>,
-    <V as TryFrom<usize>>::Error: std::fmt::Debug,
+impl<const D: usize, const L: usize, const M: usize, const N: usize, U>
+    From<Orthotree<D, L, M, N, u16, U>> for (Vec<[usize; N]>, Coordinates<D>)
 {
     fn from(orthotree: Orthotree<D, L, M, N, u16, U>) -> Self {
         let mut coord_map: HashMap<u64, usize> = HashMap::new();
         let mut coords: Vec<Coordinate<D>> = Vec::new();
         let face_mask: usize = if D <= 2 { (1 << D) - 1 } else { 3 };
-        let connectivity: Vec<[V; N]> = orthotree
+        let connectivity: Vec<[usize; N]> = orthotree
             .nodes
             .iter()
             .filter(|node| node.is_leaf())
@@ -33,12 +26,12 @@ where
                     let key: u64 =
                         (0..D).fold(0u64, |acc, ax| acc | ((vertex[ax] as u64) << (16 * ax)));
                     if let Some(&idx) = coord_map.get(&key) {
-                        V::try_from(idx).unwrap()
+                        idx
                     } else {
                         let idx = coords.len();
                         coords.push(from_fn(|ax| vertex[ax] as f64).into());
                         coord_map.insert(key, idx);
-                        V::try_from(idx).unwrap()
+                        idx
                     }
                 })
             })
@@ -51,9 +44,9 @@ impl<const L: usize, const M: usize, U> From<Orthotree<2, L, M, 4, u16, U>>
     for (Connectivity, Coordinates<2>)
 {
     fn from(orthotree: Orthotree<2, L, M, 4, u16, U>) -> Self {
-        let (connectivity, coordinates) = orthotree.into();
+        let (connectivity, coordinates): (Vec<[usize; 4]>, _) = orthotree.into();
         (
-            Connectivity::Quadrilateral(PrimitiveConnectivity(connectivity)),
+            Connectivity::Quadrilateral(connectivity.into()),
             coordinates,
         )
     }
@@ -63,10 +56,7 @@ impl<const L: usize, const M: usize, U> From<Orthotree<3, L, M, 8, u16, U>>
     for (Connectivity, Coordinates<3>)
 {
     fn from(orthotree: Orthotree<3, L, M, 8, u16, U>) -> Self {
-        let (connectivity, coordinates) = orthotree.into();
-        (
-            Connectivity::Hexahedral(PrimitiveConnectivity(connectivity)),
-            coordinates,
-        )
+        let (connectivity, coordinates): (Vec<[usize; 8]>, _) = orthotree.into();
+        (Connectivity::Hexahedral(connectivity.into()), coordinates)
     }
 }

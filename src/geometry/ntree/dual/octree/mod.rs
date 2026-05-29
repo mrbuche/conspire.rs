@@ -4,7 +4,7 @@ mod test;
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Connectivity, Mesh, PrimitiveConnectivity},
+        mesh::{Connectivity, Mesh},
         ntree::{
             Octree,
             balance::Balancing,
@@ -38,9 +38,7 @@ where
             unimplemented!()
         }
         (
-            vec![Connectivity::Hexahedral(PrimitiveConnectivity(
-                connectivity,
-            ))],
+            vec![Connectivity::Hexahedral(connectivity.into())],
             coordinates,
         )
             .into()

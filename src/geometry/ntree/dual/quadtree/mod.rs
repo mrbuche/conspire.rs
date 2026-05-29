@@ -4,7 +4,7 @@ mod test;
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Connectivity, Mesh, PrimitiveConnectivity},
+        mesh::{Connectivity, Mesh},
         ntree::{
             Quadtree,
             balance::Balancing,
@@ -44,9 +44,7 @@ where
             vertex_transition_5(self, &center_nodes, &mut connectivity);
         }
         (
-            vec![Connectivity::Quadrilateral(PrimitiveConnectivity(
-                connectivity,
-            ))],
+            vec![Connectivity::Quadrilateral(connectivity.into())],
             coordinates,
         )
             .into()

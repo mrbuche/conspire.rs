@@ -2,7 +2,7 @@ use crate::{
     geometry::{
         Coordinates,
         mesh::{
-            TriangularMesh,
+            Mesh,
             from::test::{CONNECTIVITY, COORDINATES},
         },
     },
@@ -13,7 +13,7 @@ use crate::{
 fn bounding_boxes_and_centroids() {
     let connectivity = CONNECTIVITY.to_vec();
     let coordinates = Coordinates::from(COORDINATES);
-    let mesh = TriangularMesh::from((&connectivity, coordinates));
+    let mesh = Mesh::from((&connectivity, coordinates));
     mesh.bounding_boxes_and_centroids()
         .zip(mesh.bounding_boxes())
         .zip(mesh.centroids())
@@ -27,7 +27,7 @@ fn bounding_boxes_and_centroids() {
 fn connectivity() {
     let connectivity = CONNECTIVITY.to_vec();
     let coordinates = Coordinates::from(COORDINATES);
-    let mesh = TriangularMesh::from((&connectivity, coordinates));
+    let mesh = Mesh::from((&connectivity, coordinates));
     assert_eq!(mesh.connectivity(), &connectivity)
 }
 
@@ -35,7 +35,7 @@ fn connectivity() {
 fn coordinates() -> Result<(), TestError> {
     let connectivity = CONNECTIVITY.to_vec();
     let coordinates = Coordinates::from(COORDINATES);
-    let mesh = TriangularMesh::from((connectivity, &coordinates));
+    let mesh = Mesh::from((connectivity, &coordinates));
     assert_eq(mesh.coordinates(), &coordinates)
 }
 
@@ -43,6 +43,6 @@ fn coordinates() -> Result<(), TestError> {
 fn number_of_nodes() -> Result<(), TestError> {
     let connectivity = CONNECTIVITY.to_vec();
     let coordinates = Coordinates::from(COORDINATES);
-    let mesh = TriangularMesh::from((connectivity, coordinates));
+    let mesh = Mesh::from((connectivity, coordinates));
     assert_eq(&mesh.number_of_nodes(), &COORDINATES.len())
 }

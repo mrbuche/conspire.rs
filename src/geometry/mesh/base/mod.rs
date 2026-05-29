@@ -12,52 +12,51 @@ use crate::{
 
 impl<const D: usize> Mesh<D> {
     pub fn bounding_boxes(&self) -> BoundingBoxes<D> {
-        todo!()
-        // (&self.connectivity)
-        //     .into_iter()
-        //     .map(|nodes| {
-        //         nodes
-        //             .into_iter()
-        //             .map(|&node| &self.coordinates[node.into()])
-        //             .collect::<CoordinatesRef<'_, _>>()
-        //             .into()
-        //     })
-        //     .collect()
+        self.connectivities
+            .iter()
+            .flatten()
+            .map(|nodes| {
+                nodes
+                    .iter()
+                    .map(|&node| &self.coordinates[node])
+                    .collect::<CoordinatesRef<'_, D>>()
+                    .into()
+            })
+            .collect()
     }
     pub fn centroids(&self) -> Coordinates<D> {
-        todo!()
-        // (&self.connectivity)
-        //     .into_iter()
-        //     .map(|nodes| {
-        //         let count = nodes.into_iter().count() as Scalar;
-        //         nodes
-        //             .into_iter()
-        //             .map(|&node| &self.coordinates[node.into()])
-        //             .sum::<Coordinate<_>>()
-        //             / count
-        //     })
-        //     .collect()
+        self.connectivities
+            .iter()
+            .flatten()
+            .map(|nodes| {
+                let count = nodes.len() as Scalar;
+                nodes
+                    .iter()
+                    .map(|&node| &self.coordinates[node])
+                    .sum::<Coordinate<D>>()
+                    / count
+            })
+            .collect()
     }
-    // pub fn bounding_boxes_and_centroids(
-    //     &self,
-    // ) -> impl Iterator<Item = (BoundingBox<D>, Coordinate<D>)> {
-    //     todo!()
-    //     // (&self.connectivity).into_iter().map(|nodes| {
-    //     //     let count = nodes.into_iter().count() as Scalar;
-    //     //     (
-    //     //         nodes
-    //     //             .into_iter()
-    //     //             .map(|&node| &self.coordinates[node.into()])
-    //     //             .collect::<CoordinatesRef<'_, _>>()
-    //     //             .into(),
-    //     //         nodes
-    //     //             .into_iter()
-    //     //             .map(|&node| &self.coordinates[node.into()])
-    //     //             .sum::<Coordinate<_>>()
-    //     //             / count,
-    //     //     )
-    //     // })
-    // }
+    pub fn bounding_boxes_and_centroids(
+        &self,
+    ) -> impl Iterator<Item = (BoundingBox<D>, Coordinate<D>)> + '_ {
+        self.connectivities.iter().flatten().map(|nodes| {
+            let count = nodes.len() as Scalar;
+            (
+                nodes
+                    .iter()
+                    .map(|&node| &self.coordinates[node])
+                    .collect::<CoordinatesRef<'_, D>>()
+                    .into(),
+                nodes
+                    .iter()
+                    .map(|&node| &self.coordinates[node])
+                    .sum::<Coordinate<D>>()
+                    / count,
+            )
+        })
+    }
     pub fn connectivities(&self) -> &[Connectivity] {
         &self.connectivities
     }
