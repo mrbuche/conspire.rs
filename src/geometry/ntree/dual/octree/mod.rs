@@ -4,7 +4,7 @@ mod test;
 use crate::{
     geometry::{
         Coordinates,
-        mesh::HexahedralMesh,
+        mesh::{Connectivity, MeshNew, PrimitiveConnectivity},
         ntree::{
             Octree,
             balance::Balancing,
@@ -17,13 +17,14 @@ use crate::{
 const D: usize = 3;
 const N: usize = 8;
 
-impl<T, U, V> Dualization<D, 3, N, V> for Octree<T, U>
+impl<T, U, V> Dualization<D, V> for Octree<T, U>
 where
     T: Copy + Into<Scalar> + Into<usize>,
     U: Copy + Into<usize>,
-    V: Copy + Default + From<usize>,
+    V: Copy + Default + TryFrom<usize>,
+    <V as TryFrom<usize>>::Error: std::fmt::Debug,
 {
-    fn dualize(&mut self) -> HexahedralMesh<V> {
+    fn dualize(&mut self) -> MeshNew<D, V> {
         let (center_nodes, mut coordinates, mut node_index, mut connectivity) = self.initialize();
         self.uniform_transitions(&center_nodes, &mut connectivity);
         let mut nodes_map = NodeMap::<D, V>::new();
@@ -38,7 +39,11 @@ where
         if matches!(self.balanced, Balancing::Weak) {
             unimplemented!()
         }
-        (connectivity, coordinates).into()
+        (
+            vec![Connectivity::Hexahedral(PrimitiveConnectivity(connectivity))],
+            coordinates,
+        )
+            .into()
     }
 }
 
@@ -52,6 +57,7 @@ fn face_transition<T, U, V>(
 ) where
     T: Copy + Into<Scalar> + Into<usize>,
     U: Copy + Into<usize>,
-    V: Copy + From<usize>,
+    V: Copy + TryFrom<usize>,
+    <V as TryFrom<usize>>::Error: std::fmt::Debug,
 {
 }

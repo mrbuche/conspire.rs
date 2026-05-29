@@ -139,7 +139,19 @@ fn write_exodus_ending<const D: usize>(
 impl<const D: usize, P, T> WriteExodus<P> for MeshNew<D, T>
 where
     P: AsRef<Path>,
-    T: Copy + Into<i32>,
+    T: Copy + TryInto<i32>,
+    <T as TryInto<i32>>::Error: std::fmt::Debug,
+{
+    fn write_exodus(self, output: P) -> Result<(), NulError> {
+        (&self).write_exodus(output) // temporary
+    }
+}
+
+impl<const D: usize, P, T> WriteExodus<P> for &MeshNew<D, T>
+where
+    P: AsRef<Path>,
+    T: Copy + TryInto<i32>,
+    <T as TryInto<i32>>::Error: std::fmt::Debug,
 {
     fn write_exodus(self, output: P) -> Result<(), NulError> {
         let path = output.as_ref().to_str().unwrap();

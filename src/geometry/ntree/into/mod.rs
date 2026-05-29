@@ -1,10 +1,15 @@
-use crate::geometry::{Coordinate, Coordinates, mesh::PrimitiveMesh, ntree::Orthotree};
+use crate::geometry::{
+    Coordinate, Coordinates,
+    mesh::{Connectivity, PrimitiveConnectivity},
+    ntree::Orthotree,
+};
 use std::{array::from_fn, collections::HashMap};
 
 impl<const D: usize, const L: usize, const M: usize, const N: usize, U, V>
-    From<Orthotree<D, L, M, N, u16, U>> for PrimitiveMesh<D, D, N, V>
+    From<Orthotree<D, L, M, N, u16, U>> for (Vec<[V; N]>, Coordinates<D>)
 where
-    V: Copy + From<usize>,
+    V: Copy + TryFrom<usize>,
+    <V as TryFrom<usize>>::Error: std::fmt::Debug,
 {
     fn from(orthotree: Orthotree<D, L, M, N, u16, U>) -> Self {
         let mut coord_map: HashMap<u64, usize> = HashMap::new();
@@ -28,16 +33,46 @@ where
                     let key: u64 =
                         (0..D).fold(0u64, |acc, ax| acc | ((vertex[ax] as u64) << (16 * ax)));
                     if let Some(&idx) = coord_map.get(&key) {
-                        V::from(idx)
+                        V::try_from(idx).unwrap()
                     } else {
                         let idx = coords.len();
                         coords.push(from_fn(|ax| vertex[ax] as f64).into());
                         coord_map.insert(key, idx);
-                        V::from(idx)
+                        V::try_from(idx).unwrap()
                     }
                 })
             })
             .collect();
-        (connectivity, Coordinates::from(coords)).into()
+        (connectivity, coords.into())
+    }
+}
+
+impl<const L: usize, const M: usize, U, V> From<Orthotree<2, L, M, 4, u16, U>>
+    for (Connectivity<V>, Coordinates<2>)
+where
+    V: Copy + TryFrom<usize>,
+    <V as TryFrom<usize>>::Error: std::fmt::Debug,
+{
+    fn from(orthotree: Orthotree<2, L, M, 4, u16, U>) -> Self {
+        let (connectivity, coordinates) = orthotree.into();
+        (
+            Connectivity::Quadrilateral(PrimitiveConnectivity(connectivity)),
+            coordinates,
+        )
+    }
+}
+
+impl<const L: usize, const M: usize, U, V> From<Orthotree<3, L, M, 8, u16, U>>
+    for (Connectivity<V>, Coordinates<3>)
+where
+    V: Copy + TryFrom<usize>,
+    <V as TryFrom<usize>>::Error: std::fmt::Debug,
+{
+    fn from(orthotree: Orthotree<3, L, M, 8, u16, U>) -> Self {
+        let (connectivity, coordinates) = orthotree.into();
+        (
+            Connectivity::Hexahedral(PrimitiveConnectivity(connectivity)),
+            coordinates,
+        )
     }
 }

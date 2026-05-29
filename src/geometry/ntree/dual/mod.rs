@@ -4,7 +4,7 @@ pub mod quadtree;
 use crate::{
     geometry::{
         Coordinates,
-        mesh::PrimitiveMesh,
+        mesh::MeshNew,
         ntree::{Orthotree, balance::Balancing, pair::Pairing},
     },
     math::{Scalar, TensorVec},
@@ -13,8 +13,8 @@ use std::{array::from_fn, collections::HashMap};
 
 type NodeMap<const D: usize, V> = HashMap<[usize; D], V>;
 
-pub trait Dualization<const D: usize, const M: usize, const N: usize, T> {
-    fn dualize(&mut self) -> PrimitiveMesh<D, M, N, T>;
+pub trait Dualization<const D: usize, T> {
+    fn dualize(&mut self) -> MeshNew<D, T>;
 }
 
 pub trait Uniform<const D: usize, const N: usize, V> {
@@ -31,7 +31,8 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V> Un
 where
     T: Copy + Into<Scalar> + Into<usize>,
     U: Copy + Into<usize>,
-    V: Copy + Default + From<usize>,
+    V: Copy + Default + TryFrom<usize>,
+    <V as TryFrom<usize>>::Error: std::fmt::Debug,
 {
     fn initialize(&self) -> (Vec<V>, Coordinates<D>, usize, Vec<[V; N]>) {
         assert!(!matches!(self.balanced, Balancing::None));
@@ -44,7 +45,7 @@ where
             .enumerate()
             .filter(|(_, node)| node.is_leaf())
             .for_each(|(index, leaf)| {
-                center_nodes[index] = V::from(node_index);
+                center_nodes[index] = V::try_from(node_index).unwrap();
                 let length: Scalar = leaf.length.into();
                 let center = from_fn(|i| {
                     let c: Scalar = leaf.corner[i].into();

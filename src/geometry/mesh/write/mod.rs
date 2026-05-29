@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use crate::geometry::{Write, mesh::PrimitiveMesh};
+use crate::geometry::{Write, mesh::{PrimitiveMesh, MeshNew}};
 use std::{io::Error as ErrorIO, path::Path};
 
 #[cfg(feature = "netcdf")]
@@ -36,6 +36,24 @@ impl<const D: usize, const M: usize, const N: usize, P, T> Write<Output<P>>
 where
     P: AsRef<Path>,
     T: Copy + Into<usize>,
+{
+    type Error = ErrorIO;
+    fn write(&self, output: Output<P>) -> Result<(), Self::Error> {
+        match output {
+            Output::Abaqus(_) => {}
+            #[cfg(feature = "netcdf")]
+            Output::Exodus(path) => self.write_exodus(path)?,
+            Output::Mesh(_) => {}
+        }
+        Ok(())
+    }
+}
+
+impl<const D: usize, P, T> Write<Output<P>>
+    for MeshNew<D, T>
+where
+    P: AsRef<Path>,
+    T: Copy + Into<i32>,
 {
     type Error = ErrorIO;
     fn write(&self, output: Output<P>) -> Result<(), Self::Error> {

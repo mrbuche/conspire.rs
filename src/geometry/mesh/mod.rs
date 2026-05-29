@@ -16,10 +16,6 @@ pub struct Mesh<const D: usize, const M: usize, T> {
 
 pub type PrimitiveMesh<const D: usize, const M: usize, const N: usize, T> = Mesh<D, M, Vec<[T; N]>>;
 
-pub type HexahedralMesh<T> = PrimitiveMesh<3, 3, 8, T>;
-pub type TetrahedralMesh<T> = PrimitiveMesh<3, 3, 4, T>;
-
-pub type QuadrilateralMesh<const D: usize, T> = PrimitiveMesh<D, 2, 4, T>;
 pub type TriangularMesh<T> = PrimitiveMesh<3, 2, 3, T>;
 
 // Can bring in Sets, but should generalize across two concrete types
@@ -27,8 +23,8 @@ pub type TriangularMesh<T> = PrimitiveMesh<3, 2, 3, T>;
 
 use crate::math::Tensor;
 
-struct PrimitiveConnectivity<const M: usize, const N: usize, T>(Vec<[T; N]>);
-struct PolytopalConnectivity<const M: usize, T>(Vec<Vec<T>>);
+pub struct PrimitiveConnectivity<const M: usize, const N: usize, T>(pub(crate) Vec<[T; N]>);
+pub struct PolytopalConnectivity<const M: usize, T>(pub(crate) Vec<Vec<T>>);
 
 trait ConnectivityImpl<T> {
     fn len(&self) -> usize;
@@ -41,7 +37,8 @@ trait ConnectivityImpl<T> {
 
 impl<const M: usize, const N: usize, T> ConnectivityImpl<T> for PrimitiveConnectivity<M, N, T>
 where
-    T: Copy + Into<i32>,
+    T: Copy + TryInto<i32>,
+    <T as TryInto<i32>>::Error: std::fmt::Debug,
 {
     fn len(&self) -> usize {
         self.0.len()
@@ -64,7 +61,7 @@ where
         Some(
             self.0
                 .iter()
-                .flat_map(|nodes| nodes.iter().map(|&node| node.into() + 1))
+                .flat_map(|nodes| nodes.iter().map(|&node| node.try_into().unwrap() + 1))
                 .collect(),
         )
     }
@@ -72,7 +69,8 @@ where
 
 impl<const M: usize, T> ConnectivityImpl<T> for PolytopalConnectivity<M, T>
 where
-    T: Copy + Into<i32>,
+    T: Copy + TryInto<i32>,
+    <T as TryInto<i32>>::Error: std::fmt::Debug,
 {
     fn len(&self) -> usize {
         self.0.len()
@@ -94,7 +92,7 @@ where
     }
 }
 
-enum Connectivity<T> {
+pub enum Connectivity<T> {
     Hexahedral(PrimitiveConnectivity<3, 8, T>),
     Polyhedral(PolytopalConnectivity<3, T>),
     Polygonal(PolytopalConnectivity<2, T>),
@@ -103,11 +101,12 @@ enum Connectivity<T> {
     Triangular(PrimitiveConnectivity<2, 3, T>),
 }
 
-type Connectivities<T> = Vec<Connectivity<T>>;
+pub type Connectivities<T> = Vec<Connectivity<T>>;
 
 impl<T> Connectivity<T>
 where
-    T: Copy + Into<i32>,
+    T: Copy + TryInto<i32>,
+    <T as TryInto<i32>>::Error: std::fmt::Debug,
 {
     fn as_impl(&self) -> &dyn ConnectivityImpl<T> {
         match self {
@@ -140,9 +139,19 @@ pub struct MeshNew<const D: usize, T> {
     coordinates: Coordinates<D>,
 }
 
+impl<const D: usize, T> From<(Connectivities<T>, Coordinates<D>)> for MeshNew<D, T> {
+    fn from((connectivities, coordinates): (Connectivities<T>, Coordinates<D>)) -> Self {
+        Self {
+            connectivities,
+            coordinates,
+        }
+    }
+}
+
 impl<const D: usize, T> MeshNew<D, T>
 where
-    T: Copy + Into<i32>,
+    T: Copy + TryInto<i32>,
+    <T as TryInto<i32>>::Error: std::fmt::Debug,
 {
     fn connectivities(&self) -> &[Connectivity<T>] {
         &self.connectivities

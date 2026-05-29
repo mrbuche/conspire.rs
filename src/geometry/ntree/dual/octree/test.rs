@@ -1,5 +1,6 @@
 use crate::geometry::{
-    Balance, Balancing, Dualization, HexahedralMesh, Octree, Pairing, WriteExodus,
+    Balance, Balancing, Dualization, Octree, Pairing, WriteExodus,
+    mesh::{Connectivity, MeshNew, PrimitiveConnectivity},
     ntree::balance::octree::test::sphere,
 };
 
@@ -10,11 +11,18 @@ fn from_sphere() {
     octree
         .equilibrate(Balancing::Strong, Pairing::Regular)
         .unwrap();
-    let mesh: HexahedralMesh<usize> = octree.dualize();
+    let mesh: MeshNew<3, usize> = octree.dualize();
     (&mesh).write_exodus("target/dual_octree.exo").unwrap();
-    let (connectivity, coordinates) = mesh.into();
-    assert!(!connectivity.is_empty(), "no hexes produced");
-    connectivity.into_iter().enumerate().for_each(|(i, hex)| {
+    let (connectivities, coordinates) = mesh.into();
+    let hexes: Vec<[usize; 8]> = connectivities
+        .into_iter()
+        .flat_map(|block| match block {
+            Connectivity::Hexahedral(PrimitiveConnectivity(hexes)) => hexes,
+            _ => panic!("expected only hexahedral blocks"),
+        })
+        .collect();
+    assert!(!hexes.is_empty(), "no hexes produced");
+    hexes.into_iter().enumerate().for_each(|(i, hex)| {
         let p: [[f64; 3]; 8] = std::array::from_fn(|k| {
             let v = &coordinates[hex[k]];
             [v[0], v[1], v[2]]

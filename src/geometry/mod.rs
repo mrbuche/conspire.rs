@@ -8,10 +8,7 @@ pub use self::mesh::exodus::WriteExodus;
 pub use self::{
     bbox::{BoundingBox, BoundingBoxes, Unite as BoundingBoxUnite},
     bvh::BoundingVolumeHierarchy,
-    mesh::{
-        HexahedralMesh, Mesh, PrimitiveMesh, QuadrilateralMesh, TetrahedralMesh, TriangularMesh,
-        tessellation::Tessellation,
-    },
+    mesh::Mesh,
     ntree::{
         BinaryTree, Hexadecatree, Octree, Orthotree, Quadtree,
         balance::{Balance, Balancing},

@@ -4,7 +4,7 @@ mod test;
 use crate::{
     geometry::{
         Coordinates,
-        mesh::QuadrilateralMesh,
+        mesh::{Connectivity, MeshNew, PrimitiveConnectivity},
         ntree::{
             Quadtree,
             balance::Balancing,
@@ -19,13 +19,14 @@ use std::ops::Add;
 const D: usize = 2;
 const N: usize = 4;
 
-impl<T, U, V> Dualization<D, 2, N, V> for Quadtree<T, U>
+impl<T, U, V> Dualization<D, V> for Quadtree<T, U>
 where
     T: Add<Output = T> + Copy + Into<Scalar> + Into<usize> + Split,
     U: Copy + Into<usize>,
-    V: Copy + Default + From<usize>,
+    V: Copy + Default + TryFrom<usize>,
+    <V as TryFrom<usize>>::Error: std::fmt::Debug,
 {
-    fn dualize(&mut self) -> QuadrilateralMesh<D, V> {
+    fn dualize(&mut self) -> MeshNew<D, V> {
         let (center_nodes, mut coordinates, mut node_index, mut connectivity) = self.initialize();
         self.uniform_transitions(&center_nodes, &mut connectivity);
         let mut nodes_map = NodeMap::<D, V>::new();
@@ -44,7 +45,11 @@ where
         if matches!(self.balanced, Balancing::Weak) {
             vertex_transition_5(self, &center_nodes, &mut connectivity);
         }
-        (connectivity, coordinates).into()
+        (
+            vec![Connectivity::Quadrilateral(PrimitiveConnectivity(connectivity))],
+            coordinates,
+        )
+            .into()
     }
 }
 
@@ -58,14 +63,15 @@ fn edge_transition<T, U, V>(
 ) where
     T: Copy + Into<Scalar> + Into<usize>,
     U: Copy + Into<usize>,
-    V: Copy + From<usize>,
+    V: Copy + TryFrom<usize>,
+    <V as TryFrom<usize>>::Error: std::fmt::Debug,
 {
     let mut get_or_add = |pos: [Scalar; D]| -> V {
         let key = pos.map(|p| (2.0 * p) as usize);
         if let Some(&v) = nodes_map.get(&key) {
             v
         } else {
-            let v = V::from(*node_index);
+            let v = V::try_from(*node_index).unwrap();
             coordinates.push(pos.into());
             nodes_map.insert(key, v);
             *node_index += 1;
