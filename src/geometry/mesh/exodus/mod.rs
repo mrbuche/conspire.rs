@@ -146,7 +146,7 @@ where
             _ => unimplemented!(),
         }
         netcdf.end_definition();
-        let block_ids: Vec<i32> = (1..self.number_of_element_blocks() + 1)
+        let block_ids: Vec<_> = (1..self.number_of_element_blocks() + 1)
             .map(|index| index as i32)
             .collect();
         netcdf.put_variable("eb_prop1", &block_ids)?;
@@ -178,7 +178,7 @@ where
                     }
                 }
             })?;
-        let coordinates: [Vec<f64>; D] = self.coordinates().into();
+        let coordinates: [_; D] = self.coordinates().into();
         netcdf.put_variable("coordx", &coordinates[0])?;
         netcdf.put_variable("coordy", &coordinates[1])?;
         match D {
