@@ -71,7 +71,7 @@ impl<const M: usize> ConnectivityImpl for PolytopalConnectivity<M> {
         match M {
             2 => "nsided",
             3 => "nfaced",
-            _ => panic!("unknown polytopal element type: M={M}"),
+            _ => panic!(),
         }
     }
     #[cfg(feature = "netcdf")]
