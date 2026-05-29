@@ -2,4 +2,4 @@
 mod netcdf;
 
 #[cfg(feature = "netcdf")]
-pub use netcdf::{DefineVariable, NetCDF, PutVariable};
+pub use netcdf::{DefineVariable, GetVariable, NetCDF, PutVariable};

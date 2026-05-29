@@ -30,7 +30,12 @@ pub trait PutVariable {
     fn put_variable<T: NcType>(&mut self, name: &str, data: &[T]) -> Result<(), NulError>;
 }
 
-pub trait NcType {
+pub trait GetVariable {
+    fn get_variable<T: NcType>(&self, name: &str, len: usize) -> Result<Vec<T>, NulError>;
+}
+
+pub trait NcType: Default + Clone {
     const XTYPE: c_int;
     fn put_var(ncid: c_int, varid: c_int, data: *const Self) -> c_int;
+    fn get_var(ncid: c_int, varid: c_int, data: *mut Self) -> c_int;
 }

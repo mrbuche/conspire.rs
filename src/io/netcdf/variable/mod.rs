@@ -2,10 +2,11 @@
 mod test;
 
 use crate::io::netcdf::{
-    DefineVariable, NcType, NetCDF, PutVariable,
+    DefineVariable, GetVariable, NcType, NetCDF, PutVariable,
     ffi::{
-        NC_DOUBLE, NC_FLOAT, NC_INT, nc_def_var, nc_inq_dimid, nc_inq_varid, nc_put_var_double,
-        nc_put_var_float, nc_put_var_int,
+        NC_DOUBLE, NC_FLOAT, NC_INT, nc_def_var, nc_get_var_double, nc_get_var_float,
+        nc_get_var_int, nc_inq_dimid, nc_inq_varid, nc_put_var_double, nc_put_var_float,
+        nc_put_var_int,
     },
 };
 use std::ffi::{CString, NulError, c_int};
@@ -75,10 +76,32 @@ impl PutVariable for NetCDF {
     }
 }
 
+impl GetVariable for NetCDF {
+    fn get_variable<T: NcType>(&self, name: &str, len: usize) -> Result<Vec<T>, NulError> {
+        let name_c_str = CString::new(name)?;
+        let mut varid: c_int = 0;
+        let status = unsafe { nc_inq_varid(self.ncid, name_c_str.as_ptr(), &mut varid) };
+        assert_eq!(
+            status, 0,
+            "nc_inq_varid failed for {name} with status={status}"
+        );
+        let mut data: Vec<T> = vec![T::default(); len];
+        let status = T::get_var(self.ncid, varid, data.as_mut_ptr());
+        assert_eq!(
+            status, 0,
+            "nc_get_var failed for var '{name}' (varid {varid}) with status={status}"
+        );
+        Ok(data)
+    }
+}
+
 impl NcType for i32 {
     const XTYPE: c_int = NC_INT;
     fn put_var(ncid: c_int, varid: c_int, data: *const Self) -> c_int {
         unsafe { nc_put_var_int(ncid, varid, data) }
+    }
+    fn get_var(ncid: c_int, varid: c_int, data: *mut Self) -> c_int {
+        unsafe { nc_get_var_int(ncid, varid, data) }
     }
 }
 
@@ -87,11 +110,17 @@ impl NcType for f32 {
     fn put_var(ncid: c_int, varid: c_int, data: *const Self) -> c_int {
         unsafe { nc_put_var_float(ncid, varid, data) }
     }
+    fn get_var(ncid: c_int, varid: c_int, data: *mut Self) -> c_int {
+        unsafe { nc_get_var_float(ncid, varid, data) }
+    }
 }
 
 impl NcType for f64 {
     const XTYPE: c_int = NC_DOUBLE;
     fn put_var(ncid: c_int, varid: c_int, data: *const Self) -> c_int {
         unsafe { nc_put_var_double(ncid, varid, data) }
+    }
+    fn get_var(ncid: c_int, varid: c_int, data: *mut Self) -> c_int {
+        unsafe { nc_get_var_double(ncid, varid, data) }
     }
 }
