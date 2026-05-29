@@ -1,4 +1,4 @@
-use crate::geometry::mesh::{Connectivity, MeshNew, PrimitiveConnectivity, exodus::WriteExodus};
+use crate::geometry::mesh::{Connectivity, Mesh, PrimitiveConnectivity, exodus::WriteExodus};
 
 #[test]
 fn two_cubes() {
@@ -21,7 +21,7 @@ fn two_cubes() {
         [2.0, 1.0, 1.0],
     ]
     .into();
-    let mesh = MeshNew {
+    let mesh = Mesh {
         connectivities,
         coordinates,
     };

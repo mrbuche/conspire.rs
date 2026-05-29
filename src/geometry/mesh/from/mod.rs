@@ -1,46 +1,25 @@
 #[cfg(test)]
 pub mod test;
 
-use crate::geometry::{Coordinates, Mesh};
+use crate::geometry::{
+    Coordinates,
+    mesh::{Connectivities, Mesh},
+};
 
-impl<const D: usize, const M: usize, T> From<(T, Coordinates<D>)> for Mesh<D, M, T> {
-    fn from((connectivity, coordinates): (T, Coordinates<D>)) -> Self {
+impl<const D: usize, T> From<(Connectivities<T>, Coordinates<D>)> for Mesh<D, T> {
+    fn from((connectivities, coordinates): (Connectivities<T>, Coordinates<D>)) -> Self {
         Self {
+            connectivities,
             coordinates,
-            connectivity,
         }
     }
 }
 
-impl<const D: usize, const M: usize, T> From<(T, &Coordinates<D>)> for Mesh<D, M, T> {
-    fn from((connectivity, coordinates): (T, &Coordinates<D>)) -> Self {
+impl<const D: usize, T> From<(Connectivities<T>, &Coordinates<D>)> for Mesh<D, T> {
+    fn from((connectivities, coordinates): (Connectivities<T>, &Coordinates<D>)) -> Self {
         Self {
+            connectivities,
             coordinates: coordinates.clone(),
-            connectivity,
-        }
-    }
-}
-
-impl<const D: usize, const M: usize, T> From<(&T, Coordinates<D>)> for Mesh<D, M, T>
-where
-    T: Clone,
-{
-    fn from((connectivity, coordinates): (&T, Coordinates<D>)) -> Self {
-        Self {
-            coordinates,
-            connectivity: connectivity.clone(),
-        }
-    }
-}
-
-impl<const D: usize, const M: usize, T> From<(&T, &Coordinates<D>)> for Mesh<D, M, T>
-where
-    T: Clone,
-{
-    fn from((connectivity, coordinates): (&T, &Coordinates<D>)) -> Self {
-        Self {
-            coordinates: coordinates.clone(),
-            connectivity: connectivity.clone(),
         }
     }
 }

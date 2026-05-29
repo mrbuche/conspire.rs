@@ -1,6 +1,6 @@
 use crate::geometry::{
     Balance, Balancing, Dualization, Pairing, Quadtree, WriteExodus,
-    mesh::{Connectivity, MeshNew, PrimitiveConnectivity},
+    mesh::{Connectivity, Mesh, PrimitiveConnectivity},
     ntree::balance::quadtree::test::circle,
 };
 
@@ -11,7 +11,7 @@ fn from_circle() {
     quadtree
         .equilibrate(Balancing::Weak, Pairing::Regular)
         .unwrap();
-    let mesh: MeshNew<2, i32> = quadtree.dualize();
+    let mesh: Mesh<2, i32> = quadtree.dualize();
     (&mesh).write_exodus("target/dual_quadtree.exo").unwrap();
     let (connectivities, coordinates) = mesh.into();
     let quads: Vec<[i32; 4]> = connectivities

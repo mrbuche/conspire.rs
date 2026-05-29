@@ -3,7 +3,7 @@ mod test;
 
 use crate::geometry::{
     bvh::{BoundingVolumeHierarchy, primitive::Primitives},
-    mesh::{MeshNew, tessellation::Tessellation},
+    mesh::{Mesh, tessellation::Tessellation},
 };
 
 impl<const D: usize, T> From<Primitives<D, T>> for BoundingVolumeHierarchy<D, T>
@@ -21,13 +21,13 @@ where
     }
 }
 
-impl<const D: usize, T, U, V> From<&MeshNew<D, T>> for BoundingVolumeHierarchy<D, V>
+impl<const D: usize, T, U, V> From<&Mesh<D, T>> for BoundingVolumeHierarchy<D, V>
 where
     for<'a> &'a T: IntoIterator<Item = &'a U>,
     for<'a> &'a U: IntoIterator<Item = &'a V>,
     V: Copy + From<usize> + Into<usize>,
 {
-    fn from(mesh: &MeshNew<D, T>) -> Self {
+    fn from(mesh: &Mesh<D, T>) -> Self {
         Primitives::from(mesh).into()
     }
 }

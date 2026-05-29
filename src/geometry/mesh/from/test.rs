@@ -1,7 +1,10 @@
 use crate::geometry::Coordinate;
 
 use crate::{
-    geometry::{Coordinates, mesh::TriangularMesh},
+    geometry::{
+        Coordinates,
+        mesh::{Connectivities, Connectivity, Mesh},
+    },
     math::test::TestError,
 };
 
@@ -31,10 +34,11 @@ pub const COORDINATES: [Coordinate<3>; 8] = [
     Coordinate::const_from([0.0, 1.0, 1.0]),
 ];
 
-pub fn mesh() -> TriangularMesh<usize> {
-    let connectivity = CONNECTIVITY.to_vec();
-    let coordinates = Coordinates::from(COORDINATES);
-    TriangularMesh::from((connectivity, coordinates))
+pub fn mesh() -> Mesh<3, usize> {
+    todo!("need more from methods for connectivity")
+    // let connectivity = Connectivities(vec![Connectivity::Triangular(CONNECTIVITY.to_vec())]);
+    // let coordinates = Coordinates::from(COORDINATES);
+    // Mesh::from((connectivity, coordinates))
 }
 
 #[test]
@@ -43,26 +47,26 @@ fn connectivity_coordinates() -> Result<(), TestError> {
     Ok(())
 }
 
-#[test]
-fn connectivity_coordinates_ref() -> Result<(), TestError> {
-    let connectivity = CONNECTIVITY.to_vec();
-    let coordinates = Coordinates::from(COORDINATES);
-    let _ = TriangularMesh::from((connectivity, &coordinates));
-    Ok(())
-}
+// #[test]
+// fn connectivity_coordinates_ref() -> Result<(), TestError> {
+//     let connectivity = CONNECTIVITY.to_vec();
+//     let coordinates = Coordinates::from(COORDINATES);
+//     let _ = TriangularMesh::from((connectivity, &coordinates));
+//     Ok(())
+// }
 
-#[test]
-fn connectivity_ref_coordinates() -> Result<(), TestError> {
-    let connectivity = CONNECTIVITY.to_vec();
-    let coordinates = Coordinates::from(COORDINATES);
-    let _ = TriangularMesh::from((&connectivity, coordinates));
-    Ok(())
-}
+// #[test]
+// fn connectivity_ref_coordinates() -> Result<(), TestError> {
+//     let connectivity = CONNECTIVITY.to_vec();
+//     let coordinates = Coordinates::from(COORDINATES);
+//     let _ = TriangularMesh::from((&connectivity, coordinates));
+//     Ok(())
+// }
 
-#[test]
-fn connectivity_ref_coordinates_ref() -> Result<(), TestError> {
-    let connectivity = CONNECTIVITY.to_vec();
-    let coordinates = Coordinates::from(COORDINATES);
-    let _ = TriangularMesh::from((&connectivity, &coordinates));
-    Ok(())
-}
+// #[test]
+// fn connectivity_ref_coordinates_ref() -> Result<(), TestError> {
+//     let connectivity = CONNECTIVITY.to_vec();
+//     let coordinates = Coordinates::from(COORDINATES);
+//     let _ = TriangularMesh::from((&connectivity, &coordinates));
+//     Ok(())
+// }

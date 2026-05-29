@@ -4,7 +4,7 @@ mod test;
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Connectivity, MeshNew, PrimitiveConnectivity},
+        mesh::{Connectivity, Mesh, PrimitiveConnectivity},
         ntree::{
             Octree,
             balance::Balancing,
@@ -24,7 +24,7 @@ where
     V: Copy + Default + TryFrom<usize>,
     <V as TryFrom<usize>>::Error: std::fmt::Debug,
 {
-    fn dualize(&mut self) -> MeshNew<D, V> {
+    fn dualize(&mut self) -> Mesh<D, V> {
         let (center_nodes, mut coordinates, mut node_index, mut connectivity) = self.initialize();
         self.uniform_transitions(&center_nodes, &mut connectivity);
         let mut nodes_map = NodeMap::<D, V>::new();

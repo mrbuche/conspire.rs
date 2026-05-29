@@ -2,15 +2,12 @@
 pub mod exodus;
 
 // pub mod base;
-// pub mod from;
+pub mod from;
 // pub mod into;
 // pub mod tessellation;
 pub mod write;
 
-use crate::{
-    geometry::Coordinates,
-    math::Tensor,
-};
+use crate::{geometry::Coordinates, math::Tensor};
 
 // Can bring in Sets, but should generalize across two concrete types
 // (with/without id numbers stored) and avoid extra storage.
@@ -126,21 +123,12 @@ where
     }
 }
 
-pub struct MeshNew<const D: usize, T> {
+pub struct Mesh<const D: usize, T> {
     connectivities: Connectivities<T>,
     coordinates: Coordinates<D>,
 }
 
-impl<const D: usize, T> From<(Connectivities<T>, Coordinates<D>)> for MeshNew<D, T> {
-    fn from((connectivities, coordinates): (Connectivities<T>, Coordinates<D>)) -> Self {
-        Self {
-            connectivities,
-            coordinates,
-        }
-    }
-}
-
-impl<const D: usize, T> MeshNew<D, T>
+impl<const D: usize, T> Mesh<D, T>
 where
     T: Copy + TryInto<i32>,
     <T as TryInto<i32>>::Error: std::fmt::Debug,

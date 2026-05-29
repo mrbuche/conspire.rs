@@ -2,7 +2,7 @@
 mod test;
 
 use crate::{
-    geometry::mesh::MeshNew,
+    geometry::mesh::Mesh,
     io::{DefineVariable, NetCDF, PutVariable},
 };
 use std::{ffi::NulError, path::Path};
@@ -136,7 +136,7 @@ where
 //     Ok(())
 // }
 
-impl<const D: usize, P, T> WriteExodus<P> for MeshNew<D, T>
+impl<const D: usize, P, T> WriteExodus<P> for Mesh<D, T>
 where
     P: AsRef<Path>,
     T: Copy + TryInto<i32>,
@@ -147,7 +147,7 @@ where
     }
 }
 
-impl<const D: usize, P, T> WriteExodus<P> for &MeshNew<D, T>
+impl<const D: usize, P, T> WriteExodus<P> for &Mesh<D, T>
 where
     P: AsRef<Path>,
     T: Copy + TryInto<i32>,

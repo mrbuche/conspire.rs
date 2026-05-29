@@ -1,6 +1,6 @@
 use crate::geometry::{
     Balance, Balancing, Coordinates, Pairing, Quadtree, WriteExodus,
-    mesh::{Connectivity, MeshNew},
+    mesh::{Connectivity, Mesh},
 };
 use std::f64::consts::TAU;
 
@@ -29,6 +29,6 @@ fn from_circle() {
         .unwrap();
     quadtree.prune();
     let (connectivity, coordinates): (Connectivity<usize>, Coordinates<2>) = quadtree.into();
-    let mesh: MeshNew<2, usize> = (vec![connectivity], coordinates).into();
+    let mesh: Mesh<2, usize> = (vec![connectivity], coordinates).into();
     mesh.write_exodus("target/quadtree.exo").unwrap();
 }

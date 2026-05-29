@@ -2,15 +2,15 @@
 pub mod test;
 
 use crate::{
-    geometry::mesh::{MeshNew, tessellation::Tessellation},
+    geometry::mesh::{Mesh, tessellation::Tessellation},
     math::{CrossProduct, Tensor},
 };
 
-impl<T> From<MeshNew<3, T>> for Tessellation<T>
+impl<T> From<Mesh<3, T>> for Tessellation<T>
 where
     T: Copy + Into<usize>,
 {
-    fn from(mesh: MeshNew<3, T>) -> Self {
+    fn from(mesh: Mesh<3, T>) -> Self {
         todo!()
         // let normals = mesh
         //     .connectivity

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use crate::geometry::{Write, mesh::MeshNew};
+use crate::geometry::{Write, mesh::Mesh};
 use std::{io::Error as ErrorIO, path::Path};
 
 #[cfg(feature = "netcdf")]
@@ -31,7 +31,7 @@ where
     }
 }
 
-impl<const D: usize, P, T> Write<Output<P>> for MeshNew<D, T>
+impl<const D: usize, P, T> Write<Output<P>> for Mesh<D, T>
 where
     P: AsRef<Path>,
     T: Copy + Into<i32>,

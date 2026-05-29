@@ -1,6 +1,6 @@
 use crate::geometry::{
     Balance, Balancing, Dualization, Octree, Pairing, WriteExodus,
-    mesh::{Connectivity, MeshNew, PrimitiveConnectivity},
+    mesh::{Connectivity, Mesh, PrimitiveConnectivity},
     ntree::balance::octree::test::sphere,
 };
 
@@ -11,7 +11,7 @@ fn from_sphere() {
     octree
         .equilibrate(Balancing::Strong, Pairing::Regular)
         .unwrap();
-    let mesh: MeshNew<3, usize> = octree.dualize();
+    let mesh: Mesh<3, usize> = octree.dualize();
     (&mesh).write_exodus("target/dual_octree.exo").unwrap();
     let (connectivities, coordinates) = mesh.into();
     let hexes: Vec<[usize; 8]> = connectivities

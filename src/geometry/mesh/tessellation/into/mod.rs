@@ -4,12 +4,12 @@ mod test;
 use crate::geometry::{
     Coordinates,
     mesh::{
-        MeshNew,
+        Mesh,
         tessellation::{D, N, Tessellation},
     },
 };
 
-impl<T> From<Tessellation<T>> for MeshNew<3, T> {
+impl<T> From<Tessellation<T>> for Mesh<3, T> {
     fn from(tessellation: Tessellation<T>) -> Self {
         tessellation.mesh
     }

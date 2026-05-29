@@ -4,7 +4,7 @@ pub mod quadtree;
 use crate::{
     geometry::{
         Coordinates,
-        mesh::MeshNew,
+        mesh::Mesh,
         ntree::{Orthotree, balance::Balancing, pair::Pairing},
     },
     math::{Scalar, TensorVec},
@@ -14,7 +14,7 @@ use std::{array::from_fn, collections::HashMap};
 type NodeMap<const D: usize, V> = HashMap<[usize; D], V>;
 
 pub trait Dualization<const D: usize, T> {
-    fn dualize(&mut self) -> MeshNew<D, T>;
+    fn dualize(&mut self) -> Mesh<D, T>;
 }
 
 pub trait Uniform<const D: usize, const N: usize, V> {
