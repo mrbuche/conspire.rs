@@ -1,17 +1,22 @@
-pub mod balance;
-pub mod deref;
-pub mod dual;
-pub mod error;
-pub mod from;
-pub mod index;
-pub mod into;
-pub mod leaves;
-pub mod node;
-pub mod pair;
-pub mod prune;
-pub mod subdivide;
+mod balance;
+mod deref;
+mod dual;
+mod error;
+mod from;
+mod index;
+mod into;
+mod leaves;
+mod node;
+mod pair;
+mod prune;
+mod subdivide;
 
-use crate::geometry::ntree::{balance::Balancing, node::Nodes, pair::Pairing};
+pub use crate::geometry::ntree::{
+    balance::{Balance, Balancing},
+    dual::Dualization,
+    node::Nodes,
+    pair::Pairing,
+};
 
 pub struct Orthotree<const D: usize, const L: usize, const M: usize, const N: usize, T, U> {
     balanced: Balancing,

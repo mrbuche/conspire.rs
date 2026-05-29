@@ -1,14 +1,8 @@
 pub mod bbox;
 pub mod bvh;
 pub mod mesh;
-mod ntree;
+pub mod ntree;
 
-pub use self::ntree::{
-    BinaryTree, Hexadecatree, Octree, Orthotree, Quadtree,
-    balance::{Balance, Balancing},
-    dual::Dualization,
-    pair::Pairing,
-};
 use std::path::Path;
 
 use crate::math::{TensorRank1, TensorRank1List, TensorRank1RefVec, TensorRank1Vec};
