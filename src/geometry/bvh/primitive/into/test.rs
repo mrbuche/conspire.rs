@@ -7,15 +7,13 @@ use crate::geometry::{
     bvh::primitive::Primitive,
 };
 
-type T = usize;
-
-const PRIMITIVE_1: Primitive<D, T> = Primitive {
+const PRIMITIVE_1: Primitive<D> = Primitive {
     bounding_box: BBOX_1,
     centroid: Coordinate::const_from([0.5, 0.5, 0.5]),
     index: 1,
 };
 
-const PRIMITIVE_2: Primitive<D, T> = Primitive {
+const PRIMITIVE_2: Primitive<D> = Primitive {
     bounding_box: BBOX_2,
     centroid: Coordinate::const_from([1.5, 1.5, 1.5]),
     index: 2,

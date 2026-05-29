@@ -7,11 +7,8 @@ use crate::geometry::{
     },
 };
 
-impl<const D: usize, T> BoundingVolumeHierarchy<D, T>
-where
-    T: Copy,
-{
-    pub fn build_node(&mut self, primitives: &mut [Primitive<D, T>], leaf_size: usize) -> usize {
+impl<const D: usize> BoundingVolumeHierarchy<D> {
+    pub fn build_node(&mut self, primitives: &mut [Primitive<D>], leaf_size: usize) -> usize {
         assert!(leaf_size > 0);
         assert!(!primitives.is_empty());
         let bounding_box = BoundingBox::from(&primitives[..]);

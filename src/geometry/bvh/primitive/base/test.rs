@@ -7,7 +7,7 @@ fn bbox() -> BoundingBox<3> {
     BoundingBox::from(Coordinates::from([[0.0, 0.0, 0.0], [5.0, 5.0, 5.0]]))
 }
 
-fn primitive() -> Primitive<3, usize> {
+fn primitive() -> Primitive<3> {
     Primitive {
         bounding_box: bbox(),
         centroid: CENTROID,

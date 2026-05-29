@@ -1,10 +1,13 @@
 #[cfg(test)]
 mod test;
 
-use crate::geometry::{BoundingBox, BoundingBoxUnite, bvh::primitive::Primitive};
+use crate::geometry::{
+    bbox::{BoundingBox, Unite},
+    bvh::primitive::Primitive,
+};
 
-impl<const D: usize, T> From<&[Primitive<D, T>]> for BoundingBox<D> {
-    fn from(primitives: &[Primitive<D, T>]) -> Self {
+impl<const D: usize> From<&[Primitive<D>]> for BoundingBox<D> {
+    fn from(primitives: &[Primitive<D>]) -> Self {
         primitives
             .iter()
             .skip(1)

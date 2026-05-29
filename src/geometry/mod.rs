@@ -1,17 +1,13 @@
-mod bbox;
-// mod bvh;
+pub mod bbox;
+pub mod bvh;
 pub mod mesh;
 mod ntree;
 
-pub use self::{
-    bbox::{BoundingBox, BoundingBoxes, Unite as BoundingBoxUnite},
-    // bvh::BoundingVolumeHierarchy,
-    ntree::{
-        BinaryTree, Hexadecatree, Octree, Orthotree, Quadtree,
-        balance::{Balance, Balancing},
-        dual::Dualization,
-        pair::Pairing,
-    },
+pub use self::ntree::{
+    BinaryTree, Hexadecatree, Octree, Orthotree, Quadtree,
+    balance::{Balance, Balancing},
+    dual::Dualization,
+    pair::Pairing,
 };
 use std::path::Path;
 

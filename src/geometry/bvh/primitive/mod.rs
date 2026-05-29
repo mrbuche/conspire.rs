@@ -2,12 +2,12 @@ pub mod base;
 pub mod from;
 pub mod into;
 
-use crate::geometry::{BoundingBox, Coordinate};
+use crate::geometry::{Coordinate, bbox::BoundingBox};
 
-pub struct Primitive<const D: usize, T> {
+pub struct Primitive<const D: usize> {
     bounding_box: BoundingBox<D>,
     centroid: Coordinate<D>,
-    index: T,
+    index: usize,
 }
 
-pub type Primitives<const D: usize, T> = Vec<Primitive<D, T>>;
+pub type Primitives<const D: usize> = Vec<Primitive<D>>;

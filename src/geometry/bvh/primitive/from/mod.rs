@@ -6,19 +6,14 @@ use crate::geometry::{
     mesh::Mesh,
 };
 
-impl<const D: usize, T, U, V> From<&Mesh<D, T>> for Primitives<D, V>
-where
-    for<'a> &'a T: IntoIterator<Item = &'a U>,
-    for<'a> &'a U: IntoIterator<Item = &'a V>,
-    V: Copy + From<usize> + Into<usize>,
-{
-    fn from(mesh: &Mesh<D, T>) -> Self {
+impl<const D: usize> From<&Mesh<D>> for Primitives<D> {
+    fn from(mesh: &Mesh<D>) -> Self {
         mesh.bounding_boxes_and_centroids()
             .enumerate()
             .map(|(primitive, (bounding_box, centroid))| Primitive {
                 bounding_box,
                 centroid,
-                index: primitive.into(),
+                index: primitive,
             })
             .collect()
     }
