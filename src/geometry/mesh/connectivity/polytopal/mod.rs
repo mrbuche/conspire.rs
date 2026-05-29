@@ -1,4 +1,6 @@
 use crate::geometry::mesh::connectivity::base::ConnectivityImpl;
+#[cfg(feature = "netcdf")]
+use crate::geometry::mesh::connectivity::base::FlatConnectivity;
 use std::{fmt::Debug, num::TryFromIntError, slice, vec};
 
 pub struct PolytopalConnectivity<const M: usize>(Vec<Vec<usize>>, Vec<Vec<usize>>);
@@ -73,7 +75,25 @@ impl<const M: usize> ConnectivityImpl for PolytopalConnectivity<M> {
         }
     }
     #[cfg(feature = "netcdf")]
-    fn primitive_connectivity_flattened(&self) -> Option<Vec<i32>> {
-        None
+    fn flat_connectivity<I>(&self) -> FlatConnectivity<I>
+    where
+        I: Debug + TryFrom<usize, Error = TryFromIntError>,
+    {
+        let elements_faces = self
+            .0
+            .iter()
+            .flat_map(|faces| faces.iter().map(|&f| (f + 1).try_into()))
+            .collect();
+        let faces_nodes = self
+            .1
+            .iter()
+            .flat_map(|nodes| nodes.iter().map(|&n| (n + 1).try_into()))
+            .collect();
+        match (elements_faces, faces_nodes) {
+            (Ok(elements_faces), Ok(faces_nodes)) => {
+                FlatConnectivity::Polytopal(elements_faces, faces_nodes)
+            }
+            _ => panic!(),
+        }
     }
 }

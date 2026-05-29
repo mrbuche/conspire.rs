@@ -1,4 +1,6 @@
 use crate::geometry::mesh::connectivity::base::ConnectivityImpl;
+#[cfg(feature = "netcdf")]
+use crate::geometry::mesh::connectivity::base::FlatConnectivity;
 use std::{fmt::Debug, num::TryFromIntError, slice::Iter};
 
 pub struct PrimitiveConnectivity<const M: usize, const N: usize>(Vec<[usize; N]>);
@@ -67,12 +69,18 @@ impl<const M: usize, const N: usize> ConnectivityImpl for PrimitiveConnectivity<
         }
     }
     #[cfg(feature = "netcdf")]
-    fn primitive_connectivity_flattened(&self) -> Option<Vec<i32>> {
-        Some(
-            self.0
-                .iter()
-                .flat_map(|nodes| nodes.iter().map(|&node| node as i32 + 1))
-                .collect(),
-        )
+    fn flat_connectivity<I>(&self) -> FlatConnectivity<I>
+    where
+        I: Debug + TryFrom<usize, Error = TryFromIntError>,
+    {
+        match self
+            .0
+            .iter()
+            .flat_map(|nodes| nodes.iter().map(|&node| (node + 1).try_into()))
+            .collect()
+        {
+            Ok(flat) => FlatConnectivity::Primitive(flat),
+            Err(_) => panic!(),
+        }
     }
 }

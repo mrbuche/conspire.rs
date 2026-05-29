@@ -1,6 +1,12 @@
 use crate::geometry::mesh::connectivity::{Connectivity, iter::ElementIter};
 use std::{fmt::Debug, num::TryFromIntError};
 
+#[cfg(feature = "netcdf")]
+pub enum FlatConnectivity<I> {
+    Primitive(Vec<I>),
+    Polytopal(Vec<I>, Vec<I>),
+}
+
 pub trait ConnectivityImpl {
     fn is_empty(&self) -> bool;
     fn number_of_elements(&self) -> usize;
@@ -15,7 +21,9 @@ pub trait ConnectivityImpl {
     #[cfg(feature = "netcdf")]
     fn exodus_element_type(&self) -> &str;
     #[cfg(feature = "netcdf")]
-    fn primitive_connectivity_flattened(&self) -> Option<Vec<i32>>;
+    fn flat_connectivity<I>(&self) -> FlatConnectivity<I>
+    where
+        I: Debug + TryFrom<usize, Error = TryFromIntError>;
 }
 
 impl Connectivity {
@@ -100,14 +108,17 @@ impl Connectivity {
         }
     }
     #[cfg(feature = "netcdf")]
-    pub fn primitive_connectivity_flattened(&self) -> Option<Vec<i32>> {
+    pub fn flat_connectivity<I>(&self) -> FlatConnectivity<I>
+    where
+        I: Debug + TryFrom<usize, Error = TryFromIntError>,
+    {
         match self {
-            Connectivity::Hexahedral(c) => c.primitive_connectivity_flattened(),
-            Connectivity::Polyhedral(c) => c.primitive_connectivity_flattened(),
-            Connectivity::Polygonal(c) => c.primitive_connectivity_flattened(),
-            Connectivity::Quadrilateral(c) => c.primitive_connectivity_flattened(),
-            Connectivity::Tetrahedral(c) => c.primitive_connectivity_flattened(),
-            Connectivity::Triangular(c) => c.primitive_connectivity_flattened(),
+            Connectivity::Hexahedral(c) => c.flat_connectivity(),
+            Connectivity::Polyhedral(c) => c.flat_connectivity(),
+            Connectivity::Polygonal(c) => c.flat_connectivity(),
+            Connectivity::Quadrilateral(c) => c.flat_connectivity(),
+            Connectivity::Tetrahedral(c) => c.flat_connectivity(),
+            Connectivity::Triangular(c) => c.flat_connectivity(),
         }
     }
 }

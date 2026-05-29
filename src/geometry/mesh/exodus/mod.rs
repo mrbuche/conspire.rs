@@ -2,7 +2,7 @@
 mod test;
 
 use crate::{
-    geometry::mesh::Mesh,
+    geometry::mesh::{Mesh, connectivity::base::FlatConnectivity},
     io::{DefineVariable, NetCDF, PutVariable},
 };
 use std::{ffi::NulError, path::Path};
@@ -150,7 +150,7 @@ where
             .map(|index| index as i32)
             .collect();
         netcdf.put_variable("eb_prop1", &block_ids)?;
-        if let Some(_) = self.number_of_face_blocks() {
+        if self.number_of_face_blocks().is_some() {
             netcdf.put_variable("fa_prop1", &block_ids)?;
         }
         self.connectivities()
@@ -158,18 +158,23 @@ where
             .enumerate()
             .try_for_each(|(block, connectivity)| {
                 let block = block + 1;
-                if let Some(flat) = connectivity.primitive_connectivity_flattened() {
-                    netcdf.put_variable(&format!("connect{}", block), &flat)
-                } else {
-                    if let Some(ebepecnt) = connectivity.number_of_faces_per_element::<i32>() {
-                        netcdf.put_variable(&format!("ebepecnt{}", block), &ebepecnt)?;
-                    } else {
-                        panic!()
+                match connectivity.flat_connectivity::<i32>() {
+                    FlatConnectivity::Primitive(flat) => {
+                        netcdf.put_variable(&format!("connect{}", block), &flat)
                     }
-                    if let Some(fbepecnt) = connectivity.number_of_nodes_per_face::<i32>() {
-                        netcdf.put_variable(&format!("fbepecnt{}", block), &fbepecnt)
-                    } else {
-                        panic!()
+                    FlatConnectivity::Polytopal(elements_faces, faces_nodes) => {
+                        netcdf.put_variable(&format!("facconn{}", block), &elements_faces)?;
+                        netcdf.put_variable(&format!("fbconn{}", block), &faces_nodes)?;
+                        if let Some(ebepecnt) = connectivity.number_of_faces_per_element::<i32>() {
+                            netcdf.put_variable(&format!("ebepecnt{}", block), &ebepecnt)?;
+                        } else {
+                            panic!()
+                        }
+                        if let Some(fbepecnt) = connectivity.number_of_nodes_per_face::<i32>() {
+                            netcdf.put_variable(&format!("fbepecnt{}", block), &fbepecnt)
+                        } else {
+                            panic!()
+                        }
                     }
                 }
             })?;
