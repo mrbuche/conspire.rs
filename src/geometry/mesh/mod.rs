@@ -8,9 +8,12 @@ mod write;
 
 pub use self::{
     connectivity::{Connectivities, Connectivity},
+    read::Input,
     tessellation::Tessellation,
+    write::Output,
 };
 
+// temporary
 #[cfg(feature = "netcdf")]
 pub use self::{read::ReadExodus, write::exodus::WriteExodus};
 

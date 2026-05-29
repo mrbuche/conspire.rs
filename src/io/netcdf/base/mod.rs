@@ -84,8 +84,7 @@ impl NetCDF {
         );
         let attr_c_str = CString::new(attr_name)?;
         let mut len: c_ulong = 0;
-        let status =
-            unsafe { nc_inq_attlen(self.ncid, varid, attr_c_str.as_ptr(), &mut len) };
+        let status = unsafe { nc_inq_attlen(self.ncid, varid, attr_c_str.as_ptr(), &mut len) };
         assert_eq!(
             status, 0,
             "nc_inq_attlen failed for {variable}::{attr_name} with status={status}"

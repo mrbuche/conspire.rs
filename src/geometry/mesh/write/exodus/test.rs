@@ -1,4 +1,4 @@
-use crate::geometry::mesh::{Connectivity, Mesh, WriteExodus};
+use crate::geometry::mesh::{Connectivity, Mesh, write::WriteExodus};
 
 #[test]
 fn two_cubes() {
