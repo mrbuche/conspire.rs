@@ -13,7 +13,7 @@ use crate::{geometry::Coordinates, math::Tensor};
 // (with/without id numbers stored) and avoid extra storage.
 
 pub struct PrimitiveConnectivity<const M: usize, const N: usize, T>(pub(crate) Vec<[T; N]>);
-pub struct PolytopalConnectivity<const M: usize, T>(pub(crate) Vec<Vec<T>>);
+pub struct PolytopalConnectivity<const M: usize>(pub(crate) Vec<Vec<usize>>);
 
 trait ConnectivityImpl<T> {
     fn len(&self) -> usize;
@@ -25,9 +25,9 @@ trait ConnectivityImpl<T> {
 }
 
 impl<const M: usize, const N: usize, T> ConnectivityImpl<T> for PrimitiveConnectivity<M, N, T>
-where
-    T: Copy + TryInto<i32>,
-    <T as TryInto<i32>>::Error: std::fmt::Debug,
+// where
+//     T: Copy + TryInto<i32>,
+//     <T as TryInto<i32>>::Error: std::fmt::Debug,
 {
     fn len(&self) -> usize {
         self.0.len()
@@ -47,19 +47,20 @@ where
     }
     #[cfg(feature = "netcdf")]
     fn primitive_connectivity_flattened(&self) -> Option<Vec<i32>> {
-        Some(
-            self.0
-                .iter()
-                .flat_map(|nodes| nodes.iter().map(|&node| node.try_into().unwrap() + 1))
-                .collect(),
-        )
+        todo!()
+        // Some(
+        //     self.0
+        //         .iter()
+        //         .flat_map(|nodes| nodes.iter().map(|&node| node.try_into().unwrap() + 1))
+        //         .collect(),
+        // )
     }
 }
 
-impl<const M: usize, T> ConnectivityImpl<T> for PolytopalConnectivity<M, T>
-where
-    T: Copy + TryInto<i32>,
-    <T as TryInto<i32>>::Error: std::fmt::Debug,
+impl<const M: usize, T> ConnectivityImpl<T> for PolytopalConnectivity<M>
+// where
+//     T: Copy + TryInto<i32>,
+//     <T as TryInto<i32>>::Error: std::fmt::Debug,
 {
     fn len(&self) -> usize {
         self.0.len()
@@ -83,8 +84,8 @@ where
 
 pub enum Connectivity<T> {
     Hexahedral(PrimitiveConnectivity<3, 8, T>),
-    Polyhedral(PolytopalConnectivity<3, T>),
-    Polygonal(PolytopalConnectivity<2, T>),
+    Polyhedral(PolytopalConnectivity<3>),
+    Polygonal(PolytopalConnectivity<2>),
     Quadrilateral(PrimitiveConnectivity<2, 4, T>),
     Tetrahedral(PrimitiveConnectivity<3, 4, T>),
     Triangular(PrimitiveConnectivity<2, 3, T>),
@@ -93,9 +94,9 @@ pub enum Connectivity<T> {
 pub type Connectivities<T> = Vec<Connectivity<T>>;
 
 impl<T> Connectivity<T>
-where
-    T: Copy + TryInto<i32>,
-    <T as TryInto<i32>>::Error: std::fmt::Debug,
+// where
+//     T: Copy + TryInto<i32>,
+//     <T as TryInto<i32>>::Error: std::fmt::Debug,
 {
     fn as_impl(&self) -> &dyn ConnectivityImpl<T> {
         match self {
@@ -129,9 +130,9 @@ pub struct Mesh<const D: usize, T> {
 }
 
 impl<const D: usize, T> Mesh<D, T>
-where
-    T: Copy + TryInto<i32>,
-    <T as TryInto<i32>>::Error: std::fmt::Debug,
+// where
+//     T: Copy + TryInto<i32>,
+//     <T as TryInto<i32>>::Error: std::fmt::Debug,
 {
     fn connectivities(&self) -> &[Connectivity<T>] {
         &self.connectivities
