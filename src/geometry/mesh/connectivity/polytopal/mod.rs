@@ -1,17 +1,17 @@
 use crate::geometry::mesh::connectivity::base::ConnectivityImpl;
-use std::slice::Iter;
+use std::{slice, vec};
 
 pub struct PolytopalConnectivity<const M: usize>(Vec<Vec<usize>>);
 
 impl<const M: usize> PolytopalConnectivity<M> {
-    pub fn iter(&self) -> Iter<'_, Vec<usize>> {
+    pub fn iter(&self) -> slice::Iter<'_, Vec<usize>> {
         self.0.iter()
     }
 }
 
 impl<'a, const M: usize> IntoIterator for &'a PolytopalConnectivity<M> {
     type Item = &'a Vec<usize>;
-    type IntoIter = Iter<'a, Vec<usize>>;
+    type IntoIter = slice::Iter<'a, Vec<usize>>;
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter()
     }
@@ -19,7 +19,7 @@ impl<'a, const M: usize> IntoIterator for &'a PolytopalConnectivity<M> {
 
 impl<const M: usize> IntoIterator for PolytopalConnectivity<M> {
     type Item = Vec<usize>;
-    type IntoIter = std::vec::IntoIter<Vec<usize>>;
+    type IntoIter = vec::IntoIter<Vec<usize>>;
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
     }

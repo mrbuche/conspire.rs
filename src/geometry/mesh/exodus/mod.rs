@@ -49,6 +49,7 @@ where
                         connectivity.exodus_element_type(),
                     )
                 } else {
+                    netcdf.define_dimension(&format!("num_nod_per_el{}", block), num)?;
                     Ok(())
                 }
             })?;
