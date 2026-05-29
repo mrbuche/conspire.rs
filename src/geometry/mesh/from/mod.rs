@@ -6,8 +6,8 @@ use crate::geometry::{
     mesh::{Connectivities, Mesh},
 };
 
-impl<const D: usize, T> From<(Connectivities<T>, Coordinates<D>)> for Mesh<D, T> {
-    fn from((connectivities, coordinates): (Connectivities<T>, Coordinates<D>)) -> Self {
+impl<const D: usize> From<(Connectivities, Coordinates<D>)> for Mesh<D> {
+    fn from((connectivities, coordinates): (Connectivities, Coordinates<D>)) -> Self {
         Self {
             connectivities,
             coordinates,
@@ -15,8 +15,8 @@ impl<const D: usize, T> From<(Connectivities<T>, Coordinates<D>)> for Mesh<D, T>
     }
 }
 
-impl<const D: usize, T> From<(Connectivities<T>, &Coordinates<D>)> for Mesh<D, T> {
-    fn from((connectivities, coordinates): (Connectivities<T>, &Coordinates<D>)) -> Self {
+impl<const D: usize> From<(Connectivities, &Coordinates<D>)> for Mesh<D> {
+    fn from((connectivities, coordinates): (Connectivities, &Coordinates<D>)) -> Self {
         Self {
             connectivities,
             coordinates: coordinates.clone(),

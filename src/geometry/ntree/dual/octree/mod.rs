@@ -17,17 +17,15 @@ use crate::{
 const D: usize = 3;
 const N: usize = 8;
 
-impl<T, U, V> Dualization<D, V> for Octree<T, U>
+impl<T, U> Dualization<D> for Octree<T, U>
 where
     T: Copy + Into<Scalar> + Into<usize>,
     U: Copy + Into<usize>,
-    V: Copy + Default + TryFrom<usize>,
-    <V as TryFrom<usize>>::Error: std::fmt::Debug,
 {
-    fn dualize(&mut self) -> Mesh<D, V> {
+    fn dualize(&mut self) -> Mesh<D> {
         let (center_nodes, mut coordinates, mut node_index, mut connectivity) = self.initialize();
         self.uniform_transitions(&center_nodes, &mut connectivity);
-        let mut nodes_map = NodeMap::<D, V>::new();
+        let mut nodes_map = NodeMap::new();
         face_transition(
             self,
             &center_nodes,
@@ -49,17 +47,15 @@ where
     }
 }
 
-fn face_transition<T, U, V>(
+fn face_transition<T, U>(
     _tree: &Octree<T, U>,
-    _center_nodes: &[V],
+    _center_nodes: &[usize],
     _coordinates: &mut Coordinates<D>,
-    _connectivity: &mut Vec<[V; N]>,
+    _connectivity: &mut Vec<[usize; N]>,
     _node_index: &mut usize,
-    _nodes_map: &mut NodeMap<D, V>,
+    _nodes_map: &mut NodeMap<D>,
 ) where
     T: Copy + Into<Scalar> + Into<usize>,
     U: Copy + Into<usize>,
-    V: Copy + TryFrom<usize>,
-    <V as TryFrom<usize>>::Error: std::fmt::Debug,
 {
 }

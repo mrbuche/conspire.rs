@@ -31,10 +31,9 @@ where
     }
 }
 
-impl<const D: usize, P, T> Write<Output<P>> for Mesh<D, T>
+impl<const D: usize, P> Write<Output<P>> for Mesh<D>
 where
     P: AsRef<Path>,
-    T: Copy + Into<i32>,
 {
     type Error = ErrorIO;
     fn write(&self, output: Output<P>) -> Result<(), Self::Error> {

@@ -19,17 +19,15 @@ use std::ops::Add;
 const D: usize = 2;
 const N: usize = 4;
 
-impl<T, U, V> Dualization<D, V> for Quadtree<T, U>
+impl<T, U> Dualization<D> for Quadtree<T, U>
 where
     T: Add<Output = T> + Copy + Into<Scalar> + Into<usize> + Split,
     U: Copy + Into<usize>,
-    V: Copy + Default + TryFrom<usize>,
-    <V as TryFrom<usize>>::Error: std::fmt::Debug,
 {
-    fn dualize(&mut self) -> Mesh<D, V> {
+    fn dualize(&mut self) -> Mesh<D> {
         let (center_nodes, mut coordinates, mut node_index, mut connectivity) = self.initialize();
         self.uniform_transitions(&center_nodes, &mut connectivity);
-        let mut nodes_map = NodeMap::<D, V>::new();
+        let mut nodes_map = NodeMap::new();
         edge_transition(
             self,
             &center_nodes,
@@ -55,25 +53,23 @@ where
     }
 }
 
-fn edge_transition<T, U, V>(
+fn edge_transition<T, U>(
     tree: &Quadtree<T, U>,
-    center_nodes: &[V],
+    center_nodes: &[usize],
     coordinates: &mut Coordinates<D>,
-    connectivity: &mut Vec<[V; N]>,
+    connectivity: &mut Vec<[usize; N]>,
     node_index: &mut usize,
-    nodes_map: &mut NodeMap<D, V>,
+    nodes_map: &mut NodeMap<D>,
 ) where
     T: Copy + Into<Scalar> + Into<usize>,
     U: Copy + Into<usize>,
-    V: Copy + TryFrom<usize>,
-    <V as TryFrom<usize>>::Error: std::fmt::Debug,
 {
-    let mut get_or_add = |pos: [Scalar; D]| -> V {
+    let mut get_or_add = |pos: [Scalar; D]| -> usize {
         let key = pos.map(|p| (2.0 * p) as usize);
         if let Some(&v) = nodes_map.get(&key) {
             v
         } else {
-            let v = V::try_from(*node_index).unwrap();
+            let v = *node_index;
             coordinates.push(pos.into());
             nodes_map.insert(key, v);
             *node_index += 1;
@@ -269,14 +265,13 @@ fn edge_transition<T, U, V>(
     });
 }
 
-fn vertex_transition_1<T, U, V>(
+fn vertex_transition_1<T, U>(
     tree: &Quadtree<T, U>,
-    center_nodes: &[V],
-    connectivity: &mut Vec<[V; N]>,
+    center_nodes: &[usize],
+    connectivity: &mut Vec<[usize; N]>,
 ) where
     T: Copy + Into<usize>,
     U: Copy + Into<usize>,
-    V: Copy,
 {
     tree.iter().for_each(|node| {
         let [leaf_0, leaf_1, leaf_2, leaf_3] = tree.leaves(node);
@@ -347,14 +342,13 @@ fn vertex_transition_1<T, U, V>(
     });
 }
 
-fn vertex_transition_2<T, U, V>(
+fn vertex_transition_2<T, U>(
     tree: &Quadtree<T, U>,
-    center_nodes: &[V],
-    connectivity: &mut Vec<[V; N]>,
+    center_nodes: &[usize],
+    connectivity: &mut Vec<[usize; N]>,
 ) where
     T: Copy + Into<usize>,
     U: Copy + Into<usize>,
-    V: Copy,
 {
     tree.iter().for_each(|node| {
         let [leaf_0, leaf_1, leaf_2, leaf_3] = tree.leaves(node);
@@ -429,14 +423,13 @@ fn vertex_transition_2<T, U, V>(
     });
 }
 
-fn vertex_transition_3<T, U, V>(
+fn vertex_transition_3<T, U>(
     tree: &Quadtree<T, U>,
-    center_nodes: &[V],
-    connectivity: &mut Vec<[V; N]>,
+    center_nodes: &[usize],
+    connectivity: &mut Vec<[usize; N]>,
 ) where
     T: Copy + Into<usize>,
     U: Copy + Into<usize>,
-    V: Copy,
 {
     tree.iter().for_each(|node| {
         let [leaf_0, leaf_1, _, _] = tree.leaves(node);
@@ -477,14 +470,13 @@ fn vertex_transition_3<T, U, V>(
     })
 }
 
-fn vertex_transition_4<T, U, V>(
+fn vertex_transition_4<T, U>(
     tree: &Quadtree<T, U>,
-    center_nodes: &[V],
-    connectivity: &mut Vec<[V; N]>,
+    center_nodes: &[usize],
+    connectivity: &mut Vec<[usize; N]>,
 ) where
     T: Copy + Into<usize>,
     U: Copy + Into<usize>,
-    V: Copy,
 {
     tree.iter().for_each(|node| {
         let [leaf_0, leaf_1, leaf_2, leaf_3] = tree.leaves(node);
@@ -563,14 +555,13 @@ fn vertex_transition_4<T, U, V>(
     })
 }
 
-fn vertex_transition_5<T, U, V>(
+fn vertex_transition_5<T, U>(
     tree: &Quadtree<T, U>,
-    center_nodes: &[V],
-    connectivity: &mut Vec<[V; N]>,
+    center_nodes: &[usize],
+    connectivity: &mut Vec<[usize; N]>,
 ) where
     T: Copy + Into<usize>,
     U: Copy + Into<usize>,
-    V: Copy,
 {
     tree.iter()
         .enumerate()

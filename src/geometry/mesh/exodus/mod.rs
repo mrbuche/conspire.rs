@@ -136,22 +136,18 @@ where
 //     Ok(())
 // }
 
-impl<const D: usize, P, T> WriteExodus<P> for Mesh<D, T>
+impl<const D: usize, P> WriteExodus<P> for Mesh<D>
 where
     P: AsRef<Path>,
-    T: Copy + TryInto<i32>,
-    <T as TryInto<i32>>::Error: std::fmt::Debug,
 {
     fn write_exodus(self, output: P) -> Result<(), NulError> {
         (&self).write_exodus(output) // temporary
     }
 }
 
-impl<const D: usize, P, T> WriteExodus<P> for &Mesh<D, T>
+impl<const D: usize, P> WriteExodus<P> for &Mesh<D>
 where
     P: AsRef<Path>,
-    T: Copy + TryInto<i32>,
-    <T as TryInto<i32>>::Error: std::fmt::Debug,
 {
     fn write_exodus(self, output: P) -> Result<(), NulError> {
         let path = output.as_ref().to_str().unwrap();

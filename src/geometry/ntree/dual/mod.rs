@@ -11,41 +11,39 @@ use crate::{
 };
 use std::{array::from_fn, collections::HashMap};
 
-type NodeMap<const D: usize, V> = HashMap<[usize; D], V>;
+type NodeMap<const D: usize> = HashMap<[usize; D], usize>;
 
-pub trait Dualization<const D: usize, T> {
-    fn dualize(&mut self) -> Mesh<D, T>;
+pub trait Dualization<const D: usize> {
+    fn dualize(&mut self) -> Mesh<D>;
 }
 
-pub trait Uniform<const D: usize, const N: usize, V> {
-    fn initialize(&self) -> (Vec<V>, Coordinates<D>, usize, Vec<[V; N]>);
-    fn uniform_transitions(&self, center_nodes: &[V], connectivity: &mut Vec<[V; N]>);
-    fn uniform_transition_1(&self, center_nodes: &[V], connectivity: &mut Vec<[V; N]>);
-    fn uniform_transition_2(&self, center_nodes: &[V], connectivity: &mut Vec<[V; N]>);
-    fn uniform_transition_3(&self, center_nodes: &[V], connectivity: &mut Vec<[V; N]>);
-    fn uniform_transition_4(&self, center_nodes: &[V], connectivity: &mut Vec<[V; N]>);
+pub trait Uniform<const D: usize, const N: usize> {
+    fn initialize(&self) -> (Vec<usize>, Coordinates<D>, usize, Vec<[usize; N]>);
+    fn uniform_transitions(&self, center_nodes: &[usize], connectivity: &mut Vec<[usize; N]>);
+    fn uniform_transition_1(&self, center_nodes: &[usize], connectivity: &mut Vec<[usize; N]>);
+    fn uniform_transition_2(&self, center_nodes: &[usize], connectivity: &mut Vec<[usize; N]>);
+    fn uniform_transition_3(&self, center_nodes: &[usize], connectivity: &mut Vec<[usize; N]>);
+    fn uniform_transition_4(&self, center_nodes: &[usize], connectivity: &mut Vec<[usize; N]>);
 }
 
-impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V> Uniform<D, N, V>
+impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U> Uniform<D, N>
     for Orthotree<D, L, M, N, T, U>
 where
     T: Copy + Into<Scalar> + Into<usize>,
     U: Copy + Into<usize>,
-    V: Copy + Default + TryFrom<usize>,
-    <V as TryFrom<usize>>::Error: std::fmt::Debug,
 {
-    fn initialize(&self) -> (Vec<V>, Coordinates<D>, usize, Vec<[V; N]>) {
+    fn initialize(&self) -> (Vec<usize>, Coordinates<D>, usize, Vec<[usize; N]>) {
         assert!(!matches!(self.balanced, Balancing::None));
         assert!(!matches!(self.paired, Pairing::None));
         let num = self.len();
-        let mut center_nodes = vec![V::default(); num];
+        let mut center_nodes = vec![0; num];
         let mut coordinates = Coordinates::with_capacity(num);
         let mut node_index = 0;
         self.iter()
             .enumerate()
             .filter(|(_, node)| node.is_leaf())
             .for_each(|(index, leaf)| {
-                center_nodes[index] = V::try_from(node_index).unwrap();
+                center_nodes[index] = node_index;
                 let length: Scalar = leaf.length.into();
                 let center = from_fn(|i| {
                     let c: Scalar = leaf.corner[i].into();
@@ -61,13 +59,13 @@ where
             Vec::with_capacity(num),
         )
     }
-    fn uniform_transitions(&self, center_nodes: &[V], connectivity: &mut Vec<[V; N]>) {
+    fn uniform_transitions(&self, center_nodes: &[usize], connectivity: &mut Vec<[usize; N]>) {
         self.uniform_transition_1(center_nodes, connectivity);
         self.uniform_transition_2(center_nodes, connectivity);
         self.uniform_transition_3(center_nodes, connectivity);
         self.uniform_transition_4(center_nodes, connectivity);
     }
-    fn uniform_transition_1(&self, center_nodes: &[V], connectivity: &mut Vec<[V; N]>) {
+    fn uniform_transition_1(&self, center_nodes: &[usize], connectivity: &mut Vec<[usize; N]>) {
         let face_mask: usize = if D <= 2 { (1 << D) - 1 } else { 3 };
         connectivity.extend(
             self.iter()
@@ -81,7 +79,7 @@ where
                 }),
         )
     }
-    fn uniform_transition_2(&self, center_nodes: &[V], connectivity: &mut Vec<[V; N]>) {
+    fn uniform_transition_2(&self, center_nodes: &[usize], connectivity: &mut Vec<[usize; N]>) {
         let face_mask: usize = if D <= 2 { (1 << D) - 1 } else { 3 };
         self.iter().for_each(|node| {
             let leaves_and_facets = self.leaves_and_facets(node);
@@ -107,7 +105,7 @@ where
             }
         });
     }
-    fn uniform_transition_3(&self, center_nodes: &[V], connectivity: &mut Vec<[V; N]>) {
+    fn uniform_transition_3(&self, center_nodes: &[usize], connectivity: &mut Vec<[usize; N]>) {
         let face_mask: usize = if D <= 2 { (1 << D) - 1 } else { 3 };
         let n_minus_1 = N - 1;
         self.iter().for_each(|node| {
@@ -138,7 +136,7 @@ where
             }));
         });
     }
-    fn uniform_transition_4(&self, center_nodes: &[V], connectivity: &mut Vec<[V; N]>) {
+    fn uniform_transition_4(&self, center_nodes: &[usize], connectivity: &mut Vec<[usize; N]>) {
         if D < 3 {
             return;
         }

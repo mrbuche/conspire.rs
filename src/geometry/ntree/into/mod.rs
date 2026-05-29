@@ -47,11 +47,8 @@ where
     }
 }
 
-impl<const L: usize, const M: usize, U, V> From<Orthotree<2, L, M, 4, u16, U>>
-    for (Connectivity<V>, Coordinates<2>)
-where
-    V: Copy + TryFrom<usize>,
-    <V as TryFrom<usize>>::Error: std::fmt::Debug,
+impl<const L: usize, const M: usize, U> From<Orthotree<2, L, M, 4, u16, U>>
+    for (Connectivity, Coordinates<2>)
 {
     fn from(orthotree: Orthotree<2, L, M, 4, u16, U>) -> Self {
         let (connectivity, coordinates) = orthotree.into();
@@ -62,11 +59,8 @@ where
     }
 }
 
-impl<const L: usize, const M: usize, U, V> From<Orthotree<3, L, M, 8, u16, U>>
-    for (Connectivity<V>, Coordinates<3>)
-where
-    V: Copy + TryFrom<usize>,
-    <V as TryFrom<usize>>::Error: std::fmt::Debug,
+impl<const L: usize, const M: usize, U> From<Orthotree<3, L, M, 8, u16, U>>
+    for (Connectivity, Coordinates<3>)
 {
     fn from(orthotree: Orthotree<3, L, M, 8, u16, U>) -> Self {
         let (connectivity, coordinates) = orthotree.into();
