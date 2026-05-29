@@ -3,8 +3,8 @@ use crate::geometry::mesh::{Connectivity, Mesh, PrimitiveConnectivity, exodus::W
 #[test]
 fn two_cubes() {
     let connectivities = vec![
-        Connectivity::<i32>::Hexahedral(PrimitiveConnectivity(vec![[0, 1, 4, 3, 6, 7, 10, 9]])),
-        Connectivity::<i32>::Hexahedral(PrimitiveConnectivity(vec![[1, 2, 5, 4, 7, 8, 11, 10]])),
+        Connectivity::Hexahedral(PrimitiveConnectivity(vec![[0, 1, 4, 3, 6, 7, 10, 9]])),
+        Connectivity::Hexahedral(PrimitiveConnectivity(vec![[1, 2, 5, 4, 7, 8, 11, 10]])),
     ];
     let coordinates = vec![
         [0.0, 0.0, 0.0],

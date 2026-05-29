@@ -1,6 +1,6 @@
 use crate::geometry::{
-    Balance, Balancing, Coordinates, Octree, Pairing, WriteExodus,
-    mesh::{Connectivity, Mesh},
+    Balance, Balancing, Coordinates, Octree, Pairing,
+    mesh::{Connectivity, Mesh, WriteExodus},
 };
 use std::f64::consts::PI;
 
@@ -32,7 +32,7 @@ fn from_sphere() {
         .equilibrate(Balancing::Strong, Pairing::Regular)
         .unwrap();
     octree.prune();
-    let (connectivity, coordinates): (Connectivity<usize>, Coordinates<3>) = octree.into();
-    let mesh: Mesh<3, usize> = (vec![connectivity], coordinates).into();
+    let (connectivity, coordinates): (Connectivity, Coordinates<3>) = octree.into();
+    let mesh: Mesh<3> = (vec![connectivity], coordinates).into();
     mesh.write_exodus("target/octree.exo").unwrap();
 }

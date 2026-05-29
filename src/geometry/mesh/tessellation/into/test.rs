@@ -11,13 +11,6 @@ fn triangluar_mesh() {
 }
 
 #[test]
-fn connectivity_and_coordinates() {
-    let (connectivity, coordinates) = tessellation().into();
-    assert_eq!(connectivity, CONNECTIVITY.to_vec());
-    assert_eq!(coordinates, COORDINATES.into())
-}
-
-#[test]
 fn connectivity_and_coordinates_and_normals() {
     let (connectivity, coordinates, normals) = tessellation().into();
     assert_eq!(connectivity, CONNECTIVITY.to_vec());

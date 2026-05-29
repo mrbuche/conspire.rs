@@ -34,7 +34,7 @@ pub const COORDINATES: [Coordinate<3>; 8] = [
     Coordinate::const_from([0.0, 1.0, 1.0]),
 ];
 
-pub fn mesh() -> Mesh<3, usize> {
+pub fn mesh() -> Mesh<3> {
     todo!("need more from methods for connectivity")
     // let connectivity = Connectivities(vec![Connectivity::Triangular(CONNECTIVITY.to_vec())]);
     // let coordinates = Coordinates::from(COORDINATES);

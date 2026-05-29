@@ -1,14 +1,11 @@
 mod bbox;
 // mod bvh;
-mod mesh;
+pub mod mesh;
 mod ntree;
 
-#[cfg(feature = "netcdf")]
-pub use self::mesh::exodus::WriteExodus;
 pub use self::{
     bbox::{BoundingBox, BoundingBoxes, Unite as BoundingBoxUnite},
     // bvh::BoundingVolumeHierarchy,
-    mesh::Mesh,
     ntree::{
         BinaryTree, Hexadecatree, Octree, Orthotree, Quadtree,
         balance::{Balance, Balancing},

@@ -1,11 +1,16 @@
-#[cfg(feature = "netcdf")]
-pub mod exodus;
+// mod base;
+mod from;
+mod into;
+mod tessellation;
+mod write;
 
-// pub mod base;
-pub mod from;
-// pub mod into;
-// pub mod tessellation;
-pub mod write;
+#[cfg(feature = "netcdf")]
+mod exodus;
+
+pub use self::tessellation::Tessellation;
+
+#[cfg(feature = "netcdf")]
+pub use self::exodus::WriteExodus;
 
 use crate::{geometry::Coordinates, math::Tensor};
 

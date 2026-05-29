@@ -4,30 +4,21 @@ mod test;
 use crate::geometry::{
     Coordinates,
     mesh::{
-        Mesh,
-        tessellation::{D, N, Tessellation},
+        Connectivities, Mesh,
+        tessellation::{D, Normals, Tessellation},
     },
 };
 
-impl<T> From<Tessellation<T>> for Mesh<3, T> {
-    fn from(tessellation: Tessellation<T>) -> Self {
+impl From<Tessellation> for Mesh<D> {
+    fn from(tessellation: Tessellation) -> Self {
         tessellation.mesh
     }
 }
 
-impl<T> From<Tessellation<T>> for (Vec<[T; N]>, Coordinates<D>) {
-    fn from(tessellation: Tessellation<T>) -> Self {
+impl From<Tessellation> for (Connectivities, Coordinates<D>, Normals) {
+    fn from(tessellation: Tessellation) -> Self {
         (
-            todo!(), // tessellation.mesh.connectivity,
-            tessellation.mesh.coordinates,
-        )
-    }
-}
-
-impl<T> From<Tessellation<T>> for (Vec<[T; N]>, Coordinates<D>, Coordinates<D>) {
-    fn from(tessellation: Tessellation<T>) -> Self {
-        (
-            todo!(), // tessellation.mesh.connectivity,
+            tessellation.mesh.connectivities,
             tessellation.mesh.coordinates,
             tessellation.normals,
         )

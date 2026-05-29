@@ -15,10 +15,7 @@ use std::{
     path::Path,
 };
 
-impl<T> TryFrom<&Path> for Tessellation<T>
-where
-    T: Copy + From<usize>,
-{
+impl TryFrom<&Path> for Tessellation {
     type Error = ErrorIO;
     fn try_from(path: &Path) -> Result<Self, Self::Error> {
         let mut reader = BufReader::new(File::open(path)?);
@@ -42,7 +39,7 @@ where
             let i0 = dedup_vertex(&mut vertex_map, &mut unique_vertices_f32, v0);
             let i1 = dedup_vertex(&mut vertex_map, &mut unique_vertices_f32, v1);
             let i2 = dedup_vertex(&mut vertex_map, &mut unique_vertices_f32, v2);
-            connectivity.push([T::from(i0), T::from(i1), T::from(i2)]);
+            connectivity.push([i0, i1, i2]);
             normals.push(Coordinate::const_from([
                 normal_f32[0] as f64,
                 normal_f32[1] as f64,
@@ -54,7 +51,10 @@ where
             .into_iter()
             .map(|v| Coordinate::const_from([v[0] as f64, v[1] as f64, v[2] as f64]))
             .collect();
-        let mesh = todo!(); // (connectivity, coordinates).into();
+        let connectivity = todo!("need to convert, a From impl might help");
+        let mesh = (connectivity, coordinates).into();
+        let normals = vec![normals].into();
+        todo!("need to make sure connectivity pattern is consistent with normal");
         Ok(Tessellation { mesh, normals })
     }
 }

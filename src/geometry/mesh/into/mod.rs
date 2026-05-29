@@ -2,18 +2,12 @@
 mod test;
 
 use crate::geometry::{
-    Coordinates, Mesh,
+    Coordinates,
     mesh::{Connectivities, Mesh},
 };
 
-impl<const D: usize, const M: usize, T> From<Mesh<D, M, T>> for (T, Coordinates<D>) {
-    fn from(mesh: Mesh<D, M, T>) -> Self {
-        (mesh.connectivity, mesh.coordinates)
-    }
-}
-
-impl<const D: usize, T> From<Mesh<D, T>> for (Connectivities<T>, Coordinates<D>) {
-    fn from(mesh: Mesh<D, T>) -> Self {
+impl<const D: usize> From<Mesh<D>> for (Connectivities, Coordinates<D>) {
+    fn from(mesh: Mesh<D>) -> Self {
         (mesh.connectivities, mesh.coordinates)
     }
 }

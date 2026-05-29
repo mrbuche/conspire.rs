@@ -2,26 +2,32 @@
 pub mod test;
 
 use crate::{
-    geometry::mesh::{Mesh, tessellation::Tessellation},
+    geometry::mesh::{
+        Connectivity, Mesh,
+        tessellation::{D, Tessellation},
+    },
     math::{CrossProduct, Tensor},
 };
 
-impl<T> From<Mesh<3, T>> for Tessellation<T>
-where
-    T: Copy + Into<usize>,
-{
-    fn from(mesh: Mesh<3, T>) -> Self {
-        todo!()
-        // let normals = mesh
-        //     .connectivity
-        //     .iter()
-        //     .map(|&[node_0, node_1, node_2]| {
-        //         let node_0 = node_0.into();
-        //         let u = &mesh.coordinates[node_1.into()] - &mesh.coordinates[node_0];
-        //         let v = &mesh.coordinates[node_2.into()] - &mesh.coordinates[node_0];
-        //         u.cross(v).normalized()
-        //     })
-        //     .collect();
-        // Self { mesh, normals }
+impl From<Mesh<D>> for Tessellation {
+    fn from(mesh: Mesh<D>) -> Self {
+        let normals = mesh
+            .connectivities
+            .iter()
+            .map(|connectivity| {
+                match connectivity {
+                    Connectivity::Triangular(triangles) => {
+                        triangles.0.iter().map(|&[node_0, node_1, node_2]| {
+                            let u = &mesh.coordinates[node_1] - &mesh.coordinates[node_0];
+                            let v = &mesh.coordinates[node_2] - &mesh.coordinates[node_0];
+                            u.cross(v).normalized()
+                        })
+                    }
+                    _ => panic!(),
+                }
+                .collect()
+            })
+            .collect();
+        Self { mesh, normals }
     }
 }
