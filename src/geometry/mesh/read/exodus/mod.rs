@@ -57,8 +57,6 @@ where
     }
 }
 
-/// Read one element block from an open exodus file. Currently primitive only
-/// — `connect{block}` plus its `elem_type` attribute disambiguates the variant.
 fn read_block<const D: usize>(netcdf: &NetCDF, block: usize) -> Result<Connectivity, NulError> {
     let num_el_in_blk = netcdf.dimension_length(&format!("num_el_in_blk{}", block))?;
     let num_nod_per_el = netcdf
@@ -70,11 +68,10 @@ fn read_block<const D: usize>(netcdf: &NetCDF, block: usize) -> Result<Connectiv
     let flat =
         netcdf.get_variable::<i32>(&format!("connect{}", block), num_el_in_blk * num_nod_per_el)?;
     match (D, num_nod_per_el, elem_type.as_str()) {
-        (3, 8, _) => Ok(Connectivity::Hexahedral(unflatten::<8>(&flat).into())),
+        (3, 8, "hex8") => Ok(Connectivity::Hexahedral(unflatten::<8>(&flat).into())),
         (3, 4, "tet4") => Ok(Connectivity::Tetrahedral(unflatten::<4>(&flat).into())),
-        (3, 4, "quad4") => Ok(Connectivity::Quadrilateral(unflatten::<4>(&flat).into())),
-        (2, 4, _) => Ok(Connectivity::Quadrilateral(unflatten::<4>(&flat).into())),
-        (_, 3, _) => Ok(Connectivity::Triangular(unflatten::<3>(&flat).into())),
+        (_, 4, "quad4") => Ok(Connectivity::Quadrilateral(unflatten::<4>(&flat).into())),
+        (_, 3, "tri3") => Ok(Connectivity::Triangular(unflatten::<3>(&flat).into())),
         _ => panic!("unknown element type: D={D}, N={num_nod_per_el}, elem_type={elem_type}"),
     }
 }
