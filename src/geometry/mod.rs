@@ -1,5 +1,5 @@
 mod bbox;
-mod bvh;
+// mod bvh;
 mod mesh;
 mod ntree;
 
@@ -7,8 +7,8 @@ mod ntree;
 pub use self::mesh::exodus::WriteExodus;
 pub use self::{
     bbox::{BoundingBox, BoundingBoxes, Unite as BoundingBoxUnite},
-    bvh::BoundingVolumeHierarchy,
-    mesh::Mesh,
+    // bvh::BoundingVolumeHierarchy,
+    mesh::MeshNew,
     ntree::{
         BinaryTree, Hexadecatree, Octree, Orthotree, Quadtree,
         balance::{Balance, Balancing},

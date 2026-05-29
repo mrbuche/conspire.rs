@@ -46,7 +46,9 @@ where
             vertex_transition_5(self, &center_nodes, &mut connectivity);
         }
         (
-            vec![Connectivity::Quadrilateral(PrimitiveConnectivity(connectivity))],
+            vec![Connectivity::Quadrilateral(PrimitiveConnectivity(
+                connectivity,
+            ))],
             coordinates,
         )
             .into()

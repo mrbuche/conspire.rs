@@ -4,12 +4,12 @@ pub mod into;
 pub mod read;
 pub mod write;
 
-use crate::geometry::{Coordinates, mesh::TriangularMesh};
+use crate::geometry::{Coordinates, mesh::MeshNew};
 
 const D: usize = 3;
 const N: usize = 3;
 
 pub struct Tessellation<T> {
-    mesh: TriangularMesh<T>,
+    mesh: MeshNew<3, T>,
     normals: Coordinates<D>,
 }

@@ -40,7 +40,9 @@ where
             unimplemented!()
         }
         (
-            vec![Connectivity::Hexahedral(PrimitiveConnectivity(connectivity))],
+            vec![Connectivity::Hexahedral(PrimitiveConnectivity(
+                connectivity,
+            ))],
             coordinates,
         )
             .into()

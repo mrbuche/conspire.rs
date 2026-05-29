@@ -54,7 +54,7 @@ where
             .into_iter()
             .map(|v| Coordinate::const_from([v[0] as f64, v[1] as f64, v[2] as f64]))
             .collect();
-        let mesh = (connectivity, coordinates).into();
+        let mesh = todo!(); // (connectivity, coordinates).into();
         Ok(Tessellation { mesh, normals })
     }
 }

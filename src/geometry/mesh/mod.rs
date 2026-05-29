@@ -1,27 +1,19 @@
 #[cfg(feature = "netcdf")]
 pub mod exodus;
 
-pub mod base;
-pub mod from;
-pub mod into;
-pub mod tessellation;
+// pub mod base;
+// pub mod from;
+// pub mod into;
+// pub mod tessellation;
 pub mod write;
 
-use crate::geometry::Coordinates;
-
-pub struct Mesh<const D: usize, const M: usize, T> {
-    connectivity: T,
-    coordinates: Coordinates<D>,
-}
-
-pub type PrimitiveMesh<const D: usize, const M: usize, const N: usize, T> = Mesh<D, M, Vec<[T; N]>>;
-
-pub type TriangularMesh<T> = PrimitiveMesh<3, 2, 3, T>;
+use crate::{
+    geometry::Coordinates,
+    math::Tensor,
+};
 
 // Can bring in Sets, but should generalize across two concrete types
 // (with/without id numbers stored) and avoid extra storage.
-
-use crate::math::Tensor;
 
 pub struct PrimitiveConnectivity<const M: usize, const N: usize, T>(pub(crate) Vec<[T; N]>);
 pub struct PolytopalConnectivity<const M: usize, T>(pub(crate) Vec<Vec<T>>);
