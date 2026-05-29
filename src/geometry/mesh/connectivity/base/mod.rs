@@ -11,34 +11,59 @@ pub trait ConnectivityImpl {
 }
 
 impl Connectivity {
-    fn as_impl(&self) -> &dyn ConnectivityImpl {
-        match self {
-            Connectivity::Hexahedral(c) => c,
-            Connectivity::Polyhedral(c) => c,
-            Connectivity::Polygonal(c) => c,
-            Connectivity::Quadrilateral(c) => c,
-            Connectivity::Tetrahedral(c) => c,
-            Connectivity::Triangular(c) => c,
-        }
-    }
     pub fn is_empty(&self) -> bool {
-        self.as_impl().is_empty()
+        match self {
+            Connectivity::Hexahedral(c) => c.is_empty(),
+            Connectivity::Polyhedral(c) => c.is_empty(),
+            Connectivity::Polygonal(c) => c.is_empty(),
+            Connectivity::Quadrilateral(c) => c.is_empty(),
+            Connectivity::Tetrahedral(c) => c.is_empty(),
+            Connectivity::Triangular(c) => c.is_empty(),
+        }
     }
     pub fn iter(&self) -> ElementIter<'_> {
         self.into_iter()
     }
     pub fn len(&self) -> usize {
-        self.as_impl().len()
+        match self {
+            Connectivity::Hexahedral(c) => c.len(),
+            Connectivity::Polyhedral(c) => c.len(),
+            Connectivity::Polygonal(c) => c.len(),
+            Connectivity::Quadrilateral(c) => c.len(),
+            Connectivity::Tetrahedral(c) => c.len(),
+            Connectivity::Triangular(c) => c.len(),
+        }
     }
     pub fn number_of_nodes_per_element(&self) -> Option<usize> {
-        self.as_impl().number_of_nodes_per_element()
+        match self {
+            Connectivity::Hexahedral(c) => c.number_of_nodes_per_element(),
+            Connectivity::Polyhedral(c) => c.number_of_nodes_per_element(),
+            Connectivity::Polygonal(c) => c.number_of_nodes_per_element(),
+            Connectivity::Quadrilateral(c) => c.number_of_nodes_per_element(),
+            Connectivity::Tetrahedral(c) => c.number_of_nodes_per_element(),
+            Connectivity::Triangular(c) => c.number_of_nodes_per_element(),
+        }
     }
     #[cfg(feature = "netcdf")]
     pub fn exodus_element_type(&self) -> &str {
-        self.as_impl().exodus_element_type()
+        match self {
+            Connectivity::Hexahedral(c) => c.exodus_element_type(),
+            Connectivity::Polyhedral(c) => c.exodus_element_type(),
+            Connectivity::Polygonal(c) => c.exodus_element_type(),
+            Connectivity::Quadrilateral(c) => c.exodus_element_type(),
+            Connectivity::Tetrahedral(c) => c.exodus_element_type(),
+            Connectivity::Triangular(c) => c.exodus_element_type(),
+        }
     }
     #[cfg(feature = "netcdf")]
     pub fn primitive_connectivity_flattened(&self) -> Option<Vec<i32>> {
-        self.as_impl().primitive_connectivity_flattened()
+        match self {
+            Connectivity::Hexahedral(c) => c.primitive_connectivity_flattened(),
+            Connectivity::Polyhedral(c) => c.primitive_connectivity_flattened(),
+            Connectivity::Polygonal(c) => c.primitive_connectivity_flattened(),
+            Connectivity::Quadrilateral(c) => c.primitive_connectivity_flattened(),
+            Connectivity::Tetrahedral(c) => c.primitive_connectivity_flattened(),
+            Connectivity::Triangular(c) => c.primitive_connectivity_flattened(),
+        }
     }
 }
