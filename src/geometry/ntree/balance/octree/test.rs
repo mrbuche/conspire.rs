@@ -1,6 +1,6 @@
 use crate::geometry::{
-    Coordinates,
-    mesh::{Connectivity, Mesh, WriteExodus},
+    Coordinates, Write,
+    mesh::{Connectivity, Mesh, Output},
     ntree::{
         Octree,
         balance::{Balance, Balancing},
@@ -39,5 +39,5 @@ fn from_sphere() {
     octree.prune();
     let (connectivity, coordinates): (Connectivity, Coordinates<3>) = octree.into();
     let mesh: Mesh<3> = (vec![connectivity], coordinates).into();
-    mesh.write_exodus("target/octree.exo").unwrap();
+    mesh.write(Output::Exodus("target/octree.exo")).unwrap();
 }

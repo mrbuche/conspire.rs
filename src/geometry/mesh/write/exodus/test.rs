@@ -1,4 +1,7 @@
-use crate::geometry::mesh::{Connectivity, Mesh, write::WriteExodus};
+use crate::geometry::{
+    Write,
+    mesh::{Connectivity, Mesh, Output},
+};
 
 #[test]
 fn two_cubes() {
@@ -25,7 +28,7 @@ fn two_cubes() {
         connectivities,
         coordinates,
     };
-    mesh.write_exodus("target/two_cubes.exo").unwrap()
+    mesh.write(Output::Exodus("target/two_cubes.exo")).unwrap()
 }
 
 #[test]
@@ -79,5 +82,5 @@ fn two_polys() {
         connectivities,
         coordinates,
     };
-    mesh.write_exodus("target/two_polys.exo").unwrap()
+    mesh.write(Output::Exodus("target/two_polys.exo")).unwrap()
 }

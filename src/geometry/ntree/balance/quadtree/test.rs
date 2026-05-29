@@ -1,6 +1,6 @@
 use crate::geometry::{
-    Coordinates,
-    mesh::{Connectivity, Mesh, WriteExodus},
+    Coordinates, Write,
+    mesh::{Connectivity, Mesh, Output},
     ntree::{
         Quadtree,
         balance::{Balance, Balancing},
@@ -35,5 +35,5 @@ fn from_circle() {
     quadtree.prune();
     let (connectivity, coordinates): (Connectivity, Coordinates<2>) = quadtree.into();
     let mesh: Mesh<2> = (vec![connectivity], coordinates).into();
-    mesh.write_exodus("target/quadtree.exo").unwrap();
+    mesh.write(Output::Exodus("target/quadtree.exo")).unwrap();
 }

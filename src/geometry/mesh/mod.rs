@@ -13,10 +13,6 @@ pub use self::{
     write::Output,
 };
 
-// temporary
-#[cfg(feature = "netcdf")]
-pub use self::{read::ReadExodus, write::exodus::WriteExodus};
-
 use crate::geometry::Coordinates;
 
 pub struct Mesh<const D: usize> {

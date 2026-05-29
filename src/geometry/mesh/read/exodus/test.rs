@@ -1,10 +1,8 @@
 use crate::geometry::{
-    Coordinates,
+    Coordinates, Write,
     mesh::{
-        Connectivity, Mesh,
+        Connectivity, Input, Mesh, Output,
         from::test::{CONNECTIVITY, COORDINATES, mesh},
-        read::ReadExodus,
-        write::exodus::WriteExodus,
     },
 };
 
@@ -12,9 +10,10 @@ use crate::geometry::{
 fn round_trip() {
     let original: Mesh<3> = mesh();
     original
-        .write_exodus("target/read_exodus_round_trip.exo")
+        .write(Output::Exodus("target/read_exodus_round_trip.exo"))
         .unwrap();
-    let read: Mesh<3> = Mesh::read_exodus("target/read_exodus_round_trip.exo").unwrap();
+    let read: Mesh<3> =
+        Mesh::try_from(Input::Exodus("target/read_exodus_round_trip.exo")).unwrap();
     let expected_coords: Coordinates<3> = COORDINATES.into();
     assert_eq!(read.coordinates(), &expected_coords);
     match &read.connectivities()[0] {
