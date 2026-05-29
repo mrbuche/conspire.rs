@@ -4,7 +4,10 @@ mod test;
 use crate::{
     geometry::{
         Coordinate, Coordinates,
-        mesh::tessellation::{D, Tessellation},
+        mesh::{
+            Connectivity,
+            tessellation::{D, Tessellation},
+        },
     },
     math::TensorVec,
 };
@@ -51,10 +54,9 @@ impl TryFrom<&Path> for Tessellation {
             .into_iter()
             .map(|v| Coordinate::const_from([v[0] as f64, v[1] as f64, v[2] as f64]))
             .collect();
-        let connectivity = todo!("need to convert, a From impl might help");
+        let connectivity = vec![Connectivity::Triangular(connectivity.into())];
         let mesh = (connectivity, coordinates).into();
         let normals = vec![normals].into();
-        todo!("need to make sure connectivity pattern is consistent with normal");
         Ok(Tessellation { mesh, normals })
     }
 }

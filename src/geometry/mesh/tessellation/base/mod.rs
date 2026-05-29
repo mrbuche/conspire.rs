@@ -1,19 +1,16 @@
 #[cfg(test)]
 mod test;
 
-use crate::geometry::{
-    Coordinates,
-    mesh::{
-        Mesh,
-        tessellation::{D, Tessellation},
-    },
+use crate::geometry::mesh::{
+    Mesh,
+    tessellation::{D, Normals, Tessellation},
 };
 
-impl<T> Tessellation<T> {
-    pub fn mesh(&self) -> &Mesh<3, T> {
+impl Tessellation {
+    pub fn mesh(&self) -> &Mesh<D> {
         &self.mesh
     }
-    pub fn normals(&self) -> &Coordinates<D> {
+    pub fn normals(&self) -> &Normals {
         &self.normals
     }
 }

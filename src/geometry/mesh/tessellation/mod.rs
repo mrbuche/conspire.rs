@@ -1,4 +1,4 @@
-// pub mod base;
+pub mod base;
 pub mod from;
 pub mod into;
 pub mod read;

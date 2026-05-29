@@ -1,4 +1,5 @@
-// mod base;
+mod base;
+// mod connectivity;
 mod from;
 mod into;
 mod tessellation;
@@ -19,6 +20,12 @@ use crate::{geometry::Coordinates, math::Tensor};
 
 pub struct PrimitiveConnectivity<const M: usize, const N: usize>(pub(crate) Vec<[usize; N]>);
 pub struct PolytopalConnectivity<const M: usize>(pub(crate) Vec<Vec<usize>>);
+
+impl<const M: usize, const N: usize> From<Vec<[usize; N]>> for PrimitiveConnectivity<M, N> {
+    fn from(connectivity: Vec<[usize; N]>) -> Self {
+        PrimitiveConnectivity(connectivity)
+    }
+}
 
 trait ConnectivityImpl {
     fn len(&self) -> usize;
@@ -119,25 +126,4 @@ impl Connectivity {
 pub struct Mesh<const D: usize> {
     connectivities: Connectivities,
     coordinates: Coordinates<D>,
-}
-
-impl<const D: usize> Mesh<D> {
-    fn connectivities(&self) -> &[Connectivity] {
-        &self.connectivities
-    }
-    fn coordinates(&self) -> &Coordinates<D> {
-        &self.coordinates
-    }
-    fn number_of_blocks(&self) -> usize {
-        self.connectivities.len()
-    }
-    fn number_of_elements(&self) -> usize {
-        self.connectivities
-            .iter()
-            .map(|connectivity| connectivity.len())
-            .sum()
-    }
-    fn number_of_nodes(&self) -> usize {
-        self.coordinates.len()
-    }
 }

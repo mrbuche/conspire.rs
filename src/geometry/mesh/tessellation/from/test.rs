@@ -1,7 +1,7 @@
 use crate::{
     geometry::{
         Coordinate, Coordinates,
-        mesh::{TriangularMesh, from::test::mesh, tessellation::Tessellation},
+        mesh::{Mesh, from::test::mesh, tessellation::Tessellation},
     },
     math::{
         Tensor,
@@ -26,7 +26,7 @@ pub const NORMALS: [Coordinate<3>; 12] = [
     Coordinate::const_from([1.0, 0.0, 0.0]),
 ];
 
-pub fn tessellation() -> Tessellation<usize> {
+pub fn tessellation() -> Tessellation {
     Tessellation::from(mesh())
 }
 
@@ -39,7 +39,7 @@ fn triangluar_mesh() -> Result<(), TestError> {
         [0.0, 1.0, 0.0],
         [0.0, -1.0, 0.0],
     ]);
-    let mesh = TriangularMesh::from((connectivity, coordinates));
+    let mesh = Mesh::from((connectivity, coordinates));
     let tessellation = Tessellation::from(mesh);
     tessellation
         .normals

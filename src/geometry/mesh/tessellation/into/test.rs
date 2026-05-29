@@ -1,11 +1,11 @@
 use crate::geometry::mesh::{
-    TriangularMesh,
+    Mesh,
     tessellation::from::test::{CONNECTIVITY, COORDINATES, NORMALS, tessellation},
 };
 
 #[test]
 fn triangluar_mesh() {
-    let mesh = TriangularMesh::from(tessellation());
+    let mesh = Mesh::from(tessellation());
     assert_eq!(mesh.connectivity, CONNECTIVITY.to_vec());
     assert_eq!(mesh.coordinates, COORDINATES.into())
 }
