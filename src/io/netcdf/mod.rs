@@ -3,7 +3,16 @@ pub mod ffi;
 pub mod from;
 pub mod variable;
 
-use std::ffi::{NulError, c_int};
+use std::{
+    ffi::{NulError, c_int},
+    sync::{Mutex, MutexGuard},
+};
+
+static NC_LOCK: Mutex<()> = Mutex::new(());
+
+pub(crate) fn nc_lock() -> MutexGuard<'static, ()> {
+    NC_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+}
 
 pub struct NetCDF {
     ncid: c_int,
