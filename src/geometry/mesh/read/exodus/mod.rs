@@ -59,9 +59,21 @@ where
 
 fn read_block<const D: usize>(netcdf: &NetCDF, block: usize) -> Result<Connectivity, NulError> {
     let num_el_in_blk = netcdf.dimension_length(&format!("num_el_in_blk{}", block))?;
-    let num_nod_per_el = netcdf
-        .try_dimension_length(&format!("num_nod_per_el{}", block))?
-        .expect("polytopal blocks not yet supported by ReadExodus");
+    if let Some(num_nod_per_el) =
+        netcdf.try_dimension_length(&format!("num_nod_per_el{}", block))?
+    {
+        read_primitive_block::<D>(netcdf, block, num_el_in_blk, num_nod_per_el)
+    } else {
+        read_polytopal_block(netcdf, block, num_el_in_blk)
+    }
+}
+
+fn read_primitive_block<const D: usize>(
+    netcdf: &NetCDF,
+    block: usize,
+    num_el_in_blk: usize,
+    num_nod_per_el: usize,
+) -> Result<Connectivity, NulError> {
     let elem_type = netcdf
         .get_variable_attribute_text(&format!("connect{}", block), "elem_type")?
         .to_lowercase();
@@ -76,9 +88,54 @@ fn read_block<const D: usize>(netcdf: &NetCDF, block: usize) -> Result<Connectiv
     }
 }
 
+fn read_polytopal_block(
+    netcdf: &NetCDF,
+    block: usize,
+    num_el_in_blk: usize,
+) -> Result<Connectivity, NulError> {
+    let num_fac_per_el = netcdf.dimension_length(&format!("num_fac_per_el{}", block))?;
+    let ebepecnt = netcdf.get_variable::<i32>(&format!("ebepecnt{}", block), num_el_in_blk)?;
+    let facconn = netcdf.get_variable::<i32>(&format!("facconn{}", block), num_fac_per_el)?;
+    let elements_faces = unflatten_var(&facconn, &ebepecnt);
+    let num_fa_in_blk = netcdf.dimension_length(&format!("num_fa_in_blk{}", block))?;
+    let num_nod_per_fa = netcdf.dimension_length(&format!("num_nod_per_fa{}", block))?;
+    let fbepecnt = netcdf.get_variable::<i32>(&format!("fbepecnt{}", block), num_fa_in_blk)?;
+    let fbconn = netcdf.get_variable::<i32>(&format!("fbconn{}", block), num_nod_per_fa)?;
+    let faces_nodes = unflatten_var(&fbconn, &fbepecnt);
+    let elem_type = netcdf
+        .get_variable_attribute_text(&format!("facconn{}", block), "elem_type")?
+        .to_lowercase();
+    match elem_type.as_str() {
+        "nfaced" => Ok(Connectivity::Polyhedral(
+            (elements_faces, faces_nodes).into(),
+        )),
+        "nsided" => Ok(Connectivity::Polygonal(
+            (elements_faces, faces_nodes).into(),
+        )),
+        _ => panic!("unknown polytopal element type: {elem_type}"),
+    }
+}
+
 fn unflatten<const N: usize>(flat: &[i32]) -> Vec<[usize; N]> {
     assert_eq!(flat.len() % N, 0);
     flat.chunks_exact(N)
         .map(|chunk| from_fn(|i| (chunk[i] - 1) as usize))
         .collect()
+}
+
+fn unflatten_var(flat: &[i32], counts: &[i32]) -> Vec<Vec<usize>> {
+    let mut out = Vec::with_capacity(counts.len());
+    let mut idx = 0;
+    for &count in counts {
+        let count = count as usize;
+        out.push(
+            flat[idx..idx + count]
+                .iter()
+                .map(|&n| (n - 1) as usize)
+                .collect(),
+        );
+        idx += count;
+    }
+    debug_assert_eq!(idx, flat.len());
+    out
 }
