@@ -654,7 +654,28 @@ where
             number_of_threads,
         )
     }
+    fn nondimensional_longitudinal_extension_biased_stretch(
+        &self,
+        nondimensional_force: Scalar,
+        nondimensional_stretch_bias: Scalar,
+        number_of_samples: usize,
+        number_of_threads: usize,
+    ) -> Scalar {
+        nondimensional_longitudinal_extension_biased_reweighted(
+            self,
+            nondimensional_force,
+            nondimensional_stretch_bias,
+            number_of_samples,
+            number_of_threads,
+        )
+    }
     fn random_nondimensional_link_vectors(&self, nondimensional_force: Scalar) -> Configuration;
+    fn random_nondimensional_link_vectors_biased_stretch(
+        &self,
+        _nondimensional_stretch_bias: Scalar,
+    ) -> Configuration {
+        self.random_nondimensional_link_vectors(0.0)
+    }
     fn random_configuration(&self, nondimensional_force: Scalar) -> Configuration {
         let mut position = CurrentCoordinate::zero();
         self.random_nondimensional_link_vectors(nondimensional_force)
@@ -1013,6 +1034,78 @@ fn nondimensional_longitudinal_extension_reweighted_inner<T: MonteCarlo>(
         ext_scaled += extension_sum * w;
     }
 
+    (x_max, z_scaled, ext_scaled)
+}
+
+fn nondimensional_longitudinal_extension_biased_reweighted<T: MonteCarlo>(
+    model: &T,
+    nondimensional_force: Scalar,
+    nondimensional_stretch_bias: Scalar,
+    number_of_samples: usize,
+    number_of_threads: usize,
+) -> Scalar {
+    let base = number_of_samples / number_of_threads;
+    let remainder = number_of_samples % number_of_threads;
+    scope(|s| {
+        (0..number_of_threads)
+            .map(|t| {
+                s.spawn(move || {
+                    nondimensional_longitudinal_extension_biased_reweighted_inner(
+                        model,
+                        nondimensional_force,
+                        nondimensional_stretch_bias,
+                        base + usize::from(t < remainder),
+                    )
+                })
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(|handle| handle.join().unwrap())
+            .reduce(|mut acc, (x_max, z_scaled, ext_scaled)| {
+                let x_max_new = acc.0.max(x_max);
+                let scale_acc = (acc.0 - x_max_new).exp();
+                let scale_new = (x_max - x_max_new).exp();
+                acc.1 = acc.1 * scale_acc + z_scaled * scale_new;
+                acc.2 = acc.2 * scale_acc + ext_scaled * scale_new;
+                acc.0 = x_max_new;
+                acc
+            })
+            .map(|(_x_max, z_scaled, ext_scaled)| {
+                ext_scaled / z_scaled / model.number_of_links() as Scalar
+            })
+            .unwrap()
+    })
+}
+
+fn nondimensional_longitudinal_extension_biased_reweighted_inner<T: MonteCarlo>(
+    model: &T,
+    nondimensional_force: Scalar,
+    nondimensional_stretch_bias: Scalar,
+    number_of_samples: usize,
+) -> (Scalar, Scalar, Scalar) {
+    let mut x_max = Scalar::NEG_INFINITY;
+    let mut z_scaled = 0.0;
+    let mut ext_scaled = 0.0;
+    for _ in 0..number_of_samples {
+        let links =
+            model.random_nondimensional_link_vectors_biased_stretch(nondimensional_stretch_bias);
+        let extension_sum: Scalar = links.iter().map(|link| link[2]).sum();
+        let stretch_sum: Scalar = links.iter().map(|link| link.norm()).sum();
+        let x = nondimensional_force * extension_sum - nondimensional_stretch_bias * stretch_sum;
+        if x > x_max {
+            let scale = if x_max.is_finite() {
+                (x_max - x).exp()
+            } else {
+                0.0
+            };
+            z_scaled *= scale;
+            ext_scaled *= scale;
+            x_max = x;
+        }
+        let w = (x - x_max).exp();
+        z_scaled += w;
+        ext_scaled += extension_sum * w;
+    }
     (x_max, z_scaled, ext_scaled)
 }
 
