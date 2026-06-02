@@ -1,9 +1,14 @@
+#[cfg(test)]
+mod test;
+
 use crate::geometry::{
+    Coordinates,
     bbox::BoundingBox,
     bvh::{
-        BoundingVolumeHierarchy,
+        BoundingVolumeHierarchy, Hit,
         node::{Node, NodeKind},
         primitive::Primitive,
+        ray::Ray,
     },
 };
 
@@ -32,5 +37,68 @@ impl<const D: usize> BoundingVolumeHierarchy<D> {
         let right = self.build_node(right_primitives, leaf_size);
         self.nodes[node_index] = Node::from((bounding_box, NodeKind::Tree { left, right }));
         node_index
+    }
+}
+
+impl BoundingVolumeHierarchy<3> {
+    /// Closest intersection of `ray` with the triangulation, where `elements`
+    /// maps a primitive index to its node indices (the flattened connectivity)
+    /// and `coordinates` provides the node positions.
+    pub fn intersect(
+        &self,
+        ray: &Ray<3>,
+        coordinates: &Coordinates<3>,
+        elements: &[&[usize]],
+    ) -> Option<Hit> {
+        let mut hit = None;
+        if !self.nodes.is_empty() {
+            self.intersect_node(0, ray, coordinates, elements, &mut hit);
+        }
+        hit
+    }
+    fn intersect_node(
+        &self,
+        node_index: usize,
+        ray: &Ray<3>,
+        coordinates: &Coordinates<3>,
+        elements: &[&[usize]],
+        hit: &mut Option<Hit>,
+    ) {
+        let node = &self.nodes[node_index];
+        let entry = match ray.intersects(node.bounding_box()) {
+            Some(entry) => entry,
+            None => return,
+        };
+        if hit
+            .as_ref()
+            .is_some_and(|closest| entry >= closest.distance())
+        {
+            return;
+        }
+        match node.kind() {
+            NodeKind::Leaf { start, end } => {
+                self.items[*start..*end].iter().for_each(|&item| {
+                    let element = elements[item];
+                    if let Some(distance) = ray.intersects_triangle(
+                        &coordinates[element[0]],
+                        &coordinates[element[1]],
+                        &coordinates[element[2]],
+                    ) && hit
+                        .as_ref()
+                        .is_none_or(|closest| distance < closest.distance())
+                    {
+                        *hit = Some(Hit {
+                            distance,
+                            index: item,
+                        });
+                    }
+                });
+            }
+            // TODO: visit the nearer child first for tighter pruning.
+            NodeKind::Tree { left, right } => {
+                self.intersect_node(*left, ray, coordinates, elements, hit);
+                self.intersect_node(*right, ray, coordinates, elements, hit);
+            }
+        }
     }
 }
