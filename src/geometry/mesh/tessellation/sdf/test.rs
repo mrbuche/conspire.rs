@@ -7,6 +7,7 @@ use crate::{
     },
     math::Tensor,
 };
+use std::path::Path;
 
 const CONNECTIVITY: [[usize; 3]; 12] = [
     [0, 2, 1],
@@ -57,4 +58,14 @@ fn cube_cone_stays_near_unit_thickness() {
         assert!(diameter > 0.0 && diameter.is_finite());
         assert!((diameter - 1.0).abs() < 0.5);
     });
+}
+
+#[test]
+fn bunny() {
+    let tessellation =
+        Tessellation::try_from(Path::new("/home/mrbuche/Downloads/Stanford_Bunny.stl")).unwrap();
+    println!("triangles: {}", tessellation.mesh().connectivities().iter().flatten().count());
+    let diameters = tessellation.shape_diameter_function(FRAC_PI_3, 3, 8);
+    assert_eq!(diameters.len(), tessellation.mesh().coordinates().len());
+    // println!("{:?}", diameters);
 }
