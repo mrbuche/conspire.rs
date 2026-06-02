@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod test;
 
-use std::f64::consts::TAU;
+use std::{
+    f64::consts::TAU,
+    thread::{available_parallelism, scope},
+};
 
 use crate::{
     geometry::{Coordinate, bvh::BoundingVolumeHierarchy, mesh::tessellation::Tessellation},
@@ -19,25 +22,41 @@ impl Tessellation {
         let bvh = BoundingVolumeHierarchy::from(mesh);
         let elements: Vec<&[usize]> = mesh.connectivities().iter().flatten().collect();
         let coordinates = mesh.coordinates();
-        let face_diameters = mesh
-            .centroids()
-            .iter()
-            .zip(self.normals.iter().flatten())
-            .enumerate()
-            .map(|(face, (centroid, normal))| {
-                let samples = cone_directions(&-normal, half_angle, rings, azimuthal)
-                    .into_iter()
-                    .filter_map(|(direction, weight)| {
-                        let ray = (centroid.clone(), direction).into();
-                        bvh.intersect(&ray, coordinates, &elements)
-                            .filter(|hit| hit.index() != face)
-                            .map(|hit| (hit.distance(), weight))
-                    })
-                    .collect();
-                weighted_diameter(samples)
-            })
-            .collect();
-        interpolate_to_nodes(face_diameters, elements, coordinates.len())
+        let centroids = mesh.centroids();
+        let normals: Vec<&Coordinate<3>> = self.normals.iter().flatten().collect();
+        let number_of_faces = normals.len();
+        let mut face_diameters = vec![0.0; number_of_faces];
+        let threads = available_parallelism().map_or(1, |threads| threads.get());
+        let chunk_size = number_of_faces.div_ceil(threads).max(1);
+        scope(|scope| {
+            let (bvh, elements, centroids, normals) = (&bvh, &elements, &centroids, &normals);
+            face_diameters
+                .chunks_mut(chunk_size)
+                .enumerate()
+                .for_each(|(chunk, diameters)| {
+                    scope.spawn(move || {
+                        let offset = chunk * chunk_size;
+                        diameters
+                            .iter_mut()
+                            .enumerate()
+                            .for_each(|(local, diameter)| {
+                                let face = offset + local;
+                                let samples =
+                                    cone_directions(&-normals[face], half_angle, rings, azimuthal)
+                                        .into_iter()
+                                        .filter_map(|(direction, weight)| {
+                                            let ray = (centroids[face].clone(), direction).into();
+                                            bvh.intersect(&ray, coordinates, elements)
+                                                .filter(|hit| hit.index() != face)
+                                                .map(|hit| (hit.distance(), weight))
+                                        })
+                                        .collect();
+                                *diameter = weighted_diameter(samples);
+                            });
+                    });
+                });
+        });
+        interpolate_to_nodes(face_diameters.into(), elements, coordinates.len())
     }
 }
 
