@@ -1,6 +1,3 @@
-#[cfg(test)]
-mod test;
-
 use crate::io::netcdf::NetCDF;
 use std::{ffi::NulError, path::Path};
 

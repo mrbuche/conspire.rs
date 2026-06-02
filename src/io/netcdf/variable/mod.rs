@@ -1,6 +1,3 @@
-#[cfg(test)]
-mod test;
-
 use crate::io::netcdf::{
     DefineVariable, GetVariable, NcType, NetCDF, PutVariable,
     ffi::{

@@ -1,6 +1,3 @@
-#[cfg(test)]
-mod test;
-
 use crate::io::netcdf::{
     NetCDF,
     ffi::{
@@ -190,8 +187,6 @@ impl NetCDF {
     }
 }
 
-/// Caller must already hold the netcdf lock (we don't reacquire — it's not
-/// reentrant).
 fn put_attribute_text(
     netcdf: &mut NetCDF,
     varid: c_int,
