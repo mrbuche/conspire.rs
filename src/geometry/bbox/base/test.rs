@@ -1,4 +1,4 @@
-use crate::geometry::bbox::unite::test::{BBOX_1, BBOX_2, D};
+use crate::geometry::bbox::test::{BBOX_1, BBOX_2, D};
 
 #[test]
 fn either_axis_cube() {

@@ -1,6 +1,9 @@
-pub mod base;
-pub mod from;
-pub mod unite;
+#[cfg(test)]
+pub mod test;
+
+mod base;
+mod from;
+mod unite;
 
 use crate::geometry::Coordinate;
 

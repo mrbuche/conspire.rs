@@ -2,7 +2,7 @@ use crate::geometry::{
     Coordinate,
     bbox::{
         BoundingBox,
-        unite::test::{BBOX_1, BBOX_1U2, BBOX_2, D},
+        test::{BBOX_1, BBOX_1U2, BBOX_2, D},
     },
     bvh::primitive::Primitive,
 };

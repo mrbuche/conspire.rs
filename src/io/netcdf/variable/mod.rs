@@ -2,12 +2,13 @@
 mod test;
 
 use crate::io::netcdf::{
-    DefineVariable, GetVariable, NcType, NetCDF, PutVariable, nc_lock,
+    DefineVariable, GetVariable, NcType, NetCDF, PutVariable,
     ffi::{
         NC_DOUBLE, NC_FLOAT, NC_INT, nc_def_var, nc_get_var_double, nc_get_var_float,
         nc_get_var_int, nc_inq_dimid, nc_inq_varid, nc_put_var_double, nc_put_var_float,
         nc_put_var_int,
     },
+    nc_lock,
 };
 use std::ffi::{CString, NulError, c_int};
 
