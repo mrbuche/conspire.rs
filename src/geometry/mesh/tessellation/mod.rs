@@ -2,6 +2,7 @@ pub mod base;
 pub mod from;
 pub mod into;
 pub mod read;
+pub mod sdf;
 pub mod write;
 
 use crate::{geometry::mesh::Mesh, math::TensorRank1Vec2D};
