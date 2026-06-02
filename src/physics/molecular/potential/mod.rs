@@ -1,10 +1,12 @@
 #[cfg(test)]
 mod test;
 
+mod cosine;
 mod harmonic;
 // mod lennard_jones;
 mod morse;
 
+pub use cosine::Cosine;
 pub use harmonic::Harmonic;
 pub use morse::Morse;
 
