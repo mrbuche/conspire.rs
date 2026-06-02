@@ -65,7 +65,10 @@ fn bunny() {
     let tessellation =
         Tessellation::try_from(Path::new("/home/mrbuche/Downloads/Stanford_Bunny.stl")).unwrap();
     println!("triangles: {}", tessellation.mesh().connectivities().iter().flatten().count());
+    use std::time::Instant;
+    let start = Instant::now();
     let diameters = tessellation.shape_diameter_function(FRAC_PI_3, 3, 8);
+    println!("SDF time: {:?}", start.elapsed());
     assert_eq!(diameters.len(), tessellation.mesh().coordinates().len());
     // println!("{:?}", diameters);
 }
