@@ -5,9 +5,10 @@ use crate::{
         Quantity, Scalar,
         assert::{AssertionError, perturbation},
     },
-    physics::molecular::potential::{Harmonic, Morse, Potential},
+    physics::molecular::potential::{AngularPotential, Cosine, Harmonic, Morse, Potential},
     units::{Force, Length, Temperature},
 };
+use std::f64::consts::PI;
 
 const NUM: usize = 333;
 
@@ -35,7 +36,19 @@ fn test_consistency() -> Result<(), AssertionError> {
     Assert::default().eq_within_tols(energy, &model.energy_at_force(forces[0]))?;
     Assert::default().eq_within_tols(energy, &model.energy_at_force(forces[1]))?;
     Assert::default().eq_within_tols(energy, &model.energy(extensions[0] + model.rest_length()))?;
-    Assert::default().eq_within_tols(energy, &model.energy(extensions[1] + model.rest_length()))
+    Assert::default().eq_within_tols(energy, &model.energy(extensions[1] + model.rest_length()))?;
+    let model = Cosine {
+        rest_angle: 1.5,
+        stiffness: 1.2,
+    };
+    Assert::default().eq_within_tols(
+        &model.energy(model.rest_angle),
+        &Quantity::new(0.0),
+    )?;
+    Assert::default().eq_within_tols(
+        &model.energy(model.rest_angle + 0.3),
+        &model.energy(model.rest_angle - 0.3),
+    )
 }
 
 #[test]
@@ -142,5 +155,19 @@ fn finite_difference() -> Result<(), AssertionError> {
             Assert::default().eq_within_fd_tol(compliance, &compliance_fd)?;
             Assert::default()
                 .eq_within_fd_tol(nondimensional_extension, &nondimensional_extension_fd)
+        })?;
+    let potential = Cosine {
+        rest_angle: x0,
+        stiffness: e,
+    };
+    let x_max = x0 + 0.8 * 0.5 * PI;
+    (0..NUM)
+        .map(|k| x0 + (x_max - x0) * k as Scalar / NUM as Scalar)
+        .into_iter()
+        .try_for_each(|x| {
+            Assert::default().eq_within_tols(
+                &potential.energy(x),
+                &Quantity::new(e * (1.0 - (x - x0).cos())),
+            )
         })
 }
