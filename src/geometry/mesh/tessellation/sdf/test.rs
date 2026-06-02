@@ -1,12 +1,13 @@
 use std::f64::consts::FRAC_PI_3;
 
-use crate::geometry::{
-    Coordinate, Coordinates,
-    mesh::{Connectivity, Mesh, Tessellation},
+use crate::{
+    geometry::{
+        Coordinate, Coordinates,
+        mesh::{Connectivity, Mesh, Tessellation},
+    },
+    math::Tensor,
 };
 
-// Closed surface of the unit cube: 12 triangles over 8 corners, wound so the
-// face normals point outward.
 const CONNECTIVITY: [[usize; 3]; 12] = [
     [0, 2, 1],
     [0, 3, 2],
@@ -41,10 +42,8 @@ fn cube() -> Tessellation {
 
 #[test]
 fn cube_center_ray_is_unit_thickness() {
-    // rings = 0 leaves only the central inward ray, which crosses to the
-    // opposite face of the unit cube at distance 1.
     let diameters = cube().shape_diameter_function(FRAC_PI_3, 0, 0);
-    assert_eq!(diameters.len(), 12);
+    assert_eq!(diameters.len(), 8);
     diameters
         .iter()
         .for_each(|&diameter| assert_eq!(diameter, 1.0));
@@ -53,7 +52,7 @@ fn cube_center_ray_is_unit_thickness() {
 #[test]
 fn cube_cone_stays_near_unit_thickness() {
     let diameters = cube().shape_diameter_function(FRAC_PI_3, 3, 8);
-    assert_eq!(diameters.len(), 12);
+    assert_eq!(diameters.len(), 8);
     diameters.iter().for_each(|&diameter| {
         assert!(diameter > 0.0 && diameter.is_finite());
         assert!((diameter - 1.0).abs() < 0.5);

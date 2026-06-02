@@ -5,7 +5,7 @@ use std::f64::consts::TAU;
 
 use crate::{
     geometry::{Coordinate, bvh::BoundingVolumeHierarchy, mesh::tessellation::Tessellation},
-    math::{Scalar, Tensor},
+    math::{Scalar, Tensor, Vector},
 };
 
 impl Tessellation {
@@ -14,12 +14,13 @@ impl Tessellation {
         half_angle: Scalar,
         rings: usize,
         azimuthal: usize,
-    ) -> Vec<Scalar> {
+    ) -> Vector {
         let mesh = self.mesh();
         let bvh = BoundingVolumeHierarchy::from(mesh);
         let elements: Vec<&[usize]> = mesh.connectivities().iter().flatten().collect();
         let coordinates = mesh.coordinates();
-        mesh.centroids()
+        let face_diameters = mesh
+            .centroids()
             .iter()
             .zip(self.normals.iter().flatten())
             .enumerate()
@@ -35,8 +36,33 @@ impl Tessellation {
                     .collect();
                 weighted_diameter(samples)
             })
-            .collect()
+            .collect();
+        interpolate_to_nodes(face_diameters, elements, coordinates.len())
     }
+}
+
+fn interpolate_to_nodes(
+    face_diameters: Vector,
+    elements: Vec<&[usize]>,
+    number_of_nodes: usize,
+) -> Vector {
+    let mut nodal = Vector::zero(number_of_nodes);
+    let mut counts = vec![0; number_of_nodes];
+    elements
+        .into_iter()
+        .zip(face_diameters)
+        .for_each(|(element, diameter)| {
+            element.iter().for_each(|&node| {
+                nodal[node] += diameter;
+                counts[node] += 1;
+            })
+        });
+    nodal.iter_mut().zip(counts).for_each(|(value, count)| {
+        if count > 0 {
+            *value /= count as Scalar
+        }
+    });
+    nodal
 }
 
 fn cone_directions(
