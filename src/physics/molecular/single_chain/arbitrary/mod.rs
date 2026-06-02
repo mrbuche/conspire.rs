@@ -202,82 +202,119 @@ where
 fn random_nondimensional_link_length<U>(
     potential: &ArbitraryDiscretePotential<U>,
     temperature: Scalar,
+    stretch_bias: Scalar,
 ) -> Scalar
 where
     U: Potential,
 {
     match potential {
         ArbitraryDiscretePotential::Free => panic!(),
+        // Inextensible: nothing to stretch, so the bias is a no-op.
         ArbitraryDiscretePotential::Rigid(_) => 1.0,
         ArbitraryDiscretePotential::Strong(potential)
         | ArbitraryDiscretePotential::Weak(potential) => {
-            let sigma = 1.0 / potential.nondimensional_stiffness(1.0, temperature).sqrt();
-            random_x2_normal(1.0, sigma)
+            // For the harmonic (Gaussian) link, tilting by exp(s*lambda) just
+            // shifts the mean from 1 to 1 + s/kappa at fixed width.
+            let kappa = potential.nondimensional_stiffness(1.0, temperature);
+            random_x2_normal(1.0 + stretch_bias / kappa, 1.0 / kappa.sqrt())
         }
     }
 }
 
 impl MonteCarlo for ArbitraryDiscrete {
+    fn nondimensional_longitudinal_extension(
+        &self,
+        nondimensional_force: Scalar,
+        number_of_samples: usize,
+        number_of_threads: usize,
+    ) -> Scalar {
+        self.nondimensional_longitudinal_extension_biased_stretch(
+            nondimensional_force,
+            nondimensional_force,
+            number_of_samples,
+            number_of_threads,
+        )
+    }
     fn random_nondimensional_link_vectors(&self, nondimensional_force: Scalar) -> Configuration {
-        let temperature = self.temperature();
         // Fast path: with free bend and free torsion the links are independent
         // and isotropic (freely-jointed), so they can be drawn directly and
         // biased by the applied force along the z-axis. Force biasing of the
         // direction is only valid for inextensible (rigid) links; an extensible
         // link under force couples stretch and orientation (see EFJC), which is
         // not yet handled.
-        if matches!(self.angular_potential, ArbitraryDiscretePotential::Free)
-            && matches!(self.torsional_potential, ArbitraryDiscretePotential::Free)
-        {
-            let eta = nondimensional_force;
-            if eta != 0.0 && !matches!(self.link_potential, ArbitraryDiscretePotential::Rigid(_)) {
+        if nondimensional_force != 0.0 {
+            let both_free = matches!(self.angular_potential, ArbitraryDiscretePotential::Free)
+                && matches!(self.torsional_potential, ArbitraryDiscretePotential::Free);
+            if !both_free || !matches!(self.link_potential, ArbitraryDiscretePotential::Rigid(_)) {
                 unimplemented!()
             }
+            let eta = nondimensional_force;
             let eta_exp = eta.exp();
             let eta_nexp = 1.0 / eta_exp;
             return (0..self.number_of_links())
                 .map(|_| {
-                    let cos_theta = if eta == 0.0 {
-                        2.0 * random_uniform() - 1.0
-                    } else {
-                        (eta_nexp + random_uniform() * (eta_exp - eta_nexp)).ln() / eta
-                    };
+                    let cos_theta = (eta_nexp + random_uniform() * (eta_exp - eta_nexp)).ln() / eta;
                     let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
                     let phi = TAU * random_uniform();
                     let (sin_phi, cos_phi) = phi.sin_cos();
-                    let lambda =
-                        random_nondimensional_link_length(&self.link_potential, temperature);
+                    CurrentCoordinate::from([sin_theta * cos_phi, sin_theta * sin_phi, cos_theta])
+                })
+                .collect();
+        }
+        self.random_nondimensional_link_vectors_biased_stretch(0.0)
+    }
+    fn random_nondimensional_link_vectors_biased_stretch(
+        &self,
+        nondimensional_stretch_bias: Scalar,
+    ) -> Configuration {
+        let temperature = self.temperature();
+        let next_length = || {
+            random_nondimensional_link_length(
+                &self.link_potential,
+                temperature,
+                nondimensional_stretch_bias,
+            )
+        };
+        // With free bend and free torsion the links are independent and
+        // isotropic; otherwise the bend and/or torsion couple neighbours, so
+        // build the chain by propagating a frame.
+        if matches!(self.angular_potential, ArbitraryDiscretePotential::Free)
+            && matches!(self.torsional_potential, ArbitraryDiscretePotential::Free)
+        {
+            (0..self.number_of_links())
+                .map(|_| {
+                    let cos_theta = 2.0 * random_uniform() - 1.0;
+                    let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
+                    let phi = TAU * random_uniform();
+                    let (sin_phi, cos_phi) = phi.sin_cos();
+                    let lambda = next_length();
                     CurrentCoordinate::from([
                         lambda * sin_theta * cos_phi,
                         lambda * sin_theta * sin_phi,
                         lambda * cos_theta,
                     ])
                 })
-                .collect();
+                .collect()
+        } else {
+            self.frame_propagated_link_vectors(
+                || match &self.angular_potential {
+                    ArbitraryDiscretePotential::Free => 2.0 * random_uniform() - 1.0,
+                    ArbitraryDiscretePotential::Rigid(link_angle) => link_angle.cos(),
+                    ArbitraryDiscretePotential::Strong(potential)
+                    | ArbitraryDiscretePotential::Weak(potential) => {
+                        random_bend_cos_theta(potential, temperature)
+                    }
+                },
+                || match &self.torsional_potential {
+                    ArbitraryDiscretePotential::Free => TAU * random_uniform(),
+                    ArbitraryDiscretePotential::Rigid(dihedral_angle) => *dihedral_angle,
+                    ArbitraryDiscretePotential::Strong(potential)
+                    | ArbitraryDiscretePotential::Weak(potential) => {
+                        random_torsion_phi(potential, temperature)
+                    }
+                },
+                next_length,
+            )
         }
-        // Otherwise the bend and/or torsion couple neighbouring links, so build
-        // the chain by propagating a frame. Force biasing is not yet handled.
-        if nondimensional_force != 0.0 {
-            unimplemented!()
-        }
-        self.frame_propagated_link_vectors(
-            || match &self.angular_potential {
-                ArbitraryDiscretePotential::Free => 2.0 * random_uniform() - 1.0,
-                ArbitraryDiscretePotential::Rigid(link_angle) => link_angle.cos(),
-                ArbitraryDiscretePotential::Strong(potential)
-                | ArbitraryDiscretePotential::Weak(potential) => {
-                    random_bend_cos_theta(potential, temperature)
-                }
-            },
-            || match &self.torsional_potential {
-                ArbitraryDiscretePotential::Free => TAU * random_uniform(),
-                ArbitraryDiscretePotential::Rigid(dihedral_angle) => *dihedral_angle,
-                ArbitraryDiscretePotential::Strong(potential)
-                | ArbitraryDiscretePotential::Weak(potential) => {
-                    random_torsion_phi(potential, temperature)
-                }
-            },
-            || random_nondimensional_link_length(&self.link_potential, temperature),
-        )
     }
 }
