@@ -1,13 +1,11 @@
-#[cfg(test)]
-mod test;
-
 use crate::io::netcdf::{
-    NetCDF, nc_lock,
+    NetCDF,
     ffi::{
         NC_FLOAT, NC_GLOBAL, NC_INT, NC_NOWRITE, nc_close, nc_create, nc_def_dim, nc_enddef,
         nc_get_att_text, nc_inq_attlen, nc_inq_dimid, nc_inq_dimlen, nc_inq_varid, nc_open,
         nc_put_att_float, nc_put_att_int, nc_put_att_text,
     },
+    nc_lock,
 };
 use std::ffi::{CString, NulError, c_char, c_int, c_ulong};
 
@@ -189,8 +187,6 @@ impl NetCDF {
     }
 }
 
-/// Caller must already hold the netcdf lock (we don't reacquire — it's not
-/// reentrant).
 fn put_attribute_text(
     netcdf: &mut NetCDF,
     varid: c_int,
