@@ -1,9 +1,18 @@
 #[cfg(test)]
 mod test;
 
-use crate::{geometry::bbox::BoundingBox, math::Tensor};
+use crate::{
+    geometry::{Coordinate, bbox::BoundingBox},
+    math::Tensor,
+};
 
 impl<const D: usize> BoundingBox<D> {
+    pub fn minimum(&self) -> &Coordinate<D> {
+        &self.minimum
+    }
+    pub fn maximum(&self) -> &Coordinate<D> {
+        &self.maximum
+    }
     pub fn longest_axis(&self) -> usize {
         self.maximum
             .iter()

@@ -2,6 +2,7 @@ mod base;
 mod from;
 mod node;
 mod primitive;
+mod ray;
 
 use crate::geometry::bvh::node::Nodes;
 

@@ -2,6 +2,8 @@ use crate::geometry::bbox::test::{BBOX_1, BBOX_2, D};
 
 #[test]
 fn either_axis_cube() {
+    assert_eq!(BBOX_1.minimum(), &[0.0; D].into());
+    assert_eq!(BBOX_1.maximum(), &[1.0; D].into());
     assert_eq!(BBOX_1.longest_axis(), D - 1);
     assert_eq!(BBOX_1.shortest_axis(), 0)
 }
