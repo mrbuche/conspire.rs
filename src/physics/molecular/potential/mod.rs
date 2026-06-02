@@ -1,10 +1,12 @@
 #[cfg(test)]
 mod test;
 
+mod cosine;
 mod harmonic;
 // mod lennard_jones;
 mod morse;
 
+pub use cosine::Cosine;
 pub use harmonic::Harmonic;
 pub use morse::Morse;
 
@@ -236,4 +238,15 @@ where
     /// \text{arg min }u(x) = x_0
     /// ```
     fn rest_length(&self) -> Quantity<Length>;
+}
+
+/// Angular potential models.
+pub trait AngularPotential
+where
+    Self: Clone + Debug,
+{
+    /// ```math
+    /// u = u(\theta)
+    /// ```
+    fn energy(&self, angle: Scalar) -> Quantity<Energy>;
 }
