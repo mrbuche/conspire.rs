@@ -1,19 +1,19 @@
-use crate::geometry::mesh::connectivity::base::ConnectivityImpl;
 #[cfg(feature = "netcdf")]
 use crate::geometry::mesh::connectivity::base::FlatConnectivity;
-use std::{fmt::Debug, num::TryFromIntError, slice::Iter};
+use crate::{geometry::mesh::connectivity::base::ConnectivityImpl, math::Set};
+use std::{fmt::Debug, num::TryFromIntError, slice::Iter, vec::IntoIter};
 
-pub struct PrimitiveConnectivity<const M: usize, const N: usize>(Vec<[usize; N]>);
+pub struct PrimitiveConnectivity<const M: usize, const N: usize>(Set<Vec<[usize; N]>>);
 
 impl<const M: usize, const N: usize> From<Vec<[usize; N]>> for PrimitiveConnectivity<M, N> {
     fn from(connectivity: Vec<[usize; N]>) -> Self {
-        PrimitiveConnectivity(connectivity)
+        PrimitiveConnectivity(Set::from(connectivity))
     }
 }
 
 impl<const M: usize, const N: usize> PrimitiveConnectivity<M, N> {
     pub fn iter(&self) -> Iter<'_, [usize; N]> {
-        self.0.iter()
+        self.0.members().iter()
     }
 }
 
@@ -21,24 +21,30 @@ impl<'a, const M: usize, const N: usize> IntoIterator for &'a PrimitiveConnectiv
     type Item = &'a [usize; N];
     type IntoIter = Iter<'a, [usize; N]>;
     fn into_iter(self) -> Self::IntoIter {
-        self.0.iter()
+        self.0.members().iter()
     }
 }
 
 impl<const M: usize, const N: usize> IntoIterator for PrimitiveConnectivity<M, N> {
     type Item = [usize; N];
-    type IntoIter = std::vec::IntoIter<[usize; N]>;
+    type IntoIter = IntoIter<[usize; N]>;
     fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
+        self.0.into_members().into_iter()
     }
 }
 
 impl<const M: usize, const N: usize> ConnectivityImpl for PrimitiveConnectivity<M, N> {
     fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.0.members().is_empty()
+    }
+    fn element_numbers(&self) -> Option<&[usize]> {
+        self.0.numbers()
+    }
+    fn number_elements(&mut self, numbers: Vec<usize>) {
+        self.0.set_numbers(numbers)
     }
     fn number_of_elements(&self) -> usize {
-        self.0.len()
+        self.0.members().len()
     }
     fn number_of_faces(&self) -> Option<usize> {
         None
@@ -75,6 +81,7 @@ impl<const M: usize, const N: usize> ConnectivityImpl for PrimitiveConnectivity<
     {
         match self
             .0
+            .members()
             .iter()
             .flat_map(|nodes| nodes.iter().map(|&node| (node + 1).try_into()))
             .collect()

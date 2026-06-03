@@ -103,3 +103,37 @@ fn round_trip_block_numbers() {
         Mesh::try_from(Input::Exodus("target/read_exodus_block_numbers.exo")).unwrap();
     assert_eq!(read.connectivities.numbers(), Some([10, 20].as_slice()));
 }
+
+#[test]
+fn round_trip_element_numbers() {
+    let mut block_0 = Connectivity::Triangular(vec![[0, 1, 2]].into());
+    block_0.number_elements(vec![100]);
+    let mut block_1 = Connectivity::Triangular(vec![[3, 4, 5]].into());
+    block_1.number_elements(vec![200]);
+    let coordinates: Coordinates<3> = vec![
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0],
+        [1.0, 0.0, 1.0],
+        [0.0, 1.0, 1.0],
+    ]
+    .into();
+    let original = Mesh {
+        connectivities: Connectivities::from(vec![block_0, block_1]),
+        coordinates,
+    };
+    original
+        .write(Output::Exodus("target/read_exodus_element_numbers.exo"))
+        .unwrap();
+    let read: Mesh<3> =
+        Mesh::try_from(Input::Exodus("target/read_exodus_element_numbers.exo")).unwrap();
+    assert_eq!(
+        read.connectivities()[0].element_numbers(),
+        Some([100].as_slice())
+    );
+    assert_eq!(
+        read.connectivities()[1].element_numbers(),
+        Some([200].as_slice())
+    );
+}

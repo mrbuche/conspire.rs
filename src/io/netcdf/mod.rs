@@ -41,6 +41,11 @@ pub trait PutVariable {
 
 pub trait GetVariable {
     fn get_variable<T: NcType>(&self, name: &str, len: usize) -> Result<Vec<T>, NulError>;
+    fn try_get_variable<T: NcType>(
+        &self,
+        name: &str,
+        len: usize,
+    ) -> Result<Option<Vec<T>>, NulError>;
 }
 
 pub trait NcType: Default + Clone {

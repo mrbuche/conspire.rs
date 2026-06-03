@@ -94,6 +94,26 @@ impl GetVariable for NetCDF {
         );
         Ok(data)
     }
+    fn try_get_variable<T: NcType>(
+        &self,
+        name: &str,
+        len: usize,
+    ) -> Result<Option<Vec<T>>, NulError> {
+        let name_c_str = CString::new(name)?;
+        let mut varid: c_int = 0;
+        let _guard = nc_lock();
+        let status = unsafe { nc_inq_varid(self.ncid, name_c_str.as_ptr(), &mut varid) };
+        if status != 0 {
+            return Ok(None);
+        }
+        let mut data: Vec<T> = vec![T::default(); len];
+        let status = T::get_var(self.ncid, varid, data.as_mut_ptr());
+        assert_eq!(
+            status, 0,
+            "nc_get_var failed for var '{name}' (varid {varid}) with status={status}"
+        );
+        Ok(Some(data))
+    }
 }
 
 impl NcType for i32 {

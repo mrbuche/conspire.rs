@@ -17,6 +17,9 @@ impl<S> Set<S> {
     pub fn numbers(&self) -> Option<&[usize]> {
         self.numbers.as_deref()
     }
+    pub fn set_numbers(&mut self, numbers: Vec<usize>) {
+        self.numbers = Some(numbers);
+    }
 }
 
 impl<S> From<S> for Set<S> {

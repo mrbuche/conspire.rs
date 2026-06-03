@@ -22,6 +22,19 @@ where
         let path = output.as_ref().to_str().unwrap();
         let mut netcdf = NetCDF::create(path)?;
         netcdf.global()?;
+        let element_numbers: Option<Vec<i32>> = self
+            .connectivities()
+            .iter()
+            .map(|connectivity| {
+                connectivity.element_numbers().map(|numbers| {
+                    numbers
+                        .iter()
+                        .map(|&number| number as i32)
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect::<Option<Vec<Vec<i32>>>>()
+            .map(|per_block| per_block.into_iter().flatten().collect());
         netcdf.define_dimension("num_dim", D)?;
         netcdf.define_dimension("num_elem", self.number_of_elements())?;
         netcdf.define_dimension("num_el_blk", self.number_of_element_blocks())?;
@@ -34,6 +47,9 @@ where
         }
         if let Some(num_face) = self.number_of_faces() {
             netcdf.define_dimension("num_face", num_face)?;
+        }
+        if element_numbers.is_some() {
+            netcdf.define_variable::<i32>("elem_num_map", 1, &["num_elem"])?;
         }
         self.iter()
             .enumerate()
@@ -152,6 +168,9 @@ where
         netcdf.put_variable("eb_prop1", &block_ids)?;
         if self.number_of_face_blocks().is_some() {
             netcdf.put_variable("fa_prop1", &block_ids)?;
+        }
+        if let Some(element_numbers) = &element_numbers {
+            netcdf.put_variable("elem_num_map", element_numbers)?;
         }
         self.iter()
             .enumerate()

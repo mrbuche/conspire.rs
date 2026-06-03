@@ -31,8 +31,9 @@ where
             "exodus num_dim={num_dim} but Mesh was asked for D={D}"
         );
         let num_el_blk = netcdf.dimension_length("num_el_blk")?;
+        let num_elem = netcdf.dimension_length("num_elem")?;
         let num_nodes = netcdf.dimension_length("num_nodes")?;
-        let connectivities = (1..=num_el_blk)
+        let mut connectivities = (1..=num_el_blk)
             .map(|block| read_block::<D>(&netcdf, block))
             .collect::<Result<Vec<_>, _>>()?;
         let blocks = netcdf
@@ -40,6 +41,19 @@ where
             .into_iter()
             .map(|id| id as usize)
             .collect();
+        if let Some(element_numbers) = netcdf.try_get_variable::<i32>("elem_num_map", num_elem)? {
+            let mut offset = 0;
+            connectivities.iter_mut().for_each(|connectivity| {
+                let count = connectivity.number_of_elements();
+                connectivity.number_elements(
+                    element_numbers[offset..offset + count]
+                        .iter()
+                        .map(|&id| id as usize)
+                        .collect(),
+                );
+                offset += count;
+            });
+        }
         let coordx = netcdf.get_variable::<f64>("coordx", num_nodes)?;
         let coordy = netcdf.get_variable::<f64>("coordy", num_nodes)?;
         let coordz = match D {

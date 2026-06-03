@@ -3,6 +3,8 @@ use std::{fmt::Debug, num::TryFromIntError};
 
 pub trait ConnectivityImpl {
     fn is_empty(&self) -> bool;
+    fn element_numbers(&self) -> Option<&[usize]>;
+    fn number_elements(&mut self, numbers: Vec<usize>);
     fn number_of_elements(&self) -> usize;
     fn number_of_faces(&self) -> Option<usize>;
     fn number_of_faces_per_element<I>(&self) -> Option<Vec<I>>
@@ -39,6 +41,26 @@ impl Connectivity {
     }
     pub fn iter(&self) -> ElementIter<'_> {
         self.into_iter()
+    }
+    pub fn element_numbers(&self) -> Option<&[usize]> {
+        match self {
+            Connectivity::Hexahedral(c) => c.element_numbers(),
+            Connectivity::Polyhedral(c) => c.element_numbers(),
+            Connectivity::Polygonal(c) => c.element_numbers(),
+            Connectivity::Quadrilateral(c) => c.element_numbers(),
+            Connectivity::Tetrahedral(c) => c.element_numbers(),
+            Connectivity::Triangular(c) => c.element_numbers(),
+        }
+    }
+    pub fn number_elements(&mut self, numbers: Vec<usize>) {
+        match self {
+            Connectivity::Hexahedral(c) => c.number_elements(numbers),
+            Connectivity::Polyhedral(c) => c.number_elements(numbers),
+            Connectivity::Polygonal(c) => c.number_elements(numbers),
+            Connectivity::Quadrilateral(c) => c.number_elements(numbers),
+            Connectivity::Tetrahedral(c) => c.number_elements(numbers),
+            Connectivity::Triangular(c) => c.number_elements(numbers),
+        }
     }
     pub fn number_of_elements(&self) -> usize {
         match self {
