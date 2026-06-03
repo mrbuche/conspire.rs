@@ -53,6 +53,52 @@ impl BoundingVolumeHierarchy<3> {
         }
         hit
     }
+    pub fn intersections(
+        &self,
+        ray: &Ray<3>,
+        coordinates: &Coordinates<3>,
+        elements: &[&[usize]],
+    ) -> usize {
+        let mut count = 0;
+        if !self.nodes.is_empty() {
+            self.count_node(0, ray, coordinates, elements, &mut count);
+        }
+        count
+    }
+    fn count_node(
+        &self,
+        node_index: usize,
+        ray: &Ray<3>,
+        coordinates: &Coordinates<3>,
+        elements: &[&[usize]],
+        count: &mut usize,
+    ) {
+        let node = &self.nodes[node_index];
+        if ray.intersects(node.bounding_box()).is_none() {
+            return;
+        }
+        match node.kind() {
+            NodeKind::Leaf { start, end } => {
+                self.items[*start..*end].iter().for_each(|&item| {
+                    let element = elements[item];
+                    if ray
+                        .intersects_triangle(
+                            &coordinates[element[0]],
+                            &coordinates[element[1]],
+                            &coordinates[element[2]],
+                        )
+                        .is_some()
+                    {
+                        *count += 1;
+                    }
+                });
+            }
+            NodeKind::Tree { left, right } => {
+                self.count_node(*left, ray, coordinates, elements, count);
+                self.count_node(*right, ray, coordinates, elements, count);
+            }
+        }
+    }
     fn intersect_node(
         &self,
         node_index: usize,

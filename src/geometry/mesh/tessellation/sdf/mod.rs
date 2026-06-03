@@ -17,7 +17,7 @@ impl Tessellation {
         half_angle: Scalar,
         rings: usize,
         azimuthal: usize,
-    ) -> Vector {
+    ) -> (Vector, BoundingVolumeHierarchy<3>) {
         let mesh = self.mesh();
         let bvh = BoundingVolumeHierarchy::from(mesh);
         let elements: Vec<&[usize]> = mesh.connectivities().iter().flatten().collect();
@@ -56,7 +56,8 @@ impl Tessellation {
                     });
                 });
         });
-        interpolate_to_nodes(face_diameters.into(), elements, coordinates.len())
+        let diameters = interpolate_to_nodes(face_diameters.into(), elements, coordinates.len());
+        (diameters, bvh)
     }
 }
 
