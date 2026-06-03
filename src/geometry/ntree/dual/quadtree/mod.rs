@@ -43,6 +43,7 @@ where
         if matches!(self.balanced, Balancing::Weak) {
             vertex_transition_5(self, &center_nodes, &mut connectivity);
         }
+        self.rescale_coordinates(&mut coordinates);
         (
             vec![Connectivity::Quadrilateral(connectivity.into())],
             coordinates,

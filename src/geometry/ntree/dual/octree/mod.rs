@@ -37,6 +37,7 @@ where
         if matches!(self.balanced, Balancing::Weak) {
             unimplemented!()
         }
+        self.rescale_coordinates(&mut coordinates);
         (
             vec![Connectivity::Hexahedral(connectivity.into())],
             coordinates,

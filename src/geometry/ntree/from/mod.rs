@@ -8,6 +8,7 @@ use crate::{
             balance::Balancing,
             node::{Kind, Node},
             pair::Pairing,
+            rescale::Rescaling,
         },
     },
     math::TensorVec,
@@ -28,6 +29,11 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize> From<(Coord
                     kind: Kind::Leaf,
                 }],
                 paired: Pairing::None,
+                rescale: Rescaling {
+                    center: [0.0; D],
+                    cell: min_length,
+                    half: 0.5,
+                },
             };
         }
         let mut min_coord: [f64; D] = from_fn(|_| f64::INFINITY);
@@ -50,6 +56,11 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize> From<(Coord
         let center: [f64; D] = from_fn(|ax| (min_coord[ax] + max_coord[ax]) / 2.0);
         let mut tree = Self {
             balanced: Balancing::None,
+            rescale: Rescaling {
+                center,
+                cell: min_length,
+                half: root_length as f64 / 2.0,
+            },
             nodes: vec![Node {
                 corner: [0u16; D],
                 length: root_length,

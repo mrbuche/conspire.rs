@@ -9,6 +9,7 @@ mod leaves;
 mod node;
 mod pair;
 mod prune;
+mod rescale;
 mod subdivide;
 
 pub use crate::geometry::ntree::{
@@ -17,12 +18,14 @@ pub use crate::geometry::ntree::{
     error::OrthotreeError,
     node::Nodes,
     pair::Pairing,
+    rescale::Rescaling,
 };
 
 pub struct Orthotree<const D: usize, const L: usize, const M: usize, const N: usize, T, U> {
     balanced: Balancing,
     nodes: Nodes<D, M, N, T, U>,
     paired: Pairing,
+    rescale: Rescaling<D>,
 }
 
 pub type BinaryTree<T, U> = Orthotree<1, 1, 2, 2, T, U>;
