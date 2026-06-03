@@ -1,14 +1,15 @@
 #[cfg(test)]
 mod test;
 
+mod face;
+
 use crate::{
     geometry::{
-        Coordinates,
         mesh::{Connectivity, Mesh},
         ntree::{
             Octree,
             balance::Balancing,
-            dual::{Dualization, NodeMap, Uniform},
+            dual::{Dualization, NodeMap, Uniform, octree::face::face_transition},
         },
     },
     math::Scalar,
@@ -44,17 +45,4 @@ where
         )
             .into()
     }
-}
-
-fn face_transition<T, U>(
-    _tree: &Octree<T, U>,
-    _center_nodes: &[usize],
-    _coordinates: &mut Coordinates<D>,
-    _connectivity: &mut Vec<[usize; N]>,
-    _node_index: &mut usize,
-    _nodes_map: &mut NodeMap<D>,
-) where
-    T: Copy + Into<Scalar> + Into<usize>,
-    U: Copy + Into<usize>,
-{
 }
