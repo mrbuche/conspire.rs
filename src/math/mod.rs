@@ -29,7 +29,9 @@ pub use random::{
     random_normal, random_normal_standard, random_u8, random_u64, random_uniform, random_x2_normal,
 };
 pub use set::{
+    Set,
     dsu::disjoint_set_union,
+    iter::SetIter,
     sets::{InverseSets, Sets},
 };
 pub use tensor::{
