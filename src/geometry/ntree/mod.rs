@@ -14,6 +14,7 @@ mod subdivide;
 pub use crate::geometry::ntree::{
     balance::{Balance, Balancing},
     dual::Dualization,
+    error::OrthotreeError,
     node::Nodes,
     pair::Pairing,
 };

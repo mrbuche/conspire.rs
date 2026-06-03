@@ -16,7 +16,7 @@ const D: usize = 3;
 const M: usize = 6;
 
 impl Octree<u16, usize> {
-    pub fn from_sdf(tessellation: Tessellation, scale: Scalar) -> Self {
+    pub fn from_sdf(tessellation: &Tessellation, scale: Scalar) -> Self {
         let sdf = tessellation.shape_diameter_function(FRAC_PI_3, 3, 8);
         let coordinates = tessellation.mesh().coordinates();
         if coordinates.is_empty() {

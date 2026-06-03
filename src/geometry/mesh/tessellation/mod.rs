@@ -1,4 +1,5 @@
 pub mod base;
+pub mod dual;
 pub mod from;
 pub mod into;
 pub mod read;
