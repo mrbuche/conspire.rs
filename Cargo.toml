@@ -14,7 +14,7 @@ version = "0.6.3"
 [features]
 constitutive = ['physics']
 doc = []
-fem = ['constitutive']
+fem = ['constitutive', 'geometry']
 geometry = ['math']
 io = []
 math = []
