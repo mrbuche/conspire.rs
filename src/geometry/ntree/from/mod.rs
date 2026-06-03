@@ -6,14 +6,14 @@ use crate::{
         ntree::{
             Orthotree,
             balance::Balancing,
-            node::{Kind, Node},
+            node::{Kind, Node, split::Split},
             pair::Pairing,
             rescale::Rescaling,
         },
     },
     math::TensorVec,
 };
-use std::array::from_fn;
+use std::{array::from_fn, ops::Add};
 
 impl<const D: usize, const L: usize, const M: usize, const N: usize> From<(Coordinates<D>, f64)>
     for Orthotree<D, L, M, N, u16, usize>
@@ -104,17 +104,21 @@ fn morton_key<const D: usize>(coord: &[u16; D]) -> u64 {
     key
 }
 
-fn find_leaf<const D: usize, const L: usize, const M: usize, const N: usize>(
-    tree: &Orthotree<D, L, M, N, u16, usize>,
-    coord: &[u16; D],
-) -> usize {
+fn find_leaf<const D: usize, const L: usize, const M: usize, const N: usize, T, U>(
+    tree: &Orthotree<D, L, M, N, T, U>,
+    coord: &[T; D],
+) -> usize
+where
+    T: Add<Output = T> + Copy + PartialOrd + Split,
+    U: Copy + Into<usize>,
+{
     let mut index = 0;
     loop {
         match &tree.nodes[index].kind {
             Kind::Leaf => return index,
             Kind::Tree(orthants) => {
                 let corner = tree.nodes[index].corner;
-                let half = tree.nodes[index].length / 2;
+                let half = tree.nodes[index].length.split();
                 let child_i = (0..D).fold(0, |acc, ax| {
                     if coord[ax] >= corner[ax] + half {
                         acc | (1 << ax)
@@ -122,7 +126,7 @@ fn find_leaf<const D: usize, const L: usize, const M: usize, const N: usize>(
                         acc
                     }
                 });
-                index = orthants[child_i];
+                index = orthants[child_i].into();
             }
         }
     }

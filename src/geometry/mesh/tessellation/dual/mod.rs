@@ -24,7 +24,7 @@ const DIRECTIONS: [Coordinate<D>; 3] = [
 
 impl Tessellation {
     pub fn dualize(&self, scale: Scalar) -> Result<Mesh<D>, OrthotreeError> {
-        let (mut octree, bvh) = Octree::from_sdf(self, scale);
+        let (mut octree, bvh) = Octree::<u16, usize>::from_sdf(self, scale);
         octree.equilibrate(Balancing::Strong, Pairing::Regular)?;
         let mut mesh = octree.dualize();
         self.trim(&mut mesh, &bvh);

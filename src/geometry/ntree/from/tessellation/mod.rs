@@ -5,19 +5,23 @@ use crate::{
         ntree::{
             Octree,
             balance::Balancing,
-            node::{Kind, Node},
+            node::{Kind, Node, split::Split},
             pair::Pairing,
             rescale::Rescaling,
         },
     },
     math::{Scalar, Tensor, TensorVec},
 };
-use std::{array::from_fn, f64::consts::FRAC_PI_3};
+use std::{array::from_fn, f64::consts::FRAC_PI_3, ops::Add};
 
 const D: usize = 3;
 const M: usize = 6;
 
-impl Octree<u16, usize> {
+impl<T, U> Octree<T, U>
+where
+    T: Add<Output = T> + Copy + From<u16> + Into<Scalar> + Into<usize> + PartialOrd + Split,
+    U: Copy + From<usize> + Into<usize>,
+{
     pub fn from_sdf(
         tessellation: &Tessellation,
         scale: Scalar,
@@ -29,8 +33,8 @@ impl Octree<u16, usize> {
                 Self {
                     balanced: Balancing::None,
                     nodes: vec![Node {
-                        corner: [0u16; D],
-                        length: 1,
+                        corner: from_fn(|_| T::from(0)),
+                        length: T::from(1),
                         facets: [None; M],
                         kind: Kind::Leaf,
                     }],
@@ -80,20 +84,20 @@ impl Octree<u16, usize> {
                 half: root_length as Scalar / 2.0,
             },
             nodes: vec![Node {
-                corner: [0u16; D],
-                length: root_length,
+                corner: from_fn(|_| T::from(0)),
+                length: T::from(root_length),
                 facets: [None; M],
                 kind: Kind::Leaf,
             }],
             paired: Pairing::None,
         };
-        let int_coords: Vec<[u16; D]> = coordinates
+        let int_coords: Vec<[T; D]> = coordinates
             .iter()
             .map(|point| {
                 from_fn(|ax| {
                     let v = ((point[ax] - center[ax]) / min_length + root_length as f64 / 2.0)
                         .floor() as i64;
-                    v.clamp(0, root_length as i64 - 1) as u16
+                    T::from(v.clamp(0, root_length as i64 - 1) as u16)
                 })
             })
             .collect();
@@ -102,10 +106,12 @@ impl Octree<u16, usize> {
             loop {
                 let index = super::find_leaf(&tree, int_coord);
                 let length = tree.nodes[index].length;
-                if length <= 1 || (length as f64 * min_length) * scale <= diameter {
+                let cells: usize = length.into();
+                let extent: Scalar = length.into();
+                if cells <= 1 || (extent * min_length) * scale <= diameter {
                     break;
                 }
-                tree.subdivide(index).ok();
+                tree.subdivide(U::from(index)).ok();
             }
         }
         (tree, bvh)
