@@ -1,9 +1,12 @@
-use crate::geometry::{
-    Coordinates, Write,
-    mesh::{
-        Connectivities, Connectivity, Input, Mesh, Output,
-        from::test::{CONNECTIVITY, COORDINATES, mesh},
+use crate::{
+    geometry::{
+        Coordinates, Write,
+        mesh::{
+            Connectivities, Connectivity, Input, Mesh, Output,
+            from::test::{CONNECTIVITY, COORDINATES, mesh},
+        },
     },
+    math::Set,
 };
 
 #[test]
@@ -94,7 +97,7 @@ fn round_trip_block_numbers() {
     .into();
     let original = Mesh {
         connectivities: Connectivities::from((connectivities, vec![10, 20])),
-        coordinates,
+        coordinates: coordinates.into(),
     };
     original
         .write(Output::Exodus("target/read_exodus_block_numbers.exo"))
@@ -121,7 +124,7 @@ fn round_trip_element_numbers() {
     .into();
     let original = Mesh {
         connectivities: Connectivities::from(vec![block_0, block_1]),
-        coordinates,
+        coordinates: coordinates.into(),
     };
     original
         .write(Output::Exodus("target/read_exodus_element_numbers.exo"))
@@ -136,4 +139,21 @@ fn round_trip_element_numbers() {
         read.connectivities()[1].element_numbers(),
         Some([200].as_slice())
     );
+}
+
+#[test]
+fn round_trip_node_numbers() {
+    let connectivities = vec![Connectivity::Triangular(vec![[0, 1, 2]].into())];
+    let coordinates: Coordinates<3> =
+        vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]].into();
+    let original = Mesh {
+        connectivities: Connectivities::from(connectivities),
+        coordinates: Set::from((coordinates, vec![7, 8, 9])),
+    };
+    original
+        .write(Output::Exodus("target/read_exodus_node_numbers.exo"))
+        .unwrap();
+    let read: Mesh<3> =
+        Mesh::try_from(Input::Exodus("target/read_exodus_node_numbers.exo")).unwrap();
+    assert_eq!(read.coordinates.numbers(), Some([7, 8, 9].as_slice()));
 }

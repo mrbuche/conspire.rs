@@ -9,7 +9,7 @@ use std::vec::IntoIter;
 
 impl<const D: usize> From<Mesh<D>> for (Connectivities, Coordinates<D>) {
     fn from(mesh: Mesh<D>) -> Self {
-        (mesh.connectivities, mesh.coordinates)
+        (mesh.connectivities, mesh.coordinates.into_members())
     }
 }
 

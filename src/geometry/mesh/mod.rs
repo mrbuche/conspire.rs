@@ -13,9 +13,9 @@ pub use self::{
     write::Output,
 };
 
-use crate::geometry::Coordinates;
+use crate::{geometry::Coordinates, math::Set};
 
 pub struct Mesh<const D: usize> {
     connectivities: Connectivities,
-    coordinates: Coordinates<D>,
+    coordinates: Set<Coordinates<D>>,
 }

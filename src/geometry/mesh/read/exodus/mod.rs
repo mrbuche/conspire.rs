@@ -7,6 +7,7 @@ use crate::{
         mesh::{Connectivities, Connectivity, Mesh},
     },
     io::{GetVariable, NetCDF},
+    math::Set,
 };
 use std::{array::from_fn, ffi::NulError, path::Path};
 
@@ -72,6 +73,13 @@ where
                 .into()
             })
             .collect();
+        let coordinates = match netcdf.try_get_variable::<i32>("node_num_map", num_nodes)? {
+            Some(node_numbers) => Set::from((
+                coordinates,
+                node_numbers.into_iter().map(|id| id as usize).collect(),
+            )),
+            None => Set::from(coordinates),
+        };
         Ok(Mesh {
             connectivities: Connectivities::from((connectivities, blocks)),
             coordinates,

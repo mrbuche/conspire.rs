@@ -36,7 +36,7 @@ where
                             writer.write_all(&(component as f32).to_le_bytes())
                         })?;
                         nodes.iter().try_for_each(|&node| {
-                            self.mesh.coordinates[node]
+                            self.mesh.coordinates()[node]
                                 .iter()
                                 .try_for_each(|&coordinate| {
                                     writer.write_all(&(coordinate as f32).to_le_bytes())

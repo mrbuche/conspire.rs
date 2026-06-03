@@ -35,6 +35,10 @@ where
             })
             .collect::<Option<Vec<Vec<i32>>>>()
             .map(|per_block| per_block.into_iter().flatten().collect());
+        let node_numbers: Option<Vec<i32>> = self
+            .coordinates
+            .numbers()
+            .map(|numbers| numbers.iter().map(|&number| number as i32).collect());
         netcdf.define_dimension("num_dim", D)?;
         netcdf.define_dimension("num_elem", self.number_of_elements())?;
         netcdf.define_dimension("num_el_blk", self.number_of_element_blocks())?;
@@ -150,6 +154,9 @@ where
                 }
             })?;
         netcdf.define_dimension("num_nodes", self.number_of_nodes())?;
+        if node_numbers.is_some() {
+            netcdf.define_variable::<i32>("node_num_map", 1, &["num_nodes"])?;
+        }
         netcdf.define_dimension("time_step", 0)?;
         netcdf.define_variable::<f64>("coordx", 1, &["num_nodes"])?;
         netcdf.define_variable::<f64>("coordy", 1, &["num_nodes"])?;
@@ -171,6 +178,9 @@ where
         }
         if let Some(element_numbers) = &element_numbers {
             netcdf.put_variable("elem_num_map", element_numbers)?;
+        }
+        if let Some(node_numbers) = &node_numbers {
+            netcdf.put_variable("node_num_map", node_numbers)?;
         }
         self.iter()
             .enumerate()

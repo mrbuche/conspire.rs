@@ -17,7 +17,7 @@ impl<const D: usize> Mesh<D> {
             .map(|nodes| {
                 nodes
                     .iter()
-                    .map(|&node| &self.coordinates[node])
+                    .map(|&node| &self.coordinates()[node])
                     .collect::<CoordinatesRef<'_, D>>()
                     .into()
             })
@@ -30,7 +30,7 @@ impl<const D: usize> Mesh<D> {
                 let count = nodes.len() as Scalar;
                 nodes
                     .iter()
-                    .map(|&node| &self.coordinates[node])
+                    .map(|&node| &self.coordinates()[node])
                     .sum::<Coordinate<D>>()
                     / count
             })
@@ -44,12 +44,12 @@ impl<const D: usize> Mesh<D> {
             (
                 nodes
                     .iter()
-                    .map(|&node| &self.coordinates[node])
+                    .map(|&node| &self.coordinates()[node])
                     .collect::<CoordinatesRef<'_, D>>()
                     .into(),
                 nodes
                     .iter()
-                    .map(|&node| &self.coordinates[node])
+                    .map(|&node| &self.coordinates()[node])
                     .sum::<Coordinate<D>>()
                     / count,
             )
@@ -62,7 +62,7 @@ impl<const D: usize> Mesh<D> {
         self.connectivities.members().iter()
     }
     pub fn coordinates(&self) -> &Coordinates<D> {
-        &self.coordinates
+        self.coordinates.members()
     }
     pub fn number_of_element_blocks(&self) -> usize {
         self.connectivities().len()
@@ -95,6 +95,6 @@ impl<const D: usize> Mesh<D> {
         }
     }
     pub fn number_of_nodes(&self) -> usize {
-        self.coordinates.len()
+        self.coordinates().len()
     }
 }

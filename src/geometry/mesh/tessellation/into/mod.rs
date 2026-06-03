@@ -19,7 +19,7 @@ impl From<Tessellation> for (Connectivities, Coordinates<D>, Normals) {
     fn from(tessellation: Tessellation) -> Self {
         (
             tessellation.mesh.connectivities,
-            tessellation.mesh.coordinates,
+            tessellation.mesh.coordinates.into_members(),
             tessellation.normals,
         )
     }
