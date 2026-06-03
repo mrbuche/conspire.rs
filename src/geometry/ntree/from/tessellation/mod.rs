@@ -55,8 +55,6 @@ impl Octree<u16, usize> {
         let max_extent = (0..D)
             .map(|ax| max_coord[ax] - min_coord[ax])
             .fold(0.0f64, f64::max);
-        // The finest cell (integer length 1) is sized to resolve the smallest
-        // shape diameter, so that subdividing while `length * scale > sdf` halts.
         let min_sdf = sdf
             .iter()
             .copied()
@@ -104,8 +102,6 @@ impl Octree<u16, usize> {
             loop {
                 let index = super::find_leaf(&tree, int_coord);
                 let length = tree.nodes[index].length;
-                // Local grid size in real units is `length * min_length`; keep
-                // subdividing until it is at least `scale` times below the SDF.
                 if length <= 1 || (length as f64 * min_length) * scale <= diameter {
                     break;
                 }
