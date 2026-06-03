@@ -12,8 +12,7 @@ use crate::{
 
 impl<const D: usize> Mesh<D> {
     pub fn bounding_boxes(&self) -> BoundingBoxes<D> {
-        self.connectivities
-            .iter()
+        self.iter()
             .flatten()
             .map(|nodes| {
                 nodes
@@ -25,8 +24,7 @@ impl<const D: usize> Mesh<D> {
             .collect()
     }
     pub fn centroids(&self) -> Coordinates<D> {
-        self.connectivities
-            .iter()
+        self.iter()
             .flatten()
             .map(|nodes| {
                 let count = nodes.len() as Scalar;
@@ -41,7 +39,7 @@ impl<const D: usize> Mesh<D> {
     pub fn bounding_boxes_and_centroids(
         &self,
     ) -> impl Iterator<Item = (BoundingBox<D>, Coordinate<D>)> + '_ {
-        self.connectivities.iter().flatten().map(|nodes| {
+        self.iter().flatten().map(|nodes| {
             let count = nodes.len() as Scalar;
             (
                 nodes
@@ -58,17 +56,19 @@ impl<const D: usize> Mesh<D> {
         })
     }
     pub fn connectivities(&self) -> &[Connectivity] {
-        &self.connectivities
+        self.connectivities.members()
+    }
+    pub fn iter(&self) -> impl Iterator<Item = &Connectivity> + '_ {
+        self.connectivities.members().iter()
     }
     pub fn coordinates(&self) -> &Coordinates<D> {
         &self.coordinates
     }
     pub fn number_of_element_blocks(&self) -> usize {
-        self.connectivities.len()
+        self.connectivities().len()
     }
     pub fn number_of_face_blocks(&self) -> Option<usize> {
         let number_of_face_blocks = self
-            .connectivities
             .iter()
             .filter(|connectivity| connectivity.number_of_faces().is_some())
             .count();
@@ -79,14 +79,12 @@ impl<const D: usize> Mesh<D> {
         }
     }
     pub fn number_of_elements(&self) -> usize {
-        self.connectivities
-            .iter()
+        self.iter()
             .map(|connectivity| connectivity.number_of_elements())
             .sum()
     }
     pub fn number_of_faces(&self) -> Option<usize> {
         let number_of_faces = self
-            .connectivities
             .iter()
             .filter_map(|connectivity| connectivity.number_of_faces())
             .sum();

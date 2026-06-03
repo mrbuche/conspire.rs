@@ -21,6 +21,7 @@ fn from_circle() {
         .unwrap();
     let (connectivities, coordinates) = mesh.into();
     let quads: Vec<[usize; 4]> = connectivities
+        .into_members()
         .into_iter()
         .flat_map(|block| match block {
             Connectivity::Quadrilateral(quads) => quads,

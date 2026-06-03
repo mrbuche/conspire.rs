@@ -25,7 +25,7 @@ fn triangular_mesh() {
 #[test]
 fn connectivities_and_coordinates_and_normals() {
     let (connectivities, coordinates, normals) = tessellation().into();
-    match &connectivities[0] {
+    match &connectivities.members()[0] {
         Connectivity::Triangular(triangles) => {
             assert!(triangles.iter().eq(CONNECTIVITY.iter()))
         }

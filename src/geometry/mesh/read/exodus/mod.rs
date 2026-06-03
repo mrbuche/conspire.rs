@@ -4,7 +4,7 @@ mod test;
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Connectivity, Mesh},
+        mesh::{Connectivities, Connectivity, Mesh},
     },
     io::{GetVariable, NetCDF},
 };
@@ -34,7 +34,12 @@ where
         let num_nodes = netcdf.dimension_length("num_nodes")?;
         let connectivities = (1..=num_el_blk)
             .map(|block| read_block::<D>(&netcdf, block))
-            .collect::<Result<_, _>>()?;
+            .collect::<Result<Vec<_>, _>>()?;
+        let blocks = netcdf
+            .get_variable::<i32>("eb_prop1", num_el_blk)?
+            .into_iter()
+            .map(|id| id as usize)
+            .collect();
         let coordx = netcdf.get_variable::<f64>("coordx", num_nodes)?;
         let coordy = netcdf.get_variable::<f64>("coordy", num_nodes)?;
         let coordz = match D {
@@ -53,7 +58,10 @@ where
                 .into()
             })
             .collect();
-        Ok(Mesh::from((connectivities, coordinates)))
+        Ok(Mesh {
+            connectivities: Connectivities::from((connectivities, blocks)),
+            coordinates,
+        })
     }
 }
 

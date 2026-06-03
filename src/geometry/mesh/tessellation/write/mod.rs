@@ -24,7 +24,7 @@ where
         writer.write_all(&[0_u8; 80])?;
         writer.write_all(&(self.mesh.number_of_elements() as u32).to_le_bytes())?;
         self.mesh
-            .connectivities
+            .connectivities()
             .iter()
             .zip(self.normals.iter())
             .try_for_each(|(connectivity, normals)| match connectivity {

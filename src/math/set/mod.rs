@@ -7,6 +7,18 @@ pub struct Set<S> {
     numbers: Option<Vec<usize>>,
 }
 
+impl<S> Set<S> {
+    pub fn members(&self) -> &S {
+        &self.members
+    }
+    pub fn into_members(self) -> S {
+        self.members
+    }
+    pub fn numbers(&self) -> Option<&[usize]> {
+        self.numbers.as_deref()
+    }
+}
+
 impl<S> From<S> for Set<S> {
     fn from(members: S) -> Self {
         Self {

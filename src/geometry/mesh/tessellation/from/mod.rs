@@ -12,7 +12,7 @@ use crate::{
 impl From<Mesh<D>> for Tessellation {
     fn from(mesh: Mesh<D>) -> Self {
         let normals = mesh
-            .connectivities
+            .connectivities()
             .iter()
             .map(|connectivity| {
                 match connectivity {

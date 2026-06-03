@@ -21,6 +21,7 @@ fn from_sphere() {
         .unwrap();
     let (connectivities, coordinates) = mesh.into();
     let hexes: Vec<[usize; 8]> = connectivities
+        .into_members()
         .into_iter()
         .flat_map(|block| match block {
             Connectivity::Hexahedral(hexes) => hexes,

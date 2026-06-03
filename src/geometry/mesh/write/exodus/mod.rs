@@ -35,8 +35,7 @@ where
         if let Some(num_face) = self.number_of_faces() {
             netcdf.define_dimension("num_face", num_face)?;
         }
-        self.connectivities()
-            .iter()
+        self.iter()
             .enumerate()
             .try_for_each(|(block, connectivity)| {
                 let block = block + 1;
@@ -146,15 +145,15 @@ where
             _ => unimplemented!(),
         }
         netcdf.end_definition();
-        let block_ids: Vec<_> = (1..self.number_of_element_blocks() + 1)
-            .map(|index| index as i32)
-            .collect();
+        let block_ids: Vec<i32> = match self.connectivities.numbers() {
+            Some(numbers) => numbers.iter().map(|&number| number as i32).collect(),
+            None => (1..=self.number_of_element_blocks() as i32).collect(),
+        };
         netcdf.put_variable("eb_prop1", &block_ids)?;
         if self.number_of_face_blocks().is_some() {
             netcdf.put_variable("fa_prop1", &block_ids)?;
         }
-        self.connectivities()
-            .iter()
+        self.iter()
             .enumerate()
             .try_for_each(|(block, connectivity)| {
                 let block = block + 1;

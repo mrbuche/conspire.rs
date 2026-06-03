@@ -3,10 +3,12 @@ pub mod iter;
 pub mod polytopal;
 pub mod primitive;
 
-use self::{polytopal::PolytopalConnectivity, primitive::PrimitiveConnectivity};
-
-// Can bring in Sets, but should generalize across two concrete types
-// (with/without id numbers stored) and avoid extra storage.
+use crate::{
+    geometry::mesh::connectivity::{
+        polytopal::PolytopalConnectivity, primitive::PrimitiveConnectivity,
+    },
+    math::Set,
+};
 
 pub enum Connectivity {
     Hexahedral(PrimitiveConnectivity<3, 8>),
@@ -17,4 +19,4 @@ pub enum Connectivity {
     Triangular(PrimitiveConnectivity<2, 3>),
 }
 
-pub type Connectivities = Vec<Connectivity>;
+pub type Connectivities = Set<Vec<Connectivity>>;

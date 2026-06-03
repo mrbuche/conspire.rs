@@ -25,7 +25,7 @@ fn two_cubes() {
     ]
     .into();
     let mesh = Mesh {
-        connectivities,
+        connectivities: connectivities.into(),
         coordinates,
     };
     mesh.write(Output::Exodus("target/two_cubes.exo")).unwrap()
@@ -79,7 +79,7 @@ fn two_polys() {
     ]
     .into();
     let mesh = Mesh {
-        connectivities,
+        connectivities: connectivities.into(),
         coordinates,
     };
     mesh.write(Output::Exodus("target/two_polys.exo")).unwrap()
