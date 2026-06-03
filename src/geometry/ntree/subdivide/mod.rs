@@ -9,7 +9,7 @@ const fn mirror_facet(facet: usize) -> usize {
     facet ^ 1
 }
 
-const fn insert_bit(x: usize, axis: usize, bit: usize) -> usize {
+pub(crate) const fn insert_bit(x: usize, axis: usize, bit: usize) -> usize {
     let low_mask = (1usize << axis) - 1;
     let low = x & low_mask;
     let high = x >> axis;

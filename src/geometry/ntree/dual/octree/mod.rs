@@ -16,6 +16,7 @@ use crate::{
 };
 
 const D: usize = 3;
+const M: usize = 6;
 const N: usize = 8;
 
 impl<T, U> Dualization<D> for Octree<T, U>

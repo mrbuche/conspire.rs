@@ -1,6 +1,7 @@
 use crate::geometry::ntree::{
     Orthotree,
     node::{Kind, Node},
+    subdivide::insert_bit,
 };
 use std::array::from_fn;
 
@@ -69,6 +70,33 @@ where
                         Some(inner)
                     } else {
                         None
+                    }
+                }
+            }),
+        }
+    }
+    /// Like [`orthants_leaves`](Self::orthants_leaves) but restricted to the `L`
+    /// orthants on `face`: for each one that is subdivided, the `L` sub-orthants
+    /// on that same shared face that are leaves (and `None` for one that is itself
+    /// a leaf or has no leaf grandchildren there). Both levels are enumerated in
+    /// `insert_bit` face order, so the result lines up across a one-level jump.
+    pub fn orthants_leaves_on_facet(
+        &self,
+        node: &Node<D, M, N, T, U>,
+        face: usize,
+    ) -> [Option<[Option<U>; L]>; L] {
+        let (axis, side) = (face >> 1, face & 1);
+        match &node.kind {
+            Kind::Leaf => from_fn(|_| None),
+            Kind::Tree(orthants) => from_fn(|i| {
+                match &self[orthants[insert_bit(i, axis, side)]].kind {
+                    Kind::Leaf => None,
+                    Kind::Tree(sub_orthants) => {
+                        let inner: [Option<U>; L] = from_fn(|j| {
+                            let leaf = sub_orthants[insert_bit(j, axis, side)];
+                            self[leaf].is_leaf().then_some(leaf)
+                        });
+                        inner.iter().any(|x| x.is_some()).then_some(inner)
                     }
                 }
             }),

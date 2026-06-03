@@ -81,13 +81,9 @@ fn edge_transition<T, U>(
             && let Some(leaf_0) = node_leaves[0]
             && let Some(leaf_2) = node_leaves[2]
         {
-            let n_orthants = tree.orthants_leaves(&tree[neighbor]);
-            if let Some(o1_kids) = n_orthants[1]
-                && let Some(g_0a) = o1_kids[1]
-                && let Some(g_0b) = o1_kids[3]
-                && let Some(o3_kids) = n_orthants[3]
-                && let Some(g_2a) = o3_kids[1]
-                && let Some(g_2b) = o3_kids[3]
+            let face_leaves = tree.orthants_leaves_on_facet(&tree[neighbor], 1);
+            if let Some([Some(g_0a), Some(g_0b)]) = face_leaves[0]
+                && let Some([Some(g_2a), Some(g_2b)]) = face_leaves[1]
             {
                 let length: Scalar = tree[g_2a].length.into();
                 let x0: Scalar = tree[g_2a].corner[0].into();
@@ -127,13 +123,9 @@ fn edge_transition<T, U>(
             && let Some(leaf_1) = node_leaves[1]
             && let Some(leaf_3) = node_leaves[3]
         {
-            let n_orthants = tree.orthants_leaves(&tree[neighbor]);
-            if let Some(o0_kids) = n_orthants[0]
-                && let Some(g_1a) = o0_kids[0]
-                && let Some(g_1b) = o0_kids[2]
-                && let Some(o2_kids) = n_orthants[2]
-                && let Some(g_3a) = o2_kids[0]
-                && let Some(g_3b) = o2_kids[2]
+            let face_leaves = tree.orthants_leaves_on_facet(&tree[neighbor], 0);
+            if let Some([Some(g_1a), Some(g_1b)]) = face_leaves[0]
+                && let Some([Some(g_3a), Some(g_3b)]) = face_leaves[1]
             {
                 let length: Scalar = tree[g_3a].length.into();
                 let x0: Scalar = tree[g_3a].corner[0].into();
@@ -173,13 +165,9 @@ fn edge_transition<T, U>(
             && let Some(leaf_0) = node_leaves[0]
             && let Some(leaf_1) = node_leaves[1]
         {
-            let n_orthants = tree.orthants_leaves(&tree[neighbor]);
-            if let Some(o2_kids) = n_orthants[2]
-                && let Some(g_0a) = o2_kids[2]
-                && let Some(g_0b) = o2_kids[3]
-                && let Some(o3_kids) = n_orthants[3]
-                && let Some(g_1a) = o3_kids[2]
-                && let Some(g_1b) = o3_kids[3]
+            let face_leaves = tree.orthants_leaves_on_facet(&tree[neighbor], 3);
+            if let Some([Some(g_0a), Some(g_0b)]) = face_leaves[0]
+                && let Some([Some(g_1a), Some(g_1b)]) = face_leaves[1]
             {
                 let length: Scalar = tree[g_1a].length.into();
                 let x0c: Scalar = tree[g_1a].corner[0].into();
@@ -219,13 +207,9 @@ fn edge_transition<T, U>(
             && let Some(leaf_2) = node_leaves[2]
             && let Some(leaf_3) = node_leaves[3]
         {
-            let n_orthants = tree.orthants_leaves(&tree[neighbor]);
-            if let Some(o0_kids) = n_orthants[0]
-                && let Some(g_2a) = o0_kids[0]
-                && let Some(g_2b) = o0_kids[1]
-                && let Some(o1_kids) = n_orthants[1]
-                && let Some(g_3a) = o1_kids[0]
-                && let Some(g_3b) = o1_kids[1]
+            let face_leaves = tree.orthants_leaves_on_facet(&tree[neighbor], 2);
+            if let Some([Some(g_2a), Some(g_2b)]) = face_leaves[0]
+                && let Some([Some(g_3a), Some(g_3b)]) = face_leaves[1]
             {
                 let length: Scalar = tree[g_3a].length.into();
                 let x0c: Scalar = tree[g_3a].corner[0].into();
