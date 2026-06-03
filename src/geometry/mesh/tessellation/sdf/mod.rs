@@ -124,11 +124,11 @@ fn weighted_diameter(samples: Vec<(Scalar, Scalar)>) -> Scalar {
         / distances.len() as Scalar)
         .sqrt();
     let (numerator, denominator) = samples
-        .iter()
-        .filter(|&&(distance, _)| (distance - median).abs() <= standard_deviation)
+        .into_iter()
+        .filter(|&(distance, _)| (distance - median).abs() <= standard_deviation)
         .fold(
             (0.0, 0.0),
-            |(numerator, denominator), &(distance, weight)| {
+            |(numerator, denominator), (distance, weight)| {
                 (numerator + weight * distance, denominator + weight)
             },
         );
