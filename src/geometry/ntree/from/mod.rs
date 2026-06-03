@@ -1,8 +1,9 @@
 use crate::{
     geometry::{
         Coordinates,
+        mesh::Tessellation,
         ntree::{
-            Orthotree,
+            Octree, Orthotree,
             balance::Balancing,
             node::{Kind, Node},
             pair::Pairing,
@@ -10,7 +11,14 @@ use crate::{
     },
     math::TensorVec,
 };
-use std::array::from_fn;
+use std::{array::from_fn, f64::consts::FRAC_PI_3};
+
+impl<T, U> From<Tessellation> for Octree<T, U> {
+    fn from(tessellation: Tessellation) -> Self {
+        let sdf = tessellation.shape_diameter_function(FRAC_PI_3, 3, 8);
+        todo!()
+    }
+}
 
 impl<const D: usize, const L: usize, const M: usize, const N: usize> From<(Coordinates<D>, f64)>
     for Orthotree<D, L, M, N, u16, usize>
