@@ -2,10 +2,8 @@
 mod test;
 
 use crate::{
-    geometry::{
-        Write,
-        mesh::{Connectivity, tessellation::Tessellation},
-    },
+    geometry::mesh::{Connectivity, tessellation::Tessellation},
+    io::Write,
     math::Tensor,
 };
 use std::{

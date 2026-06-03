@@ -1,12 +1,14 @@
-use crate::geometry::{
-    Write,
-    mesh::{Connectivity, Mesh, Output},
-    ntree::{
-        Octree,
-        balance::{Balance, Balancing, octree::test::sphere},
-        dual::Dualization,
-        pair::Pairing,
+use crate::{
+    geometry::{
+        mesh::{Connectivity, Mesh, Output},
+        ntree::{
+            Octree,
+            balance::{Balance, Balancing, octree::test::sphere},
+            dual::Dualization,
+            pair::Pairing,
+        },
     },
+    io::Write,
 };
 
 #[test]

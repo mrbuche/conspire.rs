@@ -1,11 +1,12 @@
 use crate::{
     geometry::{
-        Coordinates, Write,
+        Coordinates,
         mesh::{
             Connectivities, Connectivity, Input, Mesh, Output,
             from::test::{CONNECTIVITY, COORDINATES, mesh},
         },
     },
+    io::Write,
     math::Set,
 };
 

@@ -1,11 +1,14 @@
-use crate::geometry::{
-    Coordinates, Write,
-    mesh::{Connectivity, Mesh, Output},
-    ntree::{
-        Octree,
-        balance::{Balance, Balancing},
-        pair::Pairing,
+use crate::{
+    geometry::{
+        Coordinates,
+        mesh::{Connectivity, Mesh, Output},
+        ntree::{
+            Octree,
+            balance::{Balance, Balancing},
+            pair::Pairing,
+        },
     },
+    io::Write,
 };
 use std::f64::consts::PI;
 

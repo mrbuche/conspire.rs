@@ -1,8 +1,9 @@
 use crate::{
     geometry::{
-        Coordinates, Write,
+        Coordinates,
         mesh::{Connectivity, Mesh, Output},
     },
+    io::Write,
     math::Set,
 };
 

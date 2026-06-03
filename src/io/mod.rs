@@ -1,5 +1,15 @@
 #[cfg(feature = "netcdf")]
 mod netcdf;
 
+use std::path::Path;
+
 #[cfg(feature = "netcdf")]
 pub use netcdf::{DefineVariable, GetVariable, NetCDF, PutVariable};
+
+pub trait Write<P>
+where
+    P: AsRef<Path>,
+{
+    type Error;
+    fn write(&self, path: P) -> Result<(), Self::Error>;
+}

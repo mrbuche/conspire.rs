@@ -1,11 +1,12 @@
 use crate::{
     geometry::{
-        Coordinates, Write,
+        Coordinates,
         mesh::{
             Connectivity,
             tessellation::from::test::{CONNECTIVITY, COORDINATES, NORMALS, tessellation},
         },
     },
+    io::Write,
     math::{
         Tensor,
         test::{TestError, assert_eq},

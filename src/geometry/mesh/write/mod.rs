@@ -4,7 +4,7 @@ mod test;
 #[cfg(feature = "netcdf")]
 pub mod exodus;
 
-use crate::geometry::{Write, mesh::Mesh};
+use crate::{geometry::mesh::Mesh, io::Write};
 use std::{io::Error as ErrorIO, path::Path};
 
 #[cfg(feature = "netcdf")]
