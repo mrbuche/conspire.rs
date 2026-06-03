@@ -41,9 +41,6 @@ impl<const D: usize> BoundingVolumeHierarchy<D> {
 }
 
 impl BoundingVolumeHierarchy<3> {
-    /// Closest intersection of `ray` with the triangulation, where `elements`
-    /// maps a primitive index to its node indices (the flattened connectivity)
-    /// and `coordinates` provides the node positions.
     pub fn intersect(
         &self,
         ray: &Ray<3>,
