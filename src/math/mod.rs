@@ -31,7 +31,6 @@ pub use random::{
 pub use set::{
     Set,
     dsu::disjoint_set_union,
-    iter::SetIter,
     sets::{InverseSets, Sets},
 };
 pub use tensor::{

@@ -1,5 +1,4 @@
 pub mod dsu;
-pub mod iter;
 pub mod sets;
 
 pub struct Set<S> {
