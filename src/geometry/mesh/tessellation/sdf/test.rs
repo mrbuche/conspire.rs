@@ -63,7 +63,7 @@ fn cube_cone_stays_near_unit_thickness() {
 #[test]
 fn bunny() {
     let tessellation =
-        Tessellation::try_from(Path::new("/home/mrbuche/Downloads/sphere.stl")).unwrap();
+        Tessellation::try_from(Path::new("/home/mrbuche/Downloads/Stanford_Bunny.stl")).unwrap();
     println!(
         "triangles: {}",
         tessellation
@@ -78,5 +78,5 @@ fn bunny() {
     let diameters = tessellation.shape_diameter_function(FRAC_PI_3, 3, 8);
     println!("SDF time: {:?}", start.elapsed());
     assert_eq!(diameters.len(), tessellation.mesh().coordinates().len());
-    println!("{:?}", diameters);
+    // println!("{:?}", diameters);
 }
