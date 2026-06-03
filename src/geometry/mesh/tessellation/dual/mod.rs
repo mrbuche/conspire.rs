@@ -12,7 +12,12 @@ use crate::{
 };
 use std::array::from_fn;
 
-const N: usize = 8;
+const GRAZING_TOLERANCE: Scalar = 1.0e-4;
+const DIRECTIONS: [Coordinate<D>; 3] = [
+    Coordinate::const_from([1.0, 0.140_412_03, 0.092_153_88]),
+    Coordinate::const_from([0.097_153_2, 1.0, 0.131_771_4]),
+    Coordinate::const_from([0.123_456_7, 0.087_654_3, 1.0]),
+];
 
 impl Tessellation {
     pub fn dualize(&self, scale: Scalar) -> Result<Mesh<D>, OrthotreeError> {
@@ -22,26 +27,35 @@ impl Tessellation {
         self.trim(&mut mesh, &bvh);
         Ok(mesh)
     }
-    /// Drops every dual element with a node outside the tessellation, reusing the
-    /// surface BVH from the shape diameter function for the inside/outside tests.
     fn trim(&self, mesh: &mut Mesh<D>, bvh: &BoundingVolumeHierarchy<D>) {
         let surface = self.mesh();
         let surface_coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
-        // A skewed direction avoids grazing the axis-aligned dual faces and
-        // surface edges, which would corrupt the crossing parity.
-        let direction: Coordinate<D> = [1.0, 0.140_412_03, 0.092_153_88].into();
+        let normals: Vec<&Coordinate<D>> = self.normals().iter().flatten().collect();
+        let directions = DIRECTIONS.map(|direction| direction.normalized());
         let inside: Vec<bool> = mesh
             .coordinates()
             .iter()
             .map(|point| {
-                let ray = (point.clone(), direction.clone()).into();
-                bvh.intersections(&ray, surface_coordinates, &elements) % 2 == 1
+                directions
+                    .iter()
+                    .find_map(|direction| {
+                        let ray = (point.clone(), direction.clone()).into();
+                        match bvh.intersect(&ray, surface_coordinates, &elements) {
+                            None => Some(false),
+                            Some(hit) => {
+                                let normal = normals[hit.index()];
+                                let cosine = (direction * normal) / normal.norm();
+                                (cosine.abs() > GRAZING_TOLERANCE).then_some(cosine > 0.0)
+                            }
+                        }
+                    })
+                    .unwrap_or(false)
             })
             .collect();
         let mut remap = vec![usize::MAX; inside.len()];
         let mut coordinates = Coordinates::new();
-        let mut connectivity: Vec<[usize; N]> = Vec::new();
+        let mut connectivity = Vec::new();
         mesh.iter()
             .flatten()
             .filter(|element| element.iter().all(|&node| inside[node]))
