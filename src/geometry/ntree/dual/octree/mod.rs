@@ -6,6 +6,7 @@ mod edge_2;
 mod edge_3;
 mod edge_4;
 mod face;
+mod vertex_1;
 
 use crate::{
     geometry::{
@@ -19,6 +20,7 @@ use crate::{
                 octree::{
                     edge_1::edge_transition_1, edge_2::edge_transition_2,
                     edge_3::edge_transition_3, edge_4::edge_transition_4, face::face_transition,
+                    vertex_1::vertex_transition_1,
                 },
             },
         },
@@ -112,6 +114,7 @@ where
             &mut connectivity,
             &nodes_map,
         );
+        vertex_transition_1(self, &center_nodes, &mut connectivity);
         if matches!(self.balanced, Balancing::Weak) {
             unimplemented!()
         }
