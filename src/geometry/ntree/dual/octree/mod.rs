@@ -1,6 +1,10 @@
 #[cfg(test)]
 mod test;
 
+mod edge_1;
+mod edge_2;
+mod edge_3;
+mod edge_4;
 mod face;
 
 use crate::{
@@ -9,7 +13,13 @@ use crate::{
         ntree::{
             Octree,
             balance::Balancing,
-            dual::{Dualization, NodeMap, Uniform, octree::face::face_transition},
+            dual::{
+                Dualization, NodeMap, Uniform,
+                octree::{
+                    edge_1::edge_transition_1, edge_2::edge_transition_2,
+                    edge_3::edge_transition_3, edge_4::edge_transition_4, face::face_transition,
+                },
+            },
         },
     },
     math::Scalar,
@@ -36,6 +46,36 @@ where
             &mut connectivity,
             &mut node_index,
             &mut nodes_map,
+        );
+        edge_transition_1(
+            self,
+            &center_nodes,
+            &mut coordinates,
+            &mut connectivity,
+            &mut node_index,
+            &mut nodes_map,
+        );
+        edge_transition_3(
+            self,
+            &center_nodes,
+            &mut coordinates,
+            &mut connectivity,
+            &mut node_index,
+            &mut nodes_map,
+        );
+        edge_transition_2(
+            self,
+            &center_nodes,
+            &coordinates,
+            &mut connectivity,
+            &nodes_map,
+        );
+        edge_transition_4(
+            self,
+            &center_nodes,
+            &coordinates,
+            &mut connectivity,
+            &nodes_map,
         );
         if matches!(self.balanced, Balancing::Weak) {
             unimplemented!()
