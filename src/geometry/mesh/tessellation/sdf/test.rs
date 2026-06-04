@@ -88,6 +88,6 @@ fn foo() {
     //     Tessellation::try_from(Path::new("/home/mrbuche/Downloads/Stanford_Bunny.stl")).unwrap();
     let tessellation =
         Tessellation::try_from(Path::new("/home/mrbuche/Downloads/sphere.stl")).unwrap();
-    let mesh = tessellation.dualize(36.0).unwrap();
+    let mesh = tessellation.dualize(36.0).unwrap(); // may get weird when hex size smaller than triangles nearbhy
     mesh.write(Output::Exodus("target/bunny.exo")).unwrap();
 }
