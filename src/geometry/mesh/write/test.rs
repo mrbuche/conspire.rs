@@ -1,6 +1,6 @@
 #[cfg(feature = "netcdf")]
 use crate::{
-    geometry::mesh::{from::test::mesh, write::Output},
+    geometry::mesh::{test::mesh, write::Output},
     io::Write,
     math::test::TestError,
 };

@@ -2,7 +2,7 @@ use crate::geometry::{
     Coordinates,
     mesh::{
         Connectivity,
-        from::test::{CONNECTIVITY, COORDINATES, mesh},
+        test::{CONNECTIVITY, COORDINATES, mesh},
     },
 };
 

@@ -3,7 +3,8 @@ use crate::{
         Coordinates,
         mesh::{
             Connectivity, Mesh,
-            tessellation::from::test::{CONNECTIVITY, COORDINATES, NORMALS, tessellation},
+            tessellation::from::test::{NORMALS, tessellation},
+            test::{CONNECTIVITY, COORDINATES},
         },
     },
     math::Tensor,

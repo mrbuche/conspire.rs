@@ -1,6 +1,9 @@
+#[cfg(test)]
+pub mod test;
+
 mod base;
 mod connectivity;
-pub(crate) mod from;
+mod from;
 mod into;
 mod read;
 mod tessellation;

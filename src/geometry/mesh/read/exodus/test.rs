@@ -3,7 +3,7 @@ use crate::{
         Coordinates,
         mesh::{
             Connectivities, Connectivity, Input, Mesh, Output,
-            from::test::{CONNECTIVITY, COORDINATES, mesh},
+            test::{CONNECTIVITY, COORDINATES, mesh},
         },
     },
     io::Write,

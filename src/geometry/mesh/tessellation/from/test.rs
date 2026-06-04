@@ -1,15 +1,13 @@
 use crate::{
     geometry::{
         Coordinate, Coordinates,
-        mesh::{Connectivity, Mesh, from::test::mesh, tessellation::Tessellation},
+        mesh::{Connectivity, Mesh, tessellation::Tessellation, test::mesh},
     },
     math::{
         Tensor,
         test::{TestError, assert_eq},
     },
 };
-
-pub use crate::geometry::mesh::from::test::{CONNECTIVITY, COORDINATES};
 
 pub const NORMALS: [Coordinate<3>; 12] = [
     Coordinate::const_from([0.0, 0.0, -1.0]),

@@ -3,7 +3,7 @@ use crate::{
         Coordinates,
         mesh::{
             Connectivity, Mesh,
-            from::test::{CONNECTIVITY, COORDINATES, mesh},
+            test::{CONNECTIVITY, COORDINATES, mesh},
         },
     },
     math::test::{TestError, assert_eq},

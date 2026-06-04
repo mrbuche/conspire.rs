@@ -1,5 +1,5 @@
 #[cfg(test)]
-pub mod test;
+mod test;
 
 use crate::{
     geometry::{
