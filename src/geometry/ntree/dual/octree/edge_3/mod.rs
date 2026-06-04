@@ -12,10 +12,6 @@ use crate::{
     math::{Scalar, TensorVec},
 };
 
-// One entry per edge of the cell, named by the two octants that share it:
-// (subcell_a, subcell_b, facet_m, facet_n, c, d, e, f, flip, direction).
-// `subcell_*` are octants of the cell; `c, d, e, f` index the eight leaf children of
-// the children's `facet_m`/`facet_n` neighbors; `direction` offsets the two new nodes.
 type Edge = (
     usize,
     usize,
@@ -90,8 +86,6 @@ fn template<T, U>(
     let (subcell_a, subcell_b, facet_m, facet_n, c, d, e, f, flip, direction) = edge;
     let subcell_a_node: usize = cell_subcells[subcell_a].into();
     let subcell_b_node: usize = cell_subcells[subcell_b].into();
-    // Both edge children must meet a once-finer neighbor across `facet_m` and `facet_n`,
-    // with the across-the-edge diagonals present as leaves.
     if let Some(a_m) = tree.nodes[subcell_a_node].facets[facet_m]
         && let Some(a_n) = tree.nodes[subcell_a_node].facets[facet_n]
         && let Some(a_m_leaves) = tree.all_leaves(&tree.nodes[a_m.into()])
@@ -110,7 +104,7 @@ fn template<T, U>(
         && tree.nodes[subdiagonal_b.into()].is_leaf()
     {
         let length: Scalar = tree.nodes[a_m_leaves[e].into()].length.into();
-        let offset = &Coordinate::<D>::const_from(direction) * length;
+        let offset = &Coordinate::const_from(direction) * length;
         let base_0 = coordinates[center_nodes[a_m_leaves[e].into()]].clone();
         let base_1 = coordinates[center_nodes[b_m_leaves[c].into()]].clone();
         coordinates.push(&base_0 + &offset);

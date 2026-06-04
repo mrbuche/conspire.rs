@@ -16,11 +16,6 @@ use std::array::from_fn;
 
 const LL: usize = L * L;
 
-// Each entry is an edge of the cell, named by the two facets that meet along it,
-// together with the subcell indices the template stitches:
-// (facet_m, facet_n, [m_a, m_b, m_c, m_d, face_m_a, face_m_b, face_n_a, face_n_b, diag_a, diag_b]).
-// `m_*` index the cell's sixteen sub-subcells on `facet_m`; the rest index the
-// eight leaf children of the `facet_m`, `facet_n`, and diagonal neighbors.
 const EDGES: [(usize, usize, [usize; 10]); 12] = [
     (2, 1, [7, 13, 5, 15, 3, 7, 0, 4, 2, 6]),
     (2, 4, [1, 4, 0, 5, 2, 3, 4, 5, 6, 7]),
@@ -93,25 +88,21 @@ fn template<T, U>(
         diag_a,
         diag_b,
     ] = indices;
-    // The cell is the fine side: subdivided twice on both `facet_m` and `facet_n`.
-    // The neighbors across `facet_m`, `facet_n`, and the diagonal are each one level
-    // coarser (all leaf children). The template stitches the cell's edge sub-subcells
-    // to those coarse neighbors across the shared edge.
     if let Some(neighbor_m) = node.facets[facet_m]
         && let Some(neighbor_n) = node.facets[facet_n]
         && let Some(neighbor_diag) = tree.nodes[neighbor_m.into()].facets[facet_n]
         && let Some(face_m_leaves) = tree.all_leaves(&tree.nodes[neighbor_m.into()])
         && let Some(face_n_leaves) = tree.all_leaves(&tree.nodes[neighbor_n.into()])
         && let Some(diag_leaves) = tree.all_leaves(&tree.nodes[neighbor_diag.into()])
-        && let Some(sub_subcells) = tree.orthants_all_leaves_on_facet(node, facet_m)
+        && let Some(sub_subnodes) = tree.orthants_all_leaves_on_facet(node, facet_m)
         && tree.orthants_all_leaves_on_facet(node, facet_n).is_some()
     {
-        let subcells_m: [usize; LL] = from_fn(|k| sub_subcells[k / L][k % L].into());
-        let length: Scalar = tree.nodes[subcells_m[m_a]].length.into();
+        let subnodes_m: [usize; LL] = from_fn(|k| sub_subnodes[k / L][k % L].into());
+        let length: Scalar = tree.nodes[subnodes_m[m_a]].length.into();
         let offset_m = &facet_direction(facet_m) * length;
         let offset_n = &facet_direction(facet_n) * length;
-        let base_a = coordinates[center_nodes[subcells_m[m_a]]].clone();
-        let base_b = coordinates[center_nodes[subcells_m[m_b]]].clone();
+        let base_a = coordinates[center_nodes[subnodes_m[m_a]]].clone();
+        let base_b = coordinates[center_nodes[subnodes_m[m_b]]].clone();
         coordinates.push(&base_a + &offset_m);
         coordinates.push(&base_a + &offset_m + &offset_n);
         coordinates.push(&base_a + &offset_n);
@@ -132,11 +123,11 @@ fn template<T, U>(
         }
         *node_index += 6;
         connectivity.push([
-            center_nodes[subcells_m[m_a]],
+            center_nodes[subnodes_m[m_a]],
             new,
             new + 1,
             new + 2,
-            center_nodes[subcells_m[m_b]],
+            center_nodes[subnodes_m[m_b]],
             new + 3,
             new + 4,
             new + 5,
@@ -162,21 +153,21 @@ fn template<T, U>(
             new + 5,
         ]);
         connectivity.push([
-            center_nodes[subcells_m[m_a]],
+            center_nodes[subnodes_m[m_a]],
             new + 2,
             new + 1,
             new,
-            center_nodes[subcells_m[m_c]],
+            center_nodes[subnodes_m[m_c]],
             center_nodes[face_n_leaves[face_n_a].into()],
             center_nodes[diag_leaves[diag_a].into()],
             center_nodes[face_m_leaves[face_m_a].into()],
         ]);
         connectivity.push([
-            center_nodes[subcells_m[m_b]],
+            center_nodes[subnodes_m[m_b]],
             new + 3,
             new + 4,
             new + 5,
-            center_nodes[subcells_m[m_d]],
+            center_nodes[subnodes_m[m_d]],
             center_nodes[face_m_leaves[face_m_b].into()],
             center_nodes[diag_leaves[diag_b].into()],
             center_nodes[face_n_leaves[face_n_b].into()],

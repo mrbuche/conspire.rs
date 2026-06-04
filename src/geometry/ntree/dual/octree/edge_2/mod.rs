@@ -16,12 +16,6 @@ use std::array::from_fn;
 
 const LL: usize = L * L;
 
-// Indexed by facet; each facet has two rows of thirteen:
-// [adjacent_facet, cell_a, cell_b, adjacent_cell_a, adjacent_cell_b,
-//  face_a, face_b, face_c, face_d, diag_face_a, diag_face_b, diag_face_c, diag_face_d].
-// `cell_*`/`adjacent_cell_*` index the eight leaf children of the (coarse) cell and
-// its `adjacent_facet` neighbor; `face_*`/`diag_face_*` index the sixteen sub-subcells
-// on the shared face of the (fine) `facet` neighbor and the diagonal neighbor.
 const EDGES: [[[usize; 13]; 2]; 6] = [
     [
         [3, 6, 2, 4, 0, 7, 13, 5, 15, 2, 8, 0, 10],
@@ -60,20 +54,20 @@ pub fn edge_transition_2<T, U>(
     U: Copy + Into<usize>,
 {
     for node in tree.iter() {
-        if let Some(cell_subcells) = tree.all_leaves(node) {
+        if let Some(node_subnodes) = tree.all_leaves(node) {
             for (facet, rows) in EDGES.iter().enumerate() {
                 if let Some(neighbor) = node.facets[facet]
                     && let Some(face_nested) =
                         tree.orthants_all_leaves_on_facet(&tree.nodes[neighbor.into()], facet ^ 1)
                 {
-                    let face_subsubcells: [usize; LL] =
+                    let face_subsubnodes: [usize; LL] =
                         from_fn(|k| face_nested[k / L][k % L].into());
                     for &row in rows {
                         template(
                             facet,
                             row,
-                            cell_subcells,
-                            &face_subsubcells,
+                            node_subnodes,
+                            &face_subsubnodes,
                             node,
                             center_nodes,
                             coordinates,
@@ -92,8 +86,8 @@ pub fn edge_transition_2<T, U>(
 fn template<T, U>(
     facet: usize,
     row: [usize; 13],
-    cell_subcells: &[U; N],
-    face_subsubcells: &[usize; LL],
+    node_subnodes: &[U; N],
+    face_subsubnodes: &[usize; LL],
     node: &Node<D, M, N, T, U>,
     center_nodes: &[usize],
     coordinates: &Coordinates<D>,
@@ -106,10 +100,10 @@ fn template<T, U>(
 {
     let [
         adjacent_facet,
-        cell_a,
-        cell_b,
-        adjacent_cell_a,
-        adjacent_cell_b,
+        node_a,
+        node_b,
+        adjacent_node_a,
+        adjacent_node_b,
         face_a,
         face_b,
         face_c,
@@ -119,18 +113,16 @@ fn template<T, U>(
         diag_face_c,
         diag_face_d,
     ] = row;
-    if let Some(adjacent_cell) = node.facets[adjacent_facet]
-        && let Some(adjacent_cell_subcells) = tree.all_leaves(&tree.nodes[adjacent_cell.into()])
-        && let Some(diagonal_cell) = tree.nodes[adjacent_cell.into()].facets[facet]
+    if let Some(adjacent_node) = node.facets[adjacent_facet]
+        && let Some(adjacent_node_subnodes) = tree.all_leaves(&tree.nodes[adjacent_node.into()])
+        && let Some(diagonal_node) = tree.nodes[adjacent_node.into()].facets[facet]
         && let Some(diag_nested) =
-            tree.orthants_all_leaves_on_facet(&tree.nodes[diagonal_cell.into()], facet ^ 1)
+            tree.orthants_all_leaves_on_facet(&tree.nodes[diagonal_node.into()], facet ^ 1)
     {
-        let diag_face_subsubcells: [usize; LL] = from_fn(|k| diag_nested[k / L][k % L].into());
-        let length: Scalar = tree.nodes[face_subsubcells[face_a]].length.into();
+        let diag_face_subsubnodes: [usize; LL] = from_fn(|k| diag_nested[k / L][k % L].into());
+        let length: Scalar = tree.nodes[face_subsubnodes[face_a]].length.into();
         let offset = &facet_direction(facet) * length;
-        // The four stitched nodes were created by the face template one sub-subcell
-        // length inward of these leaf centers; look them up in `nodes_map`.
-        let lookup = |center: usize| -> Option<usize> {
+        let lookup = |center| -> Option<usize> {
             let coordinate = &coordinates[center] - &offset;
             nodes_map
                 .get(&[
@@ -140,50 +132,50 @@ fn template<T, U>(
                 ])
                 .copied()
         };
-        if let Some(node_1) = lookup(center_nodes[face_subsubcells[face_a]])
-            && let Some(node_2) = lookup(center_nodes[face_subsubcells[face_b]])
-            && let Some(node_3) = lookup(center_nodes[diag_face_subsubcells[diag_face_a]])
-            && let Some(node_4) = lookup(center_nodes[diag_face_subsubcells[diag_face_b]])
+        if let Some(node_1) = lookup(center_nodes[face_subsubnodes[face_a]])
+            && let Some(node_2) = lookup(center_nodes[face_subsubnodes[face_b]])
+            && let Some(node_3) = lookup(center_nodes[diag_face_subsubnodes[diag_face_a]])
+            && let Some(node_4) = lookup(center_nodes[diag_face_subsubnodes[diag_face_b]])
         {
             connectivity.push([
-                center_nodes[cell_subcells[cell_a].into()],
-                center_nodes[cell_subcells[cell_b].into()],
+                center_nodes[node_subnodes[node_a].into()],
+                center_nodes[node_subnodes[node_b].into()],
                 node_1,
                 node_2,
-                center_nodes[adjacent_cell_subcells[adjacent_cell_a].into()],
-                center_nodes[adjacent_cell_subcells[adjacent_cell_b].into()],
+                center_nodes[adjacent_node_subnodes[adjacent_node_a].into()],
+                center_nodes[adjacent_node_subnodes[adjacent_node_b].into()],
                 node_3,
                 node_4,
             ]);
             connectivity.push([
-                center_nodes[face_subsubcells[face_a]],
-                center_nodes[face_subsubcells[face_b]],
+                center_nodes[face_subsubnodes[face_a]],
+                center_nodes[face_subsubnodes[face_b]],
                 node_2,
                 node_1,
-                center_nodes[diag_face_subsubcells[diag_face_a]],
-                center_nodes[diag_face_subsubcells[diag_face_b]],
+                center_nodes[diag_face_subsubnodes[diag_face_a]],
+                center_nodes[diag_face_subsubnodes[diag_face_b]],
                 node_4,
                 node_3,
             ]);
             connectivity.push([
-                center_nodes[face_subsubcells[face_b]],
+                center_nodes[face_subsubnodes[face_b]],
                 node_2,
                 node_4,
-                center_nodes[diag_face_subsubcells[diag_face_b]],
-                center_nodes[face_subsubcells[face_d]],
-                center_nodes[cell_subcells[cell_a].into()],
-                center_nodes[adjacent_cell_subcells[adjacent_cell_a].into()],
-                center_nodes[diag_face_subsubcells[diag_face_d]],
+                center_nodes[diag_face_subsubnodes[diag_face_b]],
+                center_nodes[face_subsubnodes[face_d]],
+                center_nodes[node_subnodes[node_a].into()],
+                center_nodes[adjacent_node_subnodes[adjacent_node_a].into()],
+                center_nodes[diag_face_subsubnodes[diag_face_d]],
             ]);
             connectivity.push([
-                center_nodes[face_subsubcells[face_a]],
-                center_nodes[diag_face_subsubcells[diag_face_a]],
+                center_nodes[face_subsubnodes[face_a]],
+                center_nodes[diag_face_subsubnodes[diag_face_a]],
                 node_3,
                 node_1,
-                center_nodes[face_subsubcells[face_c]],
-                center_nodes[diag_face_subsubcells[diag_face_c]],
-                center_nodes[adjacent_cell_subcells[adjacent_cell_b].into()],
-                center_nodes[cell_subcells[cell_b].into()],
+                center_nodes[face_subsubnodes[face_c]],
+                center_nodes[diag_face_subsubnodes[diag_face_c]],
+                center_nodes[adjacent_node_subnodes[adjacent_node_b].into()],
+                center_nodes[node_subnodes[node_b].into()],
             ]);
         }
     }

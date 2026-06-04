@@ -12,10 +12,6 @@ use crate::{
     math::Scalar,
 };
 
-// One entry per handled edge of the cell:
-// (subcell_a, subcell_b, facet_m, facet_n, m_p, m_q, n_p, n_q).
-// `subcell_*` are octants of the cell; `m_*`/`n_*` index the eight leaf children of
-// the children's `facet_m`/`facet_n` neighbors.
 type Edge = (usize, usize, usize, usize, usize, usize, usize, usize);
 
 const EDGES: [Edge; 6] = [
@@ -88,8 +84,6 @@ fn template<T, U>(
         let offset_n = &facet_direction(facet_n) * length;
         let a_m_p = center_nodes[a_m_leaves[m_p].into()];
         let b_m_q = center_nodes[b_m_leaves[m_q].into()];
-        // The stitched nodes were created by earlier templates, one sub-subcell length
-        // back along `facet_m` (node 1/2) and forward along `facet_n` (node 3/4).
         let find = |coordinate: Coordinate<D>| -> Option<usize> {
             nodes_map
                 .get(&[
