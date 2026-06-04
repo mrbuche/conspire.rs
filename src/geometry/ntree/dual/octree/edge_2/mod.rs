@@ -54,28 +54,29 @@ pub fn edge_transition_2<T, U>(
     U: Copy + Into<usize>,
 {
     for node in tree.iter() {
-        if let Some(node_subnodes) = tree.all_leaves(node) {
-            for (facet, rows) in EDGES.iter().enumerate() {
-                if let Some(neighbor) = node.facets[facet]
-                    && let Some(face_nested) =
-                        tree.orthants_all_leaves_on_facet(&tree.nodes[neighbor.into()], facet ^ 1)
-                {
-                    let face_subsubnodes: [usize; LL] =
-                        from_fn(|k| face_nested[k / L][k % L].into());
-                    for &row in rows {
-                        template(
-                            facet,
-                            row,
-                            node_subnodes,
-                            &face_subsubnodes,
-                            node,
-                            center_nodes,
-                            coordinates,
-                            connectivity,
-                            nodes_map,
-                            tree,
-                        )
-                    }
+        if node.is_leaf() {
+            continue;
+        }
+        let node_subnodes = tree.leaves(node);
+        for (facet, rows) in EDGES.iter().enumerate() {
+            if let Some(neighbor) = node.facets[facet]
+                && let Some(face_nested) =
+                    tree.orthants_all_leaves_on_facet(&tree.nodes[neighbor.into()], facet ^ 1)
+            {
+                let face_subsubnodes: [usize; LL] = from_fn(|k| face_nested[k / L][k % L].into());
+                for &row in rows {
+                    template(
+                        facet,
+                        row,
+                        &node_subnodes,
+                        &face_subsubnodes,
+                        node,
+                        center_nodes,
+                        coordinates,
+                        connectivity,
+                        nodes_map,
+                        tree,
+                    )
                 }
             }
         }
@@ -86,7 +87,7 @@ pub fn edge_transition_2<T, U>(
 fn template<T, U>(
     facet: usize,
     row: [usize; 13],
-    node_subnodes: &[U; N],
+    node_subnodes: &[Option<U>; N],
     face_subsubnodes: &[usize; LL],
     node: &Node<D, M, N, T, U>,
     center_nodes: &[usize],
@@ -113,70 +114,73 @@ fn template<T, U>(
         diag_face_c,
         diag_face_d,
     ] = row;
-    if let Some(adjacent_node) = node.facets[adjacent_facet]
-        && let Some(adjacent_node_subnodes) = tree.all_leaves(&tree.nodes[adjacent_node.into()])
+    if let Some(leaf_a) = node_subnodes[node_a]
+        && let Some(leaf_b) = node_subnodes[node_b]
+        && let Some(adjacent_node) = node.facets[adjacent_facet]
         && let Some(diagonal_node) = tree.nodes[adjacent_node.into()].facets[facet]
         && let Some(diag_nested) =
             tree.orthants_all_leaves_on_facet(&tree.nodes[diagonal_node.into()], facet ^ 1)
     {
-        let diag_face_subsubnodes: [usize; LL] = from_fn(|k| diag_nested[k / L][k % L].into());
-        let length: Scalar = tree.nodes[face_subsubnodes[face_a]].length.into();
-        let offset = &facet_direction(facet) * length;
-        let lookup = |center| -> Option<usize> {
-            let coordinate = &coordinates[center] - &offset;
-            nodes_map
-                .get(&[
-                    (2.0 * coordinate[0]) as usize,
-                    (2.0 * coordinate[1]) as usize,
-                    (2.0 * coordinate[2]) as usize,
-                ])
-                .copied()
-        };
-        if let Some(node_1) = lookup(center_nodes[face_subsubnodes[face_a]])
-            && let Some(node_2) = lookup(center_nodes[face_subsubnodes[face_b]])
-            && let Some(node_3) = lookup(center_nodes[diag_face_subsubnodes[diag_face_a]])
-            && let Some(node_4) = lookup(center_nodes[diag_face_subsubnodes[diag_face_b]])
+        let adjacent_node_subnodes = tree.leaves(&tree.nodes[adjacent_node.into()]);
+        if let Some(adjacent_leaf_a) = adjacent_node_subnodes[adjacent_node_a]
+            && let Some(adjacent_leaf_b) = adjacent_node_subnodes[adjacent_node_b]
         {
-            connectivity.push([
-                center_nodes[node_subnodes[node_a].into()],
-                center_nodes[node_subnodes[node_b].into()],
-                node_1,
-                node_2,
-                center_nodes[adjacent_node_subnodes[adjacent_node_a].into()],
-                center_nodes[adjacent_node_subnodes[adjacent_node_b].into()],
-                node_3,
-                node_4,
-            ]);
-            connectivity.push([
-                center_nodes[face_subsubnodes[face_a]],
-                center_nodes[face_subsubnodes[face_b]],
-                node_2,
-                node_1,
-                center_nodes[diag_face_subsubnodes[diag_face_a]],
-                center_nodes[diag_face_subsubnodes[diag_face_b]],
-                node_4,
-                node_3,
-            ]);
-            connectivity.push([
-                center_nodes[face_subsubnodes[face_b]],
-                node_2,
-                node_4,
-                center_nodes[diag_face_subsubnodes[diag_face_b]],
-                center_nodes[face_subsubnodes[face_d]],
-                center_nodes[node_subnodes[node_a].into()],
-                center_nodes[adjacent_node_subnodes[adjacent_node_a].into()],
-                center_nodes[diag_face_subsubnodes[diag_face_d]],
-            ]);
-            connectivity.push([
-                center_nodes[face_subsubnodes[face_a]],
-                center_nodes[diag_face_subsubnodes[diag_face_a]],
-                node_3,
-                node_1,
-                center_nodes[face_subsubnodes[face_c]],
-                center_nodes[diag_face_subsubnodes[diag_face_c]],
-                center_nodes[adjacent_node_subnodes[adjacent_node_b].into()],
-                center_nodes[node_subnodes[node_b].into()],
-            ]);
+            let cell_a = center_nodes[leaf_a.into()];
+            let cell_b = center_nodes[leaf_b.into()];
+            let adjacent_a = center_nodes[adjacent_leaf_a.into()];
+            let adjacent_b = center_nodes[adjacent_leaf_b.into()];
+            let diag_face_subsubnodes: [usize; LL] = from_fn(|k| diag_nested[k / L][k % L].into());
+            let length: Scalar = tree.nodes[face_subsubnodes[face_a]].length.into();
+            let offset = &facet_direction(facet) * length;
+            let lookup = |center| -> Option<usize> {
+                let coordinate = &coordinates[center] - &offset;
+                nodes_map
+                    .get(&[
+                        (2.0 * coordinate[0]) as usize,
+                        (2.0 * coordinate[1]) as usize,
+                        (2.0 * coordinate[2]) as usize,
+                    ])
+                    .copied()
+            };
+            if let Some(node_1) = lookup(center_nodes[face_subsubnodes[face_a]])
+                && let Some(node_2) = lookup(center_nodes[face_subsubnodes[face_b]])
+                && let Some(node_3) = lookup(center_nodes[diag_face_subsubnodes[diag_face_a]])
+                && let Some(node_4) = lookup(center_nodes[diag_face_subsubnodes[diag_face_b]])
+            {
+                connectivity.push([
+                    cell_a, cell_b, node_1, node_2, adjacent_a, adjacent_b, node_3, node_4,
+                ]);
+                connectivity.push([
+                    center_nodes[face_subsubnodes[face_a]],
+                    center_nodes[face_subsubnodes[face_b]],
+                    node_2,
+                    node_1,
+                    center_nodes[diag_face_subsubnodes[diag_face_a]],
+                    center_nodes[diag_face_subsubnodes[diag_face_b]],
+                    node_4,
+                    node_3,
+                ]);
+                connectivity.push([
+                    center_nodes[face_subsubnodes[face_b]],
+                    node_2,
+                    node_4,
+                    center_nodes[diag_face_subsubnodes[diag_face_b]],
+                    center_nodes[face_subsubnodes[face_d]],
+                    cell_a,
+                    adjacent_a,
+                    center_nodes[diag_face_subsubnodes[diag_face_d]],
+                ]);
+                connectivity.push([
+                    center_nodes[face_subsubnodes[face_a]],
+                    center_nodes[diag_face_subsubnodes[diag_face_a]],
+                    node_3,
+                    node_1,
+                    center_nodes[face_subsubnodes[face_c]],
+                    center_nodes[diag_face_subsubnodes[diag_face_c]],
+                    adjacent_b,
+                    cell_b,
+                ]);
+            }
         }
     }
 }
