@@ -3,7 +3,7 @@ pub mod quadtree;
 
 use crate::{
     geometry::{
-        Coordinates,
+        Coordinate, Coordinates,
         mesh::Mesh,
         ntree::{Orthotree, balance::Balancing, pair::Pairing},
     },
@@ -12,6 +12,24 @@ use crate::{
 use std::{array::from_fn, collections::HashMap};
 
 type NodeMap<const D: usize> = HashMap<[usize; D], usize>;
+
+fn get_or_add<const D: usize>(
+    coordinate: Coordinate<D>,
+    coordinates: &mut Coordinates<D>,
+    nodes_map: &mut NodeMap<D>,
+    node_index: &mut usize,
+) -> usize {
+    let key = from_fn(|i| (2.0 * coordinate[i]) as usize);
+    if let Some(&node) = nodes_map.get(&key) {
+        node
+    } else {
+        let node = *node_index;
+        coordinates.push(coordinate);
+        nodes_map.insert(key, node);
+        *node_index += 1;
+        node
+    }
+}
 
 pub trait Dualization<const D: usize> {
     fn dualize(&mut self) -> Mesh<D>;

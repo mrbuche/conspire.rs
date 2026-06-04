@@ -47,7 +47,19 @@ where
     T: Copy + Into<usize>,
     U: Copy + Into<usize>,
 {
-    let [facet, facet_a, facet_b, sc, sc_a, sc_b, sc_ab, ss, ss_a, ss_b, ss_ab] = data;
+    let [
+        facet,
+        facet_a,
+        facet_b,
+        sc,
+        sc_a,
+        sc_b,
+        sc_ab,
+        ss,
+        ss_a,
+        ss_b,
+        ss_ab,
+    ] = data;
     let cell_a = node.facets[facet_a]?;
     let cell_b = node.facets[facet_b]?;
     let cell_ab = tree.nodes[cell_a.into()].facets[facet_b]?;
@@ -57,7 +69,12 @@ where
     let face = sub_subnode(tree, node.facets[facet]?, facet, ss)?;
     let face_a = sub_subnode(tree, tree.nodes[cell_a.into()].facets[facet]?, facet, ss_a)?;
     let face_b = sub_subnode(tree, tree.nodes[cell_b.into()].facets[facet]?, facet, ss_b)?;
-    let face_ab = sub_subnode(tree, tree.nodes[cell_ab.into()].facets[facet]?, facet, ss_ab)?;
+    let face_ab = sub_subnode(
+        tree,
+        tree.nodes[cell_ab.into()].facets[facet]?,
+        facet,
+        ss_ab,
+    )?;
     Some([
         center_nodes[cell_subcells[sc].into()],
         center_nodes[cell_a_subcells[sc_a].into()],

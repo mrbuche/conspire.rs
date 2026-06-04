@@ -10,7 +10,7 @@ mod vertex_1;
 
 use crate::{
     geometry::{
-        Coordinate, Coordinates,
+        Coordinate,
         mesh::{Connectivity, Mesh},
         ntree::{
             Octree,
@@ -25,7 +25,7 @@ use crate::{
             },
         },
     },
-    math::{Scalar, TensorVec},
+    math::Scalar,
 };
 
 const D: usize = 3;
@@ -42,28 +42,6 @@ const fn facet_direction(facet: usize) -> Coordinate<D> {
         4 => Coordinate::const_from([0.0, 0.0, -1.0]),
         5 => Coordinate::const_from([0.0, 0.0, 1.0]),
         _ => panic!(),
-    }
-}
-
-fn get_or_add(
-    coordinate: Coordinate<D>,
-    coordinates: &mut Coordinates<D>,
-    nodes_map: &mut NodeMap<D>,
-    node_index: &mut usize,
-) -> usize {
-    let key = [
-        (2.0 * coordinate[0]) as usize,
-        (2.0 * coordinate[1]) as usize,
-        (2.0 * coordinate[2]) as usize,
-    ];
-    if let Some(&node) = nodes_map.get(&key) {
-        node
-    } else {
-        let node = *node_index;
-        coordinates.push(coordinate);
-        nodes_map.insert(key, node);
-        *node_index += 1;
-        node
     }
 }
 

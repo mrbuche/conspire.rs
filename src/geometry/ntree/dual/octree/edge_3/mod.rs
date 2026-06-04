@@ -4,8 +4,8 @@ use crate::{
         ntree::{
             Octree,
             dual::{
-                NodeMap,
-                octree::{D, N, get_or_add},
+                NodeMap, get_or_add,
+                octree::{D, N},
             },
         },
     },
