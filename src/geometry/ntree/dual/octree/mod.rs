@@ -9,6 +9,7 @@ mod face;
 
 use crate::{
     geometry::{
+        Coordinate,
         mesh::{Connectivity, Mesh},
         ntree::{
             Octree,
@@ -29,6 +30,18 @@ const D: usize = 3;
 const L: usize = 4;
 const M: usize = 6;
 const N: usize = 8;
+
+const fn facet_direction(facet: usize) -> Coordinate<D> {
+    match facet {
+        0 => Coordinate::const_from([-1.0, 0.0, 0.0]),
+        1 => Coordinate::const_from([1.0, 0.0, 0.0]),
+        2 => Coordinate::const_from([0.0, -1.0, 0.0]),
+        3 => Coordinate::const_from([0.0, 1.0, 0.0]),
+        4 => Coordinate::const_from([0.0, 0.0, -1.0]),
+        5 => Coordinate::const_from([0.0, 0.0, 1.0]),
+        _ => panic!(),
+    }
+}
 
 impl<T, U> Dualization<D> for Octree<T, U>
 where

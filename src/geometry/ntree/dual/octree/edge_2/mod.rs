@@ -1,4 +1,3 @@
-use super::edge_1::facet_direction;
 use crate::{
     geometry::{
         Coordinates,
@@ -6,7 +5,7 @@ use crate::{
             Octree,
             dual::{
                 NodeMap,
-                octree::{D, L, M, N},
+                octree::{D, L, M, N, facet_direction},
             },
             node::Node,
         },

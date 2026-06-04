@@ -1,11 +1,11 @@
 use crate::{
     geometry::{
-        Coordinate, Coordinates,
+        Coordinates,
         ntree::{
             Octree,
             dual::{
                 NodeMap,
-                octree::{D, L, M, N},
+                octree::{D, L, M, N, facet_direction},
             },
             node::Node,
         },
@@ -35,18 +35,6 @@ const EDGES: [(usize, usize, [usize; 10]); 12] = [
     (5, 2, [1, 4, 0, 5, 0, 1, 6, 7, 2, 3]),
     (5, 1, [7, 13, 5, 15, 1, 3, 4, 6, 0, 2]),
 ];
-
-pub(super) const fn facet_direction(facet: usize) -> Coordinate<D> {
-    match facet {
-        0 => Coordinate::const_from([-1.0, 0.0, 0.0]),
-        1 => Coordinate::const_from([1.0, 0.0, 0.0]),
-        2 => Coordinate::const_from([0.0, -1.0, 0.0]),
-        3 => Coordinate::const_from([0.0, 1.0, 0.0]),
-        4 => Coordinate::const_from([0.0, 0.0, -1.0]),
-        5 => Coordinate::const_from([0.0, 0.0, 1.0]),
-        _ => panic!(),
-    }
-}
 
 pub fn edge_transition_1<T, U>(
     tree: &Octree<T, U>,
