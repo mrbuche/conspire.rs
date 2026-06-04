@@ -107,10 +107,7 @@ where
             }
         }
     }
-    /// Like [`orthants_leaves_on_facet`](Self::orthants_leaves_on_facet) but all or
-    /// nothing: the `L * L` sub-orthants on `face`, in `insert_bit` face order, but
-    /// only when every one of them is present and a leaf (a single miss gives `None`).
-    pub fn subleaves_on_facet(
+    pub fn orthants_all_leaves_on_facet(
         &self,
         node: &Node<D, M, N, T, U>,
         face: usize,

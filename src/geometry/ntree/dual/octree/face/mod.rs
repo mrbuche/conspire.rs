@@ -32,7 +32,7 @@ pub fn face_transition<T, U>(
             if let [Some(s0), Some(s1), Some(s2), Some(s3)] = tree.leaves_on_facet(node, facet)
                 && let Some(neighbor) = node.facets[facet]
                 && let Some(neighbors) =
-                    tree.subleaves_on_facet(&tree.nodes[neighbor.into()], facet ^ 1)
+                    tree.orthants_all_leaves_on_facet(&tree.nodes[neighbor.into()], facet ^ 1)
             {
                 template(
                     [s0, s1, s2, s3],
