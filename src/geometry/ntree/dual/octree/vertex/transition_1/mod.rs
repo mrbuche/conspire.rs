@@ -1,14 +1,12 @@
-use crate::geometry::ntree::{
-    Octree,
-    dual::octree::{D, L, M, N},
-    node::Node,
-};
+use super::super::{D, M, N};
+use super::sub_subnode;
+use crate::geometry::ntree::{Octree, node::Node};
 
+// (O, A, AB, B) => (o, a, ab, b): the cell and its `facet_a`/`facet_b`/diagonal
+// neighbors are coarse (a subcell each); across `facet` each meets a fine cell.
 // [facet, facet_a, facet_b, subcell, subcell_a, subcell_b, subcell_ab,
-//  sub_subcell, sub_subcell_a, sub_subcell_b, sub_subcell_ab], one row per orientation.
-// The cell and its `facet_a`/`facet_b`/diagonal neighbors are coarse (contribute a
-// subcell each); across `facet` they each meet a fine cell (a sub-subcell each).
-const DATA: [[usize; 11]; 6] = [
+//  sub_subcell, sub_subcell_a, sub_subcell_b, sub_subcell_ab].
+pub const DATA: [[usize; 11]; 6] = [
     [2, 1, 5, 5, 4, 1, 0, 15, 10, 5, 0],
     [1, 3, 5, 7, 5, 3, 1, 15, 10, 5, 0],
     [3, 0, 5, 6, 7, 2, 3, 10, 15, 0, 5],
@@ -17,31 +15,12 @@ const DATA: [[usize; 11]; 6] = [
     [5, 2, 1, 5, 7, 4, 6, 5, 15, 0, 10],
 ];
 
-pub fn vertex_transition_1<T, U>(
+pub fn template<T, U>(
     tree: &Octree<T, U>,
-    center_nodes: &[usize],
-    connectivity: &mut Vec<[usize; N]>,
-) where
-    T: Copy + Into<usize>,
-    U: Copy + Into<usize>,
-{
-    for node in tree.iter() {
-        if let Some(cell_subcells) = tree.all_leaves(node) {
-            for &data in DATA.iter() {
-                if let Some(hex) = template(data, node, cell_subcells, center_nodes, tree) {
-                    connectivity.push(hex)
-                }
-            }
-        }
-    }
-}
-
-fn template<T, U>(
-    data: [usize; 11],
     node: &Node<D, M, N, T, U>,
     cell_subcells: &[U; N],
     center_nodes: &[usize],
-    tree: &Octree<T, U>,
+    data: [usize; 11],
 ) -> Option<[usize; N]>
 where
     T: Copy + Into<usize>,
@@ -85,15 +64,4 @@ where
         center_nodes[face_ab.into()],
         center_nodes[face_b.into()],
     ])
-}
-
-/// The leaf at flattened sub-subcell `idx` (`idx / L` outer, `idx % L` inner) on the
-/// shared face of `neighbor` (its mirror face, `facet ^ 1`), or `None` if absent.
-fn sub_subnode<T, U>(tree: &Octree<T, U>, neighbor: U, facet: usize, idx: usize) -> Option<U>
-where
-    T: Copy + Into<usize>,
-    U: Copy + Into<usize>,
-{
-    tree.orthants_leaves_on_facet(&tree.nodes[neighbor.into()], facet ^ 1)[idx / L]
-        .and_then(|inner| inner[idx % L])
 }
