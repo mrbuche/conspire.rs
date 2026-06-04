@@ -5,11 +5,11 @@ use crate::{
             Octree,
             dual::{
                 NodeMap,
-                octree::{D, N},
+                octree::{D, N, get_or_add},
             },
         },
     },
-    math::{Scalar, TensorVec},
+    math::Scalar,
 };
 
 type Edge = (
@@ -115,22 +115,8 @@ fn template<T, U>(
             let offset = &Coordinate::const_from(direction) * length;
             let base_0 = coordinates[center_nodes[a_m_e.into()]].clone();
             let base_1 = coordinates[center_nodes[b_m_c.into()]].clone();
-            coordinates.push(&base_0 + &offset);
-            coordinates.push(&base_1 + &offset);
-            let new = *node_index;
-            for k in 0..2 {
-                let coordinate = &coordinates[new + k];
-                let key = [
-                    (2.0 * coordinate[0]) as usize,
-                    (2.0 * coordinate[1]) as usize,
-                    (2.0 * coordinate[2]) as usize,
-                ];
-                assert!(
-                    nodes_map.insert(key, new + k).is_none(),
-                    "edge_3 duplicate node at {key:?}"
-                );
-            }
-            *node_index += 2;
+            let [n0, n1] = [&base_0 + &offset, &base_1 + &offset]
+                .map(|coordinate| get_or_add(coordinate, coordinates, nodes_map, node_index));
             let center_a = center_nodes[node_a.into()];
             let center_b = center_nodes[node_b.into()];
             let a_m_c = center_nodes[a_m_c.into()];
@@ -146,49 +132,13 @@ fn template<T, U>(
             let diag_b = center_nodes[diagonal_b.into()];
             let subdiag_b = center_nodes[subdiagonal_b.into()];
             if flip {
-                connectivity.push([new, a_m_e, subdiag_a, a_n_f, center_a, a_m_c, diag_a, a_n_d]);
-                connectivity.push([
-                    new + 1,
-                    b_m_c,
-                    subdiag_b,
-                    b_n_d,
-                    new,
-                    a_m_e,
-                    subdiag_a,
-                    a_n_f,
-                ]);
-                connectivity.push([
-                    center_b,
-                    b_m_e,
-                    diag_b,
-                    b_n_f,
-                    new + 1,
-                    b_m_c,
-                    subdiag_b,
-                    b_n_d,
-                ]);
+                connectivity.push([n0, a_m_e, subdiag_a, a_n_f, center_a, a_m_c, diag_a, a_n_d]);
+                connectivity.push([n1, b_m_c, subdiag_b, b_n_d, n0, a_m_e, subdiag_a, a_n_f]);
+                connectivity.push([center_b, b_m_e, diag_b, b_n_f, n1, b_m_c, subdiag_b, b_n_d]);
             } else {
-                connectivity.push([center_a, a_m_c, diag_a, a_n_d, new, a_m_e, subdiag_a, a_n_f]);
-                connectivity.push([
-                    new,
-                    a_m_e,
-                    subdiag_a,
-                    a_n_f,
-                    new + 1,
-                    b_m_c,
-                    subdiag_b,
-                    b_n_d,
-                ]);
-                connectivity.push([
-                    new + 1,
-                    b_m_c,
-                    subdiag_b,
-                    b_n_d,
-                    center_b,
-                    b_m_e,
-                    diag_b,
-                    b_n_f,
-                ]);
+                connectivity.push([center_a, a_m_c, diag_a, a_n_d, n0, a_m_e, subdiag_a, a_n_f]);
+                connectivity.push([n0, a_m_e, subdiag_a, a_n_f, n1, b_m_c, subdiag_b, b_n_d]);
+                connectivity.push([n1, b_m_c, subdiag_b, b_n_d, center_b, b_m_e, diag_b, b_n_f]);
             }
         }
     }

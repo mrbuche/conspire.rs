@@ -9,7 +9,7 @@ mod face;
 
 use crate::{
     geometry::{
-        Coordinate,
+        Coordinate, Coordinates,
         mesh::{Connectivity, Mesh},
         ntree::{
             Octree,
@@ -23,7 +23,7 @@ use crate::{
             },
         },
     },
-    math::Scalar,
+    math::{Scalar, TensorVec},
 };
 
 const D: usize = 3;
@@ -43,6 +43,28 @@ const fn facet_direction(facet: usize) -> Coordinate<D> {
     }
 }
 
+fn get_or_add(
+    coordinate: Coordinate<D>,
+    coordinates: &mut Coordinates<D>,
+    nodes_map: &mut NodeMap<D>,
+    node_index: &mut usize,
+) -> usize {
+    let key = [
+        (2.0 * coordinate[0]) as usize,
+        (2.0 * coordinate[1]) as usize,
+        (2.0 * coordinate[2]) as usize,
+    ];
+    if let Some(&node) = nodes_map.get(&key) {
+        node
+    } else {
+        let node = *node_index;
+        coordinates.push(coordinate);
+        nodes_map.insert(key, node);
+        *node_index += 1;
+        node
+    }
+}
+
 impl<T, U> Dualization<D> for Octree<T, U>
 where
     T: Copy + Into<Scalar> + Into<usize>,
@@ -52,9 +74,14 @@ where
         let (center_nodes, mut coordinates, mut node_index, mut connectivity) = self.initialize();
         self.uniform_transitions(&center_nodes, &mut connectivity);
         let mut nodes_map = NodeMap::new();
-        //
-        // Could move face back here and use get_or_add in edge transitions.
-        //
+        face_transition(
+            self,
+            &center_nodes,
+            &mut coordinates,
+            &mut connectivity,
+            &mut node_index,
+            &mut nodes_map,
+        );
         edge_transition_1(
             self,
             &center_nodes,
@@ -64,14 +91,6 @@ where
             &mut nodes_map,
         );
         edge_transition_3(
-            self,
-            &center_nodes,
-            &mut coordinates,
-            &mut connectivity,
-            &mut node_index,
-            &mut nodes_map,
-        );
-        face_transition(
             self,
             &center_nodes,
             &mut coordinates,

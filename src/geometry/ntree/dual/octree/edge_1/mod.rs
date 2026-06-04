@@ -5,12 +5,12 @@ use crate::{
             Octree,
             dual::{
                 NodeMap,
-                octree::{D, L, M, N, facet_direction},
+                octree::{D, L, M, N, facet_direction, get_or_add},
             },
             node::Node,
         },
     },
-    math::{Scalar, TensorVec},
+    math::Scalar,
 };
 
 const EDGES: [(usize, usize, [usize; 10]); 12] = [
@@ -121,75 +121,23 @@ fn template<T, U>(
             let offset_n = &facet_direction(facet_n) * length;
             let base_a = coordinates[center_m_a].clone();
             let base_b = coordinates[center_m_b].clone();
-            coordinates.push(&base_a + &offset_m);
-            coordinates.push(&base_a + &offset_m + &offset_n);
-            coordinates.push(&base_a + &offset_n);
-            coordinates.push(&base_b + &offset_m);
-            coordinates.push(&base_b + &offset_m + &offset_n);
-            coordinates.push(&base_b + &offset_n);
-            let new = *node_index;
-            for k in 0..6 {
-                let coordinate = &coordinates[new + k];
-                let key = [
-                    (2.0 * coordinate[0]) as usize,
-                    (2.0 * coordinate[1]) as usize,
-                    (2.0 * coordinate[2]) as usize,
-                ];
-                assert!(
-                    nodes_map.insert(key, new + k).is_none(),
-                    "edge_1 duplicate node at {key:?}"
-                );
-            }
-            *node_index += 6;
+            let [n0, n1, n2, n3, n4, n5] = [
+                &base_a + &offset_m,
+                &base_a + &offset_m + &offset_n,
+                &base_a + &offset_n,
+                &base_b + &offset_m,
+                &base_b + &offset_m + &offset_n,
+                &base_b + &offset_n,
+            ]
+            .map(|coordinate| get_or_add(coordinate, coordinates, nodes_map, node_index));
+            connectivity.push([center_m_a, n0, n1, n2, center_m_b, n3, n4, n5]);
+            connectivity.push([n0, face_m_a, diag_a, n1, n3, face_m_b, diag_b, n4]);
+            connectivity.push([n1, diag_a, face_n_a, n2, n4, diag_b, face_n_b, n5]);
             connectivity.push([
-                center_m_a,
-                new,
-                new + 1,
-                new + 2,
-                center_m_b,
-                new + 3,
-                new + 4,
-                new + 5,
+                center_m_a, n2, n1, n0, center_m_c, face_n_a, diag_a, face_m_a,
             ]);
             connectivity.push([
-                new,
-                face_m_a,
-                diag_a,
-                new + 1,
-                new + 3,
-                face_m_b,
-                diag_b,
-                new + 4,
-            ]);
-            connectivity.push([
-                new + 1,
-                diag_a,
-                face_n_a,
-                new + 2,
-                new + 4,
-                diag_b,
-                face_n_b,
-                new + 5,
-            ]);
-            connectivity.push([
-                center_m_a,
-                new + 2,
-                new + 1,
-                new,
-                center_m_c,
-                face_n_a,
-                diag_a,
-                face_m_a,
-            ]);
-            connectivity.push([
-                center_m_b,
-                new + 3,
-                new + 4,
-                new + 5,
-                center_m_d,
-                face_m_b,
-                diag_b,
-                face_n_b,
+                center_m_b, n3, n4, n5, center_m_d, face_m_b, diag_b, face_n_b,
             ]);
         }
     }
