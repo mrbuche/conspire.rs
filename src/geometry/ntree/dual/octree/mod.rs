@@ -52,14 +52,9 @@ where
         let (center_nodes, mut coordinates, mut node_index, mut connectivity) = self.initialize();
         self.uniform_transitions(&center_nodes, &mut connectivity);
         let mut nodes_map = NodeMap::new();
-        face_transition(
-            self,
-            &center_nodes,
-            &mut coordinates,
-            &mut connectivity,
-            &mut node_index,
-            &mut nodes_map,
-        );
+        //
+        // Could move face back here and use get_or_add in edge transitions.
+        //
         edge_transition_1(
             self,
             &center_nodes,
@@ -69,6 +64,14 @@ where
             &mut nodes_map,
         );
         edge_transition_3(
+            self,
+            &center_nodes,
+            &mut coordinates,
+            &mut connectivity,
+            &mut node_index,
+            &mut nodes_map,
+        );
+        face_transition(
             self,
             &center_nodes,
             &mut coordinates,

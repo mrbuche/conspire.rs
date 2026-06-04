@@ -120,13 +120,14 @@ fn template<T, U>(
             let new = *node_index;
             for k in 0..2 {
                 let coordinate = &coordinates[new + k];
-                nodes_map.insert(
-                    [
-                        (2.0 * coordinate[0]) as usize,
-                        (2.0 * coordinate[1]) as usize,
-                        (2.0 * coordinate[2]) as usize,
-                    ],
-                    new + k,
+                let key = [
+                    (2.0 * coordinate[0]) as usize,
+                    (2.0 * coordinate[1]) as usize,
+                    (2.0 * coordinate[2]) as usize,
+                ];
+                assert!(
+                    nodes_map.insert(key, new + k).is_none(),
+                    "edge_3 duplicate node at {key:?}"
                 );
             }
             *node_index += 2;
