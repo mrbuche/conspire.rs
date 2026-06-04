@@ -35,6 +35,16 @@ where
             }),
         }
     }
+    pub fn leaves_on_facet(&self, node: &Node<D, M, N, T, U>, facet: usize) -> [Option<U>; L] {
+        let (axis, side) = (facet >> 1, facet & 1);
+        match &node.kind {
+            Kind::Leaf => from_fn(|_| None),
+            Kind::Tree(orthants) => from_fn(|i| {
+                let orthant = orthants[insert_bit(i, axis, side)];
+                self[orthant].is_leaf().then_some(orthant)
+            }),
+        }
+    }
     pub fn leaves_and_facets(
         &self,
         node: &Node<D, M, N, T, U>,
@@ -75,11 +85,6 @@ where
             }),
         }
     }
-    /// Like [`orthants_leaves`](Self::orthants_leaves) but restricted to the `L`
-    /// orthants on `face`: for each one that is subdivided, the `L` sub-orthants
-    /// on that same shared face that are leaves (and `None` for one that is itself
-    /// a leaf or has no leaf grandchildren there). Both levels are enumerated in
-    /// `insert_bit` face order, so the result lines up across a one-level jump.
     pub fn orthants_leaves_on_facet(
         &self,
         node: &Node<D, M, N, T, U>,
@@ -88,8 +93,8 @@ where
         let (axis, side) = (face >> 1, face & 1);
         match &node.kind {
             Kind::Leaf => from_fn(|_| None),
-            Kind::Tree(orthants) => from_fn(|i| {
-                match &self[orthants[insert_bit(i, axis, side)]].kind {
+            Kind::Tree(orthants) => {
+                from_fn(|i| match &self[orthants[insert_bit(i, axis, side)]].kind {
                     Kind::Leaf => None,
                     Kind::Tree(sub_orthants) => {
                         let inner: [Option<U>; L] = from_fn(|j| {
@@ -98,8 +103,22 @@ where
                         });
                         inner.iter().any(|x| x.is_some()).then_some(inner)
                     }
-                }
-            }),
+                })
+            }
         }
+    }
+    /// Like [`orthants_leaves_on_facet`](Self::orthants_leaves_on_facet) but all or
+    /// nothing: the `L * L` sub-orthants on `face`, in `insert_bit` face order, but
+    /// only when every one of them is present and a leaf (a single miss gives `None`).
+    pub fn subleaves_on_facet(
+        &self,
+        node: &Node<D, M, N, T, U>,
+        face: usize,
+    ) -> Option<[[U; L]; L]> {
+        let orthants_leaves = self.orthants_leaves_on_facet(node, face);
+        orthants_leaves
+            .iter()
+            .all(|&orthant| orthant.is_some_and(|leaves| leaves.iter().all(Option::is_some)))
+            .then(|| from_fn(|i| from_fn(|j| orthants_leaves[i].unwrap()[j].unwrap())))
     }
 }

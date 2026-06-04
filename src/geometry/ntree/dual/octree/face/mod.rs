@@ -5,28 +5,16 @@ use crate::{
             Octree,
             dual::{
                 NodeMap,
-                octree::{D, M, N},
+                octree::{D, L, M, N},
             },
-            node::Orthants,
         },
     },
     math::{Scalar, TensorVec},
 };
 use std::array::from_fn;
 
+const LL: usize = L * L;
 const SCALE_1: Scalar = 0.5;
-
-const fn subcells_on_own_face(facet: usize) -> [usize; 4] {
-    match facet {
-        0 => [0, 2, 4, 6],
-        1 => [1, 3, 5, 7],
-        2 => [0, 1, 4, 5],
-        3 => [2, 3, 6, 7],
-        4 => [0, 1, 2, 3],
-        5 => [4, 5, 6, 7],
-        _ => panic!(),
-    }
-}
 
 pub fn face_transition<T, U>(
     tree: &Octree<T, U>,
@@ -40,30 +28,23 @@ pub fn face_transition<T, U>(
     U: Copy + Into<usize>,
 {
     for node in tree.iter() {
-        if let Some(orthants) = node.orthants() {
-            for facet in 0..M {
-                // Only the cell's subcells on this facet are stitched, so they are
-                // all this template needs as leaves; the off-face subcells are free
-                // to carry their own structure (no whole-cell pairing assumed).
-                if subcells_on_own_face(facet)
-                    .iter()
-                    .all(|&subcell| tree.nodes[orthants[subcell].into()].is_leaf())
-                    && let Some(face_cell) = node.facets[facet]
-                    && let Some(face_subsubcells) =
-                        cell_subcells_contain_leaves(tree, face_cell.into(), facet)
-                {
-                    template(
-                        orthants,
-                        center_nodes,
-                        nodes_map,
-                        facet,
-                        face_subsubcells,
-                        tree,
-                        connectivity,
-                        coordinates,
-                        node_index,
-                    )
-                }
+        for facet in 0..M {
+            if let [Some(s0), Some(s1), Some(s2), Some(s3)] = tree.leaves_on_facet(node, facet)
+                && let Some(neighbor) = node.facets[facet]
+                && let Some(neighbors) =
+                    tree.subleaves_on_facet(&tree.nodes[neighbor.into()], facet ^ 1)
+            {
+                template(
+                    [s0, s1, s2, s3],
+                    center_nodes,
+                    nodes_map,
+                    facet,
+                    neighbors,
+                    tree,
+                    connectivity,
+                    coordinates,
+                    node_index,
+                )
             }
         }
     }
@@ -71,11 +52,11 @@ pub fn face_transition<T, U>(
 
 #[allow(clippy::too_many_arguments)]
 fn template<T, U>(
-    orthants: &Orthants<N, U>,
-    cells_nodes: &[usize],
+    leaves: [U; L],
+    center_nodes: &[usize],
     nodes_map: &mut NodeMap<D>,
     facet: usize,
-    face_subsubcells: [usize; 16],
+    neighbors: [[U; L]; L],
     tree: &Octree<T, U>,
     connectivity: &mut Vec<[usize; N]>,
     coordinates: &mut Coordinates<D>,
@@ -84,24 +65,24 @@ fn template<T, U>(
     T: Copy + Into<Scalar> + Into<usize>,
     U: Copy + Into<usize>,
 {
-    let face_subcells = subcells_on_own_face(facet);
-    let cell_subcells_face_nodes: [usize; 4] =
-        from_fn(|i| cells_nodes[orthants[face_subcells[i]].into()]);
+    let face_subsubcells = from_fn(|k| neighbors[k / L][k % L].into());
+    let cell_subcells_face_nodes: [usize; L] =
+        from_fn(|i| center_nodes[leaves[i].into()]);
     let adjacent_exterior_nodes = [
-        cells_nodes[face_subsubcells[1]],
-        cells_nodes[face_subsubcells[4]],
-        cells_nodes[face_subsubcells[7]],
-        cells_nodes[face_subsubcells[13]],
-        cells_nodes[face_subsubcells[14]],
-        cells_nodes[face_subsubcells[11]],
-        cells_nodes[face_subsubcells[8]],
-        cells_nodes[face_subsubcells[2]],
+        center_nodes[face_subsubcells[1]],
+        center_nodes[face_subsubcells[4]],
+        center_nodes[face_subsubcells[7]],
+        center_nodes[face_subsubcells[13]],
+        center_nodes[face_subsubcells[14]],
+        center_nodes[face_subsubcells[11]],
+        center_nodes[face_subsubcells[8]],
+        center_nodes[face_subsubcells[2]],
     ];
     let adjacent_interior_nodes = [
-        cells_nodes[face_subsubcells[3]],
-        cells_nodes[face_subsubcells[6]],
-        cells_nodes[face_subsubcells[12]],
-        cells_nodes[face_subsubcells[9]],
+        center_nodes[face_subsubcells[3]],
+        center_nodes[face_subsubcells[6]],
+        center_nodes[face_subsubcells[12]],
+        center_nodes[face_subsubcells[9]],
     ];
     let (scale_1, scale_2) = translations(facet, &face_subsubcells, tree);
     let interior_nodes = [
@@ -136,7 +117,7 @@ fn template<T, U>(
         }
     }
     connectivity_template(
-        cells_nodes,
+        center_nodes,
         cell_subcells_face_nodes,
         facet,
         face_subsubcells,
@@ -148,10 +129,10 @@ fn template<T, U>(
 
 #[allow(clippy::too_many_arguments)]
 fn connectivity_template(
-    cells_nodes: &[usize],
-    cell_subcells_face_nodes: [usize; 4],
+    center_nodes: &[usize],
+    cell_subcells_face_nodes: [usize; L],
     facet: usize,
-    face_subsubcells: [usize; 16],
+    face_subsubcells: [usize; LL],
     interior_nodes: [usize; 4],
     exterior_nodes: [usize; 8],
     connectivity: &mut Vec<[usize; N]>,
@@ -159,90 +140,90 @@ fn connectivity_template(
     match facet {
         0 | 3 | 4 => {
             connectivity.push([
-                cells_nodes[face_subsubcells[3]],
-                cells_nodes[face_subsubcells[6]],
-                cells_nodes[face_subsubcells[12]],
-                cells_nodes[face_subsubcells[9]],
+                center_nodes[face_subsubcells[3]],
+                center_nodes[face_subsubcells[6]],
+                center_nodes[face_subsubcells[12]],
+                center_nodes[face_subsubcells[9]],
                 interior_nodes[0],
                 interior_nodes[1],
                 interior_nodes[2],
                 interior_nodes[3],
             ]);
             connectivity.push([
-                cells_nodes[face_subsubcells[1]],
-                cells_nodes[face_subsubcells[4]],
-                cells_nodes[face_subsubcells[6]],
-                cells_nodes[face_subsubcells[3]],
+                center_nodes[face_subsubcells[1]],
+                center_nodes[face_subsubcells[4]],
+                center_nodes[face_subsubcells[6]],
+                center_nodes[face_subsubcells[3]],
                 exterior_nodes[0],
                 exterior_nodes[1],
                 interior_nodes[1],
                 interior_nodes[0],
             ]);
             connectivity.push([
-                cells_nodes[face_subsubcells[6]],
-                cells_nodes[face_subsubcells[7]],
-                cells_nodes[face_subsubcells[13]],
-                cells_nodes[face_subsubcells[12]],
+                center_nodes[face_subsubcells[6]],
+                center_nodes[face_subsubcells[7]],
+                center_nodes[face_subsubcells[13]],
+                center_nodes[face_subsubcells[12]],
                 interior_nodes[1],
                 exterior_nodes[2],
                 exterior_nodes[3],
                 interior_nodes[2],
             ]);
             connectivity.push([
-                cells_nodes[face_subsubcells[9]],
-                cells_nodes[face_subsubcells[12]],
-                cells_nodes[face_subsubcells[14]],
-                cells_nodes[face_subsubcells[11]],
+                center_nodes[face_subsubcells[9]],
+                center_nodes[face_subsubcells[12]],
+                center_nodes[face_subsubcells[14]],
+                center_nodes[face_subsubcells[11]],
                 interior_nodes[3],
                 interior_nodes[2],
                 exterior_nodes[4],
                 exterior_nodes[5],
             ]);
             connectivity.push([
-                cells_nodes[face_subsubcells[2]],
-                cells_nodes[face_subsubcells[3]],
-                cells_nodes[face_subsubcells[9]],
-                cells_nodes[face_subsubcells[8]],
+                center_nodes[face_subsubcells[2]],
+                center_nodes[face_subsubcells[3]],
+                center_nodes[face_subsubcells[9]],
+                center_nodes[face_subsubcells[8]],
                 exterior_nodes[7],
                 interior_nodes[0],
                 interior_nodes[3],
                 exterior_nodes[6],
             ]);
             connectivity.push([
-                cells_nodes[face_subsubcells[0]],
-                cells_nodes[face_subsubcells[1]],
-                cells_nodes[face_subsubcells[3]],
-                cells_nodes[face_subsubcells[2]],
+                center_nodes[face_subsubcells[0]],
+                center_nodes[face_subsubcells[1]],
+                center_nodes[face_subsubcells[3]],
+                center_nodes[face_subsubcells[2]],
                 cell_subcells_face_nodes[0],
                 exterior_nodes[0],
                 interior_nodes[0],
                 exterior_nodes[7],
             ]);
             connectivity.push([
-                cells_nodes[face_subsubcells[4]],
-                cells_nodes[face_subsubcells[5]],
-                cells_nodes[face_subsubcells[7]],
-                cells_nodes[face_subsubcells[6]],
+                center_nodes[face_subsubcells[4]],
+                center_nodes[face_subsubcells[5]],
+                center_nodes[face_subsubcells[7]],
+                center_nodes[face_subsubcells[6]],
                 exterior_nodes[1],
                 cell_subcells_face_nodes[1],
                 exterior_nodes[2],
                 interior_nodes[1],
             ]);
             connectivity.push([
-                cells_nodes[face_subsubcells[12]],
-                cells_nodes[face_subsubcells[13]],
-                cells_nodes[face_subsubcells[15]],
-                cells_nodes[face_subsubcells[14]],
+                center_nodes[face_subsubcells[12]],
+                center_nodes[face_subsubcells[13]],
+                center_nodes[face_subsubcells[15]],
+                center_nodes[face_subsubcells[14]],
                 interior_nodes[2],
                 exterior_nodes[3],
                 cell_subcells_face_nodes[3],
                 exterior_nodes[4],
             ]);
             connectivity.push([
-                cells_nodes[face_subsubcells[8]],
-                cells_nodes[face_subsubcells[9]],
-                cells_nodes[face_subsubcells[11]],
-                cells_nodes[face_subsubcells[10]],
+                center_nodes[face_subsubcells[8]],
+                center_nodes[face_subsubcells[9]],
+                center_nodes[face_subsubcells[11]],
+                center_nodes[face_subsubcells[10]],
                 exterior_nodes[6],
                 interior_nodes[3],
                 exterior_nodes[5],
@@ -295,90 +276,90 @@ fn connectivity_template(
                 interior_nodes[1],
                 interior_nodes[2],
                 interior_nodes[3],
-                cells_nodes[face_subsubcells[3]],
-                cells_nodes[face_subsubcells[6]],
-                cells_nodes[face_subsubcells[12]],
-                cells_nodes[face_subsubcells[9]],
+                center_nodes[face_subsubcells[3]],
+                center_nodes[face_subsubcells[6]],
+                center_nodes[face_subsubcells[12]],
+                center_nodes[face_subsubcells[9]],
             ]);
             connectivity.push([
                 exterior_nodes[0],
                 exterior_nodes[1],
                 interior_nodes[1],
                 interior_nodes[0],
-                cells_nodes[face_subsubcells[1]],
-                cells_nodes[face_subsubcells[4]],
-                cells_nodes[face_subsubcells[6]],
-                cells_nodes[face_subsubcells[3]],
+                center_nodes[face_subsubcells[1]],
+                center_nodes[face_subsubcells[4]],
+                center_nodes[face_subsubcells[6]],
+                center_nodes[face_subsubcells[3]],
             ]);
             connectivity.push([
                 interior_nodes[1],
                 exterior_nodes[2],
                 exterior_nodes[3],
                 interior_nodes[2],
-                cells_nodes[face_subsubcells[6]],
-                cells_nodes[face_subsubcells[7]],
-                cells_nodes[face_subsubcells[13]],
-                cells_nodes[face_subsubcells[12]],
+                center_nodes[face_subsubcells[6]],
+                center_nodes[face_subsubcells[7]],
+                center_nodes[face_subsubcells[13]],
+                center_nodes[face_subsubcells[12]],
             ]);
             connectivity.push([
                 interior_nodes[3],
                 interior_nodes[2],
                 exterior_nodes[4],
                 exterior_nodes[5],
-                cells_nodes[face_subsubcells[9]],
-                cells_nodes[face_subsubcells[12]],
-                cells_nodes[face_subsubcells[14]],
-                cells_nodes[face_subsubcells[11]],
+                center_nodes[face_subsubcells[9]],
+                center_nodes[face_subsubcells[12]],
+                center_nodes[face_subsubcells[14]],
+                center_nodes[face_subsubcells[11]],
             ]);
             connectivity.push([
                 exterior_nodes[7],
                 interior_nodes[0],
                 interior_nodes[3],
                 exterior_nodes[6],
-                cells_nodes[face_subsubcells[2]],
-                cells_nodes[face_subsubcells[3]],
-                cells_nodes[face_subsubcells[9]],
-                cells_nodes[face_subsubcells[8]],
+                center_nodes[face_subsubcells[2]],
+                center_nodes[face_subsubcells[3]],
+                center_nodes[face_subsubcells[9]],
+                center_nodes[face_subsubcells[8]],
             ]);
             connectivity.push([
                 cell_subcells_face_nodes[0],
                 exterior_nodes[0],
                 interior_nodes[0],
                 exterior_nodes[7],
-                cells_nodes[face_subsubcells[0]],
-                cells_nodes[face_subsubcells[1]],
-                cells_nodes[face_subsubcells[3]],
-                cells_nodes[face_subsubcells[2]],
+                center_nodes[face_subsubcells[0]],
+                center_nodes[face_subsubcells[1]],
+                center_nodes[face_subsubcells[3]],
+                center_nodes[face_subsubcells[2]],
             ]);
             connectivity.push([
                 exterior_nodes[1],
                 cell_subcells_face_nodes[1],
                 exterior_nodes[2],
                 interior_nodes[1],
-                cells_nodes[face_subsubcells[4]],
-                cells_nodes[face_subsubcells[5]],
-                cells_nodes[face_subsubcells[7]],
-                cells_nodes[face_subsubcells[6]],
+                center_nodes[face_subsubcells[4]],
+                center_nodes[face_subsubcells[5]],
+                center_nodes[face_subsubcells[7]],
+                center_nodes[face_subsubcells[6]],
             ]);
             connectivity.push([
                 interior_nodes[2],
                 exterior_nodes[3],
                 cell_subcells_face_nodes[3],
                 exterior_nodes[4],
-                cells_nodes[face_subsubcells[12]],
-                cells_nodes[face_subsubcells[13]],
-                cells_nodes[face_subsubcells[15]],
-                cells_nodes[face_subsubcells[14]],
+                center_nodes[face_subsubcells[12]],
+                center_nodes[face_subsubcells[13]],
+                center_nodes[face_subsubcells[15]],
+                center_nodes[face_subsubcells[14]],
             ]);
             connectivity.push([
                 exterior_nodes[6],
                 interior_nodes[3],
                 exterior_nodes[5],
                 cell_subcells_face_nodes[2],
-                cells_nodes[face_subsubcells[8]],
-                cells_nodes[face_subsubcells[9]],
-                cells_nodes[face_subsubcells[11]],
-                cells_nodes[face_subsubcells[10]],
+                center_nodes[face_subsubcells[8]],
+                center_nodes[face_subsubcells[9]],
+                center_nodes[face_subsubcells[11]],
+                center_nodes[face_subsubcells[10]],
             ]);
             connectivity.push([
                 exterior_nodes[0],
@@ -427,7 +408,7 @@ fn connectivity_template(
 
 fn translations<T, U>(
     facet: usize,
-    face_subsubcells: &[usize; 16],
+    face_subsubcells: &[usize; LL],
     tree: &Octree<T, U>,
 ) -> (Coordinate<D>, Coordinate<D>)
 where
@@ -464,29 +445,4 @@ where
         ),
         _ => panic!(),
     }
-}
-
-/// Flattens the neighbor's sixteen sub-subcells on the shared face (its mirror
-/// face, `facet ^ 1`) into template order — but only when every one of them is a
-/// leaf. `orthants_leaves_on_facet` reads the tree structure directly, so a single
-/// missing leaf short-circuits the whole template without any pairing assumption.
-fn cell_subcells_contain_leaves<T, U>(
-    tree: &Octree<T, U>,
-    cell_index: usize,
-    facet: usize,
-) -> Option<[usize; 16]>
-where
-    T: Copy + Into<usize>,
-    U: Copy + Into<usize>,
-{
-    let orthants_leaves_on_facet = tree.orthants_leaves_on_facet(&tree.nodes[cell_index], facet ^ 1);
-    let mut subsubcells = [0; 16];
-    let mut index = 0;
-    for subcell in orthants_leaves_on_facet {
-        for subsubcell in subcell? {
-            subsubcells[index] = subsubcell?.into();
-            index += 1;
-        }
-    }
-    Some(subsubcells)
 }
