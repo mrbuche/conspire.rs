@@ -16,6 +16,9 @@ repos:
         args: ['--features', 'io', '--', '-D',  'warnings']
         name: cargo clippy io
     -   id: clippy
+        args: ['--features', 'io netcdf', '--', '-D',  'warnings']
+        name: cargo clippy io netcdf
+    -   id: clippy
         args: ['--features', 'geometry', '--', '-D',  'warnings']
         name: cargo clippy geometry
     -   id: clippy
@@ -34,9 +37,18 @@ repos:
         args: ['--features', 'fem', '--', '-D',  'warnings']
         name: cargo clippy fem
     -   id: clippy
+        args: ['--features', 'fem netcdf', '--', '-D',  'warnings']
+        name: cargo clippy fem netcdf
+    -   id: clippy
         args: ['--features', 'vem', '--', '-D',  'warnings']
         name: cargo clippy vem
     -   id: clippy
-        args: ['--features', 'doc vem', '--', '-D',  'warnings']
+        args: ['--features', 'vem netcdf', '--', '-D',  'warnings']
+        name: cargo clippy vem netcdf
+    -   id: clippy
+        args: ['--features', 'all', '--', '-D',  'warnings']
+        name: cargo clippy all
+    -   id: clippy
+        args: ['--features', 'all doc', '--', '-D',  'warnings']
         name: cargo clippy doc
     -   id: fmt
