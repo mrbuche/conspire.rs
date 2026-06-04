@@ -53,10 +53,7 @@ pub fn edge_transition_2<T, U>(
     T: Copy + Into<Scalar> + Into<usize>,
     U: Copy + Into<usize>,
 {
-    for node in tree.iter() {
-        if node.is_leaf() {
-            continue;
-        }
+    for node in tree.iter().filter(|node| node.is_tree()) {
         let node_subnodes = tree.leaves(node);
         for (facet, rows) in EDGES.iter().enumerate() {
             if let Some(neighbor) = node.facets[facet]

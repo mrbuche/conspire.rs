@@ -33,19 +33,18 @@ pub fn edge_transition_4<T, U>(
     T: Copy + Into<Scalar> + Into<usize>,
     U: Copy + Into<usize>,
 {
-    for node in tree.iter() {
-        if let Some(cell_subcells) = tree.all_leaves(node) {
-            for &edge in EDGES.iter() {
-                template(
-                    edge,
-                    cell_subcells,
-                    center_nodes,
-                    coordinates,
-                    connectivity,
-                    nodes_map,
-                    tree,
-                )
-            }
+    for node in tree.iter().filter(|node| node.is_tree()) {
+        let cell_subnodes = tree.leaves(node);
+        for &edge in EDGES.iter() {
+            template(
+                edge,
+                &cell_subnodes,
+                center_nodes,
+                coordinates,
+                connectivity,
+                nodes_map,
+                tree,
+            )
         }
     }
 }
@@ -53,7 +52,7 @@ pub fn edge_transition_4<T, U>(
 #[allow(clippy::too_many_arguments)]
 fn template<T, U>(
     edge: Edge,
-    cell_subcells: &[U; N],
+    cell_subnodes: &[Option<U>; N],
     center_nodes: &[usize],
     coordinates: &Coordinates<D>,
     connectivity: &mut Vec<[usize; N]>,
@@ -64,53 +63,90 @@ fn template<T, U>(
     U: Copy + Into<usize>,
 {
     let (subcell_a, subcell_b, facet_m, facet_n, m_p, m_q, n_p, n_q) = edge;
-    let subcell_a_node: usize = cell_subcells[subcell_a].into();
-    let subcell_b_node: usize = cell_subcells[subcell_b].into();
-    if let Some(a_m) = tree.nodes[subcell_a_node].facets[facet_m]
-        && let Some(a_n) = tree.nodes[subcell_a_node].facets[facet_n]
+    if let Some(node_a) = cell_subnodes[subcell_a]
+        && let Some(node_b) = cell_subnodes[subcell_b]
+        && let Some(a_m) = tree.nodes[node_a.into()].facets[facet_m]
+        && let Some(a_n) = tree.nodes[node_a.into()].facets[facet_n]
         && let Some(diagonal_a) = tree.nodes[a_m.into()].facets[facet_n]
         && tree.nodes[diagonal_a.into()].is_leaf()
-        && let Some(b_m) = tree.nodes[subcell_b_node].facets[facet_m]
-        && let Some(b_n) = tree.nodes[subcell_b_node].facets[facet_n]
+        && let Some(b_m) = tree.nodes[node_b.into()].facets[facet_m]
+        && let Some(b_n) = tree.nodes[node_b.into()].facets[facet_n]
         && let Some(diagonal_b) = tree.nodes[b_m.into()].facets[facet_n]
         && tree.nodes[diagonal_b.into()].is_leaf()
-        && let Some(a_m_leaves) = tree.all_leaves(&tree.nodes[a_m.into()])
-        && let Some(a_n_leaves) = tree.all_leaves(&tree.nodes[a_n.into()])
-        && let Some(b_m_leaves) = tree.all_leaves(&tree.nodes[b_m.into()])
-        && let Some(b_n_leaves) = tree.all_leaves(&tree.nodes[b_n.into()])
     {
-        let length: Scalar = tree.nodes[a_m_leaves[m_p].into()].length.into();
-        let offset_m = &facet_direction(facet_m) * length;
-        let offset_n = &facet_direction(facet_n) * length;
-        let a_m_p = center_nodes[a_m_leaves[m_p].into()];
-        let b_m_q = center_nodes[b_m_leaves[m_q].into()];
-        let find = |coordinate: Coordinate<D>| -> Option<usize> {
-            nodes_map
-                .get(&[
-                    (2.0 * coordinate[0]) as usize,
-                    (2.0 * coordinate[1]) as usize,
-                    (2.0 * coordinate[2]) as usize,
-                ])
-                .copied()
-        };
-        if let Some(node_1) = find(&coordinates[a_m_p] - &offset_m)
-            && let Some(node_2) = find(&coordinates[b_m_q] - &offset_m)
-            && let Some(node_3) = find(&coordinates[a_m_p] + &offset_n)
-            && let Some(node_4) = find(&coordinates[b_m_q] + &offset_n)
+        let a_m_leaves = tree.leaves(&tree.nodes[a_m.into()]);
+        let a_n_leaves = tree.leaves(&tree.nodes[a_n.into()]);
+        let b_m_leaves = tree.leaves(&tree.nodes[b_m.into()]);
+        let b_n_leaves = tree.leaves(&tree.nodes[b_n.into()]);
+        if let Some(a_m_p) = a_m_leaves[m_p]
+            && let Some(a_m_q) = a_m_leaves[m_q]
+            && let Some(b_m_p) = b_m_leaves[m_p]
+            && let Some(b_m_q) = b_m_leaves[m_q]
+            && let Some(a_n_p) = a_n_leaves[n_p]
+            && let Some(a_n_q) = a_n_leaves[n_q]
+            && let Some(b_n_p) = b_n_leaves[n_p]
+            && let Some(b_n_q) = b_n_leaves[n_q]
         {
-            let center_a = center_nodes[subcell_a_node];
-            let center_b = center_nodes[subcell_b_node];
-            let a_m_q = center_nodes[a_m_leaves[m_q].into()];
-            let b_m_p = center_nodes[b_m_leaves[m_p].into()];
-            let a_n_p = center_nodes[a_n_leaves[n_p].into()];
-            let a_n_q = center_nodes[a_n_leaves[n_q].into()];
-            let b_n_p = center_nodes[b_n_leaves[n_p].into()];
-            let b_n_q = center_nodes[b_n_leaves[n_q].into()];
-            let diag_a = center_nodes[diagonal_a.into()];
-            let diag_b = center_nodes[diagonal_b.into()];
-            connectivity.push([a_m_p, node_1, node_2, b_m_q, node_3, a_n_p, b_n_q, node_4]);
-            connectivity.push([b_m_q, node_2, center_b, b_m_p, node_4, b_n_q, b_n_p, diag_b]);
-            connectivity.push([a_m_q, center_a, node_1, a_m_p, diag_a, a_n_q, a_n_p, node_3]);
+            let length: Scalar = tree.nodes[a_m_p.into()].length.into();
+            let offset_m = &facet_direction(facet_m) * length;
+            let offset_n = &facet_direction(facet_n) * length;
+            let center_a_m_p = center_nodes[a_m_p.into()];
+            let center_b_m_q = center_nodes[b_m_q.into()];
+            let find = |coordinate: Coordinate<D>| -> Option<usize> {
+                nodes_map
+                    .get(&[
+                        (2.0 * coordinate[0]) as usize,
+                        (2.0 * coordinate[1]) as usize,
+                        (2.0 * coordinate[2]) as usize,
+                    ])
+                    .copied()
+            };
+            if let Some(node_1) = find(&coordinates[center_a_m_p] - &offset_m)
+                && let Some(node_2) = find(&coordinates[center_b_m_q] - &offset_m)
+                && let Some(node_3) = find(&coordinates[center_a_m_p] + &offset_n)
+                && let Some(node_4) = find(&coordinates[center_b_m_q] + &offset_n)
+            {
+                let center_a = center_nodes[node_a.into()];
+                let center_b = center_nodes[node_b.into()];
+                let a_m_q = center_nodes[a_m_q.into()];
+                let b_m_p = center_nodes[b_m_p.into()];
+                let a_n_p = center_nodes[a_n_p.into()];
+                let a_n_q = center_nodes[a_n_q.into()];
+                let b_n_p = center_nodes[b_n_p.into()];
+                let b_n_q = center_nodes[b_n_q.into()];
+                let diag_a = center_nodes[diagonal_a.into()];
+                let diag_b = center_nodes[diagonal_b.into()];
+                connectivity.push([
+                    center_a_m_p,
+                    node_1,
+                    node_2,
+                    center_b_m_q,
+                    node_3,
+                    a_n_p,
+                    b_n_q,
+                    node_4,
+                ]);
+                connectivity.push([
+                    center_b_m_q,
+                    node_2,
+                    center_b,
+                    b_m_p,
+                    node_4,
+                    b_n_q,
+                    b_n_p,
+                    diag_b,
+                ]);
+                connectivity.push([
+                    a_m_q,
+                    center_a,
+                    node_1,
+                    center_a_m_p,
+                    diag_a,
+                    a_n_q,
+                    a_n_p,
+                    node_3,
+                ]);
+            }
         }
     }
 }
