@@ -1,3 +1,6 @@
+#[cfg(test)]
+pub(crate) mod generic;
+
 mod transition_1;
 mod transition_10;
 mod transition_11;
@@ -62,6 +65,58 @@ pub fn vertex_transitions<T, U>(
     for (data, template) in templates {
         apply(tree, center_nodes, connectivity, data, template)
     }
+}
+
+/// Hexes from a single template — lets tests isolate one transition (e.g. vt1 to confirm
+/// it is a coarse-face filler, or vt21 on a hand-built checkerboard octree).
+#[cfg(test)]
+fn one_template<T, U>(
+    tree: &Octree<T, U>,
+    center_nodes: &[usize],
+    data: &[[usize; 11]],
+    template: Template<T, U>,
+) -> Vec<[usize; N]>
+where
+    T: Copy + Into<usize>,
+    U: Copy + Into<usize>,
+{
+    let mut connectivity = Vec::new();
+    apply(tree, center_nodes, &mut connectivity, data, template);
+    connectivity
+}
+
+#[cfg(test)]
+pub(crate) fn transition_1_only<T, U>(
+    tree: &Octree<T, U>,
+    center_nodes: &[usize],
+) -> Vec<[usize; N]>
+where
+    T: Copy + Into<usize>,
+    U: Copy + Into<usize>,
+{
+    one_template(
+        tree,
+        center_nodes,
+        &transition_1::DATA,
+        transition_1::template,
+    )
+}
+
+#[cfg(test)]
+pub(crate) fn transition_21_only<T, U>(
+    tree: &Octree<T, U>,
+    center_nodes: &[usize],
+) -> Vec<[usize; N]>
+where
+    T: Copy + Into<usize>,
+    U: Copy + Into<usize>,
+{
+    one_template(
+        tree,
+        center_nodes,
+        &transition_21::DATA,
+        transition_21::template,
+    )
 }
 
 fn apply<T, U>(
