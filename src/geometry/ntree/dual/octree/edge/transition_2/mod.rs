@@ -43,7 +43,7 @@ const EDGES: [[[usize; 13]; 2]; 6] = [
     ],
 ];
 
-pub fn edge_transition_2<T, U>(
+pub fn template<T, U>(
     tree: &Octree<T, U>,
     center_nodes: &[usize],
     coordinates: &Coordinates<D>,
@@ -62,7 +62,7 @@ pub fn edge_transition_2<T, U>(
             {
                 let face_subsubnodes: [usize; LL] = from_fn(|k| face_nested[k / L][k % L].into());
                 for &row in rows {
-                    template(
+                    template_inner(
                         facet,
                         row,
                         &node_subnodes,
@@ -81,7 +81,7 @@ pub fn edge_transition_2<T, U>(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn template<T, U>(
+fn template_inner<T, U>(
     facet: usize,
     row: [usize; 13],
     node_subnodes: &[Option<U>; N],

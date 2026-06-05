@@ -23,7 +23,7 @@ pub fn edge_transitions<T, U>(
     T: Copy + Into<Scalar> + Into<usize>,
     U: Copy + Into<usize>,
 {
-    transition_1::edge_transition_1(
+    transition_1::template(
         tree,
         center_nodes,
         coordinates,
@@ -31,7 +31,7 @@ pub fn edge_transitions<T, U>(
         node_index,
         nodes_map,
     );
-    transition_3::edge_transition_3(
+    transition_3::template(
         tree,
         center_nodes,
         coordinates,
@@ -39,6 +39,6 @@ pub fn edge_transitions<T, U>(
         node_index,
         nodes_map,
     );
-    transition_2::edge_transition_2(tree, center_nodes, coordinates, connectivity, nodes_map);
-    transition_4::edge_transition_4(tree, center_nodes, coordinates, connectivity, nodes_map);
+    transition_2::template(tree, center_nodes, coordinates, connectivity, nodes_map);
+    transition_4::template(tree, center_nodes, coordinates, connectivity, nodes_map);
 }

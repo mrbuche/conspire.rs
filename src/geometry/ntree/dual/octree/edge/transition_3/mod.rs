@@ -40,7 +40,7 @@ const EDGES: [Edge; 12] = [
     (6, 7, 5, 3, 2, 4, 3, 5, true, [0.0, 0.0, -1.0]),
 ];
 
-pub fn edge_transition_3<T, U>(
+pub fn template<T, U>(
     tree: &Octree<T, U>,
     center_nodes: &[usize],
     coordinates: &mut Coordinates<D>,
@@ -54,7 +54,7 @@ pub fn edge_transition_3<T, U>(
     for node in tree.iter().filter(|node| node.is_tree()) {
         let cell_subnodes = tree.leaves(node);
         for &edge in EDGES.iter() {
-            template(
+            template_inner(
                 edge,
                 &cell_subnodes,
                 center_nodes,
@@ -69,7 +69,7 @@ pub fn edge_transition_3<T, U>(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn template<T, U>(
+fn template_inner<T, U>(
     edge: Edge,
     cell_subnodes: &[Option<U>; N],
     center_nodes: &[usize],
