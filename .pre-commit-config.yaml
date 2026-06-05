@@ -1,13 +1,13 @@
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.2.0
+    rev: v6.0.0
     hooks:
     -   id: check-yaml
     -   id: check-added-large-files
     -   id: end-of-file-fixer
     -   id: trailing-whitespace
 -   repo: https://github.com/backplane/pre-commit-rust-hooks
-    rev: v1.1.0
+    rev: v1.2.1
     hooks:
     -   id: clippy
         args: ['--features', 'math', '--', '-D',  'warnings']
