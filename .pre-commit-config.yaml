@@ -52,6 +52,9 @@ repos:
         args: ['--features', 'all', '--', '-D',  'warnings']
         name: cargo clippy all
     -   id: clippy
+        args: ['--features', 'all', '--tests', '--', '-D',  'warnings']
+        name: cargo clippy all tests
+    -   id: clippy
         args: ['--features', 'all doc', '--', '-D',  'warnings']
         name: cargo clippy doc
     -   id: fmt
