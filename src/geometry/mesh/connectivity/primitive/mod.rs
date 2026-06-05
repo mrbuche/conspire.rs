@@ -1,13 +1,13 @@
 #[cfg(feature = "netcdf")]
 use crate::geometry::mesh::connectivity::base::FlatConnectivity;
-use crate::{geometry::mesh::connectivity::base::ConnectivityImpl, math::Set};
+use crate::{geometry::mesh::connectivity::base::ConnectivityImpl, math::Sets};
 use std::{fmt::Debug, num::TryFromIntError, slice::Iter, vec::IntoIter};
 
-pub struct PrimitiveConnectivity<const M: usize, const N: usize>(Set<Vec<[usize; N]>>);
+pub struct PrimitiveConnectivity<const M: usize, const N: usize>(Sets<Vec<[usize; N]>>);
 
 impl<const M: usize, const N: usize> From<Vec<[usize; N]>> for PrimitiveConnectivity<M, N> {
     fn from(connectivity: Vec<[usize; N]>) -> Self {
-        PrimitiveConnectivity(Set::from(connectivity))
+        PrimitiveConnectivity(Sets::from(connectivity))
     }
 }
 
@@ -39,6 +39,9 @@ impl<const M: usize, const N: usize> ConnectivityImpl for PrimitiveConnectivity<
     }
     fn element_numbers(&self) -> Option<&[usize]> {
         self.0.numbers()
+    }
+    fn node_element_connectivity(&self) -> &[Vec<usize>] {
+        self.0.converse()
     }
     fn number_elements(&mut self, numbers: Vec<usize>) {
         self.0.set_numbers(numbers)
@@ -88,6 +91,68 @@ impl<const M: usize, const N: usize> ConnectivityImpl for PrimitiveConnectivity<
         {
             Ok(flat) => FlatConnectivity::Primitive(flat),
             Err(_) => panic!(),
+        }
+    }
+}
+impl PrimitiveConnectivity<2, 3> {
+    pub fn add_edge_adjacency_triangular(&self, nodes_nodes: &mut [Vec<usize>]) {
+        for &[a, b, c] in self.0.members() {
+            nodes_nodes[a].push(b);
+            nodes_nodes[b].push(a);
+            nodes_nodes[b].push(c);
+            nodes_nodes[c].push(b);
+            nodes_nodes[c].push(a);
+            nodes_nodes[a].push(c);
+        }
+    }
+}
+
+impl PrimitiveConnectivity<2, 4> {
+    pub fn add_edge_adjacency(&self, nodes_nodes: &mut [Vec<usize>]) {
+        for &[a, b, c, d] in self.0.members() {
+            nodes_nodes[a].push(b);
+            nodes_nodes[b].push(a);
+            nodes_nodes[b].push(c);
+            nodes_nodes[c].push(b);
+            nodes_nodes[c].push(d);
+            nodes_nodes[d].push(c);
+            nodes_nodes[d].push(a);
+            nodes_nodes[a].push(d);
+        }
+    }
+}
+
+impl PrimitiveConnectivity<3, 4> {
+    pub fn add_edge_adjacency(&self, nodes_nodes: &mut [Vec<usize>]) {
+        for &[a, b, c, d] in self.0.members() {
+            for (u, v) in [(a, b), (a, c), (a, d), (b, c), (b, d), (c, d)] {
+                nodes_nodes[u].push(v);
+                nodes_nodes[v].push(u);
+            }
+        }
+    }
+}
+
+impl PrimitiveConnectivity<3, 8> {
+    pub fn add_edge_adjacency(&self, nodes_nodes: &mut [Vec<usize>]) {
+        for &[n0, n1, n2, n3, n4, n5, n6, n7] in self.0.members() {
+            for (u, v) in [
+                (n0, n1),
+                (n1, n2),
+                (n2, n3),
+                (n3, n0),
+                (n4, n5),
+                (n5, n6),
+                (n6, n7),
+                (n7, n4),
+                (n0, n4),
+                (n1, n5),
+                (n2, n6),
+                (n3, n7),
+            ] {
+                nodes_nodes[u].push(v);
+                nodes_nodes[v].push(u);
+            }
         }
     }
 }

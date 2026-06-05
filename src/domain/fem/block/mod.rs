@@ -14,7 +14,8 @@ use crate::{
         block::element::{ElementNodalReferenceCoordinates, FiniteElement},
     },
     math::{
-        Banded, InverseSets, Scalar, Scalars, Sets, Tensor, TestError, disjoint_set_union,
+        Banded, InverseSets, Scalar, Scalars, SetsOld as Sets, Tensor, TestError,
+        disjoint_set_union,
         optimize::{
             EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
             SecondOrderOptimization, ZerothOrderRootFinding,

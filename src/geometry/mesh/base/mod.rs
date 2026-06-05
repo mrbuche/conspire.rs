@@ -38,7 +38,7 @@ impl<const D: usize> Mesh<D> {
     }
     pub fn bounding_boxes_and_centroids(
         &self,
-    ) -> impl Iterator<Item = (BoundingBox<D>, Coordinate<D>)> + '_ {
+    ) -> impl Iterator<Item = (BoundingBox<D>, Coordinate<D>)> {
         self.iter().flatten().map(|nodes| {
             let count = nodes.len() as Scalar;
             (
@@ -58,11 +58,38 @@ impl<const D: usize> Mesh<D> {
     pub fn connectivities(&self) -> &[Connectivity] {
         self.connectivities.members()
     }
-    pub fn iter(&self) -> impl Iterator<Item = &Connectivity> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = &Connectivity> {
         self.connectivities.members().iter()
     }
     pub fn coordinates(&self) -> &Coordinates<D> {
         self.coordinates.members()
+    }
+    pub fn node_element_connectivity(&self) -> &[Vec<usize>] {
+        self.nodes_elements.get_or_init(|| {
+            let mut nodes_elements = vec![Vec::new(); self.number_of_nodes()];
+            let mut element_offset = 0;
+            for connectivity in self.iter() {
+                let local = connectivity.node_element_connectivity();
+                for (node, elems) in local.iter().enumerate() {
+                    nodes_elements[node].extend(elems.iter().map(|&e| e + element_offset))
+                }
+                element_offset += connectivity.number_of_elements();
+            }
+            nodes_elements
+        })
+    }
+    pub fn node_node_connectivity(&self) -> &[Vec<usize>] {
+        self.nodes_nodes.get_or_init(|| {
+            let mut nodes_nodes = vec![Vec::new(); self.number_of_nodes()];
+            for connectivity in self.iter() {
+                connectivity.add_edge_adjacency(&mut nodes_nodes);
+            }
+            for neighbors in &mut nodes_nodes {
+                neighbors.sort_unstable();
+                neighbors.dedup();
+            }
+            nodes_nodes
+        })
     }
     pub fn number_of_element_blocks(&self) -> usize {
         self.connectivities().len()

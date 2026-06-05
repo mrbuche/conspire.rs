@@ -80,10 +80,7 @@ where
             )),
             None => Set::from(coordinates),
         };
-        Ok(Mesh {
-            connectivities: Connectivities::from((connectivities, blocks)),
-            coordinates,
-        })
+        Ok((Connectivities::from((connectivities, blocks)), coordinates).into())
     }
 }
 

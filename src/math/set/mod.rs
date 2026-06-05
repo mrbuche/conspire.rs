@@ -1,8 +1,6 @@
 pub mod dsu;
 pub mod sets;
-
-// Sets type/trait so can do converse/inverse?
-// Somewhat hard since inner type can be a wrapper for a Set.
+pub mod sets_old;
 
 pub struct Set<S> {
     members: S,

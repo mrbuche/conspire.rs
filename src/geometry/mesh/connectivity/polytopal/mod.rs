@@ -40,6 +40,9 @@ impl<const M: usize> ConnectivityImpl for PolytopalConnectivity<M> {
     fn element_numbers(&self) -> Option<&[usize]> {
         self.0.numbers()
     }
+    fn node_element_connectivity(&self) -> &[Vec<usize>] {
+        unimplemented!()
+    }
     fn number_elements(&mut self, numbers: Vec<usize>) {
         self.0.set_numbers(numbers)
     }

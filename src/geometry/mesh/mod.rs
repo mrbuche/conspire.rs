@@ -17,8 +17,11 @@ pub use self::{
 };
 
 use crate::{geometry::Coordinates, math::Set};
+use std::cell::OnceCell;
 
 pub struct Mesh<const D: usize> {
     connectivities: Connectivities,
     coordinates: Set<Coordinates<D>>,
+    nodes_elements: OnceCell<Vec<Vec<usize>>>,
+    nodes_nodes: OnceCell<Vec<Vec<usize>>>,
 }

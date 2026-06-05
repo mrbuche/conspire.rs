@@ -96,10 +96,10 @@ fn round_trip_block_numbers() {
         [0.0, 1.0, 1.0],
     ]
     .into();
-    let original = Mesh {
-        connectivities: Connectivities::from((connectivities, vec![10, 20])),
-        coordinates: coordinates.into(),
-    };
+    let original = Mesh::from((
+        Connectivities::from((connectivities, vec![10, 20])),
+        coordinates.into(),
+    ));
     original
         .write(Output::Exodus("target/read_exodus_block_numbers.exo"))
         .unwrap();
@@ -123,10 +123,7 @@ fn round_trip_element_numbers() {
         [0.0, 1.0, 1.0],
     ]
     .into();
-    let original = Mesh {
-        connectivities: Connectivities::from(vec![block_0, block_1]),
-        coordinates: coordinates.into(),
-    };
+    let original = Mesh::from((vec![block_0, block_1], coordinates));
     original
         .write(Output::Exodus("target/read_exodus_element_numbers.exo"))
         .unwrap();
@@ -147,10 +144,10 @@ fn round_trip_node_numbers() {
     let connectivities = vec![Connectivity::Triangular(vec![[0, 1, 2]].into())];
     let coordinates: Coordinates<3> =
         vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]].into();
-    let original = Mesh {
-        connectivities: Connectivities::from(connectivities),
-        coordinates: Set::from((coordinates, vec![7, 8, 9])),
-    };
+    let original = Mesh::from((
+        Connectivities::from(connectivities),
+        Set::from((coordinates, vec![7, 8, 9])),
+    ));
     original
         .write(Output::Exodus("target/read_exodus_node_numbers.exo"))
         .unwrap();

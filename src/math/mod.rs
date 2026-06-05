@@ -31,7 +31,8 @@ pub use random::{
 pub use set::{
     Set,
     dsu::disjoint_set_union,
-    sets::{InverseSets, Sets},
+    sets::Sets,
+    sets_old::{InverseSets, Sets as SetsOld},
 };
 pub use tensor::{
     Hessian, Jacobian, Rank2, Scalar, ScalarList, ScalarListVec, Scalars, Solution, Tensor,

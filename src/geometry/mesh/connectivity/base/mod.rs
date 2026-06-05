@@ -4,6 +4,7 @@ use std::{fmt::Debug, num::TryFromIntError};
 pub trait ConnectivityImpl {
     fn is_empty(&self) -> bool;
     fn element_numbers(&self) -> Option<&[usize]>;
+    fn node_element_connectivity(&self) -> &[Vec<usize>];
     fn number_elements(&mut self, numbers: Vec<usize>);
     fn number_of_elements(&self) -> usize;
     fn number_of_faces(&self) -> Option<usize>;
@@ -29,6 +30,16 @@ pub enum FlatConnectivity<I> {
 }
 
 impl Connectivity {
+    pub fn add_edge_adjacency(&self, nodes_nodes: &mut [Vec<usize>]) {
+        match self {
+            Connectivity::Triangular(c) => c.add_edge_adjacency_triangular(nodes_nodes),
+            Connectivity::Quadrilateral(c) => c.add_edge_adjacency(nodes_nodes),
+            Connectivity::Tetrahedral(c) => c.add_edge_adjacency(nodes_nodes),
+            Connectivity::Hexahedral(c) => c.add_edge_adjacency(nodes_nodes),
+            Connectivity::Polygonal(_) => todo!(),
+            Connectivity::Polyhedral(_) => todo!(),
+        }
+    }
     pub fn is_empty(&self) -> bool {
         match self {
             Connectivity::Hexahedral(c) => c.is_empty(),
@@ -50,6 +61,16 @@ impl Connectivity {
             Connectivity::Quadrilateral(c) => c.element_numbers(),
             Connectivity::Tetrahedral(c) => c.element_numbers(),
             Connectivity::Triangular(c) => c.element_numbers(),
+        }
+    }
+    pub fn node_element_connectivity(&self) -> &[Vec<usize>] {
+        match self {
+            Connectivity::Hexahedral(c) => c.node_element_connectivity(),
+            Connectivity::Polyhedral(c) => c.node_element_connectivity(),
+            Connectivity::Polygonal(c) => c.node_element_connectivity(),
+            Connectivity::Quadrilateral(c) => c.node_element_connectivity(),
+            Connectivity::Tetrahedral(c) => c.node_element_connectivity(),
+            Connectivity::Triangular(c) => c.node_element_connectivity(),
         }
     }
     pub fn number_elements(&mut self, numbers: Vec<usize>) {
