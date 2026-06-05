@@ -5,6 +5,7 @@ mod base;
 mod connectivity;
 mod from;
 mod into;
+mod operator;
 mod read;
 mod tessellation;
 mod write;
