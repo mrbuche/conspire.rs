@@ -1,18 +1,11 @@
 use super::super::{D, N};
+use super::{Template, apply, transition_1, transition_21};
 use crate::geometry::ntree::{
     Octree,
     node::{Kind, split::Split},
 };
 use std::{array::from_fn, ops::Add};
 
-/// Generic vertex dual: one cell-center hex per interior octree vertex, built by
-/// "descend toward V" instead of the 21 hand-coded templates.
-///
-/// Every interior vertex `V` is the `(+,+,+)` corner of exactly one leaf (its `(-,-,-)`
-/// octant), so iterating leaves enumerates each interior `V` once. For octant `d` the
-/// leaf touching `V` is found by [`find_leaf_octant`] (a point descent toward `V`), and
-/// the eight centers are wound `[0,1,3,2,4,5,7,6]` (octant index -> hex node), matching
-/// `uniform_transition_1`.
 pub(crate) fn vertex_dual_generic<T, U>(
     tree: &Octree<T, U>,
     center_nodes: &[usize],
@@ -36,9 +29,6 @@ where
     hexes
 }
 
-/// The leaf touching vertex `v` from octant `d`. Descends from the root toward `v`; when
-/// `v` lands exactly on a child split plane (always, since `v` is a grid corner), the tie
-/// is broken toward octant `d` so the descent enters the cell on `d`'s side of `v`.
 fn find_leaf_octant<T, U>(tree: &Octree<T, U>, v: &[T; D], d: usize) -> usize
 where
     T: Copy + Add<Output = T> + PartialOrd + Split,
@@ -66,4 +56,51 @@ where
             }
         }
     }
+}
+
+fn one_template<T, U>(
+    tree: &Octree<T, U>,
+    center_nodes: &[usize],
+    data: &[[usize; 11]],
+    template: Template<T, U>,
+) -> Vec<[usize; N]>
+where
+    T: Copy + Into<usize>,
+    U: Copy + Into<usize>,
+{
+    let mut connectivity = Vec::new();
+    apply(tree, center_nodes, &mut connectivity, data, template);
+    connectivity
+}
+
+pub(crate) fn transition_1_only<T, U>(
+    tree: &Octree<T, U>,
+    center_nodes: &[usize],
+) -> Vec<[usize; N]>
+where
+    T: Copy + Into<usize>,
+    U: Copy + Into<usize>,
+{
+    one_template(
+        tree,
+        center_nodes,
+        &transition_1::DATA,
+        transition_1::template,
+    )
+}
+
+pub(crate) fn transition_21_only<T, U>(
+    tree: &Octree<T, U>,
+    center_nodes: &[usize],
+) -> Vec<[usize; N]>
+where
+    T: Copy + Into<usize>,
+    U: Copy + Into<usize>,
+{
+    one_template(
+        tree,
+        center_nodes,
+        &transition_21::DATA,
+        transition_21::template,
+    )
 }

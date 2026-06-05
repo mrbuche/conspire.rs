@@ -1,5 +1,5 @@
 #[cfg(test)]
-pub(crate) mod generic;
+pub(crate) mod test;
 
 mod transition_1;
 mod transition_10;
@@ -67,58 +67,6 @@ pub fn vertex_transitions<T, U>(
     }
 }
 
-/// Hexes from a single template — lets tests isolate one transition (e.g. vt1 to confirm
-/// it is a coarse-face filler, or vt21 on a hand-built checkerboard octree).
-#[cfg(test)]
-fn one_template<T, U>(
-    tree: &Octree<T, U>,
-    center_nodes: &[usize],
-    data: &[[usize; 11]],
-    template: Template<T, U>,
-) -> Vec<[usize; N]>
-where
-    T: Copy + Into<usize>,
-    U: Copy + Into<usize>,
-{
-    let mut connectivity = Vec::new();
-    apply(tree, center_nodes, &mut connectivity, data, template);
-    connectivity
-}
-
-#[cfg(test)]
-pub(crate) fn transition_1_only<T, U>(
-    tree: &Octree<T, U>,
-    center_nodes: &[usize],
-) -> Vec<[usize; N]>
-where
-    T: Copy + Into<usize>,
-    U: Copy + Into<usize>,
-{
-    one_template(
-        tree,
-        center_nodes,
-        &transition_1::DATA,
-        transition_1::template,
-    )
-}
-
-#[cfg(test)]
-pub(crate) fn transition_21_only<T, U>(
-    tree: &Octree<T, U>,
-    center_nodes: &[usize],
-) -> Vec<[usize; N]>
-where
-    T: Copy + Into<usize>,
-    U: Copy + Into<usize>,
-{
-    one_template(
-        tree,
-        center_nodes,
-        &transition_21::DATA,
-        transition_21::template,
-    )
-}
-
 fn apply<T, U>(
     tree: &Octree<T, U>,
     center_nodes: &[usize],
@@ -140,8 +88,6 @@ fn apply<T, U>(
     }
 }
 
-/// One node of a vertex hex: the leaf at sub-subcell `idx` of `cell` on its shared face
-/// (`facet ^ 1`) when `fine`, otherwise the leaf at subcell `idx` of the coarse `cell`.
 fn pick<T, U>(tree: &Octree<T, U>, cell: U, facet: usize, idx: usize, fine: bool) -> Option<U>
 where
     T: Copy + Into<usize>,
@@ -154,10 +100,6 @@ where
     }
 }
 
-/// Vertex templates whose eight cells are the in-plane quad `O, a, ab, b` plus the four
-/// cells `c, c_a, c_ab, c_b` reached across the perpendicular facet `f`. `fine` flags each
-/// of `[a, ab, b, c, c_a, c_ab, c_b]` (coarse subcell vs fine sub-subcell); `cab_b` selects
-/// facet `fb` (else `f`) for a fine `c_ab`. Hex winding: `[O, a, ab, b, c, c_a, c_ab, c_b]`.
 fn face_plus_two<T, U>(
     tree: &Octree<T, U>,
     node: &Node<D, M, N, T, U>,
@@ -193,10 +135,6 @@ where
     ])
 }
 
-/// Vertex templates whose eight cells are the in-plane quad `O, a, ab, b` plus `c, c_a,
-/// c_ab, c_b` reached through the `fc` neighbor `c`. `fine` flags each of `[a, ab, b, c,
-/// c_a, c_ab, c_b]`; `cb_c` selects facet `fc` (else `fb`) for a fine `c_b`. Hex winding:
-/// `[c, c_a, c_ab, c_b, O, a, ab, b]`.
 fn three_face<T, U>(
     tree: &Octree<T, U>,
     node: &Node<D, M, N, T, U>,
@@ -232,8 +170,6 @@ where
     ])
 }
 
-/// The leaf at flattened sub-subcell `idx` (`idx / L` outer, `idx % L` inner) on the
-/// shared face of `neighbor` (its mirror face, `facet ^ 1`), or `None` if absent.
 fn sub_subnode<T, U>(tree: &Octree<T, U>, neighbor: U, facet: usize, idx: usize) -> Option<U>
 where
     T: Copy + Into<usize>,

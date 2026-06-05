@@ -2,10 +2,6 @@ use super::super::{D, M, N};
 use super::sub_subnode;
 use crate::geometry::ntree::{Octree, node::Node};
 
-// (O, a, ab, b) => (O, a, ab, b): the cell and its `facet_c` neighbor are coarse (a
-// subcell each); the `facet_a`/`facet_b`/diagonal neighbors of both are fine.
-// [facet_a, facet_b, facet_c, subcell, subcell_c, sub_subcell_a, sub_subcell_b,
-//  sub_subcell_ab, sub_subcell_c_a, sub_subcell_c_b, sub_subcell_c_ab].
 pub const DATA: [[usize; 11]; 12] = [
     [2, 0, 5, 4, 0, 10, 10, 15, 0, 0, 5],
     [1, 2, 5, 5, 1, 10, 15, 10, 0, 5, 0],
