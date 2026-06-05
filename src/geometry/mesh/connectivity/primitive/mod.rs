@@ -1,13 +1,13 @@
 #[cfg(feature = "netcdf")]
 use crate::geometry::mesh::connectivity::base::FlatConnectivity;
-use crate::{geometry::mesh::connectivity::base::ConnectivityImpl, math::Set};
+use crate::{geometry::mesh::connectivity::base::ConnectivityImpl, math::Sets};
 use std::{fmt::Debug, num::TryFromIntError, slice::Iter, vec::IntoIter};
 
-pub struct PrimitiveConnectivity<const M: usize, const N: usize>(Set<Vec<[usize; N]>>);
+pub struct PrimitiveConnectivity<const M: usize, const N: usize>(Sets<Vec<[usize; N]>>);
 
 impl<const M: usize, const N: usize> From<Vec<[usize; N]>> for PrimitiveConnectivity<M, N> {
     fn from(connectivity: Vec<[usize; N]>) -> Self {
-        PrimitiveConnectivity(Set::from(connectivity))
+        PrimitiveConnectivity(Sets::from(connectivity))
     }
 }
 
@@ -39,6 +39,9 @@ impl<const M: usize, const N: usize> ConnectivityImpl for PrimitiveConnectivity<
     }
     fn element_numbers(&self) -> Option<&[usize]> {
         self.0.numbers()
+    }
+    fn node_element_connectivity(&self) -> &[Vec<usize>] {
+        self.0.converse()
     }
     fn number_elements(&mut self, numbers: Vec<usize>) {
         self.0.set_numbers(numbers)
