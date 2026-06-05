@@ -1,10 +1,6 @@
 use crate::{
-    geometry::{
-        Coordinates,
-        mesh::{Connectivity, Mesh, Output},
-    },
+    geometry::mesh::{Connectivity, Mesh, Output},
     io::Write,
-    math::Set,
 };
 
 #[test]
@@ -13,7 +9,7 @@ fn two_cubes() {
         Connectivity::Hexahedral(vec![[0, 1, 4, 3, 6, 7, 10, 9]].into()),
         Connectivity::Hexahedral(vec![[1, 2, 5, 4, 7, 8, 11, 10]].into()),
     ];
-    let coordinates: Coordinates<3> = vec![
+    let coordinates = vec![
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 0.0],
         [2.0, 0.0, 0.0],
@@ -28,10 +24,7 @@ fn two_cubes() {
         [2.0, 1.0, 1.0],
     ]
     .into();
-    let mesh = Mesh {
-        connectivities: connectivities.into(),
-        coordinates: coordinates.into(),
-    };
+    let mesh = Mesh::from((connectivities, coordinates));
     mesh.write(Output::Exodus("target/two_cubes.exo")).unwrap()
 }
 
@@ -67,7 +60,7 @@ fn two_polys() {
                 .into(),
         ),
     ];
-    let coordinates: Coordinates<3> = vec![
+    let coordinates = vec![
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 0.0],
         [2.0, 0.0, 0.0],
@@ -82,9 +75,6 @@ fn two_polys() {
         [2.0, 1.0, 1.0],
     ]
     .into();
-    let mesh = Mesh {
-        connectivities: connectivities.into(),
-        coordinates: Set::from(coordinates),
-    };
+    let mesh = Mesh::from((connectivities, coordinates));
     mesh.write(Output::Exodus("target/two_polys.exo")).unwrap()
 }
