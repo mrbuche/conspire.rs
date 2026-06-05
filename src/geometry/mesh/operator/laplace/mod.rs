@@ -16,12 +16,12 @@ impl<const D: usize> Mesh<D> {
                 if nodes.is_empty() {
                     Coordinate::zero()
                 } else {
-                    nodes
-                        .iter()
-                        .map(|&node_b| &coordinates[node_b])
-                        .sum::<Coordinate<D>>()
-                        / (nodes.len() as Scalar)
-                        - &coordinates[node_a]
+                    &coordinates[node_a]
+                        - nodes
+                            .iter()
+                            .map(|&node_b| &coordinates[node_b])
+                            .sum::<Coordinate<D>>()
+                            / (nodes.len() as Scalar)
                 }
             })
             .collect()

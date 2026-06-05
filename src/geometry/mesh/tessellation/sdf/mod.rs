@@ -1,4 +1,5 @@
 #[cfg(test)]
+#[cfg(feature = "netcdf")]
 mod test;
 
 use std::{
