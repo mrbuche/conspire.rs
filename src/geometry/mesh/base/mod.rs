@@ -64,19 +64,9 @@ impl<const D: usize> Mesh<D> {
     pub fn coordinates(&self) -> &Coordinates<D> {
         self.coordinates.members()
     }
-    pub fn element_node_connectivity(&self) -> Vec<Vec<usize>> {
-        let mut elements_nodes = Vec::new();
-        for connectivity in self.iter() {
-            for row in connectivity {
-                elements_nodes.push(row.to_vec());
-            }
-        }
-        elements_nodes
-    }
     pub fn node_element_connectivity(&self) -> &[Vec<usize>] {
         self.nodes_elements.get_or_init(|| {
-            let num_nodes = self.number_of_nodes();
-            let mut nodes_elements = vec![Vec::new(); num_nodes];
+            let mut nodes_elements = vec![Vec::new(); self.number_of_nodes()];
             let mut element_offset = 0;
             for connectivity in self.iter() {
                 let local = connectivity.node_element_connectivity();
@@ -90,19 +80,13 @@ impl<const D: usize> Mesh<D> {
     }
     pub fn node_node_connectivity(&self) -> &[Vec<usize>] {
         self.nodes_nodes.get_or_init(|| {
-            let num_nodes = self.number_of_nodes();
-            let nodes_elements = self.node_element_connectivity();
-            let elements_nodes = self.element_node_connectivity();
-            let mut nodes_nodes = vec![Vec::new(); num_nodes];
-            for node in 0..num_nodes {
-                let mut neighbors = Vec::new();
-                for &elem in &nodes_elements[node] {
-                    neighbors.extend(elements_nodes[elem].iter().copied());
-                }
+            let mut nodes_nodes = vec![Vec::new(); self.number_of_nodes()];
+            for connectivity in self.iter() {
+                connectivity.add_edge_adjacency(&mut nodes_nodes);
+            }
+            for neighbors in &mut nodes_nodes {
                 neighbors.sort_unstable();
                 neighbors.dedup();
-                neighbors.retain(|&n| n != node);
-                nodes_nodes[node] = neighbors;
             }
             nodes_nodes
         })

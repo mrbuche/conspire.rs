@@ -30,6 +30,16 @@ pub enum FlatConnectivity<I> {
 }
 
 impl Connectivity {
+    pub fn add_edge_adjacency(&self, nodes_nodes: &mut [Vec<usize>]) {
+        match self {
+            Connectivity::Triangular(c) => c.add_edge_adjacency_triangular(nodes_nodes),
+            Connectivity::Quadrilateral(c) => c.add_edge_adjacency(nodes_nodes),
+            Connectivity::Tetrahedral(c) => c.add_edge_adjacency(nodes_nodes),
+            Connectivity::Hexahedral(c) => c.add_edge_adjacency(nodes_nodes),
+            Connectivity::Polygonal(_) => todo!(),
+            Connectivity::Polyhedral(_) => todo!(),
+        }
+    }
     pub fn is_empty(&self) -> bool {
         match self {
             Connectivity::Hexahedral(c) => c.is_empty(),
