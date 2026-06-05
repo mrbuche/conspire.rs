@@ -2,13 +2,15 @@ use super::super::{D, M, N};
 use super::face_plus_two;
 use crate::geometry::ntree::{Octree, node::Node};
 
-pub const DATA: [[usize; 11]; 6] = [
-    [2, 1, 5, 5, 4, 1, 0, 15, 10, 5, 0],
-    [1, 3, 5, 7, 5, 3, 1, 15, 10, 5, 0],
-    [3, 0, 5, 6, 7, 2, 3, 10, 15, 0, 5],
-    [0, 2, 5, 4, 6, 0, 2, 10, 15, 0, 5],
-    [4, 2, 0, 0, 2, 1, 3, 0, 10, 5, 15],
-    [5, 2, 1, 5, 7, 4, 6, 5, 15, 0, 10],
+pub const DATA: [[usize; 11]; 8] = [
+    [2, 1, 5, 5, 4, 0, 5, 15, 6, 0, 3],
+    [2, 4, 1, 1, 5, 4, 0, 5, 7, 10, 2],
+    [2, 0, 4, 0, 1, 5, 0, 0, 3, 15, 6],
+    [2, 5, 0, 4, 0, 1, 10, 10, 2, 5, 7],
+    [3, 0, 5, 6, 7, 3, 10, 10, 5, 5, 0],
+    [3, 4, 0, 2, 6, 7, 5, 0, 4, 15, 1],
+    [3, 1, 4, 3, 2, 6, 15, 5, 0, 10, 5],
+    [3, 5, 1, 7, 3, 2, 15, 15, 1, 0, 4],
 ];
 
 pub fn template<T, U>(
@@ -28,7 +30,7 @@ where
         cell_subcells,
         center_nodes,
         data,
-        [false, false, false, true, true, true, true],
+        [false, false, true, true, false, true, false],
         false,
     )
 }

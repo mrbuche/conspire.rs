@@ -1,14 +1,15 @@
 use super::super::{D, M, N};
-use super::face_plus_two;
+use super::three_face;
 use crate::geometry::ntree::{Octree, node::Node};
 
-pub const DATA: [[usize; 11]; 6] = [
-    [2, 1, 5, 5, 4, 1, 0, 15, 10, 5, 0],
-    [1, 3, 5, 7, 5, 3, 1, 15, 10, 5, 0],
-    [3, 0, 5, 6, 7, 2, 3, 10, 15, 0, 5],
-    [0, 2, 5, 4, 6, 0, 2, 10, 15, 0, 5],
-    [4, 2, 0, 0, 2, 1, 3, 0, 10, 5, 15],
-    [5, 2, 1, 5, 7, 4, 6, 5, 15, 0, 10],
+pub const DATA: [[usize; 11]; 7] = [
+    [1, 5, 3, 7, 6, 2, 15, 15, 4, 0, 5],
+    [3, 0, 4, 2, 0, 1, 5, 10, 4, 10, 15],
+    [3, 5, 0, 6, 4, 0, 10, 15, 5, 5, 15],
+    [2, 5, 1, 5, 7, 3, 5, 10, 6, 10, 0],
+    [3, 1, 5, 7, 5, 4, 15, 15, 1, 0, 5],
+    [0, 4, 3, 2, 3, 7, 10, 0, 1, 5, 0],
+    [1, 3, 4, 3, 2, 0, 5, 15, 6, 10, 15],
 ];
 
 pub fn template<T, U>(
@@ -22,13 +23,13 @@ where
     T: Copy + Into<usize>,
     U: Copy + Into<usize>,
 {
-    face_plus_two(
+    three_face(
         tree,
         node,
         cell_subcells,
         center_nodes,
         data,
-        [false, false, false, true, true, true, true],
+        [false, false, true, true, false, true, true],
         false,
     )
 }
