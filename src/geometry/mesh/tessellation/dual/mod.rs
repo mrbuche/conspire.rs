@@ -25,15 +25,6 @@ const DIRECTIONS: [Coordinate<D>; 3] = [
     Coordinate::const_from([0.097_153_2, 1.0, 0.131_771_4]),
     Coordinate::const_from([0.123_456_7, 0.087_654_3, 1.0]),
 ];
-const HEX_FACES: [[usize; 4]; 6] = [
-    [0, 3, 2, 1],
-    [4, 5, 6, 7],
-    [0, 1, 5, 4],
-    [1, 2, 6, 5],
-    [2, 3, 7, 6],
-    [3, 0, 4, 7],
-];
-
 impl Tessellation {
     pub fn dualize(&self, scale: Scalar) -> Result<Mesh<D>, OrthotreeError> {
         let (mut octree, bvh) = Octree::<u16, usize>::from_sdf(self, scale);
@@ -46,28 +37,13 @@ impl Tessellation {
         let surface = self.mesh();
         let surface_coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
+        let boundary = mesh.exterior_faces();
         let (connectivities, mut coordinates) = mesh.into();
         let mut connectivity: Vec<[usize; 8]> = connectivities
             .members()
             .iter()
             .flatten()
             .map(|hex| from_fn(|i| hex[i]))
-            .collect();
-        let mut faces = HashMap::new();
-        connectivity.iter().for_each(|hex| {
-            HEX_FACES.iter().for_each(|face| {
-                let quad: [usize; 4] = from_fn(|k| hex[face[k]]);
-                let mut key = quad;
-                key.sort_unstable();
-                faces
-                    .entry(key)
-                    .and_modify(|(_, count)| *count += 1)
-                    .or_insert((quad, 1));
-            })
-        });
-        let boundary: Vec<[usize; 4]> = faces
-            .into_values()
-            .filter_map(|(quad, count)| (count == 1).then_some(quad))
             .collect();
         let mut projection = HashMap::new();
         boundary.iter().flatten().for_each(|&node| {
@@ -82,7 +58,8 @@ impl Tessellation {
                 index
             });
         });
-        boundary.iter().for_each(|&[a, b, c, d]| {
+        boundary.iter().for_each(|face| {
+            let [a, b, c, d] = [face[0], face[1], face[2], face[3]];
             connectivity.push([
                 a,
                 b,
