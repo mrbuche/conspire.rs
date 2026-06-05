@@ -15,11 +15,13 @@ pub mod interpolate;
 /// Optimization and root finding.
 pub mod optimize;
 
+mod graph;
 mod matrix;
 mod random;
 mod set;
 mod tensor;
 
+pub use graph::Graph;
 pub use matrix::{
     Matrix,
     square::{Banded, SquareMatrix},

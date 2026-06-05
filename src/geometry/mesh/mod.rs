@@ -16,12 +16,15 @@ pub use self::{
     write::Output,
 };
 
-use crate::{geometry::Coordinates, math::Set};
+use crate::{
+    geometry::Coordinates,
+    math::{Graph, Set},
+};
 use std::cell::OnceCell;
 
 pub struct Mesh<const D: usize> {
     connectivities: Connectivities,
     coordinates: Set<Coordinates<D>>,
     nodes_elements: OnceCell<Vec<Vec<usize>>>,
-    nodes_nodes: OnceCell<Vec<Vec<usize>>>,
+    nodes_nodes: OnceCell<Graph>,
 }

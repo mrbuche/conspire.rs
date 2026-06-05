@@ -7,7 +7,7 @@ use crate::{
         bbox::{BoundingBox, BoundingBoxes},
         mesh::{Connectivity, Mesh},
     },
-    math::{Scalar, Tensor},
+    math::{Graph, Scalar, Tensor},
 };
 
 impl<const D: usize> Mesh<D> {
@@ -78,7 +78,7 @@ impl<const D: usize> Mesh<D> {
             nodes_elements
         })
     }
-    pub fn node_node_connectivity(&self) -> &[Vec<usize>] {
+    pub fn node_nodes(&self) -> &Graph {
         self.nodes_nodes.get_or_init(|| {
             let mut nodes_nodes = vec![Vec::new(); self.number_of_nodes()];
             for connectivity in self.iter() {
@@ -88,8 +88,11 @@ impl<const D: usize> Mesh<D> {
                 neighbors.sort_unstable();
                 neighbors.dedup();
             }
-            nodes_nodes
+            nodes_nodes.into()
         })
+    }
+    pub fn node_node_connectivity(&self) -> &[Vec<usize>] {
+        self.node_nodes().adjacency()
     }
     pub fn number_of_element_blocks(&self) -> usize {
         self.connectivities().len()
