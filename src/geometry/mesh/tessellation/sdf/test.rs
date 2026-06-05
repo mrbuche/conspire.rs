@@ -86,6 +86,12 @@ fn foo() {
     use crate::{geometry::mesh::Output, io::Write};
     let tessellation =
         Tessellation::try_from(Path::new("/home/mrbuche/Downloads/Stanford_Bunny.stl")).unwrap();
-    let mesh = tessellation.dualize(5.0).unwrap(); // may get weird when hex size smaller than triangles nearbhy
+    let mesh = tessellation.dualize(5.0).unwrap();
+    //
+    // may get weird when hex size smaller than triangles nearby
+    // would then need to compute SDF and split triangle edges
+    // until each edge's nodes SDF values are less than the edge length
+    // that could be an iterative process we should make efficient very carefully
+    //
     mesh.write(Output::Exodus("target/bunny.exo")).unwrap();
 }
