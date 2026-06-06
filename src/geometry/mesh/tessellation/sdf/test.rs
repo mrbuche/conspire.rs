@@ -79,6 +79,13 @@ fn bunny() {
     println!("SDF time: {:?}", start.elapsed());
     assert_eq!(diameters.len(), tessellation.mesh().coordinates().len());
     // println!("{:?}", diameters);
+    use crate::io::Write;
+    let mesh = Mesh::from(tessellation);
+    let mesh = mesh.isotropic_remesh(10).unwrap();
+    let tessellation = Tessellation::from(mesh);
+    tessellation
+        .write(Path::new("target/bunny_remesh.stl"))
+        .unwrap();
 }
 
 #[test]
