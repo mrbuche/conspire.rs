@@ -6,6 +6,7 @@ use crate::{
     math::Scalar,
 };
 
+#[derive(Clone, Copy)]
 pub enum Weighting {
     Uniform,
     Cotangent,

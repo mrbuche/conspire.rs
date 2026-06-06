@@ -7,9 +7,9 @@ use crate::{
 };
 
 impl<const D: usize> Mesh<D> {
-    pub fn laplace_smooth(&mut self, iterations: usize, scale: Scalar) {
+    pub fn laplace_smooth(&mut self, iterations: usize, scale: Scalar, weighting: Weighting) {
         for _ in 0..iterations {
-            let laplacian = self.laplacian(Weighting::Uniform);
+            let laplacian = self.laplacian(weighting);
             self.coordinates
                 .iter_mut()
                 .zip(laplacian)
