@@ -3,19 +3,22 @@ mod test;
 
 use crate::{
     geometry::{Coordinate, Coordinates, mesh::Mesh},
-    math::{Scalar, TensorArray},
+    math::Scalar,
 };
 
+pub enum Weighting {
+    Uniform,
+    Cotangent,
+}
+
 impl<const D: usize> Mesh<D> {
-    pub fn laplacian(&self) -> Coordinates<D> {
+    pub fn laplacian(&self, weighting: Weighting) -> Coordinates<D> {
         let coordinates = self.coordinates();
         self.node_node_connectivity()
             .iter()
             .enumerate()
-            .map(|(node_a, nodes)| {
-                if nodes.is_empty() {
-                    Coordinate::zero()
-                } else {
+            .map(|(node_a, nodes)| match weighting {
+                Weighting::Uniform => {
                     &coordinates[node_a]
                         - nodes
                             .iter()
@@ -23,6 +26,7 @@ impl<const D: usize> Mesh<D> {
                             .sum::<Coordinate<D>>()
                             / (nodes.len() as Scalar)
                 }
+                Weighting::Cotangent => todo!(),
             })
             .collect()
     }

@@ -1,1 +1,1 @@
-mod laplace;
+pub mod laplace;

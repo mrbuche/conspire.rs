@@ -1,7 +1,7 @@
 use crate::{
     geometry::{
         Coordinate, Coordinates,
-        mesh::{Connectivity, Mesh},
+        mesh::{Connectivity, Mesh, operator::laplace::Weighting},
     },
     math::test::{TestError, assert_eq_within_tols},
 };
@@ -18,7 +18,7 @@ fn single_triangle() -> Result<(), TestError> {
         Coordinate::const_from([2.0, 0.0, 0.0]),
         Coordinate::const_from([0.0, 2.0, 0.0]),
     ])
-    .laplacian();
+    .laplacian(Weighting::Uniform);
     assert_eq_within_tols(&laplacian[0], &[-1.0, -1.0, 0.0].into())?;
     assert_eq_within_tols(&laplacian[1], &[2.0, -1.0, 0.0].into())?;
     assert_eq_within_tols(&laplacian[2], &[-1.0, 2.0, 0.0].into())
@@ -31,7 +31,7 @@ fn vertex_at_neighbor_centroid_is_fixed() -> Result<(), TestError> {
         Coordinate::const_from([2.0, 0.0, 0.0]),
         Coordinate::const_from([1.0, 0.0, 0.0]),
     ])
-    .laplacian();
+    .laplacian(Weighting::Uniform);
     assert_eq_within_tols(&laplacian[2], &[0.0, 0.0, 0.0].into())
 }
 
@@ -42,12 +42,12 @@ fn translation_invariant() -> Result<(), TestError> {
         Coordinate::const_from([2.0, 0.0, 0.0]),
         Coordinate::const_from([0.0, 2.0, 0.0]),
     ])
-    .laplacian();
+    .laplacian(Weighting::Uniform);
     let shifted = triangle([
         Coordinate::const_from([5.0, -3.0, 7.0]),
         Coordinate::const_from([7.0, -3.0, 7.0]),
         Coordinate::const_from([5.0, -1.0, 7.0]),
     ])
-    .laplacian();
+    .laplacian(Weighting::Uniform);
     (0..3).try_for_each(|n| assert_eq_within_tols(&base[n], &shifted[n]))
 }
