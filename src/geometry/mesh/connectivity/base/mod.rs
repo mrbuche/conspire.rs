@@ -182,6 +182,23 @@ impl Connectivity {
     }
 }
 
+impl TryFrom<Connectivities> for Vec<[usize; 3]> {
+    type Error = &'static str;
+    fn try_from(connectivities: Connectivities) -> Result<Self, Self::Error> {
+        let mut triangles = Self::new();
+        for block in connectivities.into_members() {
+            match block {
+                Connectivity::Triangular(block) if triangles.is_empty() => {
+                    triangles = block.into_iter().collect()
+                }
+                Connectivity::Triangular(block) => triangles.extend(block),
+                _ => return Err("connectivity contains a non-triangular block"),
+            }
+        }
+        Ok(triangles)
+    }
+}
+
 impl TryFrom<Connectivities> for Vec<[usize; 8]> {
     type Error = &'static str;
     fn try_from(connectivities: Connectivities) -> Result<Self, Self::Error> {
