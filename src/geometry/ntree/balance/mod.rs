@@ -11,11 +11,7 @@ pub enum Balancing {
 }
 
 pub trait Balance {
-    fn equilibrate(
-        &mut self,
-        balancing: Balancing,
-        pairing: Pairing,
-    ) -> Result<(), &'static str> {
+    fn equilibrate(&mut self, balancing: Balancing, pairing: Pairing) -> Result<(), &'static str> {
         let mut balanced = false;
         let mut paired = false;
         while !balanced || !paired {

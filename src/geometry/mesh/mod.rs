@@ -7,6 +7,7 @@ mod from;
 mod into;
 mod operator;
 mod read;
+mod smooth;
 mod tessellation;
 mod write;
 

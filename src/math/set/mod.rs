@@ -2,6 +2,7 @@ pub mod dsu;
 pub mod sets;
 pub mod sets_old;
 
+use crate::math::Tensor;
 use std::vec::IntoIter;
 
 pub struct Set<S> {
@@ -56,5 +57,14 @@ where
     type IntoIter = IntoIter<Self::Item>;
     fn into_iter(self) -> Self::IntoIter {
         self.members.into_iter()
+    }
+}
+
+impl<S> Set<S>
+where
+    S: Tensor,
+{
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut S::Item> {
+        self.members.iter_mut()
     }
 }
