@@ -215,3 +215,9 @@ impl TryFrom<Connectivities> for Vec<[usize; 8]> {
         Ok(hexes)
     }
 }
+
+impl From<Vec<[usize; 3]>> for Connectivity {
+    fn from(connectivity: Vec<[usize; 3]>) -> Self {
+        Connectivity::Triangular(connectivity.into())
+    }
+}

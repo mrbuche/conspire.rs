@@ -8,7 +8,7 @@ pub enum Remeshing {
 }
 
 impl<const D: usize> Mesh<D> {
-    pub fn remesh(self, remeshing: Remeshing) -> Result<(), &'static str> {
+    pub fn remesh(self, remeshing: Remeshing) -> Result<Self, &'static str> {
         match remeshing {
             Remeshing::Adaptive { .. } => todo!(),
             Remeshing::Isotropic { iterations } => self.isotropic_remesh(iterations),

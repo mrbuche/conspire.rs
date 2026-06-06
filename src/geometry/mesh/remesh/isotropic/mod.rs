@@ -1,22 +1,18 @@
-use crate::geometry::{Coordinates, mesh::Mesh};
+mod triangles;
+
+use crate::geometry::mesh::Mesh;
 
 impl<const D: usize> Mesh<D> {
-    pub fn isotropic_remesh(self, iterations: usize) -> Result<(), &'static str> {
+    pub fn isotropic_remesh(self, iterations: usize) -> Result<Self, &'static str> {
         if iterations == 0 {
-            Ok(())
+            Ok(self)
         } else if self.connectivities().len() == 1 {
-            Err("Can only remesh single blocks for now.")
+            Err("Can only remesh lone blocks for now.")
         } else {
-            let (connectivities, coordinates) = self.into();
-            let connectivity = Vec::try_from(connectivities)?;
-            foo(connectivity, coordinates)
+            let (connectivities, mut coordinates) = self.into();
+            let mut connectivity = Vec::try_from(connectivities)?;
+            triangles::isotropic_remesh(&mut connectivity, &mut coordinates)?;
+            Ok((vec![connectivity.into()], coordinates).into())
         }
     }
-}
-
-fn foo<const D: usize>(
-    connectivity: Vec<[usize; 3]>,
-    coordinates: Coordinates<D>,
-) -> Result<(), &'static str> {
-    Ok(())
 }
