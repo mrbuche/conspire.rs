@@ -1,4 +1,4 @@
-use crate::geometry::mesh::connectivity::{Connectivity, iter::ElementIter};
+use crate::geometry::mesh::connectivity::{Connectivities, Connectivity, iter::ElementIter};
 use std::{fmt::Debug, num::TryFromIntError};
 
 pub trait ConnectivityImpl {
@@ -179,5 +179,22 @@ impl Connectivity {
             Connectivity::Tetrahedral(c) => c.flat_connectivity(),
             Connectivity::Triangular(c) => c.flat_connectivity(),
         }
+    }
+}
+
+impl TryFrom<Connectivities> for Vec<[usize; 8]> {
+    type Error = &'static str;
+    fn try_from(connectivities: Connectivities) -> Result<Self, Self::Error> {
+        let mut hexes = Self::new();
+        for block in connectivities.into_members() {
+            match block {
+                Connectivity::Hexahedral(block) if hexes.is_empty() => {
+                    hexes = block.into_iter().collect()
+                }
+                Connectivity::Hexahedral(block) => hexes.extend(block),
+                _ => return Err("connectivity contains a non-hexahedral block"),
+            }
+        }
+        Ok(hexes)
     }
 }

@@ -1,6 +1,5 @@
 use crate::geometry::ntree::{
     Orthotree,
-    error::OrthotreeError,
     node::{Kind, split::Split},
 };
 use std::{array::from_fn, ops::Add};
@@ -28,7 +27,7 @@ where
     fn nodes_on_other_face(face: usize) -> [usize; L] {
         Self::nodes_on_face(mirror_facet(face))
     }
-    pub fn subdivide(&mut self, index: U) -> Result<(), OrthotreeError> {
+    pub fn subdivide(&mut self, index: U) -> Result<(), &'static str> {
         let indices = from_fn(|n| (self.len() + n).into());
         let mut orthants = self[index].subdivide(indices)?;
         for (facet, node_facet) in self[index].facets.into_iter().enumerate() {

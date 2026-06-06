@@ -401,7 +401,7 @@ fn connectivity_template(
                 interior_nodes[3],
             ]);
         }
-        _ => panic!(),
+        _ => unreachable!(),
     }
 }
 
@@ -440,6 +440,6 @@ where
             Coordinate::const_from([0.0, 0.0, -SCALE_1 * length]),
             Coordinate::const_from([0.0, 0.0, -length]),
         ),
-        _ => panic!(),
+        _ => unreachable!(),
     }
 }

@@ -5,7 +5,6 @@ pub mod test;
 use crate::geometry::ntree::{
     Orthotree,
     balance::{Balance, Balancing},
-    error::OrthotreeError,
     node::split::Split,
     pair::Pairing,
 };
@@ -274,7 +273,7 @@ where
                                         || self[kids[2]].is_tree()
                                         || self[kids[3]].is_tree()
                                 }
-                                _ => panic!(),
+                                _ => unreachable!(),
                             } {
                                 subdivide = true;
                                 break 'faces;
@@ -296,7 +295,7 @@ where
         }
         balanced_already
     }
-    fn pair_up(&mut self, pairing: Pairing) -> Result<bool, OrthotreeError> {
+    fn pair_up(&mut self, pairing: Pairing) -> Result<bool, &'static str> {
         self.paired = pairing;
         self.pair(pairing)
     }

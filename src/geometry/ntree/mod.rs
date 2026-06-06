@@ -1,7 +1,6 @@
 mod balance;
 mod deref;
 mod dual;
-mod error;
 mod from;
 mod index;
 mod into;
@@ -15,7 +14,6 @@ mod subdivide;
 pub use crate::geometry::ntree::{
     balance::{Balance, Balancing},
     dual::Dualization,
-    error::OrthotreeError,
     node::Nodes,
     pair::Pairing,
     rescale::Rescaling,

@@ -1,7 +1,7 @@
 pub mod octree;
 pub mod quadtree;
 
-use crate::geometry::ntree::{error::OrthotreeError, pair::Pairing};
+use crate::geometry::ntree::pair::Pairing;
 
 #[derive(Clone, Copy)]
 pub enum Balancing {
@@ -15,7 +15,7 @@ pub trait Balance {
         &mut self,
         balancing: Balancing,
         pairing: Pairing,
-    ) -> Result<(), OrthotreeError> {
+    ) -> Result<(), &'static str> {
         let mut balanced = false;
         let mut paired = false;
         while !balanced || !paired {
@@ -25,5 +25,5 @@ pub trait Balance {
         Ok(())
     }
     fn balance(&mut self, balancing: Balancing) -> bool;
-    fn pair_up(&mut self, pairing: Pairing) -> Result<bool, OrthotreeError>;
+    fn pair_up(&mut self, pairing: Pairing) -> Result<bool, &'static str>;
 }

@@ -1,4 +1,4 @@
-use crate::geometry::ntree::{Orthotree, error::OrthotreeError, node::split::Split};
+use crate::geometry::ntree::{Orthotree, node::split::Split};
 use std::ops::Add;
 
 #[derive(Clone, Copy)]
@@ -14,7 +14,7 @@ where
     T: Add<Output = T> + Copy + Split + Into<usize>,
     U: Copy + From<usize> + Into<usize>,
 {
-    pub fn pair(&mut self, pairing: Pairing) -> Result<bool, OrthotreeError> {
+    pub fn pair(&mut self, pairing: Pairing) -> Result<bool, &'static str> {
         match pairing {
             Pairing::Generalized => unimplemented!(),
             Pairing::Regular => {

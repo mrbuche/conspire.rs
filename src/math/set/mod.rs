@@ -2,6 +2,8 @@ pub mod dsu;
 pub mod sets;
 pub mod sets_old;
 
+use std::vec::IntoIter;
+
 pub struct Set<S> {
     members: S,
     numbers: Option<Vec<usize>>,
@@ -37,5 +39,22 @@ impl<S> From<(S, Vec<usize>)> for Set<S> {
             members,
             numbers: Some(numbers),
         }
+    }
+}
+
+impl<S> From<Set<S>> for (S, Option<Vec<usize>>) {
+    fn from(set: Set<S>) -> Self {
+        (set.members, set.numbers)
+    }
+}
+
+impl<S, T> IntoIterator for Set<S>
+where
+    S: IntoIterator<Item = T, IntoIter = IntoIter<T>>,
+{
+    type Item = T;
+    type IntoIter = IntoIter<Self::Item>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.members.into_iter()
     }
 }

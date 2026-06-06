@@ -1,7 +1,4 @@
-use crate::geometry::ntree::{
-    error::OrthotreeError,
-    node::{Kind, Node, split::Split},
-};
+use crate::geometry::ntree::node::{Kind, Node, split::Split};
 use std::{array::from_fn, ops::Add};
 
 impl<const D: usize, const M: usize, const N: usize, T, U> Node<D, M, N, T, U>
@@ -9,7 +6,7 @@ where
     T: Add<Output = T> + Copy + Split,
     U: Copy,
 {
-    pub fn subdivide(&self, indices: [U; N]) -> Result<[Self; N], OrthotreeError> {
+    pub fn subdivide(&self, indices: [U; N]) -> Result<[Self; N], &'static str> {
         match self.kind {
             Kind::Leaf => {
                 let corner = self.corner;
@@ -34,7 +31,7 @@ where
                     kind: Kind::Leaf,
                 }))
             }
-            Kind::Tree(_) => Err(OrthotreeError::CannotSubdivideTree),
+            Kind::Tree(_) => Err("cannot subdivide a tree"),
         }
     }
 }

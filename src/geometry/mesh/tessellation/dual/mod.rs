@@ -9,13 +9,13 @@ use crate::{
             Connectivity, Mesh,
             tessellation::{D, Tessellation},
         },
-        ntree::{Balance, Balancing, Dualization, Octree, OrthotreeError, Pairing},
+        ntree::{Balance, Balancing, Dualization, Octree, Pairing},
     },
     math::{Scalar, Tensor, TensorVec},
 };
 use std::{
     array::from_fn,
-    collections::HashMap,
+    collections::{HashMap, hash_map::Entry},
     thread::{available_parallelism, scope},
 };
 
@@ -26,38 +26,36 @@ const DIRECTIONS: [Coordinate<D>; 3] = [
     Coordinate::const_from([0.123_456_7, 0.087_654_3, 1.0]),
 ];
 impl Tessellation {
-    pub fn dualize(&self, scale: Scalar) -> Result<Mesh<D>, OrthotreeError> {
+    pub fn dualize(&self, scale: Scalar) -> Result<Mesh<D>, &'static str> {
         let (mut octree, bvh) = Octree::<u16, usize>::from_sdf(self, scale);
         octree.equilibrate(Balancing::Strong, Pairing::Regular)?;
         let mut mesh = octree.dualize();
         self.trim(&mut mesh, &bvh);
-        Ok(self.project_boundary(mesh, &bvh))
+        self.project_boundary(mesh, &bvh)
     }
-    fn project_boundary(&self, mesh: Mesh<D>, bvh: &BoundingVolumeHierarchy<D>) -> Mesh<D> {
+    fn project_boundary(
+        &self,
+        mesh: Mesh<D>,
+        bvh: &BoundingVolumeHierarchy<D>,
+    ) -> Result<Mesh<D>, &'static str> {
         let surface = self.mesh();
         let surface_coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
         let boundary = mesh.exterior_faces();
         let (connectivities, mut coordinates) = mesh.into();
-        let mut connectivity: Vec<[usize; 8]> = connectivities
-            .members()
-            .iter()
-            .flatten()
-            .map(|hex| from_fn(|i| hex[i]))
-            .collect();
+        let mut connectivity = Vec::try_from(connectivities)?;
         let mut projection = HashMap::new();
-        boundary.iter().flatten().for_each(|&node| {
-            projection.entry(node).or_insert_with(|| {
-                let query = &coordinates[node];
+        boundary.iter().flatten().try_for_each(|&node| {
+            if let Entry::Vacant(slot) = projection.entry(node) {
                 let point = bvh
-                    .closest_point(query, surface_coordinates, &elements)
-                    .expect("empty tessellation")
+                    .closest_point(&coordinates[node], surface_coordinates, &elements)
+                    .ok_or("empty tessellation")?
                     .0;
-                let index = coordinates.len();
+                slot.insert(coordinates.len());
                 coordinates.push(point);
-                index
-            });
-        });
+            }
+            Ok(())
+        })?;
         boundary.iter().for_each(|face| {
             let [a, b, c, d] = [face[0], face[1], face[2], face[3]];
             connectivity.push([
@@ -71,11 +69,11 @@ impl Tessellation {
                 projection[&d],
             ])
         });
-        (
+        Ok((
             vec![Connectivity::Hexahedral(connectivity.into())],
             coordinates,
         )
-            .into()
+            .into())
     }
     fn trim(&self, mesh: &mut Mesh<D>, bvh: &BoundingVolumeHierarchy<D>) {
         let surface = self.mesh();
