@@ -7,12 +7,9 @@ use crate::{
         bvh::BoundingVolumeHierarchy,
         mesh::{Connectivity, Mesh},
     },
-    math::{Scalar, Tensor, TensorVec},
+    math::{FxHashMap, FxHashSet, Scalar, Tensor, TensorVec},
 };
-use std::{
-    array::from_fn,
-    collections::{HashMap, HashSet},
-};
+use std::array::from_fn;
 
 const N: usize = 3;
 
@@ -92,8 +89,8 @@ fn edge(a: usize, b: usize) -> (usize, usize) {
 fn edge_lengths<const D: usize>(
     connectivity: &[[usize; N]],
     coordinates: &Coordinates<D>,
-) -> HashMap<(usize, usize), Scalar> {
-    let mut lengths = HashMap::new();
+) -> FxHashMap<(usize, usize), Scalar> {
+    let mut lengths = FxHashMap::default();
     connectivity.iter().for_each(|&[a, b, c]| {
         for (u, v) in [(a, b), (b, c), (c, a)] {
             lengths
@@ -107,10 +104,10 @@ fn edge_lengths<const D: usize>(
 fn split_long_edges<const D: usize>(
     connectivity: &mut Vec<[usize; N]>,
     coordinates: &mut Coordinates<D>,
-    lengths: &HashMap<(usize, usize), Scalar>,
+    lengths: &FxHashMap<(usize, usize), Scalar>,
     maximum_length: Scalar,
 ) {
-    let mut midpoints: HashMap<(usize, usize), usize> = HashMap::new();
+    let mut midpoints: FxHashMap<(usize, usize), usize> = FxHashMap::default();
     for (&(u, v), &length) in lengths {
         if length > maximum_length {
             let midpoint = &(&coordinates[u] + &coordinates[v]) * 0.5;
@@ -145,14 +142,14 @@ fn split_long_edges<const D: usize>(
 fn collapse_short_edges<const D: usize>(
     connectivity: &mut Vec<[usize; N]>,
     coordinates: &mut Coordinates<D>,
-    lengths: &HashMap<(usize, usize), Scalar>,
+    lengths: &FxHashMap<(usize, usize), Scalar>,
     minimum_length: Scalar,
     maximum_length: Scalar,
 ) {
     let vertices = coordinates.len();
-    let mut neighbors: Vec<HashSet<usize>> = vec![HashSet::new(); vertices];
+    let mut neighbors: Vec<FxHashSet<usize>> = vec![FxHashSet::default(); vertices];
     let mut vertex_faces: Vec<Vec<usize>> = vec![Vec::new(); vertices];
-    let mut edge_faces: HashMap<(usize, usize), Vec<usize>> = HashMap::new();
+    let mut edge_faces: FxHashMap<(usize, usize), Vec<usize>> = FxHashMap::default();
     for (face, &[a, b, c]) in connectivity.iter().enumerate() {
         for (u, v) in [(a, b), (b, c), (c, a)] {
             neighbors[u].insert(v);
@@ -177,13 +174,13 @@ fn collapse_short_edges<const D: usize>(
         .collect();
     short.sort_by(|a, b| lengths[a].total_cmp(&lengths[b]));
     let mut merge: Vec<usize> = (0..vertices).collect();
-    let mut positions: HashMap<usize, Coordinate<D>> = HashMap::new();
+    let mut positions: FxHashMap<usize, Coordinate<D>> = FxHashMap::default();
     let mut touched = vec![false; vertices];
     for (u, v) in short {
         if touched[u] || touched[v] {
             continue;
         }
-        let opposites: HashSet<usize> = edge_faces[&edge(u, v)]
+        let opposites: FxHashSet<usize> = edge_faces[&edge(u, v)]
             .iter()
             .map(|&face| {
                 connectivity[face]
@@ -305,7 +302,7 @@ fn flip_edges<const D: usize>(connectivity: &mut [[usize; N]], coordinates: &Coo
         .copied()
         .max()
         .map_or(0, |m| m + 1);
-    let mut edge_faces: HashMap<(usize, usize), Vec<usize>> = HashMap::new();
+    let mut edge_faces: FxHashMap<(usize, usize), Vec<usize>> = FxHashMap::default();
     for (face, &[a, b, c]) in connectivity.iter().enumerate() {
         for (u, v) in [(a, b), (b, c), (c, a)] {
             edge_faces.entry(edge(u, v)).or_default().push(face);
@@ -383,8 +380,8 @@ fn tangential_smooth<const D: usize>(
     coordinates: &mut Coordinates<D>,
 ) {
     let vertices = coordinates.len();
-    let mut neighbors: Vec<HashSet<usize>> = vec![HashSet::new(); vertices];
-    let mut edge_uses: HashMap<(usize, usize), usize> = HashMap::new();
+    let mut neighbors: Vec<FxHashSet<usize>> = vec![FxHashSet::default(); vertices];
+    let mut edge_uses: FxHashMap<(usize, usize), usize> = FxHashMap::default();
     for &[a, b, c] in connectivity.iter() {
         for (u, v) in [(a, b), (b, c), (c, a)] {
             neighbors[u].insert(v);

@@ -16,12 +16,14 @@ pub mod interpolate;
 pub mod optimize;
 
 mod graph;
+mod hash;
 mod matrix;
 mod random;
 mod set;
 mod tensor;
 
 pub use graph::Graph;
+pub use hash::{FxHashMap, FxHashSet};
 pub use matrix::{
     Matrix,
     square::{Banded, SquareMatrix},
