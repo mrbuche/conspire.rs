@@ -17,6 +17,7 @@ pub fn isotropic_remesh<const D: usize>(
     connectivity: &mut Vec<[usize; N]>,
     coordinates: &mut Coordinates<D>,
     iterations: usize,
+    length: Option<Scalar>,
 ) -> Result<(), &'static str> {
     // The reprojection target is the original surface, fixed for every iteration so geometry
     // is preserved. It only exists in 3D, where the BVH closest-point query is defined.
@@ -26,7 +27,7 @@ pub fn isotropic_remesh<const D: usize>(
             unsafe { &*(&*coordinates as *const Coordinates<D>).cast() };
         Surface::new(connectivity, coordinates)
     });
-    let mut target_length = None;
+    let mut target_length = length;
     for _ in 0..iterations {
         let lengths = edge_lengths(connectivity, coordinates);
         if lengths.is_empty() {

@@ -16,7 +16,9 @@ impl<const D: usize> Mesh<D> {
     pub fn remesh(self, remeshing: Remeshing) -> Result<Self, &'static str> {
         match remeshing {
             Remeshing::Adaptive { .. } => todo!(),
-            Remeshing::Isotropic { iterations, .. } => self.isotropic_remesh(iterations),
+            Remeshing::Isotropic { iterations, length } => {
+                self.isotropic_remesh(iterations, length)
+            }
         }
     }
 }
