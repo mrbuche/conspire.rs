@@ -1,7 +1,6 @@
 use super::{dunyach_length, graduate, sizing_field};
 use crate::{geometry::Coordinates, math::Tensor};
 
-// A flat 4x2 ladder: row 0 at y=0, row 1 at y=1, two triangles per cell.
 fn ladder() -> (Vec<[usize; 3]>, Coordinates<3>) {
     let mut points = Vec::new();
     for y in 0..2 {
