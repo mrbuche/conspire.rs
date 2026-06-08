@@ -1,7 +1,7 @@
 use crate::{
     geometry::{
         Coordinate, Coordinates,
-        mesh::{Connectivity, Mesh, operator::laplace::Weighting},
+        mesh::{Connectivity, Mesh, differential::laplace::Weighting},
     },
     math::test::{TestError, assert_eq_within_tols},
 };

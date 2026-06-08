@@ -2,7 +2,7 @@
 mod test;
 
 use crate::{
-    geometry::mesh::{Mesh, operator::laplace::Weighting},
+    geometry::mesh::{Mesh, differential::laplace::Weighting},
     math::Scalar,
 };
 

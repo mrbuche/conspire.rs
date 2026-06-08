@@ -3,9 +3,9 @@ pub mod test;
 
 mod base;
 mod connectivity;
+mod differential;
 mod from;
 mod into;
-mod operator;
 mod read;
 mod remesh;
 mod smooth;
