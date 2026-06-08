@@ -11,6 +11,24 @@ impl<const D: usize> Mesh<D> {
             .filter_map(|(edge, count)| (count == 1).then_some(edge))
             .collect()
     }
+    pub fn boundary_loops(&self) -> Vec<Vec<usize>> {
+        let mut next: HashMap<usize, usize> =
+            self.boundary_edges().into_iter().map(|[a, b]| (a, b)).collect();
+        let mut loops = Vec::new();
+        while let Some(&start) = next.keys().next() {
+            let mut nodes = vec![start];
+            let mut node = start;
+            while let Some(following) = next.remove(&node) {
+                if following == start {
+                    break;
+                }
+                nodes.push(following);
+                node = following;
+            }
+            loops.push(nodes);
+        }
+        loops
+    }
     fn edge_incidence(&self) -> HashMap<[usize; 2], ([usize; 2], usize)> {
         let mut edges = HashMap::new();
         self.iter().for_each(|block| {
