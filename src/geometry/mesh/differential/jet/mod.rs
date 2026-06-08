@@ -7,6 +7,7 @@ use crate::{
 };
 
 const D: usize = 3;
+const N: usize = 3;
 
 pub struct Jet {
     pub normal: Coordinate<D>,
@@ -67,7 +68,7 @@ pub fn fit_jet(
     })
 }
 
-pub fn vertex_jets(connectivity: &[[usize; 3]], coordinates: &Coordinates<D>) -> Vec<Option<Jet>> {
+pub fn vertex_jets(connectivity: &[[usize; N]], coordinates: &Coordinates<D>) -> Vec<Option<Jet>> {
     let count = coordinates.len();
     let mut neighbors = vec![FxHashSet::default(); count];
     let mut normals = Coordinates::zero(count);
