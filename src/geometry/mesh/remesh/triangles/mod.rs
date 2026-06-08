@@ -12,13 +12,20 @@ use crate::{
 use std::array::from_fn;
 
 const N: usize = 3;
+const SPLIT_ABOVE: Scalar = 4.0 / 3.0;
+const COLLAPSE_BELOW: Scalar = 4.0 / 5.0;
 
-pub fn isotropic_remesh<const D: usize>(
+/// The shared remeshing loop. `sizing_of` produces the per-vertex target-length field for the
+/// current mesh each iteration: a uniform field for isotropic, a curvature field for adaptive.
+pub(super) fn remesh<const D: usize, F>(
     connectivity: &mut Vec<[usize; N]>,
     coordinates: &mut Coordinates<D>,
     iterations: usize,
-    length: Option<Scalar>,
-) -> Result<(), &'static str> {
+    mut sizing_of: F,
+) -> Result<(), &'static str>
+where
+    F: FnMut(&[[usize; N]], &Coordinates<D>, &FxHashMap<(usize, usize), Scalar>) -> Vec<Scalar>,
+{
     // The reprojection target is the original surface, fixed for every iteration so geometry
     // is preserved. It only exists in 3D, where the BVH closest-point query is defined.
     let surface = (D == 3).then(|| {
@@ -27,23 +34,15 @@ pub fn isotropic_remesh<const D: usize>(
             unsafe { &*(&*coordinates as *const Coordinates<D>).cast() };
         Surface::new(connectivity, coordinates)
     });
-    let mut target_length = length;
     for _ in 0..iterations {
         let lengths = edge_lengths(connectivity, coordinates);
         if lengths.is_empty() {
             break;
         }
-        let target = *target_length
-            .get_or_insert_with(|| lengths.values().sum::<Scalar>() / lengths.len() as Scalar);
-        split_long_edges(connectivity, coordinates, &lengths, 4.0 / 3.0 * target);
+        let mut sizing = sizing_of(connectivity, coordinates, &lengths);
+        split_long_edges(connectivity, coordinates, &lengths, &mut sizing);
         let lengths = edge_lengths(connectivity, coordinates);
-        collapse_short_edges(
-            connectivity,
-            coordinates,
-            &lengths,
-            4.0 / 5.0 * target,
-            4.0 / 3.0 * target,
-        );
+        collapse_short_edges(connectivity, coordinates, &lengths, &mut sizing);
         flip_edges(connectivity, coordinates);
         tangential_smooth(connectivity, coordinates);
         if let Some(surface) = &surface {
@@ -106,14 +105,15 @@ fn split_long_edges<const D: usize>(
     connectivity: &mut Vec<[usize; N]>,
     coordinates: &mut Coordinates<D>,
     lengths: &FxHashMap<(usize, usize), Scalar>,
-    maximum_length: Scalar,
+    sizing: &mut Vec<Scalar>,
 ) {
     let mut midpoints: FxHashMap<(usize, usize), usize> = FxHashMap::default();
     for (&(u, v), &length) in lengths {
-        if length > maximum_length {
+        if length > SPLIT_ABOVE * 0.5 * (sizing[u] + sizing[v]) {
             let midpoint = &(&coordinates[u] + &coordinates[v]) * 0.5;
             midpoints.insert((u, v), coordinates.len());
             coordinates.push(midpoint);
+            sizing.push(0.5 * (sizing[u] + sizing[v]));
         }
     }
     if midpoints.is_empty() {
@@ -144,8 +144,7 @@ fn collapse_short_edges<const D: usize>(
     connectivity: &mut Vec<[usize; N]>,
     coordinates: &mut Coordinates<D>,
     lengths: &FxHashMap<(usize, usize), Scalar>,
-    minimum_length: Scalar,
-    maximum_length: Scalar,
+    sizing: &mut Vec<Scalar>,
 ) {
     let vertices = coordinates.len();
     let mut neighbors: Vec<FxHashSet<usize>> = vec![FxHashSet::default(); vertices];
@@ -170,7 +169,7 @@ fn collapse_short_edges<const D: usize>(
     }
     let mut short: Vec<(usize, usize)> = lengths
         .iter()
-        .filter(|&(_, &length)| length < minimum_length)
+        .filter(|&(&(u, v), &length)| length < COLLAPSE_BELOW * 0.5 * (sizing[u] + sizing[v]))
         .map(|(&e, _)| e)
         .collect();
     short.sort_by(|a, b| lengths[a].total_cmp(&lengths[b]));
@@ -206,7 +205,10 @@ fn collapse_short_edges<const D: usize>(
             .iter()
             .chain(&neighbors[v])
             .filter(|&&w| w != u && w != v)
-            .any(|&w| (&coordinates[w] - &position).norm() > maximum_length)
+            .any(|&w| {
+                (&coordinates[w] - &position).norm()
+                    > SPLIT_ABOVE * 0.5 * (sizing[survivor] + sizing[w])
+            })
         {
             continue;
         }
@@ -251,6 +253,7 @@ fn collapse_short_edges<const D: usize>(
         .for_each(|&vertex| used[vertex] = true);
     let mut remap = vec![usize::MAX; vertices];
     let mut compact = Coordinates::new();
+    let mut compact_sizing = Vec::new();
     for vertex in 0..vertices {
         if used[vertex] {
             remap[vertex] = compact.len();
@@ -259,12 +262,14 @@ fn collapse_short_edges<const D: usize>(
                     .remove(&vertex)
                     .unwrap_or_else(|| coordinates[vertex].clone()),
             );
+            compact_sizing.push(sizing[vertex]);
         }
     }
     kept.iter_mut()
         .for_each(|face| face.iter_mut().for_each(|vertex| *vertex = remap[*vertex]));
     *connectivity = kept;
     *coordinates = compact;
+    *sizing = compact_sizing;
 }
 
 fn opposite_and_direction(face: &[usize; N], u: usize, v: usize) -> (usize, bool) {

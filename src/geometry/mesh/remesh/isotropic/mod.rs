@@ -1,6 +1,7 @@
-mod triangles;
-
-use crate::{geometry::mesh::Mesh, math::Scalar};
+use crate::{
+    geometry::mesh::Mesh,
+    math::{Scalar, Tensor},
+};
 
 impl<const D: usize> Mesh<D> {
     pub fn isotropic_remesh(
@@ -15,7 +16,18 @@ impl<const D: usize> Mesh<D> {
         } else {
             let (connectivities, mut coordinates) = self.into();
             let mut connectivity = Vec::try_from(connectivities)?;
-            triangles::isotropic_remesh(&mut connectivity, &mut coordinates, iterations, length)?;
+            let mut target = length;
+            super::triangles::remesh(
+                &mut connectivity,
+                &mut coordinates,
+                iterations,
+                |_, coordinates, lengths| {
+                    let target = *target.get_or_insert_with(|| {
+                        lengths.values().sum::<Scalar>() / lengths.len() as Scalar
+                    });
+                    vec![target; coordinates.len()]
+                },
+            )?;
             Ok((vec![connectivity.into()], coordinates).into())
         }
     }

@@ -82,7 +82,11 @@ fn bunny() {
     use crate::io::Write;
     let mesh = Mesh::from(tessellation);
     let start = Instant::now();
-    let mesh = mesh.isotropic_remesh(10, None).unwrap();
+    // let mesh = mesh.isotropic_remesh(10, None).unwrap();
+    let length = 1.0;
+    let mesh = mesh
+        .adaptive_remesh(10, 0.25 * length, 0.1 * length, 10.0 * length, 0.5)
+        .unwrap();
     println!("remesh time: {:?}", start.elapsed());
     let tessellation = Tessellation::from(mesh);
     tessellation

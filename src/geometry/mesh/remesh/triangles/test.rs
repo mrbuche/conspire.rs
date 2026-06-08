@@ -20,7 +20,8 @@ fn splits_only_long_edges() -> Result<(), TestError> {
     let mut connectivity = vec![[0, 1, 2]];
     let mut coordinates = right_triangle(3.0);
     let lengths = edge_lengths(&connectivity, &coordinates);
-    split_long_edges(&mut connectivity, &mut coordinates, &lengths, 4.0);
+    let mut sizing = vec![3.0; coordinates.len()];
+    split_long_edges(&mut connectivity, &mut coordinates, &lengths, &mut sizing);
     assert_eq!(coordinates.len(), 4);
     assert_eq_within_tols(&coordinates[3], &[1.5, 1.5, 0.0].into())?;
     assert_eq!(connectivity, vec![[1, 3, 0], [3, 2, 0]]);
@@ -32,7 +33,8 @@ fn leaves_short_edges_alone() {
     let mut connectivity = vec![[0, 1, 2]];
     let mut coordinates = right_triangle(3.0);
     let lengths = edge_lengths(&connectivity, &coordinates);
-    split_long_edges(&mut connectivity, &mut coordinates, &lengths, 5.0);
+    let mut sizing = vec![3.75; coordinates.len()];
+    split_long_edges(&mut connectivity, &mut coordinates, &lengths, &mut sizing);
     assert_eq!(coordinates.len(), 3);
     assert_eq!(connectivity, vec![[0, 1, 2]]);
 }
@@ -42,7 +44,8 @@ fn three_split_makes_four_faces() {
     let mut connectivity = vec![[0, 1, 2]];
     let mut coordinates = right_triangle(4.0);
     let lengths = edge_lengths(&connectivity, &coordinates);
-    split_long_edges(&mut connectivity, &mut coordinates, &lengths, 1.0);
+    let mut sizing = vec![0.75; coordinates.len()];
+    split_long_edges(&mut connectivity, &mut coordinates, &lengths, &mut sizing);
     assert_eq!(connectivity.len(), 4);
     assert_eq!(coordinates.len(), 6);
 }
@@ -106,7 +109,8 @@ fn collapse_merges_short_edge() -> Result<(), TestError> {
         [0.0, 0.0, -1.0],
     ]);
     let lengths = edge_lengths(&connectivity, &coordinates);
-    collapse_short_edges(&mut connectivity, &mut coordinates, &lengths, 0.5, 10.0);
+    let mut sizing = vec![1.6; coordinates.len()];
+    collapse_short_edges(&mut connectivity, &mut coordinates, &lengths, &mut sizing);
     assert_eq!(
         connectivity.len(),
         6,
