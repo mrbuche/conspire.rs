@@ -6,6 +6,7 @@ mod connectivity;
 mod differential;
 mod from;
 mod into;
+mod quality;
 mod read;
 mod remesh;
 mod smooth;
