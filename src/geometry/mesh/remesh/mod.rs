@@ -1,3 +1,4 @@
+mod adaptive;
 mod isotropic;
 
 use crate::{geometry::mesh::Mesh, math::Scalar};

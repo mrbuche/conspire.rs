@@ -2,8 +2,8 @@
 mod test;
 
 use crate::{
-    geometry::Coordinate,
-    math::{CrossProduct, Scalar, SquareMatrix, Tensor, Vector},
+    geometry::{Coordinate, Coordinates},
+    math::{CrossProduct, FxHashSet, Scalar, SquareMatrix, Tensor, Vector},
 };
 
 pub struct Jet {
@@ -63,4 +63,39 @@ pub fn fit_jet(
         normal,
         principal_curvatures: [mean + spread, mean - spread],
     })
+}
+
+pub fn vertex_jets(connectivity: &[[usize; 3]], coordinates: &Coordinates<3>) -> Vec<Option<Jet>> {
+    let count = coordinates.len();
+    let mut neighbors: Vec<FxHashSet<usize>> = vec![FxHashSet::default(); count];
+    let mut normals = vec![[0.0; 3]; count];
+    for &[a, b, c] in connectivity {
+        for (i, j) in [(a, b), (b, c), (c, a)] {
+            neighbors[i].insert(j);
+            neighbors[j].insert(i);
+        }
+        let (e1, e2) = (
+            &coordinates[b] - &coordinates[a],
+            &coordinates[c] - &coordinates[a],
+        );
+        let face = [
+            e1[1] * e2[2] - e1[2] * e2[1],
+            e1[2] * e2[0] - e1[0] * e2[2],
+            e1[0] * e2[1] - e1[1] * e2[0],
+        ];
+        for vertex in [a, b, c] {
+            (0..3).for_each(|k| normals[vertex][k] += face[k]);
+        }
+    }
+    (0..count)
+        .map(|vertex| {
+            let mut ring = neighbors[vertex].clone();
+            neighbors[vertex]
+                .iter()
+                .for_each(|&w| ring.extend(&neighbors[w]));
+            ring.remove(&vertex);
+            let points: Vec<Coordinate<3>> = ring.iter().map(|&w| coordinates[w].clone()).collect();
+            fit_jet(&coordinates[vertex], &points, &normals[vertex].into())
+        })
+        .collect()
 }

@@ -1,8 +1,30 @@
-use super::fit_jet;
+use super::{fit_jet, vertex_jets};
 use crate::{
-    geometry::Coordinate,
+    geometry::{Coordinate, Coordinates},
     math::test::{TestError, assert_eq_within_tols},
 };
+
+fn flat_grid(n: usize) -> (Vec<[usize; 3]>, Coordinates<3>) {
+    let coordinates = Coordinates::from(
+        (0..n)
+            .flat_map(|i| (0..n).map(move |j| [i as f64, j as f64, 0.0]))
+            .collect::<Vec<_>>(),
+    );
+    let mut connectivity = Vec::new();
+    for i in 0..n - 1 {
+        for j in 0..n - 1 {
+            let (v00, v10, v01, v11) = (
+                i * n + j,
+                (i + 1) * n + j,
+                i * n + j + 1,
+                (i + 1) * n + j + 1,
+            );
+            connectivity.push([v00, v10, v11]);
+            connectivity.push([v00, v11, v01]);
+        }
+    }
+    (connectivity, coordinates)
+}
 
 #[test]
 fn paraboloid_recovers_exact_curvatures() -> Result<(), TestError> {
@@ -49,4 +71,14 @@ fn sphere_has_uniform_curvature() {
             .iter()
             .all(|&curvature| curvature < 0.0)
     );
+}
+
+#[test]
+fn flat_grid_interior_has_zero_curvature() {
+    let (connectivity, coordinates) = flat_grid(5);
+    let jets = vertex_jets(&connectivity, &coordinates);
+    let center = jets[2 * 5 + 2]
+        .as_ref()
+        .expect("interior vertex should fit");
+    assert!(center.max_abs_curvature() < 1.0e-9);
 }
