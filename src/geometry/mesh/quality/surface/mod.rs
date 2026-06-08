@@ -2,7 +2,7 @@
 mod test;
 
 use crate::geometry::mesh::Mesh;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 impl<const D: usize> Mesh<D> {
     pub fn boundary_edges(&self) -> Vec<[usize; 2]> {
@@ -29,6 +29,79 @@ impl<const D: usize> Mesh<D> {
         }
         loops
     }
+    pub fn non_manifold_edges(&self) -> Vec<[usize; 2]> {
+        self.edge_incidence()
+            .into_values()
+            .filter_map(|(edge, count)| (count > 2).then_some(edge))
+            .collect()
+    }
+    pub fn non_manifold_seams(&self) -> Vec<Vec<[usize; 2]>> {
+        let edges = self.non_manifold_edges();
+        let mut incident = HashMap::<usize, Vec<usize>>::new();
+        for (e, &[a, b]) in edges.iter().enumerate() {
+            incident.entry(a).or_default().push(e);
+            incident.entry(b).or_default().push(e);
+        }
+        let mut visited = vec![false; edges.len()];
+        let mut seams = Vec::new();
+        for start in 0..edges.len() {
+            if visited[start] {
+                continue;
+            }
+            visited[start] = true;
+            let mut seam = Vec::new();
+            let mut stack = vec![start];
+            while let Some(e) = stack.pop() {
+                seam.push(edges[e]);
+                for node in edges[e] {
+                    incident[&node].iter().for_each(|&other| {
+                        if !visited[other] {
+                            visited[other] = true;
+                            stack.push(other);
+                        }
+                    });
+                }
+            }
+            seams.push(seam);
+        }
+        seams
+    }
+    pub fn non_manifold_vertices(&self) -> Vec<usize> {
+        let mut faces = Vec::new();
+        self.iter()
+            .for_each(|block| block.iter().for_each(|element| faces.push(element.to_vec())));
+        let mut edge_faces = HashMap::<[usize; 2], Vec<usize>>::new();
+        let mut vertex_faces = HashMap::<usize, Vec<usize>>::new();
+        for (f, face) in faces.iter().enumerate() {
+            for (i, &v) in face.iter().enumerate() {
+                vertex_faces.entry(v).or_default().push(f);
+                let w = face[(i + 1) % face.len()];
+                edge_faces.entry(edge(v, w)).or_default().push(f);
+            }
+        }
+        let mut non_manifold = Vec::new();
+        for (&v, incident) in &vertex_faces {
+            let local: HashMap<usize, usize> =
+                incident.iter().enumerate().map(|(i, &f)| (f, i)).collect();
+            let mut parent: Vec<usize> = (0..incident.len()).collect();
+            for &f in incident {
+                let face = &faces[f];
+                let (len, pos) = (face.len(), face.iter().position(|&n| n == v).unwrap());
+                for x in [face[(pos + len - 1) % len], face[(pos + 1) % len]] {
+                    if let Some(shared) = edge_faces.get(&edge(v, x))
+                        && shared.len() == 2
+                    {
+                        union(&mut parent, local[&shared[0]], local[&shared[1]]);
+                    }
+                }
+            }
+            let fans: HashSet<usize> = (0..incident.len()).map(|i| find(&mut parent, i)).collect();
+            if fans.len() > 1 {
+                non_manifold.push(v);
+            }
+        }
+        non_manifold
+    }
     fn edge_incidence(&self) -> HashMap<[usize; 2], ([usize; 2], usize)> {
         let mut edges = HashMap::new();
         self.iter().for_each(|block| {
@@ -50,4 +123,20 @@ impl<const D: usize> Mesh<D> {
         });
         edges
     }
+}
+
+fn edge(a: usize, b: usize) -> [usize; 2] {
+    if a < b { [a, b] } else { [b, a] }
+}
+
+fn find(parent: &mut [usize], i: usize) -> usize {
+    if parent[i] != i {
+        parent[i] = find(parent, parent[i]);
+    }
+    parent[i]
+}
+
+fn union(parent: &mut [usize], a: usize, b: usize) {
+    let (a, b) = (find(parent, a), find(parent, b));
+    parent[a] = b;
 }
