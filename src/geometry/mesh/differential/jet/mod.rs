@@ -6,8 +6,10 @@ use crate::{
     math::{CrossProduct, FxHashSet, Scalar, SquareMatrix, Tensor, Vector},
 };
 
+const D: usize = 3;
+
 pub struct Jet {
-    pub normal: Coordinate<3>,
+    pub normal: Coordinate<D>,
     pub principal_curvatures: [Scalar; 2],
 }
 
@@ -20,21 +22,21 @@ impl Jet {
 }
 
 pub fn fit_jet(
-    center: &Coordinate<3>,
-    neighbors: &[Coordinate<3>],
-    normal_guess: &Coordinate<3>,
+    center: &Coordinate<D>,
+    neighbors: &Coordinates<D>,
+    normal_guess: &Coordinate<D>,
 ) -> Option<Jet> {
     if neighbors.len() < 5 {
         return None;
     }
     let w = normal_guess.clone().normalized();
-    let reference: Coordinate<3> = if w[0].abs() < 0.9 {
-        [1.0, 0.0, 0.0].into()
+    let reference = if w[0].abs() < 0.9 {
+        Coordinate::const_from([1.0, 0.0, 0.0])
     } else {
-        [0.0, 1.0, 0.0].into()
+        Coordinate::const_from([0.0, 1.0, 0.0])
     };
-    let u = w.clone().cross(reference).normalized();
-    let v = w.clone().cross(u.clone());
+    let u = w.cross(reference).normalized();
+    let v = w.cross(&u);
     let mut normal_equations = SquareMatrix::zero(5);
     let mut rhs = Vector::zero(5);
     for neighbor in neighbors {
@@ -65,10 +67,10 @@ pub fn fit_jet(
     })
 }
 
-pub fn vertex_jets(connectivity: &[[usize; 3]], coordinates: &Coordinates<3>) -> Vec<Option<Jet>> {
+pub fn vertex_jets(connectivity: &[[usize; 3]], coordinates: &Coordinates<D>) -> Vec<Option<Jet>> {
     let count = coordinates.len();
-    let mut neighbors: Vec<FxHashSet<usize>> = vec![FxHashSet::default(); count];
-    let mut normals = vec![[0.0; 3]; count];
+    let mut neighbors = vec![FxHashSet::default(); count];
+    let mut normals = Coordinates::zero(count);
     for &[a, b, c] in connectivity {
         for (i, j) in [(a, b), (b, c), (c, a)] {
             neighbors[i].insert(j);
@@ -78,13 +80,13 @@ pub fn vertex_jets(connectivity: &[[usize; 3]], coordinates: &Coordinates<3>) ->
             &coordinates[b] - &coordinates[a],
             &coordinates[c] - &coordinates[a],
         );
-        let face = [
+        let face = Coordinate::const_from([
             e1[1] * e2[2] - e1[2] * e2[1],
             e1[2] * e2[0] - e1[0] * e2[2],
             e1[0] * e2[1] - e1[1] * e2[0],
-        ];
+        ]);
         for vertex in [a, b, c] {
-            (0..3).for_each(|k| normals[vertex][k] += face[k]);
+            normals[vertex] += &face;
         }
     }
     (0..count)
@@ -94,8 +96,8 @@ pub fn vertex_jets(connectivity: &[[usize; 3]], coordinates: &Coordinates<3>) ->
                 .iter()
                 .for_each(|&w| ring.extend(&neighbors[w]));
             ring.remove(&vertex);
-            let points: Vec<Coordinate<3>> = ring.iter().map(|&w| coordinates[w].clone()).collect();
-            fit_jet(&coordinates[vertex], &points, &normals[vertex].into())
+            let points = ring.iter().map(|&w| coordinates[w].clone()).collect();
+            fit_jet(&coordinates[vertex], &points, &normals[vertex])
         })
         .collect()
 }
