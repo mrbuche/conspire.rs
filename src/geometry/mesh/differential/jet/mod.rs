@@ -76,15 +76,7 @@ pub fn vertex_jets(connectivity: &[[usize; 3]], coordinates: &Coordinates<D>) ->
             neighbors[i].insert(j);
             neighbors[j].insert(i);
         }
-        let (e1, e2) = (
-            &coordinates[b] - &coordinates[a],
-            &coordinates[c] - &coordinates[a],
-        );
-        let face = Coordinate::const_from([
-            e1[1] * e2[2] - e1[2] * e2[1],
-            e1[2] * e2[0] - e1[0] * e2[2],
-            e1[0] * e2[1] - e1[1] * e2[0],
-        ]);
+        let face = (&coordinates[b] - &coordinates[a]).cross(&coordinates[c] - &coordinates[a]);
         for vertex in [a, b, c] {
             normals[vertex] += &face;
         }
