@@ -8,8 +8,6 @@ use crate::{
 
 const N: usize = 3;
 
-/// Per-vertex target edge length: curvature (via [`vertex_jets`]) mapped through the Dunyach
-/// sizing law, then graduated so the field is Lipschitz.
 pub fn sizing_field(
     connectivity: &[[usize; N]],
     coordinates: &Coordinates<3>,
@@ -30,7 +28,6 @@ pub fn sizing_field(
     field
 }
 
-/// `L = sqrt(6*e/k - 3*e^2)` (chord error `e`, curvature `k`), clamped to `[minimum, maximum]`.
 fn dunyach_length(
     curvature: Scalar,
     tolerance: Scalar,
@@ -49,8 +46,6 @@ fn dunyach_length(
     length.clamp(minimum, maximum)
 }
 
-/// Enforces `|L_i - L_j| <= gradation * ||x_i - x_j||` over edges by min-propagation to a
-/// fixed point, so target size never changes faster than the gradation slope.
 fn graduate(
     field: &mut [Scalar],
     connectivity: &[[usize; N]],
