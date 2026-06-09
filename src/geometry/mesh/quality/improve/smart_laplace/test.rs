@@ -58,7 +58,7 @@ fn interior_node_recenters_without_dropping_quality() {
     let center: Coordinate<3> = [1.0, 1.0, 1.0].into();
     let before = minimum_scaled(&mesh);
     let offset = (&mesh.coordinates()[13] - &center).norm();
-    mesh.smart_laplace_smooth(10);
+    mesh.smart_laplace_smooth(10, 1.0);
     assert!(minimum_scaled(&mesh) >= before);
     assert!((&mesh.coordinates()[13] - &center).norm() < offset);
 }
@@ -68,7 +68,7 @@ fn perfect_grid_does_not_move() {
     let (connectivity, coordinates) = grid();
     let mut mesh = mesh(connectivity, coordinates);
     let before: Vec<_> = mesh.coordinates().iter().cloned().collect();
-    mesh.smart_laplace_smooth(5);
+    mesh.smart_laplace_smooth(5, 1.0);
     mesh.coordinates()
         .iter()
         .zip(before)

@@ -8,7 +8,7 @@ use crate::{
 };
 
 impl<const D: usize> Mesh<D> {
-    pub fn smart_laplace_smooth(&mut self, iterations: usize) {
+    pub fn smart_laplace_smooth(&mut self, iterations: usize, scale: Scalar) {
         let number_of_nodes = self.number_of_nodes();
         let neighbors = self.node_node_connectivity().to_vec();
         let node_elements = self.node_element_connectivity().to_vec();
@@ -37,11 +37,12 @@ impl<const D: usize> Mesh<D> {
                     &coordinates,
                 );
                 let original = coordinates[node].clone();
-                coordinates[node] = neighbors[node]
+                let centroid = neighbors[node]
                     .iter()
                     .map(|&neighbor| &coordinates[neighbor])
                     .sum::<Coordinate<D>>()
                     / (neighbors[node].len() as Scalar);
+                coordinates[node] += (centroid - &original) * scale;
                 let after = incident_quality(
                     node,
                     &node_elements,
