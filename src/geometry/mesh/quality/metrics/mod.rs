@@ -11,11 +11,18 @@ use crate::{
 use std::array::from_fn;
 
 pub trait Verdict {
+    fn minimum_edge_ratios(&self) -> Vec<Vec<Scalar>>;
     fn minimum_jacobians(&self) -> Vec<Vec<Scalar>>;
     fn minimum_scaled_jacobians(&self) -> Vec<Vec<Scalar>>;
 }
 
 impl Verdict for Mesh<3> {
+    fn minimum_edge_ratios(&self) -> Vec<Vec<Scalar>> {
+        let coordinates = self.coordinates();
+        self.iter()
+            .map(|block| block_minimum_edge_ratios(block, coordinates))
+            .collect()
+    }
     fn minimum_jacobians(&self) -> Vec<Vec<Scalar>> {
         let coordinates = self.coordinates();
         self.iter()
@@ -27,6 +34,20 @@ impl Verdict for Mesh<3> {
         self.iter()
             .map(|block| block_minimum_scaled_jacobians(block, coordinates))
             .collect()
+    }
+}
+
+fn block_minimum_edge_ratios(block: &Connectivity, coordinates: &Coordinates<3>) -> Vec<Scalar> {
+    match block {
+        Connectivity::Hexahedral(elements) => elements
+            .iter()
+            .map(|element| hexahedron::minimum_edge_ratio(element, coordinates))
+            .collect(),
+        Connectivity::Tetrahedral(elements) => elements
+            .iter()
+            .map(|element| tetrahedron::minimum_edge_ratio(element, coordinates))
+            .collect(),
+        _ => todo!(),
     }
 }
 
@@ -58,6 +79,25 @@ fn block_minimum_scaled_jacobians(
             .map(|element| tetrahedron::minimum_scaled_jacobian(element, coordinates))
             .collect(),
         _ => todo!(),
+    }
+}
+
+fn minimum_edge_ratio<const E: usize>(
+    edges: &[[usize; 2]; E],
+    element: &[usize],
+    coordinates: &Coordinates<3>,
+) -> Scalar {
+    let mut shortest = Scalar::INFINITY;
+    let mut longest: Scalar = 0.0;
+    for [a, b] in edges {
+        let length = (&coordinates[element[*b]] - &coordinates[element[*a]]).norm();
+        shortest = shortest.min(length);
+        longest = longest.max(length);
+    }
+    if shortest > 0.0 {
+        longest / shortest
+    } else {
+        Scalar::INFINITY
     }
 }
 

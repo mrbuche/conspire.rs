@@ -20,16 +20,17 @@ fn right_tet_jacobian_is_six_volumes() {
         [0.0, 1.0, 0.0],
         [0.0, 0.0, 1.0],
     ]);
-    assert_eq!(mesh.jacobians(), vec![vec![1.0]]);
-    let scaled = mesh.scaled_jacobians()[0][0];
+    assert_eq!(mesh.minimum_jacobians(), vec![vec![1.0]]);
+    let scaled = mesh.minimum_scaled_jacobians()[0][0];
     assert!(scaled > 0.0 && scaled <= 1.0);
 }
 
 #[test]
 fn regular_tet_is_perfect() {
     let mesh = tet(REGULAR_TET.to_vec());
-    assert!((mesh.scaled_jacobians()[0][0] - 1.0).abs() < 1.0e-12);
-    assert!(mesh.jacobians()[0][0] > 0.0);
+    assert!((mesh.minimum_scaled_jacobians()[0][0] - 1.0).abs() < 1.0e-12);
+    assert!(mesh.minimum_jacobians()[0][0] > 0.0);
+    assert!((mesh.minimum_edge_ratios()[0][0] - 1.0).abs() < 1.0e-12);
 }
 
 #[test]
@@ -37,6 +38,6 @@ fn inverted_tet_is_negative() {
     let mut coordinates = REGULAR_TET.to_vec();
     coordinates.swap(1, 2);
     let mesh = tet(coordinates);
-    assert!(mesh.scaled_jacobians()[0][0] < 0.0);
-    assert!(mesh.jacobians()[0][0] < 0.0);
+    assert!(mesh.minimum_scaled_jacobians()[0][0] < 0.0);
+    assert!(mesh.minimum_jacobians()[0][0] < 0.0);
 }

@@ -14,6 +14,25 @@ const CORNERS: [[usize; 3]; 8] = [
     [6, 4, 3],
 ];
 
+const EDGES: [[usize; 2]; 12] = [
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [3, 0],
+    [4, 5],
+    [5, 6],
+    [6, 7],
+    [7, 4],
+    [0, 4],
+    [1, 5],
+    [2, 6],
+    [3, 7],
+];
+
+pub(super) fn minimum_edge_ratio(element: &[usize], coordinates: &Coordinates<3>) -> Scalar {
+    super::minimum_edge_ratio(&EDGES, element, coordinates)
+}
+
 pub(super) fn minimum_jacobian(element: &[usize], coordinates: &Coordinates<3>) -> Scalar {
     super::min_jacobian(&CORNERS, element, coordinates)
 }
