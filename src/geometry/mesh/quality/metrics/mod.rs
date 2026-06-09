@@ -14,21 +14,21 @@ use crate::{
 use std::array::from_fn;
 
 pub trait Verdict {
-    fn jacobians(&self) -> Vec<Scalar>;
-    fn scaled_jacobians(&self) -> Vec<Scalar>;
+    fn jacobians(&self) -> Vec<Vec<Scalar>>;
+    fn scaled_jacobians(&self) -> Vec<Vec<Scalar>>;
 }
 
 impl Verdict for Mesh<3> {
-    fn jacobians(&self) -> Vec<Scalar> {
+    fn jacobians(&self) -> Vec<Vec<Scalar>> {
         let coordinates = self.coordinates();
         self.iter()
-            .flat_map(|block| block_jacobians(block, coordinates))
+            .map(|block| block_jacobians(block, coordinates))
             .collect()
     }
-    fn scaled_jacobians(&self) -> Vec<Scalar> {
+    fn scaled_jacobians(&self) -> Vec<Vec<Scalar>> {
         let coordinates = self.coordinates();
         self.iter()
-            .flat_map(|block| block_scaled_jacobians(block, coordinates))
+            .map(|block| block_scaled_jacobians(block, coordinates))
             .collect()
     }
 }
