@@ -13,7 +13,7 @@ const D: usize = 3;
 const N: usize = 3;
 
 impl Mesh<3> {
-    pub(super) fn adaptive_remesh(
+    pub(crate) fn adaptive_remesh(
         self,
         iterations: usize,
         tolerance: Scalar,

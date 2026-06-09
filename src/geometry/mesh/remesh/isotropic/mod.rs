@@ -4,7 +4,7 @@ use crate::{
 };
 
 impl<const D: usize> Mesh<D> {
-    pub(super) fn isotropic_remesh(
+    pub(crate) fn isotropic_remesh(
         self,
         iterations: usize,
         length: Option<Scalar>,
