@@ -188,6 +188,19 @@ impl Kind {
     }
 }
 
+pub(super) fn minimum_jacobian<const D: usize>(
+    kind: Kind,
+    element: &[usize],
+    coordinates: &Coordinates<D>,
+) -> Scalar {
+    match kind {
+        Kind::Triangle => triangle::minimum_jacobian(element, coordinates),
+        Kind::Quadrilateral => quadrilateral::minimum_jacobian(element, coordinates),
+        Kind::Tetrahedron => tetrahedron::minimum_jacobian(element, coordinates),
+        Kind::Hexahedron => hexahedron::minimum_jacobian(element, coordinates),
+    }
+}
+
 pub(super) fn minimum_scaled_jacobian<const D: usize>(
     kind: Kind,
     element: &[usize],
