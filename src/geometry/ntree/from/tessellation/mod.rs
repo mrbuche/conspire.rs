@@ -1,5 +1,7 @@
 use crate::{
     geometry::{
+        Coordinate, CoordinateList,
+        bbox::BoundingBox,
         bvh::BoundingVolumeHierarchy,
         mesh::Tessellation,
         ntree::{
@@ -91,27 +93,62 @@ where
             }],
             paired: Pairing::None,
         };
-        let int_coords: Vec<[T; D]> = coordinates
+        let elements: Vec<&[usize]> = tessellation
+            .mesh()
+            .connectivities()
             .iter()
-            .map(|point| {
-                from_fn(|ax| {
-                    let v = ((point[ax] - center[ax]) / min_length + root_length as f64 / 2.0)
-                        .floor() as i64;
-                    T::from(v.clamp(0, root_length as i64 - 1) as u16)
-                })
-            })
+            .flatten()
             .collect();
-        for (vertex, int_coord) in int_coords.iter().enumerate() {
-            let diameter = sdf[vertex];
-            loop {
-                let index = super::find_leaf(&tree, int_coord);
-                let length = tree.nodes[index].length;
-                let cells: usize = length.into();
-                let extent: Scalar = length.into();
-                if cells <= 1 || (extent * min_length) * scale <= diameter {
-                    break;
+        let targets: Vec<Scalar> = elements
+            .iter()
+            .map(|element| sdf[element[0]].min(sdf[element[1]]).min(sdf[element[2]]))
+            .collect();
+        let half = root_length as Scalar / 2.0;
+        let overlaps = |bbox: &BoundingBox<3>, triangle: usize| {
+            let element = elements[triangle];
+            bbox.overlaps_triangle(
+                &coordinates[element[0]],
+                &coordinates[element[1]],
+                &coordinates[element[2]],
+            )
+        };
+        let mut stack: Vec<(usize, Vec<usize>)> = vec![(0, (0..elements.len()).collect())];
+        while let Some((index, overlapping)) = stack.pop() {
+            let cells: usize = tree.nodes[index].length.into();
+            let extent: Scalar = tree.nodes[index].length.into();
+            let target = overlapping
+                .iter()
+                .map(|&triangle| targets[triangle])
+                .fold(f64::INFINITY, f64::min);
+            if cells <= 1 || (extent * min_length) * scale <= target {
+                continue;
+            }
+            if tree.subdivide(U::from(index)).is_err() {
+                continue;
+            }
+            let children: Vec<usize> = tree.nodes[index]
+                .orthants()
+                .unwrap()
+                .iter()
+                .map(|&child| child.into())
+                .collect();
+            for child in children {
+                let corner = tree.nodes[child].corner;
+                let child_extent: Scalar = tree.nodes[child].length.into();
+                let minimum = Coordinate::const_from(from_fn(|ax| {
+                    center[ax] + (Into::<Scalar>::into(corner[ax]) - half) * min_length
+                }));
+                let maximum =
+                    Coordinate::const_from(from_fn(|ax| minimum[ax] + child_extent * min_length));
+                let bbox = BoundingBox::from(CoordinateList::const_from([minimum, maximum]));
+                let inside: Vec<usize> = overlapping
+                    .iter()
+                    .copied()
+                    .filter(|&triangle| overlaps(&bbox, triangle))
+                    .collect();
+                if !inside.is_empty() {
+                    stack.push((child, inside));
                 }
-                tree.subdivide(U::from(index)).ok();
             }
         }
         (tree, bvh)

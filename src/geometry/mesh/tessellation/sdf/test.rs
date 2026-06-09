@@ -106,5 +106,11 @@ fn foo() {
     // until each edge's nodes SDF values are less than the edge length
     // that could be an iterative process we should make efficient very carefully
     //
+    // or could subdivide any edges that touch a vertex with SDF smaller than the edge length
+    // and just compute SDF again on those triangles
+    //
+    // unless there is some relatively cheap way to check if triangle intersects edge/face
+    // and then can interpolate between nearby nodes
+    //
     mesh.write(Output::Exodus("target/bunny.exo")).unwrap();
 }
