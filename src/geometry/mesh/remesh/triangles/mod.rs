@@ -15,8 +15,6 @@ const N: usize = 3;
 const SPLIT_ABOVE: Scalar = 4.0 / 3.0;
 const COLLAPSE_BELOW: Scalar = 4.0 / 5.0;
 
-/// The shared remeshing loop. `sizing_of` produces the per-vertex target-length field for the
-/// current mesh each iteration: a uniform field for isotropic, a curvature field for adaptive.
 pub(super) fn remesh<const D: usize, F>(
     connectivity: &mut Vec<[usize; N]>,
     coordinates: &mut Coordinates<D>,
@@ -26,10 +24,7 @@ pub(super) fn remesh<const D: usize, F>(
 where
     F: FnMut(&[[usize; N]], &Coordinates<D>, &FxHashMap<(usize, usize), Scalar>) -> Vec<Scalar>,
 {
-    // The reprojection target is the original surface, fixed for every iteration so geometry
-    // is preserved. It only exists in 3D, where the BVH closest-point query is defined.
     let surface = (D == 3).then(|| {
-        // SAFETY: D == 3, so Coordinates<D> and Coordinates<3> are the same type.
         let coordinates: &Coordinates<3> =
             unsafe { &*(&*coordinates as *const Coordinates<D>).cast() };
         Surface::new(connectivity, coordinates)
@@ -46,7 +41,6 @@ where
         flip_edges(connectivity, coordinates);
         tangential_smooth(connectivity, coordinates);
         if let Some(surface) = &surface {
-            // SAFETY: `surface` is only `Some` when D == 3.
             let coordinates: &mut Coordinates<3> =
                 unsafe { &mut *(coordinates as *mut Coordinates<D>).cast() };
             surface.reproject(coordinates);
