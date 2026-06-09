@@ -1,8 +1,10 @@
 #[cfg(test)]
 mod test;
 
-use crate::geometry::mesh::Mesh;
-use std::collections::{HashMap, HashSet};
+use crate::{
+    geometry::mesh::Mesh,
+    math::{FxHashMap, FxHashSet},
+};
 
 impl<const D: usize> Mesh<D> {
     pub fn boundary_edges(&self) -> Vec<[usize; 2]> {
@@ -12,8 +14,11 @@ impl<const D: usize> Mesh<D> {
             .collect()
     }
     pub fn boundary_loops(&self) -> Vec<Vec<usize>> {
-        let mut next: HashMap<usize, usize> =
-            self.boundary_edges().into_iter().map(|[a, b]| (a, b)).collect();
+        let mut next: FxHashMap<usize, usize> = self
+            .boundary_edges()
+            .into_iter()
+            .map(|[a, b]| (a, b))
+            .collect();
         let mut loops = Vec::new();
         while let Some(&start) = next.keys().next() {
             let mut nodes = vec![start];
@@ -37,7 +42,7 @@ impl<const D: usize> Mesh<D> {
     }
     pub fn non_manifold_seams(&self) -> Vec<Vec<[usize; 2]>> {
         let edges = self.non_manifold_edges();
-        let mut incident = HashMap::<usize, Vec<usize>>::new();
+        let mut incident = FxHashMap::<usize, Vec<usize>>::default();
         for (e, &[a, b]) in edges.iter().enumerate() {
             incident.entry(a).or_default().push(e);
             incident.entry(b).or_default().push(e);
@@ -68,10 +73,13 @@ impl<const D: usize> Mesh<D> {
     }
     pub fn non_manifold_vertices(&self) -> Vec<usize> {
         let mut faces = Vec::new();
-        self.iter()
-            .for_each(|block| block.iter().for_each(|element| faces.push(element.to_vec())));
-        let mut edge_faces = HashMap::<[usize; 2], Vec<usize>>::new();
-        let mut vertex_faces = HashMap::<usize, Vec<usize>>::new();
+        self.iter().for_each(|block| {
+            block
+                .iter()
+                .for_each(|element| faces.push(element.to_vec()))
+        });
+        let mut edge_faces = FxHashMap::<[usize; 2], Vec<usize>>::default();
+        let mut vertex_faces = FxHashMap::<usize, Vec<usize>>::default();
         for (f, face) in faces.iter().enumerate() {
             for (i, &v) in face.iter().enumerate() {
                 vertex_faces.entry(v).or_default().push(f);
@@ -81,7 +89,7 @@ impl<const D: usize> Mesh<D> {
         }
         let mut non_manifold = Vec::new();
         for (&v, incident) in &vertex_faces {
-            let local: HashMap<usize, usize> =
+            let local: FxHashMap<usize, usize> =
                 incident.iter().enumerate().map(|(i, &f)| (f, i)).collect();
             let mut parent: Vec<usize> = (0..incident.len()).collect();
             for &f in incident {
@@ -95,15 +103,16 @@ impl<const D: usize> Mesh<D> {
                     }
                 }
             }
-            let fans: HashSet<usize> = (0..incident.len()).map(|i| find(&mut parent, i)).collect();
+            let fans: FxHashSet<usize> =
+                (0..incident.len()).map(|i| find(&mut parent, i)).collect();
             if fans.len() > 1 {
                 non_manifold.push(v);
             }
         }
         non_manifold
     }
-    fn edge_incidence(&self) -> HashMap<[usize; 2], ([usize; 2], usize)> {
-        let mut edges = HashMap::new();
+    fn edge_incidence(&self) -> FxHashMap<[usize; 2], ([usize; 2], usize)> {
+        let mut edges = FxHashMap::default();
         self.iter().for_each(|block| {
             let local_edges = block.local_faces();
             block.iter().for_each(|element| {
