@@ -29,14 +29,20 @@ const EDGES: [[usize; 2]; 12] = [
     [3, 7],
 ];
 
-pub(super) fn minimum_edge_ratio(element: &[usize], coordinates: &Coordinates<3>) -> Scalar {
-    super::minimum_edge_ratio(&EDGES, element, coordinates)
+pub(super) fn maximum_edge_ratio<const D: usize>(element: &[usize], coordinates: &Coordinates<D>) -> Scalar {
+    super::maximum_edge_ratio(&EDGES, element, coordinates)
 }
 
-pub(super) fn minimum_jacobian(element: &[usize], coordinates: &Coordinates<3>) -> Scalar {
+pub(super) fn minimum_jacobian<const D: usize>(
+    element: &[usize],
+    coordinates: &Coordinates<D>,
+) -> Scalar {
     super::min_jacobian(&CORNERS, element, coordinates)
 }
 
-pub(super) fn minimum_scaled_jacobian(element: &[usize], coordinates: &Coordinates<3>) -> Scalar {
+pub(super) fn minimum_scaled_jacobian<const D: usize>(
+    element: &[usize],
+    coordinates: &Coordinates<D>,
+) -> Scalar {
     super::min_scaled_jacobian(&CORNERS, element, coordinates, 1.0)
 }

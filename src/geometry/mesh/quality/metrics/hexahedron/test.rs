@@ -23,7 +23,7 @@ fn unit_cube_is_perfect() {
     let mesh = hex(UNIT_CUBE.to_vec());
     assert_eq!(mesh.minimum_jacobians(), vec![vec![1.0]]);
     assert_eq!(mesh.minimum_scaled_jacobians(), vec![vec![1.0]]);
-    assert_eq!(mesh.minimum_edge_ratios(), vec![vec![1.0]]);
+    assert_eq!(mesh.maximum_edge_ratios(), vec![vec![1.0]]);
 }
 
 #[test]
@@ -31,13 +31,13 @@ fn scaled_is_normalized_jacobian_is_volume() {
     let mesh = hex(UNIT_CUBE.map(|point| point.map(|x| 2.0 * x)).to_vec());
     assert_eq!(mesh.minimum_jacobians(), vec![vec![8.0]]);
     assert_eq!(mesh.minimum_scaled_jacobians(), vec![vec![1.0]]);
-    assert_eq!(mesh.minimum_edge_ratios(), vec![vec![1.0]]);
+    assert_eq!(mesh.maximum_edge_ratios(), vec![vec![1.0]]);
 }
 
 #[test]
 fn stretched_hex_edge_ratio_is_longest_over_shortest() {
     let mesh = hex(UNIT_CUBE.map(|[x, y, z]| [x, y, 4.0 * z]).to_vec());
-    assert_eq!(mesh.minimum_edge_ratios(), vec![vec![4.0]]);
+    assert_eq!(mesh.maximum_edge_ratios(), vec![vec![4.0]]);
 }
 
 #[test]

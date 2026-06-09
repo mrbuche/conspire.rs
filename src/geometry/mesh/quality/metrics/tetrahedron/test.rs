@@ -30,7 +30,7 @@ fn regular_tet_is_perfect() {
     let mesh = tet(REGULAR_TET.to_vec());
     assert!((mesh.minimum_scaled_jacobians()[0][0] - 1.0).abs() < 1.0e-12);
     assert!(mesh.minimum_jacobians()[0][0] > 0.0);
-    assert!((mesh.minimum_edge_ratios()[0][0] - 1.0).abs() < 1.0e-12);
+    assert!((mesh.maximum_edge_ratios()[0][0] - 1.0).abs() < 1.0e-12);
 }
 
 #[test]
