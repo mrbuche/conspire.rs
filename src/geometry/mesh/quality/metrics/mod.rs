@@ -1,6 +1,3 @@
-#[cfg(test)]
-mod test;
-
 mod hexahedron;
 mod tetrahedron;
 

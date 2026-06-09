@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 use crate::{geometry::Coordinates, math::Scalar};
 use std::f64::consts::SQRT_2;
 
