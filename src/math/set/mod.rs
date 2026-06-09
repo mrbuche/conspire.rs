@@ -14,6 +14,9 @@ impl<S> Set<S> {
     pub fn members(&self) -> &S {
         &self.members
     }
+    pub fn members_mut(&mut self) -> &mut S {
+        &mut self.members
+    }
     pub fn into_members(self) -> S {
         self.members
     }

@@ -23,7 +23,7 @@ impl<const D: usize> Mesh<D> {
                 block.iter().map(move |_| kind)
             })
             .collect();
-        let mut coordinates = self.coordinates().clone();
+        let coordinates = self.coordinates.members_mut();
         for _ in 0..iterations {
             for node in 0..number_of_nodes {
                 if neighbors[node].is_empty() {
@@ -34,7 +34,7 @@ impl<const D: usize> Mesh<D> {
                     &node_elements,
                     &element_nodes,
                     &element_kinds,
-                    &coordinates,
+                    coordinates,
                 );
                 let original = coordinates[node].clone();
                 let centroid = neighbors[node]
@@ -48,17 +48,13 @@ impl<const D: usize> Mesh<D> {
                     &node_elements,
                     &element_nodes,
                     &element_kinds,
-                    &coordinates,
+                    coordinates,
                 );
                 if after < before {
                     coordinates[node] = original;
                 }
             }
         }
-        self.coordinates
-            .iter_mut()
-            .zip(coordinates)
-            .for_each(|(coordinate, smoothed)| *coordinate = smoothed);
     }
 }
 
