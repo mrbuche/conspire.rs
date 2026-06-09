@@ -11,48 +11,51 @@ use crate::{
 use std::array::from_fn;
 
 pub trait Verdict {
-    fn jacobians(&self) -> Vec<Vec<Scalar>>;
-    fn scaled_jacobians(&self) -> Vec<Vec<Scalar>>;
+    fn minimum_jacobians(&self) -> Vec<Vec<Scalar>>;
+    fn minimum_scaled_jacobians(&self) -> Vec<Vec<Scalar>>;
 }
 
 impl Verdict for Mesh<3> {
-    fn jacobians(&self) -> Vec<Vec<Scalar>> {
+    fn minimum_jacobians(&self) -> Vec<Vec<Scalar>> {
         let coordinates = self.coordinates();
         self.iter()
-            .map(|block| block_jacobians(block, coordinates))
+            .map(|block| block_minimum_jacobians(block, coordinates))
             .collect()
     }
-    fn scaled_jacobians(&self) -> Vec<Vec<Scalar>> {
+    fn minimum_scaled_jacobians(&self) -> Vec<Vec<Scalar>> {
         let coordinates = self.coordinates();
         self.iter()
-            .map(|block| block_scaled_jacobians(block, coordinates))
+            .map(|block| block_minimum_scaled_jacobians(block, coordinates))
             .collect()
     }
 }
 
-fn block_jacobians(block: &Connectivity, coordinates: &Coordinates<3>) -> Vec<Scalar> {
+fn block_minimum_jacobians(block: &Connectivity, coordinates: &Coordinates<3>) -> Vec<Scalar> {
     match block {
         Connectivity::Hexahedral(elements) => elements
             .iter()
-            .map(|element| hexahedron::jacobian(element, coordinates))
+            .map(|element| hexahedron::minimum_jacobian(element, coordinates))
             .collect(),
         Connectivity::Tetrahedral(elements) => elements
             .iter()
-            .map(|element| tetrahedron::jacobian(element, coordinates))
+            .map(|element| tetrahedron::minimum_jacobian(element, coordinates))
             .collect(),
         _ => todo!(),
     }
 }
 
-fn block_scaled_jacobians(block: &Connectivity, coordinates: &Coordinates<3>) -> Vec<Scalar> {
+fn block_minimum_scaled_jacobians(
+    block: &Connectivity,
+    coordinates: &Coordinates<3>,
+) -> Vec<Scalar> {
     match block {
         Connectivity::Hexahedral(elements) => elements
             .iter()
-            .map(|element| hexahedron::scaled_jacobian(element, coordinates))
+            .map(|element| hexahedron::minimum_scaled_jacobian(element, coordinates))
             .collect(),
         Connectivity::Tetrahedral(elements) => elements
             .iter()
-            .map(|element| tetrahedron::scaled_jacobian(element, coordinates))
+            .map(|element| tetrahedron::minimum_scaled_jacobian(element, coordinates))
             .collect(),
         _ => todo!(),
     }

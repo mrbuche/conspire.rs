@@ -14,10 +14,10 @@ const CORNERS: [[usize; 3]; 8] = [
     [6, 4, 3],
 ];
 
-pub(super) fn jacobian(element: &[usize], coordinates: &Coordinates<3>) -> Scalar {
+pub(super) fn minimum_jacobian(element: &[usize], coordinates: &Coordinates<3>) -> Scalar {
     super::min_jacobian(&CORNERS, element, coordinates)
 }
 
-pub(super) fn scaled_jacobian(element: &[usize], coordinates: &Coordinates<3>) -> Scalar {
+pub(super) fn minimum_scaled_jacobian(element: &[usize], coordinates: &Coordinates<3>) -> Scalar {
     super::min_scaled_jacobian(&CORNERS, element, coordinates, 1.0)
 }
