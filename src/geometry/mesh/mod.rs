@@ -15,6 +15,7 @@ mod write;
 
 pub use self::{
     connectivity::{Connectivities, Connectivity},
+    quality::metrics::Verdict,
     read::Input,
     tessellation::Tessellation,
     write::Output,

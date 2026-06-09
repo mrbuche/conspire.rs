@@ -1,0 +1,108 @@
+#[cfg(test)]
+mod test;
+
+mod hexahedron;
+mod tetrahedron;
+
+use crate::{
+    geometry::{
+        Coordinates,
+        mesh::{Connectivity, Mesh},
+    },
+    math::{CrossProduct, Scalar, Tensor},
+};
+use std::array::from_fn;
+
+pub trait Verdict {
+    fn jacobians(&self) -> Vec<Scalar>;
+    fn scaled_jacobians(&self) -> Vec<Scalar>;
+}
+
+impl Verdict for Mesh<3> {
+    fn jacobians(&self) -> Vec<Scalar> {
+        let coordinates = self.coordinates();
+        self.iter()
+            .flat_map(|block| block_jacobians(block, coordinates))
+            .collect()
+    }
+    fn scaled_jacobians(&self) -> Vec<Scalar> {
+        let coordinates = self.coordinates();
+        self.iter()
+            .flat_map(|block| block_scaled_jacobians(block, coordinates))
+            .collect()
+    }
+}
+
+fn block_jacobians(block: &Connectivity, coordinates: &Coordinates<3>) -> Vec<Scalar> {
+    match block {
+        Connectivity::Hexahedral(elements) => elements
+            .iter()
+            .map(|element| hexahedron::jacobian(element, coordinates))
+            .collect(),
+        Connectivity::Tetrahedral(elements) => elements
+            .iter()
+            .map(|element| tetrahedron::jacobian(element, coordinates))
+            .collect(),
+        _ => todo!(),
+    }
+}
+
+fn block_scaled_jacobians(block: &Connectivity, coordinates: &Coordinates<3>) -> Vec<Scalar> {
+    match block {
+        Connectivity::Hexahedral(elements) => elements
+            .iter()
+            .map(|element| hexahedron::scaled_jacobian(element, coordinates))
+            .collect(),
+        Connectivity::Tetrahedral(elements) => elements
+            .iter()
+            .map(|element| tetrahedron::scaled_jacobian(element, coordinates))
+            .collect(),
+        _ => todo!(),
+    }
+}
+
+fn min_jacobian<const C: usize>(
+    table: &[[usize; 3]; C],
+    element: &[usize],
+    coordinates: &Coordinates<3>,
+) -> Scalar {
+    corners(table, element, coordinates)
+        .into_iter()
+        .map(|(determinant, _)| determinant)
+        .fold(Scalar::INFINITY, Scalar::min)
+}
+
+fn min_scaled_jacobian<const C: usize>(
+    table: &[[usize; 3]; C],
+    element: &[usize],
+    coordinates: &Coordinates<3>,
+    scale: Scalar,
+) -> Scalar {
+    corners(table, element, coordinates)
+        .into_iter()
+        .map(|(determinant, normalizer)| {
+            if normalizer > 0.0 {
+                (scale * determinant / normalizer).clamp(-1.0, 1.0)
+            } else {
+                0.0
+            }
+        })
+        .fold(Scalar::INFINITY, Scalar::min)
+}
+
+fn corners<const C: usize>(
+    table: &[[usize; 3]; C],
+    element: &[usize],
+    coordinates: &Coordinates<3>,
+) -> [(Scalar, Scalar); C] {
+    from_fn(|corner| {
+        let [a, b, c] = table[corner];
+        let origin = &coordinates[element[corner]];
+        let edge_a = &coordinates[element[a]] - origin;
+        let edge_b = &coordinates[element[b]] - origin;
+        let edge_c = &coordinates[element[c]] - origin;
+        let determinant = &edge_a.cross(&edge_b) * &edge_c;
+        let normalizer = edge_a.norm() * edge_b.norm() * edge_c.norm();
+        (determinant, normalizer)
+    })
+}
