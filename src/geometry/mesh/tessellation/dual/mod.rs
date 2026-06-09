@@ -27,11 +27,11 @@ const DIRECTIONS: [Coordinate<D>; 3] = [
 ];
 impl Tessellation {
     pub fn dualize(&self, scale: Scalar) -> Result<Mesh<D>, &'static str> {
-        let (mut octree, bvh) = Octree::<u16, usize>::from_sdf(self, scale);
+        let mut octree = Octree::<u16, usize>::from_sdf(self, scale);
         octree.equilibrate(Balancing::Strong, Pairing::Regular)?;
         let mut mesh = octree.dualize();
-        self.trim(&mut mesh, &bvh);
-        self.project_boundary(mesh, &bvh)
+        self.trim(&mut mesh, self.bvh());
+        self.project_boundary(mesh, self.bvh())
     }
     fn project_boundary(
         &self,

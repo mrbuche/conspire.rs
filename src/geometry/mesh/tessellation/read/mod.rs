@@ -12,6 +12,7 @@ use crate::{
     math::TensorVec,
 };
 use std::{
+    cell::OnceCell,
     collections::HashMap,
     fs::File,
     io::{BufReader, Error as ErrorIO, Read},
@@ -57,7 +58,11 @@ impl TryFrom<&Path> for Tessellation {
         let connectivity = vec![Connectivity::Triangular(connectivity.into())];
         let mesh = (connectivity, coordinates).into();
         let normals = vec![normals].into();
-        Ok(Tessellation { mesh, normals })
+        Ok(Tessellation {
+            mesh,
+            normals,
+            bvh: OnceCell::new(),
+        })
     }
 }
 

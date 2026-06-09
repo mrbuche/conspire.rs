@@ -43,7 +43,7 @@ fn cube() -> Tessellation {
 
 #[test]
 fn cube_center_ray_is_unit_thickness() {
-    let (diameters, _) = cube().shape_diameter_function(FRAC_PI_3, 0, 0);
+    let diameters = cube().shape_diameter_function(FRAC_PI_3, 0, 0);
     assert_eq!(diameters.len(), 8);
     diameters
         .iter()
@@ -52,7 +52,7 @@ fn cube_center_ray_is_unit_thickness() {
 
 #[test]
 fn cube_cone_stays_near_unit_thickness() {
-    let (diameters, _) = cube().shape_diameter_function(FRAC_PI_3, 3, 8);
+    let diameters = cube().shape_diameter_function(FRAC_PI_3, 3, 8);
     assert_eq!(diameters.len(), 8);
     diameters.iter().for_each(|&diameter| {
         assert!(diameter > 0.0 && diameter.is_finite());
@@ -75,7 +75,7 @@ fn bunny() {
     );
     use std::time::Instant;
     let start = Instant::now();
-    let (diameters, _) = tessellation.shape_diameter_function(FRAC_PI_3, 3, 8);
+    let diameters = tessellation.shape_diameter_function(FRAC_PI_3, 3, 8);
     println!("SDF time: {:?}", start.elapsed());
     assert_eq!(diameters.len(), tessellation.mesh().coordinates().len());
     // println!("{:?}", diameters);

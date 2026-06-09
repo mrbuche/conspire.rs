@@ -8,6 +8,7 @@ use crate::{
     },
     math::{CrossProduct, Tensor},
 };
+use std::cell::OnceCell;
 
 impl From<Mesh<D>> for Tessellation {
     fn from(mesh: Mesh<D>) -> Self {
@@ -28,6 +29,10 @@ impl From<Mesh<D>> for Tessellation {
                 .collect()
             })
             .collect();
-        Self { mesh, normals }
+        Self {
+            mesh,
+            normals,
+            bvh: OnceCell::new(),
+        }
     }
 }

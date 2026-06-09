@@ -2,7 +2,6 @@ use crate::{
     geometry::{
         Coordinate, CoordinateList,
         bbox::BoundingBox,
-        bvh::BoundingVolumeHierarchy,
         mesh::Tessellation,
         ntree::{
             Octree,
@@ -24,31 +23,25 @@ where
     T: Add<Output = T> + Copy + From<u16> + Into<Scalar> + Into<usize> + PartialOrd + Split,
     U: Copy + From<usize> + Into<usize>,
 {
-    pub fn from_sdf(
-        tessellation: &Tessellation,
-        scale: Scalar,
-    ) -> (Self, BoundingVolumeHierarchy<3>) {
-        let (sdf, bvh) = tessellation.shape_diameter_function(FRAC_PI_3, 3, 8);
+    pub fn from_sdf(tessellation: &Tessellation, scale: Scalar) -> Self {
+        let sdf = tessellation.shape_diameter_function(FRAC_PI_3, 3, 8);
         let coordinates = tessellation.mesh().coordinates();
         if coordinates.is_empty() {
-            return (
-                Self {
-                    balanced: Balancing::None,
-                    nodes: vec![Node {
-                        corner: from_fn(|_| T::from(0)),
-                        length: T::from(1),
-                        facets: [None; M],
-                        kind: Kind::Leaf,
-                    }],
-                    paired: Pairing::None,
-                    rescale: Rescaling {
-                        center: [0.0; D],
-                        cell: 1.0,
-                        half: 0.0,
-                    },
+            return Self {
+                balanced: Balancing::None,
+                nodes: vec![Node {
+                    corner: from_fn(|_| T::from(0)),
+                    length: T::from(1),
+                    facets: [None; M],
+                    kind: Kind::Leaf,
+                }],
+                paired: Pairing::None,
+                rescale: Rescaling {
+                    center: [0.0; D],
+                    cell: 1.0,
+                    half: 0.0,
                 },
-                bvh,
-            );
+            };
         }
         let mut min_coord: [f64; D] = from_fn(|_| f64::INFINITY);
         let mut max_coord: [f64; D] = from_fn(|_| f64::NEG_INFINITY);
@@ -151,6 +144,6 @@ where
                 }
             }
         }
-        (tree, bvh)
+        tree
     }
 }

@@ -8,7 +8,7 @@ use std::{
 };
 
 use crate::{
-    geometry::{Coordinate, bvh::BoundingVolumeHierarchy, mesh::tessellation::Tessellation},
+    geometry::{Coordinate, mesh::tessellation::Tessellation},
     math::{Scalar, Tensor, Vector},
 };
 
@@ -18,9 +18,9 @@ impl Tessellation {
         half_angle: Scalar,
         rings: usize,
         azimuthal: usize,
-    ) -> (Vector, BoundingVolumeHierarchy<3>) {
+    ) -> Vector {
         let mesh = self.mesh();
-        let bvh = BoundingVolumeHierarchy::from(mesh);
+        let bvh = self.bvh();
         let elements: Vec<&[usize]> = mesh.connectivities().iter().flatten().collect();
         let coordinates = mesh.coordinates();
         let centroids = mesh.centroids();
@@ -30,7 +30,7 @@ impl Tessellation {
         let threads = available_parallelism().map_or(1, |threads| threads.get());
         let chunk_size = number_of_faces.div_ceil(threads).max(1);
         scope(|scope| {
-            let (bvh, elements, centroids, normals) = (&bvh, &elements, &centroids, &normals);
+            let (bvh, elements, centroids, normals) = (bvh, &elements, &centroids, &normals);
             face_diameters
                 .chunks_mut(chunk_size)
                 .enumerate()
@@ -57,8 +57,7 @@ impl Tessellation {
                     });
                 });
         });
-        let diameters = interpolate_to_nodes(face_diameters.into(), elements, coordinates.len());
-        (diameters, bvh)
+        interpolate_to_nodes(face_diameters.into(), elements, coordinates.len())
     }
 }
 
