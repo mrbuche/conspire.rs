@@ -99,6 +99,8 @@ fn foo() {
     use crate::{geometry::mesh::Output, io::Write};
     let tessellation =
         Tessellation::try_from(Path::new("/home/mrbuche/Downloads/Stanford_Bunny.stl")).unwrap();
-    let mesh = tessellation.dualize(3.0).unwrap();
+    let mut mesh = tessellation.dualize(3.0).unwrap();
     mesh.write(Output::Exodus("target/bunny.exo")).unwrap();
+    mesh.smart_laplace_smooth(10);
+    mesh.write(Output::Exodus("target/bunny_sls.exo")).unwrap();
 }
