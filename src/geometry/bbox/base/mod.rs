@@ -13,6 +13,9 @@ impl<const D: usize> BoundingBox<D> {
     pub fn maximum(&self) -> &Coordinate<D> {
         &self.maximum
     }
+    pub fn overlaps(&self, other: &Self) -> bool {
+        (0..D).all(|d| self.minimum[d] <= other.maximum[d] && other.minimum[d] <= self.maximum[d])
+    }
     pub fn longest_axis(&self) -> usize {
         self.maximum
             .iter()

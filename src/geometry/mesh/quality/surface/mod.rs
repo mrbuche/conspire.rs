@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod test;
+mod triangles;
 
 use crate::{
     geometry::mesh::Mesh,

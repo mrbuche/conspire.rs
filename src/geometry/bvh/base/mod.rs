@@ -146,6 +146,26 @@ impl BoundingVolumeHierarchy<3> {
             }
         }
     }
+    pub fn overlapping(&self, query: &BoundingBox<3>) -> Vec<usize> {
+        let mut found = Vec::new();
+        if !self.nodes.is_empty() {
+            self.overlapping_node(0, query, &mut found);
+        }
+        found
+    }
+    fn overlapping_node(&self, node_index: usize, query: &BoundingBox<3>, found: &mut Vec<usize>) {
+        let node = &self.nodes[node_index];
+        if !query.overlaps(node.bounding_box()) {
+            return;
+        }
+        match node.kind() {
+            NodeKind::Leaf { start, end } => found.extend_from_slice(&self.items[*start..*end]),
+            NodeKind::Tree { left, right } => {
+                self.overlapping_node(*left, query, found);
+                self.overlapping_node(*right, query, found);
+            }
+        }
+    }
     pub fn closest_point(
         &self,
         point: &Coordinate<3>,
