@@ -27,8 +27,16 @@ fn inverted_triangle_is_negative() {
 
 #[test]
 fn embedded_in_three_dimensions_is_unsigned() {
-    let mesh = tri(vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.5, 0.75_f64.sqrt(), 0.0]]);
+    let mesh = tri(vec![
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.5, 0.75_f64.sqrt(), 0.0],
+    ]);
     assert!((mesh.minimum_scaled_jacobians()[0][0] - 1.0).abs() < 1.0e-10);
-    let reversed = tri(vec![[0.5, 0.75_f64.sqrt(), 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 0.0]]);
+    let reversed = tri(vec![
+        [0.5, 0.75_f64.sqrt(), 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0],
+    ]);
     assert!(reversed.minimum_scaled_jacobians()[0][0] > 0.0);
 }

@@ -29,7 +29,10 @@ const EDGES: [[usize; 2]; 12] = [
     [3, 7],
 ];
 
-pub(super) fn maximum_edge_ratio<const D: usize>(element: &[usize], coordinates: &Coordinates<D>) -> Scalar {
+pub(super) fn maximum_edge_ratio<const D: usize>(
+    element: &[usize],
+    coordinates: &Coordinates<D>,
+) -> Scalar {
     super::maximum_edge_ratio(&EDGES, element, coordinates)
 }
 

@@ -1,3 +1,3 @@
-// pub mod improve; // Smart Laplace and stuff?
+pub mod improve;
 pub mod metrics;
 pub mod surface;

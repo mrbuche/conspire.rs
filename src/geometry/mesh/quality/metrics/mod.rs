@@ -161,6 +161,42 @@ fn corner_measure<const D: usize, const K: usize>(edges: &[Coordinate<D>; K]) ->
         TensorRank2::<K, 0, 0>::from(matrix).determinant()
     } else {
         let gram: [[Scalar; K]; K] = from_fn(|i| from_fn(|j| &edges[i] * &edges[j]));
-        TensorRank2::<K, 0, 0>::from(gram).determinant().max(0.0).sqrt()
+        TensorRank2::<K, 0, 0>::from(gram)
+            .determinant()
+            .max(0.0)
+            .sqrt()
+    }
+}
+
+#[derive(Clone, Copy)]
+pub(super) enum Kind {
+    Triangle,
+    Quadrilateral,
+    Tetrahedron,
+    Hexahedron,
+}
+
+impl Kind {
+    pub(super) fn of(connectivity: &Connectivity) -> Option<Self> {
+        match connectivity {
+            Connectivity::Triangular(_) => Some(Self::Triangle),
+            Connectivity::Quadrilateral(_) => Some(Self::Quadrilateral),
+            Connectivity::Tetrahedral(_) => Some(Self::Tetrahedron),
+            Connectivity::Hexahedral(_) => Some(Self::Hexahedron),
+            _ => None,
+        }
+    }
+}
+
+pub(super) fn minimum_scaled_jacobian<const D: usize>(
+    kind: Kind,
+    element: &[usize],
+    coordinates: &Coordinates<D>,
+) -> Scalar {
+    match kind {
+        Kind::Triangle => triangle::minimum_scaled_jacobian(element, coordinates),
+        Kind::Quadrilateral => quadrilateral::minimum_scaled_jacobian(element, coordinates),
+        Kind::Tetrahedron => tetrahedron::minimum_scaled_jacobian(element, coordinates),
+        Kind::Hexahedron => hexahedron::minimum_scaled_jacobian(element, coordinates),
     }
 }

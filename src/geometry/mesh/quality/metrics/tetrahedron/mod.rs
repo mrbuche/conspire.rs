@@ -8,7 +8,10 @@ const CORNERS: [[usize; 3]; 4] = [[1, 2, 3], [0, 3, 2], [0, 1, 3], [0, 2, 1]];
 
 const EDGES: [[usize; 2]; 6] = [[0, 1], [1, 2], [2, 0], [0, 3], [1, 3], [2, 3]];
 
-pub(super) fn maximum_edge_ratio<const D: usize>(element: &[usize], coordinates: &Coordinates<D>) -> Scalar {
+pub(super) fn maximum_edge_ratio<const D: usize>(
+    element: &[usize],
+    coordinates: &Coordinates<D>,
+) -> Scalar {
     super::maximum_edge_ratio(&EDGES, element, coordinates)
 }
 
