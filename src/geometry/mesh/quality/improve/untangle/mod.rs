@@ -14,7 +14,7 @@ use std::mem::transmute_copy;
 const PROBES: usize = 32;
 
 impl<const D: usize> Mesh<D> {
-    pub fn untangle(&mut self, iterations: usize, surface: Option<&Tessellation>) {
+    pub fn untangle(&mut self, iterations: usize, margin: Scalar, surface: Option<&Tessellation>) {
         let number_of_nodes = self.number_of_nodes();
         let neighbors = self.node_node_connectivity().to_vec();
         let incidence = Incidence::of(self);
@@ -35,8 +35,8 @@ impl<const D: usize> Mesh<D> {
                 if neighbors[node].is_empty() {
                     continue;
                 }
-                let mut current = incidence.minimum_jacobian(node, coordinates);
-                if current > 0.0 {
+                let mut current = incidence.inversion(node, coordinates, margin);
+                if current <= 0.0 {
                     continue;
                 }
                 let mut step = 0.5
@@ -58,8 +58,8 @@ impl<const D: usize> Mesh<D> {
                                     &coordinates[node],
                                 );
                             }
-                            let trial = incidence.minimum_jacobian(node, coordinates);
-                            if trial > current {
+                            let trial = incidence.inversion(node, coordinates, margin);
+                            if trial < current {
                                 current = trial;
                                 improved = true;
                             } else {

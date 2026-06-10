@@ -103,7 +103,7 @@ fn foo() {
     mesh.write(Output::Exodus("target/bunny.exo")).unwrap();
     // mesh.smart_laplace_smooth(10, 0.8);
     // mesh.write(Output::Exodus("target/bunny_sls.exo")).unwrap();
-    mesh.untangle(10, Some(&tessellation));
+    mesh.untangle(10, 0.1, Some(&tessellation));
     mesh.write(Output::Exodus("target/bunny_untangle.exo"))
         .unwrap();
 }

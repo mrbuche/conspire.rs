@@ -13,8 +13,6 @@ fn mesh() {
 fn normals() {
     let tess = tessellation();
     let normals = tess.normals();
-    // Tessellation has one block matching mesh's one Triangular block;
-    // its normals are the per-element list.
     normals[0]
         .iter()
         .zip(NORMALS.iter())

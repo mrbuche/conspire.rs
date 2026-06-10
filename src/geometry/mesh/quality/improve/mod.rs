@@ -30,12 +30,24 @@ impl Incidence {
                 .collect(),
         }
     }
-    fn minimum_jacobian<const D: usize>(
+    fn inversion<const D: usize>(
         &self,
         node: usize,
         coordinates: &Coordinates<D>,
+        margin: Scalar,
     ) -> Scalar {
-        self.minimum(node, coordinates, metrics::minimum_jacobian)
+        self.node_elements[node]
+            .iter()
+            .map(|&element| {
+                (margin
+                    - metrics::minimum_jacobian(
+                        self.element_kinds[element],
+                        &self.element_nodes[element],
+                        coordinates,
+                    ))
+                .max(0.0)
+            })
+            .sum()
     }
     fn minimum_scaled_jacobian<const D: usize>(
         &self,

@@ -53,7 +53,7 @@ fn untangles_an_inverted_interior_node() {
     coordinates[13] = [1.0, 1.0, 2.5];
     let mut mesh = mesh(connectivity, coordinates);
     assert!(minimum_scaled(&mesh) < 0.0);
-    mesh.untangle(50, None);
+    mesh.untangle(50, 0.1, None);
     assert!(minimum_scaled(&mesh) > 0.0);
 }
 
@@ -62,7 +62,7 @@ fn leaves_a_valid_mesh_alone() {
     let (connectivity, coordinates) = grid();
     let mut mesh = mesh(connectivity, coordinates);
     let before: Vec<_> = mesh.coordinates().iter().cloned().collect();
-    mesh.untangle(10, None);
+    mesh.untangle(10, 0.1, None);
     mesh.coordinates()
         .iter()
         .zip(before)

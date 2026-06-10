@@ -70,7 +70,6 @@ fn closest_point_projects_onto_nearest_face() -> Result<(), TestError> {
     let mesh = mesh();
     let bvh = BoundingVolumeHierarchy::from(&mesh);
     let elements: Vec<&[usize]> = mesh.connectivities().iter().flatten().collect();
-    // above triangle 0 (z = 0) and below triangle 1 (z = 2), inside the triangle laterally
     let query = Coordinate::const_from([0.2, 0.2, 0.5]);
     let (point, index) = bvh
         .closest_point(&query, mesh.coordinates(), &elements)
@@ -84,7 +83,6 @@ fn closest_point_clamps_to_vertex() -> Result<(), TestError> {
     let mesh = mesh();
     let bvh = BoundingVolumeHierarchy::from(&mesh);
     let elements: Vec<&[usize]> = mesh.connectivities().iter().flatten().collect();
-    // beyond the corner at node 0: closest point is that vertex itself
     let query = Coordinate::const_from([-1.0, -1.0, 0.0]);
     let (point, index) = bvh
         .closest_point(&query, mesh.coordinates(), &elements)
