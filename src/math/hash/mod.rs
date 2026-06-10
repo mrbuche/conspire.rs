@@ -9,14 +9,20 @@ use std::{
 const SEED: u64 = 0x51_7c_c1_b7_27_22_0a_95;
 const ROTATE: u32 = 5;
 
-/// A [`HashMap`] using [`FxHasher`] instead of the default SipHash. Much faster for the small
-/// integer keys (node indices, `(usize, usize)` edges) the mesh code hashes in tight loops.
+/// A [`HashMap`] using [`FxHasher`] instead of the default SipHash.
+///
+/// Much faster for the small integer keys (node indices, `(usize, usize)` edges)
+/// the mesh code hashes in tight loops.
 pub type FxHashMap<K, V> = HashMap<K, V, BuildHasherDefault<FxHasher>>;
 
-/// A [`HashSet`] using [`FxHasher`]. See [`FxHashMap`].
+/// A [`HashSet`] using [`FxHasher`].
+///
+///  See [`FxHashMap`] for more information.
 pub type FxHashSet<T> = HashSet<T, BuildHasherDefault<FxHasher>>;
 
-/// A non-cryptographic hasher (the "FxHash" algorithm): one rotate-xor-multiply per word.
+/// A non-cryptographic hasher (the FxHash algorithm).
+///
+/// One rotate-xor-multiply per word.
 /// Not DoS-resistant, so only use it where keys are trusted (internal mesh indices).
 #[derive(Default)]
 pub struct FxHasher {

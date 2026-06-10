@@ -1,3 +1,5 @@
+//! Input/output library.
+
 #[cfg(feature = "netcdf")]
 mod netcdf;
 

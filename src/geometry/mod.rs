@@ -1,6 +1,15 @@
+//! Geometry library.
+
+/// Bounding boxes.
 pub mod bbox;
+
+/// Bounding volume hierarchies.
 pub mod bvh;
+
+/// Primitive and polyhedral meshes.
 pub mod mesh;
+
+/// Orthotrees, such as quadtrees and octrees.
 pub mod ntree;
 
 use crate::math::{TensorRank1, TensorRank1List, TensorRank1RefVec, TensorRank1Vec};
