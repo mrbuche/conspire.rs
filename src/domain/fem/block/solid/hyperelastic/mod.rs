@@ -5,8 +5,9 @@ use crate::{
         block::{
             Block, FiniteElementBlockError, FirstOrderMinimize, SecondOrderMinimize, band,
             element::solid::hyperelastic::HyperelasticFiniteElement,
-            solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticFiniteElementBlock},
+            solid::{NodalForcesSolid, NodalStiffnessesSolid},
         },
+        solid::elastic::ElasticFiniteElementModel,
     },
     math::{
         Scalar, Tensor,
@@ -26,7 +27,7 @@ pub trait HyperelasticFiniteElementBlock<
 > where
     C: Hyperelastic,
     F: HyperelasticFiniteElement<C, G, M, N, P>,
-    Self: ElasticFiniteElementBlock<C, F, G, M, N, P>,
+    Self: ElasticFiniteElementModel,
 {
     fn helmholtz_free_energy(
         &self,
@@ -39,7 +40,7 @@ impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
 where
     C: Hyperelastic,
     F: HyperelasticFiniteElement<C, G, M, N, P>,
-    Self: ElasticFiniteElementBlock<C, F, G, M, N, P>,
+    Self: ElasticFiniteElementModel,
 {
     fn helmholtz_free_energy(
         &self,

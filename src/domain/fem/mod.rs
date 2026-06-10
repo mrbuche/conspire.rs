@@ -6,8 +6,10 @@ pub mod solid;
 
 use crate::{
     math::{
-        TensorRank1Vec2D,
-        optimize::{EqualityConstraint, FirstOrderRootFinding, OptimizationError},
+        TensorRank1Vec2D, TestError,
+        optimize::{
+            EqualityConstraint, FirstOrderRootFinding, OptimizationError, ZerothOrderRootFinding,
+        },
     },
     mechanics::Coordinates,
 };
@@ -98,4 +100,29 @@ pub trait FirstOrderRoot<F, J, X> {
         equality_constraint: EqualityConstraint,
         solver: impl FirstOrderRootFinding<F, J, X>,
     ) -> Result<X, OptimizationError>;
+}
+
+pub trait ZerothOrderRoot<X> {
+    fn root(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: impl ZerothOrderRootFinding<X>,
+    ) -> Result<X, OptimizationError>;
+}
+
+impl<B> From<(B, NodalReferenceCoordinates)> for Model<B> {
+    fn from((blocks, coordinates): (B, NodalReferenceCoordinates)) -> Self {
+        Self {
+            blocks,
+            coordinates,
+        }
+    }
+}
+
+impl From<FiniteElementModelError> for TestError {
+    fn from(error: FiniteElementModelError) -> Self {
+        Self {
+            message: error.to_string(),
+        }
+    }
 }

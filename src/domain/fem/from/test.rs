@@ -10,10 +10,7 @@ use crate::{
         block::{
             Block,
             element::linear::{Hexahedron, Tetrahedron},
-            solid::{
-                elastic::ElasticFiniteElementBlock,
-                elastic_viscoplastic::ViscoplasticStateVariablesHistory,
-            },
+            solid::elastic_viscoplastic::ViscoplasticStateVariablesHistory,
         },
         solid::{
             elastic::ElasticFiniteElementModel,
@@ -216,7 +213,7 @@ fn single_block_nodal_forces() -> Result<(), TestError> {
     let block = Tet::from((constitutive_model(), connectivity(), &coordinates()));
     let model = single_block_model()?;
     assert_eq(
-        &ElasticFiniteElementBlock::nodal_forces(&block, &deformed_coordinates())?,
+        &ElasticFiniteElementModel::nodal_forces(&block, &deformed_coordinates())?,
         &ElasticFiniteElementModel::nodal_forces(&model, &deformed_coordinates()).map_err(
             |error| TestError {
                 message: error.to_string(),
@@ -230,7 +227,7 @@ fn split_blocks_nodal_forces() -> Result<(), TestError> {
     let block = Tet::from((constitutive_model(), connectivity(), &coordinates()));
     let model = split_blocks_model()?;
     assert_eq_within_tols(
-        &ElasticFiniteElementBlock::nodal_forces(&block, &deformed_coordinates())?,
+        &ElasticFiniteElementModel::nodal_forces(&block, &deformed_coordinates())?,
         &ElasticFiniteElementModel::nodal_forces(&model, &deformed_coordinates()).map_err(
             |error| TestError {
                 message: error.to_string(),
@@ -286,8 +283,8 @@ fn heterogeneous_blocks_nodal_forces() -> Result<(), TestError> {
     let block_1 = Tet::from((constitutive_model(), connectivity_1, &coordinates()));
     let block_2 = TetNeoHookean::from((neo_hookean_model(), connectivity_2, &coordinates()));
     assert_eq(
-        &(ElasticFiniteElementBlock::nodal_forces(&block_1, &deformed_coordinates())?
-            + ElasticFiniteElementBlock::nodal_forces(&block_2, &deformed_coordinates())?),
+        &(ElasticFiniteElementModel::nodal_forces(&block_1, &deformed_coordinates())?
+            + ElasticFiniteElementModel::nodal_forces(&block_2, &deformed_coordinates())?),
         &ElasticFiniteElementModel::nodal_forces(&heterogeneous_model()?, &deformed_coordinates())
             .map_err(|error| TestError {
                 message: error.to_string(),

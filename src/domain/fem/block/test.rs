@@ -83,8 +83,9 @@ macro_rules! test_finite_element_block_inner {
                         AlmansiHamel, SaintVenantKirchhoff,
                         test::{BULK_MODULUS, SHEAR_MODULUS},
                     },
-                    fem::block::solid::{
-                        SolidFiniteElementBlock, elastic::ElasticFiniteElementBlock,
+                    fem::{
+                        block::solid::SolidFiniteElementBlock,
+                        solid::elastic::ElasticFiniteElementModel,
                     },
                 };
                 mod almansi_hamel {
@@ -132,9 +133,11 @@ macro_rules! test_finite_element_block_inner {
                             NUMBER_OF_LINKS, YEOH_EXTRA_MODULI,
                         },
                     },
-                    fem::block::solid::{
-                        SolidFiniteElementBlock, elastic::ElasticFiniteElementBlock,
-                        hyperelastic::HyperelasticFiniteElementBlock,
+                    fem::{
+                        block::solid::{
+                            SolidFiniteElementBlock, hyperelastic::HyperelasticFiniteElementBlock,
+                        },
+                        solid::elastic::ElasticFiniteElementModel,
                     },
                 };
                 mod arruda_boyce {
@@ -720,10 +723,9 @@ macro_rules! test_finite_element_block_with_elastic_or_hyperelastic_constitutive
                     let (applied_load, a, b) = equality_constraint();
                     let block = get_block();
                     let coordinates = FirstOrderRoot::root(
-                        &block,
+                        &crate::fem::Model::from((get_block(), get_reference_coordinates_block())),
                         EqualityConstraint::Linear(a, b),
                         $solver::default(),
-                        &get_reference_coordinates_block(),
                     )?;
                     let deformation_gradient =
                         $constitutive_model.root(applied_load, $solver::default())?;
@@ -746,7 +748,7 @@ macro_rules! test_finite_element_block_with_elastic_or_hyperelastic_constitutive
         mod newton_raphson_root {
             use super::*;
             use crate::{
-                constitutive::solid::elastic::FirstOrderRoot as _, fem::block::FirstOrderRoot,
+                constitutive::solid::elastic::FirstOrderRoot as _, fem::FirstOrderRoot,
                 math::optimize::NewtonRaphson,
             };
             test_root_with_solver!(NewtonRaphson);

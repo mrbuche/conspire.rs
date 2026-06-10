@@ -1,53 +1,30 @@
 use crate::{
     constitutive::solid::elastic::Elastic,
     fem::{
-        NodalCoordinates, NodalReferenceCoordinates,
+        FiniteElementModelError, NodalCoordinates,
         block::{
-            Block, FiniteElementBlockError, FirstOrderRoot, ZerothOrderRoot,
+            Block,
             element::{FiniteElementError, solid::elastic::ElasticFiniteElement},
-            solid::{NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElementBlock},
+        },
+        solid::{
+            NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElementModel,
+            elastic::ElasticFiniteElementModel,
         },
     },
-    math::{
-        Tensor,
-        optimize::{
-            EqualityConstraint, FirstOrderRootFinding, OptimizationError, ZerothOrderRootFinding,
-        },
-    },
+    math::Tensor,
 };
 
-pub trait ElasticFiniteElementBlock<
-    C,
-    F,
-    const G: usize,
-    const M: usize,
-    const N: usize,
-    const P: usize,
-> where
-    C: Elastic,
-    F: ElasticFiniteElement<C, G, M, N, P>,
-{
-    fn nodal_forces(
-        &self,
-        nodal_coordinates: &NodalCoordinates,
-    ) -> Result<NodalForcesSolid, FiniteElementBlockError>;
-    fn nodal_stiffnesses(
-        &self,
-        nodal_coordinates: &NodalCoordinates,
-    ) -> Result<NodalStiffnessesSolid, FiniteElementBlockError>;
-}
-
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-    ElasticFiniteElementBlock<C, F, G, M, N, P> for Block<C, F, G, M, N, P>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> ElasticFiniteElementModel
+    for Block<C, F, G, M, N, P>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, M, N, P>,
-    Self: SolidFiniteElementBlock<C, F, G, M, N, P>,
+    Self: SolidFiniteElementModel,
 {
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates,
-    ) -> Result<NodalForcesSolid, FiniteElementBlockError> {
+    ) -> Result<NodalForcesSolid, FiniteElementModelError> {
         let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
         match self
             .elements()
@@ -65,7 +42,7 @@ where
                 Ok::<(), FiniteElementError>(())
             }) {
             Ok(()) => Ok(nodal_forces),
-            Err(error) => Err(FiniteElementBlockError::Upstream(
+            Err(error) => Err(FiniteElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
             )),
@@ -74,7 +51,7 @@ where
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates,
-    ) -> Result<NodalStiffnessesSolid, FiniteElementBlockError> {
+    ) -> Result<NodalStiffnessesSolid, FiniteElementModelError> {
         let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
         match self
             .elements()
@@ -99,52 +76,10 @@ where
                 Ok::<(), FiniteElementError>(())
             }) {
             Ok(()) => Ok(nodal_stiffnesses),
-            Err(error) => Err(FiniteElementBlockError::Upstream(
+            Err(error) => Err(FiniteElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
             )),
         }
-    }
-}
-
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-    ZerothOrderRoot<C, F, G, M, N, NodalCoordinates> for Block<C, F, G, M, N, P>
-where
-    C: Elastic,
-    F: ElasticFiniteElement<C, G, M, N, P>,
-{
-    fn root(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<NodalCoordinates>,
-        coordinates: &NodalReferenceCoordinates,
-    ) -> Result<NodalCoordinates, OptimizationError> {
-        solver.root(
-            |nodal_coordinates: &NodalCoordinates| Ok(self.nodal_forces(nodal_coordinates)?),
-            coordinates.clone().into(),
-            equality_constraint,
-        )
-    }
-}
-
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-    FirstOrderRoot<C, F, G, M, N, NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>
-    for Block<C, F, G, M, N, P>
-where
-    C: Elastic,
-    F: ElasticFiniteElement<C, G, M, N, P>,
-{
-    fn root(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderRootFinding<NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>,
-        coordinates: &NodalReferenceCoordinates,
-    ) -> Result<NodalCoordinates, OptimizationError> {
-        solver.root(
-            |nodal_coordinates: &NodalCoordinates| Ok(self.nodal_forces(nodal_coordinates)?),
-            |nodal_coordinates: &NodalCoordinates| Ok(self.nodal_stiffnesses(nodal_coordinates)?),
-            coordinates.clone().into(),
-            equality_constraint,
-        )
     }
 }
