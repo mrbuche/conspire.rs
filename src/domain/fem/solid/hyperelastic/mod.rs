@@ -2,10 +2,14 @@ use crate::{
     fem::{
         Blocks, FiniteElementModel, FiniteElementModelError, FirstOrderMinimize, Model,
         NodalCoordinates, SecondOrderMinimize,
-        solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticFiniteElements},
+        block::{band_from_neighbors, finalize_node_neighbors},
+        solid::{
+            NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElements,
+            elastic::ElasticFiniteElements,
+        },
     },
     math::{
-        Scalar,
+        Scalar, Tensor,
         optimize::{
             EqualityConstraint, FirstOrderOptimization, OptimizationError, SecondOrderOptimization,
         },
@@ -83,12 +87,10 @@ where
             NodalCoordinates,
         >,
     ) -> Result<NodalCoordinates, OptimizationError> {
-        // let banded = band(
-        //     self.connectivity(),
-        //     &equality_constraint,
-        //     coordinates.len(),
-        //     3,
-        // );
+        let mut neighbors = vec![Vec::new(); self.coordinates().len()];
+        self.node_neighbors(&mut neighbors);
+        finalize_node_neighbors(&mut neighbors);
+        let banded = band_from_neighbors(&neighbors, &equality_constraint, 3);
         solver.minimize(
             |nodal_coordinates: &NodalCoordinates| {
                 Ok(self.helmholtz_free_energy(nodal_coordinates)?)
@@ -97,8 +99,7 @@ where
             |nodal_coordinates: &NodalCoordinates| Ok(self.nodal_stiffnesses(nodal_coordinates)?),
             self.coordinates().clone().into(),
             equality_constraint,
-            None,
-            // Some(banded),
+            Some(banded),
         )
     }
 }

@@ -134,10 +134,11 @@ macro_rules! test_finite_element_block_inner {
                         },
                     },
                     fem::{
-                        block::solid::{
-                            SolidFiniteElementBlock, hyperelastic::HyperelasticFiniteElementBlock,
+                        block::solid::SolidFiniteElementBlock,
+                        solid::{
+                            elastic::ElasticFiniteElements,
+                            hyperelastic::HyperelasticFiniteElements,
                         },
-                        solid::elastic::ElasticFiniteElements,
                     },
                 };
                 mod arruda_boyce {
@@ -811,10 +812,12 @@ macro_rules! test_finite_element_block_with_hyperelastic_constitutive_model {
                     let (applied_load, a, b) = equality_constraint();
                     let block = get_block();
                     let coordinates = SecondOrderMinimize::minimize(
-                        &block,
+                        &crate::fem::Model::from((
+                            get_block(),
+                            get_reference_coordinates_block(),
+                        )),
                         EqualityConstraint::Linear(a, b),
                         $solver::default(),
-                        &get_reference_coordinates_block(),
                     )?;
                     let deformation_gradient =
                         $constitutive_model
@@ -839,7 +842,7 @@ macro_rules! test_finite_element_block_with_hyperelastic_constitutive_model {
             use super::*;
             use crate::{
                 constitutive::solid::hyperelastic::SecondOrderMinimize as _,
-                fem::block::SecondOrderMinimize, math::optimize::NewtonRaphson,
+                fem::SecondOrderMinimize, math::optimize::NewtonRaphson,
             };
             test_minimize_with_solver!(NewtonRaphson);
         }

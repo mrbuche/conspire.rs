@@ -7,10 +7,11 @@ pub mod hyperviscoelastic;
 pub mod viscoelastic;
 
 use crate::{
+    constitutive::solid::Solid,
     fem::{
         NodalCoordinates,
-        block::{Block, element::solid::SolidFiniteElement},
-        solid::{NodalForcesSolid, NodalStiffnessesSolid},
+        block::{Block, add_node_neighbors, element::solid::SolidFiniteElement},
+        solid::{NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElements},
     },
     mechanics::DeformationGradientList,
 };
@@ -47,5 +48,16 @@ where
                 element.deformation_gradients(&Self::element_coordinates(nodal_coordinates, nodes))
             })
             .collect()
+    }
+}
+
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> SolidFiniteElements
+    for Block<C, F, G, M, N, P>
+where
+    C: Solid,
+    F: SolidFiniteElement<G, M, N, P>,
+{
+    fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
+        add_node_neighbors(self.connectivity(), neighbors)
     }
 }

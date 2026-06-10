@@ -41,6 +41,12 @@ where
     fn coordinates(&self) -> &NodalReferenceCoordinates;
 }
 
+impl<B> Model<B> {
+    pub fn blocks(&self) -> &B {
+        &self.blocks
+    }
+}
+
 impl<B> FiniteElementModel for Model<B>
 where
     B: Debug,

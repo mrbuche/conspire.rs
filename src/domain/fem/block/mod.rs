@@ -306,35 +306,55 @@ fn band<const N: usize>(
     number_of_nodes: usize,
     dimension: usize,
 ) -> Banded {
+    let mut neighbors = vec![Vec::new(); number_of_nodes];
+    add_node_neighbors(connectivity, &mut neighbors);
+    finalize_node_neighbors(&mut neighbors);
+    band_from_neighbors(&neighbors, equality_constraint, dimension)
+}
+
+pub(crate) fn add_node_neighbors<const N: usize>(
+    connectivity: &Connectivity<N>,
+    neighbors: &mut [Vec<usize>],
+) {
+    connectivity.iter().for_each(|nodes| {
+        nodes.iter().for_each(|&node_a| {
+            nodes
+                .iter()
+                .for_each(|&node_b| neighbors[node_a].push(node_b))
+        })
+    })
+}
+
+pub(crate) fn finalize_node_neighbors(neighbors: &mut [Vec<usize>]) {
+    neighbors.iter_mut().for_each(|nodes| {
+        nodes.sort_unstable();
+        nodes.dedup();
+    })
+}
+
+pub(crate) fn band_from_neighbors(
+    neighbors: &[Vec<usize>],
+    equality_constraint: &EqualityConstraint,
+    dimension: usize,
+) -> Banded {
+    let number_of_nodes = neighbors.len();
+    let structure: Vec<Vec<bool>> = neighbors
+        .iter()
+        .map(|nodes| (0..number_of_nodes).map(|b| nodes.contains(&b)).collect())
+        .collect();
+    let structure_nd: Vec<Vec<bool>> = structure
+        .iter()
+        .flat_map(|row| {
+            repeat_n(
+                row.iter()
+                    .flat_map(|entry| repeat_n(*entry, dimension))
+                    .collect(),
+                dimension,
+            )
+        })
+        .collect();
     match equality_constraint {
         EqualityConstraint::Fixed(indices) => {
-            let neighbors: Vec<Vec<usize>> = invert(connectivity, number_of_nodes)
-                .iter()
-                .map(|elements| {
-                    let mut nodes: Vec<usize> = elements
-                        .iter()
-                        .flat_map(|&element| connectivity[element])
-                        .collect();
-                    nodes.sort();
-                    nodes.dedup();
-                    nodes
-                })
-                .collect();
-            let structure: Vec<Vec<bool>> = neighbors
-                .iter()
-                .map(|nodes| (0..number_of_nodes).map(|b| nodes.contains(&b)).collect())
-                .collect();
-            let structure_nd: Vec<Vec<bool>> = structure
-                .iter()
-                .flat_map(|row| {
-                    repeat_n(
-                        row.iter()
-                            .flat_map(|entry| repeat_n(*entry, dimension))
-                            .collect(),
-                        dimension,
-                    )
-                })
-                .collect();
             let mut keep = vec![true; structure_nd.len()];
             indices.iter().for_each(|&index| keep[index] = false);
             let banded = structure_nd
@@ -353,33 +373,6 @@ fn band<const N: usize>(
             Banded::from(banded)
         }
         EqualityConstraint::Linear(matrix, _) => {
-            let neighbors: Vec<Vec<usize>> = invert(connectivity, number_of_nodes)
-                .iter()
-                .map(|elements| {
-                    let mut nodes: Vec<usize> = elements
-                        .iter()
-                        .flat_map(|&element| connectivity[element])
-                        .collect();
-                    nodes.sort();
-                    nodes.dedup();
-                    nodes
-                })
-                .collect();
-            let structure: Vec<Vec<bool>> = neighbors
-                .iter()
-                .map(|nodes| (0..number_of_nodes).map(|b| nodes.contains(&b)).collect())
-                .collect();
-            let structure_nd: Vec<Vec<bool>> = structure
-                .iter()
-                .flat_map(|row| {
-                    repeat_n(
-                        row.iter()
-                            .flat_map(|entry| repeat_n(*entry, dimension))
-                            .collect(),
-                        dimension,
-                    )
-                })
-                .collect();
             let num_coords = dimension * number_of_nodes;
             assert_eq!(matrix.width(), num_coords);
             let num_dof = matrix.len() + matrix.width();
@@ -405,51 +398,7 @@ fn band<const N: usize>(
             });
             Banded::from(banded)
         }
-        EqualityConstraint::None => {
-            let neighbors: Vec<Vec<usize>> = invert(connectivity, number_of_nodes)
-                .iter()
-                .map(|elements| {
-                    let mut nodes: Vec<usize> = elements
-                        .iter()
-                        .flat_map(|&element| connectivity[element])
-                        .collect();
-                    nodes.sort();
-                    nodes.dedup();
-                    nodes
-                })
-                .collect();
-            let structure: Vec<Vec<bool>> = neighbors
-                .iter()
-                .map(|nodes| (0..number_of_nodes).map(|b| nodes.contains(&b)).collect())
-                .collect();
-            let structure_nd: Vec<Vec<bool>> = structure
-                .iter()
-                .flat_map(|row| {
-                    repeat_n(
-                        row.iter()
-                            .flat_map(|entry| repeat_n(*entry, dimension))
-                            .collect(),
-                        dimension,
-                    )
-                })
-                .collect();
-            Banded::from(structure_nd)
-        }
+        EqualityConstraint::None => Banded::from(structure_nd),
     }
 }
 
-fn invert<const N: usize>(
-    connectivity: &Connectivity<N>,
-    number_of_nodes: usize,
-) -> Vec<Vec<usize>> {
-    let mut inverse_connectivity = vec![vec![]; number_of_nodes];
-    connectivity
-        .iter()
-        .enumerate()
-        .for_each(|(element, nodes)| {
-            nodes
-                .iter()
-                .for_each(|&node| inverse_connectivity[node].push(element))
-        });
-    inverse_connectivity
-}
