@@ -1,45 +1,27 @@
 use crate::{
     constitutive::solid::hyperviscoelastic::Hyperviscoelastic,
     fem::{
-        NodalCoordinates,
-        block::{
-            Block, FiniteElementBlockError,
-            element::solid::hyperviscoelastic::HyperviscoelasticFiniteElement,
-            solid::elastic_hyperviscous::ElasticHyperviscousFiniteElementBlock,
+        FiniteElementModelError, NodalCoordinates,
+        block::{Block, element::solid::hyperviscoelastic::HyperviscoelasticFiniteElement},
+        solid::{
+            elastic_hyperviscous::ElasticHyperviscousFiniteElements,
+            hyperviscoelastic::HyperviscoelasticFiniteElements,
         },
     },
     math::Scalar,
 };
 
-pub trait HyperviscoelasticFiniteElementBlock<
-    C,
-    F,
-    const G: usize,
-    const M: usize,
-    const N: usize,
-    const P: usize,
-> where
-    C: Hyperviscoelastic,
-    F: HyperviscoelasticFiniteElement<C, G, M, N, P>,
-    Self: ElasticHyperviscousFiniteElementBlock<C, F, G, M, N, P>,
-{
-    fn helmholtz_free_energy(
-        &self,
-        nodal_coordinates: &NodalCoordinates,
-    ) -> Result<Scalar, FiniteElementBlockError>;
-}
-
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-    HyperviscoelasticFiniteElementBlock<C, F, G, M, N, P> for Block<C, F, G, M, N, P>
+    HyperviscoelasticFiniteElements for Block<C, F, G, M, N, P>
 where
     C: Hyperviscoelastic,
     F: HyperviscoelasticFiniteElement<C, G, M, N, P>,
-    Self: ElasticHyperviscousFiniteElementBlock<C, F, G, M, N, P>,
+    Self: ElasticHyperviscousFiniteElements,
 {
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates,
-    ) -> Result<Scalar, FiniteElementBlockError> {
+    ) -> Result<Scalar, FiniteElementModelError> {
         match self
             .elements()
             .iter()
@@ -53,7 +35,7 @@ where
             .sum()
         {
             Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
-            Err(error) => Err(FiniteElementBlockError::Upstream(
+            Err(error) => Err(FiniteElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
             )),

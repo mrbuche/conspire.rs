@@ -8,25 +8,20 @@ pub mod thermal;
 
 use crate::{
     constitutive::Constitutive,
-    defeat_message,
     fem::{
-        NodalReferenceCoordinates,
+        FiniteElements, NodalReferenceCoordinates,
         block::element::{ElementNodalReferenceCoordinates, FiniteElement},
     },
     math::{
-        Banded, InverseSets, Scalar, Scalars, SetsOld as Sets, Tensor, TestError,
-        disjoint_set_union,
-        optimize::{
-            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
-            SecondOrderOptimization, ZerothOrderRootFinding,
-        },
+        Banded, InverseSets, Scalar, Scalars, SetsOld as Sets, Tensor, disjoint_set_union,
+        optimize::EqualityConstraint,
     },
     mechanics::{CoordinateList, Coordinates},
 };
 use std::{
     any::type_name,
     array::from_fn,
-    fmt::{self, Debug, Display, Formatter},
+    fmt::{self, Debug, Formatter},
     iter::repeat_n,
 };
 
@@ -93,6 +88,16 @@ where
                 .unwrap(),
             self.elements().len()
         )
+    }
+}
+
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> FiniteElements
+    for Block<C, F, G, M, N, P>
+where
+    F: FiniteElement<G, M, N, P>,
+{
+    fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
+        add_node_neighbors(self.connectivity(), neighbors)
     }
 }
 
@@ -211,107 +216,6 @@ where
     }
 }
 
-pub enum FiniteElementBlockError {
-    Upstream(String, String),
-}
-
-impl From<FiniteElementBlockError> for String {
-    fn from(error: FiniteElementBlockError) -> Self {
-        match error {
-            FiniteElementBlockError::Upstream(error, block) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In finite element block: {block}."
-                )
-            }
-        }
-    }
-}
-
-impl From<FiniteElementBlockError> for TestError {
-    fn from(error: FiniteElementBlockError) -> Self {
-        Self {
-            message: error.to_string(),
-        }
-    }
-}
-
-impl Debug for FiniteElementBlockError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::Upstream(error, block) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In block: {block}."
-                )
-            }
-        };
-        write!(f, "\n{error}\n\x1b[0;2;31m{}\x1b[0m\n", defeat_message())
-    }
-}
-
-impl Display for FiniteElementBlockError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::Upstream(error, block) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In block: {block}."
-                )
-            }
-        };
-        write!(f, "{error}\x1b[0m")
-    }
-}
-
-pub trait ZerothOrderRoot<C, E, const G: usize, const M: usize, const N: usize, X> {
-    fn root(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<X>,
-        coordinates: &NodalReferenceCoordinates,
-    ) -> Result<X, OptimizationError>;
-}
-
-pub trait FirstOrderRoot<C, E, const G: usize, const M: usize, const N: usize, F, J, X> {
-    fn root(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderRootFinding<F, J, X>,
-        coordinates: &NodalReferenceCoordinates,
-    ) -> Result<X, OptimizationError>;
-}
-
-pub trait FirstOrderMinimize<C, E, const G: usize, const M: usize, const N: usize, X> {
-    fn minimize(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<Scalar, X>,
-        coordinates: &NodalReferenceCoordinates,
-    ) -> Result<X, OptimizationError>;
-}
-
-pub trait SecondOrderMinimize<C, E, const G: usize, const M: usize, const N: usize, J, H, X> {
-    fn minimize(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl SecondOrderOptimization<Scalar, J, H, X>,
-        coordinates: &NodalReferenceCoordinates,
-    ) -> Result<X, OptimizationError>;
-}
-
-fn band<const N: usize>(
-    connectivity: &Connectivity<N>,
-    equality_constraint: &EqualityConstraint,
-    number_of_nodes: usize,
-    dimension: usize,
-) -> Banded {
-    let mut neighbors = vec![Vec::new(); number_of_nodes];
-    add_node_neighbors(connectivity, &mut neighbors);
-    finalize_node_neighbors(&mut neighbors);
-    band_from_neighbors(&neighbors, equality_constraint, dimension)
-}
-
 pub(crate) fn add_node_neighbors<const N: usize>(
     connectivity: &Connectivity<N>,
     neighbors: &mut [Vec<usize>],
@@ -401,4 +305,3 @@ pub(crate) fn band_from_neighbors(
         EqualityConstraint::None => Banded::from(structure_nd),
     }
 }
-

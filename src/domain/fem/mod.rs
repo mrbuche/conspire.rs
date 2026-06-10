@@ -3,6 +3,7 @@
 pub mod block;
 mod from;
 pub mod solid;
+pub mod thermal;
 
 use crate::{
     math::{
@@ -39,6 +40,44 @@ where
     Self: Debug,
 {
     fn coordinates(&self) -> &NodalReferenceCoordinates;
+}
+
+pub trait FiniteElements
+where
+    Self: Debug,
+{
+    fn node_neighbors(&self, neighbors: &mut [Vec<usize>]);
+}
+
+impl<B> FiniteElements for Model<B>
+where
+    B: FiniteElements,
+{
+    fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
+        self.blocks.node_neighbors(neighbors)
+    }
+}
+
+impl<B1, B2> FiniteElements for Blocks<B1, B2>
+where
+    B1: FiniteElements,
+    B2: FiniteElements,
+{
+    fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
+        self.0.node_neighbors(neighbors);
+        self.1.node_neighbors(neighbors)
+    }
+}
+
+impl<B1, B2> FiniteElements for ElasticViscoplasticAndElastic<B1, B2>
+where
+    B1: FiniteElements,
+    B2: FiniteElements,
+{
+    fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
+        self.0.node_neighbors(neighbors);
+        self.1.node_neighbors(neighbors)
+    }
 }
 
 impl<B> Model<B> {

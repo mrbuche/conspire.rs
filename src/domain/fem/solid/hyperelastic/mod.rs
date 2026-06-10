@@ -1,12 +1,9 @@
 use crate::{
     fem::{
-        Blocks, FiniteElementModel, FiniteElementModelError, FirstOrderMinimize, Model,
-        NodalCoordinates, SecondOrderMinimize,
+        Blocks, FiniteElementModel, FiniteElementModelError, FiniteElements, FirstOrderMinimize,
+        Model, NodalCoordinates, SecondOrderMinimize,
         block::{band_from_neighbors, finalize_node_neighbors},
-        solid::{
-            NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElements,
-            elastic::ElasticFiniteElements,
-        },
+        solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticFiniteElements},
     },
     math::{
         Scalar, Tensor,

@@ -249,10 +249,12 @@ macro_rules! test_finite_element_block_inner {
                         AlmansiHamel,
                         test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
                     },
-                    fem::block::solid::{
-                        SolidFiniteElementBlock,
-                        elastic_hyperviscous::ElasticHyperviscousFiniteElementBlock,
-                        viscoelastic::ViscoelasticFiniteElementBlock,
+                    fem::{
+                        block::solid::SolidFiniteElementBlock,
+                        solid::{
+                            elastic_hyperviscous::ElasticHyperviscousFiniteElements,
+                            viscoelastic::ViscoelasticFiniteElements,
+                        },
                     },
                 };
                 mod almansi_hamel {
@@ -277,10 +279,12 @@ macro_rules! test_finite_element_block_inner {
                         SaintVenantKirchhoff,
                         test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
                     },
-                    fem::block::solid::{
-                        SolidFiniteElementBlock,
-                        elastic_hyperviscous::ElasticHyperviscousFiniteElementBlock,
-                        viscoelastic::ViscoelasticFiniteElementBlock,
+                    fem::{
+                        block::solid::SolidFiniteElementBlock,
+                        solid::{
+                            elastic_hyperviscous::ElasticHyperviscousFiniteElements,
+                            viscoelastic::ViscoelasticFiniteElements,
+                        },
                     },
                 };
                 mod saint_venant_kirchhoff {
@@ -1004,15 +1008,20 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                 #[test]
                 fn minimize() -> Result<(), TestError> {
                     use crate::constitutive::solid::elastic_hyperviscous::SecondOrderMinimize as _;
+                    use crate::fem::solid::elastic_hyperviscous::SecondOrderMinimize;
                     let (a, b) = applied_velocities();
                     let block = get_block();
-                    let (times, coordinates_history, velocities_history) = block.minimize(
-                        EqualityConstraint::Linear(a, b),
-                        $integrator::default(),
-                        &[0.0, 1.0],
-                        NewtonRaphson::default(),
-                        &get_reference_coordinates_block(),
-                    )?;
+                    let (times, coordinates_history, velocities_history) =
+                        SecondOrderMinimize::minimize(
+                            &crate::fem::Model::from((
+                                get_block(),
+                                get_reference_coordinates_block(),
+                            )),
+                            EqualityConstraint::Linear(a, b),
+                            $integrator::default(),
+                            &[0.0, 1.0],
+                            NewtonRaphson::default(),
+                        )?;
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.minimize(
                             applied_velocity(&times),
@@ -1065,14 +1074,15 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                 #[test]
                 fn root() -> Result<(), TestError> {
                     use crate::constitutive::solid::viscoelastic::FirstOrderRoot as _;
+                    use crate::fem::solid::viscoelastic::FirstOrderRoot;
                     let (a, b) = applied_velocities();
                     let block = get_block();
-                    let (times, coordinates_history, velocities_history) = block.root(
+                    let (times, coordinates_history, velocities_history) = FirstOrderRoot::root(
+                        &crate::fem::Model::from((get_block(), get_reference_coordinates_block())),
                         EqualityConstraint::Linear(a, b),
                         $integrator::default(),
                         &[0.0, 1.0],
                         NewtonRaphson::default(),
-                        &get_reference_coordinates_block(),
                     )?;
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.root(

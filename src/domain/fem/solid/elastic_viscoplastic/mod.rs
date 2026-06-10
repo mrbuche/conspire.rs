@@ -1,16 +1,8 @@
 use crate::{
-    constitutive::solid::elastic_viscoplastic::ElasticViscoplastic,
     fem::{
         ElasticViscoplasticAndElastic, FiniteElementModel, FiniteElementModelError, Model,
         NodalCoordinates, NodalCoordinatesHistory,
-        block::{
-            Block,
-            element::solid::elastic_viscoplastic::ElasticViscoplasticFiniteElement,
-            solid::elastic_viscoplastic::{
-                ElasticViscoplasticBCs, ElasticViscoplasticFiniteElementBlock,
-                ViscoplasticStateVariables,
-            },
-        },
+        block::solid::elastic_viscoplastic::ElasticViscoplasticBCs,
         solid::{
             NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElements,
             elastic::ElasticFiniteElements,
@@ -46,67 +38,35 @@ where
     ) -> Result<S, FiniteElementModelError>;
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, Y>
-    ElasticViscoplasticFiniteElements<ViscoplasticStateVariables<G, Y>> for Block<C, F, G, M, N, P>
+impl<B, S> ElasticViscoplasticFiniteElements<S> for Model<B>
 where
-    C: ElasticViscoplastic<Y>,
-    F: ElasticViscoplasticFiniteElement<C, G, M, N, P, Y>,
-    Self: ElasticViscoplasticFiniteElementBlock<C, F, G, M, N, P, Y> + SolidFiniteElements,
-    Y: Tensor,
+    B: ElasticViscoplasticFiniteElements<S>,
 {
-    fn initial_state(&self) -> ViscoplasticStateVariables<G, Y> {
-        ElasticViscoplasticFiniteElementBlock::initial_state(self)
+    fn initial_state(&self) -> S {
+        self.blocks.initial_state()
     }
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates,
-        state_variables: &ViscoplasticStateVariables<G, Y>,
+        state_variables: &S,
     ) -> Result<NodalForcesSolid, FiniteElementModelError> {
-        match ElasticViscoplasticFiniteElementBlock::nodal_forces(
-            self,
-            nodal_coordinates,
-            state_variables,
-        ) {
-            Ok(nodal_forces) => Ok(nodal_forces),
-            Err(error) => Err(FiniteElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+        self.blocks.nodal_forces(nodal_coordinates, state_variables)
     }
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates,
-        state_variables: &ViscoplasticStateVariables<G, Y>,
+        state_variables: &S,
     ) -> Result<NodalStiffnessesSolid, FiniteElementModelError> {
-        match ElasticViscoplasticFiniteElementBlock::nodal_stiffnesses(
-            self,
-            nodal_coordinates,
-            state_variables,
-        ) {
-            Ok(nodal_stiffnesses) => Ok(nodal_stiffnesses),
-            Err(error) => Err(FiniteElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+        self.blocks
+            .nodal_stiffnesses(nodal_coordinates, state_variables)
     }
     fn state_variables_evolution(
         &self,
         nodal_coordinates: &NodalCoordinates,
-        state_variables: &ViscoplasticStateVariables<G, Y>,
-    ) -> Result<ViscoplasticStateVariables<G, Y>, FiniteElementModelError> {
-        match ElasticViscoplasticFiniteElementBlock::state_variables_evolution(
-            self,
-            nodal_coordinates,
-            state_variables,
-        ) {
-            Ok(state_variables_evolution) => Ok(state_variables_evolution),
-            Err(error) => Err(FiniteElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+        state_variables: &S,
+    ) -> Result<S, FiniteElementModelError> {
+        self.blocks
+            .state_variables_evolution(nodal_coordinates, state_variables)
     }
 }
 

@@ -10,8 +10,8 @@ use crate::{
     constitutive::solid::Solid,
     fem::{
         NodalCoordinates,
-        block::{Block, add_node_neighbors, element::solid::SolidFiniteElement},
-        solid::{NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElements},
+        block::{Block, element::solid::SolidFiniteElement},
+        solid::SolidFiniteElements,
     },
     mechanics::DeformationGradientList,
 };
@@ -57,7 +57,4 @@ where
     C: Solid,
     F: SolidFiniteElement<G, M, N, P>,
 {
-    fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
-        add_node_neighbors(self.connectivity(), neighbors)
-    }
 }

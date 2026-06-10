@@ -7,15 +7,16 @@ macro_rules! test_thermal {
             use crate::{
                 EPSILON,
                 constitutive::thermal::conduction::Fourier,
-                fem::block::{
-                    Block, FiniteElementBlockError,
-                    thermal::{
-                        NodalTemperatures,
-                        conduction::{
-                            NodalForcesThermal, NodalStiffnessesThermal,
-                            ThermalConductionFiniteElementBlock,
+                fem::{
+                    FiniteElementModelError,
+                    block::{
+                        Block,
+                        thermal::{
+                            NodalTemperatures,
+                            conduction::{NodalForcesThermal, NodalStiffnessesThermal},
                         },
                     },
+                    thermal::conduction::ThermalConductionFiniteElements,
                 },
                 math::test::{TestError, assert_eq_from_fd},
             };
@@ -42,7 +43,7 @@ macro_rules! test_thermal {
                             finite_difference -= block.potential(&nodal_temperatures)?;
                             Ok(finite_difference / EPSILON)
                         })
-                        .collect::<Result<_, FiniteElementBlockError>>()?;
+                        .collect::<Result<_, FiniteElementModelError>>()?;
                     assert_eq_from_fd(
                         &nodal_forces_fd,
                         &block.nodal_forces(&NodalTemperatures::zero(D))?,
@@ -72,7 +73,7 @@ macro_rules! test_thermal {
                                 })
                                 .collect()
                         })
-                        .collect::<Result<_, FiniteElementBlockError>>()?;
+                        .collect::<Result<_, FiniteElementModelError>>()?;
                     assert_eq_from_fd(
                         &nodal_stiffnesses_fd,
                         &block.nodal_stiffnesses(&NodalTemperatures::zero(D))?,
