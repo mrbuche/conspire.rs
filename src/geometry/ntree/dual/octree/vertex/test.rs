@@ -1,5 +1,5 @@
 use super::super::{D, N};
-use super::{Template, apply, transition_1, transition_21};
+use super::{Template, apply, transition_21};
 use crate::geometry::ntree::{
     Octree,
     node::{Kind, split::Split},
@@ -71,22 +71,6 @@ where
     let mut connectivity = Vec::new();
     apply(tree, center_nodes, &mut connectivity, data, template);
     connectivity
-}
-
-pub(crate) fn transition_1_only<T, U>(
-    tree: &Octree<T, U>,
-    center_nodes: &[usize],
-) -> Vec<[usize; N]>
-where
-    T: Copy + Into<usize>,
-    U: Copy + Into<usize>,
-{
-    one_template(
-        tree,
-        center_nodes,
-        &transition_1::DATA,
-        transition_1::template,
-    )
 }
 
 pub(crate) fn transition_21_only<T, U>(

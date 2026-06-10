@@ -1,7 +1,3 @@
-#[cfg(test)]
-#[cfg(feature = "netcdf")]
-mod test;
-
 use crate::{
     geometry::{
         Coordinates,

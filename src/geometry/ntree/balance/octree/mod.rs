@@ -1,7 +1,3 @@
-#[cfg(test)]
-#[cfg(feature = "netcdf")]
-pub mod test;
-
 use crate::geometry::ntree::{
     Orthotree,
     balance::{Balance, Balancing},
