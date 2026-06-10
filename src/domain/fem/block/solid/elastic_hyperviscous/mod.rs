@@ -1,7 +1,8 @@
 use crate::{
     constitutive::solid::elastic_hyperviscous::ElasticHyperviscous,
     fem::{
-        NodalCoordinates, NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
+        NodalCoordinates, NodalCoordinatesHistory, NodalReferenceCoordinates, NodalVelocities,
+        NodalVelocitiesHistory,
         block::{
             Block, FiniteElementBlockError, band,
             element::solid::elastic_hyperviscous::ElasticHyperviscousFiniteElement,
@@ -58,6 +59,7 @@ pub trait ElasticHyperviscousFiniteElementBlock<
             NodalStiffnessesSolid,
             NodalCoordinates,
         >,
+        coordinates: &NodalReferenceCoordinates,
     ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError>;
 }
 
@@ -135,11 +137,12 @@ where
             NodalStiffnessesSolid,
             NodalCoordinates,
         >,
+        coordinates: &NodalReferenceCoordinates,
     ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError> {
         let banded = band(
             self.connectivity(),
             &equality_constraint,
-            self.coordinates().len(),
+            coordinates.len(),
             3,
         );
         integrator.integrate(
@@ -160,7 +163,7 @@ where
             },
             solver,
             time,
-            self.coordinates().clone().into(),
+            coordinates.clone().into(),
             |_: Scalar| equality_constraint.clone(),
             Some(banded),
         )

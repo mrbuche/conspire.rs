@@ -6,7 +6,7 @@ macro_rules! test_finite_element_block {
                     Block::<$constitutive_model_type, $element, G, M, N, P>::from((
                         $constitutive_model,
                         get_connectivity(),
-                        get_reference_coordinates_block(),
+                        &get_reference_coordinates_block(),
                     ))
                 }
                 fn get_block_transformed() -> Block<$constitutive_model_type, $element, G, M, N, P>
@@ -14,7 +14,7 @@ macro_rules! test_finite_element_block {
                     Block::<$constitutive_model_type, $element, G, M, N, P>::from((
                         $constitutive_model,
                         get_connectivity(),
-                        get_reference_coordinates_transformed_block(),
+                        &get_reference_coordinates_transformed_block(),
                     ))
                 }
             };
@@ -33,7 +33,7 @@ macro_rules! test_surface_finite_element_block {
                     Block::<$constitutive_model_type, $element, G, M, N, P>::from((
                         $constitutive_model,
                         get_connectivity(),
-                        get_reference_coordinates_block(),
+                        &get_reference_coordinates_block(),
                         THICKNESS,
                     ))
                 }
@@ -42,7 +42,7 @@ macro_rules! test_surface_finite_element_block {
                     Block::<$constitutive_model_type, $element, G, M, N, P>::from((
                         $constitutive_model,
                         get_connectivity(),
-                        get_reference_coordinates_transformed_block(),
+                        &get_reference_coordinates_transformed_block(),
                         THICKNESS,
                     ))
                 }
@@ -723,6 +723,7 @@ macro_rules! test_finite_element_block_with_elastic_or_hyperelastic_constitutive
                         &block,
                         EqualityConstraint::Linear(a, b),
                         $solver::default(),
+                        &get_reference_coordinates_block(),
                     )?;
                     let deformation_gradient =
                         $constitutive_model.root(applied_load, $solver::default())?;
@@ -807,8 +808,12 @@ macro_rules! test_finite_element_block_with_hyperelastic_constitutive_model {
                 fn minimize() -> Result<(), TestError> {
                     let (applied_load, a, b) = equality_constraint();
                     let block = get_block();
-                    let coordinates =
-                        SecondOrderMinimize::minimize(&block, EqualityConstraint::Linear(a, b), $solver::default())?;
+                    let coordinates = SecondOrderMinimize::minimize(
+                        &block,
+                        EqualityConstraint::Linear(a, b),
+                        $solver::default(),
+                        &get_reference_coordinates_block(),
+                    )?;
                     let deformation_gradient =
                         $constitutive_model
                             .minimize(applied_load, $solver::default())?;
@@ -1001,6 +1006,7 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                         $integrator::default(),
                         &[0.0, 1.0],
                         NewtonRaphson::default(),
+                        &get_reference_coordinates_block(),
                     )?;
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.minimize(
@@ -1061,6 +1067,7 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                         $integrator::default(),
                         &[0.0, 1.0],
                         NewtonRaphson::default(),
+                        &get_reference_coordinates_block(),
                     )?;
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.root(

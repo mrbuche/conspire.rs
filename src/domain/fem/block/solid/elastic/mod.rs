@@ -1,7 +1,7 @@
 use crate::{
     constitutive::solid::elastic::Elastic,
     fem::{
-        NodalCoordinates,
+        NodalCoordinates, NodalReferenceCoordinates,
         block::{
             Block, FiniteElementBlockError, FirstOrderRoot, ZerothOrderRoot,
             element::{FiniteElementError, solid::elastic::ElasticFiniteElement},
@@ -117,10 +117,11 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl ZerothOrderRootFinding<NodalCoordinates>,
+        coordinates: &NodalReferenceCoordinates,
     ) -> Result<NodalCoordinates, OptimizationError> {
         solver.root(
             |nodal_coordinates: &NodalCoordinates| Ok(self.nodal_forces(nodal_coordinates)?),
-            self.coordinates().clone().into(),
+            coordinates.clone().into(),
             equality_constraint,
         )
     }
@@ -137,11 +138,12 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl FirstOrderRootFinding<NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>,
+        coordinates: &NodalReferenceCoordinates,
     ) -> Result<NodalCoordinates, OptimizationError> {
         solver.root(
             |nodal_coordinates: &NodalCoordinates| Ok(self.nodal_forces(nodal_coordinates)?),
             |nodal_coordinates: &NodalCoordinates| Ok(self.nodal_stiffnesses(nodal_coordinates)?),
-            self.coordinates().clone().into(),
+            coordinates.clone().into(),
             equality_constraint,
         )
     }

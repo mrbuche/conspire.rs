@@ -30,7 +30,7 @@ macro_rules! test_thermal {
                     let block = Block::<Fourier, $element, G, M, N, P>::from((
                         constitutive_model,
                         get_connectivity(),
-                        get_reference_coordinates_block(),
+                        &get_reference_coordinates_block(),
                     ));
                     let mut finite_difference = 0.0;
                     let nodal_forces_fd: NodalForcesThermal = (0..D)
@@ -54,7 +54,7 @@ macro_rules! test_thermal {
                     let block = Block::<Fourier, $element, G, M, N, P>::from((
                         constitutive_model,
                         get_connectivity(),
-                        get_reference_coordinates_block(),
+                        &get_reference_coordinates_block(),
                     ));
                     let mut finite_difference = 0.0;
                     let nodal_stiffnesses_fd: NodalStiffnessesThermal = (0..D)

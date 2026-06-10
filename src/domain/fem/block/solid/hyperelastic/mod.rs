@@ -1,7 +1,7 @@
 use crate::{
     constitutive::solid::hyperelastic::Hyperelastic,
     fem::{
-        NodalCoordinates,
+        NodalCoordinates, NodalReferenceCoordinates,
         block::{
             Block, FiniteElementBlockError, FirstOrderMinimize, SecondOrderMinimize, band,
             element::solid::hyperelastic::HyperelasticFiniteElement,
@@ -76,13 +76,14 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl FirstOrderOptimization<Scalar, NodalForcesSolid>,
+        coordinates: &NodalReferenceCoordinates,
     ) -> Result<NodalCoordinates, OptimizationError> {
         solver.minimize(
             |nodal_coordinates: &NodalCoordinates| {
                 Ok(self.helmholtz_free_energy(nodal_coordinates)?)
             },
             |nodal_coordinates: &NodalCoordinates| Ok(self.nodal_forces(nodal_coordinates)?),
-            self.coordinates().clone().into(),
+            coordinates.clone().into(),
             equality_constraint,
         )
     }
@@ -104,11 +105,12 @@ where
             NodalStiffnessesSolid,
             NodalCoordinates,
         >,
+        coordinates: &NodalReferenceCoordinates,
     ) -> Result<NodalCoordinates, OptimizationError> {
         let banded = band(
             self.connectivity(),
             &equality_constraint,
-            self.coordinates().len(),
+            coordinates.len(),
             3,
         );
         solver.minimize(
@@ -117,7 +119,7 @@ where
             },
             |nodal_coordinates: &NodalCoordinates| Ok(self.nodal_forces(nodal_coordinates)?),
             |nodal_coordinates: &NodalCoordinates| Ok(self.nodal_stiffnesses(nodal_coordinates)?),
-            self.coordinates().clone().into(),
+            coordinates.clone().into(),
             equality_constraint,
             Some(banded),
         )

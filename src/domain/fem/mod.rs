@@ -1,6 +1,7 @@
 //! Finite element library.
 
 pub mod block;
+mod from;
 pub mod solid;
 
 use crate::{
@@ -18,30 +19,17 @@ pub type NodalReferenceCoordinates = Coordinates<0>;
 pub type NodalVelocities = Coordinates<1>;
 pub type NodalVelocitiesHistory = TensorRank1Vec2D<3, 1>;
 
-// Consider using a model-to-block node map to avoid all the extra allocations/operations in nodal_forces etc.
-// Would need to use a new trait for Blocks with the map in the receiver, and keep those maps in a Model field.
-// Try to compare the performance before and after before making a decision.
-
-// need to move solve routines from block to model
-// would then need to change how unit tests work
-
-// want to have mixed-C cases (viscoelastic + elastic) solve differently
-// will have like (B1: Elastic, B2: Viscoelastic) => ViscoelasticFiniteElementModel
-// just like constutituve/hybrid, and will have to impl combos specifically
-
 #[derive(Debug)]
 pub struct Model<B> {
-    // blocks: B,
-    // coordinates: NodalReferenceCoordinates,
-    pub blocks: B,
-    pub coordinates: NodalReferenceCoordinates,
-    // pub is temporary until From<...> is implemented
+    blocks: B,
+    coordinates: NodalReferenceCoordinates,
 }
 
 #[derive(Debug)]
-pub struct Blocks<B1, B2>(pub B1, pub B2); // pub is temporary
+pub struct Blocks<B1, B2>(B1, B2);
 
-pub struct Connectivities<C1, C2>(C1, C2);
+#[derive(Debug)]
+pub struct ElasticViscoplasticAndElastic<B1, B2>(B1, B2);
 
 pub trait FiniteElementModel
 where

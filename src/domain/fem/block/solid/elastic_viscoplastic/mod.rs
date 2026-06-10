@@ -1,7 +1,7 @@
 use crate::{
     constitutive::solid::elastic_viscoplastic::ElasticViscoplastic,
     fem::{
-        NodalCoordinates, NodalCoordinatesHistory,
+        NodalCoordinates, NodalCoordinatesHistory, NodalReferenceCoordinates,
         block::{
             Block, FiniteElementBlockError,
             element::{
@@ -41,6 +41,7 @@ pub trait ElasticViscoplasticFiniteElementBlock<
     Self: SolidFiniteElementBlock<C, F, G, M, N, P>,
     Y: Tensor,
 {
+    fn initial_state(&self) -> ViscoplasticStateVariables<G, Y>;
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates,
@@ -69,6 +70,7 @@ pub trait ElasticViscoplasticFiniteElementBlock<
         solver: impl FirstOrderRootFinding<NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>,
         time: &[Scalar],
         bcs: ElasticViscoplasticBCs,
+        coordinates: &NodalReferenceCoordinates,
     ) -> Result<
         (
             Times,
@@ -87,6 +89,12 @@ where
     Self: SolidFiniteElementBlock<C, F, G, M, N, P>,
     Y: Tensor,
 {
+    fn initial_state(&self) -> ViscoplasticStateVariables<G, Y> {
+        self.elements()
+            .iter()
+            .map(|_| from_fn(|_| self.constitutive_model().initial_state()).into())
+            .collect()
+    }
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates,
@@ -193,6 +201,7 @@ where
         solver: impl FirstOrderRootFinding<NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>,
         time: &[Scalar],
         bcs: ElasticViscoplasticBCs,
+        coordinates: &NodalReferenceCoordinates,
     ) -> Result<
         (
             Times,
@@ -220,13 +229,7 @@ where
                 },
                 solver,
                 time,
-                (
-                    self.elements()
-                        .iter()
-                        .map(|_| from_fn(|_| self.constitutive_model().initial_state()).into())
-                        .collect(),
-                    self.coordinates().clone().into(),
-                ),
+                (self.initial_state(), coordinates.clone().into()),
                 bcs,
             )?;
         Ok((

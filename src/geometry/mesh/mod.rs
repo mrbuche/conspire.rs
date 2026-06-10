@@ -14,7 +14,7 @@ mod tessellation;
 mod write;
 
 pub use self::{
-    connectivity::{Connectivities, Connectivity},
+    connectivity::{Connectivities, Connectivity, primitive::PrimitiveConnectivity},
     quality::metrics::Verdict,
     read::Input,
     tessellation::Tessellation,

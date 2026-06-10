@@ -20,3 +20,21 @@ pub enum Connectivity {
 }
 
 pub type Connectivities = Set<Vec<Connectivity>>;
+
+macro_rules! try_from_connectivity {
+    ($variant: ident, $m: literal, $n: literal, $error: literal) => {
+        impl TryFrom<Connectivity> for PrimitiveConnectivity<$m, $n> {
+            type Error = &'static str;
+            fn try_from(connectivity: Connectivity) -> Result<Self, Self::Error> {
+                match connectivity {
+                    Connectivity::$variant(connectivity) => Ok(connectivity),
+                    _ => Err($error),
+                }
+            }
+        }
+    };
+}
+try_from_connectivity!(Hexahedral, 3, 8, "block is not hexahedral");
+try_from_connectivity!(Quadrilateral, 2, 4, "block is not quadrilateral");
+try_from_connectivity!(Tetrahedral, 3, 4, "block is not tetrahedral");
+try_from_connectivity!(Triangular, 2, 3, "block is not triangular");

@@ -1,7 +1,8 @@
 use crate::{
     constitutive::solid::viscoelastic::Viscoelastic,
     fem::{
-        NodalCoordinates, NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
+        NodalCoordinates, NodalCoordinatesHistory, NodalReferenceCoordinates, NodalVelocities,
+        NodalVelocitiesHistory,
         block::{
             Block, FiniteElementBlockError,
             element::{
@@ -61,6 +62,7 @@ pub trait ViscoelasticFiniteElementBlock<
         >,
         time: &[Scalar],
         solver: impl FirstOrderRootFinding<NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>,
+        coordinates: &NodalReferenceCoordinates,
     ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError>;
 }
 
@@ -170,6 +172,7 @@ where
         >,
         time: &[Scalar],
         solver: impl FirstOrderRootFinding<NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>,
+        coordinates: &NodalReferenceCoordinates,
     ) -> Result<(Times, NodalCoordinatesHistory, NodalVelocitiesHistory), IntegrationError> {
         integrator.integrate(
             |_: Scalar,
@@ -184,7 +187,7 @@ where
             },
             solver,
             time,
-            self.coordinates().clone().into(),
+            coordinates.clone().into(),
             |_: Scalar| equality_constraint.clone(),
         )
     }

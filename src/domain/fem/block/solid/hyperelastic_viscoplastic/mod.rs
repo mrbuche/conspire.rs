@@ -1,7 +1,7 @@
 use crate::{
     constitutive::solid::hyperelastic_viscoplastic::HyperelasticViscoplastic,
     fem::{
-        NodalCoordinates, NodalCoordinatesHistory,
+        NodalCoordinates, NodalCoordinatesHistory, NodalReferenceCoordinates,
         block::{
             Block, FiniteElementBlockError, band,
             element::solid::hyperelastic_viscoplastic::HyperelasticViscoplasticFiniteElement,
@@ -61,6 +61,7 @@ pub trait HyperelasticViscoplasticFiniteElementBlock<
         >,
         time: &[Scalar],
         bcs: ElasticViscoplasticBCs,
+        coordinates: &NodalReferenceCoordinates,
     ) -> Result<
         (
             Times,
@@ -124,6 +125,7 @@ where
         >,
         time: &[Scalar],
         bcs: ElasticViscoplasticBCs,
+        coordinates: &NodalReferenceCoordinates,
     ) -> Result<
         (
             Times,
@@ -132,12 +134,7 @@ where
         ),
         IntegrationError,
     > {
-        let banded = band(
-            self.connectivity(),
-            &bcs(time[0]),
-            self.coordinates().len(),
-            3,
-        );
+        let banded = band(self.connectivity(), &bcs(time[0]), coordinates.len(), 3);
         let (time_history, state_variables_history, _, nodal_coordinates_history) = integrator
             .integrate(
                 |_: Scalar,
@@ -167,7 +164,7 @@ where
                         .iter()
                         .map(|_| from_fn(|_| self.constitutive_model().initial_state()).into())
                         .collect(),
-                    self.coordinates().clone().into(),
+                    coordinates.clone().into(),
                 ),
                 bcs,
                 Some(banded),

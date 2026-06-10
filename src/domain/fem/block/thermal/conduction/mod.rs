@@ -3,11 +3,14 @@ pub mod test;
 
 use crate::{
     constitutive::thermal::conduction::ThermalConduction,
-    fem::block::{
-        Block, FiniteElementBlockError, FirstOrderMinimize, FirstOrderRoot, SecondOrderMinimize,
-        ZerothOrderRoot, band,
-        element::{FiniteElementError, thermal::conduction::ThermalConductionFiniteElement},
-        thermal::{NodalTemperatures, ThermalFiniteElementBlock},
+    fem::{
+        NodalReferenceCoordinates,
+        block::{
+            Block, FiniteElementBlockError, FirstOrderMinimize, FirstOrderRoot,
+            SecondOrderMinimize, ZerothOrderRoot, band,
+            element::{FiniteElementError, thermal::conduction::ThermalConductionFiniteElement},
+            thermal::{NodalTemperatures, ThermalFiniteElementBlock},
+        },
     },
     math::{
         Scalar, SquareMatrix, Tensor, Vector,
@@ -147,10 +150,11 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl ZerothOrderRootFinding<NodalTemperatures>,
+        coordinates: &NodalReferenceCoordinates,
     ) -> Result<NodalTemperatures, OptimizationError> {
         solver.root(
             |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
-            NodalTemperatures::zero(self.coordinates().len()),
+            NodalTemperatures::zero(coordinates.len()),
             equality_constraint,
         )
     }
@@ -171,13 +175,14 @@ where
             NodalStiffnessesThermal,
             NodalTemperatures,
         >,
+        coordinates: &NodalReferenceCoordinates,
     ) -> Result<NodalTemperatures, OptimizationError> {
         solver.root(
             |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
             |nodal_temperatures: &NodalTemperatures| {
                 Ok(self.nodal_stiffnesses(nodal_temperatures)?)
             },
-            NodalTemperatures::zero(self.coordinates().len()),
+            NodalTemperatures::zero(coordinates.len()),
             equality_constraint,
         )
     }
@@ -193,11 +198,12 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl FirstOrderOptimization<Scalar, NodalTemperatures>,
+        coordinates: &NodalReferenceCoordinates,
     ) -> Result<NodalTemperatures, OptimizationError> {
         solver.minimize(
             |nodal_temperatures: &NodalTemperatures| Ok(self.potential(nodal_temperatures)?),
             |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
-            NodalTemperatures::zero(self.coordinates().len()),
+            NodalTemperatures::zero(coordinates.len()),
             equality_constraint,
         )
     }
@@ -227,11 +233,12 @@ where
             NodalStiffnessesThermal,
             NodalTemperatures,
         >,
+        coordinates: &NodalReferenceCoordinates,
     ) -> Result<NodalTemperatures, OptimizationError> {
         let banded = band(
             self.connectivity(),
             &equality_constraint,
-            self.coordinates().len(),
+            coordinates.len(),
             1,
         );
         solver.minimize(
@@ -240,7 +247,7 @@ where
             |nodal_temperatures: &NodalTemperatures| {
                 Ok(self.nodal_stiffnesses(nodal_temperatures)?)
             },
-            NodalTemperatures::zero(self.coordinates().len()),
+            NodalTemperatures::zero(coordinates.len()),
             equality_constraint,
             Some(banded),
         )

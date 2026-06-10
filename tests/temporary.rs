@@ -7397,7 +7397,7 @@ fn temporary_hyperelastic() -> Result<(), TestError> {
     let block = Block::<_, LinearTetrahedron, G, M, N, P>::from((
         model.clone(),
         connectivity,
-        coordinates(),
+        &coordinates(),
     ));
     let length = ref_coordinates
         .iter()
@@ -7433,6 +7433,7 @@ fn temporary_hyperelastic() -> Result<(), TestError> {
     let solution = block.minimize(
         EqualityConstraint::Linear(matrix, vector),
         NewtonRaphson::default(),
+        &coordinates(),
     )?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
@@ -7527,7 +7528,7 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
     let block = Block::<_, LinearTetrahedron, G, M, N, P>::from((
         model.clone(),
         connectivity,
-        coordinates(),
+        &coordinates(),
     ));
     let mut time = std::time::Instant::now();
     println!("Solving...");
@@ -7540,6 +7541,7 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
         NewtonRaphson::default(),
         &tspan,
         bcs_temporary_elastic_viscoplastic,
+        &coordinates(),
     )?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
@@ -7621,7 +7623,7 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
     let block = Block::<_, LinearTetrahedron, G, M, N, P>::from((
         model.clone(),
         connectivity,
-        coordinates(),
+        &coordinates(),
     ));
     let length = ref_coordinates
         .iter()
@@ -7663,6 +7665,7 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
         },
         &tspan,
         NewtonRaphson::default(),
+        &coordinates(),
     )?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
@@ -7735,7 +7738,7 @@ fn temporary_thermal_conduction() -> Result<(), TestError> {
     let block = Block::<_, LinearTetrahedron, G, M, N, P>::from((
         model.clone(),
         connectivity,
-        coordinates(),
+        &coordinates(),
     ));
     let length = ref_coordinates
         .iter()
@@ -7767,6 +7770,7 @@ fn temporary_thermal_conduction() -> Result<(), TestError> {
             max_steps: 1,
             ..Default::default()
         },
+        &coordinates(),
     )?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();

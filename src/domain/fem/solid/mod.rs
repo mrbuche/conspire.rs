@@ -1,9 +1,10 @@
 pub mod elastic;
+pub mod elastic_viscoplastic;
 
 use crate::{
     constitutive::solid::Solid,
     fem::{
-        Blocks, Model,
+        Blocks, ElasticViscoplasticAndElastic, Model,
         block::{Block, element::solid::SolidFiniteElement},
     },
     math::TensorRank2Vec2D,
@@ -23,6 +24,13 @@ where
 impl<B> SolidFiniteElementModel for Model<B> where B: SolidFiniteElementModel {}
 
 impl<B1, B2> SolidFiniteElementModel for Blocks<B1, B2>
+where
+    B1: SolidFiniteElementModel,
+    B2: SolidFiniteElementModel,
+{
+}
+
+impl<B1, B2> SolidFiniteElementModel for ElasticViscoplasticAndElastic<B1, B2>
 where
     B1: SolidFiniteElementModel,
     B2: SolidFiniteElementModel,

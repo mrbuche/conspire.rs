@@ -36,7 +36,6 @@ pub type Graph<const N: usize> = Sets<Vec<[usize; N]>, [usize; N], usize, Vec<us
 pub struct Block<C, F, const G: usize, const M: usize, const N: usize, const P: usize> {
     constitutive_model: C,
     connectivity: Graph<N>,
-    coordinates: NodalReferenceCoordinates,
     elements: Vec<F>,
 }
 
@@ -49,9 +48,6 @@ where
     }
     fn connectivity(&self) -> &Connectivity<N> {
         self.connectivity.members()
-    }
-    fn coordinates(&self) -> &NodalReferenceCoordinates {
-        &self.coordinates
     }
     fn elements(&self) -> &[F] {
         &self.elements
@@ -102,14 +98,18 @@ where
 
 pub trait FiniteElementBlock<C, F, const G: usize, const N: usize>
 where
-    Self: From<(C, Connectivity<N>, NodalReferenceCoordinates)>,
+    Self: for<'a> From<(C, Connectivity<N>, &'a NodalReferenceCoordinates)>,
 {
-    fn isolate(self, elements: &[usize]) -> Vec<(Self, [Vec<usize>; 3])>;
+    fn isolate(
+        self,
+        elements: &[usize],
+        coordinates: &NodalReferenceCoordinates,
+    ) -> Vec<(Self, NodalReferenceCoordinates, [Vec<usize>; 3])>;
     fn reset(&mut self);
 }
 
 impl<C, F, const G: usize, const N: usize, const P: usize>
-    From<(C, Connectivity<N>, NodalReferenceCoordinates)> for Block<C, F, G, 3, N, P>
+    From<(C, Connectivity<N>, &NodalReferenceCoordinates)> for Block<C, F, G, 3, N, P>
 where
     F: FiniteElement<G, 3, N, P> + From<ElementNodalReferenceCoordinates<N>>,
 {
@@ -117,18 +117,17 @@ where
         (constitutive_model, connectivity, coordinates): (
             C,
             Connectivity<N>,
-            NodalReferenceCoordinates,
+            &NodalReferenceCoordinates,
         ),
     ) -> Self {
         let elements = connectivity
             .iter()
-            .map(|nodes| Self::element_coordinates(&coordinates, nodes).into())
+            .map(|nodes| Self::element_coordinates(coordinates, nodes).into())
             .collect();
         let connectivity = connectivity.into();
         Self {
             constitutive_model,
             connectivity,
-            coordinates,
             elements,
         }
     }
@@ -140,7 +139,11 @@ where
     C: Constitutive,
     F: Default + FiniteElement<G, 3, N, P> + From<ElementNodalReferenceCoordinates<N>>,
 {
-    fn isolate(self, isolated_elements: &[usize]) -> Vec<(Self, [Vec<usize>; 3])> {
+    fn isolate(
+        self,
+        isolated_elements: &[usize],
+        coordinates: &NodalReferenceCoordinates,
+    ) -> Vec<(Self, NodalReferenceCoordinates, [Vec<usize>; 3])> {
         let (graph, map) = self.connectivity.inverse();
         let (_, node_elements) = graph.into();
         let (_, element_nodes) = self.connectivity.into();
@@ -148,7 +151,7 @@ where
             .iter()
             .map(|&isolated_element| element_nodes[isolated_element])
             .collect();
-        disjoint_set_union(&isolated_element_nodes, self.coordinates.len())
+        disjoint_set_union(&isolated_element_nodes, coordinates.len())
             .into_iter()
             .map(|isolated_nodes| {
                 let mut block_elements = isolated_nodes
@@ -166,12 +169,12 @@ where
                 let constitutive_model = self.constitutive_model.clone();
                 let mut node_num = 0;
                 let mut local_nodes = vec![0; global_nodes.iter().max().unwrap() + 1];
-                let coordinates = global_nodes
+                let block_coordinates = global_nodes
                     .iter()
                     .map(|&node| {
                         local_nodes[node] = node_num;
                         node_num += 1;
-                        self.coordinates[node].clone()
+                        coordinates[node].clone()
                     })
                     .collect();
                 let connectivity = block_elements
@@ -193,9 +196,9 @@ where
                     Self {
                         constitutive_model,
                         connectivity,
-                        coordinates,
                         elements,
                     },
+                    block_coordinates,
                     [boundary_nodes, local_nodes, global_nodes],
                 )
             })
@@ -266,6 +269,7 @@ pub trait ZerothOrderRoot<C, E, const G: usize, const M: usize, const N: usize, 
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl ZerothOrderRootFinding<X>,
+        coordinates: &NodalReferenceCoordinates,
     ) -> Result<X, OptimizationError>;
 }
 
@@ -274,6 +278,7 @@ pub trait FirstOrderRoot<C, E, const G: usize, const M: usize, const N: usize, F
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl FirstOrderRootFinding<F, J, X>,
+        coordinates: &NodalReferenceCoordinates,
     ) -> Result<X, OptimizationError>;
 }
 
@@ -282,6 +287,7 @@ pub trait FirstOrderMinimize<C, E, const G: usize, const M: usize, const N: usiz
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl FirstOrderOptimization<Scalar, X>,
+        coordinates: &NodalReferenceCoordinates,
     ) -> Result<X, OptimizationError>;
 }
 
@@ -290,6 +296,7 @@ pub trait SecondOrderMinimize<C, E, const G: usize, const M: usize, const N: usi
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl SecondOrderOptimization<Scalar, J, H, X>,
+        coordinates: &NodalReferenceCoordinates,
     ) -> Result<X, OptimizationError>;
 }
 
