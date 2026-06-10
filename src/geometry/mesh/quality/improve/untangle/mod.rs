@@ -3,21 +3,32 @@ mod test;
 
 use super::Incidence;
 use crate::{
-    geometry::mesh::Mesh,
+    geometry::{
+        Coordinate,
+        mesh::{Mesh, Tessellation},
+    },
     math::{Scalar, Tensor},
 };
+use std::mem::transmute_copy;
 
 const PROBES: usize = 32;
 
 impl<const D: usize> Mesh<D> {
-    /// Derivative-free untangling: each tangled node (incident minimum scaled
-    /// Jacobian <= 0) is moved by a shrinking compass search that maximizes that
-    /// minimum. Only strictly improving probes are kept, so the global minimum
-    /// scaled Jacobian never decreases and no new tangles are created.
-    pub fn untangle(&mut self, iterations: usize) {
+    pub fn untangle(&mut self, iterations: usize, surface: Option<&Tessellation>) {
         let number_of_nodes = self.number_of_nodes();
         let neighbors = self.node_node_connectivity().to_vec();
         let incidence = Incidence::of(self);
+        let constrained = surface.filter(|_| D == 3);
+        let elements: Vec<&[usize]> = constrained
+            .map(|surface| surface.mesh().connectivities().iter().flatten().collect())
+            .unwrap_or_default();
+        let mut boundary = vec![false; number_of_nodes];
+        if constrained.is_some() {
+            self.exterior_faces()
+                .iter()
+                .flatten()
+                .for_each(|&node| boundary[node] = true);
+        }
         let coordinates = self.coordinates.members_mut();
         for _ in 0..iterations {
             for node in 0..number_of_nodes {
@@ -38,14 +49,21 @@ impl<const D: usize> Mesh<D> {
                     let mut improved = false;
                     for axis in 0..D {
                         for sign in [-1.0, 1.0] {
-                            let original = coordinates[node][axis];
-                            coordinates[node][axis] = original + sign * step;
+                            let original = coordinates[node].clone();
+                            coordinates[node][axis] += sign * step;
+                            if boundary[node] {
+                                coordinates[node] = project_to_surface(
+                                    constrained.unwrap(),
+                                    &elements,
+                                    &coordinates[node],
+                                );
+                            }
                             let trial = incidence.minimum_jacobian(node, coordinates);
                             if trial > current {
                                 current = trial;
                                 improved = true;
                             } else {
-                                coordinates[node][axis] = original;
+                                coordinates[node] = original;
                             }
                         }
                     }
@@ -56,4 +74,17 @@ impl<const D: usize> Mesh<D> {
             }
         }
     }
+}
+
+fn project_to_surface<const D: usize>(
+    surface: &Tessellation,
+    elements: &[&[usize]],
+    point: &Coordinate<D>,
+) -> Coordinate<D> {
+    let query: &Coordinate<3> = unsafe { &*(point as *const Coordinate<D>).cast() };
+    let projected = surface
+        .bvh()
+        .closest_point(query, surface.mesh().coordinates(), elements)
+        .map_or_else(|| query.clone(), |(projected, _)| projected);
+    unsafe { transmute_copy(&projected) }
 }
