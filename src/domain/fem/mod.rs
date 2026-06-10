@@ -8,7 +8,8 @@ use crate::{
     math::{
         TensorRank1Vec2D, TestError,
         optimize::{
-            EqualityConstraint, FirstOrderRootFinding, OptimizationError, ZerothOrderRootFinding,
+            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
+            SecondOrderOptimization, ZerothOrderRootFinding,
         },
     },
     mechanics::Coordinates,
@@ -94,6 +95,14 @@ impl From<FiniteElementModelError> for String {
     }
 }
 
+pub trait ZerothOrderRoot<X> {
+    fn root(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: impl ZerothOrderRootFinding<X>,
+    ) -> Result<X, OptimizationError>;
+}
+
 pub trait FirstOrderRoot<F, J, X> {
     fn root(
         &self,
@@ -102,11 +111,19 @@ pub trait FirstOrderRoot<F, J, X> {
     ) -> Result<X, OptimizationError>;
 }
 
-pub trait ZerothOrderRoot<X> {
-    fn root(
+pub trait FirstOrderMinimize<F, X> {
+    fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<X>,
+        solver: impl FirstOrderOptimization<F, X>,
+    ) -> Result<X, OptimizationError>;
+}
+
+pub trait SecondOrderMinimize<F, J, H, X> {
+    fn minimize(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: impl SecondOrderOptimization<F, J, H, X>,
     ) -> Result<X, OptimizationError>;
 }
 

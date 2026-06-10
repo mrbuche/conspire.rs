@@ -1,5 +1,6 @@
 pub mod elastic;
 pub mod elastic_viscoplastic;
+pub mod hyperelastic;
 
 use crate::{
     constitutive::solid::Solid,
