@@ -1,6 +1,6 @@
 use crate::{
     fem::{
-        ElasticViscoplasticAndElastic, FiniteElementModel, FiniteElementModelError, Model,
+        Blocks, ElasticViscoplasticAndElastic, FiniteElementModel, FiniteElementModelError, Model,
         NodalCoordinates, NodalCoordinatesHistory,
         block::solid::elastic_viscoplastic::ElasticViscoplasticBCs,
         solid::{
@@ -9,7 +9,7 @@ use crate::{
         },
     },
     math::{
-        Scalar, Tensor, TensorVec,
+        Scalar, Tensor, TensorTuple, TensorVec,
         integrate::{ExplicitDaeFirstOrderRoot, IntegrationError},
         optimize::FirstOrderRootFinding,
     },
@@ -103,6 +103,51 @@ where
     ) -> Result<S, FiniteElementModelError> {
         self.0
             .state_variables_evolution(nodal_coordinates, state_variables)
+    }
+}
+
+impl<B1, B2, S1, S2> ElasticViscoplasticFiniteElements<TensorTuple<S1, S2>> for Blocks<B1, B2>
+where
+    B1: ElasticViscoplasticFiniteElements<S1>,
+    B2: ElasticViscoplasticFiniteElements<S2>,
+    S1: Tensor,
+    S2: Tensor,
+{
+    fn initial_state(&self) -> TensorTuple<S1, S2> {
+        (self.0.initial_state(), self.1.initial_state()).into()
+    }
+    fn nodal_forces(
+        &self,
+        nodal_coordinates: &NodalCoordinates,
+        state_variables: &TensorTuple<S1, S2>,
+    ) -> Result<NodalForcesSolid, FiniteElementModelError> {
+        Ok(self.0.nodal_forces(nodal_coordinates, &state_variables.0)?
+            + self.1.nodal_forces(nodal_coordinates, &state_variables.1)?)
+    }
+    fn nodal_stiffnesses(
+        &self,
+        nodal_coordinates: &NodalCoordinates,
+        state_variables: &TensorTuple<S1, S2>,
+    ) -> Result<NodalStiffnessesSolid, FiniteElementModelError> {
+        Ok(self
+            .0
+            .nodal_stiffnesses(nodal_coordinates, &state_variables.0)?
+            + self
+                .1
+                .nodal_stiffnesses(nodal_coordinates, &state_variables.1)?)
+    }
+    fn state_variables_evolution(
+        &self,
+        nodal_coordinates: &NodalCoordinates,
+        state_variables: &TensorTuple<S1, S2>,
+    ) -> Result<TensorTuple<S1, S2>, FiniteElementModelError> {
+        Ok((
+            self.0
+                .state_variables_evolution(nodal_coordinates, &state_variables.0)?,
+            self.1
+                .state_variables_evolution(nodal_coordinates, &state_variables.1)?,
+        )
+            .into())
     }
 }
 

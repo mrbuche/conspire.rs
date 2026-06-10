@@ -1,7 +1,7 @@
 use crate::{
     fem::{
-        ElasticViscoplasticAndElastic, FiniteElementModel, FiniteElementModelError, FiniteElements,
-        Model, NodalCoordinates, NodalCoordinatesHistory,
+        Blocks, ElasticViscoplasticAndElastic, FiniteElementModel, FiniteElementModelError,
+        FiniteElements, Model, NodalCoordinates, NodalCoordinatesHistory,
         block::{
             band_from_neighbors, finalize_node_neighbors,
             solid::elastic_viscoplastic::ElasticViscoplasticBCs,
@@ -13,7 +13,7 @@ use crate::{
         },
     },
     math::{
-        Scalar, Tensor, TensorVec,
+        Scalar, Tensor, TensorTuple, TensorVec,
         integrate::{ExplicitDaeSecondOrderMinimize, IntegrationError},
         optimize::SecondOrderOptimization,
     },
@@ -59,6 +59,27 @@ where
             .0
             .helmholtz_free_energy(nodal_coordinates, state_variables)?
             + self.1.helmholtz_free_energy(nodal_coordinates)?)
+    }
+}
+
+impl<B1, B2, S1, S2> HyperelasticViscoplasticFiniteElements<TensorTuple<S1, S2>> for Blocks<B1, B2>
+where
+    B1: HyperelasticViscoplasticFiniteElements<S1>,
+    B2: HyperelasticViscoplasticFiniteElements<S2>,
+    S1: Tensor,
+    S2: Tensor,
+{
+    fn helmholtz_free_energy(
+        &self,
+        nodal_coordinates: &NodalCoordinates,
+        state_variables: &TensorTuple<S1, S2>,
+    ) -> Result<Scalar, FiniteElementModelError> {
+        Ok(self
+            .0
+            .helmholtz_free_energy(nodal_coordinates, &state_variables.0)?
+            + self
+                .1
+                .helmholtz_free_energy(nodal_coordinates, &state_variables.1)?)
     }
 }
 

@@ -10,7 +10,9 @@ use crate::{
         block::{
             Block,
             element::linear::{Hexahedron, Tetrahedron},
-            solid::elastic_viscoplastic::ViscoplasticStateVariablesHistory,
+            solid::elastic_viscoplastic::{
+                ViscoplasticStateVariables, ViscoplasticStateVariablesHistory,
+            },
         },
         solid::{
             elastic::ElasticFiniteElements,
@@ -19,7 +21,7 @@ use crate::{
     },
     geometry::mesh::{Connectivity, Mesh},
     math::{
-        Matrix, Scalar, Tensor, Vector,
+        Matrix, Scalar, Tensor, TensorTupleVec, Vector,
         integrate::BogackiShampine,
         optimize::{EqualityConstraint, NewtonRaphson},
         test::{TestError, assert_eq, assert_eq_within_tols},
@@ -337,6 +339,47 @@ fn mixed_viscoplastic_elastic_root() -> Result<(), TestError> {
             &[0.0, 1.0],
             bcs,
         )?;
+    let (a, b) = constraint();
+    let reference = FirstOrderRoot::root(
+        &split_blocks_model()?,
+        EqualityConstraint::Linear(a, b),
+        NewtonRaphson::default(),
+    )?;
+    assert_eq_within_tols(coordinates_history.iter().last().unwrap(), &reference)
+}
+
+#[test]
+fn paired_viscoplastic_blocks_root() -> Result<(), TestError> {
+    let (connectivity_1, connectivity_2) = split_connectivities();
+    let mesh = Mesh::from((
+        vec![
+            Connectivity::Tetrahedral(connectivity_1.into()),
+            Connectivity::Tetrahedral(connectivity_2.into()),
+        ],
+        coordinates(),
+    ));
+    let model: Model<Blocks<TetViscoplastic, TetViscoplastic>> =
+        (mesh, (viscoplastic_model(), viscoplastic_model()))
+            .try_into()
+            .map_err(|error: String| TestError { message: error })?;
+    let (_, coordinates_history, _): (
+        _,
+        _,
+        TensorTupleVec<
+            ViscoplasticStateVariables<1, Scalar>,
+            ViscoplasticStateVariables<1, Scalar>,
+        >,
+    ) = DaeFirstOrderRoot::root(
+        &model,
+        BogackiShampine {
+            abs_tol: 1e-6,
+            rel_tol: 1e-6,
+            ..Default::default()
+        },
+        NewtonRaphson::default(),
+        &[0.0, 1.0],
+        bcs,
+    )?;
     let (a, b) = constraint();
     let reference = FirstOrderRoot::root(
         &split_blocks_model()?,
