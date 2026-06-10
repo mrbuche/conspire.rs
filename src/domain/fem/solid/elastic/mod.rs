@@ -2,16 +2,16 @@ use crate::{
     fem::{
         Blocks, FiniteElementModel, FiniteElementModelError, FirstOrderRoot, Model,
         NodalCoordinates, ZerothOrderRoot,
-        solid::{NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElementModel},
+        solid::{NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElements},
     },
     math::optimize::{
         EqualityConstraint, FirstOrderRootFinding, OptimizationError, ZerothOrderRootFinding,
     },
 };
 
-pub trait ElasticFiniteElementModel
+pub trait ElasticFiniteElements
 where
-    Self: SolidFiniteElementModel,
+    Self: SolidFiniteElements,
 {
     fn nodal_forces(
         &self,
@@ -23,9 +23,9 @@ where
     ) -> Result<NodalStiffnessesSolid, FiniteElementModelError>;
 }
 
-impl<B> ElasticFiniteElementModel for Model<B>
+impl<B> ElasticFiniteElements for Model<B>
 where
-    B: ElasticFiniteElementModel,
+    B: ElasticFiniteElements,
 {
     fn nodal_forces(
         &self,
@@ -41,10 +41,10 @@ where
     }
 }
 
-impl<B1, B2> ElasticFiniteElementModel for Blocks<B1, B2>
+impl<B1, B2> ElasticFiniteElements for Blocks<B1, B2>
 where
-    B1: ElasticFiniteElementModel,
-    B2: ElasticFiniteElementModel,
+    B1: ElasticFiniteElements,
+    B2: ElasticFiniteElements,
 {
     fn nodal_forces(
         &self,
@@ -63,7 +63,7 @@ where
 
 impl<B> ZerothOrderRoot<NodalCoordinates> for Model<B>
 where
-    B: ElasticFiniteElementModel,
+    B: ElasticFiniteElements,
 {
     fn root(
         &self,
@@ -80,7 +80,7 @@ where
 
 impl<B> FirstOrderRoot<NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates> for Model<B>
 where
-    B: ElasticFiniteElementModel,
+    B: ElasticFiniteElements,
 {
     fn root(
         &self,

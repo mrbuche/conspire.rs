@@ -13,7 +13,7 @@ use crate::{
             solid::elastic_viscoplastic::ViscoplasticStateVariablesHistory,
         },
         solid::{
-            elastic::ElasticFiniteElementModel,
+            elastic::ElasticFiniteElements,
             elastic_viscoplastic::FirstOrderRoot as DaeFirstOrderRoot,
         },
     },
@@ -213,12 +213,12 @@ fn single_block_nodal_forces() -> Result<(), TestError> {
     let block = Tet::from((constitutive_model(), connectivity(), &coordinates()));
     let model = single_block_model()?;
     assert_eq(
-        &ElasticFiniteElementModel::nodal_forces(&block, &deformed_coordinates())?,
-        &ElasticFiniteElementModel::nodal_forces(&model, &deformed_coordinates()).map_err(
-            |error| TestError {
+        &ElasticFiniteElements::nodal_forces(&block, &deformed_coordinates())?,
+        &ElasticFiniteElements::nodal_forces(&model, &deformed_coordinates()).map_err(|error| {
+            TestError {
                 message: error.to_string(),
-            },
-        )?,
+            }
+        })?,
     )
 }
 
@@ -227,12 +227,12 @@ fn split_blocks_nodal_forces() -> Result<(), TestError> {
     let block = Tet::from((constitutive_model(), connectivity(), &coordinates()));
     let model = split_blocks_model()?;
     assert_eq_within_tols(
-        &ElasticFiniteElementModel::nodal_forces(&block, &deformed_coordinates())?,
-        &ElasticFiniteElementModel::nodal_forces(&model, &deformed_coordinates()).map_err(
-            |error| TestError {
+        &ElasticFiniteElements::nodal_forces(&block, &deformed_coordinates())?,
+        &ElasticFiniteElements::nodal_forces(&model, &deformed_coordinates()).map_err(|error| {
+            TestError {
                 message: error.to_string(),
-            },
-        )?,
+            }
+        })?,
     )
 }
 
@@ -283,9 +283,9 @@ fn heterogeneous_blocks_nodal_forces() -> Result<(), TestError> {
     let block_1 = Tet::from((constitutive_model(), connectivity_1, &coordinates()));
     let block_2 = TetNeoHookean::from((neo_hookean_model(), connectivity_2, &coordinates()));
     assert_eq(
-        &(ElasticFiniteElementModel::nodal_forces(&block_1, &deformed_coordinates())?
-            + ElasticFiniteElementModel::nodal_forces(&block_2, &deformed_coordinates())?),
-        &ElasticFiniteElementModel::nodal_forces(&heterogeneous_model()?, &deformed_coordinates())
+        &(ElasticFiniteElements::nodal_forces(&block_1, &deformed_coordinates())?
+            + ElasticFiniteElements::nodal_forces(&block_2, &deformed_coordinates())?),
+        &ElasticFiniteElements::nodal_forces(&heterogeneous_model()?, &deformed_coordinates())
             .map_err(|error| TestError {
                 message: error.to_string(),
             })?,
@@ -358,7 +358,7 @@ fn heterogeneous_blocks_root() -> Result<(), TestError> {
     assert!((solution[0][0] - 1.05).abs() < 1e-10);
     assert!((solution[2][0] + 0.5).abs() < 1e-10);
     let residual =
-        ElasticFiniteElementModel::nodal_forces(&model, &solution).map_err(|error| TestError {
+        ElasticFiniteElements::nodal_forces(&model, &solution).map_err(|error| TestError {
             message: error.to_string(),
         })?;
     [8, 9, 10, 12]

@@ -7,19 +7,19 @@ use crate::{
             element::{FiniteElementError, solid::elastic::ElasticFiniteElement},
         },
         solid::{
-            NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElementModel,
-            elastic::ElasticFiniteElementModel,
+            NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElements,
+            elastic::ElasticFiniteElements,
         },
     },
     math::Tensor,
 };
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> ElasticFiniteElementModel
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> ElasticFiniteElements
     for Block<C, F, G, M, N, P>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, M, N, P>,
-    Self: SolidFiniteElementModel,
+    Self: SolidFiniteElements,
 {
     fn nodal_forces(
         &self,

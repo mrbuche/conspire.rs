@@ -12,8 +12,8 @@ use crate::{
             },
         },
         solid::{
-            NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElementModel,
-            elastic::ElasticFiniteElementModel,
+            NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElements,
+            elastic::ElasticFiniteElements,
         },
     },
     math::{
@@ -24,9 +24,9 @@ use crate::{
     mechanics::Times,
 };
 
-pub trait ElasticViscoplasticFiniteElementModel<S>
+pub trait ElasticViscoplasticFiniteElements<S>
 where
-    Self: SolidFiniteElementModel,
+    Self: SolidFiniteElements,
 {
     fn initial_state(&self) -> S;
     fn nodal_forces(
@@ -47,12 +47,11 @@ where
 }
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, Y>
-    ElasticViscoplasticFiniteElementModel<ViscoplasticStateVariables<G, Y>>
-    for Block<C, F, G, M, N, P>
+    ElasticViscoplasticFiniteElements<ViscoplasticStateVariables<G, Y>> for Block<C, F, G, M, N, P>
 where
     C: ElasticViscoplastic<Y>,
     F: ElasticViscoplasticFiniteElement<C, G, M, N, P, Y>,
-    Self: ElasticViscoplasticFiniteElementBlock<C, F, G, M, N, P, Y> + SolidFiniteElementModel,
+    Self: ElasticViscoplasticFiniteElementBlock<C, F, G, M, N, P, Y> + SolidFiniteElements,
     Y: Tensor,
 {
     fn initial_state(&self) -> ViscoplasticStateVariables<G, Y> {
@@ -111,10 +110,10 @@ where
     }
 }
 
-impl<B1, B2, S> ElasticViscoplasticFiniteElementModel<S> for ElasticViscoplasticAndElastic<B1, B2>
+impl<B1, B2, S> ElasticViscoplasticFiniteElements<S> for ElasticViscoplasticAndElastic<B1, B2>
 where
-    B1: ElasticViscoplasticFiniteElementModel<S>,
-    B2: ElasticFiniteElementModel,
+    B1: ElasticViscoplasticFiniteElements<S>,
+    B2: ElasticFiniteElements,
 {
     fn initial_state(&self) -> S {
         self.0.initial_state()
@@ -170,7 +169,7 @@ where
 
 impl<B, S, H> FirstOrderRoot<S, H> for Model<B>
 where
-    B: ElasticViscoplasticFiniteElementModel<S>,
+    B: ElasticViscoplasticFiniteElements<S>,
     S: Tensor,
     H: TensorVec<Item = S>,
 {

@@ -85,7 +85,7 @@ macro_rules! test_finite_element_block_inner {
                     },
                     fem::{
                         block::solid::SolidFiniteElementBlock,
-                        solid::elastic::ElasticFiniteElementModel,
+                        solid::elastic::ElasticFiniteElements,
                     },
                 };
                 mod almansi_hamel {
@@ -137,7 +137,7 @@ macro_rules! test_finite_element_block_inner {
                         block::solid::{
                             SolidFiniteElementBlock, hyperelastic::HyperelasticFiniteElementBlock,
                         },
-                        solid::elastic::ElasticFiniteElementModel,
+                        solid::elastic::ElasticFiniteElements,
                     },
                 };
                 mod arruda_boyce {
