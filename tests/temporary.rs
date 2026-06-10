@@ -15,15 +15,8 @@ use conspire::{
     fem::{
         NodalReferenceCoordinates,
         block::{
-            Block, Connectivity, SecondOrderMinimize,
-            element::linear::Tetrahedron as LinearTetrahedron,
-            solid::{
-                SolidFiniteElementBlock,
-                elastic_hyperviscous::ElasticHyperviscousFiniteElementBlock,
-                hyperelastic_viscoplastic::HyperelasticViscoplasticFiniteElementBlock,
-                viscoelastic::ViscoelasticFiniteElementBlock,
-            },
-            thermal::ThermalFiniteElementBlock,
+            Block, Connectivity, element::linear::Tetrahedron as LinearTetrahedron,
+            solid::SolidFiniteElementBlock, thermal::ThermalFiniteElementBlock,
         },
     },
     math::{
@@ -7430,10 +7423,11 @@ fn temporary_hyperelastic() -> Result<(), TestError> {
     vector[length - 1] = -0.5;
     let mut time = std::time::Instant::now();
     println!("Solving...");
-    let solution = block.minimize(
+    let fem_model = conspire::fem::Model::from((block, coordinates()));
+    let solution = conspire::fem::SecondOrderMinimize::minimize(
+        &fem_model,
         EqualityConstraint::Linear(matrix, vector),
         NewtonRaphson::default(),
-        &coordinates(),
     )?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
@@ -7442,7 +7436,8 @@ fn temporary_hyperelastic() -> Result<(), TestError> {
         AppliedDeformation::UniaxialStress(strain + 1.0),
         NewtonRaphson::default(),
     )?;
-    block
+    fem_model
+        .blocks()
         .deformation_gradients(&solution)
         .iter()
         .try_for_each(|deformation_gradients_e| {
@@ -7532,7 +7527,16 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
     ));
     let mut time = std::time::Instant::now();
     println!("Solving...");
-    let (times, coordinates_history, state_variables_history) = block.minimize(
+    let fem_model = conspire::fem::Model::from((block, coordinates()));
+    let (times, coordinates_history, state_variables_history): (
+        _,
+        _,
+        conspire::fem::block::solid::elastic_viscoplastic::ViscoplasticStateVariablesHistory<
+            G,
+            Scalar,
+        >,
+    ) = conspire::fem::solid::hyperelastic_viscoplastic::SecondOrderMinimize::minimize(
+        &fem_model,
         BogackiShampine {
             abs_tol: tol,
             rel_tol: tol,
@@ -7541,7 +7545,6 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
         NewtonRaphson::default(),
         &tspan,
         bcs_temporary_elastic_viscoplastic,
-        &coordinates(),
     )?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
@@ -7563,7 +7566,8 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
                 coordinates,
                 (state_variables_block, (deformation_gradient, state_variables_model)),
             )| {
-                block
+                fem_model
+                    .blocks()
                     .deformation_gradients(coordinates)
                     .iter()
                     .try_for_each(|deformation_gradients| {
@@ -7656,17 +7660,19 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
     vector[length - 1] = 0.0;
     let mut time = std::time::Instant::now();
     println!("Solving...");
-    let (times, coordinates_history, velocities_history) = block.minimize(
-        EqualityConstraint::Linear(matrix, vector),
-        DormandPrince {
-            abs_tol: tol,
-            rel_tol: tol,
-            ..Default::default()
-        },
-        &tspan,
-        NewtonRaphson::default(),
-        &coordinates(),
-    )?;
+    let fem_model = conspire::fem::Model::from((block, coordinates()));
+    let (times, coordinates_history, velocities_history) =
+        conspire::fem::solid::elastic_hyperviscous::SecondOrderMinimize::minimize(
+            &fem_model,
+            EqualityConstraint::Linear(matrix, vector),
+            DormandPrince {
+                abs_tol: tol,
+                rel_tol: tol,
+                ..Default::default()
+            },
+            &tspan,
+            NewtonRaphson::default(),
+        )?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
     println!("Verifying...");
@@ -7686,7 +7692,8 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
         )
         .try_for_each(
             |(coordinates, (velocities, (deformation_gradient, deformation_gradient_rate)))| {
-                block
+                fem_model
+                    .blocks()
                     .deformation_gradients(coordinates)
                     .iter()
                     .try_for_each(|deformation_gradients| {
@@ -7701,7 +7708,8 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
                                 )
                             })
                     })?;
-                block
+                fem_model
+                    .blocks()
                     .deformation_gradient_rates(coordinates, velocities)
                     .iter()
                     .try_for_each(|deformation_gradient_rates| {
@@ -7764,19 +7772,21 @@ fn temporary_thermal_conduction() -> Result<(), TestError> {
         });
     let mut time = std::time::Instant::now();
     println!("Solving...");
-    let solution = block.minimize(
+    let fem_model = conspire::fem::Model::from((block, coordinates()));
+    let solution = conspire::fem::SecondOrderMinimize::minimize(
+        &fem_model,
         EqualityConstraint::Linear(matrix, vector),
         NewtonRaphson {
             max_steps: 1,
             ..Default::default()
         },
-        &coordinates(),
     )?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
     println!("Verifying...");
     let temperature_gradient = TemperatureGradient::from([temperature, 0.0, 0.0]);
-    block
+    fem_model
+        .blocks()
         .temperature_gradients(&solution)
         .iter()
         .try_for_each(|temperature_gradients_e| {
