@@ -6037,7 +6037,7 @@ fn connectivity() -> Connectivity<N> {
     ]
 }
 
-fn coordinates() -> NodalReferenceCoordinates {
+fn coordinates() -> NodalReferenceCoordinates<3> {
     NodalReferenceCoordinates::from([
         [5.000000e-01, -5.000000e-01, 5.000000e-01],
         [5.000000e-01, 5.000000e-01, 5.000000e-01],
