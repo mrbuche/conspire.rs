@@ -96,6 +96,7 @@ impl<const D: usize, const G: usize, const N: usize, const O: usize> Debug for E
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let element = match (D, G, N, O) {
             (2, 1, 3, 1) => "LinearTriangle",
+            (2, 4, 4, 1) => "LinearQuadrilateral",
             (3, 8, 8, 1) => "LinearHexahedron",
             (3, 8, 5, 1) => "LinearPyramid",
             (3, 1, 4, 1) => "LinearTetrahedron",

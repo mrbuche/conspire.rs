@@ -11,7 +11,7 @@ use crate::{
             Block,
             element::{
                 linear::{Hexahedron, Tetrahedron, Wedge},
-                planar::Triangle,
+                planar::{Quadrilateral, Triangle},
             },
             solid::elastic_viscoplastic::{
                 ViscoplasticStateVariables, ViscoplasticStateVariablesHistory,
@@ -35,6 +35,7 @@ const D: usize = 14;
 
 type Tet = Block<AlmansiHamel, Tetrahedron, 1, 3, 4, 4>;
 type Tri = Block<AlmansiHamel, Triangle, 1, 2, 3, 3>;
+type Quad = Block<AlmansiHamel, Quadrilateral, 4, 2, 4, 4>;
 type Hex = Block<AlmansiHamel, Hexahedron, 8, 3, 8, 8>;
 type TetNeoHookean = Block<NeoHookean, Tetrahedron, 1, 3, 4, 4>;
 type TetViscoplastic = Block<
@@ -556,4 +557,54 @@ fn planar_vs_wedge_root() -> Result<(), TestError> {
         .into();
     assert_eq_within_tols(&solution, &layer_0)?;
     assert_eq_within_tols(&solution, &layer_1)
+}
+
+fn quad_connectivity_2d() -> Vec<[usize; 4]> {
+    (0..2)
+        .flat_map(|j| {
+            (0..2).map(move |i| {
+                let a = 3 * j + i;
+                [a, a + 1, a + 4, a + 3]
+            })
+        })
+        .collect()
+}
+
+#[test]
+fn planar_quad_patch_root() -> Result<(), TestError> {
+    let mesh = Mesh::from((
+        vec![Connectivity::Quadrilateral(quad_connectivity_2d().into())],
+        coordinates_2d(),
+    ));
+    let model: Model<Quad, 2> = (mesh, constitutive_model())
+        .try_into()
+        .map_err(|error: String| TestError { message: error })?;
+    let deformation = [[1.1, 0.1], [0.0, 0.9]];
+    let coordinates = coordinates_2d();
+    let boundary = [0, 1, 2, 3, 5, 6, 7, 8];
+    let mut a = Matrix::zero(16, 18);
+    let mut b = Vector::zero(16);
+    boundary.iter().enumerate().for_each(|(row, &node)| {
+        (0..2).for_each(|i| {
+            a[2 * row + i][2 * node + i] = 1.0;
+            b[2 * row + i] =
+                deformation[i][0] * coordinates[node][0] + deformation[i][1] * coordinates[node][1];
+        })
+    });
+    let solution = FirstOrderRoot::root(
+        &model,
+        EqualityConstraint::Linear(a, b),
+        NewtonRaphson::default(),
+    )?;
+    let expected: NodalCoordinates<2> = coordinates
+        .iter()
+        .map(|coordinate| {
+            [
+                deformation[0][0] * coordinate[0] + deformation[0][1] * coordinate[1],
+                deformation[1][0] * coordinate[0] + deformation[1][1] * coordinate[1],
+            ]
+        })
+        .collect::<Vec<_>>()
+        .into();
+    assert_eq_within_tols(&solution, &expected)
 }
