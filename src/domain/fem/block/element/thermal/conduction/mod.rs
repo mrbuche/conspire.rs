@@ -42,7 +42,7 @@ pub trait ThermalConductionFiniteElement<
 }
 
 impl<C, const G: usize, const M: usize, const N: usize, const O: usize, const P: usize>
-    ThermalConductionFiniteElement<C, G, M, N, P> for Element<G, N, O>
+    ThermalConductionFiniteElement<C, G, M, N, P> for Element<3, G, N, O>
 where
     C: ThermalConduction,
     Self: ThermalFiniteElement<G, M, N, P>,

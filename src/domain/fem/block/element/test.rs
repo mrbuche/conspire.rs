@@ -21,7 +21,8 @@ macro_rules! test_finite_element {
         fn size() {
             assert_eq!(
                 std::mem::size_of::<$element>(),
-                std::mem::size_of::<GradientVectors<G, N>>() + std::mem::size_of::<ScalarList<G>>()
+                std::mem::size_of::<GradientVectors<3, G, N>>()
+                    + std::mem::size_of::<ScalarList<G>>()
             )
         }
         macro_rules! setup_element {
@@ -78,7 +79,7 @@ macro_rules! test_surface_finite_element {
         fn size() {
             assert_eq!(
                 std::mem::size_of::<$element>(),
-                std::mem::size_of::<GradientVectors<G, N>>()
+                std::mem::size_of::<GradientVectors<3, G, N>>()
                     + std::mem::size_of::<ScalarList<G>>()
                     + std::mem::size_of::<Normals<G>>()
             )
@@ -436,7 +437,7 @@ macro_rules! test_finite_element_inner {
                 #[test]
                 fn finite_difference() -> Result<(), TestError> {
                     if std::any::type_name::<$element>()
-                        == "conspire::fem::block::element::Element<4, 10, 0>"
+                        == "conspire::fem::block::element::Element<3, 4, 10, 0>"
                     {
                         Ok(()) // temporary
                     } else {
@@ -472,7 +473,7 @@ macro_rules! test_finite_element_inner {
                 #[test]
                 fn kronecker_delta() -> Result<(), TestError> {
                     if std::any::type_name::<$element>()
-                        == "conspire::fem::block::element::Element<4, 10, 0>"
+                        == "conspire::fem::block::element::Element<3, 4, 10, 0>"
                     {
                         Ok(()) // temporary
                     } else {

@@ -9,7 +9,10 @@ use crate::{
         NodalReferenceCoordinates,
         block::{
             Block,
-            element::linear::{Hexahedron, Tetrahedron},
+            element::{
+                linear::{Hexahedron, Tetrahedron, Wedge},
+                planar::Triangle,
+            },
             solid::elastic_viscoplastic::{
                 ViscoplasticStateVariables, ViscoplasticStateVariablesHistory,
             },
@@ -31,6 +34,7 @@ use crate::{
 const D: usize = 14;
 
 type Tet = Block<AlmansiHamel, Tetrahedron, 1, 3, 4, 4>;
+type Tri = Block<AlmansiHamel, Triangle, 1, 2, 3, 3>;
 type Hex = Block<AlmansiHamel, Hexahedron, 8, 3, 8, 8>;
 type TetNeoHookean = Block<NeoHookean, Tetrahedron, 1, 3, 4, 4>;
 type TetViscoplastic = Block<
@@ -408,4 +412,148 @@ fn heterogeneous_blocks_root() -> Result<(), TestError> {
         .iter()
         .for_each(|&free_node| assert!(residual[free_node].norm() < 1e-10));
     Ok(())
+}
+
+fn coordinates_2d() -> NodalReferenceCoordinates<2> {
+    (0..3)
+        .flat_map(|j| (0..3).map(move |i| [0.5 * i as Scalar, 0.5 * j as Scalar]))
+        .collect::<Vec<_>>()
+        .into()
+}
+
+fn connectivity_2d() -> Vec<[usize; 3]> {
+    (0..2)
+        .flat_map(|j| {
+            (0..2).flat_map(move |i| {
+                let a = 3 * j + i;
+                [[a, a + 1, a + 4], [a, a + 4, a + 3]]
+            })
+        })
+        .collect()
+}
+
+fn planar_model() -> Result<Model<Tri, 2>, TestError> {
+    let mesh = Mesh::from((
+        vec![Connectivity::Triangular(connectivity_2d().into())],
+        coordinates_2d(),
+    ));
+    (mesh, constitutive_model())
+        .try_into()
+        .map_err(|error: String| TestError { message: error })
+}
+
+#[test]
+fn planar_patch_root() -> Result<(), TestError> {
+    let deformation = [[1.1, 0.1], [0.0, 0.9]];
+    let coordinates = coordinates_2d();
+    let boundary = [0, 1, 2, 3, 5, 6, 7, 8];
+    let mut a = Matrix::zero(16, 18);
+    let mut b = Vector::zero(16);
+    boundary.iter().enumerate().for_each(|(row, &node)| {
+        (0..2).for_each(|i| {
+            a[2 * row + i][2 * node + i] = 1.0;
+            b[2 * row + i] =
+                deformation[i][0] * coordinates[node][0] + deformation[i][1] * coordinates[node][1];
+        })
+    });
+    let solution = FirstOrderRoot::root(
+        &planar_model()?,
+        EqualityConstraint::Linear(a, b),
+        NewtonRaphson::default(),
+    )?;
+    let expected: NodalCoordinates<2> = coordinates
+        .iter()
+        .map(|coordinate| {
+            [
+                deformation[0][0] * coordinate[0] + deformation[0][1] * coordinate[1],
+                deformation[1][0] * coordinate[0] + deformation[1][1] * coordinate[1],
+            ]
+        })
+        .collect::<Vec<_>>()
+        .into();
+    assert_eq_within_tols(&solution, &expected)
+}
+
+#[test]
+fn planar_vs_wedge_root() -> Result<(), TestError> {
+    let stretch = 1.3;
+    let mut a = Matrix::zero(9, 18);
+    let mut b = Vector::zero(9);
+    let mut row = 0;
+    [0, 3, 6].iter().for_each(|&node| {
+        a[row][2 * node] = 1.0;
+        row += 1;
+    });
+    [0, 1, 2].iter().for_each(|&node| {
+        a[row][2 * node + 1] = 1.0;
+        row += 1;
+    });
+    [6, 7, 8].iter().for_each(|&node| {
+        a[row][2 * node + 1] = 1.0;
+        b[row] = stretch;
+        row += 1;
+    });
+    let solution = FirstOrderRoot::root(
+        &planar_model()?,
+        EqualityConstraint::Linear(a, b),
+        NewtonRaphson::default(),
+    )?;
+    let coordinates: NodalReferenceCoordinates<3> = (0..2)
+        .flat_map(|k| {
+            (0..3).flat_map(move |j| {
+                (0..3).map(move |i| [0.5 * i as Scalar, 0.5 * j as Scalar, 0.25 * k as Scalar])
+            })
+        })
+        .collect::<Vec<_>>()
+        .into();
+    let connectivity: Vec<[usize; 6]> = connectivity_2d()
+        .into_iter()
+        .map(|[a, b, c]| [a, b, c, a + 9, b + 9, c + 9])
+        .collect();
+    let block = Block::<AlmansiHamel, Wedge, 6, 3, 6, 6>::from((
+        constitutive_model(),
+        connectivity,
+        &coordinates,
+    ));
+    let model = Model::from((block, coordinates.clone()));
+    let mut a = Matrix::zero(36, 54);
+    let mut b = Vector::zero(36);
+    let mut row = 0;
+    (0..18).for_each(|node| {
+        a[row][3 * node + 2] = 1.0;
+        b[row] = coordinates[node][2];
+        row += 1;
+    });
+    [0, 3, 6, 9, 12, 15].iter().for_each(|&node| {
+        a[row][3 * node] = 1.0;
+        row += 1;
+    });
+    [0, 1, 2, 9, 10, 11].iter().for_each(|&node| {
+        a[row][3 * node + 1] = 1.0;
+        row += 1;
+    });
+    [6, 7, 8, 15, 16, 17].iter().for_each(|&node| {
+        a[row][3 * node + 1] = 1.0;
+        b[row] = stretch;
+        row += 1;
+    });
+    let solution_wedge = FirstOrderRoot::root(
+        &model,
+        EqualityConstraint::Linear(a, b),
+        NewtonRaphson::default(),
+    )?;
+    let layer_0: NodalCoordinates<2> = solution_wedge
+        .iter()
+        .take(9)
+        .map(|coordinate| [coordinate[0], coordinate[1]])
+        .collect::<Vec<_>>()
+        .into();
+    let layer_1: NodalCoordinates<2> = solution_wedge
+        .iter()
+        .skip(9)
+        .map(|coordinate| [coordinate[0], coordinate[1]])
+        .collect::<Vec<_>>()
+        .into();
+    assert_eq_within_tols(&solution, &layer_0)?;
+    assert_eq_within_tols(&solution, &layer_1)
 }

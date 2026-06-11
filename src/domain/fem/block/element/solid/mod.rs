@@ -38,7 +38,7 @@ where
 }
 
 impl<const G: usize, const N: usize, const O: usize, const P: usize> SolidFiniteElement<G, 3, N, P>
-    for Element<G, N, O>
+    for Element<3, G, N, O>
 where
     Self: FiniteElement<G, 3, N, P>,
 {

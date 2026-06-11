@@ -10,13 +10,16 @@ use crate::{
     constitutive::Constitutive,
     fem::{
         FiniteElements, NodalReferenceCoordinates,
-        block::element::{ElementNodalReferenceCoordinates, FiniteElement},
+        block::element::{
+            ElementNodalReferenceCoordinates, FiniteElement,
+            planar::PlanarElementNodalReferenceCoordinates,
+        },
     },
     math::{
-        Banded, InverseSets, Scalar, Scalars, SetsOld as Sets, Tensor, disjoint_set_union,
-        optimize::EqualityConstraint,
+        Banded, InverseSets, Scalar, Scalars, SetsOld as Sets, Tensor, TensorRank1List,
+        TensorRank1Vec, disjoint_set_union, optimize::EqualityConstraint,
     },
-    mechanics::{CoordinateList, Coordinates},
+    mechanics::Coordinates,
 };
 use std::{
     any::type_name,
@@ -47,10 +50,10 @@ where
     fn elements(&self) -> &[F] {
         &self.elements
     }
-    fn element_coordinates<const I: usize>(
-        coordinates: &Coordinates<I>,
+    fn element_coordinates<const D: usize, const I: usize>(
+        coordinates: &TensorRank1Vec<D, I>,
         nodes: &[usize; N],
-    ) -> CoordinateList<I, N> {
+    ) -> TensorRank1List<D, I, N> {
         nodes
             .iter()
             .map(|&node| coordinates[node].clone())
@@ -123,6 +126,31 @@ where
             C,
             Connectivity<N>,
             &NodalReferenceCoordinates<3>,
+        ),
+    ) -> Self {
+        let elements = connectivity
+            .iter()
+            .map(|nodes| Self::element_coordinates(coordinates, nodes).into())
+            .collect();
+        let connectivity = connectivity.into();
+        Self {
+            constitutive_model,
+            connectivity,
+            elements,
+        }
+    }
+}
+
+impl<C, F, const G: usize, const N: usize, const P: usize>
+    From<(C, Connectivity<N>, &NodalReferenceCoordinates<2>)> for Block<C, F, G, 2, N, P>
+where
+    F: FiniteElement<G, 2, N, P> + From<PlanarElementNodalReferenceCoordinates<N>>,
+{
+    fn from(
+        (constitutive_model, connectivity, coordinates): (
+            C,
+            Connectivity<N>,
+            &NodalReferenceCoordinates<2>,
         ),
     ) -> Self {
         let elements = connectivity

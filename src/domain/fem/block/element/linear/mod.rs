@@ -14,7 +14,7 @@ use crate::fem::block::element::{
 
 const M: usize = 3;
 
-pub type LinearElement<const G: usize, const N: usize> = Element<G, N, 1>;
+pub type LinearElement<const G: usize, const N: usize> = Element<3, G, N, 1>;
 
 pub trait LinearFiniteElement<const G: usize, const N: usize>
 where

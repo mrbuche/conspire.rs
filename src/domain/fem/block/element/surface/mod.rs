@@ -16,13 +16,13 @@ const M: usize = 2;
 
 #[derive(Clone)]
 pub struct SurfaceElement<const G: usize, const N: usize, const O: usize> {
-    gradient_vectors: GradientVectors<G, N>,
+    gradient_vectors: GradientVectors<3, G, N>,
     integration_weights: ScalarList<G>,
     reference_normals: ReferenceNormals<G>,
 }
 
 impl<const G: usize, const N: usize, const O: usize> SurfaceElement<G, N, O> {
-    pub fn gradient_vectors(&self) -> &GradientVectors<G, N> {
+    pub fn gradient_vectors(&self) -> &GradientVectors<3, G, N> {
         &self.gradient_vectors
     }
     pub fn reference_normals(&self) -> &ReferenceNormals<G> {

@@ -10,7 +10,10 @@ use crate::{
     constitutive::solid::Solid,
     fem::{
         NodalCoordinates,
-        block::{Block, element::solid::SolidFiniteElement},
+        block::{
+            Block,
+            element::{FiniteElement, solid::SolidFiniteElement},
+        },
         solid::SolidFiniteElements,
     },
     mechanics::DeformationGradientList,
@@ -55,6 +58,6 @@ impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> Solid
     for Block<C, F, G, M, N, P>
 where
     C: Solid,
-    F: SolidFiniteElement<G, M, N, P>,
+    F: FiniteElement<G, M, N, P>,
 {
 }

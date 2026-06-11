@@ -113,7 +113,7 @@ impl Tetrahedron {
     }
     fn projected_gradient_vectors(
         reference_nodal_coordinates: &ElementNodalReferenceCoordinates<N>,
-    ) -> GradientVectors<G, N> {
+    ) -> GradientVectors<3, G, N> {
         let parametric_gradient_operators = Self::shape_functions_gradients_at_integration_points()
             .iter()
             .map(|standard_gradient_operator| {

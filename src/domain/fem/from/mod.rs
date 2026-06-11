@@ -6,24 +6,27 @@ use crate::{
         Blocks, ElasticViscoplasticAndElastic, Model, NodalReferenceCoordinates,
         block::{
             Block,
-            element::{ElementNodalReferenceCoordinates, FiniteElement},
+            element::{
+                ElementNodalReferenceCoordinates, FiniteElement,
+                planar::PlanarElementNodalReferenceCoordinates,
+            },
         },
     },
     geometry::mesh::{Connectivities, Connectivity, Mesh, PrimitiveConnectivity},
 };
 
-fn block<C, F, const G: usize, const N: usize, const P: usize>(
+fn block<C, F, const D: usize, const G: usize, const N: usize, const P: usize>(
     constitutive_model: C,
     connectivity: Connectivity,
-    coordinates: &NodalReferenceCoordinates<3>,
-) -> Result<Block<C, F, G, 3, N, P>, String>
+    coordinates: &NodalReferenceCoordinates<D>,
+) -> Result<Block<C, F, G, D, N, P>, String>
 where
-    F: FiniteElement<G, 3, N, P> + From<ElementNodalReferenceCoordinates<N>>,
-    PrimitiveConnectivity<3, N>: TryFrom<Connectivity, Error = &'static str>,
+    Block<C, F, G, D, N, P>: for<'a> From<(C, Vec<[usize; N]>, &'a NodalReferenceCoordinates<D>)>,
+    PrimitiveConnectivity<D, N>: TryFrom<Connectivity, Error = &'static str>,
 {
     Ok(Block::from((
         constitutive_model,
-        PrimitiveConnectivity::<3, N>::try_from(connectivity)?
+        PrimitiveConnectivity::<D, N>::try_from(connectivity)?
             .into_iter()
             .collect(),
         coordinates,
@@ -39,6 +42,30 @@ where
     type Error = String;
     fn try_from((mesh, constitutive_model): (Mesh<3>, C)) -> Result<Self, Self::Error> {
         let (connectivities, coordinates): (Connectivities, NodalReferenceCoordinates<3>) =
+            mesh.into();
+        let mut connectivities = connectivities.into_members();
+        if connectivities.len() != 1 {
+            return Err(format!(
+                "mesh has {} blocks, model type expects 1",
+                connectivities.len()
+            ));
+        }
+        Ok(Self {
+            blocks: block(constitutive_model, connectivities.remove(0), &coordinates)?,
+            coordinates,
+        })
+    }
+}
+
+impl<C, F, const G: usize, const N: usize, const P: usize> TryFrom<(Mesh<2>, C)>
+    for Model<Block<C, F, G, 2, N, P>, 2>
+where
+    F: FiniteElement<G, 2, N, P> + From<PlanarElementNodalReferenceCoordinates<N>>,
+    PrimitiveConnectivity<2, N>: TryFrom<Connectivity, Error = &'static str>,
+{
+    type Error = String;
+    fn try_from((mesh, constitutive_model): (Mesh<2>, C)) -> Result<Self, Self::Error> {
+        let (connectivities, coordinates): (Connectivities, NodalReferenceCoordinates<2>) =
             mesh.into();
         let mut connectivities = connectivities.into_members();
         if connectivities.len() != 1 {

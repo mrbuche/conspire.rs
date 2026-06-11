@@ -35,7 +35,7 @@ pub trait ViscoelasticFiniteElement<
 }
 
 impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
-    ViscoelasticFiniteElement<C, G, 3, N, P> for Element<G, N, O>
+    ViscoelasticFiniteElement<C, G, 3, N, P> for Element<3, G, N, O>
 where
     C: Viscoelastic,
     Self: SolidFiniteElement<G, 3, N, P>,
@@ -219,7 +219,7 @@ fn nodal_forces<
 >(
     element: &F,
     constitutive_model: &C,
-    gradient_vectors: &GradientVectors<G, N>,
+    gradient_vectors: &GradientVectors<3, G, N>,
     nodal_coordinates: &ElementNodalCoordinates<N>,
     nodal_velocities: &ElementNodalVelocities<N>,
 ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError>
