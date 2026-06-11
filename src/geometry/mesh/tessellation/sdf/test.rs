@@ -107,21 +107,3 @@ fn foo() {
     mesh.write(Output::Exodus("target/bunny_untangle.exo"))
         .unwrap();
 }
-
-// #[test]
-// fn cow() {
-//     use crate::{geometry::mesh::Output, io::Write};
-//     let tessellation =
-//         Tessellation::try_from(Path::new("/home/mrbuche/GitHub/autotwin/automesh/cow.stl")).unwrap();
-//     let mut mesh = tessellation.dualize(3.0).unwrap();
-//     mesh.write(Output::Exodus("target/cow.exo")).unwrap();
-// }
-
-// #[test]
-// fn sphere() {
-//     use crate::{geometry::mesh::Output, io::Write};
-//     let tessellation =
-//         Tessellation::try_from(Path::new("/home/mrbuche/GitHub/autotwin/automesh/sphere.stl")).unwrap();
-//     let mut mesh = tessellation.dualize(12.0).unwrap();
-//     mesh.write(Output::Exodus("target/sphere.exo")).unwrap();
-// }
