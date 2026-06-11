@@ -78,7 +78,7 @@ fn connectivity() -> Vec<[usize; 4]> {
     ]
 }
 
-fn coordinates() -> NodalReferenceCoordinates {
+fn coordinates() -> NodalReferenceCoordinates<3> {
     NodalReferenceCoordinates::from([
         [0.5, -0.5, 0.5],
         [0.5, 0.5, 0.5],
@@ -97,7 +97,7 @@ fn coordinates() -> NodalReferenceCoordinates {
     ])
 }
 
-fn deformed_coordinates() -> NodalCoordinates {
+fn deformed_coordinates() -> NodalCoordinates<3> {
     NodalCoordinates::from([
         [0.48419081, -0.52698494, 0.42026988],
         [0.43559430, 0.52696224, 0.54477963],
@@ -149,7 +149,7 @@ fn constraint() -> (Matrix, Vector) {
     (a, b)
 }
 
-fn single_block_model() -> Result<Model<Tet>, TestError> {
+fn single_block_model() -> Result<Model<Tet, 3>, TestError> {
     let mesh = Mesh::from((
         vec![Connectivity::Tetrahedral(connectivity().into())],
         coordinates(),
@@ -172,7 +172,7 @@ fn split_connectivities() -> (Vec<[usize; 4]>, Vec<[usize; 4]>) {
     (connectivity_1, connectivity_2)
 }
 
-fn heterogeneous_model() -> Result<Model<Blocks<Tet, TetNeoHookean>>, TestError> {
+fn heterogeneous_model() -> Result<Model<Blocks<Tet, TetNeoHookean>, 3>, TestError> {
     let (connectivity_1, connectivity_2) = split_connectivities();
     let mesh = Mesh::from((
         vec![
@@ -186,7 +186,7 @@ fn heterogeneous_model() -> Result<Model<Blocks<Tet, TetNeoHookean>>, TestError>
         .map_err(|error: String| TestError { message: error })
 }
 
-fn split_blocks_model() -> Result<Model<Blocks<Tet, Tet>>, TestError> {
+fn split_blocks_model() -> Result<Model<Blocks<Tet, Tet>, 3>, TestError> {
     let (connectivity_1, connectivity_2) = split_connectivities();
     let mesh = Mesh::from((
         vec![
@@ -265,7 +265,7 @@ fn wrong_block_count() {
         ],
         coordinates(),
     ));
-    let model: Result<Model<Tet>, String> = (mesh, constitutive_model()).try_into();
+    let model: Result<Model<Tet, 3>, String> = (mesh, constitutive_model()).try_into();
     assert!(model.unwrap_err().contains("expects 1"))
 }
 
@@ -275,7 +275,7 @@ fn wrong_element_kind() {
         vec![Connectivity::Tetrahedral(connectivity().into())],
         coordinates(),
     ));
-    let model: Result<Model<Hex>, String> = (mesh, constitutive_model()).try_into();
+    let model: Result<Model<Hex, 3>, String> = (mesh, constitutive_model()).try_into();
     assert!(model.unwrap_err().contains("not hexahedral"))
 }
 
@@ -323,7 +323,7 @@ fn mixed_viscoplastic_elastic_root() -> Result<(), TestError> {
         ],
         coordinates(),
     ));
-    let model: Model<ElasticViscoplasticAndElastic<TetViscoplastic, Tet>> =
+    let model: Model<ElasticViscoplasticAndElastic<TetViscoplastic, Tet>, 3> =
         (mesh, (viscoplastic_model(), constitutive_model()))
             .try_into()
             .map_err(|error: String| TestError { message: error })?;
@@ -358,7 +358,7 @@ fn paired_viscoplastic_blocks_root() -> Result<(), TestError> {
         ],
         coordinates(),
     ));
-    let model: Model<Blocks<TetViscoplastic, TetViscoplastic>> =
+    let model: Model<Blocks<TetViscoplastic, TetViscoplastic>, 3> =
         (mesh, (viscoplastic_model(), viscoplastic_model()))
             .try_into()
             .map_err(|error: String| TestError { message: error })?;

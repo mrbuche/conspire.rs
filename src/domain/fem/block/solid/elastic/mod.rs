@@ -14,7 +14,7 @@ use crate::{
     math::Tensor,
 };
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> ElasticFiniteElements
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> ElasticFiniteElements<3>
     for Block<C, F, G, M, N, P>
 where
     C: Elastic,
@@ -23,8 +23,8 @@ where
 {
     fn nodal_forces(
         &self,
-        nodal_coordinates: &NodalCoordinates,
-    ) -> Result<NodalForcesSolid, FiniteElementModelError> {
+        nodal_coordinates: &NodalCoordinates<3>,
+    ) -> Result<NodalForcesSolid<3>, FiniteElementModelError> {
         let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
         match self
             .elements()
@@ -50,8 +50,8 @@ where
     }
     fn nodal_stiffnesses(
         &self,
-        nodal_coordinates: &NodalCoordinates,
-    ) -> Result<NodalStiffnessesSolid, FiniteElementModelError> {
+        nodal_coordinates: &NodalCoordinates<3>,
+    ) -> Result<NodalStiffnessesSolid<3>, FiniteElementModelError> {
         let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
         match self
             .elements()

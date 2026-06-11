@@ -119,14 +119,17 @@ impl<const D: usize, const I: usize> From<&TensorRank1Vec<D, I>> for [Vec<Tensor
     }
 }
 
-impl From<TensorRank1Vec<3, 0>> for TensorRank1Vec<3, 1> {
-    fn from(tensor_rank_1_vec: TensorRank1Vec<3, 0>) -> Self {
-        unsafe { transmute(tensor_rank_1_vec) }
+impl<const D: usize> From<TensorRank1Vec<D, 0>> for TensorRank1Vec<D, 1> {
+    fn from(tensor_rank_1_vec: TensorRank1Vec<D, 0>) -> Self {
+        let length = tensor_rank_1_vec.len();
+        let pointer = tensor_rank_1_vec.as_ptr() as *mut TensorRank1<D, 1>;
+        forget(tensor_rank_1_vec);
+        unsafe { Self::from(Vec::from_raw_parts(pointer, length, length)) }
     }
 }
 
-impl From<&TensorRank1Vec<3, 0>> for TensorRank1Vec<3, 1> {
-    fn from(tensor_rank_1_vec: &TensorRank1Vec<3, 0>) -> Self {
+impl<const D: usize> From<&TensorRank1Vec<D, 0>> for TensorRank1Vec<D, 1> {
+    fn from(tensor_rank_1_vec: &TensorRank1Vec<D, 0>) -> Self {
         tensor_rank_1_vec
             .iter()
             .map(|tensor_rank_1| tensor_rank_1.into())
@@ -134,14 +137,17 @@ impl From<&TensorRank1Vec<3, 0>> for TensorRank1Vec<3, 1> {
     }
 }
 
-impl From<TensorRank1Vec<3, 1>> for TensorRank1Vec<3, 0> {
-    fn from(tensor_rank_1_vec: TensorRank1Vec<3, 1>) -> Self {
-        unsafe { transmute(tensor_rank_1_vec) }
+impl<const D: usize> From<TensorRank1Vec<D, 1>> for TensorRank1Vec<D, 0> {
+    fn from(tensor_rank_1_vec: TensorRank1Vec<D, 1>) -> Self {
+        let length = tensor_rank_1_vec.len();
+        let pointer = tensor_rank_1_vec.as_ptr() as *mut TensorRank1<D, 0>;
+        forget(tensor_rank_1_vec);
+        unsafe { Self::from(Vec::from_raw_parts(pointer, length, length)) }
     }
 }
 
-impl From<&TensorRank1Vec<3, 1>> for TensorRank1Vec<3, 0> {
-    fn from(tensor_rank_1_vec: &TensorRank1Vec<3, 1>) -> Self {
+impl<const D: usize> From<&TensorRank1Vec<D, 1>> for TensorRank1Vec<D, 0> {
+    fn from(tensor_rank_1_vec: &TensorRank1Vec<D, 1>) -> Self {
         tensor_rank_1_vec
             .iter()
             .map(|tensor_rank_1| tensor_rank_1.into())

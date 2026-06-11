@@ -22,8 +22,8 @@ where
 {
     pub fn deformation_gradient_rates(
         &self,
-        nodal_coordinates: &NodalCoordinates,
-        nodal_velocities: &NodalVelocities,
+        nodal_coordinates: &NodalCoordinates<3>,
+        nodal_velocities: &NodalVelocities<3>,
     ) -> Vec<DeformationGradientRateList<G>> {
         self.elements()
             .iter()
@@ -39,7 +39,7 @@ where
 }
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-    ViscoelasticFiniteElements for Block<C, F, G, M, N, P>
+    ViscoelasticFiniteElements<3> for Block<C, F, G, M, N, P>
 where
     C: Viscoelastic,
     F: ViscoelasticFiniteElement<C, G, M, N, P>,
@@ -47,9 +47,9 @@ where
 {
     fn nodal_forces(
         &self,
-        nodal_coordinates: &NodalCoordinates,
-        nodal_velocities: &NodalVelocities,
-    ) -> Result<NodalForcesSolid, FiniteElementModelError> {
+        nodal_coordinates: &NodalCoordinates<3>,
+        nodal_velocities: &NodalVelocities<3>,
+    ) -> Result<NodalForcesSolid<3>, FiniteElementModelError> {
         let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
         match self
             .elements()
@@ -76,9 +76,9 @@ where
     }
     fn nodal_stiffnesses(
         &self,
-        nodal_coordinates: &NodalCoordinates,
-        nodal_velocities: &NodalVelocities,
-    ) -> Result<NodalStiffnessesSolid, FiniteElementModelError> {
+        nodal_coordinates: &NodalCoordinates<3>,
+        nodal_velocities: &NodalVelocities<3>,
+    ) -> Result<NodalStiffnessesSolid<3>, FiniteElementModelError> {
         let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
         match self
             .elements()

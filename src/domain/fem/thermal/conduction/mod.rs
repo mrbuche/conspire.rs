@@ -37,7 +37,7 @@ where
     ) -> Result<NodalStiffnessesThermal, FiniteElementModelError>;
 }
 
-impl<B> ThermalConductionFiniteElements for Model<B>
+impl<B, const D: usize> ThermalConductionFiniteElements for Model<B, D>
 where
     B: ThermalConductionFiniteElements,
 {
@@ -87,7 +87,7 @@ where
     }
 }
 
-impl<B> ZerothOrderRoot<NodalTemperatures> for Model<B>
+impl<B, const D: usize> ZerothOrderRoot<NodalTemperatures> for Model<B, D>
 where
     B: ThermalConductionFiniteElements,
 {
@@ -104,7 +104,8 @@ where
     }
 }
 
-impl<B> FirstOrderRoot<NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures> for Model<B>
+impl<B, const D: usize>
+    FirstOrderRoot<NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures> for Model<B, D>
 where
     B: ThermalConductionFiniteElements,
 {
@@ -128,7 +129,7 @@ where
     }
 }
 
-impl<B> FirstOrderMinimize<Scalar, NodalTemperatures> for Model<B>
+impl<B, const D: usize> FirstOrderMinimize<Scalar, NodalTemperatures> for Model<B, D>
 where
     B: ThermalConductionFiniteElements,
 {
@@ -146,8 +147,9 @@ where
     }
 }
 
-impl<B> SecondOrderMinimize<Scalar, NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures>
-    for Model<B>
+impl<B, const D: usize>
+    SecondOrderMinimize<Scalar, NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures>
+    for Model<B, D>
 where
     B: ThermalConductionFiniteElements,
 {

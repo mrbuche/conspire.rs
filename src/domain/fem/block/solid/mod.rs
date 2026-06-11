@@ -28,7 +28,7 @@ pub trait SolidFiniteElementBlock<
 {
     fn deformation_gradients(
         &self,
-        nodal_coordinates: &NodalCoordinates,
+        nodal_coordinates: &NodalCoordinates<3>,
     ) -> Vec<DeformationGradientList<G>>;
 }
 
@@ -39,7 +39,7 @@ where
 {
     fn deformation_gradients(
         &self,
-        nodal_coordinates: &NodalCoordinates,
+        nodal_coordinates: &NodalCoordinates<3>,
     ) -> Vec<DeformationGradientList<G>> {
         self.elements()
             .iter()

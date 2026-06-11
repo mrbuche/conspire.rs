@@ -9,15 +9,15 @@ use crate::{
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-    HyperelasticFiniteElements for Block<C, F, G, M, N, P>
+    HyperelasticFiniteElements<3> for Block<C, F, G, M, N, P>
 where
     C: Hyperelastic,
     F: HyperelasticFiniteElement<C, G, M, N, P>,
-    Self: ElasticFiniteElements,
+    Self: ElasticFiniteElements<3>,
 {
     fn helmholtz_free_energy(
         &self,
-        nodal_coordinates: &NodalCoordinates,
+        nodal_coordinates: &NodalCoordinates<3>,
     ) -> Result<Scalar, FiniteElementModelError> {
         match self
             .elements()

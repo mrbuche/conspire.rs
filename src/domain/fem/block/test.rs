@@ -310,7 +310,7 @@ pub(crate) use test_finite_element_block_inner;
 macro_rules! test_nodal_forces_and_nodal_stiffnesses {
     ($block: ident, $element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {
         setup_block!($constitutive_model, $constitutive_model_type);
-        fn get_coordinates_transformed_block() -> NodalCoordinates {
+        fn get_coordinates_transformed_block() -> NodalCoordinates<3> {
             get_coordinates_block()
                 .iter()
                 .map(|coordinate| {
@@ -319,7 +319,7 @@ macro_rules! test_nodal_forces_and_nodal_stiffnesses {
                 })
                 .collect()
         }
-        fn get_reference_coordinates_transformed_block() -> NodalReferenceCoordinates {
+        fn get_reference_coordinates_transformed_block() -> NodalReferenceCoordinates<3> {
             get_reference_coordinates_block()
                 .iter()
                 .map(|reference_coordinate| {
@@ -411,7 +411,7 @@ macro_rules! test_helmholtz_free_energy {
     ($block: ident, $element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {
         fn get_finite_difference_of_helmholtz_free_energy(
             is_deformed: bool,
-        ) -> Result<NodalForcesSolid, TestError> {
+        ) -> Result<NodalForcesSolid<3>, TestError> {
             let block = get_block();
             let mut finite_difference = 0.0;
             (0..D)
@@ -627,7 +627,7 @@ macro_rules! test_finite_element_block_with_elastic_or_hyperelastic_constitutive
     ($block: ident, $element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {
         fn get_finite_difference_of_nodal_forces(
             is_deformed: bool,
-        ) -> Result<NodalStiffnessesSolid, TestError> {
+        ) -> Result<NodalStiffnessesSolid<3>, TestError> {
             let block = get_block();
             let mut finite_difference = 0.0;
             (0..D)
@@ -667,7 +667,7 @@ macro_rules! test_finite_element_block_with_elastic_or_hyperelastic_constitutive
         fn get_nodal_forces(
             is_deformed: bool,
             is_rotated: bool,
-        ) -> Result<NodalForcesSolid, TestError> {
+        ) -> Result<NodalForcesSolid<3>, TestError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
@@ -691,7 +691,7 @@ macro_rules! test_finite_element_block_with_elastic_or_hyperelastic_constitutive
         fn get_nodal_stiffnesses(
             is_deformed: bool,
             is_rotated: bool,
-        ) -> Result<NodalStiffnessesSolid, TestError> {
+        ) -> Result<NodalStiffnessesSolid<3>, TestError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
@@ -856,7 +856,7 @@ pub(crate) use test_finite_element_block_with_hyperelastic_constitutive_model;
 
 macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
     ($block: ident, $element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {
-        fn get_velocities_transformed_block() -> NodalCoordinates {
+        fn get_velocities_transformed_block() -> NodalCoordinates<3> {
             get_coordinates_block()
                 .iter()
                 .zip(get_velocities_block().iter())
@@ -870,7 +870,7 @@ macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
         fn get_nodal_forces(
             is_deformed: bool,
             is_rotated: bool,
-        ) -> Result<NodalForcesSolid, TestError> {
+        ) -> Result<NodalForcesSolid<3>, TestError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
@@ -902,7 +902,7 @@ macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
         fn get_nodal_stiffnesses(
             is_deformed: bool,
             is_rotated: bool,
-        ) -> Result<NodalStiffnessesSolid, TestError> {
+        ) -> Result<NodalStiffnessesSolid<3>, TestError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
@@ -935,7 +935,7 @@ macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
         }
         fn get_finite_difference_of_nodal_forces(
             is_deformed: bool,
-        ) -> Result<NodalStiffnessesSolid, TestError> {
+        ) -> Result<NodalStiffnessesSolid<3>, TestError> {
             let block = get_block();
             let nodal_coordinates = if is_deformed {
                 get_coordinates_block()
@@ -1153,7 +1153,7 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
         }
         fn get_finite_difference_of_viscous_dissipation(
             is_deformed: bool,
-        ) -> Result<NodalForcesSolid, TestError> {
+        ) -> Result<NodalForcesSolid<3>, TestError> {
             let block = get_block();
             let nodal_coordinates = if is_deformed {
                 get_coordinates_block()
@@ -1189,7 +1189,7 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
         }
         fn get_finite_difference_of_dissipation_potential(
             is_deformed: bool,
-        ) -> Result<NodalForcesSolid, TestError> {
+        ) -> Result<NodalForcesSolid<3>, TestError> {
             let block = get_block();
             let nodal_coordinates = if is_deformed {
                 get_coordinates_block()

@@ -9,7 +9,8 @@ use crate::{
     },
 };
 
-pub use crate::fem::solid::{NodalForcesSolid, NodalStiffnessesSolid};
+pub type NodalForcesSolid = crate::fem::solid::NodalForcesSolid<3>;
+pub type NodalStiffnessesSolid = crate::fem::solid::NodalStiffnessesSolid<3>;
 
 pub trait SolidVirtualElementBlock<C, F>
 where

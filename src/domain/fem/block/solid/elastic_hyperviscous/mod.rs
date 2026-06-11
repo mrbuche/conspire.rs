@@ -12,16 +12,16 @@ use crate::{
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-    ElasticHyperviscousFiniteElements for Block<C, F, G, M, N, P>
+    ElasticHyperviscousFiniteElements<3> for Block<C, F, G, M, N, P>
 where
     C: ElasticHyperviscous,
     F: ElasticHyperviscousFiniteElement<C, G, M, N, P>,
-    Self: ViscoelasticFiniteElements,
+    Self: ViscoelasticFiniteElements<3>,
 {
     fn viscous_dissipation(
         &self,
-        nodal_coordinates: &NodalCoordinates,
-        nodal_velocities: &NodalVelocities,
+        nodal_coordinates: &NodalCoordinates<3>,
+        nodal_velocities: &NodalVelocities<3>,
     ) -> Result<Scalar, FiniteElementModelError> {
         match self
             .elements()
@@ -45,8 +45,8 @@ where
     }
     fn dissipation_potential(
         &self,
-        nodal_coordinates: &NodalCoordinates,
-        nodal_velocities: &NodalVelocities,
+        nodal_coordinates: &NodalCoordinates<3>,
+        nodal_velocities: &NodalVelocities<3>,
     ) -> Result<Scalar, FiniteElementModelError> {
         match self
             .elements()

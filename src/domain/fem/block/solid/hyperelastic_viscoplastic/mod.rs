@@ -16,17 +16,17 @@ use crate::{
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, Y>
-    HyperelasticViscoplasticFiniteElements<ViscoplasticStateVariables<G, Y>>
+    HyperelasticViscoplasticFiniteElements<ViscoplasticStateVariables<G, Y>, 3>
     for Block<C, F, G, M, N, P>
 where
     C: HyperelasticViscoplastic<Y>,
     F: HyperelasticViscoplasticFiniteElement<C, G, M, N, P, Y>,
-    Self: ElasticViscoplasticFiniteElements<ViscoplasticStateVariables<G, Y>>,
+    Self: ElasticViscoplasticFiniteElements<ViscoplasticStateVariables<G, Y>, 3>,
     Y: Tensor,
 {
     fn helmholtz_free_energy(
         &self,
-        nodal_coordinates: &NodalCoordinates,
+        nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &ViscoplasticStateVariables<G, Y>,
     ) -> Result<Scalar, FiniteElementModelError> {
         match self

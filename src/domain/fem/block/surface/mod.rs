@@ -10,12 +10,12 @@ const M: usize = 2;
 
 pub trait SurfaceFiniteElementBlock<C, F, const G: usize, const N: usize>
 where
-    Self: for<'a> From<(C, Connectivity<N>, &'a NodalReferenceCoordinates, Scalar)>,
+    Self: for<'a> From<(C, Connectivity<N>, &'a NodalReferenceCoordinates<3>, Scalar)>,
 {
 }
 
 impl<C, F, const G: usize, const N: usize, const P: usize>
-    From<(C, Connectivity<N>, &NodalReferenceCoordinates, Scalar)> for Block<C, F, G, M, N, P>
+    From<(C, Connectivity<N>, &NodalReferenceCoordinates<3>, Scalar)> for Block<C, F, G, M, N, P>
 where
     F: From<(ElementNodalReferenceCoordinates<N>, Scalar)>,
 {
@@ -23,7 +23,7 @@ where
         (constitutive_model, connectivity, coordinates, thickness): (
             C,
             Connectivity<N>,
-            &NodalReferenceCoordinates,
+            &NodalReferenceCoordinates<3>,
             Scalar,
         ),
     ) -> Self {

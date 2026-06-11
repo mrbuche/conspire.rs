@@ -103,18 +103,18 @@ where
 
 pub trait FiniteElementBlock<C, F, const G: usize, const N: usize>
 where
-    Self: for<'a> From<(C, Connectivity<N>, &'a NodalReferenceCoordinates)>,
+    Self: for<'a> From<(C, Connectivity<N>, &'a NodalReferenceCoordinates<3>)>,
 {
     fn isolate(
         self,
         elements: &[usize],
-        coordinates: &NodalReferenceCoordinates,
-    ) -> Vec<(Self, NodalReferenceCoordinates, [Vec<usize>; 3])>;
+        coordinates: &NodalReferenceCoordinates<3>,
+    ) -> Vec<(Self, NodalReferenceCoordinates<3>, [Vec<usize>; 3])>;
     fn reset(&mut self);
 }
 
 impl<C, F, const G: usize, const N: usize, const P: usize>
-    From<(C, Connectivity<N>, &NodalReferenceCoordinates)> for Block<C, F, G, 3, N, P>
+    From<(C, Connectivity<N>, &NodalReferenceCoordinates<3>)> for Block<C, F, G, 3, N, P>
 where
     F: FiniteElement<G, 3, N, P> + From<ElementNodalReferenceCoordinates<N>>,
 {
@@ -122,7 +122,7 @@ where
         (constitutive_model, connectivity, coordinates): (
             C,
             Connectivity<N>,
-            &NodalReferenceCoordinates,
+            &NodalReferenceCoordinates<3>,
         ),
     ) -> Self {
         let elements = connectivity
@@ -147,8 +147,8 @@ where
     fn isolate(
         self,
         isolated_elements: &[usize],
-        coordinates: &NodalReferenceCoordinates,
-    ) -> Vec<(Self, NodalReferenceCoordinates, [Vec<usize>; 3])> {
+        coordinates: &NodalReferenceCoordinates<3>,
+    ) -> Vec<(Self, NodalReferenceCoordinates<3>, [Vec<usize>; 3])> {
         let (graph, map) = self.connectivity.inverse();
         let (_, node_elements) = graph.into();
         let (_, element_nodes) = self.connectivity.into();

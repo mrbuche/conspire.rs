@@ -5,28 +5,25 @@ mod from;
 pub mod solid;
 pub mod thermal;
 
-use crate::{
-    math::{
-        TensorRank1Vec2D, TestError,
-        optimize::{
-            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
-            SecondOrderOptimization, ZerothOrderRootFinding,
-        },
+use crate::math::{
+    TensorRank1Vec, TensorRank1Vec2D, TestError,
+    optimize::{
+        EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
+        SecondOrderOptimization, ZerothOrderRootFinding,
     },
-    mechanics::Coordinates,
 };
 use std::fmt::{self, Debug, Display, Formatter};
 
-pub type NodalCoordinates = Coordinates<1>;
-pub type NodalCoordinatesHistory = TensorRank1Vec2D<3, 1>;
-pub type NodalReferenceCoordinates = Coordinates<0>;
-pub type NodalVelocities = Coordinates<1>;
-pub type NodalVelocitiesHistory = TensorRank1Vec2D<3, 1>;
+pub type NodalCoordinates<const D: usize> = TensorRank1Vec<D, 1>;
+pub type NodalCoordinatesHistory<const D: usize> = TensorRank1Vec2D<D, 1>;
+pub type NodalReferenceCoordinates<const D: usize> = TensorRank1Vec<D, 0>;
+pub type NodalVelocities<const D: usize> = TensorRank1Vec<D, 1>;
+pub type NodalVelocitiesHistory<const D: usize> = TensorRank1Vec2D<D, 1>;
 
 #[derive(Debug)]
-pub struct Model<B> {
+pub struct Model<B, const D: usize> {
     blocks: B,
-    coordinates: NodalReferenceCoordinates,
+    coordinates: NodalReferenceCoordinates<D>,
 }
 
 #[derive(Debug)]
@@ -35,11 +32,11 @@ pub struct Blocks<B1, B2>(B1, B2);
 #[derive(Debug)]
 pub struct ElasticViscoplasticAndElastic<B1, B2>(B1, B2);
 
-pub trait FiniteElementModel
+pub trait FiniteElementModel<const D: usize>
 where
     Self: Debug,
 {
-    fn coordinates(&self) -> &NodalReferenceCoordinates;
+    fn coordinates(&self) -> &NodalReferenceCoordinates<D>;
 }
 
 pub trait FiniteElements
@@ -49,7 +46,7 @@ where
     fn node_neighbors(&self, neighbors: &mut [Vec<usize>]);
 }
 
-impl<B> FiniteElements for Model<B>
+impl<B, const D: usize> FiniteElements for Model<B, D>
 where
     B: FiniteElements,
 {
@@ -80,17 +77,17 @@ where
     }
 }
 
-impl<B> Model<B> {
+impl<B, const D: usize> Model<B, D> {
     pub fn blocks(&self) -> &B {
         &self.blocks
     }
 }
 
-impl<B> FiniteElementModel for Model<B>
+impl<B, const D: usize> FiniteElementModel<D> for Model<B, D>
 where
     B: Debug,
 {
-    fn coordinates(&self) -> &NodalReferenceCoordinates {
+    fn coordinates(&self) -> &NodalReferenceCoordinates<D> {
         &self.coordinates
     }
 }
@@ -172,8 +169,8 @@ pub trait SecondOrderMinimize<F, J, H, X> {
     ) -> Result<X, OptimizationError>;
 }
 
-impl<B> From<(B, NodalReferenceCoordinates)> for Model<B> {
-    fn from((blocks, coordinates): (B, NodalReferenceCoordinates)) -> Self {
+impl<B, const D: usize> From<(B, NodalReferenceCoordinates<D>)> for Model<B, D> {
+    fn from((blocks, coordinates): (B, NodalReferenceCoordinates<D>)) -> Self {
         Self {
             blocks,
             coordinates,

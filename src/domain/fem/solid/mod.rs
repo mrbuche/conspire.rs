@@ -8,12 +8,11 @@ pub mod viscoelastic;
 
 use crate::{
     fem::{Blocks, ElasticViscoplasticAndElastic, FiniteElements, Model},
-    math::TensorRank2Vec2D,
-    mechanics::Forces,
+    math::{TensorRank1Vec, TensorRank2Vec2D},
 };
 
-pub type NodalForcesSolid = Forces;
-pub type NodalStiffnessesSolid = TensorRank2Vec2D<3, 1, 1>;
+pub type NodalForcesSolid<const D: usize> = TensorRank1Vec<D, 1>;
+pub type NodalStiffnessesSolid<const D: usize> = TensorRank2Vec2D<D, 1, 1>;
 
 pub trait SolidFiniteElements
 where
@@ -21,7 +20,7 @@ where
 {
 }
 
-impl<B> SolidFiniteElements for Model<B> where B: SolidFiniteElements {}
+impl<B, const D: usize> SolidFiniteElements for Model<B, D> where B: SolidFiniteElements {}
 
 impl<B1, B2> SolidFiniteElements for Blocks<B1, B2>
 where
