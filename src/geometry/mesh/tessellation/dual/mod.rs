@@ -31,7 +31,8 @@ impl Tessellation {
         octree.equilibrate(Balancing::Strong, Pairing::Regular)?;
         let mut mesh = octree.dualize();
         self.trim(&mut mesh, self.bvh());
-        self.project_boundary(mesh, self.bvh())
+        // self.project_boundary(mesh, self.bvh())
+        Ok(mesh)
     }
     fn project_boundary(
         &self,
