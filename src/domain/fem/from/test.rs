@@ -206,16 +206,6 @@ fn split_blocks_model() -> Result<Model<Blocks<Tet, Tet>, 3>, TestError> {
 }
 
 #[test]
-fn scaled_jacobians() -> Result<(), TestError> {
-    single_block_model()?
-        .blocks
-        .minimum_scaled_jacobians(&coordinates())
-        .iter()
-        .for_each(|scaled_jacobian| assert!(scaled_jacobian > &0.0));
-    Ok(())
-}
-
-#[test]
 fn single_block_nodal_forces() -> Result<(), TestError> {
     let block = Tet::from((constitutive_model(), connectivity(), &coordinates()));
     let model = single_block_model()?;

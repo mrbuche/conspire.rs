@@ -1,9 +1,9 @@
 use crate::{
     constitutive::solid::elastic::Elastic,
     fem::block::element::{
-        Element, ElementNodalEitherCoordinates, FiniteElement, FiniteElementError,
-        ParametricCoordinate, ParametricCoordinates, ParametricReference, ShapeFunctions,
-        ShapeFunctionsGradients, basic_from, surface::SurfaceElement,
+        Element, FiniteElement, FiniteElementError, ParametricCoordinate, ParametricCoordinates,
+        ParametricReference, ShapeFunctions, ShapeFunctionsGradients, basic_from,
+        surface::SurfaceElement,
     },
     math::{Scalar, ScalarList, Tensor, TensorArray, TensorRank1List, TensorRank2List2D},
     mechanics::{
@@ -38,11 +38,6 @@ where
     }
     fn parametric_weights() -> ScalarList<G> {
         SurfaceElement::<G, N, O>::parametric_weights()
-    }
-    fn scaled_jacobians<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> ScalarList<P> {
-        SurfaceElement::<G, N, O>::scaled_jacobians(nodal_coordinates)
     }
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<P> {
         SurfaceElement::<G, N, O>::shape_functions(parametric_coordinate)

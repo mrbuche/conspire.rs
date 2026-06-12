@@ -16,10 +16,9 @@ use crate::{
         },
     },
     math::{
-        Banded, InverseSets, Scalar, Scalars, SetsOld as Sets, Tensor, TensorRank1List,
-        TensorRank1Vec, disjoint_set_union, optimize::EqualityConstraint,
+        Banded, InverseSets, Scalar, SetsOld as Sets, Tensor, TensorRank1List, TensorRank1Vec,
+        disjoint_set_union, optimize::EqualityConstraint,
     },
-    mechanics::Coordinates,
 };
 use std::{
     any::type_name,
@@ -57,15 +56,6 @@ where
         nodes
             .iter()
             .map(|&node| coordinates[node].clone())
-            .collect()
-    }
-    pub fn minimum_scaled_jacobians<const I: usize>(
-        &self,
-        coordinates: &Coordinates<I>,
-    ) -> Scalars {
-        self.connectivity()
-            .iter()
-            .map(|nodes| F::minimum_scaled_jacobian(Self::element_coordinates(coordinates, nodes)))
             .collect()
     }
     pub fn volume(&self) -> Scalar {
