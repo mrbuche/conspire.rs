@@ -16,7 +16,7 @@ use conspire::{
         NodalReferenceCoordinates,
         block::{
             Block, Connectivity, element::linear::Tetrahedron as LinearTetrahedron,
-            solid::SolidFiniteElementBlock, thermal::ThermalFiniteElementBlock,
+            solid::SolidElements, thermal::ThermalElements,
         },
     },
     math::{
