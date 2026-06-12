@@ -1,4 +1,3 @@
-pub mod dsu;
 pub mod sets;
 
 use crate::math::Tensor;
