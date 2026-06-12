@@ -102,15 +102,6 @@ impl<const D: usize, const G: usize, const N: usize, const O: usize> Debug for E
     }
 }
 
-impl<const D: usize, const G: usize, const N: usize, const O: usize> Default for Element<D, G, N, O>
-where
-    Self: FiniteElement<G, D, N, N> + From<TensorRank1List<D, 0, N>>,
-{
-    fn default() -> Self {
-        TensorRank1List::<D, 0, N>::from(Self::parametric_reference()).into()
-    }
-}
-
 fn basic_from<const D: usize, const G: usize, const N: usize, const O: usize>(
     reference_nodal_coordinates: TensorRank1List<D, 0, N>,
 ) -> Element<D, G, N, O>
