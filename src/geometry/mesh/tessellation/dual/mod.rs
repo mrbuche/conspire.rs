@@ -20,6 +20,21 @@ use std::{
 };
 
 const GRAZING_TOLERANCE: Scalar = 1.0e-4;
+const TRIM_MARGIN: Scalar = 0.5;
+const EDGES: [[usize; 2]; 12] = [
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [3, 0],
+    [4, 5],
+    [5, 6],
+    [6, 7],
+    [7, 4],
+    [0, 4],
+    [1, 5],
+    [2, 6],
+    [3, 7],
+];
 const DIRECTIONS: [Coordinate<D>; 3] = [
     Coordinate::const_from([1.0, 0.140_412_03, 0.092_153_88]),
     Coordinate::const_from([0.097_153_2, 1.0, 0.131_771_4]),
@@ -84,34 +99,46 @@ impl Tessellation {
         let coordinates = mesh.coordinates();
         let number_of_nodes = coordinates.len();
         let mut inside = vec![false; number_of_nodes];
+        let mut clearance = vec![0.0; number_of_nodes];
         let threads = available_parallelism().map_or(1, |threads| threads.get());
         let chunk_size = number_of_nodes.div_ceil(threads).max(1);
         scope(|scope| {
             let (elements, normals, directions) = (&elements, &normals, &directions);
             inside
                 .chunks_mut(chunk_size)
+                .zip(clearance.chunks_mut(chunk_size))
                 .enumerate()
-                .for_each(|(chunk, flags)| {
+                .for_each(|(chunk, (flags, distances))| {
                     scope.spawn(move || {
                         let offset = chunk * chunk_size;
-                        flags.iter_mut().enumerate().for_each(|(local, flag)| {
-                            let point = &coordinates[offset + local];
-                            *flag = directions
-                                .iter()
-                                .find_map(|direction| {
-                                    let ray = (point.clone(), direction.clone()).into();
-                                    match bvh.intersect(&ray, surface_coordinates, elements) {
-                                        None => Some(false),
-                                        Some(hit) => {
-                                            let normal = normals[hit.index()];
-                                            let cosine = (direction * normal) / normal.norm();
-                                            (cosine.abs() > GRAZING_TOLERANCE)
-                                                .then_some(cosine > 0.0)
+                        flags
+                            .iter_mut()
+                            .zip(distances.iter_mut())
+                            .enumerate()
+                            .for_each(|(local, (flag, distance))| {
+                                let point = &coordinates[offset + local];
+                                *flag = directions
+                                    .iter()
+                                    .find_map(|direction| {
+                                        let ray = (point.clone(), direction.clone()).into();
+                                        match bvh.intersect(&ray, surface_coordinates, elements) {
+                                            None => Some(false),
+                                            Some(hit) => {
+                                                let normal = normals[hit.index()];
+                                                let cosine = (direction * normal) / normal.norm();
+                                                (cosine.abs() > GRAZING_TOLERANCE)
+                                                    .then_some(cosine > 0.0)
+                                            }
                                         }
-                                    }
-                                })
-                                .unwrap_or(false);
-                        });
+                                    })
+                                    .unwrap_or(false);
+                                if *flag
+                                    && let Some((closest, _)) =
+                                        bvh.closest_point(point, surface_coordinates, elements)
+                                {
+                                    *distance = (&closest - point).norm();
+                                }
+                            });
                     });
                 });
         });
@@ -120,7 +147,19 @@ impl Tessellation {
         let mut connectivity = Vec::new();
         mesh.iter()
             .flatten()
-            .filter(|element| element.iter().all(|&node| inside[node]))
+            .filter(|element| {
+                element.iter().all(|&node| inside[node]) && {
+                    let margin = TRIM_MARGIN
+                        * EDGES
+                            .iter()
+                            .map(|&[a, b]| {
+                                (&mesh.coordinates()[element[a]] - &mesh.coordinates()[element[b]])
+                                    .norm()
+                            })
+                            .fold(Scalar::INFINITY, Scalar::min);
+                    element.iter().all(|&node| clearance[node] >= margin)
+                }
+            })
             .for_each(|element| {
                 connectivity.push(from_fn(|i| {
                     let node = element[i];
