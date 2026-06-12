@@ -3,6 +3,7 @@ pub mod solid;
 
 use crate::{
     fem::Elements,
+    geometry::mesh::PolytopalConnectivity,
     vem::{
         NodalCoordinates, NodalReferenceCoordinates,
         block::element::{ElementNodalCoordinates, VirtualElement},
@@ -13,14 +14,11 @@ use std::{
     fmt::{self, Debug, Formatter},
 };
 
-pub type Connectivity = Vec<Vec<usize>>;
-
 pub struct Block<C, F> {
     constitutive_model: C,
+    connectivity: PolytopalConnectivity<3>,
     elements: Vec<F>,
-    elements_faces: Connectivity,
-    elements_nodes: Connectivity,
-    faces_nodes: Connectivity,
+    elements_nodes: Vec<Vec<usize>>,
 }
 
 impl<C, F> Block<C, F> {
@@ -37,13 +35,13 @@ impl<C, F> Block<C, F> {
         nodes.iter().map(|&node| &coordinates[node]).collect()
     }
     pub fn elements_faces(&self) -> &[Vec<usize>] {
-        &self.elements_faces
+        self.connectivity.elements_faces()
     }
     fn elements_nodes(&self) -> &[Vec<usize>] {
         &self.elements_nodes
     }
     pub fn faces_nodes(&self) -> &[Vec<usize>] {
-        &self.faces_nodes
+        self.connectivity.faces_nodes()
     }
 }
 
@@ -79,23 +77,23 @@ impl<C, F> Elements for Block<C, F> {
 pub trait VirtualElements<C, F>
 where
     F: VirtualElement,
-    Self: for<'a> From<(C, Connectivity, Connectivity, &'a NodalReferenceCoordinates)>,
+    Self: for<'a> From<(C, PolytopalConnectivity<3>, &'a NodalReferenceCoordinates)>,
 {
 }
 
-impl<C, F> From<(C, Connectivity, Connectivity, &NodalReferenceCoordinates)> for Block<C, F>
+impl<C, F> From<(C, PolytopalConnectivity<3>, &NodalReferenceCoordinates)> for Block<C, F>
 where
     F: VirtualElement,
 {
     fn from(
-        (constitutive_model, elements_faces, faces_nodes, coordinates): (
+        (constitutive_model, connectivity, coordinates): (
             C,
-            Connectivity,
-            Connectivity,
+            PolytopalConnectivity<3>,
             &NodalReferenceCoordinates,
         ),
     ) -> Self {
-        let (elements, elements_nodes) = elements_faces
+        let faces_nodes = connectivity.faces_nodes();
+        let (elements, elements_nodes) = connectivity
             .iter()
             .map(|element_faces| {
                 let element_coordinates = element_faces
@@ -118,7 +116,7 @@ where
                         element_coordinates,
                         element_faces,
                         &element_nodes,
-                        &faces_nodes,
+                        faces_nodes,
                     )),
                     element_nodes,
                 )
@@ -126,10 +124,35 @@ where
             .unzip();
         Self {
             constitutive_model,
+            connectivity,
             elements,
-            elements_faces,
             elements_nodes,
-            faces_nodes,
         }
+    }
+}
+
+impl<C, F>
+    From<(
+        C,
+        Vec<Vec<usize>>,
+        Vec<Vec<usize>>,
+        &NodalReferenceCoordinates,
+    )> for Block<C, F>
+where
+    F: VirtualElement,
+{
+    fn from(
+        (constitutive_model, elements_faces, faces_nodes, coordinates): (
+            C,
+            Vec<Vec<usize>>,
+            Vec<Vec<usize>>,
+            &NodalReferenceCoordinates,
+        ),
+    ) -> Self {
+        Self::from((
+            constitutive_model,
+            PolytopalConnectivity::from((elements_faces, faces_nodes)),
+            coordinates,
+        ))
     }
 }

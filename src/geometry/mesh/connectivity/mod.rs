@@ -38,3 +38,23 @@ try_from_connectivity!(Hexahedral, 3, 8, "block is not hexahedral");
 try_from_connectivity!(Quadrilateral, 2, 4, "block is not quadrilateral");
 try_from_connectivity!(Tetrahedral, 3, 4, "block is not tetrahedral");
 try_from_connectivity!(Triangular, 2, 3, "block is not triangular");
+
+impl TryFrom<Connectivity> for PolytopalConnectivity<3> {
+    type Error = &'static str;
+    fn try_from(connectivity: Connectivity) -> Result<Self, Self::Error> {
+        match connectivity {
+            Connectivity::Polyhedral(connectivity) => Ok(connectivity),
+            _ => Err("block is not polyhedral"),
+        }
+    }
+}
+
+impl TryFrom<Connectivity> for PolytopalConnectivity<2> {
+    type Error = &'static str;
+    fn try_from(connectivity: Connectivity) -> Result<Self, Self::Error> {
+        match connectivity {
+            Connectivity::Polygonal(connectivity) => Ok(connectivity),
+            _ => Err("block is not polygonal"),
+        }
+    }
+}

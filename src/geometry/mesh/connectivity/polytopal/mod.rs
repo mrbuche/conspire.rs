@@ -12,6 +12,12 @@ impl<const M: usize> From<(Vec<Vec<usize>>, Vec<Vec<usize>>)> for PolytopalConne
 }
 
 impl<const M: usize> PolytopalConnectivity<M> {
+    pub fn elements_faces(&self) -> &[Vec<usize>] {
+        self.0.members()
+    }
+    pub fn faces_nodes(&self) -> &[Vec<usize>] {
+        &self.1
+    }
     pub fn iter(&self) -> Iter<'_, Vec<usize>> {
         self.0.members().iter()
     }
