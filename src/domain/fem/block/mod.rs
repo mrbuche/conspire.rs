@@ -14,10 +14,8 @@ use crate::{
             planar::PlanarElementNodalReferenceCoordinates,
         },
     },
-    math::{
-        Banded, Scalar, SetsOld as Sets, Tensor, TensorRank1List, TensorRank1Vec,
-        optimize::EqualityConstraint,
-    },
+    geometry::mesh::PrimitiveConnectivity,
+    math::{Banded, Scalar, Tensor, TensorRank1List, TensorRank1Vec, optimize::EqualityConstraint},
 };
 use std::{
     any::type_name,
@@ -26,11 +24,10 @@ use std::{
 };
 
 pub type Connectivity<const N: usize> = Vec<[usize; N]>;
-pub type Graph<const N: usize> = Sets<Vec<[usize; N]>, [usize; N], usize, Vec<usize>, usize>;
 
 pub struct Block<C, F, const G: usize, const M: usize, const N: usize, const P: usize> {
     constitutive_model: C,
-    connectivity: Graph<N>,
+    connectivity: PrimitiveConnectivity<M, N>,
     elements: Vec<F>,
 }
 
@@ -41,8 +38,8 @@ where
     fn constitutive_model(&self) -> &C {
         &self.constitutive_model
     }
-    fn connectivity(&self) -> &Connectivity<N> {
-        self.connectivity.members()
+    fn connectivity(&self) -> &PrimitiveConnectivity<M, N> {
+        &self.connectivity
     }
     fn elements(&self) -> &[F] {
         &self.elements
@@ -93,6 +90,34 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize, const P: usize>
+    From<(
+        C,
+        PrimitiveConnectivity<3, N>,
+        &NodalReferenceCoordinates<3>,
+    )> for Block<C, F, G, 3, N, P>
+where
+    F: FiniteElement<G, 3, N, P> + From<ElementNodalReferenceCoordinates<N>>,
+{
+    fn from(
+        (constitutive_model, connectivity, coordinates): (
+            C,
+            PrimitiveConnectivity<3, N>,
+            &NodalReferenceCoordinates<3>,
+        ),
+    ) -> Self {
+        let elements = connectivity
+            .iter()
+            .map(|nodes| Self::element_coordinates(coordinates, nodes).into())
+            .collect();
+        Self {
+            constitutive_model,
+            connectivity,
+            elements,
+        }
+    }
+}
+
+impl<C, F, const G: usize, const N: usize, const P: usize>
     From<(C, Connectivity<N>, &NodalReferenceCoordinates<3>)> for Block<C, F, G, 3, N, P>
 where
     F: FiniteElement<G, 3, N, P> + From<ElementNodalReferenceCoordinates<N>>,
@@ -104,11 +129,34 @@ where
             &NodalReferenceCoordinates<3>,
         ),
     ) -> Self {
+        Self::from((
+            constitutive_model,
+            PrimitiveConnectivity::from(connectivity),
+            coordinates,
+        ))
+    }
+}
+
+impl<C, F, const G: usize, const N: usize, const P: usize>
+    From<(
+        C,
+        PrimitiveConnectivity<2, N>,
+        &NodalReferenceCoordinates<2>,
+    )> for Block<C, F, G, 2, N, P>
+where
+    F: FiniteElement<G, 2, N, P> + From<PlanarElementNodalReferenceCoordinates<N>>,
+{
+    fn from(
+        (constitutive_model, connectivity, coordinates): (
+            C,
+            PrimitiveConnectivity<2, N>,
+            &NodalReferenceCoordinates<2>,
+        ),
+    ) -> Self {
         let elements = connectivity
             .iter()
             .map(|nodes| Self::element_coordinates(coordinates, nodes).into())
             .collect();
-        let connectivity = connectivity.into();
         Self {
             constitutive_model,
             connectivity,
@@ -129,21 +177,16 @@ where
             &NodalReferenceCoordinates<2>,
         ),
     ) -> Self {
-        let elements = connectivity
-            .iter()
-            .map(|nodes| Self::element_coordinates(coordinates, nodes).into())
-            .collect();
-        let connectivity = connectivity.into();
-        Self {
+        Self::from((
             constitutive_model,
-            connectivity,
-            elements,
-        }
+            PrimitiveConnectivity::from(connectivity),
+            coordinates,
+        ))
     }
 }
 
-pub(crate) fn add_node_neighbors<const N: usize>(
-    connectivity: &Connectivity<N>,
+pub(crate) fn add_node_neighbors<const M: usize, const N: usize>(
+    connectivity: &PrimitiveConnectivity<M, N>,
     neighbors: &mut [Vec<usize>],
 ) {
     connectivity.iter().for_each(|nodes| {

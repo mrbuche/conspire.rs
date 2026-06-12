@@ -21,14 +21,16 @@ fn block<C, F, const D: usize, const G: usize, const N: usize, const P: usize>(
     coordinates: &NodalReferenceCoordinates<D>,
 ) -> Result<Block<C, F, G, D, N, P>, String>
 where
-    Block<C, F, G, D, N, P>: for<'a> From<(C, Vec<[usize; N]>, &'a NodalReferenceCoordinates<D>)>,
+    Block<C, F, G, D, N, P>: for<'a> From<(
+        C,
+        PrimitiveConnectivity<D, N>,
+        &'a NodalReferenceCoordinates<D>,
+    )>,
     PrimitiveConnectivity<D, N>: TryFrom<Connectivity, Error = &'static str>,
 {
     Ok(Block::from((
         constitutive_model,
-        PrimitiveConnectivity::<D, N>::try_from(connectivity)?
-            .into_iter()
-            .collect(),
+        PrimitiveConnectivity::<D, N>::try_from(connectivity)?,
         coordinates,
     )))
 }
