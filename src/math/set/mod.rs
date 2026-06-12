@@ -1,6 +1,5 @@
 pub mod dsu;
 pub mod sets;
-pub mod sets_old;
 
 use crate::math::Tensor;
 use std::vec::IntoIter;

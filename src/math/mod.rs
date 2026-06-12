@@ -32,12 +32,7 @@ pub use matrix::{
 pub use random::{
     random_normal, random_normal_standard, random_u8, random_u64, random_uniform, random_x2_normal,
 };
-pub use set::{
-    Set,
-    dsu::disjoint_set_union,
-    sets::Sets,
-    sets_old::{InverseSets, Sets as SetsOld},
-};
+pub use set::{Set, dsu::disjoint_set_union, sets::Sets};
 pub use tensor::{
     Hessian, Jacobian, Rank2, Scalar, ScalarList, ScalarListVec, Scalars, Solution, Tensor,
     TensorArray, TensorError, TensorVec,
