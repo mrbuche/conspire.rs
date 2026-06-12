@@ -4,13 +4,13 @@ pub mod test;
 use crate::{
     constitutive::thermal::conduction::ThermalConduction,
     fem::{
-        FiniteElementModelError,
+        ElementModelError,
         block::{
             Block,
             element::{FiniteElementError, thermal::conduction::ThermalConductionFiniteElement},
-            thermal::{NodalTemperatures, ThermalFiniteElementBlock},
+            thermal::{NodalTemperatures, ThermalElements},
         },
-        thermal::conduction::ThermalConductionFiniteElements,
+        thermal::conduction::ThermalConductionElements,
     },
     math::{Scalar, SquareMatrix, Tensor, Vector},
 };
@@ -18,8 +18,8 @@ use crate::{
 pub type NodalForcesThermal = Vector;
 pub type NodalStiffnessesThermal = SquareMatrix;
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-    ThermalConductionFiniteElements for Block<C, F, G, M, N, P>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> ThermalConductionElements
+    for Block<C, F, G, M, N, P>
 where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, M, N, P>,
@@ -27,7 +27,7 @@ where
     fn potential(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<Scalar, FiniteElementModelError> {
+    ) -> Result<Scalar, ElementModelError> {
         match self
             .elements()
             .iter()
@@ -41,7 +41,7 @@ where
             .sum()
         {
             Ok(potential) => Ok(potential),
-            Err(error) => Err(FiniteElementModelError::Upstream(
+            Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
             )),
@@ -50,7 +50,7 @@ where
     fn nodal_forces(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<NodalForcesThermal, FiniteElementModelError> {
+    ) -> Result<NodalForcesThermal, ElementModelError> {
         let mut nodal_forces = NodalForcesThermal::zero(nodal_temperatures.len());
         match self
             .elements()
@@ -68,7 +68,7 @@ where
                 Ok::<(), FiniteElementError>(())
             }) {
             Ok(()) => Ok(nodal_forces),
-            Err(error) => Err(FiniteElementModelError::Upstream(
+            Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
             )),
@@ -77,7 +77,7 @@ where
     fn nodal_stiffnesses(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<NodalStiffnessesThermal, FiniteElementModelError> {
+    ) -> Result<NodalStiffnessesThermal, ElementModelError> {
         let mut nodal_stiffnesses = NodalStiffnessesThermal::zero(nodal_temperatures.len());
         match self
             .elements()
@@ -101,7 +101,7 @@ where
                 Ok::<(), FiniteElementError>(())
             }) {
             Ok(()) => Ok(nodal_stiffnesses),
-            Err(error) => Err(FiniteElementModelError::Upstream(
+            Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
             )),

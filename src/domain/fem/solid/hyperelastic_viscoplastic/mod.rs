@@ -1,15 +1,14 @@
 use crate::{
     fem::{
-        Blocks, ElasticViscoplasticAndElastic, FiniteElementModel, FiniteElementModelError,
-        FiniteElements, Model, NodalCoordinates, NodalCoordinatesHistory,
+        Blocks, ElasticViscoplasticAndElastic, ElementModel, ElementModelError, Elements, Model,
+        NodalCoordinates, NodalCoordinatesHistory,
         block::{
             band_from_neighbors, finalize_node_neighbors,
             solid::elastic_viscoplastic::ElasticViscoplasticBCs,
         },
         solid::{
             NodalForcesSolid, NodalStiffnessesSolid,
-            elastic_viscoplastic::ElasticViscoplasticFiniteElements,
-            hyperelastic::HyperelasticFiniteElements,
+            elastic_viscoplastic::ElasticViscoplasticElements, hyperelastic::HyperelasticElements,
         },
     },
     math::{
@@ -20,42 +19,42 @@ use crate::{
     mechanics::Times,
 };
 
-pub trait HyperelasticViscoplasticFiniteElements<S, const D: usize>
+pub trait HyperelasticViscoplasticElements<S, const D: usize>
 where
-    Self: ElasticViscoplasticFiniteElements<S, D>,
+    Self: ElasticViscoplasticElements<S, D>,
 {
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<Scalar, FiniteElementModelError>;
+    ) -> Result<Scalar, ElementModelError>;
 }
 
-impl<B, S, const D: usize> HyperelasticViscoplasticFiniteElements<S, D> for Model<B, D>
+impl<B, S, const D: usize> HyperelasticViscoplasticElements<S, D> for Model<B, D>
 where
-    B: HyperelasticViscoplasticFiniteElements<S, D>,
+    B: HyperelasticViscoplasticElements<S, D>,
 {
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<Scalar, FiniteElementModelError> {
+    ) -> Result<Scalar, ElementModelError> {
         self.blocks
             .helmholtz_free_energy(nodal_coordinates, state_variables)
     }
 }
 
-impl<B1, B2, S, const D: usize> HyperelasticViscoplasticFiniteElements<S, D>
+impl<B1, B2, S, const D: usize> HyperelasticViscoplasticElements<S, D>
     for ElasticViscoplasticAndElastic<B1, B2>
 where
-    B1: HyperelasticViscoplasticFiniteElements<S, D>,
-    B2: HyperelasticFiniteElements<D>,
+    B1: HyperelasticViscoplasticElements<S, D>,
+    B2: HyperelasticElements<D>,
 {
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<Scalar, FiniteElementModelError> {
+    ) -> Result<Scalar, ElementModelError> {
         Ok(self
             .0
             .helmholtz_free_energy(nodal_coordinates, state_variables)?
@@ -63,11 +62,11 @@ where
     }
 }
 
-impl<B1, B2, S1, S2, const D: usize> HyperelasticViscoplasticFiniteElements<TensorTuple<S1, S2>, D>
+impl<B1, B2, S1, S2, const D: usize> HyperelasticViscoplasticElements<TensorTuple<S1, S2>, D>
     for Blocks<B1, B2>
 where
-    B1: HyperelasticViscoplasticFiniteElements<S1, D>,
-    B2: HyperelasticViscoplasticFiniteElements<S2, D>,
+    B1: HyperelasticViscoplasticElements<S1, D>,
+    B2: HyperelasticViscoplasticElements<S2, D>,
     S1: Tensor,
     S2: Tensor,
 {
@@ -75,7 +74,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &TensorTuple<S1, S2>,
-    ) -> Result<Scalar, FiniteElementModelError> {
+    ) -> Result<Scalar, ElementModelError> {
         Ok(self
             .0
             .helmholtz_free_energy(nodal_coordinates, &state_variables.0)?
@@ -114,7 +113,7 @@ where
 
 impl<B, S, H, const D: usize> SecondOrderMinimize<S, H, D> for Model<B, D>
 where
-    B: HyperelasticViscoplasticFiniteElements<S, D>,
+    B: HyperelasticViscoplasticElements<S, D>,
     S: Tensor,
     H: TensorVec<Item = S>,
 {

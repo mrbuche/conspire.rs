@@ -1,24 +1,24 @@
 use crate::{
     constitutive::solid::hyperelastic::Hyperelastic,
     fem::{
-        FiniteElementModelError, NodalCoordinates,
+        ElementModelError, NodalCoordinates,
         block::{Block, element::solid::hyperelastic::HyperelasticFiniteElement},
-        solid::{elastic::ElasticFiniteElements, hyperelastic::HyperelasticFiniteElements},
+        solid::{elastic::ElasticElements, hyperelastic::HyperelasticElements},
     },
     math::Scalar,
 };
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-    HyperelasticFiniteElements<3> for Block<C, F, G, M, N, P>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> HyperelasticElements<3>
+    for Block<C, F, G, M, N, P>
 where
     C: Hyperelastic,
     F: HyperelasticFiniteElement<C, G, M, N, P>,
-    Self: ElasticFiniteElements<3>,
+    Self: ElasticElements<3>,
 {
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
-    ) -> Result<Scalar, FiniteElementModelError> {
+    ) -> Result<Scalar, ElementModelError> {
         match self
             .elements()
             .iter()
@@ -32,7 +32,7 @@ where
             .sum()
         {
             Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
-            Err(error) => Err(FiniteElementModelError::Upstream(
+            Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
             )),

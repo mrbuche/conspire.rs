@@ -32,33 +32,33 @@ pub struct Blocks<B1, B2>(B1, B2);
 #[derive(Debug)]
 pub struct ElasticViscoplasticAndElastic<B1, B2>(B1, B2);
 
-pub trait FiniteElementModel<const D: usize>
+pub trait ElementModel<const D: usize>
 where
     Self: Debug,
 {
     fn coordinates(&self) -> &NodalReferenceCoordinates<D>;
 }
 
-pub trait FiniteElements
+pub trait Elements
 where
     Self: Debug,
 {
     fn node_neighbors(&self, neighbors: &mut [Vec<usize>]);
 }
 
-impl<B, const D: usize> FiniteElements for Model<B, D>
+impl<B, const D: usize> Elements for Model<B, D>
 where
-    B: FiniteElements,
+    B: Elements,
 {
     fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
         self.blocks.node_neighbors(neighbors)
     }
 }
 
-impl<B1, B2> FiniteElements for Blocks<B1, B2>
+impl<B1, B2> Elements for Blocks<B1, B2>
 where
-    B1: FiniteElements,
-    B2: FiniteElements,
+    B1: Elements,
+    B2: Elements,
 {
     fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
         self.0.node_neighbors(neighbors);
@@ -66,10 +66,10 @@ where
     }
 }
 
-impl<B1, B2> FiniteElements for ElasticViscoplasticAndElastic<B1, B2>
+impl<B1, B2> Elements for ElasticViscoplasticAndElastic<B1, B2>
 where
-    B1: FiniteElements,
-    B2: FiniteElements,
+    B1: Elements,
+    B2: Elements,
 {
     fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
         self.0.node_neighbors(neighbors);
@@ -83,7 +83,7 @@ impl<B, const D: usize> Model<B, D> {
     }
 }
 
-impl<B, const D: usize> FiniteElementModel<D> for Model<B, D>
+impl<B, const D: usize> ElementModel<D> for Model<B, D>
 where
     B: Debug,
 {
@@ -92,17 +92,17 @@ where
     }
 }
 
-pub enum FiniteElementModelError {
+pub enum ElementModelError {
     Upstream(String, String),
 }
 
-impl Debug for FiniteElementModelError {
+impl Debug for ElementModelError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
             Self::Upstream(error, model) => {
                 format!(
                     "{error}\x1b[0;91m\n\
-                    In finite element model: {model}."
+                    In element model: {model}."
                 )
             }
         };
@@ -110,13 +110,13 @@ impl Debug for FiniteElementModelError {
     }
 }
 
-impl Display for FiniteElementModelError {
+impl Display for ElementModelError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let error = match self {
             Self::Upstream(error, model) => {
                 format!(
                     "{error}\x1b[0;91m\n\
-                    In finite element model: {model}."
+                    In element model: {model}."
                 )
             }
         };
@@ -124,13 +124,13 @@ impl Display for FiniteElementModelError {
     }
 }
 
-impl From<FiniteElementModelError> for String {
-    fn from(error: FiniteElementModelError) -> Self {
+impl From<ElementModelError> for String {
+    fn from(error: ElementModelError) -> Self {
         match error {
-            FiniteElementModelError::Upstream(error, model) => {
+            ElementModelError::Upstream(error, model) => {
                 format!(
                     "{error}\x1b[0;91m\n\
-                    In finite element model: {model}."
+                    In element model: {model}."
                 )
             }
         }
@@ -178,8 +178,8 @@ impl<B, const D: usize> From<(B, NodalReferenceCoordinates<D>)> for Model<B, D> 
     }
 }
 
-impl From<FiniteElementModelError> for TestError {
-    fn from(error: FiniteElementModelError) -> Self {
+impl From<ElementModelError> for TestError {
+    fn from(error: ElementModelError) -> Self {
         Self {
             message: error.to_string(),
         }

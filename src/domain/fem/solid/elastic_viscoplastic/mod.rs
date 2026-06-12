@@ -1,12 +1,9 @@
 use crate::{
     fem::{
-        Blocks, ElasticViscoplasticAndElastic, FiniteElementModel, FiniteElementModelError, Model,
+        Blocks, ElasticViscoplasticAndElastic, ElementModel, ElementModelError, Elements, Model,
         NodalCoordinates, NodalCoordinatesHistory,
         block::solid::elastic_viscoplastic::ElasticViscoplasticBCs,
-        solid::{
-            NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElements,
-            elastic::ElasticFiniteElements,
-        },
+        solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticElements},
     },
     math::{
         Scalar, Tensor, TensorTuple, TensorVec,
@@ -16,31 +13,31 @@ use crate::{
     mechanics::Times,
 };
 
-pub trait ElasticViscoplasticFiniteElements<S, const D: usize>
+pub trait ElasticViscoplasticElements<S, const D: usize>
 where
-    Self: SolidFiniteElements,
+    Self: Elements,
 {
     fn initial_state(&self) -> S;
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<NodalForcesSolid<D>, FiniteElementModelError>;
+    ) -> Result<NodalForcesSolid<D>, ElementModelError>;
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<NodalStiffnessesSolid<D>, FiniteElementModelError>;
+    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError>;
     fn state_variables_evolution(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<S, FiniteElementModelError>;
+    ) -> Result<S, ElementModelError>;
 }
 
-impl<B, S, const D: usize> ElasticViscoplasticFiniteElements<S, D> for Model<B, D>
+impl<B, S, const D: usize> ElasticViscoplasticElements<S, D> for Model<B, D>
 where
-    B: ElasticViscoplasticFiniteElements<S, D>,
+    B: ElasticViscoplasticElements<S, D>,
 {
     fn initial_state(&self) -> S {
         self.blocks.initial_state()
@@ -49,14 +46,14 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<NodalForcesSolid<D>, FiniteElementModelError> {
+    ) -> Result<NodalForcesSolid<D>, ElementModelError> {
         self.blocks.nodal_forces(nodal_coordinates, state_variables)
     }
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<NodalStiffnessesSolid<D>, FiniteElementModelError> {
+    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError> {
         self.blocks
             .nodal_stiffnesses(nodal_coordinates, state_variables)
     }
@@ -64,17 +61,17 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<S, FiniteElementModelError> {
+    ) -> Result<S, ElementModelError> {
         self.blocks
             .state_variables_evolution(nodal_coordinates, state_variables)
     }
 }
 
-impl<B1, B2, S, const D: usize> ElasticViscoplasticFiniteElements<S, D>
+impl<B1, B2, S, const D: usize> ElasticViscoplasticElements<S, D>
     for ElasticViscoplasticAndElastic<B1, B2>
 where
-    B1: ElasticViscoplasticFiniteElements<S, D>,
-    B2: ElasticFiniteElements<D>,
+    B1: ElasticViscoplasticElements<S, D>,
+    B2: ElasticElements<D>,
 {
     fn initial_state(&self) -> S {
         self.0.initial_state()
@@ -83,7 +80,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<NodalForcesSolid<D>, FiniteElementModelError> {
+    ) -> Result<NodalForcesSolid<D>, ElementModelError> {
         Ok(self.0.nodal_forces(nodal_coordinates, state_variables)?
             + self.1.nodal_forces(nodal_coordinates)?)
     }
@@ -91,7 +88,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<NodalStiffnessesSolid<D>, FiniteElementModelError> {
+    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError> {
         Ok(self
             .0
             .nodal_stiffnesses(nodal_coordinates, state_variables)?
@@ -101,17 +98,17 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<S, FiniteElementModelError> {
+    ) -> Result<S, ElementModelError> {
         self.0
             .state_variables_evolution(nodal_coordinates, state_variables)
     }
 }
 
-impl<B1, B2, S1, S2, const D: usize> ElasticViscoplasticFiniteElements<TensorTuple<S1, S2>, D>
+impl<B1, B2, S1, S2, const D: usize> ElasticViscoplasticElements<TensorTuple<S1, S2>, D>
     for Blocks<B1, B2>
 where
-    B1: ElasticViscoplasticFiniteElements<S1, D>,
-    B2: ElasticViscoplasticFiniteElements<S2, D>,
+    B1: ElasticViscoplasticElements<S1, D>,
+    B2: ElasticViscoplasticElements<S2, D>,
     S1: Tensor,
     S2: Tensor,
 {
@@ -122,7 +119,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &TensorTuple<S1, S2>,
-    ) -> Result<NodalForcesSolid<D>, FiniteElementModelError> {
+    ) -> Result<NodalForcesSolid<D>, ElementModelError> {
         Ok(self.0.nodal_forces(nodal_coordinates, &state_variables.0)?
             + self.1.nodal_forces(nodal_coordinates, &state_variables.1)?)
     }
@@ -130,7 +127,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &TensorTuple<S1, S2>,
-    ) -> Result<NodalStiffnessesSolid<D>, FiniteElementModelError> {
+    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError> {
         Ok(self
             .0
             .nodal_stiffnesses(nodal_coordinates, &state_variables.0)?
@@ -142,7 +139,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &TensorTuple<S1, S2>,
-    ) -> Result<TensorTuple<S1, S2>, FiniteElementModelError> {
+    ) -> Result<TensorTuple<S1, S2>, ElementModelError> {
         Ok((
             self.0
                 .state_variables_evolution(nodal_coordinates, &state_variables.0)?,
@@ -180,7 +177,7 @@ where
 
 impl<B, S, H, const D: usize> FirstOrderRoot<S, H, D> for Model<B, D>
 where
-    B: ElasticViscoplasticFiniteElements<S, D>,
+    B: ElasticViscoplasticElements<S, D>,
     S: Tensor,
     H: TensorVec<Item = S>,
 {

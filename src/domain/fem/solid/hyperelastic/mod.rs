@@ -1,9 +1,9 @@
 use crate::{
     fem::{
-        Blocks, FiniteElementModel, FiniteElementModelError, FiniteElements, FirstOrderMinimize,
-        Model, NodalCoordinates, SecondOrderMinimize,
+        Blocks, ElementModel, ElementModelError, Elements, FirstOrderMinimize, Model,
+        NodalCoordinates, SecondOrderMinimize,
         block::{band_from_neighbors, finalize_node_neighbors},
-        solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticFiniteElements},
+        solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticElements},
     },
     math::{
         Scalar, Tensor,
@@ -13,37 +13,37 @@ use crate::{
     },
 };
 
-pub trait HyperelasticFiniteElements<const D: usize>
+pub trait HyperelasticElements<const D: usize>
 where
-    Self: ElasticFiniteElements<D>,
+    Self: ElasticElements<D>,
 {
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<Scalar, FiniteElementModelError>;
+    ) -> Result<Scalar, ElementModelError>;
 }
 
-impl<B, const D: usize> HyperelasticFiniteElements<D> for Model<B, D>
+impl<B, const D: usize> HyperelasticElements<D> for Model<B, D>
 where
-    B: HyperelasticFiniteElements<D>,
+    B: HyperelasticElements<D>,
 {
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<Scalar, FiniteElementModelError> {
+    ) -> Result<Scalar, ElementModelError> {
         self.blocks.helmholtz_free_energy(nodal_coordinates)
     }
 }
 
-impl<B1, B2, const D: usize> HyperelasticFiniteElements<D> for Blocks<B1, B2>
+impl<B1, B2, const D: usize> HyperelasticElements<D> for Blocks<B1, B2>
 where
-    B1: HyperelasticFiniteElements<D>,
-    B2: HyperelasticFiniteElements<D>,
+    B1: HyperelasticElements<D>,
+    B2: HyperelasticElements<D>,
 {
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<Scalar, FiniteElementModelError> {
+    ) -> Result<Scalar, ElementModelError> {
         Ok(self.0.helmholtz_free_energy(nodal_coordinates)?
             + self.1.helmholtz_free_energy(nodal_coordinates)?)
     }
@@ -51,7 +51,7 @@ where
 
 impl<B, const D: usize> FirstOrderMinimize<Scalar, NodalCoordinates<D>> for Model<B, D>
 where
-    B: HyperelasticFiniteElements<D>,
+    B: HyperelasticElements<D>,
 {
     fn minimize(
         &self,
@@ -73,7 +73,7 @@ impl<B, const D: usize>
     SecondOrderMinimize<Scalar, NodalForcesSolid<D>, NodalStiffnessesSolid<D>, NodalCoordinates<D>>
     for Model<B, D>
 where
-    B: HyperelasticFiniteElements<D>,
+    B: HyperelasticElements<D>,
 {
     fn minimize(
         &self,

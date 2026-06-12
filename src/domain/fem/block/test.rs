@@ -83,10 +83,7 @@ macro_rules! test_finite_element_block_inner {
                         AlmansiHamel, SaintVenantKirchhoff,
                         test::{BULK_MODULUS, SHEAR_MODULUS},
                     },
-                    fem::{
-                        block::solid::SolidFiniteElementBlock,
-                        solid::elastic::ElasticFiniteElements,
-                    },
+                    fem::{block::solid::SolidElements, solid::elastic::ElasticElements},
                 };
                 mod almansi_hamel {
                     use super::*;
@@ -134,11 +131,8 @@ macro_rules! test_finite_element_block_inner {
                         },
                     },
                     fem::{
-                        block::solid::SolidFiniteElementBlock,
-                        solid::{
-                            elastic::ElasticFiniteElements,
-                            hyperelastic::HyperelasticFiniteElements,
-                        },
+                        block::solid::SolidElements,
+                        solid::{elastic::ElasticElements, hyperelastic::HyperelasticElements},
                     },
                 };
                 mod arruda_boyce {
@@ -250,10 +244,10 @@ macro_rules! test_finite_element_block_inner {
                         test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
                     },
                     fem::{
-                        block::solid::SolidFiniteElementBlock,
+                        block::solid::SolidElements,
                         solid::{
-                            elastic_hyperviscous::ElasticHyperviscousFiniteElements,
-                            viscoelastic::ViscoelasticFiniteElements,
+                            elastic_hyperviscous::ElasticHyperviscousElements,
+                            viscoelastic::ViscoelasticElements,
                         },
                     },
                 };
@@ -280,10 +274,10 @@ macro_rules! test_finite_element_block_inner {
                         test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
                     },
                     fem::{
-                        block::solid::SolidFiniteElementBlock,
+                        block::solid::SolidElements,
                         solid::{
-                            elastic_hyperviscous::ElasticHyperviscousFiniteElements,
-                            viscoelastic::ViscoelasticFiniteElements,
+                            elastic_hyperviscous::ElasticHyperviscousElements,
+                            viscoelastic::ViscoelasticElements,
                         },
                     },
                 };

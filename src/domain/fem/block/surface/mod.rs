@@ -8,7 +8,7 @@ use crate::{
 
 const M: usize = 2;
 
-pub trait SurfaceFiniteElementBlock<C, F, const G: usize, const N: usize>
+pub trait SurfaceElements<C, F, const G: usize, const N: usize>
 where
     Self: for<'a> From<(C, Connectivity<N>, &'a NodalReferenceCoordinates<3>, Scalar)>,
 {
@@ -48,7 +48,7 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize, const P: usize> SurfaceFiniteElementBlock<C, F, G, N>
+impl<C, F, const G: usize, const N: usize, const P: usize> SurfaceElements<C, F, G, N>
     for Block<C, F, G, M, N, P>
 where
     F: From<(ElementNodalReferenceCoordinates<N>, Scalar)>,

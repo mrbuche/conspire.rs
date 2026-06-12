@@ -1,15 +1,12 @@
 use crate::{
     constitutive::solid::viscoelastic::Viscoelastic,
     fem::{
-        FiniteElementModelError, NodalCoordinates, NodalVelocities,
+        ElementModelError, NodalCoordinates, NodalVelocities,
         block::{
             Block,
             element::{FiniteElementError, solid::viscoelastic::ViscoelasticFiniteElement},
         },
-        solid::{
-            NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElements,
-            viscoelastic::ViscoelasticFiniteElements,
-        },
+        solid::{NodalForcesSolid, NodalStiffnessesSolid, viscoelastic::ViscoelasticElements},
     },
     math::Tensor,
     mechanics::DeformationGradientRateList,
@@ -38,18 +35,17 @@ where
     }
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-    ViscoelasticFiniteElements<3> for Block<C, F, G, M, N, P>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> ViscoelasticElements<3>
+    for Block<C, F, G, M, N, P>
 where
     C: Viscoelastic,
     F: ViscoelasticFiniteElement<C, G, M, N, P>,
-    Self: SolidFiniteElements,
 {
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         nodal_velocities: &NodalVelocities<3>,
-    ) -> Result<NodalForcesSolid<3>, FiniteElementModelError> {
+    ) -> Result<NodalForcesSolid<3>, ElementModelError> {
         let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
         match self
             .elements()
@@ -68,7 +64,7 @@ where
                 Ok::<(), FiniteElementError>(())
             }) {
             Ok(()) => Ok(nodal_forces),
-            Err(error) => Err(FiniteElementModelError::Upstream(
+            Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
             )),
@@ -78,7 +74,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         nodal_velocities: &NodalVelocities<3>,
-    ) -> Result<NodalStiffnessesSolid<3>, FiniteElementModelError> {
+    ) -> Result<NodalStiffnessesSolid<3>, ElementModelError> {
         let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
         match self
             .elements()
@@ -104,7 +100,7 @@ where
                 Ok::<(), FiniteElementError>(())
             }) {
             Ok(()) => Ok(nodal_stiffnesses),
-            Err(error) => Err(FiniteElementModelError::Upstream(
+            Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
             )),

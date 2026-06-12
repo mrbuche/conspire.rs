@@ -12,7 +12,7 @@ use crate::{
 pub type NodalForcesSolid = crate::fem::solid::NodalForcesSolid<3>;
 pub type NodalStiffnessesSolid = crate::fem::solid::NodalStiffnessesSolid<3>;
 
-pub trait SolidVirtualElementBlock<C, F>
+pub trait SolidVirtualElements<C, F>
 where
     F: SolidVirtualElement,
 {
@@ -22,7 +22,7 @@ where
     ) -> Vec<DeformationGradients>;
 }
 
-impl<C, F> SolidVirtualElementBlock<C, F> for Block<C, F>
+impl<C, F> SolidVirtualElements<C, F> for Block<C, F>
 where
     F: SolidVirtualElement,
 {

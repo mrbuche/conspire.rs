@@ -1,8 +1,8 @@
 use crate::{
     fem::{
-        Blocks, FiniteElementModel, FiniteElementModelError, Model, NodalCoordinates,
+        Blocks, ElementModel, ElementModelError, Elements, Model, NodalCoordinates,
         NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
-        solid::{NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElements},
+        solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{
         Scalar,
@@ -12,31 +12,31 @@ use crate::{
     mechanics::Times,
 };
 
-pub trait ViscoelasticFiniteElements<const D: usize>
+pub trait ViscoelasticElements<const D: usize>
 where
-    Self: SolidFiniteElements,
+    Self: Elements,
 {
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<NodalForcesSolid<D>, FiniteElementModelError>;
+    ) -> Result<NodalForcesSolid<D>, ElementModelError>;
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<NodalStiffnessesSolid<D>, FiniteElementModelError>;
+    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError>;
 }
 
-impl<B, const D: usize> ViscoelasticFiniteElements<D> for Model<B, D>
+impl<B, const D: usize> ViscoelasticElements<D> for Model<B, D>
 where
-    B: ViscoelasticFiniteElements<D>,
+    B: ViscoelasticElements<D>,
 {
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<NodalForcesSolid<D>, FiniteElementModelError> {
+    ) -> Result<NodalForcesSolid<D>, ElementModelError> {
         self.blocks
             .nodal_forces(nodal_coordinates, nodal_velocities)
     }
@@ -44,22 +44,22 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<NodalStiffnessesSolid<D>, FiniteElementModelError> {
+    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError> {
         self.blocks
             .nodal_stiffnesses(nodal_coordinates, nodal_velocities)
     }
 }
 
-impl<B1, B2, const D: usize> ViscoelasticFiniteElements<D> for Blocks<B1, B2>
+impl<B1, B2, const D: usize> ViscoelasticElements<D> for Blocks<B1, B2>
 where
-    B1: ViscoelasticFiniteElements<D>,
-    B2: ViscoelasticFiniteElements<D>,
+    B1: ViscoelasticElements<D>,
+    B2: ViscoelasticElements<D>,
 {
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<NodalForcesSolid<D>, FiniteElementModelError> {
+    ) -> Result<NodalForcesSolid<D>, ElementModelError> {
         Ok(self.0.nodal_forces(nodal_coordinates, nodal_velocities)?
             + self.1.nodal_forces(nodal_coordinates, nodal_velocities)?)
     }
@@ -67,7 +67,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<NodalStiffnessesSolid<D>, FiniteElementModelError> {
+    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError> {
         Ok(self
             .0
             .nodal_stiffnesses(nodal_coordinates, nodal_velocities)?
@@ -98,7 +98,7 @@ pub trait FirstOrderRoot<const D: usize> {
 
 impl<B, const D: usize> FirstOrderRoot<D> for Model<B, D>
 where
-    B: ViscoelasticFiniteElements<D>,
+    B: ViscoelasticElements<D>,
 {
     fn root(
         &self,

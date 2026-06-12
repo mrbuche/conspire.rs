@@ -1,34 +1,34 @@
 use crate::{
     constitutive::solid::hyperelastic_viscoplastic::HyperelasticViscoplastic,
     fem::{
-        FiniteElementModelError, NodalCoordinates,
+        ElementModelError, NodalCoordinates,
         block::{
             Block,
             element::solid::hyperelastic_viscoplastic::HyperelasticViscoplasticFiniteElement,
             solid::elastic_viscoplastic::ViscoplasticStateVariables,
         },
         solid::{
-            elastic_viscoplastic::ElasticViscoplasticFiniteElements,
-            hyperelastic_viscoplastic::HyperelasticViscoplasticFiniteElements,
+            elastic_viscoplastic::ElasticViscoplasticElements,
+            hyperelastic_viscoplastic::HyperelasticViscoplasticElements,
         },
     },
     math::{Scalar, Tensor},
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, Y>
-    HyperelasticViscoplasticFiniteElements<ViscoplasticStateVariables<G, Y>, 3>
+    HyperelasticViscoplasticElements<ViscoplasticStateVariables<G, Y>, 3>
     for Block<C, F, G, M, N, P>
 where
     C: HyperelasticViscoplastic<Y>,
     F: HyperelasticViscoplasticFiniteElement<C, G, M, N, P, Y>,
-    Self: ElasticViscoplasticFiniteElements<ViscoplasticStateVariables<G, Y>, 3>,
+    Self: ElasticViscoplasticElements<ViscoplasticStateVariables<G, Y>, 3>,
     Y: Tensor,
 {
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &ViscoplasticStateVariables<G, Y>,
-    ) -> Result<Scalar, FiniteElementModelError> {
+    ) -> Result<Scalar, ElementModelError> {
         match self
             .elements()
             .iter()
@@ -44,7 +44,7 @@ where
             .sum()
         {
             Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
-            Err(error) => Err(FiniteElementModelError::Upstream(
+            Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
             )),

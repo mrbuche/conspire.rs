@@ -1,7 +1,7 @@
 use crate::{
     constitutive::solid::elastic_viscoplastic::ElasticViscoplastic,
     fem::{
-        FiniteElementModelError, NodalCoordinates,
+        ElementModelError, NodalCoordinates,
         block::{
             Block,
             element::{
@@ -9,8 +9,8 @@ use crate::{
             },
         },
         solid::{
-            NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElements,
-            elastic_viscoplastic::ElasticViscoplasticFiniteElements,
+            NodalForcesSolid, NodalStiffnessesSolid,
+            elastic_viscoplastic::ElasticViscoplasticElements,
         },
     },
     math::{
@@ -29,12 +29,10 @@ pub type ViscoplasticStateVariablesHistory<const G: usize, Y> =
 pub type ElasticViscoplasticBCs = fn(Scalar) -> EqualityConstraint;
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, Y>
-    ElasticViscoplasticFiniteElements<ViscoplasticStateVariables<G, Y>, 3>
-    for Block<C, F, G, M, N, P>
+    ElasticViscoplasticElements<ViscoplasticStateVariables<G, Y>, 3> for Block<C, F, G, M, N, P>
 where
     C: ElasticViscoplastic<Y>,
     F: ElasticViscoplasticFiniteElement<C, G, M, N, P, Y>,
-    Self: SolidFiniteElements,
     Y: Tensor,
 {
     fn initial_state(&self) -> ViscoplasticStateVariables<G, Y> {
@@ -47,7 +45,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &ViscoplasticStateVariables<G, Y>,
-    ) -> Result<NodalForcesSolid<3>, FiniteElementModelError> {
+    ) -> Result<NodalForcesSolid<3>, ElementModelError> {
         let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
         match self
             .elements()
@@ -67,7 +65,7 @@ where
                 Ok::<(), FiniteElementError>(())
             }) {
             Ok(()) => Ok(nodal_forces),
-            Err(error) => Err(FiniteElementModelError::Upstream(
+            Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
             )),
@@ -77,7 +75,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &ViscoplasticStateVariables<G, Y>,
-    ) -> Result<NodalStiffnessesSolid<3>, FiniteElementModelError> {
+    ) -> Result<NodalStiffnessesSolid<3>, ElementModelError> {
         let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
         match self
             .elements()
@@ -104,7 +102,7 @@ where
                 Ok::<(), FiniteElementError>(())
             }) {
             Ok(()) => Ok(nodal_stiffnesses),
-            Err(error) => Err(FiniteElementModelError::Upstream(
+            Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
             )),
@@ -114,7 +112,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &ViscoplasticStateVariables<G, Y>,
-    ) -> Result<ViscoplasticStateVariables<G, Y>, FiniteElementModelError> {
+    ) -> Result<ViscoplasticStateVariables<G, Y>, ElementModelError> {
         match self
             .elements()
             .iter()
@@ -130,7 +128,7 @@ where
             .collect()
         {
             Ok(state_variables_evolution) => Ok(state_variables_evolution),
-            Err(error) => Err(FiniteElementModelError::Upstream(
+            Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
             )),

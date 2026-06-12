@@ -1,42 +1,42 @@
 use crate::{
     fem::{
-        Blocks, FiniteElementModelError, Model, NodalCoordinates,
-        solid::elastic_hyperviscous::ElasticHyperviscousFiniteElements,
+        Blocks, ElementModelError, Model, NodalCoordinates,
+        solid::elastic_hyperviscous::ElasticHyperviscousElements,
     },
     math::Scalar,
 };
 
-pub trait HyperviscoelasticFiniteElements<const D: usize>
+pub trait HyperviscoelasticElements<const D: usize>
 where
-    Self: ElasticHyperviscousFiniteElements<D>,
+    Self: ElasticHyperviscousElements<D>,
 {
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<Scalar, FiniteElementModelError>;
+    ) -> Result<Scalar, ElementModelError>;
 }
 
-impl<B, const D: usize> HyperviscoelasticFiniteElements<D> for Model<B, D>
+impl<B, const D: usize> HyperviscoelasticElements<D> for Model<B, D>
 where
-    B: HyperviscoelasticFiniteElements<D>,
+    B: HyperviscoelasticElements<D>,
 {
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<Scalar, FiniteElementModelError> {
+    ) -> Result<Scalar, ElementModelError> {
         self.blocks.helmholtz_free_energy(nodal_coordinates)
     }
 }
 
-impl<B1, B2, const D: usize> HyperviscoelasticFiniteElements<D> for Blocks<B1, B2>
+impl<B1, B2, const D: usize> HyperviscoelasticElements<D> for Blocks<B1, B2>
 where
-    B1: HyperviscoelasticFiniteElements<D>,
-    B2: HyperviscoelasticFiniteElements<D>,
+    B1: HyperviscoelasticElements<D>,
+    B2: HyperviscoelasticElements<D>,
 {
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<Scalar, FiniteElementModelError> {
+    ) -> Result<Scalar, ElementModelError> {
         Ok(self.0.helmholtz_free_energy(nodal_coordinates)?
             + self.1.helmholtz_free_energy(nodal_coordinates)?)
     }

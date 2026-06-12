@@ -1,7 +1,7 @@
 use crate::{
     constitutive::solid::elastic::Elastic,
     fem::{
-        FiniteElementModelError, NodalCoordinates,
+        ElementModelError, NodalCoordinates,
         block::{
             Block,
             element::{
@@ -9,25 +9,21 @@ use crate::{
                 solid::elastic::ElasticFiniteElement,
             },
         },
-        solid::{
-            NodalForcesSolid, NodalStiffnessesSolid, SolidFiniteElements,
-            elastic::ElasticFiniteElements,
-        },
+        solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticElements},
     },
     math::Tensor,
 };
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> ElasticFiniteElements<3>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> ElasticElements<3>
     for Block<C, F, G, M, N, P>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, M, N, P>,
-    Self: SolidFiniteElements,
 {
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
-    ) -> Result<NodalForcesSolid<3>, FiniteElementModelError> {
+    ) -> Result<NodalForcesSolid<3>, ElementModelError> {
         let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
         match self
             .elements()
@@ -45,7 +41,7 @@ where
                 Ok::<(), FiniteElementError>(())
             }) {
             Ok(()) => Ok(nodal_forces),
-            Err(error) => Err(FiniteElementModelError::Upstream(
+            Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
             )),
@@ -54,7 +50,7 @@ where
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
-    ) -> Result<NodalStiffnessesSolid<3>, FiniteElementModelError> {
+    ) -> Result<NodalStiffnessesSolid<3>, ElementModelError> {
         let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
         match self
             .elements()
@@ -79,7 +75,7 @@ where
                 Ok::<(), FiniteElementError>(())
             }) {
             Ok(()) => Ok(nodal_stiffnesses),
-            Err(error) => Err(FiniteElementModelError::Upstream(
+            Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
             )),
@@ -87,17 +83,16 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize, const P: usize> ElasticFiniteElements<2>
+impl<C, F, const G: usize, const N: usize, const P: usize> ElasticElements<2>
     for Block<C, F, G, 2, N, P>
 where
     C: Elastic,
     F: PlanarElasticFiniteElement<C, G, N, P>,
-    Self: SolidFiniteElements,
 {
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates<2>,
-    ) -> Result<NodalForcesSolid<2>, FiniteElementModelError> {
+    ) -> Result<NodalForcesSolid<2>, ElementModelError> {
         let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
         match self
             .elements()
@@ -115,7 +110,7 @@ where
                 Ok::<(), FiniteElementError>(())
             }) {
             Ok(()) => Ok(nodal_forces),
-            Err(error) => Err(FiniteElementModelError::Upstream(
+            Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
             )),
@@ -124,7 +119,7 @@ where
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates<2>,
-    ) -> Result<NodalStiffnessesSolid<2>, FiniteElementModelError> {
+    ) -> Result<NodalStiffnessesSolid<2>, ElementModelError> {
         let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
         match self
             .elements()
@@ -149,7 +144,7 @@ where
                 Ok::<(), FiniteElementError>(())
             }) {
             Ok(()) => Ok(nodal_stiffnesses),
-            Err(error) => Err(FiniteElementModelError::Upstream(
+            Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
             )),

@@ -366,18 +366,16 @@ fn temporary_poly_0() {
     ];
     let element_face_connectivity = vec![vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]];
     use crate::constitutive::solid::hyperelastic::NeoHookean;
-    use crate::vem::block::{
-        Block,
-        solid::{SolidVirtualElementBlock, elastic::ElasticVirtualElementBlock},
-    };
+    use crate::fem::solid::elastic::ElasticElements;
+    use crate::vem::block::{Block, solid::SolidVirtualElements};
     let block = Block::<_, Element>::from((
         NeoHookean {
             shear_modulus: 3.0,
             bulk_modulus: 13.0,
         },
-        coordinates.clone(),
         element_face_connectivity.clone(),
         face_node_connectivity.clone(),
+        &coordinates,
     ));
     use crate::fem::solid::NodalForcesSolid;
     use crate::math::{TensorArray, assert_eq_within_tols};
@@ -442,18 +440,16 @@ fn temporary_poly_1() {
     ];
     let element_face_connectivity = vec![vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]];
     use crate::constitutive::solid::hyperelastic::NeoHookean;
-    use crate::vem::block::{
-        Block,
-        solid::{SolidVirtualElementBlock, elastic::ElasticVirtualElementBlock},
-    };
+    use crate::fem::solid::elastic::ElasticElements;
+    use crate::vem::block::{Block, solid::SolidVirtualElements};
     let block = Block::<_, Element>::from((
         NeoHookean {
             shear_modulus: 3.0,
             bulk_modulus: 13.0,
         },
-        coordinates.clone(),
         element_face_connectivity.clone(),
         face_node_connectivity.clone(),
+        &coordinates,
     ));
     use crate::fem::solid::NodalForcesSolid;
     use crate::math::{TensorArray, assert_eq_within_tols};
@@ -524,15 +520,16 @@ fn temporary_poly_2() {
     ];
     let element_face_connectivity = vec![vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]];
     use crate::constitutive::solid::hyperelastic::NeoHookean;
-    use crate::vem::block::{Block, solid::elastic::ElasticVirtualElementBlock};
+    use crate::fem::solid::elastic::ElasticElements;
+    use crate::vem::block::Block;
     let block = Block::<_, Element>::from((
         NeoHookean {
             shear_modulus: 3.0,
             bulk_modulus: 13.0,
         },
-        coordinates_0,
         element_face_connectivity.clone(),
         face_node_connectivity.clone(),
+        &coordinates_0,
     ));
     use crate::vem::NodalCoordinates;
     let coordinates = NodalCoordinates::from(vec![
@@ -558,7 +555,7 @@ fn temporary_poly_2() {
         [0.12293689, -0.48172557, 1.4158596],
     ]);
     use crate::EPSILON;
-    use crate::vem::block::solid::hyperelastic::HyperelasticVirtualElementBlock;
+    use crate::fem::solid::hyperelastic::HyperelasticElements;
     let mut finite_difference = 0.0;
     let nodal_forces_fd = (0..coordinates.len())
         .map(|node| {

@@ -1,11 +1,9 @@
 use crate::{
     fem::{
-        Blocks, FiniteElementModel, FiniteElementModelError, FiniteElements, Model,
-        NodalCoordinates, NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
+        Blocks, ElementModel, ElementModelError, Elements, Model, NodalCoordinates,
+        NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
         block::{band_from_neighbors, finalize_node_neighbors},
-        solid::{
-            NodalForcesSolid, NodalStiffnessesSolid, viscoelastic::ViscoelasticFiniteElements,
-        },
+        solid::{NodalForcesSolid, NodalStiffnessesSolid, viscoelastic::ViscoelasticElements},
     },
     math::{
         Scalar, Tensor,
@@ -15,31 +13,31 @@ use crate::{
     mechanics::Times,
 };
 
-pub trait ElasticHyperviscousFiniteElements<const D: usize>
+pub trait ElasticHyperviscousElements<const D: usize>
 where
-    Self: ViscoelasticFiniteElements<D>,
+    Self: ViscoelasticElements<D>,
 {
     fn viscous_dissipation(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<Scalar, FiniteElementModelError>;
+    ) -> Result<Scalar, ElementModelError>;
     fn dissipation_potential(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<Scalar, FiniteElementModelError>;
+    ) -> Result<Scalar, ElementModelError>;
 }
 
-impl<B, const D: usize> ElasticHyperviscousFiniteElements<D> for Model<B, D>
+impl<B, const D: usize> ElasticHyperviscousElements<D> for Model<B, D>
 where
-    B: ElasticHyperviscousFiniteElements<D>,
+    B: ElasticHyperviscousElements<D>,
 {
     fn viscous_dissipation(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<Scalar, FiniteElementModelError> {
+    ) -> Result<Scalar, ElementModelError> {
         self.blocks
             .viscous_dissipation(nodal_coordinates, nodal_velocities)
     }
@@ -47,22 +45,22 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<Scalar, FiniteElementModelError> {
+    ) -> Result<Scalar, ElementModelError> {
         self.blocks
             .dissipation_potential(nodal_coordinates, nodal_velocities)
     }
 }
 
-impl<B1, B2, const D: usize> ElasticHyperviscousFiniteElements<D> for Blocks<B1, B2>
+impl<B1, B2, const D: usize> ElasticHyperviscousElements<D> for Blocks<B1, B2>
 where
-    B1: ElasticHyperviscousFiniteElements<D>,
-    B2: ElasticHyperviscousFiniteElements<D>,
+    B1: ElasticHyperviscousElements<D>,
+    B2: ElasticHyperviscousElements<D>,
 {
     fn viscous_dissipation(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<Scalar, FiniteElementModelError> {
+    ) -> Result<Scalar, ElementModelError> {
         Ok(self
             .0
             .viscous_dissipation(nodal_coordinates, nodal_velocities)?
@@ -74,7 +72,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<Scalar, FiniteElementModelError> {
+    ) -> Result<Scalar, ElementModelError> {
         Ok(self
             .0
             .dissipation_potential(nodal_coordinates, nodal_velocities)?
@@ -107,7 +105,7 @@ pub trait SecondOrderMinimize<const D: usize> {
 
 impl<B, const D: usize> SecondOrderMinimize<D> for Model<B, D>
 where
-    B: ElasticHyperviscousFiniteElements<D>,
+    B: ElasticHyperviscousElements<D>,
 {
     fn minimize(
         &self,

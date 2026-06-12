@@ -1,7 +1,7 @@
 use crate::{
     fem::{
-        Blocks, FiniteElementModel, FiniteElementModelError, FiniteElements, FirstOrderMinimize,
-        FirstOrderRoot, Model, SecondOrderMinimize, ZerothOrderRoot,
+        Blocks, ElementModel, ElementModelError, Elements, FirstOrderMinimize, FirstOrderRoot,
+        Model, SecondOrderMinimize, ZerothOrderRoot,
         block::{
             band_from_neighbors, finalize_node_neighbors,
             thermal::{
@@ -19,69 +19,69 @@ use crate::{
     },
 };
 
-pub trait ThermalConductionFiniteElements
+pub trait ThermalConductionElements
 where
-    Self: FiniteElements,
+    Self: Elements,
 {
     fn potential(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<Scalar, FiniteElementModelError>;
+    ) -> Result<Scalar, ElementModelError>;
     fn nodal_forces(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<NodalForcesThermal, FiniteElementModelError>;
+    ) -> Result<NodalForcesThermal, ElementModelError>;
     fn nodal_stiffnesses(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<NodalStiffnessesThermal, FiniteElementModelError>;
+    ) -> Result<NodalStiffnessesThermal, ElementModelError>;
 }
 
-impl<B, const D: usize> ThermalConductionFiniteElements for Model<B, D>
+impl<B, const D: usize> ThermalConductionElements for Model<B, D>
 where
-    B: ThermalConductionFiniteElements,
+    B: ThermalConductionElements,
 {
     fn potential(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<Scalar, FiniteElementModelError> {
+    ) -> Result<Scalar, ElementModelError> {
         self.blocks.potential(nodal_temperatures)
     }
     fn nodal_forces(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<NodalForcesThermal, FiniteElementModelError> {
+    ) -> Result<NodalForcesThermal, ElementModelError> {
         self.blocks.nodal_forces(nodal_temperatures)
     }
     fn nodal_stiffnesses(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<NodalStiffnessesThermal, FiniteElementModelError> {
+    ) -> Result<NodalStiffnessesThermal, ElementModelError> {
         self.blocks.nodal_stiffnesses(nodal_temperatures)
     }
 }
 
-impl<B1, B2> ThermalConductionFiniteElements for Blocks<B1, B2>
+impl<B1, B2> ThermalConductionElements for Blocks<B1, B2>
 where
-    B1: ThermalConductionFiniteElements,
-    B2: ThermalConductionFiniteElements,
+    B1: ThermalConductionElements,
+    B2: ThermalConductionElements,
 {
     fn potential(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<Scalar, FiniteElementModelError> {
+    ) -> Result<Scalar, ElementModelError> {
         Ok(self.0.potential(nodal_temperatures)? + self.1.potential(nodal_temperatures)?)
     }
     fn nodal_forces(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<NodalForcesThermal, FiniteElementModelError> {
+    ) -> Result<NodalForcesThermal, ElementModelError> {
         Ok(self.0.nodal_forces(nodal_temperatures)? + self.1.nodal_forces(nodal_temperatures)?)
     }
     fn nodal_stiffnesses(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<NodalStiffnessesThermal, FiniteElementModelError> {
+    ) -> Result<NodalStiffnessesThermal, ElementModelError> {
         Ok(self.0.nodal_stiffnesses(nodal_temperatures)?
             + self.1.nodal_stiffnesses(nodal_temperatures)?)
     }
@@ -89,7 +89,7 @@ where
 
 impl<B, const D: usize> ZerothOrderRoot<NodalTemperatures> for Model<B, D>
 where
-    B: ThermalConductionFiniteElements,
+    B: ThermalConductionElements,
 {
     fn root(
         &self,
@@ -107,7 +107,7 @@ where
 impl<B, const D: usize>
     FirstOrderRoot<NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures> for Model<B, D>
 where
-    B: ThermalConductionFiniteElements,
+    B: ThermalConductionElements,
 {
     fn root(
         &self,
@@ -131,7 +131,7 @@ where
 
 impl<B, const D: usize> FirstOrderMinimize<Scalar, NodalTemperatures> for Model<B, D>
 where
-    B: ThermalConductionFiniteElements,
+    B: ThermalConductionElements,
 {
     fn minimize(
         &self,
@@ -151,7 +151,7 @@ impl<B, const D: usize>
     SecondOrderMinimize<Scalar, NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures>
     for Model<B, D>
 where
-    B: ThermalConductionFiniteElements,
+    B: ThermalConductionElements,
 {
     fn minimize(
         &self,

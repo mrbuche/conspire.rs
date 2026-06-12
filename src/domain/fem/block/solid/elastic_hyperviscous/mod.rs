@@ -1,28 +1,27 @@
 use crate::{
     constitutive::solid::elastic_hyperviscous::ElasticHyperviscous,
     fem::{
-        FiniteElementModelError, NodalCoordinates, NodalVelocities,
+        ElementModelError, NodalCoordinates, NodalVelocities,
         block::{Block, element::solid::elastic_hyperviscous::ElasticHyperviscousFiniteElement},
         solid::{
-            elastic_hyperviscous::ElasticHyperviscousFiniteElements,
-            viscoelastic::ViscoelasticFiniteElements,
+            elastic_hyperviscous::ElasticHyperviscousElements, viscoelastic::ViscoelasticElements,
         },
     },
     math::Scalar,
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-    ElasticHyperviscousFiniteElements<3> for Block<C, F, G, M, N, P>
+    ElasticHyperviscousElements<3> for Block<C, F, G, M, N, P>
 where
     C: ElasticHyperviscous,
     F: ElasticHyperviscousFiniteElement<C, G, M, N, P>,
-    Self: ViscoelasticFiniteElements<3>,
+    Self: ViscoelasticElements<3>,
 {
     fn viscous_dissipation(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         nodal_velocities: &NodalVelocities<3>,
-    ) -> Result<Scalar, FiniteElementModelError> {
+    ) -> Result<Scalar, ElementModelError> {
         match self
             .elements()
             .iter()
@@ -37,7 +36,7 @@ where
             .sum()
         {
             Ok(viscous_dissipation) => Ok(viscous_dissipation),
-            Err(error) => Err(FiniteElementModelError::Upstream(
+            Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
             )),
@@ -47,7 +46,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         nodal_velocities: &NodalVelocities<3>,
-    ) -> Result<Scalar, FiniteElementModelError> {
+    ) -> Result<Scalar, ElementModelError> {
         match self
             .elements()
             .iter()
@@ -62,7 +61,7 @@ where
             .sum()
         {
             Ok(dissipation_potential) => Ok(dissipation_potential),
-            Err(error) => Err(FiniteElementModelError::Upstream(
+            Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
             )),

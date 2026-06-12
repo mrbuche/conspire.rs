@@ -1,27 +1,27 @@
 use crate::{
     constitutive::solid::hyperviscoelastic::Hyperviscoelastic,
     fem::{
-        FiniteElementModelError, NodalCoordinates,
+        ElementModelError, NodalCoordinates,
         block::{Block, element::solid::hyperviscoelastic::HyperviscoelasticFiniteElement},
         solid::{
-            elastic_hyperviscous::ElasticHyperviscousFiniteElements,
-            hyperviscoelastic::HyperviscoelasticFiniteElements,
+            elastic_hyperviscous::ElasticHyperviscousElements,
+            hyperviscoelastic::HyperviscoelasticElements,
         },
     },
     math::Scalar,
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-    HyperviscoelasticFiniteElements<3> for Block<C, F, G, M, N, P>
+    HyperviscoelasticElements<3> for Block<C, F, G, M, N, P>
 where
     C: Hyperviscoelastic,
     F: HyperviscoelasticFiniteElement<C, G, M, N, P>,
-    Self: ElasticHyperviscousFiniteElements<3>,
+    Self: ElasticHyperviscousElements<3>,
 {
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
-    ) -> Result<Scalar, FiniteElementModelError> {
+    ) -> Result<Scalar, ElementModelError> {
         match self
             .elements()
             .iter()
@@ -35,7 +35,7 @@ where
             .sum()
         {
             Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
-            Err(error) => Err(FiniteElementModelError::Upstream(
+            Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
             )),

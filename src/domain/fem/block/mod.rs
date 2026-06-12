@@ -9,7 +9,7 @@ pub mod thermal;
 use crate::{
     constitutive::Constitutive,
     fem::{
-        FiniteElements, NodalReferenceCoordinates,
+        Elements, NodalReferenceCoordinates,
         block::element::{
             ElementNodalReferenceCoordinates, FiniteElement,
             planar::PlanarElementNodalReferenceCoordinates,
@@ -84,7 +84,7 @@ where
     }
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> FiniteElements
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> Elements
     for Block<C, F, G, M, N, P>
 where
     F: FiniteElement<G, M, N, P>,
@@ -94,7 +94,7 @@ where
     }
 }
 
-pub trait FiniteElementBlock<C, F, const G: usize, const N: usize>
+pub trait ElementBlock<C, F, const G: usize, const N: usize>
 where
     Self: for<'a> From<(C, Connectivity<N>, &'a NodalReferenceCoordinates<3>)>,
 {
@@ -156,7 +156,7 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize, const P: usize> FiniteElementBlock<C, F, G, N>
+impl<C, F, const G: usize, const N: usize, const P: usize> ElementBlock<C, F, G, N>
     for Block<C, F, G, 3, N, P>
 where
     C: Constitutive,
