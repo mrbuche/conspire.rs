@@ -2,7 +2,13 @@ use crate::{
     constitutive::solid::hyperelastic::Hyperelastic,
     fem::{
         ElementModelError, NodalCoordinates,
-        block::{Block, element::solid::hyperelastic::HyperelasticFiniteElement},
+        block::{
+            Block,
+            element::{
+                planar::PlanarHyperelasticFiniteElement,
+                solid::hyperelastic::HyperelasticFiniteElement,
+            },
+        },
         solid::{elastic::ElasticElements, hyperelastic::HyperelasticElements},
     },
     math::Scalar,
@@ -18,6 +24,38 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
+    ) -> Result<Scalar, ElementModelError> {
+        match self
+            .elements()
+            .iter()
+            .zip(self.connectivity())
+            .map(|(element, nodes)| {
+                element.helmholtz_free_energy(
+                    self.constitutive_model(),
+                    &Self::element_coordinates(nodal_coordinates, nodes),
+                )
+            })
+            .sum()
+        {
+            Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
+            Err(error) => Err(ElementModelError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
+    }
+}
+
+impl<C, F, const G: usize, const N: usize, const P: usize> HyperelasticElements<2>
+    for Block<C, F, G, 2, N, P>
+where
+    C: Hyperelastic,
+    F: PlanarHyperelasticFiniteElement<C, G, N, P>,
+    Self: ElasticElements<2>,
+{
+    fn helmholtz_free_energy(
+        &self,
+        nodal_coordinates: &NodalCoordinates<2>,
     ) -> Result<Scalar, ElementModelError> {
         match self
             .elements()

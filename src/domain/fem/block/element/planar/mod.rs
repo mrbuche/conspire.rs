@@ -1,5 +1,8 @@
 use crate::{
-    constitutive::solid::elastic::Elastic,
+    constitutive::{
+        ConstitutiveError,
+        solid::{elastic::Elastic, hyperelastic::Hyperelastic},
+    },
     fem::block::element::{
         Element, FiniteElement, FiniteElementError, ParametricCoordinate, ParametricCoordinates,
         ParametricReference, ShapeFunctions, ShapeFunctionsGradients, basic_from,
@@ -230,6 +233,50 @@ where
                     )
                     .sum())
             }
+            Err(error) => Err(FiniteElementError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
+    }
+}
+
+pub trait PlanarHyperelasticFiniteElement<C, const G: usize, const N: usize, const P: usize>
+where
+    C: Hyperelastic,
+    Self: PlanarElasticFiniteElement<C, G, N, P>,
+{
+    fn helmholtz_free_energy(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: &PlanarElementNodalCoordinates<N>,
+    ) -> Result<Scalar, FiniteElementError>;
+}
+
+impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
+    PlanarHyperelasticFiniteElement<C, G, N, P> for Element<2, G, N, O>
+where
+    C: Hyperelastic,
+    Self: PlanarElasticFiniteElement<C, G, N, P>,
+{
+    fn helmholtz_free_energy(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: &PlanarElementNodalCoordinates<N>,
+    ) -> Result<Scalar, FiniteElementError> {
+        match self
+            .deformation_gradients(nodal_coordinates)
+            .iter()
+            .zip(self.integration_weights())
+            .map(|(deformation_gradient, integration_weight)| {
+                Ok::<_, ConstitutiveError>(
+                    constitutive_model.helmholtz_free_energy_density(deformation_gradient)?
+                        * integration_weight,
+                )
+            })
+            .sum()
+        {
+            Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
             Err(error) => Err(FiniteElementError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),

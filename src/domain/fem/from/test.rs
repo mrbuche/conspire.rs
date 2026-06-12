@@ -6,7 +6,7 @@ use crate::{
     },
     fem::{
         Blocks, ElasticViscoplasticAndElastic, FirstOrderRoot, Model, NodalCoordinates,
-        NodalReferenceCoordinates,
+        NodalReferenceCoordinates, SecondOrderMinimize,
         block::{
             Block,
             element::{
@@ -35,6 +35,7 @@ const D: usize = 14;
 type Tet = Block<AlmansiHamel, Tetrahedron, 1, 3, 4, 4>;
 type Tri = Block<AlmansiHamel, Triangle, 1, 2, 3, 3>;
 type Quad = Block<AlmansiHamel, Quadrilateral, 4, 2, 4, 4>;
+type TriNeoHookean = Block<NeoHookean, Triangle, 1, 2, 3, 3>;
 type Hex = Block<AlmansiHamel, Hexahedron, 8, 3, 8, 8>;
 type TetNeoHookean = Block<NeoHookean, Tetrahedron, 1, 3, 4, 4>;
 type TetViscoplastic = Block<
@@ -596,4 +597,49 @@ fn planar_quad_patch_root() -> Result<(), TestError> {
         .collect::<Vec<_>>()
         .into();
     assert_eq_within_tols(&solution, &expected)
+}
+
+fn planar_constraint() -> (Matrix, Vector) {
+    let stretch = 1.3;
+    let mut a = Matrix::zero(9, 18);
+    let mut b = Vector::zero(9);
+    let mut row = 0;
+    [0, 3, 6].iter().for_each(|&node| {
+        a[row][2 * node] = 1.0;
+        row += 1;
+    });
+    [0, 1, 2].iter().for_each(|&node| {
+        a[row][2 * node + 1] = 1.0;
+        row += 1;
+    });
+    [6, 7, 8].iter().for_each(|&node| {
+        a[row][2 * node + 1] = 1.0;
+        b[row] = stretch;
+        row += 1;
+    });
+    (a, b)
+}
+
+#[test]
+fn planar_minimize_vs_root() -> Result<(), TestError> {
+    let mesh = Mesh::from((
+        vec![Connectivity::Triangular(connectivity_2d().into())],
+        coordinates_2d(),
+    ));
+    let model: Model<TriNeoHookean, 2> = (mesh, neo_hookean_model())
+        .try_into()
+        .map_err(|error: String| TestError { message: error })?;
+    let (a, b) = planar_constraint();
+    let solution_root = FirstOrderRoot::root(
+        &model,
+        EqualityConstraint::Linear(a, b),
+        NewtonRaphson::default(),
+    )?;
+    let (a, b) = planar_constraint();
+    let solution_minimize = SecondOrderMinimize::minimize(
+        &model,
+        EqualityConstraint::Linear(a, b),
+        NewtonRaphson::default(),
+    )?;
+    assert_eq_within_tols(&solution_root, &solution_minimize)
 }
