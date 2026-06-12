@@ -15,8 +15,8 @@ use conspire::{
     fem::{
         NodalReferenceCoordinates,
         block::{
-            Block, Connectivity, element::linear::Tetrahedron as LinearTetrahedron,
-            solid::SolidElements, thermal::ThermalElements,
+            Block, element::linear::Tetrahedron as LinearTetrahedron, solid::SolidElements,
+            thermal::ThermalElements,
         },
     },
     math::{
@@ -32,7 +32,7 @@ const M: usize = 3;
 const N: usize = 4;
 const P: usize = 4;
 
-fn connectivity() -> Connectivity<N> {
+fn connectivity() -> Vec<[usize; N]> {
     vec![
         [22, 243, 423, 603],
         [22, 243, 603, 261],
