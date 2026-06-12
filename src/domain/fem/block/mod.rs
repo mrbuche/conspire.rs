@@ -23,8 +23,6 @@ use std::{
     iter::repeat_n,
 };
 
-pub type Connectivity<const N: usize> = Vec<[usize; N]>;
-
 pub struct Block<C, F, const G: usize, const M: usize, const N: usize, const P: usize> {
     constitutive_model: C,
     connectivity: PrimitiveConnectivity<M, N>,
@@ -118,14 +116,14 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize, const P: usize>
-    From<(C, Connectivity<N>, &NodalReferenceCoordinates<3>)> for Block<C, F, G, 3, N, P>
+    From<(C, Vec<[usize; N]>, &NodalReferenceCoordinates<3>)> for Block<C, F, G, 3, N, P>
 where
     F: FiniteElement<G, 3, N, P> + From<ElementNodalReferenceCoordinates<N>>,
 {
     fn from(
         (constitutive_model, connectivity, coordinates): (
             C,
-            Connectivity<N>,
+            Vec<[usize; N]>,
             &NodalReferenceCoordinates<3>,
         ),
     ) -> Self {
@@ -166,14 +164,14 @@ where
 }
 
 impl<C, F, const G: usize, const N: usize, const P: usize>
-    From<(C, Connectivity<N>, &NodalReferenceCoordinates<2>)> for Block<C, F, G, 2, N, P>
+    From<(C, Vec<[usize; N]>, &NodalReferenceCoordinates<2>)> for Block<C, F, G, 2, N, P>
 where
     F: FiniteElement<G, 2, N, P> + From<PlanarElementNodalReferenceCoordinates<N>>,
 {
     fn from(
         (constitutive_model, connectivity, coordinates): (
             C,
-            Connectivity<N>,
+            Vec<[usize; N]>,
             &NodalReferenceCoordinates<2>,
         ),
     ) -> Self {

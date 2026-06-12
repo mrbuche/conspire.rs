@@ -393,7 +393,7 @@ macro_rules! test_nodal_forces_and_nodal_stiffnesses {
         // fn size() {
         //     assert_eq!(
         //         std::mem::size_of_val(&get_block()),
-        //         std::mem::size_of::<Connectivity<N>>()
+        //         std::mem::size_of::<Vec<[usize; N]>>()
         //             + get_connectivity().len() * std::mem::size_of::<$element::<$constitutive_model_type>>()
         //     )
         // }

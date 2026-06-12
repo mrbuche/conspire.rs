@@ -2,7 +2,7 @@ use crate::{
     fem::{
         NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
         block::{
-            Block, Connectivity,
+            Block,
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
                 FiniteElement, GradientVectors,
@@ -20,7 +20,7 @@ use crate::{
 
 pub const D: usize = 35;
 
-pub fn get_connectivity() -> Connectivity<N> {
+pub fn get_connectivity() -> Vec<[usize; N]> {
     vec![
         [26, 1, 3, 0, 27, 20, 28, 29, 13, 10],
         [26, 2, 3, 1, 30, 19, 28, 27, 9, 20],
