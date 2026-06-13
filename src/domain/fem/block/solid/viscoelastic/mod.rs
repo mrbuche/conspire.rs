@@ -41,12 +41,12 @@ where
     C: Viscoelastic,
     F: ViscoelasticFiniteElement<C, G, M, N, P>,
 {
-    fn nodal_forces(
+    fn nodal_forces_into(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         nodal_velocities: &NodalVelocities<3>,
-    ) -> Result<NodalForcesSolid<3>, ElementModelError> {
-        let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
+        nodal_forces: &mut NodalForcesSolid<3>,
+    ) -> Result<(), ElementModelError> {
         match self
             .elements()
             .iter()
@@ -63,7 +63,7 @@ where
                     .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
                 Ok::<(), FiniteElementError>(())
             }) {
-            Ok(()) => Ok(nodal_forces),
+            Ok(()) => Ok(()),
             Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),

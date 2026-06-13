@@ -47,11 +47,11 @@ where
             )),
         }
     }
-    fn nodal_forces(
+    fn nodal_forces_into(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<NodalForcesThermal, ElementModelError> {
-        let mut nodal_forces = NodalForcesThermal::zero(nodal_temperatures.len());
+        nodal_forces: &mut NodalForcesThermal,
+    ) -> Result<(), ElementModelError> {
         match self
             .elements()
             .iter()
@@ -67,7 +67,7 @@ where
                     .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
                 Ok::<(), FiniteElementError>(())
             }) {
-            Ok(()) => Ok(nodal_forces),
+            Ok(()) => Ok(()),
             Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),

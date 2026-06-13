@@ -27,10 +27,19 @@ where
         &self,
         nodal_temperatures: &NodalTemperatures,
     ) -> Result<Scalar, ElementModelError>;
+    fn nodal_forces_into(
+        &self,
+        nodal_temperatures: &NodalTemperatures,
+        nodal_forces: &mut NodalForcesThermal,
+    ) -> Result<(), ElementModelError>;
     fn nodal_forces(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<NodalForcesThermal, ElementModelError>;
+    ) -> Result<NodalForcesThermal, ElementModelError> {
+        let mut nodal_forces = NodalForcesThermal::zero(nodal_temperatures.len());
+        self.nodal_forces_into(nodal_temperatures, &mut nodal_forces)?;
+        Ok(nodal_forces)
+    }
     fn nodal_stiffnesses(
         &self,
         nodal_temperatures: &NodalTemperatures,
@@ -47,11 +56,12 @@ where
     ) -> Result<Scalar, ElementModelError> {
         self.blocks.potential(nodal_temperatures)
     }
-    fn nodal_forces(
+    fn nodal_forces_into(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<NodalForcesThermal, ElementModelError> {
-        self.blocks.nodal_forces(nodal_temperatures)
+        nodal_forces: &mut NodalForcesThermal,
+    ) -> Result<(), ElementModelError> {
+        self.blocks.nodal_forces_into(nodal_temperatures, nodal_forces)
     }
     fn nodal_stiffnesses(
         &self,
@@ -72,11 +82,13 @@ where
     ) -> Result<Scalar, ElementModelError> {
         Ok(self.0.potential(nodal_temperatures)? + self.1.potential(nodal_temperatures)?)
     }
-    fn nodal_forces(
+    fn nodal_forces_into(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<NodalForcesThermal, ElementModelError> {
-        Ok(self.0.nodal_forces(nodal_temperatures)? + self.1.nodal_forces(nodal_temperatures)?)
+        nodal_forces: &mut NodalForcesThermal,
+    ) -> Result<(), ElementModelError> {
+        self.0.nodal_forces_into(nodal_temperatures, nodal_forces)?;
+        self.1.nodal_forces_into(nodal_temperatures, nodal_forces)
     }
     fn nodal_stiffnesses(
         &self,

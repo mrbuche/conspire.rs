@@ -18,11 +18,21 @@ where
     Self: Elements,
 {
     fn initial_state(&self) -> S;
+    fn nodal_forces_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        state_variables: &S,
+        nodal_forces: &mut NodalForcesSolid<D>,
+    ) -> Result<(), ElementModelError>;
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<NodalForcesSolid<D>, ElementModelError>;
+    ) -> Result<NodalForcesSolid<D>, ElementModelError> {
+        let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
+        self.nodal_forces_into(nodal_coordinates, state_variables, &mut nodal_forces)?;
+        Ok(nodal_forces)
+    }
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
@@ -42,12 +52,14 @@ where
     fn initial_state(&self) -> S {
         self.blocks.initial_state()
     }
-    fn nodal_forces(
+    fn nodal_forces_into(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<NodalForcesSolid<D>, ElementModelError> {
-        self.blocks.nodal_forces(nodal_coordinates, state_variables)
+        nodal_forces: &mut NodalForcesSolid<D>,
+    ) -> Result<(), ElementModelError> {
+        self.blocks
+            .nodal_forces_into(nodal_coordinates, state_variables, nodal_forces)
     }
     fn nodal_stiffnesses(
         &self,
@@ -76,13 +88,15 @@ where
     fn initial_state(&self) -> S {
         self.0.initial_state()
     }
-    fn nodal_forces(
+    fn nodal_forces_into(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<NodalForcesSolid<D>, ElementModelError> {
-        Ok(self.0.nodal_forces(nodal_coordinates, state_variables)?
-            + self.1.nodal_forces(nodal_coordinates)?)
+        nodal_forces: &mut NodalForcesSolid<D>,
+    ) -> Result<(), ElementModelError> {
+        self.0
+            .nodal_forces_into(nodal_coordinates, state_variables, nodal_forces)?;
+        self.1.nodal_forces_into(nodal_coordinates, nodal_forces)
     }
     fn nodal_stiffnesses(
         &self,
@@ -115,13 +129,16 @@ where
     fn initial_state(&self) -> TensorTuple<S1, S2> {
         (self.0.initial_state(), self.1.initial_state()).into()
     }
-    fn nodal_forces(
+    fn nodal_forces_into(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &TensorTuple<S1, S2>,
-    ) -> Result<NodalForcesSolid<D>, ElementModelError> {
-        Ok(self.0.nodal_forces(nodal_coordinates, &state_variables.0)?
-            + self.1.nodal_forces(nodal_coordinates, &state_variables.1)?)
+        nodal_forces: &mut NodalForcesSolid<D>,
+    ) -> Result<(), ElementModelError> {
+        self.0
+            .nodal_forces_into(nodal_coordinates, &state_variables.0, nodal_forces)?;
+        self.1
+            .nodal_forces_into(nodal_coordinates, &state_variables.1, nodal_forces)
     }
     fn nodal_stiffnesses(
         &self,
