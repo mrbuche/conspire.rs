@@ -1,11 +1,11 @@
 use crate::{
     geometry::{
-        Coordinates,
+        Coordinate, Coordinates,
         ntree::{
             Octree,
             dual::{
-                NodeMap,
-                octree::{D, M, N},
+                NodeMap, get_or_add,
+                octree::{D, M, N, facet_direction},
             },
         },
     },
@@ -93,7 +93,7 @@ where
     found
 }
 
-#[allow(clippy::too_many_arguments, unused_variables)]
+#[allow(clippy::too_many_arguments)]
 pub fn template<T, U>(
     tree: &Octree<T, U>,
     center_nodes: &[usize],
@@ -105,7 +105,39 @@ pub fn template<T, U>(
     T: Copy + Into<Scalar> + Into<usize>,
     U: Copy + Into<usize>,
 {
-    for _edge_match in detect(tree) {
-        // TODO: emit the (0,1,2,1) edge-transition hexes
+    for edge_match in detect(tree) {
+        let orth = |node: usize, o: usize| -> usize {
+            tree.nodes[node].orthants().unwrap()[o].into()
+        };
+        let dir_m = facet_direction(edge_match.facet_m);
+        let dir_n = facet_direction(edge_match.facet_n);
+        let axis_t = 3 - (edge_match.facet_m >> 1) - (edge_match.facet_n >> 1);
+        let dir_t = facet_direction(2 * axis_t + 1);
+        let length: Scalar = tree.nodes[edge_match.cell_a].length.into();
+        let half = 0.5 * length; // A half-length: A center -> edge line
+        let fine = 0.125 * length; // D half-length: edge line -> finest centers
+        // edge-line point at A's (facet_m, facet_n) corner
+        let edge = &(&coordinates[center_nodes[edge_match.cell_a]] + &(&dir_m * half))
+            + &(&dir_n * half);
+        // D's two middle cells along the edge are existing dual nodes
+        let od = edge_orthants(
+            edge_match.facet_m,
+            edge_match.facet_n,
+            (edge_match.facet_m ^ 1) & 1,
+            (edge_match.facet_n ^ 1) & 1,
+        );
+        let d_lo = center_nodes[orth(orth(edge_match.cell_d, od[0]), od[1])];
+        let d_hi = center_nodes[orth(orth(edge_match.cell_d, od[1]), od[0])];
+        // remaining six corners at the finest spacing around the edge line
+        let corner = |sm: Scalar, sn: Scalar, st: Scalar| -> Coordinate<D> {
+            &(&(&edge + &(&dir_m * (sm * fine))) + &(&dir_n * (sn * fine))) + &(&dir_t * (st * fine))
+        };
+        let a_lo = get_or_add(corner(-1.0, -1.0, -1.0), coordinates, nodes_map, node_index);
+        let b_lo = get_or_add(corner(1.0, -1.0, -1.0), coordinates, nodes_map, node_index);
+        let c_lo = get_or_add(corner(-1.0, 1.0, -1.0), coordinates, nodes_map, node_index);
+        let a_hi = get_or_add(corner(-1.0, -1.0, 1.0), coordinates, nodes_map, node_index);
+        let b_hi = get_or_add(corner(1.0, -1.0, 1.0), coordinates, nodes_map, node_index);
+        let c_hi = get_or_add(corner(-1.0, 1.0, 1.0), coordinates, nodes_map, node_index);
+        connectivity.push([a_lo, b_lo, d_lo, c_lo, a_hi, b_hi, d_hi, c_hi]);
     }
 }
