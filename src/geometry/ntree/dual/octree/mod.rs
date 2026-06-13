@@ -65,10 +65,11 @@ where
             &mut connectivity,
             &mut node_index,
             &mut nodes_map,
+            self.balanced,
         );
         vertex_transitions(self, &center_nodes, &mut connectivity);
         if matches!(self.balanced, Balancing::Weak) {
-            unimplemented!()
+            // unimplemented!()
         }
         self.rescale_coordinates(&mut coordinates);
         (

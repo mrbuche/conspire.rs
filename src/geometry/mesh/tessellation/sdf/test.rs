@@ -96,14 +96,14 @@ fn bunny() {
 
 #[test]
 fn foo() {
-    use crate::{geometry::mesh::Output, io::Write};
+    use crate::{geometry::{mesh::Output, ntree::Balancing}, io::Write};
     let tessellation =
         Tessellation::try_from(Path::new("/home/mrbuche/Downloads/Stanford_Bunny.stl")).unwrap();
-    let mut mesh = tessellation.dualize(3.0).unwrap();
+    let mut mesh = tessellation.dualize(Balancing::Weak, 3.0).unwrap();
     mesh.write(Output::Exodus("target/bunny.exo")).unwrap();
     // mesh.smart_laplace_smooth(10, 0.8);
     // mesh.write(Output::Exodus("target/bunny_sls.exo")).unwrap();
-    mesh.untangle(10, 0.1, Some(&tessellation));
-    mesh.write(Output::Exodus("target/bunny_untangle.exo"))
-        .unwrap();
+    //mesh.untangle(10, 0.1, Some(&tessellation));
+    //mesh.write(Output::Exodus("target/bunny_untangle.exo"))
+    //    .unwrap();
 }
