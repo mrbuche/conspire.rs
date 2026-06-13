@@ -12,7 +12,6 @@ use crate::{
     math::Scalar,
 };
 
-#[allow(dead_code)] // fields consumed once connectivity is implemented
 pub(crate) struct EdgeMatch {
     pub facet_m: usize,
     pub facet_n: usize,
@@ -106,38 +105,53 @@ pub fn template<T, U>(
     U: Copy + Into<usize>,
 {
     for edge_match in detect(tree) {
-        let orth = |node: usize, o: usize| -> usize {
-            tree.nodes[node].orthants().unwrap()[o].into()
-        };
-        let dir_m = facet_direction(edge_match.facet_m);
-        let dir_n = facet_direction(edge_match.facet_n);
-        let axis_t = 3 - (edge_match.facet_m >> 1) - (edge_match.facet_n >> 1);
+        let EdgeMatch {
+            facet_m,
+            facet_n,
+            cell_a,
+            cell_b,
+            cell_c,
+            cell_d,
+        } = edge_match;
+        let orth = |node: usize, o: usize| -> usize { tree.nodes[node].orthants().unwrap()[o].into() };
+        let dir_m = facet_direction(facet_m);
+        let dir_n = facet_direction(facet_n);
+        let axis_t = 3 - (facet_m >> 1) - (facet_n >> 1);
         let dir_t = facet_direction(2 * axis_t + 1);
-        let length: Scalar = tree.nodes[edge_match.cell_a].length.into();
-        let half = 0.5 * length; // A half-length: A center -> edge line
-        let fine = 0.125 * length; // D half-length: edge line -> finest centers
-        // edge-line point at A's (facet_m, facet_n) corner
-        let edge = &(&coordinates[center_nodes[edge_match.cell_a]] + &(&dir_m * half))
-            + &(&dir_n * half);
-        // D's two middle cells along the edge are existing dual nodes
-        let od = edge_orthants(
-            edge_match.facet_m,
-            edge_match.facet_n,
-            (edge_match.facet_m ^ 1) & 1,
-            (edge_match.facet_n ^ 1) & 1,
-        );
-        let d_lo = center_nodes[orth(orth(edge_match.cell_d, od[0]), od[1])];
-        let d_hi = center_nodes[orth(orth(edge_match.cell_d, od[1]), od[0])];
-        // remaining six corners at the finest spacing around the edge line
-        let corner = |sm: Scalar, sn: Scalar, st: Scalar| -> Coordinate<D> {
-            &(&(&edge + &(&dir_m * (sm * fine))) + &(&dir_n * (sn * fine))) + &(&dir_t * (st * fine))
+        let length: Scalar = tree.nodes[cell_a].length.into();
+        let half = 0.5 * length; // A center -> edge line
+        let quad = 0.25 * length; // B/C (level-1) half-length
+        let fine = 0.125 * length; // D (level-2) half-length
+        let edge = &(&coordinates[center_nodes[cell_a]] + &(&dir_m * half)) + &(&dir_n * half);
+        let point = |sm: Scalar, sn: Scalar, st: Scalar, scale: Scalar| -> Coordinate<D> {
+            &(&(&edge + &(&dir_m * (sm * scale))) + &(&dir_n * (sn * scale)))
+                + &(&dir_t * (st * scale))
         };
-        let a_lo = get_or_add(corner(-1.0, -1.0, -1.0), coordinates, nodes_map, node_index);
-        let b_lo = get_or_add(corner(1.0, -1.0, -1.0), coordinates, nodes_map, node_index);
-        let c_lo = get_or_add(corner(-1.0, 1.0, -1.0), coordinates, nodes_map, node_index);
-        let a_hi = get_or_add(corner(-1.0, -1.0, 1.0), coordinates, nodes_map, node_index);
-        let b_hi = get_or_add(corner(1.0, -1.0, 1.0), coordinates, nodes_map, node_index);
-        let c_hi = get_or_add(corner(-1.0, 1.0, 1.0), coordinates, nodes_map, node_index);
+        // existing dual centers: A, the two middle D cells, and B/C edge cells
+        let od = edge_orthants(facet_m, facet_n, (facet_m ^ 1) & 1, (facet_n ^ 1) & 1);
+        let ob = edge_orthants(facet_m, facet_n, (facet_m ^ 1) & 1, facet_n & 1);
+        let oc = edge_orthants(facet_m, facet_n, facet_m & 1, (facet_n ^ 1) & 1);
+        let node_a = center_nodes[cell_a];
+        let d_lo = center_nodes[orth(orth(cell_d, od[0]), od[1])];
+        let d_hi = center_nodes[orth(orth(cell_d, od[1]), od[0])];
+        let b_lo_c = center_nodes[orth(cell_b, ob[0])];
+        let b_hi_c = center_nodes[orth(cell_b, ob[1])];
+        let c_lo_c = center_nodes[orth(cell_c, oc[0])];
+        let c_hi_c = center_nodes[orth(cell_c, oc[1])];
+        // finest-spacing ring around the edge line (shared with the central cube)
+        let a_lo = get_or_add(point(-1.0, -1.0, -1.0, fine), coordinates, nodes_map, node_index);
+        let b_lo = get_or_add(point(1.0, -1.0, -1.0, fine), coordinates, nodes_map, node_index);
+        let c_lo = get_or_add(point(-1.0, 1.0, -1.0, fine), coordinates, nodes_map, node_index);
+        let a_hi = get_or_add(point(-1.0, -1.0, 1.0, fine), coordinates, nodes_map, node_index);
+        let b_hi = get_or_add(point(1.0, -1.0, 1.0, fine), coordinates, nodes_map, node_index);
+        let c_hi = get_or_add(point(-1.0, 1.0, 1.0, fine), coordinates, nodes_map, node_index);
+        // level-1 lattice point diagonally toward A, shared by both lateral hexes
+        let steiner = get_or_add(point(-1.0, -1.0, -1.0, quad), coordinates, nodes_map, node_index);
+        // central cube
         connectivity.push([a_lo, b_lo, d_lo, c_lo, a_hi, b_hi, d_hi, c_hi]);
+        // lateral hex toward B (-n side)
+        connectivity.push([a_lo, steiner, b_lo_c, b_lo, a_hi, node_a, b_hi_c, b_hi]);
+        // lateral hex toward C (-m side)
+        connectivity.push([a_lo, c_lo, c_lo_c, steiner, a_hi, c_hi, c_hi_c, node_a]);
     }
 }

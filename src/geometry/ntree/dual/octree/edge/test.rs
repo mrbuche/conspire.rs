@@ -59,6 +59,21 @@ fn write_weak_edge_dual() {
     };
     let mut octree = weak_edge_tree(Balancing::Weak);
     let mesh = octree.dualize();
+    let coordinates = mesh.coordinates();
+    let vol6 = |hex: &[usize]| {
+        let p: [[f64; 3]; 8] =
+            std::array::from_fn(|k| std::array::from_fn(|i| coordinates[hex[k]][i]));
+        let tet = |a: usize, b: usize, c: usize, d: usize| {
+            let e = |i: usize, j: usize| [p[j][0] - p[i][0], p[j][1] - p[i][1], p[j][2] - p[i][2]];
+            let (u, v, w) = (e(a, b), e(a, c), e(a, d));
+            u[0] * (v[1] * w[2] - v[2] * w[1]) - u[1] * (v[0] * w[2] - v[2] * w[0])
+                + u[2] * (v[0] * w[1] - v[1] * w[0])
+        };
+        tet(0, 1, 2, 6) + tet(0, 2, 3, 6) + tet(0, 3, 7, 6) + tet(0, 7, 4, 6)
+            + tet(0, 4, 5, 6) + tet(0, 5, 1, 6)
+    };
+    let inverted = mesh.iter().flatten().filter(|hex| vol6(hex) <= 1e-9).count();
+    assert_eq!(inverted, 0, "{inverted} non-positive hexes in weak dual");
     mesh.write(Output::Exodus("target/weak_edge.exo")).unwrap();
 }
 
