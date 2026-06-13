@@ -57,6 +57,17 @@ impl Tessellation {
         let surface_coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
         let boundary = mesh.exterior_faces();
+        let mut edges = HashMap::new();
+        boundary.iter().for_each(|face| {
+            (0..face.len()).for_each(|i| {
+                let mut edge = [face[i], face[(i + 1) % face.len()]];
+                edge.sort_unstable();
+                *edges.entry(edge).or_insert(0u8) += 1;
+            })
+        });
+        if edges.values().any(|&count| count != 2) {
+            return Err("non-manifold boundary");
+        }
         let (connectivities, mut coordinates) = mesh.into();
         let mut connectivity = Vec::try_from(connectivities)?;
         let mut projection = HashMap::new();
