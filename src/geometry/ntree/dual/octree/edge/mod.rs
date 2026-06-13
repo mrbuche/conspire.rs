@@ -1,3 +1,7 @@
+#[cfg(test)]
+#[cfg(feature = "netcdf")]
+pub(crate) mod test;
+
 mod transition_1;
 mod transition_2;
 mod transition_3;

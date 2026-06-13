@@ -12,6 +12,16 @@ use crate::{
     math::Scalar,
 };
 
+#[allow(dead_code)] // fields consumed once connectivity is implemented
+pub(crate) struct EdgeMatch {
+    pub facet_m: usize,
+    pub facet_n: usize,
+    pub cell_a: usize,
+    pub cell_b: usize,
+    pub cell_c: usize,
+    pub cell_d: usize,
+}
+
 fn edge_orthants(facet_m: usize, facet_n: usize, side_m: usize, side_n: usize) -> [usize; 2] {
     let axis_m = facet_m >> 1;
     let axis_n = facet_n >> 1;
@@ -20,20 +30,14 @@ fn edge_orthants(facet_m: usize, facet_n: usize, side_m: usize, side_n: usize) -
     [base, base | (1 << axis_t)]
 }
 
-#[allow(clippy::too_many_arguments, unused_variables)]
-pub fn template<T, U>(
-    tree: &Octree<T, U>,
-    center_nodes: &[usize],
-    coordinates: &mut Coordinates<D>,
-    connectivity: &mut Vec<[usize; N]>,
-    node_index: &mut usize,
-    nodes_map: &mut NodeMap<D>,
-) where
-    T: Copy + Into<Scalar> + Into<usize>,
+pub(crate) fn detect<T, U>(tree: &Octree<T, U>) -> Vec<EdgeMatch>
+where
+    T: Copy + Into<usize>,
     U: Copy + Into<usize>,
 {
     let child = |n: usize, o: usize| tree.nodes[n].orthants().unwrap()[o].into();
     let is_leaf = |n: usize, o: usize| tree.nodes[child(n, o)].is_leaf();
+    let mut found = Vec::new();
     for (cell_a, node) in tree.iter().enumerate() {
         if !node.is_leaf() {
             continue;
@@ -69,15 +73,39 @@ pub fn template<T, U>(
                     && orthants_d.into_iter().all(|o| {
                         let edge_child = child(cell_d, o);
                         tree.nodes[edge_child].is_tree()
-                            && orthants_d.into_iter().all(|p| tree.nodes[child(edge_child, p)].is_leaf())
+                            && orthants_d
+                                .into_iter()
+                                .all(|p| tree.nodes[child(edge_child, p)].is_leaf())
                     })
                 {
-                    println!(
-                        "transition_5 (0,1,2,1): edge facets ({facet_m},{facet_n}) \
-                         A={cell_a} B={cell_b} C={cell_c} D={cell_d}"
-                    );
+                    found.push(EdgeMatch {
+                        facet_m,
+                        facet_n,
+                        cell_a,
+                        cell_b,
+                        cell_c,
+                        cell_d,
+                    });
                 }
             }
         }
+    }
+    found
+}
+
+#[allow(clippy::too_many_arguments, unused_variables)]
+pub fn template<T, U>(
+    tree: &Octree<T, U>,
+    center_nodes: &[usize],
+    coordinates: &mut Coordinates<D>,
+    connectivity: &mut Vec<[usize; N]>,
+    node_index: &mut usize,
+    nodes_map: &mut NodeMap<D>,
+) where
+    T: Copy + Into<Scalar> + Into<usize>,
+    U: Copy + Into<usize>,
+{
+    for _edge_match in detect(tree) {
+        // TODO: emit the (0,1,2,1) edge-transition hexes
     }
 }
