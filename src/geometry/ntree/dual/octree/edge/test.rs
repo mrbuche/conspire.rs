@@ -51,7 +51,7 @@ fn weak_edge_tree(balancing: Balancing) -> Octree<u16, usize> {
 }
 
 #[test]
-#[ignore = "writes target/weak_edge.exo for visual inspection"]
+// #[ignore = "writes target/weak_edge.exo for visual inspection"]
 fn write_weak_edge_dual() {
     use crate::{
         geometry::{mesh::Output, ntree::Dualization},
