@@ -11,7 +11,6 @@ use crate::{
         },
         solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticElements},
     },
-    math::Tensor,
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> ElasticElements<3>
@@ -47,11 +46,11 @@ where
             )),
         }
     }
-    fn nodal_stiffnesses(
+    fn nodal_stiffnesses_into(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
-    ) -> Result<NodalStiffnessesSolid<3>, ElementModelError> {
-        let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
+        nodal_stiffnesses: &mut NodalStiffnessesSolid<3>,
+    ) -> Result<(), ElementModelError> {
         match self
             .elements()
             .iter()
@@ -74,7 +73,7 @@ where
                     });
                 Ok::<(), FiniteElementError>(())
             }) {
-            Ok(()) => Ok(nodal_stiffnesses),
+            Ok(()) => Ok(()),
             Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
@@ -116,11 +115,11 @@ where
             )),
         }
     }
-    fn nodal_stiffnesses(
+    fn nodal_stiffnesses_into(
         &self,
         nodal_coordinates: &NodalCoordinates<2>,
-    ) -> Result<NodalStiffnessesSolid<2>, ElementModelError> {
-        let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
+        nodal_stiffnesses: &mut NodalStiffnessesSolid<2>,
+    ) -> Result<(), ElementModelError> {
         match self
             .elements()
             .iter()
@@ -143,7 +142,7 @@ where
                     });
                 Ok::<(), FiniteElementError>(())
             }) {
-            Ok(()) => Ok(nodal_stiffnesses),
+            Ok(()) => Ok(()),
             Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),

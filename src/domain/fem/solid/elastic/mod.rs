@@ -29,10 +29,19 @@ where
         self.nodal_forces_into(nodal_coordinates, &mut nodal_forces)?;
         Ok(nodal_forces)
     }
+    fn nodal_stiffnesses_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
+    ) -> Result<(), ElementModelError>;
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError>;
+    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError> {
+        let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
+        self.nodal_stiffnesses_into(nodal_coordinates, &mut nodal_stiffnesses)?;
+        Ok(nodal_stiffnesses)
+    }
 }
 
 impl<B, const D: usize> ElasticElements<D> for Model<B, D>
@@ -46,11 +55,13 @@ where
     ) -> Result<(), ElementModelError> {
         self.blocks.nodal_forces_into(nodal_coordinates, nodal_forces)
     }
-    fn nodal_stiffnesses(
+    fn nodal_stiffnesses_into(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError> {
-        self.blocks.nodal_stiffnesses(nodal_coordinates)
+        nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
+    ) -> Result<(), ElementModelError> {
+        self.blocks
+            .nodal_stiffnesses_into(nodal_coordinates, nodal_stiffnesses)
     }
 }
 
@@ -67,12 +78,15 @@ where
         self.0.nodal_forces_into(nodal_coordinates, nodal_forces)?;
         self.1.nodal_forces_into(nodal_coordinates, nodal_forces)
     }
-    fn nodal_stiffnesses(
+    fn nodal_stiffnesses_into(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError> {
-        Ok(self.0.nodal_stiffnesses(nodal_coordinates)?
-            + self.1.nodal_stiffnesses(nodal_coordinates)?)
+        nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
+    ) -> Result<(), ElementModelError> {
+        self.0
+            .nodal_stiffnesses_into(nodal_coordinates, nodal_stiffnesses)?;
+        self.1
+            .nodal_stiffnesses_into(nodal_coordinates, nodal_stiffnesses)
     }
 }
 

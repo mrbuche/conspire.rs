@@ -33,11 +33,21 @@ where
         self.nodal_forces_into(nodal_coordinates, state_variables, &mut nodal_forces)?;
         Ok(nodal_forces)
     }
+    fn nodal_stiffnesses_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        state_variables: &S,
+        nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
+    ) -> Result<(), ElementModelError>;
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError>;
+    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError> {
+        let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
+        self.nodal_stiffnesses_into(nodal_coordinates, state_variables, &mut nodal_stiffnesses)?;
+        Ok(nodal_stiffnesses)
+    }
     fn state_variables_evolution(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
@@ -61,13 +71,14 @@ where
         self.blocks
             .nodal_forces_into(nodal_coordinates, state_variables, nodal_forces)
     }
-    fn nodal_stiffnesses(
+    fn nodal_stiffnesses_into(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError> {
+        nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
+    ) -> Result<(), ElementModelError> {
         self.blocks
-            .nodal_stiffnesses(nodal_coordinates, state_variables)
+            .nodal_stiffnesses_into(nodal_coordinates, state_variables, nodal_stiffnesses)
     }
     fn state_variables_evolution(
         &self,
@@ -98,15 +109,16 @@ where
             .nodal_forces_into(nodal_coordinates, state_variables, nodal_forces)?;
         self.1.nodal_forces_into(nodal_coordinates, nodal_forces)
     }
-    fn nodal_stiffnesses(
+    fn nodal_stiffnesses_into(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError> {
-        Ok(self
-            .0
-            .nodal_stiffnesses(nodal_coordinates, state_variables)?
-            + self.1.nodal_stiffnesses(nodal_coordinates)?)
+        nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
+    ) -> Result<(), ElementModelError> {
+        self.0
+            .nodal_stiffnesses_into(nodal_coordinates, state_variables, nodal_stiffnesses)?;
+        self.1
+            .nodal_stiffnesses_into(nodal_coordinates, nodal_stiffnesses)
     }
     fn state_variables_evolution(
         &self,
@@ -140,17 +152,16 @@ where
         self.1
             .nodal_forces_into(nodal_coordinates, &state_variables.1, nodal_forces)
     }
-    fn nodal_stiffnesses(
+    fn nodal_stiffnesses_into(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &TensorTuple<S1, S2>,
-    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError> {
-        Ok(self
-            .0
-            .nodal_stiffnesses(nodal_coordinates, &state_variables.0)?
-            + self
-                .1
-                .nodal_stiffnesses(nodal_coordinates, &state_variables.1)?)
+        nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
+    ) -> Result<(), ElementModelError> {
+        self.0
+            .nodal_stiffnesses_into(nodal_coordinates, &state_variables.0, nodal_stiffnesses)?;
+        self.1
+            .nodal_stiffnesses_into(nodal_coordinates, &state_variables.1, nodal_stiffnesses)
     }
     fn state_variables_evolution(
         &self,

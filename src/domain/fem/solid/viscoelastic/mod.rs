@@ -31,11 +31,21 @@ where
         self.nodal_forces_into(nodal_coordinates, nodal_velocities, &mut nodal_forces)?;
         Ok(nodal_forces)
     }
+    fn nodal_stiffnesses_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        nodal_velocities: &NodalVelocities<D>,
+        nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
+    ) -> Result<(), ElementModelError>;
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError>;
+    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError> {
+        let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
+        self.nodal_stiffnesses_into(nodal_coordinates, nodal_velocities, &mut nodal_stiffnesses)?;
+        Ok(nodal_stiffnesses)
+    }
 }
 
 impl<B, const D: usize> ViscoelasticElements<D> for Model<B, D>
@@ -51,13 +61,14 @@ where
         self.blocks
             .nodal_forces_into(nodal_coordinates, nodal_velocities, nodal_forces)
     }
-    fn nodal_stiffnesses(
+    fn nodal_stiffnesses_into(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError> {
+        nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
+    ) -> Result<(), ElementModelError> {
         self.blocks
-            .nodal_stiffnesses(nodal_coordinates, nodal_velocities)
+            .nodal_stiffnesses_into(nodal_coordinates, nodal_velocities, nodal_stiffnesses)
     }
 }
 
@@ -77,17 +88,16 @@ where
         self.1
             .nodal_forces_into(nodal_coordinates, nodal_velocities, nodal_forces)
     }
-    fn nodal_stiffnesses(
+    fn nodal_stiffnesses_into(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError> {
-        Ok(self
-            .0
-            .nodal_stiffnesses(nodal_coordinates, nodal_velocities)?
-            + self
-                .1
-                .nodal_stiffnesses(nodal_coordinates, nodal_velocities)?)
+        nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
+    ) -> Result<(), ElementModelError> {
+        self.0
+            .nodal_stiffnesses_into(nodal_coordinates, nodal_velocities, nodal_stiffnesses)?;
+        self.1
+            .nodal_stiffnesses_into(nodal_coordinates, nodal_velocities, nodal_stiffnesses)
     }
 }
 

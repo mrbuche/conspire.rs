@@ -71,12 +71,12 @@ where
             )),
         }
     }
-    fn nodal_stiffnesses(
+    fn nodal_stiffnesses_into(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &ViscoplasticStateVariables<G, Y>,
-    ) -> Result<NodalStiffnessesSolid<3>, ElementModelError> {
-        let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
+        nodal_stiffnesses: &mut NodalStiffnessesSolid<3>,
+    ) -> Result<(), ElementModelError> {
         match self
             .elements()
             .iter()
@@ -101,7 +101,7 @@ where
                     });
                 Ok::<(), FiniteElementError>(())
             }) {
-            Ok(()) => Ok(nodal_stiffnesses),
+            Ok(()) => Ok(()),
             Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),

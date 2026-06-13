@@ -40,10 +40,19 @@ where
         self.nodal_forces_into(nodal_temperatures, &mut nodal_forces)?;
         Ok(nodal_forces)
     }
+    fn nodal_stiffnesses_into(
+        &self,
+        nodal_temperatures: &NodalTemperatures,
+        nodal_stiffnesses: &mut NodalStiffnessesThermal,
+    ) -> Result<(), ElementModelError>;
     fn nodal_stiffnesses(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<NodalStiffnessesThermal, ElementModelError>;
+    ) -> Result<NodalStiffnessesThermal, ElementModelError> {
+        let mut nodal_stiffnesses = NodalStiffnessesThermal::zero(nodal_temperatures.len());
+        self.nodal_stiffnesses_into(nodal_temperatures, &mut nodal_stiffnesses)?;
+        Ok(nodal_stiffnesses)
+    }
 }
 
 impl<B, const D: usize> ThermalConductionElements for Model<B, D>
@@ -63,11 +72,13 @@ where
     ) -> Result<(), ElementModelError> {
         self.blocks.nodal_forces_into(nodal_temperatures, nodal_forces)
     }
-    fn nodal_stiffnesses(
+    fn nodal_stiffnesses_into(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<NodalStiffnessesThermal, ElementModelError> {
-        self.blocks.nodal_stiffnesses(nodal_temperatures)
+        nodal_stiffnesses: &mut NodalStiffnessesThermal,
+    ) -> Result<(), ElementModelError> {
+        self.blocks
+            .nodal_stiffnesses_into(nodal_temperatures, nodal_stiffnesses)
     }
 }
 
@@ -90,12 +101,15 @@ where
         self.0.nodal_forces_into(nodal_temperatures, nodal_forces)?;
         self.1.nodal_forces_into(nodal_temperatures, nodal_forces)
     }
-    fn nodal_stiffnesses(
+    fn nodal_stiffnesses_into(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<NodalStiffnessesThermal, ElementModelError> {
-        Ok(self.0.nodal_stiffnesses(nodal_temperatures)?
-            + self.1.nodal_stiffnesses(nodal_temperatures)?)
+        nodal_stiffnesses: &mut NodalStiffnessesThermal,
+    ) -> Result<(), ElementModelError> {
+        self.0
+            .nodal_stiffnesses_into(nodal_temperatures, nodal_stiffnesses)?;
+        self.1
+            .nodal_stiffnesses_into(nodal_temperatures, nodal_stiffnesses)
     }
 }
 

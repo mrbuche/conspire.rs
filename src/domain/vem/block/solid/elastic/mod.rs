@@ -1,7 +1,6 @@
 use crate::{
     constitutive::solid::elastic::Elastic,
     fem::{ElementModelError, solid::elastic::ElasticElements},
-    math::Tensor,
     vem::{
         NodalCoordinates,
         block::{
@@ -44,11 +43,11 @@ where
             )),
         }
     }
-    fn nodal_stiffnesses(
+    fn nodal_stiffnesses_into(
         &self,
         nodal_coordinates: &NodalCoordinates,
-    ) -> Result<NodalStiffnessesSolid, ElementModelError> {
-        let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
+        nodal_stiffnesses: &mut NodalStiffnessesSolid,
+    ) -> Result<(), ElementModelError> {
         match self
             .elements()
             .iter()
@@ -71,7 +70,7 @@ where
                     });
                 Ok::<(), VirtualElementError>(())
             }) {
-            Ok(()) => Ok(nodal_stiffnesses),
+            Ok(()) => Ok(()),
             Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),

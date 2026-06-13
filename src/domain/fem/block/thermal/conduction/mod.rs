@@ -12,7 +12,7 @@ use crate::{
         },
         thermal::conduction::ThermalConductionElements,
     },
-    math::{Scalar, SquareMatrix, Tensor, Vector},
+    math::{Scalar, SquareMatrix, Vector},
 };
 
 pub type NodalForcesThermal = Vector;
@@ -74,11 +74,11 @@ where
             )),
         }
     }
-    fn nodal_stiffnesses(
+    fn nodal_stiffnesses_into(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<NodalStiffnessesThermal, ElementModelError> {
-        let mut nodal_stiffnesses = NodalStiffnessesThermal::zero(nodal_temperatures.len());
+        nodal_stiffnesses: &mut NodalStiffnessesThermal,
+    ) -> Result<(), ElementModelError> {
         match self
             .elements()
             .iter()
@@ -100,7 +100,7 @@ where
                     });
                 Ok::<(), FiniteElementError>(())
             }) {
-            Ok(()) => Ok(nodal_stiffnesses),
+            Ok(()) => Ok(()),
             Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
