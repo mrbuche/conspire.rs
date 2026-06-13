@@ -20,11 +20,11 @@ where
     C: Elastic,
     F: ElasticFiniteElement<C, G, M, N, P>,
 {
-    fn nodal_forces(
+    fn nodal_forces_into(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
-    ) -> Result<NodalForcesSolid<3>, ElementModelError> {
-        let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
+        nodal_forces: &mut NodalForcesSolid<3>,
+    ) -> Result<(), ElementModelError> {
         match self
             .elements()
             .iter()
@@ -40,7 +40,7 @@ where
                     .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
                 Ok::<(), FiniteElementError>(())
             }) {
-            Ok(()) => Ok(nodal_forces),
+            Ok(()) => Ok(()),
             Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
@@ -89,11 +89,11 @@ where
     C: Elastic,
     F: PlanarElasticFiniteElement<C, G, N, P>,
 {
-    fn nodal_forces(
+    fn nodal_forces_into(
         &self,
         nodal_coordinates: &NodalCoordinates<2>,
-    ) -> Result<NodalForcesSolid<2>, ElementModelError> {
-        let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
+        nodal_forces: &mut NodalForcesSolid<2>,
+    ) -> Result<(), ElementModelError> {
         match self
             .elements()
             .iter()
@@ -109,7 +109,7 @@ where
                     .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
                 Ok::<(), FiniteElementError>(())
             }) {
-            Ok(()) => Ok(nodal_forces),
+            Ok(()) => Ok(()),
             Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),

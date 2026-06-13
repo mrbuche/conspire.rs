@@ -17,11 +17,11 @@ where
     C: Elastic,
     F: ElasticVirtualElement<C>,
 {
-    fn nodal_forces(
+    fn nodal_forces_into(
         &self,
         nodal_coordinates: &NodalCoordinates,
-    ) -> Result<NodalForcesSolid, ElementModelError> {
-        let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
+        nodal_forces: &mut NodalForcesSolid,
+    ) -> Result<(), ElementModelError> {
         match self
             .elements()
             .iter()
@@ -37,7 +37,7 @@ where
                     .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
                 Ok::<(), VirtualElementError>(())
             }) {
-            Ok(()) => Ok(nodal_forces),
+            Ok(()) => Ok(()),
             Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),

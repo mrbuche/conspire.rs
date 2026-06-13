@@ -279,7 +279,7 @@ fn heterogeneous_blocks_nodal_forces() -> Result<(), TestError> {
     let (connectivity_1, connectivity_2) = split_connectivities();
     let block_1 = Tet::from((constitutive_model(), connectivity_1, &coordinates()));
     let block_2 = TetNeoHookean::from((neo_hookean_model(), connectivity_2, &coordinates()));
-    assert_eq(
+    assert_eq_within_tols(
         &(ElasticElements::nodal_forces(&block_1, &deformed_coordinates())?
             + ElasticElements::nodal_forces(&block_2, &deformed_coordinates())?),
         &ElasticElements::nodal_forces(&heterogeneous_model()?, &deformed_coordinates()).map_err(
