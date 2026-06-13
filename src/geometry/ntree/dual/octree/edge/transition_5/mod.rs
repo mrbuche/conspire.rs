@@ -1,98 +1,38 @@
 use crate::{
     geometry::{
-        Coordinate, Coordinates,
+        Coordinates,
         ntree::{
             Octree,
             dual::{
-                NodeMap, get_or_add,
-                octree::{D, M, N, facet_direction},
+                NodeMap,
+                octree::{D, N},
             },
+            node::Node,
         },
     },
     math::Scalar,
 };
 
-pub(crate) struct EdgeMatch {
-    pub facet_m: usize,
-    pub facet_n: usize,
-    pub cell_a: usize,
-    pub cell_b: usize,
-    pub cell_c: usize,
-    pub cell_d: usize,
-}
+type Edge = (usize, usize, usize, usize, usize, usize, usize, usize);
 
-fn edge_orthants(facet_m: usize, facet_n: usize, side_m: usize, side_n: usize) -> [usize; 2] {
-    let axis_m = facet_m >> 1;
-    let axis_n = facet_n >> 1;
-    let axis_t = 3 - axis_m - axis_n;
-    let base = (side_m << axis_m) | (side_n << axis_n);
-    [base, base | (1 << axis_t)]
-}
+// same edge layout as transition_3; the difference is the diagonal sits one
+// further level of refinement down (is_tree instead of is_leaf)
+const EDGES: [Edge; 12] = [
+    (0, 1, 2, 4, 2, 4, 3, 5),
+    (0, 2, 0, 4, 1, 4, 3, 6),
+    (0, 4, 0, 2, 1, 2, 5, 6),
+    (1, 3, 1, 4, 0, 5, 2, 7),
+    (1, 5, 2, 1, 3, 0, 7, 4),
+    (2, 3, 3, 4, 0, 6, 1, 7),
+    (2, 6, 3, 0, 0, 3, 4, 7),
+    (3, 7, 1, 3, 2, 1, 6, 5),
+    (4, 5, 5, 2, 0, 6, 1, 7),
+    (4, 6, 5, 0, 0, 5, 2, 7),
+    (5, 7, 5, 1, 1, 4, 3, 6),
+    (6, 7, 5, 3, 2, 4, 3, 5),
+];
 
-pub(crate) fn detect<T, U>(tree: &Octree<T, U>) -> Vec<EdgeMatch>
-where
-    T: Copy + Into<usize>,
-    U: Copy + Into<usize>,
-{
-    let child = |n: usize, o: usize| tree.nodes[n].orthants().unwrap()[o].into();
-    let is_leaf = |n: usize, o: usize| tree.nodes[child(n, o)].is_leaf();
-    let mut found = Vec::new();
-    for (cell_a, node) in tree.iter().enumerate() {
-        if !node.is_leaf() {
-            continue;
-        }
-        for facet_m in 0..M {
-            for facet_n in (facet_m + 1)..M {
-                if facet_m >> 1 == facet_n >> 1 {
-                    continue;
-                }
-                let (Some(neighbor_m), Some(neighbor_n)) =
-                    (node.facets[facet_m], node.facets[facet_n])
-                else {
-                    continue;
-                };
-                let cell_b = neighbor_m.into();
-                let cell_c = neighbor_n.into();
-                if !tree.nodes[cell_b].is_tree() || !tree.nodes[cell_c].is_tree() {
-                    continue;
-                }
-                let Some(neighbor_diag) = tree.nodes[cell_b].facets[facet_n] else {
-                    continue;
-                };
-                let cell_d = neighbor_diag.into();
-                if !tree.nodes[cell_d].is_tree() {
-                    continue;
-                }
-                let orthants_b = edge_orthants(facet_m, facet_n, (facet_m ^ 1) & 1, facet_n & 1);
-                let orthants_c = edge_orthants(facet_m, facet_n, facet_m & 1, (facet_n ^ 1) & 1);
-                let orthants_d =
-                    edge_orthants(facet_m, facet_n, (facet_m ^ 1) & 1, (facet_n ^ 1) & 1);
-                if orthants_b.into_iter().all(|o| is_leaf(cell_b, o))
-                    && orthants_c.into_iter().all(|o| is_leaf(cell_c, o))
-                    && orthants_d.into_iter().all(|o| {
-                        let edge_child = child(cell_d, o);
-                        tree.nodes[edge_child].is_tree()
-                            && orthants_d
-                                .into_iter()
-                                .all(|p| tree.nodes[child(edge_child, p)].is_leaf())
-                    })
-                {
-                    found.push(EdgeMatch {
-                        facet_m,
-                        facet_n,
-                        cell_a,
-                        cell_b,
-                        cell_c,
-                        cell_d,
-                    });
-                }
-            }
-        }
-    }
-    found
-}
-
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, unused_variables)]
 pub fn template<T, U>(
     tree: &Octree<T, U>,
     center_nodes: &[usize],
@@ -104,54 +44,71 @@ pub fn template<T, U>(
     T: Copy + Into<Scalar> + Into<usize>,
     U: Copy + Into<usize>,
 {
-    for edge_match in detect(tree) {
-        let EdgeMatch {
-            facet_m,
-            facet_n,
-            cell_a,
-            cell_b,
-            cell_c,
-            cell_d,
-        } = edge_match;
-        let orth = |node: usize, o: usize| -> usize { tree.nodes[node].orthants().unwrap()[o].into() };
-        let dir_m = facet_direction(facet_m);
-        let dir_n = facet_direction(facet_n);
-        let axis_t = 3 - (facet_m >> 1) - (facet_n >> 1);
-        let dir_t = facet_direction(2 * axis_t + 1);
-        let length: Scalar = tree.nodes[cell_a].length.into();
-        let half = 0.5 * length; // A center -> edge line
-        let quad = 0.25 * length; // B/C (level-1) half-length
-        let fine = 0.125 * length; // D (level-2) half-length
-        let edge = &(&coordinates[center_nodes[cell_a]] + &(&dir_m * half)) + &(&dir_n * half);
-        let point = |sm: Scalar, sn: Scalar, st: Scalar, scale: Scalar| -> Coordinate<D> {
-            &(&(&edge + &(&dir_m * (sm * scale))) + &(&dir_n * (sn * scale)))
-                + &(&dir_t * (st * scale))
-        };
-        // existing dual centers: A, the two middle D cells, and B/C edge cells
-        let od = edge_orthants(facet_m, facet_n, (facet_m ^ 1) & 1, (facet_n ^ 1) & 1);
-        let ob = edge_orthants(facet_m, facet_n, (facet_m ^ 1) & 1, facet_n & 1);
-        let oc = edge_orthants(facet_m, facet_n, facet_m & 1, (facet_n ^ 1) & 1);
-        let node_a = center_nodes[cell_a];
-        let d_lo = center_nodes[orth(orth(cell_d, od[0]), od[1])];
-        let d_hi = center_nodes[orth(orth(cell_d, od[1]), od[0])];
-        let b_lo_c = center_nodes[orth(cell_b, ob[0])];
-        let b_hi_c = center_nodes[orth(cell_b, ob[1])];
-        let c_lo_c = center_nodes[orth(cell_c, oc[0])];
-        let c_hi_c = center_nodes[orth(cell_c, oc[1])];
-        // finest-spacing ring around the edge line (shared with the central cube)
-        let a_lo = get_or_add(point(-1.0, -1.0, -1.0, fine), coordinates, nodes_map, node_index);
-        let b_lo = get_or_add(point(1.0, -1.0, -1.0, fine), coordinates, nodes_map, node_index);
-        let c_lo = get_or_add(point(-1.0, 1.0, -1.0, fine), coordinates, nodes_map, node_index);
-        let a_hi = get_or_add(point(-1.0, -1.0, 1.0, fine), coordinates, nodes_map, node_index);
-        let b_hi = get_or_add(point(1.0, -1.0, 1.0, fine), coordinates, nodes_map, node_index);
-        let c_hi = get_or_add(point(-1.0, 1.0, 1.0, fine), coordinates, nodes_map, node_index);
-        // level-1 lattice point diagonally toward A, shared by both lateral hexes
-        let steiner = get_or_add(point(-1.0, -1.0, -1.0, quad), coordinates, nodes_map, node_index);
-        // central cube
-        connectivity.push([a_lo, b_lo, d_lo, c_lo, a_hi, b_hi, d_hi, c_hi]);
-        // lateral hex toward B (-n side)
-        connectivity.push([a_lo, steiner, b_lo_c, b_lo, a_hi, node_a, b_hi_c, b_hi]);
-        // lateral hex toward C (-m side)
-        connectivity.push([a_lo, c_lo, c_lo_c, steiner, a_hi, c_hi, c_hi_c, node_a]);
+    for node in tree.iter().filter(|node| node.is_tree()) {
+        let cell_subnodes = tree.leaves(node);
+        for &edge in EDGES.iter() {
+            if identifies(edge, &cell_subnodes, tree) {
+                // TODO: connectivity + coordinate creation
+            }
+        }
     }
+}
+
+#[allow(unused_variables)]
+fn identifies<T, U>(edge: Edge, cell_subnodes: &[Option<U>; N], tree: &Octree<T, U>) -> bool
+where
+    T: Copy + Into<usize>,
+    U: Copy + Into<usize>,
+{
+    let (subcell_a, subcell_b, facet_m, facet_n, c, d, e, f) = edge;
+    if let Some(node_a) = cell_subnodes[subcell_a]
+        && let Some(node_b) = cell_subnodes[subcell_b]
+        && let Some(a_m) = tree.nodes[node_a.into()].facets[facet_m]
+        && let Some(a_n) = tree.nodes[node_a.into()].facets[facet_n]
+        && let Some(b_m) = tree.nodes[node_b.into()].facets[facet_m]
+        && let Some(b_n) = tree.nodes[node_b.into()].facets[facet_n]
+    {
+        let a_m_leaves = tree.leaves(&tree.nodes[a_m.into()]);
+        let a_n_leaves = tree.leaves(&tree.nodes[a_n.into()]);
+        let b_m_leaves = tree.leaves(&tree.nodes[b_m.into()]);
+        let b_n_leaves = tree.leaves(&tree.nodes[b_n.into()]);
+        if let Some(a_m_c) = a_m_leaves[c]
+            && let Some(a_m_e) = a_m_leaves[e]
+            && let Some(a_n_d) = a_n_leaves[d]
+            && let Some(a_n_f) = a_n_leaves[f]
+            && let Some(b_m_c) = b_m_leaves[c]
+            && let Some(b_m_e) = b_m_leaves[e]
+            && let Some(b_n_d) = b_n_leaves[d]
+            && let Some(b_n_f) = b_n_leaves[f]
+            && let Some(diagonal_a) = tree.nodes[a_m_c.into()].facets[facet_n]
+            && tree.nodes[diagonal_a.into()].is_tree()
+            && let Some(subdiagonal_a) = tree.nodes[a_m_e.into()].facets[facet_n]
+            && tree.nodes[subdiagonal_a.into()].is_tree()
+            && let Some(diagonal_b) = tree.nodes[b_m_e.into()].facets[facet_n]
+            && tree.nodes[diagonal_b.into()].is_tree()
+            && let Some(subdiagonal_b) = tree.nodes[b_m_c.into()].facets[facet_n]
+            && tree.nodes[subdiagonal_b.into()].is_tree()
+        {
+            return true;
+        }
+    }
+    false
+}
+
+#[cfg(test)]
+pub(crate) fn count<T, U>(tree: &Octree<T, U>) -> usize
+where
+    T: Copy + Into<usize>,
+    U: Copy + Into<usize>,
+{
+    tree.iter()
+        .filter(|node| node.is_tree())
+        .map(|node| {
+            let cell_subnodes = tree.leaves(node);
+            EDGES
+                .iter()
+                .filter(|&&edge| identifies(edge, &cell_subnodes, tree))
+                .count()
+        })
+        .sum()
 }

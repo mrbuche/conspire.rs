@@ -46,7 +46,9 @@ fn verify_dual(mesh: &Mesh<3>) -> Result<(), String> {
         let hex: [usize; 8] = std::array::from_fn(|k| element[k]);
         let six_v = hex_vol6(&hex, coordinates);
         if six_v <= 1e-9 {
-            return Err(format!("hex {e} not positively oriented (6V={six_v}): {element:?}"));
+            return Err(format!(
+                "hex {e} not positively oriented (6V={six_v}): {element:?}"
+            ));
         }
     }
     let mut faces: HashMap<[usize; 4], usize> = HashMap::new();

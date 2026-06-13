@@ -70,7 +70,8 @@ where
         nodal_temperatures: &NodalTemperatures,
         nodal_forces: &mut NodalForcesThermal,
     ) -> Result<(), ElementModelError> {
-        self.blocks.nodal_forces_into(nodal_temperatures, nodal_forces)
+        self.blocks
+            .nodal_forces_into(nodal_temperatures, nodal_forces)
     }
     fn nodal_stiffnesses_into(
         &self,

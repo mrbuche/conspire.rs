@@ -69,38 +69,31 @@ fn write_weak_edge_dual() {
             u[0] * (v[1] * w[2] - v[2] * w[1]) - u[1] * (v[0] * w[2] - v[2] * w[0])
                 + u[2] * (v[0] * w[1] - v[1] * w[0])
         };
-        tet(0, 1, 2, 6) + tet(0, 2, 3, 6) + tet(0, 3, 7, 6) + tet(0, 7, 4, 6)
-            + tet(0, 4, 5, 6) + tet(0, 5, 1, 6)
+        tet(0, 1, 2, 6)
+            + tet(0, 2, 3, 6)
+            + tet(0, 3, 7, 6)
+            + tet(0, 7, 4, 6)
+            + tet(0, 4, 5, 6)
+            + tet(0, 5, 1, 6)
     };
-    let inverted = mesh.iter().flatten().filter(|hex| vol6(hex) <= 1e-9).count();
+    let inverted = mesh
+        .iter()
+        .flatten()
+        .filter(|hex| vol6(hex) <= 1e-9)
+        .count();
     assert_eq!(inverted, 0, "{inverted} non-positive hexes in weak dual");
     mesh.write(Output::Exodus("target/weak_edge.exo")).unwrap();
 }
 
 #[test]
-fn transition_5_fires_on_weak_edge_config_only() {
-    use crate::geometry::ntree::dual::Uniform;
-    use std::collections::HashMap;
-    let pushes = |balancing| {
-        let octree = weak_edge_tree(balancing);
-        let (center_nodes, mut coordinates, mut node_index, mut connectivity) = octree.initialize();
-        let mut nodes_map = HashMap::new();
-        super::transition_5::template(
-            &octree,
-            &center_nodes,
-            &mut coordinates,
-            &mut connectivity,
-            &mut node_index,
-            &mut nodes_map,
-        );
-        connectivity.len()
-    };
-    assert!(
-        pushes(Balancing::Weak) > 0,
-        "transition_5 did not fire on the weak tree"
+fn transition_5_identifies_weak_edge_config_only() {
+    assert_eq!(
+        super::transition_5::count(&weak_edge_tree(Balancing::Weak)),
+        2,
+        "transition_5 should identify exactly 2 (one per coarse node) on the weak tree"
     );
     assert_eq!(
-        pushes(Balancing::Strong),
+        super::transition_5::count(&weak_edge_tree(Balancing::Strong)),
         0,
         "transition_5 fired on the strong tree (the config should be balanced away)"
     );

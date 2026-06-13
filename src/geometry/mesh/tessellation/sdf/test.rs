@@ -96,7 +96,10 @@ fn bunny() {
 
 #[test]
 fn foo() {
-    use crate::{geometry::{mesh::Output, ntree::Balancing}, io::Write};
+    use crate::{
+        geometry::{mesh::Output, ntree::Balancing},
+        io::Write,
+    };
     let tessellation =
         Tessellation::try_from(Path::new("/home/mrbuche/Downloads/Stanford_Bunny.stl")).unwrap();
     let mut mesh = tessellation.dualize(Balancing::Weak, 3.0).unwrap();

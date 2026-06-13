@@ -53,7 +53,8 @@ where
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_forces: &mut NodalForcesSolid<D>,
     ) -> Result<(), ElementModelError> {
-        self.blocks.nodal_forces_into(nodal_coordinates, nodal_forces)
+        self.blocks
+            .nodal_forces_into(nodal_coordinates, nodal_forces)
     }
     fn nodal_stiffnesses_into(
         &self,
