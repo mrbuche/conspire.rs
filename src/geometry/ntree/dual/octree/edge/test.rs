@@ -78,15 +78,30 @@ fn write_weak_edge_dual() {
 }
 
 #[test]
-fn transition_5_detects_weak_edge_config_only() {
-    let weak = weak_edge_tree(Balancing::Weak);
+fn transition_5_fires_on_weak_edge_config_only() {
+    use crate::geometry::ntree::dual::Uniform;
+    use std::collections::HashMap;
+    let pushes = |balancing| {
+        let octree = weak_edge_tree(balancing);
+        let (center_nodes, mut coordinates, mut node_index, mut connectivity) = octree.initialize();
+        let mut nodes_map = HashMap::new();
+        super::transition_5::template(
+            &octree,
+            &center_nodes,
+            &mut coordinates,
+            &mut connectivity,
+            &mut node_index,
+            &mut nodes_map,
+        );
+        connectivity.len()
+    };
     assert!(
-        !super::transition_5::detect(&weak).is_empty(),
-        "transition_5 did not detect the (0,1,2,1) config on the weak tree"
+        pushes(Balancing::Weak) > 0,
+        "transition_5 did not fire on the weak tree"
     );
-    let strong = weak_edge_tree(Balancing::Strong);
-    assert!(
-        super::transition_5::detect(&strong).is_empty(),
+    assert_eq!(
+        pushes(Balancing::Strong),
+        0,
         "transition_5 fired on the strong tree (the config should be balanced away)"
     );
 }
