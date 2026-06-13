@@ -13,12 +13,13 @@ use conspire::{
         thermal::conduction::Fourier,
     },
     fem::{
-        NodalReferenceCoordinates,
+        Model, NodalReferenceCoordinates,
         block::{
             Block, element::linear::Tetrahedron as LinearTetrahedron, solid::SolidElements,
             thermal::ThermalElements,
         },
     },
+    geometry::mesh::{Connectivity, Mesh},
     math::{
         Matrix, Scalar, Tensor, TestError, Vector, assert_eq_within, assert_eq_within_tols,
         integrate::DormandPrince,
@@ -7387,11 +7388,6 @@ fn temporary_hyperelastic() -> Result<(), TestError> {
         bulk_modulus: 13.0,
         shear_modulus: 3.0,
     };
-    let block = Block::<_, LinearTetrahedron, G, M, N, P>::from((
-        model.clone(),
-        connectivity,
-        &coordinates(),
-    ));
     let length = ref_coordinates
         .iter()
         .filter(|coordinate| coordinate[0].abs() == 0.5)
@@ -7423,7 +7419,12 @@ fn temporary_hyperelastic() -> Result<(), TestError> {
     vector[length - 1] = -0.5;
     let mut time = std::time::Instant::now();
     println!("Solving...");
-    let fem_model = conspire::fem::Model::from((block, coordinates()));
+    let mesh = Mesh::from((
+        vec![Connectivity::Tetrahedral(connectivity.into())],
+        coordinates(),
+    ));
+    let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> =
+        (mesh, model.clone()).try_into()?;
     let solution = conspire::fem::SecondOrderMinimize::minimize(
         &fem_model,
         EqualityConstraint::Linear(matrix, vector),
@@ -7520,14 +7521,14 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
         rate_sensitivity: 0.25,
         reference_flow_rate: 0.1,
     };
-    let block = Block::<_, LinearTetrahedron, G, M, N, P>::from((
-        model.clone(),
-        connectivity,
-        &coordinates(),
-    ));
     let mut time = std::time::Instant::now();
     println!("Solving...");
-    let fem_model = conspire::fem::Model::from((block, coordinates()));
+    let mesh = Mesh::from((
+        vec![Connectivity::Tetrahedral(connectivity.into())],
+        coordinates(),
+    ));
+    let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> =
+        (mesh, model.clone()).try_into()?;
     let (times, coordinates_history, state_variables_history): (
         _,
         _,
@@ -7624,11 +7625,6 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
         bulk_viscosity: 11.0,
         shear_viscosity: 1.0,
     };
-    let block = Block::<_, LinearTetrahedron, G, M, N, P>::from((
-        model.clone(),
-        connectivity,
-        &coordinates(),
-    ));
     let length = ref_coordinates
         .iter()
         .filter(|coordinate| coordinate[0].abs() == 0.5)
@@ -7660,7 +7656,12 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
     vector[length - 1] = 0.0;
     let mut time = std::time::Instant::now();
     println!("Solving...");
-    let fem_model = conspire::fem::Model::from((block, coordinates()));
+    let mesh = Mesh::from((
+        vec![Connectivity::Tetrahedral(connectivity.into())],
+        coordinates(),
+    ));
+    let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> =
+        (mesh, model.clone()).try_into()?;
     let (times, coordinates_history, velocities_history) =
         conspire::fem::solid::elastic_hyperviscous::SecondOrderMinimize::minimize(
             &fem_model,
@@ -7743,11 +7744,6 @@ fn temporary_thermal_conduction() -> Result<(), TestError> {
     let model = Fourier {
         thermal_conductivity: 1.0,
     };
-    let block = Block::<_, LinearTetrahedron, G, M, N, P>::from((
-        model.clone(),
-        connectivity,
-        &coordinates(),
-    ));
     let length = ref_coordinates
         .iter()
         .filter(|coordinate| coordinate[0].abs() == 0.5)
@@ -7772,7 +7768,12 @@ fn temporary_thermal_conduction() -> Result<(), TestError> {
         });
     let mut time = std::time::Instant::now();
     println!("Solving...");
-    let fem_model = conspire::fem::Model::from((block, coordinates()));
+    let mesh = Mesh::from((
+        vec![Connectivity::Tetrahedral(connectivity.into())],
+        coordinates(),
+    ));
+    let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> =
+        (mesh, model.clone()).try_into()?;
     let solution = conspire::fem::SecondOrderMinimize::minimize(
         &fem_model,
         EqualityConstraint::Linear(matrix, vector),
