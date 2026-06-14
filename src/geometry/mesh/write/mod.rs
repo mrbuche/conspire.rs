@@ -4,7 +4,7 @@ mod test;
 pub mod abaqus;
 #[cfg(feature = "netcdf")]
 pub mod exodus;
-pub mod mesh;
+pub mod medit;
 
 use crate::{geometry::mesh::Mesh, io::Write};
 use std::{io::Error as ErrorIO, path::Path};
@@ -12,7 +12,7 @@ use std::{io::Error as ErrorIO, path::Path};
 use self::abaqus::WriteAbaqus;
 #[cfg(feature = "netcdf")]
 use self::exodus::WriteExodus;
-use self::mesh::WriteMesh;
+use self::medit::WriteMedit;
 
 pub enum Output<P>
 where
@@ -21,7 +21,7 @@ where
     Abaqus(P),
     #[cfg(feature = "netcdf")]
     Exodus(P),
-    Mesh(P),
+    Medit(P),
 }
 
 impl<P> AsRef<Path> for Output<P>
@@ -33,7 +33,7 @@ where
             Output::Abaqus(path) => path.as_ref(),
             #[cfg(feature = "netcdf")]
             Output::Exodus(path) => path.as_ref(),
-            Output::Mesh(path) => path.as_ref(),
+            Output::Medit(path) => path.as_ref(),
         }
     }
 }
@@ -48,7 +48,7 @@ where
             Output::Abaqus(path) => self.write_abaqus(path)?,
             #[cfg(feature = "netcdf")]
             Output::Exodus(path) => self.write_exodus(path)?,
-            Output::Mesh(path) => self.write_mesh(path)?,
+            Output::Medit(path) => self.write_medit(path)?,
         }
         Ok(())
     }
