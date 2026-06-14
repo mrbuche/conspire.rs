@@ -41,10 +41,10 @@ where
     type Error = ErrorIO;
     fn write(&self, output: Output<P>) -> Result<(), Self::Error> {
         match output {
-            Output::Abaqus(_) => {}
+            Output::Abaqus(_) => unimplemented!(),
             #[cfg(feature = "netcdf")]
             Output::Exodus(path) => self.write_exodus(path)?,
-            Output::Mesh(_) => {}
+            Output::Mesh(_) => unimplemented!(),
         }
         Ok(())
     }
