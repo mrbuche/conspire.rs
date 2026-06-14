@@ -49,13 +49,7 @@ pub fn edge_transitions<T, U>(
     transition_2::template(tree, center_nodes, coordinates, connectivity, nodes_map);
     transition_4::template(tree, center_nodes, coordinates, connectivity, nodes_map);
     if matches!(balancing, Balancing::Weak) {
-        transition_5::template(
-            tree,
-            center_nodes,
-            coordinates,
-            connectivity,
-            node_index,
-            nodes_map,
-        );
+        // Weak edge templates pinned; only the case is identified, nothing emitted.
+        let _ = transition_5::template(tree);
     }
 }

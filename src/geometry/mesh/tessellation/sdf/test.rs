@@ -101,8 +101,8 @@ fn foo() {
         io::Write,
     };
     let tessellation =
-        Tessellation::try_from(Path::new("/home/mrbuche/Downloads/sphere.stl")).unwrap();
-    let mut mesh = tessellation.dualize(Balancing::Weak, 64.0).unwrap();
+        Tessellation::try_from(Path::new("/home/mrbuche/Downloads/Stanford_bunny.stl")).unwrap();
+    let mesh = tessellation.dualize(Balancing::Strong, 3.0).unwrap();
     mesh.write(Output::Exodus("target/bunny.exo")).unwrap();
     // mesh.smart_laplace_smooth(10, 0.8);
     // mesh.write(Output::Exodus("target/bunny_sls.exo")).unwrap();

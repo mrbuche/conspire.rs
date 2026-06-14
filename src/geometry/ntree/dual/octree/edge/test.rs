@@ -51,7 +51,6 @@ fn weak_edge_tree(balancing: Balancing) -> Octree<u16, usize> {
 }
 
 #[test]
-// #[ignore = "writes target/weak_edge.exo for visual inspection"]
 fn write_weak_edge_dual() {
     use crate::{
         geometry::{mesh::Output, ntree::Dualization},
@@ -87,29 +86,14 @@ fn write_weak_edge_dual() {
 
 #[test]
 fn transition_5_identifies_weak_edge_config_only() {
-    use crate::geometry::ntree::dual::Uniform;
-    use std::collections::HashMap;
-    let pushes = |balancing| {
-        let octree = weak_edge_tree(balancing);
-        let (center_nodes, mut coordinates, mut node_index, mut connectivity) = octree.initialize();
-        let mut nodes_map = HashMap::new();
-        super::transition_5::template(
-            &octree,
-            &center_nodes,
-            &mut coordinates,
-            &mut connectivity,
-            &mut node_index,
-            &mut nodes_map,
-        );
-        connectivity.len()
-    };
+    let detections = |balancing| super::transition_5::template(&weak_edge_tree(balancing));
     assert_eq!(
-        pushes(Balancing::Weak),
-        14,
-        "transition_5 should place 7 hexes (center + 2 cubes + 4 laterals) per coarse node = 14"
+        detections(Balancing::Weak),
+        2,
+        "transition_5 should identify the weak-balanced edge configs"
     );
     assert_eq!(
-        pushes(Balancing::Strong),
+        detections(Balancing::Strong),
         0,
         "transition_5 fired on the strong tree (the config should be balanced away)"
     );

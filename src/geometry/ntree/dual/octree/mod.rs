@@ -12,7 +12,6 @@ use crate::{
         mesh::{Connectivity, Mesh},
         ntree::{
             Octree,
-            balance::Balancing,
             dual::{
                 Dualization, NodeMap, Uniform,
                 octree::{
@@ -68,9 +67,6 @@ where
             self.balanced,
         );
         vertex_transitions(self, &center_nodes, &mut connectivity);
-        if matches!(self.balanced, Balancing::Weak) {
-            // unimplemented!()
-        }
         self.rescale_coordinates(&mut coordinates);
         (
             vec![Connectivity::Hexahedral(connectivity.into())],
