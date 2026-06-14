@@ -24,6 +24,7 @@ jobs:
           - constitutive
           - fem
           - vem
+          - all
         os: [macos-latest, windows-latest, ubuntu-latest]
         toolchain: [beta, nightly, stable]
     runs-on: ${{ matrix.os }}

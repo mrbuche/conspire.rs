@@ -64,23 +64,11 @@ repos:
         args: ['--features', 'fem', '--tests', '--', '-D',  'warnings']
         name: cargo clippy fem tests
     -   id: clippy
-        args: ['--features', 'fem netcdf', '--', '-D',  'warnings']
-        name: cargo clippy fem netcdf
-    -   id: clippy
-        args: ['--features', 'fem netcdf', '--tests', '--', '-D',  'warnings']
-        name: cargo clippy fem netcdf tests
-    -   id: clippy
         args: ['--features', 'vem', '--', '-D',  'warnings']
         name: cargo clippy vem
     -   id: clippy
         args: ['--features', 'vem', '--tests', '--', '-D',  'warnings']
         name: cargo clippy vem tests
-    -   id: clippy
-        args: ['--features', 'vem netcdf', '--', '-D',  'warnings']
-        name: cargo clippy vem netcdf
-    -   id: clippy
-        args: ['--features', 'vem netcdf', '--tests', '--', '-D',  'warnings']
-        name: cargo clippy vem netcdf tests
     -   id: clippy
         args: ['--features', 'all', '--', '-D',  'warnings']
         name: cargo clippy all
