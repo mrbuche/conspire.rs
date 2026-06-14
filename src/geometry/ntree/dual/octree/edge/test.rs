@@ -76,11 +76,7 @@ fn write_weak_edge_dual() {
             + tet(0, 4, 5, 6)
             + tet(0, 5, 1, 6)
     };
-    let inverted = mesh
-        .iter()
-        .flatten()
-        .filter(|hex| vol6(hex) <= 1e-9)
-        .count();
+    let inverted = mesh.iter().flatten().filter(|hex| vol6(hex) <= 1e-9).count();
     assert_eq!(inverted, 0, "{inverted} non-positive hexes in weak dual");
     mesh.write(Output::Exodus("target/weak_edge.exo")).unwrap();
 }
@@ -105,8 +101,8 @@ fn transition_5_identifies_weak_edge_config_only() {
     };
     assert_eq!(
         pushes(Balancing::Weak),
-        6,
-        "transition_5 should place 3 hexes (center + 2 cubes) per coarse node = 6 on the weak tree"
+        14,
+        "transition_5 should place 7 hexes (center + 2 cubes + 4 laterals) per coarse node = 14"
     );
     assert_eq!(
         pushes(Balancing::Strong),

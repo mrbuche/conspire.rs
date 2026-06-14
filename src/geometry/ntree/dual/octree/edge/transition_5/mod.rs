@@ -124,6 +124,7 @@ fn template_inner<T, U>(
             let b_bit = ((subcell_b >> axis_t) & 1) << axis_t;
             let dir_m = facet_direction(facet_m);
             let dir_n = facet_direction(facet_n);
+            let dir_t = facet_direction(2 * axis_t + 1);
             // center hex (transition_3's middle hex; subdiagonals refined one level)
             let sub_a = tree.nodes[subdiagonal_a.into()].orthants().unwrap()[corner | b_bit];
             let sub_b = tree.nodes[subdiagonal_b.into()].orthants().unwrap()[corner | a_bit];
@@ -150,33 +151,70 @@ fn template_inner<T, U>(
                     center_b_n_d,
                 ]);
             }
-            // side cube hexes: the perfect cube around each coarse leaf's middle
-            // two D cells (the diagonal's inner children)
+            // each side: the perfect cube around the coarse leaf's middle two D
+            // cells plus its B-ward and C-ward laterals out to the coarse center
             let cube_lo_a = tree.nodes[diagonal_a.into()].orthants().unwrap()[corner | b_bit];
             let cube_hi_a = tree.nodes[subdiagonal_a.into()].orthants().unwrap()[corner | a_bit];
-            push_cube(
-                cube_lo_a, cube_hi_a, &dir_m, &dir_n, flip, tree, center_nodes, coordinates,
-                connectivity, node_index, nodes_map,
+            push_side(
+                cube_lo_a,
+                cube_hi_a,
+                center_nodes[node_a.into()],
+                center_nodes[a_m_c.into()],
+                center_nodes[a_m_e.into()],
+                center_nodes[a_n_d.into()],
+                center_nodes[a_n_f.into()],
+                &dir_m,
+                &dir_n,
+                &dir_t,
+                flip,
+                tree,
+                center_nodes,
+                coordinates,
+                connectivity,
+                node_index,
+                nodes_map,
             );
             let cube_lo_b = tree.nodes[subdiagonal_b.into()].orthants().unwrap()[corner | b_bit];
             let cube_hi_b = tree.nodes[diagonal_b.into()].orthants().unwrap()[corner | a_bit];
-            push_cube(
-                cube_lo_b, cube_hi_b, &dir_m, &dir_n, flip, tree, center_nodes, coordinates,
-                connectivity, node_index, nodes_map,
+            push_side(
+                cube_lo_b,
+                cube_hi_b,
+                center_nodes[node_b.into()],
+                center_nodes[b_m_c.into()],
+                center_nodes[b_m_e.into()],
+                center_nodes[b_n_d.into()],
+                center_nodes[b_n_f.into()],
+                &dir_m,
+                &dir_n,
+                &dir_t,
+                flip,
+                tree,
+                center_nodes,
+                coordinates,
+                connectivity,
+                node_index,
+                nodes_map,
             );
         }
     }
 }
 
-// the perfect cube around two stacked D cells (d_lo, d_hi): the six ring corners
-// at the finest spacing are deduped via get_or_add (the four toward B/C reuse the
-// face-transition nodes; only the two toward A are created)
+// one side of the fill: the perfect cube around two stacked D cells plus its
+// B-ward and C-ward laterals out to the coarse center. The cube's six ring
+// corners dedupe via get_or_add (the four toward B/C reuse the face-transition
+// nodes; the two toward A and the single S node are created)
 #[allow(clippy::too_many_arguments)]
-fn push_cube<T, U>(
+fn push_side<T, U>(
     d_lo_cell: U,
     d_hi_cell: U,
+    node_center: usize,
+    m_lo: usize,
+    m_hi: usize,
+    n_lo: usize,
+    n_hi: usize,
     dir_m: &Coordinate<D>,
     dir_n: &Coordinate<D>,
+    dir_t: &Coordinate<D>,
     flip: bool,
     tree: &Octree<T, U>,
     center_nodes: &[usize],
@@ -193,20 +231,30 @@ fn push_cube<T, U>(
     let hi = coordinates[center_nodes[d_hi_cell.into()]].clone();
     let off_m = dir_m * length;
     let off_n = dir_n * length;
-    let [a_lo, b_lo, c_lo, a_hi, b_hi, c_hi] = [
-        &(&lo - &off_m) - &off_n,
-        &lo - &off_n,
-        &lo - &off_m,
-        &(&hi - &off_m) - &off_n,
-        &hi - &off_n,
-        &hi - &off_m,
-    ]
-    .map(|coordinate| get_or_add(coordinate, coordinates, nodes_map, node_index));
+    let half = 0.5 * length;
+    let a_lo_c = &(&lo - &off_m) - &off_n;
+    let a_hi_c = &(&hi - &off_m) - &off_n;
+    let s_c = &(&(&a_lo_c - &(dir_m * half)) - &(dir_n * half)) - &(dir_t * half);
+    let b_lo_c = &lo - &off_n;
+    let c_lo_c = &lo - &off_m;
+    let b_hi_c = &hi - &off_n;
+    let c_hi_c = &hi - &off_m;
+    let a_lo = get_or_add(a_lo_c, coordinates, nodes_map, node_index);
+    let b_lo = get_or_add(b_lo_c, coordinates, nodes_map, node_index);
+    let c_lo = get_or_add(c_lo_c, coordinates, nodes_map, node_index);
+    let a_hi = get_or_add(a_hi_c, coordinates, nodes_map, node_index);
+    let b_hi = get_or_add(b_hi_c, coordinates, nodes_map, node_index);
+    let c_hi = get_or_add(c_hi_c, coordinates, nodes_map, node_index);
+    let s = get_or_add(s_c, coordinates, nodes_map, node_index);
     let d_lo = center_nodes[d_lo_cell.into()];
     let d_hi = center_nodes[d_hi_cell.into()];
     if flip {
         connectivity.push([a_hi, b_hi, d_hi, c_hi, a_lo, b_lo, d_lo, c_lo]);
+        connectivity.push([s, a_lo, b_lo, m_lo, node_center, a_hi, b_hi, m_hi]);
+        connectivity.push([c_lo, a_lo, s, n_lo, c_hi, a_hi, node_center, n_hi]);
     } else {
         connectivity.push([a_lo, b_lo, d_lo, c_lo, a_hi, b_hi, d_hi, c_hi]);
+        connectivity.push([s, m_lo, b_lo, a_lo, node_center, m_hi, b_hi, a_hi]);
+        connectivity.push([c_lo, n_lo, s, a_lo, c_hi, n_hi, node_center, a_hi]);
     }
 }
