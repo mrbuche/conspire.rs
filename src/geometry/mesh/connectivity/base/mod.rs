@@ -41,6 +41,20 @@ impl Connectivity {
                 &[3, 0, 4, 7],
             ],
             Connectivity::Tetrahedral(_) => &[&[0, 2, 1], &[0, 1, 3], &[1, 2, 3], &[2, 0, 3]],
+            Connectivity::Pyramidal(_) => &[
+                &[0, 3, 2, 1],
+                &[0, 1, 4],
+                &[1, 2, 4],
+                &[2, 3, 4],
+                &[3, 0, 4],
+            ],
+            Connectivity::Wedge(_) => &[
+                &[0, 2, 1],
+                &[3, 4, 5],
+                &[0, 1, 4, 3],
+                &[1, 2, 5, 4],
+                &[2, 0, 3, 5],
+            ],
             Connectivity::Quadrilateral(_) => &[&[0, 1], &[1, 2], &[2, 3], &[3, 0]],
             Connectivity::Triangular(_) => &[&[0, 1], &[1, 2], &[2, 0]],
             Connectivity::Polygonal(_) | Connectivity::Polyhedral(_) => todo!(),
@@ -52,6 +66,8 @@ impl Connectivity {
             Connectivity::Quadrilateral(c) => c.add_edge_adjacency(nodes_nodes),
             Connectivity::Tetrahedral(c) => c.add_edge_adjacency(nodes_nodes),
             Connectivity::Hexahedral(c) => c.add_edge_adjacency(nodes_nodes),
+            Connectivity::Pyramidal(c) => c.add_edge_adjacency(nodes_nodes),
+            Connectivity::Wedge(c) => c.add_edge_adjacency(nodes_nodes),
             Connectivity::Polygonal(_) => todo!(),
             Connectivity::Polyhedral(_) => todo!(),
         }
@@ -59,6 +75,8 @@ impl Connectivity {
     pub fn is_empty(&self) -> bool {
         match self {
             Connectivity::Hexahedral(c) => c.is_empty(),
+            Connectivity::Pyramidal(c) => c.is_empty(),
+            Connectivity::Wedge(c) => c.is_empty(),
             Connectivity::Polyhedral(c) => c.is_empty(),
             Connectivity::Polygonal(c) => c.is_empty(),
             Connectivity::Quadrilateral(c) => c.is_empty(),
@@ -72,6 +90,8 @@ impl Connectivity {
     pub fn element_numbers(&self) -> Option<&[usize]> {
         match self {
             Connectivity::Hexahedral(c) => c.element_numbers(),
+            Connectivity::Pyramidal(c) => c.element_numbers(),
+            Connectivity::Wedge(c) => c.element_numbers(),
             Connectivity::Polyhedral(c) => c.element_numbers(),
             Connectivity::Polygonal(c) => c.element_numbers(),
             Connectivity::Quadrilateral(c) => c.element_numbers(),
@@ -82,6 +102,8 @@ impl Connectivity {
     pub fn node_element_connectivity(&self) -> &[Vec<usize>] {
         match self {
             Connectivity::Hexahedral(c) => c.node_element_connectivity(),
+            Connectivity::Pyramidal(c) => c.node_element_connectivity(),
+            Connectivity::Wedge(c) => c.node_element_connectivity(),
             Connectivity::Polyhedral(c) => c.node_element_connectivity(),
             Connectivity::Polygonal(c) => c.node_element_connectivity(),
             Connectivity::Quadrilateral(c) => c.node_element_connectivity(),
@@ -92,6 +114,8 @@ impl Connectivity {
     pub fn number_elements(&mut self, numbers: Vec<usize>) {
         match self {
             Connectivity::Hexahedral(c) => c.number_elements(numbers),
+            Connectivity::Pyramidal(c) => c.number_elements(numbers),
+            Connectivity::Wedge(c) => c.number_elements(numbers),
             Connectivity::Polyhedral(c) => c.number_elements(numbers),
             Connectivity::Polygonal(c) => c.number_elements(numbers),
             Connectivity::Quadrilateral(c) => c.number_elements(numbers),
@@ -102,6 +126,8 @@ impl Connectivity {
     pub fn number_of_elements(&self) -> usize {
         match self {
             Connectivity::Hexahedral(c) => c.number_of_elements(),
+            Connectivity::Pyramidal(c) => c.number_of_elements(),
+            Connectivity::Wedge(c) => c.number_of_elements(),
             Connectivity::Polyhedral(c) => c.number_of_elements(),
             Connectivity::Polygonal(c) => c.number_of_elements(),
             Connectivity::Quadrilateral(c) => c.number_of_elements(),
@@ -112,6 +138,8 @@ impl Connectivity {
     pub fn number_of_faces(&self) -> Option<usize> {
         match self {
             Connectivity::Hexahedral(c) => c.number_of_faces(),
+            Connectivity::Pyramidal(c) => c.number_of_faces(),
+            Connectivity::Wedge(c) => c.number_of_faces(),
             Connectivity::Polyhedral(c) => c.number_of_faces(),
             Connectivity::Polygonal(c) => c.number_of_faces(),
             Connectivity::Quadrilateral(c) => c.number_of_faces(),
@@ -125,6 +153,8 @@ impl Connectivity {
     {
         match self {
             Connectivity::Hexahedral(c) => c.number_of_faces_per_element(),
+            Connectivity::Pyramidal(c) => c.number_of_faces_per_element(),
+            Connectivity::Wedge(c) => c.number_of_faces_per_element(),
             Connectivity::Polyhedral(c) => c.number_of_faces_per_element(),
             Connectivity::Polygonal(c) => c.number_of_faces_per_element(),
             Connectivity::Quadrilateral(c) => c.number_of_faces_per_element(),
@@ -135,6 +165,8 @@ impl Connectivity {
     pub fn number_of_nodes_per_element(&self) -> Option<usize> {
         match self {
             Connectivity::Hexahedral(c) => c.number_of_nodes_per_element(),
+            Connectivity::Pyramidal(c) => c.number_of_nodes_per_element(),
+            Connectivity::Wedge(c) => c.number_of_nodes_per_element(),
             Connectivity::Polyhedral(c) => c.number_of_nodes_per_element(),
             Connectivity::Polygonal(c) => c.number_of_nodes_per_element(),
             Connectivity::Quadrilateral(c) => c.number_of_nodes_per_element(),
@@ -148,6 +180,8 @@ impl Connectivity {
     {
         match self {
             Connectivity::Hexahedral(c) => c.number_of_nodes_per_face(),
+            Connectivity::Pyramidal(c) => c.number_of_nodes_per_face(),
+            Connectivity::Wedge(c) => c.number_of_nodes_per_face(),
             Connectivity::Polyhedral(c) => c.number_of_nodes_per_face(),
             Connectivity::Polygonal(c) => c.number_of_nodes_per_face(),
             Connectivity::Quadrilateral(c) => c.number_of_nodes_per_face(),
@@ -159,6 +193,8 @@ impl Connectivity {
     pub fn exodus_element_type(&self) -> &str {
         match self {
             Connectivity::Hexahedral(c) => c.exodus_element_type(),
+            Connectivity::Pyramidal(c) => c.exodus_element_type(),
+            Connectivity::Wedge(c) => c.exodus_element_type(),
             Connectivity::Polyhedral(c) => c.exodus_element_type(),
             Connectivity::Polygonal(c) => c.exodus_element_type(),
             Connectivity::Quadrilateral(c) => c.exodus_element_type(),
@@ -173,6 +209,8 @@ impl Connectivity {
     {
         match self {
             Connectivity::Hexahedral(c) => c.flat_connectivity(),
+            Connectivity::Pyramidal(c) => c.flat_connectivity(),
+            Connectivity::Wedge(c) => c.flat_connectivity(),
             Connectivity::Polyhedral(c) => c.flat_connectivity(),
             Connectivity::Polygonal(c) => c.flat_connectivity(),
             Connectivity::Quadrilateral(c) => c.flat_connectivity(),

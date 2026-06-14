@@ -1,0 +1,103 @@
+use crate::{
+    geometry::mesh::{Connectivity, Mesh, Output},
+    io::Write,
+};
+use std::fs::read_to_string;
+
+#[test]
+fn triangles_round_trip() {
+    let connectivities = vec![Connectivity::Triangular(vec![[0, 1, 2], [0, 2, 3]].into())];
+    let coordinates = vec![
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 1.0, 0.0],
+        [0.0, 1.0, 0.0],
+    ]
+    .into();
+    let path = "target/triangles.mesh";
+    Mesh::from((connectivities, coordinates))
+        .write(Output::Mesh(path))
+        .unwrap();
+    let contents = read_to_string(path).unwrap();
+    assert!(contents.starts_with("MeshVersionFormatted 2"));
+    assert!(contents.contains("Dimension 3"));
+    assert!(contents.contains("Vertices\n4\n"));
+    assert!(contents.contains("Triangles\n2\n"));
+    // 1-based node indices, trailing reference = 1-based block.
+    assert!(contents.contains("1 2 3 1\n"));
+    assert!(contents.contains("1 3 4 1\n"));
+    assert!(contents.trim_end().ends_with("End"));
+}
+
+#[test]
+fn merges_blocks_of_same_type() {
+    let connectivities = vec![
+        Connectivity::Triangular(vec![[0, 1, 2]].into()),
+        Connectivity::Triangular(vec![[0, 2, 3]].into()),
+    ];
+    let coordinates = vec![
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 1.0, 0.0],
+        [0.0, 1.0, 0.0],
+    ]
+    .into();
+    let path = "target/merged.mesh";
+    Mesh::from((connectivities, coordinates))
+        .write(Output::Mesh(path))
+        .unwrap();
+    let contents = read_to_string(path).unwrap();
+    // one Triangles section holding both blocks, tagged with their block number.
+    assert_eq!(contents.matches("Triangles").count(), 1);
+    assert!(contents.contains("Triangles\n2\n"));
+    assert!(contents.contains("1 2 3 1\n"));
+    assert!(contents.contains("1 3 4 2\n"));
+}
+
+#[test]
+fn mixed_hex_wedge_pyramid_tet() {
+    let connectivities = vec![
+        Connectivity::Hexahedral(vec![[0, 1, 2, 3, 4, 5, 6, 7]].into()),
+        Connectivity::Wedge(vec![[0, 1, 2, 4, 5, 6]].into()),
+        Connectivity::Pyramidal(vec![[0, 1, 2, 3, 8]].into()),
+        Connectivity::Tetrahedral(vec![[0, 1, 3, 9]].into()),
+    ];
+    let coordinates = vec![
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 1.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0],
+        [1.0, 0.0, 1.0],
+        [1.0, 1.0, 1.0],
+        [0.0, 1.0, 1.0],
+        [0.5, 0.5, 2.0],
+        [0.5, 0.5, -1.0],
+    ]
+    .into();
+    let path = "target/mixed.mesh";
+    Mesh::from((connectivities, coordinates))
+        .write(Output::Mesh(path))
+        .unwrap();
+    let contents = read_to_string(path).unwrap();
+    assert!(contents.contains("Vertices\n10\n"));
+    // one section per type, 1-based nodes, reference = 1-based block.
+    assert!(contents.contains("Hexahedra\n1\n1 2 3 4 5 6 7 8 1\n"));
+    assert!(contents.contains("Prisms\n1\n1 2 3 5 6 7 2\n"));
+    assert!(contents.contains("Pyramids\n1\n1 2 3 4 9 3\n"));
+    assert!(contents.contains("Tetrahedra\n1\n1 2 4 10 4\n"));
+    assert!(contents.trim_end().ends_with("End"));
+}
+
+#[test]
+fn polyhedral_is_unsupported() {
+    let connectivities = vec![Connectivity::Polyhedral(
+        (vec![vec![0]], vec![vec![0, 1, 2]]).into(),
+    )];
+    let coordinates = vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0]].into();
+    assert!(
+        Mesh::from((connectivities, coordinates))
+            .write(Output::Mesh("target/bad.mesh"))
+            .is_err()
+    );
+}

@@ -108,6 +108,8 @@ fn read_primitive_block<const D: usize>(
         netcdf.get_variable::<i32>(&format!("connect{}", block), num_el_in_blk * num_nod_per_el)?;
     match (D, num_nod_per_el, elem_type.as_str()) {
         (3, 8, "hex8") => Ok(Connectivity::Hexahedral(unflatten::<8>(&flat).into())),
+        (3, 6, "wedge6") => Ok(Connectivity::Wedge(unflatten::<6>(&flat).into())),
+        (3, 5, "pyramid5") => Ok(Connectivity::Pyramidal(unflatten::<5>(&flat).into())),
         (3, 4, "tet4") => Ok(Connectivity::Tetrahedral(unflatten::<4>(&flat).into())),
         (_, 4, "quad4") => Ok(Connectivity::Quadrilateral(unflatten::<4>(&flat).into())),
         (_, 3, "tri3") => Ok(Connectivity::Triangular(unflatten::<3>(&flat).into())),

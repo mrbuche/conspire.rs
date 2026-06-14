@@ -14,9 +14,11 @@ pub enum Connectivity {
     Hexahedral(PrimitiveConnectivity<3, 8>),
     Polyhedral(PolytopalConnectivity<3>),
     Polygonal(PolytopalConnectivity<2>),
+    Pyramidal(PrimitiveConnectivity<3, 5>),
     Quadrilateral(PrimitiveConnectivity<2, 4>),
     Tetrahedral(PrimitiveConnectivity<3, 4>),
     Triangular(PrimitiveConnectivity<2, 3>),
+    Wedge(PrimitiveConnectivity<3, 6>),
 }
 
 pub type Connectivities = Set<Vec<Connectivity>>;
@@ -35,9 +37,11 @@ macro_rules! try_from_connectivity {
     };
 }
 try_from_connectivity!(Hexahedral, 3, 8, "block is not hexahedral");
+try_from_connectivity!(Pyramidal, 3, 5, "block is not pyramidal");
 try_from_connectivity!(Quadrilateral, 2, 4, "block is not quadrilateral");
 try_from_connectivity!(Tetrahedral, 3, 4, "block is not tetrahedral");
 try_from_connectivity!(Triangular, 2, 3, "block is not triangular");
+try_from_connectivity!(Wedge, 3, 6, "block is not a wedge");
 
 impl TryFrom<Connectivity> for PolytopalConnectivity<3> {
     type Error = &'static str;

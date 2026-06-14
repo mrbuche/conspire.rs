@@ -73,6 +73,8 @@ impl<const M: usize, const N: usize> ConnectivityImpl for PrimitiveConnectivity<
             (2, 3) => "tri3",
             (2, 4) => "quad4",
             (3, 4) => "tet4",
+            (3, 5) => "pyramid5",
+            (3, 6) => "wedge6",
             (3, 8) => "hex8",
             _ => panic!("unknown primitive element type: M={M}, N={N}"),
         }
@@ -126,6 +128,47 @@ impl PrimitiveConnectivity<3, 4> {
     pub fn add_edge_adjacency(&self, nodes_nodes: &mut [Vec<usize>]) {
         for &[a, b, c, d] in self.0.members() {
             for (u, v) in [(a, b), (a, c), (a, d), (b, c), (b, d), (c, d)] {
+                nodes_nodes[u].push(v);
+                nodes_nodes[v].push(u);
+            }
+        }
+    }
+}
+
+impl PrimitiveConnectivity<3, 5> {
+    pub fn add_edge_adjacency(&self, nodes_nodes: &mut [Vec<usize>]) {
+        for &[a, b, c, d, e] in self.0.members() {
+            for (u, v) in [
+                (a, b),
+                (b, c),
+                (c, d),
+                (d, a),
+                (a, e),
+                (b, e),
+                (c, e),
+                (d, e),
+            ] {
+                nodes_nodes[u].push(v);
+                nodes_nodes[v].push(u);
+            }
+        }
+    }
+}
+
+impl PrimitiveConnectivity<3, 6> {
+    pub fn add_edge_adjacency(&self, nodes_nodes: &mut [Vec<usize>]) {
+        for &[a, b, c, d, e, f] in self.0.members() {
+            for (u, v) in [
+                (a, b),
+                (b, c),
+                (c, a),
+                (d, e),
+                (e, f),
+                (f, d),
+                (a, d),
+                (b, e),
+                (c, f),
+            ] {
                 nodes_nodes[u].push(v);
                 nodes_nodes[v].push(u);
             }

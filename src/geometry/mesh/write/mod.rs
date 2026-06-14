@@ -3,10 +3,12 @@ mod test;
 
 #[cfg(feature = "netcdf")]
 pub mod exodus;
+pub mod mesh;
 
 use crate::{geometry::mesh::Mesh, io::Write};
 use std::{io::Error as ErrorIO, path::Path};
 
+use self::mesh::WriteMesh;
 #[cfg(feature = "netcdf")]
 use self::exodus::WriteExodus;
 
@@ -44,7 +46,7 @@ where
             Output::Abaqus(_) => unimplemented!(),
             #[cfg(feature = "netcdf")]
             Output::Exodus(path) => self.write_exodus(path)?,
-            Output::Mesh(_) => unimplemented!(),
+            Output::Mesh(path) => self.write_mesh(path)?,
         }
         Ok(())
     }
