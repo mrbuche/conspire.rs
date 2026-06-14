@@ -105,8 +105,8 @@ fn transition_5_identifies_weak_edge_config_only() {
     };
     assert_eq!(
         pushes(Balancing::Weak),
-        2,
-        "transition_5 should place exactly 2 center hexes (one per coarse node) on the weak tree"
+        6,
+        "transition_5 should place 3 hexes (center + 2 cubes) per coarse node = 6 on the weak tree"
     );
     assert_eq!(
         pushes(Balancing::Strong),
