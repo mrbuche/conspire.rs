@@ -36,6 +36,15 @@ jobs:
         with:
           components: clippy, rustfmt
           toolchain: ${{ matrix.toolchain }}
+      - name: netCDF
+        if: ${{ contains(matrix.features, 'netcdf') || matrix.features == 'all' }}
+        shell: bash
+        run: |
+          case "${{ runner.os }}" in
+            Linux) sudo apt-get update && sudo apt-get install -y libnetcdf-dev ;;
+            macOS) brew install netcdf ;;
+            Windows) vcpkg install netcdf-c:x64-windows ;;
+          esac
       - name: Format
         run: cargo fmt --all -- --check
       - name: Clippy
@@ -67,6 +76,9 @@ jobs:
         uses: actions-rs/toolchain@88dc2356392166efad76775c878094f4e83ff746
         with:
           toolchain: stable
+      - name: netCDF
+        if: contains(matrix.features, 'netcdf')
+        run: sudo apt-get update && sudo apt-get install -y libnetcdf-dev
       - name: Install
         run: cargo install cargo-llvm-cov
       - name: Coverage
