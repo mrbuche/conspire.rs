@@ -76,7 +76,11 @@ fn write_weak_edge_dual() {
             + tet(0, 4, 5, 6)
             + tet(0, 5, 1, 6)
     };
-    let inverted = mesh.iter().flatten().filter(|hex| vol6(hex) <= 1e-9).count();
+    let inverted = mesh
+        .iter()
+        .flatten()
+        .filter(|hex| vol6(hex) <= 1e-9)
+        .count();
     assert_eq!(inverted, 0, "{inverted} non-positive hexes in weak dual");
     mesh.write(Output::Exodus("target/weak_edge.exo")).unwrap();
 }
