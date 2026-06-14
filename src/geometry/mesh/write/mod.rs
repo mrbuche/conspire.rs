@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+pub mod abaqus;
 #[cfg(feature = "netcdf")]
 pub mod exodus;
 pub mod mesh;
@@ -8,6 +9,7 @@ pub mod mesh;
 use crate::{geometry::mesh::Mesh, io::Write};
 use std::{io::Error as ErrorIO, path::Path};
 
+use self::abaqus::WriteAbaqus;
 #[cfg(feature = "netcdf")]
 use self::exodus::WriteExodus;
 use self::mesh::WriteMesh;
@@ -43,7 +45,7 @@ where
     type Error = ErrorIO;
     fn write(&self, output: Output<P>) -> Result<(), Self::Error> {
         match output {
-            Output::Abaqus(_) => unimplemented!(),
+            Output::Abaqus(path) => self.write_abaqus(path)?,
             #[cfg(feature = "netcdf")]
             Output::Exodus(path) => self.write_exodus(path)?,
             Output::Mesh(path) => self.write_mesh(path)?,

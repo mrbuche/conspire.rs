@@ -1,7 +1,9 @@
+pub mod abaqus;
 #[cfg(feature = "netcdf")]
 pub mod exodus;
 pub mod mesh;
 
+pub use self::abaqus::ReadAbaqus;
 #[cfg(feature = "netcdf")]
 pub use self::exodus::ReadExodus;
 pub use self::mesh::ReadMesh;
@@ -40,9 +42,7 @@ where
     type Error = ErrorIO;
     fn try_from(input: Input<P>) -> Result<Self, Self::Error> {
         match input {
-            Input::Abaqus(_) => {
-                unimplemented!()
-            }
+            Input::Abaqus(path) => Ok(Mesh::read_abaqus(path)?),
             #[cfg(feature = "netcdf")]
             Input::Exodus(path) => Ok(Mesh::read_exodus(path)?),
             Input::Mesh(path) => Ok(Mesh::read_mesh(path)?),
