@@ -16,7 +16,7 @@ fn triangles_round_trip() {
     .into();
     let path = "target/triangles.mesh";
     Mesh::from((connectivities, coordinates))
-        .write(Output::Mesh(path))
+        .write(Output::Medit(path))
         .unwrap();
     let contents = read_to_string(path).unwrap();
     assert!(contents.starts_with("MeshVersionFormatted 2"));
@@ -43,7 +43,7 @@ fn merges_blocks_of_same_type() {
     .into();
     let path = "target/merged.mesh";
     Mesh::from((connectivities, coordinates))
-        .write(Output::Mesh(path))
+        .write(Output::Medit(path))
         .unwrap();
     let contents = read_to_string(path).unwrap();
     assert_eq!(contents.matches("Triangles").count(), 1);
@@ -77,7 +77,7 @@ fn mixed_hex_wedge_pyramid_tet() {
     .into();
     let path = "target/mixed.mesh";
     Mesh::from((connectivities, coordinates))
-        .write(Output::Mesh(path))
+        .write(Output::Medit(path))
         .unwrap();
     let contents = read_to_string(path).unwrap();
     assert!(contents.contains("Vertices\n12\n"));
@@ -96,7 +96,7 @@ fn polyhedral_is_unsupported() {
     let coordinates = vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0]].into();
     assert!(
         Mesh::from((connectivities, coordinates))
-            .write(Output::Mesh("target/bad.mesh"))
+            .write(Output::Medit("target/bad.mesh"))
             .is_err()
     );
 }

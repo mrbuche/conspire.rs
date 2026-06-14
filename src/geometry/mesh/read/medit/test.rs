@@ -1,4 +1,4 @@
-use super::ReadMesh;
+use super::ReadMedit;
 use crate::{
     geometry::mesh::{Connectivity, Mesh, Output},
     io::Write,
@@ -34,9 +34,9 @@ fn round_trip_mixed() {
     .into();
     let path = "target/round_trip.mesh";
     Mesh::from((connectivities, coordinates))
-        .write(Output::Mesh(path))
+        .write(Output::Medit(path))
         .unwrap();
-    let mesh = Mesh::<3>::read_mesh(path).unwrap();
+    let mesh = Mesh::<3>::read_medit(path).unwrap();
     assert_eq!(mesh.number_of_nodes(), 12);
     assert_eq!(mesh.number_of_element_blocks(), 4);
     assert_eq!(mesh.number_of_elements(), 4);
@@ -64,7 +64,7 @@ fn skips_edges_and_corners() {
          Tetrahedra\n1\n1 2 3 4 0\nEnd\n",
     )
     .unwrap();
-    let mesh = Mesh::<3>::read_mesh(path).unwrap();
+    let mesh = Mesh::<3>::read_medit(path).unwrap();
     assert_eq!(mesh.number_of_nodes(), 4);
     assert_eq!(mesh.number_of_element_blocks(), 1);
     assert_eq!(first_element(&mesh, 0), [0, 1, 2, 3]);
@@ -78,7 +78,7 @@ fn dimension_mismatch_errors() {
         "MeshVersionFormatted 2\nDimension 2\nVertices\n1\n0 0 0\nEnd\n",
     )
     .unwrap();
-    assert!(Mesh::<3>::read_mesh(path).is_err());
+    assert!(Mesh::<3>::read_medit(path).is_err());
 }
 
 #[test]
@@ -89,5 +89,5 @@ fn unknown_keyword_errors() {
         "MeshVersionFormatted 2\nDimension 3\nGreebles\n1\n0\nEnd\n",
     )
     .unwrap();
-    assert!(Mesh::<3>::read_mesh(path).is_err());
+    assert!(Mesh::<3>::read_medit(path).is_err());
 }

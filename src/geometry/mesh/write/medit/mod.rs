@@ -11,11 +11,11 @@ use std::{
     path::Path,
 };
 
-pub trait WriteMesh<P>
+pub trait WriteMedit<P>
 where
     P: AsRef<Path>,
 {
-    fn write_mesh(&self, output: P) -> Result<()>;
+    fn write_medit(&self, output: P) -> Result<()>;
 }
 
 fn section(connectivity: &Connectivity) -> Result<&'static str> {
@@ -33,11 +33,11 @@ fn section(connectivity: &Connectivity) -> Result<&'static str> {
     }
 }
 
-impl<const D: usize, P> WriteMesh<P> for Mesh<D>
+impl<const D: usize, P> WriteMedit<P> for Mesh<D>
 where
     P: AsRef<Path>,
 {
-    fn write_mesh(&self, output: P) -> Result<()> {
+    fn write_medit(&self, output: P) -> Result<()> {
         if D != 2 && D != 3 {
             return Err(Error::new(
                 ErrorKind::Unsupported,

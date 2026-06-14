@@ -15,19 +15,19 @@ use std::{
     str::FromStr,
 };
 
-pub trait ReadMesh<P>
+pub trait ReadMedit<P>
 where
     P: AsRef<Path>,
     Self: Sized,
 {
-    fn read_mesh(input: P) -> Result<Self>;
+    fn read_medit(input: P) -> Result<Self>;
 }
 
-impl<const D: usize, P> ReadMesh<P> for Mesh<D>
+impl<const D: usize, P> ReadMedit<P> for Mesh<D>
 where
     P: AsRef<Path>,
 {
-    fn read_mesh(input: P) -> Result<Self> {
+    fn read_medit(input: P) -> Result<Self> {
         let text = read_to_string(input)?;
         let mut tokens = text.split_whitespace();
         let mut coordinates: Vec<[Scalar; D]> = Vec::new();
