@@ -10,7 +10,9 @@ const D: usize = 3;
 const N: usize = 3;
 
 pub struct Jet {
-    pub normal: Coordinate<D>,
+    // Off until anisotropic remesh: the fitted surface normal, part of the
+    // (u, v, n) curvature frame the per-vertex metric will need.
+    // pub normal: Coordinate<D>,
     pub principal_curvatures: [Scalar; 2],
 }
 
@@ -61,9 +63,10 @@ pub fn fit_jet(
     let mean = (big_e * big_n - 2.0 * big_f * big_m + big_g * big_l) / (2.0 * area);
     let gauss = (big_l * big_n - big_m * big_m) / area;
     let spread = (mean * mean - gauss).max(0.0).sqrt();
-    let normal = (&(&w - &(&u * h_u)) - &(&v * h_v)).normalized();
+    // Off until anisotropic remesh (see Jet::normal):
+    // let normal = (&(&w - &(&u * h_u)) - &(&v * h_v)).normalized();
     Some(Jet {
-        normal,
+        // normal,
         principal_curvatures: [mean + spread, mean - spread],
     })
 }
