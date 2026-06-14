@@ -7,7 +7,6 @@ use crate::{
     },
     math::Tensor,
 };
-use std::path::Path;
 
 const CONNECTIVITY: [[usize; 3]; 12] = [
     [0, 2, 1],
@@ -58,55 +57,4 @@ fn cube_cone_stays_near_unit_thickness() {
         assert!(diameter > 0.0 && diameter.is_finite());
         assert!((diameter - 1.0).abs() < 0.5);
     });
-}
-
-#[test]
-fn bunny() {
-    let tessellation =
-        Tessellation::try_from(Path::new("/home/mrbuche/Downloads/Stanford_Bunny.stl")).unwrap();
-    println!(
-        "triangles: {}",
-        tessellation
-            .mesh()
-            .connectivities()
-            .iter()
-            .flatten()
-            .count()
-    );
-    use std::time::Instant;
-    let start = Instant::now();
-    let diameters = tessellation.shape_diameter_function(FRAC_PI_3, 3, 8);
-    println!("SDF time: {:?}", start.elapsed());
-    assert_eq!(diameters.len(), tessellation.mesh().coordinates().len());
-    // println!("{:?}", diameters);
-    use crate::io::Write;
-    let mesh = Mesh::from(tessellation);
-    let start = Instant::now();
-    // let mesh = mesh.isotropic_remesh(10, None).unwrap();
-    let length = 1.0;
-    let mesh = mesh
-        .adaptive_remesh(10, 0.25 * length, 0.1 * length, 10.0 * length, 0.5)
-        .unwrap();
-    println!("remesh time: {:?}", start.elapsed());
-    let tessellation = Tessellation::from(mesh);
-    tessellation
-        .write(Path::new("target/bunny_remesh.stl"))
-        .unwrap();
-}
-
-#[test]
-fn foo() {
-    use crate::{
-        geometry::{mesh::Output, ntree::Balancing},
-        io::Write,
-    };
-    let tessellation =
-        Tessellation::try_from(Path::new("/home/mrbuche/Downloads/Stanford_bunny.stl")).unwrap();
-    let mesh = tessellation.dualize(Balancing::Strong, 3.0).unwrap();
-    mesh.write(Output::Exodus("target/bunny.exo")).unwrap();
-    // mesh.smart_laplace_smooth(10, 0.8);
-    // mesh.write(Output::Exodus("target/bunny_sls.exo")).unwrap();
-    //mesh.untangle(10, 0.1, Some(&tessellation));
-    //mesh.write(Output::Exodus("target/bunny_untangle.exo"))
-    //    .unwrap();
 }
