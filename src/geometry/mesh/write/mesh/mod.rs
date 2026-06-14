@@ -56,8 +56,6 @@ where
             }
             writeln!(file, "0")?;
         }
-        // Medit allows one section per element type; merge blocks of the same
-        // type (first-seen order) and tag each element with its 1-based block.
         let mut sections: Vec<(&'static str, Vec<(&[usize], usize)>)> = Vec::new();
         for (block, connectivity) in self.iter().enumerate() {
             let keyword = section(connectivity)?;

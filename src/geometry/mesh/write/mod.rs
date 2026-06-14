@@ -8,9 +8,9 @@ pub mod mesh;
 use crate::{geometry::mesh::Mesh, io::Write};
 use std::{io::Error as ErrorIO, path::Path};
 
-use self::mesh::WriteMesh;
 #[cfg(feature = "netcdf")]
 use self::exodus::WriteExodus;
+use self::mesh::WriteMesh;
 
 pub enum Output<P>
 where

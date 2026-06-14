@@ -1,8 +1,10 @@
 #[cfg(feature = "netcdf")]
 pub mod exodus;
+pub mod mesh;
 
 #[cfg(feature = "netcdf")]
 pub use self::exodus::ReadExodus;
+pub use self::mesh::ReadMesh;
 
 use crate::geometry::mesh::Mesh;
 use std::{io::Error as ErrorIO, path::Path};
@@ -43,9 +45,7 @@ where
             }
             #[cfg(feature = "netcdf")]
             Input::Exodus(path) => Ok(Mesh::read_exodus(path)?),
-            Input::Mesh(_) => {
-                unimplemented!()
-            }
+            Input::Mesh(path) => Ok(Mesh::read_mesh(path)?),
         }
     }
 }

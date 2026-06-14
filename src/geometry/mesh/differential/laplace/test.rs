@@ -54,7 +54,6 @@ fn translation_invariant() -> Result<(), TestError> {
 
 #[test]
 fn cotangent_single_right_triangle() -> Result<(), TestError> {
-    // Right angle at vertex 0; opposite cot = 0, the two 45 deg cots = 1.
     let laplacian = triangle([
         Coordinate::const_from([0.0, 0.0, 0.0]),
         Coordinate::const_from([2.0, 0.0, 0.0]),
