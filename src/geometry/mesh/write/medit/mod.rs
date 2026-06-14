@@ -18,6 +18,9 @@ where
     fn write_medit(&self, output: P) -> Result<()>;
 }
 
+// A Medit section: keyword plus its (element nodes, 1-based block) records.
+type Section<'a> = (&'static str, Vec<(&'a [usize], usize)>);
+
 fn section(connectivity: &Connectivity) -> Result<&'static str> {
     match connectivity {
         Connectivity::Triangular(_) => Ok("Triangles"),
@@ -56,7 +59,7 @@ where
             }
             writeln!(file, "0")?;
         }
-        let mut sections: Vec<(&'static str, Vec<(&[usize], usize)>)> = Vec::new();
+        let mut sections: Vec<Section<'_>> = Vec::new();
         for (block, connectivity) in self.iter().enumerate() {
             let keyword = section(connectivity)?;
             let index = match sections.iter().position(|(found, _)| *found == keyword) {
