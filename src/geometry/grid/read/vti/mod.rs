@@ -40,13 +40,13 @@ where
         return Err(invalid("WholeExtent must have 6 entries".into()));
     }
     let cells: [usize; 3] = from_fn(|axis| (bounds[2 * axis + 1] - bounds[2 * axis]) as usize);
-    let total: usize = cells.iter().product();
-    let nel: [usize; D] = from_fn(|axis| cells[axis]);
-    if nel.iter().product::<usize>() != total {
+    if cells[D..].iter().any(|&c| c > 1) {
         return Err(invalid(format!(
-            "VTI extent {cells:?} does not reduce to {D} dimensions"
+            "VTI extent {cells:?} exceeds {D} dimensions"
         )));
     }
+    let nel: [usize; D] = from_fn(|axis| cells[axis]);
+    let total: usize = nel.iter().product();
     let array = data_array(&text)?;
     if array.data_type != vtk_type(T::DESCR) {
         return Err(invalid(format!(

@@ -55,7 +55,7 @@ fn round_trip_vti_2d() {
         .write(Output::Vti(path))
         .unwrap();
     let contents = std::fs::read_to_string(path).unwrap();
-    assert!(contents.contains("WholeExtent=\"0 2 0 3 0 1\""));
+    assert!(contents.contains("WholeExtent=\"0 2 0 3 0 0\""));
     let read = Pixels::<u16>::try_from(Input::Vti(path)).unwrap();
     assert_eq!(read.data(), data);
     assert_eq!(read.nel(), &[2, 3]);
