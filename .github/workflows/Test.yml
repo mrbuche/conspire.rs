@@ -13,21 +13,13 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
+        # TEMP: single Windows case for SSH debugging of the netCDF DLL.
         features:
-          - math
-          - io
-          - io,netcdf
-          - geometry
           - geometry,netcdf
-          - mechanics
-          - physics
-          - constitutive
-          - fem
-          - vem
-          - all
-        os: [macos-latest, ubuntu-latest] # windows-latest
-        toolchain: [beta, nightly, stable]
+        os: [windows-latest]
+        toolchain: [stable]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -43,7 +35,10 @@ jobs:
           case "${{ runner.os }}" in
             Linux) sudo apt-get update && sudo apt-get install -y libnetcdf-dev ;;
             macOS) brew install netcdf ;;
-            Windows) vcpkg install netcdf-c:x64-windows ;;
+            Windows)
+              vcpkg install netcdf-c:x64-windows
+              echo "C:/vcpkg/installed/x64-windows/bin" >> "$GITHUB_PATH"
+              ;;
           esac
       - name: Format
         run: cargo fmt --all -- --check
@@ -53,6 +48,13 @@ jobs:
         run: cargo clippy --release --features ${{ matrix.features }} --tests -- -D warnings
       - name: Test
         run: cargo test --release --features ${{ matrix.features }}
+      # TEMP: opens an SSH session into the runner; halts the job until you
+      # disconnect (`touch continue` in the session) or timeout-minutes hits.
+      - name: SSH
+        if: always()
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
   Coverage:
     strategy:
       fail-fast: true
