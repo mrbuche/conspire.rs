@@ -1,5 +1,7 @@
+mod vti;
+
 use crate::{
-    geometry::voxel::Voxels,
+    geometry::grid::Grid,
     io::{Npy, NpyType},
 };
 use std::{
@@ -12,6 +14,7 @@ where
     P: AsRef<Path>,
 {
     Npy(P),
+    Vti(P),
 }
 
 impl<P> AsRef<Path> for Input<P>
@@ -21,11 +24,12 @@ where
     fn as_ref(&self) -> &Path {
         match self {
             Input::Npy(path) => path.as_ref(),
+            Input::Vti(path) => path.as_ref(),
         }
     }
 }
 
-impl<const D: usize, T, P> TryFrom<Input<P>> for Voxels<D, T>
+impl<const D: usize, T, P> TryFrom<Input<P>> for Grid<D, T>
 where
     P: AsRef<Path>,
     T: NpyType,
@@ -38,10 +42,7 @@ where
                 let nel: [usize; D] = npy.shape.try_into().map_err(|shape: Vec<usize>| {
                     ErrorIO::new(
                         ErrorKind::InvalidData,
-                        format!(
-                            "npy has {} axes but Voxels was asked for D={D}",
-                            shape.len()
-                        ),
+                        format!("npy has {} axes but Grid was asked for D={D}", shape.len()),
                     )
                 })?;
                 let data = if npy.fortran_order {
@@ -49,8 +50,9 @@ where
                 } else {
                     transpose(npy.data, nel)
                 };
-                Ok(Voxels::new(data, nel))
+                Ok(Grid::new(data, nel))
             }
+            Input::Vti(path) => vti::read(path),
         }
     }
 }

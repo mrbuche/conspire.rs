@@ -12,8 +12,8 @@ pub mod mesh;
 /// Orthotrees, such as quadtrees and octrees.
 pub mod ntree;
 
-/// Regular grids of per-voxel values.
-pub mod voxel;
+/// Regular grids of values.
+pub mod grid;
 
 use crate::math::{TensorRank1, TensorRank1List, TensorRank1RefVec, TensorRank1Vec};
 

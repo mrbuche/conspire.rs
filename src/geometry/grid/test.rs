@@ -1,0 +1,71 @@
+use crate::{
+    geometry::grid::{Input, Output, Pixels, Voxels},
+    io::{Npy, Write},
+};
+
+#[test]
+fn round_trip_npy() {
+    let data: Vec<u8> = (0..24).collect();
+    let path = "target/voxels.npy";
+    Voxels::new(data.clone(), [2, 3, 4])
+        .write(Output::Npy(path))
+        .unwrap();
+    let read = Voxels::<u8>::try_from(Input::Npy(path)).unwrap();
+    assert_eq!(read.data(), data);
+    assert_eq!(read.nel(), &[2, 3, 4]);
+}
+
+#[test]
+fn reads_c_order_with_transpose() {
+    let path = "target/voxels_c.npy";
+    Npy {
+        data: vec![0u8, 1, 10, 11],
+        shape: vec![2, 2],
+        fortran_order: false,
+    }
+    .write(path)
+    .unwrap();
+    let pixels = Pixels::<u8>::try_from(Input::Npy(path)).unwrap();
+    assert_eq!(pixels[[0, 0]], 0);
+    assert_eq!(pixels[[1, 0]], 10);
+    assert_eq!(pixels[[0, 1]], 1);
+    assert_eq!(pixels[[1, 1]], 11);
+}
+
+#[test]
+fn round_trip_vti() {
+    let data: Vec<u8> = (0..24).collect();
+    let path = "target/voxels.vti";
+    Voxels::new(data.clone(), [2, 3, 4])
+        .write(Output::Vti(path))
+        .unwrap();
+    let contents = std::fs::read_to_string(path).unwrap();
+    assert!(contents.contains("type=\"ImageData\""));
+    assert!(contents.contains("WholeExtent=\"0 2 0 3 0 4\""));
+    let read = Voxels::<u8>::try_from(Input::Vti(path)).unwrap();
+    assert_eq!(read.data(), data);
+    assert_eq!(read.nel(), &[2, 3, 4]);
+}
+
+#[test]
+fn round_trip_vti_2d() {
+    let data: Vec<u16> = (0..6).collect();
+    let path = "target/pixels.vti";
+    Pixels::new(data.clone(), [2, 3])
+        .write(Output::Vti(path))
+        .unwrap();
+    let contents = std::fs::read_to_string(path).unwrap();
+    assert!(contents.contains("WholeExtent=\"0 2 0 3 0 1\""));
+    let read = Pixels::<u16>::try_from(Input::Vti(path)).unwrap();
+    assert_eq!(read.data(), data);
+    assert_eq!(read.nel(), &[2, 3]);
+}
+
+#[test]
+fn dimension_mismatch_errors() {
+    let path = "target/pixels.npy";
+    Pixels::new(vec![0u8; 6], [2, 3])
+        .write(Output::Npy(path))
+        .unwrap();
+    assert!(Voxels::<u8>::try_from(Input::Npy(path)).is_err());
+}

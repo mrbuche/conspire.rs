@@ -8,12 +8,15 @@ pub use self::{read::Input, write::Output};
 
 use std::ops::{Index, IndexMut};
 
-pub struct Voxels<const D: usize, T> {
+pub type Pixels<T> = Grid<2, T>;
+pub type Voxels<T> = Grid<3, T>;
+
+pub struct Grid<const D: usize, T> {
     data: Vec<T>,
     nel: [usize; D],
 }
 
-impl<const D: usize, T> Voxels<D, T> {
+impl<const D: usize, T> Grid<D, T> {
     pub fn new(data: Vec<T>, nel: [usize; D]) -> Self {
         assert_eq!(
             data.len(),
@@ -45,14 +48,14 @@ impl<const D: usize, T> Voxels<D, T> {
     }
 }
 
-impl<const D: usize, T> Index<[usize; D]> for Voxels<D, T> {
+impl<const D: usize, T> Index<[usize; D]> for Grid<D, T> {
     type Output = T;
     fn index(&self, index: [usize; D]) -> &T {
         &self.data[self.flat(index)]
     }
 }
 
-impl<const D: usize, T> IndexMut<[usize; D]> for Voxels<D, T> {
+impl<const D: usize, T> IndexMut<[usize; D]> for Grid<D, T> {
     fn index_mut(&mut self, index: [usize; D]) -> &mut T {
         let offset = self.flat(index);
         &mut self.data[offset]
