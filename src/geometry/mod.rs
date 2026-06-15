@@ -12,6 +12,9 @@ pub mod mesh;
 /// Orthotrees, such as quadtrees and octrees.
 pub mod ntree;
 
+/// Regular grids of per-voxel values.
+pub mod voxel;
+
 use crate::math::{TensorRank1, TensorRank1List, TensorRank1RefVec, TensorRank1Vec};
 
 pub type Coordinate<const D: usize> = TensorRank1<D, 0>;
