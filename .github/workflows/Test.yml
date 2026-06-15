@@ -63,9 +63,9 @@ jobs:
         features:
           - math
           # - io
-          # - io netcdf
+          # - io,netcdf
           - geometry
-          - geometry netcdf
+          - geometry,netcdf
           - mechanics
           - physics
           - constitutive
