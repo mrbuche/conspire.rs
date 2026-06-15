@@ -8,15 +8,19 @@ mod leaves;
 mod node;
 mod pair;
 mod prune;
+mod read;
 mod rescale;
 mod subdivide;
+mod write;
 
 pub use crate::geometry::ntree::{
     balance::{Balance, Balancing},
     dual::Dualization,
     node::Nodes,
     pair::Pairing,
+    read::Input,
     rescale::Rescaling,
+    write::Output,
 };
 
 pub struct Orthotree<const D: usize, const L: usize, const M: usize, const N: usize, T, U> {
