@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        # TEMP: single Windows case for SSH debugging of the netCDF DLL.
+        # TEMP: single Windows case to confirm the netCDF size_t fix.
         features:
           - geometry,netcdf
         os: [windows-latest]
@@ -48,13 +48,6 @@ jobs:
         run: cargo clippy --release --features ${{ matrix.features }} --tests -- -D warnings
       - name: Test
         run: cargo test --release --features ${{ matrix.features }}
-      # TEMP: opens an SSH session into the runner; halts the job until you
-      # disconnect (`touch continue` in the session) or timeout-minutes hits.
-      - name: SSH
-        if: always()
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: true
   Coverage:
     strategy:
       fail-fast: true

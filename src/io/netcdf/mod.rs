@@ -14,14 +14,10 @@ pub(crate) fn nc_lock() -> MutexGuard<'static, ()> {
     NC_LOCK.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-// netCDF/HDF5 is not thread-safe even across distinct files, so the lock is
-// held for the whole session (create/open until drop): only one NetCDF exists
-// process-wide at a time, and individual methods must not re-lock.
 pub struct NetCDF {
     ncid: c_int,
     dimid: c_int,
     varid: c_int,
-    _guard: MutexGuard<'static, ()>,
 }
 
 impl Drop for NetCDF {

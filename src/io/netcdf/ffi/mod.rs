@@ -1,4 +1,4 @@
-use std::ffi::{c_char, c_int, c_ulong};
+use std::ffi::{c_char, c_int};
 
 pub const NC_GLOBAL: c_int = -1;
 pub const NC_FLOAT: i32 = 5;
@@ -10,7 +10,7 @@ unsafe extern "C" {
     pub fn nc_create(path: *const c_char, cmode: c_int, ncidp: *mut c_int) -> c_int;
     pub fn nc_open(path: *const c_char, mode: c_int, ncidp: *mut c_int) -> c_int;
     pub fn nc_close(ncid: c_int) -> c_int;
-    pub fn nc_def_dim(ncid: c_int, name: *const c_char, len: c_ulong, idp: *mut c_int) -> c_int;
+    pub fn nc_def_dim(ncid: c_int, name: *const c_char, len: usize, idp: *mut c_int) -> c_int;
     pub fn nc_def_var(
         ncid: c_int,
         name: *const c_char,
@@ -21,13 +21,13 @@ unsafe extern "C" {
     ) -> c_int;
     pub fn nc_enddef(ncid: c_int) -> c_int;
     pub fn nc_inq_dimid(ncid: c_int, name: *const c_char, idp: *mut c_int) -> c_int;
-    pub fn nc_inq_dimlen(ncid: c_int, dimid: c_int, lenp: *mut c_ulong) -> c_int;
+    pub fn nc_inq_dimlen(ncid: c_int, dimid: c_int, lenp: *mut usize) -> c_int;
     pub fn nc_inq_varid(ncid: c_int, name: *const c_char, idp: *mut c_int) -> c_int;
     pub fn nc_inq_attlen(
         ncid: c_int,
         varid: c_int,
         name: *const c_char,
-        lenp: *mut c_ulong,
+        lenp: *mut usize,
     ) -> c_int;
     pub fn nc_put_att_float(
         ncid: c_int,

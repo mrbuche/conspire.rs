@@ -7,17 +7,18 @@ use crate::io::netcdf::{
     },
     nc_lock,
 };
-use std::ffi::{CString, NulError, c_char, c_int, c_ulong};
+use std::ffi::{CString, NulError, c_char, c_int};
 
 impl NetCDF {
     pub fn close(&mut self) {
+        let _guard = nc_lock();
         let status = unsafe { nc_close(self.ncid) };
         assert_eq!(status, 0, "nc_close failed with status={status}");
     }
     pub fn create(path: &str) -> Result<Self, NulError> {
         let path_c_str = CString::new(path)?;
         let mut ncid = 0;
-        let guard = nc_lock();
+        let _guard = nc_lock();
         let status = unsafe { nc_create(path_c_str.as_ptr(), 0, &mut ncid) };
         assert_eq!(
             status, 0,
@@ -25,56 +26,52 @@ impl NetCDF {
         );
         let dimid = 0;
         let varid = 0;
-        Ok(Self {
-            ncid,
-            dimid,
-            varid,
-            _guard: guard,
-        })
+        Ok(Self { ncid, dimid, varid })
     }
     pub fn open(path: &str) -> Result<Self, NulError> {
         let path_c_str = CString::new(path)?;
         let mut ncid = 0;
-        let guard = nc_lock();
+        let _guard = nc_lock();
         let status = unsafe { nc_open(path_c_str.as_ptr(), NC_NOWRITE, &mut ncid) };
         assert_eq!(status, 0, "nc_open failed for {path} with status={status}");
         Ok(Self {
             ncid,
             dimid: 0,
             varid: 0,
-            _guard: guard,
         })
     }
     pub fn dimension_length(&self, name: &str) -> Result<usize, NulError> {
         let name_c_str = CString::new(name)?;
         let mut dimid: c_int = 0;
+        let _guard = nc_lock();
         let status = unsafe { nc_inq_dimid(self.ncid, name_c_str.as_ptr(), &mut dimid) };
         assert_eq!(
             status, 0,
             "nc_inq_dimid failed for {name} with status={status}"
         );
-        let mut len: c_ulong = 0;
+        let mut len: usize = 0;
         let status = unsafe { nc_inq_dimlen(self.ncid, dimid, &mut len) };
         assert_eq!(
             status, 0,
             "nc_inq_dimlen failed for {name} with status={status}"
         );
-        Ok(len as usize)
+        Ok(len)
     }
     pub fn try_dimension_length(&self, name: &str) -> Result<Option<usize>, NulError> {
         let name_c_str = CString::new(name)?;
         let mut dimid: c_int = 0;
+        let _guard = nc_lock();
         let status = unsafe { nc_inq_dimid(self.ncid, name_c_str.as_ptr(), &mut dimid) };
         if status != 0 {
             return Ok(None);
         }
-        let mut len: c_ulong = 0;
+        let mut len: usize = 0;
         let status = unsafe { nc_inq_dimlen(self.ncid, dimid, &mut len) };
         assert_eq!(
             status, 0,
             "nc_inq_dimlen failed for {name} with status={status}"
         );
-        Ok(Some(len as usize))
+        Ok(Some(len))
     }
     pub fn get_variable_attribute_text(
         &self,
@@ -83,19 +80,20 @@ impl NetCDF {
     ) -> Result<String, NulError> {
         let variable_c_str = CString::new(variable)?;
         let mut varid: c_int = 0;
+        let _guard = nc_lock();
         let status = unsafe { nc_inq_varid(self.ncid, variable_c_str.as_ptr(), &mut varid) };
         assert_eq!(
             status, 0,
             "nc_inq_varid failed for {variable} with status={status}"
         );
         let attr_c_str = CString::new(attr_name)?;
-        let mut len: c_ulong = 0;
+        let mut len: usize = 0;
         let status = unsafe { nc_inq_attlen(self.ncid, varid, attr_c_str.as_ptr(), &mut len) };
         assert_eq!(
             status, 0,
             "nc_inq_attlen failed for {variable}::{attr_name} with status={status}"
         );
-        let mut buf: Vec<c_char> = vec![0; len as usize];
+        let mut buf: Vec<c_char> = vec![0; len];
         let status =
             unsafe { nc_get_att_text(self.ncid, varid, attr_c_str.as_ptr(), buf.as_mut_ptr()) };
         assert_eq!(
@@ -107,13 +105,9 @@ impl NetCDF {
     }
     pub fn define_dimension(&mut self, name: &str, len: usize) -> Result<(), NulError> {
         let name_c_str = CString::new(name)?;
+        let _guard = nc_lock();
         let status = unsafe {
-            nc_def_dim(
-                self.ncid,
-                name_c_str.as_ptr(),
-                len as c_ulong,
-                &mut self.dimid,
-            )
+            nc_def_dim(self.ncid, name_c_str.as_ptr(), len, &mut self.dimid)
         };
         assert_eq!(
             status, 0,
@@ -122,6 +116,7 @@ impl NetCDF {
         Ok(())
     }
     pub fn end_definition(&mut self) {
+        let _guard = nc_lock();
         let status = unsafe { nc_enddef(self.ncid) };
         assert_eq!(status, 0, "nc_enddef failed with status={status}");
     }
@@ -137,6 +132,7 @@ impl NetCDF {
     }
     pub fn put_attribute_float(&mut self, name: &str, value: f32) -> Result<(), NulError> {
         let name_c_str = CString::new(name)?;
+        let _guard = nc_lock();
         let status = unsafe {
             nc_put_att_float(
                 self.ncid,
@@ -155,6 +151,7 @@ impl NetCDF {
     }
     pub fn put_attribute_int(&mut self, name: &str, value: i32) -> Result<(), NulError> {
         let name_c_str = CString::new(name)?;
+        let _guard = nc_lock();
         let status =
             unsafe { nc_put_att_int(self.ncid, NC_GLOBAL, name_c_str.as_ptr(), NC_INT, 1, &value) };
         assert_eq!(
@@ -164,6 +161,7 @@ impl NetCDF {
         Ok(())
     }
     pub fn put_attribute_text(&mut self, name: &str, value: &str) -> Result<(), NulError> {
+        let _guard = nc_lock();
         put_attribute_text(self, NC_GLOBAL, name, value)
     }
     pub fn put_variable_attribute_text(
@@ -174,6 +172,7 @@ impl NetCDF {
     ) -> Result<(), NulError> {
         let variable_c_str = CString::new(variable)?;
         let mut varid: c_int = 0;
+        let _guard = nc_lock();
         let status = unsafe { nc_inq_varid(self.ncid, variable_c_str.as_ptr(), &mut varid) };
         assert_eq!(
             status, 0,
