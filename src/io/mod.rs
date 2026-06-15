@@ -2,6 +2,7 @@
 
 #[cfg(feature = "netcdf")]
 mod netcdf;
+pub mod npy;
 
 use std::path::Path;
 

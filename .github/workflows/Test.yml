@@ -62,8 +62,8 @@ jobs:
       matrix:
         features:
           - math
-          # - io
-          # - io,netcdf
+          - io
+          - io,netcdf
           - geometry
           - geometry,netcdf
           - mechanics
