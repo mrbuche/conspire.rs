@@ -5,7 +5,7 @@ use crate::{
 };
 use std::fs::write;
 
-fn first_element<'a>(mesh: &'a Mesh<3>, block: usize) -> &'a [usize] {
+fn first_element(mesh: &Mesh<3>, block: usize) -> &[usize] {
     mesh.iter().nth(block).unwrap().iter().next().unwrap()
 }
 
