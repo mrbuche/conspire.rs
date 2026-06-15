@@ -18,7 +18,6 @@ where
     fn write_medit(&self, output: P) -> Result<()>;
 }
 
-// A Medit section: keyword plus its (element nodes, 1-based block) records.
 type Section<'a> = (&'static str, Vec<(&'a [usize], usize)>);
 
 fn section(connectivity: &Connectivity) -> Result<&'static str> {

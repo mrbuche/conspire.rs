@@ -5,6 +5,7 @@ pub mod abaqus;
 #[cfg(feature = "netcdf")]
 pub mod exodus;
 pub mod medit;
+pub mod vtu;
 
 use crate::{geometry::mesh::Mesh, io::Write};
 use std::{io::Error as ErrorIO, path::Path};
@@ -13,6 +14,7 @@ use self::abaqus::WriteAbaqus;
 #[cfg(feature = "netcdf")]
 use self::exodus::WriteExodus;
 use self::medit::WriteMedit;
+use self::vtu::WriteVtu;
 
 pub enum Output<P>
 where
@@ -22,6 +24,7 @@ where
     #[cfg(feature = "netcdf")]
     Exodus(P),
     Medit(P),
+    Vtu(P),
 }
 
 impl<P> AsRef<Path> for Output<P>
@@ -34,6 +37,7 @@ where
             #[cfg(feature = "netcdf")]
             Output::Exodus(path) => path.as_ref(),
             Output::Medit(path) => path.as_ref(),
+            Output::Vtu(path) => path.as_ref(),
         }
     }
 }
@@ -49,6 +53,7 @@ where
             #[cfg(feature = "netcdf")]
             Output::Exodus(path) => self.write_exodus(path)?,
             Output::Medit(path) => self.write_medit(path)?,
+            Output::Vtu(path) => self.write_vtu(path)?,
         }
         Ok(())
     }
