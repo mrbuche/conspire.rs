@@ -5,7 +5,6 @@ use crate::io::netcdf::{
         nc_get_var_int, nc_inq_dimid, nc_inq_varid, nc_put_var_double, nc_put_var_float,
         nc_put_var_int,
     },
-    nc_lock,
 };
 use std::ffi::{CString, NulError, c_int};
 
@@ -24,7 +23,6 @@ impl DefineVariable for NetCDF {
             dim_names.iter().map(|name| CString::new(*name)).collect();
         let dim_name_cstrings = dim_name_cstrings?;
 
-        let _guard = nc_lock();
         let mut dimids = Vec::with_capacity(dim_name_cstrings.len());
         for dim_name_cstr in dim_name_cstrings.iter() {
             let mut dimid: c_int = 0;
@@ -59,7 +57,6 @@ impl PutVariable for NetCDF {
     fn put_variable<T: NcType>(&mut self, name: &str, data: &[T]) -> Result<(), NulError> {
         let name_c_str = CString::new(name)?;
         let mut varid: c_int = 0;
-        let _guard = nc_lock();
         let status = unsafe { nc_inq_varid(self.ncid, name_c_str.as_ptr(), &mut varid) };
         assert_eq!(
             status, 0,
@@ -80,7 +77,6 @@ impl GetVariable for NetCDF {
     fn get_variable<T: NcType>(&self, name: &str, len: usize) -> Result<Vec<T>, NulError> {
         let name_c_str = CString::new(name)?;
         let mut varid: c_int = 0;
-        let _guard = nc_lock();
         let status = unsafe { nc_inq_varid(self.ncid, name_c_str.as_ptr(), &mut varid) };
         assert_eq!(
             status, 0,
@@ -101,7 +97,6 @@ impl GetVariable for NetCDF {
     ) -> Result<Option<Vec<T>>, NulError> {
         let name_c_str = CString::new(name)?;
         let mut varid: c_int = 0;
-        let _guard = nc_lock();
         let status = unsafe { nc_inq_varid(self.ncid, name_c_str.as_ptr(), &mut varid) };
         if status != 0 {
             return Ok(None);
