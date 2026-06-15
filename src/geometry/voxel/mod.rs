@@ -1,3 +1,11 @@
+#[cfg(test)]
+mod test;
+
+mod read;
+mod write;
+
+pub use self::{read::Input, write::Output};
+
 use std::ops::{Index, IndexMut};
 
 pub struct Voxels<const D: usize, T> {

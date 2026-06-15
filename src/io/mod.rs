@@ -2,12 +2,13 @@
 
 #[cfg(feature = "netcdf")]
 mod netcdf;
-pub mod npy;
+mod npy;
 
 use std::path::Path;
 
 #[cfg(feature = "netcdf")]
 pub use netcdf::{DefineVariable, GetVariable, NetCDF, PutVariable};
+pub use npy::{Npy, NpyType};
 
 pub trait Write<P>
 where

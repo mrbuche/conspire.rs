@@ -76,44 +76,42 @@ where
     }
 }
 
-pub fn read<T, P>(path: P) -> Result<Npy<T>>
-where
-    T: NpyType,
-    P: AsRef<Path>,
-{
-    let bytes = std::fs::read(path)?;
-    if bytes.len() < 10 || &bytes[..6] != b"\x93NUMPY" {
-        return Err(invalid("not a .npy file".into()));
+impl<T: NpyType> Npy<T> {
+    pub fn read<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let bytes = std::fs::read(path)?;
+        if bytes.len() < 10 || &bytes[..6] != b"\x93NUMPY" {
+            return Err(invalid("not a .npy file".into()));
+        }
+        let (header_length, start) = match bytes[6] {
+            1 => (u16::from_le_bytes([bytes[8], bytes[9]]) as usize, 10),
+            2 => (
+                u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]) as usize,
+                12,
+            ),
+            other => return Err(invalid(format!("unsupported .npy version {other}"))),
+        };
+        let header = std::str::from_utf8(&bytes[start..start + header_length])
+            .map_err(|_| invalid("non-UTF-8 .npy header".into()))?;
+        let descr = quoted(header, "'descr':").ok_or_else(|| invalid("no descr".into()))?;
+        if descr.starts_with('>') || descr.get(1..) != T::DESCR.get(1..) {
+            return Err(invalid(format!(
+                "dtype {descr} does not match {}",
+                T::DESCR
+            )));
+        }
+        let fortran_order = header.contains("'fortran_order': True");
+        let shape = shape(header)?;
+        let count: usize = shape.iter().product();
+        let data = &bytes[start + header_length..];
+        if data.len() < count * T::SIZE {
+            return Err(invalid("truncated .npy data".into()));
+        }
+        Ok(Npy {
+            data: data.chunks(T::SIZE).take(count).map(T::read_le).collect(),
+            shape,
+            fortran_order,
+        })
     }
-    let (header_length, start) = match bytes[6] {
-        1 => (u16::from_le_bytes([bytes[8], bytes[9]]) as usize, 10),
-        2 => (
-            u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]) as usize,
-            12,
-        ),
-        other => return Err(invalid(format!("unsupported .npy version {other}"))),
-    };
-    let header = std::str::from_utf8(&bytes[start..start + header_length])
-        .map_err(|_| invalid("non-UTF-8 .npy header".into()))?;
-    let descr = quoted(header, "'descr':").ok_or_else(|| invalid("no descr".into()))?;
-    if descr.starts_with('>') || descr.get(1..) != T::DESCR.get(1..) {
-        return Err(invalid(format!(
-            "dtype {descr} does not match {}",
-            T::DESCR
-        )));
-    }
-    let fortran_order = header.contains("'fortran_order': True");
-    let shape = shape(header)?;
-    let count: usize = shape.iter().product();
-    let data = &bytes[start + header_length..];
-    if data.len() < count * T::SIZE {
-        return Err(invalid("truncated .npy data".into()));
-    }
-    Ok(Npy {
-        data: data.chunks(T::SIZE).take(count).map(T::read_le).collect(),
-        shape,
-        fortran_order,
-    })
 }
 
 fn quoted<'a>(header: &'a str, key: &str) -> Option<&'a str> {

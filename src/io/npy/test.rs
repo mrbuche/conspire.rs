@@ -1,4 +1,4 @@
-use super::{Npy, read};
+use super::Npy;
 use crate::io::Write;
 
 #[test]
@@ -12,7 +12,7 @@ fn round_trip_fortran_order() {
     }
     .write(path)
     .unwrap();
-    let npy: Npy<u16> = read(path).unwrap();
+    let npy = Npy::<u16>::read(path).unwrap();
     assert_eq!(npy.data, data);
     assert_eq!(npy.shape, [2, 3, 4]);
     assert!(npy.fortran_order);
@@ -29,7 +29,7 @@ fn round_trip_c_order_f64() {
     }
     .write(path)
     .unwrap();
-    let npy: Npy<f64> = read(path).unwrap();
+    let npy = Npy::<f64>::read(path).unwrap();
     assert_eq!(npy.data, data);
     assert_eq!(npy.shape, [3]);
     assert!(!npy.fortran_order);
@@ -45,5 +45,5 @@ fn dtype_mismatch_errors() {
     }
     .write(path)
     .unwrap();
-    assert!(read::<u16, _>(path).is_err());
+    assert!(Npy::<u16>::read(path).is_err());
 }
