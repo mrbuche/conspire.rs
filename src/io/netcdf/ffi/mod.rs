@@ -23,12 +23,8 @@ unsafe extern "C" {
     pub fn nc_inq_dimid(ncid: c_int, name: *const c_char, idp: *mut c_int) -> c_int;
     pub fn nc_inq_dimlen(ncid: c_int, dimid: c_int, lenp: *mut usize) -> c_int;
     pub fn nc_inq_varid(ncid: c_int, name: *const c_char, idp: *mut c_int) -> c_int;
-    pub fn nc_inq_attlen(
-        ncid: c_int,
-        varid: c_int,
-        name: *const c_char,
-        lenp: *mut usize,
-    ) -> c_int;
+    pub fn nc_inq_attlen(ncid: c_int, varid: c_int, name: *const c_char, lenp: *mut usize)
+    -> c_int;
     pub fn nc_put_att_float(
         ncid: c_int,
         varid: c_int,

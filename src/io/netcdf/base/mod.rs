@@ -106,9 +106,7 @@ impl NetCDF {
     pub fn define_dimension(&mut self, name: &str, len: usize) -> Result<(), NulError> {
         let name_c_str = CString::new(name)?;
         let _guard = nc_lock();
-        let status = unsafe {
-            nc_def_dim(self.ncid, name_c_str.as_ptr(), len, &mut self.dimid)
-        };
+        let status = unsafe { nc_def_dim(self.ncid, name_c_str.as_ptr(), len, &mut self.dimid) };
         assert_eq!(
             status, 0,
             "nc_def_dim failed for {name} with status={status}"
