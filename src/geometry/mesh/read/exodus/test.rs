@@ -12,12 +12,12 @@ use crate::{
 
 #[test]
 fn round_trip() {
-    let original: Mesh<3> = mesh();
+    let original = mesh();
     original
         .write(Output::Exodus("target/read_exodus_round_trip.exo"))
         .unwrap();
-    let read: Mesh<3> = Mesh::try_from(Input::Exodus("target/read_exodus_round_trip.exo")).unwrap();
-    let expected_coords: Coordinates<3> = COORDINATES.into();
+    let read = Mesh::<3>::try_from(Input::Exodus("target/read_exodus_round_trip.exo")).unwrap();
+    let expected_coords = Coordinates::from(COORDINATES);
     assert_eq!(read.coordinates(), &expected_coords);
     match &read.connectivities()[0] {
         Connectivity::Triangular(triangles) => {
@@ -68,7 +68,7 @@ fn round_trip_polyhedral() {
             "target/read_exodus_round_trip_polyhedral.exo",
         ))
         .unwrap();
-    let read: Mesh<3> = Mesh::try_from(Input::Exodus(
+    let read = Mesh::<3>::try_from(Input::Exodus(
         "target/read_exodus_round_trip_polyhedral.exo",
     ))
     .unwrap();

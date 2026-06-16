@@ -9,7 +9,7 @@ use crate::geometry::{
 #[test]
 fn connectivities_and_coordinates() {
     let (connectivities, coordinates) = mesh().into();
-    let expected: Coordinates<3> = COORDINATES.into();
+    let expected = Coordinates::from(COORDINATES);
     assert_eq!(coordinates, expected);
     match connectivities.into_members().into_iter().next().unwrap() {
         Connectivity::Triangular(triangles) => {

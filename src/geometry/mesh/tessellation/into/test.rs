@@ -12,14 +12,14 @@ use crate::{
 
 #[test]
 fn triangular_mesh() {
-    let mesh: Mesh<3> = Mesh::from(tessellation());
+    let mesh = Mesh::from(tessellation());
     match &mesh.connectivities()[0] {
         Connectivity::Triangular(triangles) => {
             assert!(triangles.iter().eq(CONNECTIVITY.iter()))
         }
         _ => panic!("expected Triangular block"),
     }
-    let expected_coords: Coordinates<3> = COORDINATES.into();
+    let expected_coords = Coordinates::from(COORDINATES);
     assert_eq!(mesh.coordinates(), &expected_coords)
 }
 
@@ -32,7 +32,7 @@ fn connectivities_and_coordinates_and_normals() {
         }
         _ => panic!("expected Triangular block"),
     }
-    let expected_coords: Coordinates<3> = COORDINATES.into();
+    let expected_coords = Coordinates::from(COORDINATES);
     assert_eq!(coordinates, expected_coords);
     normals[0]
         .iter()

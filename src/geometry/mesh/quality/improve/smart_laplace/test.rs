@@ -55,7 +55,7 @@ fn interior_node_recenters_without_dropping_quality() {
     let (connectivity, mut coordinates) = grid();
     coordinates[13] = [1.4, 1.3, 0.6];
     let mut mesh = mesh(connectivity, coordinates);
-    let center: Coordinate<3> = [1.0, 1.0, 1.0].into();
+    let center = Coordinate::from([1.0, 1.0, 1.0]);
     let before = minimum_scaled(&mesh);
     let offset = (&mesh.coordinates()[13] - &center).norm();
     mesh.smart_laplace_smooth(10, 1.0);

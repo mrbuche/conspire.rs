@@ -23,7 +23,7 @@ fn consistency() -> Result<(), TestError> {
         }
         _ => panic!("expected Triangular block"),
     }
-    let coords_expected: Coordinates<3> = COORDINATES.into();
+    let coords_expected = Coordinates::from(COORDINATES);
     assert_eq(tessellation.mesh().coordinates(), &coords_expected)?;
     tessellation.normals()[0]
         .iter()

@@ -54,7 +54,7 @@ fn quadtree() -> Quadtree<u16, usize> {
 fn round_trip_octree() {
     let original = "target/htg_octree_a.htg";
     octree().write_htg(original).unwrap();
-    let read: Octree<u16, usize> = Octree::read_htg(original).unwrap();
+    let read = Octree::<u16, usize>::read_htg(original).unwrap();
     assert_eq!(read.len(), 33);
     let reread = "target/htg_octree_b.htg";
     read.write_htg(reread).unwrap();
@@ -68,7 +68,7 @@ fn round_trip_octree() {
 fn round_trip_quadtree_via_input() {
     let original = "target/htg_quadtree_a.htg";
     quadtree().write_htg(original).unwrap();
-    let read: Quadtree<u16, usize> = Quadtree::try_from(Input::Htg(original)).unwrap();
+    let read = Quadtree::<u16, usize>::try_from(Input::Htg(original)).unwrap();
     assert_eq!(read.len(), 5);
     let reread = "target/htg_quadtree_b.htg";
     read.write_htg(reread).unwrap();
