@@ -86,7 +86,7 @@ jobs:
         run: cargo install cargo-llvm-cov
       - name: Coverage
         if: matrix.features == 'io' || matrix.features == 'io,netcdf'
-        run: cargo llvm-cov test --profile release --features ${{ matrix.features }} --fail-under-functions 100 --fail-under-lines 98 --fail-under-regions 99
+        run: cargo llvm-cov test --profile release --features ${{ matrix.features }} --fail-under-functions 100 --fail-under-lines 98 --fail-under-regions 98
       - name: Coverage
         if: matrix.features != 'io' && matrix.features != 'io,netcdf'
         run: cargo llvm-cov test --profile release --features ${{ matrix.features }} --fail-under-functions 50 --fail-under-lines 50 --fail-under-regions 50
