@@ -67,7 +67,7 @@ impl Mesh<3> {
         connectivity
             .iter_mut()
             .for_each(|nodes| nodes.iter_mut().for_each(|node| *node = mapping[*node]));
-        let mut blocks: BTreeMap<usize, Vec<[usize; 8]>> = BTreeMap::new();
+        let mut blocks = BTreeMap::<usize, Vec<_>>::new();
         connectivity
             .into_iter()
             .zip(materials)
