@@ -13,10 +13,11 @@ const L: usize = 4;
 const M: usize = 6;
 const N: usize = 8;
 
-impl<T, U> Balance for Orthotree<D, L, M, N, T, U>
+impl<T, U, V> Balance for Orthotree<D, L, M, N, T, U, V>
 where
     T: Add<Output = T> + Copy + Split + Into<usize>,
     U: Copy + From<usize> + Into<usize>,
+    V: Copy,
 {
     fn balance(&mut self, balancing: Balancing) -> bool {
         self.balanced = balancing;

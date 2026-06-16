@@ -8,11 +8,12 @@ pub enum Pairing {
     None,
 }
 
-impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U>
-    Orthotree<D, L, M, N, T, U>
+impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V>
+    Orthotree<D, L, M, N, T, U, V>
 where
     T: Add<Output = T> + Copy + Split + Into<usize>,
     U: Copy + From<usize> + Into<usize>,
+    V: Copy,
 {
     pub fn pair(&mut self, pairing: Pairing) -> Result<bool, &'static str> {
         match pairing {
