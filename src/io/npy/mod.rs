@@ -3,9 +3,11 @@ mod test;
 
 use crate::io::Write;
 use std::{
-    fs::File,
-    io::{BufWriter, Error, ErrorKind, Result, Write as _},
+    fs::{File, read},
+    io::{self, BufWriter, Error, ErrorKind, Result},
+    mem::size_of,
     path::Path,
+    str::from_utf8,
 };
 
 pub trait NpyType: Copy {
@@ -19,12 +21,12 @@ macro_rules! npy_type {
     ($type:ty, $descr:literal) => {
         impl NpyType for $type {
             const DESCR: &'static str = $descr;
-            const SIZE: usize = std::mem::size_of::<$type>();
+            const SIZE: usize = size_of::<$type>();
             fn write_le(self, buffer: &mut Vec<u8>) {
                 buffer.extend_from_slice(&self.to_le_bytes());
             }
             fn read_le(bytes: &[u8]) -> Self {
-                <$type>::from_le_bytes(bytes.try_into().unwrap())
+                Self::from_le_bytes(bytes.try_into().unwrap())
             }
         }
     };
@@ -53,6 +55,12 @@ where
 {
     type Error = Error;
     fn write(&self, path: P) -> Result<()> {
+        self.write_to(&mut BufWriter::new(File::create(path)?))
+    }
+}
+
+impl<T: NpyType> Npy<T> {
+    fn write_to<W: io::Write>(&self, file: &mut W) -> Result<()> {
         let order = if self.fortran_order { "True" } else { "False" };
         let dims: String = self.shape.iter().map(|d| format!("{d}, ")).collect();
         let mut header = format!(
@@ -62,7 +70,6 @@ where
         let pad = (64 - (10 + header.len() + 1) % 64) % 64;
         header.push_str(&" ".repeat(pad));
         header.push('\n');
-        let mut file = BufWriter::new(File::create(path)?);
         file.write_all(b"\x93NUMPY")?;
         file.write_all(&[1, 0])?;
         file.write_all(&(header.len() as u16).to_le_bytes())?;
@@ -72,13 +79,13 @@ where
             value.write_le(&mut buffer);
         }
         file.write_all(&buffer)?;
-        Ok(())
+        file.flush()
     }
 }
 
 impl<T: NpyType> Npy<T> {
     pub fn read<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let bytes = std::fs::read(path)?;
+        let bytes = read(path)?;
         if bytes.len() < 10 || &bytes[..6] != b"\x93NUMPY" {
             return Err(invalid("not a .npy file".into()));
         }
@@ -90,7 +97,7 @@ impl<T: NpyType> Npy<T> {
             ),
             other => return Err(invalid(format!("unsupported .npy version {other}"))),
         };
-        let header = std::str::from_utf8(&bytes[start..start + header_length])
+        let header = from_utf8(&bytes[start..start + header_length])
             .map_err(|_| invalid("non-UTF-8 .npy header".into()))?;
         let descr = quoted(header, "'descr':").ok_or_else(|| invalid("no descr".into()))?;
         if descr.starts_with('>') || descr.get(1..) != T::DESCR.get(1..) {

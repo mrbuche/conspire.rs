@@ -21,7 +21,7 @@ where
     fn write_exodus(&self, output: P) -> Result<(), NulError> {
         let path = output.as_ref().to_str().unwrap();
         let mut netcdf = NetCDF::create(path)?;
-        netcdf.global()?;
+        netcdf.global();
         let element_numbers: Option<Vec<i32>> = self
             .connectivities()
             .iter()

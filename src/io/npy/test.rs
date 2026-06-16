@@ -1,5 +1,176 @@
 use super::Npy;
 use crate::io::Write;
+use std::{
+    fs::write,
+    io::{self, Error, Result},
+};
+
+fn npy_bytes(version: u8, descr: &str, count: usize, data: &[u8]) -> Vec<u8> {
+    let header = format!("{{'descr': '{descr}', 'fortran_order': False, 'shape': ({count}, ), }}");
+    let mut bytes = b"\x93NUMPY".to_vec();
+    bytes.push(version);
+    bytes.push(0);
+    if version == 2 {
+        bytes.extend_from_slice(&(header.len() as u32).to_le_bytes());
+    } else {
+        bytes.extend_from_slice(&(header.len() as u16).to_le_bytes());
+    }
+    bytes.extend_from_slice(header.as_bytes());
+    bytes.extend_from_slice(data);
+    bytes
+}
+
+#[test]
+fn not_npy_errors() {
+    let path = "target/npy_not.npy";
+    write(path, b"this is not a numpy file").unwrap();
+    assert!(Npy::<u8>::read(path).is_err());
+}
+
+#[test]
+fn reads_version_2() {
+    let path = "target/npy_v2.npy";
+    write(path, npy_bytes(2, "|u1", 3, &[7, 8, 9])).unwrap();
+    let npy = Npy::<u8>::read(path).unwrap();
+    assert_eq!(npy.data, [7, 8, 9]);
+    assert_eq!(npy.shape, [3]);
+}
+
+#[test]
+fn unsupported_version_errors() {
+    let path = "target/npy_v3.npy";
+    write(path, npy_bytes(3, "|u1", 3, &[7, 8, 9])).unwrap();
+    assert!(Npy::<u8>::read(path).is_err());
+}
+
+#[test]
+fn truncated_errors() {
+    let path = "target/npy_truncated.npy";
+    write(path, npy_bytes(1, "|u1", 10, &[1, 2])).unwrap();
+    assert!(Npy::<u8>::read(path).is_err());
+}
+
+fn npy_raw(header: &[u8], data: &[u8]) -> Vec<u8> {
+    let mut bytes = b"\x93NUMPY".to_vec();
+    bytes.push(1);
+    bytes.push(0);
+    bytes.extend_from_slice(&(header.len() as u16).to_le_bytes());
+    bytes.extend_from_slice(header);
+    bytes.extend_from_slice(data);
+    bytes
+}
+
+#[test]
+fn non_utf8_header_errors() {
+    let path = "target/npy_badutf8.npy";
+    write(path, npy_raw(&[0xff, 0xfe, 0x00], &[])).unwrap();
+    assert!(Npy::<u8>::read(path).is_err());
+}
+
+#[test]
+fn missing_descr_errors() {
+    let path = "target/npy_nodescr.npy";
+    write(
+        path,
+        npy_raw(b"{'fortran_order': False, 'shape': (3, ), }", &[1, 2, 3]),
+    )
+    .unwrap();
+    assert!(Npy::<u8>::read(path).is_err());
+}
+
+#[test]
+fn big_endian_descr_errors() {
+    let path = "target/npy_be.npy";
+    let header = b"{'descr': '>u2', 'fortran_order': False, 'shape': (1, ), }";
+    write(path, npy_raw(header, &[0, 1])).unwrap();
+    assert!(Npy::<u16>::read(path).is_err());
+}
+
+#[test]
+fn missing_shape_errors() {
+    let path = "target/npy_noshape.npy";
+    write(
+        path,
+        npy_raw(b"{'descr': '|u1', 'fortran_order': False, }", &[1]),
+    )
+    .unwrap();
+    assert!(Npy::<u8>::read(path).is_err());
+}
+
+#[test]
+fn shape_without_paren_errors() {
+    let path = "target/npy_noparen.npy";
+    write(path, npy_raw(b"{'descr': '|u1', 'shape': 3, }", &[1, 2, 3])).unwrap();
+    assert!(Npy::<u8>::read(path).is_err());
+}
+
+#[test]
+fn unclosed_shape_errors() {
+    let path = "target/npy_unclosed.npy";
+    write(
+        path,
+        npy_raw(b"{'descr': '|u1', 'shape': (3, }", &[1, 2, 3]),
+    )
+    .unwrap();
+    assert!(Npy::<u8>::read(path).is_err());
+}
+
+#[test]
+fn bad_shape_entry_errors() {
+    let path = "target/npy_badentry.npy";
+    write(path, npy_raw(b"{'descr': '|u1', 'shape': (x, ), }", &[1])).unwrap();
+    assert!(Npy::<u8>::read(path).is_err());
+}
+
+#[test]
+fn descr_without_value_quote_errors() {
+    let path = "target/npy_descr_noquote.npy";
+    write(path, npy_raw(b"{'descr': }", &[])).unwrap();
+    assert!(Npy::<u8>::read(path).is_err());
+}
+
+#[test]
+fn descr_unterminated_value_errors() {
+    let path = "target/npy_descr_unterminated.npy";
+    write(path, npy_raw(b"{'descr': '|u1 }", &[])).unwrap();
+    assert!(Npy::<u8>::read(path).is_err());
+}
+
+#[test]
+fn write_to_bad_path_errors() {
+    let npy = Npy {
+        data: vec![1u8, 2, 3],
+        shape: vec![3],
+        fortran_order: true,
+    };
+    assert!(npy.write("target/nonexistent_dir/x.npy").is_err());
+}
+
+#[test]
+fn read_missing_file_errors() {
+    assert!(Npy::<u8>::read("target/does_not_exist.npy").is_err());
+}
+
+struct FailOnFlush;
+
+impl io::Write for FailOnFlush {
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
+        Ok(buf.len())
+    }
+    fn flush(&mut self) -> Result<()> {
+        Err(Error::other("boom"))
+    }
+}
+
+#[test]
+fn write_to_propagates_flush_error() {
+    let npy = Npy {
+        data: vec![1u8, 2, 3],
+        shape: vec![3],
+        fortran_order: true,
+    };
+    assert!(npy.write_to(&mut FailOnFlush).is_err());
+}
 
 #[test]
 fn round_trip_fortran_order() {

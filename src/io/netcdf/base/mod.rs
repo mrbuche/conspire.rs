@@ -7,7 +7,7 @@ use crate::io::netcdf::{
     },
     nc_lock,
 };
-use std::ffi::{CString, NulError, c_char, c_int};
+use std::ffi::{CStr, CString, NulError, c_char, c_int};
 
 impl NetCDF {
     pub fn close(&mut self) {
@@ -118,49 +118,38 @@ impl NetCDF {
         let status = unsafe { nc_enddef(self.ncid) };
         assert_eq!(status, 0, "nc_enddef failed with status={status}");
     }
-    pub fn global(&mut self) -> Result<(), NulError> {
-        self.put_attribute_float("api_version", 8.25)?;
-        self.put_attribute_int("file_size", 1)?;
-        self.put_attribute_int("floating_point_word_size", 8)?;
-        self.put_attribute_float("version", 8.25)?;
-        self.put_attribute_text(
-            "title",
-            format!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")).as_str(),
-        )
+    pub fn global(&mut self) {
+        self.put_global_float(c"api_version", 8.25);
+        self.put_global_int(c"file_size", 1);
+        self.put_global_int(c"floating_point_word_size", 8);
+        self.put_global_float(c"version", 8.25);
+        let title = format!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+        self.put_global_text(c"title", &title);
     }
-    pub fn put_attribute_float(&mut self, name: &str, value: f32) -> Result<(), NulError> {
-        let name_c_str = CString::new(name)?;
-        let _guard = nc_lock();
-        let status = unsafe {
-            nc_put_att_float(
-                self.ncid,
-                NC_GLOBAL,
-                name_c_str.as_ptr(),
-                NC_FLOAT,
-                1,
-                &value,
-            )
-        };
-        assert_eq!(
-            status, 0,
-            "nc_put_att_float failed for {name} with status={status}"
-        );
-        Ok(())
-    }
-    pub fn put_attribute_int(&mut self, name: &str, value: i32) -> Result<(), NulError> {
-        let name_c_str = CString::new(name)?;
+    fn put_global_float(&mut self, name: &CStr, value: f32) {
         let _guard = nc_lock();
         let status =
-            unsafe { nc_put_att_int(self.ncid, NC_GLOBAL, name_c_str.as_ptr(), NC_INT, 1, &value) };
-        assert_eq!(
-            status, 0,
-            "nc_put_att_int failed for {name} with status={status}"
-        );
-        Ok(())
+            unsafe { nc_put_att_float(self.ncid, NC_GLOBAL, name.as_ptr(), NC_FLOAT, 1, &value) };
+        assert_eq!(status, 0, "nc_put_att_float failed with status={status}");
     }
-    pub fn put_attribute_text(&mut self, name: &str, value: &str) -> Result<(), NulError> {
+    fn put_global_int(&mut self, name: &CStr, value: i32) {
         let _guard = nc_lock();
-        put_attribute_text(self, NC_GLOBAL, name, value)
+        let status =
+            unsafe { nc_put_att_int(self.ncid, NC_GLOBAL, name.as_ptr(), NC_INT, 1, &value) };
+        assert_eq!(status, 0, "nc_put_att_int failed with status={status}");
+    }
+    fn put_global_text(&mut self, name: &CStr, value: &str) {
+        let _guard = nc_lock();
+        let status = unsafe {
+            nc_put_att_text(
+                self.ncid,
+                NC_GLOBAL,
+                name.as_ptr(),
+                value.len(),
+                value.as_ptr() as *const c_char,
+            )
+        };
+        assert_eq!(status, 0, "nc_put_att_text failed with status={status}");
     }
     pub fn put_variable_attribute_text(
         &mut self,

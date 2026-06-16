@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 pub mod base;
 pub mod ffi;
 pub mod from;

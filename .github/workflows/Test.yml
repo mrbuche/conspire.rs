@@ -85,6 +85,10 @@ jobs:
       - name: Install
         run: cargo install cargo-llvm-cov
       - name: Coverage
+        if: matrix.features == 'io' || matrix.features == 'io,netcdf'
+        run: cargo llvm-cov test --profile release --features ${{ matrix.features }} --fail-under-functions 100 --fail-under-lines 98 --fail-under-regions 99
+      - name: Coverage
+        if: matrix.features != 'io' && matrix.features != 'io,netcdf'
         run: cargo llvm-cov test --profile release --features ${{ matrix.features }} --fail-under-functions 50 --fail-under-lines 50 --fail-under-regions 50
       - name: Tree
         run: $([[ $(cargo tree --color always --edges normal --features ${{ matrix.features }} | wc -l) -eq 1 ]])
