@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+mod defeature;
 mod read;
 mod write;
 

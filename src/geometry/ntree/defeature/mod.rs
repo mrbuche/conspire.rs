@@ -1,27 +1,12 @@
 #[cfg(test)]
 mod test;
 
-use crate::geometry::{
-    grid::{Pixels, Voxels},
-    ntree::{Octree, Orthotree, Quadtree, node::Kind, subdivide::insert_bit},
+use crate::geometry::ntree::{Orthotree, node::Kind, subdivide::insert_bit};
+use std::{
+    cmp::Reverse,
+    collections::{BinaryHeap, HashMap},
+    hash::Hash,
 };
-use std::{collections::HashMap, hash::Hash};
-
-impl<V: Copy + Eq + Hash> Pixels<V> {
-    pub fn defeature(self, minimum: usize) -> Self {
-        let mut quadtree = Quadtree::<u16, usize, V>::from(self);
-        quadtree.defeature(minimum);
-        (&quadtree).into()
-    }
-}
-
-impl<V: Copy + Eq + Hash> Voxels<V> {
-    pub fn defeature(self, minimum: usize) -> Self {
-        let mut octree = Octree::<u16, usize, V>::from(self);
-        octree.defeature(minimum);
-        (&octree).into()
-    }
-}
 
 impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V>
     Orthotree<D, L, M, N, T, U, V>
@@ -32,61 +17,108 @@ where
 {
     pub fn defeature(&mut self, minimum: usize) {
         let count = self.len();
-        loop {
-            let mut parent: Vec<usize> = (0..count).collect();
-            let leaves: Vec<usize> = (0..count)
-                .filter(|&i| self.nodes[i].is_leaf() && self.nodes[i].value.is_some())
-                .collect();
-            let mut cross: Vec<(usize, V, usize)> = Vec::new();
-            for &leaf in &leaves {
-                let value = self.nodes[leaf].value.unwrap();
-                let length: usize = self.nodes[leaf].length.into();
-                for face in 0..M {
-                    if let Some(neighbor) = self.nodes[leaf].facets[face] {
-                        let mut others = Vec::new();
-                        self.face_leaves(neighbor.into(), face ^ 1, &mut others);
-                        for other in others {
-                            if let Some(adjacent) = self.nodes[other].value {
-                                if adjacent == value {
-                                    union(&mut parent, leaf, other);
-                                } else {
-                                    let span: usize = self.nodes[other].length.into();
-                                    let area = length.min(span).pow((D - 1) as u32);
-                                    cross.push((leaf, adjacent, area));
-                                    cross.push((other, value, area));
-                                }
+        let mut parent: Vec<usize> = (0..count).collect();
+        let leaves: Vec<usize> = (0..count)
+            .filter(|&i| self.nodes[i].is_leaf() && self.nodes[i].value.is_some())
+            .collect();
+        let mut edges: Vec<(usize, usize, usize)> = Vec::new();
+        for &leaf in &leaves {
+            let value = self.nodes[leaf].value.unwrap();
+            let length: usize = self.nodes[leaf].length.into();
+            for face in 0..M {
+                if let Some(neighbor) = self.nodes[leaf].facets[face] {
+                    let mut others = Vec::new();
+                    self.face_leaves(neighbor.into(), face ^ 1, &mut others);
+                    for other in others {
+                        if let Some(adjacent) = self.nodes[other].value {
+                            if adjacent == value {
+                                union(&mut parent, leaf, other);
+                            } else {
+                                let span: usize = self.nodes[other].length.into();
+                                edges.push((leaf, other, length.min(span).pow((D - 1) as u32)));
                             }
                         }
                     }
                 }
             }
-            let mut volume: HashMap<usize, usize> = HashMap::new();
-            for &leaf in &leaves {
-                let length: usize = self.nodes[leaf].length.into();
-                *volume.entry(find(&mut parent, leaf)).or_default() += length.pow(D as u32);
-            }
-            let mut area: HashMap<(usize, V), usize> = HashMap::new();
-            for (leaf, adjacent, span) in cross {
-                *area.entry((find(&mut parent, leaf), adjacent)).or_default() += span;
-            }
-            let target = volume
-                .iter()
-                .filter(|&(_, &size)| size < minimum)
-                .filter_map(|(&root, &size)| {
-                    area.iter()
-                        .filter(|&(&(other, _), _)| other == root)
-                        .max_by_key(|&(_, &span)| span)
-                        .map(|(&(_, value), _)| (size, root, value))
-                })
-                .min_by_key(|&(size, ..)| size);
-            match target {
-                Some((_, root, value)) => leaves
-                    .iter()
-                    .filter(|&&leaf| find(&mut parent, leaf) == root)
-                    .for_each(|&leaf| self.nodes[leaf].value = Some(value)),
-                None => break,
+        }
+        let mut volume: HashMap<usize, usize> = HashMap::new();
+        let mut value: HashMap<usize, V> = HashMap::new();
+        for &leaf in &leaves {
+            let root = find(&mut parent, leaf);
+            let length: usize = self.nodes[leaf].length.into();
+            *volume.entry(root).or_default() += length.pow(D as u32);
+            value
+                .entry(root)
+                .or_insert_with(|| self.nodes[leaf].value.unwrap());
+        }
+        let mut adjacency: HashMap<usize, HashMap<usize, usize>> = HashMap::new();
+        for (leaf, other, span) in edges {
+            let (a, b) = (find(&mut parent, leaf), find(&mut parent, other));
+            if a != b {
+                *adjacency.entry(a).or_default().entry(b).or_default() += span;
+                *adjacency.entry(b).or_default().entry(a).or_default() += span;
             }
         }
+        let mut queue: BinaryHeap<Reverse<(usize, usize)>> = volume
+            .iter()
+            .filter(|&(_, &size)| size < minimum)
+            .map(|(&root, &size)| Reverse((size, root)))
+            .collect();
+        while let Some(Reverse((size, root))) = queue.pop() {
+            if value.get(&root).is_none_or(|_| volume[&root] != size) || size >= minimum {
+                continue;
+            }
+            let neighbors = match adjacency.get(&root) {
+                Some(map) if !map.is_empty() => map,
+                _ => continue,
+            };
+            let mut by_value: HashMap<V, usize> = HashMap::new();
+            for (other, &span) in neighbors {
+                *by_value.entry(value[other]).or_default() += span;
+            }
+            let into = *by_value.iter().max_by_key(|&(_, &span)| span).unwrap().0;
+            let group: Vec<usize> = neighbors
+                .keys()
+                .copied()
+                .filter(|other| value[other] == into)
+                .chain([root])
+                .collect();
+            group[..group.len() - 1]
+                .iter()
+                .for_each(|&other| union(&mut parent, root, other));
+            let root = find(&mut parent, root);
+            let merged_volume = group.iter().map(|node| volume[node]).sum();
+            let mut merged: HashMap<usize, usize> = HashMap::new();
+            for node in &group {
+                if let Some(map) = adjacency.remove(node) {
+                    for (other, span) in map {
+                        let other = find(&mut parent, other);
+                        if other != root {
+                            *merged.entry(other).or_default() += span;
+                        }
+                    }
+                }
+            }
+            group.iter().filter(|&&node| node != root).for_each(|node| {
+                volume.remove(node);
+                value.remove(node);
+            });
+            for other in merged.keys() {
+                let map = adjacency.get_mut(other).unwrap();
+                let span: usize = group.iter().filter_map(|node| map.remove(node)).sum();
+                map.insert(root, span);
+            }
+            volume.insert(root, merged_volume);
+            value.insert(root, into);
+            adjacency.insert(root, merged);
+            if merged_volume < minimum {
+                queue.push(Reverse((merged_volume, root)));
+            }
+        }
+        leaves.iter().for_each(|&leaf| {
+            self.nodes[leaf].value = Some(value[&find(&mut parent, leaf)]);
+        });
     }
     fn face_leaves(&self, index: usize, face: usize, out: &mut Vec<usize>) {
         match &self.nodes[index].kind {

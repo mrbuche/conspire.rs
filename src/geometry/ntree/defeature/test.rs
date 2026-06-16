@@ -3,6 +3,30 @@ use crate::geometry::{
     ntree::{Octree, Quadtree},
 };
 
+fn speckled(n: usize) -> Voxels<u8> {
+    let mut data = vec![1u8; n * n * n];
+    for z in (0..n).step_by(2) {
+        for y in (0..n).step_by(2) {
+            for x in (0..n).step_by(2) {
+                data[x + n * y + n * n * z] = 2;
+            }
+        }
+    }
+    Voxels::new(data, [n, n, n])
+}
+
+#[test]
+#[ignore]
+fn bench_speckled() {
+    let n = 24;
+    let specks = (n / 2) * (n / 2) * (n / 2);
+    let voxels = speckled(n);
+    let start = std::time::Instant::now();
+    let cleaned = voxels.defeature(2);
+    eprintln!("defeature {n}^3 ({specks} specks): {:?}", start.elapsed());
+    assert!(!cleaned.data().contains(&2));
+}
+
 #[test]
 fn absorbs_single_pixel_blob() {
     let mut data = vec![1u8; 16];
@@ -45,15 +69,6 @@ fn absorbs_after_balancing() {
     octree.defeature(2);
     let back = Voxels::<u8>::from(&octree);
     assert_eq!(back.data(), [1u8; 64]);
-}
-
-#[test]
-fn grid_defeature_round_trips() {
-    let mut data = vec![1u8; 64];
-    data[1 + 4 + 16] = 2;
-    let cleaned = Voxels::new(data, [4, 4, 4]).defeature(2);
-    assert_eq!(*cleaned.nel(), [4, 4, 4]);
-    assert_eq!(cleaned.data(), [1u8; 64]);
 }
 
 #[test]
