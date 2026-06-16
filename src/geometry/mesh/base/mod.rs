@@ -77,6 +77,9 @@ impl<const D: usize> Mesh<D> {
             )
         })
     }
+    pub fn blocks(&self) -> Option<&[usize]> {
+        self.connectivities.numbers()
+    }
     pub fn connectivities(&self) -> &[Connectivity] {
         self.connectivities.members()
     }

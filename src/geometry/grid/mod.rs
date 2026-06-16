@@ -2,6 +2,7 @@
 mod test;
 
 mod defeature;
+mod from;
 mod read;
 mod write;
 
