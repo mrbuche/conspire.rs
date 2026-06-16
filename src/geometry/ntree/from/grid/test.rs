@@ -76,6 +76,19 @@ fn octree_round_trip_non_power_of_two() {
 }
 
 #[test]
+fn refining_a_valued_leaf_inherits_and_clears_parent() {
+    let mut octree = Octree::<u16, usize, u8>::from(Voxels::new(vec![7u8; 8], [2, 2, 2]));
+    assert_eq!(octree.nodes[0].value, Some(7));
+    octree.subdivide(0).unwrap();
+    assert_eq!(octree.nodes[0].value, None);
+    let children = *octree.nodes[0].orthants().unwrap();
+    assert!(children.iter().all(|&c| octree.nodes[c].value == Some(7)));
+    let back: Voxels<u8> = (&octree).into();
+    assert_eq!(*back.nel(), [2, 2, 2]);
+    assert_eq!(back.data(), [7; 8]);
+}
+
+#[test]
 fn quadtree_round_trip_non_power_of_two() {
     let data: Vec<u8> = (0..6).collect();
     let quadtree = Quadtree::<u16, usize, u8>::from(Pixels::new(data.clone(), [3, 2]));

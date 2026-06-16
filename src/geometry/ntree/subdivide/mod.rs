@@ -54,6 +54,7 @@ where
         }
         self.extend(orthants);
         self[index].kind = Kind::Tree(indices);
+        self[index].value = None;
         Ok(())
     }
 }
