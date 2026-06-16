@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     geometry::{
-        Coordinates,
+        Coordinate, Coordinates,
         grid::Voxels,
         mesh::{Connectivities, Connectivity, Mesh},
     },
@@ -20,8 +20,8 @@ impl Mesh<3> {
         let (nxp, nyp, nzp) = (nx + 1, ny + 1, nz + 1);
         let layer = nxp * nyp;
         let nodes_unfiltered = layer * nzp;
-        let mut connectivity: Vec<[usize; 8]> = Vec::with_capacity(voxels.len());
-        let mut materials: Vec<usize> = Vec::with_capacity(voxels.len());
+        let mut connectivity = Vec::with_capacity(voxels.len());
+        let mut materials = Vec::with_capacity(voxels.len());
         let (mut i, mut j, mut k) = (0, 0, 0);
         for &block in voxels.data() {
             if remove.is_none_or(|ids| !ids.contains(&block)) {
@@ -61,7 +61,7 @@ impl Mesh<3> {
                 let x = old % nxp;
                 let y = old / nxp % nyp;
                 let z = old / layer;
-                coordinates.push([x as f64, y as f64, z as f64].into());
+                coordinates.push(Coordinate::const_from([x as f64, y as f64, z as f64]));
             }
         }
         connectivity
