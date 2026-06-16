@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+mod pixels;
 mod voxels;
 
 use crate::{
