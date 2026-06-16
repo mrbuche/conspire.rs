@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod test;
 
+mod voxels;
+
 use crate::{
     geometry::{
         Coordinates,
