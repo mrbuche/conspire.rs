@@ -61,7 +61,7 @@ fn quadtree_non_power_of_two_pads() {
 fn octree_round_trip() {
     let data: Vec<u8> = (1..=8).collect();
     let octree = Octree::<u16, usize, u8>::from(Voxels::new(data.clone(), [2, 2, 2]));
-    let back: Voxels<u8> = (&octree).into();
+    let back = Voxels::<u8>::from(&octree);
     assert_eq!(*back.nel(), [2, 2, 2]);
     assert_eq!(back.data(), data);
 }
@@ -70,7 +70,7 @@ fn octree_round_trip() {
 fn octree_round_trip_non_power_of_two() {
     let data: Vec<u8> = (0..27).collect();
     let octree = Octree::<u16, usize, u8>::from(Voxels::new(data.clone(), [3, 3, 3]));
-    let back: Voxels<u8> = (&octree).into();
+    let back = Voxels::<u8>::from(&octree);
     assert_eq!(*back.nel(), [3, 3, 3]);
     assert_eq!(back.data(), data);
 }
@@ -83,7 +83,7 @@ fn refining_a_valued_leaf_inherits_and_clears_parent() {
     assert_eq!(octree.nodes[0].value, None);
     let children = *octree.nodes[0].orthants().unwrap();
     assert!(children.iter().all(|&c| octree.nodes[c].value == Some(7)));
-    let back: Voxels<u8> = (&octree).into();
+    let back = Voxels::<u8>::from(&octree);
     assert_eq!(*back.nel(), [2, 2, 2]);
     assert_eq!(back.data(), [7; 8]);
 }
@@ -92,7 +92,7 @@ fn refining_a_valued_leaf_inherits_and_clears_parent() {
 fn quadtree_round_trip_non_power_of_two() {
     let data: Vec<u8> = (0..6).collect();
     let quadtree = Quadtree::<u16, usize, u8>::from(Pixels::new(data.clone(), [3, 2]));
-    let back: Pixels<u8> = (&quadtree).into();
+    let back = Pixels::<u8>::from(&quadtree);
     assert_eq!(*back.nel(), [3, 2]);
     assert_eq!(back.data(), data);
 }

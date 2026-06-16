@@ -1,4 +1,5 @@
 mod balance;
+mod defeature;
 mod deref;
 mod dual;
 mod from;
