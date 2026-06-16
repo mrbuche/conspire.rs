@@ -15,11 +15,12 @@ pub(crate) const fn insert_bit(x: usize, axis: usize, bit: usize) -> usize {
     low | (bit << axis) | (high << (axis + 1))
 }
 
-impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U>
-    Orthotree<D, L, M, N, T, U>
+impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V>
+    Orthotree<D, L, M, N, T, U, V>
 where
     T: Add<Output = T> + Copy + Split + Into<usize>,
     U: Copy + From<usize> + Into<usize>,
+    V: Copy,
 {
     fn nodes_on_face(facet: usize) -> [usize; L] {
         from_fn(|k| insert_bit(k, facet / 2, facet % 2))

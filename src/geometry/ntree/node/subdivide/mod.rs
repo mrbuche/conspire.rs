@@ -1,10 +1,11 @@
 use crate::geometry::ntree::node::{Kind, Node, split::Split};
 use std::{array::from_fn, ops::Add};
 
-impl<const D: usize, const M: usize, const N: usize, T, U> Node<D, M, N, T, U>
+impl<const D: usize, const M: usize, const N: usize, T, U, V> Node<D, M, N, T, U, V>
 where
     T: Add<Output = T> + Copy + Split,
     U: Copy,
+    V: Copy,
 {
     pub fn subdivide(&self, indices: [U; N]) -> Result<[Self; N], &'static str> {
         match self.kind {
@@ -29,6 +30,7 @@ where
                         }
                     }),
                     kind: Kind::Leaf,
+                    value: self.value,
                 }))
             }
             Kind::Tree(_) => Err("cannot subdivide a tree"),

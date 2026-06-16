@@ -114,6 +114,7 @@ fn tree_refine_macros(fine_macros: &[usize]) -> Octree<u16, usize> {
             length: 8,
             facets: [None; 6],
             kind: Kind::Leaf,
+            value: None,
         }],
         paired: Pairing::None,
         rescale: Rescaling {
@@ -192,6 +193,7 @@ fn vt21_fires_on_synthetic_checkerboard() {
             length: 8,
             facets: [None; 6],
             kind: Kind::Leaf,
+            value: None,
         }],
         paired: Pairing::None,
         rescale: Rescaling {

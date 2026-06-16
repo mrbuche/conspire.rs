@@ -32,6 +32,7 @@ fn weak_edge_tree(balancing: Balancing) -> Octree<u16, usize> {
             length: 16,
             facets: [None; 6],
             kind: Kind::Leaf,
+            value: None,
         }],
         paired: Pairing::None,
         rescale: Rescaling {

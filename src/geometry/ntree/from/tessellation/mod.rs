@@ -34,6 +34,7 @@ where
                     length: T::from(1),
                     facets: [None; M],
                     kind: Kind::Leaf,
+                    value: None,
                 }],
                 paired: Pairing::None,
                 rescale: Rescaling {
@@ -83,6 +84,7 @@ where
                 length: T::from(root_length),
                 facets: [None; M],
                 kind: Kind::Leaf,
+                value: None,
             }],
             paired: Pairing::None,
         };

@@ -1,7 +1,7 @@
 use crate::geometry::ntree::node::{Kind, Node, Orthants, split::Split};
 use std::{array::from_fn, ops::Add};
 
-impl<const D: usize, const M: usize, const N: usize, T, U> Node<D, M, N, T, U>
+impl<const D: usize, const M: usize, const N: usize, T, U, V> Node<D, M, N, T, U, V>
 where
     T: Add<Output = T> + Copy + Into<usize> + Split,
 {
@@ -14,7 +14,7 @@ where
     }
 }
 
-impl<const D: usize, const M: usize, const N: usize, T, U> Node<D, M, N, T, U>
+impl<const D: usize, const M: usize, const N: usize, T, U, V> Node<D, M, N, T, U, V>
 where
     T: Copy + Into<usize>,
 {

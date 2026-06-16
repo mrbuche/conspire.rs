@@ -1,7 +1,10 @@
 use super::WriteHtg;
-use crate::geometry::ntree::{
-    Balancing, Octree, Pairing, Quadtree, Rescaling,
-    node::{Kind, Node},
+use crate::geometry::{
+    grid::Voxels,
+    ntree::{
+        Balancing, Octree, Pairing, Quadtree, Rescaling,
+        node::{Kind, Node},
+    },
 };
 use std::fs::read_to_string;
 
@@ -13,6 +16,7 @@ fn octree() -> Octree<u16, usize> {
             length: 8,
             facets: [None; 6],
             kind: Kind::Leaf,
+            value: None,
         }],
         paired: Pairing::None,
         rescale: Rescaling {
@@ -33,6 +37,7 @@ fn quadtree() -> Quadtree<u16, usize> {
             length: 8,
             facets: [None; 4],
             kind: Kind::Leaf,
+            value: None,
         }],
         paired: Pairing::None,
         rescale: Rescaling {
@@ -124,6 +129,25 @@ fn octree_asymmetric() {
     assert!(contents.contains("NumberOfLevels=\"3\" NumberOfVertices=\"33\""));
     assert_eq!(ints(&contents, "NbVerticesByLevel"), [1, 8, 24]);
     assert_eq!(descriptor_bits(&contents, 9), [1, 0, 1, 1, 0, 1, 0, 0, 0]);
+}
+
+#[test]
+fn geometric_tree_has_no_value_array() {
+    let path = "target/octree_no_value.htg";
+    octree().write_htg(path).unwrap();
+    assert!(!read_to_string(path).unwrap().contains("Name=\"Value\""));
+}
+
+#[test]
+fn valued_octree_writes_value_array() {
+    let data: Vec<u8> = (1..=8).collect();
+    let octree = Octree::<u16, usize, u8>::from(Voxels::new(data, [2, 2, 2]));
+    let path = "target/octree_value.htg";
+    octree.write_htg(path).unwrap();
+    let contents = read_to_string(path).unwrap();
+    let values = floats(&contents, "Value");
+    assert!(values[0].is_nan());
+    assert_eq!(values[1..], [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
 }
 
 #[test]

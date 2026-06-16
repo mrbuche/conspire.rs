@@ -88,6 +88,7 @@ where
                 length: number(root_length)?,
                 facets: [None; M],
                 kind: Kind::Leaf,
+                value: None,
             }],
             paired: Pairing::None,
             rescale,

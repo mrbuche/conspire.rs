@@ -16,12 +16,34 @@ where
     fn write_htg(&self, output: P) -> Result<()>;
 }
 
-impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, P> WriteHtg<P>
-    for Orthotree<D, L, M, N, T, U>
+pub trait HtgValue: Copy {
+    fn to_scalar(self) -> Option<Scalar>;
+}
+
+impl HtgValue for () {
+    fn to_scalar(self) -> Option<Scalar> {
+        None
+    }
+}
+
+macro_rules! htg_value {
+    ($($type:ty),*) => {
+        $(impl HtgValue for $type {
+            fn to_scalar(self) -> Option<Scalar> {
+                Some(self as Scalar)
+            }
+        })*
+    };
+}
+htg_value!(u8, u16, u32, u64, i8, i16, i32, i64, usize, f32, f64);
+
+impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V, P> WriteHtg<P>
+    for Orthotree<D, L, M, N, T, U, V>
 where
     P: AsRef<Path>,
     T: Copy + Into<Scalar> + Into<usize>,
     U: Copy + Into<usize>,
+    V: HtgValue,
 {
     fn write_htg(&self, output: P) -> Result<()> {
         if D != 2 && D != 3 {
@@ -40,6 +62,7 @@ where
         let mut descriptor: Vec<u8> = Vec::new();
         let mut vertices_by_level: Vec<i64> = Vec::new();
         let mut depths: Vec<i64> = Vec::new();
+        let mut values: Vec<Option<Scalar>> = Vec::new();
         let mut level = vec![0usize];
         let mut depth = 0;
         while !level.is_empty() {
@@ -47,6 +70,7 @@ where
             let mut next = Vec::new();
             for &index in &level {
                 depths.push(depth);
+                values.push(self.nodes[index].value.and_then(HtgValue::to_scalar));
                 if let Some(orthants) = self.nodes[index].orthants() {
                     descriptor.push(1);
                     next.extend(orthants.iter().map(|&child| child.into()));
@@ -117,6 +141,14 @@ where
             depths.len(),
             &le_i64(&depths),
         )?;
+        if values.iter().any(Option::is_some) {
+            let bytes: Vec<u8> = values
+                .iter()
+                .map(|value| value.unwrap_or(Scalar::NAN))
+                .flat_map(Scalar::to_le_bytes)
+                .collect();
+            data_array(&mut file, 10, "Float64", "Value", values.len(), &bytes)?;
+        }
         writeln!(file, "        </CellData>")?;
         writeln!(file, "      </Tree>")?;
         writeln!(file, "    </Trees>")?;

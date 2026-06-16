@@ -1,4 +1,4 @@
-use crate::geometry::{Coordinate, Coordinates, mesh::Connectivity, ntree::Orthotree};
+use crate::geometry::{Coordinate, Coordinates, grid::Grid, mesh::Connectivity, ntree::Orthotree};
 use std::{array::from_fn, collections::HashMap};
 
 impl<const D: usize, const L: usize, const M: usize, const N: usize, U>
@@ -58,5 +58,55 @@ impl<const L: usize, const M: usize, U> From<Orthotree<3, L, M, 8, u16, U>>
     fn from(orthotree: Orthotree<3, L, M, 8, u16, U>) -> Self {
         let (connectivity, coordinates): (Vec<[usize; 8]>, _) = orthotree.into();
         (Connectivity::Hexahedral(connectivity.into()), coordinates)
+    }
+}
+
+impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V>
+    From<&Orthotree<D, L, M, N, T, U, V>> for Grid<D, V>
+where
+    T: Copy + Into<usize>,
+    V: Copy,
+{
+    fn from(orthotree: &Orthotree<D, L, M, N, T, U, V>) -> Self {
+        let leaves: Vec<([usize; D], usize, V)> = orthotree
+            .nodes
+            .iter()
+            .filter_map(|node| {
+                node.value.map(|value| {
+                    (
+                        from_fn(|ax| node.corner[ax].into()),
+                        node.length.into(),
+                        value,
+                    )
+                })
+            })
+            .collect();
+        let nel: [usize; D] = from_fn(|ax| {
+            leaves
+                .iter()
+                .map(|(corner, length, _)| corner[ax] + length)
+                .max()
+                .unwrap_or(0)
+        });
+        let count: usize = nel.iter().product();
+        if count == 0 {
+            return Grid::new(Vec::new(), nel);
+        }
+        let mut data = vec![leaves[0].2; count];
+        for (corner, length, value) in leaves {
+            let extent: [usize; D] = from_fn(|ax| (corner[ax] + length).min(nel[ax]) - corner[ax]);
+            for cell in 0..extent.iter().product() {
+                let mut rem = cell;
+                let mut flat = 0;
+                let mut stride = 1;
+                for ax in 0..D {
+                    flat += (corner[ax] + rem % extent[ax]) * stride;
+                    rem /= extent[ax];
+                    stride *= nel[ax];
+                }
+                data[flat] = value;
+            }
+        }
+        Grid::new(data, nel)
     }
 }

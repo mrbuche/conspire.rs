@@ -16,8 +16,8 @@ impl<const D: usize> Rescaling<D> {
     }
 }
 
-impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U>
-    Orthotree<D, L, M, N, T, U>
+impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V>
+    Orthotree<D, L, M, N, T, U, V>
 {
     pub fn rescale(&self) -> &Rescaling<D> {
         &self.rescale
