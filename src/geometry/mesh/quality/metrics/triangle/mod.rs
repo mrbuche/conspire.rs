@@ -27,3 +27,18 @@ pub(super) fn minimum_scaled_jacobian<const D: usize>(
 ) -> Scalar {
     super::min_scaled_jacobian(&CORNERS, element, coordinates, 2.0 / 3.0_f64.sqrt())
 }
+
+pub(super) fn maximum_skew<const D: usize>(
+    element: &[usize],
+    coordinates: &Coordinates<D>,
+) -> Scalar {
+    super::triangle_skew(
+        &coordinates[element[0]],
+        &coordinates[element[1]],
+        &coordinates[element[2]],
+    )
+}
+
+pub(super) fn volume<const D: usize>(element: &[usize], coordinates: &Coordinates<D>) -> Scalar {
+    super::triangle_area(&[element[0], element[1], element[2]], coordinates)
+}

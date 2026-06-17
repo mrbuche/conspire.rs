@@ -14,8 +14,10 @@ use std::array::from_fn;
 
 pub trait Verdict {
     fn maximum_edge_ratios(&self) -> Vec<Vec<Scalar>>;
+    fn maximum_skews(&self) -> Vec<Vec<Scalar>>;
     fn minimum_jacobians(&self) -> Vec<Vec<Scalar>>;
     fn minimum_scaled_jacobians(&self) -> Vec<Vec<Scalar>>;
+    fn volumes(&self) -> Vec<Vec<Scalar>>;
 }
 
 impl<const D: usize> Verdict for Mesh<D> {
@@ -91,6 +93,111 @@ impl<const D: usize> Verdict for Mesh<D> {
             })
             .collect()
     }
+    fn maximum_skews(&self) -> Vec<Vec<Scalar>> {
+        let coordinates = self.coordinates();
+        self.iter()
+            .map(|block| match block {
+                Connectivity::Triangular(elements) => elements
+                    .iter()
+                    .map(|element| triangle::maximum_skew(element, coordinates))
+                    .collect(),
+                Connectivity::Quadrilateral(elements) => elements
+                    .iter()
+                    .map(|element| quadrilateral::maximum_skew(element, coordinates))
+                    .collect(),
+                Connectivity::Tetrahedral(elements) => elements
+                    .iter()
+                    .map(|element| tetrahedron::maximum_skew(element, coordinates))
+                    .collect(),
+                Connectivity::Hexahedral(elements) => elements
+                    .iter()
+                    .map(|element| hexahedron::maximum_skew(element, coordinates))
+                    .collect(),
+                _ => todo!(),
+            })
+            .collect()
+    }
+    fn volumes(&self) -> Vec<Vec<Scalar>> {
+        let coordinates = self.coordinates();
+        self.iter()
+            .map(|block| match block {
+                Connectivity::Triangular(elements) => elements
+                    .iter()
+                    .map(|element| triangle::volume(element, coordinates))
+                    .collect(),
+                Connectivity::Quadrilateral(elements) => elements
+                    .iter()
+                    .map(|element| quadrilateral::volume(element, coordinates))
+                    .collect(),
+                Connectivity::Tetrahedral(elements) => elements
+                    .iter()
+                    .map(|element| tetrahedron::volume(element, coordinates))
+                    .collect(),
+                Connectivity::Hexahedral(elements) => elements
+                    .iter()
+                    .map(|element| hexahedron::volume(element, coordinates))
+                    .collect(),
+                _ => todo!(),
+            })
+            .collect()
+    }
+}
+
+const EQUIANGLE: Scalar = std::f64::consts::FRAC_PI_3;
+
+fn cross<const D: usize>(a: &Coordinate<D>, b: &Coordinate<D>) -> [Scalar; 3] {
+    let az = if D > 2 { a[2] } else { 0.0 };
+    let bz = if D > 2 { b[2] } else { 0.0 };
+    [
+        a[1] * bz - az * b[1],
+        az * b[0] - a[0] * bz,
+        a[0] * b[1] - a[1] * b[0],
+    ]
+}
+
+fn triple_product<const D: usize>(
+    a: &Coordinate<D>,
+    b: &Coordinate<D>,
+    c: &Coordinate<D>,
+) -> Scalar {
+    let bc = cross(b, c);
+    a[0] * bc[0] + a[1] * bc[1] + a[2] * bc[2]
+}
+
+fn cross_norm<const D: usize>(a: &Coordinate<D>, b: &Coordinate<D>) -> Scalar {
+    let n = cross(a, b);
+    (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt()
+}
+
+fn triangle_area<const D: usize>(triangle: &[usize; 3], coordinates: &Coordinates<D>) -> Scalar {
+    let a = &coordinates[triangle[1]] - &coordinates[triangle[0]];
+    let b = &coordinates[triangle[2]] - &coordinates[triangle[0]];
+    0.5 * cross_norm(&a, &b)
+}
+
+fn tet_volume<const D: usize>(tetrahedron: &[usize; 4], coordinates: &Coordinates<D>) -> Scalar {
+    let a = &coordinates[tetrahedron[1]] - &coordinates[tetrahedron[0]];
+    let b = &coordinates[tetrahedron[2]] - &coordinates[tetrahedron[0]];
+    let c = &coordinates[tetrahedron[3]] - &coordinates[tetrahedron[0]];
+    triple_product(&a, &b, &c) / 6.0
+}
+
+fn triangle_skew<const D: usize>(
+    a: &Coordinate<D>,
+    b: &Coordinate<D>,
+    c: &Coordinate<D>,
+) -> Scalar {
+    let l0 = (c - b).normalized();
+    let l1 = (a - c).normalized();
+    let l2 = (b - a).normalized();
+    let minimum_angle = [
+        (-(&l0 * &l1)).acos(),
+        (-(&l1 * &l2)).acos(),
+        (-(&l2 * &l0)).acos(),
+    ]
+    .into_iter()
+    .fold(Scalar::INFINITY, Scalar::min);
+    (EQUIANGLE - minimum_angle) / EQUIANGLE
 }
 
 fn maximum_edge_ratio<const D: usize, const E: usize>(
