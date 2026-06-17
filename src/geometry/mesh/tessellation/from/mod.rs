@@ -1,6 +1,8 @@
 #[cfg(test)]
 pub mod test;
 
+mod grid;
+
 use crate::{
     geometry::mesh::{
         Connectivity, Mesh,
