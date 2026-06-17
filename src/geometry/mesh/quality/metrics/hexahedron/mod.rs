@@ -53,15 +53,6 @@ pub(super) fn minimum_scaled_jacobian<const D: usize>(
     super::min_scaled_jacobian(&CORNERS, element, coordinates, 1.0)
 }
 
-const TETS: [[usize; 4]; 6] = [
-    [0, 1, 2, 6],
-    [0, 2, 3, 6],
-    [0, 3, 7, 6],
-    [0, 7, 4, 6],
-    [0, 4, 5, 6],
-    [0, 5, 1, 6],
-];
-
 pub(super) fn maximum_skew<const D: usize>(
     element: &[usize],
     coordinates: &Coordinates<D>,
@@ -84,18 +75,10 @@ pub(super) fn maximum_skew<const D: usize>(
 }
 
 pub(super) fn volume<const D: usize>(element: &[usize], coordinates: &Coordinates<D>) -> Scalar {
-    TETS.iter()
-        .map(|tet| {
-            super::tet_volume(
-                &[
-                    element[tet[0]],
-                    element[tet[1]],
-                    element[tet[2]],
-                    element[tet[3]],
-                ],
-                coordinates,
-            )
-        })
-        .sum::<Scalar>()
-        .abs()
+    let p = |i: usize| &coordinates[element[i]];
+    let x1 = (p(1) - p(0)) + (p(2) - p(3)) + (p(5) - p(4)) + (p(6) - p(7));
+    let x2 = (p(3) - p(0)) + (p(2) - p(1)) + (p(7) - p(4)) + (p(6) - p(5));
+    let x3 = (p(4) - p(0)) + (p(5) - p(1)) + (p(6) - p(2)) + (p(7) - p(3));
+    let x2_cross_x3 = super::cross(&x2, &x3);
+    (x1[0] * x2_cross_x3[0] + x1[1] * x2_cross_x3[1] + x1[2] * x2_cross_x3[2]) / 64.0
 }
