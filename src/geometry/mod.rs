@@ -15,6 +15,9 @@ pub mod ntree;
 /// Regular grids of values.
 pub mod grid;
 
+/// Segmentations and related.
+pub mod segmentation;
+
 use crate::math::{TensorRank1, TensorRank1List, TensorRank1RefVec, TensorRank1Vec};
 
 pub type Coordinate<const D: usize> = TensorRank1<D, 0>;
