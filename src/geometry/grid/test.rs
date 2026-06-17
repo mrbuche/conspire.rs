@@ -69,3 +69,46 @@ fn dimension_mismatch_errors() {
         .unwrap();
     assert!(Voxels::<u8>::try_from(Input::Npy(path)).is_err());
 }
+
+#[test]
+fn round_trip_spn() {
+    let data: Vec<u8> = (0..24).collect();
+    let path = "target/voxels.spn";
+    Voxels::new(data.clone(), [2, 3, 4])
+        .write(Output::Spn(path))
+        .unwrap();
+    let read = Voxels::<u8>::try_from(Input::Spn(path, vec![2, 3, 4])).unwrap();
+    assert_eq!(read.data(), data);
+    assert_eq!(read.nel(), &[2, 3, 4]);
+}
+
+#[test]
+fn spn_wrong_count_errors() {
+    let data: Vec<u8> = (0..24).collect();
+    let path = "target/voxels_bad.spn";
+    Voxels::new(data, [2, 3, 4])
+        .write(Output::Spn(path))
+        .unwrap();
+    assert!(Voxels::<u8>::try_from(Input::Spn(path, vec![2, 3, 3])).is_err());
+}
+
+#[test]
+fn extract_sub_grid() {
+    let data: Vec<u8> = (0..24).collect();
+    let voxels = Voxels::new(data, [2, 3, 4]);
+    let sub = voxels.extract([0..1, 1..3, 0..2]);
+    assert_eq!(sub.nel(), &[1, 2, 2]);
+    assert_eq!(sub[[0, 0, 0]], voxels[[0, 1, 0]]);
+    assert_eq!(sub[[0, 1, 0]], voxels[[0, 2, 0]]);
+    assert_eq!(sub[[0, 0, 1]], voxels[[0, 1, 1]]);
+    assert_eq!(sub[[0, 1, 1]], voxels[[0, 2, 1]]);
+}
+
+#[test]
+fn diff_marks_differences() {
+    let a = Voxels::new(vec![0u8, 1, 2, 3], [2, 2, 1]);
+    let b = Voxels::new(vec![0u8, 9, 2, 9], [2, 2, 1]);
+    let d = a.diff(&b);
+    assert_eq!(d.data(), vec![0u8, 1, 0, 1]);
+    assert_eq!(d.nel(), &[2, 2, 1]);
+}

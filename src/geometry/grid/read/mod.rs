@@ -1,3 +1,4 @@
+mod spn;
 mod vti;
 
 use crate::{
@@ -5,8 +6,10 @@ use crate::{
     io::{Npy, NpyType},
 };
 use std::{
+    fmt::Display,
     io::{Error as ErrorIO, ErrorKind},
     path::Path,
+    str::FromStr,
 };
 
 pub enum Input<P>
@@ -14,6 +17,7 @@ where
     P: AsRef<Path>,
 {
     Npy(P),
+    Spn(P, Vec<usize>),
     Vti(P),
 }
 
@@ -24,6 +28,7 @@ where
     fn as_ref(&self) -> &Path {
         match self {
             Input::Npy(path) => path.as_ref(),
+            Input::Spn(path, _) => path.as_ref(),
             Input::Vti(path) => path.as_ref(),
         }
     }
@@ -32,11 +37,13 @@ where
 impl<const D: usize, T, P> TryFrom<Input<P>> for Grid<D, T>
 where
     P: AsRef<Path>,
-    T: NpyType,
+    T: NpyType + FromStr,
+    <T as FromStr>::Err: Display,
 {
     type Error = ErrorIO;
     fn try_from(input: Input<P>) -> Result<Self, Self::Error> {
         match input {
+            Input::Spn(path, nel) => spn::read(path, nel),
             Input::Npy(path) => {
                 let npy = Npy::<T>::read(path)?;
                 let nel: [usize; D] = npy.shape.try_into().map_err(|shape: Vec<usize>| {

@@ -8,7 +8,10 @@ mod write;
 
 pub use self::{read::Input, write::Output};
 
-use std::ops::{Index, IndexMut};
+use std::{
+    array::from_fn,
+    ops::{Index, IndexMut, Range},
+};
 
 pub type Pixels<T> = Grid<2, T>;
 pub type Voxels<T> = Grid<3, T>;
@@ -47,6 +50,41 @@ impl<const D: usize, T> Grid<D, T> {
     }
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
+    }
+}
+
+impl<const D: usize, T: Copy> Grid<D, T> {
+    pub fn extract(&self, ranges: [Range<usize>; D]) -> Self {
+        let nel: [usize; D] = from_fn(|axis| ranges[axis].len());
+        let total: usize = nel.iter().product();
+        let mut data = Vec::with_capacity(total);
+        let mut index = [0usize; D];
+        for offset in 0..total {
+            let mut remainder = offset;
+            for axis in 0..D {
+                index[axis] = ranges[axis].start + remainder % nel[axis];
+                remainder /= nel[axis];
+            }
+            data.push(self[index]);
+        }
+        Self::new(data, nel)
+    }
+}
+
+impl<const D: usize, T: PartialEq> Grid<D, T> {
+    pub fn diff(&self, other: &Self) -> Grid<D, u8> {
+        assert_eq!(
+            self.nel(),
+            other.nel(),
+            "grids do not have the same dimensions"
+        );
+        let data = self
+            .data()
+            .iter()
+            .zip(other.data())
+            .map(|(a, b)| (a != b) as u8)
+            .collect();
+        Grid::new(data, *self.nel())
     }
 }
 
