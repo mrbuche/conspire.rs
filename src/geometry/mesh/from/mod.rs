@@ -2,6 +2,7 @@
 mod test;
 
 mod pixels;
+mod segmentation;
 mod voxels;
 
 use crate::{

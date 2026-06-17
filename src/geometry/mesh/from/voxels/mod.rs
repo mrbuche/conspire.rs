@@ -16,6 +16,22 @@ impl Mesh<3> {
     where
         T: Copy + PartialEq + Into<usize>,
     {
+        Self::from_voxels_embedded(
+            voxels,
+            remove,
+            &Coordinate::from([1.0; 3]),
+            &Coordinate::from([0.0; 3]),
+        )
+    }
+    pub(super) fn from_voxels_embedded<T>(
+        voxels: Voxels<T>,
+        remove: Option<&[T]>,
+        scale: &Coordinate<3>,
+        translate: &Coordinate<3>,
+    ) -> Self
+    where
+        T: Copy + PartialEq + Into<usize>,
+    {
         let [nx, ny, nz] = *voxels.nel();
         let (nxp, nyp, nzp) = (nx + 1, ny + 1, nz + 1);
         let layer = nxp * nyp;
@@ -61,7 +77,11 @@ impl Mesh<3> {
                 let x = old % nxp;
                 let y = old / nxp % nyp;
                 let z = old / layer;
-                coordinates.push(Coordinate::const_from([x as f64, y as f64, z as f64]));
+                coordinates.push(Coordinate::const_from([
+                    x as f64 * scale[0] + translate[0],
+                    y as f64 * scale[1] + translate[1],
+                    z as f64 * scale[2] + translate[2],
+                ]));
             }
         }
         connectivity
