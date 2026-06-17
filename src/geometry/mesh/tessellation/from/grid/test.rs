@@ -1,6 +1,12 @@
-use crate::geometry::{
-    grid::Voxels,
-    mesh::{Tessellation, differential::laplace::Weighting, smooth::Smoothing},
+use crate::{
+    geometry::{
+        Coordinate, Coordinates,
+        grid::Voxels,
+        mesh::{
+            Connectivity, Mesh, Tessellation, differential::laplace::Weighting, smooth::Smoothing,
+        },
+    },
+    math::TensorVec,
 };
 use std::collections::HashMap;
 
@@ -111,6 +117,34 @@ fn welded_smoothing_keeps_coincident_copies_together() {
     split.smooth(taubin());
     assert_eq!(distinct_positions(&welded), coincident);
     assert!(distinct_positions(&split) > coincident);
+}
+
+#[test]
+fn welding_tolerance_merges_near_coincident_across_buckets() {
+    let mut coordinates = Coordinates::new();
+    [
+        [1.2601, 0.0, 0.0],
+        [1.2601, 2.0, 0.0],
+        [1.2601, 0.0, 2.0],
+        [1.2599, 0.0, 0.0],
+        [1.2599, 4.0, 0.0],
+        [1.2599, 0.0, 4.0],
+    ]
+    .into_iter()
+    .for_each(|point| coordinates.push(Coordinate::const_from(point)));
+    let connectivity = Connectivity::Triangular(vec![[0, 1, 2], [3, 4, 5]].into());
+    let mut tessellation = Tessellation::from(Mesh::from((vec![connectivity], coordinates)));
+    assert_eq!(distinct_positions(&tessellation), 6);
+    tessellation.smooth_welded_with_tolerance(
+        Smoothing::Taubin {
+            iterations: 0,
+            pass_band: 0.1,
+            scale: 0.5,
+            weighting: Weighting::Uniform,
+        },
+        0.01,
+    );
+    assert_eq!(distinct_positions(&tessellation), 5);
 }
 
 #[test]
