@@ -7,9 +7,27 @@ use crate::{
         bbox::{BoundingBox, BoundingBoxes},
         mesh::{Connectivity, Mesh},
     },
-    math::{Graph, Scalar, Tensor},
+    math::{CrossProduct, Graph, Scalar, Tensor, TensorRank1Vec2D},
 };
 use std::collections::HashMap;
+
+impl Mesh<3> {
+    pub fn normals(&self) -> TensorRank1Vec2D<3, 0> {
+        self.iter()
+            .map(|connectivity| match connectivity {
+                Connectivity::Triangular(triangles) => triangles
+                    .iter()
+                    .map(|&[node_0, node_1, node_2]| {
+                        let u = &self.coordinates()[node_1] - &self.coordinates()[node_0];
+                        let v = &self.coordinates()[node_2] - &self.coordinates()[node_0];
+                        u.cross(v).normalized()
+                    })
+                    .collect(),
+                _ => panic!(),
+            })
+            .collect()
+    }
+}
 
 impl<const D: usize> Mesh<D> {
     pub fn exterior_faces(&self) -> Vec<Vec<usize>> {
