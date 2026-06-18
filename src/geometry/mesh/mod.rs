@@ -18,8 +18,11 @@ pub use self::{
         Connectivities, Connectivity, polytopal::PolytopalConnectivity,
         primitive::PrimitiveConnectivity,
     },
+    differential::laplace::Weighting,
     quality::metrics::Verdict,
     read::Input,
+    remesh::Remeshing,
+    smooth::Smoothing,
     tessellation::Tessellation,
     write::Output,
 };
