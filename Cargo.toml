@@ -1,5 +1,5 @@
 [package]
-authors = ["Michael R. Buche <mrbuche@sandia.gov>"]
+authors = ["Michael R. Buche <mrbuche@sandia.gov>", "Chad B. Hovey <chovey@sandia.gov>"]
 categories = ["mathematics", "science"]
 description = "The Rust interface to conspire."
 documentation = "https://docs.rs/crate/conspire"
