@@ -13,11 +13,16 @@ impl<const D: usize> Mesh<D> {
         pass_band: Scalar,
         scale: Scalar,
         weighting: Weighting,
+        preserve_boundary: bool,
     ) {
         let scale_deflate = scale;
         let scale_inflate = scale / (pass_band * scale - 1.0);
+        let adjacency = preserve_boundary.then(|| self.boundary_preserving_adjacency());
         for iteration in 0..iterations {
-            let laplacian = self.laplacian(weighting);
+            let laplacian = match &adjacency {
+                Some(adjacency) => self.laplacian_over(adjacency, weighting),
+                None => self.laplacian(weighting),
+            };
             let scale = if scale_inflate < 0.0 && iteration % 2 == 1 {
                 scale_inflate
             } else {

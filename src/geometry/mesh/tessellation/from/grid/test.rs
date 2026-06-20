@@ -26,6 +26,7 @@ fn taubin() -> Smoothing {
         pass_band: 0.1,
         scale: 0.5,
         weighting: Weighting::Uniform,
+        preserve_boundary: false,
     }
 }
 
@@ -141,6 +142,7 @@ fn welding_tolerance_merges_near_coincident_across_buckets() {
             pass_band: 0.1,
             scale: 0.5,
             weighting: Weighting::Uniform,
+            preserve_boundary: false,
         },
         0.01,
     );

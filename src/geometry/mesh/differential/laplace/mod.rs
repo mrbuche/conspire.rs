@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     geometry::{Coordinate, Coordinates, mesh::Mesh},
-    math::Scalar,
+    math::{Scalar, TensorArray},
 };
 use std::collections::HashMap;
 
@@ -19,24 +19,34 @@ fn edge_key(a: usize, b: usize) -> (usize, usize) {
 
 impl<const D: usize> Mesh<D> {
     pub fn laplacian(&self, weighting: Weighting) -> Coordinates<D> {
+        self.laplacian_over(self.node_node_connectivity(), weighting)
+    }
+    pub(crate) fn laplacian_over(
+        &self,
+        adjacency: &[Vec<usize>],
+        weighting: Weighting,
+    ) -> Coordinates<D> {
         let coordinates = self.coordinates();
         match weighting {
-            Weighting::Uniform => self
-                .node_node_connectivity()
+            Weighting::Uniform => adjacency
                 .iter()
                 .enumerate()
                 .map(|(node_a, nodes)| {
-                    &coordinates[node_a]
-                        - nodes
-                            .iter()
-                            .map(|&node_b| &coordinates[node_b])
-                            .sum::<Coordinate<D>>()
-                            / (nodes.len() as Scalar)
+                    if nodes.is_empty() {
+                        Coordinate::zero()
+                    } else {
+                        &coordinates[node_a]
+                            - nodes
+                                .iter()
+                                .map(|&node_b| &coordinates[node_b])
+                                .sum::<Coordinate<D>>()
+                                / (nodes.len() as Scalar)
+                    }
                 })
                 .collect(),
             Weighting::Cotangent => {
                 let weights = self.cotangent_weights();
-                self.node_node_connectivity()
+                adjacency
                     .iter()
                     .enumerate()
                     .map(|(node_a, nodes)| {
@@ -49,7 +59,11 @@ impl<const D: usize> Mesh<D> {
                                 (&coordinates[node_a] - &coordinates[node_b]) * weight
                             })
                             .sum::<Coordinate<D>>();
-                        displacement / total
+                        if total == 0.0 {
+                            Coordinate::zero()
+                        } else {
+                            displacement / total
+                        }
                     })
                     .collect()
             }
