@@ -10,7 +10,7 @@ pub mod tuple;
 pub mod vec;
 
 use super::{SquareMatrix, Vector};
-use crate::defeat_message;
+use crate::math::defeat_message;
 use rank_0::{
     TensorRank0,
     list::{TensorRank0List, vec::TensorRank0ListVec},

@@ -10,10 +10,7 @@ pub mod multiphysics;
 pub mod solid;
 pub mod thermal;
 
-use crate::{
-    defeat_message,
-    math::{Scalar, TensorError, TestError},
-};
+use crate::math::{Scalar, TensorError, TestError, defeat_message};
 use std::fmt::{self, Debug, Display, Formatter};
 
 /// Required methods for constitutive models.

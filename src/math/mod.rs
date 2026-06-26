@@ -20,7 +20,10 @@ mod hash;
 mod matrix;
 mod random;
 mod set;
+mod style;
 mod tensor;
+
+pub(crate) use style::{Style, defeat_message};
 
 pub use graph::Graph;
 pub use hash::{FxHashMap, FxHashSet, FxHasher};

@@ -1,13 +1,12 @@
 pub mod solid;
 
 use crate::{
-    defeat_message,
     fem::block::element::{
         ElementNodalCoordinates as FemElementNodalCoordinates,
         ElementNodalReferenceCoordinates as FemElementNodalReferenceCoordinates, FiniteElement,
         linear::Tetrahedron,
     },
-    math::{CrossProduct, Scalar, Scalars, Tensor, TensorRank1Vec2D, TestError},
+    math::{CrossProduct, Scalar, Scalars, Tensor, TensorRank1Vec2D, TestError, defeat_message},
     mechanics::{CurrentCoordinate, CurrentCoordinatesRef, ReferenceCoordinate, Vectors2D},
     vem::{NodalCoordinates, NodalReferenceCoordinates},
 };

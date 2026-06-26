@@ -11,12 +11,9 @@ pub use gradient_descent::GradientDescent;
 pub use line_search::{LineSearch, LineSearchError};
 pub use newton_raphson::NewtonRaphson;
 
-use crate::{
-    defeat_message,
-    math::{
-        Jacobian, Scalar, Solution, TestError,
-        matrix::square::{Banded, SquareMatrixError},
-    },
+use crate::math::{
+    Jacobian, Scalar, Solution, TestError, defeat_message,
+    matrix::square::{Banded, SquareMatrixError},
 };
 use std::{
     fmt::{self, Debug, Display, Formatter},

@@ -1,10 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use crate::{
-    defeat_message,
-    math::{Scalar, TestError},
-};
+use crate::math::{Scalar, Style, TestError, defeat_message};
 use std::fmt::{self, Debug, Display, Formatter};
 
 /// Possible errors encountered when integrating.
@@ -26,41 +23,41 @@ impl From<String> for IntegrationError {
 }
 
 impl IntegrationError {
-    fn message(&self) -> String {
+    fn message(&self, style: &Style) -> String {
+        let (h, c) = (style.headline, style.frame);
         match self {
             Self::InconsistentInitialConditions => {
-                "\x1b[1;91mThe initial condition z_0 is not consistent with g(t_0, y_0)."
-                    .to_string()
+                format!("{h}The initial condition z_0 is not consistent with g(t_0, y_0).")
             }
             Self::InitialTimeNotLessThanFinalTime => {
-                "\x1b[1;91mThe initial time must precede the final time.".to_string()
+                format!("{h}The initial time must precede the final time.")
             }
             Self::Intermediate(message) => message.to_string(),
             Self::LengthTimeLessThanTwo => {
-                "\x1b[1;91mThe time must contain at least two entries.".to_string()
+                format!("{h}The time must contain at least two entries.")
             }
             Self::MinimumStepSizeReached(dt_min, integrator) => {
                 format!(
-                    "\x1b[1;91mMinimum time step ({dt_min:?}) reached.\x1b[0;91m\n\
+                    "{h}Minimum time step ({dt_min:?}) reached.{c}\n\
                     In integrator: {integrator}."
                 )
             }
             Self::MinimumStepSizeUpstream(dt_min, error, integrator) => {
                 format!(
-                    "{error}\x1b[0;91m\n\
-                    Causing error: \x1b[1;91mMinimum time step ({dt_min:?}) reached.\x1b[0;91m\n\
+                    "{error}{c}\n\
+                    Causing error: {h}Minimum time step ({dt_min:?}) reached.{c}\n\
                     In integrator: {integrator}."
                 )
             }
             Self::TimeStepNotSet(t0, tf, integrator) => {
                 format!(
-                    "\x1b[1;91mA positive time step must be set within [{t0:?}, {tf:?}].\x1b[0;91m\n\
+                    "{h}A positive time step must be set within [{t0:?}, {tf:?}].{c}\n\
                     In integrator: {integrator}."
                 )
             }
             Self::Upstream(error, integrator) => {
                 format!(
-                    "{error}\x1b[0;91m\n\
+                    "{error}{c}\n\
                     In integrator: {integrator}."
                 )
             }
@@ -70,18 +67,22 @@ impl IntegrationError {
 
 impl Debug for IntegrationError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let style = Style::detect();
         write!(
             f,
-            "\n{}\n\x1b[0;2;31m{}\x1b[0m\n",
-            self.message(),
-            defeat_message()
+            "\n{}\n{}{}{}\n",
+            self.message(&style),
+            style.footer,
+            defeat_message(),
+            style.reset
         )
     }
 }
 
 impl Display for IntegrationError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}\x1b[0m", self.message())
+        let style = Style::detect();
+        write!(f, "{}{}", self.message(&style), style.reset)
     }
 }
 

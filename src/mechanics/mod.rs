@@ -3,13 +3,10 @@
 #[cfg(test)]
 pub mod test;
 
-use crate::{
-    defeat_message,
-    math::{
-        Rank2, Tensor, TensorRank1, TensorRank1List, TensorRank1List2D, TensorRank1RefVec,
-        TensorRank1Vec, TensorRank1Vec2D, TensorRank2, TensorRank2List, TensorRank2List2D,
-        TensorRank2Vec, TensorRank2Vec2D, TensorRank4, TensorRank4List, TensorRank4Vec,
-    },
+use crate::math::{
+    Rank2, Tensor, TensorRank1, TensorRank1List, TensorRank1List2D, TensorRank1RefVec,
+    TensorRank1Vec, TensorRank1Vec2D, TensorRank2, TensorRank2List, TensorRank2List2D,
+    TensorRank2Vec, TensorRank2Vec2D, TensorRank4, TensorRank4List, TensorRank4Vec, defeat_message,
 };
 use std::fmt::{self, Debug, Display, Formatter};
 

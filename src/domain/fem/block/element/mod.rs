@@ -12,8 +12,10 @@ pub mod surface;
 pub mod thermal;
 
 use crate::{
-    defeat_message,
-    math::{Scalar, ScalarList, TensorRank1, TensorRank1List, TensorRank1List2D, TestError},
+    math::{
+        Scalar, ScalarList, TensorRank1, TensorRank1List, TensorRank1List2D, TestError,
+        defeat_message,
+    },
     mechanics::{CoordinateList, CurrentCoordinates, ReferenceCoordinates},
 };
 use std::fmt::{self, Debug, Display, Formatter};

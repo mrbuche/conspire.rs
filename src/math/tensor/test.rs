@@ -1,5 +1,5 @@
 use super::{Scalar, Tensor, TensorError};
-use crate::{ABS_TOL, REL_TOL, defeat_message};
+use crate::{ABS_TOL, REL_TOL, math::defeat_message};
 use std::{
     cmp::PartialEq,
     fmt::{self, Debug, Display, Formatter},

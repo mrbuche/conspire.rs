@@ -1,7 +1,4 @@
-use crate::{
-    defeat_message,
-    math::{Jacobian, Scalar, Solution},
-};
+use crate::math::{Jacobian, Scalar, Solution, defeat_message};
 use std::{
     fmt::{self, Debug, Display, Formatter},
     ops::Mul,
