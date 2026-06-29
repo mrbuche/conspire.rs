@@ -10,8 +10,8 @@ pub mod multiphysics;
 pub mod solid;
 pub mod thermal;
 
-use crate::math::{Scalar, TensorError, TestError, defeat_message};
-use std::fmt::{self, Debug, Display, Formatter};
+use crate::math::{Scalar, Style, StyledError, TensorError, TestError, styled_error};
+use std::fmt::Debug;
 
 /// Required methods for constitutive models.
 pub trait Constitutive
@@ -46,45 +46,31 @@ impl From<TensorError> for ConstitutiveError {
 
 impl From<ConstitutiveError> for String {
     fn from(error: ConstitutiveError) -> Self {
-        Self::from(&error)
+        error.message(&Style::detect())
     }
 }
 
-impl From<&ConstitutiveError> for String {
-    fn from(error: &ConstitutiveError) -> Self {
-        match error {
-            ConstitutiveError::Custom(message, constitutive_model) => format!(
-                "\x1b[1;91m{message}\x1b[0;91m\n\
-                        In constitutive model: {constitutive_model}."
+impl StyledError for ConstitutiveError {
+    fn message(&self, style: &Style) -> String {
+        let (h, c) = (style.headline, style.frame);
+        match self {
+            Self::Custom(message, constitutive_model) => format!(
+                "{h}{message}{c}\n\
+                In constitutive model: {constitutive_model}."
             ),
-            ConstitutiveError::InvalidJacobian(jacobian, constitutive_model) => format!(
-                "\x1b[1;91mInvalid Jacobian: {jacobian:.6e}.\x1b[0;91m\n\
-                        In constitutive model: {constitutive_model}."
+            Self::InvalidJacobian(jacobian, constitutive_model) => format!(
+                "{h}Invalid Jacobian: {jacobian:.6e}.{c}\n\
+                In constitutive model: {constitutive_model}."
             ),
-            ConstitutiveError::Upstream(error, constitutive_model) => format!(
-                "{error}\x1b[0;91m\n\
-                    In constitutive model: {constitutive_model}."
+            Self::Upstream(error, constitutive_model) => format!(
+                "{error}{c}\n\
+                In constitutive model: {constitutive_model}."
             ),
         }
     }
 }
 
-impl Debug for ConstitutiveError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "\n{}\n\x1b[0;2;31m{}\x1b[0m\n",
-            String::from(self),
-            defeat_message()
-        )
-    }
-}
-
-impl Display for ConstitutiveError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}\x1b[0m", String::from(self))
-    }
-}
+styled_error!(ConstitutiveError);
 
 impl PartialEq for ConstitutiveError {
     fn eq(&self, other: &Self) -> bool {
