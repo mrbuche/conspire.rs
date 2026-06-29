@@ -1,4 +1,4 @@
-use crate::math::{Jacobian, Scalar, Solution, defeat_message};
+use crate::math::{Jacobian, Scalar, Solution, Style, StyledError, styled_error};
 use std::{
     fmt::{self, Debug, Display, Formatter},
     ops::Mul,
@@ -203,66 +203,28 @@ pub enum LineSearchError {
     NotDescentDirection(String),
 }
 
-impl Debug for LineSearchError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::InvalidStartingPoint(line_search) => {
-                format!(
-                    "\x1b[1;91mStaring point is invalid.\x1b[0;91m\n\
-                     In line search: {line_search}."
-                )
-            }
-            Self::MaximumStepsReached(line_search, steps) => {
-                format!(
-                    "\x1b[1;91mMaximum number of steps ({steps}) reached.\x1b[0;91m\n\
-                     In line search: {line_search}."
-                )
-            }
-            Self::NegativeStepSize(line_search, step_size) => {
-                format!(
-                    "\x1b[1;91mNegative step size ({step_size}) encountered.\x1b[0;91m\n\
-                     In line search: {line_search}."
-                )
-            }
-            Self::NotDescentDirection(line_search) => {
-                format!(
-                    "\x1b[1;91mDirection is not a descent direction.\x1b[0;91m\n\
-                     In line search: {line_search}."
-                )
-            }
-        };
-        write!(f, "\n{error}\n\x1b[0;2;31m{}\x1b[0m\n", defeat_message())
+impl StyledError for LineSearchError {
+    fn message(&self, style: &Style) -> String {
+        let (h, c) = (style.headline, style.frame);
+        match self {
+            Self::InvalidStartingPoint(line_search) => format!(
+                "{h}Staring point is invalid.{c}\n\
+                In line search: {line_search}."
+            ),
+            Self::MaximumStepsReached(line_search, steps) => format!(
+                "{h}Maximum number of steps ({steps}) reached.{c}\n\
+                In line search: {line_search}."
+            ),
+            Self::NegativeStepSize(line_search, step_size) => format!(
+                "{h}Negative step size ({step_size}) encountered.{c}\n\
+                In line search: {line_search}."
+            ),
+            Self::NotDescentDirection(line_search) => format!(
+                "{h}Direction is not a descent direction.{c}\n\
+                In line search: {line_search}."
+            ),
+        }
     }
 }
 
-impl Display for LineSearchError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::InvalidStartingPoint(line_search) => {
-                format!(
-                    "\x1b[1;91mStaring point is invalid.\x1b[0;91m\n\
-                     In line search: {line_search}."
-                )
-            }
-            Self::MaximumStepsReached(line_search, steps) => {
-                format!(
-                    "\x1b[1;91mMaximum number of steps ({steps}) reached.\x1b[0;91m\n\
-                     In line search: {line_search}."
-                )
-            }
-            Self::NegativeStepSize(line_search, step_size) => {
-                format!(
-                    "\x1b[1;91mNegative step size ({step_size}) encountered.\x1b[0;91m\n\
-                     In line search: {line_search}."
-                )
-            }
-            Self::NotDescentDirection(line_search) => {
-                format!(
-                    "\x1b[1;91mDirection is not a descent direction.\x1b[0;91m\n\
-                     In line search: {line_search}."
-                )
-            }
-        };
-        write!(f, "{error}\x1b[0m")
-    }
-}
+styled_error!(LineSearchError);

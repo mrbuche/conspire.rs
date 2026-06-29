@@ -6,13 +6,14 @@ pub mod solid;
 pub mod thermal;
 
 use crate::math::{
-    TensorRank1Vec, TensorRank1Vec2D, TestError,
+    Style, StyledError, TensorRank1Vec, TensorRank1Vec2D, TestError,
     optimize::{
         EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
         SecondOrderOptimization, ZerothOrderRootFinding,
     },
+    styled_error,
 };
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt::Debug;
 
 pub type NodalCoordinates<const D: usize> = TensorRank1Vec<D, 1>;
 pub type NodalCoordinatesHistory<const D: usize> = TensorRank1Vec2D<D, 1>;
@@ -96,46 +97,25 @@ pub enum ElementModelError {
     Upstream(String, String),
 }
 
-impl Debug for ElementModelError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::Upstream(error, model) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In element model: {model}."
-                )
-            }
-        };
-        write!(f, "{error}\x1b[0m")
-    }
-}
-
-impl Display for ElementModelError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::Upstream(error, model) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In element model: {model}."
-                )
-            }
-        };
-        write!(f, "{error}\x1b[0m")
-    }
-}
-
 impl From<ElementModelError> for String {
     fn from(error: ElementModelError) -> Self {
-        match error {
-            ElementModelError::Upstream(error, model) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In element model: {model}."
-                )
-            }
+        error.message(&Style::detect())
+    }
+}
+
+impl StyledError for ElementModelError {
+    fn message(&self, style: &Style) -> String {
+        let c = style.frame;
+        match self {
+            Self::Upstream(error, model) => format!(
+                "{error}{c}\n\
+                In element model: {model}."
+            ),
         }
     }
 }
+
+styled_error!(ElementModelError);
 
 pub trait ZerothOrderRoot<X> {
     fn root(

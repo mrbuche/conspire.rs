@@ -21,8 +21,8 @@ pub use thermodynamics::{
 };
 pub use ufjc::ArbitraryPotentialFreelyJointedChain;
 
-use crate::math::{Scalar, TestError};
-use std::fmt::{self, Debug, Display, Formatter};
+use crate::math::{Scalar, Style, StyledError, TestError, styled_error};
+use std::fmt::Debug;
 
 pub trait SingleChain
 where
@@ -58,7 +58,6 @@ where
 {
 }
 
-#[derive(Debug)]
 pub enum SingleChainError {
     MaximumExtensibility(String, String),
     Upstream(String, String),
@@ -74,30 +73,26 @@ impl From<SingleChainError> for TestError {
 
 impl From<SingleChainError> for String {
     fn from(error: SingleChainError) -> Self {
-        Self::from(&error)
+        error.message(&Style::detect())
     }
 }
 
-impl From<&SingleChainError> for String {
-    fn from(error: &SingleChainError) -> Self {
-        match error {
-            SingleChainError::MaximumExtensibility(
-                maximum_nondimensional_extension,
-                single_chain_model,
-            ) => format!(
-                "\x1b[1;91mMaximum extensibility ({maximum_nondimensional_extension}) reached.\x1b[0;91m\n\
+impl StyledError for SingleChainError {
+    fn message(&self, style: &Style) -> String {
+        let (h, c) = (style.headline, style.frame);
+        match self {
+            Self::MaximumExtensibility(maximum_nondimensional_extension, single_chain_model) => {
+                format!(
+                    "{h}Maximum extensibility ({maximum_nondimensional_extension}) reached.{c}\n\
                     In single-chain model: {single_chain_model}."
-            ),
-            SingleChainError::Upstream(error, single_chain_model) => format!(
-                "{error}\x1b[0;91m\n\
-                    In single-chain model: {single_chain_model}."
+                )
+            }
+            Self::Upstream(error, single_chain_model) => format!(
+                "{error}{c}\n\
+                In single-chain model: {single_chain_model}."
             ),
         }
     }
 }
 
-impl Display for SingleChainError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}\x1b[0m", String::from(self))
-    }
-}
+styled_error!(SingleChainError);

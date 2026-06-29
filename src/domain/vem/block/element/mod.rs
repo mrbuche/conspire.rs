@@ -6,13 +6,16 @@ use crate::{
         ElementNodalReferenceCoordinates as FemElementNodalReferenceCoordinates, FiniteElement,
         linear::Tetrahedron,
     },
-    math::{CrossProduct, Scalar, Scalars, Tensor, TensorRank1Vec2D, TestError, defeat_message},
+    math::{
+        CrossProduct, Scalar, Scalars, Style, StyledError, Tensor, TensorRank1Vec2D, TestError,
+        styled_error,
+    },
     mechanics::{CurrentCoordinate, CurrentCoordinatesRef, ReferenceCoordinate, Vectors2D},
     vem::{NodalCoordinates, NodalReferenceCoordinates},
 };
 use std::{
     collections::VecDeque,
-    fmt::{self, Debug, Display, Formatter},
+    fmt::{self, Debug, Formatter},
 };
 
 pub type ElementNodalCoordinates<'a> = CurrentCoordinatesRef<'a>;
@@ -295,33 +298,19 @@ impl From<VirtualElementError> for TestError {
     }
 }
 
-impl Debug for VirtualElementError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::Upstream(error, element) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In virtual element: {element}."
-                )
-            }
-        };
-        write!(f, "\n{error}\n\x1b[0;2;31m{}\x1b[0m\n", defeat_message())
+impl StyledError for VirtualElementError {
+    fn message(&self, style: &Style) -> String {
+        let c = style.frame;
+        match self {
+            Self::Upstream(error, element) => format!(
+                "{error}{c}\n\
+                In virtual element: {element}."
+            ),
+        }
     }
 }
 
-impl Display for VirtualElementError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::Upstream(error, element) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In virtual element: {element}."
-                )
-            }
-        };
-        write!(f, "{error}\x1b[0m")
-    }
-}
+styled_error!(VirtualElementError);
 
 #[test]
 fn temporary_poly_0() {
