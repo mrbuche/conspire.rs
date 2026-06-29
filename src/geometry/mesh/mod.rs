@@ -21,7 +21,7 @@ pub use self::{
     differential::laplace::Weighting,
     quality::metrics::Verdict,
     read::Input,
-    remesh::{AnisotropicSizing, IsotropicSizing, Remeshing, RemeshingKind},
+    remesh::{AnisotropicSizing, IsotropicSizing, Remeshing, RemeshingMetric},
     smooth::Smoothing,
     tessellation::Tessellation,
     write::Output,

@@ -6,16 +6,16 @@ use crate::{geometry::mesh::Mesh, math::Scalar};
 
 const D: usize = 3;
 
-/// A remeshing scheme: a number of iterations and a metric kind with its sizing.
+/// A remeshing scheme with a number of iterations and a metric.
 pub struct Remeshing {
     /// Number of remeshing iterations.
     pub iterations: usize,
-    /// The metric kind (isotropic or anisotropic) and its sizing.
-    pub kind: RemeshingKind,
+    /// The metric (isotropic or anisotropic).
+    pub metric: RemeshingMetric,
 }
 
-/// The remeshing metric: isotropic (scalar size) or anisotropic (tensor metric).
-pub enum RemeshingKind {
+/// Different metrics for remeshing.
+pub enum RemeshingMetric {
     /// Isotropic remeshing (circular/spherical target metric).
     Isotropic(IsotropicSizing),
     /// Anisotropic remeshing (directional, curvature-aligned target metric).
@@ -43,9 +43,9 @@ pub enum AnisotropicSizing {
 
 impl Mesh<D> {
     pub fn remesh(self, remeshing: Remeshing) -> Result<Self, &'static str> {
-        let Remeshing { iterations, kind } = remeshing;
-        match kind {
-            RemeshingKind::Isotropic(sizing) => match sizing {
+        let Remeshing { iterations, metric } = remeshing;
+        match metric {
+            RemeshingMetric::Isotropic(sizing) => match sizing {
                 IsotropicSizing::Uniform { length } => self.uniform_remesh(iterations, length),
                 IsotropicSizing::Adaptive {
                     tolerance,
@@ -54,7 +54,7 @@ impl Mesh<D> {
                     gradation,
                 } => self.adaptive_remesh(iterations, tolerance, minimum, maximum, gradation),
             },
-            RemeshingKind::Anisotropic(_) => Err("anisotropic remeshing is not implemented yet"),
+            RemeshingMetric::Anisotropic(_) => Err("anisotropic remeshing is not implemented yet"),
         }
     }
 }
