@@ -23,7 +23,7 @@ mod set;
 mod style;
 mod tensor;
 
-pub(crate) use style::{Style, defeat_message};
+pub(crate) use style::{Style, StyledError, defeat_message, styled_error};
 
 pub use graph::Graph;
 pub use hash::{FxHashMap, FxHashSet, FxHasher};

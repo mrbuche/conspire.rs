@@ -1,8 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::{Scalar, Style, TestError, defeat_message};
-use std::fmt::{self, Debug, Display, Formatter};
+use crate::math::{Scalar, Style, StyledError, TestError, styled_error};
 
 /// Possible errors encountered when integrating.
 pub enum IntegrationError {
@@ -22,7 +21,7 @@ impl From<String> for IntegrationError {
     }
 }
 
-impl IntegrationError {
+impl StyledError for IntegrationError {
     fn message(&self, style: &Style) -> String {
         let (h, c) = (style.headline, style.frame);
         match self {
@@ -65,26 +64,7 @@ impl IntegrationError {
     }
 }
 
-impl Debug for IntegrationError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let style = Style::detect();
-        write!(
-            f,
-            "\n{}\n{}{}{}\n",
-            self.message(&style),
-            style.footer,
-            defeat_message(),
-            style.reset
-        )
-    }
-}
-
-impl Display for IntegrationError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let style = Style::detect();
-        write!(f, "{}{}", self.message(&style), style.reset)
-    }
-}
+styled_error!(IntegrationError);
 
 impl From<IntegrationError> for String {
     fn from(error: IntegrationError) -> Self {

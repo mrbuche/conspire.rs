@@ -47,6 +47,49 @@ impl Style {
     }
 }
 
+/// An error whose message is built from [`Style`] tokens.
+///
+/// Implement this, then invoke [`styled_error!`] to derive terminal-aware
+/// `Debug` and `Display` from it.
+pub(crate) trait StyledError {
+    /// Builds the error message, splicing in the given styling tokens.
+    fn message(&self, style: &Style) -> String;
+}
+
+/// Implements `Debug` and `Display` for a [`StyledError`].
+///
+/// Color is resolved once per format via [`Style::detect`]. `Debug` (the panic
+/// path) appends a flavor footer; `Display` does not.
+macro_rules! styled_error {
+    ($ty:ty) => {
+        impl std::fmt::Debug for $ty {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                let style = $crate::math::Style::detect();
+                write!(
+                    f,
+                    "\n{}\n{}{}{}\n",
+                    $crate::math::StyledError::message(self, &style),
+                    style.footer,
+                    $crate::math::defeat_message(),
+                    style.reset
+                )
+            }
+        }
+        impl std::fmt::Display for $ty {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                let style = $crate::math::Style::detect();
+                write!(
+                    f,
+                    "{}{}",
+                    $crate::math::StyledError::message(self, &style),
+                    style.reset
+                )
+            }
+        }
+    };
+}
+pub(crate) use styled_error;
+
 #[allow(dead_code)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 pub(crate) fn defeat_message<'a>() -> &'a str {
