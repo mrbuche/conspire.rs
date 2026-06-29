@@ -1,6 +1,6 @@
 mod adaptive;
-mod isotropic;
 mod triangles;
+mod uniform;
 
 use crate::{geometry::mesh::Mesh, math::Scalar};
 
@@ -14,7 +14,7 @@ pub enum Remeshing {
         maximum: Scalar,
         gradation: Scalar,
     },
-    Isotropic {
+    Uniform {
         iterations: usize,
         length: Option<Scalar>,
     },
@@ -30,9 +30,7 @@ impl Mesh<D> {
                 maximum,
                 gradation,
             } => self.adaptive_remesh(iterations, tolerance, minimum, maximum, gradation),
-            Remeshing::Isotropic { iterations, length } => {
-                self.isotropic_remesh(iterations, length)
-            }
+            Remeshing::Uniform { iterations, length } => self.uniform_remesh(iterations, length),
         }
     }
 }
