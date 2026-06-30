@@ -387,6 +387,15 @@ impl<const D: usize, const I: usize, const J: usize> From<TensorRank2Vec2D<D, I,
     }
 }
 
+impl From<SquareMatrix> for Vec<Vec<Scalar>> {
+    fn from(square_matrix: SquareMatrix) -> Self {
+        square_matrix
+            .into_iter()
+            .map(|vector| vector.into())
+            .collect()
+    }
+}
+
 impl FromIterator<Vector> for SquareMatrix {
     fn from_iter<Ii: IntoIterator<Item = Vector>>(into_iterator: Ii) -> Self {
         Self(Vec::from_iter(into_iterator))

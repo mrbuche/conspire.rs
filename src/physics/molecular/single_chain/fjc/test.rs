@@ -29,25 +29,6 @@ fn monte_carlo() {
 }
 
 #[test]
-fn monte_carlo_cosines() {
-    use crate::physics::molecular::single_chain::MonteCarloInextensible;
-    let model = FreelyJointedChain {
-        link_length: 1.0,
-        number_of_links: 5,
-        ensemble: Ensemble::Isotensional(ROOM_TEMPERATURE),
-    };
-    let eta = 3.3;
-    println!(
-        "{}",
-        Thermodynamics::nondimensional_extension(&model, eta).unwrap()
-    );
-    let cosines = model.cosine_powers(eta, 2, 10_000, 1);
-    println!("{:?}", cosines);
-    let gamma = MonteCarloInextensible::nondimensional_extension(&model, eta, 10_000, 1);
-    println!("{:?}", gamma);
-}
-
-#[test]
 fn finite_difference() -> Result<(), TestError> {
     [
         // Ensemble::Isometric(ROOM_TEMPERATURE), // a bit finnicky and should maybe do separately
