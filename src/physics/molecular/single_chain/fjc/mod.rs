@@ -90,19 +90,15 @@ impl Isometric for FreelyJointedChain {
             Ok(Scalar::NAN)
         } else {
             let [s0, s1, s2] = treloar_sums(self.number_of_links(), nondimensional_extension);
-
             if !s0.is_finite() || s0 == 0.0 {
                 return Ok(Scalar::NAN);
             }
-
             let n = self.number_of_links() as Scalar;
             let p = n - 2.0;
             let b = (0.5 * n - 1.0) / n;
-
             let ds0dx = -(p / 2.0) * s1;
             let ds1dx = -((p - 1.0) / 2.0) * s2;
             let d_ratio_dx = (ds1dx * s0 - s1 * ds0dx) / (s0 * s0);
-
             Ok(-1.0 / (n * nondimensional_extension * nondimensional_extension) + b * d_ratio_dx)
         }
     }

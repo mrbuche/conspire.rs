@@ -1,6 +1,6 @@
 use crate::{
     math::{
-        Matrix, Scalar, Tensor, TensorArray, Vector,
+        Scalar, SquareMatrix, Tensor, TensorArray, Vector,
         optimize::{EqualityConstraint, LineSearch, NewtonRaphson, SecondOrderOptimization},
     },
     mechanics::{Coordinates, CurrentCoordinate},
@@ -526,7 +526,12 @@ where
     fn nondimensional_spherical_distribution(
         &self,
         nondimensional_extension: Scalar,
-    ) -> Result<Scalar, SingleChainError>;
+    ) -> Result<Scalar, SingleChainError> {
+        Ok(
+            Legendre::nondimensional_radial_distribution(self, nondimensional_extension)?
+                / (4.0 * PI * nondimensional_extension.powi(2)),
+        )
+    }
     /// ```math
     /// \beta\varphi(\eta) = \beta\psi(\gamma) - N_b\eta\gamma(\eta)
     /// ```
@@ -617,6 +622,38 @@ pub trait MonteCarlo
 where
     Self: SingleChain + Sync,
 {
+    fn cosine_moments(
+        &self,
+        nondimensional_force: Scalar,
+        number_of_samples: usize,
+        number_of_threads: usize,
+    ) -> (Vector, SquareMatrix, Vector, SquareMatrix) {
+        cosine_moments_reweighted(
+            self,
+            nondimensional_force,
+            number_of_samples,
+            number_of_threads,
+        )
+    }
+    fn nondimensional_longitudinal_extension(
+        &self,
+        nondimensional_force: Scalar,
+        number_of_samples: usize,
+        number_of_threads: usize,
+    ) -> Scalar {
+        //
+        // Does not work well above a certain force (see EFRC for bias method).
+        //
+        // Should set up to use random_nondimensional_link_vectors when implemented to work for a given force,
+        // and use the re-weighting (possibly with the above bias method) when unimplemented under force.
+        //
+        nondimensional_longitudinal_extension_reweighted(
+            self,
+            nondimensional_force,
+            number_of_samples,
+            number_of_threads,
+        )
+    }
     fn random_nondimensional_link_vectors(&self, nondimensional_force: Scalar) -> Configuration;
     fn random_configuration(&self, nondimensional_force: Scalar) -> Configuration {
         let mut position = CurrentCoordinate::zero();
@@ -634,48 +671,20 @@ pub trait MonteCarloExtensible
 where
     Self: Extensible + MonteCarlo,
 {
-    fn cosine_powers(
-        &self,
-        nondimensional_force: Scalar,
-        number_of_powers: usize,
-        number_of_samples: usize,
-        number_of_threads: usize,
-    ) -> Matrix {
-        cosine_powers(
-            self,
-            nondimensional_force,
-            number_of_powers,
-            number_of_samples,
-            number_of_threads,
-            true,
-        )
-    }
-    fn nondimensional_extension(
-        &self,
-        nondimensional_force: Scalar,
-        num_samples: usize,
-        num_threads: usize,
-    ) -> Scalar {
-        self.cosine_powers(nondimensional_force, 0, num_samples, num_threads)
-            .into_iter()
-            .flatten()
-            .sum::<Scalar>()
-            / self.number_of_links() as Scalar
-    }
     fn nondimensional_lateral_distribution(
         &self,
         nondimensional_force: Scalar,
         num_bins: usize,
-        num_samples: usize,
-        num_threads: usize,
+        number_of_samples: usize,
+        number_of_threads: usize,
         maximum_nondimensional_extension: Scalar,
     ) -> (Vector, Vector) {
         nondimensional_lateral_distribution(
             self,
             nondimensional_force,
             num_bins,
-            num_samples,
-            num_threads,
+            number_of_samples,
+            number_of_threads,
             maximum_nondimensional_extension,
         )
     }
@@ -683,16 +692,16 @@ where
         &self,
         nondimensional_force: Scalar,
         num_bins: usize,
-        num_samples: usize,
-        num_threads: usize,
+        number_of_samples: usize,
+        number_of_threads: usize,
         maximum_nondimensional_extension: Scalar,
     ) -> (Vector, Vector) {
         nondimensional_longitudinal_distribution(
             self,
             nondimensional_force,
             num_bins,
-            num_samples,
-            num_threads,
+            number_of_samples,
+            number_of_threads,
             maximum_nondimensional_extension,
         )
     }
@@ -700,16 +709,16 @@ where
         &self,
         nondimensional_force: Scalar,
         num_bins: usize,
-        num_samples: usize,
-        num_threads: usize,
+        number_of_samples: usize,
+        number_of_threads: usize,
         maximum_nondimensional_extension: Scalar,
     ) -> (Vector, Vector) {
         nondimensional_radial_distribution(
             self,
             nondimensional_force,
             num_bins,
-            num_samples,
-            num_threads,
+            number_of_samples,
+            number_of_threads,
             maximum_nondimensional_extension,
         )
     }
@@ -717,16 +726,16 @@ where
         &self,
         nondimensional_force: Scalar,
         num_bins: usize,
-        num_samples: usize,
-        num_threads: usize,
+        number_of_samples: usize,
+        number_of_threads: usize,
         maximum_nondimensional_extension: Scalar,
     ) -> (Vector, Vector) {
         nondimensional_transverse_distribution(
             self,
             nondimensional_force,
             num_bins,
-            num_samples,
-            num_threads,
+            number_of_samples,
+            number_of_threads,
             maximum_nondimensional_extension,
         )
     }
@@ -738,47 +747,19 @@ pub trait MonteCarloInextensible
 where
     Self: Inextensible + MonteCarlo,
 {
-    fn cosine_powers(
-        &self,
-        nondimensional_force: Scalar,
-        number_of_powers: usize,
-        number_of_samples: usize,
-        number_of_threads: usize,
-    ) -> Matrix {
-        cosine_powers(
-            self,
-            nondimensional_force,
-            number_of_powers,
-            number_of_samples,
-            number_of_threads,
-            false,
-        )
-    }
-    fn nondimensional_extension(
-        &self,
-        nondimensional_force: Scalar,
-        num_samples: usize,
-        num_threads: usize,
-    ) -> Scalar {
-        self.cosine_powers(nondimensional_force, 1, num_samples, num_threads)
-            .into_iter()
-            .flatten()
-            .sum::<Scalar>()
-            / self.number_of_links() as Scalar
-    }
     fn nondimensional_angular_distribution(
         &self,
         nondimensional_force: Scalar,
         num_bins: usize,
-        num_samples: usize,
-        num_threads: usize,
+        number_of_samples: usize,
+        number_of_threads: usize,
     ) -> (Vector, Vector) {
         nondimensional_angular_distribution(
             self,
             nondimensional_force,
             num_bins,
-            num_samples,
-            num_threads,
+            number_of_samples,
+            number_of_threads,
             self.maximum_nondimensional_extension(),
         )
     }
@@ -786,15 +767,15 @@ where
         &self,
         nondimensional_force: Scalar,
         num_bins: usize,
-        num_samples: usize,
-        num_threads: usize,
+        number_of_samples: usize,
+        number_of_threads: usize,
     ) -> (Vector, Vector) {
         nondimensional_lateral_distribution(
             self,
             nondimensional_force,
             num_bins,
-            num_samples,
-            num_threads,
+            number_of_samples,
+            number_of_threads,
             self.maximum_nondimensional_extension(),
         )
     }
@@ -802,15 +783,15 @@ where
         &self,
         nondimensional_force: Scalar,
         num_bins: usize,
-        num_samples: usize,
-        num_threads: usize,
+        number_of_samples: usize,
+        number_of_threads: usize,
     ) -> (Vector, Vector) {
         nondimensional_longitudinal_distribution(
             self,
             nondimensional_force,
             num_bins,
-            num_samples,
-            num_threads,
+            number_of_samples,
+            number_of_threads,
             self.maximum_nondimensional_extension(),
         )
     }
@@ -818,15 +799,15 @@ where
         &self,
         nondimensional_force: Scalar,
         num_bins: usize,
-        num_samples: usize,
-        num_threads: usize,
+        number_of_samples: usize,
+        number_of_threads: usize,
     ) -> (Vector, Vector) {
         nondimensional_radial_distribution(
             self,
             nondimensional_force,
             num_bins,
-            num_samples,
-            num_threads,
+            number_of_samples,
+            number_of_threads,
             self.maximum_nondimensional_extension(),
         )
     }
@@ -834,15 +815,15 @@ where
         &self,
         nondimensional_force: Scalar,
         num_bins: usize,
-        num_samples: usize,
-        num_threads: usize,
+        number_of_samples: usize,
+        number_of_threads: usize,
     ) -> (Vector, Vector) {
         nondimensional_transverse_distribution(
             self,
             nondimensional_force,
             num_bins,
-            num_samples,
-            num_threads,
+            number_of_samples,
+            number_of_threads,
             self.maximum_nondimensional_extension(),
         )
     }
@@ -850,69 +831,189 @@ where
 
 impl<T> MonteCarloInextensible for T where T: Inextensible + MonteCarlo {}
 
-fn cosine_powers<T: MonteCarlo>(
+pub fn cosine_moments_reweighted<T: MonteCarlo>(
     model: &T,
     nondimensional_force: Scalar,
-    number_of_powers: usize,
     number_of_samples: usize,
     number_of_threads: usize,
-    is_extensible: bool,
-) -> Matrix {
+) -> (Vector, SquareMatrix, Vector, SquareMatrix) {
     let base = number_of_samples / number_of_threads;
     let remainder = number_of_samples % number_of_threads;
     scope(|s| {
         (0..number_of_threads)
             .map(|t| {
                 s.spawn(move || {
-                    cosine_powers_inner(
+                    cosine_moments_reweighted_inner(
                         model,
                         nondimensional_force,
-                        number_of_powers,
                         base + usize::from(t < remainder),
-                        is_extensible,
                     )
                 })
             })
             .collect::<Vec<_>>()
             .into_iter()
-            .map(|handle| handle.join().unwrap() / number_of_samples as Scalar)
-            .sum()
+            .map(|handle| handle.join().unwrap())
+            .reduce(|mut acc, (x_max, z_scaled, cos1_scaled, cos1cos1_scaled, cos2_scaled, cos2cos1_scaled)| {
+                let x_max_new = acc.0.max(x_max);
+                let scale_acc = (acc.0 - x_max_new).exp();
+                let scale_new = (x_max - x_max_new).exp();
+                acc.1 = acc.1 * scale_acc + z_scaled * scale_new;
+                acc.2 = acc.2 * scale_acc + cos1_scaled * scale_new;
+                acc.3 = acc.3 * scale_acc + cos1cos1_scaled * scale_new;
+                acc.4 = acc.4 * scale_acc + cos2_scaled * scale_new;
+                acc.5 = acc.5 * scale_acc + cos2cos1_scaled * scale_new;
+                acc.0 = x_max_new;
+                acc
+            })
+            .map(|(_x_max, z_scaled, cos1_scaled, cos1cos1_scaled, cos2_scaled, cos2cos1_scaled)| {
+                let z_inv = 1.0 / z_scaled;
+                (
+                    cos1_scaled * z_inv,
+                    cos1cos1_scaled * z_inv,
+                    cos2_scaled * z_inv,
+                    cos2cos1_scaled * z_inv,
+                )
+            })
+            .unwrap()
     })
 }
 
-fn cosine_powers_inner<T: MonteCarlo>(
+fn cosine_moments_reweighted_inner<T: MonteCarlo>(
     model: &T,
     nondimensional_force: Scalar,
-    number_of_powers: usize,
     number_of_samples: usize,
-    is_extensible: bool,
-) -> Matrix {
-    let mut cosines = Matrix::zero(
-        model.number_of_links() as usize,
-        number_of_powers + is_extensible as usize,
-    );
+) -> (Scalar, Scalar, Vector, SquareMatrix, Vector, SquareMatrix) {
+    let num_links = model.number_of_links() as usize;
+
+    let mut x_max = Scalar::NEG_INFINITY;
+    let mut z_scaled = 0.0;
+    let mut cos1_scaled = Vector::zero(num_links);
+    let mut cos1cos1_scaled = SquareMatrix::zero(num_links);
+    let mut cos2_scaled = Vector::zero(num_links);
+    let mut cos2cos1_scaled = SquareMatrix::zero(num_links);
+
     for _ in 0..number_of_samples {
-        cosines
-            .iter_mut()
-            .zip(model.random_nondimensional_link_vectors(nondimensional_force))
-            .for_each(|(powers, link)| {
-                if is_extensible {
-                    powers[0] += link[2];
-                    let unit = link.normalized();
-                    powers
-                        .iter_mut()
-                        .skip(1)
-                        .enumerate()
-                        .for_each(|(power, entry)| *entry += unit[2].powi(power as i32 + 1))
-                } else {
-                    powers
-                        .iter_mut()
-                        .enumerate()
-                        .for_each(|(power, entry)| *entry += link[2].powi(power as i32 + 1))
-                }
-            })
+        let links = model.random_nondimensional_link_vectors(0.0);
+
+        let cosines: Vec<Scalar> = links.iter().map(|link| link[2] / link.norm()).collect();
+
+        let sum_cos: Scalar = cosines.iter().sum();
+        let x = nondimensional_force * sum_cos;
+
+        if x > x_max {
+            let scale = if x_max.is_finite() {
+                (x_max - x).exp()
+            } else {
+                0.0
+            };
+            z_scaled *= scale;
+            cos1_scaled *= scale;
+            cos1cos1_scaled *= scale;
+            cos2_scaled *= scale;
+            cos2cos1_scaled *= scale;
+            x_max = x;
+        }
+
+        let w = (x - x_max).exp();
+
+        z_scaled += w;
+
+        for i in 0..num_links {
+            let ci = cosines[i];
+            let ci2 = ci * ci;
+
+            cos1_scaled[i] += ci * w;
+            cos2_scaled[i] += ci2 * w;
+
+            for j in 0..num_links {
+                let cj = cosines[j];
+                cos1cos1_scaled[i][j] += ci * cj * w;
+                cos2cos1_scaled[i][j] += ci2 * cj * w;
+            }
+        }
     }
-    cosines
+    (
+        x_max,
+        z_scaled,
+        cos1_scaled,
+        cos1cos1_scaled,
+        cos2_scaled,
+        cos2cos1_scaled,
+    )
+}
+
+fn nondimensional_longitudinal_extension_reweighted<T: MonteCarlo>(
+    model: &T,
+    nondimensional_force: Scalar,
+    number_of_samples: usize,
+    number_of_threads: usize,
+) -> Scalar {
+    let base = number_of_samples / number_of_threads;
+    let remainder = number_of_samples % number_of_threads;
+
+    scope(|s| {
+        (0..number_of_threads)
+            .map(|t| {
+                s.spawn(move || {
+                    nondimensional_longitudinal_extension_reweighted_inner(
+                        model,
+                        nondimensional_force,
+                        base + usize::from(t < remainder),
+                    )
+                })
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(|handle| handle.join().unwrap())
+            .reduce(|mut acc, (x_max, z_scaled, ext_scaled)| {
+                let x_max_new = acc.0.max(x_max);
+                let scale_acc = (acc.0 - x_max_new).exp();
+                let scale_new = (x_max - x_max_new).exp();
+
+                acc.1 = acc.1 * scale_acc + z_scaled * scale_new;
+                acc.2 = acc.2 * scale_acc + ext_scaled * scale_new;
+                acc.0 = x_max_new;
+                acc
+            })
+            .map(|(_x_max, z_scaled, ext_scaled)| {
+                ext_scaled / z_scaled / model.number_of_links() as Scalar
+            })
+            .unwrap()
+    })
+}
+
+fn nondimensional_longitudinal_extension_reweighted_inner<T: MonteCarlo>(
+    model: &T,
+    nondimensional_force: Scalar,
+    number_of_samples: usize,
+) -> (Scalar, Scalar, Scalar) {
+    let mut x_max = Scalar::NEG_INFINITY;
+    let mut z_scaled = 0.0;
+    let mut ext_scaled = 0.0;
+
+    for _ in 0..number_of_samples {
+        let links = model.random_nondimensional_link_vectors(0.0);
+
+        let extension_sum: Scalar = links.iter().map(|link| link[2]).sum();
+        let x = nondimensional_force * extension_sum;
+
+        if x > x_max {
+            let scale = if x_max.is_finite() {
+                (x_max - x).exp()
+            } else {
+                0.0
+            };
+            z_scaled *= scale;
+            ext_scaled *= scale;
+            x_max = x;
+        }
+
+        let w = (x - x_max).exp();
+        z_scaled += w;
+        ext_scaled += extension_sum * w;
+    }
+
+    (x_max, z_scaled, ext_scaled)
 }
 
 fn nondimensional_angular_distribution<T: MonteCarlo>(
@@ -1144,12 +1245,12 @@ fn nondimensional_angular_distribution_inner<T: MonteCarlo>(
     model: &T,
     nondimensional_force: Scalar,
     num_bins: usize,
-    num_samples: usize,
+    number_of_samples: usize,
     maximum_nondimensional_extension: Scalar,
 ) -> Vec<usize> {
     let mut bin_counts = vec![0; num_bins];
     let end_index = model.number_of_links() as usize - 1;
-    for _ in 0..num_samples {
+    for _ in 0..number_of_samples {
         let configuration = model.random_configuration(nondimensional_force);
         let gamma = configuration[end_index].norm();
         let nondimensional_extension = if gamma == 0.0 {
@@ -1174,13 +1275,13 @@ fn nondimensional_lateral_distribution_inner<T: MonteCarlo>(
     model: &T,
     nondimensional_force: Scalar,
     num_bins: usize,
-    num_samples: usize,
+    number_of_samples: usize,
     maximum_nondimensional_extension: Scalar,
 ) -> Vec<usize> {
     let mut bin_counts = vec![0; num_bins];
     let num_links = model.number_of_links() as Scalar;
     let end_index = model.number_of_links() as usize - 1;
-    for _ in 0..num_samples {
+    for _ in 0..number_of_samples {
         let configuration = model.random_configuration(nondimensional_force);
         let nondimensional_extension = configuration[end_index][1] / num_links;
         if nondimensional_extension.abs() > maximum_nondimensional_extension {
@@ -1200,13 +1301,13 @@ fn nondimensional_longitudinal_distribution_inner<T: MonteCarlo>(
     model: &T,
     nondimensional_force: Scalar,
     num_bins: usize,
-    num_samples: usize,
+    number_of_samples: usize,
     maximum_nondimensional_extension: Scalar,
 ) -> Vec<usize> {
     let mut bin_counts = vec![0; num_bins];
     let num_links = model.number_of_links() as Scalar;
     let end_index = model.number_of_links() as usize - 1;
-    for _ in 0..num_samples {
+    for _ in 0..number_of_samples {
         let configuration = model.random_configuration(nondimensional_force);
         let nondimensional_extension = configuration[end_index][2] / num_links;
         if nondimensional_extension.abs() > maximum_nondimensional_extension {
@@ -1226,13 +1327,13 @@ fn nondimensional_radial_distribution_inner<T: MonteCarlo>(
     model: &T,
     nondimensional_force: Scalar,
     num_bins: usize,
-    num_samples: usize,
+    number_of_samples: usize,
     maximum_nondimensional_extension: Scalar,
 ) -> Vec<usize> {
     let mut bin_counts = vec![0; num_bins];
     let num_links = model.number_of_links() as Scalar;
     let end_index = model.number_of_links() as usize - 1;
-    for _ in 0..num_samples {
+    for _ in 0..number_of_samples {
         let configuration = model.random_configuration(nondimensional_force);
         let nondimensional_extension = configuration[end_index].norm() / num_links;
         if nondimensional_extension > maximum_nondimensional_extension {
@@ -1251,13 +1352,13 @@ fn nondimensional_transverse_distribution_inner<T: MonteCarlo>(
     model: &T,
     nondimensional_force: Scalar,
     num_bins: usize,
-    num_samples: usize,
+    number_of_samples: usize,
     maximum_nondimensional_extension: Scalar,
 ) -> Vec<usize> {
     let mut bin_counts = vec![0; num_bins];
     let num_links = model.number_of_links() as Scalar;
     let end_index = model.number_of_links() as usize - 1;
-    for _ in 0..num_samples {
+    for _ in 0..number_of_samples {
         let configuration = model.random_configuration(nondimensional_force);
         let nondimensional_extension =
             (configuration[end_index][0].powi(2) + configuration[end_index][1].powi(2)).sqrt()
