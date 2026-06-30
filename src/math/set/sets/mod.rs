@@ -1,101 +1,68 @@
-pub struct Sets<R, S, T, U, V>
-where
-    R: IntoIterator<Item = S>,
-    S: IntoIterator<Item = T>,
-    U: IntoIterator<Item = V>,
-{
-    members: R,
-    sets: U,
+use crate::math::set::Set;
+use std::cell::OnceCell;
+
+pub struct Sets<S> {
+    converse: OnceCell<Vec<Vec<usize>>>,
+    set: Set<S>,
 }
 
-impl<S, T> From<Vec<S>> for Sets<Vec<S>, S, T, Vec<usize>, usize>
-where
-    S: IntoIterator<Item = T>,
-{
-    fn from(data: Vec<S>) -> Self {
-        let sets = (0..data.len()).collect();
-        (sets, data).into()
+impl<S> Sets<S> {
+    pub fn converse<T>(&self) -> &[Vec<usize>]
+    where
+        S: AsRef<[T]>,
+        T: AsRef<[usize]>,
+    {
+        self.converse.get_or_init(|| {
+            let num_inner = self
+                .members()
+                .as_ref()
+                .iter()
+                .flat_map(|row| row.as_ref().iter().copied())
+                .max()
+                .map_or(0, |m| m + 1);
+            let mut converse = vec![Vec::new(); num_inner];
+            for (outer, row) in self.members().as_ref().iter().enumerate() {
+                for &inner in row.as_ref() {
+                    converse[inner].push(outer);
+                }
+            }
+            converse
+        })
+    }
+    pub fn members(&self) -> &S {
+        self.set.members()
+    }
+    pub fn into_members(self) -> S {
+        self.set.into_members()
+    }
+    pub fn numbers(&self) -> Option<&[usize]> {
+        self.set.numbers()
+    }
+    pub fn set(&self) -> &Set<S> {
+        &self.set
+    }
+    pub fn set_numbers(&mut self, numbers: Vec<usize>) {
+        self.set.set_numbers(numbers);
     }
 }
 
-impl<S, T, V> From<(Vec<V>, Vec<S>)> for Sets<Vec<S>, S, T, Vec<V>, V>
-where
-    S: IntoIterator<Item = T>,
-{
-    fn from((sets, members): (Vec<V>, Vec<S>)) -> Self {
-        assert_eq!(members.len(), sets.len());
-        Self { members, sets }
+impl<S> From<S> for Sets<S> {
+    fn from(members: S) -> Self {
+        Set::from(members).into()
     }
 }
 
-impl<S, T> From<Sets<Vec<S>, S, T, Vec<usize>, usize>> for (Vec<usize>, Vec<S>)
-where
-    S: IntoIterator<Item = T>,
-{
-    fn from(sets: Sets<Vec<S>, S, T, Vec<usize>, usize>) -> Self {
-        (sets.sets, sets.members)
+impl<S> From<Set<S>> for Sets<S> {
+    fn from(set: Set<S>) -> Self {
+        Self {
+            converse: OnceCell::new(),
+            set,
+        }
     }
 }
 
-impl<R, S, T, U, V> Sets<R, S, T, U, V>
-where
-    R: IntoIterator<Item = S>,
-    S: IntoIterator<Item = T>,
-    U: IntoIterator<Item = V>,
-    for<'a> &'a R: IntoIterator<Item = &'a S>,
-    for<'a> &'a S: IntoIterator<Item = &'a T>,
-    T: Copy + Ord,
-{
-    pub fn members(&self) -> &R {
-        &self.members
-    }
-    fn unique_members(&self) -> Vec<T> {
-        let mut unique_members: Vec<T> = (&self.members)
-            .into_iter()
-            .flat_map(|members| members.into_iter().copied())
-            .collect();
-        unique_members.sort_unstable();
-        unique_members.dedup();
-        unique_members
-    }
-}
-
-pub trait InverseSets<R, S, T, U, V, W>
-where
-    R: IntoIterator<Item = S>,
-    S: IntoIterator<Item = T>,
-    U: IntoIterator<Item = V>,
-{
-    fn inverse(&self) -> (Sets<R, S, T, U, V>, W);
-}
-
-impl<R, S, U, V> InverseSets<Vec<Vec<V>>, Vec<V>, V, Vec<usize>, usize, Vec<usize>>
-    for Sets<R, S, usize, U, V>
-where
-    R: IntoIterator<Item = S>,
-    S: IntoIterator<Item = usize>,
-    U: IntoIterator<Item = V>,
-    for<'a> &'a R: IntoIterator<Item = &'a S>,
-    for<'a> &'a S: IntoIterator<Item = &'a usize>,
-    for<'a> &'a U: IntoIterator<Item = &'a V>,
-    V: Copy,
-{
-    fn inverse(&self) -> (Sets<Vec<Vec<V>>, Vec<V>, V, Vec<usize>, usize>, Vec<usize>) {
-        let sets = self.unique_members();
-        let mut members = vec![vec![]; sets.len()];
-        let max_member = sets.iter().max().unwrap();
-        let mut map = vec![0; max_member + 1];
-        sets.iter()
-            .enumerate()
-            .for_each(|(index, &set)| map[set] = index);
-        (&self.sets)
-            .into_iter()
-            .zip(&self.members)
-            .for_each(|(&set, set_members)| {
-                set_members
-                    .into_iter()
-                    .for_each(|&member| members[map[member]].push(set))
-            });
-        (Sets { members, sets }, map)
+impl<S> From<Sets<S>> for Set<S> {
+    fn from(sets: Sets<S>) -> Self {
+        sets.set
     }
 }

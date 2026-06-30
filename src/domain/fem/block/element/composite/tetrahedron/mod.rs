@@ -3,10 +3,10 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        ElementNodalEitherCoordinates, ElementNodalReferenceCoordinates, FiniteElement,
-        GradientVectors, ParametricCoordinate, ParametricCoordinates, ParametricReference,
-        ShapeFunctions, ShapeFunctionsAtIntegrationPoints, ShapeFunctionsGradients,
-        StandardGradientOperators, StandardGradientOperatorsTransposed,
+        ElementNodalReferenceCoordinates, FiniteElement, GradientVectors, ParametricCoordinate,
+        ParametricCoordinates, ParametricReference, ShapeFunctions,
+        ShapeFunctionsAtIntegrationPoints, ShapeFunctionsGradients, StandardGradientOperators,
+        StandardGradientOperatorsTransposed,
         composite::{
             CompositeElement, NormalizedProjectionMatrix, ParametricGradientOperators,
             ProjectionMatrix, ShapeFunctionIntegrals, ShapeFunctionIntegralsProducts,
@@ -62,11 +62,6 @@ impl FiniteElement<G, M, N, P> for Tetrahedron {
     fn parametric_weights() -> ScalarList<G> {
         [1.0 / 24.0; G].into()
     }
-    fn scaled_jacobians<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> ScalarList<P> {
-        LinearTetrahedron::scaled_jacobians(Self::corner_coordinates(nodal_coordinates))
-    }
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<P> {
         LinearTetrahedron::shape_functions(parametric_coordinate) // should use LinearTetrahedron<G=4>
     }
@@ -78,11 +73,6 @@ impl FiniteElement<G, M, N, P> for Tetrahedron {
 }
 
 impl Tetrahedron {
-    fn corner_coordinates<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> ElementNodalEitherCoordinates<I, P> {
-        nodal_coordinates.into_iter().take(P).collect()
-    }
     const fn integration_weight() -> Scalar {
         1.0 / 24.0
     }
@@ -113,7 +103,7 @@ impl Tetrahedron {
     }
     fn projected_gradient_vectors(
         reference_nodal_coordinates: &ElementNodalReferenceCoordinates<N>,
-    ) -> GradientVectors<G, N> {
+    ) -> GradientVectors<3, G, N> {
         let parametric_gradient_operators = Self::shape_functions_gradients_at_integration_points()
             .iter()
             .map(|standard_gradient_operator| {

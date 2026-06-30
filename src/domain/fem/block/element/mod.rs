@@ -4,6 +4,7 @@ mod test;
 pub mod cohesive;
 pub mod composite;
 pub mod linear;
+pub mod planar;
 pub mod quadratic;
 pub mod serendipity;
 pub mod solid;
@@ -11,9 +12,11 @@ pub mod surface;
 pub mod thermal;
 
 use crate::{
-    defeat_message,
-    math::{Scalar, ScalarList, TensorRank1, TensorRank1List, TensorRank1List2D, TestError},
-    mechanics::{CoordinateList, CurrentCoordinates, ReferenceCoordinates, VectorList2D},
+    math::{
+        Scalar, ScalarList, TensorRank1, TensorRank1List, TensorRank1List2D, TestError,
+        defeat_message,
+    },
+    mechanics::{CoordinateList, CurrentCoordinates, ReferenceCoordinates},
 };
 use std::fmt::{self, Debug, Display, Formatter};
 
@@ -25,7 +28,8 @@ pub type ElementNodalCoordinates<const N: usize> = CurrentCoordinates<N>;
 pub type ElementNodalVelocities<const N: usize> = CurrentCoordinates<N>;
 pub type ElementNodalEitherCoordinates<const I: usize, const N: usize> = CoordinateList<I, N>;
 pub type ElementNodalReferenceCoordinates<const N: usize> = ReferenceCoordinates<N>;
-pub type GradientVectors<const G: usize, const N: usize> = VectorList2D<0, N, G>;
+pub type GradientVectors<const D: usize, const G: usize, const N: usize> =
+    TensorRank1List2D<D, 0, N, G>;
 pub type ParametricCoordinate<const M: usize> = TensorRank1<M, A>;
 pub type ParametricCoordinates<const G: usize, const M: usize> = TensorRank1List<M, A, G>;
 pub type ParametricReference<const M: usize, const N: usize> = TensorRank1List<M, A, N>;
@@ -44,19 +48,8 @@ where
 {
     fn integration_points() -> ParametricCoordinates<G, M>;
     fn integration_weights(&self) -> &ScalarList<G>;
-    fn minimum_scaled_jacobian<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> Scalar {
-        Self::scaled_jacobians(nodal_coordinates)
-            .into_iter()
-            .reduce(Scalar::min)
-            .unwrap()
-    }
     fn parametric_reference() -> ParametricReference<M, N>;
     fn parametric_weights() -> ScalarList<G>;
-    fn scaled_jacobians<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> ScalarList<P>;
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<P>;
     fn shape_functions_at_integration_points() -> ShapeFunctionsAtIntegrationPoints<G, P> {
         Self::integration_points()
@@ -79,50 +72,43 @@ where
 }
 
 #[derive(Clone)]
-pub struct Element<const G: usize, const N: usize, const O: usize> {
-    gradient_vectors: GradientVectors<G, N>,
+pub struct Element<const D: usize, const G: usize, const N: usize, const O: usize> {
+    gradient_vectors: GradientVectors<D, G, N>,
     integration_weights: ScalarList<G>,
 }
 
-impl<const G: usize, const N: usize, const O: usize> Element<G, N, O> {
-    fn gradient_vectors(&self) -> &GradientVectors<G, N> {
+impl<const D: usize, const G: usize, const N: usize, const O: usize> Element<D, G, N, O> {
+    fn gradient_vectors(&self) -> &GradientVectors<D, G, N> {
         &self.gradient_vectors
     }
 }
 
-impl<const G: usize, const N: usize, const O: usize> Debug for Element<G, N, O> {
+impl<const D: usize, const G: usize, const N: usize, const O: usize> Debug for Element<D, G, N, O> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let element = match (G, N, O) {
-            (8, 8, 1) => "LinearHexahedron",
-            (8, 5, 1) => "LinearPyramid",
-            (1, 4, 1) => "LinearTetrahedron",
-            (6, 6, 1) => "LinearWedge",
-            (27, 27, 2) => "QuadraticHexahedron",
-            (4, 10, 2) => "QuadraticTetrahedron",
-            (27, 13, 2) => "QuadraticPyramid",
-            (18, 15, 2) => "QuadraticWedge",
-            (27, 20, 2) => "SerendipityHexahedron",
-            (4, 10, 0) => "CompositeTetrahedron",
+        let element = match (D, G, N, O) {
+            (2, 1, 3, 1) => "LinearTriangle",
+            (2, 4, 4, 1) => "LinearQuadrilateral",
+            (3, 8, 8, 1) => "LinearHexahedron",
+            (3, 8, 5, 1) => "LinearPyramid",
+            (3, 1, 4, 1) => "LinearTetrahedron",
+            (3, 6, 6, 1) => "LinearWedge",
+            (3, 27, 27, 2) => "QuadraticHexahedron",
+            (3, 4, 10, 2) => "QuadraticTetrahedron",
+            (3, 27, 13, 2) => "QuadraticPyramid",
+            (3, 18, 15, 2) => "QuadraticWedge",
+            (3, 27, 20, 2) => "SerendipityHexahedron",
+            (3, 4, 10, 0) => "CompositeTetrahedron",
             _ => panic!(),
         };
         write!(f, "{element} {{ integration points: {G}, nodes: {N} }}",)
     }
 }
 
-impl<const G: usize, const N: usize, const O: usize> Default for Element<G, N, O>
+fn basic_from<const D: usize, const G: usize, const N: usize, const O: usize>(
+    reference_nodal_coordinates: TensorRank1List<D, 0, N>,
+) -> Element<D, G, N, O>
 where
-    Self: FiniteElement<G, 3, N, N> + From<ElementNodalReferenceCoordinates<N>>,
-{
-    fn default() -> Self {
-        ElementNodalReferenceCoordinates::from(Self::parametric_reference()).into()
-    }
-}
-
-fn basic_from<const G: usize, const N: usize, const O: usize>(
-    reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,
-) -> Element<G, N, O>
-where
-    Element<G, N, O>: FiniteElement<G, 3, N, N>,
+    Element<D, G, N, O>: FiniteElement<G, D, N, N>,
 {
     let gradient_vectors = Element::shape_functions_gradients_at_integration_points()
         .into_iter()

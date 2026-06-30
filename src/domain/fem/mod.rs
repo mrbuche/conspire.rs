@@ -1,107 +1,128 @@
 //! Finite element library.
 
 pub mod block;
+mod from;
 pub mod solid;
+pub mod thermal;
 
-use crate::{
-    math::{
-        TensorRank1Vec2D,
-        optimize::{EqualityConstraint, FirstOrderRootFinding, OptimizationError},
+use crate::math::{
+    Style, StyledError, TensorRank1Vec, TensorRank1Vec2D, TestError,
+    optimize::{
+        EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
+        SecondOrderOptimization, ZerothOrderRootFinding,
     },
-    mechanics::Coordinates,
+    styled_error,
 };
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt::Debug;
 
-pub type NodalCoordinates = Coordinates<1>;
-pub type NodalCoordinatesHistory = TensorRank1Vec2D<3, 1>;
-pub type NodalReferenceCoordinates = Coordinates<0>;
-pub type NodalVelocities = Coordinates<1>;
-pub type NodalVelocitiesHistory = TensorRank1Vec2D<3, 1>;
-
-// Consider using a model-to-block node map to avoid all the extra allocations/operations in nodal_forces etc.
-// Would need to use a new trait for Blocks with the map in the receiver, and keep those maps in a Model field.
-// Try to compare the performance before and after before making a decision.
-
-// need to move solve routines from block to model
-// would then need to change how unit tests work
-
-// want to have mixed-C cases (viscoelastic + elastic) solve differently
-// will have like (B1: Elastic, B2: Viscoelastic) => ViscoelasticFiniteElementModel
-// just like constutituve/hybrid, and will have to impl combos specifically
+pub type NodalCoordinates<const D: usize> = TensorRank1Vec<D, 1>;
+pub type NodalCoordinatesHistory<const D: usize> = TensorRank1Vec2D<D, 1>;
+pub type NodalReferenceCoordinates<const D: usize> = TensorRank1Vec<D, 0>;
+pub type NodalVelocities<const D: usize> = TensorRank1Vec<D, 1>;
+pub type NodalVelocitiesHistory<const D: usize> = TensorRank1Vec2D<D, 1>;
 
 #[derive(Debug)]
-pub struct Model<B> {
-    // blocks: B,
-    // coordinates: NodalReferenceCoordinates,
-    pub blocks: B,
-    pub coordinates: NodalReferenceCoordinates,
-    // pub is temporary until From<...> is implemented
+pub struct Model<B, const D: usize> {
+    blocks: B,
+    coordinates: NodalReferenceCoordinates<D>,
 }
 
 #[derive(Debug)]
-pub struct Blocks<B1, B2>(pub B1, pub B2); // pub is temporary
+pub struct Blocks<B1, B2>(B1, B2);
 
-pub struct Connectivities<C1, C2>(C1, C2);
+#[derive(Debug)]
+pub struct ElasticViscoplasticAndElastic<B1, B2>(B1, B2);
 
-pub trait FiniteElementModel
+pub trait ElementModel<const D: usize>
 where
     Self: Debug,
 {
-    fn coordinates(&self) -> &NodalReferenceCoordinates;
+    fn coordinates(&self) -> &NodalReferenceCoordinates<D>;
 }
 
-impl<B> FiniteElementModel for Model<B>
+pub trait Elements
+where
+    Self: Debug,
+{
+    fn node_neighbors(&self, neighbors: &mut [Vec<usize>]);
+}
+
+impl<B, const D: usize> Elements for Model<B, D>
+where
+    B: Elements,
+{
+    fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
+        self.blocks.node_neighbors(neighbors)
+    }
+}
+
+impl<B1, B2> Elements for Blocks<B1, B2>
+where
+    B1: Elements,
+    B2: Elements,
+{
+    fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
+        self.0.node_neighbors(neighbors);
+        self.1.node_neighbors(neighbors)
+    }
+}
+
+impl<B1, B2> Elements for ElasticViscoplasticAndElastic<B1, B2>
+where
+    B1: Elements,
+    B2: Elements,
+{
+    fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
+        self.0.node_neighbors(neighbors);
+        self.1.node_neighbors(neighbors)
+    }
+}
+
+impl<B, const D: usize> Model<B, D> {
+    pub fn blocks(&self) -> &B {
+        &self.blocks
+    }
+}
+
+impl<B, const D: usize> ElementModel<D> for Model<B, D>
 where
     B: Debug,
 {
-    fn coordinates(&self) -> &NodalReferenceCoordinates {
+    fn coordinates(&self) -> &NodalReferenceCoordinates<D> {
         &self.coordinates
     }
 }
 
-pub enum FiniteElementModelError {
+pub enum ElementModelError {
     Upstream(String, String),
 }
 
-impl Debug for FiniteElementModelError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::Upstream(error, model) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In finite element model: {model}."
-                )
-            }
-        };
-        write!(f, "{error}\x1b[0m")
+impl From<ElementModelError> for String {
+    fn from(error: ElementModelError) -> Self {
+        error.message(&Style::detect())
     }
 }
 
-impl Display for FiniteElementModelError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::Upstream(error, model) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In finite element model: {model}."
-                )
-            }
-        };
-        write!(f, "{error}\x1b[0m")
-    }
-}
-
-impl From<FiniteElementModelError> for String {
-    fn from(error: FiniteElementModelError) -> Self {
-        match error {
-            FiniteElementModelError::Upstream(error, model) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In finite element model: {model}."
-                )
-            }
+impl StyledError for ElementModelError {
+    fn message(&self, style: &Style) -> String {
+        let c = style.frame;
+        match self {
+            Self::Upstream(error, model) => format!(
+                "{error}{c}\n\
+                In element model: {model}."
+            ),
         }
     }
+}
+
+styled_error!(ElementModelError);
+
+pub trait ZerothOrderRoot<X> {
+    fn root(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: impl ZerothOrderRootFinding<X>,
+    ) -> Result<X, OptimizationError>;
 }
 
 pub trait FirstOrderRoot<F, J, X> {
@@ -110,4 +131,37 @@ pub trait FirstOrderRoot<F, J, X> {
         equality_constraint: EqualityConstraint,
         solver: impl FirstOrderRootFinding<F, J, X>,
     ) -> Result<X, OptimizationError>;
+}
+
+pub trait FirstOrderMinimize<F, X> {
+    fn minimize(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: impl FirstOrderOptimization<F, X>,
+    ) -> Result<X, OptimizationError>;
+}
+
+pub trait SecondOrderMinimize<F, J, H, X> {
+    fn minimize(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: impl SecondOrderOptimization<F, J, H, X>,
+    ) -> Result<X, OptimizationError>;
+}
+
+impl<B, const D: usize> From<(B, NodalReferenceCoordinates<D>)> for Model<B, D> {
+    fn from((blocks, coordinates): (B, NodalReferenceCoordinates<D>)) -> Self {
+        Self {
+            blocks,
+            coordinates,
+        }
+    }
+}
+
+impl From<ElementModelError> for TestError {
+    fn from(error: ElementModelError) -> Self {
+        Self {
+            message: error.to_string(),
+        }
+    }
 }

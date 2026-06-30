@@ -12,6 +12,16 @@ pub struct TensorList<T, const N: usize>([T; N])
 where
     T: Tensor;
 
+impl<T, const N: usize> TensorList<T, N>
+where
+    T: Tensor,
+{
+    /// Associated function for const type conversion.
+    pub const fn const_from(array: [T; N]) -> Self {
+        Self(array)
+    }
+}
+
 impl<T, const N: usize> Default for TensorList<T, N>
 where
     T: Tensor,

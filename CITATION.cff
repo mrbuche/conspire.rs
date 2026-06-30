@@ -6,6 +6,9 @@ authors:
   - family-names: Buche
     given-names: Michael R.
     orcid: 'https://orcid.org/0000-0003-1892-0502'
+  - family-names: Hovey
+    given-names: Chad B.
+    orcid: 'https://orcid.org/0000-0003-0915-5765'
 identifiers:
   - type: doi
     value: 10.5281/zenodo.14579444

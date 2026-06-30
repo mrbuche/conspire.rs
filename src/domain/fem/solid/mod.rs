@@ -1,38 +1,12 @@
 pub mod elastic;
+pub mod elastic_hyperviscous;
+pub mod elastic_viscoplastic;
+pub mod hyperelastic;
+pub mod hyperelastic_viscoplastic;
+pub mod hyperviscoelastic;
+pub mod viscoelastic;
 
-use crate::{
-    constitutive::solid::Solid,
-    fem::{
-        Blocks, Model,
-        block::{Block, element::solid::SolidFiniteElement},
-    },
-    math::TensorRank2Vec2D,
-    mechanics::Forces,
-};
-use std::fmt::Debug;
+use crate::math::{TensorRank1Vec, TensorRank2Vec2D};
 
-pub type NodalForcesSolid = Forces;
-pub type NodalStiffnessesSolid = TensorRank2Vec2D<3, 1, 1>;
-
-pub trait SolidFiniteElementModel
-where
-    Self: Debug,
-{
-}
-
-impl<B> SolidFiniteElementModel for Model<B> where B: SolidFiniteElementModel {}
-
-impl<B1, B2> SolidFiniteElementModel for Blocks<B1, B2>
-where
-    B1: SolidFiniteElementModel,
-    B2: SolidFiniteElementModel,
-{
-}
-
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> SolidFiniteElementModel
-    for Block<C, F, G, M, N, P>
-where
-    C: Solid,
-    F: SolidFiniteElement<G, M, N, P>,
-{
-}
+pub type NodalForcesSolid<const D: usize> = TensorRank1Vec<D, 1>;
+pub type NodalStiffnessesSolid<const D: usize> = TensorRank2Vec2D<D, 1, 1>;

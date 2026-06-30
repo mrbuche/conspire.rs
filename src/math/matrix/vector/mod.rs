@@ -289,6 +289,9 @@ impl TensorVec for Vector {
     fn swap_remove(&mut self, index: usize) -> Self::Item {
         self.0.swap_remove(index)
     }
+    fn with_capacity(capacity: usize) -> Self {
+        Self(Vec::with_capacity(capacity))
+    }
 }
 
 impl Sum for Vector {

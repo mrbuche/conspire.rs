@@ -13,19 +13,13 @@ use conspire::{
         thermal::conduction::Fourier,
     },
     fem::{
-        NodalReferenceCoordinates,
+        Model, NodalReferenceCoordinates,
         block::{
-            Block, Connectivity, SecondOrderMinimize,
-            element::linear::Tetrahedron as LinearTetrahedron,
-            solid::{
-                SolidFiniteElementBlock,
-                elastic_hyperviscous::ElasticHyperviscousFiniteElementBlock,
-                hyperelastic_viscoplastic::HyperelasticViscoplasticFiniteElementBlock,
-                viscoelastic::ViscoelasticFiniteElementBlock,
-            },
-            thermal::ThermalFiniteElementBlock,
+            Block, element::linear::Tetrahedron as LinearTetrahedron, solid::SolidElements,
+            thermal::ThermalElements,
         },
     },
+    geometry::mesh::{Connectivity, Mesh},
     math::{
         Matrix, Scalar, Tensor, TestError, Vector, assert_eq_within, assert_eq_within_tols,
         integrate::DormandPrince,
@@ -39,7 +33,7 @@ const M: usize = 3;
 const N: usize = 4;
 const P: usize = 4;
 
-fn connectivity() -> Connectivity<N> {
+fn connectivity() -> Vec<[usize; N]> {
     vec![
         [22, 243, 423, 603],
         [22, 243, 603, 261],
@@ -6044,7 +6038,7 @@ fn connectivity() -> Connectivity<N> {
     ]
 }
 
-fn coordinates() -> NodalReferenceCoordinates {
+fn coordinates() -> NodalReferenceCoordinates<3> {
     NodalReferenceCoordinates::from([
         [5.000000e-01, -5.000000e-01, 5.000000e-01],
         [5.000000e-01, 5.000000e-01, 5.000000e-01],
@@ -7394,11 +7388,6 @@ fn temporary_hyperelastic() -> Result<(), TestError> {
         bulk_modulus: 13.0,
         shear_modulus: 3.0,
     };
-    let block = Block::<_, LinearTetrahedron, G, M, N, P>::from((
-        model.clone(),
-        connectivity,
-        coordinates(),
-    ));
     let length = ref_coordinates
         .iter()
         .filter(|coordinate| coordinate[0].abs() == 0.5)
@@ -7430,7 +7419,14 @@ fn temporary_hyperelastic() -> Result<(), TestError> {
     vector[length - 1] = -0.5;
     let mut time = std::time::Instant::now();
     println!("Solving...");
-    let solution = block.minimize(
+    let mesh = Mesh::from((
+        vec![Connectivity::Tetrahedral(connectivity.into())],
+        coordinates(),
+    ));
+    let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> =
+        (mesh, model.clone()).try_into()?;
+    let solution = conspire::fem::SecondOrderMinimize::minimize(
+        &fem_model,
         EqualityConstraint::Linear(matrix, vector),
         NewtonRaphson::default(),
     )?;
@@ -7441,7 +7437,8 @@ fn temporary_hyperelastic() -> Result<(), TestError> {
         AppliedDeformation::UniaxialStress(strain + 1.0),
         NewtonRaphson::default(),
     )?;
-    block
+    fem_model
+        .blocks()
         .deformation_gradients(&solution)
         .iter()
         .try_for_each(|deformation_gradients_e| {
@@ -7524,14 +7521,23 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
         rate_sensitivity: 0.25,
         reference_flow_rate: 0.1,
     };
-    let block = Block::<_, LinearTetrahedron, G, M, N, P>::from((
-        model.clone(),
-        connectivity,
-        coordinates(),
-    ));
     let mut time = std::time::Instant::now();
     println!("Solving...");
-    let (times, coordinates_history, state_variables_history) = block.minimize(
+    let mesh = Mesh::from((
+        vec![Connectivity::Tetrahedral(connectivity.into())],
+        coordinates(),
+    ));
+    let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> =
+        (mesh, model.clone()).try_into()?;
+    let (times, coordinates_history, state_variables_history): (
+        _,
+        _,
+        conspire::fem::block::solid::elastic_viscoplastic::ViscoplasticStateVariablesHistory<
+            G,
+            Scalar,
+        >,
+    ) = conspire::fem::solid::hyperelastic_viscoplastic::SecondOrderMinimize::minimize(
+        &fem_model,
         BogackiShampine {
             abs_tol: tol,
             rel_tol: tol,
@@ -7561,7 +7567,8 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
                 coordinates,
                 (state_variables_block, (deformation_gradient, state_variables_model)),
             )| {
-                block
+                fem_model
+                    .blocks()
                     .deformation_gradients(coordinates)
                     .iter()
                     .try_for_each(|deformation_gradients| {
@@ -7618,11 +7625,6 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
         bulk_viscosity: 11.0,
         shear_viscosity: 1.0,
     };
-    let block = Block::<_, LinearTetrahedron, G, M, N, P>::from((
-        model.clone(),
-        connectivity,
-        coordinates(),
-    ));
     let length = ref_coordinates
         .iter()
         .filter(|coordinate| coordinate[0].abs() == 0.5)
@@ -7654,16 +7656,24 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
     vector[length - 1] = 0.0;
     let mut time = std::time::Instant::now();
     println!("Solving...");
-    let (times, coordinates_history, velocities_history) = block.minimize(
-        EqualityConstraint::Linear(matrix, vector),
-        DormandPrince {
-            abs_tol: tol,
-            rel_tol: tol,
-            ..Default::default()
-        },
-        &tspan,
-        NewtonRaphson::default(),
-    )?;
+    let mesh = Mesh::from((
+        vec![Connectivity::Tetrahedral(connectivity.into())],
+        coordinates(),
+    ));
+    let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> =
+        (mesh, model.clone()).try_into()?;
+    let (times, coordinates_history, velocities_history) =
+        conspire::fem::solid::elastic_hyperviscous::SecondOrderMinimize::minimize(
+            &fem_model,
+            EqualityConstraint::Linear(matrix, vector),
+            DormandPrince {
+                abs_tol: tol,
+                rel_tol: tol,
+                ..Default::default()
+            },
+            &tspan,
+            NewtonRaphson::default(),
+        )?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
     println!("Verifying...");
@@ -7683,7 +7693,8 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
         )
         .try_for_each(
             |(coordinates, (velocities, (deformation_gradient, deformation_gradient_rate)))| {
-                block
+                fem_model
+                    .blocks()
                     .deformation_gradients(coordinates)
                     .iter()
                     .try_for_each(|deformation_gradients| {
@@ -7698,7 +7709,8 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
                                 )
                             })
                     })?;
-                block
+                fem_model
+                    .blocks()
                     .deformation_gradient_rates(coordinates, velocities)
                     .iter()
                     .try_for_each(|deformation_gradient_rates| {
@@ -7732,11 +7744,6 @@ fn temporary_thermal_conduction() -> Result<(), TestError> {
     let model = Fourier {
         thermal_conductivity: 1.0,
     };
-    let block = Block::<_, LinearTetrahedron, G, M, N, P>::from((
-        model.clone(),
-        connectivity,
-        coordinates(),
-    ));
     let length = ref_coordinates
         .iter()
         .filter(|coordinate| coordinate[0].abs() == 0.5)
@@ -7761,7 +7768,14 @@ fn temporary_thermal_conduction() -> Result<(), TestError> {
         });
     let mut time = std::time::Instant::now();
     println!("Solving...");
-    let solution = block.minimize(
+    let mesh = Mesh::from((
+        vec![Connectivity::Tetrahedral(connectivity.into())],
+        coordinates(),
+    ));
+    let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> =
+        (mesh, model.clone()).try_into()?;
+    let solution = conspire::fem::SecondOrderMinimize::minimize(
+        &fem_model,
         EqualityConstraint::Linear(matrix, vector),
         NewtonRaphson {
             max_steps: 1,
@@ -7772,7 +7786,8 @@ fn temporary_thermal_conduction() -> Result<(), TestError> {
     time = std::time::Instant::now();
     println!("Verifying...");
     let temperature_gradient = TemperatureGradient::from([temperature, 0.0, 0.0]);
-    block
+    fem_model
+        .blocks()
         .temperature_gradients(&solution)
         .iter()
         .try_for_each(|temperature_gradients_e| {

@@ -166,7 +166,7 @@ where
         y_trial: &Y,
         e: Scalar,
     ) -> Result<(), String> {
-        if e < self.abs_tol() || e / y_trial.norm_inf() < self.rel_tol() {
+        if e < self.abs_tol() || e < self.rel_tol() * y_trial.norm_inf() {
             *t += *dt;
             *y = y_trial.clone();
             t_sol.push(*t);
@@ -222,7 +222,7 @@ where
         y_trial: &Y,
         e: Scalar,
     ) -> Result<(), String> {
-        if e < self.abs_tol() || e / y_trial.norm_inf() < self.rel_tol() {
+        if e < self.abs_tol() || e < self.rel_tol() * y_trial.norm_inf() {
             k[0] = k[Self::SLOPES - 1].clone();
             *t += *dt;
             *y = y_trial.clone();

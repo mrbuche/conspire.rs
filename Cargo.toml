@@ -1,5 +1,5 @@
 [package]
-authors = ["Michael R. Buche <mrbuche@sandia.gov>"]
+authors = ["Michael R. Buche <mrbuche@sandia.gov>", "Chad B. Hovey <chovey@sandia.gov>"]
 categories = ["mathematics", "science"]
 description = "The Rust interface to conspire."
 documentation = "https://docs.rs/crate/conspire"
@@ -9,14 +9,18 @@ keywords = ["conspire", "mrbuche"]
 license = "GPL-3.0"
 name = "conspire"
 repository = "https://github.com/mrbuche/conspire.rs"
-version = "0.6.4"
+version = "0.7.0"
 
 [features]
+all = ['netcdf', 'vem']
 constitutive = ['physics']
 doc = []
-fem = ['constitutive']
+fem = ['constitutive', 'geometry']
+geometry = ['io', 'math']
+io = []
 math = []
 mechanics = ['math']
+netcdf = ['io']
 physics = ['mechanics']
 vem = ['fem']
 

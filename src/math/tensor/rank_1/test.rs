@@ -1,4 +1,4 @@
-use super::{Tensor, TensorArray, TensorRank0, TensorRank1};
+use super::{CrossProduct, Tensor, TensorArray, TensorRank0, TensorRank1};
 use crate::{
     ABS_TOL, REL_TOL,
     math::test::{TestError, assert_eq},
@@ -89,12 +89,6 @@ fn cross() -> Result<(), TestError> {
         &(get_tensor_rank_1_b().cross(&get_tensor_rank_1_c())),
         &get_tensor_rank_1_b_cross_c(),
     )
-}
-
-#[test]
-#[should_panic]
-fn cross_panic() {
-    get_tensor_rank_1().cross(&get_tensor_rank_1_a());
 }
 
 #[test]

@@ -2,7 +2,7 @@ use crate::{
     fem::{
         NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
         block::{
-            Block, Connectivity,
+            Block,
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
                 FiniteElement, GradientVectors,
@@ -20,7 +20,7 @@ use crate::{
 
 pub const D: usize = 35;
 
-pub fn get_connectivity() -> Connectivity<N> {
+pub fn get_connectivity() -> Vec<[usize; N]> {
     vec![
         [26, 1, 3, 0, 27, 20, 28, 29, 13, 10],
         [26, 2, 3, 1, 30, 19, 28, 27, 9, 20],
@@ -37,7 +37,7 @@ pub fn get_connectivity() -> Connectivity<N> {
     ]
 }
 
-pub fn get_coordinates_block() -> NodalCoordinates {
+pub fn get_coordinates_block() -> NodalCoordinates<3> {
     NodalCoordinates::from([
         [0.50970092, -0.45999746, 0.47715613],
         [0.53320092, 0.50645170, 0.48671275],
@@ -92,7 +92,7 @@ pub fn reference_coordinates() -> ElementNodalReferenceCoordinates<N> {
     ])
 }
 
-pub fn get_reference_coordinates_block() -> NodalReferenceCoordinates {
+pub fn get_reference_coordinates_block() -> NodalReferenceCoordinates<3> {
     NodalReferenceCoordinates::from([
         [0.50, -0.50, 0.50],
         [0.50, 0.50, 0.50],
@@ -132,7 +132,7 @@ pub fn get_reference_coordinates_block() -> NodalReferenceCoordinates {
     ])
 }
 
-pub fn get_velocities_block() -> NodalVelocities {
+pub fn get_velocities_block() -> NodalVelocities<3> {
     NodalVelocities::from([
         [0.04705949, 0.03631753, 0.07485168],
         [-0.05308881, 0.00788418, -0.00509899],

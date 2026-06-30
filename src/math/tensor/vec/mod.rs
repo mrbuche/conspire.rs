@@ -1,4 +1,4 @@
-use crate::math::{Tensor, TensorRank0, TensorRank1, TensorVec};
+use crate::math::{Tensor, TensorRank0, TensorRank1, TensorRank1List, TensorVec};
 use std::{
     collections::VecDeque,
     fmt::{Display, Formatter, Result},
@@ -18,6 +18,24 @@ pub type TensorRank1RefVec<'a, const D: usize, const I: usize> =
     TensorVector<&'a TensorRank1<D, I>>;
 
 impl<'a, const D: usize, const I: usize> TensorRank1RefVec<'a, D, I> {
+    pub fn bounding_box(&self) -> TensorRank1List<D, I, 2> {
+        self.iter()
+            .skip(1)
+            .fold(
+                [self[0].clone(), self[0].clone()],
+                |[mut min, mut max], entry| {
+                    entry
+                        .iter()
+                        .zip(min.iter_mut().zip(max.iter_mut()))
+                        .for_each(|(&entry_i, (min_i, max_i))| {
+                            *min_i = min_i.min(entry_i);
+                            *max_i = max_i.max(entry_i);
+                        });
+                    [min, max]
+                },
+            )
+            .into()
+    }
     pub fn iter(&self) -> impl Iterator<Item = &&TensorRank1<D, I>> {
         self.0.iter()
     }
@@ -265,6 +283,9 @@ where
     }
     fn swap_remove(&mut self, index: usize) -> Self::Item {
         self.0.swap_remove(index)
+    }
+    fn with_capacity(capacity: usize) -> Self {
+        Self(Vec::with_capacity(capacity))
     }
 }
 

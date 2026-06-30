@@ -10,35 +10,28 @@ use crate::{
     fem::{
         NodalCoordinates,
         block::{Block, element::solid::SolidFiniteElement},
-        solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     mechanics::DeformationGradientList,
 };
 
-pub trait SolidFiniteElementBlock<
-    C,
-    F,
-    const G: usize,
-    const M: usize,
-    const N: usize,
-    const P: usize,
-> where
-    F: SolidFiniteElement<G, M, N, P>,
-{
-    fn deformation_gradients(
-        &self,
-        nodal_coordinates: &NodalCoordinates,
-    ) -> Vec<DeformationGradientList<G>>;
-}
-
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-    SolidFiniteElementBlock<C, F, G, M, N, P> for Block<C, F, G, M, N, P>
+pub trait SolidElements<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
 where
     F: SolidFiniteElement<G, M, N, P>,
 {
     fn deformation_gradients(
         &self,
-        nodal_coordinates: &NodalCoordinates,
+        nodal_coordinates: &NodalCoordinates<3>,
+    ) -> Vec<DeformationGradientList<G>>;
+}
+
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
+    SolidElements<C, F, G, M, N, P> for Block<C, F, G, M, N, P>
+where
+    F: SolidFiniteElement<G, M, N, P>,
+{
+    fn deformation_gradients(
+        &self,
+        nodal_coordinates: &NodalCoordinates<3>,
     ) -> Vec<DeformationGradientList<G>> {
         self.elements()
             .iter()

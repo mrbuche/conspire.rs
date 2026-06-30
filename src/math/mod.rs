@@ -15,11 +15,18 @@ pub mod interpolate;
 /// Optimization and root finding.
 pub mod optimize;
 
+mod graph;
+mod hash;
 mod matrix;
 mod random;
 mod set;
+mod style;
 mod tensor;
 
+pub(crate) use style::{Style, StyledError, defeat_message, styled_error};
+
+pub use graph::Graph;
+pub use hash::{FxHashMap, FxHashSet, FxHasher};
 pub use matrix::{
     Matrix,
     square::{Banded, SquareMatrix},
@@ -28,18 +35,15 @@ pub use matrix::{
 pub use random::{
     random_normal, random_normal_standard, random_u8, random_u64, random_uniform, random_x2_normal,
 };
-pub use set::{
-    dsu::disjoint_set_union,
-    sets::{InverseSets, Sets},
-};
+pub use set::{Set, sets::Sets};
 pub use tensor::{
     Hessian, Jacobian, Rank2, Scalar, ScalarList, ScalarListVec, Scalars, Solution, Tensor,
     TensorArray, TensorError, TensorVec,
     list::TensorList,
     rank_0::{TensorRank0, list::TensorRank0List, list_2d::TensorRank0List2D},
     rank_1::{
-        TensorRank1, list::TensorRank1List, list_2d::TensorRank1List2D, vec::TensorRank1Vec,
-        vec_2d::TensorRank1Vec2D, zero as tensor_rank_1_zero,
+        CrossProduct, TensorRank1, list::TensorRank1List, list_2d::TensorRank1List2D,
+        vec::TensorRank1Vec, vec_2d::TensorRank1Vec2D, zero as tensor_rank_1_zero,
     },
     rank_2::{
         IDENTITY, IDENTITY_00, IDENTITY_10, IDENTITY_22, TensorRank2, ZERO, ZERO_10,

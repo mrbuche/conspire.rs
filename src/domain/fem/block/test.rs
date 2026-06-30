@@ -6,7 +6,7 @@ macro_rules! test_finite_element_block {
                     Block::<$constitutive_model_type, $element, G, M, N, P>::from((
                         $constitutive_model,
                         get_connectivity(),
-                        get_reference_coordinates_block(),
+                        &get_reference_coordinates_block(),
                     ))
                 }
                 fn get_block_transformed() -> Block<$constitutive_model_type, $element, G, M, N, P>
@@ -14,7 +14,7 @@ macro_rules! test_finite_element_block {
                     Block::<$constitutive_model_type, $element, G, M, N, P>::from((
                         $constitutive_model,
                         get_connectivity(),
-                        get_reference_coordinates_transformed_block(),
+                        &get_reference_coordinates_transformed_block(),
                     ))
                 }
             };
@@ -33,7 +33,7 @@ macro_rules! test_surface_finite_element_block {
                     Block::<$constitutive_model_type, $element, G, M, N, P>::from((
                         $constitutive_model,
                         get_connectivity(),
-                        get_reference_coordinates_block(),
+                        &get_reference_coordinates_block(),
                         THICKNESS,
                     ))
                 }
@@ -42,7 +42,7 @@ macro_rules! test_surface_finite_element_block {
                     Block::<$constitutive_model_type, $element, G, M, N, P>::from((
                         $constitutive_model,
                         get_connectivity(),
-                        get_reference_coordinates_transformed_block(),
+                        &get_reference_coordinates_transformed_block(),
                         THICKNESS,
                     ))
                 }
@@ -83,9 +83,7 @@ macro_rules! test_finite_element_block_inner {
                         AlmansiHamel, SaintVenantKirchhoff,
                         test::{BULK_MODULUS, SHEAR_MODULUS},
                     },
-                    fem::block::solid::{
-                        SolidFiniteElementBlock, elastic::ElasticFiniteElementBlock,
-                    },
+                    fem::{block::solid::SolidElements, solid::elastic::ElasticElements},
                 };
                 mod almansi_hamel {
                     use super::*;
@@ -132,9 +130,9 @@ macro_rules! test_finite_element_block_inner {
                             NUMBER_OF_LINKS, YEOH_EXTRA_MODULI,
                         },
                     },
-                    fem::block::solid::{
-                        SolidFiniteElementBlock, elastic::ElasticFiniteElementBlock,
-                        hyperelastic::HyperelasticFiniteElementBlock,
+                    fem::{
+                        block::solid::SolidElements,
+                        solid::{elastic::ElasticElements, hyperelastic::HyperelasticElements},
                     },
                 };
                 mod arruda_boyce {
@@ -245,10 +243,12 @@ macro_rules! test_finite_element_block_inner {
                         AlmansiHamel,
                         test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
                     },
-                    fem::block::solid::{
-                        SolidFiniteElementBlock,
-                        elastic_hyperviscous::ElasticHyperviscousFiniteElementBlock,
-                        viscoelastic::ViscoelasticFiniteElementBlock,
+                    fem::{
+                        block::solid::SolidElements,
+                        solid::{
+                            elastic_hyperviscous::ElasticHyperviscousElements,
+                            viscoelastic::ViscoelasticElements,
+                        },
                     },
                 };
                 mod almansi_hamel {
@@ -273,10 +273,12 @@ macro_rules! test_finite_element_block_inner {
                         SaintVenantKirchhoff,
                         test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
                     },
-                    fem::block::solid::{
-                        SolidFiniteElementBlock,
-                        elastic_hyperviscous::ElasticHyperviscousFiniteElementBlock,
-                        viscoelastic::ViscoelasticFiniteElementBlock,
+                    fem::{
+                        block::solid::SolidElements,
+                        solid::{
+                            elastic_hyperviscous::ElasticHyperviscousElements,
+                            viscoelastic::ViscoelasticElements,
+                        },
                     },
                 };
                 mod saint_venant_kirchhoff {
@@ -302,7 +304,7 @@ pub(crate) use test_finite_element_block_inner;
 macro_rules! test_nodal_forces_and_nodal_stiffnesses {
     ($block: ident, $element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {
         setup_block!($constitutive_model, $constitutive_model_type);
-        fn get_coordinates_transformed_block() -> NodalCoordinates {
+        fn get_coordinates_transformed_block() -> NodalCoordinates<3> {
             get_coordinates_block()
                 .iter()
                 .map(|coordinate| {
@@ -311,7 +313,7 @@ macro_rules! test_nodal_forces_and_nodal_stiffnesses {
                 })
                 .collect()
         }
-        fn get_reference_coordinates_transformed_block() -> NodalReferenceCoordinates {
+        fn get_reference_coordinates_transformed_block() -> NodalReferenceCoordinates<3> {
             get_reference_coordinates_block()
                 .iter()
                 .map(|reference_coordinate| {
@@ -391,7 +393,7 @@ macro_rules! test_nodal_forces_and_nodal_stiffnesses {
         // fn size() {
         //     assert_eq!(
         //         std::mem::size_of_val(&get_block()),
-        //         std::mem::size_of::<Connectivity<N>>()
+        //         std::mem::size_of::<Vec<[usize; N]>>()
         //             + get_connectivity().len() * std::mem::size_of::<$element::<$constitutive_model_type>>()
         //     )
         // }
@@ -403,7 +405,7 @@ macro_rules! test_helmholtz_free_energy {
     ($block: ident, $element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {
         fn get_finite_difference_of_helmholtz_free_energy(
             is_deformed: bool,
-        ) -> Result<NodalForcesSolid, TestError> {
+        ) -> Result<NodalForcesSolid<3>, TestError> {
             let block = get_block();
             let mut finite_difference = 0.0;
             (0..D)
@@ -619,7 +621,7 @@ macro_rules! test_finite_element_block_with_elastic_or_hyperelastic_constitutive
     ($block: ident, $element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {
         fn get_finite_difference_of_nodal_forces(
             is_deformed: bool,
-        ) -> Result<NodalStiffnessesSolid, TestError> {
+        ) -> Result<NodalStiffnessesSolid<3>, TestError> {
             let block = get_block();
             let mut finite_difference = 0.0;
             (0..D)
@@ -659,7 +661,7 @@ macro_rules! test_finite_element_block_with_elastic_or_hyperelastic_constitutive
         fn get_nodal_forces(
             is_deformed: bool,
             is_rotated: bool,
-        ) -> Result<NodalForcesSolid, TestError> {
+        ) -> Result<NodalForcesSolid<3>, TestError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
@@ -683,7 +685,7 @@ macro_rules! test_finite_element_block_with_elastic_or_hyperelastic_constitutive
         fn get_nodal_stiffnesses(
             is_deformed: bool,
             is_rotated: bool,
-        ) -> Result<NodalStiffnessesSolid, TestError> {
+        ) -> Result<NodalStiffnessesSolid<3>, TestError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
@@ -720,7 +722,7 @@ macro_rules! test_finite_element_block_with_elastic_or_hyperelastic_constitutive
                     let (applied_load, a, b) = equality_constraint();
                     let block = get_block();
                     let coordinates = FirstOrderRoot::root(
-                        &block,
+                        &crate::fem::Model::from((get_block(), get_reference_coordinates_block())),
                         EqualityConstraint::Linear(a, b),
                         $solver::default(),
                     )?;
@@ -745,7 +747,7 @@ macro_rules! test_finite_element_block_with_elastic_or_hyperelastic_constitutive
         mod newton_raphson_root {
             use super::*;
             use crate::{
-                constitutive::solid::elastic::FirstOrderRoot as _, fem::block::FirstOrderRoot,
+                constitutive::solid::elastic::FirstOrderRoot as _, fem::FirstOrderRoot,
                 math::optimize::NewtonRaphson,
             };
             test_root_with_solver!(NewtonRaphson);
@@ -807,8 +809,14 @@ macro_rules! test_finite_element_block_with_hyperelastic_constitutive_model {
                 fn minimize() -> Result<(), TestError> {
                     let (applied_load, a, b) = equality_constraint();
                     let block = get_block();
-                    let coordinates =
-                        SecondOrderMinimize::minimize(&block, EqualityConstraint::Linear(a, b), $solver::default())?;
+                    let coordinates = SecondOrderMinimize::minimize(
+                        &crate::fem::Model::from((
+                            get_block(),
+                            get_reference_coordinates_block(),
+                        )),
+                        EqualityConstraint::Linear(a, b),
+                        $solver::default(),
+                    )?;
                     let deformation_gradient =
                         $constitutive_model
                             .minimize(applied_load, $solver::default())?;
@@ -832,7 +840,7 @@ macro_rules! test_finite_element_block_with_hyperelastic_constitutive_model {
             use super::*;
             use crate::{
                 constitutive::solid::hyperelastic::SecondOrderMinimize as _,
-                fem::block::SecondOrderMinimize, math::optimize::NewtonRaphson,
+                fem::SecondOrderMinimize, math::optimize::NewtonRaphson,
             };
             test_minimize_with_solver!(NewtonRaphson);
         }
@@ -842,7 +850,7 @@ pub(crate) use test_finite_element_block_with_hyperelastic_constitutive_model;
 
 macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
     ($block: ident, $element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {
-        fn get_velocities_transformed_block() -> NodalCoordinates {
+        fn get_velocities_transformed_block() -> NodalCoordinates<3> {
             get_coordinates_block()
                 .iter()
                 .zip(get_velocities_block().iter())
@@ -856,7 +864,7 @@ macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
         fn get_nodal_forces(
             is_deformed: bool,
             is_rotated: bool,
-        ) -> Result<NodalForcesSolid, TestError> {
+        ) -> Result<NodalForcesSolid<3>, TestError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
@@ -888,7 +896,7 @@ macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
         fn get_nodal_stiffnesses(
             is_deformed: bool,
             is_rotated: bool,
-        ) -> Result<NodalStiffnessesSolid, TestError> {
+        ) -> Result<NodalStiffnessesSolid<3>, TestError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
@@ -921,7 +929,7 @@ macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
         }
         fn get_finite_difference_of_nodal_forces(
             is_deformed: bool,
-        ) -> Result<NodalStiffnessesSolid, TestError> {
+        ) -> Result<NodalStiffnessesSolid<3>, TestError> {
             let block = get_block();
             let nodal_coordinates = if is_deformed {
                 get_coordinates_block()
@@ -994,14 +1002,20 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                 #[test]
                 fn minimize() -> Result<(), TestError> {
                     use crate::constitutive::solid::elastic_hyperviscous::SecondOrderMinimize as _;
+                    use crate::fem::solid::elastic_hyperviscous::SecondOrderMinimize;
                     let (a, b) = applied_velocities();
                     let block = get_block();
-                    let (times, coordinates_history, velocities_history) = block.minimize(
-                        EqualityConstraint::Linear(a, b),
-                        $integrator::default(),
-                        &[0.0, 1.0],
-                        NewtonRaphson::default(),
-                    )?;
+                    let (times, coordinates_history, velocities_history) =
+                        SecondOrderMinimize::minimize(
+                            &crate::fem::Model::from((
+                                get_block(),
+                                get_reference_coordinates_block(),
+                            )),
+                            EqualityConstraint::Linear(a, b),
+                            $integrator::default(),
+                            &[0.0, 1.0],
+                            NewtonRaphson::default(),
+                        )?;
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.minimize(
                             applied_velocity(&times),
@@ -1054,9 +1068,11 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                 #[test]
                 fn root() -> Result<(), TestError> {
                     use crate::constitutive::solid::viscoelastic::FirstOrderRoot as _;
+                    use crate::fem::solid::viscoelastic::FirstOrderRoot;
                     let (a, b) = applied_velocities();
                     let block = get_block();
-                    let (times, coordinates_history, velocities_history) = block.root(
+                    let (times, coordinates_history, velocities_history) = FirstOrderRoot::root(
+                        &crate::fem::Model::from((get_block(), get_reference_coordinates_block())),
                         EqualityConstraint::Linear(a, b),
                         $integrator::default(),
                         &[0.0, 1.0],
@@ -1131,7 +1147,7 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
         }
         fn get_finite_difference_of_viscous_dissipation(
             is_deformed: bool,
-        ) -> Result<NodalForcesSolid, TestError> {
+        ) -> Result<NodalForcesSolid<3>, TestError> {
             let block = get_block();
             let nodal_coordinates = if is_deformed {
                 get_coordinates_block()
@@ -1167,7 +1183,7 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
         }
         fn get_finite_difference_of_dissipation_potential(
             is_deformed: bool,
-        ) -> Result<NodalForcesSolid, TestError> {
+        ) -> Result<NodalForcesSolid<3>, TestError> {
             let block = get_block();
             let nodal_coordinates = if is_deformed {
                 get_coordinates_block()

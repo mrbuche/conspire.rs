@@ -3,13 +3,12 @@ pub mod test;
 
 use crate::{
     fem::block::element::{
-        ElementNodalEitherCoordinates, FiniteElement, ParametricCoordinate, ParametricCoordinates,
-        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
+        FiniteElement, ParametricCoordinate, ParametricCoordinates, ParametricReference,
+        ShapeFunctions, ShapeFunctionsGradients,
         surface::{M, linear::LinearSurfaceElement},
     },
-    math::{ScalarList, Tensor},
+    math::ScalarList,
 };
-use std::f64::consts::FRAC_PI_3;
 
 // When implement G=3, share the methods with cohesive linear wedge.
 
@@ -32,15 +31,6 @@ impl FiniteElement<G, M, N, P> for Triangle {
     fn parametric_weights() -> ScalarList<G> {
         [1.0 / 2.0; G].into()
     }
-    fn scaled_jacobians<const I: usize>(
-        nodal_coordinates: ElementNodalEitherCoordinates<I, N>,
-    ) -> ScalarList<P> {
-        let sin_60 = FRAC_PI_3.sin();
-        angles(nodal_coordinates)
-            .into_iter()
-            .map(|angle| angle.sin() / sin_60)
-            .collect()
-    }
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<N> {
         let [xi_1, xi_2] = parametric_coordinate.into();
         [1.0 - xi_1 - xi_2, xi_1, xi_2].into()
@@ -50,16 +40,4 @@ impl FiniteElement<G, M, N, P> for Triangle {
     ) -> ShapeFunctionsGradients<M, N> {
         [[-1.0, -1.0], [1.0, 0.0], [0.0, 1.0]].into()
     }
-}
-
-fn angles<const I: usize>(nodal_coordinates: ElementNodalEitherCoordinates<I, N>) -> ScalarList<N> {
-    let l_10 = (&nodal_coordinates[1] - &nodal_coordinates[0]).normalized();
-    let l_02 = (&nodal_coordinates[0] - &nodal_coordinates[2]).normalized();
-    let l_21 = (&nodal_coordinates[2] - &nodal_coordinates[1]).normalized();
-    [
-        (-&l_02 * &l_10).acos(),
-        (-l_10 * &l_21).acos(),
-        (-l_21 * l_02).acos(),
-    ]
-    .into()
 }

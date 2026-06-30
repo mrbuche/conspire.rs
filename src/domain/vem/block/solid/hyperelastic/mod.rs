@@ -1,17 +1,14 @@
 use crate::{
     constitutive::solid::hyperelastic::Hyperelastic,
+    fem::{ElementModelError, solid::hyperelastic::HyperelasticElements},
     math::Scalar,
     vem::{
         NodalCoordinates,
-        block::{
-            Block, VirtualElementBlockError,
-            element::solid::hyperelastic::HyperelasticVirtualElement,
-            solid::SolidVirtualElementBlock,
-        },
+        block::{Block, element::solid::hyperelastic::HyperelasticVirtualElement},
     },
 };
 
-pub trait HyperelasticVirtualElementBlock<C, F>
+impl<C, F> HyperelasticElements<3> for Block<C, F>
 where
     C: Hyperelastic,
     F: HyperelasticVirtualElement<C>,
@@ -19,19 +16,7 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates,
-    ) -> Result<Scalar, VirtualElementBlockError>;
-}
-
-impl<C, F> HyperelasticVirtualElementBlock<C, F> for Block<C, F>
-where
-    C: Hyperelastic,
-    F: HyperelasticVirtualElement<C>,
-    Self: SolidVirtualElementBlock<C, F>,
-{
-    fn helmholtz_free_energy(
-        &self,
-        nodal_coordinates: &NodalCoordinates,
-    ) -> Result<Scalar, VirtualElementBlockError> {
+    ) -> Result<Scalar, ElementModelError> {
         match self
             .elements()
             .iter()
@@ -45,7 +30,7 @@ where
             .sum()
         {
             Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
-            Err(error) => Err(VirtualElementBlockError::Upstream(
+            Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
             )),

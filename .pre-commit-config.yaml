@@ -1,33 +1,84 @@
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.2.0
+    rev: v6.0.0
     hooks:
     -   id: check-yaml
     -   id: check-added-large-files
     -   id: end-of-file-fixer
     -   id: trailing-whitespace
 -   repo: https://github.com/backplane/pre-commit-rust-hooks
-    rev: v1.1.0
+    rev: v1.2.1
     hooks:
     -   id: clippy
         args: ['--features', 'math', '--', '-D',  'warnings']
         name: cargo clippy math
     -   id: clippy
+        args: ['--features', 'math', '--tests', '--', '-D',  'warnings']
+        name: cargo clippy math tests
+    -   id: clippy
+        args: ['--features', 'io', '--', '-D',  'warnings']
+        name: cargo clippy io
+    -   id: clippy
+        args: ['--features', 'io', '--tests', '--', '-D',  'warnings']
+        name: cargo clippy io tests
+    -   id: clippy
+        args: ['--features', 'io netcdf', '--', '-D',  'warnings']
+        name: cargo clippy io netcdf
+    -   id: clippy
+        args: ['--features', 'io netcdf', '--tests', '--', '-D',  'warnings']
+        name: cargo clippy io netcdf tests
+    -   id: clippy
+        args: ['--features', 'geometry', '--', '-D',  'warnings']
+        name: cargo clippy geometry
+    -   id: clippy
+        args: ['--features', 'geometry', '--tests', '--', '-D',  'warnings']
+        name: cargo clippy geometry tests
+    -   id: clippy
+        args: ['--features', 'geometry netcdf', '--', '-D',  'warnings']
+        name: cargo clippy geometry netcdf
+    -   id: clippy
+        args: ['--features', 'geometry netcdf', '--tests', '--', '-D',  'warnings']
+        name: cargo clippy geometry netcdf tests
+    -   id: clippy
         args: ['--features', 'mechanics', '--', '-D',  'warnings']
         name: cargo clippy mechanics
+    -   id: clippy
+        args: ['--features', 'mechanics', '--tests', '--', '-D',  'warnings']
+        name: cargo clippy mechanics tests
     -   id: clippy
         args: ['--features', 'physics', '--', '-D',  'warnings']
         name: cargo clippy physics
     -   id: clippy
+        args: ['--features', 'physics', '--tests', '--', '-D',  'warnings']
+        name: cargo clippy physics tests
+    -   id: clippy
         args: ['--features', 'constitutive', '--', '-D',  'warnings']
         name: cargo clippy constitutive
+    -   id: clippy
+        args: ['--features', 'constitutive', '--tests', '--', '-D',  'warnings']
+        name: cargo clippy constitutive tests
     -   id: clippy
         args: ['--features', 'fem', '--', '-D',  'warnings']
         name: cargo clippy fem
     -   id: clippy
+        args: ['--features', 'fem', '--tests', '--', '-D',  'warnings']
+        name: cargo clippy fem tests
+    -   id: clippy
         args: ['--features', 'vem', '--', '-D',  'warnings']
         name: cargo clippy vem
     -   id: clippy
-        args: ['--features', 'vem,doc', '--', '-D',  'warnings']
+        args: ['--features', 'vem', '--tests', '--', '-D',  'warnings']
+        name: cargo clippy vem tests
+    -   id: clippy
+        args: ['--features', 'all', '--', '-D',  'warnings']
+        name: cargo clippy all
+    -   id: clippy
+        args: ['--features', 'all', '--tests', '--', '-D',  'warnings']
+        name: cargo clippy all tests
+    -   id: clippy
+        args: ['--features', 'all doc', '--', '-D',  'warnings']
         name: cargo clippy doc
+    -   id: clippy
+        args: ['--features', 'all doc', '--tests', '--', '-D',  'warnings']
+        name: cargo clippy doc tests
     -   id: fmt

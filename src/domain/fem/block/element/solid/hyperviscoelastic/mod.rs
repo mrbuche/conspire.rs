@@ -25,7 +25,7 @@ pub trait HyperviscoelasticFiniteElement<
 }
 
 impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
-    HyperviscoelasticFiniteElement<C, G, 3, N, P> for Element<G, N, O>
+    HyperviscoelasticFiniteElement<C, G, 3, N, P> for Element<3, G, N, O>
 where
     C: Hyperviscoelastic,
     Self: ElasticHyperviscousFiniteElement<C, G, 3, N, P>,

@@ -31,7 +31,7 @@ pub trait HyperelasticViscoplasticFiniteElement<
 }
 
 impl<C, const G: usize, const N: usize, const O: usize, const P: usize, Y>
-    HyperelasticViscoplasticFiniteElement<C, G, 3, N, P, Y> for Element<G, N, O>
+    HyperelasticViscoplasticFiniteElement<C, G, 3, N, P, Y> for Element<3, G, N, O>
 where
     C: HyperelasticViscoplastic<Y>,
     Self: ElasticViscoplasticFiniteElement<C, G, 3, N, P, Y>,

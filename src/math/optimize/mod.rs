@@ -11,17 +11,12 @@ pub use gradient_descent::GradientDescent;
 pub use line_search::{LineSearch, LineSearchError};
 pub use newton_raphson::NewtonRaphson;
 
-use crate::{
-    defeat_message,
-    math::{
-        Jacobian, Scalar, Solution, TestError,
-        matrix::square::{Banded, SquareMatrixError},
-    },
+use crate::math::{
+    Jacobian, Scalar, Solution, Style, StyledError, TestError,
+    matrix::square::{Banded, SquareMatrixError},
+    styled_error,
 };
-use std::{
-    fmt::{self, Debug, Display, Formatter},
-    ops::Mul,
-};
+use std::{fmt::Debug, ops::Mul};
 
 /// Zeroth-order root-finding algorithms.
 pub trait ZerothOrderRootFinding<X> {
@@ -124,63 +119,30 @@ impl From<String> for OptimizationError {
     }
 }
 
-impl Debug for OptimizationError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
+impl StyledError for OptimizationError {
+    fn message(&self, style: &Style) -> String {
+        let (h, c) = (style.headline, style.frame);
+        match self {
             Self::Intermediate(message) => message.to_string(),
-            Self::MaximumStepsReached(steps, solver) => {
-                format!(
-                    "\x1b[1;91mMaximum number of steps ({steps}) reached.\x1b[0;91m\n\
-                     In solver: {solver}."
-                )
-            }
-            Self::NotMinimum(solution, solver) => {
-                format!(
-                    "\x1b[1;91mThe obtained solution is not a minimum.\x1b[0;91m\n\
-                     For solution: {solution}.\n\
-                     In solver: {solver}."
-                )
-            }
-            Self::SingularMatrix => "\x1b[1;91mMatrix is singular.".to_string(),
-            Self::Upstream(error, solver) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In solver: {solver}."
-                )
-            }
-        };
-        write!(f, "\n{error}\n\x1b[0;2;31m{}\x1b[0m\n", defeat_message())
+            Self::MaximumStepsReached(steps, solver) => format!(
+                "{h}Maximum number of steps ({steps}) reached.{c}\n\
+                In solver: {solver}."
+            ),
+            Self::NotMinimum(solution, solver) => format!(
+                "{h}The obtained solution is not a minimum.{c}\n\
+                For solution: {solution}.\n\
+                In solver: {solver}."
+            ),
+            Self::SingularMatrix => format!("{h}Matrix is singular."),
+            Self::Upstream(error, solver) => format!(
+                "{error}{c}\n\
+                In solver: {solver}."
+            ),
+        }
     }
 }
 
-impl Display for OptimizationError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::Intermediate(message) => message.to_string(),
-            Self::MaximumStepsReached(steps, solver) => {
-                format!(
-                    "\x1b[1;91mMaximum number of steps ({steps}) reached.\x1b[0;91m\n\
-                     In solver: {solver}."
-                )
-            }
-            Self::NotMinimum(solution, solver) => {
-                format!(
-                    "\x1b[1;91mThe obtained solution is not a minimum.\x1b[0;91m\n\
-                     For solution: {solution}.\n\
-                     In solver: {solver}."
-                )
-            }
-            Self::SingularMatrix => "\x1b[1;91mMatrix is singular.".to_string(),
-            Self::Upstream(error, solver) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In solver: {solver}."
-                )
-            }
-        };
-        write!(f, "{error}\x1b[0m")
-    }
-}
+styled_error!(OptimizationError);
 
 impl From<OptimizationError> for String {
     fn from(error: OptimizationError) -> Self {

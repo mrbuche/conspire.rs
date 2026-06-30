@@ -11,7 +11,7 @@ use crate::{
         cohesive::{CohesiveElement, Separations},
         surface::SurfaceFiniteElement,
     },
-    math::{ScalarList, Tensor},
+    math::{CrossProduct, ScalarList, Tensor},
     mechanics::NormalGradients,
 };
 use std::iter::repeat_n;

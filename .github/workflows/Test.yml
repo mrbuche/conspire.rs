@@ -13,7 +13,18 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        features: [math, mechanics, physics, constitutive, fem, vem]
+        features:
+          - math
+          - io
+          - io,netcdf
+          - geometry
+          - geometry,netcdf
+          - mechanics
+          - physics
+          - constitutive
+          - fem
+          - vem
+          - all
         os: [macos-latest, windows-latest, ubuntu-latest]
         toolchain: [beta, nightly, stable]
     runs-on: ${{ matrix.os }}
@@ -25,6 +36,18 @@ jobs:
         with:
           components: clippy, rustfmt
           toolchain: ${{ matrix.toolchain }}
+      - name: netCDF
+        if: ${{ contains(matrix.features, 'netcdf') || matrix.features == 'all' }}
+        shell: bash
+        run: |
+          case "${{ runner.os }}" in
+            Linux) sudo apt-get update && sudo apt-get install -y libnetcdf-dev ;;
+            macOS) brew install netcdf ;;
+            Windows)
+              vcpkg install netcdf-c:x64-windows
+              echo "C:/vcpkg/installed/x64-windows/bin" >> "$GITHUB_PATH"
+              ;;
+          esac
       - name: Format
         run: cargo fmt --all -- --check
       - name: Clippy
@@ -37,7 +60,17 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        features: [math, physics, mechanics, constitutive] #, fem, vem]
+        features:
+          - math
+          - io
+          - io,netcdf
+          - geometry
+          - geometry,netcdf
+          - mechanics
+          - physics
+          - constitutive
+          # - fem
+          # - vem
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -45,11 +78,18 @@ jobs:
       - name: Toolchain
         uses: actions-rs/toolchain@88dc2356392166efad76775c878094f4e83ff746
         with:
-          toolchain: nightly
+          toolchain: stable
+      - name: netCDF
+        if: contains(matrix.features, 'netcdf')
+        run: sudo apt-get update && sudo apt-get install -y libnetcdf-dev
       - name: Install
         run: cargo install cargo-llvm-cov
       - name: Coverage
-        run: rustup run nightly cargo llvm-cov --profile release --features ${{ matrix.features }} --fail-under-functions 50 --fail-under-lines 50 --fail-under-regions 50
+        if: matrix.features == 'io' || matrix.features == 'io,netcdf'
+        run: cargo llvm-cov test --profile release --features ${{ matrix.features }} --fail-under-functions 100 --fail-under-lines 98 --fail-under-regions 98
+      - name: Coverage
+        if: matrix.features != 'io' && matrix.features != 'io,netcdf'
+        run: cargo llvm-cov test --profile release --features ${{ matrix.features }} --fail-under-functions 50 --fail-under-lines 50 --fail-under-regions 50
       - name: Tree
         run: $([[ $(cargo tree --color always --edges normal --features ${{ matrix.features }} | wc -l) -eq 1 ]])
   Mutants:

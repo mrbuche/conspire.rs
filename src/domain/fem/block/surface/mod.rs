@@ -1,29 +1,29 @@
 use crate::{
     fem::{
         NodalReferenceCoordinates,
-        block::{Block, Connectivity, element::ElementNodalReferenceCoordinates},
+        block::{Block, element::ElementNodalReferenceCoordinates},
     },
     math::Scalar,
 };
 
 const M: usize = 2;
 
-pub trait SurfaceFiniteElementBlock<C, F, const G: usize, const N: usize>
+pub trait SurfaceElements<C, F, const G: usize, const N: usize>
 where
-    Self: From<(C, Connectivity<N>, NodalReferenceCoordinates, Scalar)>,
+    Self: for<'a> From<(C, Vec<[usize; N]>, &'a NodalReferenceCoordinates<3>, Scalar)>,
 {
 }
 
 impl<C, F, const G: usize, const N: usize, const P: usize>
-    From<(C, Connectivity<N>, NodalReferenceCoordinates, Scalar)> for Block<C, F, G, M, N, P>
+    From<(C, Vec<[usize; N]>, &NodalReferenceCoordinates<3>, Scalar)> for Block<C, F, G, M, N, P>
 where
     F: From<(ElementNodalReferenceCoordinates<N>, Scalar)>,
 {
     fn from(
         (constitutive_model, connectivity, coordinates, thickness): (
             C,
-            Connectivity<N>,
-            NodalReferenceCoordinates,
+            Vec<[usize; N]>,
+            &NodalReferenceCoordinates<3>,
             Scalar,
         ),
     ) -> Self {
@@ -43,13 +43,12 @@ where
         Self {
             constitutive_model,
             connectivity,
-            coordinates,
             elements,
         }
     }
 }
 
-impl<C, F, const G: usize, const N: usize, const P: usize> SurfaceFiniteElementBlock<C, F, G, N>
+impl<C, F, const G: usize, const N: usize, const P: usize> SurfaceElements<C, F, G, N>
     for Block<C, F, G, M, N, P>
 where
     F: From<(ElementNodalReferenceCoordinates<N>, Scalar)>,

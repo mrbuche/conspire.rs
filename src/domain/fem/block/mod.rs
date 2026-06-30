@@ -7,35 +7,25 @@ pub mod surface;
 pub mod thermal;
 
 use crate::{
-    constitutive::Constitutive,
-    defeat_message,
     fem::{
-        NodalReferenceCoordinates,
-        block::element::{ElementNodalReferenceCoordinates, FiniteElement},
-    },
-    math::{
-        Banded, InverseSets, Scalar, Scalars, Sets, Tensor, TestError, disjoint_set_union,
-        optimize::{
-            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
-            SecondOrderOptimization, ZerothOrderRootFinding,
+        Elements, NodalReferenceCoordinates,
+        block::element::{
+            ElementNodalReferenceCoordinates, FiniteElement,
+            planar::PlanarElementNodalReferenceCoordinates,
         },
     },
-    mechanics::{CoordinateList, Coordinates},
+    geometry::mesh::PrimitiveConnectivity,
+    math::{Banded, Scalar, Tensor, TensorRank1List, TensorRank1Vec, optimize::EqualityConstraint},
 };
 use std::{
     any::type_name,
-    array::from_fn,
-    fmt::{self, Debug, Display, Formatter},
+    fmt::{self, Debug, Formatter},
     iter::repeat_n,
 };
 
-pub type Connectivity<const N: usize> = Vec<[usize; N]>;
-pub type Graph<const N: usize> = Sets<Vec<[usize; N]>, [usize; N], usize, Vec<usize>, usize>;
-
 pub struct Block<C, F, const G: usize, const M: usize, const N: usize, const P: usize> {
     constitutive_model: C,
-    connectivity: Graph<N>,
-    coordinates: NodalReferenceCoordinates,
+    connectivity: PrimitiveConnectivity<M, N>,
     elements: Vec<F>,
 }
 
@@ -46,31 +36,19 @@ where
     fn constitutive_model(&self) -> &C {
         &self.constitutive_model
     }
-    fn connectivity(&self) -> &Connectivity<N> {
-        self.connectivity.members()
-    }
-    fn coordinates(&self) -> &NodalReferenceCoordinates {
-        &self.coordinates
+    fn connectivity(&self) -> &PrimitiveConnectivity<M, N> {
+        &self.connectivity
     }
     fn elements(&self) -> &[F] {
         &self.elements
     }
-    fn element_coordinates<const I: usize>(
-        coordinates: &Coordinates<I>,
+    fn element_coordinates<const D: usize, const I: usize>(
+        coordinates: &TensorRank1Vec<D, I>,
         nodes: &[usize; N],
-    ) -> CoordinateList<I, N> {
+    ) -> TensorRank1List<D, I, N> {
         nodes
             .iter()
             .map(|&node| coordinates[node].clone())
-            .collect()
-    }
-    pub fn minimum_scaled_jacobians<const I: usize>(
-        &self,
-        coordinates: &Coordinates<I>,
-    ) -> Scalars {
-        self.connectivity()
-            .iter()
-            .map(|nodes| F::minimum_scaled_jacobian(Self::element_coordinates(coordinates, nodes)))
             .collect()
     }
     pub fn volume(&self) -> Scalar {
@@ -99,234 +77,155 @@ where
     }
 }
 
-pub trait FiniteElementBlock<C, F, const G: usize, const N: usize>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> Elements
+    for Block<C, F, G, M, N, P>
 where
-    Self: From<(C, Connectivity<N>, NodalReferenceCoordinates)>,
+    F: FiniteElement<G, M, N, P>,
 {
-    fn isolate(self, elements: &[usize]) -> Vec<(Self, [Vec<usize>; 3])>;
-    fn reset(&mut self);
+    fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
+        add_node_neighbors(self.connectivity(), neighbors)
+    }
 }
 
 impl<C, F, const G: usize, const N: usize, const P: usize>
-    From<(C, Connectivity<N>, NodalReferenceCoordinates)> for Block<C, F, G, 3, N, P>
+    From<(
+        C,
+        PrimitiveConnectivity<3, N>,
+        &NodalReferenceCoordinates<3>,
+    )> for Block<C, F, G, 3, N, P>
 where
     F: FiniteElement<G, 3, N, P> + From<ElementNodalReferenceCoordinates<N>>,
 {
     fn from(
         (constitutive_model, connectivity, coordinates): (
             C,
-            Connectivity<N>,
-            NodalReferenceCoordinates,
+            PrimitiveConnectivity<3, N>,
+            &NodalReferenceCoordinates<3>,
         ),
     ) -> Self {
         let elements = connectivity
             .iter()
-            .map(|nodes| Self::element_coordinates(&coordinates, nodes).into())
+            .map(|nodes| Self::element_coordinates(coordinates, nodes).into())
             .collect();
-        let connectivity = connectivity.into();
         Self {
             constitutive_model,
             connectivity,
-            coordinates,
             elements,
         }
     }
 }
 
-impl<C, F, const G: usize, const N: usize, const P: usize> FiniteElementBlock<C, F, G, N>
-    for Block<C, F, G, 3, N, P>
+impl<C, F, const G: usize, const N: usize, const P: usize>
+    From<(C, Vec<[usize; N]>, &NodalReferenceCoordinates<3>)> for Block<C, F, G, 3, N, P>
 where
-    C: Constitutive,
-    F: Default + FiniteElement<G, 3, N, P> + From<ElementNodalReferenceCoordinates<N>>,
+    F: FiniteElement<G, 3, N, P> + From<ElementNodalReferenceCoordinates<N>>,
 {
-    fn isolate(self, isolated_elements: &[usize]) -> Vec<(Self, [Vec<usize>; 3])> {
-        let (graph, map) = self.connectivity.inverse();
-        let (_, node_elements) = graph.into();
-        let (_, element_nodes) = self.connectivity.into();
-        let isolated_element_nodes: Connectivity<N> = isolated_elements
+    fn from(
+        (constitutive_model, connectivity, coordinates): (
+            C,
+            Vec<[usize; N]>,
+            &NodalReferenceCoordinates<3>,
+        ),
+    ) -> Self {
+        Self::from((
+            constitutive_model,
+            PrimitiveConnectivity::from(connectivity),
+            coordinates,
+        ))
+    }
+}
+
+impl<C, F, const G: usize, const N: usize, const P: usize>
+    From<(
+        C,
+        PrimitiveConnectivity<2, N>,
+        &NodalReferenceCoordinates<2>,
+    )> for Block<C, F, G, 2, N, P>
+where
+    F: FiniteElement<G, 2, N, P> + From<PlanarElementNodalReferenceCoordinates<N>>,
+{
+    fn from(
+        (constitutive_model, connectivity, coordinates): (
+            C,
+            PrimitiveConnectivity<2, N>,
+            &NodalReferenceCoordinates<2>,
+        ),
+    ) -> Self {
+        let elements = connectivity
             .iter()
-            .map(|&isolated_element| element_nodes[isolated_element])
+            .map(|nodes| Self::element_coordinates(coordinates, nodes).into())
             .collect();
-        disjoint_set_union(&isolated_element_nodes, self.coordinates.len())
-            .into_iter()
-            .map(|isolated_nodes| {
-                let mut block_elements = isolated_nodes
-                    .iter()
-                    .flat_map(|&node| node_elements[map[node]].iter().copied())
-                    .collect::<Vec<_>>();
-                block_elements.sort_unstable();
-                block_elements.dedup();
-                let mut global_nodes = block_elements
-                    .iter()
-                    .flat_map(|&element| element_nodes[element])
-                    .collect::<Vec<_>>();
-                global_nodes.sort_unstable();
-                global_nodes.dedup();
-                let constitutive_model = self.constitutive_model.clone();
-                let mut node_num = 0;
-                let mut local_nodes = vec![0; global_nodes.iter().max().unwrap() + 1];
-                let coordinates = global_nodes
-                    .iter()
-                    .map(|&node| {
-                        local_nodes[node] = node_num;
-                        node_num += 1;
-                        self.coordinates[node].clone()
-                    })
-                    .collect();
-                let connectivity = block_elements
-                    .iter()
-                    .map(|&element| from_fn(|node| local_nodes[element_nodes[element][node]]))
-                    .collect::<Vec<_>>()
-                    .into();
-                let elements = block_elements
-                    .into_iter()
-                    .map(|element| self.elements[element].clone())
-                    .collect();
-                let mut global_boundary_nodes = global_nodes.clone();
-                global_boundary_nodes.retain(|node| isolated_nodes.binary_search(node).is_err());
-                let boundary_nodes = global_boundary_nodes
-                    .into_iter()
-                    .map(|node| local_nodes[node])
-                    .collect();
-                (
-                    Self {
-                        constitutive_model,
-                        connectivity,
-                        coordinates,
-                        elements,
-                    },
-                    [boundary_nodes, local_nodes, global_nodes],
-                )
-            })
-            .collect()
-    }
-    fn reset(&mut self) {
-        self.elements
-            .iter_mut()
-            .for_each(|element| *element = F::default())
-    }
-}
-
-pub enum FiniteElementBlockError {
-    Upstream(String, String),
-}
-
-impl From<FiniteElementBlockError> for String {
-    fn from(error: FiniteElementBlockError) -> Self {
-        match error {
-            FiniteElementBlockError::Upstream(error, block) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In finite element block: {block}."
-                )
-            }
-        }
-    }
-}
-
-impl From<FiniteElementBlockError> for TestError {
-    fn from(error: FiniteElementBlockError) -> Self {
         Self {
-            message: error.to_string(),
+            constitutive_model,
+            connectivity,
+            elements,
         }
     }
 }
 
-impl Debug for FiniteElementBlockError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::Upstream(error, block) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In block: {block}."
-                )
-            }
-        };
-        write!(f, "\n{error}\n\x1b[0;2;31m{}\x1b[0m\n", defeat_message())
+impl<C, F, const G: usize, const N: usize, const P: usize>
+    From<(C, Vec<[usize; N]>, &NodalReferenceCoordinates<2>)> for Block<C, F, G, 2, N, P>
+where
+    F: FiniteElement<G, 2, N, P> + From<PlanarElementNodalReferenceCoordinates<N>>,
+{
+    fn from(
+        (constitutive_model, connectivity, coordinates): (
+            C,
+            Vec<[usize; N]>,
+            &NodalReferenceCoordinates<2>,
+        ),
+    ) -> Self {
+        Self::from((
+            constitutive_model,
+            PrimitiveConnectivity::from(connectivity),
+            coordinates,
+        ))
     }
 }
 
-impl Display for FiniteElementBlockError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::Upstream(error, block) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In block: {block}."
-                )
-            }
-        };
-        write!(f, "{error}\x1b[0m")
-    }
+pub(crate) fn add_node_neighbors<const M: usize, const N: usize>(
+    connectivity: &PrimitiveConnectivity<M, N>,
+    neighbors: &mut [Vec<usize>],
+) {
+    connectivity.iter().for_each(|nodes| {
+        nodes.iter().for_each(|&node_a| {
+            nodes
+                .iter()
+                .for_each(|&node_b| neighbors[node_a].push(node_b))
+        })
+    })
 }
 
-pub trait ZerothOrderRoot<C, E, const G: usize, const M: usize, const N: usize, X> {
-    fn root(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<X>,
-    ) -> Result<X, OptimizationError>;
+pub(crate) fn finalize_node_neighbors(neighbors: &mut [Vec<usize>]) {
+    neighbors.iter_mut().for_each(|nodes| {
+        nodes.sort_unstable();
+        nodes.dedup();
+    })
 }
 
-pub trait FirstOrderRoot<C, E, const G: usize, const M: usize, const N: usize, F, J, X> {
-    fn root(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderRootFinding<F, J, X>,
-    ) -> Result<X, OptimizationError>;
-}
-
-pub trait FirstOrderMinimize<C, E, const G: usize, const M: usize, const N: usize, X> {
-    fn minimize(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<Scalar, X>,
-    ) -> Result<X, OptimizationError>;
-}
-
-pub trait SecondOrderMinimize<C, E, const G: usize, const M: usize, const N: usize, J, H, X> {
-    fn minimize(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl SecondOrderOptimization<Scalar, J, H, X>,
-    ) -> Result<X, OptimizationError>;
-}
-
-fn band<const N: usize>(
-    connectivity: &Connectivity<N>,
+pub(crate) fn band_from_neighbors(
+    neighbors: &[Vec<usize>],
     equality_constraint: &EqualityConstraint,
-    number_of_nodes: usize,
     dimension: usize,
 ) -> Banded {
+    let number_of_nodes = neighbors.len();
+    let structure: Vec<Vec<bool>> = neighbors
+        .iter()
+        .map(|nodes| (0..number_of_nodes).map(|b| nodes.contains(&b)).collect())
+        .collect();
+    let structure_nd: Vec<Vec<bool>> = structure
+        .iter()
+        .flat_map(|row| {
+            repeat_n(
+                row.iter()
+                    .flat_map(|entry| repeat_n(*entry, dimension))
+                    .collect(),
+                dimension,
+            )
+        })
+        .collect();
     match equality_constraint {
         EqualityConstraint::Fixed(indices) => {
-            let neighbors: Vec<Vec<usize>> = invert(connectivity, number_of_nodes)
-                .iter()
-                .map(|elements| {
-                    let mut nodes: Vec<usize> = elements
-                        .iter()
-                        .flat_map(|&element| connectivity[element])
-                        .collect();
-                    nodes.sort();
-                    nodes.dedup();
-                    nodes
-                })
-                .collect();
-            let structure: Vec<Vec<bool>> = neighbors
-                .iter()
-                .map(|nodes| (0..number_of_nodes).map(|b| nodes.contains(&b)).collect())
-                .collect();
-            let structure_nd: Vec<Vec<bool>> = structure
-                .iter()
-                .flat_map(|row| {
-                    repeat_n(
-                        row.iter()
-                            .flat_map(|entry| repeat_n(*entry, dimension))
-                            .collect(),
-                        dimension,
-                    )
-                })
-                .collect();
             let mut keep = vec![true; structure_nd.len()];
             indices.iter().for_each(|&index| keep[index] = false);
             let banded = structure_nd
@@ -345,33 +244,6 @@ fn band<const N: usize>(
             Banded::from(banded)
         }
         EqualityConstraint::Linear(matrix, _) => {
-            let neighbors: Vec<Vec<usize>> = invert(connectivity, number_of_nodes)
-                .iter()
-                .map(|elements| {
-                    let mut nodes: Vec<usize> = elements
-                        .iter()
-                        .flat_map(|&element| connectivity[element])
-                        .collect();
-                    nodes.sort();
-                    nodes.dedup();
-                    nodes
-                })
-                .collect();
-            let structure: Vec<Vec<bool>> = neighbors
-                .iter()
-                .map(|nodes| (0..number_of_nodes).map(|b| nodes.contains(&b)).collect())
-                .collect();
-            let structure_nd: Vec<Vec<bool>> = structure
-                .iter()
-                .flat_map(|row| {
-                    repeat_n(
-                        row.iter()
-                            .flat_map(|entry| repeat_n(*entry, dimension))
-                            .collect(),
-                        dimension,
-                    )
-                })
-                .collect();
             let num_coords = dimension * number_of_nodes;
             assert_eq!(matrix.width(), num_coords);
             let num_dof = matrix.len() + matrix.width();
@@ -397,51 +269,6 @@ fn band<const N: usize>(
             });
             Banded::from(banded)
         }
-        EqualityConstraint::None => {
-            let neighbors: Vec<Vec<usize>> = invert(connectivity, number_of_nodes)
-                .iter()
-                .map(|elements| {
-                    let mut nodes: Vec<usize> = elements
-                        .iter()
-                        .flat_map(|&element| connectivity[element])
-                        .collect();
-                    nodes.sort();
-                    nodes.dedup();
-                    nodes
-                })
-                .collect();
-            let structure: Vec<Vec<bool>> = neighbors
-                .iter()
-                .map(|nodes| (0..number_of_nodes).map(|b| nodes.contains(&b)).collect())
-                .collect();
-            let structure_nd: Vec<Vec<bool>> = structure
-                .iter()
-                .flat_map(|row| {
-                    repeat_n(
-                        row.iter()
-                            .flat_map(|entry| repeat_n(*entry, dimension))
-                            .collect(),
-                        dimension,
-                    )
-                })
-                .collect();
-            Banded::from(structure_nd)
-        }
+        EqualityConstraint::None => Banded::from(structure_nd),
     }
-}
-
-fn invert<const N: usize>(
-    connectivity: &Connectivity<N>,
-    number_of_nodes: usize,
-) -> Vec<Vec<usize>> {
-    let mut inverse_connectivity = vec![vec![]; number_of_nodes];
-    connectivity
-        .iter()
-        .enumerate()
-        .for_each(|(element, nodes)| {
-            nodes
-                .iter()
-                .for_each(|&node| inverse_connectivity[node].push(element))
-        });
-    inverse_connectivity
 }

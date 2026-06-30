@@ -2,7 +2,7 @@ use crate::{
     fem::{
         NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
         block::{
-            Block, Connectivity,
+            Block,
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
                 FiniteElement, GradientVectors,
@@ -20,7 +20,7 @@ use crate::{
 
 const D: usize = 27;
 
-fn get_connectivity() -> Connectivity<N> {
+fn get_connectivity() -> Vec<[usize; N]> {
     vec![
         [0, 1, 4, 3, 9, 10, 13, 12],
         [1, 2, 5, 4, 10, 11, 14, 13],
@@ -33,7 +33,7 @@ fn get_connectivity() -> Connectivity<N> {
     ]
 }
 
-fn get_coordinates_block() -> NodalCoordinates {
+fn get_coordinates_block() -> NodalCoordinates<3> {
     NodalCoordinates::from([
         [-0.49344606, -0.44672548, -0.55524455],
         [0.00224851, -0.43237921, -0.46885579],
@@ -78,7 +78,7 @@ fn reference_coordinates() -> ElementNodalReferenceCoordinates<N> {
     ])
 }
 
-fn get_reference_coordinates_block() -> NodalReferenceCoordinates {
+fn get_reference_coordinates_block() -> NodalReferenceCoordinates<3> {
     NodalReferenceCoordinates::from([
         [-0.5, -0.5, -0.5],
         [0.0, -0.5, -0.5],
@@ -110,7 +110,7 @@ fn get_reference_coordinates_block() -> NodalReferenceCoordinates {
     ])
 }
 
-fn get_velocities_block() -> NodalVelocities {
+fn get_velocities_block() -> NodalVelocities<3> {
     NodalVelocities::from([
         [0.04705949, 0.03631753, 0.07485168],
         [-0.05308881, 0.00788418, -0.00509899],
@@ -259,71 +259,3 @@ fn applied_velocities() -> (crate::math::Matrix, crate::math::Vector) {
 
 test_finite_element!(Hexahedron);
 test_finite_element_block!(Hexahedron);
-
-mod minimum_scaled_jacobian {
-    use super::*;
-    use crate::math::test::{TestError, assert_eq_within_tols};
-    #[test]
-    fn ideal() -> Result<(), TestError> {
-        let msj = Hexahedron::minimum_scaled_jacobian(reference_coordinates());
-        assert_eq_within_tols(&msj, &1.0)
-    }
-    #[test]
-    fn flat() -> Result<(), TestError> {
-        let nodal_coordinates = reference_coordinates()
-            .into_iter()
-            .take(4)
-            .chain(reference_coordinates().into_iter().take(4))
-            .collect();
-        let msj = Hexahedron::minimum_scaled_jacobian(nodal_coordinates);
-        assert_eq_within_tols(&msj, &0.0)
-    }
-    #[test]
-    fn inverted_ideal() -> Result<(), TestError> {
-        let nodal_coordinates = reference_coordinates()
-            .into_iter()
-            .skip(4)
-            .chain(reference_coordinates().into_iter().take(4))
-            .collect();
-        let msj = Hexahedron::minimum_scaled_jacobian(nodal_coordinates);
-        assert_eq_within_tols(&msj, &-1.0)
-    }
-    #[test]
-    fn valence_3_and_4_noised() -> Result<(), TestError> {
-        let element_node_connectivity = [0, 1, 3, 2, 4, 5, 7, 6];
-        [
-            ElementNodalCoordinates::from([
-                [0.110000e0, 0.120000e0, -0.130000e0],
-                [1.200000e0, -0.200000e0, 0.000000e0],
-                [-0.500000e0, 1.866025e0, -0.200000e0],
-                [0.500000e0, 0.866025e0, -0.400000e0],
-                [0.000000e0, 0.000000e0, 1.000000e0],
-                [1.000000e0, 0.000000e0, 1.000000e0],
-                [-0.500000e0, 0.600000e0, 1.400000e0],
-                [0.500000e0, 0.866025e0, 1.200000e0],
-            ]),
-            ElementNodalCoordinates::from([
-                [0.100000e0, 0.200000e0, 0.300000e0],
-                [1.200000e0, 0.300000e0, 0.400000e0],
-                [-0.200000e0, 1.200000e0, -0.100000e0],
-                [1.030000e0, 1.102000e0, -0.250000e0],
-                [-0.001000e0, -0.021000e0, 1.002000e0],
-                [1.200000e0, -0.100000e0, 1.100000e0],
-                [0.000000e0, 1.000000e0, 1.000000e0],
-                [1.010000e0, 1.020000e0, 1.030000e0],
-            ]),
-        ]
-        .into_iter()
-        .zip([0.19173666980464177, 0.3743932367172326])
-        .try_for_each(|(nodal_coordinates, msj_gold)| {
-            let sequential_coordinates = element_node_connectivity
-                .iter()
-                .map(|&node| nodal_coordinates[node].clone())
-                .collect();
-            assert_eq_within_tols(
-                &Hexahedron::minimum_scaled_jacobian(sequential_coordinates),
-                &msj_gold,
-            )
-        })
-    }
-}

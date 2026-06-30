@@ -18,10 +18,12 @@ jobs:
         uses: actions-rs/toolchain@88dc2356392166efad76775c878094f4e83ff746
         with:
           toolchain: stable
+      - name: netCDF
+        run: sudo apt-get update && sudo apt-get install -y libnetcdf-dev
       - name: Dev
         run: |
           mkdir -p _site/
-          cargo rustdoc --release --features vem -- --html-in-header .github/katex.html
+          cargo rustdoc --release --features all -- --html-in-header .github/katex.html
           mv target/doc/conspire/ target/doc/latest/
           cp -r target/doc/* _site/
       - name: Upload

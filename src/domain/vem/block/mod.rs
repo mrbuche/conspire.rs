@@ -2,14 +2,8 @@ pub mod element;
 pub mod solid;
 
 use crate::{
-    defeat_message,
-    math::{
-        Scalar, TestError,
-        optimize::{
-            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
-            SecondOrderOptimization, ZerothOrderRootFinding,
-        },
-    },
+    fem::Elements,
+    geometry::mesh::PolytopalConnectivity,
     vem::{
         NodalCoordinates, NodalReferenceCoordinates,
         block::element::{ElementNodalCoordinates, VirtualElement},
@@ -17,26 +11,19 @@ use crate::{
 };
 use std::{
     any::type_name,
-    fmt::{self, Debug, Display, Formatter},
+    fmt::{self, Debug, Formatter},
 };
-
-pub type Connectivity = Vec<Vec<usize>>;
 
 pub struct Block<C, F> {
     constitutive_model: C,
-    coordinates: NodalReferenceCoordinates,
+    connectivity: PolytopalConnectivity<3>,
     elements: Vec<F>,
-    elements_faces: Connectivity,
-    elements_nodes: Connectivity,
-    faces_nodes: Connectivity,
+    elements_nodes: Vec<Vec<usize>>,
 }
 
 impl<C, F> Block<C, F> {
     fn constitutive_model(&self) -> &C {
         &self.constitutive_model
-    }
-    fn coordinates(&self) -> &NodalReferenceCoordinates {
-        &self.coordinates
     }
     fn elements(&self) -> &[F] {
         &self.elements
@@ -48,13 +35,13 @@ impl<C, F> Block<C, F> {
         nodes.iter().map(|&node| &coordinates[node]).collect()
     }
     pub fn elements_faces(&self) -> &[Vec<usize>] {
-        &self.elements_faces
+        self.connectivity.elements_faces()
     }
     fn elements_nodes(&self) -> &[Vec<usize>] {
         &self.elements_nodes
     }
     pub fn faces_nodes(&self) -> &[Vec<usize>] {
-        &self.faces_nodes
+        self.connectivity.faces_nodes()
     }
 }
 
@@ -75,26 +62,38 @@ impl<C, F> Debug for Block<C, F> {
     }
 }
 
-pub trait VirtualElementBlock<C, F>
+impl<C, F> Elements for Block<C, F> {
+    fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
+        self.elements_nodes().iter().for_each(|nodes| {
+            nodes.iter().for_each(|&node_a| {
+                nodes
+                    .iter()
+                    .for_each(|&node_b| neighbors[node_a].push(node_b))
+            })
+        })
+    }
+}
+
+pub trait VirtualElements<C, F>
 where
     F: VirtualElement,
-    Self: From<(C, NodalReferenceCoordinates, Connectivity, Connectivity)>,
+    Self: for<'a> From<(C, PolytopalConnectivity<3>, &'a NodalReferenceCoordinates)>,
 {
 }
 
-impl<C, F> From<(C, NodalReferenceCoordinates, Connectivity, Connectivity)> for Block<C, F>
+impl<C, F> From<(C, PolytopalConnectivity<3>, &NodalReferenceCoordinates)> for Block<C, F>
 where
     F: VirtualElement,
 {
     fn from(
-        (constitutive_model, coordinates, elements_faces, faces_nodes): (
+        (constitutive_model, connectivity, coordinates): (
             C,
-            NodalReferenceCoordinates,
-            Connectivity,
-            Connectivity,
+            PolytopalConnectivity<3>,
+            &NodalReferenceCoordinates,
         ),
     ) -> Self {
-        let (elements, elements_nodes) = elements_faces
+        let faces_nodes = connectivity.faces_nodes();
+        let (elements, elements_nodes) = connectivity
             .iter()
             .map(|element_faces| {
                 let element_coordinates = element_faces
@@ -117,7 +116,7 @@ where
                         element_coordinates,
                         element_faces,
                         &element_nodes,
-                        &faces_nodes,
+                        faces_nodes,
                     )),
                     element_nodes,
                 )
@@ -125,96 +124,35 @@ where
             .unzip();
         Self {
             constitutive_model,
-            coordinates,
+            connectivity,
             elements,
-            elements_faces,
             elements_nodes,
-            faces_nodes,
         }
     }
 }
 
-pub enum VirtualElementBlockError {
-    Upstream(String, String),
-}
-
-impl From<VirtualElementBlockError> for String {
-    fn from(error: VirtualElementBlockError) -> Self {
-        match error {
-            VirtualElementBlockError::Upstream(error, block) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In virtual element block: {block}."
-                )
-            }
-        }
+impl<C, F>
+    From<(
+        C,
+        Vec<Vec<usize>>,
+        Vec<Vec<usize>>,
+        &NodalReferenceCoordinates,
+    )> for Block<C, F>
+where
+    F: VirtualElement,
+{
+    fn from(
+        (constitutive_model, elements_faces, faces_nodes, coordinates): (
+            C,
+            Vec<Vec<usize>>,
+            Vec<Vec<usize>>,
+            &NodalReferenceCoordinates,
+        ),
+    ) -> Self {
+        Self::from((
+            constitutive_model,
+            PolytopalConnectivity::from((elements_faces, faces_nodes)),
+            coordinates,
+        ))
     }
-}
-
-impl From<VirtualElementBlockError> for TestError {
-    fn from(error: VirtualElementBlockError) -> Self {
-        Self {
-            message: error.to_string(),
-        }
-    }
-}
-
-impl Debug for VirtualElementBlockError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::Upstream(error, block) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In block: {block}."
-                )
-            }
-        };
-        write!(f, "\n{error}\n\x1b[0;2;31m{}\x1b[0m\n", defeat_message())
-    }
-}
-
-impl Display for VirtualElementBlockError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::Upstream(error, block) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In block: {block}."
-                )
-            }
-        };
-        write!(f, "{error}\x1b[0m")
-    }
-}
-
-pub trait ZerothOrderRoot<C, E, X> {
-    fn root(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<X>,
-    ) -> Result<X, OptimizationError>;
-}
-
-pub trait FirstOrderRoot<C, E, F, J, X> {
-    fn root(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderRootFinding<F, J, X>,
-    ) -> Result<X, OptimizationError>;
-}
-
-pub trait FirstOrderMinimize<C, E, X> {
-    fn minimize(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<Scalar, X>,
-    ) -> Result<X, OptimizationError>;
-}
-
-pub trait SecondOrderMinimize<C, E, J, H, X> {
-    fn minimize(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl SecondOrderOptimization<Scalar, J, H, X>,
-    ) -> Result<X, OptimizationError>;
 }

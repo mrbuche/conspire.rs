@@ -19,7 +19,7 @@ where
 }
 
 impl<const G: usize, const M: usize, const N: usize, const O: usize, const P: usize>
-    ThermalFiniteElement<G, M, N, P> for Element<G, N, O>
+    ThermalFiniteElement<G, M, N, P> for Element<3, G, N, O>
 where
     Self: FiniteElement<G, M, N, P>,
 {

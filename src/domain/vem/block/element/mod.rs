@@ -1,19 +1,21 @@
 pub mod solid;
 
 use crate::{
-    defeat_message,
     fem::block::element::{
         ElementNodalCoordinates as FemElementNodalCoordinates,
         ElementNodalReferenceCoordinates as FemElementNodalReferenceCoordinates, FiniteElement,
         linear::Tetrahedron,
     },
-    math::{Scalar, Scalars, Tensor, TensorRank1Vec2D, TestError},
+    math::{
+        CrossProduct, Scalar, Scalars, Style, StyledError, Tensor, TensorRank1Vec2D, TestError,
+        styled_error,
+    },
     mechanics::{CurrentCoordinate, CurrentCoordinatesRef, ReferenceCoordinate, Vectors2D},
     vem::{NodalCoordinates, NodalReferenceCoordinates},
 };
 use std::{
     collections::VecDeque,
-    fmt::{self, Debug, Display, Formatter},
+    fmt::{self, Debug, Formatter},
 };
 
 pub type ElementNodalCoordinates<'a> = CurrentCoordinatesRef<'a>;
@@ -252,7 +254,7 @@ impl
                                                 };
                                                 let e_1 = &node_b_coordinates - node_a_coordinates;
                                                 let e_2 = &face_center - node_b_coordinates;
-                                                e_1.cross(&e_2) * factor
+                                                e_1.cross(e_2) * factor
                                             },
                                         )
                                         .sum::<ReferenceCoordinate>(),
@@ -296,33 +298,19 @@ impl From<VirtualElementError> for TestError {
     }
 }
 
-impl Debug for VirtualElementError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::Upstream(error, element) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In virtual element: {element}."
-                )
-            }
-        };
-        write!(f, "\n{error}\n\x1b[0;2;31m{}\x1b[0m\n", defeat_message())
+impl StyledError for VirtualElementError {
+    fn message(&self, style: &Style) -> String {
+        let c = style.frame;
+        match self {
+            Self::Upstream(error, element) => format!(
+                "{error}{c}\n\
+                In virtual element: {element}."
+            ),
+        }
     }
 }
 
-impl Display for VirtualElementError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::Upstream(error, element) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In virtual element: {element}."
-                )
-            }
-        };
-        write!(f, "{error}\x1b[0m")
-    }
-}
+styled_error!(VirtualElementError);
 
 #[test]
 fn temporary_poly_0() {
@@ -366,18 +354,16 @@ fn temporary_poly_0() {
     ];
     let element_face_connectivity = vec![vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]];
     use crate::constitutive::solid::hyperelastic::NeoHookean;
-    use crate::vem::block::{
-        Block,
-        solid::{SolidVirtualElementBlock, elastic::ElasticVirtualElementBlock},
-    };
+    use crate::fem::solid::elastic::ElasticElements;
+    use crate::vem::block::{Block, solid::SolidVirtualElements};
     let block = Block::<_, Element>::from((
         NeoHookean {
             shear_modulus: 3.0,
             bulk_modulus: 13.0,
         },
-        coordinates.clone(),
         element_face_connectivity.clone(),
         face_node_connectivity.clone(),
+        &coordinates,
     ));
     use crate::fem::solid::NodalForcesSolid;
     use crate::math::{TensorArray, assert_eq_within_tols};
@@ -442,18 +428,16 @@ fn temporary_poly_1() {
     ];
     let element_face_connectivity = vec![vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]];
     use crate::constitutive::solid::hyperelastic::NeoHookean;
-    use crate::vem::block::{
-        Block,
-        solid::{SolidVirtualElementBlock, elastic::ElasticVirtualElementBlock},
-    };
+    use crate::fem::solid::elastic::ElasticElements;
+    use crate::vem::block::{Block, solid::SolidVirtualElements};
     let block = Block::<_, Element>::from((
         NeoHookean {
             shear_modulus: 3.0,
             bulk_modulus: 13.0,
         },
-        coordinates.clone(),
         element_face_connectivity.clone(),
         face_node_connectivity.clone(),
+        &coordinates,
     ));
     use crate::fem::solid::NodalForcesSolid;
     use crate::math::{TensorArray, assert_eq_within_tols};
@@ -524,15 +508,16 @@ fn temporary_poly_2() {
     ];
     let element_face_connectivity = vec![vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]];
     use crate::constitutive::solid::hyperelastic::NeoHookean;
-    use crate::vem::block::{Block, solid::elastic::ElasticVirtualElementBlock};
+    use crate::fem::solid::elastic::ElasticElements;
+    use crate::vem::block::Block;
     let block = Block::<_, Element>::from((
         NeoHookean {
             shear_modulus: 3.0,
             bulk_modulus: 13.0,
         },
-        coordinates_0,
         element_face_connectivity.clone(),
         face_node_connectivity.clone(),
+        &coordinates_0,
     ));
     use crate::vem::NodalCoordinates;
     let coordinates = NodalCoordinates::from(vec![
@@ -558,7 +543,7 @@ fn temporary_poly_2() {
         [0.12293689, -0.48172557, 1.4158596],
     ]);
     use crate::EPSILON;
-    use crate::vem::block::solid::hyperelastic::HyperelasticVirtualElementBlock;
+    use crate::fem::solid::hyperelastic::HyperelasticElements;
     let mut finite_difference = 0.0;
     let nodal_forces_fd = (0..coordinates.len())
         .map(|node| {

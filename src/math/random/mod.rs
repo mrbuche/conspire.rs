@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 use std::{
     cell::Cell,
     f64::consts::TAU,

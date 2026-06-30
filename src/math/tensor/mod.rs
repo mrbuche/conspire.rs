@@ -10,13 +10,13 @@ pub mod tuple;
 pub mod vec;
 
 use super::{SquareMatrix, Vector};
-use crate::defeat_message;
+use crate::math::{Style, StyledError, styled_error};
 use rank_0::{
     TensorRank0,
     list::{TensorRank0List, vec::TensorRank0ListVec},
 };
 use std::{
-    fmt::{self, Debug, Display, Formatter},
+    fmt::{Debug, Display},
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
@@ -40,29 +40,19 @@ pub enum TensorError {
     SymmetricMatrixComplexEigenvalues,
 }
 
-impl Debug for TensorError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::NotPositiveDefinite => "\x1b[1;91mResult is not positive definite.".to_string(),
+impl StyledError for TensorError {
+    fn message(&self, style: &Style) -> String {
+        let h = style.headline;
+        match self {
+            Self::NotPositiveDefinite => format!("{h}Result is not positive definite."),
             Self::SymmetricMatrixComplexEigenvalues => {
-                "\x1b[1;91mSymmetric matrix produced complex eigenvalues".to_string()
+                format!("{h}Symmetric matrix produced complex eigenvalues")
             }
-        };
-        write!(f, "\n{error}\n\x1b[0;2;31m{}\x1b[0m\n", defeat_message())
+        }
     }
 }
 
-impl Display for TensorError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::NotPositiveDefinite => "\x1b[1;91mResult is not positive definite.".to_string(),
-            Self::SymmetricMatrixComplexEigenvalues => {
-                "\x1b[1;91mSymmetric matrix produced complex eigenvalues".to_string()
-            }
-        };
-        write!(f, "{error}\x1b[0m")
-    }
-}
+styled_error!(TensorError);
 
 /// Common methods for solutions.
 pub trait Solution
@@ -296,4 +286,6 @@ where
         F: FnMut(&Self::Item) -> bool;
     /// Removes an element from the Vec and returns it, replacing it with the last element.
     fn swap_remove(&mut self, index: usize) -> Self::Item;
+    /// Constructs a new, empty vector with at least the specified capacity.
+    fn with_capacity(capacity: usize) -> Self;
 }

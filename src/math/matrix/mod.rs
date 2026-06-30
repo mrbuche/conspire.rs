@@ -88,6 +88,9 @@ impl TensorVec for Matrix {
     fn swap_remove(&mut self, index: usize) -> Self::Item {
         self.0.swap_remove(index)
     }
+    fn with_capacity(capacity: usize) -> Self {
+        Self(Vec::with_capacity(capacity))
+    }
 }
 
 impl From<Matrix> for Vec<Vec<Scalar>> {

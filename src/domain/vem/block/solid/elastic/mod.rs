@@ -1,47 +1,26 @@
 use crate::{
     constitutive::solid::elastic::Elastic,
-    math::{
-        Tensor,
-        optimize::{
-            EqualityConstraint, FirstOrderRootFinding, OptimizationError, ZerothOrderRootFinding,
-        },
-    },
+    fem::{ElementModelError, solid::elastic::ElasticElements},
     vem::{
         NodalCoordinates,
         block::{
-            Block, FirstOrderRoot, VirtualElementBlockError, ZerothOrderRoot,
+            Block,
             element::{VirtualElementError, solid::elastic::ElasticVirtualElement},
-            solid::{NodalForcesSolid, NodalStiffnessesSolid, SolidVirtualElementBlock},
+            solid::{NodalForcesSolid, NodalStiffnessesSolid},
         },
     },
 };
 
-pub trait ElasticVirtualElementBlock<C, F>
+impl<C, F> ElasticElements<3> for Block<C, F>
 where
     C: Elastic,
     F: ElasticVirtualElement<C>,
 {
-    fn nodal_forces(
+    fn nodal_forces_into(
         &self,
         nodal_coordinates: &NodalCoordinates,
-    ) -> Result<NodalForcesSolid, VirtualElementBlockError>;
-    fn nodal_stiffnesses(
-        &self,
-        nodal_coordinates: &NodalCoordinates,
-    ) -> Result<NodalStiffnessesSolid, VirtualElementBlockError>;
-}
-
-impl<C, F> ElasticVirtualElementBlock<C, F> for Block<C, F>
-where
-    C: Elastic,
-    F: ElasticVirtualElement<C>,
-    Self: SolidVirtualElementBlock<C, F>,
-{
-    fn nodal_forces(
-        &self,
-        nodal_coordinates: &NodalCoordinates,
-    ) -> Result<NodalForcesSolid, VirtualElementBlockError> {
-        let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
+        nodal_forces: &mut NodalForcesSolid,
+    ) -> Result<(), ElementModelError> {
         match self
             .elements()
             .iter()
@@ -57,18 +36,18 @@ where
                     .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
                 Ok::<(), VirtualElementError>(())
             }) {
-            Ok(()) => Ok(nodal_forces),
-            Err(error) => Err(VirtualElementBlockError::Upstream(
+            Ok(()) => Ok(()),
+            Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
             )),
         }
     }
-    fn nodal_stiffnesses(
+    fn nodal_stiffnesses_into(
         &self,
         nodal_coordinates: &NodalCoordinates,
-    ) -> Result<NodalStiffnessesSolid, VirtualElementBlockError> {
-        let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
+        nodal_stiffnesses: &mut NodalStiffnessesSolid,
+    ) -> Result<(), ElementModelError> {
         match self
             .elements()
             .iter()
@@ -91,49 +70,11 @@ where
                     });
                 Ok::<(), VirtualElementError>(())
             }) {
-            Ok(()) => Ok(nodal_stiffnesses),
-            Err(error) => Err(VirtualElementBlockError::Upstream(
+            Ok(()) => Ok(()),
+            Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
             )),
         }
-    }
-}
-
-impl<C, F> ZerothOrderRoot<C, F, NodalCoordinates> for Block<C, F>
-where
-    C: Elastic,
-    F: ElasticVirtualElement<C>,
-{
-    fn root(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<NodalCoordinates>,
-    ) -> Result<NodalCoordinates, OptimizationError> {
-        solver.root(
-            |nodal_coordinates: &NodalCoordinates| Ok(self.nodal_forces(nodal_coordinates)?),
-            self.coordinates().clone().into(),
-            equality_constraint,
-        )
-    }
-}
-
-impl<C, F> FirstOrderRoot<C, F, NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>
-    for Block<C, F>
-where
-    C: Elastic,
-    F: ElasticVirtualElement<C>,
-{
-    fn root(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderRootFinding<NodalForcesSolid, NodalStiffnessesSolid, NodalCoordinates>,
-    ) -> Result<NodalCoordinates, OptimizationError> {
-        solver.root(
-            |nodal_coordinates: &NodalCoordinates| Ok(self.nodal_forces(nodal_coordinates)?),
-            |nodal_coordinates: &NodalCoordinates| Ok(self.nodal_stiffnesses(nodal_coordinates)?),
-            self.coordinates().clone().into(),
-            equality_constraint,
-        )
     }
 }
