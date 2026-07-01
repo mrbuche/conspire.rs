@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 use super::{Scalar, Tensor};
 
 /// Different norms for tensors.
