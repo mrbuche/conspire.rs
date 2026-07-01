@@ -723,7 +723,7 @@ impl<const I: usize> TensorRank2<3, I, I> {
                 let mut power = tensor.clone();
                 (2..=num_terms).for_each(|k| {
                     power *= &tensor;
-                    logm += &power / (if k % 2 == 0 { -1.0 } else { 1.0 } / k as f64);
+                    logm += &power * (if k % 2 == 0 { -1.0 } else { 1.0 } / k as f64);
                 });
                 Ok(logm)
             } else if self.is_symmetric() {
