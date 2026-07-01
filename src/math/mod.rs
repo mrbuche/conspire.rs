@@ -37,7 +37,7 @@ pub use random::{
 };
 pub use set::{Set, sets::Sets};
 pub use tensor::{
-    Hessian, Jacobian, Rank2, Scalar, ScalarList, ScalarListVec, Scalars, Solution, Tensor,
+    Hessian, Jacobian, Norm, Rank2, Scalar, ScalarList, ScalarListVec, Scalars, Solution, Tensor,
     TensorArray, TensorError, TensorVec,
     list::TensorList,
     rank_0::{TensorRank0, list::TensorRank0List, list_2d::TensorRank0List2D},

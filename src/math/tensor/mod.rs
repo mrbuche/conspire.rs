@@ -1,6 +1,7 @@
 pub mod test;
 
 pub mod list;
+pub mod norm;
 pub mod rank_0;
 pub mod rank_1;
 pub mod rank_2;
@@ -8,6 +9,8 @@ pub mod rank_3;
 pub mod rank_4;
 pub mod tuple;
 pub mod vec;
+
+pub use norm::Norm;
 
 use super::{SquareMatrix, Vector};
 use crate::math::{Style, StyledError, styled_error};
@@ -205,6 +208,19 @@ where
     fn norm_inf(&self) -> TensorRank0 {
         self.iter()
             .fold(0.0, |acc, entry| entry.norm_inf().max(acc))
+    }
+    /// Returns the L1 (Manhattan) norm.
+    fn norm_l1(&self) -> TensorRank0 {
+        self.iter().fold(0.0, |acc, entry| acc + entry.norm_l1())
+    }
+    /// Returns the sum of p-th powers of absolute values (used internally by `norm_p`).
+    fn norm_p_sum(&self, p: TensorRank0) -> TensorRank0 {
+        self.iter()
+            .fold(0.0, |acc, entry| acc + entry.norm_p_sum(p))
+    }
+    /// Returns the Minkowski (Lp) norm.
+    fn norm_p(&self, p: TensorRank0) -> TensorRank0 {
+        self.norm_p_sum(p).powf(1.0 / p)
     }
     /// Returns the tensor norm squared.
     fn norm_squared(&self) -> TensorRank0 {

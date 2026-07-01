@@ -100,6 +100,12 @@ impl Tensor for TensorRank0 {
     fn norm_inf(&self) -> TensorRank0 {
         self.abs()
     }
+    fn norm_l1(&self) -> TensorRank0 {
+        self.abs()
+    }
+    fn norm_p_sum(&self, p: TensorRank0) -> TensorRank0 {
+        self.abs().powf(p)
+    }
     fn normalized(self) -> Self {
         1.0
     }
