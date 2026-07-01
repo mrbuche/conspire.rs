@@ -106,6 +106,12 @@ where
     fn norm_inf(&self) -> TensorRank0 {
         self.0.norm_inf().max(self.1.norm_inf())
     }
+    fn norm_l1(&self) -> TensorRank0 {
+        self.0.norm_l1() + self.1.norm_l1()
+    }
+    fn norm_p_sum(&self, p: TensorRank0) -> TensorRank0 {
+        self.0.norm_p_sum(p) + self.1.norm_p_sum(p)
+    }
     fn size(&self) -> usize {
         self.0.size() + self.1.size()
     }

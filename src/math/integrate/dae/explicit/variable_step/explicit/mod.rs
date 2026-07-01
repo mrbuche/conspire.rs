@@ -211,7 +211,7 @@ where
             y_trial,
             z_trial,
         )?;
-        Self::error(dt, k)
+        self.error(dt, k)
     }
     #[allow(clippy::too_many_arguments)]
     fn step_solve(
@@ -230,7 +230,7 @@ where
         z_trial: &Z,
         e: Scalar,
     ) -> Result<(), String> {
-        if e < self.abs_tol() || e < self.rel_tol() * y_trial.norm_inf() {
+        if e < self.abs_tol() || e < self.rel_tol() * self.norm().apply(y_trial) {
             *t += *dt;
             *y = y_trial.clone();
             *z = z_trial.clone();
@@ -256,6 +256,7 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     fn slopes_solve_and_error_fsal(
+        &self,
         mut evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
         mut solution: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
         y: &Y,
@@ -278,7 +279,7 @@ where
             z_trial,
         )?;
         k[Self::SLOPES - 1] = evolution(t + dt, y_trial, z_trial)?;
-        Self::error(dt, k)
+        self.error(dt, k)
     }
     #[allow(clippy::too_many_arguments)]
     fn step_solve_fsal(
@@ -296,7 +297,7 @@ where
         z_trial: &Z,
         e: Scalar,
     ) -> Result<(), String> {
-        if e < self.abs_tol() || e < self.rel_tol() * y_trial.norm_inf() {
+        if e < self.abs_tol() || e < self.rel_tol() * self.norm().apply(y_trial) {
             k[0] = k[Self::SLOPES - 1].clone();
             *t += *dt;
             *y = y_trial.clone();

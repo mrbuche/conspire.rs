@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::Norm;
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
     integrate::{
@@ -27,6 +28,8 @@ pub struct BogackiShampine {
     pub dt_cut: Scalar,
     /// Minimum value for the time step.
     pub dt_min: Scalar,
+    /// Norm type for error evaluation.
+    pub norm: Norm,
 }
 
 impl Default for BogackiShampine {
@@ -38,6 +41,7 @@ impl Default for BogackiShampine {
             dt_expn: 3.0,
             dt_cut: 0.5,
             dt_min: ABS_TOL,
+            norm: Norm::Chebyshev,
         }
     }
 }
@@ -68,6 +72,9 @@ impl VariableStep for BogackiShampine {
     fn dt_min(&self) -> Scalar {
         self.dt_min
     }
+    fn norm(&self) -> &Norm {
+        &self.norm
+    }
 }
 
 impl<Y, U> Explicit<Y, U> for BogackiShampine
@@ -94,8 +101,10 @@ where
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
-    fn error(dt: Scalar, k: &[Y]) -> Result<Scalar, String> {
-        Ok(((&k[0] * -5.0 + &k[1] * 6.0 + &k[2] * 8.0 + &k[3] * -9.0) * (dt / 72.0)).norm_inf())
+    fn error(&self, dt: Scalar, k: &[Y]) -> Result<Scalar, String> {
+        Ok(self
+            .norm
+            .apply(&((&k[0] * -5.0 + &k[1] * 6.0 + &k[2] * 8.0 + &k[3] * -9.0) * (dt / 72.0))))
     }
     fn slopes(
         mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
@@ -121,7 +130,7 @@ where
         k: &mut [Y],
         y_trial: &mut Y,
     ) -> Result<Scalar, String> {
-        Self::slopes_and_error_fsal(function, y, t, dt, k, y_trial)
+        self.slopes_and_error_fsal(function, y, t, dt, k, y_trial)
     }
     fn step(
         &self,

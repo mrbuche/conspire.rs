@@ -7,6 +7,7 @@ use super::{
     OptimizationError, ZerothOrderRootFinding,
 };
 use crate::ABS_TOL;
+use crate::math::Norm;
 use std::{
     fmt::{self, Debug, Formatter},
     ops::Mul,
@@ -26,6 +27,8 @@ pub struct GradientDescent {
     pub line_search: LineSearch,
     /// Maximum number of steps.
     pub max_steps: usize,
+    /// Norm type for error evaluation.
+    pub norm: Norm,
     /// Relative error tolerance.
     pub rel_tol: Option<Scalar>,
 }
@@ -53,6 +56,7 @@ impl Default for GradientDescent {
             dual: false,
             line_search: LineSearch::None,
             max_steps: 250,
+            norm: Norm::Chebyshev,
             rel_tol: None,
         }
     }
@@ -179,7 +183,7 @@ where
         } else {
             jacobian(&solution)?
         };
-        if residual.norm_inf() < gradient_descent.abs_tol {
+        if gradient_descent.norm.apply(&residual) < gradient_descent.abs_tol {
             return Ok(solution);
         } else {
             solution_change -= &solution;
@@ -230,9 +234,9 @@ where
     for iteration in 0..=gradient_descent.max_steps {
         residual = jacobian(&solution)?;
         residual.zero_out(&indices);
-        residual_norm = residual.norm_inf();
+        residual_norm = gradient_descent.norm.apply(&residual);
         if gradient_descent.rel_tol.is_some() && iteration == 0 {
-            relative_scale = residual.norm_inf()
+            relative_scale = gradient_descent.norm.apply(&residual)
         }
         if residual_norm < gradient_descent.abs_tol {
             return Ok(solution);
@@ -298,8 +302,8 @@ where
     for _ in 0..=gradient_descent.max_steps {
         residual_solution = jacobian(&solution)? - &multipliers * &constraint_matrix;
         residual_multipliers = &constraint_rhs - &constraint_matrix * &solution;
-        if residual_solution.norm_inf() < gradient_descent.abs_tol
-            && residual_multipliers.norm_inf() < gradient_descent.abs_tol
+        if gradient_descent.norm.apply(&residual_solution) < gradient_descent.abs_tol
+            && gradient_descent.norm.apply(&residual_multipliers) < gradient_descent.abs_tol
         {
             return Ok(solution);
         } else {
@@ -368,7 +372,7 @@ where
         ) {
             solution = result;
             residual = &constraint_rhs - &constraint_matrix * &solution;
-            if residual.norm_inf() < gradient_descent.abs_tol {
+            if gradient_descent.norm.apply(&residual) < gradient_descent.abs_tol {
                 return Ok(solution);
             } else {
                 multipliers_change -= &multipliers;

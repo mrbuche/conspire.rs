@@ -7,6 +7,7 @@ use super::{
     OptimizationError, SecondOrderOptimization,
 };
 use crate::ABS_TOL;
+use crate::math::Norm;
 use std::{
     fmt::{self, Debug, Formatter},
     ops::{Div, Mul},
@@ -20,6 +21,8 @@ pub struct NewtonRaphson {
     pub line_search: LineSearch,
     /// Maximum number of steps.
     pub max_steps: usize,
+    /// Norm type for error evaluation.
+    pub norm: Norm,
 }
 
 impl<J, X> BacktrackingLineSearch<J, X> for NewtonRaphson {
@@ -44,6 +47,7 @@ impl Default for NewtonRaphson {
             abs_tol: ABS_TOL,
             line_search: LineSearch::None,
             max_steps: 25,
+            norm: Norm::Chebyshev,
         }
     }
 }
@@ -167,7 +171,7 @@ where
     let mut tangent;
     for _ in 0..=newton_raphson.max_steps {
         residual = jacobian(&solution)?;
-        if residual.norm_inf() < newton_raphson.abs_tol {
+        if newton_raphson.norm.apply(&residual) < newton_raphson.abs_tol {
             return Ok(solution);
         } else {
             tangent = hessian(&solution)?;
@@ -218,7 +222,7 @@ where
     let mut tangent;
     for _ in 0..=newton_raphson.max_steps {
         residual = jacobian(&solution)?.retain_from(&retained);
-        if residual.norm_inf() < newton_raphson.abs_tol {
+        if newton_raphson.norm.apply(&residual) < newton_raphson.abs_tol {
             return Ok(solution);
         } else if let Some(ref band) = banded {
             tangent = hessian(&solution)?.retain_from(&retained);
@@ -297,7 +301,7 @@ where
             &constraint_rhs - &constraint_matrix * &solution,
             &mut residual,
         );
-        if residual.norm_inf() < newton_raphson.abs_tol {
+        if newton_raphson.norm.apply(&residual) < newton_raphson.abs_tol {
             return Ok(solution);
         } else if let Some(ref band) = banded {
             hessian(&solution)?.fill_into(&mut tangent);
