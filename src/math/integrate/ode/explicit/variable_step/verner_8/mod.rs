@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::Norm;
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
     integrate::{Explicit, IntegrationError, OdeIntegrator, VariableStep, VariableStepExplicit},
@@ -113,6 +114,8 @@ pub struct Verner8 {
     pub dt_cut: Scalar,
     /// Minimum value for the time step.
     pub dt_min: Scalar,
+    /// Norm type for error evaluation.
+    pub norm: Norm,
 }
 
 impl Default for Verner8 {
@@ -124,6 +127,7 @@ impl Default for Verner8 {
             dt_expn: 8.0,
             dt_cut: 0.5,
             dt_min: ABS_TOL,
+            norm: Norm::Chebyshev,
         }
     }
 }
@@ -154,6 +158,9 @@ impl VariableStep for Verner8 {
     fn dt_min(&self) -> Scalar {
         self.dt_min
     }
+    fn norm(&self) -> &Norm {
+        &self.norm
+    }
 }
 
 impl<Y, U> Explicit<Y, U> for Verner8
@@ -180,18 +187,19 @@ where
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
-    fn error(dt: Scalar, k: &[Y]) -> Result<Scalar, String> {
-        Ok(((&k[0] * D_1
-            + &k[5] * D_6
-            + &k[6] * D_7
-            + &k[7] * D_8
-            + &k[8] * D_9
-            + &k[9] * D_10
-            + &k[10] * D_11
-            + &k[11] * D_12
-            + &k[12] * D_13)
-            * dt)
-            .norm_inf())
+    fn error(&self, dt: Scalar, k: &[Y]) -> Result<Scalar, String> {
+        Ok(self.norm.apply(
+            &((&k[0] * D_1
+                + &k[5] * D_6
+                + &k[6] * D_7
+                + &k[7] * D_8
+                + &k[8] * D_9
+                + &k[9] * D_10
+                + &k[10] * D_11
+                + &k[11] * D_12
+                + &k[12] * D_13)
+                * dt),
+        ))
     }
     fn slopes(
         mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,

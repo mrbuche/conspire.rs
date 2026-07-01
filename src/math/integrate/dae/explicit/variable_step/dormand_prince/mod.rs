@@ -69,7 +69,7 @@ where
         y_trial: &mut Y,
         z_trial: &mut Z,
     ) -> Result<Scalar, String> {
-        Self::slopes_solve_and_error_fsal(evolution, solution, y, z, t, dt, k, y_trial, z_trial)
+        self.slopes_solve_and_error_fsal(evolution, solution, y, z, t, dt, k, y_trial, z_trial)
     }
     fn step_solve(
         &self,

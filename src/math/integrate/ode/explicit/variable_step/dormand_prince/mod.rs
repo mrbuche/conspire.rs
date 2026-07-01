@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::Norm;
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
     integrate::{
@@ -51,6 +52,8 @@ pub struct DormandPrince {
     pub dt_cut: Scalar,
     /// Minimum value for the time step.
     pub dt_min: Scalar,
+    /// Norm type for error evaluation.
+    pub norm: Norm,
 }
 
 impl Default for DormandPrince {
@@ -62,6 +65,7 @@ impl Default for DormandPrince {
             dt_expn: 5.0,
             dt_cut: 0.5,
             dt_min: ABS_TOL,
+            norm: Norm::Chebyshev,
         }
     }
 }
@@ -92,6 +96,9 @@ impl VariableStep for DormandPrince {
     fn dt_min(&self) -> Scalar {
         self.dt_min
     }
+    fn norm(&self) -> &Norm {
+        &self.norm
+    }
 }
 
 impl<Y, U> Explicit<Y, U> for DormandPrince
@@ -118,15 +125,14 @@ where
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
-    fn error(dt: Scalar, k: &[Y]) -> Result<Scalar, String> {
-        Ok(
-            ((&k[0] * C_71_57600 - &k[2] * C_71_16695 + &k[3] * C_71_1920
+    fn error(&self, dt: Scalar, k: &[Y]) -> Result<Scalar, String> {
+        Ok(self.norm.apply(
+            &((&k[0] * C_71_57600 - &k[2] * C_71_16695 + &k[3] * C_71_1920
                 - &k[4] * C_17253_339200
                 + &k[5] * C_22_525
                 - &k[6] * 0.025)
-                * dt)
-                .norm_inf(),
-        )
+                * dt),
+        ))
     }
     fn slopes(
         mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
@@ -169,7 +175,7 @@ where
         k: &mut [Y],
         y_trial: &mut Y,
     ) -> Result<Scalar, String> {
-        Self::slopes_and_error_fsal(function, y, t, dt, k, y_trial)
+        self.slopes_and_error_fsal(function, y, t, dt, k, y_trial)
     }
     fn step(
         &self,

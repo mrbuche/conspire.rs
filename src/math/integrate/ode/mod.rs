@@ -1,4 +1,4 @@
-use crate::math::{Scalar, Tensor, TensorVec};
+use crate::math::{Norm, Scalar, Tensor, TensorVec};
 use std::fmt::Debug;
 
 pub mod explicit;
@@ -33,4 +33,6 @@ pub trait VariableStep {
     fn dt_cut(&self) -> Scalar;
     /// Returns the minimum value for the time step.
     fn dt_min(&self) -> Scalar;
+    /// Returns the norm type.
+    fn norm(&self) -> &Norm;
 }
