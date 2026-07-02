@@ -18,6 +18,7 @@ mod transition_20;
 mod transition_21;
 pub(crate) mod transition_22;
 mod transition_3;
+pub(crate) mod transition_35;
 mod transition_4;
 mod transition_5;
 mod transition_6;
@@ -72,7 +73,8 @@ pub fn vertex_transitions<T, U>(
         apply(tree, center_nodes, connectivity, data, template)
     }
     if matches!(balancing, Balancing::Weak) {
-        transition_22::template(tree, center_nodes, connectivity)
+        transition_22::template(tree, center_nodes, connectivity);
+        transition_35::template(tree, center_nodes, connectivity);
     }
 }
 

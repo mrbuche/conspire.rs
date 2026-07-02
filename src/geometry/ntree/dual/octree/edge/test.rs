@@ -24,7 +24,7 @@ fn refine_to(octree: &mut Octree<u16, usize>, node: usize, levels: usize) {
     }
 }
 
-fn weak_edge_tree(balancing: Balancing) -> Octree<u16, usize> {
+pub(crate) fn weak_tree(depths: [usize; 8], balancing: Balancing) -> Octree<u16, usize> {
     let mut octree = Octree::<u16, usize> {
         balanced: Balancing::None,
         nodes: vec![Node {
@@ -43,12 +43,15 @@ fn weak_edge_tree(balancing: Balancing) -> Octree<u16, usize> {
     };
     octree.subdivide(0).unwrap();
     let macros = *octree.nodes[0].orthants().unwrap();
-    let depths = [1usize, 2, 2, 3, 1, 2, 2, 3];
     for (orthant, &levels) in depths.iter().enumerate() {
         refine_to(&mut octree, macros[orthant], levels);
     }
     octree.equilibrate(balancing, Pairing::Regular).unwrap();
     octree
+}
+
+fn weak_edge_tree(balancing: Balancing) -> Octree<u16, usize> {
+    weak_tree([1, 2, 2, 3, 1, 2, 2, 3], balancing)
 }
 
 #[test]

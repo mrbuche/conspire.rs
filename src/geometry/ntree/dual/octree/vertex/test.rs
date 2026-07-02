@@ -2,9 +2,62 @@ use super::super::{D, N};
 use super::{Template, apply, transition_21};
 use crate::geometry::ntree::{
     Octree,
+    balance::Balancing,
     node::{Kind, split::Split},
 };
 use std::{array::from_fn, ops::Add};
+
+fn weak_vertex_depths(fine: usize) -> [usize; 8] {
+    let mut depths = [2; 8];
+    depths[fine] = 3;
+    depths[7 - fine] = 1;
+    depths
+}
+
+#[test]
+fn write_weak_vertex_dual() {
+    use super::super::test::verify_dual;
+    use crate::{
+        geometry::{mesh::Output, ntree::Dualization},
+        io::Write,
+    };
+    for fine in 0..8 {
+        let mut octree =
+            super::super::edge::test::weak_tree(weak_vertex_depths(fine), Balancing::Weak);
+        let mesh = octree.dualize();
+        if let Err(error) = verify_dual(&mesh) {
+            panic!("weak vertex dual (fine orthant {fine}) failed verification: {error}");
+        }
+        if fine == 7 {
+            mesh.write(Output::Exodus("target/weak_vertex.exo"))
+                .unwrap();
+        }
+    }
+}
+
+#[test]
+fn transition_35_fills_weak_vertex_config_only() {
+    use crate::geometry::ntree::dual::Uniform;
+    let hexes = |fine, balancing| {
+        let octree = super::super::edge::test::weak_tree(weak_vertex_depths(fine), balancing);
+        let (center_nodes, ..) = octree.initialize();
+        let mut connectivity = Vec::new();
+        super::transition_35::template(&octree, &center_nodes, &mut connectivity);
+        connectivity.len()
+    };
+    for fine in 0..8 {
+        assert_eq!(
+            hexes(fine, Balancing::Weak),
+            1,
+            "transition_35 should fill the weak vertex star (fine orthant {fine})"
+        );
+        assert_eq!(
+            hexes(fine, Balancing::Strong),
+            0,
+            "transition_35 fired on the strong tree (the config should be balanced away)"
+        );
+    }
+}
 
 pub(crate) fn vertex_dual_generic<T, U>(
     tree: &Octree<T, U>,
