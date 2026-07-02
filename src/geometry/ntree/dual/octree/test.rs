@@ -34,7 +34,7 @@ const HEX_FACES: [[usize; 4]; 6] = [
     [3, 0, 4, 7],
 ];
 
-fn verify_dual(mesh: &Mesh<3>) -> Result<(), String> {
+pub(crate) fn verify_dual(mesh: &Mesh<3>) -> Result<(), String> {
     let coordinates = mesh.coordinates();
     for (e, element) in mesh.iter().flatten().enumerate() {
         let mut distinct = element.to_vec();
