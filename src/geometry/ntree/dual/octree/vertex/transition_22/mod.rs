@@ -9,9 +9,6 @@ use crate::{
     math::Scalar,
 };
 
-// Two weak (face-balanced only) edge configurations meeting at a vertex of
-// the parent grid: the dual element is the star of that vertex, with the
-// centers of its eight incident cells as corners.
 pub fn template<T, U>(
     tree: &Octree<T, U>,
     center_nodes: &[usize],

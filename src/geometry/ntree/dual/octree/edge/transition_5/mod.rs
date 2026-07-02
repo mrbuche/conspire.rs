@@ -16,8 +16,6 @@ use std::array::from_fn;
 
 const M: usize = 6;
 
-// (facet_m, facet_n) per edge orientation, ordered so that the frame
-// (facet_m direction, facet_n direction, +edge axis) is right-handed.
 pub(crate) const EDGES: [(usize, usize); 12] = [
     (1, 3),
     (2, 1),
@@ -33,9 +31,6 @@ pub(crate) const EDGES: [(usize, usize); 12] = [
     (4, 0),
 ];
 
-// Weak (face-balanced only) edge configuration around one coarse cell: the
-// facet_m and facet_n neighbors hold half-size leaves, whose facet_n
-// neighbors across the edge are trees holding quarter-size leaves.
 pub(crate) struct Config {
     pub(crate) center: usize,
     pub(crate) length: Scalar,
@@ -75,9 +70,6 @@ pub fn template<T, U>(
                     node_index,
                     nodes_map,
                 );
-                // The pair hex across a within-parent face; a pair meeting at
-                // a parent grid plane is a vertex configuration instead
-                // (handled by vertex transition_22).
                 let axis = 3 - (facet_m >> 1) - (facet_n >> 1);
                 let corner: usize = node.corner[axis].into();
                 let length: usize = node.length.into();
@@ -167,10 +159,6 @@ fn find(coordinate: &Coordinate<D>, nodes_map: &NodeMap<D>) -> Option<usize> {
         .copied()
 }
 
-// Ring corner at one end of a chamber: the face-transition Steiner node if
-// one exists there (within-parent pair face), otherwise the cell center
-// itself (cross-parent pair face or domain boundary), along with the
-// interior Steiner node for that end.
 #[allow(clippy::too_many_arguments)]
 fn corner(
     steiner: Coordinate<D>,
