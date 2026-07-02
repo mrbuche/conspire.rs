@@ -27,7 +27,7 @@ mod transition_9;
 
 use super::{D, L, M, N};
 use crate::{
-    geometry::ntree::{Octree, node::Node},
+    geometry::ntree::{Octree, balance::Balancing, node::Node},
     math::Scalar,
 };
 
@@ -40,6 +40,7 @@ pub fn vertex_transitions<T, U>(
     tree: &Octree<T, U>,
     center_nodes: &[usize],
     connectivity: &mut Vec<[usize; N]>,
+    balancing: Balancing,
 ) where
     T: Copy + Into<Scalar> + Into<usize>,
     U: Copy + Into<usize>,
@@ -70,7 +71,9 @@ pub fn vertex_transitions<T, U>(
     for (data, template) in templates {
         apply(tree, center_nodes, connectivity, data, template)
     }
-    transition_22::template(tree, center_nodes, connectivity)
+    if matches!(balancing, Balancing::Weak) {
+        transition_22::template(tree, center_nodes, connectivity)
+    }
 }
 
 fn apply<T, U>(
