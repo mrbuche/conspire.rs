@@ -146,7 +146,18 @@ fn solve_cubic_symmetric(
         return Ok(TensorRank0List::from([lambda; _]));
     }
     let discriminant = -4.0 * p * p * p - 27.0 * q * q;
-    if discriminant >= ABS_TOL {
+    let scale = (4.0 * p * p * p).abs().max(27.0 * q * q);
+    if discriminant.abs() <= 1e-13 * scale {
+        let r = (q / 2.0).cbrt();
+        let lambda_double = r + c2 / 3.0;
+        let lambda_simple = -2.0 * r + c2 / 3.0;
+        let lambdas = if lambda_double >= lambda_simple {
+            [lambda_double, lambda_double, lambda_simple]
+        } else {
+            [lambda_simple, lambda_double, lambda_double]
+        };
+        Ok(TensorRank0List::from(lambdas))
+    } else if discriminant > 0.0 {
         let sqrt_term = (-p / 3.0).sqrt();
         let cos_arg = 3.0 * q / (2.0 * p * (-p / 3.0).sqrt());
         let cos_arg = cos_arg.clamp(-1.0, 1.0);
@@ -156,6 +167,17 @@ fn solve_cubic_symmetric(
             2.0 * sqrt_term * ((theta + TAU) / 3.0).cos() + c2 / 3.0,
             2.0 * sqrt_term * ((theta + 2.0 * TAU) / 3.0).cos() + c2 / 3.0,
         ];
+        lambdas.iter_mut().for_each(|lambda| {
+            for _ in 0..2 {
+                let x = *lambda;
+                let f = x * x * x - c2 * x * x + c1 * x - c0;
+                let f_prime = 3.0 * x * x - 2.0 * c2 * x + c1;
+                if f_prime.abs() < ABS_TOL {
+                    break;
+                }
+                *lambda -= f / f_prime;
+            }
+        });
         lambdas.sort_by(|a, b| b.partial_cmp(a).unwrap());
         Ok(TensorRank0List::from(lambdas))
     } else {

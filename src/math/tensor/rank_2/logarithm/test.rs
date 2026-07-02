@@ -40,6 +40,10 @@ fn get_symmetric_tensor() -> TensorRank2<3, 1, 1> {
     from_eigenvalues([2.0, 0.5, 1.5])
 }
 
+fn get_non_symmetric_tensor() -> TensorRank2<3, 1, 1> {
+    TensorRank2::from([[1.0, 4.0, 6.0], [7.0, 2.0, 5.0], [9.0, 8.0, 3.0]])
+}
+
 fn get_symmetric_tensor_logm() -> TensorRank2<3, 1, 1> {
     from_eigenvalues([2.0_f64.ln(), 0.5_f64.ln(), 1.5_f64.ln()])
 }
@@ -87,6 +91,36 @@ fn logm_symmetric() -> Result<(), TestError> {
     assert_eq_within(
         &get_symmetric_tensor().logm()?,
         &get_symmetric_tensor_logm(),
+        1e-10,
+        1e-10,
+    )
+}
+
+#[test]
+fn logm_repeated_eigenvalue_first_pair() -> Result<(), TestError> {
+    assert_eq_within(
+        &from_eigenvalues([2.0, 2.0, 0.5]).logm()?,
+        &from_eigenvalues([2.0_f64.ln(), 2.0_f64.ln(), 0.5_f64.ln()]),
+        1e-10,
+        1e-10,
+    )
+}
+
+#[test]
+fn logm_repeated_eigenvalue_second_pair() -> Result<(), TestError> {
+    assert_eq_within(
+        &from_eigenvalues([2.0, 0.5, 0.5]).logm()?,
+        &from_eigenvalues([2.0_f64.ln(), 0.5_f64.ln(), 0.5_f64.ln()]),
+        1e-10,
+        1e-10,
+    )
+}
+
+#[test]
+fn logm_repeated_eigenvalue_triple() -> Result<(), TestError> {
+    assert_eq_within(
+        &from_eigenvalues([3.0, 3.0, 3.0]).logm()?,
+        &from_eigenvalues([3.0_f64.ln(), 3.0_f64.ln(), 3.0_f64.ln()]),
         1e-10,
         1e-10,
     )
@@ -160,4 +194,51 @@ fn dlogm_symmetric_matches_finite_difference_of_logm() -> Result<(), TestError> 
         assert_eq_within(&finite_difference, &predicted, 1e-6, 1e-6)?;
     }
     Ok(())
+}
+
+#[test]
+fn dlogm_repeated_eigenvalue_matches_finite_difference_of_logm() -> Result<(), TestError> {
+    for eigenvalues in [[2.0, 2.0, 0.5], [2.0, 0.5, 0.5]] {
+        let tensor = from_eigenvalues(eigenvalues);
+        let dlogm = tensor.dlogm()?;
+        let epsilon = 1e-6;
+        let directions = [
+            TensorRank2::from([[1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+            TensorRank2::from([[0.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+            TensorRank2::from([[0.3, 0.2, 0.1], [0.2, -0.4, 0.05], [0.1, 0.05, 0.1]]),
+        ];
+        for direction in directions.iter() {
+            let perturbation = direction * epsilon;
+            let tensor_plus = tensor.clone() + perturbation.clone();
+            let tensor_minus = tensor.clone() - perturbation;
+            let finite_difference = (tensor_plus.logm()? - tensor_minus.logm()?) / (2.0 * epsilon);
+            let predicted = contract_third_fourth_indices(&dlogm, direction);
+            assert_eq_within(&finite_difference, &predicted, 1e-3, 1e-3)?;
+        }
+    }
+    Ok(())
+}
+
+#[test]
+#[should_panic(expected = "Symmetric matrix has a non-positive eigenvalue")]
+fn logm_non_positive_eigenvalue_panics() {
+    let _ = from_eigenvalues([-1.0, 2.0, 0.5]).logm();
+}
+
+#[test]
+#[should_panic(expected = "Matrix logarithm only implemented for symmetric cases")]
+fn logm_non_symmetric_panics() {
+    let _ = get_non_symmetric_tensor().logm();
+}
+
+#[test]
+#[should_panic(expected = "Symmetric matrix has a non-positive eigenvalue")]
+fn dlogm_non_positive_eigenvalue_panics() {
+    let _ = from_eigenvalues([-1.0, 2.0, 0.5]).dlogm();
+}
+
+#[test]
+#[should_panic(expected = "Matrix logarithm only implemented for symmetric cases")]
+fn dlogm_non_symmetric_panics() {
+    let _ = get_non_symmetric_tensor().dlogm();
 }
