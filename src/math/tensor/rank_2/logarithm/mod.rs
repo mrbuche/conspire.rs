@@ -167,18 +167,44 @@ fn find_orthonormal_eigenvectors<const I: usize>(
     eigenvalues: &TensorRank0List<3>,
     tensor: &TensorRank2<3, I, I>,
 ) -> TensorRank2<3, I, I> {
-    let mut eigenvectors = eigenvalues
-        .iter()
-        .map(|&eigenvalue| eigenvector_symmetric(eigenvalue, tensor))
-        .collect::<TensorRank2<3, I, I>>();
-    eigenvectors[0].normalize();
-    let proj1 = &eigenvectors[1] * &eigenvectors[0];
-    for i in 0..3 {
-        eigenvectors[1][i] -= proj1 * eigenvectors[0][i];
+    if assert_eq_within_tols(&eigenvalues[0], &eigenvalues[1]).is_ok() {
+        let mut eigenvectors = TensorRank2::zero();
+        eigenvectors[2] = eigenvector_symmetric(eigenvalues[2], tensor);
+        eigenvectors[0] = orthogonal_unit_vector(&eigenvectors[2]);
+        eigenvectors[1] = eigenvectors[2].cross(&eigenvectors[0]);
+        eigenvectors
+    } else if assert_eq_within_tols(&eigenvalues[1], &eigenvalues[2]).is_ok() {
+        let mut eigenvectors = TensorRank2::zero();
+        eigenvectors[0] = eigenvector_symmetric(eigenvalues[0], tensor);
+        eigenvectors[1] = orthogonal_unit_vector(&eigenvectors[0]);
+        eigenvectors[2] = eigenvectors[0].cross(&eigenvectors[1]);
+        eigenvectors
+    } else {
+        let mut eigenvectors = eigenvalues
+            .iter()
+            .map(|&eigenvalue| eigenvector_symmetric(eigenvalue, tensor))
+            .collect::<TensorRank2<3, I, I>>();
+        eigenvectors[0].normalize();
+        let proj1 = &eigenvectors[1] * &eigenvectors[0];
+        for i in 0..3 {
+            eigenvectors[1][i] -= proj1 * eigenvectors[0][i];
+        }
+        eigenvectors[1].normalize();
+        eigenvectors[2] = eigenvectors[0].cross(&eigenvectors[1]);
+        eigenvectors
     }
-    eigenvectors[1].normalize();
-    eigenvectors[2] = eigenvectors[0].cross(&eigenvectors[1]);
-    eigenvectors
+}
+
+fn orthogonal_unit_vector<const I: usize>(vector: &TensorRank1<3, I>) -> TensorRank1<3, I> {
+    let axis = vector
+        .iter()
+        .enumerate()
+        .min_by(|(_, a), (_, b)| a.abs().partial_cmp(&b.abs()).unwrap())
+        .map(|(i, _)| i)
+        .unwrap();
+    let mut other = TensorRank1::<3, I>::zero();
+    other[axis] = 1.0;
+    vector.cross(&other).normalized()
 }
 
 fn eigenvector_symmetric<const I: usize>(
@@ -186,20 +212,11 @@ fn eigenvector_symmetric<const I: usize>(
     tensor: &TensorRank2<3, I, I>,
 ) -> TensorRank1<3, I> {
     let m = tensor - TensorRank2::identity() * eigenvalue;
-    let mut pivot_row = 0;
-    m.iter().enumerate().for_each(|(i, m_i)| {
-        if m_i[i].abs() < m[pivot_row][pivot_row].abs() {
-            pivot_row = i;
-        }
-    });
-    if pivot_row == 0 {
-        m[1].cross(&m[2])
-    } else if pivot_row == 1 {
-        m[0].cross(&m[2])
-    } else {
-        m[0].cross(&m[1])
-    }
-    .normalized()
+    [m[1].cross(&m[2]), m[0].cross(&m[2]), m[0].cross(&m[1])]
+        .into_iter()
+        .max_by(|a, b| a.norm().partial_cmp(&b.norm()).unwrap())
+        .unwrap()
+        .normalized()
 }
 
 fn reconstruct_symmetric<const I: usize>(
