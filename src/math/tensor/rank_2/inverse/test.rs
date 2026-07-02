@@ -128,6 +128,14 @@ fn inverse_and_determinant_dim_4() -> Result<(), TestError> {
 }
 
 #[test]
+fn inverse_and_determinant_dim_9() -> Result<(), TestError> {
+    let tensor_rank_2 = get_tensor_rank_2_dim_9();
+    let (inverse, determinant) = tensor_rank_2.inverse_and_determinant();
+    assert_eq(&determinant, &tensor_rank_2.determinant())?;
+    assert_eq(&inverse, &tensor_rank_2.inverse())
+}
+
+#[test]
 fn inverse_transpose_dim_2() -> Result<(), TestError> {
     assert_eq_within_tols(
         &(get_tensor_rank_2_dim_2().transpose() * get_tensor_rank_2_dim_2().inverse_transpose()),
@@ -178,6 +186,14 @@ fn inverse_transpose_and_determinant_dim_3() -> Result<(), TestError> {
 #[test]
 fn inverse_transpose_and_determinant_dim_4() -> Result<(), TestError> {
     let tensor_rank_2 = get_tensor_rank_2_dim_4();
+    let (inverse_transpose, determinant) = tensor_rank_2.inverse_transpose_and_determinant();
+    assert_eq(&determinant, &tensor_rank_2.determinant())?;
+    assert_eq(&inverse_transpose, &tensor_rank_2.inverse_transpose())
+}
+
+#[test]
+fn inverse_transpose_and_determinant_dim_9() -> Result<(), TestError> {
+    let tensor_rank_2 = get_tensor_rank_2_dim_9();
     let (inverse_transpose, determinant) = tensor_rank_2.inverse_transpose_and_determinant();
     assert_eq(&determinant, &tensor_rank_2.determinant())?;
     assert_eq(&inverse_transpose, &tensor_rank_2.inverse_transpose())

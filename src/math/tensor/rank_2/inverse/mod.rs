@@ -172,7 +172,7 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
             adjugate[3][3] = self[2][0] * s3 - self[2][1] * s1 + self[2][2] * s0;
             (adjugate / determinant, determinant)
         } else {
-            panic!()
+            (self.inverse(), self.determinant())
         }
     }
     /// Returns the inverse transpose of the rank-2 tensor.
@@ -293,7 +293,7 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
             adjugate_transpose[3][3] = self[2][0] * s3 - self[2][1] * s1 + self[2][2] * s0;
             (adjugate_transpose / determinant, determinant)
         } else {
-            panic!()
+            (self.inverse_transpose(), self.determinant())
         }
     }
     /// Returns the LU decomposition of the rank-2 tensor.
