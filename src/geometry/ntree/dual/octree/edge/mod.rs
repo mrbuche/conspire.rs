@@ -6,7 +6,7 @@ mod transition_1;
 mod transition_2;
 mod transition_3;
 mod transition_4;
-pub(crate) mod transition_5;
+mod transition_5;
 
 use super::{D, N};
 use crate::{

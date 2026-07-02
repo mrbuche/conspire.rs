@@ -68,7 +68,8 @@ pub(crate) fn verify_dual(mesh: &Mesh<3>) -> Result<(), String> {
         return Err(format!("non-conformal: face {face:?} shared {count} times"));
     }
     let mut edges: HashMap<[usize; 2], usize> = HashMap::new();
-    for face in mesh.exterior_faces() {
+    let exterior: Vec<_> = mesh.exterior_faces();
+    for face in &exterior {
         for i in 0..face.len() {
             let mut edge = [face[i], face[(i + 1) % face.len()]];
             edge.sort_unstable();
@@ -78,6 +79,38 @@ pub(crate) fn verify_dual(mesh: &Mesh<3>) -> Result<(), String> {
     if let Some((edge, count)) = edges.iter().find(|(_, count)| **count != 2) {
         return Err(format!(
             "boundary not a closed manifold: edge {edge:?} borders {count} boundary faces"
+        ));
+    }
+    // The boundary must be a single topological sphere: an unfilled interior
+    // void adds a second component and an unfilled tunnel changes the genus,
+    // neither of which the manifold check above can detect.
+    let vertices: HashSet<usize> = exterior.iter().flatten().copied().collect();
+    let euler = vertices.len() as i64 - edges.len() as i64 + exterior.len() as i64;
+    if euler != 2 {
+        return Err(format!(
+            "boundary is not a topological sphere (Euler characteristic {euler})"
+        ));
+    }
+    let mut component: HashMap<usize, usize> = HashMap::new();
+    let mut queue = vec![*vertices.iter().next().ok_or("boundary is empty")?];
+    component.insert(queue[0], 0);
+    let mut neighbors: HashMap<usize, Vec<usize>> = HashMap::new();
+    for edge in edges.keys() {
+        neighbors.entry(edge[0]).or_default().push(edge[1]);
+        neighbors.entry(edge[1]).or_default().push(edge[0]);
+    }
+    while let Some(vertex) = queue.pop() {
+        for &next in neighbors.get(&vertex).into_iter().flatten() {
+            if component.insert(next, 0).is_none() {
+                queue.push(next);
+            }
+        }
+    }
+    if component.len() != vertices.len() {
+        return Err(format!(
+            "boundary is disconnected ({} of {} vertices reached; unfilled interior void)",
+            component.len(),
+            vertices.len()
         ));
     }
     Ok(())

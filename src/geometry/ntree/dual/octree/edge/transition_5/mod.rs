@@ -16,7 +16,7 @@ use std::array::from_fn;
 
 const M: usize = 6;
 
-pub(crate) const EDGES: [(usize, usize); 12] = [
+const EDGES: [(usize, usize); 12] = [
     (1, 3),
     (2, 1),
     (3, 0),
@@ -31,17 +31,17 @@ pub(crate) const EDGES: [(usize, usize); 12] = [
     (4, 0),
 ];
 
-pub(crate) struct Config {
-    pub(crate) center: usize,
-    pub(crate) length: Scalar,
-    pub(crate) n_lo: usize,
-    pub(crate) n_hi: usize,
-    pub(crate) m_lo: usize,
-    pub(crate) m_hi: usize,
-    pub(crate) ring_lo: usize,
-    pub(crate) ladder_lo: usize,
-    pub(crate) ladder_hi: usize,
-    pub(crate) ring_hi: usize,
+struct Config {
+    center: usize,
+    length: Scalar,
+    n_lo: usize,
+    n_hi: usize,
+    m_lo: usize,
+    m_hi: usize,
+    ring_lo: usize,
+    ladder_lo: usize,
+    ladder_hi: usize,
+    ring_hi: usize,
 }
 
 pub fn template<T, U>(
@@ -100,7 +100,7 @@ pub fn template<T, U>(
     }
 }
 
-pub(crate) fn config<T, U>(
+fn config<T, U>(
     tree: &Octree<T, U>,
     node: &Node<D, M, N, T, U>,
     index: usize,

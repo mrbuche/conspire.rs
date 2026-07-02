@@ -18,10 +18,12 @@ use crate::{
                     edge::edge_transitions, face::face_transition, vertex::vertex_transitions,
                 },
             },
+            node::split::Split,
         },
     },
     math::Scalar,
 };
+use std::ops::Add;
 
 const D: usize = 3;
 const L: usize = 4;
@@ -42,7 +44,7 @@ const fn facet_direction(facet: usize) -> Coordinate<D> {
 
 impl<T, U> Dualization<D> for Octree<T, U>
 where
-    T: Copy + Into<Scalar> + Into<usize>,
+    T: Add<Output = T> + Copy + PartialOrd + Split + Into<Scalar> + Into<usize>,
     U: Copy + Into<usize>,
 {
     fn dualize(&mut self) -> Mesh<D> {

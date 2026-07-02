@@ -2,6 +2,7 @@
 #[cfg(feature = "netcdf")]
 pub(crate) mod test;
 
+pub(crate) mod star;
 mod transition_1;
 mod transition_10;
 mod transition_11;
@@ -16,9 +17,7 @@ mod transition_19;
 mod transition_2;
 mod transition_20;
 mod transition_21;
-pub(crate) mod transition_22;
 mod transition_3;
-pub(crate) mod transition_35;
 mod transition_4;
 mod transition_5;
 mod transition_6;
@@ -27,10 +26,12 @@ mod transition_8;
 mod transition_9;
 
 use super::{D, L, M, N};
-use crate::{
-    geometry::ntree::{Octree, balance::Balancing, node::Node},
-    math::Scalar,
+use crate::geometry::ntree::{
+    Octree,
+    balance::Balancing,
+    node::{Node, split::Split},
 };
+use std::ops::Add;
 
 type Template<T, U> =
     fn(&Octree<T, U>, &Node<D, M, N, T, U>, &[U; N], &[usize], [usize; 11]) -> Option<[usize; N]>;
@@ -43,7 +44,7 @@ pub fn vertex_transitions<T, U>(
     connectivity: &mut Vec<[usize; N]>,
     balancing: Balancing,
 ) where
-    T: Copy + Into<Scalar> + Into<usize>,
+    T: Add<Output = T> + Copy + PartialOrd + Split + Into<usize>,
     U: Copy + Into<usize>,
 {
     let templates: [Entry<T, U>; 21] = [
@@ -73,8 +74,7 @@ pub fn vertex_transitions<T, U>(
         apply(tree, center_nodes, connectivity, data, template)
     }
     if matches!(balancing, Balancing::Weak) {
-        transition_22::template(tree, center_nodes, connectivity);
-        transition_35::template(tree, center_nodes, connectivity);
+        star::template(tree, center_nodes, connectivity)
     }
 }
 
