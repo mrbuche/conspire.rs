@@ -16,6 +16,7 @@ mod transition_19;
 mod transition_2;
 mod transition_20;
 mod transition_21;
+pub(crate) mod transition_22;
 mod transition_3;
 mod transition_4;
 mod transition_5;
@@ -25,7 +26,10 @@ mod transition_8;
 mod transition_9;
 
 use super::{D, L, M, N};
-use crate::geometry::ntree::{Octree, node::Node};
+use crate::{
+    geometry::ntree::{Octree, node::Node},
+    math::Scalar,
+};
 
 type Template<T, U> =
     fn(&Octree<T, U>, &Node<D, M, N, T, U>, &[U; N], &[usize], [usize; 11]) -> Option<[usize; N]>;
@@ -37,7 +41,7 @@ pub fn vertex_transitions<T, U>(
     center_nodes: &[usize],
     connectivity: &mut Vec<[usize; N]>,
 ) where
-    T: Copy + Into<usize>,
+    T: Copy + Into<Scalar> + Into<usize>,
     U: Copy + Into<usize>,
 {
     let templates: [Entry<T, U>; 21] = [
@@ -66,6 +70,7 @@ pub fn vertex_transitions<T, U>(
     for (data, template) in templates {
         apply(tree, center_nodes, connectivity, data, template)
     }
+    transition_22::template(tree, center_nodes, connectivity)
 }
 
 fn apply<T, U>(

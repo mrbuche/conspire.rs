@@ -81,17 +81,19 @@ fn transition_5_fills_weak_edge_config_only() {
             &mut node_index,
             &mut nodes_map,
         );
-        connectivity.len() - filled
+        let edges = connectivity.len() - filled;
+        super::super::vertex::transition_22::template(&octree, &center_nodes, &mut connectivity);
+        (edges, connectivity.len() - filled - edges)
     };
     assert_eq!(
         hexes(Balancing::Weak),
-        23,
-        "transition_5 should fill the weak-balanced edge tube"
+        (22, 1),
+        "transition_5 should fill the weak-balanced edge tube and transition_22 the parent-grid vertex"
     );
     assert_eq!(
         hexes(Balancing::Strong),
-        0,
-        "transition_5 fired on the strong tree (the config should be balanced away)"
+        (0, 0),
+        "weak templates fired on the strong tree (the config should be balanced away)"
     );
 }
 

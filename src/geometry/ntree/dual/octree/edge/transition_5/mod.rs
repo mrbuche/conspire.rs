@@ -18,7 +18,7 @@ const M: usize = 6;
 
 // (facet_m, facet_n) per edge orientation, ordered so that the frame
 // (facet_m direction, facet_n direction, +edge axis) is right-handed.
-const EDGES: [(usize, usize); 12] = [
+pub(crate) const EDGES: [(usize, usize); 12] = [
     (1, 3),
     (2, 1),
     (3, 0),
@@ -36,17 +36,17 @@ const EDGES: [(usize, usize); 12] = [
 // Weak (face-balanced only) edge configuration around one coarse cell: the
 // facet_m and facet_n neighbors hold half-size leaves, whose facet_n
 // neighbors across the edge are trees holding quarter-size leaves.
-struct Config {
-    center: usize,
-    length: Scalar,
-    n_lo: usize,
-    n_hi: usize,
-    m_lo: usize,
-    m_hi: usize,
-    ring_lo: usize,
-    ladder_lo: usize,
-    ladder_hi: usize,
-    ring_hi: usize,
+pub(crate) struct Config {
+    pub(crate) center: usize,
+    pub(crate) length: Scalar,
+    pub(crate) n_lo: usize,
+    pub(crate) n_hi: usize,
+    pub(crate) m_lo: usize,
+    pub(crate) m_hi: usize,
+    pub(crate) ring_lo: usize,
+    pub(crate) ladder_lo: usize,
+    pub(crate) ladder_hi: usize,
+    pub(crate) ring_hi: usize,
 }
 
 pub fn template<T, U>(
@@ -75,8 +75,14 @@ pub fn template<T, U>(
                     node_index,
                     nodes_map,
                 );
+                // The pair hex across a within-parent face; a pair meeting at
+                // a parent grid plane is a vertex configuration instead
+                // (handled by vertex transition_22).
                 let axis = 3 - (facet_m >> 1) - (facet_n >> 1);
-                if let Some(above) = node.facets[2 * axis + 1]
+                let corner: usize = node.corner[axis].into();
+                let length: usize = node.length.into();
+                if !(corner + length).is_multiple_of(2 * length)
+                    && let Some(above) = node.facets[2 * axis + 1]
                     && tree.nodes[above.into()].is_leaf()
                     && let Some(config_b) = config(
                         tree,
@@ -102,7 +108,7 @@ pub fn template<T, U>(
     }
 }
 
-fn config<T, U>(
+pub(crate) fn config<T, U>(
     tree: &Octree<T, U>,
     node: &Node<D, M, N, T, U>,
     index: usize,
