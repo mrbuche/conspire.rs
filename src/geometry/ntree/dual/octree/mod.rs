@@ -13,7 +13,7 @@ use crate::{
         ntree::{
             Octree,
             dual::{
-                Dualization, NodeMap, Initialize,
+                Dualization, Initialize, NodeMap,
                 octree::{
                     edge::edge_transitions, face::face_transition, vertex::vertex_transitions,
                 },

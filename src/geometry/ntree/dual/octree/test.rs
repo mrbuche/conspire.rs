@@ -81,9 +81,6 @@ pub(crate) fn verify_dual(mesh: &Mesh<3>) -> Result<(), String> {
             "boundary not a closed manifold: edge {edge:?} borders {count} boundary faces"
         ));
     }
-    // The boundary must be a single topological sphere: an unfilled interior
-    // void adds a second component and an unfilled tunnel changes the genus,
-    // neither of which the manifold check above can detect.
     let vertices: HashSet<usize> = exterior.iter().flatten().copied().collect();
     let euler = vertices.len() as i64 - edges.len() as i64 + exterior.len() as i64;
     if euler != 2 {

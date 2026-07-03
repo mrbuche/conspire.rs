@@ -67,8 +67,6 @@ pub(crate) fn verify_dual(mesh: &Mesh<D>) -> Result<(), String> {
     if let Some((edge, count)) = edges.iter().find(|(_, count)| **count > 2) {
         return Err(format!("non-conformal: edge {edge:?} shared {count} times"));
     }
-    // The boundary must be a single closed loop: an unfilled interior
-    // void adds a second loop, which the manifold check cannot detect.
     let boundary: Vec<[usize; 2]> = edges
         .iter()
         .filter(|(_, count)| **count == 1)

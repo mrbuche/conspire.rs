@@ -40,16 +40,6 @@ pub trait Dualization<const D: usize> {
     fn dualize(&mut self) -> Mesh<D>;
 }
 
-// Vertex star: at an interior vertex whose 2^D incident cells are
-// distinct, the dual element is the orthotope with those cells' centers
-// as corners. A uniform vertex (all cells the same size) is always a
-// star; a mixed vertex is a star exactly when it lies on the doubled
-// grid of its longest incident cell — mixed vertices at odd multiples
-// of the longest length sit inside a transition tube and are filled by
-// the Steiner-cornered facet transitions instead. This single rule is
-// the entire vertex phase for both strong (2:1) and weak (4:1)
-// balancing, except for one weak octree case that needs two elements:
-// see cap() in dual/octree/vertex/star.
 pub trait Star<const D: usize, const N: usize> {
     fn star(&self, center_nodes: &[usize], connectivity: &mut Vec<[usize; N]>);
 }
@@ -79,8 +69,7 @@ where
                 let shortest = *lengths.iter().min().unwrap();
                 let longest = *lengths.iter().max().unwrap();
                 let coordinate: [usize; D] = from_fn(|a| vertex[a].into());
-                if longest == shortest
-                    || (0..D).all(|a| coordinate[a].is_multiple_of(2 * longest))
+                if longest == shortest || (0..D).all(|a| coordinate[a].is_multiple_of(2 * longest))
                 {
                     connectivity.push(from_fn(|i| {
                         let bits = i & face_mask;
@@ -92,14 +81,7 @@ where
     }
 }
 
-pub(crate) fn incident_leaf<
-    const D: usize,
-    const L: usize,
-    const M: usize,
-    const N: usize,
-    T,
-    U,
->(
+pub(crate) fn incident_leaf<const D: usize, const L: usize, const M: usize, const N: usize, T, U>(
     tree: &Orthotree<D, L, M, N, T, U>,
     vertex: &[T; D],
     direction: usize,

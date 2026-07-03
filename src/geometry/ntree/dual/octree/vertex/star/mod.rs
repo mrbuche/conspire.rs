@@ -1,7 +1,7 @@
 use crate::geometry::ntree::{
     Octree,
     dual::{
-        NodeMap, incident_leaf,
+        NodeMap,
         octree::{D, N},
     },
     node::{Kind, split::Split},
@@ -12,9 +12,6 @@ const L2: usize = 4;
 
 const WIND: [usize; N] = [0, 1, 3, 2, 4, 5, 7, 6];
 
-// The star hexes themselves come from the generic Star rule in
-// dual/mod.rs; this pass fills the one weak configuration the star
-// skips, which needs two elements: see cap() below.
 pub fn template<T, U>(
     tree: &Octree<T, U>,
     center_nodes: &[usize],
@@ -41,9 +38,9 @@ pub fn template<T, U>(
             let shortest = *lengths.iter().min().unwrap();
             let longest = *lengths.iter().max().unwrap();
             let coordinate: [usize; D] = from_fn(|a| vertex[a].into());
-            if longest == 4 * shortest
-                && !(0..D).all(|a| coordinate[a].is_multiple_of(2 * longest))
-            {
+            if longest == shortest || (0..D).all(|a| coordinate[a].is_multiple_of(2 * longest)) {
+                connectivity.push(from_fn(|k| center_nodes[cells[WIND[k]]]));
+            } else if longest == 4 * shortest {
                 cap(
                     tree,
                     center_nodes,
@@ -59,14 +56,6 @@ pub fn template<T, U>(
     }
 }
 
-// A 4:1 vertex at an odd multiple of the longest length, where the two
-// longest cells are siblings pairing across the vertex plane. The weak
-// edge tube on the finest side ends there with a Steiner-cornered ring,
-// so the fill is two elements: the star hex with the paired cells'
-// corners moved to the Steiner nodes the face transitions planted just
-// inside them, plus one connector hex bridging from that face of the
-// star to the next cells and the paired cells' centers on the side away
-// from the finest cells.
 #[allow(clippy::too_many_arguments)]
 fn cap<T, U>(
     tree: &Octree<T, U>,
@@ -173,12 +162,41 @@ where
             Kind::Leaf => return index,
             Kind::Tree(orthants) => {
                 let node = &tree.nodes[index];
-                let length: usize = node.length.into();
+                let length = node.length.into();
                 let child = (0..D).fold(0, |acc, a| {
-                    let mid: usize = node.corner[a].into() + length / 2;
+                    let mid = node.corner[a].into() + length / 2;
                     let bit = if point[a] > mid {
                         1
                     } else if point[a] < mid {
+                        0
+                    } else {
+                        (direction >> a) & 1
+                    };
+                    acc | (bit << a)
+                });
+                index = orthants[child].into();
+            }
+        }
+    }
+}
+
+fn incident_leaf<T, U>(tree: &Octree<T, U>, vertex: &[T; D], direction: usize) -> usize
+where
+    T: Copy + Add<Output = T> + PartialOrd + Split,
+    U: Copy + Into<usize>,
+{
+    let mut index = 0;
+    loop {
+        match &tree.nodes[index].kind {
+            Kind::Leaf => return index,
+            Kind::Tree(orthants) => {
+                let corner = tree.nodes[index].corner;
+                let half = tree.nodes[index].length.split();
+                let child = (0..D).fold(0, |acc, a| {
+                    let mid = corner[a] + half;
+                    let bit = if vertex[a] > mid {
+                        1
+                    } else if vertex[a] < mid {
                         0
                     } else {
                         (direction >> a) & 1

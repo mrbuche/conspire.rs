@@ -2,7 +2,7 @@
 #[cfg(feature = "netcdf")]
 pub(crate) mod test;
 
-pub(crate) mod star;
+mod star;
 
 use super::{D, N};
 use crate::geometry::ntree::{
