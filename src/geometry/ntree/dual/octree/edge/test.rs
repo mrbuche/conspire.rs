@@ -107,7 +107,7 @@ type Transitions = (
 );
 
 fn transitions(octree: &Octree<u16, usize>) -> Transitions {
-    use crate::geometry::ntree::dual::Uniform;
+    use crate::geometry::ntree::dual::Initialize;
     let (center_nodes, mut coordinates, mut node_index, mut connectivity) = octree.initialize();
     let mut nodes_map = NodeMap::new();
     super::super::face::face_transition(

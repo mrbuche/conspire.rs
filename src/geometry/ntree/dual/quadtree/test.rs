@@ -1,13 +1,9 @@
-use super::{
-    D, N, vertex_transition_1, vertex_transition_2, vertex_transition_3, vertex_transition_4,
-    vertex_transition_5,
-};
+use super::{D, N};
 use crate::geometry::{
     mesh::Mesh,
     ntree::{
         Balance, Dualization, Quadtree,
         balance::Balancing,
-        dual::{Star, Uniform},
         node::{Kind, Node},
         pair::Pairing,
         rescale::Rescaling,
@@ -191,65 +187,4 @@ fn fuzz_strong_duals() {
 #[test]
 fn fuzz_weak_duals() {
     fuzz_duals(Balancing::Weak)
-}
-
-fn old_vertex_phase(quadtree: &Quadtree<u16, usize>, center_nodes: &[usize]) -> Vec<[usize; N]> {
-    let mut connectivity = Vec::new();
-    quadtree.uniform_transitions(center_nodes, &mut connectivity);
-    vertex_transition_1(quadtree, center_nodes, &mut connectivity);
-    vertex_transition_2(quadtree, center_nodes, &mut connectivity);
-    vertex_transition_3(quadtree, center_nodes, &mut connectivity);
-    vertex_transition_4(quadtree, center_nodes, &mut connectivity);
-    if matches!(quadtree.balanced, Balancing::Weak) {
-        vertex_transition_5(quadtree, center_nodes, &mut connectivity);
-    }
-    connectivity
-}
-
-fn multiset(connectivity: &[[usize; N]]) -> HashMap<[usize; N], usize> {
-    let mut counts = HashMap::new();
-    connectivity.iter().for_each(|quad| {
-        let mut sorted = *quad;
-        sorted.sort_unstable();
-        *counts.entry(sorted).or_insert(0) += 1;
-    });
-    counts
-}
-
-fn star_matches_old_vertex_phase(balancing: Balancing) {
-    let mut failures = Vec::new();
-    for seed in 0..200u64 {
-        let quadtree = fuzz_tree(seed, balancing);
-        let (center_nodes, ..) = quadtree.initialize();
-        let old = multiset(&old_vertex_phase(&quadtree, &center_nodes));
-        let mut connectivity = Vec::new();
-        quadtree.star(&center_nodes, &mut connectivity);
-        let new = multiset(&connectivity);
-        if old != new {
-            let missing: Vec<_> = old.iter().filter(|(quad, _)| !new.contains_key(*quad)).collect();
-            let extra: Vec<_> = new.iter().filter(|(quad, _)| !old.contains_key(*quad)).collect();
-            let duplicated: Vec<_> = old.iter().filter(|(_, count)| **count > 1).collect();
-            failures.push(format!(
-                "seed {seed}: old {} vs new {} quads; missing from new: {missing:?}; extra in new: {extra:?}; duplicated in old: {duplicated:?}",
-                old.values().sum::<usize>(),
-                new.values().sum::<usize>(),
-            ));
-        }
-    }
-    assert!(
-        failures.is_empty(),
-        "{} failures:\n{}",
-        failures.len(),
-        failures.join("\n")
-    );
-}
-
-#[test]
-fn star_matches_old_vertex_phase_strong() {
-    star_matches_old_vertex_phase(Balancing::Strong)
-}
-
-#[test]
-fn star_matches_old_vertex_phase_weak() {
-    star_matches_old_vertex_phase(Balancing::Weak)
 }

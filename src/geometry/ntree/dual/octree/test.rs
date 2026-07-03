@@ -1,7 +1,7 @@
 use crate::geometry::{
     Coordinates,
     mesh::Mesh,
-    ntree::{Balance, Dualization, Octree, balance::Balancing, dual::Uniform, pair::Pairing},
+    ntree::{Balance, Dualization, Octree, balance::Balancing, dual::Initialize, pair::Pairing},
 };
 use std::collections::{HashMap, HashSet};
 
