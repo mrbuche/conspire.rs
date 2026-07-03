@@ -33,6 +33,35 @@ fn reads_c_order_with_transpose() {
 }
 
 #[test]
+fn transpose_matches_reference_on_nonuniform_grid() {
+    // axes both above and below TILE, non-cubic, to exercise the recursive
+    // tiling and the incremental odometer in the cache-oblivious transpose.
+    let nel = [37usize, 5, 20];
+    let [nx, ny, nz] = nel;
+    let total = nx * ny * nz;
+    let c: Vec<u32> = (0..total as u32).collect();
+    let path = "target/voxels_nonuniform_c.npy";
+    Npy {
+        data: c.clone(),
+        shape: vec![nx, ny, nz],
+        fortran_order: false,
+    }
+    .write(path)
+    .unwrap();
+    let read = Voxels::<u32>::try_from(Input::Npy(path)).unwrap();
+    let mut want = vec![0u32; total];
+    for i in 0..nx {
+        for j in 0..ny {
+            for k in 0..nz {
+                want[i + j * nx + k * nx * ny] = c[i * ny * nz + j * nz + k];
+            }
+        }
+    }
+    assert_eq!(read.data(), want.as_slice());
+    assert_eq!(read.nel(), &nel);
+}
+
+#[test]
 fn round_trip_vti() {
     let data: Vec<u8> = (0..24).collect();
     let path = "target/voxels.vti";
