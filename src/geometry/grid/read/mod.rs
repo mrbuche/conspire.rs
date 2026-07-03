@@ -76,9 +76,6 @@ fn transpose<const D: usize, T: Copy>(c_order: Vec<T>, nel: [usize; D]) -> Vec<T
     }
     let mut out: Vec<T> = Vec::with_capacity(total);
     if total > 0 {
-        // SAFETY: `transpose_block` writes each of the `total` reserved slots
-        // exactly once (the C-order → Fortran-order remap is a bijection over
-        // the grid), so the whole buffer is initialized before `set_len`.
         unsafe {
             transpose_block(&c_order, out.as_mut_ptr(), 0, 0, nel, &c_stride, &f_stride);
             out.set_len(total);
@@ -87,14 +84,6 @@ fn transpose<const D: usize, T: Copy>(c_order: Vec<T>, nel: [usize; D]) -> Vec<T
     out
 }
 
-/// Cache-oblivious copy from C-order `src` into Fortran-order `dst`. Recurses on
-/// the longest axis until every axis is within `TILE`, so each base-case box
-/// touches few enough cache lines to stay resident despite the strides between
-/// the two layouts (a naive per-element remap misses cache on every access).
-///
-/// # Safety
-/// `dst` must have a valid slot for every `f_off + Σ idx * f_stride` written
-/// here; the public `transpose` seeds it with the box that tiles the full grid.
 unsafe fn transpose_block<const D: usize, T: Copy>(
     src: &[T],
     dst: *mut T,
@@ -111,8 +100,6 @@ unsafe fn transpose_block<const D: usize, T: Copy>(
         lo[axis] = half;
         let mut hi = len;
         hi[axis] = len[axis] - half;
-        // SAFETY: the two sub-boxes partition this box, so together they still
-        // write each destination slot exactly once, within the same allocation.
         unsafe {
             transpose_block(src, dst, c_off, f_off, lo, c_stride, f_stride);
             transpose_block(
@@ -131,12 +118,9 @@ unsafe fn transpose_block<const D: usize, T: Copy>(
     let mut idx = [0usize; D];
     let (mut c, mut f) = (c_off, f_off);
     for _ in 0..volume {
-        // SAFETY: `f` lies in the box seeded by `transpose`, hence in bounds.
         unsafe {
             *dst.add(f) = src[c];
         }
-        // Odometer that carries `c`/`f` incrementally: the hot innermost axis
-        // costs only two additions, and each carry undoes the axis it wraps.
         for axis in 0..D {
             idx[axis] += 1;
             c += c_stride[axis];

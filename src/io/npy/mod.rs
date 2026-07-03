@@ -15,16 +15,9 @@ pub trait NpyType: Copy {
     const SIZE: usize;
     fn write_le(self, buffer: &mut Vec<u8>);
     fn read_le(bytes: &[u8]) -> Self;
-    /// Reads `count` little-endian values straight into a typed buffer.
     fn read_from<R: Read>(file: &mut R, count: usize) -> Result<Vec<Self>> {
         if cfg!(target_endian = "little") {
             let mut data = Vec::<Self>::with_capacity(count);
-            // SAFETY: `data` reserved `count * SIZE` bytes of correctly aligned,
-            // uninitialized storage. We fill exactly that many bytes with
-            // `read_exact` before `set_len`, so no uninitialized element is ever
-            // exposed, and on little-endian targets the .npy byte order equals
-            // the in-memory layout of these primitive numeric types (which have
-            // no invalid bit patterns), so the bytes form valid values.
             unsafe {
                 let bytes = std::slice::from_raw_parts_mut(
                     data.as_mut_ptr() as *mut u8,
@@ -42,12 +35,8 @@ pub trait NpyType: Copy {
             Ok(bytes.chunks_exact(Self::SIZE).map(Self::read_le).collect())
         }
     }
-    /// Writes `data` as little-endian bytes.
     fn write_le_all<W: io::Write>(data: &[Self], file: &mut W) -> Result<()> {
         if cfg!(target_endian = "little") {
-            // SAFETY: these primitive numeric types are plain data whose
-            // little-endian byte layout is exactly the .npy on-disk order, so
-            // the slice can be viewed as bytes without copying.
             let bytes = unsafe {
                 std::slice::from_raw_parts(data.as_ptr() as *const u8, std::mem::size_of_val(data))
             };
