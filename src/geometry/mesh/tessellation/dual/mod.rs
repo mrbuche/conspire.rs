@@ -46,8 +46,7 @@ impl Tessellation {
         octree.equilibrate(balancing, Pairing::Regular)?;
         let mut mesh = octree.dualize();
         self.trim(&mut mesh, self.bvh());
-        // self.buffer(mesh, self.bvh())
-        Ok(mesh)
+        self.buffer(mesh, self.bvh())
     }
     fn buffer(
         &self,
