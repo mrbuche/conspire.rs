@@ -3,8 +3,8 @@ mod test;
 
 use crate::io::Write;
 use std::{
-    fs::{File, read},
-    io::{self, BufWriter, Error, ErrorKind, Result},
+    fs::File,
+    io::{self, BufReader, BufWriter, Error, ErrorKind, Read, Result},
     mem::size_of,
     path::Path,
     str::from_utf8,
@@ -15,6 +15,51 @@ pub trait NpyType: Copy {
     const SIZE: usize;
     fn write_le(self, buffer: &mut Vec<u8>);
     fn read_le(bytes: &[u8]) -> Self;
+    /// Reads `count` little-endian values straight into a typed buffer.
+    fn read_from<R: Read>(file: &mut R, count: usize) -> Result<Vec<Self>> {
+        if cfg!(target_endian = "little") {
+            let mut data = Vec::<Self>::with_capacity(count);
+            // SAFETY: `data` reserved `count * SIZE` bytes of correctly aligned,
+            // uninitialized storage. We fill exactly that many bytes with
+            // `read_exact` before `set_len`, so no uninitialized element is ever
+            // exposed, and on little-endian targets the .npy byte order equals
+            // the in-memory layout of these primitive numeric types (which have
+            // no invalid bit patterns), so the bytes form valid values.
+            unsafe {
+                let bytes = std::slice::from_raw_parts_mut(
+                    data.as_mut_ptr() as *mut u8,
+                    count * Self::SIZE,
+                );
+                file.read_exact(bytes)
+                    .map_err(|_| invalid("truncated .npy data".into()))?;
+                data.set_len(count);
+            }
+            Ok(data)
+        } else {
+            let mut bytes = vec![0u8; count * Self::SIZE];
+            file.read_exact(&mut bytes)
+                .map_err(|_| invalid("truncated .npy data".into()))?;
+            Ok(bytes.chunks_exact(Self::SIZE).map(Self::read_le).collect())
+        }
+    }
+    /// Writes `data` as little-endian bytes.
+    fn write_le_all<W: io::Write>(data: &[Self], file: &mut W) -> Result<()> {
+        if cfg!(target_endian = "little") {
+            // SAFETY: these primitive numeric types are plain data whose
+            // little-endian byte layout is exactly the .npy on-disk order, so
+            // the slice can be viewed as bytes without copying.
+            let bytes = unsafe {
+                std::slice::from_raw_parts(data.as_ptr() as *const u8, std::mem::size_of_val(data))
+            };
+            file.write_all(bytes)
+        } else {
+            let mut buffer = Vec::with_capacity(std::mem::size_of_val(data));
+            for &value in data {
+                value.write_le(&mut buffer);
+            }
+            file.write_all(&buffer)
+        }
+    }
 }
 
 macro_rules! npy_type {
@@ -74,31 +119,33 @@ impl<T: NpyType> Npy<T> {
         file.write_all(&[1, 0])?;
         file.write_all(&(header.len() as u16).to_le_bytes())?;
         file.write_all(header.as_bytes())?;
-        let mut buffer = Vec::with_capacity(self.data.len() * T::SIZE);
-        for &value in &self.data {
-            value.write_le(&mut buffer);
-        }
-        file.write_all(&buffer)?;
+        T::write_le_all(&self.data, file)?;
         file.flush()
     }
 }
 
 impl<T: NpyType> Npy<T> {
     pub fn read<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let bytes = read(path)?;
-        if bytes.len() < 10 || &bytes[..6] != b"\x93NUMPY" {
+        let mut file = BufReader::new(File::open(path)?);
+        let mut prefix = [0u8; 10];
+        file.read_exact(&mut prefix)
+            .map_err(|_| invalid("not a .npy file".into()))?;
+        if &prefix[..6] != b"\x93NUMPY" {
             return Err(invalid("not a .npy file".into()));
         }
-        let (header_length, start) = match bytes[6] {
-            1 => (u16::from_le_bytes([bytes[8], bytes[9]]) as usize, 10),
-            2 => (
-                u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]) as usize,
-                12,
-            ),
+        let header_length = match prefix[6] {
+            1 => u16::from_le_bytes([prefix[8], prefix[9]]) as usize,
+            2 => {
+                let mut rest = [0u8; 2];
+                file.read_exact(&mut rest)?;
+                u32::from_le_bytes([prefix[8], prefix[9], rest[0], rest[1]]) as usize
+            }
             other => return Err(invalid(format!("unsupported .npy version {other}"))),
         };
-        let header = from_utf8(&bytes[start..start + header_length])
-            .map_err(|_| invalid("non-UTF-8 .npy header".into()))?;
+        let mut header_bytes = vec![0u8; header_length];
+        file.read_exact(&mut header_bytes)?;
+        let header =
+            from_utf8(&header_bytes).map_err(|_| invalid("non-UTF-8 .npy header".into()))?;
         let descr = quoted(header, "'descr':").ok_or_else(|| invalid("no descr".into()))?;
         if descr.starts_with('>') || descr.get(1..) != T::DESCR.get(1..) {
             return Err(invalid(format!(
@@ -109,12 +156,9 @@ impl<T: NpyType> Npy<T> {
         let fortran_order = header.contains("'fortran_order': True");
         let shape = shape(header)?;
         let count: usize = shape.iter().product();
-        let data = &bytes[start + header_length..];
-        if data.len() < count * T::SIZE {
-            return Err(invalid("truncated .npy data".into()));
-        }
+        let data = T::read_from(&mut file, count)?;
         Ok(Npy {
-            data: data.chunks(T::SIZE).take(count).map(T::read_le).collect(),
+            data,
             shape,
             fortran_order,
         })
