@@ -67,7 +67,7 @@ where
             &mut nodes_map,
             self.balanced,
         );
-        vertex_transitions(self, &center_nodes, &mut connectivity);
+        vertex_transitions(self, &center_nodes, &mut connectivity, &nodes_map);
         self.rescale_coordinates(&mut coordinates);
         (
             vec![Connectivity::Hexahedral(connectivity.into())],

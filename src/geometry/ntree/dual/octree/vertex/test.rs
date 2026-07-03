@@ -248,3 +248,85 @@ where
         }
     }
 }
+
+fn fuzz_tree(seed: u64, balancing: Balancing) -> Octree<u16, usize> {
+    use crate::geometry::ntree::{Balance, node::Node, pair::Pairing, rescale::Rescaling};
+    let mut state = seed
+        .wrapping_mul(6364136223846793005)
+        .wrapping_add(1442695040888963407);
+    let mut rand = || {
+        state = state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        (state >> 33) as usize
+    };
+    let mut octree = Octree::<u16, usize> {
+        balanced: Balancing::None,
+        nodes: vec![Node {
+            corner: [0, 0, 0],
+            length: 32,
+            facets: [None; 6],
+            kind: Kind::Leaf,
+            value: None,
+        }],
+        paired: Pairing::None,
+        rescale: Rescaling {
+            center: [16.0; 3],
+            cell: 1.0,
+            half: 16.0,
+        },
+    };
+    octree.subdivide(0).unwrap();
+    for _ in 0..40 {
+        let leaves: Vec<usize> = octree
+            .nodes
+            .iter()
+            .enumerate()
+            .filter(|(_, node)| node.is_leaf() && node.length >= 4)
+            .map(|(i, _)| i)
+            .collect();
+        if leaves.is_empty() {
+            break;
+        }
+        let pick = leaves[rand() % leaves.len()];
+        octree.subdivide(pick).unwrap();
+    }
+    octree.equilibrate(balancing, Pairing::Regular).unwrap();
+    octree
+}
+
+fn fuzz_duals(balancing: Balancing) {
+    use super::super::test::verify_dual;
+    use crate::geometry::ntree::Dualization;
+    let mut failures = Vec::new();
+    for seed in 0..200u64 {
+        let mut octree = fuzz_tree(seed, balancing);
+        let mesh = octree.dualize();
+        if let Err(error) = verify_dual(&mesh) {
+            failures.push(format!("seed {seed}: {error}"));
+            continue;
+        }
+        let scaled_jacobian = min_scaled_jacobian(&mesh);
+        if scaled_jacobian <= 0.0 {
+            failures.push(format!(
+                "seed {seed}: min scaled jacobian {scaled_jacobian}"
+            ));
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "{} failures:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
+}
+
+#[test]
+fn fuzz_weak_duals() {
+    fuzz_duals(Balancing::Weak)
+}
+
+#[test]
+fn fuzz_strong_duals() {
+    fuzz_duals(Balancing::Strong)
+}

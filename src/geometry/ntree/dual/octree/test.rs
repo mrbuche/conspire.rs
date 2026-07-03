@@ -249,7 +249,7 @@ fn star_fires_on_synthetic_checkerboard() {
 
     let (center_nodes, coordinates, ..) = octree.initialize();
     let mut hexes = Vec::new();
-    super::vertex::vertex_transitions(&octree, &center_nodes, &mut hexes);
+    super::vertex::vertex_transitions(&octree, &center_nodes, &mut hexes, &HashMap::new());
     assert!(
         !hexes.is_empty(),
         "the star template did not fire on the checkerboard tree"
