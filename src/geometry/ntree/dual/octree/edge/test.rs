@@ -24,7 +24,7 @@ fn refine_to(octree: &mut Octree<u16, usize>, node: usize, levels: usize) {
     }
 }
 
-fn weak_edge_tree(balancing: Balancing) -> Octree<u16, usize> {
+pub(crate) fn weak_tree(depths: [usize; 8], balancing: Balancing) -> Octree<u16, usize> {
     let mut octree = Octree::<u16, usize> {
         balanced: Balancing::None,
         nodes: vec![Node {
@@ -43,7 +43,6 @@ fn weak_edge_tree(balancing: Balancing) -> Octree<u16, usize> {
     };
     octree.subdivide(0).unwrap();
     let macros = *octree.nodes[0].orthants().unwrap();
-    let depths = [1usize, 2, 2, 3, 1, 2, 2, 3];
     for (orthant, &levels) in depths.iter().enumerate() {
         refine_to(&mut octree, macros[orthant], levels);
     }
@@ -51,53 +50,89 @@ fn weak_edge_tree(balancing: Balancing) -> Octree<u16, usize> {
     octree
 }
 
+fn weak_edge_tree(balancing: Balancing) -> Octree<u16, usize> {
+    weak_tree([1, 2, 2, 3, 1, 2, 2, 3], balancing)
+}
+
 #[test]
 fn write_weak_edge_dual() {
+    use super::super::test::verify_dual;
     use crate::{
         geometry::{mesh::Output, ntree::Dualization},
         io::Write,
     };
     let mut octree = weak_edge_tree(Balancing::Weak);
     let mesh = octree.dualize();
-    let coordinates = mesh.coordinates();
-    let vol6 = |hex: &[usize]| {
-        let p: [[f64; 3]; 8] =
-            std::array::from_fn(|k| std::array::from_fn(|i| coordinates[hex[k]][i]));
-        let tet = |a: usize, b: usize, c: usize, d: usize| {
-            let e = |i: usize, j: usize| [p[j][0] - p[i][0], p[j][1] - p[i][1], p[j][2] - p[i][2]];
-            let (u, v, w) = (e(a, b), e(a, c), e(a, d));
-            u[0] * (v[1] * w[2] - v[2] * w[1]) - u[1] * (v[0] * w[2] - v[2] * w[0])
-                + u[2] * (v[0] * w[1] - v[1] * w[0])
-        };
-        tet(0, 1, 2, 6)
-            + tet(0, 2, 3, 6)
-            + tet(0, 3, 7, 6)
-            + tet(0, 7, 4, 6)
-            + tet(0, 4, 5, 6)
-            + tet(0, 5, 1, 6)
-    };
-    let inverted = mesh
-        .iter()
-        .flatten()
-        .filter(|hex| vol6(hex) <= 1e-9)
-        .count();
-    assert_eq!(inverted, 0, "{inverted} non-positive hexes in weak dual");
+    if let Err(error) = verify_dual(&mesh) {
+        panic!("weak dual failed verification: {error}");
+    }
     mesh.write(Output::Exodus("target/weak_edge.exo")).unwrap();
 }
 
 #[test]
-fn transition_5_identifies_weak_edge_config_only() {
-    let detections = |balancing| super::transition_5::template(&weak_edge_tree(balancing));
+fn transition_5_fills_weak_edge_config_only() {
+    let hexes = |balancing| {
+        let octree = weak_edge_tree(balancing);
+        let (center_nodes, mut coordinates, mut node_index, mut connectivity, mut nodes_map) =
+            transitions(&octree);
+        let filled = connectivity.len();
+        super::transition_5::template(
+            &octree,
+            &center_nodes,
+            &mut coordinates,
+            &mut connectivity,
+            &mut node_index,
+            &mut nodes_map,
+        );
+        connectivity.len() - filled
+    };
     assert_eq!(
-        detections(Balancing::Weak),
-        2,
-        "transition_5 should identify the weak-balanced edge configs"
+        hexes(Balancing::Weak),
+        22,
+        "transition_5 should fill the weak-balanced edge tubes"
     );
     assert_eq!(
-        detections(Balancing::Strong),
+        hexes(Balancing::Strong),
         0,
         "transition_5 fired on the strong tree (the config should be balanced away)"
     );
+}
+
+type Transitions = (
+    Vec<usize>,
+    Coordinates<D>,
+    usize,
+    Vec<[usize; N]>,
+    NodeMap<D>,
+);
+
+fn transitions(octree: &Octree<u16, usize>) -> Transitions {
+    use crate::geometry::ntree::dual::Initialize;
+    let (center_nodes, mut coordinates, mut node_index, mut connectivity) = octree.initialize();
+    let mut nodes_map = NodeMap::new();
+    super::super::face::face_transition(
+        octree,
+        &center_nodes,
+        &mut coordinates,
+        &mut connectivity,
+        &mut node_index,
+        &mut nodes_map,
+    );
+    edge_transition_counts(
+        octree,
+        &center_nodes,
+        &mut coordinates,
+        &mut connectivity,
+        &mut node_index,
+        &mut nodes_map,
+    );
+    (
+        center_nodes,
+        coordinates,
+        node_index,
+        connectivity,
+        nodes_map,
+    )
 }
 
 #[allow(clippy::too_many_arguments)]

@@ -12,7 +12,7 @@ use crate::{
 use std::array::from_fn;
 
 #[test]
-fn project_boundary_adds_conforming_layer() -> Result<(), TestError> {
+fn buffer_adds_conforming_layer() -> Result<(), TestError> {
     let tessellation = tessellation();
     let bvh = BoundingVolumeHierarchy::from(&tessellation);
     let coordinates = Coordinates::from(vec![
@@ -29,7 +29,7 @@ fn project_boundary_adds_conforming_layer() -> Result<(), TestError> {
         vec![[0, 1, 2, 3, 4, 5, 6, 7]].into(),
     )];
     let core = Mesh::from((connectivities, coordinates));
-    let result = tessellation.project_boundary(core, &bvh).unwrap();
+    let result = tessellation.buffer(core, &bvh).unwrap();
     let coordinates = result.coordinates();
     assert_eq!(coordinates.len(), 16);
     let hexes: Vec<[usize; 8]> = result

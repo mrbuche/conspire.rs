@@ -13,15 +13,17 @@ use crate::{
         ntree::{
             Octree,
             dual::{
-                Dualization, NodeMap, Uniform,
+                Dualization, Initialize, NodeMap,
                 octree::{
                     edge::edge_transitions, face::face_transition, vertex::vertex_transitions,
                 },
             },
+            node::split::Split,
         },
     },
     math::Scalar,
 };
+use std::ops::Add;
 
 const D: usize = 3;
 const L: usize = 4;
@@ -42,12 +44,11 @@ const fn facet_direction(facet: usize) -> Coordinate<D> {
 
 impl<T, U> Dualization<D> for Octree<T, U>
 where
-    T: Copy + Into<Scalar> + Into<usize>,
+    T: Add<Output = T> + Copy + PartialOrd + Split + Into<Scalar> + Into<usize>,
     U: Copy + Into<usize>,
 {
     fn dualize(&mut self) -> Mesh<D> {
         let (center_nodes, mut coordinates, mut node_index, mut connectivity) = self.initialize();
-        self.uniform_transitions(&center_nodes, &mut connectivity);
         let mut nodes_map = NodeMap::new();
         face_transition(
             self,
@@ -66,7 +67,7 @@ where
             &mut nodes_map,
             self.balanced,
         );
-        vertex_transitions(self, &center_nodes, &mut connectivity);
+        vertex_transitions(self, &center_nodes, &mut connectivity, &nodes_map);
         self.rescale_coordinates(&mut coordinates);
         (
             vec![Connectivity::Hexahedral(connectivity.into())],
