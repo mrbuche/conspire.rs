@@ -38,9 +38,9 @@ pub fn template<T, U>(
             let shortest = *lengths.iter().min().unwrap();
             let longest = *lengths.iter().max().unwrap();
             let coordinate: [usize; D] = from_fn(|a| vertex[a].into());
-            if longest == shortest || (0..D).all(|a| coordinate[a].is_multiple_of(2 * longest)) {
-                connectivity.push(from_fn(|k| center_nodes[cells[WIND[k]]]));
-            } else if longest == 4 * shortest {
+            if longest == 4 * shortest
+                && !(0..D).all(|a| coordinate[a].is_multiple_of(2 * longest))
+            {
                 cap(
                     tree,
                     center_nodes,
