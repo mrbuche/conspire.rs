@@ -135,9 +135,78 @@ where
             triangles.push([ids[0], ids[1], ids[2]]);
             triangles.push([ids[0], ids[2], ids[3]]);
         }
+        let triangles = resolve_pinches(&triangles, &mut coordinates);
         let connectivities = vec![Connectivity::Triangular(triangles.into())];
         Tessellation::from(Mesh::from((connectivities, coordinates)))
     }
+}
+
+/// Splits self-touching pinches left by the merge-only weld above.
+///
+/// The per-region edge weld cannot separate two shell sheets that meet at a
+/// single grid edge or vertex when the surrounding shell is otherwise welded
+/// together (a material diagonally touching itself, or two materials meeting in
+/// a checkerboard). Every remaining non-manifold vertex is split into one copy
+/// per fan, where a fan is a maximal set of incident faces connected through
+/// manifold (exactly two incident faces) edges. Duplicating the shared vertices
+/// per fan also splits the non-manifold edge that joins them into two manifold
+/// edges, since the edge's endpoints are duplicated with it.
+fn resolve_pinches(triangles: &[[usize; 3]], coordinates: &mut Coordinates<3>) -> Vec<[usize; 3]> {
+    let mut vertex_faces: HashMap<usize, Vec<usize>> = HashMap::new();
+    let mut edge_faces: HashMap<[usize; 2], Vec<usize>> = HashMap::new();
+    for (f, tri) in triangles.iter().enumerate() {
+        for i in 0..3 {
+            let (v, w) = (tri[i], tri[(i + 1) % 3]);
+            vertex_faces.entry(v).or_default().push(f);
+            edge_faces.entry(edge(v, w)).or_default().push(f);
+        }
+    }
+    let mut assignment = triangles.to_vec();
+    for (&v, incident) in &vertex_faces {
+        let index: HashMap<usize, usize> =
+            incident.iter().enumerate().map(|(i, &f)| (f, i)).collect();
+        let mut parent: Vec<usize> = (0..incident.len()).collect();
+        for &f in incident {
+            let tri = &triangles[f];
+            let pos = tri.iter().position(|&n| n == v).unwrap();
+            for x in [tri[(pos + 2) % 3], tri[(pos + 1) % 3]] {
+                if let Some(shared) = edge_faces.get(&edge(v, x))
+                    && shared.len() == 2
+                {
+                    union(&mut parent, index[&shared[0]], index[&shared[1]]);
+                }
+            }
+        }
+        let mut fan: HashMap<usize, usize> = HashMap::new();
+        for i in 0..incident.len() {
+            let root = find(&mut parent, i);
+            let next = fan.len();
+            fan.entry(root).or_insert(next);
+        }
+        if fan.len() < 2 {
+            continue;
+        }
+        let mut copies: HashMap<usize, usize> = HashMap::new();
+        for (i, &f) in incident.iter().enumerate() {
+            let root = find(&mut parent, i);
+            if fan[&root] == 0 {
+                continue;
+            }
+            let id = *copies.entry(root).or_insert_with(|| {
+                let point = Coordinate::const_from(from_fn(|ax| coordinates[v][ax]));
+                let id = coordinates.len();
+                coordinates.push(point);
+                id
+            });
+            let pos = triangles[f].iter().position(|&n| n == v).unwrap();
+            assignment[f][pos] = id;
+        }
+    }
+    assignment
+}
+
+fn edge(a: usize, b: usize) -> [usize; 2] {
+    if a < b { [a, b] } else { [b, a] }
 }
 
 fn local(corners: &[[usize; 3]; 4], corner: [usize; 3]) -> usize {

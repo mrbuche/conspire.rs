@@ -42,6 +42,66 @@ fn is_closed_manifold(tessellation: &Tessellation) -> bool {
     edges.values().all(|&count| count == 2)
 }
 
+fn is_manifold(tessellation: &Tessellation) -> bool {
+    let mesh = tessellation.mesh();
+    mesh.non_manifold_edges().is_empty()
+        && mesh.non_manifold_vertices().is_empty()
+        && mesh.boundary_edges().is_empty()
+}
+
+/// Exhaustively enumerate every labeling of `dims` over `nlabels` labels (0 is
+/// void) and assert the faceted surface is a closed manifold in every case.
+fn assert_all_configs_manifold(dims: [usize; 3], nlabels: u32) {
+    let n = dims[0] * dims[1] * dims[2];
+    let total = (nlabels as u64).pow(n as u32);
+    for code in 0..total {
+        let mut v = code;
+        let data: Vec<u32> = (0..n)
+            .map(|_| {
+                let label = (v % nlabels as u64) as u32;
+                v /= nlabels as u64;
+                label
+            })
+            .collect();
+        let tessellation = Tessellation::from(Voxels::new(data.clone(), dims));
+        assert!(
+            is_manifold(&tessellation),
+            "non-manifold surface for dims={dims:?} data={data:?}"
+        );
+    }
+}
+
+#[test]
+fn every_labeling_of_small_grids_is_manifold() {
+    assert_all_configs_manifold([3, 2, 2], 2);
+    assert_all_configs_manifold([2, 2, 2], 3);
+    assert_all_configs_manifold([3, 2, 1], 3);
+    assert_all_configs_manifold([3, 3, 1], 2);
+}
+
+#[test]
+fn single_material_self_pinch_is_split() {
+    // A single material that diagonally touches itself across a shared edge,
+    // while staying connected through the bulk, previously left a non-manifold
+    // edge that the merge-only weld could not separate.
+    let tessellation = Tessellation::from(Voxels::new(
+        vec![1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1],
+        [3, 2, 2],
+    ));
+    assert!(is_manifold(&tessellation));
+}
+
+#[test]
+fn two_materials_meeting_at_a_checkerboard_are_split() {
+    // Two distinct materials meeting diagonally at a shared edge, each connected
+    // through the bulk; both shells must be split at the pinch.
+    let tessellation = Tessellation::from(Voxels::new(
+        vec![1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1],
+        [3, 2, 2],
+    ));
+    assert!(is_manifold(&tessellation));
+}
+
 #[test]
 fn single_voxel_is_a_cube() {
     let tessellation = Tessellation::from(Voxels::new(vec![1], [1, 1, 1]));
