@@ -49,7 +49,6 @@ where
 {
     fn dualize(&mut self) -> Mesh<D> {
         let (center_nodes, mut coordinates, mut node_index, mut connectivity) = self.initialize();
-        self.uniform_transitions(&center_nodes, &mut connectivity);
         let mut nodes_map = NodeMap::new();
         face_transition(
             self,
@@ -68,7 +67,7 @@ where
             &mut nodes_map,
             self.balanced,
         );
-        vertex_transitions(self, &center_nodes, &mut connectivity, self.balanced);
+        vertex_transitions(self, &center_nodes, &mut connectivity);
         self.rescale_coordinates(&mut coordinates);
         (
             vec![Connectivity::Hexahedral(connectivity.into())],

@@ -175,7 +175,6 @@ fn tree_refine_macros(fine_macros: &[usize]) -> Octree<u16, usize> {
 fn edge_counts(octree: &Octree<u16, usize>) -> [usize; 4] {
     use super::{edge::test::edge_transition_counts, face::face_transition};
     let (center_nodes, mut coordinates, mut node_index, mut connectivity) = octree.initialize();
-    octree.uniform_transitions(&center_nodes, &mut connectivity);
     let mut nodes_map = HashMap::new();
     face_transition(
         octree,
@@ -212,8 +211,8 @@ fn edge_transitions_each_fire_across_strong_trees() {
 }
 
 #[test]
-fn vt21_fires_on_synthetic_checkerboard() {
-    use super::vertex::test::{transition_21_only, vertex_dual_generic};
+fn star_fires_on_synthetic_checkerboard() {
+    use super::vertex::test::vertex_dual_generic;
     use crate::geometry::ntree::{
         node::{Kind, Node},
         rescale::Rescaling,
@@ -249,16 +248,17 @@ fn vt21_fires_on_synthetic_checkerboard() {
     octree.paired = Pairing::Regular;
 
     let (center_nodes, coordinates, ..) = octree.initialize();
-    let hexes = transition_21_only(&octree, &center_nodes);
+    let mut hexes = Vec::new();
+    super::vertex::vertex_transitions(&octree, &center_nodes, &mut hexes);
     assert!(
         !hexes.is_empty(),
-        "vt21 did not fire on the checkerboard vertex"
+        "the star template did not fire on the checkerboard tree"
     );
 
     hexes.iter().enumerate().for_each(|(i, hex)| {
         assert!(
             hex_vol6(hex, &coordinates) > 1e-12,
-            "vt21 hex {i} not positively oriented: {hex:?}"
+            "star hex {i} not positively oriented: {hex:?}"
         );
     });
 
@@ -274,7 +274,7 @@ fn vt21_fires_on_synthetic_checkerboard() {
         sorted.sort_unstable();
         assert!(
             generic.contains(&sorted),
-            "vt21 hex {hex:?} is not a vertex star"
+            "star hex {hex:?} is not a vertex star"
         );
     });
 }

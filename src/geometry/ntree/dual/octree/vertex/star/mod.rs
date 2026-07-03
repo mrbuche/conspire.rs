@@ -7,11 +7,14 @@ use std::{array::from_fn, ops::Add};
 
 const WIND: [usize; N] = [0, 1, 3, 2, 4, 5, 7, 6];
 
-// Weak (face-balanced only) vertex star: at a parent-grid vertex whose eight
-// incident cells are distinct and span a 4:1 size ratio, the dual element is
-// the hex with those cells' centers as corners. This covers every weak
-// vertex configuration; vertices interior to a parent are filled by the
-// Steiner-cornered edge transition_5 pair templates instead.
+// Vertex star: at an interior vertex whose eight incident cells are
+// distinct, the dual element is the hex with those cells' centers as
+// corners. A uniform vertex (all cells the same size) is always a star;
+// a mixed vertex is a star exactly when it lies on the doubled grid of
+// its longest incident cell — mixed vertices at odd multiples of the
+// longest length sit inside an edge tube and are filled by the
+// Steiner-cornered edge transitions instead. This single rule is the
+// entire vertex phase for both strong (2:1) and weak (4:1) balancing.
 pub fn template<T, U>(
     tree: &Octree<T, U>,
     center_nodes: &[usize],
@@ -41,11 +44,11 @@ pub fn template<T, U>(
                 .max()
                 .unwrap();
             if distinct.len() == N
-                && longest == 4 * shortest
-                && (0..D).all(|a| {
-                    let coordinate: usize = vertex[a].into();
-                    coordinate.is_multiple_of(2 * longest)
-                })
+                && (longest == shortest
+                    || (0..D).all(|a| {
+                        let coordinate: usize = vertex[a].into();
+                        coordinate.is_multiple_of(2 * longest)
+                    }))
             {
                 connectivity.push(from_fn(|k| center_nodes[cells[WIND[k]]]));
             }

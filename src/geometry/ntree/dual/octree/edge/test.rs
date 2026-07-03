@@ -25,14 +25,6 @@ fn refine_to(octree: &mut Octree<u16, usize>, node: usize, levels: usize) {
 }
 
 pub(crate) fn weak_tree(depths: [usize; 8], balancing: Balancing) -> Octree<u16, usize> {
-    weak_tree_plus(depths, &[], balancing)
-}
-
-pub(crate) fn weak_tree_plus(
-    depths: [usize; 8],
-    extra: &[(usize, usize)],
-    balancing: Balancing,
-) -> Octree<u16, usize> {
     let mut octree = Octree::<u16, usize> {
         balanced: Balancing::None,
         nodes: vec![Node {
@@ -53,10 +45,6 @@ pub(crate) fn weak_tree_plus(
     let macros = *octree.nodes[0].orthants().unwrap();
     for (orthant, &levels) in depths.iter().enumerate() {
         refine_to(&mut octree, macros[orthant], levels);
-    }
-    for &(orthant, child) in extra {
-        let node = octree.nodes[macros[orthant]].orthants().unwrap()[child];
-        octree.subdivide(node).unwrap();
     }
     octree.equilibrate(balancing, Pairing::Regular).unwrap();
     octree
@@ -96,19 +84,17 @@ fn transition_5_fills_weak_edge_config_only() {
             &mut node_index,
             &mut nodes_map,
         );
-        let edges = connectivity.len() - filled;
-        super::super::vertex::star::template(&octree, &center_nodes, &mut connectivity);
-        (edges, connectivity.len() - filled - edges)
+        connectivity.len() - filled
     };
     assert_eq!(
         hexes(Balancing::Weak),
-        (22, 1),
-        "transition_5 should fill the weak-balanced edge tube and the star template the parent-grid vertex"
+        22,
+        "transition_5 should fill the weak-balanced edge tubes"
     );
     assert_eq!(
         hexes(Balancing::Strong),
-        (0, 0),
-        "weak templates fired on the strong tree (the config should be balanced away)"
+        0,
+        "transition_5 fired on the strong tree (the config should be balanced away)"
     );
 }
 
@@ -123,7 +109,6 @@ type Transitions = (
 fn transitions(octree: &Octree<u16, usize>) -> Transitions {
     use crate::geometry::ntree::dual::Uniform;
     let (center_nodes, mut coordinates, mut node_index, mut connectivity) = octree.initialize();
-    octree.uniform_transitions(&center_nodes, &mut connectivity);
     let mut nodes_map = NodeMap::new();
     super::super::face::face_transition(
         octree,
