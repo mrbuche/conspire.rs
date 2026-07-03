@@ -141,16 +141,6 @@ where
     }
 }
 
-/// Splits self-touching pinches left by the merge-only weld above.
-///
-/// The per-region edge weld cannot separate two shell sheets that meet at a
-/// single grid edge or vertex when the surrounding shell is otherwise welded
-/// together (a material diagonally touching itself, or two materials meeting in
-/// a checkerboard). Every remaining non-manifold vertex is split into one copy
-/// per fan, where a fan is a maximal set of incident faces connected through
-/// manifold (exactly two incident faces) edges. Duplicating the shared vertices
-/// per fan also splits the non-manifold edge that joins them into two manifold
-/// edges, since the edge's endpoints are duplicated with it.
 fn resolve_pinches(triangles: &[[usize; 3]], coordinates: &mut Coordinates<3>) -> Vec<[usize; 3]> {
     let mut vertex_faces: HashMap<usize, Vec<usize>> = HashMap::new();
     let mut edge_faces: HashMap<[usize; 2], Vec<usize>> = HashMap::new();
