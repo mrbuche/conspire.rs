@@ -7,6 +7,56 @@ use crate::geometry::ntree::{
 };
 use std::{array::from_fn, ops::Add};
 
+const ROTATIONS: [[usize; 8]; 24] = [
+    [0, 1, 2, 3, 4, 5, 6, 7],
+    [6, 7, 4, 5, 2, 3, 0, 1],
+    [5, 4, 7, 6, 1, 0, 3, 2],
+    [3, 2, 1, 0, 7, 6, 5, 4],
+    [4, 5, 0, 1, 6, 7, 2, 3],
+    [2, 3, 6, 7, 0, 1, 4, 5],
+    [1, 0, 5, 4, 3, 2, 7, 6],
+    [7, 6, 3, 2, 5, 4, 1, 0],
+    [4, 6, 5, 7, 0, 2, 1, 3],
+    [2, 0, 3, 1, 6, 4, 7, 5],
+    [1, 3, 0, 2, 5, 7, 4, 6],
+    [7, 5, 6, 4, 3, 1, 2, 0],
+    [0, 4, 1, 5, 2, 6, 3, 7],
+    [6, 2, 7, 3, 4, 0, 5, 1],
+    [5, 1, 4, 0, 7, 3, 6, 2],
+    [3, 7, 2, 6, 1, 5, 0, 4],
+    [0, 2, 4, 6, 1, 3, 5, 7],
+    [6, 4, 2, 0, 7, 5, 3, 1],
+    [5, 7, 1, 3, 4, 6, 0, 2],
+    [3, 1, 7, 5, 2, 0, 6, 4],
+    [4, 0, 6, 2, 5, 1, 7, 3],
+    [2, 6, 0, 4, 3, 7, 1, 5],
+    [1, 5, 3, 7, 0, 4, 2, 6],
+    [7, 3, 5, 1, 6, 2, 4, 0],
+];
+const STRONG_CONFIGS: [[usize; 8]; 21] = [
+    [0, 0, 0, 0, 0, 0, 0, 1],
+    [0, 0, 0, 0, 0, 0, 1, 1],
+    [0, 0, 0, 0, 0, 1, 1, 0],
+    [0, 0, 0, 0, 0, 1, 1, 1],
+    [0, 0, 0, 0, 1, 1, 1, 1],
+    [0, 0, 0, 1, 0, 1, 1, 0],
+    [0, 0, 0, 1, 0, 1, 1, 1],
+    [0, 0, 0, 1, 1, 0, 0, 0],
+    [0, 0, 0, 1, 1, 0, 0, 1],
+    [0, 0, 0, 1, 1, 0, 1, 1],
+    [0, 0, 0, 1, 1, 1, 0, 1],
+    [0, 0, 0, 1, 1, 1, 1, 0],
+    [0, 0, 0, 1, 1, 1, 1, 1],
+    [0, 0, 1, 1, 1, 1, 0, 0],
+    [0, 0, 1, 1, 1, 1, 0, 1],
+    [0, 0, 1, 1, 1, 1, 1, 1],
+    [0, 1, 1, 0, 1, 0, 0, 1],
+    [0, 1, 1, 0, 1, 0, 1, 1],
+    [0, 1, 1, 0, 1, 1, 1, 1],
+    [0, 1, 1, 1, 1, 1, 1, 0],
+    [0, 1, 1, 1, 1, 1, 1, 1],
+];
+
 #[test]
 fn knockout_strong_vertex_templates() {
     use super::super::test::verify_dual;
@@ -14,55 +64,6 @@ fn knockout_strong_vertex_templates() {
         mesh::{Connectivity, Mesh},
         ntree::dual::{NodeMap, Uniform},
     };
-    const ROTATIONS: [[usize; 8]; 24] = [
-        [0, 1, 2, 3, 4, 5, 6, 7],
-        [6, 7, 4, 5, 2, 3, 0, 1],
-        [5, 4, 7, 6, 1, 0, 3, 2],
-        [3, 2, 1, 0, 7, 6, 5, 4],
-        [4, 5, 0, 1, 6, 7, 2, 3],
-        [2, 3, 6, 7, 0, 1, 4, 5],
-        [1, 0, 5, 4, 3, 2, 7, 6],
-        [7, 6, 3, 2, 5, 4, 1, 0],
-        [4, 6, 5, 7, 0, 2, 1, 3],
-        [2, 0, 3, 1, 6, 4, 7, 5],
-        [1, 3, 0, 2, 5, 7, 4, 6],
-        [7, 5, 6, 4, 3, 1, 2, 0],
-        [0, 4, 1, 5, 2, 6, 3, 7],
-        [6, 2, 7, 3, 4, 0, 5, 1],
-        [5, 1, 4, 0, 7, 3, 6, 2],
-        [3, 7, 2, 6, 1, 5, 0, 4],
-        [0, 2, 4, 6, 1, 3, 5, 7],
-        [6, 4, 2, 0, 7, 5, 3, 1],
-        [5, 7, 1, 3, 4, 6, 0, 2],
-        [3, 1, 7, 5, 2, 0, 6, 4],
-        [4, 0, 6, 2, 5, 1, 7, 3],
-        [2, 6, 0, 4, 3, 7, 1, 5],
-        [1, 5, 3, 7, 0, 4, 2, 6],
-        [7, 3, 5, 1, 6, 2, 4, 0],
-    ];
-    const STRONG_CONFIGS: [[usize; 8]; 21] = [
-        [0, 0, 0, 0, 0, 0, 0, 1],
-        [0, 0, 0, 0, 0, 0, 1, 1],
-        [0, 0, 0, 0, 0, 1, 1, 0],
-        [0, 0, 0, 0, 0, 1, 1, 1],
-        [0, 0, 0, 0, 1, 1, 1, 1],
-        [0, 0, 0, 1, 0, 1, 1, 0],
-        [0, 0, 0, 1, 0, 1, 1, 1],
-        [0, 0, 0, 1, 1, 0, 0, 0],
-        [0, 0, 0, 1, 1, 0, 0, 1],
-        [0, 0, 0, 1, 1, 0, 1, 1],
-        [0, 0, 0, 1, 1, 1, 0, 1],
-        [0, 0, 0, 1, 1, 1, 1, 0],
-        [0, 0, 0, 1, 1, 1, 1, 1],
-        [0, 0, 1, 1, 1, 1, 0, 0],
-        [0, 0, 1, 1, 1, 1, 0, 1],
-        [0, 0, 1, 1, 1, 1, 1, 1],
-        [0, 1, 1, 0, 1, 0, 0, 1],
-        [0, 1, 1, 0, 1, 0, 1, 1],
-        [0, 1, 1, 0, 1, 1, 1, 1],
-        [0, 1, 1, 1, 1, 1, 1, 0],
-        [0, 1, 1, 1, 1, 1, 1, 1],
-    ];
     let templates: [super::Entry<u16, usize>; 21] = [
         (&super::transition_1::DATA, super::transition_1::template),
         (&super::transition_2::DATA, super::transition_2::template),
@@ -406,6 +407,278 @@ where
     let mut connectivity = Vec::new();
     apply(tree, center_nodes, &mut connectivity, data, template);
     connectivity
+}
+
+const WEAK_CONFIGS: [[usize; 8]; 14] = [
+    [0, 0, 0, 1, 0, 1, 1, 2],
+    [0, 0, 0, 1, 1, 1, 1, 2],
+    [0, 1, 1, 0, 1, 0, 2, 1],
+    [0, 0, 1, 1, 1, 1, 1, 2],
+    [0, 1, 1, 0, 1, 1, 2, 1],
+    [0, 1, 1, 1, 1, 1, 1, 2],
+    [0, 1, 1, 1, 1, 1, 2, 1],
+    [0, 0, 1, 1, 1, 1, 2, 2],
+    [0, 1, 1, 0, 1, 2, 2, 1],
+    [0, 1, 1, 1, 1, 1, 2, 2],
+    [0, 1, 1, 1, 1, 2, 2, 1],
+    [0, 1, 1, 1, 1, 2, 2, 2],
+    [0, 1, 1, 2, 1, 2, 2, 1],
+    [0, 1, 1, 2, 1, 2, 2, 2],
+];
+
+// The single vertex rule that the classifier below justifies: at an interior
+// vertex with eight distinct incident cells, emit the star hex iff the cells
+// are uniform or the vertex lies on the doubled grid of the longest cell.
+fn star_general(
+    tree: &Octree<u16, usize>,
+    center_nodes: &[usize],
+    connectivity: &mut Vec<[usize; N]>,
+) {
+    const WIND: [usize; N] = [0, 1, 3, 2, 4, 5, 7, 6];
+    let root = &tree.nodes[0];
+    let lo = root.corner;
+    let hi: [u16; D] = from_fn(|a| root.corner[a] + root.length);
+    for node in tree.iter().filter(|node| node.is_leaf()) {
+        let v: [u16; D] = from_fn(|a| node.corner[a] + node.length);
+        if !(0..D).all(|a| lo[a] < v[a] && v[a] < hi[a]) {
+            continue;
+        }
+        let cells: [usize; N] = from_fn(|d| find_leaf_octant(tree, &v, d));
+        let mut distinct = cells.to_vec();
+        distinct.sort_unstable();
+        distinct.dedup();
+        if distinct.len() != N {
+            continue;
+        }
+        let shortest: usize = cells
+            .iter()
+            .map(|&cell| tree.nodes[cell].length.into())
+            .min()
+            .unwrap();
+        let longest: usize = cells
+            .iter()
+            .map(|&cell| tree.nodes[cell].length.into())
+            .max()
+            .unwrap();
+        if longest == shortest || (0..D).all(|a| (v[a] as usize).is_multiple_of(2 * longest)) {
+            connectivity.push(from_fn(|k| center_nodes[cells[WIND[k]]]));
+        }
+    }
+}
+
+// The entire vertex phase (uniform transitions 1-4, the 21 strong templates,
+// and the weak star) emits exactly the same hexes as the single star rule,
+// on every strong and weak survey tree.
+#[test]
+fn star_rule_matches_vertex_phase() {
+    use crate::geometry::ntree::dual::{NodeMap, Uniform};
+    use std::collections::BTreeMap;
+    let multiset = |hexes: &[[usize; N]]| -> BTreeMap<[usize; N], usize> {
+        let mut set = BTreeMap::new();
+        for hex in hexes {
+            let mut sorted = *hex;
+            sorted.sort_unstable();
+            *set.entry(sorted).or_insert(0) += 1;
+        }
+        set
+    };
+    let mut cases: Vec<(Balancing, [usize; 8])> = Vec::new();
+    for config in STRONG_CONFIGS.iter() {
+        for rotation in ROTATIONS.iter() {
+            let mut depths = [0usize; 8];
+            (0..8).for_each(|octant| depths[rotation[octant]] = config[octant] + 1);
+            cases.push((Balancing::Strong, depths));
+        }
+    }
+    for config in WEAK_CONFIGS.iter() {
+        for rotation in ROTATIONS.iter() {
+            let mut depths = [0usize; 8];
+            (0..8).for_each(|octant| depths[rotation[octant]] = config[octant] + 1);
+            cases.push((Balancing::Weak, depths));
+        }
+    }
+    for (balancing, depths) in cases {
+        let octree = super::super::edge::test::weak_tree(depths, balancing);
+        let (center_nodes, mut coordinates, mut node_index, mut connectivity) = octree.initialize();
+        let mut nodes_map = NodeMap::new();
+        super::super::face::face_transition(
+            &octree,
+            &center_nodes,
+            &mut coordinates,
+            &mut connectivity,
+            &mut node_index,
+            &mut nodes_map,
+        );
+        super::super::edge::edge_transitions(
+            &octree,
+            &center_nodes,
+            &mut coordinates,
+            &mut connectivity,
+            &mut node_index,
+            &mut nodes_map,
+            balancing,
+        );
+        let base = connectivity.len();
+        octree.uniform_transitions(&center_nodes, &mut connectivity);
+        super::vertex_transitions(&octree, &center_nodes, &mut connectivity, balancing);
+        let old = multiset(&connectivity[base..]);
+        connectivity.truncate(base);
+        star_general(&octree, &center_nodes, &mut connectivity);
+        let new = multiset(&connectivity[base..]);
+        assert_eq!(
+            old, new,
+            "vertex phase differs from the generic star rule for depths {depths:?}"
+        );
+    }
+}
+
+// Ground truth for the star rule's guard: classify every interior vertex
+// with eight distinct incident cells across the strong survey trees by size
+// ratio, tube axes, and parity on the doubled grid of the longest cell, and
+// record whether the current pipeline filled it with the star hex. Every
+// class is purely star or purely Steiner: uniform vertices are always
+// stars, and mixed vertices are stars exactly when aligned on all axes
+// (odd parities only ever occur along tube axes, which are Steiner-filled).
+#[test]
+fn classify_strong_distinct8_vertices() {
+    use super::super::test::verify_dual;
+    use crate::geometry::{
+        mesh::{Connectivity, Mesh},
+        ntree::dual::{NodeMap, Uniform},
+    };
+    use std::collections::{BTreeMap, HashSet};
+    let mut trees: Vec<(String, Octree<u16, usize>)> = Vec::new();
+    for (c, config) in STRONG_CONFIGS.iter().enumerate() {
+        for rotation in ROTATIONS.iter() {
+            let mut depths = [0usize; 8];
+            (0..8).for_each(|octant| depths[rotation[octant]] = config[octant] + 1);
+            trees.push((
+                format!("survey {c}"),
+                super::super::edge::test::weak_tree(depths, Balancing::Strong),
+            ));
+        }
+    }
+    let extras: [&[(usize, usize)]; 6] = [
+        &[(0, 7)],
+        &[(0, 6), (0, 7)],
+        &[(0, 3), (0, 5), (0, 6), (0, 7)],
+        &[(0, 1), (0, 2), (0, 4), (0, 7)],
+        &[
+            (0, 0),
+            (0, 1),
+            (0, 2),
+            (0, 3),
+            (0, 4),
+            (0, 5),
+            (0, 6),
+            (0, 7),
+        ],
+        &[(0, 7), (7, 0)],
+    ];
+    for (e, extra) in extras.iter().enumerate() {
+        trees.push((
+            format!("custom {e}"),
+            super::super::edge::test::weak_tree_plus([1; 8], extra, Balancing::Strong),
+        ));
+    }
+    let mut classes: BTreeMap<String, (usize, usize, String)> = BTreeMap::new();
+    for (label, octree) in trees.iter() {
+        let (center_nodes, mut coordinates, mut node_index, mut connectivity) = octree.initialize();
+        octree.uniform_transitions(&center_nodes, &mut connectivity);
+        let mut nodes_map = NodeMap::new();
+        super::super::face::face_transition(
+            octree,
+            &center_nodes,
+            &mut coordinates,
+            &mut connectivity,
+            &mut node_index,
+            &mut nodes_map,
+        );
+        super::super::edge::edge_transitions(
+            octree,
+            &center_nodes,
+            &mut coordinates,
+            &mut connectivity,
+            &mut node_index,
+            &mut nodes_map,
+            Balancing::Strong,
+        );
+        super::vertex_transitions(octree, &center_nodes, &mut connectivity, Balancing::Strong);
+        if label.starts_with("custom") {
+            let mesh: Mesh<3> = (
+                vec![Connectivity::Hexahedral(connectivity.clone().into())],
+                coordinates.clone(),
+            )
+                .into();
+            if let Err(error) = verify_dual(&mesh) {
+                println!("NOTE: {label} baseline failed verification: {error}");
+            }
+        }
+        let hexset: HashSet<[usize; N]> = connectivity
+            .iter()
+            .map(|hex| {
+                let mut sorted = *hex;
+                sorted.sort_unstable();
+                sorted
+            })
+            .collect();
+        let root = &octree.nodes[0];
+        let lo = root.corner;
+        let hi: [u16; D] = from_fn(|a| root.corner[a] + root.length);
+        for node in octree.iter().filter(|node| node.is_leaf()) {
+            let v: [u16; D] = from_fn(|a| node.corner[a] + node.length);
+            if !(0..D).all(|a| lo[a] < v[a] && v[a] < hi[a]) {
+                continue;
+            }
+            let cells: [usize; N] = from_fn(|d| find_leaf_octant(octree, &v, d));
+            let mut distinct = cells.to_vec();
+            distinct.sort_unstable();
+            distinct.dedup();
+            if distinct.len() != N {
+                continue;
+            }
+            let sizes: [usize; N] = from_fn(|d| octree.nodes[cells[d]].length.into());
+            let shortest = *sizes.iter().min().unwrap();
+            let longest = *sizes.iter().max().unwrap();
+            let ratio = longest / shortest;
+            let mut per_axis: Vec<(bool, usize)> = (0..D)
+                .map(|a| {
+                    let tube = (0..N)
+                        .filter(|o| o & (1 << a) == 0)
+                        .all(|o| sizes[o] == sizes[o | (1 << a)]);
+                    assert_eq!((v[a] as usize) % longest, 0, "{label} at {v:?}");
+                    let parity = ((v[a] as usize) / longest) % 2;
+                    (tube, parity)
+                })
+                .collect();
+            per_axis.sort();
+            let mut sig: [usize; N] = from_fn(|d| sizes[d] / shortest);
+            sig.sort_unstable();
+            let mut sorted_cells: [usize; N] = from_fn(|k| center_nodes[cells[k]]);
+            sorted_cells.sort_unstable();
+            let star = hexset.contains(&sorted_cells);
+            let key = format!("ratio {ratio} sizes {sig:?} (tube, parity) {per_axis:?}");
+            let entry = classes
+                .entry(key)
+                .or_insert((0, 0, format!("{label} at {v:?}")));
+            if star { entry.0 += 1 } else { entry.1 += 1 }
+        }
+    }
+    let mut mixed = Vec::new();
+    for (key, (star, other, example)) in classes.iter() {
+        println!("{key}: star {star:>6}, other {other:>6}   e.g. {example}");
+        if *star > 0 && *other > 0 {
+            mixed.push(key.clone());
+        }
+        let aligned = !key.contains(", 1)");
+        let uniform = key.starts_with("ratio 1");
+        if uniform || aligned {
+            assert_eq!(*other, 0, "aligned or uniform class not star-filled: {key}");
+        } else {
+            assert_eq!(*star, 0, "unaligned mixed class star-filled: {key}");
+        }
+    }
+    assert!(mixed.is_empty(), "ambiguous classes: {mixed:?}");
 }
 
 pub(crate) fn transition_21_only<T, U>(
