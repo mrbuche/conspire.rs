@@ -14,19 +14,19 @@ use std::{
     path::Path,
 };
 
-pub trait ReadVtu<P>
+pub trait ReadVtkUnstructured<P>
 where
     P: AsRef<Path>,
     Self: Sized,
 {
-    fn read_vtu(input: P) -> Result<Self>;
+    fn read_vtk_unstructured(input: P) -> Result<Self>;
 }
 
-impl<const D: usize, P> ReadVtu<P> for Mesh<D>
+impl<const D: usize, P> ReadVtkUnstructured<P> for Mesh<D>
 where
     P: AsRef<Path>,
 {
-    fn read_vtu(input: P) -> Result<Self> {
+    fn read_vtk_unstructured(input: P) -> Result<Self> {
         if D != 2 && D != 3 {
             return Err(unsupported("VTU supports only 2D or 3D meshes"));
         }

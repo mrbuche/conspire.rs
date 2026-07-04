@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use super::vtu::{WriteVtu, data_array};
+use super::unstructured::{WriteVtkUnstructured, data_array};
 use crate::geometry::mesh::{Connectivity, Mesh};
 use std::{
     collections::HashMap,
@@ -37,7 +37,7 @@ where
             }
         };
         let volume_file = format!("{stem}.vtu");
-        self.write_vtu(join(&volume_file))?;
+        self.write_vtk_unstructured(join(&volume_file))?;
         let mut blocks = vec![("volume".to_string(), volume_file)];
         for (set, sides) in self.side_sets().iter().enumerate() {
             let label = self

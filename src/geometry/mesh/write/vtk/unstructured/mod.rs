@@ -11,11 +11,11 @@ use std::{
     path::Path,
 };
 
-pub trait WriteVtu<P>
+pub trait WriteVtkUnstructured<P>
 where
     P: AsRef<Path>,
 {
-    fn write_vtu(&self, output: P) -> Result<()>;
+    fn write_vtk_unstructured(&self, output: P) -> Result<()>;
 }
 
 fn cell_type(connectivity: &Connectivity) -> Result<u8> {
@@ -35,11 +35,11 @@ fn cell_type(connectivity: &Connectivity) -> Result<u8> {
     })
 }
 
-impl<const D: usize, P> WriteVtu<P> for Mesh<D>
+impl<const D: usize, P> WriteVtkUnstructured<P> for Mesh<D>
 where
     P: AsRef<Path>,
 {
-    fn write_vtu(&self, output: P) -> Result<()> {
+    fn write_vtk_unstructured(&self, output: P) -> Result<()> {
         if D != 2 && D != 3 {
             return Err(Error::new(
                 ErrorKind::Unsupported,

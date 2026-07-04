@@ -2,13 +2,13 @@ pub mod abaqus;
 #[cfg(feature = "netcdf")]
 pub mod exodus;
 pub mod medit;
-pub mod vtu;
+pub mod vtk;
 
 pub use self::abaqus::ReadAbaqus;
 #[cfg(feature = "netcdf")]
 pub use self::exodus::ReadExodus;
 pub use self::medit::ReadMedit;
-pub use self::vtu::ReadVtu;
+pub use self::vtk::unstructured::ReadVtkUnstructured;
 
 use crate::geometry::mesh::Mesh;
 use std::{io::Error as ErrorIO, path::Path};
@@ -21,7 +21,7 @@ where
     #[cfg(feature = "netcdf")]
     Exodus(P),
     Medit(P),
-    Vtu(P),
+    VtkUnstructured(P),
 }
 
 impl<P> AsRef<Path> for Input<P>
@@ -34,7 +34,7 @@ where
             #[cfg(feature = "netcdf")]
             Input::Exodus(path) => path.as_ref(),
             Input::Medit(path) => path.as_ref(),
-            Input::Vtu(path) => path.as_ref(),
+            Input::VtkUnstructured(path) => path.as_ref(),
         }
     }
 }
@@ -50,7 +50,7 @@ where
             #[cfg(feature = "netcdf")]
             Input::Exodus(path) => Ok(Mesh::read_exodus(path)?),
             Input::Medit(path) => Ok(Mesh::read_medit(path)?),
-            Input::Vtu(path) => Ok(Mesh::read_vtu(path)?),
+            Input::VtkUnstructured(path) => Ok(Mesh::read_vtk_unstructured(path)?),
         }
     }
 }

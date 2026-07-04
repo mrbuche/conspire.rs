@@ -1,4 +1,4 @@
-use super::ReadVtu;
+use super::ReadVtkUnstructured;
 use crate::{
     geometry::mesh::{Connectivity, Mesh, Output},
     io::Write,
@@ -34,9 +34,9 @@ fn round_trip_mixed() {
     .into();
     let path = "target/round_trip.vtu";
     Mesh::from((connectivities, coordinates))
-        .write(Output::Vtu(path))
+        .write(Output::VtkUnstructured(path))
         .unwrap();
-    let mesh = Mesh::<3>::read_vtu(path).unwrap();
+    let mesh = Mesh::<3>::read_vtk_unstructured(path).unwrap();
     assert_eq!(mesh.number_of_nodes(), 12);
     assert_eq!(mesh.number_of_element_blocks(), 4);
     assert_eq!(mesh.number_of_elements(), 4);
@@ -70,7 +70,7 @@ fn reads_ascii() {
          </Cells></Piece></UnstructuredGrid></VTKFile>\n",
     )
     .unwrap();
-    let mesh = Mesh::<3>::read_vtu(path).unwrap();
+    let mesh = Mesh::<3>::read_vtk_unstructured(path).unwrap();
     assert_eq!(mesh.number_of_nodes(), 4);
     assert_eq!(mesh.number_of_element_blocks(), 1);
     assert_eq!(first_element(&mesh, 0), [0, 1, 2, 3]);
@@ -84,7 +84,7 @@ fn compressed_is_unsupported() {
         "<VTKFile type=\"UnstructuredGrid\" compressor=\"vtkZLibDataCompressor\"></VTKFile>",
     )
     .unwrap();
-    assert!(Mesh::<3>::read_vtu(path).is_err());
+    assert!(Mesh::<3>::read_vtk_unstructured(path).is_err());
 }
 
 #[test]
@@ -100,8 +100,8 @@ fn round_trip_node_sets() {
     let mut mesh = Mesh::from((connectivities, coordinates));
     mesh.set_node_sets(vec![vec![0, 1], vec![2, 3]].into());
     let path = "target/round_trip_node_sets.vtu";
-    mesh.write(Output::Vtu(path)).unwrap();
-    let read = Mesh::<3>::read_vtu(path).unwrap();
+    mesh.write(Output::VtkUnstructured(path)).unwrap();
+    let read = Mesh::<3>::read_vtk_unstructured(path).unwrap();
     assert_eq!(read.node_sets(), &[vec![0, 1], vec![2, 3]]);
 }
 
@@ -128,6 +128,6 @@ fn reads_point_data_node_sets_ascii() {
          </Cells></Piece></UnstructuredGrid></VTKFile>\n",
     )
     .unwrap();
-    let mesh = Mesh::<3>::read_vtu(path).unwrap();
+    let mesh = Mesh::<3>::read_vtk_unstructured(path).unwrap();
     assert_eq!(mesh.node_sets(), &[vec![0, 1], vec![2, 3]]);
 }
