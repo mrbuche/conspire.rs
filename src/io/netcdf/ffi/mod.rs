@@ -5,10 +5,13 @@ pub const NC_FLOAT: i32 = 5;
 pub const NC_DOUBLE: i32 = 6;
 pub const NC_INT: i32 = 4;
 pub const NC_NOWRITE: c_int = 0;
+pub const NC_64BIT_DATA: c_int = 0x0020;
+pub const NC_NOFILL: c_int = 0x100;
 
 unsafe extern "C" {
     pub fn nc_create(path: *const c_char, cmode: c_int, ncidp: *mut c_int) -> c_int;
     pub fn nc_open(path: *const c_char, mode: c_int, ncidp: *mut c_int) -> c_int;
+    pub fn nc_set_fill(ncid: c_int, fillmode: c_int, old_modep: *mut c_int) -> c_int;
     pub fn nc_close(ncid: c_int) -> c_int;
     pub fn nc_def_dim(ncid: c_int, name: *const c_char, len: usize, idp: *mut c_int) -> c_int;
     pub fn nc_def_var(

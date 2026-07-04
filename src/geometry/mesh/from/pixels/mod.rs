@@ -21,17 +21,11 @@ impl Mesh<2> {
         let nodes_unfiltered = nxp * nyp;
         let mut connectivity = Vec::with_capacity(pixels.len());
         let mut materials = Vec::with_capacity(pixels.len());
-        let (mut i, mut j) = (0, 0);
-        for &block in pixels.data() {
+        for ([i, j], &block) in pixels.logical_iter() {
             if remove.is_none_or(|ids| !ids.contains(&block)) {
                 let base = i + nxp * j;
                 connectivity.push([base, base + 1, base + nxp + 1, base + nxp]);
                 materials.push(block.into());
-            }
-            i += 1;
-            if i == nx {
-                i = 0;
-                j += 1;
             }
         }
         let mut used = vec![false; nodes_unfiltered];

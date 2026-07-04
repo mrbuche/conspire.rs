@@ -1,4 +1,4 @@
-use super::Npy;
+use super::{Npy, NpyType};
 use crate::io::Write;
 use std::{
     fs::write,
@@ -172,6 +172,60 @@ fn write_to_propagates_flush_error() {
     assert!(npy.write_to(&mut FailOnFlush).is_err());
 }
 
+struct FailOnNthWrite {
+    allowed: usize,
+    count: usize,
+}
+
+impl io::Write for FailOnNthWrite {
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
+        if self.count >= self.allowed {
+            return Err(Error::other("boom"));
+        }
+        self.count += 1;
+        Ok(buf.len())
+    }
+    fn flush(&mut self) -> Result<()> {
+        Ok(())
+    }
+}
+
+#[test]
+fn write_to_propagates_write_errors_at_every_step() {
+    let npy = Npy {
+        data: vec![1u8, 2, 3],
+        shape: vec![3],
+        fortran_order: true,
+    };
+    for allowed in 0..5 {
+        assert!(
+            npy.write_to(&mut FailOnNthWrite { allowed, count: 0 })
+                .is_err()
+        );
+    }
+    assert!(
+        npy.write_to(&mut FailOnNthWrite {
+            allowed: 5,
+            count: 0
+        })
+        .is_ok()
+    );
+}
+
+#[test]
+fn read_truncated_prefix_errors() {
+    let path = "target/npy_short_prefix.npy";
+    write(path, &b"\x93NUMPY\x01\x00"[..]).unwrap();
+    assert!(Npy::<u8>::read(path).is_err());
+}
+
+#[test]
+fn read_truncated_version_2_header_length_errors() {
+    let path = "target/npy_short_v2_prefix.npy";
+    write(path, &b"\x93NUMPY\x02\x00\x00\x00"[..]).unwrap();
+    assert!(Npy::<u8>::read(path).is_err());
+}
+
 #[test]
 fn round_trip_fortran_order() {
     let data: Vec<u16> = (0..24).collect();
@@ -204,6 +258,17 @@ fn round_trip_c_order_f64() {
     assert_eq!(npy.data, data);
     assert_eq!(npy.shape, [3]);
     assert!(!npy.fortran_order);
+}
+
+#[test]
+fn write_le_bytes_and_read_le_all_round_trip() {
+    let data = vec![1.5_f64, -2.0, 3.25];
+    let bytes = f64::write_le_bytes(&data);
+    assert_eq!(f64::read_le_all(&bytes), data);
+
+    let data = vec![1u8, 2, 3];
+    let bytes = u8::write_le_bytes(&data);
+    assert_eq!(u8::read_le_all(&bytes), data);
 }
 
 #[test]

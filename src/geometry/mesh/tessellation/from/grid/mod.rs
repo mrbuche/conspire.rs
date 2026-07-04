@@ -45,12 +45,12 @@ where
         let [nx, ny, _] = nel;
         let void = T::default();
         let data = voxels.data();
-        let cell = |idx: [usize; 3]| idx[0] + nx * idx[1] + nx * ny * idx[2];
+        let cell = |idx: [usize; 3]| voxels.flat(idx);
         let label = |idx: [isize; 3]| -> T {
             if (0..3).any(|ax| idx[ax] < 0 || idx[ax] >= nel[ax] as isize) {
                 void
             } else {
-                data[idx[0] as usize + nx * idx[1] as usize + nx * ny * idx[2] as usize]
+                data[voxels.flat([idx[0] as usize, idx[1] as usize, idx[2] as usize])]
             }
         };
         let mut quads = Vec::new();
@@ -135,9 +135,68 @@ where
             triangles.push([ids[0], ids[1], ids[2]]);
             triangles.push([ids[0], ids[2], ids[3]]);
         }
+        let triangles = resolve_pinches(&triangles, &mut coordinates);
         let connectivities = vec![Connectivity::Triangular(triangles.into())];
         Tessellation::from(Mesh::from((connectivities, coordinates)))
     }
+}
+
+fn resolve_pinches(triangles: &[[usize; 3]], coordinates: &mut Coordinates<3>) -> Vec<[usize; 3]> {
+    let mut vertex_faces: HashMap<usize, Vec<usize>> = HashMap::new();
+    let mut edge_faces: HashMap<[usize; 2], Vec<usize>> = HashMap::new();
+    for (f, tri) in triangles.iter().enumerate() {
+        for i in 0..3 {
+            let (v, w) = (tri[i], tri[(i + 1) % 3]);
+            vertex_faces.entry(v).or_default().push(f);
+            edge_faces.entry(edge(v, w)).or_default().push(f);
+        }
+    }
+    let mut assignment = triangles.to_vec();
+    for (&v, incident) in &vertex_faces {
+        let index: HashMap<usize, usize> =
+            incident.iter().enumerate().map(|(i, &f)| (f, i)).collect();
+        let mut parent: Vec<usize> = (0..incident.len()).collect();
+        for &f in incident {
+            let tri = &triangles[f];
+            let pos = tri.iter().position(|&n| n == v).unwrap();
+            for x in [tri[(pos + 2) % 3], tri[(pos + 1) % 3]] {
+                if let Some(shared) = edge_faces.get(&edge(v, x))
+                    && shared.len() == 2
+                {
+                    union(&mut parent, index[&shared[0]], index[&shared[1]]);
+                }
+            }
+        }
+        let mut fan: HashMap<usize, usize> = HashMap::new();
+        for i in 0..incident.len() {
+            let root = find(&mut parent, i);
+            let next = fan.len();
+            fan.entry(root).or_insert(next);
+        }
+        if fan.len() < 2 {
+            continue;
+        }
+        let mut copies: HashMap<usize, usize> = HashMap::new();
+        for (i, &f) in incident.iter().enumerate() {
+            let root = find(&mut parent, i);
+            if fan[&root] == 0 {
+                continue;
+            }
+            let id = *copies.entry(root).or_insert_with(|| {
+                let point = Coordinate::const_from(from_fn(|ax| coordinates[v][ax]));
+                let id = coordinates.len();
+                coordinates.push(point);
+                id
+            });
+            let pos = triangles[f].iter().position(|&n| n == v).unwrap();
+            assignment[f][pos] = id;
+        }
+    }
+    assignment
+}
+
+fn edge(a: usize, b: usize) -> [usize; 2] {
+    if a < b { [a, b] } else { [b, a] }
 }
 
 fn local(corners: &[[usize; 3]; 4], corner: [usize; 3]) -> usize {

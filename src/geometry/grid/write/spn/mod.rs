@@ -6,17 +6,13 @@ use std::{
     path::Path,
 };
 
-/// Writes a [`Grid`] to a segmentation projection (SPN) file.
-///
-/// Values are written one per line in column-major (`i`-fastest) order, matching
-/// [`Grid`]'s internal layout.
 pub(super) fn write<const D: usize, T, P>(grid: &Grid<D, T>, path: P) -> Result<()>
 where
-    T: Display,
+    T: Copy + Display,
     P: AsRef<Path>,
 {
     let mut file = BufWriter::new(File::create(path)?);
-    grid.data()
+    grid.data_col_major()
         .iter()
         .try_for_each(|value| writeln!(file, "{value}"))
 }

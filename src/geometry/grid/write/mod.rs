@@ -40,7 +40,7 @@ where
             Output::Npy(path) => Npy {
                 data: self.data().to_vec(),
                 shape: self.nel().to_vec(),
-                fortran_order: true,
+                fortran_order: self.is_col_major(),
             }
             .write(path)?,
             Output::Spn(path) => spn::write(self, path)?,

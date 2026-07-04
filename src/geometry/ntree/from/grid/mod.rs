@@ -55,7 +55,11 @@ where
                 half,
             },
         };
-        let pyramid = pyramid(&nel, root_length.trailing_zeros(), grid.data().to_vec());
+        let pyramid = pyramid(
+            &nel,
+            root_length.trailing_zeros(),
+            grid.data_col_major().into_owned(),
+        );
         let mut index = 0;
         while index < tree.len() {
             let node = &tree.nodes[index];

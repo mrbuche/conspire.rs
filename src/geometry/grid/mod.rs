@@ -9,7 +9,9 @@ mod write;
 pub use self::{read::Input, write::Output};
 
 use std::{
-    array::from_fn,
+    array,
+    borrow::Cow,
+    iter,
     ops::{Index, IndexMut, Range},
 };
 
@@ -19,6 +21,23 @@ pub type Voxels<T> = Grid<3, T>;
 pub struct Grid<const D: usize, T> {
     data: Vec<T>,
     nel: [usize; D],
+    strides: [usize; D],
+}
+
+fn col_major_strides<const D: usize>(nel: [usize; D]) -> [usize; D] {
+    let mut strides = [1usize; D];
+    for axis in 1..D {
+        strides[axis] = strides[axis - 1] * nel[axis - 1];
+    }
+    strides
+}
+
+fn row_major_strides<const D: usize>(nel: [usize; D]) -> [usize; D] {
+    let mut strides = [1usize; D];
+    for axis in (0..D.saturating_sub(1)).rev() {
+        strides[axis] = strides[axis + 1] * nel[axis + 1];
+    }
+    strides
 }
 
 impl<const D: usize, T> Grid<D, T> {
@@ -28,22 +47,65 @@ impl<const D: usize, T> Grid<D, T> {
             nel.iter().product::<usize>(),
             "voxel data length must equal the product of nel"
         );
-        Self { data, nel }
+        Self {
+            data,
+            nel,
+            strides: col_major_strides(nel),
+        }
+    }
+    pub fn new_row_major(data: Vec<T>, nel: [usize; D]) -> Self {
+        assert_eq!(
+            data.len(),
+            nel.iter().product::<usize>(),
+            "voxel data length must equal the product of nel"
+        );
+        Self {
+            data,
+            nel,
+            strides: row_major_strides(nel),
+        }
     }
     pub fn data(&self) -> &[T] {
         &self.data
     }
     pub fn flat(&self, index: [usize; D]) -> usize {
-        let mut offset = 0;
-        let mut stride = 1;
-        for (&i, &n) in index.iter().zip(&self.nel) {
-            offset += i * stride;
-            stride *= n;
-        }
-        offset
+        index
+            .iter()
+            .zip(&self.strides)
+            .map(|(&i, &stride)| i * stride)
+            .sum()
+    }
+    fn axes_by_stride(&self) -> [usize; D] {
+        let mut order: [usize; D] = array::from_fn(|axis| axis);
+        order.sort_by_key(|&axis| self.strides[axis]);
+        order
+    }
+    pub fn logical_iter<'a>(&'a self) -> impl Iterator<Item = ([usize; D], &'a T)> + 'a {
+        let nel = self.nel;
+        let order = self.axes_by_stride();
+        let mut index = [0usize; D];
+        let mut offset = 0usize;
+        iter::from_fn(move || {
+            if offset == self.data.len() {
+                return None;
+            }
+            let item = (index, &self.data[offset]);
+            offset += 1;
+            for &axis in &order {
+                index[axis] += 1;
+                if index[axis] < nel[axis] {
+                    break;
+                }
+                index[axis] = 0;
+            }
+            Some(item)
+        })
     }
     pub fn nel(&self) -> &[usize; D] {
         &self.nel
+    }
+    pub fn is_col_major(&self) -> bool {
+        self.strides == col_major_strides(self.nel)
     }
     pub fn len(&self) -> usize {
         self.data.len()
@@ -54,8 +116,18 @@ impl<const D: usize, T> Grid<D, T> {
 }
 
 impl<const D: usize, T: Copy> Grid<D, T> {
+    pub fn data_col_major(&self) -> Cow<'_, [T]> {
+        if self.strides == col_major_strides(self.nel) {
+            Cow::Borrowed(&self.data)
+        } else {
+            Cow::Owned(read::transpose(self.data.clone(), self.nel))
+        }
+    }
+}
+
+impl<const D: usize, T: Copy> Grid<D, T> {
     pub fn extract(&self, ranges: [Range<usize>; D]) -> Self {
-        let nel: [usize; D] = from_fn(|axis| ranges[axis].len());
+        let nel: [usize; D] = array::from_fn(|axis| ranges[axis].len());
         let total: usize = nel.iter().product();
         let mut data = Vec::with_capacity(total);
         let mut index = [0usize; D];
@@ -78,13 +150,33 @@ impl<const D: usize, T: PartialEq> Grid<D, T> {
             other.nel(),
             "grids do not have the same dimensions"
         );
-        let data = self
-            .data()
-            .iter()
-            .zip(other.data())
-            .map(|(a, b)| (a != b) as u8)
-            .collect();
-        Grid::new(data, *self.nel())
+        if self.strides == other.strides {
+            let data = self
+                .data
+                .iter()
+                .zip(&other.data)
+                .map(|(a, b)| (a != b) as u8)
+                .collect();
+            Grid {
+                data,
+                nel: self.nel,
+                strides: self.strides,
+            }
+        } else {
+            let nel = self.nel;
+            let data = (0..self.data.len())
+                .map(|offset| {
+                    let mut index = [0usize; D];
+                    let mut remainder = offset;
+                    for axis in 0..D {
+                        index[axis] = remainder % nel[axis];
+                        remainder /= nel[axis];
+                    }
+                    (self[index] != other[index]) as u8
+                })
+                .collect();
+            Grid::new(data, nel)
+        }
     }
 }
 

@@ -52,33 +52,87 @@ where
                         format!("npy has {} axes but Grid was asked for D={D}", shape.len()),
                     )
                 })?;
-                let data = if npy.fortran_order {
-                    npy.data
+                if npy.fortran_order {
+                    Ok(Grid::new(npy.data, nel))
                 } else {
-                    transpose(npy.data, nel)
-                };
-                Ok(Grid::new(data, nel))
+                    Ok(Grid::new_row_major(npy.data, nel))
+                }
             }
             Input::Vti(path) => vti::read(path),
         }
     }
 }
 
-fn transpose<const D: usize, T: Copy>(c_order: Vec<T>, nel: [usize; D]) -> Vec<T> {
-    let mut axis_0_stride = [1usize; D];
+pub(super) fn transpose<const D: usize, T: Copy>(c_order: Vec<T>, nel: [usize; D]) -> Vec<T> {
+    let total: usize = nel.iter().product();
+    let mut f_stride = [1usize; D];
     for axis in 1..D {
-        axis_0_stride[axis] = axis_0_stride[axis - 1] * nel[axis - 1];
+        f_stride[axis] = f_stride[axis - 1] * nel[axis - 1];
     }
     let mut c_stride = [1usize; D];
     for axis in (0..D.saturating_sub(1)).rev() {
         c_stride[axis] = c_stride[axis + 1] * nel[axis + 1];
     }
-    (0..nel.iter().product())
-        .map(|flat| {
-            let c_flat = (0..D)
-                .map(|axis| (flat / axis_0_stride[axis]) % nel[axis] * c_stride[axis])
-                .sum::<usize>();
-            c_order[c_flat]
-        })
-        .collect()
+    let mut out: Vec<T> = Vec::with_capacity(total);
+    if total > 0 {
+        unsafe {
+            transpose_block(&c_order, out.as_mut_ptr(), 0, 0, nel, &c_stride, &f_stride);
+            out.set_len(total);
+        }
+    }
+    out
+}
+
+unsafe fn transpose_block<const D: usize, T: Copy>(
+    src: &[T],
+    dst: *mut T,
+    c_off: usize,
+    f_off: usize,
+    len: [usize; D],
+    c_stride: &[usize; D],
+    f_stride: &[usize; D],
+) {
+    const TILE: usize = 16;
+    if let Some(axis) = (0..D)
+        .filter(|&axis| len[axis] > TILE)
+        .max_by_key(|&axis| len[axis])
+    {
+        let half = len[axis] / 2;
+        let mut lo = len;
+        lo[axis] = half;
+        let mut hi = len;
+        hi[axis] = len[axis] - half;
+        unsafe {
+            transpose_block(src, dst, c_off, f_off, lo, c_stride, f_stride);
+            transpose_block(
+                src,
+                dst,
+                c_off + half * c_stride[axis],
+                f_off + half * f_stride[axis],
+                hi,
+                c_stride,
+                f_stride,
+            );
+        }
+        return;
+    }
+    let volume: usize = len.iter().product();
+    let mut idx = [0usize; D];
+    let (mut c, mut f) = (c_off, f_off);
+    for _ in 0..volume {
+        unsafe {
+            *dst.add(f) = src[c];
+        }
+        for axis in 0..D {
+            idx[axis] += 1;
+            c += c_stride[axis];
+            f += f_stride[axis];
+            if idx[axis] < len[axis] {
+                break;
+            }
+            idx[axis] = 0;
+            c -= len[axis] * c_stride[axis];
+            f -= len[axis] * f_stride[axis];
+        }
+    }
 }

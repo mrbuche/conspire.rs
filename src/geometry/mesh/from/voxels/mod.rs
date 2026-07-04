@@ -38,8 +38,7 @@ impl Mesh<3> {
         let nodes_unfiltered = layer * nzp;
         let mut connectivity = Vec::with_capacity(voxels.len());
         let mut materials = Vec::with_capacity(voxels.len());
-        let (mut i, mut j, mut k) = (0, 0, 0);
-        for &block in voxels.data() {
+        for ([i, j, k], &block) in voxels.logical_iter() {
             if remove.is_none_or(|ids| !ids.contains(&block)) {
                 let base = i + nxp * j + layer * k;
                 let top = base + layer;
@@ -54,15 +53,6 @@ impl Mesh<3> {
                     top + nxp,
                 ]);
                 materials.push(block.into());
-            }
-            i += 1;
-            if i == nx {
-                i = 0;
-                j += 1;
-                if j == ny {
-                    j = 0;
-                    k += 1;
-                }
             }
         }
         let mut used = vec![false; nodes_unfiltered];

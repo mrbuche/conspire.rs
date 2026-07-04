@@ -1,9 +1,9 @@
 use crate::io::netcdf::{
     NetCDF,
     ffi::{
-        NC_FLOAT, NC_GLOBAL, NC_INT, NC_NOWRITE, nc_close, nc_create, nc_def_dim, nc_enddef,
-        nc_get_att_text, nc_inq_attlen, nc_inq_dimid, nc_inq_dimlen, nc_inq_varid, nc_open,
-        nc_put_att_float, nc_put_att_int, nc_put_att_text,
+        NC_64BIT_DATA, NC_FLOAT, NC_GLOBAL, NC_INT, NC_NOFILL, NC_NOWRITE, nc_close, nc_create,
+        nc_def_dim, nc_enddef, nc_get_att_text, nc_inq_attlen, nc_inq_dimid, nc_inq_dimlen,
+        nc_inq_varid, nc_open, nc_put_att_float, nc_put_att_int, nc_put_att_text, nc_set_fill,
     },
     nc_lock,
 };
@@ -19,11 +19,13 @@ impl NetCDF {
         let path_c_str = CString::new(path)?;
         let mut ncid = 0;
         let _guard = nc_lock();
-        let status = unsafe { nc_create(path_c_str.as_ptr(), 0, &mut ncid) };
+        let status = unsafe { nc_create(path_c_str.as_ptr(), NC_64BIT_DATA, &mut ncid) };
         assert_eq!(
             status, 0,
             "Might need a new error type to handle errors properly"
         );
+        let status = unsafe { nc_set_fill(ncid, NC_NOFILL, std::ptr::null_mut()) };
+        assert_eq!(status, 0, "nc_set_fill failed with status={status}");
         let dimid = 0;
         let varid = 0;
         Ok(Self { ncid, dimid, varid })
