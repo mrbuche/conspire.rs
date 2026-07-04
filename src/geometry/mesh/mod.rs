@@ -34,11 +34,13 @@ use crate::{
 use std::cell::OnceCell;
 
 pub type NodeSets = Set<Vec<Vec<usize>>>;
+pub type SideSets = Set<Vec<Vec<(usize, usize)>>>;
 
 pub struct Mesh<const D: usize> {
     connectivities: Connectivities,
     coordinates: Set<Coordinates<D>>,
     node_sets: NodeSets,
+    side_sets: SideSets,
     nodes_elements: OnceCell<Vec<Vec<usize>>>,
     nodes_nodes: OnceCell<Graph>,
 }
