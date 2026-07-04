@@ -8,7 +8,7 @@ mod voxels;
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Connectivities, Connectivity, Mesh},
+        mesh::{Connectivities, Connectivity, Mesh, NodeSets},
     },
     math::Set,
 };
@@ -19,6 +19,7 @@ impl<const D: usize> From<(Connectivities, Set<Coordinates<D>>)> for Mesh<D> {
         Self {
             connectivities,
             coordinates,
+            node_sets: NodeSets::from(Vec::new()),
             nodes_elements: OnceCell::new(),
             nodes_nodes: OnceCell::new(),
         }
@@ -30,6 +31,7 @@ impl<const D: usize> From<(Vec<Connectivity>, Coordinates<D>)> for Mesh<D> {
         Self {
             connectivities: Connectivities::from(connectivities),
             coordinates: Set::from(coordinates),
+            node_sets: NodeSets::from(Vec::new()),
             nodes_elements: OnceCell::new(),
             nodes_nodes: OnceCell::new(),
         }

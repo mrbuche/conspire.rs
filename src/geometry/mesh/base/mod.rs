@@ -5,7 +5,7 @@ use crate::{
     geometry::{
         Coordinate, Coordinates, CoordinatesRef,
         bbox::{BoundingBox, BoundingBoxes},
-        mesh::{Connectivity, Mesh},
+        mesh::{Connectivity, Mesh, NodeSets},
     },
     math::{CrossProduct, Graph, Scalar, Tensor, TensorRank1Vec2D},
 };
@@ -100,6 +100,15 @@ impl<const D: usize> Mesh<D> {
     }
     pub fn connectivities(&self) -> &[Connectivity] {
         self.connectivities.members()
+    }
+    pub fn node_sets(&self) -> &[Vec<usize>] {
+        self.node_sets.members()
+    }
+    pub fn node_set_numbers(&self) -> Option<&[usize]> {
+        self.node_sets.numbers()
+    }
+    pub fn set_node_sets(&mut self, node_sets: NodeSets) {
+        self.node_sets = node_sets;
     }
     pub fn iter(&self) -> impl Iterator<Item = &Connectivity> {
         self.connectivities.members().iter()
