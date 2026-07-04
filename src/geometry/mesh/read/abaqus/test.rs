@@ -76,3 +76,36 @@ fn unknown_element_type_errors() {
     write(path, "*Node\n1, 0., 0., 0.\n*Element, type=C3D20\n1, 1\n").unwrap();
     assert!(Mesh::<3>::read_abaqus(path).is_err());
 }
+
+#[test]
+fn round_trip_node_sets() {
+    let connectivities = vec![Connectivity::Triangular(vec![[0, 1, 2], [1, 2, 3]].into())];
+    let coordinates = vec![
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [1.0, 1.0, 0.0],
+    ]
+    .into();
+    let mut mesh = Mesh::from((connectivities, coordinates));
+    mesh.set_node_sets(vec![vec![0, 1], vec![2, 3]].into());
+    let path = "target/round_trip_node_sets.inp";
+    mesh.write(Output::Abaqus(path)).unwrap();
+    let read = Mesh::<3>::read_abaqus(path).unwrap();
+    assert_eq!(read.node_sets(), &[vec![0, 1], vec![2, 3]]);
+}
+
+#[test]
+fn reads_nset_with_sparse_ids() {
+    let path = "target/nset_sparse.inp";
+    write(
+        path,
+        "*Heading\n deck\n*Node\n\
+         100, 0., 0., 0.\n200, 1., 0., 0.\n300, 1., 1., 0.\n400, 0., 1., 0.\n\
+         *Element, TYPE=S4, ELSET=Quad\n1, 100, 200, 300, 400\n\
+         *Nset, nset=FIXED\n100, 200,\n300\n",
+    )
+    .unwrap();
+    let mesh = Mesh::<3>::read_abaqus(path).unwrap();
+    assert_eq!(mesh.node_sets(), &[vec![0, 1, 2]]);
+}

@@ -69,6 +69,17 @@ where
                 element += 1;
             }
         }
+        for (set, nodes) in self.node_sets().iter().enumerate() {
+            writeln!(file, "*Nset, nset=NSET{}", set + 1)?;
+            for chunk in nodes.chunks(16) {
+                let line = chunk
+                    .iter()
+                    .map(|&node| (node + 1).to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                writeln!(file, "{line}")?;
+            }
+        }
         Ok(())
     }
 }

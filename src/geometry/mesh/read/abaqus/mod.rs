@@ -4,7 +4,7 @@ mod test;
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Connectivity, Mesh},
+        mesh::{Connectivity, Mesh, NodeSets},
     },
     math::Scalar,
 };
@@ -32,9 +32,10 @@ where
     fn read_abaqus(input: P) -> Result<Self> {
         let text = read_to_string(input)?;
         let mut lines = text.lines().peekable();
-        let mut points: Vec<[Scalar; D]> = Vec::new();
-        let mut node_index: HashMap<usize, usize> = HashMap::new();
-        let mut blocks: Vec<Connectivity> = Vec::new();
+        let mut points = Vec::<[Scalar; D]>::new();
+        let mut node_index = HashMap::<usize, usize>::new();
+        let mut blocks = Vec::<Connectivity>::new();
+        let mut node_sets = Vec::<Vec<usize>>::new();
         while let Some(line) = lines.next() {
             let line = line.trim();
             if line.is_empty() || line.starts_with("**") || !line.starts_with('*') {
@@ -60,11 +61,28 @@ where
                         .to_uppercase();
                     blocks.push(element_block(&element_type, &mut lines, &node_index)?);
                 }
+                "NSET" => {
+                    node_sets.push(
+                        tokens(&mut lines)
+                            .into_iter()
+                            .map(|token| {
+                                let id = parse(token)?;
+                                node_index.get(&id).copied().ok_or_else(|| {
+                                    invalid(format!("*Nset references unknown node {id}"))
+                                })
+                            })
+                            .collect::<Result<_>>()?,
+                    );
+                }
                 _ => {}
             }
         }
         let coordinates: Coordinates<D> = points.into_iter().map(|point| point.into()).collect();
-        Ok((blocks, coordinates).into())
+        let mut mesh = Mesh::<D>::from((blocks, coordinates));
+        if !node_sets.is_empty() {
+            mesh.set_node_sets(NodeSets::from(node_sets));
+        }
+        Ok(mesh)
     }
 }
 
@@ -107,7 +125,7 @@ fn elements<const N: usize>(
         .collect()
 }
 
-fn records<'a>(lines: &mut Peekable<Lines<'a>>, per_record: usize) -> Result<Vec<Vec<&'a str>>> {
+fn tokens<'a>(lines: &mut Peekable<Lines<'a>>) -> Vec<&'a str> {
     let mut tokens = Vec::new();
     while let Some(line) = lines.peek() {
         let trimmed = line.trim();
@@ -125,13 +143,18 @@ fn records<'a>(lines: &mut Peekable<Lines<'a>>, per_record: usize) -> Result<Vec
                 .filter(|token| !token.is_empty()),
         );
     }
-    if tokens.len() % per_record != 0 {
+    tokens
+}
+
+fn records<'a>(lines: &mut Peekable<Lines<'a>>, per_record: usize) -> Result<Vec<Vec<&'a str>>> {
+    let data = tokens(lines);
+    if !data.len().is_multiple_of(per_record) {
         return Err(invalid(format!(
             "{} data tokens not divisible by record size {per_record}",
-            tokens.len()
+            data.len()
         )));
     }
-    Ok(tokens.chunks(per_record).map(<[&str]>::to_vec).collect())
+    Ok(data.chunks(per_record).map(<[&str]>::to_vec).collect())
 }
 
 fn parameter<'a>(parameters: &[&'a str], key: &str) -> Option<&'a str> {
