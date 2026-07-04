@@ -4,7 +4,7 @@ mod test;
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Connectivities, Connectivity, Mesh},
+        mesh::{Connectivities, Connectivity, Mesh, NodeSets},
     },
     io::{GetVariable, NetCDF},
     math::Set,
@@ -80,7 +80,25 @@ where
             )),
             None => Set::from(coordinates),
         };
-        Ok((Connectivities::from((connectivities, blocks)), coordinates).into())
+        let mut mesh =
+            Mesh::<D>::from((Connectivities::from((connectivities, blocks)), coordinates));
+        if let Some(num_node_sets) = netcdf.try_dimension_length("num_node_sets")? {
+            let node_set_numbers = netcdf
+                .get_variable::<i32>("ns_prop1", num_node_sets)?
+                .into_iter()
+                .map(|id| id as usize)
+                .collect::<Vec<_>>();
+            let node_sets = (1..=num_node_sets)
+                .map(|set| {
+                    let num_nod_ns = netcdf.dimension_length(&format!("num_nod_ns{}", set))?;
+                    netcdf
+                        .get_variable::<i32>(&format!("node_ns{}", set), num_nod_ns)
+                        .map(|nodes| nodes.into_iter().map(|id| (id - 1) as usize).collect())
+                })
+                .collect::<Result<Vec<Vec<usize>>, _>>()?;
+            mesh.set_node_sets(NodeSets::from((node_sets, node_set_numbers)));
+        }
+        Ok(mesh)
     }
 }
 
