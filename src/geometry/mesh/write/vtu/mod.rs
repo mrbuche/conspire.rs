@@ -129,7 +129,7 @@ where
     }
 }
 
-fn data_array(data: &[u8]) -> String {
+pub(super) fn data_array(data: &[u8]) -> String {
     let mut buffer = Vec::with_capacity(8 + data.len());
     buffer.extend_from_slice(&(data.len() as u64).to_le_bytes());
     buffer.extend_from_slice(data);
