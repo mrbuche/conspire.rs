@@ -101,7 +101,11 @@ where
         }
         if let Some(num_side_sets) = netcdf.try_dimension_length("num_side_sets")? {
             let element_index: HashMap<usize, usize> = match &element_numbers {
-                Some(numbers) => numbers.iter().enumerate().map(|(i, &id)| (id as usize, i)).collect(),
+                Some(numbers) => numbers
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &id)| (id as usize, i))
+                    .collect(),
                 None => (0..num_elem).map(|i| (i + 1, i)).collect(),
             };
             let side_set_numbers = netcdf
@@ -112,14 +116,14 @@ where
             let side_sets = (1..=num_side_sets)
                 .map(|set| {
                     let num_side_ss = netcdf.dimension_length(&format!("num_side_ss{}", set))?;
-                    let elems = netcdf.get_variable::<i32>(&format!("elem_ss{}", set), num_side_ss)?;
-                    let sides = netcdf.get_variable::<i32>(&format!("side_ss{}", set), num_side_ss)?;
+                    let elems =
+                        netcdf.get_variable::<i32>(&format!("elem_ss{}", set), num_side_ss)?;
+                    let sides =
+                        netcdf.get_variable::<i32>(&format!("side_ss{}", set), num_side_ss)?;
                     Ok(elems
                         .into_iter()
                         .zip(sides)
-                        .map(|(elem, side)| {
-                            (element_index[&(elem as usize)], (side - 1) as usize)
-                        })
+                        .map(|(elem, side)| (element_index[&(elem as usize)], (side - 1) as usize))
                         .collect())
                 })
                 .collect::<Result<Vec<Vec<(usize, usize)>>, _>>()?;

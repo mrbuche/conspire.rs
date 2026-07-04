@@ -2,7 +2,7 @@ use crate::{
     geometry::{
         Coordinates,
         mesh::{
-            Connectivities, Connectivity, Input, Mesh, NodeSets, Output,
+            Connectivities, Connectivity, Input, Mesh, NodeSets, Output, SideSets,
             test::{CONNECTIVITY, COORDINATES, mesh},
         },
     },
@@ -193,4 +193,75 @@ fn round_trip_node_set_numbers() {
         Mesh::<3>::try_from(Input::Exodus("target/read_exodus_node_set_numbers.exo")).unwrap();
     assert_eq!(read.node_sets(), &[vec![0, 1], vec![2, 3]]);
     assert_eq!(read.node_set_numbers(), Some([10, 20].as_slice()));
+}
+
+#[test]
+fn round_trip_side_sets() {
+    let connectivities = vec![Connectivity::Triangular(vec![[0, 1, 2], [1, 2, 3]].into())];
+    let coordinates: Coordinates<3> = vec![
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [1.0, 1.0, 0.0],
+    ]
+    .into();
+    let mut original = Mesh::from((connectivities, coordinates));
+    original.set_side_sets(vec![vec![(0, 1)], vec![(0, 2), (1, 0)]].into());
+    original
+        .write(Output::Exodus("target/read_exodus_side_sets.exo"))
+        .unwrap();
+    let read = Mesh::<3>::try_from(Input::Exodus("target/read_exodus_side_sets.exo")).unwrap();
+    assert_eq!(read.side_sets(), &[vec![(0, 1)], vec![(0, 2), (1, 0)]]);
+    assert_eq!(read.side_set_numbers(), Some([1, 2].as_slice()));
+}
+
+#[test]
+fn round_trip_side_set_numbers() {
+    let connectivities = vec![Connectivity::Triangular(vec![[0, 1, 2], [1, 2, 3]].into())];
+    let coordinates: Coordinates<3> = vec![
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [1.0, 1.0, 0.0],
+    ]
+    .into();
+    let mut original = Mesh::from((connectivities, coordinates));
+    original.set_side_sets(SideSets::from((
+        vec![vec![(0, 1)], vec![(1, 0)]],
+        vec![10, 20],
+    )));
+    original
+        .write(Output::Exodus("target/read_exodus_side_set_numbers.exo"))
+        .unwrap();
+    let read =
+        Mesh::<3>::try_from(Input::Exodus("target/read_exodus_side_set_numbers.exo")).unwrap();
+    assert_eq!(read.side_sets(), &[vec![(0, 1)], vec![(1, 0)]]);
+    assert_eq!(read.side_set_numbers(), Some([10, 20].as_slice()));
+}
+
+#[test]
+fn round_trip_side_sets_with_custom_element_numbers() {
+    let mut block_0 = Connectivity::Triangular(vec![[0, 1, 2]].into());
+    block_0.number_elements(vec![100]);
+    let mut block_1 = Connectivity::Triangular(vec![[1, 2, 3]].into());
+    block_1.number_elements(vec![200]);
+    let coordinates: Coordinates<3> = vec![
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [1.0, 1.0, 0.0],
+    ]
+    .into();
+    let mut original = Mesh::from((vec![block_0, block_1], coordinates));
+    original.set_side_sets(vec![vec![(0, 0), (1, 2)]].into());
+    original
+        .write(Output::Exodus(
+            "target/read_exodus_side_sets_custom_elements.exo",
+        ))
+        .unwrap();
+    let read = Mesh::<3>::try_from(Input::Exodus(
+        "target/read_exodus_side_sets_custom_elements.exo",
+    ))
+    .unwrap();
+    assert_eq!(read.side_sets(), &[vec![(0, 0), (1, 2)]]);
 }
