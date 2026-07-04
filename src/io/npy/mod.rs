@@ -15,39 +15,45 @@ pub trait NpyType: Copy {
     const SIZE: usize;
     fn write_le(self, buffer: &mut Vec<u8>);
     fn read_le(bytes: &[u8]) -> Self;
+    #[cfg(target_endian = "little")]
     fn read_from<R: Read>(file: &mut R, count: usize) -> Result<Vec<Self>> {
-        if cfg!(target_endian = "little") {
-            let mut data = Vec::<Self>::with_capacity(count);
-            unsafe {
-                let bytes = std::slice::from_raw_parts_mut(
-                    data.as_mut_ptr() as *mut u8,
-                    count * Self::SIZE,
-                );
-                file.read_exact(bytes)
-                    .map_err(|_| invalid("truncated .npy data".into()))?;
-                data.set_len(count);
-            }
-            Ok(data)
-        } else {
-            let mut bytes = vec![0u8; count * Self::SIZE];
-            file.read_exact(&mut bytes)
+        let mut data = Vec::<Self>::with_capacity(count);
+        unsafe {
+            let bytes =
+                std::slice::from_raw_parts_mut(data.as_mut_ptr() as *mut u8, count * Self::SIZE);
+            file.read_exact(bytes)
                 .map_err(|_| invalid("truncated .npy data".into()))?;
-            Ok(bytes.chunks_exact(Self::SIZE).map(Self::read_le).collect())
+            data.set_len(count);
         }
+        Ok(data)
     }
+    #[cfg(target_endian = "big")]
+    fn read_from<R: Read>(file: &mut R, count: usize) -> Result<Vec<Self>> {
+        let mut bytes = vec![0u8; count * Self::SIZE];
+        file.read_exact(&mut bytes)
+            .map_err(|_| invalid("truncated .npy data".into()))?;
+        Ok(Self::read_le_all(&bytes))
+    }
+    fn read_le_all(bytes: &[u8]) -> Vec<Self> {
+        bytes.chunks_exact(Self::SIZE).map(Self::read_le).collect()
+    }
+    #[cfg(target_endian = "little")]
     fn write_le_all<W: io::Write>(data: &[Self], file: &mut W) -> Result<()> {
-        if cfg!(target_endian = "little") {
-            let bytes = unsafe {
-                std::slice::from_raw_parts(data.as_ptr() as *const u8, std::mem::size_of_val(data))
-            };
-            file.write_all(bytes)
-        } else {
-            let mut buffer = Vec::with_capacity(std::mem::size_of_val(data));
-            for &value in data {
-                value.write_le(&mut buffer);
-            }
-            file.write_all(&buffer)
+        let bytes = unsafe {
+            std::slice::from_raw_parts(data.as_ptr() as *const u8, std::mem::size_of_val(data))
+        };
+        file.write_all(bytes)
+    }
+    #[cfg(target_endian = "big")]
+    fn write_le_all<W: io::Write>(data: &[Self], file: &mut W) -> Result<()> {
+        file.write_all(&Self::write_le_bytes(data))
+    }
+    fn write_le_bytes(data: &[Self]) -> Vec<u8> {
+        let mut buffer = Vec::with_capacity(std::mem::size_of_val(data));
+        for &value in data {
+            value.write_le(&mut buffer);
         }
+        buffer
     }
 }
 
