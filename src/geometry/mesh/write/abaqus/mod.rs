@@ -80,6 +80,23 @@ where
                 writeln!(file, "{line}")?;
             }
         }
+        for (set, sides) in self.side_sets().iter().enumerate() {
+            writeln!(file, "*Surface, type=ELEMENT, name=SURF{}", set + 1)?;
+            for &(element, ordinal) in sides {
+                let mut offset = 0;
+                let connectivity = self
+                    .iter()
+                    .find(|connectivity| {
+                        let count = connectivity.number_of_elements();
+                        let found = element < offset + count;
+                        offset += count;
+                        found
+                    })
+                    .expect("side set references an out-of-range element");
+                let label = connectivity.abaqus_side(ordinal);
+                writeln!(file, "{}, S{label}", element + 1)?;
+            }
+        }
         Ok(())
     }
 }

@@ -60,6 +60,22 @@ impl Connectivity {
             Connectivity::Polygonal(_) | Connectivity::Polyhedral(_) => todo!(),
         }
     }
+    pub fn abaqus_side(&self, ordinal: usize) -> usize {
+        match self {
+            Connectivity::Hexahedral(_) => [3, 4, 5, 6, 1, 2][ordinal],
+            Connectivity::Tetrahedral(_) => [2, 3, 4, 1][ordinal],
+            Connectivity::Pyramidal(_) => [2, 3, 4, 5, 1][ordinal],
+            Connectivity::Wedge(_) => [3, 4, 5, 1, 2][ordinal],
+            Connectivity::Quadrilateral(_) => [1, 2, 3, 4][ordinal],
+            Connectivity::Triangular(_) => [1, 2, 3][ordinal],
+            Connectivity::Polygonal(_) | Connectivity::Polyhedral(_) => todo!(),
+        }
+    }
+    pub fn local_face_from_abaqus_side(&self, side: usize) -> usize {
+        (0..self.local_faces().len())
+            .find(|&ordinal| self.abaqus_side(ordinal) == side)
+            .expect("invalid Abaqus side label for this element type")
+    }
     pub fn add_edge_adjacency(&self, nodes_nodes: &mut [Vec<usize>]) {
         match self {
             Connectivity::Triangular(c) => c.add_edge_adjacency_triangular(nodes_nodes),
