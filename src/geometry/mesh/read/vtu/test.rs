@@ -86,3 +86,48 @@ fn compressed_is_unsupported() {
     .unwrap();
     assert!(Mesh::<3>::read_vtu(path).is_err());
 }
+
+#[test]
+fn round_trip_node_sets() {
+    let connectivities = vec![Connectivity::Triangular(vec![[0, 1, 2], [1, 2, 3]].into())];
+    let coordinates = vec![
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [1.0, 1.0, 0.0],
+    ]
+    .into();
+    let mut mesh = Mesh::from((connectivities, coordinates));
+    mesh.set_node_sets(vec![vec![0, 1], vec![2, 3]].into());
+    let path = "target/round_trip_node_sets.vtu";
+    mesh.write(Output::Vtu(path)).unwrap();
+    let read = Mesh::<3>::read_vtu(path).unwrap();
+    assert_eq!(read.node_sets(), &[vec![0, 1], vec![2, 3]]);
+}
+
+#[test]
+fn reads_point_data_node_sets_ascii() {
+    let path = "target/ascii_node_sets.vtu";
+    write(
+        path,
+        "<?xml version=\"1.0\"?>\n\
+         <VTKFile type=\"UnstructuredGrid\" byte_order=\"LittleEndian\">\n\
+         <UnstructuredGrid><Piece NumberOfPoints=\"4\" NumberOfCells=\"1\">\n\
+         <PointData>\n\
+         <DataArray type=\"UInt8\" Name=\"NodeSet1\" format=\"ascii\">1 1 0 0</DataArray>\n\
+         <DataArray type=\"UInt8\" Name=\"NodeSet2\" format=\"ascii\">0 0 1 1</DataArray>\n\
+         </PointData>\n\
+         <Points>\n\
+         <DataArray type=\"Float64\" NumberOfComponents=\"3\" format=\"ascii\">\
+         0 0 0 1 0 0 0 1 0 1 1 0</DataArray>\n\
+         </Points>\n\
+         <Cells>\n\
+         <DataArray type=\"Int64\" Name=\"connectivity\" format=\"ascii\">0 1 2 1 2 3</DataArray>\n\
+         <DataArray type=\"Int64\" Name=\"offsets\" format=\"ascii\">3 6</DataArray>\n\
+         <DataArray type=\"UInt8\" Name=\"types\" format=\"ascii\">5 5</DataArray>\n\
+         </Cells></Piece></UnstructuredGrid></VTKFile>\n",
+    )
+    .unwrap();
+    let mesh = Mesh::<3>::read_vtu(path).unwrap();
+    assert_eq!(mesh.node_sets(), &[vec![0, 1], vec![2, 3]]);
+}

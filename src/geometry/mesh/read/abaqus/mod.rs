@@ -4,7 +4,7 @@ mod test;
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Connectivity, Mesh, NodeSets},
+        mesh::{Connectivity, Mesh},
     },
     math::Scalar,
 };
@@ -80,7 +80,7 @@ where
         let coordinates: Coordinates<D> = points.into_iter().map(|point| point.into()).collect();
         let mut mesh = Mesh::<D>::from((blocks, coordinates));
         if !node_sets.is_empty() {
-            mesh.set_node_sets(NodeSets::from(node_sets));
+            mesh.set_node_sets(node_sets.into());
         }
         Ok(mesh)
     }

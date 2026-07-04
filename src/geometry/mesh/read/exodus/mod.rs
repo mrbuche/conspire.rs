@@ -4,7 +4,7 @@ mod test;
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Connectivities, Connectivity, Mesh, NodeSets},
+        mesh::{Connectivities, Connectivity, Mesh},
     },
     io::{GetVariable, NetCDF},
     math::Set,
@@ -96,7 +96,7 @@ where
                         .map(|nodes| nodes.into_iter().map(|id| (id - 1) as usize).collect())
                 })
                 .collect::<Result<Vec<Vec<usize>>, _>>()?;
-            mesh.set_node_sets(NodeSets::from((node_sets, node_set_numbers)));
+            mesh.set_node_sets((node_sets, node_set_numbers).into());
         }
         Ok(mesh)
     }

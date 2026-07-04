@@ -73,7 +73,29 @@ where
             .chunks(components)
             .map(|point| std::array::from_fn(|i| point[i]).into())
             .collect();
-        Ok((blocks(&connectivity, &offsets, &types)?, coordinates).into())
+        let mut mesh = Mesh::<D>::from((blocks(&connectivity, &offsets, &types)?, coordinates));
+        if let Ok(point_data) = region(&text, "PointData") {
+            let mut node_sets = Vec::new();
+            let mut set = 1;
+            while point_data.contains(&format!("Name=\"NodeSet{set}\"")) {
+                let flags = integers(
+                    &data_array(point_data, Some(&format!("NodeSet{set}")))?,
+                    header_bytes,
+                )?;
+                node_sets.push(
+                    flags
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(node, &flag)| (flag != 0).then_some(node))
+                        .collect(),
+                );
+                set += 1;
+            }
+            if !node_sets.is_empty() {
+                mesh.set_node_sets(node_sets.into());
+            }
+        }
+        Ok(mesh)
     }
 }
 
