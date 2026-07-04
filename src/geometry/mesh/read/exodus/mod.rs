@@ -9,7 +9,7 @@ use crate::{
     io::{GetVariable, NetCDF},
     math::Set,
 };
-use std::{array::from_fn, ffi::NulError, path::Path};
+use std::{array::from_fn, collections::HashMap, ffi::NulError, path::Path};
 
 pub trait ReadExodus<P>
 where
@@ -42,7 +42,8 @@ where
             .into_iter()
             .map(|id| id as usize)
             .collect();
-        if let Some(element_numbers) = netcdf.try_get_variable::<i32>("elem_num_map", num_elem)? {
+        let element_numbers = netcdf.try_get_variable::<i32>("elem_num_map", num_elem)?;
+        if let Some(element_numbers) = &element_numbers {
             let mut offset = 0;
             connectivities.iter_mut().for_each(|connectivity| {
                 let count = connectivity.number_of_elements();
@@ -97,6 +98,32 @@ where
                 })
                 .collect::<Result<Vec<Vec<usize>>, _>>()?;
             mesh.set_node_sets((node_sets, node_set_numbers).into());
+        }
+        if let Some(num_side_sets) = netcdf.try_dimension_length("num_side_sets")? {
+            let element_index: HashMap<usize, usize> = match &element_numbers {
+                Some(numbers) => numbers.iter().enumerate().map(|(i, &id)| (id as usize, i)).collect(),
+                None => (0..num_elem).map(|i| (i + 1, i)).collect(),
+            };
+            let side_set_numbers = netcdf
+                .get_variable::<i32>("ss_prop1", num_side_sets)?
+                .into_iter()
+                .map(|id| id as usize)
+                .collect::<Vec<_>>();
+            let side_sets = (1..=num_side_sets)
+                .map(|set| {
+                    let num_side_ss = netcdf.dimension_length(&format!("num_side_ss{}", set))?;
+                    let elems = netcdf.get_variable::<i32>(&format!("elem_ss{}", set), num_side_ss)?;
+                    let sides = netcdf.get_variable::<i32>(&format!("side_ss{}", set), num_side_ss)?;
+                    Ok(elems
+                        .into_iter()
+                        .zip(sides)
+                        .map(|(elem, side)| {
+                            (element_index[&(elem as usize)], (side - 1) as usize)
+                        })
+                        .collect())
+                })
+                .collect::<Result<Vec<Vec<(usize, usize)>>, _>>()?;
+            mesh.set_side_sets((side_sets, side_set_numbers).into());
         }
         Ok(mesh)
     }
