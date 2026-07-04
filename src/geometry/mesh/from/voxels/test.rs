@@ -1,7 +1,43 @@
-use crate::geometry::{grid::Voxels, mesh::Mesh};
+use crate::{
+    geometry::{
+        grid::{Input, Voxels},
+        mesh::Mesh,
+    },
+    io::{Npy, Write},
+};
 
 fn first_element(mesh: &Mesh<3>, block: usize) -> &[usize] {
     mesh.iter().nth(block).unwrap().iter().next().unwrap()
+}
+
+fn min_corner(mesh: &Mesh<3>, element: &[usize]) -> [usize; 3] {
+    let coordinates = mesh.coordinates();
+    let mut min = [usize::MAX; 3];
+    element.iter().for_each(|&node| {
+        let point = &coordinates[node];
+        (0..3).for_each(|axis| min[axis] = min[axis].min(point[axis] as usize))
+    });
+    min
+}
+
+#[test]
+fn c_order_npy_meshes_with_correct_orientation() {
+    let nel = [2usize, 1, 3];
+    let [nx, ny, nz] = nel;
+    let path = "target/orient_mesh.npy";
+    Npy {
+        data: (1..=(nx * ny * nz) as u8).collect(),
+        shape: vec![nx, ny, nz],
+        fortran_order: false,
+    }
+    .write(path)
+    .unwrap();
+    let voxels = Voxels::<u8>::try_from(Input::Npy(path)).unwrap();
+    let mesh = Mesh::from_voxels(voxels, None);
+    assert_eq!(min_corner(&mesh, first_element(&mesh, 3)), [1, 0, 0]);
+    assert_eq!(min_corner(&mesh, first_element(&mesh, 2)), [0, 0, 2]);
+    assert_eq!(min_corner(&mesh, first_element(&mesh, 0)), [0, 0, 0]);
+    assert_eq!(min_corner(&mesh, first_element(&mesh, 5)), [1, 0, 2]);
 }
 
 #[test]

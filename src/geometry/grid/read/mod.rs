@@ -52,19 +52,18 @@ where
                         format!("npy has {} axes but Grid was asked for D={D}", shape.len()),
                     )
                 })?;
-                let data = if npy.fortran_order {
-                    npy.data
+                if npy.fortran_order {
+                    Ok(Grid::new(npy.data, nel))
                 } else {
-                    transpose(npy.data, nel)
-                };
-                Ok(Grid::new(data, nel))
+                    Ok(Grid::new_row_major(npy.data, nel))
+                }
             }
             Input::Vti(path) => vti::read(path),
         }
     }
 }
 
-fn transpose<const D: usize, T: Copy>(c_order: Vec<T>, nel: [usize; D]) -> Vec<T> {
+pub(super) fn transpose<const D: usize, T: Copy>(c_order: Vec<T>, nel: [usize; D]) -> Vec<T> {
     let total: usize = nel.iter().product();
     let mut f_stride = [1usize; D];
     for axis in 1..D {
@@ -94,7 +93,10 @@ unsafe fn transpose_block<const D: usize, T: Copy>(
     f_stride: &[usize; D],
 ) {
     const TILE: usize = 16;
-    if let Some(axis) = (0..D).filter(|&axis| len[axis] > TILE).max_by_key(|&axis| len[axis]) {
+    if let Some(axis) = (0..D)
+        .filter(|&axis| len[axis] > TILE)
+        .max_by_key(|&axis| len[axis])
+    {
         let half = len[axis] / 2;
         let mut lo = len;
         lo[axis] = half;

@@ -20,7 +20,7 @@ where
     let cells: [usize; 3] = from_fn(|axis| if axis < D { voxels.nel()[axis] } else { 0 });
     let extent = format!("0 {} 0 {} 0 {}", cells[0], cells[1], cells[2]);
     let mut data = Vec::with_capacity(voxels.len() * T::SIZE);
-    for &value in voxels.data() {
+    for &value in voxels.data_col_major().iter() {
         value.write_le(&mut data);
     }
     let mut file = BufWriter::new(File::create(path)?);

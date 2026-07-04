@@ -45,12 +45,12 @@ where
         let [nx, ny, _] = nel;
         let void = T::default();
         let data = voxels.data();
-        let cell = |idx: [usize; 3]| idx[0] + nx * idx[1] + nx * ny * idx[2];
+        let cell = |idx: [usize; 3]| voxels.flat(idx);
         let label = |idx: [isize; 3]| -> T {
             if (0..3).any(|ax| idx[ax] < 0 || idx[ax] >= nel[ax] as isize) {
                 void
             } else {
-                data[idx[0] as usize + nx * idx[1] as usize + nx * ny * idx[2] as usize]
+                data[voxels.flat([idx[0] as usize, idx[1] as usize, idx[2] as usize])]
             }
         };
         let mut quads = Vec::new();
