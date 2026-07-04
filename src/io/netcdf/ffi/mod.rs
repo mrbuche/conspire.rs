@@ -5,6 +5,7 @@ pub const NC_FLOAT: i32 = 5;
 pub const NC_DOUBLE: i32 = 6;
 pub const NC_INT: i32 = 4;
 pub const NC_NOWRITE: c_int = 0;
+pub const NC_64BIT_DATA: c_int = 0x0020;
 
 unsafe extern "C" {
     pub fn nc_create(path: *const c_char, cmode: c_int, ncidp: *mut c_int) -> c_int;
