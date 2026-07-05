@@ -281,6 +281,38 @@ fn write_le_bytes_and_read_le_all_round_trip() {
     let data = vec![1u8, 2, 3];
     let bytes = u8::write_le_bytes(&data);
     assert_eq!(u8::read_le_all(&bytes), data);
+
+    let data = vec![-1i8, 2, -3];
+    let bytes = i8::write_le_bytes(&data);
+    assert_eq!(i8::read_le_all(&bytes), data);
+
+    let data = vec![1u16, 2, 3];
+    let bytes = u16::write_le_bytes(&data);
+    assert_eq!(u16::read_le_all(&bytes), data);
+
+    let data = vec![-1i16, 2, -3];
+    let bytes = i16::write_le_bytes(&data);
+    assert_eq!(i16::read_le_all(&bytes), data);
+
+    let data = vec![1u32, 2, 3];
+    let bytes = u32::write_le_bytes(&data);
+    assert_eq!(u32::read_le_all(&bytes), data);
+
+    let data = vec![-1i32, 2, -3];
+    let bytes = i32::write_le_bytes(&data);
+    assert_eq!(i32::read_le_all(&bytes), data);
+
+    let data = vec![1u64, 2, 3];
+    let bytes = u64::write_le_bytes(&data);
+    assert_eq!(u64::read_le_all(&bytes), data);
+
+    let data = vec![-1i64, 2, -3];
+    let bytes = i64::write_le_bytes(&data);
+    assert_eq!(i64::read_le_all(&bytes), data);
+
+    let data = vec![1.5_f32, -2.0, 3.25];
+    let bytes = f32::write_le_bytes(&data);
+    assert_eq!(f32::read_le_all(&bytes), data);
 }
 
 #[test]
