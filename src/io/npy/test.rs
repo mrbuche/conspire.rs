@@ -227,6 +227,18 @@ fn read_truncated_version_2_header_length_errors() {
 }
 
 #[test]
+fn read_truncated_header_errors() {
+    let path = "target/npy_short_header.npy";
+    let mut bytes = b"\x93NUMPY".to_vec();
+    bytes.push(1);
+    bytes.push(0);
+    bytes.extend_from_slice(&100u16.to_le_bytes());
+    bytes.extend_from_slice(b"{'descr'");
+    write(path, bytes).unwrap();
+    assert!(Npy::<u8>::read(path).is_err());
+}
+
+#[test]
 fn round_trip_fortran_order() {
     let data: Vec<u16> = (0..24).collect();
     let path = "target/npy_f.npy";
@@ -282,4 +294,92 @@ fn dtype_mismatch_errors() {
     .write(path)
     .unwrap();
     assert!(Npy::<u16>::read(path).is_err());
+}
+
+fn round_trip<T: NpyType + Copy + PartialEq + std::fmt::Debug>(tag: &str, data: Vec<T>) {
+    let path = format!("target/npy_generic_{tag}.npy");
+    Npy {
+        data: data.clone(),
+        shape: vec![data.len()],
+        fortran_order: false,
+    }
+    .write(path.as_str())
+    .unwrap();
+    let npy = Npy::<T>::read(path.as_str()).unwrap();
+    assert_eq!(npy.data, data);
+    assert_eq!(npy.shape, [data.len()]);
+    assert!(!npy.fortran_order);
+}
+
+#[test]
+fn round_trip_remaining_numeric_types() {
+    round_trip::<i8>("i8", vec![-1, 2, -3]);
+    round_trip::<i16>("i16", vec![-1, 2, -3]);
+    round_trip::<i32>("i32", vec![-1, 2, -3]);
+    round_trip::<u32>("u32", vec![1, 2, 3]);
+    round_trip::<i64>("i64", vec![-1, 2, -3]);
+    round_trip::<u64>("u64", vec![1, 2, 3]);
+    round_trip::<f32>("f32", vec![1.5, -2.0, 3.25]);
+}
+
+fn read_error_paths<T: NpyType>(tag: &str, wrong_descr: &str) {
+    let path = format!("target/npy_generic_{tag}_not_npy.npy");
+    write(&path, b"this is not a numpy file").unwrap();
+    assert!(Npy::<T>::read(path.as_str()).is_err());
+
+    let path = format!("target/npy_generic_{tag}_short_prefix.npy");
+    write(&path, &b"\x93NUMPY\x01\x00"[..]).unwrap();
+    assert!(Npy::<T>::read(path.as_str()).is_err());
+
+    let path = format!("target/npy_generic_{tag}_missing.npy");
+    assert!(Npy::<T>::read(path.as_str()).is_err());
+
+    let data = vec![0u8; T::SIZE];
+    let path = format!("target/npy_generic_{tag}_v3.npy");
+    write(&path, npy_bytes(3, T::DESCR, 1, &data)).unwrap();
+    assert!(Npy::<T>::read(path.as_str()).is_err());
+
+    let path = format!("target/npy_generic_{tag}_short_header.npy");
+    let mut bytes = b"\x93NUMPY".to_vec();
+    bytes.push(1);
+    bytes.push(0);
+    bytes.extend_from_slice(&100u16.to_le_bytes());
+    bytes.extend_from_slice(b"{'descr'");
+    write(&path, bytes).unwrap();
+    assert!(Npy::<T>::read(path.as_str()).is_err());
+
+    let path = format!("target/npy_generic_{tag}_badutf8.npy");
+    write(&path, npy_raw(&[0xff, 0xfe, 0x00], &[])).unwrap();
+    assert!(Npy::<T>::read(path.as_str()).is_err());
+
+    let path = format!("target/npy_generic_{tag}_nodescr.npy");
+    write(
+        &path,
+        npy_raw(b"{'fortran_order': False, 'shape': (1, ), }", &data),
+    )
+    .unwrap();
+    assert!(Npy::<T>::read(path.as_str()).is_err());
+
+    let path = format!("target/npy_generic_{tag}_dtype.npy");
+    write(&path, npy_bytes(1, wrong_descr, 1, &data)).unwrap();
+    assert!(Npy::<T>::read(path.as_str()).is_err());
+
+    let path = format!("target/npy_generic_{tag}_badshape.npy");
+    let header = format!(
+        "{{'descr': '{}', 'fortran_order': False, 'shape': (x, ), }}",
+        T::DESCR
+    );
+    write(&path, npy_raw(header.as_bytes(), &[])).unwrap();
+    assert!(Npy::<T>::read(path.as_str()).is_err());
+
+    let path = format!("target/npy_generic_{tag}_truncdata.npy");
+    write(&path, npy_bytes(1, T::DESCR, 10, &data)).unwrap();
+    assert!(Npy::<T>::read(path.as_str()).is_err());
+}
+
+#[test]
+fn read_error_paths_f64_and_u16() {
+    read_error_paths::<f64>("f64", "|u1");
+    read_error_paths::<u16>("u16", "|u1");
+    read_error_paths::<u8>("u8_generic", "|i1");
 }
