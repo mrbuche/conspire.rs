@@ -131,3 +131,95 @@ fn reads_point_data_node_sets_ascii() {
     let mesh = Mesh::<3>::read_vtk_unstructured(path).unwrap();
     assert_eq!(mesh.node_sets(), &[vec![0, 1], vec![2, 3]]);
 }
+
+#[test]
+fn round_trip_polyhedral() {
+    let elements_faces = vec![vec![0_usize, 1, 2, 3, 4, 5], vec![6, 7, 8, 9, 10, 11]];
+    let faces_nodes = vec![
+        vec![0_usize, 1, 4, 3],
+        vec![6, 7, 10, 9],
+        vec![0, 1, 7, 6],
+        vec![1, 4, 10, 7],
+        vec![4, 3, 9, 10],
+        vec![3, 0, 6, 9],
+        vec![1, 2, 5, 4],
+        vec![7, 8, 11, 10],
+        vec![1, 2, 8, 7],
+        vec![2, 5, 11, 8],
+        vec![5, 4, 10, 11],
+        vec![4, 1, 7, 10],
+    ];
+    let connectivities = vec![Connectivity::Polyhedral(
+        (elements_faces.clone(), faces_nodes).into(),
+    )];
+    let coordinates = vec![
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [2.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [1.0, 1.0, 0.0],
+        [2.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0],
+        [1.0, 0.0, 1.0],
+        [2.0, 0.0, 1.0],
+        [0.0, 1.0, 1.0],
+        [1.0, 1.0, 1.0],
+        [2.0, 1.0, 1.0],
+    ]
+    .into();
+    let path = "target/round_trip_polyhedral.vtu";
+    Mesh::from((connectivities, coordinates))
+        .write(Output::VtkUnstructured(path))
+        .unwrap();
+    let mesh = Mesh::<3>::read_vtk_unstructured(path).unwrap();
+    assert_eq!(mesh.number_of_nodes(), 12);
+    match &mesh.connectivities()[0] {
+        Connectivity::Polyhedral(poly) => assert!(poly.iter().eq(elements_faces.iter())),
+        _ => panic!("expected Polyhedral block"),
+    }
+}
+
+#[test]
+fn round_trip_mixed_hexahedral_and_polyhedral() {
+    let hex = Connectivity::Hexahedral(vec![[0, 1, 2, 3, 4, 5, 6, 7]].into());
+    let elements_faces = vec![vec![0_usize, 1, 2, 3, 4, 5]];
+    let faces_nodes = vec![
+        vec![8_usize, 9, 10, 11],
+        vec![12, 13, 14, 15],
+        vec![8, 9, 13, 12],
+        vec![9, 10, 14, 13],
+        vec![10, 11, 15, 14],
+        vec![11, 8, 12, 15],
+    ];
+    let poly = Connectivity::Polyhedral((elements_faces.clone(), faces_nodes).into());
+    let coordinates = vec![
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 1.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0],
+        [1.0, 0.0, 1.0],
+        [1.0, 1.0, 1.0],
+        [0.0, 1.0, 1.0],
+        [2.0, 0.0, 0.0],
+        [3.0, 0.0, 0.0],
+        [3.0, 1.0, 0.0],
+        [2.0, 1.0, 0.0],
+        [2.0, 0.0, 1.0],
+        [3.0, 0.0, 1.0],
+        [3.0, 1.0, 1.0],
+        [2.0, 1.0, 1.0],
+    ]
+    .into();
+    let path = "target/round_trip_mixed_hex_polyhedral.vtu";
+    Mesh::from((vec![hex, poly], coordinates))
+        .write(Output::VtkUnstructured(path))
+        .unwrap();
+    let mesh = Mesh::<3>::read_vtk_unstructured(path).unwrap();
+    assert_eq!(mesh.number_of_element_blocks(), 2);
+    assert_eq!(first_element(&mesh, 0), [0, 1, 2, 3, 4, 5, 6, 7]);
+    match &mesh.connectivities()[1] {
+        Connectivity::Polyhedral(poly) => assert!(poly.iter().eq(elements_faces.iter())),
+        _ => panic!("expected Polyhedral block"),
+    }
+}
