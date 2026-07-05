@@ -265,3 +265,34 @@ fn round_trip_side_sets_with_custom_element_numbers() {
     .unwrap();
     assert_eq!(read.side_sets(), &[vec![(0, 0), (1, 2)]]);
 }
+
+#[test]
+fn round_trip_polygonal() {
+    let elements_faces = vec![vec![0_usize, 1, 2, 3]];
+    let faces_nodes = vec![vec![0_usize, 1], vec![1, 2], vec![2, 3], vec![3, 0]];
+    let connectivities = vec![Connectivity::Polygonal(
+        (elements_faces.clone(), faces_nodes).into(),
+    )];
+    let coordinates: Coordinates<3> = vec![
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 1.0, 0.0],
+        [0.0, 1.0, 0.0],
+    ]
+    .into();
+    let original = Mesh::from((connectivities, coordinates.clone()));
+    original
+        .write(Output::Exodus(
+            "target/read_exodus_round_trip_polygonal.exo",
+        ))
+        .unwrap();
+    let read =
+        Mesh::<3>::try_from(Input::Exodus("target/read_exodus_round_trip_polygonal.exo")).unwrap();
+    assert_eq!(read.coordinates(), &coordinates);
+    match &read.connectivities()[0] {
+        Connectivity::Polygonal(poly) => {
+            assert!(poly.iter().eq(elements_faces.iter()));
+        }
+        _ => panic!("expected Polygonal block"),
+    }
+}
