@@ -85,9 +85,11 @@ fn write_side_set<const D: usize>(
 ) -> Result<()> {
     let coordinates = mesh.coordinates();
     let mut local_index = HashMap::new();
-    let mut points: Vec<[f64; 3]> = Vec::new();
-    let mut polys: Vec<Vec<usize>> = Vec::new();
-    let mut lines: Vec<Vec<usize>> = Vec::new();
+    let mut points = Vec::<[f64; 3]>::new();
+    let mut polys = Vec::<Vec<usize>>::new();
+    let mut poly_ids = Vec::<(usize, usize)>::new();
+    let mut lines = Vec::<Vec<usize>>::new();
+    let mut line_ids = Vec::<(usize, usize)>::new();
     for &(element, ordinal) in sides {
         let (connectivity, local) = locate_element(mesh, element);
         let nodes = connectivity
@@ -109,8 +111,10 @@ fn write_side_set<const D: usize>(
             .collect();
         if face.len() == 2 {
             lines.push(face);
+            line_ids.push((element, ordinal));
         } else {
             polys.push(face);
+            poly_ids.push((element, ordinal));
         }
     }
     let mut point_bytes = Vec::with_capacity(points.len() * 3 * 8);
@@ -121,6 +125,9 @@ fn write_side_set<const D: usize>(
     });
     let (line_connectivity, line_offsets) = flatten(&lines);
     let (poly_connectivity, poly_offsets) = flatten(&polys);
+    let cell_ids: Vec<(usize, usize)> = line_ids.into_iter().chain(poly_ids).collect();
+    let element_ids = flatten_scalars(cell_ids.iter().map(|&(element, _)| element));
+    let face_ids = flatten_scalars(cell_ids.iter().map(|&(_, ordinal)| ordinal));
     let mut file = BufWriter::new(File::create(output)?);
     writeln!(file, "<?xml version=\"1.0\"?>")?;
     writeln!(
@@ -135,6 +142,18 @@ fn write_side_set<const D: usize>(
         lines.len(),
         polys.len()
     )?;
+    writeln!(file, "      <CellData>")?;
+    writeln!(
+        file,
+        "        <DataArray type=\"Int64\" Name=\"OriginalElementIds\" format=\"binary\">{}</DataArray>",
+        data_array(&element_ids)
+    )?;
+    writeln!(
+        file,
+        "        <DataArray type=\"Int64\" Name=\"OriginalFaceIds\" format=\"binary\">{}</DataArray>",
+        data_array(&face_ids)
+    )?;
+    writeln!(file, "      </CellData>")?;
     writeln!(file, "      <Points>")?;
     writeln!(
         file,
@@ -174,6 +193,12 @@ fn write_side_set<const D: usize>(
     writeln!(file, "  </PolyData>")?;
     writeln!(file, "</VTKFile>")?;
     Ok(())
+}
+
+fn flatten_scalars(values: impl Iterator<Item = usize>) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    values.for_each(|value| bytes.extend_from_slice(&(value as i64).to_le_bytes()));
+    bytes
 }
 
 fn flatten(faces: &[Vec<usize>]) -> (Vec<u8>, Vec<u8>) {

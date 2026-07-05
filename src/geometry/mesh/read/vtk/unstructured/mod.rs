@@ -100,7 +100,7 @@ where
 }
 
 #[derive(Clone, Copy)]
-struct DataArray<'a> {
+pub(super) struct DataArray<'a> {
     data_type: &'a str,
     format: &'a str,
     text: &'a str,
@@ -165,7 +165,7 @@ fn floats(array: &DataArray, header_bytes: usize) -> Result<Vec<Scalar>> {
     })
 }
 
-fn integers(array: &DataArray, header_bytes: usize) -> Result<Vec<i64>> {
+pub(super) fn integers(array: &DataArray, header_bytes: usize) -> Result<Vec<i64>> {
     if array.format == "ascii" {
         return array.text.split_whitespace().map(parse).collect();
     }
@@ -237,7 +237,7 @@ fn unbase64(text: &str) -> Vec<u8> {
     out
 }
 
-fn tag<'a>(text: &'a str, open: &str) -> Result<&'a str> {
+pub(super) fn tag<'a>(text: &'a str, open: &str) -> Result<&'a str> {
     let start = text
         .find(open)
         .ok_or_else(|| invalid(format!("missing {open} in VTU")))?;
@@ -247,7 +247,7 @@ fn tag<'a>(text: &'a str, open: &str) -> Result<&'a str> {
     Ok(&text[start..start + end])
 }
 
-fn region<'a>(text: &'a str, name: &str) -> Result<&'a str> {
+pub(super) fn region<'a>(text: &'a str, name: &str) -> Result<&'a str> {
     let open = format!("<{name}>");
     let close = format!("</{name}>");
     let start = text
@@ -259,7 +259,7 @@ fn region<'a>(text: &'a str, name: &str) -> Result<&'a str> {
     Ok(&text[start..end])
 }
 
-fn data_array<'a>(region: &'a str, name: Option<&str>) -> Result<DataArray<'a>> {
+pub(super) fn data_array<'a>(region: &'a str, name: Option<&str>) -> Result<DataArray<'a>> {
     let mut rest = region;
     loop {
         let open = rest
@@ -286,17 +286,17 @@ fn data_array<'a>(region: &'a str, name: Option<&str>) -> Result<DataArray<'a>> 
     }
 }
 
-fn attribute<'a>(tag: &'a str, name: &str) -> Option<&'a str> {
+pub(super) fn attribute<'a>(tag: &'a str, name: &str) -> Option<&'a str> {
     let key = format!("{name}=\"");
     let start = tag.find(&key)? + key.len();
     let end = tag[start..].find('"')? + start;
     Some(&tag[start..end])
 }
 
-fn invalid(message: String) -> Error {
+pub(super) fn invalid(message: String) -> Error {
     Error::new(ErrorKind::InvalidData, message)
 }
 
-fn unsupported(message: &str) -> Error {
+pub(super) fn unsupported(message: &str) -> Error {
     Error::new(ErrorKind::Unsupported, message.to_string())
 }
