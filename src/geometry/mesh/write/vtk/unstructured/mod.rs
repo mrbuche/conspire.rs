@@ -6,16 +6,17 @@ use crate::{
     math::Tensor,
 };
 use std::{
+    collections::HashSet,
     fs::File,
     io::{BufWriter, Error, ErrorKind, Result, Write},
     path::Path,
 };
 
-pub trait WriteVtu<P>
+pub trait WriteVtkUnstructured<P>
 where
     P: AsRef<Path>,
 {
-    fn write_vtu(&self, output: P) -> Result<()>;
+    fn write_vtk_unstructured(&self, output: P) -> Result<()>;
 }
 
 fn cell_type(connectivity: &Connectivity) -> Result<u8> {
@@ -35,11 +36,11 @@ fn cell_type(connectivity: &Connectivity) -> Result<u8> {
     })
 }
 
-impl<const D: usize, P> WriteVtu<P> for Mesh<D>
+impl<const D: usize, P> WriteVtkUnstructured<P> for Mesh<D>
 where
     P: AsRef<Path>,
 {
-    fn write_vtu(&self, output: P) -> Result<()> {
+    fn write_vtk_unstructured(&self, output: P) -> Result<()> {
         if D != 2 && D != 3 {
             return Err(Error::new(
                 ErrorKind::Unsupported,
@@ -57,16 +58,57 @@ where
         let mut connectivity = Vec::new();
         let mut offsets = Vec::new();
         let mut types = Vec::new();
+        let mut faces = Vec::new();
+        let mut faceoffsets = Vec::new();
         let mut offset: i64 = 0;
+        let mut face_offset: i64 = 0;
+        let mut has_polyhedra = false;
         for block in self.iter() {
-            let cell = cell_type(block)?;
-            for element in block.iter() {
-                for &node in element {
-                    connectivity.extend_from_slice(&(node as i64).to_le_bytes());
+            if let Connectivity::Polyhedral(poly) = block {
+                has_polyhedra = true;
+                let faces_nodes = poly.faces_nodes();
+                for element_faces in poly.iter() {
+                    let mut seen = HashSet::new();
+                    let mut unique = Vec::new();
+                    for &face in element_faces {
+                        for &node in &faces_nodes[face] {
+                            if seen.insert(node) {
+                                unique.push(node);
+                            }
+                        }
+                    }
+                    unique.iter().for_each(|&node| {
+                        connectivity.extend_from_slice(&(node as i64).to_le_bytes())
+                    });
+                    offset += unique.len() as i64;
+                    offsets.extend_from_slice(&offset.to_le_bytes());
+                    types.push(42_u8);
+                    faces.extend_from_slice(&(element_faces.len() as i64).to_le_bytes());
+                    face_offset += 1;
+                    for &face in element_faces {
+                        let nodes = &faces_nodes[face];
+                        faces.extend_from_slice(&(nodes.len() as i64).to_le_bytes());
+                        face_offset += 1;
+                        nodes.iter().for_each(|&node| {
+                            faces.extend_from_slice(&(node as i64).to_le_bytes());
+                            face_offset += 1;
+                        });
+                    }
+                    faceoffsets.extend_from_slice(&face_offset.to_le_bytes());
                 }
-                offset += element.len() as i64;
-                offsets.extend_from_slice(&offset.to_le_bytes());
-                types.push(cell);
+            } else {
+                let cell = cell_type(block)?;
+                for element in block.iter() {
+                    for &node in element {
+                        connectivity.extend_from_slice(&(node as i64).to_le_bytes());
+                    }
+                    offset += element.len() as i64;
+                    offsets.extend_from_slice(&offset.to_le_bytes());
+                    types.push(cell);
+                    faces.extend_from_slice(&0_i64.to_le_bytes());
+                    face_offset += 1;
+                    faceoffsets.extend_from_slice(&face_offset.to_le_bytes());
+                }
             }
         }
         let mut file = BufWriter::new(File::create(output)?);
@@ -82,6 +124,22 @@ where
             coordinates.len(),
             types.len()
         )?;
+        if !self.node_sets().is_empty() {
+            writeln!(file, "      <PointData>")?;
+            for (set, nodes) in self.node_sets().iter().enumerate() {
+                let mut flags = vec![0_u8; coordinates.len()];
+                for &node in nodes {
+                    flags[node] = 1;
+                }
+                writeln!(
+                    file,
+                    "        <DataArray type=\"UInt8\" Name=\"NodeSet{}\" format=\"binary\">{}</DataArray>",
+                    set + 1,
+                    data_array(&flags)
+                )?;
+            }
+            writeln!(file, "      </PointData>")?;
+        }
         writeln!(file, "      <Points>")?;
         writeln!(
             file,
@@ -105,6 +163,18 @@ where
             "        <DataArray type=\"UInt8\" Name=\"types\" format=\"binary\">{}</DataArray>",
             data_array(&types)
         )?;
+        if has_polyhedra {
+            writeln!(
+                file,
+                "        <DataArray type=\"Int64\" Name=\"faces\" format=\"binary\">{}</DataArray>",
+                data_array(&faces)
+            )?;
+            writeln!(
+                file,
+                "        <DataArray type=\"Int64\" Name=\"faceoffsets\" format=\"binary\">{}</DataArray>",
+                data_array(&faceoffsets)
+            )?;
+        }
         writeln!(file, "      </Cells>")?;
         writeln!(file, "    </Piece>")?;
         writeln!(file, "  </UnstructuredGrid>")?;
@@ -113,7 +183,7 @@ where
     }
 }
 
-fn data_array(data: &[u8]) -> String {
+pub(super) fn data_array(data: &[u8]) -> String {
     let mut buffer = Vec::with_capacity(8 + data.len());
     buffer.extend_from_slice(&(data.len() as u64).to_le_bytes());
     buffer.extend_from_slice(data);

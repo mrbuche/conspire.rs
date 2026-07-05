@@ -157,6 +157,45 @@ where
         if node_numbers.is_some() {
             netcdf.define_variable::<i32>("node_num_map", 1, &["num_nodes"])?;
         }
+        if !self.node_sets().is_empty() {
+            netcdf.define_dimension("num_node_sets", self.node_sets().len())?;
+            netcdf.define_variable::<i32>("ns_prop1", 1, &["num_node_sets"])?;
+            netcdf.put_variable_attribute_text("ns_prop1", "name", "ID")?;
+            self.node_sets()
+                .iter()
+                .enumerate()
+                .try_for_each(|(set, nodes)| {
+                    let set = set + 1;
+                    netcdf.define_dimension(&format!("num_nod_ns{}", set), nodes.len())?;
+                    netcdf.define_variable::<i32>(
+                        &format!("node_ns{}", set),
+                        1,
+                        &[&format!("num_nod_ns{}", set)],
+                    )
+                })?;
+        }
+        if !self.side_sets().is_empty() {
+            netcdf.define_dimension("num_side_sets", self.side_sets().len())?;
+            netcdf.define_variable::<i32>("ss_prop1", 1, &["num_side_sets"])?;
+            netcdf.put_variable_attribute_text("ss_prop1", "name", "ID")?;
+            self.side_sets()
+                .iter()
+                .enumerate()
+                .try_for_each(|(set, sides)| {
+                    let set = set + 1;
+                    netcdf.define_dimension(&format!("num_side_ss{}", set), sides.len())?;
+                    netcdf.define_variable::<i32>(
+                        &format!("elem_ss{}", set),
+                        1,
+                        &[&format!("num_side_ss{}", set)],
+                    )?;
+                    netcdf.define_variable::<i32>(
+                        &format!("side_ss{}", set),
+                        1,
+                        &[&format!("num_side_ss{}", set)],
+                    )
+                })?;
+        }
         netcdf.define_dimension("time_step", 0)?;
         netcdf.define_variable::<f64>("coordx", 1, &["num_nodes"])?;
         netcdf.define_variable::<f64>("coordy", 1, &["num_nodes"])?;
@@ -181,6 +220,45 @@ where
         }
         if let Some(node_numbers) = &node_numbers {
             netcdf.put_variable("node_num_map", node_numbers)?;
+        }
+        if !self.node_sets().is_empty() {
+            let node_set_ids: Vec<i32> = match self.node_set_numbers() {
+                Some(numbers) => numbers.iter().map(|&number| number as i32).collect(),
+                None => (1..=self.node_sets().len() as i32).collect(),
+            };
+            netcdf.put_variable("ns_prop1", &node_set_ids)?;
+            self.node_sets()
+                .iter()
+                .enumerate()
+                .try_for_each(|(set, nodes)| {
+                    let set = set + 1;
+                    let node_ids: Vec<i32> = nodes.iter().map(|&node| node as i32 + 1).collect();
+                    netcdf.put_variable(&format!("node_ns{}", set), &node_ids)
+                })?;
+        }
+        if !self.side_sets().is_empty() {
+            let side_set_ids: Vec<i32> = match self.side_set_numbers() {
+                Some(numbers) => numbers.iter().map(|&number| number as i32).collect(),
+                None => (1..=self.side_sets().len() as i32).collect(),
+            };
+            netcdf.put_variable("ss_prop1", &side_set_ids)?;
+            self.side_sets()
+                .iter()
+                .enumerate()
+                .try_for_each(|(set, sides)| {
+                    let set = set + 1;
+                    let elem_ids: Vec<i32> = sides
+                        .iter()
+                        .map(|&(element, _)| match &element_numbers {
+                            Some(numbers) => numbers[element],
+                            None => element as i32 + 1,
+                        })
+                        .collect();
+                    let side_ids: Vec<i32> =
+                        sides.iter().map(|&(_, side)| side as i32 + 1).collect();
+                    netcdf.put_variable(&format!("elem_ss{}", set), &elem_ids)?;
+                    netcdf.put_variable(&format!("side_ss{}", set), &side_ids)
+                })?;
         }
         self.iter()
             .enumerate()

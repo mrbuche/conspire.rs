@@ -1,4 +1,6 @@
 mod adaptive;
+#[cfg(test)]
+mod test;
 mod triangles;
 mod uniform;
 

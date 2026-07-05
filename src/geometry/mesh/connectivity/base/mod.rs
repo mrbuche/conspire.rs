@@ -33,32 +33,48 @@ impl Connectivity {
     pub fn local_faces(&self) -> &'static [&'static [usize]] {
         match self {
             Connectivity::Hexahedral(_) => &[
-                &[0, 3, 2, 1],
-                &[4, 5, 6, 7],
                 &[0, 1, 5, 4],
                 &[1, 2, 6, 5],
                 &[2, 3, 7, 6],
                 &[3, 0, 4, 7],
-            ],
-            Connectivity::Tetrahedral(_) => &[&[0, 2, 1], &[0, 1, 3], &[1, 2, 3], &[2, 0, 3]],
-            Connectivity::Pyramidal(_) => &[
                 &[0, 3, 2, 1],
+                &[4, 5, 6, 7],
+            ],
+            Connectivity::Tetrahedral(_) => &[&[0, 1, 3], &[1, 2, 3], &[2, 0, 3], &[0, 2, 1]],
+            Connectivity::Pyramidal(_) => &[
                 &[0, 1, 4],
                 &[1, 2, 4],
                 &[2, 3, 4],
                 &[3, 0, 4],
+                &[0, 3, 2, 1],
             ],
             Connectivity::Wedge(_) => &[
-                &[0, 2, 1],
-                &[3, 4, 5],
                 &[0, 1, 4, 3],
                 &[1, 2, 5, 4],
                 &[2, 0, 3, 5],
+                &[0, 2, 1],
+                &[3, 4, 5],
             ],
             Connectivity::Quadrilateral(_) => &[&[0, 1], &[1, 2], &[2, 3], &[3, 0]],
             Connectivity::Triangular(_) => &[&[0, 1], &[1, 2], &[2, 0]],
             Connectivity::Polygonal(_) | Connectivity::Polyhedral(_) => todo!(),
         }
+    }
+    pub fn abaqus_side(&self, ordinal: usize) -> usize {
+        match self {
+            Connectivity::Hexahedral(_) => [3, 4, 5, 6, 1, 2][ordinal],
+            Connectivity::Tetrahedral(_) => [2, 3, 4, 1][ordinal],
+            Connectivity::Pyramidal(_) => [2, 3, 4, 5, 1][ordinal],
+            Connectivity::Wedge(_) => [3, 4, 5, 1, 2][ordinal],
+            Connectivity::Quadrilateral(_) => [1, 2, 3, 4][ordinal],
+            Connectivity::Triangular(_) => [1, 2, 3][ordinal],
+            Connectivity::Polygonal(_) | Connectivity::Polyhedral(_) => todo!(),
+        }
+    }
+    pub fn local_face_from_abaqus_side(&self, side: usize) -> usize {
+        (0..self.local_faces().len())
+            .find(|&ordinal| self.abaqus_side(ordinal) == side)
+            .expect("invalid Abaqus side label for this element type")
     }
     pub fn add_edge_adjacency(&self, nodes_nodes: &mut [Vec<usize>]) {
         match self {

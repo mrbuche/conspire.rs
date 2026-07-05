@@ -63,7 +63,7 @@ fn unbase64(text: &str) -> Vec<u8> {
 #[test]
 fn mixed_unstructured_grid() {
     let path = "target/mixed.vtu";
-    mixed().write(Output::Vtu(path)).unwrap();
+    mixed().write(Output::VtkUnstructured(path)).unwrap();
     let contents = read_to_string(path).unwrap();
     assert!(contents.contains("type=\"UnstructuredGrid\""));
     assert!(contents.contains("byte_order=\"LittleEndian\""));

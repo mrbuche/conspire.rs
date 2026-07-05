@@ -38,6 +38,12 @@ pub fn mesh() -> Mesh<3> {
     Mesh::from((connectivities, coordinates))
 }
 
+pub fn mesh_with_node_sets() -> Mesh<3> {
+    let mut mesh = mesh();
+    mesh.set_node_sets(vec![vec![0, 1], vec![2, 3]].into());
+    mesh
+}
+
 #[test]
 fn connectivity_coordinates() -> Result<(), TestError> {
     let _ = mesh();
