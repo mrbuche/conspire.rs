@@ -46,6 +46,10 @@ fn round_trip() {
     );
     assert_eq!(netcdf.try_get_variable::<i32>("missing", 3).unwrap(), None);
     assert_eq!(
+        netcdf.try_get_variable::<i32>("connectivity", 3).unwrap(),
+        Some(connectivity)
+    );
+    assert_eq!(
         netcdf
             .get_variable_attribute_text("coordx", "units")
             .unwrap(),
@@ -81,6 +85,18 @@ fn interior_nul_errors() {
     assert!(netcdf.put_variable("v\0", &[1_i32]).is_err());
     assert!(netcdf.get_variable::<i32>("v\0", 1).is_err());
     assert!(netcdf.try_get_variable::<i32>("v\0", 1).is_err());
+
+    assert!(netcdf.define_variable::<f64>("v\0", 0, &[]).is_err());
+    assert!(netcdf.define_variable::<f64>("v", 1, &["d\0"]).is_err());
+    assert!(netcdf.put_variable("v\0", &[1.0_f64]).is_err());
+    assert!(netcdf.get_variable::<f64>("v\0", 1).is_err());
+    assert!(netcdf.try_get_variable::<f64>("v\0", 1).is_err());
+
+    assert!(netcdf.define_variable::<f32>("v\0", 0, &[]).is_err());
+    assert!(netcdf.define_variable::<f32>("v", 1, &["d\0"]).is_err());
+    assert!(netcdf.put_variable("v\0", &[1.0_f32]).is_err());
+    assert!(netcdf.get_variable::<f32>("v\0", 1).is_err());
+    assert!(netcdf.try_get_variable::<f32>("v\0", 1).is_err());
 }
 
 #[test]
