@@ -100,28 +100,40 @@ where
 }
 
 impl<T: NpyType> Npy<T> {
-    fn write_to<W: io::Write>(&self, file: &mut W) -> Result<()> {
-        let order = if self.fortran_order { "True" } else { "False" };
-        let dims: String = self.shape.iter().map(|d| format!("{d}, ")).collect();
-        let mut header = format!(
-            "{{'descr': '{}', 'fortran_order': {order}, 'shape': ({dims}), }}",
-            T::DESCR
-        );
-        let pad = (64 - (10 + header.len() + 1) % 64) % 64;
-        header.push_str(&" ".repeat(pad));
-        header.push('\n');
-        file.write_all(b"\x93NUMPY")?;
-        file.write_all(&[1, 0])?;
-        file.write_all(&(header.len() as u16).to_le_bytes())?;
-        file.write_all(header.as_bytes())?;
-        T::write_le_all(&self.data, file)?;
-        file.flush()
+    pub fn write_to<W: io::Write>(&self, file: &mut W) -> Result<()> {
+        write_npy(&self.data, &self.shape, self.fortran_order, file)
     }
+}
+
+fn write_npy<T: NpyType, W: io::Write>(
+    data: &[T],
+    shape: &[usize],
+    fortran_order: bool,
+    file: &mut W,
+) -> Result<()> {
+    let order = if fortran_order { "True" } else { "False" };
+    let dims: String = shape.iter().map(|d| format!("{d}, ")).collect();
+    let mut header = format!(
+        "{{'descr': '{}', 'fortran_order': {order}, 'shape': ({dims}), }}",
+        T::DESCR
+    );
+    let pad = (64 - (10 + header.len() + 1) % 64) % 64;
+    header.push_str(&" ".repeat(pad));
+    header.push('\n');
+    file.write_all(b"\x93NUMPY")?;
+    file.write_all(&[1, 0])?;
+    file.write_all(&(header.len() as u16).to_le_bytes())?;
+    file.write_all(header.as_bytes())?;
+    T::write_le_all(data, file)?;
+    file.flush()
 }
 
 impl<T: NpyType> Npy<T> {
     pub fn read<P: AsRef<Path>>(path: P) -> Result<Self> {
         let mut file = BufReader::new(File::open(path)?);
+        Self::read_from(&mut file)
+    }
+    pub fn read_from<R: Read>(file: &mut R) -> Result<Self> {
         let mut prefix = [0u8; 10];
         file.read_exact(&mut prefix)
             .map_err(|_| invalid("not a .npy file".into()))?;
@@ -151,7 +163,7 @@ impl<T: NpyType> Npy<T> {
         let fortran_order = header.contains("'fortran_order': True");
         let shape = shape(header)?;
         let count: usize = shape.iter().product();
-        let data = T::read_from(&mut file, count)?;
+        let data = T::read_from(file, count)?;
         Ok(Npy {
             data,
             shape,
