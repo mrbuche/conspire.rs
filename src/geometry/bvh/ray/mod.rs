@@ -7,4 +7,5 @@ use crate::geometry::Coordinate;
 pub struct Ray<const D: usize> {
     origin: Coordinate<D>,
     direction: Coordinate<D>,
+    inverse_direction: Coordinate<D>,
 }
