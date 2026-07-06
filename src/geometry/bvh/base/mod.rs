@@ -34,8 +34,11 @@ impl<const D: usize> BoundingVolumeHierarchy<D> {
             return node_index;
         }
         let axis = bounding_box.longest_axis();
-        primitives.sort_by(|a, b| a.centroid()[axis].partial_cmp(&b.centroid()[axis]).unwrap());
-        let (left_primitives, right_primitives) = primitives.split_at_mut(primitives.len() / 2);
+        let mid = primitives.len() / 2;
+        primitives.select_nth_unstable_by(mid, |a, b| {
+            a.centroid()[axis].partial_cmp(&b.centroid()[axis]).unwrap()
+        });
+        let (left_primitives, right_primitives) = primitives.split_at_mut(mid);
         let left = self.build_node(left_primitives, leaf_size);
         let right = self.build_node(right_primitives, leaf_size);
         self.nodes[node_index] = Node::from((bounding_box, NodeKind::Tree { left, right }));
