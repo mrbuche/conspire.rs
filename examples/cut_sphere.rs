@@ -6,7 +6,7 @@ use conspire::{
     },
     io::Write,
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, io::Write as WriteIO};
 
 fn midpoint(
     a: usize,
@@ -78,6 +78,14 @@ fn main() -> Result<(), std::io::Error> {
             ))
             .write(Output::VtkUnstructured(name))
         })?;
-    println!("wrote sphere.stl, inside.vtu, cut.vtu, outside.vtu");
+    let classes = tessellation.classify(&mesh);
+    let tables = tessellation.tables(&mesh, &classes).unwrap();
+    let mut file = std::fs::File::create("crossings.csv")?;
+    writeln!(file, "x,y,z")?;
+    tables
+        .crossings()
+        .values()
+        .try_for_each(|point| writeln!(file, "{},{},{}", point[0], point[1], point[2]))?;
+    println!("wrote sphere.stl, inside.vtu, cut.vtu, outside.vtu, crossings.csv");
     Ok(())
 }

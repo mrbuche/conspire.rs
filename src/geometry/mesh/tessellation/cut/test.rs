@@ -111,6 +111,51 @@ fn containment() {
 }
 
 #[test]
+fn tables_single_hexahedron() {
+    let tessellation = sphere(3);
+    let mesh = hexahedron([0.9, -0.1, -0.1], [1.1, 0.1, 0.1]);
+    let classes = tessellation.classify(&mesh);
+    let tables = tessellation.tables(&mesh, &classes).unwrap();
+    assert_eq!(tables.signs().len(), 8);
+    assert_eq!(tables.signs().values().filter(|&&sign| sign).count(), 4);
+    assert_eq!(tables.crossings().len(), 4);
+    tables
+        .crossings()
+        .values()
+        .for_each(|point| assert!((point.norm() - 1.0).abs() < 0.01));
+    assert_eq!(tables.segments().len(), 4);
+    tables
+        .segments()
+        .values()
+        .for_each(|segments| assert_eq!(segments.len(), 1))
+}
+
+#[test]
+fn tables_sphere_dual() {
+    let tessellation = sphere(3);
+    let mesh = tessellation.cut(Balancing::Strong, 8.0).unwrap();
+    let classes = tessellation.classify(&mesh);
+    let tables = tessellation.tables(&mesh, &classes).unwrap();
+    assert!(!tables.crossings().is_empty());
+    tables.crossings().values().for_each(|point| {
+        let norm = point.norm();
+        assert!((0.985..=1.0 + 1e-9).contains(&norm), "{norm}")
+    });
+    let coordinates = mesh.coordinates();
+    tables.signs().iter().for_each(|(&node, &sign)| {
+        let norm = coordinates[node].norm();
+        if (norm - 1.0).abs() > 0.02 {
+            assert_eq!(sign, norm < 1.0)
+        }
+    });
+    tables.segments().values().flatten().for_each(|segment| {
+        segment
+            .iter()
+            .for_each(|edge| assert!(tables.crossings().contains_key(edge)))
+    })
+}
+
+#[test]
 fn classify_sphere_dual() {
     let tessellation = sphere(3);
     let mesh = tessellation.cut(Balancing::Strong, 8.0).unwrap();
