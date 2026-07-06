@@ -1,0 +1,143 @@
+use super::Class;
+use crate::{
+    geometry::{
+        Coordinate, Coordinates,
+        mesh::{Connectivity, Mesh, tessellation::Tessellation},
+        ntree::Balancing,
+    },
+    math::Tensor,
+};
+use std::collections::{HashMap, HashSet};
+
+fn midpoint(
+    a: usize,
+    b: usize,
+    coordinates: &mut Vec<[f64; 3]>,
+    cache: &mut HashMap<[usize; 2], usize>,
+) -> usize {
+    let key = if a < b { [a, b] } else { [b, a] };
+    *cache.entry(key).or_insert_with(|| {
+        let (p, q) = (coordinates[a], coordinates[b]);
+        let m = [p[0] + q[0], p[1] + q[1], p[2] + q[2]];
+        let norm = (m[0] * m[0] + m[1] * m[1] + m[2] * m[2]).sqrt();
+        coordinates.push([m[0] / norm, m[1] / norm, m[2] / norm]);
+        coordinates.len() - 1
+    })
+}
+
+fn sphere(refinements: usize) -> Tessellation {
+    let mut coordinates = vec![
+        [1.0, 0.0, 0.0],
+        [-1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, -1.0, 0.0],
+        [0.0, 0.0, 1.0],
+        [0.0, 0.0, -1.0],
+    ];
+    let mut faces = vec![
+        [0, 2, 4],
+        [2, 1, 4],
+        [1, 3, 4],
+        [3, 0, 4],
+        [2, 0, 5],
+        [1, 2, 5],
+        [3, 1, 5],
+        [0, 3, 5],
+    ];
+    (0..refinements).for_each(|_| {
+        let mut cache = HashMap::new();
+        faces = faces
+            .iter()
+            .flat_map(|&[a, b, c]| {
+                let ab = midpoint(a, b, &mut coordinates, &mut cache);
+                let bc = midpoint(b, c, &mut coordinates, &mut cache);
+                let ca = midpoint(c, a, &mut coordinates, &mut cache);
+                [[a, ab, ca], [ab, b, bc], [ca, bc, c], [ab, bc, ca]]
+            })
+            .collect()
+    });
+    Tessellation::from(Mesh::from((
+        vec![Connectivity::Triangular(faces.into())],
+        Coordinates::from(coordinates),
+    )))
+}
+
+fn hexahedron(minimum: [f64; 3], maximum: [f64; 3]) -> Mesh<3> {
+    let [x0, y0, z0] = minimum;
+    let [x1, y1, z1] = maximum;
+    Mesh::from((
+        vec![Connectivity::Hexahedral(
+            vec![[0, 1, 2, 3, 4, 5, 6, 7]].into(),
+        )],
+        Coordinates::from(vec![
+            [x0, y0, z0],
+            [x1, y0, z0],
+            [x1, y1, z0],
+            [x0, y1, z0],
+            [x0, y0, z1],
+            [x1, y0, z1],
+            [x1, y1, z1],
+            [x0, y1, z1],
+        ]),
+    ))
+}
+
+#[test]
+fn classify_single_hexahedra() {
+    let tessellation = sphere(3);
+    assert_eq!(
+        tessellation.classify(&hexahedron([-0.1; 3], [0.1; 3])),
+        vec![Class::Inside]
+    );
+    assert_eq!(
+        tessellation.classify(&hexahedron([2.0; 3], [3.0; 3])),
+        vec![Class::Outside]
+    );
+    assert_eq!(
+        tessellation.classify(&hexahedron([0.9, -0.1, -0.1], [1.1, 0.1, 0.1])),
+        vec![Class::Cut]
+    );
+}
+
+#[test]
+fn classify_sphere_dual() {
+    let tessellation = sphere(3);
+    let mesh = tessellation.cut(Balancing::Strong, 8.0).unwrap();
+    assert_eq!(mesh.number_of_element_blocks(), 3);
+    let coordinates = mesh.coordinates();
+    let blocks: Vec<&Connectivity> = mesh.iter().collect();
+    blocks[0].iter().for_each(|element| {
+        let centroid = element
+            .iter()
+            .map(|&node| coordinates[node].clone())
+            .sum::<Coordinate<3>>()
+            / element.len() as f64;
+        assert!(centroid.norm() < 1.0)
+    });
+    blocks[2].iter().for_each(|element| {
+        let centroid = element
+            .iter()
+            .map(|&node| coordinates[node].clone())
+            .sum::<Coordinate<3>>()
+            / element.len() as f64;
+        assert!(centroid.norm() > 1.0)
+    });
+    let sorted_faces = |block: &Connectivity| -> HashSet<Vec<usize>> {
+        block
+            .iter()
+            .flat_map(|element| {
+                block.local_faces().iter().map(move |face| {
+                    let mut key: Vec<usize> = face.iter().map(|&local| element[local]).collect();
+                    key.sort_unstable();
+                    key
+                })
+            })
+            .collect()
+    };
+    let inside_faces = sorted_faces(blocks[0]);
+    assert!(
+        sorted_faces(blocks[2])
+            .iter()
+            .all(|face| !inside_faces.contains(face))
+    )
+}
