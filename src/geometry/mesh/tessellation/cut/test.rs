@@ -1,13 +1,21 @@
 use super::{Class, contained};
 use crate::{
     geometry::{
-        Coordinate, Coordinates,
+        Coordinates,
         mesh::{Connectivity, Mesh, tessellation::Tessellation},
-        ntree::Balancing,
+        ntree::{Balance, Balancing, Dualization, Octree, Pairing},
     },
     math::Tensor,
 };
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
+
+fn dual(tessellation: &Tessellation, scale: f64) -> Mesh<3> {
+    let mut octree = Octree::<u16, usize>::from_sdf(tessellation, scale, 2);
+    octree
+        .equilibrate(Balancing::Strong, Pairing::Regular)
+        .unwrap();
+    octree.dualize()
+}
 
 fn midpoint(
     a: usize,
@@ -133,7 +141,7 @@ fn tables_single_hexahedron() {
 #[test]
 fn tables_sphere_dual() {
     let tessellation = sphere(3);
-    let mesh = tessellation.cut(Balancing::Strong, 8.0).unwrap();
+    let mesh = dual(&tessellation, 8.0);
     let classes = tessellation.classify(&mesh);
     let tables = tessellation.tables(&mesh, &classes).unwrap();
     assert!(!tables.crossings().is_empty());
@@ -158,42 +166,95 @@ fn tables_sphere_dual() {
 #[test]
 fn classify_sphere_dual() {
     let tessellation = sphere(3);
-    let mesh = tessellation.cut(Balancing::Strong, 8.0).unwrap();
-    assert_eq!(mesh.number_of_element_blocks(), 3);
-    let coordinates = mesh.coordinates();
-    let blocks: Vec<&Connectivity> = mesh.iter().collect();
-    blocks[0].iter().for_each(|element| {
-        let centroid = element
-            .iter()
-            .map(|&node| coordinates[node].clone())
-            .sum::<Coordinate<3>>()
-            / element.len() as f64;
-        assert!(centroid.norm() < 1.0)
-    });
-    blocks[2].iter().for_each(|element| {
-        let centroid = element
-            .iter()
-            .map(|&node| coordinates[node].clone())
-            .sum::<Coordinate<3>>()
-            / element.len() as f64;
-        assert!(centroid.norm() > 1.0)
-    });
-    let sorted_faces = |block: &Connectivity| -> HashSet<Vec<usize>> {
+    let mesh = dual(&tessellation, 8.0);
+    let classes = tessellation.classify(&mesh);
+    [Class::Inside, Class::Cut, Class::Outside]
+        .iter()
+        .for_each(|class| assert!(classes.contains(class)));
+    let centroids = mesh.centroids();
+    classes
+        .iter()
+        .zip(centroids.iter())
+        .for_each(|(class, centroid)| match class {
+            Class::Inside => assert!(centroid.norm() < 1.0),
+            Class::Outside => assert!(centroid.norm() > 1.0),
+            Class::Cut => (),
+        });
+    let mut faces: HashMap<Vec<usize>, Vec<Class>> = HashMap::new();
+    mesh.iter().for_each(|block| {
         block
             .iter()
-            .flat_map(|element| {
-                block.local_faces().iter().map(move |face| {
+            .zip(classes.iter())
+            .for_each(|(element, &class)| {
+                block.local_faces().iter().for_each(|face| {
                     let mut key: Vec<usize> = face.iter().map(|&local| element[local]).collect();
                     key.sort_unstable();
-                    key
+                    faces.entry(key).or_default().push(class);
                 })
             })
-            .collect()
-    };
-    let inside_faces = sorted_faces(blocks[0]);
-    assert!(
-        sorted_faces(blocks[2])
-            .iter()
-            .all(|face| !inside_faces.contains(face))
-    )
+    });
+    faces.values().for_each(|classes| {
+        assert!(!(classes.contains(&Class::Inside) && classes.contains(&Class::Outside)))
+    })
+}
+
+#[test]
+fn assemble_single_hexahedron() {
+    let tessellation = sphere(3);
+    let mesh = hexahedron([0.9, -0.1, -0.1], [1.1, 0.1, 0.1]);
+    let classes = tessellation.classify(&mesh);
+    let tables = tessellation.tables(&mesh, &classes).unwrap();
+    let result = tessellation.assemble(&mesh, &classes, &tables).unwrap();
+    assert_eq!(result.number_of_element_blocks(), 1);
+    assert_eq!(result.number_of_nodes(), 8);
+    match &result.connectivities()[0] {
+        Connectivity::Polyhedral(polyhedra) => {
+            assert_eq!(polyhedra.elements_faces().len(), 1);
+            assert_eq!(polyhedra.elements_faces()[0].len(), 6);
+            assert_eq!(polyhedra.faces_nodes().len(), 6);
+            polyhedra
+                .faces_nodes()
+                .iter()
+                .for_each(|face| assert_eq!(face.len(), 4))
+        }
+        _ => panic!(),
+    }
+}
+
+#[test]
+fn cut_sphere() {
+    let tessellation = sphere(3);
+    let mesh = tessellation.cut(Balancing::Strong, 8.0).unwrap();
+    assert_eq!(mesh.number_of_element_blocks(), 2);
+    let coordinates = mesh.coordinates();
+    let mut usage: HashMap<Vec<usize>, usize> = HashMap::new();
+    mesh.iter().for_each(|block| match block {
+        Connectivity::Hexahedral(_) => block.iter().for_each(|element| {
+            block.local_faces().iter().for_each(|face| {
+                let mut key: Vec<usize> = face.iter().map(|&local| element[local]).collect();
+                key.sort_unstable();
+                *usage.entry(key).or_insert(0) += 1;
+            })
+        }),
+        Connectivity::Polyhedral(polyhedra) => {
+            polyhedra.elements_faces().iter().for_each(|faces| {
+                faces.iter().for_each(|&face| {
+                    let mut key = polyhedra.faces_nodes()[face].clone();
+                    key.sort_unstable();
+                    *usage.entry(key).or_insert(0) += 1;
+                })
+            })
+        }
+        _ => panic!(),
+    });
+    usage.values().for_each(|&count| assert!(count <= 2));
+    usage
+        .iter()
+        .filter(|&(_, &count)| count == 1)
+        .for_each(|(key, _)| {
+            key.iter().for_each(|&node| {
+                let norm = coordinates[node].norm();
+                assert!((0.985..=1.0 + 1e-9).contains(&norm), "{norm}")
+            })
+        })
 }

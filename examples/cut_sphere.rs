@@ -6,7 +6,7 @@ use conspire::{
     },
     io::Write,
 };
-use std::{collections::HashMap, io::Write as WriteIO};
+use std::collections::HashMap;
 
 fn midpoint(
     a: usize,
@@ -65,9 +65,8 @@ fn main() -> Result<(), std::io::Error> {
     let tessellation = sphere(4);
     tessellation.write("sphere.stl")?;
     let mesh = tessellation.cut(Balancing::Strong, 16.0).unwrap();
-    mesh.iter()
-        .zip(["inside.vtu", "cut.vtu", "outside.vtu"])
-        .try_for_each(|(block, name)| {
+    mesh.iter().try_for_each(|block| match block {
+        Connectivity::Hexahedral(_) => {
             let hexes: Vec<[usize; 8]> = block
                 .iter()
                 .map(|element| std::array::from_fn(|i| element[i]))
@@ -76,16 +75,26 @@ fn main() -> Result<(), std::io::Error> {
                 vec![Connectivity::Hexahedral(hexes.into())],
                 mesh.coordinates().clone(),
             ))
-            .write(Output::VtkUnstructured(name))
-        })?;
-    let classes = tessellation.classify(&mesh);
-    let tables = tessellation.tables(&mesh, &classes).unwrap();
-    let mut file = std::fs::File::create("crossings.csv")?;
-    writeln!(file, "x,y,z")?;
-    tables
-        .crossings()
-        .values()
-        .try_for_each(|point| writeln!(file, "{},{},{}", point[0], point[1], point[2]))?;
-    println!("wrote sphere.stl, inside.vtu, cut.vtu, outside.vtu, crossings.csv");
+            .write(Output::VtkUnstructured("hexes.vtu"))
+        }
+        Connectivity::Polyhedral(polyhedra) => {
+            let triangles: Vec<[usize; 3]> = polyhedra
+                .faces_nodes()
+                .iter()
+                .flat_map(|face| {
+                    (1..face.len() - 1)
+                        .map(|i| [face[0], face[i], face[i + 1]])
+                        .collect::<Vec<_>>()
+                })
+                .collect();
+            Tessellation::from(Mesh::from((
+                vec![Connectivity::Triangular(triangles.into())],
+                mesh.coordinates().clone(),
+            )))
+            .write("poly_faces.stl")
+        }
+        _ => Ok(()),
+    })?;
+    println!("wrote sphere.stl, hexes.vtu, poly_faces.stl");
     Ok(())
 }
