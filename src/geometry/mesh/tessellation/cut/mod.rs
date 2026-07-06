@@ -9,13 +9,14 @@ use crate::{
             Connectivity, Mesh,
             tessellation::{D, Tessellation},
         },
-        ntree::{Balance, Balancing, Dualization, Octree, Pairing},
+        ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
     },
     math::{Scalar, Tensor},
 };
 use std::collections::{HashMap, hash_map::Entry};
 
 const GRAZING_TOLERANCE: Scalar = 1.0e-4;
+const PADDING: u16 = 2;
 const DIRECTIONS: [Coordinate<D>; 3] = [
     Coordinate::const_from([1.0, 0.140_412_03, 0.092_153_88]),
     Coordinate::const_from([0.097_153_2, 1.0, 0.131_771_4]),
@@ -29,12 +30,38 @@ pub enum Class {
     Outside,
 }
 
+fn contained(mesh: &Mesh<D>, classes: &[Class]) -> bool {
+    let mut faces: HashMap<Vec<usize>, (usize, u8)> = HashMap::new();
+    let mut offset = 0;
+    mesh.iter().for_each(|block| {
+        let local_faces = block.local_faces();
+        block.iter().enumerate().for_each(|(local, element)| {
+            local_faces.iter().for_each(|face| {
+                let mut key: Vec<usize> = face.iter().map(|&local| element[local]).collect();
+                key.sort_unstable();
+                faces
+                    .entry(key)
+                    .and_modify(|(_, count)| *count += 1)
+                    .or_insert((offset + local, 1));
+            })
+        });
+        offset += block.number_of_elements();
+    });
+    faces
+        .into_values()
+        .all(|(owner, count)| count != 1 || classes[owner] == Class::Outside)
+}
+
 impl Tessellation {
     pub fn cut(&self, balancing: Balancing, scale: Scalar) -> Result<Mesh<D>, &'static str> {
-        let mut octree = Octree::<u16, usize>::from_sdf(self, scale);
+        let mut octree =
+            Octree::<u16, usize>::from_features(self, scale, CurvatureSizing::default(), PADDING);
         octree.equilibrate(balancing, Pairing::Regular)?;
         let mesh = octree.dualize();
         let classes = self.classify(&mesh);
+        if !contained(&mesh, &classes) {
+            return Err("tessellation is not contained within the dual mesh");
+        }
         let (connectivities, coordinates) = mesh.into();
         let hexes: Vec<[usize; 8]> = Vec::try_from(connectivities)?;
         let mut blocks: [Vec<[usize; 8]>; 3] = [Vec::new(), Vec::new(), Vec::new()];

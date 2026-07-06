@@ -47,7 +47,7 @@ impl Tessellation {
         scale: Scalar,
         curvature: CurvatureSizing,
     ) -> Result<Mesh<D>, &'static str> {
-        let mut octree = Octree::<u16, usize>::from_features(self, scale, curvature);
+        let mut octree = Octree::<u16, usize>::from_features(self, scale, curvature, 0);
         octree.equilibrate(balancing, Pairing::Regular)?;
         let mut mesh = octree.dualize();
         self.trim(&mut mesh, self.bvh());
