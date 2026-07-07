@@ -1,4 +1,4 @@
-use super::{Class, contained};
+use super::{Class, Sign, contained};
 use crate::{
     geometry::{
         Coordinates,
@@ -7,7 +7,7 @@ use crate::{
     },
     math::Tensor,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 fn dual(tessellation: &Tessellation, scale: f64) -> Mesh<3> {
     let mut octree = Octree::<u16, usize>::from_sdf(tessellation, scale, 2);
@@ -123,9 +123,18 @@ fn tables_single_hexahedron() {
     let tessellation = sphere(3);
     let mesh = hexahedron([0.9, -0.1, -0.1], [1.1, 0.1, 0.1]);
     let classes = tessellation.classify(&mesh);
-    let tables = tessellation.tables(&mesh, &classes).unwrap();
+    let tables = tessellation
+        .tables(&mesh, &classes, &HashSet::new())
+        .unwrap();
     assert_eq!(tables.signs().len(), 8);
-    assert_eq!(tables.signs().values().filter(|&&sign| sign).count(), 4);
+    assert_eq!(
+        tables
+            .signs()
+            .values()
+            .filter(|&&sign| sign == Sign::Inside)
+            .count(),
+        4
+    );
     assert_eq!(tables.crossings().len(), 4);
     tables
         .crossings()
@@ -143,7 +152,9 @@ fn tables_sphere_dual() {
     let tessellation = sphere(3);
     let mesh = dual(&tessellation, 8.0);
     let classes = tessellation.classify(&mesh);
-    let tables = tessellation.tables(&mesh, &classes).unwrap();
+    let tables = tessellation
+        .tables(&mesh, &classes, &HashSet::new())
+        .unwrap();
     assert!(!tables.crossings().is_empty());
     tables.crossings().values().for_each(|point| {
         let norm = point.norm();
@@ -153,13 +164,20 @@ fn tables_sphere_dual() {
     tables.signs().iter().for_each(|(&node, &sign)| {
         let norm = coordinates[node].norm();
         if (norm - 1.0).abs() > 0.02 {
-            assert_eq!(sign, norm < 1.0)
+            assert_eq!(
+                sign,
+                if norm < 1.0 {
+                    Sign::Inside
+                } else {
+                    Sign::Outside
+                }
+            )
         }
     });
     tables.segments().values().flatten().for_each(|segment| {
         segment
             .iter()
-            .for_each(|edge| assert!(tables.crossings().contains_key(edge)))
+            .for_each(|edge| assert!(edge[0] == edge[1] || tables.crossings().contains_key(edge)))
     })
 }
 
@@ -199,11 +217,30 @@ fn classify_sphere_dual() {
 }
 
 #[test]
+fn snap_eliminates_sliver() {
+    let tessellation = sphere(3);
+    let mesh = hexahedron([0.95, -0.1, -0.1], [1.15, 0.1, 0.1]);
+    let classes = tessellation.classify(&mesh);
+    let (mesh, snapped) = tessellation.snap(mesh, &classes).unwrap();
+    assert_eq!(snapped.len(), 4);
+    let coordinates = mesh.coordinates();
+    snapped
+        .iter()
+        .for_each(|&node| assert!((coordinates[node].norm() - 1.0).abs() < 0.01));
+    let tables = tessellation.tables(&mesh, &classes, &snapped).unwrap();
+    assert!(tables.crossings().is_empty());
+    let result = tessellation.assemble(&mesh, &classes, &tables).unwrap();
+    assert_eq!(result.number_of_element_blocks(), 0)
+}
+
+#[test]
 fn assemble_single_hexahedron() {
     let tessellation = sphere(3);
     let mesh = hexahedron([0.9, -0.1, -0.1], [1.1, 0.1, 0.1]);
     let classes = tessellation.classify(&mesh);
-    let tables = tessellation.tables(&mesh, &classes).unwrap();
+    let tables = tessellation
+        .tables(&mesh, &classes, &HashSet::new())
+        .unwrap();
     let result = tessellation.assemble(&mesh, &classes, &tables).unwrap();
     assert_eq!(result.number_of_element_blocks(), 1);
     assert_eq!(result.number_of_nodes(), 8);

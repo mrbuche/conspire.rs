@@ -276,7 +276,7 @@ fn corner_measure<const D: usize, const K: usize>(edges: &[Coordinate<D>; K]) ->
 }
 
 #[derive(Clone, Copy)]
-pub(super) enum Kind {
+pub(crate) enum Kind {
     Triangle,
     Quadrilateral,
     Tetrahedron,
@@ -308,7 +308,7 @@ pub(super) fn minimum_jacobian<const D: usize>(
     }
 }
 
-pub(super) fn minimum_scaled_jacobian<const D: usize>(
+pub(crate) fn minimum_scaled_jacobian<const D: usize>(
     kind: Kind,
     element: &[usize],
     coordinates: &Coordinates<D>,

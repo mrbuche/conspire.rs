@@ -7,6 +7,7 @@ use crate::{
         bbox::BoundingBox,
         mesh::{
             Connectivity, Mesh,
+            quality::metrics::{Kind, minimum_scaled_jacobian},
             tessellation::{D, Tessellation},
         },
         ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
@@ -16,11 +17,14 @@ use crate::{
 use std::{
     array::from_fn,
     collections::{HashMap, HashSet, hash_map::Entry},
+    mem::take,
 };
 
 const CROSSING_TOLERANCE: Scalar = 1.0e-8;
 const GRAZING_TOLERANCE: Scalar = 1.0e-4;
 const PADDING: u16 = 2;
+const SNAP_HARD: Scalar = 0.05;
+const SNAP_SOFT: Scalar = 0.2;
 const EDGES: [[usize; 2]; 12] = [
     [0, 1],
     [1, 2],
@@ -48,15 +52,22 @@ pub enum Class {
     Outside,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Sign {
+    Inside,
+    On,
+    Outside,
+}
+
 pub struct Tables {
-    signs: HashMap<usize, bool>,
+    signs: HashMap<usize, Sign>,
     crossings: HashMap<[usize; 2], Coordinate<D>>,
     faces: HashMap<Vec<usize>, [usize; 4]>,
     segments: HashMap<Vec<usize>, Vec<[[usize; 2]; 2]>>,
 }
 
 impl Tables {
-    pub fn signs(&self) -> &HashMap<usize, bool> {
+    pub fn signs(&self) -> &HashMap<usize, Sign> {
         &self.signs
     }
     pub fn crossings(&self) -> &HashMap<[usize; 2], Coordinate<D>> {
@@ -70,70 +81,211 @@ impl Tables {
     }
 }
 
-fn clip_face(
+struct FaceCut {
+    endpoints: Vec<[usize; 2]>,
+    sides: Vec<Sign>,
+    interiors: Vec<Vec<usize>>,
+    emitted: Vec<usize>,
+    on_edges: Vec<([usize; 2], Sign)>,
+    inside: bool,
+    flush: bool,
+}
+
+fn face_cut(
     corners: &[usize; 4],
-    signs: &HashMap<usize, bool>,
-    crossing_ids: &HashMap<[usize; 2], usize>,
-    segments: Option<&Vec<[[usize; 2]; 2]>>,
-) -> Vec<Vec<usize>> {
+    signs: &HashMap<usize, Sign>,
+    crossings: &HashMap<[usize; 2], Coordinate<D>>,
+) -> Result<FaceCut, &'static str> {
+    let statuses: [Sign; 4] = from_fn(|i| signs[&corners[i]]);
     let edge_keys: [[usize; 2]; 4] = from_fn(|i| {
         let mut key = [corners[i], corners[(i + 1) % 4]];
         key.sort_unstable();
         key
     });
-    let crossed = edge_keys
-        .iter()
-        .filter(|key| crossing_ids.contains_key(*key))
-        .count();
-    let walk = || {
-        vec![
-            (0..4)
-                .flat_map(|i| {
-                    let mut items = Vec::new();
-                    if signs[&corners[i]] {
-                        items.push(corners[i])
-                    }
-                    if let Some(&crossing) = crossing_ids.get(&edge_keys[i]) {
-                        items.push(crossing)
-                    }
-                    items
-                })
-                .collect(),
-        ]
+    let crossed: [bool; 4] = from_fn(|i| crossings.contains_key(&edge_keys[i]));
+    let flip = |sign| {
+        if sign == Sign::Inside {
+            Sign::Outside
+        } else {
+            Sign::Inside
+        }
     };
-    match crossed {
-        0 => {
-            if signs[&corners[0]] {
-                vec![corners.to_vec()]
-            } else {
-                vec![]
-            }
+    let decisive: Vec<usize> = (0..4).filter(|&i| statuses[i] != Sign::On).collect();
+    let Some(&start) = decisive.first() else {
+        return Ok(FaceCut {
+            endpoints: Vec::new(),
+            sides: Vec::new(),
+            interiors: Vec::new(),
+            emitted: corners.to_vec(),
+            on_edges: Vec::new(),
+            inside: false,
+            flush: true,
+        });
+    };
+    let mut pass = [false; 4];
+    for (w, &from) in decisive.iter().enumerate() {
+        let to = decisive[(w + 1) % decisive.len()];
+        let mut ons = Vec::new();
+        let mut at = (from + 1) % 4;
+        while at != to {
+            ons.push(at);
+            at = (at + 1) % 4;
         }
-        2 => walk(),
-        4 => {
-            let pairs = segments.unwrap();
-            let shared = |pair: &[[usize; 2]; 2]| {
-                *pair[0].iter().find(|node| pair[1].contains(node)).unwrap()
-            };
-            if signs[&shared(&pairs[0])] {
-                pairs
-                    .iter()
-                    .map(|pair| {
-                        let corner = shared(pair);
-                        let at = corners.iter().position(|&node| node == corner).unwrap();
-                        vec![
-                            crossing_ids[&edge_keys[(at + 3) % 4]],
-                            corner,
-                            crossing_ids[&edge_keys[at]],
-                        ]
-                    })
-                    .collect()
-            } else {
-                walk()
+        let change = statuses[from] != statuses[to];
+        if ons.is_empty() {
+            if crossed[from] != change {
+                return Err("inconsistent signs around a face");
             }
+        } else if change {
+            pass[if statuses[from] == Sign::Inside {
+                ons[0]
+            } else {
+                *ons.last().unwrap()
+            }] = true;
         }
-        _ => unreachable!(),
     }
+    let mut side = statuses[start];
+    let mut endpoints = Vec::new();
+    let mut sides = Vec::new();
+    let mut interiors = Vec::new();
+    let mut current = Vec::new();
+    let mut prefix = Vec::new();
+    let mut opened = false;
+    let endpoint = |key: [usize; 2],
+                    side: &mut Sign,
+                    current: &mut Vec<usize>,
+                    endpoints: &mut Vec<[usize; 2]>,
+                    sides: &mut Vec<Sign>,
+                    interiors: &mut Vec<Vec<usize>>,
+                    prefix: &mut Vec<usize>,
+                    opened: &mut bool| {
+        if *opened {
+            interiors.push(take(current));
+        } else {
+            *prefix = take(current);
+            *opened = true;
+        }
+        endpoints.push(key);
+        *side = flip(*side);
+        sides.push(*side);
+    };
+    let mut on_edges = Vec::new();
+    for step in 0..4 {
+        let at = (start + step) % 4;
+        match statuses[at] {
+            Sign::Inside | Sign::Outside => {
+                if statuses[at] != side {
+                    return Err("inconsistent signs around a face");
+                }
+                if side == Sign::Inside {
+                    current.push(corners[at])
+                }
+            }
+            Sign::On => {
+                if pass[at] {
+                    endpoint(
+                        [corners[at], corners[at]],
+                        &mut side,
+                        &mut current,
+                        &mut endpoints,
+                        &mut sides,
+                        &mut interiors,
+                        &mut prefix,
+                        &mut opened,
+                    );
+                } else if side == Sign::Inside {
+                    current.push(corners[at])
+                }
+            }
+        }
+        if crossed[at] {
+            endpoint(
+                edge_keys[at],
+                &mut side,
+                &mut current,
+                &mut endpoints,
+                &mut sides,
+                &mut interiors,
+                &mut prefix,
+                &mut opened,
+            );
+        } else if statuses[at] == Sign::On && statuses[(at + 1) % 4] == Sign::On {
+            on_edges.push((edge_keys[at], side));
+        }
+    }
+    let emitted = if opened {
+        current.extend(prefix);
+        interiors.push(current);
+        Vec::new()
+    } else {
+        current
+    };
+    Ok(FaceCut {
+        endpoints,
+        sides,
+        interiors,
+        emitted,
+        on_edges,
+        inside: statuses.contains(&Sign::Inside),
+        flush: false,
+    })
+}
+
+fn clip_face(
+    cut: &FaceCut,
+    chords: Option<&Vec<[[usize; 2]; 2]>>,
+    crossing_ids: &HashMap<[usize; 2], usize>,
+) -> Vec<Vec<usize>> {
+    let point = |key: [usize; 2]| {
+        if key[0] == key[1] {
+            key[0]
+        } else {
+            crossing_ids[&key]
+        }
+    };
+    if cut.endpoints.is_empty() {
+        return if cut.inside && cut.emitted.len() > 2 {
+            vec![cut.emitted.clone()]
+        } else {
+            vec![]
+        };
+    }
+    let mut partner = HashMap::new();
+    chords.unwrap().iter().for_each(|&[one, two]| {
+        partner.insert(one, two);
+        partner.insert(two, one);
+    });
+    let arcs: HashMap<[usize; 2], usize> = cut
+        .endpoints
+        .iter()
+        .enumerate()
+        .map(|(index, &key)| (key, index))
+        .collect();
+    let count = cut.endpoints.len();
+    let mut visited = vec![false; count];
+    let mut polygons = Vec::new();
+    (0..count).for_each(|origin| {
+        if cut.sides[origin] == Sign::Inside && !visited[origin] {
+            let mut polygon = vec![point(cut.endpoints[origin])];
+            let mut arc = origin;
+            loop {
+                visited[arc] = true;
+                polygon.extend(cut.interiors[arc].iter().copied());
+                let end = cut.endpoints[(arc + 1) % count];
+                polygon.push(point(end));
+                let jump = arcs[&partner[&end]];
+                if jump == origin {
+                    break;
+                }
+                polygon.push(point(cut.endpoints[jump]));
+                arc = jump;
+            }
+            if polygon.len() > 2 {
+                polygons.push(polygon)
+            }
+        }
+    });
+    polygons
 }
 
 fn contained(mesh: &Mesh<D>, classes: &[Class]) -> bool {
@@ -168,7 +320,8 @@ impl Tessellation {
         if !contained(&mesh, &classes) {
             return Err("tessellation is not contained within the dual mesh");
         }
-        let tables = self.tables(&mesh, &classes)?;
+        let (mesh, snapped) = self.snap(mesh, &classes)?;
+        let tables = self.tables(&mesh, &classes, &snapped)?;
         self.assemble(&mesh, &classes, &tables)
     }
     pub fn classify(&self, mesh: &Mesh<D>) -> Vec<Class> {
@@ -261,7 +414,95 @@ impl Tessellation {
         });
         classes
     }
-    pub fn tables(&self, mesh: &Mesh<D>, classes: &[Class]) -> Result<Tables, &'static str> {
+    fn snap(
+        &self,
+        mesh: Mesh<D>,
+        classes: &[Class],
+    ) -> Result<(Mesh<D>, HashSet<usize>), &'static str> {
+        let surface = self.mesh();
+        let surface_coordinates = surface.coordinates();
+        let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
+        let bvh = self.bvh();
+        let coordinates = mesh.coordinates();
+        let mut lengths: HashMap<usize, Scalar> = HashMap::new();
+        let mut offset = 0;
+        mesh.iter().for_each(|block| {
+            block.iter().enumerate().for_each(|(local, element)| {
+                if classes[offset + local] == Class::Cut {
+                    EDGES.iter().for_each(|&[a, b]| {
+                        let length = (&coordinates[element[b]] - &coordinates[element[a]]).norm();
+                        [element[a], element[b]].into_iter().for_each(|node| {
+                            lengths
+                                .entry(node)
+                                .and_modify(|shortest| *shortest = shortest.min(length))
+                                .or_insert(length);
+                        })
+                    })
+                }
+            });
+            offset += block.number_of_elements();
+        });
+        let cells: Vec<Vec<usize>> = mesh
+            .iter()
+            .flat_map(|block| block.iter().map(|element| element.to_vec()))
+            .collect();
+        let incidents = mesh.node_element_connectivity().to_vec();
+        let mut working = mesh.coordinates().clone();
+        let mut snapped = HashSet::new();
+        let mut candidates: Vec<usize> = lengths.keys().copied().collect();
+        candidates.sort_unstable();
+        candidates.into_iter().for_each(|node| {
+            if let Some((closest, _)) =
+                bvh.closest_point(&working[node], surface_coordinates, &elements)
+            {
+                let distance = (&closest - &working[node]).norm();
+                let shortest = lengths[&node];
+                let accept = if distance < SNAP_HARD * shortest {
+                    true
+                } else if distance < SNAP_SOFT * shortest {
+                    let retained: Vec<&Vec<usize>> = incidents[node]
+                        .iter()
+                        .filter(|&&cell| classes[cell] == Class::Inside)
+                        .map(|&cell| &cells[cell])
+                        .collect();
+                    let quality = |coordinates: &Coordinates<D>| {
+                        retained
+                            .iter()
+                            .map(|cell| {
+                                minimum_scaled_jacobian(Kind::Hexahedron, cell, coordinates)
+                            })
+                            .fold(Scalar::INFINITY, Scalar::min)
+                    };
+                    let before = quality(&working);
+                    let previous = working[node].clone();
+                    working[node] = closest.clone();
+                    let keep = retained.is_empty() || quality(&working) >= before;
+                    if !keep {
+                        working[node] = previous;
+                    }
+                    keep
+                } else {
+                    false
+                };
+                if accept {
+                    working[node] = closest;
+                    snapped.insert(node);
+                }
+            }
+        });
+        let (connectivities, _) = mesh.into();
+        let hexes: Vec<[usize; 8]> = Vec::try_from(connectivities)?;
+        Ok((
+            (vec![Connectivity::Hexahedral(hexes.into())], working).into(),
+            snapped,
+        ))
+    }
+    pub fn tables(
+        &self,
+        mesh: &Mesh<D>,
+        classes: &[Class],
+        snapped: &HashSet<usize>,
+    ) -> Result<Tables, &'static str> {
         let surface = self.mesh();
         let surface_coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
@@ -294,90 +535,115 @@ impl Tessellation {
         let mut signs = HashMap::new();
         edges.iter().flatten().for_each(|&node| {
             signs.entry(node).or_insert_with(|| {
-                self.encloses(
+                if snapped.contains(&node) {
+                    Sign::On
+                } else if self.encloses(
                     &coordinates[node],
                     surface_coordinates,
                     &elements,
                     &normals,
                     &directions,
-                )
+                ) {
+                    Sign::Inside
+                } else {
+                    Sign::Outside
+                }
             });
         });
         let mut crossings = HashMap::new();
         edges.iter().try_for_each(|&[a, b]| {
             let span = &coordinates[b] - &coordinates[a];
             let length = span.norm();
-            let hit = bvh.intersect(
-                &(coordinates[a].clone(), span.clone()).into(),
-                surface_coordinates,
-                &elements,
-            );
-            if signs[&a] != signs[&b] {
-                let near = hit.ok_or("crossing missing on a sign-change edge")?;
-                let far = bvh
-                    .intersect(
-                        &(coordinates[b].clone(), &coordinates[a] - &coordinates[b]).into(),
+            let margin = CROSSING_TOLERANCE.max(GRAZING_TOLERANCE * length);
+            match (signs[&a], signs[&b]) {
+                (Sign::On, Sign::On) => Ok(()),
+                (Sign::On, _) | (_, Sign::On) => {
+                    let (from, along) = if signs[&a] == Sign::On {
+                        (b, &coordinates[a] - &coordinates[b])
+                    } else {
+                        (a, span)
+                    };
+                    if let Some(hit) = bvh.intersect(
+                        &(coordinates[from].clone(), along).into(),
                         surface_coordinates,
                         &elements,
-                    )
-                    .ok_or("crossing missing on a sign-change edge")?;
-                if (length - near.distance() - far.distance()).abs()
-                    > CROSSING_TOLERANCE.max(GRAZING_TOLERANCE * length)
-                {
-                    return Err("edge crosses the tessellation more than once");
-                }
-                crossings.insert(
-                    [a, b],
-                    &coordinates[a] + &(&span * (near.distance() / length)),
-                );
-            } else if hit.is_some_and(|near| near.distance() <= length) {
-                return Err("edge crosses the tessellation more than once");
-            }
-            Ok(())
-        })?;
-        let mut segments = HashMap::new();
-        face_loops.iter().try_for_each(|(key, &[a, b, c, d])| {
-            let loop_edges: [[usize; 2]; 4] = [[a, b], [b, c], [c, d], [d, a]].map(|mut edge| {
-                edge.sort_unstable();
-                edge
-            });
-            let crossed: Vec<usize> = (0..4)
-                .filter(|&i| crossings.contains_key(&loop_edges[i]))
-                .collect();
-            match crossed[..] {
-                [] => Ok(()),
-                [first, second] => {
-                    segments.insert(key.clone(), vec![[loop_edges[first], loop_edges[second]]]);
+                    ) && hit.distance() < length - margin
+                    {
+                        return Err("edge crosses the tessellation more than once");
+                    }
                     Ok(())
                 }
-                [..] if crossed.len() == 4 => {
-                    let center = [a, b, c, d]
+                (inside, outside) if inside != outside => {
+                    let near = bvh
+                        .intersect(
+                            &(coordinates[a].clone(), span.clone()).into(),
+                            surface_coordinates,
+                            &elements,
+                        )
+                        .ok_or("crossing missing on a sign-change edge")?;
+                    let far = bvh
+                        .intersect(
+                            &(coordinates[b].clone(), &coordinates[a] - &coordinates[b]).into(),
+                            surface_coordinates,
+                            &elements,
+                        )
+                        .ok_or("crossing missing on a sign-change edge")?;
+                    if (length - near.distance() - far.distance()).abs() > margin {
+                        return Err("edge crosses the tessellation more than once");
+                    }
+                    crossings.insert(
+                        [a, b],
+                        &coordinates[a] + &(&span * (near.distance() / length)),
+                    );
+                    Ok(())
+                }
+                _ => {
+                    if let Some(hit) = bvh.intersect(
+                        &(coordinates[a].clone(), span).into(),
+                        surface_coordinates,
+                        &elements,
+                    ) && hit.distance() <= length
+                    {
+                        return Err("edge crosses the tessellation more than once");
+                    }
+                    Ok(())
+                }
+            }
+        })?;
+        let contains = |point: &Coordinate<D>| {
+            self.encloses(point, surface_coordinates, &elements, &normals, &directions)
+        };
+        let mut segments = HashMap::new();
+        face_loops.iter().try_for_each(|(key, corners)| {
+            let cut = face_cut(corners, &signs, &crossings)?;
+            match cut.endpoints.len() {
+                0 => Ok(()),
+                2 => {
+                    segments.insert(key.clone(), vec![[cut.endpoints[0], cut.endpoints[1]]]);
+                    Ok(())
+                }
+                4 => {
+                    let center = corners
                         .iter()
                         .map(|&node| coordinates[node].clone())
                         .sum::<Coordinate<D>>()
                         / 4.0;
-                    let pairs = if self.encloses(
-                        &center,
-                        surface_coordinates,
-                        &elements,
-                        &normals,
-                        &directions,
-                    ) == signs[&a]
-                    {
-                        vec![
-                            [loop_edges[0], loop_edges[1]],
-                            [loop_edges[2], loop_edges[3]],
-                        ]
+                    let target = if contains(&center) {
+                        Sign::Outside
                     } else {
-                        vec![
-                            [loop_edges[3], loop_edges[0]],
-                            [loop_edges[1], loop_edges[2]],
-                        ]
+                        Sign::Inside
                     };
+                    let pairs: Vec<[[usize; 2]; 2]> = (0..4)
+                        .filter(|&arc| cut.sides[arc] == target)
+                        .map(|arc| [cut.endpoints[arc], cut.endpoints[(arc + 1) % 4]])
+                        .collect();
+                    if pairs.len() != 2 {
+                        return Err("inconsistent crossings around a face");
+                    }
                     segments.insert(key.clone(), pairs);
                     Ok(())
                 }
-                _ => Err("inconsistent crossings around a face"),
+                _ => Err("refinement required at a face"),
             }
         })?;
         Ok(Tables {
@@ -401,21 +667,21 @@ impl Tessellation {
             crossing_ids.insert(*edge, coordinates.len());
             coordinates.push(tables.crossings[edge].clone());
         });
-        let face_polygons: HashMap<&Vec<usize>, Vec<Vec<usize>>> = tables
-            .faces
-            .iter()
-            .map(|(key, corners)| {
-                (
-                    key,
-                    clip_face(
-                        corners,
-                        &tables.signs,
-                        &crossing_ids,
-                        tables.segments.get(key),
-                    ),
-                )
-            })
-            .collect();
+        let mut face_polygons = HashMap::new();
+        let mut face_cuts = HashMap::new();
+        tables.faces.iter().try_for_each(|(key, corners)| {
+            let cut = face_cut(corners, &tables.signs, &tables.crossings)?;
+            face_polygons.insert(
+                key,
+                if cut.flush {
+                    Vec::new()
+                } else {
+                    clip_face(&cut, tables.segments.get(key), &crossing_ids)
+                },
+            );
+            face_cuts.insert(key, cut);
+            Ok(())
+        })?;
         let mut face_ids: HashMap<Vec<usize>, usize> = HashMap::new();
         let mut faces_nodes: Vec<Vec<usize>> = Vec::new();
         fn intern(
@@ -430,6 +696,13 @@ impl Tessellation {
                 faces_nodes.len() - 1
             })
         }
+        let point = |key: [usize; 2]| {
+            if key[0] == key[1] {
+                key[0]
+            } else {
+                crossing_ids[&key]
+            }
+        };
         let mut hexes: Vec<[usize; 8]> = Vec::new();
         let mut elements_faces: Vec<Vec<usize>> = Vec::new();
         let mut offset = 0;
@@ -443,53 +716,90 @@ impl Tessellation {
                     }
                     Class::Outside => Ok(()),
                     Class::Cut => {
-                        let cell_edges: Vec<[usize; 2]> = EDGES
+                        let interior = element
                             .iter()
-                            .map(|&[a, b]| {
-                                let mut key = [element[a], element[b]];
+                            .any(|node| tables.signs[node] == Sign::Inside);
+                        let faces: Vec<(Vec<usize>, Vec<usize>)> = local_faces
+                            .iter()
+                            .map(|face| {
+                                let oriented: Vec<usize> =
+                                    face.iter().map(|&local| element[local]).collect();
+                                let mut key = oriented.clone();
                                 key.sort_unstable();
-                                key
+                                (key, oriented)
                             })
-                            .filter(|key| crossing_ids.contains_key(key))
                             .collect();
-                        if cell_edges.is_empty() {
-                            if tables.signs[&element[0]] {
-                                hexes.push(from_fn(|i| element[i]));
-                            }
-                            return Ok(());
-                        }
-                        let mut cell_faces = Vec::new();
                         let mut adjacency: HashMap<[usize; 2], Vec<[usize; 2]>> = HashMap::new();
-                        local_faces.iter().for_each(|face| {
-                            let mut key: Vec<usize> =
-                                face.iter().map(|&local| element[local]).collect();
-                            key.sort_unstable();
-                            face_polygons[&key].iter().for_each(|polygon| {
-                                cell_faces.push(intern(
-                                    &mut face_ids,
-                                    &mut faces_nodes,
-                                    polygon.clone(),
-                                ))
-                            });
-                            if let Some(pairs) = tables.segments.get(&key) {
+                        faces.iter().for_each(|(key, _)| {
+                            if let Some(pairs) = tables.segments.get(key) {
                                 pairs.iter().for_each(|&[one, two]| {
                                     adjacency.entry(one).or_default().push(two);
                                     adjacency.entry(two).or_default().push(one);
                                 })
                             }
                         });
+                        EDGES.iter().for_each(|&[a, b]| {
+                            let (na, nb) = (element[a], element[b]);
+                            if tables.signs[&na] == Sign::On && tables.signs[&nb] == Sign::On {
+                                let mut edge = [na, nb];
+                                edge.sort_unstable();
+                                let on_sides: Vec<Sign> = faces
+                                    .iter()
+                                    .filter(|(_, oriented)| {
+                                        oriented.contains(&na) && oriented.contains(&nb)
+                                    })
+                                    .filter_map(|(key, _)| {
+                                        face_cuts[key]
+                                            .on_edges
+                                            .iter()
+                                            .find_map(|&(key, side)| (key == edge).then_some(side))
+                                    })
+                                    .collect();
+                                if on_sides.contains(&Sign::Inside)
+                                    && on_sides.contains(&Sign::Outside)
+                                {
+                                    adjacency.entry([na, na]).or_default().push([nb, nb]);
+                                    adjacency.entry([nb, nb]).or_default().push([na, na]);
+                                }
+                            }
+                        });
+                        if adjacency.is_empty() {
+                            if interior {
+                                hexes.push(from_fn(|i| element[i]));
+                            }
+                            return Ok(());
+                        }
                         if adjacency.values().any(|partners| partners.len() != 2) {
                             return Err("open cut chain within a cell");
                         }
+                        let mut cell_faces = Vec::new();
+                        faces.into_iter().try_for_each(|(key, _)| {
+                            if face_cuts[&key].flush {
+                                if interior {
+                                    return Err("refinement required at a face");
+                                }
+                            } else {
+                                face_polygons[&key].iter().for_each(|polygon| {
+                                    cell_faces.push(intern(
+                                        &mut face_ids,
+                                        &mut faces_nodes,
+                                        polygon.clone(),
+                                    ))
+                                })
+                            }
+                            Ok(())
+                        })?;
+                        let mut keys: Vec<[usize; 2]> = adjacency.keys().copied().collect();
+                        keys.sort_unstable();
                         let mut visited: HashSet<[usize; 2]> = HashSet::new();
-                        cell_edges.iter().for_each(|&start| {
+                        keys.into_iter().for_each(|start| {
                             if visited.insert(start) {
-                                let mut polygon = vec![crossing_ids[&start]];
+                                let mut polygon = vec![point(start)];
                                 let mut previous = start;
                                 let mut current = adjacency[&start][0];
                                 while current != start {
                                     visited.insert(current);
-                                    polygon.push(crossing_ids[&current]);
+                                    polygon.push(point(current));
                                     let next = if adjacency[&current][0] == previous {
                                         adjacency[&current][1]
                                     } else {
@@ -498,9 +808,18 @@ impl Tessellation {
                                     previous = current;
                                     current = next;
                                 }
-                                cell_faces.push(intern(&mut face_ids, &mut faces_nodes, polygon));
+                                if polygon.len() > 2 {
+                                    cell_faces.push(intern(
+                                        &mut face_ids,
+                                        &mut faces_nodes,
+                                        polygon,
+                                    ));
+                                }
                             }
                         });
+                        if cell_faces.is_empty() {
+                            return Ok(());
+                        }
                         let mut roots: HashMap<usize, usize> = HashMap::new();
                         fn find(roots: &mut HashMap<usize, usize>, node: usize) -> usize {
                             let parent = *roots.entry(node).or_insert(node);
