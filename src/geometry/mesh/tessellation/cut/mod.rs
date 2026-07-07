@@ -20,6 +20,7 @@ use std::{
     mem::take,
 };
 
+const COLLAPSE_FRACTION: Scalar = 0.2;
 const CROSSING_TOLERANCE: Scalar = 1.0e-8;
 const GRAZING_TOLERANCE: Scalar = 1.0e-4;
 const PADDING: u16 = 2;
@@ -333,6 +334,33 @@ fn star_volume(faces: &[Vec<usize>], coordinates: &Coordinates<D>) -> Scalar {
                     let one = &coordinates[face[i]] - &centroid;
                     let two = &coordinates[face[(i + 1) % face.len()]] - &centroid;
                     (one.cross(&two) * &middle).abs() / 6.0
+                })
+                .sum::<Scalar>()
+        })
+        .sum()
+}
+
+fn signed_volume(faces: &[Vec<usize>], coordinates: &Coordinates<D>) -> Scalar {
+    let nodes: HashSet<usize> = faces.iter().flatten().copied().collect();
+    let origin = nodes
+        .iter()
+        .map(|&node| coordinates[node].clone())
+        .sum::<Coordinate<D>>()
+        / nodes.len() as Scalar;
+    faces
+        .iter()
+        .map(|face| {
+            let middle = &(face
+                .iter()
+                .map(|&node| coordinates[node].clone())
+                .sum::<Coordinate<D>>()
+                / face.len() as Scalar)
+                - &origin;
+            (0..face.len())
+                .map(|i| {
+                    let one = &coordinates[face[i]] - &origin;
+                    let two = &coordinates[face[(i + 1) % face.len()]] - &origin;
+                    (one.cross(&two) * &middle) / 6.0
                 })
                 .sum::<Scalar>()
         })
@@ -1037,6 +1065,248 @@ impl Tessellation {
                 });
                 alive[sliver] = false;
             }
+        });
+        let surface = self.mesh();
+        let surface_coordinates = surface.coordinates();
+        let surface_elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
+        let bvh = self.bvh();
+        let mut face_cells: HashMap<usize, Vec<usize>> = HashMap::new();
+        sets.iter().enumerate().for_each(|(cell, faces)| {
+            if alive[cell] {
+                faces
+                    .iter()
+                    .for_each(|&face| face_cells.entry(face).or_default().push(cell))
+            }
+        });
+        let mut node_faces: HashMap<usize, HashSet<usize>> = HashMap::new();
+        face_cells.keys().for_each(|&face| {
+            faces_nodes[face].iter().for_each(|&node| {
+                node_faces.entry(node).or_default().insert(face);
+            })
+        });
+        let scales: Vec<Scalar> = sources
+            .iter()
+            .map(|hex| {
+                EDGES
+                    .iter()
+                    .map(|&[a, b]| (&coordinates[hex[b]] - &coordinates[hex[a]]).norm())
+                    .fold(Scalar::INFINITY, Scalar::min)
+            })
+            .collect();
+        let mut ranks: HashMap<usize, u8> = HashMap::new();
+        tables.signs.iter().for_each(|(&node, &sign)| {
+            ranks.insert(node, if sign == Sign::On { 2 } else { 1 });
+        });
+        hexes.iter().flatten().for_each(|&node| {
+            ranks.insert(node, 3);
+        });
+        let rank = |node: usize| ranks.get(&node).copied().unwrap_or(0);
+        let mut short: Vec<[usize; 2]> = Vec::new();
+        face_cells.iter().for_each(|(&face, cells)| {
+            let polygon = &faces_nodes[face];
+            let limit = COLLAPSE_FRACTION
+                * cells
+                    .iter()
+                    .map(|&cell| scales[cell])
+                    .fold(Scalar::INFINITY, Scalar::min);
+            (0..polygon.len()).for_each(|i| {
+                let (a, b) = (polygon[i], polygon[(i + 1) % polygon.len()]);
+                if a != b
+                    && !(rank(a) == 3 && rank(b) == 3)
+                    && (&coordinates[b] - &coordinates[a]).norm() < limit
+                {
+                    let mut key = [a, b];
+                    key.sort_unstable();
+                    short.push(key);
+                }
+            })
+        });
+        short.sort_unstable();
+        short.dedup();
+        let mut parents: HashMap<usize, usize> = HashMap::new();
+        let mut anchored: HashMap<usize, bool> = HashMap::new();
+        fn root(parents: &mut HashMap<usize, usize>, node: usize) -> usize {
+            let parent = *parents.entry(node).or_insert(node);
+            if parent == node {
+                node
+            } else {
+                let root = root(parents, parent);
+                parents.insert(node, root);
+                root
+            }
+        }
+        short.into_iter().for_each(|[a, b]| {
+            let (ra, rb) = (root(&mut parents, a), root(&mut parents, b));
+            if ra != rb {
+                let (ha, hb) = (
+                    *anchored.entry(ra).or_insert(rank(ra) == 3),
+                    *anchored.entry(rb).or_insert(rank(rb) == 3),
+                );
+                if !(ha && hb) {
+                    let (keep, gone) = if ra < rb { (ra, rb) } else { (rb, ra) };
+                    parents.insert(gone, keep);
+                    anchored.insert(keep, ha || hb);
+                }
+            }
+        });
+        let mut clusters: HashMap<usize, Vec<usize>> = HashMap::new();
+        let mut merging: Vec<usize> = parents.keys().copied().collect();
+        merging.sort_unstable();
+        merging.into_iter().for_each(|node| {
+            let root = root(&mut parents, node);
+            clusters.entry(root).or_default().push(node);
+        });
+        let mut ordered: Vec<Vec<usize>> = clusters
+            .into_values()
+            .filter(|cluster| cluster.len() > 1)
+            .collect();
+        ordered.sort_unstable();
+        ordered.into_iter().for_each(|cluster| {
+            let survivor = cluster
+                .iter()
+                .copied()
+                .reduce(|best, node| if rank(node) > rank(best) { node } else { best })
+                .unwrap();
+            let affected: Vec<usize> = {
+                let mut faces: Vec<usize> = cluster
+                    .iter()
+                    .filter_map(|node| node_faces.get(node))
+                    .flatten()
+                    .copied()
+                    .collect();
+                faces.sort_unstable();
+                faces.dedup();
+                faces
+            };
+            if affected.is_empty() {
+                return;
+            }
+            let cells: Vec<usize> = {
+                let mut cells: Vec<usize> = affected
+                    .iter()
+                    .flat_map(|face| face_cells[face].iter().copied())
+                    .filter(|&cell| alive[cell])
+                    .collect();
+                cells.sort_unstable();
+                cells.dedup();
+                cells
+            };
+            let oriented = |cell: usize, updated: &HashMap<usize, Vec<usize>>| -> Vec<Vec<usize>> {
+                sets[cell]
+                    .iter()
+                    .filter_map(|face| {
+                        let polygon = updated.get(face).unwrap_or(&faces_nodes[*face]);
+                        (polygon.len() > 2).then(|| {
+                            if owners[*face] == cell {
+                                polygon.clone()
+                            } else {
+                                polygon.iter().rev().copied().collect()
+                            }
+                        })
+                    })
+                    .collect()
+            };
+            let volumes: Vec<Scalar> = cells
+                .iter()
+                .map(|&cell| signed_volume(&oriented(cell, &HashMap::new()), &coordinates))
+                .collect();
+            let position = if rank(survivor) >= 2 {
+                coordinates[survivor].clone()
+            } else {
+                let centroid = cluster
+                    .iter()
+                    .map(|&node| coordinates[node].clone())
+                    .sum::<Coordinate<D>>()
+                    / cluster.len() as Scalar;
+                bvh.closest_point(&centroid, surface_coordinates, &surface_elements)
+                    .map(|(point, _)| point)
+                    .unwrap_or(centroid)
+            };
+            let previous = coordinates[survivor].clone();
+            coordinates[survivor] = position;
+            let mut pinched = false;
+            let updated: HashMap<usize, Vec<usize>> = affected
+                .iter()
+                .map(|&face| {
+                    let mut polygon: Vec<usize> = Vec::new();
+                    faces_nodes[face]
+                        .iter()
+                        .map(|&node| {
+                            if cluster.binary_search(&node).is_ok() {
+                                survivor
+                            } else {
+                                node
+                            }
+                        })
+                        .for_each(|node| {
+                            if polygon.last() != Some(&node) {
+                                polygon.push(node)
+                            }
+                        });
+                    while polygon.len() > 1 && polygon.first() == polygon.last() {
+                        polygon.pop();
+                    }
+                    let mut check = polygon.clone();
+                    check.sort_unstable();
+                    check.dedup();
+                    if check.len() != polygon.len() {
+                        pinched = true;
+                    }
+                    (face, polygon)
+                })
+                .collect();
+            let valid = !pinched
+                && cells.iter().zip(volumes).all(|(&cell, volume)| {
+                    let bound = COLLAPSE_FRACTION * COLLAPSE_FRACTION * scales[cell].powi(3);
+                    let faces = oriented(cell, &updated);
+                    if faces.is_empty() {
+                        return volume <= bound;
+                    }
+                    let mut keys: Vec<Vec<usize>> = faces
+                        .iter()
+                        .map(|face| {
+                            let mut key = face.clone();
+                            key.sort_unstable();
+                            key
+                        })
+                        .collect();
+                    keys.sort_unstable();
+                    let count = keys.len();
+                    keys.dedup();
+                    let new = signed_volume(&faces, &coordinates);
+                    count == keys.len() && count > 3 && new > 0.0 && (new - volume).abs() <= bound
+                });
+            if !valid {
+                coordinates[survivor] = previous;
+                return;
+            }
+            updated.into_iter().for_each(|(face, polygon)| {
+                if polygon.len() > 2 {
+                    faces_nodes[face] = polygon;
+                    node_faces.entry(survivor).or_default().insert(face);
+                } else {
+                    faces_nodes[face].iter().for_each(|node| {
+                        if let Some(incident) = node_faces.get_mut(node) {
+                            incident.remove(&face);
+                        }
+                    });
+                    face_cells
+                        .remove(&face)
+                        .into_iter()
+                        .flatten()
+                        .for_each(|cell| {
+                            sets[cell].remove(&face);
+                            if sets[cell].is_empty() {
+                                alive[cell] = false;
+                            }
+                        });
+                }
+            });
+            cluster.into_iter().for_each(|node| {
+                if node != survivor {
+                    node_faces.remove(&node);
+                }
+            });
         });
         let mut compacted: HashMap<usize, usize> = HashMap::new();
         let mut compact_nodes: Vec<Vec<usize>> = Vec::new();
