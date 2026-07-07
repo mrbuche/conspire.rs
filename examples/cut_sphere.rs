@@ -92,7 +92,7 @@ fn main() -> Result<(), std::io::Error> {
                 mesh.coordinates().clone(),
             )))
             .write("poly_faces.stl")?;
-            Mesh::from((
+            let polys = Mesh::from((
                 vec![Connectivity::Polyhedral(
                     (
                         polyhedra.elements_faces().to_vec(),
@@ -101,11 +101,13 @@ fn main() -> Result<(), std::io::Error> {
                         .into(),
                 )],
                 mesh.coordinates().clone(),
-            ))
-            .write(Output::VtkUnstructured("polys.vtu"))
+            ));
+            #[cfg(feature = "netcdf")]
+            polys.write(Output::Exodus("polys.exo"))?;
+            polys.write(Output::VtkUnstructured("polys.vtu"))
         }
         _ => Ok(()),
     })?;
-    println!("wrote sphere.stl, hexes.vtu, poly_faces.stl, polys.vtu");
+    println!("wrote sphere.stl, hexes.vtu, poly_faces.stl, polys.vtu, polys.exo");
     Ok(())
 }
