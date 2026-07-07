@@ -1,4 +1,4 @@
-use super::{Class, Sign, contained};
+use super::{Class, Sign, contained, star_volume};
 use crate::{
     geometry::{
         Coordinates,
@@ -294,4 +294,75 @@ fn cut_sphere() {
                 assert!((0.985..=1.0 + 1e-9).contains(&norm), "{norm}")
             })
         })
+}
+
+#[test]
+fn agglomerate_sliver() {
+    let coordinates = Coordinates::from(vec![
+        [-1.0, -1.0, -2.0],
+        [3.0, -1.0, -2.0],
+        [3.0, 2.0, -2.0],
+        [-1.0, 2.0, -2.0],
+        [-1.0, -1.0, -0.04],
+        [3.0, -1.0, 0.28],
+        [3.0, 2.0, 0.28],
+        [-1.0, 2.0, -0.04],
+    ]);
+    let triangles = vec![
+        [0, 3, 2],
+        [0, 2, 1],
+        [4, 5, 6],
+        [4, 6, 7],
+        [0, 1, 5],
+        [0, 5, 4],
+        [1, 2, 6],
+        [1, 6, 5],
+        [3, 7, 6],
+        [3, 6, 2],
+        [3, 0, 4],
+        [3, 4, 7],
+    ];
+    let tessellation = Tessellation::from(Mesh::from((
+        vec![Connectivity::Triangular(triangles.into())],
+        coordinates,
+    )));
+    let mesh = Mesh::from((
+        vec![Connectivity::Hexahedral(
+            vec![[0, 1, 2, 3, 4, 5, 6, 7], [1, 8, 9, 2, 5, 10, 11, 6]].into(),
+        )],
+        Coordinates::from(vec![
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+            [1.0, 0.0, 1.0],
+            [1.0, 1.0, 1.0],
+            [0.0, 1.0, 1.0],
+            [2.0, 0.0, 0.0],
+            [2.0, 1.0, 0.0],
+            [2.0, 0.0, 1.0],
+            [2.0, 1.0, 1.0],
+        ]),
+    ));
+    let classes = tessellation.classify(&mesh);
+    assert_eq!(classes, vec![Class::Cut, Class::Cut]);
+    let tables = tessellation
+        .tables(&mesh, &classes, &HashSet::new())
+        .unwrap();
+    let result = tessellation.assemble(&mesh, &classes, &tables).unwrap();
+    assert_eq!(result.number_of_element_blocks(), 1);
+    match &result.connectivities()[0] {
+        Connectivity::Polyhedral(polyhedra) => {
+            assert_eq!(polyhedra.elements_faces().len(), 1);
+            assert_eq!(polyhedra.elements_faces()[0].len(), 10);
+            let faces: Vec<Vec<usize>> = polyhedra.elements_faces()[0]
+                .iter()
+                .map(|&face| polyhedra.faces_nodes()[face].clone())
+                .collect();
+            let volume = star_volume(&faces, result.coordinates());
+            assert!((volume - 0.24).abs() < 1e-12, "{volume}")
+        }
+        _ => panic!(),
+    }
 }

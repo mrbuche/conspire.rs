@@ -12,7 +12,7 @@ use crate::{
         },
         ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
     },
-    math::{Scalar, Tensor, TensorVec},
+    math::{CrossProduct, Scalar, Tensor, TensorVec},
 };
 use std::{
     array::from_fn,
@@ -23,8 +23,17 @@ use std::{
 const CROSSING_TOLERANCE: Scalar = 1.0e-8;
 const GRAZING_TOLERANCE: Scalar = 1.0e-4;
 const PADDING: u16 = 2;
+const SLIVER_FRACTION: Scalar = 0.1;
 const SNAP_HARD: Scalar = 0.05;
 const SNAP_SOFT: Scalar = 0.2;
+const FACES: [[usize; 4]; 6] = [
+    [0, 1, 5, 4],
+    [1, 2, 6, 5],
+    [2, 3, 7, 6],
+    [3, 0, 4, 7],
+    [0, 3, 2, 1],
+    [4, 5, 6, 7],
+];
 const EDGES: [[usize; 2]; 12] = [
     [0, 1],
     [1, 2],
@@ -286,6 +295,48 @@ fn clip_face(
         }
     });
     polygons
+}
+
+fn face_area(face: &[usize], coordinates: &Coordinates<D>) -> Scalar {
+    let middle = face
+        .iter()
+        .map(|&node| coordinates[node].clone())
+        .sum::<Coordinate<D>>()
+        / face.len() as Scalar;
+    (0..face.len())
+        .map(|i| {
+            let one = &coordinates[face[i]] - &middle;
+            let two = &coordinates[face[(i + 1) % face.len()]] - &middle;
+            one.cross(&two).norm() / 2.0
+        })
+        .sum()
+}
+
+fn star_volume(faces: &[Vec<usize>], coordinates: &Coordinates<D>) -> Scalar {
+    let nodes: HashSet<usize> = faces.iter().flatten().copied().collect();
+    let centroid = nodes
+        .iter()
+        .map(|&node| coordinates[node].clone())
+        .sum::<Coordinate<D>>()
+        / nodes.len() as Scalar;
+    faces
+        .iter()
+        .map(|face| {
+            let middle = &(face
+                .iter()
+                .map(|&node| coordinates[node].clone())
+                .sum::<Coordinate<D>>()
+                / face.len() as Scalar)
+                - &centroid;
+            (0..face.len())
+                .map(|i| {
+                    let one = &coordinates[face[i]] - &centroid;
+                    let two = &coordinates[face[(i + 1) % face.len()]] - &centroid;
+                    (one.cross(&two) * &middle).abs() / 6.0
+                })
+                .sum::<Scalar>()
+        })
+        .sum()
 }
 
 fn contained(mesh: &Mesh<D>, classes: &[Class]) -> bool {
@@ -705,6 +756,7 @@ impl Tessellation {
         };
         let mut hexes: Vec<[usize; 8]> = Vec::new();
         let mut elements_faces: Vec<Vec<usize>> = Vec::new();
+        let mut sources: Vec<[usize; 8]> = Vec::new();
         let mut offset = 0;
         mesh.iter().try_for_each(|block| {
             let local_faces = block.local_faces();
@@ -850,6 +902,7 @@ impl Tessellation {
                             return Err("disconnected cell interior requires refinement");
                         }
                         elements_faces.push(cell_faces);
+                        sources.push(from_fn(|i| element[i]));
                         Ok(())
                     }
                 }
@@ -857,6 +910,111 @@ impl Tessellation {
             offset += block.number_of_elements();
             Ok(())
         })?;
+        let fractions: Vec<Scalar> = elements_faces
+            .iter()
+            .zip(sources.iter())
+            .map(|(faces, hex)| {
+                let polygons: Vec<Vec<usize>> = faces
+                    .iter()
+                    .map(|&face| faces_nodes[face].clone())
+                    .collect();
+                let reference: Vec<Vec<usize>> = FACES
+                    .iter()
+                    .map(|face| face.iter().map(|&local| hex[local]).collect())
+                    .collect();
+                star_volume(&polygons, &coordinates) / star_volume(&reference, &coordinates)
+            })
+            .collect();
+        let mut sets: Vec<HashSet<usize>> = elements_faces
+            .iter()
+            .map(|faces| faces.iter().copied().collect())
+            .collect();
+        let mut face_polys: HashMap<usize, Vec<usize>> = HashMap::new();
+        sets.iter().enumerate().for_each(|(cell, faces)| {
+            faces
+                .iter()
+                .for_each(|&face| face_polys.entry(face).or_default().push(cell))
+        });
+        let mut alive = vec![true; sets.len()];
+        let mut slivers: Vec<usize> = (0..sets.len())
+            .filter(|&cell| fractions[cell] < SLIVER_FRACTION)
+            .collect();
+        slivers.sort_by(|&one, &two| {
+            fractions[one]
+                .partial_cmp(&fractions[two])
+                .unwrap()
+                .then(one.cmp(&two))
+        });
+        slivers.into_iter().for_each(|sliver| {
+            if !alive[sliver] {
+                return;
+            }
+            let mut areas: HashMap<usize, Scalar> = HashMap::new();
+            sets[sliver].iter().for_each(|&face| {
+                face_polys[&face].iter().for_each(|&other| {
+                    if other != sliver && alive[other] {
+                        *areas.entry(other).or_insert(0.0) +=
+                            face_area(&faces_nodes[face], &coordinates);
+                    }
+                })
+            });
+            if let Some(target) = areas
+                .into_iter()
+                .max_by(|(one, area_one), (two, area_two)| {
+                    area_one.partial_cmp(area_two).unwrap().then(two.cmp(one))
+                })
+                .map(|(other, _)| other)
+            {
+                let common: Vec<usize> = sets[sliver]
+                    .iter()
+                    .copied()
+                    .filter(|face| sets[target].contains(face))
+                    .collect();
+                let moved: Vec<usize> = sets[sliver]
+                    .iter()
+                    .copied()
+                    .filter(|face| !common.contains(face))
+                    .collect();
+                common.iter().for_each(|face| {
+                    sets[target].remove(face);
+                });
+                moved.into_iter().for_each(|face| {
+                    sets[target].insert(face);
+                    face_polys
+                        .get_mut(&face)
+                        .unwrap()
+                        .iter_mut()
+                        .for_each(|cell| {
+                            if *cell == sliver {
+                                *cell = target
+                            }
+                        });
+                });
+                alive[sliver] = false;
+            }
+        });
+        let mut compacted: HashMap<usize, usize> = HashMap::new();
+        let mut compact_nodes: Vec<Vec<usize>> = Vec::new();
+        let elements_faces: Vec<Vec<usize>> = alive
+            .into_iter()
+            .zip(sets)
+            .filter_map(|(kept, set)| {
+                kept.then(|| {
+                    let mut faces: Vec<usize> = set.into_iter().collect();
+                    faces.sort_unstable();
+                    faces
+                        .into_iter()
+                        .map(|face| {
+                            *compacted.entry(face).or_insert_with(|| {
+                                compact_nodes.push(faces_nodes[face].clone());
+                                compact_nodes.len() - 1
+                            })
+                        })
+                        .collect()
+                })
+            })
+            .collect();
+        let faces_nodes = compact_nodes;
         let mut remap: HashMap<usize, usize> = HashMap::new();
         let mut points = Coordinates::new();
         let mut renumber = |node: usize, points: &mut Coordinates<D>| -> usize {
