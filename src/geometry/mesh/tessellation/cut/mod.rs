@@ -735,15 +735,19 @@ impl Tessellation {
         })?;
         let mut face_ids: HashMap<Vec<usize>, usize> = HashMap::new();
         let mut faces_nodes: Vec<Vec<usize>> = Vec::new();
+        let mut owners: Vec<usize> = Vec::new();
         fn intern(
             face_ids: &mut HashMap<Vec<usize>, usize>,
             faces_nodes: &mut Vec<Vec<usize>>,
+            owners: &mut Vec<usize>,
             polygon: Vec<usize>,
+            cell: usize,
         ) -> usize {
             let mut key = polygon.clone();
             key.sort_unstable();
             *face_ids.entry(key).or_insert_with(|| {
                 faces_nodes.push(polygon);
+                owners.push(cell);
                 faces_nodes.len() - 1
             })
         }
@@ -824,23 +828,30 @@ impl Tessellation {
                         if adjacency.values().any(|partners| partners.len() != 2) {
                             return Err("open cut chain within a cell");
                         }
-                        let mut cell_faces = Vec::new();
-                        faces.into_iter().try_for_each(|(key, _)| {
+                        let mut polygons: Vec<Vec<usize>> = Vec::new();
+                        faces.into_iter().try_for_each(|(key, oriented)| {
                             if face_cuts[&key].flush {
                                 if interior {
                                     return Err("refinement required at a face");
                                 }
                             } else {
+                                let corners = &tables.faces[&key];
+                                let at = corners
+                                    .iter()
+                                    .position(|&node| node == oriented[0])
+                                    .unwrap();
+                                let forward = corners[(at + 1) % 4] == oriented[1];
                                 face_polygons[&key].iter().for_each(|polygon| {
-                                    cell_faces.push(intern(
-                                        &mut face_ids,
-                                        &mut faces_nodes,
-                                        polygon.clone(),
-                                    ))
+                                    polygons.push(if forward {
+                                        polygon.clone()
+                                    } else {
+                                        polygon.iter().rev().copied().collect()
+                                    })
                                 })
                             }
                             Ok(())
                         })?;
+                        let clipped = polygons.len();
                         let mut keys: Vec<[usize; 2]> = adjacency.keys().copied().collect();
                         keys.sort_unstable();
                         let mut visited: HashSet<[usize; 2]> = HashSet::new();
@@ -861,17 +872,38 @@ impl Tessellation {
                                     current = next;
                                 }
                                 if polygon.len() > 2 {
-                                    cell_faces.push(intern(
-                                        &mut face_ids,
-                                        &mut faces_nodes,
-                                        polygon,
-                                    ));
+                                    polygons.push(polygon);
                                 }
                             }
                         });
-                        if cell_faces.is_empty() {
+                        if polygons.is_empty() {
                             return Ok(());
                         }
+                        let nodes: HashSet<usize> = polygons.iter().flatten().copied().collect();
+                        let centroid = nodes
+                            .iter()
+                            .map(|&node| coordinates[node].clone())
+                            .sum::<Coordinate<D>>()
+                            / nodes.len() as Scalar;
+                        polygons[clipped..].iter_mut().for_each(|polygon| {
+                            let middle = &(polygon
+                                .iter()
+                                .map(|&node| coordinates[node].clone())
+                                .sum::<Coordinate<D>>()
+                                / polygon.len() as Scalar)
+                                - &centroid;
+                            let outward: Scalar = (0..polygon.len())
+                                .map(|i| {
+                                    let one = &coordinates[polygon[i]] - &centroid;
+                                    let two =
+                                        &coordinates[polygon[(i + 1) % polygon.len()]] - &centroid;
+                                    one.cross(&two) * &middle
+                                })
+                                .sum();
+                            if outward < 0.0 {
+                                polygon.reverse()
+                            }
+                        });
                         let mut roots: HashMap<usize, usize> = HashMap::new();
                         fn find(roots: &mut HashMap<usize, usize>, node: usize) -> usize {
                             let parent = *roots.entry(node).or_insert(node);
@@ -883,17 +915,13 @@ impl Tessellation {
                                 root
                             }
                         }
-                        cell_faces.iter().for_each(|&face| {
-                            let root = find(&mut roots, faces_nodes[face][0]);
-                            faces_nodes[face][1..].iter().for_each(|&node| {
+                        polygons.iter().for_each(|polygon| {
+                            let root = find(&mut roots, polygon[0]);
+                            polygon[1..].iter().for_each(|&node| {
                                 let other = find(&mut roots, node);
                                 roots.insert(other, root);
                             })
                         });
-                        let nodes: HashSet<usize> = cell_faces
-                            .iter()
-                            .flat_map(|&face| faces_nodes[face].iter().copied())
-                            .collect();
                         let components: HashSet<usize> = nodes
                             .into_iter()
                             .map(|node| find(&mut roots, node))
@@ -901,7 +929,21 @@ impl Tessellation {
                         if components.len() != 1 {
                             return Err("disconnected cell interior requires refinement");
                         }
-                        elements_faces.push(cell_faces);
+                        let cell = elements_faces.len();
+                        elements_faces.push(
+                            polygons
+                                .into_iter()
+                                .map(|polygon| {
+                                    intern(
+                                        &mut face_ids,
+                                        &mut faces_nodes,
+                                        &mut owners,
+                                        polygon,
+                                        cell,
+                                    )
+                                })
+                                .collect(),
+                        );
                         sources.push(from_fn(|i| element[i]));
                         Ok(())
                     }
@@ -979,6 +1021,9 @@ impl Tessellation {
                     sets[target].remove(face);
                 });
                 moved.into_iter().for_each(|face| {
+                    if owners[face] == sliver {
+                        owners[face] = target
+                    }
                     sets[target].insert(face);
                     face_polys
                         .get_mut(&face)
@@ -998,7 +1043,8 @@ impl Tessellation {
         let elements_faces: Vec<Vec<usize>> = alive
             .into_iter()
             .zip(sets)
-            .filter_map(|(kept, set)| {
+            .enumerate()
+            .filter_map(|(cell, (kept, set))| {
                 kept.then(|| {
                     let mut faces: Vec<usize> = set.into_iter().collect();
                     faces.sort_unstable();
@@ -1006,7 +1052,11 @@ impl Tessellation {
                         .into_iter()
                         .map(|face| {
                             *compacted.entry(face).or_insert_with(|| {
-                                compact_nodes.push(faces_nodes[face].clone());
+                                let mut polygon = faces_nodes[face].clone();
+                                if owners[face] != cell {
+                                    polygon.reverse()
+                                }
+                                compact_nodes.push(polygon);
                                 compact_nodes.len() - 1
                             })
                         })

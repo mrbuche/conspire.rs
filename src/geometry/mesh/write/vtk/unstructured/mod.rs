@@ -85,6 +85,7 @@ impl<const D: usize> Mesh<D> {
             if let Connectivity::Polyhedral(poly) = block {
                 has_polyhedra = true;
                 let faces_nodes = poly.faces_nodes();
+                let mut emitted = HashSet::new();
                 for element_faces in poly.iter() {
                     let mut seen = HashSet::new();
                     let mut unique = Vec::new();
@@ -107,10 +108,15 @@ impl<const D: usize> Mesh<D> {
                         let nodes = &faces_nodes[face];
                         faces.extend_from_slice(&(nodes.len() as i64).to_le_bytes());
                         face_offset += 1;
-                        nodes.iter().for_each(|&node| {
+                        let mut emit = |node: usize| {
                             faces.extend_from_slice(&(node as i64).to_le_bytes());
                             face_offset += 1;
-                        });
+                        };
+                        if emitted.insert(face) {
+                            nodes.iter().for_each(|&node| emit(node));
+                        } else {
+                            nodes.iter().rev().for_each(|&node| emit(node));
+                        }
                     }
                     faceoffsets.extend_from_slice(&face_offset.to_le_bytes());
                 }

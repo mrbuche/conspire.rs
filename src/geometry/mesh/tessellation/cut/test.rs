@@ -2,12 +2,56 @@ use super::{Class, Sign, contained, star_volume};
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Connectivity, Mesh, tessellation::Tessellation},
+        mesh::{Connectivity, Mesh, PolytopalConnectivity, tessellation::Tessellation},
         ntree::{Balance, Balancing, Dualization, Octree, Pairing},
     },
-    math::Tensor,
+    math::{CrossProduct, Tensor},
 };
 use std::collections::{HashMap, HashSet};
+
+fn signed_volumes(polyhedra: &PolytopalConnectivity<3>, coordinates: &Coordinates<3>) -> Vec<f64> {
+    let faces_nodes = polyhedra.faces_nodes();
+    let mut owner = HashMap::new();
+    polyhedra
+        .elements_faces()
+        .iter()
+        .enumerate()
+        .for_each(|(cell, faces)| {
+            faces.iter().for_each(|&face| {
+                owner.entry(face).or_insert(cell);
+            })
+        });
+    polyhedra
+        .elements_faces()
+        .iter()
+        .enumerate()
+        .map(|(cell, faces)| {
+            faces
+                .iter()
+                .map(|&face| {
+                    let nodes = &faces_nodes[face];
+                    let middle = nodes
+                        .iter()
+                        .map(|&node| coordinates[node].clone())
+                        .sum::<crate::geometry::Coordinate<3>>()
+                        / nodes.len() as f64;
+                    let volume: f64 = (0..nodes.len())
+                        .map(|i| {
+                            let one = &coordinates[nodes[i]];
+                            let two = &coordinates[nodes[(i + 1) % nodes.len()]];
+                            &middle * &one.cross(two) / 6.0
+                        })
+                        .sum();
+                    if owner[&face] == cell {
+                        volume
+                    } else {
+                        -volume
+                    }
+                })
+                .sum()
+        })
+        .collect()
+}
 
 fn dual(tessellation: &Tessellation, scale: f64) -> Mesh<3> {
     let mut octree = Octree::<u16, usize>::from_sdf(tessellation, scale, 2);
@@ -252,7 +296,11 @@ fn assemble_single_hexahedron() {
             polyhedra
                 .faces_nodes()
                 .iter()
-                .for_each(|face| assert_eq!(face.len(), 4))
+                .for_each(|face| assert_eq!(face.len(), 4));
+            let signed = signed_volumes(polyhedra, result.coordinates())[0];
+            let star = star_volume(polyhedra.faces_nodes(), result.coordinates());
+            assert!(signed > 0.0);
+            assert!((signed - star).abs() < 1e-12 * star, "{signed} {star}")
         }
         _ => panic!(),
     }
@@ -293,7 +341,27 @@ fn cut_sphere() {
                 let norm = coordinates[node].norm();
                 assert!((0.985..=1.0 + 1e-9).contains(&norm), "{norm}")
             })
-        })
+        });
+    match &mesh.connectivities()[1] {
+        Connectivity::Polyhedral(polyhedra) => {
+            let signed = signed_volumes(polyhedra, coordinates);
+            signed.iter().for_each(|&volume| assert!(volume > 0.0));
+            let faces_nodes = polyhedra.faces_nodes();
+            polyhedra
+                .elements_faces()
+                .iter()
+                .zip(signed.iter())
+                .for_each(|(faces, &volume)| {
+                    let polygons: Vec<Vec<usize>> = faces
+                        .iter()
+                        .map(|&face| faces_nodes[face].clone())
+                        .collect();
+                    let star = star_volume(&polygons, coordinates);
+                    assert!(volume < star * (1.0 + 1e-9), "{volume} {star}")
+                })
+        }
+        _ => panic!(),
+    }
 }
 
 #[test]
@@ -361,7 +429,9 @@ fn agglomerate_sliver() {
                 .map(|&face| polyhedra.faces_nodes()[face].clone())
                 .collect();
             let volume = star_volume(&faces, result.coordinates());
-            assert!((volume - 0.24).abs() < 1e-12, "{volume}")
+            assert!((volume - 0.24).abs() < 1e-12, "{volume}");
+            let signed = signed_volumes(polyhedra, result.coordinates())[0];
+            assert!((signed - 0.24).abs() < 1e-12, "{signed}")
         }
         _ => panic!(),
     }
