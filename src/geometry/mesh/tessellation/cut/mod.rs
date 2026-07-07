@@ -26,6 +26,7 @@ const GRAZING_TOLERANCE: Scalar = 1.0e-4;
 const PADDING: u16 = 2;
 const SLIVER_FRACTION: Scalar = 0.1;
 const SNAP_HARD: Scalar = 0.05;
+const SNAP_QUALITY: Scalar = 0.3;
 const SNAP_SOFT: Scalar = 0.2;
 const FACES: [[usize; 4]; 6] = [
     [0, 1, 5, 4],
@@ -555,7 +556,7 @@ impl Tessellation {
                     let before = quality(&working);
                     let previous = working[node].clone();
                     working[node] = closest.clone();
-                    let keep = retained.is_empty() || quality(&working) >= before;
+                    let keep = retained.is_empty() || quality(&working) >= before.min(SNAP_QUALITY);
                     if !keep {
                         working[node] = previous;
                     }
