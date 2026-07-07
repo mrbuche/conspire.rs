@@ -91,10 +91,21 @@ fn main() -> Result<(), std::io::Error> {
                 vec![Connectivity::Triangular(triangles.into())],
                 mesh.coordinates().clone(),
             )))
-            .write("poly_faces.stl")
+            .write("poly_faces.stl")?;
+            Mesh::from((
+                vec![Connectivity::Polyhedral(
+                    (
+                        polyhedra.elements_faces().to_vec(),
+                        polyhedra.faces_nodes().to_vec(),
+                    )
+                        .into(),
+                )],
+                mesh.coordinates().clone(),
+            ))
+            .write(Output::VtkUnstructured("polys.vtu"))
         }
         _ => Ok(()),
     })?;
-    println!("wrote sphere.stl, hexes.vtu, poly_faces.stl");
+    println!("wrote sphere.stl, hexes.vtu, poly_faces.stl, polys.vtu");
     Ok(())
 }
