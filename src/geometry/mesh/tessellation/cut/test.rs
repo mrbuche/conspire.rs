@@ -289,18 +289,14 @@ fn assemble_single_hexahedron() {
     assert_eq!(result.number_of_element_blocks(), 1);
     assert_eq!(result.number_of_nodes(), 8);
     match &result.connectivities()[0] {
-        Connectivity::Polyhedral(polyhedra) => {
-            assert_eq!(polyhedra.elements_faces().len(), 1);
-            assert_eq!(polyhedra.elements_faces()[0].len(), 6);
-            assert_eq!(polyhedra.faces_nodes().len(), 6);
-            polyhedra
-                .faces_nodes()
-                .iter()
-                .for_each(|face| assert_eq!(face.len(), 4));
-            let signed = signed_volumes(polyhedra, result.coordinates())[0];
-            let star = star_volume(polyhedra.faces_nodes(), result.coordinates());
-            assert!(signed > 0.0);
-            assert!((signed - star).abs() < 1e-12 * star, "{signed} {star}")
+        Connectivity::Hexahedral(hexes) => {
+            assert_eq!(hexes.iter().count(), 1);
+            let element: Vec<usize> = hexes.iter().flatten().copied().collect();
+            let coordinates = result.coordinates();
+            let base = &(&coordinates[element[1]] - &coordinates[element[0]])
+                .cross(&(&coordinates[element[3]] - &coordinates[element[0]]))
+                * &(&coordinates[element[4]] - &coordinates[element[0]]);
+            assert!(base > 0.0)
         }
         _ => panic!(),
     }

@@ -1309,6 +1309,79 @@ impl Tessellation {
                 }
             });
         });
+        (0..sets.len()).for_each(|cell| {
+            if !alive[cell]
+                || sets[cell].len() != 6
+                || sets[cell].iter().any(|&face| faces_nodes[face].len() != 4)
+            {
+                return;
+            }
+            let mut uses: HashMap<usize, u8> = HashMap::new();
+            sets[cell].iter().for_each(|&face| {
+                faces_nodes[face]
+                    .iter()
+                    .for_each(|&node| *uses.entry(node).or_insert(0) += 1)
+            });
+            if uses.len() != 8 || uses.values().any(|&count| count != 3) {
+                return;
+            }
+            let mut faces: Vec<usize> = sets[cell].iter().copied().collect();
+            faces.sort_unstable();
+            let bottom = faces[0];
+            let mut base = faces_nodes[bottom].clone();
+            if owners[bottom] == cell {
+                base.reverse();
+            }
+            let vertical = |node: usize| -> Option<usize> {
+                let mut counts: HashMap<usize, u8> = HashMap::new();
+                faces[1..].iter().for_each(|&face| {
+                    let polygon = &faces_nodes[face];
+                    if let Some(at) = polygon.iter().position(|&other| other == node) {
+                        [(at + 1) % 4, (at + 3) % 4].into_iter().for_each(|next| {
+                            *counts.entry(polygon[next]).or_insert(0) += 1;
+                        })
+                    }
+                });
+                let partners: Vec<usize> = counts
+                    .into_iter()
+                    .filter(|&(partner, count)| count == 2 && !base.contains(&partner))
+                    .map(|(partner, _)| partner)
+                    .collect();
+                (partners.len() == 1).then(|| partners[0])
+            };
+            let Some(top) = base
+                .iter()
+                .map(|&node| vertical(node))
+                .collect::<Option<Vec<usize>>>()
+            else {
+                return;
+            };
+            let element: [usize; 8] = from_fn(|i| if i < 4 { base[i] } else { top[i - 4] });
+            let mut expected: Vec<Vec<usize>> = FACES
+                .iter()
+                .map(|face| {
+                    let mut key: Vec<usize> = face.iter().map(|&local| element[local]).collect();
+                    key.sort_unstable();
+                    key
+                })
+                .collect();
+            expected.sort_unstable();
+            let mut actual: Vec<Vec<usize>> = faces
+                .iter()
+                .map(|&face| {
+                    let mut key = faces_nodes[face].clone();
+                    key.sort_unstable();
+                    key
+                })
+                .collect();
+            actual.sort_unstable();
+            if expected == actual
+                && minimum_scaled_jacobian(Kind::Hexahedron, &element, &coordinates) >= SNAP_QUALITY
+            {
+                hexes.push(element);
+                alive[cell] = false;
+            }
+        });
         let mut compacted: HashMap<usize, usize> = HashMap::new();
         let mut compact_nodes: Vec<Vec<usize>> = Vec::new();
         let elements_faces: Vec<Vec<usize>> = alive
