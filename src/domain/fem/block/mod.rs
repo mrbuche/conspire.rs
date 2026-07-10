@@ -252,15 +252,15 @@ pub(crate) fn band_from_neighbors(
         EqualityConstraint::Linear(matrix, _) => {
             assert_eq!(matrix.width(), num_coords);
             let num_dof = matrix.len() + matrix.width();
-            let mut index = num_coords;
-            matrix.iter().for_each(|matrix_i| {
+            matrix.iter().enumerate().for_each(|(row, matrix_i)| {
+                let index = num_coords + row;
+                pattern.push((index, index));
                 matrix_i.iter().enumerate().for_each(|(j, matrix_ij)| {
                     if matrix_ij != &0.0 {
                         if !symmetric {
                             pattern.push((index, j));
                         }
                         pattern.push((j, index));
-                        index += 1;
                     }
                 })
             });
