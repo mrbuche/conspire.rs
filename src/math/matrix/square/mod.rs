@@ -119,7 +119,7 @@ enum BandedKind {
         pattern: Vec<(usize, usize)>,
         symbolic: faer::sparse::SymbolicSparseColMat<usize>,
         argsort: faer::sparse::Argsort<usize>,
-        symbolic_cholesky: faer::sparse::linalg::cholesky::SymbolicCholesky<usize>,
+        symbolic_cholesky: std::sync::Arc<faer::sparse::linalg::cholesky::SymbolicCholesky<usize>>,
     },
 }
 
@@ -162,13 +162,15 @@ impl Banded {
         let (symbolic, argsort) =
             faer::sparse::SymbolicSparseColMat::try_new_from_indices(num, num, &pairs)
                 .expect("Matrix must have at least one entry.");
-        let symbolic_cholesky = faer::sparse::linalg::cholesky::factorize_symbolic_cholesky(
-            symbolic.as_ref(),
-            faer::Side::Upper,
-            faer::sparse::linalg::cholesky::SymmetricOrdering::Amd,
-            Default::default(),
-        )
-        .expect("Symbolic Cholesky factorization failed.");
+        let symbolic_cholesky = std::sync::Arc::new(
+            faer::sparse::linalg::cholesky::factorize_symbolic_cholesky(
+                symbolic.as_ref(),
+                faer::Side::Upper,
+                faer::sparse::linalg::cholesky::SymmetricOrdering::Amd,
+                Default::default(),
+            )
+            .expect("Symbolic Cholesky factorization failed."),
+        );
         Self(BandedKind::Symmetric {
             pattern,
             symbolic,
