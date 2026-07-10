@@ -217,9 +217,11 @@ impl SquareMatrix {
                 if lu[j][i] != 0.0 {
                     lu[j][i] /= pivot;
                     factor = lu[j][i];
-                    for k in i + 1..n {
-                        lu[j][k] -= factor * lu[i][k];
-                    }
+                    let (front, back) = lu.0.split_at_mut(j);
+                    back[0].as_mut_slice()[i + 1..n]
+                        .iter_mut()
+                        .zip(front[i].as_slice()[i + 1..n].iter())
+                        .for_each(|(lu_jk, lu_ik)| *lu_jk -= factor * lu_ik);
                 }
             }
         }
@@ -244,7 +246,10 @@ impl SquareMatrix {
         let mut max_val;
         let mut pivot;
         let mut rearr: Self = (0..n)
-            .map(|i| (0..n).map(|j| self[banded.old(i)][banded.old(j)]).collect())
+            .map(|i| {
+                let row = &self[banded.old(i)];
+                (0..n).map(|j| row[banded.old(j)]).collect()
+            })
             .collect();
         for i in 0..n {
             end = n.min(i + 1 + bandwidth);
@@ -278,9 +283,11 @@ impl SquareMatrix {
                 if rearr[j][i] != 0.0 {
                     rearr[j][i] /= pivot;
                     factor = rearr[j][i];
-                    for k in i + 1..end {
-                        rearr[j][k] -= factor * rearr[i][k];
-                    }
+                    let (front, back) = rearr.0.split_at_mut(j);
+                    back[0].as_mut_slice()[i + 1..end]
+                        .iter_mut()
+                        .zip(front[i].as_slice()[i + 1..end].iter())
+                        .for_each(|(rearr_jk, rearr_ik)| *rearr_jk -= factor * rearr_ik);
                 }
             }
         }

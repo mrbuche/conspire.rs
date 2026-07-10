@@ -28,6 +28,9 @@ impl Vector {
     pub fn as_slice(&self) -> &[Scalar] {
         self.0.as_slice()
     }
+    pub fn as_mut_slice(&mut self) -> &mut [Scalar] {
+        self.0.as_mut_slice()
+    }
     pub fn ones(len: usize) -> Self {
         Self(vec![1.0; len])
     }
