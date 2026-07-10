@@ -297,15 +297,24 @@ where
                 })
         });
     for _ in 0..=newton_raphson.max_steps {
+        let _t0 = std::time::Instant::now();
         (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
             &constraint_rhs - &constraint_matrix * &solution,
             &mut residual,
         );
+        let _t1 = std::time::Instant::now();
         if newton_raphson.norm.apply(&residual) < newton_raphson.abs_tol {
             return Ok(solution);
         } else if let Some(ref band) = banded {
             hessian(&solution)?.fill_into(&mut tangent);
-            decrement = tangent.solve_lu_banded(&residual, band)?
+            let _t2 = std::time::Instant::now();
+            decrement = tangent.solve_lu_banded(&residual, band)?;
+            eprintln!(
+                "newton iteration | residual_assembly={:?} tangent_assembly={:?} solve={:?}",
+                _t1 - _t0,
+                _t2 - _t1,
+                _t2.elapsed()
+            );
         } else {
             hessian(&solution)?.fill_into(&mut tangent);
             decrement = tangent.solve_lu(&residual)?
