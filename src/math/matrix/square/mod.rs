@@ -10,8 +10,9 @@ use crate::{
         Hessian, Rank2, Scalar, Tensor, TensorRank2Vec2D, TensorVec, Vector, write_tensor_rank_0,
     },
 };
+#[cfg(not(feature = "sparse"))]
+use std::collections::VecDeque;
 use std::{
-    collections::VecDeque,
     fmt::{self, Display, Formatter},
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
@@ -19,6 +20,7 @@ use std::{
 };
 
 /// Rearrangement structure for a banded matrix.
+#[cfg(not(feature = "sparse"))]
 #[derive(Clone)] // temporary for dae integrators
 pub struct Banded {
     bandwidth: usize,
@@ -26,6 +28,7 @@ pub struct Banded {
     mapping: Vec<usize>,
 }
 
+#[cfg(not(feature = "sparse"))]
 impl Banded {
     pub fn map(&self, old: usize) -> usize {
         self.inverse[old]
@@ -38,6 +41,7 @@ impl Banded {
     }
 }
 
+#[cfg(not(feature = "sparse"))]
 impl From<Vec<Vec<bool>>> for Banded {
     fn from(structure: Vec<Vec<bool>>) -> Self {
         let num = structure.len();
@@ -91,6 +95,56 @@ impl From<Vec<Vec<bool>>> for Banded {
             bandwidth,
             mapping,
             inverse,
+        }
+    }
+}
+
+/// Sparse LU factorization structure, backed by faer.
+#[cfg(feature = "sparse")]
+#[derive(Clone)] // temporary for dae integrators
+pub struct Banded {
+    pattern: Vec<(usize, usize)>,
+    symbolic: faer::sparse::SymbolicSparseColMat<usize>,
+    argsort: faer::sparse::Argsort<usize>,
+    symbolic_lu: faer::sparse::linalg::solvers::SymbolicLu<usize>,
+}
+
+#[cfg(feature = "sparse")]
+impl From<Vec<Vec<bool>>> for Banded {
+    fn from(structure: Vec<Vec<bool>>) -> Self {
+        let num = structure.len();
+        structure.iter().enumerate().for_each(|(i, row_i)| {
+            assert_eq!(row_i.len(), num);
+            row_i
+                .iter()
+                .zip(structure.iter())
+                .for_each(|(entry_ij, row_j)| assert_eq!(&row_j[i], entry_ij))
+        });
+        let pattern: Vec<(usize, usize)> = structure
+            .iter()
+            .enumerate()
+            .flat_map(|(i, row_i)| {
+                row_i
+                    .iter()
+                    .enumerate()
+                    .filter(|&(_, &entry)| entry)
+                    .map(move |(j, _)| (i, j))
+            })
+            .collect();
+        let pairs: Vec<faer::sparse::Pair<usize, usize>> = pattern
+            .iter()
+            .map(|&(i, j)| faer::sparse::Pair::new(i, j))
+            .collect();
+        let (symbolic, argsort) =
+            faer::sparse::SymbolicSparseColMat::try_new_from_indices(num, num, &pairs)
+                .expect("Matrix must have at least one entry.");
+        let symbolic_lu = faer::sparse::linalg::solvers::SymbolicLu::try_new(symbolic.as_ref())
+            .expect("Symbolic LU factorization failed.");
+        Self {
+            pattern,
+            symbolic,
+            argsort,
+            symbolic_lu,
         }
     }
 }
@@ -230,6 +284,13 @@ impl SquareMatrix {
         backward_substitution(&mut x, &lu);
         Ok(x)
     }
+    pub fn zero(len: usize) -> Self {
+        (0..len).map(|_| Vector::zero(len)).collect()
+    }
+}
+
+#[cfg(not(feature = "sparse"))]
+impl SquareMatrix {
     /// Solve a system of linear equations rearranged in a banded structure using the LU decomposition.
     pub fn solve_lu_banded(
         &self,
@@ -296,8 +357,31 @@ impl SquareMatrix {
         backward_substitution(&mut x, &rearr);
         Ok((0..n).map(|i| x[banded.map(i)]).collect())
     }
-    pub fn zero(len: usize) -> Self {
-        (0..len).map(|_| Vector::zero(len)).collect()
+}
+
+#[cfg(feature = "sparse")]
+impl SquareMatrix {
+    /// Solve a system of linear equations using a sparse LU decomposition, backed by faer.
+    pub fn solve_lu_banded(
+        &self,
+        b: &Vector,
+        banded: &Banded,
+    ) -> Result<Vector, SquareMatrixError> {
+        use faer::prelude::Solve;
+        use faer::sparse::{SparseColMat, linalg::solvers::Lu};
+        let n = self.len();
+        let values: Vec<Scalar> = banded.pattern.iter().map(|&(i, j)| self[i][j]).collect();
+        let mat = SparseColMat::<usize, Scalar>::new_from_argsort(
+            banded.symbolic.clone(),
+            &banded.argsort,
+            &values,
+        )
+        .map_err(|_| SquareMatrixError::Singular)?;
+        let rhs = faer::col::Col::from_fn(n, |i| b[i]);
+        let lu = Lu::try_new_with_symbolic(banded.symbolic_lu.clone(), mat.as_ref())
+            .map_err(|_| SquareMatrixError::Singular)?;
+        let x = lu.solve(&rhs);
+        Ok((0..n).map(|i| x[i]).collect())
     }
 }
 
