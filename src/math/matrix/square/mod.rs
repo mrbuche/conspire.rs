@@ -163,6 +163,25 @@ impl From<Vec<Vec<bool>>> for Banded {
     }
 }
 
+running 1 test
+Solving...
+Banded::from n=4238 nnz=155209 | symmetry_assert=24.890473ms pattern_scan=8.182325ms pairs_build=1.049346ms try_new_from_indices=2.520929ms symbolic_lu=8.384383ms
+solve_lu_banded n=4238 nnz=155209 | gather_values=810.819µs new_from_argsort=235.142µs rhs_build=3.586µs numeric_factorize=29.636149ms triangular_solve=983.81µs result_collect=621ns total=31.670127ms
+solve_lu_banded n=4238 nnz=155209 | gather_values=839.665µs new_from_argsort=678.654µs rhs_build=3.565µs numeric_factorize=41.488692ms triangular_solve=1.145233ms result_collect=871ns total=44.15668ms
+solve_lu_banded n=4238 nnz=155209 | gather_values=818.801µs new_from_argsort=688.52µs rhs_build=3.406µs numeric_factorize=42.411092ms triangular_solve=1.134594ms result_collect=782ns total=45.057195ms
+solve_lu_banded n=4238 nnz=155209 | gather_values=828.387µs new_from_argsort=709.473µs rhs_build=3.166µs numeric_factorize=43.414973ms triangular_solve=1.142789ms result_collect=651ns total=46.099439ms
+solve_lu_banded n=4238 nnz=155209 | gather_values=823.068µs new_from_argsort=680.597µs rhs_build=3.235µs numeric_factorize=43.012159ms triangular_solve=1.158895ms result_collect=701ns total=45.678655ms
+solve_lu_banded n=4238 nnz=155209 | gather_values=825.823µs new_from_argsort=688.93µs rhs_build=3.496µs numeric_factorize=42.838266ms triangular_solve=1.09436ms result_collect=741ns total=45.451616ms
+solve_lu_banded n=4238 nnz=155209 | gather_values=825.833µs new_from_argsort=695.29µs rhs_build=3.977µs numeric_factorize=39.491865ms triangular_solve=1.051539ms result_collect=541ns total=42.069045ms
+solve_lu_banded n=4238 nnz=155209 | gather_values=812.251µs new_from_argsort=685.505µs rhs_build=3.606µs numeric_factorize=31.511478ms triangular_solve=967.053µs result_collect=651ns total=33.980544ms
+solve_lu_banded n=4238 nnz=155209 | gather_values=815.435µs new_from_argsort=669.239µs rhs_build=3.786µs numeric_factorize=31.628268ms triangular_solve=1.002741ms result_collect=791ns total=34.12026ms
+solve_lu_banded n=4238 nnz=155209 | gather_values=814.034µs new_from_argsort=678.172µs rhs_build=2.855µs numeric_factorize=31.315099ms triangular_solve=991.913µs result_collect=591ns total=33.802664ms
+Done (841.908539ms).
+Verifying...
+Done (93.011µs).
+test temporary_hyperelastic ... ok
+
+
 /// Possible errors for square matrices.
 #[derive(Debug, PartialEq)]
 pub enum SquareMatrixError {
