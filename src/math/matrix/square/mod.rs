@@ -99,21 +99,38 @@ impl From<Vec<Vec<bool>>> for Banded {
     }
 }
 
-/// Sparse LU factorization structure, backed by faer.
+/// Sparse factorization structure, backed by faer: either a general LU or,
+/// for constitutive models known to produce a symmetric tangent, an LBLT
+/// (block-pivoted, exact on indefinite systems) factorization.
 #[cfg(feature = "sparse")]
 #[derive(Clone)] // temporary for dae integrators
-pub struct Banded {
-    pattern: Vec<(usize, usize)>,
-    symbolic: faer::sparse::SymbolicSparseColMat<usize>,
-    argsort: faer::sparse::Argsort<usize>,
-    symbolic_lu: faer::sparse::linalg::solvers::SymbolicLu<usize>,
+pub struct Banded(BandedKind);
+
+#[cfg(feature = "sparse")]
+#[derive(Clone)]
+enum BandedKind {
+    General {
+        pattern: Vec<(usize, usize)>,
+        symbolic: faer::sparse::SymbolicSparseColMat<usize>,
+        argsort: faer::sparse::Argsort<usize>,
+        symbolic_lu: faer::sparse::linalg::solvers::SymbolicLu<usize>,
+    },
+    Symmetric {
+        pattern: Vec<(usize, usize)>,
+        symbolic: faer::sparse::SymbolicSparseColMat<usize>,
+        argsort: faer::sparse::Argsort<usize>,
+        symbolic_cholesky: faer::sparse::linalg::cholesky::SymbolicCholesky<usize>,
+    },
 }
 
 #[cfg(feature = "sparse")]
 impl Banded {
     /// The nonzero (row, column) positions this structure was built from.
     pub(crate) fn pattern(&self) -> &[(usize, usize)] {
-        &self.pattern
+        match &self.0 {
+            BandedKind::General { pattern, .. } => pattern,
+            BandedKind::Symmetric { pattern, .. } => pattern,
+        }
     }
     /// Builds the sparse LU factorization structure directly from a list of nonzero
     /// (row, column) positions, without ever materializing a dense structure.
@@ -127,12 +144,37 @@ impl Banded {
                 .expect("Matrix must have at least one entry.");
         let symbolic_lu = faer::sparse::linalg::solvers::SymbolicLu::try_new(symbolic.as_ref())
             .expect("Symbolic LU factorization failed.");
-        Self {
+        Self(BandedKind::General {
             pattern,
             symbolic,
             argsort,
             symbolic_lu,
-        }
+        })
+    }
+    /// Builds the sparse LBLT factorization structure directly from a list of nonzero
+    /// upper-triangle (row, column) positions (`row <= column`), without ever
+    /// materializing a dense structure. Only valid for a symmetric matrix.
+    pub(crate) fn from_pattern_symmetric(num: usize, pattern: Vec<(usize, usize)>) -> Self {
+        let pairs: Vec<faer::sparse::Pair<usize, usize>> = pattern
+            .iter()
+            .map(|&(i, j)| faer::sparse::Pair::new(i, j))
+            .collect();
+        let (symbolic, argsort) =
+            faer::sparse::SymbolicSparseColMat::try_new_from_indices(num, num, &pairs)
+                .expect("Matrix must have at least one entry.");
+        let symbolic_cholesky = faer::sparse::linalg::cholesky::factorize_symbolic_cholesky(
+            symbolic.as_ref(),
+            faer::Side::Upper,
+            faer::sparse::linalg::cholesky::SymmetricOrdering::Amd,
+            Default::default(),
+        )
+        .expect("Symbolic Cholesky factorization failed.");
+        Self(BandedKind::Symmetric {
+            pattern,
+            symbolic,
+            argsort,
+            symbolic_cholesky,
+        })
     }
 }
 
@@ -348,27 +390,82 @@ impl SquareMatrix {
 
 #[cfg(feature = "sparse")]
 impl SquareMatrix {
-    /// Solve a system of linear equations using a sparse LU decomposition, backed by faer.
+    /// Solve a system of linear equations using a sparse factorization, backed by faer:
+    /// a general LU, or, for constitutive models known to produce a symmetric tangent,
+    /// an LBLT (block-pivoted, exact on indefinite systems) factorization.
     pub fn solve_lu_banded(
         &self,
         b: &Vector,
         banded: &Banded,
     ) -> Result<Vector, SquareMatrixError> {
-        use faer::prelude::Solve;
-        use faer::sparse::{SparseColMat, linalg::solvers::Lu};
+        use faer::sparse::SparseColMat;
         let n = self.len();
-        let values: Vec<Scalar> = banded.pattern.iter().map(|&(i, j)| self[i][j]).collect();
-        let mat = SparseColMat::<usize, Scalar>::new_from_argsort(
-            banded.symbolic.clone(),
-            &banded.argsort,
-            &values,
-        )
-        .map_err(|_| SquareMatrixError::Singular)?;
-        let rhs = faer::col::Col::from_fn(n, |i| b[i]);
-        let lu = Lu::try_new_with_symbolic(banded.symbolic_lu.clone(), mat.as_ref())
-            .map_err(|_| SquareMatrixError::Singular)?;
-        let x = lu.solve(&rhs);
-        Ok((0..n).map(|i| x[i]).collect())
+        match &banded.0 {
+            BandedKind::General {
+                pattern,
+                symbolic,
+                argsort,
+                symbolic_lu,
+            } => {
+                use faer::{prelude::Solve, sparse::linalg::solvers::Lu};
+                let values: Vec<Scalar> = pattern.iter().map(|&(i, j)| self[i][j]).collect();
+                let mat = SparseColMat::<usize, Scalar>::new_from_argsort(
+                    symbolic.clone(),
+                    argsort,
+                    &values,
+                )
+                .map_err(|_| SquareMatrixError::Singular)?;
+                let rhs = faer::col::Col::from_fn(n, |i| b[i]);
+                let lu = Lu::try_new_with_symbolic(symbolic_lu.clone(), mat.as_ref())
+                    .map_err(|_| SquareMatrixError::Singular)?;
+                let x = lu.solve(&rhs);
+                Ok((0..n).map(|i| x[i]).collect())
+            }
+            BandedKind::Symmetric {
+                pattern,
+                symbolic,
+                argsort,
+                symbolic_cholesky,
+            } => {
+                use faer::{
+                    Conj, Par, Side,
+                    dyn_stack::{MemBuffer, MemStack, StackReq},
+                };
+                let values: Vec<Scalar> = pattern.iter().map(|&(i, j)| self[i][j]).collect();
+                let mat = SparseColMat::<usize, Scalar>::new_from_argsort(
+                    symbolic.clone(),
+                    argsort,
+                    &values,
+                )
+                .map_err(|_| SquareMatrixError::Singular)?;
+                let par = Par::Seq;
+                let mut l_values = vec![0.0; symbolic_cholesky.len_val()];
+                let mut subdiag = vec![0.0; symbolic_cholesky.nrows()];
+                let mut perm_forward = vec![0usize; symbolic_cholesky.nrows()];
+                let mut perm_inverse = vec![0usize; symbolic_cholesky.nrows()];
+                let mut mem = MemBuffer::try_new(StackReq::any_of(&[
+                    symbolic_cholesky
+                        .factorize_numeric_intranode_lblt_scratch::<Scalar>(par, Default::default()),
+                    symbolic_cholesky.solve_in_place_scratch::<Scalar>(1, par),
+                ]))
+                .map_err(|_| SquareMatrixError::Singular)?;
+                let stack = MemStack::new(&mut mem);
+                let lblt = symbolic_cholesky.factorize_numeric_intranode_lblt(
+                    &mut l_values,
+                    &mut subdiag,
+                    &mut perm_forward,
+                    &mut perm_inverse,
+                    mat.as_ref(),
+                    Side::Upper,
+                    par,
+                    stack,
+                    Default::default(),
+                );
+                let mut rhs = faer::col::Col::from_fn(n, |i| b[i]);
+                lblt.solve_in_place_with_conj(Conj::No, rhs.as_mat_mut(), par, stack);
+                Ok((0..n).map(|i| rhs[i]).collect())
+            }
+        }
     }
 }
 
