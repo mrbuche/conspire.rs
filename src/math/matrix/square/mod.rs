@@ -110,50 +110,19 @@ pub struct Banded {
 }
 
 #[cfg(feature = "sparse")]
-impl From<Vec<Vec<bool>>> for Banded {
-    fn from(structure: Vec<Vec<bool>>) -> Self {
-        let _t0 = std::time::Instant::now();
-        let num = structure.len();
-        structure.iter().enumerate().for_each(|(i, row_i)| {
-            assert_eq!(row_i.len(), num);
-            row_i
-                .iter()
-                .zip(structure.iter())
-                .for_each(|(entry_ij, row_j)| assert_eq!(&row_j[i], entry_ij))
-        });
-        let _t1 = std::time::Instant::now();
-        let pattern: Vec<(usize, usize)> = structure
-            .iter()
-            .enumerate()
-            .flat_map(|(i, row_i)| {
-                row_i
-                    .iter()
-                    .enumerate()
-                    .filter(|&(_, &entry)| entry)
-                    .map(move |(j, _)| (i, j))
-            })
-            .collect();
-        let _t2 = std::time::Instant::now();
+impl Banded {
+    /// Builds the sparse LU factorization structure directly from a list of nonzero
+    /// (row, column) positions, without ever materializing a dense structure.
+    pub(crate) fn from_pattern(num: usize, pattern: Vec<(usize, usize)>) -> Self {
         let pairs: Vec<faer::sparse::Pair<usize, usize>> = pattern
             .iter()
             .map(|&(i, j)| faer::sparse::Pair::new(i, j))
             .collect();
-        let _t3 = std::time::Instant::now();
         let (symbolic, argsort) =
             faer::sparse::SymbolicSparseColMat::try_new_from_indices(num, num, &pairs)
                 .expect("Matrix must have at least one entry.");
-        let _t4 = std::time::Instant::now();
         let symbolic_lu = faer::sparse::linalg::solvers::SymbolicLu::try_new(symbolic.as_ref())
             .expect("Symbolic LU factorization failed.");
-        eprintln!(
-            "Banded::from n={num} nnz={} | symmetry_assert={:?} pattern_scan={:?} pairs_build={:?} try_new_from_indices={:?} symbolic_lu={:?}",
-            pattern.len(),
-            _t1 - _t0,
-            _t2 - _t1,
-            _t3 - _t2,
-            _t4 - _t3,
-            _t4.elapsed()
-        );
         Self {
             pattern,
             symbolic,
@@ -383,38 +352,19 @@ impl SquareMatrix {
     ) -> Result<Vector, SquareMatrixError> {
         use faer::prelude::Solve;
         use faer::sparse::{SparseColMat, linalg::solvers::Lu};
-        let _t0 = std::time::Instant::now();
         let n = self.len();
         let values: Vec<Scalar> = banded.pattern.iter().map(|&(i, j)| self[i][j]).collect();
-        let _t1 = std::time::Instant::now();
         let mat = SparseColMat::<usize, Scalar>::new_from_argsort(
             banded.symbolic.clone(),
             &banded.argsort,
             &values,
         )
         .map_err(|_| SquareMatrixError::Singular)?;
-        let _t2 = std::time::Instant::now();
         let rhs = faer::col::Col::from_fn(n, |i| b[i]);
-        let _t3 = std::time::Instant::now();
         let lu = Lu::try_new_with_symbolic(banded.symbolic_lu.clone(), mat.as_ref())
             .map_err(|_| SquareMatrixError::Singular)?;
-        let _t4 = std::time::Instant::now();
         let x = lu.solve(&rhs);
-        let _t5 = std::time::Instant::now();
-        let result = (0..n).map(|i| x[i]).collect();
-        let _t6 = std::time::Instant::now();
-        eprintln!(
-            "solve_lu_banded n={n} nnz={} | gather_values={:?} new_from_argsort={:?} rhs_build={:?} numeric_factorize={:?} triangular_solve={:?} result_collect={:?} total={:?}",
-            banded.pattern.len(),
-            _t1 - _t0,
-            _t2 - _t1,
-            _t3 - _t2,
-            _t4 - _t3,
-            _t5 - _t4,
-            _t6 - _t5,
-            _t6 - _t0,
-        );
-        Ok(result)
+        Ok((0..n).map(|i| x[i]).collect())
     }
 }
 

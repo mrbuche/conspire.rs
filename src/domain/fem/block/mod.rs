@@ -20,7 +20,6 @@ use crate::{
 use std::{
     any::type_name,
     fmt::{self, Debug, Formatter},
-    iter::repeat_n,
 };
 
 pub struct Block<C, F, const G: usize, const M: usize, const N: usize, const P: usize> {
@@ -209,66 +208,52 @@ pub(crate) fn band_from_neighbors(
     dimension: usize,
 ) -> Banded {
     let number_of_nodes = neighbors.len();
-    let structure: Vec<Vec<bool>> = neighbors
+    let num_coords = dimension * number_of_nodes;
+    let mut pattern: Vec<(usize, usize)> = neighbors
         .iter()
-        .map(|nodes| (0..number_of_nodes).map(|b| nodes.contains(&b)).collect())
-        .collect();
-    let structure_nd: Vec<Vec<bool>> = structure
-        .iter()
-        .flat_map(|row| {
-            repeat_n(
-                row.iter()
-                    .flat_map(|entry| repeat_n(*entry, dimension))
-                    .collect(),
-                dimension,
-            )
+        .enumerate()
+        .flat_map(|(a, nodes)| {
+            nodes.iter().flat_map(move |&b| {
+                (0..dimension).flat_map(move |i| {
+                    (0..dimension).map(move |j| (dimension * a + i, dimension * b + j))
+                })
+            })
         })
         .collect();
     match equality_constraint {
         EqualityConstraint::Fixed(indices) => {
-            let mut keep = vec![true; structure_nd.len()];
+            let mut keep = vec![true; num_coords];
             indices.iter().for_each(|&index| keep[index] = false);
-            let banded = structure_nd
+            let mut remap = vec![0; num_coords];
+            let mut next = 0;
+            (0..num_coords).for_each(|i| {
+                if keep[i] {
+                    remap[i] = next;
+                    next += 1;
+                }
+            });
+            pattern.retain(|&(i, j)| keep[i] && keep[j]);
+            let pattern = pattern
                 .into_iter()
-                .zip(keep.iter())
-                .filter(|(_, keep)| **keep)
-                .map(|(structure_nd_a, _)| {
-                    structure_nd_a
-                        .into_iter()
-                        .zip(keep.iter())
-                        .filter(|(_, keep)| **keep)
-                        .map(|(structure_nd_ab, _)| structure_nd_ab)
-                        .collect::<Vec<bool>>()
-                })
-                .collect::<Vec<Vec<bool>>>();
-            Banded::from(banded)
+                .map(|(i, j)| (remap[i], remap[j]))
+                .collect();
+            Banded::from_pattern(next, pattern)
         }
         EqualityConstraint::Linear(matrix, _) => {
-            let num_coords = dimension * number_of_nodes;
             assert_eq!(matrix.width(), num_coords);
             let num_dof = matrix.len() + matrix.width();
-            let mut banded = vec![vec![false; num_dof]; num_dof];
-            structure_nd
-                .iter()
-                .zip(banded.iter_mut())
-                .for_each(|(structure_nd_i, banded_i)| {
-                    structure_nd_i
-                        .iter()
-                        .zip(banded_i.iter_mut())
-                        .for_each(|(structure_nd_ij, banded_ij)| *banded_ij = *structure_nd_ij)
-                });
             let mut index = num_coords;
             matrix.iter().for_each(|matrix_i| {
                 matrix_i.iter().enumerate().for_each(|(j, matrix_ij)| {
                     if matrix_ij != &0.0 {
-                        banded[index][j] = true;
-                        banded[j][index] = true;
+                        pattern.push((index, j));
+                        pattern.push((j, index));
                         index += 1;
                     }
                 })
             });
-            Banded::from(banded)
+            Banded::from_pattern(num_dof, pattern)
         }
-        EqualityConstraint::None => Banded::from(structure_nd),
+        EqualityConstraint::None => Banded::from_pattern(num_coords, pattern),
     }
 }
