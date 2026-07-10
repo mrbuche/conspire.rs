@@ -306,13 +306,16 @@ where
         if newton_raphson.norm.apply(&residual) < newton_raphson.abs_tol {
             return Ok(solution);
         } else if let Some(ref band) = banded {
-            hessian(&solution)?.fill_into(&mut tangent);
+            let hess = hessian(&solution)?;
+            let _t1b = std::time::Instant::now();
+            hess.fill_into(&mut tangent);
             let _t2 = std::time::Instant::now();
             decrement = tangent.solve_lu_banded(&residual, band)?;
             eprintln!(
-                "newton iteration | residual_assembly={:?} tangent_assembly={:?} solve={:?}",
+                "newton iteration | residual_assembly={:?} hessian_compute={:?} fill_into={:?} solve={:?}",
                 _t1 - _t0,
-                _t2 - _t1,
+                _t1b - _t1,
+                _t2 - _t1b,
                 _t2.elapsed()
             );
         } else {
