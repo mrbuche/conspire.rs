@@ -112,7 +112,7 @@ mod freely_jointed_chain {
                                 format!("{:?}", FJC),
                             )
                         ),
-                        format!("{:?}", &model),
+                        format!("{:?}", model),
                     ))
                 )
             }
@@ -138,7 +138,7 @@ mod freely_jointed_chain {
                                 format!("{:?}", FJC),
                             )
                         ),
-                        format!("{:?}", &model),
+                        format!("{:?}", model),
                     ))
                 )
             }
@@ -164,7 +164,7 @@ mod freely_jointed_chain {
                                 format!("{:?}", FJC),
                             )
                         ),
-                        format!("{:?}", &model),
+                        format!("{:?}", model),
                     ))
                 )
             }

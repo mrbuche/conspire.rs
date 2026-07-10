@@ -24,9 +24,6 @@ netcdf = ['io']
 physics = ['mechanics']
 vem = ['fem']
 
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }
-
 [package.metadata.docs.rs]
 features = ["fem"]
 rustdoc-args = ["--html-in-header", ".github/katex.html"]

@@ -5,8 +5,14 @@
 //! not, every token is empty, so error payloads stay free of escape codes when
 //! piped, logged, or serialized.
 
+#[cfg(test)]
+mod test;
+
 use super::random_u8;
-use std::io::IsTerminal;
+use std::{
+    env::var_os,
+    io::{IsTerminal, stderr},
+};
 
 const HEADLINE: &str = "\x1b[1;91m";
 const FRAME: &str = "\x1b[0;91m";
@@ -27,9 +33,11 @@ pub(crate) struct Style {
 
 impl Style {
     /// Returns colored tokens for a terminal, or empty tokens otherwise.
-    #[cfg_attr(coverage_nightly, coverage(off))]
     pub fn detect() -> Self {
-        if std::env::var_os("NO_COLOR").is_none() && std::io::stderr().is_terminal() {
+        Self::detect_inner(var_os("NO_COLOR").is_none(), stderr().is_terminal())
+    }
+    fn detect_inner(no_color_unset: bool, is_terminal: bool) -> Self {
+        if no_color_unset && is_terminal {
             Self {
                 headline: HEADLINE,
                 frame: FRAME,
@@ -90,10 +98,12 @@ macro_rules! styled_error {
 }
 pub(crate) use styled_error;
 
-#[allow(dead_code)]
-#[cfg_attr(coverage_nightly, coverage(off))]
 pub(crate) fn defeat_message<'a>() -> &'a str {
-    match random_u8(14) {
+    defeat_message_inner(random_u8(14))
+}
+
+fn defeat_message_inner<'a>(n: u8) -> &'a str {
+    match n {
         0 => "Game over.",
         1 => "I am Error.",
         2 => "Insert coin to continue.",
@@ -109,20 +119,5 @@ pub(crate) fn defeat_message<'a>() -> &'a str {
         12 => "You have died of dysentery.",
         13 => "You lost the game.",
         14.. => "You've met with a terrible fate, haven't you?",
-    }
-}
-
-#[allow(dead_code)]
-#[cfg_attr(coverage_nightly, coverage(off))]
-pub(crate) fn victory_message<'a>() -> &'a str {
-    match random_u8(7) {
-        0 => "A winner is you!",
-        1 => "Bird up!",
-        2 => "Congraturation, this story is happy end!",
-        3 => "Flawless victory.",
-        4 => "Hey, that's pretty good!",
-        5 => "Nice work, bone daddy.",
-        6 => "That's Numberwang!",
-        7.. => "That was totes yeet, yo!",
     }
 }

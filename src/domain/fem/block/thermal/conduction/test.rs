@@ -1,4 +1,4 @@
-macro_rules! test_thermal {
+macro_rules! test_thermal_block {
     ($element: ident) => {
         mod thermal_block {
             use super::{
@@ -83,4 +83,4 @@ macro_rules! test_thermal {
         }
     };
 }
-pub(crate) use test_thermal;
+pub(crate) use test_thermal_block;

@@ -57,7 +57,7 @@ impl Elastic for ArrudaBoyce {
         if gamma >= 1.0 {
             Err(ConstitutiveError::Custom(
                 "Maximum extensibility reached.".to_string(),
-                format!("{:?}", &self),
+                format!("{:?}", self),
             ))
         } else {
             let gamma_0 = (1.0 / self.number_of_links()).sqrt();
@@ -87,7 +87,7 @@ impl Elastic for ArrudaBoyce {
         if gamma >= 1.0 {
             Err(ConstitutiveError::Custom(
                 "Maximum extensibility reached.".to_string(),
-                format!("{:?}", &self),
+                format!("{:?}", self),
             ))
         } else {
             let gamma_0 = (1.0 / self.number_of_links()).sqrt();
@@ -139,7 +139,7 @@ impl Hyperelastic for ArrudaBoyce {
         if gamma >= 1.0 {
             Err(ConstitutiveError::Custom(
                 "Maximum extensibility reached.".to_string(),
-                format!("{:?}", &self),
+                format!("{:?}", self),
             ))
         } else {
             let eta = inverse_langevin(gamma);
