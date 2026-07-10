@@ -192,7 +192,7 @@ where
     }
     Err(OptimizationError::MaximumStepsReached(
         newton_raphson.max_steps,
-        format!("{:?}", &newton_raphson),
+        format!("{:?}", newton_raphson),
     ))
 }
 
@@ -252,7 +252,7 @@ where
     }
     Err(OptimizationError::MaximumStepsReached(
         newton_raphson.max_steps,
-        format!("{:?}", &newton_raphson),
+        format!("{:?}", newton_raphson),
     ))
 }
 
@@ -314,6 +314,6 @@ where
     }
     Err(OptimizationError::MaximumStepsReached(
         newton_raphson.max_steps,
-        format!("{:?}", &newton_raphson),
+        format!("{:?}", newton_raphson),
     ))
 }
