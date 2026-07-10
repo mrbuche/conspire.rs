@@ -296,6 +296,16 @@ where
                     tangent[j][i + num_variables] = -constraint_matrix_ij;
                 })
         });
+    #[cfg(feature = "sparse")]
+    let material_pattern: Option<Vec<(usize, usize)>> = banded.as_ref().map(|band| {
+        band.pattern()
+            .iter()
+            .copied()
+            .filter(|&(i, j)| i < num_variables && j < num_variables)
+            .collect()
+    });
+    #[cfg(not(feature = "sparse"))]
+    let material_pattern: Option<Vec<(usize, usize)>> = None;
     for _ in 0..=newton_raphson.max_steps {
         let _t0 = std::time::Instant::now();
         (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
@@ -308,7 +318,10 @@ where
         } else if let Some(ref band) = banded {
             let hess = hessian(&solution)?;
             let _t1b = std::time::Instant::now();
-            hess.fill_into(&mut tangent);
+            match &material_pattern {
+                Some(pattern) => hess.fill_into_sparse(&mut tangent, pattern),
+                None => hess.fill_into(&mut tangent),
+            }
             let _t2 = std::time::Instant::now();
             decrement = tangent.solve_lu_banded(&residual, band)?;
             eprintln!(

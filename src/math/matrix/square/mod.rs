@@ -111,6 +111,10 @@ pub struct Banded {
 
 #[cfg(feature = "sparse")]
 impl Banded {
+    /// The nonzero (row, column) positions this structure was built from.
+    pub(crate) fn pattern(&self) -> &[(usize, usize)] {
+        &self.pattern
+    }
     /// Builds the sparse LU factorization structure directly from a list of nonzero
     /// (row, column) positions, without ever materializing a dense structure.
     pub(crate) fn from_pattern(num: usize, pattern: Vec<(usize, usize)>) -> Self {

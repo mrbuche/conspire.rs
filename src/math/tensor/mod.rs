@@ -99,6 +99,15 @@ where
 {
     /// Fills the Hessian into a square matrix.
     fn fill_into(self, square_matrix: &mut SquareMatrix);
+    /// Fills only the given (row, column) positions of the Hessian into a square matrix.
+    /// Implementors that can look up individual entries without a full dense pass should
+    /// override this; the default falls back to [`Hessian::fill_into`].
+    fn fill_into_sparse(self, square_matrix: &mut SquareMatrix, _pattern: &[(usize, usize)])
+    where
+        Self: Sized,
+    {
+        self.fill_into(square_matrix)
+    }
     /// Return only the retained indices.
     fn retain_from(self, _retained: &[bool]) -> SquareMatrix {
         unimplemented!()

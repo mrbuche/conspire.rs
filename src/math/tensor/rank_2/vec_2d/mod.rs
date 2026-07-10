@@ -51,6 +51,11 @@ impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2Vec2
             })
         });
     }
+    fn fill_into_sparse(self, square_matrix: &mut SquareMatrix, pattern: &[(usize, usize)]) {
+        pattern.iter().for_each(|&(p, q)| {
+            square_matrix[p][q] = self[p / D][q / D][p % D][q % D];
+        });
+    }
     fn retain_from(self, retained: &[bool]) -> SquareMatrix {
         SquareMatrix::from(self)
             .into_iter()
