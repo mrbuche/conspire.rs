@@ -15,6 +15,9 @@ pub mod interpolate;
 /// Optimization and root finding.
 pub mod optimize;
 
+/// Sparse data types.
+pub mod sparse;
+
 mod graph;
 mod hash;
 mod matrix;
