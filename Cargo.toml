@@ -15,14 +15,13 @@ version = "0.7.2"
 all = ['netcdf', 'vem']
 constitutive = ['physics']
 doc = []
-fem = ['constitutive', 'geometry', 'sparse']
+fem = ['constitutive', 'geometry']
 geometry = ['io', 'math']
 io = []
 math = []
 mechanics = ['math']
 netcdf = ['io']
 physics = ['mechanics']
-sparse = ['math', 'dep:faer']
 vem = ['fem']
 
 [package.metadata.docs.rs]
@@ -34,6 +33,3 @@ codegen-units = 1
 lto = true
 panic = "abort"
 strip = "symbols"
-
-[dependencies]
-faer = { version = "0.24.4", default-features = false, features = ["std", "sparse-linalg"], optional = true }

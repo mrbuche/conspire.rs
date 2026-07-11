@@ -2,7 +2,10 @@
 mod test;
 
 use super::{
-    super::{Banded, Hessian, Jacobian, Matrix, Scalar, Solution, SquareMatrix, Tensor, Vector},
+    super::{
+        Hessian, Jacobian, Matrix, Scalar, Solution, SquareMatrix, Tensor, Vector,
+        sparse::SparseSolver,
+    },
     BacktrackingLineSearch, EqualityConstraint, FirstOrderRootFinding, LineSearch,
     OptimizationError, SecondOrderOptimization,
 };
@@ -115,7 +118,7 @@ where
         hessian: impl FnMut(&X) -> Result<H, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
-        banded: Option<Banded>,
+        sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
         match match equality_constraint {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
@@ -124,7 +127,7 @@ where
                 jacobian,
                 hessian,
                 initial_guess,
-                banded,
+                sparse,
                 indices,
             ),
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
@@ -133,7 +136,7 @@ where
                 jacobian,
                 hessian,
                 initial_guess,
-                banded,
+                sparse,
                 constraint_matrix,
                 constraint_rhs,
             ),
@@ -203,7 +206,7 @@ fn constrained_fixed<J, H, X>(
     mut jacobian: impl FnMut(&X) -> Result<J, String>,
     mut hessian: impl FnMut(&X) -> Result<H, String>,
     initial_guess: X,
-    banded: Option<Banded>,
+    sparse: Option<SparseSolver>,
     indices: Vec<usize>,
 ) -> Result<X, OptimizationError>
 where
@@ -224,9 +227,9 @@ where
         residual = jacobian(&solution)?.retain_from(&retained);
         if newton_raphson.norm.apply(&residual) < newton_raphson.abs_tol {
             return Ok(solution);
-        } else if let Some(ref band) = banded {
+        } else if let Some(ref solver) = sparse {
             tangent = hessian(&solution)?.retain_from(&retained);
-            decrement = tangent.solve_lu_banded(&residual, band)?
+            decrement = solver.solve(|i, j| tangent[i][j], &residual)?
         } else {
             tangent = hessian(&solution)?.retain_from(&retained);
             decrement = tangent.solve_lu(&residual)?
@@ -263,7 +266,7 @@ fn constrained<J, H, X>(
     mut jacobian: impl FnMut(&X) -> Result<J, String>,
     mut hessian: impl FnMut(&X) -> Result<H, String>,
     initial_guess: X,
-    banded: Option<Banded>,
+    sparse: Option<SparseSolver>,
     constraint_matrix: Matrix,
     constraint_rhs: Vector,
 ) -> Result<X, OptimizationError>
@@ -296,16 +299,14 @@ where
                     tangent[j][i + num_variables] = -constraint_matrix_ij;
                 })
         });
-    #[cfg(feature = "sparse")]
-    let material_pattern: Option<Vec<(usize, usize)>> = banded.as_ref().map(|band| {
-        band.pattern()
+    let material_pattern: Option<Vec<(usize, usize)>> = sparse.as_ref().map(|solver| {
+        solver
+            .pattern()
             .iter()
             .copied()
             .filter(|&(i, j)| i < num_variables && j < num_variables)
             .collect()
     });
-    #[cfg(not(feature = "sparse"))]
-    let material_pattern: Option<Vec<(usize, usize)>> = None;
     for _ in 0..=newton_raphson.max_steps {
         let _t0 = std::time::Instant::now();
         (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
@@ -315,7 +316,7 @@ where
         let _t1 = std::time::Instant::now();
         if newton_raphson.norm.apply(&residual) < newton_raphson.abs_tol {
             return Ok(solution);
-        } else if let Some(ref band) = banded {
+        } else if let Some(ref solver) = sparse {
             let hess = hessian(&solution)?;
             let _t1b = std::time::Instant::now();
             match &material_pattern {
@@ -323,7 +324,7 @@ where
                 None => hess.fill_into(&mut tangent),
             }
             let _t2 = std::time::Instant::now();
-            decrement = tangent.solve_lu_banded(&residual, band)?;
+            decrement = solver.solve(|i, j| tangent[i][j], &residual)?;
             eprintln!(
                 "newton iteration | residual_assembly={:?} hessian_compute={:?} fill_into={:?} solve={:?}",
                 _t1 - _t0,

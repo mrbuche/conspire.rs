@@ -1,5 +1,5 @@
 use crate::math::{
-    Banded, Scalar, Tensor, TensorVec, Vector, assert_eq_within_tols,
+    Scalar, Tensor, TensorVec, Vector, assert_eq_within_tols,
     integrate::{
         ExplicitDaeFirstOrderMinimize, ExplicitDaeFirstOrderRoot, ExplicitDaeSecondOrderMinimize,
         ExplicitDaeZerothOrderRoot, IntegrationError, VariableStepExplicit,
@@ -8,6 +8,7 @@ use crate::math::{
         EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, SecondOrderOptimization,
         ZerothOrderRootFinding,
     },
+    sparse::SparseSolver,
 };
 use std::ops::{Mul, Sub};
 
@@ -549,7 +550,7 @@ where
         time: &[Scalar],
         initial_condition: (Y, Z),
         mut equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
-        banded: Option<Banded>,
+        sparse: Option<SparseSolver>,
     ) -> Result<(Vector, U, U, V), IntegrationError> {
         let solution = |t: Scalar, y: &Y, z_0: &Z| -> Result<Z, String> {
             Ok(solver.minimize(
@@ -558,7 +559,7 @@ where
                 |z| hessian(t, y, z),
                 z_0.clone(),
                 equality_constraint(t),
-                banded.clone(),
+                sparse.clone(),
             )?)
         };
         self.integrate_explicit_dae_variable_step(evolution, solution, time, initial_condition)
@@ -596,7 +597,7 @@ where
         time: &[Scalar],
         initial_condition: (Y, Z),
         equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
-        banded: Option<Banded>,
+        sparse: Option<SparseSolver>,
     ) -> Result<(Vector, U, U, V), IntegrationError> {
         self.integrate_explicit_dae_variable_step_explicit_minimize_2(
             evolution,
@@ -607,7 +608,7 @@ where
             time,
             initial_condition,
             equality_constraint,
-            banded,
+            sparse,
         )
     }
 }

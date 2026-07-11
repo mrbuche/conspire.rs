@@ -13,7 +13,8 @@ pub use newton_raphson::NewtonRaphson;
 
 use crate::math::{
     Jacobian, Scalar, Solution, Style, StyledError, TestError,
-    matrix::square::{Banded, SquareMatrixError},
+    matrix::square::SquareMatrixError,
+    sparse::{SparseError, SparseSolver},
     styled_error,
 };
 use std::{fmt::Debug, ops::Mul};
@@ -59,7 +60,7 @@ pub trait SecondOrderOptimization<F, J, H, X> {
         hessian: impl FnMut(&X) -> Result<H, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
-        banded: Option<Banded>,
+        sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError>;
 }
 
@@ -160,6 +161,12 @@ impl From<OptimizationError> for TestError {
 
 impl From<SquareMatrixError> for OptimizationError {
     fn from(_error: SquareMatrixError) -> Self {
+        Self::SingularMatrix
+    }
+}
+
+impl From<SparseError> for OptimizationError {
+    fn from(_error: SparseError) -> Self {
         Self::SingularMatrix
     }
 }

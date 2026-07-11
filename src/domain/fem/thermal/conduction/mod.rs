@@ -3,7 +3,7 @@ use crate::{
         Blocks, ElementModel, ElementModelError, Elements, FirstOrderMinimize, FirstOrderRoot,
         Model, SecondOrderMinimize, ZerothOrderRoot,
         block::{
-            band_from_neighbors, finalize_node_neighbors,
+            finalize_node_neighbors, solver_from_neighbors,
             thermal::{
                 NodalTemperatures,
                 conduction::{NodalForcesThermal, NodalStiffnessesThermal},
@@ -193,7 +193,7 @@ where
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);
         finalize_node_neighbors(&mut neighbors);
-        let banded = band_from_neighbors(&neighbors, &equality_constraint, 1);
+        let sparse = solver_from_neighbors(&neighbors, &equality_constraint, 1);
         solver.minimize(
             |nodal_temperatures: &NodalTemperatures| Ok(self.potential(nodal_temperatures)?),
             |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
@@ -202,7 +202,7 @@ where
             },
             NodalTemperatures::zero(self.coordinates().len()),
             equality_constraint,
-            Some(banded),
+            Some(sparse),
         )
     }
 }

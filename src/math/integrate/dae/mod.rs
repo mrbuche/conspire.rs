@@ -1,10 +1,11 @@
 use crate::math::{
-    Banded, Scalar, Tensor, TensorVec, Vector,
+    Scalar, Tensor, TensorVec, Vector,
     integrate::IntegrationError,
     optimize::{
         EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, SecondOrderOptimization,
         ZerothOrderRootFinding,
     },
+    sparse::SparseSolver,
 };
 
 pub mod explicit;
@@ -90,7 +91,7 @@ where
         time: &[Scalar],
         initial_condition: (Y, Z),
         equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
-        banded: Option<Banded>,
+        sparse: Option<SparseSolver>,
     ) -> Result<(Vector, U, U, V), IntegrationError>;
 }
 
@@ -161,6 +162,6 @@ where
         time: &[Scalar],
         initial_condition: Y,
         equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
-        banded: Option<Banded>,
+        sparse: Option<SparseSolver>,
     ) -> Result<(Vector, U, U), IntegrationError>;
 }

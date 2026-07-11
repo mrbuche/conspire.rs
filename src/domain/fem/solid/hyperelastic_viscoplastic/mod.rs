@@ -3,8 +3,8 @@ use crate::{
         Blocks, ElasticViscoplasticAndElastic, ElementModel, ElementModelError, Elements, Model,
         NodalCoordinates, NodalCoordinatesHistory,
         block::{
-            band_from_neighbors, finalize_node_neighbors,
-            solid::elastic_viscoplastic::ElasticViscoplasticBCs,
+            finalize_node_neighbors, solid::elastic_viscoplastic::ElasticViscoplasticBCs,
+            solver_from_neighbors,
         },
         solid::{
             NodalForcesSolid, NodalStiffnessesSolid,
@@ -140,7 +140,7 @@ where
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);
         finalize_node_neighbors(&mut neighbors);
-        let banded = band_from_neighbors(&neighbors, &bcs(time[0]), D);
+        let sparse = solver_from_neighbors(&neighbors, &bcs(time[0]), D);
         let (time_history, state_variables_history, _, nodal_coordinates_history) = integrator
             .integrate(
                 |_: Scalar, state_variables: &S, nodal_coordinates: &NodalCoordinates<D>| {
@@ -170,7 +170,7 @@ where
                     self.coordinates().clone().into(),
                 ),
                 bcs,
-                Some(banded),
+                Some(sparse),
             )?;
         Ok((
             time_history,

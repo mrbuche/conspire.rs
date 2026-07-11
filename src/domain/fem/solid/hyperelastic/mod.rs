@@ -2,7 +2,7 @@ use crate::{
     fem::{
         Blocks, ElementModel, ElementModelError, Elements, FirstOrderMinimize, Model,
         NodalCoordinates, SecondOrderMinimize,
-        block::{band_from_neighbors, finalize_node_neighbors},
+        block::{finalize_node_neighbors, solver_from_neighbors},
         solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticElements},
     },
     math::{
@@ -88,7 +88,7 @@ where
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);
         finalize_node_neighbors(&mut neighbors);
-        let banded = band_from_neighbors(&neighbors, &equality_constraint, D);
+        let sparse = solver_from_neighbors(&neighbors, &equality_constraint, D);
         solver.minimize(
             |nodal_coordinates: &NodalCoordinates<D>| {
                 Ok(self.helmholtz_free_energy(nodal_coordinates)?)
@@ -99,7 +99,7 @@ where
             },
             self.coordinates().clone().into(),
             equality_constraint,
-            Some(banded),
+            Some(sparse),
         )
     }
 }

@@ -15,7 +15,10 @@ use crate::{
         },
     },
     geometry::mesh::PrimitiveConnectivity,
-    math::{Banded, Scalar, Tensor, TensorRank1List, TensorRank1Vec, optimize::EqualityConstraint},
+    math::{
+        Scalar, Tensor, TensorRank1List, TensorRank1Vec, optimize::EqualityConstraint,
+        sparse::SparseSolver,
+    },
 };
 use std::{
     any::type_name,
@@ -202,11 +205,11 @@ pub(crate) fn finalize_node_neighbors(neighbors: &mut [Vec<usize>]) {
     })
 }
 
-pub(crate) fn band_from_neighbors(
+pub(crate) fn solver_from_neighbors(
     neighbors: &[Vec<usize>],
     equality_constraint: &EqualityConstraint,
     dimension: usize,
-) -> Banded {
+) -> SparseSolver {
     let number_of_nodes = neighbors.len();
     let num_coords = dimension * number_of_nodes;
     let mut pattern: Vec<(usize, usize)> = neighbors
@@ -237,7 +240,7 @@ pub(crate) fn band_from_neighbors(
                 .into_iter()
                 .map(|(i, j)| (remap[i], remap[j]))
                 .collect();
-            Banded::from_pattern(next, pattern)
+            SparseSolver::from_pattern(next, pattern)
         }
         EqualityConstraint::Linear(matrix, _) => {
             assert_eq!(matrix.width(), num_coords);
@@ -252,8 +255,8 @@ pub(crate) fn band_from_neighbors(
                     }
                 })
             });
-            Banded::from_pattern(num_dof, pattern)
+            SparseSolver::from_pattern(num_dof, pattern)
         }
-        EqualityConstraint::None => Banded::from_pattern(num_coords, pattern),
+        EqualityConstraint::None => SparseSolver::from_pattern(num_coords, pattern),
     }
 }
