@@ -315,6 +315,9 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> Hessian
     for TensorRank4<D, I, J, K, L>
 {
+    fn entry(&self, row: usize, column: usize) -> TensorRank0 {
+        self[row / D][row % D][column / D][column % D]
+    }
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
         self.into_iter().enumerate().for_each(|(i, self_i)| {
             self_i.into_iter().enumerate().for_each(|(j, self_ij)| {

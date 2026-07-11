@@ -274,6 +274,15 @@ impl<const D: usize, const I: usize, const J: usize> Sum for TensorRank2SparseVe
 }
 
 impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2SparseVec2D<D, I, J> {
+    fn entry(&self, row: usize, column: usize) -> Scalar {
+        match self[row / D]
+            .0
+            .binary_search_by_key(&(column / D), |&(b, _)| b)
+        {
+            Ok(k) => self[row / D].0[k].1[row % D][column % D],
+            Err(_) => 0.0,
+        }
+    }
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
         self.iter().enumerate().for_each(|(a, row)| {
             row.entries().for_each(|(b, block)| {
@@ -285,9 +294,6 @@ impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2Spar
                 })
             })
         });
-    }
-    fn fill_into_sparse(self, square_matrix: &mut SquareMatrix, _pattern: &[(usize, usize)]) {
-        self.fill_into(square_matrix);
     }
     fn retain_from(self, retained: &[bool]) -> SquareMatrix {
         let mut remap = vec![0; retained.len()];

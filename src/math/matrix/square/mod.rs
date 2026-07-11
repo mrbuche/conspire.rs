@@ -279,6 +279,9 @@ impl IndexMut<usize> for SquareMatrix {
 }
 
 impl Hessian for SquareMatrix {
+    fn entry(&self, row: usize, column: usize) -> Scalar {
+        self[row][column]
+    }
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
         self.into_iter()
             .zip(square_matrix.iter_mut())

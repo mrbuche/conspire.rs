@@ -34,6 +34,9 @@ impl<const D: usize, const I: usize, const J: usize> From<TensorRank2Vec2D<D, I,
 }
 
 impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2Vec2D<D, I, J> {
+    fn entry(&self, row: usize, column: usize) -> TensorRank0 {
+        self[row / D][column / D][row % D][column % D]
+    }
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
         self.into_iter().enumerate().for_each(|(a, entry_a)| {
             entry_a.into_iter().enumerate().for_each(|(b, entry_ab)| {
@@ -49,11 +52,6 @@ impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2Vec2
                             })
                     })
             })
-        });
-    }
-    fn fill_into_sparse(self, square_matrix: &mut SquareMatrix, pattern: &[(usize, usize)]) {
-        pattern.iter().for_each(|&(p, q)| {
-            square_matrix[p][q] = self[p / D][q / D][p % D][q % D];
         });
     }
     fn retain_from(self, retained: &[bool]) -> SquareMatrix {

@@ -218,21 +218,26 @@ where
 {
     let mut retained = vec![true; initial_guess.size()];
     indices.iter().for_each(|&index| retained[index] = false);
+    let unmap: Vec<usize> = retained
+        .iter()
+        .enumerate()
+        .filter_map(|(index, &keep)| keep.then_some(index))
+        .collect();
     let mut decrement;
     let mut residual;
     let mut solution = initial_guess;
     let mut step_size;
-    let mut tangent;
     for _ in 0..=newton_raphson.max_steps {
         residual = jacobian(&solution)?.retain_from(&retained);
         if newton_raphson.norm.apply(&residual) < newton_raphson.abs_tol {
             return Ok(solution);
         } else if let Some(ref solver) = sparse {
-            tangent = hessian(&solution)?.retain_from(&retained);
-            decrement = solver.solve(|i, j| tangent[i][j], &residual)?
+            let hess = hessian(&solution)?;
+            decrement = solver.solve(|i, j| hess.entry(unmap[i], unmap[j]), &residual)?
         } else {
-            tangent = hessian(&solution)?.retain_from(&retained);
-            decrement = tangent.solve_lu(&residual)?
+            decrement = hessian(&solution)?
+                .retain_from(&retained)
+                .solve_lu(&residual)?
         }
         if !matches!(newton_raphson.line_search, LineSearch::None) {
             let jac = jacobian(&solution)?;
@@ -286,27 +291,21 @@ where
     let mut multipliers = Vector::zero(num_constraints);
     let mut residual = Vector::zero(num_total);
     let mut solution = initial_guess;
-    let mut tangent = SquareMatrix::zero(num_total);
-    constraint_matrix
-        .iter()
-        .enumerate()
-        .for_each(|(i, constraint_matrix_i)| {
-            constraint_matrix_i
-                .iter()
-                .enumerate()
-                .for_each(|(j, constraint_matrix_ij)| {
-                    tangent[i + num_variables][j] = -constraint_matrix_ij;
-                    tangent[j][i + num_variables] = -constraint_matrix_ij;
-                })
-        });
-    let material_pattern: Option<Vec<(usize, usize)>> = sparse.as_ref().map(|solver| {
-        solver
-            .pattern()
+    let mut tangent = SquareMatrix::zero(if sparse.is_none() { num_total } else { 0 });
+    if sparse.is_none() {
+        constraint_matrix
             .iter()
-            .copied()
-            .filter(|&(i, j)| i < num_variables && j < num_variables)
-            .collect()
-    });
+            .enumerate()
+            .for_each(|(i, constraint_matrix_i)| {
+                constraint_matrix_i
+                    .iter()
+                    .enumerate()
+                    .for_each(|(j, constraint_matrix_ij)| {
+                        tangent[i + num_variables][j] = -constraint_matrix_ij;
+                        tangent[j][i + num_variables] = -constraint_matrix_ij;
+                    })
+            });
+    }
     for _ in 0..=newton_raphson.max_steps {
         let _t0 = std::time::Instant::now();
         (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
@@ -318,18 +317,23 @@ where
             return Ok(solution);
         } else if let Some(ref solver) = sparse {
             let hess = hessian(&solution)?;
-            let _t1b = std::time::Instant::now();
-            match &material_pattern {
-                Some(pattern) => hess.fill_into_sparse(&mut tangent, pattern),
-                None => hess.fill_into(&mut tangent),
-            }
             let _t2 = std::time::Instant::now();
-            decrement = solver.solve(|i, j| tangent[i][j], &residual)?;
+            decrement = solver.solve(
+                |i, j| {
+                    if i >= num_variables {
+                        -constraint_matrix[i - num_variables][j]
+                    } else if j >= num_variables {
+                        -constraint_matrix[j - num_variables][i]
+                    } else {
+                        hess.entry(i, j)
+                    }
+                },
+                &residual,
+            )?;
             eprintln!(
-                "newton iteration | residual_assembly={:?} hessian_compute={:?} fill_into={:?} solve={:?}",
+                "newton iteration | residual_assembly={:?} hessian_compute={:?} solve={:?}",
                 _t1 - _t0,
-                _t1b - _t1,
-                _t2 - _t1b,
+                _t2 - _t1,
                 _t2.elapsed()
             );
         } else {

@@ -60,6 +60,9 @@ impl Sub<&Vector> for TensorRank0 {
 }
 
 impl Hessian for TensorRank0 {
+    fn entry(&self, _row: usize, _column: usize) -> TensorRank0 {
+        unimplemented!()
+    }
     fn fill_into(self, _square_matrix: &mut SquareMatrix) {
         unimplemented!()
     }
