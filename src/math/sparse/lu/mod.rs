@@ -88,6 +88,7 @@ impl CscMatrix {
                 x[i] = 0.0;
             });
             u_col.push((j, pivot));
+            u_col.sort_unstable_by_key(|&(row, _)| row);
             l_cols.push(l_col);
             u_cols.push(u_col);
         }
@@ -141,6 +142,50 @@ impl CscLu {
     /// The number of nonzero entries in the factors.
     pub fn nonzeros(&self) -> usize {
         self.l_values.len() + self.u_values.len()
+    }
+    /// Recomputes the factorization for new values in the same pattern, reusing
+    /// the pivot order and fill pattern without any symbolic work or pivot search.
+    /// The factorization is invalid if an error is returned.
+    pub fn refactor(&mut self, matrix: &CscMatrix) -> Result<(), SparseError> {
+        let Self {
+            l_col_ptr,
+            l_row_idx,
+            l_values,
+            u_col_ptr,
+            u_row_idx,
+            u_values,
+            pinv,
+            q,
+        } = self;
+        let n = pinv.len();
+        assert_eq!(n, matrix.height());
+        let mut x = vec![0.0; n];
+        for (j, &q_j) in q.iter().enumerate() {
+            matrix
+                .column(q_j)
+                .for_each(|(i, value)| x[pinv[i]] = *value);
+            (u_col_ptr[j]..u_col_ptr[j + 1] - 1).for_each(|p| {
+                let k = u_row_idx[p];
+                let x_k = x[k];
+                u_values[p] = x_k;
+                x[k] = 0.0;
+                if x_k != 0.0 {
+                    (l_col_ptr[k] + 1..l_col_ptr[k + 1])
+                        .for_each(|r| x[l_row_idx[r]] -= l_values[r] * x_k);
+                }
+            });
+            let pivot = x[j];
+            x[j] = 0.0;
+            if pivot.abs() < ABS_TOL {
+                return Err(SparseError::Singular);
+            }
+            u_values[u_col_ptr[j + 1] - 1] = pivot;
+            (l_col_ptr[j] + 1..l_col_ptr[j + 1]).for_each(|p| {
+                l_values[p] = x[l_row_idx[p]] / pivot;
+                x[l_row_idx[p]] = 0.0;
+            });
+        }
+        Ok(())
     }
 }
 

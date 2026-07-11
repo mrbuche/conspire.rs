@@ -88,6 +88,44 @@ fn numerically_singular() {
 }
 
 #[test]
+fn refactor_same_values() -> Result<(), TestError> {
+    let matrix = matrix_dim_100();
+    let b: Vector = (0..100).map(|i| (i % 13) as f64 - 6.0).collect();
+    let mut lu = matrix.lu().expect("Factorization failed.");
+    let solution = lu.solve(&b);
+    lu.refactor(&matrix).expect("Refactorization failed.");
+    assert_eq_within_tols(&lu.solve(&b), &solution)
+}
+
+#[test]
+fn refactor_new_values() -> Result<(), TestError> {
+    let mut matrix = matrix_dim_100();
+    let b: Vector = (0..100).map(|i| (i % 13) as f64 - 6.0).collect();
+    let mut lu = matrix.lu().expect("Factorization failed.");
+    matrix.fill(|i, j| {
+        if i == j {
+            10.0
+        } else {
+            ((i * 7 + j * 3) % 5) as f64 / 5.0 - 0.4
+        }
+    });
+    lu.refactor(&matrix).expect("Refactorization failed.");
+    assert_eq_within_tols(&(&matrix * &lu.solve(&b)), &b)
+}
+
+#[test]
+fn refactor_singular() {
+    let mut matrix = CscMatrix::from_pattern(2, 2, vec![(0, 0), (1, 1)]);
+    matrix.fill(|_, _| 1.0);
+    let mut lu = matrix.lu().expect("Factorization failed.");
+    matrix.fill(|i, _| i as f64);
+    assert!(
+        lu.refactor(&matrix)
+            .is_err_and(|error| error == SparseError::Singular)
+    )
+}
+
+#[test]
 fn fill_in() {
     let lu = matrix_dim_100().lu().expect("Factorization failed.");
     assert!(lu.nonzeros() >= matrix_dim_100().nonzeros());
