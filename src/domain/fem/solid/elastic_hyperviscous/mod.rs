@@ -129,7 +129,7 @@ where
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);
         finalize_node_neighbors(&mut neighbors);
-        let banded = band_from_neighbors(&neighbors, &equality_constraint, D, false);
+        let banded = band_from_neighbors(&neighbors, &equality_constraint, D);
         integrator.integrate(
             |_: Scalar,
              nodal_coordinates: &NodalCoordinates<D>,

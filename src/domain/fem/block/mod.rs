@@ -206,7 +206,6 @@ pub(crate) fn band_from_neighbors(
     neighbors: &[Vec<usize>],
     equality_constraint: &EqualityConstraint,
     dimension: usize,
-    symmetric: bool,
 ) -> Banded {
     let number_of_nodes = neighbors.len();
     let num_coords = dimension * number_of_nodes;
@@ -214,16 +213,11 @@ pub(crate) fn band_from_neighbors(
         .iter()
         .enumerate()
         .flat_map(|(a, nodes)| {
-            nodes
-                .iter()
-                .filter(move |&&b| !symmetric || b >= a)
-                .flat_map(move |&b| {
-                    (0..dimension).flat_map(move |i| {
-                        (0..dimension)
-                            .filter(move |&j| !symmetric || b > a || j >= i)
-                            .map(move |j| (dimension * a + i, dimension * b + j))
-                    })
+            nodes.iter().flat_map(move |&b| {
+                (0..dimension).flat_map(move |i| {
+                    (0..dimension).map(move |j| (dimension * a + i, dimension * b + j))
                 })
+            })
         })
         .collect();
     match equality_constraint {
@@ -243,39 +237,23 @@ pub(crate) fn band_from_neighbors(
                 .into_iter()
                 .map(|(i, j)| (remap[i], remap[j]))
                 .collect();
-            if symmetric {
-                Banded::from_pattern_symmetric(next, pattern)
-            } else {
-                Banded::from_pattern(next, pattern)
-            }
+            Banded::from_pattern(next, pattern)
         }
         EqualityConstraint::Linear(matrix, _) => {
             assert_eq!(matrix.width(), num_coords);
             let num_dof = matrix.len() + matrix.width();
-            matrix.iter().enumerate().for_each(|(row, matrix_i)| {
-                let index = num_coords + row;
-                pattern.push((index, index));
+            let mut index = num_coords;
+            matrix.iter().for_each(|matrix_i| {
                 matrix_i.iter().enumerate().for_each(|(j, matrix_ij)| {
                     if matrix_ij != &0.0 {
-                        if !symmetric {
-                            pattern.push((index, j));
-                        }
+                        pattern.push((index, j));
                         pattern.push((j, index));
+                        index += 1;
                     }
                 })
             });
-            if symmetric {
-                Banded::from_pattern_symmetric(num_dof, pattern)
-            } else {
-                Banded::from_pattern(num_dof, pattern)
-            }
+            Banded::from_pattern(num_dof, pattern)
         }
-        EqualityConstraint::None => {
-            if symmetric {
-                Banded::from_pattern_symmetric(num_coords, pattern)
-            } else {
-                Banded::from_pattern(num_coords, pattern)
-            }
-        }
+        EqualityConstraint::None => Banded::from_pattern(num_coords, pattern),
     }
 }
