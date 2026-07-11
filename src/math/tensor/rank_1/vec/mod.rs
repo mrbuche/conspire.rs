@@ -2,8 +2,8 @@
 mod test;
 
 use crate::math::{
-    Jacobian, Solution, Tensor, TensorRank0, TensorRank1, TensorRank1List, TensorRank2Vec2D,
-    Vector, tensor::vec::TensorVector,
+    Jacobian, Solution, Tensor, TensorRank0, TensorRank1, TensorRank1List, TensorRank2SparseVec2D,
+    TensorRank2Vec2D, Vector, tensor::vec::TensorVector,
 };
 use std::{
     array::from_fn,
@@ -253,6 +253,15 @@ impl<const D: usize, const I: usize, const J: usize> Div<TensorRank2Vec2D<D, I, 
 {
     type Output = TensorRank1Vec<D, J>;
     fn div(self, _tensor_rank_2_vec_2d: TensorRank2Vec2D<D, I, J>) -> Self::Output {
+        todo!()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> Div<TensorRank2SparseVec2D<D, I, J>>
+    for &TensorRank1Vec<D, I>
+{
+    type Output = TensorRank1Vec<D, J>;
+    fn div(self, _tensor_rank_2_sparse_vec_2d: TensorRank2SparseVec2D<D, I, J>) -> Self::Output {
         todo!()
     }
 }

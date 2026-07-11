@@ -48,6 +48,7 @@ pub use tensor::{
         IDENTITY, IDENTITY_00, IDENTITY_10, IDENTITY_22, TensorRank2, ZERO, ZERO_10,
         list::{TensorRank2List, vec::TensorRank2ListVec},
         list_2d::TensorRank2List2D,
+        sparse_vec_2d::{TensorRank2SparseVec, TensorRank2SparseVec2D},
         vec::TensorRank2Vec,
         vec_2d::TensorRank2Vec2D,
     },
