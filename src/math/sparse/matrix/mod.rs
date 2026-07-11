@@ -103,6 +103,90 @@ impl CscMatrix {
             scatter: self.scatter.iter().map(|&k| perm[k]).collect(),
         }
     }
+    /// A column-to-row matching pairing every column with a structurally
+    /// nonzero row (a maximum transversal), or None if structurally singular.
+    pub(crate) fn maxtrans(&self) -> Option<Vec<usize>> {
+        const NONE: usize = usize::MAX;
+        let n = self.width;
+        assert_eq!(n, self.height);
+        if (0..n).all(|c| self.row_idx[self.col_ptr[c]..self.col_ptr[c + 1]].contains(&c)) {
+            return Some((0..n).collect());
+        }
+        let mut cmatch = vec![NONE; n];
+        let mut rmatch = vec![NONE; n];
+        (0..n).for_each(|c| {
+            if self.row_idx[self.col_ptr[c]..self.col_ptr[c + 1]].contains(&c) {
+                rmatch[c] = c;
+                cmatch[c] = c;
+            }
+        });
+        (0..n).for_each(|c| {
+            if cmatch[c] == NONE {
+                for &r in &self.row_idx[self.col_ptr[c]..self.col_ptr[c + 1]] {
+                    if rmatch[r] == NONE {
+                        rmatch[r] = c;
+                        cmatch[c] = r;
+                        break;
+                    }
+                }
+            }
+        });
+        let mut visited = vec![NONE; n];
+        let mut cstack = vec![0; n];
+        let mut rstack = vec![0; n];
+        let mut estack = vec![0; n];
+        for root in 0..n {
+            if cmatch[root] != NONE {
+                continue;
+            }
+            let mut head = 0;
+            cstack[0] = root;
+            estack[0] = self.col_ptr[root];
+            let mut found = false;
+            'dfs: loop {
+                let c = cstack[head];
+                let end = self.col_ptr[c + 1];
+                if estack[head] == self.col_ptr[c] {
+                    for &r in &self.row_idx[self.col_ptr[c]..end] {
+                        if rmatch[r] == NONE {
+                            rstack[head] = r;
+                            (0..=head).for_each(|level| {
+                                cmatch[cstack[level]] = rstack[level];
+                                rmatch[rstack[level]] = cstack[level];
+                            });
+                            found = true;
+                            break 'dfs;
+                        }
+                    }
+                }
+                let mut descended = false;
+                while estack[head] < end {
+                    let r = self.row_idx[estack[head]];
+                    estack[head] += 1;
+                    if visited[r] == root || rmatch[r] == NONE {
+                        continue;
+                    }
+                    visited[r] = root;
+                    rstack[head] = r;
+                    head += 1;
+                    cstack[head] = rmatch[r];
+                    estack[head] = self.col_ptr[rmatch[r]];
+                    descended = true;
+                    break;
+                }
+                if !descended {
+                    if head == 0 {
+                        break 'dfs;
+                    }
+                    head -= 1;
+                }
+            }
+            if !found {
+                return None;
+            }
+        }
+        Some(cmatch)
+    }
     pub fn width(&self) -> usize {
         self.width
     }

@@ -135,7 +135,7 @@ fn fill_in() {
 fn symbolic_refactor_nonsymmetric_pattern() -> Result<(), TestError> {
     let matrix = matrix_dim_100();
     let b: Vector = (0..100).map(|i| (i % 13) as f64 - 6.0).collect();
-    let mut lu = matrix.lu_symbolic();
+    let mut lu = matrix.lu_symbolic()?;
     lu.refactor(&matrix).expect("Refactorization failed.");
     assert!(lu.nonzeros() >= matrix.lu_amd().expect("Factorization failed.").nonzeros());
     assert_eq_within_tols(&(&matrix * &lu.solve(&b)), &b)
@@ -152,7 +152,7 @@ fn symbolic_refactor_symmetric_pattern() -> Result<(), TestError> {
     let mut matrix = CscMatrix::from_pattern(n, n, pattern);
     matrix.fill(|i, j| if i == j { 8.0 } else { (i % 3) as f64 - 1.0 });
     let b: Vector = (0..n).map(|i| (i % 13) as f64 - 6.0).collect();
-    let mut lu = matrix.lu_symbolic();
+    let mut lu = matrix.lu_symbolic()?;
     lu.refactor(&matrix).expect("Refactorization failed.");
     assert_eq!(
         lu.nonzeros(),
@@ -162,13 +162,54 @@ fn symbolic_refactor_symmetric_pattern() -> Result<(), TestError> {
 }
 
 #[test]
-fn symbolic_refactor_zero_diagonal() {
+fn symbolic_refactor_zero_diagonal() -> Result<(), TestError> {
     let mut matrix = CscMatrix::from_pattern(2, 2, vec![(0, 0), (0, 1), (1, 0), (1, 1)]);
     matrix.fill(|i, j| if i == j { 0.0 } else { 1.0 });
     assert!(
         matrix
-            .lu_symbolic()
+            .lu_symbolic()?
             .refactor(&matrix)
+            .is_err_and(|error| error == SparseError::Singular)
+    );
+    Ok(())
+}
+
+#[test]
+fn symbolic_refactor_saddle_point() -> Result<(), TestError> {
+    let n = 24;
+    let mut pattern: Vec<(usize, usize)> = (0..n).map(|i| (i, i)).collect();
+    (0..n - 3).for_each(|i| {
+        pattern.push((i, i + 3));
+        pattern.push((i + 3, i));
+    });
+    (0..4).for_each(|c| {
+        pattern.push((n + c, 5 * c));
+        pattern.push((5 * c, n + c));
+        pattern.push((n + c, 5 * c + 2));
+        pattern.push((5 * c + 2, n + c));
+    });
+    let mut matrix = CscMatrix::from_pattern(n + 4, n + 4, pattern);
+    matrix.fill(|i, j| {
+        if i == j {
+            8.0
+        } else if i >= n || j >= n {
+            1.0
+        } else {
+            (i % 3) as f64 - 1.0
+        }
+    });
+    let b: Vector = (0..n + 4).map(|i| (i % 7) as f64 - 3.0).collect();
+    let mut lu = matrix.lu_symbolic()?;
+    lu.refactor(&matrix).expect("Refactorization failed.");
+    assert_eq_within_tols(&(&matrix * &lu.solve(&b)), &b)
+}
+
+#[test]
+fn symbolic_structurally_singular() {
+    let matrix = CscMatrix::from_pattern(3, 3, vec![(0, 0), (0, 1), (1, 2), (2, 2)]);
+    assert!(
+        matrix
+            .lu_symbolic()
             .is_err_and(|error| error == SparseError::Singular)
     )
 }

@@ -43,18 +43,35 @@ impl CscMatrix {
         self.factor(self.amd())
     }
     /// Builds the factorization pattern symbolically for the fill-reducing
-    /// ordering assuming diagonal pivots, which is the exact fill pattern for a
-    /// symmetric pattern and a superset otherwise; all values are zero until a
+    /// ordering assuming pivots from a maximum transversal (the diagonal when it
+    /// is structurally full), which is the exact fill pattern for a symmetric
+    /// pattern and a superset otherwise; all values are zero until a
     /// refactorization supplies them.
-    pub fn lu_symbolic(&self) -> CscLu {
+    pub fn lu_symbolic(&self) -> Result<CscLu, SparseError> {
         let n = self.height();
         assert_eq!(n, self.width());
-        let q = self.amd();
+        let matching = self.maxtrans().ok_or(SparseError::Singular)?;
+        let q = if matching.iter().enumerate().all(|(c, &r)| r == c) {
+            self.amd()
+        } else {
+            let mut rinv = vec![0; n];
+            matching.iter().enumerate().for_each(|(c, &r)| rinv[r] = c);
+            let mut permuted = Vec::with_capacity(self.nonzeros());
+            (0..n).for_each(|c| {
+                self.column(c)
+                    .for_each(|(r, _)| permuted.push((rinv[r], c)))
+            });
+            CscMatrix::from_pattern(n, n, permuted).amd()
+        };
         let mut pinv = vec![NONE; n];
-        q.iter().enumerate().for_each(|(j, &q_j)| pinv[q_j] = j);
+        let mut qinv = vec![NONE; n];
+        q.iter().enumerate().for_each(|(j, &q_j)| {
+            qinv[q_j] = j;
+            pinv[matching[q_j]] = j;
+        });
         let mut count = vec![0_usize; n];
         (0..n).for_each(|c| {
-            let j = pinv[c];
+            let j = qinv[c];
             self.column(c).for_each(|(r, _)| {
                 let i = pinv[r];
                 if i != j {
@@ -70,7 +87,7 @@ impl CscMatrix {
         let mut adj = vec![0; adj_ptr[n]];
         let mut next = adj_ptr[..n].to_vec();
         (0..n).for_each(|c| {
-            let j = pinv[c];
+            let j = qinv[c];
             self.column(c).for_each(|(r, _)| {
                 let i = pinv[r];
                 if i != j {
@@ -141,7 +158,7 @@ impl CscMatrix {
         let l_values = vec![0.0; l_row_idx.len()];
         let (sn_of, sn_start, sn_rows_ptr, sn_rows, sn_panel_ptr, sn_values) =
             supernodes(&l_col_ptr, &l_row_idx, &l_values, n);
-        CscLu {
+        Ok(CscLu {
             fill,
             sn_of,
             sn_start,
@@ -154,7 +171,7 @@ impl CscMatrix {
             u_values: vec![0.0; fill - l_values.len()],
             pinv,
             q,
-        }
+        })
     }
     fn factor(&self, q: Vec<usize>) -> Result<CscLu, SparseError> {
         let n = self.height();

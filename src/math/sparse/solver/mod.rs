@@ -43,11 +43,12 @@ impl SparseSolver {
         {
             return Ok(cached.solve(b));
         }
-        let mut symbolic = matrix.lu_symbolic();
-        let fresh = if symbolic.refactor(&matrix).is_ok() {
-            symbolic
-        } else {
-            matrix.lu_amd()?
+        let fresh = match matrix.lu_symbolic() {
+            Ok(mut symbolic) => match symbolic.refactor(&matrix) {
+                Ok(()) => symbolic,
+                Err(_) => matrix.lu_amd()?,
+            },
+            Err(_) => matrix.lu_amd()?,
         };
         let solution = fresh.solve(b);
         *lu = Some(fresh);
