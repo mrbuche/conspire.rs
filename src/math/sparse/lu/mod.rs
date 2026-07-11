@@ -9,6 +9,10 @@ use crate::{
 
 const NONE: usize = usize::MAX;
 
+/// Threshold for preferring the diagonal pivot, which preserves the
+/// fill-reducing ordering when the matrix has a symmetric pattern.
+const PIVOT_TOL: Scalar = 0.001;
+
 /// A sparse LU factorization, PAQ = LU, in compressed sparse column format.
 pub struct CscLu {
     l_col_ptr: Vec<usize>,
@@ -75,6 +79,9 @@ impl CscMatrix {
             if pivot_row == NONE || pivot_abs < ABS_TOL {
                 return Err(SparseError::Singular);
             }
+            if pinv[q_j] == NONE && x[q_j].abs() >= PIVOT_TOL * pivot_abs {
+                pivot_row = q_j;
+            }
             let pivot = x[pivot_row];
             pinv[pivot_row] = j;
             let mut l_col = vec![(pivot_row, 1.0)];
@@ -119,8 +126,10 @@ impl CscLu {
         (0..n).for_each(|j| {
             let x_j = x[j];
             if x_j != 0.0 {
-                (self.l_col_ptr[j] + 1..self.l_col_ptr[j + 1])
-                    .for_each(|k| x[self.l_row_idx[k]] -= self.l_values[k] * x_j);
+                self.l_row_idx[self.l_col_ptr[j] + 1..self.l_col_ptr[j + 1]]
+                    .iter()
+                    .zip(self.l_values[self.l_col_ptr[j] + 1..self.l_col_ptr[j + 1]].iter())
+                    .for_each(|(&row, value)| x[row] -= value * x_j);
             }
         });
         (0..n).rev().for_each(|j| {
@@ -128,8 +137,10 @@ impl CscLu {
             x[j] /= self.u_values[end - 1];
             let x_j = x[j];
             if x_j != 0.0 {
-                (self.u_col_ptr[j]..end - 1)
-                    .for_each(|k| x[self.u_row_idx[k]] -= self.u_values[k] * x_j);
+                self.u_row_idx[self.u_col_ptr[j]..end - 1]
+                    .iter()
+                    .zip(self.u_values[self.u_col_ptr[j]..end - 1].iter())
+                    .for_each(|(&row, value)| x[row] -= value * x_j);
             }
         });
         let mut solution = Vector::zero(n);
@@ -164,26 +175,34 @@ impl CscLu {
             matrix
                 .column(q_j)
                 .for_each(|(i, value)| x[pinv[i]] = *value);
-            (u_col_ptr[j]..u_col_ptr[j + 1] - 1).for_each(|p| {
-                let k = u_row_idx[p];
-                let x_k = x[k];
-                u_values[p] = x_k;
-                x[k] = 0.0;
-                if x_k != 0.0 {
-                    (l_col_ptr[k] + 1..l_col_ptr[k + 1])
-                        .for_each(|r| x[l_row_idx[r]] -= l_values[r] * x_k);
-                }
-            });
+            let (u_start, u_end) = (u_col_ptr[j], u_col_ptr[j + 1]);
+            u_row_idx[u_start..u_end - 1]
+                .iter()
+                .zip(u_values[u_start..u_end - 1].iter_mut())
+                .for_each(|(&k, u_value)| {
+                    let x_k = x[k];
+                    *u_value = x_k;
+                    x[k] = 0.0;
+                    if x_k != 0.0 {
+                        l_row_idx[l_col_ptr[k] + 1..l_col_ptr[k + 1]]
+                            .iter()
+                            .zip(l_values[l_col_ptr[k] + 1..l_col_ptr[k + 1]].iter())
+                            .for_each(|(&row, value)| x[row] -= value * x_k);
+                    }
+                });
             let pivot = x[j];
             x[j] = 0.0;
             if pivot.abs() < ABS_TOL {
                 return Err(SparseError::Singular);
             }
-            u_values[u_col_ptr[j + 1] - 1] = pivot;
-            (l_col_ptr[j] + 1..l_col_ptr[j + 1]).for_each(|p| {
-                l_values[p] = x[l_row_idx[p]] / pivot;
-                x[l_row_idx[p]] = 0.0;
-            });
+            u_values[u_end - 1] = pivot;
+            l_row_idx[l_col_ptr[j] + 1..l_col_ptr[j + 1]]
+                .iter()
+                .zip(l_values[l_col_ptr[j] + 1..l_col_ptr[j + 1]].iter_mut())
+                .for_each(|(&row, value)| {
+                    *value = x[row] / pivot;
+                    x[row] = 0.0;
+                });
         }
         Ok(())
     }
@@ -251,8 +270,13 @@ fn compress(
     let mut values = Vec::with_capacity(nnz);
     col_ptr.push(0);
     cols.into_iter().for_each(|col| {
-        col.into_iter().for_each(|(i, value)| {
-            row_idx.push(row_map[i]);
+        let mut mapped: Vec<(usize, Scalar)> = col
+            .into_iter()
+            .map(|(i, value)| (row_map[i], value))
+            .collect();
+        mapped.sort_unstable_by_key(|&(row, _)| row);
+        mapped.into_iter().for_each(|(row, value)| {
+            row_idx.push(row);
             values.push(value);
         });
         col_ptr.push(row_idx.len());
