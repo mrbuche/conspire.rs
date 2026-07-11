@@ -240,21 +240,50 @@ impl CscLu {
                     (c1..c2).zip(pointers.iter_mut()).for_each(|(j, pointer)| {
                         let p_end = self.u_col_ptr[j + 1] - 1;
                         let column = &mut work[(j - c1) * n..(j - c1 + 1) * n];
-                        while *pointer < p_end {
-                            let k = self.u_row_idx[*pointer];
-                            if k >= c1 || k >= t2 {
-                                break;
+                        if consumed == width
+                            && width <= 3
+                            && *pointer + width <= p_end
+                            && self.u_row_idx[*pointer] == t1
+                            && self.u_row_idx[*pointer + width - 1] == t1 + width - 1
+                        {
+                            match width {
+                                1 => self.u_values[*pointer] = column[t1],
+                                2 => {
+                                    let u_0 = column[t1];
+                                    let u_1 = column[t1 + 1] - panel[1] * u_0;
+                                    column[t1 + 1] = u_1;
+                                    self.u_values[*pointer] = u_0;
+                                    self.u_values[*pointer + 1] = u_1;
+                                }
+                                _ => {
+                                    let u_0 = column[t1];
+                                    let u_1 = column[t1 + 1] - panel[1] * u_0;
+                                    let u_2 = column[t1 + 2] - panel[2] * u_0 - panel[m + 2] * u_1;
+                                    column[t1 + 1] = u_1;
+                                    column[t1 + 2] = u_2;
+                                    self.u_values[*pointer] = u_0;
+                                    self.u_values[*pointer + 1] = u_1;
+                                    self.u_values[*pointer + 2] = u_2;
+                                }
                             }
-                            let c = k - t1;
-                            let u = column[k];
-                            self.u_values[*pointer] = u;
-                            if u != 0.0 {
-                                column[k + 1..t2]
-                                    .iter_mut()
-                                    .zip(panel[c * m + c + 1..c * m + width].iter())
-                                    .for_each(|(work_r, value)| *work_r -= value * u);
+                            *pointer += width;
+                        } else {
+                            while *pointer < p_end {
+                                let k = self.u_row_idx[*pointer];
+                                if k >= c1 || k >= t2 {
+                                    break;
+                                }
+                                let c = k - t1;
+                                let u = column[k];
+                                self.u_values[*pointer] = u;
+                                if u != 0.0 {
+                                    column[k + 1..t2]
+                                        .iter_mut()
+                                        .zip(panel[c * m + c + 1..c * m + width].iter())
+                                        .for_each(|(work_r, value)| *work_r -= value * u);
+                                }
+                                *pointer += 1;
                             }
-                            *pointer += 1;
                         }
                     });
                     if below > 0 {
