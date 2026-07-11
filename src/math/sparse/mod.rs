@@ -1,8 +1,10 @@
 mod amd;
+mod ldl;
 mod lu;
 mod matrix;
 mod solver;
 
+pub use ldl::CscLdl;
 pub use lu::CscLu;
 pub use matrix::CscMatrix;
 pub use solver::SparseSolver;
@@ -11,6 +13,7 @@ pub use solver::SparseSolver;
 #[derive(Debug, PartialEq)]
 pub enum SparseError {
     Singular,
+    Unsymmetric,
 }
 
 impl From<SparseError> for crate::math::TestError {

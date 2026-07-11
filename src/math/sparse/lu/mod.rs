@@ -7,29 +7,29 @@ use crate::{
     math::{Scalar, Vector},
 };
 
-const NONE: usize = usize::MAX;
+pub(super) const NONE: usize = usize::MAX;
 
 /// Threshold for preferring the diagonal pivot, which preserves the
 /// fill-reducing ordering when the matrix has a symmetric pattern.
 const PIVOT_TOL: Scalar = 0.001;
 
 /// Number of columns factored together when refactoring.
-const CHUNK: usize = 8;
+pub(super) const CHUNK: usize = 8;
 
 /// A sparse LU factorization, PAQ = LU, with L stored as dense supernodal panels.
 pub struct CscLu {
-    fill: usize,
-    sn_of: Vec<usize>,
-    sn_start: Vec<usize>,
-    sn_rows_ptr: Vec<usize>,
-    sn_rows: Vec<usize>,
-    sn_panel_ptr: Vec<usize>,
-    sn_values: Vec<Scalar>,
-    u_col_ptr: Vec<usize>,
-    u_row_idx: Vec<usize>,
-    u_values: Vec<Scalar>,
-    pinv: Vec<usize>,
-    q: Vec<usize>,
+    pub(super) fill: usize,
+    pub(super) sn_of: Vec<usize>,
+    pub(super) sn_start: Vec<usize>,
+    pub(super) sn_rows_ptr: Vec<usize>,
+    pub(super) sn_rows: Vec<usize>,
+    pub(super) sn_panel_ptr: Vec<usize>,
+    pub(super) sn_values: Vec<Scalar>,
+    pub(super) u_col_ptr: Vec<usize>,
+    pub(super) u_row_idx: Vec<usize>,
+    pub(super) u_values: Vec<Scalar>,
+    pub(super) pinv: Vec<usize>,
+    pub(super) q: Vec<usize>,
 }
 
 impl CscMatrix {
@@ -533,7 +533,7 @@ impl CscLu {
         }
         Ok(())
     }
-    fn max_below(&self) -> usize {
+    pub(super) fn max_below(&self) -> usize {
         (0..self.sn_start.len() - 1)
             .map(|s| {
                 self.sn_rows_ptr[s + 1]
@@ -902,7 +902,7 @@ mod avx {
 /// Below-block contributions of the first `consumed` columns of a panel to a
 /// block of up to four dense target columns, streaming the panel once.
 #[allow(clippy::too_many_arguments)]
-fn gemm(
+pub(super) fn gemm(
     temp: &mut [Scalar],
     work: &[Scalar],
     n: usize,
