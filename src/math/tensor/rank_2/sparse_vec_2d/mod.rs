@@ -31,8 +31,8 @@ pub struct TensorRank2SparseVec<const D: usize, const I: usize, const J: usize>(
 );
 
 impl<const D: usize, const I: usize, const J: usize> TensorRank2SparseVec<D, I, J> {
-    pub fn entries(&self) -> impl Iterator<Item = &(usize, TensorRank2<D, I, J>)> {
-        self.0.iter()
+    pub fn entries(&self) -> impl Iterator<Item = (usize, &TensorRank2<D, I, J>)> {
+        self.0.iter().map(|(column, entry)| (*column, entry))
     }
 }
 

@@ -27,10 +27,7 @@ fn insertion_sums_and_sorts() {
     assert_eq!(stiffnesses[0][0][0][0], 6.0);
     assert_eq!(stiffnesses[0][2][1][0], 9.0);
     assert_eq!(stiffnesses[2][0][1][1], 4.0);
-    let columns: Vec<usize> = stiffnesses[0]
-        .entries()
-        .map(|&(column, _)| column)
-        .collect();
+    let columns: Vec<usize> = stiffnesses[0].entries().map(|(column, _)| column).collect();
     assert_eq!(columns, [0, 2]);
 }
 
