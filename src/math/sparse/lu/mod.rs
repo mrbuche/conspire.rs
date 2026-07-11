@@ -197,6 +197,14 @@ impl CscLu {
         assert_eq!(n, matrix.height());
         let mut work = vec![0.0; n * CHUNK];
         let mut temp = vec![0.0; 4 * self.max_below()];
+        let mut tile = vec![
+            0.0;
+            CHUNK
+                * (0..self.sn_start.len() - 1)
+                    .map(|s| self.sn_start[s + 1] - self.sn_start[s])
+                    .max()
+                    .unwrap_or(0)
+        ];
         let mut pointers = [0; CHUNK];
         for s in 0..self.sn_start.len() - 1 {
             let s1 = self.sn_start[s];
@@ -237,55 +245,87 @@ impl CscLu {
                     let m = rows.len();
                     let below = m - width;
                     let panel = &self.sn_values[self.sn_panel_ptr[t]..self.sn_panel_ptr[t + 1]];
-                    (c1..c2).zip(pointers.iter_mut()).for_each(|(j, pointer)| {
-                        let p_end = self.u_col_ptr[j + 1] - 1;
-                        let column = &mut work[(j - c1) * n..(j - c1 + 1) * n];
-                        if consumed == width
-                            && width <= 3
-                            && *pointer + width <= p_end
-                            && self.u_row_idx[*pointer] == t1
-                            && self.u_row_idx[*pointer + width - 1] == t1 + width - 1
-                        {
-                            match width {
-                                1 => self.u_values[*pointer] = column[t1],
-                                2 => {
-                                    let u_0 = column[t1];
-                                    let u_1 = column[t1 + 1] - panel[1] * u_0;
-                                    column[t1 + 1] = u_1;
-                                    self.u_values[*pointer] = u_0;
-                                    self.u_values[*pointer + 1] = u_1;
-                                }
-                                _ => {
-                                    let u_0 = column[t1];
-                                    let u_1 = column[t1 + 1] - panel[1] * u_0;
-                                    let u_2 = column[t1 + 2] - panel[2] * u_0 - panel[m + 2] * u_1;
-                                    column[t1 + 1] = u_1;
-                                    column[t1 + 2] = u_2;
-                                    self.u_values[*pointer] = u_0;
-                                    self.u_values[*pointer + 1] = u_1;
-                                    self.u_values[*pointer + 2] = u_2;
-                                }
-                            }
-                            *pointer += width;
-                        } else {
+                    if consumed >= 4 {
+                        if chunk < CHUNK {
+                            tile[..width * CHUNK].fill(0.0);
+                        }
+                        (0..chunk).for_each(|b| {
+                            work[b * n + t1..b * n + t2]
+                                .iter()
+                                .zip(tile.chunks_exact_mut(CHUNK))
+                                .for_each(|(&value, row)| row[b] = value);
+                        });
+                        trisolve(&mut tile[..width * CHUNK], panel, m, consumed, width);
+                        (0..chunk).for_each(|b| {
+                            work[b * n + t1..b * n + t2]
+                                .iter_mut()
+                                .zip(tile.chunks_exact(CHUNK))
+                                .for_each(|(value, row)| *value = row[b]);
+                        });
+                        (c1..c2).zip(pointers.iter_mut()).for_each(|(j, pointer)| {
+                            let p_end = self.u_col_ptr[j + 1] - 1;
+                            let column = &work[(j - c1) * n..(j - c1 + 1) * n];
                             while *pointer < p_end {
                                 let k = self.u_row_idx[*pointer];
-                                if k >= c1 || k >= t2 {
+                                if k >= t1 + consumed {
                                     break;
                                 }
-                                let c = k - t1;
-                                let u = column[k];
-                                self.u_values[*pointer] = u;
-                                if u != 0.0 {
-                                    column[k + 1..t2]
-                                        .iter_mut()
-                                        .zip(panel[c * m + c + 1..c * m + width].iter())
-                                        .for_each(|(work_r, value)| *work_r -= value * u);
-                                }
+                                self.u_values[*pointer] = column[k];
                                 *pointer += 1;
                             }
-                        }
-                    });
+                        });
+                    } else {
+                        (c1..c2).zip(pointers.iter_mut()).for_each(|(j, pointer)| {
+                            let p_end = self.u_col_ptr[j + 1] - 1;
+                            let column = &mut work[(j - c1) * n..(j - c1 + 1) * n];
+                            if consumed == width
+                                && width <= 3
+                                && *pointer + width <= p_end
+                                && self.u_row_idx[*pointer] == t1
+                                && self.u_row_idx[*pointer + width - 1] == t1 + width - 1
+                            {
+                                match width {
+                                    1 => self.u_values[*pointer] = column[t1],
+                                    2 => {
+                                        let u_0 = column[t1];
+                                        let u_1 = column[t1 + 1] - panel[1] * u_0;
+                                        column[t1 + 1] = u_1;
+                                        self.u_values[*pointer] = u_0;
+                                        self.u_values[*pointer + 1] = u_1;
+                                    }
+                                    _ => {
+                                        let u_0 = column[t1];
+                                        let u_1 = column[t1 + 1] - panel[1] * u_0;
+                                        let u_2 =
+                                            column[t1 + 2] - panel[2] * u_0 - panel[m + 2] * u_1;
+                                        column[t1 + 1] = u_1;
+                                        column[t1 + 2] = u_2;
+                                        self.u_values[*pointer] = u_0;
+                                        self.u_values[*pointer + 1] = u_1;
+                                        self.u_values[*pointer + 2] = u_2;
+                                    }
+                                }
+                                *pointer += width;
+                            } else {
+                                while *pointer < p_end {
+                                    let k = self.u_row_idx[*pointer];
+                                    if k >= c1 || k >= t2 {
+                                        break;
+                                    }
+                                    let c = k - t1;
+                                    let u = column[k];
+                                    self.u_values[*pointer] = u;
+                                    if u != 0.0 {
+                                        column[k + 1..t2]
+                                            .iter_mut()
+                                            .zip(panel[c * m + c + 1..c * m + width].iter())
+                                            .for_each(|(work_r, value)| *work_r -= value * u);
+                                    }
+                                    *pointer += 1;
+                                }
+                            }
+                        });
+                    }
                     if below > 0 {
                         let mut c = 0;
                         while c < chunk {
@@ -374,18 +414,47 @@ impl CscLu {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+/// Eliminates the first `consumed` pivot columns of a panel from a transposed
+/// tile of CHUNK target columns, as a dense unit-lower triangular solve
+/// vectorized across the targets.
+fn trisolve(tile: &mut [Scalar], panel: &[Scalar], m: usize, consumed: usize, width: usize) {
+    #[cfg(target_arch = "x86_64")]
+    if simd() {
+        return unsafe { avx::trisolve(tile, panel, m, consumed, width) };
+    }
+    (0..consumed).for_each(|c| {
+        let (row, rest) = tile[c * CHUNK..].split_at_mut(CHUNK);
+        if row.iter().any(|&u| u != 0.0) {
+            rest[..(width - c - 1) * CHUNK]
+                .chunks_exact_mut(CHUNK)
+                .zip(panel[c * m + c + 1..c * m + width].iter())
+                .for_each(|(target, &value)| {
+                    target
+                        .iter_mut()
+                        .zip(row.iter())
+                        .for_each(|(entry, &u)| *entry -= value * u)
+                });
+        }
+    });
+}
+
+#[cfg(target_arch = "x86_64")]
+fn simd() -> bool {
+    std::arch::is_x86_feature_detected!("avx2") && std::arch::is_x86_feature_detected!("fma")
+}
+
 fn rank_one_quad(
     temp_0: &mut [Scalar],
     temp_1: &mut [Scalar],
     temp_2: &mut [Scalar],
     temp_3: &mut [Scalar],
     column: &[Scalar],
-    u_0: Scalar,
-    u_1: Scalar,
-    u_2: Scalar,
-    u_3: Scalar,
+    u: [Scalar; 4],
 ) {
+    #[cfg(target_arch = "x86_64")]
+    if simd() {
+        return unsafe { avx::rank_one_quad(temp_0, temp_1, temp_2, temp_3, column, u) };
+    }
     column
         .iter()
         .zip(
@@ -395,11 +464,308 @@ fn rank_one_quad(
                 .zip(temp_2.iter_mut().zip(temp_3.iter_mut())),
         )
         .for_each(|(&value, ((a_0, a_1), (a_2, a_3)))| {
-            *a_0 += value * u_0;
-            *a_1 += value * u_1;
-            *a_2 += value * u_2;
-            *a_3 += value * u_3;
+            *a_0 += value * u[0];
+            *a_1 += value * u[1];
+            *a_2 += value * u[2];
+            *a_3 += value * u[3];
         });
+}
+
+#[allow(clippy::too_many_arguments)]
+fn rank_two_quad(
+    temp_0: &mut [Scalar],
+    temp_1: &mut [Scalar],
+    temp_2: &mut [Scalar],
+    temp_3: &mut [Scalar],
+    column: &[Scalar],
+    other: &[Scalar],
+    u: [Scalar; 4],
+    w: [Scalar; 4],
+) {
+    #[cfg(target_arch = "x86_64")]
+    if simd() {
+        return unsafe { avx::rank_two_quad(temp_0, temp_1, temp_2, temp_3, column, other, u, w) };
+    }
+    column
+        .iter()
+        .zip(other.iter())
+        .zip(
+            temp_0
+                .iter_mut()
+                .zip(temp_1.iter_mut())
+                .zip(temp_2.iter_mut().zip(temp_3.iter_mut())),
+        )
+        .for_each(|((&value, &second), ((a_0, a_1), (a_2, a_3)))| {
+            *a_0 += value * u[0] + second * w[0];
+            *a_1 += value * u[1] + second * w[1];
+            *a_2 += value * u[2] + second * w[2];
+            *a_3 += value * u[3] + second * w[3];
+        });
+}
+
+#[cfg(target_arch = "x86_64")]
+mod avx {
+    use super::{CHUNK, Scalar};
+    use std::arch::x86_64::{
+        _mm256_castpd_si256, _mm256_fmadd_pd, _mm256_fnmadd_pd, _mm256_loadu_pd, _mm256_or_pd,
+        _mm256_set1_pd, _mm256_setzero_pd, _mm256_storeu_pd, _mm256_testz_si256,
+    };
+
+    const LANES: usize = CHUNK / 4;
+
+    #[target_feature(enable = "avx2", enable = "fma")]
+    pub unsafe fn trisolve(
+        tile: &mut [Scalar],
+        panel: &[Scalar],
+        m: usize,
+        consumed: usize,
+        width: usize,
+    ) {
+        unsafe {
+            let mut c = 0;
+            while c + 4 <= consumed {
+                let mut u = [_mm256_setzero_pd(); LANES];
+                let mut v = [_mm256_setzero_pd(); LANES];
+                let mut x = [_mm256_setzero_pd(); LANES];
+                let mut y = [_mm256_setzero_pd(); LANES];
+                let value_uv = _mm256_set1_pd(panel[c * m + c + 1]);
+                let value_ux = _mm256_set1_pd(panel[c * m + c + 2]);
+                let value_uy = _mm256_set1_pd(panel[c * m + c + 3]);
+                let value_vx = _mm256_set1_pd(panel[(c + 1) * m + c + 2]);
+                let value_vy = _mm256_set1_pd(panel[(c + 1) * m + c + 3]);
+                let value_xy = _mm256_set1_pd(panel[(c + 2) * m + c + 3]);
+                let mut bits = _mm256_setzero_pd();
+                for l in 0..LANES {
+                    u[l] = _mm256_loadu_pd(tile.as_ptr().add(c * CHUNK + 4 * l));
+                    let row_v = tile.as_mut_ptr().add((c + 1) * CHUNK + 4 * l);
+                    v[l] = _mm256_fnmadd_pd(value_uv, u[l], _mm256_loadu_pd(row_v));
+                    _mm256_storeu_pd(row_v, v[l]);
+                    let row_x = tile.as_mut_ptr().add((c + 2) * CHUNK + 4 * l);
+                    x[l] = _mm256_fnmadd_pd(
+                        value_vx,
+                        v[l],
+                        _mm256_fnmadd_pd(value_ux, u[l], _mm256_loadu_pd(row_x)),
+                    );
+                    _mm256_storeu_pd(row_x, x[l]);
+                    let row_y = tile.as_mut_ptr().add((c + 3) * CHUNK + 4 * l);
+                    y[l] = _mm256_fnmadd_pd(
+                        value_xy,
+                        x[l],
+                        _mm256_fnmadd_pd(
+                            value_vy,
+                            v[l],
+                            _mm256_fnmadd_pd(value_uy, u[l], _mm256_loadu_pd(row_y)),
+                        ),
+                    );
+                    _mm256_storeu_pd(row_y, y[l]);
+                    bits = _mm256_or_pd(
+                        bits,
+                        _mm256_or_pd(_mm256_or_pd(u[l], v[l]), _mm256_or_pd(x[l], y[l])),
+                    );
+                }
+                let bits = _mm256_castpd_si256(bits);
+                if _mm256_testz_si256(bits, bits) == 1 {
+                    c += 4;
+                    continue;
+                }
+                for r in c + 4..width {
+                    let first = _mm256_set1_pd(panel[c * m + r]);
+                    let second = _mm256_set1_pd(panel[(c + 1) * m + r]);
+                    let third = _mm256_set1_pd(panel[(c + 2) * m + r]);
+                    let fourth = _mm256_set1_pd(panel[(c + 3) * m + r]);
+                    for l in 0..LANES {
+                        let entry = tile.as_mut_ptr().add(r * CHUNK + 4 * l);
+                        _mm256_storeu_pd(
+                            entry,
+                            _mm256_fnmadd_pd(
+                                fourth,
+                                y[l],
+                                _mm256_fnmadd_pd(
+                                    third,
+                                    x[l],
+                                    _mm256_fnmadd_pd(
+                                        second,
+                                        v[l],
+                                        _mm256_fnmadd_pd(first, u[l], _mm256_loadu_pd(entry)),
+                                    ),
+                                ),
+                            ),
+                        );
+                    }
+                }
+                c += 4;
+            }
+            while c + 2 <= consumed {
+                let mut u = [_mm256_setzero_pd(); LANES];
+                let mut v = [_mm256_setzero_pd(); LANES];
+                let value = _mm256_set1_pd(panel[c * m + c + 1]);
+                let mut bits = _mm256_setzero_pd();
+                for l in 0..LANES {
+                    u[l] = _mm256_loadu_pd(tile.as_ptr().add(c * CHUNK + 4 * l));
+                    let next = tile.as_mut_ptr().add((c + 1) * CHUNK + 4 * l);
+                    v[l] = _mm256_fnmadd_pd(value, u[l], _mm256_loadu_pd(next));
+                    _mm256_storeu_pd(next, v[l]);
+                    bits = _mm256_or_pd(bits, _mm256_or_pd(u[l], v[l]));
+                }
+                let bits = _mm256_castpd_si256(bits);
+                if _mm256_testz_si256(bits, bits) == 1 {
+                    c += 2;
+                    continue;
+                }
+                for r in c + 2..width {
+                    let first = _mm256_set1_pd(panel[c * m + r]);
+                    let second = _mm256_set1_pd(panel[(c + 1) * m + r]);
+                    for l in 0..LANES {
+                        let entry = tile.as_mut_ptr().add(r * CHUNK + 4 * l);
+                        _mm256_storeu_pd(
+                            entry,
+                            _mm256_fnmadd_pd(
+                                second,
+                                v[l],
+                                _mm256_fnmadd_pd(first, u[l], _mm256_loadu_pd(entry)),
+                            ),
+                        );
+                    }
+                }
+                c += 2;
+            }
+            if c < consumed {
+                let mut u = [_mm256_setzero_pd(); LANES];
+                let mut bits = _mm256_setzero_pd();
+                for (l, u_l) in u.iter_mut().enumerate() {
+                    *u_l = _mm256_loadu_pd(tile.as_ptr().add(c * CHUNK + 4 * l));
+                    bits = _mm256_or_pd(bits, *u_l);
+                }
+                let bits = _mm256_castpd_si256(bits);
+                if _mm256_testz_si256(bits, bits) == 0 {
+                    for r in c + 1..width {
+                        let value = _mm256_set1_pd(panel[c * m + r]);
+                        for (l, &u_l) in u.iter().enumerate() {
+                            let entry = tile.as_mut_ptr().add(r * CHUNK + 4 * l);
+                            _mm256_storeu_pd(
+                                entry,
+                                _mm256_fnmadd_pd(value, u_l, _mm256_loadu_pd(entry)),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[target_feature(enable = "avx2", enable = "fma")]
+    pub unsafe fn rank_one_quad(
+        temp_0: &mut [Scalar],
+        temp_1: &mut [Scalar],
+        temp_2: &mut [Scalar],
+        temp_3: &mut [Scalar],
+        column: &[Scalar],
+        u: [Scalar; 4],
+    ) {
+        let len = column.len();
+        let u_0 = _mm256_set1_pd(u[0]);
+        let u_1 = _mm256_set1_pd(u[1]);
+        let u_2 = _mm256_set1_pd(u[2]);
+        let u_3 = _mm256_set1_pd(u[3]);
+        let mut r = 0;
+        unsafe {
+            while r + 4 <= len {
+                let value = _mm256_loadu_pd(column.as_ptr().add(r));
+                _mm256_storeu_pd(
+                    temp_0.as_mut_ptr().add(r),
+                    _mm256_fmadd_pd(value, u_0, _mm256_loadu_pd(temp_0.as_ptr().add(r))),
+                );
+                _mm256_storeu_pd(
+                    temp_1.as_mut_ptr().add(r),
+                    _mm256_fmadd_pd(value, u_1, _mm256_loadu_pd(temp_1.as_ptr().add(r))),
+                );
+                _mm256_storeu_pd(
+                    temp_2.as_mut_ptr().add(r),
+                    _mm256_fmadd_pd(value, u_2, _mm256_loadu_pd(temp_2.as_ptr().add(r))),
+                );
+                _mm256_storeu_pd(
+                    temp_3.as_mut_ptr().add(r),
+                    _mm256_fmadd_pd(value, u_3, _mm256_loadu_pd(temp_3.as_ptr().add(r))),
+                );
+                r += 4;
+            }
+        }
+        (r..len).for_each(|i| {
+            temp_0[i] += column[i] * u[0];
+            temp_1[i] += column[i] * u[1];
+            temp_2[i] += column[i] * u[2];
+            temp_3[i] += column[i] * u[3];
+        });
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    #[target_feature(enable = "avx2", enable = "fma")]
+    pub unsafe fn rank_two_quad(
+        temp_0: &mut [Scalar],
+        temp_1: &mut [Scalar],
+        temp_2: &mut [Scalar],
+        temp_3: &mut [Scalar],
+        column: &[Scalar],
+        other: &[Scalar],
+        u: [Scalar; 4],
+        w: [Scalar; 4],
+    ) {
+        let len = column.len();
+        let u_0 = _mm256_set1_pd(u[0]);
+        let u_1 = _mm256_set1_pd(u[1]);
+        let u_2 = _mm256_set1_pd(u[2]);
+        let u_3 = _mm256_set1_pd(u[3]);
+        let w_0 = _mm256_set1_pd(w[0]);
+        let w_1 = _mm256_set1_pd(w[1]);
+        let w_2 = _mm256_set1_pd(w[2]);
+        let w_3 = _mm256_set1_pd(w[3]);
+        let mut r = 0;
+        unsafe {
+            while r + 4 <= len {
+                let value = _mm256_loadu_pd(column.as_ptr().add(r));
+                let second = _mm256_loadu_pd(other.as_ptr().add(r));
+                _mm256_storeu_pd(
+                    temp_0.as_mut_ptr().add(r),
+                    _mm256_fmadd_pd(
+                        second,
+                        w_0,
+                        _mm256_fmadd_pd(value, u_0, _mm256_loadu_pd(temp_0.as_ptr().add(r))),
+                    ),
+                );
+                _mm256_storeu_pd(
+                    temp_1.as_mut_ptr().add(r),
+                    _mm256_fmadd_pd(
+                        second,
+                        w_1,
+                        _mm256_fmadd_pd(value, u_1, _mm256_loadu_pd(temp_1.as_ptr().add(r))),
+                    ),
+                );
+                _mm256_storeu_pd(
+                    temp_2.as_mut_ptr().add(r),
+                    _mm256_fmadd_pd(
+                        second,
+                        w_2,
+                        _mm256_fmadd_pd(value, u_2, _mm256_loadu_pd(temp_2.as_ptr().add(r))),
+                    ),
+                );
+                _mm256_storeu_pd(
+                    temp_3.as_mut_ptr().add(r),
+                    _mm256_fmadd_pd(
+                        second,
+                        w_3,
+                        _mm256_fmadd_pd(value, u_3, _mm256_loadu_pd(temp_3.as_ptr().add(r))),
+                    ),
+                );
+                r += 4;
+            }
+        }
+        (r..len).for_each(|i| {
+            temp_0[i] += column[i] * u[0] + other[i] * w[0];
+            temp_1[i] += column[i] * u[1] + other[i] * w[1];
+            temp_2[i] += column[i] * u[2] + other[i] * w[2];
+            temp_3[i] += column[i] * u[3] + other[i] * w[3];
+        });
+    }
 }
 
 /// Below-block contributions of the first `consumed` columns of a panel to a
@@ -433,21 +799,16 @@ fn gemm(
             let w_3 = work[3 * n + t1 + c + 1];
             if u_0 != 0.0 || u_1 != 0.0 || u_2 != 0.0 || u_3 != 0.0 {
                 if w_0 != 0.0 || w_1 != 0.0 || w_2 != 0.0 || w_3 != 0.0 {
-                    panel[c * m + width..(c + 1) * m]
-                        .iter()
-                        .zip(panel[(c + 1) * m + width..(c + 2) * m].iter())
-                        .zip(
-                            temp_0
-                                .iter_mut()
-                                .zip(temp_1.iter_mut())
-                                .zip(temp_2.iter_mut().zip(temp_3.iter_mut())),
-                        )
-                        .for_each(|((&value, &other), ((a_0, a_1), (a_2, a_3)))| {
-                            *a_0 += value * u_0 + other * w_0;
-                            *a_1 += value * u_1 + other * w_1;
-                            *a_2 += value * u_2 + other * w_2;
-                            *a_3 += value * u_3 + other * w_3;
-                        });
+                    rank_two_quad(
+                        temp_0,
+                        temp_1,
+                        temp_2,
+                        temp_3,
+                        &panel[c * m + width..(c + 1) * m],
+                        &panel[(c + 1) * m + width..(c + 2) * m],
+                        [u_0, u_1, u_2, u_3],
+                        [w_0, w_1, w_2, w_3],
+                    );
                 } else {
                     rank_one_quad(
                         temp_0,
@@ -455,10 +816,7 @@ fn gemm(
                         temp_2,
                         temp_3,
                         &panel[c * m + width..(c + 1) * m],
-                        u_0,
-                        u_1,
-                        u_2,
-                        u_3,
+                        [u_0, u_1, u_2, u_3],
                     );
                 }
             } else if w_0 != 0.0 || w_1 != 0.0 || w_2 != 0.0 || w_3 != 0.0 {
@@ -468,10 +826,7 @@ fn gemm(
                     temp_2,
                     temp_3,
                     &panel[(c + 1) * m + width..(c + 2) * m],
-                    w_0,
-                    w_1,
-                    w_2,
-                    w_3,
+                    [w_0, w_1, w_2, w_3],
                 );
             }
             c += 2;
@@ -488,10 +843,7 @@ fn gemm(
                     temp_2,
                     temp_3,
                     &panel[c * m + width..(c + 1) * m],
-                    u_0,
-                    u_1,
-                    u_2,
-                    u_3,
+                    [u_0, u_1, u_2, u_3],
                 );
             }
         }
