@@ -130,3 +130,45 @@ fn fill_in() {
     let lu = matrix_dim_100().lu().expect("Factorization failed.");
     assert!(lu.nonzeros() >= matrix_dim_100().nonzeros());
 }
+
+#[test]
+fn symbolic_refactor_nonsymmetric_pattern() -> Result<(), TestError> {
+    let matrix = matrix_dim_100();
+    let b: Vector = (0..100).map(|i| (i % 13) as f64 - 6.0).collect();
+    let mut lu = matrix.lu_symbolic();
+    lu.refactor(&matrix).expect("Refactorization failed.");
+    assert!(lu.nonzeros() >= matrix.lu_amd().expect("Factorization failed.").nonzeros());
+    assert_eq_within_tols(&(&matrix * &lu.solve(&b)), &b)
+}
+
+#[test]
+fn symbolic_refactor_symmetric_pattern() -> Result<(), TestError> {
+    let n = 100;
+    let mut pattern: Vec<(usize, usize)> = (0..n).map(|i| (i, i)).collect();
+    (0..n - 7).for_each(|i| {
+        pattern.push((i, i + 7));
+        pattern.push((i + 7, i));
+    });
+    let mut matrix = CscMatrix::from_pattern(n, n, pattern);
+    matrix.fill(|i, j| if i == j { 8.0 } else { (i % 3) as f64 - 1.0 });
+    let b: Vector = (0..n).map(|i| (i % 13) as f64 - 6.0).collect();
+    let mut lu = matrix.lu_symbolic();
+    lu.refactor(&matrix).expect("Refactorization failed.");
+    assert_eq!(
+        lu.nonzeros(),
+        matrix.lu_amd().expect("Factorization failed.").nonzeros()
+    );
+    assert_eq_within_tols(&(&matrix * &lu.solve(&b)), &b)
+}
+
+#[test]
+fn symbolic_refactor_zero_diagonal() {
+    let mut matrix = CscMatrix::from_pattern(2, 2, vec![(0, 0), (0, 1), (1, 0), (1, 1)]);
+    matrix.fill(|i, j| if i == j { 0.0 } else { 1.0 });
+    assert!(
+        matrix
+            .lu_symbolic()
+            .refactor(&matrix)
+            .is_err_and(|error| error == SparseError::Singular)
+    )
+}

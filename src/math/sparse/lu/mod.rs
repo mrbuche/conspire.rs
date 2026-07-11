@@ -42,6 +42,120 @@ impl CscMatrix {
     pub fn lu_amd(&self) -> Result<CscLu, SparseError> {
         self.factor(self.amd())
     }
+    /// Builds the factorization pattern symbolically for the fill-reducing
+    /// ordering assuming diagonal pivots, which is the exact fill pattern for a
+    /// symmetric pattern and a superset otherwise; all values are zero until a
+    /// refactorization supplies them.
+    pub fn lu_symbolic(&self) -> CscLu {
+        let n = self.height();
+        assert_eq!(n, self.width());
+        let q = self.amd();
+        let mut pinv = vec![NONE; n];
+        q.iter().enumerate().for_each(|(j, &q_j)| pinv[q_j] = j);
+        let mut count = vec![0_usize; n];
+        (0..n).for_each(|c| {
+            let j = pinv[c];
+            self.column(c).for_each(|(r, _)| {
+                let i = pinv[r];
+                if i != j {
+                    count[i.max(j)] += 1;
+                }
+            });
+        });
+        let mut adj_ptr = Vec::with_capacity(n + 1);
+        adj_ptr.push(0_usize);
+        count
+            .iter()
+            .for_each(|c| adj_ptr.push(adj_ptr.last().unwrap() + c));
+        let mut adj = vec![0; adj_ptr[n]];
+        let mut next = adj_ptr[..n].to_vec();
+        (0..n).for_each(|c| {
+            let j = pinv[c];
+            self.column(c).for_each(|(r, _)| {
+                let i = pinv[r];
+                if i != j {
+                    adj[next[i.max(j)]] = i.min(j);
+                    next[i.max(j)] += 1;
+                }
+            });
+        });
+        let upper = |k: usize| adj[adj_ptr[k]..adj_ptr[k + 1]].iter();
+        let mut parent = vec![NONE; n];
+        let mut ancestor = vec![NONE; n];
+        (0..n).for_each(|k| {
+            upper(k).for_each(|&start| {
+                let mut i = start;
+                while i != NONE && i != k {
+                    let next = ancestor[i];
+                    ancestor[i] = k;
+                    if next == NONE {
+                        parent[i] = k;
+                    }
+                    i = next;
+                }
+            });
+        });
+        let mut mark = vec![NONE; n];
+        let mut row = Vec::new();
+        let mut l_count = vec![1_usize; n];
+        let mut u_col_ptr = Vec::with_capacity(n + 1);
+        let mut u_row_idx = Vec::new();
+        u_col_ptr.push(0);
+        (0..n).for_each(|k| {
+            mark[k] = k;
+            row.clear();
+            upper(k).for_each(|&start| {
+                let mut i = start;
+                while mark[i] != k {
+                    mark[i] = k;
+                    row.push(i);
+                    i = parent[i];
+                }
+            });
+            row.sort_unstable();
+            row.iter().for_each(|&j| l_count[j] += 1);
+            u_row_idx.extend_from_slice(&row);
+            u_row_idx.push(k);
+            u_col_ptr.push(u_row_idx.len());
+        });
+        let mut l_col_ptr = Vec::with_capacity(n + 1);
+        l_col_ptr.push(0);
+        l_count.iter().for_each(|count| {
+            l_col_ptr.push(l_col_ptr.last().unwrap() + count);
+        });
+        let mut l_row_idx = vec![0; l_col_ptr[n]];
+        let mut next = vec![0; n];
+        (0..n).for_each(|j| {
+            l_row_idx[l_col_ptr[j]] = j;
+            next[j] = l_col_ptr[j] + 1;
+        });
+        (0..n).for_each(|k| {
+            u_row_idx[u_col_ptr[k]..u_col_ptr[k + 1] - 1]
+                .iter()
+                .for_each(|&j| {
+                    l_row_idx[next[j]] = k;
+                    next[j] += 1;
+                });
+        });
+        let fill = l_row_idx.len() + u_row_idx.len();
+        let l_values = vec![0.0; l_row_idx.len()];
+        let (sn_of, sn_start, sn_rows_ptr, sn_rows, sn_panel_ptr, sn_values) =
+            supernodes(&l_col_ptr, &l_row_idx, &l_values, n);
+        CscLu {
+            fill,
+            sn_of,
+            sn_start,
+            sn_rows_ptr,
+            sn_rows,
+            sn_panel_ptr,
+            sn_values,
+            u_col_ptr,
+            u_row_idx,
+            u_values: vec![0.0; fill - l_values.len()],
+            pinv,
+            q,
+        }
+    }
     fn factor(&self, q: Vec<usize>) -> Result<CscLu, SparseError> {
         let n = self.height();
         assert_eq!(n, self.width());
