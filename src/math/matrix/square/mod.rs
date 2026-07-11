@@ -431,7 +431,7 @@ impl SquareMatrix {
             } => {
                 use faer::{
                     Conj, Par, Side,
-                    dyn_stack::{MemBuffer, MemStack, StackReq},
+                    dyn_stack::{MemBuffer, MemStack},
                 };
                 let values: Vec<Scalar> = pattern.iter().map(|&(i, j)| self[i][j]).collect();
                 let mat = SparseColMat::<usize, Scalar>::new_from_argsort(
@@ -445,13 +445,11 @@ impl SquareMatrix {
                 let mut subdiag = vec![0.0; symbolic_cholesky.nrows()];
                 let mut perm_forward = vec![0usize; symbolic_cholesky.nrows()];
                 let mut perm_inverse = vec![0usize; symbolic_cholesky.nrows()];
-                let mut mem = MemBuffer::try_new(StackReq::any_of(&[
+                let mut factorize_mem = MemBuffer::try_new(
                     symbolic_cholesky
                         .factorize_numeric_intranode_lblt_scratch::<Scalar>(par, Default::default()),
-                    symbolic_cholesky.solve_in_place_scratch::<Scalar>(1, par),
-                ]))
+                )
                 .map_err(|_| SquareMatrixError::Singular)?;
-                let stack = MemStack::new(&mut mem);
                 let lblt = symbolic_cholesky.factorize_numeric_intranode_lblt(
                     &mut l_values,
                     &mut subdiag,
@@ -460,11 +458,19 @@ impl SquareMatrix {
                     mat.as_ref(),
                     Side::Upper,
                     par,
-                    stack,
+                    MemStack::new(&mut factorize_mem),
                     Default::default(),
                 );
                 let mut rhs = faer::col::Col::from_fn(n, |i| b[i]);
-                lblt.solve_in_place_with_conj(Conj::No, rhs.as_mat_mut(), par, stack);
+                let mut solve_mem =
+                    MemBuffer::try_new(symbolic_cholesky.solve_in_place_scratch::<Scalar>(1, par))
+                        .map_err(|_| SquareMatrixError::Singular)?;
+                lblt.solve_in_place_with_conj(
+                    Conj::No,
+                    rhs.as_mat_mut(),
+                    par,
+                    MemStack::new(&mut solve_mem),
+                );
                 Ok((0..n).map(|i| rhs[i]).collect())
             }
         }
