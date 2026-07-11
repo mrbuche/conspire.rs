@@ -19,9 +19,11 @@ pub struct SparseSolver {
 
 impl SparseSolver {
     pub fn from_pattern(num: usize, pattern: Vec<(usize, usize)>) -> Self {
+        let matrix = CscMatrix::from_pattern(num, num, pattern);
+        let lu = matrix.lu_symbolic().ok();
         Self {
-            matrix: RefCell::new(CscMatrix::from_pattern(num, num, pattern)),
-            lu: Rc::new(RefCell::new(None)),
+            matrix: RefCell::new(matrix),
+            lu: Rc::new(RefCell::new(lu)),
         }
     }
     /// The nonzero (row, column) positions this structure was built from.
