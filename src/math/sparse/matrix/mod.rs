@@ -6,7 +6,7 @@ use std::ops::Mul;
 
 /// A sparse matrix in compressed sparse column format.
 #[derive(Clone, Debug, PartialEq)]
-pub struct CscMartix {
+pub struct CscMatrix {
     height: usize,
     width: usize,
     col_ptr: Vec<usize>,
@@ -16,7 +16,7 @@ pub struct CscMartix {
     scatter: Vec<usize>,
 }
 
-impl CscMartix {
+impl CscMatrix {
     /// Builds the sparsity structure from a list of nonzero (row, column) positions,
     /// with all values initialized to zero.
     pub fn from_pattern(height: usize, width: usize, pattern: Vec<(usize, usize)>) -> Self {
@@ -57,15 +57,16 @@ impl CscMartix {
             .zip(self.scatter.iter())
             .for_each(|(&(i, j), &k)| self.values[k] += source(i, j));
     }
+    /// Iterates over the nonzero entries of a column as (row, value).
+    pub fn column(&self, j: usize) -> impl Iterator<Item = (usize, &Scalar)> {
+        (self.col_ptr[j]..self.col_ptr[j + 1]).map(move |k| (self.row_idx[k], &self.values[k]))
+    }
     pub fn height(&self) -> usize {
         self.height
     }
     /// Iterates over the nonzero entries as (row, column, value), in column-major order.
     pub fn iter(&self) -> impl Iterator<Item = (usize, usize, &Scalar)> {
-        (0..self.width).flat_map(move |j| {
-            (self.col_ptr[j]..self.col_ptr[j + 1])
-                .map(move |k| (self.row_idx[k], j, &self.values[k]))
-        })
+        (0..self.width).flat_map(move |j| self.column(j).map(move |(i, value)| (i, j, value)))
     }
     pub fn nonzeros(&self) -> usize {
         self.row_idx.len()
@@ -107,7 +108,7 @@ impl CscMartix {
     }
 }
 
-impl Mul<&Vector> for &CscMartix {
+impl Mul<&Vector> for &CscMatrix {
     type Output = Vector;
     fn mul(self, vector: &Vector) -> Self::Output {
         let mut output = Vector::zero(self.height);

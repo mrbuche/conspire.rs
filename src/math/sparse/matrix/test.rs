@@ -1,4 +1,4 @@
-use super::{CscMartix, Scalar, Vector};
+use super::{CscMatrix, Scalar, Vector};
 use crate::math::{
     Tensor,
     test::{TestError, assert_eq},
@@ -35,14 +35,14 @@ fn pattern() -> Vec<(usize, usize)> {
     pattern
 }
 
-fn sparse() -> CscMartix {
+fn sparse() -> CscMatrix {
     let matrix = dense();
-    let mut sparse = CscMartix::from_pattern(D, D, pattern());
+    let mut sparse = CscMatrix::from_pattern(D, D, pattern());
     sparse.fill(|i, j| matrix[i][j]);
     sparse
 }
 
-fn assert_eq_dense(sparse: &CscMartix, dense: &[[Scalar; D]; D]) {
+fn assert_eq_dense(sparse: &CscMatrix, dense: &[[Scalar; D]; D]) {
     assert_eq!(sparse.height(), D);
     assert_eq!(sparse.width(), D);
     let mut entries = sparse.iter();
@@ -67,7 +67,7 @@ fn fill_sums_duplicates() {
     let mut pattern = pattern();
     pattern.push((3, 0));
     pattern.push((3, 0));
-    let mut sparse = CscMartix::from_pattern(D, D, pattern);
+    let mut sparse = CscMatrix::from_pattern(D, D, pattern);
     sparse.fill(|i, j| matrix[i][j] / if (i, j) == (3, 0) { 3.0 } else { 1.0 });
     assert_eq_dense(&sparse, &matrix)
 }
