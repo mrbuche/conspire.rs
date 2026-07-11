@@ -1,3 +1,4 @@
+mod amd;
 mod lu;
 mod matrix;
 

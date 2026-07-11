@@ -9,7 +9,7 @@ use crate::{
 
 const NONE: usize = usize::MAX;
 
-/// A sparse LU factorization, PA = LU, in compressed sparse column format.
+/// A sparse LU factorization, PAQ = LU, in compressed sparse column format.
 pub struct CscLu {
     l_col_ptr: Vec<usize>,
     l_row_idx: Vec<usize>,
@@ -18,11 +18,20 @@ pub struct CscLu {
     u_row_idx: Vec<usize>,
     u_values: Vec<Scalar>,
     pinv: Vec<usize>,
+    q: Vec<usize>,
 }
 
 impl CscMatrix {
     /// Factors PA = LU using the Gilbert-Peierls method with partial pivoting.
     pub fn lu(&self) -> Result<CscLu, SparseError> {
+        self.factor((0..self.height()).collect())
+    }
+    /// Factors PAQ = LU using the Gilbert-Peierls method with partial pivoting,
+    /// with a fill-reducing approximate minimum degree column ordering.
+    pub fn lu_amd(&self) -> Result<CscLu, SparseError> {
+        self.factor(self.amd())
+    }
+    fn factor(&self, q: Vec<usize>) -> Result<CscLu, SparseError> {
         let n = self.height();
         assert_eq!(n, self.width());
         let mut pinv = vec![NONE; n];
@@ -34,9 +43,9 @@ impl CscMatrix {
         let mut stack = vec![0; n];
         let mut pstack = vec![0; n];
         let mut top;
-        for j in 0..n {
+        for (j, &q_j) in q.iter().enumerate() {
             top = reach(
-                self.column(j).map(|(i, _)| i),
+                self.column(q_j).map(|(i, _)| i),
                 &l_cols,
                 &pinv,
                 j + 1,
@@ -45,7 +54,7 @@ impl CscMatrix {
                 &mut stack,
                 &mut pstack,
             );
-            self.column(j).for_each(|(i, value)| x[i] = *value);
+            self.column(q_j).for_each(|(i, value)| x[i] = *value);
             order[top..n].iter().for_each(|&i| {
                 if pinv[i] != NONE {
                     let x_i = x[i];
@@ -92,6 +101,7 @@ impl CscMatrix {
             u_row_idx,
             u_values,
             pinv,
+            q,
         })
     }
 }
@@ -121,7 +131,12 @@ impl CscLu {
                     .for_each(|k| x[self.u_row_idx[k]] -= self.u_values[k] * x_j);
             }
         });
-        x
+        let mut solution = Vector::zero(n);
+        self.q
+            .iter()
+            .enumerate()
+            .for_each(|(j, &q_j)| solution[q_j] = x[j]);
+        solution
     }
     /// The number of nonzero entries in the factors.
     pub fn nonzeros(&self) -> usize {
