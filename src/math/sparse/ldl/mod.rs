@@ -3,7 +3,7 @@ mod test;
 
 use super::{
     SparseError,
-    lu::{CHUNK, NONE, gemm, supernodes},
+    lu::{CHUNK, NONE, etree, gemm, max_below, reach_sorted, supernodes},
     matrix::CscMatrix,
 };
 use crate::{
@@ -105,49 +105,7 @@ impl CscMatrix {
                 pair[j - 1] = j;
             }
         });
-        let mut count = vec![0_usize; nc];
-        (0..n).for_each(|c| {
-            let v = cpos[comp_of[c]];
-            self.column(c).for_each(|(r, _)| {
-                let u = cpos[comp_of[r]];
-                if u != v {
-                    count[u.max(v)] += 1;
-                }
-            });
-        });
-        let mut adj_ptr = Vec::with_capacity(nc + 1);
-        adj_ptr.push(0_usize);
-        count
-            .iter()
-            .for_each(|c| adj_ptr.push(adj_ptr.last().unwrap() + c));
-        let mut adj = vec![0; adj_ptr[nc]];
-        let mut next = adj_ptr[..nc].to_vec();
-        (0..n).for_each(|c| {
-            let v = cpos[comp_of[c]];
-            self.column(c).for_each(|(r, _)| {
-                let u = cpos[comp_of[r]];
-                if u != v {
-                    adj[next[u.max(v)]] = u.min(v);
-                    next[u.max(v)] += 1;
-                }
-            });
-        });
-        let upper = |v: usize| adj[adj_ptr[v]..adj_ptr[v + 1]].iter();
-        let mut parent = vec![NONE; nc];
-        let mut ancestor = vec![NONE; nc];
-        (0..nc).for_each(|v| {
-            upper(v).for_each(|&start| {
-                let mut u = start;
-                while u != NONE && u != v {
-                    let next = ancestor[u];
-                    ancestor[u] = v;
-                    if next == NONE {
-                        parent[u] = v;
-                    }
-                    u = next;
-                }
-            });
-        });
+        let (parent, adj_ptr, adj) = etree(self, n, nc, |c| cpos[comp_of[c]], |r| cpos[comp_of[r]]);
         let mut mark = vec![NONE; nc];
         let mut reach = Vec::new();
         let mut l_count = vec![1_usize; n];
@@ -155,17 +113,7 @@ impl CscMatrix {
         let mut row_idx = Vec::new();
         row_ptr.push(0);
         (0..nc).for_each(|v| {
-            mark[v] = v;
-            reach.clear();
-            upper(v).for_each(|&start| {
-                let mut u = start;
-                while mark[u] != v {
-                    mark[u] = v;
-                    reach.push(u);
-                    u = parent[u];
-                }
-            });
-            reach.sort_unstable();
+            reach_sorted(v, &adj_ptr, &adj, &parent, &mut mark, &mut reach);
             let j = offset[v];
             let paired = pair[j] == j + 1;
             reach.iter().for_each(|&u| {
@@ -591,14 +539,7 @@ impl CscLdl {
         Ok(())
     }
     fn max_below(&self) -> usize {
-        (0..self.sn_start.len() - 1)
-            .map(|s| {
-                self.sn_rows_ptr[s + 1]
-                    - self.sn_rows_ptr[s]
-                    - (self.sn_start[s + 1] - self.sn_start[s])
-            })
-            .max()
-            .unwrap_or(0)
+        max_below(&self.sn_start, &self.sn_rows_ptr)
     }
 }
 

@@ -73,49 +73,7 @@ impl CscMatrix {
         let n = self.height();
         let mut qinv = vec![NONE; n];
         q.iter().enumerate().for_each(|(j, &q_j)| qinv[q_j] = j);
-        let mut count = vec![0_usize; n];
-        (0..n).for_each(|c| {
-            let j = qinv[c];
-            self.column(c).for_each(|(r, _)| {
-                let i = pinv[r];
-                if i != j {
-                    count[i.max(j)] += 1;
-                }
-            });
-        });
-        let mut adj_ptr = Vec::with_capacity(n + 1);
-        adj_ptr.push(0_usize);
-        count
-            .iter()
-            .for_each(|c| adj_ptr.push(adj_ptr.last().unwrap() + c));
-        let mut adj = vec![0; adj_ptr[n]];
-        let mut next = adj_ptr[..n].to_vec();
-        (0..n).for_each(|c| {
-            let j = qinv[c];
-            self.column(c).for_each(|(r, _)| {
-                let i = pinv[r];
-                if i != j {
-                    adj[next[i.max(j)]] = i.min(j);
-                    next[i.max(j)] += 1;
-                }
-            });
-        });
-        let upper = |k: usize| adj[adj_ptr[k]..adj_ptr[k + 1]].iter();
-        let mut parent = vec![NONE; n];
-        let mut ancestor = vec![NONE; n];
-        (0..n).for_each(|k| {
-            upper(k).for_each(|&start| {
-                let mut i = start;
-                while i != NONE && i != k {
-                    let next = ancestor[i];
-                    ancestor[i] = k;
-                    if next == NONE {
-                        parent[i] = k;
-                    }
-                    i = next;
-                }
-            });
-        });
+        let (parent, adj_ptr, adj) = etree(self, n, n, |c| qinv[c], |r| pinv[r]);
         let mut mark = vec![NONE; n];
         let mut row = Vec::new();
         let mut l_count = vec![1_usize; n];
@@ -123,17 +81,7 @@ impl CscMatrix {
         let mut u_row_idx = Vec::new();
         u_col_ptr.push(0);
         (0..n).for_each(|k| {
-            mark[k] = k;
-            row.clear();
-            upper(k).for_each(|&start| {
-                let mut i = start;
-                while mark[i] != k {
-                    mark[i] = k;
-                    row.push(i);
-                    i = parent[i];
-                }
-            });
-            row.sort_unstable();
+            reach_sorted(k, &adj_ptr, &adj, &parent, &mut mark, &mut row);
             row.iter().for_each(|&j| l_count[j] += 1);
             u_row_idx.extend_from_slice(&row);
             u_row_idx.push(k);
@@ -538,15 +486,97 @@ impl CscLu {
         Ok(())
     }
     pub(super) fn max_below(&self) -> usize {
-        (0..self.sn_start.len() - 1)
-            .map(|s| {
-                self.sn_rows_ptr[s + 1]
-                    - self.sn_rows_ptr[s]
-                    - (self.sn_start[s + 1] - self.sn_start[s])
-            })
-            .max()
-            .unwrap_or(0)
+        max_below(&self.sn_start, &self.sn_rows_ptr)
     }
+}
+
+/// Widest below-diagonal supernode extent, the largest scratch buffer
+/// a chunked refactor needs for below-block updates.
+pub(super) fn max_below(sn_start: &[usize], sn_rows_ptr: &[usize]) -> usize {
+    (0..sn_start.len() - 1)
+        .map(|s| sn_rows_ptr[s + 1] - sn_rows_ptr[s] - (sn_start[s + 1] - sn_start[s]))
+        .max()
+        .unwrap_or(0)
+}
+
+/// Elimination tree over `num_nodes` graph nodes, built from the upper
+/// triangle induced by mapping each of `matrix`'s `n` columns and their row
+/// positions through `col_node`/`row_node`. Returns `(parent, adj_ptr, adj)`,
+/// the tree's parent pointers and a CSR adjacency of each node's upper
+/// neighbors.
+pub(super) fn etree(
+    matrix: &CscMatrix,
+    n: usize,
+    num_nodes: usize,
+    col_node: impl Fn(usize) -> usize,
+    row_node: impl Fn(usize) -> usize,
+) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
+    let mut count = vec![0_usize; num_nodes];
+    (0..n).for_each(|c| {
+        let j = col_node(c);
+        matrix.column(c).for_each(|(r, _)| {
+            let i = row_node(r);
+            if i != j {
+                count[i.max(j)] += 1;
+            }
+        });
+    });
+    let mut adj_ptr = Vec::with_capacity(num_nodes + 1);
+    adj_ptr.push(0_usize);
+    count
+        .iter()
+        .for_each(|c| adj_ptr.push(adj_ptr.last().unwrap() + c));
+    let mut adj = vec![0; adj_ptr[num_nodes]];
+    let mut next = adj_ptr[..num_nodes].to_vec();
+    (0..n).for_each(|c| {
+        let j = col_node(c);
+        matrix.column(c).for_each(|(r, _)| {
+            let i = row_node(r);
+            if i != j {
+                adj[next[i.max(j)]] = i.min(j);
+                next[i.max(j)] += 1;
+            }
+        });
+    });
+    let mut parent = vec![NONE; num_nodes];
+    let mut ancestor = vec![NONE; num_nodes];
+    (0..num_nodes).for_each(|k| {
+        adj[adj_ptr[k]..adj_ptr[k + 1]].iter().for_each(|&start| {
+            let mut i = start;
+            while i != NONE && i != k {
+                let next = ancestor[i];
+                ancestor[i] = k;
+                if next == NONE {
+                    parent[i] = k;
+                }
+                i = next;
+            }
+        });
+    });
+    (parent, adj_ptr, adj)
+}
+
+/// Sorted reach set of node `k` in the elimination tree given by
+/// `parent`/`adj_ptr`/`adj`, via path compression through `mark`.
+pub(super) fn reach_sorted(
+    k: usize,
+    adj_ptr: &[usize],
+    adj: &[usize],
+    parent: &[usize],
+    mark: &mut [usize],
+    reach: &mut Vec<usize>,
+) {
+    mark[k] = k;
+    reach.clear();
+    adj[adj_ptr[k]..adj_ptr[k + 1]].iter().for_each(|&start| {
+        let mut i = start;
+        while mark[i] != k {
+            mark[i] = k;
+            reach.push(i);
+            i = parent[i];
+        }
+    });
+    reach.sort_unstable();
 }
 
 /// Eliminates the first `consumed` pivot columns of a panel from a transposed
