@@ -326,34 +326,38 @@ impl<const D: usize, const I: usize, const J: usize> ErrorTensor
 {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let zero = TensorRank2::zero();
-        let block_errors = |self_ab: &TensorRank2<D, I, J>,
-                            comparator_ab: &TensorRank2<D, I, J>| {
-            self_ab
-                .iter()
-                .zip(comparator_ab.iter())
-                .map(|(self_ab_i, comparator_ab_i)| {
-                    self_ab_i
-                        .iter()
-                        .zip(comparator_ab_i.iter())
-                        .filter(|&(&self_ab_ij, &comparator_ab_ij)| {
-                            (self_ab_ij / comparator_ab_ij - 1.0).abs() >= epsilon
-                                && (self_ab_ij.abs() >= epsilon
-                                    || comparator_ab_ij.abs() >= epsilon)
-                        })
-                        .count()
-                })
-                .sum::<usize>()
-        };
-        let error_count = self
+        let block_errors =
+            |self_ab: &TensorRank2<D, I, J>, comparator_ab: &TensorRank2<D, I, J>| {
+                let mut errors = (0, 0);
+                self_ab.iter().zip(comparator_ab.iter()).for_each(
+                    |(self_ab_i, comparator_ab_i)| {
+                        self_ab_i.iter().zip(comparator_ab_i.iter()).for_each(
+                            |(&self_ab_ij, &comparator_ab_ij)| {
+                                if (self_ab_ij / comparator_ab_ij - 1.0).abs() >= epsilon
+                                    && (self_ab_ij.abs() >= epsilon
+                                        || comparator_ab_ij.abs() >= epsilon)
+                                {
+                                    errors.0 += 1;
+                                    if (self_ab_ij - comparator_ab_ij).abs() >= epsilon {
+                                        errors.1 += 1;
+                                    }
+                                }
+                            },
+                        )
+                    },
+                );
+                errors
+            };
+        let (error_count, severe_count) = self
             .iter()
             .zip(comparator.iter())
             .map(|(self_a, comparator_a)| {
-                let mut errors = 0;
+                let mut errors = (0, 0);
                 let (mut p, mut q) = (0, 0);
                 while p < self_a.0.len() || q < comparator_a.0.len() {
                     let b = self_a.0.get(p).map(|&(b, _)| b);
                     let c = comparator_a.0.get(q).map(|&(c, _)| c);
-                    errors += match (b, c) {
+                    let block = match (b, c) {
                         (Some(b), Some(c)) if b == c => {
                             p += 1;
                             q += 1;
@@ -372,12 +376,14 @@ impl<const D: usize, const I: usize, const J: usize> ErrorTensor
                             block_errors(&zero, &comparator_a.0[q - 1].1)
                         }
                     };
+                    errors.0 += block.0;
+                    errors.1 += block.1;
                 }
                 errors
             })
-            .sum();
+            .fold((0, 0), |sum, errors| (sum.0 + errors.0, sum.1 + errors.1));
         if error_count > 0 {
-            Some((true, error_count))
+            Some((severe_count > 0, error_count))
         } else {
             None
         }
