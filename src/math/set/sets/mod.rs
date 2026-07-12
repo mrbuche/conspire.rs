@@ -1,8 +1,8 @@
 use crate::math::set::Set;
-use std::sync::OnceLock;
+use std::cell::OnceCell;
 
 pub struct Sets<S> {
-    converse: OnceLock<Vec<Vec<usize>>>,
+    converse: OnceCell<Vec<Vec<usize>>>,
     set: Set<S>,
 }
 
@@ -55,7 +55,7 @@ impl<S> From<S> for Sets<S> {
 impl<S> From<Set<S>> for Sets<S> {
     fn from(set: Set<S>) -> Self {
         Self {
-            converse: OnceLock::new(),
+            converse: OnceCell::new(),
             set,
         }
     }
