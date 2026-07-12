@@ -64,11 +64,15 @@ impl CscMatrix {
             CscMatrix::from_pattern(n, n, permuted).amd()
         };
         let mut pinv = vec![NONE; n];
+        q.iter()
+            .enumerate()
+            .for_each(|(j, &q_j)| pinv[matching[q_j]] = j);
+        Ok(self.symbolic(q, pinv, &vec![false; n]))
+    }
+    pub(super) fn symbolic(&self, q: Vec<usize>, pinv: Vec<usize>, locked: &[bool]) -> CscLu {
+        let n = self.height();
         let mut qinv = vec![NONE; n];
-        q.iter().enumerate().for_each(|(j, &q_j)| {
-            qinv[q_j] = j;
-            pinv[matching[q_j]] = j;
-        });
+        q.iter().enumerate().for_each(|(j, &q_j)| qinv[q_j] = j);
         let mut count = vec![0_usize; n];
         (0..n).for_each(|c| {
             let j = qinv[c];
@@ -157,8 +161,8 @@ impl CscMatrix {
         let fill = l_row_idx.len() + u_row_idx.len();
         let l_values = vec![0.0; l_row_idx.len()];
         let (sn_of, sn_start, sn_rows_ptr, sn_rows, sn_panel_ptr, sn_values) =
-            supernodes(&l_col_ptr, &l_row_idx, &l_values, n);
-        Ok(CscLu {
+            supernodes(&l_col_ptr, &l_row_idx, &l_values, n, locked);
+        CscLu {
             fill,
             sn_of,
             sn_start,
@@ -171,7 +175,7 @@ impl CscMatrix {
             u_values: vec![0.0; fill - l_values.len()],
             pinv,
             q,
-        })
+        }
     }
     fn factor(&self, q: Vec<usize>) -> Result<CscLu, SparseError> {
         let n = self.height();
@@ -241,7 +245,7 @@ impl CscMatrix {
         let (u_col_ptr, u_row_idx, u_values) = compress(u_cols, &(0..n).collect::<Vec<usize>>());
         let fill = l_values.len() + u_values.len();
         let (sn_of, sn_start, sn_rows_ptr, sn_rows, sn_panel_ptr, sn_values) =
-            supernodes(&l_col_ptr, &l_row_idx, &l_values, n);
+            supernodes(&l_col_ptr, &l_row_idx, &l_values, n, &vec![false; n]);
         Ok(CscLu {
             fill,
             sn_of,
@@ -1005,7 +1009,13 @@ type Supernodes = (
     Vec<Scalar>,
 );
 
-fn supernodes(col_ptr: &[usize], row_idx: &[usize], values: &[Scalar], n: usize) -> Supernodes {
+pub(super) fn supernodes(
+    col_ptr: &[usize],
+    row_idx: &[usize],
+    values: &[Scalar],
+    n: usize,
+    locked: &[bool],
+) -> Supernodes {
     let mut sn_start = vec![0];
     let mut sn_rows_ptr = vec![0];
     let mut sn_rows = Vec::new();
@@ -1018,7 +1028,7 @@ fn supernodes(col_ptr: &[usize], row_idx: &[usize], values: &[Scalar], n: usize)
         let width = j - start + 1;
         let stored = width * merged.len() - width * (width - 1) / 2;
         let padding = stored - true_nnz - curr.len();
-        if 8 * padding <= stored + 256 {
+        if locked[j] || 8 * padding <= stored + 256 {
             union = merged;
             true_nnz += curr.len();
         } else {

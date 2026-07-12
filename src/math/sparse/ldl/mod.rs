@@ -3,7 +3,7 @@ mod test;
 
 use super::{
     SparseError,
-    lu::{CHUNK, NONE, gemm},
+    lu::{CHUNK, NONE, gemm, supernodes},
     matrix::CscMatrix,
 };
 use crate::{
@@ -25,6 +25,8 @@ pub struct CscLdl {
     row_idx: Vec<usize>,
     row_pos: Vec<usize>,
     d: Vec<Scalar>,
+    e: Vec<Scalar>,
+    pair: Vec<usize>,
     pinv: Vec<usize>,
     q: Vec<usize>,
 }
@@ -34,41 +36,213 @@ impl CscMatrix {
     /// ordering, requiring a structurally full diagonal; the values must be
     /// symmetric and are all zero until a refactorization supplies them.
     pub fn ldl_symbolic(&self) -> Result<CscLdl, SparseError> {
-        let lu = self.lu_symbolic()?;
-        if lu.q.iter().enumerate().any(|(j, &q_j)| lu.pinv[q_j] != j) {
-            return Err(SparseError::Unsymmetric);
+        let n = self.height();
+        assert_eq!(n, self.width());
+        let matching = self.maxtrans().ok_or(SparseError::Singular)?;
+        let mut partner = vec![NONE; n];
+        for (c, &r) in matching.iter().enumerate() {
+            if r != c {
+                if matching[r] != c {
+                    return Err(SparseError::Unsymmetric);
+                }
+                partner[c] = r;
+            }
         }
-        let mut row_pos = Vec::with_capacity(lu.u_row_idx.len());
-        lu.u_col_ptr.windows(2).enumerate().for_each(|(j, window)| {
-            lu.u_row_idx[window[0]..window[1]].iter().for_each(|&k| {
+        let has_diag: Vec<bool> = (0..n)
+            .map(|c| self.column(c).any(|(r, _)| r == c))
+            .collect();
+        let mut comp_of = vec![NONE; n];
+        let mut members = Vec::with_capacity(n);
+        (0..n).for_each(|c| {
+            if partner[c] == NONE {
+                comp_of[c] = members.len();
+                members.push((c, NONE));
+            } else if c < partner[c] {
+                let (first, second) = if has_diag[c] || !has_diag[partner[c]] {
+                    (c, partner[c])
+                } else {
+                    (partner[c], c)
+                };
+                comp_of[c] = members.len();
+                comp_of[partner[c]] = members.len();
+                members.push((first, second));
+            }
+        });
+        let order = if members.len() == n {
+            self.amd()
+        } else {
+            let mut compressed = Vec::with_capacity(self.nonzeros());
+            (0..n).for_each(|c| {
+                self.column(c)
+                    .for_each(|(r, _)| compressed.push((comp_of[r], comp_of[c])))
+            });
+            CscMatrix::from_pattern(members.len(), members.len(), compressed).amd()
+        };
+        let nc = members.len();
+        let mut q = Vec::with_capacity(n);
+        let mut offset = Vec::with_capacity(nc);
+        let mut locked = vec![false; n];
+        order.iter().for_each(|&node| {
+            let (first, second) = members[node];
+            offset.push(q.len());
+            q.push(first);
+            if second != NONE {
+                locked[q.len()] = true;
+                q.push(second);
+            }
+        });
+        let mut cpos = vec![NONE; nc];
+        order
+            .iter()
+            .enumerate()
+            .for_each(|(v, &node)| cpos[node] = v);
+        let mut pinv = vec![NONE; n];
+        let mut pair = vec![NONE; n];
+        q.iter().enumerate().for_each(|(j, &q_j)| pinv[q_j] = j);
+        (0..n).for_each(|j| {
+            if locked[j] {
+                pair[j] = j - 1;
+                pair[j - 1] = j;
+            }
+        });
+        let mut count = vec![0_usize; nc];
+        (0..n).for_each(|c| {
+            let v = cpos[comp_of[c]];
+            self.column(c).for_each(|(r, _)| {
+                let u = cpos[comp_of[r]];
+                if u != v {
+                    count[u.max(v)] += 1;
+                }
+            });
+        });
+        let mut adj_ptr = Vec::with_capacity(nc + 1);
+        adj_ptr.push(0_usize);
+        count
+            .iter()
+            .for_each(|c| adj_ptr.push(adj_ptr.last().unwrap() + c));
+        let mut adj = vec![0; adj_ptr[nc]];
+        let mut next = adj_ptr[..nc].to_vec();
+        (0..n).for_each(|c| {
+            let v = cpos[comp_of[c]];
+            self.column(c).for_each(|(r, _)| {
+                let u = cpos[comp_of[r]];
+                if u != v {
+                    adj[next[u.max(v)]] = u.min(v);
+                    next[u.max(v)] += 1;
+                }
+            });
+        });
+        let upper = |v: usize| adj[adj_ptr[v]..adj_ptr[v + 1]].iter();
+        let mut parent = vec![NONE; nc];
+        let mut ancestor = vec![NONE; nc];
+        (0..nc).for_each(|v| {
+            upper(v).for_each(|&start| {
+                let mut u = start;
+                while u != NONE && u != v {
+                    let next = ancestor[u];
+                    ancestor[u] = v;
+                    if next == NONE {
+                        parent[u] = v;
+                    }
+                    u = next;
+                }
+            });
+        });
+        let mut mark = vec![NONE; nc];
+        let mut reach = Vec::new();
+        let mut l_count = vec![1_usize; n];
+        let mut row_ptr = Vec::with_capacity(n + 1);
+        let mut row_idx = Vec::new();
+        row_ptr.push(0);
+        (0..nc).for_each(|v| {
+            mark[v] = v;
+            reach.clear();
+            upper(v).for_each(|&start| {
+                let mut u = start;
+                while mark[u] != v {
+                    mark[u] = v;
+                    reach.push(u);
+                    u = parent[u];
+                }
+            });
+            reach.sort_unstable();
+            let j = offset[v];
+            let paired = pair[j] == j + 1;
+            reach.iter().for_each(|&u| {
+                let k = offset[u];
+                row_idx.push(k);
+                l_count[k] += 1;
+                if locked.get(k + 1) == Some(&true) {
+                    row_idx.push(k + 1);
+                    l_count[k + 1] += 1;
+                }
+            });
+            row_idx.push(j);
+            row_ptr.push(row_idx.len());
+            if paired {
+                let start = row_ptr[j];
+                let mut expanded: Vec<usize> = row_idx[start..row_idx.len() - 1].to_vec();
+                expanded.push(j);
+                expanded.iter().for_each(|&k| l_count[k] += 1);
+                row_idx.extend_from_slice(&expanded);
+                row_idx.push(j + 1);
+                row_ptr.push(row_idx.len());
+            }
+        });
+        let mut l_col_ptr = Vec::with_capacity(n + 1);
+        l_col_ptr.push(0);
+        l_count.iter().for_each(|count| {
+            l_col_ptr.push(l_col_ptr.last().unwrap() + count);
+        });
+        let mut l_row_idx = vec![0; l_col_ptr[n]];
+        let mut next = vec![0; n];
+        (0..n).for_each(|j| {
+            l_row_idx[l_col_ptr[j]] = j;
+            next[j] = l_col_ptr[j] + 1;
+        });
+        (0..n).for_each(|k| {
+            row_idx[row_ptr[k]..row_ptr[k + 1] - 1]
+                .iter()
+                .for_each(|&j| {
+                    l_row_idx[next[j]] = k;
+                    next[j] += 1;
+                });
+        });
+        let l_values = vec![0.0; l_col_ptr[n]];
+        let (sn_of, sn_start, sn_rows_ptr, sn_rows, sn_panel_ptr, sn_values) =
+            supernodes(&l_col_ptr, &l_row_idx, &l_values, n, &locked);
+        let mut row_pos = Vec::with_capacity(row_idx.len());
+        row_ptr.windows(2).enumerate().for_each(|(j, window)| {
+            row_idx[window[0]..window[1]].iter().for_each(|&k| {
                 if k == j {
                     row_pos.push(NONE);
                 } else {
-                    let t = lu.sn_of[k];
-                    let rows = &lu.sn_rows[lu.sn_rows_ptr[t]..lu.sn_rows_ptr[t + 1]];
+                    let t = sn_of[k];
+                    let rows = &sn_rows[sn_rows_ptr[t]..sn_rows_ptr[t + 1]];
                     row_pos.push(
-                        lu.sn_panel_ptr[t]
-                            + (k - lu.sn_start[t]) * rows.len()
+                        sn_panel_ptr[t]
+                            + (k - sn_start[t]) * rows.len()
                             + rows.binary_search(&j).expect("Row not in supernode."),
                     );
                 }
             });
         });
-        let n = lu.pinv.len();
         Ok(CscLdl {
-            fill: lu.sn_panel_ptr[lu.sn_start.len() - 1] + n,
-            sn_of: lu.sn_of,
-            sn_start: lu.sn_start,
-            sn_rows_ptr: lu.sn_rows_ptr,
-            sn_rows: lu.sn_rows,
-            sn_panel_ptr: lu.sn_panel_ptr,
-            sn_values: lu.sn_values,
-            row_ptr: lu.u_col_ptr,
-            row_idx: lu.u_row_idx,
+            fill: sn_panel_ptr[sn_start.len() - 1] + n,
+            sn_of,
+            sn_start,
+            sn_rows_ptr,
+            sn_rows,
+            sn_panel_ptr,
+            sn_values,
+            row_ptr,
+            row_idx,
             row_pos,
             d: vec![0.0; n],
-            pinv: lu.pinv,
-            q: lu.q,
+            e: vec![0.0; n],
+            pair,
+            pinv,
+            q,
         })
     }
 }
@@ -112,9 +286,19 @@ impl CscLdl {
                     *below_r = 0.0;
                 });
         });
-        x.iter_mut().zip(self.d.iter()).for_each(|(x_j, d_j)| {
-            *x_j /= d_j;
-        });
+        let mut j = 0;
+        while j < n {
+            if self.pair[j] == j + 1 {
+                let det = self.d[j] * self.d[j + 1] - self.e[j] * self.e[j];
+                let (x_0, x_1) = (x[j], x[j + 1]);
+                x[j] = (self.d[j + 1] * x_0 - self.e[j] * x_1) / det;
+                x[j + 1] = (self.d[j] * x_1 - self.e[j] * x_0) / det;
+                j += 2;
+            } else {
+                x[j] /= self.d[j];
+                j += 1;
+            }
+        }
         (0..self.sn_start.len() - 1).rev().for_each(|s| {
             let t1 = self.sn_start[s];
             let t2 = self.sn_start[s + 1];
@@ -164,7 +348,10 @@ impl CscLdl {
             let s_m = self.sn_rows_ptr[s + 1] - s_rows_start;
             let mut c1 = s1;
             while c1 < s2 {
-                let c2 = s2.min(c1 + CHUNK);
+                let mut c2 = s2.min(c1 + CHUNK);
+                if c2 < s2 && self.pair[c2] == c2 - 1 {
+                    c2 -= 1;
+                }
                 let chunk = c2 - c1;
                 (c1..c2).zip(pointers.iter_mut()).for_each(|(j, pointer)| {
                     let pinv = &self.pinv;
@@ -203,16 +390,36 @@ impl CscLdl {
                             if k >= c1 || k >= t2 {
                                 break;
                             }
-                            let w = self.sn_values[self.row_pos[*pointer]] * self.d[k];
-                            column[k] = w;
-                            if t2 > c1 && w != 0.0 {
-                                let c = k - t1;
-                                column[c1..t2]
-                                    .iter_mut()
-                                    .zip(panel[c * m + c1 - t1..c * m + width].iter())
-                                    .for_each(|(work_r, value)| *work_r -= value * w);
-                            }
+                            let value = self.sn_values[self.row_pos[*pointer]];
                             *pointer += 1;
+                            let (base, w_0, w_1, paired) = if self.pair[k] == k + 1 {
+                                if *pointer < p_end && self.row_idx[*pointer] == k + 1 {
+                                    let other = self.sn_values[self.row_pos[*pointer]];
+                                    *pointer += 1;
+                                    (
+                                        k,
+                                        self.d[k] * value + self.e[k] * other,
+                                        self.e[k] * value + self.d[k + 1] * other,
+                                        true,
+                                    )
+                                } else {
+                                    (k, self.d[k] * value, self.e[k] * value, true)
+                                }
+                            } else if self.pair[k] != NONE {
+                                (k - 1, self.e[k - 1] * value, self.d[k] * value, true)
+                            } else {
+                                (k, self.d[k] * value, 0.0, false)
+                            };
+                            column[base] = w_0;
+                            if t2 > c1 {
+                                inpanel(column, panel, base - t1, m, t1, c1, t2, w_0);
+                            }
+                            if paired {
+                                column[base + 1] = w_1;
+                                if t2 > c1 {
+                                    inpanel(column, panel, base + 1 - t1, m, t1, c1, t2, w_1);
+                                }
+                            }
                         }
                     });
                     if below > 0 {
@@ -250,40 +457,119 @@ impl CscLdl {
                     let mut pointer = pointers[j - c1];
                     while pointer < p_end {
                         let k = self.row_idx[pointer];
-                        let c = k - s1;
-                        let w = self.sn_values[self.row_pos[pointer]] * self.d[k];
-                        work[offset + k] = 0.0;
-                        if w != 0.0 {
-                            let start = self.sn_panel_ptr[s] + c * s_m;
-                            work[offset + k + 1..offset + s2]
-                                .iter_mut()
-                                .zip(self.sn_values[start + c + 1..start + s_width].iter())
-                                .for_each(|(work_r, value)| *work_r -= value * w);
-                            self.sn_rows[s_rows_start + s_width..s_rows_start + s_m]
-                                .iter()
-                                .zip(self.sn_values[start + s_width..start + s_m].iter())
-                                .for_each(|(&row, value)| work[offset + row] -= value * w);
+                        if k + 1 == j && self.pair[k] == j {
+                            break;
                         }
+                        let value = self.sn_values[self.row_pos[pointer]];
                         pointer += 1;
+                        let (base, w_0, w_1, paired) = if self.pair[k] == k + 1 {
+                            if pointer < p_end && self.row_idx[pointer] == k + 1 {
+                                let other = self.sn_values[self.row_pos[pointer]];
+                                pointer += 1;
+                                (
+                                    k,
+                                    self.d[k] * value + self.e[k] * other,
+                                    self.e[k] * value + self.d[k + 1] * other,
+                                    true,
+                                )
+                            } else {
+                                (k, self.d[k] * value, self.e[k] * value, true)
+                            }
+                        } else if self.pair[k] != NONE {
+                            (k - 1, self.e[k - 1] * value, self.d[k] * value, true)
+                        } else {
+                            (k, self.d[k] * value, 0.0, false)
+                        };
+                        work[offset + base] = 0.0;
+                        finalize_update(
+                            &mut work[offset..offset + n],
+                            &self.sn_values,
+                            &self.sn_rows,
+                            self.sn_panel_ptr[s],
+                            s_rows_start,
+                            s_m,
+                            s_width,
+                            s1,
+                            s2,
+                            base,
+                            w_0,
+                        );
+                        if paired {
+                            work[offset + base + 1] = 0.0;
+                            finalize_update(
+                                &mut work[offset..offset + n],
+                                &self.sn_values,
+                                &self.sn_rows,
+                                self.sn_panel_ptr[s],
+                                s_rows_start,
+                                s_m,
+                                s_width,
+                                s1,
+                                s2,
+                                base + 1,
+                                w_1,
+                            );
+                        }
                     }
-                    let pivot = work[offset + j];
-                    work[offset + j] = 0.0;
-                    if pivot.abs() < ABS_TOL {
-                        return Err(SparseError::Singular);
+                    if self.pair[j] == j + 1 {
+                        continue;
                     }
-                    self.d[j] = pivot;
-                    let c = j - s1;
-                    let start = self.sn_panel_ptr[s] + c * s_m;
-                    self.sn_values[start + c] = 1.0;
-                    (c + 1..s_width).for_each(|local| {
-                        self.sn_values[start + local] = work[offset + s1 + local] / pivot;
-                        work[offset + s1 + local] = 0.0;
-                    });
-                    (s_width..s_m).for_each(|local| {
-                        let row = self.sn_rows[s_rows_start + local];
-                        self.sn_values[start + local] = work[offset + row] / pivot;
-                        work[offset + row] = 0.0;
-                    });
+                    if j > 0 && self.pair[j] == j - 1 {
+                        let p = j - 1;
+                        let off_0 = (p - c1) * n;
+                        let b_00 = work[off_0 + p];
+                        let b_01 = work[offset + p];
+                        let b_11 = work[offset + j];
+                        work[off_0 + p] = 0.0;
+                        work[off_0 + j] = 0.0;
+                        work[offset + p] = 0.0;
+                        work[offset + j] = 0.0;
+                        let det = b_00 * b_11 - b_01 * b_01;
+                        if det.abs() < ABS_TOL {
+                            return Err(SparseError::Singular);
+                        }
+                        self.d[p] = b_00;
+                        self.e[p] = b_01;
+                        self.d[j] = b_11;
+                        let c_0 = p - s1;
+                        let start_0 = self.sn_panel_ptr[s] + c_0 * s_m;
+                        let start_1 = self.sn_panel_ptr[s] + (c_0 + 1) * s_m;
+                        self.sn_values[start_0 + c_0] = 1.0;
+                        self.sn_values[start_0 + c_0 + 1] = 0.0;
+                        self.sn_values[start_1 + c_0 + 1] = 1.0;
+                        for local in c_0 + 2..s_m {
+                            let position = if local < s_width {
+                                s1 + local
+                            } else {
+                                self.sn_rows[s_rows_start + local]
+                            };
+                            let w_0 = work[off_0 + position];
+                            let w_1 = work[offset + position];
+                            self.sn_values[start_0 + local] = (w_0 * b_11 - w_1 * b_01) / det;
+                            self.sn_values[start_1 + local] = (w_1 * b_00 - w_0 * b_01) / det;
+                            work[off_0 + position] = 0.0;
+                            work[offset + position] = 0.0;
+                        }
+                    } else {
+                        let pivot = work[offset + j];
+                        work[offset + j] = 0.0;
+                        if pivot.abs() < ABS_TOL {
+                            return Err(SparseError::Singular);
+                        }
+                        self.d[j] = pivot;
+                        let c = j - s1;
+                        let start = self.sn_panel_ptr[s] + c * s_m;
+                        self.sn_values[start + c] = 1.0;
+                        (c + 1..s_width).for_each(|local| {
+                            self.sn_values[start + local] = work[offset + s1 + local] / pivot;
+                            work[offset + s1 + local] = 0.0;
+                        });
+                        (s_width..s_m).for_each(|local| {
+                            let row = self.sn_rows[s_rows_start + local];
+                            self.sn_values[start + local] = work[offset + row] / pivot;
+                            work[offset + row] = 0.0;
+                        });
+                    }
                 }
                 c1 = c2;
             }
@@ -299,5 +585,54 @@ impl CscLdl {
             })
             .max()
             .unwrap_or(0)
+    }
+}
+
+/// Applies a within-panel update from a source column to a work column.
+#[allow(clippy::too_many_arguments)]
+fn inpanel(
+    column: &mut [Scalar],
+    panel: &[Scalar],
+    c: usize,
+    m: usize,
+    t1: usize,
+    c1: usize,
+    t2: usize,
+    w: Scalar,
+) {
+    if w != 0.0 {
+        column[c1..t2]
+            .iter_mut()
+            .zip(panel[c * m + c1 - t1..c * m + t2 - t1].iter())
+            .for_each(|(work_r, value)| *work_r -= value * w);
+    }
+}
+
+/// Applies a finalized own-supernode column's update to a work column.
+#[allow(clippy::too_many_arguments)]
+fn finalize_update(
+    column: &mut [Scalar],
+    sn_values: &[Scalar],
+    sn_rows: &[usize],
+    panel_ptr: usize,
+    s_rows_start: usize,
+    s_m: usize,
+    s_width: usize,
+    s1: usize,
+    s2: usize,
+    base: usize,
+    w: Scalar,
+) {
+    if w != 0.0 {
+        let c = base - s1;
+        let start = panel_ptr + c * s_m;
+        column[base + 1..s2]
+            .iter_mut()
+            .zip(sn_values[start + c + 1..start + s_width].iter())
+            .for_each(|(work_r, value)| *work_r -= value * w);
+        sn_rows[s_rows_start + s_width..s_rows_start + s_m]
+            .iter()
+            .zip(sn_values[start + s_width..start + s_m].iter())
+            .for_each(|(&row, value)| column[row] -= value * w);
     }
 }
