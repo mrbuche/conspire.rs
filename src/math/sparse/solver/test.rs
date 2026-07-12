@@ -65,3 +65,73 @@ fn recovers_from_degraded_pivot() -> Result<(), TestError> {
     )?;
     assert_eq_within_tols(&Vector::from([x[0] + 2.0 * x[1], 2.0 * x[1]]), &b)
 }
+
+#[test]
+fn symmetric_uses_ldl() -> Result<(), TestError> {
+    let n = 30;
+    let mut pattern: Vec<(usize, usize)> = (0..n).map(|i| (i, i)).collect();
+    (0..n - 3).for_each(|i| {
+        pattern.push((i, i + 3));
+        pattern.push((i + 3, i));
+    });
+    (0..4).for_each(|c| {
+        pattern.push((n + c, 7 * c));
+        pattern.push((7 * c, n + c));
+    });
+    let solver = SparseSolver::from_pattern(n + 4, pattern);
+    let b: Vector = (0..n + 4).map(|i| (i % 7) as f64 - 3.0).collect();
+    let source = |scale: f64| {
+        move |i: usize, j: usize| {
+            if i == j {
+                12.0
+            } else if i >= n || j >= n {
+                2.0
+            } else {
+                scale * ((i.min(j) % 3) as f64 - 1.0)
+            }
+        }
+    };
+    let x = solver.solve(source(1.0), &b)?;
+    let mut residual = Vector::zero(n + 4);
+    solver
+        .pattern()
+        .iter()
+        .for_each(|&(i, j)| residual[i] += source(1.0)(i, j) * x[j]);
+    assert_eq_within_tols(&residual, &b)?;
+    assert!(solver.ldl.borrow().is_some());
+    let x = solver.solve(source(-2.0), &b)?;
+    let mut residual = Vector::zero(n + 4);
+    solver
+        .pattern()
+        .iter()
+        .for_each(|&(i, j)| residual[i] += source(-2.0)(i, j) * x[j]);
+    assert_eq_within_tols(&residual, &b)
+}
+
+#[test]
+fn asymmetric_falls_back_to_lu() -> Result<(), TestError> {
+    let n = 20;
+    let mut pattern: Vec<(usize, usize)> = (0..n).map(|i| (i, i)).collect();
+    (0..n - 3).for_each(|i| {
+        pattern.push((i, i + 3));
+        pattern.push((i + 3, i));
+    });
+    let solver = SparseSolver::from_pattern(n, pattern);
+    let b: Vector = (0..n).map(|i| (i % 5) as f64 - 2.0).collect();
+    let source = |i: usize, j: usize| {
+        if i == j {
+            12.0
+        } else {
+            (i % 3) as f64 - (j % 2) as f64
+        }
+    };
+    let x = solver.solve(source, &b)?;
+    assert!(solver.ldl.borrow().is_none());
+    assert!(solver.lu.borrow().is_some());
+    let mut residual = Vector::zero(n);
+    solver
+        .pattern()
+        .iter()
+        .for_each(|&(i, j)| residual[i] += source(i, j) * x[j]);
+    assert_eq_within_tols(&residual, &b)
+}
