@@ -23,7 +23,37 @@ use crate::{
 use std::{
     any::type_name,
     fmt::{self, Debug, Formatter},
+    thread::{available_parallelism, scope},
 };
+
+/// Applies a fallible function to each index across threads, preserving order.
+pub(crate) fn parallel_elements<U, E>(
+    num: usize,
+    each: impl Fn(usize) -> Result<U, E> + Sync,
+) -> Result<Vec<Vec<U>>, E>
+where
+    U: Send,
+    E: Send,
+{
+    let threads = available_parallelism().map_or(1, |threads| threads.get());
+    let chunk = num.div_ceil(threads).max(1);
+    scope(|scope| {
+        (0..num)
+            .step_by(chunk)
+            .map(|start| {
+                let each = &each;
+                scope.spawn(move || {
+                    (start..num.min(start + chunk))
+                        .map(each)
+                        .collect::<Result<Vec<U>, E>>()
+                })
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(|handle| handle.join().expect("Assembly thread panicked."))
+            .collect()
+    })
+}
 
 pub struct Block<C, F, const G: usize, const M: usize, const N: usize, const P: usize> {
     constitutive_model: C,

@@ -4,10 +4,8 @@ use crate::{
         ElementModelError, NodalCoordinates,
         block::{
             Block,
-            element::{
-                FiniteElementError, planar::PlanarElasticFiniteElement,
-                solid::elastic::ElasticFiniteElement,
-            },
+            element::{planar::PlanarElasticFiniteElement, solid::elastic::ElasticFiniteElement},
+            parallel_elements,
         },
         solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticElements},
     },
@@ -16,30 +14,33 @@ use crate::{
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> ElasticElements<3>
     for Block<C, F, G, M, N, P>
 where
-    C: Elastic,
-    F: ElasticFiniteElement<C, G, M, N, P>,
+    C: Elastic + Sync,
+    F: ElasticFiniteElement<C, G, M, N, P> + Sync,
 {
     fn nodal_forces_into(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         nodal_forces: &mut NodalForcesSolid<3>,
     ) -> Result<(), ElementModelError> {
-        match self
-            .elements()
-            .iter()
-            .zip(self.connectivity())
-            .try_for_each(|(element, nodes)| {
-                element
-                    .nodal_forces(
-                        self.constitutive_model(),
-                        &Self::element_coordinates(nodal_coordinates, nodes),
-                    )?
-                    .into_iter()
-                    .zip(nodes)
-                    .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
-                Ok::<(), FiniteElementError>(())
-            }) {
-            Ok(()) => Ok(()),
+        let elements = self.elements();
+        let connectivity: Vec<&[usize; N]> = self.connectivity().iter().collect();
+        match parallel_elements(elements.len(), |index| {
+            elements[index].nodal_forces(
+                self.constitutive_model(),
+                &Self::element_coordinates(nodal_coordinates, connectivity[index]),
+            )
+        }) {
+            Ok(forces) => {
+                forces.into_iter().flatten().zip(connectivity).for_each(
+                    |(element_forces, nodes)| {
+                        element_forces
+                            .into_iter()
+                            .zip(nodes)
+                            .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force)
+                    },
+                );
+                Ok(())
+            }
             Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
@@ -51,29 +52,33 @@ where
         nodal_coordinates: &NodalCoordinates<3>,
         nodal_stiffnesses: &mut NodalStiffnessesSolid<3>,
     ) -> Result<(), ElementModelError> {
-        match self
-            .elements()
-            .iter()
-            .zip(self.connectivity())
-            .try_for_each(|(element, nodes)| {
-                element
-                    .nodal_stiffnesses(
-                        self.constitutive_model(),
-                        &Self::element_coordinates(nodal_coordinates, nodes),
-                    )?
+        let elements = self.elements();
+        let connectivity: Vec<&[usize; N]> = self.connectivity().iter().collect();
+        match parallel_elements(elements.len(), |index| {
+            elements[index].nodal_stiffnesses(
+                self.constitutive_model(),
+                &Self::element_coordinates(nodal_coordinates, connectivity[index]),
+            )
+        }) {
+            Ok(stiffnesses) => {
+                stiffnesses
                     .into_iter()
-                    .zip(nodes)
-                    .for_each(|(object, &node_a)| {
-                        object
+                    .flatten()
+                    .zip(connectivity)
+                    .for_each(|(element_stiffness, nodes)| {
+                        element_stiffness
                             .into_iter()
                             .zip(nodes)
-                            .for_each(|(nodal_stiffness, &node_b)| {
-                                nodal_stiffnesses[node_a][node_b] += nodal_stiffness
+                            .for_each(|(object, &node_a)| {
+                                object.into_iter().zip(nodes).for_each(
+                                    |(nodal_stiffness, &node_b)| {
+                                        nodal_stiffnesses[node_a][node_b] += nodal_stiffness
+                                    },
+                                )
                             })
                     });
-                Ok::<(), FiniteElementError>(())
-            }) {
-            Ok(()) => Ok(()),
+                Ok(())
+            }
             Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
@@ -85,30 +90,33 @@ where
 impl<C, F, const G: usize, const N: usize, const P: usize> ElasticElements<2>
     for Block<C, F, G, 2, N, P>
 where
-    C: Elastic,
-    F: PlanarElasticFiniteElement<C, G, N, P>,
+    C: Elastic + Sync,
+    F: PlanarElasticFiniteElement<C, G, N, P> + Sync,
 {
     fn nodal_forces_into(
         &self,
         nodal_coordinates: &NodalCoordinates<2>,
         nodal_forces: &mut NodalForcesSolid<2>,
     ) -> Result<(), ElementModelError> {
-        match self
-            .elements()
-            .iter()
-            .zip(self.connectivity())
-            .try_for_each(|(element, nodes)| {
-                element
-                    .nodal_forces(
-                        self.constitutive_model(),
-                        &Self::element_coordinates(nodal_coordinates, nodes),
-                    )?
-                    .into_iter()
-                    .zip(nodes)
-                    .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
-                Ok::<(), FiniteElementError>(())
-            }) {
-            Ok(()) => Ok(()),
+        let elements = self.elements();
+        let connectivity: Vec<&[usize; N]> = self.connectivity().iter().collect();
+        match parallel_elements(elements.len(), |index| {
+            elements[index].nodal_forces(
+                self.constitutive_model(),
+                &Self::element_coordinates(nodal_coordinates, connectivity[index]),
+            )
+        }) {
+            Ok(forces) => {
+                forces.into_iter().flatten().zip(connectivity).for_each(
+                    |(element_forces, nodes)| {
+                        element_forces
+                            .into_iter()
+                            .zip(nodes)
+                            .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force)
+                    },
+                );
+                Ok(())
+            }
             Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
@@ -120,29 +128,33 @@ where
         nodal_coordinates: &NodalCoordinates<2>,
         nodal_stiffnesses: &mut NodalStiffnessesSolid<2>,
     ) -> Result<(), ElementModelError> {
-        match self
-            .elements()
-            .iter()
-            .zip(self.connectivity())
-            .try_for_each(|(element, nodes)| {
-                element
-                    .nodal_stiffnesses(
-                        self.constitutive_model(),
-                        &Self::element_coordinates(nodal_coordinates, nodes),
-                    )?
+        let elements = self.elements();
+        let connectivity: Vec<&[usize; N]> = self.connectivity().iter().collect();
+        match parallel_elements(elements.len(), |index| {
+            elements[index].nodal_stiffnesses(
+                self.constitutive_model(),
+                &Self::element_coordinates(nodal_coordinates, connectivity[index]),
+            )
+        }) {
+            Ok(stiffnesses) => {
+                stiffnesses
                     .into_iter()
-                    .zip(nodes)
-                    .for_each(|(object, &node_a)| {
-                        object
+                    .flatten()
+                    .zip(connectivity)
+                    .for_each(|(element_stiffness, nodes)| {
+                        element_stiffness
                             .into_iter()
                             .zip(nodes)
-                            .for_each(|(nodal_stiffness, &node_b)| {
-                                nodal_stiffnesses[node_a][node_b] += nodal_stiffness
+                            .for_each(|(object, &node_a)| {
+                                object.into_iter().zip(nodes).for_each(
+                                    |(nodal_stiffness, &node_b)| {
+                                        nodal_stiffnesses[node_a][node_b] += nodal_stiffness
+                                    },
+                                )
                             })
                     });
-                Ok::<(), FiniteElementError>(())
-            }) {
-            Ok(()) => Ok(()),
+                Ok(())
+            }
             Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
