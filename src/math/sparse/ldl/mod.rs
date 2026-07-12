@@ -423,29 +423,43 @@ impl CscLdl {
                         }
                     });
                     if below > 0 {
+                        let mut offsets = [0; CHUNK];
+                        offsets[0] = rows[width..].partition_point(|&row| row < c1);
+                        (1..chunk).for_each(|b| {
+                            let mut o = offsets[b - 1];
+                            while o < below && rows[width + o] < c1 + b {
+                                o += 1;
+                            }
+                            offsets[b] = o;
+                        });
                         let mut c = 0;
                         while c < chunk {
                             let block = (chunk - c).min(4);
-                            temp[..block * below].fill(0.0);
-                            gemm(
-                                &mut temp[..block * below],
-                                &work[c * n..],
-                                n,
-                                panel,
-                                m,
-                                width,
-                                t1,
-                                consumed,
-                                below,
-                                block,
-                            );
-                            (0..block).for_each(|b| {
-                                let column = &mut work[(c + b) * n..(c + b + 1) * n];
-                                rows[width..]
-                                    .iter()
-                                    .zip(temp[b * below..(b + 1) * below].iter())
-                                    .for_each(|(&row, value)| column[row] -= value);
-                            });
+                            let shared = offsets[c];
+                            let ahead = below - shared;
+                            if ahead > 0 {
+                                temp[..block * ahead].fill(0.0);
+                                gemm(
+                                    &mut temp[..block * ahead],
+                                    &work[c * n..],
+                                    n,
+                                    panel,
+                                    m,
+                                    width + shared,
+                                    t1,
+                                    consumed,
+                                    ahead,
+                                    block,
+                                );
+                                (0..block).for_each(|b| {
+                                    let skip = offsets[c + b] - shared;
+                                    let column = &mut work[(c + b) * n..(c + b + 1) * n];
+                                    rows[width + shared + skip..]
+                                        .iter()
+                                        .zip(temp[b * ahead + skip..(b + 1) * ahead].iter())
+                                        .for_each(|(&row, value)| column[row] -= value);
+                                });
+                            }
                             c += block;
                         }
                     }
