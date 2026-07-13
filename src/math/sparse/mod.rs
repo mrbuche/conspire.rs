@@ -9,6 +9,8 @@ pub use lu::CscLu;
 pub use matrix::CscMatrix;
 pub use solver::SparseSolver;
 
+use crate::math::TestError;
+
 /// Possible errors for sparse data types.
 #[derive(Debug, PartialEq)]
 pub enum SparseError {
@@ -16,7 +18,7 @@ pub enum SparseError {
     Unsymmetric,
 }
 
-impl From<SparseError> for crate::math::TestError {
+impl From<SparseError> for TestError {
     fn from(error: SparseError) -> Self {
         Self {
             message: format!("{error:?}"),
