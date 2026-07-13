@@ -283,7 +283,11 @@ impl CscLdl {
         let n = self.pinv.len();
         assert_eq!(n, matrix.height());
         let mut work = vec![0.0; n * CHUNK];
-        let mut temp = vec![0.0; 4 * self.max_below()];
+        let width_max = (0..self.sn_start.len() - 1)
+            .map(|s| self.sn_start[s + 1] - self.sn_start[s])
+            .max()
+            .unwrap_or(0);
+        let mut temp = vec![0.0; 4 * self.max_below().max(width_max)];
         let mut pointers = [0; CHUNK];
         for s in 0..self.sn_start.len() - 1 {
             let s1 = self.sn_start[s];
@@ -356,17 +360,38 @@ impl CscLdl {
                                 (k, self.d[k] * value, 0.0, false)
                             };
                             column[base] = w_0;
-                            if t2 > c1 {
-                                inpanel(column, panel, base - t1, m, t1, c1, t2, w_0);
-                            }
                             if paired {
                                 column[base + 1] = w_1;
-                                if t2 > c1 {
-                                    inpanel(column, panel, base + 1 - t1, m, t1, c1, t2, w_1);
-                                }
                             }
                         }
                     });
+                    if t2 > c1 {
+                        let inside = t2 - c1;
+                        let mut c = 0;
+                        while c < chunk {
+                            let block = (chunk - c).min(4);
+                            temp[..block * inside].fill(0.0);
+                            gemm(
+                                &mut temp[..block * inside],
+                                &work[c * n..],
+                                n,
+                                panel,
+                                m,
+                                c1 - t1,
+                                t1,
+                                consumed,
+                                inside,
+                                block,
+                            );
+                            (0..block).for_each(|b| {
+                                work[(c + b) * n + c1..(c + b) * n + t2]
+                                    .iter_mut()
+                                    .zip(temp[b * inside..(b + 1) * inside].iter())
+                                    .for_each(|(work_r, value)| *work_r -= value);
+                            });
+                            c += block;
+                        }
+                    }
                     if below > 0 {
                         let mut offsets = [0; CHUNK];
                         offsets[0] = rows[width..].partition_point(|&row| row < c1);
@@ -537,26 +562,6 @@ impl CscLdl {
     }
     fn max_below(&self) -> usize {
         max_below(&self.sn_start, &self.sn_rows_ptr)
-    }
-}
-
-/// Applies a within-panel update from a source column to a work column.
-#[allow(clippy::too_many_arguments)]
-fn inpanel(
-    column: &mut [Scalar],
-    panel: &[Scalar],
-    c: usize,
-    m: usize,
-    t1: usize,
-    c1: usize,
-    t2: usize,
-    w: Scalar,
-) {
-    if w != 0.0 {
-        column[c1..t2]
-            .iter_mut()
-            .zip(panel[c * m + c1 - t1..c * m + t2 - t1].iter())
-            .for_each(|(work_r, value)| *work_r -= value * w);
     }
 }
 

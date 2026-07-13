@@ -194,8 +194,8 @@ pub(super) fn gemm(
                         temp_1,
                         temp_2,
                         temp_3,
-                        &panel[c * m + width..(c + 1) * m],
-                        &panel[(c + 1) * m + width..(c + 2) * m],
+                        &panel[c * m + width..c * m + width + below],
+                        &panel[(c + 1) * m + width..(c + 1) * m + width + below],
                         [u_0, u_1, u_2, u_3],
                         [w_0, w_1, w_2, w_3],
                     );
@@ -205,7 +205,7 @@ pub(super) fn gemm(
                         temp_1,
                         temp_2,
                         temp_3,
-                        &panel[c * m + width..(c + 1) * m],
+                        &panel[c * m + width..c * m + width + below],
                         [u_0, u_1, u_2, u_3],
                     );
                 }
@@ -215,7 +215,7 @@ pub(super) fn gemm(
                     temp_1,
                     temp_2,
                     temp_3,
-                    &panel[(c + 1) * m + width..(c + 2) * m],
+                    &panel[(c + 1) * m + width..(c + 1) * m + width + below],
                     [w_0, w_1, w_2, w_3],
                 );
             }
@@ -232,7 +232,7 @@ pub(super) fn gemm(
                     temp_1,
                     temp_2,
                     temp_3,
-                    &panel[c * m + width..(c + 1) * m],
+                    &panel[c * m + width..c * m + width + below],
                     [u_0, u_1, u_2, u_3],
                 );
             }
@@ -243,7 +243,7 @@ pub(super) fn gemm(
             (0..consumed).for_each(|c| {
                 let u = work[b * n + t1 + c];
                 if u != 0.0 {
-                    panel[c * m + width..(c + 1) * m]
+                    panel[c * m + width..c * m + width + below]
                         .iter()
                         .zip(target.iter_mut())
                         .for_each(|(&value, target_r)| *target_r += value * u);
