@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod test;
 
+mod amd;
+
 use crate::math::{Scalar, Vector};
 use std::ops::Mul;
 

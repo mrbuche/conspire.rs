@@ -1,11 +1,8 @@
 #[cfg(test)]
 mod test;
 
-use super::{
-    SparseError,
-    lu::{CHUNK, NONE, etree, gemm, max_below, reach_sorted, supernodes},
-    matrix::CscMatrix,
-};
+use super::super::{SparseError, matrix::CscMatrix};
+use super::gemm::{CHUNK, NONE, etree, gemm, max_below, reach_sorted, supernodes};
 use crate::{
     ABS_TOL,
     math::{Scalar, Vector},

@@ -1,11 +1,8 @@
-mod amd;
-mod ldl;
-mod lu;
+mod factor;
 mod matrix;
 mod solver;
 
-pub use ldl::CscLdl;
-pub use lu::CscLu;
+pub use factor::{CscLdl, CscLu};
 pub use matrix::CscMatrix;
 pub use solver::SparseSolver;
 

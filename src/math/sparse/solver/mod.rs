@@ -1,7 +1,11 @@
 #[cfg(test)]
 mod test;
 
-use super::{SparseError, ldl::CscLdl, lu::CscLu, matrix::CscMatrix};
+use super::{
+    SparseError,
+    factor::{CscLdl, CscLu},
+    matrix::CscMatrix,
+};
 use crate::math::{Scalar, Vector};
 use std::{
     cell::{Cell, Ref, RefCell},

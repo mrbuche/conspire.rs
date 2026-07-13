@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use super::matrix::CscMatrix;
+use super::CscMatrix;
 
 const NONE: isize = -1;
 
