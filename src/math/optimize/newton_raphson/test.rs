@@ -171,6 +171,7 @@ mod root {
                 |_: &Scalar| Ok(1.0),
                 1.0,
                 EqualityConstraint::None,
+                None,
             )?,
             &0.0,
         )

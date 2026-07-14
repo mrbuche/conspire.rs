@@ -406,6 +406,7 @@ where
                 |z| jacobian(t, y, z),
                 z_0.clone(),
                 equality_constraint(t),
+                None,
             )?)
         };
         self.integrate_explicit_dae_variable_step(evolution, solution, time, initial_condition)

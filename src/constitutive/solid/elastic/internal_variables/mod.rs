@@ -293,6 +293,7 @@ where
                 self.internal_variables_initial(),
             )),
             EqualityConstraint::Linear(matrix, vector),
+            None,
         ) {
             Ok(solution) => Ok(solution.into()),
             Err(error) => Err(ConstitutiveError::Upstream(

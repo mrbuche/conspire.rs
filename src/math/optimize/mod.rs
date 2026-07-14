@@ -37,6 +37,7 @@ pub trait FirstOrderRootFinding<F, J, X> {
         jacobian: impl FnMut(&X) -> Result<J, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
+        sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError>;
 }
 

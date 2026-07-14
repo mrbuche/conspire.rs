@@ -250,6 +250,7 @@ where
                 |dydt| jacobian(t, y, dydt),
                 dydt_0.clone(),
                 equality_constraint(t),
+                None,
             )?)
         };
         self.integrate_implicit_dae_variable_step(evolution, time, initial_condition)

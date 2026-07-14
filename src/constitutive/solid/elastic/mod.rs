@@ -245,6 +245,7 @@ where
             },
             DeformationGradient::identity(),
             EqualityConstraint::Linear(matrix, vector),
+            None,
         ) {
             Ok(deformation_gradient) => Ok(deformation_gradient),
             Err(error) => Err(ConstitutiveError::Upstream(

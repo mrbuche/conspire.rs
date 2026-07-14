@@ -70,6 +70,7 @@ where
         jacobian: impl FnMut(&X) -> Result<J, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
+        sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
         match equality_constraint {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
@@ -78,7 +79,7 @@ where
                 function,
                 jacobian,
                 initial_guess,
-                None,
+                sparse,
                 indices,
             ),
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
@@ -87,7 +88,7 @@ where
                 function,
                 jacobian,
                 initial_guess,
-                None,
+                sparse,
                 constraint_matrix,
                 constraint_rhs,
             ),

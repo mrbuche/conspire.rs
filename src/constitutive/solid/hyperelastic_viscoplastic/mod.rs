@@ -44,7 +44,7 @@ where
     ) -> Result<Scalar, ConstitutiveError>;
 }
 
-/// First-order minimization methods for elastic-viscoplastic solid constitutive models.
+/// First-order minimization methods for hyperelastic-viscoplastic solid constitutive models.
 pub trait FirstOrderMinimize<Y>
 where
     Y: Tensor,
@@ -75,7 +75,7 @@ where
     >;
 }
 
-/// Second-order minimization methods for elastic-viscoplastic solid constitutive models.
+/// Second-order minimization methods for hyperelastic-viscoplastic solid constitutive models.
 pub trait SecondOrderMinimize<Y>
 where
     Y: Tensor,
