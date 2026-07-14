@@ -107,6 +107,21 @@ where
     }
 }
 
+/// Accumulates rank-2 blocks into a sparse Hessian-like structure, symmetric-safe:
+/// the caller guarantees `block` at (a, b) equals the transpose of the (b, a)
+/// contribution, so implementors may store or mirror as they see fit.
+pub trait HessianAccumulate<const D: usize, const I: usize> {
+    fn accumulate(&mut self, a: usize, b: usize, block: rank_2::TensorRank2<D, I, I>);
+}
+
+/// Accumulates a rank-2 block at an exact (a, b) position, no symmetry assumed.
+/// Only implemented by accumulators that store every position explicitly.
+pub trait HessianAccumulateGeneral<const D: usize, const I: usize>:
+    HessianAccumulate<D, I>
+{
+    fn accumulate_general(&mut self, a: usize, b: usize, block: rank_2::TensorRank2<D, I, I>);
+}
+
 /// Common methods for rank-2 tensors.
 pub trait Rank2
 where

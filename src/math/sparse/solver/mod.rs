@@ -8,26 +8,32 @@ use super::{
 };
 use crate::math::{Scalar, Vector};
 use std::{
-    cell::{Cell, Ref, RefCell},
+    cell::{Ref, RefCell},
     rc::Rc,
 };
 
 /// A sparse direct solver for repeated solves on a fixed sparsity pattern.
 /// Cloning shares the cached factorization, whose pivot order and fill pattern
 /// are reused across solves until a pivot degrades. Symmetric values use an
-/// LDLᵀ factorization, falling back to LU otherwise.
+/// LDLᵀ factorization, falling back to LU otherwise. Symmetry is a caller-supplied
+/// guarantee about the source values, not detected at runtime — a source whose
+/// symmetry can vary between solves (e.g. a tangent that is only symmetric near
+/// a particular configuration) must be declared asymmetric.
 #[derive(Clone)]
 pub struct SparseSolver {
     matrix: RefCell<CscMatrix>,
     ldl: Rc<RefCell<Option<CscLdl>>>,
     lu: Rc<RefCell<Option<CscLu>>>,
-    symmetric: Rc<Cell<Option<bool>>>,
 }
 
 impl SparseSolver {
-    pub fn from_pattern(num: usize, pattern: Vec<(usize, usize)>) -> Self {
+    pub fn from_pattern(num: usize, pattern: Vec<(usize, usize)>, symmetric: bool) -> Self {
         let matrix = CscMatrix::from_pattern(num, num, pattern);
-        let ldl = matrix.ldl_symbolic().ok();
+        let ldl = if symmetric {
+            matrix.ldl_symbolic().ok()
+        } else {
+            None
+        };
         let lu = if ldl.is_none() {
             matrix.lu_symbolic().ok()
         } else {
@@ -37,7 +43,6 @@ impl SparseSolver {
             matrix: RefCell::new(matrix),
             ldl: Rc::new(RefCell::new(ldl)),
             lu: Rc::new(RefCell::new(lu)),
-            symmetric: Rc::new(Cell::new(None)),
         }
     }
     /// The nonzero (row, column) positions this structure was built from.
@@ -55,13 +60,7 @@ impl SparseSolver {
         matrix.fill(source);
         let mut ldl = self.ldl.borrow_mut();
         if ldl.is_some() {
-            let symmetric = self.symmetric.get().unwrap_or_else(|| {
-                let symmetric = matrix.symmetric();
-                self.symmetric.set(Some(symmetric));
-                symmetric
-            });
-            if symmetric
-                && let Some(cached) = ldl.as_mut()
+            if let Some(cached) = ldl.as_mut()
                 && cached.refactor(&matrix).is_ok()
             {
                 return Ok(cached.solve(b));

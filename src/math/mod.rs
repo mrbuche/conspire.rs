@@ -36,8 +36,8 @@ pub use random::{
 };
 pub use set::{Set, sets::Sets};
 pub use tensor::{
-    Hessian, Jacobian, Norm, Rank2, Scalar, ScalarList, ScalarListVec, Scalars, Solution, Tensor,
-    TensorArray, TensorError, TensorVec,
+    Hessian, HessianAccumulate, HessianAccumulateGeneral, Jacobian, Norm, Rank2, Scalar,
+    ScalarList, ScalarListVec, Scalars, Solution, Tensor, TensorArray, TensorError, TensorVec,
     list::TensorList,
     rank_0::{TensorRank0, list::TensorRank0List, list_2d::TensorRank0List2D},
     rank_1::{
@@ -48,6 +48,7 @@ pub use tensor::{
         IDENTITY, IDENTITY_00, IDENTITY_10, IDENTITY_22, TensorRank2, ZERO, ZERO_10,
         list::{TensorRank2List, vec::TensorRank2ListVec},
         list_2d::TensorRank2List2D,
+        sparse_symmetric_vec_2d::TensorRank2SparseSymmetricVec2D,
         sparse_vec::TensorRank2SparseVec,
         sparse_vec_2d::TensorRank2SparseVec2D,
         vec::TensorRank2Vec,

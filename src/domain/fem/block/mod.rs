@@ -209,6 +209,7 @@ pub(crate) fn solver_from_neighbors(
     neighbors: &[Vec<usize>],
     equality_constraint: &EqualityConstraint,
     dimension: usize,
+    symmetric: bool,
 ) -> SparseSolver {
     let number_of_nodes = neighbors.len();
     let num_coords = dimension * number_of_nodes;
@@ -240,7 +241,7 @@ pub(crate) fn solver_from_neighbors(
                 .into_iter()
                 .map(|(i, j)| (remap[i], remap[j]))
                 .collect();
-            SparseSolver::from_pattern(next, pattern)
+            SparseSolver::from_pattern(next, pattern, symmetric)
         }
         EqualityConstraint::Linear(matrix, _) => {
             assert_eq!(matrix.width(), num_coords);
@@ -254,8 +255,8 @@ pub(crate) fn solver_from_neighbors(
                     }
                 })
             });
-            SparseSolver::from_pattern(num_dof, pattern)
+            SparseSolver::from_pattern(num_dof, pattern, symmetric)
         }
-        EqualityConstraint::None => SparseSolver::from_pattern(num_coords, pattern),
+        EqualityConstraint::None => SparseSolver::from_pattern(num_coords, pattern, symmetric),
     }
 }

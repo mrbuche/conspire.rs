@@ -2,7 +2,10 @@
 mod test;
 
 use super::TensorRank2;
-use crate::math::{Hessian, Scalar, SquareMatrix, Tensor, tensor::vec::TensorVector};
+use crate::math::{
+    Hessian, HessianAccumulate, HessianAccumulateGeneral, Rank2, Scalar, SquareMatrix, Tensor,
+    tensor::vec::TensorVector,
+};
 use std::ops::Mul;
 
 use super::sparse_vec::TensorRank2SparseVec;
@@ -17,6 +20,25 @@ pub type TensorRank2SparseVec2D<const D: usize, const I: usize, const J: usize> 
 impl<const D: usize, const I: usize, const J: usize> TensorRank2SparseVec2D<D, I, J> {
     pub fn zero(len: usize) -> Self {
         (0..len).map(|_| TensorRank2SparseVec::default()).collect()
+    }
+}
+
+impl<const D: usize, const I: usize> HessianAccumulate<D, I> for TensorRank2SparseVec2D<D, I, I> {
+    fn accumulate(&mut self, a: usize, b: usize, block: TensorRank2<D, I, I>) {
+        if a == b {
+            self[a][b] += block;
+        } else {
+            self[b][a] += block.transpose();
+            self[a][b] += block;
+        }
+    }
+}
+
+impl<const D: usize, const I: usize> HessianAccumulateGeneral<D, I>
+    for TensorRank2SparseVec2D<D, I, I>
+{
+    fn accumulate_general(&mut self, a: usize, b: usize, block: TensorRank2<D, I, I>) {
+        self[a][b] += block;
     }
 }
 

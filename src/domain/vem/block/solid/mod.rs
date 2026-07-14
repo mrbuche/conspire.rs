@@ -11,6 +11,7 @@ use crate::{
 
 pub type NodalForcesSolid = crate::fem::solid::NodalForcesSolid<3>;
 pub type NodalStiffnessesSolid = crate::fem::solid::NodalStiffnessesSolid<3>;
+pub type NodalStiffnessesSolidSymmetric = crate::fem::solid::NodalStiffnessesSolidSymmetric<3>;
 
 pub trait SolidVirtualElements<C, F>
 where

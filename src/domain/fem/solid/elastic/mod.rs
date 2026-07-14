@@ -2,6 +2,7 @@ use crate::{
     fem::{
         Blocks, ElementModel, ElementModelError, Elements, FirstOrderRoot, Model, NodalCoordinates,
         ZerothOrderRoot,
+        block::{finalize_node_neighbors, solver_from_neighbors},
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{
@@ -123,6 +124,10 @@ where
             NodalCoordinates<D>,
         >,
     ) -> Result<NodalCoordinates<D>, OptimizationError> {
+        let mut neighbors = vec![Vec::new(); self.coordinates().len()];
+        self.node_neighbors(&mut neighbors);
+        finalize_node_neighbors(&mut neighbors);
+        let sparse = solver_from_neighbors(&neighbors, &equality_constraint, D, false);
         solver.root(
             |nodal_coordinates: &NodalCoordinates<D>| Ok(self.nodal_forces(nodal_coordinates)?),
             |nodal_coordinates: &NodalCoordinates<D>| {
@@ -130,6 +135,7 @@ where
             },
             self.coordinates().clone().into(),
             equality_constraint,
+            Some(sparse),
         )
     }
 }

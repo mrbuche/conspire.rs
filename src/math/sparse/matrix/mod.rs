@@ -105,20 +105,6 @@ impl CscMatrix {
             scatter: self.scatter.iter().map(|&k| perm[k]).collect(),
         }
     }
-    /// Whether the values are symmetric within a relative tolerance.
-    pub(crate) fn symmetric(&self) -> bool {
-        (0..self.width).all(|j| {
-            self.column(j).all(|(i, value)| {
-                self.row_idx[self.col_ptr[i]..self.col_ptr[i + 1]]
-                    .binary_search(&j)
-                    .map(|k| {
-                        let other = self.values[self.col_ptr[i] + k];
-                        (value - other).abs() <= 1e-12 * value.abs().max(other.abs()).max(1.0)
-                    })
-                    .unwrap_or(false)
-            })
-        })
-    }
     /// A column-to-row matching pairing every column with a structurally
     /// nonzero row (a maximum transversal), or None if structurally singular.
     pub(crate) fn maxtrans(&self) -> Option<Vec<usize>> {

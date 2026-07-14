@@ -140,7 +140,7 @@ where
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);
         finalize_node_neighbors(&mut neighbors);
-        let sparse = solver_from_neighbors(&neighbors, &bcs(time[0]), D);
+        let sparse = solver_from_neighbors(&neighbors, &bcs(time[0]), D, true);
         let (time_history, state_variables_history, _, nodal_coordinates_history) = integrator
             .integrate(
                 |_: Scalar, state_variables: &S, nodal_coordinates: &NodalCoordinates<D>| {

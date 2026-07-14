@@ -145,6 +145,10 @@ where
             NodalTemperatures,
         >,
     ) -> Result<NodalTemperatures, OptimizationError> {
+        let mut neighbors = vec![Vec::new(); self.coordinates().len()];
+        self.node_neighbors(&mut neighbors);
+        finalize_node_neighbors(&mut neighbors);
+        let sparse = solver_from_neighbors(&neighbors, &equality_constraint, 1, true);
         solver.root(
             |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
             |nodal_temperatures: &NodalTemperatures| {
@@ -152,6 +156,7 @@ where
             },
             NodalTemperatures::zero(self.coordinates().len()),
             equality_constraint,
+            Some(sparse),
         )
     }
 }
@@ -193,7 +198,7 @@ where
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);
         finalize_node_neighbors(&mut neighbors);
-        let sparse = solver_from_neighbors(&neighbors, &equality_constraint, 1);
+        let sparse = solver_from_neighbors(&neighbors, &equality_constraint, 1, true);
         solver.minimize(
             |nodal_temperatures: &NodalTemperatures| Ok(self.potential(nodal_temperatures)?),
             |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),

@@ -5,13 +5,16 @@ use crate::{
         block::{
             Block,
             element::{
-                planar::PlanarHyperelasticFiniteElement,
+                FiniteElementError, planar::PlanarHyperelasticFiniteElement,
                 solid::hyperelastic::HyperelasticFiniteElement,
             },
         },
-        solid::{elastic::ElasticElements, hyperelastic::HyperelasticElements},
+        solid::{
+            NodalStiffnessesSolidSymmetric, elastic::ElasticElements,
+            hyperelastic::HyperelasticElements,
+        },
     },
-    math::Scalar,
+    math::{HessianAccumulate, Scalar},
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> HyperelasticElements<3>
@@ -44,6 +47,42 @@ where
             )),
         }
     }
+    fn nodal_stiffnesses_symmetric_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<3>,
+        nodal_stiffnesses: &mut NodalStiffnessesSolidSymmetric<3>,
+    ) -> Result<(), ElementModelError> {
+        match self
+            .elements()
+            .iter()
+            .zip(self.connectivity())
+            .try_for_each(|(element, nodes)| {
+                element
+                    .nodal_stiffnesses(
+                        self.constitutive_model(),
+                        &Self::element_coordinates(nodal_coordinates, nodes),
+                    )?
+                    .into_iter()
+                    .zip(nodes)
+                    .for_each(|(object, &node_a)| {
+                        object
+                            .into_iter()
+                            .zip(nodes)
+                            .for_each(|(nodal_stiffness, &node_b)| {
+                                if node_a <= node_b {
+                                    nodal_stiffnesses.accumulate(node_a, node_b, nodal_stiffness)
+                                }
+                            })
+                    });
+                Ok::<(), FiniteElementError>(())
+            }) {
+            Ok(()) => Ok(()),
+            Err(error) => Err(ElementModelError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
+    }
 }
 
 impl<C, F, const G: usize, const N: usize, const P: usize> HyperelasticElements<2>
@@ -70,6 +109,42 @@ where
             .sum()
         {
             Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
+            Err(error) => Err(ElementModelError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
+    }
+    fn nodal_stiffnesses_symmetric_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<2>,
+        nodal_stiffnesses: &mut NodalStiffnessesSolidSymmetric<2>,
+    ) -> Result<(), ElementModelError> {
+        match self
+            .elements()
+            .iter()
+            .zip(self.connectivity())
+            .try_for_each(|(element, nodes)| {
+                element
+                    .nodal_stiffnesses(
+                        self.constitutive_model(),
+                        &Self::element_coordinates(nodal_coordinates, nodes),
+                    )?
+                    .into_iter()
+                    .zip(nodes)
+                    .for_each(|(object, &node_a)| {
+                        object
+                            .into_iter()
+                            .zip(nodes)
+                            .for_each(|(nodal_stiffness, &node_b)| {
+                                if node_a <= node_b {
+                                    nodal_stiffnesses.accumulate(node_a, node_b, nodal_stiffness)
+                                }
+                            })
+                    });
+                Ok::<(), FiniteElementError>(())
+            }) {
+            Ok(()) => Ok(()),
             Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),

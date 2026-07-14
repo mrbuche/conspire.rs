@@ -129,7 +129,7 @@ where
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);
         finalize_node_neighbors(&mut neighbors);
-        let sparse = solver_from_neighbors(&neighbors, &equality_constraint, D);
+        let sparse = solver_from_neighbors(&neighbors, &equality_constraint, D, true);
         integrator.integrate(
             |_: Scalar,
              nodal_coordinates: &NodalCoordinates<D>,

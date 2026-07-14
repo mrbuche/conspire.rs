@@ -1,5 +1,5 @@
 use super::{TensorRank2, TensorRank2SparseVec2D};
-use crate::math::{Hessian, Rank2, SquareMatrix};
+use crate::math::{Hessian, HessianAccumulate, HessianAccumulateGeneral, Rank2, SquareMatrix};
 
 fn block(value: f64) -> TensorRank2<2, 1, 1> {
     TensorRank2::from([[value, 2.0 * value], [3.0 * value, 4.0 * value]])
@@ -87,4 +87,28 @@ fn merge_add_and_subtract() {
         .collect();
     assert_eq!(difference[0][0][0][0], 5.0);
     assert_eq!(difference[0][1][0][0], -7.0);
+}
+
+#[test]
+fn accumulate_mirrors_off_diagonal_blocks() {
+    let mut stiffnesses = TensorRank2SparseVec2D::<2, 1, 1>::zero(3);
+    stiffnesses.accumulate(0, 2, block(1.0));
+    stiffnesses.accumulate(1, 1, block(5.0));
+    assert_eq!(stiffnesses[0][2][0][0], 1.0);
+    assert_eq!(stiffnesses[0][2][1][0], 3.0);
+    assert_eq!(stiffnesses[2][0][0][0], 1.0);
+    assert_eq!(stiffnesses[2][0][0][1], 3.0);
+    assert_eq!(stiffnesses[1][1][0][0], 5.0);
+}
+
+#[test]
+fn accumulate_general_inserts_without_mirroring() {
+    let mut stiffnesses = TensorRank2SparseVec2D::<2, 1, 1>::zero(3);
+    stiffnesses.accumulate_general(0, 2, block(1.0));
+    assert_eq!(stiffnesses[0][2][0][0], 1.0);
+    assert_eq!(
+        stiffnesses[0].entries().map(|(c, _)| c).collect::<Vec<_>>(),
+        [2]
+    );
+    assert_eq!(stiffnesses[2].entries().count(), 0);
 }
