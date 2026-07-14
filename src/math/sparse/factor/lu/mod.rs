@@ -4,7 +4,7 @@ mod avx;
 mod test;
 
 use super::super::{SparseError, matrix::CscMatrix};
-use super::gemm::{CHUNK, NONE, etree, gemm, max_below, reach_sorted, supernodes};
+use super::gemm::{CHUNK, NONE, axpy, etree, gemm, max_below, reach_sorted, supernodes};
 use crate::{
     ABS_TOL,
     math::{Scalar, Vector},
@@ -448,10 +448,11 @@ impl CscLu {
                         work[offset + k] = 0.0;
                         if u != 0.0 {
                             let start = self.sn_panel_ptr[s] + c * s_m;
-                            work[offset + k + 1..offset + s2]
-                                .iter_mut()
-                                .zip(self.sn_values[start + c + 1..start + s_width].iter())
-                                .for_each(|(work_r, value)| *work_r -= value * u);
+                            axpy(
+                                &mut work[offset + k + 1..offset + s2],
+                                &self.sn_values[start + c + 1..start + s_width],
+                                u,
+                            );
                             self.sn_rows[s_rows_start + s_width..s_rows_start + s_m]
                                 .iter()
                                 .zip(self.sn_values[start + s_width..start + s_m].iter())

@@ -1,5 +1,29 @@
 use crate::math::Scalar;
-use std::arch::x86_64::{_mm256_fmadd_pd, _mm256_loadu_pd, _mm256_set1_pd, _mm256_storeu_pd};
+use std::arch::x86_64::{
+    _mm256_fmadd_pd, _mm256_fnmadd_pd, _mm256_loadu_pd, _mm256_set1_pd, _mm256_storeu_pd,
+};
+
+#[target_feature(enable = "avx2", enable = "fma")]
+pub unsafe fn axpy(target: &mut [Scalar], column: &[Scalar], w: Scalar) {
+    let len = target.len();
+    let spread = _mm256_set1_pd(w);
+    let mut r = 0;
+    unsafe {
+        while r + 4 <= len {
+            let entry = target.as_mut_ptr().add(r);
+            _mm256_storeu_pd(
+                entry,
+                _mm256_fnmadd_pd(
+                    _mm256_loadu_pd(column.as_ptr().add(r)),
+                    spread,
+                    _mm256_loadu_pd(entry),
+                ),
+            );
+            r += 4;
+        }
+    }
+    (r..len).for_each(|i| target[i] -= column[i] * w);
+}
 
 #[target_feature(enable = "avx2", enable = "fma")]
 pub unsafe fn rank_one_quad(

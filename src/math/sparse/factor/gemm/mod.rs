@@ -98,6 +98,18 @@ pub(super) fn reach_sorted(
     reach.sort_unstable();
 }
 
+/// Subtracts `w` times a column slice from an equal-length target slice.
+pub(super) fn axpy(target: &mut [Scalar], column: &[Scalar], w: Scalar) {
+    #[cfg(target_arch = "x86_64")]
+    if super::simd() {
+        return unsafe { avx::axpy(target, column, w) };
+    }
+    target
+        .iter_mut()
+        .zip(column.iter())
+        .for_each(|(target_r, value)| *target_r -= value * w);
+}
+
 fn rank_one_quad(
     temp_0: &mut [Scalar],
     temp_1: &mut [Scalar],
@@ -156,6 +168,109 @@ fn rank_two_quad(
             *a_2 += value * u[2] + second * w[2];
             *a_3 += value * u[3] + second * w[3];
         });
+}
+
+/// Applies a source column pair to four target slices with multipliers `u`
+/// and `w`, skipping all-zero multiplier quads.
+#[allow(clippy::too_many_arguments)]
+fn pair_quad(
+    temp_0: &mut [Scalar],
+    temp_1: &mut [Scalar],
+    temp_2: &mut [Scalar],
+    temp_3: &mut [Scalar],
+    column: &[Scalar],
+    other: &[Scalar],
+    u: [Scalar; 4],
+    w: [Scalar; 4],
+) {
+    let any_u = u.iter().any(|&value| value != 0.0);
+    let any_w = w.iter().any(|&value| value != 0.0);
+    if any_u && any_w {
+        rank_two_quad(temp_0, temp_1, temp_2, temp_3, column, other, u, w);
+    } else if any_u {
+        rank_one_quad(temp_0, temp_1, temp_2, temp_3, column, u);
+    } else if any_w {
+        rank_one_quad(temp_0, temp_1, temp_2, temp_3, other, w);
+    }
+}
+
+/// Contributions of the first `consumed` columns of a panel's rows
+/// `[lo, lo + count)` to up to CHUNK dense target columns, streaming each
+/// panel column pair from memory once for both target quads.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn gemm_wide(
+    temp: &mut [Scalar],
+    work: &[Scalar],
+    n: usize,
+    panel: &[Scalar],
+    m: usize,
+    lo: usize,
+    t1: usize,
+    consumed: usize,
+    count: usize,
+    chunk: usize,
+) {
+    let (half, rest) = temp.split_at_mut(2 * count);
+    let (temp_0, temp_1) = half.split_at_mut(count);
+    let (half, rest) = rest.split_at_mut(2 * count);
+    let (temp_2, temp_3) = half.split_at_mut(count);
+    let (half, rest) = rest.split_at_mut(2 * count);
+    let (temp_4, temp_5) = half.split_at_mut(count);
+    let (temp_6, temp_7) = rest[..2 * count].split_at_mut(count);
+    let read = |b: usize, c: usize| {
+        if b < chunk { work[b * n + t1 + c] } else { 0.0 }
+    };
+    let mut c = 0;
+    while c + 2 <= consumed {
+        let column = &panel[c * m + lo..c * m + lo + count];
+        let other = &panel[(c + 1) * m + lo..(c + 1) * m + lo + count];
+        pair_quad(
+            temp_0,
+            temp_1,
+            temp_2,
+            temp_3,
+            column,
+            other,
+            [read(0, c), read(1, c), read(2, c), read(3, c)],
+            [
+                read(0, c + 1),
+                read(1, c + 1),
+                read(2, c + 1),
+                read(3, c + 1),
+            ],
+        );
+        if chunk > 4 {
+            pair_quad(
+                temp_4,
+                temp_5,
+                temp_6,
+                temp_7,
+                column,
+                other,
+                [read(4, c), read(5, c), read(6, c), read(7, c)],
+                [
+                    read(4, c + 1),
+                    read(5, c + 1),
+                    read(6, c + 1),
+                    read(7, c + 1),
+                ],
+            );
+        }
+        c += 2;
+    }
+    if c < consumed {
+        let column = &panel[c * m + lo..c * m + lo + count];
+        let u = [read(0, c), read(1, c), read(2, c), read(3, c)];
+        if u.iter().any(|&value| value != 0.0) {
+            rank_one_quad(temp_0, temp_1, temp_2, temp_3, column, u);
+        }
+        if chunk > 4 {
+            let u = [read(4, c), read(5, c), read(6, c), read(7, c)];
+            if u.iter().any(|&value| value != 0.0) {
+                rank_one_quad(temp_4, temp_5, temp_6, temp_7, column, u);
+            }
+        }
+    }
 }
 
 /// Below-block contributions of the first `consumed` columns of a panel to a

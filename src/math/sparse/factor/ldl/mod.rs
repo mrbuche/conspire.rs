@@ -2,7 +2,7 @@
 mod test;
 
 use super::super::{SparseError, matrix::CscMatrix};
-use super::gemm::{CHUNK, NONE, etree, gemm, max_below, reach_sorted, supernodes};
+use super::gemm::{CHUNK, NONE, axpy, etree, gemm_wide, max_below, reach_sorted, supernodes};
 use crate::{
     ABS_TOL,
     math::{Scalar, Vector},
@@ -287,7 +287,7 @@ impl CscLdl {
             .map(|s| self.sn_start[s + 1] - self.sn_start[s])
             .max()
             .unwrap_or(0);
-        let mut temp = vec![0.0; 4 * self.max_below().max(width_max)];
+        let mut temp = vec![0.0; CHUNK * self.max_below().max(width_max)];
         let mut pointers = [0; CHUNK];
         for s in 0..self.sn_start.len() - 1 {
             let s1 = self.sn_start[s];
@@ -367,30 +367,25 @@ impl CscLdl {
                     });
                     if t2 > c1 {
                         let inside = t2 - c1;
-                        let mut c = 0;
-                        while c < chunk {
-                            let block = (chunk - c).min(4);
-                            temp[..block * inside].fill(0.0);
-                            gemm(
-                                &mut temp[..block * inside],
-                                &work[c * n..],
-                                n,
-                                panel,
-                                m,
-                                c1 - t1,
-                                t1,
-                                consumed,
-                                inside,
-                                block,
-                            );
-                            (0..block).for_each(|b| {
-                                work[(c + b) * n + c1..(c + b) * n + t2]
-                                    .iter_mut()
-                                    .zip(temp[b * inside..(b + 1) * inside].iter())
-                                    .for_each(|(work_r, value)| *work_r -= value);
-                            });
-                            c += block;
-                        }
+                        temp[..CHUNK * inside].fill(0.0);
+                        gemm_wide(
+                            &mut temp[..CHUNK * inside],
+                            &work,
+                            n,
+                            panel,
+                            m,
+                            c1 - t1,
+                            t1,
+                            consumed,
+                            inside,
+                            chunk,
+                        );
+                        (0..chunk).for_each(|b| {
+                            work[b * n + c1..b * n + t2]
+                                .iter_mut()
+                                .zip(temp[b * inside..(b + 1) * inside].iter())
+                                .for_each(|(work_r, value)| *work_r -= value);
+                        });
                     }
                     if below > 0 {
                         let mut offsets = [0; CHUNK];
@@ -402,35 +397,30 @@ impl CscLdl {
                             }
                             offsets[b] = o;
                         });
-                        let mut c = 0;
-                        while c < chunk {
-                            let block = (chunk - c).min(4);
-                            let shared = offsets[c];
-                            let ahead = below - shared;
-                            if ahead > 0 {
-                                temp[..block * ahead].fill(0.0);
-                                gemm(
-                                    &mut temp[..block * ahead],
-                                    &work[c * n..],
-                                    n,
-                                    panel,
-                                    m,
-                                    width + shared,
-                                    t1,
-                                    consumed,
-                                    ahead,
-                                    block,
-                                );
-                                (0..block).for_each(|b| {
-                                    let skip = offsets[c + b] - shared;
-                                    let column = &mut work[(c + b) * n..(c + b + 1) * n];
-                                    rows[width + shared + skip..]
-                                        .iter()
-                                        .zip(temp[b * ahead + skip..(b + 1) * ahead].iter())
-                                        .for_each(|(&row, value)| column[row] -= value);
-                                });
-                            }
-                            c += block;
+                        let shared = offsets[0];
+                        let ahead = below - shared;
+                        if ahead > 0 {
+                            temp[..CHUNK * ahead].fill(0.0);
+                            gemm_wide(
+                                &mut temp[..CHUNK * ahead],
+                                &work,
+                                n,
+                                panel,
+                                m,
+                                width + shared,
+                                t1,
+                                consumed,
+                                ahead,
+                                chunk,
+                            );
+                            (0..chunk).for_each(|b| {
+                                let skip = offsets[b] - shared;
+                                let column = &mut work[b * n..(b + 1) * n];
+                                rows[width + shared + skip..]
+                                    .iter()
+                                    .zip(temp[b * ahead + skip..(b + 1) * ahead].iter())
+                                    .for_each(|(&row, value)| column[row] -= value);
+                            });
                         }
                     }
                     (0..chunk).for_each(|c| work[c * n + t1..c * n + t1 + consumed].fill(0.0));
@@ -583,10 +573,11 @@ fn finalize_update(
     if w != 0.0 {
         let c = base - s1;
         let start = panel_ptr + c * s_m;
-        column[base + 1..s2]
-            .iter_mut()
-            .zip(sn_values[start + c + 1..start + s_width].iter())
-            .for_each(|(work_r, value)| *work_r -= value * w);
+        axpy(
+            &mut column[base + 1..s2],
+            &sn_values[start + c + 1..start + s_width],
+            w,
+        );
         sn_rows[s_rows_start + s_width..s_rows_start + s_m]
             .iter()
             .zip(sn_values[start + s_width..start + s_m].iter())
