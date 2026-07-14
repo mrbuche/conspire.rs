@@ -4,7 +4,7 @@ mod avx;
 mod test;
 
 use super::super::{SparseError, matrix::CscMatrix};
-use super::gemm::{CHUNK, NONE, axpy, etree, gemm, max_below, reach_sorted, supernodes};
+use super::gemm::{CHUNK, NONE, axpy, etree, gemm_wide, max_below, reach_sorted, supernodes};
 use crate::{
     ABS_TOL,
     math::{Scalar, Vector},
@@ -277,7 +277,7 @@ impl CscLu {
         let n = self.pinv.len();
         assert_eq!(n, matrix.height());
         let mut work = vec![0.0; n * CHUNK];
-        let mut temp = vec![0.0; 4 * self.max_below()];
+        let mut temp = vec![0.0; CHUNK * self.max_below()];
         let mut tile = vec![
             0.0;
             CHUNK
@@ -408,31 +408,26 @@ impl CscLu {
                         });
                     }
                     if below > 0 {
-                        let mut c = 0;
-                        while c < chunk {
-                            let block = (chunk - c).min(4);
-                            temp[..block * below].fill(0.0);
-                            gemm(
-                                &mut temp[..block * below],
-                                &work[c * n..],
-                                n,
-                                panel,
-                                m,
-                                width,
-                                t1,
-                                consumed,
-                                below,
-                                block,
-                            );
-                            (0..block).for_each(|b| {
-                                let column = &mut work[(c + b) * n..(c + b + 1) * n];
-                                rows[width..]
-                                    .iter()
-                                    .zip(temp[b * below..(b + 1) * below].iter())
-                                    .for_each(|(&row, value)| column[row] -= value);
-                            });
-                            c += block;
-                        }
+                        temp[..CHUNK * below].fill(0.0);
+                        gemm_wide(
+                            &mut temp[..CHUNK * below],
+                            &work,
+                            n,
+                            panel,
+                            m,
+                            width,
+                            t1,
+                            consumed,
+                            below,
+                            chunk,
+                        );
+                        (0..chunk).for_each(|b| {
+                            let column = &mut work[b * n..(b + 1) * n];
+                            rows[width..]
+                                .iter()
+                                .zip(temp[b * below..(b + 1) * below].iter())
+                                .for_each(|(&row, value)| column[row] -= value);
+                        });
                     }
                     (0..chunk).for_each(|c| work[c * n + t1..c * n + t1 + consumed].fill(0.0));
                 }
