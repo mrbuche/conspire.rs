@@ -5,6 +5,7 @@ mod inverse;
 pub mod list;
 pub mod list_2d;
 mod logarithm;
+pub mod sparse_vec;
 pub mod sparse_vec_2d;
 pub mod vec;
 pub mod vec_2d;
