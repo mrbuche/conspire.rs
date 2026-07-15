@@ -3,7 +3,8 @@ mod test;
 
 use crate::{
     math::{
-        Scalar, random_uniform,
+        Scalar,
+        random::random_uniform,
         special::{inverse_langevin, langevin, langevin_derivative, sinhc},
     },
     mechanics::CurrentCoordinate,

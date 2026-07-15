@@ -8,7 +8,7 @@
 #[cfg(test)]
 mod test;
 
-use super::random_u8;
+use super::random::random_u8;
 use std::{
     env::var_os,
     io::{IsTerminal, stderr},

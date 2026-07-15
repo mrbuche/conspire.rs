@@ -2,7 +2,10 @@
 mod test;
 
 use crate::{
-    math::{CrossProduct, Scalar, Tensor, random_uniform, random_x2_normal},
+    math::{
+        CrossProduct, Scalar, Tensor,
+        random::{random_uniform, random_x2_normal},
+    },
     mechanics::CurrentCoordinate,
     physics::{
         BOLTZMANN_CONSTANT,

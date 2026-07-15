@@ -12,6 +12,9 @@ pub mod interpolate;
 /// Optimization and root finding.
 pub mod optimize;
 
+/// Random number generation.
+pub mod random;
+
 /// Sparse data types.
 pub mod sparse;
 
@@ -21,7 +24,6 @@ pub mod special;
 mod graph;
 mod hash;
 mod matrix;
-mod random;
 mod set;
 mod style;
 mod tensor;
@@ -31,9 +33,6 @@ pub(crate) use style::{Style, StyledError, defeat_message, styled_error};
 pub use graph::Graph;
 pub use hash::{FxHashMap, FxHashSet, FxHasher};
 pub use matrix::{Matrix, square::SquareMatrix, vector::Vector};
-pub use random::{
-    random_normal, random_normal_standard, random_u8, random_u64, random_uniform, random_x2_normal,
-};
 pub use set::{Set, sets::Sets};
 pub use tensor::{
     Hessian, HessianAccumulate, HessianAccumulateGeneral, Jacobian, Norm, Rank2, Scalar,

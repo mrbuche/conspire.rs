@@ -1,5 +1,5 @@
 use crate::{
-    math::{Scalar, random_uniform},
+    math::{Scalar, random::random_uniform},
     mechanics::CurrentCoordinate,
     physics::molecular::{
         potential::{Harmonic, Potential},
