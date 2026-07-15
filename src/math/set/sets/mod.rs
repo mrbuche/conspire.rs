@@ -1,6 +1,7 @@
 use crate::math::set::Set;
 use std::cell::OnceCell;
 
+/// A set of sets that optionally provides the converse.
 pub struct Sets<S> {
     converse: OnceCell<Vec<Vec<usize>>>,
     set: Set<S>,

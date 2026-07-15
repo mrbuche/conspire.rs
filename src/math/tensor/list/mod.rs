@@ -7,6 +7,7 @@ use std::{
     slice,
 };
 
+/// A fixed-size collection of tensors.
 #[derive(Clone, Debug)]
 pub struct TensorList<T, const N: usize>([T; N])
 where

@@ -7,6 +7,7 @@ use std::{
     slice, vec,
 };
 
+/// A resizable collection of tensors.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TensorVector<T>(Vec<T>);
 // where

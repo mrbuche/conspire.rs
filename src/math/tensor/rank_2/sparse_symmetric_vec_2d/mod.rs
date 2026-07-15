@@ -15,22 +15,26 @@ use super::sparse_vec_2d::TensorRank2SparseVec2D;
 #[cfg(test)]
 use crate::math::{TensorArray, tensor::test::ErrorTensor};
 
-/// A vector of sparse vectors of rank-2 tensors, storing only the canonical
-/// (row <= column) half of a matrix known to be symmetric under node-pair
-/// transpose: block(a,b) == block(b,a)ᵀ.
+/// A vector of sparse vectors of rank-2 tensors, storing only the symmetric half.
+///
+/// The underlying block matrix is known to be symmetric under index-pair
+/// transpose, meaning block(a, b) == block(b, a)ᵀ for every pair of block
+/// indices. Only the canonical (row <= column) half of the blocks is stored;
+/// entries on the other side are reconstructed by transposing on lookup
+/// instead of being duplicated in memory.
 #[derive(Clone, Debug, Default)]
-pub struct TensorRank2SparseSymmetricVec2D<const D: usize, const I: usize, const J: usize>(
+pub struct TensorRank2SparseVec2DSymmetric<const D: usize, const I: usize, const J: usize>(
     TensorRank2SparseVec2D<D, I, J>,
 );
 
-impl<const D: usize, const I: usize, const J: usize> TensorRank2SparseSymmetricVec2D<D, I, J> {
+impl<const D: usize, const I: usize, const J: usize> TensorRank2SparseVec2DSymmetric<D, I, J> {
     pub fn zero(len: usize) -> Self {
         Self(TensorRank2SparseVec2D::zero(len))
     }
 }
 
 impl<const D: usize, const I: usize, const J: usize> Display
-    for TensorRank2SparseSymmetricVec2D<D, I, J>
+    for TensorRank2SparseVec2DSymmetric<D, I, J>
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "Need to implement Display")
@@ -38,7 +42,7 @@ impl<const D: usize, const I: usize, const J: usize> Display
 }
 
 impl<const D: usize, const I: usize, const J: usize> Tensor
-    for TensorRank2SparseSymmetricVec2D<D, I, J>
+    for TensorRank2SparseVec2DSymmetric<D, I, J>
 {
     type Item = TensorRank2SparseVec<D, I, J>;
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
@@ -56,7 +60,7 @@ impl<const D: usize, const I: usize, const J: usize> Tensor
 }
 
 impl<const D: usize, const I: usize, const J: usize> Add
-    for TensorRank2SparseSymmetricVec2D<D, I, J>
+    for TensorRank2SparseVec2DSymmetric<D, I, J>
 {
     type Output = Self;
     fn add(self, other: Self) -> Self {
@@ -65,7 +69,7 @@ impl<const D: usize, const I: usize, const J: usize> Add
 }
 
 impl<const D: usize, const I: usize, const J: usize> Add<&Self>
-    for TensorRank2SparseSymmetricVec2D<D, I, J>
+    for TensorRank2SparseVec2DSymmetric<D, I, J>
 {
     type Output = Self;
     fn add(self, other: &Self) -> Self {
@@ -74,7 +78,7 @@ impl<const D: usize, const I: usize, const J: usize> Add<&Self>
 }
 
 impl<const D: usize, const I: usize, const J: usize> AddAssign
-    for TensorRank2SparseSymmetricVec2D<D, I, J>
+    for TensorRank2SparseVec2DSymmetric<D, I, J>
 {
     fn add_assign(&mut self, other: Self) {
         self.0 += other.0;
@@ -82,7 +86,7 @@ impl<const D: usize, const I: usize, const J: usize> AddAssign
 }
 
 impl<const D: usize, const I: usize, const J: usize> AddAssign<&Self>
-    for TensorRank2SparseSymmetricVec2D<D, I, J>
+    for TensorRank2SparseVec2DSymmetric<D, I, J>
 {
     fn add_assign(&mut self, other: &Self) {
         self.0 += &other.0;
@@ -90,7 +94,7 @@ impl<const D: usize, const I: usize, const J: usize> AddAssign<&Self>
 }
 
 impl<const D: usize, const I: usize, const J: usize> Sub
-    for TensorRank2SparseSymmetricVec2D<D, I, J>
+    for TensorRank2SparseVec2DSymmetric<D, I, J>
 {
     type Output = Self;
     fn sub(self, other: Self) -> Self {
@@ -99,7 +103,7 @@ impl<const D: usize, const I: usize, const J: usize> Sub
 }
 
 impl<const D: usize, const I: usize, const J: usize> Sub<&Self>
-    for TensorRank2SparseSymmetricVec2D<D, I, J>
+    for TensorRank2SparseVec2DSymmetric<D, I, J>
 {
     type Output = Self;
     fn sub(self, other: &Self) -> Self {
@@ -108,7 +112,7 @@ impl<const D: usize, const I: usize, const J: usize> Sub<&Self>
 }
 
 impl<const D: usize, const I: usize, const J: usize> SubAssign
-    for TensorRank2SparseSymmetricVec2D<D, I, J>
+    for TensorRank2SparseVec2DSymmetric<D, I, J>
 {
     fn sub_assign(&mut self, other: Self) {
         self.0 -= other.0;
@@ -116,7 +120,7 @@ impl<const D: usize, const I: usize, const J: usize> SubAssign
 }
 
 impl<const D: usize, const I: usize, const J: usize> SubAssign<&Self>
-    for TensorRank2SparseSymmetricVec2D<D, I, J>
+    for TensorRank2SparseVec2DSymmetric<D, I, J>
 {
     fn sub_assign(&mut self, other: &Self) {
         self.0 -= &other.0;
@@ -124,7 +128,7 @@ impl<const D: usize, const I: usize, const J: usize> SubAssign<&Self>
 }
 
 impl<const D: usize, const I: usize, const J: usize> Mul<TensorRank0>
-    for TensorRank2SparseSymmetricVec2D<D, I, J>
+    for TensorRank2SparseVec2DSymmetric<D, I, J>
 {
     type Output = Self;
     fn mul(self, scalar: TensorRank0) -> Self {
@@ -133,7 +137,7 @@ impl<const D: usize, const I: usize, const J: usize> Mul<TensorRank0>
 }
 
 impl<const D: usize, const I: usize, const J: usize> MulAssign<TensorRank0>
-    for TensorRank2SparseSymmetricVec2D<D, I, J>
+    for TensorRank2SparseVec2DSymmetric<D, I, J>
 {
     fn mul_assign(&mut self, scalar: TensorRank0) {
         self.0 *= scalar;
@@ -141,7 +145,7 @@ impl<const D: usize, const I: usize, const J: usize> MulAssign<TensorRank0>
 }
 
 impl<const D: usize, const I: usize, const J: usize> MulAssign<&TensorRank0>
-    for TensorRank2SparseSymmetricVec2D<D, I, J>
+    for TensorRank2SparseVec2DSymmetric<D, I, J>
 {
     fn mul_assign(&mut self, scalar: &TensorRank0) {
         self.0 *= scalar;
@@ -149,7 +153,7 @@ impl<const D: usize, const I: usize, const J: usize> MulAssign<&TensorRank0>
 }
 
 impl<const D: usize, const I: usize, const J: usize> Div<TensorRank0>
-    for TensorRank2SparseSymmetricVec2D<D, I, J>
+    for TensorRank2SparseVec2DSymmetric<D, I, J>
 {
     type Output = Self;
     fn div(self, scalar: TensorRank0) -> Self {
@@ -158,7 +162,7 @@ impl<const D: usize, const I: usize, const J: usize> Div<TensorRank0>
 }
 
 impl<const D: usize, const I: usize, const J: usize> DivAssign<TensorRank0>
-    for TensorRank2SparseSymmetricVec2D<D, I, J>
+    for TensorRank2SparseVec2DSymmetric<D, I, J>
 {
     fn div_assign(&mut self, scalar: TensorRank0) {
         self.0 /= scalar;
@@ -166,7 +170,7 @@ impl<const D: usize, const I: usize, const J: usize> DivAssign<TensorRank0>
 }
 
 impl<const D: usize, const I: usize, const J: usize> DivAssign<&TensorRank0>
-    for TensorRank2SparseSymmetricVec2D<D, I, J>
+    for TensorRank2SparseVec2DSymmetric<D, I, J>
 {
     fn div_assign(&mut self, scalar: &TensorRank0) {
         self.0 /= scalar;
@@ -174,7 +178,7 @@ impl<const D: usize, const I: usize, const J: usize> DivAssign<&TensorRank0>
 }
 
 impl<const D: usize, const I: usize, const J: usize> Sum
-    for TensorRank2SparseSymmetricVec2D<D, I, J>
+    for TensorRank2SparseVec2DSymmetric<D, I, J>
 {
     fn sum<T>(iter: T) -> Self
     where
@@ -185,7 +189,7 @@ impl<const D: usize, const I: usize, const J: usize> Sum
 }
 
 impl<const D: usize, const I: usize> HessianAccumulate<D, I>
-    for TensorRank2SparseSymmetricVec2D<D, I, I>
+    for TensorRank2SparseVec2DSymmetric<D, I, I>
 {
     fn accumulate(&mut self, a: usize, b: usize, block: TensorRank2<D, I, I>) {
         if a <= b {
@@ -197,7 +201,7 @@ impl<const D: usize, const I: usize> HessianAccumulate<D, I>
 }
 
 impl<const D: usize, const I: usize, const J: usize> Hessian
-    for TensorRank2SparseSymmetricVec2D<D, I, J>
+    for TensorRank2SparseVec2DSymmetric<D, I, J>
 {
     fn entry(&self, row: usize, column: usize) -> Scalar {
         let (a, b, i, j) = if row / D <= column / D {
@@ -254,7 +258,7 @@ impl<const D: usize, const I: usize, const J: usize> Hessian
 
 #[cfg(test)]
 impl<const D: usize, const I: usize, const J: usize> ErrorTensor
-    for TensorRank2SparseSymmetricVec2D<D, I, J>
+    for TensorRank2SparseVec2DSymmetric<D, I, J>
 {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let zero = TensorRank2::zero();

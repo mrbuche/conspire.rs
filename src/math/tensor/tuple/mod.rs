@@ -11,6 +11,7 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign},
 };
 
+/// A fixed-size nested collection of different tensors.
 #[derive(Clone, Debug)]
 pub struct TensorTuple<T1, T2>(pub T1, pub T2)
 where
