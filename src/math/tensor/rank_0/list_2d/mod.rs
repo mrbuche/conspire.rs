@@ -3,6 +3,7 @@ use crate::math::{TensorList, TensorRank0List};
 #[cfg(test)]
 use crate::math::{Tensor, TensorRank0, test::ErrorTensor};
 
+/// A list of lists of rank-0 tensors (scalars).
 pub type TensorRank0List2D<const N: usize> = TensorList<TensorRank0List<N>, N>;
 
 #[cfg(test)]

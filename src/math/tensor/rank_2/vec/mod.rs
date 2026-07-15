@@ -3,6 +3,7 @@ use crate::math::{TensorArray, TensorRank2, tensor::vec::TensorVector};
 #[cfg(test)]
 use crate::math::{Tensor, TensorRank0, tensor::test::ErrorTensor};
 
+/// A vector of rank-2 tensors.
 pub type TensorRank2Vec<const D: usize, const I: usize, const J: usize> =
     TensorVector<TensorRank2<D, I, J>>;
 

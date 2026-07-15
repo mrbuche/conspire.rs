@@ -7,6 +7,7 @@ use std::ops::Mul;
 #[cfg(test)]
 use crate::math::tensor::test::ErrorTensor;
 
+/// A list of lists of rank-2 tensors.
 pub type TensorRank2List2D<
     const D: usize,
     const I: usize,

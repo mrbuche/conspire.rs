@@ -15,6 +15,7 @@ use std::{
 #[cfg(test)]
 use crate::math::tensor::test::ErrorTensor;
 
+/// A vector of rank-1 tensors.
 pub type TensorRank1Vec<const D: usize, const I: usize> = TensorVector<TensorRank1<D, I>>;
 
 impl<const D: usize, const I: usize> TensorRank1Vec<D, I> {

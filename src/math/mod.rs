@@ -6,7 +6,7 @@ pub mod test;
 /// Special functions.
 pub mod special;
 
-/// Integration and ODEs.
+/// Integration, ODEs, and DAEs.
 pub mod integrate;
 
 /// Interpolation schemes.

@@ -15,6 +15,7 @@ pub struct TensorVector<T>(Vec<T>);
 
 // NEED TO MOVE SOMEWHERE ELSE
 
+/// A vector of references to rank-1 tensors.
 pub type TensorRank1RefVec<'a, const D: usize, const I: usize> =
     TensorVector<&'a TensorRank1<D, I>>;
 
