@@ -1,10 +1,7 @@
 //! Mathematics library.
 
-#[cfg(test)]
-pub mod test;
-
-/// Special functions.
-pub mod special;
+/// Assertion helpers for comparing values.
+pub mod assert;
 
 /// Integration, ODEs, and DAEs.
 pub mod integrate;
@@ -17,6 +14,9 @@ pub mod optimize;
 
 /// Sparse data types.
 pub mod sparse;
+
+/// Special functions.
+pub mod special;
 
 mod graph;
 mod hash;
@@ -62,7 +62,6 @@ pub use tensor::{
         ContractThirdFourthIndicesWithFirstSecondIndicesOf, ContractThirdIndexWithFirstIndexOf,
         IDENTITY_1010, TensorRank4, list::TensorRank4List, vec::TensorRank4Vec,
     },
-    test::{TestError, assert_eq, assert_eq_within, assert_eq_within_tols},
     tuple::{
         TensorTuple,
         list::{TensorTupleList, vec::TensorTupleListVec, vec_2d::TensorTupleListVec2D},

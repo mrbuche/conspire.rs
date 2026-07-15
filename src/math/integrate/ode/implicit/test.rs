@@ -3,16 +3,15 @@ macro_rules! test_implicit_fixed_step {
         use crate::{
             EPSILON,
             math::{
-                Scalar, Tensor, Vector, assert_eq,
+                Scalar, Tensor, Vector,
+                assert::{AssertionError, assert_eq, assert_eq_from_fd},
                 integrate::{FixedStep, IntegrationError},
-                test::TestError,
-                test::assert_eq_from_fd,
             },
         };
         const TIME_STEP: Scalar = 0.1;
         const TOLERANCE: Scalar = TIME_STEP;
         #[test]
-        fn finite_difference() -> Result<(), TestError> {
+        fn finite_difference() -> Result<(), AssertionError> {
             use crate::math::integrate::{ImplicitFirstOrder, ImplicitZerothOrder};
             let t = 0.55_f64;
             let y = t.sin();
@@ -56,7 +55,7 @@ macro_rules! test_implicit_fixed_step {
             use super::*;
             use crate::math::{integrate::ImplicitZerothOrder, optimize::GradientDescent};
             #[test]
-            fn first_order_tensor_rank_0() -> Result<(), TestError> {
+            fn first_order_tensor_rank_0() -> Result<(), AssertionError> {
                 assert_eq(&$integration.dt(), &TIME_STEP)?;
                 let (time, solution, function): (Vector, Vector, _) = $integration.integrate(
                     |t: Scalar, _: &Scalar| Ok(t),
@@ -76,7 +75,7 @@ macro_rules! test_implicit_fixed_step {
             use super::*;
             use crate::math::{integrate::ImplicitFirstOrder, optimize::NewtonRaphson};
             #[test]
-            fn first_order_tensor_rank_0() -> Result<(), TestError> {
+            fn first_order_tensor_rank_0() -> Result<(), AssertionError> {
                 assert_eq(&$integration.dt(), &TIME_STEP)?;
                 let (time, solution, function): (Vector, Vector, _) = $integration.integrate(
                     |t: Scalar, _: &Scalar| Ok(t),

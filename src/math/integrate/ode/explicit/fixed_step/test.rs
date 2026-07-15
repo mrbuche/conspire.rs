@@ -1,7 +1,8 @@
 macro_rules! test_explicit_fixed_step {
     ($integration: expr) => {
         use crate::math::{
-            Tensor, assert_eq, assert_eq_within,
+            Tensor,
+            assert::{assert_eq, assert_eq_within},
             integrate::{
                 FixedStep,
                 ode::explicit::test::test_explicit,
@@ -12,7 +13,7 @@ macro_rules! test_explicit_fixed_step {
         const TOLERANCE: Scalar = TIME_STEP;
         test_explicit!($integration);
         #[test]
-        fn dxdt_eq_neg_x() -> Result<(), TestError> {
+        fn dxdt_eq_neg_x() -> Result<(), AssertionError> {
             assert_eq(&$integration.dt(), &TIME_STEP)?;
             let (time, solution, function): (Vector, Vector, _) =
                 $integration.integrate(|_: Scalar, x: &Scalar| Ok(-x), &[0.0, 0.8], 1.0)?;
@@ -24,7 +25,7 @@ macro_rules! test_explicit_fixed_step {
                 })
         }
         #[test]
-        fn eval_times() -> Result<(), TestError> {
+        fn eval_times() -> Result<(), AssertionError> {
             assert_eq(&$integration.dt(), &TIME_STEP)?;
             let (time, solution, function): (Vector, Vector, _) = $integration.integrate(
                 |_: Scalar, x: &Scalar| Ok(-x),

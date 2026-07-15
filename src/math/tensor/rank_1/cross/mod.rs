@@ -5,6 +5,7 @@ use super::TensorRank1;
 
 /// The cross product of two rank-1 tensors.
 pub trait CrossProduct<T> {
+    /// The specific return type.
     type Output;
     /// Returns the cross product with another rank-1 tensor.
     fn cross(self, other: T) -> Self::Output;

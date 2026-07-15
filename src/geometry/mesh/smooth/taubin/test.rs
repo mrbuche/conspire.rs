@@ -5,7 +5,7 @@ use crate::{
     },
     math::{
         Scalar, Tensor,
-        test::{TestError, assert_eq_within_tols},
+        assert::{AssertionError, assert_eq_within_tols},
     },
 };
 
@@ -33,7 +33,7 @@ fn spread(mesh: &Mesh<3>) -> Scalar {
 }
 
 #[test]
-fn zero_iterations_is_identity() -> Result<(), TestError> {
+fn zero_iterations_is_identity() -> Result<(), AssertionError> {
     let mut mesh = tri();
     mesh.taubin_smooth(0, 0.1, 0.5, Weighting::Uniform, false, false);
     let coordinates = mesh.coordinates();
@@ -43,7 +43,7 @@ fn zero_iterations_is_identity() -> Result<(), TestError> {
 }
 
 #[test]
-fn first_iteration_matches_laplace_deflate() -> Result<(), TestError> {
+fn first_iteration_matches_laplace_deflate() -> Result<(), AssertionError> {
     let mut laplace = tri();
     laplace.laplace_smooth(1, 0.5, Weighting::Uniform, false, false);
     let mut taubin = tri();

@@ -10,8 +10,8 @@ use crate::{
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
     },
     math::{
-        Rank2, Scalar, Tensor, TensorRank2, assert_eq_within_tols,
-        test::{TestError, assert_eq_from_fd},
+        Rank2, Scalar, Tensor, TensorRank2,
+        assert::{AssertionError, assert_eq_from_fd, assert_eq_within_tols},
     },
     mechanics::test::get_rotation_reference_configuration,
 };
@@ -38,7 +38,7 @@ const MODEL: LinearElastic = LinearElastic {
 };
 
 #[test]
-fn temporary_1() -> Result<(), TestError> {
+fn temporary_1() -> Result<(), AssertionError> {
     let coordinates = ElementNodalReferenceCoordinates::from(COORDINATES);
     let element = Wedge::from(coordinates.clone());
     assert_eq_within_tols(
@@ -48,7 +48,7 @@ fn temporary_1() -> Result<(), TestError> {
 }
 
 #[test]
-fn temporary_2() -> Result<(), TestError> {
+fn temporary_2() -> Result<(), AssertionError> {
     let mut coordinates = ElementNodalReferenceCoordinates::from(COORDINATES);
     let element = Wedge::from(coordinates.clone());
     coordinates.iter_mut().skip(P).for_each(|coordinate| {
@@ -73,7 +73,7 @@ fn temporary_2() -> Result<(), TestError> {
 }
 
 #[test]
-fn temporary_3() -> Result<(), TestError> {
+fn temporary_3() -> Result<(), AssertionError> {
     let coordinates = ElementNodalReferenceCoordinates::from(COORDINATES)
         .iter()
         .map(|coordinate| get_rotation_reference_configuration() * coordinate)
@@ -86,7 +86,7 @@ fn temporary_3() -> Result<(), TestError> {
 }
 
 #[test]
-fn temporary_4() -> Result<(), TestError> {
+fn temporary_4() -> Result<(), AssertionError> {
     let coordinates_0 = ElementNodalReferenceCoordinates::from(COORDINATES)
         .iter()
         .map(|coordinate| get_rotation_reference_configuration() * coordinate)
@@ -127,7 +127,7 @@ fn temporary_4() -> Result<(), TestError> {
 }
 
 #[test]
-fn temporary_5() -> Result<(), TestError> {
+fn temporary_5() -> Result<(), AssertionError> {
     let coordinates_0 = ElementNodalReferenceCoordinates::from(COORDINATES);
     let coordinates = ElementNodalCoordinates::from(coordinates_0.clone());
     let element = Wedge::from(coordinates_0);
@@ -155,7 +155,7 @@ fn temporary_5() -> Result<(), TestError> {
                 })
                 .collect()
         })
-        .collect::<Result<ElementNodalStiffnessesSolid<N>, TestError>>()?;
+        .collect::<Result<ElementNodalStiffnessesSolid<N>, AssertionError>>()?;
     assert_eq_from_fd(
         &element.nodal_stiffnesses(&MODEL, &coordinates)?,
         &nodal_stiffnesses_fd,
@@ -163,7 +163,7 @@ fn temporary_5() -> Result<(), TestError> {
 }
 
 #[test]
-fn temporary_6() -> Result<(), TestError> {
+fn temporary_6() -> Result<(), AssertionError> {
     let coordinates_0 = ElementNodalReferenceCoordinates::from([
         [-0.57177033, -0.20395894, 0.23629102],
         [1.49477913, 1.72253902, 1.40527015],
@@ -205,7 +205,7 @@ fn temporary_6() -> Result<(), TestError> {
                 })
                 .collect()
         })
-        .collect::<Result<ElementNodalStiffnessesSolid<N>, TestError>>()?;
+        .collect::<Result<ElementNodalStiffnessesSolid<N>, AssertionError>>()?;
     assert_eq_from_fd(
         &element.nodal_stiffnesses(&MODEL, &coordinates)?,
         &nodal_stiffnesses_fd,

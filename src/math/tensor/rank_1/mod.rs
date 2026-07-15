@@ -27,7 +27,7 @@ use crate::{
 };
 
 #[cfg(test)]
-use super::test::ErrorTensor;
+use crate::math::assert::ErrorTensor;
 
 /// A *d*-dimensional tensor of rank 1.
 ///

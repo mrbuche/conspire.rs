@@ -1,7 +1,7 @@
 use super::CscMatrix;
 use crate::math::{
     Vector,
-    test::{TestError, assert_eq_within_tols},
+    assert::{AssertionError, assert_eq_within_tols},
 };
 
 fn laplacian(k: usize) -> CscMatrix {
@@ -70,20 +70,20 @@ fn reduces_fill() {
 }
 
 #[test]
-fn solve_laplacian() -> Result<(), TestError> {
+fn solve_laplacian() -> Result<(), AssertionError> {
     let matrix = laplacian(20);
     let b: Vector = (0..400).map(|i| (i % 17) as f64 - 8.0).collect();
-    let lu = matrix.lu_amd().map_err(|_| TestError {
+    let lu = matrix.lu_amd().map_err(|_| AssertionError {
         message: "Factorization failed.".to_string(),
     })?;
     assert_eq_within_tols(&(&matrix * &lu.solve(&b)), &b)
 }
 
 #[test]
-fn solve_asymmetric() -> Result<(), TestError> {
+fn solve_asymmetric() -> Result<(), AssertionError> {
     let matrix = asymmetric(100);
     let b: Vector = (0..100).map(|i| (i % 13) as f64 - 6.0).collect();
-    let lu = matrix.lu_amd().map_err(|_| TestError {
+    let lu = matrix.lu_amd().map_err(|_| AssertionError {
         message: "Factorization failed.".to_string(),
     })?;
     assert_eq_within_tols(&(&matrix * &lu.solve(&b)), &b)

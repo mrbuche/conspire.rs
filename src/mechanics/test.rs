@@ -6,12 +6,12 @@ use super::{
 };
 use crate::math::{
     IDENTITY, IDENTITY_00, IDENTITY_10, Rank2, Tensor, TensorArray,
-    test::{TestError, assert_eq_within_tols},
+    assert::{AssertionError, assert_eq_within_tols},
 };
 
-impl From<DeformationError> for TestError {
-    fn from(error: DeformationError) -> TestError {
-        TestError {
+impl From<DeformationError> for AssertionError {
+    fn from(error: DeformationError) -> AssertionError {
+        AssertionError {
             message: error.to_string(),
         }
     }
@@ -162,7 +162,7 @@ fn frame_spin_tensor() {
 fn into_test_error() {
     let mut deformation_gradient = IDENTITY_10;
     deformation_gradient[0][0] = -1.0;
-    let _: TestError = deformation_gradient.jacobian().unwrap_err().into();
+    let _: AssertionError = deformation_gradient.jacobian().unwrap_err().into();
 }
 
 #[test]
@@ -174,7 +174,7 @@ fn invalid_jacobian() {
 }
 
 #[test]
-fn invariant_jacobian() -> Result<(), TestError> {
+fn invariant_jacobian() -> Result<(), AssertionError> {
     assert_eq_within_tols(
         &get_deformation_gradient().jacobian()?,
         &get_deformation_gradient_rotated().jacobian()?,
@@ -186,7 +186,7 @@ fn invariant_jacobian() -> Result<(), TestError> {
 }
 
 #[test]
-fn invariant_jacobian_indeformed() -> Result<(), TestError> {
+fn invariant_jacobian_indeformed() -> Result<(), AssertionError> {
     assert_eq_within_tols(
         &1.0,
         &get_deformation_gradient_rotated_undeformed().jacobian()?,
@@ -194,13 +194,13 @@ fn invariant_jacobian_indeformed() -> Result<(), TestError> {
 }
 
 #[test]
-fn jacobian() -> Result<(), TestError> {
+fn jacobian() -> Result<(), AssertionError> {
     let _ = get_deformation_gradient().jacobian()?;
     Ok(())
 }
 
 #[test]
-fn rotation_current_configuration() -> Result<(), TestError> {
+fn rotation_current_configuration() -> Result<(), AssertionError> {
     assert_eq_within_tols(
         &(get_rotation_current_configuration() * get_rotation_current_configuration().transpose()),
         &IDENTITY,
@@ -208,7 +208,7 @@ fn rotation_current_configuration() -> Result<(), TestError> {
 }
 
 #[test]
-fn rotation_reference_configuration() -> Result<(), TestError> {
+fn rotation_reference_configuration() -> Result<(), AssertionError> {
     assert_eq_within_tols(
         &(get_rotation_reference_configuration()
             * get_rotation_reference_configuration().transpose()),
@@ -217,7 +217,7 @@ fn rotation_reference_configuration() -> Result<(), TestError> {
 }
 
 #[test]
-fn rotation_rate_current_configuration() -> Result<(), TestError> {
+fn rotation_rate_current_configuration() -> Result<(), AssertionError> {
     assert_eq_within_tols(
         &get_rotation_rate_current_configuration(),
         &(get_frame_spin() * get_rotation_current_configuration()),
@@ -234,7 +234,7 @@ fn size() {
 }
 
 #[test]
-fn symmetry() -> Result<(), TestError> {
+fn symmetry() -> Result<(), AssertionError> {
     let left_cauchy_green = get_left_cauchy_green();
     assert_eq_within_tols(&left_cauchy_green, &left_cauchy_green.transpose())?;
     let right_cauchy_green = get_right_cauchy_green();
@@ -247,7 +247,7 @@ fn trace() {
 }
 
 #[test]
-fn trace_invariant() -> Result<(), TestError> {
+fn trace_invariant() -> Result<(), AssertionError> {
     assert_eq_within_tols(
         &get_left_cauchy_green().trace(),
         &get_left_cauchy_green_rotated().trace(),

@@ -1,5 +1,6 @@
 use crate::math::{
-    Scalar, Tensor, TensorVec, Vector, assert_eq_within_tols,
+    Scalar, Tensor, TensorVec, Vector,
+    assert::assert_eq_within_tols,
     integrate::{
         ExplicitDaeFirstOrderMinimize, ExplicitDaeFirstOrderRoot, ExplicitDaeSecondOrderMinimize,
         ExplicitDaeZerothOrderRoot, IntegrationError, VariableStepExplicit,

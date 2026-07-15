@@ -4,7 +4,7 @@ use crate::{
     geometry::mesh::{Connectivity, Mesh, PolytopalConnectivity},
     math::{
         Tensor,
-        test::{TestError, assert_eq},
+        assert::{AssertionError, assert_eq},
     },
     vem::{
         NodalCoordinates, NodalReferenceCoordinates,
@@ -62,7 +62,7 @@ fn faces_nodes() -> Vec<Vec<usize>> {
 }
 
 #[test]
-fn polyhedral_block_nodal_forces() -> Result<(), TestError> {
+fn polyhedral_block_nodal_forces() -> Result<(), AssertionError> {
     let mesh = Mesh::from((
         vec![Connectivity::Polyhedral(PolytopalConnectivity::from((
             elements_faces(),
@@ -72,7 +72,7 @@ fn polyhedral_block_nodal_forces() -> Result<(), TestError> {
     ));
     let model: Model<Block<NeoHookean, Element>, 3> = (mesh, constitutive_model())
         .try_into()
-        .map_err(|error: String| TestError { message: error })?;
+        .map_err(|error: String| AssertionError { message: error })?;
     let block = Block::<NeoHookean, Element>::from((
         constitutive_model(),
         elements_faces(),

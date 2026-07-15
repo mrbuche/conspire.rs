@@ -9,21 +9,21 @@ use crate::{
             hyperelastic::NeoHookean,
         },
     },
-    math::{TensorArray, TestError},
+    math::{TensorArray, assert::AssertionError},
 };
 
 use crate::{
     constitutive::solid::elastic::{AppliedLoad, internal_variables::ElasticIV},
     math::{
         TensorRank4,
+        assert::{ErrorTensor, assert_eq_from_fd},
         optimize::{GradientDescent, NewtonRaphson},
-        test::{ErrorTensor, assert_eq_from_fd},
     },
     mechanics::*,
 };
 
 #[test]
-fn finite_difference_0() -> Result<(), TestError> {
+fn finite_difference_0() -> Result<(), AssertionError> {
     let deformation_gradient = DeformationGradient::from([
         [1.31924942, 1.36431217, 0.41764434],
         [0.09959341, 1.38409741, 1.48320137],
@@ -72,7 +72,7 @@ fn finite_difference_0() -> Result<(), TestError> {
 }
 
 #[test]
-fn finite_difference_1() -> Result<(), TestError> {
+fn finite_difference_1() -> Result<(), AssertionError> {
     let deformation_gradient = DeformationGradient::from([
         [1.31924942, 1.36431217, 0.41764434],
         [0.09959341, 1.38409741, 1.48320137],
@@ -123,7 +123,7 @@ fn finite_difference_1() -> Result<(), TestError> {
 }
 
 #[test]
-fn finite_difference_2() -> Result<(), TestError> {
+fn finite_difference_2() -> Result<(), AssertionError> {
     let deformation_gradient = DeformationGradient::from([
         [1.31924942, 1.36431217, 0.41764434],
         [0.09959341, 1.38409741, 1.48320137],
@@ -176,7 +176,7 @@ fn finite_difference_2() -> Result<(), TestError> {
 }
 
 #[test]
-fn finite_difference_3() -> Result<(), TestError> {
+fn finite_difference_3() -> Result<(), AssertionError> {
     let deformation_gradient = DeformationGradient::from([
         [1.31924942, 1.36431217, 0.41764434],
         [0.09959341, 1.38409741, 1.48320137],
@@ -229,7 +229,7 @@ fn finite_difference_3() -> Result<(), TestError> {
 const STRETCH: Scalar = 1.5;
 
 #[test]
-fn root_0() -> Result<(), TestError> {
+fn root_0() -> Result<(), AssertionError> {
     use crate::constitutive::solid::elastic::internal_variables::ZerothOrderRoot;
     let model = ElasticMultiplicative::from((
         AlmansiHamel {
@@ -255,7 +255,7 @@ fn root_0() -> Result<(), TestError> {
 }
 
 #[test]
-fn root_1() -> Result<(), TestError> {
+fn root_1() -> Result<(), AssertionError> {
     use crate::constitutive::solid::elastic::internal_variables::FirstOrderRoot;
     let model = ElasticMultiplicative::from((
         AlmansiHamel {

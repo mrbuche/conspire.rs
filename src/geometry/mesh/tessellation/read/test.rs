@@ -3,15 +3,15 @@ use crate::{
     // Tessellation,
     // write::test::{CONNECTIVITY, COORDINATES, NORMALS},
     // },
-    math::test::{
-        TestError,
+    math::assert::{
+        AssertionError,
         // assert_eq
     },
 };
 // use std::path::Path;
 
 #[test]
-fn consistency() -> Result<(), TestError> {
+fn consistency() -> Result<(), AssertionError> {
     // let tessellation = Tessellation::<1, usize>::try_from(Path::new("target/foo.stl"))?;
     // assert_eq!(tessellation.mesh.connectivity, CONNECTIVITY);
     // assert_eq(&tessellation.mesh.coordinates, &COORDINATES.into())?;

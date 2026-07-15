@@ -13,7 +13,7 @@ use super::sparse_vec::TensorRank2SparseVec;
 use super::sparse_vec_2d::TensorRank2SparseVec2D;
 
 #[cfg(test)]
-use crate::math::{TensorArray, tensor::test::ErrorTensor};
+use crate::math::{TensorArray, assert::ErrorTensor};
 
 /// A vector of sparse vectors of rank-2 tensors, storing only the symmetric half.
 ///

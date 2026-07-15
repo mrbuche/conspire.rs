@@ -24,9 +24,9 @@ use crate::{
     geometry::mesh::{Connectivity, Mesh},
     math::{
         Matrix, Scalar, Tensor, TensorTupleVec, Vector,
+        assert::{AssertionError, assert_eq, assert_eq_within_tols},
         integrate::BogackiShampine,
         optimize::{EqualityConstraint, NewtonRaphson},
-        test::{TestError, assert_eq, assert_eq_within_tols},
     },
 };
 
@@ -154,14 +154,14 @@ fn constraint() -> (Matrix, Vector) {
     (a, b)
 }
 
-fn single_block_model() -> Result<Model<Tet, 3>, TestError> {
+fn single_block_model() -> Result<Model<Tet, 3>, AssertionError> {
     let mesh = Mesh::from((
         vec![Connectivity::Tetrahedral(connectivity().into())],
         coordinates(),
     ));
     (mesh, constitutive_model())
         .try_into()
-        .map_err(|error: String| TestError { message: error })
+        .map_err(|error: String| AssertionError { message: error })
 }
 
 fn neo_hookean_model() -> NeoHookean {
@@ -177,7 +177,7 @@ fn split_connectivities() -> (Vec<[usize; 4]>, Vec<[usize; 4]>) {
     (connectivity_1, connectivity_2)
 }
 
-fn heterogeneous_model() -> Result<Model<Blocks<Tet, TetNeoHookean>, 3>, TestError> {
+fn heterogeneous_model() -> Result<Model<Blocks<Tet, TetNeoHookean>, 3>, AssertionError> {
     let (connectivity_1, connectivity_2) = split_connectivities();
     let mesh = Mesh::from((
         vec![
@@ -188,10 +188,10 @@ fn heterogeneous_model() -> Result<Model<Blocks<Tet, TetNeoHookean>, 3>, TestErr
     ));
     (mesh, (constitutive_model(), neo_hookean_model()))
         .try_into()
-        .map_err(|error: String| TestError { message: error })
+        .map_err(|error: String| AssertionError { message: error })
 }
 
-fn split_blocks_model() -> Result<Model<Blocks<Tet, Tet>, 3>, TestError> {
+fn split_blocks_model() -> Result<Model<Blocks<Tet, Tet>, 3>, AssertionError> {
     let (connectivity_1, connectivity_2) = split_connectivities();
     let mesh = Mesh::from((
         vec![
@@ -202,17 +202,17 @@ fn split_blocks_model() -> Result<Model<Blocks<Tet, Tet>, 3>, TestError> {
     ));
     (mesh, (constitutive_model(), constitutive_model()))
         .try_into()
-        .map_err(|error: String| TestError { message: error })
+        .map_err(|error: String| AssertionError { message: error })
 }
 
 #[test]
-fn single_block_nodal_forces() -> Result<(), TestError> {
+fn single_block_nodal_forces() -> Result<(), AssertionError> {
     let block = Tet::from((constitutive_model(), connectivity(), &coordinates()));
     let model = single_block_model()?;
     assert_eq(
         &ElasticElements::nodal_forces(&block, &deformed_coordinates())?,
         &ElasticElements::nodal_forces(&model, &deformed_coordinates()).map_err(|error| {
-            TestError {
+            AssertionError {
                 message: error.to_string(),
             }
         })?,
@@ -220,13 +220,13 @@ fn single_block_nodal_forces() -> Result<(), TestError> {
 }
 
 #[test]
-fn split_blocks_nodal_forces() -> Result<(), TestError> {
+fn split_blocks_nodal_forces() -> Result<(), AssertionError> {
     let block = Tet::from((constitutive_model(), connectivity(), &coordinates()));
     let model = split_blocks_model()?;
     assert_eq_within_tols(
         &ElasticElements::nodal_forces(&block, &deformed_coordinates())?,
         &ElasticElements::nodal_forces(&model, &deformed_coordinates()).map_err(|error| {
-            TestError {
+            AssertionError {
                 message: error.to_string(),
             }
         })?,
@@ -234,7 +234,7 @@ fn split_blocks_nodal_forces() -> Result<(), TestError> {
 }
 
 #[test]
-fn split_blocks_root() -> Result<(), TestError> {
+fn split_blocks_root() -> Result<(), AssertionError> {
     let (a, b) = constraint();
     let solution = FirstOrderRoot::root(
         &single_block_model()?,
@@ -275,7 +275,7 @@ fn wrong_element_kind() {
 }
 
 #[test]
-fn heterogeneous_blocks_nodal_forces() -> Result<(), TestError> {
+fn heterogeneous_blocks_nodal_forces() -> Result<(), AssertionError> {
     let (connectivity_1, connectivity_2) = split_connectivities();
     let block_1 = Tet::from((constitutive_model(), connectivity_1, &coordinates()));
     let block_2 = TetNeoHookean::from((neo_hookean_model(), connectivity_2, &coordinates()));
@@ -283,7 +283,7 @@ fn heterogeneous_blocks_nodal_forces() -> Result<(), TestError> {
         &(ElasticElements::nodal_forces(&block_1, &deformed_coordinates())?
             + ElasticElements::nodal_forces(&block_2, &deformed_coordinates())?),
         &ElasticElements::nodal_forces(&heterogeneous_model()?, &deformed_coordinates()).map_err(
-            |error| TestError {
+            |error| AssertionError {
                 message: error.to_string(),
             },
         )?,
@@ -310,7 +310,7 @@ fn bcs(time: Scalar) -> EqualityConstraint {
 }
 
 #[test]
-fn mixed_viscoplastic_elastic_root() -> Result<(), TestError> {
+fn mixed_viscoplastic_elastic_root() -> Result<(), AssertionError> {
     let (connectivity_1, connectivity_2) = split_connectivities();
     let mesh = Mesh::from((
         vec![
@@ -322,7 +322,7 @@ fn mixed_viscoplastic_elastic_root() -> Result<(), TestError> {
     let model: Model<ElasticViscoplasticAndElastic<TetViscoplastic, Tet>, 3> =
         (mesh, (viscoplastic_model(), constitutive_model()))
             .try_into()
-            .map_err(|error: String| TestError { message: error })?;
+            .map_err(|error: String| AssertionError { message: error })?;
     let (_, coordinates_history, _): (_, _, ViscoplasticStateVariablesHistory<1, Scalar>) =
         DaeFirstOrderRoot::root(
             &model,
@@ -345,7 +345,7 @@ fn mixed_viscoplastic_elastic_root() -> Result<(), TestError> {
 }
 
 #[test]
-fn paired_viscoplastic_blocks_root() -> Result<(), TestError> {
+fn paired_viscoplastic_blocks_root() -> Result<(), AssertionError> {
     let (connectivity_1, connectivity_2) = split_connectivities();
     let mesh = Mesh::from((
         vec![
@@ -357,7 +357,7 @@ fn paired_viscoplastic_blocks_root() -> Result<(), TestError> {
     let model: Model<Blocks<TetViscoplastic, TetViscoplastic>, 3> =
         (mesh, (viscoplastic_model(), viscoplastic_model()))
             .try_into()
-            .map_err(|error: String| TestError { message: error })?;
+            .map_err(|error: String| AssertionError { message: error })?;
     let (_, coordinates_history, _): (
         _,
         _,
@@ -386,7 +386,7 @@ fn paired_viscoplastic_blocks_root() -> Result<(), TestError> {
 }
 
 #[test]
-fn heterogeneous_blocks_root() -> Result<(), TestError> {
+fn heterogeneous_blocks_root() -> Result<(), AssertionError> {
     let (a, b) = constraint();
     let model = heterogeneous_model()?;
     let solution = FirstOrderRoot::root(
@@ -396,9 +396,10 @@ fn heterogeneous_blocks_root() -> Result<(), TestError> {
     )?;
     assert!((solution[0][0] - 1.05).abs() < 1e-10);
     assert!((solution[2][0] + 0.5).abs() < 1e-10);
-    let residual = ElasticElements::nodal_forces(&model, &solution).map_err(|error| TestError {
-        message: error.to_string(),
-    })?;
+    let residual =
+        ElasticElements::nodal_forces(&model, &solution).map_err(|error| AssertionError {
+            message: error.to_string(),
+        })?;
     [8, 9, 10, 12]
         .iter()
         .for_each(|&free_node| assert!(residual[free_node].norm() < 1e-10));
@@ -423,18 +424,18 @@ fn connectivity_2d() -> Vec<[usize; 3]> {
         .collect()
 }
 
-fn planar_model() -> Result<Model<Tri, 2>, TestError> {
+fn planar_model() -> Result<Model<Tri, 2>, AssertionError> {
     let mesh = Mesh::from((
         vec![Connectivity::Triangular(connectivity_2d().into())],
         coordinates_2d(),
     ));
     (mesh, constitutive_model())
         .try_into()
-        .map_err(|error: String| TestError { message: error })
+        .map_err(|error: String| AssertionError { message: error })
 }
 
 #[test]
-fn planar_patch_root() -> Result<(), TestError> {
+fn planar_patch_root() -> Result<(), AssertionError> {
     let deformation = [[1.1, 0.1], [0.0, 0.9]];
     let coordinates = coordinates_2d();
     let boundary = [0, 1, 2, 3, 5, 6, 7, 8];
@@ -466,7 +467,7 @@ fn planar_patch_root() -> Result<(), TestError> {
 }
 
 #[test]
-fn planar_vs_wedge_root() -> Result<(), TestError> {
+fn planar_vs_wedge_root() -> Result<(), AssertionError> {
     let stretch = 1.3;
     let mut a = Matrix::zero(9, 18);
     let mut b = Vector::zero(9);
@@ -561,14 +562,14 @@ fn quad_connectivity_2d() -> Vec<[usize; 4]> {
 }
 
 #[test]
-fn planar_quad_patch_root() -> Result<(), TestError> {
+fn planar_quad_patch_root() -> Result<(), AssertionError> {
     let mesh = Mesh::from((
         vec![Connectivity::Quadrilateral(quad_connectivity_2d().into())],
         coordinates_2d(),
     ));
     let model: Model<Quad, 2> = (mesh, constitutive_model())
         .try_into()
-        .map_err(|error: String| TestError { message: error })?;
+        .map_err(|error: String| AssertionError { message: error })?;
     let deformation = [[1.1, 0.1], [0.0, 0.9]];
     let coordinates = coordinates_2d();
     let boundary = [0, 1, 2, 3, 5, 6, 7, 8];
@@ -621,14 +622,14 @@ fn planar_constraint() -> (Matrix, Vector) {
 }
 
 #[test]
-fn planar_minimize_vs_root() -> Result<(), TestError> {
+fn planar_minimize_vs_root() -> Result<(), AssertionError> {
     let mesh = Mesh::from((
         vec![Connectivity::Triangular(connectivity_2d().into())],
         coordinates_2d(),
     ));
     let model: Model<TriNeoHookean, 2> = (mesh, neo_hookean_model())
         .try_into()
-        .map_err(|error: String| TestError { message: error })?;
+        .map_err(|error: String| AssertionError { message: error })?;
     let (a, b) = planar_constraint();
     let solution_root = FirstOrderRoot::root(
         &model,

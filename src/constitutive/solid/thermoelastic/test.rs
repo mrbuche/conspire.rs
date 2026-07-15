@@ -114,7 +114,7 @@ macro_rules! test_solid_thermal_constitutive_model {
     ($constitutive_model: expr) => {
         use crate::mechanics::test::get_temperature;
         #[test]
-        fn coefficient_of_thermal_expansion() -> Result<(), TestError> {
+        fn coefficient_of_thermal_expansion() -> Result<(), AssertionError> {
             let model = $constitutive_model;
             let deformation_gradient = DeformationGradient::identity();
             let temperature = model.reference_temperature() - EPSILON;

@@ -1,7 +1,7 @@
 use super::{E, inverse_langevin, lambert_w, langevin, rosenbrock, rosenbrock_derivative};
 use crate::math::{
     Vector,
-    test::{TestError, assert_eq, assert_eq_within_tols},
+    assert::{AssertionError, assert_eq, assert_eq_within_tols},
 };
 
 const LENGTH: usize = 10_000;
@@ -19,7 +19,7 @@ mod inverse_langevin {
         inverse_langevin(1.0);
     }
     #[test]
-    fn range() -> Result<(), TestError> {
+    fn range() -> Result<(), AssertionError> {
         let mut x = -1.0;
         let dx = 2.0 / ((LENGTH + 1) as f64);
         (0..LENGTH).try_for_each(|_| {
@@ -28,7 +28,7 @@ mod inverse_langevin {
         })
     }
     #[test]
-    fn zero() -> Result<(), TestError> {
+    fn zero() -> Result<(), AssertionError> {
         assert_eq(&inverse_langevin(0.0), &0.0)
     }
 }
@@ -36,11 +36,11 @@ mod inverse_langevin {
 mod lambert_w {
     use super::*;
     #[test]
-    fn end() -> Result<(), TestError> {
+    fn end() -> Result<(), AssertionError> {
         assert_eq(&lambert_w(-1.0 / E), &-1.0)
     }
     #[test]
-    fn euler() -> Result<(), TestError> {
+    fn euler() -> Result<(), AssertionError> {
         assert_eq(&lambert_w(E), &1.0)
     }
     #[test]
@@ -49,7 +49,7 @@ mod lambert_w {
         let _ = lambert_w(-10.0);
     }
     #[test]
-    fn range() -> Result<(), TestError> {
+    fn range() -> Result<(), AssertionError> {
         let mut x = -1.0 / E;
         let dx = (6.0 - x) / ((LENGTH + 1) as f64);
         let mut w = 0.0;
@@ -60,7 +60,7 @@ mod lambert_w {
         })
     }
     #[test]
-    fn zero() -> Result<(), TestError> {
+    fn zero() -> Result<(), AssertionError> {
         assert_eq(&lambert_w(0.0), &0.0)
     }
 }
@@ -68,7 +68,7 @@ mod lambert_w {
 mod langevin {
     use super::*;
     #[test]
-    fn zero() -> Result<(), TestError> {
+    fn zero() -> Result<(), AssertionError> {
         assert_eq(&langevin(0.0), &0.0)
     }
 }
@@ -76,13 +76,13 @@ mod langevin {
 mod rosenbrock {
     use super::*;
     #[test]
-    fn zero() -> Result<(), TestError> {
+    fn zero() -> Result<(), AssertionError> {
         assert_eq(&rosenbrock(&Vector::from([1.0; 3]), 1.0, 1.0), &0.0)
     }
     mod derivative {
         use super::*;
         #[test]
-        fn zero() -> Result<(), TestError> {
+        fn zero() -> Result<(), AssertionError> {
             assert_eq(
                 &rosenbrock_derivative(&Vector::from([1.0; 3]), 1.0, 1.0),
                 &Vector::from([0.0; 3]),

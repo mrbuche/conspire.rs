@@ -1,5 +1,3 @@
-pub mod test;
-
 pub mod list;
 pub mod norm;
 pub mod rank_0;

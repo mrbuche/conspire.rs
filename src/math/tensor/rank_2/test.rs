@@ -1,9 +1,11 @@
 use super::{
-    super::test::{TestError, assert_eq, assert_eq_within_tols},
     Rank2, Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank1List, TensorRank2,
     TensorRank2List2D, TensorRank4,
 };
-use crate::{ABS_TOL, REL_TOL};
+use crate::{
+    ABS_TOL, REL_TOL,
+    math::assert::{AssertionError, assert_eq, assert_eq_within_tols},
+};
 
 fn get_array_dim_2() -> [[TensorRank0; 2]; 2] {
     [[1.0, 2.0], [3.0, 4.0]]
@@ -207,7 +209,7 @@ fn get_tensor_rank_2_div_tensor_rank_4() -> TensorRank2<3, 2, 3> {
 }
 
 #[test]
-fn add_tensor_rank_2_to_self() -> Result<(), TestError> {
+fn add_tensor_rank_2_to_self() -> Result<(), AssertionError> {
     assert_eq(
         &(get_tensor_rank_2_dim_4() + get_other_tensor_rank_2_dim_4()),
         &get_other_tensor_rank_2_add_tensor_rank_2_dim_4(),
@@ -215,7 +217,7 @@ fn add_tensor_rank_2_to_self() -> Result<(), TestError> {
 }
 
 #[test]
-fn add_tensor_rank_2_ref_to_self() -> Result<(), TestError> {
+fn add_tensor_rank_2_ref_to_self() -> Result<(), AssertionError> {
     assert_eq(
         &(get_tensor_rank_2_dim_4() + &get_other_tensor_rank_2_dim_4()),
         &get_other_tensor_rank_2_add_tensor_rank_2_dim_4(),
@@ -223,7 +225,7 @@ fn add_tensor_rank_2_ref_to_self() -> Result<(), TestError> {
 }
 
 #[test]
-fn add_tensor_rank_2_to_self_ref() -> Result<(), TestError> {
+fn add_tensor_rank_2_to_self_ref() -> Result<(), AssertionError> {
     assert_eq(
         &(&get_tensor_rank_2_dim_4() + get_other_tensor_rank_2_dim_4()),
         &get_other_tensor_rank_2_add_tensor_rank_2_dim_4(),
@@ -231,7 +233,7 @@ fn add_tensor_rank_2_to_self_ref() -> Result<(), TestError> {
 }
 
 #[test]
-fn add_assign_tensor_rank_2() -> Result<(), TestError> {
+fn add_assign_tensor_rank_2() -> Result<(), AssertionError> {
     let mut tensor_rank_2 = get_tensor_rank_2_dim_4();
     tensor_rank_2 += get_other_tensor_rank_2_dim_4();
     assert_eq(
@@ -241,7 +243,7 @@ fn add_assign_tensor_rank_2() -> Result<(), TestError> {
 }
 
 #[test]
-fn add_assign_tensor_rank_2_ref() -> Result<(), TestError> {
+fn add_assign_tensor_rank_2_ref() -> Result<(), AssertionError> {
     let mut tensor_rank_2 = get_tensor_rank_2_dim_4();
     tensor_rank_2 += &get_other_tensor_rank_2_dim_4();
     assert_eq(
@@ -271,7 +273,7 @@ fn as_array_dim_9() {
 }
 
 #[test]
-fn div_tensor_rank_4_to_self() -> Result<(), TestError> {
+fn div_tensor_rank_4_to_self() -> Result<(), AssertionError> {
     assert_eq_within_tols(
         &(&get_tensor_rank_2_dim_3() / get_tensor_rank_4()),
         &get_tensor_rank_2_div_tensor_rank_4(),
@@ -279,7 +281,7 @@ fn div_tensor_rank_4_to_self() -> Result<(), TestError> {
 }
 
 #[test]
-fn div_tensor_rank_0_to_self() -> Result<(), TestError> {
+fn div_tensor_rank_0_to_self() -> Result<(), AssertionError> {
     (get_tensor_rank_2_dim_4() / 3.3)
         .iter()
         .zip(get_array_dim_4().iter())
@@ -292,7 +294,7 @@ fn div_tensor_rank_0_to_self() -> Result<(), TestError> {
 }
 
 #[test]
-fn div_tensor_rank_0_to_self_ref() -> Result<(), TestError> {
+fn div_tensor_rank_0_to_self_ref() -> Result<(), AssertionError> {
     (&get_tensor_rank_2_dim_4() / 3.3)
         .iter()
         .zip(get_array_dim_4().iter())
@@ -306,7 +308,7 @@ fn div_tensor_rank_0_to_self_ref() -> Result<(), TestError> {
 
 #[test]
 #[allow(clippy::op_ref)]
-fn div_tensor_rank_0_ref_to_self() -> Result<(), TestError> {
+fn div_tensor_rank_0_ref_to_self() -> Result<(), AssertionError> {
     (get_tensor_rank_2_dim_4() / &3.3)
         .iter()
         .zip(get_array_dim_4().iter())
@@ -320,7 +322,7 @@ fn div_tensor_rank_0_ref_to_self() -> Result<(), TestError> {
 
 #[test]
 #[allow(clippy::op_ref)]
-fn div_tensor_rank_0_ref_to_self_ref() -> Result<(), TestError> {
+fn div_tensor_rank_0_ref_to_self_ref() -> Result<(), AssertionError> {
     (&get_tensor_rank_2_dim_4() / &3.3)
         .iter()
         .zip(get_array_dim_4().iter())
@@ -333,7 +335,7 @@ fn div_tensor_rank_0_ref_to_self_ref() -> Result<(), TestError> {
 }
 
 #[test]
-fn div_assign_tensor_rank_0() -> Result<(), TestError> {
+fn div_assign_tensor_rank_0() -> Result<(), AssertionError> {
     let mut tensor_rank_2 = get_tensor_rank_2_dim_4();
     tensor_rank_2 /= 3.3;
     tensor_rank_2
@@ -348,7 +350,7 @@ fn div_assign_tensor_rank_0() -> Result<(), TestError> {
 }
 
 #[test]
-fn div_assign_tensor_rank_0_ref() -> Result<(), TestError> {
+fn div_assign_tensor_rank_0_ref() -> Result<(), AssertionError> {
     let mut tensor_rank_2 = get_tensor_rank_2_dim_4();
     tensor_rank_2 /= &3.3;
     tensor_rank_2
@@ -363,7 +365,7 @@ fn div_assign_tensor_rank_0_ref() -> Result<(), TestError> {
 }
 
 #[test]
-fn deviatoric_dim_2() -> Result<(), TestError> {
+fn deviatoric_dim_2() -> Result<(), AssertionError> {
     let tensor_rank_2 = get_tensor_rank_2_dim_2();
     let trace = tensor_rank_2.trace();
     let deviatoric_tensor_rank_2 = tensor_rank_2.deviatoric();
@@ -375,7 +377,7 @@ fn deviatoric_dim_2() -> Result<(), TestError> {
 }
 
 #[test]
-fn deviatoric_dim_3() -> Result<(), TestError> {
+fn deviatoric_dim_3() -> Result<(), AssertionError> {
     let tensor_rank_2 = get_tensor_rank_2_dim_3();
     let trace = tensor_rank_2.trace();
     let deviatoric_tensor_rank_2 = tensor_rank_2.deviatoric();
@@ -387,7 +389,7 @@ fn deviatoric_dim_3() -> Result<(), TestError> {
 }
 
 #[test]
-fn deviatoric_dim_4() -> Result<(), TestError> {
+fn deviatoric_dim_4() -> Result<(), AssertionError> {
     let tensor_rank_2 = get_tensor_rank_2_dim_4();
     let trace = tensor_rank_2.trace();
     let deviatoric_tensor_rank_2 = tensor_rank_2.deviatoric();
@@ -399,7 +401,7 @@ fn deviatoric_dim_4() -> Result<(), TestError> {
 }
 
 #[test]
-fn deviatoric_dim_9() -> Result<(), TestError> {
+fn deviatoric_dim_9() -> Result<(), AssertionError> {
     let tensor_rank_2 = get_tensor_rank_2_dim_9();
     let trace = tensor_rank_2.trace();
     let deviatoric_tensor_rank_2 = tensor_rank_2.deviatoric();
@@ -411,7 +413,7 @@ fn deviatoric_dim_9() -> Result<(), TestError> {
 }
 
 #[test]
-fn deviatoric_and_trace_dim_2() -> Result<(), TestError> {
+fn deviatoric_and_trace_dim_2() -> Result<(), AssertionError> {
     let tensor_rank_2 = get_tensor_rank_2_dim_2();
     let (deviatoric, trace) = tensor_rank_2.deviatoric_and_trace();
     assert_eq(&tensor_rank_2.trace(), &trace)?;
@@ -419,7 +421,7 @@ fn deviatoric_and_trace_dim_2() -> Result<(), TestError> {
 }
 
 #[test]
-fn deviatoric_and_trace_dim_3() -> Result<(), TestError> {
+fn deviatoric_and_trace_dim_3() -> Result<(), AssertionError> {
     let tensor_rank_2 = get_tensor_rank_2_dim_3();
     let (deviatoric, trace) = tensor_rank_2.deviatoric_and_trace();
     assert_eq(&tensor_rank_2.trace(), &trace)?;
@@ -427,7 +429,7 @@ fn deviatoric_and_trace_dim_3() -> Result<(), TestError> {
 }
 
 #[test]
-fn deviatoric_and_trace_dim_4() -> Result<(), TestError> {
+fn deviatoric_and_trace_dim_4() -> Result<(), AssertionError> {
     let tensor_rank_2 = get_tensor_rank_2_dim_4();
     let (deviatoric, trace) = tensor_rank_2.deviatoric_and_trace();
     assert_eq(&tensor_rank_2.trace(), &trace)?;
@@ -435,7 +437,7 @@ fn deviatoric_and_trace_dim_4() -> Result<(), TestError> {
 }
 
 #[test]
-fn deviatoric_and_trace_dim_9() -> Result<(), TestError> {
+fn deviatoric_and_trace_dim_9() -> Result<(), AssertionError> {
     let tensor_rank_2 = get_tensor_rank_2_dim_9();
     let (deviatoric, trace) = tensor_rank_2.deviatoric_and_trace();
     assert_eq(&tensor_rank_2.trace(), &trace)?;
@@ -466,43 +468,43 @@ fn from_iter() {
 }
 
 #[test]
-fn from_0_0_for_1_0() -> Result<(), TestError> {
+fn from_0_0_for_1_0() -> Result<(), AssertionError> {
     let tensor: TensorRank2<3, 1, 0> = get_tensor_rank_2::<0, 0>().into();
     assert_eq(&get_tensor_rank_2::<1, 0>(), &tensor)
 }
 
 #[test]
-fn from_0_0_for_1_1() -> Result<(), TestError> {
+fn from_0_0_for_1_1() -> Result<(), AssertionError> {
     let tensor: TensorRank2<3, 1, 1> = get_tensor_rank_2::<0, 0>().into();
     assert_eq(&get_tensor_rank_2::<1, 1>(), &tensor)
 }
 
 #[test]
-fn from_0_1_for_0_0() -> Result<(), TestError> {
+fn from_0_1_for_0_0() -> Result<(), AssertionError> {
     let tensor: TensorRank2<3, 0, 0> = get_tensor_rank_2::<0, 1>().into();
     assert_eq(&get_tensor_rank_2::<0, 0>(), &tensor)
 }
 
 #[test]
-fn from_1_0_for_0_0() -> Result<(), TestError> {
+fn from_1_0_for_0_0() -> Result<(), AssertionError> {
     let tensor: TensorRank2<3, 0, 0> = get_tensor_rank_2::<1, 0>().into();
     assert_eq(&get_tensor_rank_2::<0, 0>(), &tensor)
 }
 
 #[test]
-fn from_1_1_for_1_0() -> Result<(), TestError> {
+fn from_1_1_for_1_0() -> Result<(), AssertionError> {
     let tensor: TensorRank2<3, 1, 0> = get_tensor_rank_2::<1, 1>().into();
     assert_eq(&get_tensor_rank_2::<1, 0>(), &tensor)
 }
 
 #[test]
-fn from_1_2_for_1_0() -> Result<(), TestError> {
+fn from_1_2_for_1_0() -> Result<(), AssertionError> {
     let tensor: TensorRank2<3, 1, 0> = get_tensor_rank_2::<1, 2>().into();
     assert_eq(&get_tensor_rank_2::<1, 0>(), &tensor)
 }
 
 #[test]
-fn full_contraction_dim_2() -> Result<(), TestError> {
+fn full_contraction_dim_2() -> Result<(), AssertionError> {
     assert_eq_within_tols(
         &get_tensor_rank_2_dim_2().full_contraction(&get_other_tensor_rank_2_dim_2()),
         &70.0,
@@ -510,7 +512,7 @@ fn full_contraction_dim_2() -> Result<(), TestError> {
 }
 
 #[test]
-fn full_contraction_dim_3() -> Result<(), TestError> {
+fn full_contraction_dim_3() -> Result<(), AssertionError> {
     assert_eq_within_tols(
         &get_tensor_rank_2_dim_3().full_contraction(&get_other_tensor_rank_2_dim_3()),
         &167.0,
@@ -518,7 +520,7 @@ fn full_contraction_dim_3() -> Result<(), TestError> {
 }
 
 #[test]
-fn full_contraction_dim_4() -> Result<(), TestError> {
+fn full_contraction_dim_4() -> Result<(), AssertionError> {
     assert_eq_within_tols(
         &get_tensor_rank_2_dim_4().full_contraction(&get_other_tensor_rank_2_dim_4()),
         &137.0,
@@ -526,7 +528,7 @@ fn full_contraction_dim_4() -> Result<(), TestError> {
 }
 
 #[test]
-fn full_contraction_dim_9() -> Result<(), TestError> {
+fn full_contraction_dim_9() -> Result<(), AssertionError> {
     assert_eq_within_tols(
         &get_tensor_rank_2_dim_9().full_contraction(&get_other_tensor_rank_2_dim_9()),
         &262.0,
@@ -639,7 +641,7 @@ fn iter_mut() {
 }
 
 #[test]
-fn into_vec() -> Result<(), TestError> {
+fn into_vec() -> Result<(), AssertionError> {
     let vec: Vec<Vec<f64>> = get_tensor_rank_2_dim_4().into();
     get_tensor_rank_2_dim_4()
         .iter()
@@ -966,22 +968,22 @@ fn from() {
 }
 
 #[test]
-fn norm_dim_2() -> Result<(), TestError> {
+fn norm_dim_2() -> Result<(), AssertionError> {
     assert_eq(&get_tensor_rank_2_dim_2().norm(), &5.477_225_575_051_661)
 }
 
 #[test]
-fn norm_dim_3() -> Result<(), TestError> {
+fn norm_dim_3() -> Result<(), AssertionError> {
     assert_eq(&get_tensor_rank_2_dim_3().norm(), &16.881_943_016_134_134)
 }
 
 #[test]
-fn norm_dim_4() -> Result<(), TestError> {
+fn norm_dim_4() -> Result<(), AssertionError> {
     assert_eq(&get_tensor_rank_2_dim_4().norm(), &14.282_856_857_085_7)
 }
 
 #[test]
-fn norm_dim_9() -> Result<(), TestError> {
+fn norm_dim_9() -> Result<(), AssertionError> {
     assert_eq(&get_tensor_rank_2_dim_9().norm(), &20.736_441_353_327_72)
 }
 
@@ -999,22 +1001,22 @@ fn second_invariant() {
 }
 
 #[test]
-fn squared_trace_dim_2() -> Result<(), TestError> {
+fn squared_trace_dim_2() -> Result<(), AssertionError> {
     assert_eq_within_tols(&get_tensor_rank_2_dim_2().squared_trace(), &29.0)
 }
 
 #[test]
-fn squared_trace_dim_3() -> Result<(), TestError> {
+fn squared_trace_dim_3() -> Result<(), AssertionError> {
     assert_eq_within_tols(&get_tensor_rank_2_dim_3().squared_trace(), &258.0)
 }
 
 #[test]
-fn squared_trace_dim_4() -> Result<(), TestError> {
+fn squared_trace_dim_4() -> Result<(), AssertionError> {
     assert_eq_within_tols(&get_tensor_rank_2_dim_4().squared_trace(), &89.0)
 }
 
 #[test]
-fn squared_trace_dim_9() -> Result<(), TestError> {
+fn squared_trace_dim_9() -> Result<(), AssertionError> {
     assert_eq_within_tols(&get_tensor_rank_2_dim_9().squared_trace(), &308.0)
 }
 
@@ -1083,22 +1085,22 @@ fn sub_assign_tensor_rank_2_ref() {
 }
 
 #[test]
-fn trace_dim_2() -> Result<(), TestError> {
+fn trace_dim_2() -> Result<(), AssertionError> {
     assert_eq(&get_tensor_rank_2_dim_2().trace(), &5.0)
 }
 
 #[test]
-fn trace_dim_3() -> Result<(), TestError> {
+fn trace_dim_3() -> Result<(), AssertionError> {
     assert_eq(&get_tensor_rank_2_dim_3().trace(), &6.0)
 }
 
 #[test]
-fn trace_dim_4() -> Result<(), TestError> {
+fn trace_dim_4() -> Result<(), AssertionError> {
     assert_eq(&get_tensor_rank_2_dim_4().trace(), &11.0)
 }
 
 #[test]
-fn trace_dim_9() -> Result<(), TestError> {
+fn trace_dim_9() -> Result<(), AssertionError> {
     assert_eq(&get_tensor_rank_2_dim_9().trace(), &14.0)
 }
 

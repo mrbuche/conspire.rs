@@ -113,7 +113,7 @@ macro_rules! test_solid_constitutive
     {
         use crate::constitutive::solid::Solid;
         #[test]
-        fn bulk_modulus() -> Result<(), TestError>
+        fn bulk_modulus() -> Result<(), AssertionError>
         {
             use crate::EPSILON;
             let model = $constitutive_model;
@@ -123,7 +123,7 @@ macro_rules! test_solid_constitutive
             Ok(())
         }
         #[test]
-        fn shear_modulus() -> Result<(), TestError>
+        fn shear_modulus() -> Result<(), AssertionError>
         {
             use crate::EPSILON;
             let model = $constitutive_model;
@@ -143,7 +143,7 @@ macro_rules! test_solid_constitutive_model_no_tangents {
             EPSILON,
             math::{
                 TensorArray,
-                test::{TestError, assert_eq, assert_eq_within_tols},
+                assert::{AssertionError, assert_eq, assert_eq_within_tols},
             },
             mechanics::{
                 CauchyStress, FirstPiolaKirchhoffStress, SecondPiolaKirchhoffStress,
@@ -170,7 +170,7 @@ macro_rules! test_solid_constitutive_model_no_tangents {
                     .unwrap();
                 }
                 #[test]
-                fn objectivity() -> Result<(), TestError> {
+                fn objectivity() -> Result<(), AssertionError> {
                     assert_eq_within_tols(
                         &cauchy_stress_from_deformation_gradient!(
                             &$constitutive_model,
@@ -185,7 +185,7 @@ macro_rules! test_solid_constitutive_model_no_tangents {
                     )
                 }
                 #[test]
-                fn symmetry() -> Result<(), TestError> {
+                fn symmetry() -> Result<(), AssertionError> {
                     let cauchy_stress = cauchy_stress_from_deformation_gradient!(
                         &$constitutive_model,
                         &get_deformation_gradient()
@@ -196,7 +196,7 @@ macro_rules! test_solid_constitutive_model_no_tangents {
             mod undeformed {
                 use super::*;
                 #[test]
-                fn zero() -> Result<(), TestError> {
+                fn zero() -> Result<(), AssertionError> {
                     assert_eq_within_tols(
                         &cauchy_stress_from_deformation_gradient_simple!(
                             &$constitutive_model,
@@ -223,7 +223,7 @@ macro_rules! test_solid_constitutive_model_no_tangents {
                 }
                 use super::*;
                 #[test]
-                fn objectivity() -> Result<(), TestError> {
+                fn objectivity() -> Result<(), AssertionError> {
                     assert_eq_within_tols(
                         &first_piola_kirchhoff_stress_from_deformation_gradient!(
                             &$constitutive_model,
@@ -241,7 +241,7 @@ macro_rules! test_solid_constitutive_model_no_tangents {
             mod undeformed {
                 use super::*;
                 #[test]
-                fn zero() -> Result<(), TestError> {
+                fn zero() -> Result<(), AssertionError> {
                     assert_eq(
                         &first_piola_kirchhoff_stress_from_deformation_gradient_simple!(
                             &$constitutive_model,
@@ -268,7 +268,7 @@ macro_rules! test_solid_constitutive_model_no_tangents {
                 }
                 use super::*;
                 #[test]
-                fn objectivity() -> Result<(), TestError> {
+                fn objectivity() -> Result<(), AssertionError> {
                     assert_eq_within_tols(
                         &second_piola_kirchhoff_stress_from_deformation_gradient!(
                             &$constitutive_model,
@@ -283,7 +283,7 @@ macro_rules! test_solid_constitutive_model_no_tangents {
                     )
                 }
                 #[test]
-                fn symmetry() -> Result<(), TestError> {
+                fn symmetry() -> Result<(), AssertionError> {
                     let second_piola_kirchhoff_stress = second_piola_kirchhoff_stress_from_deformation_gradient!(
                         &$constitutive_model,
                         &get_deformation_gradient()
@@ -294,7 +294,7 @@ macro_rules! test_solid_constitutive_model_no_tangents {
             mod undeformed {
                 use super::*;
                 #[test]
-                fn zero() -> Result<(), TestError> {
+                fn zero() -> Result<(), AssertionError> {
                     assert_eq(
                         &second_piola_kirchhoff_stress_from_deformation_gradient_simple!(
                             &$constitutive_model,
@@ -317,11 +317,11 @@ macro_rules! test_solid_constitutive_model_tangents
         {
             use crate::
             {
-                math::{ContractAllIndicesWithFirstIndicesOf, test::assert_eq_from_fd, TensorArray},
+                math::{ContractAllIndicesWithFirstIndicesOf, assert::assert_eq_from_fd, TensorArray},
                 mechanics::{CauchyTangentStiffness, FirstPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffTangentStiffness, test::get_deformation_gradient_rotated_undeformed},
             };
             use super::*;
-            fn cauchy_tangent_stiffness_from_finite_difference_of_cauchy_stress(is_deformed: bool) -> Result<CauchyTangentStiffness, TestError>
+            fn cauchy_tangent_stiffness_from_finite_difference_of_cauchy_stress(is_deformed: bool) -> Result<CauchyTangentStiffness, AssertionError>
             {
                 let model = $constitutive_model;
                 let mut cauchy_tangent_stiffness = CauchyTangentStiffness::zero();
@@ -362,7 +362,7 @@ macro_rules! test_solid_constitutive_model_tangents
                 }
                 Ok(cauchy_tangent_stiffness)
             }
-            fn first_piola_kirchhoff_tangent_stiffness_from_finite_difference_of_first_piola_kirchhoff_stress(is_deformed: bool) -> Result<FirstPiolaKirchhoffTangentStiffness, TestError>
+            fn first_piola_kirchhoff_tangent_stiffness_from_finite_difference_of_first_piola_kirchhoff_stress(is_deformed: bool) -> Result<FirstPiolaKirchhoffTangentStiffness, AssertionError>
             {
                 let model = $constitutive_model;
                 let mut first_piola_kirchhoff_tangent_stiffness = FirstPiolaKirchhoffTangentStiffness::zero();
@@ -403,7 +403,7 @@ macro_rules! test_solid_constitutive_model_tangents
                 }
                 Ok(first_piola_kirchhoff_tangent_stiffness)
             }
-            fn second_piola_kirchhoff_tangent_stiffness_from_finite_difference_of_second_piola_kirchhoff_stress(is_deformed: bool) -> Result<SecondPiolaKirchhoffTangentStiffness, TestError>
+            fn second_piola_kirchhoff_tangent_stiffness_from_finite_difference_of_second_piola_kirchhoff_stress(is_deformed: bool) -> Result<SecondPiolaKirchhoffTangentStiffness, AssertionError>
             {
                 let mut second_piola_kirchhoff_tangent_stiffness = SecondPiolaKirchhoffTangentStiffness::zero();
                 for k in 0..3
@@ -458,7 +458,7 @@ macro_rules! test_solid_constitutive_model_tangents
                 {
                     use super::*;
                     #[test]
-                    fn finite_difference() -> Result<(), TestError>
+                    fn finite_difference() -> Result<(), AssertionError>
                     {
                         assert_eq_from_fd(
                             &cauchy_tangent_stiffness_from_deformation_gradient!(
@@ -472,7 +472,7 @@ macro_rules! test_solid_constitutive_model_tangents
                 {
                     use super::*;
                     #[test]
-                    fn finite_difference() -> Result<(), TestError>
+                    fn finite_difference() -> Result<(), AssertionError>
                     {
                         assert_eq_from_fd(
                             &cauchy_tangent_stiffness_from_deformation_gradient!(
@@ -490,7 +490,7 @@ macro_rules! test_solid_constitutive_model_tangents
                 {
                     use super::*;
                     #[test]
-                    fn finite_difference() -> Result<(), TestError>
+                    fn finite_difference() -> Result<(), AssertionError>
                     {
                         assert_eq_from_fd(
                             &first_piola_kirchhoff_tangent_stiffness_from_deformation_gradient!(
@@ -504,7 +504,7 @@ macro_rules! test_solid_constitutive_model_tangents
                 {
                     use super::*;
                     #[test]
-                    fn finite_difference() -> Result<(), TestError>
+                    fn finite_difference() -> Result<(), AssertionError>
                     {
                         assert_eq_from_fd(
                             &first_piola_kirchhoff_tangent_stiffness_from_deformation_gradient!(
@@ -522,7 +522,7 @@ macro_rules! test_solid_constitutive_model_tangents
                 {
                     use super::*;
                     #[test]
-                    fn finite_difference() -> Result<(), TestError>
+                    fn finite_difference() -> Result<(), AssertionError>
                     {
                         assert_eq_from_fd(
                             &second_piola_kirchhoff_tangent_stiffness_from_deformation_gradient!(
@@ -536,7 +536,7 @@ macro_rules! test_solid_constitutive_model_tangents
                 {
                     use super::*;
                     #[test]
-                    fn finite_difference() -> Result<(), TestError>
+                    fn finite_difference() -> Result<(), AssertionError>
                     {
                         assert_eq_from_fd(
                             &second_piola_kirchhoff_tangent_stiffness_from_deformation_gradient!(
@@ -564,7 +564,7 @@ macro_rules! test_solid_constitutive_model_tangents
                         ).unwrap();
                     }
                     #[test]
-                    fn objectivity() -> Result<(), TestError>
+                    fn objectivity() -> Result<(), AssertionError>
                     {
                         assert_eq_within_tols(
                             &cauchy_tangent_stiffness_from_deformation_gradient!(
@@ -581,7 +581,7 @@ macro_rules! test_solid_constitutive_model_tangents
                         )
                     }
                     #[test]
-                    fn symmetry() -> Result<(), TestError>
+                    fn symmetry() -> Result<(), AssertionError>
                     {
                         let cauchy_tangent_stiffness =
                         cauchy_tangent_stiffness_from_deformation_gradient!(
@@ -601,7 +601,7 @@ macro_rules! test_solid_constitutive_model_tangents
                 {
                     use super::*;
                     #[test]
-                    fn objectivity() -> Result<(), TestError>
+                    fn objectivity() -> Result<(), AssertionError>
                     {
                         assert_eq_within_tols(
                             &cauchy_tangent_stiffness_from_deformation_gradient!(
@@ -618,7 +618,7 @@ macro_rules! test_solid_constitutive_model_tangents
                         )
                     }
                     #[test]
-                    fn symmetry() -> Result<(), TestError>
+                    fn symmetry() -> Result<(), AssertionError>
                     {
                         let cauchy_tangent_stiffness =
                         cauchy_tangent_stiffness_from_deformation_gradient!(
@@ -652,7 +652,7 @@ macro_rules! test_solid_constitutive_model_tangents
                         ).unwrap();
                     }
                     #[test]
-                    fn objectivity() -> Result<(), TestError>
+                    fn objectivity() -> Result<(), AssertionError>
                     {
                         assert_eq_within_tols(
                             &first_piola_kirchhoff_tangent_stiffness_from_deformation_gradient!(
@@ -673,7 +673,7 @@ macro_rules! test_solid_constitutive_model_tangents
                 {
                     use super::*;
                     #[test]
-                    fn objectivity() -> Result<(), TestError>
+                    fn objectivity() -> Result<(), AssertionError>
                     {
                         assert_eq_within_tols(
                             &first_piola_kirchhoff_tangent_stiffness_from_deformation_gradient!(
@@ -708,7 +708,7 @@ macro_rules! test_solid_constitutive_model_tangents
                         ).unwrap();
                     }
                     #[test]
-                    fn objectivity() -> Result<(), TestError>
+                    fn objectivity() -> Result<(), AssertionError>
                     {
                         assert_eq_within_tols(
                             &second_piola_kirchhoff_tangent_stiffness_from_deformation_gradient!(
@@ -725,7 +725,7 @@ macro_rules! test_solid_constitutive_model_tangents
                         )
                     }
                     #[test]
-                    fn symmetry() -> Result<(), TestError>
+                    fn symmetry() -> Result<(), AssertionError>
                     {
                         let second_piola_kirchhoff_tangent_stiffness =
                         second_piola_kirchhoff_tangent_stiffness_from_deformation_gradient!(
@@ -745,7 +745,7 @@ macro_rules! test_solid_constitutive_model_tangents
                 {
                     use super::*;
                     #[test]
-                    fn objectivity() -> Result<(), TestError>
+                    fn objectivity() -> Result<(), AssertionError>
                     {
                         assert_eq_within_tols(
                             &second_piola_kirchhoff_tangent_stiffness_from_deformation_gradient!(
@@ -762,7 +762,7 @@ macro_rules! test_solid_constitutive_model_tangents
                         )
                     }
                     #[test]
-                    fn symmetry() -> Result<(), TestError>
+                    fn symmetry() -> Result<(), AssertionError>
                     {
                         let second_piola_kirchhoff_tangent_stiffness =
                         second_piola_kirchhoff_tangent_stiffness_from_deformation_gradient!(
@@ -801,7 +801,7 @@ macro_rules! test_solid_elastic_constitutive_model_no_root
                 {
                     use super::*;
                     #[test]
-                    fn non_symmetry() -> Result<(), TestError>
+                    fn non_symmetry() -> Result<(), AssertionError>
                     {
                         let first_piola_kirchhoff_tangent_stiffness =
                         first_piola_kirchhoff_tangent_stiffness_from_deformation_gradient!(
@@ -850,22 +850,22 @@ macro_rules! test_root {
         macro_rules! test_root_with_solver {
             ($solver: expr) => {
                 #[test]
-                fn uniaxial_compression() -> Result<(), crate::math::test::TestError> {
+                fn uniaxial_compression() -> Result<(), crate::math::assert::AssertionError> {
                     let deformation_gradient = $constitutive_model_constructed
                         .root(AppliedLoad::UniaxialStress(0.77), $solver)?;
                     let cauchy_stress =
                         $constitutive_model_constructed.cauchy_stress(&deformation_gradient)?;
                     assert!(cauchy_stress[0][0] < 0.0);
-                    crate::math::test::assert_eq_within_tols(
+                    crate::math::assert::assert_eq_within_tols(
                         &(cauchy_stress[1][1] / cauchy_stress[0][0]),
                         &0.0,
                     )?;
-                    crate::math::test::assert_eq_within_tols(
+                    crate::math::assert::assert_eq_within_tols(
                         &(cauchy_stress[2][2] / cauchy_stress[0][0]),
                         &0.0,
                     )?;
                     assert!(cauchy_stress.is_diagonal());
-                    crate::math::test::assert_eq(
+                    crate::math::assert::assert_eq(
                         &deformation_gradient[1][1],
                         &deformation_gradient[2][2],
                     )?;
@@ -873,23 +873,23 @@ macro_rules! test_root {
                     Ok(())
                 }
                 #[test]
-                fn uniaxial_tension() -> Result<(), crate::math::test::TestError> {
+                fn uniaxial_tension() -> Result<(), crate::math::assert::AssertionError> {
                     let deformation_gradient = $constitutive_model_constructed
                         .root(AppliedLoad::UniaxialStress(1.2), $solver)?;
                     let cauchy_stress =
                         $constitutive_model_constructed.cauchy_stress(&deformation_gradient)?;
                     assert!(cauchy_stress[0][0] > 0.0);
                     assert!(cauchy_stress.is_diagonal());
-                    crate::math::test::assert_eq_within_tols(&cauchy_stress[1][1], &0.0)?;
-                    crate::math::test::assert_eq_within_tols(&cauchy_stress[2][2], &0.0)?;
+                    crate::math::assert::assert_eq_within_tols(&cauchy_stress[1][1], &0.0)?;
+                    crate::math::assert::assert_eq_within_tols(&cauchy_stress[2][2], &0.0)?;
                     assert!(deformation_gradient.is_diagonal());
-                    crate::math::test::assert_eq(
+                    crate::math::assert::assert_eq(
                         &deformation_gradient[1][1],
                         &deformation_gradient[2][2],
                     )
                 }
                 #[test]
-                fn uniaxial_undeformed() -> Result<(), crate::math::test::TestError> {
+                fn uniaxial_undeformed() -> Result<(), crate::math::assert::AssertionError> {
                     let deformation_gradient = $constitutive_model_constructed
                         .root(AppliedLoad::UniaxialStress(1.0), $solver)?;
                     let cauchy_stress =
@@ -899,14 +899,14 @@ macro_rules! test_root {
                     Ok(())
                 }
                 #[test]
-                fn biaxial_compression() -> Result<(), crate::math::test::TestError> {
+                fn biaxial_compression() -> Result<(), crate::math::assert::AssertionError> {
                     let deformation_gradient = $constitutive_model_constructed
                         .root(AppliedLoad::BiaxialStress(0.77, 0.88), $solver)?;
                     let cauchy_stress =
                         $constitutive_model_constructed.cauchy_stress(&deformation_gradient)?;
                     assert!(cauchy_stress[0][0] < 0.0);
                     assert!(cauchy_stress[1][1] < 0.0);
-                    crate::math::test::assert_eq_within_tols(
+                    crate::math::assert::assert_eq_within_tols(
                         &(cauchy_stress[2][2]
                             / (cauchy_stress[0][0].powi(2) + cauchy_stress[1][1].powi(2)).sqrt()),
                         &0.0,
@@ -916,32 +916,32 @@ macro_rules! test_root {
                     Ok(())
                 }
                 #[test]
-                fn biaxial_mixed() -> Result<(), crate::math::test::TestError> {
+                fn biaxial_mixed() -> Result<(), crate::math::assert::AssertionError> {
                     let deformation_gradient = $constitutive_model_constructed
                         .root(AppliedLoad::BiaxialStress(1.3, 0.64), $solver)?;
                     let cauchy_stress =
                         $constitutive_model_constructed.cauchy_stress(&deformation_gradient)?;
                     assert!(cauchy_stress[0][0] > cauchy_stress[1][1]);
-                    crate::math::test::assert_eq_within_tols(&cauchy_stress[2][2], &0.0)?;
+                    crate::math::assert::assert_eq_within_tols(&cauchy_stress[2][2], &0.0)?;
                     assert!(cauchy_stress.is_diagonal());
                     assert!(deformation_gradient.is_diagonal());
                     Ok(())
                 }
                 #[test]
-                fn biaxial_tension() -> Result<(), crate::math::test::TestError> {
+                fn biaxial_tension() -> Result<(), crate::math::assert::AssertionError> {
                     let deformation_gradient = $constitutive_model_constructed
                         .root(AppliedLoad::BiaxialStress(1.3, 1.2), $solver)?;
                     let cauchy_stress =
                         $constitutive_model_constructed.cauchy_stress(&deformation_gradient)?;
                     assert!(cauchy_stress[0][0] > cauchy_stress[1][1]);
                     assert!(cauchy_stress[1][1] > 0.0);
-                    crate::math::test::assert_eq_within_tols(&cauchy_stress[2][2], &0.0)?;
+                    crate::math::assert::assert_eq_within_tols(&cauchy_stress[2][2], &0.0)?;
                     assert!(cauchy_stress.is_diagonal());
                     assert!(deformation_gradient.is_diagonal());
                     Ok(())
                 }
                 #[test]
-                fn biaxial_undeformed() -> Result<(), crate::math::test::TestError> {
+                fn biaxial_undeformed() -> Result<(), crate::math::assert::AssertionError> {
                     let deformation_gradient = $constitutive_model_constructed
                         .root(AppliedLoad::BiaxialStress(1.0, 1.0), $solver)?;
                     let cauchy_stress =

@@ -1,7 +1,7 @@
 use super::{Tensor, TensorArray, TensorRank0, TensorRank1};
 use crate::{
     ABS_TOL, REL_TOL,
-    math::test::{TestError, assert_eq},
+    math::assert::{AssertionError, assert_eq},
 };
 
 fn get_array() -> [TensorRank0; 4] {
@@ -37,7 +37,7 @@ fn get_tensor_rank_1_sub_tensor_rank_1_a() -> TensorRank1<4, 1> {
 }
 
 #[test]
-fn add_tensor_rank_1_to_self() -> Result<(), TestError> {
+fn add_tensor_rank_1_to_self() -> Result<(), AssertionError> {
     assert_eq(
         &(get_tensor_rank_1() + get_tensor_rank_1_a()),
         &get_tensor_rank_1_add_tensor_rank_1_a(),
@@ -45,7 +45,7 @@ fn add_tensor_rank_1_to_self() -> Result<(), TestError> {
 }
 
 #[test]
-fn add_tensor_rank_1_ref_to_self() -> Result<(), TestError> {
+fn add_tensor_rank_1_ref_to_self() -> Result<(), AssertionError> {
     assert_eq(
         &(get_tensor_rank_1() + &get_tensor_rank_1_a()),
         &get_tensor_rank_1_add_tensor_rank_1_a(),
@@ -53,7 +53,7 @@ fn add_tensor_rank_1_ref_to_self() -> Result<(), TestError> {
 }
 
 #[test]
-fn add_tensor_rank_1_to_self_ref() -> Result<(), TestError> {
+fn add_tensor_rank_1_to_self_ref() -> Result<(), AssertionError> {
     assert_eq(
         &(&get_tensor_rank_1() + get_tensor_rank_1_a()),
         &get_tensor_rank_1_add_tensor_rank_1_a(),
@@ -61,14 +61,14 @@ fn add_tensor_rank_1_to_self_ref() -> Result<(), TestError> {
 }
 
 #[test]
-fn add_assign_tensor_rank_1() -> Result<(), TestError> {
+fn add_assign_tensor_rank_1() -> Result<(), AssertionError> {
     let mut tensor_rank_1 = get_tensor_rank_1();
     tensor_rank_1 += get_tensor_rank_1_a();
     assert_eq(&tensor_rank_1, &get_tensor_rank_1_add_tensor_rank_1_a())
 }
 
 #[test]
-fn add_assign_tensor_rank_1_ref() -> Result<(), TestError> {
+fn add_assign_tensor_rank_1_ref() -> Result<(), AssertionError> {
     let mut tensor_rank_1 = get_tensor_rank_1();
     tensor_rank_1 += &get_tensor_rank_1_a();
     assert_eq(&tensor_rank_1, &get_tensor_rank_1_add_tensor_rank_1_a())
@@ -80,7 +80,7 @@ fn as_array() {
 }
 
 #[test]
-fn div_tensor_rank_0_to_self() -> Result<(), TestError> {
+fn div_tensor_rank_0_to_self() -> Result<(), AssertionError> {
     (get_tensor_rank_1() / 3.3)
         .iter()
         .zip(get_array().iter())
@@ -88,7 +88,7 @@ fn div_tensor_rank_0_to_self() -> Result<(), TestError> {
 }
 
 #[test]
-fn div_tensor_rank_0_to_self_ref() -> Result<(), TestError> {
+fn div_tensor_rank_0_to_self_ref() -> Result<(), AssertionError> {
     (&get_tensor_rank_1() / 3.3)
         .iter()
         .zip(get_array().iter())
@@ -97,7 +97,7 @@ fn div_tensor_rank_0_to_self_ref() -> Result<(), TestError> {
 
 #[test]
 #[allow(clippy::op_ref)]
-fn div_tensor_rank_0_ref_to_self() -> Result<(), TestError> {
+fn div_tensor_rank_0_ref_to_self() -> Result<(), AssertionError> {
     (get_tensor_rank_1() / &3.3)
         .iter()
         .zip(get_array().iter())
@@ -106,7 +106,7 @@ fn div_tensor_rank_0_ref_to_self() -> Result<(), TestError> {
 
 #[test]
 #[allow(clippy::op_ref)]
-fn div_tensor_rank_0_ref_to_self_ref() -> Result<(), TestError> {
+fn div_tensor_rank_0_ref_to_self_ref() -> Result<(), AssertionError> {
     (&get_tensor_rank_1() / &3.3)
         .iter()
         .zip(get_array().iter())
@@ -114,7 +114,7 @@ fn div_tensor_rank_0_ref_to_self_ref() -> Result<(), TestError> {
 }
 
 #[test]
-fn div_assign_tensor_rank_0() -> Result<(), TestError> {
+fn div_assign_tensor_rank_0() -> Result<(), AssertionError> {
     let mut tensor_rank_1 = get_tensor_rank_1();
     tensor_rank_1 /= 3.3;
     tensor_rank_1
@@ -124,7 +124,7 @@ fn div_assign_tensor_rank_0() -> Result<(), TestError> {
 }
 
 #[test]
-fn div_assign_tensor_rank_0_ref() -> Result<(), TestError> {
+fn div_assign_tensor_rank_0_ref() -> Result<(), AssertionError> {
     let mut tensor_rank_1 = get_tensor_rank_1();
     tensor_rank_1 /= &3.3;
     tensor_rank_1

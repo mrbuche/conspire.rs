@@ -7,8 +7,8 @@ use crate::{
         linear::Tetrahedron,
     },
     math::{
-        CrossProduct, Scalar, Scalars, Style, StyledError, Tensor, TensorRank1Vec2D, TestError,
-        styled_error,
+        CrossProduct, Scalar, Scalars, Style, StyledError, Tensor, TensorRank1Vec2D,
+        assert::AssertionError, styled_error,
     },
     mechanics::{CurrentCoordinate, CurrentCoordinatesRef, ReferenceCoordinate, Vectors2D},
     vem::{NodalCoordinates, NodalReferenceCoordinates},
@@ -290,7 +290,7 @@ pub enum VirtualElementError {
     Upstream(String, String),
 }
 
-impl From<VirtualElementError> for TestError {
+impl From<VirtualElementError> for AssertionError {
     fn from(error: VirtualElementError) -> Self {
         Self {
             message: error.to_string(),
@@ -366,7 +366,7 @@ fn temporary_poly_0() {
         &coordinates,
     ));
     use crate::fem::solid::NodalForcesSolid;
-    use crate::math::{TensorArray, assert_eq_within_tols};
+    use crate::math::{TensorArray, assert::assert_eq_within_tols};
     use crate::mechanics::DeformationGradient;
     use crate::vem::NodalCoordinates;
     let coordinates_current = NodalCoordinates::from(coordinates.clone());
@@ -440,7 +440,7 @@ fn temporary_poly_1() {
         &coordinates,
     ));
     use crate::fem::solid::NodalForcesSolid;
-    use crate::math::{TensorArray, assert_eq_within_tols};
+    use crate::math::{TensorArray, assert::assert_eq_within_tols};
     use crate::mechanics::DeformationGradient;
     use crate::vem::NodalCoordinates;
     let coordinates_current = NodalCoordinates::from(coordinates.clone());
@@ -559,7 +559,7 @@ fn temporary_poly_2() {
                 .collect()
         })
         .collect();
-    use crate::math::test::assert_eq_from_fd;
+    use crate::math::assert::assert_eq_from_fd;
     assert_eq_from_fd(&block.nodal_forces(&coordinates).unwrap(), &nodal_forces_fd).unwrap();
     let mut finite_difference = 0.0;
     let nodal_stiffnesses_fd = (0..coordinates.len())

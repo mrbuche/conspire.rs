@@ -7,7 +7,7 @@ use crate::math::{Tensor, TensorRank0, tensor::list::TensorList};
 use std::ops::Mul;
 
 #[cfg(test)]
-use crate::math::tensor::test::ErrorTensor;
+use crate::math::assert::ErrorTensor;
 
 /// A list of rank-0 tensors (scalars).
 pub type TensorRank0List<const N: usize> = TensorList<TensorRank0, N>;

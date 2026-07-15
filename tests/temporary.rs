@@ -21,7 +21,8 @@ use conspire::{
     },
     geometry::mesh::{Connectivity, Mesh},
     math::{
-        Matrix, Scalar, Tensor, TestError, Vector, assert_eq_within, assert_eq_within_tols,
+        Matrix, Scalar, Tensor, Vector,
+        assert::{AssertionError, assert_eq_within, assert_eq_within_tols},
         integrate::DormandPrince,
         optimize::{EqualityConstraint, NewtonRaphson},
     },
@@ -7375,7 +7376,7 @@ fn coordinates() -> NodalReferenceCoordinates<3> {
 }
 
 #[test]
-fn temporary_hyperelastic() -> Result<(), TestError> {
+fn temporary_hyperelastic() -> Result<(), AssertionError> {
     let strain = 13.0;
     let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
@@ -7504,7 +7505,7 @@ fn bcs_temporary_elastic_viscoplastic(t: Scalar) -> EqualityConstraint {
 }
 
 #[test]
-fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
+fn temporary_elastic_viscoplastic() -> Result<(), AssertionError> {
     use conspire::math::integrate::BogackiShampine;
     let tol = 1e-4;
     let tspan = [0.0, 2.0];
@@ -7608,7 +7609,7 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
 }
 
 #[test]
-fn temporary_hyperviscoelastic() -> Result<(), TestError> {
+fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
     let tol = 1e-4;
     let strain_rate = 2.3; // also set below
     let tspan = [0.0, 1.0];
@@ -7732,7 +7733,7 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
 }
 
 #[test]
-fn temporary_thermal_conduction() -> Result<(), TestError> {
+fn temporary_thermal_conduction() -> Result<(), AssertionError> {
     let temperature = 13.0;
     let ref_coordinates = coordinates();
     let mut connectivity = connectivity();

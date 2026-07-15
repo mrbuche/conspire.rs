@@ -6,13 +6,13 @@ use crate::{
     },
     math::{
         Tensor,
-        test::{TestError, assert_eq_within_tols},
+        assert::{AssertionError, assert_eq_within_tols},
     },
 };
 use std::array::from_fn;
 
 #[test]
-fn buffer_adds_conforming_layer() -> Result<(), TestError> {
+fn buffer_adds_conforming_layer() -> Result<(), AssertionError> {
     let tessellation = tessellation();
     let bvh = BoundingVolumeHierarchy::from(&tessellation);
     let coordinates = Coordinates::from(vec![

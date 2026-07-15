@@ -4,7 +4,7 @@ use crate::{
         bvh::BoundingVolumeHierarchy,
         mesh::{Connectivity, Mesh},
     },
-    math::test::{TestError, assert_eq_within_tols},
+    math::assert::{AssertionError, assert_eq_within_tols},
 };
 
 const CONNECTIVITY: [[usize; 3]; 2] = [[0, 1, 2], [3, 4, 5]];
@@ -66,7 +66,7 @@ fn pointing_away_misses() {
 }
 
 #[test]
-fn closest_point_projects_onto_nearest_face() -> Result<(), TestError> {
+fn closest_point_projects_onto_nearest_face() -> Result<(), AssertionError> {
     let mesh = mesh();
     let bvh = BoundingVolumeHierarchy::from(&mesh);
     let elements: Vec<&[usize]> = mesh.connectivities().iter().flatten().collect();
@@ -79,7 +79,7 @@ fn closest_point_projects_onto_nearest_face() -> Result<(), TestError> {
 }
 
 #[test]
-fn closest_point_clamps_to_vertex() -> Result<(), TestError> {
+fn closest_point_clamps_to_vertex() -> Result<(), AssertionError> {
     let mesh = mesh();
     let bvh = BoundingVolumeHierarchy::from(&mesh);
     let elements: Vec<&[usize]> = mesh.connectivities().iter().flatten().collect();

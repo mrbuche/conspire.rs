@@ -2,7 +2,7 @@
 mod test;
 
 #[cfg(test)]
-use super::test::ErrorTensor;
+use crate::math::assert::ErrorTensor;
 
 use std::{
     array::from_fn,

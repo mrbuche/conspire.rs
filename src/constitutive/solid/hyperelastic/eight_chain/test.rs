@@ -33,10 +33,10 @@ mod freely_jointed_chain {
         mod consistency {
             use super::*;
             use crate::{
-                constitutive::solid::hyperelastic::ArrudaBoyce, math::test::assert_eq_within_tols,
+                constitutive::solid::hyperelastic::ArrudaBoyce, math::assert::assert_eq_within_tols,
             };
             #[test]
-            fn cauchy_stress() -> Result<(), TestError> {
+            fn cauchy_stress() -> Result<(), AssertionError> {
                 let eight_chain = EightChain {
                     bulk_modulus: BULK_MODULUS,
                     shear_modulus: SHEAR_MODULUS,
@@ -53,7 +53,7 @@ mod freely_jointed_chain {
                 )
             }
             #[test]
-            fn cauchy_tangent_stiffness() -> Result<(), TestError> {
+            fn cauchy_tangent_stiffness() -> Result<(), AssertionError> {
                 let eight_chain = EightChain {
                     bulk_modulus: BULK_MODULUS,
                     shear_modulus: SHEAR_MODULUS,
@@ -70,7 +70,7 @@ mod freely_jointed_chain {
                 )
             }
             #[test]
-            fn helmholtz_free_energy_density() -> Result<(), TestError> {
+            fn helmholtz_free_energy_density() -> Result<(), AssertionError> {
                 let eight_chain = EightChain {
                     bulk_modulus: BULK_MODULUS,
                     shear_modulus: SHEAR_MODULUS,

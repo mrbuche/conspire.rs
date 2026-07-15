@@ -31,10 +31,10 @@ use crate::{
 test_finite_element!(Tetrahedron);
 test_finite_element_block!(Tetrahedron);
 
-use crate::math::test::{TestError, assert_eq_within_tols};
+use crate::math::assert::{AssertionError, assert_eq_within_tols};
 
 #[test]
-fn normalized_projection_matrix() -> Result<(), TestError> {
+fn normalized_projection_matrix() -> Result<(), AssertionError> {
     Tetrahedron::shape_function_integrals_products()
         .iter()
         .map(|dummy| dummy * 1.0)
@@ -55,7 +55,7 @@ fn normalized_projection_matrix() -> Result<(), TestError> {
 }
 
 #[test]
-fn standard_gradient_operators_transposed() -> Result<(), TestError> {
+fn standard_gradient_operators_transposed() -> Result<(), AssertionError> {
     let standard_gradient_operators_transposed =
         Tetrahedron::standard_gradient_operators_transposed();
     Tetrahedron::shape_functions_gradients_at_integration_points()

@@ -2,7 +2,7 @@ use super::{
     super::{
         super::{
             TensorArray, TensorRank1,
-            test::{TestError, assert_eq_within_tols},
+            assert::{AssertionError, assert_eq_within_tols},
         },
         test::{rosenbrock, rosenbrock_derivative},
     },
@@ -12,7 +12,7 @@ use super::{
 mod minimize {
     use super::*;
     #[test]
-    fn quadratic() -> Result<(), TestError> {
+    fn quadratic() -> Result<(), AssertionError> {
         assert_eq_within_tols(
             &GradientDescent::default().minimize(
                 |x: &Scalar| Ok(x.powi(2) / 2.0),
@@ -24,7 +24,7 @@ mod minimize {
         )
     }
     #[test]
-    fn rosenbrock_2d() -> Result<(), TestError> {
+    fn rosenbrock_2d() -> Result<(), AssertionError> {
         assert_eq_within_tols(
             &GradientDescent::default().minimize(
                 rosenbrock,
@@ -40,14 +40,14 @@ mod minimize {
 mod root {
     use super::*;
     #[test]
-    fn linear() -> Result<(), TestError> {
+    fn linear() -> Result<(), AssertionError> {
         assert_eq_within_tols(
             &GradientDescent::default().root(|x: &Scalar| Ok(*x), 1.0, EqualityConstraint::None)?,
             &0.0,
         )
     }
     #[test]
-    fn rosenbrock_2d() -> Result<(), TestError> {
+    fn rosenbrock_2d() -> Result<(), AssertionError> {
         assert_eq_within_tols(
             &GradientDescent::default().root(
                 rosenbrock_derivative,

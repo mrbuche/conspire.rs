@@ -1,10 +1,10 @@
 use super::{
-    super::test::{TestError, assert_eq},
+    super::assert::{AssertionError, assert_eq},
     Interpolate1D, LinearInterpolation, Vector,
 };
 
 #[test]
-fn line() -> Result<(), TestError> {
+fn line() -> Result<(), AssertionError> {
     let x = Vector::from([0.324, 0.745]);
     let xp = Vector::from([0.0, 1.0]);
     let linear_function = |x: &Vector| x * 2.3;

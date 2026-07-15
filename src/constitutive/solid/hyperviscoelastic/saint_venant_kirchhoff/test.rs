@@ -26,10 +26,10 @@ mod consistency {
                 Hyperelastic, SaintVenantKirchhoff as HyperelasticSaintVenantKirchhoff,
             },
         },
-        math::test::assert_eq_within_tols,
+        math::assert::assert_eq_within_tols,
     };
     #[test]
-    fn helmholtz_free_energy_density() -> Result<(), TestError> {
+    fn helmholtz_free_energy_density() -> Result<(), AssertionError> {
         let model = SaintVenantKirchhoff {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
@@ -46,7 +46,7 @@ mod consistency {
         )
     }
     #[test]
-    fn cauchy_stress() -> Result<(), TestError> {
+    fn cauchy_stress() -> Result<(), AssertionError> {
         let model = SaintVenantKirchhoff {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,

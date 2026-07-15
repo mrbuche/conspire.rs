@@ -35,7 +35,7 @@ macro_rules! test_thermohyperelastic_thermal_conduction_constitutive_model
     {
         use crate::{
             constitutive::multiphysics::solid_thermal::thermoelastic_thermal_conduction::test::test_thermoelastic_thermal_conduction_constitutive_model,
-            math::test::{assert_eq, TestError}
+            math::assert::{assert_eq, AssertionError}
         };
         test_thermoelastic_thermal_conduction_constitutive_model!(
             $thermohyperelastic_thermal_conduction_constitutive_model,
@@ -43,7 +43,7 @@ macro_rules! test_thermohyperelastic_thermal_conduction_constitutive_model
             $thermal_conduction_constitutive_model
         );
         #[test]
-        fn helmholtz_free_energy_density() -> Result<(), TestError>
+        fn helmholtz_free_energy_density() -> Result<(), AssertionError>
         {
             assert_eq(
                 &$thermohyperelastic_thermal_conduction_constitutive_model

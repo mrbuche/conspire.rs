@@ -1,5 +1,5 @@
 use super::{super::Matrix, SquareMatrix, Vector};
-use crate::math::test::{TestError, assert_eq};
+use crate::math::assert::{AssertionError, assert_eq};
 
 fn vector_dim_6() -> Vector {
     Vector::from([2.0, 1.0, 3.0, 2.0, 1.0, 3.0])
@@ -65,7 +65,7 @@ fn get_square_matrix_mul_other_square_matrix_dim_9() -> SquareMatrix {
 }
 
 #[test]
-fn vector_mul_matrix_dim_6_9() -> Result<(), TestError> {
+fn vector_mul_matrix_dim_6_9() -> Result<(), AssertionError> {
     assert_eq(
         &(&vector_dim_6() * &matrix_dim_6_9()),
         &get_vector_mul_matrix_dim_6_9(),
@@ -73,7 +73,7 @@ fn vector_mul_matrix_dim_6_9() -> Result<(), TestError> {
 }
 
 #[test]
-fn square_matrix_mul_other_square_matrix_dim_9() -> Result<(), TestError> {
+fn square_matrix_mul_other_square_matrix_dim_9() -> Result<(), AssertionError> {
     assert_eq(
         &(square_matrix_dim_9() * other_square_matrix_dim_9()),
         &get_square_matrix_mul_other_square_matrix_dim_9(),

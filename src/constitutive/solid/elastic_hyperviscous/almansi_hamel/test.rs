@@ -21,10 +21,10 @@ mod consistency {
     use super::*;
     use crate::{
         constitutive::solid::elastic::{AlmansiHamel as ElasticAlmansiHamel, Elastic},
-        math::test::assert_eq_within_tols,
+        math::assert::assert_eq_within_tols,
     };
     #[test]
-    fn cauchy_stress() -> Result<(), TestError> {
+    fn cauchy_stress() -> Result<(), AssertionError> {
         let model = AlmansiHamel {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,

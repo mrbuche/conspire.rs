@@ -6,7 +6,7 @@ use crate::{
     geometry::Coordinates,
     math::{
         Tensor,
-        test::{TestError, assert_eq_within_tols},
+        assert::{AssertionError, assert_eq_within_tols},
     },
 };
 use std::collections::HashMap;
@@ -16,7 +16,7 @@ fn right_triangle(leg: f64) -> Coordinates<3> {
 }
 
 #[test]
-fn splits_only_long_edges() -> Result<(), TestError> {
+fn splits_only_long_edges() -> Result<(), AssertionError> {
     let mut connectivity = vec![[0, 1, 2]];
     let mut coordinates = right_triangle(3.0);
     let lengths = edge_lengths(&connectivity, &coordinates);
@@ -89,7 +89,7 @@ fn flip_reduces_overvalent_hub() {
 }
 
 #[test]
-fn collapse_merges_short_edge() -> Result<(), TestError> {
+fn collapse_merges_short_edge() -> Result<(), AssertionError> {
     let mut connectivity = vec![
         [4, 0, 1],
         [4, 1, 2],
@@ -132,7 +132,7 @@ fn collapse_merges_short_edge() -> Result<(), TestError> {
 }
 
 #[test]
-fn smooth_relaxes_hub_to_ring_centroid() -> Result<(), TestError> {
+fn smooth_relaxes_hub_to_ring_centroid() -> Result<(), AssertionError> {
     let s = 3.0_f64.sqrt() / 2.0;
     let connectivity = vec![
         [0, 1, 2],
@@ -157,7 +157,7 @@ fn smooth_relaxes_hub_to_ring_centroid() -> Result<(), TestError> {
 }
 
 #[test]
-fn reproject_snaps_vertex_onto_surface() -> Result<(), TestError> {
+fn reproject_snaps_vertex_onto_surface() -> Result<(), AssertionError> {
     let surface = Surface::new(
         &[[0, 1, 2], [0, 2, 3]],
         &Coordinates::from(vec![

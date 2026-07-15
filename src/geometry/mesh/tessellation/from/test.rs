@@ -5,7 +5,7 @@ use crate::{
     },
     math::{
         Tensor,
-        test::{TestError, assert_eq},
+        assert::{AssertionError, assert_eq},
     },
 };
 
@@ -29,7 +29,7 @@ pub fn tessellation() -> Tessellation {
 }
 
 #[test]
-fn triangular_mesh() -> Result<(), TestError> {
+fn triangular_mesh() -> Result<(), AssertionError> {
     let connectivities = vec![Connectivity::Triangular(
         vec![[0_usize, 1, 2], [0, 3, 1]].into(),
     )];

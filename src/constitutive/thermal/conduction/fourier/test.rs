@@ -1,6 +1,6 @@
 use super::{super::test::THERMAL_CONDUCTIVITY, Fourier, TemperatureGradient, ThermalConduction};
 use crate::{
-    math::{Scalar, Tensor, test::assert_eq},
+    math::{Scalar, Tensor, assert::assert_eq},
     mechanics::test::get_temperature_gradient,
 };
 
@@ -13,7 +13,7 @@ fn size() {
 }
 
 #[test]
-fn thermal_conductivity() -> Result<(), crate::math::test::TestError> {
+fn thermal_conductivity() -> Result<(), crate::math::assert::AssertionError> {
     let model = Fourier {
         thermal_conductivity: THERMAL_CONDUCTIVITY,
     };
@@ -25,7 +25,7 @@ fn thermal_conductivity() -> Result<(), crate::math::test::TestError> {
 }
 
 #[test]
-fn zero() -> Result<(), crate::math::test::TestError> {
+fn zero() -> Result<(), crate::math::assert::AssertionError> {
     Fourier {
         thermal_conductivity: THERMAL_CONDUCTIVITY,
     }

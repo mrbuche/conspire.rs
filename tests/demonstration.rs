@@ -14,11 +14,11 @@ use conspire::{
             hyperelastic_viscoplastic::SecondOrderMinimize,
         },
     },
-    math::{Tensor, TestError, integrate::DormandPrince, optimize::NewtonRaphson},
+    math::{Tensor, assert::AssertionError, integrate::DormandPrince, optimize::NewtonRaphson},
 };
 
 #[test]
-fn demonstrate() -> Result<(), TestError> {
+fn demonstrate() -> Result<(), AssertionError> {
     let model = ElasticViscoplasticAdditiveElastic::from((
         ElasticMultiplicativeViscoplastic::from((
             Hencky {

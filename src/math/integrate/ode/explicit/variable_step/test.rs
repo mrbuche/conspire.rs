@@ -2,7 +2,8 @@ macro_rules! test_explicit_variable_step {
     ($integration: expr) => {
         use crate::math::{
             Tensor, TensorArray, TensorRank1, TensorRank1Vec, TensorRank2, TensorTuple,
-            TensorTupleVec, assert_eq_within_tols,
+            TensorTupleVec,
+            assert::assert_eq_within_tols,
             integrate::{
                 ode::explicit::test::test_explicit,
                 test::{LENGTH, zero_to_one},
@@ -10,7 +11,7 @@ macro_rules! test_explicit_variable_step {
         };
         test_explicit!($integration);
         #[test]
-        fn dxdt_eq_neg_x() -> Result<(), TestError> {
+        fn dxdt_eq_neg_x() -> Result<(), AssertionError> {
             let (time, solution, function): (Vector, Vector, _) =
                 $integration.integrate(|_: Scalar, x: &Scalar| Ok(-x), &[0.0, 0.8], 1.0)?;
             time.iter()
@@ -21,7 +22,7 @@ macro_rules! test_explicit_variable_step {
                 })
         }
         #[test]
-        fn dxdt_eq_2xt() -> Result<(), TestError> {
+        fn dxdt_eq_2xt() -> Result<(), AssertionError> {
             let (time, solution, function): (Vector, Vector, _) = $integration.integrate(
                 |t: Scalar, x: &Scalar| Ok(2.0 * x * t),
                 &[0.0, 1.0],
@@ -35,7 +36,7 @@ macro_rules! test_explicit_variable_step {
                 })
         }
         #[test]
-        fn dxdt_eq_cos_t() -> Result<(), TestError> {
+        fn dxdt_eq_cos_t() -> Result<(), AssertionError> {
             let (time, solution, function): (Vector, Vector, _) =
                 $integration.integrate(|t: Scalar, _: &Scalar| Ok(t.cos()), &[0.0, 1.0], 0.0)?;
             time.iter()
@@ -46,7 +47,7 @@ macro_rules! test_explicit_variable_step {
                 })
         }
         #[test]
-        fn dxdt_eq_ix() -> Result<(), TestError> {
+        fn dxdt_eq_ix() -> Result<(), AssertionError> {
             let a = TensorRank2::<3, 1, 1>::identity();
             let (time, solution, function): (Vector, TensorRank1Vec<3, 1>, _) = $integration
                 .integrate(
@@ -64,7 +65,7 @@ macro_rules! test_explicit_variable_step {
                 })
         }
         #[test]
-        fn eval_times() -> Result<(), TestError> {
+        fn eval_times() -> Result<(), AssertionError> {
             let (time, solution, function): (Vector, Vector, _) = $integration.integrate(
                 |t: Scalar, _: &Scalar| Ok(t.cos()),
                 &zero_to_one::<LENGTH>(),
@@ -78,7 +79,7 @@ macro_rules! test_explicit_variable_step {
                 })
         }
         #[test]
-        fn second_order_tensor_rank_0() -> Result<(), TestError> {
+        fn second_order_tensor_rank_0() -> Result<(), AssertionError> {
             let (time, solution, function): (Vector, TensorRank1Vec<2, 1>, _) = $integration
                 .integrate(
                     |t: Scalar, y: &TensorRank1<2, 1>| Ok(TensorRank1::from([y[1], -t.sin()])),
@@ -95,7 +96,7 @@ macro_rules! test_explicit_variable_step {
                 })
         }
         #[test]
-        fn third_order_tensor_rank_0() -> Result<(), TestError> {
+        fn third_order_tensor_rank_0() -> Result<(), AssertionError> {
             let (time, solution, function): (Vector, TensorRank1Vec<3, 1>, _) = $integration
                 .integrate(
                     |t: Scalar, y: &TensorRank1<3, 1>| {
@@ -116,7 +117,7 @@ macro_rules! test_explicit_variable_step {
                 })
         }
         #[test]
-        fn fourth_order_tensor_rank_0() -> Result<(), TestError> {
+        fn fourth_order_tensor_rank_0() -> Result<(), AssertionError> {
             let (time, solution, function): (Vector, TensorRank1Vec<4, 1>, _) = $integration
                 .integrate(
                     |t: Scalar, y: &TensorRank1<4, 1>| {
@@ -139,7 +140,7 @@ macro_rules! test_explicit_variable_step {
                 })
         }
         #[test]
-        fn flat() -> Result<(), TestError> {
+        fn flat() -> Result<(), AssertionError> {
             let (time, solution, function): (Vector, TensorRank1Vec<5, 1>, _) = $integration
                 .integrate(
                     |t: Scalar, y: &TensorRank1<5, 1>| {
@@ -164,7 +165,7 @@ macro_rules! test_explicit_variable_step {
                 })
         }
         #[test]
-        fn tuple() -> Result<(), TestError> {
+        fn tuple() -> Result<(), AssertionError> {
             let (time, solution, function): (
                 Vector,
                 TensorTupleVec<TensorRank1<2, 1>, TensorRank1<3, 1>>,
@@ -201,7 +202,7 @@ macro_rules! test_explicit_variable_step {
                 })
         }
         #[test]
-        fn tuple_nested() -> Result<(), TestError> {
+        fn tuple_nested() -> Result<(), AssertionError> {
             let (time, solution, function): (
                 Vector,
                 TensorTupleVec<

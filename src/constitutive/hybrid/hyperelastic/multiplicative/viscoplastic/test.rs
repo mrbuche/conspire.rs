@@ -9,15 +9,15 @@ use crate::{
     },
     math::{
         Rank2, Tensor, TensorArray,
+        assert::{AssertionError, ErrorTensor, assert_eq_from_fd},
         integrate::BogackiShampine,
         optimize::{GradientDescent, NewtonRaphson},
-        test::{ErrorTensor, TestError, assert_eq_from_fd},
     },
     mechanics::{CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic},
 };
 
 #[test]
-fn finite_difference() -> Result<(), TestError> {
+fn finite_difference() -> Result<(), AssertionError> {
     let deformation_gradient = DeformationGradient::from([
         [1.31924942, 1.36431217, 0.41764434],
         [0.09959341, 1.38409741, 1.48320137],
@@ -68,7 +68,7 @@ fn finite_difference() -> Result<(), TestError> {
 }
 
 #[test]
-fn root_0() -> Result<(), TestError> {
+fn root_0() -> Result<(), AssertionError> {
     use crate::constitutive::solid::elastic_viscoplastic::ZerothOrderRoot;
     let model = ElasticMultiplicativeViscoplastic::from((
         SaintVenantKirchhoff {
@@ -115,7 +115,7 @@ fn root_0() -> Result<(), TestError> {
 }
 
 #[test]
-fn root_1() -> Result<(), TestError> {
+fn root_1() -> Result<(), AssertionError> {
     use crate::constitutive::solid::elastic_viscoplastic::FirstOrderRoot;
     let model = ElasticMultiplicativeViscoplastic::from((
         SaintVenantKirchhoff {

@@ -5,7 +5,7 @@ use crate::math::{Tensor, TensorRank0, TensorRank2, TensorRank2List, tensor::lis
 use std::ops::Mul;
 
 #[cfg(test)]
-use crate::math::tensor::test::ErrorTensor;
+use crate::math::assert::ErrorTensor;
 
 /// A list of lists of rank-2 tensors.
 pub type TensorRank2List2D<

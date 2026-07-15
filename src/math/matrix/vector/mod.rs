@@ -1,5 +1,5 @@
 #[cfg(test)]
-use crate::math::test::ErrorTensor;
+use crate::math::assert::ErrorTensor;
 
 use crate::math::{
     Jacobian, Matrix, Scalar, Solution, SquareMatrix, Tensor, TensorRank1Vec, TensorRank2,

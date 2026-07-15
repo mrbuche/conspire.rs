@@ -13,8 +13,8 @@ pub mod thermal;
 
 use crate::{
     math::{
-        Scalar, ScalarList, TensorRank1, TensorRank1List, TensorRank1List2D, TestError,
-        defeat_message,
+        Scalar, ScalarList, TensorRank1, TensorRank1List, TensorRank1List2D,
+        assert::AssertionError, defeat_message,
     },
     mechanics::{CoordinateList, CurrentCoordinates, ReferenceCoordinates},
 };
@@ -135,7 +135,7 @@ pub enum FiniteElementError {
     Upstream(String, String),
 }
 
-impl From<FiniteElementError> for TestError {
+impl From<FiniteElementError> for AssertionError {
     fn from(error: FiniteElementError) -> Self {
         Self {
             message: error.to_string(),

@@ -1,7 +1,7 @@
 use super::CrossProduct;
 use crate::math::{
     TensorRank1,
-    test::{TestError, assert_eq},
+    assert::{AssertionError, assert_eq},
 };
 
 fn get_tensor_rank_1_b() -> TensorRank1<3, 1> {
@@ -17,7 +17,7 @@ fn get_tensor_rank_1_b_cross_c() -> TensorRank1<3, 1> {
 }
 
 #[test]
-fn cross() -> Result<(), TestError> {
+fn cross() -> Result<(), AssertionError> {
     assert_eq(
         &(get_tensor_rank_1_b().cross(&get_tensor_rank_1_c())),
         &get_tensor_rank_1_b_cross_c(),

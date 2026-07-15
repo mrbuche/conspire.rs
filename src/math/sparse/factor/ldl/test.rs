@@ -1,5 +1,5 @@
 use super::{CscMatrix, SparseError, Vector};
-use crate::math::test::{TestError, assert_eq_within_tols};
+use crate::math::assert::{AssertionError, assert_eq_within_tols};
 
 fn symmetric_matrix(n: usize, scale: f64) -> CscMatrix {
     let mut pattern: Vec<(usize, usize)> = (0..n).map(|i| (i, i)).collect();
@@ -23,7 +23,7 @@ fn symmetric_matrix(n: usize, scale: f64) -> CscMatrix {
 }
 
 #[test]
-fn solve_matches_lu() -> Result<(), TestError> {
+fn solve_matches_lu() -> Result<(), AssertionError> {
     let n = 100;
     let matrix = symmetric_matrix(n, 1.0);
     let b: Vector = (0..n).map(|i| (i % 13) as f64 - 6.0).collect();
@@ -37,7 +37,7 @@ fn solve_matches_lu() -> Result<(), TestError> {
 }
 
 #[test]
-fn refactor_new_values() -> Result<(), TestError> {
+fn refactor_new_values() -> Result<(), AssertionError> {
     let n = 100;
     let matrix = symmetric_matrix(n, 1.0);
     let mut ldl = matrix.ldl_symbolic()?;
@@ -49,7 +49,7 @@ fn refactor_new_values() -> Result<(), TestError> {
 }
 
 #[test]
-fn indefinite() -> Result<(), TestError> {
+fn indefinite() -> Result<(), AssertionError> {
     let n = 100;
     let mut matrix = symmetric_matrix(n, 1.0);
     matrix.fill(|i, j| {
@@ -66,7 +66,7 @@ fn indefinite() -> Result<(), TestError> {
 }
 
 #[test]
-fn missing_diagonal() -> Result<(), TestError> {
+fn missing_diagonal() -> Result<(), AssertionError> {
     let pattern = vec![
         (0, 0),
         (0, 1),
@@ -125,7 +125,7 @@ fn saddle_point_matrix(n: usize, num_constraints: usize, scale: f64) -> CscMatri
 }
 
 #[test]
-fn saddle_point_matches_lu() -> Result<(), TestError> {
+fn saddle_point_matches_lu() -> Result<(), AssertionError> {
     let matrix = saddle_point_matrix(40, 6, 1.0);
     let b: Vector = (0..46).map(|i| (i % 13) as f64 - 6.0).collect();
     let mut ldl = matrix.ldl_symbolic()?;
@@ -138,7 +138,7 @@ fn saddle_point_matches_lu() -> Result<(), TestError> {
 }
 
 #[test]
-fn saddle_point_refactor_new_values() -> Result<(), TestError> {
+fn saddle_point_refactor_new_values() -> Result<(), AssertionError> {
     let matrix = saddle_point_matrix(40, 6, 1.0);
     let mut ldl = matrix.ldl_symbolic()?;
     ldl.refactor(&matrix).expect("Refactorization failed.");
@@ -149,7 +149,7 @@ fn saddle_point_refactor_new_values() -> Result<(), TestError> {
 }
 
 #[test]
-fn saddle_point_larger() -> Result<(), TestError> {
+fn saddle_point_larger() -> Result<(), AssertionError> {
     let matrix = saddle_point_matrix(200, 31, 1.0);
     let b: Vector = (0..231).map(|i| (i % 11) as f64 - 5.0).collect();
     let mut ldl = matrix.ldl_symbolic()?;

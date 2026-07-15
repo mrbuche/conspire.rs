@@ -6,9 +6,9 @@ macro_rules! test_model {
             },
             math::{
                 Rank2, Tensor, TensorArray,
+                assert::{AssertionError, ErrorTensor, assert_eq_from_fd},
                 integrate::{BogackiShampine, DormandPrince, Verner8, Verner9},
                 optimize::{GradientDescent, NewtonRaphson},
-                test::{ErrorTensor, TestError, assert_eq_from_fd},
             },
             mechanics::{CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic},
         };
@@ -79,7 +79,7 @@ macro_rules! test_model {
         macro_rules! test_model_with_integrator {
             ($integrator:ident) => {
                 #[test]
-                fn root_0_and_minimize_1() -> Result<(), TestError> {
+                fn root_0_and_minimize_1() -> Result<(), AssertionError> {
                     use crate::constitutive::solid::{
                         elastic_viscoplastic::ZerothOrderRoot,
                         hyperelastic_viscoplastic::FirstOrderMinimize,
@@ -94,7 +94,7 @@ macro_rules! test_model {
                     Ok(())
                 }
                 #[test]
-                fn root_1_and_minimize_2() -> Result<(), TestError> {
+                fn root_1_and_minimize_2() -> Result<(), AssertionError> {
                     use crate::constitutive::solid::{
                         elastic_viscoplastic::FirstOrderRoot,
                         hyperelastic_viscoplastic::SecondOrderMinimize,
@@ -105,7 +105,7 @@ macro_rules! test_model {
             };
         }
         #[test]
-        fn finite_difference() -> Result<(), TestError> {
+        fn finite_difference() -> Result<(), AssertionError> {
             let deformation_gradient = DeformationGradient::from([
                 [1.31924942, 1.36431217, 0.41764434],
                 [0.09959341, 1.38409741, 1.48320137],

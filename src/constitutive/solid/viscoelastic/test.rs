@@ -141,7 +141,7 @@ macro_rules! test_solid_viscous_constitutive_model
     {
         use crate::
         {
-            math::{ContractAllIndicesWithFirstIndicesOf, test::assert_eq_from_fd},
+            math::{ContractAllIndicesWithFirstIndicesOf, assert::assert_eq_from_fd},
             mechanics::test::
             {
                 get_deformation_gradient_rotated_undeformed,
@@ -151,7 +151,7 @@ macro_rules! test_solid_viscous_constitutive_model
             }
         };
         #[test]
-        fn bulk_viscosity() -> Result<(), TestError>
+        fn bulk_viscosity() -> Result<(), AssertionError>
         {
             let model = $constitutive_model;
             let mut deformation_gradient_rate = DeformationGradientRate::zero();
@@ -161,7 +161,7 @@ macro_rules! test_solid_viscous_constitutive_model
             Ok(())
         }
         #[test]
-        fn shear_viscosity() -> Result<(), TestError>
+        fn shear_viscosity() -> Result<(), AssertionError>
         {
             let model = $constitutive_model;
             let mut deformation_gradient_rate = DeformationGradientRate::zero();
@@ -173,7 +173,7 @@ macro_rules! test_solid_viscous_constitutive_model
         mod solid_viscous
         {
             use super::*;
-            fn cauchy_rate_tangent_stiffness_from_finite_difference_of_cauchy_stress(is_deformed: bool) -> Result<CauchyRateTangentStiffness, TestError>
+            fn cauchy_rate_tangent_stiffness_from_finite_difference_of_cauchy_stress(is_deformed: bool) -> Result<CauchyRateTangentStiffness, AssertionError>
             {
                 let deformation_gradient =
                     if is_deformed
@@ -230,7 +230,7 @@ macro_rules! test_solid_viscous_constitutive_model
                 }
                 Ok(cauchy_rate_tangent_stiffness)
             }
-            fn first_piola_kirchhoff_rate_tangent_stiffness_from_finite_difference_of_first_piola_kirchhoff_stress(is_deformed: bool) -> Result<FirstPiolaKirchhoffRateTangentStiffness, TestError>
+            fn first_piola_kirchhoff_rate_tangent_stiffness_from_finite_difference_of_first_piola_kirchhoff_stress(is_deformed: bool) -> Result<FirstPiolaKirchhoffRateTangentStiffness, AssertionError>
             {
                 let deformation_gradient =
                     if is_deformed
@@ -287,7 +287,7 @@ macro_rules! test_solid_viscous_constitutive_model
                 }
                 Ok(first_piola_kirchhoff_rate_tangent_stiffness)
             }
-            fn second_piola_kirchhoff_rate_tangent_stiffness_from_finite_difference_of_second_piola_kirchhoff_stress(is_deformed: bool) -> Result<SecondPiolaKirchhoffRateTangentStiffness, TestError>
+            fn second_piola_kirchhoff_rate_tangent_stiffness_from_finite_difference_of_second_piola_kirchhoff_stress(is_deformed: bool) -> Result<SecondPiolaKirchhoffRateTangentStiffness, AssertionError>
             {
                 let deformation_gradient =
                     if is_deformed
@@ -351,7 +351,7 @@ macro_rules! test_solid_viscous_constitutive_model
                 {
                     use super::*;
                     #[test]
-                    fn finite_difference() -> Result<(), TestError>
+                    fn finite_difference() -> Result<(), AssertionError>
                     {
                         assert_eq_from_fd(
                             &cauchy_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
@@ -365,7 +365,7 @@ macro_rules! test_solid_viscous_constitutive_model
                 {
                     use super::*;
                     #[test]
-                    fn finite_difference() -> Result<(), TestError>
+                    fn finite_difference() -> Result<(), AssertionError>
                     {
                         assert_eq_from_fd(
                             &cauchy_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
@@ -383,7 +383,7 @@ macro_rules! test_solid_viscous_constitutive_model
                 {
                     use super::*;
                     #[test]
-                    fn objectivity() -> Result<(), TestError>
+                    fn objectivity() -> Result<(), AssertionError>
                     {
                         assert_eq_within_tols(
                             &cauchy_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
@@ -402,7 +402,7 @@ macro_rules! test_solid_viscous_constitutive_model
 
                     }
                     #[test]
-                    fn symmetry() -> Result<(), TestError>
+                    fn symmetry() -> Result<(), AssertionError>
                     {
                         let cauchy_rate_tangent_stiffness =
                         cauchy_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
@@ -422,7 +422,7 @@ macro_rules! test_solid_viscous_constitutive_model
                 {
                     use super::*;
                     #[test]
-                    fn objectivity() -> Result<(), TestError>
+                    fn objectivity() -> Result<(), AssertionError>
                     {
                         assert_eq_within_tols(
                             &cauchy_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
@@ -440,7 +440,7 @@ macro_rules! test_solid_viscous_constitutive_model
                         )
                     }
                     #[test]
-                    fn symmetry() -> Result<(), TestError>
+                    fn symmetry() -> Result<(), AssertionError>
                     {
                         let cauchy_rate_tangent_stiffness =
                         cauchy_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
@@ -464,7 +464,7 @@ macro_rules! test_solid_viscous_constitutive_model
                 {
                     use super::*;
                     #[test]
-                    fn finite_difference() -> Result<(), TestError>
+                    fn finite_difference() -> Result<(), AssertionError>
                     {
                         assert_eq_from_fd(
                             &first_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
@@ -478,7 +478,7 @@ macro_rules! test_solid_viscous_constitutive_model
                 {
                     use super::*;
                     #[test]
-                    fn finite_difference() -> Result<(), TestError>
+                    fn finite_difference() -> Result<(), AssertionError>
                     {
                         assert_eq_from_fd(
                             &first_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
@@ -496,7 +496,7 @@ macro_rules! test_solid_viscous_constitutive_model
                 {
                     use super::*;
                     #[test]
-                    fn objectivity() -> Result<(), TestError>
+                    fn objectivity() -> Result<(), AssertionError>
                     {
                         assert_eq_within_tols(
                             &first_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
@@ -518,7 +518,7 @@ macro_rules! test_solid_viscous_constitutive_model
                 {
                     use super::*;
                     #[test]
-                    fn objectivity() -> Result<(), TestError>
+                    fn objectivity() -> Result<(), AssertionError>
                     {
                         assert_eq_within_tols(
                             &first_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
@@ -544,7 +544,7 @@ macro_rules! test_solid_viscous_constitutive_model
                 {
                     use super::*;
                     #[test]
-                    fn finite_difference() -> Result<(), TestError>
+                    fn finite_difference() -> Result<(), AssertionError>
                     {
                         assert_eq_from_fd(
                             &second_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
@@ -558,7 +558,7 @@ macro_rules! test_solid_viscous_constitutive_model
                 {
                     use super::*;
                     #[test]
-                    fn finite_difference() -> Result<(), TestError>
+                    fn finite_difference() -> Result<(), AssertionError>
                     {
                         assert_eq_from_fd(
                             &second_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
@@ -576,7 +576,7 @@ macro_rules! test_solid_viscous_constitutive_model
                 {
                     use super::*;
                     #[test]
-                    fn objectivity() -> Result<(), TestError>
+                    fn objectivity() -> Result<(), AssertionError>
                     {
                         assert_eq_within_tols(
                             &second_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
@@ -598,7 +598,7 @@ macro_rules! test_solid_viscous_constitutive_model
                 {
                     use super::*;
                     #[test]
-                    fn objectivity() -> Result<(), TestError>
+                    fn objectivity() -> Result<(), AssertionError>
                     {
                         assert_eq_within_tols(
                             &second_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(

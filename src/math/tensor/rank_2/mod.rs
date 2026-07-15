@@ -30,7 +30,7 @@ use list_2d::TensorRank2List2D;
 use vec_2d::TensorRank2Vec2D;
 
 #[cfg(test)]
-use super::test::ErrorTensor;
+use crate::math::assert::ErrorTensor;
 
 /// A *d*-dimensional tensor of rank 2.
 ///

@@ -11,7 +11,7 @@ use std::ops::Mul;
 use super::sparse_vec::TensorRank2SparseVec;
 
 #[cfg(test)]
-use crate::math::{TensorArray, TensorRank0, tensor::test::ErrorTensor};
+use crate::math::{TensorArray, TensorRank0, assert::ErrorTensor};
 
 /// A vector of sparse vectors of rank-2 tensors, storing only inserted entries.
 pub type TensorRank2SparseVec2D<const D: usize, const I: usize, const J: usize> =

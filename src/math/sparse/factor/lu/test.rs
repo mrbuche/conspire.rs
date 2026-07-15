@@ -1,5 +1,5 @@
 use super::{CscMatrix, SparseError, Vector};
-use crate::math::test::{TestError, assert_eq_within_tols};
+use crate::math::assert::{AssertionError, assert_eq_within_tols};
 
 fn matrix_dim_9() -> CscMatrix {
     let dense = [
@@ -42,15 +42,15 @@ fn matrix_dim_100() -> CscMatrix {
     matrix
 }
 
-fn assert_solves(matrix: &CscMatrix, b: &Vector) -> Result<(), TestError> {
-    let lu = matrix.lu().map_err(|_| TestError {
+fn assert_solves(matrix: &CscMatrix, b: &Vector) -> Result<(), AssertionError> {
+    let lu = matrix.lu().map_err(|_| AssertionError {
         message: "Factorization failed.".to_string(),
     })?;
     assert_eq_within_tols(&(matrix * &lu.solve(b)), b)
 }
 
 #[test]
-fn solve_dim_9() -> Result<(), TestError> {
+fn solve_dim_9() -> Result<(), AssertionError> {
     assert_solves(
         &matrix_dim_9(),
         &Vector::from([2.0, 1.0, 3.0, 2.0, 1.0, 3.0, 2.0, 1.0, 3.0]),
@@ -58,7 +58,7 @@ fn solve_dim_9() -> Result<(), TestError> {
 }
 
 #[test]
-fn solve_dim_100() -> Result<(), TestError> {
+fn solve_dim_100() -> Result<(), AssertionError> {
     let matrix = matrix_dim_100();
     let b = (0..100).map(|i| (i % 13) as f64 - 6.0).collect();
     assert_solves(&matrix, &b)
@@ -88,7 +88,7 @@ fn numerically_singular() {
 }
 
 #[test]
-fn refactor_same_values() -> Result<(), TestError> {
+fn refactor_same_values() -> Result<(), AssertionError> {
     let matrix = matrix_dim_100();
     let b: Vector = (0..100).map(|i| (i % 13) as f64 - 6.0).collect();
     let mut lu = matrix.lu().expect("Factorization failed.");
@@ -98,7 +98,7 @@ fn refactor_same_values() -> Result<(), TestError> {
 }
 
 #[test]
-fn refactor_new_values() -> Result<(), TestError> {
+fn refactor_new_values() -> Result<(), AssertionError> {
     let mut matrix = matrix_dim_100();
     let b: Vector = (0..100).map(|i| (i % 13) as f64 - 6.0).collect();
     let mut lu = matrix.lu().expect("Factorization failed.");
@@ -132,7 +132,7 @@ fn fill_in() {
 }
 
 #[test]
-fn symbolic_refactor_nonsymmetric_pattern() -> Result<(), TestError> {
+fn symbolic_refactor_nonsymmetric_pattern() -> Result<(), AssertionError> {
     let matrix = matrix_dim_100();
     let b: Vector = (0..100).map(|i| (i % 13) as f64 - 6.0).collect();
     let mut lu = matrix.lu_symbolic()?;
@@ -142,7 +142,7 @@ fn symbolic_refactor_nonsymmetric_pattern() -> Result<(), TestError> {
 }
 
 #[test]
-fn symbolic_refactor_symmetric_pattern() -> Result<(), TestError> {
+fn symbolic_refactor_symmetric_pattern() -> Result<(), AssertionError> {
     let n = 100;
     let mut pattern: Vec<(usize, usize)> = (0..n).map(|i| (i, i)).collect();
     (0..n - 7).for_each(|i| {
@@ -162,7 +162,7 @@ fn symbolic_refactor_symmetric_pattern() -> Result<(), TestError> {
 }
 
 #[test]
-fn symbolic_refactor_zero_diagonal() -> Result<(), TestError> {
+fn symbolic_refactor_zero_diagonal() -> Result<(), AssertionError> {
     let mut matrix = CscMatrix::from_pattern(2, 2, vec![(0, 0), (0, 1), (1, 0), (1, 1)]);
     matrix.fill(|i, j| if i == j { 0.0 } else { 1.0 });
     assert!(
@@ -175,7 +175,7 @@ fn symbolic_refactor_zero_diagonal() -> Result<(), TestError> {
 }
 
 #[test]
-fn symbolic_refactor_saddle_point() -> Result<(), TestError> {
+fn symbolic_refactor_saddle_point() -> Result<(), AssertionError> {
     let n = 24;
     let mut pattern: Vec<(usize, usize)> = (0..n).map(|i| (i, i)).collect();
     (0..n - 3).for_each(|i| {

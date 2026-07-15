@@ -1,7 +1,7 @@
 use crate::{
     math::{
         Rank2, Scalar, Tensor,
-        test::{TestError, assert_eq},
+        assert::{AssertionError, assert_eq},
     },
     physics::{
         ROOM_TEMPERATURE,
@@ -29,7 +29,7 @@ fn monte_carlo() {
 }
 
 #[test]
-fn cosine_moments() -> Result<(), TestError> {
+fn cosine_moments() -> Result<(), AssertionError> {
     let (cos, coscos, cos2, _) = MODEL.cosine_moments(3.3, 10_000, 1);
     let gamma_z = cos.iter().sum::<Scalar>() / MODEL.number_of_links as Scalar;
     assert!(gamma_z > 0.0 && gamma_z < 1.0);

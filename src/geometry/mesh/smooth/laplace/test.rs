@@ -5,7 +5,7 @@ use crate::{
     },
     math::{
         Scalar, Tensor,
-        test::{TestError, assert_eq_within_tols},
+        assert::{AssertionError, assert_eq_within_tols},
     },
 };
 
@@ -37,7 +37,7 @@ fn spread(mesh: &Mesh<3>) -> Scalar {
 }
 
 #[test]
-fn full_step_moves_each_vertex_to_neighbor_centroid() -> Result<(), TestError> {
+fn full_step_moves_each_vertex_to_neighbor_centroid() -> Result<(), AssertionError> {
     let mut mesh = tri();
     mesh.laplace_smooth(1, 1.0, Weighting::Uniform, false, false);
     let coordinates = mesh.coordinates();
@@ -47,7 +47,7 @@ fn full_step_moves_each_vertex_to_neighbor_centroid() -> Result<(), TestError> {
 }
 
 #[test]
-fn zero_scale_is_identity() -> Result<(), TestError> {
+fn zero_scale_is_identity() -> Result<(), AssertionError> {
     let mut mesh = tri();
     mesh.laplace_smooth(5, 0.0, Weighting::Uniform, false, false);
     let coordinates = mesh.coordinates();
@@ -57,7 +57,7 @@ fn zero_scale_is_identity() -> Result<(), TestError> {
 }
 
 #[test]
-fn preserves_centroid() -> Result<(), TestError> {
+fn preserves_centroid() -> Result<(), AssertionError> {
     let before = centroid(&tri());
     let mut mesh = tri();
     mesh.laplace_smooth(4, 0.5, Weighting::Uniform, false, false);
@@ -88,7 +88,7 @@ fn square_about(center: Coordinate<3>) -> Mesh<3> {
 }
 
 #[test]
-fn preserve_boundary_ignores_interior_neighbors() -> Result<(), TestError> {
+fn preserve_boundary_ignores_interior_neighbors() -> Result<(), AssertionError> {
     let mut preserved_a = square_about([1.0, 1.0, 0.0].into());
     let mut preserved_b = square_about([1.5, 0.5, 0.0].into());
     preserved_a.laplace_smooth(1, 1.0, Weighting::Uniform, true, false);
@@ -122,7 +122,7 @@ fn two_block_strip(corner: Coordinate<3>) -> Mesh<3> {
 }
 
 #[test]
-fn preserve_interfaces_ignores_off_interface_neighbors() -> Result<(), TestError> {
+fn preserve_interfaces_ignores_off_interface_neighbors() -> Result<(), AssertionError> {
     let mut interface_a = two_block_strip([0.0, 0.0, 0.0].into());
     let mut interface_b = two_block_strip([-1.0, -1.0, 0.0].into());
     interface_a.laplace_smooth(1, 1.0, Weighting::Uniform, false, true);
@@ -139,7 +139,7 @@ fn preserve_interfaces_ignores_off_interface_neighbors() -> Result<(), TestError
 }
 
 #[test]
-fn cotangent_full_step() -> Result<(), TestError> {
+fn cotangent_full_step() -> Result<(), AssertionError> {
     let mut mesh = tri();
     mesh.laplace_smooth(1, 1.0, Weighting::Cotangent, false, false);
     let coordinates = mesh.coordinates();

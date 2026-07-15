@@ -2,7 +2,7 @@ use crate::{
     EPSILON,
     math::{
         Scalar,
-        test::{TestError, assert_eq_from_fd},
+        assert::{AssertionError, assert_eq_from_fd},
     },
     physics::{
         ROOM_TEMPERATURE,
@@ -13,7 +13,7 @@ use crate::{
 const NUM: usize = 333;
 
 #[test]
-fn finite_difference() -> Result<(), TestError> {
+fn finite_difference() -> Result<(), AssertionError> {
     [
         Ensemble::Isometric(ROOM_TEMPERATURE),
         Ensemble::Isotensional(ROOM_TEMPERATURE),

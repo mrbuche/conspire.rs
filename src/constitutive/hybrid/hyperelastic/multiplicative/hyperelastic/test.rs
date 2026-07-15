@@ -6,7 +6,7 @@ use crate::{
             hyperelastic::{NeoHookean, SaintVenantKirchhoff},
         },
     },
-    math::TestError,
+    math::assert::AssertionError,
 };
 
 use crate::{
@@ -18,7 +18,7 @@ use crate::{
 const STRETCH: Scalar = 1.5;
 
 #[test]
-fn minimize_1() -> Result<(), TestError> {
+fn minimize_1() -> Result<(), AssertionError> {
     use crate::constitutive::solid::hyperelastic::internal_variables::FirstOrderMinimize;
     let model = ElasticMultiplicative::from((
         NeoHookean {
@@ -41,7 +41,7 @@ fn minimize_1() -> Result<(), TestError> {
 }
 
 #[test]
-fn minimize_2() -> Result<(), TestError> {
+fn minimize_2() -> Result<(), AssertionError> {
     use crate::constitutive::solid::hyperelastic::internal_variables::SecondOrderMinimize;
     let model = ElasticMultiplicative::from((
         NeoHookean {

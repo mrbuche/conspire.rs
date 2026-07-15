@@ -10,12 +10,12 @@ use crate::{
     io::Write,
     math::{
         Tensor,
-        test::{TestError, assert_eq},
+        assert::{AssertionError, assert_eq},
     },
 };
 
 #[test]
-fn consistency() -> Result<(), TestError> {
+fn consistency() -> Result<(), AssertionError> {
     let tessellation = tessellation();
     match &tessellation.mesh().connectivities()[0] {
         Connectivity::Triangular(triangles) => {

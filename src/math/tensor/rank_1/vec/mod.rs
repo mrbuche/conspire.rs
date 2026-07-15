@@ -2,9 +2,8 @@
 mod test;
 
 use crate::math::{
-    Jacobian, Solution, Tensor, TensorRank0, TensorRank1, TensorRank1List,
-    TensorRank2SparseVec2DSymmetric, TensorRank2SparseVec2D, TensorRank2Vec2D, Vector,
-    tensor::vec::TensorVector,
+    Jacobian, Solution, Tensor, TensorRank0, TensorRank1, TensorRank1List, TensorRank2SparseVec2D,
+    TensorRank2SparseVec2DSymmetric, TensorRank2Vec2D, Vector, tensor::vec::TensorVector,
 };
 use std::{
     array::from_fn,
@@ -13,7 +12,7 @@ use std::{
 };
 
 #[cfg(test)]
-use crate::math::tensor::test::ErrorTensor;
+use crate::math::assert::ErrorTensor;
 
 /// A vector of rank-1 tensors.
 pub type TensorRank1Vec<const D: usize, const I: usize> = TensorVector<TensorRank1<D, I>>;

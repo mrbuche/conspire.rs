@@ -2,7 +2,7 @@ use crate::{
     EPSILON,
     math::{
         Scalar,
-        test::{TestError, assert_eq_from_fd},
+        assert::{AssertionError, assert_eq_from_fd},
     },
     physics::{
         ROOM_TEMPERATURE,
@@ -31,7 +31,7 @@ fn monte_carlo() {
 }
 
 #[test]
-fn finite_difference() -> Result<(), TestError> {
+fn finite_difference() -> Result<(), AssertionError> {
     [Ensemble::Isotensional(ROOM_TEMPERATURE)]
         .into_iter()
         .try_for_each(|ensemble| {

@@ -15,7 +15,7 @@ macro_rules! test_thermal {
                         },
                     },
                 },
-                math::test::{TestError, assert_eq_from_fd},
+                math::assert::{AssertionError, assert_eq_from_fd},
             };
             mod finite_difference {
                 use super::*;
@@ -23,7 +23,7 @@ macro_rules! test_thermal {
                     thermal_conductivity: 1.0,
                 };
                 #[test]
-                fn potential() -> Result<(), TestError> {
+                fn potential() -> Result<(), AssertionError> {
                     let constitutive_model = MODEL;
                     let element = element();
                     let temperature = ElementNodalTemperatures::from([
@@ -51,7 +51,7 @@ macro_rules! test_thermal {
                     )
                 }
                 #[test]
-                fn nodal_forces() -> Result<(), TestError> {
+                fn nodal_forces() -> Result<(), AssertionError> {
                     let constitutive_model = MODEL;
                     let element = element();
                     let temperature = ElementNodalTemperatures::from([

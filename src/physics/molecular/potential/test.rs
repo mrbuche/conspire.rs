@@ -2,7 +2,7 @@ use crate::{
     EPSILON,
     math::{
         Scalar,
-        test::{TestError, assert_eq_from_fd, assert_eq_within_tols},
+        assert::{AssertionError, assert_eq_from_fd, assert_eq_within_tols},
     },
     physics::molecular::potential::{Harmonic, Morse, Potential},
 };
@@ -10,7 +10,7 @@ use crate::{
 const NUM: usize = 333;
 
 #[test]
-fn test_consistency() -> Result<(), TestError> {
+fn test_consistency() -> Result<(), AssertionError> {
     let model = Harmonic {
         rest_length: 1.5,
         stiffness: 1.2,
@@ -37,7 +37,7 @@ fn test_consistency() -> Result<(), TestError> {
 }
 
 #[test]
-fn finite_difference() -> Result<(), TestError> {
+fn finite_difference() -> Result<(), AssertionError> {
     let e = 1.2;
     let a = 1.1;
     let x0 = 1.5;

@@ -2,7 +2,7 @@ use crate::{
     EPSILON,
     math::{
         Scalar,
-        test::{TestError, assert_eq_from_fd},
+        assert::{AssertionError, assert_eq_from_fd},
     },
     physics::{
         molecular::{
@@ -16,7 +16,7 @@ use crate::{
 const NUM: usize = 333;
 
 #[test]
-fn finite_difference() -> Result<(), TestError> {
+fn finite_difference() -> Result<(), AssertionError> {
     let e = 1e5;
     let a = 1.0;
     let x0 = 1.0;

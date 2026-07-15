@@ -3,7 +3,7 @@ use crate::{
         Coordinate, Coordinates,
         mesh::{Connectivity, Mesh},
     },
-    math::test::TestError,
+    math::assert::AssertionError,
 };
 
 pub const CONNECTIVITY: [[usize; 3]; 12] = [
@@ -45,13 +45,13 @@ pub fn mesh_with_node_sets() -> Mesh<3> {
 }
 
 #[test]
-fn connectivity_coordinates() -> Result<(), TestError> {
+fn connectivity_coordinates() -> Result<(), AssertionError> {
     let _ = mesh();
     Ok(())
 }
 
 // #[test]
-// fn connectivity_coordinates_ref() -> Result<(), TestError> {
+// fn connectivity_coordinates_ref() -> Result<(), AssertionError> {
 //     let connectivity = CONNECTIVITY.to_vec();
 //     let coordinates = Coordinates::from(COORDINATES);
 //     let _ = TriangularMesh::from((connectivity, &coordinates));
@@ -59,7 +59,7 @@ fn connectivity_coordinates() -> Result<(), TestError> {
 // }
 
 // #[test]
-// fn connectivity_ref_coordinates() -> Result<(), TestError> {
+// fn connectivity_ref_coordinates() -> Result<(), AssertionError> {
 //     let connectivity = CONNECTIVITY.to_vec();
 //     let coordinates = Coordinates::from(COORDINATES);
 //     let _ = TriangularMesh::from((&connectivity, coordinates));
@@ -67,7 +67,7 @@ fn connectivity_coordinates() -> Result<(), TestError> {
 // }
 
 // #[test]
-// fn connectivity_ref_coordinates_ref() -> Result<(), TestError> {
+// fn connectivity_ref_coordinates_ref() -> Result<(), AssertionError> {
 //     let connectivity = CONNECTIVITY.to_vec();
 //     let coordinates = Coordinates::from(COORDINATES);
 //     let _ = TriangularMesh::from((&connectivity, &coordinates));

@@ -10,7 +10,7 @@ pub mod multiphysics;
 pub mod solid;
 pub mod thermal;
 
-use crate::math::{Scalar, Style, StyledError, TensorError, TestError, styled_error};
+use crate::math::{Scalar, Style, StyledError, TensorError, assert::AssertionError, styled_error};
 use std::fmt::Debug;
 
 /// Required methods for constitutive models.
@@ -27,7 +27,7 @@ pub enum ConstitutiveError {
     Upstream(String, String),
 }
 
-impl From<ConstitutiveError> for TestError {
+impl From<ConstitutiveError> for AssertionError {
     fn from(error: ConstitutiveError) -> Self {
         Self {
             message: error.to_string(),

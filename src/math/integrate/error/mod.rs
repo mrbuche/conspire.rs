@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::{Scalar, Style, StyledError, TestError, styled_error};
+use crate::math::{Scalar, Style, StyledError, assert::AssertionError, styled_error};
 
 /// Possible errors encountered when integrating.
 pub enum IntegrationError {
@@ -72,9 +72,9 @@ impl From<IntegrationError> for String {
     }
 }
 
-impl From<IntegrationError> for TestError {
+impl From<IntegrationError> for AssertionError {
     fn from(error: IntegrationError) -> Self {
-        TestError {
+        AssertionError {
             message: error.to_string(),
         }
     }

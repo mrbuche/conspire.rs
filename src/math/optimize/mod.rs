@@ -12,7 +12,8 @@ pub use line_search::{LineSearch, LineSearchError};
 pub use newton_raphson::NewtonRaphson;
 
 use crate::math::{
-    Jacobian, Scalar, Solution, Style, StyledError, TestError,
+    Jacobian, Scalar, Solution, Style, StyledError,
+    assert::AssertionError,
     matrix::square::SquareMatrixError,
     sparse::{SparseError, SparseSolver},
     styled_error,
@@ -152,7 +153,7 @@ impl From<OptimizationError> for String {
     }
 }
 
-impl From<OptimizationError> for TestError {
+impl From<OptimizationError> for AssertionError {
     fn from(error: OptimizationError) -> Self {
         Self {
             message: error.to_string(),

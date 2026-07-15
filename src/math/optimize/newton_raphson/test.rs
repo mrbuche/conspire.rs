@@ -2,7 +2,7 @@ use super::{
     super::{
         super::{
             // TensorArray, TensorRank1, TensorRank2,
-            test::{TestError, assert_eq_within_tols},
+            assert::{AssertionError, assert_eq_within_tols},
         },
         // test::{rosenbrock, rosenbrock_derivative, rosenbrock_second_derivative},
     },
@@ -18,7 +18,7 @@ const MAX_STEPS: usize = 25;
 mod minimize {
     use super::*;
     #[test]
-    fn quadratic() -> Result<(), TestError> {
+    fn quadratic() -> Result<(), AssertionError> {
         assert_eq_within_tols(
             &NewtonRaphson::default().minimize(
                 |x: &Scalar| Ok(x.powi(2) / 2.0),
@@ -39,7 +39,7 @@ mod minimize {
     // Probably need to detect and regularize non-hyperbolic regions when using Newton's Method.
     //
     // #[test]
-    // fn rosenbrock_2d() -> Result<(), TestError> {
+    // fn rosenbrock_2d() -> Result<(), AssertionError> {
     //     assert_eq_within_tols(
     //         &NewtonRaphson::default().minimize(
     //             rosenbrock,
@@ -64,7 +64,7 @@ mod minimize {
     mod line_search {
         use super::*;
         #[test]
-        fn armijo() -> Result<(), TestError> {
+        fn armijo() -> Result<(), AssertionError> {
             assert_eq_within_tols(
                 &NewtonRaphson {
                     line_search: LineSearch::Armijo {
@@ -86,7 +86,7 @@ mod minimize {
             )
         }
         #[test]
-        fn goldstein() -> Result<(), TestError> {
+        fn goldstein() -> Result<(), AssertionError> {
             assert_eq_within_tols(
                 &NewtonRaphson {
                     line_search: LineSearch::Goldstein {
@@ -110,7 +110,7 @@ mod minimize {
         mod wolfe {
             use super::*;
             #[test]
-            fn strong() -> Result<(), TestError> {
+            fn strong() -> Result<(), AssertionError> {
                 assert_eq_within_tols(
                     &NewtonRaphson {
                         line_search: LineSearch::Wolfe {
@@ -134,7 +134,7 @@ mod minimize {
                 )
             }
             #[test]
-            fn weak() -> Result<(), TestError> {
+            fn weak() -> Result<(), AssertionError> {
                 assert_eq_within_tols(
                     &NewtonRaphson {
                         line_search: LineSearch::Wolfe {
@@ -164,7 +164,7 @@ mod minimize {
 mod root {
     use super::*;
     #[test]
-    fn linear() -> Result<(), TestError> {
+    fn linear() -> Result<(), AssertionError> {
         assert_eq_within_tols(
             &NewtonRaphson::default().root(
                 |x: &Scalar| Ok(*x),

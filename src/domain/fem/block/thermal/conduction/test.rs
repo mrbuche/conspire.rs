@@ -18,7 +18,7 @@ macro_rules! test_thermal_block {
                     },
                     thermal::conduction::ThermalConductionElements,
                 },
-                math::test::{TestError, assert_eq_from_fd},
+                math::assert::{AssertionError, assert_eq_from_fd},
             };
             mod finite_difference {
                 use super::*;
@@ -26,7 +26,7 @@ macro_rules! test_thermal_block {
                     thermal_conductivity: 1.0,
                 };
                 #[test]
-                fn potential() -> Result<(), TestError> {
+                fn potential() -> Result<(), AssertionError> {
                     let constitutive_model = MODEL;
                     let block = Block::<Fourier, $element, G, M, N, P>::from((
                         constitutive_model,
@@ -50,7 +50,7 @@ macro_rules! test_thermal_block {
                     )
                 }
                 #[test]
-                fn nodal_forces() -> Result<(), TestError> {
+                fn nodal_forces() -> Result<(), AssertionError> {
                     let constitutive_model = MODEL;
                     let block = Block::<Fourier, $element, G, M, N, P>::from((
                         constitutive_model,

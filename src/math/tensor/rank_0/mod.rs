@@ -2,7 +2,7 @@
 mod test;
 
 #[cfg(test)]
-use super::test::ErrorTensor;
+use crate::math::assert::ErrorTensor;
 
 pub mod list;
 pub mod list_2d;

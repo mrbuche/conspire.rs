@@ -2,7 +2,7 @@
 mod test;
 
 #[cfg(test)]
-use crate::math::test::ErrorTensor;
+use crate::math::assert::ErrorTensor;
 
 use crate::{
     ABS_TOL,

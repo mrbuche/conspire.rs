@@ -5,7 +5,7 @@ use crate::math::{Tensor, TensorRank0, TensorRank1, TensorRank2, tensor::list::T
 use std::ops::Mul;
 
 #[cfg(test)]
-use crate::math::tensor::test::ErrorTensor;
+use crate::math::assert::ErrorTensor;
 
 /// A list of rank-1 tensors.
 pub type TensorRank1List<const D: usize, const I: usize, const N: usize> =

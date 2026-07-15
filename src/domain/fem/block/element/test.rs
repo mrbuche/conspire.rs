@@ -97,12 +97,12 @@ macro_rules! test_surface_finite_element {
         crate::fem::block::element::test::test_finite_element_inner!($element);
         use crate::{
             EPSILON,
-            math::test::{TestError, assert_eq_from_fd, assert_eq_within_tols},
+            math::assert::{AssertionError, assert_eq_from_fd, assert_eq_within_tols},
         };
         mod bases {
             use super::*;
             #[test]
-            fn objectivity() -> Result<(), TestError> {
+            fn objectivity() -> Result<(), AssertionError> {
                 $element::bases(&coordinates_transformed())
                     .iter()
                     .zip($element::bases(&coordinates()).iter())
@@ -121,7 +121,7 @@ macro_rules! test_surface_finite_element {
         }
         mod dual_bases {
             #[test]
-            fn basis() -> Result<(), TestError> {
+            fn basis() -> Result<(), AssertionError> {
                 let mut surface_identity = DeformationGradient::identity();
                 surface_identity[2][2] = 0.0;
                 $element::bases(&coordinates())
@@ -144,7 +144,7 @@ macro_rules! test_surface_finite_element {
             }
             use super::*;
             #[test]
-            fn objectivity() -> Result<(), TestError> {
+            fn objectivity() -> Result<(), AssertionError> {
                 $element::dual_bases(&coordinates_transformed())
                     .iter()
                     .zip($element::dual_bases(&coordinates()).iter())
@@ -164,7 +164,7 @@ macro_rules! test_surface_finite_element {
         mod normals {
             use super::*;
             #[test]
-            fn finite_difference() -> Result<(), TestError> {
+            fn finite_difference() -> Result<(), AssertionError> {
                 let mut finite_difference = 0.0;
                 let normal_gradients_from_fd = (0..G)
                     .map(|p| {
@@ -196,7 +196,7 @@ macro_rules! test_surface_finite_element {
                 )
             }
             #[test]
-            fn normal() -> Result<(), TestError> {
+            fn normal() -> Result<(), AssertionError> {
                 $element::bases(&coordinates())
                     .iter()
                     .zip(
@@ -212,13 +212,13 @@ macro_rules! test_surface_finite_element {
                     })
             }
             #[test]
-            fn normalized() -> Result<(), TestError> {
+            fn normalized() -> Result<(), AssertionError> {
                 $element::normals(&coordinates())
                     .iter()
                     .try_for_each(|normal| assert_eq_within_tols(&normal.norm(), &1.0))
             }
             #[test]
-            fn objectivity() -> Result<(), TestError> {
+            fn objectivity() -> Result<(), AssertionError> {
                 $element::normals(&coordinates_transformed())
                     .iter()
                     .zip($element::normals(&coordinates()).iter())
@@ -234,7 +234,7 @@ macro_rules! test_surface_finite_element {
         mod normal_gradients {
             use super::*;
             #[test]
-            fn objectivity() -> Result<(), TestError> {
+            fn objectivity() -> Result<(), AssertionError> {
                 $element::normal_gradients(&coordinates_transformed())
                     .iter()
                     .zip($element::normal_gradients(&coordinates()).iter())
@@ -256,7 +256,7 @@ macro_rules! test_surface_finite_element {
         mod normal_rate {
             use super::*;
             #[test]
-            fn finite_difference() -> Result<(), TestError> {
+            fn finite_difference() -> Result<(), AssertionError> {
                 let mut finite_difference = 0.0;
                 let normal_rates_from_fd = (0..G)
                     .map(|p| {
@@ -292,7 +292,7 @@ macro_rules! test_surface_finite_element {
                 )
             }
             #[test]
-            fn objectivity() -> Result<(), TestError> {
+            fn objectivity() -> Result<(), AssertionError> {
                 $element::normals(&coordinates_transformed())
                     .iter()
                     .zip(
@@ -319,7 +319,7 @@ macro_rules! test_surface_finite_element {
         mod reference_normals {
             use super::*;
             #[test]
-            fn normal() -> Result<(), TestError> {
+            fn normal() -> Result<(), AssertionError> {
                 $element::bases(&reference_coordinates())
                     .iter()
                     .zip(
@@ -335,7 +335,7 @@ macro_rules! test_surface_finite_element {
                     })
             }
             #[test]
-            fn normalized() -> Result<(), TestError> {
+            fn normalized() -> Result<(), AssertionError> {
                 element()
                     .reference_normals()
                     .iter()
@@ -344,7 +344,7 @@ macro_rules! test_surface_finite_element {
                     })
             }
             #[test]
-            fn objectivity() -> Result<(), TestError> {
+            fn objectivity() -> Result<(), AssertionError> {
                 element_transformed()
                     .reference_normals()
                     .iter()
@@ -420,7 +420,7 @@ macro_rules! test_finite_element_inner {
                 },
                 math::{
                     Rank2, TensorArray, TensorRank2,
-                    test::{TestError, assert_eq, assert_eq_from_fd, assert_eq_within_tols},
+                    assert::{AssertionError, assert_eq, assert_eq_from_fd, assert_eq_within_tols},
                 },
                 mechanics::{
                     Scalar,
@@ -435,7 +435,7 @@ macro_rules! test_finite_element_inner {
                 use super::*;
                 use crate::EPSILON;
                 #[test]
-                fn finite_difference() -> Result<(), TestError> {
+                fn finite_difference() -> Result<(), AssertionError> {
                     if std::any::type_name::<$element>()
                         == "conspire::fem::block::element::Element<3, 4, 10, 0>"
                     {
@@ -471,7 +471,7 @@ macro_rules! test_finite_element_inner {
                     }
                 }
                 #[test]
-                fn kronecker_delta() -> Result<(), TestError> {
+                fn kronecker_delta() -> Result<(), AssertionError> {
                     if std::any::type_name::<$element>()
                         == "conspire::fem::block::element::Element<3, 4, 10, 0>"
                     {
@@ -497,7 +497,7 @@ macro_rules! test_finite_element_inner {
                 mod partition_of_unity {
                     use super::*;
                     #[test]
-                    fn integration_points() -> Result<(), TestError> {
+                    fn integration_points() -> Result<(), AssertionError> {
                         $element::shape_functions_at_integration_points()
                             .iter()
                             .try_for_each(|shape_functions| {
@@ -511,7 +511,7 @@ macro_rules! test_finite_element_inner {
                 mod partition_of_unity {
                     use super::*;
                     #[test]
-                    fn integration_points() -> Result<(), TestError> {
+                    fn integration_points() -> Result<(), AssertionError> {
                         let mut sums = [0.0; M];
                         $element::shape_functions_gradients_at_integration_points()
                             .iter()
@@ -527,7 +527,7 @@ macro_rules! test_finite_element_inner {
                             })
                     }
                     #[test]
-                    fn nodes() -> Result<(), TestError> {
+                    fn nodes() -> Result<(), AssertionError> {
                         let mut sums = [0.0; M];
                         $element::parametric_reference()
                             .into_iter()
@@ -561,14 +561,14 @@ macro_rules! test_finite_element_inner {
                     mod deformed {
                         use super::*;
                         #[test]
-                        fn calculate() -> Result<(), TestError> {
+                        fn calculate() -> Result<(), AssertionError> {
                             assert_eq_within_tols(
                                 &element().deformation_gradients(&coordinates()),
                                 &deformation_gradients(),
                             )
                         }
                         #[test]
-                        fn objectivity() -> Result<(), TestError> {
+                        fn objectivity() -> Result<(), AssertionError> {
                             element()
                                 .deformation_gradients(&coordinates())
                                 .iter()
@@ -592,14 +592,14 @@ macro_rules! test_finite_element_inner {
                     mod undeformed {
                         use super::*;
                         #[test]
-                        fn calculate() -> Result<(), TestError> {
+                        fn calculate() -> Result<(), AssertionError> {
                             assert_eq_within_tols(
                                 &element().deformation_gradients(&reference_coordinates().into()),
                                 &DeformationGradientList::identity(),
                             )
                         }
                         #[test]
-                        fn objectivity() -> Result<(), TestError> {
+                        fn objectivity() -> Result<(), AssertionError> {
                             assert_eq_within_tols(
                                 &element_transformed().deformation_gradients(
                                     &reference_coordinates_transformed().into(),
@@ -614,7 +614,7 @@ macro_rules! test_finite_element_inner {
                     mod deformed {
                         use super::*;
                         #[test]
-                        fn calculate() -> Result<(), TestError> {
+                        fn calculate() -> Result<(), AssertionError> {
                             assert_eq_within_tols(
                                 &element()
                                     .deformation_gradient_rates(&coordinates(), &velocities()),
@@ -622,7 +622,7 @@ macro_rules! test_finite_element_inner {
                             )
                         }
                         #[test]
-                        fn objectivity() -> Result<(), TestError> {
+                        fn objectivity() -> Result<(), AssertionError> {
                             element()
                                 .deformation_gradients(&coordinates())
                                 .iter()
@@ -662,7 +662,7 @@ macro_rules! test_finite_element_inner {
                     mod undeformed {
                         use super::*;
                         #[test]
-                        fn calculate() -> Result<(), TestError> {
+                        fn calculate() -> Result<(), AssertionError> {
                             assert_eq_within_tols(
                                 &element().deformation_gradient_rates(
                                     &reference_coordinates().into(),
@@ -672,7 +672,7 @@ macro_rules! test_finite_element_inner {
                             )
                         }
                         #[test]
-                        fn objectivity() -> Result<(), TestError> {
+                        fn objectivity() -> Result<(), AssertionError> {
                             assert_eq_within_tols(
                                 &element_transformed().deformation_gradient_rates(
                                     &reference_coordinates_transformed().into(),
@@ -909,14 +909,14 @@ macro_rules! test_nodal_forces_and_nodal_stiffnesses {
             mod deformed {
                 use super::*;
                 #[test]
-                fn finite_difference() -> Result<(), TestError> {
+                fn finite_difference() -> Result<(), AssertionError> {
                     assert_eq_from_fd(
                         &get_nodal_stiffnesses(true, false)?,
                         &get_finite_difference_of_nodal_forces(true)?,
                     )
                 }
                 #[test]
-                fn objectivity() -> Result<(), TestError> {
+                fn objectivity() -> Result<(), AssertionError> {
                     assert_eq_within_tols(
                         &get_nodal_forces(true, false, true)?,
                         &get_nodal_forces(true, true, true)?,
@@ -926,21 +926,21 @@ macro_rules! test_nodal_forces_and_nodal_stiffnesses {
             mod undeformed {
                 use super::*;
                 #[test]
-                fn finite_difference() -> Result<(), TestError> {
+                fn finite_difference() -> Result<(), AssertionError> {
                     assert_eq_from_fd(
                         &get_nodal_stiffnesses(false, false)?,
                         &get_finite_difference_of_nodal_forces(false)?,
                     )
                 }
                 #[test]
-                fn objectivity() -> Result<(), TestError> {
+                fn objectivity() -> Result<(), AssertionError> {
                     assert_eq_within_tols(
                         &get_nodal_forces(false, true, true)?,
                         &ElementNodalForcesSolid::zero(),
                     )
                 }
                 #[test]
-                fn zero() -> Result<(), TestError> {
+                fn zero() -> Result<(), AssertionError> {
                     assert_eq_within_tols(
                         &get_nodal_forces(false, false, false)?,
                         &ElementNodalForcesSolid::zero(),
@@ -953,7 +953,7 @@ macro_rules! test_nodal_forces_and_nodal_stiffnesses {
             mod deformed {
                 use super::*;
                 #[test]
-                fn objectivity() -> Result<(), TestError> {
+                fn objectivity() -> Result<(), AssertionError> {
                     assert_eq_within_tols(
                         &get_nodal_stiffnesses(true, false)?,
                         &get_nodal_stiffnesses(true, true)?,
@@ -963,7 +963,7 @@ macro_rules! test_nodal_forces_and_nodal_stiffnesses {
             mod undeformed {
                 use super::*;
                 #[test]
-                fn objectivity() -> Result<(), TestError> {
+                fn objectivity() -> Result<(), AssertionError> {
                     assert_eq_within_tols(
                         &get_nodal_stiffnesses(false, false)?,
                         &get_nodal_stiffnesses(false, true)?,
@@ -980,7 +980,7 @@ macro_rules! test_helmholtz_free_energy {
         fn get_helmholtz_free_energy(
             is_deformed: bool,
             is_rotated: bool,
-        ) -> Result<Scalar, TestError> {
+        ) -> Result<Scalar, AssertionError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_element_transformed()
@@ -1007,7 +1007,7 @@ macro_rules! test_helmholtz_free_energy {
         }
         fn get_finite_difference_of_helmholtz_free_energy(
             is_deformed: bool,
-        ) -> Result<ElementNodalForcesSolid<N>, TestError> {
+        ) -> Result<ElementNodalForcesSolid<N>, AssertionError> {
             let element = get_element();
             let mut finite_difference = 0.0;
             (0..N)
@@ -1036,7 +1036,7 @@ macro_rules! test_helmholtz_free_energy {
             mod deformed {
                 use super::*;
                 #[test]
-                fn finite_difference() -> Result<(), TestError> {
+                fn finite_difference() -> Result<(), AssertionError> {
                     assert_eq_from_fd(
                         &get_nodal_forces(true, false, false)?,
                         &get_finite_difference_of_helmholtz_free_energy(true)?,
@@ -1055,7 +1055,7 @@ macro_rules! test_helmholtz_free_energy {
                         .unwrap();
                 }
                 #[test]
-                fn minimized() -> Result<(), TestError> {
+                fn minimized() -> Result<(), AssertionError> {
                     let element = get_element();
                     let nodal_forces = get_nodal_forces(true, false, false)?;
                     let minimum = get_helmholtz_free_energy(true, false)?
@@ -1086,14 +1086,14 @@ macro_rules! test_helmholtz_free_energy {
                     })
                 }
                 #[test]
-                fn objectivity() -> Result<(), TestError> {
+                fn objectivity() -> Result<(), AssertionError> {
                     assert_eq_within_tols(
                         &get_helmholtz_free_energy(true, false)?,
                         &get_helmholtz_free_energy(true, true)?,
                     )
                 }
                 #[test]
-                fn positive() -> Result<(), TestError> {
+                fn positive() -> Result<(), AssertionError> {
                     assert!(get_helmholtz_free_energy(true, false)? > 0.0);
                     Ok(())
                 }
@@ -1101,14 +1101,14 @@ macro_rules! test_helmholtz_free_energy {
             mod undeformed {
                 use super::*;
                 #[test]
-                fn finite_difference() -> Result<(), TestError> {
+                fn finite_difference() -> Result<(), AssertionError> {
                     assert_eq_from_fd(
                         &get_finite_difference_of_helmholtz_free_energy(false)?,
                         &ElementNodalForcesSolid::zero(),
                     )
                 }
                 #[test]
-                fn minimized() -> Result<(), TestError> {
+                fn minimized() -> Result<(), AssertionError> {
                     let element = get_element();
                     let minimum = get_helmholtz_free_energy(false, false)?;
                     let mut perturbed = 0.0;
@@ -1138,17 +1138,17 @@ macro_rules! test_helmholtz_free_energy {
                     })
                 }
                 #[test]
-                fn objectivity() -> Result<(), TestError> {
+                fn objectivity() -> Result<(), AssertionError> {
                     assert_eq_within_tols(&get_helmholtz_free_energy(false, true)?, &0.0)
                 }
                 #[test]
-                fn zero() -> Result<(), TestError> {
+                fn zero() -> Result<(), AssertionError> {
                     assert_eq_within_tols(&get_helmholtz_free_energy(false, false)?, &0.0)
                 }
             }
         }
         #[test]
-        fn nodal_stiffnesses_deformed_symmetry() -> Result<(), TestError> {
+        fn nodal_stiffnesses_deformed_symmetry() -> Result<(), AssertionError> {
             let nodal_stiffness = get_nodal_stiffnesses(true, false)?;
             let result =
                 nodal_stiffness
@@ -1175,7 +1175,7 @@ macro_rules! test_helmholtz_free_energy {
             result
         }
         #[test]
-        fn nodal_stiffnesses_undeformed_symmetry() -> Result<(), TestError> {
+        fn nodal_stiffnesses_undeformed_symmetry() -> Result<(), AssertionError> {
             let nodal_stiffness = get_nodal_stiffnesses(false, false)?;
             let result =
                 nodal_stiffness
@@ -1235,7 +1235,7 @@ macro_rules! test_finite_element_with_elastic_or_hyperelastic_constitutive_model
             is_deformed: bool,
             is_rotated: bool,
             _: bool,
-        ) -> Result<ElementNodalForcesSolid<N>, TestError> {
+        ) -> Result<ElementNodalForcesSolid<N>, AssertionError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
@@ -1259,7 +1259,7 @@ macro_rules! test_finite_element_with_elastic_or_hyperelastic_constitutive_model
         fn get_nodal_stiffnesses(
             is_deformed: bool,
             is_rotated: bool,
-        ) -> Result<ElementNodalStiffnessesSolid<N>, TestError> {
+        ) -> Result<ElementNodalStiffnessesSolid<N>, AssertionError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
@@ -1287,7 +1287,7 @@ macro_rules! test_finite_element_with_elastic_or_hyperelastic_constitutive_model
         }
         fn get_finite_difference_of_nodal_forces(
             is_deformed: bool,
-        ) -> Result<ElementNodalStiffnessesSolid<N>, TestError> {
+        ) -> Result<ElementNodalStiffnessesSolid<N>, AssertionError> {
             let element = get_element();
             let mut finite_difference = 0.0;
             (0..N)
@@ -1340,7 +1340,7 @@ macro_rules! test_finite_element_with_elastic_constitutive_model {
             $constitutive_model_type
         );
         #[test]
-        fn nodal_stiffnesses_deformed_non_symmetry() -> Result<(), TestError> {
+        fn nodal_stiffnesses_deformed_non_symmetry() -> Result<(), AssertionError> {
             let nodal_stiffness = get_nodal_stiffnesses(true, false)?;
             assert!(
                 assert_eq_within_tols(
@@ -1385,7 +1385,7 @@ macro_rules! test_finite_element_with_viscoelastic_constitutive_model {
             is_deformed: bool,
             is_rotated: bool,
             is_xtra: bool,
-        ) -> Result<ElementNodalForcesSolid<N>, TestError> {
+        ) -> Result<ElementNodalForcesSolid<N>, AssertionError> {
             if is_xtra {
                 if is_rotated {
                     if is_deformed {
@@ -1453,7 +1453,7 @@ macro_rules! test_finite_element_with_viscoelastic_constitutive_model {
         fn get_nodal_stiffnesses(
             is_deformed: bool,
             is_rotated: bool,
-        ) -> Result<ElementNodalStiffnessesSolid<N>, TestError> {
+        ) -> Result<ElementNodalStiffnessesSolid<N>, AssertionError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
@@ -1492,7 +1492,7 @@ macro_rules! test_finite_element_with_viscoelastic_constitutive_model {
         }
         fn get_finite_difference_of_nodal_forces(
             is_deformed: bool,
-        ) -> Result<ElementNodalStiffnessesSolid<N>, TestError> {
+        ) -> Result<ElementNodalStiffnessesSolid<N>, AssertionError> {
             let element = get_element();
             let mut finite_difference = 0.0;
             (0..N)
@@ -1554,7 +1554,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
         fn get_viscous_dissipation(
             is_deformed: bool,
             is_rotated: bool,
-        ) -> Result<Scalar, TestError> {
+        ) -> Result<Scalar, AssertionError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_element_transformed().viscous_dissipation(
@@ -1588,7 +1588,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
         fn get_dissipation_potential(
             is_deformed: bool,
             is_rotated: bool,
-        ) -> Result<Scalar, TestError> {
+        ) -> Result<Scalar, AssertionError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_element_transformed().dissipation_potential(
@@ -1621,7 +1621,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
         }
         fn get_finite_difference_of_viscous_dissipation(
             is_deformed: bool,
-        ) -> Result<ElementNodalForcesSolid<N>, TestError> {
+        ) -> Result<ElementNodalForcesSolid<N>, AssertionError> {
             let element = get_element();
             let mut finite_difference = 0.0;
             (0..N)
@@ -1658,7 +1658,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
         }
         fn get_finite_difference_of_dissipation_potential(
             is_deformed: bool,
-        ) -> Result<ElementNodalForcesSolid<N>, TestError> {
+        ) -> Result<ElementNodalForcesSolid<N>, AssertionError> {
             let element = get_element();
             let mut finite_difference = 0.0;
             (0..N)
@@ -1698,7 +1698,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
             mod deformed {
                 use super::*;
                 #[test]
-                fn finite_difference() -> Result<(), TestError> {
+                fn finite_difference() -> Result<(), AssertionError> {
                     assert_eq_from_fd(
                         &(get_nodal_forces(true, false, true)?
                             - get_nodal_forces(true, false, false)?),
@@ -1706,7 +1706,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                     )
                 }
                 #[test]
-                fn minimized() -> Result<(), TestError> {
+                fn minimized() -> Result<(), AssertionError> {
                     let element = get_element();
                     let nodal_forces = get_nodal_forces(true, false, true)?
                         - get_nodal_forces(true, false, false)?;
@@ -1740,14 +1740,14 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                     })
                 }
                 #[test]
-                fn objectivity() -> Result<(), TestError> {
+                fn objectivity() -> Result<(), AssertionError> {
                     assert_eq_within_tols(
                         &get_viscous_dissipation(true, false)?,
                         &get_viscous_dissipation(true, true)?,
                     )
                 }
                 #[test]
-                fn positive() -> Result<(), TestError> {
+                fn positive() -> Result<(), AssertionError> {
                     assert!(get_viscous_dissipation(true, false)? > 0.0);
                     Ok(())
                 }
@@ -1755,14 +1755,14 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
             mod undeformed {
                 use super::*;
                 #[test]
-                fn finite_difference() -> Result<(), TestError> {
+                fn finite_difference() -> Result<(), AssertionError> {
                     assert_eq_from_fd(
                         &get_finite_difference_of_viscous_dissipation(false)?,
                         &ElementNodalForcesSolid::zero(),
                     )
                 }
                 #[test]
-                fn minimized() -> Result<(), TestError> {
+                fn minimized() -> Result<(), AssertionError> {
                     let element = get_element();
                     let minimum = get_viscous_dissipation(false, false)?;
                     let mut perturbed = 0.0;
@@ -1793,11 +1793,11 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                     })
                 }
                 #[test]
-                fn objectivity() -> Result<(), TestError> {
+                fn objectivity() -> Result<(), AssertionError> {
                     assert_eq_within_tols(&get_viscous_dissipation(false, true)?, &0.0)
                 }
                 #[test]
-                fn zero() -> Result<(), TestError> {
+                fn zero() -> Result<(), AssertionError> {
                     assert_eq(&get_viscous_dissipation(false, false)?, &0.0)
                 }
             }
@@ -1807,14 +1807,14 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
             mod deformed {
                 use super::*;
                 #[test]
-                fn finite_difference() -> Result<(), TestError> {
+                fn finite_difference() -> Result<(), AssertionError> {
                     assert_eq_from_fd(
                         &get_nodal_forces(true, false, true)?,
                         &get_finite_difference_of_dissipation_potential(true)?,
                     )
                 }
                 #[test]
-                fn minimized() -> Result<(), TestError> {
+                fn minimized() -> Result<(), AssertionError> {
                     let element = get_element();
                     let nodal_forces = get_nodal_forces(true, false, true)?;
                     let minimum = get_dissipation_potential(true, false)?
@@ -1847,7 +1847,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                     })
                 }
                 #[test]
-                fn objectivity() -> Result<(), TestError> {
+                fn objectivity() -> Result<(), AssertionError> {
                     assert_eq_within_tols(
                         &get_dissipation_potential(true, false)?,
                         &get_dissipation_potential(true, true)?,
@@ -1857,14 +1857,14 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
             mod undeformed {
                 use super::*;
                 #[test]
-                fn finite_difference() -> Result<(), TestError> {
+                fn finite_difference() -> Result<(), AssertionError> {
                     assert_eq_from_fd(
                         &get_finite_difference_of_dissipation_potential(false)?,
                         &ElementNodalForcesSolid::zero(),
                     )
                 }
                 #[test]
-                fn minimized() -> Result<(), TestError> {
+                fn minimized() -> Result<(), AssertionError> {
                     let element = get_element();
                     let minimum = get_dissipation_potential(false, false)?;
                     let mut perturbed = 0.0;
@@ -1895,11 +1895,11 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                     })
                 }
                 #[test]
-                fn objectivity() -> Result<(), TestError> {
+                fn objectivity() -> Result<(), AssertionError> {
                     assert_eq_within_tols(&get_dissipation_potential(false, true)?, &0.0)
                 }
                 #[test]
-                fn zero() -> Result<(), TestError> {
+                fn zero() -> Result<(), AssertionError> {
                     assert_eq(&get_dissipation_potential(false, false)?, &0.0)
                 }
             }
@@ -1918,7 +1918,7 @@ macro_rules! test_finite_element_with_hyperviscoelastic_constitutive_model {
             $element, $constitutive_model, $constitutive_model_type
         );
         #[test]
-        fn dissipation_potential_deformed_positive() -> Result<(), TestError>
+        fn dissipation_potential_deformed_positive() -> Result<(), AssertionError>
         {
             assert!(
                 get_dissipation_potential(true, false)? > 0.0

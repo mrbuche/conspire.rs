@@ -5,7 +5,6 @@ use std::f64::consts::TAU;
 
 use super::{
     super::{
-        super::assert_eq_within_tols,
         Rank2, Tensor, TensorArray, TensorError,
         rank_0::{TensorRank0, list::TensorRank0List},
         rank_1::{TensorRank1, cross::CrossProduct},
@@ -13,7 +12,7 @@ use super::{
     },
     TensorRank2,
 };
-use crate::ABS_TOL;
+use crate::{ABS_TOL, math::assert::assert_eq_within_tols};
 
 impl<const I: usize> TensorRank2<3, I, I> {
     /// Returns the matrix logarithm of the 3x3 symmetric tensor.

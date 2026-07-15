@@ -1,7 +1,7 @@
 use super::{CscMatrix, Scalar, Vector};
 use crate::math::{
     Tensor,
-    test::{TestError, assert_eq},
+    assert::{AssertionError, assert_eq},
 };
 
 const D: usize = 9;
@@ -73,7 +73,7 @@ fn fill_sums_duplicates() {
 }
 
 #[test]
-fn multiply_vector() -> Result<(), TestError> {
+fn multiply_vector() -> Result<(), AssertionError> {
     let vector = vector();
     let product: Vector = dense()
         .iter()

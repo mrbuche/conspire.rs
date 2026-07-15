@@ -3,7 +3,7 @@ use crate::{
         Coordinate, Coordinates,
         mesh::{Connectivity, Mesh, differential::laplace::Weighting},
     },
-    math::test::{TestError, assert_eq_within_tols},
+    math::assert::{AssertionError, assert_eq_within_tols},
 };
 
 fn triangle(coordinates: [Coordinate<3>; 3]) -> Mesh<3> {
@@ -12,7 +12,7 @@ fn triangle(coordinates: [Coordinate<3>; 3]) -> Mesh<3> {
 }
 
 #[test]
-fn single_triangle() -> Result<(), TestError> {
+fn single_triangle() -> Result<(), AssertionError> {
     let laplacian = triangle([
         Coordinate::const_from([0.0, 0.0, 0.0]),
         Coordinate::const_from([2.0, 0.0, 0.0]),
@@ -25,7 +25,7 @@ fn single_triangle() -> Result<(), TestError> {
 }
 
 #[test]
-fn vertex_at_neighbor_centroid_is_fixed() -> Result<(), TestError> {
+fn vertex_at_neighbor_centroid_is_fixed() -> Result<(), AssertionError> {
     let laplacian = triangle([
         Coordinate::const_from([0.0, 0.0, 0.0]),
         Coordinate::const_from([2.0, 0.0, 0.0]),
@@ -36,7 +36,7 @@ fn vertex_at_neighbor_centroid_is_fixed() -> Result<(), TestError> {
 }
 
 #[test]
-fn translation_invariant() -> Result<(), TestError> {
+fn translation_invariant() -> Result<(), AssertionError> {
     let base = triangle([
         Coordinate::const_from([0.0, 0.0, 0.0]),
         Coordinate::const_from([2.0, 0.0, 0.0]),
@@ -53,7 +53,7 @@ fn translation_invariant() -> Result<(), TestError> {
 }
 
 #[test]
-fn cotangent_single_right_triangle() -> Result<(), TestError> {
+fn cotangent_single_right_triangle() -> Result<(), AssertionError> {
     let laplacian = triangle([
         Coordinate::const_from([0.0, 0.0, 0.0]),
         Coordinate::const_from([2.0, 0.0, 0.0]),
@@ -66,7 +66,7 @@ fn cotangent_single_right_triangle() -> Result<(), TestError> {
 }
 
 #[test]
-fn cotangent_translation_invariant() -> Result<(), TestError> {
+fn cotangent_translation_invariant() -> Result<(), AssertionError> {
     let base = triangle([
         Coordinate::const_from([0.0, 0.0, 0.0]),
         Coordinate::const_from([2.0, 0.0, 0.0]),

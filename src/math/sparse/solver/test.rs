@@ -1,5 +1,5 @@
 use super::{SparseSolver, Vector};
-use crate::math::test::{TestError, assert_eq_within_tols};
+use crate::math::assert::{AssertionError, assert_eq_within_tols};
 
 const N: usize = 100;
 
@@ -22,7 +22,11 @@ fn values(scale: f64) -> impl Fn(usize, usize) -> f64 {
     }
 }
 
-fn residual(source: impl Fn(usize, usize) -> f64, x: &Vector, b: &Vector) -> Result<(), TestError> {
+fn residual(
+    source: impl Fn(usize, usize) -> f64,
+    x: &Vector,
+    b: &Vector,
+) -> Result<(), AssertionError> {
     let mut product = Vector::zero(N);
     pattern()
         .into_iter()
@@ -31,7 +35,7 @@ fn residual(source: impl Fn(usize, usize) -> f64, x: &Vector, b: &Vector) -> Res
 }
 
 #[test]
-fn solve_factor_then_refactor() -> Result<(), TestError> {
+fn solve_factor_then_refactor() -> Result<(), AssertionError> {
     let solver = SparseSolver::from_pattern(N, pattern(), false);
     let b: Vector = (0..N).map(|i| (i % 13) as f64 - 6.0).collect();
     residual(values(1.0), &solver.solve(values(1.0), &b)?, &b)?;
@@ -39,7 +43,7 @@ fn solve_factor_then_refactor() -> Result<(), TestError> {
 }
 
 #[test]
-fn clones_share_factorization() -> Result<(), TestError> {
+fn clones_share_factorization() -> Result<(), AssertionError> {
     let solver = SparseSolver::from_pattern(N, pattern(), false);
     let b: Vector = (0..N).map(|i| (i % 13) as f64 - 6.0).collect();
     residual(values(1.0), &solver.clone().solve(values(1.0), &b)?, &b)?;
@@ -48,7 +52,7 @@ fn clones_share_factorization() -> Result<(), TestError> {
 }
 
 #[test]
-fn recovers_from_degraded_pivot() -> Result<(), TestError> {
+fn recovers_from_degraded_pivot() -> Result<(), AssertionError> {
     let solver = SparseSolver::from_pattern(2, vec![(0, 0), (0, 1), (1, 0), (1, 1)], false);
     let b = Vector::from([1.0, 1.0]);
     let x = solver.solve(|i, j| ((2 * i + j) % 3) as f64 + 1.0, &b)?;
@@ -67,7 +71,7 @@ fn recovers_from_degraded_pivot() -> Result<(), TestError> {
 }
 
 #[test]
-fn symmetric_uses_ldl() -> Result<(), TestError> {
+fn symmetric_uses_ldl() -> Result<(), AssertionError> {
     let n = 30;
     let mut pattern: Vec<(usize, usize)> = (0..n).map(|i| (i, i)).collect();
     (0..n - 3).for_each(|i| {
@@ -109,7 +113,7 @@ fn symmetric_uses_ldl() -> Result<(), TestError> {
 }
 
 #[test]
-fn asymmetric_falls_back_to_lu() -> Result<(), TestError> {
+fn asymmetric_falls_back_to_lu() -> Result<(), AssertionError> {
     let n = 20;
     let mut pattern: Vec<(usize, usize)> = (0..n).map(|i| (i, i)).collect();
     (0..n - 3).for_each(|i| {
