@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+pub mod cross;
 pub mod list;
 pub mod list_2d;
 pub mod vec;
@@ -122,56 +123,6 @@ impl<const D: usize, const I: usize> TensorRank1<D, I> {
         }
         assert!(filled == D, "Failed to construct full orthonormal basis");
         basis
-    }
-}
-
-pub trait CrossProduct<T> {
-    type Output;
-    /// Returns the cross product with another rank-1 tensor.
-    fn cross(self, other: T) -> Self::Output;
-}
-
-// impl<const I: usize> CrossProduct<Self> for TensorRank1<3, I> {
-//     type Output = Self;
-//     fn cross(self, other: Self) -> Self::Output {
-//         Self::const_from([
-//             self[1] * other[2] - self[2] * other[1],
-//             self[2] * other[0] - self[0] * other[2],
-//             self[0] * other[1] - self[1] * other[0],
-//         ])
-//     }
-// }
-
-// impl<const I: usize> CrossProduct<&Self> for TensorRank1<3, I> {
-//     type Output = Self;
-//     fn cross(self, other: &Self) -> Self::Output {
-//         Self::const_from([
-//             self[1] * other[2] - self[2] * other[1],
-//             self[2] * other[0] - self[0] * other[2],
-//             self[0] * other[1] - self[1] * other[0],
-//         ])
-//     }
-// }
-
-impl<const I: usize> CrossProduct<TensorRank1<3, I>> for &TensorRank1<3, I> {
-    type Output = TensorRank1<3, I>;
-    fn cross(self, other: TensorRank1<3, I>) -> Self::Output {
-        TensorRank1::const_from([
-            self[1] * other[2] - self[2] * other[1],
-            self[2] * other[0] - self[0] * other[2],
-            self[0] * other[1] - self[1] * other[0],
-        ])
-    }
-}
-
-impl<const I: usize> CrossProduct<Self> for &TensorRank1<3, I> {
-    type Output = TensorRank1<3, I>;
-    fn cross(self, other: Self) -> Self::Output {
-        TensorRank1::const_from([
-            self[1] * other[2] - self[2] * other[1],
-            self[2] * other[0] - self[0] * other[2],
-            self[0] * other[1] - self[1] * other[0],
-        ])
     }
 }
 

@@ -8,7 +8,7 @@ use super::{
         super::assert_eq_within_tols,
         Rank2, Tensor, TensorArray, TensorError,
         rank_0::{TensorRank0, list::TensorRank0List},
-        rank_1::{CrossProduct, TensorRank1},
+        rank_1::{TensorRank1, cross::CrossProduct},
         rank_4::TensorRank4,
     },
     TensorRank2,
