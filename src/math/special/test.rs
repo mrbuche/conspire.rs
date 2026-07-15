@@ -27,7 +27,7 @@ mod inverse_langevin {
     }
     #[test]
     fn zero() -> Result<(), AssertionError> {
-        Assert::eq(inverse_langevin(0.0), &0.0)
+        Assert::zero(&inverse_langevin(0.0))
     }
 }
 
@@ -59,7 +59,7 @@ mod lambert_w {
     }
     #[test]
     fn zero() -> Result<(), AssertionError> {
-        Assert::eq(lambert_w(0.0), &0.0)
+        Assert::zero(&lambert_w(0.0))
     }
 }
 
@@ -67,7 +67,7 @@ mod langevin {
     use super::*;
     #[test]
     fn zero() -> Result<(), AssertionError> {
-        Assert::eq(langevin(0.0), &0.0)
+        Assert::zero(&langevin(0.0))
     }
 }
 
@@ -75,7 +75,7 @@ mod rosenbrock {
     use super::*;
     #[test]
     fn zero() -> Result<(), AssertionError> {
-        Assert::eq(rosenbrock(&Vector::from([1.0; 3]), 1.0, 1.0), &0.0)
+        Assert::zero(&rosenbrock(&Vector::from([1.0; 3]), 1.0, 1.0))
     }
     mod derivative {
         use super::*;

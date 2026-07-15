@@ -179,6 +179,18 @@ where
 {
     /// The type of item encountered when iterating over the tensor.
     type Item;
+    /// Returns number of nonzero entries given absolute and relative tolerances, compared against zero.
+    fn error_count_zero(&self, tol_abs: Scalar, tol_rel: Scalar) -> Option<usize> {
+        let error_count = self
+            .iter()
+            .filter_map(|entry| entry.error_count_zero(tol_abs, tol_rel))
+            .sum();
+        if error_count > 0 {
+            Some(error_count)
+        } else {
+            None
+        }
+    }
     /// Returns number of different entries given absolute and relative tolerances.
     fn error_count(&self, other: &Self, tol_abs: Scalar, tol_rel: Scalar) -> Option<usize> {
         let error_count = self

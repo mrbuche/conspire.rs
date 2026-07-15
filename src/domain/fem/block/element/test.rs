@@ -203,13 +203,13 @@ macro_rules! test_surface_finite_element {
                     )
                     .try_for_each(|(basis, (dual_basis, normal))| {
                         $crate::math::assert::Assert::default()
-                            .eq_within_tols(&(&basis[0] * normal), &0.0)?;
+                            .zero_within_tols(&(&basis[0] * normal))?;
                         $crate::math::assert::Assert::default()
-                            .eq_within_tols(&(&basis[1] * normal), &0.0)?;
+                            .zero_within_tols(&(&basis[1] * normal))?;
                         $crate::math::assert::Assert::default()
-                            .eq_within_tols(&(&dual_basis[0] * normal), &0.0)?;
+                            .zero_within_tols(&(&dual_basis[0] * normal))?;
                         $crate::math::assert::Assert::default()
-                            .eq_within_tols(&(&dual_basis[1] * normal), &0.0)
+                            .zero_within_tols(&(&dual_basis[1] * normal))
                     })
             }
             #[test]
@@ -332,13 +332,13 @@ macro_rules! test_surface_finite_element {
                     )
                     .try_for_each(|(basis, (dual_basis, reference_normal))| {
                         $crate::math::assert::Assert::default()
-                            .eq_within_tols(&(&basis[0] * reference_normal), &0.0)?;
+                            .zero_within_tols(&(&basis[0] * reference_normal))?;
                         $crate::math::assert::Assert::default()
-                            .eq_within_tols(&(&basis[1] * reference_normal), &0.0)?;
+                            .zero_within_tols(&(&basis[1] * reference_normal))?;
                         $crate::math::assert::Assert::default()
-                            .eq_within_tols(&(&dual_basis[0] * reference_normal), &0.0)?;
+                            .zero_within_tols(&(&dual_basis[0] * reference_normal))?;
                         $crate::math::assert::Assert::default()
-                            .eq_within_tols(&(&dual_basis[1] * reference_normal), &0.0)
+                            .zero_within_tols(&(&dual_basis[1] * reference_normal))
                     })
             }
             #[test]
@@ -496,10 +496,7 @@ macro_rules! test_finite_element_inner {
                                                 &1.0,
                                             )
                                         } else {
-                                            $crate::math::assert::Assert::eq(
-                                                &shape_function_b,
-                                                &0.0,
-                                            )
+                                            $crate::math::assert::Assert::zero(&shape_function_b)
                                         }
                                     })
                             })
@@ -534,10 +531,8 @@ macro_rules! test_finite_element_inner {
                                         .zip(sums.iter_mut())
                                         .for_each(|(entry, sum)| *sum += entry)
                                 });
-                                sums.iter().try_for_each(|sum| {
-                                    $crate::math::assert::Assert::default()
-                                        .eq_within_tols(sum, &0.0)
-                                })
+                                $crate::math::assert::Assert::default()
+                                    .zero_within_tols(&$crate::math::Vector::from(sums))
                             })
                     }
                     #[test]
@@ -555,10 +550,8 @@ macro_rules! test_finite_element_inner {
                                                 .zip(sums.iter_mut())
                                                 .for_each(|(entry, sum)| *sum += entry)
                                         });
-                                        sums.iter().try_for_each(|sum| {
-                                            $crate::math::assert::Assert::default()
-                                                .eq_within_tols(sum, &0.0)
-                                        })
+                                        $crate::math::assert::Assert::default()
+                                            .zero_within_tols(&$crate::math::Vector::from(sums))
                                     })
                             })
                     }
@@ -1168,12 +1161,12 @@ macro_rules! test_helmholtz_free_energy {
                 #[test]
                 fn objectivity() -> Result<(), AssertionError> {
                     $crate::math::assert::Assert::default()
-                        .eq_within_tols(&get_helmholtz_free_energy(false, true)?, &0.0)
+                        .zero_within_tols(&get_helmholtz_free_energy(false, true)?)
                 }
                 #[test]
                 fn zero() -> Result<(), AssertionError> {
                     $crate::math::assert::Assert::default()
-                        .eq_within_tols(&get_helmholtz_free_energy(false, false)?, &0.0)
+                        .zero_within_tols(&get_helmholtz_free_energy(false, false)?)
                 }
             }
         }
@@ -1839,11 +1832,11 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                 #[test]
                 fn objectivity() -> Result<(), AssertionError> {
                     $crate::math::assert::Assert::default()
-                        .eq_within_tols(&get_viscous_dissipation(false, true)?, &0.0)
+                        .zero_within_tols(&get_viscous_dissipation(false, true)?)
                 }
                 #[test]
                 fn zero() -> Result<(), AssertionError> {
-                    $crate::math::assert::Assert::eq(&get_viscous_dissipation(false, false)?, &0.0)
+                    $crate::math::assert::Assert::zero(&get_viscous_dissipation(false, false)?)
                 }
             }
         }
@@ -1954,14 +1947,11 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                 #[test]
                 fn objectivity() -> Result<(), AssertionError> {
                     $crate::math::assert::Assert::default()
-                        .eq_within_tols(&get_dissipation_potential(false, true)?, &0.0)
+                        .zero_within_tols(&get_dissipation_potential(false, true)?)
                 }
                 #[test]
                 fn zero() -> Result<(), AssertionError> {
-                    $crate::math::assert::Assert::eq(
-                        &get_dissipation_potential(false, false)?,
-                        &0.0,
-                    )
+                    $crate::math::assert::Assert::zero(&get_dissipation_potential(false, false)?)
                 }
             }
         }

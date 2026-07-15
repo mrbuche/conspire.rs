@@ -495,11 +495,10 @@ macro_rules! test_helmholtz_free_energy {
                 #[test]
                 fn positive() -> Result<(), AssertionError> {
                     let block = get_block();
-                    $crate::math::assert::Assert::default().eq_within_tols(
+                    $crate::math::assert::Assert::default().zero_within_tols(
                         &block
                             .helmholtz_free_energy(&get_reference_coordinates_block().into())?
                             .abs(),
-                        &0.0,
                     )?;
                     assert!(block.helmholtz_free_energy(&get_coordinates_block())? > 0.0);
                     Ok(())
@@ -557,11 +556,10 @@ macro_rules! test_helmholtz_free_energy {
                 }
                 #[test]
                 fn zero() -> Result<(), AssertionError> {
-                    $crate::math::assert::Assert::default().eq_within_tols(
+                    $crate::math::assert::Assert::default().zero_within_tols(
                         &get_block()
                             .helmholtz_free_energy(&get_reference_coordinates_block().into())?
                             .abs(),
-                        &0.0,
                     )
                 }
             }
@@ -1345,13 +1343,10 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                 }
                 #[test]
                 fn zero() -> Result<(), AssertionError> {
-                    $crate::math::assert::Assert::eq(
-                        &get_block().viscous_dissipation(
-                            &get_reference_coordinates_block().into(),
-                            &NodalVelocities::zero(D),
-                        )?,
-                        &0.0,
-                    )
+                    $crate::math::assert::Assert::zero(&get_block().viscous_dissipation(
+                        &get_reference_coordinates_block().into(),
+                        &NodalVelocities::zero(D),
+                    )?)
                 }
             }
         }
@@ -1464,13 +1459,10 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                 }
                 #[test]
                 fn zero() -> Result<(), AssertionError> {
-                    $crate::math::assert::Assert::eq(
-                        &get_block().dissipation_potential(
-                            &get_reference_coordinates_block().into(),
-                            &NodalVelocities::zero(D),
-                        )?,
-                        &0.0,
-                    )
+                    $crate::math::assert::Assert::zero(&get_block().dissipation_potential(
+                        &get_reference_coordinates_block().into(),
+                        &NodalVelocities::zero(D),
+                    )?)
                 }
             }
         }

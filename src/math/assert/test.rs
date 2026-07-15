@@ -96,3 +96,27 @@ fn assert_eq_owned_and_ref_combinations() -> Result<(), AssertionError> {
     Assert::eq(a(), &b())?;
     Assert::eq(&a(), &b())
 }
+
+#[test]
+fn assert_zero() -> Result<(), AssertionError> {
+    Assert::zero(&0.0)
+}
+
+#[test]
+#[should_panic(expected = "Assertion `left == right` failed.")]
+fn assert_zero_fail() {
+    Assert::zero(&1.0).unwrap()
+}
+
+#[test]
+fn assert_zero_within_tols() -> Result<(), AssertionError> {
+    Assert::default().zero_within_tols(&TensorRank1::<3, 1>::from([0.0, 0.0, 0.0]))
+}
+
+#[test]
+#[should_panic(expected = "Assertion `left ≈= right` failed in 1 places.")]
+fn assert_zero_within_tols_fail() {
+    Assert::default()
+        .zero_within_tols(&TensorRank1::<3, 1>::from([1.0, 0.0, 0.0]))
+        .unwrap()
+}

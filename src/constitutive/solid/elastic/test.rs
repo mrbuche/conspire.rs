@@ -854,9 +854,9 @@ macro_rules! test_root {
                         $constitutive_model_constructed.cauchy_stress(&deformation_gradient)?;
                     assert!(cauchy_stress[0][0] < 0.0);
                     $crate::math::assert::Assert::default()
-                        .eq_within_tols(&(cauchy_stress[1][1] / cauchy_stress[0][0]), &0.0)?;
+                        .zero_within_tols(&(cauchy_stress[1][1] / cauchy_stress[0][0]))?;
                     $crate::math::assert::Assert::default()
-                        .eq_within_tols(&(cauchy_stress[2][2] / cauchy_stress[0][0]), &0.0)?;
+                        .zero_within_tols(&(cauchy_stress[2][2] / cauchy_stress[0][0]))?;
                     assert!(cauchy_stress.is_diagonal());
                     $crate::math::assert::Assert::eq(
                         &deformation_gradient[1][1],
@@ -874,9 +874,9 @@ macro_rules! test_root {
                     assert!(cauchy_stress[0][0] > 0.0);
                     assert!(cauchy_stress.is_diagonal());
                     $crate::math::assert::Assert::default()
-                        .eq_within_tols(&cauchy_stress[1][1], &0.0)?;
+                        .zero_within_tols(&cauchy_stress[1][1])?;
                     $crate::math::assert::Assert::default()
-                        .eq_within_tols(&cauchy_stress[2][2], &0.0)?;
+                        .zero_within_tols(&cauchy_stress[2][2])?;
                     assert!(deformation_gradient.is_diagonal());
                     $crate::math::assert::Assert::eq(
                         &deformation_gradient[1][1],
@@ -901,10 +901,9 @@ macro_rules! test_root {
                         $constitutive_model_constructed.cauchy_stress(&deformation_gradient)?;
                     assert!(cauchy_stress[0][0] < 0.0);
                     assert!(cauchy_stress[1][1] < 0.0);
-                    $crate::math::assert::Assert::default().eq_within_tols(
+                    $crate::math::assert::Assert::default().zero_within_tols(
                         &(cauchy_stress[2][2]
                             / (cauchy_stress[0][0].powi(2) + cauchy_stress[1][1].powi(2)).sqrt()),
-                        &0.0,
                     )?;
                     assert!(cauchy_stress.is_diagonal());
                     assert!(deformation_gradient.is_diagonal());
@@ -918,7 +917,7 @@ macro_rules! test_root {
                         $constitutive_model_constructed.cauchy_stress(&deformation_gradient)?;
                     assert!(cauchy_stress[0][0] > cauchy_stress[1][1]);
                     $crate::math::assert::Assert::default()
-                        .eq_within_tols(&cauchy_stress[2][2], &0.0)?;
+                        .zero_within_tols(&cauchy_stress[2][2])?;
                     assert!(cauchy_stress.is_diagonal());
                     assert!(deformation_gradient.is_diagonal());
                     Ok(())
@@ -932,7 +931,7 @@ macro_rules! test_root {
                     assert!(cauchy_stress[0][0] > cauchy_stress[1][1]);
                     assert!(cauchy_stress[1][1] > 0.0);
                     $crate::math::assert::Assert::default()
-                        .eq_within_tols(&cauchy_stress[2][2], &0.0)?;
+                        .zero_within_tols(&cauchy_stress[2][2])?;
                     assert!(cauchy_stress.is_diagonal());
                     assert!(deformation_gradient.is_diagonal());
                     Ok(())

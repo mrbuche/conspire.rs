@@ -10,7 +10,7 @@ use crate::{
         },
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
     },
-    math::{Rank2, Scalar, Tensor, TensorRank2, assert::AssertionError},
+    math::{Rank2, Scalar, Tensor, TensorRank2, Vector, assert::AssertionError},
     mechanics::test::get_rotation_reference_configuration,
 };
 
@@ -66,9 +66,7 @@ fn temporary_2() -> Result<(), AssertionError> {
         &forces.iter().skip(P).map(|force| force[0]).sum(),
         &(TANGENTIAL_TRACTION * area),
     )?;
-    forces
-        .iter()
-        .try_for_each(|force| Assert::default().eq_within_tols(force[1], &0.0))?;
+    Assert::default().zero_within_tols(&forces.iter().map(|force| force[1]).collect::<Vector>())?;
     Assert::default().eq_within_tols(
         &forces.iter().take(P).map(|force| -force[2]).sum(),
         &(NORMAL_TRACTION * area),
@@ -126,9 +124,7 @@ fn temporary_4() -> Result<(), AssertionError> {
         &forces.iter().skip(P).map(|force| force[0]).sum(),
         &(TANGENTIAL_TRACTION * area),
     )?;
-    forces
-        .iter()
-        .try_for_each(|force| Assert::default().eq_within_tols(force[1], &0.0))?;
+    Assert::default().zero_within_tols(&forces.iter().map(|force| force[1]).collect::<Vector>())?;
     Assert::default().eq_within_tols(
         &forces.iter().take(P).map(|force| -force[2]).sum(),
         &(NORMAL_TRACTION * area),

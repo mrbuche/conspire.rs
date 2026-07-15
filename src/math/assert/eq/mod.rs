@@ -40,6 +40,33 @@ pub(super) fn eq_within_tols_impl<T: Display + Tensor>(
     }
 }
 
+pub(super) fn zero_impl<T: Display + Tensor>(a: &T) -> Result<(), AssertionError> {
+    if a.is_zero() {
+        Ok(())
+    } else {
+        Err(AssertionError {
+            message: format!(
+                "\n\x1b[1;91mAssertion `left == right` failed.\n\x1b[0;91m  left: {a}\n right: 0\x1b[0m"
+            ),
+        })
+    }
+}
+
+pub(super) fn zero_within_tols_impl<T: Display + Tensor>(
+    tols: &Assert,
+    a: &T,
+) -> Result<(), AssertionError> {
+    if let Some(count) = a.error_count_zero(tols.abs_tol, tols.rel_tol) {
+        Err(AssertionError {
+            message: format!(
+                "\n\x1b[1;91mAssertion `left ≈= right` failed in {count} places.\n\x1b[0;91m  left: {a}\n right: 0\x1b[0m"
+            ),
+        })
+    } else {
+        Ok(())
+    }
+}
+
 impl<T> AssertEq<T> for &T
 where
     T: Display + PartialEq + Tensor,

@@ -32,5 +32,5 @@ fn zero() -> Result<(), crate::math::assert::AssertionError> {
     }
     .heat_flux(&TemperatureGradient::from([0.0, 0.0, 0.0]))?
     .iter()
-    .try_for_each(|heat_flux_i| Assert::eq(heat_flux_i, &0.0))
+    .try_for_each(Assert::zero)
 }

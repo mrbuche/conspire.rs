@@ -68,6 +68,13 @@ impl Hessian for TensorRank0 {
 
 impl Tensor for TensorRank0 {
     type Item = TensorRank0;
+    fn error_count_zero(&self, tol_abs: TensorRank0, tol_rel: TensorRank0) -> Option<usize> {
+        if (self.sub_abs(&0.0) < tol_abs || self.sub_rel(&0.0) < tol_rel) && !self.is_nan() {
+            None
+        } else {
+            Some(1)
+        }
+    }
     fn error_count(
         &self,
         other: &Self,
