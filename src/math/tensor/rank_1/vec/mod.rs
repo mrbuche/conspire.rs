@@ -11,7 +11,6 @@ use std::{
     ops::{Div, Sub},
 };
 
-#[cfg(test)]
 use crate::math::assert::ErrorTensor;
 
 /// A vector of rank-1 tensors.
@@ -279,7 +278,6 @@ impl<const D: usize, const I: usize, const J: usize> Div<TensorRank2SparseVec2DS
     }
 }
 
-#[cfg(test)]
 impl<const D: usize, const I: usize> ErrorTensor for TensorRank1Vec<D, I> {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self

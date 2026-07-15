@@ -1,65 +1,115 @@
+mod error;
+
+#[cfg(test)]
+mod test;
+
+pub use error::AssertionError;
+
 use crate::{
-    ABS_TOL, REL_TOL,
-    math::{Scalar, Tensor, TensorError, defeat_message},
+    ABS_TOL, EPSILON, REL_TOL,
+    math::{Scalar, Tensor},
 };
-use std::{
-    fmt::{self, Debug, Display, Formatter},
-    io::Error as ErrorIO,
-};
+use std::fmt::Display;
 
-#[cfg(test)]
-use crate::EPSILON;
-
-#[cfg(test)]
-use crate::math::{TensorRank1, TensorRank1List};
-
-#[cfg(test)]
+/// Types that can report a finite-difference comparison error against themselves.
 pub trait ErrorTensor {
     fn error_fd(&self, comparator: &Self, epsilon: Scalar) -> Option<(bool, usize)>;
 }
 
-/// An error produced by a failed assertion, comparing two values.
-pub struct AssertionError {
-    pub message: String,
+/// Specifies tolerances used by [`AssertEq`] functionalities.
+pub struct Assert {
+    pub abs_tol: Scalar,
+    pub rel_tol: Scalar,
+    pub fd_tol: Scalar,
 }
 
-impl Debug for AssertionError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}\n\x1b[0;2;31m{}\x1b[0m\n",
-            self.message,
-            defeat_message()
-        )
-    }
-}
-
-impl From<String> for AssertionError {
-    fn from(error: String) -> Self {
-        Self { message: error }
-    }
-}
-
-impl From<&str> for AssertionError {
-    fn from(error: &str) -> Self {
+impl Default for Assert {
+    fn default() -> Self {
         Self {
-            message: error.to_string(),
+            abs_tol: ABS_TOL,
+            rel_tol: REL_TOL,
+            fd_tol: 3.0 * EPSILON,
         }
     }
 }
 
-impl From<TensorError> for AssertionError {
-    fn from(error: TensorError) -> Self {
-        Self {
-            message: error.to_string(),
-        }
+impl Assert {
+    /// Asserts exact equality.
+    pub fn eq<T, Rhs>(a: T, b: Rhs) -> Result<(), AssertionError>
+    where
+        T: AssertEq<Rhs>,
+    {
+        T::eq(a, b)
+    }
+    /// Asserts equality within `self.abs_tol` and `self.rel_tol`.
+    pub fn eq_within_tols<T, Rhs>(&self, a: T, b: Rhs) -> Result<(), AssertionError>
+    where
+        T: AssertEq<Rhs>,
+    {
+        T::eq_within_tols(self, a, b)
+    }
+    /// Asserts finite-difference equality within `self.fd_tol`.
+    pub fn eq_within_fd_tol<T, Rhs>(&self, a: T, b: Rhs) -> Result<(), AssertionError>
+    where
+        T: AssertEq<Rhs>,
+    {
+        T::eq_within_fd_tol(self, a, b)
     }
 }
 
-impl From<ErrorIO> for AssertionError {
-    fn from(error: ErrorIO) -> Self {
-        Self {
-            message: error.to_string(),
+/// Equality assertions, overloaded across owned and borrowed operands.
+pub trait AssertEq<Rhs = Self> {
+    fn eq(a: Self, b: Rhs) -> Result<(), AssertionError>;
+    fn eq_within_tols(tols: &Assert, a: Self, b: Rhs) -> Result<(), AssertionError>;
+    fn eq_within_fd_tol(tols: &Assert, a: Self, b: Rhs) -> Result<(), AssertionError>;
+}
+
+impl<'a, T> AssertEq<&'a T> for &'a T
+where
+    T: Display + PartialEq + Tensor + ErrorTensor,
+{
+    fn eq(a: Self, b: &'a T) -> Result<(), AssertionError> {
+        if a == b {
+            Ok(())
+        } else {
+            Err(AssertionError {
+                message: format!(
+                    "\n\x1b[1;91mAssertion `left == right` failed.\n\x1b[0;91m  left: {a}\n right: {b}\x1b[0m"
+                ),
+            })
+        }
+    }
+    fn eq_within_tols(tols: &Assert, a: Self, b: &'a T) -> Result<(), AssertionError> {
+        if let Some(count) = a.error_count(b, tols.abs_tol, tols.rel_tol) {
+            let abs = a.sub_abs(b);
+            let rel = a.sub_rel(b);
+            Err(AssertionError {
+                message: format!(
+                    "\n\x1b[1;91mAssertion `left ≈= right` failed in {count} places.\n\x1b[0;91m  left: {a}\n right: {b}\n   abs: {abs}\n   rel: {rel}\x1b[0m"
+                ),
+            })
+        } else {
+            Ok(())
+        }
+    }
+    fn eq_within_fd_tol(tols: &Assert, a: Self, b: &'a T) -> Result<(), AssertionError> {
+        if let Some((failed, count)) = a.error_fd(b, tols.fd_tol) {
+            if failed {
+                let abs = a.sub_abs(b);
+                let rel = a.sub_rel(b);
+                Err(AssertionError {
+                    message: format!(
+                        "\n\x1b[1;91mAssertion `left ≈= right` failed in {count} places.\n\x1b[0;91m  left: {a}\n right: {b}\n   abs: {abs}\n   rel: {rel}\x1b[0m"
+                    ),
+                })
+            } else {
+                println!(
+                    "Warning: \n\x1b[1;93mAssertion `left ≈= right` was weak in {count} places.\x1b[0m"
+                );
+                Ok(())
+            }
+        } else {
+            Ok(())
         }
     }
 }
@@ -144,69 +194,4 @@ where
     T: Display + Tensor,
 {
     assert_eq_within(value_1, value_2, ABS_TOL, REL_TOL)
-}
-
-#[test]
-fn test_error_from_string() {
-    assert_eq!(
-        AssertionError::from("An error occurred".to_string()).message,
-        "An error occurred"
-    );
-}
-
-#[test]
-fn test_error_from_str() {
-    assert_eq!(
-        AssertionError::from("An error occurred").message,
-        "An error occurred"
-    );
-}
-
-#[test]
-fn test_error_from_tensor_error() {
-    let tensor_error = TensorError::NotPositiveDefinite;
-    let _ = format!("{:?}", tensor_error);
-    let _ = AssertionError::from(tensor_error);
-}
-
-#[test]
-#[should_panic(expected = "Assertion `left == right` failed.")]
-fn assert_eq_fail() {
-    assert_eq(&0.0, &1.0).unwrap()
-}
-
-#[test]
-#[should_panic(expected = "Assertion `left ≈= right` failed in 2 places.")]
-fn assert_eq_from_fd_fail() {
-    assert_eq_from_fd(
-        &TensorRank1::<_, 1>::from([1.0, 2.0, 3.0]),
-        &TensorRank1::<_, 1>::from([3.0, 2.0, 1.0]),
-    )
-    .unwrap()
-}
-
-#[test]
-fn assert_eq_from_fd_success() -> Result<(), AssertionError> {
-    assert_eq_from_fd(
-        &TensorRank1::<_, 1>::from([1.0, 2.0, 3.0]),
-        &TensorRank1::<_, 1>::from([1.0, 2.0, 3.0]),
-    )
-}
-
-#[test]
-fn assert_eq_from_fd_weak() -> Result<(), AssertionError> {
-    assert_eq_from_fd(
-        &TensorRank1List::<_, 1, 1>::from([[EPSILON * 1.01]]),
-        &TensorRank1List::<_, 1, 1>::from([[EPSILON * 1.02]]),
-    )
-}
-
-#[test]
-#[should_panic(expected = "Assertion `left ≈= right` failed in 2 places.")]
-fn assert_eq_within_tols_fail() {
-    assert_eq_within_tols(
-        &TensorRank1::<_, 1>::from([1.0, 2.0, 3.0]),
-        &TensorRank1::<_, 1>::from([3.0, 2.0, 1.0]),
-    )
-    .unwrap()
 }

@@ -4,7 +4,6 @@ mod test;
 use crate::math::{Tensor, TensorRank0, TensorRank2, TensorRank2List, tensor::list::TensorList};
 use std::ops::Mul;
 
-#[cfg(test)]
 use crate::math::assert::ErrorTensor;
 
 /// A list of lists of rank-2 tensors.
@@ -56,7 +55,6 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: us
     }
 }
 
-#[cfg(test)]
 impl<const D: usize, const I: usize, const J: usize, const W: usize, const X: usize> ErrorTensor
     for TensorRank2List2D<D, I, J, W, X>
 {

@@ -1,6 +1,5 @@
 use crate::math::{TensorArray, TensorRank2, tensor::vec::TensorVector};
 
-#[cfg(test)]
 use crate::math::{Tensor, TensorRank0, assert::ErrorTensor};
 
 /// A vector of rank-2 tensors.
@@ -13,7 +12,6 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2Vec<D, I, J> {
     }
 }
 
-#[cfg(test)]
 impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2Vec<D, I, J> {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self

@@ -12,7 +12,7 @@ use std::{
 };
 
 /// A fixed-size nested collection of different tensors.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TensorTuple<T1, T2>(pub T1, pub T2)
 where
     T1: Tensor,

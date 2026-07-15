@@ -10,7 +10,7 @@ use std::{
 };
 
 /// A sparse vector of rank-2 tensors, storing only inserted entries.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct TensorRank2SparseVec<const D: usize, const I: usize, const J: usize>(
     pub(super) Vec<(usize, TensorRank2<D, I, J>)>,
 );

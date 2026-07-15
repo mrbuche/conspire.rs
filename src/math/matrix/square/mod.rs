@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod test;
 
-#[cfg(test)]
 use crate::math::assert::ErrorTensor;
 
 use crate::{
@@ -180,7 +179,6 @@ fn backward_substitution(x: &mut Vector, a: &SquareMatrix) {
     })
 }
 
-#[cfg(test)]
 impl ErrorTensor for SquareMatrix {
     fn error_fd(&self, comparator: &Self, epsilon: Scalar) -> Option<(bool, usize)> {
         let error_count = self

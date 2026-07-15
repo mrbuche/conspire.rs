@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod test;
 
-#[cfg(test)]
 use crate::math::assert::ErrorTensor;
 
 pub mod list;
@@ -13,7 +12,6 @@ use std::ops::Sub;
 /// A tensor of rank 0 (a scalar).
 pub type TensorRank0 = f64;
 
-#[cfg(test)]
 impl ErrorTensor for TensorRank0 {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         if ((self / comparator - 1.0).abs() >= epsilon && (self - comparator).abs() >= epsilon)

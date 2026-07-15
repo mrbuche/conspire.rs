@@ -1,4 +1,3 @@
-#[cfg(test)]
 use crate::math::assert::ErrorTensor;
 
 use crate::math::{
@@ -45,7 +44,6 @@ impl Default for Vector {
     }
 }
 
-#[cfg(test)]
 impl ErrorTensor for Vector {
     fn error_fd(&self, comparator: &Self, epsilon: Scalar) -> Option<(bool, usize)> {
         let error_count = self

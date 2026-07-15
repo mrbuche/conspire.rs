@@ -4,7 +4,6 @@ use crate::math::{
 };
 use std::ops::Mul;
 
-#[cfg(test)]
 use crate::math::assert::ErrorTensor;
 
 /// A vector of vectors of rank-2 tensors.
@@ -104,7 +103,6 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<&Tensor
     }
 }
 
-#[cfg(test)]
 impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2Vec2D<D, I, J> {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self

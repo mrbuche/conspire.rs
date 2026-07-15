@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod test;
 
-#[cfg(test)]
 use crate::math::assert::ErrorTensor;
 
 use std::{
@@ -77,7 +76,6 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Display
     }
 }
 
-#[cfg(test)]
 impl<const D: usize, const I: usize, const J: usize, const K: usize> ErrorTensor
     for TensorRank3<D, I, J, K>
 {

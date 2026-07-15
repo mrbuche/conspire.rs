@@ -4,7 +4,6 @@ mod test;
 use crate::math::{Tensor, TensorRank0, TensorRank1, TensorRank2, tensor::list::TensorList};
 use std::ops::Mul;
 
-#[cfg(test)]
 use crate::math::assert::ErrorTensor;
 
 /// A list of rank-1 tensors.
@@ -106,7 +105,6 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize> Mul<&Tensor
     }
 }
 
-#[cfg(test)]
 impl<const D: usize, const I: usize, const W: usize> ErrorTensor for TensorRank1List<D, I, W> {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self

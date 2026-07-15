@@ -26,7 +26,6 @@ use crate::{
     },
 };
 
-#[cfg(test)]
 use crate::math::assert::ErrorTensor;
 
 /// A *d*-dimensional tensor of rank 1.
@@ -126,7 +125,6 @@ impl<const D: usize, const I: usize> TensorRank1<D, I> {
     }
 }
 
-#[cfg(test)]
 impl<const D: usize, const I: usize> ErrorTensor for TensorRank1<D, I> {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self

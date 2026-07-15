@@ -12,7 +12,6 @@ use std::{
 use super::sparse_vec::TensorRank2SparseVec;
 use super::sparse_vec_2d::TensorRank2SparseVec2D;
 
-#[cfg(test)]
 use crate::math::{TensorArray, assert::ErrorTensor};
 
 /// A vector of sparse vectors of rank-2 tensors, storing only the symmetric half.
@@ -22,7 +21,7 @@ use crate::math::{TensorArray, assert::ErrorTensor};
 /// indices. Only the canonical (row <= column) half of the blocks is stored;
 /// entries on the other side are reconstructed by transposing on lookup
 /// instead of being duplicated in memory.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct TensorRank2SparseVec2DSymmetric<const D: usize, const I: usize, const J: usize>(
     TensorRank2SparseVec2D<D, I, J>,
 );
@@ -256,7 +255,6 @@ impl<const D: usize, const I: usize, const J: usize> Hessian
     }
 }
 
-#[cfg(test)]
 impl<const D: usize, const I: usize, const J: usize> ErrorTensor
     for TensorRank2SparseVec2DSymmetric<D, I, J>
 {
