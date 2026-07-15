@@ -1,8 +1,6 @@
 use super::{CscMatrix, Scalar, Vector};
-use crate::math::{
-    Tensor,
-    assert::{AssertionError, assert_eq},
-};
+use crate::math::assert::Assert;
+use crate::math::{Tensor, assert::AssertionError};
 
 const D: usize = 9;
 
@@ -85,7 +83,7 @@ fn multiply_vector() -> Result<(), AssertionError> {
                 .sum()
         })
         .collect();
-    assert_eq(&(&sparse() * &vector), &product)
+    Assert::eq(&(&sparse() * &vector), &product)
 }
 
 #[test]

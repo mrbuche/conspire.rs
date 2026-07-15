@@ -12,7 +12,7 @@ use super::{
     },
     TensorRank2,
 };
-use crate::{ABS_TOL, math::assert::assert_eq_within_tols};
+use crate::{ABS_TOL, math::assert::Assert};
 
 impl<const I: usize> TensorRank2<3, I, I> {
     /// Returns the matrix logarithm of the 3x3 symmetric tensor.
@@ -69,7 +69,8 @@ impl<const I: usize> TensorRank2<3, I, I> {
                             .enumerate()
                             .filter(|(l, _)| i == k && &j == l)
                             .for_each(|(_, dlogm_ijkl)| {
-                                *dlogm_ijkl = if assert_eq_within_tols(&self[i][i], &self[j][j])
+                                *dlogm_ijkl = if Assert::default()
+                                    .eq_within_tols(self[i][i], &self[j][j])
                                     .is_ok()
                                 {
                                     1.0 / self[j][j]
@@ -92,7 +93,10 @@ impl<const I: usize> TensorRank2<3, I, I> {
                     eigenvalues
                         .iter()
                         .map(|eigenvalue_j| {
-                            if assert_eq_within_tols(eigenvalue_i, eigenvalue_j).is_ok() {
+                            if Assert::default()
+                                .eq_within_tols(eigenvalue_i, eigenvalue_j)
+                                .is_ok()
+                            {
                                 1.0 / eigenvalue_j
                             } else {
                                 (eigenvalue_i.ln() - eigenvalue_j.ln())
@@ -188,13 +192,19 @@ fn find_orthonormal_eigenvectors<const I: usize>(
     eigenvalues: &TensorRank0List<3>,
     tensor: &TensorRank2<3, I, I>,
 ) -> TensorRank2<3, I, I> {
-    if assert_eq_within_tols(&eigenvalues[0], &eigenvalues[1]).is_ok() {
+    if Assert::default()
+        .eq_within_tols(eigenvalues[0], &eigenvalues[1])
+        .is_ok()
+    {
         let mut eigenvectors = TensorRank2::zero();
         eigenvectors[2] = eigenvector_symmetric(eigenvalues[2], tensor);
         eigenvectors[0] = orthogonal_unit_vector(&eigenvectors[2]);
         eigenvectors[1] = eigenvectors[2].cross(&eigenvectors[0]);
         eigenvectors
-    } else if assert_eq_within_tols(&eigenvalues[1], &eigenvalues[2]).is_ok() {
+    } else if Assert::default()
+        .eq_within_tols(eigenvalues[1], &eigenvalues[2])
+        .is_ok()
+    {
         let mut eigenvectors = TensorRank2::zero();
         eigenvectors[0] = eigenvector_symmetric(eigenvalues[0], tensor);
         eigenvectors[1] = orthogonal_unit_vector(&eigenvectors[0]);

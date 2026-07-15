@@ -1,5 +1,6 @@
 use super::super::test::*;
 use super::*;
+use crate::math::assert::Assert;
 
 test_solid_thermoelastic_constitutive_model!(AlmansiHamel {
     bulk_modulus: BULK_MODULUS,
@@ -10,10 +11,7 @@ test_solid_thermoelastic_constitutive_model!(AlmansiHamel {
 
 mod consistency {
     use super::*;
-    use crate::{
-        constitutive::solid::elastic::{AlmansiHamel as ElasticAlmansiHamel, Elastic},
-        math::assert::assert_eq_within_tols,
-    };
+    use crate::constitutive::solid::elastic::{AlmansiHamel as ElasticAlmansiHamel, Elastic};
     #[test]
     fn cauchy_stress() -> Result<(), AssertionError> {
         let model = AlmansiHamel {
@@ -26,7 +24,7 @@ mod consistency {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
         };
-        assert_eq_within_tols(
+        Assert::default().eq_within_tols(
             &model.cauchy_stress(&get_deformation_gradient(), model.reference_temperature())?,
             &elastic_model.cauchy_stress(&get_deformation_gradient())?,
         )
@@ -43,7 +41,7 @@ mod consistency {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
         };
-        assert_eq_within_tols(
+        Assert::default().eq_within_tols(
             &model.cauchy_tangent_stiffness(
                 &get_deformation_gradient(),
                 model.reference_temperature(),

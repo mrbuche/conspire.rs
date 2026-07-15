@@ -6,7 +6,7 @@ mod test;
 use crate::math::{Tensor, TensorRank0, tensor::list::TensorList};
 use std::ops::Mul;
 
-use crate::math::assert::ErrorTensor;
+use crate::math::assert::FiniteDifference;
 
 /// A list of rank-0 tensors (scalars).
 pub type TensorRank0List<const N: usize> = TensorList<TensorRank0, N>;
@@ -51,7 +51,7 @@ impl<const N: usize> Mul for &TensorRank0List<N> {
     }
 }
 
-impl<const N: usize> ErrorTensor for TensorRank0List<N> {
+impl<const N: usize> FiniteDifference for TensorRank0List<N> {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()

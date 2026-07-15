@@ -1,10 +1,11 @@
+use crate::math::assert::Assert;
 use crate::{
     geometry::{
         Coordinate, Coordinates,
         bvh::BoundingVolumeHierarchy,
         mesh::{Connectivity, Mesh},
     },
-    math::assert::{AssertionError, assert_eq_within_tols},
+    math::assert::AssertionError,
 };
 
 const CONNECTIVITY: [[usize; 3]; 2] = [[0, 1, 2], [3, 4, 5]];
@@ -75,7 +76,7 @@ fn closest_point_projects_onto_nearest_face() -> Result<(), AssertionError> {
         .closest_point(&query, mesh.coordinates(), &elements)
         .unwrap();
     assert_eq!(index, 0);
-    assert_eq_within_tols(&point, &Coordinate::const_from([0.2, 0.2, 0.0]))
+    Assert::default().eq_within_tols(&point, &Coordinate::const_from([0.2, 0.2, 0.0]))
 }
 
 #[test]
@@ -88,5 +89,5 @@ fn closest_point_clamps_to_vertex() -> Result<(), AssertionError> {
         .closest_point(&query, mesh.coordinates(), &elements)
         .unwrap();
     assert_eq!(index, 0);
-    assert_eq_within_tols(&point, &Coordinate::const_from([0.0, 0.0, 0.0]))
+    Assert::default().eq_within_tols(&point, &Coordinate::const_from([0.0, 0.0, 0.0]))
 }

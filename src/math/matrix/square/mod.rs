@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::assert::ErrorTensor;
+use crate::math::assert::FiniteDifference;
 
 use crate::{
     ABS_TOL,
@@ -179,7 +179,7 @@ fn backward_substitution(x: &mut Vector, a: &SquareMatrix) {
     })
 }
 
-impl ErrorTensor for SquareMatrix {
+impl FiniteDifference for SquareMatrix {
     fn error_fd(&self, comparator: &Self, epsilon: Scalar) -> Option<(bool, usize)> {
         let error_count = self
             .iter()

@@ -95,10 +95,7 @@ macro_rules! test_surface_finite_element {
             };
         }
         crate::fem::block::element::test::test_finite_element_inner!($element);
-        use crate::{
-            EPSILON,
-            math::assert::{AssertionError, assert_eq_from_fd, assert_eq_within_tols},
-        };
+        use crate::{EPSILON, math::assert::AssertionError};
         mod bases {
             use super::*;
             #[test]
@@ -109,7 +106,7 @@ macro_rules! test_surface_finite_element {
                     .try_for_each(|(basis_transformed, basis)| {
                         basis_transformed.iter().zip(basis.iter()).try_for_each(
                             |(basis_transformed_m, basis_m)| {
-                                assert_eq_within_tols(
+                                $crate::math::assert::Assert::default().eq_within_tols(
                                     &(get_rotation_current_configuration().transpose()
                                         * basis_transformed_m),
                                     basis_m,
@@ -128,7 +125,7 @@ macro_rules! test_surface_finite_element {
                     .iter()
                     .zip($element::dual_bases(&coordinates()).iter())
                     .try_for_each(|(basis, dual_basis)| {
-                        assert_eq_within_tols(
+                        $crate::math::assert::Assert::default().eq_within_tols(
                             &basis
                                 .iter()
                                 .map(|basis_m| {
@@ -151,7 +148,7 @@ macro_rules! test_surface_finite_element {
                     .try_for_each(|(basis_transformed, basis)| {
                         basis_transformed.iter().zip(basis.iter()).try_for_each(
                             |(basis_transformed_m, basis_m)| {
-                                assert_eq_within_tols(
+                                $crate::math::assert::Assert::default().eq_within_tols(
                                     &(get_rotation_current_configuration().transpose()
                                         * basis_transformed_m),
                                     basis_m,
@@ -190,7 +187,7 @@ macro_rules! test_surface_finite_element {
                             .collect()
                     })
                     .collect();
-                assert_eq_from_fd(
+                $crate::math::assert::Assert::default().eq_within_fd_tol(
                     &$element::normal_gradients(&coordinates()),
                     &normal_gradients_from_fd,
                 )
@@ -205,17 +202,23 @@ macro_rules! test_surface_finite_element {
                             .zip($element::normals(&coordinates()).iter()),
                     )
                     .try_for_each(|(basis, (dual_basis, normal))| {
-                        assert_eq_within_tols(&(&basis[0] * normal), &0.0)?;
-                        assert_eq_within_tols(&(&basis[1] * normal), &0.0)?;
-                        assert_eq_within_tols(&(&dual_basis[0] * normal), &0.0)?;
-                        assert_eq_within_tols(&(&dual_basis[1] * normal), &0.0)
+                        $crate::math::assert::Assert::default()
+                            .eq_within_tols(&(&basis[0] * normal), &0.0)?;
+                        $crate::math::assert::Assert::default()
+                            .eq_within_tols(&(&basis[1] * normal), &0.0)?;
+                        $crate::math::assert::Assert::default()
+                            .eq_within_tols(&(&dual_basis[0] * normal), &0.0)?;
+                        $crate::math::assert::Assert::default()
+                            .eq_within_tols(&(&dual_basis[1] * normal), &0.0)
                     })
             }
             #[test]
             fn normalized() -> Result<(), AssertionError> {
                 $element::normals(&coordinates())
                     .iter()
-                    .try_for_each(|normal| assert_eq_within_tols(&normal.norm(), &1.0))
+                    .try_for_each(|normal| {
+                        $crate::math::assert::Assert::default().eq_within_tols(&normal.norm(), &1.0)
+                    })
             }
             #[test]
             fn objectivity() -> Result<(), AssertionError> {
@@ -223,7 +226,7 @@ macro_rules! test_surface_finite_element {
                     .iter()
                     .zip($element::normals(&coordinates()).iter())
                     .try_for_each(|(normal_transformed, normal)| {
-                        assert_eq_within_tols(
+                        $crate::math::assert::Assert::default().eq_within_tols(
                             &(get_rotation_current_configuration().transpose()
                                 * normal_transformed),
                             normal,
@@ -243,7 +246,7 @@ macro_rules! test_surface_finite_element {
                             .iter()
                             .zip(normal_gradient.iter())
                             .try_for_each(|(normal_gradient_transformed_a, normal_gradient_a)| {
-                                assert_eq_within_tols(
+                                $crate::math::assert::Assert::default().eq_within_tols(
                                     &(get_rotation_current_configuration().transpose()
                                         * normal_gradient_transformed_a
                                         * get_rotation_current_configuration()),
@@ -286,7 +289,7 @@ macro_rules! test_surface_finite_element {
                             .collect()
                     })
                     .collect();
-                assert_eq_from_fd(
+                $crate::math::assert::Assert::default().eq_within_fd_tol(
                     &$element::normal_rates(&coordinates(), &velocities()),
                     &normal_rates_from_fd,
                 )
@@ -305,7 +308,7 @@ macro_rules! test_surface_finite_element {
                     )
                     .try_for_each(
                         |(normal_transformed, (normal_rate_transformed, normal_rate))| {
-                            assert_eq_within_tols(
+                            $crate::math::assert::Assert::default().eq_within_tols(
                                 &(get_rotation_current_configuration().transpose()
                                     * normal_rate_transformed
                                     + get_rotation_rate_current_configuration().transpose()
@@ -328,10 +331,14 @@ macro_rules! test_surface_finite_element {
                             .zip(element().reference_normals().iter()),
                     )
                     .try_for_each(|(basis, (dual_basis, reference_normal))| {
-                        assert_eq_within_tols(&(&basis[0] * reference_normal), &0.0)?;
-                        assert_eq_within_tols(&(&basis[1] * reference_normal), &0.0)?;
-                        assert_eq_within_tols(&(&dual_basis[0] * reference_normal), &0.0)?;
-                        assert_eq_within_tols(&(&dual_basis[1] * reference_normal), &0.0)
+                        $crate::math::assert::Assert::default()
+                            .eq_within_tols(&(&basis[0] * reference_normal), &0.0)?;
+                        $crate::math::assert::Assert::default()
+                            .eq_within_tols(&(&basis[1] * reference_normal), &0.0)?;
+                        $crate::math::assert::Assert::default()
+                            .eq_within_tols(&(&dual_basis[0] * reference_normal), &0.0)?;
+                        $crate::math::assert::Assert::default()
+                            .eq_within_tols(&(&dual_basis[1] * reference_normal), &0.0)
                     })
             }
             #[test]
@@ -340,7 +347,8 @@ macro_rules! test_surface_finite_element {
                     .reference_normals()
                     .iter()
                     .try_for_each(|reference_normal| {
-                        assert_eq_within_tols(&reference_normal.norm(), &1.0)
+                        $crate::math::assert::Assert::default()
+                            .eq_within_tols(&reference_normal.norm(), &1.0)
                     })
             }
             #[test]
@@ -350,7 +358,7 @@ macro_rules! test_surface_finite_element {
                     .iter()
                     .zip(element().reference_normals().iter())
                     .try_for_each(|(reference_normal_transformed, reference_normal)| {
-                        assert_eq_within_tols(
+                        $crate::math::assert::Assert::default().eq_within_tols(
                             &(get_rotation_reference_configuration().transpose()
                                 * reference_normal_transformed),
                             reference_normal,
@@ -418,10 +426,7 @@ macro_rules! test_finite_element_inner {
                     test_finite_element_with_hyperelastic_constitutive_model,
                     test_finite_element_with_hyperviscoelastic_constitutive_model,
                 },
-                math::{
-                    Rank2, TensorArray, TensorRank2,
-                    assert::{AssertionError, assert_eq, assert_eq_from_fd, assert_eq_within_tols},
-                },
+                math::{Rank2, TensorArray, TensorRank2, assert::AssertionError},
                 mechanics::{
                     Scalar,
                     test::{
@@ -446,7 +451,7 @@ macro_rules! test_finite_element_inner {
                             .into_iter()
                             .zip($element::shape_functions_gradients_at_integration_points())
                             .try_for_each(|(mut integration_point, shape_functions_gradients)| {
-                                assert_eq_from_fd(
+                                $crate::math::assert::Assert::default().eq_within_fd_tol(
                                     &shape_functions_gradients,
                                     &(0..N)
                                         .map(|n| {
@@ -486,9 +491,15 @@ macro_rules! test_finite_element_inner {
                                     .enumerate()
                                     .try_for_each(|(node_b, shape_function_b)| {
                                         if node_a == node_b {
-                                            assert_eq(&shape_function_b, &1.0)
+                                            $crate::math::assert::Assert::eq(
+                                                &shape_function_b,
+                                                &1.0,
+                                            )
                                         } else {
-                                            assert_eq(&shape_function_b, &0.0)
+                                            $crate::math::assert::Assert::eq(
+                                                &shape_function_b,
+                                                &0.0,
+                                            )
                                         }
                                     })
                             })
@@ -501,7 +512,8 @@ macro_rules! test_finite_element_inner {
                         $element::shape_functions_at_integration_points()
                             .iter()
                             .try_for_each(|shape_functions| {
-                                assert_eq_within_tols(&shape_functions.iter().sum(), &1.0)
+                                $crate::math::assert::Assert::default()
+                                    .eq_within_tols(&shape_functions.iter().sum(), &1.0)
                             })
                     }
                 }
@@ -522,8 +534,10 @@ macro_rules! test_finite_element_inner {
                                         .zip(sums.iter_mut())
                                         .for_each(|(entry, sum)| *sum += entry)
                                 });
-                                sums.iter()
-                                    .try_for_each(|sum| assert_eq_within_tols(sum, &0.0))
+                                sums.iter().try_for_each(|sum| {
+                                    $crate::math::assert::Assert::default()
+                                        .eq_within_tols(sum, &0.0)
+                                })
                             })
                     }
                     #[test]
@@ -541,8 +555,10 @@ macro_rules! test_finite_element_inner {
                                                 .zip(sums.iter_mut())
                                                 .for_each(|(entry, sum)| *sum += entry)
                                         });
-                                        sums.iter()
-                                            .try_for_each(|sum| assert_eq_within_tols(sum, &0.0))
+                                        sums.iter().try_for_each(|sum| {
+                                            $crate::math::assert::Assert::default()
+                                                .eq_within_tols(sum, &0.0)
+                                        })
                                     })
                             })
                     }
@@ -562,7 +578,7 @@ macro_rules! test_finite_element_inner {
                         use super::*;
                         #[test]
                         fn calculate() -> Result<(), AssertionError> {
-                            assert_eq_within_tols(
+                            $crate::math::assert::Assert::default().eq_within_tols(
                                 &element().deformation_gradients(&coordinates()),
                                 &deformation_gradients(),
                             )
@@ -579,7 +595,7 @@ macro_rules! test_finite_element_inner {
                                 )
                                 .try_for_each(
                                     |(deformation_gradient, deformation_gradient_transformed)| {
-                                        assert_eq_within_tols(
+                                        $crate::math::assert::Assert::default().eq_within_tols(
                                             deformation_gradient,
                                             &(get_rotation_current_configuration().transpose()
                                                 * deformation_gradient_transformed
@@ -593,14 +609,14 @@ macro_rules! test_finite_element_inner {
                         use super::*;
                         #[test]
                         fn calculate() -> Result<(), AssertionError> {
-                            assert_eq_within_tols(
+                            $crate::math::assert::Assert::default().eq_within_tols(
                                 &element().deformation_gradients(&reference_coordinates().into()),
                                 &DeformationGradientList::identity(),
                             )
                         }
                         #[test]
                         fn objectivity() -> Result<(), AssertionError> {
-                            assert_eq_within_tols(
+                            $crate::math::assert::Assert::default().eq_within_tols(
                                 &element_transformed().deformation_gradients(
                                     &reference_coordinates_transformed().into(),
                                 ),
@@ -615,7 +631,7 @@ macro_rules! test_finite_element_inner {
                         use super::*;
                         #[test]
                         fn calculate() -> Result<(), AssertionError> {
-                            assert_eq_within_tols(
+                            $crate::math::assert::Assert::default().eq_within_tols(
                                 &element()
                                     .deformation_gradient_rates(&coordinates(), &velocities()),
                                 &deformation_gradient_rates(),
@@ -647,7 +663,7 @@ macro_rules! test_finite_element_inner {
                                             deformation_gradient_rate_transformed,
                                         ),
                                     )| {
-                                        assert_eq_within_tols(
+                                        $crate::math::assert::Assert::default().eq_within_tols(
                                             deformation_gradient_rate,
                                             &(get_rotation_current_configuration().transpose()
                                                 * (deformation_gradient_rate_transformed
@@ -663,7 +679,7 @@ macro_rules! test_finite_element_inner {
                         use super::*;
                         #[test]
                         fn calculate() -> Result<(), AssertionError> {
-                            assert_eq_within_tols(
+                            $crate::math::assert::Assert::default().eq_within_tols(
                                 &element().deformation_gradient_rates(
                                     &reference_coordinates().into(),
                                     &ElementNodalVelocities::zero().into(),
@@ -673,7 +689,7 @@ macro_rules! test_finite_element_inner {
                         }
                         #[test]
                         fn objectivity() -> Result<(), AssertionError> {
-                            assert_eq_within_tols(
+                            $crate::math::assert::Assert::default().eq_within_tols(
                                 &element_transformed().deformation_gradient_rates(
                                     &reference_coordinates_transformed().into(),
                                     &ElementNodalVelocities::zero().into(),
@@ -910,14 +926,14 @@ macro_rules! test_nodal_forces_and_nodal_stiffnesses {
                 use super::*;
                 #[test]
                 fn finite_difference() -> Result<(), AssertionError> {
-                    assert_eq_from_fd(
+                    $crate::math::assert::Assert::default().eq_within_fd_tol(
                         &get_nodal_stiffnesses(true, false)?,
                         &get_finite_difference_of_nodal_forces(true)?,
                     )
                 }
                 #[test]
                 fn objectivity() -> Result<(), AssertionError> {
-                    assert_eq_within_tols(
+                    $crate::math::assert::Assert::default().eq_within_tols(
                         &get_nodal_forces(true, false, true)?,
                         &get_nodal_forces(true, true, true)?,
                     )
@@ -927,21 +943,21 @@ macro_rules! test_nodal_forces_and_nodal_stiffnesses {
                 use super::*;
                 #[test]
                 fn finite_difference() -> Result<(), AssertionError> {
-                    assert_eq_from_fd(
+                    $crate::math::assert::Assert::default().eq_within_fd_tol(
                         &get_nodal_stiffnesses(false, false)?,
                         &get_finite_difference_of_nodal_forces(false)?,
                     )
                 }
                 #[test]
                 fn objectivity() -> Result<(), AssertionError> {
-                    assert_eq_within_tols(
+                    $crate::math::assert::Assert::default().eq_within_tols(
                         &get_nodal_forces(false, true, true)?,
                         &ElementNodalForcesSolid::zero(),
                     )
                 }
                 #[test]
                 fn zero() -> Result<(), AssertionError> {
-                    assert_eq_within_tols(
+                    $crate::math::assert::Assert::default().eq_within_tols(
                         &get_nodal_forces(false, false, false)?,
                         &ElementNodalForcesSolid::zero(),
                     )
@@ -954,7 +970,7 @@ macro_rules! test_nodal_forces_and_nodal_stiffnesses {
                 use super::*;
                 #[test]
                 fn objectivity() -> Result<(), AssertionError> {
-                    assert_eq_within_tols(
+                    $crate::math::assert::Assert::default().eq_within_tols(
                         &get_nodal_stiffnesses(true, false)?,
                         &get_nodal_stiffnesses(true, true)?,
                     )
@@ -964,7 +980,7 @@ macro_rules! test_nodal_forces_and_nodal_stiffnesses {
                 use super::*;
                 #[test]
                 fn objectivity() -> Result<(), AssertionError> {
-                    assert_eq_within_tols(
+                    $crate::math::assert::Assert::default().eq_within_tols(
                         &get_nodal_stiffnesses(false, false)?,
                         &get_nodal_stiffnesses(false, true)?,
                     )
@@ -1037,7 +1053,7 @@ macro_rules! test_helmholtz_free_energy {
                 use super::*;
                 #[test]
                 fn finite_difference() -> Result<(), AssertionError> {
-                    assert_eq_from_fd(
+                    $crate::math::assert::Assert::default().eq_within_fd_tol(
                         &get_nodal_forces(true, false, false)?,
                         &get_finite_difference_of_helmholtz_free_energy(true)?,
                     )
@@ -1070,7 +1086,10 @@ macro_rules! test_helmholtz_free_energy {
                                 &$constitutive_model,
                                 &perturbed_coordinates,
                             )? - nodal_forces.full_contraction(&perturbed_coordinates);
-                            if assert_eq_within_tols(&perturbed, &minimum).is_err() {
+                            if $crate::math::assert::Assert::default()
+                                .eq_within_tols(&perturbed, &minimum)
+                                .is_err()
+                            {
                                 assert!(perturbed > minimum)
                             }
                             perturbed_coordinates[node][i] -= EPSILON;
@@ -1078,7 +1097,10 @@ macro_rules! test_helmholtz_free_energy {
                                 &$constitutive_model,
                                 &perturbed_coordinates,
                             )? - nodal_forces.full_contraction(&perturbed_coordinates);
-                            if assert_eq_within_tols(&perturbed, &minimum).is_err() {
+                            if $crate::math::assert::Assert::default()
+                                .eq_within_tols(&perturbed, &minimum)
+                                .is_err()
+                            {
                                 assert!(perturbed > minimum)
                             }
                             Ok(())
@@ -1087,7 +1109,7 @@ macro_rules! test_helmholtz_free_energy {
                 }
                 #[test]
                 fn objectivity() -> Result<(), AssertionError> {
-                    assert_eq_within_tols(
+                    $crate::math::assert::Assert::default().eq_within_tols(
                         &get_helmholtz_free_energy(true, false)?,
                         &get_helmholtz_free_energy(true, true)?,
                     )
@@ -1102,7 +1124,7 @@ macro_rules! test_helmholtz_free_energy {
                 use super::*;
                 #[test]
                 fn finite_difference() -> Result<(), AssertionError> {
-                    assert_eq_from_fd(
+                    $crate::math::assert::Assert::default().eq_within_fd_tol(
                         &get_finite_difference_of_helmholtz_free_energy(false)?,
                         &ElementNodalForcesSolid::zero(),
                     )
@@ -1122,7 +1144,10 @@ macro_rules! test_helmholtz_free_energy {
                                 &$constitutive_model,
                                 &perturbed_coordinates,
                             )?;
-                            if assert_eq_within_tols(&perturbed, &minimum).is_err() {
+                            if $crate::math::assert::Assert::default()
+                                .eq_within_tols(&perturbed, &minimum)
+                                .is_err()
+                            {
                                 assert!(perturbed > minimum)
                             }
                             perturbed_coordinates[node][i] -= EPSILON;
@@ -1130,7 +1155,10 @@ macro_rules! test_helmholtz_free_energy {
                                 &$constitutive_model,
                                 &perturbed_coordinates,
                             )?;
-                            if assert_eq_within_tols(&perturbed, &minimum).is_err() {
+                            if $crate::math::assert::Assert::default()
+                                .eq_within_tols(&perturbed, &minimum)
+                                .is_err()
+                            {
                                 assert!(perturbed > minimum)
                             }
                             Ok(())
@@ -1139,11 +1167,13 @@ macro_rules! test_helmholtz_free_energy {
                 }
                 #[test]
                 fn objectivity() -> Result<(), AssertionError> {
-                    assert_eq_within_tols(&get_helmholtz_free_energy(false, true)?, &0.0)
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&get_helmholtz_free_energy(false, true)?, &0.0)
                 }
                 #[test]
                 fn zero() -> Result<(), AssertionError> {
-                    assert_eq_within_tols(&get_helmholtz_free_energy(false, false)?, &0.0)
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&get_helmholtz_free_energy(false, false)?, &0.0)
                 }
             }
         }
@@ -1161,10 +1191,11 @@ macro_rules! test_helmholtz_free_energy {
                                     |(i, nodal_stiffness_ab_i)| {
                                         nodal_stiffness_ab_i.iter().enumerate().try_for_each(
                                             |(j, nodal_stiffness_ab_ij)| {
-                                                assert_eq_within_tols(
-                                                    nodal_stiffness_ab_ij,
-                                                    &nodal_stiffness[b][a][j][i],
-                                                )
+                                                $crate::math::assert::Assert::default()
+                                                    .eq_within_tols(
+                                                        nodal_stiffness_ab_ij,
+                                                        &nodal_stiffness[b][a][j][i],
+                                                    )
                                             },
                                         )
                                     },
@@ -1188,10 +1219,11 @@ macro_rules! test_helmholtz_free_energy {
                                     |(i, nodal_stiffness_ab_i)| {
                                         nodal_stiffness_ab_i.iter().enumerate().try_for_each(
                                             |(j, nodal_stiffness_ab_ij)| {
-                                                assert_eq_within_tols(
-                                                    nodal_stiffness_ab_ij,
-                                                    &nodal_stiffness[b][a][j][i],
-                                                )
+                                                $crate::math::assert::Assert::default()
+                                                    .eq_within_tols(
+                                                        nodal_stiffness_ab_ij,
+                                                        &nodal_stiffness[b][a][j][i],
+                                                    )
                                             },
                                         )
                                     },
@@ -1343,7 +1375,7 @@ macro_rules! test_finite_element_with_elastic_constitutive_model {
         fn nodal_stiffnesses_deformed_non_symmetry() -> Result<(), AssertionError> {
             let nodal_stiffness = get_nodal_stiffnesses(true, false)?;
             assert!(
-                assert_eq_within_tols(
+                $crate::math::assert::Assert::default().eq_within_tols(
                     &nodal_stiffness,
                     &(0..N)
                         .map(|a| (0..N)
@@ -1699,7 +1731,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                 use super::*;
                 #[test]
                 fn finite_difference() -> Result<(), AssertionError> {
-                    assert_eq_from_fd(
+                    $crate::math::assert::Assert::default().eq_within_fd_tol(
                         &(get_nodal_forces(true, false, true)?
                             - get_nodal_forces(true, false, false)?),
                         &get_finite_difference_of_viscous_dissipation(true)?,
@@ -1723,7 +1755,10 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                                 &coordinates(),
                                 &perturbed_velocities,
                             )? - nodal_forces.full_contraction(&perturbed_velocities);
-                            if assert_eq_within_tols(&perturbed, &minimum).is_err() {
+                            if $crate::math::assert::Assert::default()
+                                .eq_within_tols(&perturbed, &minimum)
+                                .is_err()
+                            {
                                 assert!(perturbed > minimum)
                             }
                             perturbed_velocities[node][i] -= EPSILON;
@@ -1732,7 +1767,10 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                                 &coordinates(),
                                 &perturbed_velocities,
                             )? - nodal_forces.full_contraction(&perturbed_velocities);
-                            if assert_eq_within_tols(&perturbed, &minimum).is_err() {
+                            if $crate::math::assert::Assert::default()
+                                .eq_within_tols(&perturbed, &minimum)
+                                .is_err()
+                            {
                                 assert!(perturbed > minimum)
                             }
                             Ok(())
@@ -1741,7 +1779,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                 }
                 #[test]
                 fn objectivity() -> Result<(), AssertionError> {
-                    assert_eq_within_tols(
+                    $crate::math::assert::Assert::default().eq_within_tols(
                         &get_viscous_dissipation(true, false)?,
                         &get_viscous_dissipation(true, true)?,
                     )
@@ -1756,7 +1794,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                 use super::*;
                 #[test]
                 fn finite_difference() -> Result<(), AssertionError> {
-                    assert_eq_from_fd(
+                    $crate::math::assert::Assert::default().eq_within_fd_tol(
                         &get_finite_difference_of_viscous_dissipation(false)?,
                         &ElementNodalForcesSolid::zero(),
                     )
@@ -1776,7 +1814,10 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                                 &reference_coordinates().into(),
                                 &perturbed_velocities,
                             )?;
-                            if assert_eq_within_tols(&perturbed, &minimum).is_err() {
+                            if $crate::math::assert::Assert::default()
+                                .eq_within_tols(&perturbed, &minimum)
+                                .is_err()
+                            {
                                 assert!(perturbed > minimum)
                             }
                             perturbed_velocities[node][i] -= EPSILON;
@@ -1785,7 +1826,10 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                                 &reference_coordinates().into(),
                                 &perturbed_velocities,
                             )?;
-                            if assert_eq_within_tols(&perturbed, &minimum).is_err() {
+                            if $crate::math::assert::Assert::default()
+                                .eq_within_tols(&perturbed, &minimum)
+                                .is_err()
+                            {
                                 assert!(perturbed > minimum)
                             }
                             Ok(())
@@ -1794,11 +1838,12 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                 }
                 #[test]
                 fn objectivity() -> Result<(), AssertionError> {
-                    assert_eq_within_tols(&get_viscous_dissipation(false, true)?, &0.0)
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&get_viscous_dissipation(false, true)?, &0.0)
                 }
                 #[test]
                 fn zero() -> Result<(), AssertionError> {
-                    assert_eq(&get_viscous_dissipation(false, false)?, &0.0)
+                    $crate::math::assert::Assert::eq(&get_viscous_dissipation(false, false)?, &0.0)
                 }
             }
         }
@@ -1808,7 +1853,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                 use super::*;
                 #[test]
                 fn finite_difference() -> Result<(), AssertionError> {
-                    assert_eq_from_fd(
+                    $crate::math::assert::Assert::default().eq_within_fd_tol(
                         &get_nodal_forces(true, false, true)?,
                         &get_finite_difference_of_dissipation_potential(true)?,
                     )
@@ -1830,7 +1875,10 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                                 &coordinates(),
                                 &perturbed_velocities,
                             )? - nodal_forces.full_contraction(&perturbed_velocities);
-                            if assert_eq_within_tols(&perturbed, &minimum).is_err() {
+                            if $crate::math::assert::Assert::default()
+                                .eq_within_tols(&perturbed, &minimum)
+                                .is_err()
+                            {
                                 assert!(perturbed > minimum)
                             }
                             perturbed_velocities[node][i] -= EPSILON;
@@ -1839,7 +1887,10 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                                 &coordinates(),
                                 &perturbed_velocities,
                             )? - nodal_forces.full_contraction(&perturbed_velocities);
-                            if assert_eq_within_tols(&perturbed, &minimum).is_err() {
+                            if $crate::math::assert::Assert::default()
+                                .eq_within_tols(&perturbed, &minimum)
+                                .is_err()
+                            {
                                 assert!(perturbed > minimum)
                             }
                             Ok(())
@@ -1848,7 +1899,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                 }
                 #[test]
                 fn objectivity() -> Result<(), AssertionError> {
-                    assert_eq_within_tols(
+                    $crate::math::assert::Assert::default().eq_within_tols(
                         &get_dissipation_potential(true, false)?,
                         &get_dissipation_potential(true, true)?,
                     )
@@ -1858,7 +1909,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                 use super::*;
                 #[test]
                 fn finite_difference() -> Result<(), AssertionError> {
-                    assert_eq_from_fd(
+                    $crate::math::assert::Assert::default().eq_within_fd_tol(
                         &get_finite_difference_of_dissipation_potential(false)?,
                         &ElementNodalForcesSolid::zero(),
                     )
@@ -1878,7 +1929,10 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                                 &reference_coordinates().into(),
                                 &perturbed_velocities,
                             )?;
-                            if assert_eq_within_tols(&perturbed, &minimum).is_err() {
+                            if $crate::math::assert::Assert::default()
+                                .eq_within_tols(&perturbed, &minimum)
+                                .is_err()
+                            {
                                 assert!(perturbed > minimum)
                             }
                             perturbed_velocities[node][i] -= EPSILON;
@@ -1887,7 +1941,10 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                                 &reference_coordinates().into(),
                                 &perturbed_velocities,
                             )?;
-                            if assert_eq_within_tols(&perturbed, &minimum).is_err() {
+                            if $crate::math::assert::Assert::default()
+                                .eq_within_tols(&perturbed, &minimum)
+                                .is_err()
+                            {
                                 assert!(perturbed > minimum)
                             }
                             Ok(())
@@ -1896,11 +1953,15 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                 }
                 #[test]
                 fn objectivity() -> Result<(), AssertionError> {
-                    assert_eq_within_tols(&get_dissipation_potential(false, true)?, &0.0)
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&get_dissipation_potential(false, true)?, &0.0)
                 }
                 #[test]
                 fn zero() -> Result<(), AssertionError> {
-                    assert_eq(&get_dissipation_potential(false, false)?, &0.0)
+                    $crate::math::assert::Assert::eq(
+                        &get_dissipation_potential(false, false)?,
+                        &0.0,
+                    )
                 }
             }
         }

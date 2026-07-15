@@ -11,7 +11,7 @@ use std::{
     ops::{Div, Sub},
 };
 
-use crate::math::assert::ErrorTensor;
+use crate::math::assert::FiniteDifference;
 
 /// A vector of rank-1 tensors.
 pub type TensorRank1Vec<const D: usize, const I: usize> = TensorVector<TensorRank1<D, I>>;
@@ -278,7 +278,7 @@ impl<const D: usize, const I: usize, const J: usize> Div<TensorRank2SparseVec2DS
     }
 }
 
-impl<const D: usize, const I: usize> ErrorTensor for TensorRank1Vec<D, I> {
+impl<const D: usize, const I: usize> FiniteDifference for TensorRank1Vec<D, I> {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()

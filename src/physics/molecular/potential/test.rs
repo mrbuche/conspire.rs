@@ -1,9 +1,7 @@
+use crate::math::assert::Assert;
 use crate::{
     EPSILON,
-    math::{
-        Scalar,
-        assert::{AssertionError, assert_eq_from_fd, assert_eq_within_tols},
-    },
+    math::{Scalar, assert::AssertionError},
     physics::molecular::potential::{Harmonic, Morse, Potential},
 };
 
@@ -18,10 +16,10 @@ fn test_consistency() -> Result<(), AssertionError> {
     let energy = model.energy(1.7);
     let forces = model.forces_at_energy(energy);
     let extensions = model.extensions_at_energy(energy);
-    assert_eq_within_tols(&energy, &model.energy_at_force(forces[0]))?;
-    assert_eq_within_tols(&energy, &model.energy_at_force(forces[1]))?;
-    assert_eq_within_tols(&energy, &model.energy(extensions[0] + model.rest_length))?;
-    assert_eq_within_tols(&energy, &model.energy(extensions[1] + model.rest_length))?;
+    Assert::default().eq_within_tols(energy, &model.energy_at_force(forces[0]))?;
+    Assert::default().eq_within_tols(energy, &model.energy_at_force(forces[1]))?;
+    Assert::default().eq_within_tols(energy, &model.energy(extensions[0] + model.rest_length))?;
+    Assert::default().eq_within_tols(energy, &model.energy(extensions[1] + model.rest_length))?;
     let model = Morse {
         rest_length: 1.5,
         depth: 1.9,
@@ -30,10 +28,10 @@ fn test_consistency() -> Result<(), AssertionError> {
     let energy = model.energy(1.51);
     let forces = model.forces_at_energy(energy);
     let extensions = model.extensions_at_energy(energy);
-    assert_eq_within_tols(&energy, &model.energy_at_force(forces[0]))?;
-    assert_eq_within_tols(&energy, &model.energy_at_force(forces[1]))?;
-    assert_eq_within_tols(&energy, &model.energy(extensions[0] + model.rest_length))?;
-    assert_eq_within_tols(&energy, &model.energy(extensions[1] + model.rest_length))
+    Assert::default().eq_within_tols(energy, &model.energy_at_force(forces[0]))?;
+    Assert::default().eq_within_tols(energy, &model.energy_at_force(forces[1]))?;
+    Assert::default().eq_within_tols(energy, &model.energy(extensions[0] + model.rest_length))?;
+    Assert::default().eq_within_tols(energy, &model.energy(extensions[1] + model.rest_length))
 }
 
 #[test]
@@ -54,7 +52,8 @@ fn finite_difference() -> Result<(), AssertionError> {
             let mut force = potential.force(x);
             let stiffness = potential.stiffness(x);
             let anharmonicity = potential.anharmonicity(x);
-            assert_eq_within_tols(&potential.energy(x), &potential.energy_at_force(force))?;
+            Assert::default()
+                .eq_within_tols(potential.energy(x), &potential.energy_at_force(force))?;
             x += 0.5 * EPSILON;
             let mut force_fd = potential.energy(x);
             let mut stiffness_fd = potential.force(x);
@@ -63,15 +62,15 @@ fn finite_difference() -> Result<(), AssertionError> {
             force_fd = (force_fd - potential.energy(x)) / EPSILON;
             stiffness_fd = (stiffness_fd - potential.force(x)) / EPSILON;
             anharmonicity_fd = (anharmonicity_fd - potential.stiffness(x)) / EPSILON;
-            assert_eq_from_fd(&force, &force_fd)?;
-            assert_eq_from_fd(&stiffness, &stiffness_fd)?;
-            assert_eq_from_fd(&anharmonicity, &anharmonicity_fd)?;
+            Assert::default().eq_within_fd_tol(force, &force_fd)?;
+            Assert::default().eq_within_fd_tol(stiffness, &stiffness_fd)?;
+            Assert::default().eq_within_fd_tol(anharmonicity, &anharmonicity_fd)?;
             let extension = potential.extension(force);
             let compliance = potential.compliance(force);
             let nondimensional_extension = potential.nondimensional_extension(force, t);
             let nondimensional_force = potential.nondimensional_force(nondimensional_extension, t);
-            assert_eq_within_tols(
-                &potential.nondimensional_energy(nondimensional_extension, t),
+            Assert::default().eq_within_tols(
+                potential.nondimensional_energy(nondimensional_extension, t),
                 &potential.nondimensional_energy_at_nondimensional_force(nondimensional_force, t),
             )?;
             force += 0.5 * EPSILON;
@@ -80,8 +79,8 @@ fn finite_difference() -> Result<(), AssertionError> {
             force -= EPSILON;
             extension_fd = (potential.legendre(force) - extension_fd) / EPSILON;
             compliance_fd = (compliance_fd - potential.extension(force)) / EPSILON;
-            assert_eq_from_fd(&extension, &extension_fd)?;
-            assert_eq_from_fd(&compliance, &compliance_fd)
+            Assert::default().eq_within_fd_tol(extension, &extension_fd)?;
+            Assert::default().eq_within_fd_tol(compliance, &compliance_fd)
         })?;
     let potential = Morse {
         rest_length: x0,
@@ -95,7 +94,8 @@ fn finite_difference() -> Result<(), AssertionError> {
             let mut force = potential.force(x);
             let stiffness = potential.stiffness(x);
             let anharmonicity = potential.anharmonicity(x);
-            assert_eq_within_tols(&potential.energy(x), &potential.energy_at_force(force))?;
+            Assert::default()
+                .eq_within_tols(potential.energy(x), &potential.energy_at_force(force))?;
             x += 0.5 * EPSILON;
             let mut force_fd = potential.energy(x);
             let mut stiffness_fd = potential.force(x);
@@ -104,14 +104,14 @@ fn finite_difference() -> Result<(), AssertionError> {
             force_fd = (force_fd - potential.energy(x)) / EPSILON;
             stiffness_fd = (stiffness_fd - potential.force(x)) / EPSILON;
             anharmonicity_fd = (anharmonicity_fd - potential.stiffness(x)) / EPSILON;
-            assert_eq_from_fd(&force, &force_fd)?;
-            assert_eq_from_fd(&stiffness, &stiffness_fd)?;
-            assert_eq_from_fd(&anharmonicity, &anharmonicity_fd)?;
+            Assert::default().eq_within_fd_tol(force, &force_fd)?;
+            Assert::default().eq_within_fd_tol(stiffness, &stiffness_fd)?;
+            Assert::default().eq_within_fd_tol(anharmonicity, &anharmonicity_fd)?;
             let extension = potential.extension(force);
             let compliance = potential.compliance(force);
             let nondimensional_extension = potential.nondimensional_extension(force, t);
             // let nondimensional_force = potential.nondimensional_force(nondimensional_extension, t);
-            // assert_eq_within_tols(
+            // Assert::default().eq_within_tols(
             //     &potential.nondimensional_energy(nondimensional_extension, t),
             //     &potential.nondimensional_energy_at_nondimensional_force(nondimensional_force, t),
             // )?;
@@ -125,8 +125,9 @@ fn finite_difference() -> Result<(), AssertionError> {
             nondimensional_extension_fd = (potential.nondimensional_legendre(force, t)
                 - nondimensional_extension_fd)
                 / EPSILON;
-            assert_eq_from_fd(&extension, &extension_fd)?;
-            assert_eq_from_fd(&compliance, &compliance_fd)?;
-            assert_eq_from_fd(&nondimensional_extension, &nondimensional_extension_fd)
+            Assert::default().eq_within_fd_tol(extension, &extension_fd)?;
+            Assert::default().eq_within_fd_tol(compliance, &compliance_fd)?;
+            Assert::default()
+                .eq_within_fd_tol(nondimensional_extension, &nondimensional_extension_fd)
         })
 }

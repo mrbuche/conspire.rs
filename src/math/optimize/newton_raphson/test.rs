@@ -2,13 +2,14 @@ use super::{
     super::{
         super::{
             // TensorArray, TensorRank1, TensorRank2,
-            assert::{AssertionError, assert_eq_within_tols},
+            assert::AssertionError,
         },
         // test::{rosenbrock, rosenbrock_derivative, rosenbrock_second_derivative},
     },
     EqualityConstraint, FirstOrderRootFinding, LineSearch, NewtonRaphson, Scalar,
     SecondOrderOptimization,
 };
+use crate::math::assert::Assert;
 
 const CONTROL_1: Scalar = 1e-3;
 const CONTROL_2: Scalar = 1e-1;
@@ -19,8 +20,8 @@ mod minimize {
     use super::*;
     #[test]
     fn quadratic() -> Result<(), AssertionError> {
-        assert_eq_within_tols(
-            &NewtonRaphson::default().minimize(
+        Assert::default().eq_within_tols(
+            NewtonRaphson::default().minimize(
                 |x: &Scalar| Ok(x.powi(2) / 2.0),
                 |x: &Scalar| Ok(*x),
                 |_: &Scalar| Ok(1.0),
@@ -40,7 +41,7 @@ mod minimize {
     //
     // #[test]
     // fn rosenbrock_2d() -> Result<(), AssertionError> {
-    //     assert_eq_within_tols(
+    //     Assert::default().eq_within_tols(
     //         &NewtonRaphson::default().minimize(
     //             rosenbrock,
     //             rosenbrock_derivative,
@@ -65,8 +66,8 @@ mod minimize {
         use super::*;
         #[test]
         fn armijo() -> Result<(), AssertionError> {
-            assert_eq_within_tols(
-                &NewtonRaphson {
+            Assert::default().eq_within_tols(
+                NewtonRaphson {
                     line_search: LineSearch::Armijo {
                         control: CONTROL_1,
                         cut_back: CUT_BACK,
@@ -87,8 +88,8 @@ mod minimize {
         }
         #[test]
         fn goldstein() -> Result<(), AssertionError> {
-            assert_eq_within_tols(
-                &NewtonRaphson {
+            Assert::default().eq_within_tols(
+                NewtonRaphson {
                     line_search: LineSearch::Goldstein {
                         control: CONTROL_1,
                         cut_back: CUT_BACK,
@@ -111,8 +112,8 @@ mod minimize {
             use super::*;
             #[test]
             fn strong() -> Result<(), AssertionError> {
-                assert_eq_within_tols(
-                    &NewtonRaphson {
+                Assert::default().eq_within_tols(
+                    NewtonRaphson {
                         line_search: LineSearch::Wolfe {
                             control_1: CONTROL_1,
                             control_2: CONTROL_2,
@@ -135,8 +136,8 @@ mod minimize {
             }
             #[test]
             fn weak() -> Result<(), AssertionError> {
-                assert_eq_within_tols(
-                    &NewtonRaphson {
+                Assert::default().eq_within_tols(
+                    NewtonRaphson {
                         line_search: LineSearch::Wolfe {
                             control_1: CONTROL_1,
                             control_2: CONTROL_2,
@@ -165,8 +166,8 @@ mod root {
     use super::*;
     #[test]
     fn linear() -> Result<(), AssertionError> {
-        assert_eq_within_tols(
-            &NewtonRaphson::default().root(
+        Assert::default().eq_within_tols(
+            NewtonRaphson::default().root(
                 |x: &Scalar| Ok(*x),
                 |_: &Scalar| Ok(1.0),
                 1.0,

@@ -12,7 +12,7 @@ use std::{
 use super::sparse_vec::TensorRank2SparseVec;
 use super::sparse_vec_2d::TensorRank2SparseVec2D;
 
-use crate::math::{TensorArray, assert::ErrorTensor};
+use crate::math::{TensorArray, assert::FiniteDifference};
 
 /// A vector of sparse vectors of rank-2 tensors, storing only the symmetric half.
 ///
@@ -255,7 +255,7 @@ impl<const D: usize, const I: usize, const J: usize> Hessian
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> ErrorTensor
+impl<const D: usize, const I: usize, const J: usize> FiniteDifference
     for TensorRank2SparseVec2DSymmetric<D, I, J>
 {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {

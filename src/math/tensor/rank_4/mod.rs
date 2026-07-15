@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::assert::ErrorTensor;
+use crate::math::assert::FiniteDifference;
 
 use std::{
     array::from_fn,
@@ -179,8 +179,8 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> ErrorTensor
-    for TensorRank4<D, I, J, K, L>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
+    FiniteDifference for TensorRank4<D, I, J, K, L>
 {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self

@@ -1,5 +1,6 @@
 use super::{CscMatrix, SparseError, Vector};
-use crate::math::assert::{AssertionError, assert_eq_within_tols};
+use crate::math::assert::Assert;
+use crate::math::assert::AssertionError;
 
 fn symmetric_matrix(n: usize, scale: f64) -> CscMatrix {
     let mut pattern: Vec<(usize, usize)> = (0..n).map(|i| (i, i)).collect();
@@ -29,11 +30,11 @@ fn solve_matches_lu() -> Result<(), AssertionError> {
     let b: Vector = (0..n).map(|i| (i % 13) as f64 - 6.0).collect();
     let mut ldl = matrix.ldl_symbolic()?;
     ldl.refactor(&matrix).expect("Refactorization failed.");
-    assert_eq_within_tols(
-        &ldl.solve(&b),
+    Assert::default().eq_within_tols(
+        ldl.solve(&b),
         &matrix.lu_amd().expect("Factorization failed.").solve(&b),
     )?;
-    assert_eq_within_tols(&(&matrix * &ldl.solve(&b)), &b)
+    Assert::default().eq_within_tols(&(&matrix * &ldl.solve(&b)), &b)
 }
 
 #[test]
@@ -45,7 +46,7 @@ fn refactor_new_values() -> Result<(), AssertionError> {
     let matrix = symmetric_matrix(n, -2.0);
     ldl.refactor(&matrix).expect("Refactorization failed.");
     let b: Vector = (0..n).map(|i| (i % 17) as f64 - 8.0).collect();
-    assert_eq_within_tols(&(&matrix * &ldl.solve(&b)), &b)
+    Assert::default().eq_within_tols(&(&matrix * &ldl.solve(&b)), &b)
 }
 
 #[test]
@@ -62,7 +63,7 @@ fn indefinite() -> Result<(), AssertionError> {
     let mut ldl = matrix.ldl_symbolic()?;
     ldl.refactor(&matrix).expect("Refactorization failed.");
     let b: Vector = (0..n).map(|i| (i % 13) as f64 - 6.0).collect();
-    assert_eq_within_tols(&(&matrix * &ldl.solve(&b)), &b)
+    Assert::default().eq_within_tols(&(&matrix * &ldl.solve(&b)), &b)
 }
 
 #[test]
@@ -82,7 +83,7 @@ fn missing_diagonal() -> Result<(), AssertionError> {
     let mut ldl = matrix.ldl_symbolic()?;
     ldl.refactor(&matrix).expect("Refactorization failed.");
     let b = Vector::from([1.0, 2.0, 3.0]);
-    assert_eq_within_tols(&(&matrix * &ldl.solve(&b)), &b)
+    Assert::default().eq_within_tols(&(&matrix * &ldl.solve(&b)), &b)
 }
 
 #[test]
@@ -130,11 +131,11 @@ fn saddle_point_matches_lu() -> Result<(), AssertionError> {
     let b: Vector = (0..46).map(|i| (i % 13) as f64 - 6.0).collect();
     let mut ldl = matrix.ldl_symbolic()?;
     ldl.refactor(&matrix).expect("Refactorization failed.");
-    assert_eq_within_tols(
-        &ldl.solve(&b),
+    Assert::default().eq_within_tols(
+        ldl.solve(&b),
         &matrix.lu_amd().expect("Factorization failed.").solve(&b),
     )?;
-    assert_eq_within_tols(&(&matrix * &ldl.solve(&b)), &b)
+    Assert::default().eq_within_tols(&(&matrix * &ldl.solve(&b)), &b)
 }
 
 #[test]
@@ -145,7 +146,7 @@ fn saddle_point_refactor_new_values() -> Result<(), AssertionError> {
     let matrix = saddle_point_matrix(40, 6, -2.0);
     ldl.refactor(&matrix).expect("Refactorization failed.");
     let b: Vector = (0..46).map(|i| (i % 17) as f64 - 8.0).collect();
-    assert_eq_within_tols(&(&matrix * &ldl.solve(&b)), &b)
+    Assert::default().eq_within_tols(&(&matrix * &ldl.solve(&b)), &b)
 }
 
 #[test]
@@ -154,5 +155,5 @@ fn saddle_point_larger() -> Result<(), AssertionError> {
     let b: Vector = (0..231).map(|i| (i % 11) as f64 - 5.0).collect();
     let mut ldl = matrix.ldl_symbolic()?;
     ldl.refactor(&matrix).expect("Refactorization failed.");
-    assert_eq_within_tols(&(&matrix * &ldl.solve(&b)), &b)
+    Assert::default().eq_within_tols(&(&matrix * &ldl.solve(&b)), &b)
 }

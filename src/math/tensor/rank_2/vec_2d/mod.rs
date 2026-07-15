@@ -4,7 +4,7 @@ use crate::math::{
 };
 use std::ops::Mul;
 
-use crate::math::assert::ErrorTensor;
+use crate::math::assert::FiniteDifference;
 
 /// A vector of vectors of rank-2 tensors.
 pub type TensorRank2Vec2D<const D: usize, const I: usize, const J: usize> =
@@ -103,7 +103,9 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<&Tensor
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2Vec2D<D, I, J> {
+impl<const D: usize, const I: usize, const J: usize> FiniteDifference
+    for TensorRank2Vec2D<D, I, J>
+{
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()

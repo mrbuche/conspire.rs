@@ -68,7 +68,7 @@ macro_rules! test_thermoelastic_thermal_conduction_constitutive_model {
         }
         #[test]
         fn cauchy_stress() -> Result<(), crate::math::assert::AssertionError> {
-            crate::math::assert::assert_eq(
+            $crate::math::assert::Assert::eq(
                 &$thermoelastic_thermal_conduction_constitutive_model
                     .cauchy_stress(&get_deformation_gradient(), get_temperature())?,
                 &$thermoelastic_constitutive_model
@@ -77,7 +77,7 @@ macro_rules! test_thermoelastic_thermal_conduction_constitutive_model {
         }
         #[test]
         fn cauchy_tangent_stiffness() -> Result<(), crate::math::assert::AssertionError> {
-            crate::math::assert::assert_eq(
+            $crate::math::assert::Assert::eq(
                 &$thermoelastic_thermal_conduction_constitutive_model
                     .cauchy_tangent_stiffness(&get_deformation_gradient(), get_temperature())?,
                 &$thermoelastic_constitutive_model
@@ -86,7 +86,7 @@ macro_rules! test_thermoelastic_thermal_conduction_constitutive_model {
         }
         #[test]
         fn first_piola_kirchhoff_stress() -> Result<(), crate::math::assert::AssertionError> {
-            crate::math::assert::assert_eq(
+            $crate::math::assert::Assert::eq(
                 &$thermoelastic_thermal_conduction_constitutive_model
                     .first_piola_kirchhoff_stress(&get_deformation_gradient(), get_temperature())?,
                 &$thermoelastic_constitutive_model
@@ -96,7 +96,7 @@ macro_rules! test_thermoelastic_thermal_conduction_constitutive_model {
         #[test]
         fn first_piola_kirchhoff_tangent_stiffness()
         -> Result<(), crate::math::assert::AssertionError> {
-            crate::math::assert::assert_eq(
+            $crate::math::assert::Assert::eq(
                 &$thermoelastic_thermal_conduction_constitutive_model
                     .first_piola_kirchhoff_stress(&get_deformation_gradient(), get_temperature())?,
                 &$thermoelastic_constitutive_model
@@ -105,7 +105,7 @@ macro_rules! test_thermoelastic_thermal_conduction_constitutive_model {
         }
         #[test]
         fn heat_flux() -> Result<(), crate::math::assert::AssertionError> {
-            crate::math::assert::assert_eq(
+            $crate::math::assert::Assert::eq(
                 &$thermoelastic_thermal_conduction_constitutive_model
                     .heat_flux(&get_temperature_gradient())?,
                 &$thermal_conduction_constitutive_model.heat_flux(&get_temperature_gradient())?,
@@ -113,7 +113,7 @@ macro_rules! test_thermoelastic_thermal_conduction_constitutive_model {
         }
         #[test]
         fn second_piola_kirchhoff_stress() -> Result<(), crate::math::assert::AssertionError> {
-            crate::math::assert::assert_eq(
+            $crate::math::assert::Assert::eq(
                 &$thermoelastic_thermal_conduction_constitutive_model
                     .second_piola_kirchhoff_stress(
                         &get_deformation_gradient(),
@@ -128,7 +128,7 @@ macro_rules! test_thermoelastic_thermal_conduction_constitutive_model {
         #[test]
         fn second_piola_kirchhoff_tangent_stiffness()
         -> Result<(), crate::math::assert::AssertionError> {
-            crate::math::assert::assert_eq(
+            $crate::math::assert::Assert::eq(
                 &$thermoelastic_thermal_conduction_constitutive_model
                     .second_piola_kirchhoff_stress(
                         &get_deformation_gradient(),

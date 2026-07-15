@@ -13,6 +13,9 @@ use crate::{
     mechanics::{CurrentCoordinate, CurrentCoordinatesRef, ReferenceCoordinate, Vectors2D},
     vem::{NodalCoordinates, NodalReferenceCoordinates},
 };
+
+#[cfg(test)]
+use crate::math::assert::Assert;
 use std::{
     collections::VecDeque,
     fmt::{self, Debug, Formatter},
@@ -366,20 +369,22 @@ fn temporary_poly_0() {
         &coordinates,
     ));
     use crate::fem::solid::NodalForcesSolid;
-    use crate::math::{TensorArray, assert::assert_eq_within_tols};
+    use crate::math::TensorArray;
     use crate::mechanics::DeformationGradient;
     use crate::vem::NodalCoordinates;
     let coordinates_current = NodalCoordinates::from(coordinates.clone());
-    assert_eq_within_tols(
-        &DeformationGradient::identity(),
-        &block.deformation_gradients(&coordinates_current)[0][0],
-    )
-    .unwrap();
-    assert_eq_within_tols(
-        &NodalForcesSolid::zero(coordinates_current.len()),
-        &block.nodal_forces(&coordinates_current).unwrap(),
-    )
-    .unwrap();
+    Assert::default()
+        .eq_within_tols(
+            DeformationGradient::identity(),
+            &block.deformation_gradients(&coordinates_current)[0][0],
+        )
+        .unwrap();
+    Assert::default()
+        .eq_within_tols(
+            NodalForcesSolid::zero(coordinates_current.len()),
+            &block.nodal_forces(&coordinates_current).unwrap(),
+        )
+        .unwrap();
     let length = (coordinates[face_node_connectivity[0][0]].clone()
         - coordinates[face_node_connectivity[0][1]].clone())
     .norm();
@@ -440,30 +445,33 @@ fn temporary_poly_1() {
         &coordinates,
     ));
     use crate::fem::solid::NodalForcesSolid;
-    use crate::math::{TensorArray, assert::assert_eq_within_tols};
+    use crate::math::TensorArray;
     use crate::mechanics::DeformationGradient;
     use crate::vem::NodalCoordinates;
     let coordinates_current = NodalCoordinates::from(coordinates.clone());
-    assert_eq_within_tols(
-        &DeformationGradient::identity(),
-        &block.deformation_gradients(&coordinates_current)[0][0],
-    )
-    .unwrap();
-    assert_eq_within_tols(
-        &NodalForcesSolid::zero(coordinates_current.len()),
-        &block.nodal_forces(&coordinates_current).unwrap(),
-    )
-    .unwrap();
+    Assert::default()
+        .eq_within_tols(
+            DeformationGradient::identity(),
+            &block.deformation_gradients(&coordinates_current)[0][0],
+        )
+        .unwrap();
+    Assert::default()
+        .eq_within_tols(
+            NodalForcesSolid::zero(coordinates_current.len()),
+            &block.nodal_forces(&coordinates_current).unwrap(),
+        )
+        .unwrap();
     use crate::mechanics::test::{get_deformation_gradient, get_translation_current_configuration};
     let coordinates_current: NodalCoordinates = coordinates
         .iter()
         .map(|coord| get_deformation_gradient() * coord + get_translation_current_configuration())
         .collect();
-    assert_eq_within_tols(
-        &get_deformation_gradient(),
-        &block.deformation_gradients(&coordinates_current)[0][0],
-    )
-    .unwrap();
+    Assert::default()
+        .eq_within_tols(
+            get_deformation_gradient(),
+            &block.deformation_gradients(&coordinates_current)[0][0],
+        )
+        .unwrap();
 }
 
 #[test]
@@ -559,8 +567,9 @@ fn temporary_poly_2() {
                 .collect()
         })
         .collect();
-    use crate::math::assert::assert_eq_from_fd;
-    assert_eq_from_fd(&block.nodal_forces(&coordinates).unwrap(), &nodal_forces_fd).unwrap();
+    Assert::default()
+        .eq_within_fd_tol(block.nodal_forces(&coordinates).unwrap(), &nodal_forces_fd)
+        .unwrap();
     let mut finite_difference = 0.0;
     let nodal_stiffnesses_fd = (0..coordinates.len())
         .map(|a| {
@@ -586,9 +595,10 @@ fn temporary_poly_2() {
                 .collect()
         })
         .collect();
-    assert_eq_from_fd(
-        &block.nodal_stiffnesses(&coordinates).unwrap(),
-        &nodal_stiffnesses_fd,
-    )
-    .unwrap();
+    Assert::default()
+        .eq_within_fd_tol(
+            block.nodal_stiffnesses(&coordinates).unwrap(),
+            &nodal_stiffnesses_fd,
+        )
+        .unwrap();
 }

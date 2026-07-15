@@ -1,3 +1,4 @@
+use crate::math::assert::Assert;
 use crate::{
     EPSILON,
     constitutive::cohesive::elastic::LinearElastic,
@@ -9,10 +10,7 @@ use crate::{
         },
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
     },
-    math::{
-        Rank2, Scalar, Tensor, TensorRank2,
-        assert::{AssertionError, assert_eq_from_fd, assert_eq_within_tols},
-    },
+    math::{Rank2, Scalar, Tensor, TensorRank2, assert::AssertionError},
     mechanics::test::get_rotation_reference_configuration,
 };
 
@@ -43,13 +41,14 @@ const MODEL: LinearElastic = LinearElastic {
 fn temporary_1() -> Result<(), AssertionError> {
     let coordinates = ElementNodalReferenceCoordinates::from(COORDINATES);
     let element = Hexahedron::from(coordinates.clone());
-    assert_eq_within_tols(
+    Assert::default().eq_within_tols(
         &element.nodal_forces(&MODEL, &coordinates.into())?,
         &[[0.0; 3]; N].into(),
     )
 }
 
 #[test]
+#[allow(clippy::needless_borrows_for_generic_args)]
 fn temporary_2() -> Result<(), AssertionError> {
     let mut coordinates = ElementNodalReferenceCoordinates::from(COORDINATES);
     let element = Hexahedron::from(coordinates.clone());
@@ -58,25 +57,23 @@ fn temporary_2() -> Result<(), AssertionError> {
         coordinate[2] += NORMAL_DISPLACEMENT
     });
     let area = element.integration_weights().into_iter().sum::<Scalar>();
-    // Different than wedge since shape function gradients not constant.
-    // Instead the total force is computed and compared to the traction.
     let forces = element.nodal_forces(&MODEL, &coordinates.into())?;
-    assert_eq_within_tols(
+    Assert::default().eq_within_tols(
         &forces.iter().take(P).map(|force| -force[0]).sum(),
         &(TANGENTIAL_TRACTION * area),
     )?;
-    assert_eq_within_tols(
+    Assert::default().eq_within_tols(
         &forces.iter().skip(P).map(|force| force[0]).sum(),
         &(TANGENTIAL_TRACTION * area),
     )?;
     forces
         .iter()
-        .try_for_each(|force| assert_eq_within_tols(&force[1], &0.0))?;
-    assert_eq_within_tols(
+        .try_for_each(|force| Assert::default().eq_within_tols(force[1], &0.0))?;
+    Assert::default().eq_within_tols(
         &forces.iter().take(P).map(|force| -force[2]).sum(),
         &(NORMAL_TRACTION * area),
     )?;
-    assert_eq_within_tols(
+    Assert::default().eq_within_tols(
         &forces.iter().skip(P).map(|force| force[2]).sum(),
         &(NORMAL_TRACTION * area),
     )
@@ -89,13 +86,14 @@ fn temporary_3() -> Result<(), AssertionError> {
         .map(|coordinate| get_rotation_reference_configuration() * coordinate)
         .collect::<ElementNodalReferenceCoordinates<N>>();
     let element = Hexahedron::from(coordinates.clone());
-    assert_eq_within_tols(
+    Assert::default().eq_within_tols(
         &element.nodal_forces(&MODEL, &coordinates.into())?,
         &[[0.0; 3]; N].into(),
     )
 }
 
 #[test]
+#[allow(clippy::needless_borrows_for_generic_args)]
 fn temporary_4() -> Result<(), AssertionError> {
     let coordinates_0 = ElementNodalReferenceCoordinates::from(COORDINATES)
         .iter()
@@ -112,8 +110,6 @@ fn temporary_4() -> Result<(), AssertionError> {
         .map(|coordinate| get_rotation_reference_configuration() * coordinate)
         .collect();
     let area = element.integration_weights().into_iter().sum::<Scalar>();
-    // Different than wedge since shape function gradients not constant.
-    // Instead the total force is computed and compared to the traction.
     let forces = element
         .nodal_forces(&MODEL, &coordinates.into())?
         .into_iter()
@@ -122,22 +118,22 @@ fn temporary_4() -> Result<(), AssertionError> {
                 * nodal_force
         })
         .collect::<ElementNodalForcesSolid<N>>();
-    assert_eq_within_tols(
+    Assert::default().eq_within_tols(
         &forces.iter().take(P).map(|force| -force[0]).sum(),
         &(TANGENTIAL_TRACTION * area),
     )?;
-    assert_eq_within_tols(
+    Assert::default().eq_within_tols(
         &forces.iter().skip(P).map(|force| force[0]).sum(),
         &(TANGENTIAL_TRACTION * area),
     )?;
     forces
         .iter()
-        .try_for_each(|force| assert_eq_within_tols(&force[1], &0.0))?;
-    assert_eq_within_tols(
+        .try_for_each(|force| Assert::default().eq_within_tols(force[1], &0.0))?;
+    Assert::default().eq_within_tols(
         &forces.iter().take(P).map(|force| -force[2]).sum(),
         &(NORMAL_TRACTION * area),
     )?;
-    assert_eq_within_tols(
+    Assert::default().eq_within_tols(
         &forces.iter().skip(P).map(|force| force[2]).sum(),
         &(NORMAL_TRACTION * area),
     )
@@ -173,7 +169,7 @@ fn temporary_5() -> Result<(), AssertionError> {
                 .collect()
         })
         .collect::<Result<ElementNodalStiffnessesSolid<N>, AssertionError>>()?;
-    assert_eq_from_fd(
+    Assert::default().eq_within_fd_tol(
         &element.nodal_stiffnesses(&MODEL, &coordinates)?,
         &nodal_stiffnesses_fd,
     )
@@ -227,7 +223,7 @@ fn temporary_6() -> Result<(), AssertionError> {
                 .collect()
         })
         .collect::<Result<ElementNodalStiffnessesSolid<N>, AssertionError>>()?;
-    assert_eq_from_fd(
+    Assert::default().eq_within_fd_tol(
         &element.nodal_stiffnesses(&MODEL, &coordinates)?,
         &nodal_stiffnesses_fd,
     )

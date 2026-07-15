@@ -4,7 +4,7 @@ macro_rules! test_implicit_fixed_step {
             EPSILON,
             math::{
                 Scalar, Tensor, Vector,
-                assert::{AssertionError, assert_eq, assert_eq_from_fd},
+                assert::AssertionError,
                 integrate::{FixedStep, IntegrationError},
             },
         };
@@ -38,7 +38,7 @@ macro_rules! test_implicit_fixed_step {
                 &(y_trial - 0.5 * EPSILON),
                 dt,
             )?) / EPSILON;
-            assert_eq_from_fd(
+            $crate::math::assert::Assert::default().eq_within_fd_tol(
                 &ImplicitFirstOrder::<Scalar, Scalar, Vector>::hessian(
                     &$integration,
                     &jacobian,
@@ -56,7 +56,7 @@ macro_rules! test_implicit_fixed_step {
             use crate::math::{integrate::ImplicitZerothOrder, optimize::GradientDescent};
             #[test]
             fn first_order_tensor_rank_0() -> Result<(), AssertionError> {
-                assert_eq(&$integration.dt(), &TIME_STEP)?;
+                $crate::math::assert::Assert::eq(&$integration.dt(), &TIME_STEP)?;
                 let (time, solution, function): (Vector, Vector, _) = $integration.integrate(
                     |t: Scalar, _: &Scalar| Ok(t),
                     &[0.0, 1.0],
@@ -76,7 +76,7 @@ macro_rules! test_implicit_fixed_step {
             use crate::math::{integrate::ImplicitFirstOrder, optimize::NewtonRaphson};
             #[test]
             fn first_order_tensor_rank_0() -> Result<(), AssertionError> {
-                assert_eq(&$integration.dt(), &TIME_STEP)?;
+                $crate::math::assert::Assert::eq(&$integration.dt(), &TIME_STEP)?;
                 let (time, solution, function): (Vector, Vector, _) = $integration.integrate(
                     |t: Scalar, _: &Scalar| Ok(t),
                     |_: Scalar, _: &Scalar| Ok(1.0),

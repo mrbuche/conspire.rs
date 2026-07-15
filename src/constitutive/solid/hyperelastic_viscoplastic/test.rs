@@ -6,7 +6,7 @@ macro_rules! test_model {
             },
             math::{
                 Rank2, Tensor, TensorArray,
-                assert::{AssertionError, ErrorTensor, assert_eq_from_fd},
+                assert::{AssertionError, FiniteDifference},
                 integrate::{BogackiShampine, DormandPrince, Verner8, Verner9},
                 optimize::{GradientDescent, NewtonRaphson},
             },
@@ -146,7 +146,7 @@ macro_rules! test_model {
                 }
             }
             if tangent.error_fd(&fd, 5e1 * crate::EPSILON).is_some() {
-                assert_eq_from_fd(&tangent, &fd)
+                $crate::math::assert::Assert::default().eq_within_fd_tol(&tangent, &fd)
             } else {
                 Ok(())
             }

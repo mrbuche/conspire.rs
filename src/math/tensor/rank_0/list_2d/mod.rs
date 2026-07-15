@@ -1,11 +1,11 @@
 use crate::math::{TensorList, TensorRank0List};
 
-use crate::math::{Tensor, TensorRank0, assert::ErrorTensor};
+use crate::math::{Tensor, TensorRank0, assert::FiniteDifference};
 
 /// A list of lists of rank-0 tensors (scalars).
 pub type TensorRank0List2D<const N: usize> = TensorList<TensorRank0List<N>, N>;
 
-impl<const N: usize> ErrorTensor for TensorRank0List2D<N> {
+impl<const N: usize> FiniteDifference for TensorRank0List2D<N> {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()

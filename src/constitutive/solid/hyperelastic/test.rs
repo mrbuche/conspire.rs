@@ -122,7 +122,6 @@ macro_rules! test_solid_hyperelastic_constitutive_model_no_tangents
         }
         mod helmholtz_free_energy_density
         {
-        use crate::math::assert::assert_eq_from_fd;
             use super::*;
             mod deformed
             {
@@ -130,7 +129,7 @@ macro_rules! test_solid_hyperelastic_constitutive_model_no_tangents
                 #[test]
                 fn finite_difference() -> Result<(), AssertionError>
                 {
-                    assert_eq_from_fd(
+                    $crate::math::assert::Assert::default().eq_within_fd_tol(
                         &first_piola_kirchhoff_stress_from_deformation_gradient_simple!(
                             $constitutive_model, &get_deformation_gradient()
                         )?,
@@ -187,7 +186,7 @@ macro_rules! test_solid_hyperelastic_constitutive_model_no_tangents
                 #[test]
                 fn objectivity() -> Result<(), AssertionError>
                 {
-                    assert_eq_within_tols(
+                    $crate::math::assert::Assert::default().eq_within_tols(
                         &helmholtz_free_energy_density_from_deformation_gradient_simple!(
                             $constitutive_model, &get_deformation_gradient()
                         )?,
@@ -213,7 +212,7 @@ macro_rules! test_solid_hyperelastic_constitutive_model_no_tangents
                 #[test]
                 fn finite_difference() -> Result<(), AssertionError>
                 {
-                    assert_eq_from_fd(
+                    $crate::math::assert::Assert::default().eq_within_fd_tol(
                         &first_piola_kirchhoff_stress_from_finite_difference_of_helmholtz_free_energy_density(false)?,
                         &FirstPiolaKirchhoffStress::zero(),
                     )
@@ -248,7 +247,7 @@ macro_rules! test_solid_hyperelastic_constitutive_model_no_tangents
                 #[test]
                 fn zero() -> Result<(), AssertionError>
                 {
-                    assert_eq(
+                    $crate::math::assert::Assert::eq(
                         &helmholtz_free_energy_density_from_deformation_gradient_simple!(
                             $constitutive_model, &DeformationGradient::identity()
                         )?, &0.0
@@ -283,7 +282,7 @@ macro_rules! test_solid_hyperelastic_constitutive_model_tangents
                         first_piola_kirchhoff_tangent_stiffness_from_deformation_gradient_simple!(
                             $constitutive_model, &get_deformation_gradient()
                         )?;
-                        assert_eq_within_tols(
+                        $crate::math::assert::Assert::default().eq_within_tols(
                             &first_piola_kirchhoff_tangent_stiffness,
                             &(0..3).map(|i|
                                 (0..3).map(|j|
@@ -307,7 +306,7 @@ macro_rules! test_solid_hyperelastic_constitutive_model_tangents
                         first_piola_kirchhoff_tangent_stiffness_from_deformation_gradient_simple!(
                             $constitutive_model, &DeformationGradient::identity()
                         )?;
-                        assert_eq_within_tols(
+                        $crate::math::assert::Assert::default().eq_within_tols(
                             &first_piola_kirchhoff_tangent_stiffness,
                             &(0..3).map(|i|
                                 (0..3).map(|j|
@@ -339,16 +338,12 @@ macro_rules! test_minimize_and_root {
                         $constitutive_model.minimize(AppliedLoad::UniaxialStress(0.77), $solver)?;
                     let cauchy_stress = $constitutive_model.cauchy_stress(&deformation_gradient)?;
                     assert!(cauchy_stress[0][0] < 0.0);
-                    crate::math::assert::assert_eq_within_tols(
-                        &(cauchy_stress[1][1] / cauchy_stress[0][0]),
-                        &0.0,
-                    )?;
-                    crate::math::assert::assert_eq_within_tols(
-                        &(cauchy_stress[2][2] / cauchy_stress[0][0]),
-                        &0.0,
-                    )?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&(cauchy_stress[1][1] / cauchy_stress[0][0]), &0.0)?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&(cauchy_stress[2][2] / cauchy_stress[0][0]), &0.0)?;
                     assert!(cauchy_stress.is_diagonal());
-                    crate::math::assert::assert_eq(
+                    $crate::math::assert::Assert::eq(
                         &deformation_gradient[1][1],
                         &deformation_gradient[2][2],
                     )?;
@@ -362,10 +357,12 @@ macro_rules! test_minimize_and_root {
                     let cauchy_stress = $constitutive_model.cauchy_stress(&deformation_gradient)?;
                     assert!(cauchy_stress[0][0] > 0.0);
                     assert!(cauchy_stress.is_diagonal());
-                    crate::math::assert::assert_eq_within_tols(&cauchy_stress[1][1], &0.0)?;
-                    crate::math::assert::assert_eq_within_tols(&cauchy_stress[2][2], &0.0)?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&cauchy_stress[1][1], &0.0)?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&cauchy_stress[2][2], &0.0)?;
                     assert!(deformation_gradient.is_diagonal());
-                    crate::math::assert::assert_eq(
+                    $crate::math::assert::Assert::eq(
                         &deformation_gradient[1][1],
                         &deformation_gradient[2][2],
                     )
@@ -386,7 +383,7 @@ macro_rules! test_minimize_and_root {
                     let cauchy_stress = $constitutive_model.cauchy_stress(&deformation_gradient)?;
                     assert!(cauchy_stress[0][0] < 0.0);
                     assert!(cauchy_stress[1][1] < 0.0);
-                    crate::math::assert::assert_eq_within_tols(
+                    $crate::math::assert::Assert::default().eq_within_tols(
                         &(cauchy_stress[2][2]
                             / (cauchy_stress[0][0].powi(2) + cauchy_stress[1][1].powi(2)).sqrt()),
                         &0.0,
@@ -401,7 +398,8 @@ macro_rules! test_minimize_and_root {
                         .minimize(AppliedLoad::BiaxialStress(1.3, 0.64), $solver)?;
                     let cauchy_stress = $constitutive_model.cauchy_stress(&deformation_gradient)?;
                     assert!(cauchy_stress[0][0] > cauchy_stress[1][1]);
-                    crate::math::assert::assert_eq_within_tols(&cauchy_stress[2][2], &0.0)?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&cauchy_stress[2][2], &0.0)?;
                     assert!(cauchy_stress.is_diagonal());
                     assert!(deformation_gradient.is_diagonal());
                     Ok(())
@@ -413,7 +411,8 @@ macro_rules! test_minimize_and_root {
                     let cauchy_stress = $constitutive_model.cauchy_stress(&deformation_gradient)?;
                     assert!(cauchy_stress[0][0] > cauchy_stress[1][1]);
                     assert!(cauchy_stress[1][1] > 0.0);
-                    crate::math::assert::assert_eq_within_tols(&cauchy_stress[2][2], &0.0)?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&cauchy_stress[2][2], &0.0)?;
                     assert!(cauchy_stress.is_diagonal());
                     assert!(deformation_gradient.is_diagonal());
                     Ok(())

@@ -2,12 +2,10 @@ use super::{
     Surface, collapse_short_edges, edge, edge_lengths, flip_edges, split_long_edges,
     tangential_smooth,
 };
+use crate::math::assert::Assert;
 use crate::{
     geometry::Coordinates,
-    math::{
-        Tensor,
-        assert::{AssertionError, assert_eq_within_tols},
-    },
+    math::{Tensor, assert::AssertionError},
 };
 use std::collections::HashMap;
 
@@ -23,7 +21,7 @@ fn splits_only_long_edges() -> Result<(), AssertionError> {
     let mut sizing = vec![3.0; coordinates.len()];
     split_long_edges(&mut connectivity, &mut coordinates, &lengths, &mut sizing);
     assert_eq!(coordinates.len(), 4);
-    assert_eq_within_tols(&coordinates[3], &[1.5, 1.5, 0.0].into())?;
+    Assert::default().eq_within_tols(&coordinates[3], &[1.5, 1.5, 0.0].into())?;
     assert_eq!(connectivity, vec![[1, 3, 0], [3, 2, 0]]);
     Ok(())
 }
@@ -117,7 +115,7 @@ fn collapse_merges_short_edge() -> Result<(), AssertionError> {
         "two incident faces should be dropped"
     );
     assert_eq!(coordinates.len(), 5, "the merged-out vertex should be gone");
-    assert_eq_within_tols(&coordinates[0], &[1.05, 0.1, 0.0].into())?;
+    Assert::default().eq_within_tols(&coordinates[0], &[1.05, 0.1, 0.0].into())?;
     let mut edge_uses: HashMap<(usize, usize), usize> = HashMap::new();
     for &[a, b, c] in &connectivity {
         for (u, v) in [(a, b), (b, c), (c, a)] {
@@ -152,8 +150,8 @@ fn smooth_relaxes_hub_to_ring_centroid() -> Result<(), AssertionError> {
         [0.5, -s, 0.0],
     ]);
     tangential_smooth(&connectivity, &mut coordinates);
-    assert_eq_within_tols(&coordinates[0], &[0.0, 0.0, 0.0].into())?;
-    assert_eq_within_tols(&coordinates[1], &[1.0, 0.0, 0.0].into())
+    Assert::default().eq_within_tols(&coordinates[0], &[0.0, 0.0, 0.0].into())?;
+    Assert::default().eq_within_tols(&coordinates[1], &[1.0, 0.0, 0.0].into())
 }
 
 #[test]
@@ -169,5 +167,5 @@ fn reproject_snaps_vertex_onto_surface() -> Result<(), AssertionError> {
     );
     let mut coordinates = Coordinates::from(vec![[0.3, 0.3, 0.5]]);
     surface.reproject(&mut coordinates);
-    assert_eq_within_tols(&coordinates[0], &[0.3, 0.3, 0.0].into())
+    Assert::default().eq_within_tols(&coordinates[0], &[0.3, 0.3, 0.0].into())
 }

@@ -44,7 +44,7 @@ fn paraboloid_recovers_exact_curvatures() -> Result<(), AssertionError> {
     assert!((jet.principal_curvatures[0] - 0.4).abs() < 1.0e-10);
     assert!((jet.principal_curvatures[1] - 0.1).abs() < 1.0e-10);
     // Off until anisotropic remesh (Jet::normal):
-    // assert_eq_within_tols(&jet.normal, &[0.0, 0.0, 1.0].into())
+    // Assert::default().eq_within_tols(&jet.normal, &[0.0, 0.0, 1.0].into())
     Ok(())
 }
 

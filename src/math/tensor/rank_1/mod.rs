@@ -26,7 +26,7 @@ use crate::{
     },
 };
 
-use crate::math::assert::ErrorTensor;
+use crate::math::assert::FiniteDifference;
 
 /// A *d*-dimensional tensor of rank 1.
 ///
@@ -125,7 +125,7 @@ impl<const D: usize, const I: usize> TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, const I: usize> ErrorTensor for TensorRank1<D, I> {
+impl<const D: usize, const I: usize> FiniteDifference for TensorRank1<D, I> {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()

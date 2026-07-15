@@ -11,7 +11,7 @@ impl<Y, Z, U, V> ExplicitDaeVariableStepExplicit<Y, Z, U, V> for DormandPrince
 where
     Self: ExplicitDaeVariableStepFirstSameAsLast<Y, Z, U, V>,
     Y: Tensor,
-    Z: Tensor,
+    Z: PartialEq + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -96,7 +96,7 @@ where
 impl<Y, Z, U, V> ExplicitDaeVariableStepFirstSameAsLast<Y, Z, U, V> for DormandPrince
 where
     Y: Tensor,
-    Z: Tensor,
+    Z: PartialEq + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,

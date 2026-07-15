@@ -10,7 +10,7 @@ use std::ops::Mul;
 
 use super::sparse_vec::TensorRank2SparseVec;
 
-use crate::math::{TensorArray, TensorRank0, assert::ErrorTensor};
+use crate::math::{TensorArray, TensorRank0, assert::FiniteDifference};
 
 /// A vector of sparse vectors of rank-2 tensors, storing only inserted entries.
 pub type TensorRank2SparseVec2D<const D: usize, const I: usize, const J: usize> =
@@ -125,7 +125,7 @@ impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2Spar
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> ErrorTensor
+impl<const D: usize, const I: usize, const J: usize> FiniteDifference
     for TensorRank2SparseVec2D<D, I, J>
 {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {

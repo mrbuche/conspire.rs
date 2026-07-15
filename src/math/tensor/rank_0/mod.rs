@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::assert::ErrorTensor;
+use crate::math::assert::FiniteDifference;
 
 pub mod list;
 pub mod list_2d;
@@ -12,7 +12,7 @@ use std::ops::Sub;
 /// A tensor of rank 0 (a scalar).
 pub type TensorRank0 = f64;
 
-impl ErrorTensor for TensorRank0 {
+impl FiniteDifference for TensorRank0 {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         if ((self / comparator - 1.0).abs() >= epsilon && (self - comparator).abs() >= epsilon)
             || self.is_nan()

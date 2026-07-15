@@ -1,3 +1,4 @@
+use crate::math::assert::Assert;
 use crate::{
     constitutive::{
         hybrid::ElasticMultiplicative,
@@ -16,7 +17,7 @@ use crate::{
     constitutive::solid::elastic::{AppliedLoad, internal_variables::ElasticIV},
     math::{
         TensorRank4,
-        assert::{ErrorTensor, assert_eq_from_fd},
+        assert::FiniteDifference,
         optimize::{GradientDescent, NewtonRaphson},
     },
     mechanics::*,
@@ -65,7 +66,7 @@ fn finite_difference_0() -> Result<(), AssertionError> {
         }
     }
     if tangent.error_fd(&fd, 5e1 * crate::EPSILON).is_some() {
-        assert_eq_from_fd(&tangent, &fd)
+        Assert::default().eq_within_fd_tol(&tangent, &fd)
     } else {
         Ok(())
     }
@@ -116,7 +117,7 @@ fn finite_difference_1() -> Result<(), AssertionError> {
         }
     }
     if tangent_1.error_fd(&fd, 5e1 * crate::EPSILON).is_some() {
-        assert_eq_from_fd(&tangent_1, &fd)
+        Assert::default().eq_within_fd_tol(&tangent_1, &fd)
     } else {
         Ok(())
     }
@@ -169,7 +170,7 @@ fn finite_difference_2() -> Result<(), AssertionError> {
         }
     }
     if tangent_2.error_fd(&fd, 5e1 * crate::EPSILON).is_some() {
-        assert_eq_from_fd(&tangent_2, &fd)
+        Assert::default().eq_within_fd_tol(&tangent_2, &fd)
     } else {
         Ok(())
     }
@@ -220,7 +221,7 @@ fn finite_difference_3() -> Result<(), AssertionError> {
         }
     }
     if tangent_3.error_fd(&fd, 5e1 * crate::EPSILON).is_some() {
-        assert_eq_from_fd(&tangent_3, &fd)
+        Assert::default().eq_within_fd_tol(&tangent_3, &fd)
     } else {
         Ok(())
     }

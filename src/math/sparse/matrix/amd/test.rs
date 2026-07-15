@@ -1,8 +1,6 @@
 use super::CscMatrix;
-use crate::math::{
-    Vector,
-    assert::{AssertionError, assert_eq_within_tols},
-};
+use crate::math::assert::Assert;
+use crate::math::{Vector, assert::AssertionError};
 
 fn laplacian(k: usize) -> CscMatrix {
     let n = k * k;
@@ -76,7 +74,7 @@ fn solve_laplacian() -> Result<(), AssertionError> {
     let lu = matrix.lu_amd().map_err(|_| AssertionError {
         message: "Factorization failed.".to_string(),
     })?;
-    assert_eq_within_tols(&(&matrix * &lu.solve(&b)), &b)
+    Assert::default().eq_within_tols(&(&matrix * &lu.solve(&b)), &b)
 }
 
 #[test]
@@ -86,5 +84,5 @@ fn solve_asymmetric() -> Result<(), AssertionError> {
     let lu = matrix.lu_amd().map_err(|_| AssertionError {
         message: "Factorization failed.".to_string(),
     })?;
-    assert_eq_within_tols(&(&matrix * &lu.solve(&b)), &b)
+    Assert::default().eq_within_tols(&(&matrix * &lu.solve(&b)), &b)
 }

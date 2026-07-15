@@ -29,7 +29,7 @@ use crate::ABS_TOL;
 use list_2d::TensorRank2List2D;
 use vec_2d::TensorRank2Vec2D;
 
-use crate::math::assert::ErrorTensor;
+use crate::math::assert::FiniteDifference;
 
 /// A *d*-dimensional tensor of rank 2.
 ///
@@ -284,7 +284,7 @@ impl<const D: usize, const I: usize, const J: usize> Display for TensorRank2<D, 
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2<D, I, J> {
+impl<const D: usize, const I: usize, const J: usize> FiniteDifference for TensorRank2<D, I, J> {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()

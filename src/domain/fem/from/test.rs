@@ -1,3 +1,4 @@
+use crate::math::assert::Assert;
 use crate::{
     constitutive::{
         fluid::viscoplastic::ViscoplasticFlow,
@@ -24,7 +25,7 @@ use crate::{
     geometry::mesh::{Connectivity, Mesh},
     math::{
         Matrix, Scalar, Tensor, TensorTupleVec, Vector,
-        assert::{AssertionError, assert_eq, assert_eq_within_tols},
+        assert::AssertionError,
         integrate::BogackiShampine,
         optimize::{EqualityConstraint, NewtonRaphson},
     },
@@ -209,7 +210,7 @@ fn split_blocks_model() -> Result<Model<Blocks<Tet, Tet>, 3>, AssertionError> {
 fn single_block_nodal_forces() -> Result<(), AssertionError> {
     let block = Tet::from((constitutive_model(), connectivity(), &coordinates()));
     let model = single_block_model()?;
-    assert_eq(
+    Assert::eq(
         &ElasticElements::nodal_forces(&block, &deformed_coordinates())?,
         &ElasticElements::nodal_forces(&model, &deformed_coordinates()).map_err(|error| {
             AssertionError {
@@ -223,7 +224,7 @@ fn single_block_nodal_forces() -> Result<(), AssertionError> {
 fn split_blocks_nodal_forces() -> Result<(), AssertionError> {
     let block = Tet::from((constitutive_model(), connectivity(), &coordinates()));
     let model = split_blocks_model()?;
-    assert_eq_within_tols(
+    Assert::default().eq_within_tols(
         &ElasticElements::nodal_forces(&block, &deformed_coordinates())?,
         &ElasticElements::nodal_forces(&model, &deformed_coordinates()).map_err(|error| {
             AssertionError {
@@ -247,7 +248,7 @@ fn split_blocks_root() -> Result<(), AssertionError> {
         EqualityConstraint::Linear(a, b),
         NewtonRaphson::default(),
     )?;
-    assert_eq_within_tols(&solution, &solution_split)
+    Assert::default().eq_within_tols(&solution, &solution_split)
 }
 
 #[test]
@@ -279,7 +280,7 @@ fn heterogeneous_blocks_nodal_forces() -> Result<(), AssertionError> {
     let (connectivity_1, connectivity_2) = split_connectivities();
     let block_1 = Tet::from((constitutive_model(), connectivity_1, &coordinates()));
     let block_2 = TetNeoHookean::from((neo_hookean_model(), connectivity_2, &coordinates()));
-    assert_eq_within_tols(
+    Assert::default().eq_within_tols(
         &(ElasticElements::nodal_forces(&block_1, &deformed_coordinates())?
             + ElasticElements::nodal_forces(&block_2, &deformed_coordinates())?),
         &ElasticElements::nodal_forces(&heterogeneous_model()?, &deformed_coordinates()).map_err(
@@ -341,7 +342,7 @@ fn mixed_viscoplastic_elastic_root() -> Result<(), AssertionError> {
         EqualityConstraint::Linear(a, b),
         NewtonRaphson::default(),
     )?;
-    assert_eq_within_tols(coordinates_history.iter().last().unwrap(), &reference)
+    Assert::default().eq_within_tols(coordinates_history.iter().last().unwrap(), &reference)
 }
 
 #[test]
@@ -382,7 +383,7 @@ fn paired_viscoplastic_blocks_root() -> Result<(), AssertionError> {
         EqualityConstraint::Linear(a, b),
         NewtonRaphson::default(),
     )?;
-    assert_eq_within_tols(coordinates_history.iter().last().unwrap(), &reference)
+    Assert::default().eq_within_tols(coordinates_history.iter().last().unwrap(), &reference)
 }
 
 #[test]
@@ -463,7 +464,7 @@ fn planar_patch_root() -> Result<(), AssertionError> {
         })
         .collect::<Vec<_>>()
         .into();
-    assert_eq_within_tols(&solution, &expected)
+    Assert::default().eq_within_tols(&solution, &expected)
 }
 
 #[test]
@@ -546,8 +547,8 @@ fn planar_vs_wedge_root() -> Result<(), AssertionError> {
         .map(|coordinate| [coordinate[0], coordinate[1]])
         .collect::<Vec<_>>()
         .into();
-    assert_eq_within_tols(&solution, &layer_0)?;
-    assert_eq_within_tols(&solution, &layer_1)
+    Assert::default().eq_within_tols(&solution, &layer_0)?;
+    Assert::default().eq_within_tols(&solution, &layer_1)
 }
 
 fn quad_connectivity_2d() -> Vec<[usize; 4]> {
@@ -597,7 +598,7 @@ fn planar_quad_patch_root() -> Result<(), AssertionError> {
         })
         .collect::<Vec<_>>()
         .into();
-    assert_eq_within_tols(&solution, &expected)
+    Assert::default().eq_within_tols(&solution, &expected)
 }
 
 fn planar_constraint() -> (Matrix, Vector) {
@@ -642,5 +643,5 @@ fn planar_minimize_vs_root() -> Result<(), AssertionError> {
         EqualityConstraint::Linear(a, b),
         NewtonRaphson::default(),
     )?;
-    assert_eq_within_tols(&solution_root, &solution_minimize)
+    Assert::default().eq_within_tols(&solution_root, &solution_minimize)
 }

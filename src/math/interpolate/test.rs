@@ -1,7 +1,5 @@
-use super::{
-    super::assert::{AssertionError, assert_eq},
-    Interpolate1D, LinearInterpolation, Vector,
-};
+use super::{super::assert::AssertionError, Interpolate1D, LinearInterpolation, Vector};
+use crate::math::assert::Assert;
 
 #[test]
 fn line() -> Result<(), AssertionError> {
@@ -10,5 +8,5 @@ fn line() -> Result<(), AssertionError> {
     let linear_function = |x: &Vector| x * 2.3;
     let fp = linear_function(&xp);
     let f = LinearInterpolation::interpolate_1d(&x, &xp, &fp);
-    assert_eq(&linear_function(&x), &f)
+    Assert::eq(linear_function(&x), &f)
 }

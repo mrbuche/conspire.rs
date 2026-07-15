@@ -1,13 +1,11 @@
+use crate::math::assert::Assert;
 use crate::{
     geometry::{
         Coordinates,
         bvh::BoundingVolumeHierarchy,
         mesh::{Connectivity, Mesh, tessellation::from::test::tessellation},
     },
-    math::{
-        Tensor,
-        assert::{AssertionError, assert_eq_within_tols},
-    },
+    math::{Tensor, assert::AssertionError},
 };
 use std::array::from_fn;
 
@@ -42,7 +40,7 @@ fn buffer_adds_conforming_layer() -> Result<(), AssertionError> {
         (0..4).try_for_each(|k| {
             let inner = &coordinates[hex[k]];
             let projected = [inner[0], inner[1], 0.0].into();
-            assert_eq_within_tols(&coordinates[hex[k + 4]], &projected)
+            Assert::default().eq_within_tols(&coordinates[hex[k + 4]], &projected)
         })
     })
 }

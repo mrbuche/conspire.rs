@@ -1,9 +1,7 @@
+use crate::math::assert::Assert;
 use crate::{
     EPSILON,
-    math::{
-        Scalar,
-        assert::{AssertionError, assert_eq_from_fd},
-    },
+    math::{Scalar, assert::AssertionError},
     physics::{
         BOLTZMANN_CONSTANT, ROOM_TEMPERATURE,
         molecular::single_chain::{Ensemble, ExtensibleFreelyJointedChain, Thermodynamics},
@@ -62,11 +60,11 @@ fn finite_difference() -> Result<(), AssertionError> {
                             model.nondimensional_extension(nondimensional_force)?;
                         // let nondimensional_compliance =
                         //     model.nondimensional_compliance(nondimensional_force)?;
-                        assert_eq_from_fd(
-                            &nondimensional_extension,
+                        Assert::default().eq_within_fd_tol(
+                            nondimensional_extension,
                             &(finite_difference_3 / EPSILON),
                         )
-                        // assert_eq_from_fd(
+                        // Assert::default().eq_within_fd_tol(
                         //     &nondimensional_compliance,
                         //     &(finite_difference_4 / EPSILON),
                         // )

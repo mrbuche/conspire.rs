@@ -1,20 +1,18 @@
+mod eq;
 mod error;
+mod fd;
+mod fd_eq;
 
 #[cfg(test)]
 mod test;
 
-pub use error::AssertionError;
+pub use self::{eq::AssertEq, error::AssertionError, fd::FiniteDifference, fd_eq::AssertFd};
 
 use crate::{
     ABS_TOL, EPSILON, REL_TOL,
     math::{Scalar, Tensor},
 };
 use std::fmt::Display;
-
-/// Types that can report a finite-difference comparison error against themselves.
-pub trait ErrorTensor {
-    fn error_fd(&self, comparator: &Self, epsilon: Scalar) -> Option<(bool, usize)>;
-}
 
 /// Specifies tolerances used by [`AssertEq`] functionalities.
 pub struct Assert {
@@ -51,66 +49,9 @@ impl Assert {
     /// Asserts finite-difference equality within `self.fd_tol`.
     pub fn eq_within_fd_tol<T, Rhs>(&self, a: T, b: Rhs) -> Result<(), AssertionError>
     where
-        T: AssertEq<Rhs>,
+        T: AssertFd<Rhs>,
     {
         T::eq_within_fd_tol(self, a, b)
-    }
-}
-
-/// Equality assertions, overloaded across owned and borrowed operands.
-pub trait AssertEq<Rhs = Self> {
-    fn eq(a: Self, b: Rhs) -> Result<(), AssertionError>;
-    fn eq_within_tols(tols: &Assert, a: Self, b: Rhs) -> Result<(), AssertionError>;
-    fn eq_within_fd_tol(tols: &Assert, a: Self, b: Rhs) -> Result<(), AssertionError>;
-}
-
-impl<'a, T> AssertEq<&'a T> for &'a T
-where
-    T: Display + PartialEq + Tensor + ErrorTensor,
-{
-    fn eq(a: Self, b: &'a T) -> Result<(), AssertionError> {
-        if a == b {
-            Ok(())
-        } else {
-            Err(AssertionError {
-                message: format!(
-                    "\n\x1b[1;91mAssertion `left == right` failed.\n\x1b[0;91m  left: {a}\n right: {b}\x1b[0m"
-                ),
-            })
-        }
-    }
-    fn eq_within_tols(tols: &Assert, a: Self, b: &'a T) -> Result<(), AssertionError> {
-        if let Some(count) = a.error_count(b, tols.abs_tol, tols.rel_tol) {
-            let abs = a.sub_abs(b);
-            let rel = a.sub_rel(b);
-            Err(AssertionError {
-                message: format!(
-                    "\n\x1b[1;91mAssertion `left ≈= right` failed in {count} places.\n\x1b[0;91m  left: {a}\n right: {b}\n   abs: {abs}\n   rel: {rel}\x1b[0m"
-                ),
-            })
-        } else {
-            Ok(())
-        }
-    }
-    fn eq_within_fd_tol(tols: &Assert, a: Self, b: &'a T) -> Result<(), AssertionError> {
-        if let Some((failed, count)) = a.error_fd(b, tols.fd_tol) {
-            if failed {
-                let abs = a.sub_abs(b);
-                let rel = a.sub_rel(b);
-                Err(AssertionError {
-                    message: format!(
-                        "\n\x1b[1;91mAssertion `left ≈= right` failed in {count} places.\n\x1b[0;91m  left: {a}\n right: {b}\n   abs: {abs}\n   rel: {rel}\x1b[0m"
-                    ),
-                })
-            } else {
-                println!(
-                    "Warning: \n\x1b[1;93mAssertion `left ≈= right` was weak in {count} places.\x1b[0m"
-                );
-                Ok(())
-            }
-        } else {
-            Ok(())
-        }
     }
 }
 
@@ -133,7 +74,7 @@ where
 #[cfg(test)]
 pub fn assert_eq_from_fd<'a, T>(value: &'a T, value_fd: &'a T) -> Result<(), AssertionError>
 where
-    T: Display + ErrorTensor + Tensor,
+    T: Display + FiniteDifference + Tensor,
 {
     assert_eq_from_fd_within(value, value_fd, 3.0 * EPSILON)
 }
@@ -145,7 +86,7 @@ pub fn assert_eq_from_fd_within<'a, T>(
     tol: Scalar,
 ) -> Result<(), AssertionError>
 where
-    T: Display + ErrorTensor + Tensor,
+    T: Display + FiniteDifference + Tensor,
 {
     if let Some((failed, count)) = value.error_fd(value_fd, tol) {
         if failed {

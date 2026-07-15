@@ -1,9 +1,7 @@
+use crate::math::assert::Assert;
 use crate::{
     EPSILON,
-    math::{
-        Scalar,
-        assert::{AssertionError, assert_eq_from_fd},
-    },
+    math::{Scalar, assert::AssertionError},
     physics::{
         ROOM_TEMPERATURE,
         molecular::single_chain::{Ensemble, FreelyJointedChain, Thermodynamics},
@@ -60,11 +58,14 @@ fn finite_difference() -> Result<(), AssertionError> {
                     finite_difference_1 -=
                         model.nondimensional_helmholtz_free_energy(nondimensional_extension)?;
                     finite_difference_2 -= model.nondimensional_force(nondimensional_extension)?;
-                    assert_eq_from_fd(
-                        &nondimensional_force,
+                    Assert::default().eq_within_fd_tol(
+                        nondimensional_force,
                         &(finite_difference_1 / number_of_links as Scalar / EPSILON),
                     )?;
-                    assert_eq_from_fd(&nondimensional_stiffness, &(finite_difference_2 / EPSILON))
+                    Assert::default().eq_within_fd_tol(
+                        nondimensional_stiffness,
+                        &(finite_difference_2 / EPSILON),
+                    )
                 })
         })
     })

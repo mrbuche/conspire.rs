@@ -1,5 +1,6 @@
 use super::{CscMatrix, SparseError, Vector};
-use crate::math::assert::{AssertionError, assert_eq_within_tols};
+use crate::math::assert::Assert;
+use crate::math::assert::AssertionError;
 
 fn matrix_dim_9() -> CscMatrix {
     let dense = [
@@ -46,7 +47,7 @@ fn assert_solves(matrix: &CscMatrix, b: &Vector) -> Result<(), AssertionError> {
     let lu = matrix.lu().map_err(|_| AssertionError {
         message: "Factorization failed.".to_string(),
     })?;
-    assert_eq_within_tols(&(matrix * &lu.solve(b)), b)
+    Assert::default().eq_within_tols(&(matrix * &lu.solve(b)), b)
 }
 
 #[test]
@@ -94,7 +95,7 @@ fn refactor_same_values() -> Result<(), AssertionError> {
     let mut lu = matrix.lu().expect("Factorization failed.");
     let solution = lu.solve(&b);
     lu.refactor(&matrix).expect("Refactorization failed.");
-    assert_eq_within_tols(&lu.solve(&b), &solution)
+    Assert::default().eq_within_tols(lu.solve(&b), &solution)
 }
 
 #[test]
@@ -110,7 +111,7 @@ fn refactor_new_values() -> Result<(), AssertionError> {
         }
     });
     lu.refactor(&matrix).expect("Refactorization failed.");
-    assert_eq_within_tols(&(&matrix * &lu.solve(&b)), &b)
+    Assert::default().eq_within_tols(&(&matrix * &lu.solve(&b)), &b)
 }
 
 #[test]
@@ -138,7 +139,7 @@ fn symbolic_refactor_nonsymmetric_pattern() -> Result<(), AssertionError> {
     let mut lu = matrix.lu_symbolic()?;
     lu.refactor(&matrix).expect("Refactorization failed.");
     assert!(lu.nonzeros() >= matrix.lu_amd().expect("Factorization failed.").nonzeros());
-    assert_eq_within_tols(&(&matrix * &lu.solve(&b)), &b)
+    Assert::default().eq_within_tols(&(&matrix * &lu.solve(&b)), &b)
 }
 
 #[test]
@@ -158,7 +159,7 @@ fn symbolic_refactor_symmetric_pattern() -> Result<(), AssertionError> {
         lu.nonzeros(),
         matrix.lu_amd().expect("Factorization failed.").nonzeros()
     );
-    assert_eq_within_tols(&(&matrix * &lu.solve(&b)), &b)
+    Assert::default().eq_within_tols(&(&matrix * &lu.solve(&b)), &b)
 }
 
 #[test]
@@ -201,7 +202,7 @@ fn symbolic_refactor_saddle_point() -> Result<(), AssertionError> {
     let b: Vector = (0..n + 4).map(|i| (i % 7) as f64 - 3.0).collect();
     let mut lu = matrix.lu_symbolic()?;
     lu.refactor(&matrix).expect("Refactorization failed.");
-    assert_eq_within_tols(&(&matrix * &lu.solve(&b)), &b)
+    Assert::default().eq_within_tols(&(&matrix * &lu.solve(&b)), &b)
 }
 
 #[test]

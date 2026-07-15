@@ -15,7 +15,7 @@ macro_rules! test_thermal {
                         },
                     },
                 },
-                math::assert::{AssertionError, assert_eq_from_fd},
+                math::assert::AssertionError,
             };
             mod finite_difference {
                 use super::*;
@@ -42,7 +42,7 @@ macro_rules! test_thermal {
                             Ok(finite_difference / EPSILON)
                         })
                         .collect::<Result<_, FiniteElementError>>()?;
-                    assert_eq_from_fd(
+                    $crate::math::assert::Assert::default().eq_within_fd_tol(
                         &nodal_forces_fd,
                         &element.nodal_forces(
                             &constitutive_model,
@@ -76,7 +76,7 @@ macro_rules! test_thermal {
                                 .collect()
                         })
                         .collect::<Result<_, FiniteElementError>>()?;
-                    assert_eq_from_fd(
+                    $crate::math::assert::Assert::default().eq_within_fd_tol(
                         &nodal_stiffnesses_fd,
                         &element.nodal_stiffnesses(
                             &constitutive_model,

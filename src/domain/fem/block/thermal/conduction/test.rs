@@ -18,7 +18,7 @@ macro_rules! test_thermal_block {
                     },
                     thermal::conduction::ThermalConductionElements,
                 },
-                math::assert::{AssertionError, assert_eq_from_fd},
+                math::assert::AssertionError,
             };
             mod finite_difference {
                 use super::*;
@@ -44,7 +44,7 @@ macro_rules! test_thermal_block {
                             Ok(finite_difference / EPSILON)
                         })
                         .collect::<Result<_, ElementModelError>>()?;
-                    assert_eq_from_fd(
+                    $crate::math::assert::Assert::default().eq_within_fd_tol(
                         &nodal_forces_fd,
                         &block.nodal_forces(&NodalTemperatures::zero(D))?,
                     )
@@ -74,7 +74,7 @@ macro_rules! test_thermal_block {
                                 .collect()
                         })
                         .collect::<Result<_, ElementModelError>>()?;
-                    assert_eq_from_fd(
+                    $crate::math::assert::Assert::default().eq_within_fd_tol(
                         &nodal_stiffnesses_fd,
                         &block.nodal_stiffnesses(&NodalTemperatures::zero(D))?,
                     )

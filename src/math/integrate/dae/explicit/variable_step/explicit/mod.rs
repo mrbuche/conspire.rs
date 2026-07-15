@@ -1,6 +1,6 @@
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
-    assert::assert_eq_within_tols,
+    assert::Assert,
     integrate::{
         ExplicitDaeFirstOrderMinimize, ExplicitDaeFirstOrderRoot, ExplicitDaeSecondOrderMinimize,
         ExplicitDaeZerothOrderRoot, IntegrationError, VariableStepExplicit,
@@ -18,7 +18,7 @@ pub trait ExplicitDaeVariableStepExplicit<Y, Z, U, V>
 where
     Self: VariableStepExplicit<Y, U>,
     Y: Tensor,
-    Z: Tensor,
+    Z: PartialEq + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -42,7 +42,10 @@ where
         let mut t_sol = Vector::new();
         t_sol.push(t_0);
         let (mut y, mut z) = initial_condition;
-        if assert_eq_within_tols(&solution(t, &y, &z)?, &z).is_err() {
+        if Assert::default()
+            .eq_within_tols(&solution(t, &y, &z)?, &z)
+            .is_err()
+        {
             return Err(IntegrationError::InconsistentInitialConditions);
         }
         let mut k = vec![Y::default(); Self::SLOPES];
@@ -251,7 +254,7 @@ pub trait ExplicitDaeVariableStepFirstSameAsLast<Y, Z, U, V>
 where
     Self: ExplicitDaeVariableStepExplicit<Y, Z, U, V>,
     Y: Tensor,
-    Z: Tensor,
+    Z: PartialEq + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -319,7 +322,7 @@ pub trait ExplicitDaeVariableStepExplicitZerothOrderRoot<Y, Z, U, V>
 where
     Self: ExplicitDaeVariableStepExplicit<Y, Z, U, V>,
     Y: Tensor,
-    Z: Tensor,
+    Z: PartialEq + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -344,7 +347,7 @@ impl<I, Y, Z, U, V> ExplicitDaeVariableStepExplicitZerothOrderRoot<Y, Z, U, V> f
 where
     I: ExplicitDaeVariableStepExplicit<Y, Z, U, V>,
     Y: Tensor,
-    Z: Tensor,
+    Z: PartialEq + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -355,7 +358,7 @@ impl<I, Y, Z, U, V> ExplicitDaeZerothOrderRoot<Y, Z, U, V> for I
 where
     I: ExplicitDaeVariableStepExplicitZerothOrderRoot<Y, Z, U, V>,
     Y: Tensor,
-    Z: Tensor,
+    Z: PartialEq + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -385,7 +388,7 @@ pub trait ExplicitDaeVariableStepExplicitFirstOrderRoot<F, J, Y, Z, U, V>
 where
     Self: ExplicitDaeVariableStepExplicit<Y, Z, U, V>,
     Y: Tensor,
-    Z: Tensor,
+    Z: PartialEq + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -418,7 +421,7 @@ impl<I, F, J, Y, Z, U, V> ExplicitDaeVariableStepExplicitFirstOrderRoot<F, J, Y,
 where
     I: ExplicitDaeVariableStepExplicit<Y, Z, U, V>,
     Y: Tensor,
-    Z: Tensor,
+    Z: PartialEq + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -429,7 +432,7 @@ impl<I, F, J, Y, Z, U, V> ExplicitDaeFirstOrderRoot<F, J, Y, Z, U, V> for I
 where
     I: ExplicitDaeVariableStepExplicitFirstOrderRoot<F, J, Y, Z, U, V>,
     Y: Tensor,
-    Z: Tensor,
+    Z: PartialEq + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -461,7 +464,7 @@ pub trait ExplicitDaeVariableStepExplicitFirstOrderMinimize<F, Y, Z, U, V>
 where
     Self: ExplicitDaeVariableStepExplicit<Y, Z, U, V>,
     Y: Tensor,
-    Z: Tensor,
+    Z: PartialEq + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -493,7 +496,7 @@ impl<I, F, Y, Z, U, V> ExplicitDaeVariableStepExplicitFirstOrderMinimize<F, Y, Z
 where
     I: ExplicitDaeVariableStepExplicit<Y, Z, U, V>,
     Y: Tensor,
-    Z: Tensor,
+    Z: PartialEq + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -504,7 +507,7 @@ impl<I, F, Y, Z, U, V> ExplicitDaeFirstOrderMinimize<F, Y, Z, U, V> for I
 where
     I: ExplicitDaeVariableStepExplicitFirstOrderMinimize<F, Y, Z, U, V>,
     Y: Tensor,
-    Z: Tensor,
+    Z: PartialEq + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -536,7 +539,7 @@ pub trait ExplicitDaeVariableStepExplicitSecondOrderMinimize<F, J, H, Y, Z, U, V
 where
     Self: ExplicitDaeVariableStepExplicit<Y, Z, U, V>,
     Y: Tensor,
-    Z: Tensor,
+    Z: PartialEq + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -573,7 +576,7 @@ impl<I, F, J, H, Y, Z, U, V> ExplicitDaeVariableStepExplicitSecondOrderMinimize<
 where
     I: ExplicitDaeVariableStepExplicit<Y, Z, U, V>,
     Y: Tensor,
-    Z: Tensor,
+    Z: PartialEq + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -584,7 +587,7 @@ impl<I, F, J, H, Y, Z, U, V> ExplicitDaeSecondOrderMinimize<F, J, H, Y, Z, U, V>
 where
     Self: ExplicitDaeVariableStepExplicitSecondOrderMinimize<F, J, H, Y, Z, U, V>,
     Y: Tensor,
-    Z: Tensor,
+    Z: PartialEq + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,

@@ -1,3 +1,4 @@
+use crate::math::assert::Assert;
 use crate::{
     constitutive::{
         fluid::viscoplastic::ViscoplasticFlow,
@@ -9,7 +10,7 @@ use crate::{
     },
     math::{
         Rank2, Tensor, TensorArray,
-        assert::{AssertionError, ErrorTensor, assert_eq_from_fd},
+        assert::{AssertionError, FiniteDifference},
         integrate::BogackiShampine,
         optimize::{GradientDescent, NewtonRaphson},
     },
@@ -61,7 +62,7 @@ fn finite_difference() -> Result<(), AssertionError> {
         }
     }
     if tangent.error_fd(&fd, 5e1 * crate::EPSILON).is_some() {
-        assert_eq_from_fd(&tangent, &fd)
+        Assert::default().eq_within_fd_tol(&tangent, &fd)
     } else {
         Ok(())
     }

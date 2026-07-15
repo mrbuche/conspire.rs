@@ -1,5 +1,6 @@
 use super::{SparseSolver, Vector};
-use crate::math::assert::{AssertionError, assert_eq_within_tols};
+use crate::math::assert::Assert;
+use crate::math::assert::AssertionError;
 
 const N: usize = 100;
 
@@ -31,7 +32,7 @@ fn residual(
     pattern()
         .into_iter()
         .for_each(|(i, j)| product[i] += source(i, j) * x[j]);
-    assert_eq_within_tols(&product, b)
+    Assert::default().eq_within_tols(&product, b)
 }
 
 #[test]
@@ -56,7 +57,7 @@ fn recovers_from_degraded_pivot() -> Result<(), AssertionError> {
     let solver = SparseSolver::from_pattern(2, vec![(0, 0), (0, 1), (1, 0), (1, 1)], false);
     let b = Vector::from([1.0, 1.0]);
     let x = solver.solve(|i, j| ((2 * i + j) % 3) as f64 + 1.0, &b)?;
-    assert_eq_within_tols(&Vector::from([x[0] + 2.0 * x[1], 3.0 * x[0] + x[1]]), &b)?;
+    Assert::default().eq_within_tols(Vector::from([x[0] + 2.0 * x[1], 3.0 * x[0] + x[1]]), &b)?;
     let x = solver.solve(
         |i, j| {
             if (i, j) == (1, 0) {
@@ -67,7 +68,7 @@ fn recovers_from_degraded_pivot() -> Result<(), AssertionError> {
         },
         &b,
     )?;
-    assert_eq_within_tols(&Vector::from([x[0] + 2.0 * x[1], 2.0 * x[1]]), &b)
+    Assert::default().eq_within_tols(Vector::from([x[0] + 2.0 * x[1], 2.0 * x[1]]), &b)
 }
 
 #[test]
@@ -101,7 +102,7 @@ fn symmetric_uses_ldl() -> Result<(), AssertionError> {
         .pattern()
         .iter()
         .for_each(|&(i, j)| residual[i] += source(1.0)(i, j) * x[j]);
-    assert_eq_within_tols(&residual, &b)?;
+    Assert::default().eq_within_tols(&residual, &b)?;
     assert!(solver.ldl.borrow().is_some());
     let x = solver.solve(source(-2.0), &b)?;
     let mut residual = Vector::zero(n + 4);
@@ -109,7 +110,7 @@ fn symmetric_uses_ldl() -> Result<(), AssertionError> {
         .pattern()
         .iter()
         .for_each(|&(i, j)| residual[i] += source(-2.0)(i, j) * x[j]);
-    assert_eq_within_tols(&residual, &b)
+    Assert::default().eq_within_tols(&residual, &b)
 }
 
 #[test]
@@ -137,5 +138,5 @@ fn asymmetric_falls_back_to_lu() -> Result<(), AssertionError> {
         .pattern()
         .iter()
         .for_each(|&(i, j)| residual[i] += source(i, j) * x[j]);
-    assert_eq_within_tols(&residual, &b)
+    Assert::default().eq_within_tols(&residual, &b)
 }

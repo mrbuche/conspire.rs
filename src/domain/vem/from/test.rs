@@ -1,11 +1,9 @@
+use crate::math::assert::Assert;
 use crate::{
     constitutive::solid::hyperelastic::NeoHookean,
     fem::{Model, solid::elastic::ElasticElements},
     geometry::mesh::{Connectivity, Mesh, PolytopalConnectivity},
-    math::{
-        Tensor,
-        assert::{AssertionError, assert_eq},
-    },
+    math::{Tensor, assert::AssertionError},
     vem::{
         NodalCoordinates, NodalReferenceCoordinates,
         block::{Block, element::Element},
@@ -79,7 +77,7 @@ fn polyhedral_block_nodal_forces() -> Result<(), AssertionError> {
         faces_nodes(),
         &coordinates(),
     ));
-    assert_eq(
+    Assert::eq(
         &block.nodal_forces(&deformed_coordinates())?,
         &ElasticElements::nodal_forces(&model, &deformed_coordinates())?,
     )
