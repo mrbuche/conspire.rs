@@ -215,7 +215,7 @@ fn erfcx(x: Scalar) -> f64 {
     }
 }
 
-pub fn erfcx_helper(x: Scalar) -> f64 {
+fn erfcx_helper(x: Scalar) -> f64 {
     let xi = x as u8;
     match xi {
         0_u8 => {

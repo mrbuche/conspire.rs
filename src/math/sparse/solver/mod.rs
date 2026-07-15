@@ -13,6 +13,7 @@ use std::{
 };
 
 /// A sparse direct solver for repeated solves on a fixed sparsity pattern.
+///
 /// Cloning shares the cached factorization, whose pivot order and fill pattern
 /// are reused across solves until a pivot degrades. Symmetric values use an
 /// LDLᵀ factorization, falling back to LU otherwise. Symmetry is a caller-supplied

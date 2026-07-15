@@ -314,7 +314,7 @@ macro_rules! test_solid_constitutive_model_tangents
         {
             use crate::
             {
-                math::{ContractAllIndicesWithFirstIndicesOf, TensorArray},
+                math::{ContractAllWithFirst, TensorArray},
                 mechanics::{CauchyTangentStiffness, FirstPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffTangentStiffness, test::get_deformation_gradient_rotated_undeformed},
             };
             use super::*;
@@ -569,7 +569,7 @@ macro_rules! test_solid_constitutive_model_tangents
                             )?,
                             &cauchy_tangent_stiffness_from_deformation_gradient!(
                                 &$constitutive_model, &get_deformation_gradient_rotated()
-                            )?.contract_all_indices_with_first_indices_of(
+                            )?.contract_all_with_first(
                                 &get_rotation_current_configuration(),
                                 &get_rotation_current_configuration(),
                                 &get_rotation_current_configuration(),
@@ -606,7 +606,7 @@ macro_rules! test_solid_constitutive_model_tangents
                             )?,
                             &cauchy_tangent_stiffness_from_deformation_gradient!(
                                 &$constitutive_model, &get_deformation_gradient_rotated_undeformed()
-                            )?.contract_all_indices_with_first_indices_of(
+                            )?.contract_all_with_first(
                                 &get_rotation_current_configuration(),
                                 &get_rotation_current_configuration(),
                                 &get_rotation_current_configuration(),
@@ -657,7 +657,7 @@ macro_rules! test_solid_constitutive_model_tangents
                             )?,
                             &first_piola_kirchhoff_tangent_stiffness_from_deformation_gradient!(
                                 &$constitutive_model, &get_deformation_gradient_rotated()
-                            )?.contract_all_indices_with_first_indices_of(
+                            )?.contract_all_with_first(
                                 &get_rotation_current_configuration(),
                                 &get_rotation_reference_configuration(),
                                 &get_rotation_current_configuration(),
@@ -678,7 +678,7 @@ macro_rules! test_solid_constitutive_model_tangents
                             )?,
                             &first_piola_kirchhoff_tangent_stiffness_from_deformation_gradient!(
                                 &$constitutive_model, &get_deformation_gradient_rotated_undeformed()
-                            )?.contract_all_indices_with_first_indices_of(
+                            )?.contract_all_with_first(
                                 &get_rotation_current_configuration(),
                                 &get_rotation_reference_configuration(),
                                 &get_rotation_current_configuration(),
@@ -713,7 +713,7 @@ macro_rules! test_solid_constitutive_model_tangents
                             )?,
                             &second_piola_kirchhoff_tangent_stiffness_from_deformation_gradient!(
                                 &$constitutive_model, &get_deformation_gradient_rotated()
-                            )?.contract_all_indices_with_first_indices_of(
+                            )?.contract_all_with_first(
                                 &get_rotation_reference_configuration(),
                                 &get_rotation_reference_configuration(),
                                 &get_rotation_current_configuration(),
@@ -750,7 +750,7 @@ macro_rules! test_solid_constitutive_model_tangents
                             )?,
                             &second_piola_kirchhoff_tangent_stiffness_from_deformation_gradient!(
                                 &$constitutive_model, &get_deformation_gradient_rotated_undeformed()
-                            )?.contract_all_indices_with_first_indices_of(
+                            )?.contract_all_with_first(
                                 &get_rotation_reference_configuration(),
                                 &get_rotation_reference_configuration(),
                                 &get_rotation_current_configuration(),

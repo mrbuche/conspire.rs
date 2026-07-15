@@ -143,36 +143,42 @@ pub const fn get_identity_1010_parts_3<const I: usize, const J: usize>() -> [Ten
     ]
 }
 
+/// The 3D identity, configurations (1, 1).
 pub const IDENTITY: TensorRank2<3, 1, 1> = TensorRank2([
     TensorRank1::const_from([1.0, 0.0, 0.0]),
     TensorRank1::const_from([0.0, 1.0, 0.0]),
     TensorRank1::const_from([0.0, 0.0, 1.0]),
 ]);
 
+/// The 3D identity, configurations (0, 0).
 pub const IDENTITY_00: TensorRank2<3, 0, 0> = TensorRank2([
     TensorRank1::const_from([1.0, 0.0, 0.0]),
     TensorRank1::const_from([0.0, 1.0, 0.0]),
     TensorRank1::const_from([0.0, 0.0, 1.0]),
 ]);
 
+/// The 3D identity, configurations (1, 0).
 pub const IDENTITY_10: TensorRank2<3, 1, 0> = TensorRank2([
     TensorRank1::const_from([1.0, 0.0, 0.0]),
     TensorRank1::const_from([0.0, 1.0, 0.0]),
     TensorRank1::const_from([0.0, 0.0, 1.0]),
 ]);
 
+/// The 3D identity, configurations (2, 2).
 pub const IDENTITY_22: TensorRank2<3, 2, 2> = TensorRank2([
     TensorRank1::const_from([1.0, 0.0, 0.0]),
     TensorRank1::const_from([0.0, 1.0, 0.0]),
     TensorRank1::const_from([0.0, 0.0, 1.0]),
 ]);
 
+/// The 3D zero tensor, configurations (1, 1).
 pub const ZERO: TensorRank2<3, 1, 1> = TensorRank2([
     tensor_rank_1_zero(),
     tensor_rank_1_zero(),
     tensor_rank_1_zero(),
 ]);
 
+/// The 3D zero tensor, configurations (1, 0).
 pub const ZERO_10: TensorRank2<3, 1, 0> = TensorRank2([
     tensor_rank_1_zero(),
     tensor_rank_1_zero(),

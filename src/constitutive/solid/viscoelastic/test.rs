@@ -141,7 +141,7 @@ macro_rules! test_solid_viscous_constitutive_model
     {
         use crate::
         {
-            math::{ContractAllIndicesWithFirstIndicesOf},
+            math::{ContractAllWithFirst},
             mechanics::test::
             {
                 get_deformation_gradient_rotated_undeformed,
@@ -391,7 +391,7 @@ macro_rules! test_solid_viscous_constitutive_model
                             )?, &(
                                 cauchy_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
                                     &$constitutive_model, &get_deformation_gradient_rotated(), &get_deformation_gradient_rate_rotated()
-                                )?.contract_all_indices_with_first_indices_of(
+                                )?.contract_all_with_first(
                                     &get_rotation_current_configuration(),
                                     &get_rotation_current_configuration(),
                                     &get_rotation_current_configuration(),
@@ -430,7 +430,7 @@ macro_rules! test_solid_viscous_constitutive_model
                             )?, &(
                                 cauchy_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
                                     &$constitutive_model, &get_deformation_gradient_rotated_undeformed(), &get_deformation_gradient_rate_rotated_undeformed()
-                                )?.contract_all_indices_with_first_indices_of(
+                                )?.contract_all_with_first(
                                     &get_rotation_current_configuration(),
                                     &get_rotation_current_configuration(),
                                     &get_rotation_current_configuration(),
@@ -504,7 +504,7 @@ macro_rules! test_solid_viscous_constitutive_model
                             )?, &(
                                 first_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
                                     &$constitutive_model, &get_deformation_gradient_rotated(), &get_deformation_gradient_rate_rotated()
-                                )?.contract_all_indices_with_first_indices_of(
+                                )?.contract_all_with_first(
                                     &get_rotation_current_configuration(),
                                     &get_rotation_reference_configuration(),
                                     &get_rotation_current_configuration(),
@@ -526,7 +526,7 @@ macro_rules! test_solid_viscous_constitutive_model
                             )?, &(
                                 first_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
                                     &$constitutive_model, &get_deformation_gradient_rotated_undeformed(), &get_deformation_gradient_rate_rotated_undeformed()
-                                )?.contract_all_indices_with_first_indices_of(
+                                )?.contract_all_with_first(
                                     &get_rotation_current_configuration(),
                                     &get_rotation_reference_configuration(),
                                     &get_rotation_current_configuration(),
@@ -584,7 +584,7 @@ macro_rules! test_solid_viscous_constitutive_model
                             )?, &(
                                 second_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
                                     &$constitutive_model, &get_deformation_gradient_rotated(), &get_deformation_gradient_rate_rotated()
-                                )?.contract_all_indices_with_first_indices_of(
+                                )?.contract_all_with_first(
                                     &get_rotation_reference_configuration(),
                                     &get_rotation_reference_configuration(),
                                     &get_rotation_current_configuration(),
@@ -606,7 +606,7 @@ macro_rules! test_solid_viscous_constitutive_model
                             )?, &(
                                 second_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
                                     &$constitutive_model, &get_deformation_gradient_rotated_undeformed(), &get_deformation_gradient_rate_rotated_undeformed()
-                                )?.contract_all_indices_with_first_indices_of(
+                                )?.contract_all_with_first(
                                     &get_rotation_reference_configuration(),
                                     &get_rotation_reference_configuration(),
                                     &get_rotation_current_configuration(),

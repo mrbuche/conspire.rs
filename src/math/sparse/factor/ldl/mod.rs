@@ -8,8 +8,9 @@ use crate::{
     math::{Scalar, Vector},
 };
 
-/// A sparse LDLᵀ factorization, PAPᵀ = LDLᵀ, for symmetric matrices with a
-/// structurally full diagonal, with L stored as dense supernodal panels.
+/// A sparse LDLᵀ factorization for symmetric matrices with a structurally full diagonal.
+///
+/// Computes PAPᵀ = LDLᵀ, with L stored as dense supernodal panels.
 pub struct CscLdl {
     fill: usize,
     sn_of: Vec<usize>,

@@ -55,11 +55,10 @@ pub use tensor::{
     },
     rank_3::{LEVI_CIVITA, TensorRank3, levi_civita},
     rank_4::{
-        ContractAllIndicesWithFirstIndicesOf, ContractFirstSecondIndicesWithSecondIndicesOf,
-        ContractFirstThirdFourthIndicesWithFirstIndicesOf,
-        ContractSecondFourthIndicesWithFirstIndicesOf, ContractSecondIndexWithFirstIndexOf,
-        ContractThirdFourthIndicesWithFirstSecondIndicesOf, ContractThirdIndexWithFirstIndexOf,
-        IDENTITY_1010, TensorRank4, list::TensorRank4List, vec::TensorRank4Vec,
+        ContractAllWithFirst, ContractFirstSecondWithSecond, ContractFirstThirdFourthWithFirst,
+        ContractSecondFourthWithFirst, ContractSecondWithFirst, ContractThirdFourthWithFirstSecond,
+        ContractThirdWithFirst, IDENTITY_1010, TensorRank4, list::TensorRank4List,
+        vec::TensorRank4Vec,
     },
     tuple::{
         TensorTuple,

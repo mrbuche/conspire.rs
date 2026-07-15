@@ -14,7 +14,7 @@ use crate::{
             hyperelastic_viscoplastic::HyperelasticViscoplastic,
         },
     },
-    math::{ContractThirdFourthIndicesWithFirstSecondIndicesOf, IDENTITY, Rank2, TensorArray},
+    math::{ContractThirdFourthWithFirstSecond, IDENTITY, Rank2, TensorArray},
     mechanics::{
         CauchyStress, CauchyTangentStiffness, CauchyTangentStiffnessElastic, Deformation,
         DeformationGradient, DeformationGradientPlastic, MandelStressElastic, Scalar,
@@ -107,7 +107,7 @@ impl ElasticPlasticOrViscoplastic for Hencky {
             &deformation_gradient_e * self.shear_modulus() / jacobian;
         Ok((left_cauchy_green_e
             .dlogm()?
-            .contract_third_fourth_indices_with_first_second_indices_of(
+            .contract_third_fourth_with_first_second(
                 &(CauchyTangentStiffnessElastic::dyad_il_jk(
                     &scaled_deformation_gradient_e,
                     &IDENTITY,
