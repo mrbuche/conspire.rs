@@ -45,6 +45,7 @@ where
         y_sol.push(y.clone());
         let mut dydt_sol = U::new();
         dydt_sol.push(k[0].clone());
+        let mut k_sol: Vec<U> = Vec::new();
         let mut y_trial = Y::default();
         while t < t_f {
             match self.slopes_and_error(
@@ -64,6 +65,7 @@ where
                             &mut y_sol,
                             &mut t_sol,
                             &mut dydt_sol,
+                            &mut k_sol,
                             &mut dt,
                             &mut k,
                             &y_trial,

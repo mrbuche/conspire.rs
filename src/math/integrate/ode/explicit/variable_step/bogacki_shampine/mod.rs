@@ -140,13 +140,14 @@ where
         y_sol: &mut U,
         t_sol: &mut Vector,
         dydt_sol: &mut U,
+        k_sol: &mut Vec<U>,
         dt: &mut Scalar,
         k: &mut [Y],
         y_trial: &Y,
         e: Scalar,
     ) -> Result<(), String> {
         let dt_0 = *dt;
-        self.step_fsal(y, t, y_sol, t_sol, dydt_sol, dt, k, y_trial, e)?;
+        self.step_fsal(y, t, y_sol, t_sol, dydt_sol, k_sol, dt, k, y_trial, e)?;
         if e > 0.0 {
             *dt = dt_0;
             *dt *= self.dt_beta() * (self.abs_tol() / e).powf(1.0 / self.dt_expn())
@@ -183,6 +184,7 @@ where
         tp: &Vector,
         yp: &U,
         dydtp: &U,
+        _k_sol: &[U],
         _function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
     ) -> Result<(U, U), IntegrationError> {
         Ok(Self::interpolate_free(time, tp, yp, dydtp))

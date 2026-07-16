@@ -1,5 +1,11 @@
 macro_rules! test_explicit_variable_step {
     ($integration: expr) => {
+        $crate::math::integrate::ode::explicit::variable_step::test::test_explicit_variable_step!(
+            $integration,
+            $crate::math::assert::Assert::default()
+        );
+    };
+    ($integration: expr, $eval_times_assert: expr) => {
         use crate::math::{
             Tensor, TensorArray, TensorRank1, TensorRank1Vec, TensorRank2, TensorTuple,
             TensorTupleVec,
@@ -70,11 +76,12 @@ macro_rules! test_explicit_variable_step {
                 &zero_to_one::<LENGTH>(),
                 0.0,
             )?;
+            let eval_times_assert = $eval_times_assert;
             time.iter()
                 .zip(solution.iter().zip(function.iter()))
                 .try_for_each(|(t, (y, f))| {
-                    $crate::math::assert::Assert::default().eq_within_tols(y, &t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(f, &t.cos())
+                    eval_times_assert.eq_within_tols(y, &t.sin())?;
+                    eval_times_assert.eq_within_tols(f, &t.cos())
                 })
         }
         #[test]

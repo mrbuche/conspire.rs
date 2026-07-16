@@ -45,6 +45,7 @@ where
         y_sol.push(initial_condition.clone());
         let mut dydt_sol = U::new();
         dydt_sol.push(k[0].clone());
+        let mut k_sol: Vec<U> = Vec::new();
         let mut y_trial = Y::default();
         while t < t_f {
             match self.slopes_and_error(&mut function, &y, t, dt, &mut k, &mut y_trial) {
@@ -56,6 +57,7 @@ where
                         &mut y_sol,
                         &mut t_sol,
                         &mut dydt_sol,
+                        &mut k_sol,
                         &mut dt,
                         &mut k,
                         &y_trial,
@@ -94,7 +96,7 @@ where
         if time.len() > 2 {
             let t_int = Vector::from(time);
             let (y_int, dydt_int) =
-                self.interpolate(&t_int, &t_sol, &y_sol, &dydt_sol, function)?;
+                self.interpolate(&t_int, &t_sol, &y_sol, &dydt_sol, &k_sol, function)?;
             Ok((t_int, y_int, dydt_int))
         } else {
             Ok((t_sol, y_sol, dydt_sol))
@@ -162,12 +164,14 @@ where
         y_sol: &mut U,
         t_sol: &mut Vector,
         dydt_sol: &mut U,
+        k_sol: &mut Vec<U>,
         dt: &mut Scalar,
-        _k: &mut [Y],
+        k: &mut [Y],
         y_trial: &Y,
         e: Scalar,
     ) -> Result<(), String> {
         if e < self.abs_tol() || e < self.rel_tol() * self.norm().apply(y_trial) {
+            k_sol.push(k.iter().cloned().collect());
             *t += *dt;
             *y = y_trial.clone();
             t_sol.push(*t);
@@ -271,12 +275,14 @@ where
         y_sol: &mut U,
         t_sol: &mut Vector,
         dydt_sol: &mut U,
+        k_sol: &mut Vec<U>,
         dt: &mut Scalar,
         k: &mut [Y],
         y_trial: &Y,
         e: Scalar,
     ) -> Result<(), String> {
         if e < self.abs_tol() || e < self.rel_tol() * self.norm().apply(y_trial) {
+            k_sol.push(k.iter().cloned().collect());
             k[0] = k[Self::SLOPES - 1].clone();
             *t += *dt;
             *y = y_trial.clone();
