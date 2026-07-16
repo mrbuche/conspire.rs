@@ -223,21 +223,19 @@ where
 {
 }
 
-impl<Y, U> InterpolateSolution<Y, U> for DormandPrince
-where
-    Y: Tensor,
-    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
-    U: TensorVec<Item = Y>,
-{
-    fn interpolate(
-        &self,
+impl DormandPrince {
+    pub(crate) fn interpolate_free_dense<Y, U>(
         time: &Vector,
         tp: &Vector,
         yp: &U,
         dydtp: &U,
         k_sol: &[U],
-        _function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
-    ) -> Result<(U, U), IntegrationError> {
+    ) -> (U, U)
+    where
+        Y: Tensor,
+        for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+        U: TensorVec<Item = Y>,
+    {
         let mut y_int = U::new();
         let mut dydt_int = U::new();
         for time_k in time.iter() {
@@ -283,6 +281,25 @@ where
                 );
             }
         }
-        Ok((y_int, dydt_int))
+        (y_int, dydt_int)
+    }
+}
+
+impl<Y, U> InterpolateSolution<Y, U> for DormandPrince
+where
+    Y: Tensor,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    U: TensorVec<Item = Y>,
+{
+    fn interpolate(
+        &self,
+        time: &Vector,
+        tp: &Vector,
+        yp: &U,
+        dydtp: &U,
+        k_sol: &[U],
+        _function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+    ) -> Result<(U, U), IntegrationError> {
+        Ok(Self::interpolate_free_dense(time, tp, yp, dydtp, k_sol))
     }
 }
