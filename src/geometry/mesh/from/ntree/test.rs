@@ -269,6 +269,29 @@ fn octree_doubly_unbalanced() {
     assert!((volume(&mesh) - 512.0).abs() < 1e-12);
 }
 
+#[cfg(feature = "netcdf")]
+#[test]
+fn write_weak2_cube() {
+    use crate::{
+        geometry::{mesh::Output, ntree::Balance},
+        io::Write,
+    };
+    let mut tree = octree(16);
+    tree.subdivide(0).unwrap();
+    tree.subdivide(1).unwrap();
+    tree.subdivide(10).unwrap();
+    tree.subdivide(18).unwrap();
+    tree.equilibrate(Balancing::Weak(2), Pairing::None).unwrap();
+    let mesh = Mesh::from(tree);
+    conformal(&mesh);
+    assert!((volume(&mesh) - 4096.0).abs() < 1e-9);
+    let (_, faces_nodes) = polytopal(&mesh);
+    assert!(faces_nodes.iter().any(|face| face.len() >= 6));
+    mesh.write(Output::VtkUnstructured("target/weak2_cube.vtu"))
+        .unwrap();
+    mesh.write(Output::Exodus("target/weak2_cube.exo")).unwrap()
+}
+
 #[test]
 fn quadtree_uniform() {
     let mut tree = quadtree(2);
