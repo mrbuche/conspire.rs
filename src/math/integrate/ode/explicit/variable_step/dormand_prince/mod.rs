@@ -213,6 +213,7 @@ where
         time: &Vector,
         tp: &Vector,
         yp: &U,
+        _dydtp: &U,
         function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
     ) -> Result<(U, U), IntegrationError> {
         Self::interpolate_variable_step(time, tp, yp, function)

@@ -30,6 +30,7 @@ where
         time: &Vector,
         tp: &Vector,
         yp: &U,
+        dydtp: &U,
         function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
     ) -> Result<(U, U), IntegrationError>;
 }

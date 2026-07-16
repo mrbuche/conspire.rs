@@ -5,8 +5,8 @@ use crate::math::Norm;
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
     integrate::{
-        Explicit, IntegrationError, OdeIntegrator, VariableStep, VariableStepExplicit,
-        VariableStepExplicitFirstSameAsLast,
+        Explicit, FreeInterpolant, IntegrationError, OdeIntegrator, VariableStep,
+        VariableStepExplicit, VariableStepExplicitFirstSameAsLast,
     },
     interpolate::InterpolateSolution,
 };
@@ -163,6 +163,14 @@ where
 {
 }
 
+impl<Y, U> FreeInterpolant<Y, U> for BogackiShampine
+where
+    Y: Tensor,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    U: TensorVec<Item = Y>,
+{
+}
+
 impl<Y, U> InterpolateSolution<Y, U> for BogackiShampine
 where
     Y: Tensor,
@@ -174,8 +182,9 @@ where
         time: &Vector,
         tp: &Vector,
         yp: &U,
-        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        dydtp: &U,
+        _function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
     ) -> Result<(U, U), IntegrationError> {
-        Self::interpolate_variable_step(time, tp, yp, function)
+        Ok(Self::interpolate_free(time, tp, yp, dydtp))
     }
 }
