@@ -48,7 +48,7 @@ pub fn edge_transitions<T, U>(
     );
     transition_2::template(tree, center_nodes, coordinates, connectivity, nodes_map);
     transition_4::template(tree, center_nodes, coordinates, connectivity, nodes_map);
-    if matches!(balancing, Balancing::Weak) {
+    if matches!(balancing, Balancing::Weak(_)) {
         transition_5::template(
             tree,
             center_nodes,

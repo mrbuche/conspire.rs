@@ -125,7 +125,10 @@ where
     U: Copy + Into<usize>,
 {
     fn initialize(&self) -> (Vec<usize>, Coordinates<D>, usize, Vec<[usize; N]>) {
-        assert!(!matches!(self.balanced, Balancing::None));
+        assert!(matches!(
+            self.balanced,
+            Balancing::Strong | Balancing::Weak(1)
+        ));
         assert!(!matches!(self.paired, Pairing::None));
         let num = self.len();
         let mut center_nodes = vec![0; num];

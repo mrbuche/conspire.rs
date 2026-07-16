@@ -61,7 +61,7 @@ fn write_weak_edge_dual() {
         geometry::{mesh::Output, ntree::Dualization},
         io::Write,
     };
-    let mut octree = weak_edge_tree(Balancing::Weak);
+    let mut octree = weak_edge_tree(Balancing::Weak(1));
     let mesh = octree.dualize();
     if let Err(error) = verify_dual(&mesh) {
         panic!("weak dual failed verification: {error}");
@@ -87,7 +87,7 @@ fn transition_5_fills_weak_edge_config_only() {
         connectivity.len() - filled
     };
     assert_eq!(
-        hexes(Balancing::Weak),
+        hexes(Balancing::Weak(1)),
         22,
         "transition_5 should fill the weak-balanced edge tubes"
     );

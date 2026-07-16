@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 use crate::geometry::ntree::{
     Orthotree,
     balance::{Balance, Balancing},
@@ -12,6 +15,33 @@ const D: usize = 3;
 const L: usize = 4;
 const M: usize = 6;
 const N: usize = 8;
+
+const FACE_ORTHANTS: [[usize; 4]; M] = [
+    [1, 3, 5, 7],
+    [0, 2, 4, 6],
+    [2, 3, 6, 7],
+    [0, 1, 4, 5],
+    [4, 5, 6, 7],
+    [0, 1, 2, 3],
+];
+
+impl<T, U, V> Orthotree<D, L, M, N, T, U, V>
+where
+    T: Copy + Into<usize>,
+    U: Copy + Into<usize>,
+{
+    fn deep(&self, cell: U, face: usize, depth: usize) -> bool {
+        match self[cell].orthants() {
+            None => false,
+            Some(orthants) => {
+                depth == 0
+                    || FACE_ORTHANTS[face]
+                        .iter()
+                        .any(|&orthant| self.deep(orthants[orthant], face, depth - 1))
+            }
+        }
+    }
+}
 
 impl<T, U, V> Balance for Orthotree<D, L, M, N, T, U, V>
 where
@@ -39,6 +69,13 @@ where
                         if let Some(neighbor) = face_cell
                             && let Some(kids) = self[*neighbor].orthants()
                         {
+                            if let Balancing::Weak(depth) = balancing {
+                                if self.deep(*neighbor, face, depth) {
+                                    subdivide = true;
+                                    break 'faces;
+                                }
+                                continue;
+                            }
                             if strong {
                                 edges = from_fn(|_| false);
                                 vertices = from_fn(|_| false);

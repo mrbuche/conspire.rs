@@ -6,7 +6,7 @@ use crate::geometry::ntree::pair::Pairing;
 #[derive(Clone, Copy)]
 pub enum Balancing {
     Strong,
-    Weak,
+    Weak(usize),
     None,
 }
 
