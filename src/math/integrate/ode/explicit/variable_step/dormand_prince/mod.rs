@@ -37,9 +37,6 @@ pub const C_71_1920: Scalar = 71.0 / 1920.0;
 pub const C_17253_339200: Scalar = 17253.0 / 339200.0;
 pub const C_22_525: Scalar = 22.0 / 525.0;
 
-// Dense-output (free interpolant) coefficients, from Shampine (1986) as used by MATLAB's ode45
-// and SciPy's RK45; P_i_j is the coefficient of theta^(j + 1) for stage i (stage 2 is omitted,
-// its coefficients are all zero).
 pub const P_1_0: Scalar = 1.0;
 pub const P_1_1: Scalar = -8048581381.0 / 2820520608.0;
 pub const P_1_2: Scalar = 8663915743.0 / 2820520608.0;
