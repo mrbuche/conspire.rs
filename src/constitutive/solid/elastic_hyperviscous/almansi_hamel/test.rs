@@ -1,5 +1,6 @@
 use super::super::test::*;
 use super::*;
+use crate::math::assert::Assert;
 
 use crate::{
     math::Tensor,
@@ -19,12 +20,9 @@ test_solid_elastic_hyperviscous_constitutive_model!(AlmansiHamel {
 
 mod consistency {
     use super::*;
-    use crate::{
-        constitutive::solid::elastic::{AlmansiHamel as ElasticAlmansiHamel, Elastic},
-        math::test::assert_eq_within_tols,
-    };
+    use crate::constitutive::solid::elastic::{AlmansiHamel as ElasticAlmansiHamel, Elastic};
     #[test]
-    fn cauchy_stress() -> Result<(), TestError> {
+    fn cauchy_stress() -> Result<(), AssertionError> {
         let model = AlmansiHamel {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
@@ -35,7 +33,7 @@ mod consistency {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
         };
-        assert_eq_within_tols(
+        Assert::default().eq_within_tols(
             &model.cauchy_stress(
                 &get_deformation_gradient(),
                 &DeformationGradientRate::zero(),

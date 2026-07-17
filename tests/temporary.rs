@@ -1,5 +1,6 @@
 #![cfg(feature = "fem")]
 
+use conspire::math::assert::Assert;
 use conspire::{
     constitutive::{
         solid::{
@@ -21,7 +22,8 @@ use conspire::{
     },
     geometry::mesh::{Connectivity, Mesh},
     math::{
-        Matrix, Scalar, Tensor, TestError, Vector, assert_eq_within, assert_eq_within_tols,
+        Matrix, Scalar, Tensor, Vector,
+        assert::AssertionError,
         integrate::DormandPrince,
         optimize::{EqualityConstraint, NewtonRaphson},
     },
@@ -7375,7 +7377,7 @@ fn coordinates() -> NodalReferenceCoordinates<3> {
 }
 
 #[test]
-fn temporary_hyperelastic() -> Result<(), TestError> {
+fn temporary_hyperelastic() -> Result<(), AssertionError> {
     let strain = 13.0;
     let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
@@ -7445,7 +7447,7 @@ fn temporary_hyperelastic() -> Result<(), TestError> {
             deformation_gradients_e
                 .iter()
                 .try_for_each(|deformation_gradient_g| {
-                    assert_eq_within_tols(deformation_gradient_g, &deformation_gradient)
+                    Assert::default().eq_within_tols(deformation_gradient_g, &deformation_gradient)
                 })
         })?;
     println!("Done ({:?}).", time.elapsed());
@@ -7504,7 +7506,7 @@ fn bcs_temporary_elastic_viscoplastic(t: Scalar) -> EqualityConstraint {
 }
 
 #[test]
-fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
+fn temporary_elastic_viscoplastic() -> Result<(), AssertionError> {
     use conspire::math::integrate::BogackiShampine;
     let tol = 1e-4;
     let tspan = [0.0, 2.0];
@@ -7575,12 +7577,12 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
                         deformation_gradients
                             .iter()
                             .try_for_each(|deformation_gradient_g| {
-                                assert_eq_within(
-                                    deformation_gradient_g,
-                                    deformation_gradient,
-                                    1e1 * tol,
-                                    1e1 * tol,
-                                )
+                                Assert {
+                                    abs_tol: 1e1 * tol,
+                                    rel_tol: 1e1 * tol,
+                                    ..Default::default()
+                                }
+                                .eq_within_tols(deformation_gradient_g, deformation_gradient)
                             })
                     })?;
                 let (deformation_gradient_p, yield_stress) = state_variables_model.into();
@@ -7592,13 +7594,18 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
                             .try_for_each(|state_variables_g| {
                                 let (deformation_gradient_p_g, yield_stress_g) =
                                     state_variables_g.into();
-                                assert_eq_within(
-                                    deformation_gradient_p_g,
-                                    deformation_gradient_p,
-                                    1e1 * tol,
-                                    1e1 * tol,
-                                )?;
-                                assert_eq_within(yield_stress_g, yield_stress, 1e1 * tol, 1e1 * tol)
+                                Assert {
+                                    abs_tol: 1e1 * tol,
+                                    rel_tol: 1e1 * tol,
+                                    ..Default::default()
+                                }
+                                .eq_within_tols(deformation_gradient_p_g, deformation_gradient_p)?;
+                                Assert {
+                                    abs_tol: 1e1 * tol,
+                                    rel_tol: 1e1 * tol,
+                                    ..Default::default()
+                                }
+                                .eq_within_tols(yield_stress_g, yield_stress)
                             })
                     })
             },
@@ -7608,7 +7615,7 @@ fn temporary_elastic_viscoplastic() -> Result<(), TestError> {
 }
 
 #[test]
-fn temporary_hyperviscoelastic() -> Result<(), TestError> {
+fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
     let tol = 1e-4;
     let strain_rate = 2.3; // also set below
     let tspan = [0.0, 1.0];
@@ -7701,12 +7708,12 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
                         deformation_gradients
                             .iter()
                             .try_for_each(|deformation_gradient_g| {
-                                assert_eq_within(
-                                    deformation_gradient_g,
-                                    deformation_gradient,
-                                    tol,
-                                    tol,
-                                )
+                                Assert {
+                                    abs_tol: tol,
+                                    rel_tol: tol,
+                                    ..Default::default()
+                                }
+                                .eq_within_tols(deformation_gradient_g, deformation_gradient)
                             })
                     })?;
                 fem_model
@@ -7716,11 +7723,14 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
                     .try_for_each(|deformation_gradient_rates| {
                         deformation_gradient_rates.iter().try_for_each(
                             |deformation_gradient_rate_g| {
-                                assert_eq_within(
+                                Assert {
+                                    abs_tol: tol,
+                                    rel_tol: tol,
+                                    ..Default::default()
+                                }
+                                .eq_within_tols(
                                     deformation_gradient_rate_g,
                                     deformation_gradient_rate,
-                                    tol,
-                                    tol,
                                 )
                             },
                         )
@@ -7732,7 +7742,7 @@ fn temporary_hyperviscoelastic() -> Result<(), TestError> {
 }
 
 #[test]
-fn temporary_thermal_conduction() -> Result<(), TestError> {
+fn temporary_thermal_conduction() -> Result<(), AssertionError> {
     let temperature = 13.0;
     let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
@@ -7794,7 +7804,7 @@ fn temporary_thermal_conduction() -> Result<(), TestError> {
             temperature_gradients_e
                 .iter()
                 .try_for_each(|temperature_gradient_g| {
-                    assert_eq_within_tols(temperature_gradient_g, &temperature_gradient)
+                    Assert::default().eq_within_tols(temperature_gradient_g, &temperature_gradient)
                 })
         })?;
     println!("Done ({:?}).", time.elapsed());

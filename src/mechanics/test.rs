@@ -4,14 +4,14 @@ use super::{
     RightCauchyGreenDeformation, RotationCurrentConfiguration, RotationRateCurrentConfiguration,
     RotationReferenceConfiguration, Scalar, TemperatureGradient,
 };
+use crate::math::assert::Assert;
 use crate::math::{
-    IDENTITY, IDENTITY_00, IDENTITY_10, Rank2, Tensor, TensorArray,
-    test::{TestError, assert_eq_within_tols},
+    IDENTITY, IDENTITY_00, IDENTITY_10, Rank2, Tensor, TensorArray, assert::AssertionError,
 };
 
-impl From<DeformationError> for TestError {
-    fn from(error: DeformationError) -> TestError {
-        TestError {
+impl From<DeformationError> for AssertionError {
+    fn from(error: DeformationError) -> AssertionError {
+        AssertionError {
             message: error.to_string(),
         }
     }
@@ -162,7 +162,7 @@ fn frame_spin_tensor() {
 fn into_test_error() {
     let mut deformation_gradient = IDENTITY_10;
     deformation_gradient[0][0] = -1.0;
-    let _: TestError = deformation_gradient.jacobian().unwrap_err().into();
+    let _: AssertionError = deformation_gradient.jacobian().unwrap_err().into();
 }
 
 #[test]
@@ -174,42 +174,42 @@ fn invalid_jacobian() {
 }
 
 #[test]
-fn invariant_jacobian() -> Result<(), TestError> {
-    assert_eq_within_tols(
-        &get_deformation_gradient().jacobian()?,
+fn invariant_jacobian() -> Result<(), AssertionError> {
+    Assert::default().eq_within_tols(
+        get_deformation_gradient().jacobian()?,
         &get_deformation_gradient_rotated().jacobian()?,
     )?;
-    assert_eq_within_tols(
-        &1.0,
+    Assert::default().eq_within_tols(
+        1.0,
         &get_deformation_gradient_rotated_undeformed().jacobian()?,
     )
 }
 
 #[test]
-fn invariant_jacobian_indeformed() -> Result<(), TestError> {
-    assert_eq_within_tols(
-        &1.0,
+fn invariant_jacobian_indeformed() -> Result<(), AssertionError> {
+    Assert::default().eq_within_tols(
+        1.0,
         &get_deformation_gradient_rotated_undeformed().jacobian()?,
     )
 }
 
 #[test]
-fn jacobian() -> Result<(), TestError> {
+fn jacobian() -> Result<(), AssertionError> {
     let _ = get_deformation_gradient().jacobian()?;
     Ok(())
 }
 
 #[test]
-fn rotation_current_configuration() -> Result<(), TestError> {
-    assert_eq_within_tols(
+fn rotation_current_configuration() -> Result<(), AssertionError> {
+    Assert::default().eq_within_tols(
         &(get_rotation_current_configuration() * get_rotation_current_configuration().transpose()),
         &IDENTITY,
     )
 }
 
 #[test]
-fn rotation_reference_configuration() -> Result<(), TestError> {
-    assert_eq_within_tols(
+fn rotation_reference_configuration() -> Result<(), AssertionError> {
+    Assert::default().eq_within_tols(
         &(get_rotation_reference_configuration()
             * get_rotation_reference_configuration().transpose()),
         &IDENTITY_00,
@@ -217,9 +217,9 @@ fn rotation_reference_configuration() -> Result<(), TestError> {
 }
 
 #[test]
-fn rotation_rate_current_configuration() -> Result<(), TestError> {
-    assert_eq_within_tols(
-        &get_rotation_rate_current_configuration(),
+fn rotation_rate_current_configuration() -> Result<(), AssertionError> {
+    Assert::default().eq_within_tols(
+        get_rotation_rate_current_configuration(),
         &(get_frame_spin() * get_rotation_current_configuration()),
     )
 }
@@ -234,11 +234,11 @@ fn size() {
 }
 
 #[test]
-fn symmetry() -> Result<(), TestError> {
+fn symmetry() -> Result<(), AssertionError> {
     let left_cauchy_green = get_left_cauchy_green();
-    assert_eq_within_tols(&left_cauchy_green, &left_cauchy_green.transpose())?;
+    Assert::default().eq_within_tols(&left_cauchy_green, &left_cauchy_green.transpose())?;
     let right_cauchy_green = get_right_cauchy_green();
-    assert_eq_within_tols(&right_cauchy_green, &right_cauchy_green.transpose())
+    Assert::default().eq_within_tols(&right_cauchy_green, &right_cauchy_green.transpose())
 }
 
 #[test]
@@ -247,13 +247,13 @@ fn trace() {
 }
 
 #[test]
-fn trace_invariant() -> Result<(), TestError> {
-    assert_eq_within_tols(
-        &get_left_cauchy_green().trace(),
+fn trace_invariant() -> Result<(), AssertionError> {
+    Assert::default().eq_within_tols(
+        get_left_cauchy_green().trace(),
         &get_left_cauchy_green_rotated().trace(),
     )?;
-    assert_eq_within_tols(
-        &get_right_cauchy_green().trace(),
+    Assert::default().eq_within_tols(
+        get_right_cauchy_green().trace(),
         &get_right_cauchy_green_rotated().trace(),
     )
 }
@@ -261,31 +261,34 @@ fn trace_invariant() -> Result<(), TestError> {
 #[test]
 fn trace_not_invariant() {
     assert!(
-        assert_eq_within_tols(
-            &get_deformation_gradient().trace(),
-            &get_deformation_gradient_rotated().trace(),
-        )
-        .is_err()
+        Assert::default()
+            .eq_within_tols(
+                get_deformation_gradient().trace(),
+                &get_deformation_gradient_rotated().trace(),
+            )
+            .is_err()
     )
 }
 
 #[test]
 fn not_a_tensor() {
     assert!(
-        assert_eq_within_tols(
-            &get_deformation_gradient_rate_rotated_undeformed(),
-            &DeformationGradientRate::zero(),
-        )
-        .is_err()
+        Assert::default()
+            .eq_within_tols(
+                get_deformation_gradient_rate_rotated_undeformed(),
+                &DeformationGradientRate::zero(),
+            )
+            .is_err()
     );
     assert!(
-        assert_eq_within_tols(
-            &get_deformation_gradient_rate_rotated(),
-            &(get_rotation_current_configuration()
-                * get_deformation_gradient_rate()
-                * get_rotation_reference_configuration().transpose())
-        )
-        .is_err()
+        Assert::default()
+            .eq_within_tols(
+                get_deformation_gradient_rate_rotated(),
+                &(get_rotation_current_configuration()
+                    * get_deformation_gradient_rate()
+                    * get_rotation_reference_configuration().transpose())
+            )
+            .is_err()
     )
 }
 

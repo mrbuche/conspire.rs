@@ -4,9 +4,9 @@ mod test;
 use crate::math::{Tensor, TensorRank0, TensorRank2, TensorRank2List, tensor::list::TensorList};
 use std::ops::Mul;
 
-#[cfg(test)]
-use crate::math::tensor::test::ErrorTensor;
+use crate::math::assert::FiniteDifference;
 
+/// A list of lists of rank-2 tensors.
 pub type TensorRank2List2D<
     const D: usize,
     const I: usize,
@@ -55,9 +55,8 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: us
     }
 }
 
-#[cfg(test)]
-impl<const D: usize, const I: usize, const J: usize, const W: usize, const X: usize> ErrorTensor
-    for TensorRank2List2D<D, I, J, W, X>
+impl<const D: usize, const I: usize, const J: usize, const W: usize, const X: usize>
+    FiniteDifference for TensorRank2List2D<D, I, J, W, X>
 {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self

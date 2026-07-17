@@ -1,12 +1,10 @@
+use crate::math::assert::Assert;
 use crate::{
     geometry::{
         Coordinate, Coordinates,
         mesh::{Connectivity, Mesh, tessellation::Tessellation, test::mesh},
     },
-    math::{
-        Tensor,
-        test::{TestError, assert_eq},
-    },
+    math::{Tensor, assert::AssertionError},
 };
 
 pub const NORMALS: [Coordinate<3>; 12] = [
@@ -29,7 +27,7 @@ pub fn tessellation() -> Tessellation {
 }
 
 #[test]
-fn triangular_mesh() -> Result<(), TestError> {
+fn triangular_mesh() -> Result<(), AssertionError> {
     let connectivities = vec![Connectivity::Triangular(
         vec![[0_usize, 1, 2], [0, 3, 1]].into(),
     )];
@@ -46,5 +44,5 @@ fn triangular_mesh() -> Result<(), TestError> {
         .normals()
         .iter()
         .flat_map(|block| block.iter())
-        .try_for_each(|normal| assert_eq(normal, &up))
+        .try_for_each(|normal| Assert::eq(normal, &up))
 }

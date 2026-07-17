@@ -25,11 +25,14 @@ where
     U: TensorVec<Item = Y>,
 {
     /// Solution interpolation.
+    #[allow(clippy::too_many_arguments)]
     fn interpolate(
         &self,
         time: &Vector,
         tp: &Vector,
         yp: &U,
+        dydtp: &U,
+        k_sol: &[U],
         function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
     ) -> Result<(U, U), IntegrationError>;
 }

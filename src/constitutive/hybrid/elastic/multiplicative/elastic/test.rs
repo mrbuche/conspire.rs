@@ -1,3 +1,4 @@
+use crate::math::assert::Assert;
 use crate::{
     constitutive::{
         hybrid::ElasticMultiplicative,
@@ -9,21 +10,21 @@ use crate::{
             hyperelastic::NeoHookean,
         },
     },
-    math::{TensorArray, TestError},
+    math::{TensorArray, assert::AssertionError},
 };
 
 use crate::{
     constitutive::solid::elastic::{AppliedLoad, internal_variables::ElasticIV},
     math::{
         TensorRank4,
+        assert::FiniteDifference,
         optimize::{GradientDescent, NewtonRaphson},
-        test::{ErrorTensor, assert_eq_from_fd},
     },
     mechanics::*,
 };
 
 #[test]
-fn finite_difference_0() -> Result<(), TestError> {
+fn finite_difference_0() -> Result<(), AssertionError> {
     let deformation_gradient = DeformationGradient::from([
         [1.31924942, 1.36431217, 0.41764434],
         [0.09959341, 1.38409741, 1.48320137],
@@ -65,14 +66,14 @@ fn finite_difference_0() -> Result<(), TestError> {
         }
     }
     if tangent.error_fd(&fd, 5e1 * crate::EPSILON).is_some() {
-        assert_eq_from_fd(&tangent, &fd)
+        Assert::default().eq_within_fd_tol(&tangent, &fd)
     } else {
         Ok(())
     }
 }
 
 #[test]
-fn finite_difference_1() -> Result<(), TestError> {
+fn finite_difference_1() -> Result<(), AssertionError> {
     let deformation_gradient = DeformationGradient::from([
         [1.31924942, 1.36431217, 0.41764434],
         [0.09959341, 1.38409741, 1.48320137],
@@ -116,14 +117,14 @@ fn finite_difference_1() -> Result<(), TestError> {
         }
     }
     if tangent_1.error_fd(&fd, 5e1 * crate::EPSILON).is_some() {
-        assert_eq_from_fd(&tangent_1, &fd)
+        Assert::default().eq_within_fd_tol(&tangent_1, &fd)
     } else {
         Ok(())
     }
 }
 
 #[test]
-fn finite_difference_2() -> Result<(), TestError> {
+fn finite_difference_2() -> Result<(), AssertionError> {
     let deformation_gradient = DeformationGradient::from([
         [1.31924942, 1.36431217, 0.41764434],
         [0.09959341, 1.38409741, 1.48320137],
@@ -169,14 +170,14 @@ fn finite_difference_2() -> Result<(), TestError> {
         }
     }
     if tangent_2.error_fd(&fd, 5e1 * crate::EPSILON).is_some() {
-        assert_eq_from_fd(&tangent_2, &fd)
+        Assert::default().eq_within_fd_tol(&tangent_2, &fd)
     } else {
         Ok(())
     }
 }
 
 #[test]
-fn finite_difference_3() -> Result<(), TestError> {
+fn finite_difference_3() -> Result<(), AssertionError> {
     let deformation_gradient = DeformationGradient::from([
         [1.31924942, 1.36431217, 0.41764434],
         [0.09959341, 1.38409741, 1.48320137],
@@ -220,7 +221,7 @@ fn finite_difference_3() -> Result<(), TestError> {
         }
     }
     if tangent_3.error_fd(&fd, 5e1 * crate::EPSILON).is_some() {
-        assert_eq_from_fd(&tangent_3, &fd)
+        Assert::default().eq_within_fd_tol(&tangent_3, &fd)
     } else {
         Ok(())
     }
@@ -229,7 +230,7 @@ fn finite_difference_3() -> Result<(), TestError> {
 const STRETCH: Scalar = 1.5;
 
 #[test]
-fn root_0() -> Result<(), TestError> {
+fn root_0() -> Result<(), AssertionError> {
     use crate::constitutive::solid::elastic::internal_variables::ZerothOrderRoot;
     let model = ElasticMultiplicative::from((
         AlmansiHamel {
@@ -255,7 +256,7 @@ fn root_0() -> Result<(), TestError> {
 }
 
 #[test]
-fn root_1() -> Result<(), TestError> {
+fn root_1() -> Result<(), AssertionError> {
     use crate::constitutive::solid::elastic::internal_variables::FirstOrderRoot;
     let model = ElasticMultiplicative::from((
         AlmansiHamel {

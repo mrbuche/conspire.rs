@@ -3,6 +3,7 @@ pub mod sets;
 use crate::math::Tensor;
 use std::vec::IntoIter;
 
+/// A collection of members with optional numbering.
 pub struct Set<S> {
     members: S,
     numbers: Option<Vec<usize>>,

@@ -3,7 +3,8 @@ mod test;
 
 use crate::{
     math::{
-        Scalar, random_uniform, random_x2_normal,
+        Scalar,
+        random::{random_uniform, random_x2_normal},
         special::{erf, erfc},
     },
     mechanics::CurrentCoordinate,

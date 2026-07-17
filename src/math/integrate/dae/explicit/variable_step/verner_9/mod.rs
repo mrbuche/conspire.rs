@@ -7,7 +7,7 @@ use std::ops::{Mul, Sub};
 impl<Y, Z, U, V> ExplicitDaeVariableStepExplicit<Y, Z, U, V> for Verner9
 where
     Y: Tensor,
-    Z: Tensor,
+    Z: PartialEq + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,

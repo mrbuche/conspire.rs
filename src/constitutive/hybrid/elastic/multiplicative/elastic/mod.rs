@@ -10,7 +10,7 @@ use crate::{
             elastic::{Elastic, internal_variables::ElasticIV},
         },
     },
-    math::{ContractThirdIndexWithFirstIndexOf, Rank2, TensorArray, TensorRank4},
+    math::{ContractThirdWithFirst, Rank2, TensorArray, TensorRank4},
     mechanics::{
         CauchyStress, CauchyTangentStiffness, CauchyTangentStiffness1, DeformationGradient,
         DeformationGradient2, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStress1,
@@ -174,13 +174,11 @@ where
         let tangent_2 = TensorRank4::dyad_il_jk(
             &first_piola_kirchhoff_stress,
             &(&deformation_gradient_2_inverse * -1.0),
-        ) - tangent_0
-            .contract_third_index_with_first_index_of(&deformation_gradient_1);
+        ) - tangent_0.contract_third_with_first(&deformation_gradient_1);
         let tangent_3 = FirstPiolaKirchhoffTangentStiffness2::from(
             self.1
                 .first_piola_kirchhoff_tangent_stiffness(deformation_gradient_2.into())?,
-        ) - tangent_1
-            .contract_third_index_with_first_index_of(&deformation_gradient_1)
+        ) - tangent_1.contract_third_with_first(&deformation_gradient_1)
             + TensorRank4::dyad_il_jk(
                 &(deformation_gradient_1_transpose * first_piola_kirchhoff_stress),
                 &deformation_gradient_2_inverse,

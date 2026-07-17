@@ -18,7 +18,7 @@ macro_rules! test_thermal_block {
                     },
                     thermal::conduction::ThermalConductionElements,
                 },
-                math::test::{TestError, assert_eq_from_fd},
+                math::assert::AssertionError,
             };
             mod finite_difference {
                 use super::*;
@@ -26,7 +26,7 @@ macro_rules! test_thermal_block {
                     thermal_conductivity: 1.0,
                 };
                 #[test]
-                fn potential() -> Result<(), TestError> {
+                fn potential() -> Result<(), AssertionError> {
                     let constitutive_model = MODEL;
                     let block = Block::<Fourier, $element, G, M, N, P>::from((
                         constitutive_model,
@@ -44,13 +44,13 @@ macro_rules! test_thermal_block {
                             Ok(finite_difference / EPSILON)
                         })
                         .collect::<Result<_, ElementModelError>>()?;
-                    assert_eq_from_fd(
+                    $crate::math::assert::Assert::default().eq_within_fd_tol(
                         &nodal_forces_fd,
                         &block.nodal_forces(&NodalTemperatures::zero(D))?,
                     )
                 }
                 #[test]
-                fn nodal_forces() -> Result<(), TestError> {
+                fn nodal_forces() -> Result<(), AssertionError> {
                     let constitutive_model = MODEL;
                     let block = Block::<Fourier, $element, G, M, N, P>::from((
                         constitutive_model,
@@ -74,7 +74,7 @@ macro_rules! test_thermal_block {
                                 .collect()
                         })
                         .collect::<Result<_, ElementModelError>>()?;
-                    assert_eq_from_fd(
+                    $crate::math::assert::Assert::default().eq_within_fd_tol(
                         &nodal_stiffnesses_fd,
                         &block.nodal_stiffnesses(&NodalTemperatures::zero(D))?,
                     )

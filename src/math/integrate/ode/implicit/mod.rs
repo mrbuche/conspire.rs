@@ -153,6 +153,7 @@ where
                 |y_trial: &Y| self.hessian(&mut jacobian, t, &y, t_trial, y_trial, dt),
                 y.clone(),
                 EqualityConstraint::None,
+                None,
             ) {
                 Ok(solution) => solution,
                 Err(error) => {

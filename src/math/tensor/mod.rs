@@ -1,5 +1,3 @@
-pub mod test;
-
 pub mod list;
 pub mod norm;
 pub mod rank_0;
@@ -97,12 +95,33 @@ pub trait Hessian
 where
     Self: Tensor,
 {
+    /// The entry at the given (row, column) position.
+    fn entry(&self, row: usize, column: usize) -> Scalar;
     /// Fills the Hessian into a square matrix.
     fn fill_into(self, square_matrix: &mut SquareMatrix);
     /// Return only the retained indices.
     fn retain_from(self, _retained: &[bool]) -> SquareMatrix {
         unimplemented!()
     }
+}
+
+/// Accumulates rank-2 blocks into a sparse Hessian-like structure.
+///
+/// Symmetric-safe: the caller guarantees `block` at (a, b) equals the
+/// transpose of the (b, a) contribution, so implementors may store or
+/// mirror as they see fit.
+pub trait HessianAccumulate<const D: usize, const I: usize> {
+    fn accumulate(&mut self, a: usize, b: usize, block: rank_2::TensorRank2<D, I, I>);
+}
+
+/// Accumulates a rank-2 block at an exact (a, b) position.
+///
+/// No symmetry assumed. Only implemented by accumulators that store every
+/// position explicitly.
+pub trait HessianAccumulateGeneral<const D: usize, const I: usize>:
+    HessianAccumulate<D, I>
+{
+    fn accumulate_general(&mut self, a: usize, b: usize, block: rank_2::TensorRank2<D, I, I>);
 }
 
 /// Common methods for rank-2 tensors.
@@ -164,6 +183,18 @@ where
 {
     /// The type of item encountered when iterating over the tensor.
     type Item;
+    /// Returns number of nonzero entries given absolute and relative tolerances, compared against zero.
+    fn error_count_zero(&self, tol_abs: Scalar, tol_rel: Scalar) -> Option<usize> {
+        let error_count = self
+            .iter()
+            .filter_map(|entry| entry.error_count_zero(tol_abs, tol_rel))
+            .sum();
+        if error_count > 0 {
+            Some(error_count)
+        } else {
+            None
+        }
+    }
     /// Returns number of different entries given absolute and relative tolerances.
     fn error_count(&self, other: &Self, tol_abs: Scalar, tol_rel: Scalar) -> Option<usize> {
         let error_count = self

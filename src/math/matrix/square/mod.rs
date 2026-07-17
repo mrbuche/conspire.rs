@@ -1,8 +1,7 @@
 #[cfg(test)]
 mod test;
 
-#[cfg(test)]
-use crate::math::test::ErrorTensor;
+use crate::math::assert::FiniteDifference;
 
 use crate::{
     ABS_TOL,
@@ -11,89 +10,11 @@ use crate::{
     },
 };
 use std::{
-    collections::VecDeque,
     fmt::{self, Display, Formatter},
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
     vec::IntoIter,
 };
-
-/// Rearrangement structure for a banded matrix.
-#[derive(Clone)] // temporary for dae integrators
-pub struct Banded {
-    bandwidth: usize,
-    inverse: Vec<usize>,
-    mapping: Vec<usize>,
-}
-
-impl Banded {
-    pub fn map(&self, old: usize) -> usize {
-        self.inverse[old]
-    }
-    pub fn old(&self, new: usize) -> usize {
-        self.mapping[new]
-    }
-    pub fn width(&self) -> usize {
-        self.bandwidth
-    }
-}
-
-impl From<Vec<Vec<bool>>> for Banded {
-    fn from(structure: Vec<Vec<bool>>) -> Self {
-        let num = structure.len();
-        structure.iter().enumerate().for_each(|(i, row_i)| {
-            assert_eq!(row_i.len(), num);
-            row_i
-                .iter()
-                .zip(structure.iter())
-                .for_each(|(entry_ij, row_j)| assert_eq!(&row_j[i], entry_ij))
-        });
-        let mut adj_list = vec![Vec::new(); num];
-        (0..num).for_each(|i| {
-            (0..num)
-                .filter(|&j| structure[i][j] && i != j)
-                .for_each(|j| adj_list[i].push(j))
-        });
-        let start_vertex = (0..num)
-            .min_by_key(|&i| adj_list[i].len())
-            .expect("Matrix must have at least one entry.");
-        let mut visited = vec![false; num];
-        let mut mapping = Vec::new();
-        let mut queue = VecDeque::new();
-        queue.push_back(start_vertex);
-        visited[start_vertex] = true;
-        while let Some(vertex) = queue.pop_front() {
-            mapping.push(vertex);
-            let mut neighbors: Vec<usize> = adj_list[vertex]
-                .iter()
-                .filter(|&&neighbor| !visited[neighbor])
-                .copied()
-                .collect();
-            neighbors.sort_by_key(|&neighbor| adj_list[neighbor].len());
-            for neighbor in neighbors {
-                visited[neighbor] = true;
-                queue.push_back(neighbor);
-            }
-        }
-        mapping.reverse();
-        let mut inverse = vec![0; num];
-        mapping
-            .iter()
-            .enumerate()
-            .for_each(|(new, &old)| inverse[old] = new);
-        let mut bandwidth = 0;
-        (0..num).for_each(|i| {
-            (i + 1..num)
-                .filter(|&j| structure[mapping[i]][mapping[j]])
-                .for_each(|j| bandwidth = bandwidth.max(j - i))
-        });
-        Self {
-            bandwidth,
-            mapping,
-            inverse,
-        }
-    }
-}
 
 /// Possible errors for square matrices.
 #[derive(Debug, PartialEq)]
@@ -217,9 +138,11 @@ impl SquareMatrix {
                 if lu[j][i] != 0.0 {
                     lu[j][i] /= pivot;
                     factor = lu[j][i];
-                    for k in i + 1..n {
-                        lu[j][k] -= factor * lu[i][k];
-                    }
+                    let (front, back) = lu.0.split_at_mut(j);
+                    back[0].as_mut_slice()[i + 1..n]
+                        .iter_mut()
+                        .zip(front[i].as_slice()[i + 1..n].iter())
+                        .for_each(|(lu_jk, lu_ik)| *lu_jk -= factor * lu_ik);
                 }
             }
         }
@@ -227,67 +150,6 @@ impl SquareMatrix {
         forward_substitution(&mut x, &lu);
         backward_substitution(&mut x, &lu);
         Ok(x)
-    }
-    /// Solve a system of linear equations rearranged in a banded structure using the LU decomposition.
-    pub fn solve_lu_banded(
-        &self,
-        b: &Vector,
-        banded: &Banded,
-    ) -> Result<Vector, SquareMatrixError> {
-        let bandwidth = banded.width();
-        let mut bandwidth_updated;
-        let n = self.len();
-        let mut p: Vec<usize> = (0..n).collect();
-        let mut end;
-        let mut factor;
-        let mut max_row;
-        let mut max_val;
-        let mut pivot;
-        let mut rearr: Self = (0..n)
-            .map(|i| (0..n).map(|j| self[banded.old(i)][banded.old(j)]).collect())
-            .collect();
-        for i in 0..n {
-            end = n.min(i + 1 + bandwidth);
-            pivot = rearr[i][i];
-            if pivot.abs() < ABS_TOL {
-                max_row = i;
-                max_val = rearr[max_row][i].abs();
-                for k in i + 1..end {
-                    if rearr[k][i].abs() > max_val {
-                        max_row = k;
-                        max_val = rearr[max_row][i].abs();
-                    }
-                }
-                if max_row != i {
-                    rearr.0.swap(i, max_row);
-                    p.swap(i, max_row);
-                    pivot = rearr[i][i];
-                    if pivot.abs() < ABS_TOL {
-                        return Err(SquareMatrixError::Singular);
-                    }
-                }
-            }
-            bandwidth_updated = bandwidth;
-            (i + 1 + bandwidth..n).for_each(|j| {
-                if rearr[i][j] != 0.0 {
-                    bandwidth_updated = bandwidth_updated.max(j - i)
-                }
-            });
-            end = n.min(i + 1 + bandwidth_updated);
-            for j in i + 1..end {
-                if rearr[j][i] != 0.0 {
-                    rearr[j][i] /= pivot;
-                    factor = rearr[j][i];
-                    for k in i + 1..end {
-                        rearr[j][k] -= factor * rearr[i][k];
-                    }
-                }
-            }
-        }
-        let mut x: Vector = p.into_iter().map(|p_i| b[banded.old(p_i)]).collect();
-        forward_substitution(&mut x, &rearr);
-        backward_substitution(&mut x, &rearr);
-        Ok((0..n).map(|i| x[banded.map(i)]).collect())
     }
     pub fn zero(len: usize) -> Self {
         (0..len).map(|_| Vector::zero(len)).collect()
@@ -317,8 +179,7 @@ fn backward_substitution(x: &mut Vector, a: &SquareMatrix) {
     })
 }
 
-#[cfg(test)]
-impl ErrorTensor for SquareMatrix {
+impl FiniteDifference for SquareMatrix {
     fn error_fd(&self, comparator: &Self, epsilon: Scalar) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
@@ -416,6 +277,9 @@ impl IndexMut<usize> for SquareMatrix {
 }
 
 impl Hessian for SquareMatrix {
+    fn entry(&self, row: usize, column: usize) -> Scalar {
+        self[row][column]
+    }
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
         self.into_iter()
             .zip(square_matrix.iter_mut())

@@ -1,8 +1,6 @@
+use crate::math::assert::Assert;
 use crate::{
-    math::{
-        Rank2, Scalar, Tensor,
-        test::{TestError, assert_eq},
-    },
+    math::{Rank2, Scalar, Tensor, assert::AssertionError},
     physics::{
         ROOM_TEMPERATURE,
         molecular::single_chain::{
@@ -29,14 +27,14 @@ fn monte_carlo() {
 }
 
 #[test]
-fn cosine_moments() -> Result<(), TestError> {
+fn cosine_moments() -> Result<(), AssertionError> {
     let (cos, coscos, cos2, _) = MODEL.cosine_moments(3.3, 10_000, 1);
     let gamma_z = cos.iter().sum::<Scalar>() / MODEL.number_of_links as Scalar;
     assert!(gamma_z > 0.0 && gamma_z < 1.0);
-    assert_eq(&coscos.transpose(), &coscos)?;
+    Assert::eq(coscos.transpose(), &coscos)?;
     coscos
         .into_iter()
         .zip(cos2)
         .enumerate()
-        .try_for_each(|(i, (coscos_i, cos2_i))| assert_eq(&coscos_i[i], &cos2_i))
+        .try_for_each(|(i, (coscos_i, cos2_i))| Assert::eq(coscos_i[i], &cos2_i))
 }

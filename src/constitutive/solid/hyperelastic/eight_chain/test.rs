@@ -1,5 +1,6 @@
 use super::super::test::*;
 use super::*;
+use crate::math::assert::Assert;
 use crate::physics::{ROOM_TEMPERATURE, molecular::single_chain::Ensemble};
 
 mod freely_jointed_chain {
@@ -32,11 +33,9 @@ mod freely_jointed_chain {
         });
         mod consistency {
             use super::*;
-            use crate::{
-                constitutive::solid::hyperelastic::ArrudaBoyce, math::test::assert_eq_within_tols,
-            };
+            use crate::constitutive::solid::hyperelastic::ArrudaBoyce;
             #[test]
-            fn cauchy_stress() -> Result<(), TestError> {
+            fn cauchy_stress() -> Result<(), AssertionError> {
                 let eight_chain = EightChain {
                     bulk_modulus: BULK_MODULUS,
                     shear_modulus: SHEAR_MODULUS,
@@ -47,13 +46,13 @@ mod freely_jointed_chain {
                     shear_modulus: SHEAR_MODULUS,
                     number_of_links: NUMBER_OF_LINKS,
                 };
-                assert_eq_within_tols(
+                Assert::default().eq_within_tols(
                     &eight_chain.cauchy_stress(&get_deformation_gradient())?,
                     &arruda_boyce.cauchy_stress(&get_deformation_gradient())?,
                 )
             }
             #[test]
-            fn cauchy_tangent_stiffness() -> Result<(), TestError> {
+            fn cauchy_tangent_stiffness() -> Result<(), AssertionError> {
                 let eight_chain = EightChain {
                     bulk_modulus: BULK_MODULUS,
                     shear_modulus: SHEAR_MODULUS,
@@ -64,13 +63,13 @@ mod freely_jointed_chain {
                     shear_modulus: SHEAR_MODULUS,
                     number_of_links: NUMBER_OF_LINKS,
                 };
-                assert_eq_within_tols(
+                Assert::default().eq_within_tols(
                     &eight_chain.cauchy_tangent_stiffness(&get_deformation_gradient())?,
                     &arruda_boyce.cauchy_tangent_stiffness(&get_deformation_gradient())?,
                 )
             }
             #[test]
-            fn helmholtz_free_energy_density() -> Result<(), TestError> {
+            fn helmholtz_free_energy_density() -> Result<(), AssertionError> {
                 let eight_chain = EightChain {
                     bulk_modulus: BULK_MODULUS,
                     shear_modulus: SHEAR_MODULUS,
@@ -81,8 +80,8 @@ mod freely_jointed_chain {
                     shear_modulus: SHEAR_MODULUS,
                     number_of_links: NUMBER_OF_LINKS,
                 };
-                assert_eq_within_tols(
-                    &eight_chain.helmholtz_free_energy_density(&get_deformation_gradient())?,
+                Assert::default().eq_within_tols(
+                    eight_chain.helmholtz_free_energy_density(&get_deformation_gradient())?,
                     &arruda_boyce.helmholtz_free_energy_density(&get_deformation_gradient())?,
                 )
             }

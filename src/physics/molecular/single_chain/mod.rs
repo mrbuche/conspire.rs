@@ -23,7 +23,7 @@ pub use thermodynamics::{
 };
 pub use ufjc::ArbitraryPotentialFreelyJointedChain;
 
-use crate::math::{Scalar, Style, StyledError, TestError, styled_error};
+use crate::math::{Scalar, Style, StyledError, assert::AssertionError, styled_error};
 use std::fmt::Debug;
 
 pub trait SingleChain
@@ -65,7 +65,7 @@ pub enum SingleChainError {
     Upstream(String, String),
 }
 
-impl From<SingleChainError> for TestError {
+impl From<SingleChainError> for AssertionError {
     fn from(error: SingleChainError) -> Self {
         Self {
             message: error.to_string(),

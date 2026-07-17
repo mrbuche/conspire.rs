@@ -15,7 +15,7 @@ macro_rules! test_thermal {
                         },
                     },
                 },
-                math::test::{TestError, assert_eq_from_fd},
+                math::assert::AssertionError,
             };
             mod finite_difference {
                 use super::*;
@@ -23,7 +23,7 @@ macro_rules! test_thermal {
                     thermal_conductivity: 1.0,
                 };
                 #[test]
-                fn potential() -> Result<(), TestError> {
+                fn potential() -> Result<(), AssertionError> {
                     let constitutive_model = MODEL;
                     let element = element();
                     let temperature = ElementNodalTemperatures::from([
@@ -42,7 +42,7 @@ macro_rules! test_thermal {
                             Ok(finite_difference / EPSILON)
                         })
                         .collect::<Result<_, FiniteElementError>>()?;
-                    assert_eq_from_fd(
+                    $crate::math::assert::Assert::default().eq_within_fd_tol(
                         &nodal_forces_fd,
                         &element.nodal_forces(
                             &constitutive_model,
@@ -51,7 +51,7 @@ macro_rules! test_thermal {
                     )
                 }
                 #[test]
-                fn nodal_forces() -> Result<(), TestError> {
+                fn nodal_forces() -> Result<(), AssertionError> {
                     let constitutive_model = MODEL;
                     let element = element();
                     let temperature = ElementNodalTemperatures::from([
@@ -76,7 +76,7 @@ macro_rules! test_thermal {
                                 .collect()
                         })
                         .collect::<Result<_, FiniteElementError>>()?;
-                    assert_eq_from_fd(
+                    $crate::math::assert::Assert::default().eq_within_fd_tol(
                         &nodal_stiffnesses_fd,
                         &element.nodal_stiffnesses(
                             &constitutive_model,

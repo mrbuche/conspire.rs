@@ -5,8 +5,8 @@ use crate::math::Norm;
 use crate::math::{
     Scalar, Tensor, TensorVec, Vector,
     integrate::{
-        Explicit, IntegrationError, OdeIntegrator, VariableStep, VariableStepExplicit,
-        VariableStepExplicitFirstSameAsLast,
+        Explicit, FreeInterpolant, IntegrationError, OdeIntegrator, VariableStep,
+        VariableStepExplicit, VariableStepExplicitFirstSameAsLast,
     },
     interpolate::InterpolateSolution,
 };
@@ -140,13 +140,14 @@ where
         y_sol: &mut U,
         t_sol: &mut Vector,
         dydt_sol: &mut U,
+        k_sol: &mut Vec<U>,
         dt: &mut Scalar,
         k: &mut [Y],
         y_trial: &Y,
         e: Scalar,
     ) -> Result<(), String> {
         let dt_0 = *dt;
-        self.step_fsal(y, t, y_sol, t_sol, dydt_sol, dt, k, y_trial, e)?;
+        self.step_fsal(y, t, y_sol, t_sol, dydt_sol, k_sol, dt, k, y_trial, e)?;
         if e > 0.0 {
             *dt = dt_0;
             *dt *= self.dt_beta() * (self.abs_tol() / e).powf(1.0 / self.dt_expn())
@@ -156,6 +157,14 @@ where
 }
 
 impl<Y, U> VariableStepExplicitFirstSameAsLast<Y, U> for BogackiShampine
+where
+    Y: Tensor,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    U: TensorVec<Item = Y>,
+{
+}
+
+impl<Y, U> FreeInterpolant<Y, U> for BogackiShampine
 where
     Y: Tensor,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -174,8 +183,10 @@ where
         time: &Vector,
         tp: &Vector,
         yp: &U,
-        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        dydtp: &U,
+        _k_sol: &[U],
+        _function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
     ) -> Result<(U, U), IntegrationError> {
-        Self::interpolate_variable_step(time, tp, yp, function)
+        Ok(Self::interpolate_free(time, tp, yp, dydtp))
     }
 }

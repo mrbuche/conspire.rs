@@ -6,7 +6,8 @@ pub mod solid;
 pub mod thermal;
 
 use crate::math::{
-    Style, StyledError, TensorRank1Vec, TensorRank1Vec2D, TestError,
+    Style, StyledError, TensorRank1Vec, TensorRank1Vec2D,
+    assert::AssertionError,
     optimize::{
         EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
         SecondOrderOptimization, ZerothOrderRootFinding,
@@ -158,7 +159,7 @@ impl<B, const D: usize> From<(B, NodalReferenceCoordinates<D>)> for Model<B, D> 
     }
 }
 
-impl From<ElementModelError> for TestError {
+impl From<ElementModelError> for AssertionError {
     fn from(error: ElementModelError) -> Self {
         Self {
             message: error.to_string(),

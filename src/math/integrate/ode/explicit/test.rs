@@ -2,8 +2,8 @@ macro_rules! test_explicit {
     ($integration: expr) => {
         use crate::math::{
             Scalar, Vector,
+            assert::AssertionError,
             integrate::{Explicit, IntegrationError},
-            test::TestError,
         };
         #[test]
         #[should_panic(expected = "The time must contain at least two entries.")]
@@ -16,7 +16,7 @@ macro_rules! test_explicit {
         fn into_test_error() {
             let result: Result<(Vector, Vector, _), IntegrationError> =
                 $integration.integrate(|_: Scalar, _: &Scalar| panic!(), &[0.0], 0.0);
-            let _: TestError = result.unwrap_err().into();
+            let _: AssertionError = result.unwrap_err().into();
         }
         #[test]
         #[should_panic(expected = "The initial time must precede the final time.")]

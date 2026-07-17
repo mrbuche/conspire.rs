@@ -5,6 +5,9 @@ mod inverse;
 pub mod list;
 pub mod list_2d;
 mod logarithm;
+pub mod sparse_symmetric_vec_2d;
+pub mod sparse_vec;
+pub mod sparse_vec_2d;
 pub mod vec;
 pub mod vec_2d;
 
@@ -26,8 +29,7 @@ use crate::ABS_TOL;
 use list_2d::TensorRank2List2D;
 use vec_2d::TensorRank2Vec2D;
 
-#[cfg(test)]
-use super::test::ErrorTensor;
+use crate::math::assert::FiniteDifference;
 
 /// A *d*-dimensional tensor of rank 2.
 ///
@@ -141,36 +143,42 @@ pub const fn get_identity_1010_parts_3<const I: usize, const J: usize>() -> [Ten
     ]
 }
 
+/// The 3D identity, configurations (1, 1).
 pub const IDENTITY: TensorRank2<3, 1, 1> = TensorRank2([
     TensorRank1::const_from([1.0, 0.0, 0.0]),
     TensorRank1::const_from([0.0, 1.0, 0.0]),
     TensorRank1::const_from([0.0, 0.0, 1.0]),
 ]);
 
+/// The 3D identity, configurations (0, 0).
 pub const IDENTITY_00: TensorRank2<3, 0, 0> = TensorRank2([
     TensorRank1::const_from([1.0, 0.0, 0.0]),
     TensorRank1::const_from([0.0, 1.0, 0.0]),
     TensorRank1::const_from([0.0, 0.0, 1.0]),
 ]);
 
+/// The 3D identity, configurations (1, 0).
 pub const IDENTITY_10: TensorRank2<3, 1, 0> = TensorRank2([
     TensorRank1::const_from([1.0, 0.0, 0.0]),
     TensorRank1::const_from([0.0, 1.0, 0.0]),
     TensorRank1::const_from([0.0, 0.0, 1.0]),
 ]);
 
+/// The 3D identity, configurations (2, 2).
 pub const IDENTITY_22: TensorRank2<3, 2, 2> = TensorRank2([
     TensorRank1::const_from([1.0, 0.0, 0.0]),
     TensorRank1::const_from([0.0, 1.0, 0.0]),
     TensorRank1::const_from([0.0, 0.0, 1.0]),
 ]);
 
+/// The 3D zero tensor, configurations (1, 1).
 pub const ZERO: TensorRank2<3, 1, 1> = TensorRank2([
     tensor_rank_1_zero(),
     tensor_rank_1_zero(),
     tensor_rank_1_zero(),
 ]);
 
+/// The 3D zero tensor, configurations (1, 0).
 pub const ZERO_10: TensorRank2<3, 1, 0> = TensorRank2([
     tensor_rank_1_zero(),
     tensor_rank_1_zero(),
@@ -282,8 +290,7 @@ impl<const D: usize, const I: usize, const J: usize> Display for TensorRank2<D, 
     }
 }
 
-#[cfg(test)]
-impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2<D, I, J> {
+impl<const D: usize, const I: usize, const J: usize> FiniteDifference for TensorRank2<D, I, J> {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
@@ -327,6 +334,9 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
 }
 
 impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2<D, I, J> {
+    fn entry(&self, row: usize, column: usize) -> TensorRank0 {
+        self[row][column]
+    }
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
         self.into_iter().enumerate().for_each(|(i, self_i)| {
             self_i

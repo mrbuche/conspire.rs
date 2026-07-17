@@ -15,10 +15,7 @@ use crate::{
             elastic_viscoplastic::{ElasticPlasticOrViscoplastic, ElasticViscoplastic},
         },
     },
-    math::{
-        ContractFirstSecondIndicesWithSecondIndicesOf, ContractSecondIndexWithFirstIndexOf, Rank2,
-        Scalar, Tensor,
-    },
+    math::{ContractFirstSecondWithSecond, ContractSecondWithFirst, Rank2, Scalar, Tensor},
     mechanics::{
         CauchyStress, CauchyTangentStiffness, CauchyTangentStiffnessElastic, DeformationGradient,
         DeformationGradientPlastic, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStressElastic,
@@ -130,7 +127,7 @@ where
                 &(deformation_gradient * &deformation_gradient_p_inverse).into(),
             )?,
         ) * &deformation_gradient_p_inverse_transpose)
-            .contract_second_index_with_first_index_of(&deformation_gradient_p_inverse_transpose))
+            .contract_second_with_first(&deformation_gradient_p_inverse_transpose))
     }
     fn second_piola_kirchhoff_stress(
         &self,
@@ -155,7 +152,7 @@ where
                 &(deformation_gradient * &deformation_gradient_p_inverse).into(),
             )?,
         ) * deformation_gradient_p_inverse.transpose())
-        .contract_first_second_indices_with_second_indices_of(
+        .contract_first_second_with_second(
             &deformation_gradient_p_inverse,
             &deformation_gradient_p_inverse,
         ))

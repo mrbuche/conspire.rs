@@ -1,3 +1,4 @@
+use crate::math::assert::Assert;
 use crate::{
     EPSILON,
     constitutive::cohesive::elastic::LinearElastic,
@@ -9,10 +10,7 @@ use crate::{
         },
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
     },
-    math::{
-        Rank2, Scalar, Tensor, TensorRank2, assert_eq_within_tols,
-        test::{TestError, assert_eq_from_fd},
-    },
+    math::{Rank2, Scalar, Tensor, TensorRank2, assert::AssertionError},
     mechanics::test::get_rotation_reference_configuration,
 };
 
@@ -38,17 +36,17 @@ const MODEL: LinearElastic = LinearElastic {
 };
 
 #[test]
-fn temporary_1() -> Result<(), TestError> {
+fn temporary_1() -> Result<(), AssertionError> {
     let coordinates = ElementNodalReferenceCoordinates::from(COORDINATES);
     let element = Wedge::from(coordinates.clone());
-    assert_eq_within_tols(
+    Assert::default().eq_within_tols(
         &element.nodal_forces(&MODEL, &coordinates.into())?,
         &[[0.0; 3]; N].into(),
     )
 }
 
 #[test]
-fn temporary_2() -> Result<(), TestError> {
+fn temporary_2() -> Result<(), AssertionError> {
     let mut coordinates = ElementNodalReferenceCoordinates::from(COORDINATES);
     let element = Wedge::from(coordinates.clone());
     coordinates.iter_mut().skip(P).for_each(|coordinate| {
@@ -58,7 +56,7 @@ fn temporary_2() -> Result<(), TestError> {
     let area = element.integration_weights().into_iter().sum::<Scalar>();
     let tangential_force = TANGENTIAL_TRACTION_P * area;
     let normal_force = NORMAL_TRACTION_P * area;
-    assert_eq_within_tols(
+    Assert::default().eq_within_tols(
         &element.nodal_forces(&MODEL, &coordinates.into())?,
         &[
             [-tangential_force, 0.0, -normal_force],
@@ -73,20 +71,20 @@ fn temporary_2() -> Result<(), TestError> {
 }
 
 #[test]
-fn temporary_3() -> Result<(), TestError> {
+fn temporary_3() -> Result<(), AssertionError> {
     let coordinates = ElementNodalReferenceCoordinates::from(COORDINATES)
         .iter()
         .map(|coordinate| get_rotation_reference_configuration() * coordinate)
         .collect::<ElementNodalReferenceCoordinates<N>>();
     let element = Wedge::from(coordinates.clone());
-    assert_eq_within_tols(
+    Assert::default().eq_within_tols(
         &element.nodal_forces(&MODEL, &coordinates.into())?,
         &[[0.0; 3]; N].into(),
     )
 }
 
 #[test]
-fn temporary_4() -> Result<(), TestError> {
+fn temporary_4() -> Result<(), AssertionError> {
     let coordinates_0 = ElementNodalReferenceCoordinates::from(COORDINATES)
         .iter()
         .map(|coordinate| get_rotation_reference_configuration() * coordinate)
@@ -112,7 +110,7 @@ fn temporary_4() -> Result<(), TestError> {
                 * nodal_force
         })
         .collect::<ElementNodalForcesSolid<N>>();
-    assert_eq_within_tols(
+    Assert::default().eq_within_tols(
         &nodal_forces_rotated_back,
         &[
             [-tangential_force, 0.0, -normal_force],
@@ -127,7 +125,7 @@ fn temporary_4() -> Result<(), TestError> {
 }
 
 #[test]
-fn temporary_5() -> Result<(), TestError> {
+fn temporary_5() -> Result<(), AssertionError> {
     let coordinates_0 = ElementNodalReferenceCoordinates::from(COORDINATES);
     let coordinates = ElementNodalCoordinates::from(coordinates_0.clone());
     let element = Wedge::from(coordinates_0);
@@ -155,15 +153,15 @@ fn temporary_5() -> Result<(), TestError> {
                 })
                 .collect()
         })
-        .collect::<Result<ElementNodalStiffnessesSolid<N>, TestError>>()?;
-    assert_eq_from_fd(
+        .collect::<Result<ElementNodalStiffnessesSolid<N>, AssertionError>>()?;
+    Assert::default().eq_within_fd_tol(
         &element.nodal_stiffnesses(&MODEL, &coordinates)?,
         &nodal_stiffnesses_fd,
     )
 }
 
 #[test]
-fn temporary_6() -> Result<(), TestError> {
+fn temporary_6() -> Result<(), AssertionError> {
     let coordinates_0 = ElementNodalReferenceCoordinates::from([
         [-0.57177033, -0.20395894, 0.23629102],
         [1.49477913, 1.72253902, 1.40527015],
@@ -205,8 +203,8 @@ fn temporary_6() -> Result<(), TestError> {
                 })
                 .collect()
         })
-        .collect::<Result<ElementNodalStiffnessesSolid<N>, TestError>>()?;
-    assert_eq_from_fd(
+        .collect::<Result<ElementNodalStiffnessesSolid<N>, AssertionError>>()?;
+    Assert::default().eq_within_fd_tol(
         &element.nodal_stiffnesses(&MODEL, &coordinates)?,
         &nodal_stiffnesses_fd,
     )

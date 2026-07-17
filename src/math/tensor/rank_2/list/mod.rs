@@ -5,6 +5,7 @@ mod test;
 
 use crate::math::{TensorRank0, TensorRank2, tensor::list::TensorList};
 
+/// A list of rank-2 tensors.
 pub type TensorRank2List<const D: usize, const I: usize, const J: usize, const N: usize> =
     TensorList<TensorRank2<D, I, J>, N>;
 

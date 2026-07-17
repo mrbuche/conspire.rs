@@ -1,5 +1,4 @@
-#[cfg(test)]
-use crate::math::test::ErrorTensor;
+use crate::math::assert::FiniteDifference;
 
 use crate::math::{
     Jacobian, Matrix, Scalar, Solution, SquareMatrix, Tensor, TensorRank1Vec, TensorRank2,
@@ -28,6 +27,9 @@ impl Vector {
     pub fn as_slice(&self) -> &[Scalar] {
         self.0.as_slice()
     }
+    pub fn as_mut_slice(&mut self) -> &mut [Scalar] {
+        self.0.as_mut_slice()
+    }
     pub fn ones(len: usize) -> Self {
         Self(vec![1.0; len])
     }
@@ -42,8 +44,7 @@ impl Default for Vector {
     }
 }
 
-#[cfg(test)]
-impl ErrorTensor for Vector {
+impl FiniteDifference for Vector {
     fn error_fd(&self, comparator: &Self, epsilon: Scalar) -> Option<(bool, usize)> {
         let error_count = self
             .iter()

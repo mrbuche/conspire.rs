@@ -1,8 +1,7 @@
 #[cfg(test)]
 mod test;
 
-#[cfg(test)]
-use super::test::ErrorTensor;
+use crate::math::assert::FiniteDifference;
 
 pub mod list;
 pub mod list_2d;
@@ -13,8 +12,7 @@ use std::ops::Sub;
 /// A tensor of rank 0 (a scalar).
 pub type TensorRank0 = f64;
 
-#[cfg(test)]
-impl ErrorTensor for TensorRank0 {
+impl FiniteDifference for TensorRank0 {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         if ((self / comparator - 1.0).abs() >= epsilon && (self - comparator).abs() >= epsilon)
             || self.is_nan()
@@ -60,6 +58,9 @@ impl Sub<&Vector> for TensorRank0 {
 }
 
 impl Hessian for TensorRank0 {
+    fn entry(&self, _row: usize, _column: usize) -> TensorRank0 {
+        unimplemented!()
+    }
     fn fill_into(self, _square_matrix: &mut SquareMatrix) {
         unimplemented!()
     }
@@ -67,6 +68,13 @@ impl Hessian for TensorRank0 {
 
 impl Tensor for TensorRank0 {
     type Item = TensorRank0;
+    fn error_count_zero(&self, tol_abs: TensorRank0, tol_rel: TensorRank0) -> Option<usize> {
+        if (self.sub_abs(&0.0) < tol_abs || self.sub_rel(&0.0) < tol_rel) && !self.is_nan() {
+            None
+        } else {
+            Some(1)
+        }
+    }
     fn error_count(
         &self,
         other: &Self,

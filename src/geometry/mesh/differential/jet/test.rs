@@ -2,7 +2,7 @@ use super::{fit_jet, vertex_jets};
 use crate::{
     geometry::Coordinates,
     // assert_eq_within_tols re-added with Jet::normal for anisotropic remesh
-    math::test::TestError,
+    math::assert::AssertionError,
 };
 
 fn flat_grid(n: usize) -> (Vec<[usize; 3]>, Coordinates<3>) {
@@ -28,7 +28,7 @@ fn flat_grid(n: usize) -> (Vec<[usize; 3]>, Coordinates<3>) {
 }
 
 #[test]
-fn paraboloid_recovers_exact_curvatures() -> Result<(), TestError> {
+fn paraboloid_recovers_exact_curvatures() -> Result<(), AssertionError> {
     let center = [0.0, 0.0, 0.0].into();
     let neighbors = Coordinates::from(vec![
         [1.0, 0.0, 0.2],
@@ -44,7 +44,7 @@ fn paraboloid_recovers_exact_curvatures() -> Result<(), TestError> {
     assert!((jet.principal_curvatures[0] - 0.4).abs() < 1.0e-10);
     assert!((jet.principal_curvatures[1] - 0.1).abs() < 1.0e-10);
     // Off until anisotropic remesh (Jet::normal):
-    // assert_eq_within_tols(&jet.normal, &[0.0, 0.0, 1.0].into())
+    // Assert::default().eq_within_tols(&jet.normal, &[0.0, 0.0, 1.0].into())
     Ok(())
 }
 

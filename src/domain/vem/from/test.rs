@@ -1,11 +1,9 @@
+use crate::math::assert::Assert;
 use crate::{
     constitutive::solid::hyperelastic::NeoHookean,
     fem::{Model, solid::elastic::ElasticElements},
     geometry::mesh::{Connectivity, Mesh, PolytopalConnectivity},
-    math::{
-        Tensor,
-        test::{TestError, assert_eq},
-    },
+    math::{Tensor, assert::AssertionError},
     vem::{
         NodalCoordinates, NodalReferenceCoordinates,
         block::{Block, element::Element},
@@ -62,7 +60,7 @@ fn faces_nodes() -> Vec<Vec<usize>> {
 }
 
 #[test]
-fn polyhedral_block_nodal_forces() -> Result<(), TestError> {
+fn polyhedral_block_nodal_forces() -> Result<(), AssertionError> {
     let mesh = Mesh::from((
         vec![Connectivity::Polyhedral(PolytopalConnectivity::from((
             elements_faces(),
@@ -72,14 +70,14 @@ fn polyhedral_block_nodal_forces() -> Result<(), TestError> {
     ));
     let model: Model<Block<NeoHookean, Element>, 3> = (mesh, constitutive_model())
         .try_into()
-        .map_err(|error: String| TestError { message: error })?;
+        .map_err(|error: String| AssertionError { message: error })?;
     let block = Block::<NeoHookean, Element>::from((
         constitutive_model(),
         elements_faces(),
         faces_nodes(),
         &coordinates(),
     ));
-    assert_eq(
+    Assert::eq(
         &block.nodal_forces(&deformed_coordinates())?,
         &ElasticElements::nodal_forces(&model, &deformed_coordinates())?,
     )

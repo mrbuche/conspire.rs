@@ -88,7 +88,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
             mod viscous_dissipation // eventually should go in fluid/hyperviscous/test.rs
             {
                 use super::*;
-                fn first_piola_kirchhoff_stress_from_finite_difference_of_viscous_dissipation(is_deformed: bool) ->  Result<FirstPiolaKirchhoffStress, TestError>
+                fn first_piola_kirchhoff_stress_from_finite_difference_of_viscous_dissipation(is_deformed: bool) ->  Result<FirstPiolaKirchhoffStress, AssertionError>
                 {
                     let mut first_piola_kirchhoff_stress = FirstPiolaKirchhoffStress::zero();
                     for i in 0..3
@@ -134,9 +134,9 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                 {
                     use super::*;
                     #[test]
-                    fn finite_difference() -> Result<(), TestError>
+                    fn finite_difference() -> Result<(), AssertionError>
                     {
-                        assert_eq_from_fd(
+                        $crate::math::assert::Assert::default().eq_within_fd_tol(
                             &first_piola_kirchhoff_stress_from_deformation_gradient_rate_simple!(
                                 $constitutive_model, &get_deformation_gradient_rate()
                             )?,
@@ -144,7 +144,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                         )
                     }
                     #[test]
-                    fn minimized() -> Result<(), TestError>
+                    fn minimized() -> Result<(), AssertionError>
                     {
                         let first_piola_kirchhoff_stress =
                         first_piola_kirchhoff_stress_from_deformation_gradient_rate_simple!(
@@ -181,9 +181,9 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                         )
                     }
                     #[test]
-                    fn objectivity() -> Result<(), TestError>
+                    fn objectivity() -> Result<(), AssertionError>
                     {
-                        assert_eq_within_tols(
+                        $crate::math::assert::Assert::default().eq_within_tols(
                             &viscous_dissipation_from_deformation_gradient_and_deformation_gradient_rate!(
                                 $constitutive_model, &get_deformation_gradient(), &get_deformation_gradient_rate()
                             )?,
@@ -193,7 +193,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                         )
                     }
                     #[test]
-                    fn positive() -> Result<(), TestError>
+                    fn positive() -> Result<(), AssertionError>
                     {
                         assert!(
                             viscous_dissipation_from_deformation_gradient_rate_simple!(
@@ -207,15 +207,15 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                 {
                     use super::*;
                     #[test]
-                    fn finite_difference() -> Result<(), TestError>
+                    fn finite_difference() -> Result<(), AssertionError>
                     {
-                        assert_eq_from_fd(
+                        $crate::math::assert::Assert::default().eq_within_fd_tol(
                             &first_piola_kirchhoff_stress_from_finite_difference_of_viscous_dissipation(false)?,
                             &FirstPiolaKirchhoffStress::zero()
                         )
                     }
                     #[test]
-                    fn minimized() -> Result<(), TestError>
+                    fn minimized() -> Result<(), AssertionError>
                     {
                         let minimum =
                         viscous_dissipation_from_deformation_gradient_rate_simple!(
@@ -242,9 +242,9 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                         )
                     }
                     #[test]
-                    fn zero() -> Result<(), TestError>
+                    fn zero() -> Result<(), AssertionError>
                     {
-                        assert_eq(
+                        $crate::math::assert::Assert::eq(
                             &viscous_dissipation_from_deformation_gradient_rate_simple!(
                                 $constitutive_model,  &DeformationGradientRate::zero()
                             )?, &0.0
@@ -255,7 +255,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
             mod dissipation_potential
             {
                 use super::*;
-                fn first_piola_kirchhoff_stress_from_finite_difference_of_dissipation_potential(is_deformed: bool) -> Result<FirstPiolaKirchhoffStress, TestError>
+                fn first_piola_kirchhoff_stress_from_finite_difference_of_dissipation_potential(is_deformed: bool) -> Result<FirstPiolaKirchhoffStress, AssertionError>
                 {
                     let deformation_gradient =
                         if is_deformed
@@ -310,9 +310,9 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                 {
                     use super::*;
                     #[test]
-                    fn finite_difference() -> Result<(), TestError>
+                    fn finite_difference() -> Result<(), AssertionError>
                     {
-                        assert_eq_from_fd(
+                        $crate::math::assert::Assert::default().eq_within_fd_tol(
                             &first_piola_kirchhoff_stress_from_deformation_gradient_and_deformation_gradient_rate!(
                                 $constitutive_model, &get_deformation_gradient(), &get_deformation_gradient_rate()
                             )?,
@@ -320,7 +320,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                         )
                     }
                     #[test]
-                    fn minimized() -> Result<(), TestError>
+                    fn minimized() -> Result<(), AssertionError>
                     {
                         let first_piola_kirchhoff_stress =
                         first_piola_kirchhoff_stress_from_deformation_gradient_and_deformation_gradient_rate!(
@@ -357,9 +357,9 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                         )
                     }
                     #[test]
-                    fn objectivity() -> Result<(), TestError>
+                    fn objectivity() -> Result<(), AssertionError>
                     {
-                        assert_eq_within_tols(
+                        $crate::math::assert::Assert::default().eq_within_tols(
                             &dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                                 $constitutive_model, &get_deformation_gradient(), &get_deformation_gradient_rate()
                             )?,
@@ -373,15 +373,15 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                 {
                     use super::*;
                     #[test]
-                    fn finite_difference() -> Result<(), TestError>
+                    fn finite_difference() -> Result<(), AssertionError>
                     {
-                        assert_eq_from_fd(
+                        $crate::math::assert::Assert::default().eq_within_fd_tol(
                             &first_piola_kirchhoff_stress_from_finite_difference_of_dissipation_potential(false)?,
                             &FirstPiolaKirchhoffStress::zero()
                         )
                     }
                     #[test]
-                    fn minimized() -> Result<(), TestError>
+                    fn minimized() -> Result<(), AssertionError>
                     {
                         let minimum =
                         dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
@@ -408,9 +408,9 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                         )
                     }
                     #[test]
-                    fn zero() -> Result<(), TestError>
+                    fn zero() -> Result<(), AssertionError>
                     {
-                        assert_eq(
+                        $crate::math::assert::Assert::eq(
                             &dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                                 $constitutive_model, &DeformationGradient::identity(), &DeformationGradientRate::zero()
                             )?, &0.0
@@ -425,13 +425,13 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                 {
                     use super::*;
                     #[test]
-                    fn symmetry() -> Result<(), TestError>
+                    fn symmetry() -> Result<(), AssertionError>
                     {
                         let first_piola_kirchhoff_rate_tangent_stiffness =
                         first_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
                             $constitutive_model, &get_deformation_gradient(), &get_deformation_gradient_rate()
                         )?;
-                        assert_eq_within_tols(
+                        $crate::math::assert::Assert::default().eq_within_tols(
                             &first_piola_kirchhoff_rate_tangent_stiffness,
                             &(0..3).map(|i|
                                 (0..3).map(|j|
@@ -449,13 +449,13 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                 {
                     use super::*;
                     #[test]
-                    fn symmetry() -> Result<(), TestError>
+                    fn symmetry() -> Result<(), AssertionError>
                     {
                         let first_piola_kirchhoff_rate_tangent_stiffness =
                         first_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
                             $constitutive_model, &DeformationGradient::identity(), &DeformationGradientRate::zero()
                         )?;
-                        assert_eq_within_tols(
+                        $crate::math::assert::Assert::default().eq_within_tols(
                             &first_piola_kirchhoff_rate_tangent_stiffness,
                             &(0..3).map(|i|
                                 (0..3).map(|j|
@@ -481,7 +481,7 @@ macro_rules! test_minimize_and_root {
         macro_rules! test_with_integrator_and_solver {
             ($integrator: ident, $solver: expr) => {
                 #[test]
-                fn minimize_uniaxial_compression() -> Result<(), TestError> {
+                fn minimize_uniaxial_compression() -> Result<(), AssertionError> {
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.minimize(
                             AppliedLoad::UniaxialStress(|t: Scalar| -t, &[0.0, 1.0]),
@@ -494,7 +494,7 @@ macro_rules! test_minimize_and_root {
                         .try_for_each(|deformation_gradient| {
                             assert!(deformation_gradient.is_diagonal());
                             assert!(deformation_gradient[0][0] < deformation_gradient[1][1]);
-                            assert_eq_within_tols(
+                            $crate::math::assert::Assert::default().eq_within_tols(
                                 &deformation_gradient[1][1],
                                 &deformation_gradient[2][2],
                             )
@@ -505,7 +505,7 @@ macro_rules! test_minimize_and_root {
                             assert!(
                                 deformation_gradient_rate[0][0] < deformation_gradient_rate[1][1]
                             );
-                            assert_eq_within_tols(
+                            $crate::math::assert::Assert::default().eq_within_tols(
                                 &deformation_gradient_rate[1][1],
                                 &deformation_gradient_rate[2][2],
                             )
@@ -513,7 +513,7 @@ macro_rules! test_minimize_and_root {
                     )
                 }
                 #[test]
-                fn minimize_uniaxial_tension() -> Result<(), TestError> {
+                fn minimize_uniaxial_tension() -> Result<(), AssertionError> {
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.minimize(
                             AppliedLoad::UniaxialStress(|t: Scalar| t, &[0.0, 1.0]),
@@ -526,7 +526,7 @@ macro_rules! test_minimize_and_root {
                         .try_for_each(|deformation_gradient| {
                             assert!(deformation_gradient.is_diagonal());
                             assert!(deformation_gradient[0][0] > deformation_gradient[1][1]);
-                            assert_eq_within_tols(
+                            $crate::math::assert::Assert::default().eq_within_tols(
                                 &deformation_gradient[1][1],
                                 &deformation_gradient[2][2],
                             )
@@ -537,7 +537,7 @@ macro_rules! test_minimize_and_root {
                             assert!(
                                 deformation_gradient_rate[0][0] > deformation_gradient_rate[1][1]
                             );
-                            assert_eq_within_tols(
+                            $crate::math::assert::Assert::default().eq_within_tols(
                                 &deformation_gradient_rate[1][1],
                                 &deformation_gradient_rate[2][2],
                             )
@@ -545,7 +545,7 @@ macro_rules! test_minimize_and_root {
                     )
                 }
                 #[test]
-                fn minimize_uniaxial_undeformed() -> Result<(), TestError> {
+                fn minimize_uniaxial_undeformed() -> Result<(), AssertionError> {
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.minimize(
                             AppliedLoad::UniaxialStress(|_| 0.0, &[0.0, 1.0]),
@@ -555,7 +555,7 @@ macro_rules! test_minimize_and_root {
                     deformation_gradients
                         .iter()
                         .try_for_each(|deformation_gradient| {
-                            assert_eq_within_tols(
+                            $crate::math::assert::Assert::default().eq_within_tols(
                                 deformation_gradient,
                                 &DeformationGradient::identity(),
                             )
@@ -563,14 +563,14 @@ macro_rules! test_minimize_and_root {
                     deformation_gradient_rates
                         .iter()
                         .try_for_each(|deformation_gradient_rate| {
-                            assert_eq_within_tols(
+                            $crate::math::assert::Assert::default().eq_within_tols(
                                 deformation_gradient_rate,
                                 &DeformationGradientRate::zero(),
                             )
                         })
                 }
                 #[test]
-                fn minimize_biaxial_tension() -> Result<(), TestError> {
+                fn minimize_biaxial_tension() -> Result<(), AssertionError> {
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.minimize(
                             AppliedLoad::BiaxialStress(
@@ -603,7 +603,7 @@ macro_rules! test_minimize_and_root {
                     Ok(())
                 }
                 #[test]
-                fn minimize_biaxial_undeformed() -> Result<(), TestError> {
+                fn minimize_biaxial_undeformed() -> Result<(), AssertionError> {
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.minimize(
                             AppliedLoad::BiaxialStress(|_| 0.0, |_| 0.0, &[0.0, 1.0]),
@@ -613,7 +613,7 @@ macro_rules! test_minimize_and_root {
                     deformation_gradients
                         .iter()
                         .try_for_each(|deformation_gradient| {
-                            assert_eq_within_tols(
+                            $crate::math::assert::Assert::default().eq_within_tols(
                                 deformation_gradient,
                                 &DeformationGradient::identity(),
                             )
@@ -621,14 +621,14 @@ macro_rules! test_minimize_and_root {
                     deformation_gradient_rates
                         .iter()
                         .try_for_each(|deformation_gradient_rate| {
-                            assert_eq_within_tols(
+                            $crate::math::assert::Assert::default().eq_within_tols(
                                 deformation_gradient_rate,
                                 &DeformationGradientRate::zero(),
                             )
                         })
                 }
                 #[test]
-                fn root_uniaxial_compression() -> Result<(), TestError> {
+                fn root_uniaxial_compression() -> Result<(), AssertionError> {
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.root(
                             AppliedLoad::UniaxialStress(|t: Scalar| -t, &[0.0, 1.0]),
@@ -641,7 +641,7 @@ macro_rules! test_minimize_and_root {
                         .try_for_each(|deformation_gradient| {
                             assert!(deformation_gradient.is_diagonal());
                             assert!(deformation_gradient[0][0] < deformation_gradient[1][1]);
-                            assert_eq_within_tols(
+                            $crate::math::assert::Assert::default().eq_within_tols(
                                 &deformation_gradient[1][1],
                                 &deformation_gradient[2][2],
                             )
@@ -652,7 +652,7 @@ macro_rules! test_minimize_and_root {
                             assert!(
                                 deformation_gradient_rate[0][0] < deformation_gradient_rate[1][1]
                             );
-                            assert_eq_within_tols(
+                            $crate::math::assert::Assert::default().eq_within_tols(
                                 &deformation_gradient_rate[1][1],
                                 &deformation_gradient_rate[2][2],
                             )
@@ -660,7 +660,7 @@ macro_rules! test_minimize_and_root {
                     )
                 }
                 #[test]
-                fn root_uniaxial_tension() -> Result<(), TestError> {
+                fn root_uniaxial_tension() -> Result<(), AssertionError> {
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.root(
                             AppliedLoad::UniaxialStress(|t: Scalar| t, &[0.0, 1.0]),
@@ -673,7 +673,7 @@ macro_rules! test_minimize_and_root {
                         .try_for_each(|deformation_gradient| {
                             assert!(deformation_gradient.is_diagonal());
                             assert!(deformation_gradient[0][0] > deformation_gradient[1][1]);
-                            assert_eq_within_tols(
+                            $crate::math::assert::Assert::default().eq_within_tols(
                                 &deformation_gradient[1][1],
                                 &deformation_gradient[2][2],
                             )
@@ -684,7 +684,7 @@ macro_rules! test_minimize_and_root {
                             assert!(
                                 deformation_gradient_rate[0][0] > deformation_gradient_rate[1][1]
                             );
-                            assert_eq_within_tols(
+                            $crate::math::assert::Assert::default().eq_within_tols(
                                 &deformation_gradient_rate[1][1],
                                 &deformation_gradient_rate[2][2],
                             )
@@ -692,7 +692,7 @@ macro_rules! test_minimize_and_root {
                     )
                 }
                 #[test]
-                fn root_uniaxial_undeformed() -> Result<(), TestError> {
+                fn root_uniaxial_undeformed() -> Result<(), AssertionError> {
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.root(
                             AppliedLoad::UniaxialStress(|_| 0.0, &[0.0, 1.0]),
@@ -702,7 +702,7 @@ macro_rules! test_minimize_and_root {
                     deformation_gradients
                         .iter()
                         .try_for_each(|deformation_gradient| {
-                            assert_eq_within_tols(
+                            $crate::math::assert::Assert::default().eq_within_tols(
                                 deformation_gradient,
                                 &DeformationGradient::identity(),
                             )
@@ -710,14 +710,14 @@ macro_rules! test_minimize_and_root {
                     deformation_gradient_rates
                         .iter()
                         .try_for_each(|deformation_gradient_rate| {
-                            assert_eq_within_tols(
+                            $crate::math::assert::Assert::default().eq_within_tols(
                                 deformation_gradient_rate,
                                 &DeformationGradientRate::zero(),
                             )
                         })
                 }
                 #[test]
-                fn root_biaxial_tension() -> Result<(), TestError> {
+                fn root_biaxial_tension() -> Result<(), AssertionError> {
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.root(
                             AppliedLoad::BiaxialStress(
@@ -750,7 +750,7 @@ macro_rules! test_minimize_and_root {
                     Ok(())
                 }
                 #[test]
-                fn root_biaxial_undeformed() -> Result<(), TestError> {
+                fn root_biaxial_undeformed() -> Result<(), AssertionError> {
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.root(
                             AppliedLoad::BiaxialStress(|_| 0.0, |_| 0.0, &[0.0, 1.0]),
@@ -760,7 +760,7 @@ macro_rules! test_minimize_and_root {
                     deformation_gradients
                         .iter()
                         .try_for_each(|deformation_gradient| {
-                            assert_eq_within_tols(
+                            $crate::math::assert::Assert::default().eq_within_tols(
                                 deformation_gradient,
                                 &DeformationGradient::identity(),
                             )
@@ -768,7 +768,7 @@ macro_rules! test_minimize_and_root {
                     deformation_gradient_rates
                         .iter()
                         .try_for_each(|deformation_gradient_rate| {
-                            assert_eq_within_tols(
+                            $crate::math::assert::Assert::default().eq_within_tols(
                                 deformation_gradient_rate,
                                 &DeformationGradientRate::zero(),
                             )
@@ -799,7 +799,7 @@ macro_rules! test_minimize_and_root {
                     test_with_integrator_and_solver!(Verner9, $solver);
                 }
                 // #[test]
-                // fn minimize_uniaxial_compression_inner() -> Result<(), TestError> {
+                // fn minimize_uniaxial_compression_inner() -> Result<(), AssertionError> {
                 //     let deformation_gradient_rate = $constitutive_model
                 //         .minimize_uniaxial_inner(
                 //             &DeformationGradient::identity(),
@@ -809,13 +809,13 @@ macro_rules! test_minimize_and_root {
                 //         )?;
                 //     assert!(deformation_gradient_rate.is_diagonal());
                 //     assert!(deformation_gradient_rate[0][0] < deformation_gradient_rate[1][1]);
-                //     assert_eq_within_tols(
+                //     $crate::math::assert::Assert::default().eq_within_tols(
                 //         &deformation_gradient_rate[1][1],
                 //         &deformation_gradient_rate[2][2],
                 //     )
                 // }
                 // #[test]
-                // fn minimize_uniaxial_tension_inner() -> Result<(), TestError> {
+                // fn minimize_uniaxial_tension_inner() -> Result<(), AssertionError> {
                 //     let deformation_gradient_rate = $constitutive_model
                 //         .minimize_uniaxial_inner(
                 //             &DeformationGradient::identity(),
@@ -825,14 +825,14 @@ macro_rules! test_minimize_and_root {
                 //         )?;
                 //     assert!(deformation_gradient_rate.is_diagonal());
                 //     assert!(deformation_gradient_rate[0][0] > deformation_gradient_rate[1][1]);
-                //     assert_eq_within_tols(
+                //     $crate::math::assert::Assert::default().eq_within_tols(
                 //         &deformation_gradient_rate[1][1],
                 //         &deformation_gradient_rate[2][2],
                 //     )
                 // }
                 // #[test]
-                // fn minimize_uniaxial_undeformed_inner() -> Result<(), TestError> {
-                //     assert_eq_within_tols(
+                // fn minimize_uniaxial_undeformed_inner() -> Result<(), AssertionError> {
+                //     $crate::math::assert::Assert::default().eq_within_tols(
                 //         &$constitutive_model.minimize_uniaxial_inner(
                 //             &DeformationGradient::identity(),
                 //             0.0,
@@ -843,7 +843,7 @@ macro_rules! test_minimize_and_root {
                 //     )
                 // }
                 // #[test]
-                // fn minimize_biaxial_compression_inner() -> Result<(), TestError> {
+                // fn minimize_biaxial_compression_inner() -> Result<(), AssertionError> {
                 //     let deformation_gradient_rate = $constitutive_model
                 //         .minimize_biaxial_inner(
                 //             &DeformationGradient::identity(),
@@ -858,7 +858,7 @@ macro_rules! test_minimize_and_root {
                 //     Ok(())
                 // }
                 // #[test]
-                // fn minimize_biaxial_mixed_inner() -> Result<(), TestError> {
+                // fn minimize_biaxial_mixed_inner() -> Result<(), AssertionError> {
                 //     let deformation_gradient_rate = $constitutive_model
                 //         .minimize_biaxial_inner(
                 //             &DeformationGradient::identity(),
@@ -873,7 +873,7 @@ macro_rules! test_minimize_and_root {
                 //     Ok(())
                 // }
                 // #[test]
-                // fn minimize_biaxial_tension_inner() -> Result<(), TestError> {
+                // fn minimize_biaxial_tension_inner() -> Result<(), AssertionError> {
                 //     let deformation_gradient_rate = $constitutive_model
                 //         .minimize_biaxial_inner(
                 //             &DeformationGradient::identity(),
@@ -888,8 +888,8 @@ macro_rules! test_minimize_and_root {
                 //     Ok(())
                 // }
                 // #[test]
-                // fn minimize_biaxial_undeformed_inner() -> Result<(), TestError> {
-                //     assert_eq_within_tols(
+                // fn minimize_biaxial_undeformed_inner() -> Result<(), AssertionError> {
+                //     $crate::math::assert::Assert::default().eq_within_tols(
                 //         &$constitutive_model.minimize_biaxial_inner(
                 //             &DeformationGradient::identity(),
                 //             0.0,
@@ -901,7 +901,7 @@ macro_rules! test_minimize_and_root {
                 //     )
                 // }
                 // #[test]
-                // fn root_uniaxial_compression_inner() -> Result<(), TestError> {
+                // fn root_uniaxial_compression_inner() -> Result<(), AssertionError> {
                 //     let deformation_gradient_rate = $constitutive_model
                 //         .root_uniaxial_inner(
                 //             &DeformationGradient::identity(),
@@ -911,13 +911,13 @@ macro_rules! test_minimize_and_root {
                 //         )?;
                 //     assert!(deformation_gradient_rate.is_diagonal());
                 //     assert!(deformation_gradient_rate[0][0] < deformation_gradient_rate[1][1]);
-                //     assert_eq_within_tols(
+                //     $crate::math::assert::Assert::default().eq_within_tols(
                 //         &deformation_gradient_rate[1][1],
                 //         &deformation_gradient_rate[2][2],
                 //     )
                 // }
                 // #[test]
-                // fn root_uniaxial_tension_inner() -> Result<(), TestError> {
+                // fn root_uniaxial_tension_inner() -> Result<(), AssertionError> {
                 //     let deformation_gradient_rate = $constitutive_model
                 //         .root_uniaxial_inner(
                 //             &DeformationGradient::identity(),
@@ -927,14 +927,14 @@ macro_rules! test_minimize_and_root {
                 //         )?;
                 //     assert!(deformation_gradient_rate.is_diagonal());
                 //     assert!(deformation_gradient_rate[0][0] > deformation_gradient_rate[1][1]);
-                //     assert_eq_within_tols(
+                //     $crate::math::assert::Assert::default().eq_within_tols(
                 //         &deformation_gradient_rate[1][1],
                 //         &deformation_gradient_rate[2][2],
                 //     )
                 // }
                 // #[test]
-                // fn root_uniaxial_undeformed_inner() -> Result<(), TestError> {
-                //     assert_eq_within_tols(
+                // fn root_uniaxial_undeformed_inner() -> Result<(), AssertionError> {
+                //     $crate::math::assert::Assert::default().eq_within_tols(
                 //         &$constitutive_model.root_uniaxial_inner(
                 //             &DeformationGradient::identity(),
                 //             0.0,
@@ -945,7 +945,7 @@ macro_rules! test_minimize_and_root {
                 //     )
                 // }
                 // #[test]
-                // fn root_biaxial_compression_inner() -> Result<(), TestError> {
+                // fn root_biaxial_compression_inner() -> Result<(), AssertionError> {
                 //     let deformation_gradient_rate = $constitutive_model
                 //         .root_biaxial_inner(
                 //             &DeformationGradient::identity(),
@@ -960,7 +960,7 @@ macro_rules! test_minimize_and_root {
                 //     Ok(())
                 // }
                 // #[test]
-                // fn root_biaxial_mixed_inner() -> Result<(), TestError> {
+                // fn root_biaxial_mixed_inner() -> Result<(), AssertionError> {
                 //     let deformation_gradient_rate = $constitutive_model
                 //         .root_biaxial_inner(
                 //             &DeformationGradient::identity(),
@@ -975,7 +975,7 @@ macro_rules! test_minimize_and_root {
                 //     Ok(())
                 // }
                 // #[test]
-                // fn root_biaxial_tension_inner() -> Result<(), TestError> {
+                // fn root_biaxial_tension_inner() -> Result<(), AssertionError> {
                 //     let deformation_gradient_rate = $constitutive_model
                 //         .root_biaxial_inner(
                 //             &DeformationGradient::identity(),
@@ -990,8 +990,8 @@ macro_rules! test_minimize_and_root {
                 //     Ok(())
                 // }
                 // #[test]
-                // fn root_biaxial_undeformed_inner() -> Result<(), TestError> {
-                //     assert_eq_within_tols(
+                // fn root_biaxial_undeformed_inner() -> Result<(), AssertionError> {
+                //     $crate::math::assert::Assert::default().eq_within_tols(
                 //         &$constitutive_model.root_biaxial_inner(
                 //             &DeformationGradient::identity(),
                 //             0.0,

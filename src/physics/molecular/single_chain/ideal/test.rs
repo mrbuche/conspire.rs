@@ -1,9 +1,7 @@
+use crate::math::assert::Assert;
 use crate::{
     EPSILON,
-    math::{
-        Scalar,
-        test::{TestError, assert_eq_from_fd},
-    },
+    math::{Scalar, assert::AssertionError},
     physics::{
         ROOM_TEMPERATURE,
         molecular::single_chain::{Ensemble, IdealChain, Thermodynamics},
@@ -13,7 +11,7 @@ use crate::{
 const NUM: usize = 333;
 
 #[test]
-fn finite_difference() -> Result<(), TestError> {
+fn finite_difference() -> Result<(), AssertionError> {
     [
         Ensemble::Isometric(ROOM_TEMPERATURE),
         Ensemble::Isotensional(ROOM_TEMPERATURE),
@@ -57,10 +55,20 @@ fn finite_difference() -> Result<(), TestError> {
                         model.nondimensional_extension(nondimensional_force)?;
                     let nondimensional_compliance =
                         model.nondimensional_compliance(nondimensional_force)?;
-                    assert_eq_from_fd(&nondimensional_force, &(finite_difference_1 / EPSILON))?;
-                    assert_eq_from_fd(&nondimensional_stiffness, &(finite_difference_2 / EPSILON))?;
-                    assert_eq_from_fd(&nondimensional_extension, &(finite_difference_3 / EPSILON))?;
-                    assert_eq_from_fd(&nondimensional_compliance, &(finite_difference_4 / EPSILON))
+                    Assert::default()
+                        .eq_within_fd_tol(nondimensional_force, &(finite_difference_1 / EPSILON))?;
+                    Assert::default().eq_within_fd_tol(
+                        nondimensional_stiffness,
+                        &(finite_difference_2 / EPSILON),
+                    )?;
+                    Assert::default().eq_within_fd_tol(
+                        nondimensional_extension,
+                        &(finite_difference_3 / EPSILON),
+                    )?;
+                    Assert::default().eq_within_fd_tol(
+                        nondimensional_compliance,
+                        &(finite_difference_4 / EPSILON),
+                    )
                 })
         })
     })

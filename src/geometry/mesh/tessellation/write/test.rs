@@ -1,3 +1,4 @@
+use crate::math::assert::Assert;
 use crate::{
     geometry::{
         Coordinates,
@@ -8,14 +9,11 @@ use crate::{
         },
     },
     io::Write,
-    math::{
-        Tensor,
-        test::{TestError, assert_eq},
-    },
+    math::{Tensor, assert::AssertionError},
 };
 
 #[test]
-fn consistency() -> Result<(), TestError> {
+fn consistency() -> Result<(), AssertionError> {
     let tessellation = tessellation();
     match &tessellation.mesh().connectivities()[0] {
         Connectivity::Triangular(triangles) => {
@@ -24,10 +22,10 @@ fn consistency() -> Result<(), TestError> {
         _ => panic!("expected Triangular block"),
     }
     let coords_expected = Coordinates::from(COORDINATES);
-    assert_eq(tessellation.mesh().coordinates(), &coords_expected)?;
+    Assert::eq(tessellation.mesh().coordinates(), &coords_expected)?;
     tessellation.normals()[0]
         .iter()
         .zip(NORMALS.iter())
-        .try_for_each(|(a, b)| assert_eq(a, b))?;
+        .try_for_each(|(a, b)| Assert::eq(a, b))?;
     Ok(tessellation.write("target/foo.stl")?)
 }

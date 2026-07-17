@@ -1,12 +1,9 @@
 //! Mathematics library.
 
-#[cfg(test)]
-pub mod test;
+/// Assertion helpers for comparing values.
+pub mod assert;
 
-/// Special functions.
-pub mod special;
-
-/// Integration and ODEs.
+/// Integration, ODEs, and DAEs.
 pub mod integrate;
 
 /// Interpolation schemes.
@@ -15,10 +12,18 @@ pub mod interpolate;
 /// Optimization and root finding.
 pub mod optimize;
 
+/// Random number generation.
+pub mod random;
+
+/// Sparse data types.
+pub mod sparse;
+
+/// Special functions.
+pub mod special;
+
 mod graph;
 mod hash;
 mod matrix;
-mod random;
 mod set;
 mod style;
 mod tensor;
@@ -27,40 +32,34 @@ pub(crate) use style::{Style, StyledError, defeat_message, styled_error};
 
 pub use graph::Graph;
 pub use hash::{FxHashMap, FxHashSet, FxHasher};
-pub use matrix::{
-    Matrix,
-    square::{Banded, SquareMatrix},
-    vector::Vector,
-};
-pub use random::{
-    random_normal, random_normal_standard, random_u8, random_u64, random_uniform, random_x2_normal,
-};
+pub use matrix::{Matrix, square::SquareMatrix, vector::Vector};
 pub use set::{Set, sets::Sets};
 pub use tensor::{
-    Hessian, Jacobian, Norm, Rank2, Scalar, ScalarList, ScalarListVec, Scalars, Solution, Tensor,
-    TensorArray, TensorError, TensorVec,
+    Hessian, HessianAccumulate, HessianAccumulateGeneral, Jacobian, Norm, Rank2, Scalar,
+    ScalarList, ScalarListVec, Scalars, Solution, Tensor, TensorArray, TensorError, TensorVec,
     list::TensorList,
     rank_0::{TensorRank0, list::TensorRank0List, list_2d::TensorRank0List2D},
     rank_1::{
-        CrossProduct, TensorRank1, list::TensorRank1List, list_2d::TensorRank1List2D,
+        TensorRank1, cross::CrossProduct, list::TensorRank1List, list_2d::TensorRank1List2D,
         vec::TensorRank1Vec, vec_2d::TensorRank1Vec2D, zero as tensor_rank_1_zero,
     },
     rank_2::{
         IDENTITY, IDENTITY_00, IDENTITY_10, IDENTITY_22, TensorRank2, ZERO, ZERO_10,
         list::{TensorRank2List, vec::TensorRank2ListVec},
         list_2d::TensorRank2List2D,
+        sparse_symmetric_vec_2d::TensorRank2SparseVec2DSymmetric,
+        sparse_vec::TensorRank2SparseVec,
+        sparse_vec_2d::TensorRank2SparseVec2D,
         vec::TensorRank2Vec,
         vec_2d::TensorRank2Vec2D,
     },
     rank_3::{LEVI_CIVITA, TensorRank3, levi_civita},
     rank_4::{
-        ContractAllIndicesWithFirstIndicesOf, ContractFirstSecondIndicesWithSecondIndicesOf,
-        ContractFirstThirdFourthIndicesWithFirstIndicesOf,
-        ContractSecondFourthIndicesWithFirstIndicesOf, ContractSecondIndexWithFirstIndexOf,
-        ContractThirdFourthIndicesWithFirstSecondIndicesOf, ContractThirdIndexWithFirstIndexOf,
-        IDENTITY_1010, TensorRank4, list::TensorRank4List, vec::TensorRank4Vec,
+        ContractAllWithFirst, ContractFirstSecondWithSecond, ContractFirstThirdFourthWithFirst,
+        ContractSecondFourthWithFirst, ContractSecondWithFirst, ContractThirdFourthWithFirstSecond,
+        ContractThirdWithFirst, IDENTITY_1010, TensorRank4, list::TensorRank4List,
+        vec::TensorRank4Vec,
     },
-    test::{TestError, assert_eq, assert_eq_within, assert_eq_within_tols},
     tuple::{
         TensorTuple,
         list::{TensorTupleList, vec::TensorTupleListVec, vec_2d::TensorTupleListVec2D},

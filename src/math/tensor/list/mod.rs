@@ -7,7 +7,8 @@ use std::{
     slice,
 };
 
-#[derive(Clone, Debug)]
+/// A fixed-size collection of tensors.
+#[derive(Clone, Debug, PartialEq)]
 pub struct TensorList<T, const N: usize>([T; N])
 where
     T: Tensor;

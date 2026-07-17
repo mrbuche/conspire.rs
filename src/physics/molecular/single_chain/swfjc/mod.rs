@@ -2,7 +2,7 @@
 mod test;
 
 use crate::{
-    math::{Scalar, random_uniform},
+    math::{Scalar, random::random_uniform},
     mechanics::CurrentCoordinate,
     physics::molecular::single_chain::{
         Configuration, Ensemble, Inextensible, Isometric, Isotensional, Legendre, MonteCarlo,

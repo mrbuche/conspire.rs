@@ -6,7 +6,7 @@ use crate::{
         ConstitutiveError,
         solid::{Solid, TWO_THIRDS, elastic::Elastic},
     },
-    math::{ContractThirdFourthIndicesWithFirstSecondIndicesOf, IDENTITY_00, Rank2},
+    math::{ContractThirdFourthWithFirstSecond, IDENTITY_00, Rank2},
     mechanics::{
         Deformation, DeformationGradient, Scalar, SecondPiolaKirchhoffStress,
         SecondPiolaKirchhoffTangentStiffness,
@@ -55,7 +55,7 @@ impl Elastic for Hencky {
             &deformation_gradient_transpose * self.shear_modulus();
         Ok((right_cauchy_green
             .dlogm()?
-            .contract_third_fourth_indices_with_first_second_indices_of(
+            .contract_third_fourth_with_first_second(
                 &(SecondPiolaKirchhoffTangentStiffness::dyad_il_jk(
                     &IDENTITY_00,
                     &scaled_deformation_gradient_transpose,

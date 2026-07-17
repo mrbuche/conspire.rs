@@ -114,7 +114,7 @@ macro_rules! test_solid_thermal_constitutive_model {
     ($constitutive_model: expr) => {
         use crate::mechanics::test::get_temperature;
         #[test]
-        fn coefficient_of_thermal_expansion() -> Result<(), TestError> {
+        fn coefficient_of_thermal_expansion() -> Result<(), AssertionError> {
             let model = $constitutive_model;
             let deformation_gradient = DeformationGradient::identity();
             let temperature = model.reference_temperature() - EPSILON;
@@ -132,7 +132,7 @@ macro_rules! test_solid_thermal_constitutive_model {
                         );
                         Ok(())
                     } else {
-                        assert_eq(&first_piola_kirchhoff_stress[i][j], &0.0)
+                        $crate::math::assert::Assert::zero(&first_piola_kirchhoff_stress[i][j])
                     }
                 })
             })

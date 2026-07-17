@@ -45,6 +45,7 @@ where
         y_sol.push(initial_condition.clone());
         let mut dydt_sol = U::new();
         dydt_sol.push(k[0].clone());
+        let mut k_sol: Vec<U> = Vec::new();
         let mut y_trial = Y::default();
         while t < t_f {
             match self.slopes_and_error(&mut function, &y, t, dt, &mut k, &mut y_trial) {
@@ -56,6 +57,7 @@ where
                         &mut y_sol,
                         &mut t_sol,
                         &mut dydt_sol,
+                        &mut k_sol,
                         &mut dt,
                         &mut k,
                         &y_trial,
@@ -93,7 +95,8 @@ where
         }
         if time.len() > 2 {
             let t_int = Vector::from(time);
-            let (y_int, dydt_int) = self.interpolate(&t_int, &t_sol, &y_sol, function)?;
+            let (y_int, dydt_int) =
+                self.interpolate(&t_int, &t_sol, &y_sol, &dydt_sol, &k_sol, function)?;
             Ok((t_int, y_int, dydt_int))
         } else {
             Ok((t_sol, y_sol, dydt_sol))
@@ -161,12 +164,14 @@ where
         y_sol: &mut U,
         t_sol: &mut Vector,
         dydt_sol: &mut U,
+        k_sol: &mut Vec<U>,
         dt: &mut Scalar,
-        _k: &mut [Y],
+        k: &mut [Y],
         y_trial: &Y,
         e: Scalar,
     ) -> Result<(), String> {
         if e < self.abs_tol() || e < self.rel_tol() * self.norm().apply(y_trial) {
+            k_sol.push(k.iter().cloned().collect());
             *t += *dt;
             *y = y_trial.clone();
             t_sol.push(*t);
@@ -186,6 +191,58 @@ where
             *dt *= (self.dt_beta() * (self.abs_tol() / error).powf(1.0 / self.dt_expn()))
                 .max(self.dt_cut())
         }
+    }
+}
+
+/// Free (dense-output) interpolant for explicit ordinary differential equation integrators.
+///
+/// Uses cubic Hermite interpolation over the accepted-step values and derivatives already
+/// computed during integration, so it requires no additional evaluations of the right-hand side
+/// function.
+pub trait FreeInterpolant<Y, U>
+where
+    Self: VariableStepExplicit<Y, U>,
+    Y: Tensor,
+    for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    U: TensorVec<Item = Y>,
+{
+    fn interpolate_free(time: &Vector, tp: &Vector, yp: &U, dydtp: &U) -> (U, U) {
+        let mut y_int = U::new();
+        let mut dydt_int = U::new();
+        for time_k in time.iter() {
+            let i = tp.iter().position(|tp_i| tp_i >= time_k).unwrap();
+            if time_k == &tp[i] {
+                y_int.push(yp[i].clone());
+                dydt_int.push(dydtp[i].clone());
+            } else {
+                let t_0 = tp[i - 1];
+                let h = tp[i] - t_0;
+                let theta = (time_k - t_0) / h;
+                let theta2 = theta * theta;
+                let theta3 = theta2 * theta;
+                let h00 = 2.0 * theta3 - 3.0 * theta2 + 1.0;
+                let h10 = theta3 - 2.0 * theta2 + theta;
+                let h01 = -2.0 * theta3 + 3.0 * theta2;
+                let h11 = theta3 - theta2;
+                let dh00 = 6.0 * theta2 - 6.0 * theta;
+                let dh10 = 3.0 * theta2 - 4.0 * theta + 1.0;
+                let dh01 = -6.0 * theta2 + 6.0 * theta;
+                let dh11 = 3.0 * theta2 - 2.0 * theta;
+                y_int.push(
+                    &yp[i - 1] * h00
+                        + &dydtp[i - 1] * (h10 * h)
+                        + &yp[i] * h01
+                        + &dydtp[i] * (h11 * h),
+                );
+                dydt_int.push(
+                    &yp[i - 1] * (dh00 / h)
+                        + &dydtp[i - 1] * dh10
+                        + &yp[i] * (dh01 / h)
+                        + &dydtp[i] * dh11,
+                );
+            }
+        }
+        (y_int, dydt_int)
     }
 }
 
@@ -218,12 +275,14 @@ where
         y_sol: &mut U,
         t_sol: &mut Vector,
         dydt_sol: &mut U,
+        k_sol: &mut Vec<U>,
         dt: &mut Scalar,
         k: &mut [Y],
         y_trial: &Y,
         e: Scalar,
     ) -> Result<(), String> {
         if e < self.abs_tol() || e < self.rel_tol() * self.norm().apply(y_trial) {
+            k_sol.push(k.iter().cloned().collect());
             k[0] = k[Self::SLOPES - 1].clone();
             *t += *dt;
             *y = y_trial.clone();

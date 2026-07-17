@@ -1,7 +1,5 @@
-use crate::math::{
-    TensorRank0, TensorRank1Vec,
-    tensor::test::{TestError, assert_eq},
-};
+use crate::math::assert::Assert;
+use crate::math::{TensorRank0, TensorRank1Vec, assert::AssertionError};
 
 fn get_array() -> [[TensorRank0; 3]; 2] {
     [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
@@ -28,8 +26,8 @@ fn from_tensor_rank_1_vec_into_vec_arr() {
 }
 
 #[test]
-fn from_vec_arr_into_tensor_rank_1_vec() -> Result<(), TestError> {
-    assert_eq(&get_tensor_rank_1_vec(), &get_vec_arr().into())
+fn from_vec_arr_into_tensor_rank_1_vec() -> Result<(), AssertionError> {
+    Assert::eq(get_tensor_rank_1_vec(), &get_vec_arr().into())
 }
 
 #[test]
@@ -41,6 +39,6 @@ fn from_tensor_rank_1_vec_into_vec_vec() {
 }
 
 #[test]
-fn from_vec_vec_into_tensor_rank_1_vec() -> Result<(), TestError> {
-    assert_eq(&get_tensor_rank_1_vec(), &get_vec_vec().into())
+fn from_vec_vec_into_tensor_rank_1_vec() -> Result<(), AssertionError> {
+    Assert::eq(get_tensor_rank_1_vec(), &get_vec_vec().into())
 }

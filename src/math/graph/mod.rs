@@ -1,5 +1,6 @@
 use crate::math::Set;
 
+/// A connected set of members or nodes.
 pub struct Graph {
     adjacency: Set<Vec<Vec<usize>>>,
 }

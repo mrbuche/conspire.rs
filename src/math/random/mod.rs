@@ -43,6 +43,7 @@ fn get_random() -> u8 {
     (next_u64() >> 56) as u8
 }
 
+/// Returns a uniformly random `u8` in `0..=max`.
 pub fn random_u8(max: u8) -> u8 {
     if max == u8::MAX {
         return get_random();
@@ -57,10 +58,12 @@ pub fn random_u8(max: u8) -> u8 {
     }
 }
 
+/// Returns a uniformly random `u64`.
 pub fn random_u64() -> u64 {
     next_u64()
 }
 
+/// Returns a uniformly random `f64` in `[0, 1)`.
 pub fn random_uniform() -> f64 {
     let x = next_u64() >> 11;
     (x as f64) * (1.0 / ((1u64 << 53) as f64))
@@ -70,6 +73,7 @@ thread_local! {
     static NORMAL_SPARE: Cell<Option<f64>> = const { Cell::new(None) };
 }
 
+/// Returns a random sample from the standard normal distribution.
 pub fn random_normal_standard() -> f64 {
     NORMAL_SPARE.with(|spare| {
         if let Some(z) = spare.take() {
@@ -89,6 +93,7 @@ pub fn random_normal_standard() -> f64 {
     })
 }
 
+/// Returns a random sample from a given normal distribution.
 pub fn random_normal(mean: f64, std: f64) -> f64 {
     mean + std * random_normal_standard()
 }
@@ -151,6 +156,7 @@ fn x2_normal_pdf(lambda: f64, mean: f64, std: f64, norm: f64) -> f64 {
     }
 }
 
+/// Returns a random sample from the normal distribution rectified and reweighted by `x^2`.
 pub fn random_x2_normal(mean: f64, std: f64) -> f64 {
     let norm = x2_normal_norm(mean, std);
     let u = random_uniform();

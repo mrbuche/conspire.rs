@@ -1,3 +1,4 @@
+use crate::math::assert::Assert;
 use crate::{
     geometry::{
         Coordinates,
@@ -6,7 +7,7 @@ use crate::{
             test::{CONNECTIVITY, COORDINATES, mesh},
         },
     },
-    math::test::{TestError, assert_eq},
+    math::assert::AssertionError,
 };
 
 #[test]
@@ -33,14 +34,14 @@ fn connectivities() {
 }
 
 #[test]
-fn coordinates() -> Result<(), TestError> {
+fn coordinates() -> Result<(), AssertionError> {
     let mesh = mesh();
     let coordinates = Coordinates::from(COORDINATES);
-    assert_eq(mesh.coordinates(), &coordinates)
+    Assert::eq(mesh.coordinates(), &coordinates)
 }
 
 #[test]
-fn number_of_nodes() -> Result<(), TestError> {
+fn number_of_nodes() {
     let mesh = mesh();
-    assert_eq(&mesh.number_of_nodes(), &COORDINATES.len())
+    assert_eq!(mesh.number_of_nodes(), COORDINATES.len())
 }

@@ -1,8 +1,5 @@
-use crate::math::{
-    Rank2, TensorArray, TensorRank2, TensorRank4,
-    tensor::test::assert_eq_within,
-    test::{TestError, assert_eq_within_tols},
-};
+use crate::math::assert::Assert;
+use crate::math::{Rank2, TensorArray, TensorRank2, TensorRank4, assert::AssertionError};
 
 fn get_rotation() -> TensorRank2<3, 1, 1> {
     [
@@ -68,94 +65,126 @@ fn contract_third_fourth_indices(
 }
 
 #[test]
-fn logm_identity() -> Result<(), TestError> {
-    assert_eq_within_tols(
+fn logm_identity() -> Result<(), AssertionError> {
+    Assert::default().eq_within_tols(
         &TensorRank2::<3, 1, 1>::identity().logm()?,
         &TensorRank2::zero(),
     )
 }
 
 #[test]
-fn logm_diagonal() -> Result<(), TestError> {
+fn logm_diagonal() -> Result<(), AssertionError> {
     let tensor = TensorRank2::<3, 1, 1>::from([[2.0, 0.0, 0.0], [0.0, 0.5, 0.0], [0.0, 0.0, 1.5]]);
     let expected = TensorRank2::from([
         [2.0_f64.ln(), 0.0, 0.0],
         [0.0, 0.5_f64.ln(), 0.0],
         [0.0, 0.0, 1.5_f64.ln()],
     ]);
-    assert_eq_within_tols(&tensor.logm()?, &expected)
+    Assert::default().eq_within_tols(&tensor.logm()?, &expected)
 }
 
 #[test]
-fn logm_symmetric() -> Result<(), TestError> {
-    assert_eq_within(
+fn logm_symmetric() -> Result<(), AssertionError> {
+    Assert {
+        abs_tol: 1e-10,
+        rel_tol: 1e-10,
+        ..Default::default()
+    }
+    .eq_within_tols(
         &get_symmetric_tensor().logm()?,
         &get_symmetric_tensor_logm(),
-        1e-10,
-        1e-10,
     )
 }
 
 #[test]
-fn logm_repeated_eigenvalue_first_pair() -> Result<(), TestError> {
-    assert_eq_within(
+fn logm_repeated_eigenvalue_first_pair() -> Result<(), AssertionError> {
+    Assert {
+        abs_tol: 1e-10,
+        rel_tol: 1e-10,
+        ..Default::default()
+    }
+    .eq_within_tols(
         &from_eigenvalues([2.0, 2.0, 0.5]).logm()?,
         &from_eigenvalues([2.0_f64.ln(), 2.0_f64.ln(), 0.5_f64.ln()]),
-        1e-10,
-        1e-10,
     )
 }
 
 #[test]
-fn logm_repeated_eigenvalue_second_pair() -> Result<(), TestError> {
-    assert_eq_within(
+fn logm_repeated_eigenvalue_second_pair() -> Result<(), AssertionError> {
+    Assert {
+        abs_tol: 1e-10,
+        rel_tol: 1e-10,
+        ..Default::default()
+    }
+    .eq_within_tols(
         &from_eigenvalues([2.0, 0.5, 0.5]).logm()?,
         &from_eigenvalues([2.0_f64.ln(), 0.5_f64.ln(), 0.5_f64.ln()]),
-        1e-10,
-        1e-10,
     )
 }
 
 #[test]
-fn logm_repeated_eigenvalue_triple() -> Result<(), TestError> {
-    assert_eq_within(
+fn logm_repeated_eigenvalue_triple() -> Result<(), AssertionError> {
+    Assert {
+        abs_tol: 1e-10,
+        rel_tol: 1e-10,
+        ..Default::default()
+    }
+    .eq_within_tols(
         &from_eigenvalues([3.0, 3.0, 3.0]).logm()?,
         &from_eigenvalues([3.0_f64.ln(), 3.0_f64.ln(), 3.0_f64.ln()]),
-        1e-10,
-        1e-10,
     )
 }
 
 #[test]
-fn logm_symmetric_trace_equals_ln_determinant() -> Result<(), TestError> {
+fn logm_symmetric_trace_equals_ln_determinant() -> Result<(), AssertionError> {
     let tensor = get_symmetric_tensor();
     let determinant = tensor.determinant();
-    assert_eq_within(&tensor.logm()?.trace(), &determinant.ln(), 1e-10, 1e-10)
+    Assert {
+        abs_tol: 1e-10,
+        rel_tol: 1e-10,
+        ..Default::default()
+    }
+    .eq_within_tols(tensor.logm()?.trace(), &determinant.ln())
 }
 
 #[test]
-fn logm_near_identity_two_terms() -> Result<(), TestError> {
+fn logm_near_identity_two_terms() -> Result<(), AssertionError> {
     let tensor = from_eigenvalues([1.00003, 0.999985, 1.00002]);
     let expected = from_eigenvalues([1.00003_f64.ln(), 0.999985_f64.ln(), 1.00002_f64.ln()]);
-    assert_eq_within(&tensor.logm()?, &expected, 1e-9, 1e-9)
+    Assert {
+        abs_tol: 1e-9,
+        rel_tol: 1e-9,
+        ..Default::default()
+    }
+    .eq_within_tols(&tensor.logm()?, &expected)
 }
 
 #[test]
-fn logm_near_identity_three_terms() -> Result<(), TestError> {
+fn logm_near_identity_three_terms() -> Result<(), AssertionError> {
     let tensor = from_eigenvalues([1.0005, 0.9996, 1.0002]);
     let expected = from_eigenvalues([1.0005_f64.ln(), 0.9996_f64.ln(), 1.0002_f64.ln()]);
-    assert_eq_within(&tensor.logm()?, &expected, 1e-9, 1e-9)
+    Assert {
+        abs_tol: 1e-9,
+        rel_tol: 1e-9,
+        ..Default::default()
+    }
+    .eq_within_tols(&tensor.logm()?, &expected)
 }
 
 #[test]
-fn logm_near_identity_five_terms() -> Result<(), TestError> {
+fn logm_near_identity_five_terms() -> Result<(), AssertionError> {
     let tensor = from_eigenvalues([1.003, 0.9985, 1.002]);
     let expected = from_eigenvalues([1.003_f64.ln(), 0.9985_f64.ln(), 1.002_f64.ln()]);
-    assert_eq_within(&tensor.logm()?, &expected, 1e-9, 1e-9)
+    Assert {
+        abs_tol: 1e-9,
+        rel_tol: 1e-9,
+        ..Default::default()
+    }
+    .eq_within_tols(&tensor.logm()?, &expected)
 }
 
 #[test]
-fn dlogm_diagonal_matches_finite_difference_of_logm() -> Result<(), TestError> {
+fn dlogm_diagonal_matches_finite_difference_of_logm() -> Result<(), AssertionError> {
     let tensor = TensorRank2::<3, 1, 1>::from([[2.0, 0.0, 0.0], [0.0, 0.5, 0.0], [0.0, 0.0, 1.5]]);
     let dlogm = tensor.dlogm()?;
     let epsilon = 1e-6;
@@ -170,13 +199,18 @@ fn dlogm_diagonal_matches_finite_difference_of_logm() -> Result<(), TestError> {
         let tensor_minus = tensor.clone() - perturbation;
         let finite_difference = (tensor_plus.logm()? - tensor_minus.logm()?) / (2.0 * epsilon);
         let predicted = contract_third_fourth_indices(&dlogm, direction);
-        assert_eq_within(&finite_difference, &predicted, 1e-6, 1e-6)?;
+        Assert {
+            abs_tol: 1e-6,
+            rel_tol: 1e-6,
+            ..Default::default()
+        }
+        .eq_within_tols(&finite_difference, &predicted)?;
     }
     Ok(())
 }
 
 #[test]
-fn dlogm_symmetric_matches_finite_difference_of_logm() -> Result<(), TestError> {
+fn dlogm_symmetric_matches_finite_difference_of_logm() -> Result<(), AssertionError> {
     let tensor = get_symmetric_tensor();
     let dlogm = tensor.dlogm()?;
     let epsilon = 1e-6;
@@ -191,13 +225,18 @@ fn dlogm_symmetric_matches_finite_difference_of_logm() -> Result<(), TestError> 
         let tensor_minus = tensor.clone() - perturbation;
         let finite_difference = (tensor_plus.logm()? - tensor_minus.logm()?) / (2.0 * epsilon);
         let predicted = contract_third_fourth_indices(&dlogm, direction);
-        assert_eq_within(&finite_difference, &predicted, 1e-6, 1e-6)?;
+        Assert {
+            abs_tol: 1e-6,
+            rel_tol: 1e-6,
+            ..Default::default()
+        }
+        .eq_within_tols(&finite_difference, &predicted)?;
     }
     Ok(())
 }
 
 #[test]
-fn dlogm_repeated_eigenvalue_matches_finite_difference_of_logm() -> Result<(), TestError> {
+fn dlogm_repeated_eigenvalue_matches_finite_difference_of_logm() -> Result<(), AssertionError> {
     for eigenvalues in [[2.0, 2.0, 0.5], [2.0, 0.5, 0.5]] {
         let tensor = from_eigenvalues(eigenvalues);
         let dlogm = tensor.dlogm()?;
@@ -213,7 +252,12 @@ fn dlogm_repeated_eigenvalue_matches_finite_difference_of_logm() -> Result<(), T
             let tensor_minus = tensor.clone() - perturbation;
             let finite_difference = (tensor_plus.logm()? - tensor_minus.logm()?) / (2.0 * epsilon);
             let predicted = contract_third_fourth_indices(&dlogm, direction);
-            assert_eq_within(&finite_difference, &predicted, 1e-3, 1e-3)?;
+            Assert {
+                abs_tol: 1e-3,
+                rel_tol: 1e-3,
+                ..Default::default()
+            }
+            .eq_within_tols(&finite_difference, &predicted)?;
         }
     }
     Ok(())

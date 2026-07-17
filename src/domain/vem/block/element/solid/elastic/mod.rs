@@ -2,8 +2,7 @@ use crate::{
     constitutive::solid::elastic::Elastic,
     fem::block::element::{FiniteElementError, solid::elastic::ElasticFiniteElement},
     math::{
-        ContractSecondFourthIndicesWithFirstIndicesOf, Scalar, Tensor, TensorArray, TensorRank2,
-        TensorRank2Vec,
+        ContractSecondFourthWithFirst, Scalar, Tensor, TensorArray, TensorRank2, TensorRank2Vec,
     },
     mechanics::{FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses},
     vem::block::element::{
@@ -179,7 +178,8 @@ where
                     .deformation_gradients(nodal_coordinates)
                     .iter()
                     .map(|deformation_gradient| {
-                        constitutive_model.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)
+                        constitutive_model
+                            .first_piola_kirchhoff_tangent_stiffness(deformation_gradient)
                     })
                     .collect::<Result<FirstPiolaKirchhoffTangentStiffnesses, _>>()
                 {
@@ -203,11 +203,11 @@ where
                                                 .iter()
                                                 .map(|gradient_vector_b| {
                                                     first_piola_kirchhoff_tangent_stiffness
-                                                    .contract_second_fourth_indices_with_first_indices_of(
-                                                        gradient_vector_a,
-                                                        gradient_vector_b,
-                                                    )
-                                                    * integration_weight
+                                                        .contract_second_fourth_with_first(
+                                                            gradient_vector_a,
+                                                            gradient_vector_b,
+                                                        )
+                                                        * integration_weight
                                                 })
                                                 .collect()
                                         })

@@ -1,12 +1,10 @@
+use crate::math::assert::Assert;
 use crate::{
     geometry::{
         Coordinate, Coordinates,
         mesh::{Connectivity, Mesh, differential::laplace::Weighting},
     },
-    math::{
-        Scalar, Tensor,
-        test::{TestError, assert_eq_within_tols},
-    },
+    math::{Scalar, Tensor, assert::AssertionError},
 };
 
 fn tri() -> Mesh<3> {
@@ -37,31 +35,31 @@ fn spread(mesh: &Mesh<3>) -> Scalar {
 }
 
 #[test]
-fn full_step_moves_each_vertex_to_neighbor_centroid() -> Result<(), TestError> {
+fn full_step_moves_each_vertex_to_neighbor_centroid() -> Result<(), AssertionError> {
     let mut mesh = tri();
     mesh.laplace_smooth(1, 1.0, Weighting::Uniform, false, false);
     let coordinates = mesh.coordinates();
-    assert_eq_within_tols(&coordinates[0], &[1.0, 1.0, 0.0].into())?;
-    assert_eq_within_tols(&coordinates[1], &[0.0, 1.0, 0.0].into())?;
-    assert_eq_within_tols(&coordinates[2], &[1.0, 0.0, 0.0].into())
+    Assert::default().eq_within_tols(&coordinates[0], &[1.0, 1.0, 0.0].into())?;
+    Assert::default().eq_within_tols(&coordinates[1], &[0.0, 1.0, 0.0].into())?;
+    Assert::default().eq_within_tols(&coordinates[2], &[1.0, 0.0, 0.0].into())
 }
 
 #[test]
-fn zero_scale_is_identity() -> Result<(), TestError> {
+fn zero_scale_is_identity() -> Result<(), AssertionError> {
     let mut mesh = tri();
     mesh.laplace_smooth(5, 0.0, Weighting::Uniform, false, false);
     let coordinates = mesh.coordinates();
-    assert_eq_within_tols(&coordinates[0], &[0.0, 0.0, 0.0].into())?;
-    assert_eq_within_tols(&coordinates[1], &[2.0, 0.0, 0.0].into())?;
-    assert_eq_within_tols(&coordinates[2], &[0.0, 2.0, 0.0].into())
+    Assert::default().eq_within_tols(&coordinates[0], &[0.0, 0.0, 0.0].into())?;
+    Assert::default().eq_within_tols(&coordinates[1], &[2.0, 0.0, 0.0].into())?;
+    Assert::default().eq_within_tols(&coordinates[2], &[0.0, 2.0, 0.0].into())
 }
 
 #[test]
-fn preserves_centroid() -> Result<(), TestError> {
+fn preserves_centroid() -> Result<(), AssertionError> {
     let before = centroid(&tri());
     let mut mesh = tri();
     mesh.laplace_smooth(4, 0.5, Weighting::Uniform, false, false);
-    assert_eq_within_tols(&before, &centroid(&mesh))
+    Assert::default().eq_within_tols(&before, &centroid(&mesh))
 }
 
 #[test]
@@ -88,13 +86,14 @@ fn square_about(center: Coordinate<3>) -> Mesh<3> {
 }
 
 #[test]
-fn preserve_boundary_ignores_interior_neighbors() -> Result<(), TestError> {
+fn preserve_boundary_ignores_interior_neighbors() -> Result<(), AssertionError> {
     let mut preserved_a = square_about([1.0, 1.0, 0.0].into());
     let mut preserved_b = square_about([1.5, 0.5, 0.0].into());
     preserved_a.laplace_smooth(1, 1.0, Weighting::Uniform, true, false);
     preserved_b.laplace_smooth(1, 1.0, Weighting::Uniform, true, false);
-    assert_eq_within_tols(&preserved_a.coordinates()[0], &[1.0, 1.0, 0.0].into())?;
-    assert_eq_within_tols(&preserved_a.coordinates()[0], &preserved_b.coordinates()[0])?;
+    Assert::default().eq_within_tols(&preserved_a.coordinates()[0], &[1.0, 1.0, 0.0].into())?;
+    Assert::default()
+        .eq_within_tols(&preserved_a.coordinates()[0], &preserved_b.coordinates()[0])?;
     let mut free = square_about([1.5, 0.5, 0.0].into());
     free.laplace_smooth(1, 1.0, Weighting::Uniform, false, false);
     assert!(
@@ -122,13 +121,14 @@ fn two_block_strip(corner: Coordinate<3>) -> Mesh<3> {
 }
 
 #[test]
-fn preserve_interfaces_ignores_off_interface_neighbors() -> Result<(), TestError> {
+fn preserve_interfaces_ignores_off_interface_neighbors() -> Result<(), AssertionError> {
     let mut interface_a = two_block_strip([0.0, 0.0, 0.0].into());
     let mut interface_b = two_block_strip([-1.0, -1.0, 0.0].into());
     interface_a.laplace_smooth(1, 1.0, Weighting::Uniform, false, true);
     interface_b.laplace_smooth(1, 1.0, Weighting::Uniform, false, true);
-    assert_eq_within_tols(&interface_a.coordinates()[1], &[1.0, 1.0, 0.0].into())?;
-    assert_eq_within_tols(&interface_a.coordinates()[1], &interface_b.coordinates()[1])?;
+    Assert::default().eq_within_tols(&interface_a.coordinates()[1], &[1.0, 1.0, 0.0].into())?;
+    Assert::default()
+        .eq_within_tols(&interface_a.coordinates()[1], &interface_b.coordinates()[1])?;
     let mut free = two_block_strip([-1.0, -1.0, 0.0].into());
     free.laplace_smooth(1, 1.0, Weighting::Uniform, false, false);
     assert!(
@@ -139,11 +139,11 @@ fn preserve_interfaces_ignores_off_interface_neighbors() -> Result<(), TestError
 }
 
 #[test]
-fn cotangent_full_step() -> Result<(), TestError> {
+fn cotangent_full_step() -> Result<(), AssertionError> {
     let mut mesh = tri();
     mesh.laplace_smooth(1, 1.0, Weighting::Cotangent, false, false);
     let coordinates = mesh.coordinates();
-    assert_eq_within_tols(&coordinates[0], &[1.0, 1.0, 0.0].into())?;
-    assert_eq_within_tols(&coordinates[1], &[0.0, 0.0, 0.0].into())?;
-    assert_eq_within_tols(&coordinates[2], &[0.0, 0.0, 0.0].into())
+    Assert::default().eq_within_tols(&coordinates[0], &[1.0, 1.0, 0.0].into())?;
+    Assert::default().eq_within_tols(&coordinates[1], &[0.0, 0.0, 0.0].into())?;
+    Assert::default().eq_within_tols(&coordinates[2], &[0.0, 0.0, 0.0].into())
 }

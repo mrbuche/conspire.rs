@@ -1,10 +1,8 @@
 use super::{
     super::{Tensor, TensorArray},
-    ContractAllIndicesWithFirstIndicesOf, ContractFirstSecondIndicesWithSecondIndicesOf,
-    ContractFirstThirdFourthIndicesWithFirstIndicesOf,
-    ContractSecondFourthIndicesWithFirstIndicesOf, ContractSecondIndexWithFirstIndexOf,
-    ContractThirdFourthIndicesWithFirstSecondIndicesOf, IDENTITY_1010, Rank2, TensorRank0,
-    TensorRank1, TensorRank2, TensorRank3, TensorRank4,
+    ContractAllWithFirst, ContractFirstSecondWithSecond, ContractFirstThirdFourthWithFirst,
+    ContractSecondFourthWithFirst, ContractSecondWithFirst, ContractThirdFourthWithFirstSecond,
+    IDENTITY_1010, Rank2, TensorRank0, TensorRank1, TensorRank2, TensorRank3, TensorRank4,
 };
 use crate::{ABS_TOL, REL_TOL};
 
@@ -112,8 +110,7 @@ fn get_tensor_rank_4_mul_tensor_rank_2() -> TensorRank4<3, 1, 1, 1, 1> {
     ])
 }
 
-fn get_tensor_rank_4_contract_all_indices_with_first_indices_of_tensor_rank_2()
--> TensorRank4<3, 1, 1, 1, 1> {
+fn get_tensor_rank_4_contract_all_with_first_tensor_rank_2() -> TensorRank4<3, 1, 1, 1, 1> {
     TensorRank4::from([
         [
             [
@@ -169,8 +166,8 @@ fn get_tensor_rank_4_contract_all_indices_with_first_indices_of_tensor_rank_2()
     ])
 }
 
-fn get_tensor_rank_4_contract_first_second_indices_with_second_indices_of_tensor_rank_2()
--> TensorRank4<3, 1, 1, 1, 1> {
+fn get_tensor_rank_4_contract_first_second_with_second_tensor_rank_2() -> TensorRank4<3, 1, 1, 1, 1>
+{
     TensorRank4::from([
         [
             [
@@ -226,7 +223,7 @@ fn get_tensor_rank_4_contract_first_second_indices_with_second_indices_of_tensor
     ])
 }
 
-fn get_tensor_rank_4_contract_first_third_fourth_indices_with_first_indices_of_tensor_rank_2()
+fn get_tensor_rank_4_contract_first_third_fourth_with_first_tensor_rank_2()
 -> TensorRank4<3, 1, 1, 1, 1> {
     TensorRank4::from([
         [
@@ -283,8 +280,7 @@ fn get_tensor_rank_4_contract_first_third_fourth_indices_with_first_indices_of_t
     ])
 }
 
-fn get_tensor_rank_4_contract_second_index_with_first_index_of_tensor_rank_2()
--> TensorRank4<3, 1, 1, 1, 1> {
+fn get_tensor_rank_4_contract_second_with_first_tensor_rank_2() -> TensorRank4<3, 1, 1, 1, 1> {
     TensorRank4::from([
         [
             [[27.0, 34.0, 45.0], [40.0, 29.0, 37.0], [18.0, 41.0, 18.0]],
@@ -304,8 +300,8 @@ fn get_tensor_rank_4_contract_second_index_with_first_index_of_tensor_rank_2()
     ])
 }
 
-fn get_tensor_rank_4_contract_third_fourth_indices_with_first_second_indices_of_tensor_rank_2()
--> TensorRank2<3, 1, 1> {
+fn get_tensor_rank_4_contract_third_fourth_with_first_second_tensor_rank_2() -> TensorRank2<3, 1, 1>
+{
     TensorRank2::from([
         [128.0, 97.0, 77.0],
         [113.0, 92.0, 99.0],
@@ -313,8 +309,7 @@ fn get_tensor_rank_4_contract_third_fourth_indices_with_first_second_indices_of_
     ])
 }
 
-fn get_tensor_rank_4_contract_second_fourth_indices_with_first_indices_of_tensors_rank_1()
--> TensorRank2<3, 1, 1> {
+fn get_tensor_rank_4_contract_second_fourth_with_first_tensors_rank_1() -> TensorRank2<3, 1, 1> {
     TensorRank2::from([
         [206.0, 196.0, 151.0],
         [196.0, 195.0, 198.0],
@@ -518,15 +513,15 @@ fn as_array() {
 }
 
 #[test]
-fn contract_all_indices_with_first_indices_of() {
-    (get_tensor_rank_4().contract_all_indices_with_first_indices_of(
+fn contract_all_with_first() {
+    (get_tensor_rank_4().contract_all_with_first(
         &get_tensor_rank_2(),
         &get_other_tensor_rank_2(),
         &get_other_other_tensor_rank_2(),
         &get_other_other_other_tensor_rank_2(),
     ))
     .iter()
-    .zip(get_tensor_rank_4_contract_all_indices_with_first_indices_of_tensor_rank_2().iter())
+    .zip(get_tensor_rank_4_contract_all_with_first_tensor_rank_2().iter())
     .for_each(|(tensor_rank_4_i, res_tensor_rank_4_i)| {
         tensor_rank_4_i
             .iter()
@@ -548,16 +543,11 @@ fn contract_all_indices_with_first_indices_of() {
 }
 
 #[test]
-fn contract_first_second_indices_with_second_indices_of() {
-    (get_tensor_rank_4().contract_first_second_indices_with_second_indices_of(
-        &get_tensor_rank_2(),
-        &get_other_tensor_rank_2(),
-    ))
+fn contract_first_second_with_second() {
+    (get_tensor_rank_4()
+        .contract_first_second_with_second(&get_tensor_rank_2(), &get_other_tensor_rank_2()))
     .iter()
-    .zip(
-        get_tensor_rank_4_contract_first_second_indices_with_second_indices_of_tensor_rank_2()
-            .iter(),
-    )
+    .zip(get_tensor_rank_4_contract_first_second_with_second_tensor_rank_2().iter())
     .for_each(|(tensor_rank_4_i, res_tensor_rank_4_i)| {
         tensor_rank_4_i
             .iter()
@@ -579,17 +569,14 @@ fn contract_first_second_indices_with_second_indices_of() {
 }
 
 #[test]
-fn contract_first_third_fourth_indices_with_first_indices_of() {
-    (get_tensor_rank_4().contract_first_third_fourth_indices_with_first_indices_of(
+fn contract_first_third_fourth_with_first() {
+    (get_tensor_rank_4().contract_first_third_fourth_with_first(
         &get_tensor_rank_2(),
         &get_other_tensor_rank_2(),
         &get_other_other_tensor_rank_2(),
     ))
     .iter()
-    .zip(
-        get_tensor_rank_4_contract_first_third_fourth_indices_with_first_indices_of_tensor_rank_2()
-            .iter(),
-    )
+    .zip(get_tensor_rank_4_contract_first_third_fourth_with_first_tensor_rank_2().iter())
     .for_each(|(tensor_rank_4_i, res_tensor_rank_4_i)| {
         tensor_rank_4_i
             .iter()
@@ -611,10 +598,10 @@ fn contract_first_third_fourth_indices_with_first_indices_of() {
 }
 
 #[test]
-fn contract_second_index_with_first_index_of() {
-    (get_tensor_rank_4().contract_second_index_with_first_index_of(&get_tensor_rank_2()))
+fn contract_second_with_first() {
+    (get_tensor_rank_4().contract_second_with_first(&get_tensor_rank_2()))
         .iter()
-        .zip(get_tensor_rank_4_contract_second_index_with_first_index_of_tensor_rank_2().iter())
+        .zip(get_tensor_rank_4_contract_second_with_first_tensor_rank_2().iter())
         .for_each(|(tensor_rank_4_i, res_tensor_rank_4_i)| {
             tensor_rank_4_i
                 .iter()
@@ -636,16 +623,11 @@ fn contract_second_index_with_first_index_of() {
 }
 
 #[test]
-fn contract_second_fourth_indices_with_first_indices_of() {
-    (get_tensor_rank_4().contract_second_fourth_indices_with_first_indices_of(
-        &get_tensor_rank_1(),
-        &get_other_tensor_rank_1(),
-    ))
+fn contract_second_fourth_with_first() {
+    (get_tensor_rank_4()
+        .contract_second_fourth_with_first(&get_tensor_rank_1(), &get_other_tensor_rank_1()))
     .iter()
-    .zip(
-        get_tensor_rank_4_contract_second_fourth_indices_with_first_indices_of_tensors_rank_1()
-            .iter(),
-    )
+    .zip(get_tensor_rank_4_contract_second_fourth_with_first_tensors_rank_1().iter())
     .for_each(|(tensor_rank_4_i, res_tensor_rank_4_i)| {
         tensor_rank_4_i
             .iter()
@@ -657,23 +639,18 @@ fn contract_second_fourth_indices_with_first_indices_of() {
 }
 
 #[test]
-fn contract_third_fourth_indices_with_first_second_indices_of() {
-    (get_tensor_rank_4()
-        .contract_third_fourth_indices_with_first_second_indices_of(&get_tensor_rank_2()))
-    .iter()
-    .zip(
-        get_tensor_rank_4_contract_third_fourth_indices_with_first_second_indices_of_tensor_rank_2(
-        )
-        .iter(),
-    )
-    .for_each(|(tensor_rank_4_i, res_tensor_rank_4_i)| {
-        tensor_rank_4_i
-            .iter()
-            .zip(res_tensor_rank_4_i.iter())
-            .for_each(|(tensor_rank_4_ij, res_tensor_rank_4_ij)| {
-                assert_eq!(tensor_rank_4_ij, res_tensor_rank_4_ij)
-            })
-    })
+fn contract_third_fourth_with_first_second() {
+    (get_tensor_rank_4().contract_third_fourth_with_first_second(&get_tensor_rank_2()))
+        .iter()
+        .zip(get_tensor_rank_4_contract_third_fourth_with_first_second_tensor_rank_2().iter())
+        .for_each(|(tensor_rank_4_i, res_tensor_rank_4_i)| {
+            tensor_rank_4_i
+                .iter()
+                .zip(res_tensor_rank_4_i.iter())
+                .for_each(|(tensor_rank_4_ij, res_tensor_rank_4_ij)| {
+                    assert_eq!(tensor_rank_4_ij, res_tensor_rank_4_ij)
+                })
+        })
 }
 
 #[test]

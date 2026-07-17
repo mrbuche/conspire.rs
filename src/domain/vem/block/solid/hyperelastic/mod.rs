@@ -1,10 +1,14 @@
 use crate::{
     constitutive::solid::hyperelastic::Hyperelastic,
     fem::{ElementModelError, solid::hyperelastic::HyperelasticElements},
-    math::Scalar,
+    math::{HessianAccumulate, Scalar},
     vem::{
         NodalCoordinates,
-        block::{Block, element::solid::hyperelastic::HyperelasticVirtualElement},
+        block::{
+            Block,
+            element::{VirtualElementError, solid::hyperelastic::HyperelasticVirtualElement},
+            solid::NodalStiffnessesSolidSymmetric,
+        },
     },
 };
 
@@ -30,6 +34,42 @@ where
             .sum()
         {
             Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
+            Err(error) => Err(ElementModelError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
+    }
+    fn nodal_stiffnesses_symmetric_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates,
+        nodal_stiffnesses: &mut NodalStiffnessesSolidSymmetric,
+    ) -> Result<(), ElementModelError> {
+        match self
+            .elements()
+            .iter()
+            .zip(self.elements_nodes())
+            .try_for_each(|(element, nodes)| {
+                element
+                    .nodal_stiffnesses(
+                        self.constitutive_model(),
+                        Self::element_coordinates(nodal_coordinates, nodes),
+                    )?
+                    .into_iter()
+                    .zip(nodes)
+                    .for_each(|(object, &node_a)| {
+                        object
+                            .into_iter()
+                            .zip(nodes)
+                            .for_each(|(nodal_stiffness, &node_b)| {
+                                if node_a <= node_b {
+                                    nodal_stiffnesses.accumulate(node_a, node_b, nodal_stiffness)
+                                }
+                            })
+                    });
+                Ok::<(), VirtualElementError>(())
+            }) {
+            Ok(()) => Ok(()),
             Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),

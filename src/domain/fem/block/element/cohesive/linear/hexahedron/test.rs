@@ -1,3 +1,4 @@
+use crate::math::assert::Assert;
 use crate::{
     EPSILON,
     constitutive::cohesive::elastic::LinearElastic,
@@ -9,10 +10,7 @@ use crate::{
         },
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
     },
-    math::{
-        Rank2, Scalar, Tensor, TensorRank2, assert_eq_within_tols,
-        test::{TestError, assert_eq_from_fd},
-    },
+    math::{Rank2, Scalar, Tensor, TensorRank2, Vector, assert::AssertionError},
     mechanics::test::get_rotation_reference_configuration,
 };
 
@@ -40,17 +38,18 @@ const MODEL: LinearElastic = LinearElastic {
 };
 
 #[test]
-fn temporary_1() -> Result<(), TestError> {
+fn temporary_1() -> Result<(), AssertionError> {
     let coordinates = ElementNodalReferenceCoordinates::from(COORDINATES);
     let element = Hexahedron::from(coordinates.clone());
-    assert_eq_within_tols(
+    Assert::default().eq_within_tols(
         &element.nodal_forces(&MODEL, &coordinates.into())?,
         &[[0.0; 3]; N].into(),
     )
 }
 
 #[test]
-fn temporary_2() -> Result<(), TestError> {
+#[allow(clippy::needless_borrows_for_generic_args)]
+fn temporary_2() -> Result<(), AssertionError> {
     let mut coordinates = ElementNodalReferenceCoordinates::from(COORDINATES);
     let element = Hexahedron::from(coordinates.clone());
     coordinates.iter_mut().skip(P).for_each(|coordinate| {
@@ -58,45 +57,42 @@ fn temporary_2() -> Result<(), TestError> {
         coordinate[2] += NORMAL_DISPLACEMENT
     });
     let area = element.integration_weights().into_iter().sum::<Scalar>();
-    // Different than wedge since shape function gradients not constant.
-    // Instead the total force is computed and compared to the traction.
     let forces = element.nodal_forces(&MODEL, &coordinates.into())?;
-    assert_eq_within_tols(
+    Assert::default().eq_within_tols(
         &forces.iter().take(P).map(|force| -force[0]).sum(),
         &(TANGENTIAL_TRACTION * area),
     )?;
-    assert_eq_within_tols(
+    Assert::default().eq_within_tols(
         &forces.iter().skip(P).map(|force| force[0]).sum(),
         &(TANGENTIAL_TRACTION * area),
     )?;
-    forces
-        .iter()
-        .try_for_each(|force| assert_eq_within_tols(&force[1], &0.0))?;
-    assert_eq_within_tols(
+    Assert::default().zero_within_tols(&forces.iter().map(|force| force[1]).collect::<Vector>())?;
+    Assert::default().eq_within_tols(
         &forces.iter().take(P).map(|force| -force[2]).sum(),
         &(NORMAL_TRACTION * area),
     )?;
-    assert_eq_within_tols(
+    Assert::default().eq_within_tols(
         &forces.iter().skip(P).map(|force| force[2]).sum(),
         &(NORMAL_TRACTION * area),
     )
 }
 
 #[test]
-fn temporary_3() -> Result<(), TestError> {
+fn temporary_3() -> Result<(), AssertionError> {
     let coordinates = ElementNodalReferenceCoordinates::from(COORDINATES)
         .iter()
         .map(|coordinate| get_rotation_reference_configuration() * coordinate)
         .collect::<ElementNodalReferenceCoordinates<N>>();
     let element = Hexahedron::from(coordinates.clone());
-    assert_eq_within_tols(
+    Assert::default().eq_within_tols(
         &element.nodal_forces(&MODEL, &coordinates.into())?,
         &[[0.0; 3]; N].into(),
     )
 }
 
 #[test]
-fn temporary_4() -> Result<(), TestError> {
+#[allow(clippy::needless_borrows_for_generic_args)]
+fn temporary_4() -> Result<(), AssertionError> {
     let coordinates_0 = ElementNodalReferenceCoordinates::from(COORDINATES)
         .iter()
         .map(|coordinate| get_rotation_reference_configuration() * coordinate)
@@ -112,8 +108,6 @@ fn temporary_4() -> Result<(), TestError> {
         .map(|coordinate| get_rotation_reference_configuration() * coordinate)
         .collect();
     let area = element.integration_weights().into_iter().sum::<Scalar>();
-    // Different than wedge since shape function gradients not constant.
-    // Instead the total force is computed and compared to the traction.
     let forces = element
         .nodal_forces(&MODEL, &coordinates.into())?
         .into_iter()
@@ -122,29 +116,27 @@ fn temporary_4() -> Result<(), TestError> {
                 * nodal_force
         })
         .collect::<ElementNodalForcesSolid<N>>();
-    assert_eq_within_tols(
+    Assert::default().eq_within_tols(
         &forces.iter().take(P).map(|force| -force[0]).sum(),
         &(TANGENTIAL_TRACTION * area),
     )?;
-    assert_eq_within_tols(
+    Assert::default().eq_within_tols(
         &forces.iter().skip(P).map(|force| force[0]).sum(),
         &(TANGENTIAL_TRACTION * area),
     )?;
-    forces
-        .iter()
-        .try_for_each(|force| assert_eq_within_tols(&force[1], &0.0))?;
-    assert_eq_within_tols(
+    Assert::default().zero_within_tols(&forces.iter().map(|force| force[1]).collect::<Vector>())?;
+    Assert::default().eq_within_tols(
         &forces.iter().take(P).map(|force| -force[2]).sum(),
         &(NORMAL_TRACTION * area),
     )?;
-    assert_eq_within_tols(
+    Assert::default().eq_within_tols(
         &forces.iter().skip(P).map(|force| force[2]).sum(),
         &(NORMAL_TRACTION * area),
     )
 }
 
 #[test]
-fn temporary_5() -> Result<(), TestError> {
+fn temporary_5() -> Result<(), AssertionError> {
     let coordinates_0 = ElementNodalReferenceCoordinates::from(COORDINATES);
     let coordinates = ElementNodalCoordinates::from(coordinates_0.clone());
     let element = Hexahedron::from(coordinates_0);
@@ -172,15 +164,15 @@ fn temporary_5() -> Result<(), TestError> {
                 })
                 .collect()
         })
-        .collect::<Result<ElementNodalStiffnessesSolid<N>, TestError>>()?;
-    assert_eq_from_fd(
+        .collect::<Result<ElementNodalStiffnessesSolid<N>, AssertionError>>()?;
+    Assert::default().eq_within_fd_tol(
         &element.nodal_stiffnesses(&MODEL, &coordinates)?,
         &nodal_stiffnesses_fd,
     )
 }
 
 #[test]
-fn temporary_6() -> Result<(), TestError> {
+fn temporary_6() -> Result<(), AssertionError> {
     let coordinates_0 = ElementNodalReferenceCoordinates::from([
         [-0.57177033, -0.20395894, 0.23629102],
         [1.49477913, 1.72253902, 1.40527015],
@@ -226,8 +218,8 @@ fn temporary_6() -> Result<(), TestError> {
                 })
                 .collect()
         })
-        .collect::<Result<ElementNodalStiffnessesSolid<N>, TestError>>()?;
-    assert_eq_from_fd(
+        .collect::<Result<ElementNodalStiffnessesSolid<N>, AssertionError>>()?;
+    Assert::default().eq_within_fd_tol(
         &element.nodal_stiffnesses(&MODEL, &coordinates)?,
         &nodal_stiffnesses_fd,
     )

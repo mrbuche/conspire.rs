@@ -2,7 +2,7 @@ use crate::{
     fem::{
         Blocks, ElementModel, ElementModelError, Elements, Model, NodalCoordinates,
         NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
-        block::{band_from_neighbors, finalize_node_neighbors},
+        block::{finalize_node_neighbors, solver_from_neighbors},
         solid::{NodalForcesSolid, NodalStiffnessesSolid, viscoelastic::ViscoelasticElements},
     },
     math::{
@@ -129,7 +129,7 @@ where
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);
         finalize_node_neighbors(&mut neighbors);
-        let banded = band_from_neighbors(&neighbors, &equality_constraint, D);
+        let sparse = solver_from_neighbors(&neighbors, &equality_constraint, D, true);
         integrator.integrate(
             |_: Scalar,
              nodal_coordinates: &NodalCoordinates<D>,
@@ -150,7 +150,7 @@ where
             time,
             self.coordinates().clone().into(),
             |_: Scalar| equality_constraint.clone(),
-            Some(banded),
+            Some(sparse),
         )
     }
 }

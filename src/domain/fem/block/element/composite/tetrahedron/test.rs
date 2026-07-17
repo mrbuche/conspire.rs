@@ -1,3 +1,4 @@
+use crate::math::assert::Assert;
 use crate::{
     fem::{
         NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
@@ -31,10 +32,10 @@ use crate::{
 test_finite_element!(Tetrahedron);
 test_finite_element_block!(Tetrahedron);
 
-use crate::math::test::{TestError, assert_eq_within_tols};
+use crate::math::assert::AssertionError;
 
 #[test]
-fn normalized_projection_matrix() -> Result<(), TestError> {
+fn normalized_projection_matrix() -> Result<(), AssertionError> {
     Tetrahedron::shape_function_integrals_products()
         .iter()
         .map(|dummy| dummy * 1.0)
@@ -48,14 +49,14 @@ fn normalized_projection_matrix() -> Result<(), TestError> {
         .try_for_each(|(sum_i, projection_matrix_i)| {
             sum_i.iter().zip(projection_matrix_i.iter()).try_for_each(
                 |(sum_ij, projection_matrix_ij)| {
-                    assert_eq_within_tols(sum_ij, projection_matrix_ij)
+                    Assert::default().eq_within_tols(sum_ij, projection_matrix_ij)
                 },
             )
         })
 }
 
 #[test]
-fn standard_gradient_operators_transposed() -> Result<(), TestError> {
+fn standard_gradient_operators_transposed() -> Result<(), AssertionError> {
     let standard_gradient_operators_transposed =
         Tetrahedron::standard_gradient_operators_transposed();
     Tetrahedron::shape_functions_gradients_at_integration_points()
@@ -67,7 +68,7 @@ fn standard_gradient_operators_transposed() -> Result<(), TestError> {
                 .zip(standard_gradient_operators_transposed.iter())
                 .try_for_each(
                     |(standard_gradient_operators_ij, standard_gradient_operators_transposed_j)| {
-                        assert_eq_within_tols(
+                        Assert::default().eq_within_tols(
                             standard_gradient_operators_ij,
                             &standard_gradient_operators_transposed_j[i],
                         )

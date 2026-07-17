@@ -2,7 +2,10 @@
 mod test;
 
 use super::{
-    super::{Banded, Hessian, Jacobian, Matrix, Scalar, Solution, SquareMatrix, Tensor, Vector},
+    super::{
+        Hessian, Jacobian, Matrix, Scalar, Solution, SquareMatrix, Tensor, Vector,
+        sparse::SparseSolver,
+    },
     BacktrackingLineSearch, EqualityConstraint, FirstOrderRootFinding, LineSearch,
     OptimizationError, SecondOrderOptimization,
 };
@@ -67,6 +70,7 @@ where
         jacobian: impl FnMut(&X) -> Result<J, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
+        sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
         match equality_constraint {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
@@ -75,7 +79,7 @@ where
                 function,
                 jacobian,
                 initial_guess,
-                None,
+                sparse,
                 indices,
             ),
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
@@ -84,7 +88,7 @@ where
                 function,
                 jacobian,
                 initial_guess,
-                None,
+                sparse,
                 constraint_matrix,
                 constraint_rhs,
             ),
@@ -115,7 +119,7 @@ where
         hessian: impl FnMut(&X) -> Result<H, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
-        banded: Option<Banded>,
+        sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
         match match equality_constraint {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
@@ -124,7 +128,7 @@ where
                 jacobian,
                 hessian,
                 initial_guess,
-                banded,
+                sparse,
                 indices,
             ),
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
@@ -133,7 +137,7 @@ where
                 jacobian,
                 hessian,
                 initial_guess,
-                banded,
+                sparse,
                 constraint_matrix,
                 constraint_rhs,
             ),
@@ -203,7 +207,7 @@ fn constrained_fixed<J, H, X>(
     mut jacobian: impl FnMut(&X) -> Result<J, String>,
     mut hessian: impl FnMut(&X) -> Result<H, String>,
     initial_guess: X,
-    banded: Option<Banded>,
+    sparse: Option<SparseSolver>,
     indices: Vec<usize>,
 ) -> Result<X, OptimizationError>
 where
@@ -215,21 +219,26 @@ where
 {
     let mut retained = vec![true; initial_guess.size()];
     indices.iter().for_each(|&index| retained[index] = false);
+    let unmap: Vec<usize> = retained
+        .iter()
+        .enumerate()
+        .filter_map(|(index, &keep)| keep.then_some(index))
+        .collect();
     let mut decrement;
     let mut residual;
     let mut solution = initial_guess;
     let mut step_size;
-    let mut tangent;
     for _ in 0..=newton_raphson.max_steps {
         residual = jacobian(&solution)?.retain_from(&retained);
         if newton_raphson.norm.apply(&residual) < newton_raphson.abs_tol {
             return Ok(solution);
-        } else if let Some(ref band) = banded {
-            tangent = hessian(&solution)?.retain_from(&retained);
-            decrement = tangent.solve_lu_banded(&residual, band)?
+        } else if let Some(ref solver) = sparse {
+            let hess = hessian(&solution)?;
+            decrement = solver.solve(|i, j| hess.entry(unmap[i], unmap[j]), &residual)?
         } else {
-            tangent = hessian(&solution)?.retain_from(&retained);
-            decrement = tangent.solve_lu(&residual)?
+            decrement = hessian(&solution)?
+                .retain_from(&retained)
+                .solve_lu(&residual)?
         }
         if !matches!(newton_raphson.line_search, LineSearch::None) {
             let jac = jacobian(&solution)?;
@@ -263,7 +272,7 @@ fn constrained<J, H, X>(
     mut jacobian: impl FnMut(&X) -> Result<J, String>,
     mut hessian: impl FnMut(&X) -> Result<H, String>,
     initial_guess: X,
-    banded: Option<Banded>,
+    sparse: Option<SparseSolver>,
     constraint_matrix: Matrix,
     constraint_rhs: Vector,
 ) -> Result<X, OptimizationError>
@@ -283,19 +292,21 @@ where
     let mut multipliers = Vector::zero(num_constraints);
     let mut residual = Vector::zero(num_total);
     let mut solution = initial_guess;
-    let mut tangent = SquareMatrix::zero(num_total);
-    constraint_matrix
-        .iter()
-        .enumerate()
-        .for_each(|(i, constraint_matrix_i)| {
-            constraint_matrix_i
-                .iter()
-                .enumerate()
-                .for_each(|(j, constraint_matrix_ij)| {
-                    tangent[i + num_variables][j] = -constraint_matrix_ij;
-                    tangent[j][i + num_variables] = -constraint_matrix_ij;
-                })
-        });
+    let mut tangent = SquareMatrix::zero(if sparse.is_none() { num_total } else { 0 });
+    if sparse.is_none() {
+        constraint_matrix
+            .iter()
+            .enumerate()
+            .for_each(|(i, constraint_matrix_i)| {
+                constraint_matrix_i
+                    .iter()
+                    .enumerate()
+                    .for_each(|(j, constraint_matrix_ij)| {
+                        tangent[i + num_variables][j] = -constraint_matrix_ij;
+                        tangent[j][i + num_variables] = -constraint_matrix_ij;
+                    })
+            });
+    }
     for _ in 0..=newton_raphson.max_steps {
         (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
             &constraint_rhs - &constraint_matrix * &solution,
@@ -303,9 +314,20 @@ where
         );
         if newton_raphson.norm.apply(&residual) < newton_raphson.abs_tol {
             return Ok(solution);
-        } else if let Some(ref band) = banded {
-            hessian(&solution)?.fill_into(&mut tangent);
-            decrement = tangent.solve_lu_banded(&residual, band)?
+        } else if let Some(ref solver) = sparse {
+            let hess = hessian(&solution)?;
+            decrement = solver.solve(
+                |i, j| {
+                    if i >= num_variables {
+                        -constraint_matrix[i - num_variables][j]
+                    } else if j >= num_variables {
+                        -constraint_matrix[j - num_variables][i]
+                    } else {
+                        hess.entry(i, j)
+                    }
+                },
+                &residual,
+            )?;
         } else {
             hessian(&solution)?.fill_into(&mut tangent);
             decrement = tangent.solve_lu(&residual)?

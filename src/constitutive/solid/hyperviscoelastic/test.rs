@@ -40,7 +40,7 @@ macro_rules! test_solid_hyperviscoelastic_constitutive_model
             $constitutive_model
         );
         #[test]
-        fn dissipation_potential_deformed_positive() -> Result<(), TestError>
+        fn dissipation_potential_deformed_positive() -> Result<(), AssertionError>
         {
             assert!(
                 dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(

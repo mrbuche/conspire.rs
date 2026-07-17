@@ -1,5 +1,5 @@
 use super::{
-    super::{Scalar, Tensor, special, test::TestError},
+    super::{Scalar, Tensor, assert::AssertionError, special},
     OptimizationError,
 };
 
@@ -52,5 +52,5 @@ fn display() {
 #[test]
 fn into_test_error() {
     let optimize_error = OptimizationError::MaximumStepsReached(1, "foo".to_string());
-    let _: TestError = optimize_error.into();
+    let _: AssertionError = optimize_error.into();
 }

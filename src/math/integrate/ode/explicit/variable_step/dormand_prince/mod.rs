@@ -37,6 +37,26 @@ pub const C_71_1920: Scalar = 71.0 / 1920.0;
 pub const C_17253_339200: Scalar = 17253.0 / 339200.0;
 pub const C_22_525: Scalar = 22.0 / 525.0;
 
+pub const P_1_0: Scalar = 1.0;
+pub const P_1_1: Scalar = -8048581381.0 / 2820520608.0;
+pub const P_1_2: Scalar = 8663915743.0 / 2820520608.0;
+pub const P_1_3: Scalar = -12715105075.0 / 11282082432.0;
+pub const P_3_1: Scalar = 131558114200.0 / 32700410799.0;
+pub const P_3_2: Scalar = -68118460800.0 / 10900136933.0;
+pub const P_3_3: Scalar = 87487479700.0 / 32700410799.0;
+pub const P_4_1: Scalar = -1754552775.0 / 470086768.0;
+pub const P_4_2: Scalar = 14199869525.0 / 1410260304.0;
+pub const P_4_3: Scalar = -10690763975.0 / 1880347072.0;
+pub const P_5_1: Scalar = 127303824393.0 / 49829197408.0;
+pub const P_5_2: Scalar = -318862633887.0 / 49829197408.0;
+pub const P_5_3: Scalar = 701980252875.0 / 199316789632.0;
+pub const P_6_1: Scalar = -282668133.0 / 205662961.0;
+pub const P_6_2: Scalar = 2019193451.0 / 616988883.0;
+pub const P_6_3: Scalar = -1453857185.0 / 822651844.0;
+pub const P_7_1: Scalar = 40617522.0 / 29380423.0;
+pub const P_7_2: Scalar = -110615467.0 / 29380423.0;
+pub const P_7_3: Scalar = 69997945.0 / 29380423.0;
+
 #[doc = include_str!("doc.md")]
 #[derive(Debug)]
 pub struct DormandPrince {
@@ -185,12 +205,13 @@ where
         y_sol: &mut U,
         t_sol: &mut Vector,
         dydt_sol: &mut U,
+        k_sol: &mut Vec<U>,
         dt: &mut Scalar,
         k: &mut [Y],
         y_trial: &Y,
         e: Scalar,
     ) -> Result<(), String> {
-        self.step_fsal(y, t, y_sol, t_sol, dydt_sol, dt, k, y_trial, e)
+        self.step_fsal(y, t, y_sol, t_sol, dydt_sol, k_sol, dt, k, y_trial, e)
     }
 }
 
@@ -200,6 +221,68 @@ where
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
 {
+}
+
+impl DormandPrince {
+    pub(crate) fn interpolate_free_dense<Y, U>(
+        time: &Vector,
+        tp: &Vector,
+        yp: &U,
+        dydtp: &U,
+        k_sol: &[U],
+    ) -> (U, U)
+    where
+        Y: Tensor,
+        for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+        U: TensorVec<Item = Y>,
+    {
+        let mut y_int = U::new();
+        let mut dydt_int = U::new();
+        for time_k in time.iter() {
+            let i = tp.iter().position(|tp_i| tp_i >= time_k).unwrap();
+            if time_k == &tp[i] {
+                y_int.push(yp[i].clone());
+                dydt_int.push(dydtp[i].clone());
+            } else {
+                let t_0 = tp[i - 1];
+                let h = tp[i] - t_0;
+                let theta = (time_k - t_0) / h;
+                let theta2 = theta * theta;
+                let theta3 = theta2 * theta;
+                let theta4 = theta3 * theta;
+                let k = &k_sol[i - 1];
+                let c_1 = theta * P_1_0 + theta2 * P_1_1 + theta3 * P_1_2 + theta4 * P_1_3;
+                let c_3 = theta2 * P_3_1 + theta3 * P_3_2 + theta4 * P_3_3;
+                let c_4 = theta2 * P_4_1 + theta3 * P_4_2 + theta4 * P_4_3;
+                let c_5 = theta2 * P_5_1 + theta3 * P_5_2 + theta4 * P_5_3;
+                let c_6 = theta2 * P_6_1 + theta3 * P_6_2 + theta4 * P_6_3;
+                let c_7 = theta2 * P_7_1 + theta3 * P_7_2 + theta4 * P_7_3;
+                let dc_1 =
+                    P_1_0 + 2.0 * theta * P_1_1 + 3.0 * theta2 * P_1_2 + 4.0 * theta3 * P_1_3;
+                let dc_3 = 2.0 * theta * P_3_1 + 3.0 * theta2 * P_3_2 + 4.0 * theta3 * P_3_3;
+                let dc_4 = 2.0 * theta * P_4_1 + 3.0 * theta2 * P_4_2 + 4.0 * theta3 * P_4_3;
+                let dc_5 = 2.0 * theta * P_5_1 + 3.0 * theta2 * P_5_2 + 4.0 * theta3 * P_5_3;
+                let dc_6 = 2.0 * theta * P_6_1 + 3.0 * theta2 * P_6_2 + 4.0 * theta3 * P_6_3;
+                let dc_7 = 2.0 * theta * P_7_1 + 3.0 * theta2 * P_7_2 + 4.0 * theta3 * P_7_3;
+                let sum = &k[0] * c_1
+                    + &k[2] * c_3
+                    + &k[3] * c_4
+                    + &k[4] * c_5
+                    + &k[5] * c_6
+                    + &k[6] * c_7;
+                y_int.push(sum * h + &yp[i - 1]);
+                dydt_int.push(
+                    &k[0] * dc_1
+                        + &k[2] * dc_3
+                        + &k[3] * dc_4
+                        + &k[4] * dc_5
+                        + &k[5] * dc_6
+                        + &k[6] * dc_7,
+                );
+            }
+        }
+        (y_int, dydt_int)
+    }
 }
 
 impl<Y, U> InterpolateSolution<Y, U> for DormandPrince
@@ -213,8 +296,10 @@ where
         time: &Vector,
         tp: &Vector,
         yp: &U,
-        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        dydtp: &U,
+        k_sol: &[U],
+        _function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
     ) -> Result<(U, U), IntegrationError> {
-        Self::interpolate_variable_step(time, tp, yp, function)
+        Ok(Self::interpolate_free_dense(time, tp, yp, dydtp, k_sol))
     }
 }

@@ -44,10 +44,7 @@ where
         let some_stress = &cauchy_stress * &deformation_gradient_inverse_transpose;
         Ok(self
             .second_piola_kirchhoff_tangent_stiffness(deformation_gradient, temperature)?
-            .contract_first_second_indices_with_second_indices_of(
-                deformation_gradient,
-                deformation_gradient,
-            )
+            .contract_first_second_with_second(deformation_gradient, deformation_gradient)
             / deformation_gradient.determinant()
             - CauchyTangentStiffness::dyad_ij_kl(
                 &cauchy_stress,
@@ -85,7 +82,7 @@ where
             self.first_piola_kirchhoff_stress(deformation_gradient, temperature)?;
         Ok(self
             .cauchy_tangent_stiffness(deformation_gradient, temperature)?
-            .contract_second_index_with_first_index_of(&deformation_gradient_inverse_transpose)
+            .contract_second_with_first(&deformation_gradient_inverse_transpose)
             * deformation_gradient.determinant()
             + FirstPiolaKirchhoffTangentStiffness::dyad_ij_kl(
                 &first_piola_kirchhoff_stress,
@@ -127,7 +124,7 @@ where
             self.second_piola_kirchhoff_stress(deformation_gradient, temperature)?;
         Ok(self
             .cauchy_tangent_stiffness(deformation_gradient, temperature)?
-            .contract_first_second_indices_with_second_indices_of(
+            .contract_first_second_with_second(
                 &deformation_gradient_inverse,
                 &deformation_gradient_inverse,
             )

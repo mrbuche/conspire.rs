@@ -17,8 +17,8 @@ const FIVE_THIRDS: Scalar = 5.0 / 3.0;
 use crate::{
     constitutive::{Constitutive, ConstitutiveError},
     math::{
-        ContractFirstSecondIndicesWithSecondIndicesOf, ContractSecondIndexWithFirstIndexOf,
-        IDENTITY, IDENTITY_00, Rank2, Tensor, TensorArray, ZERO_10,
+        ContractFirstSecondWithSecond, ContractSecondWithFirst, IDENTITY, IDENTITY_00, Rank2,
+        Tensor, TensorArray, ZERO_10,
     },
     mechanics::{
         CauchyRateTangentStiffness, CauchyStress, CauchyTangentStiffness, Deformation,

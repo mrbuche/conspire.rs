@@ -40,6 +40,7 @@ pub use ode::{
             verner_9::Verner9 as Verner9FixedStep,
         },
         variable_step::{
+            FreeInterpolant,
             VariableStepExplicit,
             VariableStepExplicitFirstSameAsLast,
             bogacki_shampine::BogackiShampine,

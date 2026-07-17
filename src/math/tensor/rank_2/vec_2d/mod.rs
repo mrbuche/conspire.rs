@@ -4,9 +4,9 @@ use crate::math::{
 };
 use std::ops::Mul;
 
-#[cfg(test)]
-use crate::math::tensor::test::ErrorTensor;
+use crate::math::assert::FiniteDifference;
 
+/// A vector of vectors of rank-2 tensors.
 pub type TensorRank2Vec2D<const D: usize, const I: usize, const J: usize> =
     TensorVector<TensorRank2Vec<D, I, J>>;
 
@@ -34,6 +34,9 @@ impl<const D: usize, const I: usize, const J: usize> From<TensorRank2Vec2D<D, I,
 }
 
 impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2Vec2D<D, I, J> {
+    fn entry(&self, row: usize, column: usize) -> TensorRank0 {
+        self[row / D][column / D][row % D][column % D]
+    }
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
         self.into_iter().enumerate().for_each(|(a, entry_a)| {
             entry_a.into_iter().enumerate().for_each(|(b, entry_ab)| {
@@ -100,8 +103,9 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<&Tensor
     }
 }
 
-#[cfg(test)]
-impl<const D: usize, const I: usize, const J: usize> ErrorTensor for TensorRank2Vec2D<D, I, J> {
+impl<const D: usize, const I: usize, const J: usize> FiniteDifference
+    for TensorRank2Vec2D<D, I, J>
+{
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()

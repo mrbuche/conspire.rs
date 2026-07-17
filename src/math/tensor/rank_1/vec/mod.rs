@@ -2,8 +2,8 @@
 mod test;
 
 use crate::math::{
-    Jacobian, Solution, Tensor, TensorRank0, TensorRank1, TensorRank1List, TensorRank2Vec2D,
-    Vector, tensor::vec::TensorVector,
+    Jacobian, Solution, Tensor, TensorRank0, TensorRank1, TensorRank1List, TensorRank2SparseVec2D,
+    TensorRank2SparseVec2DSymmetric, TensorRank2Vec2D, Vector, tensor::vec::TensorVector,
 };
 use std::{
     array::from_fn,
@@ -11,9 +11,9 @@ use std::{
     ops::{Div, Sub},
 };
 
-#[cfg(test)]
-use crate::math::tensor::test::ErrorTensor;
+use crate::math::assert::FiniteDifference;
 
+/// A vector of rank-1 tensors.
 pub type TensorRank1Vec<const D: usize, const I: usize> = TensorVector<TensorRank1<D, I>>;
 
 impl<const D: usize, const I: usize> TensorRank1Vec<D, I> {
@@ -257,8 +257,28 @@ impl<const D: usize, const I: usize, const J: usize> Div<TensorRank2Vec2D<D, I, 
     }
 }
 
-#[cfg(test)]
-impl<const D: usize, const I: usize> ErrorTensor for TensorRank1Vec<D, I> {
+impl<const D: usize, const I: usize, const J: usize> Div<TensorRank2SparseVec2D<D, I, J>>
+    for &TensorRank1Vec<D, I>
+{
+    type Output = TensorRank1Vec<D, J>;
+    fn div(self, _tensor_rank_2_sparse_vec_2d: TensorRank2SparseVec2D<D, I, J>) -> Self::Output {
+        todo!()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> Div<TensorRank2SparseVec2DSymmetric<D, I, J>>
+    for &TensorRank1Vec<D, I>
+{
+    type Output = TensorRank1Vec<D, J>;
+    fn div(
+        self,
+        _tensor_rank_2_sparse_symmetric_vec_2d: TensorRank2SparseVec2DSymmetric<D, I, J>,
+    ) -> Self::Output {
+        todo!()
+    }
+}
+
+impl<const D: usize, const I: usize> FiniteDifference for TensorRank1Vec<D, I> {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()

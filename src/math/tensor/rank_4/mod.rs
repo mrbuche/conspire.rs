@@ -1,8 +1,7 @@
 #[cfg(test)]
 mod test;
 
-#[cfg(test)]
-use super::test::ErrorTensor;
+use crate::math::assert::FiniteDifference;
 
 use std::{
     array::from_fn,
@@ -52,6 +51,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     }
 }
 
+/// The 3D rank-4 identity, configurations (1, 0, 1, 0).
 pub const IDENTITY_1010: TensorRank4<3, 1, 0, 1, 0> = TensorRank4(get_identity_1010_parts());
 
 impl<const I: usize, const J: usize, const K: usize> From<TensorRank4<3, I, J, K, 0>>
@@ -180,9 +180,8 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     }
 }
 
-#[cfg(test)]
-impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> ErrorTensor
-    for TensorRank4<D, I, J, K, L>
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
+    FiniteDifference for TensorRank4<D, I, J, K, L>
 {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
@@ -315,6 +314,9 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> Hessian
     for TensorRank4<D, I, J, K, L>
 {
+    fn entry(&self, row: usize, column: usize) -> TensorRank0 {
+        self[row / D][row % D][column / D][column % D]
+    }
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
         self.into_iter().enumerate().for_each(|(i, self_i)| {
             self_i.into_iter().enumerate().for_each(|(j, self_ij)| {
@@ -437,9 +439,12 @@ impl<'a, const D: usize, const I: usize, const J: usize, const K: usize, const L
     }
 }
 
-pub trait ContractAllIndicesWithFirstIndicesOf<TIM, TJN, TKO, TLP> {
+/// Transforms all four indices of a rank-4 tensor.
+///
+/// Contracts each index of `self` with the first index of a corresponding rank-2 tensor.
+pub trait ContractAllWithFirst<TIM, TJN, TKO, TLP> {
     type Output;
-    fn contract_all_indices_with_first_indices_of(
+    fn contract_all_with_first(
         self,
         tensor_rank_2_a: TIM,
         tensor_rank_2_b: TJN,
@@ -459,7 +464,7 @@ impl<
     const O: usize,
     const P: usize,
 >
-    ContractAllIndicesWithFirstIndicesOf<
+    ContractAllWithFirst<
         &TensorRank2<D, I, M>,
         &TensorRank2<D, J, N>,
         &TensorRank2<D, K, O>,
@@ -467,7 +472,7 @@ impl<
     > for TensorRank4<D, I, J, K, L>
 {
     type Output = TensorRank4<D, M, N, O, P>;
-    fn contract_all_indices_with_first_indices_of(
+    fn contract_all_with_first(
         self,
         tensor_rank_2_a: &TensorRank2<D, I, M>,
         tensor_rank_2_b: &TensorRank2<D, J, N>,
@@ -496,9 +501,13 @@ impl<
     }
 }
 
-pub trait ContractFirstThirdFourthIndicesWithFirstIndicesOf<TIM, TKO, TLP> {
+/// Transforms the first, third, and fourth indices of a rank-4 tensor.
+///
+/// Contracts each with the first index of a corresponding rank-2 tensor;
+/// the second index of `self` is left untouched.
+pub trait ContractFirstThirdFourthWithFirst<TIM, TKO, TLP> {
     type Output;
-    fn contract_first_third_fourth_indices_with_first_indices_of(
+    fn contract_first_third_fourth_with_first(
         self,
         tensor_rank_2_a: TIM,
         tensor_rank_2_c: TKO,
@@ -516,14 +525,14 @@ impl<
     const O: usize,
     const P: usize,
 >
-    ContractFirstThirdFourthIndicesWithFirstIndicesOf<
+    ContractFirstThirdFourthWithFirst<
         &TensorRank2<D, I, M>,
         &TensorRank2<D, K, O>,
         &TensorRank2<D, L, P>,
     > for TensorRank4<D, I, J, K, L>
 {
     type Output = TensorRank4<D, M, J, O, P>;
-    fn contract_first_third_fourth_indices_with_first_indices_of(
+    fn contract_first_third_fourth_with_first(
         self,
         tensor_rank_2_a: &TensorRank2<D, I, M>,
         tensor_rank_2_b: &TensorRank2<D, K, O>,
@@ -549,19 +558,19 @@ impl<
     }
 }
 
-pub trait ContractSecondIndexWithFirstIndexOf<TJN> {
+/// Transforms the second index of a rank-4 tensor.
+///
+/// Contracts it with the first index of a rank-2 tensor.
+pub trait ContractSecondWithFirst<TJN> {
     type Output;
-    fn contract_second_index_with_first_index_of(self, tensor_rank_2: TJN) -> Self::Output;
+    fn contract_second_with_first(self, tensor_rank_2: TJN) -> Self::Output;
 }
 
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const N: usize>
-    ContractSecondIndexWithFirstIndexOf<&TensorRank2<D, J, N>> for TensorRank4<D, I, J, K, L>
+    ContractSecondWithFirst<&TensorRank2<D, J, N>> for TensorRank4<D, I, J, K, L>
 {
     type Output = TensorRank4<D, I, N, K, L>;
-    fn contract_second_index_with_first_index_of(
-        self,
-        tensor_rank_2: &TensorRank2<D, J, N>,
-    ) -> Self::Output {
+    fn contract_second_with_first(self, tensor_rank_2: &TensorRank2<D, J, N>) -> Self::Output {
         let mut output = TensorRank4::zero();
         output.iter_mut().zip(self).for_each(|(output_i, self_i)| {
             self_i
@@ -577,21 +586,20 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     }
 }
 
-pub trait ContractSecondFourthIndicesWithFirstIndicesOf<TJ, TL> {
+/// Contracts the second and fourth indices of a rank-4 tensor with two vectors.
+///
+/// Yields the rank-2 tensor over the remaining first and third indices.
+pub trait ContractSecondFourthWithFirst<TJ, TL> {
     type Output;
-    fn contract_second_fourth_indices_with_first_indices_of(
-        &self,
-        object_a: TJ,
-        object_b: TL,
-    ) -> Self::Output;
+    fn contract_second_fourth_with_first(&self, object_a: TJ, object_b: TL) -> Self::Output;
 }
 
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
-    ContractSecondFourthIndicesWithFirstIndicesOf<&TensorRank1<D, J>, &TensorRank1<D, L>>
+    ContractSecondFourthWithFirst<&TensorRank1<D, J>, &TensorRank1<D, L>>
     for TensorRank4<D, I, J, K, L>
 {
     type Output = TensorRank2<D, I, K>;
-    fn contract_second_fourth_indices_with_first_indices_of(
+    fn contract_second_fourth_with_first(
         &self,
         tensor_rank_1_a: &TensorRank1<D, J>,
         tensor_rank_1_b: &TensorRank1<D, L>,
@@ -613,19 +621,19 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     }
 }
 
-pub trait ContractThirdIndexWithFirstIndexOf<TKL> {
+/// Transforms the third index of a rank-4 tensor.
+///
+/// Contracts it with the first index of a rank-2 tensor.
+pub trait ContractThirdWithFirst<TKL> {
     type Output;
-    fn contract_third_index_with_first_index_of(&self, tensor: TKL) -> Self::Output;
+    fn contract_third_with_first(&self, tensor: TKL) -> Self::Output;
 }
 
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize, const M: usize>
-    ContractThirdIndexWithFirstIndexOf<&TensorRank2<D, M, K>> for TensorRank4<D, I, J, M, L>
+    ContractThirdWithFirst<&TensorRank2<D, M, K>> for TensorRank4<D, I, J, M, L>
 {
     type Output = TensorRank4<D, I, J, K, L>;
-    fn contract_third_index_with_first_index_of(
-        &self,
-        tensor_rank_2: &TensorRank2<D, M, K>,
-    ) -> Self::Output {
+    fn contract_third_with_first(&self, tensor_rank_2: &TensorRank2<D, M, K>) -> Self::Output {
         self.iter()
             .map(|self_i| {
                 self_i
@@ -645,20 +653,19 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     }
 }
 
-pub trait ContractThirdFourthIndicesWithFirstSecondIndicesOf<TKL> {
+/// Double-contracts the third and fourth indices of a rank-4 tensor.
+///
+/// Contracts against the leading two indices of another rank-2 or rank-4 tensor.
+pub trait ContractThirdFourthWithFirstSecond<TKL> {
     type Output;
-    fn contract_third_fourth_indices_with_first_second_indices_of(
-        self,
-        tensor: TKL,
-    ) -> Self::Output;
+    fn contract_third_fourth_with_first_second(self, tensor: TKL) -> Self::Output;
 }
 
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
-    ContractThirdFourthIndicesWithFirstSecondIndicesOf<&TensorRank2<D, K, L>>
-    for TensorRank4<D, I, J, K, L>
+    ContractThirdFourthWithFirstSecond<&TensorRank2<D, K, L>> for TensorRank4<D, I, J, K, L>
 {
     type Output = TensorRank2<D, I, J>;
-    fn contract_third_fourth_indices_with_first_second_indices_of(
+    fn contract_third_fourth_with_first_second(
         self,
         tensor_rank_2: &TensorRank2<D, K, L>,
     ) -> Self::Output {
@@ -681,11 +688,10 @@ impl<
     const L: usize,
     const M: usize,
     const N: usize,
-> ContractThirdFourthIndicesWithFirstSecondIndicesOf<&TensorRank4<D, K, L, M, N>>
-    for TensorRank4<D, I, J, K, L>
+> ContractThirdFourthWithFirstSecond<&TensorRank4<D, K, L, M, N>> for TensorRank4<D, I, J, K, L>
 {
     type Output = TensorRank4<D, I, J, M, N>;
-    fn contract_third_fourth_indices_with_first_second_indices_of(
+    fn contract_third_fourth_with_first_second(
         self,
         tensor: &TensorRank4<D, K, L, M, N>,
     ) -> Self::Output {
@@ -712,13 +718,12 @@ impl<
     }
 }
 
-pub trait ContractFirstSecondIndicesWithSecondIndicesOf<TI, TJ> {
+/// Transforms the first and second indices of a rank-4 tensor.
+///
+/// Contracts each with the second index of a corresponding rank-2 tensor.
+pub trait ContractFirstSecondWithSecond<TI, TJ> {
     type Output;
-    fn contract_first_second_indices_with_second_indices_of(
-        self,
-        object_a: TI,
-        object_b: TJ,
-    ) -> Self::Output;
+    fn contract_first_second_with_second(self, object_a: TI, object_b: TJ) -> Self::Output;
 }
 
 impl<
@@ -729,11 +734,11 @@ impl<
     const L: usize,
     const M: usize,
     const N: usize,
-> ContractFirstSecondIndicesWithSecondIndicesOf<&TensorRank2<D, I, M>, &TensorRank2<D, J, N>>
+> ContractFirstSecondWithSecond<&TensorRank2<D, I, M>, &TensorRank2<D, J, N>>
     for TensorRank4<D, M, N, K, L>
 {
     type Output = TensorRank4<D, I, J, K, L>;
-    fn contract_first_second_indices_with_second_indices_of(
+    fn contract_first_second_with_second(
         self,
         tensor_rank_2_a: &TensorRank2<D, I, M>,
         tensor_rank_2_b: &TensorRank2<D, J, N>,

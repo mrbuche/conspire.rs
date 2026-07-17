@@ -11,7 +11,8 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign},
 };
 
-#[derive(Clone, Debug)]
+/// A fixed-size nested collection of different tensors.
+#[derive(Clone, Debug, PartialEq)]
 pub struct TensorTuple<T1, T2>(pub T1, pub T2)
 where
     T1: Tensor,
@@ -126,6 +127,15 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
         >,
     >
 {
+    fn entry(&self, row: usize, column: usize) -> TensorRank0 {
+        let offset = D * D;
+        match (row < offset, column < offset) {
+            (true, true) => self.0.entry(row, column),
+            (false, true) => self.1.0.entry(row - offset, column),
+            (true, false) => self.1.1.0.entry(row, column - offset),
+            (false, false) => self.1.1.1.entry(row - offset, column - offset),
+        }
+    }
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
         let offset = D * D;
         let (tangent_0, tangent_123) = self.into();

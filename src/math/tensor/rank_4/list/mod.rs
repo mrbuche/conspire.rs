@@ -3,6 +3,7 @@ mod test;
 
 use crate::math::{TensorRank0, TensorRank4, tensor::list::TensorList};
 
+/// A list of rank-4 tensors.
 pub type TensorRank4List<
     const D: usize,
     const I: usize,

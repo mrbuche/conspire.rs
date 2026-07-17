@@ -27,6 +27,14 @@ jobs:
           - all
         os: [macos-latest, windows-latest, ubuntu-latest]
         toolchain: [beta, nightly, stable]
+        exclude:
+          # TODO: netCDF vcpkg install is broken on Windows runners; re-enable once fixed.
+          - os: windows-latest
+            features: io,netcdf
+          - os: windows-latest
+            features: geometry,netcdf
+          - os: windows-latest
+            features: all
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
