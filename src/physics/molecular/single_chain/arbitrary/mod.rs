@@ -1,6 +1,6 @@
 use crate::{
     math::{
-        Scalar, Tensor,
+        CrossProduct, Scalar, Tensor,
         random::{random_uniform, random_x2_normal},
     },
     mechanics::CurrentCoordinate,
