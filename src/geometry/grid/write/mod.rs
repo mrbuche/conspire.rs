@@ -7,13 +7,15 @@ use crate::{
 };
 use std::{fmt::Display, io::Error as ErrorIO, path::Path};
 
+pub use vti::Vti;
+
 pub enum Output<P>
 where
     P: AsRef<Path>,
 {
     Npy(P),
     Spn(P),
-    Vti(P),
+    Vti(Vti<P>),
 }
 
 impl<P> AsRef<Path> for Output<P>
@@ -24,7 +26,7 @@ where
         match self {
             Output::Npy(path) => path.as_ref(),
             Output::Spn(path) => path.as_ref(),
-            Output::Vti(path) => path.as_ref(),
+            Output::Vti(vti) => vti.as_ref(),
         }
     }
 }
@@ -44,7 +46,8 @@ where
             }
             .write(path)?,
             Output::Spn(path) => spn::write(self, path)?,
-            Output::Vti(path) => vti::write(self, path)?,
+            Output::Vti(Vti::Compressed(path)) => vti::write(self, path, true)?,
+            Output::Vti(Vti::Uncompressed(path)) => vti::write(self, path, false)?,
         }
         Ok(())
     }

@@ -6,7 +6,10 @@ mod from;
 mod read;
 mod write;
 
-pub use self::{read::Input, write::Output};
+pub use self::{
+    read::Input,
+    write::{Output, Vti},
+};
 
 use std::{
     array,

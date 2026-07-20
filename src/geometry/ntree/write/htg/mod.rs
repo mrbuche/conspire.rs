@@ -1,7 +1,11 @@
 #[cfg(test)]
 mod test;
 
-use crate::{geometry::ntree::Orthotree, io::write::data_array as payload, math::Scalar};
+use crate::{
+    geometry::ntree::Orthotree,
+    io::write::{data_array as payload, data_array_compressed as payload_compressed},
+    math::Scalar,
+};
 use std::{
     array::from_fn,
     fs::File,
@@ -14,6 +18,27 @@ where
     P: AsRef<Path>,
 {
     fn write_htg(&self, output: P) -> Result<()>;
+    fn write_htg_compressed(&self, output: P) -> Result<()>;
+}
+
+pub enum Htg<P>
+where
+    P: AsRef<Path>,
+{
+    Compressed(P),
+    Uncompressed(P),
+}
+
+impl<P> AsRef<Path> for Htg<P>
+where
+    P: AsRef<Path>,
+{
+    fn as_ref(&self) -> &Path {
+        match self {
+            Htg::Compressed(path) => path.as_ref(),
+            Htg::Uncompressed(path) => path.as_ref(),
+        }
+    }
 }
 
 pub trait HtgValue: Copy {
@@ -46,6 +71,21 @@ where
     V: HtgValue,
 {
     fn write_htg(&self, output: P) -> Result<()> {
+        self.write_htg_impl(output, false)
+    }
+    fn write_htg_compressed(&self, output: P) -> Result<()> {
+        self.write_htg_impl(output, true)
+    }
+}
+
+impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V>
+    Orthotree<D, L, M, N, T, U, V>
+where
+    T: Copy + Into<Scalar> + Into<usize>,
+    U: Copy + Into<usize>,
+    V: HtgValue,
+{
+    fn write_htg_impl<P: AsRef<Path>>(&self, output: P, compress: bool) -> Result<()> {
         if D != 2 && D != 3 {
             return Err(Error::new(
                 ErrorKind::Unsupported,
@@ -85,10 +125,17 @@ where
         descriptor.truncate(descriptor.len() - deepest);
         let mut file = BufWriter::new(File::create(output)?);
         writeln!(file, "<?xml version=\"1.0\"?>")?;
-        writeln!(
-            file,
-            "<VTKFile type=\"HyperTreeGrid\" version=\"1.0\" byte_order=\"LittleEndian\" header_type=\"UInt64\">"
-        )?;
+        if compress {
+            writeln!(
+                file,
+                "<VTKFile type=\"HyperTreeGrid\" version=\"1.0\" byte_order=\"LittleEndian\" header_type=\"UInt64\" compressor=\"vtkZLibDataCompressor\">"
+            )?;
+        } else {
+            writeln!(
+                file,
+                "<VTKFile type=\"HyperTreeGrid\" version=\"1.0\" byte_order=\"LittleEndian\" header_type=\"UInt64\">"
+            )?;
+        }
         let dimensions: [usize; 3] = from_fn(|axis| if axis < D { 2 } else { 1 });
         writeln!(
             file,
@@ -106,7 +153,15 @@ where
                 vec![0.0]
             };
             let bytes: Vec<u8> = values.iter().flat_map(|v| v.to_le_bytes()).collect();
-            data_array(&mut file, 6, "Float64", name, values.len(), &bytes)?;
+            data_array(
+                &mut file,
+                6,
+                "Float64",
+                name,
+                values.len(),
+                &bytes,
+                compress,
+            )?;
         }
         writeln!(file, "    </Grid>")?;
         writeln!(file, "    <Trees>")?;
@@ -123,6 +178,7 @@ where
             "Descriptor",
             descriptor.len(),
             &pack_bits(&descriptor),
+            compress,
         )?;
         data_array(
             &mut file,
@@ -131,6 +187,7 @@ where
             "NbVerticesByLevel",
             vertices_by_level.len(),
             &le_i64(&vertices_by_level),
+            compress,
         )?;
         writeln!(file, "        <CellData>")?;
         data_array(
@@ -140,6 +197,7 @@ where
             "Depth",
             depths.len(),
             &le_i64(&depths),
+            compress,
         )?;
         if values.iter().any(Option::is_some) {
             let bytes: Vec<u8> = values
@@ -147,7 +205,15 @@ where
                 .map(|value| value.unwrap_or(Scalar::NAN))
                 .flat_map(Scalar::to_le_bytes)
                 .collect();
-            data_array(&mut file, 10, "Float64", "Value", values.len(), &bytes)?;
+            data_array(
+                &mut file,
+                10,
+                "Float64",
+                "Value",
+                values.len(),
+                &bytes,
+                compress,
+            )?;
         }
         writeln!(file, "        </CellData>")?;
         writeln!(file, "      </Tree>")?;
@@ -165,12 +231,17 @@ fn data_array<W: Write>(
     name: &str,
     tuples: usize,
     data: &[u8],
+    compress: bool,
 ) -> Result<()> {
     writeln!(
         file,
         "{:indent$}<DataArray type=\"{data_type}\" Name=\"{name}\" NumberOfTuples=\"{tuples}\" format=\"binary\">{}</DataArray>",
         "",
-        payload(data),
+        if compress {
+            payload_compressed(data)
+        } else {
+            payload(data)
+        },
     )
 }
 

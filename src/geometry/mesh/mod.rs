@@ -26,7 +26,7 @@ pub use self::{
     tessellation::Tessellation,
     write::{
         Output,
-        vtk::{UnstructuredGrid, Vtk},
+        vtk::{MultiBlock, UnstructuredGrid, Vtk},
     },
 };
 

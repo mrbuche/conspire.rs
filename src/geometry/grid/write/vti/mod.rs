@@ -1,6 +1,9 @@
 use crate::{
     geometry::grid::Grid,
-    io::{NpyType, write::data_array},
+    io::{
+        NpyType,
+        write::{data_array, data_array_compressed},
+    },
 };
 use std::{
     array::from_fn,
@@ -9,7 +12,31 @@ use std::{
     path::Path,
 };
 
-pub(super) fn write<const D: usize, T, P>(voxels: &Grid<D, T>, path: P) -> Result<()>
+pub enum Vti<P>
+where
+    P: AsRef<Path>,
+{
+    Compressed(P),
+    Uncompressed(P),
+}
+
+impl<P> AsRef<Path> for Vti<P>
+where
+    P: AsRef<Path>,
+{
+    fn as_ref(&self) -> &Path {
+        match self {
+            Vti::Compressed(path) => path.as_ref(),
+            Vti::Uncompressed(path) => path.as_ref(),
+        }
+    }
+}
+
+pub(super) fn write<const D: usize, T, P>(
+    voxels: &Grid<D, T>,
+    path: P,
+    compress: bool,
+) -> Result<()>
 where
     T: NpyType,
     P: AsRef<Path>,
@@ -28,10 +55,17 @@ where
     }
     let mut file = BufWriter::new(File::create(path)?);
     writeln!(file, "<?xml version=\"1.0\"?>")?;
-    writeln!(
-        file,
-        "<VTKFile type=\"ImageData\" version=\"1.0\" byte_order=\"LittleEndian\" header_type=\"UInt64\">"
-    )?;
+    if compress {
+        writeln!(
+            file,
+            "<VTKFile type=\"ImageData\" version=\"1.0\" byte_order=\"LittleEndian\" header_type=\"UInt64\" compressor=\"vtkZLibDataCompressor\">"
+        )?;
+    } else {
+        writeln!(
+            file,
+            "<VTKFile type=\"ImageData\" version=\"1.0\" byte_order=\"LittleEndian\" header_type=\"UInt64\">"
+        )?;
+    }
     writeln!(
         file,
         "  <ImageData WholeExtent=\"{extent}\" Origin=\"0 0 0\" Spacing=\"1 1 1\">"
@@ -42,7 +76,11 @@ where
         file,
         "        <DataArray type=\"{}\" Name=\"data\" NumberOfComponents=\"1\" format=\"binary\">{}</DataArray>",
         vtk_type(T::DESCR),
-        data_array(&data)
+        if compress {
+            data_array_compressed(&data)
+        } else {
+            data_array(&data)
+        }
     )?;
     writeln!(file, "      </CellData>")?;
     writeln!(file, "    </Piece>")?;

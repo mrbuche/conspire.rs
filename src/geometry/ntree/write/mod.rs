@@ -3,13 +3,14 @@ pub mod htg;
 use crate::{geometry::ntree::Orthotree, io::Write, math::Scalar};
 use std::{io::Error as ErrorIO, path::Path};
 
-use self::htg::WriteHtg;
+pub use htg::Htg;
+use htg::WriteHtg;
 
 pub enum Output<P>
 where
     P: AsRef<Path>,
 {
-    Htg(P),
+    Htg(Htg<P>),
 }
 
 impl<P> AsRef<Path> for Output<P>
@@ -18,7 +19,7 @@ where
 {
     fn as_ref(&self) -> &Path {
         match self {
-            Output::Htg(path) => path.as_ref(),
+            Output::Htg(htg) => htg.as_ref(),
         }
     }
 }
@@ -33,7 +34,8 @@ where
     type Error = ErrorIO;
     fn write(&self, output: Output<P>) -> Result<(), Self::Error> {
         match output {
-            Output::Htg(path) => self.write_htg(path)?,
+            Output::Htg(Htg::Compressed(path)) => self.write_htg_compressed(path)?,
+            Output::Htg(Htg::Uncompressed(path)) => self.write_htg(path)?,
         }
         Ok(())
     }

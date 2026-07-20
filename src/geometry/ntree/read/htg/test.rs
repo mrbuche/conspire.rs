@@ -67,6 +67,16 @@ fn round_trip_octree() {
 }
 
 #[test]
+fn round_trip_octree_compressed() {
+    let path = "target/htg_octree_compressed.htg";
+    octree().write_htg_compressed(path).unwrap();
+    let contents = read_to_string(path).unwrap();
+    assert!(contents.contains("compressor=\"vtkZLibDataCompressor\""));
+    let read = Octree::<u16, usize>::read_htg(path).unwrap();
+    assert_eq!(read.len(), 33);
+}
+
+#[test]
 fn round_trip_quadtree_via_input() {
     let original = "target/htg_quadtree_a.htg";
     quadtree().write_htg(original).unwrap();

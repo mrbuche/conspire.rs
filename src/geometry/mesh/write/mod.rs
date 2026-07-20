@@ -15,7 +15,8 @@ use self::abaqus::WriteAbaqus;
 use self::exodus::WriteExodus;
 use self::medit::WriteMedit;
 use self::vtk::{
-    UnstructuredGrid, Vtk, multi_block::WriteVtkMultiBlock, unstructured::WriteVtkUnstructured,
+    MultiBlock, UnstructuredGrid, Vtk, multi_block::WriteVtkMultiBlock,
+    unstructured::WriteVtkUnstructured,
 };
 
 pub enum Output<P>
@@ -61,7 +62,12 @@ where
             Output::Vtk(Vtk::UnstructuredGrid(UnstructuredGrid::Uncompressed(path))) => {
                 self.write_vtk_unstructured(path)?
             }
-            Output::Vtk(Vtk::MultiBlock(path)) => self.write_vtk_multi_block(path)?,
+            Output::Vtk(Vtk::MultiBlock(MultiBlock::Compressed(path))) => {
+                self.write_vtk_multi_block_compressed(path)?
+            }
+            Output::Vtk(Vtk::MultiBlock(MultiBlock::Uncompressed(path))) => {
+                self.write_vtk_multi_block(path)?
+            }
         }
         Ok(())
     }

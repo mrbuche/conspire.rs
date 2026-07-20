@@ -4,7 +4,7 @@ mod test;
 use super::unstructured::WriteVtkUnstructured;
 use crate::{
     geometry::mesh::{Connectivity, Mesh},
-    io::write::data_array,
+    io::write::{data_array, data_array_compressed},
 };
 use std::{
     collections::HashMap,
@@ -18,6 +18,27 @@ where
     P: AsRef<Path>,
 {
     fn write_vtk_multi_block(&self, output: P) -> Result<()>;
+    fn write_vtk_multi_block_compressed(&self, output: P) -> Result<()>;
+}
+
+pub enum MultiBlock<P>
+where
+    P: AsRef<Path>,
+{
+    Compressed(P),
+    Uncompressed(P),
+}
+
+impl<P> AsRef<Path> for MultiBlock<P>
+where
+    P: AsRef<Path>,
+{
+    fn as_ref(&self) -> &Path {
+        match self {
+            MultiBlock::Compressed(path) => path.as_ref(),
+            MultiBlock::Uncompressed(path) => path.as_ref(),
+        }
+    }
 }
 
 impl<const D: usize, P> WriteVtkMultiBlock<P> for Mesh<D>
@@ -25,6 +46,15 @@ where
     P: AsRef<Path>,
 {
     fn write_vtk_multi_block(&self, output: P) -> Result<()> {
+        self.write_vtk_multi_block_impl(output, false)
+    }
+    fn write_vtk_multi_block_compressed(&self, output: P) -> Result<()> {
+        self.write_vtk_multi_block_impl(output, true)
+    }
+}
+
+impl<const D: usize> Mesh<D> {
+    fn write_vtk_multi_block_impl<P: AsRef<Path>>(&self, output: P, compress: bool) -> Result<()> {
         let path = output.as_ref();
         let dir = path
             .parent()
@@ -40,14 +70,18 @@ where
             }
         };
         let volume_file = format!("{stem}.vtu");
-        self.write_vtk_unstructured(join(&volume_file))?;
+        if compress {
+            self.write_vtk_unstructured_compressed(join(&volume_file))?;
+        } else {
+            self.write_vtk_unstructured(join(&volume_file))?;
+        }
         let mut blocks = vec![("volume".to_string(), volume_file)];
         for (set, sides) in self.side_sets().iter().enumerate() {
             let label = self
                 .side_set_numbers()
                 .map_or_else(|| (set + 1).to_string(), |numbers| numbers[set].to_string());
             let side_set_file = format!("{stem}_side_set_{label}.vtp");
-            write_side_set(self, sides, join(&side_set_file))?;
+            write_side_set(self, sides, join(&side_set_file), compress)?;
             blocks.push((format!("side_set_{label}"), side_set_file));
         }
         let mut file = BufWriter::new(File::create(path)?);
@@ -85,6 +119,7 @@ fn write_side_set<const D: usize>(
     mesh: &Mesh<D>,
     sides: &[(usize, usize)],
     output: impl AsRef<Path>,
+    compress: bool,
 ) -> Result<()> {
     let coordinates = mesh.coordinates();
     let mut local_index = HashMap::new();
@@ -131,12 +166,26 @@ fn write_side_set<const D: usize>(
     let cell_ids: Vec<(usize, usize)> = line_ids.into_iter().chain(poly_ids).collect();
     let element_ids = flatten_scalars(cell_ids.iter().map(|&(element, _)| element));
     let face_ids = flatten_scalars(cell_ids.iter().map(|&(_, ordinal)| ordinal));
+    let array = |data: &[u8]| -> String {
+        if compress {
+            data_array_compressed(data)
+        } else {
+            data_array(data)
+        }
+    };
     let mut file = BufWriter::new(File::create(output)?);
     writeln!(file, "<?xml version=\"1.0\"?>")?;
-    writeln!(
-        file,
-        "<VTKFile type=\"PolyData\" version=\"1.0\" byte_order=\"LittleEndian\" header_type=\"UInt64\">"
-    )?;
+    if compress {
+        writeln!(
+            file,
+            "<VTKFile type=\"PolyData\" version=\"1.0\" byte_order=\"LittleEndian\" header_type=\"UInt64\" compressor=\"vtkZLibDataCompressor\">"
+        )?;
+    } else {
+        writeln!(
+            file,
+            "<VTKFile type=\"PolyData\" version=\"1.0\" byte_order=\"LittleEndian\" header_type=\"UInt64\">"
+        )?;
+    }
     writeln!(file, "  <PolyData>")?;
     writeln!(
         file,
@@ -149,19 +198,19 @@ fn write_side_set<const D: usize>(
     writeln!(
         file,
         "        <DataArray type=\"Int64\" Name=\"OriginalElementIds\" format=\"binary\">{}</DataArray>",
-        data_array(&element_ids)
+        array(&element_ids)
     )?;
     writeln!(
         file,
         "        <DataArray type=\"Int64\" Name=\"OriginalFaceIds\" format=\"binary\">{}</DataArray>",
-        data_array(&face_ids)
+        array(&face_ids)
     )?;
     writeln!(file, "      </CellData>")?;
     writeln!(file, "      <Points>")?;
     writeln!(
         file,
         "        <DataArray type=\"Float64\" NumberOfComponents=\"3\" format=\"binary\">{}</DataArray>",
-        data_array(&point_bytes)
+        array(&point_bytes)
     )?;
     writeln!(file, "      </Points>")?;
     if !lines.is_empty() {
@@ -169,12 +218,12 @@ fn write_side_set<const D: usize>(
         writeln!(
             file,
             "        <DataArray type=\"Int64\" Name=\"connectivity\" format=\"binary\">{}</DataArray>",
-            data_array(&line_connectivity)
+            array(&line_connectivity)
         )?;
         writeln!(
             file,
             "        <DataArray type=\"Int64\" Name=\"offsets\" format=\"binary\">{}</DataArray>",
-            data_array(&line_offsets)
+            array(&line_offsets)
         )?;
         writeln!(file, "      </Lines>")?;
     }
@@ -183,12 +232,12 @@ fn write_side_set<const D: usize>(
         writeln!(
             file,
             "        <DataArray type=\"Int64\" Name=\"connectivity\" format=\"binary\">{}</DataArray>",
-            data_array(&poly_connectivity)
+            array(&poly_connectivity)
         )?;
         writeln!(
             file,
             "        <DataArray type=\"Int64\" Name=\"offsets\" format=\"binary\">{}</DataArray>",
-            data_array(&poly_offsets)
+            array(&poly_offsets)
         )?;
         writeln!(file, "      </Polys>")?;
     }
