@@ -1,5 +1,3 @@
-//! Dependency-free DEFLATE (RFC 1951) and zlib (RFC 1950) codec.
-
 #[cfg(test)]
 mod test;
 
@@ -9,10 +7,6 @@ const MAX_BITS: usize = 15;
 const WINDOW: usize = 32768;
 const MIN_MATCH: usize = 3;
 const MAX_MATCH: usize = 258;
-
-//
-// bit-level I/O
-//
 
 struct BitReader<'a> {
     data: &'a [u8],
@@ -51,6 +45,18 @@ impl<'a> BitReader<'a> {
         }
         self.pos = end * 8;
         Ok(&self.data[start..end])
+    }
+    fn peek_bits(&self, n: u32) -> u32 {
+        let mut code = 0;
+        for pos in self.pos..self.pos + n as usize {
+            let byte = self.data.get(pos / 8).copied().unwrap_or(0);
+            let bit = (byte >> (pos % 8)) & 1;
+            code = (code << 1) | bit as u32;
+        }
+        code
+    }
+    fn consume(&mut self, n: u32) {
+        self.pos += n as usize;
     }
 }
 
@@ -100,50 +106,45 @@ impl BitWriter {
     }
 }
 
-//
-// canonical Huffman decoding
-//
-
 struct Huffman {
-    counts: [u16; MAX_BITS + 1],
-    symbols: Vec<u16>,
+    table: Vec<(u16, u8)>,
 }
 
 impl Huffman {
     fn build(lengths: &[u8]) -> Self {
-        let mut counts = [0u16; MAX_BITS + 1];
+        let mut bl_count = [0u32; MAX_BITS + 1];
         for &length in lengths {
-            counts[length as usize] += 1;
+            bl_count[length as usize] += 1;
         }
-        counts[0] = 0;
-        let mut offsets = [0u16; MAX_BITS + 1];
-        for length in 1..MAX_BITS {
-            offsets[length + 1] = offsets[length] + counts[length];
+        bl_count[0] = 0;
+        let mut next_code = [0u32; MAX_BITS + 1];
+        let mut code = 0u32;
+        for bits in 1..=MAX_BITS {
+            code = (code + bl_count[bits - 1]) << 1;
+            next_code[bits] = code;
         }
-        let mut symbols = vec![0u16; lengths.len() - counts[0] as usize];
+        let mut table = vec![(0u16, 0u8); 1 << MAX_BITS];
         for (symbol, &length) in lengths.iter().enumerate() {
-            if length != 0 {
-                symbols[offsets[length as usize] as usize] = symbol as u16;
-                offsets[length as usize] += 1;
+            if length == 0 {
+                continue;
             }
+            let length = length as usize;
+            let code = next_code[length];
+            next_code[length] += 1;
+            let shift = MAX_BITS - length;
+            let base = (code as usize) << shift;
+            table[base..base + (1 << shift)].fill((symbol as u16, length as u8));
         }
-        Self { counts, symbols }
+        Self { table }
     }
     fn decode(&self, reader: &mut BitReader) -> Result<u16> {
-        let mut code = 0i32;
-        let mut first = 0i32;
-        let mut index = 0i32;
-        for length in 1..=MAX_BITS {
-            code |= reader.read_bit()? as i32;
-            let count = self.counts[length] as i32;
-            if code - count < first {
-                return Ok(self.symbols[(index + (code - first)) as usize]);
-            }
-            index += count;
-            first = (first + count) << 1;
-            code <<= 1;
+        let window = reader.peek_bits(MAX_BITS as u32) as usize;
+        let (symbol, length) = self.table[window];
+        if length == 0 || reader.pos + length as usize > reader.data.len() * 8 {
+            return Err(invalid("invalid Huffman code in deflate stream"));
         }
-        Err(invalid("invalid Huffman code in deflate stream"))
+        reader.consume(length as u32);
+        Ok(symbol)
     }
 }
 
@@ -159,10 +160,6 @@ fn fixed_literal_lengths() -> Vec<u8> {
 fn fixed_distance_lengths() -> Vec<u8> {
     vec![5u8; 30]
 }
-
-//
-// length/distance extra-bits tables (RFC 1951 3.2.5)
-//
 
 const LENGTH_BASE: [u16; 29] = [
     3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131,
@@ -206,10 +203,6 @@ fn distance_code(distance: usize) -> (u16, u32, u32) {
         (distance - DIST_BASE[index] as usize) as u32,
     )
 }
-
-//
-// inflate (decoder): supports stored, fixed-Huffman, and dynamic-Huffman blocks
-//
 
 pub fn inflate(data: &[u8]) -> Result<Vec<u8>> {
     let mut reader = BitReader::new(data);
@@ -318,10 +311,6 @@ fn inflate_block(
         }
     }
 }
-
-//
-// deflate (encoder): LZ77 hash-chain matcher + a single fixed-Huffman block
-//
 
 enum Token {
     Literal(u8),
@@ -458,10 +447,6 @@ pub fn deflate(data: &[u8]) -> Vec<u8> {
     writer.write_huffman(code, len);
     writer.finish()
 }
-
-//
-// zlib (RFC 1950): 2-byte header + deflate stream + big-endian Adler-32 trailer
-//
 
 pub fn adler32(data: &[u8]) -> u32 {
     const MOD_ADLER: u32 = 65521;
