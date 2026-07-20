@@ -81,12 +81,16 @@ fn round_trip_quadtree_via_input() {
 }
 
 #[test]
-fn compressed_is_unsupported() {
-    let path = "target/htg_compressed.htg";
+fn unknown_compressor_is_unsupported() {
+    let path = "target/htg_unknown_compressor.htg";
     write(
         path,
-        "<VTKFile type=\"HyperTreeGrid\" compressor=\"vtkZLibDataCompressor\"></VTKFile>",
+        "<VTKFile type=\"HyperTreeGrid\" compressor=\"vtkLZ4DataCompressor\"></VTKFile>",
     )
     .unwrap();
-    assert!(Octree::<u16, usize>::read_htg(path).is_err());
+    let error = match Octree::<u16, usize>::read_htg(path) {
+        Ok(_) => panic!("expected an unsupported-compressor error"),
+        Err(error) => error,
+    };
+    assert_eq!(error.kind(), std::io::ErrorKind::Unsupported);
 }
