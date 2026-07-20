@@ -4,6 +4,7 @@ use std::io::Result;
 
 #[derive(Clone, Copy)]
 pub struct DataArray<'a> {
+    pub name: Option<&'a str>,
     pub data_type: &'a str,
     pub format: &'a str,
     pub tuples: usize,
@@ -62,34 +63,44 @@ pub fn attribute<'a>(tag: &'a str, name: &str) -> Option<&'a str> {
     Some(&tag[start..end])
 }
 
-pub fn data_array<'a>(region: &'a str, name: Option<&str>) -> Result<DataArray<'a>> {
+pub fn data_arrays<'a>(region: &'a str) -> Result<Vec<DataArray<'a>>> {
     let mut rest = region;
-    loop {
-        let open = rest
-            .find("<DataArray")
-            .ok_or_else(|| invalid("missing DataArray".into()))?;
+    let mut arrays = Vec::new();
+    while let Some(open) = rest.find("<DataArray") {
         let attributes_end = rest[open..]
             .find('>')
             .ok_or_else(|| invalid("unterminated DataArray".into()))?
             + open;
         let attributes = &rest[open..attributes_end];
-        if name.is_none() || attribute(attributes, "Name") == name {
-            let close = rest[attributes_end..]
-                .find("</DataArray>")
-                .ok_or_else(|| invalid("unclosed DataArray".into()))?
-                + attributes_end;
-            return Ok(DataArray {
-                data_type: attribute(attributes, "type")
-                    .ok_or_else(|| invalid("DataArray without type".into()))?,
-                format: attribute(attributes, "format").unwrap_or("ascii"),
-                tuples: attribute(attributes, "NumberOfTuples")
-                    .and_then(|t| t.parse().ok())
-                    .unwrap_or(0),
-                text: rest[attributes_end + 1..close].trim(),
-            });
-        }
-        rest = &rest[attributes_end..];
+        let close = rest[attributes_end..]
+            .find("</DataArray>")
+            .ok_or_else(|| invalid("unclosed DataArray".into()))?
+            + attributes_end;
+        arrays.push(DataArray {
+            name: attribute(attributes, "Name"),
+            data_type: attribute(attributes, "type")
+                .ok_or_else(|| invalid("DataArray without type".into()))?,
+            format: attribute(attributes, "format").unwrap_or("ascii"),
+            tuples: attribute(attributes, "NumberOfTuples")
+                .and_then(|t| t.parse().ok())
+                .unwrap_or(0),
+            text: rest[attributes_end + 1..close].trim(),
+        });
+        rest = &rest[close..];
     }
+    Ok(arrays)
+}
+
+pub fn data_array<'a>(region: &'a str, name: Option<&str>) -> Result<DataArray<'a>> {
+    find_data_array(&data_arrays(region)?, name)
+}
+
+pub fn find_data_array<'a>(arrays: &[DataArray<'a>], name: Option<&str>) -> Result<DataArray<'a>> {
+    arrays
+        .iter()
+        .find(|array| name.is_none() || array.name == name)
+        .copied()
+        .ok_or_else(|| invalid(format!("missing DataArray {}", name.unwrap_or(""))))
 }
 
 pub fn floats(array: &DataArray, encoding: &Encoding) -> Result<Vec<f64>> {
@@ -197,28 +208,40 @@ pub fn parse<T: std::str::FromStr>(token: &str) -> Result<T> {
         .map_err(|_| invalid(format!("could not parse '{token}'")))
 }
 
+const INVALID: u8 = 0xFF;
+
+const DECODE_TABLE: [u8; 256] = {
+    let mut table = [INVALID; 256];
+    let mut i = 0;
+    while i < 26 {
+        table[b'A' as usize + i] = i as u8;
+        table[b'a' as usize + i] = 26 + i as u8;
+        i += 1;
+    }
+    i = 0;
+    while i < 10 {
+        table[b'0' as usize + i] = 52 + i as u8;
+        i += 1;
+    }
+    table[b'+' as usize] = 62;
+    table[b'/' as usize] = 63;
+    table
+};
+
 pub fn unbase64(text: &str) -> Vec<u8> {
-    let value = |c: u8| match c {
-        b'A'..=b'Z' => (c - b'A') as u32,
-        b'a'..=b'z' => (c - b'a' + 26) as u32,
-        b'0'..=b'9' => (c - b'0' + 52) as u32,
-        b'+' => 62,
-        b'/' => 63,
-        _ => 0,
-    };
-    let chars: Vec<u8> = text
-        .bytes()
-        .filter(|b| !b.is_ascii_whitespace() && *b != b'=')
-        .collect();
-    let mut out = Vec::with_capacity(chars.len() / 4 * 3);
-    for chunk in chars.chunks(4) {
-        let mut block = 0u32;
-        for &c in chunk {
-            block = (block << 6) | value(c);
+    let mut out = Vec::with_capacity(text.len() / 4 * 3);
+    let mut buffer = 0u32;
+    let mut bits = 0u32;
+    for &byte in text.as_bytes() {
+        let value = DECODE_TABLE[byte as usize];
+        if value == INVALID {
+            continue;
         }
-        block <<= 6 * (4 - chunk.len());
-        for shift in (0..chunk.len().saturating_sub(1)).map(|i| 16 - 8 * i) {
-            out.push((block >> shift) as u8);
+        buffer = (buffer << 6) | value as u32;
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            out.push((buffer >> bits) as u8);
         }
     }
     out

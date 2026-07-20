@@ -8,7 +8,10 @@ use crate::{
     },
     io::{
         invalid,
-        read::{attribute, data_array, encoding, floats, integers, region, tag},
+        read::{
+            attribute, data_array, data_arrays, encoding, find_data_array, floats, integers,
+            region, tag,
+        },
         unsupported,
     },
 };
@@ -59,12 +62,19 @@ where
             .unwrap_or(3);
 
         let cells_region = region(&text, "Cells")?;
-        let connectivity = integers(&data_array(cells_region, Some("connectivity"))?, &encoding)?;
-        let offsets = integers(&data_array(cells_region, Some("offsets"))?, &encoding)?;
-        let types = integers(&data_array(cells_region, Some("types"))?, &encoding)?;
-        let cell_faces = if cells_region.contains("Name=\"faces\"") {
-            let faces = integers(&data_array(cells_region, Some("faces"))?, &encoding)?;
-            let faceoffsets = integers(&data_array(cells_region, Some("faceoffsets"))?, &encoding)?;
+        let cells_arrays = data_arrays(cells_region)?;
+        let connectivity = integers(
+            &find_data_array(&cells_arrays, Some("connectivity"))?,
+            &encoding,
+        )?;
+        let offsets = integers(&find_data_array(&cells_arrays, Some("offsets"))?, &encoding)?;
+        let types = integers(&find_data_array(&cells_arrays, Some("types"))?, &encoding)?;
+        let cell_faces = if let Ok(faces_array) = find_data_array(&cells_arrays, Some("faces")) {
+            let faces = integers(&faces_array, &encoding)?;
+            let faceoffsets = integers(
+                &find_data_array(&cells_arrays, Some("faceoffsets"))?,
+                &encoding,
+            )?;
             decode_faces(&faces, &faceoffsets)?
         } else {
             vec![Vec::new(); types.len()]
@@ -79,13 +89,11 @@ where
             coordinates,
         ));
         if let Ok(point_data) = region(&text, "PointData") {
+            let point_arrays = data_arrays(point_data)?;
             let mut node_sets = Vec::new();
             let mut set = 1;
-            while point_data.contains(&format!("Name=\"NodeSet{set}\"")) {
-                let flags = integers(
-                    &data_array(point_data, Some(&format!("NodeSet{set}")))?,
-                    &encoding,
-                )?;
+            while let Ok(array) = find_data_array(&point_arrays, Some(&format!("NodeSet{set}"))) {
+                let flags = integers(&array, &encoding)?;
                 node_sets.push(
                     flags
                         .iter()

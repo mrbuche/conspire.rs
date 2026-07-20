@@ -8,7 +8,7 @@ use crate::{
     },
     io::{
         invalid,
-        read::{attribute, bits, data_array, encoding, floats, tag},
+        read::{attribute, bits, data_arrays, encoding, find_data_array, floats, tag},
         unsupported,
     },
     math::Scalar,
@@ -54,18 +54,19 @@ where
                 "HTG has {split_axes} refined axes but Orthotree was asked for D={D}"
             )));
         }
+        let arrays = data_arrays(&text)?;
         let axes = ["XCoordinates", "YCoordinates", "ZCoordinates"];
         let mut lo = [0.0; D];
         let mut hi = [0.0; D];
         for (axis, &name) in axes.iter().take(D).enumerate() {
-            let coordinates = floats(&data_array(&text, Some(name))?, &encoding)?;
+            let coordinates = floats(&find_data_array(&arrays, Some(name))?, &encoding)?;
             lo[axis] = coordinates[0] as Scalar;
             hi[axis] = coordinates[1] as Scalar;
         }
         let levels: usize = attribute(tag(&text, "<Tree ")?, "NumberOfLevels")
             .and_then(|n| n.parse().ok())
             .ok_or_else(|| invalid("no NumberOfLevels".into()))?;
-        let descriptor = bits(&data_array(&text, Some("Descriptor"))?, &encoding)?;
+        let descriptor = bits(&find_data_array(&arrays, Some("Descriptor"))?, &encoding)?;
         let root_length = 1usize << (levels - 1);
         let cell = (hi[0] - lo[0]) / root_length as Scalar;
         let rescale = Rescaling {
