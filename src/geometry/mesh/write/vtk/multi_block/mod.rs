@@ -4,7 +4,7 @@ mod test;
 use super::unstructured::WriteVtkUnstructured;
 use crate::{
     geometry::mesh::{Connectivity, Mesh},
-    io::vtk::write::data_array,
+    io::write::data_array,
 };
 use std::{
     collections::HashMap,

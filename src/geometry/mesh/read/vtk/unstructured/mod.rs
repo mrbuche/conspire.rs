@@ -6,7 +6,7 @@ use crate::{
         Coordinates,
         mesh::{Connectivity, Mesh},
     },
-    io::vtk::{
+    io::{
         invalid,
         read::{attribute, data_array, encoding, floats, integers, region, tag},
         unsupported,

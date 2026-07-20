@@ -1,6 +1,6 @@
 use crate::{
     geometry::mesh::{Connectivity, Mesh, Output, UnstructuredGrid, Vtk},
-    io::{Write, deflate::zlib_decode},
+    io::{Write, zlib_decode},
 };
 use std::fs::read_to_string;
 

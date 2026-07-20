@@ -1,6 +1,6 @@
 use crate::{
     geometry::grid::{Input, Output, Pixels, Voxels},
-    io::{Npy, Write, vtk::write::data_array_compressed},
+    io::{Npy, Write, write::data_array_compressed},
 };
 
 #[test]

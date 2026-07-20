@@ -1,6 +1,6 @@
 use crate::{
     geometry::grid::Grid,
-    io::{NpyType, vtk::write::data_array},
+    io::{NpyType, write::data_array},
 };
 use std::{
     array::from_fn,

@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     geometry::mesh::{Connectivity, Mesh},
-    io::vtk::write::{data_array, data_array_compressed},
+    io::write::{data_array, data_array_compressed},
     math::Tensor,
 };
 use std::{

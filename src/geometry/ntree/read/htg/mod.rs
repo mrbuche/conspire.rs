@@ -6,7 +6,7 @@ use crate::{
         Balancing, Orthotree, Pairing, Rescaling,
         node::{Kind, Node, split::Split},
     },
-    io::vtk::{
+    io::{
         invalid,
         read::{attribute, bits, data_array, encoding, floats, tag},
         unsupported,

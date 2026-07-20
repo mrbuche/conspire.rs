@@ -1,12 +1,9 @@
 use crate::{
     geometry::grid::Grid,
     io::{
-        NpyType,
-        vtk::{
-            invalid,
-            read::{attribute, data_array, decode, encoding, tag},
-            unsupported,
-        },
+        NpyType, invalid,
+        read::{attribute, data_array, decode, encoding, tag},
+        unsupported,
     },
 };
 use std::{array::from_fn, fs::read_to_string, io::Result, path::Path};

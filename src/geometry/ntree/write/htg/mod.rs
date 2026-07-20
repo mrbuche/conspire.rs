@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use crate::{geometry::ntree::Orthotree, io::vtk::write::data_array as payload, math::Scalar};
+use crate::{geometry::ntree::Orthotree, io::write::data_array as payload, math::Scalar};
 use std::{
     array::from_fn,
     fs::File,

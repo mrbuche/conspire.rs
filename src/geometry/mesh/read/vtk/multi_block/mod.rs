@@ -4,7 +4,7 @@ mod test;
 use super::unstructured::ReadVtkUnstructured;
 use crate::{
     geometry::mesh::Mesh,
-    io::vtk::{
+    io::{
         invalid,
         read::{attribute, data_array, encoding, integers, region, tag},
     },
