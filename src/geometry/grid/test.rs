@@ -1,6 +1,6 @@
 use crate::{
     geometry::grid::{Input, Output, Pixels, Voxels},
-    io::{Npy, Write},
+    io::{Npy, Write, vtk::write::data_array_compressed},
 };
 
 #[test]
@@ -151,6 +151,35 @@ fn round_trip_vti_2d() {
     let read = Pixels::<u16>::try_from(Input::Vti(path)).unwrap();
     assert_eq!(read.data(), data);
     assert_eq!(read.nel(), &[2, 3]);
+}
+
+#[test]
+fn round_trip_vti_compressed() {
+    let data: Vec<u8> = (0..24).collect();
+    let voxels = Voxels::new(data.clone(), [2, 3, 4]);
+    let bytes: Vec<u8> = voxels.data_col_major().iter().copied().collect();
+    let path = "target/voxels_compressed.vti";
+    std::fs::write(
+        path,
+        format!(
+            "<?xml version=\"1.0\"?>\n\
+             <VTKFile type=\"ImageData\" version=\"1.0\" byte_order=\"LittleEndian\" \
+             header_type=\"UInt64\" compressor=\"vtkZLibDataCompressor\">\n\
+             <ImageData WholeExtent=\"0 2 0 3 0 4\" Origin=\"0 0 0\" Spacing=\"1 1 1\">\n\
+             <Piece Extent=\"0 2 0 3 0 4\">\n\
+             <CellData Scalars=\"data\">\n\
+             <DataArray type=\"UInt8\" Name=\"data\" NumberOfComponents=\"1\" format=\"binary\">{}</DataArray>\n\
+             </CellData>\n\
+             </Piece>\n\
+             </ImageData>\n\
+             </VTKFile>\n",
+            data_array_compressed(&bytes)
+        ),
+    )
+    .unwrap();
+    let read = Voxels::<u8>::try_from(Input::Vti(path)).unwrap();
+    assert_eq!(read.data(), data);
+    assert_eq!(read.nel(), &[2, 3, 4]);
 }
 
 #[test]

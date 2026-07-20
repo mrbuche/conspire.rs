@@ -1,11 +1,14 @@
 #[cfg(test)]
 mod test;
 
-use super::unstructured::{
-    Encoding, ReadVtkUnstructured, attribute, data_array, integers, invalid, region, tag,
-    unsupported,
+use super::unstructured::ReadVtkUnstructured;
+use crate::{
+    geometry::mesh::Mesh,
+    io::vtk::{
+        invalid,
+        read::{attribute, data_array, encoding, integers, region, tag},
+    },
 };
-use crate::geometry::mesh::Mesh;
 use std::{
     fs::read_to_string,
     io::Result,
@@ -95,20 +98,7 @@ fn read_side_set(path: &Path) -> Result<Vec<(usize, usize)>> {
     if attribute(header, "type") != Some("PolyData") {
         return Err(invalid("side set file is not a PolyData".into()));
     }
-    let compressor = attribute(header, "compressor");
-    if matches!(compressor, Some(other) if other != "vtkZLibDataCompressor") {
-        return Err(unsupported(
-            "only the vtkZLibDataCompressor VTU compressor is supported",
-        ));
-    }
-    let encoding = Encoding {
-        header_bytes: match attribute(header, "header_type") {
-            Some("UInt32") | None => 4,
-            Some("UInt64") => 8,
-            Some(other) => return Err(invalid(format!("unsupported header_type {other}"))),
-        },
-        compressed: compressor.is_some(),
-    };
+    let encoding = encoding(header)?;
     let cell_data = region(&text, "CellData")?;
     let elements = integers(
         &data_array(cell_data, Some("OriginalElementIds"))?,

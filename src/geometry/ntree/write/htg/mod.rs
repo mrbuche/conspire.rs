@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use crate::{geometry::ntree::Orthotree, math::Scalar};
+use crate::{geometry::ntree::Orthotree, io::vtk::write::data_array as payload, math::Scalar};
 use std::{
     array::from_fn,
     fs::File,
@@ -186,34 +186,4 @@ fn pack_bits(bits: &[u8]) -> Vec<u8> {
         }
     }
     bytes
-}
-
-fn payload(data: &[u8]) -> String {
-    let mut buffer = Vec::with_capacity(8 + data.len());
-    buffer.extend_from_slice(&(data.len() as u64).to_le_bytes());
-    buffer.extend_from_slice(data);
-    base64(&buffer)
-}
-
-fn base64(bytes: &[u8]) -> String {
-    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
-    for chunk in bytes.chunks(3) {
-        let triple = ((chunk[0] as u32) << 16)
-            | ((*chunk.get(1).unwrap_or(&0) as u32) << 8)
-            | (*chunk.get(2).unwrap_or(&0) as u32);
-        out.push(ALPHABET[(triple >> 18 & 63) as usize] as char);
-        out.push(ALPHABET[(triple >> 12 & 63) as usize] as char);
-        out.push(if chunk.len() > 1 {
-            ALPHABET[(triple >> 6 & 63) as usize] as char
-        } else {
-            '='
-        });
-        out.push(if chunk.len() > 2 {
-            ALPHABET[(triple & 63) as usize] as char
-        } else {
-            '='
-        });
-    }
-    out
 }

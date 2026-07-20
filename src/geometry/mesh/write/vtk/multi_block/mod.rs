@@ -1,8 +1,11 @@
 #[cfg(test)]
 mod test;
 
-use super::unstructured::{WriteVtkUnstructured, data_array};
-use crate::geometry::mesh::{Connectivity, Mesh};
+use super::unstructured::WriteVtkUnstructured;
+use crate::{
+    geometry::mesh::{Connectivity, Mesh},
+    io::vtk::write::data_array,
+};
 use std::{
     collections::HashMap,
     fs::File,

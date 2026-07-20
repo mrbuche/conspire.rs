@@ -4,6 +4,7 @@ pub mod deflate;
 #[cfg(feature = "netcdf")]
 mod netcdf;
 mod npy;
+pub mod vtk;
 mod zip;
 
 use std::path::Path;
