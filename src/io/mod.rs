@@ -1,5 +1,6 @@
 //! Input/output library.
 
+pub mod deflate;
 #[cfg(feature = "netcdf")]
 mod netcdf;
 mod npy;

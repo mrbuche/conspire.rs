@@ -2,7 +2,8 @@
 mod test;
 
 use super::unstructured::{
-    ReadVtkUnstructured, attribute, data_array, integers, invalid, region, tag,
+    Encoding, ReadVtkUnstructured, attribute, data_array, integers, invalid, region, tag,
+    unsupported,
 };
 use crate::geometry::mesh::Mesh;
 use std::{
@@ -94,20 +95,26 @@ fn read_side_set(path: &Path) -> Result<Vec<(usize, usize)>> {
     if attribute(header, "type") != Some("PolyData") {
         return Err(invalid("side set file is not a PolyData".into()));
     }
-    let header_bytes = match attribute(header, "header_type") {
-        Some("UInt32") | None => 4,
-        Some("UInt64") => 8,
-        Some(other) => return Err(invalid(format!("unsupported header_type {other}"))),
+    let compressor = attribute(header, "compressor");
+    if matches!(compressor, Some(other) if other != "vtkZLibDataCompressor") {
+        return Err(unsupported(
+            "only the vtkZLibDataCompressor VTU compressor is supported",
+        ));
+    }
+    let encoding = Encoding {
+        header_bytes: match attribute(header, "header_type") {
+            Some("UInt32") | None => 4,
+            Some("UInt64") => 8,
+            Some(other) => return Err(invalid(format!("unsupported header_type {other}"))),
+        },
+        compressed: compressor.is_some(),
     };
     let cell_data = region(&text, "CellData")?;
     let elements = integers(
         &data_array(cell_data, Some("OriginalElementIds"))?,
-        header_bytes,
+        &encoding,
     )?;
-    let ordinals = integers(
-        &data_array(cell_data, Some("OriginalFaceIds"))?,
-        header_bytes,
-    )?;
+    let ordinals = integers(&data_array(cell_data, Some("OriginalFaceIds"))?, &encoding)?;
     Ok(elements
         .into_iter()
         .zip(ordinals)

@@ -6,6 +6,7 @@ use crate::{
         Coordinates,
         mesh::{Connectivity, Mesh},
     },
+    io::deflate::zlib_decode,
     math::Scalar,
 };
 use std::{
@@ -40,8 +41,11 @@ where
             Err(error) => return Err(error),
         };
         let header = tag(&text, "<VTKFile")?;
-        if attribute(header, "compressor").is_some() {
-            return Err(unsupported("compressed VTU is not supported"));
+        let compressor = attribute(header, "compressor");
+        if matches!(compressor, Some(other) if other != "vtkZLibDataCompressor") {
+            return Err(unsupported(
+                "only the vtkZLibDataCompressor VTU compressor is supported",
+            ));
         }
         if attribute(header, "type") != Some("UnstructuredGrid") {
             return Err(invalid("VTU is not an UnstructuredGrid".into()));
@@ -49,31 +53,28 @@ where
         if matches!(attribute(header, "byte_order"), Some(order) if order != "LittleEndian") {
             return Err(unsupported("big-endian VTU is not supported"));
         }
-        let header_bytes = match attribute(header, "header_type") {
-            Some("UInt32") | None => 4,
-            Some("UInt64") => 8,
-            Some(other) => return Err(invalid(format!("unsupported header_type {other}"))),
+        let encoding = Encoding {
+            header_bytes: match attribute(header, "header_type") {
+                Some("UInt32") | None => 4,
+                Some("UInt64") => 8,
+                Some(other) => return Err(invalid(format!("unsupported header_type {other}"))),
+            },
+            compressed: compressor.is_some(),
         };
 
         let points_region = region(&text, "Points")?;
-        let points = floats(&data_array(points_region, None)?, header_bytes)?;
+        let points = floats(&data_array(points_region, None)?, &encoding)?;
         let components = attribute(tag(points_region, "<DataArray")?, "NumberOfComponents")
             .and_then(|n| n.parse().ok())
             .unwrap_or(3);
 
         let cells_region = region(&text, "Cells")?;
-        let connectivity = integers(
-            &data_array(cells_region, Some("connectivity"))?,
-            header_bytes,
-        )?;
-        let offsets = integers(&data_array(cells_region, Some("offsets"))?, header_bytes)?;
-        let types = integers(&data_array(cells_region, Some("types"))?, header_bytes)?;
+        let connectivity = integers(&data_array(cells_region, Some("connectivity"))?, &encoding)?;
+        let offsets = integers(&data_array(cells_region, Some("offsets"))?, &encoding)?;
+        let types = integers(&data_array(cells_region, Some("types"))?, &encoding)?;
         let cell_faces = if cells_region.contains("Name=\"faces\"") {
-            let faces = integers(&data_array(cells_region, Some("faces"))?, header_bytes)?;
-            let faceoffsets = integers(
-                &data_array(cells_region, Some("faceoffsets"))?,
-                header_bytes,
-            )?;
+            let faces = integers(&data_array(cells_region, Some("faces"))?, &encoding)?;
+            let faceoffsets = integers(&data_array(cells_region, Some("faceoffsets"))?, &encoding)?;
             decode_faces(&faces, &faceoffsets)?
         } else {
             vec![Vec::new(); types.len()]
@@ -93,7 +94,7 @@ where
             while point_data.contains(&format!("Name=\"NodeSet{set}\"")) {
                 let flags = integers(
                     &data_array(point_data, Some(&format!("NodeSet{set}")))?,
-                    header_bytes,
+                    &encoding,
                 )?;
                 node_sets.push(
                     flags
@@ -117,6 +118,12 @@ pub(super) struct DataArray<'a> {
     data_type: &'a str,
     format: &'a str,
     text: &'a str,
+}
+
+#[derive(Clone, Copy)]
+pub(super) struct Encoding {
+    pub(super) header_bytes: usize,
+    pub(super) compressed: bool,
 }
 
 fn blocks(
@@ -223,11 +230,11 @@ fn arrays<const N: usize>(cells: &[(i64, &[i64])]) -> Result<Vec<[usize; N]>> {
         .collect()
 }
 
-fn floats(array: &DataArray, header_bytes: usize) -> Result<Vec<Scalar>> {
+fn floats(array: &DataArray, encoding: &Encoding) -> Result<Vec<Scalar>> {
     if array.format == "ascii" {
         return array.text.split_whitespace().map(parse).collect();
     }
-    let bytes = decode(array, header_bytes)?;
+    let bytes = decode(array, encoding)?;
     Ok(match array.data_type {
         "Float64" => bytes.chunks(8).map(le_f64).collect(),
         "Float32" => bytes.chunks(4).map(le_f32).collect(),
@@ -235,11 +242,11 @@ fn floats(array: &DataArray, header_bytes: usize) -> Result<Vec<Scalar>> {
     })
 }
 
-pub(super) fn integers(array: &DataArray, header_bytes: usize) -> Result<Vec<i64>> {
+pub(super) fn integers(array: &DataArray, encoding: &Encoding) -> Result<Vec<i64>> {
     if array.format == "ascii" {
         return array.text.split_whitespace().map(parse).collect();
     }
-    let bytes = decode(array, header_bytes)?;
+    let bytes = decode(array, encoding)?;
     Ok(match array.data_type {
         "Int64" | "UInt64" => bytes.chunks(8).map(le_i64).collect(),
         "Int32" | "UInt32" => bytes.chunks(4).map(le_i32).collect(),
@@ -248,17 +255,55 @@ pub(super) fn integers(array: &DataArray, header_bytes: usize) -> Result<Vec<i64
     })
 }
 
-fn decode(array: &DataArray, header_bytes: usize) -> Result<Vec<u8>> {
+fn decode(array: &DataArray, encoding: &Encoding) -> Result<Vec<u8>> {
     if array.format != "binary" {
         return Err(unsupported(
             "only ascii and inline binary DataArrays are supported",
         ));
     }
-    let mut bytes = unbase64(array.text);
-    if bytes.len() < header_bytes {
-        return Err(invalid("binary DataArray shorter than its header".into()));
+    let bytes = unbase64(array.text);
+    if encoding.compressed {
+        decode_compressed_blocks(&bytes, encoding.header_bytes)
+    } else {
+        if bytes.len() < encoding.header_bytes {
+            return Err(invalid("binary DataArray shorter than its header".into()));
+        }
+        Ok(bytes[encoding.header_bytes..].to_vec())
     }
-    Ok(bytes.split_off(header_bytes))
+}
+
+fn read_uint(bytes: &[u8], offset: usize, size: usize) -> Result<usize> {
+    let slice = bytes
+        .get(offset..offset + size)
+        .ok_or_else(|| invalid("compressed DataArray header is truncated".into()))?;
+    Ok(match size {
+        4 => u32::from_le_bytes(slice.try_into().unwrap()) as usize,
+        8 => u64::from_le_bytes(slice.try_into().unwrap()) as usize,
+        _ => unreachable!("header integer size is always 4 or 8"),
+    })
+}
+
+fn decode_compressed_blocks(bytes: &[u8], header_bytes: usize) -> Result<Vec<u8>> {
+    let num_blocks = read_uint(bytes, 0, header_bytes)?;
+    let sizes_start = 3 * header_bytes;
+    let mut compressed_sizes = Vec::with_capacity(num_blocks);
+    for block in 0..num_blocks {
+        compressed_sizes.push(read_uint(
+            bytes,
+            sizes_start + block * header_bytes,
+            header_bytes,
+        )?);
+    }
+    let mut offset = sizes_start + num_blocks * header_bytes;
+    let mut out = Vec::new();
+    for size in compressed_sizes {
+        let block = bytes
+            .get(offset..offset + size)
+            .ok_or_else(|| invalid("compressed DataArray block is truncated".into()))?;
+        out.extend(zlib_decode(block)?);
+        offset += size;
+    }
+    Ok(out)
 }
 
 fn le_f64(b: &[u8]) -> Scalar {

@@ -1,6 +1,6 @@
 use crate::{
-    geometry::mesh::{Connectivity, Mesh, Output},
-    io::Write,
+    geometry::mesh::{Connectivity, Mesh, Output, UnstructuredGrid, Vtk},
+    io::{Write, deflate::zlib_decode},
 };
 use std::fs::read_to_string;
 
@@ -60,10 +60,59 @@ fn unbase64(text: &str) -> Vec<u8> {
     out
 }
 
+fn decode_compressed_blocks(buffer: &[u8]) -> Vec<u8> {
+    let num_blocks = u64::from_le_bytes(buffer[0..8].try_into().unwrap()) as usize;
+    let sizes_start = 24;
+    let compressed_start = sizes_start + num_blocks * 8;
+    let compressed_sizes: Vec<usize> = buffer[sizes_start..compressed_start]
+        .chunks(8)
+        .map(|b| u64::from_le_bytes(b.try_into().unwrap()) as usize)
+        .collect();
+    let mut out = Vec::new();
+    let mut offset = compressed_start;
+    for size in compressed_sizes {
+        out.extend(zlib_decode(&buffer[offset..offset + size]).unwrap());
+        offset += size;
+    }
+    out
+}
+
+#[test]
+fn mixed_unstructured_grid_compressed() {
+    let path = "target/mixed_compressed.vtu";
+    mixed()
+        .write(Output::Vtk(Vtk::UnstructuredGrid(
+            UnstructuredGrid::Compressed(path),
+        )))
+        .unwrap();
+    let contents = read_to_string(path).unwrap();
+    assert!(contents.contains("type=\"UnstructuredGrid\""));
+    assert!(contents.contains("compressor=\"vtkZLibDataCompressor\""));
+    let types = decode_compressed_blocks(&unbase64(payload(&contents, "types")));
+    assert_eq!(types, [12, 13, 14, 10]);
+    let offsets = decode_compressed_blocks(&unbase64(payload(&contents, "offsets")));
+    let offsets: Vec<i64> = offsets
+        .chunks(8)
+        .map(|b| i64::from_le_bytes(b.try_into().unwrap()))
+        .collect();
+    assert_eq!(offsets, [8, 14, 19, 23]);
+    let connectivity = decode_compressed_blocks(&unbase64(payload(&contents, "connectivity")));
+    let first8: Vec<i64> = connectivity
+        .chunks(8)
+        .take(8)
+        .map(|b| i64::from_le_bytes(b.try_into().unwrap()))
+        .collect();
+    assert_eq!(first8, [0, 1, 2, 3, 4, 5, 6, 7]);
+}
+
 #[test]
 fn mixed_unstructured_grid() {
     let path = "target/mixed.vtu";
-    mixed().write(Output::VtkUnstructured(path)).unwrap();
+    mixed()
+        .write(Output::Vtk(Vtk::UnstructuredGrid(
+            UnstructuredGrid::Uncompressed(path),
+        )))
+        .unwrap();
     let contents = read_to_string(path).unwrap();
     assert!(contents.contains("type=\"UnstructuredGrid\""));
     assert!(contents.contains("byte_order=\"LittleEndian\""));

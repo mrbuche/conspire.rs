@@ -14,7 +14,9 @@ use self::abaqus::WriteAbaqus;
 #[cfg(feature = "netcdf")]
 use self::exodus::WriteExodus;
 use self::medit::WriteMedit;
-use self::vtk::{multi_block::WriteVtkMultiBlock, unstructured::WriteVtkUnstructured};
+use self::vtk::{
+    UnstructuredGrid, Vtk, multi_block::WriteVtkMultiBlock, unstructured::WriteVtkUnstructured,
+};
 
 pub enum Output<P>
 where
@@ -24,8 +26,7 @@ where
     #[cfg(feature = "netcdf")]
     Exodus(P),
     Medit(P),
-    VtkUnstructured(P),
-    VtkMultiBlock(P),
+    Vtk(Vtk<P>),
 }
 
 impl<P> AsRef<Path> for Output<P>
@@ -38,8 +39,7 @@ where
             #[cfg(feature = "netcdf")]
             Output::Exodus(path) => path.as_ref(),
             Output::Medit(path) => path.as_ref(),
-            Output::VtkUnstructured(path) => path.as_ref(),
-            Output::VtkMultiBlock(path) => path.as_ref(),
+            Output::Vtk(vtk) => vtk.as_ref(),
         }
     }
 }
@@ -55,8 +55,13 @@ where
             #[cfg(feature = "netcdf")]
             Output::Exodus(path) => self.write_exodus(path)?,
             Output::Medit(path) => self.write_medit(path)?,
-            Output::VtkUnstructured(path) => self.write_vtk_unstructured(path)?,
-            Output::VtkMultiBlock(path) => self.write_vtk_multi_block(path)?,
+            Output::Vtk(Vtk::UnstructuredGrid(UnstructuredGrid::Compressed(path))) => {
+                self.write_vtk_unstructured_compressed(path)?
+            }
+            Output::Vtk(Vtk::UnstructuredGrid(UnstructuredGrid::Uncompressed(path))) => {
+                self.write_vtk_unstructured(path)?
+            }
+            Output::Vtk(Vtk::MultiBlock(path)) => self.write_vtk_multi_block(path)?,
         }
         Ok(())
     }

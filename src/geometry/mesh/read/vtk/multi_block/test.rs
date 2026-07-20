@@ -1,6 +1,6 @@
 use super::ReadVtkMultiBlock;
 use crate::geometry::mesh::{
-    Connectivity, Mesh, Output, write::vtk::multi_block::WriteVtkMultiBlock,
+    Connectivity, Mesh, Output, Vtk, write::vtk::multi_block::WriteVtkMultiBlock,
 };
 
 #[test]
@@ -113,7 +113,7 @@ fn read_via_input_enum() {
     let connectivities = vec![Connectivity::Triangular(vec![[0, 1, 2]].into())];
     let coordinates = vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]].into();
     let mesh = Mesh::from((connectivities, coordinates));
-    mesh.write(Output::VtkMultiBlock(path)).unwrap();
+    mesh.write(Output::Vtk(Vtk::MultiBlock(path))).unwrap();
     let read = Mesh::<3>::try_from(crate::geometry::mesh::Input::VtkMultiBlock(path)).unwrap();
     assert_eq!(read.number_of_nodes(), 3);
 }
