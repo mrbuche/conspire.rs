@@ -83,8 +83,6 @@ fn round_trip_exceeds_window() {
     round_trip(data.as_bytes());
 }
 
-// Reference vectors captured from Python's `zlib` module so the decoder is
-// checked against a real implementation, not just against itself.
 #[test]
 fn zlib_decode_dynamic_huffman_reference_vector() {
     let expected = "the quick brown fox jumps over the lazy dog ".repeat(50) + "END";

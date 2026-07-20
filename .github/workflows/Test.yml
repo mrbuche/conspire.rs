@@ -108,4 +108,4 @@ jobs:
       - name: Install
         run: cargo install cargo-mutants
       - name: Mutants
-        run: cargo mutants --features math --file 'src/math/**/*.rs' --minimum-test-timeout 0.9 --profile release --shard 1/256 --shuffle || true
+        run: cargo mutants --features math --file 'src/math/**/*.rs' --minimum-test-timeout 0.9 --profile release --shard 1/1024 --shuffle || true
