@@ -262,11 +262,10 @@ fn read_dynamic_tables(reader: &mut BitReader) -> Result<(Huffman, Huffman)> {
                 let repeat = reader.read_bits(3)? + 3;
                 lengths.extend(std::iter::repeat_n(0, repeat as usize));
             }
-            18 => {
+            _ => {
                 let repeat = reader.read_bits(7)? + 11;
                 lengths.extend(std::iter::repeat_n(0, repeat as usize));
             }
-            other => return Err(invalid(format!("invalid code-length symbol {other}"))),
         }
     }
     if lengths.len() != hlit + hdist {
@@ -358,9 +357,9 @@ fn lz77(data: &[u8]) -> Vec<Token> {
                     if len > best_len {
                         best_len = len;
                         best_dist = i - c;
-                        if len >= max_len {
-                            break;
-                        }
+                    }
+                    if best_len >= max_len {
+                        break;
                     }
                 }
                 candidate = prev[c];

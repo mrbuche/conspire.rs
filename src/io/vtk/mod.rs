@@ -1,4 +1,6 @@
 pub mod read;
+#[cfg(test)]
+mod test;
 pub mod write;
 
 use std::io::{Error, ErrorKind};
