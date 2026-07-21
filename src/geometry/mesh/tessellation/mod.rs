@@ -5,6 +5,7 @@ pub mod from;
 pub mod into;
 pub mod read;
 pub mod sdf;
+pub mod stitch;
 pub mod write;
 
 use crate::{

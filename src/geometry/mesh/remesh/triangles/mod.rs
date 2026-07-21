@@ -15,7 +15,7 @@ const N: usize = 3;
 const SPLIT_ABOVE: Scalar = 4.0 / 3.0;
 const COLLAPSE_BELOW: Scalar = 4.0 / 5.0;
 
-pub(super) fn remesh<const D: usize, F>(
+pub(crate) fn remesh<const D: usize, F>(
     connectivity: &mut Vec<[usize; N]>,
     coordinates: &mut Coordinates<D>,
     iterations: usize,

@@ -1,7 +1,7 @@
 pub(crate) mod adaptive;
 #[cfg(test)]
 mod test;
-mod triangles;
+pub(crate) mod triangles;
 mod uniform;
 
 use crate::{geometry::mesh::Mesh, math::Scalar};
