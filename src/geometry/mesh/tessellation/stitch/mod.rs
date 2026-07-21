@@ -30,6 +30,7 @@ pub struct Patches {
 pub struct Stitch {
     pub core: Mesh<D>,
     pub surface: Mesh<D>,
+    pub quads: Vec<Vec<usize>>,
     pub patches: Patches,
     pub walls: Vec<Vec<[usize; 3]>>,
 }
@@ -46,7 +47,8 @@ impl Tessellation {
         octree.equilibrate(balancing, Pairing::Regular)?;
         let mut core = octree.dualize();
         self.trim(&mut core, self.bvh(), STITCH_TRIM_MARGIN);
-        let sizing = QuadSizing::new(&core)?;
+        let quads = core.exterior_faces();
+        let sizing = QuadSizing::new(&core, &quads)?;
         let elements: Vec<&[usize]> = self.mesh().connectivities().iter().flatten().collect();
         let mut connectivity: Vec<[usize; 3]> = elements
             .iter()
@@ -60,11 +62,12 @@ impl Tessellation {
             |_, points, _| sizing.target_lengths(points),
         )?;
         let surface = Mesh::from((vec![connectivity.into()], coordinates));
-        let patches = assign_patches(&core, &sizing, &surface)?;
-        let walls = loft_walls(&core, &surface, &patches)?;
+        let patches = assign_patches(&quads, &sizing, &surface)?;
+        let walls = loft_walls(&quads, &core, &surface, &patches)?;
         Ok(Stitch {
             core,
             surface,
+            quads,
             patches,
             walls,
         })
@@ -79,9 +82,8 @@ struct QuadSizing {
 }
 
 impl QuadSizing {
-    fn new(core: &Mesh<D>) -> Result<Self, &'static str> {
+    fn new(core: &Mesh<D>, quads: &[Vec<usize>]) -> Result<Self, &'static str> {
         let coordinates = core.coordinates();
-        let quads = core.exterior_faces();
         if quads.iter().any(|quad| quad.len() != 4) {
             return Err("fitted_surface requires an all-hexahedral trimmed core");
         }
@@ -145,7 +147,7 @@ impl QuadSizing {
 }
 
 fn assign_patches(
-    core: &Mesh<D>,
+    quads: &[Vec<usize>],
     sizing: &QuadSizing,
     surface: &Mesh<D>,
 ) -> Result<Patches, &'static str> {
@@ -161,7 +163,6 @@ fn assign_patches(
         })
         .collect();
     let nearest = sizing.nearest_quads(&centroids);
-    let quads = core.exterior_faces();
     let number_of_quads = quads.len();
     let mut triangles: Vec<Vec<usize>> = vec![Vec::new(); number_of_quads];
     nearest
@@ -293,11 +294,11 @@ fn validate_patch_connectivity(
 }
 
 pub fn loft_walls(
+    quads: &[Vec<usize>],
     core: &Mesh<D>,
     surface: &Mesh<D>,
     patches: &Patches,
 ) -> Result<Vec<Vec<[usize; 3]>>, &'static str> {
-    let quads = core.exterior_faces();
     let number_of_quads = quads.len();
     let core_coordinates = core.coordinates();
     let surface_coordinates = surface.coordinates();
@@ -336,6 +337,53 @@ pub fn loft_walls(
                 .zip(walls)
                 .for_each(|(root, wall)| all[root] = wall);
             all
+        })
+        .and_then(|walls| {
+            validate_seam_consistency(quads, &patches.quad_root, &walls)?;
+            Ok(walls)
+        })
+}
+
+fn validate_seam_consistency(
+    quads: &[Vec<usize>],
+    quad_root: &[usize],
+    walls: &[Vec<[usize; 3]>],
+) -> Result<(), &'static str> {
+    let mut edge_owners: HashMap<[usize; 2], Vec<usize>> = HashMap::new();
+    quads.iter().enumerate().for_each(|(quad, nodes)| {
+        (0..4).for_each(|i| {
+            let mut edge = [nodes[i], nodes[(i + 1) % 4]];
+            edge.sort_unstable();
+            edge_owners.entry(edge).or_default().push(quad);
+        })
+    });
+    let apex = |wall: &[[usize; 3]], edge: [usize; 2]| -> Option<usize> {
+        let mut found = None;
+        for triangle in wall {
+            if triangle.contains(&edge[0]) && triangle.contains(&edge[1]) {
+                if found.is_some() {
+                    return None;
+                }
+                found = triangle
+                    .iter()
+                    .copied()
+                    .find(|&node| node != edge[0] && node != edge[1]);
+            }
+        }
+        found
+    };
+    edge_owners
+        .into_iter()
+        .filter(|(_, owners)| owners.len() == 2)
+        .try_for_each(|(edge, owners)| {
+            let (ra, rb) = (quad_root[owners[0]], quad_root[owners[1]]);
+            if ra == rb {
+                return Ok(());
+            }
+            match (apex(&walls[ra], edge), apex(&walls[rb], edge)) {
+                (Some(a), Some(b)) if a == b => Ok(()),
+                _ => Err("wall seam between neighboring patches does not conform"),
+            }
         })
 }
 

@@ -9,11 +9,16 @@ fn fitted_surface_produces_a_core_and_a_matching_trimesh() {
     let stitch = tessellation
         .fitted_surface(Balancing::Strong, 4.0, CurvatureSizing::default(), 8)
         .unwrap();
-    let (core, surface, patches, walls) =
-        (stitch.core, stitch.surface, stitch.patches, stitch.walls);
+    let (core, surface, quads, patches, walls) = (
+        stitch.core,
+        stitch.surface,
+        stitch.quads,
+        stitch.patches,
+        stitch.walls,
+    );
     assert!(core.number_of_elements() > 0);
     assert!(surface.number_of_elements() > 0);
-    let number_of_quads = core.exterior_faces().len();
+    let number_of_quads = quads.len();
     assert_eq!(patches.quad_root.len(), number_of_quads);
     assert_eq!(patches.triangles.len(), number_of_quads);
     (0..number_of_quads).for_each(|quad| {
