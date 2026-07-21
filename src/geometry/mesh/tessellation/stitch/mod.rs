@@ -20,36 +20,14 @@ use std::{
     thread::{available_parallelism, scope},
 };
 
-// Bigger than dualize's TRIM_MARGIN (0.5): the naive buffer layer only needs
-// enough clearance to snap projected quad corners without inverting, but the
-// stitch wall needs room for a transition roughly one hex cell wide between
-// the retained quad footprint and the independently-sized trimesh patch it's
-// matched to.
 const STITCH_TRIM_MARGIN: Scalar = 1.0;
 
-// The whole-face assignment of a fitted surface trimesh to the retained
-// boundary quads of a trimmed hex core, used to drive the (not yet built)
-// per-quad loft/zipper stitch.
 pub struct Patches {
-    // For each boundary quad, the root quad of its merged cluster (itself,
-    // unless it had no assigned triangles and was absorbed into a
-    // neighbor's cluster).
     pub quad_root: Vec<usize>,
-    // For each boundary quad, the surface triangle indices assigned to it.
-    // Only populated at cluster roots (quad_root[quad] == quad); merged
-    // quads have an empty entry here.
     pub triangles: Vec<Vec<usize>>,
 }
 
 impl Tessellation {
-    // Builds an independent, quality-controlled triangle mesh sized to match
-    // the boundary quads of the trimmed interior hex mesh, and assigns each
-    // of its triangles (whole-face, never split) to the nearest boundary
-    // quad, as a first step toward stitching the two together (the
-    // polyhedral transition layer itself is not built yet). `iterations`
-    // must be large enough for the remesh to converge to a stable,
-    // quad-proportioned partition -- too few iterations can leave transient,
-    // disconnected patches that validate_patch_connectivity will reject.
     pub fn fitted_surface(
         &self,
         balancing: Balancing,
@@ -257,10 +235,6 @@ fn assign_patches(
     })
 }
 
-/// Checks that every patch's triangles form a single connected component
-/// (under shared-edge adjacency) rather than several disjoint pieces, which
-/// the loft/zipper stitch (not yet built) requires: it needs one boundary
-/// loop per patch, not several.
 fn validate_patch_connectivity(
     surface_triangles: &[&[usize]],
     patches: &[Vec<usize>],
