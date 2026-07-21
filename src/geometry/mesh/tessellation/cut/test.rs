@@ -3,7 +3,7 @@ use crate::{
     geometry::{
         Coordinates,
         mesh::{Connectivity, Mesh, PolytopalConnectivity, tessellation::Tessellation},
-        ntree::{Balance, Balancing, Dualization, Octree, Pairing},
+        ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
     },
     math::{CrossProduct, Tensor},
 };
@@ -54,7 +54,8 @@ fn signed_volumes(polyhedra: &PolytopalConnectivity<3>, coordinates: &Coordinate
 }
 
 fn dual(tessellation: &Tessellation, scale: f64) -> Mesh<3> {
-    let mut octree = Octree::<u16, usize>::from_sdf(tessellation, scale, 2);
+    let mut octree =
+        Octree::<u16, usize>::from_features(tessellation, scale, CurvatureSizing::default(), 2);
     octree
         .equilibrate(Balancing::Strong, Pairing::Regular)
         .unwrap();
