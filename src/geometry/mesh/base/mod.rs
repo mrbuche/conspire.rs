@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::FxHashMap;
 use crate::{
     geometry::{
         Coordinate, Coordinates, CoordinatesRef,
@@ -9,7 +10,6 @@ use crate::{
     },
     math::{CrossProduct, Graph, Scalar, Tensor, TensorRank1Vec2D},
 };
-use std::collections::HashMap;
 
 impl Mesh<3> {
     pub fn normals(&self) -> TensorRank1Vec2D<3, 0> {
@@ -31,7 +31,7 @@ impl Mesh<3> {
 
 impl<const D: usize> Mesh<D> {
     pub fn exterior_faces(&self) -> Vec<Vec<usize>> {
-        let mut faces = HashMap::new();
+        let mut faces = FxHashMap::default();
         self.iter().for_each(|block| {
             let local_faces = block.local_faces();
             block.iter().for_each(|element| {

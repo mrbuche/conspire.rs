@@ -2,6 +2,7 @@
 pub mod test;
 
 mod base;
+mod buffer;
 mod connectivity;
 mod differential;
 mod from;

@@ -1,7 +1,9 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::{Tensor, TensorRank0, TensorRank1, TensorRank2, tensor::list::TensorList};
+use crate::math::{
+    CrossProduct, Tensor, TensorRank0, TensorRank1, TensorRank2, tensor::list::TensorList,
+};
 use std::ops::Mul;
 
 use crate::math::assert::FiniteDifference;
@@ -28,6 +30,12 @@ impl<const D: usize, const I: usize, const N: usize> TensorRank1List<D, I, N> {
                 },
             )
             .into()
+    }
+}
+
+impl<const I: usize> TensorRank1List<3, I, 3> {
+    pub fn scalar_triple_product(&self) -> TensorRank0 {
+        &self[0] * self[1].cross(&self[2])
     }
 }
 

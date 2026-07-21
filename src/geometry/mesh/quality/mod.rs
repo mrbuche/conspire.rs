@@ -1,3 +1,3 @@
 pub mod improve;
+pub mod manifold;
 pub mod metrics;
-pub mod surface;

@@ -6,7 +6,7 @@ use crate::{
     math::{Scalar, Tensor},
 };
 
-const CORNERS: [[usize; 3]; 8] = [
+pub(crate) const CORNERS: [[usize; 3]; 8] = [
     [1, 3, 4],
     [2, 0, 5],
     [3, 1, 6],
