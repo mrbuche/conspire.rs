@@ -50,7 +50,7 @@ impl Tessellation {
         let mut octree = Octree::<u16, usize>::from_features(self, scale, curvature, 0);
         octree.equilibrate(balancing, Pairing::Regular)?;
         let mut mesh = octree.dualize();
-        self.trim(&mut mesh, self.bvh());
+        self.trim(&mut mesh, self.bvh(), TRIM_MARGIN);
         self.buffer(mesh, self.bvh())
     }
     fn buffer(
@@ -106,7 +106,12 @@ impl Tessellation {
         )
             .into())
     }
-    pub(crate) fn trim(&self, mesh: &mut Mesh<D>, bvh: &BoundingVolumeHierarchy<D>) {
+    pub(crate) fn trim(
+        &self,
+        mesh: &mut Mesh<D>,
+        bvh: &BoundingVolumeHierarchy<D>,
+        margin: Scalar,
+    ) {
         let surface = self.mesh();
         let surface_coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
@@ -165,7 +170,7 @@ impl Tessellation {
             .flatten()
             .filter(|element| {
                 element.iter().all(|&node| inside[node]) && {
-                    let margin = TRIM_MARGIN
+                    let margin = margin
                         * EDGES
                             .iter()
                             .map(|&[a, b]| {

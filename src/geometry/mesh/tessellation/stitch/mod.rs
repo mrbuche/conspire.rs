@@ -19,7 +19,19 @@ use std::{
     thread::{available_parallelism, scope},
 };
 
+// Bigger than dualize's TRIM_MARGIN (0.5): the naive buffer layer only needs
+// enough clearance to snap projected quad corners without inverting, but the
+// stitch wall needs room for a transition roughly one hex cell wide between
+// the retained quad footprint and the independently-sized trimesh patch it's
+// matched to.
+const STITCH_TRIM_MARGIN: Scalar = 1.0;
+
 impl Tessellation {
+    /// Builds an independent, quality-controlled triangle mesh sized to match
+    /// the boundary quads of the trimmed interior hex mesh, as a first step
+    /// toward stitching the two together (the polyhedral transition layer
+    /// itself is not built yet: this returns the trimmed hex core and the
+    /// fitted surface trimesh as separate meshes).
     pub fn fitted_surface(
         &self,
         balancing: Balancing,
@@ -30,7 +42,7 @@ impl Tessellation {
         let mut octree = Octree::<u16, usize>::from_features(self, scale, curvature, 0);
         octree.equilibrate(balancing, Pairing::Regular)?;
         let mut core = octree.dualize();
-        self.trim(&mut core, self.bvh());
+        self.trim(&mut core, self.bvh(), STITCH_TRIM_MARGIN);
         let sizing = QuadSizing::new(&core)?;
         let elements: Vec<&[usize]> = self.mesh().connectivities().iter().flatten().collect();
         let mut connectivity: Vec<[usize; 3]> = elements
