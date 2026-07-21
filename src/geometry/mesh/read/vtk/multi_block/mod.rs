@@ -1,10 +1,14 @@
 #[cfg(test)]
 mod test;
 
-use super::unstructured::{
-    ReadVtkUnstructured, attribute, data_array, integers, invalid, region, tag,
+use super::unstructured::ReadVtkUnstructured;
+use crate::{
+    geometry::mesh::Mesh,
+    io::{
+        invalid,
+        read::{attribute, data_arrays, encoding, find_data_array, integers, region, tag},
+    },
 };
-use crate::geometry::mesh::Mesh;
 use std::{
     fs::read_to_string,
     io::Result,
@@ -94,19 +98,16 @@ fn read_side_set(path: &Path) -> Result<Vec<(usize, usize)>> {
     if attribute(header, "type") != Some("PolyData") {
         return Err(invalid("side set file is not a PolyData".into()));
     }
-    let header_bytes = match attribute(header, "header_type") {
-        Some("UInt32") | None => 4,
-        Some("UInt64") => 8,
-        Some(other) => return Err(invalid(format!("unsupported header_type {other}"))),
-    };
+    let encoding = encoding(header)?;
     let cell_data = region(&text, "CellData")?;
+    let cell_arrays = data_arrays(cell_data)?;
     let elements = integers(
-        &data_array(cell_data, Some("OriginalElementIds"))?,
-        header_bytes,
+        &find_data_array(&cell_arrays, Some("OriginalElementIds"))?,
+        &encoding,
     )?;
     let ordinals = integers(
-        &data_array(cell_data, Some("OriginalFaceIds"))?,
-        header_bytes,
+        &find_data_array(&cell_arrays, Some("OriginalFaceIds"))?,
+        &encoding,
     )?;
     Ok(elements
         .into_iter()

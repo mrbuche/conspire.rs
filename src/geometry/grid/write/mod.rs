@@ -3,7 +3,7 @@ mod vti;
 
 use crate::{
     geometry::grid::Grid,
-    io::{Npy, NpyType, Write},
+    io::{Npy, NpyType, Write, write::Compression},
 };
 use std::{fmt::Display, io::Error as ErrorIO, path::Path};
 
@@ -13,7 +13,7 @@ where
 {
     Npy(P),
     Spn(P),
-    Vti(P),
+    Vti(Compression<P>),
 }
 
 impl<P> AsRef<Path> for Output<P>
@@ -24,7 +24,7 @@ where
         match self {
             Output::Npy(path) => path.as_ref(),
             Output::Spn(path) => path.as_ref(),
-            Output::Vti(path) => path.as_ref(),
+            Output::Vti(vti) => vti.as_ref(),
         }
     }
 }
@@ -44,7 +44,8 @@ where
             }
             .write(path)?,
             Output::Spn(path) => spn::write(self, path)?,
-            Output::Vti(path) => vti::write(self, path)?,
+            Output::Vti(Compression::On(path)) => vti::write(self, path, true)?,
+            Output::Vti(Compression::Off(path)) => vti::write(self, path, false)?,
         }
         Ok(())
     }

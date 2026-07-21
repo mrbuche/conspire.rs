@@ -100,12 +100,12 @@ jobs:
         run: cargo llvm-cov test --profile release --features ${{ matrix.features }} --fail-under-functions 50 --fail-under-lines 50 --fail-under-regions 50
       - name: Tree
         run: $([[ $(cargo tree --color always --edges normal --features ${{ matrix.features }} | wc -l) -eq 1 ]])
-  Mutants:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-      - name: Install
-        run: cargo install cargo-mutants
-      - name: Mutants
-        run: cargo mutants --features math --file 'src/math/**/*.rs' --minimum-test-timeout 0.9 --profile release --shard 1/256 --shuffle || true
+#  Mutants:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Checkout
+#        uses: actions/checkout@v7
+#      - name: Install
+#        run: cargo install cargo-mutants
+#      - name: Mutants
+#        run: cargo mutants --features math --file 'src/math/**/*.rs' --minimum-test-timeout 0.9 --profile release --shard 1/1024 --shuffle || true

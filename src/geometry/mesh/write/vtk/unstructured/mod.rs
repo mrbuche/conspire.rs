@@ -3,6 +3,7 @@ mod test;
 
 use crate::{
     geometry::mesh::{Connectivity, Mesh},
+    io::write::{data_array, data_array_compressed},
     math::Tensor,
 };
 use std::{
@@ -17,6 +18,7 @@ where
     P: AsRef<Path>,
 {
     fn write_vtk_unstructured(&self, output: P) -> Result<()>;
+    fn write_vtk_unstructured_compressed(&self, output: P) -> Result<()>;
 }
 
 fn cell_type(connectivity: &Connectivity) -> Result<u8> {
@@ -41,12 +43,28 @@ where
     P: AsRef<Path>,
 {
     fn write_vtk_unstructured(&self, output: P) -> Result<()> {
+        self.write_vtk_unstructured_impl(output, false)
+    }
+    fn write_vtk_unstructured_compressed(&self, output: P) -> Result<()> {
+        self.write_vtk_unstructured_impl(output, true)
+    }
+}
+
+impl<const D: usize> Mesh<D> {
+    fn write_vtk_unstructured_impl<P: AsRef<Path>>(&self, output: P, compress: bool) -> Result<()> {
         if D != 2 && D != 3 {
             return Err(Error::new(
                 ErrorKind::Unsupported,
                 "VTU supports only 2D or 3D meshes",
             ));
         }
+        let array = |data: &[u8]| -> String {
+            if compress {
+                data_array_compressed(data)
+            } else {
+                data_array(data)
+            }
+        };
         let coordinates = self.coordinates();
         let mut points = Vec::with_capacity(coordinates.len() * 3 * 8);
         for node in 0..coordinates.len() {
@@ -113,10 +131,17 @@ where
         }
         let mut file = BufWriter::new(File::create(output)?);
         writeln!(file, "<?xml version=\"1.0\"?>")?;
-        writeln!(
-            file,
-            "<VTKFile type=\"UnstructuredGrid\" version=\"1.0\" byte_order=\"LittleEndian\" header_type=\"UInt64\">"
-        )?;
+        if compress {
+            writeln!(
+                file,
+                "<VTKFile type=\"UnstructuredGrid\" version=\"1.0\" byte_order=\"LittleEndian\" header_type=\"UInt64\" compressor=\"vtkZLibDataCompressor\">"
+            )?;
+        } else {
+            writeln!(
+                file,
+                "<VTKFile type=\"UnstructuredGrid\" version=\"1.0\" byte_order=\"LittleEndian\" header_type=\"UInt64\">"
+            )?;
+        }
         writeln!(file, "  <UnstructuredGrid>")?;
         writeln!(
             file,
@@ -135,7 +160,7 @@ where
                     file,
                     "        <DataArray type=\"UInt8\" Name=\"NodeSet{}\" format=\"binary\">{}</DataArray>",
                     set + 1,
-                    data_array(&flags)
+                    array(&flags)
                 )?;
             }
             writeln!(file, "      </PointData>")?;
@@ -144,35 +169,35 @@ where
         writeln!(
             file,
             "        <DataArray type=\"Float64\" NumberOfComponents=\"3\" format=\"binary\">{}</DataArray>",
-            data_array(&points)
+            array(&points)
         )?;
         writeln!(file, "      </Points>")?;
         writeln!(file, "      <Cells>")?;
         writeln!(
             file,
             "        <DataArray type=\"Int64\" Name=\"connectivity\" format=\"binary\">{}</DataArray>",
-            data_array(&connectivity)
+            array(&connectivity)
         )?;
         writeln!(
             file,
             "        <DataArray type=\"Int64\" Name=\"offsets\" format=\"binary\">{}</DataArray>",
-            data_array(&offsets)
+            array(&offsets)
         )?;
         writeln!(
             file,
             "        <DataArray type=\"UInt8\" Name=\"types\" format=\"binary\">{}</DataArray>",
-            data_array(&types)
+            array(&types)
         )?;
         if has_polyhedra {
             writeln!(
                 file,
                 "        <DataArray type=\"Int64\" Name=\"faces\" format=\"binary\">{}</DataArray>",
-                data_array(&faces)
+                array(&faces)
             )?;
             writeln!(
                 file,
                 "        <DataArray type=\"Int64\" Name=\"faceoffsets\" format=\"binary\">{}</DataArray>",
-                data_array(&faceoffsets)
+                array(&faceoffsets)
             )?;
         }
         writeln!(file, "      </Cells>")?;
@@ -181,34 +206,4 @@ where
         writeln!(file, "</VTKFile>")?;
         Ok(())
     }
-}
-
-pub(super) fn data_array(data: &[u8]) -> String {
-    let mut buffer = Vec::with_capacity(8 + data.len());
-    buffer.extend_from_slice(&(data.len() as u64).to_le_bytes());
-    buffer.extend_from_slice(data);
-    base64(&buffer)
-}
-
-fn base64(bytes: &[u8]) -> String {
-    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
-    for chunk in bytes.chunks(3) {
-        let triple = ((chunk[0] as u32) << 16)
-            | ((*chunk.get(1).unwrap_or(&0) as u32) << 8)
-            | (*chunk.get(2).unwrap_or(&0) as u32);
-        out.push(ALPHABET[(triple >> 18 & 63) as usize] as char);
-        out.push(ALPHABET[(triple >> 12 & 63) as usize] as char);
-        out.push(if chunk.len() > 1 {
-            ALPHABET[(triple >> 6 & 63) as usize] as char
-        } else {
-            '='
-        });
-        out.push(if chunk.len() > 2 {
-            ALPHABET[(triple & 63) as usize] as char
-        } else {
-            '='
-        });
-    }
-    out
 }

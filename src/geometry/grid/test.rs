@@ -1,6 +1,6 @@
 use crate::{
     geometry::grid::{Input, Output, Pixels, Voxels},
-    io::{Npy, Write},
+    io::{Npy, Write, write::Compression},
 };
 
 #[test]
@@ -92,7 +92,7 @@ fn vti_round_trip_preserves_orientation() {
     let nel = [3usize, 2, 4];
     let source = Voxels::new((1..=24).collect(), nel);
     let path = "target/orient_rt.vti";
-    source.write(Output::Vti(path)).unwrap();
+    source.write(Output::Vti(Compression::Off(path))).unwrap();
     assert_same_logical(&source, &Voxels::try_from(Input::Vti(path)).unwrap());
 }
 
@@ -129,7 +129,7 @@ fn round_trip_vti() {
     let data: Vec<u8> = (0..24).collect();
     let path = "target/voxels.vti";
     Voxels::new(data.clone(), [2, 3, 4])
-        .write(Output::Vti(path))
+        .write(Output::Vti(Compression::Off(path)))
         .unwrap();
     let contents = std::fs::read_to_string(path).unwrap();
     assert!(contents.contains("type=\"ImageData\""));
@@ -144,13 +144,27 @@ fn round_trip_vti_2d() {
     let data: Vec<u16> = (0..6).collect();
     let path = "target/pixels.vti";
     Pixels::new(data.clone(), [2, 3])
-        .write(Output::Vti(path))
+        .write(Output::Vti(Compression::Off(path)))
         .unwrap();
     let contents = std::fs::read_to_string(path).unwrap();
     assert!(contents.contains("WholeExtent=\"0 2 0 3 0 0\""));
     let read = Pixels::<u16>::try_from(Input::Vti(path)).unwrap();
     assert_eq!(read.data(), data);
     assert_eq!(read.nel(), &[2, 3]);
+}
+
+#[test]
+fn round_trip_vti_compressed() {
+    let data: Vec<u8> = (0..24).collect();
+    let path = "target/voxels_compressed.vti";
+    Voxels::new(data.clone(), [2, 3, 4])
+        .write(Output::Vti(Compression::On(path)))
+        .unwrap();
+    let contents = std::fs::read_to_string(path).unwrap();
+    assert!(contents.contains("compressor=\"vtkZLibDataCompressor\""));
+    let read = Voxels::<u8>::try_from(Input::Vti(path)).unwrap();
+    assert_eq!(read.data(), data);
+    assert_eq!(read.nel(), &[2, 3, 4]);
 }
 
 #[test]

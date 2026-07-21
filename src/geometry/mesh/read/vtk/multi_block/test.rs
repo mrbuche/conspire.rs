@@ -1,6 +1,9 @@
 use super::ReadVtkMultiBlock;
-use crate::geometry::mesh::{
-    Connectivity, Mesh, Output, write::vtk::multi_block::WriteVtkMultiBlock,
+use crate::{
+    geometry::mesh::{
+        Connectivity, Mesh, Output, Vtk, write::vtk::multi_block::WriteVtkMultiBlock,
+    },
+    io::{Write, write::Compression},
 };
 
 #[test]
@@ -24,6 +27,41 @@ fn round_trip_side_sets() {
     mesh.set_side_sets(side_sets.clone().into());
     let path = "target/read_multi_block_round_trip.vtm";
     mesh.write_vtk_multi_block(path).unwrap();
+    let read = Mesh::<3>::read_vtk_multi_block(path).unwrap();
+    assert_eq!(read.number_of_nodes(), 8);
+    assert_eq!(read.side_sets(), side_sets.as_slice());
+    assert_eq!(read.side_set_numbers(), Some([1, 2].as_slice()));
+}
+
+#[test]
+fn round_trip_side_sets_compressed() {
+    let connectivities = vec![Connectivity::Hexahedral(
+        vec![[0, 1, 2, 3, 4, 5, 6, 7]].into(),
+    )];
+    let coordinates = vec![
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 1.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0],
+        [1.0, 0.0, 1.0],
+        [1.0, 1.0, 1.0],
+        [0.0, 1.0, 1.0],
+    ]
+    .into();
+    let mut mesh = Mesh::from((connectivities, coordinates));
+    let side_sets = vec![vec![(0, 4), (0, 5)], vec![(0, 0), (0, 1), (0, 2), (0, 3)]];
+    mesh.set_side_sets(side_sets.clone().into());
+    let path = "target/read_multi_block_round_trip_compressed.vtm";
+    mesh.write(Output::Vtk(Vtk::MultiBlock(Compression::On(path))))
+        .unwrap();
+    let volume_contents =
+        std::fs::read_to_string("target/read_multi_block_round_trip_compressed.vtu").unwrap();
+    assert!(volume_contents.contains("compressor=\"vtkZLibDataCompressor\""));
+    let side_set_contents =
+        std::fs::read_to_string("target/read_multi_block_round_trip_compressed_side_set_1.vtp")
+            .unwrap();
+    assert!(side_set_contents.contains("compressor=\"vtkZLibDataCompressor\""));
     let read = Mesh::<3>::read_vtk_multi_block(path).unwrap();
     assert_eq!(read.number_of_nodes(), 8);
     assert_eq!(read.side_sets(), side_sets.as_slice());
@@ -113,7 +151,8 @@ fn read_via_input_enum() {
     let connectivities = vec![Connectivity::Triangular(vec![[0, 1, 2]].into())];
     let coordinates = vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]].into();
     let mesh = Mesh::from((connectivities, coordinates));
-    mesh.write(Output::VtkMultiBlock(path)).unwrap();
+    mesh.write(Output::Vtk(Vtk::MultiBlock(Compression::Off(path))))
+        .unwrap();
     let read = Mesh::<3>::try_from(crate::geometry::mesh::Input::VtkMultiBlock(path)).unwrap();
     assert_eq!(read.number_of_nodes(), 3);
 }
