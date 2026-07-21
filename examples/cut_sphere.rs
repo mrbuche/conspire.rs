@@ -1,10 +1,10 @@
 use conspire::{
     geometry::{
         Coordinates,
-        mesh::{Connectivity, Mesh, Output, Tessellation},
+        mesh::{Connectivity, Mesh, Output, Tessellation, Vtk},
         ntree::Balancing,
     },
-    io::Write,
+    io::{Write, write::Compression},
 };
 use std::collections::HashMap;
 
@@ -75,7 +75,9 @@ fn main() -> Result<(), std::io::Error> {
                 vec![Connectivity::Hexahedral(hexes.into())],
                 mesh.coordinates().clone(),
             ))
-            .write(Output::VtkUnstructured("hexes.vtu"))
+            .write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(
+                "hexes.vtu",
+            ))))
         }
         Connectivity::Polyhedral(polyhedra) => {
             let triangles: Vec<[usize; 3]> = polyhedra
@@ -104,7 +106,9 @@ fn main() -> Result<(), std::io::Error> {
             ));
             #[cfg(feature = "netcdf")]
             polys.write(Output::Exodus("polys.exo"))?;
-            polys.write(Output::VtkUnstructured("polys.vtu"))
+            polys.write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(
+                "polys.vtu",
+            ))))
         }
         _ => Ok(()),
     })?;
