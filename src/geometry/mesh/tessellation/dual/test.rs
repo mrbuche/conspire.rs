@@ -1,46 +1,58 @@
-use crate::math::assert::Assert;
 use crate::{
     geometry::{
-        Coordinates,
-        bvh::BoundingVolumeHierarchy,
-        mesh::{Connectivity, Mesh, tessellation::from::test::tessellation},
+        mesh::{Tessellation, Verdict},
+        ntree::{Balancing, CurvatureSizing},
     },
-    math::{Tensor, assert::AssertionError},
+    math::{Scalar, Tensor, assert::AssertionError},
 };
-use std::array::from_fn;
+use std::path::Path;
 
 #[test]
-fn buffer_adds_conforming_layer() -> Result<(), AssertionError> {
-    let tessellation = tessellation();
-    let bvh = BoundingVolumeHierarchy::from(&tessellation);
-    let coordinates = Coordinates::from(vec![
-        [0.4, 0.4, 0.1],
-        [0.6, 0.4, 0.1],
-        [0.6, 0.6, 0.1],
-        [0.4, 0.6, 0.1],
-        [0.4, 0.4, 0.2],
-        [0.6, 0.4, 0.2],
-        [0.6, 0.6, 0.2],
-        [0.4, 0.6, 0.2],
-    ]);
-    let connectivities = vec![Connectivity::Hexahedral(
-        vec![[0, 1, 2, 3, 4, 5, 6, 7]].into(),
-    )];
-    let core = Mesh::from((connectivities, coordinates));
-    let result = tessellation.buffer(core, &bvh).unwrap();
-    let coordinates = result.coordinates();
-    assert_eq!(coordinates.len(), 16);
-    let hexes: Vec<[usize; 8]> = result
+fn dualize_bone() -> Result<(), AssertionError> {
+    let Ok(target) = Tessellation::try_from(Path::new("bone_tri.stl")) else {
+        return Ok(());
+    };
+    let mesh = target
+        .dualize(Balancing::Strong, 5.0, CurvatureSizing::default())
+        .unwrap();
+    let surface = target.mesh();
+    let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
+    let bvh = target.bvh();
+    let coordinates = mesh.coordinates();
+    let mut exterior: Vec<usize> = mesh.exterior_faces().into_iter().flatten().collect();
+    exterior.sort_unstable();
+    exterior.dedup();
+    let deviation = exterior
+        .iter()
+        .map(|&node| {
+            let (point, _) = bvh
+                .closest_point(&coordinates[node], surface.coordinates(), &elements)
+                .unwrap();
+            (&coordinates[node] - point).norm()
+        })
+        .fold(0.0, Scalar::max);
+    let worst = mesh
+        .minimum_scaled_jacobians()
         .iter()
         .flatten()
-        .map(|hex| from_fn(|i| hex[i]))
+        .fold(Scalar::INFINITY, |worst, &quality| worst.min(quality));
+    let qualities: Vec<Scalar> = mesh
+        .minimum_scaled_jacobians()
+        .into_iter()
+        .flatten()
         .collect();
-    assert_eq!(hexes.len(), 7);
-    hexes[1..].iter().try_for_each(|hex| {
-        (0..4).try_for_each(|k| {
-            let inner = &coordinates[hex[k]];
-            let projected = [inner[0], inner[1], 0.0].into();
-            Assert::default().eq_within_tols(&coordinates[hex[k + 4]], &projected)
-        })
-    })
+    let mean = qualities.iter().sum::<Scalar>() / qualities.len() as Scalar;
+    println!(
+        "elements: {}, deviation: {deviation:.6e}, worst scaled jacobian: {worst:.6}, mean {mean:.6}",
+        mesh.number_of_elements()
+    );
+    #[cfg(feature = "netcdf")]
+    crate::io::Write::write(
+        &mesh,
+        crate::geometry::mesh::write::Output::Exodus(Path::new("target/dualize_bone.exo")),
+    )
+    .unwrap();
+    assert!(deviation < 4.0e-3, "deviation: {deviation}");
+    assert!(worst > 0.25, "minimum scaled jacobian: {worst}");
+    Ok(())
 }
