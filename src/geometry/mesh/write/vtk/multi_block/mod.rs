@@ -21,26 +21,6 @@ where
     fn write_vtk_multi_block_compressed(&self, output: P) -> Result<()>;
 }
 
-pub enum MultiBlock<P>
-where
-    P: AsRef<Path>,
-{
-    Compressed(P),
-    Uncompressed(P),
-}
-
-impl<P> AsRef<Path> for MultiBlock<P>
-where
-    P: AsRef<Path>,
-{
-    fn as_ref(&self) -> &Path {
-        match self {
-            MultiBlock::Compressed(path) => path.as_ref(),
-            MultiBlock::Uncompressed(path) => path.as_ref(),
-        }
-    }
-}
-
 impl<const D: usize, P> WriteVtkMultiBlock<P> for Mesh<D>
 where
     P: AsRef<Path>,

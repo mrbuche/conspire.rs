@@ -1,6 +1,6 @@
 use crate::{
-    geometry::mesh::{Connectivity, Mesh, Output, UnstructuredGrid, Vtk},
-    io::{Write, zlib_decode},
+    geometry::mesh::{Connectivity, Mesh, Output, Vtk},
+    io::{Write, write::Compression, zlib_decode},
 };
 use std::fs::read_to_string;
 
@@ -81,9 +81,7 @@ fn decode_compressed_blocks(buffer: &[u8]) -> Vec<u8> {
 fn mixed_unstructured_grid_compressed() {
     let path = "target/mixed_compressed.vtu";
     mixed()
-        .write(Output::Vtk(Vtk::UnstructuredGrid(
-            UnstructuredGrid::Compressed(path),
-        )))
+        .write(Output::Vtk(Vtk::UnstructuredGrid(Compression::On(path))))
         .unwrap();
     let contents = read_to_string(path).unwrap();
     assert!(contents.contains("type=\"UnstructuredGrid\""));
@@ -109,9 +107,7 @@ fn mixed_unstructured_grid_compressed() {
 fn mixed_unstructured_grid() {
     let path = "target/mixed.vtu";
     mixed()
-        .write(Output::Vtk(Vtk::UnstructuredGrid(
-            UnstructuredGrid::Uncompressed(path),
-        )))
+        .write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(path))))
         .unwrap();
     let contents = read_to_string(path).unwrap();
     assert!(contents.contains("type=\"UnstructuredGrid\""));

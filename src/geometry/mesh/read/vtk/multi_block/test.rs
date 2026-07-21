@@ -1,9 +1,9 @@
 use super::ReadVtkMultiBlock;
 use crate::{
     geometry::mesh::{
-        Connectivity, Mesh, MultiBlock, Output, Vtk, write::vtk::multi_block::WriteVtkMultiBlock,
+        Connectivity, Mesh, Output, Vtk, write::vtk::multi_block::WriteVtkMultiBlock,
     },
-    io::Write,
+    io::{Write, write::Compression},
 };
 
 #[test]
@@ -53,7 +53,7 @@ fn round_trip_side_sets_compressed() {
     let side_sets = vec![vec![(0, 4), (0, 5)], vec![(0, 0), (0, 1), (0, 2), (0, 3)]];
     mesh.set_side_sets(side_sets.clone().into());
     let path = "target/read_multi_block_round_trip_compressed.vtm";
-    mesh.write(Output::Vtk(Vtk::MultiBlock(MultiBlock::Compressed(path))))
+    mesh.write(Output::Vtk(Vtk::MultiBlock(Compression::On(path))))
         .unwrap();
     let volume_contents =
         std::fs::read_to_string("target/read_multi_block_round_trip_compressed.vtu").unwrap();
@@ -151,7 +151,7 @@ fn read_via_input_enum() {
     let connectivities = vec![Connectivity::Triangular(vec![[0, 1, 2]].into())];
     let coordinates = vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]].into();
     let mesh = Mesh::from((connectivities, coordinates));
-    mesh.write(Output::Vtk(Vtk::MultiBlock(MultiBlock::Uncompressed(path))))
+    mesh.write(Output::Vtk(Vtk::MultiBlock(Compression::Off(path))))
         .unwrap();
     let read = Mesh::<3>::try_from(crate::geometry::mesh::Input::VtkMultiBlock(path)).unwrap();
     assert_eq!(read.number_of_nodes(), 3);

@@ -1,6 +1,27 @@
 use crate::io::deflate::zlib_encode;
+use std::path::Path;
 
 const COMPRESSION_BLOCK_SIZE: usize = 32768;
+
+pub enum Compression<P>
+where
+    P: AsRef<Path>,
+{
+    On(P),
+    Off(P),
+}
+
+impl<P> AsRef<Path> for Compression<P>
+where
+    P: AsRef<Path>,
+{
+    fn as_ref(&self) -> &Path {
+        match self {
+            Compression::On(path) => path.as_ref(),
+            Compression::Off(path) => path.as_ref(),
+        }
+    }
+}
 
 pub fn data_array(data: &[u8]) -> String {
     let mut buffer = Vec::with_capacity(8 + data.len());

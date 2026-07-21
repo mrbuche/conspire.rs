@@ -24,10 +24,7 @@ pub use self::{
     remesh::{AnisotropicSizing, IsotropicSizing, Remeshing, RemeshingMetric},
     smooth::Smoothing,
     tessellation::Tessellation,
-    write::{
-        Output,
-        vtk::{MultiBlock, UnstructuredGrid, Vtk},
-    },
+    write::{Output, vtk::Vtk},
 };
 
 use crate::{

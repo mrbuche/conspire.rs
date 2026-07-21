@@ -12,26 +12,6 @@ use std::{
     path::Path,
 };
 
-pub enum Vti<P>
-where
-    P: AsRef<Path>,
-{
-    Compressed(P),
-    Uncompressed(P),
-}
-
-impl<P> AsRef<Path> for Vti<P>
-where
-    P: AsRef<Path>,
-{
-    fn as_ref(&self) -> &Path {
-        match self {
-            Vti::Compressed(path) => path.as_ref(),
-            Vti::Uncompressed(path) => path.as_ref(),
-        }
-    }
-}
-
 pub(super) fn write<const D: usize, T, P>(
     voxels: &Grid<D, T>,
     path: P,

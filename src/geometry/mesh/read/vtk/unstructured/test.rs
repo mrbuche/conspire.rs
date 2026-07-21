@@ -1,7 +1,7 @@
 use super::ReadVtkUnstructured;
 use crate::{
-    geometry::mesh::{Connectivity, Mesh, Output, UnstructuredGrid, Vtk},
-    io::Write,
+    geometry::mesh::{Connectivity, Mesh, Output, Vtk},
+    io::{Write, write::Compression},
 };
 use std::fs::write;
 
@@ -34,9 +34,7 @@ fn round_trip_mixed() {
     .into();
     let path = "target/round_trip.vtu";
     Mesh::from((connectivities, coordinates))
-        .write(Output::Vtk(Vtk::UnstructuredGrid(
-            UnstructuredGrid::Uncompressed(path),
-        )))
+        .write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(path))))
         .unwrap();
     let mesh = Mesh::<3>::read_vtk_unstructured(path).unwrap();
     assert_eq!(mesh.number_of_nodes(), 12);
@@ -118,9 +116,7 @@ fn round_trip_compressed() {
     .into();
     let path = "target/round_trip_compressed.vtu";
     Mesh::from((connectivities, coordinates))
-        .write(Output::Vtk(Vtk::UnstructuredGrid(
-            UnstructuredGrid::Compressed(path),
-        )))
+        .write(Output::Vtk(Vtk::UnstructuredGrid(Compression::On(path))))
         .unwrap();
     let mesh = Mesh::<3>::read_vtk_unstructured(path).unwrap();
     assert_eq!(mesh.number_of_nodes(), 12);
@@ -171,9 +167,7 @@ fn round_trip_compressed_large_mesh_spans_multiple_blocks() {
         vec![Connectivity::Hexahedral(connectivity.into())],
         coordinates.into(),
     ))
-    .write(Output::Vtk(Vtk::UnstructuredGrid(
-        UnstructuredGrid::Compressed(path),
-    )))
+    .write(Output::Vtk(Vtk::UnstructuredGrid(Compression::On(path))))
     .unwrap();
     let mesh = Mesh::<3>::read_vtk_unstructured(path).unwrap();
     assert_eq!(mesh.number_of_nodes(), side * side * side);
@@ -205,10 +199,8 @@ fn round_trip_node_sets() {
     let mut mesh = Mesh::from((connectivities, coordinates));
     mesh.set_node_sets(vec![vec![0, 1], vec![2, 3]].into());
     let path = "target/round_trip_node_sets.vtu";
-    mesh.write(Output::Vtk(Vtk::UnstructuredGrid(
-        UnstructuredGrid::Uncompressed(path),
-    )))
-    .unwrap();
+    mesh.write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(path))))
+        .unwrap();
     let read = Mesh::<3>::read_vtk_unstructured(path).unwrap();
     assert_eq!(read.node_sets(), &[vec![0, 1], vec![2, 3]]);
 }
@@ -277,9 +269,7 @@ fn round_trip_polyhedral() {
     .into();
     let path = "target/round_trip_polyhedral.vtu";
     Mesh::from((connectivities, coordinates))
-        .write(Output::Vtk(Vtk::UnstructuredGrid(
-            UnstructuredGrid::Uncompressed(path),
-        )))
+        .write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(path))))
         .unwrap();
     let mesh = Mesh::<3>::read_vtk_unstructured(path).unwrap();
     assert_eq!(mesh.number_of_nodes(), 12);
@@ -323,9 +313,7 @@ fn round_trip_mixed_hexahedral_and_polyhedral() {
     .into();
     let path = "target/round_trip_mixed_hex_polyhedral.vtu";
     Mesh::from((vec![hex, poly], coordinates))
-        .write(Output::Vtk(Vtk::UnstructuredGrid(
-            UnstructuredGrid::Uncompressed(path),
-        )))
+        .write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(path))))
         .unwrap();
     let mesh = Mesh::<3>::read_vtk_unstructured(path).unwrap();
     assert_eq!(mesh.number_of_element_blocks(), 2);

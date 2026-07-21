@@ -1,17 +1,15 @@
 pub mod multi_block;
 pub mod unstructured;
 
-pub use multi_block::MultiBlock;
-pub use unstructured::UnstructuredGrid;
-
+use crate::io::write::Compression;
 use std::path::Path;
 
 pub enum Vtk<P>
 where
     P: AsRef<Path>,
 {
-    UnstructuredGrid(UnstructuredGrid<P>),
-    MultiBlock(MultiBlock<P>),
+    UnstructuredGrid(Compression<P>),
+    MultiBlock(Compression<P>),
 }
 
 impl<P> AsRef<Path> for Vtk<P>

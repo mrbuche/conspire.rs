@@ -3,11 +3,9 @@ mod vti;
 
 use crate::{
     geometry::grid::Grid,
-    io::{Npy, NpyType, Write},
+    io::{Npy, NpyType, Write, write::Compression},
 };
 use std::{fmt::Display, io::Error as ErrorIO, path::Path};
-
-pub use vti::Vti;
 
 pub enum Output<P>
 where
@@ -15,7 +13,7 @@ where
 {
     Npy(P),
     Spn(P),
-    Vti(Vti<P>),
+    Vti(Compression<P>),
 }
 
 impl<P> AsRef<Path> for Output<P>
@@ -46,8 +44,8 @@ where
             }
             .write(path)?,
             Output::Spn(path) => spn::write(self, path)?,
-            Output::Vti(Vti::Compressed(path)) => vti::write(self, path, true)?,
-            Output::Vti(Vti::Uncompressed(path)) => vti::write(self, path, false)?,
+            Output::Vti(Compression::On(path)) => vti::write(self, path, true)?,
+            Output::Vti(Compression::Off(path)) => vti::write(self, path, false)?,
         }
         Ok(())
     }

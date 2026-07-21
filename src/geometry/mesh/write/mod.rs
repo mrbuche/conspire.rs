@@ -7,17 +7,17 @@ pub mod exodus;
 pub mod medit;
 pub mod vtk;
 
-use crate::{geometry::mesh::Mesh, io::Write};
+use crate::{
+    geometry::mesh::Mesh,
+    io::{Write, write::Compression},
+};
 use std::{io::Error as ErrorIO, path::Path};
 
 use self::abaqus::WriteAbaqus;
 #[cfg(feature = "netcdf")]
 use self::exodus::WriteExodus;
 use self::medit::WriteMedit;
-use self::vtk::{
-    MultiBlock, UnstructuredGrid, Vtk, multi_block::WriteVtkMultiBlock,
-    unstructured::WriteVtkUnstructured,
-};
+use self::vtk::{Vtk, multi_block::WriteVtkMultiBlock, unstructured::WriteVtkUnstructured};
 
 pub enum Output<P>
 where
@@ -56,16 +56,16 @@ where
             #[cfg(feature = "netcdf")]
             Output::Exodus(path) => self.write_exodus(path)?,
             Output::Medit(path) => self.write_medit(path)?,
-            Output::Vtk(Vtk::UnstructuredGrid(UnstructuredGrid::Compressed(path))) => {
+            Output::Vtk(Vtk::UnstructuredGrid(Compression::On(path))) => {
                 self.write_vtk_unstructured_compressed(path)?
             }
-            Output::Vtk(Vtk::UnstructuredGrid(UnstructuredGrid::Uncompressed(path))) => {
+            Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(path))) => {
                 self.write_vtk_unstructured(path)?
             }
-            Output::Vtk(Vtk::MultiBlock(MultiBlock::Compressed(path))) => {
+            Output::Vtk(Vtk::MultiBlock(Compression::On(path))) => {
                 self.write_vtk_multi_block_compressed(path)?
             }
-            Output::Vtk(Vtk::MultiBlock(MultiBlock::Uncompressed(path))) => {
+            Output::Vtk(Vtk::MultiBlock(Compression::Off(path))) => {
                 self.write_vtk_multi_block(path)?
             }
         }

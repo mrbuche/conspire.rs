@@ -21,7 +21,7 @@ pub use crate::geometry::ntree::{
     pair::Pairing,
     read::Input,
     rescale::Rescaling,
-    write::{Htg, Output},
+    write::Output,
 };
 
 pub struct Orthotree<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V = ()> {

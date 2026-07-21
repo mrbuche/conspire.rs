@@ -21,26 +21,6 @@ where
     fn write_vtk_unstructured_compressed(&self, output: P) -> Result<()>;
 }
 
-pub enum UnstructuredGrid<P>
-where
-    P: AsRef<Path>,
-{
-    Compressed(P),
-    Uncompressed(P),
-}
-
-impl<P> AsRef<Path> for UnstructuredGrid<P>
-where
-    P: AsRef<Path>,
-{
-    fn as_ref(&self) -> &Path {
-        match self {
-            UnstructuredGrid::Compressed(path) => path.as_ref(),
-            UnstructuredGrid::Uncompressed(path) => path.as_ref(),
-        }
-    }
-}
-
 fn cell_type(connectivity: &Connectivity) -> Result<u8> {
     Ok(match connectivity {
         Connectivity::Triangular(_) => 5,

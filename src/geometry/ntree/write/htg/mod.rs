@@ -21,26 +21,6 @@ where
     fn write_htg_compressed(&self, output: P) -> Result<()>;
 }
 
-pub enum Htg<P>
-where
-    P: AsRef<Path>,
-{
-    Compressed(P),
-    Uncompressed(P),
-}
-
-impl<P> AsRef<Path> for Htg<P>
-where
-    P: AsRef<Path>,
-{
-    fn as_ref(&self) -> &Path {
-        match self {
-            Htg::Compressed(path) => path.as_ref(),
-            Htg::Uncompressed(path) => path.as_ref(),
-        }
-    }
-}
-
 pub trait HtgValue: Copy {
     fn to_scalar(self) -> Option<Scalar>;
 }
