@@ -20,11 +20,6 @@ use std::{
 };
 
 impl Tessellation {
-    /// Builds an independent, quality-controlled triangle mesh sized to match
-    /// the boundary quads of the trimmed interior hex mesh, as a first step
-    /// toward stitching the two together (the polyhedral transition layer
-    /// itself is not built yet: this returns the trimmed hex core and the
-    /// fitted surface trimesh as separate meshes).
     pub fn fitted_surface(
         &self,
         balancing: Balancing,
