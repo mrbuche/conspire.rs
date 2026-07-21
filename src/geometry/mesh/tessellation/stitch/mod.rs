@@ -22,26 +22,12 @@ use std::{
 
 const STITCH_TRIM_MARGIN: Scalar = 1.0;
 
-/// The whole-face assignment of a fitted surface trimesh to the retained
-/// boundary quads of a trimmed hex core, used to drive the (not yet built)
-/// per-quad loft/zipper stitch.
 pub struct Patches {
-    /// For each boundary quad, the root quad of its merged cluster (itself,
-    /// unless it had no assigned triangles and was absorbed into a
-    /// neighbor's cluster).
     pub quad_root: Vec<usize>,
-    /// For each boundary quad, the surface triangle indices assigned to it.
-    /// Only populated at cluster roots (`quad_root[quad] == quad`); merged
-    /// quads have an empty entry here.
     pub triangles: Vec<Vec<usize>>,
 }
 
 impl Tessellation {
-    /// Builds an independent, quality-controlled triangle mesh sized to match
-    /// the boundary quads of the trimmed interior hex mesh, and assigns each
-    /// of its triangles (whole-face, never split) to the nearest boundary
-    /// quad, as a first step toward stitching the two together (the
-    /// polyhedral transition layer itself is not built yet).
     pub fn fitted_surface(
         &self,
         balancing: Balancing,
@@ -66,7 +52,7 @@ impl Tessellation {
             iterations,
             |_, points, _| sizing.target_lengths(points),
         )?;
-        let surface: Mesh<D> = (vec![connectivity.into()], coordinates).into();
+        let surface = Mesh::from((vec![connectivity.into()], coordinates));
         let patches = assign_patches(&core, &sizing, &surface)?;
         Ok((core, surface, patches))
     }
@@ -112,8 +98,6 @@ impl QuadSizing {
             lengths,
         })
     }
-    /// The nearest quad (by index into `core.exterior_faces()`) to each
-    /// point, or `None` if the quad set is empty.
     fn nearest_quads(&self, points: &Coordinates<D>) -> Vec<Option<usize>> {
         let elements: Vec<&[usize]> = self.triangles.iter().map(|t| t.as_slice()).collect();
         let number_of_points = points.len();
@@ -185,7 +169,7 @@ fn assign_patches(
     if edge_quads.values().any(|owners| owners.len() != 2) {
         return Err("non-manifold quad boundary");
     }
-    let mut neighbors: Vec<Vec<usize>> = vec![Vec::new(); number_of_quads];
+    let mut neighbors = vec![Vec::new(); number_of_quads];
     edge_quads.values().for_each(|owners| {
         if let [a, b] = owners[..] {
             neighbors[a].push(b);

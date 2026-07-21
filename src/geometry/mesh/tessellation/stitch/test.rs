@@ -14,8 +14,6 @@ fn fitted_surface_produces_a_core_and_a_matching_trimesh() {
     let number_of_quads = core.exterior_faces().len();
     assert_eq!(patches.quad_root.len(), number_of_quads);
     assert_eq!(patches.triangles.len(), number_of_quads);
-
-    // Every root quad has a non-empty patch; merged quads have none.
     (0..number_of_quads).for_each(|quad| {
         let root = patches.quad_root[quad];
         assert_eq!(patches.quad_root[root], root, "root is not idempotent");
@@ -31,8 +29,6 @@ fn fitted_surface_produces_a_core_and_a_matching_trimesh() {
             );
         }
     });
-
-    // Every surface triangle is assigned to exactly one root quad's patch.
     let number_of_triangles = surface.number_of_elements();
     let mut seen = vec![false; number_of_triangles];
     patches.triangles.iter().flatten().for_each(|&triangle| {
