@@ -9,7 +9,7 @@ use crate::{
             Connectivity, Mesh,
             tessellation::{D, Tessellation},
         },
-        ntree::{Balance, Balancing, Dualization, Octree, Pairing},
+        ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
     },
     math::{Scalar, Tensor, TensorVec},
 };
@@ -41,8 +41,13 @@ const DIRECTIONS: [Coordinate<D>; 3] = [
     Coordinate::const_from([0.123_456_7, 0.087_654_3, 1.0]),
 ];
 impl Tessellation {
-    pub fn dualize(&self, balancing: Balancing, scale: Scalar) -> Result<Mesh<D>, &'static str> {
-        let mut octree = Octree::<u16, usize>::from_sdf(self, scale);
+    pub fn dualize(
+        &self,
+        balancing: Balancing,
+        scale: Scalar,
+        curvature: CurvatureSizing,
+    ) -> Result<Mesh<D>, &'static str> {
+        let mut octree = Octree::<u16, usize>::from_features(self, scale, curvature);
         octree.equilibrate(balancing, Pairing::Regular)?;
         let mut mesh = octree.dualize();
         self.trim(&mut mesh, self.bvh());

@@ -1,4 +1,4 @@
-mod adaptive;
+pub(crate) mod adaptive;
 #[cfg(test)]
 mod test;
 mod triangles;
