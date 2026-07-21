@@ -36,13 +36,13 @@ pub struct Stitch {
 }
 
 impl Tessellation {
-    pub fn fitted_surface(
+    pub fn fitted_core_and_surface(
         &self,
         balancing: Balancing,
         scale: Scalar,
         curvature: CurvatureSizing,
         iterations: usize,
-    ) -> Result<Stitch, &'static str> {
+    ) -> Result<(Mesh<D>, Mesh<D>), &'static str> {
         let mut octree = Octree::<u16, usize>::from_features(self, scale, curvature, 0);
         octree.equilibrate(balancing, Pairing::Regular)?;
         let mut core = octree.dualize();
@@ -62,6 +62,19 @@ impl Tessellation {
             |_, points, _| sizing.target_lengths(points),
         )?;
         let surface = Mesh::from((vec![connectivity.into()], coordinates));
+        Ok((core, surface))
+    }
+    pub fn fitted_surface(
+        &self,
+        balancing: Balancing,
+        scale: Scalar,
+        curvature: CurvatureSizing,
+        iterations: usize,
+    ) -> Result<Stitch, &'static str> {
+        let (core, surface) =
+            self.fitted_core_and_surface(balancing, scale, curvature, iterations)?;
+        let quads = core.exterior_faces();
+        let sizing = QuadSizing::new(&core, &quads)?;
         let patches = assign_patches(&quads, &sizing, &surface)?;
         let walls = loft_walls(&quads, &core, &surface, &patches)?;
         Ok(Stitch {
