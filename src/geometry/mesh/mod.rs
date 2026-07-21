@@ -8,7 +8,7 @@ mod from;
 mod into;
 mod quality;
 mod read;
-mod remesh;
+pub(crate) mod remesh;
 mod smooth;
 mod tessellation;
 mod write;

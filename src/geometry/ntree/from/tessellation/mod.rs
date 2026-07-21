@@ -1,8 +1,11 @@
+#[cfg(test)]
+mod test;
+
 use crate::{
     geometry::{
         Coordinate, CoordinateList,
         bbox::BoundingBox,
-        mesh::Tessellation,
+        mesh::{Tessellation, remesh::adaptive::sizing_field},
         ntree::{
             Octree,
             balance::Balancing,
@@ -18,12 +21,58 @@ use std::{array::from_fn, f64::consts::FRAC_PI_3, ops::Add};
 const D: usize = 3;
 const M: usize = 6;
 
+/// Parameters controlling curvature-driven octree refinement.
+///
+/// `tolerance` is the Dunyach chord-error tolerance (an absolute length, like
+/// adaptive surface remeshing's) and has no sensible default, since it is
+/// tied to the physical scale of the model; `None` disables curvature-driven
+/// refinement entirely (thickness alone still governs cell size). `gradation`
+/// and `floor_fraction` are dimensionless and default to values that work
+/// well in practice.
+pub struct CurvatureSizing {
+    /// Chord-error tolerance; smaller refines more aggressively near curvature.
+    /// `None` disables curvature-driven refinement.
+    pub tolerance: Option<Scalar>,
+    /// Lipschitz grading rate applied to the curvature-driven size field.
+    pub gradation: Scalar,
+    /// Smallest curvature-driven cell size allowed, as a fraction of the
+    /// tessellation's bounding box extent (a safety valve near singular
+    /// curvature, e.g. polytope corners).
+    pub floor_fraction: Scalar,
+}
+
+impl Default for CurvatureSizing {
+    fn default() -> Self {
+        Self {
+            tolerance: None,
+            gradation: 0.5,
+            floor_fraction: 1.0e-3,
+        }
+    }
+}
+
 impl<T, U> Octree<T, U>
 where
     T: Add<Output = T> + Copy + From<u16> + Into<Scalar> + Into<usize> + PartialOrd + Split,
     U: Copy + From<usize> + Into<usize>,
 {
-    pub fn from_sdf(tessellation: &Tessellation, scale: Scalar) -> Self {
+    /// Builds an octree from a tessellation, refining cells where either the
+    /// local thickness (SDF) or the local curvature demands a smaller size.
+    ///
+    /// `scale` controls cells-per-thickness, as before; `curvature` controls
+    /// curvature-driven refinement independent of thickness (e.g. a sphere
+    /// has ~constant thickness everywhere but can still demand refinement
+    /// from curvature alone).
+    pub fn from_features(
+        tessellation: &Tessellation,
+        scale: Scalar,
+        curvature: CurvatureSizing,
+    ) -> Self {
+        let CurvatureSizing {
+            tolerance,
+            gradation,
+            floor_fraction,
+        } = curvature;
         let sdf = tessellation.shape_diameter_function(FRAC_PI_3, 3, 8);
         let coordinates = tessellation.mesh().coordinates();
         if coordinates.is_empty() {
@@ -60,11 +109,34 @@ where
             .copied()
             .filter(|value| *value > 0.0)
             .fold(f64::INFINITY, f64::min);
-        let min_length = if min_sdf.is_finite() {
+        let elements: Vec<&[usize]> = tessellation
+            .mesh()
+            .connectivities()
+            .iter()
+            .flatten()
+            .collect();
+        let triangles: Vec<[usize; 3]> = elements
+            .iter()
+            .map(|element| from_fn(|i| element[i]))
+            .collect();
+        let curvature = match tolerance {
+            Some(tolerance) => sizing_field(
+                &triangles,
+                coordinates,
+                tolerance,
+                max_extent * floor_fraction,
+                max_extent,
+                gradation,
+            ),
+            None => vec![max_extent; coordinates.len()],
+        };
+        let min_curvature = curvature.iter().copied().fold(f64::INFINITY, f64::min);
+        let thickness_length = if min_sdf.is_finite() {
             min_sdf / scale
         } else {
             max_extent
         };
+        let min_length = thickness_length.min(min_curvature);
         let levels = if max_extent <= 0.0 || min_length <= 0.0 {
             0u32
         } else {
@@ -88,15 +160,16 @@ where
             }],
             paired: Pairing::None,
         };
-        let elements: Vec<&[usize]> = tessellation
-            .mesh()
-            .connectivities()
-            .iter()
-            .flatten()
-            .collect();
         let targets: Vec<Scalar> = elements
             .iter()
-            .map(|element| sdf[element[0]].min(sdf[element[1]]).min(sdf[element[2]]))
+            .map(|element| {
+                let thickness = sdf[element[0]].min(sdf[element[1]]).min(sdf[element[2]]);
+                let feature = curvature[element[0]]
+                    .min(curvature[element[1]])
+                    .min(curvature[element[2]])
+                    * scale;
+                thickness.min(feature)
+            })
             .collect();
         let half = root_length as Scalar / 2.0;
         let overlaps = |bbox: &BoundingBox<3>, triangle: usize| {
