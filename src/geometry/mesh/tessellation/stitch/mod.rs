@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     geometry::{
-        Coordinates,
+        Coordinate, Coordinates,
         bvh::BoundingVolumeHierarchy,
         mesh::{
             Connectivity, Mesh,
@@ -12,7 +12,7 @@ use crate::{
         },
         ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
     },
-    math::{Scalar, Tensor},
+    math::{CrossProduct, Scalar, Tensor, TensorVec},
 };
 use std::{
     array::from_fn,
@@ -27,6 +27,13 @@ pub struct Patches {
     pub triangles: Vec<Vec<usize>>,
 }
 
+pub struct Stitch {
+    pub core: Mesh<D>,
+    pub surface: Mesh<D>,
+    pub patches: Patches,
+    pub walls: Vec<Vec<[usize; 3]>>,
+}
+
 impl Tessellation {
     pub fn fitted_surface(
         &self,
@@ -34,7 +41,7 @@ impl Tessellation {
         scale: Scalar,
         curvature: CurvatureSizing,
         iterations: usize,
-    ) -> Result<(Mesh<D>, Mesh<D>, Patches), &'static str> {
+    ) -> Result<Stitch, &'static str> {
         let mut octree = Octree::<u16, usize>::from_features(self, scale, curvature, 0);
         octree.equilibrate(balancing, Pairing::Regular)?;
         let mut core = octree.dualize();
@@ -54,7 +61,13 @@ impl Tessellation {
         )?;
         let surface = Mesh::from((vec![connectivity.into()], coordinates));
         let patches = assign_patches(&core, &sizing, &surface)?;
-        Ok((core, surface, patches))
+        let walls = loft_walls(&core, &surface, &patches)?;
+        Ok(Stitch {
+            core,
+            surface,
+            patches,
+            walls,
+        })
     }
 }
 
@@ -277,4 +290,150 @@ fn validate_patch_connectivity(
                 Err("a patch has disconnected components and requires refinement")
             }
         })
+}
+
+pub fn loft_walls(
+    core: &Mesh<D>,
+    surface: &Mesh<D>,
+    patches: &Patches,
+) -> Result<Vec<Vec<[usize; 3]>>, &'static str> {
+    let quads = core.exterior_faces();
+    let number_of_quads = quads.len();
+    let core_coordinates = core.coordinates();
+    let surface_coordinates = surface.coordinates();
+    let surface_triangles: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
+    let offset = core.number_of_nodes();
+    let mut combined = core_coordinates.clone();
+    (0..surface_coordinates.len())
+        .for_each(|node| combined.push(surface_coordinates[node].clone()));
+    (0..number_of_quads)
+        .filter(|&quad| patches.quad_root[quad] == quad)
+        .map(|root| {
+            let cluster: Vec<&Vec<usize>> = (0..number_of_quads)
+                .filter(|&quad| patches.quad_root[quad] == root)
+                .map(|quad| &quads[quad])
+                .collect();
+            let inner = boundary_loop(cluster.iter().map(|quad| quad.as_slice()), 4)?;
+            let mut outer = boundary_loop(
+                patches.triangles[root]
+                    .iter()
+                    .map(|&triangle| surface_triangles[triangle]),
+                3,
+            )?;
+            if loop_normal(&inner, core_coordinates) * loop_normal(&outer, surface_coordinates)
+                < 0.0
+            {
+                outer.reverse();
+            }
+            let outer: Vec<usize> = outer.iter().map(|&node| node + offset).collect();
+            Ok(loft(&inner, &outer, &combined))
+        })
+        .collect::<Result<Vec<_>, &'static str>>()
+        .map(|walls| {
+            let mut all = vec![Vec::new(); number_of_quads];
+            (0..number_of_quads)
+                .filter(|&quad| patches.quad_root[quad] == quad)
+                .zip(walls)
+                .for_each(|(root, wall)| all[root] = wall);
+            all
+        })
+}
+
+fn boundary_loop<'a>(
+    faces: impl Iterator<Item = &'a [usize]>,
+    sides: usize,
+) -> Result<Vec<usize>, &'static str> {
+    let mut directed: HashMap<(usize, usize), u8> = HashMap::new();
+    faces.for_each(|face| {
+        (0..sides).for_each(|i| {
+            *directed
+                .entry((face[i], face[(i + 1) % sides]))
+                .or_insert(0) += 1;
+        })
+    });
+    let boundary: Vec<(usize, usize)> = directed
+        .keys()
+        .filter(|&&(a, b)| !directed.contains_key(&(b, a)))
+        .copied()
+        .collect();
+    let next: HashMap<usize, usize> = boundary.iter().copied().collect();
+    if next.len() != boundary.len() {
+        return Err("boundary is not a simple loop");
+    }
+    let Some(&(start, _)) = boundary.first() else {
+        return Err("empty boundary");
+    };
+    let mut nodes = vec![start];
+    let mut current = next[&start];
+    while current != start {
+        nodes.push(current);
+        current = *next.get(&current).ok_or("open boundary")?;
+    }
+    if nodes.len() != boundary.len() {
+        return Err("boundary has multiple loops");
+    }
+    Ok(nodes)
+}
+
+fn loop_normal(nodes: &[usize], coordinates: &Coordinates<D>) -> Coordinate<D> {
+    let centroid = nodes
+        .iter()
+        .map(|&node| coordinates[node].clone())
+        .sum::<Coordinate<D>>()
+        / nodes.len() as Scalar;
+    (0..nodes.len())
+        .map(|i| {
+            let a = &coordinates[nodes[i]] - &centroid;
+            let b = &coordinates[nodes[(i + 1) % nodes.len()]] - &centroid;
+            a.cross(&b)
+        })
+        .sum()
+}
+
+fn loft(inner: &[usize], outer: &[usize], coordinates: &Coordinates<D>) -> Vec<[usize; 3]> {
+    let (m, n) = (inner.len(), outer.len());
+    let cost = |a: usize, b: usize| -> Scalar {
+        let delta = &coordinates[a] - &coordinates[b];
+        &delta * &delta
+    };
+    let start = (0..n)
+        .min_by(|&i, &j| {
+            cost(inner[0], outer[i])
+                .partial_cmp(&cost(inner[0], outer[j]))
+                .unwrap()
+        })
+        .unwrap_or(0);
+    let outer: Vec<usize> = (0..n).map(|k| outer[(start + k) % n]).collect();
+    let mut dp = vec![vec![Scalar::INFINITY; n + 1]; m + 1];
+    let mut via_inner = vec![vec![false; n + 1]; m + 1];
+    dp[0][0] = 0.0;
+    (0..=m).for_each(|i| {
+        (0..=n).for_each(|j| {
+            if i == 0 && j == 0 {
+                return;
+            }
+            let diagonal = cost(inner[i % m], outer[j % n]);
+            let (best, from_inner) = match (i > 0, j > 0) {
+                (true, true) if dp[i - 1][j] <= dp[i][j - 1] => (dp[i - 1][j], true),
+                (true, true) => (dp[i][j - 1], false),
+                (true, false) => (dp[i - 1][j], true),
+                (false, true) => (dp[i][j - 1], false),
+                (false, false) => unreachable!(),
+            };
+            dp[i][j] = best + diagonal;
+            via_inner[i][j] = from_inner;
+        })
+    });
+    let mut triangles = Vec::with_capacity(m + n);
+    let (mut i, mut j) = (m, n);
+    while i > 0 || j > 0 {
+        if via_inner[i][j] {
+            triangles.push([inner[(i - 1) % m], inner[i % m], outer[j % n]]);
+            i -= 1;
+        } else {
+            triangles.push([inner[i % m], outer[(j - 1) % n], outer[j % n]]);
+            j -= 1;
+        }
+    }
+    triangles
 }

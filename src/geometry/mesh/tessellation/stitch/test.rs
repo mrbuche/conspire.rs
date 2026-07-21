@@ -6,9 +6,11 @@ use crate::geometry::{
 #[test]
 fn fitted_surface_produces_a_core_and_a_matching_trimesh() {
     let tessellation = tessellation();
-    let (core, surface, patches) = tessellation
+    let stitch = tessellation
         .fitted_surface(Balancing::Strong, 4.0, CurvatureSizing::default(), 8)
         .unwrap();
+    let (core, surface, patches, walls) =
+        (stitch.core, stitch.surface, stitch.patches, stitch.walls);
     assert!(core.number_of_elements() > 0);
     assert!(surface.number_of_elements() > 0);
     let number_of_quads = core.exterior_faces().len();
@@ -36,4 +38,31 @@ fn fitted_surface_produces_a_core_and_a_matching_trimesh() {
         seen[triangle] = true;
     });
     assert!(seen.into_iter().all(|assigned| assigned));
+
+    assert_eq!(walls.len(), number_of_quads);
+    let number_of_core_nodes = core.number_of_nodes();
+    (0..number_of_quads).for_each(|quad| {
+        if patches.quad_root[quad] == quad {
+            assert!(!walls[quad].is_empty(), "root quad {quad} has no wall");
+            walls[quad].iter().for_each(|triangle| {
+                let mut nodes = triangle.to_vec();
+                nodes.sort_unstable();
+                nodes.dedup();
+                assert_eq!(nodes.len(), 3, "degenerate wall triangle {triangle:?}");
+                let inner = triangle
+                    .iter()
+                    .filter(|&&node| node < number_of_core_nodes)
+                    .count();
+                assert!(
+                    inner == 1 || inner == 2,
+                    "wall triangle {triangle:?} does not bridge core and surface"
+                );
+            });
+        } else {
+            assert!(
+                walls[quad].is_empty(),
+                "merged quad {quad} has its own wall"
+            );
+        }
+    });
 }
