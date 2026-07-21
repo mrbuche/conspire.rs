@@ -273,8 +273,11 @@ fn octree_doubly_unbalanced() {
 #[test]
 fn write_weak2_cube() {
     use crate::{
-        geometry::{mesh::Output, ntree::Balance},
-        io::Write,
+        geometry::{
+            mesh::{Output, Vtk},
+            ntree::Balance,
+        },
+        io::{Write, write::Compression},
     };
     let mut tree = octree(16);
     tree.subdivide(0).unwrap();
@@ -287,8 +290,10 @@ fn write_weak2_cube() {
     assert!((volume(&mesh) - 4096.0).abs() < 1e-9);
     let (_, faces_nodes) = polytopal(&mesh);
     assert!(faces_nodes.iter().any(|face| face.len() >= 6));
-    mesh.write(Output::VtkUnstructured("target/weak2_cube.vtu"))
-        .unwrap();
+    mesh.write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(
+        "target/weak2_cube.vtu",
+    ))))
+    .unwrap();
     mesh.write(Output::Exodus("target/weak2_cube.exo")).unwrap()
 }
 
