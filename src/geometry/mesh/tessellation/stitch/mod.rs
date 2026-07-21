@@ -16,11 +16,29 @@ use crate::{
 };
 use std::{
     array::from_fn,
-    collections::{HashMap, HashSet},
+    cmp::{Ordering, Reverse},
+    collections::{BinaryHeap, HashMap, HashSet},
     thread::{available_parallelism, scope},
 };
 
 const STITCH_TRIM_MARGIN: Scalar = 1.0;
+
+#[derive(PartialEq)]
+struct Priority(Scalar);
+
+impl Eq for Priority {}
+
+impl PartialOrd for Priority {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Priority {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.0.total_cmp(&other.0)
+    }
+}
 
 pub struct Patches {
     pub quad_root: Vec<usize>,
@@ -126,7 +144,7 @@ impl QuadSizing {
             lengths,
         })
     }
-    fn nearest_quads(&self, points: &Coordinates<D>) -> Vec<Option<usize>> {
+    fn nearest_quads(&self, points: &Coordinates<D>) -> Vec<Option<(usize, Scalar)>> {
         let elements: Vec<&[usize]> = self.triangles.iter().map(|t| t.as_slice()).collect();
         let number_of_points = points.len();
         let mut nearest = vec![None; number_of_points];
@@ -142,9 +160,9 @@ impl QuadSizing {
                         let offset = chunk * chunk_size;
                         out.iter_mut().enumerate().for_each(|(local, slot)| {
                             let point = &points[offset + local];
-                            *slot = bvh
-                                .closest_point(point, coordinates, elements)
-                                .map(|(_, triangle)| triangle / 2);
+                            *slot = bvh.closest_point(point, coordinates, elements).map(
+                                |(closest, triangle)| (triangle / 2, (&closest - point).norm()),
+                            );
                         });
                     });
                 });
@@ -154,7 +172,7 @@ impl QuadSizing {
     fn target_lengths(&self, points: &Coordinates<D>) -> Vec<Scalar> {
         self.nearest_quads(points)
             .into_iter()
-            .map(|quad| quad.map_or(Scalar::INFINITY, |quad| self.lengths[quad]))
+            .map(|quad| quad.map_or(Scalar::INFINITY, |(quad, _)| self.lengths[quad]))
             .collect()
     }
 }
@@ -177,14 +195,43 @@ fn assign_patches(
         .collect();
     let nearest = sizing.nearest_quads(&centroids);
     let number_of_quads = quads.len();
+    let number_of_triangles = surface_triangles.len();
+    let mut seeds: Vec<Option<(usize, Scalar)>> = vec![None; number_of_quads];
+    nearest.iter().enumerate().try_for_each(|(triangle, hit)| {
+        let (quad, distance) = hit.ok_or("surface triangle has no nearby quad")?;
+        if seeds[quad].is_none_or(|(_, best)| distance < best) {
+            seeds[quad] = Some((triangle, distance));
+        }
+        Ok::<(), &'static str>(())
+    })?;
+    let neighbors = triangle_neighbors(&surface_triangles);
+    let mut labels = vec![usize::MAX; number_of_triangles];
+    let mut heap = BinaryHeap::new();
+    seeds.iter().enumerate().for_each(|(quad, seed)| {
+        if let Some((triangle, distance)) = seed {
+            heap.push(Reverse((Priority(*distance), *triangle, quad)));
+        }
+    });
+    while let Some(Reverse((Priority(distance), triangle, quad))) = heap.pop() {
+        if labels[triangle] != usize::MAX {
+            continue;
+        }
+        labels[triangle] = quad;
+        neighbors[triangle].iter().for_each(|&neighbor| {
+            if labels[neighbor] == usize::MAX {
+                let step = (&centroids[neighbor] - &centroids[triangle]).norm();
+                heap.push(Reverse((Priority(distance + step), neighbor, quad)));
+            }
+        });
+    }
+    if labels.contains(&usize::MAX) {
+        return Err("surface triangle has no nearby quad");
+    }
     let mut triangles: Vec<Vec<usize>> = vec![Vec::new(); number_of_quads];
-    nearest
+    labels
         .into_iter()
         .enumerate()
-        .try_for_each(|(triangle, quad)| {
-            triangles[quad.ok_or("surface triangle has no nearby quad")?].push(triangle);
-            Ok::<(), &'static str>(())
-        })?;
+        .for_each(|(triangle, quad)| triangles[quad].push(triangle));
     let mut edge_quads: HashMap<[usize; 2], Vec<usize>> = HashMap::new();
     quads.iter().enumerate().for_each(|(quad, nodes)| {
         (0..4).for_each(|i| {
@@ -262,10 +309,7 @@ fn assign_patches(
     })
 }
 
-fn validate_patch_connectivity(
-    surface_triangles: &[&[usize]],
-    patches: &[Vec<usize>],
-) -> Result<(), &'static str> {
+fn triangle_neighbors(surface_triangles: &[&[usize]]) -> Vec<Vec<usize>> {
     let mut edge_triangles: HashMap<[usize; 2], Vec<usize>> = HashMap::new();
     surface_triangles
         .iter()
@@ -284,6 +328,14 @@ fn validate_patch_connectivity(
             neighbors[b].push(a);
         }
     });
+    neighbors
+}
+
+fn validate_patch_connectivity(
+    surface_triangles: &[&[usize]],
+    patches: &[Vec<usize>],
+) -> Result<(), &'static str> {
+    let neighbors = triangle_neighbors(surface_triangles);
     patches
         .iter()
         .filter(|patch| !patch.is_empty())
