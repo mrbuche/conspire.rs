@@ -1,7 +1,10 @@
-#![allow(dead_code)]
+#![allow(dead_code, unused_imports)]
 
+mod instance;
 #[cfg(test)]
 mod test;
+
+pub(crate) use instance::Instance;
 
 #[derive(Clone, Copy, PartialEq)]
 enum Axis {
