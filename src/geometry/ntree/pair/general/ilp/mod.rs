@@ -1,5 +1,3 @@
-#![allow(dead_code, unused_imports)]
-
 mod instance;
 #[cfg(test)]
 mod test;
