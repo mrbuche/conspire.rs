@@ -1,6 +1,7 @@
-mod instance;
 #[cfg(test)]
 mod test;
+
+mod instance;
 
 pub(crate) use instance::Instance;
 
