@@ -13,8 +13,8 @@ fn projected_network_covers_the_core_boundary() {
     assert!(network.surface.number_of_elements() > 0);
     assert!(!network.edges.is_empty());
     assert_eq!(network.curves.len(), network.edges.len());
-    let quads = network.core.exterior_faces();
-    let mut edges: Vec<[usize; 2]> = quads
+    let mut edges: Vec<[usize; 2]> = network
+        .quads
         .iter()
         .flat_map(|quad| {
             (0..4).map(|i| {
@@ -26,7 +26,18 @@ fn projected_network_covers_the_core_boundary() {
         .collect();
     edges.sort_unstable();
     edges.dedup();
-    assert_eq!(network.edges, edges);
+    assert!(
+        network
+            .edges
+            .iter()
+            .all(|edge| edges.binary_search(edge).is_ok())
+    );
+    let mut covered = vec![false; network.quads.len()];
+    network.faces.iter().flatten().for_each(|&quad| {
+        assert!(!covered[quad], "quad {quad} in two faces");
+        covered[quad] = true;
+    });
+    assert!(covered.into_iter().all(|seen| seen));
     network
         .curves
         .iter()

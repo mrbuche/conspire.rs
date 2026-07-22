@@ -12,7 +12,7 @@ use crate::{
         },
         ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
     },
-    math::{Scalar, Tensor},
+    math::{CrossProduct, Scalar, Tensor},
 };
 use std::{
     array::from_fn,
@@ -24,10 +24,13 @@ const STITCH_TRIM_MARGIN: Scalar = 1.0;
 const CURVE_SEGMENTS: usize = 16;
 const CURVE_RELAXATION: usize = 100;
 const CORNER_ANCHOR: Scalar = 0.25;
+const SLIVER_RATIO: Scalar = 0.3;
 
 pub struct ProjectedNetwork {
     pub core: Mesh<D>,
     pub surface: Mesh<D>,
+    pub quads: Vec<Vec<usize>>,
+    pub faces: Vec<Vec<usize>>,
     pub edges: Vec<[usize; 2]>,
     pub curves: Vec<Vec<Coordinate<D>>>,
 }
@@ -158,9 +161,112 @@ impl Tessellation {
                 Ok::<(), &'static str>(())
             })
         })?;
+        let mut edge_owners: HashMap<[usize; 2], Vec<usize>> = HashMap::new();
+        quads.iter().enumerate().for_each(|(index, quad)| {
+            (0..4).for_each(|i| {
+                let mut edge = [quad[i], quad[(i + 1) % 4]];
+                edge.sort_unstable();
+                edge_owners.entry(edge).or_default().push(index);
+            })
+        });
+        if edge_owners.values().any(|owners| owners.len() != 2) {
+            return Err("non-manifold quad boundary");
+        }
+        let area = |points: &[Coordinate<D>]| -> Scalar {
+            let centroid = points.iter().cloned().sum::<Coordinate<D>>() / points.len() as Scalar;
+            (0..points.len())
+                .map(|i| {
+                    let u = &points[i] - &centroid;
+                    let v = &points[(i + 1) % points.len()] - &centroid;
+                    u.cross(&v)
+                })
+                .sum::<Coordinate<D>>()
+                .norm()
+                / 2.0
+        };
+        let ratios: Vec<Scalar> = quads
+            .iter()
+            .map(|quad| {
+                let mut boundary = Vec::new();
+                (0..4).for_each(|i| {
+                    let (a, b) = (quad[i], quad[(i + 1) % 4]);
+                    let edge = [a.min(b), a.max(b)];
+                    let curve = &curves[edges.binary_search(&edge).unwrap()];
+                    let run: Vec<Coordinate<D>> = if a < b {
+                        curve.clone()
+                    } else {
+                        curve.iter().rev().cloned().collect()
+                    };
+                    run.iter()
+                        .take(run.len() - 1)
+                        .for_each(|point| boundary.push(point.clone()));
+                });
+                let footprint: Vec<Coordinate<D>> = quad
+                    .iter()
+                    .map(|&node| core_coordinates[node].clone())
+                    .collect();
+                area(&boundary) / area(&footprint)
+            })
+            .collect();
+        let mut root: Vec<usize> = (0..quads.len()).collect();
+        fn find(root: &mut [usize], quad: usize) -> usize {
+            if root[quad] == quad {
+                quad
+            } else {
+                let top = find(root, root[quad]);
+                root[quad] = top;
+                top
+            }
+        }
+        let mut order: Vec<usize> = (0..quads.len()).collect();
+        order.sort_by(|&x, &y| ratios[x].total_cmp(&ratios[y]));
+        order
+            .into_iter()
+            .filter(|&quad| ratios[quad] < SLIVER_RATIO)
+            .for_each(|quad| {
+                let donor = (0..4)
+                    .filter_map(|i| {
+                        let (a, b) = (quads[quad][i], quads[quad][(i + 1) % 4]);
+                        let edge = [a.min(b), a.max(b)];
+                        edge_owners[&edge]
+                            .iter()
+                            .copied()
+                            .find(|&owner| owner != quad)
+                    })
+                    .max_by(|&x, &y| ratios[x].total_cmp(&ratios[y]));
+                if let Some(donor) = donor {
+                    let (a, b) = (find(&mut root, quad), find(&mut root, donor));
+                    if a != b {
+                        root[a] = b;
+                    }
+                }
+            });
+        let mut groups: HashMap<usize, Vec<usize>> = HashMap::new();
+        (0..quads.len()).for_each(|quad| {
+            let top = find(&mut root, quad);
+            groups.entry(top).or_default().push(quad);
+        });
+        let mut faces: Vec<Vec<usize>> = groups.into_values().collect();
+        faces.sort_unstable();
+        let kept: Vec<usize> = edges
+            .iter()
+            .enumerate()
+            .filter(|(_, edge)| {
+                let owners = &edge_owners[*edge];
+                find(&mut root, owners[0]) != find(&mut root, owners[1])
+            })
+            .map(|(index, _)| index)
+            .collect();
+        let edges: Vec<[usize; 2]> = kept.iter().map(|&index| edges[index]).collect();
+        let curves: Vec<Vec<Coordinate<D>>> = kept
+            .into_iter()
+            .map(|index| std::mem::take(&mut curves[index]))
+            .collect();
         Ok(ProjectedNetwork {
             core,
             surface,
+            quads,
+            faces,
             edges,
             curves,
         })
