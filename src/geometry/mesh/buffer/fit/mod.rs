@@ -78,6 +78,7 @@ impl Mesh<3> {
         let neighbors = self.node_node_connectivity().to_vec();
         let threads = available_parallelism().map_or(1, |threads| threads.get());
         let chunk_size = quads.len().div_ceil(threads).max(1);
+        let node_chunk = nodes.len().div_ceil(threads).max(1);
         let coordinates = self.coordinates.members_mut();
         let mut slot = vec![None; number_of_nodes];
         nodes
@@ -165,6 +166,7 @@ impl Mesh<3> {
             previous = quality;
             let hex_chunk = tracked.len().div_ceil(threads).max(1);
             let (hexes_ref, scales_ref) = (&hexes, &scales);
+            let (node_quads_ref, lengths_ref) = (&node_quads, &lengths);
             let objective = |coordinates: &Coordinates<3>| -> Scalar {
                 scope(|scope| {
                     tracked
@@ -188,23 +190,40 @@ impl Mesh<3> {
                         .into_iter()
                         .map(|handle| handle.join().unwrap())
                         .sum::<Scalar>()
-                }) + nodes
-                    .iter()
-                    .map(|&node| {
-                        BALANCE / lengths[node]
-                            * node_quads[node]
-                                .iter()
-                                .map(|&quad| {
-                                    let (point, normal, distance) = &targets[quad];
-                                    let weight = 1.0
-                                        / (distance / (lengths[node] * lengths[node]))
-                                            .max(WEIGHT_FLOOR);
-                                    let deviation = (&coordinates[node] - point) * normal;
-                                    weight * deviation * deviation
-                                })
-                                .sum::<Scalar>()
-                    })
-                    .sum::<Scalar>()
+                }) + scope(|scope| {
+                    let targets_ref = &targets;
+                    nodes
+                        .chunks(node_chunk)
+                        .map(|chunk| {
+                            scope.spawn(move || {
+                                chunk
+                                    .iter()
+                                    .map(|&node| {
+                                        BALANCE / lengths_ref[node]
+                                            * node_quads_ref[node]
+                                                .iter()
+                                                .map(|&quad| {
+                                                    let (point, normal, distance) =
+                                                        &targets_ref[quad];
+                                                    let weight = 1.0
+                                                        / (distance
+                                                            / (lengths_ref[node]
+                                                                * lengths_ref[node]))
+                                                            .max(WEIGHT_FLOOR);
+                                                    let deviation =
+                                                        (&coordinates[node] - point) * normal;
+                                                    weight * deviation * deviation
+                                                })
+                                                .sum::<Scalar>()
+                                    })
+                                    .sum::<Scalar>()
+                            })
+                        })
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                        .map(|handle| handle.join().unwrap())
+                        .sum::<Scalar>()
+                })
             };
             let slot_ref = &slot;
             let derivative = |coordinates: &Coordinates<3>| -> Vec<Scalar> {
@@ -244,15 +263,30 @@ impl Mesh<3> {
                             sum
                         })
                 });
-                nodes.iter().enumerate().for_each(|(index, &node)| {
-                    node_quads[node].iter().for_each(|&quad| {
-                        let (point, normal, distance) = &targets[quad];
-                        let weight =
-                            1.0 / (distance / (lengths[node] * lengths[node])).max(WEIGHT_FLOOR);
-                        let deviation = (&coordinates[node] - point) * normal;
-                        let factor = 2.0 * BALANCE / lengths[node] * weight * deviation;
-                        (0..3).for_each(|ax| flat[3 * index + ax] += normal[ax] * factor);
-                    })
+                scope(|scope| {
+                    let targets_ref = &targets;
+                    flat.chunks_mut(3 * node_chunk)
+                        .zip(nodes.chunks(node_chunk))
+                        .for_each(|(flat_chunk, node_chunk_slice)| {
+                            scope.spawn(move || {
+                                flat_chunk.chunks_mut(3).zip(node_chunk_slice).for_each(
+                                    |(entry, &node)| {
+                                        node_quads_ref[node].iter().for_each(|&quad| {
+                                            let (point, normal, distance) = &targets_ref[quad];
+                                            let weight = 1.0
+                                                / (distance
+                                                    / (lengths_ref[node] * lengths_ref[node]))
+                                                    .max(WEIGHT_FLOOR);
+                                            let deviation = (&coordinates[node] - point) * normal;
+                                            let factor = 2.0 * BALANCE / lengths_ref[node]
+                                                * weight
+                                                * deviation;
+                                            (0..3).for_each(|ax| entry[ax] += normal[ax] * factor);
+                                        })
+                                    },
+                                );
+                            });
+                        });
                 });
                 flat
             };
