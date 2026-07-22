@@ -6,7 +6,7 @@ use crate::{
         Coordinate, Coordinates, CoordinatesRef,
         mesh::{Connectivity, Mesh},
     },
-    math::{CrossProduct, FxHashMap, FxHashSet, Scalar, Tensor, TensorVec},
+    math::{CrossProduct, FxHashMap, FxHashSet, Scalar, Tensor},
 };
 use std::array::from_fn;
 
@@ -73,28 +73,7 @@ impl Mesh<3> {
             if offenders.is_empty() {
                 return Ok(());
             }
-            let mut remap = vec![usize::MAX; coordinates.len()];
-            let mut new_coordinates = Coordinates::new();
-            let mut connectivity = Vec::new();
-            hexes
-                .iter()
-                .enumerate()
-                .filter(|(index, _)| !offenders.contains(index))
-                .for_each(|(_, hex)| {
-                    connectivity.push(from_fn(|i| {
-                        let node = hex[i];
-                        if remap[node] == usize::MAX {
-                            remap[node] = new_coordinates.len();
-                            new_coordinates.push(coordinates[node].clone());
-                        }
-                        remap[node]
-                    }))
-                });
-            *self = (
-                vec![Connectivity::Hexahedral(connectivity.into())],
-                new_coordinates,
-            )
-                .into();
+            self.keep_hexes(|index, _, _| !offenders.contains(&index))?;
         }
         Err("clearance restriction did not converge")
     }

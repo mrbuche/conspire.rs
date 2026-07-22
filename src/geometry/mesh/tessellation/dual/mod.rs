@@ -3,20 +3,17 @@ mod test;
 
 use crate::{
     geometry::{
-        Coordinate, Coordinates, CoordinatesRef,
+        Coordinate, CoordinatesRef,
         bvh::BoundingVolumeHierarchy,
         mesh::{
-            Connectivity, Mesh,
+            Mesh,
             tessellation::{D, Tessellation},
         },
         ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
     },
-    math::{Scalar, Tensor, TensorVec},
+    math::{Scalar, Tensor},
 };
-use std::{
-    array::from_fn,
-    thread::{available_parallelism, scope},
-};
+use std::thread::{available_parallelism, scope};
 
 const GRAZING_TOLERANCE: Scalar = 1.0e-4;
 const TRIM_MARGIN: Scalar = 0.5;
@@ -49,10 +46,14 @@ impl Tessellation {
         let mut octree = Octree::<u16, usize>::from_features(self, scale, curvature);
         octree.equilibrate(balancing, Pairing::Regular)?;
         let mut mesh = octree.dualize();
-        self.trim(&mut mesh, self.bvh());
+        self.trim(&mut mesh, self.bvh())?;
         mesh.buffer(self)
     }
-    fn trim(&self, mesh: &mut Mesh<D>, bvh: &BoundingVolumeHierarchy<D>) {
+    fn trim(
+        &self,
+        mesh: &mut Mesh<D>,
+        bvh: &BoundingVolumeHierarchy<D>,
+    ) -> Result<(), &'static str> {
         let surface = self.mesh();
         let surface_coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
@@ -104,38 +105,15 @@ impl Tessellation {
                     });
                 });
         });
-        let mut remap = vec![usize::MAX; inside.len()];
-        let mut coordinates = Coordinates::new();
-        let mut connectivity = Vec::new();
-        mesh.iter()
-            .flatten()
-            .filter(|element| {
-                element.iter().all(|&node| inside[node]) && {
-                    let margin = TRIM_MARGIN
-                        * EDGES
-                            .iter()
-                            .map(|&[a, b]| {
-                                (&mesh.coordinates()[element[a]] - &mesh.coordinates()[element[b]])
-                                    .norm()
-                            })
-                            .fold(Scalar::INFINITY, Scalar::min);
-                    element.iter().all(|&node| clearance[node] >= margin)
-                }
-            })
-            .for_each(|element| {
-                connectivity.push(from_fn(|i| {
-                    let node = element[i];
-                    if remap[node] == usize::MAX {
-                        remap[node] = coordinates.len();
-                        coordinates.push(mesh.coordinates()[node].clone());
-                    }
-                    remap[node]
-                }))
-            });
-        *mesh = (
-            vec![Connectivity::Hexahedral(connectivity.into())],
-            coordinates,
-        )
-            .into();
+        mesh.keep_hexes(|_, hex, coordinates| {
+            hex.iter().all(|&node| inside[node]) && {
+                let margin = TRIM_MARGIN
+                    * EDGES
+                        .iter()
+                        .map(|&[a, b]| (&coordinates[hex[a]] - &coordinates[hex[b]]).norm())
+                        .fold(Scalar::INFINITY, Scalar::min);
+                hex.iter().all(|&node| clearance[node] >= margin)
+            }
+        })
     }
 }
