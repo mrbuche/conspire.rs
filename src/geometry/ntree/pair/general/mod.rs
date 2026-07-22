@@ -4,7 +4,7 @@ mod test;
 
 use crate::geometry::ntree::{Orthotree, node::split::Split};
 use ilp::Instance;
-use std::{collections::HashSet, ops::Add};
+use std::{collections::BTreeSet, ops::Add};
 
 impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V>
     Orthotree<D, L, M, N, T, U, V>
@@ -14,39 +14,36 @@ where
     V: Copy,
 {
     pub(super) fn pair_generalized(&mut self) -> Result<bool, &'static str> {
-        let lengths: HashSet<usize> = (0..self.len())
-            .filter(|&index| self[index.into()].is_leaf())
-            .map(|index| self[index.into()].length.into())
+        let lengths: BTreeSet<usize> = (0..self.len())
+            .map(|index| self[U::from(index)].length.into())
             .collect();
-        let coarse = match lengths.len() {
-            0 | 1 => return Ok(true),
-            2 => *lengths.iter().max().unwrap(),
-            _ => return Err("generalized pairing supports at most two refinement levels"),
-        };
-        let fine = *lengths.iter().min().unwrap();
+        let lengths: Vec<usize> = lengths.into_iter().collect();
+        let mut paired = true;
+        for window in lengths.windows(2) {
+            let (fine, coarse) = (window[0], window[1]);
+            if !self.pair_level(coarse, fine)? {
+                paired = false;
+            }
+        }
+        Ok(paired)
+    }
+    fn pair_level(&mut self, coarse: usize, fine: usize) -> Result<bool, &'static str> {
         if coarse != 2 * fine {
-            return Err("generalized pairing supports at most two refinement levels");
+            return Err(
+                "generalized pairing requires adjacent levels to differ by a factor of two",
+            );
         }
-        let mut coarse_nodes = Vec::new();
-        for index in 0..self.len() {
-            let idx: U = index.into();
-            if self[idx].length.into() != coarse {
-                continue;
-            }
-            let required = self[idx].is_tree();
-            if required {
-                let orthants = *self[idx].orthants().unwrap();
-                for child in orthants {
-                    if self[child].length.into() != fine || !self[child].is_leaf() {
-                        return Err("generalized pairing supports at most two refinement levels");
-                    }
-                }
-            }
-            let corner: [i32; D] = self[idx]
-                .corner
-                .map(|coordinate| (coordinate.into() / coarse) as i32);
-            coarse_nodes.push((idx, corner, required));
-        }
+        let coarse_nodes: Vec<(U, [i32; D], bool)> = (0..self.len())
+            .filter(|&index| self[U::from(index)].length.into() == coarse)
+            .map(|index| {
+                let idx = U::from(index);
+                let required = self[idx].is_tree();
+                let corner = self[idx]
+                    .corner
+                    .map(|coordinate| (coordinate.into() / coarse) as i32);
+                (idx, corner, required)
+            })
+            .collect();
         let instance = Instance::new(
             coarse_nodes
                 .iter()
