@@ -52,6 +52,14 @@ where
         );
         let (assignment, _) = instance.solve();
         debug_assert!(instance.feasible(&assignment));
+        self.pairing_vertices
+            .extend(assignment.iter().map(|vertex| {
+                let mut absolute = [0; D];
+                for (axis, coordinate) in absolute.iter_mut().enumerate() {
+                    *coordinate = vertex[axis] as usize * coarse;
+                }
+                absolute
+            }));
         let mut paired = true;
         for (index, corner, required) in coarse_nodes {
             if required {

@@ -49,6 +49,7 @@ where
                 value: None,
             }],
             paired: Pairing::None,
+            pairing_vertices: Default::default(),
             rescale: Rescaling {
                 center: [half; D],
                 cell: 1.0,

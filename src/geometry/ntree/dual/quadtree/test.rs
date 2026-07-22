@@ -4,6 +4,7 @@ use crate::geometry::{
     ntree::{
         Balance, Dualization, Quadtree,
         balance::Balancing,
+        dual::incident_leaf,
         node::{Kind, Node},
         pair::Pairing,
         rescale::Rescaling,
@@ -128,6 +129,7 @@ fn fuzz_tree(seed: u64, balancing: Balancing, pairing: Pairing) -> Quadtree<u16,
             value: None,
         }],
         paired: Pairing::None,
+        pairing_vertices: Default::default(),
         rescale: Rescaling {
             center: [16.0; D],
             cell: 1.0,
@@ -185,6 +187,55 @@ fn fuzz_strong_duals() {
 #[test]
 fn fuzz_weak_duals() {
     fuzz_duals(Balancing::Weak, Pairing::Regular)
+}
+
+#[test]
+#[ignore]
+fn probe_star_gap() {
+    for seed in 0..200u64 {
+        let mut quadtree = fuzz_tree(seed, Balancing::Weak, Pairing::Generalized);
+        let mesh = quadtree.dualize();
+        if verify_dual(&mesh).is_err() {
+            println!("seed {seed}:");
+            let root = &quadtree.nodes[0];
+            let lo = root.corner;
+            let hi = [root.corner[0] + root.length, root.corner[1] + root.length];
+            let mut reported: HashSet<[u16; D]> = HashSet::new();
+            for node in quadtree.iter().filter(|node| node.is_leaf()) {
+                let vertex = [node.corner[0] + node.length, node.corner[1] + node.length];
+                if !(lo[0] < vertex[0]
+                    && vertex[0] < hi[0]
+                    && lo[1] < vertex[1]
+                    && vertex[1] < hi[1])
+                {
+                    continue;
+                }
+                if !reported.insert(vertex) {
+                    continue;
+                }
+                let cells: [usize; N] =
+                    std::array::from_fn(|d| incident_leaf(&quadtree, &vertex, d));
+                let mut distinct = cells.to_vec();
+                distinct.sort_unstable();
+                distinct.dedup();
+                if distinct.len() != N {
+                    continue;
+                }
+                let lengths: [u16; N] = std::array::from_fn(|o| quadtree.nodes[cells[o]].length);
+                let shortest = *lengths.iter().min().unwrap();
+                let longest = *lengths.iter().max().unwrap();
+                let aligned = (vertex[0] as usize).is_multiple_of(2 * longest as usize)
+                    && (vertex[1] as usize).is_multiple_of(2 * longest as usize);
+                if longest != shortest && !aligned {
+                    println!(
+                        "  vertex {vertex:?}: lengths {lengths:?}, corners {:?}",
+                        cells.map(|c| quadtree.nodes[c].corner)
+                    );
+                }
+            }
+            return;
+        }
+    }
 }
 
 // Pairing::Generalized can produce asymmetric local transitions that

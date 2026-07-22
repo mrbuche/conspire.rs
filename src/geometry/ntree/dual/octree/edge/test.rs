@@ -35,6 +35,7 @@ pub(crate) fn weak_tree(depths: [usize; 8], balancing: Balancing) -> Octree<u16,
             value: None,
         }],
         paired: Pairing::None,
+        pairing_vertices: Default::default(),
         rescale: Rescaling {
             center: [8.0, 8.0, 8.0],
             cell: 1.0,

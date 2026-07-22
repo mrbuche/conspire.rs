@@ -24,11 +24,14 @@ pub use crate::geometry::ntree::{
     rescale::Rescaling,
     write::Output,
 };
+use std::collections::HashSet;
 
 pub struct Orthotree<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V = ()> {
     balanced: Balancing,
     nodes: Nodes<D, M, N, T, U, V>,
     paired: Pairing,
+    // Absolute-coordinate control vertices from Pairing::Generalized's ILP solve; unused by other pairing schemes.
+    pairing_vertices: HashSet<[usize; D]>,
     rescale: Rescaling<D>,
 }
 

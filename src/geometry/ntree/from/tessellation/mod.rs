@@ -86,6 +86,7 @@ where
                     value: None,
                 }],
                 paired: Pairing::None,
+                pairing_vertices: Default::default(),
                 rescale: Rescaling {
                     center: [0.0; D],
                     cell: 1.0,
@@ -159,6 +160,7 @@ where
                 value: None,
             }],
             paired: Pairing::None,
+            pairing_vertices: Default::default(),
         };
         let targets: Vec<Scalar> = elements
             .iter()
