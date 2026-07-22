@@ -103,8 +103,6 @@ fn nested_sandwiched_runs() -> BinaryTree<u16, usize> {
     binary_tree.subdivide(1).unwrap();
     binary_tree.subdivide(2).unwrap();
     binary_tree.subdivide(3).unwrap();
-    // nodes 5..=10 are the length-4 children of nodes 1, 2, 3 (corners
-    // 8, 12, 16, 20, 24, 28); subdivide the middle three (12, 16, 20).
     binary_tree.subdivide(6).unwrap();
     binary_tree.subdivide(7).unwrap();
     binary_tree.subdivide(8).unwrap();
