@@ -19,13 +19,7 @@ fn splits_only_long_edges() -> Result<(), AssertionError> {
     let mut coordinates = right_triangle(3.0);
     let lengths = edge_lengths(&connectivity, &coordinates);
     let mut sizing = vec![3.0; coordinates.len()];
-    split_long_edges(
-        &mut connectivity,
-        &mut coordinates,
-        &lengths,
-        &mut sizing,
-        None,
-    );
+    split_long_edges(&mut connectivity, &mut coordinates, &lengths, &mut sizing);
     assert_eq!(coordinates.len(), 4);
     Assert::default().eq_within_tols(&coordinates[3], &[1.5, 1.5, 0.0].into())?;
     assert_eq!(connectivity, vec![[1, 3, 0], [3, 2, 0]]);
@@ -38,13 +32,7 @@ fn leaves_short_edges_alone() {
     let mut coordinates = right_triangle(3.0);
     let lengths = edge_lengths(&connectivity, &coordinates);
     let mut sizing = vec![3.75; coordinates.len()];
-    split_long_edges(
-        &mut connectivity,
-        &mut coordinates,
-        &lengths,
-        &mut sizing,
-        None,
-    );
+    split_long_edges(&mut connectivity, &mut coordinates, &lengths, &mut sizing);
     assert_eq!(coordinates.len(), 3);
     assert_eq!(connectivity, vec![[0, 1, 2]]);
 }
@@ -55,13 +43,7 @@ fn three_split_makes_four_faces() {
     let mut coordinates = right_triangle(4.0);
     let lengths = edge_lengths(&connectivity, &coordinates);
     let mut sizing = vec![0.75; coordinates.len()];
-    split_long_edges(
-        &mut connectivity,
-        &mut coordinates,
-        &lengths,
-        &mut sizing,
-        None,
-    );
+    split_long_edges(&mut connectivity, &mut coordinates, &lengths, &mut sizing);
     assert_eq!(connectivity.len(), 4);
     assert_eq!(coordinates.len(), 6);
 }
@@ -78,7 +60,7 @@ fn flip_reduces_overvalent_hub() {
         [angle.cos(), angle.sin(), 0.0]
     }));
     let coordinates = Coordinates::from(points);
-    flip_edges(&mut connectivity, &coordinates, None);
+    flip_edges(&mut connectivity, &coordinates);
     assert_eq!(connectivity.len(), 8, "flips must preserve the face count");
 
     let mut hub_neighbors = std::collections::HashSet::new();
@@ -126,13 +108,7 @@ fn collapse_merges_short_edge() -> Result<(), AssertionError> {
     ]);
     let lengths = edge_lengths(&connectivity, &coordinates);
     let mut sizing = vec![1.6; coordinates.len()];
-    collapse_short_edges(
-        &mut connectivity,
-        &mut coordinates,
-        &lengths,
-        &mut sizing,
-        None,
-    );
+    collapse_short_edges(&mut connectivity, &mut coordinates, &lengths, &mut sizing);
     assert_eq!(
         connectivity.len(),
         6,
@@ -173,7 +149,7 @@ fn smooth_relaxes_hub_to_ring_centroid() -> Result<(), AssertionError> {
         [-0.5, -s, 0.0],
         [0.5, -s, 0.0],
     ]);
-    tangential_smooth(&connectivity, &mut coordinates, None);
+    tangential_smooth(&connectivity, &mut coordinates);
     Assert::default().eq_within_tols(&coordinates[0], &[0.0, 0.0, 0.0].into())?;
     Assert::default().eq_within_tols(&coordinates[1], &[1.0, 0.0, 0.0].into())
 }

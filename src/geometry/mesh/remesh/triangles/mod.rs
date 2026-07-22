@@ -15,25 +15,11 @@ const N: usize = 3;
 const SPLIT_ABOVE: Scalar = 4.0 / 3.0;
 const COLLAPSE_BELOW: Scalar = 4.0 / 5.0;
 
-#[derive(Clone, Copy, PartialEq)]
-pub(crate) enum Label {
-    Free,
-    Curve(usize),
-    Corner,
-}
-
-pub(crate) struct Constraints<const D: usize> {
-    pub labels: Vec<Label>,
-    pub edges: FxHashMap<(usize, usize), usize>,
-    pub curves: Vec<Vec<Coordinate<D>>>,
-}
-
-pub(crate) fn remesh<const D: usize, F>(
+pub(super) fn remesh<const D: usize, F>(
     connectivity: &mut Vec<[usize; N]>,
     coordinates: &mut Coordinates<D>,
     iterations: usize,
     mut sizing_of: F,
-    mut constraints: Option<&mut Constraints<D>>,
 ) -> Result<(), &'static str>
 where
     F: FnMut(&[[usize; N]], &Coordinates<D>, &FxHashMap<(usize, usize), Scalar>) -> Vec<Scalar>,
@@ -49,59 +35,18 @@ where
             break;
         }
         let mut sizing = sizing_of(connectivity, coordinates, &lengths);
-        split_long_edges(
-            connectivity,
-            coordinates,
-            &lengths,
-            &mut sizing,
-            constraints.as_deref_mut(),
-        );
+        split_long_edges(connectivity, coordinates, &lengths, &mut sizing);
         let lengths = edge_lengths(connectivity, coordinates);
-        collapse_short_edges(
-            connectivity,
-            coordinates,
-            &lengths,
-            &mut sizing,
-            constraints.as_deref_mut(),
-        );
-        flip_edges(connectivity, coordinates, constraints.as_deref());
-        tangential_smooth(connectivity, coordinates, constraints.as_deref());
+        collapse_short_edges(connectivity, coordinates, &lengths, &mut sizing);
+        flip_edges(connectivity, coordinates);
+        tangential_smooth(connectivity, coordinates);
         if let Some(surface) = &surface {
             let coordinates: &mut Coordinates<3> =
                 unsafe { &mut *(coordinates as *mut Coordinates<D>).cast() };
-            match constraints.as_deref() {
-                None => surface.reproject(coordinates),
-                Some(constraints) => {
-                    let constraints: &Constraints<3> =
-                        unsafe { &*(constraints as *const Constraints<D>).cast() };
-                    surface.reproject_constrained(coordinates, constraints)
-                }
-            }
+            surface.reproject(coordinates);
         }
     }
     Ok(())
-}
-
-fn polyline_closest<const D: usize>(
-    point: &Coordinate<D>,
-    polyline: &[Coordinate<D>],
-) -> Coordinate<D> {
-    (0..polyline.len() - 1)
-        .map(|i| {
-            let ab = &polyline[i + 1] - &polyline[i];
-            let ap = point - &polyline[i];
-            let denominator = &ab * &ab;
-            let closest = if denominator == 0.0 {
-                polyline[i].clone()
-            } else {
-                let t = ((&ap * &ab) / denominator).clamp(0.0, 1.0);
-                &polyline[i] + &(ab * t)
-            };
-            ((&closest - point).norm(), closest)
-        })
-        .min_by(|(a, _), (b, _)| a.total_cmp(b))
-        .map(|(_, closest)| closest)
-        .unwrap_or_else(|| polyline[0].clone())
 }
 
 struct Surface {
@@ -126,26 +71,6 @@ impl Surface {
                 self.bvh
                     .closest_point(&coordinates[vertex], surface, &elements)
                     .map_or_else(|| coordinates[vertex].clone(), |(point, _)| point)
-            })
-            .collect();
-    }
-    fn reproject_constrained(
-        &self,
-        coordinates: &mut Coordinates<3>,
-        constraints: &Constraints<3>,
-    ) {
-        let elements: Vec<&[usize]> = self.mesh.connectivities().iter().flatten().collect();
-        let surface = self.mesh.coordinates();
-        *coordinates = (0..coordinates.len())
-            .map(|vertex| match constraints.labels[vertex] {
-                Label::Corner => coordinates[vertex].clone(),
-                Label::Curve(curve) => {
-                    polyline_closest(&coordinates[vertex], &constraints.curves[curve])
-                }
-                Label::Free => self
-                    .bvh
-                    .closest_point(&coordinates[vertex], surface, &elements)
-                    .map_or_else(|| coordinates[vertex].clone(), |(point, _)| point),
             })
             .collect();
     }
@@ -175,7 +100,6 @@ fn split_long_edges<const D: usize>(
     coordinates: &mut Coordinates<D>,
     lengths: &FxHashMap<(usize, usize), Scalar>,
     sizing: &mut Vec<Scalar>,
-    mut constraints: Option<&mut Constraints<D>>,
 ) {
     let mut midpoints: FxHashMap<(usize, usize), usize> = FxHashMap::default();
     for (&(u, v), &length) in lengths {
@@ -184,24 +108,10 @@ fn split_long_edges<const D: usize>(
             midpoints.insert((u, v), coordinates.len());
             coordinates.push(midpoint);
             sizing.push(0.5 * (sizing[u] + sizing[v]));
-            if let Some(constraints) = constraints.as_mut() {
-                match constraints.edges.get(&(u, v)).copied() {
-                    Some(curve) => constraints.labels.push(Label::Curve(curve)),
-                    None => constraints.labels.push(Label::Free),
-                }
-            }
         }
     }
     if midpoints.is_empty() {
         return;
-    }
-    if let Some(constraints) = constraints {
-        midpoints.iter().for_each(|(&(u, v), &midpoint)| {
-            if let Some(curve) = constraints.edges.remove(&(u, v)) {
-                constraints.edges.insert(edge(u, midpoint), curve);
-                constraints.edges.insert(edge(midpoint, v), curve);
-            }
-        });
     }
     let mut split = Vec::with_capacity(connectivity.len());
     for &[a, b, c] in connectivity.iter() {
@@ -229,7 +139,6 @@ fn collapse_short_edges<const D: usize>(
     coordinates: &mut Coordinates<D>,
     lengths: &FxHashMap<(usize, usize), Scalar>,
     sizing: &mut Vec<Scalar>,
-    constraints: Option<&mut Constraints<D>>,
 ) {
     let vertices = coordinates.len();
     let mut neighbors: Vec<FxHashSet<usize>> = vec![FxHashSet::default(); vertices];
@@ -251,13 +160,6 @@ fn collapse_short_edges<const D: usize>(
             boundary[u] = true;
             boundary[v] = true;
         }
-    }
-    let mut constrained_neighbors: FxHashMap<usize, FxHashSet<usize>> = FxHashMap::default();
-    if let Some(constraints) = constraints.as_ref() {
-        constraints.edges.keys().for_each(|&(a, b)| {
-            constrained_neighbors.entry(a).or_default().insert(b);
-            constrained_neighbors.entry(b).or_default().insert(a);
-        });
     }
     let mut short: Vec<(usize, usize)> = lengths
         .iter()
@@ -284,39 +186,14 @@ fn collapse_short_edges<const D: usize>(
         if &neighbors[u] & &neighbors[v] != opposites {
             continue;
         }
-        if let (Some(nu), Some(nv)) = (constrained_neighbors.get(&u), constrained_neighbors.get(&v))
-            && nu.iter().any(|&w| w != v && nv.contains(&w))
-        {
-            continue;
-        }
-        let (survivor, removed, position) = match constraints.as_ref() {
-            Some(constraints) => match (constraints.labels[u], constraints.labels[v]) {
-                (Label::Free, Label::Free) => match (boundary[u], boundary[v]) {
-                    (false, false) => (u, v, &(&coordinates[u] + &coordinates[v]) * 0.5),
-                    (true, false) => (u, v, coordinates[u].clone()),
-                    (false, true) => (v, u, coordinates[v].clone()),
-                    (true, true) if edge_faces[&edge(u, v)].len() == 1 => {
-                        (u, v, &(&coordinates[u] + &coordinates[v]) * 0.5)
-                    }
-                    (true, true) => continue,
-                },
-                (_, Label::Free) => (u, v, coordinates[u].clone()),
-                (Label::Free, _) => (v, u, coordinates[v].clone()),
-                _ if !constraints.edges.contains_key(&edge(u, v)) => continue,
-                (Label::Corner, Label::Corner) => continue,
-                (Label::Corner, _) => (u, v, coordinates[u].clone()),
-                (_, Label::Corner) => (v, u, coordinates[v].clone()),
-                _ => (u, v, &(&coordinates[u] + &coordinates[v]) * 0.5),
-            },
-            None => match (boundary[u], boundary[v]) {
-                (false, false) => (u, v, &(&coordinates[u] + &coordinates[v]) * 0.5),
-                (true, false) => (u, v, coordinates[u].clone()),
-                (false, true) => (v, u, coordinates[v].clone()),
-                (true, true) if edge_faces[&edge(u, v)].len() == 1 => {
-                    (u, v, &(&coordinates[u] + &coordinates[v]) * 0.5)
-                }
-                (true, true) => continue,
-            },
+        let (survivor, removed, position) = match (boundary[u], boundary[v]) {
+            (false, false) => (u, v, &(&coordinates[u] + &coordinates[v]) * 0.5),
+            (true, false) => (u, v, coordinates[u].clone()),
+            (false, true) => (v, u, coordinates[v].clone()),
+            (true, true) if edge_faces[&edge(u, v)].len() == 1 => {
+                (u, v, &(&coordinates[u] + &coordinates[v]) * 0.5)
+            }
+            (true, true) => continue,
         };
         if neighbors[u]
             .iter()
@@ -384,23 +261,6 @@ fn collapse_short_edges<const D: usize>(
     }
     kept.iter_mut()
         .for_each(|face| face.iter_mut().for_each(|vertex| *vertex = remap[*vertex]));
-    if let Some(constraints) = constraints {
-        let mut labels = vec![Label::Free; compact.len()];
-        (0..vertices).for_each(|vertex| {
-            if used[vertex] {
-                labels[remap[vertex]] = constraints.labels[vertex];
-            }
-        });
-        constraints.labels = labels;
-        let mut edges = FxHashMap::default();
-        constraints.edges.iter().for_each(|(&(a, b), &curve)| {
-            let (a, b) = (merge[a], merge[b]);
-            if a != b && used[a] && used[b] {
-                edges.insert(edge(remap[a], remap[b]), curve);
-            }
-        });
-        constraints.edges = edges;
-    }
     *connectivity = kept;
     *coordinates = compact;
     *sizing = compact_sizing;
@@ -435,11 +295,7 @@ fn triangle_normal<const D: usize>(
     ])
 }
 
-fn flip_edges<const D: usize>(
-    connectivity: &mut [[usize; N]],
-    coordinates: &Coordinates<D>,
-    constraints: Option<&Constraints<D>>,
-) {
+fn flip_edges<const D: usize>(connectivity: &mut [[usize; N]], coordinates: &Coordinates<D>) {
     let vertices = connectivity
         .iter()
         .flatten()
@@ -471,9 +327,6 @@ fn flip_edges<const D: usize>(
     let mut touched = vec![false; vertices];
     for (u, v) in interior {
         if touched[u] || touched[v] {
-            continue;
-        }
-        if constraints.is_some_and(|constraints| constraints.edges.contains_key(&edge(u, v))) {
             continue;
         }
         let faces = &edge_faces[&edge(u, v)];
@@ -525,7 +378,6 @@ fn flip_edges<const D: usize>(
 fn tangential_smooth<const D: usize>(
     connectivity: &[[usize; N]],
     coordinates: &mut Coordinates<D>,
-    constraints: Option<&Constraints<D>>,
 ) {
     let vertices = coordinates.len();
     let mut neighbors: Vec<FxHashSet<usize>> = vec![FxHashSet::default(); vertices];
@@ -567,32 +419,8 @@ fn tangential_smooth<const D: usize>(
             }
         });
     }
-    let mut curve_neighbors: Vec<Vec<usize>> = vec![Vec::new(); vertices];
-    if let Some(constraints) = constraints {
-        constraints.edges.keys().for_each(|&(u, v)| {
-            curve_neighbors[u].push(v);
-            curve_neighbors[v].push(u);
-        });
-    }
     let mut smoothed = Coordinates::new();
     for vertex in 0..vertices {
-        if let Some(constraints) = constraints {
-            match constraints.labels[vertex] {
-                Label::Corner => {
-                    smoothed.push(coordinates[vertex].clone());
-                    continue;
-                }
-                Label::Curve(_) => {
-                    if let [a, b] = curve_neighbors[vertex][..] {
-                        smoothed.push(&(&coordinates[a] + &coordinates[b]) * 0.5);
-                    } else {
-                        smoothed.push(coordinates[vertex].clone());
-                    }
-                    continue;
-                }
-                Label::Free => {}
-            }
-        }
         if boundary[vertex] || neighbors[vertex].is_empty() {
             smoothed.push(coordinates[vertex].clone());
             continue;
