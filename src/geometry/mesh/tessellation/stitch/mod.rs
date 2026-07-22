@@ -16,7 +16,8 @@ use crate::{
 };
 use std::{
     array::from_fn,
-    collections::{HashMap, hash_map::Entry},
+    cmp::{Ordering, Reverse},
+    collections::{BinaryHeap, HashMap, HashSet, hash_map::Entry},
     thread::{available_parallelism, scope},
 };
 
@@ -25,6 +26,29 @@ const CURVE_SEGMENTS: usize = 16;
 const CURVE_RELAXATION: usize = 100;
 const CORNER_ANCHOR: Scalar = 0.25;
 const SLIVER_RATIO: Scalar = 0.3;
+const CONTRACT_RATIO: Scalar = 0.25;
+const SNAP_RINGS: usize = 3;
+const ROUTE_PENALTY: Scalar = 4.0;
+const SHARE_PENALTY: Scalar = 4.0;
+const ROUTE_CAP: Scalar = 16.0;
+const SURFACE_REFINEMENT: Scalar = 0.5;
+
+#[derive(PartialEq)]
+struct Priority(Scalar);
+
+impl Eq for Priority {}
+
+impl PartialOrd for Priority {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Priority {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.0.total_cmp(&other.0)
+    }
+}
 
 pub struct ProjectedNetwork {
     pub core: Mesh<D>,
@@ -33,6 +57,16 @@ pub struct ProjectedNetwork {
     pub faces: Vec<Vec<usize>>,
     pub edges: Vec<[usize; 2]>,
     pub curves: Vec<Vec<Coordinate<D>>>,
+}
+
+pub struct Imprint {
+    pub core: Mesh<D>,
+    pub surface: Mesh<D>,
+    pub quads: Vec<Vec<usize>>,
+    pub faces: Vec<Vec<usize>>,
+    pub edges: Vec<[usize; 2]>,
+    pub paths: Vec<Vec<usize>>,
+    pub patches: Vec<Vec<usize>>,
 }
 
 impl Tessellation {
@@ -241,6 +275,19 @@ impl Tessellation {
                     }
                 }
             });
+        edges.iter().zip(curves.iter()).for_each(|(edge, curve)| {
+            let length = (0..curve.len() - 1)
+                .map(|i| (&curve[i + 1] - &curve[i]).norm())
+                .sum::<Scalar>();
+            let footprint = (&core_coordinates[edge[0]] - &core_coordinates[edge[1]]).norm();
+            if length < CONTRACT_RATIO * footprint {
+                let owners = &edge_owners[edge];
+                let (a, b) = (find(&mut root, owners[0]), find(&mut root, owners[1]));
+                if a != b {
+                    root[a] = b;
+                }
+            }
+        });
         let mut groups: HashMap<usize, Vec<usize>> = HashMap::new();
         (0..quads.len()).for_each(|quad| {
             let top = find(&mut root, quad);
@@ -271,6 +318,510 @@ impl Tessellation {
             curves,
         })
     }
+    pub fn imprinted_network(
+        &self,
+        balancing: Balancing,
+        scale: Scalar,
+        curvature: CurvatureSizing,
+        iterations: usize,
+    ) -> Result<Imprint, &'static str> {
+        imprint(self.projected_network(balancing, scale, curvature, iterations)?)
+    }
+}
+
+fn polyline_distance(point: &Coordinate<D>, polyline: &[Coordinate<D>]) -> (Scalar, Coordinate<D>) {
+    (0..polyline.len() - 1)
+        .map(|i| {
+            let ab = &polyline[i + 1] - &polyline[i];
+            let ap = point - &polyline[i];
+            let t = ((&ap * &ab) / (&ab * &ab)).clamp(0.0, 1.0);
+            let closest = &polyline[i] + &(ab * t);
+            ((&closest - point).norm(), closest)
+        })
+        .min_by(|(a, _), (b, _)| a.total_cmp(b))
+        .unwrap()
+}
+
+enum Retry {
+    Fatal(&'static str),
+    Merge(Vec<usize>),
+}
+
+fn find(root: &mut [usize], quad: usize) -> usize {
+    if root[quad] == quad {
+        quad
+    } else {
+        let top = find(root, root[quad]);
+        root[quad] = top;
+        top
+    }
+}
+
+fn imprint(network: ProjectedNetwork) -> Result<Imprint, &'static str> {
+    let ProjectedNetwork {
+        core,
+        surface,
+        quads,
+        mut faces,
+        mut edges,
+        mut curves,
+    } = network;
+    let triangles: Vec<[usize; 3]> = surface
+        .connectivities()
+        .iter()
+        .flatten()
+        .map(|triangle| from_fn(|i| triangle[i]))
+        .collect();
+    let base = surface.coordinates().clone();
+    let number_of_vertices = base.len();
+    let mut adjacency: Vec<Vec<usize>> = vec![Vec::new(); number_of_vertices];
+    triangles.iter().for_each(|triangle| {
+        (0..3).for_each(|i| {
+            adjacency[triangle[i]].push(triangle[(i + 1) % 3]);
+            adjacency[triangle[i]].push(triangle[(i + 2) % 3]);
+        })
+    });
+    adjacency.iter_mut().for_each(|neighbors| {
+        neighbors.sort_unstable();
+        neighbors.dedup();
+    });
+    let bvh = BoundingVolumeHierarchy::from(&surface);
+    let mut edge_owners: HashMap<[usize; 2], Vec<usize>> = HashMap::new();
+    quads.iter().enumerate().for_each(|(index, quad)| {
+        (0..4).for_each(|i| {
+            let mut edge = [quad[i], quad[(i + 1) % 4]];
+            edge.sort_unstable();
+            edge_owners.entry(edge).or_default().push(index);
+        })
+    });
+    let mut rounds = faces.len() + 1;
+    loop {
+        match attempt(
+            &surface,
+            quads.as_slice(),
+            &faces,
+            &edges,
+            &curves,
+            &triangles,
+            &base,
+            &adjacency,
+            &bvh,
+        ) {
+            Ok((imprinted, paths, patches)) => {
+                return Ok(Imprint {
+                    core,
+                    surface: imprinted,
+                    quads,
+                    faces,
+                    edges,
+                    paths,
+                    patches,
+                });
+            }
+            Err(Retry::Fatal(error)) => return Err(error),
+            Err(Retry::Merge(failed)) => {
+                let mut root: Vec<usize> = (0..quads.len()).collect();
+                faces
+                    .iter()
+                    .for_each(|group| group.iter().for_each(|&quad| root[quad] = group[0]));
+                failed.iter().for_each(|&index| {
+                    let owners = &edge_owners[&edges[index]];
+                    let (a, b) = (find(&mut root, owners[0]), find(&mut root, owners[1]));
+                    if a != b {
+                        root[a] = b;
+                    }
+                });
+                let mut groups: HashMap<usize, Vec<usize>> = HashMap::new();
+                (0..quads.len()).for_each(|quad| {
+                    let top = find(&mut root, quad);
+                    groups.entry(top).or_default().push(quad);
+                });
+                faces = groups.into_values().collect();
+                faces.sort_unstable();
+                let kept: Vec<usize> = edges
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, edge)| {
+                        let owners = &edge_owners[*edge];
+                        find(&mut root, owners[0]) != find(&mut root, owners[1])
+                    })
+                    .map(|(index, _)| index)
+                    .collect();
+                edges = kept.iter().map(|&index| edges[index]).collect();
+                curves = kept
+                    .into_iter()
+                    .map(|index| std::mem::take(&mut curves[index]))
+                    .collect();
+            }
+        }
+        rounds -= 1;
+        if rounds == 0 {
+            return Err("imprint failed to converge");
+        }
+    }
+}
+
+type Attempt = (Mesh<D>, Vec<Vec<usize>>, Vec<Vec<usize>>);
+
+#[allow(clippy::too_many_arguments)]
+fn attempt(
+    surface: &Mesh<D>,
+    quads: &[Vec<usize>],
+    faces: &[Vec<usize>],
+    edges: &[[usize; 2]],
+    curves: &[Vec<Coordinate<D>>],
+    triangles: &[[usize; 3]],
+    base: &Coordinates<D>,
+    adjacency: &[Vec<usize>],
+    bvh: &BoundingVolumeHierarchy<D>,
+) -> Result<Attempt, Retry> {
+    let mut coordinates = base.clone();
+    let number_of_vertices = coordinates.len();
+    let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
+    let mut corner_positions: HashMap<usize, Coordinate<D>> = HashMap::new();
+    edges
+        .iter()
+        .zip(curves.iter())
+        .for_each(|(&[a, b], curve)| {
+            corner_positions
+                .entry(a)
+                .or_insert_with(|| curve[0].clone());
+            corner_positions
+                .entry(b)
+                .or_insert_with(|| curve[curve.len() - 1].clone());
+        });
+    let mut corner_list: Vec<usize> = corner_positions.keys().copied().collect();
+    corner_list.sort_unstable();
+    let mut used = vec![false; number_of_vertices];
+    let mut snapped: HashMap<usize, usize> = HashMap::new();
+    for &corner in &corner_list {
+        let position = &corner_positions[&corner];
+        let (_, triangle) = bvh
+            .closest_point(position, base, &elements)
+            .ok_or(Retry::Fatal("empty surface"))?;
+        let mut ring: Vec<usize> = triangles[triangle].to_vec();
+        let mut best = None;
+        for _ in 0..SNAP_RINGS {
+            best = ring
+                .iter()
+                .copied()
+                .filter(|&vertex| !used[vertex])
+                .min_by(|&x, &y| {
+                    (&coordinates[x] - position)
+                        .norm()
+                        .total_cmp(&(&coordinates[y] - position).norm())
+                });
+            if best.is_some() {
+                break;
+            }
+            let mut expanded: Vec<usize> = ring
+                .iter()
+                .flat_map(|&vertex| adjacency[vertex].iter().copied())
+                .collect();
+            expanded.sort_unstable();
+            expanded.dedup();
+            ring = expanded;
+        }
+        let vertex = best.ok_or(Retry::Fatal(
+            "imprint corner snapping failed; refinement required",
+        ))?;
+        used[vertex] = true;
+        snapped.insert(corner, vertex);
+    }
+    let mut order: Vec<usize> = (0..curves.len()).collect();
+    order.sort_by(|&x, &y| {
+        let length = |curve: &[Coordinate<D>]| {
+            (0..curve.len() - 1)
+                .map(|i| (&curve[i + 1] - &curve[i]).norm())
+                .sum::<Scalar>()
+        };
+        length(&curves[x]).total_cmp(&length(&curves[y]))
+    });
+    let mut paths: Vec<Vec<usize>> = vec![Vec::new(); curves.len()];
+    let mut used_edges: HashSet<[usize; 2]> = HashSet::new();
+    let mut shared = vec![false; number_of_vertices];
+    let mut failed = Vec::new();
+    for index in order {
+        let [a, b] = edges[index];
+        let polyline = &curves[index];
+        let (start, goal) = (snapped[&a], snapped[&b]);
+        let scale = |vertex: usize| {
+            adjacency[vertex]
+                .iter()
+                .map(|&next| (&coordinates[vertex] - &coordinates[next]).norm())
+                .sum::<Scalar>()
+                / adjacency[vertex].len() as Scalar
+        };
+        let step = (scale(start) + scale(goal)) / 2.0;
+        let length = (0..polyline.len() - 1)
+            .map(|i| (&polyline[i + 1] - &polyline[i]).norm())
+            .sum::<Scalar>();
+        let cap = ROUTE_CAP * (length + 4.0 * step);
+        let path = route(
+            start,
+            goal,
+            polyline,
+            &coordinates,
+            adjacency,
+            &used,
+            &used_edges,
+            &shared,
+            step.max(Scalar::EPSILON),
+            cap,
+        );
+        let Some(path) = path else {
+            failed.push(index);
+            continue;
+        };
+        (0..path.len() - 1).for_each(|i| {
+            let mut edge = [path[i], path[i + 1]];
+            edge.sort_unstable();
+            used_edges.insert(edge);
+        });
+        path.iter()
+            .skip(1)
+            .take(path.len() - 2)
+            .for_each(|&vertex| shared[vertex] = true);
+        paths[index] = path;
+    }
+    if !failed.is_empty() {
+        return Err(Retry::Merge(failed));
+    }
+    corner_list.iter().for_each(|corner| {
+        coordinates[snapped[corner]] = corner_positions[corner].clone();
+    });
+    paths.iter().enumerate().for_each(|(index, path)| {
+        path.iter()
+            .skip(1)
+            .take(path.len() - 2)
+            .for_each(|&vertex| {
+                coordinates[vertex] = polyline_distance(&coordinates[vertex], &curves[index]).1;
+            })
+    });
+    let mut blocked: HashSet<[usize; 2]> = HashSet::new();
+    paths.iter().for_each(|path| {
+        (0..path.len() - 1).for_each(|i| {
+            let mut edge = [path[i], path[i + 1]];
+            edge.sort_unstable();
+            blocked.insert(edge);
+        })
+    });
+    let mut edge_triangles: HashMap<[usize; 2], Vec<usize>> = HashMap::new();
+    triangles.iter().enumerate().for_each(|(index, triangle)| {
+        (0..3).for_each(|i| {
+            let mut edge = [triangle[i], triangle[(i + 1) % 3]];
+            edge.sort_unstable();
+            edge_triangles.entry(edge).or_default().push(index);
+        })
+    });
+    let mut component = vec![usize::MAX; triangles.len()];
+    let mut count = 0;
+    (0..triangles.len()).for_each(|seed| {
+        if component[seed] != usize::MAX {
+            return;
+        }
+        let mut stack = vec![seed];
+        component[seed] = count;
+        while let Some(triangle) = stack.pop() {
+            (0..3).for_each(|i| {
+                let mut edge = [triangles[triangle][i], triangles[triangle][(i + 1) % 3]];
+                edge.sort_unstable();
+                if blocked.contains(&edge) {
+                    return;
+                }
+                edge_triangles[&edge].iter().for_each(|&neighbor| {
+                    if component[neighbor] == usize::MAX {
+                        component[neighbor] = count;
+                        stack.push(neighbor);
+                    }
+                });
+            })
+        }
+        count += 1;
+    });
+    let connectivity: Vec<[usize; 3]> = triangles.to_vec();
+    let imprinted = Mesh::from((vec![connectivity.into()], coordinates));
+    let mut face_of = vec![usize::MAX; quads.len()];
+    faces
+        .iter()
+        .enumerate()
+        .for_each(|(face, group)| group.iter().for_each(|&quad| face_of[quad] = face));
+    let mut quad_edge_owners: HashMap<[usize; 2], Vec<usize>> = HashMap::new();
+    quads.iter().enumerate().for_each(|(index, quad)| {
+        (0..4).for_each(|i| {
+            let mut edge = [quad[i], quad[(i + 1) % 4]];
+            edge.sort_unstable();
+            quad_edge_owners.entry(edge).or_default().push(index);
+        })
+    });
+    let mut votes: Vec<HashMap<usize, usize>> = vec![HashMap::new(); count];
+    paths.iter().enumerate().for_each(|(index, path)| {
+        let owners = &quad_edge_owners[&edges[index]];
+        let pair = [face_of[owners[0]], face_of[owners[1]]];
+        (0..path.len() - 1).for_each(|i| {
+            let mut edge = [path[i], path[i + 1]];
+            edge.sort_unstable();
+            edge_triangles[&edge].iter().for_each(|&triangle| {
+                pair.iter().for_each(|&face| {
+                    *votes[component[triangle]].entry(face).or_default() += 1;
+                })
+            })
+        })
+    });
+    let claimed: Vec<usize> = votes
+        .iter()
+        .map(|tally| {
+            let mut ranked: Vec<(usize, usize)> =
+                tally.iter().map(|(&face, &count)| (count, face)).collect();
+            ranked.sort_unstable_by_key(|&(count, face)| (Reverse(count), face));
+            match ranked.as_slice() {
+                [(top, face), rest @ ..] if rest.is_empty() || rest[0].0 < *top => *face,
+                _ => usize::MAX,
+            }
+        })
+        .collect();
+    let mut represented = vec![false; faces.len()];
+    claimed.iter().for_each(|&face| {
+        if face != usize::MAX {
+            represented[face] = true;
+        }
+    });
+    if represented.iter().any(|&seen| !seen) {
+        let mut merges = Vec::new();
+        represented
+            .iter()
+            .enumerate()
+            .filter(|entry| !*entry.1)
+            .for_each(|(face, _)| {
+                let boundary = edges
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, edge)| {
+                        let owners = &quad_edge_owners[*edge];
+                        face_of[owners[0]] == face || face_of[owners[1]] == face
+                    })
+                    .max_by(|(x, _), (y, _)| {
+                        let length = |index: usize| {
+                            let curve = &curves[index];
+                            (0..curve.len() - 1)
+                                .map(|i| (&curve[i + 1] - &curve[i]).norm())
+                                .sum::<Scalar>()
+                        };
+                        length(*x).total_cmp(&length(*y))
+                    })
+                    .map(|(index, _)| index);
+                if let Some(index) = boundary {
+                    merges.push(index);
+                }
+            });
+        if merges.is_empty() {
+            return Err(Retry::Fatal(
+                "imprinted regions do not match network faces; refinement required",
+            ));
+        }
+        return Err(Retry::Merge(merges));
+    }
+    let mut patches: Vec<Vec<usize>> = vec![Vec::new(); faces.len()];
+    let mut labels: Vec<usize> = component.iter().map(|&region| claimed[region]).collect();
+    loop {
+        let mut changes: Vec<(usize, usize)> = Vec::new();
+        labels.iter().enumerate().for_each(|(index, &label)| {
+            if label != usize::MAX {
+                return;
+            }
+            let mut counts: HashMap<usize, usize> = HashMap::new();
+            (0..3).for_each(|i| {
+                let mut edge = [triangles[index][i], triangles[index][(i + 1) % 3]];
+                edge.sort_unstable();
+                edge_triangles[&edge].iter().for_each(|&neighbor| {
+                    if neighbor != index && labels[neighbor] != usize::MAX {
+                        *counts.entry(labels[neighbor]).or_default() += 1;
+                    }
+                });
+            });
+            if let Some(face) = counts
+                .into_iter()
+                .min_by(|x, y| (Reverse(x.1), x.0).cmp(&(Reverse(y.1), y.0)))
+                .map(|(face, _)| face)
+            {
+                changes.push((index, face));
+            }
+        });
+        if changes.is_empty() {
+            break;
+        }
+        changes
+            .into_iter()
+            .for_each(|(index, face)| labels[index] = face);
+    }
+    if labels.contains(&usize::MAX) {
+        return Err(Retry::Fatal(
+            "imprinted regions do not match network faces; refinement required",
+        ));
+    }
+    labels
+        .iter()
+        .enumerate()
+        .for_each(|(index, &face)| patches[face].push(index));
+    Ok((imprinted, paths, patches))
+}
+#[allow(clippy::too_many_arguments)]
+fn route(
+    start: usize,
+    goal: usize,
+    polyline: &[Coordinate<D>],
+    coordinates: &Coordinates<D>,
+    adjacency: &[Vec<usize>],
+    used: &[bool],
+    used_edges: &HashSet<[usize; 2]>,
+    shared: &[bool],
+    step: Scalar,
+    cap: Scalar,
+) -> Option<Vec<usize>> {
+    let mut best: HashMap<usize, Scalar> = HashMap::new();
+    let mut previous: HashMap<usize, usize> = HashMap::new();
+    let mut heap = BinaryHeap::new();
+    best.insert(start, 0.0);
+    heap.push(Reverse((Priority(0.0), start)));
+    while let Some(Reverse((Priority(distance), vertex))) = heap.pop() {
+        if vertex == goal {
+            let mut path = vec![goal];
+            let mut current = goal;
+            while current != start {
+                current = previous[&current];
+                path.push(current);
+            }
+            path.reverse();
+            return Some(path);
+        }
+        if distance > best[&vertex] || distance > cap {
+            continue;
+        }
+        for &next in &adjacency[vertex] {
+            if used[next] && next != goal {
+                continue;
+            }
+            let key = if vertex < next {
+                [vertex, next]
+            } else {
+                [next, vertex]
+            };
+            if used_edges.contains(&key) {
+                continue;
+            }
+            let stray = polyline_distance(&coordinates[next], polyline).0 / step;
+            let crowding = if shared[next] { SHARE_PENALTY } else { 0.0 };
+            let advanced = distance
+                + (&coordinates[vertex] - &coordinates[next]).norm()
+                    * (1.0 + ROUTE_PENALTY * stray * stray + crowding);
+            if best.get(&next).is_none_or(|&known| advanced < known) {
+                best.insert(next, advanced);
+                previous.insert(next, vertex);
+                heap.push(Reverse((Priority(advanced), next)));
+            }
+        }
+    }
+    None
 }
 
 struct QuadSizing {
@@ -340,7 +891,11 @@ impl QuadSizing {
     fn target_lengths(&self, points: &Coordinates<D>) -> Vec<Scalar> {
         self.nearest_quads(points)
             .into_iter()
-            .map(|quad| quad.map_or(Scalar::INFINITY, |quad| self.lengths[quad]))
+            .map(|quad| {
+                quad.map_or(Scalar::INFINITY, |quad| {
+                    self.lengths[quad] * SURFACE_REFINEMENT
+                })
+            })
             .collect()
     }
 }
