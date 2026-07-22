@@ -1,4 +1,4 @@
-use super::conflicts;
+use super::{Instance, conflicts};
 
 #[test]
 fn four_cell_overlap() {
@@ -89,4 +89,36 @@ fn binary_tangent() {
 #[test]
 fn binary_disjoint() {
     assert!(!conflicts([3]));
+}
+
+#[test]
+fn isolated_cell_costs_one() {
+    let instance = Instance::new(vec![([0, 0], true)]);
+    let (assignment, cost) = instance.solve_bruteforce();
+    assert_eq!(cost, 1);
+    assert!(instance.feasible(&assignment));
+}
+
+#[test]
+fn two_adjacent_cells_cost_two() {
+    let instance = Instance::new(vec![([0, 0], true), ([1, 0], true)]);
+    let (assignment, cost) = instance.solve_bruteforce();
+    assert_eq!(cost, 2);
+    assert!(instance.feasible(&assignment));
+}
+
+#[test]
+fn three_in_a_row_cannot_avoid_extra_cost() {
+    let instance = Instance::new(vec![([0, 0], true), ([1, 0], true), ([2, 0], true)]);
+    let (assignment, cost) = instance.solve_bruteforce();
+    assert_eq!(cost, 3);
+    assert!(instance.feasible(&assignment));
+}
+
+#[test]
+fn unrequired_neighbor_is_never_assigned() {
+    let instance = Instance::new(vec![([0, 0], true), ([1, 0], false)]);
+    let (assignment, cost) = instance.solve_bruteforce();
+    assert_eq!(cost, 1);
+    assert!(instance.feasible(&assignment));
 }
