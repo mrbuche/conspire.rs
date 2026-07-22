@@ -270,6 +270,7 @@ fn fuzz_tree(seed: u64, balancing: Balancing) -> Octree<u16, usize> {
             value: None,
         }],
         paired: Pairing::None,
+        pairing_vertices: Default::default(),
         rescale: Rescaling {
             center: [16.0; 3],
             cell: 1.0,

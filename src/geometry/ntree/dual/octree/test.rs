@@ -147,6 +147,7 @@ fn tree_refine_macros(fine_macros: &[usize]) -> Octree<u16, usize> {
             value: None,
         }],
         paired: Pairing::None,
+        pairing_vertices: Default::default(),
         rescale: Rescaling {
             center: [4.0, 4.0, 4.0],
             cell: 1.0,
@@ -225,6 +226,7 @@ fn star_fires_on_synthetic_checkerboard() {
             value: None,
         }],
         paired: Pairing::None,
+        pairing_vertices: Default::default(),
         rescale: Rescaling {
             center: [4.0, 4.0, 4.0],
             cell: 1.0,
