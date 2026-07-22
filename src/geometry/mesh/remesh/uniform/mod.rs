@@ -27,6 +27,7 @@ impl<const D: usize> Mesh<D> {
                     });
                     vec![target; coordinates.len()]
                 },
+                None,
             )?;
             Ok((vec![connectivity.into()], coordinates).into())
         }

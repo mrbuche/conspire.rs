@@ -42,6 +42,7 @@ impl Mesh<3> {
                         gradation,
                     )
                 },
+                None,
             )?;
             Ok((vec![connectivity.into()], coordinates).into())
         }

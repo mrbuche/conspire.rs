@@ -7,12 +7,12 @@ use crate::{
         bvh::BoundingVolumeHierarchy,
         mesh::{
             Connectivity, Mesh,
-            remesh::triangles::remesh,
+            remesh::triangles::{Constraints, Label, remesh},
             tessellation::{D, Tessellation},
         },
         ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
     },
-    math::{CrossProduct, Scalar, Tensor},
+    math::{CrossProduct, FxHashMap, Scalar, Tensor},
 };
 use std::{
     array::from_fn,
@@ -93,7 +93,8 @@ impl Tessellation {
             &mut connectivity,
             &mut coordinates,
             iterations,
-            |_, points, _| sizing.target_lengths(points),
+            |_, points, _| sizing.target_lengths(points, SURFACE_REFINEMENT),
+            None,
         )?;
         let surface = Mesh::from((vec![connectivity.into()], coordinates));
         Ok((core, surface))
@@ -325,7 +326,10 @@ impl Tessellation {
         curvature: CurvatureSizing,
         iterations: usize,
     ) -> Result<Imprint, &'static str> {
-        imprint(self.projected_network(balancing, scale, curvature, iterations)?)
+        imprint(
+            self.projected_network(balancing, scale, curvature, iterations)?,
+            iterations,
+        )
     }
 }
 
@@ -357,7 +361,49 @@ fn find(root: &mut [usize], quad: usize) -> usize {
     }
 }
 
-fn imprint(network: ProjectedNetwork) -> Result<Imprint, &'static str> {
+fn merge_network(
+    faces: &mut Vec<Vec<usize>>,
+    edges: &mut Vec<[usize; 2]>,
+    curves: &mut Vec<Vec<Coordinate<D>>>,
+    edge_owners: &HashMap<[usize; 2], Vec<usize>>,
+    quads: &[Vec<usize>],
+    failed: &[usize],
+) {
+    let mut root: Vec<usize> = (0..quads.len()).collect();
+    faces
+        .iter()
+        .for_each(|group| group.iter().for_each(|&quad| root[quad] = group[0]));
+    failed.iter().for_each(|&index| {
+        let owners = &edge_owners[&edges[index]];
+        let (a, b) = (find(&mut root, owners[0]), find(&mut root, owners[1]));
+        if a != b {
+            root[a] = b;
+        }
+    });
+    let mut groups: HashMap<usize, Vec<usize>> = HashMap::new();
+    (0..quads.len()).for_each(|quad| {
+        let top = find(&mut root, quad);
+        groups.entry(top).or_default().push(quad);
+    });
+    *faces = groups.into_values().collect();
+    faces.sort_unstable();
+    let kept: Vec<usize> = edges
+        .iter()
+        .enumerate()
+        .filter(|(_, edge)| {
+            let owners = &edge_owners[*edge];
+            find(&mut root, owners[0]) != find(&mut root, owners[1])
+        })
+        .map(|(index, _)| index)
+        .collect();
+    *edges = kept.iter().map(|&index| edges[index]).collect();
+    *curves = kept
+        .into_iter()
+        .map(|index| std::mem::take(&mut curves[index]))
+        .collect();
+}
+
+fn imprint(network: ProjectedNetwork, iterations: usize) -> Result<Imprint, &'static str> {
     let ProjectedNetwork {
         core,
         surface,
@@ -407,51 +453,50 @@ fn imprint(network: ProjectedNetwork) -> Result<Imprint, &'static str> {
             &adjacency,
             &bvh,
         ) {
-            Ok((imprinted, paths, patches)) => {
-                return Ok(Imprint {
-                    core,
-                    surface: imprinted,
-                    quads,
-                    faces,
-                    edges,
-                    paths,
-                    patches,
-                });
+            Ok((imprinted, paths, _)) => {
+                match coarsen(&core, &quads, &faces, &edges, imprinted, paths, iterations) {
+                    Ok((surface, paths, patches)) => {
+                        return Ok(Imprint {
+                            core,
+                            surface,
+                            quads,
+                            faces,
+                            edges,
+                            paths,
+                            patches,
+                        });
+                    }
+                    Err(Retry::Fatal(error)) => return Err(error),
+                    Err(Retry::Merge(failed)) => {
+                        if failed.is_empty() {
+                            return Err("imprint failed to converge");
+                        }
+                        merge_network(
+                            &mut faces,
+                            &mut edges,
+                            &mut curves,
+                            &edge_owners,
+                            &quads,
+                            &failed,
+                        );
+                        rounds -= 1;
+                        if rounds == 0 {
+                            return Err("imprint failed to converge");
+                        }
+                        continue;
+                    }
+                }
             }
             Err(Retry::Fatal(error)) => return Err(error),
             Err(Retry::Merge(failed)) => {
-                let mut root: Vec<usize> = (0..quads.len()).collect();
-                faces
-                    .iter()
-                    .for_each(|group| group.iter().for_each(|&quad| root[quad] = group[0]));
-                failed.iter().for_each(|&index| {
-                    let owners = &edge_owners[&edges[index]];
-                    let (a, b) = (find(&mut root, owners[0]), find(&mut root, owners[1]));
-                    if a != b {
-                        root[a] = b;
-                    }
-                });
-                let mut groups: HashMap<usize, Vec<usize>> = HashMap::new();
-                (0..quads.len()).for_each(|quad| {
-                    let top = find(&mut root, quad);
-                    groups.entry(top).or_default().push(quad);
-                });
-                faces = groups.into_values().collect();
-                faces.sort_unstable();
-                let kept: Vec<usize> = edges
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, edge)| {
-                        let owners = &edge_owners[*edge];
-                        find(&mut root, owners[0]) != find(&mut root, owners[1])
-                    })
-                    .map(|(index, _)| index)
-                    .collect();
-                edges = kept.iter().map(|&index| edges[index]).collect();
-                curves = kept
-                    .into_iter()
-                    .map(|index| std::mem::take(&mut curves[index]))
-                    .collect();
+                merge_network(
+                    &mut faces,
+                    &mut edges,
+                    &mut curves,
+                    &edge_owners,
+                    &quads,
+                    &failed,
+                );
             }
         }
         rounds -= 1;
@@ -598,46 +643,13 @@ fn attempt(
                 coordinates[vertex] = polyline_distance(&coordinates[vertex], &curves[index]).1;
             })
     });
-    let mut blocked: HashSet<[usize; 2]> = HashSet::new();
-    paths.iter().for_each(|path| {
+    let mut path_edges: HashMap<[usize; 2], usize> = HashMap::new();
+    paths.iter().enumerate().for_each(|(index, path)| {
         (0..path.len() - 1).for_each(|i| {
             let mut edge = [path[i], path[i + 1]];
             edge.sort_unstable();
-            blocked.insert(edge);
+            path_edges.insert(edge, index);
         })
-    });
-    let mut edge_triangles: HashMap<[usize; 2], Vec<usize>> = HashMap::new();
-    triangles.iter().enumerate().for_each(|(index, triangle)| {
-        (0..3).for_each(|i| {
-            let mut edge = [triangle[i], triangle[(i + 1) % 3]];
-            edge.sort_unstable();
-            edge_triangles.entry(edge).or_default().push(index);
-        })
-    });
-    let mut component = vec![usize::MAX; triangles.len()];
-    let mut count = 0;
-    (0..triangles.len()).for_each(|seed| {
-        if component[seed] != usize::MAX {
-            return;
-        }
-        let mut stack = vec![seed];
-        component[seed] = count;
-        while let Some(triangle) = stack.pop() {
-            (0..3).for_each(|i| {
-                let mut edge = [triangles[triangle][i], triangles[triangle][(i + 1) % 3]];
-                edge.sort_unstable();
-                if blocked.contains(&edge) {
-                    return;
-                }
-                edge_triangles[&edge].iter().for_each(|&neighbor| {
-                    if component[neighbor] == usize::MAX {
-                        component[neighbor] = count;
-                        stack.push(neighbor);
-                    }
-                });
-            })
-        }
-        count += 1;
     });
     let connectivity: Vec<[usize; 3]> = triangles.to_vec();
     let imprinted = Mesh::from((vec![connectivity.into()], coordinates));
@@ -654,45 +666,18 @@ fn attempt(
             quad_edge_owners.entry(edge).or_default().push(index);
         })
     });
-    let mut votes: Vec<HashMap<usize, usize>> = vec![HashMap::new(); count];
-    paths.iter().enumerate().for_each(|(index, path)| {
-        let owners = &quad_edge_owners[&edges[index]];
-        let pair = [face_of[owners[0]], face_of[owners[1]]];
-        (0..path.len() - 1).for_each(|i| {
-            let mut edge = [path[i], path[i + 1]];
-            edge.sort_unstable();
-            edge_triangles[&edge].iter().for_each(|&triangle| {
-                pair.iter().for_each(|&face| {
-                    *votes[component[triangle]].entry(face).or_default() += 1;
-                })
-            })
-        })
-    });
-    let claimed: Vec<usize> = votes
+    let pairs: Vec<[usize; 2]> = edges
         .iter()
-        .map(|tally| {
-            let mut ranked: Vec<(usize, usize)> =
-                tally.iter().map(|(&face, &count)| (count, face)).collect();
-            ranked.sort_unstable_by_key(|&(count, face)| (Reverse(count), face));
-            match ranked.as_slice() {
-                [(top, face), rest @ ..] if rest.is_empty() || rest[0].0 < *top => *face,
-                _ => usize::MAX,
-            }
+        .map(|edge| {
+            let owners = &quad_edge_owners[edge];
+            [face_of[owners[0]], face_of[owners[1]]]
         })
         .collect();
-    let mut represented = vec![false; faces.len()];
-    claimed.iter().for_each(|&face| {
-        if face != usize::MAX {
-            represented[face] = true;
-        }
-    });
-    if represented.iter().any(|&seen| !seen) {
-        let mut merges = Vec::new();
-        represented
-            .iter()
-            .enumerate()
-            .filter(|entry| !*entry.1)
-            .for_each(|(face, _)| {
+    match partition_faces(triangles, &path_edges, &pairs, faces.len()) {
+        Ok(patches) => Ok((imprinted, paths, patches)),
+        Err(unrepresented) => {
+            let mut merges = Vec::new();
+            unrepresented.into_iter().for_each(|face| {
                 let boundary = edges
                     .iter()
                     .enumerate()
@@ -714,14 +699,253 @@ fn attempt(
                     merges.push(index);
                 }
             });
-        if merges.is_empty() {
-            return Err(Retry::Fatal(
-                "imprinted regions do not match network faces; refinement required",
-            ));
+            if merges.is_empty() {
+                return Err(Retry::Fatal(
+                    "imprinted regions do not match network faces; refinement required",
+                ));
+            }
+            Err(Retry::Merge(merges))
         }
-        return Err(Retry::Merge(merges));
     }
-    let mut patches: Vec<Vec<usize>> = vec![Vec::new(); faces.len()];
+}
+
+type Coarsened = (Mesh<D>, Vec<Vec<usize>>, Vec<Vec<usize>>);
+
+fn coarsen(
+    core: &Mesh<D>,
+    quads: &[Vec<usize>],
+    faces: &[Vec<usize>],
+    edges: &[[usize; 2]],
+    surface: Mesh<D>,
+    paths: Vec<Vec<usize>>,
+    iterations: usize,
+) -> Result<Coarsened, Retry> {
+    let sizing = QuadSizing::new(core, quads).map_err(Retry::Fatal)?;
+    let mut connectivity: Vec<[usize; 3]> = surface
+        .connectivities()
+        .iter()
+        .flatten()
+        .map(|triangle| from_fn(|i| triangle[i]))
+        .collect();
+    let mut coordinates = surface.coordinates().clone();
+    let mut labels = vec![Label::Free; coordinates.len()];
+    let mut edge_map: FxHashMap<(usize, usize), usize> = FxHashMap::default();
+    let mut geometry: Vec<Vec<Coordinate<D>>> = Vec::with_capacity(paths.len());
+    let mut corner_positions: HashMap<usize, Coordinate<D>> = HashMap::new();
+    paths.iter().enumerate().for_each(|(index, path)| {
+        geometry.push(
+            path.iter()
+                .map(|&vertex| coordinates[vertex].clone())
+                .collect(),
+        );
+        path.iter()
+            .skip(1)
+            .take(path.len() - 2)
+            .for_each(|&vertex| labels[vertex] = Label::Curve(index));
+        (0..path.len() - 1).for_each(|i| {
+            let (u, v) = (path[i], path[i + 1]);
+            let key = if u < v { (u, v) } else { (v, u) };
+            edge_map.insert(key, index);
+        });
+    });
+    paths.iter().zip(edges.iter()).for_each(|(path, &[a, b])| {
+        labels[path[0]] = Label::Corner;
+        labels[*path.last().unwrap()] = Label::Corner;
+        corner_positions
+            .entry(a)
+            .or_insert_with(|| coordinates[path[0]].clone());
+        corner_positions
+            .entry(b)
+            .or_insert_with(|| coordinates[*path.last().unwrap()].clone());
+    });
+    let mut constraints = Constraints {
+        labels,
+        edges: edge_map,
+        curves: geometry,
+    };
+    remesh(
+        &mut connectivity,
+        &mut coordinates,
+        iterations,
+        |_, points, _| sizing.target_lengths(points, 1.0),
+        Some(&mut constraints),
+    )
+    .map_err(Retry::Fatal)?;
+    let mut chains: Vec<Vec<[usize; 2]>> = vec![Vec::new(); paths.len()];
+    constraints
+        .edges
+        .iter()
+        .for_each(|(&(u, v), &index)| chains[index].push([u, v]));
+    let mut recovered = Vec::with_capacity(paths.len());
+    for (index, segments) in chains.iter().enumerate() {
+        if segments.is_empty() {
+            return Err(Retry::Fatal("curve lost during constrained remesh"));
+        }
+        let mut adjacency: HashMap<usize, Vec<usize>> = HashMap::new();
+        segments.iter().for_each(|&[u, v]| {
+            adjacency.entry(u).or_default().push(v);
+            adjacency.entry(v).or_default().push(u);
+        });
+        let mut endpoints: Vec<usize> = adjacency
+            .iter()
+            .filter(|(_, neighbors)| neighbors.len() == 1)
+            .map(|(&vertex, _)| vertex)
+            .collect();
+        if endpoints.len() != 2 {
+            return Err(Retry::Fatal("curve tangled during constrained remesh"));
+        }
+        endpoints.sort_unstable_by(|&x, &y| {
+            let anchor = &corner_positions[&edges[index][0]];
+            (&coordinates[x] - anchor)
+                .norm()
+                .total_cmp(&(&coordinates[y] - anchor).norm())
+        });
+        let start = endpoints[0];
+        let mut chain = vec![start];
+        let (mut previous, mut current) = (start, adjacency[&start][0]);
+        loop {
+            chain.push(current);
+            let Some(&next) = adjacency[&current]
+                .iter()
+                .find(|&&candidate| candidate != previous)
+            else {
+                break;
+            };
+            previous = current;
+            current = next;
+        }
+        if chain.len() != adjacency.len() {
+            return Err(Retry::Fatal("curve tangled during constrained remesh"));
+        }
+        recovered.push(chain);
+    }
+    let path_edges: HashMap<[usize; 2], usize> = constraints
+        .edges
+        .iter()
+        .map(|(&(u, v), &index)| ([u.min(v), u.max(v)], index))
+        .collect();
+    let mut face_of = vec![usize::MAX; quads.len()];
+    faces
+        .iter()
+        .enumerate()
+        .for_each(|(face, group)| group.iter().for_each(|&quad| face_of[quad] = face));
+    let mut quad_edge_owners: HashMap<[usize; 2], Vec<usize>> = HashMap::new();
+    quads.iter().enumerate().for_each(|(index, quad)| {
+        (0..4).for_each(|i| {
+            let mut edge = [quad[i], quad[(i + 1) % 4]];
+            edge.sort_unstable();
+            quad_edge_owners.entry(edge).or_default().push(index);
+        })
+    });
+    let pairs: Vec<[usize; 2]> = edges
+        .iter()
+        .map(|edge| {
+            let owners = &quad_edge_owners[edge];
+            [face_of[owners[0]], face_of[owners[1]]]
+        })
+        .collect();
+    let patches = match partition_faces(&connectivity, &path_edges, &pairs, faces.len()) {
+        Ok(patches) => patches,
+        Err(unrepresented) => {
+            let mut merges = Vec::new();
+            unrepresented.into_iter().for_each(|face| {
+                let boundary = pairs
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, pair)| pair.contains(&face))
+                    .max_by(|(x, _), (y, _)| {
+                        let length = |index: usize| {
+                            let curve = &constraints.curves[index];
+                            (0..curve.len() - 1)
+                                .map(|i| (&curve[i + 1] - &curve[i]).norm())
+                                .sum::<Scalar>()
+                        };
+                        length(*x).total_cmp(&length(*y))
+                    })
+                    .map(|(index, _)| index);
+                if let Some(index) = boundary {
+                    merges.push(index);
+                }
+            });
+            return Err(Retry::Merge(merges));
+        }
+    };
+    let coarse = Mesh::from((vec![connectivity.into()], coordinates));
+    Ok((coarse, recovered, patches))
+}
+fn partition_faces(
+    triangles: &[[usize; 3]],
+    path_edges: &HashMap<[usize; 2], usize>,
+    pairs: &[[usize; 2]],
+    number_of_faces: usize,
+) -> Result<Vec<Vec<usize>>, Vec<usize>> {
+    let mut edge_triangles: HashMap<[usize; 2], Vec<usize>> = HashMap::new();
+    triangles.iter().enumerate().for_each(|(index, triangle)| {
+        (0..3).for_each(|i| {
+            let mut edge = [triangle[i], triangle[(i + 1) % 3]];
+            edge.sort_unstable();
+            edge_triangles.entry(edge).or_default().push(index);
+        })
+    });
+    let mut component = vec![usize::MAX; triangles.len()];
+    let mut count = 0;
+    (0..triangles.len()).for_each(|seed| {
+        if component[seed] != usize::MAX {
+            return;
+        }
+        let mut stack = vec![seed];
+        component[seed] = count;
+        while let Some(triangle) = stack.pop() {
+            (0..3).for_each(|i| {
+                let mut edge = [triangles[triangle][i], triangles[triangle][(i + 1) % 3]];
+                edge.sort_unstable();
+                if path_edges.contains_key(&edge) {
+                    return;
+                }
+                edge_triangles[&edge].iter().for_each(|&neighbor| {
+                    if component[neighbor] == usize::MAX {
+                        component[neighbor] = count;
+                        stack.push(neighbor);
+                    }
+                });
+            })
+        }
+        count += 1;
+    });
+    let mut votes: Vec<HashMap<usize, usize>> = vec![HashMap::new(); count];
+    path_edges.iter().for_each(|(edge, &curve)| {
+        edge_triangles[edge].iter().for_each(|&triangle| {
+            pairs[curve].iter().for_each(|&face| {
+                *votes[component[triangle]].entry(face).or_default() += 1;
+            })
+        })
+    });
+    let claimed: Vec<usize> = votes
+        .iter()
+        .map(|tally| {
+            let mut ranked: Vec<(usize, usize)> =
+                tally.iter().map(|(&face, &count)| (count, face)).collect();
+            ranked.sort_unstable_by_key(|&(count, face)| (Reverse(count), face));
+            match ranked.as_slice() {
+                [(top, face), rest @ ..] if rest.is_empty() || rest[0].0 < *top => *face,
+                _ => usize::MAX,
+            }
+        })
+        .collect();
+    let mut represented = vec![false; number_of_faces];
+    claimed.iter().for_each(|&face| {
+        if face != usize::MAX {
+            represented[face] = true;
+        }
+    });
+    if represented.iter().any(|&seen| !seen) {
+        return Err(represented
+            .iter()
+            .enumerate()
+            .filter(|entry| !*entry.1)
+            .map(|(face, _)| face)
+            .collect());
+    }
     let mut labels: Vec<usize> = component.iter().map(|&region| claimed[region]).collect();
     loop {
         let mut changes: Vec<(usize, usize)> = Vec::new();
@@ -755,15 +979,14 @@ fn attempt(
             .for_each(|(index, face)| labels[index] = face);
     }
     if labels.contains(&usize::MAX) {
-        return Err(Retry::Fatal(
-            "imprinted regions do not match network faces; refinement required",
-        ));
+        return Err(Vec::new());
     }
+    let mut patches: Vec<Vec<usize>> = vec![Vec::new(); number_of_faces];
     labels
         .iter()
         .enumerate()
         .for_each(|(index, &face)| patches[face].push(index));
-    Ok((imprinted, paths, patches))
+    Ok(patches)
 }
 #[allow(clippy::too_many_arguments)]
 fn route(
@@ -888,14 +1111,10 @@ impl QuadSizing {
         });
         nearest
     }
-    fn target_lengths(&self, points: &Coordinates<D>) -> Vec<Scalar> {
+    fn target_lengths(&self, points: &Coordinates<D>, factor: Scalar) -> Vec<Scalar> {
         self.nearest_quads(points)
             .into_iter()
-            .map(|quad| {
-                quad.map_or(Scalar::INFINITY, |quad| {
-                    self.lengths[quad] * SURFACE_REFINEMENT
-                })
-            })
+            .map(|quad| quad.map_or(Scalar::INFINITY, |quad| self.lengths[quad] * factor))
             .collect()
     }
 }
