@@ -90,8 +90,13 @@ fn polyline_closest<const D: usize>(
         .map(|i| {
             let ab = &polyline[i + 1] - &polyline[i];
             let ap = point - &polyline[i];
-            let t = ((&ap * &ab) / (&ab * &ab)).clamp(0.0, 1.0);
-            let closest = &polyline[i] + &(ab * t);
+            let denominator = &ab * &ab;
+            let closest = if denominator == 0.0 {
+                polyline[i].clone()
+            } else {
+                let t = ((&ap * &ab) / denominator).clamp(0.0, 1.0);
+                &polyline[i] + &(ab * t)
+            };
             ((&closest - point).norm(), closest)
         })
         .min_by(|(a, _), (b, _)| a.total_cmp(b))

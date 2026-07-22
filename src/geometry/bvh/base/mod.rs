@@ -12,7 +12,7 @@ use crate::{
             ray::Ray,
         },
     },
-    math::Scalar,
+    math::{Scalar, Tensor},
 };
 
 impl<const D: usize> BoundingVolumeHierarchy<D> {
@@ -268,6 +268,34 @@ fn point_box_distance_squared<const D: usize>(
         .sum()
 }
 
+fn closest_point_on_segment(
+    point: &Coordinate<3>,
+    a: &Coordinate<3>,
+    b: &Coordinate<3>,
+) -> Coordinate<3> {
+    let ab = b - a;
+    let denominator = &ab * &ab;
+    if denominator == 0.0 {
+        return a.clone();
+    }
+    let ap = point - a;
+    let t = ((&ap * &ab) / denominator).clamp(0.0, 1.0);
+    a + &(&ab * t)
+}
+
+fn closest_point_on_degenerate_triangle(
+    point: &Coordinate<3>,
+    a: &Coordinate<3>,
+    b: &Coordinate<3>,
+    c: &Coordinate<3>,
+) -> Coordinate<3> {
+    [(a, b), (b, c), (c, a)]
+        .into_iter()
+        .map(|(u, v)| closest_point_on_segment(point, u, v))
+        .min_by(|x, y| (x - point).norm().total_cmp(&(y - point).norm()))
+        .unwrap()
+}
+
 fn closest_point_on_triangle(
     point: &Coordinate<3>,
     a: &Coordinate<3>,
@@ -276,6 +304,12 @@ fn closest_point_on_triangle(
 ) -> Coordinate<3> {
     let ab = b - a;
     let ac = c - a;
+    let bc = c - b;
+    let scale = (&ab * &ab) + (&ac * &ac) + (&bc * &bc);
+    let tolerance = Scalar::EPSILON * scale.max(Scalar::MIN_POSITIVE);
+    if (&ab * &ab) <= tolerance || (&ac * &ac) <= tolerance || (&bc * &bc) <= tolerance {
+        return closest_point_on_degenerate_triangle(point, a, b, c);
+    }
     let ap = point - a;
     let d1 = &ab * &ap;
     let d2 = &ac * &ap;
@@ -306,6 +340,10 @@ fn closest_point_on_triangle(
     if va <= 0.0 && (d4 - d3) >= 0.0 && (d5 - d6) >= 0.0 {
         return b + &(&(c - b) * ((d4 - d3) / ((d4 - d3) + (d5 - d6))));
     }
-    let denominator = 1.0 / (va + vb + vc);
+    let total = va + vb + vc;
+    if total.abs() <= tolerance {
+        return closest_point_on_degenerate_triangle(point, a, b, c);
+    }
+    let denominator = 1.0 / total;
     &(a + &(&ab * (vb * denominator))) + &(&ac * (vc * denominator))
 }

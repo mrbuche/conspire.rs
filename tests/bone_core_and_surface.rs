@@ -18,6 +18,14 @@ fn bone_imprinted_network() {
     let imprint = tessellation
         .imprinted_network(Balancing::Strong, 4.0, CurvatureSizing::default(), 8)
         .unwrap();
+    assert!(
+        imprint
+            .surface
+            .coordinates()
+            .iter()
+            .all(|point| point.iter().all(|component| component.is_finite())),
+        "coarsened surface contains non-finite coordinates"
+    );
     let (core, surface) = (&imprint.core, &imprint.surface);
     let offset = core.number_of_nodes();
     let mut coordinates = core.coordinates().clone();
