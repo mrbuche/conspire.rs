@@ -22,6 +22,7 @@ use std::{
 
 const STITCH_TRIM_MARGIN: Scalar = 1.0;
 const CURVE_SEGMENTS: usize = 16;
+const CURVE_RELAXATION: usize = 100;
 
 pub struct ProjectedNetwork {
     pub core: Mesh<D>,
@@ -98,7 +99,7 @@ impl Tessellation {
             }
             Ok::<(), &'static str>(())
         })?;
-        let curves = edges
+        let mut curves = edges
             .iter()
             .map(|&[a, b]| {
                 let mut curve = vec![corners[&a].clone()];
@@ -112,7 +113,16 @@ impl Tessellation {
                 curve.push(corners[&b].clone());
                 Ok(curve)
             })
-            .collect::<Result<Vec<_>, &'static str>>()?;
+            .collect::<Result<Vec<Vec<Coordinate<D>>>, &'static str>>()?;
+        (0..CURVE_RELAXATION).try_for_each(|_| {
+            curves.iter_mut().try_for_each(|curve| {
+                (1..curve.len() - 1).try_for_each(|i| {
+                    let midpoint = (&curve[i - 1] + &curve[i + 1]) / 2.0;
+                    curve[i] = project(&midpoint)?;
+                    Ok::<(), &'static str>(())
+                })
+            })
+        })?;
         Ok(ProjectedNetwork {
             core,
             surface,
