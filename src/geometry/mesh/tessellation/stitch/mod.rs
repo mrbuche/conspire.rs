@@ -45,12 +45,17 @@ pub struct Patches {
     pub triangles: Vec<Vec<usize>>,
 }
 
+pub struct Wall {
+    pub pair: [usize; 2],
+    pub polygon: Vec<usize>,
+}
+
 pub struct Stitch {
     pub core: Mesh<D>,
     pub surface: Mesh<D>,
     pub quads: Vec<Vec<usize>>,
     pub patches: Patches,
-    pub walls: Vec<Vec<[usize; 3]>>,
+    pub walls: Vec<Wall>,
 }
 
 impl Tessellation {
@@ -93,8 +98,8 @@ impl Tessellation {
             self.fitted_core_and_surface(balancing, scale, curvature, iterations)?;
         let quads = core.exterior_faces();
         let sizing = QuadSizing::new(&core, &quads)?;
-        let patches = assign_patches(&quads, &sizing, &surface)?;
-        let walls = loft_walls(&quads, &core, &surface, &patches)?;
+        let mut patches = assign_patches(&quads, &sizing, &surface)?;
+        let walls = stitch_walls(&quads, &core, &surface, &mut patches)?;
         Ok(Stitch {
             core,
             surface,
@@ -358,62 +363,203 @@ fn validate_patch_connectivity(
         })
 }
 
-pub fn loft_walls(
+type Chains = Vec<(Vec<usize>, bool)>;
+
+type Network = (
+    HashMap<[usize; 2], Chains>,
+    HashMap<usize, HashSet<usize>>,
+    Vec<[usize; 2]>,
+);
+
+fn seam_network<'a>(
+    faces: impl Iterator<Item = &'a [usize]>,
+    labels: &[usize],
+    manifold_error: &'static str,
+) -> Result<Network, &'static str> {
+    let mut edge_owners: HashMap<[usize; 2], Vec<usize>> = HashMap::new();
+    faces.enumerate().for_each(|(face, nodes)| {
+        let sides = nodes.len();
+        (0..sides).for_each(|i| {
+            let mut edge = [nodes[i], nodes[(i + 1) % sides]];
+            edge.sort_unstable();
+            edge_owners.entry(edge).or_default().push(face);
+        })
+    });
+    let mut pair_edges: HashMap<[usize; 2], Vec<[usize; 2]>> = HashMap::new();
+    let mut vertex_labels: HashMap<usize, HashSet<usize>> = HashMap::new();
+    edge_owners.into_iter().try_for_each(|(edge, owners)| {
+        let [a, b] = owners[..] else {
+            return Err(manifold_error);
+        };
+        if labels[a] != labels[b] {
+            let mut pair = [labels[a], labels[b]];
+            pair.sort_unstable();
+            pair_edges.entry(pair).or_default().push(edge);
+            edge.iter().for_each(|&vertex| {
+                let set = vertex_labels.entry(vertex).or_default();
+                set.insert(labels[a]);
+                set.insert(labels[b]);
+            });
+        }
+        Ok(())
+    })?;
+    let corner_labels: HashMap<usize, HashSet<usize>> = vertex_labels
+        .into_iter()
+        .filter(|(_, set)| set.len() >= 3)
+        .collect();
+    let corners: HashSet<usize> = corner_labels.keys().copied().collect();
+    let mut network = HashMap::new();
+    let mut unstitchable = Vec::new();
+    pair_edges.into_iter().for_each(|(pair, mut edges)| {
+        edges.sort_unstable();
+        match seam_chains(&edges, &corners) {
+            Ok(chains) => {
+                network.insert(pair, chains);
+            }
+            Err(_) => unstitchable.push(pair),
+        }
+    });
+    Ok((network, corner_labels, unstitchable))
+}
+
+fn seam_chains(edges: &[[usize; 2]], corners: &HashSet<usize>) -> Result<Chains, &'static str> {
+    let mut adjacency: HashMap<usize, Vec<usize>> = HashMap::new();
+    edges.iter().for_each(|&[a, b]| {
+        adjacency.entry(a).or_default().push(b);
+        adjacency.entry(b).or_default().push(a);
+    });
+    if adjacency
+        .iter()
+        .any(|(vertex, neighbors)| !corners.contains(vertex) && neighbors.len() != 2)
+    {
+        return Err("pinched seam between patches requires refinement");
+    }
+    let key = |a: usize, b: usize| if a < b { [a, b] } else { [b, a] };
+    let mut used: HashSet<[usize; 2]> = HashSet::new();
+    let mut chains = Vec::new();
+    let mut starts: Vec<usize> = adjacency
+        .keys()
+        .copied()
+        .filter(|vertex| corners.contains(vertex))
+        .collect();
+    starts.sort_unstable();
+    for &start in &starts {
+        for first in adjacency[&start].clone() {
+            if used.contains(&key(start, first)) {
+                continue;
+            }
+            used.insert(key(start, first));
+            let mut nodes = vec![start, first];
+            let (mut previous, mut current) = (start, first);
+            while !corners.contains(&current) {
+                let next = adjacency[&current]
+                    .iter()
+                    .copied()
+                    .find(|&candidate| candidate != previous)
+                    .ok_or("open seam chain between patches")?;
+                used.insert(key(current, next));
+                nodes.push(next);
+                previous = current;
+                current = next;
+            }
+            chains.push((nodes, false));
+        }
+    }
+    for &[a, b] in edges {
+        if used.contains(&key(a, b)) {
+            continue;
+        }
+        used.insert(key(a, b));
+        let mut nodes = vec![a];
+        let (mut previous, mut current) = (a, b);
+        while current != a {
+            nodes.push(current);
+            let next = adjacency[&current]
+                .iter()
+                .copied()
+                .find(|&candidate| candidate != previous)
+                .ok_or("open seam chain between patches")?;
+            used.insert(key(current, next));
+            previous = current;
+            current = next;
+        }
+        chains.push((nodes, true));
+    }
+    Ok(chains)
+}
+
+enum Failure {
+    Merge(Vec<[usize; 2]>),
+    Fatal(&'static str),
+}
+
+fn stitch_walls(
+    quads: &[Vec<usize>],
+    core: &Mesh<D>,
+    surface: &Mesh<D>,
+    patches: &mut Patches,
+) -> Result<Vec<Wall>, &'static str> {
+    let mut rounds = patches.quad_root.len() + 1;
+    loop {
+        match build_walls(quads, core, surface, patches) {
+            Ok(walls) => return Ok(walls),
+            Err(Failure::Fatal(error)) => return Err(error),
+            Err(Failure::Merge(pairs)) => {
+                if pairs.is_empty() {
+                    return Err("stitching failed to converge");
+                }
+                merge_patches(patches, &pairs);
+            }
+        }
+        rounds -= 1;
+        if rounds == 0 {
+            return Err("stitching failed to converge");
+        }
+    }
+}
+
+fn merge_patches(patches: &mut Patches, pairs: &[[usize; 2]]) {
+    pairs.iter().for_each(|&[a, b]| {
+        let (ra, rb) = (patches.quad_root[a], patches.quad_root[b]);
+        if ra == rb {
+            return;
+        }
+        let (keep, drop) = (ra.min(rb), ra.max(rb));
+        patches.quad_root.iter_mut().for_each(|root| {
+            if *root == drop {
+                *root = keep
+            }
+        });
+        let moved = std::mem::take(&mut patches.triangles[drop]);
+        patches.triangles[keep].extend(moved);
+    });
+}
+
+fn build_walls(
     quads: &[Vec<usize>],
     core: &Mesh<D>,
     surface: &Mesh<D>,
     patches: &Patches,
-) -> Result<Vec<Vec<[usize; 3]>>, &'static str> {
-    let number_of_quads = quads.len();
-    let core_coordinates = core.coordinates();
-    let surface_coordinates = surface.coordinates();
+) -> Result<Vec<Wall>, Failure> {
     let surface_triangles: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
-    let offset = core.number_of_nodes();
-    let mut combined = core_coordinates.clone();
-    (0..surface_coordinates.len())
-        .for_each(|node| combined.push(surface_coordinates[node].clone()));
-    (0..number_of_quads)
-        .filter(|&quad| patches.quad_root[quad] == quad)
-        .map(|root| {
-            let cluster: Vec<&Vec<usize>> = (0..number_of_quads)
-                .filter(|&quad| patches.quad_root[quad] == root)
-                .map(|quad| &quads[quad])
-                .collect();
-            let inner = boundary_loop(cluster.iter().map(|quad| quad.as_slice()), 4)?;
-            let mut outer = boundary_loop(
-                patches.triangles[root]
-                    .iter()
-                    .map(|&triangle| surface_triangles[triangle]),
-                3,
-            )?;
-            if loop_normal(&inner, core_coordinates) * loop_normal(&outer, surface_coordinates)
-                < 0.0
-            {
-                outer.reverse();
-            }
-            let outer: Vec<usize> = outer.iter().map(|&node| node + offset).collect();
-            Ok(loft(&inner, &outer, &combined))
-        })
-        .collect::<Result<Vec<_>, &'static str>>()
-        .map(|walls| {
-            let mut all = vec![Vec::new(); number_of_quads];
-            (0..number_of_quads)
-                .filter(|&quad| patches.quad_root[quad] == quad)
-                .zip(walls)
-                .for_each(|(root, wall)| all[root] = wall);
-            all
-        })
-        .and_then(|walls| {
-            validate_seam_consistency(quads, &patches.quad_root, &walls)?;
-            Ok(walls)
-        })
-}
-
-fn validate_seam_consistency(
-    quads: &[Vec<usize>],
-    quad_root: &[usize],
-    walls: &[Vec<[usize; 3]>],
-) -> Result<(), &'static str> {
+    let mut surface_labels = vec![usize::MAX; surface_triangles.len()];
+    patches
+        .triangles
+        .iter()
+        .enumerate()
+        .for_each(|(root, list)| {
+            list.iter()
+                .for_each(|&triangle| surface_labels[triangle] = root)
+        });
+    let (surface_network, corner_labels, unstitchable) = seam_network(
+        surface_triangles.iter().copied(),
+        &surface_labels,
+        "surface is not a closed manifold",
+    )
+    .map_err(Failure::Fatal)?;
+    if !unstitchable.is_empty() {
+        return Err(Failure::Merge(unstitchable));
+    }
     let mut edge_owners: HashMap<[usize; 2], Vec<usize>> = HashMap::new();
     quads.iter().enumerate().for_each(|(quad, nodes)| {
         (0..4).for_each(|i| {
@@ -422,70 +568,342 @@ fn validate_seam_consistency(
             edge_owners.entry(edge).or_default().push(quad);
         })
     });
-    let apex = |wall: &[[usize; 3]], edge: [usize; 2]| -> Option<usize> {
-        let mut found = None;
-        for triangle in wall {
-            if triangle.contains(&edge[0]) && triangle.contains(&edge[1]) {
-                if found.is_some() {
-                    return None;
-                }
-                found = triangle
-                    .iter()
-                    .copied()
-                    .find(|&node| node != edge[0] && node != edge[1]);
-            }
+    let mut boundary_edges: Vec<([usize; 2], [usize; 2])> = Vec::new();
+    for (edge, owners) in &edge_owners {
+        let [a, b] = owners[..] else {
+            return Err(Failure::Fatal("non-manifold quad boundary"));
+        };
+        let (ra, rb) = (patches.quad_root[a], patches.quad_root[b]);
+        if ra != rb {
+            boundary_edges.push((*edge, [ra.min(rb), ra.max(rb)]));
         }
-        found
-    };
-    edge_owners
-        .into_iter()
-        .filter(|(_, owners)| owners.len() == 2)
-        .try_for_each(|(edge, owners)| {
-            let (ra, rb) = (quad_root[owners[0]], quad_root[owners[1]]);
-            if ra == rb {
-                return Ok(());
-            }
-            match (apex(&walls[ra], edge), apex(&walls[rb], edge)) {
-                (Some(a), Some(b)) if a == b => Ok(()),
-                _ => Err("wall seam between neighboring patches does not conform"),
-            }
-        })
-}
-
-fn boundary_loop<'a>(
-    faces: impl Iterator<Item = &'a [usize]>,
-    sides: usize,
-) -> Result<Vec<usize>, &'static str> {
-    let mut directed: HashMap<(usize, usize), u8> = HashMap::new();
-    faces.for_each(|face| {
-        (0..sides).for_each(|i| {
-            *directed
-                .entry((face[i], face[(i + 1) % sides]))
-                .or_insert(0) += 1;
+    }
+    boundary_edges.sort_unstable();
+    let mut root_edges: HashMap<usize, Vec<usize>> = HashMap::new();
+    boundary_edges
+        .iter()
+        .enumerate()
+        .for_each(|(index, (_, roots))| {
+            roots
+                .iter()
+                .for_each(|&root| root_edges.entry(root).or_default().push(index))
+        });
+    let mut vertex_roots: HashMap<usize, HashSet<usize>> = HashMap::new();
+    let mut root_vertices: HashMap<usize, Vec<usize>> = HashMap::new();
+    boundary_edges.iter().for_each(|(edge, roots)| {
+        edge.iter().for_each(|&node| {
+            roots.iter().for_each(|&root| {
+                vertex_roots.entry(node).or_default().insert(root);
+                root_vertices.entry(root).or_default().push(node);
+            })
         })
     });
-    let boundary: Vec<(usize, usize)> = directed
-        .keys()
-        .filter(|&&(a, b)| !directed.contains_key(&(b, a)))
-        .copied()
-        .collect();
-    let next: HashMap<usize, usize> = boundary.iter().copied().collect();
-    if next.len() != boundary.len() {
-        return Err("boundary is not a simple loop");
+    let core_coordinates = core.coordinates();
+    let surface_coordinates = surface.coordinates();
+    let mut anchors: HashMap<usize, usize> = HashMap::new();
+    let mut corner_list: Vec<usize> = corner_labels.keys().copied().collect();
+    corner_list.sort_unstable();
+    for &corner in &corner_list {
+        let labels = &corner_labels[&corner];
+        let mut candidates: Vec<usize> = labels
+            .iter()
+            .flat_map(|root| root_vertices.get(root).cloned().unwrap_or_default())
+            .collect();
+        candidates.sort_unstable();
+        candidates.dedup();
+        if let Some(anchor) = candidates.into_iter().min_by(|&u, &v| {
+            let key = |vertex: usize| {
+                let overlap = vertex_roots.get(&vertex).map_or(0, |roots| {
+                    labels.iter().filter(|label| roots.contains(label)).count()
+                });
+                let distance = (&core_coordinates[vertex] - &surface_coordinates[corner]).norm();
+                (Reverse(overlap), Priority(distance))
+            };
+            key(u).cmp(&key(v))
+        }) {
+            anchors.insert(corner, anchor);
+        }
     }
-    let Some(&(start, _)) = boundary.first() else {
-        return Err("empty boundary");
-    };
+    let offset = core.number_of_nodes();
+    let mut combined = core_coordinates.clone();
+    (0..surface_coordinates.len())
+        .for_each(|node| combined.push(surface_coordinates[node].clone()));
+    let mut pairs: Vec<[usize; 2]> = surface_network.keys().copied().collect();
+    pairs.sort_unstable();
+    let mut walls = Vec::new();
+    let mut merges = Vec::new();
+    for pair in pairs {
+        for (chain, closed) in &surface_network[&pair] {
+            if *closed {
+                let loop_edges: Vec<[usize; 2]> = boundary_edges
+                    .iter()
+                    .filter(|(_, roots)| roots == &pair)
+                    .map(|(edge, _)| *edge)
+                    .collect();
+                let Some(core_loop) = walk_cycle(&loop_edges) else {
+                    merges.push(pair);
+                    continue;
+                };
+                let mut outer = chain.clone();
+                if loop_normal(&core_loop, core_coordinates)
+                    * loop_normal(&outer, surface_coordinates)
+                    < 0.0
+                {
+                    outer.reverse();
+                }
+                let outer: Vec<usize> = outer.iter().map(|&node| node + offset).collect();
+                loft(&core_loop, &outer, &combined)
+                    .into_iter()
+                    .for_each(|triangle| {
+                        walls.push(Wall {
+                            pair,
+                            polygon: triangle.to_vec(),
+                        })
+                    });
+            } else {
+                let (start, end) = (chain[0], *chain.last().unwrap());
+                let (Some(&anchor_start), Some(&anchor_end)) =
+                    (anchors.get(&start), anchors.get(&end))
+                else {
+                    merges.push(pair);
+                    continue;
+                };
+                if start == end {
+                    merges.push(pair);
+                    continue;
+                }
+                let path = if anchor_start == anchor_end {
+                    vec![anchor_start]
+                } else {
+                    match core_path(
+                        anchor_start,
+                        anchor_end,
+                        &pair,
+                        &boundary_edges,
+                        &root_edges,
+                        core_coordinates,
+                    ) {
+                        Some(path) => path,
+                        None => {
+                            merges.push(pair);
+                            continue;
+                        }
+                    }
+                };
+                let mut polygon = path;
+                polygon.extend(chain.iter().rev().map(|&node| node + offset));
+                walls.push(Wall { pair, polygon });
+            }
+        }
+    }
+    if !merges.is_empty() {
+        return Err(Failure::Merge(merges));
+    }
+    validate_cells(
+        quads,
+        patches,
+        &surface_triangles,
+        &surface_labels,
+        &walls,
+        offset,
+    )?;
+    Ok(walls)
+}
+
+fn core_path(
+    start: usize,
+    goal: usize,
+    pair: &[usize; 2],
+    boundary_edges: &[([usize; 2], [usize; 2])],
+    root_edges: &HashMap<usize, Vec<usize>>,
+    coordinates: &Coordinates<D>,
+) -> Option<Vec<usize>> {
+    let mut indices: Vec<usize> = pair
+        .iter()
+        .flat_map(|root| root_edges.get(root).cloned().unwrap_or_default())
+        .collect();
+    indices.sort_unstable();
+    indices.dedup();
+    let shared: Vec<usize> = indices
+        .iter()
+        .copied()
+        .filter(|&index| boundary_edges[index].1 == *pair)
+        .collect();
+    search(start, goal, &shared, boundary_edges, coordinates)
+        .or_else(|| search(start, goal, &indices, boundary_edges, coordinates))
+}
+
+fn search(
+    start: usize,
+    goal: usize,
+    indices: &[usize],
+    boundary_edges: &[([usize; 2], [usize; 2])],
+    coordinates: &Coordinates<D>,
+) -> Option<Vec<usize>> {
+    let mut adjacency: HashMap<usize, Vec<usize>> = HashMap::new();
+    indices.iter().for_each(|&index| {
+        let ([a, b], _) = boundary_edges[index];
+        adjacency.entry(a).or_default().push(b);
+        adjacency.entry(b).or_default().push(a);
+    });
+    let mut best: HashMap<usize, Scalar> = HashMap::new();
+    let mut previous: HashMap<usize, usize> = HashMap::new();
+    let mut heap = BinaryHeap::new();
+    best.insert(start, 0.0);
+    heap.push(Reverse((Priority(0.0), start)));
+    while let Some(Reverse((Priority(distance), node))) = heap.pop() {
+        if node == goal {
+            break;
+        }
+        if distance > best[&node] {
+            continue;
+        }
+        for &next in adjacency.get(&node).into_iter().flatten() {
+            let advanced = distance + (&coordinates[node] - &coordinates[next]).norm();
+            if best.get(&next).is_none_or(|&known| advanced < known) {
+                best.insert(next, advanced);
+                previous.insert(next, node);
+                heap.push(Reverse((Priority(advanced), next)));
+            }
+        }
+    }
+    if !previous.contains_key(&goal) {
+        return None;
+    }
+    let mut path = vec![goal];
+    let mut current = goal;
+    while current != start {
+        current = previous[&current];
+        path.push(current);
+    }
+    path.reverse();
+    Some(path)
+}
+fn walk_cycle(edges: &[[usize; 2]]) -> Option<Vec<usize>> {
+    let mut adjacency: HashMap<usize, Vec<usize>> = HashMap::new();
+    edges.iter().for_each(|&[a, b]| {
+        adjacency.entry(a).or_default().push(b);
+        adjacency.entry(b).or_default().push(a);
+    });
+    if adjacency.is_empty() || adjacency.values().any(|neighbors| neighbors.len() != 2) {
+        return None;
+    }
+    let start = edges[0][0];
     let mut nodes = vec![start];
-    let mut current = next[&start];
+    let (mut previous, mut current) = (start, edges[0][1]);
     while current != start {
         nodes.push(current);
-        current = *next.get(&current).ok_or("open boundary")?;
+        let next = adjacency[&current]
+            .iter()
+            .copied()
+            .find(|&candidate| candidate != previous)?;
+        previous = current;
+        current = next;
     }
-    if nodes.len() != boundary.len() {
-        return Err("boundary has multiple loops");
+    (nodes.len() == adjacency.len()).then_some(nodes)
+}
+
+fn validate_cells(
+    quads: &[Vec<usize>],
+    patches: &Patches,
+    surface_triangles: &[&[usize]],
+    surface_labels: &[usize],
+    walls: &[Wall],
+    offset: usize,
+) -> Result<(), Failure> {
+    let mut edge_roots: HashMap<[usize; 2], [usize; 2]> = HashMap::new();
+    quads.iter().enumerate().for_each(|(quad, nodes)| {
+        let root = patches.quad_root[quad];
+        (0..4).for_each(|i| {
+            let mut edge = [nodes[i], nodes[(i + 1) % 4]];
+            edge.sort_unstable();
+            let roots = edge_roots.entry(edge).or_insert([root, usize::MAX]);
+            if roots[0] != root {
+                roots[1] = root;
+            }
+        })
+    });
+    let mut faces: Vec<Vec<Vec<usize>>> = vec![Vec::new(); quads.len()];
+    quads
+        .iter()
+        .enumerate()
+        .for_each(|(quad, nodes)| faces[patches.quad_root[quad]].push(nodes.clone()));
+    surface_triangles
+        .iter()
+        .enumerate()
+        .for_each(|(triangle, nodes)| {
+            faces[surface_labels[triangle]].push(nodes.iter().map(|&node| node + offset).collect())
+        });
+    walls.iter().for_each(|wall| {
+        wall.pair
+            .iter()
+            .for_each(|&root| faces[root].push(wall.polygon.clone()))
+    });
+    let mut node_labels: HashMap<usize, HashSet<usize>> = HashMap::new();
+    surface_triangles
+        .iter()
+        .enumerate()
+        .for_each(|(triangle, nodes)| {
+            nodes.iter().for_each(|&node| {
+                node_labels
+                    .entry(node)
+                    .or_default()
+                    .insert(surface_labels[triangle]);
+            })
+        });
+    let mut merges = Vec::new();
+    for cell in faces.iter().filter(|cell| !cell.is_empty()) {
+        let mut counts: HashMap<[usize; 2], usize> = HashMap::new();
+        cell.iter().for_each(|face| {
+            (0..face.len()).for_each(|i| {
+                let mut edge = [face[i], face[(i + 1) % face.len()]];
+                edge.sort_unstable();
+                *counts.entry(edge).or_default() += 1;
+            })
+        });
+        for (edge, count) in counts {
+            if count == 2 {
+                continue;
+            }
+            if edge[0] < offset && edge[1] < offset {
+                match edge_roots.get(&edge) {
+                    Some(&[a, b]) if b != usize::MAX => {
+                        merges.push([a, b]);
+                        continue;
+                    }
+                    _ => {
+                        return Err(Failure::Fatal(
+                            "transition cell does not close; refinement required",
+                        ));
+                    }
+                }
+            }
+            let mut labels: Vec<usize> = edge
+                .iter()
+                .filter(|&&node| node >= offset)
+                .flat_map(|&node| {
+                    node_labels
+                        .get(&(node - offset))
+                        .into_iter()
+                        .flatten()
+                        .copied()
+                })
+                .collect();
+            labels.sort_unstable();
+            labels.dedup();
+            if labels.len() < 2 {
+                return Err(Failure::Fatal(
+                    "transition cell does not close; refinement required",
+                ));
+            }
+            (1..labels.len()).for_each(|i| merges.push([labels[0], labels[i]]));
+        }
     }
-    Ok(nodes)
+    if merges.is_empty() {
+        Ok(())
+    } else {
+        Err(Failure::Merge(merges))
+    }
 }
 
 fn loop_normal(nodes: &[usize], coordinates: &Coordinates<D>) -> Coordinate<D> {

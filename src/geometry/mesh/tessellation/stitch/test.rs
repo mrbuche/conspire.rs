@@ -44,30 +44,27 @@ fn fitted_surface_produces_a_core_and_a_matching_trimesh() {
     });
     assert!(seen.into_iter().all(|assigned| assigned));
 
-    assert_eq!(walls.len(), number_of_quads);
+    assert!(!walls.is_empty());
     let number_of_core_nodes = core.number_of_nodes();
-    (0..number_of_quads).for_each(|quad| {
-        if patches.quad_root[quad] == quad {
-            assert!(!walls[quad].is_empty(), "root quad {quad} has no wall");
-            walls[quad].iter().for_each(|triangle| {
-                let mut nodes = triangle.to_vec();
-                nodes.sort_unstable();
-                nodes.dedup();
-                assert_eq!(nodes.len(), 3, "degenerate wall triangle {triangle:?}");
-                let inner = triangle
-                    .iter()
-                    .filter(|&&node| node < number_of_core_nodes)
-                    .count();
-                assert!(
-                    inner == 1 || inner == 2,
-                    "wall triangle {triangle:?} does not bridge core and surface"
-                );
-            });
-        } else {
-            assert!(
-                walls[quad].is_empty(),
-                "merged quad {quad} has its own wall"
-            );
-        }
+    walls.iter().for_each(|wall| {
+        let [a, b] = wall.pair;
+        assert_ne!(a, b, "wall pairs a patch with itself");
+        assert_eq!(patches.quad_root[a], a, "wall pair {a} is not a root");
+        assert_eq!(patches.quad_root[b], b, "wall pair {b} is not a root");
+        assert!(
+            wall.polygon.len() >= 3,
+            "degenerate wall {:?}",
+            wall.polygon
+        );
+        let inner = wall
+            .polygon
+            .iter()
+            .filter(|&&node| node < number_of_core_nodes)
+            .count();
+        assert!(
+            inner >= 1 && inner < wall.polygon.len(),
+            "wall {:?} does not bridge core and surface",
+            wall.polygon
+        );
     });
 }
