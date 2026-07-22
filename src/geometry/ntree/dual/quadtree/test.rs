@@ -227,8 +227,11 @@ fn probe_star_gap() {
                 let aligned = (vertex[0] as usize).is_multiple_of(2 * longest as usize)
                     && (vertex[1] as usize).is_multiple_of(2 * longest as usize);
                 if longest != shortest && !aligned {
+                    let tracked = quadtree
+                        .pairing_vertices
+                        .contains(&[vertex[0] as usize, vertex[1] as usize]);
                     println!(
-                        "  vertex {vertex:?}: lengths {lengths:?}, corners {:?}",
+                        "  vertex {vertex:?}: lengths {lengths:?}, corners {:?}, tracked={tracked}",
                         cells.map(|c| quadtree.nodes[c].corner)
                     );
                 }
