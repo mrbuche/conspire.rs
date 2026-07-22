@@ -67,9 +67,11 @@ impl<const D: usize> Instance<D> {
         }
         true
     }
+    #[cfg(test)]
     pub(crate) fn cost(&self, assignment: &HashSet<[i32; D]>) -> usize {
         assignment.iter().map(|&vertex| self.valence(vertex)).sum()
     }
+    #[cfg(test)]
     pub(crate) fn solve_bruteforce(&self) -> (HashSet<[i32; D]>, usize) {
         let candidates = self.candidates();
         let count = candidates.len();

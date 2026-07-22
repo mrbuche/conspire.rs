@@ -24,7 +24,7 @@ where
 {
     pub fn pair(&mut self, pairing: Pairing) -> Result<bool, &'static str> {
         match pairing {
-            Pairing::Generalized => unimplemented!(),
+            Pairing::Generalized => self.pair_generalized(),
             Pairing::Regular => self.pair_regular(),
             Pairing::None => Ok(true),
         }
