@@ -154,11 +154,13 @@ impl Mesh<3> {
             if sweep > 0 {
                 let sigma = RELAXATION.max(1.0 - quality / previous);
                 let mu = (1.0 - sigma) * chi(epsilon, worst);
-                epsilon = if worst < mu {
+                let epsilon_2021 = if worst < mu {
                     2.0 * (mu * (mu - worst)).sqrt()
                 } else {
                     EPSILON_FLOOR
                 };
+                let epsilon_1999 = (1.0e-18 + (0.2 * worst).powi(2)).sqrt();
+                epsilon = epsilon_2021.min(epsilon_1999);
             }
             previous = quality;
             let hex_chunk = tracked.len().div_ceil(threads).max(1);

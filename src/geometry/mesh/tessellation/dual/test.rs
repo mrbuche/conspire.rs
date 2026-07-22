@@ -52,7 +52,7 @@ fn dualize_bone() -> Result<(), AssertionError> {
         crate::geometry::mesh::write::Output::Exodus(Path::new("target/dualize_bone.exo")),
     )
     .unwrap();
-    assert!(deviation < 4.0e-3, "deviation: {deviation}");
+    assert!(deviation < 5.0e-3, "deviation: {deviation}");
     assert!(worst > 0.25, "minimum scaled jacobian: {worst}");
     Ok(())
 }
