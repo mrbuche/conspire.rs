@@ -23,6 +23,7 @@ use std::{
 const STITCH_TRIM_MARGIN: Scalar = 1.0;
 const CURVE_SEGMENTS: usize = 16;
 const CURVE_RELAXATION: usize = 100;
+const CORNER_ANCHOR: Scalar = 0.25;
 
 pub struct ProjectedNetwork {
     pub core: Mesh<D>,
@@ -114,6 +115,13 @@ impl Tessellation {
                 Ok(curve)
             })
             .collect::<Result<Vec<Vec<Coordinate<D>>>, &'static str>>()?;
+        let mut incident: HashMap<usize, Vec<(usize, bool)>> = HashMap::new();
+        edges.iter().enumerate().for_each(|(index, &[a, b])| {
+            incident.entry(a).or_default().push((index, true));
+            incident.entry(b).or_default().push((index, false));
+        });
+        let mut vertices: Vec<usize> = incident.keys().copied().collect();
+        vertices.sort_unstable();
         (0..CURVE_RELAXATION).try_for_each(|_| {
             curves.iter_mut().try_for_each(|curve| {
                 (1..curve.len() - 1).try_for_each(|i| {
@@ -121,6 +129,33 @@ impl Tessellation {
                     curve[i] = project(&midpoint)?;
                     Ok::<(), &'static str>(())
                 })
+            })?;
+            vertices.iter().try_for_each(|vertex| {
+                let list = &incident[vertex];
+                let mean = list
+                    .iter()
+                    .map(|&(edge, at_start)| {
+                        let curve = &curves[edge];
+                        if at_start {
+                            curve[1].clone()
+                        } else {
+                            curve[curve.len() - 2].clone()
+                        }
+                    })
+                    .sum::<Coordinate<D>>()
+                    / list.len() as Scalar;
+                let blend = &(mean * (1.0 - CORNER_ANCHOR)) + &(&corners[vertex] * CORNER_ANCHOR);
+                let point = project(&blend)?;
+                list.iter().for_each(|&(edge, at_start)| {
+                    let curve = &mut curves[edge];
+                    if at_start {
+                        curve[0] = point.clone();
+                    } else {
+                        let last = curve.len() - 1;
+                        curve[last] = point.clone();
+                    }
+                });
+                Ok::<(), &'static str>(())
             })
         })?;
         Ok(ProjectedNetwork {
