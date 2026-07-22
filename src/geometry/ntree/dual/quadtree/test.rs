@@ -108,7 +108,7 @@ pub(crate) fn verify_dual(mesh: &Mesh<D>) -> Result<(), String> {
     Ok(())
 }
 
-fn fuzz_tree(seed: u64, balancing: Balancing) -> Quadtree<u16, usize> {
+fn fuzz_tree(seed: u64, balancing: Balancing, pairing: Pairing) -> Quadtree<u16, usize> {
     let mut state = seed
         .wrapping_mul(6364136223846793005)
         .wrapping_add(1442695040888963407);
@@ -149,14 +149,14 @@ fn fuzz_tree(seed: u64, balancing: Balancing) -> Quadtree<u16, usize> {
         let pick = leaves[rand() % leaves.len()];
         quadtree.subdivide(pick).unwrap();
     }
-    quadtree.equilibrate(balancing, Pairing::Regular).unwrap();
+    quadtree.equilibrate(balancing, pairing).unwrap();
     quadtree
 }
 
-fn fuzz_duals(balancing: Balancing) {
+fn fuzz_duals(balancing: Balancing, pairing: Pairing) {
     let mut failures = Vec::new();
     for seed in 0..200u64 {
-        let mut quadtree = fuzz_tree(seed, balancing);
+        let mut quadtree = fuzz_tree(seed, balancing, pairing);
         let mesh = quadtree.dualize();
         if let Err(error) = verify_dual(&mesh) {
             failures.push(format!("seed {seed}: {error}"));
@@ -179,10 +179,27 @@ fn fuzz_duals(balancing: Balancing) {
 
 #[test]
 fn fuzz_strong_duals() {
-    fuzz_duals(Balancing::Strong)
+    fuzz_duals(Balancing::Strong, Pairing::Regular)
 }
 
 #[test]
 fn fuzz_weak_duals() {
-    fuzz_duals(Balancing::Weak)
+    fuzz_duals(Balancing::Weak, Pairing::Regular)
+}
+
+// Pairing::Generalized can produce asymmetric local transitions that
+// Regular (octree tree-rule) pairing never does, and this dual template
+// set was only ever validated against Regular-paired grids: most seeds
+// fail here today. Left ignored as a standing record of the gap; closing
+// it means extending dual template coverage, not fixing pair::general.
+#[test]
+#[ignore]
+fn fuzz_strong_duals_generalized() {
+    fuzz_duals(Balancing::Strong, Pairing::Generalized)
+}
+
+#[test]
+#[ignore]
+fn fuzz_weak_duals_generalized() {
+    fuzz_duals(Balancing::Weak, Pairing::Generalized)
 }
