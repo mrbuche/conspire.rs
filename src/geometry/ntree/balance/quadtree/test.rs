@@ -26,6 +26,7 @@ fn fuzz_tree(seed: u64) -> Quadtree<u16, usize> {
             value: None,
         }],
         paired: Pairing::None,
+        pairing_vertices: Default::default(),
         rescale: Rescaling {
             center: [16.0; 2],
             cell: 1.0,
@@ -72,6 +73,7 @@ fn build_jump() -> Quadtree<u16, usize> {
             value: None,
         }],
         paired: Pairing::None,
+        pairing_vertices: Default::default(),
         rescale: Rescaling {
             center: [4.0; 2],
             cell: 1.0,

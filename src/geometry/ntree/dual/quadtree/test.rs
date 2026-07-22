@@ -193,7 +193,7 @@ fn fuzz_weak_duals() {
 #[ignore]
 fn probe_star_gap() {
     for seed in 0..200u64 {
-        let mut quadtree = fuzz_tree(seed, Balancing::Weak, Pairing::Generalized);
+        let mut quadtree = fuzz_tree(seed, Balancing::Weak(1), Pairing::Generalized);
         let mesh = quadtree.dualize();
         if verify_dual(&mesh).is_err() {
             println!("seed {seed}:");
@@ -227,8 +227,11 @@ fn probe_star_gap() {
                 let aligned = (vertex[0] as usize).is_multiple_of(2 * longest as usize)
                     && (vertex[1] as usize).is_multiple_of(2 * longest as usize);
                 if longest != shortest && !aligned {
+                    let tracked = quadtree
+                        .pairing_vertices
+                        .contains(&[vertex[0] as usize, vertex[1] as usize]);
                     println!(
-                        "  vertex {vertex:?}: lengths {lengths:?}, corners {:?}",
+                        "  vertex {vertex:?}: lengths {lengths:?}, corners {:?}, tracked={tracked}",
                         cells.map(|c| quadtree.nodes[c].corner)
                     );
                 }

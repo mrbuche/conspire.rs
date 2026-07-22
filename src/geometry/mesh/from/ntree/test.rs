@@ -21,6 +21,7 @@ fn octree(length: u16) -> Octree<u16, usize> {
             value: None,
         }],
         paired: Pairing::None,
+        pairing_vertices: Default::default(),
         rescale: Rescaling {
             center: [length as f64 / 2.0; 3],
             cell: 1.0,
@@ -40,6 +41,7 @@ fn quadtree(length: u16) -> Quadtree<u16, usize> {
             value: None,
         }],
         paired: Pairing::None,
+        pairing_vertices: Default::default(),
         rescale: Rescaling {
             center: [length as f64 / 2.0; 2],
             cell: 1.0,

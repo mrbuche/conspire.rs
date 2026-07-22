@@ -46,7 +46,7 @@ fn isolated_refinement_needs_no_extra_split() {
 fn probe_isolated_refinement_dualizes() {
     let mut quadtree = one_quadrant_refined();
     quadtree.pair(Pairing::Generalized).unwrap();
-    quadtree.balanced = Balancing::Weak;
+    quadtree.balanced = Balancing::Weak(1);
     quadtree.paired = Pairing::Generalized;
     let mesh = quadtree.dualize();
     if let Err(error) = verify_dual(&mesh) {
@@ -86,7 +86,7 @@ fn probe_sandwiched_row_dualizes() {
     let paired = quadtree.pair(Pairing::Generalized).unwrap();
     assert!(!paired);
     assert_ne!(quadtree[0].is_tree(), quadtree[4].is_tree());
-    quadtree.balanced = Balancing::Weak;
+    quadtree.balanced = Balancing::Weak(1);
     quadtree.paired = Pairing::Generalized;
     let mesh = quadtree.dualize();
     if let Err(error) = verify_dual(&mesh) {
