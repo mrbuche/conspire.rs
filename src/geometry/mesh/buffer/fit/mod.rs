@@ -13,6 +13,7 @@ use crate::{
 };
 use std::{
     array::from_fn,
+    collections::VecDeque,
     mem::replace,
     thread::{available_parallelism, scope},
 };
@@ -30,6 +31,7 @@ const STAGNATION: Scalar = 1.0e-4;
 const SWEEPS: usize = 100;
 const TOLERANCE: Scalar = 1.0e-3;
 const WEIGHT_FLOOR: Scalar = 0.3;
+const WINDOW: usize = 5;
 
 impl Mesh<3> {
     pub(super) fn fit(
@@ -88,7 +90,7 @@ impl Mesh<3> {
         let unknowns = 3 * nodes.len();
         let mut epsilon: Scalar = 1.0;
         let mut previous = Scalar::INFINITY;
-        let mut plateau = Scalar::INFINITY;
+        let mut window: VecDeque<Scalar> = VecDeque::with_capacity(WINDOW);
         for sweep in 0..SWEEPS {
             let lengths: Vec<Scalar> = (0..number_of_nodes)
                 .map(|node| {
@@ -366,10 +368,15 @@ impl Mesh<3> {
                         / lengths[node]
                 })
                 .fold(0.0, Scalar::max);
-            if settled || shift < TOLERANCE || (plateau - value).abs() <= STAGNATION * value.abs() {
+            let stagnant =
+                window.len() == WINDOW && (window[0] - value).abs() <= STAGNATION * value.abs();
+            if settled || shift < TOLERANCE || stagnant {
                 break;
             }
-            plateau = value;
+            if window.len() == WINDOW {
+                window.pop_front();
+            }
+            window.push_back(value);
         }
         Ok(())
     }
