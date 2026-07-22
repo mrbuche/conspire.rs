@@ -2,13 +2,15 @@
 mod test;
 
 mod fit;
+mod restrict;
 
 use super::{Connectivity, Mesh, Tessellation};
 use crate::math::{Tensor, TensorVec};
 use std::collections::{HashMap, hash_map::Entry};
 
 impl Mesh<3> {
-    pub fn buffer(self, target: &Tessellation) -> Result<Self, &'static str> {
+    pub fn buffer(mut self, target: &Tessellation) -> Result<Self, &'static str> {
+        self.restrict()?;
         let boundary = self.exterior_faces();
         let mut edges = HashMap::new();
         boundary.iter().try_for_each(|face| {
