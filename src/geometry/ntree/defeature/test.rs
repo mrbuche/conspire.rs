@@ -16,18 +16,6 @@ fn speckled(n: usize) -> Voxels<u8> {
 }
 
 #[test]
-#[ignore]
-fn bench_speckled() {
-    let n = 24;
-    let specks = (n / 2) * (n / 2) * (n / 2);
-    let voxels = speckled(n);
-    let start = std::time::Instant::now();
-    let cleaned = voxels.defeature(2);
-    eprintln!("defeature {n}^3 ({specks} specks): {:?}", start.elapsed());
-    assert!(!cleaned.data().contains(&2));
-}
-
-#[test]
 fn absorbs_single_pixel_blob() {
     let mut data = vec![1u8; 16];
     data[1 + 4] = 2;
