@@ -12,7 +12,7 @@ use crate::{
         Rank2, Tensor, TensorArray,
         assert::{AssertionError, FiniteDifference},
         integrate::BogackiShampine,
-        optimize::{GradientDescent, NewtonRaphson},
+        optimize::NewtonRaphson,
     },
     mechanics::{CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic},
 };
