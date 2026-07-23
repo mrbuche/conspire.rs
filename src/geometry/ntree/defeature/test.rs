@@ -3,18 +3,6 @@ use crate::geometry::{
     ntree::{Octree, Quadtree},
 };
 
-fn speckled(n: usize) -> Voxels<u8> {
-    let mut data = vec![1u8; n * n * n];
-    for z in (0..n).step_by(2) {
-        for y in (0..n).step_by(2) {
-            for x in (0..n).step_by(2) {
-                data[x + n * y + n * n * z] = 2;
-            }
-        }
-    }
-    Voxels::new(data, [n, n, n])
-}
-
 #[test]
 fn absorbs_single_pixel_blob() {
     let mut data = vec![1u8; 16];
