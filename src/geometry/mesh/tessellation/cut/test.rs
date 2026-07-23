@@ -1,15 +1,18 @@
-use super::{Class, Sign, Vertex, contained, star_volume};
+use super::geometry::star_volume;
 use crate::{
     geometry::{
-        Coordinates,
+        Coordinate, Coordinates,
         mesh::{Connectivity, Mesh, PolytopalConnectivity, tessellation::Tessellation},
         ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
     },
     math::{CrossProduct, Tensor},
 };
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-fn signed_volumes(polyhedra: &PolytopalConnectivity<3>, coordinates: &Coordinates<3>) -> Vec<f64> {
+pub(super) fn signed_volumes(
+    polyhedra: &PolytopalConnectivity<3>,
+    coordinates: &Coordinates<3>,
+) -> Vec<f64> {
     let faces_nodes = polyhedra.faces_nodes();
     let mut owner = HashMap::new();
     polyhedra
@@ -33,7 +36,7 @@ fn signed_volumes(polyhedra: &PolytopalConnectivity<3>, coordinates: &Coordinate
                     let middle = nodes
                         .iter()
                         .map(|&node| coordinates[node].clone())
-                        .sum::<crate::geometry::Coordinate<3>>()
+                        .sum::<Coordinate<3>>()
                         / nodes.len() as f64;
                     let volume: f64 = (0..nodes.len())
                         .map(|i| {
@@ -53,7 +56,7 @@ fn signed_volumes(polyhedra: &PolytopalConnectivity<3>, coordinates: &Coordinate
         .collect()
 }
 
-fn dual(tessellation: &Tessellation, scale: f64) -> Mesh<3> {
+pub(super) fn dual(tessellation: &Tessellation, scale: f64) -> Mesh<3> {
     let mut octree =
         Octree::<u16, usize>::from_features(tessellation, scale, CurvatureSizing::default(), 2);
     octree
@@ -78,7 +81,7 @@ fn midpoint(
     })
 }
 
-fn sphere(refinements: usize) -> Tessellation {
+pub(super) fn sphere(refinements: usize) -> Tessellation {
     let mut coordinates = vec![
         [1.0, 0.0, 0.0],
         [-1.0, 0.0, 0.0],
@@ -115,7 +118,7 @@ fn sphere(refinements: usize) -> Tessellation {
     )))
 }
 
-fn box_surface(minimum: [f64; 3], maximum: [f64; 3]) -> Tessellation {
+pub(super) fn box_surface(minimum: [f64; 3], maximum: [f64; 3]) -> Tessellation {
     let [x0, y0, z0] = minimum;
     let [x1, y1, z1] = maximum;
     let coordinates = vec![
@@ -146,7 +149,7 @@ fn box_surface(minimum: [f64; 3], maximum: [f64; 3]) -> Tessellation {
     )))
 }
 
-fn hexahedron(minimum: [f64; 3], maximum: [f64; 3]) -> Mesh<3> {
+pub(super) fn hexahedron(minimum: [f64; 3], maximum: [f64; 3]) -> Mesh<3> {
     let [x0, y0, z0] = minimum;
     let [x1, y1, z1] = maximum;
     Mesh::from((
@@ -164,179 +167,6 @@ fn hexahedron(minimum: [f64; 3], maximum: [f64; 3]) -> Mesh<3> {
             [x0, y1, z1],
         ]),
     ))
-}
-
-#[test]
-fn classify_single_hexahedra() {
-    let tessellation = sphere(3);
-    assert_eq!(
-        tessellation.classify(&hexahedron([-0.1; 3], [0.1; 3])),
-        vec![Class::Inside]
-    );
-    assert_eq!(
-        tessellation.classify(&hexahedron([2.0; 3], [3.0; 3])),
-        vec![Class::Outside]
-    );
-    assert_eq!(
-        tessellation.classify(&hexahedron([0.9, -0.1, -0.1], [1.1, 0.1, 0.1])),
-        vec![Class::Cut]
-    );
-}
-
-#[test]
-fn containment() {
-    let tessellation = sphere(3);
-    let straddling = hexahedron([0.9, -0.1, -0.1], [1.1, 0.1, 0.1]);
-    assert!(!contained(&straddling, &tessellation.classify(&straddling)));
-    let enclosing = hexahedron([-2.0; 3], [2.0; 3]);
-    assert!(!contained(&enclosing, &tessellation.classify(&enclosing)));
-    let outside = hexahedron([2.0; 3], [3.0; 3]);
-    assert!(contained(&outside, &tessellation.classify(&outside)))
-}
-
-#[test]
-fn tables_single_hexahedron() {
-    let tessellation = sphere(3);
-    let mesh = hexahedron([0.9, -0.1, -0.1], [1.1, 0.1, 0.1]);
-    let classes = tessellation.classify(&mesh);
-    let tables = tessellation
-        .tables(&mesh, &classes, &HashSet::new())
-        .unwrap();
-    assert_eq!(tables.signs().len(), 8);
-    assert_eq!(
-        tables
-            .signs()
-            .values()
-            .filter(|&&sign| sign == Sign::Inside)
-            .count(),
-        4
-    );
-    assert_eq!(tables.crossings().len(), 4);
-    tables.crossings().values().for_each(|points| {
-        assert_eq!(points.len(), 1);
-        points
-            .iter()
-            .for_each(|point| assert!((point.norm() - 1.0).abs() < 0.01))
-    });
-    assert_eq!(tables.segments().len(), 4);
-    tables
-        .segments()
-        .values()
-        .for_each(|segments| assert_eq!(segments.len(), 1))
-}
-
-#[test]
-fn tables_sphere_dual() {
-    let tessellation = sphere(3);
-    let mesh = dual(&tessellation, 8.0);
-    let classes = tessellation.classify(&mesh);
-    let tables = tessellation
-        .tables(&mesh, &classes, &HashSet::new())
-        .unwrap();
-    assert!(!tables.crossings().is_empty());
-    tables.crossings().values().flatten().for_each(|point| {
-        let norm = point.norm();
-        assert!((0.985..=1.0 + 1e-9).contains(&norm), "{norm}")
-    });
-    let coordinates = mesh.coordinates();
-    tables.signs().iter().for_each(|(&node, &sign)| {
-        let norm = coordinates[node].norm();
-        if (norm - 1.0).abs() > 0.02 {
-            assert_eq!(
-                sign,
-                if norm < 1.0 {
-                    Sign::Inside
-                } else {
-                    Sign::Outside
-                }
-            )
-        }
-    });
-    tables.segments().values().flatten().for_each(|segment| {
-        segment.iter().for_each(|vertex| match vertex {
-            Vertex::Node(_) => (),
-            Vertex::Crossing(edge, ordinal) => {
-                assert!(tables.crossings()[edge].len() > *ordinal)
-            }
-        })
-    })
-}
-
-#[test]
-fn classify_sphere_dual() {
-    let tessellation = sphere(3);
-    let mesh = dual(&tessellation, 8.0);
-    let classes = tessellation.classify(&mesh);
-    [Class::Inside, Class::Cut, Class::Outside]
-        .iter()
-        .for_each(|class| assert!(classes.contains(class)));
-    let centroids = mesh.centroids();
-    classes
-        .iter()
-        .zip(centroids.iter())
-        .for_each(|(class, centroid)| match class {
-            Class::Inside => assert!(centroid.norm() < 1.0),
-            Class::Outside => assert!(centroid.norm() > 1.0),
-            Class::Cut => (),
-        });
-    let mut faces = HashMap::<Vec<usize>, Vec<Class>>::new();
-    mesh.iter().for_each(|block| {
-        block
-            .iter()
-            .zip(classes.iter())
-            .for_each(|(element, &class)| {
-                block.local_faces().iter().for_each(|face| {
-                    let mut key: Vec<usize> = face.iter().map(|&local| element[local]).collect();
-                    key.sort_unstable();
-                    faces.entry(key).or_default().push(class);
-                })
-            })
-    });
-    faces.values().for_each(|classes| {
-        assert!(!(classes.contains(&Class::Inside) && classes.contains(&Class::Outside)))
-    })
-}
-
-#[test]
-fn snap_eliminates_sliver() {
-    let tessellation = sphere(3);
-    let mesh = hexahedron([0.95, -0.1, -0.1], [1.15, 0.1, 0.1]);
-    let classes = tessellation.classify(&mesh);
-    let (mesh, snapped) = tessellation.snap(mesh, &classes).unwrap();
-    assert_eq!(snapped.len(), 4);
-    let coordinates = mesh.coordinates();
-    snapped
-        .iter()
-        .for_each(|&node| assert!((coordinates[node].norm() - 1.0).abs() < 0.01));
-    let tables = tessellation.tables(&mesh, &classes, &snapped).unwrap();
-    assert!(tables.crossings().is_empty());
-    let result = tessellation.assemble(&mesh, &classes, &tables).unwrap();
-    assert_eq!(result.number_of_element_blocks(), 0)
-}
-
-#[test]
-fn assemble_single_hexahedron() {
-    let tessellation = sphere(3);
-    let mesh = hexahedron([0.9, -0.1, -0.1], [1.1, 0.1, 0.1]);
-    let classes = tessellation.classify(&mesh);
-    let tables = tessellation
-        .tables(&mesh, &classes, &HashSet::new())
-        .unwrap();
-    let result = tessellation.assemble(&mesh, &classes, &tables).unwrap();
-    assert_eq!(result.number_of_element_blocks(), 1);
-    assert_eq!(result.number_of_nodes(), 8);
-    match &result.connectivities()[0] {
-        Connectivity::Hexahedral(hexes) => {
-            assert_eq!(hexes.iter().count(), 1);
-            let element: Vec<usize> = hexes.iter().flatten().copied().collect();
-            let coordinates = result.coordinates();
-            let base = &(&coordinates[element[1]] - &coordinates[element[0]])
-                .cross(&(&coordinates[element[3]] - &coordinates[element[0]]))
-                * &(&coordinates[element[4]] - &coordinates[element[0]]);
-            assert!(base > 0.0)
-        }
-        _ => panic!(),
-    }
 }
 
 #[test]
@@ -392,123 +222,6 @@ fn cut_sphere() {
                     let star = star_volume(&polygons, coordinates);
                     assert!(volume < star * (1.0 + 1e-9), "{volume} {star}")
                 })
-        }
-        _ => panic!(),
-    }
-}
-
-#[test]
-fn agglomerate_sliver() {
-    let coordinates = Coordinates::from(vec![
-        [-1.0, -1.0, -2.0],
-        [3.0, -1.0, -2.0],
-        [3.0, 2.0, -2.0],
-        [-1.0, 2.0, -2.0],
-        [-1.0, -1.0, -0.04],
-        [3.0, -1.0, 0.28],
-        [3.0, 2.0, 0.28],
-        [-1.0, 2.0, -0.04],
-    ]);
-    let triangles = vec![
-        [0, 3, 2],
-        [0, 2, 1],
-        [4, 5, 6],
-        [4, 6, 7],
-        [0, 1, 5],
-        [0, 5, 4],
-        [1, 2, 6],
-        [1, 6, 5],
-        [3, 7, 6],
-        [3, 6, 2],
-        [3, 0, 4],
-        [3, 4, 7],
-    ];
-    let tessellation = Tessellation::from(Mesh::from((
-        vec![Connectivity::Triangular(triangles.into())],
-        coordinates,
-    )));
-    let mesh = Mesh::from((
-        vec![Connectivity::Hexahedral(
-            vec![[0, 1, 2, 3, 4, 5, 6, 7], [1, 8, 9, 2, 5, 10, 11, 6]].into(),
-        )],
-        Coordinates::from(vec![
-            [0.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0],
-            [1.0, 1.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [0.0, 0.0, 1.0],
-            [1.0, 0.0, 1.0],
-            [1.0, 1.0, 1.0],
-            [0.0, 1.0, 1.0],
-            [2.0, 0.0, 0.0],
-            [2.0, 1.0, 0.0],
-            [2.0, 0.0, 1.0],
-            [2.0, 1.0, 1.0],
-        ]),
-    ));
-    let classes = tessellation.classify(&mesh);
-    assert_eq!(classes, vec![Class::Cut, Class::Cut]);
-    let tables = tessellation
-        .tables(&mesh, &classes, &HashSet::new())
-        .unwrap();
-    let result = tessellation.assemble(&mesh, &classes, &tables).unwrap();
-    assert_eq!(result.number_of_element_blocks(), 1);
-    match &result.connectivities()[0] {
-        Connectivity::Polyhedral(polyhedra) => {
-            assert_eq!(polyhedra.elements_faces().len(), 1);
-            assert_eq!(polyhedra.elements_faces()[0].len(), 9);
-            let faces: Vec<Vec<usize>> = polyhedra.elements_faces()[0]
-                .iter()
-                .map(|&face| polyhedra.faces_nodes()[face].clone())
-                .collect();
-            let volume = star_volume(&faces, result.coordinates());
-            assert!((volume - 0.220095389507154).abs() < 1e-12, "{volume}");
-            let signed = signed_volumes(polyhedra, result.coordinates())[0];
-            assert!((signed - 0.220095389507154).abs() < 1e-12, "{signed}")
-        }
-        _ => panic!(),
-    }
-}
-
-#[test]
-fn tables_double_crossing_edge() {
-    let plate = box_surface([-2.0, -2.0, -0.05], [2.0, 2.0, 0.05]);
-    let mesh = hexahedron([-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]);
-    let classes = plate.classify(&mesh);
-    assert_eq!(classes, vec![Class::Cut]);
-    let tables = plate.tables(&mesh, &classes, &HashSet::new()).unwrap();
-    assert_eq!(
-        tables
-            .signs()
-            .values()
-            .filter(|&&sign| sign == Sign::Outside)
-            .count(),
-        8
-    );
-    [[0, 4], [1, 5], [2, 6], [3, 7]]
-        .into_iter()
-        .for_each(|[bottom, top]| {
-            let points = &tables.crossings()[&[bottom, top]];
-            assert_eq!(points.len(), 2);
-            assert!(points[0][2] < points[1][2], "{points:?}");
-            points
-                .iter()
-                .for_each(|point| assert!((point[2].abs() - 0.05).abs() < 1e-9, "{point:?}"));
-        });
-    let result = plate.assemble(&mesh, &classes, &tables).unwrap();
-    assert_eq!(result.number_of_element_blocks(), 1);
-    match &result.connectivities()[0] {
-        Connectivity::Hexahedral(hexes) => {
-            assert_eq!(hexes.iter().count(), 1);
-            let element: Vec<usize> = hexes.iter().flatten().copied().collect();
-            let coordinates = result.coordinates();
-            coordinates
-                .iter()
-                .for_each(|point| assert!((point[2].abs() - 0.05).abs() < 1e-9, "{point:?}"));
-            let volume = &(&coordinates[element[1]] - &coordinates[element[0]])
-                .cross(&(&coordinates[element[3]] - &coordinates[element[0]]))
-                * &(&coordinates[element[4]] - &coordinates[element[0]]);
-            assert!((volume - 0.4).abs() < 1e-9, "{volume}")
         }
         _ => panic!(),
     }
