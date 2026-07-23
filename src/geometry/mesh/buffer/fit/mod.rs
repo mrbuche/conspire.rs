@@ -90,7 +90,7 @@ impl Mesh<3> {
         let unknowns = 3 * nodes.len();
         let mut epsilon: Scalar = 1.0;
         let mut previous = Scalar::INFINITY;
-        let mut window: VecDeque<Scalar> = VecDeque::with_capacity(WINDOW);
+        let mut window = VecDeque::<Scalar>::with_capacity(WINDOW);
         for sweep in 0..SWEEPS {
             let lengths: Vec<Scalar> = (0..number_of_nodes)
                 .map(|node| {
@@ -299,7 +299,7 @@ impl Mesh<3> {
                 .flat_map(|&node| (0..3).map(|ax| coordinates[node][ax]).collect::<Vec<_>>())
                 .collect();
             let anchor = x.clone();
-            let mut history: Vec<(Vec<Scalar>, Vec<Scalar>)> = Vec::new();
+            let mut history = Vec::<(Vec<Scalar>, Vec<Scalar>)>::new();
             let mut flat = derivative(coordinates);
             let mut value = objective(coordinates);
             let mut settled = false;

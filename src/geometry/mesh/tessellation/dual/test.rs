@@ -13,7 +13,7 @@ fn dualize_bone() -> Result<(), AssertionError> {
         return Ok(());
     };
     let mesh = target
-        .dualize(Balancing::Strong, 5.0, CurvatureSizing::default())
+        .dualize(Balancing::Strong(1), 5.0, CurvatureSizing::default())
         .unwrap();
     let surface = target.mesh();
     let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
