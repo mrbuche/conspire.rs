@@ -18,7 +18,7 @@ fn read_stl(path: &str) -> Tessellation {
     reader.read_exact(&mut header).unwrap();
     let count = u32::from_le_bytes(header[80..84].try_into().unwrap());
     let mut coordinates = vec![];
-    let mut lookup: HashMap<[u32; 3], usize> = HashMap::new();
+    let mut lookup = HashMap::new();
     let mut faces = Vec::with_capacity(count as usize);
     let mut buffer = [0_u8; 50];
     for _ in 0..count {

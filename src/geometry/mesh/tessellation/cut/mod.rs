@@ -314,7 +314,7 @@ fn clip_face(
 }
 
 fn dedupe(hits: Vec<Hit>, margin: Scalar) -> Vec<Scalar> {
-    let mut distances: Vec<Scalar> = Vec::new();
+    let mut distances = Vec::new();
     hits.iter().for_each(|hit| {
         if distances
             .last()
@@ -847,8 +847,8 @@ impl Tessellation {
             Ok(())
         })?;
         let mut face_ids = HashMap::<Vec<usize>, usize>::new();
-        let mut faces_nodes: Vec<Vec<usize>> = Vec::new();
-        let mut owners: Vec<usize> = Vec::new();
+        let mut faces_nodes = Vec::new();
+        let mut owners = Vec::new();
         fn intern(
             face_ids: &mut HashMap<Vec<usize>, usize>,
             faces_nodes: &mut Vec<Vec<usize>>,
@@ -868,9 +868,9 @@ impl Tessellation {
             Vertex::Node(node) => node,
             Vertex::Crossing(edge, ordinal) => crossing_ids[&edge][ordinal],
         };
-        let mut hexes: Vec<[usize; 8]> = Vec::new();
-        let mut elements_faces: Vec<Vec<usize>> = Vec::new();
-        let mut sources: Vec<[usize; 8]> = Vec::new();
+        let mut hexes = Vec::new();
+        let mut elements_faces = Vec::<Vec<usize>>::new();
+        let mut sources = Vec::<[usize; 8]>::new();
         let mut offset = 0;
         mesh.iter().try_for_each(|block| {
             let local_faces = block.local_faces();
@@ -1020,7 +1020,7 @@ impl Tessellation {
                                 polygon.reverse()
                             }
                         });
-                        let mut roots: HashMap<usize, usize> = HashMap::new();
+                        let mut roots = HashMap::new();
                         fn find(roots: &mut HashMap<usize, usize>, node: usize) -> usize {
                             let parent = *roots.entry(node).or_insert(node);
                             if parent == node {
@@ -1087,7 +1087,7 @@ impl Tessellation {
             .iter()
             .map(|faces| faces.iter().copied().collect())
             .collect();
-        let mut face_polys: HashMap<usize, Vec<usize>> = HashMap::new();
+        let mut face_polys = HashMap::<usize, Vec<usize>>::new();
         sets.iter().enumerate().for_each(|(cell, faces)| {
             faces
                 .iter()
@@ -1107,7 +1107,7 @@ impl Tessellation {
             if !alive[sliver] {
                 return;
             }
-            let mut areas: HashMap<usize, Scalar> = HashMap::new();
+            let mut areas = HashMap::new();
             sets[sliver].iter().for_each(|&face| {
                 face_polys[&face].iter().for_each(|&other| {
                     if other != sliver && alive[other] {
@@ -1158,7 +1158,7 @@ impl Tessellation {
         let surface_coordinates = surface.coordinates();
         let surface_elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
         let bvh = self.bvh();
-        let mut face_cells: HashMap<usize, Vec<usize>> = HashMap::new();
+        let mut face_cells = HashMap::<usize, Vec<usize>>::new();
         sets.iter().enumerate().for_each(|(cell, faces)| {
             if alive[cell] {
                 faces
@@ -1166,7 +1166,7 @@ impl Tessellation {
                     .for_each(|&face| face_cells.entry(face).or_default().push(cell))
             }
         });
-        let mut node_faces: HashMap<usize, HashSet<usize>> = HashMap::new();
+        let mut node_faces = HashMap::<usize, HashSet<usize>>::new();
         face_cells.keys().for_each(|&face| {
             faces_nodes[face].iter().for_each(|&node| {
                 node_faces.entry(node).or_default().insert(face);
@@ -1181,7 +1181,7 @@ impl Tessellation {
                     .fold(Scalar::INFINITY, Scalar::min)
             })
             .collect();
-        let mut ranks: HashMap<usize, u8> = HashMap::new();
+        let mut ranks = HashMap::new();
         tables.signs.iter().for_each(|(&node, &sign)| {
             ranks.insert(node, if sign == Sign::On { 2 } else { 1 });
         });
@@ -1189,7 +1189,7 @@ impl Tessellation {
             ranks.insert(node, 3);
         });
         let rank = |node: usize| ranks.get(&node).copied().unwrap_or(0);
-        let mut short: Vec<[usize; 2]> = Vec::new();
+        let mut short = Vec::new();
         face_cells.iter().for_each(|(&face, cells)| {
             let polygon = &faces_nodes[face];
             let limit = COLLAPSE_FRACTION
@@ -1213,8 +1213,8 @@ impl Tessellation {
         });
         short.sort_unstable();
         short.dedup();
-        let mut parents: HashMap<usize, usize> = HashMap::new();
-        let mut anchored: HashMap<usize, bool> = HashMap::new();
+        let mut parents = HashMap::new();
+        let mut anchored = HashMap::new();
         fn root(parents: &mut HashMap<usize, usize>, node: usize) -> usize {
             let parent = *parents.entry(node).or_insert(node);
             if parent == node {
@@ -1239,7 +1239,7 @@ impl Tessellation {
                 }
             }
         });
-        let mut clusters: HashMap<usize, Vec<usize>> = HashMap::new();
+        let mut clusters = HashMap::<usize, Vec<usize>>::new();
         let mut merging: Vec<usize> = parents.keys().copied().collect();
         merging.sort_unstable();
         merging.into_iter().for_each(|node| {
@@ -1318,7 +1318,7 @@ impl Tessellation {
             let updated: HashMap<usize, Vec<usize>> = affected
                 .iter()
                 .map(|&face| {
-                    let mut polygon: Vec<usize> = Vec::new();
+                    let mut polygon = Vec::new();
                     faces_nodes[face]
                         .iter()
                         .map(|&node| {
@@ -1405,7 +1405,7 @@ impl Tessellation {
             {
                 return;
             }
-            let mut uses: HashMap<usize, u8> = HashMap::new();
+            let mut uses = HashMap::new();
             sets[cell].iter().for_each(|&face| {
                 faces_nodes[face]
                     .iter()
@@ -1422,7 +1422,7 @@ impl Tessellation {
                 base.reverse();
             }
             let vertical = |node: usize| -> Option<usize> {
-                let mut counts: HashMap<usize, u8> = HashMap::new();
+                let mut counts = HashMap::new();
                 faces[1..].iter().for_each(|&face| {
                     let polygon = &faces_nodes[face];
                     if let Some(at) = polygon.iter().position(|&other| other == node) {
@@ -1471,8 +1471,8 @@ impl Tessellation {
                 alive[cell] = false;
             }
         });
-        let mut compacted: HashMap<usize, usize> = HashMap::new();
-        let mut compact_nodes: Vec<Vec<usize>> = Vec::new();
+        let mut compacted = HashMap::new();
+        let mut compact_nodes = Vec::new();
         let elements_faces: Vec<Vec<usize>> = alive
             .into_iter()
             .zip(sets)
@@ -1498,7 +1498,7 @@ impl Tessellation {
             })
             .collect();
         let faces_nodes = compact_nodes;
-        let mut remap: HashMap<usize, usize> = HashMap::new();
+        let mut remap = HashMap::new();
         let mut points = Coordinates::new();
         let mut renumber = |node: usize, points: &mut Coordinates<D>| -> usize {
             *remap.entry(node).or_insert_with(|| {
