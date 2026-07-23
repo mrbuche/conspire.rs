@@ -73,6 +73,53 @@ impl BoundingVolumeHierarchy<3> {
         }
         count
     }
+    pub fn intersect_all(
+        &self,
+        ray: &Ray<3>,
+        coordinates: &Coordinates<3>,
+        elements: &[&[usize]],
+    ) -> Vec<Hit> {
+        let mut hits = Vec::new();
+        if !self.nodes.is_empty() {
+            self.all_node(0, ray, coordinates, elements, &mut hits);
+        }
+        hits.sort_by(|one, two| one.distance().partial_cmp(&two.distance()).unwrap());
+        hits
+    }
+    fn all_node(
+        &self,
+        node_index: usize,
+        ray: &Ray<3>,
+        coordinates: &Coordinates<3>,
+        elements: &[&[usize]],
+        hits: &mut Vec<Hit>,
+    ) {
+        let node = &self.nodes[node_index];
+        if ray.intersects(node.bounding_box()).is_none() {
+            return;
+        }
+        match node.kind() {
+            NodeKind::Leaf { start, end } => {
+                self.items[*start..*end].iter().for_each(|&item| {
+                    let element = elements[item];
+                    if let Some(distance) = ray.intersects_triangle(
+                        &coordinates[element[0]],
+                        &coordinates[element[1]],
+                        &coordinates[element[2]],
+                    ) {
+                        hits.push(Hit {
+                            distance,
+                            index: item,
+                        });
+                    }
+                });
+            }
+            NodeKind::Tree { left, right } => {
+                self.all_node(*left, ray, coordinates, elements, hits);
+                self.all_node(*right, ray, coordinates, elements, hits);
+            }
+        }
+    }
     fn count_node(
         &self,
         node_index: usize,

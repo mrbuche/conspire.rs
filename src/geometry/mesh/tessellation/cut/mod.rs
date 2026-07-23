@@ -5,6 +5,7 @@ use crate::{
     geometry::{
         Coordinate, Coordinates, CoordinatesRef,
         bbox::BoundingBox,
+        bvh::Hit,
         mesh::{
             Connectivity, Mesh,
             quality::metrics::{Kind, minimum_scaled_jacobian},
@@ -70,30 +71,40 @@ pub enum Sign {
     Outside,
 }
 
+/// Identifies a point used while stitching a cut face/cell.
+///
+/// Either an original mesh node, or the `ordinal`-th crossing,
+/// (in canonical ascending-node-order direction) along the sorted edge.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Vertex {
+    Node(usize),
+    Crossing([usize; 2], usize),
+}
+
 pub struct Tables {
     signs: HashMap<usize, Sign>,
-    crossings: HashMap<[usize; 2], Coordinate<D>>,
+    crossings: HashMap<[usize; 2], Vec<Coordinate<D>>>,
     faces: HashMap<Vec<usize>, [usize; 4]>,
-    segments: HashMap<Vec<usize>, Vec<[[usize; 2]; 2]>>,
+    segments: HashMap<Vec<usize>, Vec<[Vertex; 2]>>,
 }
 
 impl Tables {
     pub fn signs(&self) -> &HashMap<usize, Sign> {
         &self.signs
     }
-    pub fn crossings(&self) -> &HashMap<[usize; 2], Coordinate<D>> {
+    pub fn crossings(&self) -> &HashMap<[usize; 2], Vec<Coordinate<D>>> {
         &self.crossings
     }
     pub fn faces(&self) -> &HashMap<Vec<usize>, [usize; 4]> {
         &self.faces
     }
-    pub fn segments(&self) -> &HashMap<Vec<usize>, Vec<[[usize; 2]; 2]>> {
+    pub fn segments(&self) -> &HashMap<Vec<usize>, Vec<[Vertex; 2]>> {
         &self.segments
     }
 }
 
 struct FaceCut {
-    endpoints: Vec<[usize; 2]>,
+    endpoints: Vec<Vertex>,
     sides: Vec<Sign>,
     interiors: Vec<Vec<usize>>,
     emitted: Vec<usize>,
@@ -105,7 +116,7 @@ struct FaceCut {
 fn face_cut(
     corners: &[usize; 4],
     signs: &HashMap<usize, Sign>,
-    crossings: &HashMap<[usize; 2], Coordinate<D>>,
+    crossings: &HashMap<[usize; 2], Vec<Coordinate<D>>>,
 ) -> Result<FaceCut, &'static str> {
     let statuses: [Sign; 4] = from_fn(|i| signs[&corners[i]]);
     let edge_keys: [[usize; 2]; 4] = from_fn(|i| {
@@ -113,7 +124,7 @@ fn face_cut(
         key.sort_unstable();
         key
     });
-    let crossed: [bool; 4] = from_fn(|i| crossings.contains_key(&edge_keys[i]));
+    let counts: [usize; 4] = from_fn(|i| crossings.get(&edge_keys[i]).map_or(0, Vec::len));
     let flip = |sign| {
         if sign == Sign::Inside {
             Sign::Outside
@@ -143,11 +154,13 @@ fn face_cut(
             at = (at + 1) % 4;
         }
         let change = statuses[from] != statuses[to];
+        let edge_flips: usize = counts[from] + ons.iter().map(|&o| counts[o]).sum::<usize>();
+        let needs_pass = (edge_flips % 2 == 1) != change;
         if ons.is_empty() {
-            if crossed[from] != change {
+            if needs_pass {
                 return Err("inconsistent signs around a face");
             }
-        } else if change {
+        } else if needs_pass {
             pass[if statuses[from] == Sign::Inside {
                 ons[0]
             } else {
@@ -162,10 +175,10 @@ fn face_cut(
     let mut current = Vec::new();
     let mut prefix = Vec::new();
     let mut opened = false;
-    let endpoint = |key: [usize; 2],
+    let endpoint = |vertex: Vertex,
                     side: &mut Sign,
                     current: &mut Vec<usize>,
-                    endpoints: &mut Vec<[usize; 2]>,
+                    endpoints: &mut Vec<Vertex>,
                     sides: &mut Vec<Sign>,
                     interiors: &mut Vec<Vec<usize>>,
                     prefix: &mut Vec<usize>,
@@ -176,7 +189,7 @@ fn face_cut(
             *prefix = take(current);
             *opened = true;
         }
-        endpoints.push(key);
+        endpoints.push(vertex);
         *side = flip(*side);
         sides.push(*side);
     };
@@ -195,7 +208,7 @@ fn face_cut(
             Sign::On => {
                 if pass[at] {
                     endpoint(
-                        [corners[at], corners[at]],
+                        Vertex::Node(corners[at]),
                         &mut side,
                         &mut current,
                         &mut endpoints,
@@ -209,9 +222,12 @@ fn face_cut(
                 }
             }
         }
-        if crossed[at] {
+        let key = edge_keys[at];
+        let forward = corners[at] == key[0];
+        (0..counts[at]).for_each(|i| {
+            let ordinal = if forward { i } else { counts[at] - 1 - i };
             endpoint(
-                edge_keys[at],
+                Vertex::Crossing(key, ordinal),
                 &mut side,
                 &mut current,
                 &mut endpoints,
@@ -220,8 +236,9 @@ fn face_cut(
                 &mut prefix,
                 &mut opened,
             );
-        } else if statuses[at] == Sign::On && statuses[(at + 1) % 4] == Sign::On {
-            on_edges.push((edge_keys[at], side));
+        });
+        if counts[at] == 0 && statuses[at] == Sign::On && statuses[(at + 1) % 4] == Sign::On {
+            on_edges.push((key, side));
         }
     }
     let emitted = if opened {
@@ -244,15 +261,12 @@ fn face_cut(
 
 fn clip_face(
     cut: &FaceCut,
-    chords: Option<&Vec<[[usize; 2]; 2]>>,
-    crossing_ids: &HashMap<[usize; 2], usize>,
+    chords: Option<&Vec<[Vertex; 2]>>,
+    crossing_ids: &HashMap<[usize; 2], Vec<usize>>,
 ) -> Vec<Vec<usize>> {
-    let point = |key: [usize; 2]| {
-        if key[0] == key[1] {
-            key[0]
-        } else {
-            crossing_ids[&key]
-        }
+    let point = |vertex: Vertex| match vertex {
+        Vertex::Node(node) => node,
+        Vertex::Crossing(edge, ordinal) => crossing_ids[&edge][ordinal],
     };
     if cut.endpoints.is_empty() {
         return if cut.inside && cut.emitted.len() > 2 {
@@ -266,7 +280,7 @@ fn clip_face(
         partner.insert(one, two);
         partner.insert(two, one);
     });
-    let arcs: HashMap<[usize; 2], usize> = cut
+    let arcs: HashMap<Vertex, usize> = cut
         .endpoints
         .iter()
         .enumerate()
@@ -297,6 +311,19 @@ fn clip_face(
         }
     });
     polygons
+}
+
+fn dedupe(hits: Vec<Hit>, margin: Scalar) -> Vec<Scalar> {
+    let mut distances: Vec<Scalar> = Vec::new();
+    hits.iter().for_each(|hit| {
+        if distances
+            .last()
+            .is_none_or(|&last| hit.distance() - last > margin)
+        {
+            distances.push(hit.distance());
+        }
+    });
+    distances
 }
 
 fn face_area(face: &[usize], coordinates: &Coordinates<D>) -> Scalar {
@@ -369,7 +396,7 @@ fn signed_volume(faces: &[Vec<usize>], coordinates: &Coordinates<D>) -> Scalar {
 }
 
 fn contained(mesh: &Mesh<D>, classes: &[Class]) -> bool {
-    let mut faces: HashMap<Vec<usize>, (usize, u8)> = HashMap::new();
+    let mut faces = HashMap::<Vec<usize>, (usize, u8)>::new();
     let mut offset = 0;
     mesh.iter().for_each(|block| {
         let local_faces = block.local_faces();
@@ -392,17 +419,33 @@ fn contained(mesh: &Mesh<D>, classes: &[Class]) -> bool {
 
 impl Tessellation {
     pub fn cut(&self, balancing: Balancing, scale: Scalar) -> Result<Mesh<D>, &'static str> {
+        let t0 = std::time::Instant::now();
         let mut octree =
             Octree::<u16, usize>::from_features(self, scale, CurvatureSizing::default(), PADDING);
+        eprintln!("  from_features: {:?}", t0.elapsed());
+        let t1 = std::time::Instant::now();
         octree.equilibrate(balancing, Pairing::Regular)?;
+        eprintln!("  equilibrate:   {:?}", t1.elapsed());
+        let t2 = std::time::Instant::now();
         let mesh = octree.dualize();
+        eprintln!("  dualize:       {:?}", t2.elapsed());
+        let t3 = std::time::Instant::now();
         let classes = self.classify(&mesh);
+        eprintln!("  classify:      {:?}", t3.elapsed());
         if !contained(&mesh, &classes) {
             return Err("tessellation is not contained within the dual mesh");
         }
+        let t4 = std::time::Instant::now();
         let (mesh, snapped) = self.snap(mesh, &classes)?;
+        eprintln!("  snap:          {:?}", t4.elapsed());
+        let t5 = std::time::Instant::now();
         let tables = self.tables(&mesh, &classes, &snapped)?;
-        self.assemble(&mesh, &classes, &tables)
+        eprintln!("  tables:        {:?}", t5.elapsed());
+        let t6 = std::time::Instant::now();
+        let result = self.assemble(&mesh, &classes, &tables);
+        eprintln!("  assemble:      {:?}", t6.elapsed());
+        eprintln!("  TOTAL:         {:?}", t0.elapsed());
+        result
     }
     pub fn classify(&self, mesh: &Mesh<D>) -> Vec<Class> {
         let surface = self.mesh();
@@ -504,7 +547,7 @@ impl Tessellation {
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
         let bvh = self.bvh();
         let coordinates = mesh.coordinates();
-        let mut lengths: HashMap<usize, Scalar> = HashMap::new();
+        let mut lengths = HashMap::<usize, Scalar>::new();
         let mut offset = 0;
         mesh.iter().for_each(|block| {
             block.iter().enumerate().for_each(|(local, element)| {
@@ -630,7 +673,7 @@ impl Tessellation {
                 }
             });
         });
-        let mut crossings = HashMap::new();
+        let mut crossings = HashMap::<[usize; 2], Vec<Coordinate<D>>>::new();
         edges.iter().try_for_each(|&[a, b]| {
             let span = &coordinates[b] - &coordinates[a];
             let length = span.norm();
@@ -643,48 +686,79 @@ impl Tessellation {
                     } else {
                         (a, span)
                     };
-                    if let Some(hit) = bvh.intersect(
-                        &(coordinates[from].clone(), along).into(),
+                    let hits = bvh.intersect_all(
+                        &(coordinates[from].clone(), along.clone()).into(),
                         surface_coordinates,
                         &elements,
-                    ) && hit.distance() < length - margin
-                    {
-                        return Err("edge crosses the tessellation more than once");
+                    );
+                    let distances: Vec<Scalar> = dedupe(hits, margin)
+                        .into_iter()
+                        .filter(|&distance| distance < length - margin)
+                        .collect();
+                    if !distances.is_empty() {
+                        let points: Vec<Coordinate<D>> = distances
+                            .iter()
+                            .map(|&distance| &coordinates[from] + &(&along * (distance / length)))
+                            .collect();
+                        let ordered = if from == a {
+                            points
+                        } else {
+                            points.into_iter().rev().collect()
+                        };
+                        crossings.insert([a, b], ordered);
                     }
                     Ok(())
                 }
                 (inside, outside) if inside != outside => {
-                    let near = bvh
-                        .intersect(
-                            &(coordinates[a].clone(), span.clone()).into(),
-                            surface_coordinates,
-                            &elements,
-                        )
-                        .ok_or("crossing missing on a sign-change edge")?;
-                    let far = bvh
-                        .intersect(
-                            &(coordinates[b].clone(), &coordinates[a] - &coordinates[b]).into(),
-                            surface_coordinates,
-                            &elements,
-                        )
-                        .ok_or("crossing missing on a sign-change edge")?;
-                    if (length - near.distance() - far.distance()).abs() > margin {
-                        return Err("edge crosses the tessellation more than once");
+                    let hits = bvh.intersect_all(
+                        &(coordinates[a].clone(), span.clone()).into(),
+                        surface_coordinates,
+                        &elements,
+                    );
+                    let distances: Vec<Scalar> = dedupe(hits, margin)
+                        .into_iter()
+                        .filter(|&distance| distance <= length + margin)
+                        .collect();
+                    if distances.is_empty() {
+                        return Err("crossing missing on a sign-change edge");
+                    }
+                    if distances.len().is_multiple_of(2) {
+                        return Err(
+                            "edge crosses the tessellation an inconsistent number of times",
+                        );
                     }
                     crossings.insert(
                         [a, b],
-                        &coordinates[a] + &(&span * (near.distance() / length)),
+                        distances
+                            .iter()
+                            .map(|&distance| &coordinates[a] + &(&span * (distance / length)))
+                            .collect(),
                     );
                     Ok(())
                 }
                 _ => {
-                    if let Some(hit) = bvh.intersect(
-                        &(coordinates[a].clone(), span).into(),
+                    let hits = bvh.intersect_all(
+                        &(coordinates[a].clone(), span.clone()).into(),
                         surface_coordinates,
                         &elements,
-                    ) && hit.distance() <= length
-                    {
-                        return Err("edge crosses the tessellation more than once");
+                    );
+                    let distances: Vec<Scalar> = dedupe(hits, margin)
+                        .into_iter()
+                        .filter(|&distance| distance <= length + margin)
+                        .collect();
+                    if distances.len() % 2 == 1 {
+                        return Err(
+                            "edge crosses the tessellation an inconsistent number of times",
+                        );
+                    }
+                    if !distances.is_empty() {
+                        crossings.insert(
+                            [a, b],
+                            distances
+                                .iter()
+                                .map(|&distance| &coordinates[a] + &(&span * (distance / length)))
+                                .collect(),
+                        );
                     }
                     Ok(())
                 }
@@ -696,35 +770,36 @@ impl Tessellation {
         let mut segments = HashMap::new();
         face_loops.iter().try_for_each(|(key, corners)| {
             let cut = face_cut(corners, &signs, &crossings)?;
-            match cut.endpoints.len() {
-                0 => Ok(()),
-                2 => {
-                    segments.insert(key.clone(), vec![[cut.endpoints[0], cut.endpoints[1]]]);
-                    Ok(())
-                }
-                4 => {
-                    let center = corners
-                        .iter()
-                        .map(|&node| coordinates[node].clone())
-                        .sum::<Coordinate<D>>()
-                        / 4.0;
-                    let target = if contains(&center) {
-                        Sign::Outside
-                    } else {
-                        Sign::Inside
-                    };
-                    let pairs: Vec<[[usize; 2]; 2]> = (0..4)
-                        .filter(|&arc| cut.sides[arc] == target)
-                        .map(|arc| [cut.endpoints[arc], cut.endpoints[(arc + 1) % 4]])
-                        .collect();
-                    if pairs.len() != 2 {
-                        return Err("inconsistent crossings around a face");
-                    }
-                    segments.insert(key.clone(), pairs);
-                    Ok(())
-                }
-                _ => Err("refinement required at a face"),
+            let count = cut.endpoints.len();
+            if count == 0 {
+                return Ok(());
             }
+            if count % 2 == 1 {
+                return Err("refinement required at a face");
+            }
+            let target = if count == 2 {
+                cut.sides[0]
+            } else {
+                let center = corners
+                    .iter()
+                    .map(|&node| coordinates[node].clone())
+                    .sum::<Coordinate<D>>()
+                    / 4.0;
+                if contains(&center) {
+                    Sign::Outside
+                } else {
+                    Sign::Inside
+                }
+            };
+            let pairs: Vec<[Vertex; 2]> = (0..count)
+                .filter(|&arc| cut.sides[arc] == target)
+                .map(|arc| [cut.endpoints[arc], cut.endpoints[(arc + 1) % count]])
+                .collect();
+            if pairs.len() != count / 2 {
+                return Err("inconsistent crossings around a face");
+            }
+            segments.insert(key.clone(), pairs);
+            Ok(())
         })?;
         Ok(Tables {
             signs,
@@ -740,12 +815,21 @@ impl Tessellation {
         tables: &Tables,
     ) -> Result<Mesh<D>, &'static str> {
         let mut coordinates = mesh.coordinates().clone();
-        let mut crossing_ids = HashMap::new();
+        let mut crossing_ids = HashMap::<[usize; 2], Vec<usize>>::new();
+        let mut crossing_edge = HashMap::<usize, [usize; 2]>::new();
         let mut crossed_edges: Vec<&[usize; 2]> = tables.crossings.keys().collect();
         crossed_edges.sort_unstable();
         crossed_edges.into_iter().for_each(|edge| {
-            crossing_ids.insert(*edge, coordinates.len());
-            coordinates.push(tables.crossings[edge].clone());
+            let ids: Vec<usize> = tables.crossings[edge]
+                .iter()
+                .map(|point| {
+                    coordinates.push(point.clone());
+                    let id = coordinates.len() - 1;
+                    crossing_edge.insert(id, *edge);
+                    id
+                })
+                .collect();
+            crossing_ids.insert(*edge, ids);
         });
         let mut face_polygons = HashMap::new();
         let mut face_cuts = HashMap::new();
@@ -762,7 +846,7 @@ impl Tessellation {
             face_cuts.insert(key, cut);
             Ok(())
         })?;
-        let mut face_ids: HashMap<Vec<usize>, usize> = HashMap::new();
+        let mut face_ids = HashMap::<Vec<usize>, usize>::new();
         let mut faces_nodes: Vec<Vec<usize>> = Vec::new();
         let mut owners: Vec<usize> = Vec::new();
         fn intern(
@@ -780,12 +864,9 @@ impl Tessellation {
                 faces_nodes.len() - 1
             })
         }
-        let point = |key: [usize; 2]| {
-            if key[0] == key[1] {
-                key[0]
-            } else {
-                crossing_ids[&key]
-            }
+        let point = |vertex: Vertex| match vertex {
+            Vertex::Node(node) => node,
+            Vertex::Crossing(edge, ordinal) => crossing_ids[&edge][ordinal],
         };
         let mut hexes: Vec<[usize; 8]> = Vec::new();
         let mut elements_faces: Vec<Vec<usize>> = Vec::new();
@@ -814,7 +895,7 @@ impl Tessellation {
                                 (key, oriented)
                             })
                             .collect();
-                        let mut adjacency: HashMap<[usize; 2], Vec<[usize; 2]>> = HashMap::new();
+                        let mut adjacency = HashMap::<Vertex, Vec<Vertex>>::new();
                         faces.iter().for_each(|(key, _)| {
                             if let Some(pairs) = tables.segments.get(key) {
                                 pairs.iter().for_each(|&[one, two]| {
@@ -843,8 +924,14 @@ impl Tessellation {
                                 if on_sides.contains(&Sign::Inside)
                                     && on_sides.contains(&Sign::Outside)
                                 {
-                                    adjacency.entry([na, na]).or_default().push([nb, nb]);
-                                    adjacency.entry([nb, nb]).or_default().push([na, na]);
+                                    adjacency
+                                        .entry(Vertex::Node(na))
+                                        .or_default()
+                                        .push(Vertex::Node(nb));
+                                    adjacency
+                                        .entry(Vertex::Node(nb))
+                                        .or_default()
+                                        .push(Vertex::Node(na));
                                 }
                             }
                         });
@@ -857,7 +944,7 @@ impl Tessellation {
                         if adjacency.values().any(|partners| partners.len() != 2) {
                             return Err("open cut chain within a cell");
                         }
-                        let mut polygons: Vec<Vec<usize>> = Vec::new();
+                        let mut polygons = Vec::<Vec<usize>>::new();
                         faces.into_iter().try_for_each(|(key, oriented)| {
                             if face_cuts[&key].flush {
                                 if interior {
@@ -881,9 +968,9 @@ impl Tessellation {
                             Ok(())
                         })?;
                         let clipped = polygons.len();
-                        let mut keys: Vec<[usize; 2]> = adjacency.keys().copied().collect();
+                        let mut keys: Vec<Vertex> = adjacency.keys().copied().collect();
                         keys.sort_unstable();
-                        let mut visited: HashSet<[usize; 2]> = HashSet::new();
+                        let mut visited = HashSet::<Vertex>::new();
                         keys.into_iter().for_each(|start| {
                             if visited.insert(start) {
                                 let mut polygon = vec![point(start)];
@@ -1114,6 +1201,8 @@ impl Tessellation {
                 let (a, b) = (polygon[i], polygon[(i + 1) % polygon.len()]);
                 if a != b
                     && !(rank(a) == 3 && rank(b) == 3)
+                    && !(crossing_edge.contains_key(&a)
+                        && crossing_edge.get(&a) == crossing_edge.get(&b))
                     && (&coordinates[b] - &coordinates[a]).norm() < limit
                 {
                     let mut key = [a, b];

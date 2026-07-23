@@ -37,7 +37,7 @@ fn hits_nearest_triangle() {
         .into();
     let hit = bvh.intersect(&ray, mesh.coordinates(), &elements).unwrap();
     assert_eq!(hit.index(), 1);
-    assert_eq!(hit.distance(), 3.0);
+    assert!((hit.distance() - 3.0).abs() < 1e-12);
 }
 
 #[test]
