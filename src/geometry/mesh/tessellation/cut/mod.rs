@@ -419,33 +419,17 @@ fn contained(mesh: &Mesh<D>, classes: &[Class]) -> bool {
 
 impl Tessellation {
     pub fn cut(&self, balancing: Balancing, scale: Scalar) -> Result<Mesh<D>, &'static str> {
-        let t0 = std::time::Instant::now();
         let mut octree =
             Octree::<u16, usize>::from_features(self, scale, CurvatureSizing::default(), PADDING);
-        eprintln!("  from_features: {:?}", t0.elapsed());
-        let t1 = std::time::Instant::now();
         octree.equilibrate(balancing, Pairing::Regular)?;
-        eprintln!("  equilibrate:   {:?}", t1.elapsed());
-        let t2 = std::time::Instant::now();
         let mesh = octree.dualize();
-        eprintln!("  dualize:       {:?}", t2.elapsed());
-        let t3 = std::time::Instant::now();
         let classes = self.classify(&mesh);
-        eprintln!("  classify:      {:?}", t3.elapsed());
         if !contained(&mesh, &classes) {
             return Err("tessellation is not contained within the dual mesh");
         }
-        let t4 = std::time::Instant::now();
         let (mesh, snapped) = self.snap(mesh, &classes)?;
-        eprintln!("  snap:          {:?}", t4.elapsed());
-        let t5 = std::time::Instant::now();
         let tables = self.tables(&mesh, &classes, &snapped)?;
-        eprintln!("  tables:        {:?}", t5.elapsed());
-        let t6 = std::time::Instant::now();
-        let result = self.assemble(&mesh, &classes, &tables);
-        eprintln!("  assemble:      {:?}", t6.elapsed());
-        eprintln!("  TOTAL:         {:?}", t0.elapsed());
-        result
+        self.assemble(&mesh, &classes, &tables)
     }
     pub fn classify(&self, mesh: &Mesh<D>) -> Vec<Class> {
         let surface = self.mesh();
