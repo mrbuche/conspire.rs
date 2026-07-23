@@ -84,8 +84,8 @@ pub enum Vertex {
 pub struct Tables {
     signs: HashMap<usize, Sign>,
     crossings: HashMap<[usize; 2], Vec<Coordinate<D>>>,
-    faces: HashMap<Vec<usize>, [usize; 4]>,
-    segments: HashMap<Vec<usize>, Vec<[Vertex; 2]>>,
+    faces: HashMap<[usize; 4], [usize; 4]>,
+    segments: HashMap<[usize; 4], Vec<[Vertex; 2]>>,
 }
 
 impl Tables {
@@ -95,10 +95,10 @@ impl Tables {
     pub fn crossings(&self) -> &HashMap<[usize; 2], Vec<Coordinate<D>>> {
         &self.crossings
     }
-    pub fn faces(&self) -> &HashMap<Vec<usize>, [usize; 4]> {
+    pub fn faces(&self) -> &HashMap<[usize; 4], [usize; 4]> {
         &self.faces
     }
-    pub fn segments(&self) -> &HashMap<Vec<usize>, Vec<[Vertex; 2]>> {
+    pub fn segments(&self) -> &HashMap<[usize; 4], Vec<[Vertex; 2]>> {
         &self.segments
     }
 }
@@ -396,13 +396,13 @@ fn signed_volume(faces: &[Vec<usize>], coordinates: &Coordinates<D>) -> Scalar {
 }
 
 fn contained(mesh: &Mesh<D>, classes: &[Class]) -> bool {
-    let mut faces = HashMap::<Vec<usize>, (usize, u8)>::new();
+    let mut faces = HashMap::<[usize; 4], (usize, u8)>::new();
     let mut offset = 0;
     mesh.iter().for_each(|block| {
         let local_faces = block.local_faces();
         block.iter().enumerate().for_each(|(local, element)| {
             local_faces.iter().for_each(|face| {
-                let mut key: Vec<usize> = face.iter().map(|&local| element[local]).collect();
+                let mut key = from_fn(|i| element[face[i]]);
                 key.sort_unstable();
                 faces
                     .entry(key)
@@ -484,8 +484,7 @@ impl Tessellation {
                 let index = offset + local;
                 if !cut[index] {
                     local_faces.iter().for_each(|face| {
-                        let mut key: Vec<usize> =
-                            face.iter().map(|&local| element[local]).collect();
+                        let mut key = from_fn::<_, 4, _>(|i| element[face[i]]);
                         key.sort_unstable();
                         match faces.entry(key) {
                             Entry::Occupied(entry) => {
@@ -646,8 +645,8 @@ impl Tessellation {
                         edges.insert(key);
                     });
                     local_faces.iter().for_each(|face| {
-                        let corners: [usize; 4] = from_fn(|i| element[face[i]]);
-                        let mut key = corners.to_vec();
+                        let corners = from_fn::<_, 4, _>(|i| element[face[i]]);
+                        let mut key = corners;
                         key.sort_unstable();
                         face_loops.entry(key).or_insert(corners);
                     })
@@ -798,7 +797,7 @@ impl Tessellation {
             if pairs.len() != count / 2 {
                 return Err("inconsistent crossings around a face");
             }
-            segments.insert(key.clone(), pairs);
+            segments.insert(*key, pairs);
             Ok(())
         })?;
         Ok(Tables {
@@ -885,12 +884,11 @@ impl Tessellation {
                         let interior = element
                             .iter()
                             .any(|node| tables.signs[node] == Sign::Inside);
-                        let faces: Vec<(Vec<usize>, Vec<usize>)> = local_faces
+                        let faces: Vec<([usize; 4], [usize; 4])> = local_faces
                             .iter()
                             .map(|face| {
-                                let oriented: Vec<usize> =
-                                    face.iter().map(|&local| element[local]).collect();
-                                let mut key = oriented.clone();
+                                let oriented = from_fn(|i| element[face[i]]);
+                                let mut key = oriented;
                                 key.sort_unstable();
                                 (key, oriented)
                             })
