@@ -1,7 +1,10 @@
 use super::super::geometry::signed_volume;
-use super::super::test::{hexahedron, sphere};
+use super::super::test::{hexahedron, signed_volumes, sphere};
 use super::assemble_generic;
-use crate::geometry::mesh::Connectivity;
+use crate::geometry::{
+    mesh::{Connectivity, Mesh},
+    ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing},
+};
 use std::collections::HashSet;
 
 #[test]
@@ -56,5 +59,56 @@ fn assemble_generic_matches_assemble_hexahedron() {
             );
         }
         _ => panic!("expected a polyhedral cell"),
+    }
+}
+
+#[test]
+#[ignore = "blocked on a pre-existing face-orientation bug in ntree's tree-to-mesh polytopes() \
+conversion (unrelated to cut): signed_volumes() on the raw octree-derived mesh, before any \
+classify/cut, already has negative-volume cells"]
+fn assemble_generic_on_octree_polyhedron() {
+    let tessellation = sphere(3);
+    let mut octree =
+        Octree::<u16, usize>::from_features(&tessellation, 4.0, CurvatureSizing::default(), 2);
+    octree
+        .equilibrate(Balancing::Weak(2), Pairing::Regular)
+        .unwrap();
+    let mesh: Mesh<3> = octree.into();
+    match &mesh.connectivities()[0] {
+        Connectivity::Polyhedral(connectivity) => {
+            signed_volumes(connectivity, mesh.coordinates())
+                .iter()
+                .for_each(|&volume| assert!(volume > 0.0, "raw octree mesh: {volume}"));
+        }
+        _ => panic!(),
+    }
+    assert!(matches!(
+        &mesh.connectivities()[0],
+        Connectivity::Polyhedral(connectivity) if connectivity.faces_nodes().iter().any(|face| face.len() > 4)
+    ));
+    let classes = tessellation.classify(&mesh);
+    assert!(classes.contains(&super::super::Class::Cut));
+    assert!(classes.contains(&super::super::Class::Inside));
+    assert!(classes.contains(&super::super::Class::Outside));
+    let tables = tessellation
+        .tables_generic(&mesh, &classes, &HashSet::new())
+        .unwrap();
+    let result = assemble_generic(&mesh, &classes, &tables).unwrap();
+    match &result.connectivities()[0] {
+        Connectivity::Polyhedral(connectivity) => {
+            assert!(!connectivity.elements_faces().is_empty());
+            connectivity
+                .faces_nodes()
+                .iter()
+                .for_each(|face| assert!(face.len() > 2));
+            connectivity
+                .elements_faces()
+                .iter()
+                .for_each(|faces| assert!(faces.len() > 3));
+            signed_volumes(connectivity, result.coordinates())
+                .iter()
+                .for_each(|&volume| assert!(volume > 0.0, "{volume}"));
+        }
+        _ => panic!("expected a polyhedral mesh"),
     }
 }
