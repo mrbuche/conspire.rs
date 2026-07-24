@@ -142,14 +142,22 @@ impl Tessellation {
             });
             offset += block.number_of_elements();
         });
-        let cells: Vec<Vec<Vec<usize>>> = mesh
-            .iter()
-            .flat_map(|block| block.iter().map(|element| element_faces(block, element)))
-            .collect();
-        let original_volumes: Vec<Scalar> = cells
-            .iter()
-            .map(|faces| signed_volume(faces, coordinates))
-            .collect();
+        let mut cells = Vec::<Vec<Vec<usize>>>::with_capacity(classes.len());
+        let mut original_volumes = Vec::<Scalar>::with_capacity(classes.len());
+        let mut offset = 0;
+        mesh.iter().for_each(|block| {
+            block.iter().enumerate().for_each(|(local, element)| {
+                if classes[offset + local] == Class::Inside {
+                    let faces = element_faces(block, element);
+                    original_volumes.push(signed_volume(&faces, coordinates));
+                    cells.push(faces)
+                } else {
+                    original_volumes.push(1.0);
+                    cells.push(Vec::new())
+                }
+            });
+            offset += block.number_of_elements();
+        });
         let mut incidents: Vec<Vec<usize>> = vec![Vec::new(); coordinates.len()];
         cells.iter().enumerate().for_each(|(cell, faces)| {
             faces
