@@ -53,7 +53,11 @@ impl<const D: usize> Mesh<D> {
     }
     pub fn bounding_boxes(&self) -> BoundingBoxes<D> {
         self.iter()
-            .flatten()
+            .flat_map(|block| {
+                block
+                    .iter()
+                    .map(move |element| block.element_nodes(element))
+            })
             .map(|nodes| {
                 nodes
                     .iter()
@@ -65,7 +69,11 @@ impl<const D: usize> Mesh<D> {
     }
     pub fn centroids(&self) -> Coordinates<D> {
         self.iter()
-            .flatten()
+            .flat_map(|block| {
+                block
+                    .iter()
+                    .map(move |element| block.element_nodes(element))
+            })
             .map(|nodes| {
                 let count = nodes.len() as Scalar;
                 nodes
@@ -79,21 +87,27 @@ impl<const D: usize> Mesh<D> {
     pub fn bounding_boxes_and_centroids(
         &self,
     ) -> impl Iterator<Item = (BoundingBox<D>, Coordinate<D>)> {
-        self.iter().flatten().map(|nodes| {
-            let count = nodes.len() as Scalar;
-            (
-                nodes
+        self.iter()
+            .flat_map(|block| {
+                block
                     .iter()
-                    .map(|&node| &self.coordinates()[node])
-                    .collect::<CoordinatesRef<'_, D>>()
-                    .into(),
-                nodes
-                    .iter()
-                    .map(|&node| &self.coordinates()[node])
-                    .sum::<Coordinate<D>>()
-                    / count,
-            )
-        })
+                    .map(move |element| block.element_nodes(element))
+            })
+            .map(|nodes| {
+                let count = nodes.len() as Scalar;
+                (
+                    nodes
+                        .iter()
+                        .map(|&node| &self.coordinates()[node])
+                        .collect::<CoordinatesRef<'_, D>>()
+                        .into(),
+                    nodes
+                        .iter()
+                        .map(|&node| &self.coordinates()[node])
+                        .sum::<Coordinate<D>>()
+                        / count,
+                )
+            })
     }
     pub fn blocks(&self) -> Option<&[usize]> {
         self.connectivities.numbers()

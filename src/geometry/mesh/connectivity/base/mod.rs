@@ -60,6 +60,36 @@ impl Connectivity {
             Connectivity::Polygonal(_) | Connectivity::Polyhedral(_) => todo!(),
         }
     }
+    /// Resolves an element (as yielded by this block's iterator) to its
+    /// unique global node ids. For the fixed-topology kinds `element` is
+    /// already the node list; for polyhedral/polygonal kinds `element` is a
+    /// list of face indices, so this looks each face up in the block's
+    /// shared face-to-node table and dedupes the union.
+    pub fn element_nodes(&self, element: &[usize]) -> Vec<usize> {
+        match self {
+            Connectivity::Polyhedral(connectivity) => {
+                let faces_nodes = connectivity.faces_nodes();
+                let mut nodes: Vec<usize> = element
+                    .iter()
+                    .flat_map(|&face| faces_nodes[face].iter().copied())
+                    .collect();
+                nodes.sort_unstable();
+                nodes.dedup();
+                nodes
+            }
+            Connectivity::Polygonal(connectivity) => {
+                let faces_nodes = connectivity.faces_nodes();
+                let mut nodes: Vec<usize> = element
+                    .iter()
+                    .flat_map(|&face| faces_nodes[face].iter().copied())
+                    .collect();
+                nodes.sort_unstable();
+                nodes.dedup();
+                nodes
+            }
+            _ => element.to_vec(),
+        }
+    }
     pub fn abaqus_side(&self, ordinal: usize) -> usize {
         match self {
             Connectivity::Hexahedral(_) => [3, 4, 5, 6, 1, 2][ordinal],
