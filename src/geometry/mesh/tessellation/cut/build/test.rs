@@ -87,8 +87,9 @@ fn assemble_generic_on_octree_polyhedron() {
     assert!(classes.contains(&super::super::Class::Cut));
     assert!(classes.contains(&super::super::Class::Inside));
     assert!(classes.contains(&super::super::Class::Outside));
+    let (mesh, snapped) = tessellation.snap_generic(mesh, &classes).unwrap();
     let tables = tessellation
-        .tables_generic(&mesh, &classes, &HashSet::new())
+        .tables_generic(&mesh, &classes, &snapped)
         .unwrap();
     let result = assemble_generic(&mesh, &classes, &tables).unwrap();
     match &result.connectivities()[0] {
