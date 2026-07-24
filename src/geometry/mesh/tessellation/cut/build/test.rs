@@ -1,10 +1,13 @@
 use super::super::geometry::signed_volume;
-use super::super::test::{hexahedron, signed_volumes, sphere};
-use crate::geometry::{
-    mesh::{Connectivity, Mesh},
-    ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing},
+use super::super::test::{box_surface, hexahedron, signed_volumes, sphere};
+use crate::{
+    geometry::{
+        mesh::{Connectivity, Mesh, tessellation::Tessellation},
+        ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing},
+    },
+    math::CrossProduct,
 };
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 #[test]
 fn assemble_generic_matches_assemble_hexahedron() {
@@ -113,4 +116,96 @@ fn assemble_generic_on_octree_polyhedron() {
         }
         _ => panic!("expected a polyhedral mesh"),
     }
+}
+
+/// Enclosed volume of a closed triangulated surface.
+fn tessellation_volume(tessellation: &Tessellation) -> f64 {
+    let surface = tessellation.mesh();
+    surface
+        .connectivities()
+        .iter()
+        .flatten()
+        .map(|triangle| {
+            let coordinates = surface.coordinates();
+            (coordinates[triangle[0]].cross(&coordinates[triangle[1]]) * &coordinates[triangle[2]])
+                / 6.0
+        })
+        .sum()
+}
+
+/// Runs the generic pipeline and checks the invariants every stage must
+/// preserve, returning the enclosed volume of the result.
+fn generic_cut(tessellation: &Tessellation, scale: f64) -> f64 {
+    let mut octree =
+        Octree::<u16, usize>::from_features(tessellation, scale, CurvatureSizing::default(), 2);
+    octree
+        .equilibrate(Balancing::Weak(2), Pairing::Regular)
+        .unwrap();
+    let mesh: Mesh<3> = octree.into();
+    assert!(
+        matches!(&mesh.connectivities()[0], Connectivity::Polyhedral(c)
+            if c.faces_nodes().iter().any(|face| face.len() > 4)),
+        "fixture no longer produces n-gon faces"
+    );
+    let classes = tessellation.classify(&mesh);
+    assert!(super::super::geometry::contained(&mesh, &classes));
+    let (mesh, snapped) = tessellation.snap_generic(mesh, &classes).unwrap();
+    assert!(!snapped.is_empty(), "fixture no longer exercises snapping");
+    let tables = tessellation
+        .tables_generic(&mesh, &classes, &snapped)
+        .unwrap();
+    let result = tessellation
+        .assemble_generic(&mesh, &classes, &tables)
+        .unwrap();
+    match &result.connectivities()[0] {
+        Connectivity::Polyhedral(connectivity) => {
+            let mut uses = HashMap::new();
+            connectivity.elements_faces().iter().for_each(|faces| {
+                assert!(faces.len() > 3, "cell cannot bound a volume");
+                faces
+                    .iter()
+                    .for_each(|&face| *uses.entry(face).or_insert(0) += 1)
+            });
+            uses.values()
+                .for_each(|&count| assert!(count <= 2, "face shared by {count} cells"));
+            connectivity
+                .faces_nodes()
+                .iter()
+                .for_each(|face| assert!(face.len() > 2, "degenerate face"));
+            let volumes = signed_volumes(connectivity, result.coordinates());
+            volumes
+                .iter()
+                .for_each(|&volume| assert!(volume > 0.0, "inverted cell: {volume}"));
+            volumes.iter().sum()
+        }
+        _ => panic!("expected a polyhedral mesh"),
+    }
+}
+
+/// A refined octahedron: planar faces meeting the grid diagonally, so the
+/// cut reproduces its volume exactly. Exercises sliver agglomeration.
+#[test]
+fn generic_cut_octahedron() {
+    let tessellation = sphere(1);
+    let exact = tessellation_volume(&tessellation);
+    let volume = generic_cut(&tessellation, 4.0);
+    assert!(
+        (volume - exact).abs() / exact < 1.0e-9,
+        "{volume} vs {exact}"
+    );
+}
+
+/// A box, whose sharp edges and axis-aligned faces drive the paths a smooth
+/// shape never reaches: cut boundaries running along already-snapped nodes,
+/// and degenerate cells with no interior node at all.
+///
+/// Its volume is only resolution-accurate rather than exact - the error runs
+/// 8.1%, 1.6%, 0.8% at scales 4, 8, 16 - so the tolerance here is loose by
+/// necessity, and the structural invariants carry the weight.
+#[test]
+fn generic_cut_box() {
+    let tessellation = box_surface([-0.7, -0.55, -0.42], [0.63, 0.48, 0.71]);
+    let exact = tessellation_volume(&tessellation);
+    let volume = generic_cut(&tessellation, 4.0);
+    assert!((volume - exact).abs() / exact < 0.1, "{volume} vs {exact}");
 }
