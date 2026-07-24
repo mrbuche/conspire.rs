@@ -1,6 +1,6 @@
 use super::super::test::{hexahedron, sphere};
 use super::super::{
-    Sign, Vertex,
+    Sign,
     face::{clip_face, face_cut},
     topology::{element_edges, element_faces},
 };
@@ -9,12 +9,14 @@ use crate::math::Tensor;
 use std::collections::{HashMap, HashSet};
 
 #[test]
-fn split_cell_matches_hex_tables() {
+fn split_cell_from_generic_tables() {
     let tessellation = sphere(3);
     let mesh = hexahedron([0.9, -0.1, -0.1], [1.1, 0.1, 0.1]);
     let classes = tessellation.classify(&mesh);
     let (mesh, snapped) = tessellation.snap(mesh, &classes).unwrap();
-    let tables = tessellation.tables(&mesh, &classes, &snapped).unwrap();
+    let tables = tessellation
+        .tables_generic(&mesh, &classes, &snapped)
+        .unwrap();
     let block = mesh.iter().next().unwrap();
     let element = block.iter().next().unwrap();
     let faces = element_faces(block, element);
@@ -35,32 +37,25 @@ fn split_cell_matches_hex_tables() {
         crossing_ids.insert(*edge, ids);
     });
     let mut face_cuts = HashMap::new();
-    let mut face_orientations = HashMap::new();
     let mut face_polygons = HashMap::new();
-    let mut segments = HashMap::<Vec<usize>, Vec<[Vertex; 2]>>::new();
     tables.faces().iter().for_each(|(key, corners)| {
-        let key_vec = key.to_vec();
         let cut = face_cut(corners, tables.signs(), tables.crossings()).unwrap();
         let polygons = if cut.flush {
             Vec::new()
         } else {
             clip_face(&cut, tables.segments().get(key), &crossing_ids)
         };
-        if let Some(pairs) = tables.segments().get(key) {
-            segments.insert(key_vec.clone(), pairs.clone());
-        }
-        face_orientations.insert(key_vec.clone(), corners.to_vec());
-        face_polygons.insert(key_vec.clone(), polygons);
-        face_cuts.insert(key_vec, cut);
+        face_polygons.insert(key.clone(), polygons);
+        face_cuts.insert(key.clone(), cut);
     });
     let result = split_cell(
         &faces,
         &edges,
         tables.signs(),
         &face_cuts,
-        &face_orientations,
+        tables.faces(),
         &face_polygons,
-        &segments,
+        tables.segments(),
         &crossing_ids,
     )
     .unwrap();

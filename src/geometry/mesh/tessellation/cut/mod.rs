@@ -5,6 +5,7 @@ mod geometry;
 mod snap;
 #[allow(dead_code)]
 mod split;
+#[allow(dead_code)]
 mod tables;
 mod topology;
 

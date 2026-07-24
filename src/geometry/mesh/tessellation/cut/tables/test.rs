@@ -38,6 +38,29 @@ fn tables_single_hexahedron() {
 }
 
 #[test]
+fn tables_generic_matches_hex_tables() {
+    let tessellation = sphere(3);
+    let mesh = hexahedron([0.9, -0.1, -0.1], [1.1, 0.1, 0.1]);
+    let classes = tessellation.classify(&mesh);
+    let tables = tessellation
+        .tables(&mesh, &classes, &HashSet::new())
+        .unwrap();
+    let generic = tessellation
+        .tables_generic(&mesh, &classes, &HashSet::new())
+        .unwrap();
+    assert_eq!(generic.signs(), tables.signs());
+    assert_eq!(generic.crossings(), tables.crossings());
+    assert_eq!(generic.faces().len(), tables.faces().len());
+    tables.faces().iter().for_each(|(key, corners)| {
+        assert_eq!(generic.faces()[&key.to_vec()], corners.to_vec());
+    });
+    assert_eq!(generic.segments().len(), tables.segments().len());
+    tables.segments().iter().for_each(|(key, pairs)| {
+        assert_eq!(&generic.segments()[&key.to_vec()], pairs);
+    });
+}
+
+#[test]
 fn tables_sphere_dual() {
     let tessellation = sphere(3);
     let mesh = dual(&tessellation, 8.0);
