@@ -6,7 +6,7 @@ use super::{
     face::{clip_face, face_cut},
     split::{Split, split_cell},
     tables::GenericTables,
-    topology::{element_edges, element_faces},
+    topology::{element_edges, face_owners, oriented_element_faces},
 };
 use crate::{
     geometry::{
@@ -106,6 +106,7 @@ pub(super) fn assemble_generic(
     let mut elements_faces = Vec::<Vec<usize>>::new();
     let mut offset = 0;
     mesh.iter().try_for_each(|block| {
+        let owners = face_owners(block);
         block
             .iter()
             .enumerate()
@@ -113,14 +114,16 @@ pub(super) fn assemble_generic(
                 match classes[offset + local] {
                     Class::Outside => {}
                     Class::Inside => {
-                        let ids: Vec<usize> = element_faces(block, element)
-                            .into_iter()
-                            .map(|polygon| intern(&mut face_ids, &mut faces_nodes, polygon))
-                            .collect();
+                        let ids: Vec<usize> =
+                            oriented_element_faces(block, element, local, owners.as_deref())
+                                .into_iter()
+                                .map(|polygon| intern(&mut face_ids, &mut faces_nodes, polygon))
+                                .collect();
                         elements_faces.push(ids);
                     }
                     Class::Cut => {
-                        let faces = element_faces(block, element);
+                        let faces =
+                            oriented_element_faces(block, element, local, owners.as_deref());
                         let edges = element_edges(&faces);
                         match split_cell(
                             &faces,

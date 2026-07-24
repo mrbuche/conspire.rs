@@ -182,7 +182,7 @@ fn build_cut_cells(
                             }
                         }
                     });
-                    if polygons.is_empty() {
+                    if polygons.len() < 4 {
                         return Ok(());
                     }
                     let nodes: HashSet<usize> = polygons.iter().flatten().copied().collect();

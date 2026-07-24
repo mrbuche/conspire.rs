@@ -5,7 +5,7 @@ use super::{
     CROSSING_TOLERANCE, Class, DIRECTIONS, Sign, Tables, Vertex,
     face::face_cut,
     geometry::dedupe,
-    topology::{element_edges, element_faces},
+    topology::{element_edges, element_faces, face_owners, oriented_element_faces},
 };
 use crate::{
     geometry::{
@@ -277,9 +277,10 @@ impl Tessellation {
         let mut face_loops = HashMap::<Vec<usize>, Vec<usize>>::new();
         let mut offset = 0;
         mesh.iter().for_each(|block| {
+            let owners = face_owners(block);
             block.iter().enumerate().for_each(|(local, element)| {
                 if classes[offset + local] == Class::Cut {
-                    element_faces(block, element)
+                    oriented_element_faces(block, element, local, owners.as_deref())
                         .into_iter()
                         .for_each(|corners| {
                             let mut key = corners.clone();

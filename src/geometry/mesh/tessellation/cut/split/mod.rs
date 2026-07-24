@@ -152,7 +152,7 @@ pub(super) fn split_cell(
             }
         }
     });
-    if polygons.is_empty() {
+    if polygons.len() < 4 {
         return Ok(Split::Discarded);
     }
     let nodes: HashSet<usize> = polygons.iter().flatten().copied().collect();
