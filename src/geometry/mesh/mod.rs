@@ -23,7 +23,7 @@ pub use self::{
     read::Input,
     remesh::{AnisotropicSizing, IsotropicSizing, Remeshing, RemeshingMetric},
     smooth::Smoothing,
-    tessellation::Tessellation,
+    tessellation::{Tessellation, cut::Class},
     write::{Output, vtk::Vtk},
 };
 

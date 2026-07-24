@@ -62,11 +62,13 @@ where
     /// `scale` controls cells-per-thickness, as before; `curvature` controls
     /// curvature-driven refinement independent of thickness (e.g. a sphere
     /// has ~constant thickness everywhere but can still demand refinement
-    /// from curvature alone).
+    /// from curvature alone). `padding` adds extra empty root levels in case
+    /// the tessellation's boundary overlaps the primordial primal node.
     pub fn from_features(
         tessellation: &Tessellation,
         scale: Scalar,
         curvature: CurvatureSizing,
+        padding: u16,
     ) -> Self {
         let CurvatureSizing {
             tolerance,
@@ -140,7 +142,10 @@ where
         let levels = if max_extent <= 0.0 || min_length <= 0.0 {
             0u32
         } else {
-            (max_extent / min_length).log2().ceil().max(0.0) as u32
+            (max_extent / min_length + 2.0 * padding as Scalar)
+                .log2()
+                .ceil()
+                .max(0.0) as u32
         };
         let root_length: u16 = 1u16.checked_shl(levels).unwrap_or(u16::MAX);
         let center: [f64; D] = from_fn(|ax| (min_coord[ax] + max_coord[ax]) / 2.0);

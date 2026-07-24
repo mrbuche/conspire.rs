@@ -6,7 +6,7 @@ use std::mem::swap;
 use crate::{
     ABS_TOL,
     geometry::{Coordinate, bbox::BoundingBox, bvh::ray::Ray},
-    math::{CrossProduct, Scalar},
+    math::Scalar,
 };
 
 impl<const D: usize> Ray<D> {
@@ -37,31 +37,56 @@ impl<const D: usize> Ray<D> {
 }
 
 impl Ray<3> {
+    /// Watertight ray/triangle intersection (Woop, Benthin & Wald, 2013).
+    ///
+    /// Unlike naive Möller–Trumbore, a ray passing exactly along a shared
+    /// edge/vertex between two adjacent triangles cannot be rejected by
+    /// both of them due to independent floating-point rounding: the
+    /// dominant-axis permutation and shear put every triangle sharing that
+    /// ray through the same, consistent 2D edge test.
     pub fn intersects_triangle(
         &self,
         a: &Coordinate<3>,
         b: &Coordinate<3>,
         c: &Coordinate<3>,
     ) -> Option<Scalar> {
-        let edge_1 = b - a;
-        let edge_2 = c - a;
-        let p = self.direction.cross(&edge_2);
-        let determinant = &edge_1 * &p;
+        let direction = &self.direction;
+        let (ax, ay, az) = (direction[0].abs(), direction[1].abs(), direction[2].abs());
+        let kz = if ax > ay {
+            if ax > az { 0 } else { 2 }
+        } else if ay > az {
+            1
+        } else {
+            2
+        };
+        let (mut kx, mut ky) = ((kz + 1) % 3, (kz + 2) % 3);
+        if direction[kz] < 0.0 {
+            swap(&mut kx, &mut ky);
+        }
+        let sx = direction[kx] / direction[kz];
+        let sy = direction[ky] / direction[kz];
+        let sz = 1.0 / direction[kz];
+        let pa = a - &self.origin;
+        let pb = b - &self.origin;
+        let pc = c - &self.origin;
+        let ax = pa[kx] - sx * pa[kz];
+        let ay = pa[ky] - sy * pa[kz];
+        let bx = pb[kx] - sx * pb[kz];
+        let by = pb[ky] - sy * pb[kz];
+        let cx = pc[kx] - sx * pc[kz];
+        let cy = pc[ky] - sy * pc[kz];
+        let u = cx * by - cy * bx;
+        let v = ax * cy - ay * cx;
+        let w = bx * ay - by * ax;
+        if (u < 0.0 || v < 0.0 || w < 0.0) && (u > 0.0 || v > 0.0 || w > 0.0) {
+            return None;
+        }
+        let determinant = u + v + w;
         if determinant.abs() < ABS_TOL {
             return None;
         }
         let inverse_determinant = 1.0 / determinant;
-        let s = &self.origin - a;
-        let u = inverse_determinant * (&s * &p);
-        if !(0.0..=1.0).contains(&u) {
-            return None;
-        }
-        let q = s.cross(&edge_1);
-        let v = inverse_determinant * (&self.direction * &q);
-        if v < 0.0 || u + v > 1.0 {
-            return None;
-        }
-        let t = inverse_determinant * (&edge_2 * &q);
+        let t = (u * sz * pa[kz] + v * sz * pb[kz] + w * sz * pc[kz]) * inverse_determinant;
         (t > ABS_TOL).then_some(t)
     }
 }

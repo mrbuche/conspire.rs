@@ -12,7 +12,7 @@ use crate::{
         Rank2, Tensor, TensorArray,
         assert::{AssertionError, FiniteDifference},
         integrate::BogackiShampine,
-        optimize::{GradientDescent, NewtonRaphson},
+        optimize::NewtonRaphson,
     },
     mechanics::{CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic},
 };
@@ -68,53 +68,52 @@ fn finite_difference() -> Result<(), AssertionError> {
     }
 }
 
-#[ignore]
-#[test]
-fn root_0() -> Result<(), AssertionError> {
-    use crate::constitutive::solid::elastic_viscoplastic::ZerothOrderRoot;
-    let model = ElasticMultiplicativeViscoplastic::from((
-        AlmansiHamel {
-            bulk_modulus: 13.0,
-            shear_modulus: 3.0,
-        },
-        ViscoplasticFlow {
-            yield_stress: 2.0,
-            hardening_slope: 1.0,
-            rate_sensitivity: 0.25,
-            reference_flow_rate: 0.1,
-        },
-    ));
-    let (t, f, f_p) = model.root(
-        AppliedLoad::UniaxialStress(|t| 1.0 + t, &[0.0, 2.0]),
-        BogackiShampine {
-            abs_tol: 1e-6,
-            rel_tol: 1e-6,
-            ..Default::default()
-        },
-        GradientDescent {
-            dual: true,
-            ..Default::default()
-        },
-    )?;
-    for (t_i, (f_i, s_i)) in t.iter().zip(f.iter().zip(f_p.iter())) {
-        let (f_p_i, y_i) = s_i.into();
-        let f_e = f_i * f_p_i.inverse();
-        let c_e = model.cauchy_stress(f_i, f_p_i)?;
-        let m_e = f_e.transpose() * &c_e * f_e.inverse_transpose();
-        let m_e_dev_mag = m_e.deviatoric().norm();
-        println!(
-            "[{}, {}, {}, {}, {}, {}, {}],",
-            t_i,
-            f_i[0][0],
-            f_p_i[0][0],
-            y_i,
-            c_e[0][0],
-            f_p_i.determinant(),
-            m_e_dev_mag,
-        )
-    }
-    Ok(())
-}
+//#[test]
+//fn root_0() -> Result<(), AssertionError> {
+//    use crate::constitutive::solid::elastic_viscoplastic::ZerothOrderRoot;
+//    let model = ElasticMultiplicativeViscoplastic::from((
+//        AlmansiHamel {
+//            bulk_modulus: 13.0,
+//            shear_modulus: 3.0,
+//        },
+//        ViscoplasticFlow {
+//            yield_stress: 2.0,
+//            hardening_slope: 1.0,
+//            rate_sensitivity: 0.25,
+//            reference_flow_rate: 0.1,
+//        },
+//    ));
+//    let (t, f, f_p) = model.root(
+//        AppliedLoad::UniaxialStress(|t| 1.0 + t, &[0.0, 2.0]),
+//        BogackiShampine {
+//            abs_tol: 1e-6,
+//            rel_tol: 1e-6,
+//            ..Default::default()
+//        },
+//        GradientDescent {
+//            dual: true,
+//            ..Default::default()
+//        },
+//    )?;
+//    for (t_i, (f_i, s_i)) in t.iter().zip(f.iter().zip(f_p.iter())) {
+//        let (f_p_i, y_i) = s_i.into();
+//        let f_e = f_i * f_p_i.inverse();
+//        let c_e = model.cauchy_stress(f_i, f_p_i)?;
+//        let m_e = f_e.transpose() * &c_e * f_e.inverse_transpose();
+//        let m_e_dev_mag = m_e.deviatoric().norm();
+//        println!(
+//            "[{}, {}, {}, {}, {}, {}, {}],",
+//            t_i,
+//            f_i[0][0],
+//            f_p_i[0][0],
+//            y_i,
+//            c_e[0][0],
+//            f_p_i.determinant(),
+//            m_e_dev_mag,
+//        )
+//    }
+//    Ok(())
+//}
 
 #[test]
 fn root_1() -> Result<(), AssertionError> {
