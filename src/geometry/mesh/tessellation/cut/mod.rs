@@ -3,6 +3,8 @@ mod classify;
 mod face;
 mod geometry;
 mod snap;
+#[allow(dead_code)]
+mod split;
 mod tables;
 mod topology;
 
