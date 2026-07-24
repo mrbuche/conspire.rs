@@ -1,4 +1,6 @@
 mod assemble;
+#[allow(dead_code)]
+mod build;
 mod classify;
 mod face;
 mod geometry;
