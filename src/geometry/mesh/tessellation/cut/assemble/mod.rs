@@ -185,7 +185,9 @@ fn build_cut_cells(
                     if polygons.len() < 4 {
                         return Ok(());
                     }
-                    let nodes: HashSet<usize> = polygons.iter().flatten().copied().collect();
+                    let mut nodes: Vec<usize> = polygons.iter().flatten().copied().collect();
+                    nodes.sort_unstable();
+                    nodes.dedup();
                     let centroid = nodes
                         .iter()
                         .map(|&node| coordinates[node].clone())

@@ -37,7 +37,9 @@ pub(super) fn face_area(face: &[usize], coordinates: &Coordinates<D>) -> Scalar 
 }
 
 pub(super) fn star_volume(faces: &[Vec<usize>], coordinates: &Coordinates<D>) -> Scalar {
-    let nodes: std::collections::HashSet<usize> = faces.iter().flatten().copied().collect();
+    let mut nodes: Vec<usize> = faces.iter().flatten().copied().collect();
+    nodes.sort_unstable();
+    nodes.dedup();
     let centroid = nodes
         .iter()
         .map(|&node| coordinates[node].clone())
@@ -64,7 +66,9 @@ pub(super) fn star_volume(faces: &[Vec<usize>], coordinates: &Coordinates<D>) ->
 }
 
 pub(super) fn signed_volume(faces: &[Vec<usize>], coordinates: &Coordinates<D>) -> Scalar {
-    let nodes: std::collections::HashSet<usize> = faces.iter().flatten().copied().collect();
+    let mut nodes: Vec<usize> = faces.iter().flatten().copied().collect();
+    nodes.sort_unstable();
+    nodes.dedup();
     let origin = nodes
         .iter()
         .map(|&node| coordinates[node].clone())
