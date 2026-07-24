@@ -1,6 +1,5 @@
 use super::super::geometry::signed_volume;
 use super::super::test::{hexahedron, signed_volumes, sphere};
-use super::assemble_generic;
 use crate::{
     geometry::{
         mesh::{Connectivity, Mesh, Output, Vtk, tessellation::Tessellation},
@@ -40,7 +39,9 @@ fn assemble_generic_matches_assemble_hexahedron() {
     let generic_tables = tessellation
         .tables_generic(&mesh, &classes, &HashSet::new())
         .unwrap();
-    let result = assemble_generic(&mesh, &classes, &generic_tables).unwrap();
+    let result = tessellation
+        .assemble_generic(&mesh, &classes, &generic_tables)
+        .unwrap();
     assert_eq!(result.number_of_element_blocks(), 1);
     assert_eq!(result.number_of_nodes(), expected.number_of_nodes());
     match &result.connectivities()[0] {
@@ -94,7 +95,9 @@ fn assemble_generic_on_octree_polyhedron() {
     let tables = tessellation
         .tables_generic(&mesh, &classes, &snapped)
         .unwrap();
-    let result = assemble_generic(&mesh, &classes, &tables).unwrap();
+    let result = tessellation
+        .assemble_generic(&mesh, &classes, &tables)
+        .unwrap();
     match &result.connectivities()[0] {
         Connectivity::Polyhedral(connectivity) => {
             assert!(!connectivity.elements_faces().is_empty());
@@ -145,7 +148,9 @@ fn assemble_generic_on_bone() {
     let tables = tessellation
         .tables_generic(&mesh, &classes, &snapped)
         .unwrap();
-    let result = assemble_generic(&mesh, &classes, &tables).unwrap();
+    let result = tessellation
+        .assemble_generic(&mesh, &classes, &tables)
+        .unwrap();
     match &result.connectivities()[0] {
         Connectivity::Polyhedral(connectivity) => {
             assert!(!connectivity.elements_faces().is_empty());
