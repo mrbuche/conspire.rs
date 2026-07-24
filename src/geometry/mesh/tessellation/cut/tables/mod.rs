@@ -2,7 +2,10 @@
 mod test;
 
 use super::{
-    CROSSING_TOLERANCE, Class, DIRECTIONS, EDGES, Sign, Tables, face::face_cut, geometry::dedupe,
+    CROSSING_TOLERANCE, Class, DIRECTIONS, Sign, Tables,
+    face::face_cut,
+    geometry::dedupe,
+    topology::{element_edges, element_faces},
 };
 use crate::{
     geometry::{
@@ -34,11 +37,11 @@ impl Tessellation {
             let local_faces = block.local_faces();
             block.iter().enumerate().for_each(|(local, element)| {
                 if classes[offset + local] == Class::Cut {
-                    EDGES.iter().for_each(|&[a, b]| {
-                        let mut key = [element[a], element[b]];
-                        key.sort_unstable();
-                        edges.insert(key);
-                    });
+                    element_edges(&element_faces(block, element))
+                        .into_iter()
+                        .for_each(|key| {
+                            edges.insert(key);
+                        });
                     local_faces.iter().for_each(|face| {
                         let corners = from_fn::<_, 4, _>(|i| element[face[i]]);
                         let mut key = corners;

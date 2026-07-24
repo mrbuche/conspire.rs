@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod test;
 
-use super::{Class, EDGES, SNAP_HARD, SNAP_QUALITY, SNAP_SOFT};
+use super::{
+    Class, SNAP_HARD, SNAP_QUALITY, SNAP_SOFT,
+    topology::{element_edges, element_faces},
+};
 use crate::{
     geometry::{
         Coordinates,
@@ -31,15 +34,17 @@ impl Tessellation {
         mesh.iter().for_each(|block| {
             block.iter().enumerate().for_each(|(local, element)| {
                 if classes[offset + local] == Class::Cut {
-                    EDGES.iter().for_each(|&[a, b]| {
-                        let length = (&coordinates[element[b]] - &coordinates[element[a]]).norm();
-                        [element[a], element[b]].into_iter().for_each(|node| {
-                            lengths
-                                .entry(node)
-                                .and_modify(|shortest| *shortest = shortest.min(length))
-                                .or_insert(length);
+                    element_edges(&element_faces(block, element))
+                        .into_iter()
+                        .for_each(|[a, b]| {
+                            let length = (&coordinates[b] - &coordinates[a]).norm();
+                            [a, b].into_iter().for_each(|node| {
+                                lengths
+                                    .entry(node)
+                                    .and_modify(|shortest| *shortest = shortest.min(length))
+                                    .or_insert(length);
+                            })
                         })
-                    })
                 }
             });
             offset += block.number_of_elements();

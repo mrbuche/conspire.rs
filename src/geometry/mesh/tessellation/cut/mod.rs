@@ -4,6 +4,7 @@ mod face;
 mod geometry;
 mod snap;
 mod tables;
+mod topology;
 
 #[cfg(test)]
 mod test;
