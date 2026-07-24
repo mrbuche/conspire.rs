@@ -2,6 +2,7 @@ mod assemble;
 #[allow(dead_code)]
 mod build;
 mod classify;
+mod cleanup;
 mod face;
 mod geometry;
 mod snap;
