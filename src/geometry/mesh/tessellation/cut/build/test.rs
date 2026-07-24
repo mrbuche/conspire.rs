@@ -63,9 +63,6 @@ fn assemble_generic_matches_assemble_hexahedron() {
 }
 
 #[test]
-#[ignore = "blocked on a pre-existing face-orientation bug in ntree's tree-to-mesh polytopes() \
-conversion (unrelated to cut): signed_volumes() on the raw octree-derived mesh, before any \
-classify/cut, already has negative-volume cells"]
 fn assemble_generic_on_octree_polyhedron() {
     let tessellation = sphere(3);
     let mut octree =

@@ -214,6 +214,78 @@ fn octree_uniform() {
     assert!((volume(&mesh) - 8.0).abs() < 1e-12);
 }
 
+fn strict_signed_volumes(mesh: &Mesh<3>) -> Vec<f64> {
+    let cross = |a: [f64; 3], b: [f64; 3]| {
+        [
+            a[1] * b[2] - a[2] * b[1],
+            a[2] * b[0] - a[0] * b[2],
+            a[0] * b[1] - a[1] * b[0],
+        ]
+    };
+    let (elements_faces, faces_nodes) = polytopal(mesh);
+    let mut owner = std::collections::HashMap::new();
+    elements_faces.iter().enumerate().for_each(|(cell, faces)| {
+        faces.iter().for_each(|&face| {
+            owner.entry(face).or_insert(cell);
+        })
+    });
+    elements_faces
+        .iter()
+        .enumerate()
+        .map(|(cell, faces)| {
+            let nodes: std::collections::HashSet<usize> = faces
+                .iter()
+                .flat_map(|&face| faces_nodes[face].iter().copied())
+                .collect();
+            let mut centroid = [0.0; 3];
+            nodes.iter().for_each(|&node| {
+                let x = point(mesh, node);
+                (0..3).for_each(|axis| centroid[axis] += x[axis] / nodes.len() as f64)
+            });
+            faces
+                .iter()
+                .map(|&face| {
+                    let loop_nodes = &faces_nodes[face];
+                    let n = loop_nodes.len();
+                    let mut middle = [0.0; 3];
+                    loop_nodes.iter().for_each(|&node| {
+                        let x = point(mesh, node);
+                        (0..3).for_each(|axis| middle[axis] += x[axis] / n as f64)
+                    });
+                    (0..3).for_each(|axis| middle[axis] -= centroid[axis]);
+                    let volume6: f64 = (0..n)
+                        .map(|k| {
+                            let a = point(mesh, loop_nodes[k]);
+                            let b = point(mesh, loop_nodes[(k + 1) % n]);
+                            let av = [a[0] - centroid[0], a[1] - centroid[1], a[2] - centroid[2]];
+                            let bv = [b[0] - centroid[0], b[1] - centroid[1], b[2] - centroid[2]];
+                            let c = cross(av, bv);
+                            c[0] * middle[0] + c[1] * middle[1] + c[2] * middle[2]
+                        })
+                        .sum();
+                    if owner[&face] == cell {
+                        volume6
+                    } else {
+                        -volume6
+                    }
+                })
+                .sum::<f64>()
+                / 6.0
+        })
+        .collect()
+}
+
+#[test]
+fn octree_unbalanced_strict_orientation() {
+    let mut tree = octree(4);
+    tree.subdivide(0).unwrap();
+    tree.subdivide(1).unwrap();
+    let mesh = Mesh::from(tree);
+    strict_signed_volumes(&mesh)
+        .iter()
+        .for_each(|&volume| assert!(volume > 0.0, "{volume}"));
+}
+
 #[test]
 fn octree_unbalanced() {
     let mut tree = octree(4);

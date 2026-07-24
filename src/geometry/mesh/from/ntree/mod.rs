@@ -206,23 +206,30 @@ where
                         gather(tree, neighbor, facet ^ 1, &mut fine);
                         fine.into_iter().for_each(|leaf| {
                             let (fine_corner, fine_length) = corner_length(&tree.nodes[leaf]);
+                            let fine_element = element_of[leaf];
+                            let flip = if fine_element < element {
+                                side == 1
+                            } else {
+                                side == 0
+                            };
                             emit(
                                 fine_corner,
                                 fine_length,
                                 axis,
                                 plane,
-                                &[element_of[leaf], element],
-                                false,
+                                &[fine_element, element],
+                                flip,
                             )
                         })
                     } else if side == 0 {
+                        let neighbor_element = element_of[neighbor];
                         emit(
                             corner,
                             length,
                             axis,
                             plane,
-                            &[element_of[neighbor], element],
-                            false,
+                            &[neighbor_element, element],
+                            element < neighbor_element,
                         )
                     }
                 }
