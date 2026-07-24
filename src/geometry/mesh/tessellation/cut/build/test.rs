@@ -1,13 +1,10 @@
 use super::super::geometry::signed_volume;
 use super::super::test::{hexahedron, signed_volumes, sphere};
-use crate::{
-    geometry::{
-        mesh::{Connectivity, Mesh, Output, Vtk, tessellation::Tessellation},
-        ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing},
-    },
-    io::{Write, write::Compression},
+use crate::geometry::{
+    mesh::{Connectivity, Mesh},
+    ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing},
 };
-use std::{collections::HashSet, path::Path};
+use std::collections::HashSet;
 
 #[test]
 fn assemble_generic_matches_assemble_hexahedron() {
@@ -116,59 +113,4 @@ fn assemble_generic_on_octree_polyhedron() {
         }
         _ => panic!("expected a polyhedral mesh"),
     }
-}
-
-#[test]
-#[ignore = "needs bone_tri.stl at the repo root; not a committed fixture"]
-fn hex_cut_on_bone() {
-    let tessellation = Tessellation::try_from(Path::new("bone_tri.stl")).unwrap();
-    [3.0, 4.0, 8.0].into_iter().for_each(|scale| {
-        let mesh = tessellation.cut(Balancing::Strong, scale).unwrap();
-        mesh.iter().for_each(|block| {
-            if let Connectivity::Polyhedral(connectivity) = block {
-                signed_volumes(connectivity, mesh.coordinates())
-                    .iter()
-                    .for_each(|&volume| assert!(volume > 0.0, "scale {scale}: {volume}"))
-            }
-        })
-    })
-}
-
-#[test]
-#[ignore = "needs bone_tri.stl at the repo root; not a committed fixture"]
-fn assemble_generic_on_bone() {
-    let tessellation = Tessellation::try_from(Path::new("bone_tri.stl")).unwrap();
-    let mut octree =
-        Octree::<u16, usize>::from_features(&tessellation, 4.0, CurvatureSizing::default(), 2);
-    octree
-        .equilibrate(Balancing::Weak(2), Pairing::Regular)
-        .unwrap();
-    let mesh: Mesh<3> = octree.into();
-    let classes = tessellation.classify(&mesh);
-    assert!(super::super::geometry::contained(&mesh, &classes));
-    let (mesh, snapped) = tessellation.snap_generic(mesh, &classes).unwrap();
-    let tables = tessellation
-        .tables_generic(&mesh, &classes, &snapped)
-        .unwrap();
-    let result = tessellation
-        .assemble_generic(&mesh, &classes, &tables)
-        .unwrap();
-    match &result.connectivities()[0] {
-        Connectivity::Polyhedral(connectivity) => {
-            assert!(!connectivity.elements_faces().is_empty());
-            connectivity
-                .elements_faces()
-                .iter()
-                .for_each(|faces| assert!(faces.len() > 3));
-            signed_volumes(connectivity, result.coordinates())
-                .iter()
-                .for_each(|&volume| assert!(volume > 0.0, "{volume}"))
-        }
-        _ => panic!("expected a polyhedral mesh"),
-    }
-    result
-        .write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(
-            "bone_cut_generic.vtu",
-        ))))
-        .unwrap()
 }
