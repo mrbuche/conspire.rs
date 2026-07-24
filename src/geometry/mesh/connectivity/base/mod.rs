@@ -90,6 +90,32 @@ impl Connectivity {
             _ => element.to_vec(),
         }
     }
+    /// Resolves an element to its faces as global node id loops, for any
+    /// connectivity kind. The fixed-topology kinds map `local_faces()` onto
+    /// the element's nodes; polyhedral/polygonal kinds look each face index
+    /// up in the block's shared face-to-node table.
+    ///
+    /// Note the winding a polytopal block returns is only outward-correct
+    /// for the face's owning element (the lowest-indexed of the at most two
+    /// that reference it); callers needing per-element outward faces must
+    /// reverse for non-owners.
+    pub fn element_faces(&self, element: &[usize]) -> Vec<Vec<usize>> {
+        match self {
+            Connectivity::Polyhedral(connectivity) => element
+                .iter()
+                .map(|&face| connectivity.faces_nodes()[face].clone())
+                .collect(),
+            Connectivity::Polygonal(connectivity) => element
+                .iter()
+                .map(|&face| connectivity.faces_nodes()[face].clone())
+                .collect(),
+            _ => self
+                .local_faces()
+                .iter()
+                .map(|face| face.iter().map(|&local| element[local]).collect())
+                .collect(),
+        }
+    }
     pub fn abaqus_side(&self, ordinal: usize) -> usize {
         match self {
             Connectivity::Hexahedral(_) => [3, 4, 5, 6, 1, 2][ordinal],

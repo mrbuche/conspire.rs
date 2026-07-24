@@ -6,7 +6,7 @@ use crate::{
     geometry::{Coordinate, Coordinates, bvh::Hit, mesh::Mesh, mesh::tessellation::D},
     math::{CrossProduct, Scalar, Tensor},
 };
-use std::{array::from_fn, collections::HashMap};
+use std::collections::HashMap;
 
 pub(super) fn dedupe(hits: Vec<Hit>, margin: Scalar) -> Vec<Scalar> {
     let mut distances = Vec::new();
@@ -95,13 +95,12 @@ pub(super) fn signed_volume(faces: &[Vec<usize>], coordinates: &Coordinates<D>) 
 }
 
 pub(super) fn contained(mesh: &Mesh<D>, classes: &[Class]) -> bool {
-    let mut faces = HashMap::<[usize; 4], (usize, u8)>::new();
+    let mut faces = HashMap::<Vec<usize>, (usize, u8)>::new();
     let mut offset = 0;
     mesh.iter().for_each(|block| {
-        let local_faces = block.local_faces();
         block.iter().enumerate().for_each(|(local, element)| {
-            local_faces.iter().for_each(|face| {
-                let mut key = from_fn(|i| element[face[i]]);
+            block.element_faces(element).into_iter().for_each(|face| {
+                let mut key = face;
                 key.sort_unstable();
                 faces
                     .entry(key)

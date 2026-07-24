@@ -276,6 +276,17 @@ fn strict_signed_volumes(mesh: &Mesh<3>) -> Vec<f64> {
 }
 
 #[test]
+fn exterior_faces_on_polytopal() {
+    assert_eq!(Mesh::from(octree(1)).exterior_faces().len(), 6);
+    let mut tree = octree(2);
+    tree.subdivide(0).unwrap();
+    assert_eq!(Mesh::from(tree).exterior_faces().len(), 24);
+    let mut tree = quadtree(2);
+    tree.subdivide(0).unwrap();
+    assert_eq!(Mesh::from(tree).exterior_faces().len(), 8);
+}
+
+#[test]
 fn octree_unbalanced_strict_orientation() {
     let mut tree = octree(4);
     tree.subdivide(0).unwrap();

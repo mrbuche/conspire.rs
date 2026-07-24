@@ -33,17 +33,18 @@ impl<const D: usize> Mesh<D> {
     pub fn exterior_faces(&self) -> Vec<Vec<usize>> {
         let mut faces = HashMap::new();
         self.iter().for_each(|block| {
-            let local_faces = block.local_faces();
             block.iter().for_each(|element| {
-                local_faces.iter().for_each(|face| {
-                    let oriented: Vec<usize> = face.iter().map(|&local| element[local]).collect();
-                    let mut key = oriented.clone();
-                    key.sort_unstable();
-                    faces
-                        .entry(key)
-                        .and_modify(|(_, count)| *count += 1)
-                        .or_insert((oriented, 1));
-                })
+                block
+                    .element_faces(element)
+                    .into_iter()
+                    .for_each(|oriented| {
+                        let mut key = oriented.clone();
+                        key.sort_unstable();
+                        faces
+                            .entry(key)
+                            .and_modify(|(_, count)| *count += 1)
+                            .or_insert((oriented, 1));
+                    })
             })
         });
         faces

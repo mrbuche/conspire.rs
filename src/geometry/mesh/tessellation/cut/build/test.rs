@@ -88,6 +88,7 @@ fn assemble_generic_on_octree_polyhedron() {
         Connectivity::Polyhedral(connectivity) if connectivity.faces_nodes().iter().any(|face| face.len() > 4)
     ));
     let classes = tessellation.classify(&mesh);
+    assert!(super::super::geometry::contained(&mesh, &classes));
     assert!(classes.contains(&super::super::Class::Cut));
     assert!(classes.contains(&super::super::Class::Inside));
     assert!(classes.contains(&super::super::Class::Outside));
@@ -144,6 +145,7 @@ fn assemble_generic_on_bone() {
         .unwrap();
     let mesh: Mesh<3> = octree.into();
     let classes = tessellation.classify(&mesh);
+    assert!(super::super::geometry::contained(&mesh, &classes));
     let (mesh, snapped) = tessellation.snap_generic(mesh, &classes).unwrap();
     let tables = tessellation
         .tables_generic(&mesh, &classes, &snapped)

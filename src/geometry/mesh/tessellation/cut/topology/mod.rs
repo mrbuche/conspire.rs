@@ -2,21 +2,7 @@ use crate::geometry::mesh::Connectivity;
 use std::collections::HashSet;
 
 pub(super) fn element_faces(block: &Connectivity, element: &[usize]) -> Vec<Vec<usize>> {
-    match block {
-        Connectivity::Polyhedral(connectivity) => element
-            .iter()
-            .map(|&face| connectivity.faces_nodes()[face].clone())
-            .collect(),
-        Connectivity::Polygonal(connectivity) => element
-            .iter()
-            .map(|&face| connectivity.faces_nodes()[face].clone())
-            .collect(),
-        _ => block
-            .local_faces()
-            .iter()
-            .map(|face| face.iter().map(|&local| element[local]).collect())
-            .collect(),
-    }
+    block.element_faces(element)
 }
 
 /// For polyhedral/polygonal blocks, a face's stored node order is only

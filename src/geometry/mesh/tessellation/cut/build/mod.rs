@@ -150,12 +150,12 @@ fn orient_outward(polygons: &mut [Vec<usize>], clipped: usize, coordinates: &Coo
     });
 }
 
-/// The generic (arbitrary-polyhedra) analogue of `assemble()`: runs
-/// `split_cell` over every cell of the mesh, interns the results into a
-/// single polyhedral mesh, then agglomerates slivers and collapses short
-/// edges as `assemble()` does. Hex recomposition is deliberately omitted,
-/// having no purpose for polyhedral output.
 impl Tessellation {
+    /// The generic (arbitrary-polyhedra) analogue of `assemble()`: runs
+    /// `split_cell` over every cell of the mesh, interns the results into a
+    /// single polyhedral mesh, then agglomerates slivers and collapses short
+    /// edges as `assemble()` does. Hex recomposition is deliberately omitted,
+    /// having no purpose for polyhedral output.
     pub(super) fn assemble_generic(
         &self,
         mesh: &Mesh<D>,
