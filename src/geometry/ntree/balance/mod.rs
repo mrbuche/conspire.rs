@@ -3,7 +3,7 @@ pub mod quadtree;
 
 use crate::geometry::ntree::pair::Pairing;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum Balancing {
     /// Level difference of at most `n` between cells sharing a face, an edge
     /// or a vertex.

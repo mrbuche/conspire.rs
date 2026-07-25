@@ -233,3 +233,54 @@ fn cut_thin_plate() {
     let mesh = plate.cut(Balancing::Strong(1), 4.0);
     assert!(mesh.is_ok(), "{}", mesh.err().unwrap_or(""));
 }
+
+/// The polyhedral entry point over the balancings it accepts, none of which
+/// dualization would allow beyond 2:1. They coincide here: a tessellation of
+/// even thickness refines evenly, so `from_features` already returns a tree
+/// no balancing needs to touch. Whether the depths differ from one another is
+/// covered where it belongs, over deliberately unbalanced trees, in
+/// `ntree::balance`.
+#[test]
+fn cut_polyhedral_sphere() {
+    let tessellation = sphere(2);
+    let exact: f64 = tessellation
+        .mesh()
+        .connectivities()
+        .iter()
+        .flatten()
+        .map(|triangle| {
+            let coordinates = tessellation.mesh().coordinates();
+            (coordinates[triangle[0]].cross(&coordinates[triangle[1]]) * &coordinates[triangle[2]])
+                / 6.0
+        })
+        .sum();
+    [
+        Balancing::Strong(1),
+        Balancing::Strong(2),
+        Balancing::Weak(1),
+        Balancing::Weak(3),
+    ]
+    .into_iter()
+    .for_each(|balancing| {
+        let mesh = tessellation.cut_polyhedral(balancing, 4.0).unwrap();
+        assert_eq!(mesh.number_of_element_blocks(), 1);
+        match &mesh.connectivities()[0] {
+            Connectivity::Polyhedral(connectivity) => {
+                connectivity
+                    .elements_faces()
+                    .iter()
+                    .for_each(|faces| assert!(faces.len() > 3));
+                let volumes = signed_volumes(connectivity, mesh.coordinates());
+                volumes
+                    .iter()
+                    .for_each(|volume| assert!(*volume > 0.0, "{volume}"));
+                let volume: f64 = volumes.iter().sum();
+                assert!(
+                    (volume - exact).abs() / exact < 0.03,
+                    "{balancing:?}: {volume} vs {exact}"
+                )
+            }
+            _ => panic!("expected a polyhedral mesh"),
+        }
+    })
+}
