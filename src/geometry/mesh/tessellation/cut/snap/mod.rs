@@ -111,7 +111,6 @@ impl Tessellation {
     /// snap is accepted only if every retained incident cell keeps its
     /// volume-to-original ratio at or above the (softened) quality floor,
     /// mirroring the hex gate's relative-quality-drop structure.
-    #[allow(dead_code)]
     pub(super) fn snap_generic(
         &self,
         mesh: Mesh<D>,
