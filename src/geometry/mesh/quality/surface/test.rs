@@ -105,3 +105,39 @@ fn tetrahedron_vertices_are_manifold() {
     let mesh = triangles(vec![[0, 1, 2], [0, 2, 3], [0, 3, 1], [1, 3, 2]], 4);
     assert!(mesh.non_manifold_vertices().is_empty());
 }
+
+/// A polygonal block stores its edges directly rather than through a local
+/// table, which used to be unreachable here. Four quadtree cells in a square
+/// share four inner edges and leave eight on the boundary.
+#[test]
+fn polygonal_boundary_edges() {
+    use crate::geometry::ntree::{
+        Balancing, Pairing, Quadtree, Rescaling,
+        node::{Kind, Node},
+    };
+    let mut quadtree = Quadtree::<u16, usize> {
+        balanced: Balancing::None,
+        nodes: vec![Node {
+            corner: [0; 2],
+            length: 2,
+            facets: [None; 4],
+            kind: Kind::Leaf,
+            value: None,
+        }],
+        paired: Pairing::None,
+        rescale: Rescaling {
+            center: [1.0; 2],
+            cell: 1.0,
+            half: 1.0,
+        },
+    };
+    quadtree.subdivide(0).unwrap();
+    let mesh = Mesh::from(quadtree);
+    assert!(matches!(
+        &mesh.connectivities()[0],
+        Connectivity::Polygonal(_)
+    ));
+    assert_eq!(mesh.boundary_edges().len(), 8);
+    assert!(mesh.non_manifold_edges().is_empty());
+    assert_eq!(mesh.boundary_loops().len(), 1)
+}
