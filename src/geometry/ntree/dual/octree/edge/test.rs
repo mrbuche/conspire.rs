@@ -92,7 +92,7 @@ fn transition_5_fills_weak_edge_config_only() {
         "transition_5 should fill the weak-balanced edge tubes"
     );
     assert_eq!(
-        hexes(Balancing::Strong),
+        hexes(Balancing::Strong(1)),
         0,
         "transition_5 fired on the strong tree (the config should be balanced away)"
     );

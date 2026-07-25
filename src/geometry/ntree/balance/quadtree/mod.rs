@@ -7,7 +7,7 @@ use crate::geometry::ntree::{
     node::split::Split,
     pair::Pairing,
 };
-use std::{array::from_fn, ops::Add};
+use std::ops::Add;
 
 const D: usize = 2;
 const L: usize = 2;
@@ -21,16 +21,37 @@ where
     T: Copy + Into<usize>,
     U: Copy + Into<usize>,
 {
-    fn deep(&self, cell: U, face: usize, depth: usize) -> bool {
+    /// Whether `cell` is still subdivided after descending `depth` levels,
+    /// following only the children in `orthants` - those touching the shared
+    /// feature. Two children share an edge, one shares a vertex.
+    fn deep_toward(&self, cell: U, orthants: &[usize], depth: usize) -> bool {
         match self[cell].orthants() {
             None => false,
-            Some(orthants) => {
+            Some(children) => {
                 depth == 0
-                    || FACE_ORTHANTS[face]
+                    || orthants
                         .iter()
-                        .any(|&orthant| self.deep(orthants[orthant], face, depth - 1))
+                        .any(|&orthant| self.deep_toward(children[orthant], orthants, depth - 1))
             }
         }
+    }
+    fn deep(&self, cell: U, face: usize, depth: usize) -> bool {
+        self.deep_toward(cell, &FACE_ORTHANTS[face], depth)
+    }
+    /// Whether any cell sharing only a vertex with the cell across `face` is
+    /// subdivided more than `depth` levels deeper than it. A neighbour lying
+    /// in some direction touches this cell through the child whose orthant
+    /// bits are the opposite of that direction.
+    fn diagonally_deep(&self, children: &[U; N], face: usize, depth: usize) -> bool {
+        let (axis, side) = (face / 2, face % 2);
+        let other = 1 - axis;
+        (0..2).any(|beyond| {
+            let adjacent = ((1 - side) << axis) | (beyond << other);
+            self[children[adjacent]].facets()[2 * other + beyond].is_some_and(|vertex| {
+                let toward = ((1 - side) << axis) | ((1 - beyond) << other);
+                self.deep_toward(vertex, &[toward], depth - 1)
+            })
+        })
     }
 }
 
@@ -46,8 +67,6 @@ where
         let mut balanced_already = true;
         let mut index;
         let mut subdivide;
-        let mut vertices = [false; 2];
-        let strong = matches!(balancing, Balancing::Strong);
         loop {
             balanced = true;
             index = 0;
@@ -57,49 +76,17 @@ where
                     'faces: for (face, face_cell) in self[index.into()].facets().iter().enumerate()
                     {
                         if let Some(neighbor) = face_cell
-                            && let Some(kids) = self[*neighbor].orthants()
+                            && let Some(children) = self[*neighbor].orthants()
                         {
-                            if let Balancing::Weak(depth) = balancing {
-                                if self.deep(*neighbor, face, depth) {
-                                    subdivide = true;
-                                    break 'faces;
+                            let unbalanced = match balancing {
+                                Balancing::Weak(depth) => self.deep(*neighbor, face, depth),
+                                Balancing::Strong(depth) => {
+                                    self.deep(*neighbor, face, depth)
+                                        || self.diagonally_deep(children, face, depth)
                                 }
-                                continue;
-                            }
-                            if strong {
-                                vertices = from_fn(|_| false);
-                            }
-                            if match face {
-                                0 => {
-                                    if strong {
-                                        if let Some(vertex_cell) = self[kids[1]].facets()[2] {
-                                            vertices[0] = self[vertex_cell].is_tree()
-                                        }
-                                        if let Some(vertex_cell) = self[kids[3]].facets()[3] {
-                                            vertices[1] = self[vertex_cell].is_tree()
-                                        }
-                                    }
-                                    self[kids[1]].is_tree()
-                                        || self[kids[3]].is_tree()
-                                        || vertices.into_iter().any(|vertex| vertex)
-                                }
-                                1 => {
-                                    if strong {
-                                        if let Some(vertex_cell) = self[kids[0]].facets()[2] {
-                                            vertices[0] = self[vertex_cell].is_tree()
-                                        }
-                                        if let Some(vertex_cell) = self[kids[2]].facets()[3] {
-                                            vertices[1] = self[vertex_cell].is_tree()
-                                        }
-                                    }
-                                    self[kids[0]].is_tree()
-                                        || self[kids[2]].is_tree()
-                                        || vertices.into_iter().any(|vertex| vertex)
-                                }
-                                2 => self[kids[2]].is_tree() || self[kids[3]].is_tree(),
-                                3 => self[kids[0]].is_tree() || self[kids[1]].is_tree(),
-                                _ => unreachable!(),
-                            } {
+                                Balancing::None => false,
+                            };
+                            if unbalanced {
                                 subdivide = true;
                                 break 'faces;
                             }

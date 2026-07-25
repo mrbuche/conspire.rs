@@ -164,7 +164,7 @@ fn tree_refine_macros(fine_macros: &[usize]) -> Octree<u16, usize> {
         }
     }
     octree
-        .equilibrate(Balancing::Strong, Pairing::Regular)
+        .equilibrate(Balancing::Strong(1), Pairing::Regular)
         .unwrap();
     octree
 }
@@ -241,7 +241,7 @@ fn star_fires_on_synthetic_checkerboard() {
             octree.subdivide(child).unwrap();
         }
     }
-    octree.balanced = Balancing::Strong;
+    octree.balanced = Balancing::Strong(1);
     octree.paired = Pairing::Regular;
 
     let (center_nodes, coordinates, ..) = octree.initialize();

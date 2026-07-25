@@ -41,7 +41,7 @@ fn absorbs_after_balancing() {
     let mut data = vec![1u8; 64];
     data[1 + 4 + 16] = 2;
     let mut octree = Octree::<u16, usize, u8>::from(Voxels::new(data, [4, 4, 4]));
-    octree.balance(Balancing::Strong);
+    octree.balance(Balancing::Strong(1));
     octree.defeature(2);
     let back = Voxels::<u8>::from(&octree);
     assert_eq!(back.data(), [1u8; 64]);

@@ -5,7 +5,10 @@ use crate::geometry::ntree::pair::Pairing;
 
 #[derive(Clone, Copy)]
 pub enum Balancing {
-    Strong,
+    /// Level difference of at most `n` between cells sharing a face, an edge
+    /// or a vertex.
+    Strong(usize),
+    /// Level difference of at most `n` between cells sharing a face only.
     Weak(usize),
     None,
 }

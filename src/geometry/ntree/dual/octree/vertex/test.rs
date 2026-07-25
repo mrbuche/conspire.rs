@@ -161,7 +161,7 @@ fn survey(configs: &[[usize; 8]], balancing: Balancing) {
 
 #[test]
 fn survey_strong_vertex_configs() {
-    survey(&STRONG_CONFIGS, Balancing::Strong);
+    survey(&STRONG_CONFIGS, Balancing::Strong(1));
 }
 
 #[test]
@@ -328,5 +328,5 @@ fn fuzz_weak_duals() {
 
 #[test]
 fn fuzz_strong_duals() {
-    fuzz_duals(Balancing::Strong)
+    fuzz_duals(Balancing::Strong(1))
 }

@@ -179,7 +179,7 @@ fn fuzz_duals(balancing: Balancing) {
 
 #[test]
 fn fuzz_strong_duals() {
-    fuzz_duals(Balancing::Strong)
+    fuzz_duals(Balancing::Strong(1))
 }
 
 #[test]
