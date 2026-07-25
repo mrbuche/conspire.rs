@@ -16,8 +16,6 @@ use crate::{
 };
 use std::{array::from_fn, collections::HashMap, collections::HashSet};
 
-/// The generic (arbitrary-face) analogue of [`Tables`], keyed by sorted
-/// node-id `Vec<usize>` instead of the hex-only `[usize; 4]`.
 pub(super) struct GenericTables {
     signs: HashMap<usize, Sign>,
     crossings: HashMap<[usize; 2], Vec<Coordinate<D>>>,

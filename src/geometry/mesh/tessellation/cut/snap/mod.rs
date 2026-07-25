@@ -105,12 +105,6 @@ impl Tessellation {
             snapped,
         ))
     }
-    /// The generic (arbitrary-polyhedra) analogue of `snap()`. The hex path's
-    /// scaled-Jacobian quality gate doesn't generalize to arbitrary face
-    /// counts, so this instead gates on relative signed volume: a candidate
-    /// snap is accepted only if every retained incident cell keeps its
-    /// volume-to-original ratio at or above the (softened) quality floor,
-    /// mirroring the hex gate's relative-quality-drop structure.
     pub(super) fn snap_generic(
         &self,
         mesh: Mesh<D>,

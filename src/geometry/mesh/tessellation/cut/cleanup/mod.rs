@@ -11,11 +11,6 @@ use crate::{
 };
 use std::collections::{HashMap, HashSet};
 
-/// Interns `polygon` into the shared face table, returning its index and
-/// recording `cell` as its owner if this is the first reference to it.
-///
-/// A face is stored with the winding that is outward for its owner; every
-/// other referencing cell must reverse it.
 pub(super) fn intern(
     face_ids: &mut HashMap<Vec<usize>, usize>,
     faces_nodes: &mut Vec<Vec<usize>>,
@@ -32,14 +27,6 @@ pub(super) fn intern(
     })
 }
 
-/// Absorbs each cell retaining less than `SLIVER_FRACTION` of its source
-/// cell's volume into whichever live neighbour it shares the most face area
-/// with, worst sliver first. Faces common to the pair become interior and
-/// vanish; the survivor inherits ownership of the rest.
-///
-/// Returns which cells survive. Note `fractions` is not updated as cells
-/// merge, so a target that grows past the threshold can still be absorbed
-/// later in the sweep.
 pub(super) fn agglomerate(
     sets: &mut [HashSet<usize>],
     owners: &mut [usize],
@@ -118,14 +105,6 @@ pub(super) fn agglomerate(
 }
 
 impl Tessellation {
-    /// Merges clusters of near-coincident nodes, rejecting any merge that
-    /// pinches a face or moves a cell's volume by more than the collapse
-    /// bound.
-    ///
-    /// `scales` gives each cell's length yardstick (the shortest edge of its
-    /// source cell) and `whole` the nodes of cells kept intact, which are
-    /// anchored and never moved. Nodes lying on the surface keep their
-    /// position; interior survivors are reprojected onto it.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn collapse_short_edges(
         &self,

@@ -5,12 +5,6 @@ pub(super) fn element_faces(block: &Connectivity, element: &[usize]) -> Vec<Vec<
     block.element_faces(element)
 }
 
-/// For polyhedral/polygonal blocks, a face's stored node order is only
-/// outward-correct for whichever of its (at most 2) referencing elements
-/// has the smallest local element index (see `polytopes()`); every other
-/// referencer must reverse it. Returns, per face index, that owning
-/// element's local index; `None` for kind that need no such correction
-/// (primitive kinds always compute their own outward-correct face fresh).
 pub(super) fn face_owners(block: &Connectivity) -> Option<Vec<usize>> {
     let elements_faces = match block {
         Connectivity::Polyhedral(connectivity) => connectivity.elements_faces(),
@@ -30,10 +24,6 @@ pub(super) fn face_owners(block: &Connectivity) -> Option<Vec<usize>> {
     Some(owners)
 }
 
-/// `element_faces`, but with each face reversed unless `local` (this
-/// element's own local index in `block`) is its owner per `face_owners`.
-/// Use for faces taken as-is from the source mesh (untouched or unclipped
-/// cells); clipped cells already resolve their own orientation elsewhere.
 pub(super) fn oriented_element_faces(
     block: &Connectivity,
     element: &[usize],

@@ -21,9 +21,6 @@ where
     T: Copy + Into<usize>,
     U: Copy + Into<usize>,
 {
-    /// Whether `cell` is still subdivided after descending `depth` levels,
-    /// following only the children in `orthants` - those touching the shared
-    /// feature. Two children share an edge, one shares a vertex.
     fn deep_toward(&self, cell: U, orthants: &[usize], depth: usize) -> bool {
         match self[cell].orthants() {
             None => false,
@@ -38,10 +35,6 @@ where
     fn deep(&self, cell: U, face: usize, depth: usize) -> bool {
         self.deep_toward(cell, &FACE_ORTHANTS[face], depth)
     }
-    /// Whether any cell sharing only a vertex with the cell across `face` is
-    /// subdivided more than `depth` levels deeper than it. A neighbour lying
-    /// in some direction touches this cell through the child whose orthant
-    /// bits are the opposite of that direction.
     fn diagonally_deep(&self, children: &[U; N], face: usize, depth: usize) -> bool {
         let (axis, side) = (face / 2, face % 2);
         let other = 1 - axis;

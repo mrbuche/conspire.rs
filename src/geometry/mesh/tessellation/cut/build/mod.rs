@@ -22,9 +22,6 @@ use crate::{
 };
 use std::collections::{HashMap, HashSet};
 
-/// Orients newly created interior cut faces (`polygons[clipped..]`) outward
-/// from the whole cell's centroid; mirrors the hex-only `assemble()`'s
-/// equivalent step, generalized to arbitrary polygon vertex counts.
 fn orient_outward(polygons: &mut [Vec<usize>], clipped: usize, coordinates: &Coordinates<D>) {
     let mut nodes: Vec<usize> = polygons.iter().flatten().copied().collect();
     nodes.sort_unstable();
@@ -55,11 +52,6 @@ fn orient_outward(polygons: &mut [Vec<usize>], clipped: usize, coordinates: &Coo
 }
 
 impl Tessellation {
-    /// The generic (arbitrary-polyhedra) analogue of `assemble()`: runs
-    /// `split_cell` over every cell of the mesh, interns the results into a
-    /// single polyhedral mesh, then agglomerates slivers and collapses short
-    /// edges as `assemble()` does. Hex recomposition is deliberately omitted,
-    /// having no purpose for polyhedral output.
     pub(super) fn assemble_generic(
         &self,
         mesh: &Mesh<D>,
