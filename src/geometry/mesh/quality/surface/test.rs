@@ -106,9 +106,6 @@ fn tetrahedron_vertices_are_manifold() {
     assert!(mesh.non_manifold_vertices().is_empty());
 }
 
-/// A polygonal block stores its edges directly rather than through a local
-/// table, which used to be unreachable here. Four quadtree cells in a square
-/// share four inner edges and leave eight on the boundary.
 #[test]
 fn polygonal_boundary_edges() {
     use crate::geometry::ntree::{

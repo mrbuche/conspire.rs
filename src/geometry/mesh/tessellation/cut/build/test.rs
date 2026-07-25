@@ -118,7 +118,6 @@ fn assemble_generic_on_octree_polyhedron() {
     }
 }
 
-/// Enclosed volume of a closed triangulated surface.
 fn tessellation_volume(tessellation: &Tessellation) -> f64 {
     let surface = tessellation.mesh();
     surface
@@ -133,8 +132,6 @@ fn tessellation_volume(tessellation: &Tessellation) -> f64 {
         .sum()
 }
 
-/// Runs the generic pipeline and checks the invariants every stage must
-/// preserve, returning the enclosed volume of the result.
 fn generic_cut(tessellation: &Tessellation, scale: f64) -> f64 {
     let mut octree =
         Octree::<u16, usize>::from_features(tessellation, scale, CurvatureSizing::default(), 2);
@@ -182,8 +179,6 @@ fn generic_cut(tessellation: &Tessellation, scale: f64) -> f64 {
     }
 }
 
-/// A refined octahedron: planar faces meeting the grid diagonally, so the
-/// cut reproduces its volume exactly. Exercises sliver agglomeration.
 #[test]
 fn generic_cut_octahedron() {
     let tessellation = sphere(1);
@@ -195,13 +190,6 @@ fn generic_cut_octahedron() {
     );
 }
 
-/// A box, whose sharp edges and axis-aligned faces drive the paths a smooth
-/// shape never reaches: cut boundaries running along already-snapped nodes,
-/// and degenerate cells with no interior node at all.
-///
-/// Its volume is only resolution-accurate rather than exact - the error runs
-/// 8.1%, 1.6%, 0.8% at scales 4, 8, 16 - so the tolerance here is loose by
-/// necessity, and the structural invariants carry the weight.
 #[test]
 fn generic_cut_box() {
     let tessellation = box_surface([-0.7, -0.55, -0.42], [0.63, 0.48, 0.71]);

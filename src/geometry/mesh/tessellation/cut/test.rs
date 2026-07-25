@@ -234,12 +234,6 @@ fn cut_thin_plate() {
     assert!(mesh.is_ok(), "{}", mesh.err().unwrap_or(""));
 }
 
-/// The polyhedral entry point over the balancings it accepts, none of which
-/// dualization would allow beyond 2:1. They coincide here: a tessellation of
-/// even thickness refines evenly, so `from_features` already returns a tree
-/// no balancing needs to touch. Whether the depths differ from one another is
-/// covered where it belongs, over deliberately unbalanced trees, in
-/// `ntree::balance`.
 #[test]
 fn cut_polyhedral_sphere() {
     let tessellation = sphere(2);
