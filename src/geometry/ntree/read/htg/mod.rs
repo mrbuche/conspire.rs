@@ -17,7 +17,7 @@ use std::{
     array::from_fn, collections::VecDeque, fs::read_to_string, io::Result, ops::Add, path::Path,
 };
 
-pub trait ReadHtg<P>
+pub(crate) trait ReadHtg<P>
 where
     P: AsRef<Path>,
     Self: Sized,

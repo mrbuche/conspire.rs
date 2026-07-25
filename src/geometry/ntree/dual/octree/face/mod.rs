@@ -16,7 +16,7 @@ use std::array::from_fn;
 const LL: usize = L * L;
 const SCALE_1: Scalar = 0.5;
 
-pub fn face_transition<T, U>(
+pub(super) fn face_transition<T, U>(
     tree: &Octree<T, U>,
     center_nodes: &[usize],
     coordinates: &mut Coordinates<D>,

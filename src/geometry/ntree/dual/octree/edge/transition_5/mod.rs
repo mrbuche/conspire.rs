@@ -44,7 +44,7 @@ struct Config {
     ring_hi: usize,
 }
 
-pub fn template<T, U>(
+pub(super) fn template<T, U>(
     tree: &Octree<T, U>,
     center_nodes: &[usize],
     coordinates: &mut Coordinates<D>,

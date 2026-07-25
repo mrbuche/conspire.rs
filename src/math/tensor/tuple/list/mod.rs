@@ -1,5 +1,5 @@
-pub mod vec;
-pub mod vec_2d;
+pub(crate) mod vec;
+pub(crate) mod vec_2d;
 
 use crate::math::{TensorList, TensorTuple};
 

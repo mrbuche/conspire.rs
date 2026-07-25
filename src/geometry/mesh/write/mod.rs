@@ -1,11 +1,11 @@
 #[cfg(test)]
 mod test;
 
-pub mod abaqus;
+pub(super) mod abaqus;
 #[cfg(feature = "netcdf")]
-pub mod exodus;
-pub mod medit;
-pub mod vtk;
+pub(super) mod exodus;
+pub(super) mod medit;
+pub(super) mod vtk;
 
 use crate::{
     geometry::mesh::Mesh,

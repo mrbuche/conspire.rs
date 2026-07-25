@@ -9,7 +9,7 @@ use crate::{
 const D: usize = 3;
 const N: usize = 3;
 
-pub struct Jet {
+pub(crate) struct Jet {
     // Off until anisotropic remesh: the fitted surface normal, part of the
     // (u, v, n) curvature frame the per-vertex metric will need.
     // pub normal: Coordinate<D>,
@@ -17,14 +17,14 @@ pub struct Jet {
 }
 
 impl Jet {
-    pub fn max_abs_curvature(&self) -> Scalar {
+    pub(crate) fn max_abs_curvature(&self) -> Scalar {
         self.principal_curvatures[0]
             .abs()
             .max(self.principal_curvatures[1].abs())
     }
 }
 
-pub fn fit_jet(
+pub(crate) fn fit_jet(
     center: &Coordinate<D>,
     neighbors: &Coordinates<D>,
     normal_guess: &Coordinate<D>,
@@ -71,7 +71,10 @@ pub fn fit_jet(
     })
 }
 
-pub fn vertex_jets(connectivity: &[[usize; N]], coordinates: &Coordinates<D>) -> Vec<Option<Jet>> {
+pub(crate) fn vertex_jets(
+    connectivity: &[[usize; N]],
+    coordinates: &Coordinates<D>,
+) -> Vec<Option<Jet>> {
     let count = coordinates.len();
     let mut neighbors = vec![FxHashSet::default(); count];
     let mut normals = Coordinates::zero(count);

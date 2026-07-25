@@ -1,5 +1,5 @@
-pub mod octree;
-pub mod quadtree;
+pub(super) mod octree;
+pub(super) mod quadtree;
 
 use crate::geometry::ntree::pair::Pairing;
 

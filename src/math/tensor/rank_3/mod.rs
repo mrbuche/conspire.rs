@@ -56,7 +56,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize>
 /// The 3D Levi-Civita permutation tensor, configurations (1, 1, 1).
 pub const LEVI_CIVITA: TensorRank3<3, 1, 1, 1> = TensorRank3(get_levi_civita_parts());
 
-pub const fn get_identity_1010_parts<const I: usize, const J: usize, const K: usize>()
+pub(crate) const fn get_identity_1010_parts<const I: usize, const J: usize, const K: usize>()
 -> [TensorRank3<3, I, J, K>; 3] {
     [
         TensorRank3(get_identity_1010_parts_1()),

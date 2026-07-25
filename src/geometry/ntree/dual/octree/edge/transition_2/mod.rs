@@ -43,7 +43,7 @@ const EDGES: [[[usize; 13]; 2]; 6] = [
     ],
 ];
 
-pub fn template<T, U>(
+pub(super) fn template<T, U>(
     tree: &Octree<T, U>,
     center_nodes: &[usize],
     coordinates: &Coordinates<D>,

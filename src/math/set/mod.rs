@@ -1,4 +1,4 @@
-pub mod sets;
+pub(super) mod sets;
 
 use crate::math::Tensor;
 use std::vec::IntoIter;

@@ -1,5 +1,5 @@
-pub mod list;
-pub mod vec;
+pub(crate) mod list;
+pub(crate) mod vec;
 
 use crate::math::{
     Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorRank0, TensorRank2, TensorRank4,

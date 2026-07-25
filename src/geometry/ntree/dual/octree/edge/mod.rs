@@ -18,7 +18,7 @@ use crate::{
 };
 
 #[allow(clippy::too_many_arguments)]
-pub fn edge_transitions<T, U>(
+pub(super) fn edge_transitions<T, U>(
     tree: &Octree<T, U>,
     center_nodes: &[usize],
     coordinates: &mut Coordinates<D>,

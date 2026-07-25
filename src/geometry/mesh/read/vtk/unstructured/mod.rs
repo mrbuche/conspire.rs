@@ -21,7 +21,7 @@ use std::{
     path::Path,
 };
 
-pub trait ReadVtkUnstructured<P>
+pub(crate) trait ReadVtkUnstructured<P>
 where
     P: AsRef<Path>,
     Self: Sized,

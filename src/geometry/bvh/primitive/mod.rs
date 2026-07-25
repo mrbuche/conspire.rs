@@ -1,6 +1,6 @@
-pub mod base;
-pub mod from;
-pub mod into;
+pub(super) mod base;
+pub(super) mod from;
+pub(super) mod into;
 
 use crate::geometry::{Coordinate, bbox::BoundingBox};
 
@@ -10,4 +10,4 @@ pub struct Primitive<const D: usize> {
     index: usize,
 }
 
-pub type Primitives<const D: usize> = Vec<Primitive<D>>;
+pub(super) type Primitives<const D: usize> = Vec<Primitive<D>>;

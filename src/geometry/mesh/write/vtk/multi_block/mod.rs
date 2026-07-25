@@ -13,7 +13,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub trait WriteVtkMultiBlock<P>
+pub(crate) trait WriteVtkMultiBlock<P>
 where
     P: AsRef<Path>,
 {

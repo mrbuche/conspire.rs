@@ -1,11 +1,11 @@
 #[cfg(test)]
 mod test;
 
-pub mod cross;
-pub mod list;
-pub mod list_2d;
-pub mod vec;
-pub mod vec_2d;
+pub(crate) mod cross;
+pub(crate) mod list;
+pub(crate) mod list_2d;
+pub(crate) mod vec;
+pub(crate) mod vec_2d;
 
 use std::{
     array::from_fn,
@@ -217,7 +217,7 @@ impl<const D: usize, const I: usize> TensorArray for TensorRank1<D, I> {
 }
 
 /// Returns the rank-1 tensor of ones as a constant.
-pub const fn ones<const D: usize, const I: usize>() -> TensorRank1<D, I> {
+pub(crate) const fn ones<const D: usize, const I: usize>() -> TensorRank1<D, I> {
     TensorRank1([1.0; D])
 }
 

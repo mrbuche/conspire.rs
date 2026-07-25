@@ -15,7 +15,7 @@ use std::{
     str::FromStr,
 };
 
-pub trait ReadMedit<P>
+pub(crate) trait ReadMedit<P>
 where
     P: AsRef<Path>,
     Self: Sized,

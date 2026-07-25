@@ -1,7 +1,7 @@
 use crate::geometry::mesh::connectivity::{Connectivities, Connectivity, iter::ElementIter};
 use std::{fmt::Debug, num::TryFromIntError};
 
-pub trait ConnectivityImpl {
+pub(crate) trait ConnectivityImpl {
     fn is_empty(&self) -> bool;
     fn element_numbers(&self) -> Option<&[usize]>;
     fn node_element_connectivity(&self) -> &[Vec<usize>];

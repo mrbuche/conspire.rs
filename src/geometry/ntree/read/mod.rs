@@ -1,4 +1,4 @@
-pub mod htg;
+pub(super) mod htg;
 
 use crate::geometry::ntree::{Orthotree, node::split::Split};
 use std::{io::Error as ErrorIO, ops::Add, path::Path};

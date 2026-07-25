@@ -1,5 +1,5 @@
-pub mod square;
-pub mod vector;
+pub(super) mod square;
+pub(super) mod vector;
 
 use crate::math::{
     Scalar, Tensor, TensorRank1, TensorRank1Vec, TensorRank2, TensorTuple, TensorVec,

@@ -3,8 +3,8 @@ mod test;
 
 use crate::math::assert::FiniteDifference;
 
-pub mod list;
-pub mod list_2d;
+pub(crate) mod list;
+pub(crate) mod list_2d;
 
 use super::{Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, Vector};
 use std::ops::Sub;

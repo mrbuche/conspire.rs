@@ -33,7 +33,7 @@ pub(crate) struct Style {
 
 impl Style {
     /// Returns colored tokens for a terminal, or empty tokens otherwise.
-    pub fn detect() -> Self {
+    pub(crate) fn detect() -> Self {
         Self::detect_inner(var_os("NO_COLOR").is_none(), stderr().is_terminal())
     }
     fn detect_inner(no_color_unset: bool, is_terminal: bool) -> Self {

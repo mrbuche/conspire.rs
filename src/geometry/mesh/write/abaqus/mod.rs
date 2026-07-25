@@ -11,7 +11,7 @@ use std::{
     path::Path,
 };
 
-pub trait WriteAbaqus<P>
+pub(crate) trait WriteAbaqus<P>
 where
     P: AsRef<Path>,
 {

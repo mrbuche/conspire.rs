@@ -1,8 +1,8 @@
-pub mod orthants;
-pub mod split;
-pub mod subdivide;
+pub(crate) mod orthants;
+pub(crate) mod split;
+pub(crate) mod subdivide;
 
-pub enum Kind<const N: usize, U> {
+pub(crate) enum Kind<const N: usize, U> {
     Leaf,
     Tree(Orthants<N, U>),
 }
@@ -18,4 +18,4 @@ pub struct Node<const D: usize, const M: usize, const N: usize, T, U, V = ()> {
 pub type Nodes<const D: usize, const M: usize, const N: usize, T, U, V = ()> =
     Vec<Node<D, M, N, T, U, V>>;
 
-pub type Orthants<const N: usize, U> = [U; N];
+pub(crate) type Orthants<const N: usize, U> = [U; N];

@@ -4,7 +4,7 @@ use std::arch::x86_64::{
 };
 
 #[target_feature(enable = "avx2", enable = "fma")]
-pub unsafe fn axpy(target: &mut [Scalar], column: &[Scalar], w: Scalar) {
+pub(super) unsafe fn axpy(target: &mut [Scalar], column: &[Scalar], w: Scalar) {
     let len = target.len();
     let spread = _mm256_set1_pd(w);
     let mut r = 0;
@@ -26,7 +26,7 @@ pub unsafe fn axpy(target: &mut [Scalar], column: &[Scalar], w: Scalar) {
 }
 
 #[target_feature(enable = "avx2", enable = "fma")]
-pub unsafe fn rank_one_quad(
+pub(super) unsafe fn rank_one_quad(
     temp_0: &mut [Scalar],
     temp_1: &mut [Scalar],
     temp_2: &mut [Scalar],
@@ -72,7 +72,7 @@ pub unsafe fn rank_one_quad(
 
 #[allow(clippy::too_many_arguments)]
 #[target_feature(enable = "avx2", enable = "fma")]
-pub unsafe fn rank_two_quad(
+pub(super) unsafe fn rank_two_quad(
     temp_0: &mut [Scalar],
     temp_1: &mut [Scalar],
     temp_2: &mut [Scalar],

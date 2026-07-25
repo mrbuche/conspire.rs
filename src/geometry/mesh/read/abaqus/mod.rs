@@ -17,7 +17,7 @@ use std::{
     str::{FromStr, Lines},
 };
 
-pub trait ReadAbaqus<P>
+pub(crate) trait ReadAbaqus<P>
 where
     P: AsRef<Path>,
     Self: Sized,

@@ -8,7 +8,7 @@ use crate::math::{
     sparse::SparseSolver,
 };
 
-pub mod explicit;
+pub(super) mod explicit;
 // pub mod implicit;
 
 /// Integrators for explicit differential-algebraic equations using zeroth-order root-finding.

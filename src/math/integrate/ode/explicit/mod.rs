@@ -6,8 +6,8 @@ use crate::math::{
     integrate::{IntegrationError, OdeIntegrator},
 };
 
-pub mod fixed_step;
-pub mod variable_step;
+pub(crate) mod fixed_step;
+pub(crate) mod variable_step;
 
 /// Explicit integrators for ordinary differential equations.
 pub trait Explicit<Y, U>

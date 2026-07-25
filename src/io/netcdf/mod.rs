@@ -1,10 +1,10 @@
 #[cfg(test)]
 mod test;
 
-pub mod base;
-pub mod ffi;
-pub mod from;
-pub mod variable;
+pub(super) mod base;
+pub(super) mod ffi;
+pub(super) mod from;
+pub(super) mod variable;
 
 use std::{
     ffi::{NulError, c_int},

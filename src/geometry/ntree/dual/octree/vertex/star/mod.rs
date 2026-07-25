@@ -12,7 +12,7 @@ const L2: usize = 4;
 
 const WIND: [usize; N] = [0, 1, 3, 2, 4, 5, 7, 6];
 
-pub fn template<T, U>(
+pub(super) fn template<T, U>(
     tree: &Octree<T, U>,
     center_nodes: &[usize],
     connectivity: &mut Vec<[usize; N]>,

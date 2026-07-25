@@ -302,7 +302,7 @@ impl IsotensionalExtensible for ArbitraryPotentialFreelyJointedChain<Harmonic> {
     }
 }
 
-pub fn nondimensional_gibbs_free_energy_per_link(
+pub(super) fn nondimensional_gibbs_free_energy_per_link(
     eta: Scalar,
     kappa: Scalar,
     nu: Scalar,
@@ -314,7 +314,7 @@ pub fn nondimensional_gibbs_free_energy_per_link(
         - (1.0 / eta + 1.0 / c / kappa / eta.tanh()).ln())
 }
 
-pub fn nondimensional_extension(
+pub(super) fn nondimensional_extension(
     eta: Scalar,
     kappa: Scalar,
     delta_lambda: Scalar,
@@ -332,7 +332,7 @@ pub fn nondimensional_extension(
     }
 }
 
-pub fn nondimensional_compliance(
+pub(super) fn nondimensional_compliance(
     eta: Scalar,
     kappa: Scalar,
     zeta: Scalar,

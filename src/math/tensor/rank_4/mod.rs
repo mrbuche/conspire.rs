@@ -19,8 +19,8 @@ use super::{
     rank_3::{TensorRank3, get_identity_1010_parts},
 };
 
-pub mod list;
-pub mod vec;
+pub(crate) mod list;
+pub(crate) mod vec;
 
 /// A *d*-dimensional tensor of rank 4.
 ///

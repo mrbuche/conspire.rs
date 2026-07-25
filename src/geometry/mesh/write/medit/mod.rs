@@ -11,7 +11,7 @@ use std::{
     path::Path,
 };
 
-pub trait WriteMedit<P>
+pub(crate) trait WriteMedit<P>
 where
     P: AsRef<Path>,
 {

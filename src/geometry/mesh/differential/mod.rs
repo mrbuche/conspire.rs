@@ -1,2 +1,2 @@
-pub mod jet;
-pub mod laplace;
+pub(super) mod jet;
+pub(super) mod laplace;
