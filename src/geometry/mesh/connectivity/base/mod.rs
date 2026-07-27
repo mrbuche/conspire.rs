@@ -60,11 +60,6 @@ impl Connectivity {
             Connectivity::Polygonal(_) | Connectivity::Polyhedral(_) => todo!(),
         }
     }
-    /// Resolves an element (as yielded by this block's iterator) to its
-    /// unique global node ids. For the fixed-topology kinds `element` is
-    /// already the node list; for polyhedral/polygonal kinds `element` is a
-    /// list of face indices, so this looks each face up in the block's
-    /// shared face-to-node table and dedupes the union.
     pub fn element_nodes(&self, element: &[usize]) -> Vec<usize> {
         match self {
             Connectivity::Polyhedral(connectivity) => {
@@ -90,15 +85,6 @@ impl Connectivity {
             _ => element.to_vec(),
         }
     }
-    /// Resolves an element to its faces as global node id loops, for any
-    /// connectivity kind. The fixed-topology kinds map `local_faces()` onto
-    /// the element's nodes; polyhedral/polygonal kinds look each face index
-    /// up in the block's shared face-to-node table.
-    ///
-    /// Note the winding a polytopal block returns is only outward-correct
-    /// for the face's owning element (the lowest-indexed of the at most two
-    /// that reference it); callers needing per-element outward faces must
-    /// reverse for non-owners.
     pub fn element_faces(&self, element: &[usize]) -> Vec<Vec<usize>> {
         match self {
             Connectivity::Polyhedral(connectivity) => element
