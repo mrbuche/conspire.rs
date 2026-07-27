@@ -3,11 +3,11 @@ mod test;
 
 use crate::{
     geometry::{
-        Coordinate, Coordinates,
+        Coordinates,
         mesh::{Connectivity, Mesh},
         ntree::{Octree, Orthotree, Quadtree, node::Node, subdivide::insert_bit},
     },
-    math::Scalar,
+    math::{Scalar, Tensor, TensorVec},
 };
 use std::{array::from_fn, collections::HashMap};
 
@@ -98,7 +98,7 @@ where
         .enumerate()
         .for_each(|(element, &index)| element_of[index] = element);
     let mut nodes_map = HashMap::<[usize; D], usize>::new();
-    let mut coordinates = Vec::<Coordinate<D>>::new();
+    let mut coordinates = Coordinates::<D>::new();
     leaves.iter().for_each(|&index| {
         let (corner, length) = corner_length(&tree.nodes[index]);
         (0..N).for_each(|k| {
@@ -241,5 +241,5 @@ where
             }
         }
     }
-    (elements_faces, faces_nodes, coordinates.into())
+    (elements_faces, faces_nodes, coordinates)
 }
