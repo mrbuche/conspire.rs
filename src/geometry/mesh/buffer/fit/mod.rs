@@ -4,6 +4,7 @@ mod test;
 use crate::{
     geometry::{
         Coordinate, CoordinateList, Coordinates, CoordinatesRef,
+        bvh::BoundingVolumeHierarchy,
         mesh::{
             Connectivity, Mesh, Tessellation,
             quality::metrics::{chi, hexahedron::CORNERS, regularized},
@@ -33,17 +34,35 @@ const TOLERANCE: Scalar = 1.0e-3;
 const WEIGHT_FLOOR: Scalar = 0.3;
 const WINDOW: usize = 3;
 
+struct Oracle<'a> {
+    bvh: &'a BoundingVolumeHierarchy<3>,
+    coordinates: &'a Coordinates<3>,
+    elements: Vec<&'a [usize]>,
+    normals: CoordinatesRef<'a, 3>,
+}
+
+struct Sweep<'a> {
+    epsilon: Scalar,
+    hex_chunk: usize,
+    hexes: &'a [[usize; 8]],
+    lengths: Vec<Scalar>,
+    node_chunk: usize,
+    node_quads: &'a [Vec<usize>],
+    nodes: &'a [usize],
+    scales: Vec<Scalar>,
+    slot: &'a [Option<usize>],
+    targets: Vec<(Coordinate<3>, Coordinate<3>, Scalar)>,
+    tracked: &'a [usize],
+    unknowns: usize,
+}
+
 impl Mesh<3> {
     pub(super) fn fit(
         &mut self,
         nodes: &[usize],
         target: &Tessellation,
     ) -> Result<(), &'static str> {
-        let surface = target.mesh();
-        let surface_coordinates = surface.coordinates();
-        let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
-        let normals: CoordinatesRef<3> = target.normals().iter().flatten().collect();
-        let bvh = target.bvh();
+        let oracle = Oracle::new(target);
         let number_of_nodes = self.number_of_nodes();
         let mut free = vec![false; number_of_nodes];
         nodes.iter().for_each(|&node| free[node] = true);
@@ -79,7 +98,8 @@ impl Mesh<3> {
         });
         let neighbors = self.node_node_connectivity().to_vec();
         let threads = available_parallelism().map_or(1, |threads| threads.get());
-        let chunk_size = quads.len().div_ceil(threads).max(1);
+        let quad_chunk = quads.len().div_ceil(threads).max(1);
+        let hex_chunk = tracked.len().div_ceil(threads).max(1);
         let node_chunk = nodes.len().div_ceil(threads).max(1);
         let coordinates = self.coordinates.members_mut();
         let mut slot = vec![None; number_of_nodes];
@@ -92,271 +112,32 @@ impl Mesh<3> {
         let mut previous = Scalar::INFINITY;
         let mut window = VecDeque::<Scalar>::with_capacity(WINDOW);
         for sweep in 0..SWEEPS {
-            let lengths: Vec<Scalar> = (0..number_of_nodes)
-                .map(|node| {
-                    neighbors[node]
-                        .iter()
-                        .map(|&neighbor| (&coordinates[neighbor] - &coordinates[node]).norm())
-                        .sum::<Scalar>()
-                        / neighbors[node].len().max(1) as Scalar
-                })
-                .collect();
-            let scales: Vec<Scalar> = hexes
-                .iter()
-                .map(|hex| hex.iter().map(|&node| lengths[node]).sum::<Scalar>() / 8.0)
-                .collect();
-            let mut targets = vec![None; quads.len()];
-            scope(|scope| {
-                let coordinates = &*coordinates;
-                let (elements, normals) = (&elements, &normals);
-                targets
-                    .chunks_mut(chunk_size)
-                    .zip(quads.chunks(chunk_size))
-                    .for_each(|(targets, quads)| {
-                        scope.spawn(move || {
-                            targets.iter_mut().zip(quads).for_each(|(target, quad)| {
-                                let centroid = quad
-                                    .iter()
-                                    .map(|&node| &coordinates[node])
-                                    .sum::<Coordinate<3>>()
-                                    / 4.0;
-                                *target = bvh
-                                    .closest_point(&centroid, surface_coordinates, elements)
-                                    .map(|(point, index)| {
-                                        let normal = normals[index].clone();
-                                        let distance = quad
-                                            .iter()
-                                            .map(|&node| {
-                                                let deviation =
-                                                    (&coordinates[node] - &point) * &normal;
-                                                deviation * deviation
-                                            })
-                                            .fold(0.0, Scalar::max);
-                                        (point, normal, distance)
-                                    });
-                            })
-                        });
-                    });
-            });
-            let targets: Vec<(Coordinate<3>, Coordinate<3>, Scalar)> = targets
-                .into_iter()
-                .collect::<Option<_>>()
-                .ok_or("empty tessellation")?;
-            let (quality, worst) = tracked
-                .iter()
-                .map(|&hex| {
-                    let scale = scales[hex];
-                    (
-                        scale * energy(&hexes[hex], coordinates, scale.powi(3) * epsilon),
-                        determinant(&hexes[hex], coordinates) / scale.powi(3),
-                    )
-                })
-                .fold((0.0, Scalar::INFINITY), |(quality, worst), (q, d)| {
-                    (quality + q, worst.min(d))
-                });
+            let (lengths, scales) = sizes(&neighbors, &hexes, coordinates);
+            let mut state = Sweep {
+                epsilon,
+                hex_chunk,
+                hexes: &hexes,
+                lengths,
+                node_chunk,
+                node_quads: &node_quads,
+                nodes,
+                scales,
+                slot: &slot,
+                targets: oracle.targets(&quads, coordinates, quad_chunk)?,
+                tracked: &tracked,
+                unknowns,
+            };
+            let (quality, worst) = state.measure(coordinates);
             if sweep > 0 {
-                let sigma = RELAXATION.max(1.0 - quality / previous);
-                let mu = (1.0 - sigma) * chi(epsilon, worst);
-                let epsilon_2021 = if worst < mu {
-                    2.0 * (mu * (mu - worst)).sqrt()
-                } else {
-                    EPSILON_FLOOR
-                };
-                let epsilon_1999 = (1.0e-18 + (0.2 * worst).powi(2)).sqrt();
-                epsilon = epsilon_2021.min(epsilon_1999);
+                epsilon = schedule(epsilon, quality, previous, worst);
+                state.epsilon = epsilon;
             }
             previous = quality;
-            let hex_chunk = tracked.len().div_ceil(threads).max(1);
-            let (hexes_ref, scales_ref) = (&hexes, &scales);
-            let (node_quads_ref, lengths_ref) = (&node_quads, &lengths);
-            let objective = |coordinates: &Coordinates<3>| -> Scalar {
-                scope(|scope| {
-                    tracked
-                        .chunks(hex_chunk)
-                        .map(|chunk| {
-                            scope.spawn(move || {
-                                chunk
-                                    .iter()
-                                    .map(|&hex| {
-                                        scales_ref[hex]
-                                            * energy(
-                                                &hexes_ref[hex],
-                                                coordinates,
-                                                scales_ref[hex].powi(3) * epsilon,
-                                            )
-                                    })
-                                    .sum::<Scalar>()
-                            })
-                        })
-                        .collect::<Vec<_>>()
-                        .into_iter()
-                        .map(|handle| handle.join().unwrap())
-                        .sum::<Scalar>()
-                }) + scope(|scope| {
-                    let targets_ref = &targets;
-                    nodes
-                        .chunks(node_chunk)
-                        .map(|chunk| {
-                            scope.spawn(move || {
-                                chunk
-                                    .iter()
-                                    .map(|&node| {
-                                        BALANCE / lengths_ref[node]
-                                            * node_quads_ref[node]
-                                                .iter()
-                                                .map(|&quad| {
-                                                    let (point, normal, distance) =
-                                                        &targets_ref[quad];
-                                                    let weight = 1.0
-                                                        / (distance
-                                                            / (lengths_ref[node]
-                                                                * lengths_ref[node]))
-                                                            .max(WEIGHT_FLOOR);
-                                                    let deviation =
-                                                        (&coordinates[node] - point) * normal;
-                                                    weight * deviation * deviation
-                                                })
-                                                .sum::<Scalar>()
-                                    })
-                                    .sum::<Scalar>()
-                            })
-                        })
-                        .collect::<Vec<_>>()
-                        .into_iter()
-                        .map(|handle| handle.join().unwrap())
-                        .sum::<Scalar>()
-                })
-            };
-            let slot_ref = &slot;
-            let derivative = |coordinates: &Coordinates<3>| -> Vec<Scalar> {
-                let mut flat = scope(|scope| {
-                    tracked
-                        .chunks(hex_chunk)
-                        .map(|chunk| {
-                            scope.spawn(move || {
-                                let mut partial = vec![0.0; unknowns];
-                                chunk.iter().for_each(|&hex| {
-                                    let local = scatter(
-                                        &hexes_ref[hex],
-                                        coordinates,
-                                        scales_ref[hex].powi(3) * epsilon,
-                                    );
-                                    hexes_ref[hex].iter().zip(local).for_each(
-                                        |(&node, contribution)| {
-                                            if let Some(index) = slot_ref[node] {
-                                                (0..3).for_each(|ax| {
-                                                    partial[3 * index + ax] +=
-                                                        contribution[ax] * scales_ref[hex]
-                                                });
-                                            }
-                                        },
-                                    )
-                                });
-                                partial
-                            })
-                        })
-                        .collect::<Vec<_>>()
-                        .into_iter()
-                        .map(|handle| handle.join().unwrap())
-                        .fold(vec![0.0; unknowns], |mut sum, partial| {
-                            sum.iter_mut()
-                                .zip(&partial)
-                                .for_each(|(entry, term)| *entry += term);
-                            sum
-                        })
-                });
-                scope(|scope| {
-                    let targets_ref = &targets;
-                    flat.chunks_mut(3 * node_chunk)
-                        .zip(nodes.chunks(node_chunk))
-                        .for_each(|(flat_chunk, node_chunk_slice)| {
-                            scope.spawn(move || {
-                                flat_chunk.chunks_mut(3).zip(node_chunk_slice).for_each(
-                                    |(entry, &node)| {
-                                        node_quads_ref[node].iter().for_each(|&quad| {
-                                            let (point, normal, distance) = &targets_ref[quad];
-                                            let weight = 1.0
-                                                / (distance
-                                                    / (lengths_ref[node] * lengths_ref[node]))
-                                                    .max(WEIGHT_FLOOR);
-                                            let deviation = (&coordinates[node] - point) * normal;
-                                            let factor = 2.0 * BALANCE / lengths_ref[node]
-                                                * weight
-                                                * deviation;
-                                            (0..3).for_each(|ax| entry[ax] += normal[ax] * factor);
-                                        })
-                                    },
-                                );
-                            });
-                        });
-                });
-                flat
-            };
-            let typical = nodes.iter().map(|&node| lengths[node]).sum::<Scalar>()
-                / nodes.len().max(1) as Scalar;
-            let mut x: Vec<Scalar> = nodes
+            let anchor: Vec<Scalar> = nodes
                 .iter()
                 .flat_map(|&node| (0..3).map(|ax| coordinates[node][ax]).collect::<Vec<_>>())
                 .collect();
-            let anchor = x.clone();
-            let mut history = Vec::<(Vec<Scalar>, Vec<Scalar>)>::new();
-            let mut flat = derivative(coordinates);
-            let mut value = objective(coordinates);
-            let mut settled = false;
-            for iteration in 0..ITERATIONS {
-                let magnitude = norm(&flat);
-                if magnitude / norm(&x).max(1.0) < CONVERGENCE {
-                    settled = iteration == 0;
-                    break;
-                }
-                let d = direction(&flat, &history, typical / magnitude);
-                let slope = dot(&flat, &d);
-                if slope >= 0.0 {
-                    history.clear();
-                    continue;
-                }
-                let mut step = 1.0;
-                let mut accepted = None;
-                for _ in 0..BACKTRACKS {
-                    nodes.iter().enumerate().for_each(|(index, &node)| {
-                        (0..3).for_each(|ax| {
-                            coordinates[node][ax] = x[3 * index + ax] + step * d[3 * index + ax]
-                        })
-                    });
-                    let trial = objective(coordinates);
-                    if trial <= value + ARMIJO * step * slope {
-                        accepted = Some(trial);
-                        break;
-                    }
-                    step *= 0.5;
-                }
-                let Some(trial) = accepted else {
-                    nodes.iter().enumerate().for_each(|(index, &node)| {
-                        (0..3).for_each(|ax| coordinates[node][ax] = x[3 * index + ax])
-                    });
-                    if history.is_empty() {
-                        break;
-                    }
-                    history.clear();
-                    continue;
-                };
-                let s: Vec<Scalar> = d.iter().map(|entry| entry * step).collect();
-                x.iter_mut().zip(&s).for_each(|(entry, si)| *entry += si);
-                let updated = derivative(coordinates);
-                let y: Vec<Scalar> = updated
-                    .iter()
-                    .zip(&flat)
-                    .map(|(new, old)| new - old)
-                    .collect();
-                if dot(&s, &y) > CURVATURE_FLOOR * norm(&s) * norm(&y) {
-                    if history.len() == HISTORY {
-                        history.remove(0);
-                    }
-                    history.push((s, y));
-                }
-                flat = updated;
-                value = trial;
-            }
+            let (x, value, settled) = state.minimize(coordinates);
             let shift = nodes
                 .iter()
                 .enumerate()
@@ -365,7 +146,7 @@ impl Mesh<3> {
                         .map(|ax| (x[3 * index + ax] - anchor[3 * index + ax]).powi(2))
                         .sum::<Scalar>()
                         .sqrt()
-                        / lengths[node]
+                        / state.lengths[node]
                 })
                 .fold(0.0, Scalar::max);
             let stagnant = window.len() == WINDOW
@@ -382,6 +163,299 @@ impl Mesh<3> {
         }
         Ok(())
     }
+}
+
+impl<'a> Oracle<'a> {
+    fn new(target: &'a Tessellation) -> Self {
+        let surface = target.mesh();
+        Self {
+            bvh: target.bvh(),
+            coordinates: surface.coordinates(),
+            elements: surface.connectivities().iter().flatten().collect(),
+            normals: target.normals().iter().flatten().collect(),
+        }
+    }
+    fn targets(
+        &self,
+        quads: &[[usize; 4]],
+        coordinates: &Coordinates<3>,
+        chunk: usize,
+    ) -> Result<Vec<(Coordinate<3>, Coordinate<3>, Scalar)>, &'static str> {
+        let mut targets = vec![None; quads.len()];
+        scope(|scope| {
+            targets
+                .chunks_mut(chunk)
+                .zip(quads.chunks(chunk))
+                .for_each(|(targets, quads)| {
+                    scope.spawn(move || {
+                        targets.iter_mut().zip(quads).for_each(|(target, quad)| {
+                            let centroid = quad
+                                .iter()
+                                .map(|&node| &coordinates[node])
+                                .sum::<Coordinate<3>>()
+                                / 4.0;
+                            *target = self
+                                .bvh
+                                .closest_point(&centroid, self.coordinates, &self.elements)
+                                .map(|(point, index)| {
+                                    let normal = self.normals[index].clone();
+                                    let distance = quad
+                                        .iter()
+                                        .map(|&node| {
+                                            let deviation = (&coordinates[node] - &point) * &normal;
+                                            deviation * deviation
+                                        })
+                                        .fold(0.0, Scalar::max);
+                                    (point, normal, distance)
+                                });
+                        })
+                    });
+                });
+        });
+        targets
+            .into_iter()
+            .collect::<Option<_>>()
+            .ok_or("empty tessellation")
+    }
+}
+
+impl Sweep<'_> {
+    fn measure(&self, coordinates: &Coordinates<3>) -> (Scalar, Scalar) {
+        self.tracked
+            .iter()
+            .map(|&hex| {
+                let scale = self.scales[hex];
+                (
+                    scale * energy(&self.hexes[hex], coordinates, scale.powi(3) * self.epsilon),
+                    determinant(&self.hexes[hex], coordinates) / scale.powi(3),
+                )
+            })
+            .fold((0.0, Scalar::INFINITY), |(quality, worst), (q, d)| {
+                (quality + q, worst.min(d))
+            })
+    }
+    fn objective(&self, coordinates: &Coordinates<3>) -> Scalar {
+        scope(|scope| {
+            self.tracked
+                .chunks(self.hex_chunk)
+                .map(|chunk| {
+                    scope.spawn(move || {
+                        chunk
+                            .iter()
+                            .map(|&hex| {
+                                self.scales[hex]
+                                    * energy(
+                                        &self.hexes[hex],
+                                        coordinates,
+                                        self.scales[hex].powi(3) * self.epsilon,
+                                    )
+                            })
+                            .sum::<Scalar>()
+                    })
+                })
+                .collect::<Vec<_>>()
+                .into_iter()
+                .map(|handle| handle.join().unwrap())
+                .sum::<Scalar>()
+        }) + scope(|scope| {
+            self.nodes
+                .chunks(self.node_chunk)
+                .map(|chunk| {
+                    scope.spawn(move || {
+                        chunk
+                            .iter()
+                            .map(|&node| {
+                                BALANCE / self.lengths[node]
+                                    * self.node_quads[node]
+                                        .iter()
+                                        .map(|&quad| {
+                                            let (point, normal, distance) = &self.targets[quad];
+                                            let weight = 1.0
+                                                / (distance
+                                                    / (self.lengths[node] * self.lengths[node]))
+                                                    .max(WEIGHT_FLOOR);
+                                            let deviation = (&coordinates[node] - point) * normal;
+                                            weight * deviation * deviation
+                                        })
+                                        .sum::<Scalar>()
+                            })
+                            .sum::<Scalar>()
+                    })
+                })
+                .collect::<Vec<_>>()
+                .into_iter()
+                .map(|handle| handle.join().unwrap())
+                .sum::<Scalar>()
+        })
+    }
+    fn derivative(&self, coordinates: &Coordinates<3>) -> Vec<Scalar> {
+        let mut flat = scope(|scope| {
+            self.tracked
+                .chunks(self.hex_chunk)
+                .map(|chunk| {
+                    scope.spawn(move || {
+                        let mut partial = vec![0.0; self.unknowns];
+                        chunk.iter().for_each(|&hex| {
+                            let local = scatter(
+                                &self.hexes[hex],
+                                coordinates,
+                                self.scales[hex].powi(3) * self.epsilon,
+                            );
+                            self.hexes[hex]
+                                .iter()
+                                .zip(local)
+                                .for_each(|(&node, contribution)| {
+                                    if let Some(index) = self.slot[node] {
+                                        (0..3).for_each(|ax| {
+                                            partial[3 * index + ax] +=
+                                                contribution[ax] * self.scales[hex]
+                                        });
+                                    }
+                                })
+                        });
+                        partial
+                    })
+                })
+                .collect::<Vec<_>>()
+                .into_iter()
+                .map(|handle| handle.join().unwrap())
+                .fold(vec![0.0; self.unknowns], |mut sum, partial| {
+                    sum.iter_mut()
+                        .zip(&partial)
+                        .for_each(|(entry, term)| *entry += term);
+                    sum
+                })
+        });
+        scope(|scope| {
+            flat.chunks_mut(3 * self.node_chunk)
+                .zip(self.nodes.chunks(self.node_chunk))
+                .for_each(|(flat_chunk, node_chunk)| {
+                    scope.spawn(move || {
+                        flat_chunk
+                            .chunks_mut(3)
+                            .zip(node_chunk)
+                            .for_each(|(entry, &node)| {
+                                self.node_quads[node].iter().for_each(|&quad| {
+                                    let (point, normal, distance) = &self.targets[quad];
+                                    let weight = 1.0
+                                        / (distance / (self.lengths[node] * self.lengths[node]))
+                                            .max(WEIGHT_FLOOR);
+                                    let deviation = (&coordinates[node] - point) * normal;
+                                    let factor =
+                                        2.0 * BALANCE / self.lengths[node] * weight * deviation;
+                                    (0..3).for_each(|ax| entry[ax] += normal[ax] * factor);
+                                })
+                            });
+                    });
+                });
+        });
+        flat
+    }
+    fn minimize(&self, coordinates: &mut Coordinates<3>) -> (Vec<Scalar>, Scalar, bool) {
+        let typical = self
+            .nodes
+            .iter()
+            .map(|&node| self.lengths[node])
+            .sum::<Scalar>()
+            / self.nodes.len().max(1) as Scalar;
+        let mut x: Vec<Scalar> = self
+            .nodes
+            .iter()
+            .flat_map(|&node| (0..3).map(|ax| coordinates[node][ax]).collect::<Vec<_>>())
+            .collect();
+        let mut history = Vec::<(Vec<Scalar>, Vec<Scalar>)>::new();
+        let mut flat = self.derivative(coordinates);
+        let mut value = self.objective(coordinates);
+        let mut settled = false;
+        for iteration in 0..ITERATIONS {
+            let magnitude = norm(&flat);
+            if magnitude / norm(&x).max(1.0) < CONVERGENCE {
+                settled = iteration == 0;
+                break;
+            }
+            let d = direction(&flat, &history, typical / magnitude);
+            let slope = dot(&flat, &d);
+            if slope >= 0.0 {
+                history.clear();
+                continue;
+            }
+            let mut step = 1.0;
+            let mut accepted = None;
+            for _ in 0..BACKTRACKS {
+                self.nodes.iter().enumerate().for_each(|(index, &node)| {
+                    (0..3).for_each(|ax| {
+                        coordinates[node][ax] = x[3 * index + ax] + step * d[3 * index + ax]
+                    })
+                });
+                let trial = self.objective(coordinates);
+                if trial <= value + ARMIJO * step * slope {
+                    accepted = Some(trial);
+                    break;
+                }
+                step *= 0.5;
+            }
+            let Some(trial) = accepted else {
+                self.nodes.iter().enumerate().for_each(|(index, &node)| {
+                    (0..3).for_each(|ax| coordinates[node][ax] = x[3 * index + ax])
+                });
+                if history.is_empty() {
+                    break;
+                }
+                history.clear();
+                continue;
+            };
+            let s: Vec<Scalar> = d.iter().map(|entry| entry * step).collect();
+            x.iter_mut().zip(&s).for_each(|(entry, si)| *entry += si);
+            let updated = self.derivative(coordinates);
+            let y: Vec<Scalar> = updated
+                .iter()
+                .zip(&flat)
+                .map(|(new, old)| new - old)
+                .collect();
+            if dot(&s, &y) > CURVATURE_FLOOR * norm(&s) * norm(&y) {
+                if history.len() == HISTORY {
+                    history.remove(0);
+                }
+                history.push((s, y));
+            }
+            flat = updated;
+            value = trial;
+        }
+        (x, value, settled)
+    }
+}
+
+fn sizes(
+    neighbors: &[Vec<usize>],
+    hexes: &[[usize; 8]],
+    coordinates: &Coordinates<3>,
+) -> (Vec<Scalar>, Vec<Scalar>) {
+    let lengths: Vec<Scalar> = (0..coordinates.len())
+        .map(|node| {
+            neighbors[node]
+                .iter()
+                .map(|&neighbor| (&coordinates[neighbor] - &coordinates[node]).norm())
+                .sum::<Scalar>()
+                / neighbors[node].len().max(1) as Scalar
+        })
+        .collect();
+    let scales = hexes
+        .iter()
+        .map(|hex| hex.iter().map(|&node| lengths[node]).sum::<Scalar>() / 8.0)
+        .collect();
+    (lengths, scales)
+}
+
+fn schedule(epsilon: Scalar, quality: Scalar, previous: Scalar, worst: Scalar) -> Scalar {
+    let sigma = RELAXATION.max(1.0 - quality / previous);
+    let mu = (1.0 - sigma) * chi(epsilon, worst);
+    let epsilon_2021 = if worst < mu {
+        2.0 * (mu * (mu - worst)).sqrt()
+    } else {
+        EPSILON_FLOOR
+    };
+    let epsilon_1999 = (1.0e-18 + (0.2 * worst).powi(2)).sqrt();
+    epsilon_2021.min(epsilon_1999)
 }
 
 fn dot(a: &[Scalar], b: &[Scalar]) -> Scalar {
