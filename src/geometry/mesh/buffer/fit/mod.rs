@@ -107,7 +107,7 @@ impl Mesh<3> {
             .iter()
             .enumerate()
             .for_each(|(index, &node)| slot[node] = Some(index));
-        let unknowns = 3 * nodes.len();
+        let unknowns = nodes.len();
         let mut epsilon: Scalar = 1.0;
         let mut previous = Scalar::INFINITY;
         let mut window = VecDeque::<Scalar>::with_capacity(WINDOW);
@@ -133,21 +133,15 @@ impl Mesh<3> {
                 state.epsilon = epsilon;
             }
             previous = quality;
-            let anchor: Vec<Scalar> = nodes
+            let anchor: Coordinates<3> = nodes
                 .iter()
-                .flat_map(|&node| (0..3).map(|ax| coordinates[node][ax]).collect::<Vec<_>>())
+                .map(|&node| coordinates[node].clone())
                 .collect();
             let (x, value, settled) = state.minimize(coordinates);
             let shift = nodes
                 .iter()
                 .enumerate()
-                .map(|(index, &node)| {
-                    (0..3)
-                        .map(|ax| (x[3 * index + ax] - anchor[3 * index + ax]).powi(2))
-                        .sum::<Scalar>()
-                        .sqrt()
-                        / state.lengths[node]
-                })
+                .map(|(index, &node)| (&x[index] - &anchor[index]).norm() / state.lengths[node])
                 .fold(0.0, Scalar::max);
             let stagnant = window.len() == WINDOW
                 && window.iter().fold(value, |high, &entry| high.max(entry))
@@ -288,13 +282,13 @@ impl Sweep<'_> {
                 .sum::<Scalar>()
         })
     }
-    fn derivative(&self, coordinates: &Coordinates<3>) -> Vec<Scalar> {
-        let mut flat = scope(|scope| {
+    fn derivative(&self, coordinates: &Coordinates<3>) -> Coordinates<3> {
+        let mut gradient = scope(|scope| {
             self.tracked
                 .chunks(self.hex_chunk)
                 .map(|chunk| {
                     scope.spawn(move || {
-                        let mut partial = vec![0.0; self.unknowns];
+                        let mut partial = self.empty();
                         chunk.iter().for_each(|&hex| {
                             let local = scatter(
                                 &self.hexes[hex],
@@ -306,10 +300,7 @@ impl Sweep<'_> {
                                 .zip(local)
                                 .for_each(|(&node, contribution)| {
                                     if let Some(index) = self.slot[node] {
-                                        (0..3).for_each(|ax| {
-                                            partial[3 * index + ax] +=
-                                                contribution[ax] * self.scales[hex]
-                                        });
+                                        partial[index] += contribution * self.scales[hex]
                                     }
                                 })
                         });
@@ -319,62 +310,64 @@ impl Sweep<'_> {
                 .collect::<Vec<_>>()
                 .into_iter()
                 .map(|handle| handle.join().unwrap())
-                .fold(vec![0.0; self.unknowns], |mut sum, partial| {
-                    sum.iter_mut()
-                        .zip(&partial)
-                        .for_each(|(entry, term)| *entry += term);
+                .fold(self.empty(), |mut sum, partial| {
+                    sum += &partial;
                     sum
                 })
         });
         scope(|scope| {
-            flat.chunks_mut(3 * self.node_chunk)
+            gradient
+                .as_mut_slice()
+                .chunks_mut(self.node_chunk)
                 .zip(self.nodes.chunks(self.node_chunk))
-                .for_each(|(flat_chunk, node_chunk)| {
+                .for_each(|(entries, nodes)| {
                     scope.spawn(move || {
-                        flat_chunk
-                            .chunks_mut(3)
-                            .zip(node_chunk)
-                            .for_each(|(entry, &node)| {
-                                self.node_quads[node].iter().for_each(|&quad| {
-                                    let (point, normal, distance) = &self.targets[quad];
-                                    let weight = 1.0
-                                        / (distance / (self.lengths[node] * self.lengths[node]))
-                                            .max(WEIGHT_FLOOR);
-                                    let deviation = (&coordinates[node] - point) * normal;
-                                    let factor =
-                                        2.0 * BALANCE / self.lengths[node] * weight * deviation;
-                                    (0..3).for_each(|ax| entry[ax] += normal[ax] * factor);
-                                })
-                            });
+                        entries.iter_mut().zip(nodes).for_each(|(entry, &node)| {
+                            self.node_quads[node].iter().for_each(|&quad| {
+                                let (point, normal, distance) = &self.targets[quad];
+                                let weight = 1.0
+                                    / (distance / (self.lengths[node] * self.lengths[node]))
+                                        .max(WEIGHT_FLOOR);
+                                let deviation = (&coordinates[node] - point) * normal;
+                                let factor =
+                                    2.0 * BALANCE / self.lengths[node] * weight * deviation;
+                                *entry += normal * factor
+                            })
+                        });
                     });
                 });
         });
-        flat
+        gradient
     }
-    fn minimize(&self, coordinates: &mut Coordinates<3>) -> (Vec<Scalar>, Scalar, bool) {
+    fn empty(&self) -> Coordinates<3> {
+        (0..self.unknowns)
+            .map(|_| Coordinate::const_from([0.0; 3]))
+            .collect()
+    }
+    fn minimize(&self, coordinates: &mut Coordinates<3>) -> (Coordinates<3>, Scalar, bool) {
         let typical = self
             .nodes
             .iter()
             .map(|&node| self.lengths[node])
             .sum::<Scalar>()
             / self.nodes.len().max(1) as Scalar;
-        let mut x: Vec<Scalar> = self
+        let mut x: Coordinates<3> = self
             .nodes
             .iter()
-            .flat_map(|&node| (0..3).map(|ax| coordinates[node][ax]).collect::<Vec<_>>())
+            .map(|&node| coordinates[node].clone())
             .collect();
-        let mut history = Vec::<(Vec<Scalar>, Vec<Scalar>)>::new();
-        let mut flat = self.derivative(coordinates);
+        let mut history = Vec::<(Coordinates<3>, Coordinates<3>)>::new();
+        let mut gradient = self.derivative(coordinates);
         let mut value = self.objective(coordinates);
         let mut settled = false;
         for iteration in 0..ITERATIONS {
-            let magnitude = norm(&flat);
-            if magnitude / norm(&x).max(1.0) < CONVERGENCE {
+            let magnitude = gradient.norm();
+            if magnitude / x.norm().max(1.0) < CONVERGENCE {
                 settled = iteration == 0;
                 break;
             }
-            let d = direction(&flat, &history, typical / magnitude);
-            let slope = dot(&flat, &d);
+            let d = direction(&gradient, &history, typical / magnitude);
+            let slope = gradient.full_contraction(&d);
             if slope >= 0.0 {
                 history.clear();
                 continue;
@@ -382,11 +375,10 @@ impl Sweep<'_> {
             let mut step = 1.0;
             let mut accepted = None;
             for _ in 0..BACKTRACKS {
-                self.nodes.iter().enumerate().for_each(|(index, &node)| {
-                    (0..3).for_each(|ax| {
-                        coordinates[node][ax] = x[3 * index + ax] + step * d[3 * index + ax]
-                    })
-                });
+                self.nodes
+                    .iter()
+                    .enumerate()
+                    .for_each(|(index, &node)| coordinates[node] = &x[index] + &d[index] * step);
                 let trial = self.objective(coordinates);
                 if trial <= value + ARMIJO * step * slope {
                     accepted = Some(trial);
@@ -395,30 +387,31 @@ impl Sweep<'_> {
                 step *= 0.5;
             }
             let Some(trial) = accepted else {
-                self.nodes.iter().enumerate().for_each(|(index, &node)| {
-                    (0..3).for_each(|ax| coordinates[node][ax] = x[3 * index + ax])
-                });
+                self.nodes
+                    .iter()
+                    .enumerate()
+                    .for_each(|(index, &node)| coordinates[node] = x[index].clone());
                 if history.is_empty() {
                     break;
                 }
                 history.clear();
                 continue;
             };
-            let s: Vec<Scalar> = d.iter().map(|entry| entry * step).collect();
-            x.iter_mut().zip(&s).for_each(|(entry, si)| *entry += si);
+            let s: Coordinates<3> = d.iter().map(|entry| entry * step).collect();
+            x += &s;
             let updated = self.derivative(coordinates);
-            let y: Vec<Scalar> = updated
+            let y: Coordinates<3> = updated
                 .iter()
-                .zip(&flat)
+                .zip(gradient.iter())
                 .map(|(new, old)| new - old)
                 .collect();
-            if dot(&s, &y) > CURVATURE_FLOOR * norm(&s) * norm(&y) {
+            if s.full_contraction(&y) > CURVATURE_FLOOR * s.norm() * y.norm() {
                 if history.len() == HISTORY {
                     history.remove(0);
                 }
                 history.push((s, y));
             }
-            flat = updated;
+            gradient = updated;
             value = trial;
         }
         (x, value, settled)
@@ -458,40 +451,31 @@ fn schedule(epsilon: Scalar, quality: Scalar, previous: Scalar, worst: Scalar) -
     epsilon_2021.min(epsilon_1999)
 }
 
-fn dot(a: &[Scalar], b: &[Scalar]) -> Scalar {
-    a.iter().zip(b).map(|(ai, bi)| ai * bi).sum()
-}
-
-fn norm(a: &[Scalar]) -> Scalar {
-    dot(a, a).sqrt()
-}
-
 fn direction(
-    gradient: &[Scalar],
-    history: &[(Vec<Scalar>, Vec<Scalar>)],
+    gradient: &Coordinates<3>,
+    history: &[(Coordinates<3>, Coordinates<3>)],
     fallback: Scalar,
-) -> Vec<Scalar> {
-    let mut q = gradient.to_vec();
+) -> Coordinates<3> {
+    let mut q = gradient.clone();
     let mut alphas = vec![0.0; history.len()];
     let mut rhos = vec![0.0; history.len()];
     history.iter().enumerate().rev().for_each(|(k, (s, y))| {
-        rhos[k] = 1.0 / dot(y, s);
-        alphas[k] = rhos[k] * dot(s, &q);
+        rhos[k] = 1.0 / y.full_contraction(s);
+        alphas[k] = rhos[k] * s.full_contraction(&q);
         q.iter_mut()
-            .zip(y)
-            .for_each(|(qi, yi)| *qi -= alphas[k] * yi);
+            .zip(y.iter())
+            .for_each(|(qi, yi)| *qi -= yi * alphas[k]);
     });
-    let gamma = history
-        .last()
-        .map_or(fallback, |(s, y)| dot(s, y) / dot(y, y));
-    q.iter_mut().for_each(|qi| *qi *= gamma);
+    q *= history.last().map_or(fallback, |(s, y)| {
+        s.full_contraction(y) / y.full_contraction(y)
+    });
     history.iter().enumerate().for_each(|(k, (s, y))| {
-        let beta = rhos[k] * dot(y, &q);
+        let beta = rhos[k] * y.full_contraction(&q);
         q.iter_mut()
-            .zip(s)
-            .for_each(|(qi, si)| *qi += (alphas[k] - beta) * si);
+            .zip(s.iter())
+            .for_each(|(qi, si)| *qi += si * (alphas[k] - beta));
     });
-    q.iter_mut().for_each(|qi| *qi = -*qi);
+    q *= -1.0;
     q
 }
 
