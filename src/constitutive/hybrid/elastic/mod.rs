@@ -1,5 +1,5 @@
 #[cfg(test)]
 mod test;
 
-pub mod additive;
-pub mod multiplicative;
+pub(super) mod additive;
+pub(super) mod multiplicative;

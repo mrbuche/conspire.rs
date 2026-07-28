@@ -1,7 +1,7 @@
 //! Solid-thermal constitutive models.
 
-pub mod thermoelastic_thermal_conduction;
-pub mod thermohyperelastic_thermal_conduction;
+pub(super) mod thermoelastic_thermal_conduction;
+pub(super) mod thermohyperelastic_thermal_conduction;
 
 use super::{
     super::{solid::Solid, thermal::Thermal},

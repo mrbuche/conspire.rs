@@ -1,7 +1,7 @@
 use crate::geometry::mesh::connectivity::{Connectivities, Connectivity, iter::ElementIter};
 use std::{fmt::Debug, num::TryFromIntError};
 
-pub trait ConnectivityImpl {
+pub(crate) trait ConnectivityImpl {
     fn is_empty(&self) -> bool;
     fn element_numbers(&self) -> Option<&[usize]>;
     fn node_element_connectivity(&self) -> &[Vec<usize>];
@@ -58,6 +58,48 @@ impl Connectivity {
             Connectivity::Quadrilateral(_) => &[&[0, 1], &[1, 2], &[2, 3], &[3, 0]],
             Connectivity::Triangular(_) => &[&[0, 1], &[1, 2], &[2, 0]],
             Connectivity::Polygonal(_) | Connectivity::Polyhedral(_) => todo!(),
+        }
+    }
+    pub fn element_nodes(&self, element: &[usize]) -> Vec<usize> {
+        match self {
+            Connectivity::Polyhedral(connectivity) => {
+                let faces_nodes = connectivity.faces_nodes();
+                let mut nodes: Vec<usize> = element
+                    .iter()
+                    .flat_map(|&face| faces_nodes[face].iter().copied())
+                    .collect();
+                nodes.sort_unstable();
+                nodes.dedup();
+                nodes
+            }
+            Connectivity::Polygonal(connectivity) => {
+                let faces_nodes = connectivity.faces_nodes();
+                let mut nodes: Vec<usize> = element
+                    .iter()
+                    .flat_map(|&face| faces_nodes[face].iter().copied())
+                    .collect();
+                nodes.sort_unstable();
+                nodes.dedup();
+                nodes
+            }
+            _ => element.to_vec(),
+        }
+    }
+    pub fn element_faces(&self, element: &[usize]) -> Vec<Vec<usize>> {
+        match self {
+            Connectivity::Polyhedral(connectivity) => element
+                .iter()
+                .map(|&face| connectivity.faces_nodes()[face].clone())
+                .collect(),
+            Connectivity::Polygonal(connectivity) => element
+                .iter()
+                .map(|&face| connectivity.faces_nodes()[face].clone())
+                .collect(),
+            _ => self
+                .local_faces()
+                .iter()
+                .map(|face| face.iter().map(|&local| element[local]).collect())
+                .collect(),
         }
     }
     pub fn abaqus_side(&self, ordinal: usize) -> usize {

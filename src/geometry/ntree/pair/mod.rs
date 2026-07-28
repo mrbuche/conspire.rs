@@ -1,10 +1,14 @@
 use crate::geometry::ntree::{Orthotree, node::split::Split};
 use std::ops::Add;
 
+/// Constraint on how the orthants of a node may mix leaves and subtrees.
 #[derive(Clone, Copy)]
 pub enum Pairing {
+    /// Orthants may mix, provided the resulting nodes admit a valid dual.
     Generalized,
+    /// Orthants must be either all leaves or all subtrees.
     Regular,
+    /// Orthants may mix freely.
     None,
 }
 

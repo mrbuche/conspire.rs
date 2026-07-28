@@ -1,12 +1,12 @@
-pub mod list;
-pub mod norm;
-pub mod rank_0;
-pub mod rank_1;
-pub mod rank_2;
-pub mod rank_3;
-pub mod rank_4;
-pub mod tuple;
-pub mod vec;
+pub(super) mod list;
+pub(super) mod norm;
+pub(super) mod rank_0;
+pub(super) mod rank_1;
+pub(super) mod rank_2;
+pub(super) mod rank_3;
+pub(super) mod rank_4;
+pub(super) mod tuple;
+pub(super) mod vec;
 
 pub use norm::Norm;
 

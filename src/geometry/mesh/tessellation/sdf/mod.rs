@@ -8,7 +8,7 @@ use std::{
 };
 
 use crate::{
-    geometry::{Coordinate, mesh::tessellation::Tessellation},
+    geometry::{Coordinate, CoordinatesRef, mesh::tessellation::Tessellation},
     math::{Scalar, Tensor, Vector},
 };
 
@@ -24,7 +24,7 @@ impl Tessellation {
         let elements: Vec<&[usize]> = mesh.connectivities().iter().flatten().collect();
         let coordinates = mesh.coordinates();
         let centroids = mesh.centroids();
-        let normals: Vec<&Coordinate<3>> = self.normals.iter().flatten().collect();
+        let normals: CoordinatesRef<'_, 3> = self.normals.iter().flatten().collect();
         let number_of_faces = normals.len();
         let mut face_diameters = vec![0.0; number_of_faces];
         let threads = available_parallelism().map_or(1, |threads| threads.get());
@@ -43,7 +43,7 @@ impl Tessellation {
                             .for_each(|(local, diameter)| {
                                 let face = offset + local;
                                 let samples =
-                                    cone_directions(&-normals[face], half_angle, rings, azimuthal)
+                                    cone_directions(&-&normals[face], half_angle, rings, azimuthal)
                                         .into_iter()
                                         .filter_map(|(direction, weight)| {
                                             let ray = (centroids[face].clone(), direction).into();

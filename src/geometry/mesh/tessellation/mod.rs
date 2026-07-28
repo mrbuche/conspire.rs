@@ -1,11 +1,11 @@
-pub mod base;
-pub mod cut;
-pub mod dual;
-pub mod from;
-pub mod into;
-pub mod read;
-pub mod sdf;
-pub mod write;
+pub(super) mod base;
+pub(super) mod cut;
+pub(super) mod dual;
+pub(super) mod from;
+pub(super) mod into;
+pub(super) mod read;
+pub(super) mod sdf;
+pub(super) mod write;
 
 use crate::{
     geometry::{bvh::BoundingVolumeHierarchy, mesh::Mesh},

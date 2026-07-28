@@ -1,7 +1,7 @@
-pub mod base;
-pub mod iter;
-pub mod polytopal;
-pub mod primitive;
+pub(super) mod base;
+pub(super) mod iter;
+pub(super) mod polytopal;
+pub(super) mod primitive;
 
 use crate::{
     geometry::mesh::connectivity::{

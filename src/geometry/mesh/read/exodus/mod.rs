@@ -11,7 +11,7 @@ use crate::{
 };
 use std::{array::from_fn, collections::HashMap, ffi::NulError, path::Path};
 
-pub trait ReadExodus<P>
+pub(crate) trait ReadExodus<P>
 where
     P: AsRef<Path>,
     Self: Sized,

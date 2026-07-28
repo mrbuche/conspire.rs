@@ -60,7 +60,7 @@ pub(super) fn dual(tessellation: &Tessellation, scale: f64) -> Mesh<3> {
     let mut octree =
         Octree::<u16, usize>::from_features(tessellation, scale, CurvatureSizing::default(), 2);
     octree
-        .equilibrate(Balancing::Strong, Pairing::Regular)
+        .equilibrate(Balancing::Strong(1), Pairing::Regular)
         .unwrap();
     octree.dualize()
 }
@@ -172,7 +172,7 @@ pub(super) fn hexahedron(minimum: [f64; 3], maximum: [f64; 3]) -> Mesh<3> {
 #[test]
 fn cut_sphere() {
     let tessellation = sphere(3);
-    let mesh = tessellation.cut(Balancing::Strong, 8.0).unwrap();
+    let mesh = tessellation.cut(Balancing::Strong(1), 8.0).unwrap();
     assert_eq!(mesh.number_of_element_blocks(), 2);
     let coordinates = mesh.coordinates();
     let mut usage: HashMap<Vec<usize>, usize> = HashMap::new();
@@ -230,6 +230,51 @@ fn cut_sphere() {
 #[test]
 fn cut_thin_plate() {
     let plate = box_surface([-2.0, -2.0, -0.05], [2.0, 2.0, 0.05]);
-    let mesh = plate.cut(Balancing::Strong, 4.0);
+    let mesh = plate.cut(Balancing::Strong(1), 4.0);
     assert!(mesh.is_ok(), "{}", mesh.err().unwrap_or(""));
+}
+
+#[test]
+fn cut_polyhedral_sphere() {
+    let tessellation = sphere(2);
+    let exact: f64 = tessellation
+        .mesh()
+        .connectivities()
+        .iter()
+        .flatten()
+        .map(|triangle| {
+            let coordinates = tessellation.mesh().coordinates();
+            (coordinates[triangle[0]].cross(&coordinates[triangle[1]]) * &coordinates[triangle[2]])
+                / 6.0
+        })
+        .sum();
+    [
+        Balancing::Strong(1),
+        Balancing::Strong(2),
+        Balancing::Weak(1),
+        Balancing::Weak(3),
+    ]
+    .into_iter()
+    .for_each(|balancing| {
+        let mesh = tessellation.cut_polyhedral(balancing, 4.0).unwrap();
+        assert_eq!(mesh.number_of_element_blocks(), 1);
+        match &mesh.connectivities()[0] {
+            Connectivity::Polyhedral(connectivity) => {
+                connectivity
+                    .elements_faces()
+                    .iter()
+                    .for_each(|faces| assert!(faces.len() > 3));
+                let volumes = signed_volumes(connectivity, mesh.coordinates());
+                volumes
+                    .iter()
+                    .for_each(|volume| assert!(*volume > 0.0, "{volume}"));
+                let volume: f64 = volumes.iter().sum();
+                assert!(
+                    (volume - exact).abs() / exact < 0.03,
+                    "{balancing:?}: {volume} vs {exact}"
+                )
+            }
+            _ => panic!("expected a polyhedral mesh"),
+        }
+    })
 }

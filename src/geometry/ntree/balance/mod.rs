@@ -1,12 +1,17 @@
-pub mod octree;
-pub mod quadtree;
+pub(super) mod octree;
+pub(super) mod quadtree;
 
 use crate::geometry::ntree::pair::Pairing;
 
-#[derive(Clone, Copy)]
+/// Constraint on the level difference between neighboring nodes.
+#[derive(Clone, Copy, Debug)]
 pub enum Balancing {
-    Strong,
-    Weak,
+    /// Level difference of at most `n` between nodes sharing a face, an edge
+    /// or a vertex.
+    Strong(usize),
+    /// Level difference of at most `n` between nodes sharing a face only.
+    Weak(usize),
+    /// No constraint on the level difference.
     None,
 }
 

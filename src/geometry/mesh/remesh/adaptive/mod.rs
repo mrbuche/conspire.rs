@@ -48,7 +48,7 @@ impl Mesh<3> {
     }
 }
 
-pub fn sizing_field(
+pub(crate) fn sizing_field(
     connectivity: &[[usize; N]],
     coordinates: &Coordinates<D>,
     tolerance: Scalar,

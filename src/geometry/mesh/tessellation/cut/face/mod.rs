@@ -1,6 +1,9 @@
+#[cfg(test)]
+mod test;
+
 use super::{Sign, Vertex};
 use crate::geometry::{Coordinate, mesh::tessellation::D};
-use std::{array::from_fn, collections::HashMap, mem::take};
+use std::{collections::HashMap, mem::take};
 
 pub(super) struct FaceCut {
     pub(super) endpoints: Vec<Vertex>,
@@ -13,17 +16,23 @@ pub(super) struct FaceCut {
 }
 
 pub(super) fn face_cut(
-    corners: &[usize; 4],
+    corners: &[usize],
     signs: &HashMap<usize, Sign>,
     crossings: &HashMap<[usize; 2], Vec<Coordinate<D>>>,
 ) -> Result<FaceCut, &'static str> {
-    let statuses: [Sign; 4] = from_fn(|i| signs[&corners[i]]);
-    let edge_keys: [[usize; 2]; 4] = from_fn(|i| {
-        let mut key = [corners[i], corners[(i + 1) % 4]];
-        key.sort_unstable();
-        key
-    });
-    let counts: [usize; 4] = from_fn(|i| crossings.get(&edge_keys[i]).map_or(0, Vec::len));
+    let n = corners.len();
+    let statuses: Vec<Sign> = corners.iter().map(|node| signs[node]).collect();
+    let edge_keys: Vec<[usize; 2]> = (0..n)
+        .map(|i| {
+            let mut key = [corners[i], corners[(i + 1) % n]];
+            key.sort_unstable();
+            key
+        })
+        .collect();
+    let counts: Vec<usize> = edge_keys
+        .iter()
+        .map(|key| crossings.get(key).map_or(0, Vec::len))
+        .collect();
     let flip = |sign| {
         if sign == Sign::Inside {
             Sign::Outside
@@ -31,7 +40,7 @@ pub(super) fn face_cut(
             Sign::Inside
         }
     };
-    let decisive: Vec<usize> = (0..4).filter(|&i| statuses[i] != Sign::On).collect();
+    let decisive: Vec<usize> = (0..n).filter(|&i| statuses[i] != Sign::On).collect();
     let Some(&start) = decisive.first() else {
         return Ok(FaceCut {
             endpoints: Vec::new(),
@@ -43,14 +52,14 @@ pub(super) fn face_cut(
             flush: true,
         });
     };
-    let mut pass = [false; 4];
+    let mut pass = vec![false; n];
     for (w, &from) in decisive.iter().enumerate() {
         let to = decisive[(w + 1) % decisive.len()];
         let mut ons = Vec::new();
-        let mut at = (from + 1) % 4;
+        let mut at = (from + 1) % n;
         while at != to {
             ons.push(at);
-            at = (at + 1) % 4;
+            at = (at + 1) % n;
         }
         let change = statuses[from] != statuses[to];
         let edge_flips: usize = counts[from] + ons.iter().map(|&o| counts[o]).sum::<usize>();
@@ -93,8 +102,8 @@ pub(super) fn face_cut(
         sides.push(*side);
     };
     let mut on_edges = Vec::new();
-    for step in 0..4 {
-        let at = (start + step) % 4;
+    for step in 0..n {
+        let at = (start + step) % n;
         match statuses[at] {
             Sign::Inside | Sign::Outside => {
                 if statuses[at] != side {
@@ -136,7 +145,7 @@ pub(super) fn face_cut(
                 &mut opened,
             );
         });
-        if counts[at] == 0 && statuses[at] == Sign::On && statuses[(at + 1) % 4] == Sign::On {
+        if counts[at] == 0 && statuses[at] == Sign::On && statuses[(at + 1) % n] == Sign::On {
             on_edges.push((key, side));
         }
     }

@@ -161,12 +161,12 @@ fn survey(configs: &[[usize; 8]], balancing: Balancing) {
 
 #[test]
 fn survey_strong_vertex_configs() {
-    survey(&STRONG_CONFIGS, Balancing::Strong);
+    survey(&STRONG_CONFIGS, Balancing::Strong(1));
 }
 
 #[test]
 fn survey_weak_vertex_configs() {
-    survey(&WEAK_CONFIGS, Balancing::Weak);
+    survey(&WEAK_CONFIGS, Balancing::Weak(1));
 }
 
 fn weak_vertex_depths(fine: usize) -> [usize; 8] {
@@ -185,7 +185,7 @@ fn write_weak_vertex_dual() {
     };
     for fine in 0..8 {
         let mut octree =
-            super::super::edge::test::weak_tree(weak_vertex_depths(fine), Balancing::Weak);
+            super::super::edge::test::weak_tree(weak_vertex_depths(fine), Balancing::Weak(1));
         let mesh = octree.dualize();
         if let Err(error) = verify_dual(&mesh) {
             panic!("weak vertex dual (fine orthant {fine}) failed verification: {error}");
@@ -323,10 +323,10 @@ fn fuzz_duals(balancing: Balancing) {
 
 #[test]
 fn fuzz_weak_duals() {
-    fuzz_duals(Balancing::Weak)
+    fuzz_duals(Balancing::Weak(1))
 }
 
 #[test]
 fn fuzz_strong_duals() {
-    fuzz_duals(Balancing::Strong)
+    fuzz_duals(Balancing::Strong(1))
 }

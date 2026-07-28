@@ -15,7 +15,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub trait ReadVtkMultiBlock<P>
+pub(crate) trait ReadVtkMultiBlock<P>
 where
     P: AsRef<Path>,
     Self: Sized,

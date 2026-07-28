@@ -1,4 +1,4 @@
-pub mod vec;
+pub(crate) mod vec;
 
 #[cfg(test)]
 mod test;

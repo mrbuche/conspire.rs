@@ -1,4 +1,7 @@
-use crate::geometry::{Coordinate, Coordinates, grid::Grid, mesh::Connectivity, ntree::Orthotree};
+use crate::{
+    geometry::{Coordinates, grid::Grid, mesh::Connectivity, ntree::Orthotree},
+    math::{Tensor, TensorVec},
+};
 use std::{array::from_fn, collections::HashMap};
 
 impl<const D: usize, const L: usize, const M: usize, const N: usize, U>
@@ -6,7 +9,7 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, U>
 {
     fn from(orthotree: Orthotree<D, L, M, N, u16, U>) -> Self {
         let mut coord_map: HashMap<u64, usize> = HashMap::new();
-        let mut coords: Vec<Coordinate<D>> = Vec::new();
+        let mut coords = Coordinates::<D>::new();
         let face_mask: usize = if D <= 2 { (1 << D) - 1 } else { 3 };
         let connectivity: Vec<[usize; N]> = orthotree
             .nodes
@@ -36,7 +39,7 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, U>
                 })
             })
             .collect();
-        (connectivity, coords.into())
+        (connectivity, coords)
     }
 }
 

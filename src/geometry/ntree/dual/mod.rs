@@ -1,5 +1,5 @@
-pub mod octree;
-pub mod quadtree;
+pub(super) mod octree;
+pub(super) mod quadtree;
 
 use crate::{
     geometry::{
@@ -40,7 +40,7 @@ pub trait Dualization<const D: usize> {
     fn dualize(&mut self) -> Mesh<D>;
 }
 
-pub trait Star<const D: usize, const N: usize> {
+pub(super) trait Star<const D: usize, const N: usize> {
     fn star(&self, center_nodes: &[usize], connectivity: &mut Vec<[usize; N]>);
 }
 
@@ -114,7 +114,7 @@ where
     }
 }
 
-pub trait Initialize<const D: usize, const N: usize> {
+pub(super) trait Initialize<const D: usize, const N: usize> {
     fn initialize(&self) -> (Vec<usize>, Coordinates<D>, usize, Vec<[usize; N]>);
 }
 
@@ -125,7 +125,10 @@ where
     U: Copy + Into<usize>,
 {
     fn initialize(&self) -> (Vec<usize>, Coordinates<D>, usize, Vec<[usize; N]>) {
-        assert!(!matches!(self.balanced, Balancing::None));
+        assert!(matches!(
+            self.balanced,
+            Balancing::Strong(1) | Balancing::Weak(1)
+        ));
         assert!(!matches!(self.paired, Pairing::None));
         let num = self.len();
         let mut center_nodes = vec![0; num];

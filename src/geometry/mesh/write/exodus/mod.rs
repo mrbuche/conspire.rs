@@ -7,7 +7,7 @@ use crate::{
 };
 use std::{ffi::NulError, path::Path};
 
-pub trait WriteExodus<P>
+pub(crate) trait WriteExodus<P>
 where
     P: AsRef<Path>,
 {

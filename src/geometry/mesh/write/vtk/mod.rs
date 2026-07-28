@@ -1,5 +1,5 @@
-pub mod multi_block;
-pub mod unstructured;
+pub(crate) mod multi_block;
+pub(crate) mod unstructured;
 
 use crate::io::write::Compression;
 use std::path::Path;

@@ -7,7 +7,7 @@ use std::arch::x86_64::{
 const LANES: usize = CHUNK / 4;
 
 #[target_feature(enable = "avx2", enable = "fma")]
-pub unsafe fn trisolve(
+pub(super) unsafe fn trisolve(
     tile: &mut [Scalar],
     panel: &[Scalar],
     m: usize,

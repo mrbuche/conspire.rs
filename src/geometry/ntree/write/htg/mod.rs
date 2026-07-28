@@ -13,7 +13,7 @@ use std::{
     path::Path,
 };
 
-pub trait WriteHtg<P>
+pub(crate) trait WriteHtg<P>
 where
     P: AsRef<Path>,
 {

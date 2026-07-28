@@ -1,14 +1,14 @@
-pub mod abaqus;
+pub(super) mod abaqus;
 #[cfg(feature = "netcdf")]
-pub mod exodus;
-pub mod medit;
-pub mod vtk;
+pub(super) mod exodus;
+pub(super) mod medit;
+pub(super) mod vtk;
 
-pub use self::abaqus::ReadAbaqus;
+pub(super) use self::abaqus::ReadAbaqus;
 #[cfg(feature = "netcdf")]
-pub use self::exodus::ReadExodus;
-pub use self::medit::ReadMedit;
-pub use self::vtk::{multi_block::ReadVtkMultiBlock, unstructured::ReadVtkUnstructured};
+pub(super) use self::exodus::ReadExodus;
+pub(super) use self::medit::ReadMedit;
+pub(super) use self::vtk::{multi_block::ReadVtkMultiBlock, unstructured::ReadVtkUnstructured};
 
 use crate::geometry::mesh::Mesh;
 use std::{io::Error as ErrorIO, path::Path};

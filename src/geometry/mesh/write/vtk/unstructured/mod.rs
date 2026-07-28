@@ -13,7 +13,7 @@ use std::{
     path::Path,
 };
 
-pub trait WriteVtkUnstructured<P>
+pub(crate) trait WriteVtkUnstructured<P>
 where
     P: AsRef<Path>,
 {

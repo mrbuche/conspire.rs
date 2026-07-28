@@ -3,3 +3,6 @@ mutants.out.old/
 target/
 .venv/
 .vscode/
+**.exo
+**.stl
+**.vtu

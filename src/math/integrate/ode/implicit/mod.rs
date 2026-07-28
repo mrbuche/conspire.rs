@@ -7,9 +7,9 @@ use crate::math::{
     optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
 };
 
-pub mod backward_euler;
-pub mod midpoint;
-pub mod trapezoidal;
+pub(crate) mod backward_euler;
+pub(crate) mod midpoint;
+pub(crate) mod trapezoidal;
 
 /// Implicit integrators for ordinary differential equations using zeroth-order root-finding.
 pub trait ImplicitZerothOrder<Y, U>

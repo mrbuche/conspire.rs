@@ -6,12 +6,12 @@ mod from;
 mod index;
 mod into;
 mod leaves;
-mod node;
+pub(crate) mod node;
 mod pair;
 mod prune;
 mod read;
-mod rescale;
-mod subdivide;
+pub(crate) mod rescale;
+pub(crate) mod subdivide;
 mod write;
 
 pub use crate::geometry::ntree::{
@@ -26,10 +26,10 @@ pub use crate::geometry::ntree::{
 };
 
 pub struct Orthotree<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V = ()> {
-    balanced: Balancing,
-    nodes: Nodes<D, M, N, T, U, V>,
-    paired: Pairing,
-    rescale: Rescaling<D>,
+    pub(crate) balanced: Balancing,
+    pub(crate) nodes: Nodes<D, M, N, T, U, V>,
+    pub(crate) paired: Pairing,
+    pub(crate) rescale: Rescaling<D>,
 }
 
 pub type BinaryTree<T, U, V = ()> = Orthotree<1, 1, 2, 2, T, U, V>;

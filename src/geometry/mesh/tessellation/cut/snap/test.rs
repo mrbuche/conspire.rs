@@ -17,3 +17,18 @@ fn snap_eliminates_sliver() {
     let result = tessellation.assemble(&mesh, &classes, &tables).unwrap();
     assert_eq!(result.number_of_element_blocks(), 0)
 }
+
+#[test]
+fn snap_generic_matches_snap_hexahedron() {
+    let tessellation = sphere(3);
+    let bounds = ([0.95, -0.1, -0.1], [1.15, 0.1, 0.1]);
+    let classes = tessellation.classify(&hexahedron(bounds.0, bounds.1));
+    let (expected_mesh, expected_snapped) = tessellation
+        .snap(hexahedron(bounds.0, bounds.1), &classes)
+        .unwrap();
+    let (result_mesh, result_snapped) = tessellation
+        .snap_generic(hexahedron(bounds.0, bounds.1), &classes)
+        .unwrap();
+    assert_eq!(result_snapped, expected_snapped);
+    assert_eq!(result_mesh.coordinates(), expected_mesh.coordinates());
+}

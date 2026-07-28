@@ -1,3 +1,3 @@
-pub mod improve;
-pub mod metrics;
-pub mod surface;
+pub(super) mod improve;
+pub(super) mod metrics;
+pub(super) mod surface;

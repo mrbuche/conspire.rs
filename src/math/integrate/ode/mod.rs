@@ -1,8 +1,8 @@
 use crate::math::{Norm, Scalar, Tensor, TensorVec};
 use std::fmt::Debug;
 
-pub mod explicit;
-pub mod implicit;
+pub(super) mod explicit;
+pub(super) mod implicit;
 
 /// Integrators for ordinary differential equations.
 pub trait OdeIntegrator<Y, U>

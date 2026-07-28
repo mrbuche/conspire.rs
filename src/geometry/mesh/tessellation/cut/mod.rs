@@ -1,9 +1,13 @@
 mod assemble;
+mod build;
 mod classify;
+mod cleanup;
 mod face;
 mod geometry;
 mod snap;
+mod split;
 mod tables;
+mod topology;
 
 #[cfg(test)]
 mod test;
@@ -105,6 +109,11 @@ impl Tables {
 }
 
 impl Tessellation {
+    /// Cuts a hex-dominant mesh to this tessellation, via the dual of an
+    /// octree fitted to it.
+    ///
+    /// `balancing` must be `Strong(1)` or `Weak(1)`,
+    /// which is what dualization requires.
     pub fn cut(&self, balancing: Balancing, scale: Scalar) -> Result<Mesh<D>, &'static str> {
         let mut octree =
             Octree::<u16, usize>::from_features(self, scale, CurvatureSizing::default(), PADDING);
@@ -117,5 +126,30 @@ impl Tessellation {
         let (mesh, snapped) = self.snap(mesh, &classes)?;
         let tables = self.tables(&mesh, &classes, &snapped)?;
         self.assemble(&mesh, &classes, &tables)
+    }
+    /// Cuts a polyhedral mesh to this tessellation, taking the octree fitted
+    /// to it directly rather than its dual.
+    ///
+    /// Unlike [`cut`](Self::cut) this places no 2:1 requirement on
+    /// `balancing`, since hanging nodes become extra vertices on a face
+    /// rather than something to be dualized away. `Weak(n)` and `Strong(n)`
+    /// for `n > 1` are therefore available here, permitting coarser trees
+    /// than dualization allows.
+    pub fn cut_polyhedral(
+        &self,
+        balancing: Balancing,
+        scale: Scalar,
+    ) -> Result<Mesh<D>, &'static str> {
+        let mut octree =
+            Octree::<u16, usize>::from_features(self, scale, CurvatureSizing::default(), PADDING);
+        octree.equilibrate(balancing, Pairing::Regular)?;
+        let mesh = Mesh::from(octree);
+        let classes = self.classify(&mesh);
+        if !contained(&mesh, &classes) {
+            return Err("tessellation is not contained within the octree mesh");
+        }
+        let (mesh, snapped) = self.snap_generic(mesh, &classes)?;
+        let tables = self.tables_generic(&mesh, &classes, &snapped)?;
+        self.assemble_generic(&mesh, &classes, &tables)
     }
 }

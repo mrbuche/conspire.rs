@@ -8,10 +8,10 @@ use crate::math::{
 };
 use std::ops::{Mul, Sub};
 
-pub mod bogacki_shampine;
-pub mod dormand_prince;
-pub mod verner_8;
-pub mod verner_9;
+pub(crate) mod bogacki_shampine;
+pub(crate) mod dormand_prince;
+pub(crate) mod verner_8;
+pub(crate) mod verner_9;
 
 /// Variable-step explicit integrators for ordinary differential equations.
 pub trait VariableStepExplicit<Y, U>

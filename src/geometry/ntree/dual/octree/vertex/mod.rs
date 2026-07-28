@@ -12,7 +12,7 @@ use crate::geometry::ntree::{
 };
 use std::ops::Add;
 
-pub fn vertex_transitions<T, U>(
+pub(super) fn vertex_transitions<T, U>(
     tree: &Octree<T, U>,
     center_nodes: &[usize],
     connectivity: &mut Vec<[usize; N]>,

@@ -2,14 +2,14 @@
 mod test;
 
 mod inverse;
-pub mod list;
-pub mod list_2d;
+pub(crate) mod list;
+pub(crate) mod list_2d;
 mod logarithm;
-pub mod sparse_symmetric_vec_2d;
-pub mod sparse_vec;
-pub mod sparse_vec_2d;
-pub mod vec;
-pub mod vec_2d;
+pub(crate) mod sparse_symmetric_vec_2d;
+pub(crate) mod sparse_vec;
+pub(crate) mod sparse_vec_2d;
+pub(crate) mod vec;
+pub(crate) mod vec_2d;
 
 use std::{
     array::{IntoIter, from_fn},
@@ -60,7 +60,8 @@ impl<const D: usize, const I: usize, const J: usize> From<TensorRank2<D, I, J>>
     }
 }
 
-pub const fn get_levi_civita_parts<const I: usize, const J: usize>() -> [TensorRank2<3, I, J>; 3] {
+pub(crate) const fn get_levi_civita_parts<const I: usize, const J: usize>()
+-> [TensorRank2<3, I, J>; 3] {
     [
         TensorRank2([
             tensor_rank_1_zero(),
@@ -80,8 +81,8 @@ pub const fn get_levi_civita_parts<const I: usize, const J: usize>() -> [TensorR
     ]
 }
 
-pub const fn get_identity_1010_parts_1<const I: usize, const J: usize>() -> [TensorRank2<3, I, J>; 3]
-{
+pub(crate) const fn get_identity_1010_parts_1<const I: usize, const J: usize>()
+-> [TensorRank2<3, I, J>; 3] {
     [
         TensorRank2([
             TensorRank1::const_from([1.0, 0.0, 0.0]),
@@ -101,8 +102,8 @@ pub const fn get_identity_1010_parts_1<const I: usize, const J: usize>() -> [Ten
     ]
 }
 
-pub const fn get_identity_1010_parts_2<const I: usize, const J: usize>() -> [TensorRank2<3, I, J>; 3]
-{
+pub(crate) const fn get_identity_1010_parts_2<const I: usize, const J: usize>()
+-> [TensorRank2<3, I, J>; 3] {
     [
         TensorRank2([
             tensor_rank_1_zero(),
@@ -122,8 +123,8 @@ pub const fn get_identity_1010_parts_2<const I: usize, const J: usize>() -> [Ten
     ]
 }
 
-pub const fn get_identity_1010_parts_3<const I: usize, const J: usize>() -> [TensorRank2<3, I, J>; 3]
-{
+pub(crate) const fn get_identity_1010_parts_3<const I: usize, const J: usize>()
+-> [TensorRank2<3, I, J>; 3] {
     [
         TensorRank2([
             tensor_rank_1_zero(),

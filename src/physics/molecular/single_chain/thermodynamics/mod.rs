@@ -831,7 +831,7 @@ where
 
 impl<T> MonteCarloInextensible for T where T: Inextensible + MonteCarlo {}
 
-pub fn cosine_moments_reweighted<T: MonteCarlo>(
+pub(super) fn cosine_moments_reweighted<T: MonteCarlo>(
     model: &T,
     nondimensional_force: Scalar,
     number_of_samples: usize,

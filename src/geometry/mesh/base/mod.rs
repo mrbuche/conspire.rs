@@ -33,17 +33,18 @@ impl<const D: usize> Mesh<D> {
     pub fn exterior_faces(&self) -> Vec<Vec<usize>> {
         let mut faces = HashMap::new();
         self.iter().for_each(|block| {
-            let local_faces = block.local_faces();
             block.iter().for_each(|element| {
-                local_faces.iter().for_each(|face| {
-                    let oriented: Vec<usize> = face.iter().map(|&local| element[local]).collect();
-                    let mut key = oriented.clone();
-                    key.sort_unstable();
-                    faces
-                        .entry(key)
-                        .and_modify(|(_, count)| *count += 1)
-                        .or_insert((oriented, 1));
-                })
+                block
+                    .element_faces(element)
+                    .into_iter()
+                    .for_each(|oriented| {
+                        let mut key = oriented.clone();
+                        key.sort_unstable();
+                        faces
+                            .entry(key)
+                            .and_modify(|(_, count)| *count += 1)
+                            .or_insert((oriented, 1));
+                    })
             })
         });
         faces
@@ -53,7 +54,11 @@ impl<const D: usize> Mesh<D> {
     }
     pub fn bounding_boxes(&self) -> BoundingBoxes<D> {
         self.iter()
-            .flatten()
+            .flat_map(|block| {
+                block
+                    .iter()
+                    .map(move |element| block.element_nodes(element))
+            })
             .map(|nodes| {
                 nodes
                     .iter()
@@ -65,7 +70,11 @@ impl<const D: usize> Mesh<D> {
     }
     pub fn centroids(&self) -> Coordinates<D> {
         self.iter()
-            .flatten()
+            .flat_map(|block| {
+                block
+                    .iter()
+                    .map(move |element| block.element_nodes(element))
+            })
             .map(|nodes| {
                 let count = nodes.len() as Scalar;
                 nodes
@@ -79,21 +88,27 @@ impl<const D: usize> Mesh<D> {
     pub fn bounding_boxes_and_centroids(
         &self,
     ) -> impl Iterator<Item = (BoundingBox<D>, Coordinate<D>)> {
-        self.iter().flatten().map(|nodes| {
-            let count = nodes.len() as Scalar;
-            (
-                nodes
+        self.iter()
+            .flat_map(|block| {
+                block
                     .iter()
-                    .map(|&node| &self.coordinates()[node])
-                    .collect::<CoordinatesRef<'_, D>>()
-                    .into(),
-                nodes
-                    .iter()
-                    .map(|&node| &self.coordinates()[node])
-                    .sum::<Coordinate<D>>()
-                    / count,
-            )
-        })
+                    .map(move |element| block.element_nodes(element))
+            })
+            .map(|nodes| {
+                let count = nodes.len() as Scalar;
+                (
+                    nodes
+                        .iter()
+                        .map(|&node| &self.coordinates()[node])
+                        .collect::<CoordinatesRef<'_, D>>()
+                        .into(),
+                    nodes
+                        .iter()
+                        .map(|&node| &self.coordinates()[node])
+                        .sum::<Coordinate<D>>()
+                        / count,
+                )
+            })
     }
     pub fn blocks(&self) -> Option<&[usize]> {
         self.connectivities.numbers()

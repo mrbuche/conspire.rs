@@ -115,10 +115,9 @@ impl<const D: usize> Mesh<D> {
     fn edge_incidence(&self) -> FxHashMap<[usize; 2], ([usize; 2], usize)> {
         let mut edges = FxHashMap::default();
         self.iter().for_each(|block| {
-            let local_edges = block.local_faces();
             block.iter().for_each(|element| {
-                local_edges.iter().for_each(|edge| {
-                    let oriented = [element[edge[0]], element[edge[1]]];
+                block.element_faces(element).into_iter().for_each(|edge| {
+                    let oriented = [edge[0], edge[1]];
                     let key = if oriented[0] < oriented[1] {
                         oriented
                     } else {

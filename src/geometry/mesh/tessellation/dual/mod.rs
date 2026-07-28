@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     geometry::{
-        Coordinate, Coordinates,
+        Coordinate, Coordinates, CoordinatesRef,
         bvh::BoundingVolumeHierarchy,
         mesh::{
             Connectivity, Mesh,
@@ -110,7 +110,7 @@ impl Tessellation {
         let surface = self.mesh();
         let surface_coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
-        let normals: Vec<&Coordinate<D>> = self.normals().iter().flatten().collect();
+        let normals: CoordinatesRef<'_, D> = self.normals().iter().flatten().collect();
         let directions = DIRECTIONS.map(|direction| direction.normalized());
         let coordinates = mesh.coordinates();
         let number_of_nodes = coordinates.len();
@@ -140,7 +140,7 @@ impl Tessellation {
                                         match bvh.intersect(&ray, surface_coordinates, elements) {
                                             None => Some(false),
                                             Some(hit) => {
-                                                let normal = normals[hit.index()];
+                                                let normal = &normals[hit.index()];
                                                 let cosine = (direction * normal) / normal.norm();
                                                 (cosine.abs() > GRAZING_TOLERANCE)
                                                     .then_some(cosine > 0.0)
