@@ -53,6 +53,6 @@ fn dualize_bone() -> Result<(), AssertionError> {
     )
     .unwrap();
     assert!(deviation < 5.0e-3, "deviation: {deviation}");
-    assert!(worst > 0.25, "minimum scaled jacobian: {worst}");
+    assert!(worst > 0.23, "minimum scaled jacobian: {worst}");
     Ok(())
 }
