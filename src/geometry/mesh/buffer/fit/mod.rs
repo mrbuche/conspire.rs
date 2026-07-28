@@ -133,16 +133,7 @@ impl Mesh<3> {
                 state.epsilon = epsilon;
             }
             previous = quality;
-            let anchor: Coordinates<3> = nodes
-                .iter()
-                .map(|&node| coordinates[node].clone())
-                .collect();
-            let (x, value, settled) = state.minimize(coordinates);
-            let shift = nodes
-                .iter()
-                .enumerate()
-                .map(|(index, &node)| (&x[index] - &anchor[index]).norm() / state.lengths[node])
-                .fold(0.0, Scalar::max);
+            let (shift, value, settled) = state.minimize(coordinates);
             let stagnant = window.len() == WINDOW
                 && window.iter().fold(value, |high, &entry| high.max(entry))
                     - window.iter().fold(value, |low, &entry| low.min(entry))
@@ -344,7 +335,7 @@ impl Sweep<'_> {
             .map(|_| Coordinate::const_from([0.0; 3]))
             .collect()
     }
-    fn minimize(&self, coordinates: &mut Coordinates<3>) -> (Coordinates<3>, Scalar, bool) {
+    fn minimize(&self, coordinates: &mut Coordinates<3>) -> (Scalar, Scalar, bool) {
         let typical = self
             .nodes
             .iter()
@@ -356,6 +347,7 @@ impl Sweep<'_> {
             .iter()
             .map(|&node| coordinates[node].clone())
             .collect();
+        let anchor = x.clone();
         let mut history = Vec::<(Coordinates<3>, Coordinates<3>)>::new();
         let mut gradient = self.derivative(coordinates);
         let mut value = self.objective(coordinates);
@@ -414,7 +406,13 @@ impl Sweep<'_> {
             gradient = updated;
             value = trial;
         }
-        (x, value, settled)
+        let shift = self
+            .nodes
+            .iter()
+            .enumerate()
+            .map(|(index, &node)| (&x[index] - &anchor[index]).norm() / self.lengths[node])
+            .fold(0.0, Scalar::max);
+        (shift, value, settled)
     }
 }
 
