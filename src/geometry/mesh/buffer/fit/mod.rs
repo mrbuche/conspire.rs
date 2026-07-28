@@ -27,11 +27,11 @@ const EPSILON_FLOOR: Scalar = 1.0e-12;
 const HISTORY: usize = 8;
 const ITERATIONS: usize = 100;
 const RELAXATION: Scalar = 0.1;
-const STAGNATION: Scalar = 1.0e-4;
+const STAGNATION: Scalar = 5.0e-4;
 const SWEEPS: usize = 100;
 const TOLERANCE: Scalar = 1.0e-3;
 const WEIGHT_FLOOR: Scalar = 0.3;
-const WINDOW: usize = 5;
+const WINDOW: usize = 3;
 
 impl Mesh<3> {
     pub(super) fn fit(
@@ -368,8 +368,10 @@ impl Mesh<3> {
                         / lengths[node]
                 })
                 .fold(0.0, Scalar::max);
-            let stagnant =
-                window.len() == WINDOW && (window[0] - value).abs() <= STAGNATION * value.abs();
+            let stagnant = window.len() == WINDOW
+                && window.iter().fold(value, |high, &entry| high.max(entry))
+                    - window.iter().fold(value, |low, &entry| low.min(entry))
+                    <= STAGNATION * value.abs();
             if settled || shift < TOLERANCE || stagnant {
                 break;
             }
