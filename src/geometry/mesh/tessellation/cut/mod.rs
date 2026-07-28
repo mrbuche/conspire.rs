@@ -110,7 +110,9 @@ impl Tables {
 
 impl Tessellation {
     /// Cuts a hex-dominant mesh to this tessellation, via the dual of an
-    /// octree fitted to it. `balancing` must be `Strong(1)` or `Weak(1)`,
+    /// octree fitted to it.
+    ///
+    /// `balancing` must be `Strong(1)` or `Weak(1)`,
     /// which is what dualization requires.
     pub fn cut(&self, balancing: Balancing, scale: Scalar) -> Result<Mesh<D>, &'static str> {
         let mut octree =
