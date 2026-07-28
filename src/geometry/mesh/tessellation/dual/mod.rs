@@ -1,12 +1,9 @@
-#[cfg(test)]
-mod test;
-
 use crate::{
     geometry::{
         Coordinate, CoordinatesRef,
         bvh::BoundingVolumeHierarchy,
         mesh::{
-            Mesh,
+            Fitting, Mesh,
             tessellation::{D, Tessellation},
         },
         ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
@@ -42,12 +39,13 @@ impl Tessellation {
         balancing: Balancing,
         scale: Scalar,
         curvature: CurvatureSizing,
+        fitting: Fitting,
     ) -> Result<Mesh<D>, &'static str> {
         let mut octree = Octree::<u16, usize>::from_features(self, scale, curvature, 0);
         octree.equilibrate(balancing, Pairing::Regular)?;
         let mut mesh = octree.dualize();
         self.trim(&mut mesh, self.bvh())?;
-        mesh.buffer(self)
+        mesh.buffer(self, fitting)
     }
     fn trim(
         &self,

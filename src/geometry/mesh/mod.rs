@@ -15,6 +15,7 @@ mod tessellation;
 mod write;
 
 pub use self::{
+    buffer::Fitting,
     connectivity::{
         Connectivities, Connectivity, polytopal::PolytopalConnectivity,
         primitive::PrimitiveConnectivity,

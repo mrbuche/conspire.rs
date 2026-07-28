@@ -8,8 +8,18 @@ use super::{Connectivity, Mesh, Tessellation};
 use crate::math::{Tensor, TensorVec};
 use std::collections::{HashMap, hash_map::Entry};
 
+/// Constraint on how the buffer layer approaches the target surface.
+#[derive(Clone, Copy, Debug)]
+pub enum Fitting {
+    /// The layer settles wherever the quality and fit energies balance.
+    Soft,
+    /// The layer settles as above, but is then projected onto the surface,
+    /// after which the interior relaxes.
+    Snap,
+}
+
 impl Mesh<3> {
-    pub fn buffer(mut self, target: &Tessellation) -> Result<Self, &'static str> {
+    pub fn buffer(mut self, target: &Tessellation, fitting: Fitting) -> Result<Self, &'static str> {
         self.restrict()?;
         let boundary = self.exterior_faces();
         let mut edges = HashMap::new();
@@ -59,9 +69,23 @@ impl Mesh<3> {
                 .into(),
         ));
         let mut mesh = Self::from((connectivities, coordinates));
-        let mut nodes = layer;
-        nodes.extend(0..count);
+        let nodes: Vec<usize> = layer.iter().copied().chain(0..count).collect();
         mesh.fit(&nodes, target)?;
+        if let Fitting::Snap = fitting {
+            let surface = target.mesh();
+            let surface_coordinates = surface.coordinates();
+            let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
+            let bvh = target.bvh();
+            let coordinates = mesh.coordinates.members_mut();
+            layer.iter().try_for_each(|&node| {
+                let (point, _) = bvh
+                    .closest_point(&coordinates[node], surface_coordinates, &elements)
+                    .ok_or("empty tessellation")?;
+                coordinates[node] = point;
+                Ok::<_, &'static str>(())
+            })?;
+            mesh.fit(&(0..count).collect::<Vec<_>>(), target)?;
+        }
         Ok(mesh)
     }
 }
