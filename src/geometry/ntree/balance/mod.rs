@@ -3,13 +3,15 @@ pub(super) mod quadtree;
 
 use crate::geometry::ntree::pair::Pairing;
 
+/// Constraint on the level difference between neighboring nodes.
 #[derive(Clone, Copy, Debug)]
 pub enum Balancing {
-    /// Level difference of at most `n` between cells sharing a face, an edge
+    /// Level difference of at most `n` between nodes sharing a face, an edge
     /// or a vertex.
     Strong(usize),
-    /// Level difference of at most `n` between cells sharing a face only.
+    /// Level difference of at most `n` between nodes sharing a face only.
     Weak(usize),
+    /// No constraint on the level difference.
     None,
 }
 
