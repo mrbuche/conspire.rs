@@ -66,6 +66,9 @@ where
     pub const fn as_ptr(&self) -> *const T {
         self.0.as_ptr()
     }
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
+        self.0.as_mut_slice()
+    }
 }
 
 impl<T> Default for TensorVector<T>

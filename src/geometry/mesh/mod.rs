@@ -2,6 +2,7 @@
 pub mod test;
 
 mod base;
+mod buffer;
 mod connectivity;
 mod differential;
 mod from;
@@ -14,6 +15,7 @@ mod tessellation;
 mod write;
 
 pub use self::{
+    buffer::Fitting,
     connectivity::{
         Connectivities, Connectivity, polytopal::PolytopalConnectivity,
         primitive::PrimitiveConnectivity,

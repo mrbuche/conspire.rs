@@ -1,11 +1,11 @@
-mod hexahedron;
+pub(crate) mod hexahedron;
 mod quadrilateral;
 mod tetrahedron;
 mod triangle;
 
 use crate::{
     geometry::{
-        Coordinate, Coordinates,
+        Coordinate, CoordinateList, Coordinates,
         mesh::{Connectivity, Mesh},
     },
     math::{Scalar, Tensor, TensorRank2},
@@ -153,6 +153,14 @@ fn cross<const D: usize>(a: &Coordinate<D>, b: &Coordinate<D>) -> [Scalar; 3] {
         az * b[0] - a[0] * bz,
         a[0] * b[1] - a[1] * b[0],
     ]
+}
+
+pub(crate) fn chi(epsilon: Scalar, determinant: Scalar) -> Scalar {
+    0.5 * (determinant + (epsilon * epsilon + determinant * determinant).sqrt())
+}
+
+pub(crate) fn regularized(edges: &CoordinateList<3, 3>, epsilon: Scalar) -> Scalar {
+    edges.norm_squared().powf(1.5) / chi(epsilon, edges.scalar_triple_product())
 }
 
 fn triple_product<const D: usize>(

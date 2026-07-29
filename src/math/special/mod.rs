@@ -191,7 +191,12 @@ pub fn erf(x: Scalar) -> f64 {
 /// \mathrm{erfc}(x) = 1 - \mathrm{erf}(x)
 /// ```
 pub fn erfc(x: Scalar) -> f64 {
-    erfcx(x) / (x.powi(2)).exp()
+    let exp_x_squared = (x.powi(2)).exp();
+    if exp_x_squared.is_infinite() {
+        if x < 0.0 { 2.0 } else { 0.0 }
+    } else {
+        erfcx(x) / exp_x_squared
+    }
 }
 
 fn erfcx(x: Scalar) -> f64 {

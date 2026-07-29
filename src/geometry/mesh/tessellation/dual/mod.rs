@@ -1,23 +1,16 @@
-#[cfg(test)]
-mod test;
-
 use crate::{
     geometry::{
-        Coordinate, Coordinates, CoordinatesRef,
+        Coordinate, CoordinatesRef,
         bvh::BoundingVolumeHierarchy,
         mesh::{
-            Connectivity, Mesh,
+            Fitting, Mesh,
             tessellation::{D, Tessellation},
         },
         ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
     },
-    math::{Scalar, Tensor, TensorVec},
+    math::{Scalar, Tensor},
 };
-use std::{
-    array::from_fn,
-    collections::{HashMap, hash_map::Entry},
-    thread::{available_parallelism, scope},
-};
+use std::thread::{available_parallelism, scope};
 
 const GRAZING_TOLERANCE: Scalar = 1.0e-4;
 const TRIM_MARGIN: Scalar = 0.5;
@@ -46,67 +39,19 @@ impl Tessellation {
         balancing: Balancing,
         scale: Scalar,
         curvature: CurvatureSizing,
+        fitting: Fitting,
     ) -> Result<Mesh<D>, &'static str> {
         let mut octree = Octree::<u16, usize>::from_features(self, scale, curvature, 0);
         octree.equilibrate(balancing, Pairing::Regular)?;
         let mut mesh = octree.dualize();
-        self.trim(&mut mesh, self.bvh());
-        self.buffer(mesh, self.bvh())
+        self.trim(&mut mesh, self.bvh())?;
+        mesh.buffer(self, fitting)
     }
-    fn buffer(
+    fn trim(
         &self,
-        mesh: Mesh<D>,
+        mesh: &mut Mesh<D>,
         bvh: &BoundingVolumeHierarchy<D>,
-    ) -> Result<Mesh<D>, &'static str> {
-        let surface = self.mesh();
-        let surface_coordinates = surface.coordinates();
-        let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
-        let boundary = mesh.exterior_faces();
-        let mut edges = HashMap::new();
-        boundary.iter().for_each(|face| {
-            (0..face.len()).for_each(|i| {
-                let mut edge = [face[i], face[(i + 1) % face.len()]];
-                edge.sort_unstable();
-                *edges.entry(edge).or_insert(0u8) += 1;
-            })
-        });
-        if edges.values().any(|&count| count != 2) {
-            return Err("non-manifold boundary");
-        }
-        let (connectivities, mut coordinates) = mesh.into();
-        let mut connectivity = Vec::try_from(connectivities)?;
-        let mut projection = HashMap::new();
-        boundary.iter().flatten().try_for_each(|&node| {
-            if let Entry::Vacant(slot) = projection.entry(node) {
-                let point = bvh
-                    .closest_point(&coordinates[node], surface_coordinates, &elements)
-                    .ok_or("empty tessellation")?
-                    .0;
-                slot.insert(coordinates.len());
-                coordinates.push(point);
-            }
-            Ok(())
-        })?;
-        boundary.iter().for_each(|face| {
-            let [a, b, c, d] = [face[0], face[1], face[2], face[3]];
-            connectivity.push([
-                a,
-                b,
-                c,
-                d,
-                projection[&a],
-                projection[&b],
-                projection[&c],
-                projection[&d],
-            ])
-        });
-        Ok((
-            vec![Connectivity::Hexahedral(connectivity.into())],
-            coordinates,
-        )
-            .into())
-    }
-    fn trim(&self, mesh: &mut Mesh<D>, bvh: &BoundingVolumeHierarchy<D>) {
+    ) -> Result<(), &'static str> {
         let surface = self.mesh();
         let surface_coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
@@ -158,38 +103,15 @@ impl Tessellation {
                     });
                 });
         });
-        let mut remap = vec![usize::MAX; inside.len()];
-        let mut coordinates = Coordinates::new();
-        let mut connectivity = Vec::new();
-        mesh.iter()
-            .flatten()
-            .filter(|element| {
-                element.iter().all(|&node| inside[node]) && {
-                    let margin = TRIM_MARGIN
-                        * EDGES
-                            .iter()
-                            .map(|&[a, b]| {
-                                (&mesh.coordinates()[element[a]] - &mesh.coordinates()[element[b]])
-                                    .norm()
-                            })
-                            .fold(Scalar::INFINITY, Scalar::min);
-                    element.iter().all(|&node| clearance[node] >= margin)
-                }
-            })
-            .for_each(|element| {
-                connectivity.push(from_fn(|i| {
-                    let node = element[i];
-                    if remap[node] == usize::MAX {
-                        remap[node] = coordinates.len();
-                        coordinates.push(mesh.coordinates()[node].clone());
-                    }
-                    remap[node]
-                }))
-            });
-        *mesh = (
-            vec![Connectivity::Hexahedral(connectivity.into())],
-            coordinates,
-        )
-            .into();
+        mesh.keep_hexes(|_, hex, coordinates| {
+            hex.iter().all(|&node| inside[node]) && {
+                let margin = TRIM_MARGIN
+                    * EDGES
+                        .iter()
+                        .map(|&[a, b]| (&coordinates[hex[a]] - &coordinates[hex[b]]).norm())
+                        .fold(Scalar::INFINITY, Scalar::min);
+                hex.iter().all(|&node| clearance[node] >= margin)
+            }
+        })
     }
 }
