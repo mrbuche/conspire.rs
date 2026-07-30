@@ -2,10 +2,10 @@
 mod test;
 
 use super::super::{SparseError, matrix::CscMatrix};
-use super::gemm::{CHUNK, NONE, axpy, etree, gemm_wide, max_below, reach_sorted, supernodes};
+use super::gemm::{CHUNK, NONE, etree, gemm_wide, max_below, reach_sorted, supernodes};
 use crate::{
     ABS_TOL,
-    math::{Scalar, Vector},
+    math::{Scalar, Vector, simd},
 };
 
 /// A sparse LDLᵀ factorization for symmetric matrices with a structurally full diagonal.
@@ -574,7 +574,7 @@ fn finalize_update(
     if w != 0.0 {
         let c = base - s1;
         let start = panel_ptr + c * s_m;
-        axpy(
+        simd::axpy(
             &mut column[base + 1..s2],
             &sn_values[start + c + 1..start + s_width],
             w,

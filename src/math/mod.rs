@@ -25,6 +25,7 @@ mod graph;
 mod hash;
 mod matrix;
 mod set;
+mod simd;
 mod style;
 mod tensor;
 
