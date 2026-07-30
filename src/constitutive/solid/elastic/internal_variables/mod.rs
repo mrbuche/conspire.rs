@@ -158,14 +158,14 @@ where
         deformation_gradient: &DeformationGradient,
         internal_variables: &V,
     ) -> Result<V, ConstitutiveError>;
+    /// Returns the constraint indices for the internal variables.
+    fn internal_variables_constraints(&self) -> (&[usize], usize);
     /// Calculates and returns the tangents of the coupled system.
     fn tangents(
         &self,
         deformation_gradient: &DeformationGradient,
         internal_variables: &V,
     ) -> Result<(FirstPiolaKirchhoffTangentStiffness, T1, T2, T3), ConstitutiveError>;
-    /// Returns the constraint indices for the internal variables.
-    fn internal_variables_constraints(&self) -> (&[usize], usize);
 }
 
 /// Zeroth-order root-finding methods for elastic solid constitutive models with internal variables.
