@@ -4,10 +4,10 @@ mod avx;
 mod test;
 
 use super::super::{SparseError, matrix::CscMatrix};
-use super::gemm::{CHUNK, NONE, axpy, etree, gemm_wide, max_below, reach_sorted, supernodes};
+use super::gemm::{CHUNK, NONE, etree, gemm_wide, max_below, reach_sorted, supernodes};
 use crate::{
     ABS_TOL,
-    math::{Scalar, Vector},
+    math::{Scalar, Vector, simd},
 };
 
 /// Threshold for preferring the diagonal pivot, which preserves the
@@ -443,7 +443,7 @@ impl CscLu {
                         work[offset + k] = 0.0;
                         if u != 0.0 {
                             let start = self.sn_panel_ptr[s] + c * s_m;
-                            axpy(
+                            simd::axpy(
                                 &mut work[offset + k + 1..offset + s2],
                                 &self.sn_values[start + c + 1..start + s_width],
                                 u,
@@ -489,7 +489,7 @@ impl CscLu {
 /// vectorized across the targets.
 fn trisolve(tile: &mut [Scalar], panel: &[Scalar], m: usize, consumed: usize, width: usize) {
     #[cfg(target_arch = "x86_64")]
-    if super::simd() {
+    if simd::enabled() {
         return unsafe { avx::trisolve(tile, panel, m, consumed, width) };
     }
     (0..consumed).for_each(|c| {

@@ -6,7 +6,8 @@ use crate::math::assert::FiniteDifference;
 use crate::{
     ABS_TOL,
     math::{
-        Hessian, Rank2, Scalar, Tensor, TensorRank2Vec2D, TensorVec, Vector, write_tensor_rank_0,
+        Hessian, Rank2, Scalar, Tensor, TensorRank2Vec2D, TensorVec, Vector, simd,
+        write_tensor_rank_0,
     },
 };
 use std::{
@@ -111,10 +112,10 @@ impl SquareMatrix {
     /// Factorize the matrix using the LU decomposition.
     pub fn factorize_lu(&self) -> Result<LuDecomposition, SquareMatrixError> {
         let mut decomposition = LuDecomposition {
-            lu: Self::zero(self.len()),
+            lu: self.clone(),
             permutation: (0..self.len()).collect(),
         };
-        self.factorize_lu_into(&mut decomposition)?;
+        decomposition.factorize()?;
         Ok(decomposition)
     }
     /// Factorize the matrix into an existing LU decomposition of the same size.
@@ -122,7 +123,6 @@ impl SquareMatrix {
         &self,
         decomposition: &mut LuDecomposition,
     ) -> Result<(), SquareMatrixError> {
-        let n = self.len();
         let LuDecomposition { lu, permutation } = decomposition;
         lu.iter_mut().zip(self.iter()).for_each(|(lu_i, self_i)| {
             lu_i.iter_mut()
@@ -133,40 +133,7 @@ impl SquareMatrix {
             .iter_mut()
             .enumerate()
             .for_each(|(i, permutation_i)| *permutation_i = i);
-        let mut factor;
-        let mut max_row;
-        let mut max_val;
-        let mut pivot;
-        for i in 0..n {
-            max_row = i;
-            max_val = lu[max_row][i].abs();
-            for k in i + 1..n {
-                if lu[k][i].abs() > max_val {
-                    max_row = k;
-                    max_val = lu[max_row][i].abs();
-                }
-            }
-            if max_row != i {
-                lu.0.swap(i, max_row);
-                permutation.swap(i, max_row);
-            }
-            pivot = lu[i][i];
-            if pivot.abs() < ABS_TOL {
-                return Err(SquareMatrixError::Singular);
-            }
-            for j in i + 1..n {
-                if lu[j][i] != 0.0 {
-                    lu[j][i] /= pivot;
-                    factor = lu[j][i];
-                    let (front, back) = lu.0.split_at_mut(j);
-                    back[0].as_mut_slice()[i + 1..n]
-                        .iter_mut()
-                        .zip(front[i].as_slice()[i + 1..n].iter())
-                        .for_each(|(lu_jk, lu_ik)| *lu_jk -= factor * lu_ik);
-                }
-            }
-        }
-        Ok(())
+        decomposition.factorize()
     }
     /// Solve a system of linear equations using the LU decomposition.
     pub fn solve_lu(&self, b: &Vector) -> Result<Vector, SquareMatrixError> {
@@ -184,6 +151,72 @@ pub struct LuDecomposition {
 }
 
 impl LuDecomposition {
+    fn factorize(&mut self) -> Result<(), SquareMatrixError> {
+        let Self { lu, permutation } = self;
+        let n = lu.len();
+        for i in 0..n {
+            let mut max_row = i;
+            let mut max_val = lu[i][i].abs();
+            for k in i + 1..n {
+                let candidate = lu[k][i].abs();
+                if candidate > max_val {
+                    max_row = k;
+                    max_val = candidate;
+                }
+            }
+            if max_row != i {
+                lu.0.swap(i, max_row);
+                permutation.swap(i, max_row);
+            }
+            let pivot = lu[i][i];
+            if pivot.abs() < ABS_TOL {
+                return Err(SquareMatrixError::Singular);
+            }
+            let (front, back) = lu.0.split_at_mut(i + 1);
+            let column = &front[i].as_slice()[i + 1..];
+            let mut count = 0;
+            for row in 0..back.len() {
+                let factor = back[row][i];
+                if factor != 0.0 {
+                    back[row][i] = factor / pivot;
+                    if row != count {
+                        back.swap(row, count);
+                        permutation.swap(i + 1 + row, i + 1 + count)
+                    }
+                    count += 1
+                }
+            }
+            if column.len() < 4 {
+                back[..count].iter_mut().for_each(|row| {
+                    let factor = row[i];
+                    row.as_mut_slice()[i + 1..]
+                        .iter_mut()
+                        .zip(column.iter())
+                        .for_each(|(row_k, column_k)| *row_k -= factor * column_k)
+                })
+            } else {
+                back[..count].chunks_mut(4).for_each(|chunk| {
+                    if let [a, b, c, d] = chunk {
+                        let u = [-a[i], -b[i], -c[i], -d[i]];
+                        simd::rank_one_quad(
+                            &mut a.as_mut_slice()[i + 1..],
+                            &mut b.as_mut_slice()[i + 1..],
+                            &mut c.as_mut_slice()[i + 1..],
+                            &mut d.as_mut_slice()[i + 1..],
+                            column,
+                            u,
+                        )
+                    } else {
+                        chunk.iter_mut().for_each(|row| {
+                            let factor = row[i];
+                            simd::axpy(&mut row.as_mut_slice()[i + 1..], column, factor)
+                        })
+                    }
+                })
+            }
+        }
+        Ok(())
+    }
     /// An unfactorized decomposition sized to hold that of a matrix of the given length.
     pub fn zero(len: usize) -> Self {
         Self {
