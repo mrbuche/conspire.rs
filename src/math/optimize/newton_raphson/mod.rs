@@ -3,11 +3,11 @@ mod test;
 
 use super::{
     super::{
-        Hessian, Jacobian, Matrix, Scalar, Solution, SquareMatrix, Tensor, Vector,
-        sparse::SparseSolver,
+        Hessian, HessianBlock, Jacobian, LuDecomposition, Matrix, Scalar, Solution, SquareMatrix,
+        Tensor, Vector, sparse::SparseSolver,
     },
     BacktrackingLineSearch, EqualityConstraint, FirstOrderRootFinding, LineSearch,
-    OptimizationError, SecondOrderOptimization,
+    OptimizationError, SecondOrderOptimization, SecondOrderOptimizationBlock, SolveStrategy,
 };
 use crate::ABS_TOL;
 use crate::math::Norm;
@@ -152,6 +152,281 @@ where
             )),
         }
     }
+}
+
+impl<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>
+    SecondOrderOptimizationBlock<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> for NewtonRaphson
+where
+    U: Solution,
+    V: Solution,
+    Ru: Jacobian,
+    Rv: Jacobian,
+    Kuu: HessianBlock,
+    Kvu: HessianBlock,
+    Kuv: HessianBlock,
+    Kvv: HessianBlock,
+    for<'a> &'a Matrix: Mul<&'a U, Output = Vector> + Mul<&'a V, Output = Vector>,
+{
+    fn minimize_block(
+        &self,
+        residual_global: impl FnMut(&U, &V) -> Result<Ru, String>,
+        residual_local: impl FnMut(&U, &V) -> Result<Rv, String>,
+        tangents: impl FnMut(&U, &V) -> Result<(Kuu, Kvu, Kuv, Kvv), String>,
+        initial_guess: (U, V),
+        constraint_global: (Matrix, Vector),
+        constraint_local: (Matrix, Vector),
+        strategy: SolveStrategy,
+    ) -> Result<(U, V), OptimizationError> {
+        match blocked(
+            self,
+            residual_global,
+            residual_local,
+            tangents,
+            initial_guess,
+            constraint_global,
+            constraint_local,
+            strategy,
+        ) {
+            Ok(solution) => Ok(solution),
+            Err(error) => Err(OptimizationError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
+    }
+}
+
+/// Fill the Karush-Kuhn-Tucker matrix of a block with its own equality constraint.
+fn kkt_block<K>(
+    tangent: &K,
+    constraint_matrix: &Matrix,
+    size: usize,
+    block: &mut SquareMatrix,
+    offset: usize,
+) where
+    K: HessianBlock,
+{
+    tangent.fill_into_block(block, offset, offset);
+    constraint_matrix
+        .iter()
+        .enumerate()
+        .for_each(|(a, constraint_matrix_a)| {
+            (0..size).for_each(|j| {
+                block[offset + size + a][offset + j] = -constraint_matrix_a[j];
+                block[offset + j][offset + size + a] = -constraint_matrix_a[j];
+            })
+        })
+}
+
+/// Fill the residual of a block chained with the violation of its own equality constraint.
+fn kkt_residual<R, T>(
+    residual: R,
+    multipliers: &Vector,
+    constraint_matrix: &Matrix,
+    constraint_rhs: &Vector,
+    variables: &T,
+    chained: &mut Vector,
+) where
+    R: Jacobian,
+    for<'a> &'a Matrix: Mul<&'a T, Output = Vector>,
+{
+    (residual - multipliers * constraint_matrix)
+        .fill_into_chained(constraint_rhs - constraint_matrix * variables, chained)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn blocked<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>(
+    newton_raphson: &NewtonRaphson,
+    mut residual_global: impl FnMut(&U, &V) -> Result<Ru, String>,
+    mut residual_local: impl FnMut(&U, &V) -> Result<Rv, String>,
+    mut tangents: impl FnMut(&U, &V) -> Result<(Kuu, Kvu, Kuv, Kvv), String>,
+    initial_guess: (U, V),
+    constraint_global: (Matrix, Vector),
+    constraint_local: (Matrix, Vector),
+    strategy: SolveStrategy,
+) -> Result<(U, V), OptimizationError>
+where
+    U: Solution,
+    V: Solution,
+    Ru: Jacobian,
+    Rv: Jacobian,
+    Kuu: HessianBlock,
+    Kvu: HessianBlock,
+    Kuv: HessianBlock,
+    Kvv: HessianBlock,
+    for<'a> &'a Matrix: Mul<&'a U, Output = Vector> + Mul<&'a V, Output = Vector>,
+{
+    if !matches!(newton_raphson.line_search, LineSearch::None) {
+        panic!("Line search needs the exact penalty function in constrained optimization.")
+    }
+    let (mut global, mut local) = initial_guess;
+    let (constraint_matrix_global, constraint_rhs_global) = constraint_global;
+    let (constraint_matrix_local, constraint_rhs_local) = constraint_local;
+    let num_global = global.size();
+    let num_local = local.size();
+    let num_outer = num_global + constraint_rhs_global.len();
+    let num_inner = num_local + constraint_rhs_local.len();
+    let mut multipliers_global = Vector::zero(constraint_rhs_global.len());
+    let mut multipliers_local = Vector::zero(constraint_rhs_local.len());
+    let eliminating = !matches!(strategy, SolveStrategy::Monolithic { elimination: false });
+    let (inner, outer) = if eliminating {
+        (num_inner, num_outer)
+    } else {
+        (0, 0)
+    };
+    let mut column = Vector::zero(inner);
+    let mut coupling_global = Matrix::zero(outer, inner);
+    let mut coupling_local = Matrix::zero(inner, outer);
+    let mut eliminated = vec![Vector::zero(inner); outer.min(num_global)];
+    let mut factorization = LuDecomposition::zero(inner);
+    let mut monolithic = SquareMatrix::zero(if eliminating {
+        0
+    } else {
+        num_outer + num_inner
+    });
+    let mut residual = Vector::zero(num_outer + num_inner);
+    let mut tangent_inner = SquareMatrix::zero(inner);
+    let mut tangent_outer = SquareMatrix::zero(outer);
+    let mut update_inner = Vector::zero(num_inner);
+    let mut update_outer = Vector::zero(num_outer);
+    for _ in 0..=newton_raphson.max_steps {
+        if matches!(strategy, SolveStrategy::Condensed) {
+            for _ in 0..=newton_raphson.max_steps {
+                kkt_residual(
+                    residual_local(&global, &local)?,
+                    &multipliers_local,
+                    &constraint_matrix_local,
+                    &constraint_rhs_local,
+                    &local,
+                    &mut update_inner,
+                );
+                if newton_raphson.norm.apply(&update_inner) < newton_raphson.abs_tol {
+                    break;
+                }
+                let (_, _, _, tangent) = tangents(&global, &local)?;
+                kkt_block(
+                    &tangent,
+                    &constraint_matrix_local,
+                    num_local,
+                    &mut tangent_inner,
+                    0,
+                );
+                tangent_inner.factorize_lu_into(&mut factorization)?;
+                let decrement = factorization.solve(&update_inner);
+                local.decrement_from_chained(&mut multipliers_local, decrement)
+            }
+        }
+        kkt_residual(
+            residual_global(&global, &local)?,
+            &multipliers_global,
+            &constraint_matrix_global,
+            &constraint_rhs_global,
+            &global,
+            &mut update_outer,
+        );
+        kkt_residual(
+            residual_local(&global, &local)?,
+            &multipliers_local,
+            &constraint_matrix_local,
+            &constraint_rhs_local,
+            &local,
+            &mut update_inner,
+        );
+        update_outer
+            .iter()
+            .chain(update_inner.iter())
+            .zip(residual.iter_mut())
+            .for_each(|(entry, residual_i)| *residual_i = *entry);
+        if newton_raphson.norm.apply(&residual) < newton_raphson.abs_tol {
+            return Ok((global, local));
+        }
+        let (tangent_uu, tangent_vu, tangent_uv, tangent_vv) = tangents(&global, &local)?;
+        if eliminating {
+            kkt_block(
+                &tangent_uu,
+                &constraint_matrix_global,
+                num_global,
+                &mut tangent_outer,
+                0,
+            );
+            kkt_block(
+                &tangent_vv,
+                &constraint_matrix_local,
+                num_local,
+                &mut tangent_inner,
+                0,
+            );
+            tangent_uv.fill_into_block(&mut coupling_global, 0, 0);
+            tangent_vu.fill_into_block(&mut coupling_local, 0, 0);
+            //
+            // Eliminate the local block, whose coupling to the global block is nonzero
+            // only over the variables themselves, never over the constraint multipliers.
+            //
+            tangent_inner.factorize_lu_into(&mut factorization)?;
+            eliminated
+                .iter_mut()
+                .enumerate()
+                .for_each(|(k, eliminated_k)| {
+                    (0..num_local).for_each(|i| column[i] = coupling_local[i][k]);
+                    factorization.solve_into(&column, eliminated_k)
+                });
+            let offset = factorization.solve(&update_inner);
+            (0..num_global).for_each(|i| {
+                (0..num_local).for_each(|j| {
+                    let coupling = coupling_global[i][j];
+                    (0..num_global)
+                        .for_each(|k| tangent_outer[i][k] -= coupling * eliminated[k][j]);
+                    update_outer[i] -= coupling * offset[j]
+                })
+            });
+            let decrement_outer = tangent_outer.solve_lu(&update_outer)?;
+            let mut decrement_inner = offset;
+            (0..num_global).for_each(|k| {
+                decrement_inner
+                    .iter_mut()
+                    .zip(eliminated[k].iter())
+                    .for_each(|(decrement_inner_i, eliminated_ki)| {
+                        *decrement_inner_i -= eliminated_ki * decrement_outer[k]
+                    })
+            });
+            global.decrement_from_chained(&mut multipliers_global, decrement_outer);
+            local.decrement_from_chained(&mut multipliers_local, decrement_inner)
+        } else {
+            //
+            // Order the unknowns as (global, its multipliers, local, its multipliers)
+            // so that the decrement splits contiguously between the two blocks.
+            //
+            kkt_block(
+                &tangent_uu,
+                &constraint_matrix_global,
+                num_global,
+                &mut monolithic,
+                0,
+            );
+            kkt_block(
+                &tangent_vv,
+                &constraint_matrix_local,
+                num_local,
+                &mut monolithic,
+                num_outer,
+            );
+            tangent_uv.fill_into_block(&mut monolithic, 0, num_outer);
+            tangent_vu.fill_into_block(&mut monolithic, num_outer, 0);
+            let decrement = monolithic.solve_lu(&residual)?;
+            let mut decrement_outer = Vector::zero(num_outer);
+            let mut decrement_inner = Vector::zero(num_inner);
+            decrement
+                .iter()
+                .zip(decrement_outer.iter_mut().chain(decrement_inner.iter_mut()))
+                .for_each(|(entry, decrement_i)| *decrement_i = *entry);
+            global.decrement_from_chained(&mut multipliers_global, decrement_outer);
+            local.decrement_from_chained(&mut multipliers_local, decrement_inner)
+        }
+    }
+    Err(OptimizationError::MaximumStepsReached(
+        newton_raphson.max_steps,
+        format!("{:?}", newton_raphson),
+    ))
 }
 
 fn unconstrained<J, H, X>(

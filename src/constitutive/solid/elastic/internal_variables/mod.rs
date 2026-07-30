@@ -158,12 +158,12 @@ where
         deformation_gradient: &DeformationGradient,
         internal_variables: &V,
     ) -> Result<V, ConstitutiveError>;
-    /// Calculates and returns the tangents associated with the internal variables.
-    fn internal_variables_tangents(
+    /// Calculates and returns the tangents of the coupled system.
+    fn tangents(
         &self,
         deformation_gradient: &DeformationGradient,
         internal_variables: &V,
-    ) -> Result<(T1, T2, T3), ConstitutiveError>;
+    ) -> Result<(FirstPiolaKirchhoffTangentStiffness, T1, T2, T3), ConstitutiveError>;
     /// Returns the constraint indices for the internal variables.
     fn internal_variables_constraints(&self) -> (&[usize], usize);
 }
@@ -277,12 +277,8 @@ where
             },
             |variables: &Self::Variables| {
                 let (deformation_gradient, internal_variables) = variables.into();
-                let tangent_0 = self.first_piola_kirchhoff_tangent_stiffness(
-                    deformation_gradient,
-                    internal_variables,
-                )?;
-                let (tangent_1, tangent_2, tangent_3) =
-                    self.internal_variables_tangents(deformation_gradient, internal_variables)?;
+                let (tangent_0, tangent_1, tangent_2, tangent_3) =
+                    self.tangents(deformation_gradient, internal_variables)?;
                 Ok((tangent_0, (tangent_1, (tangent_2, tangent_3).into()).into()).into())
             },
             Self::Variables::from((
@@ -297,6 +293,40 @@ where
                 format!("{error}"),
                 format!("{self:?}"),
             )),
+        }
+    }
+}
+
+#[doc(hidden)]
+pub fn bcs_block<C, V, T1, T2, T3>(
+    model: &C,
+    applied_load: AppliedLoad,
+) -> ((Matrix, Vector), (Matrix, Vector))
+where
+    C: ElasticIV<V, T1, T2, T3>,
+{
+    let (extra_constraints, num_vars) = model.internal_variables_constraints();
+    match applied_load {
+        AppliedLoad::UniaxialStress(deformation_gradient_11) => {
+            let mut matrix = Matrix::zero(4, 9);
+            let mut vector = Vector::zero(4);
+            matrix[0][0] = 1.0;
+            matrix[1][1] = 1.0;
+            matrix[2][2] = 1.0;
+            matrix[3][5] = 1.0;
+            vector[0] = deformation_gradient_11;
+            let mut matrix_vars = Matrix::zero(extra_constraints.len(), num_vars);
+            extra_constraints
+                .iter()
+                .enumerate()
+                .for_each(|(i, &j)| matrix_vars[i][j - 9] = 1.0);
+            (
+                (matrix, vector),
+                (matrix_vars, Vector::zero(extra_constraints.len())),
+            )
+        }
+        AppliedLoad::BiaxialStress(_, _) => {
+            todo!()
         }
     }
 }

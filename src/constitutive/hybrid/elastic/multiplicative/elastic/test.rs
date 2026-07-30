@@ -94,8 +94,7 @@ fn finite_difference_1() -> Result<(), AssertionError> {
             shear_modulus: SHEAR_MODULUS,
         },
     ));
-    let (tangent_1, _, _) =
-        model.internal_variables_tangents(&deformation_gradient, &deformation_gradient_2)?;
+    let (_, tangent_1, _, _) = model.tangents(&deformation_gradient, &deformation_gradient_2)?;
     let mut fd = TensorRank4::zero();
     for k in 0..3 {
         for l in 0..3 {
@@ -145,8 +144,7 @@ fn finite_difference_2() -> Result<(), AssertionError> {
             shear_modulus: SHEAR_MODULUS,
         },
     ));
-    let (_, tangent_2, _) =
-        model.internal_variables_tangents(&deformation_gradient, &deformation_gradient_2)?;
+    let (_, _, tangent_2, _) = model.tangents(&deformation_gradient, &deformation_gradient_2)?;
     let mut fd = TensorRank4::zero();
     for k in 0..3 {
         for l in 0..3 {
@@ -198,8 +196,7 @@ fn finite_difference_3() -> Result<(), AssertionError> {
             shear_modulus: SHEAR_MODULUS,
         },
     ));
-    let (_, _, tangent_3) =
-        model.internal_variables_tangents(&deformation_gradient, &deformation_gradient_2)?;
+    let (_, _, _, tangent_3) = model.tangents(&deformation_gradient, &deformation_gradient_2)?;
     let mut fd = TensorRank4::zero();
     for k in 0..3 {
         for l in 0..3 {
