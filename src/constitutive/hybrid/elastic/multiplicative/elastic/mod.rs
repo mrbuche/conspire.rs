@@ -157,10 +157,6 @@ where
         ),
         ConstitutiveError,
     > {
-        //
-        // If hyperelastic, tangent_1 should equal a transpose of tangent_2.
-        // Could add a method to utilize that for minimize() in hyperelastic/multiplicative.
-        //
         let deformation_gradient_2_inverse = deformation_gradient_2.inverse();
         let deformation_gradient_2_inverse_transpose = deformation_gradient_2_inverse.transpose();
         let deformation_gradient_1 = deformation_gradient * &deformation_gradient_2_inverse;
