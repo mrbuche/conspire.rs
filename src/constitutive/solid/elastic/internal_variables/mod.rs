@@ -158,8 +158,10 @@ where
         deformation_gradient: &DeformationGradient,
         internal_variables: &V,
     ) -> Result<V, ConstitutiveError>;
-    /// Returns the constraint indices for the internal variables.
-    fn internal_variables_constraints(&self) -> (&[usize], usize);
+    /// Returns the indices of the internal variables held at zero.
+    ///
+    /// These fix any gauge freedom in how the internal variables are parameterized.
+    fn internal_variables_fixed(&self) -> &[usize];
     /// Calculates and returns the tangents of the coupled system.
     fn tangents(
         &self,
@@ -304,8 +306,10 @@ pub fn bcs_block<C, V, T1, T2, T3>(
 ) -> ((Matrix, Vector), (Matrix, Vector))
 where
     C: ElasticIV<V, T1, T2, T3>,
+    V: Tensor,
 {
-    let (extra_constraints, num_vars) = model.internal_variables_constraints();
+    let fixed = model.internal_variables_fixed();
+    let num_internal_variables = model.internal_variables_initial().size();
     match applied_load {
         AppliedLoad::UniaxialStress(deformation_gradient_11) => {
             let mut matrix = Matrix::zero(4, 9);
@@ -315,15 +319,12 @@ where
             matrix[2][2] = 1.0;
             matrix[3][5] = 1.0;
             vector[0] = deformation_gradient_11;
-            let mut matrix_vars = Matrix::zero(extra_constraints.len(), num_vars);
-            extra_constraints
+            let mut matrix_vars = Matrix::zero(fixed.len(), num_internal_variables);
+            fixed
                 .iter()
                 .enumerate()
-                .for_each(|(i, &j)| matrix_vars[i][j - 9] = 1.0);
-            (
-                (matrix, vector),
-                (matrix_vars, Vector::zero(extra_constraints.len())),
-            )
+                .for_each(|(i, &j)| matrix_vars[i][j] = 1.0);
+            ((matrix, vector), (matrix_vars, Vector::zero(fixed.len())))
         }
         AppliedLoad::BiaxialStress(_, _) => {
             todo!()
@@ -335,24 +336,27 @@ where
 pub fn bcs<C, V, T1, T2, T3>(model: &C, applied_load: AppliedLoad) -> (Matrix, Vector)
 where
     C: ElasticIV<V, T1, T2, T3>,
+    V: Tensor,
 {
-    let (extra_constraints, num_vars) = model.internal_variables_constraints();
+    let fixed = model.internal_variables_fixed();
+    let num_internal_variables = model.internal_variables_initial().size();
     match applied_load {
         AppliedLoad::UniaxialStress(deformation_gradient_11) => {
             let num_constraints = 4;
-            let num_constraints_vars = extra_constraints.len();
-            let mut matrix = Matrix::zero(num_constraints + num_constraints_vars, 9 + num_vars);
-            let mut vector = Vector::zero(num_constraints + num_constraints_vars);
+            let num_deformation_gradient = 9;
+            let mut matrix = Matrix::zero(
+                num_constraints + fixed.len(),
+                num_deformation_gradient + num_internal_variables,
+            );
+            let mut vector = Vector::zero(num_constraints + fixed.len());
             matrix[0][0] = 1.0;
             matrix[1][1] = 1.0;
             matrix[2][2] = 1.0;
             matrix[3][5] = 1.0;
-            let mut i = num_constraints;
-            extra_constraints.iter().for_each(|&j| {
-                matrix[i][j] = 1.0;
-                i += 1;
-            });
             vector[0] = deformation_gradient_11;
+            fixed.iter().enumerate().for_each(|(i, &j)| {
+                matrix[num_constraints + i][num_deformation_gradient + j] = 1.0
+            });
             (matrix, vector)
         }
         AppliedLoad::BiaxialStress(_, _) => {
