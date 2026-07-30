@@ -46,7 +46,6 @@ fn blocked(
     Ok((f, f_2))
 }
 
-/// Verifies the solution independently of how it was obtained.
 fn check(f: &DeformationGradient, f_2: &DeformationGradient2) -> Result<(), AssertionError> {
     use crate::constitutive::solid::elastic::internal_variables::ElasticIV;
     Assert::default().zero_within_tols(&model().internal_variables_residual(f, f_2)?)?;
