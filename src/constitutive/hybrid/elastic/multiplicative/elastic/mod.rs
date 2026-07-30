@@ -185,7 +185,9 @@ where
             );
         Ok((tangent_0, tangent_1, tangent_2, tangent_3))
     }
-    fn internal_variables_constraints(&self) -> (&[usize], usize) {
-        (&[10, 11, 14], 9)
+    /// The strict upper triangle of the second deformation gradient, which keeps it
+    /// lower triangular and thereby fixes the rotational freedom of the split.
+    fn internal_variables_fixed(&self) -> &[usize] {
+        &[1, 2, 5]
     }
 }
