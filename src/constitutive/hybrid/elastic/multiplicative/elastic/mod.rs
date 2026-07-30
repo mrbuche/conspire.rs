@@ -130,7 +130,7 @@ where
             )
             * deformation_gradient_2_inverse.transpose())
     }
-    /// Calculates and returns the tangents of the coupled system, in the order returned.
+    /// Calculates and returns the tangents of the coupled system.
     ///
     /// ```math
     /// \mathcal{C}_{iJkL} = \frac{\partial P_{iJ}}{\partial F_{kL}}
