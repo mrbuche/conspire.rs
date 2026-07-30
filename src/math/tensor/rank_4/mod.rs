@@ -12,7 +12,7 @@ use std::{
 };
 
 use super::{
-    Hessian, Rank2, SquareMatrix, Tensor, TensorArray, Vector,
+    Hessian, HessianBlock, Rank2, SquareMatrix, Tensor, TensorArray, Vector,
     rank_0::TensorRank0,
     rank_1::TensorRank1,
     rank_2::TensorRank2,
@@ -21,6 +21,33 @@ use super::{
 
 pub(crate) mod list;
 pub(crate) mod vec;
+
+impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> HessianBlock
+    for TensorRank4<D, I, J, K, L>
+{
+    fn height(&self) -> usize {
+        D * D
+    }
+    fn width(&self) -> usize {
+        D * D
+    }
+    fn fill_into_block<M>(&self, matrix: &mut M, row: usize, column: usize)
+    where
+        M: IndexMut<usize, Output = Vector>,
+    {
+        self.iter().enumerate().for_each(|(i, self_i)| {
+            self_i.iter().enumerate().for_each(|(j, self_ij)| {
+                let matrix_row = &mut matrix[row + D * i + j];
+                self_ij.iter().enumerate().for_each(|(k, self_ijk)| {
+                    self_ijk
+                        .iter()
+                        .enumerate()
+                        .for_each(|(l, self_ijkl)| matrix_row[column + D * k + l] = *self_ijkl)
+                })
+            })
+        })
+    }
+}
 
 /// A *d*-dimensional tensor of rank 4.
 ///

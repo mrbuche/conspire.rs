@@ -105,6 +105,18 @@ where
     }
 }
 
+/// Common methods for blocks of a Hessian.
+pub trait HessianBlock {
+    /// The number of rows the block occupies.
+    fn height(&self) -> usize;
+    /// The number of columns the block occupies.
+    fn width(&self) -> usize;
+    /// Fills the block into a matrix at the given row and column offsets.
+    fn fill_into_block<M>(&self, matrix: &mut M, row: usize, column: usize)
+    where
+        M: IndexMut<usize, Output = Vector>;
+}
+
 /// Accumulates rank-2 blocks into a sparse Hessian-like structure.
 ///
 /// Symmetric-safe: the caller guarantees `block` at (a, b) equals the

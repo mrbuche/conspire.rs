@@ -108,12 +108,32 @@ impl SquareMatrix {
     //     // }
     //     // Ok(xs)
     // }
-    /// Solve a system of linear equations using the LU decomposition.
-    pub fn solve_lu(&self, b: &Vector) -> Result<Vector, SquareMatrixError> {
+    /// Factorize the matrix using the LU decomposition.
+    pub fn factorize_lu(&self) -> Result<LuDecomposition, SquareMatrixError> {
+        let mut decomposition = LuDecomposition {
+            lu: Self::zero(self.len()),
+            permutation: (0..self.len()).collect(),
+        };
+        self.factorize_lu_into(&mut decomposition)?;
+        Ok(decomposition)
+    }
+    /// Factorize the matrix into an existing LU decomposition of the same size.
+    pub fn factorize_lu_into(
+        &self,
+        decomposition: &mut LuDecomposition,
+    ) -> Result<(), SquareMatrixError> {
         let n = self.len();
-        let mut p: Vec<usize> = (0..n).collect();
+        let LuDecomposition { lu, permutation } = decomposition;
+        lu.iter_mut().zip(self.iter()).for_each(|(lu_i, self_i)| {
+            lu_i.iter_mut()
+                .zip(self_i.iter())
+                .for_each(|(a, b)| *a = *b)
+        });
+        permutation
+            .iter_mut()
+            .enumerate()
+            .for_each(|(i, permutation_i)| *permutation_i = i);
         let mut factor;
-        let mut lu = self.clone();
         let mut max_row;
         let mut max_val;
         let mut pivot;
@@ -128,7 +148,7 @@ impl SquareMatrix {
             }
             if max_row != i {
                 lu.0.swap(i, max_row);
-                p.swap(i, max_row);
+                permutation.swap(i, max_row);
             }
             pivot = lu[i][i];
             if pivot.abs() < ABS_TOL {
@@ -146,13 +166,45 @@ impl SquareMatrix {
                 }
             }
         }
-        let mut x: Vector = p.into_iter().map(|p_i| b[p_i]).collect();
-        forward_substitution(&mut x, &lu);
-        backward_substitution(&mut x, &lu);
-        Ok(x)
+        Ok(())
+    }
+    /// Solve a system of linear equations using the LU decomposition.
+    pub fn solve_lu(&self, b: &Vector) -> Result<Vector, SquareMatrixError> {
+        Ok(self.factorize_lu()?.solve(b))
     }
     pub fn zero(len: usize) -> Self {
         (0..len).map(|_| Vector::zero(len)).collect()
+    }
+}
+
+/// The LU decomposition of a square matrix.
+pub struct LuDecomposition {
+    lu: SquareMatrix,
+    permutation: Vec<usize>,
+}
+
+impl LuDecomposition {
+    /// An unfactorized decomposition sized to hold that of a matrix of the given length.
+    pub fn zero(len: usize) -> Self {
+        Self {
+            lu: SquareMatrix::zero(len),
+            permutation: (0..len).collect(),
+        }
+    }
+    /// Solve a system of linear equations for another right-hand side.
+    pub fn solve(&self, b: &Vector) -> Vector {
+        let mut x = Vector::zero(self.permutation.len());
+        self.solve_into(b, &mut x);
+        x
+    }
+    /// Solve a system of linear equations into an existing vector.
+    pub fn solve_into(&self, b: &Vector, x: &mut Vector) {
+        self.permutation
+            .iter()
+            .zip(x.iter_mut())
+            .for_each(|(&p_i, x_i)| *x_i = b[p_i]);
+        forward_substitution(x, &self.lu);
+        backward_substitution(x, &self.lu)
     }
 }
 

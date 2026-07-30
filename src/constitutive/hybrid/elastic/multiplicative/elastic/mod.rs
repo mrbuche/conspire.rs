@@ -14,8 +14,8 @@ use crate::{
     mechanics::{
         CauchyStress, CauchyTangentStiffness, CauchyTangentStiffness1, DeformationGradient,
         DeformationGradient2, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStress1,
-        FirstPiolaKirchhoffStress2, FirstPiolaKirchhoffTangentStiffness2, Scalar,
-        SecondPiolaKirchhoffStress,
+        FirstPiolaKirchhoffStress2, FirstPiolaKirchhoffTangentStiffness,
+        FirstPiolaKirchhoffTangentStiffness2, Scalar, SecondPiolaKirchhoffStress,
     },
 };
 
@@ -130,23 +130,27 @@ where
             )
             * deformation_gradient_2_inverse.transpose())
     }
-    /// Calculates and returns the tangents associated with the internal variables.
+    /// Calculates and returns the tangents of the coupled system, in the order returned.
     ///
     /// ```math
-    /// \frac{\partial P_{iJ}}{\partial F_{KL}^2} = -P_{iL}F_{KJ}^{2-T} - \mathcal{C}_{iJmL}F_{mK}^1
+    /// \mathcal{C}_{iJkL} = \frac{\partial P_{iJ}}{\partial F_{kL}}
     /// ```
     /// ```math
     /// \frac{\partial R_{IJ}}{\partial F_{kL}} = -F_{IL}^{2-T}P_{kJ} - F_{mI}^1\mathcal{C}_{mJkL}
     /// ```
     /// ```math
+    /// \frac{\partial P_{iJ}}{\partial F_{KL}^2} = -P_{iL}F_{KJ}^{2-T} - \mathcal{C}_{iJmL}F_{mK}^1
+    /// ```
+    /// ```math
     /// \frac{\partial R_{IJ}}{\partial F_{KL}^2} = \mathcal{C}_{IJKL}^2 + F_{IM}^1P_{ML}{F_{KJ}^{2-T}} - \frac{\partial R_{IJ}}{\partial F_{mL}}\,F_{mK}^1
     /// ```
-    fn internal_variables_tangents(
+    fn tangents(
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_2: &DeformationGradient2,
     ) -> Result<
         (
+            FirstPiolaKirchhoffTangentStiffness,
             TensorRank4<3, 2, 0, 1, 0>,
             TensorRank4<3, 1, 0, 2, 0>,
             FirstPiolaKirchhoffTangentStiffness2,
@@ -183,7 +187,7 @@ where
                 &(deformation_gradient_1_transpose * first_piola_kirchhoff_stress),
                 &deformation_gradient_2_inverse,
             );
-        Ok((tangent_1, tangent_2, tangent_3))
+        Ok((tangent_0, tangent_1, tangent_2, tangent_3))
     }
     fn internal_variables_constraints(&self) -> (&[usize], usize) {
         (&[10, 11, 14], 9)

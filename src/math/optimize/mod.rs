@@ -5,14 +5,16 @@ mod constraint;
 mod gradient_descent;
 mod line_search;
 mod newton_raphson;
+mod strategy;
 
 pub use constraint::EqualityConstraint;
 pub use gradient_descent::GradientDescent;
 pub use line_search::{LineSearch, LineSearchError};
 pub use newton_raphson::NewtonRaphson;
+pub use strategy::SolveStrategy;
 
 use crate::math::{
-    Jacobian, Scalar, Solution, Style, StyledError,
+    Jacobian, Matrix, Scalar, Solution, Style, StyledError, Vector,
     assert::AssertionError,
     matrix::square::SquareMatrixError,
     sparse::{SparseError, SparseSolver},
@@ -64,6 +66,21 @@ pub trait SecondOrderOptimization<F, J, H, X> {
         equality_constraint: EqualityConstraint,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError>;
+}
+
+/// Second-order optimization algorithms for problems split into global and local variables.
+#[allow(clippy::too_many_arguments)]
+pub trait SecondOrderOptimizationBlock<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
+    fn minimize_block(
+        &self,
+        residual_global: impl FnMut(&U, &V) -> Result<Ru, String>,
+        residual_local: impl FnMut(&U, &V) -> Result<Rv, String>,
+        tangents: impl FnMut(&U, &V) -> Result<(Kuu, Kvu, Kuv, Kvv), String>,
+        initial_guess: (U, V),
+        constraint_global: (Matrix, Vector),
+        constraint_local: (Matrix, Vector),
+        strategy: SolveStrategy,
+    ) -> Result<(U, V), OptimizationError>;
 }
 
 trait BacktrackingLineSearch<J, X>

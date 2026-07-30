@@ -32,11 +32,16 @@ pub(crate) use style::{Style, StyledError, defeat_message, styled_error};
 
 pub use graph::Graph;
 pub use hash::{FxHashMap, FxHashSet, FxHasher};
-pub use matrix::{Matrix, square::SquareMatrix, vector::Vector};
+pub use matrix::{
+    Matrix,
+    square::{LuDecomposition, SquareMatrix},
+    vector::Vector,
+};
 pub use set::{Set, sets::Sets};
 pub use tensor::{
-    Hessian, HessianAccumulate, HessianAccumulateGeneral, Jacobian, Norm, Rank2, Scalar,
-    ScalarList, ScalarListVec, Scalars, Solution, Tensor, TensorArray, TensorError, TensorVec,
+    Hessian, HessianAccumulate, HessianAccumulateGeneral, HessianBlock, Jacobian, Norm, Rank2,
+    Scalar, ScalarList, ScalarListVec, Scalars, Solution, Tensor, TensorArray, TensorError,
+    TensorVec,
     list::TensorList,
     rank_0::{TensorRank0, list::TensorRank0List, list_2d::TensorRank0List2D},
     rank_1::{
