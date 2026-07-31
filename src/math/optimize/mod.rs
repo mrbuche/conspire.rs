@@ -14,10 +14,10 @@ pub use newton_raphson::NewtonRaphson;
 pub use strategy::SolveStrategy;
 
 use crate::math::{
-    Jacobian, Matrix, Scalar, Solution, Style, StyledError, Vector,
+    Jacobian, Scalar, Solution, Style, StyledError, Vector,
     assert::AssertionError,
     matrix::square::SquareMatrixError,
-    sparse::{SparseError, SparseSolver},
+    sparse::{CscMatrix, SparseError, SparseSolver},
     styled_error,
 };
 use std::{fmt::Debug, ops::Mul};
@@ -77,8 +77,8 @@ pub trait FirstOrderRootFindingBlock<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
         residual_local: impl FnMut(&U, &V) -> Result<Rv, String>,
         tangents: impl FnMut(&U, &V) -> Result<(Kuu, Kvu, Kuv, Kvv), String>,
         initial_guess: (U, V),
-        constraint_global: (Matrix, Vector),
-        constraint_local: (Matrix, Vector),
+        constraint_global: (CscMatrix, Vector),
+        constraint_local: (CscMatrix, Vector),
         sparse: Option<SparseSolver>,
         strategy: SolveStrategy,
     ) -> Result<(U, V), OptimizationError>;
@@ -94,8 +94,8 @@ pub trait SecondOrderOptimizationBlock<F, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
         residual_local: impl FnMut(&U, &V) -> Result<Rv, String>,
         tangents: impl FnMut(&U, &V) -> Result<(Kuu, Kvu, Kuv, Kvv), String>,
         initial_guess: (U, V),
-        constraint_global: (Matrix, Vector),
-        constraint_local: (Matrix, Vector),
+        constraint_global: (CscMatrix, Vector),
+        constraint_local: (CscMatrix, Vector),
         sparse: Option<SparseSolver>,
         strategy: SolveStrategy,
     ) -> Result<(U, V), OptimizationError>;

@@ -4,7 +4,8 @@ mod test;
 use super::{
     super::{
         Hessian, HessianBlock, Jacobian, LuDecomposition, Matrix, Scalar, Solution, SquareMatrix,
-        Tensor, Vector, sparse::SparseSolver,
+        Tensor, Vector,
+        sparse::{CscMatrix, SparseSolver},
     },
     BacktrackingLineSearch, EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock,
     LineSearch, OptimizationError, SecondOrderOptimization, SecondOrderOptimizationBlock,
@@ -166,7 +167,7 @@ where
     Kvu: HessianBlock,
     Kuv: HessianBlock,
     Kvv: HessianBlock,
-    for<'a> &'a Matrix: Mul<&'a U, Output = Vector> + Mul<&'a V, Output = Vector>,
+    for<'a> &'a CscMatrix: Mul<&'a U, Output = Vector> + Mul<&'a V, Output = Vector>,
 {
     fn root_block(
         &self,
@@ -174,8 +175,8 @@ where
         residual_local: impl FnMut(&U, &V) -> Result<Rv, String>,
         tangents: impl FnMut(&U, &V) -> Result<(Kuu, Kvu, Kuv, Kvv), String>,
         initial_guess: (U, V),
-        constraint_global: (Matrix, Vector),
-        constraint_local: (Matrix, Vector),
+        constraint_global: (CscMatrix, Vector),
+        constraint_local: (CscMatrix, Vector),
         sparse: Option<SparseSolver>,
         strategy: SolveStrategy,
     ) -> Result<(U, V), OptimizationError> {
@@ -211,7 +212,7 @@ where
     Kvu: HessianBlock,
     Kuv: HessianBlock,
     Kvv: HessianBlock,
-    for<'a> &'a Matrix: Mul<&'a U, Output = Vector> + Mul<&'a V, Output = Vector>,
+    for<'a> &'a CscMatrix: Mul<&'a U, Output = Vector> + Mul<&'a V, Output = Vector>,
 {
     fn minimize_block(
         &self,
@@ -220,8 +221,8 @@ where
         residual_local: impl FnMut(&U, &V) -> Result<Rv, String>,
         tangents: impl FnMut(&U, &V) -> Result<(Kuu, Kvu, Kuv, Kvv), String>,
         initial_guess: (U, V),
-        constraint_global: (Matrix, Vector),
-        constraint_local: (Matrix, Vector),
+        constraint_global: (CscMatrix, Vector),
+        constraint_local: (CscMatrix, Vector),
         sparse: Option<SparseSolver>,
         strategy: SolveStrategy,
     ) -> Result<(U, V), OptimizationError> {
@@ -248,9 +249,9 @@ where
 
 const PENALTY_SAFETY: Scalar = 2.0;
 
-fn violation<T>(constraint_matrix: &Matrix, constraint_rhs: &Vector, variables: &T) -> Scalar
+fn violation<M, T>(constraint_matrix: &M, constraint_rhs: &Vector, variables: &T) -> Scalar
 where
-    for<'a> &'a Matrix: Mul<&'a T, Output = Vector>,
+    for<'a> &'a M: Mul<&'a T, Output = Vector>,
 {
     (constraint_rhs - constraint_matrix * variables)
         .iter()
@@ -271,8 +272,8 @@ fn kkt_entry<Kuu, Kvu, Kuv, Kvv>(
     tangent_vu: &Kvu,
     tangent_uv: &Kuv,
     tangent_vv: &Kvv,
-    constraint_matrix_global: &Matrix,
-    constraint_matrix_local: &Matrix,
+    constraint_matrix_global: &CscMatrix,
+    constraint_matrix_local: &CscMatrix,
 ) -> Scalar
 where
     Kuu: HessianBlock,
@@ -294,13 +295,13 @@ where
     } else if row_local && column_local {
         tangent_vv.entry(row - num_outer, column - num_outer)
     } else if row_global && (num_global..num_outer).contains(&column) {
-        -constraint_matrix_global[column - num_global][row]
+        -constraint_matrix_global.entry(column - num_global, row)
     } else if (num_global..num_outer).contains(&row) && column_global {
-        -constraint_matrix_global[row - num_global][column]
+        -constraint_matrix_global.entry(row - num_global, column)
     } else if row_local && column >= local {
-        -constraint_matrix_local[column - local][row - num_outer]
+        -constraint_matrix_local.entry(column - local, row - num_outer)
     } else if row >= local && column_local {
-        -constraint_matrix_local[row - local][column - num_outer]
+        -constraint_matrix_local.entry(row - local, column - num_outer)
     } else {
         0.0
     }
@@ -308,7 +309,7 @@ where
 
 fn kkt_block<K>(
     tangent: &K,
-    constraint_matrix: &Matrix,
+    constraint_matrix: &CscMatrix,
     size: usize,
     block: &mut SquareMatrix,
     offset: usize,
@@ -316,27 +317,22 @@ fn kkt_block<K>(
     K: HessianBlock,
 {
     tangent.fill_into_block(block, offset, offset);
-    constraint_matrix
-        .iter()
-        .enumerate()
-        .for_each(|(a, constraint_matrix_a)| {
-            (0..size).for_each(|j| {
-                block[offset + size + a][offset + j] = -constraint_matrix_a[j];
-                block[offset + j][offset + size + a] = -constraint_matrix_a[j];
-            })
-        })
+    constraint_matrix.iter().for_each(|(a, j, entry)| {
+        block[offset + size + a][offset + j] = -entry;
+        block[offset + j][offset + size + a] = -entry;
+    })
 }
 
 fn kkt_residual<R, T>(
     residual: R,
     multipliers: &Vector,
-    constraint_matrix: &Matrix,
+    constraint_matrix: &CscMatrix,
     constraint_rhs: &Vector,
     variables: &T,
     chained: &mut Vector,
 ) where
     R: Jacobian,
-    for<'a> &'a Matrix: Mul<&'a T, Output = Vector>,
+    for<'a> &'a CscMatrix: Mul<&'a T, Output = Vector>,
 {
     (residual - multipliers * constraint_matrix)
         .fill_into_chained(constraint_rhs - constraint_matrix * variables, chained)
@@ -350,8 +346,8 @@ fn blocked<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>(
     mut residual_local: impl FnMut(&U, &V) -> Result<Rv, String>,
     mut tangents: impl FnMut(&U, &V) -> Result<(Kuu, Kvu, Kuv, Kvv), String>,
     initial_guess: (U, V),
-    constraint_global: (Matrix, Vector),
-    constraint_local: (Matrix, Vector),
+    constraint_global: (CscMatrix, Vector),
+    constraint_local: (CscMatrix, Vector),
     sparse: Option<SparseSolver>,
     strategy: SolveStrategy,
 ) -> Result<(U, V), OptimizationError>
@@ -364,7 +360,7 @@ where
     Kvu: HessianBlock,
     Kuv: HessianBlock,
     Kvv: HessianBlock,
-    for<'a> &'a Matrix: Mul<&'a U, Output = Vector> + Mul<&'a V, Output = Vector>,
+    for<'a> &'a CscMatrix: Mul<&'a U, Output = Vector> + Mul<&'a V, Output = Vector>,
 {
     let (mut global, mut local) = initial_guess;
     let mut penalty = 0.0 as Scalar;

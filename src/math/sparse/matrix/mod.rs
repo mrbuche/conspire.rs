@@ -195,6 +195,12 @@ impl CscMatrix {
 }
 
 impl CscMatrix {
+    /// The entry at a row and column, zero where the pattern holds none.
+    pub fn entry(&self, row: usize, column: usize) -> Scalar {
+        (self.col_ptr[column]..self.col_ptr[column + 1])
+            .find(|&k| self.row_idx[k] == row)
+            .map_or(0.0, |k| self.values[k])
+    }
     /// Multiplies by whatever supplies the entries of a column vector, the
     /// operands differing only in how their entries are reached.
     fn multiply(&self, entry: impl Fn(usize) -> Scalar) -> Vector {
@@ -226,5 +232,18 @@ impl<const D: usize, const I: usize> Mul<&TensorRank1Vec<D, I>> for &CscMatrix {
     type Output = Vector;
     fn mul(self, tensor_rank_1_vec: &TensorRank1Vec<D, I>) -> Self::Output {
         self.multiply(|j| tensor_rank_1_vec[j / D][j % D])
+    }
+}
+
+impl Mul<&CscMatrix> for &Vector {
+    type Output = Vector;
+    fn mul(self, csc_matrix: &CscMatrix) -> Self::Output {
+        let mut output = Vector::zero(csc_matrix.width);
+        (0..csc_matrix.width).for_each(|j| {
+            output[j] = (csc_matrix.col_ptr[j]..csc_matrix.col_ptr[j + 1])
+                .map(|k| csc_matrix.values[k] * self[csc_matrix.row_idx[k]])
+                .sum()
+        });
+        output
     }
 }

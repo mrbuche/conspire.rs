@@ -11,6 +11,7 @@ use crate::{
         optimize::{
             EqualityConstraint, FirstOrderRootFindingBlock, SolveStrategy, ZerothOrderRootFinding,
         },
+        sparse::CscMatrix,
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffStress,
@@ -312,7 +313,7 @@ where
 pub fn bcs_block<C, V, T1, T2, T3>(
     model: &C,
     applied_load: AppliedLoad,
-) -> ((Matrix, Vector), (Matrix, Vector))
+) -> ((CscMatrix, Vector), (CscMatrix, Vector))
 where
     C: ElasticIV<V, T1, T2, T3>,
     V: Tensor,
@@ -321,18 +322,15 @@ where
     let num_internal_variables = model.internal_variables_initial().size();
     match applied_load {
         AppliedLoad::UniaxialStress(deformation_gradient_11) => {
-            let mut matrix = Matrix::zero(4, 9);
             let mut vector = Vector::zero(4);
-            matrix[0][0] = 1.0;
-            matrix[1][1] = 1.0;
-            matrix[2][2] = 1.0;
-            matrix[3][5] = 1.0;
             vector[0] = deformation_gradient_11;
-            let mut matrix_vars = Matrix::zero(fixed.len(), num_internal_variables);
-            fixed
-                .iter()
-                .enumerate()
-                .for_each(|(i, &j)| matrix_vars[i][j] = 1.0);
+            let pattern = vec![(0, 0), (1, 1), (2, 2), (3, 5)];
+            let mut matrix = CscMatrix::from_pattern(4, 9, pattern);
+            matrix.fill(|_, _| 1.0);
+            let pattern_vars = fixed.iter().enumerate().map(|(i, &j)| (i, j)).collect();
+            let mut matrix_vars =
+                CscMatrix::from_pattern(fixed.len(), num_internal_variables, pattern_vars);
+            matrix_vars.fill(|_, _| 1.0);
             ((matrix, vector), (matrix_vars, Vector::zero(fixed.len())))
         }
         AppliedLoad::BiaxialStress(_, _) => {
