@@ -1,3 +1,5 @@
+pub mod internal_variables;
+
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperelastic::Hyperelastic},
     fem::block::element::{

@@ -1,3 +1,5 @@
+pub mod internal_variables;
+
 use crate::{
     fem::{
         Blocks, ElementModel, ElementModelError, Elements, FirstOrderMinimize, Model,
