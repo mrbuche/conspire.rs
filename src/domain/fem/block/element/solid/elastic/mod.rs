@@ -1,3 +1,5 @@
+pub mod internal_variables;
+
 use crate::{
     constitutive::solid::elastic::Elastic,
     fem::block::element::{
