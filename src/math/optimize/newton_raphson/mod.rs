@@ -626,7 +626,7 @@ where
 #[allow(clippy::too_many_arguments)]
 fn constrained<J, H, X>(
     newton_raphson: &NewtonRaphson,
-    _function: impl FnMut(&X) -> Result<Scalar, String>,
+    mut function: impl FnMut(&X) -> Result<Scalar, String>,
     mut jacobian: impl FnMut(&X) -> Result<J, String>,
     mut hessian: impl FnMut(&X) -> Result<H, String>,
     initial_guess: X,
@@ -640,10 +640,8 @@ where
     X: Solution,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
-    if !matches!(newton_raphson.line_search, LineSearch::None) {
-        panic!("Line search needs the exact penalty function in constrained optimization.")
-    }
     let mut decrement;
+    let mut penalty = 0.0 as Scalar;
     let num_variables = initial_guess.size();
     let num_constraints = constraint_rhs.len();
     let num_total = num_variables + num_constraints;
@@ -690,7 +688,67 @@ where
             hessian(&solution)?.fill_into(&mut tangent);
             decrement = tangent.solve_lu(&residual)?
         }
-        solution.decrement_from_chained(&mut multipliers, decrement)
+        let step_size = if matches!(newton_raphson.line_search, LineSearch::None) {
+            1.0
+        } else {
+            //
+            // The exact penalty function weights the constraint violation above
+            // any multiplier, which the step has just estimated afresh. It is
+            // not smooth, so its slope is assembled rather than differentiated.
+            //
+            penalty = penalty.max(
+                PENALTY_SAFETY
+                    * multipliers
+                        .iter()
+                        .zip(decrement.iter().skip(num_variables))
+                        .fold(0.0, |largest: Scalar, (multiplier, decrement_i)| {
+                            largest.max((multiplier - decrement_i).abs())
+                        }),
+            );
+            let violated = penalty * violation(&constraint_matrix, &constraint_rhs, &solution);
+            let mut gradient = Vector::zero(num_variables);
+            jacobian(&solution)?.fill_into(&mut gradient);
+            let slope = gradient
+                .iter()
+                .zip(decrement.iter())
+                .map(|(gradient_i, decrement_i)| gradient_i * decrement_i)
+                .sum::<Scalar>()
+                + violated;
+            let value = function(&solution)? + violated;
+            if slope < newton_raphson.abs_tol {
+                //
+                // Nothing is left to safeguard once the step promises less than
+                // the tolerance, the merit function being all roundoff there.
+                //
+                1.0
+            } else {
+                match newton_raphson.line_search.backtrack_merit(
+                    |step| {
+                        let mut trial = solution.clone();
+                        let mut trial_multipliers = multipliers.clone();
+                        trial.decrement_from_chained(&mut trial_multipliers, &decrement * step);
+                        Ok(function(&trial)?
+                            + penalty * violation(&constraint_matrix, &constraint_rhs, &trial))
+                    },
+                    value,
+                    slope,
+                    1.0,
+                ) {
+                    Ok(step_size) => step_size,
+                    Err(error) => {
+                        return Err(OptimizationError::Upstream(
+                            format!("{error}"),
+                            format!("{newton_raphson:?}"),
+                        ));
+                    }
+                }
+            }
+        };
+        if step_size == 1.0 {
+            solution.decrement_from_chained(&mut multipliers, decrement)
+        } else {
+            solution.decrement_from_chained(&mut multipliers, &decrement * step_size)
+        }
     }
     Err(OptimizationError::MaximumStepsReached(
         newton_raphson.max_steps,

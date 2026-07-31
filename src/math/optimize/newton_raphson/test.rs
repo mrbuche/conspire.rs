@@ -168,3 +168,110 @@ mod root {
         )?)
     }
 }
+
+mod constrained {
+    use super::*;
+    use crate::math::{Matrix, SquareMatrix, Vector};
+
+    fn constraint() -> EqualityConstraint {
+        let mut matrix = Matrix::zero(1, 2);
+        matrix[0][0] = 1.0;
+        matrix[0][1] = 1.0;
+        EqualityConstraint::Linear(matrix, Vector::from([2.0]))
+    }
+
+    fn minimized(line_search: LineSearch) -> Result<Vector, AssertionError> {
+        Ok(NewtonRaphson {
+            line_search,
+            ..Default::default()
+        }
+        .minimize(
+            |x: &Vector| Ok((x[0].powi(2) + x[1].powi(2)) / 2.0),
+            |x: &Vector| Ok(x.clone()),
+            |_: &Vector| Ok(SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])),
+            Vector::from([4.0, -3.0]),
+            constraint(),
+            None,
+        )?)
+    }
+
+    #[test]
+    fn none() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(&minimized(LineSearch::None)?, &Vector::from([1.0, 1.0]))
+    }
+
+    #[test]
+    fn armijo() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &minimized(LineSearch::Armijo {
+                control: CONTROL_1,
+                cut_back: CUT_BACK,
+                max_steps: MAX_STEPS,
+            })?,
+            &Vector::from([1.0, 1.0]),
+        )
+    }
+
+    #[test]
+    fn goldstein() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &minimized(LineSearch::Goldstein {
+                control: CONTROL_2,
+                cut_back: CUT_BACK,
+                max_steps: MAX_STEPS,
+            })?,
+            &Vector::from([1.0, 1.0]),
+        )
+    }
+
+    //
+    // The Newton step of a square root overshoots ever further from far out,
+    // so that the solver reaches the solution only if it shortens the step.
+    //
+    fn overshooting(line_search: LineSearch) -> Result<Vector, super::super::OptimizationError> {
+        let mut matrix = Matrix::zero(1, 2);
+        matrix[0][1] = 1.0;
+        NewtonRaphson {
+            line_search,
+            max_steps: 100,
+            ..Default::default()
+        }
+        .minimize(
+            |x: &Vector| Ok((1.0 + x[0].powi(2)).sqrt() + x[1].powi(2) / 2.0),
+            |x: &Vector| Ok(Vector::from([x[0] / (1.0 + x[0].powi(2)).sqrt(), x[1]])),
+            |x: &Vector| {
+                Ok(SquareMatrix::from([
+                    [(1.0 + x[0].powi(2)).powf(-1.5), 0.0],
+                    [0.0, 1.0],
+                ]))
+            },
+            Vector::from([2.0, 0.0]),
+            EqualityConstraint::Linear(matrix, Vector::zero(1)),
+            None,
+        )
+    }
+
+    #[test]
+    fn overshooting_armijo() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &overshooting(LineSearch::Armijo {
+                control: CONTROL_1,
+                cut_back: CUT_BACK,
+                max_steps: MAX_STEPS,
+            })?,
+            &Vector::zero(2),
+        )
+    }
+
+    #[test]
+    fn overshooting_none() {
+        //
+        // Left unshortened the step runs away, until the square root overflows
+        // and the solver mistakes the zero residual that follows for success.
+        //
+        assert!(match overshooting(LineSearch::None) {
+            Ok(solution) => solution[0].abs() > 1.0,
+            Err(_) => true,
+        })
+    }
+}
