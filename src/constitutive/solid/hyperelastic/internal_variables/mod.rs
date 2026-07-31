@@ -69,6 +69,7 @@ where
         &self,
         applied_load: AppliedLoad,
         solver: impl SecondOrderOptimizationBlock<
+            Scalar,
             DeformationGradient,
             V,
             FirstPiolaKirchhoffStress,
@@ -137,6 +138,7 @@ where
         &self,
         applied_load: AppliedLoad,
         solver: impl SecondOrderOptimizationBlock<
+            Scalar,
             DeformationGradient,
             V,
             FirstPiolaKirchhoffStress,

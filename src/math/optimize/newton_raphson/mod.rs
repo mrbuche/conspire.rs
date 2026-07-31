@@ -155,7 +155,7 @@ where
 }
 
 impl<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>
-    SecondOrderOptimizationBlock<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> for NewtonRaphson
+    SecondOrderOptimizationBlock<Scalar, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> for NewtonRaphson
 where
     U: Solution,
     V: Solution,

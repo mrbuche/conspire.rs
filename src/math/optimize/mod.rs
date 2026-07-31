@@ -70,10 +70,10 @@ pub trait SecondOrderOptimization<F, J, H, X> {
 
 /// Second-order optimization algorithms for problems split into global and local variables.
 #[allow(clippy::too_many_arguments)]
-pub trait SecondOrderOptimizationBlock<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
+pub trait SecondOrderOptimizationBlock<F, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
     fn minimize_block(
         &self,
-        function: impl FnMut(&U, &V) -> Result<Scalar, String>,
+        function: impl FnMut(&U, &V) -> Result<F, String>,
         residual_global: impl FnMut(&U, &V) -> Result<Ru, String>,
         residual_local: impl FnMut(&U, &V) -> Result<Rv, String>,
         tangents: impl FnMut(&U, &V) -> Result<(Kuu, Kvu, Kuv, Kvv), String>,
