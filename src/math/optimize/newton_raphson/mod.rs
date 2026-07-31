@@ -6,8 +6,9 @@ use super::{
         Hessian, HessianBlock, Jacobian, LuDecomposition, Matrix, Scalar, Solution, SquareMatrix,
         Tensor, Vector, sparse::SparseSolver,
     },
-    BacktrackingLineSearch, EqualityConstraint, FirstOrderRootFinding, LineSearch,
-    OptimizationError, SecondOrderOptimization, SecondOrderOptimizationBlock, SolveStrategy,
+    BacktrackingLineSearch, EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock,
+    LineSearch, OptimizationError, SecondOrderOptimization, SecondOrderOptimizationBlock,
+    SolveStrategy,
 };
 use crate::ABS_TOL;
 use crate::math::Norm;
@@ -145,6 +146,49 @@ where
                 unconstrained(self, function, jacobian, hessian, initial_guess)
             }
         } {
+            Ok(solution) => Ok(solution),
+            Err(error) => Err(OptimizationError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
+    }
+}
+
+impl<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> FirstOrderRootFindingBlock<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>
+    for NewtonRaphson
+where
+    U: Solution,
+    V: Solution,
+    Ru: Jacobian,
+    Rv: Jacobian,
+    Kuu: HessianBlock,
+    Kvu: HessianBlock,
+    Kuv: HessianBlock,
+    Kvv: HessianBlock,
+    for<'a> &'a Matrix: Mul<&'a U, Output = Vector> + Mul<&'a V, Output = Vector>,
+{
+    fn root_block(
+        &self,
+        residual_global: impl FnMut(&U, &V) -> Result<Ru, String>,
+        residual_local: impl FnMut(&U, &V) -> Result<Rv, String>,
+        tangents: impl FnMut(&U, &V) -> Result<(Kuu, Kvu, Kuv, Kvv), String>,
+        initial_guess: (U, V),
+        constraint_global: (Matrix, Vector),
+        constraint_local: (Matrix, Vector),
+        strategy: SolveStrategy,
+    ) -> Result<(U, V), OptimizationError> {
+        match blocked(
+            self,
+            |_: &U, _: &V| panic!("No line search in root finding"),
+            residual_global,
+            residual_local,
+            tangents,
+            initial_guess,
+            constraint_global,
+            constraint_local,
+            strategy,
+        ) {
             Ok(solution) => Ok(solution),
             Err(error) => Err(OptimizationError::Upstream(
                 format!("{error}"),
@@ -691,11 +735,6 @@ where
         let step_size = if matches!(newton_raphson.line_search, LineSearch::None) {
             1.0
         } else {
-            //
-            // The exact penalty function weights the constraint violation above
-            // any multiplier, which the step has just estimated afresh. It is
-            // not smooth, so its slope is assembled rather than differentiated.
-            //
             penalty = penalty.max(
                 PENALTY_SAFETY
                     * multipliers
@@ -716,10 +755,6 @@ where
                 + violated;
             let value = function(&solution)? + violated;
             if slope < newton_raphson.abs_tol {
-                //
-                // Nothing is left to safeguard once the step promises less than
-                // the tolerance, the merit function being all roundoff there.
-                //
                 1.0
             } else {
                 match newton_raphson.line_search.backtrack_merit(
