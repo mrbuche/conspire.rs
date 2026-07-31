@@ -198,12 +198,8 @@ where
     }
 }
 
-/// The factor by which the penalty weight exceeds the largest multiplier, above
-/// which the penalty function is exact.
 const PENALTY_SAFETY: Scalar = 2.0;
 
-/// How far a block violates its own equality constraint, measured in the norm
-/// the exact penalty function uses.
 fn violation<T>(constraint_matrix: &Matrix, constraint_rhs: &Vector, variables: &T) -> Scalar
 where
     for<'a> &'a Matrix: Mul<&'a T, Output = Vector>,
@@ -214,7 +210,6 @@ where
         .sum()
 }
 
-/// Fill the Karush-Kuhn-Tucker matrix of a block with its own equality constraint.
 fn kkt_block<K>(
     tangent: &K,
     constraint_matrix: &Matrix,
@@ -236,7 +231,6 @@ fn kkt_block<K>(
         })
 }
 
-/// Fill the residual of a block chained with the violation of its own equality constraint.
 fn kkt_residual<R, T>(
     residual: R,
     multipliers: &Vector,
@@ -375,10 +369,6 @@ where
             );
             tangent_uv.fill_into_block(&mut coupling_global, 0, 0);
             tangent_vu.fill_into_block(&mut coupling_local, 0, 0);
-            //
-            // Eliminate the local block, whose coupling to the global block is nonzero
-            // only over the variables themselves, never over the constraint multipliers.
-            //
             tangent_inner.factorize_lu_into(&mut factorization)?;
             eliminated
                 .iter_mut()
@@ -408,10 +398,6 @@ where
             });
             (decrement_outer, decrement_inner)
         } else {
-            //
-            // Order the unknowns as (global, its multipliers, local, its multipliers)
-            // so that the decrement splits contiguously between the two blocks.
-            //
             kkt_block(
                 &tangent_uu,
                 &constraint_matrix_global,
@@ -440,11 +426,6 @@ where
         let step_size = if matches!(newton_raphson.line_search, LineSearch::None) {
             1.0
         } else {
-            //
-            // The exact penalty function weights the constraint violation above
-            // any multiplier, which the step has just estimated afresh. It is
-            // not smooth, so its slope is assembled rather than differentiated.
-            //
             penalty = penalty.max(
                 PENALTY_SAFETY
                     * multipliers_global
@@ -475,10 +456,6 @@ where
                 + violated;
             let value = function(&global, &local)? + violated;
             if slope < newton_raphson.abs_tol {
-                //
-                // Nothing is left to safeguard once the step promises less than
-                // the tolerance, the merit function being all roundoff there.
-                //
                 1.0
             } else {
                 match newton_raphson.line_search.backtrack_merit(
