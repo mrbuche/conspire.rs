@@ -3,13 +3,14 @@ use crate::{
         ElementModel, ElementModelError, Elements, Model, NodalCoordinates,
         block::{
             element::solid::elastic::internal_variables::InternalVariables,
-            finalize_node_neighbors, solver_from_neighbors,
+            finalize_node_neighbors, pattern_from_neighbors, solver_from_neighbors,
         },
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{
         Tensor, TensorVector,
         optimize::{EqualityConstraint, FirstOrderRootFinding, OptimizationError, SolveStrategy},
+        sparse::SparseSolver,
     },
 };
 
@@ -23,6 +24,17 @@ where
 {
     /// The internal variables every integration point starts from.
     fn internal_variables_initial(&self) -> InternalVariablesField<G, V>;
+    /// Appends where the internal variables make the block tangent nonzero,
+    /// given where they begin among the unknowns and how many there are.
+    ///
+    /// An integration point belongs to one element alone, so its variables
+    /// reach only that element's nodes, and no other point's variables.
+    fn internal_variables_pattern(
+        &self,
+        offset: usize,
+        num_local: usize,
+        pattern: &mut Vec<(usize, usize)>,
+    );
     /// Solves the internal variables everywhere, holding the deformation fixed.
     ///
     /// Every integration point is independent of every other, so this is a
@@ -77,6 +89,15 @@ where
     fn internal_variables_initial(&self) -> InternalVariablesField<G, V> {
         self.blocks.internal_variables_initial()
     }
+    fn internal_variables_pattern(
+        &self,
+        offset: usize,
+        num_local: usize,
+        pattern: &mut Vec<(usize, usize)>,
+    ) {
+        self.blocks
+            .internal_variables_pattern(offset, num_local, pattern)
+    }
     fn internal_variables_root(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
@@ -103,6 +124,25 @@ where
         self.blocks
             .nodal_stiffnesses_into(nodal_coordinates, internal_variables, nodal_stiffnesses)
     }
+}
+
+/// The sparse solver for a block tangent, the nodal pattern of an ordinary
+/// mesh widened by wherever the internal variables reach.
+pub fn block_solver_from_neighbors<B, const G: usize, V, T1, T2, T3, const D: usize>(
+    elements: &B,
+    neighbors: &[Vec<usize>],
+    equality_constraint: &EqualityConstraint,
+    num_local: usize,
+    num_inner: usize,
+    symmetric: bool,
+) -> SparseSolver
+where
+    B: ElasticIVElements<G, V, T1, T2, T3, D>,
+    V: Tensor,
+{
+    let (num_outer, mut pattern) = pattern_from_neighbors(neighbors, equality_constraint, D);
+    elements.internal_variables_pattern(num_outer, num_local, &mut pattern);
+    SparseSolver::from_pattern(num_outer + num_inner, pattern, symmetric)
 }
 
 /// First-order root-finding for elastic models whose internal variables are
