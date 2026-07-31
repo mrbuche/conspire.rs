@@ -107,6 +107,8 @@ where
 
 /// Common methods for blocks of a Hessian.
 pub trait HessianBlock {
+    /// The entry of the block at the given row and column within it.
+    fn entry(&self, row: usize, column: usize) -> TensorRank0;
     /// The number of rows the block occupies.
     fn height(&self) -> usize;
     /// The number of columns the block occupies.

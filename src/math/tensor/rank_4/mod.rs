@@ -25,6 +25,9 @@ pub(crate) mod vec;
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> HessianBlock
     for TensorRank4<D, I, J, K, L>
 {
+    fn entry(&self, row: usize, column: usize) -> TensorRank0 {
+        self[row / D][row % D][column / D][column % D]
+    }
     fn height(&self) -> usize {
         D * D
     }

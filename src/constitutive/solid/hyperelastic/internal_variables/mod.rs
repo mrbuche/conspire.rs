@@ -170,6 +170,7 @@ where
             ),
             constraint_external,
             constraint_internal,
+            None,
             strategy,
         ) {
             Ok(solution) => Ok(solution),
