@@ -4,7 +4,7 @@ mod test;
 use crate::math::assert::FiniteDifference;
 
 use crate::{
-    ABS_TOL,
+    ABS_TOL, REL_TOL,
     math::{
         Hessian, Rank2, Scalar, Tensor, TensorRank2Vec2D, TensorVec, Vector, simd,
         write_tensor_rank_0,
@@ -154,6 +154,12 @@ impl LuDecomposition {
     fn factorize(&mut self) -> Result<(), SquareMatrixError> {
         let Self { lu, permutation } = self;
         let n = lu.len();
+        //
+        // A pivot is singular only once it is negligible both absolutely and
+        // against the largest pivot so far, so that scaling the matrix down
+        // cannot alone condemn it, nor a wide but honest spread of pivots.
+        //
+        let mut largest = 0.0;
         for i in 0..n {
             let mut max_row = i;
             let mut max_val = lu[i][i].abs();
@@ -168,10 +174,11 @@ impl LuDecomposition {
                 lu.0.swap(i, max_row);
                 permutation.swap(i, max_row);
             }
-            let pivot = lu[i][i];
-            if pivot.abs() < ABS_TOL {
+            largest = max_val.max(largest);
+            if max_val < ABS_TOL && max_val <= REL_TOL * largest {
                 return Err(SquareMatrixError::Singular);
             }
+            let pivot = lu[i][i];
             let (front, back) = lu.0.split_at_mut(i + 1);
             let column = &front[i].as_slice()[i + 1..];
             let mut count = 0;

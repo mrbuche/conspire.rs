@@ -114,3 +114,12 @@ fn solve_lu_kkt_dim_25() -> Result<(), AssertionError> {
     let solution = matrix.solve_lu(&rhs).unwrap();
     Assert::default().eq_within_tols(&(matrix * &solution), &rhs)
 }
+
+#[test]
+fn solve_lu_scaled_dim_25() -> Result<(), AssertionError> {
+    let rhs: Vector = (0..25).map(|i| ((i * 5) % 7) as f64 - 3.0).collect();
+    let solution = kkt_dim_25().solve_lu(&rhs).unwrap();
+    let scale = 1e-14;
+    let scaled = (kkt_dim_25() * scale).solve_lu(&(&rhs * scale)).unwrap();
+    Assert::default().eq_within_tols(&scaled, &solution)
+}

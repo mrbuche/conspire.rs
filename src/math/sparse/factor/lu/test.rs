@@ -3,6 +3,10 @@ use crate::math::assert::Assert;
 use crate::math::assert::AssertionError;
 
 fn matrix_dim_9() -> CscMatrix {
+    matrix_dim_9_scaled(1.0)
+}
+
+fn matrix_dim_9_scaled(scale: f64) -> CscMatrix {
     let dense = [
         [2.0, 2.0, 4.0, 0.0, 0.0, 1.0, 0.0, 3.0, 3.0],
         [0.0, 3.0, 1.0, 0.0, 0.0, 1.0, 4.0, 0.0, 1.0],
@@ -19,7 +23,7 @@ fn matrix_dim_9() -> CscMatrix {
         .filter(|&(i, j)| dense[i][j] != 0.0)
         .collect();
     let mut matrix = CscMatrix::from_pattern(9, 9, pattern);
-    matrix.fill(|i, j| dense[i][j]);
+    matrix.fill(|i, j| dense[i][j] * scale);
     matrix
 }
 
@@ -213,4 +217,22 @@ fn symbolic_structurally_singular() {
             .lu_symbolic()
             .is_err_and(|error| error == SparseError::Singular)
     )
+}
+
+#[test]
+fn solve_scaled_dim_9() -> Result<(), AssertionError> {
+    let scale = 1.0e-14;
+    let b = Vector::from([2.0, 1.0, 3.0, 2.0, 1.0, 3.0, 2.0, 1.0, 3.0]);
+    assert_solves(&matrix_dim_9_scaled(scale), &(&b * scale))
+}
+
+#[test]
+fn refactor_scaled_dim_9() -> Result<(), AssertionError> {
+    let scale = 1.0e-14;
+    let b = Vector::from([2.0, 1.0, 3.0, 2.0, 1.0, 3.0, 2.0, 1.0, 3.0]);
+    let matrix = matrix_dim_9();
+    let mut lu = matrix.lu().expect("Factorization failed.");
+    let matrix = matrix_dim_9_scaled(scale);
+    lu.refactor(&matrix).expect("Refactorization failed.");
+    Assert::default().eq_within_tols(&(&matrix * &lu.solve(&(&b * scale))), &(&b * scale))
 }

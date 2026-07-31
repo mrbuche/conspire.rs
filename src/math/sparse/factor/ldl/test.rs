@@ -3,6 +3,10 @@ use crate::math::assert::Assert;
 use crate::math::assert::AssertionError;
 
 fn symmetric_matrix(n: usize, scale: f64) -> CscMatrix {
+    symmetric_matrix_scaled(n, scale, 1.0)
+}
+
+fn symmetric_matrix_scaled(n: usize, scale: f64, factor: f64) -> CscMatrix {
     let mut pattern: Vec<(usize, usize)> = (0..n).map(|i| (i, i)).collect();
     (0..n - 7).for_each(|i| {
         pattern.push((i, i + 7));
@@ -14,11 +18,12 @@ fn symmetric_matrix(n: usize, scale: f64) -> CscMatrix {
     });
     let mut matrix = CscMatrix::from_pattern(n, n, pattern);
     matrix.fill(|i, j| {
-        if i == j {
-            16.0 + (i % 5) as f64
-        } else {
-            scale * (((i.min(j) * 7 + i.max(j) * 3) % 5) as f64 - 2.0)
-        }
+        factor
+            * if i == j {
+                16.0 + (i % 5) as f64
+            } else {
+                scale * (((i.min(j) * 7 + i.max(j) * 3) % 5) as f64 - 2.0)
+            }
     });
     matrix
 }
@@ -98,6 +103,15 @@ fn singular() {
 }
 
 fn saddle_point_matrix(n: usize, num_constraints: usize, scale: f64) -> CscMatrix {
+    saddle_point_matrix_scaled(n, num_constraints, scale, 1.0)
+}
+
+fn saddle_point_matrix_scaled(
+    n: usize,
+    num_constraints: usize,
+    scale: f64,
+    factor: f64,
+) -> CscMatrix {
     let total = n + num_constraints;
     let mut pattern: Vec<(usize, usize)> = (0..n).map(|i| (i, i)).collect();
     (0..n - 3).for_each(|i| {
@@ -114,13 +128,14 @@ fn saddle_point_matrix(n: usize, num_constraints: usize, scale: f64) -> CscMatri
     });
     let mut matrix = CscMatrix::from_pattern(total, total, pattern);
     matrix.fill(|i, j| {
-        if i == j {
-            16.0 + (i % 5) as f64
-        } else if i >= n || j >= n {
-            1.0 + (i.min(j) % 3) as f64
-        } else {
-            scale * (((i.min(j) * 7 + i.max(j) * 3) % 5) as f64 - 2.0)
-        }
+        factor
+            * if i == j {
+                16.0 + (i % 5) as f64
+            } else if i >= n || j >= n {
+                1.0 + (i.min(j) % 3) as f64
+            } else {
+                scale * (((i.min(j) * 7 + i.max(j) * 3) % 5) as f64 - 2.0)
+            }
     });
     matrix
 }
@@ -155,5 +170,25 @@ fn saddle_point_larger() -> Result<(), AssertionError> {
     let b: Vector = (0..231).map(|i| (i % 11) as f64 - 5.0).collect();
     let mut ldl = matrix.ldl_symbolic()?;
     ldl.refactor(&matrix).expect("Refactorization failed.");
+    Assert::default().eq_within_tols(&(&matrix * &ldl.solve(&b)), &b)
+}
+
+#[test]
+fn solve_scaled() -> Result<(), AssertionError> {
+    let (n, factor) = (100, 1.0e-14);
+    let matrix = symmetric_matrix_scaled(n, 1.0, factor);
+    let mut ldl = matrix.ldl_symbolic()?;
+    ldl.refactor(&matrix).expect("Refactorization failed.");
+    let b: Vector = (0..n).map(|i| ((i % 13) as f64 - 6.0) * factor).collect();
+    Assert::default().eq_within_tols(&(&matrix * &ldl.solve(&b)), &b)
+}
+
+#[test]
+fn saddle_point_scaled() -> Result<(), AssertionError> {
+    let factor = 1.0e-14;
+    let matrix = saddle_point_matrix_scaled(40, 6, 1.0, factor);
+    let mut ldl = matrix.ldl_symbolic()?;
+    ldl.refactor(&matrix).expect("Refactorization failed.");
+    let b: Vector = (0..46).map(|i| ((i % 13) as f64 - 6.0) * factor).collect();
     Assert::default().eq_within_tols(&(&matrix * &ldl.solve(&b)), &b)
 }
