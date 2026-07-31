@@ -16,9 +16,9 @@ use crate::{
 use crate::{
     constitutive::solid::elastic::{AppliedLoad, internal_variables::ElasticIV},
     math::{
-        TensorRank4,
+        TensorRank4, Vector,
         assert::FiniteDifference,
-        optimize::{GradientDescent, NewtonRaphson},
+        optimize::{GradientDescent, NewtonRaphson, SolveStrategy},
     },
     mechanics::*,
 };
@@ -252,10 +252,8 @@ fn root_0() -> Result<(), AssertionError> {
     Ok(())
 }
 
-#[test]
-fn root_1() -> Result<(), AssertionError> {
-    use crate::constitutive::solid::elastic::internal_variables::FirstOrderRoot;
-    let model = ElasticMultiplicative::from((
+fn model() -> ElasticMultiplicative<AlmansiHamel, NeoHookean> {
+    ElasticMultiplicative::from((
         AlmansiHamel {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
@@ -264,13 +262,44 @@ fn root_1() -> Result<(), AssertionError> {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
         },
-    ));
-    let time = std::time::Instant::now();
-    let (_f, _f_2) = model.root(
+    ))
+}
+
+fn rooted(
+    strategy: SolveStrategy,
+) -> Result<(DeformationGradient, DeformationGradient2), AssertionError> {
+    use crate::constitutive::solid::elastic::internal_variables::FirstOrderRoot;
+    let (f, f_2) = model().root(
         AppliedLoad::UniaxialStress(STRETCH),
         NewtonRaphson::default(),
+        strategy,
     )?;
-    println!("new_1 {:?}", time.elapsed());
-    // let _f_1 = &f * f_2.inverse();
+    Assert::default().zero_within_tols(&model().internal_variables_residual(&f, &f_2)?)?;
+    Assert::default().eq_within_tols(
+        Vector::from([f[0][0], f[0][1], f[0][2], f[1][2]]),
+        &Vector::from([STRETCH, 0.0, 0.0, 0.0]),
+    )?;
+    Ok((f, f_2))
+}
+
+#[test]
+fn root_1() -> Result<(), AssertionError> {
+    rooted(SolveStrategy::Monolithic { elimination: false })?;
     Ok(())
+}
+
+#[test]
+fn root_1_elimination() -> Result<(), AssertionError> {
+    let (f, f_2) = rooted(SolveStrategy::Monolithic { elimination: false })?;
+    let (f_elim, f_2_elim) = rooted(SolveStrategy::Monolithic { elimination: true })?;
+    Assert::default().eq_within_tols(&f_elim, &f)?;
+    Assert::default().eq_within_tols(&f_2_elim, &f_2)
+}
+
+#[test]
+fn root_1_condensed() -> Result<(), AssertionError> {
+    let (f, f_2) = rooted(SolveStrategy::Monolithic { elimination: false })?;
+    let (f_cond, f_2_cond) = rooted(SolveStrategy::Condensed)?;
+    Assert::default().eq_within_tols(&f_cond, &f)?;
+    Assert::default().eq_within_tols(&f_2_cond, &f_2)
 }

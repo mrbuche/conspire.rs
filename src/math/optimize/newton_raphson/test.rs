@@ -224,10 +224,6 @@ mod constrained {
         )
     }
 
-    //
-    // The Newton step of a square root overshoots ever further from far out,
-    // so that the solver reaches the solution only if it shortens the step.
-    //
     fn overshooting(line_search: LineSearch) -> Result<Vector, super::super::OptimizationError> {
         let mut matrix = Matrix::zero(1, 2);
         matrix[0][1] = 1.0;
@@ -265,10 +261,6 @@ mod constrained {
 
     #[test]
     fn overshooting_none() {
-        //
-        // Left unshortened the step runs away, until the square root overflows
-        // and the solver mistakes the zero residual that follows for success.
-        //
         assert!(match overshooting(LineSearch::None) {
             Ok(solution) => solution[0].abs() > 1.0,
             Err(_) => true,

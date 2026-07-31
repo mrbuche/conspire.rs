@@ -68,6 +68,21 @@ pub trait SecondOrderOptimization<F, J, H, X> {
     ) -> Result<X, OptimizationError>;
 }
 
+/// First-order root-finding algorithms for problems split into global and local variables.
+#[allow(clippy::too_many_arguments)]
+pub trait FirstOrderRootFindingBlock<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
+    fn root_block(
+        &self,
+        residual_global: impl FnMut(&U, &V) -> Result<Ru, String>,
+        residual_local: impl FnMut(&U, &V) -> Result<Rv, String>,
+        tangents: impl FnMut(&U, &V) -> Result<(Kuu, Kvu, Kuv, Kvv), String>,
+        initial_guess: (U, V),
+        constraint_global: (Matrix, Vector),
+        constraint_local: (Matrix, Vector),
+        strategy: SolveStrategy,
+    ) -> Result<(U, V), OptimizationError>;
+}
+
 /// Second-order optimization algorithms for problems split into global and local variables.
 #[allow(clippy::too_many_arguments)]
 pub trait SecondOrderOptimizationBlock<F, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
