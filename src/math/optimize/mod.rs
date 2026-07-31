@@ -73,6 +73,7 @@ pub trait SecondOrderOptimization<F, J, H, X> {
 pub trait SecondOrderOptimizationBlock<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
     fn minimize_block(
         &self,
+        function: impl FnMut(&U, &V) -> Result<Scalar, String>,
         residual_global: impl FnMut(&U, &V) -> Result<Ru, String>,
         residual_local: impl FnMut(&U, &V) -> Result<Rv, String>,
         tangents: impl FnMut(&U, &V) -> Result<(Kuu, Kvu, Kuv, Kvv), String>,

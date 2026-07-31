@@ -14,7 +14,7 @@ use crate::{
 
 use crate::{
     constitutive::solid::elastic::AppliedLoad,
-    math::optimize::{GradientDescent, NewtonRaphson, SolveStrategy},
+    math::optimize::{GradientDescent, LineSearch, NewtonRaphson, SolveStrategy},
     mechanics::*,
 };
 
@@ -88,4 +88,68 @@ fn minimize_condensed() -> Result<(), AssertionError> {
     let (f_condensed, f_2_condensed) = blocked(SolveStrategy::Condensed)?;
     Assert::default().eq_within_tols(&f, &f_condensed)?;
     Assert::default().eq_within_tols(&f_2, &f_2_condensed)
+}
+
+fn line_search(name: &str) -> LineSearch {
+    match name {
+        "armijo" => LineSearch::Armijo {
+            control: 1e-3,
+            cut_back: 9e-1,
+            max_steps: 100,
+        },
+        "goldstein" => LineSearch::Goldstein {
+            control: 1e-4,
+            cut_back: 5e-1,
+            max_steps: 100,
+        },
+        "error" => LineSearch::Error {
+            cut_back: 5e-1,
+            max_steps: 100,
+        },
+        _ => LineSearch::Wolfe {
+            control_1: 1e-3,
+            control_2: 9e-1,
+            cut_back: 5e-1,
+            max_steps: 100,
+            strong: true,
+        },
+    }
+}
+
+fn searched(name: &str, strategy: SolveStrategy) -> Result<(), AssertionError> {
+    use crate::constitutive::solid::hyperelastic::internal_variables::SecondOrderMinimize;
+    let (f, f_2) = model().minimize(
+        AppliedLoad::UniaxialStress(STRETCH),
+        NewtonRaphson {
+            line_search: line_search(name),
+            ..Default::default()
+        },
+        strategy,
+    )?;
+    check(&f, &f_2)?;
+    let (f_none, f_2_none) = blocked(strategy)?;
+    Assert::default().eq_within_tols(&f, &f_none)?;
+    Assert::default().eq_within_tols(&f_2, &f_2_none)
+}
+
+#[test]
+fn minimize_line_search() -> Result<(), AssertionError> {
+    for name in ["armijo", "goldstein", "error"] {
+        for strategy in [
+            SolveStrategy::Monolithic { elimination: false },
+            SolveStrategy::Monolithic { elimination: true },
+            SolveStrategy::Condensed,
+        ] {
+            searched(name, strategy)?
+        }
+    }
+    Ok(())
+}
+
+#[test]
+#[should_panic(expected = "gradient of the merit function")]
+fn minimize_line_search_wolfe() {
+    // the exact penalty function is not differentiable, so its curvature
+    // condition cannot be evaluated
+    searched("wolfe", SolveStrategy::Monolithic { elimination: false }).unwrap();
 }

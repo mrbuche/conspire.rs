@@ -56,6 +56,97 @@ impl Display for LineSearch {
 }
 
 impl LineSearch {
+    /// Backtrack on a merit function of the step size alone.
+    ///
+    /// The exact penalty function is not differentiable, its norm having a kink
+    /// wherever a constraint is satisfied, so its slope along the step is
+    /// supplied rather than recovered from a gradient.
+    pub fn backtrack_merit(
+        &self,
+        mut merit: impl FnMut(Scalar) -> Result<Scalar, String>,
+        value: Scalar,
+        slope: Scalar,
+        step_size: Scalar,
+    ) -> Result<Scalar, LineSearchError> {
+        if step_size <= 0.0 {
+            return Err(LineSearchError::NegativeStepSize(
+                format!("{self:?}"),
+                step_size,
+            ));
+        } else if slope <= 0.0 {
+            return Err(LineSearchError::NotDescentDirection(format!("{self:?}")));
+        }
+        let mut n = step_size;
+        match self {
+            Self::Armijo {
+                control,
+                cut_back,
+                max_steps,
+            } => {
+                let t = control * slope;
+                for _ in 0..*max_steps {
+                    if let Ok(trial) = merit(n)
+                        && value - trial >= n * t
+                    {
+                        return Ok(n);
+                    } else {
+                        n *= cut_back
+                    }
+                }
+                Err(LineSearchError::MaximumStepsReached(
+                    format!("{self:?}"),
+                    *max_steps,
+                ))
+            }
+            Self::Error {
+                cut_back,
+                max_steps,
+            } => {
+                for _ in 0..*max_steps {
+                    if merit(n).is_ok() {
+                        return Ok(n);
+                    } else {
+                        n *= cut_back
+                    }
+                }
+                Err(LineSearchError::MaximumStepsReached(
+                    format!("{self:?}"),
+                    *max_steps,
+                ))
+            }
+            Self::Goldstein {
+                control,
+                cut_back,
+                max_steps,
+            } => {
+                let t = control * slope;
+                let u = (1.0 - control) * slope;
+                let mut v;
+                for _ in 0..*max_steps {
+                    if let Ok(trial) = merit(n) {
+                        v = value - trial;
+                        if n * u < v || v < n * t {
+                            n *= cut_back
+                        } else {
+                            return Ok(n);
+                        }
+                    } else {
+                        n *= cut_back
+                    }
+                }
+                Err(LineSearchError::MaximumStepsReached(
+                    format!("{self:?}"),
+                    *max_steps,
+                ))
+            }
+            Self::Wolfe { .. } => panic!(
+                "The Wolfe conditions need the gradient of the merit function, which the exact penalty function does not have."
+            ),
+            Self::None => {
+                panic!("Cannot call backtracking line search when there is no algorithm.")
+            }
+        }
+    }
     pub fn backtrack<X, J>(
         &self,
         mut function: impl FnMut(&X) -> Result<Scalar, String>,

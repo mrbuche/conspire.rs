@@ -169,6 +169,7 @@ where
 {
     fn minimize_block(
         &self,
+        function: impl FnMut(&U, &V) -> Result<Scalar, String>,
         residual_global: impl FnMut(&U, &V) -> Result<Ru, String>,
         residual_local: impl FnMut(&U, &V) -> Result<Rv, String>,
         tangents: impl FnMut(&U, &V) -> Result<(Kuu, Kvu, Kuv, Kvv), String>,
@@ -179,6 +180,7 @@ where
     ) -> Result<(U, V), OptimizationError> {
         match blocked(
             self,
+            function,
             residual_global,
             residual_local,
             tangents,
@@ -194,6 +196,22 @@ where
             )),
         }
     }
+}
+
+/// The factor by which the penalty weight exceeds the largest multiplier, above
+/// which the penalty function is exact.
+const PENALTY_SAFETY: Scalar = 2.0;
+
+/// How far a block violates its own equality constraint, measured in the norm
+/// the exact penalty function uses.
+fn violation<T>(constraint_matrix: &Matrix, constraint_rhs: &Vector, variables: &T) -> Scalar
+where
+    for<'a> &'a Matrix: Mul<&'a T, Output = Vector>,
+{
+    (constraint_rhs - constraint_matrix * variables)
+        .iter()
+        .map(|entry| entry.abs())
+        .sum()
 }
 
 /// Fill the Karush-Kuhn-Tucker matrix of a block with its own equality constraint.
@@ -237,6 +255,7 @@ fn kkt_residual<R, T>(
 #[allow(clippy::too_many_arguments)]
 fn blocked<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>(
     newton_raphson: &NewtonRaphson,
+    mut function: impl FnMut(&U, &V) -> Result<Scalar, String>,
     mut residual_global: impl FnMut(&U, &V) -> Result<Ru, String>,
     mut residual_local: impl FnMut(&U, &V) -> Result<Rv, String>,
     mut tangents: impl FnMut(&U, &V) -> Result<(Kuu, Kvu, Kuv, Kvv), String>,
@@ -256,10 +275,8 @@ where
     Kvv: HessianBlock,
     for<'a> &'a Matrix: Mul<&'a U, Output = Vector> + Mul<&'a V, Output = Vector>,
 {
-    if !matches!(newton_raphson.line_search, LineSearch::None) {
-        panic!("Line search needs the exact penalty function in constrained optimization.")
-    }
     let (mut global, mut local) = initial_guess;
+    let mut penalty = 0.0 as Scalar;
     let (constraint_matrix_global, constraint_rhs_global) = constraint_global;
     let (constraint_matrix_local, constraint_rhs_local) = constraint_local;
     let num_global = global.size();
@@ -341,7 +358,7 @@ where
             return Ok((global, local));
         }
         let (tangent_uu, tangent_vu, tangent_uv, tangent_vv) = tangents(&global, &local)?;
-        if eliminating {
+        let (decrement_outer, decrement_inner) = if eliminating {
             kkt_block(
                 &tangent_uu,
                 &constraint_matrix_global,
@@ -389,8 +406,7 @@ where
                         *decrement_inner_i -= eliminated_ki * decrement_outer[k]
                     })
             });
-            global.decrement_from_chained(&mut multipliers_global, decrement_outer);
-            local.decrement_from_chained(&mut multipliers_local, decrement_inner)
+            (decrement_outer, decrement_inner)
         } else {
             //
             // Order the unknowns as (global, its multipliers, local, its multipliers)
@@ -419,8 +435,98 @@ where
                 .iter()
                 .zip(decrement_outer.iter_mut().chain(decrement_inner.iter_mut()))
                 .for_each(|(entry, decrement_i)| *decrement_i = *entry);
+            (decrement_outer, decrement_inner)
+        };
+        let step_size = if matches!(newton_raphson.line_search, LineSearch::None) {
+            1.0
+        } else {
+            //
+            // The exact penalty function weights the constraint violation above
+            // any multiplier, which the step has just estimated afresh. It is
+            // not smooth, so its slope is assembled rather than differentiated.
+            //
+            penalty = penalty.max(
+                PENALTY_SAFETY
+                    * multipliers_global
+                        .iter()
+                        .zip(decrement_outer.iter().skip(num_global))
+                        .chain(
+                            multipliers_local
+                                .iter()
+                                .zip(decrement_inner.iter().skip(num_local)),
+                        )
+                        .fold(0.0, |largest: Scalar, (multiplier, decrement)| {
+                            largest.max((multiplier - decrement).abs())
+                        }),
+            );
+            let violated = penalty
+                * (violation(&constraint_matrix_global, &constraint_rhs_global, &global)
+                    + violation(&constraint_matrix_local, &constraint_rhs_local, &local));
+            let mut gradient_global = Vector::zero(num_global);
+            let mut gradient_local = Vector::zero(num_local);
+            residual_global(&global, &local)?.fill_into(&mut gradient_global);
+            residual_local(&global, &local)?.fill_into(&mut gradient_local);
+            let slope = gradient_global
+                .iter()
+                .zip(decrement_outer.iter())
+                .chain(gradient_local.iter().zip(decrement_inner.iter()))
+                .map(|(gradient_i, decrement_i)| gradient_i * decrement_i)
+                .sum::<Scalar>()
+                + violated;
+            let value = function(&global, &local)? + violated;
+            if slope < newton_raphson.abs_tol {
+                //
+                // Nothing is left to safeguard once the step promises less than
+                // the tolerance, the merit function being all roundoff there.
+                //
+                1.0
+            } else {
+                match newton_raphson.line_search.backtrack_merit(
+                    |step| {
+                        let mut trial_global = global.clone();
+                        let mut trial_local = local.clone();
+                        let mut trial_multipliers_global = multipliers_global.clone();
+                        let mut trial_multipliers_local = multipliers_local.clone();
+                        trial_global.decrement_from_chained(
+                            &mut trial_multipliers_global,
+                            &decrement_outer * step,
+                        );
+                        trial_local.decrement_from_chained(
+                            &mut trial_multipliers_local,
+                            &decrement_inner * step,
+                        );
+                        Ok(function(&trial_global, &trial_local)?
+                            + penalty
+                                * (violation(
+                                    &constraint_matrix_global,
+                                    &constraint_rhs_global,
+                                    &trial_global,
+                                ) + violation(
+                                    &constraint_matrix_local,
+                                    &constraint_rhs_local,
+                                    &trial_local,
+                                )))
+                    },
+                    value,
+                    slope,
+                    1.0,
+                ) {
+                    Ok(step_size) => step_size,
+                    Err(error) => {
+                        return Err(OptimizationError::Upstream(
+                            format!("{error}"),
+                            format!("{newton_raphson:?}"),
+                        ));
+                    }
+                }
+            }
+        };
+        if step_size == 1.0 {
             global.decrement_from_chained(&mut multipliers_global, decrement_outer);
             local.decrement_from_chained(&mut multipliers_local, decrement_inner)
+        } else {
+            global.decrement_from_chained(&mut multipliers_global, &decrement_outer * step_size);
+            local.decrement_from_chained(&mut multipliers_local, &decrement_inner * step_size)
         }
     }
     Err(OptimizationError::MaximumStepsReached(
