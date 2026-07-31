@@ -148,7 +148,7 @@ where
         >,
         strategy: SolveStrategy,
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {
-        let (constraint_global, constraint_local) = bcs_block(self, applied_load);
+        let (constraint_external, constraint_internal) = bcs_block(self, applied_load);
         match solver.minimize_block(
             |deformation_gradient: &DeformationGradient, internal_variables: &V| {
                 Ok(self.helmholtz_free_energy_density(deformation_gradient, internal_variables)?)
@@ -166,8 +166,8 @@ where
                 DeformationGradient::identity(),
                 self.internal_variables_initial(),
             ),
-            constraint_global,
-            constraint_local,
+            constraint_external,
+            constraint_internal,
             strategy,
         ) {
             Ok(solution) => Ok(solution),
