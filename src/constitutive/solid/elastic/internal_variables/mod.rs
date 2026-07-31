@@ -296,6 +296,7 @@ where
             ),
             constraint_global,
             constraint_local,
+            None,
             strategy,
         ) {
             Ok(solution) => Ok(solution),

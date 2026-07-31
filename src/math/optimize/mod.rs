@@ -79,6 +79,7 @@ pub trait FirstOrderRootFindingBlock<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
         initial_guess: (U, V),
         constraint_global: (Matrix, Vector),
         constraint_local: (Matrix, Vector),
+        sparse: Option<SparseSolver>,
         strategy: SolveStrategy,
     ) -> Result<(U, V), OptimizationError>;
 }
@@ -95,6 +96,7 @@ pub trait SecondOrderOptimizationBlock<F, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
         initial_guess: (U, V),
         constraint_global: (Matrix, Vector),
         constraint_local: (Matrix, Vector),
+        sparse: Option<SparseSolver>,
         strategy: SolveStrategy,
     ) -> Result<(U, V), OptimizationError>;
 }

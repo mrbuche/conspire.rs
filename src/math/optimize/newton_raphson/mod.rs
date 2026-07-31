@@ -176,6 +176,7 @@ where
         initial_guess: (U, V),
         constraint_global: (Matrix, Vector),
         constraint_local: (Matrix, Vector),
+        sparse: Option<SparseSolver>,
         strategy: SolveStrategy,
     ) -> Result<(U, V), OptimizationError> {
         match blocked(
@@ -187,6 +188,7 @@ where
             initial_guess,
             constraint_global,
             constraint_local,
+            sparse,
             strategy,
         ) {
             Ok(solution) => Ok(solution),
@@ -220,6 +222,7 @@ where
         initial_guess: (U, V),
         constraint_global: (Matrix, Vector),
         constraint_local: (Matrix, Vector),
+        sparse: Option<SparseSolver>,
         strategy: SolveStrategy,
     ) -> Result<(U, V), OptimizationError> {
         match blocked(
@@ -231,6 +234,7 @@ where
             initial_guess,
             constraint_global,
             constraint_local,
+            sparse,
             strategy,
         ) {
             Ok(solution) => Ok(solution),
@@ -252,6 +256,54 @@ where
         .iter()
         .map(|entry| entry.abs())
         .sum()
+}
+
+/// The entry of the whole Karush-Kuhn-Tucker matrix, ordered as the global
+/// variables, their multipliers, the local variables, then theirs.
+#[allow(clippy::too_many_arguments)]
+fn kkt_entry<Kuu, Kvu, Kuv, Kvv>(
+    row: usize,
+    column: usize,
+    num_global: usize,
+    num_outer: usize,
+    num_local: usize,
+    tangent_uu: &Kuu,
+    tangent_vu: &Kvu,
+    tangent_uv: &Kuv,
+    tangent_vv: &Kvv,
+    constraint_matrix_global: &Matrix,
+    constraint_matrix_local: &Matrix,
+) -> Scalar
+where
+    Kuu: HessianBlock,
+    Kvu: HessianBlock,
+    Kuv: HessianBlock,
+    Kvv: HessianBlock,
+{
+    let local = num_outer + num_local;
+    let row_global = row < num_global;
+    let row_local = (num_outer..local).contains(&row);
+    let column_global = column < num_global;
+    let column_local = (num_outer..local).contains(&column);
+    if row_global && column_global {
+        tangent_uu.entry(row, column)
+    } else if row_global && column_local {
+        tangent_uv.entry(row, column - num_outer)
+    } else if row_local && column_global {
+        tangent_vu.entry(row - num_outer, column)
+    } else if row_local && column_local {
+        tangent_vv.entry(row - num_outer, column - num_outer)
+    } else if row_global && (num_global..num_outer).contains(&column) {
+        -constraint_matrix_global[column - num_global][row]
+    } else if (num_global..num_outer).contains(&row) && column_global {
+        -constraint_matrix_global[row - num_global][column]
+    } else if row_local && column >= local {
+        -constraint_matrix_local[column - local][row - num_outer]
+    } else if row >= local && column_local {
+        -constraint_matrix_local[row - local][column - num_outer]
+    } else {
+        0.0
+    }
 }
 
 fn kkt_block<K>(
@@ -300,6 +352,7 @@ fn blocked<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>(
     initial_guess: (U, V),
     constraint_global: (Matrix, Vector),
     constraint_local: (Matrix, Vector),
+    sparse: Option<SparseSolver>,
     strategy: SolveStrategy,
 ) -> Result<(U, V), OptimizationError>
 where
@@ -324,6 +377,11 @@ where
     let mut multipliers_global = Vector::zero(constraint_rhs_global.len());
     let mut multipliers_local = Vector::zero(constraint_rhs_local.len());
     let eliminating = !matches!(strategy, SolveStrategy::Monolithic { elimination: false });
+    if sparse.is_some() && eliminating {
+        unimplemented!(
+            "Eliminating the local block sparsely wants it held as the blocks it is, not as one matrix."
+        )
+    }
     let (inner, outer) = if eliminating {
         (num_inner, num_outer)
     } else {
@@ -334,7 +392,7 @@ where
     let mut coupling_local = Matrix::zero(inner, outer);
     let mut eliminated = vec![Vector::zero(inner); outer.min(num_global)];
     let mut factorization = LuDecomposition::zero(inner);
-    let mut monolithic = SquareMatrix::zero(if eliminating {
+    let mut monolithic = SquareMatrix::zero(if eliminating || sparse.is_some() {
         0
     } else {
         num_outer + num_inner
@@ -442,23 +500,50 @@ where
             });
             (decrement_outer, decrement_inner)
         } else {
-            kkt_block(
-                &tangent_uu,
-                &constraint_matrix_global,
-                num_global,
-                &mut monolithic,
-                0,
-            );
-            kkt_block(
-                &tangent_vv,
-                &constraint_matrix_local,
-                num_local,
-                &mut monolithic,
-                num_outer,
-            );
-            tangent_uv.fill_into_block(&mut monolithic, 0, num_outer);
-            tangent_vu.fill_into_block(&mut monolithic, num_outer, 0);
-            let decrement = monolithic.solve_lu(&residual)?;
+            if sparse.is_none() {
+                kkt_block(
+                    &tangent_uu,
+                    &constraint_matrix_global,
+                    num_global,
+                    &mut monolithic,
+                    0,
+                );
+                kkt_block(
+                    &tangent_vv,
+                    &constraint_matrix_local,
+                    num_local,
+                    &mut monolithic,
+                    num_outer,
+                );
+            }
+            let decrement = if let Some(ref solver) = sparse {
+                //
+                // The block layout is the same either way, so the entry a
+                // sparse solver asks for is read from whichever block holds it.
+                //
+                solver.solve(
+                    |i, j| {
+                        kkt_entry(
+                            i,
+                            j,
+                            num_global,
+                            num_outer,
+                            num_local,
+                            &tangent_uu,
+                            &tangent_vu,
+                            &tangent_uv,
+                            &tangent_vv,
+                            &constraint_matrix_global,
+                            &constraint_matrix_local,
+                        )
+                    },
+                    &residual,
+                )?
+            } else {
+                tangent_uv.fill_into_block(&mut monolithic, 0, num_outer);
+                tangent_vu.fill_into_block(&mut monolithic, num_outer, 0);
+                monolithic.solve_lu(&residual)?
+            };
             let mut decrement_outer = Vector::zero(num_outer);
             let mut decrement_inner = Vector::zero(num_inner);
             decrement
