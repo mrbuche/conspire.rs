@@ -3,7 +3,7 @@ mod test;
 
 mod amd;
 
-use crate::math::{Scalar, Vector};
+use crate::math::{Scalar, TensorRank1Vec, TensorRank2, Vector};
 use std::ops::Mul;
 
 /// A sparse matrix in compressed sparse column format.
@@ -194,14 +194,37 @@ impl CscMatrix {
     }
 }
 
+impl CscMatrix {
+    /// Multiplies by whatever supplies the entries of a column vector, the
+    /// operands differing only in how their entries are reached.
+    fn multiply(&self, entry: impl Fn(usize) -> Scalar) -> Vector {
+        let mut output = Vector::zero(self.height);
+        (0..self.width).for_each(|j| {
+            let entry_j = entry(j);
+            (self.col_ptr[j]..self.col_ptr[j + 1])
+                .for_each(|k| output[self.row_idx[k]] += self.values[k] * entry_j)
+        });
+        output
+    }
+}
+
 impl Mul<&Vector> for &CscMatrix {
     type Output = Vector;
     fn mul(self, vector: &Vector) -> Self::Output {
-        let mut output = Vector::zero(self.height);
-        (0..self.width).for_each(|j| {
-            (self.col_ptr[j]..self.col_ptr[j + 1])
-                .for_each(|k| output[self.row_idx[k]] += self.values[k] * vector[j])
-        });
-        output
+        self.multiply(|j| vector[j])
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> Mul<&TensorRank2<D, I, J>> for &CscMatrix {
+    type Output = Vector;
+    fn mul(self, tensor_rank_2: &TensorRank2<D, I, J>) -> Self::Output {
+        self.multiply(|j| tensor_rank_2[j / D][j % D])
+    }
+}
+
+impl<const D: usize, const I: usize> Mul<&TensorRank1Vec<D, I>> for &CscMatrix {
+    type Output = Vector;
+    fn mul(self, tensor_rank_1_vec: &TensorRank1Vec<D, I>) -> Self::Output {
+        self.multiply(|j| tensor_rank_1_vec[j / D][j % D])
     }
 }
