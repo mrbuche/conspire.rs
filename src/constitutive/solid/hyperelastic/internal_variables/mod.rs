@@ -151,6 +151,9 @@ where
         let (constraint_global, constraint_local) = bcs_block(self, applied_load);
         match solver.minimize_block(
             |deformation_gradient: &DeformationGradient, internal_variables: &V| {
+                Ok(self.helmholtz_free_energy_density(deformation_gradient, internal_variables)?)
+            },
+            |deformation_gradient: &DeformationGradient, internal_variables: &V| {
                 Ok(self.first_piola_kirchhoff_stress(deformation_gradient, internal_variables)?)
             },
             |deformation_gradient: &DeformationGradient, internal_variables: &V| {
