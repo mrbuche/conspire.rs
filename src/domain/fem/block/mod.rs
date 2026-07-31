@@ -205,12 +205,12 @@ pub(crate) fn finalize_node_neighbors(neighbors: &mut [Vec<usize>]) {
     })
 }
 
-pub(crate) fn solver_from_neighbors(
+/// The positions a mesh makes nonzero, and how many unknowns they span.
+pub(crate) fn pattern_from_neighbors(
     neighbors: &[Vec<usize>],
     equality_constraint: &EqualityConstraint,
     dimension: usize,
-    symmetric: bool,
-) -> SparseSolver {
+) -> (usize, Vec<(usize, usize)>) {
     let number_of_nodes = neighbors.len();
     let num_coords = dimension * number_of_nodes;
     let mut pattern: Vec<(usize, usize)> = neighbors
@@ -241,7 +241,7 @@ pub(crate) fn solver_from_neighbors(
                 .into_iter()
                 .map(|(i, j)| (remap[i], remap[j]))
                 .collect();
-            SparseSolver::from_pattern(next, pattern, symmetric)
+            (next, pattern)
         }
         EqualityConstraint::Linear(matrix, _) => {
             assert_eq!(matrix.width(), num_coords);
@@ -255,8 +255,18 @@ pub(crate) fn solver_from_neighbors(
                     }
                 })
             });
-            SparseSolver::from_pattern(num_dof, pattern, symmetric)
+            (num_dof, pattern)
         }
-        EqualityConstraint::None => SparseSolver::from_pattern(num_coords, pattern, symmetric),
+        EqualityConstraint::None => (num_coords, pattern),
     }
+}
+
+pub(crate) fn solver_from_neighbors(
+    neighbors: &[Vec<usize>],
+    equality_constraint: &EqualityConstraint,
+    dimension: usize,
+    symmetric: bool,
+) -> SparseSolver {
+    let (num_dof, pattern) = pattern_from_neighbors(neighbors, equality_constraint, dimension);
+    SparseSolver::from_pattern(num_dof, pattern, symmetric)
 }
