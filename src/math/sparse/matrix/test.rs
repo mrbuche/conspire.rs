@@ -113,3 +113,18 @@ fn transpose() {
     assert_eq_dense(&transpose, &transposed);
     assert_eq!(transpose.transpose(), sparse);
 }
+
+#[test]
+fn mul_tensor_rank_2() -> Result<(), AssertionError> {
+    use crate::math::TensorRank2;
+    // the nine entries of a rank-two tensor are the nine of the vector
+    let tensor = TensorRank2::<3, 1, 1>::from([[2.0, 1.0, 3.0], [2.0, 1.0, 3.0], [2.0, 1.0, 3.0]]);
+    Assert::default().eq_within_tols(&(&sparse() * &tensor), &(&sparse() * &vector()))
+}
+
+#[test]
+fn mul_tensor_rank_1_vec() -> Result<(), AssertionError> {
+    use crate::math::TensorRank1Vec;
+    let list: TensorRank1Vec<3, 1> = (0..3).map(|_| [2.0, 1.0, 3.0].into()).collect();
+    Assert::default().eq_within_tols(&(&sparse() * &list), &(&sparse() * &vector()))
+}
