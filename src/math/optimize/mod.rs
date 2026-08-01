@@ -44,6 +44,23 @@ pub trait FirstOrderRootFinding<F, J, X> {
     ) -> Result<X, OptimizationError>;
 }
 
+/// First-order root-finding algorithms that hand out each increment before
+/// applying it.
+///
+/// The solver keeps the iteration; the increment is only lent to the caller so
+/// that whatever was eliminated from the system can be carried along with it.
+pub trait FirstOrderRootFindingIncremental<F, J, X> {
+    fn root_incremental(
+        &self,
+        function: impl FnMut(&X) -> Result<F, String>,
+        jacobian: impl FnMut(&X) -> Result<J, String>,
+        update: impl FnMut(&X, &Vector) -> Result<(), String>,
+        initial_guess: X,
+        equality_constraint: EqualityConstraint,
+        sparse: Option<SparseSolver>,
+    ) -> Result<X, OptimizationError>;
+}
+
 /// First-order optimization algorithms.
 pub trait FirstOrderOptimization<F, X> {
     fn minimize(
