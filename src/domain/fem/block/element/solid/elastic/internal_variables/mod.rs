@@ -340,9 +340,31 @@ where
         .iter()
         .enumerate()
         .for_each(|(a, &i)| decrement[i] = solution[a]);
-    let mut incremented = internal_variables.clone();
-    incremented.decrement_from(&decrement);
-    Ok(incremented)
+    //
+    // A full step can carry the internal variables through a singular state,
+    // where the elastic part of the deformation blows up, so shorten it until
+    // the model can be evaluated where it is about to be asked. The deformation
+    // is stepped alongside, so the state to test is the one both arrive at.
+    //
+    let stepped = deformation_gradient - deformation_gradient_decrement;
+    let mut fraction = 1.0;
+    loop {
+        let mut trial = internal_variables.clone();
+        trial.decrement_from(&(&decrement * fraction));
+        if constitutive_model
+            .internal_variables_residual(&stepped, &trial)
+            .is_ok()
+        {
+            return Ok(trial);
+        }
+        fraction *= CUT_BACK;
+        if fraction < MIN_FRACTION {
+            return Err(ConstitutiveError::Custom(
+                "The internal variables could not be stepped.".to_string(),
+                format!("{deformation_gradient}"),
+            ));
+        }
+    }
 }
 
 /// The tangent stiffness at one integration point with the internal variables
