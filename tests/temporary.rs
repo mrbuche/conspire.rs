@@ -7883,3 +7883,103 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
     println!("Done ({:?}).", time.elapsed());
     Ok(())
 }
+
+#[test]
+fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
+    use conspire::{
+        constitutive::{
+            hybrid::ElasticMultiplicative, solid::hyperelastic::SaintVenantKirchhoff as SVK,
+        },
+        fem::solid::elastic::internal_variables::FirstOrderRootIV,
+        math::optimize::SolveStrategy,
+    };
+    let strain = 1.0;
+    let ref_coordinates = coordinates();
+    let mut connectivity = connectivity();
+    connectivity
+        .iter_mut()
+        .flatten()
+        .for_each(|entry| *entry -= 1);
+    let num_nodes = ref_coordinates.len();
+    let model = ElasticMultiplicative::from((
+        NeoHookean {
+            bulk_modulus: 13.0,
+            shear_modulus: 3.0,
+        },
+        SVK {
+            bulk_modulus: 13.0,
+            shear_modulus: 3.0,
+        },
+    ));
+    let length = ref_coordinates
+        .iter()
+        .filter(|coordinate| coordinate[0].abs() == 0.5)
+        .count()
+        + 3;
+    let width = num_nodes * 3;
+    let mut matrix = Matrix::zero(length, width);
+    let mut vector = Vector::zero(length);
+    let mut index = 0;
+    coordinates()
+        .iter()
+        .enumerate()
+        .for_each(|(node, coordinate)| {
+            if coordinate[0].abs() == 0.5 {
+                matrix[index][3 * node] = 1.0;
+                if coordinate[0] > 0.0 {
+                    vector[index] = coordinate[0] + strain
+                } else {
+                    vector[index] = coordinate[0]
+                }
+                index += 1;
+            }
+        });
+    matrix[length - 3][132 * 3 + 1] = 1.0;
+    matrix[length - 2][132 * 3 + 2] = 1.0;
+    matrix[length - 1][142 * 3 + 2] = 1.0;
+    vector[length - 3] = -0.5;
+    vector[length - 2] = -0.5;
+    vector[length - 1] = -0.5;
+    let mesh = Mesh::from((
+        vec![Connectivity::Tetrahedral(connectivity.into())],
+        coordinates(),
+    ));
+    let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> = (mesh, model).try_into()?;
+    let time = std::time::Instant::now();
+    println!("Solving (condensed)...");
+    let condensed = FirstOrderRootIV::root(
+        &fem_model,
+        EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+        NewtonRaphson::default(),
+        SolveStrategy::Condensed,
+    )?;
+    println!("Done ({:?}).", time.elapsed());
+    let time = std::time::Instant::now();
+    println!("Solving (monolithic, eliminated)...");
+    //
+    // The step budget is the point of the test as much as the solution is. The
+    // internal variables are stepped by the increment rather than solved, so
+    // dropping that coupling still arrives at the same root, only staggered
+    // instead of Newton: six steps become nine.
+    //
+    let eliminated = FirstOrderRootIV::root(
+        &fem_model,
+        EqualityConstraint::Linear(matrix, vector),
+        NewtonRaphson {
+            max_steps: 7,
+            ..Default::default()
+        },
+        SolveStrategy::Monolithic { elimination: true },
+    )?;
+    println!("Done ({:?}).", time.elapsed());
+    //
+    // The internal variables are carried rather than solved, so agreeing with
+    // the condensed solution is what shows they were carried correctly.
+    //
+    Assert {
+        abs_tol: 1e-9,
+        rel_tol: 1e-9,
+        ..Default::default()
+    }
+    .eq_within_tols(&condensed, &eliminated)
+}

@@ -2,16 +2,16 @@ use crate::{
     ABS_TOL,
     constitutive::{ConstitutiveError, solid::elastic::internal_variables::ElasticIV},
     fem::block::element::{
-        Element, ElementNodalCoordinates, FiniteElement, FiniteElementError,
+        Element, ElementNodalCoordinates, FiniteElement, FiniteElementError, GradientVectors,
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement},
     },
     math::{
-        ContractSecondFourthWithFirst, HessianBlock, Jacobian, Scalar, Solution, SquareMatrix,
-        Tensor, TensorList, Vector,
+        ContractSecondFourthWithFirst, HessianBlock, Jacobian, Scalar, ScalarList, Solution,
+        SquareMatrix, Tensor, TensorList, Vector,
     },
     mechanics::{
-        DeformationGradient, FirstPiolaKirchhoffStressList, FirstPiolaKirchhoffTangentStiffness,
-        FirstPiolaKirchhoffTangentStiffnessList,
+        DeformationGradient, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStressList,
+        FirstPiolaKirchhoffTangentStiffness, FirstPiolaKirchhoffTangentStiffnessList,
     },
 };
 
@@ -71,7 +71,24 @@ pub trait ElasticIVFiniteElement<
         nodal_coordinates: &ElementNodalCoordinates<N>,
         internal_variables: &InternalVariables<G, V>,
     ) -> Result<InternalVariables<G, V>, FiniteElementError>;
+    /// Steps the internal variables alongside a decrement of the nodal
+    /// coordinates, rather than solving them where the coordinates now are.
+    fn internal_variables_increment(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        internal_variables: &InternalVariables<G, V>,
+        nodal_decrement: &ElementNodalCoordinates<N>,
+    ) -> Result<InternalVariables<G, V>, FiniteElementError>;
     fn nodal_forces(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        internal_variables: &InternalVariables<G, V>,
+    ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError>;
+    /// The nodal forces with the residual of the internal variables eliminated
+    /// into them, for when they are carried rather than solved.
+    fn nodal_forces_eliminated(
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
@@ -178,6 +195,156 @@ where
     ))
 }
 
+/// The nodal forces a list of stresses integrates to.
+fn assemble_forces<const G: usize, const N: usize>(
+    stresses: FirstPiolaKirchhoffStressList<G>,
+    gradient_vectors: &GradientVectors<3, G, N>,
+    integration_weights: &ScalarList<G>,
+) -> ElementNodalForcesSolid<N> {
+    stresses
+        .iter()
+        .zip(gradient_vectors.iter().zip(integration_weights))
+        .map(|(stress, (gradient_vectors_point, integration_weight))| {
+            gradient_vectors_point
+                .iter()
+                .map(|gradient_vector| (stress * gradient_vector) * integration_weight)
+                .collect()
+        })
+        .sum()
+}
+
+/// The local block over the free internal variables, the fixed ones leaving it
+/// through their rows and columns rather than through the inverse.
+fn local_block<T3>(tangent_vv: &T3, size: usize, unmap: &[usize]) -> SquareMatrix
+where
+    T3: HessianBlock,
+{
+    let mut block = SquareMatrix::zero(size);
+    tangent_vv.fill_into_block(&mut block, 0, 0);
+    let mut local = SquareMatrix::zero(unmap.len());
+    unmap.iter().enumerate().for_each(|(a, &i)| {
+        unmap
+            .iter()
+            .enumerate()
+            .for_each(|(b, &j)| local[a][b] = block[i][j])
+    });
+    local
+}
+
+/// The stress at one integration point with the residual of the internal
+/// variables eliminated into it.
+///
+/// ```math
+/// \mathbf{P} - \mathcal{K}_{uv}\mathcal{K}_{vv}^{-1}\mathbf{r}_v
+/// ```
+///
+/// The internal variables are carried rather than solved, so this residual
+/// only agrees with the stress alone once they have converged.
+fn eliminated_at_point<C, V, T1, T2, T3>(
+    constitutive_model: &C,
+    deformation_gradient: &DeformationGradient,
+    internal_variables: &V,
+) -> Result<FirstPiolaKirchhoffStress, ConstitutiveError>
+where
+    C: ElasticIV<V, T1, T2, T3>,
+    T1: HessianBlock,
+    T2: HessianBlock,
+    T3: HessianBlock,
+    V: Jacobian + Solution,
+{
+    let mut stress = constitutive_model
+        .first_piola_kirchhoff_stress(deformation_gradient, internal_variables)?;
+    let size = internal_variables.size();
+    let unmap = free_indices(constitutive_model, size);
+    let mut residual = Vector::zero(size);
+    constitutive_model
+        .internal_variables_residual(deformation_gradient, internal_variables)?
+        .fill_into(&mut residual);
+    let mut reduced = Vector::zero(unmap.len());
+    unmap
+        .iter()
+        .enumerate()
+        .for_each(|(a, &i)| reduced[a] = residual[i]);
+    let (_, _, tangent_uv, tangent_vv) =
+        constitutive_model.tangents(deformation_gradient, internal_variables)?;
+    let eliminated = local_block(&tangent_vv, size, &unmap)
+        .solve_lu(&reduced)
+        .map_err(|error| {
+            ConstitutiveError::Custom(format!("{error:?}"), format!("{deformation_gradient}"))
+        })?;
+    let mut cross = SquareMatrix::zero(size);
+    tangent_uv.fill_into_block(&mut cross, 0, 0);
+    (0..3).for_each(|i| {
+        (0..3).for_each(|j| {
+            stress[i][j] -= unmap
+                .iter()
+                .enumerate()
+                .map(|(a, &v)| cross[3 * i + j][v] * eliminated[a])
+                .sum::<Scalar>()
+        })
+    });
+    Ok(stress)
+}
+
+/// The internal variables at one integration point stepped alongside a
+/// decrement of the deformation.
+///
+/// ```math
+/// \Delta\mathbf{v} = -\mathcal{K}_{vv}^{-1}\left(\mathbf{r}_v + \mathcal{K}_{vu}\Delta\mathbf{u}\right)
+/// ```
+fn increment_at_point<C, V, T1, T2, T3>(
+    constitutive_model: &C,
+    deformation_gradient: &DeformationGradient,
+    deformation_gradient_decrement: &DeformationGradient,
+    internal_variables: &V,
+) -> Result<V, ConstitutiveError>
+where
+    C: ElasticIV<V, T1, T2, T3>,
+    T1: HessianBlock,
+    T2: HessianBlock,
+    T3: HessianBlock,
+    V: Jacobian + Solution,
+{
+    let size = internal_variables.size();
+    let unmap = free_indices(constitutive_model, size);
+    let mut residual = Vector::zero(size);
+    constitutive_model
+        .internal_variables_residual(deformation_gradient, internal_variables)?
+        .fill_into(&mut residual);
+    let (_, tangent_vu, _, tangent_vv) =
+        constitutive_model.tangents(deformation_gradient, internal_variables)?;
+    let mut coupling = SquareMatrix::zero(size);
+    tangent_vu.fill_into_block(&mut coupling, 0, 0);
+    //
+    // The deformation is handed over as a decrement, so its contribution to
+    // the local residual enters with the opposite sign.
+    //
+    let mut reduced = Vector::zero(unmap.len());
+    unmap.iter().enumerate().for_each(|(a, &i)| {
+        reduced[a] = residual[i]
+            - (0..3)
+                .map(|k| {
+                    (0..3)
+                        .map(|l| coupling[i][3 * k + l] * deformation_gradient_decrement[k][l])
+                        .sum::<Scalar>()
+                })
+                .sum::<Scalar>()
+    });
+    let solution = local_block(&tangent_vv, size, &unmap)
+        .solve_lu(&reduced)
+        .map_err(|error| {
+            ConstitutiveError::Custom(format!("{error:?}"), format!("{deformation_gradient}"))
+        })?;
+    let mut decrement = Vector::zero(size);
+    unmap
+        .iter()
+        .enumerate()
+        .for_each(|(a, &i)| decrement[i] = solution[a]);
+    let mut incremented = internal_variables.clone();
+    incremented.decrement_from(&decrement);
+    Ok(incremented)
+}
+
 /// The tangent stiffness at one integration point with the internal variables
 /// condensed out.
 fn condensed_at_point<C, V, T1, T2, T3>(
@@ -196,22 +363,11 @@ where
         constitutive_model.tangents(deformation_gradient, internal_variables)?;
     let size = internal_variables.size();
     let unmap = free_indices(constitutive_model, size);
-    //
-    // The fixed internal variables never move, so they leave the local block
-    // through their rows and columns rather than through the inverse.
-    //
-    let mut block = SquareMatrix::zero(size);
-    tangent_vv.fill_into_block(&mut block, 0, 0);
-    let mut local = SquareMatrix::zero(unmap.len());
-    unmap.iter().enumerate().for_each(|(a, &i)| {
-        unmap
-            .iter()
-            .enumerate()
-            .for_each(|(b, &j)| local[a][b] = block[i][j])
-    });
-    let factorization = local.factorize_lu().map_err(|error| {
-        ConstitutiveError::Custom(format!("{error:?}"), format!("{deformation_gradient}"))
-    })?;
+    let factorization = local_block(&tangent_vv, size, &unmap)
+        .factorize_lu()
+        .map_err(|error| {
+            ConstitutiveError::Custom(format!("{error:?}"), format!("{deformation_gradient}"))
+        })?;
     let mut coupling = SquareMatrix::zero(size);
     tangent_vu.fill_into_block(&mut coupling, 0, 0);
     let mut cross = SquareMatrix::zero(size);
@@ -281,6 +437,37 @@ where
             )),
         }
     }
+    fn internal_variables_increment(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        internal_variables: &InternalVariables<G, V>,
+        nodal_decrement: &ElementNodalCoordinates<N>,
+    ) -> Result<InternalVariables<G, V>, FiniteElementError> {
+        match self
+            .deformation_gradients(nodal_coordinates)
+            .iter()
+            .zip(self.deformation_gradients(nodal_decrement).iter())
+            .zip(internal_variables)
+            .map(
+                |((deformation_gradient, decrement), internal_variables_point)| {
+                    increment_at_point(
+                        constitutive_model,
+                        deformation_gradient,
+                        decrement,
+                        internal_variables_point,
+                    )
+                },
+            )
+            .collect::<Result<InternalVariables<G, V>, _>>()
+        {
+            Ok(incremented) => Ok(incremented),
+            Err(error) => Err(FiniteElementError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
+    }
     fn nodal_forces(
         &self,
         constitutive_model: &C,
@@ -297,25 +484,41 @@ where
             })
             .collect::<Result<FirstPiolaKirchhoffStressList<G>, _>>()
         {
-            Ok(first_piola_kirchhoff_stresses) => Ok(first_piola_kirchhoff_stresses
-                .iter()
-                .zip(
-                    self.gradient_vectors()
-                        .iter()
-                        .zip(self.integration_weights()),
+            Ok(stresses) => Ok(assemble_forces(
+                stresses,
+                self.gradient_vectors(),
+                self.integration_weights(),
+            )),
+            Err(error) => Err(FiniteElementError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
+    }
+    fn nodal_forces_eliminated(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        internal_variables: &InternalVariables<G, V>,
+    ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
+        match self
+            .deformation_gradients(nodal_coordinates)
+            .iter()
+            .zip(internal_variables)
+            .map(|(deformation_gradient, internal_variables_point)| {
+                eliminated_at_point(
+                    constitutive_model,
+                    deformation_gradient,
+                    internal_variables_point,
                 )
-                .map(
-                    |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
-                        gradient_vectors
-                            .iter()
-                            .map(|gradient_vector| {
-                                (first_piola_kirchhoff_stress * gradient_vector)
-                                    * integration_weight
-                            })
-                            .collect()
-                    },
-                )
-                .sum()),
+            })
+            .collect::<Result<FirstPiolaKirchhoffStressList<G>, _>>()
+        {
+            Ok(stresses) => Ok(assemble_forces(
+                stresses,
+                self.gradient_vectors(),
+                self.integration_weights(),
+            )),
             Err(error) => Err(FiniteElementError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),

@@ -8,11 +8,15 @@ use crate::{
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{
-        Tensor, TensorVector,
-        optimize::{EqualityConstraint, FirstOrderRootFinding, OptimizationError, SolveStrategy},
+        Tensor, TensorVector, Vector,
+        optimize::{
+            EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingIncremental,
+            OptimizationError, SolveStrategy,
+        },
         sparse::SparseSolver,
     },
 };
+use std::cell::RefCell;
 
 /// The internal variables held at every integration point of every element.
 pub type InternalVariablesField<const G: usize, V> = TensorVector<InternalVariables<G, V>>;
@@ -35,6 +39,18 @@ where
         num_local: usize,
         pattern: &mut Vec<(usize, usize)>,
     );
+    /// Steps the internal variables everywhere alongside a decrement of the
+    /// nodal coordinates, rather than solving them where the coordinates now
+    /// are.
+    ///
+    /// This is the second row of the Newton system the solver never assembles,
+    /// each integration point taking its own share of the increment.
+    fn internal_variables_increment(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        internal_variables: &InternalVariablesField<G, V>,
+        nodal_decrement: &NodalCoordinates<D>,
+    ) -> Result<InternalVariablesField<G, V>, ElementModelError>;
     /// Solves the internal variables everywhere, holding the deformation fixed.
     ///
     /// Every integration point is independent of every other, so this is a
@@ -57,6 +73,31 @@ where
     ) -> Result<NodalForcesSolid<D>, ElementModelError> {
         let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
         self.nodal_forces_into(nodal_coordinates, internal_variables, &mut nodal_forces)?;
+        Ok(nodal_forces)
+    }
+    /// The nodal forces with the residual of the internal variables eliminated
+    /// into them, for when they are carried rather than solved.
+    ///
+    /// ```math
+    /// \mathbf{r}_u - \mathcal{K}_{uv}\mathcal{K}_{vv}^{-1}\mathbf{r}_v
+    /// ```
+    fn nodal_forces_eliminated_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        internal_variables: &InternalVariablesField<G, V>,
+        nodal_forces: &mut NodalForcesSolid<D>,
+    ) -> Result<(), ElementModelError>;
+    fn nodal_forces_eliminated(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        internal_variables: &InternalVariablesField<G, V>,
+    ) -> Result<NodalForcesSolid<D>, ElementModelError> {
+        let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
+        self.nodal_forces_eliminated_into(
+            nodal_coordinates,
+            internal_variables,
+            &mut nodal_forces,
+        )?;
         Ok(nodal_forces)
     }
     fn nodal_stiffnesses_into(
@@ -98,6 +139,18 @@ where
         self.blocks
             .internal_variables_pattern(offset, num_local, pattern)
     }
+    fn internal_variables_increment(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        internal_variables: &InternalVariablesField<G, V>,
+        nodal_decrement: &NodalCoordinates<D>,
+    ) -> Result<InternalVariablesField<G, V>, ElementModelError> {
+        self.blocks.internal_variables_increment(
+            nodal_coordinates,
+            internal_variables,
+            nodal_decrement,
+        )
+    }
     fn internal_variables_root(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
@@ -105,6 +158,18 @@ where
     ) -> Result<InternalVariablesField<G, V>, ElementModelError> {
         self.blocks
             .internal_variables_root(nodal_coordinates, internal_variables)
+    }
+    fn nodal_forces_eliminated_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        internal_variables: &InternalVariablesField<G, V>,
+        nodal_forces: &mut NodalForcesSolid<D>,
+    ) -> Result<(), ElementModelError> {
+        self.blocks.nodal_forces_eliminated_into(
+            nodal_coordinates,
+            internal_variables,
+            nodal_forces,
+        )
     }
     fn nodal_forces_into(
         &self,
@@ -154,7 +219,7 @@ where
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderRootFinding<J, H, X>,
+        solver: impl FirstOrderRootFinding<J, H, X> + FirstOrderRootFindingIncremental<J, H, X>,
         strategy: SolveStrategy,
     ) -> Result<X, OptimizationError>;
 }
@@ -182,40 +247,82 @@ where
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
+        > + FirstOrderRootFindingIncremental<
+            NodalForcesSolid<D>,
+            NodalStiffnessesSolid<D>,
+            NodalCoordinates<D>,
         >,
         strategy: SolveStrategy,
     ) -> Result<NodalCoordinates<D>, OptimizationError> {
-        match strategy {
-            SolveStrategy::Condensed => {}
-            SolveStrategy::Monolithic { .. } => unimplemented!(
-                "The internal variables must be unknowns of the solver to be solved with it."
-            ),
-        }
-        //
-        // The internal variables of an integration point are solved before they
-        // are used, so the residual is one of the nodal coordinates alone. They
-        // are solved afresh each time rather than carried, the solver being free
-        // to evaluate wherever it likes.
-        //
-        let initial = self.internal_variables_initial();
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);
         finalize_node_neighbors(&mut neighbors);
+        //
+        // Either way the solver only ever sees the nodal coordinates, so the
+        // sparsity is that of an ordinary mesh. The internal variables are
+        // element-local, so what they contribute to the tangent lands where the
+        // nodes of their own element already meet.
+        //
         let sparse = solver_from_neighbors(&neighbors, &equality_constraint, D, false);
-        solver.root(
-            |nodal_coordinates: &NodalCoordinates<D>| {
-                let internal_variables =
-                    self.internal_variables_root(nodal_coordinates, &initial)?;
-                Ok(self.nodal_forces(nodal_coordinates, &internal_variables)?)
-            },
-            |nodal_coordinates: &NodalCoordinates<D>| {
-                let internal_variables =
-                    self.internal_variables_root(nodal_coordinates, &initial)?;
-                Ok(self.nodal_stiffnesses(nodal_coordinates, &internal_variables)?)
-            },
-            self.coordinates().clone().into(),
-            equality_constraint,
-            Some(sparse),
-        )
+        let initial = self.internal_variables_initial();
+        match strategy {
+            //
+            // The internal variables are solved before they are used, so the
+            // residual is one of the nodal coordinates alone. They are solved
+            // afresh each time rather than carried, the solver being free to
+            // evaluate wherever it likes.
+            //
+            SolveStrategy::Condensed => solver.root(
+                |nodal_coordinates: &NodalCoordinates<D>| {
+                    let internal_variables =
+                        self.internal_variables_root(nodal_coordinates, &initial)?;
+                    Ok(self.nodal_forces(nodal_coordinates, &internal_variables)?)
+                },
+                |nodal_coordinates: &NodalCoordinates<D>| {
+                    let internal_variables =
+                        self.internal_variables_root(nodal_coordinates, &initial)?;
+                    Ok(self.nodal_stiffnesses(nodal_coordinates, &internal_variables)?)
+                },
+                self.coordinates().clone().into(),
+                equality_constraint,
+                Some(sparse),
+            ),
+            //
+            // The internal variables are carried instead, stepped once per
+            // iteration by the increment the solver lends out. They are never
+            // at their own root along the way, so their residual has to be
+            // eliminated into the one the solver does see.
+            //
+            SolveStrategy::Monolithic { elimination: true } => {
+                let internal_variables = RefCell::new(initial);
+                solver.root_incremental(
+                    |nodal_coordinates: &NodalCoordinates<D>| {
+                        Ok(self.nodal_forces_eliminated(
+                            nodal_coordinates,
+                            &internal_variables.borrow(),
+                        )?)
+                    },
+                    |nodal_coordinates: &NodalCoordinates<D>| {
+                        Ok(self
+                            .nodal_stiffnesses(nodal_coordinates, &internal_variables.borrow())?)
+                    },
+                    |nodal_coordinates: &NodalCoordinates<D>, decrement: &Vector| {
+                        let stepped = self.internal_variables_increment(
+                            nodal_coordinates,
+                            &internal_variables.borrow(),
+                            &NodalCoordinates::from(decrement.clone()),
+                        )?;
+                        *internal_variables.borrow_mut() = stepped;
+                        Ok(())
+                    },
+                    self.coordinates().clone().into(),
+                    equality_constraint,
+                    Some(sparse),
+                )
+            }
+            SolveStrategy::Monolithic { elimination: false } => unimplemented!(
+                "The internal variables must be unknowns of the solver to be solved with it."
+            ),
+        }
     }
 }

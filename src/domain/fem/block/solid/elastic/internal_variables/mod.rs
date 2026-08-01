@@ -66,6 +66,34 @@ where
                 })
             })
     }
+    fn internal_variables_increment(
+        &self,
+        nodal_coordinates: &NodalCoordinates<3>,
+        internal_variables: &InternalVariablesField<G, V>,
+        nodal_decrement: &NodalCoordinates<3>,
+    ) -> Result<InternalVariablesField<G, V>, ElementModelError> {
+        match self
+            .elements()
+            .iter()
+            .zip(self.connectivity())
+            .zip(internal_variables)
+            .map(|((element, nodes), internal_variables_element)| {
+                element.internal_variables_increment(
+                    self.constitutive_model(),
+                    &Self::element_coordinates(nodal_coordinates, nodes),
+                    internal_variables_element,
+                    &Self::element_coordinates(nodal_decrement, nodes),
+                )
+            })
+            .collect::<Result<InternalVariablesField<G, V>, _>>()
+        {
+            Ok(incremented) => Ok(incremented),
+            Err(error) => Err(ElementModelError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
+    }
     fn internal_variables_root(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
@@ -106,6 +134,36 @@ where
             .try_for_each(|((element, nodes), internal_variables_element)| {
                 element
                     .nodal_forces(
+                        self.constitutive_model(),
+                        &Self::element_coordinates(nodal_coordinates, nodes),
+                        internal_variables_element,
+                    )?
+                    .into_iter()
+                    .zip(nodes)
+                    .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
+                Ok::<(), FiniteElementError>(())
+            }) {
+            Ok(()) => Ok(()),
+            Err(error) => Err(ElementModelError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
+    }
+    fn nodal_forces_eliminated_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<3>,
+        internal_variables: &InternalVariablesField<G, V>,
+        nodal_forces: &mut NodalForcesSolid<3>,
+    ) -> Result<(), ElementModelError> {
+        match self
+            .elements()
+            .iter()
+            .zip(self.connectivity())
+            .zip(internal_variables)
+            .try_for_each(|((element, nodes), internal_variables_element)| {
+                element
+                    .nodal_forces_eliminated(
                         self.constitutive_model(),
                         &Self::element_coordinates(nodal_coordinates, nodes),
                         internal_variables_element,

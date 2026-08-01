@@ -8,8 +8,8 @@ use super::{
         sparse::{CscMatrix, SparseSolver},
     },
     BacktrackingLineSearch, EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock,
-    LineSearch, OptimizationError, SecondOrderOptimization, SecondOrderOptimizationBlock,
-    SolveStrategy,
+    FirstOrderRootFindingIncremental, LineSearch, OptimizationError, SecondOrderOptimization,
+    SecondOrderOptimizationBlock, SolveStrategy,
 };
 use crate::ABS_TOL;
 use crate::math::Norm;
@@ -80,6 +80,7 @@ where
                 |_: &X| panic!("No line search in root finding"),
                 function,
                 jacobian,
+                |_: &X, _: &Vector| Ok(()),
                 initial_guess,
                 sparse,
                 indices,
@@ -89,6 +90,7 @@ where
                 |_: &X| panic!("No line search in root finding"),
                 function,
                 jacobian,
+                |_: &X, _: &Vector| Ok(()),
                 initial_guess,
                 sparse,
                 constraint_matrix,
@@ -100,6 +102,53 @@ where
                 function,
                 jacobian,
                 initial_guess,
+            ),
+        }
+    }
+}
+
+impl<F, J, X> FirstOrderRootFindingIncremental<F, J, X> for NewtonRaphson
+where
+    F: Jacobian,
+    for<'a> &'a F: Div<J, Output = X> + From<&'a X>,
+    J: Hessian,
+    X: Solution,
+    for<'a> &'a X: Mul<Scalar, Output = X>,
+    for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
+{
+    fn root_incremental(
+        &self,
+        function: impl FnMut(&X) -> Result<F, String>,
+        jacobian: impl FnMut(&X) -> Result<J, String>,
+        update: impl FnMut(&X, &Vector) -> Result<(), String>,
+        initial_guess: X,
+        equality_constraint: EqualityConstraint,
+        sparse: Option<SparseSolver>,
+    ) -> Result<X, OptimizationError> {
+        match equality_constraint {
+            EqualityConstraint::Fixed(indices) => constrained_fixed(
+                self,
+                |_: &X| panic!("No line search in root finding"),
+                function,
+                jacobian,
+                update,
+                initial_guess,
+                sparse,
+                indices,
+            ),
+            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
+                self,
+                |_: &X| panic!("No line search in root finding"),
+                function,
+                jacobian,
+                update,
+                initial_guess,
+                sparse,
+                constraint_matrix,
+                constraint_rhs,
+            ),
+            EqualityConstraint::None => unimplemented!(
+                "An unconstrained solution has no chained vector to lend the increment through."
             ),
         }
     }
@@ -129,6 +178,7 @@ where
                 function,
                 jacobian,
                 hessian,
+                |_: &X, _: &Vector| Ok(()),
                 initial_guess,
                 sparse,
                 indices,
@@ -138,6 +188,7 @@ where
                 function,
                 jacobian,
                 hessian,
+                |_: &X, _: &Vector| Ok(()),
                 initial_guess,
                 sparse,
                 constraint_matrix,
@@ -689,6 +740,7 @@ fn constrained_fixed<J, H, X>(
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
     mut jacobian: impl FnMut(&X) -> Result<J, String>,
     mut hessian: impl FnMut(&X) -> Result<H, String>,
+    mut update: impl FnMut(&X, &Vector) -> Result<(), String>,
     initial_guess: X,
     sparse: Option<SparseSolver>,
     indices: Vec<usize>,
@@ -700,6 +752,7 @@ where
     X: Solution,
     for<'a> &'a X: Mul<Scalar, Output = X>,
 {
+    let mut applied = Vector::zero(initial_guess.size());
     let mut retained = vec![true; initial_guess.size()];
     indices.iter().for_each(|&index| retained[index] = false);
     let unmap: Vec<usize> = retained
@@ -740,6 +793,12 @@ where
                 decrement *= step_size
             }
         }
+        applied.iter_mut().for_each(|entry| *entry = 0.0);
+        unmap
+            .iter()
+            .zip(decrement.iter())
+            .for_each(|(&index, decrement_a)| applied[index] = *decrement_a);
+        update(&solution, &applied)?;
         solution.decrement_from_retained(&retained, &decrement)
     }
     Err(OptimizationError::MaximumStepsReached(
@@ -754,6 +813,7 @@ fn constrained<J, H, X>(
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
     mut jacobian: impl FnMut(&X) -> Result<J, String>,
     mut hessian: impl FnMut(&X) -> Result<H, String>,
+    mut update: impl FnMut(&X, &Vector) -> Result<(), String>,
     initial_guess: X,
     sparse: Option<SparseSolver>,
     constraint_matrix: Matrix,
@@ -768,6 +828,7 @@ where
     let mut decrement;
     let mut penalty = 0.0 as Scalar;
     let num_variables = initial_guess.size();
+    let mut applied = Vector::zero(num_variables);
     let num_constraints = constraint_rhs.len();
     let num_total = num_variables + num_constraints;
     let mut multipliers = Vector::zero(num_constraints);
@@ -860,11 +921,19 @@ where
                 }
             }
         };
-        if step_size == 1.0 {
-            solution.decrement_from_chained(&mut multipliers, decrement)
-        } else {
-            solution.decrement_from_chained(&mut multipliers, &decrement * step_size)
+        if step_size != 1.0 {
+            decrement *= step_size
         }
+        //
+        // The increment is lent out before it is applied, the eliminated
+        // variables needing the state its tangent was formed at.
+        //
+        applied
+            .iter_mut()
+            .zip(decrement.iter())
+            .for_each(|(applied_i, decrement_i)| *applied_i = *decrement_i);
+        update(&solution, &applied)?;
+        solution.decrement_from_chained(&mut multipliers, decrement)
     }
     Err(OptimizationError::MaximumStepsReached(
         newton_raphson.max_steps,
