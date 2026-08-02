@@ -358,6 +358,46 @@ where
     }
 }
 
+/// Shortens the step until it lands somewhere the problem can be evaluated,
+/// or gives up.
+///
+/// This asks nothing of a merit function, so it is the one line search root
+/// finding can also take, and it says nothing about descent.
+///
+/// Whatever was eliminated is stepped alongside, so the state to test is the
+/// one both arrive at. The update reports that, and only commits when it
+/// succeeds, so it is the trial as well as the step.
+#[allow(clippy::too_many_arguments)]
+fn backtrack_errors<J, X>(
+    mut jacobian: impl FnMut(&X) -> Result<J, String>,
+    mut update: impl FnMut(&X, &Vector) -> Result<(), String>,
+    solution: &X,
+    multipliers: &Vector,
+    decrement: &Vector,
+    applied: &mut Vector,
+    cut_back: Scalar,
+    max_steps: usize,
+) -> Option<Scalar>
+where
+    X: Solution,
+{
+    let mut trial_size = 1.0;
+    for _ in 0..max_steps {
+        applied
+            .iter_mut()
+            .zip(decrement.iter())
+            .for_each(|(applied_i, decrement_i)| *applied_i = decrement_i * trial_size);
+        let mut trial = solution.clone();
+        let mut trial_multipliers = multipliers.clone();
+        trial.decrement_from_chained(&mut trial_multipliers, decrement * trial_size);
+        if update(solution, applied).is_ok() && jacobian(&trial).is_ok() {
+            return Some(trial_size);
+        }
+        trial_size *= cut_back
+    }
+    None
+}
+
 fn kkt_block<K>(
     tangent: &K,
     constraint_matrix: &CscMatrix,
@@ -882,35 +922,20 @@ where
             max_steps,
         } = &newton_raphson.line_search
         {
-            //
-            // Backtracking for errors alone asks nothing of a merit function,
-            // so it is the one line search root finding can also take. The step
-            // is shortened only until it lands somewhere the problem can be
-            // evaluated, which says nothing about descent.
-            //
-            // Whatever was eliminated is stepped alongside, so the state to
-            // test is the one both arrive at. The update reports that, and only
-            // commits when it succeeds, so it is the trial as well as the step.
-            //
-            let mut trial_size = 1.0;
-            let mut accepted = None;
-            for _ in 0..*max_steps {
-                applied
-                    .iter_mut()
-                    .zip(decrement.iter())
-                    .for_each(|(applied_i, decrement_i)| *applied_i = decrement_i * trial_size);
-                let mut trial = solution.clone();
-                let mut trial_multipliers = multipliers.clone();
-                trial.decrement_from_chained(&mut trial_multipliers, &decrement * trial_size);
-                if update(&solution, &applied).is_ok() && jacobian(&trial).is_ok() {
-                    accepted = Some(trial_size);
+            match backtrack_errors(
+                &mut jacobian,
+                &mut update,
+                &solution,
+                &multipliers,
+                &decrement,
+                &mut applied,
+                *cut_back,
+                *max_steps,
+            ) {
+                Some(trial_size) => {
                     updated = true;
-                    break;
+                    trial_size
                 }
-                trial_size *= cut_back
-            }
-            match accepted {
-                Some(trial_size) => trial_size,
                 None => {
                     return Err(OptimizationError::Upstream(
                         format!(

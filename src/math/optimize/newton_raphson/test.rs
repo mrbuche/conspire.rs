@@ -224,6 +224,86 @@ mod constrained {
         )
     }
 
+    #[test]
+    fn error() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &minimized(LineSearch::Error {
+                cut_back: CUT_BACK,
+                max_steps: MAX_STEPS,
+            })?,
+            &Vector::from([1.0, 1.0]),
+        )
+    }
+
+    /// Root finding has no merit function, so every other line search panics
+    /// on the residual it would need. Backtracking for errors asks for none.
+    #[test]
+    fn error_root() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &NewtonRaphson {
+                line_search: LineSearch::Error {
+                    cut_back: CUT_BACK,
+                    max_steps: MAX_STEPS,
+                },
+                ..Default::default()
+            }
+            .root(
+                |x: &Vector| Ok(x.clone()),
+                |_: &Vector| Ok(SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])),
+                Vector::from([4.0, -3.0]),
+                constraint(),
+                None,
+            )?,
+            &Vector::from([1.0, 1.0]),
+        )
+    }
+
+    /// The step is shortened until the residual can be evaluated where it
+    /// lands, so a region it cannot be evaluated in is stepped around.
+    ///
+    /// The tangent understates the curvature fourfold, so the full step from
+    /// the initial guess overshoots the root and lands beyond the barrier.
+    /// Without backtracking the residual is never evaluable again.
+    fn barrier(line_search: LineSearch) -> Result<Vector, super::super::OptimizationError> {
+        NewtonRaphson {
+            line_search,
+            ..Default::default()
+        }
+        .root(
+            |x: &Vector| {
+                if x[0] < 3.0 {
+                    Err("Beyond the barrier.".to_string())
+                } else {
+                    Ok(Vector::from([x[0] - 4.0, x[1]]))
+                }
+            },
+            |_: &Vector| Ok(SquareMatrix::from([[0.25, 0.0], [0.0, 1.0]])),
+            Vector::from([6.0, -3.0]),
+            {
+                let mut matrix = Matrix::zero(1, 2);
+                matrix[0][1] = 1.0;
+                EqualityConstraint::Linear(matrix, Vector::from([1.0]))
+            },
+            None,
+        )
+    }
+
+    #[test]
+    fn error_backtracks() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &barrier(LineSearch::Error {
+                cut_back: 5e-1,
+                max_steps: MAX_STEPS,
+            })?,
+            &Vector::from([4.0, 1.0]),
+        )
+    }
+
+    #[test]
+    fn error_backtracks_needed() {
+        assert!(barrier(LineSearch::None).is_err())
+    }
+
     fn overshooting(line_search: LineSearch) -> Result<Vector, super::super::OptimizationError> {
         let mut matrix = Matrix::zero(1, 2);
         matrix[0][1] = 1.0;
