@@ -8,8 +8,8 @@ use super::{
         sparse::{CscMatrix, SparseSolver},
     },
     BacktrackingLineSearch, EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock,
-    FirstOrderRootFindingIncremental, LineSearch, OptimizationError, SecondOrderOptimization,
-    SecondOrderOptimizationBlock, SolveStrategy,
+    FirstOrderRootFindingIncremental, LineSearch, LineSearchError, OptimizationError,
+    SecondOrderOptimization, SecondOrderOptimizationBlock, SolveStrategy,
 };
 use crate::ABS_TOL;
 use crate::math::Norm;
@@ -850,6 +850,7 @@ where
             });
     }
     for _ in 0..=newton_raphson.max_steps {
+        let mut updated = false;
         (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
             &constraint_rhs - &constraint_matrix * &solution,
             &mut residual,
@@ -876,6 +877,53 @@ where
         }
         let step_size = if matches!(newton_raphson.line_search, LineSearch::None) {
             1.0
+        } else if let LineSearch::Error {
+            cut_back,
+            max_steps,
+        } = &newton_raphson.line_search
+        {
+            //
+            // Backtracking for errors alone asks nothing of a merit function,
+            // so it is the one line search root finding can also take. The step
+            // is shortened only until it lands somewhere the problem can be
+            // evaluated, which says nothing about descent.
+            //
+            // Whatever was eliminated is stepped alongside, so the state to
+            // test is the one both arrive at. The update reports that, and only
+            // commits when it succeeds, so it is the trial as well as the step.
+            //
+            let mut trial_size = 1.0;
+            let mut accepted = None;
+            for _ in 0..*max_steps {
+                applied
+                    .iter_mut()
+                    .zip(decrement.iter())
+                    .for_each(|(applied_i, decrement_i)| *applied_i = decrement_i * trial_size);
+                let mut trial = solution.clone();
+                let mut trial_multipliers = multipliers.clone();
+                trial.decrement_from_chained(&mut trial_multipliers, &decrement * trial_size);
+                if update(&solution, &applied).is_ok() && jacobian(&trial).is_ok() {
+                    accepted = Some(trial_size);
+                    updated = true;
+                    break;
+                }
+                trial_size *= cut_back
+            }
+            match accepted {
+                Some(trial_size) => trial_size,
+                None => {
+                    return Err(OptimizationError::Upstream(
+                        format!(
+                            "{}",
+                            LineSearchError::MaximumStepsReached(
+                                format!("{:?}", newton_raphson.line_search),
+                                *max_steps
+                            )
+                        ),
+                        format!("{newton_raphson:?}"),
+                    ));
+                }
+            }
         } else {
             penalty = penalty.max(
                 PENALTY_SAFETY
@@ -926,13 +974,16 @@ where
         }
         //
         // The increment is lent out before it is applied, the eliminated
-        // variables needing the state its tangent was formed at.
+        // variables needing the state its tangent was formed at. Backtracking
+        // for errors has already done so, to decide the step at all.
         //
-        applied
-            .iter_mut()
-            .zip(decrement.iter())
-            .for_each(|(applied_i, decrement_i)| *applied_i = *decrement_i);
-        update(&solution, &applied)?;
+        if !updated {
+            applied
+                .iter_mut()
+                .zip(decrement.iter())
+                .for_each(|(applied_i, decrement_i)| *applied_i = *decrement_i);
+            update(&solution, &applied)?
+        }
         solution.decrement_from_chained(&mut multipliers, decrement)
     }
     Err(OptimizationError::MaximumStepsReached(
