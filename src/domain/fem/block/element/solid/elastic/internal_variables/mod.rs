@@ -213,6 +213,23 @@ fn assemble_forces<const G: usize, const N: usize>(
         .sum()
 }
 
+/// The residual of the internal variables at one integration point, laid flat.
+fn local_residual<C, V, T1, T2, T3>(
+    constitutive_model: &C,
+    deformation_gradient: &DeformationGradient,
+    internal_variables: &V,
+) -> Result<Vector, ConstitutiveError>
+where
+    C: ElasticIV<V, T1, T2, T3>,
+    V: Jacobian + Solution,
+{
+    let mut residual = Vector::zero(internal_variables.size());
+    constitutive_model
+        .internal_variables_residual(deformation_gradient, internal_variables)?
+        .fill_into(&mut residual);
+    Ok(residual)
+}
+
 /// The local block over the free internal variables, the fixed ones leaving it
 /// through their rows and columns rather than through the inverse.
 fn local_block<T3>(tangent_vv: &T3, size: usize, unmap: &[usize]) -> SquareMatrix
@@ -256,10 +273,7 @@ where
         .first_piola_kirchhoff_stress(deformation_gradient, internal_variables)?;
     let size = internal_variables.size();
     let unmap = free_indices(constitutive_model, size);
-    let mut residual = Vector::zero(size);
-    constitutive_model
-        .internal_variables_residual(deformation_gradient, internal_variables)?
-        .fill_into(&mut residual);
+    let residual = local_residual(constitutive_model, deformation_gradient, internal_variables)?;
     let mut reduced = Vector::zero(unmap.len());
     unmap
         .iter()
@@ -307,10 +321,7 @@ where
 {
     let size = internal_variables.size();
     let unmap = free_indices(constitutive_model, size);
-    let mut residual = Vector::zero(size);
-    constitutive_model
-        .internal_variables_residual(deformation_gradient, internal_variables)?
-        .fill_into(&mut residual);
+    let residual = local_residual(constitutive_model, deformation_gradient, internal_variables)?;
     let (_, tangent_vu, _, tangent_vv) =
         constitutive_model.tangents(deformation_gradient, internal_variables)?;
     let mut coupling = SquareMatrix::zero(size);
