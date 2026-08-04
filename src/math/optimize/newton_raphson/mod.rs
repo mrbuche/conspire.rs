@@ -9,7 +9,7 @@ use super::{
     },
     BacktrackingLineSearch, EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock,
     FirstOrderRootFindingIncremental, LineSearch, LineSearchError, OptimizationError,
-    SecondOrderOptimization, SecondOrderOptimizationBlock, SolveStrategy,
+    SecondOrderOptimization, SecondOrderOptimizationBlock, SolveStrategy, TrustRegion,
 };
 use crate::ABS_TOL;
 use crate::math::Norm;
@@ -29,8 +29,8 @@ pub struct NewtonRaphson {
     pub line_search: LineSearch,
     /// Maximum number of steps.
     pub num_steps: usize,
-    /// Maximum step size.
-    pub step_max: Option<Scalar>,
+    /// How far the step is trusted.
+    pub trust_region: TrustRegion,
     /// Norm type for step size evaluation.
     pub step_norm: Norm,
 }
@@ -45,8 +45,8 @@ impl Debug for NewtonRaphson {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "NewtonRaphson {{ abs_tol: {:?}, line_search: {}, num_steps: {:?}, step_max: {:?} }}",
-            self.abs_tol, self.line_search, self.num_steps, self.step_max
+            "NewtonRaphson {{ abs_tol: {:?}, line_search: {}, num_steps: {:?}, trust_region: {:?} }}",
+            self.abs_tol, self.line_search, self.num_steps, self.trust_region
         )
     }
 }
@@ -58,7 +58,7 @@ impl Default for NewtonRaphson {
             error_norm: Norm::Chebyshev,
             line_search: LineSearch::None,
             num_steps: 25,
-            step_max: None,
+            trust_region: TrustRegion::None,
             step_norm: Norm::Chebyshev,
         }
     }
@@ -456,16 +456,16 @@ where
 /// Only the variables are measured, the multipliers being of another kind
 /// entirely, but everything is scaled together so that the direction survives.
 fn limit_decrement(newton_raphson: &NewtonRaphson, decrements: &mut [(&mut Vector, usize)]) {
-    if let Some(step_max) = newton_raphson.step_max {
+    if let TrustRegion::Fixed(radius) = newton_raphson.trust_region {
         let size = newton_raphson.step_norm.over(
             decrements
                 .iter()
                 .flat_map(|(decrement, variables)| decrement.iter().take(*variables).copied()),
         );
-        if size > step_max {
+        if size > radius {
             decrements
                 .iter_mut()
-                .for_each(|(decrement, _)| **decrement *= step_max / size)
+                .for_each(|(decrement, _)| **decrement *= radius / size)
         }
     }
 }
@@ -877,10 +877,10 @@ where
         } else {
             tangent = hessian(&solution)?;
             decrement = &residual / tangent;
-            if let Some(step_max) = newton_raphson.step_max {
+            if let TrustRegion::Fixed(radius) = newton_raphson.trust_region {
                 let size = newton_raphson.step_norm.apply(&decrement);
-                if size > step_max {
-                    decrement *= step_max / size
+                if size > radius {
+                    decrement *= radius / size
                 }
             }
             step_size = newton_raphson.backtracking_line_search(

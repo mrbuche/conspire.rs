@@ -7,7 +7,7 @@ use super::{
         // test::{rosenbrock, rosenbrock_derivative, rosenbrock_second_derivative},
     },
     EqualityConstraint, FirstOrderRootFinding, LineSearch, NewtonRaphson, OptimizationError,
-    Scalar, SecondOrderOptimization,
+    Scalar, SecondOrderOptimization, TrustRegion,
 };
 use crate::math::{Norm, Tensor, assert::Assert};
 
@@ -354,14 +354,14 @@ mod constrained {
     /// square of it, so any start beyond one diverges. Nothing about that step
     /// fails to evaluate, so backtracking for errors would let it through.
     fn steep(
-        step_max: Option<Scalar>,
+        trust_region: TrustRegion,
         line_search: LineSearch,
     ) -> Result<Vector, OptimizationError> {
         let mut matrix = Matrix::zero(1, 2);
         matrix[0][1] = 1.0;
         NewtonRaphson {
             line_search,
-            step_max,
+            trust_region,
             num_steps: 100,
             ..Default::default()
         }
@@ -380,13 +380,16 @@ mod constrained {
     }
 
     #[test]
-    fn step_max() -> Result<(), AssertionError> {
-        Assert::default().eq_within_tols(&steep(Some(0.75), LineSearch::None)?, &Vector::zero(2))
+    fn trust_region() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &steep(TrustRegion::Fixed(0.75), LineSearch::None)?,
+            &Vector::zero(2),
+        )
     }
 
     #[test]
-    fn step_max_needed() {
-        assert!(match steep(None, LineSearch::None) {
+    fn trust_region_needed() {
+        assert!(match steep(TrustRegion::None, LineSearch::None) {
             Ok(solution) => solution[0].abs() > 1.0,
             Err(_) => true,
         })
@@ -413,7 +416,7 @@ mod constrained {
         (0..WIDTH).for_each(|i| tangent[i][i] = 1.0);
         NewtonRaphson {
             num_steps: 10,
-            step_max: Some(5e-1),
+            trust_region: TrustRegion::Fixed(5e-1),
             step_norm,
             ..Default::default()
         }
@@ -439,9 +442,9 @@ mod constrained {
     /// The step that diverges here is a perfectly good one to evaluate, so
     /// only the limit catches it.
     #[test]
-    fn step_max_beyond_errors() {
+    fn trust_region_beyond_errors() {
         assert!(match steep(
-            None,
+            TrustRegion::None,
             LineSearch::Error {
                 cut_back: 5e-1,
                 num_steps: MAX_STEPS,
