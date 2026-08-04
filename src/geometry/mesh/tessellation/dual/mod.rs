@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 use crate::{
     geometry::{
         Coordinate, CoordinatesRef,
@@ -13,21 +16,7 @@ use crate::{
 use std::thread::{available_parallelism, scope};
 
 const GRAZING_TOLERANCE: Scalar = 1.0e-4;
-const TRIM_MARGIN: Scalar = 0.5;
-const EDGES: [[usize; 2]; 12] = [
-    [0, 1],
-    [1, 2],
-    [2, 3],
-    [3, 0],
-    [4, 5],
-    [5, 6],
-    [6, 7],
-    [7, 4],
-    [0, 4],
-    [1, 5],
-    [2, 6],
-    [3, 7],
-];
+const TRIM_RATIO: Scalar = 0.1;
 const DIRECTIONS: [Coordinate<D>; 3] = [
     Coordinate::const_from([1.0, 0.140_412_03, 0.092_153_88]),
     Coordinate::const_from([0.097_153_2, 1.0, 0.131_771_4]),
@@ -59,26 +48,23 @@ impl Tessellation {
         let directions = DIRECTIONS.map(|direction| direction.normalized());
         let coordinates = mesh.coordinates();
         let number_of_nodes = coordinates.len();
-        let mut inside = vec![false; number_of_nodes];
-        let mut clearance = vec![0.0; number_of_nodes];
+        let mut signed = vec![Scalar::NEG_INFINITY; number_of_nodes];
         let threads = available_parallelism().map_or(1, |threads| threads.get());
         let chunk_size = number_of_nodes.div_ceil(threads).max(1);
         scope(|scope| {
             let (elements, normals, directions) = (&elements, &normals, &directions);
-            inside
+            signed
                 .chunks_mut(chunk_size)
-                .zip(clearance.chunks_mut(chunk_size))
                 .enumerate()
-                .for_each(|(chunk, (flags, distances))| {
+                .for_each(|(chunk, distances)| {
                     scope.spawn(move || {
                         let offset = chunk * chunk_size;
-                        flags
+                        distances
                             .iter_mut()
-                            .zip(distances.iter_mut())
                             .enumerate()
-                            .for_each(|(local, (flag, distance))| {
+                            .for_each(|(local, distance)| {
                                 let point = &coordinates[offset + local];
-                                *flag = directions
+                                let inside = directions
                                     .iter()
                                     .find_map(|direction| {
                                         let ray = (point.clone(), direction.clone()).into();
@@ -93,25 +79,22 @@ impl Tessellation {
                                         }
                                     })
                                     .unwrap_or(false);
-                                if *flag
-                                    && let Some((closest, _)) =
-                                        bvh.closest_point(point, surface_coordinates, elements)
+                                if let Some((closest, _)) =
+                                    bvh.closest_point(point, surface_coordinates, elements)
                                 {
-                                    *distance = (&closest - point).norm();
+                                    let magnitude = (&closest - point).norm();
+                                    *distance = if inside { magnitude } else { -magnitude };
                                 }
                             });
                     });
                 });
         });
-        mesh.keep_hexes(|_, hex, coordinates| {
-            hex.iter().all(|&node| inside[node]) && {
-                let margin = TRIM_MARGIN
-                    * EDGES
-                        .iter()
-                        .map(|&[a, b]| (&coordinates[hex[a]] - &coordinates[hex[b]]).norm())
-                        .fold(Scalar::INFINITY, Scalar::min);
-                hex.iter().all(|&node| clearance[node] >= margin)
-            }
+        mesh.keep_hexes(|_, hex, _| {
+            let (minimum, maximum) = hex.iter().fold(
+                (Scalar::INFINITY, Scalar::NEG_INFINITY),
+                |(minimum, maximum), &node| (minimum.min(signed[node]), maximum.max(signed[node])),
+            );
+            minimum + TRIM_RATIO * maximum >= 0.0
         })
     }
 }
