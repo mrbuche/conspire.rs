@@ -31,8 +31,6 @@ pub struct NewtonRaphson {
     pub max_steps: usize,
     /// How far the step is trusted.
     pub trust_region: TrustRegion,
-    /// Norm type for step size evaluation.
-    pub step_norm: Norm,
 }
 
 impl<J, X> BacktrackingLineSearch<J, X> for NewtonRaphson {
@@ -59,7 +57,6 @@ impl Default for NewtonRaphson {
             line_search: LineSearch::None,
             max_steps: 25,
             trust_region: TrustRegion::None,
-            step_norm: Norm::Chebyshev,
         }
     }
 }
@@ -456,8 +453,8 @@ where
 /// Only the variables are measured, the multipliers being of another kind
 /// entirely, but everything is scaled together so that the direction survives.
 fn limit_decrement(newton_raphson: &NewtonRaphson, decrements: &mut [(&mut Vector, usize)]) {
-    if let TrustRegion::Fixed(radius) = newton_raphson.trust_region {
-        let size = newton_raphson.step_norm.over(
+    if let TrustRegion::Fixed { radius, norm } = newton_raphson.trust_region {
+        let size = norm.over(
             decrements
                 .iter()
                 .flat_map(|(decrement, variables)| decrement.iter().take(*variables).copied()),
@@ -877,8 +874,8 @@ where
         } else {
             tangent = hessian(&solution)?;
             decrement = &residual / tangent;
-            if let TrustRegion::Fixed(radius) = newton_raphson.trust_region {
-                let size = newton_raphson.step_norm.apply(&decrement);
+            if let TrustRegion::Fixed { radius, norm } = newton_raphson.trust_region {
+                let size = norm.apply(&decrement);
                 if size > radius {
                     decrement *= radius / size
                 }

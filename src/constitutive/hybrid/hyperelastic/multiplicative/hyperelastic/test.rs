@@ -14,7 +14,10 @@ use crate::{
 
 use crate::{
     constitutive::solid::elastic::AppliedLoad,
-    math::optimize::{GradientDescent, LineSearch, NewtonRaphson, SolveStrategy, TrustRegion},
+    math::{
+        Norm,
+        optimize::{GradientDescent, LineSearch, NewtonRaphson, SolveStrategy, TrustRegion},
+    },
     mechanics::*,
 };
 
@@ -179,14 +182,23 @@ fn far(
 #[test]
 fn root_trust_region() -> Result<(), AssertionError> {
     let (f, f_2) = far(
-        TrustRegion::Fixed(5e-1),
+        TrustRegion::Fixed {
+            radius: 5e-1,
+            norm: Norm::Chebyshev,
+        },
         SolveStrategy::Monolithic { elimination: false },
     )?;
     for strategy in [
         SolveStrategy::Monolithic { elimination: true },
         SolveStrategy::Condensed(NewtonRaphson::default()),
     ] {
-        let (f_other, f_2_other) = far(TrustRegion::Fixed(5e-1), strategy)?;
+        let (f_other, f_2_other) = far(
+            TrustRegion::Fixed {
+                radius: 5e-1,
+                norm: Norm::Chebyshev,
+            },
+            strategy,
+        )?;
         Assert::default().eq_within_tols(&f, &f_other)?;
         Assert::default().eq_within_tols(&f_2, &f_2_other)?
     }
