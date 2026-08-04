@@ -7788,7 +7788,7 @@ fn temporary_thermal_conduction() -> Result<(), AssertionError> {
         &fem_model,
         EqualityConstraint::Linear(matrix, vector),
         NewtonRaphson {
-            max_steps: 1,
+            num_steps: 1,
             ..Default::default()
         },
     )?;
@@ -7966,7 +7966,7 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
         &fem_model,
         EqualityConstraint::Linear(matrix, vector),
         NewtonRaphson {
-            max_steps: 7,
+            num_steps: 7,
             ..Default::default()
         },
         SolveStrategy::Monolithic { elimination: true },

@@ -22,17 +22,16 @@ use std::{
 pub struct NewtonRaphson {
     /// Absolute error tolerance.
     pub abs_tol: Scalar,
-    /// Largest step the variables are allowed to take, if they are capped.
-    ///
-    /// The direction is the one the tangent gave either way, so this shortens
-    /// a step without turning it.
-    pub cap: Option<Scalar>,
+    /// Norm type for error evaluation.
+    pub error_norm: Norm,
     /// Line search algorithm.
     pub line_search: LineSearch,
     /// Maximum number of steps.
-    pub max_steps: usize,
-    /// Norm type for error evaluation.
-    pub norm: Norm,
+    pub num_steps: usize,
+    /// Maximum step size.
+    pub step_max: Option<Scalar>,
+    /// Norm type for step size evaluation.
+    pub step_norm: Norm,
 }
 
 impl<J, X> BacktrackingLineSearch<J, X> for NewtonRaphson {
@@ -45,8 +44,8 @@ impl Debug for NewtonRaphson {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "NewtonRaphson {{ abs_tol: {:?}, cap: {:?}, line_search: {}, max_steps: {:?} }}",
-            self.abs_tol, self.cap, self.line_search, self.max_steps
+            "NewtonRaphson {{ abs_tol: {:?}, line_search: {}, num_steps: {:?}, step_max: {:?} }}",
+            self.abs_tol, self.line_search, self.num_steps, self.step_max
         )
     }
 }
@@ -55,10 +54,11 @@ impl Default for NewtonRaphson {
     fn default() -> Self {
         Self {
             abs_tol: ABS_TOL,
-            cap: None,
+            error_norm: Norm::Chebyshev,
             line_search: LineSearch::None,
-            max_steps: 25,
-            norm: Norm::Chebyshev,
+            num_steps: 25,
+            step_max: None,
+            step_norm: Norm::Chebyshev,
         }
     }
 }
@@ -384,13 +384,13 @@ fn backtrack_errors<J, X>(
     decrement: &Vector,
     applied: &mut Vector,
     cut_back: Scalar,
-    max_steps: usize,
+    num_steps: usize,
 ) -> Option<Scalar>
 where
     X: Solution,
 {
     let mut trial_size = 1.0;
-    for _ in 0..max_steps {
+    for _ in 0..num_steps {
         applied
             .iter_mut()
             .zip(decrement.iter())
@@ -423,14 +423,14 @@ fn backtrack_errors_block<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>(
     decrement_outer: &Vector,
     decrement_inner: &Vector,
     cut_back: Scalar,
-    max_steps: usize,
+    num_steps: usize,
 ) -> Option<Scalar>
 where
     U: Solution,
     V: Solution,
 {
     let mut trial_size = 1.0;
-    for _ in 0..max_steps {
+    for _ in 0..num_steps {
         let mut trial_global = global.clone();
         let mut trial_local = local.clone();
         let mut trial_multipliers_global = multipliers_global.clone();
@@ -450,21 +450,21 @@ where
     None
 }
 
-/// Shortens the step until the variables move no further than the cap.
+/// Shortens the step until the variables move no further than the maximum.
 ///
 /// Only the variables are measured, the multipliers being of another kind
 /// entirely, but everything is scaled together so that the direction survives.
-fn cap_decrement(newton_raphson: &NewtonRaphson, decrements: &mut [(&mut Vector, usize)]) {
-    if let Some(cap) = newton_raphson.cap {
-        let size = newton_raphson.norm.over(
+fn limit_decrement(newton_raphson: &NewtonRaphson, decrements: &mut [(&mut Vector, usize)]) {
+    if let Some(step_max) = newton_raphson.step_max {
+        let size = newton_raphson.step_norm.over(
             decrements
                 .iter()
                 .flat_map(|(decrement, variables)| decrement.iter().take(*variables).copied()),
         );
-        if size > cap {
+        if size > step_max {
             decrements
                 .iter_mut()
-                .for_each(|(decrement, _)| **decrement *= cap / size)
+                .for_each(|(decrement, _)| **decrement *= step_max / size)
         }
     }
 }
@@ -561,9 +561,9 @@ where
     let mut tangent_outer = SquareMatrix::zero(outer);
     let mut update_inner = Vector::zero(num_inner);
     let mut update_outer = Vector::zero(num_outer);
-    for _ in 0..=newton_raphson.max_steps {
+    for _ in 0..=newton_raphson.num_steps {
         if matches!(strategy, SolveStrategy::Condensed) {
-            for _ in 0..=newton_raphson.max_steps {
+            for _ in 0..=newton_raphson.num_steps {
                 kkt_residual(
                     residual_local(&global, &local)?,
                     &multipliers_local,
@@ -572,7 +572,7 @@ where
                     &local,
                     &mut update_inner,
                 );
-                if newton_raphson.norm.apply(&update_inner) < newton_raphson.abs_tol {
+                if newton_raphson.error_norm.apply(&update_inner) < newton_raphson.abs_tol {
                     break;
                 }
                 let (_, _, _, tangent) = tangents(&global, &local)?;
@@ -585,7 +585,7 @@ where
                 );
                 tangent_inner.factorize_lu_into(&mut factorization)?;
                 let mut decrement = factorization.solve(&update_inner);
-                cap_decrement(newton_raphson, &mut [(&mut decrement, num_local)]);
+                limit_decrement(newton_raphson, &mut [(&mut decrement, num_local)]);
                 local.decrement_from_chained(&mut multipliers_local, decrement)
             }
         }
@@ -610,7 +610,7 @@ where
             .chain(update_inner.iter())
             .zip(residual.iter_mut())
             .for_each(|(entry, residual_i)| *residual_i = *entry);
-        if newton_raphson.norm.apply(&residual) < newton_raphson.abs_tol {
+        if newton_raphson.error_norm.apply(&residual) < newton_raphson.abs_tol {
             return Ok((global, local));
         }
         let (tangent_uu, tangent_vu, tangent_uv, tangent_vv) = tangents(&global, &local)?;
@@ -712,7 +712,7 @@ where
                 .for_each(|(entry, decrement_i)| *decrement_i = *entry);
             (decrement_outer, decrement_inner)
         };
-        cap_decrement(
+        limit_decrement(
             newton_raphson,
             &mut [
                 (&mut decrement_outer, num_global),
@@ -724,7 +724,7 @@ where
         } else if !minimizing
             && let LineSearch::Error {
                 cut_back,
-                max_steps,
+                num_steps,
             } = &newton_raphson.line_search
         {
             //
@@ -743,7 +743,7 @@ where
                 &decrement_outer,
                 &decrement_inner,
                 *cut_back,
-                *max_steps,
+                *num_steps,
             ) {
                 Some(trial_size) => trial_size,
                 None => {
@@ -752,7 +752,7 @@ where
                             "{}",
                             LineSearchError::MaximumStepsReached(
                                 format!("{:?}", newton_raphson.line_search),
-                                *max_steps
+                                *num_steps
                             )
                         ),
                         format!("{newton_raphson:?}"),
@@ -841,7 +841,7 @@ where
         }
     }
     Err(OptimizationError::MaximumStepsReached(
-        newton_raphson.max_steps,
+        newton_raphson.num_steps,
         format!("{:?}", newton_raphson),
     ))
 }
@@ -865,17 +865,17 @@ where
     let mut solution = initial_guess;
     let mut step_size;
     let mut tangent;
-    for _ in 0..=newton_raphson.max_steps {
+    for _ in 0..=newton_raphson.num_steps {
         residual = jacobian(&solution)?;
-        if newton_raphson.norm.apply(&residual) < newton_raphson.abs_tol {
+        if newton_raphson.error_norm.apply(&residual) < newton_raphson.abs_tol {
             return Ok(solution);
         } else {
             tangent = hessian(&solution)?;
             decrement = &residual / tangent;
-            if let Some(cap) = newton_raphson.cap {
-                let size = newton_raphson.norm.apply(&decrement);
-                if size > cap {
-                    decrement *= cap / size
+            if let Some(step_max) = newton_raphson.step_max {
+                let size = newton_raphson.step_norm.apply(&decrement);
+                if size > step_max {
+                    decrement *= step_max / size
                 }
             }
             step_size = newton_raphson.backtracking_line_search(
@@ -893,7 +893,7 @@ where
         }
     }
     Err(OptimizationError::MaximumStepsReached(
-        newton_raphson.max_steps,
+        newton_raphson.num_steps,
         format!("{:?}", newton_raphson),
     ))
 }
@@ -928,9 +928,9 @@ where
     let mut residual;
     let mut solution = initial_guess;
     let mut step_size;
-    for _ in 0..=newton_raphson.max_steps {
+    for _ in 0..=newton_raphson.num_steps {
         residual = jacobian(&solution)?.retain_from(&retained);
-        if newton_raphson.norm.apply(&residual) < newton_raphson.abs_tol {
+        if newton_raphson.error_norm.apply(&residual) < newton_raphson.abs_tol {
             return Ok(solution);
         } else if let Some(ref solver) = sparse {
             let hess = hessian(&solution)?;
@@ -940,7 +940,7 @@ where
                 .retain_from(&retained)
                 .solve_lu(&residual)?
         }
-        cap_decrement(newton_raphson, &mut [(&mut decrement, unmap.len())]);
+        limit_decrement(newton_raphson, &mut [(&mut decrement, unmap.len())]);
         if !matches!(newton_raphson.line_search, LineSearch::None) {
             let jac = jacobian(&solution)?;
             let mut decrement_full = &solution * 0.0;
@@ -967,7 +967,7 @@ where
         solution.decrement_from_retained(&retained, &decrement)
     }
     Err(OptimizationError::MaximumStepsReached(
-        newton_raphson.max_steps,
+        newton_raphson.num_steps,
         format!("{:?}", newton_raphson),
     ))
 }
@@ -1014,13 +1014,13 @@ where
                     })
             });
     }
-    for _ in 0..=newton_raphson.max_steps {
+    for _ in 0..=newton_raphson.num_steps {
         let mut updated = false;
         (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
             &constraint_rhs - &constraint_matrix * &solution,
             &mut residual,
         );
-        if newton_raphson.norm.apply(&residual) < newton_raphson.abs_tol {
+        if newton_raphson.error_norm.apply(&residual) < newton_raphson.abs_tol {
             return Ok(solution);
         } else if let Some(ref solver) = sparse {
             let hess = hessian(&solution)?;
@@ -1040,12 +1040,12 @@ where
             hessian(&solution)?.fill_into(&mut tangent);
             decrement = tangent.solve_lu(&residual)?
         }
-        cap_decrement(newton_raphson, &mut [(&mut decrement, num_variables)]);
+        limit_decrement(newton_raphson, &mut [(&mut decrement, num_variables)]);
         let step_size = if matches!(newton_raphson.line_search, LineSearch::None) {
             1.0
         } else if let LineSearch::Error {
             cut_back,
-            max_steps,
+            num_steps,
         } = &newton_raphson.line_search
         {
             match backtrack_errors(
@@ -1056,7 +1056,7 @@ where
                 &decrement,
                 &mut applied,
                 *cut_back,
-                *max_steps,
+                *num_steps,
             ) {
                 Some(trial_size) => {
                     updated = true;
@@ -1068,7 +1068,7 @@ where
                             "{}",
                             LineSearchError::MaximumStepsReached(
                                 format!("{:?}", newton_raphson.line_search),
-                                *max_steps
+                                *num_steps
                             )
                         ),
                         format!("{newton_raphson:?}"),
@@ -1138,7 +1138,7 @@ where
         solution.decrement_from_chained(&mut multipliers, decrement)
     }
     Err(OptimizationError::MaximumStepsReached(
-        newton_raphson.max_steps,
+        newton_raphson.num_steps,
         format!("{:?}", newton_raphson),
     ))
 }

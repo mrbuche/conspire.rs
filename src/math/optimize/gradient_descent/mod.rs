@@ -23,12 +23,12 @@ pub struct GradientDescent {
     pub abs_tol: Scalar,
     /// Lagrangian dual.
     pub dual: bool,
+    /// Norm type for error evaluation.
+    pub error_norm: Norm,
     /// Line search algorithm.
     pub line_search: LineSearch,
     /// Maximum number of steps.
-    pub max_steps: usize,
-    /// Norm type for error evaluation.
-    pub norm: Norm,
+    pub num_steps: usize,
     /// Relative error tolerance.
     pub rel_tol: Option<Scalar>,
 }
@@ -43,8 +43,8 @@ impl Debug for GradientDescent {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "GradientDescent {{ abs_tol: {:?}, dual: {:?}, line_search: {}, max_steps: {:?}, rel_tol: {:?} }}",
-            self.abs_tol, self.dual, self.line_search, self.max_steps, self.rel_tol
+            "GradientDescent {{ abs_tol: {:?}, dual: {:?}, line_search: {}, num_steps: {:?}, rel_tol: {:?} }}",
+            self.abs_tol, self.dual, self.line_search, self.num_steps, self.rel_tol
         )
     }
 }
@@ -54,9 +54,9 @@ impl Default for GradientDescent {
         Self {
             abs_tol: ABS_TOL,
             dual: false,
+            error_norm: Norm::Chebyshev,
             line_search: LineSearch::None,
-            max_steps: 250,
-            norm: Norm::Chebyshev,
+            num_steps: 250,
             rel_tol: None,
         }
     }
@@ -177,13 +177,13 @@ where
     let mut solution_change = solution.clone();
     let mut step_size = INITIAL_STEP_SIZE;
     let mut step_trial;
-    for _ in 0..=gradient_descent.max_steps {
+    for _ in 0..=gradient_descent.num_steps {
         residual = if let Some(ref extra) = constraint {
             jacobian(&solution)? - extra
         } else {
             jacobian(&solution)?
         };
-        if gradient_descent.norm.apply(&residual) < gradient_descent.abs_tol {
+        if gradient_descent.error_norm.apply(&residual) < gradient_descent.abs_tol {
             return Ok(solution);
         } else {
             solution_change -= &solution;
@@ -207,7 +207,7 @@ where
         }
     }
     Err(OptimizationError::MaximumStepsReached(
-        gradient_descent.max_steps,
+        gradient_descent.num_steps,
         format!("{gradient_descent:?}"),
     ))
 }
@@ -231,12 +231,12 @@ where
     let mut solution_change = solution.clone();
     let mut step_size = INITIAL_STEP_SIZE;
     let mut step_trial;
-    for iteration in 0..=gradient_descent.max_steps {
+    for iteration in 0..=gradient_descent.num_steps {
         residual = jacobian(&solution)?;
         residual.zero_out(&indices);
-        residual_norm = gradient_descent.norm.apply(&residual);
+        residual_norm = gradient_descent.error_norm.apply(&residual);
         if gradient_descent.rel_tol.is_some() && iteration == 0 {
-            relative_scale = gradient_descent.norm.apply(&residual)
+            relative_scale = gradient_descent.error_norm.apply(&residual)
         }
         if residual_norm < gradient_descent.abs_tol {
             return Ok(solution);
@@ -266,7 +266,7 @@ where
         }
     }
     Err(OptimizationError::MaximumStepsReached(
-        gradient_descent.max_steps,
+        gradient_descent.num_steps,
         format!("{gradient_descent:?}"),
     ))
 }
@@ -299,11 +299,11 @@ where
     let mut step_size_multipliers = INITIAL_STEP_SIZE;
     let mut step_trial_multipliers;
     let mut step_size;
-    for _ in 0..=gradient_descent.max_steps {
+    for _ in 0..=gradient_descent.num_steps {
         residual_solution = jacobian(&solution)? - &multipliers * &constraint_matrix;
         residual_multipliers = &constraint_rhs - &constraint_matrix * &solution;
-        if gradient_descent.norm.apply(&residual_solution) < gradient_descent.abs_tol
-            && gradient_descent.norm.apply(&residual_multipliers) < gradient_descent.abs_tol
+        if gradient_descent.error_norm.apply(&residual_solution) < gradient_descent.abs_tol
+            && gradient_descent.error_norm.apply(&residual_multipliers) < gradient_descent.abs_tol
         {
             return Ok(solution);
         } else {
@@ -332,7 +332,7 @@ where
         }
     }
     Err(OptimizationError::MaximumStepsReached(
-        gradient_descent.max_steps,
+        gradient_descent.num_steps,
         format!("{gradient_descent:?}"),
     ))
 }
@@ -360,7 +360,7 @@ where
     let mut solution = initial_guess;
     let mut step_size = INITIAL_STEP_SIZE;
     let mut step_trial;
-    for _ in 0..=gradient_descent.max_steps {
+    for _ in 0..=gradient_descent.num_steps {
         if let Ok(result) = unconstrained(
             gradient_descent,
             |_: &X| {
@@ -372,7 +372,7 @@ where
         ) {
             solution = result;
             residual = &constraint_rhs - &constraint_matrix * &solution;
-            if gradient_descent.norm.apply(&residual) < gradient_descent.abs_tol {
+            if gradient_descent.error_norm.apply(&residual) < gradient_descent.abs_tol {
                 return Ok(solution);
             } else {
                 multipliers_change -= &multipliers;
@@ -395,7 +395,7 @@ where
         }
     }
     Err(OptimizationError::MaximumStepsReached(
-        gradient_descent.max_steps,
+        gradient_descent.num_steps,
         format!("{gradient_descent:?}"),
     ))
 }

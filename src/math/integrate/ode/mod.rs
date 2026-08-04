@@ -33,6 +33,6 @@ pub trait VariableStep {
     fn dt_cut(&self) -> Scalar;
     /// Returns the minimum value for the time step.
     fn dt_min(&self) -> Scalar;
-    /// Returns the norm type.
-    fn norm(&self) -> &Norm;
+    /// Returns the norm type for error evaluation.
+    fn error_norm(&self) -> &Norm;
 }

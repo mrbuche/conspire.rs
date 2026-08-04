@@ -29,7 +29,7 @@ pub struct BogackiShampine {
     /// Minimum value for the time step.
     pub dt_min: Scalar,
     /// Norm type for error evaluation.
-    pub norm: Norm,
+    pub error_norm: Norm,
 }
 
 impl Default for BogackiShampine {
@@ -41,7 +41,7 @@ impl Default for BogackiShampine {
             dt_expn: 3.0,
             dt_cut: 0.5,
             dt_min: ABS_TOL,
-            norm: Norm::Chebyshev,
+            error_norm: Norm::Chebyshev,
         }
     }
 }
@@ -72,8 +72,8 @@ impl VariableStep for BogackiShampine {
     fn dt_min(&self) -> Scalar {
         self.dt_min
     }
-    fn norm(&self) -> &Norm {
-        &self.norm
+    fn error_norm(&self) -> &Norm {
+        &self.error_norm
     }
 }
 
@@ -103,7 +103,7 @@ where
 {
     fn error(&self, dt: Scalar, k: &[Y]) -> Result<Scalar, String> {
         Ok(self
-            .norm
+            .error_norm
             .apply(&((&k[0] * -5.0 + &k[1] * 6.0 + &k[2] * 8.0 + &k[3] * -9.0) * (dt / 72.0))))
     }
     fn slopes(

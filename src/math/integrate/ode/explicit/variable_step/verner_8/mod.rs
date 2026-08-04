@@ -115,7 +115,7 @@ pub struct Verner8 {
     /// Minimum value for the time step.
     pub dt_min: Scalar,
     /// Norm type for error evaluation.
-    pub norm: Norm,
+    pub error_norm: Norm,
 }
 
 impl Default for Verner8 {
@@ -127,7 +127,7 @@ impl Default for Verner8 {
             dt_expn: 8.0,
             dt_cut: 0.5,
             dt_min: ABS_TOL,
-            norm: Norm::Chebyshev,
+            error_norm: Norm::Chebyshev,
         }
     }
 }
@@ -158,8 +158,8 @@ impl VariableStep for Verner8 {
     fn dt_min(&self) -> Scalar {
         self.dt_min
     }
-    fn norm(&self) -> &Norm {
-        &self.norm
+    fn error_norm(&self) -> &Norm {
+        &self.error_norm
     }
 }
 
@@ -188,7 +188,7 @@ where
     U: TensorVec<Item = Y>,
 {
     fn error(&self, dt: Scalar, k: &[Y]) -> Result<Scalar, String> {
-        Ok(self.norm.apply(
+        Ok(self.error_norm.apply(
             &((&k[0] * D_1
                 + &k[5] * D_6
                 + &k[6] * D_7
