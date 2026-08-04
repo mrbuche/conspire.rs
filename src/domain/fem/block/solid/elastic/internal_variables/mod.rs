@@ -32,40 +32,6 @@ where
             .map(|element| element.internal_variables_initial(self.constitutive_model()))
             .collect()
     }
-    fn internal_variables_pattern(
-        &self,
-        offset: usize,
-        num_local: usize,
-        pattern: &mut Vec<(usize, usize)>,
-    ) {
-        let variables = self
-            .constitutive_model()
-            .internal_variables_initial()
-            .size();
-        let fixed = self.constitutive_model().internal_variables_fixed().len();
-        self.connectivity()
-            .iter()
-            .enumerate()
-            .for_each(|(element, nodes)| {
-                (0..G).for_each(|point| {
-                    let first = offset + (element * G + point) * variables;
-                    let multiplier = offset + num_local + (element * G + point) * fixed;
-                    (0..variables).for_each(|a| {
-                        (0..variables).for_each(|b| pattern.push((first + a, first + b)));
-                        nodes.iter().for_each(|&node| {
-                            (0..3).for_each(|i| {
-                                pattern.push((first + a, 3 * node + i));
-                                pattern.push((3 * node + i, first + a))
-                            })
-                        });
-                        (0..fixed).for_each(|k| {
-                            pattern.push((first + a, multiplier + k));
-                            pattern.push((multiplier + k, first + a))
-                        })
-                    })
-                })
-            })
-    }
     fn internal_variables_increment(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
