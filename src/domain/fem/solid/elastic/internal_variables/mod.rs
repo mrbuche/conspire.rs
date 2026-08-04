@@ -228,25 +228,42 @@ where
         match strategy {
             //
             // The internal variables are solved before they are used, so the
-            // residual is one of the nodal coordinates alone. They are solved
-            // afresh each time rather than carried, the solver being free to
-            // evaluate wherever it likes.
+            // residual is one of the nodal coordinates alone, the solver being
+            // free to evaluate wherever it likes.
             //
-            SolveStrategy::Condensed => solver.root(
-                |nodal_coordinates: &NodalCoordinates<D>| {
-                    let internal_variables =
-                        self.internal_variables_root(nodal_coordinates, &initial)?;
-                    Ok(self.nodal_forces(nodal_coordinates, &internal_variables)?)
-                },
-                |nodal_coordinates: &NodalCoordinates<D>| {
-                    let internal_variables =
-                        self.internal_variables_root(nodal_coordinates, &initial)?;
-                    Ok(self.nodal_stiffnesses(nodal_coordinates, &internal_variables)?)
-                },
-                self.coordinates().clone().into(),
-                equality_constraint,
-                Some(sparse),
-            ),
+            // The residual and the tangent are asked for at the same
+            // coordinates, so the solve is remembered rather than repeated, and
+            // what it converged to last is where the next one starts.
+            //
+            SolveStrategy::Condensed => {
+                let cache: RefCell<Option<(NodalCoordinates<D>, InternalVariablesField<G, V>)>> =
+                    RefCell::new(None);
+                let solved = |nodal_coordinates: &NodalCoordinates<D>| {
+                    if let Some((ref at, ref variables)) = *cache.borrow()
+                        && at == nodal_coordinates
+                    {
+                        return Ok(variables.clone());
+                    }
+                    let warm = match *cache.borrow() {
+                        Some((_, ref variables)) => variables.clone(),
+                        None => initial.clone(),
+                    };
+                    let variables = self.internal_variables_root(nodal_coordinates, &warm)?;
+                    *cache.borrow_mut() = Some((nodal_coordinates.clone(), variables.clone()));
+                    Ok::<_, ElementModelError>(variables)
+                };
+                solver.root(
+                    |nodal_coordinates: &NodalCoordinates<D>| {
+                        Ok(self.nodal_forces(nodal_coordinates, &solved(nodal_coordinates)?)?)
+                    },
+                    |nodal_coordinates: &NodalCoordinates<D>| {
+                        Ok(self.nodal_stiffnesses(nodal_coordinates, &solved(nodal_coordinates)?)?)
+                    },
+                    self.coordinates().clone().into(),
+                    equality_constraint,
+                    Some(sparse),
+                )
+            }
             //
             // The internal variables are carried instead, stepped once per
             // iteration by the increment the solver lends out. They are never

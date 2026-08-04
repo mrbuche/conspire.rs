@@ -99,21 +99,31 @@ where
         // wherever the unreduced tangent was.
         //
         let sparse = solver_from_neighbors(&neighbors, &equality_constraint, D, true);
+        let cache: std::cell::RefCell<Option<(NodalCoordinates<D>, InternalVariablesField<G, V>)>> =
+            std::cell::RefCell::new(None);
+        let solved = |nodal_coordinates: &NodalCoordinates<D>| {
+            if let Some((ref at, ref variables)) = *cache.borrow()
+                && at == nodal_coordinates
+            {
+                return Ok(variables.clone());
+            }
+            let warm = match *cache.borrow() {
+                Some((_, ref variables)) => variables.clone(),
+                None => initial.clone(),
+            };
+            let variables = self.internal_variables_root(nodal_coordinates, &warm)?;
+            *cache.borrow_mut() = Some((nodal_coordinates.clone(), variables.clone()));
+            Ok::<_, ElementModelError>(variables)
+        };
         solver.minimize(
             |nodal_coordinates: &NodalCoordinates<D>| {
-                let internal_variables =
-                    self.internal_variables_root(nodal_coordinates, &initial)?;
-                Ok(self.helmholtz_free_energy(nodal_coordinates, &internal_variables)?)
+                Ok(self.helmholtz_free_energy(nodal_coordinates, &solved(nodal_coordinates)?)?)
             },
             |nodal_coordinates: &NodalCoordinates<D>| {
-                let internal_variables =
-                    self.internal_variables_root(nodal_coordinates, &initial)?;
-                Ok(self.nodal_forces(nodal_coordinates, &internal_variables)?)
+                Ok(self.nodal_forces(nodal_coordinates, &solved(nodal_coordinates)?)?)
             },
             |nodal_coordinates: &NodalCoordinates<D>| {
-                let internal_variables =
-                    self.internal_variables_root(nodal_coordinates, &initial)?;
-                Ok(self.nodal_stiffnesses(nodal_coordinates, &internal_variables)?)
+                Ok(self.nodal_stiffnesses(nodal_coordinates, &solved(nodal_coordinates)?)?)
             },
             self.coordinates().clone().into(),
             equality_constraint,
