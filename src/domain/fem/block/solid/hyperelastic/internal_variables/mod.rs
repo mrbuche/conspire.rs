@@ -1,3 +1,5 @@
+use std::ops::{Div, Mul};
+
 use crate::{
     constitutive::solid::hyperelastic::internal_variables::HyperelasticIV,
     fem::{
@@ -10,7 +12,7 @@ use crate::{
             hyperelastic::internal_variables::HyperelasticIVElements,
         },
     },
-    math::{HessianBlock, Jacobian, Scalar, Solution},
+    math::{Hessian, HessianBlock, Jacobian, Matrix, Scalar, Solution, Vector},
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, V, T1, T2, T3>
@@ -21,7 +23,9 @@ where
     Self: ElasticIVElements<G, V, T1, T2, T3, 3>,
     T1: HessianBlock,
     T2: HessianBlock,
-    T3: HessianBlock,
+    T3: Hessian + HessianBlock,
+    for<'a> &'a V: Div<T3, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
+    for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
     V: Jacobian + Solution,
 {
     fn helmholtz_free_energy(

@@ -83,12 +83,12 @@ where
         >,
         strategy: SolveStrategy,
     ) -> Result<NodalCoordinates<D>, OptimizationError> {
-        match strategy {
-            SolveStrategy::Condensed => {}
+        let local_solver = match strategy {
+            SolveStrategy::Condensed(ref local_solver) => local_solver,
             SolveStrategy::Monolithic { .. } => unimplemented!(
                 "The internal variables must be unknowns of the solver to be solved with it."
             ),
-        }
+        };
         let initial = self.internal_variables_initial();
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);
@@ -111,7 +111,7 @@ where
                 Some((_, ref variables)) => variables.clone(),
                 None => initial.clone(),
             };
-            let variables = self.internal_variables_root(nodal_coordinates, &warm)?;
+            let variables = self.internal_variables_root(local_solver, nodal_coordinates, &warm)?;
             *cache.borrow_mut() = Some((nodal_coordinates.clone(), variables.clone()));
             Ok::<_, ElementModelError>(variables)
         };

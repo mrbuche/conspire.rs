@@ -299,7 +299,7 @@ fn root_1_elimination() -> Result<(), AssertionError> {
 #[test]
 fn root_1_condensed() -> Result<(), AssertionError> {
     let (f, f_2) = rooted(SolveStrategy::Monolithic { elimination: false })?;
-    let (f_cond, f_2_cond) = rooted(SolveStrategy::Condensed)?;
+    let (f_cond, f_2_cond) = rooted(SolveStrategy::Condensed(NewtonRaphson::default()))?;
     Assert::default().eq_within_tols(&f_cond, &f)?;
     Assert::default().eq_within_tols(&f_2_cond, &f_2)
 }
