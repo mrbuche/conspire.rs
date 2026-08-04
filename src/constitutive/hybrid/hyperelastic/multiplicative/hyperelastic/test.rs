@@ -85,7 +85,7 @@ fn minimize_monolithic_elimination() -> Result<(), AssertionError> {
 #[test]
 fn minimize_condensed() -> Result<(), AssertionError> {
     let (f, f_2) = blocked(SolveStrategy::Monolithic { elimination: false })?;
-    let (f_condensed, f_2_condensed) = blocked(SolveStrategy::Condensed)?;
+    let (f_condensed, f_2_condensed) = blocked(SolveStrategy::Condensed(NewtonRaphson::default()))?;
     Assert::default().eq_within_tols(&f, &f_condensed)?;
     Assert::default().eq_within_tols(&f_2, &f_2_condensed)
 }
@@ -124,7 +124,7 @@ fn searched(name: &str, strategy: SolveStrategy) -> Result<(), AssertionError> {
             line_search: line_search(name),
             ..Default::default()
         },
-        strategy,
+        strategy.clone(),
     )?;
     check(&f, &f_2)?;
     let (f_none, f_2_none) = blocked(strategy)?;
@@ -138,7 +138,7 @@ fn minimize_line_search() -> Result<(), AssertionError> {
         for strategy in [
             SolveStrategy::Monolithic { elimination: false },
             SolveStrategy::Monolithic { elimination: true },
-            SolveStrategy::Condensed,
+            SolveStrategy::Condensed(NewtonRaphson::default()),
         ] {
             searched(name, strategy)?
         }
@@ -181,7 +181,7 @@ fn root_step_max() -> Result<(), AssertionError> {
     let (f, f_2) = far(Some(5e-1), SolveStrategy::Monolithic { elimination: false })?;
     for strategy in [
         SolveStrategy::Monolithic { elimination: true },
-        SolveStrategy::Condensed,
+        SolveStrategy::Condensed(NewtonRaphson::default()),
     ] {
         let (f_other, f_2_other) = far(Some(5e-1), strategy)?;
         Assert::default().eq_within_tols(&f, &f_other)?;
@@ -195,7 +195,7 @@ fn root_step_max_needed() {
     for strategy in [
         SolveStrategy::Monolithic { elimination: false },
         SolveStrategy::Monolithic { elimination: true },
-        SolveStrategy::Condensed,
+        SolveStrategy::Condensed(NewtonRaphson::default()),
     ] {
         assert!(far(None, strategy).is_err())
     }
@@ -209,7 +209,7 @@ fn root_line_search_error() -> Result<(), AssertionError> {
     for strategy in [
         SolveStrategy::Monolithic { elimination: false },
         SolveStrategy::Monolithic { elimination: true },
-        SolveStrategy::Condensed,
+        SolveStrategy::Condensed(NewtonRaphson::default()),
     ] {
         let (f, f_2) = model().root(
             AppliedLoad::UniaxialStress(STRETCH),

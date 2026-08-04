@@ -19,6 +19,7 @@ use std::{
 };
 
 /// The Newton-Raphson method.
+#[derive(Clone)]
 pub struct NewtonRaphson {
     /// Absolute error tolerance.
     pub abs_tol: Scalar,
@@ -536,6 +537,10 @@ where
     let mut multipliers_global = Vector::zero(constraint_rhs_global.len());
     let mut multipliers_local = Vector::zero(constraint_rhs_local.len());
     let eliminating = !matches!(strategy, SolveStrategy::Monolithic { elimination: false });
+    let condensed = match strategy {
+        SolveStrategy::Condensed(ref local_solver) => Some(local_solver),
+        SolveStrategy::Monolithic { .. } => None,
+    };
     if sparse.is_some() && eliminating {
         unimplemented!(
             "Eliminating the local block sparsely wants it held as the blocks it is, not as one matrix."
@@ -562,8 +567,8 @@ where
     let mut update_inner = Vector::zero(num_inner);
     let mut update_outer = Vector::zero(num_outer);
     for _ in 0..=newton_raphson.num_steps {
-        if matches!(strategy, SolveStrategy::Condensed) {
-            for _ in 0..=newton_raphson.num_steps {
+        if let Some(local_solver) = condensed {
+            for _ in 0..=local_solver.num_steps {
                 kkt_residual(
                     residual_local(&global, &local)?,
                     &multipliers_local,
@@ -572,7 +577,7 @@ where
                     &local,
                     &mut update_inner,
                 );
-                if newton_raphson.error_norm.apply(&update_inner) < newton_raphson.abs_tol {
+                if local_solver.error_norm.apply(&update_inner) < local_solver.abs_tol {
                     break;
                 }
                 let (_, _, _, tangent) = tangents(&global, &local)?;
@@ -585,7 +590,7 @@ where
                 );
                 tangent_inner.factorize_lu_into(&mut factorization)?;
                 let mut decrement = factorization.solve(&update_inner);
-                limit_decrement(newton_raphson, &mut [(&mut decrement, num_local)]);
+                limit_decrement(local_solver, &mut [(&mut decrement, num_local)]);
                 local.decrement_from_chained(&mut multipliers_local, decrement)
             }
         }

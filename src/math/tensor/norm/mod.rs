@@ -4,7 +4,7 @@ mod test;
 use super::{Scalar, Tensor};
 
 /// Different norms for tensors.
-#[derive(Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub enum Norm {
     Chebyshev,
     #[default]

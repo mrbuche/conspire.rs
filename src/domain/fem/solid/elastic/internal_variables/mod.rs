@@ -11,7 +11,7 @@ use crate::{
         Tensor, TensorVector, Vector,
         optimize::{
             EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingIncremental,
-            OptimizationError, SolveStrategy,
+            NewtonRaphson, OptimizationError, SolveStrategy,
         },
     },
 };
@@ -45,6 +45,7 @@ where
     /// gather of local solves rather than a system.
     fn internal_variables_root(
         &self,
+        local_solver: &NewtonRaphson,
         nodal_coordinates: &NodalCoordinates<D>,
         internal_variables: &InternalVariablesField<G, V>,
     ) -> Result<InternalVariablesField<G, V>, ElementModelError>;
@@ -132,11 +133,12 @@ where
     }
     fn internal_variables_root(
         &self,
+        local_solver: &NewtonRaphson,
         nodal_coordinates: &NodalCoordinates<D>,
         internal_variables: &InternalVariablesField<G, V>,
     ) -> Result<InternalVariablesField<G, V>, ElementModelError> {
         self.blocks
-            .internal_variables_root(nodal_coordinates, internal_variables)
+            .internal_variables_root(local_solver, nodal_coordinates, internal_variables)
     }
     fn nodal_forces_eliminated_into(
         &self,
@@ -235,7 +237,7 @@ where
             // coordinates, so the solve is remembered rather than repeated, and
             // what it converged to last is where the next one starts.
             //
-            SolveStrategy::Condensed => {
+            SolveStrategy::Condensed(ref local_solver) => {
                 let cache: RefCell<Option<(NodalCoordinates<D>, InternalVariablesField<G, V>)>> =
                     RefCell::new(None);
                 let solved = |nodal_coordinates: &NodalCoordinates<D>| {
@@ -248,7 +250,8 @@ where
                         Some((_, ref variables)) => variables.clone(),
                         None => initial.clone(),
                     };
-                    let variables = self.internal_variables_root(nodal_coordinates, &warm)?;
+                    let variables =
+                        self.internal_variables_root(local_solver, nodal_coordinates, &warm)?;
                     *cache.borrow_mut() = Some((nodal_coordinates.clone(), variables.clone()));
                     Ok::<_, ElementModelError>(variables)
                 };

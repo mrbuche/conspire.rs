@@ -7878,7 +7878,7 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
         &fem_model,
         EqualityConstraint::Linear(matrix, vector),
         NewtonRaphson::default(),
-        SolveStrategy::Condensed,
+        SolveStrategy::Condensed(NewtonRaphson::default()),
     )?;
     println!("Done ({:?}).", time.elapsed());
     Ok(())
@@ -7951,7 +7951,7 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
         &fem_model,
         EqualityConstraint::Linear(matrix.clone(), vector.clone()),
         NewtonRaphson::default(),
-        SolveStrategy::Condensed,
+        SolveStrategy::Condensed(NewtonRaphson::default()),
     )?;
     println!("Done ({:?}).", time.elapsed());
     let time = std::time::Instant::now();

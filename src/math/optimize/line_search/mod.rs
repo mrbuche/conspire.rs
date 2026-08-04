@@ -5,7 +5,7 @@ use std::{
 };
 
 /// Available line search algorithms.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum LineSearch {
     /// The Armijo condition.
     Armijo {

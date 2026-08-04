@@ -1,3 +1,5 @@
+use std::ops::{Div, Mul};
+
 use crate::{
     constitutive::solid::elastic::internal_variables::ElasticIV,
     fem::{
@@ -13,7 +15,9 @@ use crate::{
             elastic::internal_variables::{ElasticIVElements, InternalVariablesField},
         },
     },
-    math::{HessianBlock, Jacobian, Solution},
+    math::{
+        Hessian, HessianBlock, Jacobian, Matrix, Scalar, Solution, Vector, optimize::NewtonRaphson,
+    },
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, V, T1, T2, T3>
@@ -23,7 +27,9 @@ where
     F: ElasticIVFiniteElement<C, G, M, N, P, V, T1, T2, T3>,
     T1: HessianBlock,
     T2: HessianBlock,
-    T3: HessianBlock,
+    T3: Hessian + HessianBlock,
+    for<'a> &'a V: Div<T3, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
+    for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
     V: Jacobian + Solution,
 {
     fn internal_variables_initial(&self) -> InternalVariablesField<G, V> {
@@ -62,6 +68,7 @@ where
     }
     fn internal_variables_root(
         &self,
+        local_solver: &NewtonRaphson,
         nodal_coordinates: &NodalCoordinates<3>,
         internal_variables: &InternalVariablesField<G, V>,
     ) -> Result<InternalVariablesField<G, V>, ElementModelError> {
@@ -72,6 +79,7 @@ where
             .zip(internal_variables)
             .map(|((element, nodes), internal_variables_element)| {
                 element.internal_variables_root(
+                    local_solver,
                     self.constitutive_model(),
                     &Self::element_coordinates(nodal_coordinates, nodes),
                     internal_variables_element,

@@ -1,3 +1,5 @@
+use std::ops::{Div, Mul};
+
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperelastic::internal_variables::HyperelasticIV},
     fem::block::element::{
@@ -7,7 +9,7 @@ use crate::{
             elastic::internal_variables::{ElasticIVFiniteElement, InternalVariables},
         },
     },
-    math::{HessianBlock, Jacobian, Scalar, Solution, Tensor},
+    math::{Hessian, HessianBlock, Jacobian, Matrix, Scalar, Solution, Tensor, Vector},
 };
 
 pub trait HyperelasticIVFiniteElement<
@@ -25,7 +27,9 @@ pub trait HyperelasticIVFiniteElement<
     Self: ElasticIVFiniteElement<C, G, M, N, P, V, T1, T2, T3>,
     T1: HessianBlock,
     T2: HessianBlock,
-    T3: HessianBlock,
+    T3: Hessian + HessianBlock,
+    for<'a> &'a V: Div<T3, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
+    for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
     V: Jacobian + Solution,
 {
     fn helmholtz_free_energy(
@@ -43,7 +47,9 @@ where
     Self: ElasticIVFiniteElement<C, G, 3, N, P, V, T1, T2, T3> + SolidFiniteElement<G, 3, N, P>,
     T1: HessianBlock,
     T2: HessianBlock,
-    T3: HessianBlock,
+    T3: Hessian + HessianBlock,
+    for<'a> &'a V: Div<T3, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
+    for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
     V: Jacobian + Solution,
 {
     fn helmholtz_free_energy(

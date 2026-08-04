@@ -1,22 +1,21 @@
+use std::ops::{Div, Mul};
+
 use crate::{
-    ABS_TOL,
     constitutive::{ConstitutiveError, solid::elastic::internal_variables::ElasticIV},
     fem::block::element::{
         Element, ElementNodalCoordinates, FiniteElement, FiniteElementError, GradientVectors,
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement},
     },
     math::{
-        ContractSecondFourthWithFirst, HessianBlock, Jacobian, Scalar, ScalarList, Solution,
-        SquareMatrix, Tensor, TensorList, Vector,
+        ContractSecondFourthWithFirst, Hessian, HessianBlock, Jacobian, Matrix, Scalar, ScalarList,
+        Solution, SquareMatrix, Tensor, TensorList, Vector,
+        optimize::{EqualityConstraint, FirstOrderRootFinding, NewtonRaphson},
     },
     mechanics::{
         DeformationGradient, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStressList,
         FirstPiolaKirchhoffTangentStiffness, FirstPiolaKirchhoffTangentStiffnessList,
     },
 };
-
-/// The most Newton steps an integration point is given.
-const MAX_STEPS: usize = 25;
 
 /// The indices of the internal variables that are free to move.
 fn free_indices<C, V, T1, T2, T3>(constitutive_model: &C, size: usize) -> Vec<usize>
@@ -49,8 +48,10 @@ pub trait ElasticIVFiniteElement<
     Self: SolidFiniteElement<G, M, N, P>,
     T1: HessianBlock,
     T2: HessianBlock,
-    T3: HessianBlock,
+    T3: Hessian + HessianBlock,
     V: Jacobian + Solution,
+    for<'a> &'a V: Div<T3, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
+    for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
 {
     /// The internal variables an element starts from at every integration point.
     fn internal_variables_initial(&self, constitutive_model: &C) -> InternalVariables<G, V>;
@@ -61,6 +62,7 @@ pub trait ElasticIVFiniteElement<
     /// variables of one never entering the residual of another.
     fn internal_variables_root(
         &self,
+        local_solver: &NewtonRaphson,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         internal_variables: &InternalVariables<G, V>,
@@ -107,56 +109,31 @@ pub trait ElasticIVFiniteElement<
 /// indices, so the constraint is imposed by leaving them out of the system
 /// rather than by a multiplier.
 fn root_at_point<C, V, T1, T2, T3>(
+    local_solver: &NewtonRaphson,
     constitutive_model: &C,
     deformation_gradient: &DeformationGradient,
     internal_variables: &V,
 ) -> Result<V, ConstitutiveError>
 where
     C: ElasticIV<V, T1, T2, T3>,
-    T3: HessianBlock,
+    T3: Hessian,
     V: Jacobian + Solution,
+    for<'a> &'a V: Div<T3, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
+    for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
 {
-    let size = internal_variables.size();
-    let unmap = free_indices(constitutive_model, size);
-    let mut root = internal_variables.clone();
-    let mut residual = Vector::zero(size);
-    let mut reduced = Vector::zero(unmap.len());
-    let mut decrement = Vector::zero(size);
-    let mut block = SquareMatrix::zero(size);
-    let mut local = SquareMatrix::zero(unmap.len());
-    for _ in 0..MAX_STEPS {
-        constitutive_model
-            .internal_variables_residual(deformation_gradient, &root)?
-            .fill_into(&mut residual);
-        unmap
-            .iter()
-            .enumerate()
-            .for_each(|(a, &i)| reduced[a] = residual[i]);
-        if reduced.iter().fold(0.0, |m: Scalar, r| m.max(r.abs())) < ABS_TOL {
-            return Ok(root);
-        }
-        let (_, _, _, tangent) = constitutive_model.tangents(deformation_gradient, &root)?;
-        tangent.fill_into_block(&mut block, 0, 0);
-        unmap.iter().enumerate().for_each(|(a, &i)| {
-            unmap
-                .iter()
-                .enumerate()
-                .for_each(|(b, &j)| local[a][b] = block[i][j])
-        });
-        let solution = local.solve_lu(&reduced).map_err(|error| {
-            ConstitutiveError::Custom(format!("{error:?}"), format!("{deformation_gradient}"))
-        })?;
-        decrement.iter_mut().for_each(|entry| *entry = 0.0);
-        unmap
-            .iter()
-            .enumerate()
-            .for_each(|(a, &i)| decrement[i] = solution[a]);
-        root.decrement_from(&decrement)
-    }
-    Err(ConstitutiveError::Custom(
-        "The internal variables did not converge.".to_string(),
-        format!("{deformation_gradient}"),
-    ))
+    local_solver
+        .root(
+            |root: &V| {
+                Ok(constitutive_model.internal_variables_residual(deformation_gradient, root)?)
+            },
+            |root: &V| Ok(constitutive_model.tangents(deformation_gradient, root)?.3),
+            internal_variables.clone(),
+            EqualityConstraint::Fixed(constitutive_model.internal_variables_fixed().to_vec()),
+            None,
+        )
+        .map_err(|error| {
+            ConstitutiveError::Custom(format!("{error}"), format!("{deformation_gradient}"))
+        })
 }
 
 /// The nodal forces a list of stresses integrates to.
@@ -384,14 +361,17 @@ where
     Self: SolidFiniteElement<G, 3, N, P>,
     T1: HessianBlock,
     T2: HessianBlock,
-    T3: HessianBlock,
+    T3: Hessian + HessianBlock,
     V: Jacobian + Solution,
+    for<'a> &'a V: Div<T3, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
+    for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
 {
     fn internal_variables_initial(&self, constitutive_model: &C) -> InternalVariables<G, V> {
         std::array::from_fn(|_| constitutive_model.internal_variables_initial()).into()
     }
     fn internal_variables_root(
         &self,
+        local_solver: &NewtonRaphson,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         internal_variables: &InternalVariables<G, V>,
@@ -402,6 +382,7 @@ where
             .zip(internal_variables)
             .map(|(deformation_gradient, internal_variables_point)| {
                 root_at_point(
+                    local_solver,
                     constitutive_model,
                     deformation_gradient,
                     internal_variables_point,
