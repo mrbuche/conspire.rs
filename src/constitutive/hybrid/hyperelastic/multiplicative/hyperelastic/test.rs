@@ -14,7 +14,7 @@ use crate::{
 
 use crate::{
     constitutive::solid::elastic::AppliedLoad,
-    math::optimize::{GradientDescent, LineSearch, NewtonRaphson, SolveStrategy},
+    math::optimize::{GradientDescent, LineSearch, NewtonRaphson, SolveStrategy, TrustRegion},
     mechanics::*,
 };
 
@@ -154,14 +154,14 @@ const STRETCH_FAR: Scalar = 6.0;
 /// from there the tangent is that of a state nothing else can be reached from.
 /// Nothing about the overshoot fails to evaluate, so only limiting it helps.
 fn far(
-    step_max: Option<Scalar>,
+    trust_region: TrustRegion,
     strategy: SolveStrategy,
 ) -> Result<(DeformationGradient, DeformationGradient2), AssertionError> {
     use crate::constitutive::solid::elastic::internal_variables::FirstOrderRoot;
     let (f, f_2) = model().root(
         AppliedLoad::UniaxialStress(STRETCH_FAR),
         NewtonRaphson {
-            step_max,
+            trust_region,
             num_steps: 200,
             ..Default::default()
         },
@@ -177,13 +177,16 @@ fn far(
 }
 
 #[test]
-fn root_step_max() -> Result<(), AssertionError> {
-    let (f, f_2) = far(Some(5e-1), SolveStrategy::Monolithic { elimination: false })?;
+fn root_trust_region() -> Result<(), AssertionError> {
+    let (f, f_2) = far(
+        TrustRegion::Fixed(5e-1),
+        SolveStrategy::Monolithic { elimination: false },
+    )?;
     for strategy in [
         SolveStrategy::Monolithic { elimination: true },
         SolveStrategy::Condensed(NewtonRaphson::default()),
     ] {
-        let (f_other, f_2_other) = far(Some(5e-1), strategy)?;
+        let (f_other, f_2_other) = far(TrustRegion::Fixed(5e-1), strategy)?;
         Assert::default().eq_within_tols(&f, &f_other)?;
         Assert::default().eq_within_tols(&f_2, &f_2_other)?
     }
@@ -191,13 +194,13 @@ fn root_step_max() -> Result<(), AssertionError> {
 }
 
 #[test]
-fn root_step_max_needed() {
+fn root_trust_region_needed() {
     for strategy in [
         SolveStrategy::Monolithic { elimination: false },
         SolveStrategy::Monolithic { elimination: true },
         SolveStrategy::Condensed(NewtonRaphson::default()),
     ] {
-        assert!(far(None, strategy).is_err())
+        assert!(far(TrustRegion::None, strategy).is_err())
     }
 }
 
