@@ -28,7 +28,7 @@ pub struct NewtonRaphson {
     /// Line search algorithm.
     pub line_search: LineSearch,
     /// Maximum number of steps.
-    pub num_steps: usize,
+    pub max_steps: usize,
     /// How far the step is trusted.
     pub trust_region: TrustRegion,
     /// Norm type for step size evaluation.
@@ -45,8 +45,8 @@ impl Debug for NewtonRaphson {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "NewtonRaphson {{ abs_tol: {:?}, line_search: {}, num_steps: {:?}, trust_region: {:?} }}",
-            self.abs_tol, self.line_search, self.num_steps, self.trust_region
+            "NewtonRaphson {{ abs_tol: {:?}, line_search: {}, max_steps: {:?}, trust_region: {:?} }}",
+            self.abs_tol, self.line_search, self.max_steps, self.trust_region
         )
     }
 }
@@ -57,7 +57,7 @@ impl Default for NewtonRaphson {
             abs_tol: ABS_TOL,
             error_norm: Norm::Chebyshev,
             line_search: LineSearch::None,
-            num_steps: 25,
+            max_steps: 25,
             trust_region: TrustRegion::None,
             step_norm: Norm::Chebyshev,
         }
@@ -385,13 +385,13 @@ fn backtrack_errors<J, X>(
     decrement: &Vector,
     applied: &mut Vector,
     cut_back: Scalar,
-    num_steps: usize,
+    max_steps: usize,
 ) -> Option<Scalar>
 where
     X: Solution,
 {
     let mut trial_size = 1.0;
-    for _ in 0..num_steps {
+    for _ in 0..max_steps {
         applied
             .iter_mut()
             .zip(decrement.iter())
@@ -424,14 +424,14 @@ fn backtrack_errors_block<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>(
     decrement_outer: &Vector,
     decrement_inner: &Vector,
     cut_back: Scalar,
-    num_steps: usize,
+    max_steps: usize,
 ) -> Option<Scalar>
 where
     U: Solution,
     V: Solution,
 {
     let mut trial_size = 1.0;
-    for _ in 0..num_steps {
+    for _ in 0..max_steps {
         let mut trial_global = global.clone();
         let mut trial_local = local.clone();
         let mut trial_multipliers_global = multipliers_global.clone();
@@ -566,9 +566,9 @@ where
     let mut tangent_outer = SquareMatrix::zero(outer);
     let mut update_inner = Vector::zero(num_inner);
     let mut update_outer = Vector::zero(num_outer);
-    for _ in 0..=newton_raphson.num_steps {
+    for _ in 0..newton_raphson.max_steps {
         if let Some(local_solver) = condensed {
-            for _ in 0..=local_solver.num_steps {
+            for _ in 0..local_solver.max_steps {
                 kkt_residual(
                     residual_local(&global, &local)?,
                     &multipliers_local,
@@ -729,7 +729,7 @@ where
         } else if !minimizing
             && let LineSearch::Error {
                 cut_back,
-                num_steps,
+                max_steps,
             } = &newton_raphson.line_search
         {
             //
@@ -748,7 +748,7 @@ where
                 &decrement_outer,
                 &decrement_inner,
                 *cut_back,
-                *num_steps,
+                *max_steps,
             ) {
                 Some(trial_size) => trial_size,
                 None => {
@@ -757,7 +757,7 @@ where
                             "{}",
                             LineSearchError::MaximumStepsReached(
                                 format!("{:?}", newton_raphson.line_search),
-                                *num_steps
+                                *max_steps
                             )
                         ),
                         format!("{newton_raphson:?}"),
@@ -846,7 +846,7 @@ where
         }
     }
     Err(OptimizationError::MaximumStepsReached(
-        newton_raphson.num_steps,
+        newton_raphson.max_steps,
         format!("{:?}", newton_raphson),
     ))
 }
@@ -870,7 +870,7 @@ where
     let mut solution = initial_guess;
     let mut step_size;
     let mut tangent;
-    for _ in 0..=newton_raphson.num_steps {
+    for _ in 0..newton_raphson.max_steps {
         residual = jacobian(&solution)?;
         if newton_raphson.error_norm.apply(&residual) < newton_raphson.abs_tol {
             return Ok(solution);
@@ -898,7 +898,7 @@ where
         }
     }
     Err(OptimizationError::MaximumStepsReached(
-        newton_raphson.num_steps,
+        newton_raphson.max_steps,
         format!("{:?}", newton_raphson),
     ))
 }
@@ -933,7 +933,7 @@ where
     let mut residual;
     let mut solution = initial_guess;
     let mut step_size;
-    for _ in 0..=newton_raphson.num_steps {
+    for _ in 0..newton_raphson.max_steps {
         residual = jacobian(&solution)?.retain_from(&retained);
         if newton_raphson.error_norm.apply(&residual) < newton_raphson.abs_tol {
             return Ok(solution);
@@ -972,7 +972,7 @@ where
         solution.decrement_from_retained(&retained, &decrement)
     }
     Err(OptimizationError::MaximumStepsReached(
-        newton_raphson.num_steps,
+        newton_raphson.max_steps,
         format!("{:?}", newton_raphson),
     ))
 }
@@ -1019,7 +1019,7 @@ where
                     })
             });
     }
-    for _ in 0..=newton_raphson.num_steps {
+    for _ in 0..newton_raphson.max_steps {
         let mut updated = false;
         (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
             &constraint_rhs - &constraint_matrix * &solution,
@@ -1050,7 +1050,7 @@ where
             1.0
         } else if let LineSearch::Error {
             cut_back,
-            num_steps,
+            max_steps,
         } = &newton_raphson.line_search
         {
             match backtrack_errors(
@@ -1061,7 +1061,7 @@ where
                 &decrement,
                 &mut applied,
                 *cut_back,
-                *num_steps,
+                *max_steps,
             ) {
                 Some(trial_size) => {
                     updated = true;
@@ -1073,7 +1073,7 @@ where
                             "{}",
                             LineSearchError::MaximumStepsReached(
                                 format!("{:?}", newton_raphson.line_search),
-                                *num_steps
+                                *max_steps
                             )
                         ),
                         format!("{newton_raphson:?}"),
@@ -1143,7 +1143,7 @@ where
         solution.decrement_from_chained(&mut multipliers, decrement)
     }
     Err(OptimizationError::MaximumStepsReached(
-        newton_raphson.num_steps,
+        newton_raphson.max_steps,
         format!("{:?}", newton_raphson),
     ))
 }
