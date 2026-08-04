@@ -464,7 +464,7 @@ where
             abs_tol: 1e-10,
             line_search: LineSearch::Error {
                 cut_back: 5e-1,
-                num_steps: 10,
+                max_steps: 10,
             },
             ..Default::default()
         }
@@ -571,7 +571,7 @@ where
             abs_tol: 1e-10,
             line_search: LineSearch::Error {
                 cut_back: 5e-1,
-                num_steps: 10,
+                max_steps: 10,
             },
             ..Default::default()
         }

@@ -68,7 +68,7 @@ mod minimize {
                     line_search: LineSearch::Armijo {
                         control: CONTROL_1,
                         cut_back: CUT_BACK,
-                        num_steps: MAX_STEPS,
+                        max_steps: MAX_STEPS,
                     },
                     ..Default::default()
                 }
@@ -89,7 +89,7 @@ mod minimize {
                     line_search: LineSearch::Goldstein {
                         control: CONTROL_1,
                         cut_back: CUT_BACK,
-                        num_steps: MAX_STEPS,
+                        max_steps: MAX_STEPS,
                     },
                     ..Default::default()
                 }
@@ -113,7 +113,7 @@ mod minimize {
                             control_1: CONTROL_1,
                             control_2: CONTROL_2,
                             cut_back: CUT_BACK,
-                            num_steps: MAX_STEPS,
+                            max_steps: MAX_STEPS,
                             strong: true,
                         },
                         ..Default::default()
@@ -136,7 +136,7 @@ mod minimize {
                             control_1: CONTROL_1,
                             control_2: CONTROL_2,
                             cut_back: CUT_BACK,
-                            num_steps: MAX_STEPS,
+                            max_steps: MAX_STEPS,
                             strong: false,
                         },
                         ..Default::default()
@@ -206,7 +206,7 @@ mod constrained {
             &minimized(LineSearch::Armijo {
                 control: CONTROL_1,
                 cut_back: CUT_BACK,
-                num_steps: MAX_STEPS,
+                max_steps: MAX_STEPS,
             })?,
             &Vector::from([1.0, 1.0]),
         )
@@ -218,7 +218,7 @@ mod constrained {
             &minimized(LineSearch::Goldstein {
                 control: CONTROL_2,
                 cut_back: CUT_BACK,
-                num_steps: MAX_STEPS,
+                max_steps: MAX_STEPS,
             })?,
             &Vector::from([1.0, 1.0]),
         )
@@ -229,7 +229,7 @@ mod constrained {
         Assert::default().eq_within_tols(
             &minimized(LineSearch::Error {
                 cut_back: CUT_BACK,
-                num_steps: MAX_STEPS,
+                max_steps: MAX_STEPS,
             })?,
             &Vector::from([1.0, 1.0]),
         )
@@ -243,7 +243,7 @@ mod constrained {
             &NewtonRaphson {
                 line_search: LineSearch::Error {
                     cut_back: CUT_BACK,
-                    num_steps: MAX_STEPS,
+                    max_steps: MAX_STEPS,
                 },
                 ..Default::default()
             }
@@ -293,7 +293,7 @@ mod constrained {
         Assert::default().eq_within_tols(
             &barrier(LineSearch::Error {
                 cut_back: 5e-1,
-                num_steps: MAX_STEPS,
+                max_steps: MAX_STEPS,
             })?,
             &Vector::from([4.0, 1.0]),
         )
@@ -309,7 +309,7 @@ mod constrained {
         matrix[0][1] = 1.0;
         NewtonRaphson {
             line_search,
-            num_steps: 100,
+            max_steps: 100,
             ..Default::default()
         }
         .minimize(
@@ -333,7 +333,7 @@ mod constrained {
             &overshooting(LineSearch::Armijo {
                 control: CONTROL_1,
                 cut_back: CUT_BACK,
-                num_steps: MAX_STEPS,
+                max_steps: MAX_STEPS,
             })?,
             &Vector::zero(2),
         )
@@ -362,7 +362,7 @@ mod constrained {
         NewtonRaphson {
             line_search,
             trust_region,
-            num_steps: 100,
+            max_steps: 100,
             ..Default::default()
         }
         .root(
@@ -415,7 +415,7 @@ mod constrained {
         let mut tangent = SquareMatrix::zero(WIDTH);
         (0..WIDTH).for_each(|i| tangent[i][i] = 1.0);
         NewtonRaphson {
-            num_steps: 10,
+            max_steps: 10,
             trust_region: TrustRegion::Fixed(5e-1),
             step_norm,
             ..Default::default()
@@ -447,7 +447,7 @@ mod constrained {
             TrustRegion::None,
             LineSearch::Error {
                 cut_back: 5e-1,
-                num_steps: MAX_STEPS,
+                max_steps: MAX_STEPS,
             },
         ) {
             Ok(solution) => solution[0].abs() > 1.0,

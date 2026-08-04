@@ -95,22 +95,22 @@ fn line_search(name: &str) -> LineSearch {
         "armijo" => LineSearch::Armijo {
             control: 1e-3,
             cut_back: 9e-1,
-            num_steps: 100,
+            max_steps: 100,
         },
         "goldstein" => LineSearch::Goldstein {
             control: 1e-4,
             cut_back: 5e-1,
-            num_steps: 100,
+            max_steps: 100,
         },
         "error" => LineSearch::Error {
             cut_back: 5e-1,
-            num_steps: 100,
+            max_steps: 100,
         },
         _ => LineSearch::Wolfe {
             control_1: 1e-3,
             control_2: 9e-1,
             cut_back: 5e-1,
-            num_steps: 100,
+            max_steps: 100,
             strong: true,
         },
     }
@@ -162,7 +162,7 @@ fn far(
         AppliedLoad::UniaxialStress(STRETCH_FAR),
         NewtonRaphson {
             trust_region,
-            num_steps: 200,
+            max_steps: 200,
             ..Default::default()
         },
         strategy,

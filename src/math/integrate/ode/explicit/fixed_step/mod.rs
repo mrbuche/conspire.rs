@@ -43,8 +43,8 @@ where
                     format!("{self:?}"),
                 ));
             } else {
-                let num_steps = ((t_f - t_0) / self.dt()).ceil() as usize;
-                t_sol = (0..num_steps)
+                let max_steps = ((t_f - t_0) / self.dt()).ceil() as usize;
+                t_sol = (0..max_steps)
                     .map(|step| t_0 + (step as Scalar) * self.dt())
                     .collect();
                 t_sol.push(t_f);
