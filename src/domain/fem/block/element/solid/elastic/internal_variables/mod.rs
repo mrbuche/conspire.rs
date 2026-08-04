@@ -18,12 +18,6 @@ use crate::{
 /// The most Newton steps an integration point is given.
 const MAX_STEPS: usize = 25;
 
-/// The factor by which a step is shortened when it does not decrease.
-const CUT_BACK: Scalar = 5e-1;
-
-/// The shortest step worth trying before giving up.
-const MIN_FRACTION: Scalar = 1e-8;
-
 /// The indices of the internal variables that are free to move.
 fn free_indices<C, V, T1, T2, T3>(constitutive_model: &C, size: usize) -> Vec<usize>
 where
@@ -157,37 +151,7 @@ where
             .iter()
             .enumerate()
             .for_each(|(a, &i)| decrement[i] = solution[a]);
-        //
-        // A full step can carry the internal variables somewhere the model
-        // cannot be evaluated at all, so shorten it until the residual both
-        // exists and has decreased.
-        //
-        let residual_norm = reduced.iter().fold(0.0, |m: Scalar, r| m.max(r.abs()));
-        let mut fraction = 1.0;
-        loop {
-            let mut trial = root.clone();
-            trial.decrement_from(&(&decrement * fraction));
-            if let Ok(trial_residual) =
-                constitutive_model.internal_variables_residual(deformation_gradient, &trial)
-            {
-                trial_residual.fill_into(&mut residual);
-                if unmap
-                    .iter()
-                    .fold(0.0, |m: Scalar, &i| m.max(residual[i].abs()))
-                    < residual_norm
-                {
-                    root = trial;
-                    break;
-                }
-            }
-            fraction *= CUT_BACK;
-            if fraction < MIN_FRACTION {
-                return Err(ConstitutiveError::Custom(
-                    "The internal variables could not be decreased.".to_string(),
-                    format!("{deformation_gradient}"),
-                ));
-            }
-        }
+        root.decrement_from(&decrement)
     }
     Err(ConstitutiveError::Custom(
         "The internal variables did not converge.".to_string(),
