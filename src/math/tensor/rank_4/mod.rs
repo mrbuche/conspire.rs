@@ -359,6 +359,17 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
             })
         })
     }
+    fn retain_from(self, retained: &[bool]) -> SquareMatrix {
+        (0..D * D)
+            .filter(|&row| retained[row])
+            .map(|row| {
+                (0..D * D)
+                    .filter(|&column| retained[column])
+                    .map(|column| self[row / D][row % D][column / D][column % D])
+                    .collect()
+            })
+            .collect()
+    }
 }
 
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> Tensor

@@ -471,6 +471,14 @@ impl<const D: usize, const I: usize, const J: usize> Solution for TensorRank2<D,
             .zip(vector)
             .for_each(|(entry_i, vector_i)| *entry_i -= vector_i)
     }
+    fn decrement_from_retained(&mut self, retained: &[bool], other: &Vector) {
+        self.iter_mut()
+            .flat_map(|x| x.iter_mut())
+            .zip(retained.iter())
+            .filter(|(_, retained_i)| **retained_i)
+            .zip(other.iter())
+            .for_each(|((self_i, _), vector_i)| *self_i -= vector_i)
+    }
 }
 
 impl<const D: usize, const I: usize, const J: usize> Jacobian for TensorRank2<D, I, J> {
@@ -486,6 +494,14 @@ impl<const D: usize, const I: usize, const J: usize> Jacobian for TensorRank2<D,
             .chain(other)
             .zip(vector.iter_mut())
             .for_each(|(self_i, vector_i)| *vector_i = self_i)
+    }
+    fn retain_from(self, retained: &[bool]) -> Vector {
+        self.into_iter()
+            .flatten()
+            .zip(retained.iter())
+            .filter(|(_, retained_i)| **retained_i)
+            .map(|(entry, _)| entry)
+            .collect()
     }
 }
 

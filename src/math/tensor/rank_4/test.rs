@@ -1236,3 +1236,20 @@ fn zero() {
             })
         });
 }
+
+#[test]
+fn retain_from_filters_rows_and_columns() {
+    use super::super::{Hessian, SquareMatrix};
+    let retained: Vec<bool> = (0..9).map(|index| index % 4 != 1).collect();
+    let tensor = TensorRank4::<3, 1, 1, 1, 1>::from(get_array());
+    let square_matrix = tensor.clone().retain_from(&retained);
+    let mut full = SquareMatrix::zero(9);
+    tensor.fill_into(&mut full);
+    let kept: Vec<usize> = (0..9).filter(|&index| retained[index]).collect();
+    assert_eq!(square_matrix.len(), kept.len());
+    kept.iter().enumerate().for_each(|(p, &full_p)| {
+        kept.iter()
+            .enumerate()
+            .for_each(|(q, &full_q)| assert_eq!(square_matrix[p][q], full[full_p][full_q]))
+    })
+}

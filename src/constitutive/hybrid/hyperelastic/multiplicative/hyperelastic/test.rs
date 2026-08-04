@@ -231,3 +231,38 @@ fn minimize_line_search_wolfe() {
     // condition cannot be evaluated
     searched("wolfe", SolveStrategy::Monolithic { elimination: false }).unwrap();
 }
+
+/// The local solve is an instance of root finding with the gauge indices fixed,
+/// so the generic solver should reach the same root the bespoke loop does.
+#[test]
+fn root_fixed_at_point() -> Result<(), AssertionError> {
+    use crate::{
+        constitutive::solid::elastic::internal_variables::ElasticIV,
+        math::optimize::{EqualityConstraint, FirstOrderRootFinding},
+    };
+    let model = model();
+    let deformation_gradient =
+        DeformationGradient::from([[1.2, 0.1, 0.0], [0.0, 0.9, 0.05], [0.03, 0.0, 1.1]]);
+    let fixed = model.internal_variables_fixed().to_vec();
+    let root = NewtonRaphson::default().root(
+        |internal_variables: &DeformationGradient2| {
+            Ok(model.internal_variables_residual(&deformation_gradient, internal_variables)?)
+        },
+        |internal_variables: &DeformationGradient2| {
+            Ok(model.tangents(&deformation_gradient, internal_variables)?.3)
+        },
+        model.internal_variables_initial(),
+        EqualityConstraint::Fixed(fixed.clone()),
+        None,
+    )?;
+    let residual = model.internal_variables_residual(&deformation_gradient, &root)?;
+    let initial = model.internal_variables_initial();
+    (0..9).try_for_each(|index| {
+        if fixed.contains(&index) {
+            Assert::default()
+                .eq_within_tols(root[index / 3][index % 3], &initial[index / 3][index % 3])
+        } else {
+            Assert::default().zero_within_tols(&residual[index / 3][index % 3])
+        }
+    })
+}

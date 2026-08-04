@@ -1172,3 +1172,39 @@ fn zero_dim_9() {
                 .for_each(|tensor_rank_2_ij| assert_eq!(tensor_rank_2_ij, &0.0))
         });
 }
+
+#[test]
+fn retain_from_filters_entries() {
+    use super::super::{Jacobian, Vector};
+    let retained = [true, false, true, false, true, true, false, true, false];
+    let tensor = TensorRank2::<3, 1, 1>::from(get_array_dim_3());
+    let vector = Jacobian::retain_from(tensor, &retained);
+    let full = Vector::from(get_array_dim_3().as_flattened());
+    let kept: Vec<usize> = (0..9).filter(|&index| retained[index]).collect();
+    assert_eq!(vector.len(), kept.len());
+    kept.iter()
+        .enumerate()
+        .for_each(|(p, &full_p)| assert_eq!(vector[p], full[full_p]))
+}
+
+#[test]
+fn decrement_from_retained_skips_fixed_entries() {
+    use super::super::{Solution, Vector};
+    let retained = [true, false, true, false, true, true, false, true, false];
+    let mut tensor = TensorRank2::<3, 1, 1>::from(get_array_dim_3());
+    let decrement = Vector::from([1.0, 2.0, 3.0, 4.0, 5.0]);
+    tensor.decrement_from_retained(&retained, &decrement);
+    let full = get_array_dim_3();
+    let mut taken = 0;
+    (0..9).for_each(|index| {
+        let before = full[index / 3][index % 3];
+        let after = tensor[index / 3][index % 3];
+        if retained[index] {
+            assert_eq!(after, before - decrement[taken]);
+            taken += 1
+        } else {
+            assert_eq!(after, before)
+        }
+    });
+    assert_eq!(taken, 5)
+}
