@@ -9,7 +9,7 @@ use super::{
     EqualityConstraint, FirstOrderRootFinding, LineSearch, NewtonRaphson, OptimizationError,
     Scalar, SecondOrderOptimization,
 };
-use crate::math::assert::Assert;
+use crate::math::{Norm, Tensor, assert::Assert};
 
 const CONTROL_1: Scalar = 1e-3;
 const CONTROL_2: Scalar = 1e-1;
@@ -68,7 +68,7 @@ mod minimize {
                     line_search: LineSearch::Armijo {
                         control: CONTROL_1,
                         cut_back: CUT_BACK,
-                        max_steps: MAX_STEPS,
+                        num_steps: MAX_STEPS,
                     },
                     ..Default::default()
                 }
@@ -89,7 +89,7 @@ mod minimize {
                     line_search: LineSearch::Goldstein {
                         control: CONTROL_1,
                         cut_back: CUT_BACK,
-                        max_steps: MAX_STEPS,
+                        num_steps: MAX_STEPS,
                     },
                     ..Default::default()
                 }
@@ -113,7 +113,7 @@ mod minimize {
                             control_1: CONTROL_1,
                             control_2: CONTROL_2,
                             cut_back: CUT_BACK,
-                            max_steps: MAX_STEPS,
+                            num_steps: MAX_STEPS,
                             strong: true,
                         },
                         ..Default::default()
@@ -136,7 +136,7 @@ mod minimize {
                             control_1: CONTROL_1,
                             control_2: CONTROL_2,
                             cut_back: CUT_BACK,
-                            max_steps: MAX_STEPS,
+                            num_steps: MAX_STEPS,
                             strong: false,
                         },
                         ..Default::default()
@@ -206,7 +206,7 @@ mod constrained {
             &minimized(LineSearch::Armijo {
                 control: CONTROL_1,
                 cut_back: CUT_BACK,
-                max_steps: MAX_STEPS,
+                num_steps: MAX_STEPS,
             })?,
             &Vector::from([1.0, 1.0]),
         )
@@ -218,7 +218,7 @@ mod constrained {
             &minimized(LineSearch::Goldstein {
                 control: CONTROL_2,
                 cut_back: CUT_BACK,
-                max_steps: MAX_STEPS,
+                num_steps: MAX_STEPS,
             })?,
             &Vector::from([1.0, 1.0]),
         )
@@ -229,7 +229,7 @@ mod constrained {
         Assert::default().eq_within_tols(
             &minimized(LineSearch::Error {
                 cut_back: CUT_BACK,
-                max_steps: MAX_STEPS,
+                num_steps: MAX_STEPS,
             })?,
             &Vector::from([1.0, 1.0]),
         )
@@ -243,7 +243,7 @@ mod constrained {
             &NewtonRaphson {
                 line_search: LineSearch::Error {
                     cut_back: CUT_BACK,
-                    max_steps: MAX_STEPS,
+                    num_steps: MAX_STEPS,
                 },
                 ..Default::default()
             }
@@ -293,7 +293,7 @@ mod constrained {
         Assert::default().eq_within_tols(
             &barrier(LineSearch::Error {
                 cut_back: 5e-1,
-                max_steps: MAX_STEPS,
+                num_steps: MAX_STEPS,
             })?,
             &Vector::from([4.0, 1.0]),
         )
@@ -309,7 +309,7 @@ mod constrained {
         matrix[0][1] = 1.0;
         NewtonRaphson {
             line_search,
-            max_steps: 100,
+            num_steps: 100,
             ..Default::default()
         }
         .minimize(
@@ -333,7 +333,7 @@ mod constrained {
             &overshooting(LineSearch::Armijo {
                 control: CONTROL_1,
                 cut_back: CUT_BACK,
-                max_steps: MAX_STEPS,
+                num_steps: MAX_STEPS,
             })?,
             &Vector::zero(2),
         )
@@ -347,19 +347,22 @@ mod constrained {
         })
     }
 
-    /// The same overshooting, met with a cap on the step instead of a line
+    /// The same overshooting, met with a limit on the step instead of a line
     /// search, and by root finding rather than minimization.
     ///
     /// Newton on this residual multiplies the distance from the root by the
     /// square of it, so any start beyond one diverges. Nothing about that step
     /// fails to evaluate, so backtracking for errors would let it through.
-    fn steep(cap: Option<Scalar>, line_search: LineSearch) -> Result<Vector, OptimizationError> {
+    fn steep(
+        step_max: Option<Scalar>,
+        line_search: LineSearch,
+    ) -> Result<Vector, OptimizationError> {
         let mut matrix = Matrix::zero(1, 2);
         matrix[0][1] = 1.0;
         NewtonRaphson {
-            cap,
             line_search,
-            max_steps: 100,
+            step_max,
+            num_steps: 100,
             ..Default::default()
         }
         .root(
@@ -377,27 +380,71 @@ mod constrained {
     }
 
     #[test]
-    fn cap() -> Result<(), AssertionError> {
+    fn step_max() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(&steep(Some(0.75), LineSearch::None)?, &Vector::zero(2))
     }
 
     #[test]
-    fn cap_needed() {
+    fn step_max_needed() {
         assert!(match steep(None, LineSearch::None) {
             Ok(solution) => solution[0].abs() > 1.0,
             Err(_) => true,
         })
     }
 
-    /// The step that diverges here is a perfectly good one to evaluate, so
-    /// only the cap catches it.
+    /// The limit is measured in whichever norm is asked for, and the two
+    /// disagree by the square root of the number of variables.
+    ///
+    /// Every variable starts the same distance from its root, so Chebyshev
+    /// sees a step of one where Euclidean sees one of ten. The same limit is
+    /// therefore ten times tighter in the second, which is the whole reason
+    /// the step has a norm of its own rather than the one errors are measured
+    /// in.
+    fn wide(step_norm: Norm) -> Result<Vector, OptimizationError> {
+        const WIDTH: usize = 100;
+        let mut constraint_matrix = Matrix::zero(1, WIDTH);
+        constraint_matrix[0][WIDTH - 1] = 1.0;
+        let mut initial_guess = Vector::zero(WIDTH);
+        initial_guess
+            .iter_mut()
+            .take(WIDTH - 1)
+            .for_each(|entry| *entry = 1.0);
+        let mut tangent = SquareMatrix::zero(WIDTH);
+        (0..WIDTH).for_each(|i| tangent[i][i] = 1.0);
+        NewtonRaphson {
+            num_steps: 10,
+            step_max: Some(5e-1),
+            step_norm,
+            ..Default::default()
+        }
+        .root(
+            |x: &Vector| Ok(x.clone()),
+            |_: &Vector| Ok(tangent.clone()),
+            initial_guess,
+            EqualityConstraint::Linear(constraint_matrix, Vector::zero(1)),
+            None,
+        )
+    }
+
     #[test]
-    fn cap_beyond_errors() {
+    fn step_norm_chebyshev() -> Result<(), AssertionError> {
+        Assert::default().zero_within_tols(&wide(Norm::Chebyshev)?)
+    }
+
+    #[test]
+    fn step_norm_euclidean() {
+        assert!(wide(Norm::Euclidean).is_err())
+    }
+
+    /// The step that diverges here is a perfectly good one to evaluate, so
+    /// only the limit catches it.
+    #[test]
+    fn step_max_beyond_errors() {
         assert!(match steep(
             None,
             LineSearch::Error {
                 cut_back: 5e-1,
-                max_steps: MAX_STEPS,
+                num_steps: MAX_STEPS,
             },
         ) {
             Ok(solution) => solution[0].abs() > 1.0,

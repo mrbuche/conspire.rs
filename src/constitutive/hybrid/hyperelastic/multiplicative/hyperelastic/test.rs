@@ -95,22 +95,22 @@ fn line_search(name: &str) -> LineSearch {
         "armijo" => LineSearch::Armijo {
             control: 1e-3,
             cut_back: 9e-1,
-            max_steps: 100,
+            num_steps: 100,
         },
         "goldstein" => LineSearch::Goldstein {
             control: 1e-4,
             cut_back: 5e-1,
-            max_steps: 100,
+            num_steps: 100,
         },
         "error" => LineSearch::Error {
             cut_back: 5e-1,
-            max_steps: 100,
+            num_steps: 100,
         },
         _ => LineSearch::Wolfe {
             control_1: 1e-3,
             control_2: 9e-1,
             cut_back: 5e-1,
-            max_steps: 100,
+            num_steps: 100,
             strong: true,
         },
     }
@@ -152,17 +152,17 @@ const STRETCH_FAR: Scalar = 6.0;
 ///
 /// The first step alone crushes the material to a fraction of its volume, and
 /// from there the tangent is that of a state nothing else can be reached from.
-/// Nothing about the overshoot fails to evaluate, so only capping it helps.
+/// Nothing about the overshoot fails to evaluate, so only limiting it helps.
 fn far(
-    cap: Option<Scalar>,
+    step_max: Option<Scalar>,
     strategy: SolveStrategy,
 ) -> Result<(DeformationGradient, DeformationGradient2), AssertionError> {
     use crate::constitutive::solid::elastic::internal_variables::FirstOrderRoot;
     let (f, f_2) = model().root(
         AppliedLoad::UniaxialStress(STRETCH_FAR),
         NewtonRaphson {
-            cap,
-            max_steps: 200,
+            step_max,
+            num_steps: 200,
             ..Default::default()
         },
         strategy,
@@ -177,7 +177,7 @@ fn far(
 }
 
 #[test]
-fn root_cap() -> Result<(), AssertionError> {
+fn root_step_max() -> Result<(), AssertionError> {
     let (f, f_2) = far(Some(5e-1), SolveStrategy::Monolithic { elimination: false })?;
     for strategy in [
         SolveStrategy::Monolithic { elimination: true },
@@ -191,7 +191,7 @@ fn root_cap() -> Result<(), AssertionError> {
 }
 
 #[test]
-fn root_cap_needed() {
+fn root_step_max_needed() {
     for strategy in [
         SolveStrategy::Monolithic { elimination: false },
         SolveStrategy::Monolithic { elimination: true },

@@ -73,7 +73,7 @@ pub struct DormandPrince {
     /// Minimum value for the time step.
     pub dt_min: Scalar,
     /// Norm type for error evaluation.
-    pub norm: Norm,
+    pub error_norm: Norm,
 }
 
 impl Default for DormandPrince {
@@ -85,7 +85,7 @@ impl Default for DormandPrince {
             dt_expn: 5.0,
             dt_cut: 0.5,
             dt_min: ABS_TOL,
-            norm: Norm::Chebyshev,
+            error_norm: Norm::Chebyshev,
         }
     }
 }
@@ -116,8 +116,8 @@ impl VariableStep for DormandPrince {
     fn dt_min(&self) -> Scalar {
         self.dt_min
     }
-    fn norm(&self) -> &Norm {
-        &self.norm
+    fn error_norm(&self) -> &Norm {
+        &self.error_norm
     }
 }
 
@@ -146,7 +146,7 @@ where
     U: TensorVec<Item = Y>,
 {
     fn error(&self, dt: Scalar, k: &[Y]) -> Result<Scalar, String> {
-        Ok(self.norm.apply(
+        Ok(self.error_norm.apply(
             &((&k[0] * C_71_57600 - &k[2] * C_71_16695 + &k[3] * C_71_1920
                 - &k[4] * C_17253_339200
                 + &k[5] * C_22_525

@@ -11,22 +11,22 @@ pub enum LineSearch {
     Armijo {
         control: Scalar,
         cut_back: Scalar,
-        max_steps: usize,
+        num_steps: usize,
     },
     /// Backtrack for errors.
-    Error { cut_back: Scalar, max_steps: usize },
+    Error { cut_back: Scalar, num_steps: usize },
     /// The Goldstein conditions.
     Goldstein {
         control: Scalar,
         cut_back: Scalar,
-        max_steps: usize,
+        num_steps: usize,
     },
     /// The Wolfe conditions.
     Wolfe {
         control_1: Scalar,
         control_2: Scalar,
         cut_back: Scalar,
-        max_steps: usize,
+        num_steps: usize,
         strong: bool,
     },
     /// No line search.
@@ -38,7 +38,7 @@ impl Default for LineSearch {
         Self::Armijo {
             control: 1e-3,
             cut_back: 9e-1,
-            max_steps: 100,
+            num_steps: 100,
         }
     }
 }
@@ -81,10 +81,10 @@ impl LineSearch {
             Self::Armijo {
                 control,
                 cut_back,
-                max_steps,
+                num_steps,
             } => {
                 let t = control * slope;
-                for _ in 0..*max_steps {
+                for _ in 0..*num_steps {
                     if let Ok(trial) = merit(n)
                         && value - trial >= n * t
                     {
@@ -95,14 +95,14 @@ impl LineSearch {
                 }
                 Err(LineSearchError::MaximumStepsReached(
                     format!("{self:?}"),
-                    *max_steps,
+                    *num_steps,
                 ))
             }
             Self::Error {
                 cut_back,
-                max_steps,
+                num_steps,
             } => {
-                for _ in 0..*max_steps {
+                for _ in 0..*num_steps {
                     if merit(n).is_ok() {
                         return Ok(n);
                     } else {
@@ -111,18 +111,18 @@ impl LineSearch {
                 }
                 Err(LineSearchError::MaximumStepsReached(
                     format!("{self:?}"),
-                    *max_steps,
+                    *num_steps,
                 ))
             }
             Self::Goldstein {
                 control,
                 cut_back,
-                max_steps,
+                num_steps,
             } => {
                 let t = control * slope;
                 let u = (1.0 - control) * slope;
                 let mut v;
-                for _ in 0..*max_steps {
+                for _ in 0..*num_steps {
                     if let Ok(trial) = merit(n) {
                         v = value - trial;
                         if n * u < v || v < n * t {
@@ -136,7 +136,7 @@ impl LineSearch {
                 }
                 Err(LineSearchError::MaximumStepsReached(
                     format!("{self:?}"),
-                    *max_steps,
+                    *num_steps,
                 ))
             }
             Self::Wolfe { .. } => panic!(
@@ -182,11 +182,11 @@ impl LineSearch {
             Self::Armijo {
                 control,
                 cut_back,
-                max_steps,
+                num_steps,
             } => {
                 let mut f_n;
                 let t = control * m;
-                for _ in 0..*max_steps {
+                for _ in 0..*num_steps {
                     f_n = function(&(decrement * -n + argument));
                     if let Ok(value) = f_n
                         && f - value >= n * t
@@ -198,14 +198,14 @@ impl LineSearch {
                 }
                 Err(LineSearchError::MaximumStepsReached(
                     format!("{self:?}"),
-                    *max_steps,
+                    *num_steps,
                 ))
             }
             Self::Error {
                 cut_back,
-                max_steps,
+                num_steps,
             } => {
-                for _ in 0..*max_steps {
+                for _ in 0..*num_steps {
                     if function(&(decrement * -n + argument)).is_ok() {
                         return Ok(n);
                     } else {
@@ -214,19 +214,19 @@ impl LineSearch {
                 }
                 Err(LineSearchError::MaximumStepsReached(
                     format!("{self:?}"),
-                    *max_steps,
+                    *num_steps,
                 ))
             }
             Self::Goldstein {
                 control,
                 cut_back,
-                max_steps,
+                num_steps,
             } => {
                 let mut f_n;
                 let t = control * m;
                 let u = (1.0 - control) * m;
                 let mut v;
-                for _ in 0..*max_steps {
+                for _ in 0..*num_steps {
                     f_n = function(&(decrement * -n + argument));
                     if let Ok(value) = f_n {
                         v = f - value;
@@ -241,14 +241,14 @@ impl LineSearch {
                 }
                 Err(LineSearchError::MaximumStepsReached(
                     format!("{self:?}"),
-                    *max_steps,
+                    *num_steps,
                 ))
             }
             Self::Wolfe {
                 control_1,
                 control_2,
                 cut_back,
-                max_steps,
+                num_steps,
                 strong,
             } => {
                 let mut f_n;
@@ -256,7 +256,7 @@ impl LineSearch {
                 let t_1 = control_1 * m;
                 let t_2 = control_2 * m;
                 let mut trial_argument = decrement * -n + argument;
-                for _ in 0..*max_steps {
+                for _ in 0..*num_steps {
                     f_n = function(&trial_argument);
                     j_n = jacobian(&trial_argument);
                     if let Ok(f_val) = f_n
@@ -276,7 +276,7 @@ impl LineSearch {
                 }
                 Err(LineSearchError::MaximumStepsReached(
                     format!("{self:?}"),
-                    *max_steps,
+                    *num_steps,
                 ))
             }
             Self::None => {
