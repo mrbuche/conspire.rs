@@ -382,7 +382,13 @@ mod constrained {
     #[test]
     fn trust_region() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(
-            &steep(TrustRegion::Fixed(0.75), LineSearch::None)?,
+            &steep(
+                TrustRegion::Fixed {
+                    radius: 0.75,
+                    norm: Norm::Chebyshev,
+                },
+                LineSearch::None,
+            )?,
             &Vector::zero(2),
         )
     }
@@ -403,7 +409,7 @@ mod constrained {
     /// therefore ten times tighter in the second, which is the whole reason
     /// the step has a norm of its own rather than the one errors are measured
     /// in.
-    fn wide(step_norm: Norm) -> Result<Vector, OptimizationError> {
+    fn wide(norm: Norm) -> Result<Vector, OptimizationError> {
         const WIDTH: usize = 100;
         let mut constraint_matrix = Matrix::zero(1, WIDTH);
         constraint_matrix[0][WIDTH - 1] = 1.0;
@@ -416,8 +422,7 @@ mod constrained {
         (0..WIDTH).for_each(|i| tangent[i][i] = 1.0);
         NewtonRaphson {
             max_steps: 10,
-            trust_region: TrustRegion::Fixed(5e-1),
-            step_norm,
+            trust_region: TrustRegion::Fixed { radius: 5e-1, norm },
             ..Default::default()
         }
         .root(
@@ -430,12 +435,12 @@ mod constrained {
     }
 
     #[test]
-    fn step_norm_chebyshev() -> Result<(), AssertionError> {
+    fn trust_region_norm_chebyshev() -> Result<(), AssertionError> {
         Assert::default().zero_within_tols(&wide(Norm::Chebyshev)?)
     }
 
     #[test]
-    fn step_norm_euclidean() {
+    fn trust_region_norm_euclidean() {
         assert!(wide(Norm::Euclidean).is_err())
     }
 
