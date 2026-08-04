@@ -6,8 +6,8 @@ use super::{
         },
         // test::{rosenbrock, rosenbrock_derivative, rosenbrock_second_derivative},
     },
-    EqualityConstraint, FirstOrderRootFinding, LineSearch, NewtonRaphson, Scalar,
-    SecondOrderOptimization,
+    EqualityConstraint, FirstOrderRootFinding, LineSearch, NewtonRaphson, OptimizationError,
+    Scalar, SecondOrderOptimization,
 };
 use crate::math::assert::Assert;
 
@@ -342,6 +342,64 @@ mod constrained {
     #[test]
     fn overshooting_none() {
         assert!(match overshooting(LineSearch::None) {
+            Ok(solution) => solution[0].abs() > 1.0,
+            Err(_) => true,
+        })
+    }
+
+    /// The same overshooting, met with a cap on the step instead of a line
+    /// search, and by root finding rather than minimization.
+    ///
+    /// Newton on this residual multiplies the distance from the root by the
+    /// square of it, so any start beyond one diverges. Nothing about that step
+    /// fails to evaluate, so backtracking for errors would let it through.
+    fn steep(cap: Option<Scalar>, line_search: LineSearch) -> Result<Vector, OptimizationError> {
+        let mut matrix = Matrix::zero(1, 2);
+        matrix[0][1] = 1.0;
+        NewtonRaphson {
+            cap,
+            line_search,
+            max_steps: 100,
+            ..Default::default()
+        }
+        .root(
+            |x: &Vector| Ok(Vector::from([x[0] / (1.0 + x[0].powi(2)).sqrt(), x[1]])),
+            |x: &Vector| {
+                Ok(SquareMatrix::from([
+                    [(1.0 + x[0].powi(2)).powf(-1.5), 0.0],
+                    [0.0, 1.0],
+                ]))
+            },
+            Vector::from([2.0, 0.0]),
+            EqualityConstraint::Linear(matrix, Vector::zero(1)),
+            None,
+        )
+    }
+
+    #[test]
+    fn cap() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(&steep(Some(0.75), LineSearch::None)?, &Vector::zero(2))
+    }
+
+    #[test]
+    fn cap_needed() {
+        assert!(match steep(None, LineSearch::None) {
+            Ok(solution) => solution[0].abs() > 1.0,
+            Err(_) => true,
+        })
+    }
+
+    /// The step that diverges here is a perfectly good one to evaluate, so
+    /// only the cap catches it.
+    #[test]
+    fn cap_beyond_errors() {
+        assert!(match steep(
+            None,
+            LineSearch::Error {
+                cut_back: 5e-1,
+                max_steps: MAX_STEPS,
+            },
+        ) {
             Ok(solution) => solution[0].abs() > 1.0,
             Err(_) => true,
         })
