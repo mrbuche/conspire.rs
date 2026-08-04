@@ -146,6 +146,84 @@ fn minimize_line_search() -> Result<(), AssertionError> {
     Ok(())
 }
 
+const STRETCH_FAR: Scalar = 6.0;
+
+/// Root finding at a stretch every strategy overshoots from the identity.
+///
+/// The first step alone crushes the material to a fraction of its volume, and
+/// from there the tangent is that of a state nothing else can be reached from.
+/// Nothing about the overshoot fails to evaluate, so only capping it helps.
+fn far(
+    cap: Option<Scalar>,
+    strategy: SolveStrategy,
+) -> Result<(DeformationGradient, DeformationGradient2), AssertionError> {
+    use crate::constitutive::solid::elastic::internal_variables::FirstOrderRoot;
+    let (f, f_2) = model().root(
+        AppliedLoad::UniaxialStress(STRETCH_FAR),
+        NewtonRaphson {
+            cap,
+            max_steps: 200,
+            ..Default::default()
+        },
+        strategy,
+    )?;
+    use crate::constitutive::solid::elastic::internal_variables::ElasticIV;
+    Assert::default().zero_within_tols(&model().internal_variables_residual(&f, &f_2)?)?;
+    Assert::default().eq_within_tols(
+        Vector::from([f[0][0], f[0][1], f[0][2], f[1][2]]),
+        &Vector::from([STRETCH_FAR, 0.0, 0.0, 0.0]),
+    )?;
+    Ok((f, f_2))
+}
+
+#[test]
+fn root_cap() -> Result<(), AssertionError> {
+    let (f, f_2) = far(Some(5e-1), SolveStrategy::Monolithic { elimination: false })?;
+    for strategy in [
+        SolveStrategy::Monolithic { elimination: true },
+        SolveStrategy::Condensed,
+    ] {
+        let (f_other, f_2_other) = far(Some(5e-1), strategy)?;
+        Assert::default().eq_within_tols(&f, &f_other)?;
+        Assert::default().eq_within_tols(&f_2, &f_2_other)?
+    }
+    Ok(())
+}
+
+#[test]
+fn root_cap_needed() {
+    for strategy in [
+        SolveStrategy::Monolithic { elimination: false },
+        SolveStrategy::Monolithic { elimination: true },
+        SolveStrategy::Condensed,
+    ] {
+        assert!(far(None, strategy).is_err())
+    }
+}
+
+/// Root finding has no merit function, so backtracking for errors is the only
+/// line search the block solver can take. Every other one panics on it.
+#[test]
+fn root_line_search_error() -> Result<(), AssertionError> {
+    use crate::constitutive::solid::elastic::internal_variables::FirstOrderRoot;
+    for strategy in [
+        SolveStrategy::Monolithic { elimination: false },
+        SolveStrategy::Monolithic { elimination: true },
+        SolveStrategy::Condensed,
+    ] {
+        let (f, f_2) = model().root(
+            AppliedLoad::UniaxialStress(STRETCH),
+            NewtonRaphson {
+                line_search: line_search("error"),
+                ..Default::default()
+            },
+            strategy,
+        )?;
+        check(&f, &f_2)?
+    }
+    Ok(())
+}
+
 #[test]
 #[should_panic(expected = "gradient of the merit function")]
 fn minimize_line_search_wolfe() {

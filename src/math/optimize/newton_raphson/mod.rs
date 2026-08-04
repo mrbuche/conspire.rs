@@ -22,6 +22,11 @@ use std::{
 pub struct NewtonRaphson {
     /// Absolute error tolerance.
     pub abs_tol: Scalar,
+    /// Largest step the variables are allowed to take, if they are capped.
+    ///
+    /// The direction is the one the tangent gave either way, so this shortens
+    /// a step without turning it.
+    pub cap: Option<Scalar>,
     /// Line search algorithm.
     pub line_search: LineSearch,
     /// Maximum number of steps.
@@ -40,8 +45,8 @@ impl Debug for NewtonRaphson {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "NewtonRaphson {{ abs_tol: {:?}, line_search: {}, max_steps: {:?} }}",
-            self.abs_tol, self.line_search, self.max_steps
+            "NewtonRaphson {{ abs_tol: {:?}, cap: {:?}, line_search: {}, max_steps: {:?} }}",
+            self.abs_tol, self.cap, self.line_search, self.max_steps
         )
     }
 }
@@ -50,6 +55,7 @@ impl Default for NewtonRaphson {
     fn default() -> Self {
         Self {
             abs_tol: ABS_TOL,
+            cap: None,
             line_search: LineSearch::None,
             max_steps: 25,
             norm: Norm::Chebyshev,
@@ -234,6 +240,7 @@ where
         match blocked(
             self,
             |_: &U, _: &V| panic!("No line search in root finding"),
+            false,
             residual_global,
             residual_local,
             tangents,
@@ -280,6 +287,7 @@ where
         match blocked(
             self,
             function,
+            true,
             residual_global,
             residual_local,
             tangents,
@@ -398,6 +406,69 @@ where
     None
 }
 
+/// Shortens the step until it lands somewhere both blocks can be evaluated,
+/// or gives up.
+///
+/// The counterpart of [`backtrack_errors`] for a problem split in two, asking
+/// of the trial point everything the next iteration will ask of it.
+#[allow(clippy::too_many_arguments)]
+fn backtrack_errors_block<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>(
+    mut residual_global: impl FnMut(&U, &V) -> Result<Ru, String>,
+    mut residual_local: impl FnMut(&U, &V) -> Result<Rv, String>,
+    mut tangents: impl FnMut(&U, &V) -> Result<(Kuu, Kvu, Kuv, Kvv), String>,
+    global: &U,
+    local: &V,
+    multipliers_global: &Vector,
+    multipliers_local: &Vector,
+    decrement_outer: &Vector,
+    decrement_inner: &Vector,
+    cut_back: Scalar,
+    max_steps: usize,
+) -> Option<Scalar>
+where
+    U: Solution,
+    V: Solution,
+{
+    let mut trial_size = 1.0;
+    for _ in 0..max_steps {
+        let mut trial_global = global.clone();
+        let mut trial_local = local.clone();
+        let mut trial_multipliers_global = multipliers_global.clone();
+        let mut trial_multipliers_local = multipliers_local.clone();
+        trial_global
+            .decrement_from_chained(&mut trial_multipliers_global, decrement_outer * trial_size);
+        trial_local
+            .decrement_from_chained(&mut trial_multipliers_local, decrement_inner * trial_size);
+        if residual_global(&trial_global, &trial_local).is_ok()
+            && residual_local(&trial_global, &trial_local).is_ok()
+            && tangents(&trial_global, &trial_local).is_ok()
+        {
+            return Some(trial_size);
+        }
+        trial_size *= cut_back
+    }
+    None
+}
+
+/// Shortens the step until the variables move no further than the cap.
+///
+/// Only the variables are measured, the multipliers being of another kind
+/// entirely, but everything is scaled together so that the direction survives.
+fn cap_decrement(newton_raphson: &NewtonRaphson, decrements: &mut [(&mut Vector, usize)]) {
+    if let Some(cap) = newton_raphson.cap {
+        let size = newton_raphson.norm.over(
+            decrements
+                .iter()
+                .flat_map(|(decrement, variables)| decrement.iter().take(*variables).copied()),
+        );
+        if size > cap {
+            decrements
+                .iter_mut()
+                .for_each(|(decrement, _)| **decrement *= cap / size)
+        }
+    }
+}
+
 fn kkt_block<K>(
     tangent: &K,
     constraint_matrix: &CscMatrix,
@@ -433,6 +504,7 @@ fn kkt_residual<R, T>(
 fn blocked<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>(
     newton_raphson: &NewtonRaphson,
     mut function: impl FnMut(&U, &V) -> Result<Scalar, String>,
+    minimizing: bool,
     mut residual_global: impl FnMut(&U, &V) -> Result<Ru, String>,
     mut residual_local: impl FnMut(&U, &V) -> Result<Rv, String>,
     mut tangents: impl FnMut(&U, &V) -> Result<(Kuu, Kvu, Kuv, Kvv), String>,
@@ -512,7 +584,8 @@ where
                     0,
                 );
                 tangent_inner.factorize_lu_into(&mut factorization)?;
-                let decrement = factorization.solve(&update_inner);
+                let mut decrement = factorization.solve(&update_inner);
+                cap_decrement(newton_raphson, &mut [(&mut decrement, num_local)]);
                 local.decrement_from_chained(&mut multipliers_local, decrement)
             }
         }
@@ -541,7 +614,7 @@ where
             return Ok((global, local));
         }
         let (tangent_uu, tangent_vu, tangent_uv, tangent_vv) = tangents(&global, &local)?;
-        let (decrement_outer, decrement_inner) = if eliminating {
+        let (mut decrement_outer, mut decrement_inner) = if eliminating {
             kkt_block(
                 &tangent_uu,
                 &constraint_matrix_global,
@@ -639,8 +712,53 @@ where
                 .for_each(|(entry, decrement_i)| *decrement_i = *entry);
             (decrement_outer, decrement_inner)
         };
+        cap_decrement(
+            newton_raphson,
+            &mut [
+                (&mut decrement_outer, num_global),
+                (&mut decrement_inner, num_local),
+            ],
+        );
         let step_size = if matches!(newton_raphson.line_search, LineSearch::None) {
             1.0
+        } else if !minimizing
+            && let LineSearch::Error {
+                cut_back,
+                max_steps,
+            } = &newton_raphson.line_search
+        {
+            //
+            // Root finding has no merit function to backtrack against, so the
+            // trial point is judged by whether the problem can be evaluated
+            // there at all. Minimization keeps its merit function instead.
+            //
+            match backtrack_errors_block(
+                &mut residual_global,
+                &mut residual_local,
+                &mut tangents,
+                &global,
+                &local,
+                &multipliers_global,
+                &multipliers_local,
+                &decrement_outer,
+                &decrement_inner,
+                *cut_back,
+                *max_steps,
+            ) {
+                Some(trial_size) => trial_size,
+                None => {
+                    return Err(OptimizationError::Upstream(
+                        format!(
+                            "{}",
+                            LineSearchError::MaximumStepsReached(
+                                format!("{:?}", newton_raphson.line_search),
+                                *max_steps
+                            )
+                        ),
+                        format!("{newton_raphson:?}"),
+                    ));
+                }
+            }
         } else {
             penalty = penalty.max(
                 PENALTY_SAFETY
@@ -754,6 +872,12 @@ where
         } else {
             tangent = hessian(&solution)?;
             decrement = &residual / tangent;
+            if let Some(cap) = newton_raphson.cap {
+                let size = newton_raphson.norm.apply(&decrement);
+                if size > cap {
+                    decrement *= cap / size
+                }
+            }
             step_size = newton_raphson.backtracking_line_search(
                 &mut function,
                 &mut jacobian,
@@ -816,6 +940,7 @@ where
                 .retain_from(&retained)
                 .solve_lu(&residual)?
         }
+        cap_decrement(newton_raphson, &mut [(&mut decrement, unmap.len())]);
         if !matches!(newton_raphson.line_search, LineSearch::None) {
             let jac = jacobian(&solution)?;
             let mut decrement_full = &solution * 0.0;
@@ -915,6 +1040,7 @@ where
             hessian(&solution)?.fill_into(&mut tangent);
             decrement = tangent.solve_lu(&residual)?
         }
+        cap_decrement(newton_raphson, &mut [(&mut decrement, num_variables)]);
         let step_size = if matches!(newton_raphson.line_search, LineSearch::None) {
             1.0
         } else if let LineSearch::Error {

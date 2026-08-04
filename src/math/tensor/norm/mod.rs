@@ -22,4 +22,17 @@ impl Norm {
             Self::Minkowski(p) => t.norm_p(*p),
         }
     }
+    /// The norm of some values, for when they are part of a tensor rather than
+    /// all of one.
+    pub fn over(&self, values: impl Iterator<Item = Scalar>) -> Scalar {
+        match self {
+            Self::Chebyshev => values.fold(0.0, |largest: Scalar, value| largest.max(value.abs())),
+            Self::Euclidean => values.map(|value| value * value).sum::<Scalar>().sqrt(),
+            Self::Manhattan => values.map(|value| value.abs()).sum(),
+            Self::Minkowski(p) => values
+                .map(|value| value.abs().powf(*p))
+                .sum::<Scalar>()
+                .powf(1.0 / p),
+        }
+    }
 }
