@@ -42,10 +42,6 @@ fn torus(major: Scalar, minor: Scalar, around: usize, tube: usize) -> Tessellati
     )))
 }
 
-/// A slender torus at a coarse scale is where trimming back too far shows up:
-/// the buffer layer ends up spanning a gap the core should have covered. The
-/// `s_max/2` margin rule inverted 41 elements here (worst scaled Jacobian
-/// -0.5748); the signed-distance ratio rule leaves none.
 #[test]
 fn dualize_slender_torus_is_not_inverted() {
     let mesh = torus(1.0, 0.15, 64, 24)
