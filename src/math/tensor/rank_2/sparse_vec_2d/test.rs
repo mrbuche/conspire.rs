@@ -1,5 +1,8 @@
 use super::{TensorRank2, TensorRank2SparseVec2D};
-use crate::math::{Hessian, HessianAccumulate, HessianAccumulateGeneral, Rank2, SquareMatrix};
+use crate::math::{
+    Hessian, HessianAccumulate, HessianAccumulateGeneral, Rank2, SquareMatrix,
+    assert::{Assert, AssertionError},
+};
 
 fn block(value: f64) -> TensorRank2<2, 1, 1> {
     TensorRank2::from([[value, 2.0 * value], [3.0 * value, 4.0 * value]])
@@ -111,4 +114,14 @@ fn accumulate_general_inserts_without_mirroring() {
         [2]
     );
     assert_eq!(stiffnesses[2].entries().count(), 0);
+}
+
+#[test]
+fn quadratic_form_matches_dense() -> Result<(), AssertionError> {
+    use crate::math::Vector;
+    let vector = Vector::from([1.0, -2.0, 3.0, 0.5, -1.5, 2.0]);
+    Assert::default().eq_within_tols(
+        accumulator().quadratic_form(&vector),
+        &(&vector * (dense() * &vector)),
+    )
 }

@@ -58,6 +58,9 @@ impl Sub<&Vector> for TensorRank0 {
 }
 
 impl Hessian for TensorRank0 {
+    fn quadratic_form(&self, vector: &Vector) -> TensorRank0 {
+        self * vector[0] * vector[0]
+    }
     fn entry(&self, _row: usize, _column: usize) -> TensorRank0 {
         unimplemented!()
     }

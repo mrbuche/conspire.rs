@@ -143,6 +143,12 @@ impl Hessian for SquareMatrix {
     fn entry(&self, row: usize, column: usize) -> Scalar {
         self[row][column]
     }
+    fn quadratic_form(&self, vector: &Vector) -> Scalar {
+        self.iter()
+            .zip(vector.iter())
+            .map(|(self_i, vector_i)| vector_i * (self_i * vector))
+            .sum()
+    }
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
         self.into_iter()
             .zip(square_matrix.iter_mut())

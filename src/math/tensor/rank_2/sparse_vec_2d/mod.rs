@@ -4,7 +4,7 @@ mod test;
 use super::TensorRank2;
 use crate::math::{
     Hessian, HessianAccumulate, HessianAccumulateGeneral, Rank2, Scalar, SquareMatrix, Tensor,
-    tensor::vec::TensorVector,
+    Vector, tensor::vec::TensorVector,
 };
 use std::ops::Mul;
 
@@ -79,6 +79,30 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<TensorR
 }
 
 impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2SparseVec2D<D, I, J> {
+    fn quadratic_form(&self, vector: &Vector) -> Scalar {
+        self.iter()
+            .enumerate()
+            .map(|(a, row)| {
+                row.entries()
+                    .map(|(b, block)| {
+                        block
+                            .iter()
+                            .enumerate()
+                            .map(|(i, block_i)| {
+                                block_i
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(j, block_ij)| {
+                                        block_ij * vector[D * a + i] * vector[D * b + j]
+                                    })
+                                    .sum::<Scalar>()
+                            })
+                            .sum::<Scalar>()
+                    })
+                    .sum::<Scalar>()
+            })
+            .sum()
+    }
     fn entry(&self, row: usize, column: usize) -> Scalar {
         match self[row / D]
             .0

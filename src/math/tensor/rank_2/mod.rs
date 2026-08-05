@@ -338,6 +338,19 @@ impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2<D, 
     fn entry(&self, row: usize, column: usize) -> TensorRank0 {
         self[row][column]
     }
+    fn quadratic_form(&self, vector: &Vector) -> TensorRank0 {
+        self.iter()
+            .zip(vector.iter())
+            .map(|(self_i, vector_i)| {
+                vector_i
+                    * self_i
+                        .iter()
+                        .zip(vector.iter())
+                        .map(|(self_ij, vector_j)| self_ij * vector_j)
+                        .sum::<TensorRank0>()
+            })
+            .sum()
+    }
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
         self.into_iter().enumerate().for_each(|(i, self_i)| {
             self_i

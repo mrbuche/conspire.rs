@@ -2,7 +2,9 @@
 mod test;
 
 use super::TensorRank2;
-use crate::math::{Hessian, HessianAccumulate, Rank2, Scalar, SquareMatrix, Tensor, TensorRank0};
+use crate::math::{
+    Hessian, HessianAccumulate, Rank2, Scalar, SquareMatrix, Tensor, TensorRank0, Vector,
+};
 use std::{
     fmt::{self, Display, Formatter},
     iter::Sum,
@@ -212,6 +214,37 @@ impl<const D: usize, const I: usize, const J: usize> Hessian
             Ok(k) => self.0[a].0[k].1[i][j],
             Err(_) => 0.0,
         }
+    }
+    fn quadratic_form(&self, vector: &Vector) -> Scalar {
+        //
+        // Only one triangle is stored, and the entry mirroring a stored one
+        // contributes the very same product, so an off-diagonal block counts
+        // twice. A diagonal block is stored whole and counts once.
+        //
+        self.0
+            .iter()
+            .enumerate()
+            .map(|(a, row)| {
+                row.entries()
+                    .map(|(b, block)| {
+                        block
+                            .iter()
+                            .enumerate()
+                            .map(|(i, block_i)| {
+                                block_i
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(j, block_ij)| {
+                                        block_ij * vector[D * a + i] * vector[D * b + j]
+                                    })
+                                    .sum::<Scalar>()
+                            })
+                            .sum::<Scalar>()
+                            * if a == b { 1.0 } else { 2.0 }
+                    })
+                    .sum::<Scalar>()
+            })
+            .sum()
     }
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
         self.0.iter().enumerate().for_each(|(a, row)| {
