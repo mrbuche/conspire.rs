@@ -1208,3 +1208,16 @@ fn decrement_from_retained_skips_fixed_entries() {
     });
     assert_eq!(taken, 5)
 }
+
+#[test]
+fn quadratic_form_matches_dense() {
+    use super::super::{Hessian, SquareMatrix, Vector};
+    let tensor = TensorRank2::<3, 1, 1>::from(get_array_dim_3());
+    let vector = Vector::from([1.0, -2.0, 3.0]);
+    let form = tensor.quadratic_form(&vector);
+    let mut dense = SquareMatrix::zero(3);
+    tensor.fill_into(&mut dense);
+    Assert::default()
+        .eq_within_tols(form, &(&vector * (dense * &vector)))
+        .unwrap()
+}

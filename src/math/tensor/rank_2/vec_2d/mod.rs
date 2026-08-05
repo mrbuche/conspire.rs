@@ -1,5 +1,8 @@
+#[cfg(test)]
+mod test;
+
 use crate::math::{
-    Hessian, SquareMatrix, Tensor, TensorRank0, TensorRank2, TensorRank2Vec,
+    Hessian, SquareMatrix, Tensor, TensorRank0, TensorRank2, TensorRank2Vec, Vector,
     tensor::vec::TensorVector,
 };
 use std::ops::Mul;
@@ -34,6 +37,31 @@ impl<const D: usize, const I: usize, const J: usize> From<TensorRank2Vec2D<D, I,
 }
 
 impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2Vec2D<D, I, J> {
+    fn quadratic_form(&self, vector: &Vector) -> TensorRank0 {
+        self.iter()
+            .enumerate()
+            .map(|(a, row)| {
+                row.iter()
+                    .enumerate()
+                    .map(|(b, block)| {
+                        block
+                            .iter()
+                            .enumerate()
+                            .map(|(i, block_i)| {
+                                block_i
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(j, block_ij)| {
+                                        block_ij * vector[D * a + i] * vector[D * b + j]
+                                    })
+                                    .sum::<TensorRank0>()
+                            })
+                            .sum::<TensorRank0>()
+                    })
+                    .sum::<TensorRank0>()
+            })
+            .sum()
+    }
     fn entry(&self, row: usize, column: usize) -> TensorRank0 {
         self[row / D][column / D][row % D][column % D]
     }

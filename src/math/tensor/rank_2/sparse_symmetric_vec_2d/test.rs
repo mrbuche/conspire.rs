@@ -1,5 +1,8 @@
 use super::{TensorRank2, TensorRank2SparseVec2DSymmetric};
-use crate::math::{Hessian, HessianAccumulate, Rank2, SquareMatrix};
+use crate::math::{
+    Hessian, HessianAccumulate, Rank2, SquareMatrix,
+    assert::{Assert, AssertionError},
+};
 
 fn block(value: f64) -> TensorRank2<2, 1, 1> {
     TensorRank2::from([[value, 2.0 * value], [3.0 * value, 4.0 * value]])
@@ -105,4 +108,14 @@ fn mul_and_div_scale_all_entries() {
     assert_eq!(scaled.entry(0, 4), 2.0);
     let divided = scaled / 2.0;
     assert_eq!(divided.entry(0, 0), 2.0);
+}
+
+#[test]
+fn quadratic_form_matches_dense() -> Result<(), AssertionError> {
+    use crate::math::Vector;
+    let vector = Vector::from([1.0, -2.0, 3.0, 0.5, -1.5, 2.0]);
+    Assert::default().eq_within_tols(
+        accumulator().quadratic_form(&vector),
+        &(&vector * (dense() * &vector)),
+    )
 }

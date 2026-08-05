@@ -347,6 +347,31 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     fn entry(&self, row: usize, column: usize) -> TensorRank0 {
         self[row / D][row % D][column / D][column % D]
     }
+    fn quadratic_form(&self, vector: &Vector) -> TensorRank0 {
+        self.iter()
+            .enumerate()
+            .map(|(i, self_i)| {
+                self_i
+                    .iter()
+                    .enumerate()
+                    .map(|(j, self_ij)| {
+                        vector[D * i + j]
+                            * self_ij
+                                .iter()
+                                .enumerate()
+                                .map(|(k, self_ijk)| {
+                                    self_ijk
+                                        .iter()
+                                        .enumerate()
+                                        .map(|(l, self_ijkl)| self_ijkl * vector[D * k + l])
+                                        .sum::<TensorRank0>()
+                                })
+                                .sum::<TensorRank0>()
+                    })
+                    .sum::<TensorRank0>()
+            })
+            .sum()
+    }
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
         self.into_iter().enumerate().for_each(|(i, self_i)| {
             self_i.into_iter().enumerate().for_each(|(j, self_ij)| {

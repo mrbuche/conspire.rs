@@ -99,6 +99,14 @@ where
     fn entry(&self, row: usize, column: usize) -> Scalar;
     /// Fills the Hessian into a square matrix.
     fn fill_into(self, square_matrix: &mut SquareMatrix);
+    /// The quadratic form of the Hessian with a vector.
+    ///
+    /// ```math
+    /// \mathbf{v}\cdot\mathbf{H}\cdot\mathbf{v}
+    /// ```
+    fn quadratic_form(&self, _vector: &Vector) -> Scalar {
+        unimplemented!()
+    }
     /// Return only the retained indices.
     fn retain_from(self, _retained: &[bool]) -> SquareMatrix {
         unimplemented!()

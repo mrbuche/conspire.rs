@@ -1253,3 +1253,14 @@ fn retain_from_filters_rows_and_columns() {
             .for_each(|(q, &full_q)| assert_eq!(square_matrix[p][q], full[full_p][full_q]))
     })
 }
+
+#[test]
+fn quadratic_form_matches_dense() {
+    use super::super::{Hessian, SquareMatrix, Vector};
+    let tensor = TensorRank4::<3, 1, 1, 1, 1>::from(get_array());
+    let vector = Vector::from([1.0, -2.0, 3.0, 0.5, -1.5, 2.0, -0.25, 4.0, 1.5]);
+    let form = tensor.quadratic_form(&vector);
+    let mut dense = SquareMatrix::zero(9);
+    tensor.fill_into(&mut dense);
+    assert!((form - &vector * (dense * &vector)).abs() < crate::ABS_TOL)
+}
