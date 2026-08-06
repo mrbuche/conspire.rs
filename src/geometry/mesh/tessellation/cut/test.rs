@@ -777,10 +777,6 @@ fn bone_uniform() {
                     "{spacing:>8.3}  {hexes:>8}  {polyhedra:>8}  {seconds:>7.2}  {minimum:>8.4}  {volume:>8.2e}  {bad:>6}  {:>7.1}%  {worst:>8.4}",
                     100.0 * certified as f64 / hexes as f64,
                 );
-                use crate::{
-                    geometry::mesh::{Output, Vtk},
-                    io::{Write, write::Compression},
-                };
                 let mut regular = 0;
                 let mut total = 0;
                 if let Connectivity::Polyhedral(cells) = &mesh.connectivities()[1] {
