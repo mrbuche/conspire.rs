@@ -1,5 +1,8 @@
 use super::{certifies, coefficients, margin, sampled_minimum};
-use crate::{geometry::Coordinates, math::Scalar};
+use crate::{
+    geometry::Coordinates,
+    math::{Quantity, Scalar},
+};
 
 const ELEMENT: [usize; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
 
@@ -24,7 +27,7 @@ fn perturbed(seed: &mut u64, amplitude: Scalar) -> Coordinates<3> {
         ((*seed >> 33) as Scalar / (1u64 << 31) as Scalar - 1.0) * amplitude
     };
     let mut coordinates = cube(1.0);
-    (0..8).for_each(|node| (0..3).for_each(|d| coordinates[node][d] += random()));
+    (0..8).for_each(|node| (0..3).for_each(|d| coordinates[node][d] += Quantity::new(random())));
     coordinates
 }
 
@@ -43,7 +46,7 @@ fn a_cube_is_certified_with_every_coefficient_its_volume() {
 #[test]
 fn an_inverted_element_is_not_certified() {
     let mut coordinates = cube(1.0);
-    coordinates[6][2] = -3.0;
+    coordinates[6][2] = Quantity::new(-3.0);
     assert!(!certifies(&ELEMENT, &coordinates));
     assert!(margin(&ELEMENT, &coordinates) < 0.0);
 }
