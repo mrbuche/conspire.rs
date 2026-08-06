@@ -68,12 +68,20 @@ impl Lattice {
         cells.sort_unstable_by_key(|&([i, j, k], _)| (k, j, i));
         cells
     }
-    pub(super) fn mesh(&self) -> Mesh<D> {
-        Mesh::from_lattice_cells(
-            self.cells().into_iter().map(|(index, _)| (index, 1)),
-            self.nel,
-            &Coordinate::const_from([self.spacing; D]),
-            &self.origin,
+    /// The mesh of the occupied cells, with how each meets the surface, which
+    /// rasterizing already determined and [`classify`](Tessellation::classify)
+    /// would otherwise have to find again.
+    pub(super) fn mesh(&self) -> (Mesh<D>, Vec<Class>) {
+        let cells = self.cells();
+        let classes = cells.iter().map(|&(_, class)| class).collect();
+        (
+            Mesh::from_lattice_cells(
+                cells.into_iter().map(|(index, _)| (index, 1)),
+                self.nel,
+                &Coordinate::const_from([self.spacing; D]),
+                &self.origin,
+            ),
+            classes,
         )
     }
 }
