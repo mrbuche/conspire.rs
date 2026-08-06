@@ -91,8 +91,6 @@ fn sphere_fill_does_not_leak() {
     });
 }
 
-/// Rasterizing already knows how every cell meets the surface, and the cut
-/// only skips classifying again because the two agree.
 #[test]
 fn rasterized_classes_agree_with_classifying() {
     let fixtures = [
