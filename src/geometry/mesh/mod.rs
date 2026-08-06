@@ -32,7 +32,10 @@ pub use self::{
     smooth::Smoothing,
     tessellation::{
         Tessellation,
-        cut::{Class, marching::Placement},
+        cut::{
+            Class,
+            marching::{Marching, Placement},
+        },
         write::Stl,
     },
     write::{Output, exodus::ExodusFormat, vtk::Vtk},
