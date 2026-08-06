@@ -1,4 +1,4 @@
-use super::Placement;
+use super::{Marching, Placement};
 use crate::geometry::mesh::{
     Connectivity, Verdict,
     quality::metrics::hexahedron::bernstein,
@@ -49,7 +49,13 @@ fn placements_compared() {
             ("midpoint", Placement::Midpoint),
             ("crossing", Placement::Crossing(0.2)),
         ] {
-            match tessellation.marching_hex(spacing, placement, false) {
+            match tessellation.marching_hex(
+                spacing,
+                Marching {
+                    placement,
+                    keep: None,
+                },
+            ) {
                 Ok(mesh) => {
                     report(&format!("{name}/{label}"), &mesh);
                 }
@@ -62,7 +68,13 @@ fn placements_compared() {
 #[test]
 fn a_sphere_is_all_hexahedra_and_none_inverted() {
     let mesh = sphere(3)
-        .marching_hex(0.2, Placement::Midpoint, false)
+        .marching_hex(
+            0.2,
+            Marching {
+                placement: Placement::Midpoint,
+                keep: None,
+            },
+        )
         .unwrap();
     assert_eq!(mesh.number_of_element_blocks(), 1);
     assert!(matches!(
@@ -95,7 +107,13 @@ fn bone_marching() {
         ] {
             for draw in [false, true] {
                 let start = Instant::now();
-                let mesh = match tessellation.marching_hex(spacing, placement, draw) {
+                let mesh = match tessellation.marching_hex(
+                    spacing,
+                    Marching {
+                        placement,
+                        keep: draw.then_some(0.5),
+                    },
+                ) {
                     Err(error) => {
                         println!("{divisions:>5.0}/{label}  {error}");
                         continue;
@@ -125,4 +143,100 @@ fn bone_marching() {
             }
         }
     }
+}
+
+#[test]
+#[ignore = "diagnostic; run with --release -- --ignored --nocapture --test-threads=1"]
+fn guard_swept() {
+    use crate::geometry::mesh::{Connectivity, Tessellation};
+    use std::path::Path;
+    let tessellation = Tessellation::try_from(Path::new("bone_tri.stl")).unwrap();
+    let spacing = 0.9 / 64.0;
+    println!(
+        "{:>10}  {:>8}  {:>8}  {:>8}  {:>8}  {:>5}",
+        "guard", "SJ ascut", "gap ascut", "SJ drawn", "gap drawn", "bad"
+    );
+    for guard in [0.0, 0.01, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.49] {
+        let mut row = Vec::new();
+        for draw in [false, true] {
+            let mesh = tessellation
+                .marching_hex(
+                    spacing,
+                    Marching {
+                        placement: Placement::Crossing(guard),
+                        keep: draw.then_some(0.5),
+                    },
+                )
+                .unwrap();
+            let scaled = &mesh.minimum_scaled_jacobians()[0];
+            let minimum = scaled.iter().cloned().fold(f64::INFINITY, f64::min);
+            let bad = scaled.iter().filter(|&&value| value <= 0.0).count();
+            let hexes = match &mesh.connectivities()[0] {
+                Connectivity::Hexahedral(hexes) => {
+                    hexes.iter().copied().collect::<Vec<[usize; 8]>>()
+                }
+                _ => panic!(),
+            };
+            let (_, mean) = tessellation.conformance(&hexes, mesh.coordinates(), spacing);
+            row.push((minimum, mean, bad))
+        }
+        println!(
+            "{guard:>10.2}  {:>8.4}  {:>9.4}  {:>8.4}  {:>9.4}  {:>5}",
+            row[0].0,
+            row[0].1,
+            row[1].0,
+            row[1].1,
+            row[0].2 + row[1].2
+        );
+    }
+}
+
+#[test]
+#[ignore = "diagnostic; run with --release -- --ignored --nocapture --test-threads=1"]
+fn guard_against_keep() {
+    use crate::geometry::mesh::{Connectivity, Tessellation};
+    use std::path::Path;
+    let tessellation = Tessellation::try_from(Path::new("bone_tri.stl")).unwrap();
+    let spacing = 0.9 / 64.0;
+    println!(
+        "{:>8}  {:>6}  {:>9}  {:>9}",
+        "guard", "keep", "min SJ", "avg gap"
+    );
+    for guard in [0.0, 0.1, 0.2, 0.3, 0.49] {
+        for keep in [0.9, 0.7, 0.5, 0.3, 0.15, 0.05] {
+            let mesh = tessellation
+                .marching_hex(
+                    spacing,
+                    Marching {
+                        placement: Placement::Crossing(guard),
+                        keep: Some(keep),
+                    },
+                )
+                .unwrap();
+            let scaled = &mesh.minimum_scaled_jacobians()[0];
+            let minimum = scaled.iter().cloned().fold(f64::INFINITY, f64::min);
+            let hexes = match &mesh.connectivities()[0] {
+                Connectivity::Hexahedral(hexes) => {
+                    hexes.iter().copied().collect::<Vec<[usize; 8]>>()
+                }
+                _ => panic!(),
+            };
+            let (_, mean) = tessellation.conformance(&hexes, mesh.coordinates(), spacing);
+            println!("{guard:>8.2}  {keep:>6.2}  {minimum:>9.5}  {mean:>9.5}");
+        }
+    }
+}
+
+#[test]
+fn the_default_holds_quality_and_draws_the_boundary_close() {
+    let tessellation = sphere(3);
+    let mesh = tessellation.marching_hex(0.1, Marching::default()).unwrap();
+    let scaled = &mesh.minimum_scaled_jacobians()[0];
+    assert!(scaled.iter().all(|&value| value > 0.0));
+    let hexes = match &mesh.connectivities()[0] {
+        Connectivity::Hexahedral(hexes) => hexes.iter().copied().collect::<Vec<[usize; 8]>>(),
+        _ => panic!(),
+    };
+    let (_, mean) = tessellation.conformance(&hexes, mesh.coordinates(), 0.1);
+    assert!(mean < 0.02, "{mean}");
 }

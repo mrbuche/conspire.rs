@@ -10,7 +10,6 @@ use crate::{
 };
 
 const BISECTIONS: usize = 8;
-const KEEP: Scalar = 0.5;
 const PASSES: usize = 4;
 
 const FACES: [[usize; 4]; 6] = [
@@ -45,13 +44,19 @@ fn boundary(hexes: &[[usize; 8]]) -> Vec<usize> {
 
 impl Tessellation {
     /// Draws the boundary onto the surface, moving each node as far along the
-    /// way as leaves every hexahedron it belongs to still certified.
+    /// way as leaves every hexahedron it belongs to still certified and still
+    /// holding `keep` of the scaled Jacobian it was cut with.
     ///
     /// Each node is answered for on its own, against a check that proves
     /// rather than samples, so this settles no energy and needs no
     /// convergence: a node either moves or it does not, and the mesh is valid
     /// throughout either way.
-    pub(super) fn draw_onto(&self, hexes: &[[usize; 8]], coordinates: &mut Coordinates<D>) {
+    pub(super) fn draw_onto(
+        &self,
+        hexes: &[[usize; 8]],
+        coordinates: &mut Coordinates<D>,
+        keep: Scalar,
+    ) {
         let surface = self.mesh();
         let surface_coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
@@ -70,7 +75,7 @@ impl Tessellation {
         // certificate is what still rules out an inversion anywhere within.
         let floors: Vec<Scalar> = hexes
             .iter()
-            .map(|hex| KEEP * minimum_scaled_jacobian(hex, coordinates))
+            .map(|hex| keep * minimum_scaled_jacobian(hex, coordinates))
             .collect();
         for _ in 0..PASSES {
             for &node in nodes.iter() {

@@ -30,6 +30,28 @@ pub enum Placement {
     Crossing(Scalar),
 }
 
+/// How the boundary is placed and then drawn onto the surface.
+///
+/// The default holds the crossings a fifth of an edge off either end and lets
+/// the boundary settle for seven tenths of the quality it was cut with, which
+/// on a bone leaves the mesh within a hundredth of a cell of the surface.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Marching {
+    pub placement: Placement,
+    /// The share of its scaled Jacobian every hexahedron must keep while the
+    /// boundary is drawn onto the surface, or `None` to leave it as cut.
+    pub keep: Option<Scalar>,
+}
+
+impl Default for Marching {
+    fn default() -> Self {
+        Self {
+            placement: Placement::Crossing(0.2),
+            keep: Some(0.7),
+        }
+    }
+}
+
 /// A lattice corner, identified by its index rather than its position so that
 /// cells agree on it without comparing coordinates.
 pub(super) type Corner = [usize; D];
@@ -108,16 +130,25 @@ impl Tessellation {
     /// Meshes this tessellation with hexahedra alone, by clipping every cell
     /// of a uniform lattice to the surface and splitting what is left about
     /// its midpoints.
+    ///
+    /// Passing a share to `draw` then moves the boundary onto the surface,
+    /// as far as leaves every hexahedron holding that much of the scaled
+    /// Jacobian it was cut with.
     pub fn marching_hex(
         &self,
         spacing: Scalar,
-        placement: Placement,
-        draw: bool,
+        marching: Marching,
     ) -> Result<Mesh<D>, &'static str> {
+        let Marching { placement, keep } = marching;
         if let Placement::Crossing(guard) = placement
             && !(0.0..0.5).contains(&guard)
         {
             return Err("crossing guard must be within [0, 0.5)");
+        }
+        if let Some(keep) = keep
+            && !(0.0..=1.0).contains(&keep)
+        {
+            return Err("the share of quality kept must be within [0, 1]");
         }
         // A corner sitting on the surface has no sign, and a lattice laid on
         // round numbers meets one readily, so it is moved until none does.
@@ -140,7 +171,7 @@ impl Tessellation {
             return Err("no cell of the lattice has a corner inside the surface");
         }
         let points = self.placements(&cells, &signs, placement)?;
-        split::hexahedra(cells, &points, draw.then_some(self))
+        split::hexahedra(cells, &points, keep.map(|keep| (self, keep)))
     }
 }
 
