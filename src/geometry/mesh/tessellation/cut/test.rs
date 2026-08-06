@@ -698,7 +698,10 @@ fn octree_tet_background_requires_strong_1() {
 #[test]
 #[ignore = "benchmark; run with --release -- --ignored --nocapture --test-threads=1"]
 fn bone_uniform() {
-    use crate::geometry::mesh::quality::metrics::Verdict;
+    use crate::{
+        geometry::mesh::{Output, Verdict, Vtk},
+        io::{Write, write::Compression},
+    };
     use std::{path::Path, time::Instant};
     let tessellation = Tessellation::try_from(Path::new("bone_tri.stl")).unwrap();
     let coordinates = tessellation.mesh().coordinates();
