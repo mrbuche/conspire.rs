@@ -76,3 +76,37 @@ fn a_sphere_is_all_hexahedra_and_none_inverted() {
     assert!(count > 0);
     assert_eq!(negative, 0, "min SJ {minimum}");
 }
+
+#[test]
+#[ignore = "diagnostic; run with --release -- --ignored --nocapture --test-threads=1"]
+fn bone_marching() {
+    use crate::{
+        geometry::mesh::{Output, Tessellation, Vtk},
+        io::{Write, write::Compression},
+    };
+    use std::{path::Path, time::Instant};
+    let tessellation = Tessellation::try_from(Path::new("bone_tri.stl")).unwrap();
+    for divisions in [16.0, 32.0, 64.0, 128.0] {
+        let spacing = 0.9 / divisions;
+        for (label, placement) in [
+            ("midpoint", Placement::Midpoint),
+            ("crossing", Placement::Crossing(0.2)),
+        ] {
+            let start = Instant::now();
+            match tessellation.marching_hex(spacing, placement) {
+                Err(error) => println!("{divisions:>5.0}/{label}  {error}"),
+                Ok(mesh) => {
+                    let seconds = start.elapsed().as_secs_f64();
+                    let (count, minimum, negative) =
+                        report(&format!("{divisions:.0}/{label}"), &mesh);
+                    let path = format!("bone_{label}_{divisions:.0}.vtm");
+                    mesh.write(Output::Vtk(Vtk::MultiBlock(Compression::Off(&path))))
+                        .unwrap();
+                    println!(
+                        "                  {seconds:>6.2} s   {count} hexes, min SJ {minimum:.4}, {negative} inverted, wrote {path}"
+                    );
+                }
+            }
+        }
+    }
+}
