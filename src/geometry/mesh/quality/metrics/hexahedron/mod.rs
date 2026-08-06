@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod test;
 
-#[cfg(test)]
 pub(crate) mod bernstein;
 
 use crate::{
@@ -49,7 +48,7 @@ pub(super) fn minimum_jacobian<const D: usize>(
     super::min_jacobian(&CORNERS, element, coordinates)
 }
 
-pub(super) fn minimum_scaled_jacobian<const D: usize>(
+pub(crate) fn minimum_scaled_jacobian<const D: usize>(
     element: &[usize],
     coordinates: &Coordinates<D>,
 ) -> Scalar {

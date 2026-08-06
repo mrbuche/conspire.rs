@@ -2,6 +2,7 @@
 mod test;
 
 mod polyhedron;
+mod project;
 mod split;
 
 use super::{DIRECTIONS, lattice::Lattice};
@@ -111,6 +112,7 @@ impl Tessellation {
         &self,
         spacing: Scalar,
         placement: Placement,
+        draw: bool,
     ) -> Result<Mesh<D>, &'static str> {
         if let Placement::Crossing(guard) = placement
             && !(0.0..0.5).contains(&guard)
@@ -138,7 +140,7 @@ impl Tessellation {
             return Err("no cell of the lattice has a corner inside the surface");
         }
         let points = self.placements(&cells, &signs, placement)?;
-        split::hexahedra(cells, &points)
+        split::hexahedra(cells, &points, draw.then_some(self))
     }
 }
 

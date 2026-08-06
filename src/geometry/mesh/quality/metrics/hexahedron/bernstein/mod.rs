@@ -50,6 +50,7 @@ fn lift([low, middle, high]: [Scalar; 3]) -> [Scalar; 3] {
 /// positive certify that the determinant is positive everywhere in the
 /// element rather than merely at the points it is sampled at. The converse
 /// does not hold: a negative coefficient is not proof of an inversion.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn coefficients(element: &[usize], coordinates: &Coordinates<3>) -> [Scalar; 27] {
     let mut values = [[[0.0; 3]; 3]; 3];
     (0..3).for_each(|k| {
@@ -85,6 +86,7 @@ pub(crate) fn certifies(element: &[usize], coordinates: &Coordinates<3>) -> bool
 
 /// The least Bernstein coefficient, relative to the greatest, so that the
 /// measure does not scale with the element.
+#[cfg(test)]
 pub(crate) fn margin(element: &[usize], coordinates: &Coordinates<3>) -> Scalar {
     let coefficients = coefficients(element, coordinates);
     let maximum = coefficients.iter().cloned().fold(0.0, Scalar::max);
@@ -99,6 +101,7 @@ pub(crate) fn margin(element: &[usize], coordinates: &Coordinates<3>) -> Scalar 
     }
 }
 
+#[cfg(test)]
 pub(crate) fn sampled_minimum(
     element: &[usize],
     coordinates: &Coordinates<3>,
