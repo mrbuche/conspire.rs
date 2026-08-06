@@ -96,13 +96,35 @@ fn sphere_fill_does_not_leak() {
     });
 }
 
+/// Rasterizing already knows how every cell meets the surface, and the cut
+/// only skips classifying again because the two agree.
+#[test]
+fn rasterized_classes_agree_with_classifying() {
+    let fixtures = [
+        sphere(2),
+        sphere(3),
+        box_surface([0.0, 0.0, 0.0], [1.0, 1.0, 1.0]),
+        box_surface([-2.0, -2.0, -0.05], [2.0, 2.0, 0.05]),
+    ];
+    fixtures
+        .iter()
+        .enumerate()
+        .for_each(|(fixture, tessellation)| {
+            [0.3, 0.14].iter().for_each(|&spacing| {
+                let (mesh, classes) = tessellation.lattice(spacing).unwrap().mesh();
+                assert_eq!(classes, tessellation.classify(&mesh), "fixture {fixture}");
+            })
+        })
+}
+
 #[test]
 fn meshes_one_hexahedron_per_cell() {
     let lattice = box_surface([0.0, 0.0, 0.0], [1.0, 1.0, 1.0])
         .lattice(0.2)
         .unwrap();
-    let mesh = lattice.mesh();
+    let (mesh, classes) = lattice.mesh();
     assert_eq!(mesh.number_of_elements(), lattice.cells().len());
+    assert_eq!(classes.len(), lattice.cells().len());
 }
 
 #[test]
