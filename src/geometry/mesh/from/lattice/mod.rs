@@ -11,7 +11,7 @@ use crate::{
 use std::collections::BTreeMap;
 
 impl Mesh<3> {
-    pub(super) fn from_lattice_cells<I>(
+    pub(crate) fn from_lattice_cells<I>(
         cells: I,
         nel: [usize; 3],
         scale: &Coordinate<3>,
