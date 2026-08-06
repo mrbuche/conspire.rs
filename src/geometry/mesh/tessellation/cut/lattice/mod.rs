@@ -68,6 +68,9 @@ impl Lattice {
         cells.sort_unstable_by_key(|&([i, j, k], _)| (k, j, i));
         cells
     }
+    pub(super) fn frame(&self) -> (Coordinate<D>, Scalar) {
+        (self.origin.clone(), self.spacing)
+    }
     pub(super) fn mesh(&self) -> Mesh<D> {
         Mesh::from_lattice_cells(
             self.cells().into_iter().map(|(index, _)| (index, 1)),
@@ -82,6 +85,15 @@ impl Tessellation {
     /// Rasterizes onto a uniform lattice of the given cell size, keeping only
     /// the cells the surface cuts and the cells it encloses.
     pub(super) fn lattice(&self, spacing: Scalar) -> Result<Lattice, &'static str> {
+        self.lattice_shifted(spacing, [0.0; D])
+    }
+    /// As [`lattice`](Self::lattice), but with the corners moved off where
+    /// they would otherwise fall, by the given fractions of a cell.
+    pub(super) fn lattice_shifted(
+        &self,
+        spacing: Scalar,
+        shift: [Scalar; D],
+    ) -> Result<Lattice, &'static str> {
         if spacing <= 0.0 || spacing.is_nan() {
             return Err("lattice spacing must be positive");
         }
@@ -89,7 +101,7 @@ impl Tessellation {
         let coordinates = surface.coordinates();
         let bounds = BoundingBox::from(coordinates.clone());
         let origin = Coordinate::const_from(from_fn(|d| {
-            bounds.minimum()[d] - PADDING as Scalar * spacing
+            bounds.minimum()[d] - (PADDING as Scalar + shift[d]) * spacing
         }));
         let nel = from_fn(|d| {
             ((bounds.maximum()[d] - bounds.minimum()[d]) / spacing).ceil() as usize

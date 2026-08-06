@@ -5,13 +5,15 @@ mod cleanup;
 mod face;
 mod geometry;
 mod lattice;
+pub mod marching;
+
 mod snap;
 mod split;
 mod tables;
 mod topology;
 
 #[cfg(test)]
-mod test;
+pub(crate) mod test;
 
 use crate::{
     geometry::{
