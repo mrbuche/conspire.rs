@@ -342,8 +342,6 @@ fn bone_uniform() {
             Err(error) => println!("{spacing:>8.3}  {error}"),
             Ok(mesh) => {
                 let seconds = start.elapsed().as_secs_f64();
-                // Verdict covers no polyhedra, so the cut cells are judged by
-                // signed volume and only the hexes by scaled Jacobian.
                 let (block, polyhedra, volumes) =
                     match (&mesh.connectivities()[0], &mesh.connectivities()[1]) {
                         (Connectivity::Hexahedral(hexes), Connectivity::Polyhedral(polyhedra)) => (

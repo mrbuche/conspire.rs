@@ -24,7 +24,6 @@ const NEIGHBORS: [[isize; D]; 6] = [
     [0, 0, 1],
 ];
 
-/// A sparse set of occupied cells of an axis-aligned lattice.
 pub(super) struct Lattice {
     cells: FxHashMap<[usize; D], Class>,
     nel: [usize; D],
@@ -58,7 +57,6 @@ impl Lattice {
                 .then_some(next)
         })
     }
-    /// The occupied cells, ascending, paired with how each meets the surface.
     pub(super) fn cells(&self) -> Vec<([usize; D], Class)> {
         let mut cells: Vec<_> = self
             .cells
@@ -68,9 +66,6 @@ impl Lattice {
         cells.sort_unstable_by_key(|&([i, j, k], _)| (k, j, i));
         cells
     }
-    /// The mesh of the occupied cells, with how each meets the surface, which
-    /// rasterizing already determined and [`classify`](Tessellation::classify)
-    /// would otherwise have to find again.
     pub(super) fn mesh(&self) -> (Mesh<D>, Vec<Class>) {
         let cells = self.cells();
         let classes = cells.iter().map(|&(_, class)| class).collect();
@@ -87,8 +82,6 @@ impl Lattice {
 }
 
 impl Tessellation {
-    /// Rasterizes onto a uniform lattice of the given cell size, keeping only
-    /// the cells the surface cuts and the cells it encloses.
     pub(super) fn lattice(&self, spacing: Scalar) -> Result<Lattice, &'static str> {
         if spacing <= 0.0 || spacing.is_nan() {
             return Err("lattice spacing must be positive");
@@ -117,8 +110,6 @@ impl Tessellation {
 }
 
 impl Lattice {
-    /// Marks every cell any triangle overlaps, visiting triangles rather than
-    /// cells so the cost follows the surface and not the bounding box.
     fn rasterize(&mut self, surface: &Mesh<D>) {
         let coordinates = surface.coordinates();
         surface
@@ -127,8 +118,6 @@ impl Lattice {
             .flatten()
             .for_each(|triangle| {
                 let corners: [&Coordinate<D>; 3] = from_fn(|corner| &coordinates[triangle[corner]]);
-                // Widened a cell either way, since a triangle flush with a
-                // lattice plane also touches the cells on its far side.
                 let low: [usize; D] = from_fn(|d| {
                     let minimum = corners.iter().fold(Scalar::INFINITY, |a, c| a.min(c[d]));
                     (((minimum - self.origin[d]) / self.spacing).floor() as isize - 1)
@@ -155,8 +144,6 @@ impl Lattice {
                 }
             });
     }
-    /// Flood fills inward from the cut cells, so that only enclosed cells are
-    /// ever visited and the unbounded exterior is never enumerated.
     fn fill(&mut self, tessellation: &Tessellation, surface: &Mesh<D>) -> Result<(), &'static str> {
         if self.cells.is_empty() {
             return Err("surface does not intersect the lattice");
@@ -204,8 +191,6 @@ impl Lattice {
         }
         Ok(())
     }
-    /// Wraps the occupied cells in a layer of outside ones, so that every
-    /// boundary face of the mesh belongs to a cell the surface does not reach.
     fn enclose(&mut self) {
         let outside: Vec<[usize; D]> = self
             .cells
