@@ -278,3 +278,24 @@ fn cut_polyhedral_sphere() {
         }
     })
 }
+
+#[test]
+fn cut_uniform_sphere() {
+    let tessellation = sphere(3);
+    let mesh = tessellation.cut_uniform(0.15).unwrap();
+    assert_eq!(mesh.number_of_element_blocks(), 2);
+    let coordinates = mesh.coordinates();
+    match &mesh.connectivities()[1] {
+        Connectivity::Polyhedral(polyhedra) => signed_volumes(polyhedra, coordinates)
+            .iter()
+            .for_each(|&volume| assert!(volume > 0.0, "{volume}")),
+        _ => panic!(),
+    }
+}
+
+#[test]
+fn cut_uniform_thin_plate() {
+    let plate = box_surface([-2.0, -2.0, -0.05], [2.0, 2.0, 0.05]);
+    let mesh = plate.cut_uniform(0.25);
+    assert!(mesh.is_ok(), "{}", mesh.err().unwrap_or(""));
+}
