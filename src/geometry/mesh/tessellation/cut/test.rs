@@ -299,3 +299,71 @@ fn cut_uniform_thin_plate() {
     let mesh = plate.cut_uniform(0.25);
     assert!(mesh.is_ok(), "{}", mesh.err().unwrap_or(""));
 }
+
+#[test]
+#[ignore = "benchmark; run with --release -- --ignored --nocapture --test-threads=1"]
+fn bone_uniform() {
+    use crate::geometry::mesh::quality::metrics::Verdict;
+    use std::{path::Path, time::Instant};
+    let tessellation = Tessellation::try_from(Path::new("bone_tri.stl")).unwrap();
+    let coordinates = tessellation.mesh().coordinates();
+    let bounds: Vec<f64> = (0..3)
+        .map(|d| {
+            let low = coordinates
+                .iter()
+                .map(|p| p[d])
+                .fold(f64::INFINITY, f64::min);
+            let high = coordinates
+                .iter()
+                .map(|p| p[d])
+                .fold(f64::NEG_INFINITY, f64::max);
+            high - low
+        })
+        .collect();
+    println!(
+        "bone: {} triangles, extent {:.1} x {:.1} x {:.1}",
+        tessellation.mesh().number_of_elements(),
+        bounds[0],
+        bounds[1],
+        bounds[2]
+    );
+    println!(
+        "{:>8}  {:>8}  {:>8}  {:>7}  {:>8}  {:>8}  {:>6}",
+        "spacing", "hexes", "polys", "cut s", "min SJ", "min vol", "bad"
+    );
+    let longest = bounds.iter().cloned().fold(0.0, f64::max);
+    for divisions in [16.0, 32.0, 64.0, 128.0] {
+        let spacing = longest / divisions;
+        let start = Instant::now();
+        match tessellation.cut_uniform(spacing) {
+            Err(error) => println!("{spacing:>8.3}  {error}"),
+            Ok(mesh) => {
+                let seconds = start.elapsed().as_secs_f64();
+                // Verdict covers no polyhedra, so the cut cells are judged by
+                // signed volume and only the hexes by scaled Jacobian.
+                let (block, polyhedra, volumes) =
+                    match (&mesh.connectivities()[0], &mesh.connectivities()[1]) {
+                        (Connectivity::Hexahedral(hexes), Connectivity::Polyhedral(polyhedra)) => (
+                            hexes.iter().copied().collect::<Vec<_>>(),
+                            polyhedra.elements_faces().len(),
+                            signed_volumes(polyhedra, mesh.coordinates()),
+                        ),
+                        _ => panic!(),
+                    };
+                let hexes = block.len();
+                let only = Mesh::from((
+                    vec![Connectivity::Hexahedral(block.into())],
+                    mesh.coordinates().clone(),
+                ));
+                let scaled = &only.minimum_scaled_jacobians()[0];
+                let minimum = scaled.iter().cloned().fold(f64::INFINITY, f64::min);
+                let volume = volumes.iter().cloned().fold(f64::INFINITY, f64::min);
+                let bad = volumes.iter().filter(|&&v| v <= 0.0).count()
+                    + scaled.iter().filter(|&&v| v <= 0.0).count();
+                println!(
+                    "{spacing:>8.3}  {hexes:>8}  {polyhedra:>8}  {seconds:>7.2}  {minimum:>8.4}  {volume:>8.2e}  {bad:>6}"
+                );
+            }
+        }
+    }
+}
