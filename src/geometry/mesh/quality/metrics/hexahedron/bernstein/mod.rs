@@ -44,13 +44,6 @@ fn lift([low, middle, high]: [Scalar; 3]) -> [Scalar; 3] {
     [low, 0.5 * (4.0 * middle - low - high), high]
 }
 
-/// The coefficients of the Jacobian determinant of the trilinear map in the
-/// Bernstein basis, which is tri-quadratic and so has twenty seven of them.
-///
-/// Bernstein basis functions are non-negative, so coefficients that are all
-/// positive certify that the determinant is positive everywhere in the
-/// element rather than merely at the points it is sampled at. The converse
-/// does not hold: a negative coefficient is not proof of an inversion.
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn coefficients(element: &[usize], coordinates: &Coordinates<3>) -> [Scalar; 27] {
     let mut values = [[[0.0; 3]; 3]; 3];
@@ -78,15 +71,12 @@ pub(crate) fn coefficients(element: &[usize], coordinates: &Coordinates<3>) -> [
     std::array::from_fn(|index| values[index / 9][index / 3 % 3][index % 3])
 }
 
-/// Whether the element is certified to have a positive Jacobian throughout.
 pub(crate) fn certifies(element: &[usize], coordinates: &Coordinates<3>) -> bool {
     coefficients(element, coordinates)
         .iter()
         .all(|&coefficient| coefficient > 0.0)
 }
 
-/// The least Bernstein coefficient, relative to the greatest, so that the
-/// measure does not scale with the element.
 #[cfg(test)]
 pub(crate) fn margin(element: &[usize], coordinates: &Coordinates<3>) -> Scalar {
     let coefficients = coefficients(element, coordinates);
