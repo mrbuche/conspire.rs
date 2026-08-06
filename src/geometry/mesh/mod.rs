@@ -28,7 +28,11 @@ pub use self::{
     read::Input,
     remesh::{AnisotropicSizing, IsotropicSizing, Remeshing, RemeshingMetric},
     smooth::Smoothing,
-    tessellation::{Tessellation, cut::Class, write::Stl},
+    tessellation::{
+        Tessellation,
+        cut::{Class, marching::Placement},
+        write::Stl,
+    },
     write::{Output, exodus::ExodusFormat, vtk::Vtk},
 };
 
