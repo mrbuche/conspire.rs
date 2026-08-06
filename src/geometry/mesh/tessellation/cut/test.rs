@@ -118,6 +118,46 @@ pub(super) fn sphere(refinements: usize) -> Tessellation {
     )))
 }
 
+/// A stellated sphere: every triangle is replaced by a spike raised from its
+/// centroid, giving ridges and points that no smooth surface has.
+pub(super) fn star(refinements: usize, height: f64) -> Tessellation {
+    let base = sphere(refinements);
+    let coordinates_base = base.mesh().coordinates();
+    let mut coordinates: Vec<[f64; 3]> = coordinates_base
+        .iter()
+        .map(|point| [point[0], point[1], point[2]])
+        .collect();
+    let mut faces = Vec::new();
+    base.mesh()
+        .connectivities()
+        .iter()
+        .flatten()
+        .for_each(|triangle| {
+            let [a, b, c] = [triangle[0], triangle[1], triangle[2]];
+            let centroid: Vec<f64> = (0..3)
+                .map(|d| (coordinates[a][d] + coordinates[b][d] + coordinates[c][d]) / 3.0)
+                .collect();
+            let norm = centroid
+                .iter()
+                .map(|value| value * value)
+                .sum::<f64>()
+                .sqrt();
+            coordinates.push([
+                centroid[0] / norm * height,
+                centroid[1] / norm * height,
+                centroid[2] / norm * height,
+            ]);
+            let apex = coordinates.len() - 1;
+            faces.push([a, b, apex]);
+            faces.push([b, c, apex]);
+            faces.push([c, a, apex]);
+        });
+    Tessellation::from(Mesh::from((
+        vec![Connectivity::Triangular(faces.into())],
+        Coordinates::from(coordinates),
+    )))
+}
+
 pub(super) fn box_surface(minimum: [f64; 3], maximum: [f64; 3]) -> Tessellation {
     let [x0, y0, z0] = minimum;
     let [x1, y1, z1] = maximum;
@@ -142,6 +182,60 @@ pub(super) fn box_surface(minimum: [f64; 3], maximum: [f64; 3]) -> Tessellation 
     let faces: Vec<[usize; 3]> = quads
         .iter()
         .flat_map(|&[a, b, c, d]| [[a, b, c], [a, c, d]])
+        .collect();
+    Tessellation::from(Mesh::from((
+        vec![Connectivity::Triangular(faces.into())],
+        Coordinates::from(coordinates),
+    )))
+}
+
+pub(super) fn rotated(tessellation: &Tessellation, angles: [f64; 3]) -> Tessellation {
+    let [x, y, z] = angles;
+    let rotate = |point: &Coordinate<3>| {
+        let (a, b, c) = (point[0], point[1], point[2]);
+        let (b, c) = (b * x.cos() - c * x.sin(), b * x.sin() + c * x.cos());
+        let (a, c) = (a * y.cos() + c * y.sin(), -a * y.sin() + c * y.cos());
+        let (a, b) = (a * z.cos() - b * z.sin(), a * z.sin() + b * z.cos());
+        [a, b, c]
+    };
+    let coordinates: Vec<[f64; 3]> = tessellation
+        .mesh()
+        .coordinates()
+        .iter()
+        .map(rotate)
+        .collect();
+    let faces: Vec<[usize; 3]> = tessellation
+        .mesh()
+        .connectivities()
+        .iter()
+        .flatten()
+        .map(|triangle| [triangle[0], triangle[1], triangle[2]])
+        .collect();
+    Tessellation::from(Mesh::from((
+        vec![Connectivity::Triangular(faces.into())],
+        Coordinates::from(coordinates),
+    )))
+}
+
+pub(super) fn shifted(tessellation: &Tessellation, offset: [f64; 3]) -> Tessellation {
+    let coordinates: Vec<[f64; 3]> = tessellation
+        .mesh()
+        .coordinates()
+        .iter()
+        .map(|point| {
+            [
+                point[0] + offset[0],
+                point[1] + offset[1],
+                point[2] + offset[2],
+            ]
+        })
+        .collect();
+    let faces: Vec<[usize; 3]> = tessellation
+        .mesh()
+        .connectivities()
+        .iter()
+        .flatten()
+        .map(|triangle| [triangle[0], triangle[1], triangle[2]])
         .collect();
     Tessellation::from(Mesh::from((
         vec![Connectivity::Triangular(faces.into())],
@@ -381,6 +475,146 @@ fn bone_uniform() {
                     "{spacing:>8.3}  {hexes:>8}  {polyhedra:>8}  {seconds:>7.2}  {minimum:>8.4}  {volume:>8.2e}  {bad:>6}  {:>7.1}%  {worst:>8.4}",
                     100.0 * certified as f64 / hexes as f64,
                 );
+                use crate::{
+                    geometry::mesh::{Output, Vtk},
+                    io::{Write, write::Compression},
+                };
+                let mut regular = 0;
+                let mut total = 0;
+                if let Connectivity::Polyhedral(cells) = &mesh.connectivities()[1] {
+                    let faces_nodes = cells.faces_nodes();
+                    cells.elements_faces().iter().for_each(|faces| {
+                        let mut degree: HashMap<usize, std::collections::HashSet<[usize; 2]>> =
+                            HashMap::new();
+                        faces.iter().for_each(|&face| {
+                            let nodes = &faces_nodes[face];
+                            (0..nodes.len()).for_each(|i| {
+                                let (a, b) = (nodes[i], nodes[(i + 1) % nodes.len()]);
+                                let edge = if a < b { [a, b] } else { [b, a] };
+                                degree.entry(a).or_default().insert(edge);
+                                degree.entry(b).or_default().insert(edge);
+                            })
+                        });
+                        total += 1;
+                        regular += degree.values().all(|edges| edges.len() == 3) as usize;
+                    })
+                }
+                println!(
+                    "          {regular}/{total} cut cells are 3-regular ({:.1}%)",
+                    100.0 * regular as f64 / total as f64
+                );
+                let path = format!("bone_uniform_{divisions:.0}.vtm");
+                mesh.write(Output::Vtk(Vtk::MultiBlock(Compression::Off(&path))))
+                    .unwrap();
+                println!("          wrote {path}");
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "diagnostic; run with --release -- --ignored --nocapture --test-threads=1"]
+fn certification_on_sharp_features() {
+    use crate::{
+        geometry::mesh::quality::metrics::{Verdict, hexahedron::bernstein},
+        io::Write,
+    };
+    let fixtures: Vec<(&str, Tessellation, f64)> = vec![
+        ("box", box_surface([-0.5, -0.5, -0.5], [0.5, 0.5, 0.5]), 1.0),
+        (
+            "box_tilt",
+            rotated(
+                &box_surface([-0.5, -0.5, -0.5], [0.5, 0.5, 0.5]),
+                [0.3, 0.4, 0.5],
+            ),
+            1.0,
+        ),
+        (
+            "tilt_jit",
+            shifted(
+                &rotated(
+                    &box_surface([-0.5, -0.5, -0.5], [0.5, 0.5, 0.5]),
+                    [0.3, 0.4, 0.5],
+                ),
+                [0.013_717, 0.007_193, 0.002_971],
+            ),
+            1.0,
+        ),
+        (
+            "box_skew",
+            rotated(
+                &box_surface([-0.5, -0.5, -0.5], [0.5, 0.5, 0.5]),
+                [0.1, 0.02, 0.7],
+            ),
+            1.0,
+        ),
+        (
+            "slab",
+            box_surface([-0.5, -0.5, -0.05], [0.5, 0.5, 0.05]),
+            1.0,
+        ),
+        ("star2", star(1, 2.0), 2.0),
+        ("star3", star(2, 1.6), 1.6),
+        ("spike", star(1, 4.0), 4.0),
+    ];
+    println!(
+        "{:>8}  {:>6}  {:>8}  {:>8}  {:>7}  {:>8}  {:>8}  {:>8}",
+        "fixture", "tris", "spacing", "hexes", "polys", "min SJ", "certif", "margin"
+    );
+    for (name, tessellation, extent) in fixtures {
+        tessellation.write(format!("{name}.stl")).unwrap();
+        let triangles = tessellation.mesh().number_of_elements();
+        for divisions in [16.0, 48.0] {
+            let spacing = 2.0 * extent / divisions;
+            match tessellation.cut_uniform(spacing) {
+                Err(error) => println!("{name:>8}  {triangles:>6}  {spacing:>8.4}  {error}"),
+                Ok(mesh) => {
+                    let mut block = Vec::new();
+                    let mut polyhedra = 0;
+                    mesh.connectivities()
+                        .iter()
+                        .for_each(|connectivity| match connectivity {
+                            Connectivity::Hexahedral(hexes) => block.extend(hexes.iter().copied()),
+                            Connectivity::Polyhedral(cells) => {
+                                polyhedra += cells.elements_faces().len()
+                            }
+                            _ => panic!(),
+                        });
+                    let (certified, worst) =
+                        block
+                            .iter()
+                            .fold((0usize, f64::INFINITY), |(count, worst), hex| {
+                                let element = hex.to_vec();
+                                (
+                                    count
+                                        + bernstein::certifies(&element, mesh.coordinates())
+                                            as usize,
+                                    worst.min(bernstein::margin(&element, mesh.coordinates())),
+                                )
+                            });
+                    let hexes = block.len();
+                    let only = Mesh::from((
+                        vec![Connectivity::Hexahedral(block.into())],
+                        mesh.coordinates().clone(),
+                    ));
+                    let minimum = only.minimum_scaled_jacobians()[0]
+                        .iter()
+                        .cloned()
+                        .fold(f64::INFINITY, f64::min);
+                    println!(
+                        "{name:>8}  {triangles:>6}  {spacing:>8.4}  {hexes:>8}  {polyhedra:>7}  {minimum:>8.4}  {:>7.1}%  {worst:>8.4}",
+                        100.0 * certified as f64 / hexes as f64
+                    );
+                }
+            }
+        }
+        for scale in [8.0, 16.0] {
+            match tessellation.cut(Balancing::Strong(1), scale) {
+                Ok(mesh) => println!(
+                    "{name:>8}  dual scale {scale:>5}  ok, {} elements",
+                    mesh.number_of_elements()
+                ),
+                Err(error) => println!("{name:>8}  dual scale {scale:>5}  {error}"),
             }
         }
     }
