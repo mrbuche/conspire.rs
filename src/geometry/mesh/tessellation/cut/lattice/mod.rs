@@ -105,9 +105,6 @@ impl Tessellation {
     pub(super) fn lattice_cells(&self, spacing: Quantity<Length>) -> Result<Lattice, &'static str> {
         self.lattice_shifted(spacing, [0.0; D])
     }
-    /// As [`lattice_cells`](Self::lattice_cells), but with the corners moved
-    /// off where they would otherwise fall, by the given fractions of a
-    /// cell.
     pub(super) fn lattice_shifted(
         &self,
         spacing: Quantity<Length>,

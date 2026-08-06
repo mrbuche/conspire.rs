@@ -53,11 +53,8 @@ impl Default for Marching {
     }
 }
 
-/// A lattice corner, identified by its index rather than its position so that
-/// cells agree on it without comparing coordinates.
 pub(super) type Corner = [usize; D];
 
-/// A vertex of the polyhedron a cell is clipped to.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(super) enum Vertex {
     Inside(Corner),
@@ -92,8 +89,6 @@ impl Signs {
 }
 
 impl Tessellation {
-    /// Signs every corner of every occupied cell, strictly inside or strictly
-    /// outside, which the cut relies on to never meet the surface at a corner.
     pub(super) fn signs(&self, lattice: &Lattice) -> Result<Signs, &'static str> {
         let surface = self.mesh();
         let coordinates = surface.coordinates();
@@ -151,8 +146,6 @@ impl Tessellation {
         {
             return Err("the share of quality kept must be within [0, 1]");
         }
-        // A corner sitting on the surface has no sign, and a lattice laid on
-        // round numbers meets one readily, so it is moved until none does.
         let (lattice, signs) = SHIFTS
             .iter()
             .find_map(|&shift| {
@@ -176,8 +169,6 @@ impl Tessellation {
     }
 }
 
-/// Fractions of a cell to move the lattice by, in turn, until no corner of it
-/// lies on the surface.
 const SHIFTS: [[Scalar; D]; 5] = [
     [0.0, 0.0, 0.0],
     [0.013_717, 0.007_193, 0.002_971],
@@ -197,8 +188,6 @@ pub(super) const CORNERS: [[usize; D]; 8] = [
     [0, 1, 1],
 ];
 
-/// The six faces of a cell, each wound so that it is seen anticlockwise from
-/// outside the cell.
 pub(super) const FACES: [[usize; 4]; 6] = [
     [0, 3, 2, 1],
     [4, 5, 6, 7],

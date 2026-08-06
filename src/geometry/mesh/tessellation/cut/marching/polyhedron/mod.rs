@@ -11,8 +11,6 @@ pub(super) struct Polyhedron {
     pub(super) faces: Vec<Vec<Vertex>>,
 }
 
-/// Clips a face of a cell to the part of it inside the surface, returning the
-/// polygons that part is made of and the edges along which it was clipped.
 fn clip(
     corners: [Corner; 4],
     inside: [bool; 4],
@@ -35,9 +33,6 @@ fn clip(
     });
     let opposed = inside[0] == inside[2] && inside[1] == inside[3] && inside[0] != inside[1];
     if opposed && !joined() {
-        // The two inside corners meet only at the middle of the face, where
-        // the surface passes between them, so they are kept apart, each with
-        // the crossings on the two edges that reach it.
         let (mut polygons, mut cuts) = (Vec::new(), Vec::new());
         (0..4).filter(|&i| inside[i]).for_each(|i| {
             let before = Vertex::boundary(corners[(i + 3) % 4], corners[i]);
@@ -60,8 +55,6 @@ fn clip(
     (vec![walk], cuts)
 }
 
-/// Chains the clipped edges into the loops that bound the surface within a
-/// cell, wound opposite to the way the faces they came from traverse them.
 fn loops(cuts: Vec<[Vertex; 2]>) -> Result<Vec<Vec<Vertex>>, &'static str> {
     let mut next = FxHashMap::default();
     for [from, to] in cuts {
