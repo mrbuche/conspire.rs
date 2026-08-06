@@ -10,8 +10,6 @@ use crate::{
     math::{FxHashMap, Quantity, Scalar, Tensor, TensorVec},
 };
 
-/// A node of the split mesh, named by what it is the middle of so that cells
-/// agree on the ones they share without comparing coordinates.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 enum Node {
     Vertex(Vertex),
@@ -20,7 +18,6 @@ enum Node {
     Body(usize),
 }
 
-/// The edge a face leaves a vertex by, the one it arrives on, and the face.
 type Around = ([Vertex; 2], [Vertex; 2], Vec<Vertex>);
 
 fn edge(one: Vertex, two: Vertex) -> [Vertex; 2] {
@@ -33,9 +30,6 @@ fn key(face: &[Vertex]) -> Vec<Vertex> {
     key
 }
 
-/// Splits each polyhedron about the middles of its edges, faces and body,
-/// which leaves one hexahedron per vertex and matches across cells because
-/// every node is named by the vertices it lies among.
 pub(super) fn hexahedra(
     cells: Vec<Polyhedron>,
     points: &FxHashMap<Vertex, Coordinate<D>>,
@@ -134,7 +128,6 @@ pub(super) fn hexahedra(
 }
 
 impl Tessellation {
-    /// Places a vertex on every edge whose ends straddle the surface.
     pub(super) fn placements(
         &self,
         cells: &[Polyhedron],
