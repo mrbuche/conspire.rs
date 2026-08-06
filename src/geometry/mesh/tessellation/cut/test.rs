@@ -328,8 +328,8 @@ fn bone_uniform() {
         bounds[2]
     );
     println!(
-        "{:>8}  {:>8}  {:>8}  {:>7}  {:>8}  {:>8}  {:>6}",
-        "spacing", "hexes", "polys", "cut s", "min SJ", "min vol", "bad"
+        "{:>8}  {:>8}  {:>8}  {:>7}  {:>8}  {:>8}  {:>6}  {:>8}  {:>8}",
+        "spacing", "hexes", "polys", "cut s", "min SJ", "min vol", "bad", "certif", "margin"
     );
     let longest = bounds.iter().cloned().fold(0.0, f64::max);
     for divisions in [16.0, 32.0, 64.0, 128.0] {
@@ -356,12 +356,30 @@ fn bone_uniform() {
                     mesh.coordinates().clone(),
                 ));
                 let scaled = &only.minimum_scaled_jacobians()[0];
+                let (certified, worst) = match &only.connectivities()[0] {
+                    Connectivity::Hexahedral(hexes) => {
+                        hexes
+                            .iter()
+                            .fold((0usize, f64::INFINITY), |(count, worst), hex| {
+                                use crate::geometry::mesh::quality::metrics::hexahedron::bernstein;
+                                let element: Vec<usize> = hex.to_vec();
+                                (
+                                    count
+                                        + bernstein::certifies(&element, only.coordinates())
+                                            as usize,
+                                    worst.min(bernstein::margin(&element, only.coordinates())),
+                                )
+                            })
+                    }
+                    _ => panic!(),
+                };
                 let minimum = scaled.iter().cloned().fold(f64::INFINITY, f64::min);
                 let volume = volumes.iter().cloned().fold(f64::INFINITY, f64::min);
                 let bad = volumes.iter().filter(|&&v| v <= 0.0).count()
                     + scaled.iter().filter(|&&v| v <= 0.0).count();
                 println!(
-                    "{spacing:>8.3}  {hexes:>8}  {polyhedra:>8}  {seconds:>7.2}  {minimum:>8.4}  {volume:>8.2e}  {bad:>6}"
+                    "{spacing:>8.3}  {hexes:>8}  {polyhedra:>8}  {seconds:>7.2}  {minimum:>8.4}  {volume:>8.2e}  {bad:>6}  {:>7.1}%  {worst:>8.4}",
+                    100.0 * certified as f64 / hexes as f64,
                 );
             }
         }
