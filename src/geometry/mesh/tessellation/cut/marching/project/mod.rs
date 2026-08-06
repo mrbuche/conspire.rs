@@ -21,8 +21,6 @@ const FACES: [[usize; 4]; 6] = [
     [3, 0, 4, 7],
 ];
 
-/// The nodes on faces belonging to only one hexahedron, which for a mesh cut
-/// from a lattice are exactly the ones approximating the surface.
 fn boundary(hexes: &[[usize; 8]]) -> Vec<usize> {
     let mut counts = FxHashMap::default();
     hexes.iter().for_each(|hex| {
@@ -43,14 +41,6 @@ fn boundary(hexes: &[[usize; 8]]) -> Vec<usize> {
 }
 
 impl Tessellation {
-    /// Draws the boundary onto the surface, moving each node as far along the
-    /// way as leaves every hexahedron it belongs to still certified and still
-    /// holding `keep` of the scaled Jacobian it was cut with.
-    ///
-    /// Each node is answered for on its own, against a check that proves
-    /// rather than samples, so this settles no energy and needs no
-    /// convergence: a node either moves or it does not, and the mesh is valid
-    /// throughout either way.
     pub(super) fn draw_onto(
         &self,
         hexes: &[[usize; 8]],
@@ -68,11 +58,6 @@ impl Tessellation {
                 belongs.entry(node).or_default().push(index);
             })
         });
-        // Measured once, against the mesh as it was cut, so that quality
-        // cannot ratchet down a share at a time as neighbouring nodes move.
-        // The scaled Jacobian is what bounds quality, since a flattened cell
-        // holds its Bernstein margin while losing its shape entirely; the
-        // certificate is what still rules out an inversion anywhere within.
         let floors: Vec<Scalar> = hexes
             .iter()
             .map(|hex| keep * minimum_scaled_jacobian(hex, coordinates))
@@ -88,9 +73,6 @@ impl Tessellation {
                 if along.norm() == 0.0 {
                     continue;
                 }
-                // Certifying alone would let a node travel until its cells
-                // were on the point of degenerating, so each must keep a share
-                // of the margin it was cut with.
                 let certified = |coordinates: &Coordinates<D>| {
                     belongs[&node].iter().all(|&index| {
                         minimum_scaled_jacobian(&hexes[index], coordinates) >= floors[index]
@@ -115,8 +97,6 @@ impl Tessellation {
             }
         }
     }
-    /// How far the boundary sits from the surface, at worst and on average,
-    /// as a fraction of the cell size.
     #[cfg(test)]
     pub(super) fn conformance(
         &self,
