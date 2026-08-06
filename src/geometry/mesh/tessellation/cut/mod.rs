@@ -4,6 +4,7 @@ mod classify;
 mod cleanup;
 mod face;
 mod geometry;
+mod lattice;
 mod snap;
 mod split;
 mod tables;
@@ -122,6 +123,21 @@ impl Tessellation {
         let classes = self.classify(&mesh);
         if !contained(&mesh, &classes) {
             return Err("tessellation is not contained within the dual mesh");
+        }
+        let (mesh, snapped) = self.snap(mesh, &classes)?;
+        let tables = self.tables(&mesh, &classes, &snapped)?;
+        self.assemble(&mesh, &classes, &tables)
+    }
+    /// Cuts a hex mesh to this tessellation, over a uniform lattice of the
+    /// given cell size rather than a dual.
+    ///
+    /// Unlike [`cut`](Self::cut) the background cells are all axis-aligned
+    /// cubes, at the cost of the grading a tree provides.
+    pub fn cut_uniform(&self, spacing: Scalar) -> Result<Mesh<D>, &'static str> {
+        let mesh = self.lattice(spacing)?.mesh();
+        let classes = self.classify(&mesh);
+        if !contained(&mesh, &classes) {
+            return Err("tessellation is not contained within the lattice mesh");
         }
         let (mesh, snapped) = self.snap(mesh, &classes)?;
         let tables = self.tables(&mesh, &classes, &snapped)?;
