@@ -69,12 +69,17 @@ impl Lattice {
     pub(super) fn frame(&self) -> (Coordinate<D>, Scalar) {
         (self.origin.clone(), self.spacing)
     }
-    pub(super) fn mesh(&self) -> Mesh<D> {
-        Mesh::from_lattice_cells(
-            self.cells().into_iter().map(|(index, _)| (index, 1)),
-            self.nel,
-            &Coordinate::const_from([self.spacing; D]),
-            &self.origin,
+    pub(super) fn mesh(&self) -> (Mesh<D>, Vec<Class>) {
+        let cells = self.cells();
+        let classes = cells.iter().map(|&(_, class)| class).collect();
+        (
+            Mesh::from_lattice_cells(
+                cells.into_iter().map(|(index, _)| (index, 1)),
+                self.nel,
+                &Coordinate::const_from([self.spacing; D]),
+                &self.origin,
+            ),
+            classes,
         )
     }
 }

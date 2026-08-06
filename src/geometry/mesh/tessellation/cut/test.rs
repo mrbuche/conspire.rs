@@ -395,7 +395,10 @@ fn cut_uniform_thin_plate() {
 #[test]
 #[ignore = "benchmark; run with --release -- --ignored --nocapture --test-threads=1"]
 fn bone_uniform() {
-    use crate::geometry::mesh::quality::metrics::Verdict;
+    use crate::{
+        geometry::mesh::{Output, Verdict, Vtk},
+        io::{Write, write::Compression},
+    };
     use std::{path::Path, time::Instant};
     let tessellation = Tessellation::try_from(Path::new("bone_tri.stl")).unwrap();
     let coordinates = tessellation.mesh().coordinates();
@@ -471,10 +474,6 @@ fn bone_uniform() {
                     "{spacing:>8.3}  {hexes:>8}  {polyhedra:>8}  {seconds:>7.2}  {minimum:>8.4}  {volume:>8.2e}  {bad:>6}  {:>7.1}%  {worst:>8.4}",
                     100.0 * certified as f64 / hexes as f64,
                 );
-                use crate::{
-                    geometry::mesh::{Output, Vtk},
-                    io::{Write, write::Compression},
-                };
                 let mut regular = 0;
                 let mut total = 0;
                 if let Connectivity::Polyhedral(cells) = &mesh.connectivities()[1] {

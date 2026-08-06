@@ -136,8 +136,7 @@ impl Tessellation {
     /// Unlike [`cut`](Self::cut) the background cells are all axis-aligned
     /// cubes, at the cost of the grading a tree provides.
     pub fn cut_uniform(&self, spacing: Scalar) -> Result<Mesh<D>, &'static str> {
-        let mesh = self.lattice(spacing)?.mesh();
-        let classes = self.classify(&mesh);
+        let (mesh, classes) = self.lattice(spacing)?.mesh();
         if !contained(&mesh, &classes) {
             return Err("tessellation is not contained within the lattice mesh");
         }
