@@ -152,7 +152,7 @@ pub(super) fn star(refinements: usize, height: f64) -> Tessellation {
     let coordinates_base = base.mesh().coordinates();
     let mut coordinates: Vec<[f64; 3]> = coordinates_base
         .iter()
-        .map(|point| [point[0], point[1], point[2]])
+        .map(|point| [point[0].value(), point[1].value(), point[2].value()])
         .collect();
     let mut faces = Vec::new();
     base.mesh()
@@ -219,7 +219,7 @@ pub(super) fn box_surface(minimum: [f64; 3], maximum: [f64; 3]) -> Tessellation 
 pub(super) fn rotated(tessellation: &Tessellation, angles: [f64; 3]) -> Tessellation {
     let [x, y, z] = angles;
     let rotate = |point: &Coordinate<3>| {
-        let (a, b, c) = (point[0], point[1], point[2]);
+        let (a, b, c) = (point[0].value(), point[1].value(), point[2].value());
         let (b, c) = (b * x.cos() - c * x.sin(), b * x.sin() + c * x.cos());
         let (a, c) = (a * y.cos() + c * y.sin(), -a * y.sin() + c * y.cos());
         let (a, b) = (a * z.cos() - b * z.sin(), a * z.sin() + b * z.cos());
@@ -251,9 +251,9 @@ pub(super) fn shifted(tessellation: &Tessellation, offset: [f64; 3]) -> Tessella
         .iter()
         .map(|point| {
             [
-                point[0] + offset[0],
-                point[1] + offset[1],
-                point[2] + offset[2],
+                point[0].value() + offset[0],
+                point[1].value() + offset[1],
+                point[2].value() + offset[2],
             ]
         })
         .collect();
@@ -708,11 +708,11 @@ fn bone_uniform() {
         .map(|d| {
             let low = coordinates
                 .iter()
-                .map(|p| p[d])
+                .map(|p| p[d].value())
                 .fold(f64::INFINITY, f64::min);
             let high = coordinates
                 .iter()
-                .map(|p| p[d])
+                .map(|p| p[d].value())
                 .fold(f64::NEG_INFINITY, f64::max);
             high - low
         })
@@ -732,7 +732,7 @@ fn bone_uniform() {
     for divisions in [16.0, 32.0, 64.0, 128.0] {
         let spacing = longest / divisions;
         let start = Instant::now();
-        match tessellation.cut_uniform(spacing) {
+        match cut_uniform(&tessellation, spacing) {
             Err(error) => println!("{spacing:>8.3}  {error}"),
             Ok(mesh) => {
                 let seconds = start.elapsed().as_secs_f64();
@@ -819,7 +819,10 @@ fn bone_uniform() {
 #[ignore = "diagnostic; run with --release -- --ignored --nocapture --test-threads=1"]
 fn certification_on_sharp_features() {
     use crate::{
-        geometry::mesh::quality::metrics::{Verdict, hexahedron::bernstein},
+        geometry::mesh::{
+            Stl,
+            quality::metrics::{Verdict, hexahedron::bernstein},
+        },
         io::Write,
     };
     let fixtures: Vec<(&str, Tessellation, f64)> = vec![
@@ -865,11 +868,13 @@ fn certification_on_sharp_features() {
         "fixture", "tris", "spacing", "hexes", "polys", "min SJ", "certif", "margin"
     );
     for (name, tessellation, extent) in fixtures {
-        tessellation.write(format!("{name}.stl")).unwrap();
+        tessellation
+            .write(Stl::Ascii(format!("{name}.stl")))
+            .unwrap();
         let triangles = tessellation.mesh().number_of_elements();
         for divisions in [16.0, 48.0] {
             let spacing = 2.0 * extent / divisions;
-            match tessellation.cut_uniform(spacing) {
+            match cut_uniform(&tessellation, spacing) {
                 Err(error) => println!("{name:>8}  {triangles:>6}  {spacing:>8.4}  {error}"),
                 Ok(mesh) => {
                     let mut block = Vec::new();
@@ -912,7 +917,7 @@ fn certification_on_sharp_features() {
             }
         }
         for scale in [8.0, 16.0] {
-            match tessellation.cut(Balancing::Strong(1), scale) {
+            match cut(&tessellation, Balancing::Strong(1), scale) {
                 Ok(mesh) => println!(
                     "{name:>8}  dual scale {scale:>5}  ok, {} elements",
                     mesh.number_of_elements()

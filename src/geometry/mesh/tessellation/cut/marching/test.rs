@@ -52,7 +52,7 @@ fn placements_compared() {
             ("midpoint", Placement::Midpoint),
             ("crossing", Placement::Crossing(0.2)),
         ] {
-            match tessellation.marching_hex(Quantity::new(spacing), placement) {
+            match tessellation.marching_hex(Quantity::new(spacing), placement, false) {
                 Ok(mesh) => {
                     report(&format!("{name}/{label}"), &mesh);
                 }
@@ -65,7 +65,7 @@ fn placements_compared() {
 #[test]
 fn a_sphere_is_all_hexahedra_and_none_inverted() {
     let mesh = sphere(3)
-        .marching_hex(Quantity::new(0.2), Placement::Midpoint)
+        .marching_hex(Quantity::new(0.2), Placement::Midpoint, false)
         .unwrap();
     assert_eq!(mesh.number_of_element_blocks(), 1);
     assert!(matches!(
@@ -81,31 +81,50 @@ fn a_sphere_is_all_hexahedra_and_none_inverted() {
 #[ignore = "diagnostic; run with --release -- --ignored --nocapture --test-threads=1"]
 fn bone_marching() {
     use crate::{
-        geometry::mesh::{Output, Tessellation, Vtk},
+        geometry::mesh::{Connectivity, Output, Tessellation, Vtk},
         io::{Write, write::Compression},
     };
     use std::{path::Path, time::Instant};
     let tessellation = Tessellation::try_from(Path::new("bone_tri.stl")).unwrap();
-    for divisions in [16.0, 32.0, 64.0, 128.0] {
-        let spacing = 0.9 / divisions;
+    println!(
+        "{:>28}  {:>8}  {:>7}  {:>8}  {:>5}  {:>8}  {:>8}",
+        "case", "hexes", "s", "min SJ", "bad", "max gap", "avg gap"
+    );
+    for divisions in [16.0, 32.0, 64.0] {
+        let spacing = Quantity::new(0.9 / divisions);
         for (label, placement) in [
             ("midpoint", Placement::Midpoint),
             ("crossing", Placement::Crossing(0.2)),
         ] {
-            let start = Instant::now();
-            match tessellation.marching_hex(spacing, placement) {
-                Err(error) => println!("{divisions:>5.0}/{label}  {error}"),
-                Ok(mesh) => {
-                    let seconds = start.elapsed().as_secs_f64();
-                    let (count, minimum, negative) =
-                        report(&format!("{divisions:.0}/{label}"), &mesh);
-                    let path = format!("bone_{label}_{divisions:.0}.vtm");
-                    mesh.write(Output::Vtk(Vtk::MultiBlock(Compression::Off(&path))))
-                        .unwrap();
-                    println!(
-                        "                  {seconds:>6.2} s   {count} hexes, min SJ {minimum:.4}, {negative} inverted, wrote {path}"
-                    );
-                }
+            for draw in [false, true] {
+                let start = Instant::now();
+                let mesh = match tessellation.marching_hex(spacing, placement, draw) {
+                    Err(error) => {
+                        println!("{divisions:>5.0}/{label}  {error}");
+                        continue;
+                    }
+                    Ok(mesh) => mesh,
+                };
+                let seconds = start.elapsed().as_secs_f64();
+                let scaled = &mesh.minimum_scaled_jacobians()[0];
+                let minimum = scaled.iter().cloned().fold(f64::INFINITY, f64::min);
+                let bad = scaled.iter().filter(|&&value| value <= 0.0).count();
+                let hexes = match &mesh.connectivities()[0] {
+                    Connectivity::Hexahedral(hexes) => {
+                        hexes.iter().copied().collect::<Vec<[usize; 8]>>()
+                    }
+                    _ => panic!(),
+                };
+                let (worst, mean) = tessellation.conformance(&hexes, mesh.coordinates(), spacing);
+                let drawn = if draw { "drawn" } else { "ascut" };
+                println!(
+                    "{:>18}/{drawn:>7}  {:>8}  {seconds:>7.2}  {minimum:>8.4}  {bad:>5}  {worst:>8.4}  {mean:>8.4}",
+                    format!("{divisions:.0}/{label}"),
+                    scaled.len()
+                );
+                let path = format!("bone_{label}_{divisions:.0}_{drawn}.vtm");
+                mesh.write(Output::Vtk(Vtk::MultiBlock(Compression::Off(&path))))
+                    .unwrap();
             }
         }
     }

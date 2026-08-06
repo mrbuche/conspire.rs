@@ -39,6 +39,7 @@ fn key(face: &[Vertex]) -> Vec<Vertex> {
 pub(super) fn hexahedra(
     cells: Vec<Polyhedron>,
     points: &FxHashMap<Vertex, Coordinate<D>>,
+    draw: Option<&Tessellation>,
 ) -> Result<Mesh<D>, &'static str> {
     let mut connectivity = Vec::new();
     let mut positions = FxHashMap::default();
@@ -123,6 +124,9 @@ pub(super) fn hexahedra(
         .iter()
         .map(|hex| std::array::from_fn(|corner| numbering[&hex[corner]]))
         .collect();
+    if let Some(tessellation) = draw {
+        tessellation.draw_onto(&hexes, &mut coordinates)
+    }
     Ok(Mesh::from((
         vec![Connectivity::Hexahedral(hexes.into())],
         coordinates,
