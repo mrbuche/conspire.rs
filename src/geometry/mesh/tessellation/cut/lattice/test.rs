@@ -219,7 +219,8 @@ fn bone_lattice_before_snap() {
         crate::geometry::mesh::tessellation::Tessellation::try_from(Path::new("bone_tri.stl"))
             .unwrap();
     for divisions in [16.0, 64.0] {
-        let mesh = tessellation.lattice(0.9 / divisions).unwrap().mesh();
+        let spacing = Quantity::new(0.9 / divisions);
+        let (mesh, _) = tessellation.lattice_cells(spacing).unwrap().mesh();
         let scaled = &mesh.minimum_scaled_jacobians()[0];
         let minimum = scaled.iter().cloned().fold(f64::INFINITY, f64::min);
         let maximum = scaled.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
@@ -227,7 +228,8 @@ fn bone_lattice_before_snap() {
             "divisions {divisions}: {} cells, SJ in [{minimum}, {maximum}]",
             scaled.len()
         );
-        let cut = tessellation.cut_uniform(0.9 / divisions).unwrap();
+        let (background, classes) = tessellation.lattice_background(spacing).unwrap();
+        let cut = tessellation.cut(background, &classes).unwrap();
         let after = &crate::geometry::mesh::Mesh::from((
             vec![match &cut.connectivities()[0] {
                 crate::geometry::mesh::Connectivity::Hexahedral(hexes) => {
