@@ -5,44 +5,26 @@ use crate::{
             Octree,
             dual::{
                 NodeMap,
-                octree::{D, L, M, N, facet_direction},
+                octree::{D, N, facet_direction},
             },
-            node::Node,
+            node::split::Split,
         },
     },
     math::Scalar,
 };
 use std::array::from_fn;
 
-const LL: usize = L * L;
-
-const EDGES: [[[usize; 13]; 2]; 6] = [
-    [
-        [3, 6, 2, 4, 0, 7, 13, 5, 15, 2, 8, 0, 10],
-        [5, 4, 6, 0, 2, 14, 11, 15, 10, 4, 1, 5, 0],
-    ],
-    [
-        [2, 5, 1, 7, 3, 2, 8, 0, 10, 7, 13, 5, 15],
-        [4, 1, 3, 5, 7, 4, 1, 5, 0, 14, 11, 15, 10],
-    ],
-    [
-        [1, 1, 5, 0, 4, 13, 7, 15, 5, 8, 2, 10, 0],
-        [4, 0, 1, 4, 5, 4, 1, 5, 0, 14, 11, 15, 10],
-    ],
-    [
-        [1, 7, 3, 6, 2, 7, 13, 5, 15, 2, 8, 0, 10],
-        [5, 6, 7, 2, 3, 14, 11, 15, 10, 4, 1, 5, 0],
-    ],
-    [
-        [1, 3, 1, 2, 0, 7, 13, 5, 15, 2, 8, 0, 10],
-        [3, 2, 3, 0, 1, 14, 11, 15, 10, 4, 1, 5, 0],
-    ],
-    [
-        [2, 4, 5, 6, 7, 4, 1, 5, 0, 14, 11, 15, 10],
-        [0, 6, 4, 7, 5, 2, 8, 0, 10, 7, 13, 5, 15],
-    ],
-];
-
+/// Fills the seam between two face slabs lying in the same interface plane and abutting along an
+/// edge: two clusters side by side across `seam`, each facing coarse leaves across the same
+/// facet. Each slab stops at its own boundary, leaving a strip two coarse cells long uncovered.
+///
+/// The seam is filled from the cluster on its lower side, so each one is taken exactly once. The
+/// tree-walking version instead anchored on the coarse side and picked a side per facet; which of
+/// the two clusters is the anchor only mirrors the template, and the handedness factor below
+/// absorbs that, so fixing the choice costs nothing.
+///
+/// Along the seam the four fine cells sit at positions 0..3; the middle two carry the Steiner
+/// points, which this template only reads - the face slabs placed them.
 pub(super) fn template<T, U>(
     tree: &Octree<T, U>,
     center_nodes: &[usize],
@@ -50,133 +32,115 @@ pub(super) fn template<T, U>(
     connectivity: &mut Vec<[usize; N]>,
     nodes_map: &NodeMap<D>,
 ) where
-    T: Copy + Into<Scalar> + Into<usize>,
+    T: Copy + Into<Scalar> + Into<usize> + Split,
     U: Copy + Into<usize>,
 {
-    for node in tree.iter().filter(|node| node.is_tree()) {
-        let node_subnodes = tree.leaves(node);
-        for (facet, rows) in EDGES.iter().enumerate() {
-            if let Some(neighbor) = node.facets[facet]
-                && let Some(face_nested) =
-                    tree.orthants_all_leaves_on_facet(&tree.nodes[neighbor.into()], facet ^ 1)
-            {
-                let face_subsubnodes: [usize; LL] = from_fn(|k| face_nested[k / L][k % L].into());
-                for &row in rows {
-                    template_inner(
-                        facet,
-                        row,
-                        &node_subnodes,
-                        &face_subsubnodes,
-                        node,
-                        center_nodes,
-                        coordinates,
-                        connectivity,
-                        nodes_map,
-                        tree,
-                    )
-                }
-            }
-        }
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn template_inner<T, U>(
-    facet: usize,
-    row: [usize; 13],
-    node_subnodes: &[Option<U>; N],
-    face_subsubnodes: &[usize; LL],
-    node: &Node<D, M, N, T, U>,
-    center_nodes: &[usize],
-    coordinates: &Coordinates<D>,
-    connectivity: &mut Vec<[usize; N]>,
-    nodes_map: &NodeMap<D>,
-    tree: &Octree<T, U>,
-) where
-    T: Copy + Into<Scalar> + Into<usize>,
-    U: Copy + Into<usize>,
-{
-    let [
-        adjacent_facet,
-        node_a,
-        node_b,
-        adjacent_node_a,
-        adjacent_node_b,
-        face_a,
-        face_b,
-        face_c,
-        face_d,
-        diag_face_a,
-        diag_face_b,
-        diag_face_c,
-        diag_face_d,
-    ] = row;
-    if let Some(leaf_a) = node_subnodes[node_a]
-        && let Some(leaf_b) = node_subnodes[node_b]
-        && let Some(adjacent_node) = node.facets[adjacent_facet]
-        && let Some(diagonal_node) = tree.nodes[adjacent_node.into()].facets[facet]
-        && let Some(diag_nested) =
-            tree.orthants_all_leaves_on_facet(&tree.nodes[diagonal_node.into()], facet ^ 1)
-    {
-        let adjacent_node_subnodes = tree.leaves(&tree.nodes[adjacent_node.into()]);
-        if let Some(adjacent_leaf_a) = adjacent_node_subnodes[adjacent_node_a]
-            && let Some(adjacent_leaf_b) = adjacent_node_subnodes[adjacent_node_b]
-        {
-            let cell_a = center_nodes[leaf_a.into()];
-            let cell_b = center_nodes[leaf_b.into()];
-            let adjacent_a = center_nodes[adjacent_leaf_a.into()];
-            let adjacent_b = center_nodes[adjacent_leaf_b.into()];
-            let diag_face_subsubnodes: [usize; LL] = from_fn(|k| diag_nested[k / L][k % L].into());
-            let length: Scalar = tree.nodes[face_subsubnodes[face_a]].length.into();
-            let offset = &facet_direction(facet) * length;
-            let lookup = |center| -> Option<usize> {
-                let coordinate = &coordinates[center] - &offset;
-                nodes_map
-                    .get(&[
-                        (2.0 * coordinate[0]) as usize,
-                        (2.0 * coordinate[1]) as usize,
-                        (2.0 * coordinate[2]) as usize,
-                    ])
-                    .copied()
+    let mut clusters: Vec<([usize; D], usize)> = tree.pairing_vertices.iter().copied().collect();
+    clusters.sort_unstable();
+    for (cluster, length) in clusters {
+        let center: [i64; D] = from_fn(|axis| cluster[axis] as i64);
+        let (coarse, fine) = (length as i64, length as i64 / 2);
+        for facet in 0..2 * D {
+            let (axis, side) = (facet >> 1, facet & 1);
+            let sign = if side == 1 { 1 } else { -1 };
+            let interface = center[axis] + sign * coarse;
+            let inside = if side == 1 {
+                interface - fine
+            } else {
+                interface
             };
-            if let Some(node_1) = lookup(center_nodes[face_subsubnodes[face_a]])
-                && let Some(node_2) = lookup(center_nodes[face_subsubnodes[face_b]])
-                && let Some(node_3) = lookup(center_nodes[diag_face_subsubnodes[diag_face_a]])
-                && let Some(node_4) = lookup(center_nodes[diag_face_subsubnodes[diag_face_b]])
-            {
-                connectivity.push([
-                    cell_a, cell_b, node_1, node_2, adjacent_a, adjacent_b, node_3, node_4,
-                ]);
-                connectivity.push([
-                    center_nodes[face_subsubnodes[face_a]],
-                    center_nodes[face_subsubnodes[face_b]],
-                    node_2,
-                    node_1,
-                    center_nodes[diag_face_subsubnodes[diag_face_a]],
-                    center_nodes[diag_face_subsubnodes[diag_face_b]],
-                    node_4,
-                    node_3,
-                ]);
-                connectivity.push([
-                    center_nodes[face_subsubnodes[face_b]],
-                    node_2,
-                    node_4,
-                    center_nodes[diag_face_subsubnodes[diag_face_b]],
-                    center_nodes[face_subsubnodes[face_d]],
-                    cell_a,
-                    adjacent_a,
-                    center_nodes[diag_face_subsubnodes[diag_face_d]],
-                ]);
-                connectivity.push([
-                    center_nodes[face_subsubnodes[face_a]],
-                    center_nodes[diag_face_subsubnodes[diag_face_a]],
-                    node_3,
-                    node_1,
-                    center_nodes[face_subsubnodes[face_c]],
-                    center_nodes[diag_face_subsubnodes[diag_face_c]],
-                    adjacent_b,
-                    cell_b,
-                ]);
+            let outside = if side == 1 {
+                interface
+            } else {
+                interface - coarse
+            };
+            for seam in (0..D).filter(|&seam| seam != axis) {
+                let along = D - axis - seam;
+                let mut partner = cluster;
+                partner[seam] += 2 * length;
+                if !tree.pairing_vertices.contains(&(partner, length)) {
+                    continue;
+                }
+                let corner_at = |across: i64, sideways: i64, lengthwise: i64| {
+                    let mut corner = [0; D];
+                    corner[axis] = across;
+                    corner[seam] = sideways;
+                    corner[along] = lengthwise;
+                    corner
+                };
+                let column = |sideways: i64| -> [Option<usize>; 4] {
+                    from_fn(|k| {
+                        tree.cell_at(
+                            &corner_at(inside, sideways, center[along] - coarse + k as i64 * fine),
+                            fine,
+                        )
+                    })
+                };
+                let row = |sideways: i64| -> [Option<usize>; 2] {
+                    from_fn(|j| {
+                        tree.cell_at(
+                            &corner_at(
+                                outside,
+                                sideways,
+                                center[along] - coarse + j as i64 * coarse,
+                            ),
+                            coarse,
+                        )
+                    })
+                };
+                let near = column(center[seam] + coarse - fine);
+                let far = column(center[seam] + coarse);
+                let near_coarse = row(center[seam]);
+                let far_coarse = row(center[seam] + coarse);
+                if near.iter().chain(far.iter()).any(Option::is_none)
+                    || near_coarse
+                        .iter()
+                        .chain(far_coarse.iter())
+                        .any(Option::is_none)
+                {
+                    continue;
+                }
+                // Reversing the sense along the seam is what keeps every hex wound the same way
+                // once the frame (outward facet, seam, edge) turns left-handed.
+                let cyclic = (axis + 1) % D == seam;
+                let flip = (sign == 1) != cyclic;
+                let cell = |slot: Option<usize>| center_nodes[slot.unwrap()];
+                let fine_at =
+                    |lane: &[Option<usize>; 4], k: usize| cell(lane[if flip { 3 - k } else { k }]);
+                let coarse_at =
+                    |lane: &[Option<usize>; 2], j: usize| cell(lane[if flip { 1 - j } else { j }]);
+                let offset = &facet_direction(facet) * (fine as Scalar);
+                let steiner = |node| {
+                    let coordinate = &coordinates[node] + &offset;
+                    nodes_map
+                        .get(&from_fn::<usize, D, _>(|i| (2.0 * coordinate[i]) as usize))
+                        .copied()
+                };
+                let (face_a, face_b) = (fine_at(&near, 1), fine_at(&near, 2));
+                let (face_c, face_d) = (fine_at(&near, 0), fine_at(&near, 3));
+                let (diag_a, diag_b) = (fine_at(&far, 1), fine_at(&far, 2));
+                let (diag_c, diag_d) = (fine_at(&far, 0), fine_at(&far, 3));
+                let (cell_a, cell_b) = (coarse_at(&near_coarse, 1), coarse_at(&near_coarse, 0));
+                let (adjacent_a, adjacent_b) =
+                    (coarse_at(&far_coarse, 1), coarse_at(&far_coarse, 0));
+                if let Some(node_1) = steiner(face_a)
+                    && let Some(node_2) = steiner(face_b)
+                    && let Some(node_3) = steiner(diag_a)
+                    && let Some(node_4) = steiner(diag_b)
+                {
+                    connectivity.push([
+                        cell_a, cell_b, node_1, node_2, adjacent_a, adjacent_b, node_3, node_4,
+                    ]);
+                    connectivity.push([
+                        face_a, face_b, node_2, node_1, diag_a, diag_b, node_4, node_3,
+                    ]);
+                    connectivity.push([
+                        face_b, node_2, node_4, diag_b, face_d, cell_a, adjacent_a, diag_d,
+                    ]);
+                    connectivity.push([
+                        face_a, diag_a, node_3, node_1, face_c, diag_c, adjacent_b, cell_b,
+                    ]);
+                }
             }
         }
     }
