@@ -23,7 +23,7 @@ pub use crate::geometry::ntree::{
     rescale::Rescaling,
     write::Output,
 };
-use std::collections::HashSet;
+use crate::math::FxHashSet;
 
 pub struct Orthotree<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V = ()> {
     pub(crate) balanced: Balancing,
@@ -31,7 +31,7 @@ pub struct Orthotree<const D: usize, const L: usize, const M: usize, const N: us
     pub(crate) paired: Pairing,
     // Centers of the 2x2 clusters of refined cells the pairing settled on, each with the
     // length of the cells it groups. Recorded by every pairing scheme; read by the dual.
-    pub(crate) pairing_vertices: HashSet<([usize; D], usize)>,
+    pub(crate) pairing_vertices: FxHashSet<([usize; D], usize)>,
     pub(crate) rescale: Rescaling<D>,
 }
 

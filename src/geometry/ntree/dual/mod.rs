@@ -120,13 +120,18 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U>
     /// paired cluster. Under `Pairing::Regular` this is just "the two are siblings", but stated
     /// in terms of the pairing it holds for `Pairing::Generalized` too.
     pub(super) fn shares_cluster(&self, corner: &[i64; D], length: i64, axis: usize) -> bool {
-        (0..1usize << D).any(|bits| {
+        // The cluster centre is pinned along `axis`, so only the other axes vary. Enumerating all
+        // `D` bits would probe each centre twice.
+        (0..1usize << (D - 1)).any(|bits| {
             let mut center = [0; D];
+            let mut bit = 0;
             for (index, coordinate) in center.iter_mut().enumerate() {
                 let shifted = if index == axis {
                     corner[index] + length
                 } else {
-                    corner[index] + ((bits >> index) & 1) as i64 * length
+                    let offset = ((bits >> bit) & 1) as i64 * length;
+                    bit += 1;
+                    corner[index] + offset
                 };
                 match usize::try_from(shifted) {
                     Ok(value) => *coordinate = value,
