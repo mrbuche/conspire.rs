@@ -1,6 +1,6 @@
 use crate::{
     geometry::{
-        Coordinates,
+        Coordinate, Coordinates,
         ntree::{
             Octree,
             dual::{
@@ -45,13 +45,29 @@ pub(super) fn template<T, U>(
         if fine == 0 {
             continue;
         }
-        let origin: [i64; D] = from_fn(|axis| Into::<usize>::into(leaf.corner[axis]) as i64);
-        for along in 0..D {
+        let corner: [i64; D] = from_fn(|axis| Into::<usize>::into(leaf.corner[axis]) as i64);
+        // Either coarse leaf of the pair may lie outside the domain, leaving half a wedge to
+        // draw, so this leaf is tried as each end in turn. Only the lower role was ever
+        // considered before, which silently dropped every wedge whose lower leaf was off-domain.
+        for (along, lower) in (0..D).flat_map(|along| [(along, true), (along, false)]) {
+            let mut origin = corner;
+            if !lower {
+                origin[along] -= coarse;
+            }
             let mut partner = origin;
             partner[along] += coarse;
-            let Some(second) = tree.cell_at(&partner, coarse) else {
-                continue;
+            let (first_cell, second) = if lower {
+                (Some(index), tree.cell_at(&partner, coarse))
+            } else {
+                (tree.cell_at(&origin, coarse), Some(index))
             };
+            if first_cell.is_some() != lower {
+                continue;
+            }
+            let absent = if lower { partner } else { origin };
+            if !tree.off_domain(&absent, coarse) && (first_cell.is_none() || second.is_none()) {
+                continue;
+            }
             let (first_axis, second_axis) = {
                 let mut others = (0..D).filter(|&other| other != along);
                 (others.next().unwrap(), others.next().unwrap())
@@ -110,47 +126,71 @@ pub(super) fn template<T, U>(
                     let diagonal: [Option<usize>; 2] = from_fn(|j| {
                         tree.cell_at(&corner_at(out_m, out_n, j as i64 * coarse), coarse)
                     });
-                    if side_m_cells.iter().any(Option::is_none) {
+                    // A half is one end of the wedge: one coarse leaf, its coarse diagonal, and
+                    // two fine cells from each refined column. Take a half only when whole, and
+                    // the wedge only when every absent half is provably off-domain.
+                    let coarse_cells = [first_cell, second];
+                    let half = |j: usize| {
+                        [
+                            side_m_cells[2 * j],
+                            side_m_cells[2 * j + 1],
+                            side_n_cells[2 * j],
+                            side_n_cells[2 * j + 1],
+                            diagonal[j],
+                            coarse_cells[j],
+                        ]
+                    };
+                    let whole = |j: usize| half(j).iter().all(Option::is_some);
+                    let truncated = |j: usize| {
+                        let t = j as i64 * coarse;
+                        (0..2).all(|k| {
+                            let slice = t + k * fine;
+                            tree.off_domain(&corner_at(far_m, near_n, slice), fine)
+                                && tree.off_domain(&corner_at(near_m, far_n, slice), fine)
+                        }) && tree.off_domain(&corner_at(out_m, out_n, t), coarse)
+                            && tree.off_domain(&corner_at(0, 0, t), coarse)
+                    };
+                    if !(0..2).any(whole) || (0..2).any(|j| !whole(j) && !truncated(j)) {
                         continue;
                     }
-                    if side_n_cells.iter().any(Option::is_none) {
-                        continue;
-                    }
-                    if diagonal.iter().any(Option::is_none) {
-                        continue;
-                    }
-                    let cell = |slot: Option<usize>| center_nodes[slot.unwrap()];
-                    let (edge_m, edge_n): ([usize; 4], [usize; 4]) = (
+                    let cell = |slot: Option<usize>| slot.map(|slot| center_nodes[slot]);
+                    let (edge_m, edge_n): ([Option<usize>; 4], [Option<usize>; 4]) = (
                         from_fn(|k| cell(side_m_cells[k])),
                         from_fn(|k| cell(side_n_cells[k])),
                     );
                     let (diag_a, diag_b) = (cell(diagonal[0]), cell(diagonal[1]));
-                    let (cell_a, cell_b) = (center_nodes[index], center_nodes[second]);
+                    let (cell_a, cell_b) = (cell(coarse_cells[0]), cell(coarse_cells[1]));
                     let step = fine as Scalar;
                     let offset_m = &facet_direction(2 * m + side_m) * step;
                     let offset_n = &facet_direction(2 * n + side_n) * step;
-                    let find = |coordinate: crate::geometry::Coordinate<D>| -> Option<usize> {
+                    let find = |slot: Option<usize>, offset: &Coordinate<D>| -> Option<usize> {
+                        let coordinate = &coordinates[slot?] + offset;
                         nodes_map
                             .get(&from_fn::<usize, D, _>(|i| (2.0 * coordinate[i]) as usize))
                             .copied()
                     };
-                    if let Some(node_1) = find(&coordinates[edge_m[1]] - &offset_m)
-                        && let Some(node_2) = find(&coordinates[edge_m[2]] - &offset_m)
-                        && let Some(node_3) = find(&coordinates[edge_m[1]] + &offset_n)
-                        && let Some(node_4) = find(&coordinates[edge_m[2]] + &offset_n)
-                    {
-                        connectivity.push([
+                    let (node_1, node_2) = (
+                        find(edge_m[1], &-offset_m.clone()),
+                        find(edge_m[2], &-offset_m.clone()),
+                    );
+                    let (node_3, node_4) = (find(edge_m[1], &offset_n), find(edge_m[2], &offset_n));
+                    for hex in [
+                        [
                             edge_m[1], node_1, node_2, edge_m[2], node_3, edge_n[1], edge_n[2],
                             node_4,
-                        ]);
-                        connectivity.push([
+                        ],
+                        [
                             edge_m[2], node_2, cell_b, edge_m[3], node_4, edge_n[2], edge_n[3],
                             diag_b,
-                        ]);
-                        connectivity.push([
+                        ],
+                        [
                             edge_m[0], cell_a, node_1, edge_m[1], diag_a, edge_n[0], edge_n[1],
                             node_3,
-                        ]);
+                        ],
+                    ] {
+                        if hex.iter().all(Option::is_some) {
+                            connectivity.push(from_fn(|k| hex[k].unwrap()))
+                        }
                     }
                 }
             }

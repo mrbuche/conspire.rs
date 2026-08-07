@@ -14,6 +14,9 @@ use crate::{
 };
 use std::array::from_fn;
 
+/// Four cells along the edge, absent where the domain cuts them off.
+type Lane = [Option<usize>; 4];
+
 /// Fills the wedge along an edge shared by two coarse leaves stacked along the edge, whose
 /// neighbours across both adjoining facets, and across the diagonal, are all refined.
 ///
@@ -49,13 +52,29 @@ pub(super) fn template<T, U>(
         if fine == 0 {
             continue;
         }
-        let origin: [i64; D] = from_fn(|axis| Into::<usize>::into(first.corner[axis]) as i64);
-        for along in 0..D {
+        let corner: [i64; D] = from_fn(|axis| Into::<usize>::into(first.corner[axis]) as i64);
+        // Either coarse leaf of the pair may lie outside the domain, leaving half a wedge to
+        // draw, so this leaf is tried as each end in turn. Only the lower role was ever
+        // considered before, which silently dropped every wedge whose lower leaf was off-domain.
+        for (along, lower) in (0..D).flat_map(|along| [(along, true), (along, false)]) {
+            let mut origin = corner;
+            if !lower {
+                origin[along] -= coarse;
+            }
             let mut partner = origin;
             partner[along] += coarse;
-            let Some(second) = tree.cell_at(&partner, coarse) else {
-                continue;
+            let (first_cell, second) = if lower {
+                (Some(index), tree.cell_at(&partner, coarse))
+            } else {
+                (tree.cell_at(&origin, coarse), Some(index))
             };
+            if first_cell.is_some() != lower {
+                continue;
+            }
+            let absent = if lower { partner } else { origin };
+            if !tree.off_domain(&absent, coarse) && (first_cell.is_none() || second.is_none()) {
+                continue;
+            }
             let (first_axis, second_axis) = {
                 let mut others = (0..D).filter(|&other| other != along);
                 (others.next().unwrap(), others.next().unwrap())
@@ -112,35 +131,59 @@ pub(super) fn template<T, U>(
                         from_fn(|k| tree.cell_at(&corner_at(near_m, far_n, k), fine));
                     let diagonal: [Option<usize>; 4] =
                         from_fn(|k| tree.cell_at(&corner_at(far_m, far_n, k), fine));
-                    if side_m_cells.iter().any(Option::is_none)
-                        || side_n_cells.iter().any(Option::is_none)
-                        || diagonal.iter().any(Option::is_none)
-                    {
+                    // A half is one end of the wedge along the edge: one coarse centre and two
+                    // fine cells from each of the three refined columns. Take a half only when
+                    // whole, and the wedge only when every absent half is provably off-domain.
+                    let coarse_cells = [first_cell, second];
+                    let half = |j: usize| {
+                        [
+                            side_m_cells[2 * j],
+                            side_m_cells[2 * j + 1],
+                            side_n_cells[2 * j],
+                            side_n_cells[2 * j + 1],
+                            diagonal[2 * j],
+                            diagonal[2 * j + 1],
+                            coarse_cells[j],
+                        ]
+                    };
+                    let whole = |j: usize| half(j).iter().all(Option::is_some);
+                    let truncated = |j: usize| {
+                        (0..2).all(|k| {
+                            let slice = 2 * j + k;
+                            tree.off_domain(&corner_at(far_m, near_n, slice), fine)
+                                && tree.off_domain(&corner_at(near_m, far_n, slice), fine)
+                                && tree.off_domain(&corner_at(far_m, far_n, slice), fine)
+                        }) && tree.off_domain(&corner_at(0, 0, 2 * j), coarse)
+                    };
+                    if !(0..2).any(whole) || (0..2).any(|j| !whole(j) && !truncated(j)) {
                         continue;
                     }
-                    let cell = |slot: Option<usize>| center_nodes[slot.unwrap()];
-                    let (edge_m, edge_n, edge_d): ([usize; 4], [usize; 4], [usize; 4]) = (
-                        from_fn(|k| cell(side_m_cells[k])),
-                        from_fn(|k| cell(side_n_cells[k])),
-                        from_fn(|k| cell(diagonal[k])),
-                    );
+                    let cell = |slot: Option<usize>| slot.map(|slot| center_nodes[slot]);
+                    let lane = |cells: &[Option<usize>; 4]| -> Lane { from_fn(|k| cell(cells[k])) };
+                    let (edge_m, edge_n, edge_d) =
+                        (lane(&side_m_cells), lane(&side_n_cells), lane(&diagonal));
                     let offset = &facet_direction(2 * m + (1 - side_m)) * (fine as Scalar);
-                    let [inner_a, inner_b] = [
-                        &coordinates[edge_m[1]] + &offset,
-                        &coordinates[edge_m[2]] + &offset,
-                    ]
-                    .map(|coordinate| get_or_add(coordinate, coordinates, nodes_map, node_index));
+                    let mut inner = |slot: Option<usize>| {
+                        slot.map(|slot| {
+                            let coordinate = &coordinates[slot] + &offset;
+                            get_or_add(coordinate, coordinates, nodes_map, node_index)
+                        })
+                    };
+                    let (inner_a, inner_b) = (inner(edge_m[1]), inner(edge_m[2]));
                     let slices = [
-                        [center_nodes[index], edge_m[0], edge_d[0], edge_n[0]],
+                        [cell(coarse_cells[0]), edge_m[0], edge_d[0], edge_n[0]],
                         [inner_a, edge_m[1], edge_d[1], edge_n[1]],
                         [inner_b, edge_m[2], edge_d[2], edge_n[2]],
-                        [center_nodes[second], edge_m[3], edge_d[3], edge_n[3]],
+                        [cell(coarse_cells[1]), edge_m[3], edge_d[3], edge_n[3]],
                     ];
                     for pair in slices.windows(2) {
-                        connectivity.push([
+                        let hex = [
                             pair[0][0], pair[0][1], pair[0][2], pair[0][3], pair[1][0], pair[1][1],
                             pair[1][2], pair[1][3],
-                        ])
+                        ];
+                        if hex.iter().all(Option::is_some) {
+                            connectivity.push(from_fn(|k| hex[k].unwrap()))
+                        }
                     }
                 }
             }

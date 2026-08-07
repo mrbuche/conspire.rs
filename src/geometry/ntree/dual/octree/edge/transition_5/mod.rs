@@ -124,7 +124,7 @@ fn config<T, U>(
     center_nodes: &[usize],
 ) -> Option<Config>
 where
-    T: Copy + Into<Scalar> + Into<usize>,
+    T: Copy + Into<Scalar> + Into<usize> + Split,
     U: Copy + Into<usize>,
 {
     let axis_m = facet_m >> 1;
@@ -132,39 +132,59 @@ where
     let axis = 3 - axis_m - axis_n;
     let side_m = facet_m & 1;
     let side_n = facet_n & 1;
-    let c = ((1 - side_m) << axis_m) | (side_n << axis_n);
-    let e = c | (1 << axis);
-    let d = (side_m << axis_m) | ((1 - side_n) << axis_n);
-    let f = d | (1 << axis);
-    let g = ((1 - side_m) << axis_m) | ((1 - side_n) << axis_n);
-    let g_hi = g | (1 << axis);
-    let tree_m = node.facets[facet_m]?;
-    let tree_n = node.facets[facet_n]?;
-    let leaves_m = tree.leaves(&tree.nodes[tree_m.into()]);
-    let leaves_n = tree.leaves(&tree.nodes[tree_n.into()]);
-    let m_lo = leaves_m[c]?;
-    let m_hi = leaves_m[e]?;
-    let n_lo = leaves_n[d]?;
-    let n_hi = leaves_n[f]?;
-    let diagonal_lo = tree.nodes[m_lo.into()].facets[facet_n]?;
-    let diagonal_hi = tree.nodes[m_hi.into()].facets[facet_n]?;
-    let leaves_lo = tree.leaves(&tree.nodes[diagonal_lo.into()]);
-    let leaves_hi = tree.leaves(&tree.nodes[diagonal_hi.into()]);
-    let ring_lo = leaves_lo[g]?;
-    let ladder_lo = leaves_lo[g_hi]?;
-    let ladder_hi = leaves_hi[g]?;
-    let ring_hi = leaves_hi[g_hi]?;
+    // The two adjoining neighbours are one level finer than this leaf and the diagonal one is
+    // two levels finer, which is the 4:1 jump only `Weak` balancing permits. Every cell below is
+    // therefore fixed by position alone; walking `facets` and `leaves` to reach them only worked
+    // while clusters coincided with nodes.
+    let coarse = Into::<usize>::into(node.length) as i64;
+    let (half, quarter) = (coarse / 2, coarse / 4);
+    if quarter == 0 {
+        return None;
+    }
+    let origin: [i64; D] = from_fn(|a| Into::<usize>::into(node.corner[a]) as i64);
+    let corner_at = |offset_m: i64, offset_n: i64, offset: i64| {
+        let mut corner = origin;
+        corner[axis_m] += offset_m;
+        corner[axis_n] += offset_n;
+        corner[axis] += offset;
+        corner
+    };
+    let (beyond_m, beside_m) = (
+        if side_m == 1 { coarse } else { -half },
+        side_m as i64 * half,
+    );
+    let (beyond_n, beside_n) = (
+        if side_n == 1 { coarse } else { -half },
+        side_n as i64 * half,
+    );
+    let (far_m, far_n) = (
+        if side_m == 1 { coarse } else { -quarter },
+        if side_n == 1 { coarse } else { -quarter },
+    );
+    let m_lo = tree.cell_at(&corner_at(beyond_m, beside_n, 0), half)?;
+    let m_hi = tree.cell_at(&corner_at(beyond_m, beside_n, half), half)?;
+    let n_lo = tree.cell_at(&corner_at(beside_m, beyond_n, 0), half)?;
+    let n_hi = tree.cell_at(&corner_at(beside_m, beyond_n, half), half)?;
+    // Four cells along the edge on the diagonal; the middle two carry the Steiner ladder.
+    let rungs: [usize; 4] = from_fn(|k| {
+        tree.cell_at(&corner_at(far_m, far_n, k as i64 * quarter), quarter)
+            .unwrap_or(usize::MAX)
+    });
+    if rungs.contains(&usize::MAX) {
+        return None;
+    }
+    let [ring_lo, ladder_lo, ladder_hi, ring_hi] = rungs;
     Some(Config {
         center: center_nodes[index],
-        length: tree.nodes[ring_lo.into()].length.into(),
-        n_lo: center_nodes[n_lo.into()],
-        n_hi: center_nodes[n_hi.into()],
-        m_lo: center_nodes[m_lo.into()],
-        m_hi: center_nodes[m_hi.into()],
-        ring_lo: center_nodes[ring_lo.into()],
-        ladder_lo: center_nodes[ladder_lo.into()],
-        ladder_hi: center_nodes[ladder_hi.into()],
-        ring_hi: center_nodes[ring_hi.into()],
+        length: tree.nodes[ring_lo].length.into(),
+        n_lo: center_nodes[n_lo],
+        n_hi: center_nodes[n_hi],
+        m_lo: center_nodes[m_lo],
+        m_hi: center_nodes[m_hi],
+        ring_lo: center_nodes[ring_lo],
+        ladder_lo: center_nodes[ladder_lo],
+        ladder_hi: center_nodes[ladder_hi],
+        ring_hi: center_nodes[ring_hi],
     })
 }
 
