@@ -105,6 +105,26 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U>
             && (0..D).all(|axis| point[axis] == node.corner[axis].into()))
         .then_some(index)
     }
+    /// Whether the two cells of `length` stacked along `axis` from `corner` belong to the same
+    /// paired cluster. Under `Pairing::Regular` this is just "the two are siblings", but stated
+    /// in terms of the pairing it holds for `Pairing::Generalized` too.
+    pub(super) fn shares_cluster(&self, corner: &[i64; D], length: i64, axis: usize) -> bool {
+        (0..1usize << D).any(|bits| {
+            let mut center = [0; D];
+            for (index, coordinate) in center.iter_mut().enumerate() {
+                let shifted = if index == axis {
+                    corner[index] + length
+                } else {
+                    corner[index] + ((bits >> index) & 1) as i64 * length
+                };
+                match usize::try_from(shifted) {
+                    Ok(value) => *coordinate = value,
+                    Err(_) => return false,
+                }
+            }
+            self.pairing_vertices.contains(&(center, length as usize))
+        })
+    }
     /// Whether `vertex` is a corner of a paired cluster of cells of `length`.
     pub(super) fn cluster_corner(&self, vertex: &[usize; D], length: usize) -> bool {
         (0..1usize << D).any(|bits| {
