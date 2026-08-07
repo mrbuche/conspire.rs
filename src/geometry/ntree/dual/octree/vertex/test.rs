@@ -252,7 +252,7 @@ where
     }
 }
 
-fn fuzz_tree(seed: u64, balancing: Balancing, pairing: Pairing) -> Octree<u16, usize> {
+pub(crate) fn fuzz_tree(seed: u64, balancing: Balancing, pairing: Pairing) -> Octree<u16, usize> {
     use crate::geometry::ntree::{Balance, node::Node, rescale::Rescaling};
     let mut state = seed
         .wrapping_mul(6364136223846793005)
@@ -335,13 +335,14 @@ fn fuzz_strong_duals() {
     fuzz_duals(Balancing::Strong(1), Pairing::Regular)
 }
 
-// The quadtree dual was generalized by re-anchoring its templates on the paired
-// 2x2x2 clusters rather than on tree nodes; the octree's face and edge transitions
-// still walk tree topology, so they only fire where a cluster happens to coincide
-// with a node. Measured over 40 seeds: Regular passes 40/40 on both balancings,
-// Generalized passes 4/40 strong and 2/40 weak, failing as unclosed boundaries
-// (the uncovered transition strips), non-conformal faces and non-sphere
-// boundaries. Ignored as a standing record until face/ and edge/ are ported.
+// Every template now reads its configuration off the paired clusters rather than off tree
+// nodes, and each handles a cluster the domain cuts through. That closes `Strong` entirely.
+//
+// `Weak` does not close yet, and the split between these two is what localizes what is left:
+// the only thing `Weak` admits that `Strong` does not is the 4:1 jump, which is also the only
+// thing `transition_5` exists for. Measured over 40 seeds: 16/40 pass, the rest failing as
+// unclosed boundary (17) or a boundary that closes but is not a sphere (7). Ignored as a
+// standing record of that remainder.
 #[test]
 #[ignore]
 fn fuzz_weak_duals_generalized() {
@@ -349,7 +350,6 @@ fn fuzz_weak_duals_generalized() {
 }
 
 #[test]
-#[ignore]
 fn fuzz_strong_duals_generalized() {
     fuzz_duals(Balancing::Strong(1), Pairing::Generalized)
 }
