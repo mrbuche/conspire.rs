@@ -7,7 +7,7 @@ use crate::{
                 NodeMap, get_or_add,
                 octree::{D, N, facet_direction},
             },
-            node::Node,
+            node::{Node, split::Split},
         },
     },
     math::Scalar,
@@ -52,7 +52,7 @@ pub(super) fn template<T, U>(
     node_index: &mut usize,
     nodes_map: &mut NodeMap<D>,
 ) where
-    T: Copy + Into<Scalar> + Into<usize>,
+    T: Copy + Into<Scalar> + Into<usize> + Split,
     U: Copy + Into<usize>,
 {
     for (index, node) in tree.nodes.iter().enumerate() {
@@ -71,15 +71,30 @@ pub(super) fn template<T, U>(
                     nodes_map,
                 );
                 let axis = 3 - (facet_m >> 1) - (facet_n >> 1);
-                let corner: usize = node.corner[axis].into();
-                let length: usize = node.length.into();
-                if !(corner + length).is_multiple_of(2 * length)
-                    && let Some(above) = node.facets[2 * axis + 1]
-                    && tree.nodes[above.into()].is_leaf()
+                // The tree-walking version asked whether this leaf was the low half of an
+                // aligned pair, which is to say whether it and the leaf above are siblings.
+                // Siblinghood is really "the pair is paired", so read it off the refined
+                // columns beside them, the way the neighbouring wedge does - a coarse leaf
+                // belongs to no cluster itself, but its refined neighbours do.
+                let origin: [i64; D] = from_fn(|a| Into::<usize>::into(node.corner[a]) as i64);
+                let coarse = Into::<usize>::into(node.length) as i64;
+                let column = |facets: &[usize]| {
+                    let mut corner = origin;
+                    for &facet in facets {
+                        corner[facet >> 1] += if facet & 1 == 1 { coarse } else { -coarse };
+                    }
+                    corner
+                };
+                let mut upper = origin;
+                upper[axis] += coarse;
+                if tree.shares_cluster(&column(&[facet_m]), coarse, axis)
+                    && tree.shares_cluster(&column(&[facet_n]), coarse, axis)
+                    && tree.shares_cluster(&column(&[facet_m, facet_n]), coarse, axis)
+                    && let Some(above) = tree.cell_at(&upper, coarse)
                     && let Some(config_b) = config(
                         tree,
-                        &tree.nodes[above.into()],
-                        above.into(),
+                        &tree.nodes[above],
+                        above,
                         facet_m,
                         facet_n,
                         center_nodes,
