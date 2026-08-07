@@ -93,7 +93,7 @@ fn binary_disjoint() {
 
 #[test]
 fn isolated_cell_costs_one() {
-    let instance = Instance::new(vec![([0, 0], true)]);
+    let instance = Instance::new(vec![([0, 0], true)], Default::default());
     let (assignment, cost) = instance.solve_bruteforce();
     assert_eq!(cost, 1);
     assert!(instance.feasible(&assignment));
@@ -101,7 +101,7 @@ fn isolated_cell_costs_one() {
 
 #[test]
 fn two_adjacent_cells_cost_two() {
-    let instance = Instance::new(vec![([0, 0], true), ([1, 0], true)]);
+    let instance = Instance::new(vec![([0, 0], true), ([1, 0], true)], Default::default());
     let (assignment, cost) = instance.solve_bruteforce();
     assert_eq!(cost, 2);
     assert!(instance.feasible(&assignment));
@@ -109,7 +109,10 @@ fn two_adjacent_cells_cost_two() {
 
 #[test]
 fn three_in_a_row_cannot_avoid_extra_cost() {
-    let instance = Instance::new(vec![([0, 0], true), ([1, 0], true), ([2, 0], true)]);
+    let instance = Instance::new(
+        vec![([0, 0], true), ([1, 0], true), ([2, 0], true)],
+        Default::default(),
+    );
     let (assignment, cost) = instance.solve_bruteforce();
     assert_eq!(cost, 3);
     assert!(instance.feasible(&assignment));
@@ -117,7 +120,7 @@ fn three_in_a_row_cannot_avoid_extra_cost() {
 
 #[test]
 fn unrequired_neighbor_is_never_assigned() {
-    let instance = Instance::new(vec![([0, 0], true), ([1, 0], false)]);
+    let instance = Instance::new(vec![([0, 0], true), ([1, 0], false)], Default::default());
     let (assignment, cost) = instance.solve_bruteforce();
     assert_eq!(cost, 1);
     assert!(instance.feasible(&assignment));
@@ -131,7 +134,7 @@ fn solve_matches_bruteforce_on_examples() {
         vec![([0, 0], true), ([1, 0], true), ([2, 0], true)],
         vec![([0, 0], true), ([1, 0], false)],
     ] {
-        let instance = Instance::new(cells);
+        let instance = Instance::new(cells, Default::default());
         let (assignment, cost) = instance.solve();
         let (_, bruteforce_cost) = instance.solve_bruteforce();
         assert!(instance.feasible(&assignment));
@@ -162,7 +165,7 @@ fn solve_matches_bruteforce_fuzz() {
         if !cells.iter().any(|(_, required)| *required) {
             continue;
         }
-        let instance = Instance::new(cells);
+        let instance = Instance::new(cells, Default::default());
         let (assignment, cost) = instance.solve();
         let (_, bruteforce_cost) = instance.solve_bruteforce();
         assert!(

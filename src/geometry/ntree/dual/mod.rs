@@ -155,15 +155,16 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U>
 }
 
 /// Index of the leaf containing `point`, with ties resolved toward increasing coordinates.
-pub(super) fn leaf_containing<
+pub(crate) fn leaf_containing<
     const D: usize,
     const L: usize,
     const M: usize,
     const N: usize,
     T,
     U,
+    V,
 >(
-    tree: &Orthotree<D, L, M, N, T, U>,
+    tree: &Orthotree<D, L, M, N, T, U, V>,
     point: &[usize; D],
 ) -> usize
 where

@@ -335,16 +335,10 @@ fn fuzz_strong_duals() {
     fuzz_duals(Balancing::Strong(1), Pairing::Regular)
 }
 
-// Every template now reads its configuration off the paired clusters rather than off tree
-// nodes, and each handles a cluster the domain cuts through. That closes `Strong` entirely.
-//
-// `Weak` does not close yet, and the split between these two is what localizes what is left:
-// the only thing `Weak` admits that `Strong` does not is the 4:1 jump, which is also the only
-// thing `transition_5` exists for. Measured over 40 seeds: 16/40 pass, the rest failing as
-// unclosed boundary (17) or a boundary that closes but is not a sphere (7). Ignored as a
-// standing record of that remainder.
+// Every template reads its configuration off the paired clusters rather than off tree nodes,
+// each handles a cluster the domain cuts through, and the pairing keeps clusters aligned where
+// three refinement levels meet. Both balancings close under both pairings.
 #[test]
-#[ignore]
 fn fuzz_weak_duals_generalized() {
     fuzz_duals(Balancing::Weak(1), Pairing::Generalized)
 }

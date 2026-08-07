@@ -3,6 +3,9 @@ use std::collections::HashSet;
 
 pub(crate) struct Instance<const D: usize> {
     cells: Vec<([i32; D], bool)>,
+    /// Vertices the alignment rule has refused. Honoured only while pairing stays feasible
+    /// without them, since pairing itself is not negotiable.
+    forbidden: HashSet<[i32; D]>,
 }
 
 fn offset<const D: usize>(a: [i32; D], b: [i32; D]) -> [i32; D] {
@@ -14,8 +17,8 @@ fn offset<const D: usize>(a: [i32; D], b: [i32; D]) -> [i32; D] {
 }
 
 impl<const D: usize> Instance<D> {
-    pub(crate) fn new(cells: Vec<([i32; D], bool)>) -> Self {
-        Self { cells }
+    pub(crate) fn new(cells: Vec<([i32; D], bool)>, forbidden: HashSet<[i32; D]>) -> Self {
+        Self { cells, forbidden }
     }
     fn vertices_of(cell: [i32; D]) -> Vec<[i32; D]> {
         let mut vertices = vec![cell];
@@ -114,12 +117,24 @@ impl<const D: usize> Instance<D> {
                     .collect()
             })
             .collect();
+        // Honour as much of the alignment rule as pairing allows: a refusal is withdrawn only
+        // where it would leave a cell with nothing to cover it, and only for that cell.
+        let mut excluded: Vec<bool> = candidates
+            .iter()
+            .map(|vertex| self.forbidden.contains(vertex))
+            .collect();
+        while let Some(cover) = covers
+            .iter()
+            .find(|cover| !cover.is_empty() && cover.iter().all(|&i| excluded[i]))
+        {
+            excluded[cover[0]] = false;
+        }
         let mut solver = Solver {
             valences: &valences,
             conflicts_of: &conflicts_of,
             covers: &covers,
             selected: vec![false; count],
-            excluded: vec![false; count],
+            excluded,
             best: None,
         };
         solver.branch(0);
