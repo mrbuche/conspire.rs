@@ -353,3 +353,102 @@ fn fuzz_weak_duals_generalized() {
 fn fuzz_strong_duals_generalized() {
     fuzz_duals(Balancing::Strong(1), Pairing::Generalized)
 }
+
+// The face template takes a quarter of a block facet - one coarse leaf and the 2x2 fine cells
+// behind it - only when the quarter is whole, and treats a facet as truncated only when every
+// absent quarter is provably outside the domain. A quarter absent for any other reason (the
+// outside cell refined, the inside cells refined deeper) means the transition belongs to a
+// different block, and guessing a template there would double-cover it. This asserts that
+// mixed facets - some quarters present, some absent while still inside the domain - never
+// arise, so the classification the template relies on is total.
+#[test]
+fn every_block_facet_is_classifiable() {
+    use crate::geometry::ntree::dual::leaf_containing;
+    for (label, pairing) in [
+        ("regular", Pairing::Regular),
+        ("generalized", Pairing::Generalized),
+    ] {
+        let mut mixed = Vec::new();
+        for seed in 0..40u64 {
+            let tree = fuzz_tree(seed, Balancing::Weak(1), pairing);
+            let root = &tree.nodes[0];
+            let low: [i64; 3] = from_fn(|a| root.corner[a] as i64);
+            let high: [i64; 3] = from_fn(|a| low[a] + root.length as i64);
+            let cell_at = |corner: [i64; 3], length: i64| -> Option<usize> {
+                if (0..3).any(|a| corner[a] < low[a] || corner[a] + length > high[a]) {
+                    return None;
+                }
+                let point = from_fn(|a| corner[a] as usize);
+                let index = leaf_containing(&tree, &point);
+                let node = &tree.nodes[index];
+                (length as usize == node.length as usize
+                    && (0..3).all(|a| point[a] == node.corner[a] as usize))
+                .then_some(index)
+            };
+            for &(block, length) in tree.pairing_vertices.iter() {
+                let center: [i64; 3] = from_fn(|a| block[a] as i64);
+                let (coarse, fine) = (length as i64, length as i64 / 2);
+                for facet in 0..6 {
+                    let (axis, side) = (facet >> 1, facet & 1);
+                    let tangents: [usize; 2] = {
+                        let mut o = (0..3).filter(|&x| x != axis);
+                        [o.next().unwrap(), o.next().unwrap()]
+                    };
+                    let interface = center[axis] + if side == 1 { coarse } else { -coarse };
+
+                    let outside = if side == 1 {
+                        interface
+                    } else {
+                        interface - coarse
+                    };
+                    let inside = if side == 1 {
+                        interface - fine
+                    } else {
+                        interface
+                    };
+                    let at = |along: i64, u: i64, v: i64| {
+                        let mut c = [0; 3];
+                        c[axis] = along;
+                        c[tangents[0]] = center[tangents[0]] - coarse + u;
+                        c[tangents[1]] = center[tangents[1]] - coarse + v;
+                        c
+                    };
+                    // a "quarter" is one coarse leaf plus the 2x2 fine cells behind it
+                    let quarter = |qu: i64, qv: i64| {
+                        cell_at(at(outside, qu * coarse, qv * coarse), coarse).is_some()
+                            && (0..4).all(|k| {
+                                let (du, dv) = ((k & 1) as i64, (k >> 1) as i64);
+                                cell_at(
+                                    at(inside, (2 * qu + du) * fine, (2 * qv + dv) * fine),
+                                    fine,
+                                )
+                                .is_some()
+                            })
+                    };
+                    let off = |qu: i64, qv: i64| {
+                        let u = center[tangents[0]] - coarse + qu * coarse;
+                        let v = center[tangents[1]] - coarse + qv * coarse;
+                        u < low[tangents[0]]
+                            || u + coarse > high[tangents[0]]
+                            || v < low[tangents[1]]
+                            || v + coarse > high[tangents[1]]
+                    };
+                    let quarters = (0..4).map(|q| ((q & 1) as i64, (q >> 1) as i64));
+                    let any = quarters.clone().any(|(qu, qv)| quarter(qu, qv));
+                    let stray = quarters
+                        .filter(|&(qu, qv)| !quarter(qu, qv))
+                        .any(|(qu, qv)| !off(qu, qv));
+                    if any && stray {
+                        mixed.push(format!("seed {seed} block {block:?} facet {facet}"));
+                    }
+                }
+            }
+        }
+        assert!(
+            mixed.is_empty(),
+            "{label}: {} facets mix present quarters with absent in-domain ones:\n{}",
+            mixed.len(),
+            mixed.join("\n")
+        );
+    }
+}
