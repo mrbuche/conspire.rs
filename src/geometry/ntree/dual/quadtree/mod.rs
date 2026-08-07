@@ -48,9 +48,9 @@ where
     T: Add<Output = T> + Copy + Into<Scalar> + Into<usize> + PartialOrd + Split,
     U: Copy + Into<usize>,
 {
-    /// Fills the strip facing each facet of each paired block, where four of the block's fine
+    /// Fills the strip facing each facet of each paired cluster, where four of the cluster's fine
     /// cells meet two coarse leaves. Two Steiner points on the interface split that strip into
-    /// four quads. Where the block hangs off the domain only one half of the strip is real, and
+    /// four quads. Where the cluster hangs off the domain only one half of the strip is real, and
     /// the template degenerates to the single quad left once both Steiner points collapse onto
     /// the facet midpoint.
     fn transitions(
@@ -75,10 +75,11 @@ where
                 && (0..D).all(|axis| point[axis] == node.corner[axis].into()))
             .then_some(index)
         };
-        let mut blocks: Vec<([usize; D], usize)> = self.pairing_vertices.iter().copied().collect();
-        blocks.sort_unstable();
-        for (block, length) in blocks {
-            let center: [i64; D] = from_fn(|axis| block[axis] as i64);
+        let mut clusters: Vec<([usize; D], usize)> =
+            self.pairing_vertices.iter().copied().collect();
+        clusters.sort_unstable();
+        for (cluster, length) in clusters {
+            let center: [i64; D] = from_fn(|axis| cluster[axis] as i64);
             let (coarse, fine) = (length as i64, length as i64 / 2);
             for facet in 0..2 * D {
                 let (axis, side) = (facet >> 1, facet & 1);
@@ -114,7 +115,7 @@ where
                 // A half is one coarse leaf with the two fine cells behind it. It is taken only
                 // when whole, and the facet only when every absent half is provably outside the
                 // domain: absent for any other reason means the transition belongs to another
-                // block, and drawing here would double-cover it.
+                // cluster, and drawing here would double-cover it.
                 let half_present = |k: usize| {
                     coarse_of(k).is_some()
                         && fine_of(2 * k).is_some()

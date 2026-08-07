@@ -69,7 +69,7 @@ where
                 let shortest = *lengths.iter().min().unwrap();
                 let longest = *lengths.iter().max().unwrap();
                 let coordinate: [usize; D] = from_fn(|a| vertex[a].into());
-                if longest == shortest || self.block_corner(&coordinate, longest) {
+                if longest == shortest || self.cluster_corner(&coordinate, longest) {
                     connectivity.push(from_fn(|i| {
                         let bits = i & face_mask;
                         center_nodes[cells[(i & !face_mask) | (bits ^ (bits >> 1))]]
@@ -83,8 +83,8 @@ where
 impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U>
     Orthotree<D, L, M, N, T, U>
 {
-    /// Whether `vertex` is a corner of a paired block of cells of `length`.
-    pub(super) fn block_corner(&self, vertex: &[usize; D], length: usize) -> bool {
+    /// Whether `vertex` is a corner of a paired cluster of cells of `length`.
+    pub(super) fn cluster_corner(&self, vertex: &[usize; D], length: usize) -> bool {
         (0..1usize << D).any(|bits| {
             let mut center = [0; D];
             for (axis, coordinate) in center.iter_mut().enumerate() {

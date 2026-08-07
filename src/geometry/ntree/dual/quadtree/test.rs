@@ -208,15 +208,15 @@ fn fuzz_weak_duals_generalized() {
     fuzz_duals(Balancing::Weak(1), Pairing::Generalized)
 }
 
-// The transition takes a half of a block facet - one coarse leaf and the two fine cells behind
+// The transition takes a half of a cluster facet - one coarse leaf and the two fine cells behind
 // it - only when the half is whole, and treats a facet as truncated only when every absent half
 // is provably outside the domain. A half absent for any other reason (the outside cell refined,
-// the inside cells refined deeper) means the transition belongs to a different block, and
+// the inside cells refined deeper) means the transition belongs to a different cluster, and
 // guessing a template there would double-cover it. This asserts that mixed facets - one half
 // present, the other absent while still inside the domain - never arise, so the classification
 // the template relies on is total rather than merely sound.
 #[test]
-fn every_block_facet_is_classifiable() {
+fn every_cluster_facet_is_classifiable() {
     use crate::geometry::ntree::dual::leaf_containing;
     for pairing in [Pairing::Regular, Pairing::Generalized] {
         let mut mixed = Vec::new();
@@ -236,8 +236,8 @@ fn every_block_facet_is_classifiable() {
                     && (0..D).all(|a| point[a] == node.corner[a] as usize))
                 .then_some(index)
             };
-            for &(block, length) in tree.pairing_vertices.iter() {
-                let center: [i64; D] = std::array::from_fn(|a| block[a] as i64);
+            for &(cluster, length) in tree.pairing_vertices.iter() {
+                let center: [i64; D] = std::array::from_fn(|a| cluster[a] as i64);
                 let (coarse, fine) = (length as i64, length as i64 / 2);
                 for facet in 0..4 {
                     let (axis, side) = (facet >> 1, facet & 1);
@@ -271,7 +271,7 @@ fn every_block_facet_is_classifiable() {
                     let any = (0..2).any(present);
                     let stray = (0..2).any(|h| !present(h) && !outside_domain(h));
                     if any && stray {
-                        mixed.push(format!("seed {seed} block {block:?} facet {facet}"));
+                        mixed.push(format!("seed {seed} cluster {cluster:?} facet {facet}"));
                     }
                 }
             }

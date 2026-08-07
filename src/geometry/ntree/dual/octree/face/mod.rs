@@ -22,11 +22,11 @@ const SCALE_1: Scalar = 0.5;
 const INTERIOR_ANCHORS: [usize; 4] = [3, 6, 12, 9];
 const EXTERIOR_ANCHORS: [usize; 8] = [1, 4, 7, 13, 14, 11, 8, 2];
 
-/// Fills the slab facing each facet of each paired block, where the block's sixteen fine cells
+/// Fills the slab facing each facet of each paired cluster, where the cluster's sixteen fine cells
 /// meet four coarse leaves.
 ///
-/// Anchoring on the block rather than on a tree node is what lets this fire for
-/// `Pairing::Generalized`, whose blocks need not coincide with nodes. A block may also hang off
+/// Anchoring on the cluster rather than on a tree node is what lets this fire for
+/// `Pairing::Generalized`, whose clusters need not coincide with nodes. A cluster may also hang off
 /// the domain, leaving only half or a quarter of the facet real. Rather than author a template
 /// per truncation, the full template is emitted with missing cells threaded through as `None`
 /// and any hex touching one dropped: every hex pairs each of its cells with a Steiner point at
@@ -57,10 +57,10 @@ pub(super) fn face_transition<T, U>(
             && (0..D).all(|axis| point[axis] == node.corner[axis].into()))
         .then_some(index)
     };
-    let mut blocks: Vec<([usize; D], usize)> = tree.pairing_vertices.iter().copied().collect();
-    blocks.sort_unstable();
-    for (block, length) in blocks {
-        let center: [i64; D] = from_fn(|axis| block[axis] as i64);
+    let mut clusters: Vec<([usize; D], usize)> = tree.pairing_vertices.iter().copied().collect();
+    clusters.sort_unstable();
+    for (cluster, length) in clusters {
+        let center: [i64; D] = from_fn(|axis| cluster[axis] as i64);
         let (coarse, fine) = (length as i64, length as i64 / 2);
         for facet in 0..M {
             let (axis, side) = (facet >> 1, facet & 1);
@@ -88,7 +88,7 @@ pub(super) fn face_transition<T, U>(
             };
             // A quarter is one coarse leaf together with the 2x2 fine cells behind it. It is
             // taken only when whole; a quarter that is absent for any reason other than lying
-            // outside the domain means the real transition belongs to some other block, and
+            // outside the domain means the real transition belongs to some other cluster, and
             // this facet is left alone entirely.
             let quarter_off_domain = |first: usize, second: usize| {
                 let u = center[tangents[0]] - coarse + first as i64 * coarse;

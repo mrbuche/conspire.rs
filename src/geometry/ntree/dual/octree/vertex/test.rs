@@ -336,8 +336,8 @@ fn fuzz_strong_duals() {
 }
 
 // The quadtree dual was generalized by re-anchoring its templates on the paired
-// 2x2 blocks rather than on tree nodes; the octree's face and edge transitions
-// still walk tree topology, so they only fire where a block happens to coincide
+// 2x2x2 clusters rather than on tree nodes; the octree's face and edge transitions
+// still walk tree topology, so they only fire where a cluster happens to coincide
 // with a node. Measured over 40 seeds: Regular passes 40/40 on both balancings,
 // Generalized passes 4/40 strong and 2/40 weak, failing as unclosed boundaries
 // (the uncovered transition strips), non-conformal faces and non-sphere
@@ -354,15 +354,15 @@ fn fuzz_strong_duals_generalized() {
     fuzz_duals(Balancing::Strong(1), Pairing::Generalized)
 }
 
-// The face template takes a quarter of a block facet - one coarse leaf and the 2x2 fine cells
+// The face template takes a quarter of a cluster facet - one coarse leaf and the 2x2 fine cells
 // behind it - only when the quarter is whole, and treats a facet as truncated only when every
 // absent quarter is provably outside the domain. A quarter absent for any other reason (the
 // outside cell refined, the inside cells refined deeper) means the transition belongs to a
-// different block, and guessing a template there would double-cover it. This asserts that
+// different cluster, and guessing a template there would double-cover it. This asserts that
 // mixed facets - some quarters present, some absent while still inside the domain - never
 // arise, so the classification the template relies on is total.
 #[test]
-fn every_block_facet_is_classifiable() {
+fn every_cluster_facet_is_classifiable() {
     use crate::geometry::ntree::dual::leaf_containing;
     for (label, pairing) in [
         ("regular", Pairing::Regular),
@@ -385,8 +385,8 @@ fn every_block_facet_is_classifiable() {
                     && (0..3).all(|a| point[a] == node.corner[a] as usize))
                 .then_some(index)
             };
-            for &(block, length) in tree.pairing_vertices.iter() {
-                let center: [i64; 3] = from_fn(|a| block[a] as i64);
+            for &(cluster, length) in tree.pairing_vertices.iter() {
+                let center: [i64; 3] = from_fn(|a| cluster[a] as i64);
                 let (coarse, fine) = (length as i64, length as i64 / 2);
                 for facet in 0..6 {
                     let (axis, side) = (facet >> 1, facet & 1);
@@ -439,7 +439,7 @@ fn every_block_facet_is_classifiable() {
                         .filter(|&(qu, qv)| !quarter(qu, qv))
                         .any(|(qu, qv)| !off(qu, qv));
                     if any && stray {
-                        mixed.push(format!("seed {seed} block {block:?} facet {facet}"));
+                        mixed.push(format!("seed {seed} cluster {cluster:?} facet {facet}"));
                     }
                 }
             }
