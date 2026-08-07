@@ -92,26 +92,50 @@ pub(super) fn template<T, U>(
                 let far = column(center[seam] + coarse);
                 let near_coarse = row(center[seam]);
                 let far_coarse = row(center[seam] + coarse);
-                if near.iter().chain(far.iter()).any(Option::is_none)
-                    || near_coarse
-                        .iter()
-                        .chain(far_coarse.iter())
-                        .any(Option::is_none)
-                {
+                // A half is one end of the seam: two fine cells from each column and one coarse
+                // cell from each row. Take a half only when whole, and the seam only when every
+                // absent half is provably off-domain - a half absent for any other reason means
+                // the strip there belongs to some other cluster.
+                let half = |j: usize| {
+                    [
+                        near[2 * j],
+                        near[2 * j + 1],
+                        far[2 * j],
+                        far[2 * j + 1],
+                        near_coarse[j],
+                        far_coarse[j],
+                    ]
+                };
+                let whole = |j: usize| half(j).iter().all(Option::is_some);
+                let truncated = |j: usize| {
+                    let t = center[along] - coarse + j as i64 * coarse;
+                    [center[seam] + coarse - fine, center[seam] + coarse]
+                        .into_iter()
+                        .all(|sideways| {
+                            tree.off_domain(&corner_at(inside, sideways, t), fine)
+                                && tree.off_domain(&corner_at(inside, sideways, t + fine), fine)
+                        })
+                        && [center[seam], center[seam] + coarse]
+                            .into_iter()
+                            .all(|sideways| {
+                                tree.off_domain(&corner_at(outside, sideways, t), coarse)
+                            })
+                };
+                if !(0..2).any(whole) || (0..2).any(|j| !whole(j) && !truncated(j)) {
                     continue;
                 }
                 // Reversing the sense along the seam is what keeps every hex wound the same way
                 // once the frame (outward facet, seam, edge) turns left-handed.
                 let cyclic = (axis + 1) % D == seam;
                 let flip = (sign == 1) != cyclic;
-                let cell = |slot: Option<usize>| center_nodes[slot.unwrap()];
+                let cell = |slot: Option<usize>| slot.map(|slot| center_nodes[slot]);
                 let fine_at =
                     |lane: &[Option<usize>; 4], k: usize| cell(lane[if flip { 3 - k } else { k }]);
                 let coarse_at =
                     |lane: &[Option<usize>; 2], j: usize| cell(lane[if flip { 1 - j } else { j }]);
                 let offset = &facet_direction(facet) * (fine as Scalar);
-                let steiner = |node| {
-                    let coordinate = &coordinates[node] + &offset;
+                let steiner = |node: Option<usize>| {
+                    let coordinate = &coordinates[node?] + &offset;
                     nodes_map
                         .get(&from_fn::<usize, D, _>(|i| (2.0 * coordinate[i]) as usize))
                         .copied()
@@ -123,23 +147,25 @@ pub(super) fn template<T, U>(
                 let (cell_a, cell_b) = (coarse_at(&near_coarse, 1), coarse_at(&near_coarse, 0));
                 let (adjacent_a, adjacent_b) =
                     (coarse_at(&far_coarse, 1), coarse_at(&far_coarse, 0));
-                if let Some(node_1) = steiner(face_a)
-                    && let Some(node_2) = steiner(face_b)
-                    && let Some(node_3) = steiner(diag_a)
-                    && let Some(node_4) = steiner(diag_b)
-                {
-                    connectivity.push([
+                let (node_1, node_2) = (steiner(face_a), steiner(face_b));
+                let (node_3, node_4) = (steiner(diag_a), steiner(diag_b));
+                for hex in [
+                    [
                         cell_a, cell_b, node_1, node_2, adjacent_a, adjacent_b, node_3, node_4,
-                    ]);
-                    connectivity.push([
+                    ],
+                    [
                         face_a, face_b, node_2, node_1, diag_a, diag_b, node_4, node_3,
-                    ]);
-                    connectivity.push([
+                    ],
+                    [
                         face_b, node_2, node_4, diag_b, face_d, cell_a, adjacent_a, diag_d,
-                    ]);
-                    connectivity.push([
+                    ],
+                    [
                         face_a, diag_a, node_3, node_1, face_c, diag_c, adjacent_b, cell_b,
-                    ]);
+                    ],
+                ] {
+                    if hex.iter().all(Option::is_some) {
+                        connectivity.push(from_fn(|k| hex[k].unwrap()))
+                    }
                 }
             }
         }

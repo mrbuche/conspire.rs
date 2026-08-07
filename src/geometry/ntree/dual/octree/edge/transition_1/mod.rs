@@ -84,14 +84,39 @@ pub(super) fn template<T, U>(
                         let diagonal: [Option<usize>; 2] = from_fn(|j| {
                             tree.cell_at(&corner_at(outer_m, outer_n, j as i64 * coarse), coarse)
                         });
-                        if fine_cells.iter().any(Option::is_none)
-                            || face_m.iter().any(Option::is_none)
-                            || face_n.iter().any(Option::is_none)
-                            || diagonal.iter().any(Option::is_none)
-                        {
+                        // A half is one end of the wedge along the edge: two fine cells and one
+                        // coarse cell from each of the three outside groups. Truncation can only
+                        // ever split the wedge this way, since the m and n directions contribute
+                        // nothing but cells hugging the edge, so a cluster truncated there loses
+                        // the edge entirely rather than half of it.
+                        //
+                        // Take a half only when whole, and the wedge only when every absent half
+                        // is provably off-domain. Gating per cell instead does not work: the
+                        // first hex below reads only the two middle fine cells, so it would
+                        // survive a wedge whose whole outside lies beyond the domain and draw a
+                        // spurious element there.
+                        let half = |j: usize| {
+                            [
+                                fine_cells[2 * j],
+                                fine_cells[2 * j + 1],
+                                face_m[j],
+                                face_n[j],
+                                diagonal[j],
+                            ]
+                        };
+                        let whole = |j: usize| half(j).iter().all(Option::is_some);
+                        let truncated = |j: usize| {
+                            let t = j as i64 * coarse;
+                            tree.off_domain(&corner_at(inner_m, inner_n, t), fine)
+                                && tree.off_domain(&corner_at(inner_m, inner_n, t + fine), fine)
+                                && tree.off_domain(&corner_at(outer_m, near_n, t), coarse)
+                                && tree.off_domain(&corner_at(near_m, outer_n, t), coarse)
+                                && tree.off_domain(&corner_at(outer_m, outer_n, t), coarse)
+                        };
+                        if !(0..2).any(whole) || (0..2).any(|j| !whole(j) && !truncated(j)) {
                             continue;
                         }
-                        let cell = |index: Option<usize>| center_nodes[index.unwrap()];
+                        let cell = |index: Option<usize>| index.map(|index| center_nodes[index]);
                         let (outer_a, mid_a, mid_b, outer_b) = (
                             cell(fine_cells[0]),
                             cell(fine_cells[1]),
@@ -104,28 +129,34 @@ pub(super) fn template<T, U>(
                         let step = fine as Scalar;
                         let offset_m = &facet_direction(2 * m + side_m) * step;
                         let offset_n = &facet_direction(2 * n + side_n) * step;
-                        let base_a = coordinates[mid_a].clone();
-                        let base_b = coordinates[mid_b].clone();
-                        let [n0, n1, n2, n3, n4, n5] = [
-                            &base_a + &offset_m,
-                            &base_a + &offset_m + &offset_n,
-                            &base_a + &offset_n,
-                            &base_b + &offset_m,
-                            &base_b + &offset_m + &offset_n,
-                            &base_b + &offset_n,
-                        ]
-                        .map(|coordinate| {
-                            get_or_add(coordinate, coordinates, nodes_map, node_index)
-                        });
-                        connectivity.push([mid_a, n0, n1, n2, mid_b, n3, n4, n5]);
-                        connectivity
-                            .push([n0, face_m_a, diagonal_a, n1, n3, face_m_b, diagonal_b, n4]);
-                        connectivity
-                            .push([n1, diagonal_a, face_n_a, n2, n4, diagonal_b, face_n_b, n5]);
-                        connectivity
-                            .push([mid_a, n2, n1, n0, outer_a, face_n_a, diagonal_a, face_m_a]);
-                        connectivity
-                            .push([mid_b, n3, n4, n5, outer_b, face_m_b, diagonal_b, face_n_b]);
+                        let mut ring = |base: Option<usize>| {
+                            base.map(|base| {
+                                let base = coordinates[base].clone();
+                                [
+                                    &base + &offset_m,
+                                    &base + &offset_m + &offset_n,
+                                    &base + &offset_n,
+                                ]
+                                .map(|coordinate| {
+                                    get_or_add(coordinate, coordinates, nodes_map, node_index)
+                                })
+                            })
+                        };
+                        let (ring_a, ring_b) = (ring(mid_a), ring(mid_b));
+                        let point = |ring: Option<[usize; 3]>, k: usize| ring.map(|ring| ring[k]);
+                        let (n0, n1, n2) = (point(ring_a, 0), point(ring_a, 1), point(ring_a, 2));
+                        let (n3, n4, n5) = (point(ring_b, 0), point(ring_b, 1), point(ring_b, 2));
+                        for hex in [
+                            [mid_a, n0, n1, n2, mid_b, n3, n4, n5],
+                            [n0, face_m_a, diagonal_a, n1, n3, face_m_b, diagonal_b, n4],
+                            [n1, diagonal_a, face_n_a, n2, n4, diagonal_b, face_n_b, n5],
+                            [mid_a, n2, n1, n0, outer_a, face_n_a, diagonal_a, face_m_a],
+                            [mid_b, n3, n4, n5, outer_b, face_m_b, diagonal_b, face_n_b],
+                        ] {
+                            if hex.iter().all(Option::is_some) {
+                                connectivity.push(from_fn(|k| hex[k].unwrap()))
+                            }
+                        }
                     }
                 }
             }

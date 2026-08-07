@@ -91,11 +91,7 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U>
         T: Copy + Into<usize> + Split,
         U: Copy + Into<usize>,
     {
-        let root = &self.nodes[0];
-        let low: [i64; D] = from_fn(|axis| Into::<usize>::into(root.corner[axis]) as i64);
-        let extent = Into::<usize>::into(root.length) as i64;
-        if (0..D).any(|axis| corner[axis] < low[axis] || corner[axis] + length > low[axis] + extent)
-        {
+        if self.off_domain(corner, length) {
             return None;
         }
         let point = from_fn(|axis| corner[axis] as usize);
@@ -104,6 +100,21 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U>
         (length as usize == node.length.into()
             && (0..D).all(|axis| point[axis] == node.corner[axis].into()))
         .then_some(index)
+    }
+    /// Whether the cell of this `corner` and `length` reaches outside the root. This is the only
+    /// reason a template may treat a missing cell as truncation: missing for any other reason
+    /// means the transition there belongs to something else.
+    pub(super) fn off_domain(&self, corner: &[i64; D], length: i64) -> bool
+    where
+        T: Copy + Into<usize>,
+        U: Copy + Into<usize>,
+    {
+        let root = &self.nodes[0];
+        let extent = Into::<usize>::into(root.length) as i64;
+        (0..D).any(|axis| {
+            let low = Into::<usize>::into(root.corner[axis]) as i64;
+            corner[axis] < low || corner[axis] + length > low + extent
+        })
     }
     /// Whether the two cells of `length` stacked along `axis` from `corner` belong to the same
     /// paired cluster. Under `Pairing::Regular` this is just "the two are siblings", but stated
