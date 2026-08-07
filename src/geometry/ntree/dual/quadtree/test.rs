@@ -4,7 +4,6 @@ use crate::geometry::{
     ntree::{
         Balance, Dualization, Quadtree,
         balance::Balancing,
-        dual::incident_leaf,
         node::{Kind, Node},
         pair::Pairing,
         rescale::Rescaling,
@@ -106,6 +105,16 @@ pub(crate) fn verify_dual(mesh: &Mesh<D>) -> Result<(), String> {
             vertices.len()
         ));
     }
+    let used: HashSet<usize> = mesh.iter().flatten().flatten().copied().collect();
+    let faces = mesh.iter().flatten().count();
+    let euler = used.len() as isize - edges.len() as isize + faces as isize;
+    if euler != 1 {
+        return Err(format!(
+            "euler characteristic {euler}, not a disc ({} vertices, {} edges, {faces} faces)",
+            used.len(),
+            edges.len()
+        ));
+    }
     Ok(())
 }
 
@@ -137,12 +146,12 @@ fn fuzz_tree(seed: u64, balancing: Balancing, pairing: Pairing) -> Quadtree<u16,
         },
     };
     quadtree.subdivide(0).unwrap();
-    for _ in 0..40 {
+    for _ in 0..60 {
         let leaves: Vec<usize> = quadtree
             .nodes
             .iter()
             .enumerate()
-            .filter(|(_, node)| node.is_leaf() && node.length >= 4)
+            .filter(|(_, node)| node.is_leaf() && node.length >= 2)
             .map(|(i, _)| i)
             .collect();
         if leaves.is_empty() {
@@ -157,7 +166,7 @@ fn fuzz_tree(seed: u64, balancing: Balancing, pairing: Pairing) -> Quadtree<u16,
 
 fn fuzz_duals(balancing: Balancing, pairing: Pairing) {
     let mut failures = Vec::new();
-    for seed in 0..200u64 {
+    for seed in 0..100u64 {
         let mut quadtree = fuzz_tree(seed, balancing, pairing);
         let mesh = quadtree.dualize();
         if let Err(error) = verify_dual(&mesh) {
@@ -190,70 +199,11 @@ fn fuzz_weak_duals() {
 }
 
 #[test]
-#[ignore]
-fn probe_star_gap() {
-    for seed in 0..200u64 {
-        let mut quadtree = fuzz_tree(seed, Balancing::Weak(1), Pairing::Generalized);
-        let mesh = quadtree.dualize();
-        if verify_dual(&mesh).is_err() {
-            println!("seed {seed}:");
-            let root = &quadtree.nodes[0];
-            let lo = root.corner;
-            let hi = [root.corner[0] + root.length, root.corner[1] + root.length];
-            let mut reported: HashSet<[u16; D]> = HashSet::new();
-            for node in quadtree.iter().filter(|node| node.is_leaf()) {
-                let vertex = [node.corner[0] + node.length, node.corner[1] + node.length];
-                if !(lo[0] < vertex[0]
-                    && vertex[0] < hi[0]
-                    && lo[1] < vertex[1]
-                    && vertex[1] < hi[1])
-                {
-                    continue;
-                }
-                if !reported.insert(vertex) {
-                    continue;
-                }
-                let cells: [usize; N] =
-                    std::array::from_fn(|d| incident_leaf(&quadtree, &vertex, d));
-                let mut distinct = cells.to_vec();
-                distinct.sort_unstable();
-                distinct.dedup();
-                if distinct.len() != N {
-                    continue;
-                }
-                let lengths: [u16; N] = std::array::from_fn(|o| quadtree.nodes[cells[o]].length);
-                let shortest = *lengths.iter().min().unwrap();
-                let longest = *lengths.iter().max().unwrap();
-                let aligned = (vertex[0] as usize).is_multiple_of(2 * longest as usize)
-                    && (vertex[1] as usize).is_multiple_of(2 * longest as usize);
-                if longest != shortest && !aligned {
-                    let tracked = quadtree
-                        .pairing_vertices
-                        .contains(&[vertex[0] as usize, vertex[1] as usize]);
-                    println!(
-                        "  vertex {vertex:?}: lengths {lengths:?}, corners {:?}, tracked={tracked}",
-                        cells.map(|c| quadtree.nodes[c].corner)
-                    );
-                }
-            }
-            return;
-        }
-    }
-}
-
-// Pairing::Generalized can produce asymmetric local transitions that
-// Regular (octree tree-rule) pairing never does, and this dual template
-// set was only ever validated against Regular-paired grids: most seeds
-// fail here today. Left ignored as a standing record of the gap; closing
-// it means extending dual template coverage, not fixing pair::general.
-#[test]
-#[ignore]
 fn fuzz_strong_duals_generalized() {
     fuzz_duals(Balancing::Strong(1), Pairing::Generalized)
 }
 
 #[test]
-#[ignore]
 fn fuzz_weak_duals_generalized() {
     fuzz_duals(Balancing::Weak(1), Pairing::Generalized)
 }

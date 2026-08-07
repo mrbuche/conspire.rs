@@ -1,5 +1,5 @@
 use crate::geometry::ntree::{Orthotree, node::split::Split};
-use std::ops::Add;
+use std::{array::from_fn, ops::Add};
 
 impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V>
     Orthotree<D, L, M, N, T, U, V>
@@ -11,6 +11,7 @@ where
     pub(super) fn pair_regular(&mut self) -> Result<bool, &'static str> {
         let mut index = 0;
         let mut paired = true;
+        self.pairing_vertices.clear();
         while index < self.len() {
             if let Some(nodes) = self[index.into()].orthants() {
                 let mut any_leaf = false;
@@ -29,6 +30,11 @@ where
                         paired = false;
                         self.subdivide(node)?;
                     }
+                } else if any_tree {
+                    let half = self[index.into()].length.split();
+                    let corner = self[index.into()].corner;
+                    let center = from_fn(|axis| (corner[axis] + half).into());
+                    self.pairing_vertices.insert((center, half.into()));
                 }
             }
             index += 1;

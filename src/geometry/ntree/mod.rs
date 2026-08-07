@@ -30,8 +30,9 @@ pub struct Orthotree<const D: usize, const L: usize, const M: usize, const N: us
     pub(crate) balanced: Balancing,
     pub(crate) nodes: Nodes<D, M, N, T, U, V>,
     pub(crate) paired: Pairing,
-    // Absolute-coordinate control vertices from Pairing::Generalized's ILP solve; unused by other pairing schemes.
-    pub(crate) pairing_vertices: HashSet<[usize; D]>,
+    // Centers of the 2x2 blocks of refined cells the pairing settled on, each with the
+    // length of the cells it groups. Recorded by every pairing scheme; read by the dual.
+    pub(crate) pairing_vertices: HashSet<([usize; D], usize)>,
     pub(crate) rescale: Rescaling<D>,
 }
 

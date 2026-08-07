@@ -244,6 +244,7 @@ fn star_fires_on_synthetic_checkerboard() {
         }
     }
     octree.balanced = Balancing::Strong(1);
+    assert!(octree.pair(Pairing::Regular).unwrap());
     octree.paired = Pairing::Regular;
 
     let (center_nodes, coordinates, ..) = octree.initialize();

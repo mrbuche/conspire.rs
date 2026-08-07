@@ -69,13 +69,66 @@ where
                 let shortest = *lengths.iter().min().unwrap();
                 let longest = *lengths.iter().max().unwrap();
                 let coordinate: [usize; D] = from_fn(|a| vertex[a].into());
-                if longest == shortest || (0..D).all(|a| coordinate[a].is_multiple_of(2 * longest))
-                {
+                if longest == shortest || self.block_corner(&coordinate, longest) {
                     connectivity.push(from_fn(|i| {
                         let bits = i & face_mask;
                         center_nodes[cells[(i & !face_mask) | (bits ^ (bits >> 1))]]
                     }));
                 }
+            }
+        }
+    }
+}
+
+impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U>
+    Orthotree<D, L, M, N, T, U>
+{
+    /// Whether `vertex` is a corner of a paired block of cells of `length`.
+    pub(super) fn block_corner(&self, vertex: &[usize; D], length: usize) -> bool {
+        (0..1usize << D).any(|bits| {
+            let mut center = [0; D];
+            for (axis, coordinate) in center.iter_mut().enumerate() {
+                if (bits >> axis) & 1 == 1 {
+                    *coordinate = vertex[axis] + length;
+                } else if let Some(shifted) = vertex[axis].checked_sub(length) {
+                    *coordinate = shifted;
+                } else {
+                    return false;
+                }
+            }
+            self.pairing_vertices.contains(&(center, length))
+        })
+    }
+}
+
+/// Index of the leaf containing `point`, with ties resolved toward increasing coordinates.
+pub(super) fn leaf_containing<
+    const D: usize,
+    const L: usize,
+    const M: usize,
+    const N: usize,
+    T,
+    U,
+>(
+    tree: &Orthotree<D, L, M, N, T, U>,
+    point: &[usize; D],
+) -> usize
+where
+    T: Copy + Into<usize> + Split,
+    U: Copy + Into<usize>,
+{
+    let mut index = 0;
+    loop {
+        match &tree.nodes[index].kind {
+            Kind::Leaf => return index,
+            Kind::Tree(orthants) => {
+                let corner = tree.nodes[index].corner;
+                let half: usize = tree.nodes[index].length.split().into();
+                let child = (0..D).fold(0, |acc, a| {
+                    let mid: usize = corner[a].into() + half;
+                    acc | (usize::from(point[a] >= mid) << a)
+                });
+                index = orthants[child].into();
             }
         }
     }

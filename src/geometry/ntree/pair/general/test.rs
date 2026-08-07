@@ -146,7 +146,7 @@ fn sandwiched_run_records_its_pairing_vertices() {
     // nothing required and can't participate in a cheaper solution.
     assert_eq!(
         binary_tree.pairing_vertices,
-        [[2], [6]].into_iter().collect()
+        [([2], 2), ([6], 2)].into_iter().collect()
     );
     assert!(binary_tree[0].is_tree());
     assert!(binary_tree[4].is_leaf());

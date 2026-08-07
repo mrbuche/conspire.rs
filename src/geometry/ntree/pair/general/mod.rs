@@ -18,6 +18,7 @@ where
             .map(|index| self[U::from(index)].length.into())
             .collect();
         let lengths: Vec<usize> = lengths.into_iter().collect();
+        self.pairing_vertices.clear();
         let mut paired = true;
         for window in lengths.windows(2) {
             let (fine, coarse) = (window[0], window[1]);
@@ -58,7 +59,7 @@ where
                 for (axis, coordinate) in absolute.iter_mut().enumerate() {
                     *coordinate = vertex[axis] as usize * coarse;
                 }
-                absolute
+                (absolute, coarse)
             }));
         let mut paired = true;
         for (index, corner, required) in coarse_nodes {
