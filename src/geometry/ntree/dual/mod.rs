@@ -83,6 +83,28 @@ where
 impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U>
     Orthotree<D, L, M, N, T, U>
 {
+    /// Index of the leaf with exactly this `corner` and `length`, if one exists inside the
+    /// root. Absence means either off-domain or a cell of some other size covering the spot;
+    /// callers that care which must test the bounds themselves.
+    pub(super) fn cell_at(&self, corner: &[i64; D], length: i64) -> Option<usize>
+    where
+        T: Copy + Into<usize> + Split,
+        U: Copy + Into<usize>,
+    {
+        let root = &self.nodes[0];
+        let low: [i64; D] = from_fn(|axis| Into::<usize>::into(root.corner[axis]) as i64);
+        let extent = Into::<usize>::into(root.length) as i64;
+        if (0..D).any(|axis| corner[axis] < low[axis] || corner[axis] + length > low[axis] + extent)
+        {
+            return None;
+        }
+        let point = from_fn(|axis| corner[axis] as usize);
+        let index = leaf_containing(self, &point);
+        let node = &self.nodes[index];
+        (length as usize == node.length.into()
+            && (0..D).all(|axis| point[axis] == node.corner[axis].into()))
+        .then_some(index)
+    }
     /// Whether `vertex` is a corner of a paired cluster of cells of `length`.
     pub(super) fn cluster_corner(&self, vertex: &[usize; D], length: usize) -> bool {
         (0..1usize << D).any(|bits| {

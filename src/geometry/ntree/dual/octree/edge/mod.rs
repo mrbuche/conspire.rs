@@ -11,7 +11,7 @@ use super::{D, N};
 use crate::{
     geometry::{
         Coordinates,
-        ntree::{Octree, balance::Balancing, dual::NodeMap},
+        ntree::{Octree, balance::Balancing, dual::NodeMap, node::split::Split},
     },
     math::Scalar,
 };
@@ -26,7 +26,7 @@ pub(super) fn edge_transitions<T, U>(
     nodes_map: &mut NodeMap<D>,
     balancing: Balancing,
 ) where
-    T: Copy + Into<Scalar> + Into<usize>,
+    T: Copy + Into<Scalar> + Into<usize> + Split,
     U: Copy + Into<usize>,
 {
     transition_1::template(

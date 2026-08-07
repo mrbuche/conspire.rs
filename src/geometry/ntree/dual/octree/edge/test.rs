@@ -6,6 +6,7 @@ use crate::{
             Balance, Octree,
             balance::Balancing,
             dual::NodeMap,
+            node::split::Split,
             node::{Kind, Node},
             pair::Pairing,
             rescale::Rescaling,
@@ -147,7 +148,7 @@ pub(crate) fn edge_transition_counts<T, U>(
     nodes_map: &mut NodeMap<D>,
 ) -> [usize; 4]
 where
-    T: Copy + Into<Scalar> + Into<usize>,
+    T: Copy + Into<Scalar> + Into<usize> + Split,
     U: Copy + Into<usize>,
 {
     let mut counts = [0usize; 4];
