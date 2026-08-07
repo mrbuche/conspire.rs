@@ -5,6 +5,7 @@ use crate::geometry::{
         Octree,
         balance::Balancing,
         node::{Kind, split::Split},
+        pair::Pairing,
     },
 };
 use std::{array::from_fn, ops::Add};
@@ -169,6 +170,7 @@ fn survey_weak_vertex_configs() {
     survey(&WEAK_CONFIGS, Balancing::Weak(1));
 }
 
+#[cfg(feature = "netcdf")]
 fn weak_vertex_depths(fine: usize) -> [usize; 8] {
     let mut depths = [2; 8];
     depths[fine] = 3;
@@ -177,6 +179,7 @@ fn weak_vertex_depths(fine: usize) -> [usize; 8] {
 }
 
 #[test]
+#[cfg(feature = "netcdf")]
 fn write_weak_vertex_dual() {
     use super::super::test::verify_dual;
     use crate::{
@@ -249,8 +252,8 @@ where
     }
 }
 
-fn fuzz_tree(seed: u64, balancing: Balancing) -> Octree<u16, usize> {
-    use crate::geometry::ntree::{Balance, node::Node, pair::Pairing, rescale::Rescaling};
+fn fuzz_tree(seed: u64, balancing: Balancing, pairing: Pairing) -> Octree<u16, usize> {
+    use crate::geometry::ntree::{Balance, node::Node, rescale::Rescaling};
     let mut state = seed
         .wrapping_mul(6364136223846793005)
         .wrapping_add(1442695040888963407);
@@ -292,16 +295,16 @@ fn fuzz_tree(seed: u64, balancing: Balancing) -> Octree<u16, usize> {
         let pick = leaves[rand() % leaves.len()];
         octree.subdivide(pick).unwrap();
     }
-    octree.equilibrate(balancing, Pairing::Regular).unwrap();
+    octree.equilibrate(balancing, pairing).unwrap();
     octree
 }
 
-fn fuzz_duals(balancing: Balancing) {
+fn fuzz_duals(balancing: Balancing, pairing: Pairing) {
     use super::super::test::verify_dual;
     use crate::geometry::ntree::Dualization;
     let mut failures = Vec::new();
     for seed in 0..200u64 {
-        let mut octree = fuzz_tree(seed, balancing);
+        let mut octree = fuzz_tree(seed, balancing, pairing);
         let mesh = octree.dualize();
         if let Err(error) = verify_dual(&mesh) {
             failures.push(format!("seed {seed}: {error}"));
@@ -324,10 +327,29 @@ fn fuzz_duals(balancing: Balancing) {
 
 #[test]
 fn fuzz_weak_duals() {
-    fuzz_duals(Balancing::Weak(1))
+    fuzz_duals(Balancing::Weak(1), Pairing::Regular)
 }
 
 #[test]
 fn fuzz_strong_duals() {
-    fuzz_duals(Balancing::Strong(1))
+    fuzz_duals(Balancing::Strong(1), Pairing::Regular)
+}
+
+// The quadtree dual was generalized by re-anchoring its templates on the paired
+// 2x2 blocks rather than on tree nodes; the octree's face and edge transitions
+// still walk tree topology, so they only fire where a block happens to coincide
+// with a node. Measured over 40 seeds: Regular passes 40/40 on both balancings,
+// Generalized passes 4/40 strong and 2/40 weak, failing as unclosed boundaries
+// (the uncovered transition strips), non-conformal faces and non-sphere
+// boundaries. Ignored as a standing record until face/ and edge/ are ported.
+#[test]
+#[ignore]
+fn fuzz_weak_duals_generalized() {
+    fuzz_duals(Balancing::Weak(1), Pairing::Generalized)
+}
+
+#[test]
+#[ignore]
+fn fuzz_strong_duals_generalized() {
+    fuzz_duals(Balancing::Strong(1), Pairing::Generalized)
 }

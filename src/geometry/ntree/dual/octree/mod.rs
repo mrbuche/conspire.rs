@@ -1,5 +1,4 @@
 #[cfg(test)]
-#[cfg(feature = "netcdf")]
 mod test;
 
 mod edge;

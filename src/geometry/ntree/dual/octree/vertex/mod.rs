@@ -1,5 +1,4 @@
 #[cfg(test)]
-#[cfg(feature = "netcdf")]
 pub(crate) mod test;
 
 mod star;

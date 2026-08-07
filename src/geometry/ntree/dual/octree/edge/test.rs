@@ -56,6 +56,7 @@ fn weak_edge_tree(balancing: Balancing) -> Octree<u16, usize> {
 }
 
 #[test]
+#[cfg(feature = "netcdf")]
 fn write_weak_edge_dual() {
     use super::super::test::verify_dual;
     use crate::{
