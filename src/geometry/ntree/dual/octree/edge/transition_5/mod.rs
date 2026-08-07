@@ -71,11 +71,9 @@ pub(super) fn template<T, U>(
                     nodes_map,
                 );
                 let axis = 3 - (facet_m >> 1) - (facet_n >> 1);
-                // The tree-walking version asked whether this leaf was the low half of an
-                // aligned pair, which is to say whether it and the leaf above are siblings.
-                // Siblinghood is really "the pair is paired", so read it off the refined
-                // columns beside them, the way the neighbouring wedge does - a coarse leaf
-                // belongs to no cluster itself, but its refined neighbours do.
+                // This leaf and the one above it must be paired. A coarse leaf belongs to no
+                // cluster itself, so read it off the refined columns beside them, the way the
+                // neighbouring wedge does.
                 let origin: [i64; D] = from_fn(|a| Into::<usize>::into(node.corner[a]) as i64);
                 let coarse = Into::<usize>::into(node.length) as i64;
                 let column = |facets: &[usize]| {
@@ -134,8 +132,7 @@ where
     let side_n = facet_n & 1;
     // The two adjoining neighbours are one level finer than this leaf and the diagonal one is
     // two levels finer, which is the 4:1 jump only `Weak` balancing permits. Every cell below is
-    // therefore fixed by position alone; walking `facets` and `leaves` to reach them only worked
-    // while clusters coincided with nodes.
+    // therefore fixed by position alone.
     let coarse = Into::<usize>::into(node.length) as i64;
     let (half, quarter) = (coarse / 2, coarse / 4);
     if quarter == 0 {

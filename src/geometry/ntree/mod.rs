@@ -5,7 +5,6 @@ mod dual;
 mod from;
 mod index;
 mod into;
-mod leaves;
 pub(crate) mod node;
 mod pair;
 mod prune;

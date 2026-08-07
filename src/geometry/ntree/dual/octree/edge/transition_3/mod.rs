@@ -28,9 +28,7 @@ type Lane = [Option<usize>; 4];
 /// The three refined columns around the coarse pair belong to as many as three different
 /// clusters, so unlike the neighbouring wedge this cannot be anchored on one of them. What ties
 /// the configuration together is that each column's two coarse cells are themselves paired: that
-/// is what fixes the grouping of four fine cells the slices rely on. Requiring it directly is
-/// what generalizes the tree-walking version's demand that the two coarse leaves be siblings -
-/// siblinghood is the same statement, specialized to clusters that coincide with nodes.
+/// is what fixes the grouping of four fine cells the slices rely on.
 pub(super) fn template<T, U>(
     tree: &Octree<T, U>,
     center_nodes: &[usize],
@@ -54,8 +52,7 @@ pub(super) fn template<T, U>(
         }
         let corner: [i64; D] = from_fn(|axis| Into::<usize>::into(first.corner[axis]) as i64);
         // Either coarse leaf of the pair may lie outside the domain, leaving half a wedge to
-        // draw, so this leaf is tried as each end in turn. Only the lower role was ever
-        // considered before, which silently dropped every wedge whose lower leaf was off-domain.
+        // draw, so this leaf is tried as each end in turn.
         for (along, lower) in (0..D).flat_map(|along| [(along, true), (along, false)]) {
             let mut origin = corner;
             if !lower {

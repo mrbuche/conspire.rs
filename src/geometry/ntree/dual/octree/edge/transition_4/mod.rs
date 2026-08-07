@@ -19,8 +19,7 @@ use std::array::from_fn;
 /// complement of the wedge where the diagonal is refined too.
 ///
 /// The two coarse leaves must be paired, which is what fixes the grouping of fine cells the
-/// wedge reads; the tree-walking version asked instead that they be siblings, the same statement
-/// specialized to clusters that coincide with nodes.
+/// wedge reads.
 ///
 /// Along the edge the four fine cells on each side sit at positions 0..3. Every Steiner point
 /// here is read, not placed: two come from the slab facing the `m` neighbour and two from the
@@ -47,8 +46,7 @@ pub(super) fn template<T, U>(
         }
         let corner: [i64; D] = from_fn(|axis| Into::<usize>::into(leaf.corner[axis]) as i64);
         // Either coarse leaf of the pair may lie outside the domain, leaving half a wedge to
-        // draw, so this leaf is tried as each end in turn. Only the lower role was ever
-        // considered before, which silently dropped every wedge whose lower leaf was off-domain.
+        // draw, so this leaf is tried as each end in turn.
         for (along, lower) in (0..D).flat_map(|along| [(along, true), (along, false)]) {
             let mut origin = corner;
             if !lower {

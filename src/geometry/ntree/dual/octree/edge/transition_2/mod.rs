@@ -18,10 +18,9 @@ use std::array::from_fn;
 /// edge: two clusters side by side across `seam`, each facing coarse leaves across the same
 /// facet. Each slab stops at its own boundary, leaving a strip two coarse cells long uncovered.
 ///
-/// The seam is filled from the cluster on its lower side, so each one is taken exactly once. The
-/// tree-walking version instead anchored on the coarse side and picked a side per facet; which of
-/// the two clusters is the anchor only mirrors the template, and the handedness factor below
-/// absorbs that, so fixing the choice costs nothing.
+/// The seam is filled from the cluster on its lower side, so each one is taken exactly once.
+/// Which of the two clusters anchors it only mirrors the template, and the handedness factor
+/// below absorbs that, so fixing the choice costs nothing.
 ///
 /// Along the seam the four fine cells sit at positions 0..3; the middle two carry the Steiner
 /// points, which this template only reads - the face slabs placed them.
