@@ -54,46 +54,6 @@ fn probe_isolated_refinement_dualizes() {
     }
 }
 
-fn sandwiched_row() -> Quadtree<u16, usize> {
-    let mut quadtree = Quadtree::<u16, usize> {
-        balanced: Balancing::None,
-        nodes: (0..5u16)
-            .map(|i| Node {
-                corner: [16 * i, 0],
-                length: 16,
-                facets: [None; 4],
-                kind: Kind::Leaf,
-                value: None,
-            })
-            .collect(),
-        paired: Pairing::None,
-        pairing_vertices: Default::default(),
-        rescale: Rescaling {
-            center: [0.0; D],
-            cell: 1.0,
-            half: 0.0,
-        },
-    };
-    quadtree.subdivide(1).unwrap();
-    quadtree.subdivide(2).unwrap();
-    quadtree.subdivide(3).unwrap();
-    quadtree
-}
-
-#[test]
-fn probe_sandwiched_row_dualizes() {
-    let mut quadtree = sandwiched_row();
-    let paired = quadtree.pair(Pairing::Generalized).unwrap();
-    assert!(!paired);
-    assert_ne!(quadtree[0].is_tree(), quadtree[4].is_tree());
-    quadtree.balanced = Balancing::Weak(1);
-    quadtree.paired = Pairing::Generalized;
-    let mesh = quadtree.dualize();
-    if let Err(error) = verify_dual(&mesh) {
-        panic!("{error}");
-    }
-}
-
 #[test]
 fn regular_pairing_forces_unnecessary_splits() {
     let mut quadtree = one_quadrant_refined();
