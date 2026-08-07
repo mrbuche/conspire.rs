@@ -110,7 +110,11 @@ where
                 let reversed = side == axis;
                 let coarse_of = |k: usize| coarse_cells[if reversed { 1 - k } else { k }];
                 let fine_of = |k: usize| fine_cells[if reversed { 3 - k } else { k }];
-                let node_of = |cell: Option<usize>| center_nodes[cell.unwrap()];
+                let node_of = |cell: Option<usize>| cell.map(|index| center_nodes[index]);
+                // A half is one coarse leaf with the two fine cells behind it. It is taken only
+                // when whole, and the facet only when every absent half is provably outside the
+                // domain: absent for any other reason means the transition belongs to another
+                // block, and drawing here would double-cover it.
                 let half_present = |k: usize| {
                     coarse_of(k).is_some()
                         && fine_of(2 * k).is_some()
@@ -120,46 +124,36 @@ where
                     let j = if reversed { 1 - k } else { k } as i64;
                     base + j * coarse < low[tangent] || base + (j + 1) * coarse > high[tangent]
                 };
-                let mut steiner = |offset: Scalar| {
-                    let mut point = [0.0; D];
-                    point[axis] = interface as Scalar;
-                    point[tangent] =
-                        center[tangent] as Scalar + if reversed { -offset } else { offset };
-                    get_or_add(point.into(), coordinates, nodes_map, node_index)
+                if !(0..2).any(half_present) || (0..2).any(|k| !half_present(k) && !half_outside(k))
+                {
+                    continue;
+                }
+                // Each Steiner point sits on the interface, opposite one of the two inner fine
+                // cells. Pairing them that way is what lets a truncated facet fall out of the
+                // same template: every quad below pairs each of its cells with a point at the
+                // same position, so dropping the quads whose cells are missing leaves exactly
+                // the truncated template, with no separate case to write.
+                let mut steiner = |k: usize| {
+                    fine_of(k).map(|_| {
+                        let offset = (k as Scalar - 1.5) * fine as Scalar;
+                        let mut point = [0.0; D];
+                        point[axis] = interface as Scalar;
+                        point[tangent] =
+                            center[tangent] as Scalar + if reversed { -offset } else { offset };
+                        get_or_add(point.into(), coordinates, nodes_map, node_index)
+                    })
                 };
-                let half = fine as Scalar * 0.5;
-                if half_present(0) && half_present(1) {
-                    let (lower, upper) = (steiner(-half), steiner(half));
-                    connectivity.push([node_of(fine_of(1)), lower, upper, node_of(fine_of(2))]);
-                    connectivity.push([lower, node_of(coarse_of(0)), node_of(coarse_of(1)), upper]);
-                    connectivity.push([
-                        node_of(fine_of(2)),
-                        upper,
-                        node_of(coarse_of(1)),
-                        node_of(fine_of(3)),
-                    ]);
-                    connectivity.push([
-                        node_of(fine_of(0)),
-                        node_of(coarse_of(0)),
-                        lower,
-                        node_of(fine_of(1)),
-                    ]);
-                } else if half_present(1) && half_outside(0) {
-                    let middle = steiner(0.0);
-                    connectivity.push([
-                        node_of(fine_of(2)),
-                        middle,
-                        node_of(coarse_of(1)),
-                        node_of(fine_of(3)),
-                    ]);
-                } else if half_present(0) && half_outside(1) {
-                    let middle = steiner(0.0);
-                    connectivity.push([
-                        node_of(fine_of(0)),
-                        node_of(coarse_of(0)),
-                        middle,
-                        node_of(fine_of(1)),
-                    ]);
+                let (lower, upper) = (steiner(1), steiner(2));
+                let (fine_of, coarse_of) = (|k| node_of(fine_of(k)), |k| node_of(coarse_of(k)));
+                for quad in [
+                    [fine_of(1), lower, upper, fine_of(2)],
+                    [lower, coarse_of(0), coarse_of(1), upper],
+                    [fine_of(2), upper, coarse_of(1), fine_of(3)],
+                    [fine_of(0), coarse_of(0), lower, fine_of(1)],
+                ] {
+                    if quad.iter().all(Option::is_some) {
+                        connectivity.push(from_fn(|k| quad[k].unwrap()))
+                    }
                 }
             }
         }

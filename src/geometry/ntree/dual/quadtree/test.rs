@@ -207,3 +207,80 @@ fn fuzz_strong_duals_generalized() {
 fn fuzz_weak_duals_generalized() {
     fuzz_duals(Balancing::Weak(1), Pairing::Generalized)
 }
+
+// The transition takes a half of a block facet - one coarse leaf and the two fine cells behind
+// it - only when the half is whole, and treats a facet as truncated only when every absent half
+// is provably outside the domain. A half absent for any other reason (the outside cell refined,
+// the inside cells refined deeper) means the transition belongs to a different block, and
+// guessing a template there would double-cover it. This asserts that mixed facets - one half
+// present, the other absent while still inside the domain - never arise, so the classification
+// the template relies on is total rather than merely sound.
+#[test]
+fn every_block_facet_is_classifiable() {
+    use crate::geometry::ntree::dual::leaf_containing;
+    for pairing in [Pairing::Regular, Pairing::Generalized] {
+        let mut mixed = Vec::new();
+        for seed in 0..100u64 {
+            let tree = fuzz_tree(seed, Balancing::Weak(1), pairing);
+            let root = &tree.nodes[0];
+            let low: [i64; D] = std::array::from_fn(|a| root.corner[a] as i64);
+            let high: [i64; D] = std::array::from_fn(|a| low[a] + root.length as i64);
+            let cell_at = |corner: [i64; D], length: i64| -> Option<usize> {
+                if (0..D).any(|a| corner[a] < low[a] || corner[a] + length > high[a]) {
+                    return None;
+                }
+                let point = std::array::from_fn(|a| corner[a] as usize);
+                let index = leaf_containing(&tree, &point);
+                let node = &tree.nodes[index];
+                (length as usize == node.length as usize
+                    && (0..D).all(|a| point[a] == node.corner[a] as usize))
+                .then_some(index)
+            };
+            for &(block, length) in tree.pairing_vertices.iter() {
+                let center: [i64; D] = std::array::from_fn(|a| block[a] as i64);
+                let (coarse, fine) = (length as i64, length as i64 / 2);
+                for facet in 0..4 {
+                    let (axis, side) = (facet >> 1, facet & 1);
+                    let tangent = 1 - axis;
+                    let interface = center[axis] + if side == 1 { coarse } else { -coarse };
+                    let outside = if side == 1 {
+                        interface
+                    } else {
+                        interface - coarse
+                    };
+                    let inside = if side == 1 {
+                        interface - fine
+                    } else {
+                        interface
+                    };
+                    let base = center[tangent] - coarse;
+                    let at = |along, across| {
+                        let mut c = [0; D];
+                        c[axis] = along;
+                        c[tangent] = across;
+                        c
+                    };
+                    let present = |h: i64| {
+                        cell_at(at(outside, base + h * coarse), coarse).is_some()
+                            && cell_at(at(inside, base + 2 * h * fine), fine).is_some()
+                            && cell_at(at(inside, base + (2 * h + 1) * fine), fine).is_some()
+                    };
+                    let outside_domain = |h: i64| {
+                        base + h * coarse < low[tangent] || base + (h + 1) * coarse > high[tangent]
+                    };
+                    let any = (0..2).any(present);
+                    let stray = (0..2).any(|h| !present(h) && !outside_domain(h));
+                    if any && stray {
+                        mixed.push(format!("seed {seed} block {block:?} facet {facet}"));
+                    }
+                }
+            }
+        }
+        assert!(
+            mixed.is_empty(),
+            "{} facets mix a present half with an absent in-domain one:\n{}",
+            mixed.len(),
+            mixed.join("\n")
+        );
+    }
+}
