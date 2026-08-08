@@ -177,7 +177,8 @@ where
     let mut solution_change = solution.clone();
     let mut step_size = INITIAL_STEP_SIZE;
     let mut step_trial;
-    for _ in 0..gradient_descent.max_steps {
+    let mut steps = 0;
+    loop {
         residual = if let Some(ref extra) = constraint {
             jacobian(&solution)? - extra
         } else {
@@ -185,7 +186,13 @@ where
         };
         if gradient_descent.error_norm.apply(&residual) < gradient_descent.abs_tol {
             return Ok(solution);
+        } else if steps == gradient_descent.max_steps {
+            return Err(OptimizationError::MaximumStepsReached(
+                gradient_descent.max_steps,
+                format!("{gradient_descent:?}"),
+            ));
         } else {
+            steps += 1;
             solution_change -= &solution;
             residual_change -= &residual;
             step_trial =
@@ -206,10 +213,6 @@ where
             solution -= residual * step_size;
         }
     }
-    Err(OptimizationError::MaximumStepsReached(
-        gradient_descent.max_steps,
-        format!("{gradient_descent:?}"),
-    ))
 }
 
 fn constrained_fixed<X>(
@@ -231,11 +234,12 @@ where
     let mut solution_change = solution.clone();
     let mut step_size = INITIAL_STEP_SIZE;
     let mut step_trial;
-    for iteration in 0..gradient_descent.max_steps {
+    let mut steps = 0;
+    loop {
         residual = jacobian(&solution)?;
         residual.zero_out(&indices);
         residual_norm = gradient_descent.error_norm.apply(&residual);
-        if gradient_descent.rel_tol.is_some() && iteration == 0 {
+        if gradient_descent.rel_tol.is_some() && steps == 0 {
             relative_scale = gradient_descent.error_norm.apply(&residual)
         }
         if residual_norm < gradient_descent.abs_tol {
@@ -244,7 +248,13 @@ where
             && residual_norm / relative_scale < rel_tol
         {
             return Ok(solution);
+        } else if steps == gradient_descent.max_steps {
+            return Err(OptimizationError::MaximumStepsReached(
+                gradient_descent.max_steps,
+                format!("{gradient_descent:?}"),
+            ));
         } else {
+            steps += 1;
             solution_change -= &solution;
             residual_change -= &residual;
             step_trial =
@@ -265,10 +275,6 @@ where
             solution -= residual * step_size;
         }
     }
-    Err(OptimizationError::MaximumStepsReached(
-        gradient_descent.max_steps,
-        format!("{gradient_descent:?}"),
-    ))
 }
 
 fn constrained<X>(
@@ -299,14 +305,21 @@ where
     let mut step_size_multipliers = INITIAL_STEP_SIZE;
     let mut step_trial_multipliers;
     let mut step_size;
-    for _ in 0..gradient_descent.max_steps {
+    let mut steps = 0;
+    loop {
         residual_solution = jacobian(&solution)? - &multipliers * &constraint_matrix;
         residual_multipliers = &constraint_rhs - &constraint_matrix * &solution;
         if gradient_descent.error_norm.apply(&residual_solution) < gradient_descent.abs_tol
             && gradient_descent.error_norm.apply(&residual_multipliers) < gradient_descent.abs_tol
         {
             return Ok(solution);
+        } else if steps == gradient_descent.max_steps {
+            return Err(OptimizationError::MaximumStepsReached(
+                gradient_descent.max_steps,
+                format!("{gradient_descent:?}"),
+            ));
         } else {
+            steps += 1;
             solution_change -= &solution;
             residual_solution_change -= &residual_solution;
             step_trial_solution = residual_solution_change.full_contraction(&solution_change)
@@ -331,10 +344,6 @@ where
             multipliers += residual_multipliers * step_size;
         }
     }
-    Err(OptimizationError::MaximumStepsReached(
-        gradient_descent.max_steps,
-        format!("{gradient_descent:?}"),
-    ))
 }
 
 fn constrained_dual<X>(
