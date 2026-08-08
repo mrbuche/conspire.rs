@@ -194,13 +194,13 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
             .zip(other.iter())
             .for_each(|(self_i, vector_i)| *self_i -= vector_i)
     }
-    fn decrement_from_chained(&mut self, other: &mut Vector, vector: Vector) {
+    fn decrement_from_chained(&mut self, other: &mut Vector, vector: &Vector) {
         self.0
             .iter_mut()
             .flat_map(|x| x.iter_mut())
             .chain(self.1.iter_mut().flat_map(|x| x.iter_mut()))
             .chain(other.iter_mut())
-            .zip(vector)
+            .zip(vector.iter())
             .for_each(|(entry_i, vector_i)| *entry_i -= vector_i)
     }
 }

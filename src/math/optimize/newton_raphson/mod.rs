@@ -395,7 +395,7 @@ where
             .for_each(|(applied_i, decrement_i)| *applied_i = decrement_i * trial_size);
         let mut trial = solution.clone();
         let mut trial_multipliers = multipliers.clone();
-        trial.decrement_from_chained(&mut trial_multipliers, decrement * trial_size);
+        trial.decrement_from_chained(&mut trial_multipliers, &(decrement * trial_size));
         if update(solution, applied).is_ok() && jacobian(&trial).is_ok() {
             return Some(trial_size);
         }
@@ -433,10 +433,14 @@ where
         let mut trial_local = local.clone();
         let mut trial_multipliers_global = multipliers_global.clone();
         let mut trial_multipliers_local = multipliers_local.clone();
-        trial_global
-            .decrement_from_chained(&mut trial_multipliers_global, decrement_outer * trial_size);
-        trial_local
-            .decrement_from_chained(&mut trial_multipliers_local, decrement_inner * trial_size);
+        trial_global.decrement_from_chained(
+            &mut trial_multipliers_global,
+            &(decrement_outer * trial_size),
+        );
+        trial_local.decrement_from_chained(
+            &mut trial_multipliers_local,
+            &(decrement_inner * trial_size),
+        );
         if residual_global(&trial_global, &trial_local).is_ok()
             && residual_local(&trial_global, &trial_local).is_ok()
             && tangents(&trial_global, &trial_local).is_ok()
@@ -548,16 +552,22 @@ where
     } else {
         (0, 0)
     };
-    let mut column = Vector::zero(inner);
-    let mut coupling_global = Matrix::zero(outer, inner);
-    let mut coupling_local = Matrix::zero(inner, outer);
-    let mut eliminated = vec![Vector::zero(inner); outer.min(num_global)];
-    let mut factorization = LuDecomposition::zero(inner);
-    let mut monolithic = SquareMatrix::zero(if eliminating || sparse.is_some() {
+    let whole = if eliminating || sparse.is_some() {
         0
     } else {
         num_outer + num_inner
-    });
+    };
+    let mut column = Vector::zero(inner);
+    let mut coupling_global = Matrix::zero(outer, inner);
+    let mut coupling_local = Matrix::zero(inner, outer);
+    let mut decrement_inner = Vector::zero(num_inner);
+    let mut decrement_outer = Vector::zero(num_outer);
+    let mut decrement_whole = Vector::zero(whole);
+    let mut eliminated = vec![Vector::zero(inner); outer.min(num_global)];
+    let mut factorization = LuDecomposition::zero(inner);
+    let mut factorization_outer = LuDecomposition::zero(outer);
+    let mut factorization_whole = LuDecomposition::zero(whole);
+    let mut monolithic = SquareMatrix::zero(whole);
     let mut residual = Vector::zero(num_outer + num_inner);
     let mut tangent_inner = SquareMatrix::zero(inner);
     let mut tangent_outer = SquareMatrix::zero(outer);
@@ -593,7 +603,7 @@ where
                 tangent_inner.factorize_lu_into(&mut factorization)?;
                 let mut decrement = factorization.solve(&update_inner);
                 limit_decrement(local_solver, &mut [(&mut decrement, num_local)]);
-                local.decrement_from_chained(&mut multipliers_local, decrement)
+                local.decrement_from_chained(&mut multipliers_local, &decrement)
             }
         }
         kkt_residual(
@@ -627,7 +637,7 @@ where
         }
         steps += 1;
         let (tangent_uu, tangent_vu, tangent_uv, tangent_vv) = tangents(&global, &local)?;
-        let (mut decrement_outer, mut decrement_inner) = if eliminating {
+        if eliminating {
             kkt_block(
                 &tangent_uu,
                 &constraint_matrix_global,
@@ -652,17 +662,17 @@ where
                     (0..num_local).for_each(|i| column[i] = coupling_local[i][k]);
                     factorization.solve_into(&column, eliminated_k)
                 });
-            let offset = factorization.solve(&update_inner);
+            factorization.solve_into(&update_inner, &mut decrement_inner);
             (0..num_global).for_each(|i| {
                 (0..num_local).for_each(|j| {
                     let coupling = coupling_global[i][j];
                     (0..num_global)
                         .for_each(|k| tangent_outer[i][k] -= coupling * eliminated[k][j]);
-                    update_outer[i] -= coupling * offset[j]
+                    update_outer[i] -= coupling * decrement_inner[j]
                 })
             });
-            let decrement_outer = tangent_outer.solve_lu(&update_outer)?;
-            let mut decrement_inner = offset;
+            tangent_outer.factorize_lu_into(&mut factorization_outer)?;
+            factorization_outer.solve_into(&update_outer, &mut decrement_outer);
             (0..num_global).for_each(|k| {
                 decrement_inner
                     .iter_mut()
@@ -671,7 +681,6 @@ where
                         *decrement_inner_i -= eliminated_ki * decrement_outer[k]
                     })
             });
-            (decrement_outer, decrement_inner)
         } else {
             if sparse.is_none() {
                 kkt_block(
@@ -689,12 +698,12 @@ where
                     num_outer,
                 );
             }
-            let decrement = if let Some(ref solver) = sparse {
+            if let Some(ref solver) = sparse {
                 //
                 // The block layout is the same either way, so the entry a
                 // sparse solver asks for is read from whichever block holds it.
                 //
-                solver.solve(
+                decrement_whole = solver.solve(
                     |i, j| {
                         kkt_entry(
                             i,
@@ -715,16 +724,14 @@ where
             } else {
                 tangent_uv.fill_into_block(&mut monolithic, 0, num_outer);
                 tangent_vu.fill_into_block(&mut monolithic, num_outer, 0);
-                monolithic.solve_lu(&residual)?
-            };
-            let mut decrement_outer = Vector::zero(num_outer);
-            let mut decrement_inner = Vector::zero(num_inner);
-            decrement
+                monolithic.factorize_lu_into(&mut factorization_whole)?;
+                factorization_whole.solve_into(&residual, &mut decrement_whole)
+            }
+            decrement_whole
                 .iter()
                 .zip(decrement_outer.iter_mut().chain(decrement_inner.iter_mut()))
                 .for_each(|(entry, decrement_i)| *decrement_i = *entry);
-            (decrement_outer, decrement_inner)
-        };
+        }
         limit_decrement(
             newton_raphson,
             &mut [
@@ -813,11 +820,11 @@ where
                         let mut trial_multipliers_local = multipliers_local.clone();
                         trial_global.decrement_from_chained(
                             &mut trial_multipliers_global,
-                            &decrement_outer * step,
+                            &(&decrement_outer * step),
                         );
                         trial_local.decrement_from_chained(
                             &mut trial_multipliers_local,
-                            &decrement_inner * step,
+                            &(&decrement_inner * step),
                         );
                         Ok(function(&trial_global, &trial_local)?
                             + penalty
@@ -846,11 +853,11 @@ where
             }
         };
         if step_size == 1.0 {
-            global.decrement_from_chained(&mut multipliers_global, decrement_outer);
-            local.decrement_from_chained(&mut multipliers_local, decrement_inner)
+            global.decrement_from_chained(&mut multipliers_global, &decrement_outer);
+            local.decrement_from_chained(&mut multipliers_local, &decrement_inner)
         } else {
-            global.decrement_from_chained(&mut multipliers_global, &decrement_outer * step_size);
-            local.decrement_from_chained(&mut multipliers_local, &decrement_inner * step_size)
+            global.decrement_from_chained(&mut multipliers_global, &(&decrement_outer * step_size));
+            local.decrement_from_chained(&mut multipliers_local, &(&decrement_inner * step_size))
         }
     }
 }
@@ -1124,7 +1131,7 @@ where
                     |step| {
                         let mut trial = solution.clone();
                         let mut trial_multipliers = multipliers.clone();
-                        trial.decrement_from_chained(&mut trial_multipliers, &decrement * step);
+                        trial.decrement_from_chained(&mut trial_multipliers, &(&decrement * step));
                         Ok(function(&trial)?
                             + penalty * violation(&constraint_matrix, &constraint_rhs, &trial))
                     },
@@ -1157,6 +1164,6 @@ where
                 .for_each(|(applied_i, decrement_i)| *applied_i = *decrement_i);
             update(&solution, &applied)?
         }
-        solution.decrement_from_chained(&mut multipliers, decrement)
+        solution.decrement_from_chained(&mut multipliers, &decrement)
     }
 }

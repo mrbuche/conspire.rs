@@ -147,7 +147,7 @@ impl<const D: usize, const I: usize> Solution for TensorRank1<D, I> {
     fn decrement_from(&mut self, _other: &Vector) {
         unimplemented!()
     }
-    fn decrement_from_chained(&mut self, _other: &mut Vector, _vector: Vector) {
+    fn decrement_from_chained(&mut self, _other: &mut Vector, _vector: &Vector) {
         unimplemented!()
     }
 }
