@@ -129,23 +129,75 @@ impl<const D: usize> Instance<D> {
         {
             excluded[cover[0]] = false;
         }
-        let mut solver = Solver {
-            valences: &valences,
-            conflicts_of: &conflicts_of,
-            covers: &covers,
-            selected: vec![false; count],
-            excluded,
-            best: None,
-        };
-        solver.branch(0);
-        let (cost, selected) = solver.best.expect("no feasible assignment found");
-        let assignment = selected
-            .into_iter()
-            .enumerate()
-            .filter_map(|(i, chosen)| chosen.then_some(candidates[i]))
-            .collect();
-        (assignment, cost)
+        // Two vertices of the same cell always conflict, so no cover straddles two components
+        // of the conflict graph and the components are independent problems. Solving them
+        // apart keeps the search exponential in the largest component rather than in the whole
+        // level, and the objective is a sum, so the pieces still compose to the optimum.
+        let mut parent: Vec<usize> = (0..count).collect();
+        (0..count).for_each(|i| {
+            conflicts_of[i].iter().for_each(|&j| {
+                let (a, b) = (find(&mut parent, i), find(&mut parent, j));
+                if a != b {
+                    parent[a] = b;
+                }
+            })
+        });
+        let mut component_of = vec![0; count];
+        let mut local_of = vec![0; count];
+        let mut of_root = vec![usize::MAX; count];
+        let mut members: Vec<Vec<usize>> = Vec::new();
+        for i in 0..count {
+            let root = find(&mut parent, i);
+            if of_root[root] == usize::MAX {
+                of_root[root] = members.len();
+                members.push(Vec::new());
+            }
+            component_of[i] = of_root[root];
+            local_of[i] = members[of_root[root]].len();
+            members[of_root[root]].push(i);
+        }
+        let mut grouped: Vec<Vec<Vec<usize>>> = vec![Vec::new(); members.len()];
+        covers.iter().for_each(|cover| {
+            if let Some(&first) = cover.first() {
+                grouped[component_of[first]].push(cover.iter().map(|&i| local_of[i]).collect())
+            }
+        });
+        let mut total = 0;
+        let mut assignment = HashSet::new();
+        for (component, cover) in members.iter().zip(grouped) {
+            let valences: Vec<usize> = component.iter().map(|&i| valences[i]).collect();
+            let conflicts_of: Vec<Vec<usize>> = component
+                .iter()
+                .map(|&i| conflicts_of[i].iter().map(|&j| local_of[j]).collect())
+                .collect();
+            let mut solver = Solver {
+                valences: &valences,
+                conflicts_of: &conflicts_of,
+                covers: &cover,
+                selected: vec![false; component.len()],
+                excluded: component.iter().map(|&i| excluded[i]).collect(),
+                best: None,
+            };
+            solver.branch(0);
+            let (cost, selected) = solver.best.expect("no feasible assignment found");
+            total += cost;
+            assignment.extend(
+                selected
+                    .into_iter()
+                    .enumerate()
+                    .filter_map(|(i, chosen)| chosen.then_some(candidates[component[i]])),
+            );
+        }
+        (assignment, total)
     }
+}
+
+fn find(parent: &mut [usize], mut i: usize) -> usize {
+    while parent[i] != i {
+        parent[i] = parent[parent[i]];
+        i = parent[i];
+    }
+    i
 }
 
 struct Solver<'a> {
