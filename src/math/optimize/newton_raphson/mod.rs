@@ -563,9 +563,11 @@ where
     let mut tangent_outer = SquareMatrix::zero(outer);
     let mut update_inner = Vector::zero(num_inner);
     let mut update_outer = Vector::zero(num_outer);
-    for _ in 0..newton_raphson.max_steps {
+    let mut steps = 0;
+    loop {
         if let Some(local_solver) = condensed {
-            for _ in 0..local_solver.max_steps {
+            let mut local_steps = 0;
+            loop {
                 kkt_residual(
                     residual_local(&global, &local)?,
                     &multipliers_local,
@@ -574,9 +576,12 @@ where
                     &local,
                     &mut update_inner,
                 );
-                if local_solver.error_norm.apply(&update_inner) < local_solver.abs_tol {
+                if local_solver.error_norm.apply(&update_inner) < local_solver.abs_tol
+                    || local_steps == local_solver.max_steps
+                {
                     break;
                 }
+                local_steps += 1;
                 let (_, _, _, tangent) = tangents(&global, &local)?;
                 kkt_block(
                     &tangent,
@@ -614,7 +619,13 @@ where
             .for_each(|(entry, residual_i)| *residual_i = *entry);
         if newton_raphson.error_norm.apply(&residual) < newton_raphson.abs_tol {
             return Ok((global, local));
+        } else if steps == newton_raphson.max_steps {
+            return Err(OptimizationError::MaximumStepsReached(
+                newton_raphson.max_steps,
+                format!("{:?}", newton_raphson),
+            ));
         }
+        steps += 1;
         let (tangent_uu, tangent_vu, tangent_uv, tangent_vv) = tangents(&global, &local)?;
         let (mut decrement_outer, mut decrement_inner) = if eliminating {
             kkt_block(
@@ -842,10 +853,6 @@ where
             local.decrement_from_chained(&mut multipliers_local, &decrement_inner * step_size)
         }
     }
-    Err(OptimizationError::MaximumStepsReached(
-        newton_raphson.max_steps,
-        format!("{:?}", newton_raphson),
-    ))
 }
 
 fn unconstrained<J, H, X>(
@@ -866,12 +873,19 @@ where
     let mut residual;
     let mut solution = initial_guess;
     let mut step_size;
+    let mut steps = 0;
     let mut tangent;
-    for _ in 0..newton_raphson.max_steps {
+    loop {
         residual = jacobian(&solution)?;
         if newton_raphson.error_norm.apply(&residual) < newton_raphson.abs_tol {
             return Ok(solution);
+        } else if steps == newton_raphson.max_steps {
+            return Err(OptimizationError::MaximumStepsReached(
+                newton_raphson.max_steps,
+                format!("{:?}", newton_raphson),
+            ));
         } else {
+            steps += 1;
             tangent = hessian(&solution)?;
             decrement = &residual / tangent;
             if let TrustRegion::Fixed { radius, norm } = newton_raphson.trust_region {
@@ -894,10 +908,6 @@ where
             solution -= decrement
         }
     }
-    Err(OptimizationError::MaximumStepsReached(
-        newton_raphson.max_steps,
-        format!("{:?}", newton_raphson),
-    ))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -930,10 +940,16 @@ where
     let mut residual;
     let mut solution = initial_guess;
     let mut step_size;
-    for _ in 0..newton_raphson.max_steps {
+    let mut steps = 0;
+    loop {
         residual = jacobian(&solution)?.retain_from(&retained);
         if newton_raphson.error_norm.apply(&residual) < newton_raphson.abs_tol {
             return Ok(solution);
+        } else if steps == newton_raphson.max_steps {
+            return Err(OptimizationError::MaximumStepsReached(
+                newton_raphson.max_steps,
+                format!("{:?}", newton_raphson),
+            ));
         } else if let Some(ref solver) = sparse {
             let hess = hessian(&solution)?;
             decrement = solver.solve(|i, j| hess.entry(unmap[i], unmap[j]), &residual)?
@@ -942,6 +958,7 @@ where
                 .retain_from(&retained)
                 .solve_lu(&residual)?
         }
+        steps += 1;
         limit_decrement(newton_raphson, &mut [(&mut decrement, unmap.len())]);
         if !matches!(newton_raphson.line_search, LineSearch::None) {
             let jac = jacobian(&solution)?;
@@ -968,10 +985,6 @@ where
         update(&solution, &applied)?;
         solution.decrement_from_retained(&retained, &decrement)
     }
-    Err(OptimizationError::MaximumStepsReached(
-        newton_raphson.max_steps,
-        format!("{:?}", newton_raphson),
-    ))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1016,7 +1029,8 @@ where
                     })
             });
     }
-    for _ in 0..newton_raphson.max_steps {
+    let mut steps = 0;
+    loop {
         let mut updated = false;
         (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
             &constraint_rhs - &constraint_matrix * &solution,
@@ -1024,6 +1038,11 @@ where
         );
         if newton_raphson.error_norm.apply(&residual) < newton_raphson.abs_tol {
             return Ok(solution);
+        } else if steps == newton_raphson.max_steps {
+            return Err(OptimizationError::MaximumStepsReached(
+                newton_raphson.max_steps,
+                format!("{:?}", newton_raphson),
+            ));
         } else if let Some(ref solver) = sparse {
             let hess = hessian(&solution)?;
             decrement = solver.solve(
@@ -1042,6 +1061,7 @@ where
             hessian(&solution)?.fill_into(&mut tangent);
             decrement = tangent.solve_lu(&residual)?
         }
+        steps += 1;
         limit_decrement(newton_raphson, &mut [(&mut decrement, num_variables)]);
         let step_size = if matches!(newton_raphson.line_search, LineSearch::None) {
             1.0
@@ -1139,8 +1159,4 @@ where
         }
         solution.decrement_from_chained(&mut multipliers, decrement)
     }
-    Err(OptimizationError::MaximumStepsReached(
-        newton_raphson.max_steps,
-        format!("{:?}", newton_raphson),
-    ))
 }
