@@ -1,10 +1,4 @@
-#[cfg(test)]
-mod test;
-
-use crate::math::{
-    Hessian, SquareMatrix, Tensor, TensorRank0, TensorRank2, TensorRank2Vec, Vector,
-    tensor::vec::TensorVector,
-};
+use crate::math::{Tensor, TensorRank0, TensorRank2, TensorRank2Vec, tensor::vec::TensorVector};
 use std::ops::Mul;
 
 use crate::math::assert::FiniteDifference;
@@ -31,69 +25,6 @@ impl<const D: usize, const I: usize, const J: usize> From<TensorRank2Vec2D<D, I,
                         .into_iter()
                         .flat_map(|tensor_rank_1| tensor_rank_1.into_iter())
                 })
-            })
-            .collect()
-    }
-}
-
-impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2Vec2D<D, I, J> {
-    fn quadratic_form(&self, vector: &Vector) -> TensorRank0 {
-        self.iter()
-            .enumerate()
-            .map(|(a, row)| {
-                row.iter()
-                    .enumerate()
-                    .map(|(b, block)| {
-                        block
-                            .iter()
-                            .enumerate()
-                            .map(|(i, block_i)| {
-                                block_i
-                                    .iter()
-                                    .enumerate()
-                                    .map(|(j, block_ij)| {
-                                        block_ij * vector[D * a + i] * vector[D * b + j]
-                                    })
-                                    .sum::<TensorRank0>()
-                            })
-                            .sum::<TensorRank0>()
-                    })
-                    .sum::<TensorRank0>()
-            })
-            .sum()
-    }
-    fn entry(&self, row: usize, column: usize) -> TensorRank0 {
-        self[row / D][column / D][row % D][column % D]
-    }
-    fn fill_into(self, square_matrix: &mut SquareMatrix) {
-        self.into_iter().enumerate().for_each(|(a, entry_a)| {
-            entry_a.into_iter().enumerate().for_each(|(b, entry_ab)| {
-                entry_ab
-                    .into_iter()
-                    .enumerate()
-                    .for_each(|(i, entry_ab_i)| {
-                        entry_ab_i
-                            .into_iter()
-                            .enumerate()
-                            .for_each(|(j, entry_ab_ij)| {
-                                square_matrix[D * a + i][D * b + j] = entry_ab_ij
-                            })
-                    })
-            })
-        });
-    }
-    fn retain_from(self, retained: &[bool]) -> SquareMatrix {
-        SquareMatrix::from(self)
-            .into_iter()
-            .zip(retained.iter())
-            .filter(|(_, retained)| **retained)
-            .map(|(self_i, _)| {
-                self_i
-                    .into_iter()
-                    .zip(retained.iter())
-                    .filter(|(_, retained)| **retained)
-                    .map(|(self_ij, _)| self_ij)
-                    .collect()
             })
             .collect()
     }

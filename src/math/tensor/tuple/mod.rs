@@ -1,10 +1,7 @@
 pub(crate) mod list;
 pub(crate) mod vec;
 
-use crate::math::{
-    Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorRank0, TensorRank2, TensorRank4,
-    Vector,
-};
+use crate::math::{Jacobian, Solution, Tensor, TensorRank0, TensorRank2, Vector};
 use std::{
     fmt::{Display, Formatter, Result},
     iter::Sum,
@@ -115,49 +112,6 @@ where
     }
     fn size(&self) -> usize {
         self.0.size() + self.1.size()
-    }
-}
-
-impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> Hessian
-    for TensorTuple<
-        TensorRank4<D, I, J, I, J>,
-        TensorTuple<
-            TensorRank4<D, K, L, I, J>,
-            TensorTuple<TensorRank4<D, I, J, K, L>, TensorRank4<D, K, L, K, L>>,
-        >,
-    >
-{
-    fn entry(&self, row: usize, column: usize) -> TensorRank0 {
-        let offset = D * D;
-        match (row < offset, column < offset) {
-            (true, true) => self.0.entry(row, column),
-            (false, true) => self.1.0.entry(row - offset, column),
-            (true, false) => self.1.1.0.entry(row, column - offset),
-            (false, false) => self.1.1.1.entry(row - offset, column - offset),
-        }
-    }
-    fn fill_into(self, square_matrix: &mut SquareMatrix) {
-        let offset = D * D;
-        let (tangent_0, tangent_123) = self.into();
-        let (tangent_1, tangent_23) = tangent_123.into();
-        let (tangent_2, tangent_3) = tangent_23.into();
-
-        tangent_0.into_iter().zip(tangent_1.into_iter().zip(tangent_2.into_iter().zip(tangent_3))).enumerate()
-            .for_each(|(i, (tangent_0_i, (tangent_1_i, (tangent_2_i, tangent_3_i))))| {
-                tangent_0_i.into_iter().zip(tangent_1_i.into_iter().zip(tangent_2_i.into_iter().zip(tangent_3_i))).enumerate()
-                    .for_each(|(j, (tangent_0_ij, (tangent_1_ij, (tangent_2_ij, tangent_3_ij))))| {
-                        tangent_0_ij.into_iter().zip(tangent_1_ij.into_iter().zip(tangent_2_ij.into_iter().zip(tangent_3_ij))).enumerate()
-                            .for_each(|(k, (tangent_0_ijk, (tangent_1_ijk, (tangent_2_ijk, tangent_3_ijk))))| {
-                                tangent_0_ijk.into_iter().zip(tangent_1_ijk.into_iter().zip(tangent_2_ijk.into_iter().zip(tangent_3_ijk))).enumerate()
-                                    .for_each(|(l, (tangent_0_ijkl, (tangent_1_ijkl, (tangent_2_ijkl, tangent_3_ijkl))))| {
-                                        square_matrix[D * i + j][D * k + l] = tangent_0_ijkl;
-                                        square_matrix[offset + D * i + j][D * k + l] = tangent_1_ijkl;
-                                        square_matrix[D * i + j][offset + D * k + l] = tangent_2_ijkl;
-                                        square_matrix[offset + D * i + j][offset + D * k + l] = tangent_3_ijkl;
-                                    })
-                            })
-                    })
-            })
     }
 }
 
