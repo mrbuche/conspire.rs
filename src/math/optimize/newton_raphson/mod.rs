@@ -943,7 +943,8 @@ where
         .enumerate()
         .filter_map(|(index, &keep)| keep.then_some(index))
         .collect();
-    let mut decrement;
+    let mut decrement = Vector::zero(unmap.len());
+    let mut factorization = LuDecomposition::zero(if sparse.is_none() { unmap.len() } else { 0 });
     let mut residual;
     let mut solution = initial_guess;
     let mut step_size;
@@ -961,9 +962,10 @@ where
             let hess = hessian(&solution)?;
             decrement = solver.solve(|i, j| hess.entry(unmap[i], unmap[j]), &residual)?
         } else {
-            decrement = hessian(&solution)?
+            hessian(&solution)?
                 .retain_from(&retained)
-                .solve_lu(&residual)?
+                .factorize_lu_into(&mut factorization)?;
+            factorization.solve_into(&residual, &mut decrement)
         }
         steps += 1;
         limit_decrement(newton_raphson, &mut [(&mut decrement, unmap.len())]);
@@ -1012,12 +1014,13 @@ where
     X: Solution,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
-    let mut decrement;
     let mut penalty = 0.0 as Scalar;
     let num_variables = initial_guess.size();
     let mut applied = Vector::zero(num_variables);
     let num_constraints = constraint_rhs.len();
     let num_total = num_variables + num_constraints;
+    let mut decrement = Vector::zero(num_total);
+    let mut factorization = LuDecomposition::zero(if sparse.is_none() { num_total } else { 0 });
     let mut multipliers = Vector::zero(num_constraints);
     let mut residual = Vector::zero(num_total);
     let mut solution = initial_guess;
@@ -1066,7 +1069,8 @@ where
             )?;
         } else {
             hessian(&solution)?.fill_into(&mut tangent);
-            decrement = tangent.solve_lu(&residual)?
+            tangent.factorize_lu_into(&mut factorization)?;
+            factorization.solve_into(&residual, &mut decrement)
         }
         steps += 1;
         limit_decrement(newton_raphson, &mut [(&mut decrement, num_variables)]);
