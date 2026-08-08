@@ -211,10 +211,10 @@ impl Solution for Vector {
             .zip(other.iter())
             .for_each(|(self_i, vector_i)| *self_i -= vector_i)
     }
-    fn decrement_from_chained(&mut self, other: &mut Self, vector: Vector) {
+    fn decrement_from_chained(&mut self, other: &mut Self, vector: &Vector) {
         self.iter_mut()
             .chain(other.iter_mut())
-            .zip(vector)
+            .zip(vector.iter())
             .for_each(|(entry_i, vector_i)| *entry_i -= vector_i)
     }
 }
