@@ -1,8 +1,12 @@
 use super::conflicts;
-use std::collections::HashSet;
+use crate::math::FxHashSet;
+use std::{array::from_fn, collections::HashSet};
 
 pub(crate) struct Instance<const D: usize> {
     cells: Vec<([i32; D], bool)>,
+    /// The same cells by position, so that the neighbourhood of a vertex can be asked for
+    /// rather than found by scanning every cell.
+    positions: FxHashSet<[i32; D]>,
     /// Vertices the alignment rule has refused. Honoured only while pairing stays feasible
     /// without them, since pairing itself is not negotiable.
     forbidden: HashSet<[i32; D]>,
@@ -18,7 +22,12 @@ fn offset<const D: usize>(a: [i32; D], b: [i32; D]) -> [i32; D] {
 
 impl<const D: usize> Instance<D> {
     pub(crate) fn new(cells: Vec<([i32; D], bool)>, forbidden: HashSet<[i32; D]>) -> Self {
-        Self { cells, forbidden }
+        let positions = cells.iter().map(|&(cell, _)| cell).collect();
+        Self {
+            cells,
+            positions,
+            forbidden,
+        }
     }
     fn vertices_of(cell: [i32; D]) -> Vec<[i32; D]> {
         let mut vertices = vec![cell];
@@ -45,10 +54,14 @@ impl<const D: usize> Instance<D> {
         candidates.dedup();
         candidates
     }
+    /// A vertex is a corner of exactly the `2^D` cells reached by stepping back from it along
+    /// any subset of the axes, so ask for those rather than scanning every cell for it.
     fn valence(&self, vertex: [i32; D]) -> usize {
-        self.cells
-            .iter()
-            .filter(|(cell, _)| Self::vertices_of(*cell).contains(&vertex))
+        (0..1usize << D)
+            .filter(|bits| {
+                let cell: [i32; D] = from_fn(|axis| vertex[axis] - ((bits >> axis) & 1) as i32);
+                self.positions.contains(&cell)
+            })
             .count()
     }
     pub(crate) fn feasible(&self, assignment: &HashSet<[i32; D]>) -> bool {
@@ -99,11 +112,26 @@ impl<const D: usize> Instance<D> {
             .iter()
             .map(|&vertex| self.valence(vertex))
             .collect();
-        let conflicts_of: Vec<Vec<usize>> = (0..count)
-            .map(|i| {
-                (0..count)
-                    .filter(|&j| j != i && conflicts(offset(candidates[i], candidates[j])))
-                    .collect()
+        // Conflict needs every axis within two, so a vertex can only conflict with the `5^D`
+        // around it. Walking those beats comparing every pair, which is quadratic in a set that
+        // grows with the level.
+        let conflicts_of: Vec<Vec<usize>> = candidates
+            .iter()
+            .map(|&vertex| {
+                let mut conflicting: Vec<usize> = (0..5usize.pow(D as u32))
+                    .filter_map(|code| {
+                        let offset: [i32; D] =
+                            from_fn(|axis| (code / 5usize.pow(axis as u32) % 5) as i32 - 2);
+                        (offset.iter().any(|&step| step != 0) && conflicts(offset))
+                            .then(|| {
+                                let other = from_fn(|axis| vertex[axis] + offset[axis]);
+                                candidates.binary_search(&other).ok()
+                            })
+                            .flatten()
+                    })
+                    .collect();
+                conflicting.sort_unstable();
+                conflicting
             })
             .collect();
         let covers: Vec<Vec<usize>> = self
@@ -111,10 +139,12 @@ impl<const D: usize> Instance<D> {
             .iter()
             .filter(|(_, required)| *required)
             .map(|(cell, _)| {
-                let vertices = Self::vertices_of(*cell);
-                (0..count)
-                    .filter(|&i| vertices.contains(&candidates[i]))
-                    .collect()
+                let mut cover: Vec<usize> = Self::vertices_of(*cell)
+                    .iter()
+                    .filter_map(|vertex| candidates.binary_search(vertex).ok())
+                    .collect();
+                cover.sort_unstable();
+                cover
             })
             .collect();
         // Honour as much of the alignment rule as pairing allows: a refusal is withdrawn only
