@@ -7966,7 +7966,7 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
         &fem_model,
         EqualityConstraint::Linear(matrix, vector),
         NewtonRaphson {
-            max_steps: 7,
+            max_steps: 6,
             ..Default::default()
         },
         SolveStrategy::Monolithic { elimination: true },
