@@ -1,6 +1,6 @@
 use super::{TensorRank2, TensorRank2SparseVec2D};
 use crate::math::{
-    Hessian, HessianAccumulate, HessianAccumulateGeneral, Rank2, SquareMatrix,
+    Hessian, HessianAccumulate, Rank2, SquareMatrix,
     assert::{Assert, AssertionError},
 };
 
@@ -102,18 +102,6 @@ fn accumulate_mirrors_off_diagonal_blocks() {
     assert_eq!(stiffnesses[2][0][0][0], 1.0);
     assert_eq!(stiffnesses[2][0][0][1], 3.0);
     assert_eq!(stiffnesses[1][1][0][0], 5.0);
-}
-
-#[test]
-fn accumulate_general_inserts_without_mirroring() {
-    let mut stiffnesses = TensorRank2SparseVec2D::<2, 1, 1>::zero(3);
-    stiffnesses.accumulate_general(0, 2, block(1.0));
-    assert_eq!(stiffnesses[0][2][0][0], 1.0);
-    assert_eq!(
-        stiffnesses[0].entries().map(|(c, _)| c).collect::<Vec<_>>(),
-        [2]
-    );
-    assert_eq!(stiffnesses[2].entries().count(), 0);
 }
 
 #[test]

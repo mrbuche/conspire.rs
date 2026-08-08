@@ -136,16 +136,6 @@ pub trait HessianAccumulate<const D: usize, const I: usize> {
     fn accumulate(&mut self, a: usize, b: usize, block: rank_2::TensorRank2<D, I, I>);
 }
 
-/// Accumulates a rank-2 block at an exact (a, b) position.
-///
-/// No symmetry assumed. Only implemented by accumulators that store every
-/// position explicitly.
-pub trait HessianAccumulateGeneral<const D: usize, const I: usize>:
-    HessianAccumulate<D, I>
-{
-    fn accumulate_general(&mut self, a: usize, b: usize, block: rank_2::TensorRank2<D, I, I>);
-}
-
 /// Common methods for rank-2 tensors.
 pub trait Rank2
 where

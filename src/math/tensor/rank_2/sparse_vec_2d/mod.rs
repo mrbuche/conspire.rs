@@ -3,8 +3,8 @@ mod test;
 
 use super::TensorRank2;
 use crate::math::{
-    Hessian, HessianAccumulate, HessianAccumulateGeneral, Rank2, Scalar, SquareMatrix, Tensor,
-    Vector, tensor::vec::TensorVector,
+    Hessian, HessianAccumulate, Rank2, Scalar, SquareMatrix, Tensor, Vector,
+    tensor::vec::TensorVector,
 };
 use std::ops::Mul;
 
@@ -30,14 +30,6 @@ impl<const D: usize, const I: usize> HessianAccumulate<D, I> for TensorRank2Spar
             self[b][a] += block.transpose();
             self[a][b] += block;
         }
-    }
-}
-
-impl<const D: usize, const I: usize> HessianAccumulateGeneral<D, I>
-    for TensorRank2SparseVec2D<D, I, I>
-{
-    fn accumulate_general(&mut self, a: usize, b: usize, block: TensorRank2<D, I, I>) {
-        self[a][b] += block;
     }
 }
 

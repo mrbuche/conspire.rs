@@ -40,9 +40,8 @@ pub use matrix::{
 };
 pub use set::{Set, sets::Sets};
 pub use tensor::{
-    Hessian, HessianAccumulate, HessianAccumulateGeneral, HessianBlock, Jacobian, Norm, Rank2,
-    Scalar, ScalarList, ScalarListVec, Scalars, Solution, Tensor, TensorArray, TensorError,
-    TensorVec,
+    Hessian, HessianAccumulate, HessianBlock, Jacobian, Norm, Rank2, Scalar, ScalarList,
+    ScalarListVec, Scalars, Solution, Tensor, TensorArray, TensorError, TensorVec,
     list::TensorList,
     rank_0::{TensorRank0, list::TensorRank0List, list_2d::TensorRank0List2D},
     rank_1::{
