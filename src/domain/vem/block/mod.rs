@@ -74,13 +74,6 @@ impl<C, F> Elements for Block<C, F> {
     }
 }
 
-pub trait VirtualElements<C, F>
-where
-    F: VirtualElement,
-    Self: for<'a> From<(C, PolytopalConnectivity<3>, &'a NodalReferenceCoordinates)>,
-{
-}
-
 impl<C, F> From<(C, PolytopalConnectivity<3>, &NodalReferenceCoordinates)> for Block<C, F>
 where
     F: VirtualElement,

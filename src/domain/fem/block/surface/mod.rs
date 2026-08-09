@@ -8,12 +8,6 @@ use crate::{
 
 const M: usize = 2;
 
-pub trait SurfaceElements<C, F, const G: usize, const N: usize>
-where
-    Self: for<'a> From<(C, Vec<[usize; N]>, &'a NodalReferenceCoordinates<3>, Scalar)>,
-{
-}
-
 impl<C, F, const G: usize, const N: usize, const P: usize>
     From<(C, Vec<[usize; N]>, &NodalReferenceCoordinates<3>, Scalar)> for Block<C, F, G, M, N, P>
 where
@@ -46,11 +40,4 @@ where
             elements,
         }
     }
-}
-
-impl<C, F, const G: usize, const N: usize, const P: usize> SurfaceElements<C, F, G, N>
-    for Block<C, F, G, M, N, P>
-where
-    F: From<(ElementNodalReferenceCoordinates<N>, Scalar)>,
-{
 }
