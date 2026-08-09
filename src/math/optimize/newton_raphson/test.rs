@@ -157,6 +157,7 @@ mod minimize {
 
 mod root {
     use super::*;
+    use crate::math::{SquareMatrix, Vector};
     #[test]
     fn linear() -> Result<(), AssertionError> {
         Assert::default().zero_within_tols(&NewtonRaphson::default().root(
@@ -166,6 +167,24 @@ mod root {
             EqualityConstraint::None,
             None,
         )?)
+    }
+    #[test]
+    fn coupled() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &NewtonRaphson::default().root(
+                |x: &Vector| {
+                    Ok(Vector::from([
+                        x[0] + 2.0 * x[1] - 5.0,
+                        3.0 * x[0] - x[1] - 1.0,
+                    ]))
+                },
+                |_: &Vector| Ok(SquareMatrix::from([[1.0, 2.0], [3.0, -1.0]])),
+                Vector::from([0.0, 0.0]),
+                EqualityConstraint::None,
+                None,
+            )?,
+            &Vector::from([1.0, 2.0]),
+        )
     }
 }
 
@@ -235,8 +254,6 @@ mod constrained {
         )
     }
 
-    /// Root finding has no merit function, so every other line search panics
-    /// on the residual it would need. Backtracking for errors asks for none.
     #[test]
     fn error_root() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(
@@ -258,12 +275,6 @@ mod constrained {
         )
     }
 
-    /// The step is shortened until the residual can be evaluated where it
-    /// lands, so a region it cannot be evaluated in is stepped around.
-    ///
-    /// The tangent understates the curvature fourfold, so the full step from
-    /// the initial guess overshoots the root and lands beyond the barrier.
-    /// Without backtracking the residual is never evaluable again.
     fn barrier(line_search: LineSearch) -> Result<Vector, super::super::OptimizationError> {
         NewtonRaphson {
             line_search,
@@ -347,12 +358,6 @@ mod constrained {
         })
     }
 
-    /// The same overshooting, met with a limit on the step instead of a line
-    /// search, and by root finding rather than minimization.
-    ///
-    /// Newton on this residual multiplies the distance from the root by the
-    /// square of it, so any start beyond one diverges. Nothing about that step
-    /// fails to evaluate, so backtracking for errors would let it through.
     fn steep(
         trust_region: TrustRegion,
         line_search: LineSearch,
@@ -401,14 +406,6 @@ mod constrained {
         })
     }
 
-    /// The limit is measured in whichever norm is asked for, and the two
-    /// disagree by the square root of the number of variables.
-    ///
-    /// Every variable starts the same distance from its root, so Chebyshev
-    /// sees a step of one where Euclidean sees one of ten. The same limit is
-    /// therefore ten times tighter in the second, which is the whole reason
-    /// the step has a norm of its own rather than the one errors are measured
-    /// in.
     fn wide(norm: Norm) -> Result<Vector, OptimizationError> {
         const WIDTH: usize = 100;
         let mut constraint_matrix = Matrix::zero(1, WIDTH);
@@ -444,8 +441,6 @@ mod constrained {
         assert!(wide(Norm::Euclidean).is_err())
     }
 
-    /// The step that diverges here is a perfectly good one to evaluate, so
-    /// only the limit catches it.
     #[test]
     fn trust_region_beyond_errors() {
         assert!(match steep(

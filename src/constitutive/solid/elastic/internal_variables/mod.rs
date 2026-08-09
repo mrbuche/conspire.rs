@@ -320,23 +320,27 @@ where
 {
     let fixed = model.internal_variables_fixed();
     let num_internal_variables = model.internal_variables_initial().size();
-    match applied_load {
+    let pattern_vars = fixed.iter().enumerate().map(|(i, &j)| (i, j)).collect();
+    let mut matrix_vars =
+        CscMatrix::from_pattern(fixed.len(), num_internal_variables, pattern_vars);
+    matrix_vars.fill(|_, _| 1.0);
+    let local = (matrix_vars, Vector::zero(fixed.len()));
+    let (vector, pattern) = match applied_load {
         AppliedLoad::UniaxialStress(deformation_gradient_11) => {
             let mut vector = Vector::zero(4);
             vector[0] = deformation_gradient_11;
-            let pattern = vec![(0, 0), (1, 1), (2, 2), (3, 5)];
-            let mut matrix = CscMatrix::from_pattern(4, 9, pattern);
-            matrix.fill(|_, _| 1.0);
-            let pattern_vars = fixed.iter().enumerate().map(|(i, &j)| (i, j)).collect();
-            let mut matrix_vars =
-                CscMatrix::from_pattern(fixed.len(), num_internal_variables, pattern_vars);
-            matrix_vars.fill(|_, _| 1.0);
-            ((matrix, vector), (matrix_vars, Vector::zero(fixed.len())))
+            (vector, vec![(0, 0), (1, 1), (2, 2), (3, 5)])
         }
-        AppliedLoad::BiaxialStress(_, _) => {
-            todo!()
+        AppliedLoad::BiaxialStress(deformation_gradient_11, deformation_gradient_22) => {
+            let mut vector = Vector::zero(5);
+            vector[0] = deformation_gradient_11;
+            vector[4] = deformation_gradient_22;
+            (vector, vec![(0, 0), (1, 1), (2, 2), (3, 5), (4, 4)])
         }
-    }
+    };
+    let mut matrix = CscMatrix::from_pattern(vector.len(), 9, pattern);
+    matrix.fill(|_, _| 1.0);
+    ((matrix, vector), local)
 }
 
 #[doc(hidden)]
@@ -347,27 +351,40 @@ where
 {
     let fixed = model.internal_variables_fixed();
     let num_internal_variables = model.internal_variables_initial().size();
-    match applied_load {
-        AppliedLoad::UniaxialStress(deformation_gradient_11) => {
-            let num_constraints = 4;
-            let num_deformation_gradient = 9;
-            let mut matrix = Matrix::zero(
-                num_constraints + fixed.len(),
-                num_deformation_gradient + num_internal_variables,
-            );
-            let mut vector = Vector::zero(num_constraints + fixed.len());
-            matrix[0][0] = 1.0;
-            matrix[1][1] = 1.0;
-            matrix[2][2] = 1.0;
-            matrix[3][5] = 1.0;
-            vector[0] = deformation_gradient_11;
-            fixed.iter().enumerate().for_each(|(i, &j)| {
-                matrix[num_constraints + i][num_deformation_gradient + j] = 1.0
-            });
-            (matrix, vector)
-        }
-        AppliedLoad::BiaxialStress(_, _) => {
-            todo!()
-        }
-    }
+    let num_deformation_gradient = 9;
+    let (num_constraints, prescribed) = match applied_load {
+        AppliedLoad::UniaxialStress(deformation_gradient_11) => (
+            4,
+            vec![
+                (0, 0, deformation_gradient_11),
+                (1, 1, 0.0),
+                (2, 2, 0.0),
+                (3, 5, 0.0),
+            ],
+        ),
+        AppliedLoad::BiaxialStress(deformation_gradient_11, deformation_gradient_22) => (
+            5,
+            vec![
+                (0, 0, deformation_gradient_11),
+                (1, 1, 0.0),
+                (2, 2, 0.0),
+                (3, 5, 0.0),
+                (4, 4, deformation_gradient_22),
+            ],
+        ),
+    };
+    let mut matrix = Matrix::zero(
+        num_constraints + fixed.len(),
+        num_deformation_gradient + num_internal_variables,
+    );
+    let mut vector = Vector::zero(num_constraints + fixed.len());
+    prescribed.iter().for_each(|&(row, column, value)| {
+        matrix[row][column] = 1.0;
+        vector[row] = value
+    });
+    fixed
+        .iter()
+        .enumerate()
+        .for_each(|(i, &j)| matrix[num_constraints + i][num_deformation_gradient + j] = 1.0);
+    (matrix, vector)
 }

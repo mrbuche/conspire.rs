@@ -578,7 +578,10 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
 
 impl Div<SquareMatrix> for &Vector {
     type Output = Vector;
-    fn div(self, _square_matrix: SquareMatrix) -> Self::Output {
-        todo!()
+    fn div(self, square_matrix: SquareMatrix) -> Self::Output {
+        match square_matrix.solve_lu(self) {
+            Ok(solution) => solution,
+            Err(error) => panic!("{error:?}"),
+        }
     }
 }

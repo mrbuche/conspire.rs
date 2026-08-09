@@ -151,11 +151,6 @@ fn minimize_line_search() -> Result<(), AssertionError> {
 
 const STRETCH_FAR: Scalar = 6.0;
 
-/// Root finding at a stretch every strategy overshoots from the identity.
-///
-/// The first step alone crushes the material to a fraction of its volume, and
-/// from there the tangent is that of a state nothing else can be reached from.
-/// Nothing about the overshoot fails to evaluate, so only limiting it helps.
 fn far(
     trust_region: TrustRegion,
     strategy: SolveStrategy,
@@ -216,8 +211,6 @@ fn root_trust_region_needed() {
     }
 }
 
-/// Root finding has no merit function, so backtracking for errors is the only
-/// line search the block solver can take. Every other one panics on it.
 #[test]
 fn root_line_search_error() -> Result<(), AssertionError> {
     use crate::constitutive::solid::elastic::internal_variables::FirstOrderRoot;
@@ -242,13 +235,9 @@ fn root_line_search_error() -> Result<(), AssertionError> {
 #[test]
 #[should_panic(expected = "gradient of the merit function")]
 fn minimize_line_search_wolfe() {
-    // the exact penalty function is not differentiable, so its curvature
-    // condition cannot be evaluated
     searched("wolfe", SolveStrategy::Monolithic { elimination: false }).unwrap();
 }
 
-/// The local solve is an instance of root finding with the gauge indices fixed,
-/// so the generic solver should reach the same root the bespoke loop does.
 #[test]
 fn root_fixed_at_point() -> Result<(), AssertionError> {
     use crate::{
@@ -280,4 +269,37 @@ fn root_fixed_at_point() -> Result<(), AssertionError> {
             Assert::default().zero_within_tols(&residual[index / 3][index % 3])
         }
     })
+}
+
+const STRETCH_2: Scalar = 1.2;
+
+#[test]
+fn root_biaxial() -> Result<(), AssertionError> {
+    use crate::constitutive::solid::elastic::internal_variables::{ElasticIV, FirstOrderRoot};
+    let (f, f_2) = model().root(
+        AppliedLoad::BiaxialStress(STRETCH, STRETCH_2),
+        NewtonRaphson::default(),
+        SolveStrategy::Monolithic { elimination: false },
+    )?;
+    Assert::default().zero_within_tols(&model().internal_variables_residual(&f, &f_2)?)?;
+    Assert::default().eq_within_tols(
+        Vector::from([f[0][0], f[0][1], f[0][2], f[1][2], f[1][1]]),
+        &Vector::from([STRETCH, 0.0, 0.0, 0.0, STRETCH_2]),
+    )
+}
+
+#[test]
+fn minimize_biaxial_first_order() -> Result<(), AssertionError> {
+    use crate::constitutive::solid::hyperelastic::internal_variables::FirstOrderMinimize;
+    let (f, _f_2) = model().minimize(
+        AppliedLoad::BiaxialStress(STRETCH, STRETCH_2),
+        GradientDescent {
+            dual: true,
+            ..Default::default()
+        },
+    )?;
+    Assert::default().eq_within_tols(
+        Vector::from([f[0][0], f[1][1]]),
+        &Vector::from([STRETCH, STRETCH_2]),
+    )
 }
