@@ -20,9 +20,9 @@ use crate::{
 };
 
 /// Required methods for hyperelastic solid constitutive models with internal variables.
-pub trait HyperelasticIV<V, T1, T2, T3>
+pub trait HyperelasticIV<V>
 where
-    Self: ElasticIV<V, T1, T2, T3>,
+    Self: ElasticIV<V>,
 {
     /// Calculates and returns the Helmholtz free energy density.
     ///
@@ -37,7 +37,7 @@ where
 }
 
 /// First-order minimization methods for hyperelastic solid constitutive models with internal variables.
-pub trait FirstOrderMinimize<V, T1, T2, T3> {
+pub trait FirstOrderMinimize<V> {
     /// Type representing all variables.
     type Variables;
     /// Solve for the unknown components of the deformation gradient under an applied load.
@@ -53,11 +53,9 @@ pub trait FirstOrderMinimize<V, T1, T2, T3> {
 }
 
 /// Second-order minimization methods for hyperelastic solid constitutive models with internal variables.
-pub trait SecondOrderMinimize<V, T1, T2, T3>
+pub trait SecondOrderMinimize<V>
 where
-    T1: Tensor,
-    T2: Tensor,
-    T3: Tensor,
+    Self: ElasticIV<V>,
     V: Tensor,
 {
     /// Solve for the unknown components of the deformation gradient under an applied load.
@@ -75,21 +73,18 @@ where
             FirstPiolaKirchhoffStress,
             V,
             FirstPiolaKirchhoffTangentStiffness,
-            T1,
-            T2,
-            T3,
+            Self::TangentVu,
+            Self::TangentUv,
+            Self::TangentVv,
         >,
         strategy: SolveStrategy,
     ) -> Result<(DeformationGradient, V), ConstitutiveError>;
 }
 
-impl<T, V, T1, T2, T3> FirstOrderMinimize<V, T1, T2, T3> for T
+impl<T, V> FirstOrderMinimize<V> for T
 where
-    T: HyperelasticIV<V, T1, T2, T3>,
-    T1: Tensor,
-    T2: Tensor,
-    T3: Tensor,
-    T: ElasticIV<V, T1, T2, T3>,
+    T: HyperelasticIV<V>,
+    T: ElasticIV<V>,
     V: Tensor,
 {
     type Variables = TensorTuple<DeformationGradient, V>;
@@ -126,12 +121,9 @@ where
     }
 }
 
-impl<T, V, T1, T2, T3> SecondOrderMinimize<V, T1, T2, T3> for T
+impl<T, V> SecondOrderMinimize<V> for T
 where
-    T1: Tensor,
-    T2: Tensor,
-    T3: Tensor,
-    T: HyperelasticIV<V, T1, T2, T3>,
+    T: HyperelasticIV<V>,
     V: Tensor,
 {
     fn minimize(
@@ -144,9 +136,9 @@ where
             FirstPiolaKirchhoffStress,
             V,
             FirstPiolaKirchhoffTangentStiffness,
-            T1,
-            T2,
-            T3,
+            Self::TangentVu,
+            Self::TangentUv,
+            Self::TangentVv,
         >,
         strategy: SolveStrategy,
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {

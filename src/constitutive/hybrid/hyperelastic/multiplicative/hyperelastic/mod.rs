@@ -7,19 +7,10 @@ use crate::{
         hybrid::ElasticMultiplicative,
         solid::hyperelastic::{Hyperelastic, internal_variables::HyperelasticIV},
     },
-    math::TensorRank4,
-    mechanics::{
-        DeformationGradient, DeformationGradient2, FirstPiolaKirchhoffTangentStiffness2, Scalar,
-    },
+    mechanics::{DeformationGradient, DeformationGradient2, Scalar},
 };
 
-impl<C1, C2>
-    HyperelasticIV<
-        DeformationGradient2,
-        TensorRank4<3, 2, 0, 1, 0>,
-        TensorRank4<3, 1, 0, 2, 0>,
-        FirstPiolaKirchhoffTangentStiffness2,
-    > for ElasticMultiplicative<C1, C2>
+impl<C1, C2> HyperelasticIV<DeformationGradient2> for ElasticMultiplicative<C1, C2>
 where
     C1: Hyperelastic,
     C2: Hyperelastic,

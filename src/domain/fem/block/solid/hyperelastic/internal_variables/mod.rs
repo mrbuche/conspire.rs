@@ -12,19 +12,16 @@ use crate::{
             hyperelastic::internal_variables::HyperelasticIVElements,
         },
     },
-    math::{Hessian, HessianBlock, Jacobian, Matrix, Scalar, Solution, Vector},
+    math::{Jacobian, Matrix, Scalar, Solution, Vector},
 };
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, V, T1, T2, T3>
-    HyperelasticIVElements<G, V, T1, T2, T3, 3> for Block<C, F, G, M, N, P>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, V>
+    HyperelasticIVElements<G, V, 3> for Block<C, F, G, M, N, P>
 where
-    C: HyperelasticIV<V, T1, T2, T3>,
-    F: HyperelasticIVFiniteElement<C, G, M, N, P, V, T1, T2, T3>,
-    Self: ElasticIVElements<G, V, T1, T2, T3, 3>,
-    T1: HessianBlock,
-    T2: HessianBlock,
-    T3: Hessian + HessianBlock,
-    for<'a> &'a V: Div<T3, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
+    C: HyperelasticIV<V>,
+    F: HyperelasticIVFiniteElement<C, G, M, N, P, V>,
+    Self: ElasticIVElements<G, V, 3>,
+    for<'a> &'a V: Div<C::TangentVv, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
     for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
     V: Jacobian + Solution,
 {

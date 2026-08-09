@@ -32,17 +32,14 @@ where
     }
 }
 
-impl<C1, C2>
-    ElasticIV<
-        DeformationGradient2,
-        TensorRank4<3, 2, 0, 1, 0>,
-        TensorRank4<3, 1, 0, 2, 0>,
-        FirstPiolaKirchhoffTangentStiffness2,
-    > for ElasticMultiplicative<C1, C2>
+impl<C1, C2> ElasticIV<DeformationGradient2> for ElasticMultiplicative<C1, C2>
 where
     C1: Elastic,
     C2: Elastic,
 {
+    type TangentVu = TensorRank4<3, 2, 0, 1, 0>;
+    type TangentUv = TensorRank4<3, 1, 0, 2, 0>;
+    type TangentVv = FirstPiolaKirchhoffTangentStiffness2;
     /// Calculates and returns the Cauchy stress.
     ///
     /// ```math

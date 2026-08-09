@@ -13,9 +13,9 @@ use crate::{
     },
 };
 
-pub trait HyperelasticIVElements<const G: usize, V, T1, T2, T3, const D: usize>
+pub trait HyperelasticIVElements<const G: usize, V, const D: usize>
 where
-    Self: ElasticIVElements<G, V, T1, T2, T3, D>,
+    Self: ElasticIVElements<G, V, D>,
     V: Tensor,
 {
     fn helmholtz_free_energy(
@@ -25,10 +25,9 @@ where
     ) -> Result<Scalar, ElementModelError>;
 }
 
-impl<B, const G: usize, V, T1, T2, T3, const D: usize> HyperelasticIVElements<G, V, T1, T2, T3, D>
-    for Model<B, D>
+impl<B, const G: usize, V, const D: usize> HyperelasticIVElements<G, V, D> for Model<B, D>
 where
-    B: HyperelasticIVElements<G, V, T1, T2, T3, D>,
+    B: HyperelasticIVElements<G, V, D>,
     V: Tensor,
 {
     fn helmholtz_free_energy(
@@ -43,33 +42,26 @@ where
 
 /// Second-order minimization for hyperelastic models whose internal variables
 /// are condensed out at every integration point.
-pub trait SecondOrderMinimizeIV<const G: usize, V, T1, T2, T3, F, J, H, X, const D: usize>
+pub trait SecondOrderMinimizeIV<const G: usize, V, const D: usize>
 where
     V: Tensor,
 {
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl SecondOrderOptimization<F, J, H, X>,
+        solver: impl SecondOrderOptimization<
+            Scalar,
+            NodalForcesSolid<D>,
+            NodalStiffnessesSolid<D>,
+            NodalCoordinates<D>,
+        >,
         strategy: SolveStrategy,
-    ) -> Result<X, OptimizationError>;
+    ) -> Result<NodalCoordinates<D>, OptimizationError>;
 }
 
-impl<B, const G: usize, V, T1, T2, T3, const D: usize>
-    SecondOrderMinimizeIV<
-        G,
-        V,
-        T1,
-        T2,
-        T3,
-        Scalar,
-        NodalForcesSolid<D>,
-        NodalStiffnessesSolid<D>,
-        NodalCoordinates<D>,
-        D,
-    > for Model<B, D>
+impl<B, const G: usize, V, const D: usize> SecondOrderMinimizeIV<G, V, D> for Model<B, D>
 where
-    B: HyperelasticIVElements<G, V, T1, T2, T3, D>,
+    B: HyperelasticIVElements<G, V, D>,
     V: Tensor,
 {
     fn minimize(

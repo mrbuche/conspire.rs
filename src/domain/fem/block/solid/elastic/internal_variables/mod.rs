@@ -15,20 +15,15 @@ use crate::{
             elastic::internal_variables::{ElasticIVElements, InternalVariablesField},
         },
     },
-    math::{
-        Hessian, HessianBlock, Jacobian, Matrix, Scalar, Solution, Vector, optimize::NewtonRaphson,
-    },
+    math::{Jacobian, Matrix, Scalar, Solution, Vector, optimize::NewtonRaphson},
 };
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, V, T1, T2, T3>
-    ElasticIVElements<G, V, T1, T2, T3, 3> for Block<C, F, G, M, N, P>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, V>
+    ElasticIVElements<G, V, 3> for Block<C, F, G, M, N, P>
 where
-    C: ElasticIV<V, T1, T2, T3>,
-    F: ElasticIVFiniteElement<C, G, M, N, P, V, T1, T2, T3>,
-    T1: HessianBlock,
-    T2: HessianBlock,
-    T3: Hessian + HessianBlock,
-    for<'a> &'a V: Div<T3, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
+    C: ElasticIV<V>,
+    F: ElasticIVFiniteElement<C, G, M, N, P, V>,
+    for<'a> &'a V: Div<C::TangentVv, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
     for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
     V: Jacobian + Solution,
 {

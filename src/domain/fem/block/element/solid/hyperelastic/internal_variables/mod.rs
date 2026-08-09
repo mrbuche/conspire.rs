@@ -9,7 +9,7 @@ use crate::{
             elastic::internal_variables::{ElasticIVFiniteElement, InternalVariables},
         },
     },
-    math::{Hessian, HessianBlock, Jacobian, Matrix, Scalar, Solution, Tensor, Vector},
+    math::{Jacobian, Matrix, Scalar, Solution, Tensor, Vector},
 };
 
 pub trait HyperelasticIVFiniteElement<
@@ -19,16 +19,10 @@ pub trait HyperelasticIVFiniteElement<
     const N: usize,
     const P: usize,
     V,
-    T1,
-    T2,
-    T3,
 > where
-    C: HyperelasticIV<V, T1, T2, T3>,
-    Self: ElasticIVFiniteElement<C, G, M, N, P, V, T1, T2, T3>,
-    T1: HessianBlock,
-    T2: HessianBlock,
-    T3: Hessian + HessianBlock,
-    for<'a> &'a V: Div<T3, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
+    C: HyperelasticIV<V>,
+    Self: ElasticIVFiniteElement<C, G, M, N, P, V>,
+    for<'a> &'a V: Div<C::TangentVv, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
     for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
     V: Jacobian + Solution,
 {
@@ -40,15 +34,12 @@ pub trait HyperelasticIVFiniteElement<
     ) -> Result<Scalar, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize, V, T1, T2, T3>
-    HyperelasticIVFiniteElement<C, G, 3, N, P, V, T1, T2, T3> for Element<3, G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize, const P: usize, V>
+    HyperelasticIVFiniteElement<C, G, 3, N, P, V> for Element<3, G, N, O>
 where
-    C: HyperelasticIV<V, T1, T2, T3>,
-    Self: ElasticIVFiniteElement<C, G, 3, N, P, V, T1, T2, T3> + SolidFiniteElement<G, 3, N, P>,
-    T1: HessianBlock,
-    T2: HessianBlock,
-    T3: Hessian + HessianBlock,
-    for<'a> &'a V: Div<T3, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
+    C: HyperelasticIV<V>,
+    Self: ElasticIVFiniteElement<C, G, 3, N, P, V> + SolidFiniteElement<G, 3, N, P>,
+    for<'a> &'a V: Div<C::TangentVv, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
     for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
     V: Jacobian + Solution,
 {

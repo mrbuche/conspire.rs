@@ -6,8 +6,8 @@ use crate::{
         solid::{Solid, elastic::AppliedLoad},
     },
     math::{
-        ContractFirstSecondWithSecond, ContractSecondWithFirst, IDENTITY, Matrix, Rank2, Tensor,
-        TensorArray, TensorTuple, Vector,
+        ContractFirstSecondWithSecond, ContractSecondWithFirst, Hessian, HessianBlock, IDENTITY,
+        Matrix, Rank2, Tensor, TensorArray, TensorTuple, Vector,
         optimize::{
             EqualityConstraint, FirstOrderRootFindingBlock, SolveStrategy, ZerothOrderRootFinding,
         },
@@ -20,11 +20,25 @@ use crate::{
     },
 };
 
+/// The tangents of the coupled system, in the order the block solver takes them.
+pub type Tangents<C, V> = (
+    FirstPiolaKirchhoffTangentStiffness,
+    <C as ElasticIV<V>>::TangentVu,
+    <C as ElasticIV<V>>::TangentUv,
+    <C as ElasticIV<V>>::TangentVv,
+);
+
 /// Required methods for elastic solid constitutive models with internal variables.
-pub trait ElasticIV<V, T1, T2, T3>
+pub trait ElasticIV<V>
 where
     Self: Solid,
 {
+    /// The tangent of the internal variables residual with the deformation gradient.
+    type TangentVu: HessianBlock;
+    /// The tangent of the deformation gradient residual with the internal variables.
+    type TangentUv: HessianBlock;
+    /// The tangent of the internal variables residual with the internal variables.
+    type TangentVv: Hessian + HessianBlock;
     /// Calculates and returns the Cauchy stress.
     ///
     /// ```math
@@ -170,11 +184,11 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
         internal_variables: &V,
-    ) -> Result<(FirstPiolaKirchhoffTangentStiffness, T1, T2, T3), ConstitutiveError>;
+    ) -> Result<Tangents<Self, V>, ConstitutiveError>;
 }
 
 /// Zeroth-order root-finding methods for elastic solid constitutive models with internal variables.
-pub trait ZerothOrderRoot<V, T1, T2, T3>
+pub trait ZerothOrderRoot<V>
 where
     V: Tensor,
 {
@@ -193,11 +207,9 @@ where
 }
 
 /// First-order root-finding methods for elastic solid constitutive models with internal variables.
-pub trait FirstOrderRoot<V, T1, T2, T3>
+pub trait FirstOrderRoot<V>
 where
-    T1: Tensor,
-    T2: Tensor,
-    T3: Tensor,
+    Self: ElasticIV<V>,
     V: Tensor,
 {
     /// Solve for the unknown components of the deformation gradient under an applied load.
@@ -214,17 +226,17 @@ where
             FirstPiolaKirchhoffStress,
             V,
             FirstPiolaKirchhoffTangentStiffness,
-            T1,
-            T2,
-            T3,
+            Self::TangentVu,
+            Self::TangentUv,
+            Self::TangentVv,
         >,
         strategy: SolveStrategy,
     ) -> Result<(DeformationGradient, V), ConstitutiveError>;
 }
 
-impl<T, V, T1, T2, T3> ZerothOrderRoot<V, T1, T2, T3> for T
+impl<T, V> ZerothOrderRoot<V> for T
 where
-    T: ElasticIV<V, T1, T2, T3>,
+    T: ElasticIV<V>,
     V: Tensor,
 {
     type Variables = TensorTuple<DeformationGradient, V>;
@@ -257,12 +269,9 @@ where
     }
 }
 
-impl<T, V, T1, T2, T3> FirstOrderRoot<V, T1, T2, T3> for T
+impl<T, V> FirstOrderRoot<V> for T
 where
-    T1: Tensor,
-    T2: Tensor,
-    T3: Tensor,
-    T: ElasticIV<V, T1, T2, T3>,
+    T: ElasticIV<V>,
     V: Tensor,
 {
     fn root(
@@ -274,9 +283,9 @@ where
             FirstPiolaKirchhoffStress,
             V,
             FirstPiolaKirchhoffTangentStiffness,
-            T1,
-            T2,
-            T3,
+            Self::TangentVu,
+            Self::TangentUv,
+            Self::TangentVv,
         >,
         strategy: SolveStrategy,
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {
@@ -310,12 +319,12 @@ where
 }
 
 #[doc(hidden)]
-pub fn bcs_block<C, V, T1, T2, T3>(
+pub fn bcs_block<C, V>(
     model: &C,
     applied_load: AppliedLoad,
 ) -> ((CscMatrix, Vector), (CscMatrix, Vector))
 where
-    C: ElasticIV<V, T1, T2, T3>,
+    C: ElasticIV<V>,
     V: Tensor,
 {
     let fixed = model.internal_variables_fixed();
@@ -344,9 +353,9 @@ where
 }
 
 #[doc(hidden)]
-pub fn bcs<C, V, T1, T2, T3>(model: &C, applied_load: AppliedLoad) -> (Matrix, Vector)
+pub fn bcs<C, V>(model: &C, applied_load: AppliedLoad) -> (Matrix, Vector)
 where
-    C: ElasticIV<V, T1, T2, T3>,
+    C: ElasticIV<V>,
     V: Tensor,
 {
     let fixed = model.internal_variables_fixed();
