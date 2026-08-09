@@ -23,7 +23,6 @@ pub struct ThermoelasticThermalConduction<C1, C2>
 where
     C1: Thermoelastic,
     C2: ThermalConduction,
-    Self: SolidThermal<C1, C2>,
 {
     thermoelastic_constitutive_model: C1,
     thermal_conduction_constitutive_model: C2,
@@ -33,7 +32,6 @@ impl<C1, C2> From<(C1, C2)> for ThermoelasticThermalConduction<C1, C2>
 where
     C1: Thermoelastic,
     C2: ThermalConduction,
-    Self: SolidThermal<C1, C2>,
 {
     fn from(
         (thermoelastic_constitutive_model, thermal_conduction_constitutive_model): (C1, C2),
@@ -49,7 +47,6 @@ impl<C1, C2> Solid for ThermoelasticThermalConduction<C1, C2>
 where
     C1: Thermoelastic,
     C2: ThermalConduction,
-    Self: SolidThermal<C1, C2>,
 {
     fn bulk_modulus(&self) -> Scalar {
         self.solid_constitutive_model().bulk_modulus()
@@ -63,7 +60,6 @@ impl<C1, C2> Thermoelastic for ThermoelasticThermalConduction<C1, C2>
 where
     C1: Thermoelastic,
     C2: ThermalConduction,
-    Self: SolidThermal<C1, C2>,
 {
     fn cauchy_stress(
         &self,
@@ -126,7 +122,6 @@ impl<C1, C2> Thermal for ThermoelasticThermalConduction<C1, C2>
 where
     C1: Thermoelastic,
     C2: ThermalConduction,
-    Self: SolidThermal<C1, C2>,
 {
 }
 
@@ -134,7 +129,6 @@ impl<C1, C2> ThermalConduction for ThermoelasticThermalConduction<C1, C2>
 where
     C1: Thermoelastic,
     C2: ThermalConduction,
-    Self: SolidThermal<C1, C2>,
 {
     fn potential(
         &self,
@@ -163,7 +157,6 @@ impl<C1, C2> Multiphysics for ThermoelasticThermalConduction<C1, C2>
 where
     C1: Thermoelastic,
     C2: ThermalConduction,
-    Self: SolidThermal<C1, C2>,
 {
 }
 
