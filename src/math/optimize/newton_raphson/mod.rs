@@ -436,36 +436,33 @@ where
 /// or gives up.
 ///
 /// This asks nothing of a merit function, so it is the one line search root
-/// finding can also take, and it says nothing about descent.
-///
-/// Whatever was eliminated is stepped alongside, so the state to test is the
-/// one both arrive at. The update reports that, without keeping it, so the same
-/// call serves as the trial.
-#[allow(clippy::too_many_arguments)]
-fn backtrack_errors<J, X>(
-    mut jacobian: impl FnMut(&X) -> Result<J, String>,
-    mut update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
-    solution: &X,
-    multipliers: &Vector,
-    decrement: &Vector,
-    applied: &Vector,
+/// finding can also take, and it says nothing about descent. Where a trial
+/// point is, and what makes it reachable, is left to the formulation asking:
+/// whatever was eliminated is stepped alongside, so the state to test is the
+/// one everything arrives at together.
+fn backtrack_errors(
+    newton_raphson: &NewtonRaphson,
+    mut reachable: impl FnMut(Scalar) -> bool,
     cut_back: Scalar,
     max_steps: usize,
-) -> Option<Scalar>
-where
-    X: Solution,
-{
+) -> Result<Scalar, OptimizationError> {
     let mut trial_size = 1.0;
     for _ in 0..max_steps {
-        let mut trial = solution.clone();
-        let mut trial_multipliers = multipliers.clone();
-        trial.decrement_from_chained(&mut trial_multipliers, &(decrement * trial_size));
-        if update(solution, applied, trial_size, false).is_ok() && jacobian(&trial).is_ok() {
-            return Some(trial_size);
+        if reachable(trial_size) {
+            return Ok(trial_size);
         }
         trial_size *= cut_back
     }
-    None
+    Err(OptimizationError::Upstream(
+        format!(
+            "{}",
+            LineSearchError::MaximumStepsReached(
+                format!("{:?}", newton_raphson.line_search),
+                max_steps
+            )
+        ),
+        format!("{newton_raphson:?}"),
+    ))
 }
 
 /// Shortens the step until the variables move no further than the maximum.
@@ -810,65 +807,48 @@ where
             // trial point is judged by whether the problem can be evaluated
             // there at all. Minimization keeps its merit function instead.
             //
-            let mut trial_size = 1.0;
-            let mut accepted = None;
-            for _ in 0..*max_steps {
-                let mut trial_global = global.clone();
-                let mut trial_local = local.clone();
-                let mut trial_multipliers_global = multipliers_global.clone();
-                let mut trial_multipliers_local = multipliers_local.clone();
-                trial_global.decrement_from_chained(
-                    &mut trial_multipliers_global,
-                    &(&decrement_outer * trial_size),
-                );
-                let reached = if let Some(local_solver) = condensed {
-                    converge_local(
-                        local_solver,
-                        &mut residual_local,
-                        &mut tangents,
-                        &trial_global,
-                        &mut trial_local,
-                        &mut trial_multipliers_local,
-                        &constraint_matrix_local,
-                        &constraint_rhs_local,
-                        num_local,
-                        &mut update_inner,
-                        &mut tangent_inner,
-                        &mut factorization,
-                    )
-                    .is_ok()
-                } else {
-                    trial_local.decrement_from_chained(
-                        &mut trial_multipliers_local,
-                        &(&decrement_inner * trial_size),
+            backtrack_errors(
+                newton_raphson,
+                |trial_size| {
+                    let mut trial_global = global.clone();
+                    let mut trial_local = local.clone();
+                    let mut trial_multipliers_global = multipliers_global.clone();
+                    let mut trial_multipliers_local = multipliers_local.clone();
+                    trial_global.decrement_from_chained(
+                        &mut trial_multipliers_global,
+                        &(&decrement_outer * trial_size),
                     );
-                    true
-                };
-                if reached
-                    && residual_global(&trial_global, &trial_local).is_ok()
-                    && residual_local(&trial_global, &trial_local).is_ok()
-                    && tangents(&trial_global, &trial_local).is_ok()
-                {
-                    accepted = Some(trial_size);
-                    break;
-                }
-                trial_size *= *cut_back
-            }
-            match accepted {
-                Some(trial_size) => trial_size,
-                None => {
-                    return Err(OptimizationError::Upstream(
-                        format!(
-                            "{}",
-                            LineSearchError::MaximumStepsReached(
-                                format!("{:?}", newton_raphson.line_search),
-                                *max_steps
-                            )
-                        ),
-                        format!("{newton_raphson:?}"),
-                    ));
-                }
-            }
+                    let reached = if let Some(local_solver) = condensed {
+                        converge_local(
+                            local_solver,
+                            &mut residual_local,
+                            &mut tangents,
+                            &trial_global,
+                            &mut trial_local,
+                            &mut trial_multipliers_local,
+                            &constraint_matrix_local,
+                            &constraint_rhs_local,
+                            num_local,
+                            &mut update_inner,
+                            &mut tangent_inner,
+                            &mut factorization,
+                        )
+                        .is_ok()
+                    } else {
+                        trial_local.decrement_from_chained(
+                            &mut trial_multipliers_local,
+                            &(&decrement_inner * trial_size),
+                        );
+                        true
+                    };
+                    reached
+                        && residual_global(&trial_global, &trial_local).is_ok()
+                        && residual_local(&trial_global, &trial_local).is_ok()
+                        && tangents(&trial_global, &trial_local).is_ok()
+                },
+                *cut_back,
+                *max_steps,
+            )?
         } else {
             penalty = penalty.max(
                 PENALTY_SAFETY
@@ -1109,30 +1089,17 @@ where
             max_steps,
         } = &newton_raphson.line_search
         {
-            match backtrack_errors_retained(
-                &mut jacobian,
-                &mut update,
-                &solution,
-                &retained,
-                &decrement,
-                &applied,
+            backtrack_errors(
+                newton_raphson,
+                |trial_size| {
+                    let mut trial = solution.clone();
+                    trial.decrement_from_retained(&retained, &(&decrement * trial_size));
+                    update(&solution, &applied, trial_size, false).is_ok()
+                        && jacobian(&trial).is_ok()
+                },
                 *cut_back,
                 *max_steps,
-            ) {
-                Some(trial_size) => trial_size,
-                None => {
-                    return Err(OptimizationError::Upstream(
-                        format!(
-                            "{}",
-                            LineSearchError::MaximumStepsReached(
-                                format!("{:?}", newton_raphson.line_search),
-                                *max_steps
-                            )
-                        ),
-                        format!("{newton_raphson:?}"),
-                    ));
-                }
-            }
+            )?
         } else {
             let jac = jacobian(&solution)?;
             let mut decrement_full = &solution * 0.0;
@@ -1156,37 +1123,6 @@ where
         }
         solution.decrement_from_retained(&retained, &decrement)
     }
-}
-
-/// Backtracking on evaluability alone, where the constraint holds variables
-/// fixed rather than relating them.
-///
-/// The counterpart of [`backtrack_errors`] for that formulation, which carries
-/// no multipliers to chain a trial through.
-#[allow(clippy::too_many_arguments)]
-fn backtrack_errors_retained<J, X>(
-    mut jacobian: impl FnMut(&X) -> Result<J, String>,
-    mut update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
-    solution: &X,
-    retained: &[bool],
-    decrement: &Vector,
-    applied: &Vector,
-    cut_back: Scalar,
-    max_steps: usize,
-) -> Option<Scalar>
-where
-    X: Solution,
-{
-    let mut trial_size = 1.0;
-    for _ in 0..max_steps {
-        let mut trial = solution.clone();
-        trial.decrement_from_retained(retained, &(decrement * trial_size));
-        if update(solution, applied, trial_size, false).is_ok() && jacobian(&trial).is_ok() {
-            return Some(trial_size);
-        }
-        trial_size *= cut_back
-    }
-    None
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1281,30 +1217,19 @@ where
             max_steps,
         } = &newton_raphson.line_search
         {
-            match backtrack_errors(
-                &mut jacobian,
-                &mut update,
-                &solution,
-                &multipliers,
-                &decrement,
-                &applied,
+            backtrack_errors(
+                newton_raphson,
+                |trial_size| {
+                    let mut trial = solution.clone();
+                    let mut trial_multipliers = multipliers.clone();
+                    trial
+                        .decrement_from_chained(&mut trial_multipliers, &(&decrement * trial_size));
+                    update(&solution, &applied, trial_size, false).is_ok()
+                        && jacobian(&trial).is_ok()
+                },
                 *cut_back,
                 *max_steps,
-            ) {
-                Some(trial_size) => trial_size,
-                None => {
-                    return Err(OptimizationError::Upstream(
-                        format!(
-                            "{}",
-                            LineSearchError::MaximumStepsReached(
-                                format!("{:?}", newton_raphson.line_search),
-                                *max_steps
-                            )
-                        ),
-                        format!("{newton_raphson:?}"),
-                    ));
-                }
-            }
+            )?
         } else {
             penalty = penalty.max(
                 PENALTY_SAFETY
