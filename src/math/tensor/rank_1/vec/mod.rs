@@ -253,7 +253,9 @@ impl<const D: usize, const I: usize, const J: usize> Div<TensorRank2Vec2D<D, I, 
 {
     type Output = TensorRank1Vec<D, J>;
     fn div(self, _tensor_rank_2_vec_2d: TensorRank2Vec2D<D, I, J>) -> Self::Output {
-        todo!()
+        unimplemented!(
+            "A mesh-scale step wants the sparse solver the caller supplies, which a division has nowhere to hold."
+        )
     }
 }
 
@@ -262,7 +264,9 @@ impl<const D: usize, const I: usize, const J: usize> Div<TensorRank2SparseVec2D<
 {
     type Output = TensorRank1Vec<D, J>;
     fn div(self, _tensor_rank_2_sparse_vec_2d: TensorRank2SparseVec2D<D, I, J>) -> Self::Output {
-        todo!()
+        unimplemented!(
+            "A mesh-scale step wants the sparse solver the caller supplies, which a division has nowhere to hold."
+        )
     }
 }
 
@@ -274,7 +278,9 @@ impl<const D: usize, const I: usize, const J: usize> Div<TensorRank2SparseVec2DS
         self,
         _tensor_rank_2_sparse_symmetric_vec_2d: TensorRank2SparseVec2DSymmetric<D, I, J>,
     ) -> Self::Output {
-        todo!()
+        unimplemented!(
+            "A mesh-scale step wants the sparse solver the caller supplies, which a division has nowhere to hold."
+        )
     }
 }
 

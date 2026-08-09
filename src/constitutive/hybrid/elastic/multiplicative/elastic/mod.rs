@@ -25,10 +25,10 @@ where
     C2: Elastic,
 {
     fn bulk_modulus(&self) -> Scalar {
-        todo!()
+        1.0 / (1.0 / self.0.bulk_modulus() + 1.0 / self.1.bulk_modulus())
     }
     fn shear_modulus(&self) -> Scalar {
-        todo!()
+        1.0 / (1.0 / self.0.shear_modulus() + 1.0 / self.1.shear_modulus())
     }
 }
 
