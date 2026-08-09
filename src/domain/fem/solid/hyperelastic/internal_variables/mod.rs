@@ -4,7 +4,10 @@ use crate::{
         block::{finalize_node_neighbors, solver_from_neighbors},
         solid::{
             NodalForcesSolid, NodalStiffnessesSolid,
-            elastic::internal_variables::{ElasticIVElements, InternalVariablesField},
+            elastic::internal_variables::{
+                CarriedInternalVariables, ElasticIVElements, InternalVariablesField,
+                SolvedInternalVariables,
+            },
         },
     },
     math::{
@@ -15,7 +18,6 @@ use crate::{
         },
     },
 };
-use std::cell::RefCell;
 
 pub trait HyperelasticIVElements<const G: usize, V, const D: usize>
 where
@@ -106,35 +108,20 @@ where
             // free to evaluate wherever it likes.
             //
             SolveStrategy::Condensed(ref local_solver) => {
-                let cache: RefCell<Option<(NodalCoordinates<D>, InternalVariablesField<G, V>)>> =
-                    RefCell::new(None);
-                let solved = |nodal_coordinates: &NodalCoordinates<D>| {
-                    if let Some((ref at, ref variables)) = *cache.borrow()
-                        && at == nodal_coordinates
-                    {
-                        return Ok(variables.clone());
-                    }
-                    let warm = match *cache.borrow() {
-                        Some((_, ref variables)) => variables.clone(),
-                        None => initial.clone(),
-                    };
-                    let variables =
-                        self.internal_variables_root(local_solver, nodal_coordinates, &warm)?;
-                    *cache.borrow_mut() = Some((nodal_coordinates.clone(), variables.clone()));
-                    Ok::<_, ElementModelError>(variables)
-                };
+                let solved = SolvedInternalVariables::new(self, local_solver, initial);
                 solver.minimize(
                     |nodal_coordinates: &NodalCoordinates<D>| {
                         Ok(self.helmholtz_free_energy(
                             nodal_coordinates,
-                            &solved(nodal_coordinates)?,
+                            &solved.at(nodal_coordinates)?,
                         )?)
                     },
                     |nodal_coordinates: &NodalCoordinates<D>| {
-                        Ok(self.nodal_forces(nodal_coordinates, &solved(nodal_coordinates)?)?)
+                        Ok(self.nodal_forces(nodal_coordinates, &solved.at(nodal_coordinates)?)?)
                     },
                     |nodal_coordinates: &NodalCoordinates<D>| {
-                        Ok(self.nodal_stiffnesses(nodal_coordinates, &solved(nodal_coordinates)?)?)
+                        Ok(self
+                            .nodal_stiffnesses(nodal_coordinates, &solved.at(nodal_coordinates)?)?)
                     },
                     self.coordinates().clone().into(),
                     equality_constraint,
@@ -149,40 +136,22 @@ where
             // for, and left there only if that step is the one taken.
             //
             SolveStrategy::Monolithic { elimination: true } => {
-                let committed = RefCell::new(initial.clone());
-                let internal_variables = RefCell::new(initial);
+                let carried = CarriedInternalVariables::new(self, initial);
                 solver.minimize_incremental(
                     |nodal_coordinates: &NodalCoordinates<D>| {
-                        Ok(self.helmholtz_free_energy(
-                            nodal_coordinates,
-                            &internal_variables.borrow(),
-                        )?)
+                        Ok(self.helmholtz_free_energy(nodal_coordinates, &carried.stepped())?)
                     },
                     |nodal_coordinates: &NodalCoordinates<D>| {
-                        Ok(self.nodal_forces_eliminated(
-                            nodal_coordinates,
-                            &internal_variables.borrow(),
-                        )?)
+                        Ok(self.nodal_forces_eliminated(nodal_coordinates, &carried.stepped())?)
                     },
                     |nodal_coordinates: &NodalCoordinates<D>| {
-                        Ok(self
-                            .nodal_stiffnesses(nodal_coordinates, &internal_variables.borrow())?)
+                        Ok(self.nodal_stiffnesses(nodal_coordinates, &carried.stepped())?)
                     },
                     |nodal_coordinates: &NodalCoordinates<D>,
                      decrement: &Vector,
                      step: Scalar,
                      commit: bool| {
-                        let stepped = self.internal_variables_increment(
-                            nodal_coordinates,
-                            &committed.borrow(),
-                            &NodalCoordinates::from(decrement.clone()),
-                            step,
-                        )?;
-                        if commit {
-                            *committed.borrow_mut() = stepped.clone()
-                        }
-                        *internal_variables.borrow_mut() = stepped;
-                        Ok(())
+                        Ok(carried.step(nodal_coordinates, decrement, step, commit)?)
                     },
                     self.coordinates().clone().into(),
                     equality_constraint,

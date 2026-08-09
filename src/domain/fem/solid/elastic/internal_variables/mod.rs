@@ -15,7 +15,7 @@ use crate::{
         },
     },
 };
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 
 /// The internal variables held at every integration point of every element.
 pub type InternalVariablesField<const G: usize, V> = TensorVector<InternalVariables<G, V>>;
@@ -174,6 +174,112 @@ where
     }
 }
 
+/// The internal variables as a function of the nodal coordinates, solved
+/// wherever they are asked for.
+///
+/// The residual and the tangent are asked for at the same coordinates, so the
+/// solve is remembered rather than repeated, and what it converged to last is
+/// where the next one starts.
+pub struct SolvedInternalVariables<'a, B, const G: usize, V, const D: usize>
+where
+    V: Tensor,
+{
+    initial: InternalVariablesField<G, V>,
+    local_solver: &'a NewtonRaphson,
+    model: &'a Model<B, D>,
+    solved: RefCell<Option<(NodalCoordinates<D>, InternalVariablesField<G, V>)>>,
+}
+
+impl<'a, B, const G: usize, V, const D: usize> SolvedInternalVariables<'a, B, G, V, D>
+where
+    B: ElasticIVElements<G, V, D>,
+    V: Tensor,
+{
+    pub fn new(
+        model: &'a Model<B, D>,
+        local_solver: &'a NewtonRaphson,
+        initial: InternalVariablesField<G, V>,
+    ) -> Self {
+        Self {
+            initial,
+            local_solver,
+            model,
+            solved: RefCell::new(None),
+        }
+    }
+    pub fn at(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+    ) -> Result<InternalVariablesField<G, V>, ElementModelError> {
+        if let Some((ref at, ref variables)) = *self.solved.borrow()
+            && at == nodal_coordinates
+        {
+            return Ok(variables.clone());
+        }
+        let warm = match *self.solved.borrow() {
+            Some((_, ref variables)) => variables.clone(),
+            None => self.initial.clone(),
+        };
+        let variables =
+            self.model
+                .internal_variables_root(self.local_solver, nodal_coordinates, &warm)?;
+        *self.solved.borrow_mut() = Some((nodal_coordinates.clone(), variables.clone()));
+        Ok(variables)
+    }
+}
+
+/// The internal variables carried alongside the nodal coordinates, stepped by
+/// their share of whatever increment the solver lends out.
+///
+/// A step is offered before it is taken, so what the increment is measured from
+/// and what the residual is evaluated at come apart while one is being
+/// considered. Increments are always taken from the state last kept, which is
+/// what makes offering several of them in a row harmless.
+pub struct CarriedInternalVariables<'a, B, const G: usize, V, const D: usize>
+where
+    V: Tensor,
+{
+    committed: RefCell<InternalVariablesField<G, V>>,
+    model: &'a Model<B, D>,
+    stepped: RefCell<InternalVariablesField<G, V>>,
+}
+
+impl<'a, B, const G: usize, V, const D: usize> CarriedInternalVariables<'a, B, G, V, D>
+where
+    B: ElasticIVElements<G, V, D>,
+    V: Tensor,
+{
+    pub fn new(model: &'a Model<B, D>, initial: InternalVariablesField<G, V>) -> Self {
+        Self {
+            committed: RefCell::new(initial.clone()),
+            model,
+            stepped: RefCell::new(initial),
+        }
+    }
+    pub fn stepped(&self) -> Ref<'_, InternalVariablesField<G, V>> {
+        self.stepped.borrow()
+    }
+    pub fn step(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        nodal_decrement: &Vector,
+        step: Scalar,
+        commit: bool,
+    ) -> Result<(), ElementModelError> {
+        let stepped = self.model.internal_variables_increment(
+            nodal_coordinates,
+            &self.committed.borrow(),
+            &NodalCoordinates::from(nodal_decrement.clone()),
+            step,
+        )?;
+        if commit {
+            *self.committed.borrow_mut() = stepped.clone()
+        }
+        *self.stepped.borrow_mut() = stepped;
+        Ok(())
+    }
+}
+
 /// First-order root-finding for elastic models whose internal variables are
 /// condensed out at every integration point.
 pub trait FirstOrderRootIV<const G: usize, V, const D: usize>
@@ -232,34 +338,15 @@ where
             // residual is one of the nodal coordinates alone, the solver being
             // free to evaluate wherever it likes.
             //
-            // The residual and the tangent are asked for at the same
-            // coordinates, so the solve is remembered rather than repeated, and
-            // what it converged to last is where the next one starts.
-            //
             SolveStrategy::Condensed(ref local_solver) => {
-                let cache: RefCell<Option<(NodalCoordinates<D>, InternalVariablesField<G, V>)>> =
-                    RefCell::new(None);
-                let solved = |nodal_coordinates: &NodalCoordinates<D>| {
-                    if let Some((ref at, ref variables)) = *cache.borrow()
-                        && at == nodal_coordinates
-                    {
-                        return Ok(variables.clone());
-                    }
-                    let warm = match *cache.borrow() {
-                        Some((_, ref variables)) => variables.clone(),
-                        None => initial.clone(),
-                    };
-                    let variables =
-                        self.internal_variables_root(local_solver, nodal_coordinates, &warm)?;
-                    *cache.borrow_mut() = Some((nodal_coordinates.clone(), variables.clone()));
-                    Ok::<_, ElementModelError>(variables)
-                };
+                let solved = SolvedInternalVariables::new(self, local_solver, initial);
                 solver.root(
                     |nodal_coordinates: &NodalCoordinates<D>| {
-                        Ok(self.nodal_forces(nodal_coordinates, &solved(nodal_coordinates)?)?)
+                        Ok(self.nodal_forces(nodal_coordinates, &solved.at(nodal_coordinates)?)?)
                     },
                     |nodal_coordinates: &NodalCoordinates<D>| {
-                        Ok(self.nodal_stiffnesses(nodal_coordinates, &solved(nodal_coordinates)?)?)
+                        Ok(self
+                            .nodal_stiffnesses(nodal_coordinates, &solved.at(nodal_coordinates)?)?)
                     },
                     self.coordinates().clone().into(),
                     equality_constraint,
@@ -273,41 +360,19 @@ where
             // eliminated into the one the solver does see.
             //
             SolveStrategy::Monolithic { elimination: true } => {
-                //
-                // A step is offered before it is taken, so what the increment
-                // is measured from and what the residual is evaluated at come
-                // apart while one is being considered. Increments are always
-                // taken from the state last kept, which is what makes offering
-                // several of them in a row harmless.
-                //
-                let committed = RefCell::new(initial.clone());
-                let internal_variables = RefCell::new(initial);
+                let carried = CarriedInternalVariables::new(self, initial);
                 solver.root_incremental(
                     |nodal_coordinates: &NodalCoordinates<D>| {
-                        Ok(self.nodal_forces_eliminated(
-                            nodal_coordinates,
-                            &internal_variables.borrow(),
-                        )?)
+                        Ok(self.nodal_forces_eliminated(nodal_coordinates, &carried.stepped())?)
                     },
                     |nodal_coordinates: &NodalCoordinates<D>| {
-                        Ok(self
-                            .nodal_stiffnesses(nodal_coordinates, &internal_variables.borrow())?)
+                        Ok(self.nodal_stiffnesses(nodal_coordinates, &carried.stepped())?)
                     },
                     |nodal_coordinates: &NodalCoordinates<D>,
                      decrement: &Vector,
                      step: Scalar,
                      commit: bool| {
-                        let stepped = self.internal_variables_increment(
-                            nodal_coordinates,
-                            &committed.borrow(),
-                            &NodalCoordinates::from(decrement.clone()),
-                            step,
-                        )?;
-                        if commit {
-                            *committed.borrow_mut() = stepped.clone()
-                        }
-                        *internal_variables.borrow_mut() = stepped;
-                        Ok(())
+                        Ok(carried.step(nodal_coordinates, decrement, step, commit)?)
                     },
                     self.coordinates().clone().into(),
                     equality_constraint,
