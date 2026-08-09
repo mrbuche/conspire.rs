@@ -69,6 +69,7 @@ pub trait ElasticIVFiniteElement<
         nodal_coordinates: &ElementNodalCoordinates<N>,
         internal_variables: &InternalVariables<G, V>,
         nodal_decrement: &ElementNodalCoordinates<N>,
+        step: Scalar,
     ) -> Result<InternalVariables<G, V>, FiniteElementError>;
     fn nodal_forces(
         &self,
@@ -242,6 +243,7 @@ fn increment_at_point<C, V>(
     deformation_gradient: &DeformationGradient,
     deformation_gradient_decrement: &DeformationGradient,
     internal_variables: &V,
+    step: Scalar,
 ) -> Result<V, ConstitutiveError>
 where
     C: ElasticIV<V>,
@@ -278,10 +280,13 @@ where
     unmap
         .iter()
         .enumerate()
-        .for_each(|(a, &i)| decrement[i] = solution[a]);
+        .for_each(|(a, &i)| decrement[i] = solution[a] * step);
     //
-    // The step is left whole. Shortening it here only hides an inadmissible
-    // state from whoever is safeguarding the step that caused it.
+    // Eliminating solves one direction for these and the nodal coordinates
+    // together, so a shortened step is the same fraction of both. Solving
+    // against an already shortened decrement would be a different direction
+    // instead of less of this one, and would leave these where the whole of
+    // their own residual had been taken out even where nothing else moved.
     //
     let mut incremented = internal_variables.clone();
     incremented.decrement_from(&decrement);
@@ -384,6 +389,7 @@ where
         nodal_coordinates: &ElementNodalCoordinates<N>,
         internal_variables: &InternalVariables<G, V>,
         nodal_decrement: &ElementNodalCoordinates<N>,
+        step: Scalar,
     ) -> Result<InternalVariables<G, V>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
@@ -397,6 +403,7 @@ where
                         deformation_gradient,
                         decrement,
                         internal_variables_point,
+                        step,
                     )
                 },
             )

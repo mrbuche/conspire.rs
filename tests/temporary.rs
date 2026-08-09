@@ -7818,7 +7818,7 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
             hybrid::ElasticMultiplicative, solid::hyperelastic::SaintVenantKirchhoff as SVK,
         },
         fem::solid::hyperelastic::internal_variables::SecondOrderMinimizeIV,
-        math::optimize::SolveStrategy,
+        math::optimize::{LineSearch, SolveStrategy},
     };
     let strain = 1.0;
     let ref_coordinates = coordinates();
@@ -7874,14 +7874,70 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
     let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> = (mesh, model).try_into()?;
     let time = std::time::Instant::now();
     println!("Solving (condensed)...");
-    let _solution = SecondOrderMinimizeIV::minimize(
+    let condensed = SecondOrderMinimizeIV::minimize(
         &fem_model,
-        EqualityConstraint::Linear(matrix, vector),
+        EqualityConstraint::Linear(matrix.clone(), vector.clone()),
         NewtonRaphson::default(),
         SolveStrategy::Condensed(NewtonRaphson::default()),
     )?;
     println!("Done ({:?}).", time.elapsed());
-    Ok(())
+    let time = std::time::Instant::now();
+    println!("Solving (monolithic, eliminated)...");
+    let eliminated = SecondOrderMinimizeIV::minimize(
+        &fem_model,
+        EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+        NewtonRaphson {
+            max_steps: 6,
+            ..Default::default()
+        },
+        SolveStrategy::Monolithic { elimination: true },
+    )?;
+    println!("Done ({:?}).", time.elapsed());
+    let time = std::time::Instant::now();
+    println!("Solving (monolithic, eliminated, Armijo)...");
+    //
+    // Every trial the line search weighs moves the internal variables too, so
+    // this is the run that says they move by the same fraction of their own
+    // direction as the nodal coordinates move by of theirs.
+    //
+    // The step budget is the test, the solution being reached either way. A
+    // demanding control forces one backtrack, and the internal variables have
+    // to be somewhere consistent for the energy to be weighed against it:
+    // stepping them whole regardless makes the base energy that of a state
+    // already moved, which no trial can fail to improve on, so the search stops
+    // backtracking and the budget goes instead.
+    //
+    let searched = SecondOrderMinimizeIV::minimize(
+        &fem_model,
+        EqualityConstraint::Linear(matrix, vector),
+        NewtonRaphson {
+            line_search: LineSearch::Armijo {
+                control: 9e-1,
+                cut_back: 5e-1,
+                max_steps: 25,
+            },
+            max_steps: 5,
+            ..Default::default()
+        },
+        SolveStrategy::Monolithic { elimination: true },
+    )?;
+    println!("Done ({:?}).", time.elapsed());
+    //
+    // The internal variables are carried rather than solved, so agreeing with
+    // the condensed solution is what shows they were carried correctly.
+    //
+    Assert {
+        abs_tol: 1e-9,
+        rel_tol: 1e-9,
+        ..Default::default()
+    }
+    .eq_within_tols(&condensed, &eliminated)?;
+    Assert {
+        abs_tol: 1e-9,
+        rel_tol: 1e-9,
+        ..Default::default()
+    }
+    .eq_within_tols(&condensed, &searched)
 }
 
 #[test]
