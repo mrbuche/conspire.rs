@@ -405,54 +405,6 @@ where
     None
 }
 
-/// Shortens the step until it lands somewhere both blocks can be evaluated,
-/// or gives up.
-///
-/// The counterpart of [`backtrack_errors`] for a problem split in two, asking
-/// of the trial point everything the next iteration will ask of it.
-#[allow(clippy::too_many_arguments)]
-fn backtrack_errors_block<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>(
-    mut residual_global: impl FnMut(&U, &V) -> Result<Ru, String>,
-    mut residual_local: impl FnMut(&U, &V) -> Result<Rv, String>,
-    mut tangents: impl FnMut(&U, &V) -> Result<(Kuu, Kvu, Kuv, Kvv), String>,
-    global: &U,
-    local: &V,
-    multipliers_global: &Vector,
-    multipliers_local: &Vector,
-    decrement_outer: &Vector,
-    decrement_inner: &Vector,
-    cut_back: Scalar,
-    max_steps: usize,
-) -> Option<Scalar>
-where
-    U: Solution,
-    V: Solution,
-{
-    let mut trial_size = 1.0;
-    for _ in 0..max_steps {
-        let mut trial_global = global.clone();
-        let mut trial_local = local.clone();
-        let mut trial_multipliers_global = multipliers_global.clone();
-        let mut trial_multipliers_local = multipliers_local.clone();
-        trial_global.decrement_from_chained(
-            &mut trial_multipliers_global,
-            &(decrement_outer * trial_size),
-        );
-        trial_local.decrement_from_chained(
-            &mut trial_multipliers_local,
-            &(decrement_inner * trial_size),
-        );
-        if residual_global(&trial_global, &trial_local).is_ok()
-            && residual_local(&trial_global, &trial_local).is_ok()
-            && tangents(&trial_global, &trial_local).is_ok()
-        {
-            return Some(trial_size);
-        }
-        trial_size *= cut_back
-    }
-    None
-}
-
 /// Shortens the step until the variables move no further than the maximum.
 ///
 /// Only the variables are measured, the multipliers being of another kind
@@ -501,6 +453,63 @@ fn kkt_residual<R, T>(
 {
     (residual - multipliers * constraint_matrix)
         .fill_into_chained(constraint_rhs - constraint_matrix * variables, chained)
+}
+
+/// Converges the local variables at fixed global ones.
+///
+/// The condensed strategy treats the local variables as a function of the
+/// global ones, so anywhere the global variables are moved to, this is what
+/// the local ones become.
+#[allow(clippy::too_many_arguments)]
+fn converge_local<U, V, Rv, Kuu, Kvu, Kuv, Kvv>(
+    local_solver: &NewtonRaphson,
+    residual_local: &mut impl FnMut(&U, &V) -> Result<Rv, String>,
+    tangents: &mut impl FnMut(&U, &V) -> Result<(Kuu, Kvu, Kuv, Kvv), String>,
+    global: &U,
+    local: &mut V,
+    multipliers_local: &mut Vector,
+    constraint_matrix_local: &CscMatrix,
+    constraint_rhs_local: &Vector,
+    num_local: usize,
+    update_inner: &mut Vector,
+    tangent_inner: &mut SquareMatrix,
+    factorization: &mut LuDecomposition,
+) -> Result<(), OptimizationError>
+where
+    Rv: Jacobian,
+    Kvv: HessianBlock,
+    V: Solution,
+    for<'a> &'a CscMatrix: Mul<&'a V, Output = Vector>,
+{
+    let mut local_steps = 0;
+    loop {
+        kkt_residual(
+            residual_local(global, local)?,
+            multipliers_local,
+            constraint_matrix_local,
+            constraint_rhs_local,
+            local,
+            update_inner,
+        );
+        if local_solver.error_norm.apply(update_inner) < local_solver.abs_tol
+            || local_steps == local_solver.max_steps
+        {
+            return Ok(());
+        }
+        local_steps += 1;
+        let (_, _, _, tangent) = tangents(global, local)?;
+        kkt_block(
+            &tangent,
+            constraint_matrix_local,
+            num_local,
+            tangent_inner,
+            0,
+        );
+        tangent_inner.factorize_lu_into(factorization)?;
+        let mut decrement = factorization.solve(update_inner);
+        limit_decrement(local_solver, &mut [(&mut decrement, num_local)]);
+        local.decrement_from_chained(multipliers_local, &decrement)
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -577,35 +586,20 @@ where
     let mut steps = 0;
     loop {
         if let Some(local_solver) = condensed {
-            let mut local_steps = 0;
-            loop {
-                kkt_residual(
-                    residual_local(&global, &local)?,
-                    &multipliers_local,
-                    &constraint_matrix_local,
-                    &constraint_rhs_local,
-                    &local,
-                    &mut update_inner,
-                );
-                if local_solver.error_norm.apply(&update_inner) < local_solver.abs_tol
-                    || local_steps == local_solver.max_steps
-                {
-                    break;
-                }
-                local_steps += 1;
-                let (_, _, _, tangent) = tangents(&global, &local)?;
-                kkt_block(
-                    &tangent,
-                    &constraint_matrix_local,
-                    num_local,
-                    &mut tangent_inner,
-                    0,
-                );
-                tangent_inner.factorize_lu_into(&mut factorization)?;
-                let mut decrement = factorization.solve(&update_inner);
-                limit_decrement(local_solver, &mut [(&mut decrement, num_local)]);
-                local.decrement_from_chained(&mut multipliers_local, &decrement)
-            }
+            converge_local(
+                local_solver,
+                &mut residual_local,
+                &mut tangents,
+                &global,
+                &mut local,
+                &mut multipliers_local,
+                &constraint_matrix_local,
+                &constraint_rhs_local,
+                num_local,
+                &mut update_inner,
+                &mut tangent_inner,
+                &mut factorization,
+            )?
         }
         kkt_residual(
             residual_global(&global, &local)?,
@@ -753,19 +747,51 @@ where
             // trial point is judged by whether the problem can be evaluated
             // there at all. Minimization keeps its merit function instead.
             //
-            match backtrack_errors_block(
-                &mut residual_global,
-                &mut residual_local,
-                &mut tangents,
-                &global,
-                &local,
-                &multipliers_global,
-                &multipliers_local,
-                &decrement_outer,
-                &decrement_inner,
-                *cut_back,
-                *max_steps,
-            ) {
+            let mut trial_size = 1.0;
+            let mut accepted = None;
+            for _ in 0..*max_steps {
+                let mut trial_global = global.clone();
+                let mut trial_local = local.clone();
+                let mut trial_multipliers_global = multipliers_global.clone();
+                let mut trial_multipliers_local = multipliers_local.clone();
+                trial_global.decrement_from_chained(
+                    &mut trial_multipliers_global,
+                    &(&decrement_outer * trial_size),
+                );
+                let reached = if let Some(local_solver) = condensed {
+                    converge_local(
+                        local_solver,
+                        &mut residual_local,
+                        &mut tangents,
+                        &trial_global,
+                        &mut trial_local,
+                        &mut trial_multipliers_local,
+                        &constraint_matrix_local,
+                        &constraint_rhs_local,
+                        num_local,
+                        &mut update_inner,
+                        &mut tangent_inner,
+                        &mut factorization,
+                    )
+                    .is_ok()
+                } else {
+                    trial_local.decrement_from_chained(
+                        &mut trial_multipliers_local,
+                        &(&decrement_inner * trial_size),
+                    );
+                    true
+                };
+                if reached
+                    && residual_global(&trial_global, &trial_local).is_ok()
+                    && residual_local(&trial_global, &trial_local).is_ok()
+                    && tangents(&trial_global, &trial_local).is_ok()
+                {
+                    accepted = Some(trial_size);
+                    break;
+                }
+                trial_size *= *cut_back
+            }
+            match accepted {
                 Some(trial_size) => trial_size,
                 None => {
                     return Err(OptimizationError::Upstream(
@@ -823,10 +849,33 @@ where
                             &mut trial_multipliers_global,
                             &(&decrement_outer * step),
                         );
-                        trial_local.decrement_from_chained(
-                            &mut trial_multipliers_local,
-                            &(&decrement_inner * step),
-                        );
+                        //
+                        // Condensed makes the local variables a function of the
+                        // global ones, so a trial point is where they solve to,
+                        // not where the increment predicted they would.
+                        //
+                        if let Some(local_solver) = condensed {
+                            converge_local(
+                                local_solver,
+                                &mut residual_local,
+                                &mut tangents,
+                                &trial_global,
+                                &mut trial_local,
+                                &mut trial_multipliers_local,
+                                &constraint_matrix_local,
+                                &constraint_rhs_local,
+                                num_local,
+                                &mut update_inner,
+                                &mut tangent_inner,
+                                &mut factorization,
+                            )
+                            .map_err(|error| format!("{error}"))?
+                        } else {
+                            trial_local.decrement_from_chained(
+                                &mut trial_multipliers_local,
+                                &(&decrement_inner * step),
+                            )
+                        }
                         Ok(function(&trial_global, &trial_local)?
                             + penalty
                                 * (violation(
