@@ -106,6 +106,7 @@ where
                 function,
                 jacobian,
                 initial_guess,
+                sparse,
             ),
         }
     }
@@ -199,7 +200,7 @@ where
                 constraint_rhs,
             ),
             EqualityConstraint::None => {
-                unconstrained(self, function, jacobian, hessian, initial_guess)
+                unconstrained(self, function, jacobian, hessian, initial_guess, sparse)
             }
         } {
             Ok(solution) => Ok(solution),
@@ -868,6 +869,7 @@ fn unconstrained<J, H, X>(
     mut jacobian: impl FnMut(&X) -> Result<J, String>,
     mut hessian: impl FnMut(&X) -> Result<H, String>,
     initial_guess: X,
+    sparse: Option<SparseSolver>,
 ) -> Result<X, OptimizationError>
 where
     H: Hessian,
@@ -877,11 +879,15 @@ where
     for<'a> &'a X: Mul<Scalar, Output = X>,
 {
     let mut decrement;
+    let mut flattened = Vector::zero(if sparse.is_none() {
+        0
+    } else {
+        initial_guess.size()
+    });
     let mut residual;
     let mut solution = initial_guess;
     let mut step_size;
     let mut steps = 0;
-    let mut tangent;
     loop {
         residual = jacobian(&solution)?;
         if newton_raphson.error_norm.apply(&residual) < newton_raphson.abs_tol {
@@ -893,8 +899,13 @@ where
             ));
         } else {
             steps += 1;
-            tangent = hessian(&solution)?;
-            decrement = &residual / tangent;
+            decrement = if let Some(ref solver) = sparse {
+                let hess = hessian(&solution)?;
+                residual.fill_into(&mut flattened);
+                X::from(solver.solve(|i, j| hess.entry(i, j), &flattened)?)
+            } else {
+                &residual / hessian(&solution)?
+            };
             if let TrustRegion::Fixed { radius, norm } = newton_raphson.trust_region {
                 let size = norm.apply(&decrement);
                 if size > radius {

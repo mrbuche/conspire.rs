@@ -35,7 +35,7 @@ impl Solution for TensorRank0 {
 }
 
 impl Jacobian for TensorRank0 {
-    fn fill_into(self, _vector: &mut Vector) {
+    fn fill_into(&self, _vector: &mut Vector) {
         unimplemented!()
     }
     fn fill_into_chained(self, _other: Vector, _vector: &mut Vector) {

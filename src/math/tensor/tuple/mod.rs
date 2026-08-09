@@ -118,13 +118,13 @@ where
 impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> Jacobian
     for TensorTuple<TensorRank2<D, I, J>, TensorRank2<D, K, L>>
 {
-    fn fill_into(self, vector: &mut Vector) {
+    fn fill_into(&self, vector: &mut Vector) {
         self.0
-            .into_iter()
-            .flatten()
-            .chain(self.1.into_iter().flatten())
+            .iter()
+            .flat_map(|entry| entry.iter())
+            .chain(self.1.iter().flat_map(|entry| entry.iter()))
             .zip(vector.iter_mut())
-            .for_each(|(self_i, vector_i)| *vector_i = self_i)
+            .for_each(|(self_i, vector_i)| *vector_i = *self_i)
     }
     fn fill_into_chained(self, other: Vector, vector: &mut Vector) {
         self.0

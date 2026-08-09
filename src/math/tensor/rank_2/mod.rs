@@ -495,11 +495,11 @@ impl<const D: usize, const I: usize, const J: usize> Solution for TensorRank2<D,
 }
 
 impl<const D: usize, const I: usize, const J: usize> Jacobian for TensorRank2<D, I, J> {
-    fn fill_into(self, vector: &mut Vector) {
-        self.into_iter()
-            .flatten()
+    fn fill_into(&self, vector: &mut Vector) {
+        self.iter()
+            .flat_map(|entry| entry.iter())
             .zip(vector.iter_mut())
-            .for_each(|(self_i, vector_i)| *vector_i = self_i)
+            .for_each(|(self_i, vector_i)| *vector_i = *self_i)
     }
     fn fill_into_chained(self, other: Vector, vector: &mut Vector) {
         self.into_iter()

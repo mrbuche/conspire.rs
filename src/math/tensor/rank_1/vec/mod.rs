@@ -170,11 +170,11 @@ impl<const D: usize, const I: usize> From<Vector> for TensorRank1Vec<D, I> {
 }
 
 impl<const D: usize, const I: usize> Jacobian for TensorRank1Vec<D, I> {
-    fn fill_into(self, vector: &mut Vector) {
-        self.into_iter()
-            .flatten()
+    fn fill_into(&self, vector: &mut Vector) {
+        self.iter()
+            .flat_map(|entry| entry.iter())
             .zip(vector.iter_mut())
-            .for_each(|(self_i, vector_i)| *vector_i = self_i)
+            .for_each(|(self_i, vector_i)| *vector_i = *self_i)
     }
     fn fill_into_chained(self, other: Vector, vector: &mut Vector) {
         self.into_iter()

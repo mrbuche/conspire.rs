@@ -217,19 +217,36 @@ impl Solution for Vector {
             .zip(vector.iter())
             .for_each(|(entry_i, vector_i)| *entry_i -= vector_i)
     }
+    fn decrement_from_retained(&mut self, retained: &[bool], other: &Vector) {
+        self.iter_mut()
+            .zip(retained.iter())
+            .filter(|(_, retained_i)| **retained_i)
+            .zip(other.iter())
+            .for_each(|((self_i, _), vector_i)| *self_i -= vector_i)
+    }
 }
 
 impl Jacobian for Vector {
-    fn fill_into(self, vector: &mut Vector) {
-        self.into_iter()
+    fn fill_into(&self, vector: &mut Vector) {
+        self.iter()
             .zip(vector.iter_mut())
-            .for_each(|(self_i, vector_i)| *vector_i = self_i)
+            .for_each(|(self_i, vector_i)| *vector_i = *self_i)
     }
     fn fill_into_chained(self, other: Self, vector: &mut Self) {
         self.into_iter()
             .chain(other)
             .zip(vector.iter_mut())
             .for_each(|(entry_i, vector_i)| *vector_i = entry_i)
+    }
+    fn retain_from(self, retained: &[bool]) -> Vector {
+        self.into_iter()
+            .zip(retained.iter())
+            .filter(|(_, retained_i)| **retained_i)
+            .map(|(entry, _)| entry)
+            .collect()
+    }
+    fn zero_out(&mut self, indices: &[usize]) {
+        indices.iter().for_each(|&index| self[index] = 0.0)
     }
 }
 
