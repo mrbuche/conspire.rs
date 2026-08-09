@@ -302,7 +302,7 @@ impl StyledError for LineSearchError {
         let (h, c) = (style.headline, style.frame);
         match self {
             Self::InvalidStartingPoint(line_search) => format!(
-                "{h}Staring point is invalid.{c}\n\
+                "{h}Starting point is invalid.{c}\n\
                 In line search: {line_search}."
             ),
             Self::MaximumStepsReached(line_search, steps) => format!(
