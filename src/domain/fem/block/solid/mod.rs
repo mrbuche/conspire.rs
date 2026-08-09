@@ -7,6 +7,7 @@ pub mod hyperviscoelastic;
 pub mod viscoelastic;
 
 use crate::{
+    constitutive::solid::Solid,
     fem::{
         NodalCoordinates,
         block::{Block, element::solid::SolidFiniteElement},
@@ -16,6 +17,7 @@ use crate::{
 
 pub trait SolidElements<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
 where
+    C: Solid,
     F: SolidFiniteElement<G, M, N, P>,
 {
     fn deformation_gradients(
@@ -27,6 +29,7 @@ where
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
     SolidElements<C, F, G, M, N, P> for Block<C, F, G, M, N, P>
 where
+    C: Solid,
     F: SolidFiniteElement<G, M, N, P>,
 {
     fn deformation_gradients(

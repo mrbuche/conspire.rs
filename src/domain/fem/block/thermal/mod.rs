@@ -1,6 +1,7 @@
 pub mod conduction;
 
 use crate::{
+    constitutive::thermal::Thermal,
     fem::block::{
         Block,
         element::thermal::{ElementNodalTemperatures, ThermalFiniteElement},
@@ -13,6 +14,7 @@ pub type NodalTemperatures = Vector;
 
 pub trait ThermalElements<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
 where
+    C: Thermal,
     F: ThermalFiniteElement<G, M, N, P>,
 {
     fn nodal_temperatures_element(
@@ -29,6 +31,7 @@ where
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
     ThermalElements<C, F, G, M, N, P> for Block<C, F, G, M, N, P>
 where
+    C: Thermal,
     F: ThermalFiniteElement<G, M, N, P>,
 {
     fn nodal_temperatures_element(
