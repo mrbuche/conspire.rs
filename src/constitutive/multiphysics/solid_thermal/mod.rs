@@ -13,9 +13,9 @@ pub trait SolidThermal
 where
     Self: Multiphysics,
 {
-    /// Type of the solid constitutive model.
+    /// The solid constitutive model.
     type Solid: Solid;
-    /// Type of the thermal constitutive model.
+    /// The thermal constitutive model.
     type Thermal: Thermal;
     /// Returns a reference to the solid constitutive model.
     fn solid_constitutive_model(&self) -> &Self::Solid;
