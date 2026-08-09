@@ -79,7 +79,7 @@ where
         equality_constraint: EqualityConstraint,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
-        match equality_constraint {
+        match match equality_constraint {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
                 self,
                 |_: &X| panic!("No line search in root finding"),
@@ -109,6 +109,12 @@ where
                 initial_guess,
                 sparse,
             ),
+        } {
+            Ok(solution) => Ok(solution),
+            Err(error) => Err(OptimizationError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
         }
     }
 }
@@ -131,7 +137,7 @@ where
         equality_constraint: EqualityConstraint,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
-        match equality_constraint {
+        match match equality_constraint {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
                 self,
                 |_: &X| panic!("No line search in root finding"),
@@ -156,6 +162,12 @@ where
             EqualityConstraint::None => unimplemented!(
                 "An unconstrained solution has no chained vector to lend the increment through."
             ),
+        } {
+            Ok(solution) => Ok(solution),
+            Err(error) => Err(OptimizationError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
         }
     }
 }
