@@ -8,7 +8,7 @@ use crate::{
         },
     },
     math::{
-        Matrix, Rank2, Tensor, TensorArray, Vector,
+        Rank2, Tensor, TensorArray, Vector,
         integrate::{ExplicitDaeFirstOrderRoot, ExplicitDaeZerothOrderRoot},
         optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
     },
@@ -18,6 +18,7 @@ use crate::{
     },
 };
 
+use crate::constitutive::solid::elastic_plastic::bcs;
 pub use crate::constitutive::solid::elastic_plastic::{AppliedLoad, ElasticPlasticOrViscoplastic};
 
 /// Required methods for elastic-viscoplastic solid constitutive models.
@@ -133,39 +134,31 @@ where
         ),
         ConstitutiveError,
     > {
-        match match applied_load {
-            AppliedLoad::UniaxialStress(deformation_gradient_11, time) => {
-                let mut matrix = Matrix::zero(4, 9);
-                let mut vector = Vector::zero(4);
-                matrix[0][0] = 1.0;
-                matrix[1][1] = 1.0;
-                matrix[2][2] = 1.0;
-                matrix[3][5] = 1.0;
-                integrator.integrate(
-                    |_: Scalar,
-                     state_variables: &ViscoplasticStateVariables<Y>,
-                     deformation_gradient: &DeformationGradient| {
-                        Ok(self.state_variables_evolution(deformation_gradient, state_variables)?)
-                    },
-                    |_: Scalar,
-                     state_variables: &ViscoplasticStateVariables<Y>,
-                     deformation_gradient: &DeformationGradient| {
-                        let deformation_gradient_p = &state_variables.0;
-                        Ok(self.first_piola_kirchhoff_stress(
-                            deformation_gradient,
-                            deformation_gradient_p,
-                        )?)
-                    },
-                    solver,
-                    time,
-                    (self.initial_state(), DeformationGradient::identity()),
-                    |t: Scalar| {
-                        vector[0] = deformation_gradient_11(t);
-                        EqualityConstraint::Linear(matrix.clone(), vector.clone())
-                    },
-                )
-            }
-        } {
+        let (matrix, prescribed, time) = bcs(applied_load);
+        let mut vector = Vector::zero(matrix.len());
+        match integrator.integrate(
+            |_: Scalar,
+             state_variables: &ViscoplasticStateVariables<Y>,
+             deformation_gradient: &DeformationGradient| {
+                Ok(self.state_variables_evolution(deformation_gradient, state_variables)?)
+            },
+            |_: Scalar,
+             state_variables: &ViscoplasticStateVariables<Y>,
+             deformation_gradient: &DeformationGradient| {
+                let deformation_gradient_p = &state_variables.0;
+                Ok(self
+                    .first_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_p)?)
+            },
+            solver,
+            time,
+            (self.initial_state(), DeformationGradient::identity()),
+            |t: Scalar| {
+                prescribed
+                    .iter()
+                    .for_each(|(index, function)| vector[*index] = function(t));
+                EqualityConstraint::Linear(matrix.clone(), vector.clone())
+            },
+        ) {
             Ok((times, state_variables, _, deformation_gradients)) => {
                 Ok((times, deformation_gradients, state_variables))
             }
@@ -206,48 +199,40 @@ where
         ),
         ConstitutiveError,
     > {
-        match match applied_load {
-            AppliedLoad::UniaxialStress(deformation_gradient_11, time) => {
-                let mut matrix = Matrix::zero(4, 9);
-                let mut vector = Vector::zero(4);
-                matrix[0][0] = 1.0;
-                matrix[1][1] = 1.0;
-                matrix[2][2] = 1.0;
-                matrix[3][5] = 1.0;
-                integrator.integrate(
-                    |_: Scalar,
-                     state_variables: &ViscoplasticStateVariables<Y>,
-                     deformation_gradient: &DeformationGradient| {
-                        Ok(self.state_variables_evolution(deformation_gradient, state_variables)?)
-                    },
-                    |_: Scalar,
-                     state_variables: &ViscoplasticStateVariables<Y>,
-                     deformation_gradient: &DeformationGradient| {
-                        let deformation_gradient_p = &state_variables.0;
-                        Ok(self.first_piola_kirchhoff_stress(
-                            deformation_gradient,
-                            deformation_gradient_p,
-                        )?)
-                    },
-                    |_: Scalar,
-                     state_variables: &ViscoplasticStateVariables<Y>,
-                     deformation_gradient: &DeformationGradient| {
-                        let deformation_gradient_p = &state_variables.0;
-                        Ok(self.first_piola_kirchhoff_tangent_stiffness(
-                            deformation_gradient,
-                            deformation_gradient_p,
-                        )?)
-                    },
-                    solver,
-                    time,
-                    (self.initial_state(), DeformationGradient::identity()),
-                    |t: Scalar| {
-                        vector[0] = deformation_gradient_11(t);
-                        EqualityConstraint::Linear(matrix.clone(), vector.clone())
-                    },
-                )
-            }
-        } {
+        let (matrix, prescribed, time) = bcs(applied_load);
+        let mut vector = Vector::zero(matrix.len());
+        match integrator.integrate(
+            |_: Scalar,
+             state_variables: &ViscoplasticStateVariables<Y>,
+             deformation_gradient: &DeformationGradient| {
+                Ok(self.state_variables_evolution(deformation_gradient, state_variables)?)
+            },
+            |_: Scalar,
+             state_variables: &ViscoplasticStateVariables<Y>,
+             deformation_gradient: &DeformationGradient| {
+                let deformation_gradient_p = &state_variables.0;
+                Ok(self
+                    .first_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_p)?)
+            },
+            |_: Scalar,
+             state_variables: &ViscoplasticStateVariables<Y>,
+             deformation_gradient: &DeformationGradient| {
+                let deformation_gradient_p = &state_variables.0;
+                Ok(self.first_piola_kirchhoff_tangent_stiffness(
+                    deformation_gradient,
+                    deformation_gradient_p,
+                )?)
+            },
+            solver,
+            time,
+            (self.initial_state(), DeformationGradient::identity()),
+            |t: Scalar| {
+                prescribed
+                    .iter()
+                    .for_each(|(index, function)| vector[*index] = function(t));
+                EqualityConstraint::Linear(matrix.clone(), vector.clone())
+            },
+        ) {
             Ok((times, state_variables, _, deformation_gradients)) => {
                 Ok((times, deformation_gradients, state_variables))
             }

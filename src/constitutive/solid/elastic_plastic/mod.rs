@@ -2,7 +2,7 @@
 
 use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::Plastic, solid::Solid},
-    math::{ContractFirstSecondWithSecond, ContractSecondWithFirst, IDENTITY, Rank2},
+    math::{ContractFirstSecondWithSecond, ContractSecondWithFirst, IDENTITY, Matrix, Rank2},
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic,
         FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness, Scalar,
@@ -14,8 +14,32 @@ use crate::{
 pub enum AppliedLoad<'a> {
     /// Uniaxial stress given $`F_{11}`$.
     UniaxialStress(fn(Scalar) -> Scalar, &'a [Scalar]),
-    // /// Biaxial stress given $`F_{11}`$ and $`F_{22}`$.
-    // BiaxialStress(fn(Scalar) -> Scalar, fn(Scalar) -> Scalar, &'a [Scalar]),
+    /// Biaxial stress given $`F_{11}`$ and $`F_{22}`$.
+    BiaxialStress(fn(Scalar) -> Scalar, fn(Scalar) -> Scalar, &'a [Scalar]),
+}
+
+type Prescribed = Vec<(usize, fn(Scalar) -> Scalar)>;
+
+#[doc(hidden)]
+pub fn bcs(applied_load: AppliedLoad<'_>) -> (Matrix, Prescribed, &'_ [Scalar]) {
+    let (mut matrix, prescribed, time) = match applied_load {
+        AppliedLoad::UniaxialStress(deformation_gradient_11, time) => {
+            (Matrix::zero(4, 9), vec![(0, deformation_gradient_11)], time)
+        }
+        AppliedLoad::BiaxialStress(deformation_gradient_11, deformation_gradient_22, time) => (
+            Matrix::zero(5, 9),
+            vec![(0, deformation_gradient_11), (4, deformation_gradient_22)],
+            time,
+        ),
+    };
+    matrix[0][0] = 1.0;
+    matrix[1][1] = 1.0;
+    matrix[2][2] = 1.0;
+    matrix[3][5] = 1.0;
+    if matrix.len() == 5 {
+        matrix[4][4] = 1.0
+    }
+    (matrix, prescribed, time)
 }
 
 /// Required methods for elastic-plastic or elastic-viscoplastic solid constitutive models.
