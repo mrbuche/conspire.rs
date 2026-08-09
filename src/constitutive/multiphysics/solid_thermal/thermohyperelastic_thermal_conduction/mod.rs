@@ -175,11 +175,13 @@ where
 {
 }
 
-impl<C1, C2> SolidThermal<C1, C2> for ThermohyperelasticThermalConduction<C1, C2>
+impl<C1, C2> SolidThermal for ThermohyperelasticThermalConduction<C1, C2>
 where
     C1: Thermohyperelastic,
     C2: ThermalConduction,
 {
+    type Solid = C1;
+    type Thermal = C2;
     fn solid_constitutive_model(&self) -> &C1 {
         &self.thermohyperelastic_constitutive_model
     }
