@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 use crate::math::{Jacobian, Scalar, Solution, Style, StyledError, styled_error};
 use std::{
     fmt::{self, Debug, Display, Formatter},
@@ -263,9 +266,9 @@ impl LineSearch {
                         && let Ok(j_val) = j_n
                         && f - f_val >= n * t_1
                         && if *strong {
-                            j_val.full_contraction(decrement.into()) < t_2
+                            j_val.full_contraction(decrement.into()).abs() < t_2.abs()
                         } else {
-                            j_val.full_contraction(decrement.into()).abs() < t_2.abs() // less than?
+                            j_val.full_contraction(decrement.into()) < t_2
                         }
                     {
                         return Ok(n);
