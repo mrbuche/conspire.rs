@@ -20,7 +20,7 @@ use std::cell::RefCell;
 /// The internal variables held at every integration point of every element.
 pub type InternalVariablesField<const G: usize, V> = TensorVector<InternalVariables<G, V>>;
 
-pub trait ElasticIVElements<const G: usize, V, T1, T2, T3, const D: usize>
+pub trait ElasticIVElements<const G: usize, V, const D: usize>
 where
     Self: Elements,
     V: Tensor,
@@ -110,10 +110,9 @@ where
     }
 }
 
-impl<B, const G: usize, V, T1, T2, T3, const D: usize> ElasticIVElements<G, V, T1, T2, T3, D>
-    for Model<B, D>
+impl<B, const G: usize, V, const D: usize> ElasticIVElements<G, V, D> for Model<B, D>
 where
-    B: ElasticIVElements<G, V, T1, T2, T3, D>,
+    B: ElasticIVElements<G, V, D>,
     V: Tensor,
 {
     fn internal_variables_initial(&self) -> InternalVariablesField<G, V> {
@@ -174,32 +173,29 @@ where
 
 /// First-order root-finding for elastic models whose internal variables are
 /// condensed out at every integration point.
-pub trait FirstOrderRootIV<const G: usize, V, T1, T2, T3, J, H, X, const D: usize>
+pub trait FirstOrderRootIV<const G: usize, V, const D: usize>
 where
     V: Tensor,
 {
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderRootFinding<J, H, X> + FirstOrderRootFindingIncremental<J, H, X>,
+        solver: impl FirstOrderRootFinding<
+            NodalForcesSolid<D>,
+            NodalStiffnessesSolid<D>,
+            NodalCoordinates<D>,
+        > + FirstOrderRootFindingIncremental<
+            NodalForcesSolid<D>,
+            NodalStiffnessesSolid<D>,
+            NodalCoordinates<D>,
+        >,
         strategy: SolveStrategy,
-    ) -> Result<X, OptimizationError>;
+    ) -> Result<NodalCoordinates<D>, OptimizationError>;
 }
 
-impl<B, const G: usize, V, T1, T2, T3, const D: usize>
-    FirstOrderRootIV<
-        G,
-        V,
-        T1,
-        T2,
-        T3,
-        NodalForcesSolid<D>,
-        NodalStiffnessesSolid<D>,
-        NodalCoordinates<D>,
-        D,
-    > for Model<B, D>
+impl<B, const G: usize, V, const D: usize> FirstOrderRootIV<G, V, D> for Model<B, D>
 where
-    B: ElasticIVElements<G, V, T1, T2, T3, D>,
+    B: ElasticIVElements<G, V, D>,
     V: Tensor,
 {
     fn root(

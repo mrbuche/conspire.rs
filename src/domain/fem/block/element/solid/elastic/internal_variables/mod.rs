@@ -7,7 +7,7 @@ use crate::{
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement},
     },
     math::{
-        ContractSecondFourthWithFirst, Hessian, HessianBlock, Jacobian, Matrix, Scalar, ScalarList,
+        ContractSecondFourthWithFirst, HessianBlock, Jacobian, Matrix, Scalar, ScalarList,
         Solution, SquareMatrix, Tensor, TensorList, Vector,
         optimize::{EqualityConstraint, FirstOrderRootFinding, NewtonRaphson},
     },
@@ -18,9 +18,9 @@ use crate::{
 };
 
 /// The indices of the internal variables that are free to move.
-fn free_indices<C, V, T1, T2, T3>(constitutive_model: &C, size: usize) -> Vec<usize>
+fn free_indices<C, V>(constitutive_model: &C, size: usize) -> Vec<usize>
 where
-    C: ElasticIV<V, T1, T2, T3>,
+    C: ElasticIV<V>,
 {
     let mut free = vec![true; size];
     constitutive_model
@@ -40,17 +40,11 @@ pub trait ElasticIVFiniteElement<
     const N: usize,
     const P: usize,
     V,
-    T1,
-    T2,
-    T3,
 > where
-    C: ElasticIV<V, T1, T2, T3>,
+    C: ElasticIV<V>,
     Self: SolidFiniteElement<G, M, N, P>,
-    T1: HessianBlock,
-    T2: HessianBlock,
-    T3: Hessian + HessianBlock,
     V: Jacobian + Solution,
-    for<'a> &'a V: Div<T3, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
+    for<'a> &'a V: Div<C::TangentVv, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
     for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
 {
     /// The internal variables an element starts from at every integration point.
@@ -108,17 +102,16 @@ pub trait ElasticIVFiniteElement<
 /// The gauge freedom is fixed at the initial values, which are zero over those
 /// indices, so the constraint is imposed by leaving them out of the system
 /// rather than by a multiplier.
-fn root_at_point<C, V, T1, T2, T3>(
+fn root_at_point<C, V>(
     local_solver: &NewtonRaphson,
     constitutive_model: &C,
     deformation_gradient: &DeformationGradient,
     internal_variables: &V,
 ) -> Result<V, ConstitutiveError>
 where
-    C: ElasticIV<V, T1, T2, T3>,
-    T3: Hessian,
+    C: ElasticIV<V>,
     V: Jacobian + Solution,
-    for<'a> &'a V: Div<T3, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
+    for<'a> &'a V: Div<C::TangentVv, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
     for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
 {
     local_solver
@@ -155,13 +148,13 @@ fn assemble_forces<const G: usize, const N: usize>(
 }
 
 /// The residual of the internal variables at one integration point, laid flat.
-fn local_residual<C, V, T1, T2, T3>(
+fn local_residual<C, V>(
     constitutive_model: &C,
     deformation_gradient: &DeformationGradient,
     internal_variables: &V,
 ) -> Result<Vector, ConstitutiveError>
 where
-    C: ElasticIV<V, T1, T2, T3>,
+    C: ElasticIV<V>,
     V: Jacobian + Solution,
 {
     let mut residual = Vector::zero(internal_variables.size());
@@ -173,9 +166,9 @@ where
 
 /// The local block over the free internal variables, the fixed ones leaving it
 /// through their rows and columns rather than through the inverse.
-fn local_block<T3>(tangent_vv: &T3, size: usize, unmap: &[usize]) -> SquareMatrix
+fn local_block<K>(tangent_vv: &K, size: usize, unmap: &[usize]) -> SquareMatrix
 where
-    T3: HessianBlock,
+    K: HessianBlock,
 {
     let mut block = SquareMatrix::zero(size);
     tangent_vv.fill_into_block(&mut block, 0, 0);
@@ -198,16 +191,13 @@ where
 ///
 /// The internal variables are carried rather than solved, so this residual
 /// only agrees with the stress alone once they have converged.
-fn eliminated_at_point<C, V, T1, T2, T3>(
+fn eliminated_at_point<C, V>(
     constitutive_model: &C,
     deformation_gradient: &DeformationGradient,
     internal_variables: &V,
 ) -> Result<FirstPiolaKirchhoffStress, ConstitutiveError>
 where
-    C: ElasticIV<V, T1, T2, T3>,
-    T1: HessianBlock,
-    T2: HessianBlock,
-    T3: HessianBlock,
+    C: ElasticIV<V>,
     V: Jacobian + Solution,
 {
     let mut stress = constitutive_model
@@ -247,17 +237,14 @@ where
 /// ```math
 /// \Delta\mathbf{v} = -\mathcal{K}_{vv}^{-1}\left(\mathbf{r}_v + \mathcal{K}_{vu}\Delta\mathbf{u}\right)
 /// ```
-fn increment_at_point<C, V, T1, T2, T3>(
+fn increment_at_point<C, V>(
     constitutive_model: &C,
     deformation_gradient: &DeformationGradient,
     deformation_gradient_decrement: &DeformationGradient,
     internal_variables: &V,
 ) -> Result<V, ConstitutiveError>
 where
-    C: ElasticIV<V, T1, T2, T3>,
-    T1: HessianBlock,
-    T2: HessianBlock,
-    T3: HessianBlock,
+    C: ElasticIV<V>,
     V: Jacobian + Solution,
 {
     let size = internal_variables.size();
@@ -303,16 +290,13 @@ where
 
 /// The tangent stiffness at one integration point with the internal variables
 /// condensed out.
-fn condensed_at_point<C, V, T1, T2, T3>(
+fn condensed_at_point<C, V>(
     constitutive_model: &C,
     deformation_gradient: &DeformationGradient,
     internal_variables: &V,
 ) -> Result<FirstPiolaKirchhoffTangentStiffness, ConstitutiveError>
 where
-    C: ElasticIV<V, T1, T2, T3>,
-    T1: HessianBlock,
-    T2: HessianBlock,
-    T3: HessianBlock,
+    C: ElasticIV<V>,
     V: Tensor,
 {
     let (tangent_uu, tangent_vu, tangent_uv, tangent_vv) =
@@ -354,16 +338,13 @@ where
     Ok(condensed)
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize, V, T1, T2, T3>
-    ElasticIVFiniteElement<C, G, 3, N, P, V, T1, T2, T3> for Element<3, G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize, const P: usize, V>
+    ElasticIVFiniteElement<C, G, 3, N, P, V> for Element<3, G, N, O>
 where
-    C: ElasticIV<V, T1, T2, T3>,
+    C: ElasticIV<V>,
     Self: SolidFiniteElement<G, 3, N, P>,
-    T1: HessianBlock,
-    T2: HessianBlock,
-    T3: Hessian + HessianBlock,
     V: Jacobian + Solution,
-    for<'a> &'a V: Div<T3, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
+    for<'a> &'a V: Div<C::TangentVv, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
     for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
 {
     fn internal_variables_initial(&self, constitutive_model: &C) -> InternalVariables<G, V> {
