@@ -38,6 +38,7 @@ where
         nodal_coordinates: &NodalCoordinates<3>,
         internal_variables: &InternalVariablesField<G, V>,
         nodal_decrement: &NodalCoordinates<3>,
+        step: Scalar,
     ) -> Result<InternalVariablesField<G, V>, ElementModelError> {
         match self
             .elements()
@@ -50,6 +51,7 @@ where
                     &Self::element_coordinates(nodal_coordinates, nodes),
                     internal_variables_element,
                     &Self::element_coordinates(nodal_decrement, nodes),
+                    step,
                 )
             })
             .collect::<Result<InternalVariablesField<G, V>, _>>()

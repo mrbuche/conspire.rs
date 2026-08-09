@@ -8,10 +8,14 @@ use crate::{
         },
     },
     math::{
-        Scalar, Tensor,
-        optimize::{EqualityConstraint, OptimizationError, SecondOrderOptimization, SolveStrategy},
+        Scalar, Tensor, Vector,
+        optimize::{
+            EqualityConstraint, OptimizationError, SecondOrderOptimization,
+            SecondOrderOptimizationIncremental, SolveStrategy,
+        },
     },
 };
+use std::cell::RefCell;
 
 pub trait HyperelasticIVElements<const G: usize, V, const D: usize>
 where
@@ -54,6 +58,11 @@ where
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
+        > + SecondOrderOptimizationIncremental<
+            Scalar,
+            NodalForcesSolid<D>,
+            NodalStiffnessesSolid<D>,
+            NodalCoordinates<D>,
         >,
         strategy: SolveStrategy,
     ) -> Result<NodalCoordinates<D>, OptimizationError>;
@@ -72,15 +81,14 @@ where
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
+        > + SecondOrderOptimizationIncremental<
+            Scalar,
+            NodalForcesSolid<D>,
+            NodalStiffnessesSolid<D>,
+            NodalCoordinates<D>,
         >,
         strategy: SolveStrategy,
     ) -> Result<NodalCoordinates<D>, OptimizationError> {
-        let local_solver = match strategy {
-            SolveStrategy::Condensed(ref local_solver) => local_solver,
-            SolveStrategy::Monolithic { .. } => unimplemented!(
-                "The internal variables must be unknowns of the solver to be solved with it."
-            ),
-        };
         let initial = self.internal_variables_initial();
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);
@@ -91,35 +99,99 @@ where
         // wherever the unreduced tangent was.
         //
         let sparse = solver_from_neighbors(&neighbors, &equality_constraint, D, true);
-        let cache: std::cell::RefCell<Option<(NodalCoordinates<D>, InternalVariablesField<G, V>)>> =
-            std::cell::RefCell::new(None);
-        let solved = |nodal_coordinates: &NodalCoordinates<D>| {
-            if let Some((ref at, ref variables)) = *cache.borrow()
-                && at == nodal_coordinates
-            {
-                return Ok(variables.clone());
+        match strategy {
+            //
+            // The internal variables are solved before they are used, so the
+            // energy is one of the nodal coordinates alone, the solver being
+            // free to evaluate wherever it likes.
+            //
+            SolveStrategy::Condensed(ref local_solver) => {
+                let cache: RefCell<Option<(NodalCoordinates<D>, InternalVariablesField<G, V>)>> =
+                    RefCell::new(None);
+                let solved = |nodal_coordinates: &NodalCoordinates<D>| {
+                    if let Some((ref at, ref variables)) = *cache.borrow()
+                        && at == nodal_coordinates
+                    {
+                        return Ok(variables.clone());
+                    }
+                    let warm = match *cache.borrow() {
+                        Some((_, ref variables)) => variables.clone(),
+                        None => initial.clone(),
+                    };
+                    let variables =
+                        self.internal_variables_root(local_solver, nodal_coordinates, &warm)?;
+                    *cache.borrow_mut() = Some((nodal_coordinates.clone(), variables.clone()));
+                    Ok::<_, ElementModelError>(variables)
+                };
+                solver.minimize(
+                    |nodal_coordinates: &NodalCoordinates<D>| {
+                        Ok(self.helmholtz_free_energy(
+                            nodal_coordinates,
+                            &solved(nodal_coordinates)?,
+                        )?)
+                    },
+                    |nodal_coordinates: &NodalCoordinates<D>| {
+                        Ok(self.nodal_forces(nodal_coordinates, &solved(nodal_coordinates)?)?)
+                    },
+                    |nodal_coordinates: &NodalCoordinates<D>| {
+                        Ok(self.nodal_stiffnesses(nodal_coordinates, &solved(nodal_coordinates)?)?)
+                    },
+                    self.coordinates().clone().into(),
+                    equality_constraint,
+                    Some(sparse),
+                )
             }
-            let warm = match *cache.borrow() {
-                Some((_, ref variables)) => variables.clone(),
-                None => initial.clone(),
-            };
-            let variables = self.internal_variables_root(local_solver, nodal_coordinates, &warm)?;
-            *cache.borrow_mut() = Some((nodal_coordinates.clone(), variables.clone()));
-            Ok::<_, ElementModelError>(variables)
-        };
-        solver.minimize(
-            |nodal_coordinates: &NodalCoordinates<D>| {
-                Ok(self.helmholtz_free_energy(nodal_coordinates, &solved(nodal_coordinates)?)?)
-            },
-            |nodal_coordinates: &NodalCoordinates<D>| {
-                Ok(self.nodal_forces(nodal_coordinates, &solved(nodal_coordinates)?)?)
-            },
-            |nodal_coordinates: &NodalCoordinates<D>| {
-                Ok(self.nodal_stiffnesses(nodal_coordinates, &solved(nodal_coordinates)?)?)
-            },
-            self.coordinates().clone().into(),
-            equality_constraint,
-            Some(sparse),
-        )
+            //
+            // The internal variables are carried instead, stepped by their
+            // share of whatever step the nodal coordinates take. What the line
+            // search weighs is the energy of the whole state, so they are moved
+            // to where a step would put them before the energy there is asked
+            // for, and left there only if that step is the one taken.
+            //
+            SolveStrategy::Monolithic { elimination: true } => {
+                let committed = RefCell::new(initial.clone());
+                let internal_variables = RefCell::new(initial);
+                solver.minimize_incremental(
+                    |nodal_coordinates: &NodalCoordinates<D>| {
+                        Ok(self.helmholtz_free_energy(
+                            nodal_coordinates,
+                            &internal_variables.borrow(),
+                        )?)
+                    },
+                    |nodal_coordinates: &NodalCoordinates<D>| {
+                        Ok(self.nodal_forces_eliminated(
+                            nodal_coordinates,
+                            &internal_variables.borrow(),
+                        )?)
+                    },
+                    |nodal_coordinates: &NodalCoordinates<D>| {
+                        Ok(self
+                            .nodal_stiffnesses(nodal_coordinates, &internal_variables.borrow())?)
+                    },
+                    |nodal_coordinates: &NodalCoordinates<D>,
+                     decrement: &Vector,
+                     step: Scalar,
+                     commit: bool| {
+                        let stepped = self.internal_variables_increment(
+                            nodal_coordinates,
+                            &committed.borrow(),
+                            &NodalCoordinates::from(decrement.clone()),
+                            step,
+                        )?;
+                        if commit {
+                            *committed.borrow_mut() = stepped.clone()
+                        }
+                        *internal_variables.borrow_mut() = stepped;
+                        Ok(())
+                    },
+                    self.coordinates().clone().into(),
+                    equality_constraint,
+                    Some(sparse),
+                )
+            }
+            SolveStrategy::Monolithic { elimination: false } => unimplemented!(
+                "The internal variables must be unknowns of the solver to be solved with it."
+            ),
+        }
     }
 }

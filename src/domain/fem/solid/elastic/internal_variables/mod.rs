@@ -8,7 +8,7 @@ use crate::{
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{
-        Tensor, TensorVector, Vector,
+        Scalar, Tensor, TensorVector, Vector,
         optimize::{
             EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingIncremental,
             NewtonRaphson, OptimizationError, SolveStrategy,
@@ -38,6 +38,7 @@ where
         nodal_coordinates: &NodalCoordinates<D>,
         internal_variables: &InternalVariablesField<G, V>,
         nodal_decrement: &NodalCoordinates<D>,
+        step: Scalar,
     ) -> Result<InternalVariablesField<G, V>, ElementModelError>;
     /// Solves the internal variables everywhere, holding the deformation fixed.
     ///
@@ -123,11 +124,13 @@ where
         nodal_coordinates: &NodalCoordinates<D>,
         internal_variables: &InternalVariablesField<G, V>,
         nodal_decrement: &NodalCoordinates<D>,
+        step: Scalar,
     ) -> Result<InternalVariablesField<G, V>, ElementModelError> {
         self.blocks.internal_variables_increment(
             nodal_coordinates,
             internal_variables,
             nodal_decrement,
+            step,
         )
     }
     fn internal_variables_root(
@@ -270,6 +273,14 @@ where
             // eliminated into the one the solver does see.
             //
             SolveStrategy::Monolithic { elimination: true } => {
+                //
+                // A step is offered before it is taken, so what the increment
+                // is measured from and what the residual is evaluated at come
+                // apart while one is being considered. Increments are always
+                // taken from the state last kept, which is what makes offering
+                // several of them in a row harmless.
+                //
+                let committed = RefCell::new(initial.clone());
                 let internal_variables = RefCell::new(initial);
                 solver.root_incremental(
                     |nodal_coordinates: &NodalCoordinates<D>| {
@@ -282,12 +293,19 @@ where
                         Ok(self
                             .nodal_stiffnesses(nodal_coordinates, &internal_variables.borrow())?)
                     },
-                    |nodal_coordinates: &NodalCoordinates<D>, decrement: &Vector| {
+                    |nodal_coordinates: &NodalCoordinates<D>,
+                     decrement: &Vector,
+                     step: Scalar,
+                     commit: bool| {
                         let stepped = self.internal_variables_increment(
                             nodal_coordinates,
-                            &internal_variables.borrow(),
+                            &committed.borrow(),
                             &NodalCoordinates::from(decrement.clone()),
+                            step,
                         )?;
+                        if commit {
+                            *committed.borrow_mut() = stepped.clone()
+                        }
                         *internal_variables.borrow_mut() = stepped;
                         Ok(())
                     },

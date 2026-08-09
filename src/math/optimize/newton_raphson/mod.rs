@@ -9,7 +9,8 @@ use super::{
     },
     BacktrackingLineSearch, EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock,
     FirstOrderRootFindingIncremental, LineSearch, LineSearchError, OptimizationError,
-    SecondOrderOptimization, SecondOrderOptimizationBlock, SolveStrategy, TrustRegion,
+    SecondOrderOptimization, SecondOrderOptimizationBlock, SecondOrderOptimizationIncremental,
+    SolveStrategy, TrustRegion,
 };
 use crate::ABS_TOL;
 use crate::math::Norm;
@@ -84,7 +85,7 @@ where
                 |_: &X| panic!("No line search in root finding"),
                 function,
                 jacobian,
-                |_: &X, _: &Vector| Ok(()),
+                |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
                 initial_guess,
                 sparse,
                 indices,
@@ -94,7 +95,7 @@ where
                 |_: &X| panic!("No line search in root finding"),
                 function,
                 jacobian,
-                |_: &X, _: &Vector| Ok(()),
+                |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
                 initial_guess,
                 sparse,
                 constraint_matrix,
@@ -125,7 +126,7 @@ where
         &self,
         function: impl FnMut(&X) -> Result<F, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
-        update: impl FnMut(&X, &Vector) -> Result<(), String>,
+        update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
         sparse: Option<SparseSolver>,
@@ -183,7 +184,7 @@ where
                 function,
                 jacobian,
                 hessian,
-                |_: &X, _: &Vector| Ok(()),
+                |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
                 initial_guess,
                 sparse,
                 indices,
@@ -193,7 +194,7 @@ where
                 function,
                 jacobian,
                 hessian,
-                |_: &X, _: &Vector| Ok(()),
+                |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
                 initial_guess,
                 sparse,
                 constraint_matrix,
@@ -202,6 +203,60 @@ where
             EqualityConstraint::None => {
                 unconstrained(self, function, jacobian, hessian, initial_guess, sparse)
             }
+        } {
+            Ok(solution) => Ok(solution),
+            Err(error) => Err(OptimizationError::Upstream(
+                format!("{error}"),
+                format!("{self:?}"),
+            )),
+        }
+    }
+}
+
+impl<J, H, X> SecondOrderOptimizationIncremental<Scalar, J, H, X> for NewtonRaphson
+where
+    H: Hessian,
+    J: Jacobian,
+    for<'a> &'a J: Div<H, Output = X> + From<&'a X>,
+    X: Solution,
+    for<'a> &'a X: Mul<Scalar, Output = X>,
+    for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
+{
+    fn minimize_incremental(
+        &self,
+        function: impl FnMut(&X) -> Result<Scalar, String>,
+        jacobian: impl FnMut(&X) -> Result<J, String>,
+        hessian: impl FnMut(&X) -> Result<H, String>,
+        update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
+        initial_guess: X,
+        equality_constraint: EqualityConstraint,
+        sparse: Option<SparseSolver>,
+    ) -> Result<X, OptimizationError> {
+        match match equality_constraint {
+            EqualityConstraint::Fixed(indices) => constrained_fixed(
+                self,
+                function,
+                jacobian,
+                hessian,
+                update,
+                initial_guess,
+                sparse,
+                indices,
+            ),
+            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
+                self,
+                function,
+                jacobian,
+                hessian,
+                update,
+                initial_guess,
+                sparse,
+                constraint_matrix,
+                constraint_rhs,
+            ),
+            EqualityConstraint::None => unimplemented!(
+                "An unconstrained solution has no chained vector to lend the increment through."
+            ),
         } {
             Ok(solution) => Ok(solution),
             Err(error) => Err(OptimizationError::Upstream(
@@ -372,16 +427,16 @@ where
 /// finding can also take, and it says nothing about descent.
 ///
 /// Whatever was eliminated is stepped alongside, so the state to test is the
-/// one both arrive at. The update reports that, and only commits when it
-/// succeeds, so it is the trial as well as the step.
+/// one both arrive at. The update reports that, without keeping it, so the same
+/// call serves as the trial.
 #[allow(clippy::too_many_arguments)]
 fn backtrack_errors<J, X>(
     mut jacobian: impl FnMut(&X) -> Result<J, String>,
-    mut update: impl FnMut(&X, &Vector) -> Result<(), String>,
+    mut update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
     solution: &X,
     multipliers: &Vector,
     decrement: &Vector,
-    applied: &mut Vector,
+    applied: &Vector,
     cut_back: Scalar,
     max_steps: usize,
 ) -> Option<Scalar>
@@ -390,14 +445,10 @@ where
 {
     let mut trial_size = 1.0;
     for _ in 0..max_steps {
-        applied
-            .iter_mut()
-            .zip(decrement.iter())
-            .for_each(|(applied_i, decrement_i)| *applied_i = decrement_i * trial_size);
         let mut trial = solution.clone();
         let mut trial_multipliers = multipliers.clone();
         trial.decrement_from_chained(&mut trial_multipliers, &(decrement * trial_size));
-        if update(solution, applied).is_ok() && jacobian(&trial).is_ok() {
+        if update(solution, applied, trial_size, false).is_ok() && jacobian(&trial).is_ok() {
             return Some(trial_size);
         }
         trial_size *= cut_back
@@ -962,7 +1013,7 @@ where
                 }
             }
             step_size = newton_raphson.backtracking_line_search(
-                &mut function,
+                |trial: &X, _: Scalar| function(trial),
                 &mut jacobian,
                 &solution,
                 &residual,
@@ -983,7 +1034,7 @@ fn constrained_fixed<J, H, X>(
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
     mut jacobian: impl FnMut(&X) -> Result<J, String>,
     mut hessian: impl FnMut(&X) -> Result<H, String>,
-    mut update: impl FnMut(&X, &Vector) -> Result<(), String>,
+    mut update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
     initial_guess: X,
     sparse: Option<SparseSolver>,
     indices: Vec<usize>,
@@ -1029,31 +1080,101 @@ where
         }
         steps += 1;
         limit_decrement(newton_raphson, &mut [(&mut decrement, unmap.len())]);
-        if !matches!(newton_raphson.line_search, LineSearch::None) {
-            let jac = jacobian(&solution)?;
-            let mut decrement_full = &solution * 0.0;
-            decrement_full.decrement_from_retained(&retained, &decrement);
-            decrement_full *= -1.0;
-            step_size = newton_raphson.backtracking_line_search(
-                &mut function,
-                &mut jacobian,
-                &solution,
-                &jac,
-                &decrement_full,
-                1.0,
-            )?;
-            if step_size != 1.0 {
-                decrement *= step_size
-            }
-        }
+        //
+        // Spread over the variables it belongs to before anything shortens it,
+        // so that whatever was eliminated is offered the whole direction and
+        // the fraction of it being taken, rather than a direction of its own.
+        //
         applied.iter_mut().for_each(|entry| *entry = 0.0);
         unmap
             .iter()
             .zip(decrement.iter())
             .for_each(|(&index, decrement_a)| applied[index] = *decrement_a);
-        update(&solution, &applied)?;
+        step_size = if matches!(newton_raphson.line_search, LineSearch::None) {
+            1.0
+        } else if let LineSearch::Error {
+            cut_back,
+            max_steps,
+        } = &newton_raphson.line_search
+        {
+            match backtrack_errors_retained(
+                &mut jacobian,
+                &mut update,
+                &solution,
+                &retained,
+                &decrement,
+                &applied,
+                *cut_back,
+                *max_steps,
+            ) {
+                Some(trial_size) => trial_size,
+                None => {
+                    return Err(OptimizationError::Upstream(
+                        format!(
+                            "{}",
+                            LineSearchError::MaximumStepsReached(
+                                format!("{:?}", newton_raphson.line_search),
+                                *max_steps
+                            )
+                        ),
+                        format!("{newton_raphson:?}"),
+                    ));
+                }
+            }
+        } else {
+            let jac = jacobian(&solution)?;
+            let mut decrement_full = &solution * 0.0;
+            decrement_full.decrement_from_retained(&retained, &decrement);
+            decrement_full *= -1.0;
+            newton_raphson.backtracking_line_search(
+                |trial: &X, step: Scalar| {
+                    update(&solution, &applied, step, false)?;
+                    function(trial)
+                },
+                &mut jacobian,
+                &solution,
+                &jac,
+                &decrement_full,
+                1.0,
+            )?
+        };
+        update(&solution, &applied, step_size, true)?;
+        if step_size != 1.0 {
+            decrement *= step_size
+        }
         solution.decrement_from_retained(&retained, &decrement)
     }
+}
+
+/// Backtracking on evaluability alone, where the constraint holds variables
+/// fixed rather than relating them.
+///
+/// The counterpart of [`backtrack_errors`] for that formulation, which carries
+/// no multipliers to chain a trial through.
+#[allow(clippy::too_many_arguments)]
+fn backtrack_errors_retained<J, X>(
+    mut jacobian: impl FnMut(&X) -> Result<J, String>,
+    mut update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
+    solution: &X,
+    retained: &[bool],
+    decrement: &Vector,
+    applied: &Vector,
+    cut_back: Scalar,
+    max_steps: usize,
+) -> Option<Scalar>
+where
+    X: Solution,
+{
+    let mut trial_size = 1.0;
+    for _ in 0..max_steps {
+        let mut trial = solution.clone();
+        trial.decrement_from_retained(retained, &(decrement * trial_size));
+        if update(solution, applied, trial_size, false).is_ok() && jacobian(&trial).is_ok() {
+            return Some(trial_size);
+        }
+        trial_size *= cut_back
+    }
+    None
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1062,7 +1183,7 @@ fn constrained<J, H, X>(
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
     mut jacobian: impl FnMut(&X) -> Result<J, String>,
     mut hessian: impl FnMut(&X) -> Result<H, String>,
-    mut update: impl FnMut(&X, &Vector) -> Result<(), String>,
+    mut update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
     initial_guess: X,
     sparse: Option<SparseSolver>,
     constraint_matrix: Matrix,
@@ -1101,7 +1222,6 @@ where
     }
     let mut steps = 0;
     loop {
-        let mut updated = false;
         (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
             &constraint_rhs - &constraint_matrix * &solution,
             &mut residual,
@@ -1134,6 +1254,14 @@ where
         }
         steps += 1;
         limit_decrement(newton_raphson, &mut [(&mut decrement, num_variables)]);
+        //
+        // Only the variables are lent out, the multipliers chained onto the end
+        // of the decrement being of another kind entirely.
+        //
+        applied
+            .iter_mut()
+            .zip(decrement.iter())
+            .for_each(|(applied_i, decrement_i)| *applied_i = *decrement_i);
         let step_size = if matches!(newton_raphson.line_search, LineSearch::None) {
             1.0
         } else if let LineSearch::Error {
@@ -1147,14 +1275,11 @@ where
                 &solution,
                 &multipliers,
                 &decrement,
-                &mut applied,
+                &applied,
                 *cut_back,
                 *max_steps,
             ) {
-                Some(trial_size) => {
-                    updated = true;
-                    trial_size
-                }
+                Some(trial_size) => trial_size,
                 None => {
                     return Err(OptimizationError::Upstream(
                         format!(
@@ -1187,6 +1312,7 @@ where
                 .map(|(gradient_i, decrement_i)| gradient_i * decrement_i)
                 .sum::<Scalar>()
                 + violated;
+            update(&solution, &applied, 0.0, false)?;
             let value = function(&solution)? + violated;
             if slope < newton_raphson.abs_tol {
                 1.0
@@ -1196,6 +1322,7 @@ where
                         let mut trial = solution.clone();
                         let mut trial_multipliers = multipliers.clone();
                         trial.decrement_from_chained(&mut trial_multipliers, &(&decrement * step));
+                        update(&solution, &applied, step, false)?;
                         Ok(function(&trial)?
                             + penalty * violation(&constraint_matrix, &constraint_rhs, &trial))
                     },
@@ -1213,20 +1340,14 @@ where
                 }
             }
         };
+        //
+        // The increment is lent out whole, before it is applied and before it
+        // is shortened, so that the eliminated variables take the same fraction
+        // of their own direction as the retained ones take of theirs.
+        //
+        update(&solution, &applied, step_size, true)?;
         if step_size != 1.0 {
             decrement *= step_size
-        }
-        //
-        // The increment is lent out before it is applied, the eliminated
-        // variables needing the state its tangent was formed at. Backtracking
-        // for errors has already done so, to decide the step at all.
-        //
-        if !updated {
-            applied
-                .iter_mut()
-                .zip(decrement.iter())
-                .for_each(|(applied_i, decrement_i)| *applied_i = *decrement_i);
-            update(&solution, &applied)?
         }
         solution.decrement_from_chained(&mut multipliers, &decrement)
     }

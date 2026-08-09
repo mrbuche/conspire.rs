@@ -201,7 +201,7 @@ where
                 step_size = step_trial.abs()
             }
             step_size = gradient_descent.backtracking_line_search(
-                &mut function,
+                |trial: &X, _: Scalar| function(trial),
                 &mut jacobian,
                 &solution,
                 &residual,
@@ -263,7 +263,7 @@ where
                 step_size = step_trial.abs()
             }
             step_size = gradient_descent.backtracking_line_search(
-                &mut function,
+                |trial: &X, _: Scalar| function(trial),
                 &mut jacobian,
                 &solution,
                 &residual,
