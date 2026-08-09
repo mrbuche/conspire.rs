@@ -9,14 +9,16 @@ use super::{
 };
 
 /// Required methods for solid-thermal constitutive models.
-pub trait SolidThermal<C1, C2>
+pub trait SolidThermal
 where
-    C1: Solid,
-    C2: Thermal,
     Self: Multiphysics,
 {
+    /// Type of the solid constitutive model.
+    type Solid: Solid;
+    /// Type of the thermal constitutive model.
+    type Thermal: Thermal;
     /// Returns a reference to the solid constitutive model.
-    fn solid_constitutive_model(&self) -> &C1;
+    fn solid_constitutive_model(&self) -> &Self::Solid;
     /// Returns a reference to the thermal constitutive model.
-    fn thermal_constitutive_model(&self) -> &C2;
+    fn thermal_constitutive_model(&self) -> &Self::Thermal;
 }
