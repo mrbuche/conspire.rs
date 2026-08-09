@@ -690,7 +690,7 @@ where
         } else if steps == newton_raphson.max_steps {
             return Err(OptimizationError::MaximumStepsReached(
                 newton_raphson.max_steps,
-                format!("{:?}", newton_raphson),
+                format!("{newton_raphson:?}"),
             ));
         }
         steps += 1;
@@ -1007,7 +1007,7 @@ where
         } else if steps == newton_raphson.max_steps {
             return Err(OptimizationError::MaximumStepsReached(
                 newton_raphson.max_steps,
-                format!("{:?}", newton_raphson),
+                format!("{newton_raphson:?}"),
             ));
         } else {
             steps += 1;
@@ -1079,7 +1079,7 @@ where
         } else if steps == newton_raphson.max_steps {
             return Err(OptimizationError::MaximumStepsReached(
                 newton_raphson.max_steps,
-                format!("{:?}", newton_raphson),
+                format!("{newton_raphson:?}"),
             ));
         } else if let Some(ref solver) = sparse {
             let hess = hessian(&solution)?;
@@ -1243,7 +1243,7 @@ where
         } else if steps == newton_raphson.max_steps {
             return Err(OptimizationError::MaximumStepsReached(
                 newton_raphson.max_steps,
-                format!("{:?}", newton_raphson),
+                format!("{newton_raphson:?}"),
             ));
         } else if let Some(ref solver) = sparse {
             let hess = hessian(&solution)?;
