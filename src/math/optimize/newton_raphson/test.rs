@@ -157,7 +157,7 @@ mod minimize {
 
 mod root {
     use super::*;
-    use crate::math::{SquareMatrix, Vector};
+    use crate::math::{SquareMatrix, Vector, sparse::SparseSolver};
     #[test]
     fn linear() -> Result<(), AssertionError> {
         Assert::default().zero_within_tols(&NewtonRaphson::default().root(
@@ -168,21 +168,32 @@ mod root {
             None,
         )?)
     }
+    fn coupled(sparse: Option<SparseSolver>) -> Result<Vector, AssertionError> {
+        Ok(NewtonRaphson::default().root(
+            |x: &Vector| {
+                Ok(Vector::from([
+                    x[0] + 2.0 * x[1] - 5.0,
+                    3.0 * x[0] - x[1] - 1.0,
+                ]))
+            },
+            |_: &Vector| Ok(SquareMatrix::from([[1.0, 2.0], [3.0, -1.0]])),
+            Vector::from([0.0, 0.0]),
+            EqualityConstraint::None,
+            sparse,
+        )?)
+    }
     #[test]
-    fn coupled() -> Result<(), AssertionError> {
+    fn coupled_dense() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(&coupled(None)?, &Vector::from([1.0, 2.0]))
+    }
+    #[test]
+    fn coupled_sparse() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(
-            &NewtonRaphson::default().root(
-                |x: &Vector| {
-                    Ok(Vector::from([
-                        x[0] + 2.0 * x[1] - 5.0,
-                        3.0 * x[0] - x[1] - 1.0,
-                    ]))
-                },
-                |_: &Vector| Ok(SquareMatrix::from([[1.0, 2.0], [3.0, -1.0]])),
-                Vector::from([0.0, 0.0]),
-                EqualityConstraint::None,
-                None,
-            )?,
+            &coupled(Some(SparseSolver::from_pattern(
+                2,
+                vec![(0, 0), (0, 1), (1, 0), (1, 1)],
+                false,
+            )))?,
             &Vector::from([1.0, 2.0]),
         )
     }
@@ -453,5 +464,23 @@ mod constrained {
             Ok(solution) => solution[0].abs() > 1.0,
             Err(_) => true,
         })
+    }
+}
+
+mod fixed {
+    use super::*;
+    use crate::math::{SquareMatrix, Vector};
+    #[test]
+    fn dense() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &NewtonRaphson::default().root(
+                |x: &Vector| Ok(Vector::from([x[0] - 4.0, x[1] - 7.0])),
+                |_: &Vector| Ok(SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])),
+                Vector::from([0.0, 3.0]),
+                EqualityConstraint::Fixed(vec![1]),
+                None,
+            )?,
+            &Vector::from([4.0, 3.0]),
+        )
     }
 }

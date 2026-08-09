@@ -153,7 +153,7 @@ impl<const D: usize, const I: usize> Solution for TensorRank1<D, I> {
 }
 
 impl<const D: usize, const I: usize> Jacobian for TensorRank1<D, I> {
-    fn fill_into(self, _vector: &mut Vector) {
+    fn fill_into(&self, _vector: &mut Vector) {
         unimplemented!()
     }
     fn fill_into_chained(self, _other: Vector, _vector: &mut Vector) {

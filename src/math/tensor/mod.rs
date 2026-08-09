@@ -77,7 +77,7 @@ where
         From<Vector> + Tensor + Sub<Vector, Output = Self> + for<'a> Sub<&'a Vector, Output = Self>,
 {
     /// Fills the Jacobian into a vector.
-    fn fill_into(self, vector: &mut Vector);
+    fn fill_into(&self, vector: &mut Vector);
     /// Fills the Jacobian chained with a vector into another vector.
     fn fill_into_chained(self, other: Vector, vector: &mut Vector);
     /// Return only the retained indices.

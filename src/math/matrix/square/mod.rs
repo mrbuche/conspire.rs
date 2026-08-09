@@ -149,6 +149,19 @@ impl Hessian for SquareMatrix {
             .map(|(self_i, vector_i)| vector_i * (self_i * vector))
             .sum()
     }
+    fn retain_from(self, retained: &[bool]) -> SquareMatrix {
+        self.into_iter()
+            .zip(retained.iter())
+            .filter(|(_, retained_i)| **retained_i)
+            .map(|(row, _)| {
+                row.into_iter()
+                    .zip(retained.iter())
+                    .filter(|(_, retained_j)| **retained_j)
+                    .map(|(entry, _)| entry)
+                    .collect()
+            })
+            .collect()
+    }
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
         self.into_iter()
             .zip(square_matrix.iter_mut())
