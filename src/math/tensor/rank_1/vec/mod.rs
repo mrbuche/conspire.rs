@@ -3,11 +3,12 @@ mod test;
 
 use crate::math::{
     Jacobian, Solution, Tensor, TensorRank0, TensorRank1, TensorRank1List, TensorRank2SparseVec2D,
-    TensorRank2SparseVec2DSymmetric, TensorRank2Vec2D, Vector, tensor::vec::TensorVector,
+    TensorRank2SparseVec2DSymmetric, TensorRank2Vec2D, TensorVec, Vector,
+    tensor::vec::TensorVector,
 };
 use std::{
     array::from_fn,
-    mem::{forget, transmute},
+    mem::forget,
     ops::{Div, Sub},
 };
 
@@ -50,13 +51,20 @@ impl<const D: usize, const I: usize, const N: usize> From<[[TensorRank0; D]; N]>
 
 impl<const D: usize, const I: usize> From<Vec<[TensorRank0; D]>> for TensorRank1Vec<D, I> {
     fn from(vec: Vec<[TensorRank0; D]>) -> Self {
-        unsafe { transmute(vec) }
+        let (length, capacity) = (vec.len(), vec.capacity());
+        let pointer = vec.as_ptr() as *mut TensorRank1<D, I>;
+        forget(vec);
+        unsafe { Self::from(Vec::from_raw_parts(pointer, length, capacity)) }
     }
 }
 
 impl<const D: usize, const I: usize> From<TensorRank1Vec<D, I>> for Vec<[TensorRank0; D]> {
     fn from(tensor_rank_1_vec: TensorRank1Vec<D, I>) -> Self {
-        unsafe { transmute(tensor_rank_1_vec) }
+        let vec = Vec::<TensorRank1<D, I>>::from(tensor_rank_1_vec);
+        let (length, capacity) = (vec.len(), vec.capacity());
+        let pointer = vec.as_ptr() as *mut [TensorRank0; D];
+        forget(vec);
+        unsafe { Vec::from_raw_parts(pointer, length, capacity) }
     }
 }
 
@@ -121,10 +129,10 @@ impl<const D: usize, const I: usize> From<&TensorRank1Vec<D, I>> for [Vec<Tensor
 
 impl<const D: usize> From<TensorRank1Vec<D, 0>> for TensorRank1Vec<D, 1> {
     fn from(tensor_rank_1_vec: TensorRank1Vec<D, 0>) -> Self {
-        let length = tensor_rank_1_vec.len();
+        let (length, capacity) = (tensor_rank_1_vec.len(), tensor_rank_1_vec.capacity());
         let pointer = tensor_rank_1_vec.as_ptr() as *mut TensorRank1<D, 1>;
         forget(tensor_rank_1_vec);
-        unsafe { Self::from(Vec::from_raw_parts(pointer, length, length)) }
+        unsafe { Self::from(Vec::from_raw_parts(pointer, length, capacity)) }
     }
 }
 
@@ -139,10 +147,10 @@ impl<const D: usize> From<&TensorRank1Vec<D, 0>> for TensorRank1Vec<D, 1> {
 
 impl<const D: usize> From<TensorRank1Vec<D, 1>> for TensorRank1Vec<D, 0> {
     fn from(tensor_rank_1_vec: TensorRank1Vec<D, 1>) -> Self {
-        let length = tensor_rank_1_vec.len();
+        let (length, capacity) = (tensor_rank_1_vec.len(), tensor_rank_1_vec.capacity());
         let pointer = tensor_rank_1_vec.as_ptr() as *mut TensorRank1<D, 0>;
         forget(tensor_rank_1_vec);
-        unsafe { Self::from(Vec::from_raw_parts(pointer, length, length)) }
+        unsafe { Self::from(Vec::from_raw_parts(pointer, length, capacity)) }
     }
 }
 
@@ -158,13 +166,17 @@ impl<const D: usize> From<&TensorRank1Vec<D, 1>> for TensorRank1Vec<D, 0> {
 impl<const D: usize, const I: usize> From<Vector> for TensorRank1Vec<D, I> {
     fn from(vector: Vector) -> Self {
         let n = vector.len();
-        if n.is_multiple_of(D) {
-            let length = n / D;
+        if !n.is_multiple_of(D) {
+            panic!("Vector length mismatch.")
+        } else if vector.capacity().is_multiple_of(D) {
+            let (length, capacity) = (n / D, vector.capacity() / D);
             let pointer = vector.as_ptr() as *mut TensorRank1<D, I>;
             forget(vector);
-            unsafe { Self::from(Vec::from_raw_parts(pointer, length, length)) }
+            unsafe { Self::from(Vec::from_raw_parts(pointer, length, capacity)) }
         } else {
-            panic!("Vector length mismatch.")
+            (0..n / D)
+                .map(|i| TensorRank1::const_from(from_fn(|j| vector[D * i + j])))
+                .collect()
         }
     }
 }
