@@ -7,6 +7,7 @@ pub(super) mod rank_2;
 pub(super) mod rank_3;
 pub(super) mod rank_4;
 pub(super) mod tuple;
+pub(super) mod unit;
 pub(super) mod vec;
 
 pub use configuration::{
@@ -14,6 +15,10 @@ pub use configuration::{
     Reference,
 };
 pub use norm::Norm;
+pub use unit::{
+    Dimensionless, Length, Rate, ReciprocalLength, Stress, Temperature, Unit, UnitDiv, UnitInv,
+    UnitMul, Viscosity,
+};
 
 use super::{SquareMatrix, Vector};
 use crate::math::{Style, StyledError, styled_error};
