@@ -85,6 +85,10 @@ impl<const D: usize, I, J, K, L, U> PartialEq for TensorRank4<D, I, J, K, L, U> 
 impl<const D: usize, I, J, K, L, U> TensorRank4<D, I, J, K, L, U> {
     /// Views the tensor with its configurations discarded, so that arithmetic is
     /// compiled once per dimension rather than once per configuration.
+    /// Asserts that the tensor carries the given unit.
+    pub fn with_unit<V>(self) -> TensorRank4<D, I, J, K, L, V> {
+        relabel(self.into_canonical())
+    }
     fn canonical(
         &self,
     ) -> &TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless> {
@@ -376,62 +380,49 @@ impl<const D: usize, I, J, K, L, U> FiniteDifference for TensorRank4<D, I, J, K,
 }
 
 impl<const D: usize, I, J, K, L, U> TensorRank4<D, I, J, K, L, U> {
-    pub fn dyad_ij_kl(
-        tensor_rank_2_a: &TensorRank2<D, I, J, U>,
-        tensor_rank_2_b: &TensorRank2<D, K, L, U>,
-    ) -> Self {
-        tensor_rank_2_a
-            .iter()
-            .map(|tensor_rank_2_a_i| {
-                tensor_rank_2_a_i
-                    .iter()
-                    .map(|tensor_rank_2_a_ij| tensor_rank_2_b * tensor_rank_2_a_ij)
-                    .collect()
-            })
-            .collect()
+    pub fn dyad_ij_kl<U1, U2>(
+        tensor_rank_2_a: &TensorRank2<D, I, J, U1>,
+        tensor_rank_2_b: &TensorRank2<D, K, L, U2>,
+    ) -> Self
+    where
+        U1: UnitMul<U2, Output = U>,
+    {
+        relabel(canonical_dyad_ij_kl(
+            tensor_rank_2_a.canonical(),
+            tensor_rank_2_b.canonical(),
+        ))
     }
-    pub fn dyad_ik_jl(
-        tensor_rank_2_a: &TensorRank2<D, I, K, U>,
-        tensor_rank_2_b: &TensorRank2<D, J, L, U>,
-    ) -> Self {
-        tensor_rank_2_a
-            .iter()
-            .map(|tensor_rank_2_a_i| {
-                tensor_rank_2_b
-                    .iter()
-                    .map(|tensor_rank_2_b_j| {
-                        tensor_rank_2_a_i
-                            .iter()
-                            .map(|tensor_rank_2_a_ik| tensor_rank_2_b_j * tensor_rank_2_a_ik)
-                            .collect()
-                    })
-                    .collect()
-            })
-            .collect()
+    pub fn dyad_ik_jl<U1, U2>(
+        tensor_rank_2_a: &TensorRank2<D, I, K, U1>,
+        tensor_rank_2_b: &TensorRank2<D, J, L, U2>,
+    ) -> Self
+    where
+        U1: UnitMul<U2, Output = U>,
+    {
+        relabel(canonical_dyad_ik_jl(
+            tensor_rank_2_a.canonical(),
+            tensor_rank_2_b.canonical(),
+        ))
     }
-    pub fn dyad_il_jk(
-        tensor_rank_2_a: &TensorRank2<D, I, L, U>,
-        tensor_rank_2_b: &TensorRank2<D, J, K, U>,
-    ) -> Self {
-        tensor_rank_2_a
-            .iter()
-            .map(|tensor_rank_2_a_i| {
-                tensor_rank_2_b
-                    .iter()
-                    .map(|tensor_rank_2_b_j| {
-                        tensor_rank_2_b_j
-                            .iter()
-                            .map(|tensor_rank_2_b_jk| tensor_rank_2_a_i * tensor_rank_2_b_jk)
-                            .collect()
-                    })
-                    .collect()
-            })
-            .collect()
+    pub fn dyad_il_jk<U1, U2>(
+        tensor_rank_2_a: &TensorRank2<D, I, L, U1>,
+        tensor_rank_2_b: &TensorRank2<D, J, K, U2>,
+    ) -> Self
+    where
+        U1: UnitMul<U2, Output = U>,
+    {
+        relabel(canonical_dyad_il_jk(
+            tensor_rank_2_a.canonical(),
+            tensor_rank_2_b.canonical(),
+        ))
     }
-    pub fn dyad_il_kj(
-        tensor_rank_2_a: &TensorRank2<D, I, L, U>,
-        tensor_rank_2_b: &TensorRank2<D, K, J, U>,
-    ) -> Self {
+    pub fn dyad_il_kj<U1, U2>(
+        tensor_rank_2_a: &TensorRank2<D, I, L, U1>,
+        tensor_rank_2_b: &TensorRank2<D, K, J, U2>,
+    ) -> Self
+    where
+        U1: UnitMul<U2, Output = U>,
+    {
         Self::dyad_il_jk(tensor_rank_2_a, &(tensor_rank_2_b.transpose()))
     }
 }
@@ -521,7 +512,10 @@ impl<const D: usize, I, J, K, L, U> TensorArray for TensorRank4<D, I, J, K, L, U
         self.canonical().as_array_core()
     }
     fn identity() -> Self {
-        Self::dyad_ij_kl(&TensorRank2::identity(), &TensorRank2::identity())
+        relabel(canonical_dyad_ij_kl(
+            &TensorRank2::identity(),
+            &TensorRank2::identity(),
+        ))
     }
     fn zero() -> Self {
         relabel(TensorRank4::<
@@ -1162,4 +1156,59 @@ where
     fn div(self, quantity: Quantity<V>) -> Self::Output {
         relabel(self.into_canonical() / quantity.value())
     }
+}
+
+fn canonical_dyad_ij_kl<const D: usize>(
+    tensor_rank_2_a: &TensorRank2<D, Reference, Reference, Dimensionless>,
+    tensor_rank_2_b: &TensorRank2<D, Reference, Reference, Dimensionless>,
+) -> TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless> {
+    tensor_rank_2_a
+        .iter()
+        .map(|tensor_rank_2_a_i| {
+            tensor_rank_2_a_i
+                .iter()
+                .map(|tensor_rank_2_a_ij| tensor_rank_2_b * tensor_rank_2_a_ij)
+                .collect()
+        })
+        .collect()
+}
+
+fn canonical_dyad_ik_jl<const D: usize>(
+    tensor_rank_2_a: &TensorRank2<D, Reference, Reference, Dimensionless>,
+    tensor_rank_2_b: &TensorRank2<D, Reference, Reference, Dimensionless>,
+) -> TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless> {
+    tensor_rank_2_a
+        .iter()
+        .map(|tensor_rank_2_a_i| {
+            tensor_rank_2_b
+                .iter()
+                .map(|tensor_rank_2_b_j| {
+                    tensor_rank_2_a_i
+                        .iter()
+                        .map(|tensor_rank_2_a_ik| tensor_rank_2_b_j * tensor_rank_2_a_ik)
+                        .collect()
+                })
+                .collect()
+        })
+        .collect()
+}
+
+fn canonical_dyad_il_jk<const D: usize>(
+    tensor_rank_2_a: &TensorRank2<D, Reference, Reference, Dimensionless>,
+    tensor_rank_2_b: &TensorRank2<D, Reference, Reference, Dimensionless>,
+) -> TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless> {
+    tensor_rank_2_a
+        .iter()
+        .map(|tensor_rank_2_a_i| {
+            tensor_rank_2_b
+                .iter()
+                .map(|tensor_rank_2_b_j| {
+                    tensor_rank_2_b_j
+                        .iter()
+                        .map(|tensor_rank_2_b_jk| tensor_rank_2_a_i * tensor_rank_2_b_jk)
+                        .collect()
+                })
+                .collect()
+        })
+        .collect()
 }

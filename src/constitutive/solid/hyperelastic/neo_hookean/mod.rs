@@ -7,7 +7,7 @@ use crate::{
         ConstitutiveError,
         solid::{FIVE_THIRDS, Solid, TWO_THIRDS, elastic::Elastic, hyperelastic::Hyperelastic},
     },
-    math::{IDENTITY, Rank2},
+    math::{IDENTITY, Rank2, TensorRank4},
     mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient, Scalar},
 };
 
@@ -53,20 +53,22 @@ impl Elastic for NeoHookean {
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         let inverse_transpose_deformation_gradient = deformation_gradient.inverse_transpose();
-        let scaled_shear_modulus = self.shear_modulus() / jacobian.powf(FIVE_THIRDS);
-        Ok(
-            (CauchyTangentStiffness::dyad_ik_jl(&IDENTITY, deformation_gradient)
-                + CauchyTangentStiffness::dyad_il_jk(deformation_gradient, &IDENTITY)
-                - CauchyTangentStiffness::dyad_ij_kl(&IDENTITY, deformation_gradient)
-                    * (TWO_THIRDS))
-                * scaled_shear_modulus
-                + CauchyTangentStiffness::dyad_ij_kl(
-                    &(IDENTITY * (0.5 * self.bulk_modulus() * (jacobian + 1.0 / jacobian))
-                        - deformation_gradient.left_cauchy_green().deviatoric()
-                            * (scaled_shear_modulus * FIVE_THIRDS)),
-                    &inverse_transpose_deformation_gradient,
-                ),
-        )
+        let scaled_shear_modulus =
+            Quantity::<Stress>::new(self.shear_modulus()) / jacobian.powf(FIVE_THIRDS);
+        Ok(((TensorRank4::dyad_ik_jl(&IDENTITY, deformation_gradient)
+            + TensorRank4::dyad_il_jk(deformation_gradient, &IDENTITY)
+            - TensorRank4::dyad_ij_kl(&IDENTITY, deformation_gradient) * (TWO_THIRDS))
+            * scaled_shear_modulus
+            + TensorRank4::dyad_ij_kl(
+                &(IDENTITY
+                    * (Quantity::<Stress>::new(self.bulk_modulus())
+                        * 0.5
+                        * (jacobian + 1.0 / jacobian))
+                    - deformation_gradient.left_cauchy_green().deviatoric()
+                        * (scaled_shear_modulus * FIVE_THIRDS)),
+                &inverse_transpose_deformation_gradient,
+            ))
+        .with_unit::<Dimensionless>())
     }
 }
 
