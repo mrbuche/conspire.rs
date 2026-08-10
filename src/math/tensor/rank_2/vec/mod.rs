@@ -1,16 +1,18 @@
+use crate::math::Dimensionless;
 use crate::math::{Tensor, TensorRank0, assert::FiniteDifference};
 use crate::math::{TensorArray, TensorRank2, tensor::vec::TensorVector};
 
 /// A vector of rank-2 tensors.
-pub type TensorRank2Vec<const D: usize, I, J> = TensorVector<TensorRank2<D, I, J>>;
+pub type TensorRank2Vec<const D: usize, I, J, U = Dimensionless> =
+    TensorVector<TensorRank2<D, I, J, U>>;
 
-impl<const D: usize, I, J> TensorRank2Vec<D, I, J> {
+impl<const D: usize, I, J, U> TensorRank2Vec<D, I, J, U> {
     pub fn zero(len: usize) -> Self {
         (0..len).map(|_| TensorRank2::zero()).collect()
     }
 }
 
-impl<const D: usize, I, J> FiniteDifference for TensorRank2Vec<D, I, J> {
+impl<const D: usize, I, J, U> FiniteDifference for TensorRank2Vec<D, I, J, U> {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()

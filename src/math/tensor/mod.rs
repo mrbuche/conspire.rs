@@ -142,8 +142,8 @@ pub trait HessianBlock {
 /// Symmetric-safe: the caller guarantees `block` at (a, b) equals the
 /// transpose of the (b, a) contribution, so implementors may store or
 /// mirror as they see fit.
-pub trait HessianAccumulate<const D: usize, I> {
-    fn accumulate(&mut self, a: usize, b: usize, block: rank_2::TensorRank2<D, I, I>);
+pub trait HessianAccumulate<const D: usize, I, U = Dimensionless> {
+    fn accumulate(&mut self, a: usize, b: usize, block: rank_2::TensorRank2<D, I, I, U>);
 }
 
 /// Common methods for rank-2 tensors.

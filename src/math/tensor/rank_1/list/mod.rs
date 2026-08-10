@@ -1,3 +1,4 @@
+use crate::math::Dimensionless;
 use crate::math::{Current, Projection, Reference};
 #[cfg(test)]
 mod test;
@@ -10,10 +11,11 @@ use std::ops::Mul;
 use crate::math::assert::FiniteDifference;
 
 /// A list of rank-1 tensors.
-pub type TensorRank1List<const D: usize, I, const N: usize> = TensorList<TensorRank1<D, I>, N>;
+pub type TensorRank1List<const D: usize, I, const N: usize, U = Dimensionless> =
+    TensorList<TensorRank1<D, I, U>, N>;
 
-impl<const D: usize, I, const N: usize> TensorRank1List<D, I, N> {
-    pub fn bounding_box(&self) -> TensorRank1List<D, I, 2> {
+impl<const D: usize, I, const N: usize, U> TensorRank1List<D, I, N, U> {
+    pub fn bounding_box(&self) -> TensorRank1List<D, I, 2, U> {
         self.iter()
             .skip(1)
             .fold(
@@ -33,22 +35,24 @@ impl<const D: usize, I, const N: usize> TensorRank1List<D, I, N> {
     }
 }
 
-impl<I> TensorRank1List<3, I, 3> {
+impl<I, U> TensorRank1List<3, I, 3, U> {
     pub fn scalar_triple_product(&self) -> TensorRank0 {
         &self[0] * self[1].cross(&self[2])
     }
 }
 
-impl<const D: usize, I, const N: usize> From<[[TensorRank0; D]; N]> for TensorRank1List<D, I, N> {
+impl<const D: usize, I, const N: usize, U> From<[[TensorRank0; D]; N]>
+    for TensorRank1List<D, I, N, U>
+{
     fn from(array: [[TensorRank0; D]; N]) -> Self {
         array.into_iter().map(|entry| entry.into()).collect()
     }
 }
 
-impl<const D: usize, const N: usize> From<TensorRank1List<D, Projection, N>>
-    for TensorRank1List<D, Reference, N>
+impl<const D: usize, const N: usize, U> From<TensorRank1List<D, Projection, N, U>>
+    for TensorRank1List<D, Reference, N, U>
 {
-    fn from(tensor_rank_1_list: TensorRank1List<D, Projection, N>) -> Self {
+    fn from(tensor_rank_1_list: TensorRank1List<D, Projection, N, U>) -> Self {
         tensor_rank_1_list
             .into_iter()
             .map(|entry| entry.into())
@@ -56,10 +60,10 @@ impl<const D: usize, const N: usize> From<TensorRank1List<D, Projection, N>>
     }
 }
 
-impl<const D: usize, const N: usize> From<TensorRank1List<D, Reference, N>>
-    for TensorRank1List<D, Current, N>
+impl<const D: usize, const N: usize, U> From<TensorRank1List<D, Reference, N, U>>
+    for TensorRank1List<D, Current, N, U>
 {
-    fn from(tensor_rank_1_list: TensorRank1List<D, Reference, N>) -> Self {
+    fn from(tensor_rank_1_list: TensorRank1List<D, Reference, N, U>) -> Self {
         tensor_rank_1_list
             .into_iter()
             .map(|entry| entry.into())
@@ -67,11 +71,11 @@ impl<const D: usize, const N: usize> From<TensorRank1List<D, Reference, N>>
     }
 }
 
-impl<const D: usize, I, J, const W: usize> Mul<TensorRank1List<D, J, W>>
-    for TensorRank1List<D, I, W>
+impl<const D: usize, I, J, const W: usize, U> Mul<TensorRank1List<D, J, W, U>>
+    for TensorRank1List<D, I, W, U>
 {
-    type Output = TensorRank2<D, I, J>;
-    fn mul(self, tensor_rank_1_list: TensorRank1List<D, J, W>) -> Self::Output {
+    type Output = TensorRank2<D, I, J, U>;
+    fn mul(self, tensor_rank_1_list: TensorRank1List<D, J, W, U>) -> Self::Output {
         self.into_iter()
             .zip(tensor_rank_1_list)
             .map(|(self_entry, entry)| Self::Output::from((self_entry, entry)))
@@ -79,11 +83,11 @@ impl<const D: usize, I, J, const W: usize> Mul<TensorRank1List<D, J, W>>
     }
 }
 
-impl<const D: usize, I, J, const W: usize> Mul<&TensorRank1List<D, J, W>>
-    for TensorRank1List<D, I, W>
+impl<const D: usize, I, J, const W: usize, U> Mul<&TensorRank1List<D, J, W, U>>
+    for TensorRank1List<D, I, W, U>
 {
-    type Output = TensorRank2<D, I, J>;
-    fn mul(self, tensor_rank_1_list: &TensorRank1List<D, J, W>) -> Self::Output {
+    type Output = TensorRank2<D, I, J, U>;
+    fn mul(self, tensor_rank_1_list: &TensorRank1List<D, J, W, U>) -> Self::Output {
         self.into_iter()
             .zip(tensor_rank_1_list.iter())
             .map(|(self_entry, entry)| Self::Output::from((self_entry, entry)))
@@ -91,11 +95,11 @@ impl<const D: usize, I, J, const W: usize> Mul<&TensorRank1List<D, J, W>>
     }
 }
 
-impl<const D: usize, I, J, const W: usize> Mul<TensorRank1List<D, J, W>>
-    for &TensorRank1List<D, I, W>
+impl<const D: usize, I, J, const W: usize, U> Mul<TensorRank1List<D, J, W, U>>
+    for &TensorRank1List<D, I, W, U>
 {
-    type Output = TensorRank2<D, I, J>;
-    fn mul(self, tensor_rank_1_list: TensorRank1List<D, J, W>) -> Self::Output {
+    type Output = TensorRank2<D, I, J, U>;
+    fn mul(self, tensor_rank_1_list: TensorRank1List<D, J, W, U>) -> Self::Output {
         self.iter()
             .zip(tensor_rank_1_list)
             .map(|(self_entry, entry)| Self::Output::from((self_entry, entry)))
@@ -103,11 +107,11 @@ impl<const D: usize, I, J, const W: usize> Mul<TensorRank1List<D, J, W>>
     }
 }
 
-impl<const D: usize, I, J, const W: usize> Mul<&TensorRank1List<D, J, W>>
-    for &TensorRank1List<D, I, W>
+impl<const D: usize, I, J, const W: usize, U> Mul<&TensorRank1List<D, J, W, U>>
+    for &TensorRank1List<D, I, W, U>
 {
-    type Output = TensorRank2<D, I, J>;
-    fn mul(self, tensor_rank_1_list: &TensorRank1List<D, J, W>) -> Self::Output {
+    type Output = TensorRank2<D, I, J, U>;
+    fn mul(self, tensor_rank_1_list: &TensorRank1List<D, J, W, U>) -> Self::Output {
         self.iter()
             .zip(tensor_rank_1_list.iter())
             .map(|(self_entry, entry)| Self::Output::from((self_entry, entry)))
@@ -115,7 +119,7 @@ impl<const D: usize, I, J, const W: usize> Mul<&TensorRank1List<D, J, W>>
     }
 }
 
-impl<const D: usize, I, const W: usize> FiniteDifference for TensorRank1List<D, I, W> {
+impl<const D: usize, I, const W: usize, U> FiniteDifference for TensorRank1List<D, I, W, U> {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()

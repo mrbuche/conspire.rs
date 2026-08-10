@@ -11,9 +11,9 @@ pub trait CrossProduct<T> {
     fn cross(self, other: T) -> Self::Output;
 }
 
-impl<I> CrossProduct<TensorRank1<3, I>> for &TensorRank1<3, I> {
-    type Output = TensorRank1<3, I>;
-    fn cross(self, other: TensorRank1<3, I>) -> Self::Output {
+impl<I, U> CrossProduct<TensorRank1<3, I, U>> for &TensorRank1<3, I, U> {
+    type Output = TensorRank1<3, I, U>;
+    fn cross(self, other: TensorRank1<3, I, U>) -> Self::Output {
         TensorRank1::const_from([
             self[1] * other[2] - self[2] * other[1],
             self[2] * other[0] - self[0] * other[2],
@@ -22,8 +22,8 @@ impl<I> CrossProduct<TensorRank1<3, I>> for &TensorRank1<3, I> {
     }
 }
 
-impl<I> CrossProduct<Self> for &TensorRank1<3, I> {
-    type Output = TensorRank1<3, I>;
+impl<I, U> CrossProduct<Self> for &TensorRank1<3, I, U> {
+    type Output = TensorRank1<3, I, U>;
     fn cross(self, other: Self) -> Self::Output {
         TensorRank1::const_from([
             self[1] * other[2] - self[2] * other[1],

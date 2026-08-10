@@ -1,4 +1,5 @@
 use crate::math::Current;
+use crate::math::Dimensionless;
 use crate::math::assert::Assert;
 use crate::math::{Rank2, TensorArray, TensorRank2, TensorRank4, assert::AssertionError};
 
@@ -25,7 +26,7 @@ fn get_rotation() -> TensorRank2<3, Current, Current> {
 
 fn from_eigenvalues(eigenvalues: [f64; 3]) -> TensorRank2<3, Current, Current> {
     let rotation = get_rotation();
-    let diagonal = TensorRank2::from([
+    let diagonal = TensorRank2::<3, Current, Current, Dimensionless>::from([
         [eigenvalues[0], 0.0, 0.0],
         [0.0, eigenvalues[1], 0.0],
         [0.0, 0.0, eigenvalues[2]],

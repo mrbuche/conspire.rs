@@ -43,3 +43,40 @@ fn units_are_zero_sized() {
     assert_eq!(size_of::<Stress>(), 0);
     assert_eq!(size_of::<Dimensionless>(), 0);
 }
+
+mod on_tensors {
+    use crate::math::{
+        Current, Dimensionless, Rate, Reference, Stress, Tensor, TensorArray, TensorRank2,
+        Viscosity,
+    };
+
+    type Deformation = TensorRank2<3, Current, Reference, Dimensionless>;
+    type Rates = TensorRank2<3, Reference, Reference, Rate>;
+    type Viscosities = TensorRank2<3, Current, Reference, Viscosity>;
+    type Stresses = TensorRank2<3, Current, Reference, Stress>;
+
+    #[test]
+    fn a_unit_costs_no_space() {
+        assert_eq!(size_of::<Stresses>(), size_of::<Deformation>());
+    }
+
+    #[test]
+    fn same_units_add() {
+        let sum = Stresses::zero() + Stresses::zero();
+        assert_eq!(sum.norm_squared(), 0.0)
+    }
+
+    #[test]
+    fn multiplication_combines_the_units() {
+        // Viscosity * Rate = Stress, resolved when this compiles.
+        let stress: Stresses = Viscosities::zero() * Rates::zero();
+        assert_eq!(stress.norm_squared(), 0.0)
+    }
+
+    #[test]
+    fn the_default_is_dimensionless() {
+        let product = TensorRank2::<3, Current, Reference>::zero()
+            * TensorRank2::<3, Reference, Current>::zero();
+        assert_eq!(product.norm_squared(), 0.0)
+    }
+}

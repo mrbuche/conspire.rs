@@ -1,3 +1,4 @@
+use crate::math::Dimensionless;
 use crate::math::{Current, Projection, Reference};
 #[cfg(test)]
 mod test;
@@ -34,76 +35,79 @@ use crate::math::assert::FiniteDifference;
 ///
 /// `D` is the dimension, `I` is the configuration.
 #[repr(transparent)]
-pub struct TensorRank1<const D: usize, I>(pub(super) [TensorRank0; D], pub(super) PhantomData<I>);
+pub struct TensorRank1<const D: usize, I, U = Dimensionless>(
+    pub(super) [TensorRank0; D],
+    pub(super) PhantomData<(I, U)>,
+);
 
-impl<const D: usize, I> Clone for TensorRank1<D, I> {
+impl<const D: usize, I, U> Clone for TensorRank1<D, I, U> {
     fn clone(&self) -> Self {
         Self(self.0, PhantomData)
     }
 }
 
-impl<const D: usize, I> Debug for TensorRank1<D, I> {
+impl<const D: usize, I, U> Debug for TensorRank1<D, I, U> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl<const D: usize, I> PartialEq for TensorRank1<D, I> {
+impl<const D: usize, I, U> PartialEq for TensorRank1<D, I, U> {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
 }
 
-impl<const D: usize, I> TensorRank1<D, I> {
+impl<const D: usize, I, U> TensorRank1<D, I, U> {
     /// Associated function for const type conversion.
     pub const fn const_from(array: [TensorRank0; D]) -> Self {
         Self(array, PhantomData)
     }
 }
 
-impl<const D: usize, I> Default for TensorRank1<D, I> {
+impl<const D: usize, I, U> Default for TensorRank1<D, I, U> {
     fn default() -> Self {
         Self::zero()
     }
 }
 
-impl<const D: usize> From<TensorRank1<D, Reference>> for TensorRank1<D, Current> {
-    fn from(tensor_rank_1: TensorRank1<D, Reference>) -> Self {
+impl<const D: usize, U> From<TensorRank1<D, Reference, U>> for TensorRank1<D, Current, U> {
+    fn from(tensor_rank_1: TensorRank1<D, Reference, U>) -> Self {
         Self(tensor_rank_1.0, PhantomData)
     }
 }
 
-impl<const D: usize> From<&TensorRank1<D, Reference>> for TensorRank1<D, Current> {
-    fn from(tensor_rank_1: &TensorRank1<D, Reference>) -> Self {
+impl<const D: usize, U> From<&TensorRank1<D, Reference, U>> for TensorRank1<D, Current, U> {
+    fn from(tensor_rank_1: &TensorRank1<D, Reference, U>) -> Self {
         Self(tensor_rank_1.0, PhantomData)
     }
 }
 
-impl<const D: usize> From<TensorRank1<D, Current>> for TensorRank1<D, Reference> {
-    fn from(tensor_rank_1: TensorRank1<D, Current>) -> Self {
+impl<const D: usize, U> From<TensorRank1<D, Current, U>> for TensorRank1<D, Reference, U> {
+    fn from(tensor_rank_1: TensorRank1<D, Current, U>) -> Self {
         Self(tensor_rank_1.0, PhantomData)
     }
 }
 
-impl<const D: usize> From<&TensorRank1<D, Current>> for TensorRank1<D, Reference> {
-    fn from(tensor_rank_1: &TensorRank1<D, Current>) -> Self {
+impl<const D: usize, U> From<&TensorRank1<D, Current, U>> for TensorRank1<D, Reference, U> {
+    fn from(tensor_rank_1: &TensorRank1<D, Current, U>) -> Self {
         Self(tensor_rank_1.0, PhantomData)
     }
 }
 
-impl<const D: usize> From<TensorRank1<D, Projection>> for TensorRank1<D, Reference> {
-    fn from(tensor_rank_1: TensorRank1<D, Projection>) -> Self {
+impl<const D: usize, U> From<TensorRank1<D, Projection, U>> for TensorRank1<D, Reference, U> {
+    fn from(tensor_rank_1: TensorRank1<D, Projection, U>) -> Self {
         Self(tensor_rank_1.0, PhantomData)
     }
 }
 
-impl<const D: usize> From<&TensorRank1<D, Projection>> for TensorRank1<D, Reference> {
-    fn from(tensor_rank_1: &TensorRank1<D, Projection>) -> Self {
+impl<const D: usize, U> From<&TensorRank1<D, Projection, U>> for TensorRank1<D, Reference, U> {
+    fn from(tensor_rank_1: &TensorRank1<D, Projection, U>) -> Self {
         Self(tensor_rank_1.0, PhantomData)
     }
 }
 
-impl<const D: usize, I> Display for TensorRank1<D, I> {
+impl<const D: usize, I, U> Display for TensorRank1<D, I, U> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "\x1B[s")?;
         write!(f, "[")?;
@@ -113,12 +117,12 @@ impl<const D: usize, I> Display for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> TensorRank1<D, I> {
+impl<const D: usize, I, U> TensorRank1<D, I, U> {
     /// Returns a raw pointer to the slice’s buffer.
     pub const fn as_ptr(&self) -> *const TensorRank0 {
         self.0.as_ptr()
     }
-    pub fn orthonormal_basis(&self) -> TensorRank1List<D, I, D> {
+    pub fn orthonormal_basis(&self) -> TensorRank1List<D, I, D, U> {
         let norm = self.norm();
         assert!(
             norm > ABS_TOL,
@@ -145,7 +149,7 @@ impl<const D: usize, I> TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> FiniteDifference for TensorRank1<D, I> {
+impl<const D: usize, I, U> FiniteDifference for TensorRank1<D, I, U> {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
@@ -163,7 +167,7 @@ impl<const D: usize, I> FiniteDifference for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> Solution for TensorRank1<D, I> {
+impl<const D: usize, I, U> Solution for TensorRank1<D, I, U> {
     fn decrement_from(&mut self, _other: &Vector) {
         unimplemented!()
     }
@@ -172,7 +176,7 @@ impl<const D: usize, I> Solution for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> Jacobian for TensorRank1<D, I> {
+impl<const D: usize, I, U> Jacobian for TensorRank1<D, I, U> {
     fn fill_into(&self, _vector: &mut Vector) {
         unimplemented!()
     }
@@ -181,21 +185,21 @@ impl<const D: usize, I> Jacobian for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> Sub<Vector> for TensorRank1<D, I> {
+impl<const D: usize, I, U> Sub<Vector> for TensorRank1<D, I, U> {
     type Output = Self;
     fn sub(self, _vector: Vector) -> Self::Output {
         unimplemented!()
     }
 }
 
-impl<const D: usize, I> Sub<&Vector> for TensorRank1<D, I> {
+impl<const D: usize, I, U> Sub<&Vector> for TensorRank1<D, I, U> {
     type Output = Self;
     fn sub(self, _vector: &Vector) -> Self::Output {
         unimplemented!()
     }
 }
 
-impl<const D: usize, I> Tensor for TensorRank1<D, I> {
+impl<const D: usize, I, U> Tensor for TensorRank1<D, I, U> {
     type Item = TensorRank0;
     fn full_contraction(&self, tensor_rank_1: &Self) -> TensorRank0 {
         self * tensor_rank_1
@@ -214,7 +218,7 @@ impl<const D: usize, I> Tensor for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> IntoIterator for TensorRank1<D, I> {
+impl<const D: usize, I, U> IntoIterator for TensorRank1<D, I, U> {
     type Item = TensorRank0;
     type IntoIter = std::array::IntoIter<Self::Item, D>;
     fn into_iter(self) -> Self::IntoIter {
@@ -222,7 +226,7 @@ impl<const D: usize, I> IntoIterator for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> TensorArray for TensorRank1<D, I> {
+impl<const D: usize, I, U> TensorArray for TensorRank1<D, I, U> {
     type Array = [TensorRank0; D];
     type Item = TensorRank0;
     fn as_array(&self) -> Self::Array {
@@ -237,46 +241,46 @@ impl<const D: usize, I> TensorArray for TensorRank1<D, I> {
 }
 
 /// Returns the rank-1 tensor of ones as a constant.
-pub(crate) const fn ones<const D: usize, I>() -> TensorRank1<D, I> {
+pub(crate) const fn ones<const D: usize, I, U>() -> TensorRank1<D, I, U> {
     TensorRank1([1.0; D], PhantomData)
 }
 
 /// Returns the rank-1 zero tensor as a constant.
-pub const fn zero<const D: usize, I>() -> TensorRank1<D, I> {
+pub const fn zero<const D: usize, I, U>() -> TensorRank1<D, I, U> {
     TensorRank1([0.0; D], PhantomData)
 }
 
-impl<const D: usize, I> From<[TensorRank0; D]> for TensorRank1<D, I> {
+impl<const D: usize, I, U> From<[TensorRank0; D]> for TensorRank1<D, I, U> {
     fn from(array: [TensorRank0; D]) -> Self {
         Self(array, PhantomData)
     }
 }
 
-impl<const D: usize, I> From<TensorRank1<D, I>> for [TensorRank0; D] {
-    fn from(tensor_rank_1: TensorRank1<D, I>) -> Self {
+impl<const D: usize, I, U> From<TensorRank1<D, I, U>> for [TensorRank0; D] {
+    fn from(tensor_rank_1: TensorRank1<D, I, U>) -> Self {
         tensor_rank_1.0
     }
 }
 
-impl<const D: usize, I> From<Vec<TensorRank0>> for TensorRank1<D, I> {
+impl<const D: usize, I, U> From<Vec<TensorRank0>> for TensorRank1<D, I, U> {
     fn from(vec: Vec<TensorRank0>) -> Self {
         Self(vec.try_into().unwrap(), PhantomData)
     }
 }
 
-impl<const D: usize, I> From<TensorRank1<D, I>> for Vec<TensorRank0> {
-    fn from(tensor_rank_1: TensorRank1<D, I>) -> Self {
+impl<const D: usize, I, U> From<TensorRank1<D, I, U>> for Vec<TensorRank0> {
+    fn from(tensor_rank_1: TensorRank1<D, I, U>) -> Self {
         tensor_rank_1.0.to_vec()
     }
 }
 
-impl<const D: usize, I> From<Vector> for TensorRank1<D, I> {
+impl<const D: usize, I, U> From<Vector> for TensorRank1<D, I, U> {
     fn from(_vector: Vector) -> Self {
         unimplemented!()
     }
 }
 
-impl<const D: usize, I> FromIterator<TensorRank0> for TensorRank1<D, I> {
+impl<const D: usize, I, U> FromIterator<TensorRank0> for TensorRank1<D, I, U> {
     fn from_iter<Ii: IntoIterator<Item = TensorRank0>>(into_iterator: Ii) -> Self {
         let mut tensor_rank_1 = zero();
         tensor_rank_1
@@ -287,20 +291,20 @@ impl<const D: usize, I> FromIterator<TensorRank0> for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> Index<usize> for TensorRank1<D, I> {
+impl<const D: usize, I, U> Index<usize> for TensorRank1<D, I, U> {
     type Output = TensorRank0;
     fn index(&self, index: usize) -> &Self::Output {
         &self.0[index]
     }
 }
 
-impl<const D: usize, I> IndexMut<usize> for TensorRank1<D, I> {
+impl<const D: usize, I, U> IndexMut<usize> for TensorRank1<D, I, U> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.0[index]
     }
 }
 
-impl<const D: usize, I> Sum for TensorRank1<D, I> {
+impl<const D: usize, I, U> Sum for TensorRank1<D, I, U> {
     fn sum<Ii>(iter: Ii) -> Self
     where
         Ii: Iterator<Item = Self>,
@@ -313,7 +317,7 @@ impl<const D: usize, I> Sum for TensorRank1<D, I> {
     }
 }
 
-impl<'a, const D: usize, I> Sum<&'a Self> for TensorRank1<D, I> {
+impl<'a, const D: usize, I, U> Sum<&'a Self> for TensorRank1<D, I, U> {
     fn sum<Ii>(iter: Ii) -> Self
     where
         Ii: Iterator<Item = &'a Self>,
@@ -325,21 +329,21 @@ impl<'a, const D: usize, I> Sum<&'a Self> for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> Neg for TensorRank1<D, I> {
+impl<const D: usize, I, U> Neg for TensorRank1<D, I, U> {
     type Output = Self;
     fn neg(self) -> Self::Output {
         from_fn(|i| -self[i]).into()
     }
 }
 
-impl<const D: usize, I> Neg for &TensorRank1<D, I> {
-    type Output = TensorRank1<D, I>;
+impl<const D: usize, I, U> Neg for &TensorRank1<D, I, U> {
+    type Output = TensorRank1<D, I, U>;
     fn neg(self) -> Self::Output {
         from_fn(|i| -self[i]).into()
     }
 }
 
-impl<const D: usize, I> Div<TensorRank0> for TensorRank1<D, I> {
+impl<const D: usize, I, U> Div<TensorRank0> for TensorRank1<D, I, U> {
     type Output = Self;
     fn div(mut self, tensor_rank_0: TensorRank0) -> Self::Output {
         self /= tensor_rank_0;
@@ -347,14 +351,14 @@ impl<const D: usize, I> Div<TensorRank0> for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> Div<TensorRank0> for &TensorRank1<D, I> {
-    type Output = TensorRank1<D, I>;
+impl<const D: usize, I, U> Div<TensorRank0> for &TensorRank1<D, I, U> {
+    type Output = TensorRank1<D, I, U>;
     fn div(self, tensor_rank_0: TensorRank0) -> Self::Output {
         self.iter().map(|self_i| self_i / tensor_rank_0).collect()
     }
 }
 
-impl<const D: usize, I> Div<&TensorRank0> for TensorRank1<D, I> {
+impl<const D: usize, I, U> Div<&TensorRank0> for TensorRank1<D, I, U> {
     type Output = Self;
     fn div(mut self, tensor_rank_0: &TensorRank0) -> Self::Output {
         self /= tensor_rank_0;
@@ -362,26 +366,26 @@ impl<const D: usize, I> Div<&TensorRank0> for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> Div<&TensorRank0> for &TensorRank1<D, I> {
-    type Output = TensorRank1<D, I>;
+impl<const D: usize, I, U> Div<&TensorRank0> for &TensorRank1<D, I, U> {
+    type Output = TensorRank1<D, I, U>;
     fn div(self, tensor_rank_0: &TensorRank0) -> Self::Output {
         self.iter().map(|self_i| self_i / tensor_rank_0).collect()
     }
 }
 
-impl<const D: usize, I> DivAssign<TensorRank0> for TensorRank1<D, I> {
+impl<const D: usize, I, U> DivAssign<TensorRank0> for TensorRank1<D, I, U> {
     fn div_assign(&mut self, tensor_rank_0: TensorRank0) {
         self.iter_mut().for_each(|self_i| *self_i /= &tensor_rank_0);
     }
 }
 
-impl<const D: usize, I> DivAssign<&TensorRank0> for TensorRank1<D, I> {
+impl<const D: usize, I, U> DivAssign<&TensorRank0> for TensorRank1<D, I, U> {
     fn div_assign(&mut self, tensor_rank_0: &TensorRank0) {
         self.iter_mut().for_each(|self_i| *self_i /= tensor_rank_0);
     }
 }
 
-impl<const D: usize, I> Mul<TensorRank0> for TensorRank1<D, I> {
+impl<const D: usize, I, U> Mul<TensorRank0> for TensorRank1<D, I, U> {
     type Output = Self;
     fn mul(mut self, tensor_rank_0: TensorRank0) -> Self::Output {
         self *= tensor_rank_0;
@@ -389,14 +393,14 @@ impl<const D: usize, I> Mul<TensorRank0> for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> Mul<TensorRank0> for &TensorRank1<D, I> {
-    type Output = TensorRank1<D, I>;
+impl<const D: usize, I, U> Mul<TensorRank0> for &TensorRank1<D, I, U> {
+    type Output = TensorRank1<D, I, U>;
     fn mul(self, tensor_rank_0: TensorRank0) -> Self::Output {
         self.iter().map(|self_i| self_i * tensor_rank_0).collect()
     }
 }
 
-impl<const D: usize, I> Mul<&TensorRank0> for TensorRank1<D, I> {
+impl<const D: usize, I, U> Mul<&TensorRank0> for TensorRank1<D, I, U> {
     type Output = Self;
     fn mul(mut self, tensor_rank_0: &TensorRank0) -> Self::Output {
         self *= tensor_rank_0;
@@ -404,26 +408,26 @@ impl<const D: usize, I> Mul<&TensorRank0> for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> Mul<&TensorRank0> for &TensorRank1<D, I> {
-    type Output = TensorRank1<D, I>;
+impl<const D: usize, I, U> Mul<&TensorRank0> for &TensorRank1<D, I, U> {
+    type Output = TensorRank1<D, I, U>;
     fn mul(self, tensor_rank_0: &TensorRank0) -> Self::Output {
         self.iter().map(|self_i| self_i * tensor_rank_0).collect()
     }
 }
 
-impl<const D: usize, I> MulAssign<TensorRank0> for TensorRank1<D, I> {
+impl<const D: usize, I, U> MulAssign<TensorRank0> for TensorRank1<D, I, U> {
     fn mul_assign(&mut self, tensor_rank_0: TensorRank0) {
         self.iter_mut().for_each(|self_i| *self_i *= &tensor_rank_0);
     }
 }
 
-impl<const D: usize, I> MulAssign<&TensorRank0> for TensorRank1<D, I> {
+impl<const D: usize, I, U> MulAssign<&TensorRank0> for TensorRank1<D, I, U> {
     fn mul_assign(&mut self, tensor_rank_0: &TensorRank0) {
         self.iter_mut().for_each(|self_i| *self_i *= tensor_rank_0);
     }
 }
 
-impl<const D: usize, I> Add for TensorRank1<D, I> {
+impl<const D: usize, I, U> Add for TensorRank1<D, I, U> {
     type Output = Self;
     fn add(mut self, tensor_rank_1: Self) -> Self::Output {
         self += tensor_rank_1;
@@ -431,7 +435,7 @@ impl<const D: usize, I> Add for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> Add<&Self> for TensorRank1<D, I> {
+impl<const D: usize, I, U> Add<&Self> for TensorRank1<D, I, U> {
     type Output = Self;
     fn add(mut self, tensor_rank_1: &Self) -> Self::Output {
         self += tensor_rank_1;
@@ -439,16 +443,16 @@ impl<const D: usize, I> Add<&Self> for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> Add<TensorRank1<D, I>> for &TensorRank1<D, I> {
-    type Output = TensorRank1<D, I>;
-    fn add(self, mut tensor_rank_1: TensorRank1<D, I>) -> Self::Output {
+impl<const D: usize, I, U> Add<TensorRank1<D, I, U>> for &TensorRank1<D, I, U> {
+    type Output = TensorRank1<D, I, U>;
+    fn add(self, mut tensor_rank_1: TensorRank1<D, I, U>) -> Self::Output {
         tensor_rank_1 += self;
         tensor_rank_1
     }
 }
 
-impl<const D: usize, I> Add<Self> for &TensorRank1<D, I> {
-    type Output = TensorRank1<D, I>;
+impl<const D: usize, I, U> Add<Self> for &TensorRank1<D, I, U> {
+    type Output = TensorRank1<D, I, U>;
     fn add(self, tensor_rank_1: Self) -> Self::Output {
         tensor_rank_1
             .iter()
@@ -458,7 +462,7 @@ impl<const D: usize, I> Add<Self> for &TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> AddAssign for TensorRank1<D, I> {
+impl<const D: usize, I, U> AddAssign for TensorRank1<D, I, U> {
     fn add_assign(&mut self, tensor_rank_1: Self) {
         self.iter_mut()
             .zip(tensor_rank_1)
@@ -466,7 +470,7 @@ impl<const D: usize, I> AddAssign for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> AddAssign<&Self> for TensorRank1<D, I> {
+impl<const D: usize, I, U> AddAssign<&Self> for TensorRank1<D, I, U> {
     fn add_assign(&mut self, tensor_rank_1: &Self) {
         self.iter_mut()
             .zip(tensor_rank_1.iter())
@@ -474,7 +478,7 @@ impl<const D: usize, I> AddAssign<&Self> for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> Sub for TensorRank1<D, I> {
+impl<const D: usize, I, U> Sub for TensorRank1<D, I, U> {
     type Output = Self;
     fn sub(mut self, tensor_rank_1: Self) -> Self::Output {
         self -= tensor_rank_1;
@@ -482,7 +486,7 @@ impl<const D: usize, I> Sub for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> Sub<&Self> for TensorRank1<D, I> {
+impl<const D: usize, I, U> Sub<&Self> for TensorRank1<D, I, U> {
     type Output = Self;
     fn sub(mut self, tensor_rank_1: &Self) -> Self::Output {
         self -= tensor_rank_1;
@@ -490,9 +494,9 @@ impl<const D: usize, I> Sub<&Self> for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> Sub<TensorRank1<D, I>> for &TensorRank1<D, I> {
-    type Output = TensorRank1<D, I>;
-    fn sub(self, mut tensor_rank_1: TensorRank1<D, I>) -> Self::Output {
+impl<const D: usize, I, U> Sub<TensorRank1<D, I, U>> for &TensorRank1<D, I, U> {
+    type Output = TensorRank1<D, I, U>;
+    fn sub(self, mut tensor_rank_1: TensorRank1<D, I, U>) -> Self::Output {
         tensor_rank_1
             .iter_mut()
             .zip(self.iter())
@@ -501,8 +505,8 @@ impl<const D: usize, I> Sub<TensorRank1<D, I>> for &TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> Sub<Self> for &TensorRank1<D, I> {
-    type Output = TensorRank1<D, I>;
+impl<const D: usize, I, U> Sub<Self> for &TensorRank1<D, I, U> {
+    type Output = TensorRank1<D, I, U>;
     fn sub(self, tensor_rank_1: Self) -> Self::Output {
         tensor_rank_1
             .iter()
@@ -512,7 +516,7 @@ impl<const D: usize, I> Sub<Self> for &TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> SubAssign for TensorRank1<D, I> {
+impl<const D: usize, I, U> SubAssign for TensorRank1<D, I, U> {
     fn sub_assign(&mut self, tensor_rank_1: Self) {
         self.iter_mut()
             .zip(tensor_rank_1)
@@ -520,7 +524,7 @@ impl<const D: usize, I> SubAssign for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> SubAssign<&Self> for TensorRank1<D, I> {
+impl<const D: usize, I, U> SubAssign<&Self> for TensorRank1<D, I, U> {
     fn sub_assign(&mut self, tensor_rank_1: &Self) {
         self.iter_mut()
             .zip(tensor_rank_1.iter())
@@ -528,7 +532,7 @@ impl<const D: usize, I> SubAssign<&Self> for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> Mul for TensorRank1<D, I> {
+impl<const D: usize, I, U> Mul for TensorRank1<D, I, U> {
     type Output = TensorRank0;
     fn mul(self, tensor_rank_1: Self) -> Self::Output {
         self.into_iter()
@@ -538,7 +542,7 @@ impl<const D: usize, I> Mul for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> Mul<&Self> for TensorRank1<D, I> {
+impl<const D: usize, I, U> Mul<&Self> for TensorRank1<D, I, U> {
     type Output = TensorRank0;
     fn mul(self, tensor_rank_1: &Self) -> Self::Output {
         self.into_iter()
@@ -548,9 +552,9 @@ impl<const D: usize, I> Mul<&Self> for TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> Mul<TensorRank1<D, I>> for &TensorRank1<D, I> {
+impl<const D: usize, I, U> Mul<TensorRank1<D, I, U>> for &TensorRank1<D, I, U> {
     type Output = TensorRank0;
-    fn mul(self, tensor_rank_1: TensorRank1<D, I>) -> Self::Output {
+    fn mul(self, tensor_rank_1: TensorRank1<D, I, U>) -> Self::Output {
         self.iter()
             .zip(tensor_rank_1)
             .map(|(self_i, tensor_rank_1_i)| self_i * tensor_rank_1_i)
@@ -558,7 +562,7 @@ impl<const D: usize, I> Mul<TensorRank1<D, I>> for &TensorRank1<D, I> {
     }
 }
 
-impl<const D: usize, I> Mul for &TensorRank1<D, I> {
+impl<const D: usize, I, U> Mul for &TensorRank1<D, I, U> {
     type Output = TensorRank0;
     fn mul(self, tensor_rank_1: Self) -> Self::Output {
         self.iter()
@@ -569,9 +573,9 @@ impl<const D: usize, I> Mul for &TensorRank1<D, I> {
 }
 
 #[allow(clippy::suspicious_arithmetic_impl)]
-impl<const D: usize, I, J> Div<TensorRank2<D, I, J>> for &TensorRank1<D, I> {
-    type Output = TensorRank1<D, J>;
-    fn div(self, tensor_rank_2: TensorRank2<D, I, J>) -> Self::Output {
+impl<const D: usize, I, J, U> Div<TensorRank2<D, I, J, U>> for &TensorRank1<D, I, U> {
+    type Output = TensorRank1<D, J, U>;
+    fn div(self, tensor_rank_2: TensorRank2<D, I, J, U>) -> Self::Output {
         tensor_rank_2.inverse() * self
     }
 }

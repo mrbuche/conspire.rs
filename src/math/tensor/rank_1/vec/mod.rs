@@ -1,3 +1,4 @@
+use crate::math::Dimensionless;
 use crate::math::{Current, Reference};
 #[cfg(test)]
 mod test;
@@ -16,10 +17,10 @@ use std::{
 use crate::math::assert::FiniteDifference;
 
 /// A vector of rank-1 tensors.
-pub type TensorRank1Vec<const D: usize, I> = TensorVector<TensorRank1<D, I>>;
+pub type TensorRank1Vec<const D: usize, I, U = Dimensionless> = TensorVector<TensorRank1<D, I, U>>;
 
-impl<const D: usize, I> TensorRank1Vec<D, I> {
-    pub fn bounding_box(&self) -> TensorRank1List<D, I, 2> {
+impl<const D: usize, I, U> TensorRank1Vec<D, I, U> {
+    pub fn bounding_box(&self) -> TensorRank1List<D, I, 2, U> {
         self.iter()
             .skip(1)
             .fold(
@@ -42,24 +43,24 @@ impl<const D: usize, I> TensorRank1Vec<D, I> {
     }
 }
 
-impl<const D: usize, I, const N: usize> From<[[TensorRank0; D]; N]> for TensorRank1Vec<D, I> {
+impl<const D: usize, I, const N: usize, U> From<[[TensorRank0; D]; N]> for TensorRank1Vec<D, I, U> {
     fn from(array: [[TensorRank0; D]; N]) -> Self {
         array.into_iter().map(TensorRank1::from).collect()
     }
 }
 
-impl<const D: usize, I> From<Vec<[TensorRank0; D]>> for TensorRank1Vec<D, I> {
+impl<const D: usize, I, U> From<Vec<[TensorRank0; D]>> for TensorRank1Vec<D, I, U> {
     fn from(vec: Vec<[TensorRank0; D]>) -> Self {
         let (length, capacity) = (vec.len(), vec.capacity());
-        let pointer = vec.as_ptr() as *mut TensorRank1<D, I>;
+        let pointer = vec.as_ptr() as *mut TensorRank1<D, I, U>;
         forget(vec);
         unsafe { Self::from(Vec::from_raw_parts(pointer, length, capacity)) }
     }
 }
 
-impl<const D: usize, I> From<TensorRank1Vec<D, I>> for Vec<[TensorRank0; D]> {
-    fn from(tensor_rank_1_vec: TensorRank1Vec<D, I>) -> Self {
-        let vec = Vec::<TensorRank1<D, I>>::from(tensor_rank_1_vec);
+impl<const D: usize, I, U> From<TensorRank1Vec<D, I, U>> for Vec<[TensorRank0; D]> {
+    fn from(tensor_rank_1_vec: TensorRank1Vec<D, I, U>) -> Self {
+        let vec = Vec::<TensorRank1<D, I, U>>::from(tensor_rank_1_vec);
         let (length, capacity) = (vec.len(), vec.capacity());
         let pointer = vec.as_ptr() as *mut [TensorRank0; D];
         forget(vec);
@@ -67,7 +68,7 @@ impl<const D: usize, I> From<TensorRank1Vec<D, I>> for Vec<[TensorRank0; D]> {
     }
 }
 
-impl<const D: usize, I> From<Vec<Vec<TensorRank0>>> for TensorRank1Vec<D, I> {
+impl<const D: usize, I, U> From<Vec<Vec<TensorRank0>>> for TensorRank1Vec<D, I, U> {
     fn from(vec: Vec<Vec<TensorRank0>>) -> Self {
         vec.into_iter()
             .map(|tensor_rank_1| tensor_rank_1.into())
@@ -75,8 +76,8 @@ impl<const D: usize, I> From<Vec<Vec<TensorRank0>>> for TensorRank1Vec<D, I> {
     }
 }
 
-impl<const D: usize, I> From<TensorRank1Vec<D, I>> for Vec<Vec<TensorRank0>> {
-    fn from(tensor_rank_1_vec: TensorRank1Vec<D, I>) -> Self {
+impl<const D: usize, I, U> From<TensorRank1Vec<D, I, U>> for Vec<Vec<TensorRank0>> {
+    fn from(tensor_rank_1_vec: TensorRank1Vec<D, I, U>) -> Self {
         tensor_rank_1_vec
             .into_iter()
             .map(|tensor_rank_1| tensor_rank_1.into())
@@ -84,7 +85,7 @@ impl<const D: usize, I> From<TensorRank1Vec<D, I>> for Vec<Vec<TensorRank0>> {
     }
 }
 
-impl<const D: usize, I> TryFrom<[Vec<TensorRank0>; D]> for TensorRank1Vec<D, I> {
+impl<const D: usize, I, U> TryFrom<[Vec<TensorRank0>; D]> for TensorRank1Vec<D, I, U> {
     type Error = String;
     fn try_from(vec_array: [Vec<TensorRank0>; D]) -> Result<Self, Self::Error> {
         let length = vec_array[0].len();
@@ -98,8 +99,8 @@ impl<const D: usize, I> TryFrom<[Vec<TensorRank0>; D]> for TensorRank1Vec<D, I> 
     }
 }
 
-impl<const D: usize, I> From<TensorRank1Vec<D, I>> for [Vec<TensorRank0>; D] {
-    fn from(tensor_rank_1_vec: TensorRank1Vec<D, I>) -> Self {
+impl<const D: usize, I, U> From<TensorRank1Vec<D, I, U>> for [Vec<TensorRank0>; D] {
+    fn from(tensor_rank_1_vec: TensorRank1Vec<D, I, U>) -> Self {
         let length = tensor_rank_1_vec.len();
         let mut output = from_fn(|_| Vec::with_capacity(length));
         tensor_rank_1_vec.into_iter().for_each(|tensor_rank_1| {
@@ -112,8 +113,8 @@ impl<const D: usize, I> From<TensorRank1Vec<D, I>> for [Vec<TensorRank0>; D] {
     }
 }
 
-impl<const D: usize, I> From<&TensorRank1Vec<D, I>> for [Vec<TensorRank0>; D] {
-    fn from(tensor_rank_1_vec: &TensorRank1Vec<D, I>) -> Self {
+impl<const D: usize, I, U> From<&TensorRank1Vec<D, I, U>> for [Vec<TensorRank0>; D] {
+    fn from(tensor_rank_1_vec: &TensorRank1Vec<D, I, U>) -> Self {
         let length = tensor_rank_1_vec.len();
         let mut output = from_fn(|_| Vec::with_capacity(length));
         tensor_rank_1_vec.iter().for_each(|tensor_rank_1| {
@@ -126,17 +127,17 @@ impl<const D: usize, I> From<&TensorRank1Vec<D, I>> for [Vec<TensorRank0>; D] {
     }
 }
 
-impl<const D: usize> From<TensorRank1Vec<D, Reference>> for TensorRank1Vec<D, Current> {
-    fn from(tensor_rank_1_vec: TensorRank1Vec<D, Reference>) -> Self {
+impl<const D: usize, U> From<TensorRank1Vec<D, Reference, U>> for TensorRank1Vec<D, Current, U> {
+    fn from(tensor_rank_1_vec: TensorRank1Vec<D, Reference, U>) -> Self {
         let (length, capacity) = (tensor_rank_1_vec.len(), tensor_rank_1_vec.capacity());
-        let pointer = tensor_rank_1_vec.as_ptr() as *mut TensorRank1<D, Current>;
+        let pointer = tensor_rank_1_vec.as_ptr() as *mut TensorRank1<D, Current, U>;
         forget(tensor_rank_1_vec);
         unsafe { Self::from(Vec::from_raw_parts(pointer, length, capacity)) }
     }
 }
 
-impl<const D: usize> From<&TensorRank1Vec<D, Reference>> for TensorRank1Vec<D, Current> {
-    fn from(tensor_rank_1_vec: &TensorRank1Vec<D, Reference>) -> Self {
+impl<const D: usize, U> From<&TensorRank1Vec<D, Reference, U>> for TensorRank1Vec<D, Current, U> {
+    fn from(tensor_rank_1_vec: &TensorRank1Vec<D, Reference, U>) -> Self {
         tensor_rank_1_vec
             .iter()
             .map(|tensor_rank_1| tensor_rank_1.into())
@@ -144,17 +145,17 @@ impl<const D: usize> From<&TensorRank1Vec<D, Reference>> for TensorRank1Vec<D, C
     }
 }
 
-impl<const D: usize> From<TensorRank1Vec<D, Current>> for TensorRank1Vec<D, Reference> {
-    fn from(tensor_rank_1_vec: TensorRank1Vec<D, Current>) -> Self {
+impl<const D: usize, U> From<TensorRank1Vec<D, Current, U>> for TensorRank1Vec<D, Reference, U> {
+    fn from(tensor_rank_1_vec: TensorRank1Vec<D, Current, U>) -> Self {
         let (length, capacity) = (tensor_rank_1_vec.len(), tensor_rank_1_vec.capacity());
-        let pointer = tensor_rank_1_vec.as_ptr() as *mut TensorRank1<D, Reference>;
+        let pointer = tensor_rank_1_vec.as_ptr() as *mut TensorRank1<D, Reference, U>;
         forget(tensor_rank_1_vec);
         unsafe { Self::from(Vec::from_raw_parts(pointer, length, capacity)) }
     }
 }
 
-impl<const D: usize> From<&TensorRank1Vec<D, Current>> for TensorRank1Vec<D, Reference> {
-    fn from(tensor_rank_1_vec: &TensorRank1Vec<D, Current>) -> Self {
+impl<const D: usize, U> From<&TensorRank1Vec<D, Current, U>> for TensorRank1Vec<D, Reference, U> {
+    fn from(tensor_rank_1_vec: &TensorRank1Vec<D, Current, U>) -> Self {
         tensor_rank_1_vec
             .iter()
             .map(|tensor_rank_1| tensor_rank_1.into())
@@ -162,14 +163,14 @@ impl<const D: usize> From<&TensorRank1Vec<D, Current>> for TensorRank1Vec<D, Ref
     }
 }
 
-impl<const D: usize, I> From<Vector> for TensorRank1Vec<D, I> {
+impl<const D: usize, I, U> From<Vector> for TensorRank1Vec<D, I, U> {
     fn from(vector: Vector) -> Self {
         let n = vector.len();
         if !n.is_multiple_of(D) {
             panic!("Vector length mismatch.")
         } else if vector.capacity().is_multiple_of(D) {
             let (length, capacity) = (n / D, vector.capacity() / D);
-            let pointer = vector.as_ptr() as *mut TensorRank1<D, I>;
+            let pointer = vector.as_ptr() as *mut TensorRank1<D, I, U>;
             forget(vector);
             unsafe { Self::from(Vec::from_raw_parts(pointer, length, capacity)) }
         } else {
@@ -180,7 +181,7 @@ impl<const D: usize, I> From<Vector> for TensorRank1Vec<D, I> {
     }
 }
 
-impl<const D: usize, I> Jacobian for TensorRank1Vec<D, I> {
+impl<const D: usize, I, U> Jacobian for TensorRank1Vec<D, I, U> {
     fn fill_into(&self, vector: &mut Vector) {
         self.iter()
             .flat_map(|entry| entry.iter())
@@ -209,7 +210,7 @@ impl<const D: usize, I> Jacobian for TensorRank1Vec<D, I> {
     }
 }
 
-impl<const D: usize, I> Solution for TensorRank1Vec<D, I> {
+impl<const D: usize, I, U> Solution for TensorRank1Vec<D, I, U> {
     fn decrement_from(&mut self, other: &Vector) {
         self.iter_mut()
             .flat_map(|x| x.iter_mut())
@@ -233,7 +234,7 @@ impl<const D: usize, I> Solution for TensorRank1Vec<D, I> {
     }
 }
 
-impl<const D: usize, I> Sub<Vector> for TensorRank1Vec<D, I> {
+impl<const D: usize, I, U> Sub<Vector> for TensorRank1Vec<D, I, U> {
     type Output = Self;
     fn sub(mut self, vector: Vector) -> Self::Output {
         self.iter_mut().enumerate().for_each(|(a, self_a)| {
@@ -246,7 +247,7 @@ impl<const D: usize, I> Sub<Vector> for TensorRank1Vec<D, I> {
     }
 }
 
-impl<const D: usize, I> Sub<&Vector> for TensorRank1Vec<D, I> {
+impl<const D: usize, I, U> Sub<&Vector> for TensorRank1Vec<D, I, U> {
     type Output = Self;
     fn sub(mut self, vector: &Vector) -> Self::Output {
         self.iter_mut().enumerate().for_each(|(a, self_a)| {
@@ -259,29 +260,31 @@ impl<const D: usize, I> Sub<&Vector> for TensorRank1Vec<D, I> {
     }
 }
 
-impl<const D: usize, I, J> Div<TensorRank2Vec2D<D, I, J>> for &TensorRank1Vec<D, I> {
-    type Output = TensorRank1Vec<D, J>;
-    fn div(self, _tensor_rank_2_vec_2d: TensorRank2Vec2D<D, I, J>) -> Self::Output {
+impl<const D: usize, I, J, U> Div<TensorRank2Vec2D<D, I, J, U>> for &TensorRank1Vec<D, I, U> {
+    type Output = TensorRank1Vec<D, J, U>;
+    fn div(self, _tensor_rank_2_vec_2d: TensorRank2Vec2D<D, I, J, U>) -> Self::Output {
         unimplemented!(
             "A mesh-scale step wants the sparse solver the caller supplies, which a division has nowhere to hold."
         )
     }
 }
 
-impl<const D: usize, I, J> Div<TensorRank2SparseVec2D<D, I, J>> for &TensorRank1Vec<D, I> {
-    type Output = TensorRank1Vec<D, J>;
-    fn div(self, _tensor_rank_2_sparse_vec_2d: TensorRank2SparseVec2D<D, I, J>) -> Self::Output {
+impl<const D: usize, I, J, U> Div<TensorRank2SparseVec2D<D, I, J, U>> for &TensorRank1Vec<D, I, U> {
+    type Output = TensorRank1Vec<D, J, U>;
+    fn div(self, _tensor_rank_2_sparse_vec_2d: TensorRank2SparseVec2D<D, I, J, U>) -> Self::Output {
         unimplemented!(
             "A mesh-scale step wants the sparse solver the caller supplies, which a division has nowhere to hold."
         )
     }
 }
 
-impl<const D: usize, I, J> Div<TensorRank2SparseVec2DSymmetric<D, I, J>> for &TensorRank1Vec<D, I> {
-    type Output = TensorRank1Vec<D, J>;
+impl<const D: usize, I, J, U> Div<TensorRank2SparseVec2DSymmetric<D, I, J, U>>
+    for &TensorRank1Vec<D, I, U>
+{
+    type Output = TensorRank1Vec<D, J, U>;
     fn div(
         self,
-        _tensor_rank_2_sparse_symmetric_vec_2d: TensorRank2SparseVec2DSymmetric<D, I, J>,
+        _tensor_rank_2_sparse_symmetric_vec_2d: TensorRank2SparseVec2DSymmetric<D, I, J, U>,
     ) -> Self::Output {
         unimplemented!(
             "A mesh-scale step wants the sparse solver the caller supplies, which a division has nowhere to hold."
@@ -289,7 +292,7 @@ impl<const D: usize, I, J> Div<TensorRank2SparseVec2DSymmetric<D, I, J>> for &Te
     }
 }
 
-impl<const D: usize, I> FiniteDifference for TensorRank1Vec<D, I> {
+impl<const D: usize, I, U> FiniteDifference for TensorRank1Vec<D, I, U> {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()

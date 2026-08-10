@@ -1,3 +1,4 @@
+use crate::math::Dimensionless;
 use crate::math::{Current, Reference};
 #[cfg(test)]
 mod test;
@@ -34,58 +35,62 @@ pub fn levi_civita<I, J, K>() -> TensorRank3<3, I, J, K> {
 ///
 /// `D` is the dimension, `I`, `J`, `K` are the configurations.
 #[repr(transparent)]
-pub struct TensorRank3<const D: usize, I, J, K>(
-    [TensorRank2<D, J, K>; D],
+pub struct TensorRank3<const D: usize, I, J, K, U = Dimensionless>(
+    [TensorRank2<D, J, K, U>; D],
     pub(super) PhantomData<I>,
 );
 
-impl<const D: usize, I, J, K> Clone for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> Clone for TensorRank3<D, I, J, K, U> {
     fn clone(&self) -> Self {
         Self(self.0.clone(), PhantomData)
     }
 }
 
-impl<const D: usize, I, J, K> Debug for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> Debug for TensorRank3<D, I, J, K, U> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl<const D: usize, I, J, K> PartialEq for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> PartialEq for TensorRank3<D, I, J, K, U> {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
 }
 
-impl<const D: usize, I, J, K> TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> TensorRank3<D, I, J, K, U> {
     /// Views the tensor with its configurations discarded, so that arithmetic is
     /// compiled once per dimension rather than once per configuration.
-    fn canonical(&self) -> &TensorRank3<D, Reference, Reference, Reference> {
-        unsafe { &*(self as *const Self as *const TensorRank3<D, Reference, Reference, Reference>) }
+    fn canonical(&self) -> &TensorRank3<D, Reference, Reference, Reference, U> {
+        unsafe {
+            &*(self as *const Self as *const TensorRank3<D, Reference, Reference, Reference, U>)
+        }
     }
-    fn canonical_mut(&mut self) -> &mut TensorRank3<D, Reference, Reference, Reference> {
-        unsafe { &mut *(self as *mut Self as *mut TensorRank3<D, Reference, Reference, Reference>) }
+    fn canonical_mut(&mut self) -> &mut TensorRank3<D, Reference, Reference, Reference, U> {
+        unsafe {
+            &mut *(self as *mut Self as *mut TensorRank3<D, Reference, Reference, Reference, U>)
+        }
     }
-    fn into_canonical(self) -> TensorRank3<D, Reference, Reference, Reference> {
+    fn into_canonical(self) -> TensorRank3<D, Reference, Reference, Reference, U> {
         unsafe {
             (&self as *const Self)
-                .cast::<TensorRank3<D, Reference, Reference, Reference>>()
+                .cast::<TensorRank3<D, Reference, Reference, Reference, U>>()
                 .read()
         }
     }
 }
 
-fn relabel<const D: usize, I, J, K>(
-    tensor: TensorRank3<D, Reference, Reference, Reference>,
-) -> TensorRank3<D, I, J, K> {
+fn relabel<const D: usize, I, J, K, U>(
+    tensor: TensorRank3<D, Reference, Reference, Reference, U>,
+) -> TensorRank3<D, I, J, K, U> {
     unsafe {
-        (&tensor as *const TensorRank3<D, Reference, Reference, Reference>)
-            .cast::<TensorRank3<D, I, J, K>>()
+        (&tensor as *const TensorRank3<D, Reference, Reference, Reference, U>)
+            .cast::<TensorRank3<D, I, J, K, U>>()
             .read()
     }
 }
 
-impl<const D: usize> TensorRank3<D, Reference, Reference, Reference> {
+impl<const D: usize, U> TensorRank3<D, Reference, Reference, Reference, U> {
     fn as_array_core(&self) -> [[[TensorRank0; D]; D]; D] {
         let mut array = [[[0.0; D]; D]; D];
         array
@@ -119,23 +124,23 @@ impl<const D: usize> TensorRank3<D, Reference, Reference, Reference> {
     }
 }
 
-impl<const D: usize, I, J, K> Default for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> Default for TensorRank3<D, I, J, K, U> {
     fn default() -> Self {
         Self::zero()
     }
 }
 
-impl<const D: usize, I, J, K> From<[[[TensorRank0; D]; D]; D]> for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> From<[[[TensorRank0; D]; D]; D]> for TensorRank3<D, I, J, K, U> {
     fn from(array: [[[TensorRank0; D]; D]; D]) -> Self {
         array.into_iter().map(|entry| entry.into()).collect()
     }
 }
 
 /// The 3D Levi-Civita permutation tensor, configurations (1, 1, 1).
-pub const LEVI_CIVITA: TensorRank3<3, Current, Current, Current> =
+pub const LEVI_CIVITA: TensorRank3<3, Current, Current, Current, Dimensionless> =
     TensorRank3(get_levi_civita_parts(), PhantomData);
 
-pub(crate) const fn get_identity_1010_parts<I, J, K>() -> [TensorRank3<3, I, J, K>; 3] {
+pub(crate) const fn get_identity_1010_parts<I, J, K, U>() -> [TensorRank3<3, I, J, K, U>; 3] {
     [
         TensorRank3(get_identity_1010_parts_1(), PhantomData),
         TensorRank3(get_identity_1010_parts_2(), PhantomData),
@@ -143,7 +148,7 @@ pub(crate) const fn get_identity_1010_parts<I, J, K>() -> [TensorRank3<3, I, J, 
     ]
 }
 
-impl<const D: usize, I, J, K> Display for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> Display for TensorRank3<D, I, J, K, U> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "[")?;
         self.iter()
@@ -153,7 +158,7 @@ impl<const D: usize, I, J, K> Display for TensorRank3<D, I, J, K> {
     }
 }
 
-impl<const D: usize, I, J, K> FiniteDifference for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> FiniteDifference for TensorRank3<D, I, J, K, U> {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()
@@ -184,8 +189,8 @@ impl<const D: usize, I, J, K> FiniteDifference for TensorRank3<D, I, J, K> {
     }
 }
 
-impl<const D: usize, I, J, K> Tensor for TensorRank3<D, I, J, K> {
-    type Item = TensorRank2<D, J, K>;
+impl<const D: usize, I, J, K, U> Tensor for TensorRank3<D, I, J, K, U> {
+    type Item = TensorRank2<D, J, K, U>;
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }
@@ -200,17 +205,17 @@ impl<const D: usize, I, J, K> Tensor for TensorRank3<D, I, J, K> {
     }
 }
 
-impl<const D: usize, I, J, K> IntoIterator for TensorRank3<D, I, J, K> {
-    type Item = TensorRank2<D, J, K>;
+impl<const D: usize, I, J, K, U> IntoIterator for TensorRank3<D, I, J, K, U> {
+    type Item = TensorRank2<D, J, K, U>;
     type IntoIter = std::array::IntoIter<Self::Item, D>;
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
     }
 }
 
-impl<const D: usize, I, J, K> TensorArray for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> TensorArray for TensorRank3<D, I, J, K, U> {
     type Array = [[[TensorRank0; D]; D]; D];
-    type Item = TensorRank2<D, J, K>;
+    type Item = TensorRank2<D, J, K, U>;
     fn as_array(&self) -> Self::Array {
         self.canonical().as_array_core()
     }
@@ -222,8 +227,10 @@ impl<const D: usize, I, J, K> TensorArray for TensorRank3<D, I, J, K> {
     }
 }
 
-impl<const D: usize, I, J, K> FromIterator<TensorRank2<D, J, K>> for TensorRank3<D, I, J, K> {
-    fn from_iter<Ii: IntoIterator<Item = TensorRank2<D, J, K>>>(into_iterator: Ii) -> Self {
+impl<const D: usize, I, J, K, U> FromIterator<TensorRank2<D, J, K, U>>
+    for TensorRank3<D, I, J, K, U>
+{
+    fn from_iter<Ii: IntoIterator<Item = TensorRank2<D, J, K, U>>>(into_iterator: Ii) -> Self {
         let mut tensor_rank_3 = Self::zero();
         tensor_rank_3
             .iter_mut()
@@ -233,20 +240,20 @@ impl<const D: usize, I, J, K> FromIterator<TensorRank2<D, J, K>> for TensorRank3
     }
 }
 
-impl<const D: usize, I, J, K> Index<usize> for TensorRank3<D, I, J, K> {
-    type Output = TensorRank2<D, J, K>;
+impl<const D: usize, I, J, K, U> Index<usize> for TensorRank3<D, I, J, K, U> {
+    type Output = TensorRank2<D, J, K, U>;
     fn index(&self, index: usize) -> &Self::Output {
         &self.0[index]
     }
 }
 
-impl<const D: usize, I, J, K> IndexMut<usize> for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> IndexMut<usize> for TensorRank3<D, I, J, K, U> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.0[index]
     }
 }
 
-impl<const D: usize, I, J, K> Sum for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> Sum for TensorRank3<D, I, J, K, U> {
     fn sum<Ii>(iter: Ii) -> Self
     where
         Ii: Iterator<Item = Self>,
@@ -259,7 +266,7 @@ impl<const D: usize, I, J, K> Sum for TensorRank3<D, I, J, K> {
     }
 }
 
-impl<'a, const D: usize, I, J, K> Sum<&'a Self> for TensorRank3<D, I, J, K> {
+impl<'a, const D: usize, I, J, K, U> Sum<&'a Self> for TensorRank3<D, I, J, K, U> {
     fn sum<Ii>(iter: Ii) -> Self
     where
         Ii: Iterator<Item = &'a Self>,
@@ -271,7 +278,7 @@ impl<'a, const D: usize, I, J, K> Sum<&'a Self> for TensorRank3<D, I, J, K> {
     }
 }
 
-impl<const D: usize, I, J, K> Div<TensorRank0> for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> Div<TensorRank0> for TensorRank3<D, I, J, K, U> {
     type Output = Self;
     fn div(mut self, tensor_rank_0: TensorRank0) -> Self::Output {
         self /= &tensor_rank_0;
@@ -279,14 +286,14 @@ impl<const D: usize, I, J, K> Div<TensorRank0> for TensorRank3<D, I, J, K> {
     }
 }
 
-impl<const D: usize, I, J, K> Div<TensorRank0> for &TensorRank3<D, I, J, K> {
-    type Output = TensorRank3<D, I, J, K>;
+impl<const D: usize, I, J, K, U> Div<TensorRank0> for &TensorRank3<D, I, J, K, U> {
+    type Output = TensorRank3<D, I, J, K, U>;
     fn div(self, tensor_rank_0: TensorRank0) -> Self::Output {
         self.iter().map(|self_i| self_i / tensor_rank_0).collect()
     }
 }
 
-impl<const D: usize, I, J, K> Div<&TensorRank0> for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> Div<&TensorRank0> for TensorRank3<D, I, J, K, U> {
     type Output = Self;
     fn div(mut self, tensor_rank_0: &TensorRank0) -> Self::Output {
         self /= tensor_rank_0;
@@ -294,19 +301,19 @@ impl<const D: usize, I, J, K> Div<&TensorRank0> for TensorRank3<D, I, J, K> {
     }
 }
 
-impl<const D: usize, I, J, K> DivAssign<TensorRank0> for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> DivAssign<TensorRank0> for TensorRank3<D, I, J, K, U> {
     fn div_assign(&mut self, tensor_rank_0: TensorRank0) {
         self.iter_mut().for_each(|self_i| *self_i /= &tensor_rank_0);
     }
 }
 
-impl<const D: usize, I, J, K> DivAssign<&TensorRank0> for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> DivAssign<&TensorRank0> for TensorRank3<D, I, J, K, U> {
     fn div_assign(&mut self, tensor_rank_0: &TensorRank0) {
         self.iter_mut().for_each(|self_i| *self_i /= tensor_rank_0);
     }
 }
 
-impl<const D: usize, I, J, K> Mul<TensorRank0> for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> Mul<TensorRank0> for TensorRank3<D, I, J, K, U> {
     type Output = Self;
     fn mul(mut self, tensor_rank_0: TensorRank0) -> Self::Output {
         self *= &tensor_rank_0;
@@ -314,7 +321,7 @@ impl<const D: usize, I, J, K> Mul<TensorRank0> for TensorRank3<D, I, J, K> {
     }
 }
 
-impl<const D: usize, I, J, K> Mul<&TensorRank0> for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> Mul<&TensorRank0> for TensorRank3<D, I, J, K, U> {
     type Output = Self;
     fn mul(mut self, tensor_rank_0: &TensorRank0) -> Self::Output {
         self *= tensor_rank_0;
@@ -322,33 +329,33 @@ impl<const D: usize, I, J, K> Mul<&TensorRank0> for TensorRank3<D, I, J, K> {
     }
 }
 
-impl<const D: usize, I, J, K> Mul<TensorRank0> for &TensorRank3<D, I, J, K> {
-    type Output = TensorRank3<D, I, J, K>;
+impl<const D: usize, I, J, K, U> Mul<TensorRank0> for &TensorRank3<D, I, J, K, U> {
+    type Output = TensorRank3<D, I, J, K, U>;
     fn mul(self, tensor_rank_0: TensorRank0) -> Self::Output {
         self.iter().map(|self_i| self_i * tensor_rank_0).collect()
     }
 }
 
-impl<const D: usize, I, J, K> Mul<&TensorRank0> for &TensorRank3<D, I, J, K> {
-    type Output = TensorRank3<D, I, J, K>;
+impl<const D: usize, I, J, K, U> Mul<&TensorRank0> for &TensorRank3<D, I, J, K, U> {
+    type Output = TensorRank3<D, I, J, K, U>;
     fn mul(self, tensor_rank_0: &TensorRank0) -> Self::Output {
         self.iter().map(|self_i| self_i * tensor_rank_0).collect()
     }
 }
 
-impl<const D: usize, I, J, K> MulAssign<TensorRank0> for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> MulAssign<TensorRank0> for TensorRank3<D, I, J, K, U> {
     fn mul_assign(&mut self, tensor_rank_0: TensorRank0) {
         self.iter_mut().for_each(|self_i| *self_i *= &tensor_rank_0);
     }
 }
 
-impl<const D: usize, I, J, K> MulAssign<&TensorRank0> for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> MulAssign<&TensorRank0> for TensorRank3<D, I, J, K, U> {
     fn mul_assign(&mut self, tensor_rank_0: &TensorRank0) {
         self.iter_mut().for_each(|self_i| *self_i *= tensor_rank_0);
     }
 }
 
-impl<const D: usize, I, J, K> Add for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> Add for TensorRank3<D, I, J, K, U> {
     type Output = Self;
     fn add(mut self, tensor_rank_3: Self) -> Self::Output {
         self += tensor_rank_3;
@@ -356,7 +363,7 @@ impl<const D: usize, I, J, K> Add for TensorRank3<D, I, J, K> {
     }
 }
 
-impl<const D: usize, I, J, K> Add<&Self> for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> Add<&Self> for TensorRank3<D, I, J, K, U> {
     type Output = Self;
     fn add(mut self, tensor_rank_3: &Self) -> Self::Output {
         self += tensor_rank_3;
@@ -364,29 +371,29 @@ impl<const D: usize, I, J, K> Add<&Self> for TensorRank3<D, I, J, K> {
     }
 }
 
-impl<const D: usize, I, J, K> Add<TensorRank3<D, I, J, K>> for &TensorRank3<D, I, J, K> {
-    type Output = TensorRank3<D, I, J, K>;
-    fn add(self, mut tensor_rank_3: TensorRank3<D, I, J, K>) -> Self::Output {
+impl<const D: usize, I, J, K, U> Add<TensorRank3<D, I, J, K, U>> for &TensorRank3<D, I, J, K, U> {
+    type Output = TensorRank3<D, I, J, K, U>;
+    fn add(self, mut tensor_rank_3: TensorRank3<D, I, J, K, U>) -> Self::Output {
         tensor_rank_3 += self;
         tensor_rank_3
     }
 }
 
-impl<const D: usize, I, J, K> AddAssign for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> AddAssign for TensorRank3<D, I, J, K, U> {
     fn add_assign(&mut self, tensor_rank_3: Self) {
         self.canonical_mut()
             .add_assign_core(tensor_rank_3.into_canonical());
     }
 }
 
-impl<const D: usize, I, J, K> AddAssign<&Self> for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> AddAssign<&Self> for TensorRank3<D, I, J, K, U> {
     fn add_assign(&mut self, tensor_rank_3: &Self) {
         self.canonical_mut()
             .add_assign_ref_core(tensor_rank_3.canonical());
     }
 }
 
-impl<const D: usize, I, J, K> Sub for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> Sub for TensorRank3<D, I, J, K, U> {
     type Output = Self;
     fn sub(mut self, tensor_rank_3: Self) -> Self::Output {
         self -= tensor_rank_3;
@@ -394,7 +401,7 @@ impl<const D: usize, I, J, K> Sub for TensorRank3<D, I, J, K> {
     }
 }
 
-impl<const D: usize, I, J, K> Sub<&Self> for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> Sub<&Self> for TensorRank3<D, I, J, K, U> {
     type Output = Self;
     fn sub(mut self, tensor_rank_3: &Self) -> Self::Output {
         self -= tensor_rank_3;
@@ -402,8 +409,8 @@ impl<const D: usize, I, J, K> Sub<&Self> for TensorRank3<D, I, J, K> {
     }
 }
 
-impl<const D: usize, I, J, K> Sub for &TensorRank3<D, I, J, K> {
-    type Output = TensorRank3<D, I, J, K>;
+impl<const D: usize, I, J, K, U> Sub for &TensorRank3<D, I, J, K, U> {
+    type Output = TensorRank3<D, I, J, K, U>;
     fn sub(self, tensor_rank_3: Self) -> Self::Output {
         tensor_rank_3
             .iter()
@@ -413,14 +420,14 @@ impl<const D: usize, I, J, K> Sub for &TensorRank3<D, I, J, K> {
     }
 }
 
-impl<const D: usize, I, J, K> SubAssign for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> SubAssign for TensorRank3<D, I, J, K, U> {
     fn sub_assign(&mut self, tensor_rank_3: Self) {
         self.canonical_mut()
             .sub_assign_core(tensor_rank_3.into_canonical());
     }
 }
 
-impl<const D: usize, I, J, K> SubAssign<&Self> for TensorRank3<D, I, J, K> {
+impl<const D: usize, I, J, K, U> SubAssign<&Self> for TensorRank3<D, I, J, K, U> {
     fn sub_assign(&mut self, tensor_rank_3: &Self) {
         self.canonical_mut()
             .sub_assign_ref_core(tensor_rank_3.canonical());
