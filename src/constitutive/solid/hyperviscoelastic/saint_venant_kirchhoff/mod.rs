@@ -1,3 +1,4 @@
+use crate::math::TensorRank4;
 #[cfg(test)]
 mod test;
 
@@ -105,17 +106,18 @@ impl Viscoelastic for SaintVenantKirchhoff {
     ) -> Result<SecondPiolaKirchhoffRateTangentStiffness, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let scaled_deformation_gradient_transpose =
-            deformation_gradient.transpose() * self.shear_viscosity();
-        Ok(SecondPiolaKirchhoffRateTangentStiffness::dyad_ik_jl(
-            &scaled_deformation_gradient_transpose,
-            &IDENTITY_00,
-        ) + SecondPiolaKirchhoffRateTangentStiffness::dyad_il_jk(
-            &IDENTITY_00,
-            &scaled_deformation_gradient_transpose,
-        ) + SecondPiolaKirchhoffRateTangentStiffness::dyad_ij_kl(
-            &(IDENTITY_00 * (self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity())),
-            deformation_gradient,
-        ))
+            deformation_gradient.transpose() * Quantity::<Viscosity>::new(self.shear_viscosity());
+        Ok(
+            (TensorRank4::dyad_ik_jl(&scaled_deformation_gradient_transpose, &IDENTITY_00)
+                + TensorRank4::dyad_il_jk(&IDENTITY_00, &scaled_deformation_gradient_transpose)
+                + TensorRank4::dyad_ij_kl(
+                    &(IDENTITY_00
+                        * (Quantity::<Viscosity>::new(self.bulk_viscosity())
+                            - TWO_THIRDS * Quantity::<Viscosity>::new(self.shear_viscosity()))),
+                    deformation_gradient,
+                ))
+            .with_unit::<Dimensionless>(),
+        )
     }
 }
 

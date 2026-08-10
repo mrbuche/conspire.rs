@@ -18,8 +18,8 @@ pub use configuration::{
 pub use norm::Norm;
 pub use quantity::Quantity;
 pub use unit::{
-    Dimensionless, Length, Rate, ReciprocalLength, ReciprocalViscosity, Stress, Temperature, Unit,
-    UnitDiv, UnitInv, UnitMul, Viscosity,
+    Dimensionless, Length, Rate, ReciprocalLength, ReciprocalTemperature, ReciprocalViscosity,
+    Stress, StressPerTemperature, Temperature, Unit, UnitDiv, UnitInv, UnitMul, Viscosity,
 };
 
 use super::{SquareMatrix, Vector};

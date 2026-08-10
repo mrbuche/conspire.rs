@@ -1,3 +1,6 @@
+use crate::math::{
+    Dimensionless, Quantity, ReciprocalTemperature, Stress, Temperature, TensorRank4,
+};
 #[cfg(test)]
 mod test;
 
@@ -58,13 +61,21 @@ impl Thermoelastic for AlmansiHamel {
             - inverse_deformation_gradient.transpose() * &inverse_deformation_gradient)
             * 0.5;
         let (deviatoric_strain, strain_trace) = strain.deviatoric_and_trace();
-        Ok(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
-            + IDENTITY
-                * (self.bulk_modulus() / jacobian
-                    * (strain_trace
-                        - 3.0
-                            * self.coefficient_of_thermal_expansion()
-                            * (temperature - self.reference_temperature()))))
+        Ok(
+            (deviatoric_strain * (2.0 * Quantity::<Stress>::new(self.shear_modulus()) / jacobian)
+                + IDENTITY
+                    * (Quantity::<Stress>::new(self.bulk_modulus()) / jacobian
+                        * (strain_trace
+                            - 3.0
+                                * Quantity::<ReciprocalTemperature>::new(
+                                    self.coefficient_of_thermal_expansion(),
+                                )
+                                * (Quantity::<Temperature>::new(temperature)
+                                    - Quantity::<Temperature>::new(
+                                        self.reference_temperature(),
+                                    )))))
+            .with_unit::<Dimensionless>(),
+        )
     }
     /// Calculates and returns the tangent stiffness associated with the Cauchy stress.
     ///
@@ -82,29 +93,38 @@ impl Thermoelastic for AlmansiHamel {
             * inverse_transpose_deformation_gradient.transpose();
         let strain = (IDENTITY - &inverse_left_cauchy_green_deformation) * 0.5;
         let (deviatoric_strain, strain_trace) = strain.deviatoric_and_trace();
-        Ok((CauchyTangentStiffness::dyad_il_jk(
+        Ok(((TensorRank4::dyad_il_jk(
             &inverse_transpose_deformation_gradient,
             &inverse_left_cauchy_green_deformation,
-        ) + CauchyTangentStiffness::dyad_ik_jl(
+        ) + TensorRank4::dyad_ik_jl(
             &inverse_left_cauchy_green_deformation,
             &inverse_transpose_deformation_gradient,
-        )) * (self.shear_modulus() / jacobian)
-            + CauchyTangentStiffness::dyad_ij_kl(
+        )) * (Quantity::<Stress>::new(self.shear_modulus()) / jacobian)
+            + TensorRank4::dyad_ij_kl(
                 &IDENTITY,
                 &(inverse_left_cauchy_green_deformation
                     * &inverse_transpose_deformation_gradient
-                    * ((self.bulk_modulus() - self.shear_modulus() * TWO_THIRDS) / jacobian)),
+                    * ((Quantity::<Stress>::new(self.bulk_modulus())
+                        - Quantity::<Stress>::new(self.shear_modulus()) * TWO_THIRDS)
+                        / jacobian)),
             )
-            - CauchyTangentStiffness::dyad_ij_kl(
-                &(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
+            - TensorRank4::dyad_ij_kl(
+                &(deviatoric_strain
+                    * (2.0 * Quantity::<Stress>::new(self.shear_modulus()) / jacobian)
                     + IDENTITY
-                        * (self.bulk_modulus() / jacobian
+                        * (Quantity::<Stress>::new(self.bulk_modulus()) / jacobian
                             * (strain_trace
                                 - 3.0
-                                    * self.coefficient_of_thermal_expansion()
-                                    * (temperature - self.reference_temperature())))),
+                                    * Quantity::<ReciprocalTemperature>::new(
+                                        self.coefficient_of_thermal_expansion(),
+                                    )
+                                    * (Quantity::<Temperature>::new(temperature)
+                                        - Quantity::<Temperature>::new(
+                                            self.reference_temperature(),
+                                        ))))),
                 &inverse_transpose_deformation_gradient,
             ))
+        .with_unit::<Dimensionless>())
     }
     fn coefficient_of_thermal_expansion(&self) -> Scalar {
         self.coefficient_of_thermal_expansion

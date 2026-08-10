@@ -1,3 +1,4 @@
+use crate::math::TensorRank4;
 #[cfg(test)]
 mod test;
 
@@ -108,19 +109,24 @@ impl Viscoelastic for AlmansiHamel {
     ) -> Result<CauchyRateTangentStiffness, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         let deformation_gradient_inverse_transpose = deformation_gradient.inverse_transpose();
-        let scaled_deformation_gradient_inverse_transpose =
-            &deformation_gradient_inverse_transpose * self.shear_viscosity() / jacobian;
-        Ok(CauchyRateTangentStiffness::dyad_ik_jl(
-            &IDENTITY,
-            &scaled_deformation_gradient_inverse_transpose,
-        ) + CauchyRateTangentStiffness::dyad_il_jk(
-            &scaled_deformation_gradient_inverse_transpose,
-            &IDENTITY,
-        ) + CauchyRateTangentStiffness::dyad_ij_kl(
-            &(IDENTITY
-                * ((self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity()) / jacobian)),
-            &deformation_gradient_inverse_transpose,
-        ))
+        let scaled_deformation_gradient_inverse_transpose = &deformation_gradient_inverse_transpose
+            * Quantity::<Viscosity>::new(self.shear_viscosity())
+            / jacobian;
+        Ok(
+            (TensorRank4::dyad_ik_jl(&IDENTITY, &scaled_deformation_gradient_inverse_transpose)
+                + TensorRank4::dyad_il_jk(
+                    &scaled_deformation_gradient_inverse_transpose,
+                    &IDENTITY,
+                )
+                + TensorRank4::dyad_ij_kl(
+                    &(IDENTITY
+                        * ((Quantity::<Viscosity>::new(self.bulk_viscosity())
+                            - TWO_THIRDS * Quantity::<Viscosity>::new(self.shear_viscosity()))
+                            / jacobian)),
+                    &deformation_gradient_inverse_transpose,
+                ))
+            .with_unit::<Dimensionless>(),
+        )
     }
 }
 

@@ -63,6 +63,10 @@ units!(
     ReciprocalViscosity,
     /// A temperature.
     Temperature,
+    /// A reciprocal temperature, as a coefficient of thermal expansion is.
+    ReciprocalTemperature,
+    /// A stress per unit temperature, as a thermal stress coefficient is.
+    StressPerTemperature,
 );
 
 macro_rules! unit_products {
@@ -93,6 +97,12 @@ unit_products!(
     ReciprocalViscosity * Stress = Rate,
     Rate * Viscosity = Stress,
     Length * ReciprocalLength = Dimensionless,
+    Dimensionless * ReciprocalTemperature = ReciprocalTemperature,
+    Temperature * ReciprocalTemperature = Dimensionless,
+    Dimensionless * StressPerTemperature = StressPerTemperature,
+    Stress * ReciprocalTemperature = StressPerTemperature,
+    StressPerTemperature * Temperature = Stress,
+    ReciprocalTemperature * Temperature = Dimensionless,
     ReciprocalLength * Length = Dimensionless,
 );
 
@@ -110,6 +120,8 @@ unit_inverses!(
     Dimensionless => Dimensionless,
     Length => ReciprocalLength,
     ReciprocalLength => Length,
+    Temperature => ReciprocalTemperature,
+    ReciprocalTemperature => Temperature,
     Viscosity => ReciprocalViscosity,
     ReciprocalViscosity => Viscosity,
 );
