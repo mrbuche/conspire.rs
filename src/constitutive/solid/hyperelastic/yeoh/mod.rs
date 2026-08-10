@@ -7,7 +7,7 @@ use crate::{
         ConstitutiveError,
         solid::{FIVE_THIRDS, Solid, TWO_THIRDS, elastic::Elastic, hyperelastic::Hyperelastic},
     },
-    math::{IDENTITY, Rank2},
+    math::{IDENTITY, Rank2, TensorRank4},
     mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient, Scalar},
 };
 use std::iter::once;
@@ -80,45 +80,50 @@ impl<const N: usize> Elastic for Yeoh<N> {
         let inverse_transpose_deformation_gradient = deformation_gradient.inverse_transpose();
         let left_cauchy_green_deformation = deformation_gradient.left_cauchy_green();
         let scalar_term = left_cauchy_green_deformation.trace() / jacobian.powf(TWO_THIRDS) - 3.0;
-        let scaled_modulus = once(&self.shear_modulus())
-            .chain(self.extra_moduli().iter())
+        let scaled_modulus = once(self.shear_modulus())
+            .chain(self.extra_moduli().iter().copied())
             .enumerate()
-            .map(|(n, modulus)| ((n as Scalar) + 1.0) * modulus * scalar_term.powi(n as i32))
-            .sum::<Scalar>()
+            .map(|(n, modulus)| {
+                Quantity::<Stress>::new(
+                    ((n as Scalar) + 1.0) * modulus * scalar_term.powi(n as i32),
+                )
+            })
+            .sum::<Quantity<Stress>>()
             / jacobian.powf(FIVE_THIRDS);
         let deviatoric_left_cauchy_green_deformation = left_cauchy_green_deformation.deviatoric();
-        let last_term = CauchyTangentStiffness::dyad_ij_kl(
+        let last_term = TensorRank4::dyad_ij_kl(
             &deviatoric_left_cauchy_green_deformation,
             &((left_cauchy_green_deformation.deviatoric()
                 * &inverse_transpose_deformation_gradient)
-                * (2.0
-                    * self
-                        .extra_moduli()
-                        .iter()
-                        .enumerate()
-                        .map(|(n, modulus)| {
-                            ((n as Scalar) + 2.0)
+                * (self
+                    .extra_moduli()
+                    .iter()
+                    .enumerate()
+                    .map(|(n, modulus)| {
+                        Quantity::<Stress>::new(
+                            2.0 * ((n as Scalar) + 2.0)
                                 * ((n as Scalar) + 1.0)
                                 * modulus
-                                * scalar_term.powi(n as i32)
-                        })
-                        .sum::<Scalar>()
+                                * scalar_term.powi(n as i32),
+                        )
+                    })
+                    .sum::<Quantity<Stress>>()
                     / jacobian.powf(SEVEN_THIRDS))),
         );
-        Ok(
-            (CauchyTangentStiffness::dyad_ik_jl(&IDENTITY, deformation_gradient)
-                + CauchyTangentStiffness::dyad_il_jk(deformation_gradient, &IDENTITY)
-                - CauchyTangentStiffness::dyad_ij_kl(&IDENTITY, deformation_gradient)
-                    * (TWO_THIRDS))
-                * scaled_modulus
-                + CauchyTangentStiffness::dyad_ij_kl(
-                    &(IDENTITY * (0.5 * self.bulk_modulus() * (jacobian + 1.0 / jacobian))
-                        - deviatoric_left_cauchy_green_deformation
-                            * (scaled_modulus * FIVE_THIRDS)),
-                    &inverse_transpose_deformation_gradient,
-                )
-                + last_term,
-        )
+        Ok(((TensorRank4::dyad_ik_jl(&IDENTITY, deformation_gradient)
+            + TensorRank4::dyad_il_jk(deformation_gradient, &IDENTITY)
+            - TensorRank4::dyad_ij_kl(&IDENTITY, deformation_gradient) * (TWO_THIRDS))
+            * scaled_modulus
+            + TensorRank4::dyad_ij_kl(
+                &(IDENTITY
+                    * (Quantity::<Stress>::new(self.bulk_modulus())
+                        * 0.5
+                        * (jacobian + 1.0 / jacobian))
+                    - deviatoric_left_cauchy_green_deformation * (scaled_modulus * FIVE_THIRDS)),
+                &inverse_transpose_deformation_gradient,
+            )
+            + last_term)
+            .with_unit::<Dimensionless>())
     }
 }
 
