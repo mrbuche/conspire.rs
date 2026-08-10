@@ -90,7 +90,6 @@ impl Viscoelastic for AlmansiHamel {
         let strain_rate =
             ((&velocity_gradient + velocity_gradient.transpose()) * 0.5).with_unit::<Rate>();
         let (deviatoric_strain_rate, strain_rate_trace) = strain_rate.deviatoric_and_trace();
-        let strain_rate_trace = Quantity::<Rate>::new(strain_rate_trace);
         Ok((deviatoric_strain * (2.0 * shear_modulus / jacobian)
             + deviatoric_strain_rate * (2.0 * shear_viscosity / jacobian)
             + IDENTITY

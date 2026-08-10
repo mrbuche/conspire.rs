@@ -415,7 +415,7 @@ fn deviatoric_dim_9() -> Result<(), AssertionError> {
 fn deviatoric_and_trace_dim_2() -> Result<(), AssertionError> {
     let tensor_rank_2 = get_tensor_rank_2_dim_2();
     let (deviatoric, trace) = tensor_rank_2.deviatoric_and_trace();
-    Assert::eq(tensor_rank_2.trace(), &trace)?;
+    Assert::eq(tensor_rank_2.trace(), &trace.value())?;
     Assert::eq(tensor_rank_2.deviatoric(), &deviatoric)
 }
 
@@ -423,7 +423,7 @@ fn deviatoric_and_trace_dim_2() -> Result<(), AssertionError> {
 fn deviatoric_and_trace_dim_3() -> Result<(), AssertionError> {
     let tensor_rank_2 = get_tensor_rank_2_dim_3();
     let (deviatoric, trace) = tensor_rank_2.deviatoric_and_trace();
-    Assert::eq(tensor_rank_2.trace(), &trace)?;
+    Assert::eq(tensor_rank_2.trace(), &trace.value())?;
     Assert::eq(tensor_rank_2.deviatoric(), &deviatoric)
 }
 
@@ -431,7 +431,7 @@ fn deviatoric_and_trace_dim_3() -> Result<(), AssertionError> {
 fn deviatoric_and_trace_dim_4() -> Result<(), AssertionError> {
     let tensor_rank_2 = get_tensor_rank_2_dim_4();
     let (deviatoric, trace) = tensor_rank_2.deviatoric_and_trace();
-    Assert::eq(tensor_rank_2.trace(), &trace)?;
+    Assert::eq(tensor_rank_2.trace(), &trace.value())?;
     Assert::eq(tensor_rank_2.deviatoric(), &deviatoric)
 }
 
@@ -439,7 +439,7 @@ fn deviatoric_and_trace_dim_4() -> Result<(), AssertionError> {
 fn deviatoric_and_trace_dim_9() -> Result<(), AssertionError> {
     let tensor_rank_2 = get_tensor_rank_2_dim_9();
     let (deviatoric, trace) = tensor_rank_2.deviatoric_and_trace();
-    Assert::eq(tensor_rank_2.trace(), &trace)?;
+    Assert::eq(tensor_rank_2.trace(), &trace.value())?;
     Assert::eq(tensor_rank_2.deviatoric(), &deviatoric)
 }
 

@@ -1,6 +1,7 @@
 use crate::math::Dimensionless;
 use crate::math::UnitMul;
 use crate::math::{Current, Intermediate, Reference};
+use crate::math::{Quantity, UnitDiv};
 #[cfg(test)]
 mod test;
 
@@ -84,40 +85,45 @@ impl<const D: usize, I, J, K, L, U> PartialEq for TensorRank4<D, I, J, K, L, U> 
 impl<const D: usize, I, J, K, L, U> TensorRank4<D, I, J, K, L, U> {
     /// Views the tensor with its configurations discarded, so that arithmetic is
     /// compiled once per dimension rather than once per configuration.
-    fn canonical(&self) -> &TensorRank4<D, Reference, Reference, Reference, Reference, U> {
+    fn canonical(
+        &self,
+    ) -> &TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless> {
         unsafe {
             &*(self as *const Self
-                as *const TensorRank4<D, Reference, Reference, Reference, Reference, U>)
+                as *const TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>)
         }
     }
     fn canonical_mut(
         &mut self,
-    ) -> &mut TensorRank4<D, Reference, Reference, Reference, Reference, U> {
+    ) -> &mut TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless> {
         unsafe {
             &mut *(self as *mut Self
-                as *mut TensorRank4<D, Reference, Reference, Reference, Reference, U>)
+                as *mut TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>)
         }
     }
-    fn into_canonical(self) -> TensorRank4<D, Reference, Reference, Reference, Reference, U> {
+    fn into_canonical(
+        self,
+    ) -> TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless> {
         unsafe {
             (&self as *const Self)
-                .cast::<TensorRank4<D, Reference, Reference, Reference, Reference, U>>()
+                .cast::<TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>>()
                 .read()
         }
     }
 }
 
 fn relabel<const D: usize, I, J, K, L, U>(
-    tensor: TensorRank4<D, Reference, Reference, Reference, Reference, U>,
+    tensor: TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>,
 ) -> TensorRank4<D, I, J, K, L, U> {
     unsafe {
-        (&tensor as *const TensorRank4<D, Reference, Reference, Reference, Reference, U>)
+        (&tensor
+            as *const TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>)
             .cast::<TensorRank4<D, I, J, K, L, U>>()
             .read()
     }
 }
 
-impl<const D: usize, U> TensorRank4<D, Reference, Reference, Reference, Reference, U> {
+impl<const D: usize> TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless> {
     fn as_array_core(&self) -> [[[[TensorRank0; D]; D]; D]; D] {
         let mut array = [[[[0.0; D]; D]; D]; D];
         array
@@ -518,7 +524,14 @@ impl<const D: usize, I, J, K, L, U> TensorArray for TensorRank4<D, I, J, K, L, U
         Self::dyad_ij_kl(&TensorRank2::identity(), &TensorRank2::identity())
     }
     fn zero() -> Self {
-        relabel(TensorRank4::zero_core())
+        relabel(TensorRank4::<
+            D,
+            Reference,
+            Reference,
+            Reference,
+            Reference,
+            Dimensionless,
+        >::zero_core())
     }
 }
 
@@ -1126,5 +1139,27 @@ impl<const D: usize, I, J, K, L, U> SubAssign<&Self> for TensorRank4<D, I, J, K,
     fn sub_assign(&mut self, tensor_rank_4: &Self) {
         self.canonical_mut()
             .sub_assign_ref_core(tensor_rank_4.canonical());
+    }
+}
+
+// A quantity carries its unit into the tensor it scales.
+
+impl<const D: usize, I, J, K, L, U, V> Mul<Quantity<V>> for TensorRank4<D, I, J, K, L, U>
+where
+    U: UnitMul<V>,
+{
+    type Output = TensorRank4<D, I, J, K, L, <U as UnitMul<V>>::Output>;
+    fn mul(self, quantity: Quantity<V>) -> Self::Output {
+        relabel(self.into_canonical() * quantity.value())
+    }
+}
+
+impl<const D: usize, I, J, K, L, U, V> Div<Quantity<V>> for TensorRank4<D, I, J, K, L, U>
+where
+    U: UnitDiv<V>,
+{
+    type Output = TensorRank4<D, I, J, K, L, <U as UnitDiv<V>>::Output>;
+    fn div(self, quantity: Quantity<V>) -> Self::Output {
+        relabel(self.into_canonical() / quantity.value())
     }
 }

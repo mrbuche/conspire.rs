@@ -51,7 +51,8 @@ impl<const N: usize> Elastic for Yeoh<N> {
             deformation_gradient
                 .left_cauchy_green()
                 .deviatoric_and_trace();
-        let scalar_term = left_cauchy_green_deformation_trace / jacobian.powf(TWO_THIRDS) - 3.0;
+        let scalar_term =
+            (left_cauchy_green_deformation_trace / jacobian.powf(TWO_THIRDS) - 3.0).value();
         Ok(deviatoric_left_cauchy_green_deformation
             * once(&self.shear_modulus())
                 .chain(self.extra_moduli().iter())

@@ -123,8 +123,9 @@ where
             isochoric_left_cauchy_green_deformation_trace,
         ) = (deformation_gradient.left_cauchy_green() / jacobian.powf(TWO_THIRDS))
             .deviatoric_and_trace();
-        let gamma =
-            (isochoric_left_cauchy_green_deformation_trace / 3.0 / self.number_of_links()).sqrt();
+        let gamma = (isochoric_left_cauchy_green_deformation_trace / 3.0 / self.number_of_links())
+            .sqrt()
+            .value();
         let gamma_0 = (1.0 / self.number_of_links()).sqrt();
         Ok(deviatoric_isochoric_left_cauchy_green_deformation
             * (self.shear_modulus() * self.nondimensional_force(gamma)?
@@ -147,8 +148,9 @@ where
             deviatoric_isochoric_left_cauchy_green_deformation,
             isochoric_left_cauchy_green_deformation_trace,
         ) = (left_cauchy_green_deformation / jacobian.powf(TWO_THIRDS)).deviatoric_and_trace();
-        let gamma =
-            (isochoric_left_cauchy_green_deformation_trace / 3.0 / self.number_of_links()).sqrt();
+        let gamma = (isochoric_left_cauchy_green_deformation_trace / 3.0 / self.number_of_links())
+            .sqrt()
+            .value();
         let gamma_0 = (1.0 / self.number_of_links()).sqrt();
         let eta = self.nondimensional_force(gamma)?;
         let scaled_shear_modulus =

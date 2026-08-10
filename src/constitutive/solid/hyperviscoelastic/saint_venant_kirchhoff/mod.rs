@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::{Dimensionless, Quantity, Rate, Stress, Viscosity};
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -81,11 +82,16 @@ impl Viscoelastic for SaintVenantKirchhoff {
                 .deviatoric_and_trace();
         let first_term = deformation_gradient_rate.transpose() * deformation_gradient;
         let (deviatoric_strain_rate, strain_rate_trace) =
-            ((&first_term + first_term.transpose()) * 0.5).deviatoric_and_trace();
-        Ok(deviatoric_strain * (2.0 * self.shear_modulus())
-            + deviatoric_strain_rate * (2.0 * self.shear_viscosity())
-            + IDENTITY_00
-                * (self.bulk_modulus() * strain_trace + self.bulk_viscosity() * strain_rate_trace))
+            (((&first_term + first_term.transpose()) * 0.5).with_unit::<Rate>())
+                .deviatoric_and_trace();
+        let bulk_modulus = Quantity::<Stress>::new(self.bulk_modulus());
+        let shear_modulus = Quantity::<Stress>::new(self.shear_modulus());
+        let bulk_viscosity = Quantity::<Viscosity>::new(self.bulk_viscosity());
+        let shear_viscosity = Quantity::<Viscosity>::new(self.shear_viscosity());
+        Ok((deviatoric_strain * (2.0 * shear_modulus)
+            + deviatoric_strain_rate * (2.0 * shear_viscosity)
+            + IDENTITY_00 * (bulk_modulus * strain_trace + bulk_viscosity * strain_rate_trace))
+            .with_unit::<Dimensionless>())
     }
     /// Calculates and returns the rate tangent stiffness associated with the second Piola-Kirchhoff stress.
     ///

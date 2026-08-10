@@ -52,8 +52,9 @@ impl Elastic for ArrudaBoyce {
             isochoric_left_cauchy_green_deformation_trace,
         ) = (deformation_gradient.left_cauchy_green() / jacobian.powf(TWO_THIRDS))
             .deviatoric_and_trace();
-        let gamma =
-            (isochoric_left_cauchy_green_deformation_trace / 3.0 / self.number_of_links()).sqrt();
+        let gamma = (isochoric_left_cauchy_green_deformation_trace / 3.0 / self.number_of_links())
+            .sqrt()
+            .value();
         if gamma >= 1.0 {
             Err(ConstitutiveError::Custom(
                 "Maximum extensibility reached.".to_string(),
@@ -82,8 +83,9 @@ impl Elastic for ArrudaBoyce {
             deviatoric_isochoric_left_cauchy_green_deformation,
             isochoric_left_cauchy_green_deformation_trace,
         ) = (left_cauchy_green_deformation / jacobian.powf(TWO_THIRDS)).deviatoric_and_trace();
-        let gamma =
-            (isochoric_left_cauchy_green_deformation_trace / 3.0 / self.number_of_links()).sqrt();
+        let gamma = (isochoric_left_cauchy_green_deformation_trace / 3.0 / self.number_of_links())
+            .sqrt()
+            .value();
         if gamma >= 1.0 {
             Err(ConstitutiveError::Custom(
                 "Maximum extensibility reached.".to_string(),

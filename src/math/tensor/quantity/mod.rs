@@ -3,7 +3,7 @@ mod test;
 
 use super::{
     rank_0::TensorRank0,
-    unit::{Dimensionless, UnitDiv, UnitMul},
+    unit::{Dimensionless, UnitDiv, UnitInv, UnitMul},
 };
 use std::{
     fmt::{self, Display, Formatter},
@@ -27,6 +27,36 @@ impl<U> Quantity<U> {
     /// Returns the value with its unit discarded.
     pub const fn value(&self) -> TensorRank0 {
         self.0
+    }
+}
+
+impl<U> Quantity<U> {
+    /// Returns the absolute value, which leaves the unit alone.
+    pub fn abs(self) -> Self {
+        Self::new(self.0.abs())
+    }
+}
+
+impl Quantity<Dimensionless> {
+    /// Raises to an integer power.
+    pub fn powi(self, n: i32) -> Self {
+        Self::new(self.0.powi(n))
+    }
+    /// Raises to a power.
+    pub fn powf(self, n: TensorRank0) -> Self {
+        Self::new(self.0.powf(n))
+    }
+    /// Returns the square root.
+    pub fn sqrt(self) -> Self {
+        Self::new(self.0.sqrt())
+    }
+    /// Returns the natural logarithm.
+    pub fn ln(self) -> Self {
+        Self::new(self.0.ln())
+    }
+    /// Returns the exponential.
+    pub fn exp(self) -> Self {
+        Self::new(self.0.exp())
     }
 }
 
@@ -161,5 +191,66 @@ where
     type Output = Quantity<<U as UnitDiv<V>>::Output>;
     fn div(self, quantity: Quantity<V>) -> Self::Output {
         Quantity::new(self.0 / quantity.0)
+    }
+}
+
+// A dimensionless quantity is a number, and mixes with one freely.
+
+impl Add<TensorRank0> for Quantity<Dimensionless> {
+    type Output = Self;
+    fn add(self, tensor_rank_0: TensorRank0) -> Self::Output {
+        Self::new(self.0 + tensor_rank_0)
+    }
+}
+
+impl Add<Quantity<Dimensionless>> for TensorRank0 {
+    type Output = Quantity<Dimensionless>;
+    fn add(self, quantity: Quantity<Dimensionless>) -> Self::Output {
+        Quantity::new(self + quantity.0)
+    }
+}
+
+impl Sub<TensorRank0> for Quantity<Dimensionless> {
+    type Output = Self;
+    fn sub(self, tensor_rank_0: TensorRank0) -> Self::Output {
+        Self::new(self.0 - tensor_rank_0)
+    }
+}
+
+impl Sub<Quantity<Dimensionless>> for TensorRank0 {
+    type Output = Quantity<Dimensionless>;
+    fn sub(self, quantity: Quantity<Dimensionless>) -> Self::Output {
+        Quantity::new(self - quantity.0)
+    }
+}
+
+impl PartialEq<TensorRank0> for Quantity<Dimensionless> {
+    fn eq(&self, tensor_rank_0: &TensorRank0) -> bool {
+        &self.0 == tensor_rank_0
+    }
+}
+
+impl PartialOrd<TensorRank0> for Quantity<Dimensionless> {
+    fn partial_cmp(&self, tensor_rank_0: &TensorRank0) -> Option<std::cmp::Ordering> {
+        self.0.partial_cmp(tensor_rank_0)
+    }
+}
+
+impl<U> Div<Quantity<U>> for TensorRank0
+where
+    U: UnitInv,
+{
+    type Output = Quantity<<U as UnitInv>::Output>;
+    fn div(self, quantity: Quantity<U>) -> Self::Output {
+        Quantity::new(self / quantity.0)
+    }
+}
+
+impl<U> std::iter::Sum for Quantity<U> {
+    fn sum<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = Self>,
+    {
+        Self::new(iter.map(|quantity| quantity.0).sum())
     }
 }

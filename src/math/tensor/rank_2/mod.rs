@@ -381,6 +381,11 @@ impl<const D: usize, I, J, U> FiniteDifference for TensorRank2<D, I, J, U> {
 }
 
 impl<const D: usize, I, J, U> TensorRank2<D, I, J, U> {
+    /// Returns the deviatoric part and the trace, the trace carrying the unit.
+    pub fn deviatoric_and_trace(&self) -> (Self, Quantity<U>) {
+        let (deviatoric, trace) = Rank2::deviatoric_and_trace(self);
+        (deviatoric, Quantity::new(trace))
+    }
     /// Asserts that the tensor carries the given unit.
     ///
     /// The dimensions of a quantity entering or leaving a constitutive law are

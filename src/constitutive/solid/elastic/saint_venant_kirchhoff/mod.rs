@@ -6,7 +6,7 @@ use crate::{
         ConstitutiveError,
         solid::{Solid, TWO_THIRDS, elastic::Elastic},
     },
-    math::{IDENTITY, Rank2},
+    math::IDENTITY,
     mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient, Scalar},
 };
 
