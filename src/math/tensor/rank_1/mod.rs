@@ -33,7 +33,7 @@ use crate::math::assert::FiniteDifference;
 /// `D` is the dimension, `I` is the configuration.
 #[repr(transparent)]
 #[derive(Clone, Debug, PartialEq)]
-pub struct TensorRank1<const D: usize, const I: usize>([TensorRank0; D]);
+pub struct TensorRank1<const D: usize, const I: usize>(pub(super) [TensorRank0; D]);
 
 impl<const D: usize, const I: usize> TensorRank1<D, I> {
     /// Associated function for const type conversion.

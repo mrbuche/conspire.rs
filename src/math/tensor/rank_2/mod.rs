@@ -573,55 +573,75 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
 
 impl From<TensorRank2<3, 0, 0>> for TensorRank2<3, 2, 2> {
     fn from(tensor_rank_2: TensorRank2<3, 0, 0>) -> Self {
-        unsafe { transmute::<TensorRank2<3, 0, 0>, TensorRank2<3, 2, 2>>(tensor_rank_2) }
+        Self(
+            tensor_rank_2
+                .0
+                .map(|tensor_rank_1| TensorRank1(tensor_rank_1.0)),
+        )
     }
 }
 
 impl From<TensorRank2<3, 1, 1>> for TensorRank2<3, 2, 2> {
     fn from(tensor_rank_2: TensorRank2<3, 1, 1>) -> Self {
-        unsafe { transmute::<TensorRank2<3, 1, 1>, TensorRank2<3, 2, 2>>(tensor_rank_2) }
+        Self(
+            tensor_rank_2
+                .0
+                .map(|tensor_rank_1| TensorRank1(tensor_rank_1.0)),
+        )
     }
 }
 
 impl<const I: usize> From<TensorRank2<3, I, 0>> for TensorRank2<3, I, 2> {
     fn from(tensor_rank_2: TensorRank2<3, I, 0>) -> Self {
-        unsafe { transmute::<TensorRank2<3, I, 0>, TensorRank2<3, I, 2>>(tensor_rank_2) }
+        Self(
+            tensor_rank_2
+                .0
+                .map(|tensor_rank_1| TensorRank1(tensor_rank_1.0)),
+        )
     }
 }
 
 impl<const I: usize> From<TensorRank2<3, I, 1>> for TensorRank2<3, I, 0> {
     fn from(tensor_rank_2: TensorRank2<3, I, 1>) -> Self {
-        unsafe { transmute::<TensorRank2<3, I, 1>, TensorRank2<3, I, 0>>(tensor_rank_2) }
+        Self(
+            tensor_rank_2
+                .0
+                .map(|tensor_rank_1| TensorRank1(tensor_rank_1.0)),
+        )
     }
 }
 
 impl<const I: usize> From<TensorRank2<3, I, 2>> for TensorRank2<3, I, 0> {
     fn from(tensor_rank_2: TensorRank2<3, I, 2>) -> Self {
-        unsafe { transmute::<TensorRank2<3, I, 2>, TensorRank2<3, I, 0>>(tensor_rank_2) }
+        Self(
+            tensor_rank_2
+                .0
+                .map(|tensor_rank_1| TensorRank1(tensor_rank_1.0)),
+        )
     }
 }
 
 impl<const J: usize> From<TensorRank2<3, 0, J>> for TensorRank2<3, 1, J> {
     fn from(tensor_rank_2: TensorRank2<3, 0, J>) -> Self {
-        unsafe { transmute::<TensorRank2<3, 0, J>, TensorRank2<3, 1, J>>(tensor_rank_2) }
+        Self(tensor_rank_2.0)
     }
 }
 
 impl<const J: usize> From<TensorRank2<3, 1, J>> for TensorRank2<3, 0, J> {
     fn from(tensor_rank_2: TensorRank2<3, 1, J>) -> Self {
-        unsafe { transmute::<TensorRank2<3, 1, J>, TensorRank2<3, 0, J>>(tensor_rank_2) }
+        Self(tensor_rank_2.0)
     }
 }
 
 impl<const J: usize> From<TensorRank2<3, 1, J>> for TensorRank2<3, 2, J> {
     fn from(tensor_rank_2: TensorRank2<3, 1, J>) -> Self {
-        unsafe { transmute::<TensorRank2<3, 1, J>, TensorRank2<3, 2, J>>(tensor_rank_2) }
+        Self(tensor_rank_2.0)
     }
 }
 
 impl<const J: usize> From<TensorRank2<3, 2, J>> for TensorRank2<3, 1, J> {
     fn from(tensor_rank_2: TensorRank2<3, 2, J>) -> Self {
-        unsafe { transmute::<TensorRank2<3, 2, J>, TensorRank2<3, 1, J>>(tensor_rank_2) }
+        Self(tensor_rank_2.0)
     }
 }
 
@@ -633,7 +653,11 @@ impl<const J: usize> From<&TensorRank2<3, 2, J>> for &TensorRank2<3, 1, J> {
 
 impl From<TensorRank2<3, 0, 0>> for TensorRank2<3, 1, 1> {
     fn from(tensor_rank_2: TensorRank2<3, 0, 0>) -> Self {
-        unsafe { transmute::<TensorRank2<3, 0, 0>, TensorRank2<3, 1, 1>>(tensor_rank_2) }
+        Self(
+            tensor_rank_2
+                .0
+                .map(|tensor_rank_1| TensorRank1(tensor_rank_1.0)),
+        )
     }
 }
 
