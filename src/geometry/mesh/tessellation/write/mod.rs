@@ -99,13 +99,13 @@ impl Tessellation {
             writeln!(
                 writer,
                 "  facet normal {} {} {}\n    outer loop",
-                normal[0], normal[1], normal[2]
+                normal[0] as f32, normal[1] as f32, normal[2] as f32
             )?;
             vertices.iter().try_for_each(|vertex| {
                 writeln!(
                     writer,
                     "      vertex {} {} {}",
-                    vertex[0], vertex[1], vertex[2]
+                    vertex[0] as f32, vertex[1] as f32, vertex[2] as f32
                 )
             })?;
             writer.write_all(b"    endloop\n  endfacet\n")
