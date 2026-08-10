@@ -1,3 +1,4 @@
+use crate::math::Current;
 use crate::{
     constitutive::cohesive::elastic::Elastic,
     fem::block::element::{
@@ -10,7 +11,7 @@ use crate::{
     mechanics::TractionList,
 };
 
-pub type StiffnessCohesiveList<const N: usize> = TensorRank2List2D<3, 1, 1, 2, N>;
+pub type StiffnessCohesiveList<const N: usize> = TensorRank2List2D<3, Current, Current, 2, N>;
 
 pub trait ElasticCohesiveElement<C, const G: usize, const N: usize, const P: usize>
 where

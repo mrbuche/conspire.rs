@@ -669,7 +669,7 @@ macro_rules! test_finite_element_block_with_elastic_or_hyperelastic_constitutive
                         * get_block_transformed()
                             .nodal_forces(&get_coordinates_transformed_block())?)
                 } else {
-                    let converted: TensorRank2<3, 1, 1> =
+                    let converted: TensorRank2<3, $crate::math::Current, $crate::math::Current> =
                         get_rotation_reference_configuration().into();
                     Ok(converted.transpose()
                         * get_block_transformed()
@@ -694,7 +694,7 @@ macro_rules! test_finite_element_block_with_elastic_or_hyperelastic_constitutive
                             .nodal_stiffnesses(&get_coordinates_transformed_block())?
                         * get_rotation_current_configuration())
                 } else {
-                    let converted: TensorRank2<3, 1, 1> =
+                    let converted: TensorRank2<3, $crate::math::Current, $crate::math::Current> =
                         get_rotation_reference_configuration().into();
                     Ok(converted.transpose()
                         * get_block_transformed().nodal_stiffnesses(
@@ -867,7 +867,7 @@ macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
                             &get_velocities_transformed_block(),
                         )?)
                 } else {
-                    let converted: TensorRank2<3, 1, 1> =
+                    let converted: TensorRank2<3, $crate::math::Current, $crate::math::Current> =
                         get_rotation_reference_configuration().into();
                     Ok(converted.transpose()
                         * get_block_transformed().nodal_forces(
@@ -900,7 +900,7 @@ macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
                         )?
                         * get_rotation_current_configuration())
                 } else {
-                    let converted: TensorRank2<3, 1, 1> =
+                    let converted: TensorRank2<3, $crate::math::Current, $crate::math::Current> =
                         get_rotation_reference_configuration().into();
                     Ok(converted.transpose()
                         * get_block_transformed().nodal_stiffnesses(

@@ -42,8 +42,8 @@ mod minimize {
     //         &NewtonRaphson::default().minimize(
     //             rosenbrock,
     //             rosenbrock_derivative,
-    //             |x: &TensorRank1<2, 1>| {
-    //                 Ok(TensorRank2::<2, 1, 1>::new([
+    //             |x: &TensorRank1<2, Current>| {
+    //                 Ok(TensorRank2::<2, Current, Current>::new([
     //                     [
     //                         2.0 + 400.0 * (x[1] - x[0].powi(2)) - 800.0 * x[0].powi(2),
     //                         -400.0 * x[0],
@@ -51,12 +51,12 @@ mod minimize {
     //                     [-400.0 * x[0], 200.0],
     //                 ]))
     //             },
-    //             // rosenbrock_second_derivative::<_, TensorRank2<2, 1, 1>>,
+    //             // rosenbrock_second_derivative::<_, TensorRank2<2, Current, Current>>,
     //             TensorRank1::new([-1.0, 1.0]),
     //             EqualityConstraint::None,
     //             None,
     //         )?,
-    //         &TensorRank1::<2, 1>::identity(),
+    //         &TensorRank1::<2, Current>::identity(),
     //     )
     // }
     mod line_search {

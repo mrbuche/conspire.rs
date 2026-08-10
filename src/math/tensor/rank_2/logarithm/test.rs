@@ -1,7 +1,8 @@
+use crate::math::Current;
 use crate::math::assert::Assert;
 use crate::math::{Rank2, TensorArray, TensorRank2, TensorRank4, assert::AssertionError};
 
-fn get_rotation() -> TensorRank2<3, 1, 1> {
+fn get_rotation() -> TensorRank2<3, Current, Current> {
     [
         [
             0.781_639_173_907_025,
@@ -22,7 +23,7 @@ fn get_rotation() -> TensorRank2<3, 1, 1> {
     .into()
 }
 
-fn from_eigenvalues(eigenvalues: [f64; 3]) -> TensorRank2<3, 1, 1> {
+fn from_eigenvalues(eigenvalues: [f64; 3]) -> TensorRank2<3, Current, Current> {
     let rotation = get_rotation();
     let diagonal = TensorRank2::from([
         [eigenvalues[0], 0.0, 0.0],
@@ -33,22 +34,22 @@ fn from_eigenvalues(eigenvalues: [f64; 3]) -> TensorRank2<3, 1, 1> {
     (tensor.clone() + tensor.transpose()) * 0.5
 }
 
-fn get_symmetric_tensor() -> TensorRank2<3, 1, 1> {
+fn get_symmetric_tensor() -> TensorRank2<3, Current, Current> {
     from_eigenvalues([2.0, 0.5, 1.5])
 }
 
-fn get_non_symmetric_tensor() -> TensorRank2<3, 1, 1> {
+fn get_non_symmetric_tensor() -> TensorRank2<3, Current, Current> {
     TensorRank2::from([[1.0, 4.0, 6.0], [7.0, 2.0, 5.0], [9.0, 8.0, 3.0]])
 }
 
-fn get_symmetric_tensor_logm() -> TensorRank2<3, 1, 1> {
+fn get_symmetric_tensor_logm() -> TensorRank2<3, Current, Current> {
     from_eigenvalues([2.0_f64.ln(), 0.5_f64.ln(), 1.5_f64.ln()])
 }
 
 fn contract_third_fourth_indices(
-    dlogm: &TensorRank4<3, 1, 1, 1, 1>,
-    tensor: &TensorRank2<3, 1, 1>,
-) -> TensorRank2<3, 1, 1> {
+    dlogm: &TensorRank4<3, Current, Current, Current, Current>,
+    tensor: &TensorRank2<3, Current, Current>,
+) -> TensorRank2<3, Current, Current> {
     let mut result = TensorRank2::zero();
     (0..3).for_each(|i| {
         (0..3).for_each(|j| {
@@ -67,14 +68,18 @@ fn contract_third_fourth_indices(
 #[test]
 fn logm_identity() -> Result<(), AssertionError> {
     Assert::default().eq_within_tols(
-        &TensorRank2::<3, 1, 1>::identity().logm()?,
+        &TensorRank2::<3, Current, Current>::identity().logm()?,
         &TensorRank2::zero(),
     )
 }
 
 #[test]
 fn logm_diagonal() -> Result<(), AssertionError> {
-    let tensor = TensorRank2::<3, 1, 1>::from([[2.0, 0.0, 0.0], [0.0, 0.5, 0.0], [0.0, 0.0, 1.5]]);
+    let tensor = TensorRank2::<3, Current, Current>::from([
+        [2.0, 0.0, 0.0],
+        [0.0, 0.5, 0.0],
+        [0.0, 0.0, 1.5],
+    ]);
     let expected = TensorRank2::from([
         [2.0_f64.ln(), 0.0, 0.0],
         [0.0, 0.5_f64.ln(), 0.0],
@@ -185,7 +190,11 @@ fn logm_near_identity_five_terms() -> Result<(), AssertionError> {
 
 #[test]
 fn dlogm_diagonal_matches_finite_difference_of_logm() -> Result<(), AssertionError> {
-    let tensor = TensorRank2::<3, 1, 1>::from([[2.0, 0.0, 0.0], [0.0, 0.5, 0.0], [0.0, 0.0, 1.5]]);
+    let tensor = TensorRank2::<3, Current, Current>::from([
+        [2.0, 0.0, 0.0],
+        [0.0, 0.5, 0.0],
+        [0.0, 0.0, 1.5],
+    ]);
     let dlogm = tensor.dlogm()?;
     let epsilon = 1e-6;
     let directions = [

@@ -1,3 +1,4 @@
+pub(super) mod configuration;
 pub(super) mod list;
 pub(super) mod norm;
 pub(super) mod rank_0;
@@ -8,6 +9,10 @@ pub(super) mod rank_4;
 pub(super) mod tuple;
 pub(super) mod vec;
 
+pub use configuration::{
+    Auxiliary, Configuration, Current, Factor, Flattened, Interface, Intermediate, Projection,
+    Reference,
+};
 pub use norm::Norm;
 
 use super::{SquareMatrix, Vector};
@@ -132,7 +137,7 @@ pub trait HessianBlock {
 /// Symmetric-safe: the caller guarantees `block` at (a, b) equals the
 /// transpose of the (b, a) contribution, so implementors may store or
 /// mirror as they see fit.
-pub trait HessianAccumulate<const D: usize, const I: usize> {
+pub trait HessianAccumulate<const D: usize, I> {
     fn accumulate(&mut self, a: usize, b: usize, block: rank_2::TensorRank2<D, I, I>);
 }
 

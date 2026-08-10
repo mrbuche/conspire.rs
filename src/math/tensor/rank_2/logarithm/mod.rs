@@ -14,7 +14,7 @@ use super::{
 };
 use crate::{ABS_TOL, math::assert::Assert};
 
-impl<const I: usize> TensorRank2<3, I, I> {
+impl<I> TensorRank2<3, I, I> {
     /// Returns the matrix logarithm of the 3x3 symmetric tensor.
     pub fn logm(&self) -> Result<Self, TensorError> {
         if self.is_diagonal() {
@@ -188,7 +188,7 @@ fn solve_cubic_symmetric(
     }
 }
 
-fn find_orthonormal_eigenvectors<const I: usize>(
+fn find_orthonormal_eigenvectors<I>(
     eigenvalues: &TensorRank0List<3>,
     tensor: &TensorRank2<3, I, I>,
 ) -> TensorRank2<3, I, I> {
@@ -226,7 +226,7 @@ fn find_orthonormal_eigenvectors<const I: usize>(
     }
 }
 
-fn orthogonal_unit_vector<const I: usize>(vector: &TensorRank1<3, I>) -> TensorRank1<3, I> {
+fn orthogonal_unit_vector<I>(vector: &TensorRank1<3, I>) -> TensorRank1<3, I> {
     let axis = vector
         .iter()
         .enumerate()
@@ -238,7 +238,7 @@ fn orthogonal_unit_vector<const I: usize>(vector: &TensorRank1<3, I>) -> TensorR
     vector.cross(&other).normalized()
 }
 
-fn eigenvector_symmetric<const I: usize>(
+fn eigenvector_symmetric<I>(
     eigenvalue: TensorRank0,
     tensor: &TensorRank2<3, I, I>,
 ) -> TensorRank1<3, I> {
@@ -250,7 +250,7 @@ fn eigenvector_symmetric<const I: usize>(
         .normalized()
 }
 
-fn reconstruct_symmetric<const I: usize>(
+fn reconstruct_symmetric<I>(
     eigenvalues: TensorRank0List<3>,
     eigenvectors: TensorRank2<3, I, I>,
 ) -> TensorRank2<3, I, I> {

@@ -1,3 +1,4 @@
+use crate::math::Projection;
 #[cfg(test)]
 mod test;
 
@@ -166,7 +167,7 @@ impl Tetrahedron {
                 .map(|(shape_function_integral, reference_jacobian_subelement)| {
                     shape_function_integral * reference_jacobian_subelement
                 })
-                .sum::<TensorRank1<P, 9>>();
+                .sum::<TensorRank1<P, Projection>>();
         Self::shape_functions_at_integration_points()
             .iter()
             .map(|shape_functions_at_integration_point| {

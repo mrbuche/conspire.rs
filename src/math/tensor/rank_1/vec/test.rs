@@ -1,11 +1,12 @@
 use crate::math::assert::Assert;
+use crate::math::{Current, Reference};
 use crate::math::{TensorRank0, TensorRank1Vec, TensorVec, Vector, assert::AssertionError};
 
 fn get_array() -> [[TensorRank0; 3]; 2] {
     [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
 }
 
-fn get_tensor_rank_1_vec() -> TensorRank1Vec<3, 1> {
+fn get_tensor_rank_1_vec() -> TensorRank1Vec<3, Current> {
     TensorRank1Vec::from(get_vec_arr())
 }
 
@@ -36,7 +37,7 @@ fn from_vec_arr_round_trip_preserves_capacity() {
     vec_arr.extend_from_slice(&get_array());
     let capacity = vec_arr.capacity();
     assert_eq!(
-        Vec::<[TensorRank0; 3]>::from(TensorRank1Vec::<3, 1>::from(vec_arr)).capacity(),
+        Vec::<[TensorRank0; 3]>::from(TensorRank1Vec::<3, Current>::from(vec_arr)).capacity(),
         capacity,
     )
 }
@@ -52,9 +53,10 @@ fn from_configuration_round_trip_preserves_capacity() {
     let mut vec_arr = Vec::with_capacity(9);
     vec_arr.extend_from_slice(&get_array());
     let capacity = vec_arr.capacity();
-    let tensor_rank_1_vec = TensorRank1Vec::<3, 0>::from(vec_arr);
+    let tensor_rank_1_vec = TensorRank1Vec::<3, Reference>::from(vec_arr);
     assert_eq!(
-        TensorRank1Vec::<3, 0>::from(TensorRank1Vec::<3, 1>::from(tensor_rank_1_vec)).capacity(),
+        TensorRank1Vec::<3, Reference>::from(TensorRank1Vec::<3, Current>::from(tensor_rank_1_vec))
+            .capacity(),
         capacity,
     )
 }
@@ -65,7 +67,7 @@ fn from_vector_preserves_capacity() {
     let capacity = vec.capacity();
     assert!(capacity.is_multiple_of(3));
     assert_eq!(
-        TensorRank1Vec::<3, 1>::from(Vector::from(vec)).capacity(),
+        TensorRank1Vec::<3, Current>::from(Vector::from(vec)).capacity(),
         capacity / 3,
     )
 }
@@ -76,7 +78,7 @@ fn from_vector_indivisible_capacity() -> Result<(), AssertionError> {
     assert!(!vec.capacity().is_multiple_of(3));
     Assert::eq(
         get_tensor_rank_1_vec(),
-        &TensorRank1Vec::<3, 1>::from(Vector::from(vec)),
+        &TensorRank1Vec::<3, Current>::from(Vector::from(vec)),
     )
 }
 

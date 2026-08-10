@@ -1,3 +1,4 @@
+use crate::math::{Current, Projection, Reference};
 #[cfg(test)]
 mod test;
 
@@ -9,10 +10,9 @@ use std::ops::Mul;
 use crate::math::assert::FiniteDifference;
 
 /// A list of rank-1 tensors.
-pub type TensorRank1List<const D: usize, const I: usize, const N: usize> =
-    TensorList<TensorRank1<D, I>, N>;
+pub type TensorRank1List<const D: usize, I, const N: usize> = TensorList<TensorRank1<D, I>, N>;
 
-impl<const D: usize, const I: usize, const N: usize> TensorRank1List<D, I, N> {
+impl<const D: usize, I, const N: usize> TensorRank1List<D, I, N> {
     pub fn bounding_box(&self) -> TensorRank1List<D, I, 2> {
         self.iter()
             .skip(1)
@@ -33,22 +33,22 @@ impl<const D: usize, const I: usize, const N: usize> TensorRank1List<D, I, N> {
     }
 }
 
-impl<const I: usize> TensorRank1List<3, I, 3> {
+impl<I> TensorRank1List<3, I, 3> {
     pub fn scalar_triple_product(&self) -> TensorRank0 {
         &self[0] * self[1].cross(&self[2])
     }
 }
 
-impl<const D: usize, const I: usize, const N: usize> From<[[TensorRank0; D]; N]>
-    for TensorRank1List<D, I, N>
-{
+impl<const D: usize, I, const N: usize> From<[[TensorRank0; D]; N]> for TensorRank1List<D, I, N> {
     fn from(array: [[TensorRank0; D]; N]) -> Self {
         array.into_iter().map(|entry| entry.into()).collect()
     }
 }
 
-impl<const D: usize, const N: usize> From<TensorRank1List<D, 9, N>> for TensorRank1List<D, 0, N> {
-    fn from(tensor_rank_1_list: TensorRank1List<D, 9, N>) -> Self {
+impl<const D: usize, const N: usize> From<TensorRank1List<D, Projection, N>>
+    for TensorRank1List<D, Reference, N>
+{
+    fn from(tensor_rank_1_list: TensorRank1List<D, Projection, N>) -> Self {
         tensor_rank_1_list
             .into_iter()
             .map(|entry| entry.into())
@@ -56,8 +56,10 @@ impl<const D: usize, const N: usize> From<TensorRank1List<D, 9, N>> for TensorRa
     }
 }
 
-impl<const D: usize, const N: usize> From<TensorRank1List<D, 0, N>> for TensorRank1List<D, 1, N> {
-    fn from(tensor_rank_1_list: TensorRank1List<D, 0, N>) -> Self {
+impl<const D: usize, const N: usize> From<TensorRank1List<D, Reference, N>>
+    for TensorRank1List<D, Current, N>
+{
+    fn from(tensor_rank_1_list: TensorRank1List<D, Reference, N>) -> Self {
         tensor_rank_1_list
             .into_iter()
             .map(|entry| entry.into())
@@ -65,7 +67,7 @@ impl<const D: usize, const N: usize> From<TensorRank1List<D, 0, N>> for TensorRa
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const W: usize> Mul<TensorRank1List<D, J, W>>
+impl<const D: usize, I, J, const W: usize> Mul<TensorRank1List<D, J, W>>
     for TensorRank1List<D, I, W>
 {
     type Output = TensorRank2<D, I, J>;
@@ -77,7 +79,7 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize> Mul<TensorR
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const W: usize> Mul<&TensorRank1List<D, J, W>>
+impl<const D: usize, I, J, const W: usize> Mul<&TensorRank1List<D, J, W>>
     for TensorRank1List<D, I, W>
 {
     type Output = TensorRank2<D, I, J>;
@@ -89,7 +91,7 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize> Mul<&Tensor
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const W: usize> Mul<TensorRank1List<D, J, W>>
+impl<const D: usize, I, J, const W: usize> Mul<TensorRank1List<D, J, W>>
     for &TensorRank1List<D, I, W>
 {
     type Output = TensorRank2<D, I, J>;
@@ -101,7 +103,7 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize> Mul<TensorR
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const W: usize> Mul<&TensorRank1List<D, J, W>>
+impl<const D: usize, I, J, const W: usize> Mul<&TensorRank1List<D, J, W>>
     for &TensorRank1List<D, I, W>
 {
     type Output = TensorRank2<D, I, J>;
@@ -113,7 +115,7 @@ impl<const D: usize, const I: usize, const J: usize, const W: usize> Mul<&Tensor
     }
 }
 
-impl<const D: usize, const I: usize, const W: usize> FiniteDifference for TensorRank1List<D, I, W> {
+impl<const D: usize, I, const W: usize> FiniteDifference for TensorRank1List<D, I, W> {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()

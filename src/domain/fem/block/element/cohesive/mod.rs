@@ -43,7 +43,7 @@ pub trait CohesiveFiniteElement<const G: usize, const N: usize, const P: usize>
 where
     Self: SurfaceFiniteElement<G, N, P>,
 {
-    fn nodal_mid_surface<const I: usize>(
+    fn nodal_mid_surface<I>(
         nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> ElementNodalEitherCoordinates<I, P>;
     fn nodal_separations(nodal_coordinates: &ElementNodalCoordinates<N>) -> Separations<P>;

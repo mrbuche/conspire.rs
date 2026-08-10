@@ -90,9 +90,7 @@ impl<const N: usize> From<[[Scalar; N]; N]> for SquareMatrix {
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> From<TensorRank2Vec2D<D, I, J>>
-    for SquareMatrix
-{
+impl<const D: usize, I, J> From<TensorRank2Vec2D<D, I, J>> for SquareMatrix {
     fn from(tensor_rank_2_vec_2d: TensorRank2Vec2D<D, I, J>) -> Self {
         let mut square_matrix = Self::zero(tensor_rank_2_vec_2d.len() * D);
         tensor_rank_2_vec_2d

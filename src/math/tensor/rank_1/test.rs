@@ -1,4 +1,5 @@
 use super::{Tensor, TensorArray, TensorRank0, TensorRank1};
+use crate::math::Current;
 use crate::math::assert::Assert;
 use crate::{ABS_TOL, REL_TOL, math::assert::AssertionError};
 
@@ -6,23 +7,23 @@ fn get_array() -> [TensorRank0; 4] {
     [1.0, 2.0, 3.0, 4.0]
 }
 
-fn get_tensor_rank_1() -> TensorRank1<4, 1> {
+fn get_tensor_rank_1() -> TensorRank1<4, Current> {
     TensorRank1::from(get_array())
 }
 
-fn get_tensor_rank_1_a() -> TensorRank1<4, 1> {
+fn get_tensor_rank_1_a() -> TensorRank1<4, Current> {
     TensorRank1::from([5.0, 7.0, 6.0, 8.0])
 }
 
-fn get_tensor_rank_1_b() -> TensorRank1<3, 1> {
+fn get_tensor_rank_1_b() -> TensorRank1<3, Current> {
     TensorRank1::from([7.0, 2.0, 3.0])
 }
 
-fn get_tensor_rank_1_c() -> TensorRank1<3, 1> {
+fn get_tensor_rank_1_c() -> TensorRank1<3, Current> {
     TensorRank1::from([4.0, 5.0, 6.0])
 }
 
-fn get_tensor_rank_1_add_tensor_rank_1_a() -> TensorRank1<4, 1> {
+fn get_tensor_rank_1_add_tensor_rank_1_a() -> TensorRank1<4, Current> {
     TensorRank1::from([6.0, 9.0, 9.0, 12.0])
 }
 
@@ -30,7 +31,7 @@ fn get_tensor_rank_1_mul_tensor_rank_1_a() -> TensorRank0 {
     69.0
 }
 
-fn get_tensor_rank_1_sub_tensor_rank_1_a() -> TensorRank1<4, 1> {
+fn get_tensor_rank_1_sub_tensor_rank_1_a() -> TensorRank1<4, Current> {
     TensorRank1::from([-4.0, -5.0, -3.0, -4.0])
 }
 
@@ -142,7 +143,7 @@ fn error() {
 #[test]
 fn from_iter() {
     let into_iterator = (0..8).map(|x| x as TensorRank0);
-    let tensor_rank_1 = TensorRank1::<8, 1>::from_iter(into_iterator.clone());
+    let tensor_rank_1 = TensorRank1::<8, Current>::from_iter(into_iterator.clone());
     tensor_rank_1
         .iter()
         .zip(into_iterator)
@@ -279,7 +280,7 @@ fn normalized() {
 #[test]
 fn size() {
     assert_eq!(
-        std::mem::size_of::<TensorRank1::<3, 1>>(),
+        std::mem::size_of::<TensorRank1::<3, Current>>(),
         std::mem::size_of::<[TensorRank0; 3]>()
     )
 }
@@ -352,7 +353,7 @@ fn sub_assign_tensor_rank_1_ref() {
 fn write() {
     let _ = format!(
         "{}",
-        TensorRank1::<12, 1>::from([
+        TensorRank1::<12, Current>::from([
             0.0,
             0.123456789,
             -1.123456789,
@@ -371,7 +372,7 @@ fn write() {
 
 #[test]
 fn zero() {
-    TensorRank1::<8, 1>::zero()
+    TensorRank1::<8, Current>::zero()
         .iter()
         .for_each(|tensor_rank_1_i| assert_eq!(tensor_rank_1_i, &0.0));
 }

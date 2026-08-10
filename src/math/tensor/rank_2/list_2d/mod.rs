@@ -7,24 +7,19 @@ use std::ops::Mul;
 use crate::math::assert::FiniteDifference;
 
 /// A list of lists of rank-2 tensors.
-pub type TensorRank2List2D<
-    const D: usize,
-    const I: usize,
-    const J: usize,
-    const M: usize,
-    const N: usize,
-> = TensorList<TensorRank2List<D, I, J, M>, N>;
+pub type TensorRank2List2D<const D: usize, I, J, const M: usize, const N: usize> =
+    TensorList<TensorRank2List<D, I, J, M>, N>;
 
-impl<const D: usize, const I: usize, const J: usize, const M: usize, const N: usize>
-    From<[[[[TensorRank0; D]; D]; M]; N]> for TensorRank2List2D<D, I, J, M, N>
+impl<const D: usize, I, J, const M: usize, const N: usize> From<[[[[TensorRank0; D]; D]; M]; N]>
+    for TensorRank2List2D<D, I, J, M, N>
 {
     fn from(array: [[[[TensorRank0; D]; D]; M]; N]) -> Self {
         array.into_iter().map(|entry| entry.into()).collect()
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: usize, const X: usize>
-    Mul<TensorRank2<D, J, K>> for TensorRank2List2D<D, I, J, W, X>
+impl<const D: usize, I, J, K, const W: usize, const X: usize> Mul<TensorRank2<D, J, K>>
+    for TensorRank2List2D<D, I, J, W, X>
 {
     type Output = TensorRank2List2D<D, I, K, W, X>;
     fn mul(self, tensor_rank_2: TensorRank2<D, J, K>) -> Self::Output {
@@ -39,8 +34,8 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: us
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: usize, const X: usize>
-    Mul<&TensorRank2<D, J, K>> for TensorRank2List2D<D, I, J, W, X>
+impl<const D: usize, I, J, K, const W: usize, const X: usize> Mul<&TensorRank2<D, J, K>>
+    for TensorRank2List2D<D, I, J, W, X>
 {
     type Output = TensorRank2List2D<D, I, K, W, X>;
     fn mul(self, tensor_rank_2: &TensorRank2<D, J, K>) -> Self::Output {
@@ -55,8 +50,8 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const W: us
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const W: usize, const X: usize>
-    FiniteDifference for TensorRank2List2D<D, I, J, W, X>
+impl<const D: usize, I, J, const W: usize, const X: usize> FiniteDifference
+    for TensorRank2List2D<D, I, J, W, X>
 {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self

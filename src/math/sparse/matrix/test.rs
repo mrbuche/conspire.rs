@@ -1,4 +1,5 @@
 use super::{CscMatrix, Scalar, Vector};
+use crate::math::Current;
 use crate::math::assert::Assert;
 use crate::math::{Tensor, assert::AssertionError};
 
@@ -118,13 +119,17 @@ fn transpose() {
 fn mul_tensor_rank_2() -> Result<(), AssertionError> {
     use crate::math::TensorRank2;
     // the nine entries of a rank-two tensor are the nine of the vector
-    let tensor = TensorRank2::<3, 1, 1>::from([[2.0, 1.0, 3.0], [2.0, 1.0, 3.0], [2.0, 1.0, 3.0]]);
+    let tensor = TensorRank2::<3, Current, Current>::from([
+        [2.0, 1.0, 3.0],
+        [2.0, 1.0, 3.0],
+        [2.0, 1.0, 3.0],
+    ]);
     Assert::default().eq_within_tols(&(&sparse() * &tensor), &(&sparse() * &vector()))
 }
 
 #[test]
 fn mul_tensor_rank_1_vec() -> Result<(), AssertionError> {
     use crate::math::TensorRank1Vec;
-    let list: TensorRank1Vec<3, 1> = (0..3).map(|_| [2.0, 1.0, 3.0].into()).collect();
+    let list: TensorRank1Vec<3, Current> = (0..3).map(|_| [2.0, 1.0, 3.0].into()).collect();
     Assert::default().eq_within_tols(&(&sparse() * &list), &(&sparse() * &vector()))
 }

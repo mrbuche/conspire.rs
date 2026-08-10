@@ -4,18 +4,15 @@ use std::ops::Mul;
 use crate::math::assert::FiniteDifference;
 
 /// A vector of vectors of rank-2 tensors.
-pub type TensorRank2Vec2D<const D: usize, const I: usize, const J: usize> =
-    TensorVector<TensorRank2Vec<D, I, J>>;
+pub type TensorRank2Vec2D<const D: usize, I, J> = TensorVector<TensorRank2Vec<D, I, J>>;
 
-impl<const D: usize, const I: usize, const J: usize> TensorRank2Vec2D<D, I, J> {
+impl<const D: usize, I, J> TensorRank2Vec2D<D, I, J> {
     pub fn zero(len: usize) -> Self {
         (0..len).map(|_| TensorRank2Vec::zero(len)).collect()
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> From<TensorRank2Vec2D<D, I, J>>
-    for Vec<TensorRank0>
-{
+impl<const D: usize, I, J> From<TensorRank2Vec2D<D, I, J>> for Vec<TensorRank0> {
     fn from(tensor_rank_2_vec_2d: TensorRank2Vec2D<D, I, J>) -> Self {
         tensor_rank_2_vec_2d
             .into_iter()
@@ -30,9 +27,7 @@ impl<const D: usize, const I: usize, const J: usize> From<TensorRank2Vec2D<D, I,
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<TensorRank2<D, J, K>>
-    for TensorRank2Vec2D<D, I, J>
-{
+impl<const D: usize, I, J, K> Mul<TensorRank2<D, J, K>> for TensorRank2Vec2D<D, I, J> {
     type Output = TensorRank2Vec2D<D, I, K>;
     fn mul(self, tensor_rank_2: TensorRank2<D, J, K>) -> Self::Output {
         self.iter()
@@ -46,9 +41,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<TensorR
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<&TensorRank2<D, J, K>>
-    for TensorRank2Vec2D<D, I, J>
-{
+impl<const D: usize, I, J, K> Mul<&TensorRank2<D, J, K>> for TensorRank2Vec2D<D, I, J> {
     type Output = TensorRank2Vec2D<D, I, K>;
     fn mul(self, tensor_rank_2: &TensorRank2<D, J, K>) -> Self::Output {
         self.iter()
@@ -62,9 +55,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<&Tensor
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> FiniteDifference
-    for TensorRank2Vec2D<D, I, J>
-{
+impl<const D: usize, I, J> FiniteDifference for TensorRank2Vec2D<D, I, J> {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let error_count = self
             .iter()

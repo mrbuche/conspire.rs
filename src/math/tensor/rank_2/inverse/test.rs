@@ -1,3 +1,4 @@
+use crate::math::Current;
 use crate::math::assert::Assert;
 use crate::math::{Rank2, Tensor, TensorArray, TensorRank0, TensorRank2, assert::AssertionError};
 use std::cmp::Ordering;
@@ -33,19 +34,19 @@ fn get_array_dim_9() -> [[TensorRank0; 9]; 9] {
     ]
 }
 
-fn get_tensor_rank_2_dim_2() -> TensorRank2<2, 1, 1> {
+fn get_tensor_rank_2_dim_2() -> TensorRank2<2, Current, Current> {
     TensorRank2::from(get_array_dim_2())
 }
 
-fn get_tensor_rank_2_dim_3() -> TensorRank2<3, 1, 1> {
+fn get_tensor_rank_2_dim_3() -> TensorRank2<3, Current, Current> {
     TensorRank2::from(get_array_dim_3())
 }
 
-fn get_tensor_rank_2_dim_4() -> TensorRank2<4, 1, 1> {
+fn get_tensor_rank_2_dim_4() -> TensorRank2<4, Current, Current> {
     TensorRank2::from(get_array_dim_4())
 }
 
-fn get_tensor_rank_2_dim_9() -> TensorRank2<9, 1, 1> {
+fn get_tensor_rank_2_dim_9() -> TensorRank2<9, Current, Current> {
     TensorRank2::from(get_array_dim_9())
 }
 

@@ -1,3 +1,4 @@
+use crate::math::{Current, Intermediate, Reference};
 #[cfg(test)]
 mod test;
 
@@ -37,8 +38,8 @@ where
     C1: Elastic,
     C2: Elastic,
 {
-    type TangentVu = TensorRank4<3, 2, 0, 1, 0>;
-    type TangentUv = TensorRank4<3, 1, 0, 2, 0>;
+    type TangentVu = TensorRank4<3, Intermediate, Reference, Current, Reference>;
+    type TangentUv = TensorRank4<3, Current, Reference, Intermediate, Reference>;
     type TangentVv = FirstPiolaKirchhoffTangentStiffness2;
     /// Calculates and returns the Cauchy stress.
     ///
@@ -148,8 +149,8 @@ where
     ) -> Result<
         (
             FirstPiolaKirchhoffTangentStiffness,
-            TensorRank4<3, 2, 0, 1, 0>,
-            TensorRank4<3, 1, 0, 2, 0>,
+            TensorRank4<3, Intermediate, Reference, Current, Reference>,
+            TensorRank4<3, Current, Reference, Intermediate, Reference>,
             FirstPiolaKirchhoffTangentStiffness2,
         ),
         ConstitutiveError,

@@ -1,15 +1,16 @@
 use super::{TensorRank2, TensorRank2SparseVec2D};
+use crate::math::Current;
 use crate::math::{
     Hessian, HessianAccumulate, Rank2, SquareMatrix,
     assert::{Assert, AssertionError},
 };
 
-fn block(value: f64) -> TensorRank2<2, 1, 1> {
+fn block(value: f64) -> TensorRank2<2, Current, Current> {
     TensorRank2::from([[value, 2.0 * value], [3.0 * value, 4.0 * value]])
 }
 
-fn accumulator() -> TensorRank2SparseVec2D<2, 1, 1> {
-    let mut stiffnesses = TensorRank2SparseVec2D::<2, 1, 1>::zero(3);
+fn accumulator() -> TensorRank2SparseVec2D<2, Current, Current> {
+    let mut stiffnesses = TensorRank2SparseVec2D::<2, Current, Current>::zero(3);
     stiffnesses[2][0] += block(1.0);
     stiffnesses[0][0] += block(2.0);
     stiffnesses[0][2] += block(3.0);
@@ -60,7 +61,7 @@ fn retain_from_filters_and_remaps() {
 
 #[test]
 fn rotation_preserves_structure() {
-    let rotation = TensorRank2::<2, 1, 1>::from([[0.0, -1.0], [1.0, 0.0]]);
+    let rotation = TensorRank2::<2, Current, Current>::from([[0.0, -1.0], [1.0, 0.0]]);
     let rotated = rotation.transpose() * accumulator() * rotation;
     let mut square_matrix = SquareMatrix::zero(6);
     rotated.fill_into(&mut square_matrix);
@@ -72,7 +73,7 @@ fn rotation_preserves_structure() {
 
 #[test]
 fn merge_add_and_subtract() {
-    let mut other = TensorRank2SparseVec2D::<2, 1, 1>::zero(3);
+    let mut other = TensorRank2SparseVec2D::<2, Current, Current>::zero(3);
     other[0][1] += block(7.0);
     other[0][0] += block(1.0);
     let sum: Vec<_> = accumulator()
@@ -94,7 +95,7 @@ fn merge_add_and_subtract() {
 
 #[test]
 fn accumulate_mirrors_off_diagonal_blocks() {
-    let mut stiffnesses = TensorRank2SparseVec2D::<2, 1, 1>::zero(3);
+    let mut stiffnesses = TensorRank2SparseVec2D::<2, Current, Current>::zero(3);
     stiffnesses.accumulate(0, 2, block(1.0));
     stiffnesses.accumulate(1, 1, block(5.0));
     assert_eq!(stiffnesses[0][2][0][0], 1.0);

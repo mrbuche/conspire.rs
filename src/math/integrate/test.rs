@@ -1,5 +1,4 @@
 use crate::math::{TensorArray, TensorRank0, TensorRank0List};
-
 pub const LENGTH: usize = 33;
 
 pub fn zero_to_one<const W: usize>() -> [TensorRank0; W] {

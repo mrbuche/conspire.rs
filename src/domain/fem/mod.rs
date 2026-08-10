@@ -1,5 +1,6 @@
 //! Finite element library.
 
+use crate::math::{Current, Reference};
 pub mod block;
 mod from;
 pub mod solid;
@@ -16,11 +17,11 @@ use crate::math::{
 };
 use std::fmt::Debug;
 
-pub type NodalCoordinates<const D: usize> = TensorRank1Vec<D, 1>;
-pub type NodalCoordinatesHistory<const D: usize> = TensorRank1Vec2D<D, 1>;
-pub type NodalReferenceCoordinates<const D: usize> = TensorRank1Vec<D, 0>;
-pub type NodalVelocities<const D: usize> = TensorRank1Vec<D, 1>;
-pub type NodalVelocitiesHistory<const D: usize> = TensorRank1Vec2D<D, 1>;
+pub type NodalCoordinates<const D: usize> = TensorRank1Vec<D, Current>;
+pub type NodalCoordinatesHistory<const D: usize> = TensorRank1Vec2D<D, Current>;
+pub type NodalReferenceCoordinates<const D: usize> = TensorRank1Vec<D, Reference>;
+pub type NodalVelocities<const D: usize> = TensorRank1Vec<D, Current>;
+pub type NodalVelocitiesHistory<const D: usize> = TensorRank1Vec2D<D, Current>;
 
 #[derive(Debug)]
 pub struct Model<B, const D: usize> {

@@ -45,9 +45,7 @@ pub trait SurfaceFiniteElement<const G: usize, const N: usize, const P: usize>
 where
     Self: FiniteElement<G, M, N, P>,
 {
-    fn bases<const I: usize>(
-        nodal_coordinates: &ElementNodalEitherCoordinates<I, P>,
-    ) -> SurfaceBases<I, G> {
+    fn bases<I>(nodal_coordinates: &ElementNodalEitherCoordinates<I, P>) -> SurfaceBases<I, G> {
         Self::shape_functions_gradients_at_integration_points()
             .iter()
             .map(|shape_functions_gradients| {
@@ -66,7 +64,7 @@ where
             })
             .collect()
     }
-    fn dual_bases<const I: usize>(
+    fn dual_bases<I>(
         nodal_coordinates: &ElementNodalEitherCoordinates<I, P>,
     ) -> SurfaceBases<I, G> {
         Self::bases(nodal_coordinates)

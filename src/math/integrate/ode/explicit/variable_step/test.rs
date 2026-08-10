@@ -53,10 +53,10 @@ macro_rules! test_explicit_variable_step {
         }
         #[test]
         fn dxdt_eq_ix() -> Result<(), AssertionError> {
-            let a = TensorRank2::<3, 1, 1>::identity();
-            let (time, solution, function): (Vector, TensorRank1Vec<3, 1>, _) = $integration
-                .integrate(
-                    |_: Scalar, x: &TensorRank1<3, 1>| Ok(&a * x),
+            let a = TensorRank2::<3, $crate::math::Current, $crate::math::Current>::identity();
+            let (time, solution, function): (Vector, TensorRank1Vec<3, $crate::math::Current>, _) =
+                $integration.integrate(
+                    |_: Scalar, x: &TensorRank1<3, $crate::math::Current>| Ok(&a * x),
                     &[0.0, 1.0],
                     TensorRank1::from([1.0, 1.0, 1.0]),
                 )?;
@@ -86,9 +86,11 @@ macro_rules! test_explicit_variable_step {
         }
         #[test]
         fn second_order_tensor_rank_0() -> Result<(), AssertionError> {
-            let (time, solution, function): (Vector, TensorRank1Vec<2, 1>, _) = $integration
-                .integrate(
-                    |t: Scalar, y: &TensorRank1<2, 1>| Ok(TensorRank1::from([y[1], -t.sin()])),
+            let (time, solution, function): (Vector, TensorRank1Vec<2, $crate::math::Current>, _) =
+                $integration.integrate(
+                    |t: Scalar, y: &TensorRank1<2, $crate::math::Current>| {
+                        Ok(TensorRank1::from([y[1], -t.sin()]))
+                    },
                     &[0.0, 6.0],
                     TensorRank1::from([0.0, 1.0]),
                 )?;
@@ -103,9 +105,9 @@ macro_rules! test_explicit_variable_step {
         }
         #[test]
         fn third_order_tensor_rank_0() -> Result<(), AssertionError> {
-            let (time, solution, function): (Vector, TensorRank1Vec<3, 1>, _) = $integration
-                .integrate(
-                    |t: Scalar, y: &TensorRank1<3, 1>| {
+            let (time, solution, function): (Vector, TensorRank1Vec<3, $crate::math::Current>, _) =
+                $integration.integrate(
+                    |t: Scalar, y: &TensorRank1<3, $crate::math::Current>| {
                         Ok(TensorRank1::from([y[1], y[2], -t.cos()]))
                     },
                     &[0.0, 1.0],
@@ -124,9 +126,9 @@ macro_rules! test_explicit_variable_step {
         }
         #[test]
         fn fourth_order_tensor_rank_0() -> Result<(), AssertionError> {
-            let (time, solution, function): (Vector, TensorRank1Vec<4, 1>, _) = $integration
-                .integrate(
-                    |t: Scalar, y: &TensorRank1<4, 1>| {
+            let (time, solution, function): (Vector, TensorRank1Vec<4, $crate::math::Current>, _) =
+                $integration.integrate(
+                    |t: Scalar, y: &TensorRank1<4, $crate::math::Current>| {
                         Ok(TensorRank1::from([y[1], y[2], y[3], t.sin()]))
                     },
                     &[0.0, 0.6],
@@ -147,9 +149,9 @@ macro_rules! test_explicit_variable_step {
         }
         #[test]
         fn flat() -> Result<(), AssertionError> {
-            let (time, solution, function): (Vector, TensorRank1Vec<5, 1>, _) = $integration
-                .integrate(
-                    |t: Scalar, y: &TensorRank1<5, 1>| {
+            let (time, solution, function): (Vector, TensorRank1Vec<5, $crate::math::Current>, _) =
+                $integration.integrate(
+                    |t: Scalar, y: &TensorRank1<5, $crate::math::Current>| {
                         Ok(TensorRank1::from([y[1], -t.sin(), y[3], y[4], -t.cos()]))
                     },
                     &[0.0, 1.0],
@@ -174,10 +176,17 @@ macro_rules! test_explicit_variable_step {
         fn tuple() -> Result<(), AssertionError> {
             let (time, solution, function): (
                 Vector,
-                TensorTupleVec<TensorRank1<2, 1>, TensorRank1<3, 1>>,
+                TensorTupleVec<
+                    TensorRank1<2, $crate::math::Current>,
+                    TensorRank1<3, $crate::math::Current>,
+                >,
                 _,
             ) = $integration.integrate(
-                |t: Scalar, y: &TensorTuple<TensorRank1<2, 1>, TensorRank1<3, 1>>| {
+                |t: Scalar,
+                 y: &TensorTuple<
+                    TensorRank1<2, $crate::math::Current>,
+                    TensorRank1<3, $crate::math::Current>,
+                >| {
                     let (y_1, y_2) = y.into();
                     Ok(TensorTuple::from((
                         TensorRank1::from([y_1[1], -t.sin()]),
@@ -212,15 +221,21 @@ macro_rules! test_explicit_variable_step {
             let (time, solution, function): (
                 Vector,
                 TensorTupleVec<
-                    TensorRank1<2, 1>,
-                    TensorTuple<TensorRank1<3, 1>, TensorRank1<4, 1>>,
+                    TensorRank1<2, $crate::math::Current>,
+                    TensorTuple<
+                        TensorRank1<3, $crate::math::Current>,
+                        TensorRank1<4, $crate::math::Current>,
+                    >,
                 >,
                 _,
             ) = $integration.integrate(
                 |t: Scalar,
                  y: &TensorTuple<
-                    TensorRank1<2, 1>,
-                    TensorTuple<TensorRank1<3, 1>, TensorRank1<4, 1>>,
+                    TensorRank1<2, $crate::math::Current>,
+                    TensorTuple<
+                        TensorRank1<3, $crate::math::Current>,
+                        TensorRank1<4, $crate::math::Current>,
+                    >,
                 >| {
                     let (y_1, y_23) = y.into();
                     let (y_2, y_3) = y_23.into();

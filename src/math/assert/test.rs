@@ -1,4 +1,5 @@
 use super::{Assert, AssertionError};
+use crate::math::Current;
 use crate::{
     EPSILON,
     math::{TensorRank1, TensorRank1List},
@@ -15,8 +16,8 @@ fn assert_eq_fail() {
 fn assert_eq_from_fd_fail() {
     Assert::default()
         .eq_within_fd_tol(
-            TensorRank1::<_, 1>::from([1.0, 2.0, 3.0]),
-            &TensorRank1::<_, 1>::from([3.0, 2.0, 1.0]),
+            TensorRank1::<_, Current>::from([1.0, 2.0, 3.0]),
+            &TensorRank1::<_, Current>::from([3.0, 2.0, 1.0]),
         )
         .unwrap()
 }
@@ -24,16 +25,16 @@ fn assert_eq_from_fd_fail() {
 #[test]
 fn assert_eq_from_fd_success() -> Result<(), AssertionError> {
     Assert::default().eq_within_fd_tol(
-        TensorRank1::<_, 1>::from([1.0, 2.0, 3.0]),
-        &TensorRank1::<_, 1>::from([1.0, 2.0, 3.0]),
+        TensorRank1::<_, Current>::from([1.0, 2.0, 3.0]),
+        &TensorRank1::<_, Current>::from([1.0, 2.0, 3.0]),
     )
 }
 
 #[test]
 fn assert_eq_from_fd_weak() -> Result<(), AssertionError> {
     Assert::default().eq_within_fd_tol(
-        TensorRank1List::<_, 1, 1>::from([[EPSILON * 1.01]]),
-        &TensorRank1List::<_, 1, 1>::from([[EPSILON * 1.02]]),
+        TensorRank1List::<_, Current, 1>::from([[EPSILON * 1.01]]),
+        &TensorRank1List::<_, Current, 1>::from([[EPSILON * 1.02]]),
     )
 }
 
@@ -42,8 +43,8 @@ fn assert_eq_from_fd_weak() -> Result<(), AssertionError> {
 fn assert_eq_within_tols_fail() {
     Assert::default()
         .eq_within_tols(
-            TensorRank1::<_, 1>::from([1.0, 2.0, 3.0]),
-            &TensorRank1::<_, 1>::from([3.0, 2.0, 1.0]),
+            TensorRank1::<_, Current>::from([1.0, 2.0, 3.0]),
+            &TensorRank1::<_, Current>::from([3.0, 2.0, 1.0]),
         )
         .unwrap()
 }
@@ -59,8 +60,8 @@ fn assert_eq_fail_new() {
 fn assert_eq_within_tols_fail_new() {
     Assert::default()
         .eq_within_tols(
-            TensorRank1::<_, 1>::from([1.0, 2.0, 3.0]),
-            TensorRank1::<_, 1>::from([3.0, 2.0, 1.0]),
+            TensorRank1::<_, Current>::from([1.0, 2.0, 3.0]),
+            TensorRank1::<_, Current>::from([3.0, 2.0, 1.0]),
         )
         .unwrap()
 }
@@ -70,8 +71,8 @@ fn assert_eq_within_tols_fail_new() {
 fn assert_eq_within_fd_tol_fail_new() {
     Assert::default()
         .eq_within_fd_tol(
-            TensorRank1::<_, 1>::from([1.0, 2.0, 3.0]),
-            TensorRank1::<_, 1>::from([3.0, 2.0, 1.0]),
+            TensorRank1::<_, Current>::from([1.0, 2.0, 3.0]),
+            TensorRank1::<_, Current>::from([3.0, 2.0, 1.0]),
         )
         .unwrap()
 }
@@ -80,8 +81,8 @@ fn assert_eq_within_fd_tol_fail_new() {
 fn assert_eq_within_fd_tol_success_new() {
     Assert::default()
         .eq_within_fd_tol(
-            TensorRank1::<_, 1>::from([1.0, 2.0, 3.0]),
-            TensorRank1::<_, 1>::from([1.0, 2.0, 3.0]),
+            TensorRank1::<_, Current>::from([1.0, 2.0, 3.0]),
+            TensorRank1::<_, Current>::from([1.0, 2.0, 3.0]),
         )
         .unwrap()
 }
@@ -89,8 +90,8 @@ fn assert_eq_within_fd_tol_success_new() {
 #[test]
 #[allow(clippy::needless_borrows_for_generic_args)]
 fn assert_eq_owned_and_ref_combinations() -> Result<(), AssertionError> {
-    let a = || TensorRank1::<3, 1>::from([1.0, 2.0, 3.0]);
-    let b = || TensorRank1::<3, 1>::from([1.0, 2.0, 3.0]);
+    let a = || TensorRank1::<3, Current>::from([1.0, 2.0, 3.0]);
+    let b = || TensorRank1::<3, Current>::from([1.0, 2.0, 3.0]);
     Assert::eq(a(), b())?;
     Assert::eq(&a(), b())?;
     Assert::eq(a(), &b())?;
@@ -110,13 +111,13 @@ fn assert_zero_fail() {
 
 #[test]
 fn assert_zero_within_tols() -> Result<(), AssertionError> {
-    Assert::default().zero_within_tols(&TensorRank1::<3, 1>::from([0.0, 0.0, 0.0]))
+    Assert::default().zero_within_tols(&TensorRank1::<3, Current>::from([0.0, 0.0, 0.0]))
 }
 
 #[test]
 #[should_panic(expected = "Assertion `left ≈= right` failed in 1 places.")]
 fn assert_zero_within_tols_fail() {
     Assert::default()
-        .zero_within_tols(&TensorRank1::<3, 1>::from([1.0, 0.0, 0.0]))
+        .zero_within_tols(&TensorRank1::<3, Current>::from([1.0, 0.0, 0.0]))
         .unwrap()
 }

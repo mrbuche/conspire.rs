@@ -1,3 +1,4 @@
+use crate::math::Reference;
 pub(super) mod base;
 pub(super) mod cut;
 pub(super) mod features;
@@ -17,7 +18,7 @@ use std::cell::OnceCell;
 
 const D: usize = 3;
 
-type Normals = TensorRank1Vec2D<D, 0>;
+type Normals = TensorRank1Vec2D<D, Reference>;
 
 pub struct Tessellation {
     mesh: Mesh<D>,

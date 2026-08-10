@@ -38,7 +38,7 @@ where
             integration_weights,
         }
     }
-    fn nodal_mid_surface_linear<const I: usize>(
+    fn nodal_mid_surface_linear<I>(
         nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> ElementNodalEitherCoordinates<I, P> {
         nodal_coordinates

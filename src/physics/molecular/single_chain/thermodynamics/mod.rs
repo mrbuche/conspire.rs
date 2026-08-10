@@ -1,6 +1,6 @@
 use crate::{
     math::{
-        Scalar, SquareMatrix, Tensor, TensorArray, Vector,
+        Current, Scalar, SquareMatrix, Tensor, TensorArray, Vector,
         optimize::{EqualityConstraint, LineSearch, NewtonRaphson, SecondOrderOptimization},
     },
     mechanics::{Coordinates, CurrentCoordinate},
@@ -8,7 +8,7 @@ use crate::{
 };
 use std::{f64::consts::PI, thread::scope};
 
-pub type Configuration = Coordinates<1>;
+pub type Configuration = Coordinates<Current>;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Ensemble {

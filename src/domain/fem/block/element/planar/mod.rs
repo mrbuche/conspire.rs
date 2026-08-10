@@ -1,3 +1,4 @@
+use crate::math::{Current, Reference};
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -20,10 +21,11 @@ const M: usize = 2;
 pub type Quadrilateral = Element<2, 4, 4, 1>;
 pub type Triangle = Element<2, 1, 3, 1>;
 
-pub type PlanarElementNodalCoordinates<const N: usize> = TensorRank1List<M, 1, N>;
-pub type PlanarElementNodalReferenceCoordinates<const N: usize> = TensorRank1List<M, 0, N>;
-pub type PlanarElementNodalForcesSolid<const N: usize> = TensorRank1List<M, 1, N>;
-pub type PlanarElementNodalStiffnessesSolid<const N: usize> = TensorRank2List2D<M, 1, 1, N, N>;
+pub type PlanarElementNodalCoordinates<const N: usize> = TensorRank1List<M, Current, N>;
+pub type PlanarElementNodalReferenceCoordinates<const N: usize> = TensorRank1List<M, Reference, N>;
+pub type PlanarElementNodalForcesSolid<const N: usize> = TensorRank1List<M, Current, N>;
+pub type PlanarElementNodalStiffnessesSolid<const N: usize> =
+    TensorRank2List2D<M, Current, Current, N, N>;
 
 impl<const G: usize, const N: usize, const O: usize, const P: usize> FiniteElement<G, M, N, P>
     for Element<2, G, N, O>

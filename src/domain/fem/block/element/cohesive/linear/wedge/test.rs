@@ -1,3 +1,4 @@
+use crate::math::Current;
 use crate::math::assert::Assert;
 use crate::{
     EPSILON,
@@ -106,8 +107,9 @@ fn temporary_4() -> Result<(), AssertionError> {
         .nodal_forces(&MODEL, &coordinates.into())?
         .into_iter()
         .map(|nodal_force| {
-            TensorRank2::<3, 1, 1>::from(get_rotation_reference_configuration().transpose())
-                * nodal_force
+            TensorRank2::<3, Current, Current>::from(
+                get_rotation_reference_configuration().transpose(),
+            ) * nodal_force
         })
         .collect::<ElementNodalForcesSolid<N>>();
     Assert::default().eq_within_tols(

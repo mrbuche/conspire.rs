@@ -43,7 +43,7 @@ where
     /// Returns the shear modulus.
     fn shear_modulus(&self) -> Scalar;
     /// Calculates and returns the Jacobian.
-    fn jacobian<const I: usize, const J: usize>(
+    fn jacobian<I, J>(
         &self,
         deformation_gradient: &DeformationGradientGeneral<I, J>,
     ) -> Result<Scalar, ConstitutiveError> {

@@ -1,3 +1,4 @@
+use crate::math::Reference;
 pub mod solid;
 
 use crate::{
@@ -22,8 +23,8 @@ use std::{
 };
 
 pub type ElementNodalCoordinates<'a> = CurrentCoordinatesRef<'a>;
-pub type ElementNodalReferenceCoordinates = TensorRank1Vec2D<3, 0>;
-pub type GradientVectors = Vectors2D<0>;
+pub type ElementNodalReferenceCoordinates = TensorRank1Vec2D<3, Reference>;
+pub type GradientVectors = Vectors2D<Reference>;
 
 pub type TetrahedraCoordinates = Vec<FemElementNodalCoordinates<4>>;
 

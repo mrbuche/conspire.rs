@@ -115,7 +115,7 @@ where
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> Jacobian
+impl<const D: usize, I, J, K, L> Jacobian
     for TensorTuple<TensorRank2<D, I, J>, TensorRank2<D, K, L>>
 {
     fn fill_into(&self, vector: &mut Vector) {
@@ -137,7 +137,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> Solution
+impl<const D: usize, I, J, K, L> Solution
     for TensorTuple<TensorRank2<D, I, J>, TensorRank2<D, K, L>>
 {
     fn decrement_from(&mut self, other: &Vector) {
@@ -389,7 +389,7 @@ where
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> Sub<Vector>
+impl<const D: usize, I, J, K, L> Sub<Vector>
     for TensorTuple<TensorRank2<D, I, J>, TensorRank2<D, K, L>>
 {
     type Output = Self;
@@ -400,7 +400,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> Sub<&Vector>
+impl<const D: usize, I, J, K, L> Sub<&Vector>
     for TensorTuple<TensorRank2<D, I, J>, TensorRank2<D, K, L>>
 {
     type Output = Self;

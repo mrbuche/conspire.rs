@@ -1,10 +1,11 @@
+use crate::math::{Factor, Reference};
 #[cfg(test)]
 mod test;
 
 use super::{Rank2, Tensor, TensorArray, TensorRank0, TensorRank2, relabel};
 use crate::ABS_TOL;
 
-impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
+impl<const D: usize, I, J> TensorRank2<D, I, J> {
     /// Returns the determinant of the rank-2 tensor.
     pub fn determinant(&self) -> TensorRank0 {
         self.canonical().determinant_core()
@@ -29,20 +30,30 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
         (relabel(inverse_transpose), determinant)
     }
     /// Returns the LU decomposition of the rank-2 tensor.
-    pub fn lu_decomposition(&self) -> (TensorRank2<D, I, 88>, TensorRank2<D, 88, J>, Vec<usize>) {
+    pub fn lu_decomposition(
+        &self,
+    ) -> (
+        TensorRank2<D, I, Factor>,
+        TensorRank2<D, Factor, J>,
+        Vec<usize>,
+    ) {
         let (tensor_l, tensor_u, p) = self.canonical().lu_decomposition_core();
         (relabel(tensor_l), relabel(tensor_u), p)
     }
     /// Returns the inverse of the LU decomposition of the rank-2 tensor.
     pub fn lu_decomposition_inverse(
         &self,
-    ) -> (TensorRank2<D, I, 88>, TensorRank2<D, 88, J>, Vec<usize>) {
+    ) -> (
+        TensorRank2<D, I, Factor>,
+        TensorRank2<D, Factor, J>,
+        Vec<usize>,
+    ) {
         let (tensor_l, tensor_u, p) = self.canonical().lu_decomposition_inverse_core();
         (relabel(tensor_l), relabel(tensor_u), p)
     }
 }
 
-impl<const D: usize> TensorRank2<D, 0, 0> {
+impl<const D: usize> TensorRank2<D, Reference, Reference> {
     fn determinant_core(&self) -> TensorRank0 {
         if D == 2 {
             self[0][0] * self[1][1] - self[0][1] * self[1][0]

@@ -1292,7 +1292,7 @@ macro_rules! test_finite_element_with_elastic_or_hyperelastic_constitutive_model
                             .nodal_stiffnesses(&$constitutive_model, &coordinates_transformed())?
                         * get_rotation_current_configuration())
                 } else {
-                    let converted: TensorRank2<3, 1, 1> =
+                    let converted: TensorRank2<3, $crate::math::Current, $crate::math::Current> =
                         get_rotation_reference_configuration().into();
                     Ok(converted.transpose()
                         * get_element_transformed().nodal_stiffnesses(
@@ -1489,7 +1489,7 @@ macro_rules! test_finite_element_with_viscoelastic_constitutive_model {
                         )?
                         * get_rotation_current_configuration())
                 } else {
-                    let converted: TensorRank2<3, 1, 1> =
+                    let converted: TensorRank2<3, $crate::math::Current, $crate::math::Current> =
                         get_rotation_reference_configuration().into();
                     Ok(converted.transpose()
                         * get_element_transformed().nodal_stiffnesses(

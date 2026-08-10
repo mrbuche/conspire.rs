@@ -1,3 +1,5 @@
+use crate::math::Projection;
+use crate::math::Reference;
 #[cfg(test)]
 mod test;
 
@@ -20,27 +22,26 @@ use crate::{
 };
 use std::fmt::{self, Debug, Display, Formatter};
 
-const A: usize = 9;
 const FRAC_1_SQRT_3: Scalar = 0.577_350_269_189_625_8; // nightly feature
 const FRAC_SQRT_3_5: Scalar = 0.774_596_669_241_483;
 
 pub type ElementNodalCoordinates<const N: usize> = CurrentCoordinates<N>;
 pub type ElementNodalVelocities<const N: usize> = CurrentCoordinates<N>;
-pub type ElementNodalEitherCoordinates<const I: usize, const N: usize> = CoordinateList<I, N>;
+pub type ElementNodalEitherCoordinates<I, const N: usize> = CoordinateList<I, N>;
 pub type ElementNodalReferenceCoordinates<const N: usize> = ReferenceCoordinates<N>;
 pub type GradientVectors<const D: usize, const G: usize, const N: usize> =
-    TensorRank1List2D<D, 0, N, G>;
-pub type ParametricCoordinate<const M: usize> = TensorRank1<M, A>;
-pub type ParametricCoordinates<const G: usize, const M: usize> = TensorRank1List<M, A, G>;
-pub type ParametricReference<const M: usize, const N: usize> = TensorRank1List<M, A, N>;
-pub type ShapeFunctions<const N: usize> = TensorRank1<N, A>;
+    TensorRank1List2D<D, Reference, N, G>;
+pub type ParametricCoordinate<const M: usize> = TensorRank1<M, Projection>;
+pub type ParametricCoordinates<const G: usize, const M: usize> = TensorRank1List<M, Projection, G>;
+pub type ParametricReference<const M: usize, const N: usize> = TensorRank1List<M, Projection, N>;
+pub type ShapeFunctions<const N: usize> = TensorRank1<N, Projection>;
 pub type ShapeFunctionsAtIntegrationPoints<const G: usize, const N: usize> =
-    TensorRank1List<N, A, G>;
-pub type ShapeFunctionsGradients<const M: usize, const N: usize> = TensorRank1List<M, 0, N>;
+    TensorRank1List<N, Projection, G>;
+pub type ShapeFunctionsGradients<const M: usize, const N: usize> = TensorRank1List<M, Reference, N>;
 pub type StandardGradientOperators<const M: usize, const O: usize, const P: usize> =
-    TensorRank1List2D<M, 0, O, P>;
+    TensorRank1List2D<M, Reference, O, P>;
 pub type StandardGradientOperatorsTransposed<const M: usize, const O: usize, const P: usize> =
-    TensorRank1List2D<M, 0, P, O>;
+    TensorRank1List2D<M, Reference, P, O>;
 
 pub trait FiniteElement<const G: usize, const M: usize, const N: usize, const P: usize>
 where
@@ -105,7 +106,7 @@ impl<const D: usize, const G: usize, const N: usize, const O: usize> Debug for E
 }
 
 fn basic_from<const D: usize, const G: usize, const N: usize, const O: usize>(
-    reference_nodal_coordinates: TensorRank1List<D, 0, N>,
+    reference_nodal_coordinates: TensorRank1List<D, Reference, N>,
 ) -> Element<D, G, N, O>
 where
     Element<D, G, N, O>: FiniteElement<G, D, N, N>,

@@ -134,7 +134,7 @@ impl From<Vector> for Vec<Scalar> {
     }
 }
 
-impl<const D: usize, const I: usize> From<TensorRank1Vec<D, I>> for Vector {
+impl<const D: usize, I> From<TensorRank1Vec<D, I>> for Vector {
     fn from(tensor_rank_1_vec: TensorRank1Vec<D, I>) -> Self {
         let length = tensor_rank_1_vec.len() * D;
         let capacity = tensor_rank_1_vec.capacity() * D;
@@ -144,7 +144,7 @@ impl<const D: usize, const I: usize> From<TensorRank1Vec<D, I>> for Vector {
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> From<TensorRank2<D, I, J>> for Vector {
+impl<const D: usize, I, J> From<TensorRank2<D, I, J>> for Vector {
     fn from(tensor_rank_2: TensorRank2<D, I, J>) -> Self {
         let length = D * D;
         let capacity = length;
@@ -545,7 +545,7 @@ impl Mul<&Matrix> for &Vector {
     }
 }
 
-impl<const D: usize, const I: usize> Mul<&TensorRank1Vec<D, I>> for &Vector {
+impl<const D: usize, I> Mul<&TensorRank1Vec<D, I>> for &Vector {
     type Output = Scalar;
     fn mul(self, tensor_rank_1_vec: &TensorRank1Vec<D, I>) -> Self::Output {
         tensor_rank_1_vec
@@ -562,7 +562,7 @@ impl<const D: usize, const I: usize> Mul<&TensorRank1Vec<D, I>> for &Vector {
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> Mul<&TensorRank2<D, I, J>> for &Vector {
+impl<const D: usize, I, J> Mul<&TensorRank2<D, I, J>> for &Vector {
     type Output = Scalar;
     fn mul(self, tensor_rank_2: &TensorRank2<D, I, J>) -> Self::Output {
         tensor_rank_2
@@ -579,8 +579,8 @@ impl<const D: usize, const I: usize, const J: usize> Mul<&TensorRank2<D, I, J>> 
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
-    Mul<&TensorTuple<TensorRank2<D, I, J>, TensorRank2<D, K, L>>> for &Vector
+impl<const D: usize, I, J, K, L> Mul<&TensorTuple<TensorRank2<D, I, J>, TensorRank2<D, K, L>>>
+    for &Vector
 {
     type Output = Scalar;
     fn mul(

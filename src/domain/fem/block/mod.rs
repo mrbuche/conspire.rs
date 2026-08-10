@@ -44,7 +44,7 @@ where
     fn elements(&self) -> &[F] {
         &self.elements
     }
-    fn element_coordinates<const D: usize, const I: usize>(
+    fn element_coordinates<const D: usize, I>(
         coordinates: &TensorRank1Vec<D, I>,
         nodes: &[usize; N],
     ) -> TensorRank1List<D, I, N> {

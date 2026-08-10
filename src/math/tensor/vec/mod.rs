@@ -16,10 +16,9 @@ pub struct TensorVector<T>(Vec<T>);
 // NEED TO MOVE SOMEWHERE ELSE
 
 /// A vector of references to rank-1 tensors.
-pub type TensorRank1RefVec<'a, const D: usize, const I: usize> =
-    TensorVector<&'a TensorRank1<D, I>>;
+pub type TensorRank1RefVec<'a, const D: usize, I> = TensorVector<&'a TensorRank1<D, I>>;
 
-impl<'a, const D: usize, const I: usize> TensorRank1RefVec<'a, D, I> {
+impl<'a, const D: usize, I> TensorRank1RefVec<'a, D, I> {
     pub fn bounding_box(&self) -> TensorRank1List<D, I, 2> {
         self.iter()
             .skip(1)
@@ -49,7 +48,7 @@ impl<'a, const D: usize, const I: usize> TensorRank1RefVec<'a, D, I> {
     }
 }
 
-impl<'a, const D: usize, const I: usize> Index<usize> for TensorRank1RefVec<'a, D, I> {
+impl<'a, const D: usize, I> Index<usize> for TensorRank1RefVec<'a, D, I> {
     type Output = TensorRank1<D, I>;
     fn index(&self, index: usize) -> &Self::Output {
         self.0[index]

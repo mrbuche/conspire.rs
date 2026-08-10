@@ -11,7 +11,7 @@ use crate::{
         Coordinate, CoordinateList, Coordinates,
         mesh::{Connectivity, Mesh},
     },
-    math::{Scalar, Tensor, TensorRank2},
+    math::{Reference, Scalar, Tensor, TensorRank2},
 };
 use std::array::from_fn;
 
@@ -291,10 +291,10 @@ fn corners<const D: usize, const K: usize, const C: usize>(
 fn corner_measure<const D: usize, const K: usize>(edges: &[Coordinate<D>; K]) -> Scalar {
     if K == D {
         let matrix: [[Scalar; K]; K] = from_fn(|row| from_fn(|column| edges[row][column]));
-        TensorRank2::<K, 0, 0>::from(matrix).determinant()
+        TensorRank2::<K, Reference, Reference>::from(matrix).determinant()
     } else {
         let gram: [[Scalar; K]; K] = from_fn(|i| from_fn(|j| &edges[i] * &edges[j]));
-        TensorRank2::<K, 0, 0>::from(gram)
+        TensorRank2::<K, Reference, Reference>::from(gram)
             .determinant()
             .max(0.0)
             .sqrt()

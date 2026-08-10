@@ -5,9 +5,7 @@ use crate::math::{
     TensorRank2Vec2D,
 };
 
-impl<const D: usize, const I: usize, const J: usize> AssertFd<TensorRank2<D, I, J>>
-    for TensorRank2<D, I, J>
-{
+impl<const D: usize, I, J> AssertFd<TensorRank2<D, I, J>> for TensorRank2<D, I, J> {
     fn eq_within_fd_tol(
         tols: &Assert,
         a: Self,
@@ -17,9 +15,7 @@ impl<const D: usize, const I: usize, const J: usize> AssertFd<TensorRank2<D, I, 
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> AssertFd<TensorRank2Vec<D, I, J>>
-    for TensorRank2Vec<D, I, J>
-{
+impl<const D: usize, I, J> AssertFd<TensorRank2Vec<D, I, J>> for TensorRank2Vec<D, I, J> {
     fn eq_within_fd_tol(
         tols: &Assert,
         a: Self,
@@ -29,9 +25,7 @@ impl<const D: usize, const I: usize, const J: usize> AssertFd<TensorRank2Vec<D, 
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> AssertFd<TensorRank2Vec2D<D, I, J>>
-    for TensorRank2Vec2D<D, I, J>
-{
+impl<const D: usize, I, J> AssertFd<TensorRank2Vec2D<D, I, J>> for TensorRank2Vec2D<D, I, J> {
     fn eq_within_fd_tol(
         tols: &Assert,
         a: Self,
@@ -41,7 +35,7 @@ impl<const D: usize, const I: usize, const J: usize> AssertFd<TensorRank2Vec2D<D
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> AssertFd<TensorRank2SparseVec2D<D, I, J>>
+impl<const D: usize, I, J> AssertFd<TensorRank2SparseVec2D<D, I, J>>
     for TensorRank2SparseVec2D<D, I, J>
 {
     fn eq_within_fd_tol(
@@ -53,8 +47,7 @@ impl<const D: usize, const I: usize, const J: usize> AssertFd<TensorRank2SparseV
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize>
-    AssertFd<TensorRank2SparseVec2DSymmetric<D, I, J>>
+impl<const D: usize, I, J> AssertFd<TensorRank2SparseVec2DSymmetric<D, I, J>>
     for TensorRank2SparseVec2DSymmetric<D, I, J>
 {
     fn eq_within_fd_tol(

@@ -1,3 +1,4 @@
+use crate::math::Current;
 use crate::math::{Tensor, TensorArray, TensorRank0, TensorRank4, TensorRank4List};
 
 fn get_array() -> [[[[[TensorRank0; 3]; 3]; 3]; 3]; 2] {
@@ -39,7 +40,7 @@ fn get_array() -> [[[[[TensorRank0; 3]; 3]; 3]; 3]; 2] {
     ]
 }
 
-fn get_tensor_rank_4_list() -> TensorRank4List<3, 1, 1, 1, 1, 2> {
+fn get_tensor_rank_4_list() -> TensorRank4List<3, Current, Current, Current, Current, 2> {
     TensorRank4List::from(get_array())
 }
 
@@ -164,14 +165,14 @@ fn from() {
 #[test]
 fn size() {
     assert_eq!(
-        std::mem::size_of::<TensorRank4List::<3, 1, 1, 1, 1, 8>>(),
-        std::mem::size_of::<[TensorRank4::<3, 1, 1, 1, 1>; 8]>()
+        std::mem::size_of::<TensorRank4List::<3, Current, Current, Current, Current, 8>>(),
+        std::mem::size_of::<[TensorRank4::<3, Current, Current, Current, Current>; 8]>()
     )
 }
 
 #[test]
 fn zero() {
-    TensorRank4List::<3, 1, 1, 1, 1, 8>::zero()
+    TensorRank4List::<3, Current, Current, Current, Current, 8>::zero()
         .iter()
         .for_each(|tensor_rank_4_entry| {
             tensor_rank_4_entry

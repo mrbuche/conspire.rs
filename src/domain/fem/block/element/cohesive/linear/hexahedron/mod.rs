@@ -55,7 +55,7 @@ impl From<ElementNodalReferenceCoordinates<N>> for Hexahedron {
 }
 
 impl CohesiveFiniteElement<G, N, P> for Hexahedron {
-    fn nodal_mid_surface<const I: usize>(
+    fn nodal_mid_surface<I>(
         nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> ElementNodalEitherCoordinates<I, P> {
         Self::nodal_mid_surface_linear(nodal_coordinates)

@@ -5,6 +5,7 @@ use super::{
     },
     EqualityConstraint, FirstOrderOptimization, GradientDescent, Scalar, ZerothOrderRootFinding,
 };
+use crate::math::Current;
 use crate::math::assert::Assert;
 
 mod minimize {
@@ -27,7 +28,7 @@ mod minimize {
                 TensorRank1::from([-1.0, 1.0]),
                 EqualityConstraint::None,
             )?,
-            &TensorRank1::<2, 1>::identity(),
+            &TensorRank1::<2, Current>::identity(),
         )
     }
 }
@@ -50,7 +51,7 @@ mod root {
                 TensorRank1::from([-1.0, 1.0]),
                 EqualityConstraint::None,
             )?,
-            &TensorRank1::<2, 1>::identity(),
+            &TensorRank1::<2, Current>::identity(),
         )
     }
 }

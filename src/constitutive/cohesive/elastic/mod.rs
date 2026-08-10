@@ -1,14 +1,16 @@
 //! Elastic cohesive constitutive models.
 
+use crate::math::Current;
+use crate::math::Interface;
 use crate::{
     constitutive::{Constitutive, ConstitutiveError, cohesive::Cohesive},
     math::{Tensor, TensorArray, TensorRank1, TensorRank2, TensorRank2List},
     mechanics::{Normal, Scalar, Separation, Stiffness, Traction},
 };
 
-pub type Tractions = TensorRank1<2, 8>;
-pub type Stiffnesses = TensorRank2<2, 8, 8>;
-pub type StiffnessCohesive = TensorRank2List<3, 1, 1, 2>;
+pub type Tractions = TensorRank1<2, Interface>;
+pub type Stiffnesses = TensorRank2<2, Interface, Interface>;
+pub type StiffnessCohesive = TensorRank2List<3, Current, Current, 2>;
 
 /// Required methods for elastic cohesive constitutive models.
 pub trait Elastic

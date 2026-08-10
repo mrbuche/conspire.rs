@@ -4,26 +4,47 @@ mod test;
 use super::TensorRank2;
 use crate::math::{Tensor, TensorArray, TensorRank0};
 use std::{
-    fmt::{Display, Formatter, Result},
+    fmt::{self, Debug, Display, Formatter, Result},
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
 /// A sparse vector of rank-2 tensors, storing only inserted entries.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct TensorRank2SparseVec<const D: usize, const I: usize, const J: usize>(
+pub struct TensorRank2SparseVec<const D: usize, I, J>(
     pub(super) Vec<(usize, TensorRank2<D, I, J>)>,
 );
 
-impl<const D: usize, const I: usize, const J: usize> TensorRank2SparseVec<D, I, J> {
+impl<const D: usize, I, J> Clone for TensorRank2SparseVec<D, I, J> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<const D: usize, I, J> Debug for TensorRank2SparseVec<D, I, J> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Debug::fmt(&self.0, f)
+    }
+}
+
+impl<const D: usize, I, J> Default for TensorRank2SparseVec<D, I, J> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+impl<const D: usize, I, J> PartialEq for TensorRank2SparseVec<D, I, J> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<const D: usize, I, J> TensorRank2SparseVec<D, I, J> {
     pub fn entries(&self) -> impl Iterator<Item = (usize, &TensorRank2<D, I, J>)> {
         self.0.iter().map(|(column, entry)| (*column, entry))
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> FromIterator<TensorRank2<D, I, J>>
-    for TensorRank2SparseVec<D, I, J>
-{
+impl<const D: usize, I, J> FromIterator<TensorRank2<D, I, J>> for TensorRank2SparseVec<D, I, J> {
     fn from_iter<T>(into_iterator: T) -> Self
     where
         T: IntoIterator<Item = TensorRank2<D, I, J>>,
@@ -32,9 +53,7 @@ impl<const D: usize, const I: usize, const J: usize> FromIterator<TensorRank2<D,
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> Index<usize>
-    for TensorRank2SparseVec<D, I, J>
-{
+impl<const D: usize, I, J> Index<usize> for TensorRank2SparseVec<D, I, J> {
     type Output = TensorRank2<D, I, J>;
     fn index(&self, index: usize) -> &Self::Output {
         match self.0.binary_search_by_key(&index, |&(column, _)| column) {
@@ -44,9 +63,7 @@ impl<const D: usize, const I: usize, const J: usize> Index<usize>
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> IndexMut<usize>
-    for TensorRank2SparseVec<D, I, J>
-{
+impl<const D: usize, I, J> IndexMut<usize> for TensorRank2SparseVec<D, I, J> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         let k = match self.0.binary_search_by_key(&index, |&(column, _)| column) {
             Ok(k) => k,
@@ -59,13 +76,13 @@ impl<const D: usize, const I: usize, const J: usize> IndexMut<usize>
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> Display for TensorRank2SparseVec<D, I, J> {
+impl<const D: usize, I, J> Display for TensorRank2SparseVec<D, I, J> {
     fn fmt(&self, f: &mut Formatter) -> Result {
         write!(f, "Need to implement Display")
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> Tensor for TensorRank2SparseVec<D, I, J> {
+impl<const D: usize, I, J> Tensor for TensorRank2SparseVec<D, I, J> {
     type Item = TensorRank2<D, I, J>;
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter().map(|(_, entry)| entry)
@@ -81,7 +98,7 @@ impl<const D: usize, const I: usize, const J: usize> Tensor for TensorRank2Spars
     }
 }
 
-fn merge<const D: usize, const I: usize, const J: usize>(
+fn merge<const D: usize, I, J>(
     a: TensorRank2SparseVec<D, I, J>,
     b: &TensorRank2SparseVec<D, I, J>,
     sign: TensorRank0,
@@ -92,21 +109,21 @@ fn merge<const D: usize, const I: usize, const J: usize>(
     merged
 }
 
-impl<const D: usize, const I: usize, const J: usize> Add for TensorRank2SparseVec<D, I, J> {
+impl<const D: usize, I, J> Add for TensorRank2SparseVec<D, I, J> {
     type Output = Self;
     fn add(self, other: Self) -> Self {
         merge(self, &other, 1.0)
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> Add<&Self> for TensorRank2SparseVec<D, I, J> {
+impl<const D: usize, I, J> Add<&Self> for TensorRank2SparseVec<D, I, J> {
     type Output = Self;
     fn add(self, other: &Self) -> Self {
         merge(self, other, 1.0)
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> AddAssign for TensorRank2SparseVec<D, I, J> {
+impl<const D: usize, I, J> AddAssign for TensorRank2SparseVec<D, I, J> {
     fn add_assign(&mut self, other: Self) {
         other
             .0
@@ -115,9 +132,7 @@ impl<const D: usize, const I: usize, const J: usize> AddAssign for TensorRank2Sp
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> AddAssign<&Self>
-    for TensorRank2SparseVec<D, I, J>
-{
+impl<const D: usize, I, J> AddAssign<&Self> for TensorRank2SparseVec<D, I, J> {
     fn add_assign(&mut self, other: &Self) {
         other
             .0
@@ -126,21 +141,21 @@ impl<const D: usize, const I: usize, const J: usize> AddAssign<&Self>
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> Sub for TensorRank2SparseVec<D, I, J> {
+impl<const D: usize, I, J> Sub for TensorRank2SparseVec<D, I, J> {
     type Output = Self;
     fn sub(self, other: Self) -> Self {
         merge(self, &other, -1.0)
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> Sub<&Self> for TensorRank2SparseVec<D, I, J> {
+impl<const D: usize, I, J> Sub<&Self> for TensorRank2SparseVec<D, I, J> {
     type Output = Self;
     fn sub(self, other: &Self) -> Self {
         merge(self, other, -1.0)
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> SubAssign for TensorRank2SparseVec<D, I, J> {
+impl<const D: usize, I, J> SubAssign for TensorRank2SparseVec<D, I, J> {
     fn sub_assign(&mut self, other: Self) {
         other
             .0
@@ -149,9 +164,7 @@ impl<const D: usize, const I: usize, const J: usize> SubAssign for TensorRank2Sp
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> SubAssign<&Self>
-    for TensorRank2SparseVec<D, I, J>
-{
+impl<const D: usize, I, J> SubAssign<&Self> for TensorRank2SparseVec<D, I, J> {
     fn sub_assign(&mut self, other: &Self) {
         other
             .0
@@ -160,9 +173,7 @@ impl<const D: usize, const I: usize, const J: usize> SubAssign<&Self>
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> Mul<TensorRank0>
-    for TensorRank2SparseVec<D, I, J>
-{
+impl<const D: usize, I, J> Mul<TensorRank0> for TensorRank2SparseVec<D, I, J> {
     type Output = Self;
     fn mul(mut self, scalar: TensorRank0) -> Self {
         self *= &scalar;
@@ -170,25 +181,19 @@ impl<const D: usize, const I: usize, const J: usize> Mul<TensorRank0>
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> MulAssign<TensorRank0>
-    for TensorRank2SparseVec<D, I, J>
-{
+impl<const D: usize, I, J> MulAssign<TensorRank0> for TensorRank2SparseVec<D, I, J> {
     fn mul_assign(&mut self, scalar: TensorRank0) {
         self.0.iter_mut().for_each(|(_, entry)| *entry *= &scalar);
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> MulAssign<&TensorRank0>
-    for TensorRank2SparseVec<D, I, J>
-{
+impl<const D: usize, I, J> MulAssign<&TensorRank0> for TensorRank2SparseVec<D, I, J> {
     fn mul_assign(&mut self, scalar: &TensorRank0) {
         self.0.iter_mut().for_each(|(_, entry)| *entry *= scalar);
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> Div<TensorRank0>
-    for TensorRank2SparseVec<D, I, J>
-{
+impl<const D: usize, I, J> Div<TensorRank0> for TensorRank2SparseVec<D, I, J> {
     type Output = Self;
     fn div(mut self, scalar: TensorRank0) -> Self {
         self /= &scalar;
@@ -196,23 +201,19 @@ impl<const D: usize, const I: usize, const J: usize> Div<TensorRank0>
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> DivAssign<TensorRank0>
-    for TensorRank2SparseVec<D, I, J>
-{
+impl<const D: usize, I, J> DivAssign<TensorRank0> for TensorRank2SparseVec<D, I, J> {
     fn div_assign(&mut self, scalar: TensorRank0) {
         self.0.iter_mut().for_each(|(_, entry)| *entry /= &scalar);
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> DivAssign<&TensorRank0>
-    for TensorRank2SparseVec<D, I, J>
-{
+impl<const D: usize, I, J> DivAssign<&TensorRank0> for TensorRank2SparseVec<D, I, J> {
     fn div_assign(&mut self, scalar: &TensorRank0) {
         self.0.iter_mut().for_each(|(_, entry)| *entry /= scalar);
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> Sum for TensorRank2SparseVec<D, I, J> {
+impl<const D: usize, I, J> Sum for TensorRank2SparseVec<D, I, J> {
     fn sum<T>(iter: T) -> Self
     where
         T: Iterator<Item = Self>,

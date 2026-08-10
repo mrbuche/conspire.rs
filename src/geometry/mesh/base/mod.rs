@@ -1,3 +1,4 @@
+use crate::math::Reference;
 #[cfg(test)]
 mod test;
 
@@ -13,7 +14,7 @@ use crate::{
 use std::array::from_fn;
 
 impl Mesh<3> {
-    pub fn normals(&self) -> TensorRank1Vec2D<3, 0> {
+    pub fn normals(&self) -> TensorRank1Vec2D<3, Reference> {
         self.iter()
             .map(|connectivity| match connectivity {
                 Connectivity::Triangular(triangles) => triangles
