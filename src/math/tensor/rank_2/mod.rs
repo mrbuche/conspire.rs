@@ -316,6 +316,80 @@ impl<const D: usize, const I: usize, const J: usize> FiniteDifference for Tensor
 }
 
 impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
+    /// Views the tensor with its configurations discarded, so that arithmetic is
+    /// compiled once per dimension rather than once per configuration.
+    pub(super) fn canonical(&self) -> &TensorRank2<D, 0, 0> {
+        unsafe { &*(self as *const Self as *const TensorRank2<D, 0, 0>) }
+    }
+    fn canonical_mut(&mut self) -> &mut TensorRank2<D, 0, 0> {
+        unsafe { &mut *(self as *mut Self as *mut TensorRank2<D, 0, 0>) }
+    }
+    fn into_canonical(self) -> TensorRank2<D, 0, 0> {
+        TensorRank2(self.0.map(|tensor_rank_1| TensorRank1(tensor_rank_1.0)))
+    }
+}
+
+pub(super) fn relabel<const D: usize, const I: usize, const J: usize>(
+    tensor_rank_2: TensorRank2<D, 0, 0>,
+) -> TensorRank2<D, I, J> {
+    TensorRank2(
+        tensor_rank_2
+            .0
+            .map(|tensor_rank_1| TensorRank1(tensor_rank_1.0)),
+    )
+}
+
+impl<const D: usize> TensorRank2<D, 0, 0> {
+    fn as_array_core(&self) -> [[TensorRank0; D]; D] {
+        let mut array = [[0.0; D]; D];
+        array
+            .iter_mut()
+            .zip(self.iter())
+            .for_each(|(entry, tensor_rank_1)| *entry = tensor_rank_1.as_array());
+        array
+    }
+    fn identity_core() -> Self {
+        (0..D)
+            .map(|i| (0..D).map(|j| ((i == j) as u8) as TensorRank0).collect())
+            .collect()
+    }
+    fn zero_core() -> Self {
+        Self(from_fn(|_| TensorRank1::zero()))
+    }
+    fn add_assign_core(&mut self, tensor_rank_2: Self) {
+        self.iter_mut()
+            .zip(tensor_rank_2)
+            .for_each(|(self_i, tensor_rank_2_i)| *self_i += tensor_rank_2_i);
+    }
+    fn add_assign_ref_core(&mut self, tensor_rank_2: &Self) {
+        self.iter_mut()
+            .zip(tensor_rank_2.iter())
+            .for_each(|(self_i, tensor_rank_2_i)| *self_i += tensor_rank_2_i);
+    }
+    fn sub_assign_core(&mut self, tensor_rank_2: Self) {
+        self.iter_mut()
+            .zip(tensor_rank_2)
+            .for_each(|(self_i, tensor_rank_2_i)| *self_i -= tensor_rank_2_i);
+    }
+    fn sub_assign_ref_core(&mut self, tensor_rank_2: &Self) {
+        self.iter_mut()
+            .zip(tensor_rank_2.iter())
+            .for_each(|(self_i, tensor_rank_2_i)| *self_i -= tensor_rank_2_i);
+    }
+    fn mul_core(&self, tensor_rank_2: &Self) -> Self {
+        self.iter()
+            .map(|self_i| {
+                self_i
+                    .iter()
+                    .zip(tensor_rank_2.iter())
+                    .map(|(self_ij, tensor_rank_2_j)| tensor_rank_2_j * self_ij)
+                    .sum()
+            })
+            .collect()
+    }
+}
+
+impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
     /// Returns a raw pointer to the slice’s buffer.
     pub const fn as_ptr(&self) -> *const TensorRank1<D, J> {
         self.0.as_ptr()
@@ -453,20 +527,13 @@ impl<const D: usize, const I: usize, const J: usize> TensorArray for TensorRank2
     type Array = [[TensorRank0; D]; D];
     type Item = TensorRank1<D, J>;
     fn as_array(&self) -> Self::Array {
-        let mut array = [[0.0; D]; D];
-        array
-            .iter_mut()
-            .zip(self.iter())
-            .for_each(|(entry, tensor_rank_1)| *entry = tensor_rank_1.as_array());
-        array
+        self.canonical().as_array_core()
     }
     fn identity() -> Self {
-        (0..D)
-            .map(|i| (0..D).map(|j| ((i == j) as u8) as TensorRank0).collect())
-            .collect()
+        relabel(TensorRank2::identity_core())
     }
     fn zero() -> Self {
-        Self(from_fn(|_| Self::Item::zero()))
+        relabel(TensorRank2::zero_core())
     }
 }
 
@@ -878,17 +945,15 @@ impl<const D: usize, const I: usize, const J: usize> Add<TensorRank2<D, I, J>>
 
 impl<const D: usize, const I: usize, const J: usize> AddAssign for TensorRank2<D, I, J> {
     fn add_assign(&mut self, tensor_rank_2: Self) {
-        self.iter_mut()
-            .zip(tensor_rank_2)
-            .for_each(|(self_i, tensor_rank_2_i)| *self_i += tensor_rank_2_i);
+        self.canonical_mut()
+            .add_assign_core(tensor_rank_2.into_canonical());
     }
 }
 
 impl<const D: usize, const I: usize, const J: usize> AddAssign<&Self> for TensorRank2<D, I, J> {
     fn add_assign(&mut self, tensor_rank_2: &Self) {
-        self.iter_mut()
-            .zip(tensor_rank_2.iter())
-            .for_each(|(self_i, tensor_rank_2_i)| *self_i += tensor_rank_2_i);
+        self.canonical_mut()
+            .add_assign_ref_core(tensor_rank_2.canonical());
     }
 }
 
@@ -897,15 +962,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<TensorR
 {
     type Output = TensorRank2<D, I, K>;
     fn mul(self, tensor_rank_2: TensorRank2<D, J, K>) -> Self::Output {
-        self.into_iter()
-            .map(|self_i| {
-                self_i
-                    .into_iter()
-                    .zip(tensor_rank_2.iter())
-                    .map(|(self_ij, tensor_rank_2_j)| tensor_rank_2_j * self_ij)
-                    .sum()
-            })
-            .collect()
+        relabel(self.canonical().mul_core(tensor_rank_2.canonical()))
     }
 }
 
@@ -914,15 +971,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<&Tensor
 {
     type Output = TensorRank2<D, I, K>;
     fn mul(self, tensor_rank_2: &TensorRank2<D, J, K>) -> Self::Output {
-        self.into_iter()
-            .map(|self_i| {
-                self_i
-                    .into_iter()
-                    .zip(tensor_rank_2.iter())
-                    .map(|(self_ij, tensor_rank_2_j)| tensor_rank_2_j * self_ij)
-                    .sum()
-            })
-            .collect()
+        relabel(self.canonical().mul_core(tensor_rank_2.canonical()))
     }
 }
 
@@ -931,15 +980,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<TensorR
 {
     type Output = TensorRank2<D, I, K>;
     fn mul(self, tensor_rank_2: TensorRank2<D, J, K>) -> Self::Output {
-        self.iter()
-            .map(|self_i| {
-                self_i
-                    .iter()
-                    .zip(tensor_rank_2.iter())
-                    .map(|(self_ij, tensor_rank_2_j)| tensor_rank_2_j * self_ij)
-                    .sum()
-            })
-            .collect()
+        relabel(self.canonical().mul_core(tensor_rank_2.canonical()))
     }
 }
 
@@ -948,15 +989,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<&Tensor
 {
     type Output = TensorRank2<D, I, K>;
     fn mul(self, tensor_rank_2: &TensorRank2<D, J, K>) -> Self::Output {
-        self.iter()
-            .map(|self_i| {
-                self_i
-                    .iter()
-                    .zip(tensor_rank_2.iter())
-                    .map(|(self_ij, tensor_rank_2_j)| tensor_rank_2_j * self_ij)
-                    .sum()
-            })
-            .collect()
+        relabel(self.canonical().mul_core(tensor_rank_2.canonical()))
     }
 }
 
@@ -1014,17 +1047,15 @@ impl<const D: usize, const I: usize, const J: usize> Sub for &TensorRank2<D, I, 
 
 impl<const D: usize, const I: usize, const J: usize> SubAssign for TensorRank2<D, I, J> {
     fn sub_assign(&mut self, tensor_rank_2: Self) {
-        self.iter_mut()
-            .zip(tensor_rank_2)
-            .for_each(|(self_i, tensor_rank_2_i)| *self_i -= tensor_rank_2_i);
+        self.canonical_mut()
+            .sub_assign_core(tensor_rank_2.into_canonical());
     }
 }
 
 impl<const D: usize, const I: usize, const J: usize> SubAssign<&Self> for TensorRank2<D, I, J> {
     fn sub_assign(&mut self, tensor_rank_2: &Self) {
-        self.iter_mut()
-            .zip(tensor_rank_2.iter())
-            .for_each(|(self_i, tensor_rank_2_i)| *self_i -= tensor_rank_2_i);
+        self.canonical_mut()
+            .sub_assign_ref_core(tensor_rank_2.canonical());
     }
 }
 

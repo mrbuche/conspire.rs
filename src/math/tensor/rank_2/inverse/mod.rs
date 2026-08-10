@@ -1,12 +1,49 @@
 #[cfg(test)]
 mod test;
 
-use super::{Rank2, Tensor, TensorArray, TensorRank0, TensorRank2};
+use super::{Rank2, Tensor, TensorArray, TensorRank0, TensorRank2, relabel};
 use crate::ABS_TOL;
 
 impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
     /// Returns the determinant of the rank-2 tensor.
     pub fn determinant(&self) -> TensorRank0 {
+        self.canonical().determinant_core()
+    }
+    /// Returns the inverse of the rank-2 tensor.
+    pub fn inverse(&self) -> TensorRank2<D, J, I> {
+        relabel(self.canonical().inverse_core())
+    }
+    /// Returns the inverse and determinant of the rank-2 tensor.
+    pub fn inverse_and_determinant(&self) -> (TensorRank2<D, J, I>, TensorRank0) {
+        let (inverse, determinant) = self.canonical().inverse_and_determinant_core();
+        (relabel(inverse), determinant)
+    }
+    /// Returns the inverse transpose of the rank-2 tensor.
+    pub fn inverse_transpose(&self) -> Self {
+        relabel(self.canonical().inverse_transpose_core())
+    }
+    /// Returns the inverse transpose and determinant of the rank-2 tensor.
+    pub fn inverse_transpose_and_determinant(&self) -> (Self, TensorRank0) {
+        let (inverse_transpose, determinant) =
+            self.canonical().inverse_transpose_and_determinant_core();
+        (relabel(inverse_transpose), determinant)
+    }
+    /// Returns the LU decomposition of the rank-2 tensor.
+    pub fn lu_decomposition(&self) -> (TensorRank2<D, I, 88>, TensorRank2<D, 88, J>, Vec<usize>) {
+        let (tensor_l, tensor_u, p) = self.canonical().lu_decomposition_core();
+        (relabel(tensor_l), relabel(tensor_u), p)
+    }
+    /// Returns the inverse of the LU decomposition of the rank-2 tensor.
+    pub fn lu_decomposition_inverse(
+        &self,
+    ) -> (TensorRank2<D, I, 88>, TensorRank2<D, 88, J>, Vec<usize>) {
+        let (tensor_l, tensor_u, p) = self.canonical().lu_decomposition_inverse_core();
+        (relabel(tensor_l), relabel(tensor_u), p)
+    }
+}
+
+impl<const D: usize> TensorRank2<D, 0, 0> {
+    fn determinant_core(&self) -> TensorRank0 {
         if D == 2 {
             self[0][0] * self[1][1] - self[0][1] * self[1][0]
         } else if D == 3 {
@@ -29,7 +66,7 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
             let c0 = self[2][0] * self[3][1] - self[2][1] * self[3][0];
             s0 * c5 - s1 * c4 + s2 * c3 + s3 * c2 - s4 * c1 + s5 * c0
         } else {
-            let (_, u, p) = self.lu_decomposition();
+            let (_, u, p) = self.lu_decomposition_core();
             let num_swaps = p.iter().enumerate().filter(|(i, p_i)| p_i != &i).count();
             u.into_iter()
                 .enumerate()
@@ -38,17 +75,16 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
                 * if num_swaps % 2 == 0 { 1.0 } else { -1.0 }
         }
     }
-    /// Returns the inverse of the rank-2 tensor.
-    pub fn inverse(&self) -> TensorRank2<D, J, I> {
+    fn inverse_core(&self) -> Self {
         if D == 2 {
-            let mut adjugate = TensorRank2::<D, J, I>::zero();
+            let mut adjugate = Self::zero();
             adjugate[0][0] = self[1][1];
             adjugate[0][1] = -self[0][1];
             adjugate[1][0] = -self[1][0];
             adjugate[1][1] = self[0][0];
-            adjugate / self.determinant()
+            adjugate / self.determinant_core()
         } else if D == 3 {
-            let mut adjugate = TensorRank2::<D, J, I>::zero();
+            let mut adjugate = Self::zero();
             let c_00 = self[1][1] * self[2][2] - self[1][2] * self[2][1];
             let c_10 = self[1][2] * self[2][0] - self[1][0] * self[2][2];
             let c_20 = self[1][0] * self[2][1] - self[1][1] * self[2][0];
@@ -63,7 +99,7 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
             adjugate[2][2] = self[0][0] * self[1][1] - self[0][1] * self[1][0];
             adjugate / (self[0][0] * c_00 + self[0][1] * c_10 + self[0][2] * c_20)
         } else if D == 4 {
-            let mut adjugate = TensorRank2::<D, J, I>::zero();
+            let mut adjugate = Self::zero();
             let s0 = self[0][0] * self[1][1] - self[0][1] * self[1][0];
             let s1 = self[0][0] * self[1][2] - self[0][2] * self[1][0];
             let s2 = self[0][0] * self[1][3] - self[0][3] * self[1][0];
@@ -94,7 +130,7 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
             adjugate[3][3] = self[2][0] * s3 - self[2][1] * s1 + self[2][2] * s0;
             adjugate / (s0 * c5 - s1 * c4 + s2 * c3 + s3 * c2 - s4 * c1 + s5 * c0)
         } else {
-            let (l_inverse, u_inverse, p) = self.lu_decomposition_inverse();
+            let (l_inverse, u_inverse, p) = self.lu_decomposition_inverse_core();
             let mut q = [0; D];
             p.into_iter().enumerate().for_each(|(i, p_i)| q[p_i] = i);
             u_inverse
@@ -113,18 +149,17 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
                 .collect()
         }
     }
-    /// Returns the inverse and determinant of the rank-2 tensor.
-    pub fn inverse_and_determinant(&self) -> (TensorRank2<D, J, I>, TensorRank0) {
+    fn inverse_and_determinant_core(&self) -> (Self, TensorRank0) {
         if D == 2 {
-            let mut adjugate = TensorRank2::<D, J, I>::zero();
+            let mut adjugate = Self::zero();
             adjugate[0][0] = self[1][1];
             adjugate[0][1] = -self[0][1];
             adjugate[1][0] = -self[1][0];
             adjugate[1][1] = self[0][0];
-            let determinant = self.determinant();
+            let determinant = self.determinant_core();
             (adjugate / determinant, determinant)
         } else if D == 3 {
-            let mut adjugate = TensorRank2::<D, J, I>::zero();
+            let mut adjugate = Self::zero();
             let c_00 = self[1][1] * self[2][2] - self[1][2] * self[2][1];
             let c_10 = self[1][2] * self[2][0] - self[1][0] * self[2][2];
             let c_20 = self[1][0] * self[2][1] - self[1][1] * self[2][0];
@@ -140,7 +175,7 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
             adjugate[2][2] = self[0][0] * self[1][1] - self[0][1] * self[1][0];
             (adjugate / determinant, determinant)
         } else if D == 4 {
-            let mut adjugate = TensorRank2::<D, J, I>::zero();
+            let mut adjugate = Self::zero();
             let s0 = self[0][0] * self[1][1] - self[0][1] * self[1][0];
             let s1 = self[0][0] * self[1][2] - self[0][2] * self[1][0];
             let s2 = self[0][0] * self[1][3] - self[0][3] * self[1][0];
@@ -172,20 +207,19 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
             adjugate[3][3] = self[2][0] * s3 - self[2][1] * s1 + self[2][2] * s0;
             (adjugate / determinant, determinant)
         } else {
-            (self.inverse(), self.determinant())
+            (self.inverse_core(), self.determinant_core())
         }
     }
-    /// Returns the inverse transpose of the rank-2 tensor.
-    pub fn inverse_transpose(&self) -> Self {
+    fn inverse_transpose_core(&self) -> Self {
         if D == 2 {
-            let mut adjugate_transpose = TensorRank2::<D, I, J>::zero();
+            let mut adjugate_transpose = Self::zero();
             adjugate_transpose[0][0] = self[1][1];
             adjugate_transpose[0][1] = -self[1][0];
             adjugate_transpose[1][0] = -self[0][1];
             adjugate_transpose[1][1] = self[0][0];
-            adjugate_transpose / self.determinant()
+            adjugate_transpose / self.determinant_core()
         } else if D == 3 {
-            let mut adjugate_transpose = TensorRank2::<D, I, J>::zero();
+            let mut adjugate_transpose = Self::zero();
             let c_00 = self[1][1] * self[2][2] - self[1][2] * self[2][1];
             let c_10 = self[1][2] * self[2][0] - self[1][0] * self[2][2];
             let c_20 = self[1][0] * self[2][1] - self[1][1] * self[2][0];
@@ -200,7 +234,7 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
             adjugate_transpose[2][2] = self[0][0] * self[1][1] - self[0][1] * self[1][0];
             adjugate_transpose / (self[0][0] * c_00 + self[0][1] * c_10 + self[0][2] * c_20)
         } else if D == 4 {
-            let mut adjugate_transpose = TensorRank2::<D, I, J>::zero();
+            let mut adjugate_transpose = Self::zero();
             let s0 = self[0][0] * self[1][1] - self[0][1] * self[1][0];
             let s1 = self[0][0] * self[1][2] - self[0][2] * self[1][0];
             let s2 = self[0][0] * self[1][3] - self[0][3] * self[1][0];
@@ -231,21 +265,20 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
             adjugate_transpose[3][3] = self[2][0] * s3 - self[2][1] * s1 + self[2][2] * s0;
             adjugate_transpose / (s0 * c5 - s1 * c4 + s2 * c3 + s3 * c2 - s4 * c1 + s5 * c0)
         } else {
-            self.inverse().transpose()
+            self.inverse_core().transpose()
         }
     }
-    /// Returns the inverse transpose and determinant of the rank-2 tensor.
-    pub fn inverse_transpose_and_determinant(&self) -> (Self, TensorRank0) {
+    fn inverse_transpose_and_determinant_core(&self) -> (Self, TensorRank0) {
         if D == 2 {
-            let mut adjugate_transpose = TensorRank2::<D, I, J>::zero();
+            let mut adjugate_transpose = Self::zero();
             adjugate_transpose[0][0] = self[1][1];
             adjugate_transpose[0][1] = -self[1][0];
             adjugate_transpose[1][0] = -self[0][1];
             adjugate_transpose[1][1] = self[0][0];
-            let determinant = self.determinant();
+            let determinant = self.determinant_core();
             (adjugate_transpose / determinant, determinant)
         } else if D == 3 {
-            let mut adjugate_transpose = TensorRank2::<D, I, J>::zero();
+            let mut adjugate_transpose = Self::zero();
             let c_00 = self[1][1] * self[2][2] - self[1][2] * self[2][1];
             let c_10 = self[1][2] * self[2][0] - self[1][0] * self[2][2];
             let c_20 = self[1][0] * self[2][1] - self[1][1] * self[2][0];
@@ -261,7 +294,7 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
             adjugate_transpose[2][2] = self[0][0] * self[1][1] - self[0][1] * self[1][0];
             (adjugate_transpose / determinant, determinant)
         } else if D == 4 {
-            let mut adjugate_transpose = TensorRank2::<D, I, J>::zero();
+            let mut adjugate_transpose = Self::zero();
             let s0 = self[0][0] * self[1][1] - self[0][1] * self[1][0];
             let s1 = self[0][0] * self[1][2] - self[0][2] * self[1][0];
             let s2 = self[0][0] * self[1][3] - self[0][3] * self[1][0];
@@ -293,11 +326,10 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
             adjugate_transpose[3][3] = self[2][0] * s3 - self[2][1] * s1 + self[2][2] * s0;
             (adjugate_transpose / determinant, determinant)
         } else {
-            (self.inverse_transpose(), self.determinant())
+            (self.inverse_transpose_core(), self.determinant_core())
         }
     }
-    /// Returns the LU decomposition of the rank-2 tensor.
-    pub fn lu_decomposition(&self) -> (TensorRank2<D, I, 88>, TensorRank2<D, 88, J>, Vec<usize>) {
+    fn lu_decomposition_core(&self) -> (Self, Self, Vec<usize>) {
         let n = D;
         let mut p: Vec<usize> = (0..n).collect();
         let mut factor;
@@ -346,11 +378,8 @@ impl<const D: usize, const I: usize, const J: usize> TensorRank2<D, I, J> {
         }
         (l, u, p)
     }
-    /// Returns the inverse of the LU decomposition of the rank-2 tensor.
-    pub fn lu_decomposition_inverse(
-        &self,
-    ) -> (TensorRank2<D, I, 88>, TensorRank2<D, 88, J>, Vec<usize>) {
-        let (mut tensor_l, mut tensor_u, p) = self.lu_decomposition();
+    fn lu_decomposition_inverse_core(&self) -> (Self, Self, Vec<usize>) {
+        let (mut tensor_l, mut tensor_u, p) = self.lu_decomposition_core();
         let mut sum;
         for i in 0..D {
             tensor_l[i][i] = 1.0 / tensor_l[i][i];
