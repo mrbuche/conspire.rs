@@ -1,3 +1,4 @@
+use crate::math::TensorRank4;
 use crate::math::{Dimensionless, Quantity, Stress};
 #[cfg(test)]
 mod test;
@@ -57,25 +58,29 @@ impl Elastic for AlmansiHamel {
         let inverse_transpose_deformation_gradient = deformation_gradient.inverse_transpose();
         let inverse_left_cauchy_green_deformation = &inverse_transpose_deformation_gradient
             * inverse_transpose_deformation_gradient.transpose();
-        let scaled_inverse_left_cauchy_green_deformation =
-            &inverse_left_cauchy_green_deformation * (self.shear_modulus() / jacobian);
+        let scaled_inverse_left_cauchy_green_deformation = &inverse_left_cauchy_green_deformation
+            * (Quantity::<Stress>::new(self.shear_modulus()) / jacobian);
         let strain = (IDENTITY - &inverse_left_cauchy_green_deformation) * 0.5;
         let (deviatoric_strain, strain_trace) = strain.deviatoric_and_trace();
-        Ok((CauchyTangentStiffness::dyad_il_jk(
+        Ok(((TensorRank4::dyad_il_jk(
             &inverse_transpose_deformation_gradient,
             &scaled_inverse_left_cauchy_green_deformation,
-        ) + CauchyTangentStiffness::dyad_ik_jl(
+        ) + TensorRank4::dyad_ik_jl(
             &scaled_inverse_left_cauchy_green_deformation,
             &inverse_transpose_deformation_gradient,
-        )) + CauchyTangentStiffness::dyad_ij_kl(
+        )) + TensorRank4::dyad_ij_kl(
             &IDENTITY,
             &(inverse_left_cauchy_green_deformation
                 * &inverse_transpose_deformation_gradient
-                * ((self.bulk_modulus() - self.shear_modulus() * TWO_THIRDS) / jacobian)),
-        ) - CauchyTangentStiffness::dyad_ij_kl(
-            &(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
-                + IDENTITY * (self.bulk_modulus() * strain_trace / jacobian)),
+                * ((Quantity::<Stress>::new(self.bulk_modulus())
+                    - Quantity::<Stress>::new(self.shear_modulus()) * TWO_THIRDS)
+                    / jacobian)),
+        ) - TensorRank4::dyad_ij_kl(
+            &(deviatoric_strain * (2.0 * Quantity::<Stress>::new(self.shear_modulus()) / jacobian)
+                + IDENTITY
+                    * (Quantity::<Stress>::new(self.bulk_modulus()) * strain_trace / jacobian)),
             &inverse_transpose_deformation_gradient,
         ))
+        .with_unit::<Dimensionless>())
     }
 }

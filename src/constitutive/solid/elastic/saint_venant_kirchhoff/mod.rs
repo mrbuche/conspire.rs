@@ -1,3 +1,4 @@
+use crate::math::TensorRank4;
 use crate::math::{Dimensionless, Quantity, Stress};
 #[cfg(test)]
 mod test;
@@ -52,22 +53,29 @@ impl Elastic for SaintVenantKirchhoff {
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         let inverse_transpose_deformation_gradient = deformation_gradient.inverse_transpose();
-        let scaled_deformation_gradient = deformation_gradient * (self.shear_modulus() / jacobian);
+        let scaled_deformation_gradient =
+            deformation_gradient * (Quantity::<Stress>::new(self.shear_modulus()) / jacobian);
         let (deviatoric_strain, strain_trace) =
             ((deformation_gradient.left_cauchy_green() - IDENTITY) * 0.5).deviatoric_and_trace();
         Ok(
-            (CauchyTangentStiffness::dyad_il_jk(&scaled_deformation_gradient, &IDENTITY)
-                + CauchyTangentStiffness::dyad_ik_jl(&IDENTITY, &scaled_deformation_gradient))
-                + CauchyTangentStiffness::dyad_ij_kl(
+            ((TensorRank4::dyad_il_jk(&scaled_deformation_gradient, &IDENTITY)
+                + TensorRank4::dyad_ik_jl(&IDENTITY, &scaled_deformation_gradient))
+                + TensorRank4::dyad_ij_kl(
                     &IDENTITY,
                     &(deformation_gradient
-                        * ((self.bulk_modulus() - self.shear_modulus() * TWO_THIRDS) / jacobian)),
+                        * ((Quantity::<Stress>::new(self.bulk_modulus())
+                            - Quantity::<Stress>::new(self.shear_modulus()) * TWO_THIRDS)
+                            / jacobian)),
                 )
-                - CauchyTangentStiffness::dyad_ij_kl(
-                    &(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
-                        + IDENTITY * (self.bulk_modulus() * strain_trace / jacobian)),
+                - TensorRank4::dyad_ij_kl(
+                    &(deviatoric_strain
+                        * (2.0 * Quantity::<Stress>::new(self.shear_modulus()) / jacobian)
+                        + IDENTITY
+                            * (Quantity::<Stress>::new(self.bulk_modulus()) * strain_trace
+                                / jacobian)),
                     &inverse_transpose_deformation_gradient,
-                ),
+                ))
+            .with_unit::<Dimensionless>(),
         )
     }
 }

@@ -1,3 +1,4 @@
+use crate::math::TensorRank4;
 use crate::math::{Dimensionless, Quantity, Stress};
 #[cfg(test)]
 mod test;
@@ -159,13 +160,14 @@ where
             .value();
         let gamma_0 = (1.0 / self.number_of_links()).sqrt();
         let eta = self.nondimensional_force(gamma)?;
-        let scaled_shear_modulus =
-            gamma_0 / self.nondimensional_force(gamma_0)? * self.shear_modulus() * eta
-                / gamma
-                / jacobian.powf(FIVE_THIRDS);
+        let scaled_shear_modulus = gamma_0 / self.nondimensional_force(gamma_0)?
+            * Quantity::<Stress>::new(self.shear_modulus())
+            * eta
+            / gamma
+            / jacobian.powf(FIVE_THIRDS);
         let scaled_deviatoric_isochoric_left_cauchy_green_deformation =
             deviatoric_left_cauchy_green_deformation * scaled_shear_modulus;
-        let term = CauchyTangentStiffness::dyad_ij_kl(
+        let term = TensorRank4::dyad_ij_kl(
             &scaled_deviatoric_isochoric_left_cauchy_green_deformation,
             &(deviatoric_isochoric_left_cauchy_green_deformation
                 * &inverse_transpose_deformation_gradient
@@ -174,20 +176,20 @@ where
                     / self.number_of_links()
                     / gamma)),
         );
-        Ok(
-            (CauchyTangentStiffness::dyad_ik_jl(&IDENTITY, deformation_gradient)
-                + CauchyTangentStiffness::dyad_il_jk(deformation_gradient, &IDENTITY)
-                - CauchyTangentStiffness::dyad_ij_kl(&IDENTITY, deformation_gradient)
-                    * (TWO_THIRDS))
-                * scaled_shear_modulus
-                + CauchyTangentStiffness::dyad_ij_kl(
-                    &(IDENTITY * (0.5 * self.bulk_modulus() * (jacobian + 1.0 / jacobian))
-                        - scaled_deviatoric_isochoric_left_cauchy_green_deformation
-                            * (FIVE_THIRDS)),
-                    &inverse_transpose_deformation_gradient,
-                )
-                + term,
-        )
+        Ok(((TensorRank4::dyad_ik_jl(&IDENTITY, deformation_gradient)
+            + TensorRank4::dyad_il_jk(deformation_gradient, &IDENTITY)
+            - TensorRank4::dyad_ij_kl(&IDENTITY, deformation_gradient) * (TWO_THIRDS))
+            * scaled_shear_modulus
+            + TensorRank4::dyad_ij_kl(
+                &(IDENTITY
+                    * (0.5
+                        * Quantity::<Stress>::new(self.bulk_modulus())
+                        * (jacobian + 1.0 / jacobian))
+                    - scaled_deviatoric_isochoric_left_cauchy_green_deformation * (FIVE_THIRDS)),
+                &inverse_transpose_deformation_gradient,
+            )
+            + term)
+            .with_unit::<Dimensionless>())
     }
 }
 

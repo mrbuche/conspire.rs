@@ -1,3 +1,4 @@
+use crate::math::TensorRank4;
 use crate::math::{Dimensionless, Quantity, Stress};
 #[cfg(test)]
 mod test;
@@ -55,17 +56,18 @@ impl Elastic for SaintVenantKirchhoff {
     ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let scaled_deformation_gradient_transpose =
-            deformation_gradient.transpose() * self.shear_modulus();
-        Ok(SecondPiolaKirchhoffTangentStiffness::dyad_ik_jl(
-            &scaled_deformation_gradient_transpose,
-            &IDENTITY_00,
-        ) + SecondPiolaKirchhoffTangentStiffness::dyad_il_jk(
-            &IDENTITY_00,
-            &scaled_deformation_gradient_transpose,
-        ) + SecondPiolaKirchhoffTangentStiffness::dyad_ij_kl(
-            &(IDENTITY_00 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())),
-            deformation_gradient,
-        ))
+            deformation_gradient.transpose() * Quantity::<Stress>::new(self.shear_modulus());
+        Ok(
+            (TensorRank4::dyad_ik_jl(&scaled_deformation_gradient_transpose, &IDENTITY_00)
+                + TensorRank4::dyad_il_jk(&IDENTITY_00, &scaled_deformation_gradient_transpose)
+                + TensorRank4::dyad_ij_kl(
+                    &(IDENTITY_00
+                        * (Quantity::<Stress>::new(self.bulk_modulus())
+                            - TWO_THIRDS * Quantity::<Stress>::new(self.shear_modulus()))),
+                    deformation_gradient,
+                ))
+            .with_unit::<Dimensionless>(),
+        )
     }
 }
 
