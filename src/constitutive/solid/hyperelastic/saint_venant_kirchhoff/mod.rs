@@ -1,3 +1,4 @@
+use crate::math::{Dimensionless, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -41,8 +42,11 @@ impl Elastic for SaintVenantKirchhoff {
         let (deviatoric_strain, strain_trace) =
             ((deformation_gradient.right_cauchy_green() - IDENTITY_00) * 0.5)
                 .deviatoric_and_trace();
-        Ok(deviatoric_strain * (2.0 * self.shear_modulus())
-            + IDENTITY_00 * (self.bulk_modulus() * strain_trace))
+        Ok(
+            (deviatoric_strain * (2.0 * Quantity::<Stress>::new(self.shear_modulus()))
+                + IDENTITY_00 * (Quantity::<Stress>::new(self.bulk_modulus()) * strain_trace))
+                .with_unit::<Dimensionless>(),
+        )
     }
     #[doc = include_str!("second_piola_kirchhoff_tangent_stiffness.md")]
     fn second_piola_kirchhoff_tangent_stiffness(
@@ -73,9 +77,13 @@ impl Hyperelastic for SaintVenantKirchhoff {
     ) -> Result<Scalar, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let strain = (deformation_gradient.right_cauchy_green() - IDENTITY_00) * 0.5;
-        Ok(self.shear_modulus() * strain.squared_trace()
-            + 0.5
-                * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())
-                * strain.trace().powi(2))
+        Ok(
+            (Quantity::<Stress>::new(self.shear_modulus()) * strain.squared_trace()
+                + 0.5
+                    * (Quantity::<Stress>::new(self.bulk_modulus())
+                        - TWO_THIRDS * Quantity::<Stress>::new(self.shear_modulus()))
+                    * strain.trace().powi(2))
+            .value(),
+        )
     }
 }

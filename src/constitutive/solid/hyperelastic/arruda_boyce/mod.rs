@@ -1,3 +1,4 @@
+use crate::math::{Dimensionless, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -62,12 +63,17 @@ impl Elastic for ArrudaBoyce {
             ))
         } else {
             let gamma_0 = (1.0 / self.number_of_links()).sqrt();
-            Ok(deviatoric_isochoric_left_cauchy_green_deformation
-                * (self.shear_modulus() * inverse_langevin(gamma) / inverse_langevin(gamma_0)
+            Ok((deviatoric_isochoric_left_cauchy_green_deformation
+                * (Quantity::<Stress>::new(self.shear_modulus()) * inverse_langevin(gamma)
+                    / inverse_langevin(gamma_0)
                     * gamma_0
                     / gamma
                     / jacobian)
-                + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
+                + IDENTITY
+                    * Quantity::<Stress>::new(self.bulk_modulus())
+                    * 0.5
+                    * (jacobian - 1.0 / jacobian))
+                .with_unit::<Dimensionless>())
         }
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
@@ -147,13 +153,16 @@ impl Hyperelastic for ArrudaBoyce {
             let eta = inverse_langevin(gamma);
             let gamma_0 = (1.0 / self.number_of_links()).sqrt();
             let eta_0 = inverse_langevin(gamma_0);
-            Ok(3.0 * gamma_0 / eta_0
-                * self.shear_modulus()
+            Ok((3.0 * gamma_0 / eta_0
+                * Quantity::<Stress>::new(self.shear_modulus())
                 * self.number_of_links()
                 * (gamma * eta
                     - gamma_0 * eta_0
                     - (eta_0 * eta.sinh() / (eta * eta_0.sinh())).ln())
-                + 0.5 * self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln()))
+                + 0.5
+                    * Quantity::<Stress>::new(self.bulk_modulus())
+                    * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln()))
+            .value())
         }
     }
 }

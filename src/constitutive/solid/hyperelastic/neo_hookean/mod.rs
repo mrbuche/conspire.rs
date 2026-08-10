@@ -1,3 +1,4 @@
+use crate::math::{Dimensionless, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -36,9 +37,13 @@ impl Elastic for NeoHookean {
     ) -> Result<CauchyStress, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         Ok(
-            deformation_gradient.left_cauchy_green().deviatoric() / jacobian.powf(FIVE_THIRDS)
-                * self.shear_modulus()
-                + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian),
+            (deformation_gradient.left_cauchy_green().deviatoric() / jacobian.powf(FIVE_THIRDS)
+                * Quantity::<Stress>::new(self.shear_modulus())
+                + IDENTITY
+                    * Quantity::<Stress>::new(self.bulk_modulus())
+                    * 0.5
+                    * (jacobian - 1.0 / jacobian))
+                .with_unit::<Dimensionless>(),
         )
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
@@ -72,10 +77,12 @@ impl Hyperelastic for NeoHookean {
         deformation_gradient: &DeformationGradient,
     ) -> Result<Scalar, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
-        Ok(0.5
-            * (self.shear_modulus()
+        Ok((0.5
+            * (Quantity::<Stress>::new(self.shear_modulus())
                 * (deformation_gradient.left_cauchy_green().trace() / jacobian.powf(TWO_THIRDS)
                     - 3.0)
-                + self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
+                + Quantity::<Stress>::new(self.bulk_modulus())
+                    * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
+        .value())
     }
 }

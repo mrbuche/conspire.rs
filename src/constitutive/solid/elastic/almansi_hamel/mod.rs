@@ -1,3 +1,4 @@
+use crate::math::{Dimensionless, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -40,8 +41,12 @@ impl Elastic for AlmansiHamel {
             - inverse_deformation_gradient.transpose() * &inverse_deformation_gradient)
             * 0.5;
         let (deviatoric_strain, strain_trace) = strain.deviatoric_and_trace();
-        Ok(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
-            + IDENTITY * (self.bulk_modulus() * strain_trace / jacobian))
+        Ok(
+            (deviatoric_strain * (2.0 * Quantity::<Stress>::new(self.shear_modulus()) / jacobian)
+                + IDENTITY
+                    * (Quantity::<Stress>::new(self.bulk_modulus()) * strain_trace / jacobian))
+                .with_unit::<Dimensionless>(),
+        )
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
     fn cauchy_tangent_stiffness(

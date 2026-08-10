@@ -1,3 +1,4 @@
+use crate::math::{Dimensionless, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -46,14 +47,17 @@ impl Elastic for MooneyRivlin {
         let jacobian = self.jacobian(deformation_gradient)?;
         let isochoric_left_cauchy_green_deformation =
             deformation_gradient.left_cauchy_green() / jacobian.powf(TWO_THIRDS);
-        Ok(((isochoric_left_cauchy_green_deformation.deviatoric()
-            * (self.shear_modulus() - self.extra_modulus())
+        Ok((((isochoric_left_cauchy_green_deformation.deviatoric()
+            * (Quantity::<Stress>::new(self.shear_modulus())
+                - Quantity::<Stress>::new(self.extra_modulus()))
             - isochoric_left_cauchy_green_deformation
                 .inverse()
                 .deviatoric()
-                * self.extra_modulus())
-            + IDENTITY * (self.bulk_modulus() * 0.5 * (jacobian.powi(2) - 1.0)))
+                * Quantity::<Stress>::new(self.extra_modulus()))
+            + IDENTITY
+                * (Quantity::<Stress>::new(self.bulk_modulus()) * 0.5 * (jacobian.powi(2) - 1.0)))
             / jacobian)
+            .with_unit::<Dimensionless>())
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
     fn cauchy_tangent_stiffness(
@@ -115,11 +119,14 @@ impl Hyperelastic for MooneyRivlin {
         let jacobian = self.jacobian(deformation_gradient)?;
         let isochoric_left_cauchy_green_deformation =
             deformation_gradient.left_cauchy_green() / jacobian.powf(TWO_THIRDS);
-        Ok(0.5
-            * ((self.shear_modulus() - self.extra_modulus())
+        Ok((0.5
+            * ((Quantity::<Stress>::new(self.shear_modulus())
+                - Quantity::<Stress>::new(self.extra_modulus()))
                 * (isochoric_left_cauchy_green_deformation.trace() - 3.0)
-                + self.extra_modulus()
+                + Quantity::<Stress>::new(self.extra_modulus())
                     * (isochoric_left_cauchy_green_deformation.second_invariant() - 3.0)
-                + self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
+                + Quantity::<Stress>::new(self.bulk_modulus())
+                    * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
+        .value())
     }
 }

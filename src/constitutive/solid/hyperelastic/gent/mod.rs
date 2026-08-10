@@ -1,3 +1,4 @@
+use crate::math::{Dimensionless, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -58,12 +59,16 @@ impl Elastic for Gent {
                 format!("{:?}", self),
             ))
         } else {
-            Ok((deviatoric_isochoric_left_cauchy_green_deformation
-                * self.shear_modulus()
+            Ok(((deviatoric_isochoric_left_cauchy_green_deformation
+                * Quantity::<Stress>::new(self.shear_modulus())
                 * self.extensibility()
                 / jacobian)
                 / denominator
-                + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
+                + IDENTITY
+                    * Quantity::<Stress>::new(self.bulk_modulus())
+                    * 0.5
+                    * (jacobian - 1.0 / jacobian))
+                .with_unit::<Dimensionless>())
         }
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
@@ -129,9 +134,13 @@ impl Hyperelastic for Gent {
                 format!("{:?}", self),
             ))
         } else {
-            Ok(0.5
-                * (-self.shear_modulus() * self.extensibility() * (1.0 - factor).ln()
-                    + self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
+            Ok((0.5
+                * (-Quantity::<Stress>::new(self.shear_modulus())
+                    * self.extensibility()
+                    * (1.0 - factor).ln()
+                    + Quantity::<Stress>::new(self.bulk_modulus())
+                        * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
+            .value())
         }
     }
 }
