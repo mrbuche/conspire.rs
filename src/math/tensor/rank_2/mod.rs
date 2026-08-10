@@ -1,6 +1,7 @@
 use crate::math::Dimensionless;
 use crate::math::UnitMul;
 use crate::math::{Current, Factor, Flattened, Intermediate, Reference};
+use crate::math::{Quantity, UnitDiv};
 #[cfg(test)]
 mod test;
 
@@ -1306,5 +1307,47 @@ impl<I, J, K, L, U> Div<TensorRank4<3, I, J, K, L, U>> for &TensorRank2<3, I, J,
                 .for_each(|(j, output_ij)| *output_ij = output_tensor_rank_1[3 * i + j])
         });
         output
+    }
+}
+
+// A quantity carries its unit into the tensor it scales.
+
+impl<const D: usize, I, J, U, V> Mul<Quantity<V>> for TensorRank2<D, I, J, U>
+where
+    U: UnitMul<V>,
+{
+    type Output = TensorRank2<D, I, J, <U as UnitMul<V>>::Output>;
+    fn mul(self, quantity: Quantity<V>) -> Self::Output {
+        relabel(self.into_canonical() * quantity.value())
+    }
+}
+
+impl<const D: usize, I, J, U, V> Mul<Quantity<V>> for &TensorRank2<D, I, J, U>
+where
+    U: UnitMul<V>,
+{
+    type Output = TensorRank2<D, I, J, <U as UnitMul<V>>::Output>;
+    fn mul(self, quantity: Quantity<V>) -> Self::Output {
+        relabel(self.canonical() * quantity.value())
+    }
+}
+
+impl<const D: usize, I, J, U, V> Div<Quantity<V>> for TensorRank2<D, I, J, U>
+where
+    U: UnitDiv<V>,
+{
+    type Output = TensorRank2<D, I, J, <U as UnitDiv<V>>::Output>;
+    fn div(self, quantity: Quantity<V>) -> Self::Output {
+        relabel(self.into_canonical() / quantity.value())
+    }
+}
+
+impl<const D: usize, I, J, U, V> Div<Quantity<V>> for &TensorRank2<D, I, J, U>
+where
+    U: UnitDiv<V>,
+{
+    type Output = TensorRank2<D, I, J, <U as UnitDiv<V>>::Output>;
+    fn div(self, quantity: Quantity<V>) -> Self::Output {
+        relabel(self.canonical() / quantity.value())
     }
 }

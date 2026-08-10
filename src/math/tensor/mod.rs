@@ -1,6 +1,7 @@
 pub(super) mod configuration;
 pub(super) mod list;
 pub(super) mod norm;
+pub(super) mod quantity;
 pub(super) mod rank_0;
 pub(super) mod rank_1;
 pub(super) mod rank_2;
@@ -15,6 +16,7 @@ pub use configuration::{
     Reference,
 };
 pub use norm::Norm;
+pub use quantity::Quantity;
 pub use unit::{
     Dimensionless, Length, Rate, ReciprocalLength, Stress, Temperature, Unit, UnitDiv, UnitInv,
     UnitMul, Viscosity,
