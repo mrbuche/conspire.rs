@@ -1,3 +1,4 @@
+use crate::math::{Dimensionless, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -56,14 +57,19 @@ impl Elastic for Fung {
             deviatoric_isochoric_left_cauchy_green_deformation,
             isochoric_left_cauchy_green_deformation_trace,
         ) = isochoric_left_cauchy_green_deformation.deviatoric_and_trace();
-        Ok(deviatoric_isochoric_left_cauchy_green_deformation
-            * ((self.shear_modulus()
-                + self.extra_modulus()
-                    * ((self.exponent() * (isochoric_left_cauchy_green_deformation_trace - 3.0))
+        Ok((deviatoric_isochoric_left_cauchy_green_deformation
+            * ((Quantity::<Stress>::new(self.shear_modulus())
+                + Quantity::<Stress>::new(self.extra_modulus())
+                    * ((self.exponent()
+                        * (isochoric_left_cauchy_green_deformation_trace - 3.0))
                         .exp()
                         - 1.0))
                 / jacobian)
-            + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
+            + IDENTITY
+                * Quantity::<Stress>::new(self.bulk_modulus())
+                * 0.5
+                * (jacobian - 1.0 / jacobian))
+            .with_unit::<Dimensionless>())
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
     fn cauchy_tangent_stiffness(
@@ -114,10 +120,14 @@ impl Hyperelastic for Fung {
         let jacobian = self.jacobian(deformation_gradient)?;
         let scalar_term =
             deformation_gradient.left_cauchy_green().trace() / jacobian.powf(TWO_THIRDS) - 3.0;
-        Ok(0.5
-            * ((self.shear_modulus() - self.extra_modulus()) * scalar_term
-                + self.extra_modulus() / self.exponent()
+        Ok((0.5
+            * ((Quantity::<Stress>::new(self.shear_modulus())
+                - Quantity::<Stress>::new(self.extra_modulus()))
+                * scalar_term
+                + Quantity::<Stress>::new(self.extra_modulus()) / self.exponent()
                     * ((self.exponent() * scalar_term).exp() - 1.0)
-                + self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
+                + Quantity::<Stress>::new(self.bulk_modulus())
+                    * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
+        .value())
     }
 }

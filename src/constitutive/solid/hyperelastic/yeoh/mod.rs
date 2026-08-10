@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::{Dimensionless, Quantity, Stress};
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -53,14 +54,22 @@ impl<const N: usize> Elastic for Yeoh<N> {
                 .deviatoric_and_trace();
         let scalar_term =
             (left_cauchy_green_deformation_trace / jacobian.powf(TWO_THIRDS) - 3.0).value();
-        Ok(deviatoric_left_cauchy_green_deformation
-            * once(&self.shear_modulus())
-                .chain(self.extra_moduli().iter())
+        Ok((deviatoric_left_cauchy_green_deformation
+            * once(self.shear_modulus())
+                .chain(self.extra_moduli().iter().copied())
                 .enumerate()
-                .map(|(n, modulus)| ((n as Scalar) + 1.0) * modulus * scalar_term.powi(n as i32))
-                .sum::<Scalar>()
+                .map(|(n, modulus)| {
+                    Quantity::<Stress>::new(
+                        ((n as Scalar) + 1.0) * modulus * scalar_term.powi(n as i32),
+                    )
+                })
+                .sum::<Quantity<Stress>>()
             / jacobian.powf(FIVE_THIRDS)
-            + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
+            + IDENTITY
+                * Quantity::<Stress>::new(self.bulk_modulus())
+                * 0.5
+                * (jacobian - 1.0 / jacobian))
+            .with_unit::<Dimensionless>())
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
     fn cauchy_tangent_stiffness(
@@ -122,12 +131,16 @@ impl<const N: usize> Hyperelastic for Yeoh<N> {
         let jacobian = self.jacobian(deformation_gradient)?;
         let scalar_term =
             deformation_gradient.left_cauchy_green().trace() / jacobian.powf(TWO_THIRDS) - 3.0;
-        Ok(0.5
-            * (once(&self.shear_modulus())
-                .chain(self.extra_moduli().iter())
+        Ok((0.5
+            * (once(self.shear_modulus())
+                .chain(self.extra_moduli().iter().copied())
                 .enumerate()
-                .map(|(n, modulus)| modulus * scalar_term.powi((n + 1) as i32))
-                .sum::<Scalar>()
-                + self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
+                .map(|(n, modulus)| {
+                    Quantity::<Stress>::new(modulus * scalar_term.powi((n + 1) as i32))
+                })
+                .sum::<Quantity<Stress>>()
+                + Quantity::<Stress>::new(self.bulk_modulus())
+                    * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
+        .value())
     }
 }
