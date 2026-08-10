@@ -8,11 +8,11 @@ use crate::{
             test::{CONNECTIVITY, COORDINATES},
         },
     },
-    io::{Encoding, Write},
+    io::Write,
     math::{Tensor, assert::AssertionError},
 };
 
-use super::Output;
+use super::Stl;
 use std::fs::{metadata, read_to_string};
 
 #[test]
@@ -30,12 +30,12 @@ fn consistency() -> Result<(), AssertionError> {
         .iter()
         .zip(NORMALS.iter())
         .try_for_each(|(a, b)| Assert::eq(a, b))?;
-    Ok(tessellation.write(Output::Stl(Encoding::Binary("target/foo.stl")))?)
+    Ok(tessellation.write(Stl::Binary("target/foo.stl"))?)
 }
 
 #[test]
 fn ascii() -> Result<(), AssertionError> {
-    tessellation().write(Output::Stl(Encoding::Ascii("target/foo_ascii.stl")))?;
+    tessellation().write(Stl::Ascii("target/foo_ascii.stl"))?;
     let contents = read_to_string("target/foo_ascii.stl")?;
     assert!(contents.starts_with("solid conspire\n"));
     assert!(contents.ends_with("endsolid conspire\n"));
@@ -46,7 +46,7 @@ fn ascii() -> Result<(), AssertionError> {
 
 #[test]
 fn binary_is_not_detected_as_ascii() -> Result<(), AssertionError> {
-    tessellation().write(Output::Stl(Encoding::Binary("target/foo_binary.stl")))?;
+    tessellation().write(Stl::Binary("target/foo_binary.stl"))?;
     assert_eq!(
         metadata("target/foo_binary.stl")?.len(),
         84 + 50 * CONNECTIVITY.len() as u64

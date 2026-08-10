@@ -16,26 +16,6 @@ pub use npy::{Npy, NpyType};
 pub use vtk::{invalid, read, unsupported, write};
 pub use zip::{Zip, ZipEntry};
 
-pub enum Encoding<P>
-where
-    P: AsRef<Path>,
-{
-    Ascii(P),
-    Binary(P),
-}
-
-impl<P> AsRef<Path> for Encoding<P>
-where
-    P: AsRef<Path>,
-{
-    fn as_ref(&self) -> &Path {
-        match self {
-            Encoding::Ascii(path) => path.as_ref(),
-            Encoding::Binary(path) => path.as_ref(),
-        }
-    }
-}
-
 pub trait Write<P>
 where
     P: AsRef<Path>,

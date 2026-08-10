@@ -7,8 +7,6 @@ pub(super) mod read;
 pub(super) mod sdf;
 pub(super) mod write;
 
-pub use write::Output;
-
 use crate::{
     geometry::{bvh::BoundingVolumeHierarchy, mesh::Mesh},
     math::TensorRank1Vec2D,

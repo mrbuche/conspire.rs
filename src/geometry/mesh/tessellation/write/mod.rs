@@ -9,7 +9,7 @@ use crate::{
             tessellation::{D, Tessellation},
         },
     },
-    io::{Encoding, Write},
+    io::Write,
     math::Tensor,
 };
 use std::{
@@ -18,33 +18,35 @@ use std::{
     path::Path,
 };
 
-pub enum Output<P>
+pub enum Stl<P>
 where
     P: AsRef<Path>,
 {
-    Stl(Encoding<P>),
+    Ascii(P),
+    Binary(P),
 }
 
-impl<P> AsRef<Path> for Output<P>
+impl<P> AsRef<Path> for Stl<P>
 where
     P: AsRef<Path>,
 {
     fn as_ref(&self) -> &Path {
         match self {
-            Output::Stl(stl) => stl.as_ref(),
+            Stl::Ascii(path) => path.as_ref(),
+            Stl::Binary(path) => path.as_ref(),
         }
     }
 }
 
-impl<P> Write<Output<P>> for Tessellation
+impl<P> Write<Stl<P>> for Tessellation
 where
     P: AsRef<Path>,
 {
     type Error = ErrorIO;
-    fn write(&self, output: Output<P>) -> Result<(), Self::Error> {
+    fn write(&self, output: Stl<P>) -> Result<(), Self::Error> {
         match output {
-            Output::Stl(Encoding::Ascii(path)) => self.write_stl_ascii(path)?,
-            Output::Stl(Encoding::Binary(path)) => self.write_stl_binary(path)?,
+            Stl::Ascii(path) => self.write_stl_ascii(path)?,
+            Stl::Binary(path) => self.write_stl_binary(path)?,
         }
         Ok(())
     }
