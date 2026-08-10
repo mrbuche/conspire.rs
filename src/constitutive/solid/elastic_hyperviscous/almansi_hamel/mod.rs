@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::{Dimensionless, Quantity, Rate, Stress, Viscosity};
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -75,6 +76,10 @@ impl Viscoelastic for AlmansiHamel {
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate: &DeformationGradientRate,
     ) -> Result<CauchyStress, ConstitutiveError> {
+        let bulk_modulus = Quantity::<Stress>::new(self.bulk_modulus());
+        let shear_modulus = Quantity::<Stress>::new(self.shear_modulus());
+        let bulk_viscosity = Quantity::<Viscosity>::new(self.bulk_viscosity());
+        let shear_viscosity = Quantity::<Viscosity>::new(self.shear_viscosity());
         let jacobian = self.jacobian(deformation_gradient)?;
         let inverse_deformation_gradient = deformation_gradient.inverse();
         let strain = (IDENTITY
@@ -82,14 +87,15 @@ impl Viscoelastic for AlmansiHamel {
             * 0.5;
         let (deviatoric_strain, strain_trace) = strain.deviatoric_and_trace();
         let velocity_gradient = deformation_gradient_rate * inverse_deformation_gradient;
-        let strain_rate = (&velocity_gradient + velocity_gradient.transpose()) * 0.5;
+        let strain_rate =
+            ((&velocity_gradient + velocity_gradient.transpose()) * 0.5).with_unit::<Rate>();
         let (deviatoric_strain_rate, strain_rate_trace) = strain_rate.deviatoric_and_trace();
-        Ok(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
-            + deviatoric_strain_rate * (2.0 * self.shear_viscosity() / jacobian)
+        let strain_rate_trace = Quantity::<Rate>::new(strain_rate_trace);
+        Ok((deviatoric_strain * (2.0 * shear_modulus / jacobian)
+            + deviatoric_strain_rate * (2.0 * shear_viscosity / jacobian)
             + IDENTITY
-                * ((self.bulk_modulus() * strain_trace
-                    + self.bulk_viscosity() * strain_rate_trace)
-                    / jacobian))
+                * ((bulk_modulus * strain_trace + bulk_viscosity * strain_rate_trace) / jacobian))
+            .with_unit::<Dimensionless>())
     }
     /// Calculates and returns the rate tangent stiffness associated with the Cauchy stress.
     ///

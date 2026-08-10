@@ -381,6 +381,14 @@ impl<const D: usize, I, J, U> FiniteDifference for TensorRank2<D, I, J, U> {
 }
 
 impl<const D: usize, I, J, U> TensorRank2<D, I, J, U> {
+    /// Asserts that the tensor carries the given unit.
+    ///
+    /// The dimensions of a quantity entering or leaving a constitutive law are
+    /// stated here rather than deduced, so a unit is erased at a boundary the
+    /// same way it is claimed at one.
+    pub fn with_unit<V>(self) -> TensorRank2<D, I, J, V> {
+        relabel(self.into_canonical())
+    }
     /// Views the tensor with its configurations discarded, so that arithmetic is
     /// compiled once per dimension rather than once per configuration.
     pub(super) fn canonical(&self) -> &TensorRank2<D, Reference, Reference, Dimensionless> {
