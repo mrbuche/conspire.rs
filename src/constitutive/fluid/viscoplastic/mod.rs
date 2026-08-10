@@ -2,7 +2,10 @@
 
 use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::Plastic},
-    math::{Rank2, Scalar, Tensor, TensorArray, TensorTuple, TensorTupleVec},
+    math::{
+        Dimensionless, Quantity, Rank2, Rate, Scalar, Stress, Tensor, TensorArray, TensorTuple,
+        TensorTupleVec,
+    },
     mechanics::{DeformationGradientPlastic, MandelStressElastic, StretchingRatePlastic},
 };
 
@@ -44,9 +47,13 @@ where
         if magnitude == 0.0 {
             Ok(StretchingRatePlastic::zero())
         } else {
-            Ok(deviatoric_mandel_stress
-                * (self.reference_flow_rate() / magnitude
+            let magnitude = Quantity::<Stress>::new(magnitude);
+            let yield_stress = Quantity::<Stress>::new(yield_stress);
+            let reference_flow_rate = Quantity::<Rate>::new(self.reference_flow_rate());
+            Ok((deviatoric_mandel_stress.with_unit::<Stress>()
+                * (reference_flow_rate / magnitude
                     * (magnitude / yield_stress).powf(1.0 / self.rate_sensitivity())))
+            .with_unit::<Dimensionless>())
         }
     }
     /// Returns the rate_sensitivity parameter.

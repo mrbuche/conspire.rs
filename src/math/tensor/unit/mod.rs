@@ -59,6 +59,8 @@ units!(
     Rate,
     /// A viscosity, being a stress per unit rate.
     Viscosity,
+    /// A fluidity, being the reciprocal of a viscosity.
+    ReciprocalViscosity,
     /// A temperature.
     Temperature,
 );
@@ -86,6 +88,9 @@ unit_products!(
     Dimensionless * Viscosity = Viscosity,
     Dimensionless * Temperature = Temperature,
     Viscosity * Rate = Stress,
+    Dimensionless * ReciprocalViscosity = ReciprocalViscosity,
+    Stress * ReciprocalViscosity = Rate,
+    ReciprocalViscosity * Stress = Rate,
     Rate * Viscosity = Stress,
     Length * ReciprocalLength = Dimensionless,
     ReciprocalLength * Length = Dimensionless,
@@ -105,4 +110,6 @@ unit_inverses!(
     Dimensionless => Dimensionless,
     Length => ReciprocalLength,
     ReciprocalLength => Length,
+    Viscosity => ReciprocalViscosity,
+    ReciprocalViscosity => Viscosity,
 );
