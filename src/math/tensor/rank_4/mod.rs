@@ -1,3 +1,4 @@
+use super::rank_2::relabel as relabel_rank_2;
 use crate::math::Dimensionless;
 use crate::math::UnitMul;
 use crate::math::{Current, Intermediate, Reference};
@@ -783,55 +784,81 @@ pub trait ContractThirdFourthWithFirstSecond<TKL> {
     fn contract_third_fourth_with_first_second(self, tensor: TKL) -> Self::Output;
 }
 
-impl<const D: usize, I, J, K, L, U> ContractThirdFourthWithFirstSecond<&TensorRank2<D, K, L, U>>
+impl<const D: usize, I, J, K, L, U, V> ContractThirdFourthWithFirstSecond<&TensorRank2<D, K, L, V>>
     for TensorRank4<D, I, J, K, L, U>
+where
+    U: UnitMul<V>,
 {
-    type Output = TensorRank2<D, I, J, U>;
+    type Output = TensorRank2<D, I, J, <U as UnitMul<V>>::Output>;
     fn contract_third_fourth_with_first_second(
         self,
-        tensor_rank_2: &TensorRank2<D, K, L, U>,
+        tensor_rank_2: &TensorRank2<D, K, L, V>,
     ) -> Self::Output {
-        self.into_iter()
-            .map(|self_i| {
-                self_i
-                    .into_iter()
-                    .map(|self_ij| self_ij.full_contraction(tensor_rank_2))
-                    .collect()
-            })
-            .collect()
+        relabel_rank_2(canonical_contract_34_12_rank_2(
+            self.into_canonical(),
+            tensor_rank_2.canonical(),
+        ))
     }
 }
 
-impl<const D: usize, I, J, K, L, M, N, U>
-    ContractThirdFourthWithFirstSecond<&TensorRank4<D, K, L, M, N, U>>
+fn canonical_contract_34_12_rank_2<const D: usize>(
+    tensor_rank_4: TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>,
+    tensor_rank_2: &TensorRank2<D, Reference, Reference, Dimensionless>,
+) -> TensorRank2<D, Reference, Reference, Dimensionless> {
+    tensor_rank_4
+        .into_iter()
+        .map(|self_i| {
+            self_i
+                .into_iter()
+                .map(|self_ij| self_ij.full_contraction(tensor_rank_2))
+                .collect()
+        })
+        .collect()
+}
+
+impl<const D: usize, I, J, K, L, M, N, U, V>
+    ContractThirdFourthWithFirstSecond<&TensorRank4<D, K, L, M, N, V>>
     for TensorRank4<D, I, J, K, L, U>
+where
+    U: UnitMul<V>,
 {
-    type Output = TensorRank4<D, I, J, M, N, U>;
+    type Output = TensorRank4<D, I, J, M, N, <U as UnitMul<V>>::Output>;
     fn contract_third_fourth_with_first_second(
         self,
-        tensor: &TensorRank4<D, K, L, M, N, U>,
+        tensor: &TensorRank4<D, K, L, M, N, V>,
     ) -> Self::Output {
-        self.into_iter()
-            .map(|self_i| {
-                self_i
-                    .into_iter()
-                    .map(|self_ij| {
-                        self_ij
-                            .into_iter()
-                            .zip(tensor.iter())
-                            .map(|(self_ijk, tensor_k)| {
-                                self_ijk
-                                    .into_iter()
-                                    .zip(tensor_k.iter())
-                                    .map(|(self_ijkl, tensor_kl)| tensor_kl * self_ijkl)
-                                    .sum::<TensorRank2<D, M, N, U>>()
-                            })
-                            .sum()
-                    })
-                    .collect()
-            })
-            .collect()
+        relabel(canonical_contract_34_12_rank_4(
+            self.into_canonical(),
+            tensor.canonical(),
+        ))
     }
+}
+
+fn canonical_contract_34_12_rank_4<const D: usize>(
+    tensor_rank_4: TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>,
+    tensor: &TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>,
+) -> TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless> {
+    tensor_rank_4
+        .into_iter()
+        .map(|self_i| {
+            self_i
+                .into_iter()
+                .map(|self_ij| {
+                    self_ij
+                        .into_iter()
+                        .zip(tensor.iter())
+                        .map(|(self_ijk, tensor_k)| {
+                            self_ijk
+                                .into_iter()
+                                .zip(tensor_k.iter())
+                                .map(|(self_ijkl, tensor_kl)| tensor_kl * self_ijkl)
+                                .sum::<TensorRank2<D, Reference, Reference, Dimensionless>>()
+                        })
+                        .sum()
+                })
+                .collect()
+        })
+        .collect()
 }
 
 /// Transforms the first and second indices of a rank-4 tensor.

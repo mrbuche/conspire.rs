@@ -1,3 +1,4 @@
+use crate::math::{Dimensionless, Quantity, Stress, TensorRank4};
 #[cfg(test)]
 mod test;
 
@@ -52,21 +53,22 @@ impl Elastic for Hencky {
         let right_cauchy_green = deformation_gradient.right_cauchy_green();
         let deformation_gradient_transpose = deformation_gradient.transpose();
         let scaled_deformation_gradient_transpose =
-            &deformation_gradient_transpose * self.shear_modulus();
-        Ok((right_cauchy_green
+            &deformation_gradient_transpose * Quantity::<Stress>::new(self.shear_modulus());
+        Ok(((right_cauchy_green
             .dlogm()?
             .contract_third_fourth_with_first_second(
-                &(SecondPiolaKirchhoffTangentStiffness::dyad_il_jk(
-                    &IDENTITY_00,
-                    &scaled_deformation_gradient_transpose,
-                ) + SecondPiolaKirchhoffTangentStiffness::dyad_ik_jl(
-                    &scaled_deformation_gradient_transpose,
-                    &IDENTITY_00,
-                )),
+                &(TensorRank4::dyad_il_jk(&IDENTITY_00, &scaled_deformation_gradient_transpose)
+                    + TensorRank4::dyad_ik_jl(
+                        &scaled_deformation_gradient_transpose,
+                        &IDENTITY_00,
+                    )),
             ))
-            + (SecondPiolaKirchhoffTangentStiffness::dyad_ij_kl(
-                &(IDENTITY_00 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())),
+            + (TensorRank4::dyad_ij_kl(
+                &(IDENTITY_00
+                    * (Quantity::<Stress>::new(self.bulk_modulus())
+                        - TWO_THIRDS * Quantity::<Stress>::new(self.shear_modulus()))),
                 &deformation_gradient_transpose.inverse(),
             )))
+        .with_unit::<Dimensionless>())
     }
 }

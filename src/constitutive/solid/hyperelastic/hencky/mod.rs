@@ -1,3 +1,4 @@
+use crate::math::TensorRank4;
 use crate::math::{Dimensionless, Quantity, Stress};
 #[cfg(test)]
 mod test;
@@ -54,20 +55,26 @@ impl Elastic for Hencky {
         let left_cauchy_green = deformation_gradient.left_cauchy_green();
         let (deviatoric_strain, strain_trace) =
             (left_cauchy_green.logm()? * 0.5).deviatoric_and_trace();
-        let scaled_deformation_gradient = deformation_gradient * self.shear_modulus() / jacobian;
-        Ok((left_cauchy_green
+        let scaled_deformation_gradient =
+            deformation_gradient * Quantity::<Stress>::new(self.shear_modulus()) / jacobian;
+        Ok(((left_cauchy_green
             .dlogm()?
             .contract_third_fourth_with_first_second(
-                &(CauchyTangentStiffness::dyad_il_jk(&scaled_deformation_gradient, &IDENTITY)
-                    + CauchyTangentStiffness::dyad_ik_jl(&IDENTITY, &scaled_deformation_gradient)),
+                &(TensorRank4::dyad_il_jk(&scaled_deformation_gradient, &IDENTITY)
+                    + TensorRank4::dyad_ik_jl(&IDENTITY, &scaled_deformation_gradient)),
             ))
-            + (CauchyTangentStiffness::dyad_ij_kl(
+            + (TensorRank4::dyad_ij_kl(
                 &(IDENTITY
-                    * ((self.bulk_modulus() - TWO_THIRDS * self.shear_modulus()) / jacobian)
-                    - deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
-                    - IDENTITY * (self.bulk_modulus() * strain_trace / jacobian)),
+                    * ((Quantity::<Stress>::new(self.bulk_modulus())
+                        - TWO_THIRDS * Quantity::<Stress>::new(self.shear_modulus()))
+                        / jacobian)
+                    - deviatoric_strain
+                        * (2.0 * Quantity::<Stress>::new(self.shear_modulus()) / jacobian)
+                    - IDENTITY
+                        * (Quantity::<Stress>::new(self.bulk_modulus()) * strain_trace / jacobian)),
                 &deformation_gradient.inverse_transpose(),
             )))
+        .with_unit::<Dimensionless>())
     }
 }
 
