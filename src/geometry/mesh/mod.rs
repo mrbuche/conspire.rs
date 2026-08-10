@@ -11,7 +11,7 @@ mod quality;
 mod read;
 pub(crate) mod remesh;
 mod smooth;
-mod tessellation;
+pub mod tessellation;
 mod write;
 
 pub use self::{

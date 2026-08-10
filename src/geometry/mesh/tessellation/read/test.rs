@@ -3,16 +3,19 @@ use crate::{
         Coordinate,
         mesh::{
             Connectivity,
-            tessellation::{Tessellation, from::test::tessellation as fixture},
+            tessellation::{Output, Tessellation, from::test::tessellation as fixture},
         },
     },
-    io::Write,
+    io::{Encoding, Write},
     math::{
         Tensor,
         assert::{Assert, AssertionError},
     },
 };
-use std::{fmt::Write as WriteFmt, fs::write, path::Path};
+use std::{
+    fs::{read_to_string, write},
+    path::Path,
+};
 
 fn facets(tessellation: &Tessellation) -> Vec<(Coordinate<3>, [Coordinate<3>; 3])> {
     tessellation
@@ -51,32 +54,9 @@ fn assert_facets(tessellation: &Tessellation) -> Result<(), AssertionError> {
         )
 }
 
-fn ascii(tessellation: &Tessellation) -> String {
-    let mut contents = "solid conspire\n".to_string();
-    facets(tessellation).iter().for_each(|(normal, vertices)| {
-        writeln!(
-            contents,
-            "  facet normal {} {} {}\n    outer loop",
-            normal[0], normal[1], normal[2]
-        )
-        .unwrap();
-        vertices.iter().for_each(|vertex| {
-            writeln!(
-                contents,
-                "      vertex {} {} {}",
-                vertex[0], vertex[1], vertex[2]
-            )
-            .unwrap()
-        });
-        contents.push_str("    endloop\n  endfacet\n");
-    });
-    contents.push_str("endsolid conspire\n");
-    contents
-}
-
 #[test]
 fn binary() -> Result<(), AssertionError> {
-    fixture().write("target/read_binary.stl")?;
+    fixture().write(Output::Stl(Encoding::Binary("target/read_binary.stl")))?;
     assert_facets(&Tessellation::try_from(Path::new(
         "target/read_binary.stl",
     ))?)
@@ -84,13 +64,17 @@ fn binary() -> Result<(), AssertionError> {
 
 #[test]
 fn ascii_file() -> Result<(), AssertionError> {
-    write("target/read_ascii.stl", ascii(&fixture()))?;
+    fixture().write(Output::Stl(Encoding::Ascii("target/read_ascii.stl")))?;
     assert_facets(&Tessellation::try_from(Path::new("target/read_ascii.stl"))?)
 }
 
 #[test]
-fn ascii_missing_keyword() {
-    let contents = ascii(&fixture()).replace("endloop", "loopend");
-    write("target/read_ascii_invalid.stl", contents).unwrap();
-    assert!(Tessellation::try_from(Path::new("target/read_ascii_invalid.stl")).is_err())
+fn ascii_missing_keyword() -> Result<(), AssertionError> {
+    fixture().write(Output::Stl(Encoding::Ascii(
+        "target/read_ascii_invalid.stl",
+    )))?;
+    let contents = read_to_string("target/read_ascii_invalid.stl")?.replace("endloop", "loopend");
+    write("target/read_ascii_invalid.stl", contents)?;
+    assert!(Tessellation::try_from(Path::new("target/read_ascii_invalid.stl")).is_err());
+    Ok(())
 }
