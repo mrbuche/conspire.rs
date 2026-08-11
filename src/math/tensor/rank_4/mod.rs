@@ -589,10 +589,10 @@ pub trait ContractAllWithFirst<TIM, TJN, TKO, TLP> {
     type Output;
     fn contract_all_with_first(
         self,
-        tensor_rank_2_a: TIM,
-        tensor_rank_2_b: TJN,
-        tensor_rank_2_c: TKO,
-        tensor_rank_2_d: TLP,
+        object_a: TIM,
+        object_b: TJN,
+        object_c: TKO,
+        object_d: TLP,
     ) -> Self::Output;
 }
 
@@ -612,25 +612,16 @@ impl<const D: usize, I, J, K, L, M, N, O, P, U>
         tensor_rank_2_c: &TensorRank2<D, K, O, U>,
         tensor_rank_2_d: &TensorRank2<D, L, P, U>,
     ) -> Self::Output {
-        let mut output = TensorRank4::zero();
-        self.into_iter().zip(tensor_rank_2_a.iter()).for_each(|(self_m, tensor_rank_2_a_m)|
-            self_m.into_iter().zip(tensor_rank_2_b.iter()).for_each(|(self_mn, tensor_rank_2_b_n)|
-                self_mn.into_iter().zip(tensor_rank_2_c.iter()).for_each(|(self_mno, tensor_rank_2_c_o)|
-                    self_mno.into_iter().zip(tensor_rank_2_d.iter()).for_each(|(self_mnop, tensor_rank_2_d_p)|
-                        output.iter_mut().zip(tensor_rank_2_a_m.iter()).for_each(|(output_i, tensor_rank_2_a_mi)|
-                            output_i.iter_mut().zip(tensor_rank_2_b_n.iter()).for_each(|(output_ij, tensor_rank_2_b_nj)|
-                                output_ij.iter_mut().zip(tensor_rank_2_c_o.iter()).for_each(|(output_ijk, tensor_rank_2_c_ok)|
-                                    output_ijk.iter_mut().zip(tensor_rank_2_d_p.iter()).for_each(|(output_ijkl, tensor_rank_2_dp)|
-                                        *output_ijkl += self_mnop * tensor_rank_2_a_mi * tensor_rank_2_b_nj * tensor_rank_2_c_ok * tensor_rank_2_dp
-                                    )
-                                )
-                            )
-                        )
-                    )
-                )
-            )
-        );
-        output
+        // One index at a time. Transforming all four at once sums over every
+        // index of the input for every index of the output, which is the
+        // dimension cubed more arithmetic than doing them in sequence.
+        let first = canonical_transform_first(self.canonical(), tensor_rank_2_a.canonical());
+        let second = canonical_contract_second_with_first(&first, tensor_rank_2_b.canonical());
+        let third = canonical_contract_third_with_first(&second, tensor_rank_2_c.canonical());
+        relabel(canonical_transform_fourth(
+            &third,
+            tensor_rank_2_d.canonical(),
+        ))
     }
 }
 
@@ -642,9 +633,9 @@ pub trait ContractFirstThirdFourthWithFirst<TIM, TKO, TLP> {
     type Output;
     fn contract_first_third_fourth_with_first(
         self,
-        tensor_rank_2_a: TIM,
-        tensor_rank_2_c: TKO,
-        tensor_rank_2_d: TLP,
+        object_a: TIM,
+        object_b: TKO,
+        object_c: TLP,
     ) -> Self::Output;
 }
 
@@ -662,23 +653,13 @@ impl<const D: usize, I, J, K, L, M, O, P, U>
         tensor_rank_2_b: &TensorRank2<D, K, O, U>,
         tensor_rank_2_c: &TensorRank2<D, L, P, U>,
     ) -> Self::Output {
-        let mut output = TensorRank4::zero();
-        self.into_iter().zip(tensor_rank_2_a.iter()).for_each(|(self_q, tensor_rank_2_a_q)|
-            output.iter_mut().zip(tensor_rank_2_a_q.iter()).for_each(|(output_i, tensor_rank_2_a_qi)|
-                output_i.iter_mut().zip(self_q.iter()).for_each(|(output_ij, self_qj)|
-                    self_qj.iter().zip(tensor_rank_2_b.iter()).for_each(|(self_qjm, tensor_rank_2_b_m)|
-                        self_qjm.iter().zip(tensor_rank_2_c.iter()).for_each(|(self_qjmn, tensor_rank_2_c_n)|
-                            output_ij.iter_mut().zip(tensor_rank_2_b_m.iter()).for_each(|(output_ijk, tensor_rank_2_b_mk)|
-                                output_ijk.iter_mut().zip(tensor_rank_2_c_n.iter()).for_each(|(output_ijkl, tensor_rank_2_c_nl)|
-                                    *output_ijkl += self_qjmn*tensor_rank_2_a_qi*tensor_rank_2_b_mk*tensor_rank_2_c_nl
-                                )
-                            )
-                        )
-                    )
-                )
-            )
-        );
-        output
+        // One index at a time, for the same reason.
+        let first = canonical_transform_first(self.canonical(), tensor_rank_2_a.canonical());
+        let third = canonical_contract_third_with_first(&first, tensor_rank_2_b.canonical());
+        relabel(canonical_transform_fourth(
+            &third,
+            tensor_rank_2_c.canonical(),
+        ))
     }
 }
 
@@ -720,20 +701,25 @@ impl<const D: usize, I, J, K, L, U>
         tensor_rank_1_a: &TensorRank1<D, J, U>,
         tensor_rank_1_b: &TensorRank1<D, L, U>,
     ) -> Self::Output {
+        // The scaled copy of the second vector this used to make depended on
+        // neither of the indices it was made inside, so it is a dot product and
+        // a scalar multiply instead.
+        let mut output = TensorRank2::zero();
         self.iter()
-            .map(|self_i| {
-                self_i
-                    .iter()
-                    .zip(tensor_rank_1_a.iter())
-                    .map(|(self_ij, tensor_rank_1_a_j)| {
+            .zip(output.iter_mut())
+            .for_each(|(self_i, output_i)| {
+                self_i.iter().zip(tensor_rank_1_a.iter()).for_each(
+                    |(self_ij, tensor_rank_1_a_j)| {
                         self_ij
                             .iter()
-                            .map(|self_ijk| self_ijk * (tensor_rank_1_b * tensor_rank_1_a_j))
-                            .collect::<TensorRank1<D, K, U>>()
-                    })
-                    .sum()
-            })
-            .collect()
+                            .zip(output_i.iter_mut())
+                            .for_each(|(self_ijk, output_ik)| {
+                                *output_ik += (self_ijk * tensor_rank_1_b) * tensor_rank_1_a_j
+                            })
+                    },
+                )
+            });
+        output
     }
 }
 
@@ -1314,6 +1300,72 @@ fn canonical_contract_third_with_first<const D: usize>(
                                         .for_each(|(output_ijkl, tensor_rank_4_ijml)| {
                                             *output_ijkl += tensor_rank_2_mk * tensor_rank_4_ijml
                                         })
+                                },
+                            )
+                        },
+                    )
+                },
+            )
+        });
+    output
+}
+
+/// Transforms the first index, contracting it with the first of a rank 2.
+///
+/// `out[i][j][k][l] = sum_m tensor_rank_4[m][j][k][l] * tensor_rank_2[m][i]`
+fn canonical_transform_first<const D: usize>(
+    tensor_rank_4: &TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>,
+    tensor_rank_2: &TensorRank2<D, Reference, Reference, Dimensionless>,
+) -> TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless> {
+    let mut output = TensorRank4::zero();
+    tensor_rank_4.iter().zip(tensor_rank_2.iter()).for_each(
+        |(tensor_rank_4_m, tensor_rank_2_m)| {
+            tensor_rank_2_m.iter().zip(output.iter_mut()).for_each(
+                |(tensor_rank_2_mi, output_i)| {
+                    output_i.iter_mut().zip(tensor_rank_4_m.iter()).for_each(
+                        |(output_ij, tensor_rank_4_mj)| {
+                            output_ij.iter_mut().zip(tensor_rank_4_mj.iter()).for_each(
+                                |(output_ijk, tensor_rank_4_mjk)| {
+                                    output_ijk
+                                        .iter_mut()
+                                        .zip(tensor_rank_4_mjk.iter())
+                                        .for_each(|(output_ijkl, tensor_rank_4_mjkl)| {
+                                            *output_ijkl += tensor_rank_4_mjkl * tensor_rank_2_mi
+                                        })
+                                },
+                            )
+                        },
+                    )
+                },
+            )
+        },
+    );
+    output
+}
+
+/// Transforms the fourth index, contracting it with the first of a rank 2.
+///
+/// `out[i][j][k][l] = sum_m tensor_rank_4[i][j][k][m] * tensor_rank_2[m][l]`
+fn canonical_transform_fourth<const D: usize>(
+    tensor_rank_4: &TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>,
+    tensor_rank_2: &TensorRank2<D, Reference, Reference, Dimensionless>,
+) -> TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless> {
+    let mut output = TensorRank4::zero();
+    tensor_rank_4
+        .iter()
+        .zip(output.iter_mut())
+        .for_each(|(tensor_rank_4_i, output_i)| {
+            tensor_rank_4_i.iter().zip(output_i.iter_mut()).for_each(
+                |(tensor_rank_4_ij, output_ij)| {
+                    tensor_rank_4_ij.iter().zip(output_ij.iter_mut()).for_each(
+                        |(tensor_rank_4_ijk, output_ijk)| {
+                            tensor_rank_4_ijk.iter().zip(tensor_rank_2.iter()).for_each(
+                                |(tensor_rank_4_ijkm, tensor_rank_2_m)| {
+                                    output_ijk.iter_mut().zip(tensor_rank_2_m.iter()).for_each(
+                                        |(output_ijkl, tensor_rank_2_ml)| {
+                                            *output_ijkl += tensor_rank_4_ijkm * tensor_rank_2_ml
+                                        },
+                                    )
                                 },
                             )
                         },
