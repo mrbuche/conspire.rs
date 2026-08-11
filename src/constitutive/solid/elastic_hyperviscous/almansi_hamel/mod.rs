@@ -50,19 +50,19 @@ pub struct AlmansiHamel {
 
 impl Solid for AlmansiHamel {
     fn bulk_modulus(&self) -> Quantity<Stress> {
-        Quantity::new(self.bulk_modulus)
+        self.bulk_modulus.into()
     }
     fn shear_modulus(&self) -> Quantity<Stress> {
-        Quantity::new(self.shear_modulus)
+        self.shear_modulus.into()
     }
 }
 
 impl Viscous for AlmansiHamel {
     fn bulk_viscosity(&self) -> Quantity<Viscosity> {
-        Quantity::new(self.bulk_viscosity)
+        self.bulk_viscosity.into()
     }
     fn shear_viscosity(&self) -> Quantity<Viscosity> {
-        Quantity::new(self.shear_viscosity)
+        self.shear_viscosity.into()
     }
 }
 

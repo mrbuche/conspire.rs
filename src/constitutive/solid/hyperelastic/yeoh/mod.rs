@@ -34,10 +34,10 @@ impl<const N: usize> Yeoh<N> {
 
 impl<const N: usize> Solid for Yeoh<N> {
     fn bulk_modulus(&self) -> Quantity<Stress> {
-        Quantity::new(self.bulk_modulus)
+        self.bulk_modulus.into()
     }
     fn shear_modulus(&self) -> Quantity<Stress> {
-        Quantity::new(self.shear_modulus)
+        self.shear_modulus.into()
     }
 }
 

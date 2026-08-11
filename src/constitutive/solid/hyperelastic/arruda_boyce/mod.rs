@@ -35,10 +35,10 @@ impl ArrudaBoyce {
 
 impl Solid for ArrudaBoyce {
     fn bulk_modulus(&self) -> Quantity<Stress> {
-        Quantity::new(self.bulk_modulus)
+        self.bulk_modulus.into()
     }
     fn shear_modulus(&self) -> Quantity<Stress> {
-        Quantity::new(self.shear_modulus)
+        self.shear_modulus.into()
     }
 }
 
