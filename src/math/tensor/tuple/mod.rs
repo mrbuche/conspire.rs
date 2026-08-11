@@ -1,7 +1,9 @@
 pub(crate) mod list;
 pub(crate) mod vec;
 
-use crate::math::{Erase, Jacobian, Quantity, Solution, Tensor, TensorRank0, TensorRank2, Vector};
+use crate::math::{
+    Differentiate, Erase, Jacobian, Quantity, Solution, Tensor, TensorRank0, TensorRank2, Vector,
+};
 use std::{
     fmt::{Display, Formatter, Result},
     iter::Sum,
@@ -475,4 +477,15 @@ where
     fn div(self, _tensor_tuple: TensorTuple<T0, T1>) -> Self::Output {
         unimplemented!()
     }
+}
+
+impl<T1, T2> Differentiate for TensorTuple<T1, T2>
+where
+    T1: Differentiate + Tensor,
+    T2: Differentiate + Tensor,
+    <T1 as Differentiate>::Derivative: Tensor,
+    <T2 as Differentiate>::Derivative: Tensor,
+{
+    type Derivative =
+        TensorTuple<<T1 as Differentiate>::Derivative, <T2 as Differentiate>::Derivative>;
 }

@@ -1,7 +1,7 @@
 use crate::math::Dimensionless;
 use crate::math::UnitMul;
 use crate::math::{Current, Factor, Flattened, Intermediate, Reference};
-use crate::math::{Quantity, UnitDiv};
+use crate::math::{Quantity, Time, UnitDiv};
 #[cfg(test)]
 mod test;
 
@@ -25,7 +25,8 @@ use std::{
 };
 
 use super::{
-    Erase, Hessian, Jacobian, Rank2, Solution, SquareMatrix, Tensor, TensorArray, Vector,
+    Differentiate, Erase, Hessian, Jacobian, Rank2, Solution, SquareMatrix, Tensor, TensorArray,
+    Vector,
     rank_0::TensorRank0,
     rank_1::{
         TensorRank1, list::TensorRank1List, relabel as relabel_rank_1, vec::TensorRank1Vec,
@@ -1440,4 +1441,11 @@ where
     fn div(self, quantity: Quantity<V>) -> Self::Output {
         relabel(self.canonical() / quantity.value())
     }
+}
+
+impl<const D: usize, I, J, U> Differentiate for TensorRank2<D, I, J, U>
+where
+    U: UnitDiv<Time>,
+{
+    type Derivative = TensorRank2<D, I, J, <U as UnitDiv<Time>>::Output>;
 }

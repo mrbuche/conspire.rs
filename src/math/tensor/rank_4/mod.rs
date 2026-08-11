@@ -3,7 +3,7 @@ use super::rank_3::relabel as relabel_rank_3;
 use crate::math::Dimensionless;
 use crate::math::UnitMul;
 use crate::math::{Current, Intermediate, Reference};
-use crate::math::{Quantity, UnitDiv};
+use crate::math::{Quantity, Time, UnitDiv};
 #[cfg(test)]
 mod test;
 
@@ -19,7 +19,7 @@ use std::{
 };
 
 use super::{
-    Erase, Hessian, HessianBlock, Rank2, SquareMatrix, Tensor, TensorArray, Vector,
+    Differentiate, Erase, Hessian, HessianBlock, Rank2, SquareMatrix, Tensor, TensorArray, Vector,
     rank_0::TensorRank0,
     rank_1::TensorRank1,
     rank_2::TensorRank2,
@@ -1415,4 +1415,11 @@ fn canonical_transform_fourth<const D: usize>(
             )
         });
     output
+}
+
+impl<const D: usize, I, J, K, L, U> Differentiate for TensorRank4<D, I, J, K, L, U>
+where
+    U: UnitDiv<Time>,
+{
+    type Derivative = TensorRank4<D, I, J, K, L, <U as UnitDiv<Time>>::Output>;
 }

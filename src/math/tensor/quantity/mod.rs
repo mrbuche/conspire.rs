@@ -2,9 +2,9 @@
 mod test;
 
 use super::{
-    Erase, Jacobian, Solution, Tensor, TensorArray, Vector,
+    Differentiate, Erase, Jacobian, Solution, Tensor, TensorArray, Vector,
     rank_0::TensorRank0,
-    unit::{Dimensionless, UnitDiv, UnitInv, UnitMul},
+    unit::{Dimensionless, Time, UnitDiv, UnitInv, UnitMul},
 };
 use crate::math::assert::FiniteDifference;
 use std::{
@@ -482,4 +482,11 @@ impl<U> From<Vector> for Quantity<U> {
     fn from(_vector: Vector) -> Self {
         unimplemented!()
     }
+}
+
+impl<U> Differentiate for Quantity<U>
+where
+    U: UnitDiv<Time>,
+{
+    type Derivative = Quantity<<U as UnitDiv<Time>>::Output>;
 }

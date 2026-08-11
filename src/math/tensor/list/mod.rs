@@ -1,4 +1,4 @@
-use crate::math::{Erase, Tensor, TensorArray, TensorRank0};
+use crate::math::{Differentiate, Erase, Tensor, TensorArray, TensorRank0};
 use std::{
     array::{self, from_fn},
     fmt::{Display, Formatter, Result},
@@ -384,4 +384,12 @@ where
             .zip(tensor_list.iter())
             .for_each(|(self_entry, entry)| *self_entry -= entry);
     }
+}
+
+impl<T, const N: usize> Differentiate for TensorList<T, N>
+where
+    T: Differentiate + Tensor,
+    <T as Differentiate>::Derivative: Tensor,
+{
+    type Derivative = TensorList<<T as Differentiate>::Derivative, N>;
 }

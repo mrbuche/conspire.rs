@@ -69,6 +69,20 @@ impl StyledError for TensorError {
 
 styled_error!(TensorError);
 
+/// A tensor that can be differentiated with respect to time.
+///
+/// The derivative is named by the tensor rather than passed in alongside it,
+/// being the same tensor with a unit divided by time. A tuple computes each
+/// half's derivative on its own, so the pair of units its halves carry never
+/// has to be taken apart.
+pub trait Differentiate
+where
+    Self: Tensor,
+{
+    /// The derivative with respect to time.
+    type Derivative: Tensor;
+}
+
 /// Views a tensor with its configurations and unit discarded.
 ///
 /// Contracting tensors of different units gives a quantity whose unit is the

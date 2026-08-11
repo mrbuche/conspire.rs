@@ -1,4 +1,4 @@
-use super::Erase;
+use super::{Differentiate, Erase};
 use crate::math::Dimensionless;
 use crate::math::{Current, Projection, Reference};
 #[cfg(test)]
@@ -23,7 +23,7 @@ use crate::{
     math::{
         matrix::vector::Vector,
         tensor::{
-            Jacobian, Quantity, Solution, Tensor, TensorArray, UnitDiv, UnitMul,
+            Jacobian, Quantity, Solution, Tensor, TensorArray, Time, UnitDiv, UnitMul,
             rank_0::TensorRank0, rank_1::list::TensorRank1List, rank_2::TensorRank2,
         },
         write_tensor_rank_0,
@@ -643,4 +643,11 @@ where
     fn div(self, tensor_rank_2: TensorRank2<D, I, J, V>) -> Self::Output {
         relabel(tensor_rank_2.canonical().clone().inverse() * self.canonical())
     }
+}
+
+impl<const D: usize, I, U> Differentiate for TensorRank1<D, I, U>
+where
+    U: UnitDiv<Time>,
+{
+    type Derivative = TensorRank1<D, I, <U as UnitDiv<Time>>::Output>;
 }

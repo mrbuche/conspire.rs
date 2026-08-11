@@ -1,5 +1,7 @@
 use crate::math::Dimensionless;
-use crate::math::{Erase, Quantity, Tensor, TensorRank0, TensorRank1, TensorRank1List, TensorVec};
+use crate::math::{
+    Differentiate, Erase, Quantity, Tensor, TensorRank0, TensorRank1, TensorRank1List, TensorVec,
+};
 use std::{
     collections::VecDeque,
     fmt::{Display, Formatter, Result},
@@ -539,4 +541,12 @@ where
             .zip(tensor_vec.iter())
             .for_each(|(self_entry, entry)| *self_entry -= entry);
     }
+}
+
+impl<T> Differentiate for TensorVector<T>
+where
+    T: Differentiate + Tensor,
+    <T as Differentiate>::Derivative: Tensor,
+{
+    type Derivative = TensorVector<<T as Differentiate>::Derivative>;
 }
