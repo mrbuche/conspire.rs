@@ -1,4 +1,3 @@
-use crate::math::Quantity;
 use crate::math::assert::Assert;
 use crate::{
     constitutive::{
@@ -32,8 +31,8 @@ fn finite_difference() -> Result<(), AssertionError> {
     ]);
     let model = ElasticMultiplicativeViscoplastic::from((
         SaintVenantKirchhoff {
-            bulk_modulus: Quantity::new(13.0),
-            shear_modulus: Quantity::new(3.0),
+            bulk_modulus: 13.0,
+            shear_modulus: 3.0,
         },
         ViscoplasticFlow {
             yield_stress: 2.0,
@@ -74,8 +73,8 @@ fn root_0() -> Result<(), AssertionError> {
     use crate::constitutive::solid::elastic_viscoplastic::ZerothOrderRoot;
     let model = ElasticMultiplicativeViscoplastic::from((
         SaintVenantKirchhoff {
-            bulk_modulus: Quantity::new(13.0),
-            shear_modulus: Quantity::new(3.0),
+            bulk_modulus: 13.0,
+            shear_modulus: 3.0,
         },
         ViscoplasticFlow {
             yield_stress: 2.0,
@@ -121,8 +120,8 @@ fn root_1() -> Result<(), AssertionError> {
     use crate::constitutive::solid::elastic_viscoplastic::FirstOrderRoot;
     let model = ElasticMultiplicativeViscoplastic::from((
         SaintVenantKirchhoff {
-            bulk_modulus: Quantity::new(13.0),
-            shear_modulus: Quantity::new(3.0),
+            bulk_modulus: 13.0,
+            shear_modulus: 3.0,
         },
         ViscoplasticFlow {
             yield_stress: 2.0,

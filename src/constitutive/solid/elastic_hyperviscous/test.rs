@@ -1,10 +1,9 @@
-use crate::math::Quantity;
-use crate::math::Viscosity;
+use crate::mechanics::Scalar;
 
 pub use crate::constitutive::solid::elastic::test::{BULK_MODULUS, SHEAR_MODULUS};
 
-pub const BULK_VISCOSITY: Quantity<Viscosity> = Quantity::new(11.0);
-pub const SHEAR_VISCOSITY: Quantity<Viscosity> = Quantity::new(1.0);
+pub const BULK_VISCOSITY: Scalar = 11.0;
+pub const SHEAR_VISCOSITY: Scalar = 1.0;
 
 macro_rules! viscous_dissipation_from_deformation_gradient_rate_simple {
     ($constitutive_model: expr, $deformation_gradient_rate: expr) => {

@@ -26,9 +26,9 @@ use super::*;
 #[derive(Clone, Debug)]
 pub struct SaintVenantKirchhoff {
     /// The bulk modulus $`\kappa`$.
-    pub bulk_modulus: Quantity<Stress>,
+    pub bulk_modulus: Scalar,
     /// The shear modulus $`\mu`$.
-    pub shear_modulus: Quantity<Stress>,
+    pub shear_modulus: Scalar,
     /// The coefficient of thermal expansion $`\alpha`$.
     pub coefficient_of_thermal_expansion: Scalar,
     /// The reference temperature $`T_\mathrm{ref}`$.
@@ -37,10 +37,10 @@ pub struct SaintVenantKirchhoff {
 
 impl Solid for SaintVenantKirchhoff {
     fn bulk_modulus(&self) -> Quantity<Stress> {
-        self.bulk_modulus
+        Quantity::new(self.bulk_modulus)
     }
     fn shear_modulus(&self) -> Quantity<Stress> {
-        self.shear_modulus
+        Quantity::new(self.shear_modulus)
     }
 }
 

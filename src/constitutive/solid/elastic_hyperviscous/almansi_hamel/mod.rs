@@ -39,30 +39,30 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct AlmansiHamel {
     /// The bulk modulus $`\kappa`$.
-    pub bulk_modulus: Quantity<Stress>,
+    pub bulk_modulus: Scalar,
     /// The shear modulus $`\mu`$.
-    pub shear_modulus: Quantity<Stress>,
+    pub shear_modulus: Scalar,
     /// The bulk viscosity $`\zeta`$.
-    pub bulk_viscosity: Quantity<Viscosity>,
+    pub bulk_viscosity: Scalar,
     /// The shear viscosity $`\eta`$.
-    pub shear_viscosity: Quantity<Viscosity>,
+    pub shear_viscosity: Scalar,
 }
 
 impl Solid for AlmansiHamel {
     fn bulk_modulus(&self) -> Quantity<Stress> {
-        self.bulk_modulus
+        Quantity::new(self.bulk_modulus)
     }
     fn shear_modulus(&self) -> Quantity<Stress> {
-        self.shear_modulus
+        Quantity::new(self.shear_modulus)
     }
 }
 
 impl Viscous for AlmansiHamel {
     fn bulk_viscosity(&self) -> Quantity<Viscosity> {
-        self.bulk_viscosity
+        Quantity::new(self.bulk_viscosity)
     }
     fn shear_viscosity(&self) -> Quantity<Viscosity> {
-        self.shear_viscosity
+        Quantity::new(self.shear_viscosity)
     }
 }
 

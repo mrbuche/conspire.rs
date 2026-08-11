@@ -1,4 +1,3 @@
-use crate::math::Quantity;
 use crate::math::assert::Assert;
 use crate::{
     constitutive::{
@@ -51,8 +50,8 @@ type TetViscoplastic = Block<
 
 fn constitutive_model() -> AlmansiHamel {
     AlmansiHamel {
-        bulk_modulus: Quantity::new(13.0),
-        shear_modulus: Quantity::new(3.0),
+        bulk_modulus: 13.0,
+        shear_modulus: 3.0,
     }
 }
 
@@ -168,8 +167,8 @@ fn single_block_model() -> Result<Model<Tet, 3>, AssertionError> {
 
 fn neo_hookean_model() -> NeoHookean {
     NeoHookean {
-        bulk_modulus: Quantity::new(13.0),
-        shear_modulus: Quantity::new(3.0),
+        bulk_modulus: 13.0,
+        shear_modulus: 3.0,
     }
 }
 
