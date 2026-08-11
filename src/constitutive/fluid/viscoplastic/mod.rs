@@ -49,7 +49,7 @@ where
         } else {
             let magnitude = Quantity::<Stress>::new(magnitude);
             let yield_stress = Quantity::<Stress>::new(yield_stress);
-            let reference_flow_rate = Quantity::<Rate>::new(self.reference_flow_rate());
+            let reference_flow_rate = self.reference_flow_rate();
             Ok((deviatoric_mandel_stress.with_unit::<Stress>()
                 * (reference_flow_rate / magnitude
                     * (magnitude / yield_stress).powf(1.0 / self.rate_sensitivity())))
@@ -59,7 +59,7 @@ where
     /// Returns the rate_sensitivity parameter.
     fn rate_sensitivity(&self) -> Scalar;
     /// Returns the reference flow rate.
-    fn reference_flow_rate(&self) -> Scalar;
+    fn reference_flow_rate(&self) -> Quantity<Rate>;
 }
 
 /// The viscoplastic flow model.
@@ -98,8 +98,8 @@ impl Viscoplastic<Scalar> for ViscoplasticFlow {
     fn rate_sensitivity(&self) -> Scalar {
         self.rate_sensitivity
     }
-    fn reference_flow_rate(&self) -> Scalar {
-        self.reference_flow_rate
+    fn reference_flow_rate(&self) -> Quantity<Rate> {
+        self.reference_flow_rate.into()
     }
 }
 

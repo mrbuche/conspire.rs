@@ -66,11 +66,9 @@ impl Thermoelastic for AlmansiHamel {
                 * (self.bulk_modulus() / jacobian
                     * (strain_trace
                         - 3.0
-                            * Quantity::<ReciprocalTemperature>::new(
-                                self.coefficient_of_thermal_expansion(),
-                            )
+                            * self.coefficient_of_thermal_expansion()
                             * (Quantity::<Temperature>::new(temperature)
-                                - Quantity::<Temperature>::new(self.reference_temperature())))))
+                                - self.reference_temperature()))))
         .with_unit::<Dimensionless>())
     }
     /// Calculates and returns the tangent stiffness associated with the Cauchy stress.
@@ -108,21 +106,17 @@ impl Thermoelastic for AlmansiHamel {
                         * (self.bulk_modulus() / jacobian
                             * (strain_trace
                                 - 3.0
-                                    * Quantity::<ReciprocalTemperature>::new(
-                                        self.coefficient_of_thermal_expansion(),
-                                    )
+                                    * self.coefficient_of_thermal_expansion()
                                     * (Quantity::<Temperature>::new(temperature)
-                                        - Quantity::<Temperature>::new(
-                                            self.reference_temperature(),
-                                        ))))),
+                                        - self.reference_temperature())))),
                 &inverse_transpose_deformation_gradient,
             ))
         .with_unit::<Dimensionless>())
     }
-    fn coefficient_of_thermal_expansion(&self) -> Scalar {
-        self.coefficient_of_thermal_expansion
+    fn coefficient_of_thermal_expansion(&self) -> Quantity<ReciprocalTemperature> {
+        self.coefficient_of_thermal_expansion.into()
     }
-    fn reference_temperature(&self) -> Scalar {
-        self.reference_temperature
+    fn reference_temperature(&self) -> Quantity<Temperature> {
+        self.reference_temperature.into()
     }
 }

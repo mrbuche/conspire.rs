@@ -1,3 +1,4 @@
+use crate::math::Rate;
 use crate::math::{Dimensionless, TensorRank4};
 use crate::math::{Quantity, Stress};
 #[cfg(test)]
@@ -72,8 +73,8 @@ impl Viscoplastic<Scalar> for SaintVenantKirchhoff {
     fn rate_sensitivity(&self) -> Scalar {
         self.rate_sensitivity
     }
-    fn reference_flow_rate(&self) -> Scalar {
-        self.reference_flow_rate
+    fn reference_flow_rate(&self) -> Quantity<Rate> {
+        self.reference_flow_rate.into()
     }
 }
 

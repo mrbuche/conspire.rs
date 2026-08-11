@@ -1,6 +1,7 @@
 //! Thermoelastic-thermal conduction constitutive models.
 
 use crate::math::{Quantity, Stress};
+use crate::math::{ReciprocalTemperature, Temperature};
 #[cfg(test)]
 pub mod test;
 
@@ -110,11 +111,11 @@ where
         self.solid_constitutive_model()
             .second_piola_kirchhoff_tangent_stiffness(deformation_gradient, temperature)
     }
-    fn coefficient_of_thermal_expansion(&self) -> Scalar {
+    fn coefficient_of_thermal_expansion(&self) -> Quantity<ReciprocalTemperature> {
         self.solid_constitutive_model()
             .coefficient_of_thermal_expansion()
     }
-    fn reference_temperature(&self) -> Scalar {
+    fn reference_temperature(&self) -> Quantity<Temperature> {
         self.solid_constitutive_model().reference_temperature()
     }
 }

@@ -1,3 +1,4 @@
+use crate::math::Rate;
 use crate::math::{Quantity, Stress};
 #[cfg(test)]
 mod test;
@@ -73,7 +74,7 @@ where
     fn rate_sensitivity(&self) -> Scalar {
         self.1.rate_sensitivity()
     }
-    fn reference_flow_rate(&self) -> Scalar {
+    fn reference_flow_rate(&self) -> Quantity<Rate> {
         self.1.reference_flow_rate()
     }
 }

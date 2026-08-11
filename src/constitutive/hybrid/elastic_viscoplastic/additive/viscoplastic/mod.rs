@@ -1,3 +1,4 @@
+use crate::math::{Quantity, Rate};
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -75,7 +76,7 @@ where
     fn rate_sensitivity(&self) -> Scalar {
         self.1.rate_sensitivity()
     }
-    fn reference_flow_rate(&self) -> Scalar {
+    fn reference_flow_rate(&self) -> Quantity<Rate> {
         self.1.reference_flow_rate()
     }
 }

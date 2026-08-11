@@ -1,3 +1,4 @@
+use crate::math::Rate;
 use crate::math::{Quantity, Stress};
 use crate::{
     constitutive::{
@@ -67,7 +68,7 @@ where
     fn rate_sensitivity(&self) -> Scalar {
         self.0.rate_sensitivity()
     }
-    fn reference_flow_rate(&self) -> Scalar {
+    fn reference_flow_rate(&self) -> Quantity<Rate> {
         self.0.reference_flow_rate()
     }
 }

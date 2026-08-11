@@ -1,5 +1,6 @@
 //! Thermoelastic solid constitutive models.
 
+use crate::math::{Quantity, ReciprocalTemperature, Temperature};
 #[cfg(test)]
 pub mod test;
 
@@ -143,7 +144,7 @@ where
             ))
     }
     /// Returns the coefficient of thermal expansion.
-    fn coefficient_of_thermal_expansion(&self) -> Scalar;
+    fn coefficient_of_thermal_expansion(&self) -> Quantity<ReciprocalTemperature>;
     /// Returns the reference temperature.
-    fn reference_temperature(&self) -> Scalar;
+    fn reference_temperature(&self) -> Quantity<Temperature>;
 }
