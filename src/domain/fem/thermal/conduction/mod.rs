@@ -11,7 +11,7 @@ use crate::{
         },
     },
     math::{
-        Scalar, Tensor,
+        Dimensionless, Scalar, Tensor,
         optimize::{
             EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
             SecondOrderOptimization, ZerothOrderRootFinding,
@@ -121,7 +121,7 @@ where
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<NodalTemperatures>,
+        solver: impl ZerothOrderRootFinding<NodalTemperatures, Dimensionless, NodalTemperatures>,
     ) -> Result<NodalTemperatures, OptimizationError> {
         solver.root(
             |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
@@ -168,7 +168,7 @@ where
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<Scalar, NodalTemperatures>,
+        solver: impl FirstOrderOptimization<Scalar, NodalTemperatures, Dimensionless, NodalTemperatures>,
     ) -> Result<NodalTemperatures, OptimizationError> {
         solver.minimize(
             |nodal_temperatures: &NodalTemperatures| Ok(self.potential(nodal_temperatures)?),

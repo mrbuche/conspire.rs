@@ -153,8 +153,8 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                         let minimum =
                         viscous_dissipation_from_deformation_gradient_rate_simple!(
                             $constitutive_model, &get_deformation_gradient_rate()
-                        )? - first_piola_kirchhoff_stress.full_contraction(
-                            &get_deformation_gradient_rate()
+                        )? - $crate::math::Erase::erase(&first_piola_kirchhoff_stress).full_contraction(
+                            $crate::math::Erase::erase(&get_deformation_gradient_rate())
                         );
                         let mut perturbed_deformation_gradient_rate = get_deformation_gradient_rate();
                         (0..3).try_for_each(|i|
@@ -164,16 +164,16 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                                 assert!(
                                     viscous_dissipation_from_deformation_gradient_rate_simple!(
                                         $constitutive_model, &perturbed_deformation_gradient_rate
-                                    )? - first_piola_kirchhoff_stress.full_contraction(
-                                        &perturbed_deformation_gradient_rate
+                                    )? - $crate::math::Erase::erase(&first_piola_kirchhoff_stress).full_contraction(
+                                        $crate::math::Erase::erase(&perturbed_deformation_gradient_rate)
                                     ) > minimum
                                 );
                                 perturbed_deformation_gradient_rate[i][j] -= EPSILON;
                                 assert!(
                                     viscous_dissipation_from_deformation_gradient_rate_simple!(
                                         $constitutive_model, &perturbed_deformation_gradient_rate
-                                    )? - first_piola_kirchhoff_stress.full_contraction(
-                                        &perturbed_deformation_gradient_rate
+                                    )? - $crate::math::Erase::erase(&first_piola_kirchhoff_stress).full_contraction(
+                                        $crate::math::Erase::erase(&perturbed_deformation_gradient_rate)
                                     ) > minimum
                                 );
                                 Ok(())
@@ -329,8 +329,8 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                         let minimum =
                         dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                             $constitutive_model, &get_deformation_gradient(), &get_deformation_gradient_rate()
-                        )? - first_piola_kirchhoff_stress.full_contraction(
-                            &get_deformation_gradient_rate()
+                        )? - $crate::math::Erase::erase(&first_piola_kirchhoff_stress).full_contraction(
+                            $crate::math::Erase::erase(&get_deformation_gradient_rate())
                         );
                         let mut perturbed_deformation_gradient_rate = get_deformation_gradient_rate();
                         (0..3).try_for_each(|i|
@@ -340,16 +340,16 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                                 assert!(
                                     dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                                         $constitutive_model, &get_deformation_gradient(), &perturbed_deformation_gradient_rate
-                                    )? - first_piola_kirchhoff_stress.full_contraction(
-                                        &perturbed_deformation_gradient_rate
+                                    )? - $crate::math::Erase::erase(&first_piola_kirchhoff_stress).full_contraction(
+                                        $crate::math::Erase::erase(&perturbed_deformation_gradient_rate)
                                     ) > minimum
                                 );
                                 perturbed_deformation_gradient_rate[i][j] -= EPSILON;
                                 assert!(
                                     dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                                         $constitutive_model, &get_deformation_gradient(), &perturbed_deformation_gradient_rate
-                                    )? - first_piola_kirchhoff_stress.full_contraction(
-                                        &perturbed_deformation_gradient_rate
+                                    )? - $crate::math::Erase::erase(&first_piola_kirchhoff_stress).full_contraction(
+                                        $crate::math::Erase::erase(&perturbed_deformation_gradient_rate)
                                     ) > minimum
                                 );
                                 Ok(())

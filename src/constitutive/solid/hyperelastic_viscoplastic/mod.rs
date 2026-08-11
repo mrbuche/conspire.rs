@@ -17,7 +17,7 @@ use crate::{
         solid::elastic_viscoplastic::{AppliedLoad, ElasticViscoplastic},
     },
     math::{
-        Tensor, TensorArray, Vector,
+        ReciprocalStress, Tensor, TensorArray, Vector,
         integrate::{ExplicitDaeFirstOrderMinimize, ExplicitDaeSecondOrderMinimize},
         optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
     },
@@ -60,12 +60,19 @@ where
         applied_load: AppliedLoad,
         integrator: impl ExplicitDaeFirstOrderMinimize<
             Scalar,
+            FirstPiolaKirchhoffStress,
+            ReciprocalStress,
             ViscoplasticStateVariables<Y>,
             DeformationGradient,
             ViscoplasticStateVariablesHistory<Y>,
             DeformationGradients,
         >,
-        solver: impl FirstOrderOptimization<Scalar, DeformationGradient>,
+        solver: impl FirstOrderOptimization<
+            Scalar,
+            FirstPiolaKirchhoffStress,
+            ReciprocalStress,
+            DeformationGradient,
+        >,
     ) -> Result<
         (
             Times,
@@ -124,12 +131,19 @@ where
         applied_load: AppliedLoad,
         integrator: impl ExplicitDaeFirstOrderMinimize<
             Scalar,
+            FirstPiolaKirchhoffStress,
+            ReciprocalStress,
             ViscoplasticStateVariables<Y>,
             DeformationGradient,
             ViscoplasticStateVariablesHistory<Y>,
             DeformationGradients,
         >,
-        solver: impl FirstOrderOptimization<Scalar, DeformationGradient>,
+        solver: impl FirstOrderOptimization<
+            Scalar,
+            FirstPiolaKirchhoffStress,
+            ReciprocalStress,
+            DeformationGradient,
+        >,
     ) -> Result<
         (
             Times,

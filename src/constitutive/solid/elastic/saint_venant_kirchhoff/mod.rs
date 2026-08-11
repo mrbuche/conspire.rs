@@ -1,5 +1,5 @@
 use crate::math::TensorRank4;
-use crate::math::{Dimensionless, Quantity, Stress};
+use crate::math::{Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -39,9 +39,8 @@ impl Elastic for SaintVenantKirchhoff {
         let jacobian = self.jacobian(deformation_gradient)?;
         let (deviatoric_strain, strain_trace) =
             ((deformation_gradient.left_cauchy_green() - IDENTITY) * 0.5).deviatoric_and_trace();
-        Ok((deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
+        Ok(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
             + IDENTITY * (self.bulk_modulus() * strain_trace / jacobian))
-            .with_unit::<Dimensionless>())
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
     fn cauchy_tangent_stiffness(
@@ -54,7 +53,7 @@ impl Elastic for SaintVenantKirchhoff {
         let (deviatoric_strain, strain_trace) =
             ((deformation_gradient.left_cauchy_green() - IDENTITY) * 0.5).deviatoric_and_trace();
         Ok(
-            ((TensorRank4::dyad_il_jk(&scaled_deformation_gradient, &IDENTITY)
+            (TensorRank4::dyad_il_jk(&scaled_deformation_gradient, &IDENTITY)
                 + TensorRank4::dyad_ik_jl(&IDENTITY, &scaled_deformation_gradient))
                 + TensorRank4::dyad_ij_kl(
                     &IDENTITY,
@@ -65,8 +64,7 @@ impl Elastic for SaintVenantKirchhoff {
                     &(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
                         + IDENTITY * (self.bulk_modulus() * strain_trace / jacobian)),
                     &inverse_transpose_deformation_gradient,
-                ))
-            .with_unit::<Dimensionless>(),
+                ),
         )
     }
 }

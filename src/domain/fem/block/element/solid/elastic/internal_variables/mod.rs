@@ -1,3 +1,4 @@
+use crate::math::{Dimensionless, Erase, Quantity};
 use std::ops::{Div, Mul};
 
 use crate::{
@@ -40,11 +41,15 @@ pub trait ElasticIVFiniteElement<
     const N: usize,
     const P: usize,
     V,
+    E,
 > where
     C: ElasticIV<V>,
+    C::Residual: Erase<Erased = E>,
     Self: SolidFiniteElement<G, M, N, P>,
-    V: Jacobian + Solution,
-    for<'a> &'a V: Div<C::TangentVv, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
+    V: Erase<Erased = E> + Jacobian + Solution,
+    E: Tensor,
+    for<'a> &'a C::Residual: Div<C::TangentVv, Output = V>,
+    for<'a> &'a V: Mul<Quantity<Dimensionless>, Output = V> + Mul<Scalar, Output = V>,
     for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
 {
     /// The internal variables an element starts from at every integration point.
@@ -103,7 +108,7 @@ pub trait ElasticIVFiniteElement<
 /// The gauge freedom is fixed at the initial values, which are zero over those
 /// indices, so the constraint is imposed by leaving them out of the system
 /// rather than by a multiplier.
-fn root_at_point<C, V>(
+fn root_at_point<C, V, E>(
     local_solver: &NewtonRaphson,
     constitutive_model: &C,
     deformation_gradient: &DeformationGradient,
@@ -111,8 +116,11 @@ fn root_at_point<C, V>(
 ) -> Result<V, ConstitutiveError>
 where
     C: ElasticIV<V>,
-    V: Jacobian + Solution,
-    for<'a> &'a V: Div<C::TangentVv, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
+    C::Residual: Erase<Erased = E>,
+    V: Erase<Erased = E> + Jacobian + Solution,
+    E: Tensor,
+    for<'a> &'a C::Residual: Div<C::TangentVv, Output = V>,
+    for<'a> &'a V: Mul<Quantity<Dimensionless>, Output = V> + Mul<Scalar, Output = V>,
     for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
 {
     local_solver
@@ -142,7 +150,9 @@ fn assemble_forces<const G: usize, const N: usize>(
         .map(|(stress, (gradient_vectors_point, integration_weight))| {
             gradient_vectors_point
                 .iter()
-                .map(|gradient_vector| (stress * gradient_vector) * integration_weight)
+                .map(|gradient_vector| {
+                    ((stress * gradient_vector) * integration_weight).with_unit::<Dimensionless>()
+                })
                 .collect()
         })
         .sum()
@@ -343,13 +353,16 @@ where
     Ok(condensed)
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize, V>
-    ElasticIVFiniteElement<C, G, 3, N, P, V> for Element<3, G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize, const P: usize, V, E>
+    ElasticIVFiniteElement<C, G, 3, N, P, V, E> for Element<3, G, N, O>
 where
     C: ElasticIV<V>,
+    C::Residual: Erase<Erased = E>,
     Self: SolidFiniteElement<G, 3, N, P>,
-    V: Jacobian + Solution,
-    for<'a> &'a V: Div<C::TangentVv, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
+    V: Erase<Erased = E> + Jacobian + Solution,
+    E: Tensor,
+    for<'a> &'a C::Residual: Div<C::TangentVv, Output = V>,
+    for<'a> &'a V: Mul<Quantity<Dimensionless>, Output = V> + Mul<Scalar, Output = V>,
     for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
 {
     fn internal_variables_initial(&self, constitutive_model: &C) -> InternalVariables<G, V> {
@@ -506,10 +519,11 @@ where
                             gradient_vectors
                                 .iter()
                                 .map(|gradient_vector_b| {
-                                    tangent.contract_second_fourth_with_first(
+                                    (tangent.contract_second_fourth_with_first(
                                         gradient_vector_a,
                                         gradient_vector_b,
-                                    ) * integration_weight
+                                    ) * integration_weight)
+                                        .with_unit::<Dimensionless>()
                                 })
                                 .collect()
                         })

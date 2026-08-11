@@ -1,5 +1,5 @@
 use crate::math::TensorRank4;
-use crate::math::{Dimensionless, EnergyDensity, Quantity, Stress};
+use crate::math::{EnergyDensity, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -39,9 +39,8 @@ impl Elastic for Hencky {
         let jacobian = self.jacobian(deformation_gradient)?;
         let (deviatoric_strain, strain_trace) =
             (deformation_gradient.left_cauchy_green().logm()? * 0.5).deviatoric_and_trace();
-        Ok((deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
+        Ok(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
             + IDENTITY * (self.bulk_modulus() * strain_trace / jacobian))
-            .with_unit::<Dimensionless>())
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
     fn cauchy_tangent_stiffness(
@@ -53,7 +52,7 @@ impl Elastic for Hencky {
         let (deviatoric_strain, strain_trace) =
             (left_cauchy_green.logm()? * 0.5).deviatoric_and_trace();
         let scaled_deformation_gradient = deformation_gradient * self.shear_modulus() / jacobian;
-        Ok(((left_cauchy_green
+        Ok((left_cauchy_green
             .dlogm()?
             .contract_third_fourth_with_first_second(
                 &(TensorRank4::dyad_il_jk(&scaled_deformation_gradient, &IDENTITY)
@@ -66,7 +65,6 @@ impl Elastic for Hencky {
                     - IDENTITY * (self.bulk_modulus() * strain_trace / jacobian)),
                 &deformation_gradient.inverse_transpose(),
             )))
-        .with_unit::<Dimensionless>())
     }
 }
 

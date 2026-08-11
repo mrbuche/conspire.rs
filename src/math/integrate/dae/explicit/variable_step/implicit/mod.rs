@@ -169,7 +169,7 @@ where
 }
 
 /// Variable-step explicit integrators for implicit differential-algebraic equations using zeroth-order root-finding.
-pub trait ImplicitDaeVariableStepExplicitZerothOrderRoot<Y, U>
+pub trait ImplicitDaeVariableStepExplicitZerothOrderRoot<G, W, Y, U>
 where
     Self: ImplicitDaeVariableStepExplicit<Y, U>,
     Y: Tensor,
@@ -178,8 +178,8 @@ where
 {
     fn integrate_implicit_dae_variable_step_explicit_root_0(
         &self,
-        mut function: impl FnMut(Scalar, &Y, &Y) -> Result<Y, String>,
-        solver: impl ZerothOrderRootFinding<Y>,
+        mut function: impl FnMut(Scalar, &Y, &Y) -> Result<G, String>,
+        solver: impl ZerothOrderRootFinding<G, W, Y>,
         time: &[Scalar],
         initial_condition: Y,
         mut equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
@@ -195,7 +195,7 @@ where
     }
 }
 
-impl<I, Y, U> ImplicitDaeVariableStepExplicitZerothOrderRoot<Y, U> for I
+impl<I, G, W, Y, U> ImplicitDaeVariableStepExplicitZerothOrderRoot<G, W, Y, U> for I
 where
     I: ImplicitDaeVariableStepExplicit<Y, U>,
     Y: Tensor,
@@ -204,17 +204,17 @@ where
 {
 }
 
-impl<I, Y, U> ImplicitDaeZerothOrderRoot<Y, U> for I
+impl<I, G, W, Y, U> ImplicitDaeZerothOrderRoot<G, W, Y, U> for I
 where
-    Self: ImplicitDaeVariableStepExplicitZerothOrderRoot<Y, U>,
+    Self: ImplicitDaeVariableStepExplicitZerothOrderRoot<G, W, Y, U>,
     Y: Tensor,
     U: TensorVec<Item = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
 {
     fn integrate(
         &self,
-        function: impl FnMut(Scalar, &Y, &Y) -> Result<Y, String>,
-        solver: impl ZerothOrderRootFinding<Y>,
+        function: impl FnMut(Scalar, &Y, &Y) -> Result<G, String>,
+        solver: impl ZerothOrderRootFinding<G, W, Y>,
         time: &[Scalar],
         initial_condition: Y,
         equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
@@ -296,7 +296,7 @@ where
 }
 
 /// Variable-step explicit integrators for implicit differential-algebraic equations using first-order minimization.
-pub trait ImplicitDaeVariableStepExplicitFirstOrderMinimize<F, Y, U>
+pub trait ImplicitDaeVariableStepExplicitFirstOrderMinimize<F, G, W, Y, U>
 where
     Self: ImplicitDaeVariableStepExplicit<Y, U>,
     Y: Tensor,
@@ -307,8 +307,8 @@ where
     fn integrate_implicit_dae_variable_step_explicit_minimize_1(
         &self,
         mut function: impl FnMut(Scalar, &Y, &Y) -> Result<F, String>,
-        mut jacobian: impl FnMut(Scalar, &Y, &Y) -> Result<Y, String>,
-        solver: impl FirstOrderOptimization<F, Y>,
+        mut jacobian: impl FnMut(Scalar, &Y, &Y) -> Result<G, String>,
+        solver: impl FirstOrderOptimization<F, G, W, Y>,
         time: &[Scalar],
         initial_condition: Y,
         mut equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
@@ -325,7 +325,7 @@ where
     }
 }
 
-impl<I, F, Y, U> ImplicitDaeVariableStepExplicitFirstOrderMinimize<F, Y, U> for I
+impl<I, F, G, W, Y, U> ImplicitDaeVariableStepExplicitFirstOrderMinimize<F, G, W, Y, U> for I
 where
     I: ImplicitDaeVariableStepExplicit<Y, U>,
     Y: Tensor,
@@ -334,9 +334,9 @@ where
 {
 }
 
-impl<I, F, Y, U> ImplicitDaeFirstOrderMinimize<F, Y, U> for I
+impl<I, F, G, W, Y, U> ImplicitDaeFirstOrderMinimize<F, G, W, Y, U> for I
 where
-    Self: ImplicitDaeVariableStepExplicitFirstOrderMinimize<F, Y, U>,
+    Self: ImplicitDaeVariableStepExplicitFirstOrderMinimize<F, G, W, Y, U>,
     Y: Tensor,
     U: TensorVec<Item = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -344,8 +344,8 @@ where
     fn integrate(
         &self,
         function: impl FnMut(Scalar, &Y, &Y) -> Result<F, String>,
-        jacobian: impl FnMut(Scalar, &Y, &Y) -> Result<Y, String>,
-        solver: impl FirstOrderOptimization<F, Y>,
+        jacobian: impl FnMut(Scalar, &Y, &Y) -> Result<G, String>,
+        solver: impl FirstOrderOptimization<F, G, W, Y>,
         time: &[Scalar],
         initial_condition: Y,
         equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,

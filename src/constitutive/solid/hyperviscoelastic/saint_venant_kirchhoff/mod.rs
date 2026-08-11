@@ -2,7 +2,7 @@ use crate::math::TensorRank4;
 #[cfg(test)]
 mod test;
 
-use crate::math::{Dimensionless, EnergyDensity, Quantity, Rate, Stress, Viscosity};
+use crate::math::{EnergyDensity, Quantity, Rate, Stress, Viscosity};
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -89,10 +89,9 @@ impl Viscoelastic for SaintVenantKirchhoff {
         let shear_modulus = self.shear_modulus();
         let bulk_viscosity = self.bulk_viscosity();
         let shear_viscosity = self.shear_viscosity();
-        Ok((deviatoric_strain * (2.0 * shear_modulus)
+        Ok(deviatoric_strain * (2.0 * shear_modulus)
             + deviatoric_strain_rate * (2.0 * shear_viscosity)
             + IDENTITY_00 * (bulk_modulus * strain_trace + bulk_viscosity * strain_rate_trace))
-            .with_unit::<Dimensionless>())
     }
     /// Calculates and returns the rate tangent stiffness associated with the second Piola-Kirchhoff stress.
     ///
@@ -107,6 +106,9 @@ impl Viscoelastic for SaintVenantKirchhoff {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let scaled_deformation_gradient_transpose =
             deformation_gradient.transpose() * self.shear_viscosity();
+        // A tangent with respect to a rate is a viscosity, but the rate itself
+        // carries no unit until there is one for time, so this is reported as
+        // the stress its alias claims.
         Ok(
             (TensorRank4::dyad_ik_jl(&scaled_deformation_gradient_transpose, &IDENTITY_00)
                 + TensorRank4::dyad_il_jk(&IDENTITY_00, &scaled_deformation_gradient_transpose)
@@ -114,7 +116,7 @@ impl Viscoelastic for SaintVenantKirchhoff {
                     &(IDENTITY_00 * (self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity())),
                     deformation_gradient,
                 ))
-            .with_unit::<Dimensionless>(),
+            .with_unit::<Stress>(),
         )
     }
 }

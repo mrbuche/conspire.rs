@@ -184,7 +184,7 @@ macro_rules! test_solid_viscous_constitutive_model
                     {
                         DeformationGradient::identity()
                     };
-                let mut cauchy_rate_tangent_stiffness = CauchyTangentStiffness::zero();
+                let mut cauchy_rate_tangent_stiffness = CauchyRateTangentStiffness::zero();
                 for k in 0..3
                 {
                     for l in 0..3
@@ -241,7 +241,7 @@ macro_rules! test_solid_viscous_constitutive_model
                     {
                         DeformationGradient::identity()
                     };
-                let mut first_piola_kirchhoff_rate_tangent_stiffness = FirstPiolaKirchhoffTangentStiffness::zero();
+                let mut first_piola_kirchhoff_rate_tangent_stiffness = FirstPiolaKirchhoffRateTangentStiffness::zero();
                 for k in 0..3
                 {
                     for l in 0..3
@@ -298,7 +298,7 @@ macro_rules! test_solid_viscous_constitutive_model
                     {
                         DeformationGradient::identity()
                     };
-                let mut second_piola_kirchhoff_rate_tangent_stiffness = SecondPiolaKirchhoffTangentStiffness::zero();
+                let mut second_piola_kirchhoff_rate_tangent_stiffness = SecondPiolaKirchhoffRateTangentStiffness::zero();
                 for k in 0..3
                 {
                     for l in 0..3

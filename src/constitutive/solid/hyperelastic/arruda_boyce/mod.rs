@@ -1,5 +1,5 @@
 use crate::math::TensorRank4;
-use crate::math::{Dimensionless, EnergyDensity, Quantity, Stress};
+use crate::math::{EnergyDensity, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -64,13 +64,12 @@ impl Elastic for ArrudaBoyce {
             ))
         } else {
             let gamma_0 = (1.0 / self.number_of_links()).sqrt();
-            Ok((deviatoric_isochoric_left_cauchy_green_deformation
+            Ok(deviatoric_isochoric_left_cauchy_green_deformation
                 * (self.shear_modulus() * inverse_langevin(gamma) / inverse_langevin(gamma_0)
                     * gamma_0
                     / gamma
                     / jacobian)
                 + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
-                .with_unit::<Dimensionless>())
         }
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
@@ -112,7 +111,7 @@ impl Elastic for ArrudaBoyce {
                         / self.number_of_links()
                         / gamma)),
             );
-            Ok(((TensorRank4::dyad_ik_jl(&IDENTITY, deformation_gradient)
+            Ok((TensorRank4::dyad_ik_jl(&IDENTITY, deformation_gradient)
                 + TensorRank4::dyad_il_jk(deformation_gradient, &IDENTITY)
                 - TensorRank4::dyad_ij_kl(&IDENTITY, deformation_gradient) * (TWO_THIRDS))
                 * scaled_shear_modulus
@@ -123,7 +122,6 @@ impl Elastic for ArrudaBoyce {
                     &inverse_transpose_deformation_gradient,
                 )
                 + term)
-                .with_unit::<Dimensionless>())
         }
     }
 }

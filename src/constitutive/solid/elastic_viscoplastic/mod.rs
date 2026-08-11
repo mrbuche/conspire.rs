@@ -8,7 +8,7 @@ use crate::{
         },
     },
     math::{
-        Rank2, Tensor, TensorArray, Vector,
+        Rank2, ReciprocalStress, Tensor, TensorArray, Vector,
         integrate::{ExplicitDaeFirstOrderRoot, ExplicitDaeZerothOrderRoot},
         optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
     },
@@ -59,12 +59,18 @@ where
         &self,
         applied_load: AppliedLoad,
         integrator: impl ExplicitDaeZerothOrderRoot<
+            FirstPiolaKirchhoffStress,
+            ReciprocalStress,
             ViscoplasticStateVariables<Y>,
             DeformationGradient,
             ViscoplasticStateVariablesHistory<Y>,
             DeformationGradients,
         >,
-        solver: impl ZerothOrderRootFinding<DeformationGradient>,
+        solver: impl ZerothOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            ReciprocalStress,
+            DeformationGradient,
+        >,
     ) -> Result<
         (
             Times,
@@ -120,12 +126,18 @@ where
         &self,
         applied_load: AppliedLoad,
         integrator: impl ExplicitDaeZerothOrderRoot<
+            FirstPiolaKirchhoffStress,
+            ReciprocalStress,
             ViscoplasticStateVariables<Y>,
             DeformationGradient,
             ViscoplasticStateVariablesHistory<Y>,
             DeformationGradients,
         >,
-        solver: impl ZerothOrderRootFinding<DeformationGradient>,
+        solver: impl ZerothOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            ReciprocalStress,
+            DeformationGradient,
+        >,
     ) -> Result<
         (
             Times,

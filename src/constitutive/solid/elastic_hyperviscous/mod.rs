@@ -30,7 +30,7 @@ use super::{
     *,
 };
 use crate::math::{
-    Matrix, Vector,
+    Erase, Matrix, ReciprocalStress, Vector,
     integrate::{ImplicitDaeFirstOrderMinimize, ImplicitDaeSecondOrderMinimize},
     optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
 };
@@ -50,9 +50,12 @@ where
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate: &DeformationGradientRate,
     ) -> Result<Scalar, ConstitutiveError> {
+        // A stress contracted with a rate is a power density, which is not a
+        // unit this library names, so the erased views are contracted.
         Ok(self
             .first_piola_kirchhoff_stress(deformation_gradient, &ZERO_10)?
-            .full_contraction(deformation_gradient_rate)
+            .erase()
+            .full_contraction(deformation_gradient_rate.erase())
             + self.viscous_dissipation(deformation_gradient, deformation_gradient_rate)?)
     }
     /// Calculates and returns the viscous dissipation.
@@ -79,10 +82,17 @@ pub trait FirstOrderMinimize {
         applied_load: AppliedLoad,
         integrator: impl ImplicitDaeFirstOrderMinimize<
             Scalar,
+            FirstPiolaKirchhoffStress,
+            ReciprocalStress,
             DeformationGradientRate,
             DeformationGradientRates,
         >,
-        solver: impl FirstOrderOptimization<Scalar, DeformationGradient>,
+        solver: impl FirstOrderOptimization<
+            Scalar,
+            FirstPiolaKirchhoffStress,
+            ReciprocalStress,
+            DeformationGradient,
+        >,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
 }
 
@@ -121,10 +131,17 @@ where
         applied_load: AppliedLoad,
         integrator: impl ImplicitDaeFirstOrderMinimize<
             Scalar,
+            FirstPiolaKirchhoffStress,
+            ReciprocalStress,
             DeformationGradientRate,
             DeformationGradientRates,
         >,
-        solver: impl FirstOrderOptimization<Scalar, DeformationGradientRate>,
+        solver: impl FirstOrderOptimization<
+            Scalar,
+            FirstPiolaKirchhoffStress,
+            ReciprocalStress,
+            DeformationGradientRate,
+        >,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
         match match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_rate_11, time) => {

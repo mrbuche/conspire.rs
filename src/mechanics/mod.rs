@@ -1,6 +1,6 @@
 //! Mechanics library.
 
-use crate::math::{Current, Intermediate, Reference};
+use crate::math::{Current, Intermediate, Rate, Reference, Stress};
 #[cfg(test)]
 pub mod test;
 
@@ -94,22 +94,23 @@ pub type Basis = TensorRank1List<3, Current, 3>;
 pub type Bases<const N: usize> = TensorRank1List2D<3, Current, 3, N>;
 
 /// The Cauchy stress $`\boldsymbol{\sigma}`$.
-pub type CauchyStress = TensorRank2<3, Current, Current>;
+pub type CauchyStress = TensorRank2<3, Current, Current, Stress>;
 
 /// A list of Cauchy stresses.
-pub type CauchyStresses<const W: usize> = TensorRank2List<3, Current, Current, W>;
+pub type CauchyStresses<const W: usize> = TensorRank2List<3, Current, Current, W, Stress>;
 
 /// The tangent stiffness associated with the Cauchy stress $`\boldsymbol{\mathcal{T}}`$.
-pub type CauchyTangentStiffness = TensorRank4<3, Current, Current, Current, Reference>;
+pub type CauchyTangentStiffness = TensorRank4<3, Current, Current, Current, Reference, Stress>;
 
 /// The tangent stiffness associated with the Cauchy stress $`\boldsymbol{\mathcal{T}}_1`$.
-pub type CauchyTangentStiffness1 = TensorRank4<3, Current, Current, Current, Intermediate>;
+pub type CauchyTangentStiffness1 = TensorRank4<3, Current, Current, Current, Intermediate, Stress>;
 
 /// The tangent stiffness associated with the elastic Cauchy stress $`\boldsymbol{\mathcal{T}}_\mathrm{e}`$.
-pub type CauchyTangentStiffnessElastic = TensorRank4<3, Current, Current, Current, Intermediate>;
+pub type CauchyTangentStiffnessElastic =
+    TensorRank4<3, Current, Current, Current, Intermediate, Stress>;
 
 /// The rate tangent stiffness associated with the Cauchy stress $`\boldsymbol{\mathcal{V}}`$.
-pub type CauchyRateTangentStiffness = TensorRank4<3, Current, Current, Current, Reference>;
+pub type CauchyRateTangentStiffness = TensorRank4<3, Current, Current, Current, Reference, Stress>;
 
 /// A coordinate.
 pub type Coordinate<I> = TensorRank1<3, I>;
@@ -178,53 +179,54 @@ pub type DeformationGradientRatesPlastic = TensorRank2Vec<3, Intermediate, Refer
 pub type Displacement = TensorRank1<3, Current>;
 
 /// The first Piola-Kirchhoff stress $`\mathbf{P}`$.
-pub type FirstPiolaKirchhoffStress = TensorRank2<3, Current, Reference>;
+pub type FirstPiolaKirchhoffStress = TensorRank2<3, Current, Reference, Stress>;
 
 /// The first Piola-Kirchhoff stress $`\mathbf{P}_1`$.
-pub type FirstPiolaKirchhoffStress1 = TensorRank2<3, Current, Intermediate>;
+pub type FirstPiolaKirchhoffStress1 = TensorRank2<3, Current, Intermediate, Stress>;
 
 /// The first Piola-Kirchhoff stress $`\mathbf{P}_2`$.
-pub type FirstPiolaKirchhoffStress2 = TensorRank2<3, Intermediate, Reference>;
+pub type FirstPiolaKirchhoffStress2 = TensorRank2<3, Intermediate, Reference, Stress>;
 
 /// The elastic first Piola-Kirchhoff stress $`\mathbf{P}_\mathrm{e}`$.
 pub type FirstPiolaKirchhoffStressElastic = FirstPiolaKirchhoffStress1;
 
 /// A list of first Piola-Kirchhoff stresses.
-pub type FirstPiolaKirchhoffStressList<const N: usize> = TensorRank2List<3, Current, Reference, N>;
+pub type FirstPiolaKirchhoffStressList<const N: usize> =
+    TensorRank2List<3, Current, Reference, N, Stress>;
 
 /// A vector of first Piola-Kirchhoff stresses.
-pub type FirstPiolaKirchhoffStresses = TensorRank2Vec<3, Current, Reference>;
+pub type FirstPiolaKirchhoffStresses = TensorRank2Vec<3, Current, Reference, Stress>;
 
 /// The tangent stiffness associated with the first Piola-Kirchhoff stress $`\boldsymbol{\mathcal{C}}`$.
 pub type FirstPiolaKirchhoffTangentStiffness =
-    TensorRank4<3, Current, Reference, Current, Reference>;
+    TensorRank4<3, Current, Reference, Current, Reference, Stress>;
 
 /// The first tangent stiffness associated with the first Piola-Kirchhoff stress $`\boldsymbol{\mathcal{C}}_1`$.
 pub type FirstPiolaKirchhoffTangentStiffness1 =
-    TensorRank4<3, Current, Intermediate, Current, Intermediate>;
+    TensorRank4<3, Current, Intermediate, Current, Intermediate, Stress>;
 
 /// The second tangent stiffness associated with the first Piola-Kirchhoff stress $`\boldsymbol{\mathcal{C}}_2`$.
 pub type FirstPiolaKirchhoffTangentStiffness2 =
-    TensorRank4<3, Intermediate, Reference, Intermediate, Reference>;
+    TensorRank4<3, Intermediate, Reference, Intermediate, Reference, Stress>;
 
 /// The elastic tangent stiffness associated with the first Piola-Kirchhoff stress $`\boldsymbol{\mathcal{C}}_\mathrm{e}`$.
 pub type FirstPiolaKirchhoffTangentStiffnessElastic = FirstPiolaKirchhoffTangentStiffness1;
 
 /// A list of first Piola-Kirchhoff tangent stiffnesses.
 pub type FirstPiolaKirchhoffTangentStiffnessList<const N: usize> =
-    TensorRank4List<3, Current, Reference, Current, Reference, N>;
+    TensorRank4List<3, Current, Reference, Current, Reference, N, Stress>;
 
 /// A vector of first Piola-Kirchhoff tangent stiffnesses.
 pub type FirstPiolaKirchhoffTangentStiffnesses =
-    TensorRank4Vec<3, Current, Reference, Current, Reference>;
+    TensorRank4Vec<3, Current, Reference, Current, Reference, Stress>;
 
 /// The rate tangent stiffness associated with the first Piola-Kirchhoff stress $`\boldsymbol{\mathcal{U}}`$.
 pub type FirstPiolaKirchhoffRateTangentStiffness =
-    TensorRank4<3, Current, Reference, Current, Reference>;
+    TensorRank4<3, Current, Reference, Current, Reference, Stress>;
 
 /// A list of first Piola-Kirchhoff rate tangent stiffnesses.
 pub type FirstPiolaKirchhoffRateTangentStiffnesses<const W: usize> =
-    TensorRank4List<3, Current, Reference, Current, Reference, W>;
+    TensorRank4List<3, Current, Reference, Current, Reference, W, Stress>;
 
 /// A force.
 pub type Force = TensorRank1<3, Current>;
@@ -254,10 +256,10 @@ pub type HeatFluxTangents<const N: usize> = TensorRank2List<3, Reference, Refere
 pub type LeftCauchyGreenDeformation = TensorRank2<3, Current, Current>;
 
 /// The Mandel stress $`\mathbf{M}`$.
-pub type MandelStress = TensorRank2<3, Reference, Reference>;
+pub type MandelStress = TensorRank2<3, Reference, Reference, Stress>;
 
 /// The elastic stress $`\mathbf{M}_e`$.
-pub type MandelStressElastic = TensorRank2<3, Intermediate, Intermediate>;
+pub type MandelStressElastic = TensorRank2<3, Intermediate, Intermediate, Stress>;
 
 /// A normal.
 pub type Normal = TensorRank1<3, Current>;
@@ -306,22 +308,22 @@ pub type RotationReferenceConfiguration = TensorRank2<3, Reference, Reference>;
 pub type Separation = Displacement;
 
 /// The second Piola-Kirchhoff stress $`\mathbf{S}`$.
-pub type SecondPiolaKirchhoffStress = TensorRank2<3, Reference, Reference>;
+pub type SecondPiolaKirchhoffStress = TensorRank2<3, Reference, Reference, Stress>;
 
 /// The elastic second Piola-Kirchhoff stress $`\mathbf{S}`$.
-pub type SecondPiolaKirchhoffStressElastic = TensorRank2<3, Intermediate, Intermediate>;
+pub type SecondPiolaKirchhoffStressElastic = TensorRank2<3, Intermediate, Intermediate, Stress>;
 
 /// The tangent stiffness associated with the second Piola-Kirchhoff stress $`\boldsymbol{\mathcal{G}}`$.
 pub type SecondPiolaKirchhoffTangentStiffness =
-    TensorRank4<3, Reference, Reference, Current, Reference>;
+    TensorRank4<3, Reference, Reference, Current, Reference, Stress>;
 
 /// The elastic tangent stiffness associated with the second Piola-Kirchhoff stress $`\boldsymbol{\mathcal{G}}_\mathrm{e}`$.
 pub type SecondPiolaKirchhoffTangentStiffnessElastic =
-    TensorRank4<3, Intermediate, Intermediate, Current, Intermediate>;
+    TensorRank4<3, Intermediate, Intermediate, Current, Intermediate, Stress>;
 
 /// The rate tangent stiffness associated with the second Piola-Kirchhoff stress $`\boldsymbol{\mathcal{W}}`$.
 pub type SecondPiolaKirchhoffRateTangentStiffness =
-    TensorRank4<3, Reference, Reference, Current, Reference>;
+    TensorRank4<3, Reference, Reference, Current, Reference, Stress>;
 
 /// A stiffness resulting from a force.
 pub type Stiffness = TensorRank2<3, Current, Current>;
@@ -336,10 +338,10 @@ pub type StiffnessList2D<const N: usize> = TensorRank2List2D<3, Current, Current
 pub type Stiffnesses = TensorRank2Vec2D<3, Current, Current>;
 
 /// The stretching rate $`\mathbf{D}`$.
-pub type StretchingRate = TensorRank2<3, Current, Current>;
+pub type StretchingRate = TensorRank2<3, Current, Current, Rate>;
 
 /// The plastic stretching rate $`\mathbf{D}^\mathrm{p}`$.
-pub type StretchingRatePlastic = TensorRank2<3, Intermediate, Intermediate>;
+pub type StretchingRatePlastic = TensorRank2<3, Intermediate, Intermediate, Rate>;
 
 /// A surface basis.
 pub type SurfaceBasis<I> = TensorRank1List<3, I, 2>;

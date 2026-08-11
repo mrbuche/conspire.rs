@@ -4,11 +4,7 @@ use crate::math::assert::Assert;
 
 use crate::{
     math::Tensor,
-    mechanics::{
-        CauchyRateTangentStiffness, CauchyTangentStiffness,
-        FirstPiolaKirchhoffRateTangentStiffness, FirstPiolaKirchhoffTangentStiffness,
-        SecondPiolaKirchhoffTangentStiffness,
-    },
+    mechanics::{CauchyRateTangentStiffness, FirstPiolaKirchhoffRateTangentStiffness},
 };
 
 test_solid_hyperviscoelastic_constitutive_model!(SaintVenantKirchhoff {

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::{Dimensionless, EnergyDensity, Modulus, Quantity, Stress};
+use crate::math::{EnergyDensity, Modulus, Quantity, Stress};
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -54,7 +54,7 @@ impl<const N: usize> Elastic for Yeoh<N> {
                 .deviatoric_and_trace();
         let scalar_term =
             (left_cauchy_green_deformation_trace / jacobian.powf(TWO_THIRDS) - 3.0).value();
-        Ok((deviatoric_left_cauchy_green_deformation
+        Ok(deviatoric_left_cauchy_green_deformation
             * once(self.shear_modulus())
                 .chain(
                     self.extra_moduli()
@@ -66,7 +66,6 @@ impl<const N: usize> Elastic for Yeoh<N> {
                 .sum::<Quantity<Modulus>>()
             / jacobian.powf(FIVE_THIRDS)
             + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
-            .with_unit::<Dimensionless>())
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
     fn cauchy_tangent_stiffness(
@@ -106,7 +105,7 @@ impl<const N: usize> Elastic for Yeoh<N> {
                     .sum::<Quantity<Modulus>>()
                     / jacobian.powf(SEVEN_THIRDS))),
         );
-        Ok(((TensorRank4::dyad_ik_jl(&IDENTITY, deformation_gradient)
+        Ok((TensorRank4::dyad_ik_jl(&IDENTITY, deformation_gradient)
             + TensorRank4::dyad_il_jk(deformation_gradient, &IDENTITY)
             - TensorRank4::dyad_ij_kl(&IDENTITY, deformation_gradient) * (TWO_THIRDS))
             * scaled_modulus
@@ -116,7 +115,6 @@ impl<const N: usize> Elastic for Yeoh<N> {
                 &inverse_transpose_deformation_gradient,
             )
             + last_term)
-            .with_unit::<Dimensionless>())
     }
 }
 

@@ -16,7 +16,7 @@ pub use strategy::SolveStrategy;
 pub use trust_region::TrustRegion;
 
 use crate::math::{
-    Jacobian, Scalar, Solution, Style, StyledError, Vector,
+    Erase, Jacobian, Quantity, Scalar, Solution, Style, StyledError, Tensor, Vector,
     assert::AssertionError,
     matrix::square::SquareMatrixError,
     sparse::{CscMatrix, SparseError, SparseSolver},
@@ -25,10 +25,13 @@ use crate::math::{
 use std::{fmt::Debug, ops::Mul};
 
 /// Zeroth-order root-finding algorithms.
-pub trait ZerothOrderRootFinding<X> {
+///
+/// `F` is the residual, `X` the unknown, and `W` the unit of the step size,
+/// being that of the unknown over that of the residual.
+pub trait ZerothOrderRootFinding<F, W, X> {
     fn root(
         &self,
-        function: impl FnMut(&X) -> Result<X, String>,
+        function: impl FnMut(&X) -> Result<F, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizationError>;
@@ -74,11 +77,16 @@ pub trait FirstOrderRootFindingIncremental<F, J, X> {
 }
 
 /// First-order optimization algorithms.
-pub trait FirstOrderOptimization<F, X> {
+///
+/// `F` is the objective, `J` its gradient, and `X` the unknown. `W` is the unit
+/// of the step size, being that of the unknown squared over that of the
+/// objective, since the gradient carries the objective over the unknown. That is
+/// the unit an inverse Hessian carries, which is what a step size stands in for.
+pub trait FirstOrderOptimization<F, J, W, X> {
     fn minimize(
         &self,
         function: impl FnMut(&X) -> Result<F, String>,
-        jacobian: impl FnMut(&X) -> Result<X, String>,
+        jacobian: impl FnMut(&X) -> Result<J, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizationError>;
@@ -158,20 +166,21 @@ trait BacktrackingLineSearch<J, X>
 where
     Self: Debug,
 {
-    fn backtracking_line_search(
+    fn backtracking_line_search<D, W, E>(
         &self,
         mut function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
         mut jacobian: impl FnMut(&X) -> Result<J, String>,
         argument: &X,
         jacobian0: &J,
-        decrement: &X,
+        decrement: &D,
         step_size: Scalar,
     ) -> Result<Scalar, OptimizationError>
     where
-        J: Jacobian,
-        for<'a> &'a J: From<&'a X>,
+        J: Erase<Erased = E> + Jacobian,
+        D: Erase<Erased = E>,
+        E: Tensor,
         X: Solution,
-        for<'a> &'a X: Mul<Scalar, Output = X>,
+        for<'a> &'a D: Mul<Quantity<W>, Output = X>,
     {
         if matches!(self.get_line_search(), LineSearch::None) {
             Ok(step_size)

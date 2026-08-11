@@ -8,7 +8,7 @@ use crate::{
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{
-        Tensor,
+        Dimensionless, Tensor,
         optimize::{
             EqualityConstraint, FirstOrderRootFinding, OptimizationError, ZerothOrderRootFinding,
         },
@@ -101,7 +101,7 @@ where
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<NodalCoordinates<D>>,
+        solver: impl ZerothOrderRootFinding<NodalCoordinates<D>, Dimensionless, NodalCoordinates<D>>,
     ) -> Result<NodalCoordinates<D>, OptimizationError> {
         solver.root(
             |nodal_coordinates: &NodalCoordinates<D>| Ok(self.nodal_forces(nodal_coordinates)?),

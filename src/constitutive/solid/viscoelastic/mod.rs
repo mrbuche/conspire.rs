@@ -15,7 +15,7 @@ pub mod test;
 
 use super::{super::fluid::viscous::Viscous, *};
 use crate::math::{
-    Matrix, Vector,
+    Matrix, ReciprocalStress, Vector,
     integrate::{ImplicitDaeFirstOrderRoot, ImplicitDaeZerothOrderRoot},
     optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
 };
@@ -144,8 +144,17 @@ pub trait ZerothOrderRoot {
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ImplicitDaeZerothOrderRoot<DeformationGradient, DeformationGradients>,
-        solver: impl ZerothOrderRootFinding<DeformationGradient>,
+        integrator: impl ImplicitDaeZerothOrderRoot<
+            FirstPiolaKirchhoffStress,
+            ReciprocalStress,
+            DeformationGradient,
+            DeformationGradients,
+        >,
+        solver: impl ZerothOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            ReciprocalStress,
+            DeformationGradient,
+        >,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
 }
 
@@ -180,8 +189,17 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ImplicitDaeZerothOrderRoot<DeformationGradient, DeformationGradients>,
-        solver: impl ZerothOrderRootFinding<DeformationGradientRate>,
+        integrator: impl ImplicitDaeZerothOrderRoot<
+            FirstPiolaKirchhoffStress,
+            ReciprocalStress,
+            DeformationGradient,
+            DeformationGradients,
+        >,
+        solver: impl ZerothOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            ReciprocalStress,
+            DeformationGradientRate,
+        >,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
         match match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_rate_11, time) => {

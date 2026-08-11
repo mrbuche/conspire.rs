@@ -39,8 +39,9 @@ where
     C1: Elastic,
     C2: Elastic,
 {
-    type TangentVu = TensorRank4<3, Intermediate, Reference, Current, Reference>;
-    type TangentUv = TensorRank4<3, Current, Reference, Intermediate, Reference>;
+    type Residual = FirstPiolaKirchhoffStress2;
+    type TangentVu = TensorRank4<3, Intermediate, Reference, Current, Reference, Stress>;
+    type TangentUv = TensorRank4<3, Current, Reference, Intermediate, Reference, Stress>;
     type TangentVv = FirstPiolaKirchhoffTangentStiffness2;
     /// Calculates and returns the Cauchy stress.
     ///
@@ -116,7 +117,7 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_2: &DeformationGradient2,
-    ) -> Result<DeformationGradient2, ConstitutiveError> {
+    ) -> Result<FirstPiolaKirchhoffStress2, ConstitutiveError> {
         let deformation_gradient_2_inverse = deformation_gradient_2.inverse();
         let deformation_gradient_1 = deformation_gradient * &deformation_gradient_2_inverse;
         Ok(FirstPiolaKirchhoffStress2::from(
@@ -150,8 +151,8 @@ where
     ) -> Result<
         (
             FirstPiolaKirchhoffTangentStiffness,
-            TensorRank4<3, Intermediate, Reference, Current, Reference>,
-            TensorRank4<3, Current, Reference, Intermediate, Reference>,
+            TensorRank4<3, Intermediate, Reference, Current, Reference, Stress>,
+            TensorRank4<3, Current, Reference, Intermediate, Reference, Stress>,
             FirstPiolaKirchhoffTangentStiffness2,
         ),
         ConstitutiveError,

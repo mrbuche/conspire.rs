@@ -1,5 +1,5 @@
 use crate::math::Rate;
-use crate::math::{Dimensionless, TensorRank4};
+use crate::math::TensorRank4;
 use crate::math::{Quantity, Stress};
 #[cfg(test)]
 mod test;
@@ -90,9 +90,8 @@ impl ElasticPlasticOrViscoplastic for Hencky {
         let (deviatoric_strain_e, strain_trace_e) =
             (deformation_gradient_e.left_cauchy_green().logm()? * 0.5).deviatoric_and_trace();
         Ok(
-            (deviatoric_strain_e * (2.0 * self.shear_modulus() / jacobian)
-                + IDENTITY * (self.bulk_modulus() * strain_trace_e / jacobian))
-                .with_unit::<Dimensionless>(),
+            deviatoric_strain_e * (2.0 * self.shear_modulus() / jacobian)
+                + IDENTITY * (self.bulk_modulus() * strain_trace_e / jacobian),
         )
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
@@ -109,7 +108,7 @@ impl ElasticPlasticOrViscoplastic for Hencky {
             (left_cauchy_green_e.logm()? * 0.5).deviatoric_and_trace();
         let scaled_deformation_gradient_e =
             &deformation_gradient_e * self.shear_modulus() / jacobian;
-        Ok(((left_cauchy_green_e
+        Ok((left_cauchy_green_e
             .dlogm()?
             .contract_third_fourth_with_first_second(
                 &(TensorRank4::dyad_il_jk(&scaled_deformation_gradient_e, &IDENTITY)
@@ -123,7 +122,6 @@ impl ElasticPlasticOrViscoplastic for Hencky {
                     - IDENTITY * (self.bulk_modulus() * strain_trace_e / jacobian)),
                 &deformation_gradient.inverse_transpose(),
             )))
-        .with_unit::<Dimensionless>())
     }
 }
 

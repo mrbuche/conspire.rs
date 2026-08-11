@@ -7,7 +7,7 @@ use crate::{
     },
     math::{
         ContractFirstSecondWithSecond, ContractSecondWithFirst, Hessian, HessianBlock, IDENTITY,
-        Matrix, Rank2, Tensor, TensorArray, TensorTuple, Vector,
+        Jacobian, Matrix, Rank2, ReciprocalStress, Tensor, TensorArray, TensorTuple, Vector,
         optimize::{
             EqualityConstraint, FirstOrderRootFindingBlock, SolveStrategy, ZerothOrderRootFinding,
         },
@@ -33,6 +33,11 @@ pub trait ElasticIV<V>
 where
     Self: Solid,
 {
+    /// The residual associated with the internal variables.
+    ///
+    /// Not the internal variables themselves: the residual is whatever quantity
+    /// the internal variables are in equilibrium over, typically a stress.
+    type Residual: Jacobian;
     /// The tangent of the internal variables residual with the deformation gradient.
     type TangentVu: HessianBlock;
     /// The tangent of the deformation gradient residual with the internal variables.
@@ -174,7 +179,7 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
         internal_variables: &V,
-    ) -> Result<V, ConstitutiveError>;
+    ) -> Result<Self::Residual, ConstitutiveError>;
     /// Returns the indices of the internal variables held at zero.
     ///
     /// These fix any gauge freedom in how the internal variables are parameterized.
@@ -192,6 +197,8 @@ pub trait ZerothOrderRoot<V>
 where
     V: Tensor,
 {
+    /// Type representing all residuals.
+    type Residuals;
     /// Type representing all variables.
     type Variables;
     /// Solve for the unknown components of the deformation gradient under an applied load.
@@ -202,7 +209,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl ZerothOrderRootFinding<Self::Variables>,
+        solver: impl ZerothOrderRootFinding<Self::Residuals, ReciprocalStress, Self::Variables>,
     ) -> Result<(DeformationGradient, V), ConstitutiveError>;
 }
 
@@ -224,7 +231,7 @@ where
             DeformationGradient,
             V,
             FirstPiolaKirchhoffStress,
-            V,
+            <Self as ElasticIV<V>>::Residual,
             FirstPiolaKirchhoffTangentStiffness,
             Self::TangentVu,
             Self::TangentUv,
@@ -239,11 +246,12 @@ where
     T: ElasticIV<V>,
     V: Tensor,
 {
+    type Residuals = TensorTuple<FirstPiolaKirchhoffStress, <T as ElasticIV<V>>::Residual>;
     type Variables = TensorTuple<DeformationGradient, V>;
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl ZerothOrderRootFinding<Self::Variables>,
+        solver: impl ZerothOrderRootFinding<Self::Residuals, ReciprocalStress, Self::Variables>,
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {
         let (matrix, vector) = bcs(self, applied_load);
         match solver.root(
@@ -281,7 +289,7 @@ where
             DeformationGradient,
             V,
             FirstPiolaKirchhoffStress,
-            V,
+            <Self as ElasticIV<V>>::Residual,
             FirstPiolaKirchhoffTangentStiffness,
             Self::TangentVu,
             Self::TangentUv,

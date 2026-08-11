@@ -1,5 +1,5 @@
 use crate::math::Rate;
-use crate::math::{Dimensionless, TensorRank4};
+use crate::math::TensorRank4;
 use crate::math::{Quantity, Stress};
 #[cfg(test)]
 mod test;
@@ -92,12 +92,11 @@ impl ElasticPlasticOrViscoplastic for SaintVenantKirchhoff {
         let (deviatoric_strain, strain_trace) =
             ((deformation_gradient_e.right_cauchy_green() - IDENTITY_22) * 0.5)
                 .deviatoric_and_trace();
-        Ok((&deformation_gradient_inverse_p
+        Ok(&deformation_gradient_inverse_p
             * deviatoric_strain
             * deformation_gradient_inverse_p.transpose()
             * (2.0 * self.shear_modulus())
             + left_cauchy_green_inverse_p * (self.bulk_modulus() * strain_trace))
-            .with_unit::<Dimensionless>())
     }
     #[doc = include_str!("second_piola_kirchhoff_tangent_stiffness.md")]
     fn second_piola_kirchhoff_tangent_stiffness(
@@ -111,13 +110,12 @@ impl ElasticPlasticOrViscoplastic for SaintVenantKirchhoff {
         let quantity_1 = deformation_gradient_inverse_p.left_cauchy_green();
         let quantity_2 = deformation_gradient_inverse_p * deformation_gradient_e.transpose();
         let scaled_quantity_1 = &quantity_1 * self.shear_modulus();
-        Ok(((TensorRank4::dyad_ik_jl(&quantity_2, &scaled_quantity_1)
+        Ok((TensorRank4::dyad_ik_jl(&quantity_2, &scaled_quantity_1)
             + TensorRank4::dyad_il_jk(&scaled_quantity_1, &quantity_2))
             + TensorRank4::dyad_ij_kl(
                 &(quantity_1 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())),
                 &quantity_2.transpose(),
             ))
-        .with_unit::<Dimensionless>())
     }
 }
 

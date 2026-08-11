@@ -2,7 +2,7 @@ use crate::math::TensorRank4;
 #[cfg(test)]
 mod test;
 
-use crate::math::{Dimensionless, Quantity, Rate, Stress, Viscosity};
+use crate::math::{Quantity, Rate, Stress, Viscosity};
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -91,11 +91,10 @@ impl Viscoelastic for AlmansiHamel {
         let strain_rate =
             ((&velocity_gradient + velocity_gradient.transpose()) * 0.5).with_unit::<Rate>();
         let (deviatoric_strain_rate, strain_rate_trace) = strain_rate.deviatoric_and_trace();
-        Ok((deviatoric_strain * (2.0 * shear_modulus / jacobian)
+        Ok(deviatoric_strain * (2.0 * shear_modulus / jacobian)
             + deviatoric_strain_rate * (2.0 * shear_viscosity / jacobian)
             + IDENTITY
                 * ((bulk_modulus * strain_trace + bulk_viscosity * strain_rate_trace) / jacobian))
-            .with_unit::<Dimensionless>())
     }
     /// Calculates and returns the rate tangent stiffness associated with the Cauchy stress.
     ///
@@ -111,6 +110,9 @@ impl Viscoelastic for AlmansiHamel {
         let deformation_gradient_inverse_transpose = deformation_gradient.inverse_transpose();
         let scaled_deformation_gradient_inverse_transpose =
             &deformation_gradient_inverse_transpose * self.shear_viscosity() / jacobian;
+        // A tangent with respect to a rate is a viscosity, but the rate itself
+        // carries no unit until there is one for time, so this is reported as
+        // the stress its alias claims.
         Ok(
             (TensorRank4::dyad_ik_jl(&IDENTITY, &scaled_deformation_gradient_inverse_transpose)
                 + TensorRank4::dyad_il_jk(
@@ -123,7 +125,7 @@ impl Viscoelastic for AlmansiHamel {
                             / jacobian)),
                     &deformation_gradient_inverse_transpose,
                 ))
-            .with_unit::<Dimensionless>(),
+            .with_unit::<Stress>(),
         )
     }
 }

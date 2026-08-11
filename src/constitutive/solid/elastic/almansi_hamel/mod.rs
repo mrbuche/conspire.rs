@@ -1,5 +1,5 @@
 use crate::math::TensorRank4;
-use crate::math::{Dimensionless, Quantity, Stress};
+use crate::math::{Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -42,9 +42,8 @@ impl Elastic for AlmansiHamel {
             - inverse_deformation_gradient.transpose() * &inverse_deformation_gradient)
             * 0.5;
         let (deviatoric_strain, strain_trace) = strain.deviatoric_and_trace();
-        Ok((deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
+        Ok(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
             + IDENTITY * (self.bulk_modulus() * strain_trace / jacobian))
-            .with_unit::<Dimensionless>())
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
     fn cauchy_tangent_stiffness(
@@ -59,7 +58,7 @@ impl Elastic for AlmansiHamel {
             &inverse_left_cauchy_green_deformation * (self.shear_modulus() / jacobian);
         let strain = (IDENTITY - &inverse_left_cauchy_green_deformation) * 0.5;
         let (deviatoric_strain, strain_trace) = strain.deviatoric_and_trace();
-        Ok(((TensorRank4::dyad_il_jk(
+        Ok((TensorRank4::dyad_il_jk(
             &inverse_transpose_deformation_gradient,
             &scaled_inverse_left_cauchy_green_deformation,
         ) + TensorRank4::dyad_ik_jl(
@@ -75,6 +74,5 @@ impl Elastic for AlmansiHamel {
                 + IDENTITY * (self.bulk_modulus() * strain_trace / jacobian)),
             &inverse_transpose_deformation_gradient,
         ))
-        .with_unit::<Dimensionless>())
     }
 }

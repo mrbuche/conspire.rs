@@ -1,5 +1,5 @@
 use crate::math::TensorRank4;
-use crate::math::{Dimensionless, EnergyDensity, Quantity, Stress};
+use crate::math::{EnergyDensity, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -43,9 +43,8 @@ impl Elastic for SaintVenantKirchhoff {
         let (deviatoric_strain, strain_trace) =
             ((deformation_gradient.right_cauchy_green() - IDENTITY_00) * 0.5)
                 .deviatoric_and_trace();
-        Ok((deviatoric_strain * (2.0 * self.shear_modulus())
+        Ok(deviatoric_strain * (2.0 * self.shear_modulus())
             + IDENTITY_00 * (self.bulk_modulus() * strain_trace))
-            .with_unit::<Dimensionless>())
     }
     #[doc = include_str!("second_piola_kirchhoff_tangent_stiffness.md")]
     fn second_piola_kirchhoff_tangent_stiffness(
@@ -56,13 +55,12 @@ impl Elastic for SaintVenantKirchhoff {
         let scaled_deformation_gradient_transpose =
             deformation_gradient.transpose() * self.shear_modulus();
         Ok(
-            (TensorRank4::dyad_ik_jl(&scaled_deformation_gradient_transpose, &IDENTITY_00)
+            TensorRank4::dyad_ik_jl(&scaled_deformation_gradient_transpose, &IDENTITY_00)
                 + TensorRank4::dyad_il_jk(&IDENTITY_00, &scaled_deformation_gradient_transpose)
                 + TensorRank4::dyad_ij_kl(
                     &(IDENTITY_00 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())),
                     deformation_gradient,
-                ))
-            .with_unit::<Dimensionless>(),
+                ),
         )
     }
 }

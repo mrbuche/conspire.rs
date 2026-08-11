@@ -1,5 +1,5 @@
 use crate::math::TensorRank4;
-use crate::math::{Dimensionless, EnergyDensity, Quantity, Stress};
+use crate::math::{EnergyDensity, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -48,7 +48,7 @@ impl Elastic for MooneyRivlin {
         let jacobian = self.jacobian(deformation_gradient)?;
         let isochoric_left_cauchy_green_deformation =
             deformation_gradient.left_cauchy_green() / jacobian.powf(TWO_THIRDS);
-        Ok((((isochoric_left_cauchy_green_deformation.deviatoric()
+        Ok(((isochoric_left_cauchy_green_deformation.deviatoric()
             * (self.shear_modulus() - self.extra_modulus())
             - isochoric_left_cauchy_green_deformation
                 .inverse()
@@ -56,7 +56,6 @@ impl Elastic for MooneyRivlin {
                 * self.extra_modulus())
             + IDENTITY * (self.bulk_modulus() * 0.5 * (jacobian.powi(2) - 1.0)))
             / jacobian)
-            .with_unit::<Dimensionless>())
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
     fn cauchy_tangent_stiffness(
@@ -92,7 +91,7 @@ impl Elastic for MooneyRivlin {
             &((deviatoric_inverse_isochoric_left_cauchy_green_deformation * TWO_THIRDS)
                 * &inverse_transpose_deformation_gradient),
         );
-        Ok(((TensorRank4::dyad_ik_jl(&IDENTITY, deformation_gradient)
+        Ok((TensorRank4::dyad_ik_jl(&IDENTITY, deformation_gradient)
             + TensorRank4::dyad_il_jk(deformation_gradient, &IDENTITY)
             - TensorRank4::dyad_ij_kl(&IDENTITY, deformation_gradient) * (TWO_THIRDS))
             * scaled_delta_shear_modulus
@@ -103,7 +102,6 @@ impl Elastic for MooneyRivlin {
                 &inverse_transpose_deformation_gradient,
             )
             - (term_1 + term_2 - term_3) * self.extra_modulus() / jacobian)
-            .with_unit::<Dimensionless>())
     }
 }
 

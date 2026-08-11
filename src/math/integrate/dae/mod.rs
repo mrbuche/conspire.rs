@@ -12,7 +12,7 @@ pub(super) mod explicit;
 // pub mod implicit;
 
 /// Integrators for explicit differential-algebraic equations using zeroth-order root-finding.
-pub trait ExplicitDaeZerothOrderRoot<Y, Z, U, V>
+pub trait ExplicitDaeZerothOrderRoot<G, W, Y, Z, U, V>
 where
     Y: Tensor,
     Z: Tensor,
@@ -22,8 +22,8 @@ where
     fn integrate(
         &self,
         evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        function: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
-        solver: impl ZerothOrderRootFinding<Z>,
+        function: impl FnMut(Scalar, &Y, &Z) -> Result<G, String>,
+        solver: impl ZerothOrderRootFinding<G, W, Z>,
         time: &[Scalar],
         initial_condition: (Y, Z),
         equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
@@ -52,7 +52,7 @@ where
 }
 
 /// Integrators for explicit differential-algebraic equations using first-order minimization.
-pub trait ExplicitDaeFirstOrderMinimize<F, Y, Z, U, V>
+pub trait ExplicitDaeFirstOrderMinimize<F, G, W, Y, Z, U, V>
 where
     Y: Tensor,
     Z: Tensor,
@@ -64,8 +64,8 @@ where
         &self,
         evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
         function: impl FnMut(Scalar, &Y, &Z) -> Result<F, String>,
-        jacobian: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
-        solver: impl FirstOrderOptimization<F, Z>,
+        jacobian: impl FnMut(Scalar, &Y, &Z) -> Result<G, String>,
+        solver: impl FirstOrderOptimization<F, G, W, Z>,
         time: &[Scalar],
         initial_condition: (Y, Z),
         equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
@@ -96,15 +96,15 @@ where
 }
 
 /// Integrators for implicit differential-algebraic equations using zeroth-order root-finding.
-pub trait ImplicitDaeZerothOrderRoot<Y, U>
+pub trait ImplicitDaeZerothOrderRoot<G, W, Y, U>
 where
     Y: Tensor,
     U: TensorVec<Item = Y>,
 {
     fn integrate(
         &self,
-        function: impl FnMut(Scalar, &Y, &Y) -> Result<Y, String>,
-        solver: impl ZerothOrderRootFinding<Y>,
+        function: impl FnMut(Scalar, &Y, &Y) -> Result<G, String>,
+        solver: impl ZerothOrderRootFinding<G, W, Y>,
         time: &[Scalar],
         initial_condition: Y,
         equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
@@ -129,7 +129,7 @@ where
 }
 
 /// Integrators for implicit differential-algebraic equations using first-order minimization.
-pub trait ImplicitDaeFirstOrderMinimize<F, Y, U>
+pub trait ImplicitDaeFirstOrderMinimize<F, G, W, Y, U>
 where
     Y: Tensor,
     U: TensorVec<Item = Y>,
@@ -138,8 +138,8 @@ where
     fn integrate(
         &self,
         function: impl FnMut(Scalar, &Y, &Y) -> Result<F, String>,
-        jacobian: impl FnMut(Scalar, &Y, &Y) -> Result<Y, String>,
-        solver: impl FirstOrderOptimization<F, Y>,
+        jacobian: impl FnMut(Scalar, &Y, &Y) -> Result<G, String>,
+        solver: impl FirstOrderOptimization<F, G, W, Y>,
         time: &[Scalar],
         initial_condition: Y,
         equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,

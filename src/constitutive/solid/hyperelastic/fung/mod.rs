@@ -1,5 +1,5 @@
 use crate::math::TensorRank4;
-use crate::math::{Dimensionless, EnergyDensity, Quantity, Stress};
+use crate::math::{EnergyDensity, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -58,16 +58,14 @@ impl Elastic for Fung {
             deviatoric_isochoric_left_cauchy_green_deformation,
             isochoric_left_cauchy_green_deformation_trace,
         ) = isochoric_left_cauchy_green_deformation.deviatoric_and_trace();
-        Ok((deviatoric_isochoric_left_cauchy_green_deformation
+        Ok(deviatoric_isochoric_left_cauchy_green_deformation
             * ((self.shear_modulus()
                 + self.extra_modulus()
-                    * ((self.exponent()
-                        * (isochoric_left_cauchy_green_deformation_trace - 3.0))
+                    * ((self.exponent() * (isochoric_left_cauchy_green_deformation_trace - 3.0))
                         .exp()
                         - 1.0))
                 / jacobian)
             + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
-            .with_unit::<Dimensionless>())
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
     fn cauchy_tangent_stiffness(
@@ -87,7 +85,7 @@ impl Elastic for Fung {
         let scaled_shear_modulus_0 = (self.shear_modulus()
             + self.extra_modulus() * (exponential - 1.0))
             / jacobian.powf(FIVE_THIRDS);
-        Ok(((TensorRank4::dyad_ik_jl(&IDENTITY, deformation_gradient)
+        Ok((TensorRank4::dyad_ik_jl(&IDENTITY, deformation_gradient)
             + TensorRank4::dyad_il_jk(deformation_gradient, &IDENTITY)
             - TensorRank4::dyad_ij_kl(&IDENTITY, deformation_gradient) * (TWO_THIRDS))
             * scaled_shear_modulus_0
@@ -103,7 +101,6 @@ impl Elastic for Fung {
                         * (scaled_shear_modulus_0 * FIVE_THIRDS)),
                 &inverse_transpose_deformation_gradient,
             ))
-        .with_unit::<Dimensionless>())
     }
 }
 

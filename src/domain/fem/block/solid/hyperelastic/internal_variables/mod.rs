@@ -12,18 +12,21 @@ use crate::{
             hyperelastic::internal_variables::HyperelasticIVElements,
         },
     },
-    math::{Jacobian, Matrix, Scalar, Solution, Vector},
+    math::{Dimensionless, Erase, Jacobian, Matrix, Quantity, Scalar, Solution, Tensor, Vector},
 };
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, V>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, V, E>
     HyperelasticIVElements<G, V, 3> for Block<C, F, G, M, N, P>
 where
     C: HyperelasticIV<V>,
-    F: HyperelasticIVFiniteElement<C, G, M, N, P, V>,
+    C::Residual: Erase<Erased = E>,
+    F: HyperelasticIVFiniteElement<C, G, M, N, P, V, E>,
     Self: ElasticIVElements<G, V, 3>,
-    for<'a> &'a V: Div<C::TangentVv, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
+    E: Tensor,
+    for<'a> &'a C::Residual: Div<C::TangentVv, Output = V>,
+    for<'a> &'a V: Mul<Quantity<Dimensionless>, Output = V> + Mul<Scalar, Output = V>,
     for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
-    V: Jacobian + Solution,
+    V: Erase<Erased = E> + Jacobian + Solution,
 {
     fn helmholtz_free_energy(
         &self,

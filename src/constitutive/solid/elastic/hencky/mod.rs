@@ -1,4 +1,4 @@
-use crate::math::{Dimensionless, Quantity, Stress, TensorRank4};
+use crate::math::{Quantity, Stress, TensorRank4};
 #[cfg(test)]
 mod test;
 
@@ -41,9 +41,8 @@ impl Elastic for Hencky {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let (deviatoric_strain, strain_trace) =
             (deformation_gradient.right_cauchy_green().logm()? * 0.5).deviatoric_and_trace();
-        Ok((deviatoric_strain * (2.0 * self.shear_modulus())
+        Ok(deviatoric_strain * (2.0 * self.shear_modulus())
             + IDENTITY_00 * (self.bulk_modulus() * strain_trace))
-            .with_unit::<Dimensionless>())
     }
     #[doc = include_str!("second_piola_kirchhoff_tangent_stiffness.md")]
     fn second_piola_kirchhoff_tangent_stiffness(
@@ -55,7 +54,7 @@ impl Elastic for Hencky {
         let deformation_gradient_transpose = deformation_gradient.transpose();
         let scaled_deformation_gradient_transpose =
             &deformation_gradient_transpose * self.shear_modulus();
-        Ok(((right_cauchy_green
+        Ok((right_cauchy_green
             .dlogm()?
             .contract_third_fourth_with_first_second(
                 &(TensorRank4::dyad_il_jk(&IDENTITY_00, &scaled_deformation_gradient_transpose)
@@ -68,6 +67,5 @@ impl Elastic for Hencky {
                 &(IDENTITY_00 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())),
                 &deformation_gradient_transpose.inverse(),
             )))
-        .with_unit::<Dimensionless>())
     }
 }

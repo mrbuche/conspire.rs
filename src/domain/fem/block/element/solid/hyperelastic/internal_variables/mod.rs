@@ -9,7 +9,7 @@ use crate::{
             elastic::internal_variables::{ElasticIVFiniteElement, InternalVariables},
         },
     },
-    math::{Jacobian, Matrix, Scalar, Solution, Tensor, Vector},
+    math::{Dimensionless, Erase, Jacobian, Matrix, Quantity, Scalar, Solution, Tensor, Vector},
 };
 
 pub trait HyperelasticIVFiniteElement<
@@ -19,12 +19,16 @@ pub trait HyperelasticIVFiniteElement<
     const N: usize,
     const P: usize,
     V,
+    E,
 > where
     C: HyperelasticIV<V>,
-    Self: ElasticIVFiniteElement<C, G, M, N, P, V>,
-    for<'a> &'a V: Div<C::TangentVv, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
+    C::Residual: Erase<Erased = E>,
+    Self: ElasticIVFiniteElement<C, G, M, N, P, V, E>,
+    E: Tensor,
+    for<'a> &'a C::Residual: Div<C::TangentVv, Output = V>,
+    for<'a> &'a V: Mul<Quantity<Dimensionless>, Output = V> + Mul<Scalar, Output = V>,
     for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
-    V: Jacobian + Solution,
+    V: Erase<Erased = E> + Jacobian + Solution,
 {
     fn helmholtz_free_energy(
         &self,
@@ -34,14 +38,17 @@ pub trait HyperelasticIVFiniteElement<
     ) -> Result<Scalar, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize, V>
-    HyperelasticIVFiniteElement<C, G, 3, N, P, V> for Element<3, G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize, const P: usize, V, E>
+    HyperelasticIVFiniteElement<C, G, 3, N, P, V, E> for Element<3, G, N, O>
 where
     C: HyperelasticIV<V>,
-    Self: ElasticIVFiniteElement<C, G, 3, N, P, V> + SolidFiniteElement<G, 3, N, P>,
-    for<'a> &'a V: Div<C::TangentVv, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
+    C::Residual: Erase<Erased = E>,
+    Self: ElasticIVFiniteElement<C, G, 3, N, P, V, E> + SolidFiniteElement<G, 3, N, P>,
+    E: Tensor,
+    for<'a> &'a C::Residual: Div<C::TangentVv, Output = V>,
+    for<'a> &'a V: Mul<Quantity<Dimensionless>, Output = V> + Mul<Scalar, Output = V>,
     for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
-    V: Jacobian + Solution,
+    V: Erase<Erased = E> + Jacobian + Solution,
 {
     fn helmholtz_free_energy(
         &self,

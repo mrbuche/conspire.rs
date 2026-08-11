@@ -8,7 +8,7 @@ use crate::{
         solid::{NodalForcesSolid, NodalStiffnessesSolidSymmetric, elastic::ElasticElements},
     },
     math::{
-        Scalar, Tensor,
+        Dimensionless, Scalar, Tensor,
         optimize::{
             EqualityConstraint, FirstOrderOptimization, OptimizationError, SecondOrderOptimization,
         },
@@ -89,7 +89,12 @@ where
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<Scalar, NodalCoordinates<D>>,
+        solver: impl FirstOrderOptimization<
+            Scalar,
+            NodalCoordinates<D>,
+            Dimensionless,
+            NodalCoordinates<D>,
+        >,
     ) -> Result<NodalCoordinates<D>, OptimizationError> {
         solver.minimize(
             |nodal_coordinates: &NodalCoordinates<D>| {

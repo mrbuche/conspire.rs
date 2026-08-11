@@ -3,8 +3,8 @@ mod test;
 
 use super::{
     super::{
-        Hessian, HessianBlock, Jacobian, LuDecomposition, Matrix, Scalar, Solution, SquareMatrix,
-        Tensor, Vector,
+        Dimensionless, Erase, Hessian, HessianBlock, Jacobian, LuDecomposition, Matrix, Quantity,
+        Scalar, Solution, SquareMatrix, Tensor, Vector,
         sparse::{CscMatrix, SparseSolver},
     },
     BacktrackingLineSearch, EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock,
@@ -62,13 +62,15 @@ impl Default for NewtonRaphson {
     }
 }
 
-impl<F, J, X> FirstOrderRootFinding<F, J, X> for NewtonRaphson
+impl<F, J, X, E> FirstOrderRootFinding<F, J, X> for NewtonRaphson
 where
     F: Jacobian,
-    for<'a> &'a F: Div<J, Output = X> + From<&'a X>,
+    for<'a> &'a F: Div<J, Output = X>,
     J: Hessian,
-    X: Solution,
-    for<'a> &'a X: Mul<Scalar, Output = X>,
+    F: Erase<Erased = E>,
+    X: Erase<Erased = E> + Solution,
+    E: Tensor,
+    for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     fn root(
@@ -119,13 +121,15 @@ where
     }
 }
 
-impl<F, J, X> FirstOrderRootFindingIncremental<F, J, X> for NewtonRaphson
+impl<F, J, X, E> FirstOrderRootFindingIncremental<F, J, X> for NewtonRaphson
 where
     F: Jacobian,
-    for<'a> &'a F: Div<J, Output = X> + From<&'a X>,
+    for<'a> &'a F: Div<J, Output = X>,
     J: Hessian,
-    X: Solution,
-    for<'a> &'a X: Mul<Scalar, Output = X>,
+    F: Erase<Erased = E>,
+    X: Erase<Erased = E> + Solution,
+    E: Tensor,
+    for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     fn root_incremental(
@@ -172,13 +176,15 @@ where
     }
 }
 
-impl<J, H, X> SecondOrderOptimization<Scalar, J, H, X> for NewtonRaphson
+impl<J, H, X, E> SecondOrderOptimization<Scalar, J, H, X> for NewtonRaphson
 where
     H: Hessian,
     J: Jacobian,
-    for<'a> &'a J: Div<H, Output = X> + From<&'a X>,
-    X: Solution,
-    for<'a> &'a X: Mul<Scalar, Output = X>,
+    for<'a> &'a J: Div<H, Output = X>,
+    J: Erase<Erased = E>,
+    X: Erase<Erased = E> + Solution,
+    E: Tensor,
+    for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     fn minimize(
@@ -225,13 +231,15 @@ where
     }
 }
 
-impl<J, H, X> SecondOrderOptimizationIncremental<Scalar, J, H, X> for NewtonRaphson
+impl<J, H, X, E> SecondOrderOptimizationIncremental<Scalar, J, H, X> for NewtonRaphson
 where
     H: Hessian,
     J: Jacobian,
-    for<'a> &'a J: Div<H, Output = X> + From<&'a X>,
-    X: Solution,
-    for<'a> &'a X: Mul<Scalar, Output = X>,
+    for<'a> &'a J: Div<H, Output = X>,
+    J: Erase<Erased = E>,
+    X: Erase<Erased = E> + Solution,
+    E: Tensor,
+    for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     fn minimize_incremental(
@@ -955,7 +963,7 @@ where
     }
 }
 
-fn unconstrained<J, H, X>(
+fn unconstrained<J, H, X, E>(
     newton_raphson: &NewtonRaphson,
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
     mut jacobian: impl FnMut(&X) -> Result<J, String>,
@@ -966,9 +974,11 @@ fn unconstrained<J, H, X>(
 where
     H: Hessian,
     J: Jacobian,
-    for<'a> &'a J: Div<H, Output = X> + From<&'a X>,
-    X: Solution,
-    for<'a> &'a X: Mul<Scalar, Output = X>,
+    for<'a> &'a J: Div<H, Output = X>,
+    J: Erase<Erased = E>,
+    X: Erase<Erased = E> + Solution,
+    E: Tensor,
+    for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
 {
     let mut decrement;
     let mut flattened = Vector::zero(if sparse.is_none() {
@@ -1004,7 +1014,7 @@ where
                     decrement *= radius / size
                 }
             }
-            step_size = newton_raphson.backtracking_line_search(
+            step_size = newton_raphson.backtracking_line_search::<X, Dimensionless, E>(
                 |trial: &X, _: Scalar| function(trial),
                 &mut jacobian,
                 &solution,
@@ -1021,7 +1031,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn constrained_fixed<J, H, X>(
+fn constrained_fixed<J, H, X, E>(
     newton_raphson: &NewtonRaphson,
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
     mut jacobian: impl FnMut(&X) -> Result<J, String>,
@@ -1034,9 +1044,10 @@ fn constrained_fixed<J, H, X>(
 where
     H: Hessian,
     J: Jacobian,
-    for<'a> &'a J: From<&'a X>,
-    X: Solution,
-    for<'a> &'a X: Mul<Scalar, Output = X>,
+    J: Erase<Erased = E>,
+    X: Erase<Erased = E> + Solution,
+    E: Tensor,
+    for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
 {
     let mut applied = Vector::zero(initial_guess.size());
     let mut retained = vec![true; initial_guess.size()];
@@ -1105,7 +1116,7 @@ where
             let mut decrement_full = &solution * 0.0;
             decrement_full.decrement_from_retained(&retained, &decrement);
             decrement_full *= -1.0;
-            newton_raphson.backtracking_line_search(
+            newton_raphson.backtracking_line_search::<X, Dimensionless, E>(
                 |trial: &X, step: Scalar| {
                     update(&solution, &applied, step, false)?;
                     function(trial)

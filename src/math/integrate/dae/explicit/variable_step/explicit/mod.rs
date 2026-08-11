@@ -327,7 +327,7 @@ where
 }
 
 /// Variable-step explicit integrators for explicit differential-algebraic equations using zeroth-order root-finding.
-pub trait ExplicitDaeVariableStepExplicitZerothOrderRoot<Y, Z, U, V>
+pub trait ExplicitDaeVariableStepExplicitZerothOrderRoot<G, W, Y, Z, U, V>
 where
     Self: ExplicitDaeVariableStepExplicit<Y, Z, U, V>,
     Y: Tensor,
@@ -339,8 +339,8 @@ where
     fn integrate_explicit_dae_variable_step_explicit_root_0(
         &self,
         evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        mut function: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
-        solver: impl ZerothOrderRootFinding<Z>,
+        mut function: impl FnMut(Scalar, &Y, &Z) -> Result<G, String>,
+        solver: impl ZerothOrderRootFinding<G, W, Z>,
         time: &[Scalar],
         initial_condition: (Y, Z),
         mut equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
@@ -352,7 +352,7 @@ where
     }
 }
 
-impl<I, Y, Z, U, V> ExplicitDaeVariableStepExplicitZerothOrderRoot<Y, Z, U, V> for I
+impl<I, G, W, Y, Z, U, V> ExplicitDaeVariableStepExplicitZerothOrderRoot<G, W, Y, Z, U, V> for I
 where
     I: ExplicitDaeVariableStepExplicit<Y, Z, U, V>,
     Y: Tensor,
@@ -363,9 +363,9 @@ where
 {
 }
 
-impl<I, Y, Z, U, V> ExplicitDaeZerothOrderRoot<Y, Z, U, V> for I
+impl<I, G, W, Y, Z, U, V> ExplicitDaeZerothOrderRoot<G, W, Y, Z, U, V> for I
 where
-    I: ExplicitDaeVariableStepExplicitZerothOrderRoot<Y, Z, U, V>,
+    I: ExplicitDaeVariableStepExplicitZerothOrderRoot<G, W, Y, Z, U, V>,
     Y: Tensor,
     Z: PartialEq + Tensor,
     U: TensorVec<Item = Y>,
@@ -375,8 +375,8 @@ where
     fn integrate(
         &self,
         evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        function: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
-        solver: impl ZerothOrderRootFinding<Z>,
+        function: impl FnMut(Scalar, &Y, &Z) -> Result<G, String>,
+        solver: impl ZerothOrderRootFinding<G, W, Z>,
         time: &[Scalar],
         initial_condition: (Y, Z),
         equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
@@ -469,7 +469,7 @@ where
 }
 
 /// Variable-step explicit integrators for explicit differential-algebraic equations using first-order minimization.
-pub trait ExplicitDaeVariableStepExplicitFirstOrderMinimize<F, Y, Z, U, V>
+pub trait ExplicitDaeVariableStepExplicitFirstOrderMinimize<F, G, W, Y, Z, U, V>
 where
     Self: ExplicitDaeVariableStepExplicit<Y, Z, U, V>,
     Y: Tensor,
@@ -483,8 +483,8 @@ where
         &self,
         evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
         mut function: impl FnMut(Scalar, &Y, &Z) -> Result<F, String>,
-        mut jacobian: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
-        solver: impl FirstOrderOptimization<F, Z>,
+        mut jacobian: impl FnMut(Scalar, &Y, &Z) -> Result<G, String>,
+        solver: impl FirstOrderOptimization<F, G, W, Z>,
         time: &[Scalar],
         initial_condition: (Y, Z),
         mut equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,
@@ -501,7 +501,8 @@ where
     }
 }
 
-impl<I, F, Y, Z, U, V> ExplicitDaeVariableStepExplicitFirstOrderMinimize<F, Y, Z, U, V> for I
+impl<I, F, G, W, Y, Z, U, V> ExplicitDaeVariableStepExplicitFirstOrderMinimize<F, G, W, Y, Z, U, V>
+    for I
 where
     I: ExplicitDaeVariableStepExplicit<Y, Z, U, V>,
     Y: Tensor,
@@ -512,9 +513,9 @@ where
 {
 }
 
-impl<I, F, Y, Z, U, V> ExplicitDaeFirstOrderMinimize<F, Y, Z, U, V> for I
+impl<I, F, G, W, Y, Z, U, V> ExplicitDaeFirstOrderMinimize<F, G, W, Y, Z, U, V> for I
 where
-    I: ExplicitDaeVariableStepExplicitFirstOrderMinimize<F, Y, Z, U, V>,
+    I: ExplicitDaeVariableStepExplicitFirstOrderMinimize<F, G, W, Y, Z, U, V>,
     Y: Tensor,
     Z: PartialEq + Tensor,
     U: TensorVec<Item = Y>,
@@ -525,8 +526,8 @@ where
         &self,
         evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
         function: impl FnMut(Scalar, &Y, &Z) -> Result<F, String>,
-        jacobian: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
-        solver: impl FirstOrderOptimization<F, Z>,
+        jacobian: impl FnMut(Scalar, &Y, &Z) -> Result<G, String>,
+        solver: impl FirstOrderOptimization<F, G, W, Z>,
         time: &[Scalar],
         initial_condition: (Y, Z),
         equality_constraint: impl FnMut(Scalar) -> EqualityConstraint,

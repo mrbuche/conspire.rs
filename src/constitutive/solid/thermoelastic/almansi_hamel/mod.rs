@@ -1,6 +1,4 @@
-use crate::math::{
-    Dimensionless, Quantity, ReciprocalTemperature, Stress, Temperature, TensorRank4,
-};
+use crate::math::{Quantity, ReciprocalTemperature, Stress, Temperature, TensorRank4};
 #[cfg(test)]
 mod test;
 
@@ -61,7 +59,7 @@ impl Thermoelastic for AlmansiHamel {
             - inverse_deformation_gradient.transpose() * &inverse_deformation_gradient)
             * 0.5;
         let (deviatoric_strain, strain_trace) = strain.deviatoric_and_trace();
-        Ok((deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
+        Ok(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
             + IDENTITY
                 * (self.bulk_modulus() / jacobian
                     * (strain_trace
@@ -69,7 +67,6 @@ impl Thermoelastic for AlmansiHamel {
                             * self.coefficient_of_thermal_expansion()
                             * (Quantity::<Temperature>::new(temperature)
                                 - self.reference_temperature()))))
-        .with_unit::<Dimensionless>())
     }
     /// Calculates and returns the tangent stiffness associated with the Cauchy stress.
     ///
@@ -87,7 +84,7 @@ impl Thermoelastic for AlmansiHamel {
             * inverse_transpose_deformation_gradient.transpose();
         let strain = (IDENTITY - &inverse_left_cauchy_green_deformation) * 0.5;
         let (deviatoric_strain, strain_trace) = strain.deviatoric_and_trace();
-        Ok(((TensorRank4::dyad_il_jk(
+        Ok((TensorRank4::dyad_il_jk(
             &inverse_transpose_deformation_gradient,
             &inverse_left_cauchy_green_deformation,
         ) + TensorRank4::dyad_ik_jl(
@@ -111,7 +108,6 @@ impl Thermoelastic for AlmansiHamel {
                                         - self.reference_temperature())))),
                 &inverse_transpose_deformation_gradient,
             ))
-        .with_unit::<Dimensionless>())
     }
     fn coefficient_of_thermal_expansion(&self) -> Quantity<ReciprocalTemperature> {
         self.coefficient_of_thermal_expansion.into()

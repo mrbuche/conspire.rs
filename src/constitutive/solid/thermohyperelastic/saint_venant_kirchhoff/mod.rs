@@ -1,5 +1,5 @@
 use crate::math::{
-    Dimensionless, EnergyDensity, Quantity, ReciprocalTemperature, Stress, Temperature, TensorRank4,
+    EnergyDensity, Quantity, ReciprocalTemperature, Stress, Temperature, TensorRank4,
 };
 #[cfg(test)]
 mod test;
@@ -59,7 +59,7 @@ impl Thermoelastic for SaintVenantKirchhoff {
         let (deviatoric_strain, strain_trace) =
             ((deformation_gradient.right_cauchy_green() - IDENTITY_00) * 0.5)
                 .deviatoric_and_trace();
-        Ok((deviatoric_strain * (2.0 * self.shear_modulus())
+        Ok(deviatoric_strain * (2.0 * self.shear_modulus())
             + IDENTITY_00
                 * (self.bulk_modulus()
                     * (strain_trace
@@ -67,7 +67,6 @@ impl Thermoelastic for SaintVenantKirchhoff {
                             * self.coefficient_of_thermal_expansion()
                             * (Quantity::<Temperature>::new(temperature)
                                 - self.reference_temperature()))))
-        .with_unit::<Dimensionless>())
     }
     /// Calculates and returns the tangent stiffness associated with the second Piola-Kirchhoff stress.
     ///
@@ -83,13 +82,12 @@ impl Thermoelastic for SaintVenantKirchhoff {
         let scaled_deformation_gradient_transpose =
             deformation_gradient.transpose() * self.shear_modulus();
         Ok(
-            (TensorRank4::dyad_ik_jl(&scaled_deformation_gradient_transpose, &IDENTITY_00)
+            TensorRank4::dyad_ik_jl(&scaled_deformation_gradient_transpose, &IDENTITY_00)
                 + TensorRank4::dyad_il_jk(&IDENTITY_00, &scaled_deformation_gradient_transpose)
                 + TensorRank4::dyad_ij_kl(
                     &(IDENTITY_00 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())),
                     deformation_gradient,
-                ))
-            .with_unit::<Dimensionless>(),
+                ),
         )
     }
     fn coefficient_of_thermal_expansion(&self) -> Quantity<ReciprocalTemperature> {

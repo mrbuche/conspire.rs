@@ -1,5 +1,5 @@
 use crate::math::TensorRank4;
-use crate::math::{Dimensionless, EnergyDensity, Quantity, Stress};
+use crate::math::{EnergyDensity, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -60,13 +60,12 @@ impl Elastic for Gent {
                 format!("{:?}", self),
             ))
         } else {
-            Ok(((deviatoric_isochoric_left_cauchy_green_deformation
+            Ok((deviatoric_isochoric_left_cauchy_green_deformation
                 * self.shear_modulus()
                 * self.extensibility()
                 / jacobian)
                 / denominator
                 + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
-                .with_unit::<Dimensionless>())
         }
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
@@ -91,7 +90,7 @@ impl Elastic for Gent {
             ))
         } else {
             let prefactor = self.shear_modulus() * self.extensibility() / jacobian / denominator;
-            Ok(((TensorRank4::dyad_ik_jl(&IDENTITY, deformation_gradient)
+            Ok((TensorRank4::dyad_ik_jl(&IDENTITY, deformation_gradient)
                 + TensorRank4::dyad_il_jk(deformation_gradient, &IDENTITY)
                 - TensorRank4::dyad_ij_kl(&IDENTITY, deformation_gradient) * (TWO_THIRDS)
                 + TensorRank4::dyad_ij_kl(
@@ -109,7 +108,6 @@ impl Elastic for Gent {
                                 / 3.0)),
                     &inverse_transpose_deformation_gradient,
                 ))
-            .with_unit::<Dimensionless>())
         }
     }
 }

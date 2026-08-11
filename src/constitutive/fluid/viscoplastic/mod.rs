@@ -50,10 +50,9 @@ where
             let magnitude = Quantity::<Stress>::new(magnitude);
             let yield_stress = Quantity::<Stress>::new(yield_stress);
             let reference_flow_rate = self.reference_flow_rate();
-            Ok((deviatoric_mandel_stress.with_unit::<Stress>()
+            Ok(deviatoric_mandel_stress
                 * (reference_flow_rate / magnitude
                     * (magnitude / yield_stress).powf(1.0 / self.rate_sensitivity())))
-            .with_unit::<Dimensionless>())
         }
     }
     /// Returns the rate_sensitivity parameter.
@@ -118,7 +117,10 @@ where
     )?;
     let equivalent_plastic_strain_rate = plastic_stretching_rate.norm();
     Ok((
-        plastic_stretching_rate * deformation_gradient_p,
+        // An evolution is the state variables per unit time, but the integrators
+        // carry it in the state variables' own type, there being no unit of time
+        // for it to be divided by. The rate is erased until there is one.
+        (plastic_stretching_rate * deformation_gradient_p).with_unit::<Dimensionless>(),
         equivalent_plastic_strain_rate,
     )
         .into())
