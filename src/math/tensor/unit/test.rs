@@ -80,3 +80,26 @@ mod on_tensors {
         assert_eq!(product.norm_squared(), 0.0)
     }
 }
+
+mod synonyms {
+    use crate::math::{
+        Compliance, EnergyDensity, Fluidity, Frequency, Modulus, Pressure, Rate, ReciprocalStress,
+        ReciprocalTemperature, ReciprocalViscosity, Stress, ThermalExpansion,
+    };
+
+    trait Same<T> {}
+    impl<T> Same<T> for T {}
+    fn same<A: Same<B>, B>() {}
+
+    /// A dimensional system cannot tell these apart, and should not try.
+    #[test]
+    fn a_synonym_denotes_the_same_unit() {
+        same::<Pressure, Stress>();
+        same::<EnergyDensity, Stress>();
+        same::<Modulus, Stress>();
+        same::<Compliance, ReciprocalStress>();
+        same::<Fluidity, ReciprocalViscosity>();
+        same::<ThermalExpansion, ReciprocalTemperature>();
+        same::<Frequency, Rate>();
+    }
+}

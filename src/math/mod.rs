@@ -40,11 +40,12 @@ pub use matrix::{
 };
 pub use set::{Set, sets::Sets};
 pub use tensor::{
-    Auxiliary, Configuration, Current, Dimensionless, Factor, Flattened, Hessian,
-    HessianAccumulate, HessianBlock, Interface, Intermediate, Jacobian, Length, Norm, Projection,
-    Quantity, Rank2, Rate, ReciprocalLength, ReciprocalTemperature, ReciprocalViscosity, Reference,
-    Scalar, ScalarList, ScalarListVec, Scalars, Solution, Stress, StressPerTemperature,
-    Temperature, Tensor, TensorArray, TensorError, TensorVec, Unit, UnitDiv, UnitInv, UnitMul,
+    Auxiliary, Compliance, Configuration, Current, Dimensionless, EnergyDensity, Factor, Flattened,
+    Fluidity, Frequency, Hessian, HessianAccumulate, HessianBlock, Interface, Intermediate,
+    Jacobian, Length, Modulus, Norm, Pressure, Projection, Quantity, Rank2, Rate, ReciprocalLength,
+    ReciprocalStress, ReciprocalTemperature, ReciprocalViscosity, Reference, Scalar, ScalarList,
+    ScalarListVec, Scalars, Solution, Stress, StressPerTemperature, Temperature, Tensor,
+    TensorArray, TensorError, TensorVec, ThermalExpansion, Unit, UnitDiv, UnitInv, UnitMul,
     Viscosity,
     list::TensorList,
     rank_0::{TensorRank0, list::TensorRank0List, list_2d::TensorRank0List2D},

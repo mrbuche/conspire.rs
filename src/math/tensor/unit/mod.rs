@@ -55,6 +55,8 @@ units!(
     ReciprocalLength,
     /// A stress, and equally a stiffness, being a stress per unit strain.
     Stress,
+    /// A reciprocal stress, as a compliance is.
+    ReciprocalStress,
     /// A rate, being a reciprocal time.
     Rate,
     /// A viscosity, being a stress per unit rate.
@@ -97,6 +99,9 @@ unit_products!(
     ReciprocalViscosity * Stress = Rate,
     Rate * Viscosity = Stress,
     Length * ReciprocalLength = Dimensionless,
+    Dimensionless * ReciprocalStress = ReciprocalStress,
+    Stress * ReciprocalStress = Dimensionless,
+    ReciprocalStress * Stress = Dimensionless,
     Dimensionless * ReciprocalTemperature = ReciprocalTemperature,
     Temperature * ReciprocalTemperature = Dimensionless,
     Dimensionless * StressPerTemperature = StressPerTemperature,
@@ -120,8 +125,35 @@ unit_inverses!(
     Dimensionless => Dimensionless,
     Length => ReciprocalLength,
     ReciprocalLength => Length,
+    Stress => ReciprocalStress,
+    ReciprocalStress => Stress,
     Temperature => ReciprocalTemperature,
     ReciprocalTemperature => Temperature,
     Viscosity => ReciprocalViscosity,
     ReciprocalViscosity => Viscosity,
 );
+
+// Names for units that are the same dimension as one already spelled. An alias
+// costs nothing: no product to enumerate, no impl to write, and no
+// instantiation of its own, since it denotes the very same type.
+
+/// A pressure.
+pub type Pressure = Stress;
+
+/// An energy per unit volume.
+pub type EnergyDensity = Stress;
+
+/// An elastic modulus.
+pub type Modulus = Stress;
+
+/// A compliance.
+pub type Compliance = ReciprocalStress;
+
+/// A fluidity.
+pub type Fluidity = ReciprocalViscosity;
+
+/// A coefficient of thermal expansion.
+pub type ThermalExpansion = ReciprocalTemperature;
+
+/// A frequency.
+pub type Frequency = Rate;
