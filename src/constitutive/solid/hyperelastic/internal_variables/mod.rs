@@ -9,7 +9,7 @@ use crate::{
         },
     },
     math::{
-        ReciprocalStress, Scalar, Tensor, TensorArray, TensorTuple,
+        Scalar, Tensor, TensorArray, TensorTuple,
         optimize::{
             EqualityConstraint, FirstOrderOptimization, SecondOrderOptimizationBlock, SolveStrategy,
         },
@@ -50,7 +50,7 @@ pub trait FirstOrderMinimize<V> {
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderOptimization<Scalar, Self::Residuals, ReciprocalStress, Self::Variables>,
+        solver: impl FirstOrderOptimization<Scalar, Self::Residuals, Self::Variables>,
     ) -> Result<(DeformationGradient, V), ConstitutiveError>;
 }
 
@@ -94,7 +94,7 @@ where
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderOptimization<Scalar, Self::Residuals, ReciprocalStress, Self::Variables>,
+        solver: impl FirstOrderOptimization<Scalar, Self::Residuals, Self::Variables>,
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {
         let (matrix, vector) = bcs(self, applied_load);
         match solver.minimize(

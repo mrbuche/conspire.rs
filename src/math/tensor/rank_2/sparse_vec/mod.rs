@@ -87,6 +87,7 @@ impl<const D: usize, I, J, U> Display for TensorRank2SparseVec<D, I, J, U> {
 
 impl<const D: usize, I, J, U> Tensor for TensorRank2SparseVec<D, I, J, U> {
     type Item = TensorRank2<D, I, J, U>;
+    type Unit = U;
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter().map(|(_, entry)| entry)
     }

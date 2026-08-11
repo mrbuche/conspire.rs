@@ -22,7 +22,7 @@ pub use self::{
 
 use super::*;
 use crate::math::{
-    Matrix, ReciprocalStress, Vector,
+    Matrix, Vector,
     optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
 };
 
@@ -171,11 +171,7 @@ pub trait ZerothOrderRoot {
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl ZerothOrderRootFinding<
-            FirstPiolaKirchhoffStress,
-            ReciprocalStress,
-            DeformationGradient,
-        >,
+        solver: impl ZerothOrderRootFinding<FirstPiolaKirchhoffStress, DeformationGradient>,
     ) -> Result<DeformationGradient, ConstitutiveError>;
 }
 
@@ -204,11 +200,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl ZerothOrderRootFinding<
-            FirstPiolaKirchhoffStress,
-            ReciprocalStress,
-            DeformationGradient,
-        >,
+        solver: impl ZerothOrderRootFinding<FirstPiolaKirchhoffStress, DeformationGradient>,
     ) -> Result<DeformationGradient, ConstitutiveError> {
         let (matrix, vector) = bcs(applied_load);
         match solver.root(

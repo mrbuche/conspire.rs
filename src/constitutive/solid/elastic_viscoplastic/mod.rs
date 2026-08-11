@@ -66,11 +66,7 @@ where
             ViscoplasticStateVariablesHistory<Y>,
             DeformationGradients,
         >,
-        solver: impl ZerothOrderRootFinding<
-            FirstPiolaKirchhoffStress,
-            ReciprocalStress,
-            DeformationGradient,
-        >,
+        solver: impl ZerothOrderRootFinding<FirstPiolaKirchhoffStress, DeformationGradient>,
     ) -> Result<
         (
             Times,
@@ -133,11 +129,7 @@ where
             ViscoplasticStateVariablesHistory<Y>,
             DeformationGradients,
         >,
-        solver: impl ZerothOrderRootFinding<
-            FirstPiolaKirchhoffStress,
-            ReciprocalStress,
-            DeformationGradient,
-        >,
+        solver: impl ZerothOrderRootFinding<FirstPiolaKirchhoffStress, DeformationGradient>,
     ) -> Result<
         (
             Times,

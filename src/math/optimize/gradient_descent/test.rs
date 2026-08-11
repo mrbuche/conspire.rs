@@ -3,10 +3,10 @@ use super::{
         super::{TensorArray, TensorRank1, assert::AssertionError},
         test::{rosenbrock, rosenbrock_derivative},
     },
-    EqualityConstraint, FirstOrderOptimization, GradientDescent, Scalar, ZerothOrderRootFinding,
+    EqualityConstraint, FirstOrderOptimization, GradientDescent, ZerothOrderRootFinding,
 };
 use crate::math::assert::Assert;
-use crate::math::{Current, Dimensionless, Quantity};
+use crate::math::{Current, Quantity};
 
 mod minimize {
     use super::*;
@@ -14,13 +14,7 @@ mod minimize {
     // step size to be measured against.
     #[test]
     fn quadratic() -> Result<(), AssertionError> {
-        Assert::default().zero_within_tols(&FirstOrderOptimization::<
-            Scalar,
-            Quantity,
-            Dimensionless,
-            Quantity,
-        >::minimize(
-            &GradientDescent::default(),
+        Assert::default().zero_within_tols(&GradientDescent::default().minimize(
             |x: &Quantity| Ok(x.powi(2).value() / 2.0),
             |x: &Quantity| Ok(*x),
             Quantity::new(1.0),
@@ -30,13 +24,7 @@ mod minimize {
     #[test]
     fn rosenbrock_2d() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(
-            &FirstOrderOptimization::<
-                Scalar,
-                TensorRank1<2, Current>,
-                Dimensionless,
-                TensorRank1<2, Current>,
-            >::minimize(
-                &GradientDescent::default(),
+            &GradientDescent::default().minimize(
                 rosenbrock,
                 rosenbrock_derivative,
                 TensorRank1::from([-1.0, 1.0]),
@@ -51,12 +39,7 @@ mod root {
     use super::*;
     #[test]
     fn linear() -> Result<(), AssertionError> {
-        Assert::default().zero_within_tols(&ZerothOrderRootFinding::<
-            Quantity,
-            Dimensionless,
-            Quantity,
-        >::root(
-            &GradientDescent::default(),
+        Assert::default().zero_within_tols(&GradientDescent::default().root(
             |x: &Quantity| Ok(*x),
             Quantity::new(1.0),
             EqualityConstraint::None,
@@ -65,12 +48,7 @@ mod root {
     #[test]
     fn rosenbrock_2d() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(
-            &ZerothOrderRootFinding::<
-                TensorRank1<2, Current>,
-                Dimensionless,
-                TensorRank1<2, Current>,
-            >::root(
-                &GradientDescent::default(),
+            &GradientDescent::default().root(
                 rosenbrock_derivative,
                 TensorRank1::from([-1.0, 1.0]),
                 EqualityConstraint::None,

@@ -598,6 +598,7 @@ impl<const D: usize, I, J, U> Erase for TensorRank2<D, I, J, U> {
 
 impl<const D: usize, I, J, U> Tensor for TensorRank2<D, I, J, U> {
     type Item = TensorRank1<D, J, U>;
+    type Unit = U;
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }

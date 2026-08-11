@@ -150,11 +150,7 @@ pub trait ZerothOrderRoot {
             DeformationGradient,
             DeformationGradients,
         >,
-        solver: impl ZerothOrderRootFinding<
-            FirstPiolaKirchhoffStress,
-            ReciprocalStress,
-            DeformationGradient,
-        >,
+        solver: impl ZerothOrderRootFinding<FirstPiolaKirchhoffStress, DeformationGradient>,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
 }
 
@@ -195,11 +191,7 @@ where
             DeformationGradient,
             DeformationGradients,
         >,
-        solver: impl ZerothOrderRootFinding<
-            FirstPiolaKirchhoffStress,
-            ReciprocalStress,
-            DeformationGradientRate,
-        >,
+        solver: impl ZerothOrderRootFinding<FirstPiolaKirchhoffStress, DeformationGradientRate>,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
         match match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_rate_11, time) => {

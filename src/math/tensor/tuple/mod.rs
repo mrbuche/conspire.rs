@@ -17,29 +17,37 @@ where
 
 // A quantity carries its unit into both halves of the tuple it scales.
 
-impl<T1, T2, V> Mul<Quantity<V>> for TensorTuple<T1, T2>
+// The unit scaling a tuple is a pair too, each half taking its own.
+
+impl<T1, T2, V1, V2> Mul<Quantity<(V1, V2)>> for TensorTuple<T1, T2>
 where
-    T1: Mul<Quantity<V>> + Tensor,
-    T2: Mul<Quantity<V>> + Tensor,
-    <T1 as Mul<Quantity<V>>>::Output: Tensor,
-    <T2 as Mul<Quantity<V>>>::Output: Tensor,
+    T1: Mul<Quantity<V1>> + Tensor,
+    T2: Mul<Quantity<V2>> + Tensor,
+    <T1 as Mul<Quantity<V1>>>::Output: Tensor,
+    <T2 as Mul<Quantity<V2>>>::Output: Tensor,
 {
-    type Output = TensorTuple<<T1 as Mul<Quantity<V>>>::Output, <T2 as Mul<Quantity<V>>>::Output>;
-    fn mul(self, quantity: Quantity<V>) -> Self::Output {
-        TensorTuple(self.0 * quantity, self.1 * quantity)
+    type Output = TensorTuple<<T1 as Mul<Quantity<V1>>>::Output, <T2 as Mul<Quantity<V2>>>::Output>;
+    fn mul(self, quantity: Quantity<(V1, V2)>) -> Self::Output {
+        TensorTuple(
+            self.0 * Quantity::new(quantity.value()),
+            self.1 * Quantity::new(quantity.value()),
+        )
     }
 }
 
-impl<T1, T2, V> Mul<Quantity<V>> for &TensorTuple<T1, T2>
+impl<T1, T2, V1, V2> Mul<Quantity<(V1, V2)>> for &TensorTuple<T1, T2>
 where
-    T1: Clone + Mul<Quantity<V>> + Tensor,
-    T2: Clone + Mul<Quantity<V>> + Tensor,
-    <T1 as Mul<Quantity<V>>>::Output: Tensor,
-    <T2 as Mul<Quantity<V>>>::Output: Tensor,
+    T1: Clone + Mul<Quantity<V1>> + Tensor,
+    T2: Clone + Mul<Quantity<V2>> + Tensor,
+    <T1 as Mul<Quantity<V1>>>::Output: Tensor,
+    <T2 as Mul<Quantity<V2>>>::Output: Tensor,
 {
-    type Output = TensorTuple<<T1 as Mul<Quantity<V>>>::Output, <T2 as Mul<Quantity<V>>>::Output>;
-    fn mul(self, quantity: Quantity<V>) -> Self::Output {
-        TensorTuple(self.0.clone() * quantity, self.1.clone() * quantity)
+    type Output = TensorTuple<<T1 as Mul<Quantity<V1>>>::Output, <T2 as Mul<Quantity<V2>>>::Output>;
+    fn mul(self, quantity: Quantity<(V1, V2)>) -> Self::Output {
+        TensorTuple(
+            self.0.clone() * Quantity::new(quantity.value()),
+            self.1.clone() * Quantity::new(quantity.value()),
+        )
     }
 }
 
@@ -123,6 +131,9 @@ where
     T2: Tensor,
 {
     type Item = T1::Item;
+    // The unit of a tuple is the pair its halves carry, they being free to
+    // differ, so that nothing has to constrain them to agree.
+    type Unit = (<T1 as Tensor>::Unit, <T2 as Tensor>::Unit);
     fn full_contraction(&self, tensor_tuple: &Self) -> TensorRank0 {
         self.0.full_contraction(&tensor_tuple.0) + self.1.full_contraction(&tensor_tuple.1)
     }

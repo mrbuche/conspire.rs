@@ -374,6 +374,7 @@ impl<U> Erase for Quantity<U> {
 
 impl<U> Tensor for Quantity<U> {
     type Item = Self;
+    type Unit = U;
     fn error_count_zero(&self, tol_abs: TensorRank0, tol_rel: TensorRank0) -> Option<usize> {
         self.0.error_count_zero(tol_abs, tol_rel)
     }

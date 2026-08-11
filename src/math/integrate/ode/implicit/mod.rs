@@ -2,7 +2,7 @@
 mod test;
 
 use crate::math::{
-    Dimensionless, Scalar, Tensor, TensorVec, Vector,
+    Scalar, Tensor, TensorVec, Vector,
     integrate::{FixedStep, IntegrationError, OdeIntegrator},
     optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
 };
@@ -24,7 +24,7 @@ where
         mut function: impl FnMut(Scalar, &Y) -> Result<Y, IntegrationError>,
         time: &[Scalar],
         initial_condition: Y,
-        solver: impl ZerothOrderRootFinding<Y, Dimensionless, Y>,
+        solver: impl ZerothOrderRootFinding<Y, Y>,
     ) -> Result<(Vector, U, U), IntegrationError> {
         let t_0 = time[0];
         let t_f = time[time.len() - 1];

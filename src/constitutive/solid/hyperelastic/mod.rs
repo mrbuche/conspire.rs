@@ -31,10 +31,7 @@ use super::{
     elastic::{AppliedLoad, Elastic, bcs},
     *,
 };
-use crate::math::{
-    ReciprocalStress,
-    optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
-};
+use crate::math::optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization};
 
 /// Required methods for hyperelastic solid constitutive models.
 pub trait Hyperelastic
@@ -62,12 +59,7 @@ pub trait FirstOrderMinimize {
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderOptimization<
-            Scalar,
-            FirstPiolaKirchhoffStress,
-            ReciprocalStress,
-            DeformationGradient,
-        >,
+        solver: impl FirstOrderOptimization<Scalar, FirstPiolaKirchhoffStress, DeformationGradient>,
     ) -> Result<DeformationGradient, ConstitutiveError>;
 }
 
@@ -97,12 +89,7 @@ where
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderOptimization<
-            Scalar,
-            FirstPiolaKirchhoffStress,
-            ReciprocalStress,
-            DeformationGradient,
-        >,
+        solver: impl FirstOrderOptimization<Scalar, FirstPiolaKirchhoffStress, DeformationGradient>,
     ) -> Result<DeformationGradient, ConstitutiveError> {
         let (matrix, vector) = bcs(applied_load);
         match solver.minimize(

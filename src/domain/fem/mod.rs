@@ -7,7 +7,7 @@ pub mod solid;
 pub mod thermal;
 
 use crate::math::{
-    Dimensionless, Style, StyledError, TensorRank1Vec, TensorRank1Vec2D,
+    Style, StyledError, TensorRank1Vec, TensorRank1Vec2D,
     assert::AssertionError,
     optimize::{
         EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
@@ -123,7 +123,7 @@ pub trait ZerothOrderRoot<X> {
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<X, Dimensionless, X>,
+        solver: impl ZerothOrderRootFinding<X, X>,
     ) -> Result<X, OptimizationError>;
 }
 
@@ -139,7 +139,7 @@ pub trait FirstOrderMinimize<F, X> {
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<F, X, Dimensionless, X>,
+        solver: impl FirstOrderOptimization<F, X, X>,
     ) -> Result<X, OptimizationError>;
 }
 

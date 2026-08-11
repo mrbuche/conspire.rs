@@ -4,7 +4,7 @@ mod test;
 use super::{
     super::{
         Dimensionless, Erase, Hessian, HessianBlock, Jacobian, LuDecomposition, Matrix, Quantity,
-        Scalar, Solution, SquareMatrix, Tensor, Vector,
+        Scalar, Solution, SquareMatrix, Tensor, UnitDiv, Vector,
         sparse::{CscMatrix, SparseSolver},
     },
     BacktrackingLineSearch, EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock,
@@ -70,6 +70,7 @@ where
     F: Erase<Erased = E>,
     X: Erase<Erased = E> + Solution,
     E: Tensor,
+    <X as Tensor>::Unit: UnitDiv<<X as Tensor>::Unit, Output = Dimensionless>,
     for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
@@ -129,6 +130,7 @@ where
     F: Erase<Erased = E>,
     X: Erase<Erased = E> + Solution,
     E: Tensor,
+    <X as Tensor>::Unit: UnitDiv<<X as Tensor>::Unit, Output = Dimensionless>,
     for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
@@ -184,6 +186,7 @@ where
     J: Erase<Erased = E>,
     X: Erase<Erased = E> + Solution,
     E: Tensor,
+    <X as Tensor>::Unit: UnitDiv<<X as Tensor>::Unit, Output = Dimensionless>,
     for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
@@ -239,6 +242,7 @@ where
     J: Erase<Erased = E>,
     X: Erase<Erased = E> + Solution,
     E: Tensor,
+    <X as Tensor>::Unit: UnitDiv<<X as Tensor>::Unit, Output = Dimensionless>,
     for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
@@ -978,6 +982,7 @@ where
     J: Erase<Erased = E>,
     X: Erase<Erased = E> + Solution,
     E: Tensor,
+    <X as Tensor>::Unit: UnitDiv<<X as Tensor>::Unit, Output = Dimensionless>,
     for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
 {
     let mut decrement;
@@ -1014,7 +1019,7 @@ where
                     decrement *= radius / size
                 }
             }
-            step_size = newton_raphson.backtracking_line_search::<X, Dimensionless, E>(
+            step_size = newton_raphson.backtracking_line_search::<X, E>(
                 |trial: &X, _: Scalar| function(trial),
                 &mut jacobian,
                 &solution,
@@ -1047,6 +1052,7 @@ where
     J: Erase<Erased = E>,
     X: Erase<Erased = E> + Solution,
     E: Tensor,
+    <X as Tensor>::Unit: UnitDiv<<X as Tensor>::Unit, Output = Dimensionless>,
     for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
 {
     let mut applied = Vector::zero(initial_guess.size());
@@ -1116,7 +1122,7 @@ where
             let mut decrement_full = &solution * 0.0;
             decrement_full.decrement_from_retained(&retained, &decrement);
             decrement_full *= -1.0;
-            newton_raphson.backtracking_line_search::<X, Dimensionless, E>(
+            newton_raphson.backtracking_line_search::<X, E>(
                 |trial: &X, step: Scalar| {
                     update(&solution, &applied, step, false)?;
                     function(trial)

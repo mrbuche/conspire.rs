@@ -87,12 +87,7 @@ pub trait FirstOrderMinimize {
             DeformationGradientRate,
             DeformationGradientRates,
         >,
-        solver: impl FirstOrderOptimization<
-            Scalar,
-            FirstPiolaKirchhoffStress,
-            ReciprocalStress,
-            DeformationGradient,
-        >,
+        solver: impl FirstOrderOptimization<Scalar, FirstPiolaKirchhoffStress, DeformationGradient>,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
 }
 
@@ -136,12 +131,7 @@ where
             DeformationGradientRate,
             DeformationGradientRates,
         >,
-        solver: impl FirstOrderOptimization<
-            Scalar,
-            FirstPiolaKirchhoffStress,
-            ReciprocalStress,
-            DeformationGradientRate,
-        >,
+        solver: impl FirstOrderOptimization<Scalar, FirstPiolaKirchhoffStress, DeformationGradientRate>,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
         match match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_rate_11, time) => {

@@ -1,4 +1,4 @@
-use crate::math::{Dimensionless, Erase, Quantity};
+use crate::math::{Dimensionless, Erase, Quantity, UnitDiv};
 use std::ops::{Div, Mul};
 
 use crate::{
@@ -47,6 +47,7 @@ pub trait ElasticIVFiniteElement<
     C::Residual: Erase<Erased = E>,
     Self: SolidFiniteElement<G, M, N, P>,
     V: Erase<Erased = E> + Jacobian + Solution,
+    <V as Tensor>::Unit: UnitDiv<<V as Tensor>::Unit, Output = Dimensionless>,
     E: Tensor,
     for<'a> &'a C::Residual: Div<C::TangentVv, Output = V>,
     for<'a> &'a V: Mul<Quantity<Dimensionless>, Output = V> + Mul<Scalar, Output = V>,
@@ -118,6 +119,7 @@ where
     C: ElasticIV<V>,
     C::Residual: Erase<Erased = E>,
     V: Erase<Erased = E> + Jacobian + Solution,
+    <V as Tensor>::Unit: UnitDiv<<V as Tensor>::Unit, Output = Dimensionless>,
     E: Tensor,
     for<'a> &'a C::Residual: Div<C::TangentVv, Output = V>,
     for<'a> &'a V: Mul<Quantity<Dimensionless>, Output = V> + Mul<Scalar, Output = V>,
@@ -360,6 +362,7 @@ where
     C::Residual: Erase<Erased = E>,
     Self: SolidFiniteElement<G, 3, N, P>,
     V: Erase<Erased = E> + Jacobian + Solution,
+    <V as Tensor>::Unit: UnitDiv<<V as Tensor>::Unit, Output = Dimensionless>,
     E: Tensor,
     for<'a> &'a C::Residual: Div<C::TangentVv, Output = V>,
     for<'a> &'a V: Mul<Quantity<Dimensionless>, Output = V> + Mul<Scalar, Output = V>,

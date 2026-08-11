@@ -7,7 +7,7 @@ use crate::{
     },
     math::{
         ContractFirstSecondWithSecond, ContractSecondWithFirst, Hessian, HessianBlock, IDENTITY,
-        Jacobian, Matrix, Rank2, ReciprocalStress, Tensor, TensorArray, TensorTuple, Vector,
+        Jacobian, Matrix, Rank2, Tensor, TensorArray, TensorTuple, Vector,
         optimize::{
             EqualityConstraint, FirstOrderRootFindingBlock, SolveStrategy, ZerothOrderRootFinding,
         },
@@ -209,7 +209,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl ZerothOrderRootFinding<Self::Residuals, ReciprocalStress, Self::Variables>,
+        solver: impl ZerothOrderRootFinding<Self::Residuals, Self::Variables>,
     ) -> Result<(DeformationGradient, V), ConstitutiveError>;
 }
 
@@ -251,7 +251,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl ZerothOrderRootFinding<Self::Residuals, ReciprocalStress, Self::Variables>,
+        solver: impl ZerothOrderRootFinding<Self::Residuals, Self::Variables>,
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {
         let (matrix, vector) = bcs(self, applied_load);
         match solver.root(

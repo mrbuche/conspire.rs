@@ -195,6 +195,7 @@ impl<const D: usize, I, J, K, U> FiniteDifference for TensorRank3<D, I, J, K, U>
 
 impl<const D: usize, I, J, K, U> Tensor for TensorRank3<D, I, J, K, U> {
     type Item = TensorRank2<D, J, K, U>;
+    type Unit = U;
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }

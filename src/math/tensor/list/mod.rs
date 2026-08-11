@@ -110,6 +110,7 @@ where
     T: Tensor,
 {
     type Item = T;
+    type Unit = <T as Tensor>::Unit;
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }

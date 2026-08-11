@@ -9,7 +9,9 @@ use crate::{
             elastic::internal_variables::{ElasticIVFiniteElement, InternalVariables},
         },
     },
-    math::{Dimensionless, Erase, Jacobian, Matrix, Quantity, Scalar, Solution, Tensor, Vector},
+    math::{
+        Dimensionless, Erase, Jacobian, Matrix, Quantity, Scalar, Solution, Tensor, UnitDiv, Vector,
+    },
 };
 
 pub trait HyperelasticIVFiniteElement<
@@ -29,6 +31,7 @@ pub trait HyperelasticIVFiniteElement<
     for<'a> &'a V: Mul<Quantity<Dimensionless>, Output = V> + Mul<Scalar, Output = V>,
     for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
     V: Erase<Erased = E> + Jacobian + Solution,
+    <V as Tensor>::Unit: UnitDiv<<V as Tensor>::Unit, Output = Dimensionless>,
 {
     fn helmholtz_free_energy(
         &self,
@@ -49,6 +52,7 @@ where
     for<'a> &'a V: Mul<Quantity<Dimensionless>, Output = V> + Mul<Scalar, Output = V>,
     for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
     V: Erase<Erased = E> + Jacobian + Solution,
+    <V as Tensor>::Unit: UnitDiv<<V as Tensor>::Unit, Output = Dimensionless>,
 {
     fn helmholtz_free_energy(
         &self,

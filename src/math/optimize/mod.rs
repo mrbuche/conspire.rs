@@ -16,7 +16,7 @@ pub use strategy::SolveStrategy;
 pub use trust_region::TrustRegion;
 
 use crate::math::{
-    Erase, Jacobian, Quantity, Scalar, Solution, Style, StyledError, Tensor, Vector,
+    Erase, Jacobian, Quantity, Scalar, Solution, Style, StyledError, Tensor, UnitDiv, Vector,
     assert::AssertionError,
     matrix::square::SquareMatrixError,
     sparse::{CscMatrix, SparseError, SparseSolver},
@@ -24,11 +24,18 @@ use crate::math::{
 };
 use std::{fmt::Debug, ops::Mul};
 
+/// The step size that takes a decrement of type `D` to an increment of `X`.
+///
+/// Its unit is that of the unknown over that of the decrement, so that the two
+/// need not carry the same one and neither has to give theirs up.
+pub type StepSize<D, X> = Quantity<<<X as Tensor>::Unit as UnitDiv<<D as Tensor>::Unit>>::Output>;
+
 /// Zeroth-order root-finding algorithms.
 ///
-/// `F` is the residual, `X` the unknown, and `W` the unit of the step size,
-/// being that of the unknown over that of the residual.
-pub trait ZerothOrderRootFinding<F, W, X> {
+/// `F` is the residual and `X` the unknown. The step size carries the unit of
+/// the unknown over that of the residual, which is read off the two rather than
+/// passed in.
+pub trait ZerothOrderRootFinding<F, X> {
     fn root(
         &self,
         function: impl FnMut(&X) -> Result<F, String>,
@@ -78,11 +85,12 @@ pub trait FirstOrderRootFindingIncremental<F, J, X> {
 
 /// First-order optimization algorithms.
 ///
-/// `F` is the objective, `J` its gradient, and `X` the unknown. `W` is the unit
-/// of the step size, being that of the unknown squared over that of the
-/// objective, since the gradient carries the objective over the unknown. That is
-/// the unit an inverse Hessian carries, which is what a step size stands in for.
-pub trait FirstOrderOptimization<F, J, W, X> {
+/// `F` is the objective, `J` its gradient, and `X` the unknown. The step size
+/// carries the unit of the unknown squared over that of the objective, since the
+/// gradient carries the objective over the unknown — the unit an inverse Hessian
+/// carries, which is what a step size stands in for. It is read off `J` and `X`
+/// rather than passed in.
+pub trait FirstOrderOptimization<F, J, X> {
     fn minimize(
         &self,
         function: impl FnMut(&X) -> Result<F, String>,
@@ -166,7 +174,7 @@ trait BacktrackingLineSearch<J, X>
 where
     Self: Debug,
 {
-    fn backtracking_line_search<D, W, E>(
+    fn backtracking_line_search<D, E>(
         &self,
         mut function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
         mut jacobian: impl FnMut(&X) -> Result<J, String>,
@@ -177,10 +185,11 @@ where
     ) -> Result<Scalar, OptimizationError>
     where
         J: Erase<Erased = E> + Jacobian,
-        D: Erase<Erased = E>,
+        D: Erase<Erased = E> + Tensor,
         E: Tensor,
         X: Solution,
-        for<'a> &'a D: Mul<Quantity<W>, Output = X>,
+        <X as Tensor>::Unit: UnitDiv<<D as Tensor>::Unit>,
+        for<'a> &'a D: Mul<StepSize<D, X>, Output = X>,
     {
         if matches!(self.get_line_search(), LineSearch::None) {
             Ok(step_size)

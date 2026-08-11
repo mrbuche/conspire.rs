@@ -260,6 +260,7 @@ where
 
 impl<const D: usize, I, U> Tensor for TensorRank1<D, I, U> {
     type Item = TensorRank0;
+    type Unit = U;
     fn full_contraction(&self, tensor_rank_1: &Self) -> TensorRank0 {
         self * tensor_rank_1
     }

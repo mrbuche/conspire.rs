@@ -6,7 +6,9 @@ use crate::math::assert::FiniteDifference;
 pub(crate) mod list;
 pub(crate) mod list_2d;
 
-use super::{Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, Vector};
+use super::{
+    Dimensionless, Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, Vector,
+};
 use std::ops::Sub;
 
 /// A tensor of rank 0 (a scalar).
@@ -71,6 +73,7 @@ impl Hessian for TensorRank0 {
 
 impl Tensor for TensorRank0 {
     type Item = TensorRank0;
+    type Unit = Dimensionless;
     fn error_count_zero(&self, tol_abs: TensorRank0, tol_rel: TensorRank0) -> Option<usize> {
         if (self.sub_abs(&0.0) < tol_abs || self.sub_rel(&0.0) < tol_rel) && !self.is_nan() {
             None

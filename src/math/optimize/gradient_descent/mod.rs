@@ -4,10 +4,10 @@ mod test;
 use super::{
     super::{Jacobian, Matrix, Scalar, Solution, Tensor, Vector},
     BacktrackingLineSearch, EqualityConstraint, FirstOrderOptimization, LineSearch,
-    OptimizationError, ZerothOrderRootFinding,
+    OptimizationError, StepSize, ZerothOrderRootFinding,
 };
 use crate::ABS_TOL;
-use crate::math::{Erase, Norm, Quantity};
+use crate::math::{Erase, Norm, UnitDiv};
 use std::{
     fmt::{self, Debug, Formatter},
     ops::Mul,
@@ -62,11 +62,12 @@ impl Default for GradientDescent {
     }
 }
 
-impl<F, W, X, E> ZerothOrderRootFinding<F, W, X> for GradientDescent
+impl<F, X, E> ZerothOrderRootFinding<F, X> for GradientDescent
 where
-    F: Erase<Erased = E> + Jacobian + Mul<Quantity<W>, Output = X>,
-    for<'a> &'a F: Mul<Quantity<W>, Output = X>,
+    F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
+    for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
     X: Erase<Erased = E> + Jacobian + Solution,
+    <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
     E: Tensor,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
@@ -114,11 +115,12 @@ where
     }
 }
 
-impl<F, W, X, E> FirstOrderOptimization<Scalar, F, W, X> for GradientDescent
+impl<F, X, E> FirstOrderOptimization<Scalar, F, X> for GradientDescent
 where
-    F: Erase<Erased = E> + Jacobian + Mul<Quantity<W>, Output = X>,
-    for<'a> &'a F: Mul<Quantity<W>, Output = X>,
+    F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
+    for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
     X: Erase<Erased = E> + Jacobian + Solution,
+    <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
     E: Tensor,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
@@ -159,7 +161,7 @@ where
     }
 }
 
-fn unconstrained<F, W, X, E>(
+fn unconstrained<F, X, E>(
     gradient_descent: &GradientDescent,
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
     mut jacobian: impl FnMut(&X) -> Result<F, String>,
@@ -167,9 +169,10 @@ fn unconstrained<F, W, X, E>(
     linear_equality_constraint: Option<(&Matrix, &Vector)>,
 ) -> Result<X, OptimizationError>
 where
-    F: Erase<Erased = E> + Jacobian + Mul<Quantity<W>, Output = X>,
-    for<'a> &'a F: Mul<Quantity<W>, Output = X>,
+    F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
+    for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
     X: Erase<Erased = E> + Jacobian + Solution,
+    <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
     E: Tensor,
 {
     let constraint = if let Some((constraint_matrix, multipliers)) = linear_equality_constraint {
@@ -210,7 +213,7 @@ where
             if step_trial.abs() > 0.0 && !step_trial.is_nan() {
                 step_size = step_trial.abs()
             }
-            step_size = gradient_descent.backtracking_line_search::<F, W, E>(
+            step_size = gradient_descent.backtracking_line_search::<F, E>(
                 |trial: &X, _: Scalar| function(trial),
                 &mut jacobian,
                 &solution,
@@ -220,12 +223,12 @@ where
             )?;
             *change = residual.clone();
             solution_change = solution.clone();
-            solution -= residual * Quantity::new(step_size);
+            solution -= residual * StepSize::<F, X>::new(step_size);
         }
     }
 }
 
-fn constrained_fixed<F, W, X, E>(
+fn constrained_fixed<F, X, E>(
     gradient_descent: &GradientDescent,
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
     mut jacobian: impl FnMut(&X) -> Result<F, String>,
@@ -233,9 +236,10 @@ fn constrained_fixed<F, W, X, E>(
     indices: Vec<usize>,
 ) -> Result<X, OptimizationError>
 where
-    F: Erase<Erased = E> + Jacobian + Mul<Quantity<W>, Output = X>,
-    for<'a> &'a F: Mul<Quantity<W>, Output = X>,
+    F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
+    for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
     X: Erase<Erased = E> + Jacobian + Solution,
+    <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
     E: Tensor,
 {
     let mut relative_scale = 0.0;
@@ -278,7 +282,7 @@ where
             if step_trial.abs() > 0.0 && !step_trial.is_nan() {
                 step_size = step_trial.abs()
             }
-            step_size = gradient_descent.backtracking_line_search::<F, W, E>(
+            step_size = gradient_descent.backtracking_line_search::<F, E>(
                 |trial: &X, _: Scalar| function(trial),
                 &mut jacobian,
                 &solution,
@@ -288,12 +292,12 @@ where
             )?;
             *change = residual.clone();
             solution_change = solution.clone();
-            solution -= residual * Quantity::new(step_size);
+            solution -= residual * StepSize::<F, X>::new(step_size);
         }
     }
 }
 
-fn constrained<F, W, X, E>(
+fn constrained<F, X, E>(
     gradient_descent: &GradientDescent,
     mut jacobian: impl FnMut(&X) -> Result<F, String>,
     initial_guess: X,
@@ -301,8 +305,9 @@ fn constrained<F, W, X, E>(
     constraint_rhs: Vector,
 ) -> Result<X, OptimizationError>
 where
-    F: Erase<Erased = E> + Jacobian + Mul<Quantity<W>, Output = X>,
+    F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
     X: Erase<Erased = E> + Jacobian,
+    <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
     E: Tensor,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
@@ -359,13 +364,13 @@ where
             residual_multipliers_change = residual_multipliers.clone();
             multipliers_change = multipliers.clone();
             step_size = step_size_solution.min(step_size_multipliers);
-            solution -= residual_solution * Quantity::new(step_size);
+            solution -= residual_solution * StepSize::<F, X>::new(step_size);
             multipliers += residual_multipliers * step_size;
         }
     }
 }
 
-fn constrained_dual<F, W, X, E>(
+fn constrained_dual<F, X, E>(
     gradient_descent: &GradientDescent,
     mut jacobian: impl FnMut(&X) -> Result<F, String>,
     initial_guess: X,
@@ -373,9 +378,10 @@ fn constrained_dual<F, W, X, E>(
     constraint_rhs: Vector,
 ) -> Result<X, OptimizationError>
 where
-    F: Erase<Erased = E> + Jacobian + Mul<Quantity<W>, Output = X>,
-    for<'a> &'a F: Mul<Quantity<W>, Output = X>,
+    F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
+    for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
     X: Erase<Erased = E> + Jacobian + Solution,
+    <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
     E: Tensor,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {

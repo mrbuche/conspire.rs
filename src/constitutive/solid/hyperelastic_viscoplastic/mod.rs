@@ -67,12 +67,7 @@ where
             ViscoplasticStateVariablesHistory<Y>,
             DeformationGradients,
         >,
-        solver: impl FirstOrderOptimization<
-            Scalar,
-            FirstPiolaKirchhoffStress,
-            ReciprocalStress,
-            DeformationGradient,
-        >,
+        solver: impl FirstOrderOptimization<Scalar, FirstPiolaKirchhoffStress, DeformationGradient>,
     ) -> Result<
         (
             Times,
@@ -138,12 +133,7 @@ where
             ViscoplasticStateVariablesHistory<Y>,
             DeformationGradients,
         >,
-        solver: impl FirstOrderOptimization<
-            Scalar,
-            FirstPiolaKirchhoffStress,
-            ReciprocalStress,
-            DeformationGradient,
-        >,
+        solver: impl FirstOrderOptimization<Scalar, FirstPiolaKirchhoffStress, DeformationGradient>,
     ) -> Result<
         (
             Times,

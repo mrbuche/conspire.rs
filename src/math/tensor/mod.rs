@@ -20,7 +20,7 @@ pub use quantity::{Is, Quantity};
 pub use unit::{
     Compliance, Dimensionless, EnergyDensity, Fluidity, Frequency, Length, Modulus, Pressure, Rate,
     ReciprocalLength, ReciprocalStress, ReciprocalTemperature, ReciprocalViscosity, Stress,
-    StressPerTemperature, Temperature, ThermalExpansion, Unit, UnitDiv, UnitInv, UnitMul,
+    StressPerTemperature, Temperature, ThermalExpansion, Time, Unit, UnitDiv, UnitInv, UnitMul,
     Viscosity,
 };
 
@@ -228,6 +228,12 @@ where
 {
     /// The type of item encountered when iterating over the tensor.
     type Item;
+    /// The physical unit the tensor carries.
+    ///
+    /// Lets generic code name a unit it can only reach through the tensor, so
+    /// that a quantity derived from one — the unit of a step size, say — is a
+    /// projection rather than another parameter to be passed in.
+    type Unit;
     /// Returns number of nonzero entries given absolute and relative tolerances, compared against zero.
     fn error_count_zero(&self, tol_abs: Scalar, tol_rel: Scalar) -> Option<usize> {
         let error_count = self

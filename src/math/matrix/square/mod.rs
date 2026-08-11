@@ -7,7 +7,8 @@ mod lu;
 use crate::math::assert::FiniteDifference;
 
 use crate::math::{
-    Hessian, Rank2, Scalar, Tensor, TensorRank2Vec2D, TensorVec, Vector, write_tensor_rank_0,
+    Dimensionless, Hessian, Rank2, Scalar, Tensor, TensorRank2Vec2D, TensorVec, Vector,
+    write_tensor_rank_0,
 };
 
 use std::{
@@ -255,6 +256,7 @@ impl Rank2 for SquareMatrix {
 
 impl Tensor for SquareMatrix {
     type Item = Vector;
+    type Unit = Dimensionless;
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }

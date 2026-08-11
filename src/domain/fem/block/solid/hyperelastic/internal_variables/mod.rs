@@ -12,7 +12,9 @@ use crate::{
             hyperelastic::internal_variables::HyperelasticIVElements,
         },
     },
-    math::{Dimensionless, Erase, Jacobian, Matrix, Quantity, Scalar, Solution, Tensor, Vector},
+    math::{
+        Dimensionless, Erase, Jacobian, Matrix, Quantity, Scalar, Solution, Tensor, UnitDiv, Vector,
+    },
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, V, E>
@@ -27,6 +29,7 @@ where
     for<'a> &'a V: Mul<Quantity<Dimensionless>, Output = V> + Mul<Scalar, Output = V>,
     for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
     V: Erase<Erased = E> + Jacobian + Solution,
+    <V as Tensor>::Unit: UnitDiv<<V as Tensor>::Unit, Output = Dimensionless>,
 {
     fn helmholtz_free_energy(
         &self,

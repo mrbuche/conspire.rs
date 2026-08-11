@@ -188,6 +188,7 @@ impl IndexMut<usize> for Vector {
 
 impl Tensor for Vector {
     type Item = Scalar;
+    type Unit = Dimensionless;
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }

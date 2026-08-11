@@ -57,6 +57,8 @@ units!(
     Stress,
     /// A reciprocal stress, as a compliance is.
     ReciprocalStress,
+    /// A time.
+    Time,
     /// A rate, being a reciprocal time.
     Rate,
     /// A viscosity, being a stress per unit rate.
@@ -109,7 +111,30 @@ unit_products!(
     StressPerTemperature * Temperature = Stress,
     ReciprocalTemperature * Temperature = Dimensionless,
     ReciprocalLength * Length = Dimensionless,
+    Dimensionless * Time = Time,
+    Rate * Time = Dimensionless,
+    Time * Rate = Dimensionless,
+    Stress * Time = Viscosity,
 );
+
+// A tuple carries the pair of units its halves do, so the pair combines with
+// another the same way, one half at a time.
+
+impl<A, B, C, D> UnitMul<(C, D)> for (A, B)
+where
+    A: UnitMul<C>,
+    B: UnitMul<D>,
+{
+    type Output = (<A as UnitMul<C>>::Output, <B as UnitMul<D>>::Output);
+}
+
+impl<A, B, C, D> UnitDiv<(C, D)> for (A, B)
+where
+    A: UnitDiv<C>,
+    B: UnitDiv<D>,
+{
+    type Output = (<A as UnitDiv<C>>::Output, <B as UnitDiv<D>>::Output);
+}
 
 macro_rules! unit_inverses {
     ($($unit:ident => $inverse:ident),+ $(,)?) => {
@@ -131,6 +156,8 @@ unit_inverses!(
     ReciprocalTemperature => Temperature,
     Viscosity => ReciprocalViscosity,
     ReciprocalViscosity => Viscosity,
+    Time => Rate,
+    Rate => Time,
 );
 
 // Names for units that are the same dimension as one already spelled. An alias
