@@ -24,11 +24,11 @@ pub struct Hencky {
 }
 
 impl Solid for Hencky {
-    fn bulk_modulus(&self) -> Scalar {
-        self.bulk_modulus
+    fn bulk_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.bulk_modulus)
     }
-    fn shear_modulus(&self) -> Scalar {
-        self.shear_modulus
+    fn shear_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.shear_modulus)
     }
 }
 
@@ -41,8 +41,9 @@ impl Elastic for Hencky {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let (deviatoric_strain, strain_trace) =
             (deformation_gradient.right_cauchy_green().logm()? * 0.5).deviatoric_and_trace();
-        Ok(deviatoric_strain * (2.0 * self.shear_modulus())
+        Ok((deviatoric_strain * (2.0 * self.shear_modulus())
             + IDENTITY_00 * (self.bulk_modulus() * strain_trace))
+            .with_unit::<Dimensionless>())
     }
     #[doc = include_str!("second_piola_kirchhoff_tangent_stiffness.md")]
     fn second_piola_kirchhoff_tangent_stiffness(
@@ -53,7 +54,7 @@ impl Elastic for Hencky {
         let right_cauchy_green = deformation_gradient.right_cauchy_green();
         let deformation_gradient_transpose = deformation_gradient.transpose();
         let scaled_deformation_gradient_transpose =
-            &deformation_gradient_transpose * Quantity::<Stress>::new(self.shear_modulus());
+            &deformation_gradient_transpose * self.shear_modulus();
         Ok(((right_cauchy_green
             .dlogm()?
             .contract_third_fourth_with_first_second(
@@ -64,9 +65,7 @@ impl Elastic for Hencky {
                     )),
             ))
             + (TensorRank4::dyad_ij_kl(
-                &(IDENTITY_00
-                    * (Quantity::<Stress>::new(self.bulk_modulus())
-                        - TWO_THIRDS * Quantity::<Stress>::new(self.shear_modulus()))),
+                &(IDENTITY_00 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())),
                 &deformation_gradient_transpose.inverse(),
             )))
         .with_unit::<Dimensionless>())

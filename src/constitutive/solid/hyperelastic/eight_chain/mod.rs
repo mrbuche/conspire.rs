@@ -1,5 +1,5 @@
 use crate::math::TensorRank4;
-use crate::math::{Dimensionless, EnergyDensity, Modulus, Quantity, Stress};
+use crate::math::{Dimensionless, EnergyDensity, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -102,11 +102,11 @@ impl<T> Solid for EightChain<T>
 where
     T: SingleChainThermodynamics,
 {
-    fn bulk_modulus(&self) -> Scalar {
-        self.bulk_modulus
+    fn bulk_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.bulk_modulus)
     }
-    fn shear_modulus(&self) -> Scalar {
-        self.shear_modulus
+    fn shear_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.shear_modulus)
     }
 }
 
@@ -130,16 +130,12 @@ where
             .value();
         let gamma_0 = (1.0 / self.number_of_links()).sqrt();
         Ok((deviatoric_isochoric_left_cauchy_green_deformation
-            * (Quantity::<Stress>::new(self.shear_modulus())
-                * self.nondimensional_force(gamma)?
+            * (self.shear_modulus() * self.nondimensional_force(gamma)?
                 / self.nondimensional_force(gamma_0)?
                 * gamma_0
                 / gamma
                 / jacobian)
-            + IDENTITY
-                * Quantity::<Stress>::new(self.bulk_modulus())
-                * 0.5
-                * (jacobian - 1.0 / jacobian))
+            + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
             .with_unit::<Dimensionless>())
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
@@ -160,11 +156,10 @@ where
             .value();
         let gamma_0 = (1.0 / self.number_of_links()).sqrt();
         let eta = self.nondimensional_force(gamma)?;
-        let scaled_shear_modulus = gamma_0 / self.nondimensional_force(gamma_0)?
-            * Quantity::<Stress>::new(self.shear_modulus())
-            * eta
-            / gamma
-            / jacobian.powf(FIVE_THIRDS);
+        let scaled_shear_modulus =
+            gamma_0 / self.nondimensional_force(gamma_0)? * self.shear_modulus() * eta
+                / gamma
+                / jacobian.powf(FIVE_THIRDS);
         let scaled_deviatoric_isochoric_left_cauchy_green_deformation =
             deviatoric_left_cauchy_green_deformation * scaled_shear_modulus;
         let term = TensorRank4::dyad_ij_kl(
@@ -181,10 +176,7 @@ where
             - TensorRank4::dyad_ij_kl(&IDENTITY, deformation_gradient) * (TWO_THIRDS))
             * scaled_shear_modulus
             + TensorRank4::dyad_ij_kl(
-                &(IDENTITY
-                    * (0.5
-                        * Quantity::<Stress>::new(self.bulk_modulus())
-                        * (jacobian + 1.0 / jacobian))
+                &(IDENTITY * (0.5 * self.bulk_modulus() * (jacobian + 1.0 / jacobian))
                     - scaled_deviatoric_isochoric_left_cauchy_green_deformation * (FIVE_THIRDS)),
                 &inverse_transpose_deformation_gradient,
             )
@@ -214,12 +206,10 @@ where
         // If end up re-using so much of ArrudaBoyce should make helper function to share.
         //
         Ok((3.0 * gamma_0 / eta_0
-            * Quantity::<Modulus>::new(self.shear_modulus())
+            * self.shear_modulus()
             * self.number_of_links()
             * (gamma * eta - gamma_0 * eta_0 - (eta_0 * eta.sinh() / (eta * eta_0.sinh())).ln())
-            + 0.5
-                * Quantity::<Modulus>::new(self.bulk_modulus())
-                * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln()))
+            + 0.5 * self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln()))
         .value_as::<EnergyDensity>())
     }
 }

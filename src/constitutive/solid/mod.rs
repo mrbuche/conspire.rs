@@ -1,5 +1,6 @@
 //! Solid constitutive models.
 
+use crate::math::{Quantity, Stress};
 pub mod elastic;
 pub mod elastic_hyperviscous;
 pub mod elastic_plastic;
@@ -39,9 +40,9 @@ where
     Self: Constitutive,
 {
     /// Returns the bulk modulus.
-    fn bulk_modulus(&self) -> Scalar;
+    fn bulk_modulus(&self) -> Quantity<Stress>;
     /// Returns the shear modulus.
-    fn shear_modulus(&self) -> Scalar;
+    fn shear_modulus(&self) -> Quantity<Stress>;
     /// Calculates and returns the Jacobian.
     fn jacobian<I, J>(
         &self,

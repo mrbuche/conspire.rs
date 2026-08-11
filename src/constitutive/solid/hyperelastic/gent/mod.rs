@@ -1,5 +1,5 @@
 use crate::math::TensorRank4;
-use crate::math::{Dimensionless, EnergyDensity, Modulus, Quantity, Stress};
+use crate::math::{Dimensionless, EnergyDensity, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -31,11 +31,11 @@ impl Gent {
 }
 
 impl Solid for Gent {
-    fn bulk_modulus(&self) -> Scalar {
-        self.bulk_modulus
+    fn bulk_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.bulk_modulus)
     }
-    fn shear_modulus(&self) -> Scalar {
-        self.shear_modulus
+    fn shear_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.shear_modulus)
     }
 }
 
@@ -61,14 +61,11 @@ impl Elastic for Gent {
             ))
         } else {
             Ok(((deviatoric_isochoric_left_cauchy_green_deformation
-                * Quantity::<Stress>::new(self.shear_modulus())
+                * self.shear_modulus()
                 * self.extensibility()
                 / jacobian)
                 / denominator
-                + IDENTITY
-                    * Quantity::<Stress>::new(self.bulk_modulus())
-                    * 0.5
-                    * (jacobian - 1.0 / jacobian))
+                + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
                 .with_unit::<Dimensionless>())
         }
     }
@@ -93,9 +90,7 @@ impl Elastic for Gent {
                 format!("{:?}", self),
             ))
         } else {
-            let prefactor = Quantity::<Stress>::new(self.shear_modulus()) * self.extensibility()
-                / jacobian
-                / denominator;
+            let prefactor = self.shear_modulus() * self.extensibility() / jacobian / denominator;
             Ok(((TensorRank4::dyad_ik_jl(&IDENTITY, deformation_gradient)
                 + TensorRank4::dyad_il_jk(deformation_gradient, &IDENTITY)
                 - TensorRank4::dyad_ij_kl(&IDENTITY, deformation_gradient) * (TWO_THIRDS)
@@ -105,10 +100,7 @@ impl Elastic for Gent {
                 ) * (2.0 / denominator))
                 * (prefactor / jacobian.powf(TWO_THIRDS))
                 + TensorRank4::dyad_ij_kl(
-                    &(IDENTITY
-                        * (0.5
-                            * Quantity::<Stress>::new(self.bulk_modulus())
-                            * (jacobian + 1.0 / jacobian))
+                    &(IDENTITY * (0.5 * self.bulk_modulus() * (jacobian + 1.0 / jacobian))
                         - deviatoric_isochoric_left_cauchy_green_deformation
                             * prefactor
                             * ((5.0
@@ -139,11 +131,8 @@ impl Hyperelastic for Gent {
             ))
         } else {
             Ok((0.5
-                * (-Quantity::<Modulus>::new(self.shear_modulus())
-                    * self.extensibility()
-                    * (1.0 - factor).ln()
-                    + Quantity::<Modulus>::new(self.bulk_modulus())
-                        * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
+                * (-self.shear_modulus() * self.extensibility() * (1.0 - factor).ln()
+                    + self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
             .value_as::<EnergyDensity>())
         }
     }

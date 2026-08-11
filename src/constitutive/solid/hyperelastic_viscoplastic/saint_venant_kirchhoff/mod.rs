@@ -1,3 +1,5 @@
+use crate::math::{Dimensionless, TensorRank4};
+use crate::math::{Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -39,11 +41,11 @@ pub struct SaintVenantKirchhoff {
 }
 
 impl Solid for SaintVenantKirchhoff {
-    fn bulk_modulus(&self) -> Scalar {
-        self.bulk_modulus
+    fn bulk_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.bulk_modulus)
     }
-    fn shear_modulus(&self) -> Scalar {
-        self.shear_modulus
+    fn shear_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.shear_modulus)
     }
 }
 
@@ -89,11 +91,12 @@ impl ElasticPlasticOrViscoplastic for SaintVenantKirchhoff {
         let (deviatoric_strain, strain_trace) =
             ((deformation_gradient_e.right_cauchy_green() - IDENTITY_22) * 0.5)
                 .deviatoric_and_trace();
-        Ok(&deformation_gradient_inverse_p
+        Ok((&deformation_gradient_inverse_p
             * deviatoric_strain
             * deformation_gradient_inverse_p.transpose()
             * (2.0 * self.shear_modulus())
             + left_cauchy_green_inverse_p * (self.bulk_modulus() * strain_trace))
+            .with_unit::<Dimensionless>())
     }
     #[doc = include_str!("second_piola_kirchhoff_tangent_stiffness.md")]
     fn second_piola_kirchhoff_tangent_stiffness(
@@ -107,17 +110,13 @@ impl ElasticPlasticOrViscoplastic for SaintVenantKirchhoff {
         let quantity_1 = deformation_gradient_inverse_p.left_cauchy_green();
         let quantity_2 = deformation_gradient_inverse_p * deformation_gradient_e.transpose();
         let scaled_quantity_1 = &quantity_1 * self.shear_modulus();
-        Ok(
-            (SecondPiolaKirchhoffTangentStiffness::dyad_ik_jl(&quantity_2, &scaled_quantity_1)
-                + SecondPiolaKirchhoffTangentStiffness::dyad_il_jk(
-                    &scaled_quantity_1,
-                    &quantity_2,
-                ))
-                + SecondPiolaKirchhoffTangentStiffness::dyad_ij_kl(
-                    &(quantity_1 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())),
-                    &quantity_2.transpose(),
-                ),
-        )
+        Ok(((TensorRank4::dyad_ik_jl(&quantity_2, &scaled_quantity_1)
+            + TensorRank4::dyad_il_jk(&scaled_quantity_1, &quantity_2))
+            + TensorRank4::dyad_ij_kl(
+                &(quantity_1 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())),
+                &quantity_2.transpose(),
+            ))
+        .with_unit::<Dimensionless>())
     }
 }
 
@@ -133,9 +132,10 @@ impl HyperelasticViscoplastic<Scalar> for SaintVenantKirchhoff {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
         let strain = (deformation_gradient_e.right_cauchy_green() - IDENTITY_22) * 0.5;
-        Ok(self.shear_modulus() * strain.squared_trace()
+        Ok((self.shear_modulus() * strain.squared_trace()
             + 0.5
                 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())
                 * strain.trace().powi(2))
+        .value())
     }
 }

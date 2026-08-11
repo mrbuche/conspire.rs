@@ -1,4 +1,4 @@
-use crate::math::{Dimensionless, EnergyDensity, Modulus, Quantity, Stress};
+use crate::math::{Dimensionless, EnergyDensity, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -21,11 +21,11 @@ pub struct NeoHookean {
 }
 
 impl Solid for NeoHookean {
-    fn bulk_modulus(&self) -> Scalar {
-        self.bulk_modulus
+    fn bulk_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.bulk_modulus)
     }
-    fn shear_modulus(&self) -> Scalar {
-        self.shear_modulus
+    fn shear_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.shear_modulus)
     }
 }
 
@@ -38,11 +38,8 @@ impl Elastic for NeoHookean {
         let jacobian = self.jacobian(deformation_gradient)?;
         Ok(
             (deformation_gradient.left_cauchy_green().deviatoric() / jacobian.powf(FIVE_THIRDS)
-                * Quantity::<Stress>::new(self.shear_modulus())
-                + IDENTITY
-                    * Quantity::<Stress>::new(self.bulk_modulus())
-                    * 0.5
-                    * (jacobian - 1.0 / jacobian))
+                * self.shear_modulus()
+                + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
                 .with_unit::<Dimensionless>(),
         )
     }
@@ -53,17 +50,13 @@ impl Elastic for NeoHookean {
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         let inverse_transpose_deformation_gradient = deformation_gradient.inverse_transpose();
-        let scaled_shear_modulus =
-            Quantity::<Stress>::new(self.shear_modulus()) / jacobian.powf(FIVE_THIRDS);
+        let scaled_shear_modulus = self.shear_modulus() / jacobian.powf(FIVE_THIRDS);
         Ok(((TensorRank4::dyad_ik_jl(&IDENTITY, deformation_gradient)
             + TensorRank4::dyad_il_jk(deformation_gradient, &IDENTITY)
             - TensorRank4::dyad_ij_kl(&IDENTITY, deformation_gradient) * (TWO_THIRDS))
             * scaled_shear_modulus
             + TensorRank4::dyad_ij_kl(
-                &(IDENTITY
-                    * (Quantity::<Stress>::new(self.bulk_modulus())
-                        * 0.5
-                        * (jacobian + 1.0 / jacobian))
+                &(IDENTITY * (self.bulk_modulus() * 0.5 * (jacobian + 1.0 / jacobian))
                     - deformation_gradient.left_cauchy_green().deviatoric()
                         * (scaled_shear_modulus * FIVE_THIRDS)),
                 &inverse_transpose_deformation_gradient,
@@ -80,11 +73,10 @@ impl Hyperelastic for NeoHookean {
     ) -> Result<Scalar, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         Ok((0.5
-            * (Quantity::<Modulus>::new(self.shear_modulus())
+            * (self.shear_modulus()
                 * (deformation_gradient.left_cauchy_green().trace() / jacobian.powf(TWO_THIRDS)
                     - 3.0)
-                + Quantity::<Modulus>::new(self.bulk_modulus())
-                    * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
+                + self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
         .value_as::<EnergyDensity>())
     }
 }

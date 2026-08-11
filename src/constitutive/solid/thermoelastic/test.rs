@@ -120,7 +120,7 @@ macro_rules! test_solid_thermal_constitutive_model {
             let temperature = model.reference_temperature() - EPSILON;
             let first_piola_kirchhoff_stress =
                 model.first_piola_kirchhoff_stress(&deformation_gradient, temperature)?;
-            let compare = 3.0 * model.bulk_modulus() * EPSILON;
+            let compare = 3.0 * model.bulk_modulus().value() * EPSILON;
             (0..3).try_for_each(|i| {
                 (0..3).try_for_each(|j| {
                     if i == j {

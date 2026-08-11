@@ -119,7 +119,7 @@ macro_rules! test_solid_constitutive
             let model = $constitutive_model;
             let deformation_gradient = DeformationGradient::identity()*(1.0 + EPSILON / 3.0);
             let first_piola_kirchhoff_stress = first_piola_kirchhoff_stress_from_deformation_gradient_simple!(&model, &deformation_gradient)?;
-            assert!((3.0 * EPSILON * model.bulk_modulus() / first_piola_kirchhoff_stress.trace() - 1.0).abs() < EPSILON);
+            assert!((3.0 * EPSILON * model.bulk_modulus().value() / first_piola_kirchhoff_stress.trace() - 1.0).abs() < EPSILON);
             Ok(())
         }
         #[test]
@@ -130,7 +130,7 @@ macro_rules! test_solid_constitutive
             let mut deformation_gradient = DeformationGradient::identity();
             deformation_gradient[0][1] = EPSILON;
             let first_piola_kirchhoff_stress = first_piola_kirchhoff_stress_from_deformation_gradient_simple!(&model, &deformation_gradient)?;
-            assert!((EPSILON * model.shear_modulus() / first_piola_kirchhoff_stress[0][1] - 1.0).abs() < EPSILON);
+            assert!((EPSILON * model.shear_modulus().value() / first_piola_kirchhoff_stress[0][1] - 1.0).abs() < EPSILON);
             Ok(())
         }
     }

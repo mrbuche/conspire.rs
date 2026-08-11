@@ -1,5 +1,5 @@
 use crate::math::TensorRank4;
-use crate::math::{Dimensionless, EnergyDensity, Modulus, Quantity, Stress};
+use crate::math::{Dimensionless, EnergyDensity, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -34,11 +34,11 @@ impl ArrudaBoyce {
 }
 
 impl Solid for ArrudaBoyce {
-    fn bulk_modulus(&self) -> Scalar {
-        self.bulk_modulus
+    fn bulk_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.bulk_modulus)
     }
-    fn shear_modulus(&self) -> Scalar {
-        self.shear_modulus
+    fn shear_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.shear_modulus)
     }
 }
 
@@ -65,15 +65,11 @@ impl Elastic for ArrudaBoyce {
         } else {
             let gamma_0 = (1.0 / self.number_of_links()).sqrt();
             Ok((deviatoric_isochoric_left_cauchy_green_deformation
-                * (Quantity::<Stress>::new(self.shear_modulus()) * inverse_langevin(gamma)
-                    / inverse_langevin(gamma_0)
+                * (self.shear_modulus() * inverse_langevin(gamma) / inverse_langevin(gamma_0)
                     * gamma_0
                     / gamma
                     / jacobian)
-                + IDENTITY
-                    * Quantity::<Stress>::new(self.bulk_modulus())
-                    * 0.5
-                    * (jacobian - 1.0 / jacobian))
+                + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
                 .with_unit::<Dimensionless>())
         }
     }
@@ -101,11 +97,10 @@ impl Elastic for ArrudaBoyce {
         } else {
             let gamma_0 = (1.0 / self.number_of_links()).sqrt();
             let eta = inverse_langevin(gamma);
-            let scaled_shear_modulus = gamma_0 / inverse_langevin(gamma_0)
-                * Quantity::<Stress>::new(self.shear_modulus())
-                * eta
-                / gamma
-                / jacobian.powf(FIVE_THIRDS);
+            let scaled_shear_modulus =
+                gamma_0 / inverse_langevin(gamma_0) * self.shear_modulus() * eta
+                    / gamma
+                    / jacobian.powf(FIVE_THIRDS);
             let scaled_deviatoric_isochoric_left_cauchy_green_deformation =
                 deviatoric_left_cauchy_green_deformation * scaled_shear_modulus;
             let term = TensorRank4::dyad_ij_kl(
@@ -122,10 +117,7 @@ impl Elastic for ArrudaBoyce {
                 - TensorRank4::dyad_ij_kl(&IDENTITY, deformation_gradient) * (TWO_THIRDS))
                 * scaled_shear_modulus
                 + TensorRank4::dyad_ij_kl(
-                    &(IDENTITY
-                        * (0.5
-                            * Quantity::<Stress>::new(self.bulk_modulus())
-                            * (jacobian + 1.0 / jacobian))
+                    &(IDENTITY * (0.5 * self.bulk_modulus() * (jacobian + 1.0 / jacobian))
                         - scaled_deviatoric_isochoric_left_cauchy_green_deformation
                             * (FIVE_THIRDS)),
                     &inverse_transpose_deformation_gradient,
@@ -157,14 +149,12 @@ impl Hyperelastic for ArrudaBoyce {
             let gamma_0 = (1.0 / self.number_of_links()).sqrt();
             let eta_0 = inverse_langevin(gamma_0);
             Ok((3.0 * gamma_0 / eta_0
-                * Quantity::<Modulus>::new(self.shear_modulus())
+                * self.shear_modulus()
                 * self.number_of_links()
                 * (gamma * eta
                     - gamma_0 * eta_0
                     - (eta_0 * eta.sinh() / (eta * eta_0.sinh())).ln())
-                + 0.5
-                    * Quantity::<Modulus>::new(self.bulk_modulus())
-                    * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln()))
+                + 0.5 * self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln()))
             .value_as::<EnergyDensity>())
         }
     }

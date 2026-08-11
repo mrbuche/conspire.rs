@@ -1,3 +1,4 @@
+use crate::math::{Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -31,10 +32,10 @@ where
     C2: Viscoplastic<Y2>,
     Y2: Tensor,
 {
-    fn bulk_modulus(&self) -> Scalar {
+    fn bulk_modulus(&self) -> Quantity<Stress> {
         self.0.bulk_modulus()
     }
-    fn shear_modulus(&self) -> Scalar {
+    fn shear_modulus(&self) -> Quantity<Stress> {
         self.0.shear_modulus()
     }
 }

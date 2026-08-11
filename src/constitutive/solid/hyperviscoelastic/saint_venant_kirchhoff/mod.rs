@@ -2,7 +2,7 @@ use crate::math::TensorRank4;
 #[cfg(test)]
 mod test;
 
-use crate::math::{Dimensionless, Quantity, Rate, Stress, Viscosity};
+use crate::math::{Dimensionless, EnergyDensity, Quantity, Rate, Stress, Viscosity};
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -49,20 +49,20 @@ pub struct SaintVenantKirchhoff {
 }
 
 impl Solid for SaintVenantKirchhoff {
-    fn bulk_modulus(&self) -> Scalar {
-        self.bulk_modulus
+    fn bulk_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.bulk_modulus)
     }
-    fn shear_modulus(&self) -> Scalar {
-        self.shear_modulus
+    fn shear_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.shear_modulus)
     }
 }
 
 impl Viscous for SaintVenantKirchhoff {
-    fn bulk_viscosity(&self) -> Scalar {
-        self.bulk_viscosity
+    fn bulk_viscosity(&self) -> Quantity<Viscosity> {
+        Quantity::new(self.bulk_viscosity)
     }
-    fn shear_viscosity(&self) -> Scalar {
-        self.shear_viscosity
+    fn shear_viscosity(&self) -> Quantity<Viscosity> {
+        Quantity::new(self.shear_viscosity)
     }
 }
 
@@ -85,10 +85,10 @@ impl Viscoelastic for SaintVenantKirchhoff {
         let (deviatoric_strain_rate, strain_rate_trace) =
             (((&first_term + first_term.transpose()) * 0.5).with_unit::<Rate>())
                 .deviatoric_and_trace();
-        let bulk_modulus = Quantity::<Stress>::new(self.bulk_modulus());
-        let shear_modulus = Quantity::<Stress>::new(self.shear_modulus());
-        let bulk_viscosity = Quantity::<Viscosity>::new(self.bulk_viscosity());
-        let shear_viscosity = Quantity::<Viscosity>::new(self.shear_viscosity());
+        let bulk_modulus = self.bulk_modulus();
+        let shear_modulus = self.shear_modulus();
+        let bulk_viscosity = self.bulk_viscosity();
+        let shear_viscosity = self.shear_viscosity();
         Ok((deviatoric_strain * (2.0 * shear_modulus)
             + deviatoric_strain_rate * (2.0 * shear_viscosity)
             + IDENTITY_00 * (bulk_modulus * strain_trace + bulk_viscosity * strain_rate_trace))
@@ -106,14 +106,12 @@ impl Viscoelastic for SaintVenantKirchhoff {
     ) -> Result<SecondPiolaKirchhoffRateTangentStiffness, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let scaled_deformation_gradient_transpose =
-            deformation_gradient.transpose() * Quantity::<Viscosity>::new(self.shear_viscosity());
+            deformation_gradient.transpose() * self.shear_viscosity();
         Ok(
             (TensorRank4::dyad_ik_jl(&scaled_deformation_gradient_transpose, &IDENTITY_00)
                 + TensorRank4::dyad_il_jk(&IDENTITY_00, &scaled_deformation_gradient_transpose)
                 + TensorRank4::dyad_ij_kl(
-                    &(IDENTITY_00
-                        * (Quantity::<Viscosity>::new(self.bulk_viscosity())
-                            - TWO_THIRDS * Quantity::<Viscosity>::new(self.shear_viscosity()))),
+                    &(IDENTITY_00 * (self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity())),
                     deformation_gradient,
                 ))
             .with_unit::<Dimensionless>(),
@@ -135,10 +133,11 @@ impl ElasticHyperviscous for SaintVenantKirchhoff {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let first_term = deformation_gradient_rate.transpose() * deformation_gradient;
         let strain_rate = (&first_term + first_term.transpose()) * 0.5;
-        Ok(self.shear_viscosity() * strain_rate.squared_trace()
+        Ok((self.shear_viscosity() * strain_rate.squared_trace()
             + 0.5
                 * (self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity())
                 * strain_rate.trace().powi(2))
+        .value())
     }
 }
 
@@ -154,9 +153,10 @@ impl Hyperviscoelastic for SaintVenantKirchhoff {
     ) -> Result<Scalar, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let strain = (deformation_gradient.right_cauchy_green() - IDENTITY_00) * 0.5;
-        Ok(self.shear_modulus() * strain.squared_trace()
+        Ok((self.shear_modulus() * strain.squared_trace()
             + 0.5
                 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())
                 * strain.trace().powi(2))
+        .value_as::<EnergyDensity>())
     }
 }

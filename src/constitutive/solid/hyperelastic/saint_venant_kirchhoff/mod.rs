@@ -1,5 +1,5 @@
 use crate::math::TensorRank4;
-use crate::math::{Dimensionless, EnergyDensity, Modulus, Quantity, Stress};
+use crate::math::{Dimensionless, EnergyDensity, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -25,11 +25,11 @@ pub struct SaintVenantKirchhoff {
 }
 
 impl Solid for SaintVenantKirchhoff {
-    fn bulk_modulus(&self) -> Scalar {
-        self.bulk_modulus
+    fn bulk_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.bulk_modulus)
     }
-    fn shear_modulus(&self) -> Scalar {
-        self.shear_modulus
+    fn shear_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.shear_modulus)
     }
 }
 
@@ -43,11 +43,9 @@ impl Elastic for SaintVenantKirchhoff {
         let (deviatoric_strain, strain_trace) =
             ((deformation_gradient.right_cauchy_green() - IDENTITY_00) * 0.5)
                 .deviatoric_and_trace();
-        Ok(
-            (deviatoric_strain * (2.0 * Quantity::<Stress>::new(self.shear_modulus()))
-                + IDENTITY_00 * (Quantity::<Stress>::new(self.bulk_modulus()) * strain_trace))
-                .with_unit::<Dimensionless>(),
-        )
+        Ok((deviatoric_strain * (2.0 * self.shear_modulus())
+            + IDENTITY_00 * (self.bulk_modulus() * strain_trace))
+            .with_unit::<Dimensionless>())
     }
     #[doc = include_str!("second_piola_kirchhoff_tangent_stiffness.md")]
     fn second_piola_kirchhoff_tangent_stiffness(
@@ -56,14 +54,12 @@ impl Elastic for SaintVenantKirchhoff {
     ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let scaled_deformation_gradient_transpose =
-            deformation_gradient.transpose() * Quantity::<Stress>::new(self.shear_modulus());
+            deformation_gradient.transpose() * self.shear_modulus();
         Ok(
             (TensorRank4::dyad_ik_jl(&scaled_deformation_gradient_transpose, &IDENTITY_00)
                 + TensorRank4::dyad_il_jk(&IDENTITY_00, &scaled_deformation_gradient_transpose)
                 + TensorRank4::dyad_ij_kl(
-                    &(IDENTITY_00
-                        * (Quantity::<Stress>::new(self.bulk_modulus())
-                            - TWO_THIRDS * Quantity::<Stress>::new(self.shear_modulus()))),
+                    &(IDENTITY_00 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())),
                     deformation_gradient,
                 ))
             .with_unit::<Dimensionless>(),
@@ -79,13 +75,10 @@ impl Hyperelastic for SaintVenantKirchhoff {
     ) -> Result<Scalar, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let strain = (deformation_gradient.right_cauchy_green() - IDENTITY_00) * 0.5;
-        Ok(
-            (Quantity::<Modulus>::new(self.shear_modulus()) * strain.squared_trace()
-                + 0.5
-                    * (Quantity::<Modulus>::new(self.bulk_modulus())
-                        - TWO_THIRDS * Quantity::<Modulus>::new(self.shear_modulus()))
-                    * strain.trace().powi(2))
-            .value_as::<EnergyDensity>(),
-        )
+        Ok((self.shear_modulus() * strain.squared_trace()
+            + 0.5
+                * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())
+                * strain.trace().powi(2))
+        .value_as::<EnergyDensity>())
     }
 }

@@ -1,3 +1,5 @@
+use crate::math::{Dimensionless, TensorRank4};
+use crate::math::{Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -16,8 +18,8 @@ use crate::{
     },
     math::{ContractThirdFourthWithFirstSecond, IDENTITY, Rank2, TensorArray},
     mechanics::{
-        CauchyStress, CauchyTangentStiffness, CauchyTangentStiffnessElastic, Deformation,
-        DeformationGradient, DeformationGradientPlastic, MandelStressElastic, Scalar,
+        CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient,
+        DeformationGradientPlastic, MandelStressElastic, Scalar,
     },
 };
 
@@ -39,11 +41,11 @@ pub struct Hencky {
 }
 
 impl Solid for Hencky {
-    fn bulk_modulus(&self) -> Scalar {
-        self.bulk_modulus
+    fn bulk_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.bulk_modulus)
     }
-    fn shear_modulus(&self) -> Scalar {
-        self.shear_modulus
+    fn shear_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.shear_modulus)
     }
 }
 
@@ -87,8 +89,9 @@ impl ElasticPlasticOrViscoplastic for Hencky {
         let (deviatoric_strain_e, strain_trace_e) =
             (deformation_gradient_e.left_cauchy_green().logm()? * 0.5).deviatoric_and_trace();
         Ok(
-            deviatoric_strain_e * (2.0 * self.shear_modulus() / jacobian)
-                + IDENTITY * (self.bulk_modulus() * strain_trace_e / jacobian),
+            (deviatoric_strain_e * (2.0 * self.shear_modulus() / jacobian)
+                + IDENTITY * (self.bulk_modulus() * strain_trace_e / jacobian))
+                .with_unit::<Dimensionless>(),
         )
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
@@ -105,25 +108,21 @@ impl ElasticPlasticOrViscoplastic for Hencky {
             (left_cauchy_green_e.logm()? * 0.5).deviatoric_and_trace();
         let scaled_deformation_gradient_e =
             &deformation_gradient_e * self.shear_modulus() / jacobian;
-        Ok((left_cauchy_green_e
+        Ok(((left_cauchy_green_e
             .dlogm()?
             .contract_third_fourth_with_first_second(
-                &(CauchyTangentStiffnessElastic::dyad_il_jk(
-                    &scaled_deformation_gradient_e,
-                    &IDENTITY,
-                ) + CauchyTangentStiffnessElastic::dyad_ik_jl(
-                    &IDENTITY,
-                    &scaled_deformation_gradient_e,
-                )),
+                &(TensorRank4::dyad_il_jk(&scaled_deformation_gradient_e, &IDENTITY)
+                    + TensorRank4::dyad_ik_jl(&IDENTITY, &scaled_deformation_gradient_e)),
             ))
             * deformation_gradient_inverse_p.transpose()
-            + (CauchyTangentStiffness::dyad_ij_kl(
+            + (TensorRank4::dyad_ij_kl(
                 &(IDENTITY
                     * ((self.bulk_modulus() - TWO_THIRDS * self.shear_modulus()) / jacobian)
                     - deviatoric_strain_e * (2.0 * self.shear_modulus() / jacobian)
                     - IDENTITY * (self.bulk_modulus() * strain_trace_e / jacobian)),
                 &deformation_gradient.inverse_transpose(),
             )))
+        .with_unit::<Dimensionless>())
     }
 }
 
@@ -139,9 +138,10 @@ impl HyperelasticViscoplastic<Scalar> for Hencky {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
         let strain_e = deformation_gradient_e.left_cauchy_green().logm()? * 0.5;
-        Ok(self.shear_modulus() * strain_e.squared_trace()
+        Ok((self.shear_modulus() * strain_e.squared_trace()
             + 0.5
                 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())
                 * strain_e.trace().powi(2))
+        .value())
     }
 }

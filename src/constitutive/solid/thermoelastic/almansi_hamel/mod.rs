@@ -36,11 +36,11 @@ pub struct AlmansiHamel {
 }
 
 impl Solid for AlmansiHamel {
-    fn bulk_modulus(&self) -> Scalar {
-        self.bulk_modulus
+    fn bulk_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.bulk_modulus)
     }
-    fn shear_modulus(&self) -> Scalar {
-        self.shear_modulus
+    fn shear_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.shear_modulus)
     }
 }
 
@@ -61,21 +61,17 @@ impl Thermoelastic for AlmansiHamel {
             - inverse_deformation_gradient.transpose() * &inverse_deformation_gradient)
             * 0.5;
         let (deviatoric_strain, strain_trace) = strain.deviatoric_and_trace();
-        Ok(
-            (deviatoric_strain * (2.0 * Quantity::<Stress>::new(self.shear_modulus()) / jacobian)
-                + IDENTITY
-                    * (Quantity::<Stress>::new(self.bulk_modulus()) / jacobian
-                        * (strain_trace
-                            - 3.0
-                                * Quantity::<ReciprocalTemperature>::new(
-                                    self.coefficient_of_thermal_expansion(),
-                                )
-                                * (Quantity::<Temperature>::new(temperature)
-                                    - Quantity::<Temperature>::new(
-                                        self.reference_temperature(),
-                                    )))))
-            .with_unit::<Dimensionless>(),
-        )
+        Ok((deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
+            + IDENTITY
+                * (self.bulk_modulus() / jacobian
+                    * (strain_trace
+                        - 3.0
+                            * Quantity::<ReciprocalTemperature>::new(
+                                self.coefficient_of_thermal_expansion(),
+                            )
+                            * (Quantity::<Temperature>::new(temperature)
+                                - Quantity::<Temperature>::new(self.reference_temperature())))))
+        .with_unit::<Dimensionless>())
     }
     /// Calculates and returns the tangent stiffness associated with the Cauchy stress.
     ///
@@ -99,20 +95,17 @@ impl Thermoelastic for AlmansiHamel {
         ) + TensorRank4::dyad_ik_jl(
             &inverse_left_cauchy_green_deformation,
             &inverse_transpose_deformation_gradient,
-        )) * (Quantity::<Stress>::new(self.shear_modulus()) / jacobian)
+        )) * (self.shear_modulus() / jacobian)
             + TensorRank4::dyad_ij_kl(
                 &IDENTITY,
                 &(inverse_left_cauchy_green_deformation
                     * &inverse_transpose_deformation_gradient
-                    * ((Quantity::<Stress>::new(self.bulk_modulus())
-                        - Quantity::<Stress>::new(self.shear_modulus()) * TWO_THIRDS)
-                        / jacobian)),
+                    * ((self.bulk_modulus() - self.shear_modulus() * TWO_THIRDS) / jacobian)),
             )
             - TensorRank4::dyad_ij_kl(
-                &(deviatoric_strain
-                    * (2.0 * Quantity::<Stress>::new(self.shear_modulus()) / jacobian)
+                &(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
                     + IDENTITY
-                        * (Quantity::<Stress>::new(self.bulk_modulus()) / jacobian
+                        * (self.bulk_modulus() / jacobian
                             * (strain_trace
                                 - 3.0
                                     * Quantity::<ReciprocalTemperature>::new(

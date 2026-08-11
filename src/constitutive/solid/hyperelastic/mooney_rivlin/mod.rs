@@ -31,11 +31,11 @@ impl MooneyRivlin {
 }
 
 impl Solid for MooneyRivlin {
-    fn bulk_modulus(&self) -> Scalar {
-        self.bulk_modulus
+    fn bulk_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.bulk_modulus)
     }
-    fn shear_modulus(&self) -> Scalar {
-        self.shear_modulus
+    fn shear_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.shear_modulus)
     }
 }
 
@@ -49,14 +49,12 @@ impl Elastic for MooneyRivlin {
         let isochoric_left_cauchy_green_deformation =
             deformation_gradient.left_cauchy_green() / jacobian.powf(TWO_THIRDS);
         Ok((((isochoric_left_cauchy_green_deformation.deviatoric()
-            * (Quantity::<Stress>::new(self.shear_modulus())
-                - Quantity::<Stress>::new(self.extra_modulus()))
+            * (self.shear_modulus() - Quantity::<Stress>::new(self.extra_modulus()))
             - isochoric_left_cauchy_green_deformation
                 .inverse()
                 .deviatoric()
                 * Quantity::<Stress>::new(self.extra_modulus()))
-            + IDENTITY
-                * (Quantity::<Stress>::new(self.bulk_modulus()) * 0.5 * (jacobian.powi(2) - 1.0)))
+            + IDENTITY * (self.bulk_modulus() * 0.5 * (jacobian.powi(2) - 1.0)))
             / jacobian)
             .with_unit::<Dimensionless>())
     }
@@ -67,7 +65,7 @@ impl Elastic for MooneyRivlin {
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         let inverse_transpose_deformation_gradient = deformation_gradient.inverse_transpose();
-        let scaled_delta_shear_modulus = (Quantity::<Stress>::new(self.shear_modulus())
+        let scaled_delta_shear_modulus = (self.shear_modulus()
             - Quantity::<Stress>::new(self.extra_modulus()))
             / jacobian.powf(FIVE_THIRDS);
         let inverse_isochoric_left_cauchy_green_deformation =
@@ -100,10 +98,7 @@ impl Elastic for MooneyRivlin {
             - TensorRank4::dyad_ij_kl(&IDENTITY, deformation_gradient) * (TWO_THIRDS))
             * scaled_delta_shear_modulus
             + TensorRank4::dyad_ij_kl(
-                &(IDENTITY
-                    * (0.5
-                        * Quantity::<Stress>::new(self.bulk_modulus())
-                        * (jacobian + 1.0 / jacobian))
+                &(IDENTITY * (0.5 * self.bulk_modulus() * (jacobian + 1.0 / jacobian))
                     - deformation_gradient.left_cauchy_green().deviatoric()
                         * (scaled_delta_shear_modulus * FIVE_THIRDS)),
                 &inverse_transpose_deformation_gradient,
@@ -124,13 +119,11 @@ impl Hyperelastic for MooneyRivlin {
         let isochoric_left_cauchy_green_deformation =
             deformation_gradient.left_cauchy_green() / jacobian.powf(TWO_THIRDS);
         Ok((0.5
-            * ((Quantity::<Modulus>::new(self.shear_modulus())
-                - Quantity::<Modulus>::new(self.extra_modulus()))
+            * ((self.shear_modulus() - Quantity::<Modulus>::new(self.extra_modulus()))
                 * (isochoric_left_cauchy_green_deformation.trace() - 3.0)
                 + Quantity::<Modulus>::new(self.extra_modulus())
                     * (isochoric_left_cauchy_green_deformation.second_invariant() - 3.0)
-                + Quantity::<Modulus>::new(self.bulk_modulus())
-                    * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
+                + self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
         .value_as::<EnergyDensity>())
     }
 }

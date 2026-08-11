@@ -33,11 +33,11 @@ impl<const N: usize> Yeoh<N> {
 }
 
 impl<const N: usize> Solid for Yeoh<N> {
-    fn bulk_modulus(&self) -> Scalar {
-        self.bulk_modulus
+    fn bulk_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.bulk_modulus)
     }
-    fn shear_modulus(&self) -> Scalar {
-        self.shear_modulus
+    fn shear_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.shear_modulus)
     }
 }
 
@@ -56,19 +56,16 @@ impl<const N: usize> Elastic for Yeoh<N> {
             (left_cauchy_green_deformation_trace / jacobian.powf(TWO_THIRDS) - 3.0).value();
         Ok((deviatoric_left_cauchy_green_deformation
             * once(self.shear_modulus())
-                .chain(self.extra_moduli().iter().copied())
+                .chain(
+                    self.extra_moduli()
+                        .iter()
+                        .map(|modulus| Quantity::<Modulus>::new(*modulus)),
+                )
                 .enumerate()
-                .map(|(n, modulus)| {
-                    Quantity::<Stress>::new(
-                        ((n as Scalar) + 1.0) * modulus * scalar_term.powi(n as i32),
-                    )
-                })
-                .sum::<Quantity<Stress>>()
+                .map(|(n, modulus)| modulus * (((n as Scalar) + 1.0) * scalar_term.powi(n as i32)))
+                .sum::<Quantity<Modulus>>()
             / jacobian.powf(FIVE_THIRDS)
-            + IDENTITY
-                * Quantity::<Stress>::new(self.bulk_modulus())
-                * 0.5
-                * (jacobian - 1.0 / jacobian))
+            + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
             .with_unit::<Dimensionless>())
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
@@ -81,14 +78,14 @@ impl<const N: usize> Elastic for Yeoh<N> {
         let left_cauchy_green_deformation = deformation_gradient.left_cauchy_green();
         let scalar_term = left_cauchy_green_deformation.trace() / jacobian.powf(TWO_THIRDS) - 3.0;
         let scaled_modulus = once(self.shear_modulus())
-            .chain(self.extra_moduli().iter().copied())
+            .chain(
+                self.extra_moduli()
+                    .iter()
+                    .map(|modulus| Quantity::<Modulus>::new(*modulus)),
+            )
             .enumerate()
-            .map(|(n, modulus)| {
-                Quantity::<Stress>::new(
-                    ((n as Scalar) + 1.0) * modulus * scalar_term.powi(n as i32),
-                )
-            })
-            .sum::<Quantity<Stress>>()
+            .map(|(n, modulus)| modulus * (((n as Scalar) + 1.0) * scalar_term.powi(n as i32)))
+            .sum::<Quantity<Modulus>>()
             / jacobian.powf(FIVE_THIRDS);
         let deviatoric_left_cauchy_green_deformation = left_cauchy_green_deformation.deviatoric();
         let last_term = TensorRank4::dyad_ij_kl(
@@ -100,14 +97,13 @@ impl<const N: usize> Elastic for Yeoh<N> {
                     .iter()
                     .enumerate()
                     .map(|(n, modulus)| {
-                        Quantity::<Stress>::new(
-                            2.0 * ((n as Scalar) + 2.0)
+                        Quantity::<Modulus>::new(*modulus)
+                            * (2.0
+                                * ((n as Scalar) + 2.0)
                                 * ((n as Scalar) + 1.0)
-                                * modulus
-                                * scalar_term.powi(n as i32),
-                        )
+                                * scalar_term.powi(n as i32))
                     })
-                    .sum::<Quantity<Stress>>()
+                    .sum::<Quantity<Modulus>>()
                     / jacobian.powf(SEVEN_THIRDS))),
         );
         Ok(((TensorRank4::dyad_ik_jl(&IDENTITY, deformation_gradient)
@@ -115,10 +111,7 @@ impl<const N: usize> Elastic for Yeoh<N> {
             - TensorRank4::dyad_ij_kl(&IDENTITY, deformation_gradient) * (TWO_THIRDS))
             * scaled_modulus
             + TensorRank4::dyad_ij_kl(
-                &(IDENTITY
-                    * (Quantity::<Stress>::new(self.bulk_modulus())
-                        * 0.5
-                        * (jacobian + 1.0 / jacobian))
+                &(IDENTITY * (self.bulk_modulus() * 0.5 * (jacobian + 1.0 / jacobian))
                     - deviatoric_left_cauchy_green_deformation * (scaled_modulus * FIVE_THIRDS)),
                 &inverse_transpose_deformation_gradient,
             )
@@ -138,14 +131,15 @@ impl<const N: usize> Hyperelastic for Yeoh<N> {
             deformation_gradient.left_cauchy_green().trace() / jacobian.powf(TWO_THIRDS) - 3.0;
         Ok((0.5
             * (once(self.shear_modulus())
-                .chain(self.extra_moduli().iter().copied())
+                .chain(
+                    self.extra_moduli()
+                        .iter()
+                        .map(|modulus| Quantity::<Modulus>::new(*modulus)),
+                )
                 .enumerate()
-                .map(|(n, modulus)| {
-                    Quantity::<Modulus>::new(modulus * scalar_term.powi((n + 1) as i32))
-                })
-                .sum::<Quantity<Stress>>()
-                + Quantity::<Modulus>::new(self.bulk_modulus())
-                    * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
+                .map(|(n, modulus)| modulus * scalar_term.powi((n + 1) as i32))
+                .sum::<Quantity<Modulus>>()
+                + self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
         .value_as::<EnergyDensity>())
     }
 }

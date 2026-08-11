@@ -22,11 +22,11 @@ pub struct AlmansiHamel {
 }
 
 impl Solid for AlmansiHamel {
-    fn bulk_modulus(&self) -> Scalar {
-        self.bulk_modulus
+    fn bulk_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.bulk_modulus)
     }
-    fn shear_modulus(&self) -> Scalar {
-        self.shear_modulus
+    fn shear_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.shear_modulus)
     }
 }
 
@@ -42,12 +42,9 @@ impl Elastic for AlmansiHamel {
             - inverse_deformation_gradient.transpose() * &inverse_deformation_gradient)
             * 0.5;
         let (deviatoric_strain, strain_trace) = strain.deviatoric_and_trace();
-        Ok(
-            (deviatoric_strain * (2.0 * Quantity::<Stress>::new(self.shear_modulus()) / jacobian)
-                + IDENTITY
-                    * (Quantity::<Stress>::new(self.bulk_modulus()) * strain_trace / jacobian))
-                .with_unit::<Dimensionless>(),
-        )
+        Ok((deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
+            + IDENTITY * (self.bulk_modulus() * strain_trace / jacobian))
+            .with_unit::<Dimensionless>())
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
     fn cauchy_tangent_stiffness(
@@ -58,8 +55,8 @@ impl Elastic for AlmansiHamel {
         let inverse_transpose_deformation_gradient = deformation_gradient.inverse_transpose();
         let inverse_left_cauchy_green_deformation = &inverse_transpose_deformation_gradient
             * inverse_transpose_deformation_gradient.transpose();
-        let scaled_inverse_left_cauchy_green_deformation = &inverse_left_cauchy_green_deformation
-            * (Quantity::<Stress>::new(self.shear_modulus()) / jacobian);
+        let scaled_inverse_left_cauchy_green_deformation =
+            &inverse_left_cauchy_green_deformation * (self.shear_modulus() / jacobian);
         let strain = (IDENTITY - &inverse_left_cauchy_green_deformation) * 0.5;
         let (deviatoric_strain, strain_trace) = strain.deviatoric_and_trace();
         Ok(((TensorRank4::dyad_il_jk(
@@ -72,13 +69,10 @@ impl Elastic for AlmansiHamel {
             &IDENTITY,
             &(inverse_left_cauchy_green_deformation
                 * &inverse_transpose_deformation_gradient
-                * ((Quantity::<Stress>::new(self.bulk_modulus())
-                    - Quantity::<Stress>::new(self.shear_modulus()) * TWO_THIRDS)
-                    / jacobian)),
+                * ((self.bulk_modulus() - self.shear_modulus() * TWO_THIRDS) / jacobian)),
         ) - TensorRank4::dyad_ij_kl(
-            &(deviatoric_strain * (2.0 * Quantity::<Stress>::new(self.shear_modulus()) / jacobian)
-                + IDENTITY
-                    * (Quantity::<Stress>::new(self.bulk_modulus()) * strain_trace / jacobian)),
+            &(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
+                + IDENTITY * (self.bulk_modulus() * strain_trace / jacobian)),
             &inverse_transpose_deformation_gradient,
         ))
         .with_unit::<Dimensionless>())

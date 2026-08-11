@@ -1,3 +1,4 @@
+use crate::math::{Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -9,7 +10,7 @@ use crate::{
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffStress,
-        FirstPiolaKirchhoffTangentStiffness, Scalar, SecondPiolaKirchhoffStress,
+        FirstPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffStress,
         SecondPiolaKirchhoffTangentStiffness,
     },
 };
@@ -19,10 +20,10 @@ where
     C1: Elastic,
     C2: Elastic,
 {
-    fn bulk_modulus(&self) -> Scalar {
+    fn bulk_modulus(&self) -> Quantity<Stress> {
         self.0.bulk_modulus() + self.1.bulk_modulus()
     }
-    fn shear_modulus(&self) -> Scalar {
+    fn shear_modulus(&self) -> Quantity<Stress> {
         self.0.shear_modulus() + self.1.shear_modulus()
     }
 }

@@ -1,6 +1,5 @@
 use crate::math::{
-    Dimensionless, EnergyDensity, Modulus, Quantity, ReciprocalTemperature, Stress, Temperature,
-    TensorRank4,
+    Dimensionless, EnergyDensity, Quantity, ReciprocalTemperature, Stress, Temperature, TensorRank4,
 };
 #[cfg(test)]
 mod test;
@@ -37,11 +36,11 @@ pub struct SaintVenantKirchhoff {
 }
 
 impl Solid for SaintVenantKirchhoff {
-    fn bulk_modulus(&self) -> Scalar {
-        self.bulk_modulus
+    fn bulk_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.bulk_modulus)
     }
-    fn shear_modulus(&self) -> Scalar {
-        self.shear_modulus
+    fn shear_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.shear_modulus)
     }
 }
 
@@ -60,21 +59,17 @@ impl Thermoelastic for SaintVenantKirchhoff {
         let (deviatoric_strain, strain_trace) =
             ((deformation_gradient.right_cauchy_green() - IDENTITY_00) * 0.5)
                 .deviatoric_and_trace();
-        Ok(
-            (deviatoric_strain * (2.0 * Quantity::<Stress>::new(self.shear_modulus()))
-                + IDENTITY_00
-                    * (Quantity::<Stress>::new(self.bulk_modulus())
-                        * (strain_trace
-                            - 3.0
-                                * Quantity::<ReciprocalTemperature>::new(
-                                    self.coefficient_of_thermal_expansion(),
-                                )
-                                * (Quantity::<Temperature>::new(temperature)
-                                    - Quantity::<Temperature>::new(
-                                        self.reference_temperature(),
-                                    )))))
-            .with_unit::<Dimensionless>(),
-        )
+        Ok((deviatoric_strain * (2.0 * self.shear_modulus())
+            + IDENTITY_00
+                * (self.bulk_modulus()
+                    * (strain_trace
+                        - 3.0
+                            * Quantity::<ReciprocalTemperature>::new(
+                                self.coefficient_of_thermal_expansion(),
+                            )
+                            * (Quantity::<Temperature>::new(temperature)
+                                - Quantity::<Temperature>::new(self.reference_temperature())))))
+        .with_unit::<Dimensionless>())
     }
     /// Calculates and returns the tangent stiffness associated with the second Piola-Kirchhoff stress.
     ///
@@ -88,14 +83,12 @@ impl Thermoelastic for SaintVenantKirchhoff {
     ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let scaled_deformation_gradient_transpose =
-            deformation_gradient.transpose() * Quantity::<Stress>::new(self.shear_modulus());
+            deformation_gradient.transpose() * self.shear_modulus();
         Ok(
             (TensorRank4::dyad_ik_jl(&scaled_deformation_gradient_transpose, &IDENTITY_00)
                 + TensorRank4::dyad_il_jk(&IDENTITY_00, &scaled_deformation_gradient_transpose)
                 + TensorRank4::dyad_ij_kl(
-                    &(IDENTITY_00
-                        * (Quantity::<Stress>::new(self.bulk_modulus())
-                            - TWO_THIRDS * Quantity::<Stress>::new(self.shear_modulus()))),
+                    &(IDENTITY_00 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())),
                     deformation_gradient,
                 ))
             .with_unit::<Dimensionless>(),
@@ -123,21 +116,16 @@ impl Thermohyperelastic for SaintVenantKirchhoff {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let strain = (deformation_gradient.right_cauchy_green() - IDENTITY_00) * 0.5;
         let strain_trace = strain.trace();
-        Ok(
-            (Quantity::<Modulus>::new(self.shear_modulus()) * strain.squared_trace()
-                + 0.5
-                    * (Quantity::<Modulus>::new(self.bulk_modulus())
-                        - TWO_THIRDS * Quantity::<Modulus>::new(self.shear_modulus()))
-                    * strain_trace.powi(2)
-                - 3.0
-                    * Quantity::<Modulus>::new(self.bulk_modulus())
-                    * Quantity::<ReciprocalTemperature>::new(
-                        self.coefficient_of_thermal_expansion(),
-                    )
-                    * (Quantity::<Temperature>::new(temperature)
-                        - Quantity::<Temperature>::new(self.reference_temperature()))
-                    * strain_trace)
-                .value_as::<EnergyDensity>(),
-        )
+        Ok((self.shear_modulus() * strain.squared_trace()
+            + 0.5
+                * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())
+                * strain_trace.powi(2)
+            - 3.0
+                * self.bulk_modulus()
+                * Quantity::<ReciprocalTemperature>::new(self.coefficient_of_thermal_expansion())
+                * (Quantity::<Temperature>::new(temperature)
+                    - Quantity::<Temperature>::new(self.reference_temperature()))
+                * strain_trace)
+            .value_as::<EnergyDensity>())
     }
 }

@@ -1,3 +1,4 @@
+use crate::math::{Quantity, Stress};
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -25,10 +26,10 @@ where
     C2: Elastic,
     Y1: Tensor,
 {
-    fn bulk_modulus(&self) -> Scalar {
+    fn bulk_modulus(&self) -> Quantity<Stress> {
         self.0.bulk_modulus() + self.1.bulk_modulus()
     }
-    fn shear_modulus(&self) -> Scalar {
+    fn shear_modulus(&self) -> Quantity<Stress> {
         self.0.shear_modulus() + self.1.shear_modulus()
     }
 }

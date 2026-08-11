@@ -37,11 +37,11 @@ impl Fung {
 }
 
 impl Solid for Fung {
-    fn bulk_modulus(&self) -> Scalar {
-        self.bulk_modulus
+    fn bulk_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.bulk_modulus)
     }
-    fn shear_modulus(&self) -> Scalar {
-        self.shear_modulus
+    fn shear_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.shear_modulus)
     }
 }
 
@@ -59,17 +59,14 @@ impl Elastic for Fung {
             isochoric_left_cauchy_green_deformation_trace,
         ) = isochoric_left_cauchy_green_deformation.deviatoric_and_trace();
         Ok((deviatoric_isochoric_left_cauchy_green_deformation
-            * ((Quantity::<Stress>::new(self.shear_modulus())
+            * ((self.shear_modulus()
                 + Quantity::<Stress>::new(self.extra_modulus())
                     * ((self.exponent()
                         * (isochoric_left_cauchy_green_deformation_trace - 3.0))
                         .exp()
                         - 1.0))
                 / jacobian)
-            + IDENTITY
-                * Quantity::<Stress>::new(self.bulk_modulus())
-                * 0.5
-                * (jacobian - 1.0 / jacobian))
+            + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
             .with_unit::<Dimensionless>())
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
@@ -87,7 +84,7 @@ impl Elastic for Fung {
         ) = isochoric_left_cauchy_green_deformation.deviatoric_and_trace();
         let exponential =
             (self.exponent() * (isochoric_left_cauchy_green_deformation_trace - 3.0)).exp();
-        let scaled_shear_modulus_0 = (Quantity::<Stress>::new(self.shear_modulus())
+        let scaled_shear_modulus_0 = (self.shear_modulus()
             + Quantity::<Stress>::new(self.extra_modulus()) * (exponential - 1.0))
             / jacobian.powf(FIVE_THIRDS);
         Ok(((TensorRank4::dyad_ik_jl(&IDENTITY, deformation_gradient)
@@ -105,10 +102,7 @@ impl Elastic for Fung {
                         / jacobian)),
             )
             + TensorRank4::dyad_ij_kl(
-                &(IDENTITY
-                    * (0.5
-                        * Quantity::<Stress>::new(self.bulk_modulus())
-                        * (jacobian + 1.0 / jacobian))
+                &(IDENTITY * (0.5 * self.bulk_modulus() * (jacobian + 1.0 / jacobian))
                     - deformation_gradient.left_cauchy_green().deviatoric()
                         * (scaled_shear_modulus_0 * FIVE_THIRDS)),
                 &inverse_transpose_deformation_gradient,
@@ -127,13 +121,11 @@ impl Hyperelastic for Fung {
         let scalar_term =
             deformation_gradient.left_cauchy_green().trace() / jacobian.powf(TWO_THIRDS) - 3.0;
         Ok((0.5
-            * ((Quantity::<Modulus>::new(self.shear_modulus())
-                - Quantity::<Modulus>::new(self.extra_modulus()))
+            * ((self.shear_modulus() - Quantity::<Modulus>::new(self.extra_modulus()))
                 * scalar_term
                 + Quantity::<Modulus>::new(self.extra_modulus()) / self.exponent()
                     * ((self.exponent() * scalar_term).exp() - 1.0)
-                + Quantity::<Modulus>::new(self.bulk_modulus())
-                    * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
+                + self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
         .value_as::<EnergyDensity>())
     }
 }

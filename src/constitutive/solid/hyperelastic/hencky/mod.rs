@@ -1,5 +1,5 @@
 use crate::math::TensorRank4;
-use crate::math::{Dimensionless, EnergyDensity, Modulus, Quantity, Stress};
+use crate::math::{Dimensionless, EnergyDensity, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -22,11 +22,11 @@ pub struct Hencky {
 }
 
 impl Solid for Hencky {
-    fn bulk_modulus(&self) -> Scalar {
-        self.bulk_modulus
+    fn bulk_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.bulk_modulus)
     }
-    fn shear_modulus(&self) -> Scalar {
-        self.shear_modulus
+    fn shear_modulus(&self) -> Quantity<Stress> {
+        Quantity::new(self.shear_modulus)
     }
 }
 
@@ -39,12 +39,9 @@ impl Elastic for Hencky {
         let jacobian = self.jacobian(deformation_gradient)?;
         let (deviatoric_strain, strain_trace) =
             (deformation_gradient.left_cauchy_green().logm()? * 0.5).deviatoric_and_trace();
-        Ok(
-            (deviatoric_strain * (2.0 * Quantity::<Stress>::new(self.shear_modulus()) / jacobian)
-                + IDENTITY
-                    * (Quantity::<Stress>::new(self.bulk_modulus()) * strain_trace / jacobian))
-                .with_unit::<Dimensionless>(),
-        )
+        Ok((deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
+            + IDENTITY * (self.bulk_modulus() * strain_trace / jacobian))
+            .with_unit::<Dimensionless>())
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
     fn cauchy_tangent_stiffness(
@@ -55,8 +52,7 @@ impl Elastic for Hencky {
         let left_cauchy_green = deformation_gradient.left_cauchy_green();
         let (deviatoric_strain, strain_trace) =
             (left_cauchy_green.logm()? * 0.5).deviatoric_and_trace();
-        let scaled_deformation_gradient =
-            deformation_gradient * Quantity::<Stress>::new(self.shear_modulus()) / jacobian;
+        let scaled_deformation_gradient = deformation_gradient * self.shear_modulus() / jacobian;
         Ok(((left_cauchy_green
             .dlogm()?
             .contract_third_fourth_with_first_second(
@@ -65,13 +61,9 @@ impl Elastic for Hencky {
             ))
             + (TensorRank4::dyad_ij_kl(
                 &(IDENTITY
-                    * ((Quantity::<Stress>::new(self.bulk_modulus())
-                        - TWO_THIRDS * Quantity::<Stress>::new(self.shear_modulus()))
-                        / jacobian)
-                    - deviatoric_strain
-                        * (2.0 * Quantity::<Stress>::new(self.shear_modulus()) / jacobian)
-                    - IDENTITY
-                        * (Quantity::<Stress>::new(self.bulk_modulus()) * strain_trace / jacobian)),
+                    * ((self.bulk_modulus() - TWO_THIRDS * self.shear_modulus()) / jacobian)
+                    - deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
+                    - IDENTITY * (self.bulk_modulus() * strain_trace / jacobian)),
                 &deformation_gradient.inverse_transpose(),
             )))
         .with_unit::<Dimensionless>())
@@ -86,13 +78,10 @@ impl Hyperelastic for Hencky {
     ) -> Result<Scalar, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let strain = deformation_gradient.left_cauchy_green().logm()? * 0.5;
-        Ok(
-            (Quantity::<Modulus>::new(self.shear_modulus()) * strain.squared_trace()
-                + 0.5
-                    * (Quantity::<Modulus>::new(self.bulk_modulus())
-                        - TWO_THIRDS * Quantity::<Modulus>::new(self.shear_modulus()))
-                    * strain.trace().powi(2))
-            .value_as::<EnergyDensity>(),
-        )
+        Ok((self.shear_modulus() * strain.squared_trace()
+            + 0.5
+                * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())
+                * strain.trace().powi(2))
+        .value_as::<EnergyDensity>())
     }
 }

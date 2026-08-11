@@ -1,5 +1,6 @@
 //! Thermohyperelastic-thermal conduction constitutive models.
 
+use crate::math::{Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -48,10 +49,10 @@ where
     C1: Thermohyperelastic,
     C2: ThermalConduction,
 {
-    fn bulk_modulus(&self) -> Scalar {
+    fn bulk_modulus(&self) -> Quantity<Stress> {
         self.solid_constitutive_model().bulk_modulus()
     }
-    fn shear_modulus(&self) -> Scalar {
+    fn shear_modulus(&self) -> Quantity<Stress> {
         self.solid_constitutive_model().shear_modulus()
     }
 }
