@@ -1,4 +1,5 @@
 use super::SaintVenantKirchhoff;
+use crate::math::Quantity;
 crate::constitutive::solid::hyperelastic_viscoplastic::test::test_model!(SaintVenantKirchhoff);
 
 #[test]
@@ -8,8 +9,8 @@ fn root_biaxial() -> Result<(), crate::math::assert::AssertionError> {
         math::{Vector, assert::Assert, integrate::DormandPrince, optimize::NewtonRaphson},
     };
     let model = SaintVenantKirchhoff {
-        bulk_modulus: 13.0,
-        shear_modulus: 3.0,
+        bulk_modulus: Quantity::new(13.0),
+        shear_modulus: Quantity::new(3.0),
         yield_stress: 2.0,
         hardening_slope: 1.0,
         rate_sensitivity: 0.25,

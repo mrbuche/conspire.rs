@@ -15,8 +15,8 @@ macro_rules! test_model {
         macro_rules! test_integrator_with_solver {
             ($integrator:ident, $solver:expr) => {
                 let model = $model {
-                    bulk_modulus: 13.0,
-                    shear_modulus: 3.0,
+                    bulk_modulus: $crate::math::Quantity::new(13.0),
+                    shear_modulus: $crate::math::Quantity::new(3.0),
                     yield_stress: 2.0,
                     hardening_slope: 1.0,
                     rate_sensitivity: 0.25,
@@ -117,8 +117,8 @@ macro_rules! test_model {
                 [1.82260662, 2.1921719, 3.16928404],
             ]);
             let model = $model {
-                bulk_modulus: 13.0,
-                shear_modulus: 3.0,
+                bulk_modulus: $crate::math::Quantity::new(13.0),
+                shear_modulus: $crate::math::Quantity::new(3.0),
                 yield_stress: 2.0,
                 hardening_slope: 1.0,
                 rate_sensitivity: 0.25,

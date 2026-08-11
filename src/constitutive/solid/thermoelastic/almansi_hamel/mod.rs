@@ -26,9 +26,9 @@ use super::*;
 #[derive(Clone, Debug)]
 pub struct AlmansiHamel {
     /// The bulk modulus $`\kappa`$.
-    pub bulk_modulus: Scalar,
+    pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
-    pub shear_modulus: Scalar,
+    pub shear_modulus: Quantity<Stress>,
     /// The coefficient of thermal expansion $`\alpha`$.
     pub coefficient_of_thermal_expansion: Scalar,
     /// The reference temperature $`T_\mathrm{ref}`$.
@@ -37,10 +37,10 @@ pub struct AlmansiHamel {
 
 impl Solid for AlmansiHamel {
     fn bulk_modulus(&self) -> Quantity<Stress> {
-        Quantity::new(self.bulk_modulus)
+        self.bulk_modulus
     }
     fn shear_modulus(&self) -> Quantity<Stress> {
-        Quantity::new(self.shear_modulus)
+        self.shear_modulus
     }
 }
 

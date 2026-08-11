@@ -1,3 +1,4 @@
+use crate::math::Quantity;
 use crate::math::assert::Assert;
 use crate::{
     constitutive::solid::hyperelastic::NeoHookean,
@@ -12,8 +13,8 @@ use crate::{
 
 fn constitutive_model() -> NeoHookean {
     NeoHookean {
-        bulk_modulus: 13.0,
-        shear_modulus: 3.0,
+        bulk_modulus: Quantity::new(13.0),
+        shear_modulus: Quantity::new(3.0),
     }
 }
 

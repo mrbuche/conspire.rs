@@ -359,11 +359,12 @@ fn temporary_poly_0() {
     let element_face_connectivity = vec![vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]];
     use crate::constitutive::solid::hyperelastic::NeoHookean;
     use crate::fem::solid::elastic::ElasticElements;
+    use crate::math::Quantity;
     use crate::vem::block::{Block, solid::SolidVirtualElements};
     let block = Block::<_, Element>::from((
         NeoHookean {
-            shear_modulus: 3.0,
-            bulk_modulus: 13.0,
+            shear_modulus: Quantity::new(3.0),
+            bulk_modulus: Quantity::new(13.0),
         },
         element_face_connectivity.clone(),
         face_node_connectivity.clone(),
@@ -435,11 +436,12 @@ fn temporary_poly_1() {
     let element_face_connectivity = vec![vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]];
     use crate::constitutive::solid::hyperelastic::NeoHookean;
     use crate::fem::solid::elastic::ElasticElements;
+    use crate::math::Quantity;
     use crate::vem::block::{Block, solid::SolidVirtualElements};
     let block = Block::<_, Element>::from((
         NeoHookean {
-            shear_modulus: 3.0,
-            bulk_modulus: 13.0,
+            shear_modulus: Quantity::new(3.0),
+            bulk_modulus: Quantity::new(13.0),
         },
         element_face_connectivity.clone(),
         face_node_connectivity.clone(),
@@ -518,11 +520,12 @@ fn temporary_poly_2() {
     let element_face_connectivity = vec![vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]];
     use crate::constitutive::solid::hyperelastic::NeoHookean;
     use crate::fem::solid::elastic::ElasticElements;
+    use crate::math::Quantity;
     use crate::vem::block::Block;
     let block = Block::<_, Element>::from((
         NeoHookean {
-            shear_modulus: 3.0,
-            bulk_modulus: 13.0,
+            shear_modulus: Quantity::new(3.0),
+            bulk_modulus: Quantity::new(13.0),
         },
         element_face_connectivity.clone(),
         face_node_connectivity.clone(),

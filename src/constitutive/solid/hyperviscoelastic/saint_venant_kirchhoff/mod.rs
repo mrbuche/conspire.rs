@@ -39,30 +39,30 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct SaintVenantKirchhoff {
     /// The bulk modulus $`\kappa`$.
-    pub bulk_modulus: Scalar,
+    pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
-    pub shear_modulus: Scalar,
+    pub shear_modulus: Quantity<Stress>,
     /// The bulk viscosity $`\zeta`$.
-    pub bulk_viscosity: Scalar,
+    pub bulk_viscosity: Quantity<Viscosity>,
     /// The shear viscosity $`\eta`$.
-    pub shear_viscosity: Scalar,
+    pub shear_viscosity: Quantity<Viscosity>,
 }
 
 impl Solid for SaintVenantKirchhoff {
     fn bulk_modulus(&self) -> Quantity<Stress> {
-        Quantity::new(self.bulk_modulus)
+        self.bulk_modulus
     }
     fn shear_modulus(&self) -> Quantity<Stress> {
-        Quantity::new(self.shear_modulus)
+        self.shear_modulus
     }
 }
 
 impl Viscous for SaintVenantKirchhoff {
     fn bulk_viscosity(&self) -> Quantity<Viscosity> {
-        Quantity::new(self.bulk_viscosity)
+        self.bulk_viscosity
     }
     fn shear_viscosity(&self) -> Quantity<Viscosity> {
-        Quantity::new(self.shear_viscosity)
+        self.shear_viscosity
     }
 }
 

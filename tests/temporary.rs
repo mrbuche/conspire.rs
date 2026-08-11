@@ -1,5 +1,6 @@
 #![cfg(feature = "fem")]
 
+use conspire::math::Quantity;
 use conspire::math::assert::Assert;
 use conspire::{
     constitutive::{
@@ -7387,8 +7388,8 @@ fn temporary_hyperelastic() -> Result<(), AssertionError> {
         .for_each(|entry| *entry -= 1);
     let num_nodes = ref_coordinates.len();
     let model = NeoHookean {
-        bulk_modulus: 13.0,
-        shear_modulus: 3.0,
+        bulk_modulus: Quantity::new(13.0),
+        shear_modulus: Quantity::new(3.0),
     };
     let length = ref_coordinates
         .iter()
@@ -7516,8 +7517,8 @@ fn temporary_elastic_viscoplastic() -> Result<(), AssertionError> {
         .flatten()
         .for_each(|entry| *entry -= 1);
     let model = SaintVenantKirchhoff {
-        bulk_modulus: 13.0,
-        shear_modulus: 3.0,
+        bulk_modulus: Quantity::new(13.0),
+        shear_modulus: Quantity::new(3.0),
         yield_stress: 2.0,
         hardening_slope: 1.0,
         rate_sensitivity: 0.25,
@@ -7627,10 +7628,10 @@ fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
         .for_each(|entry| *entry -= 1);
     let num_nodes = ref_coordinates.len();
     let model = AlmansiHamel {
-        bulk_modulus: 13.0,
-        shear_modulus: 3.0,
-        bulk_viscosity: 11.0,
-        shear_viscosity: 1.0,
+        bulk_modulus: Quantity::new(13.0),
+        shear_modulus: Quantity::new(3.0),
+        bulk_viscosity: Quantity::new(11.0),
+        shear_viscosity: Quantity::new(1.0),
     };
     let length = ref_coordinates
         .iter()
@@ -7830,12 +7831,12 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
     let num_nodes = ref_coordinates.len();
     let model = ElasticMultiplicative::from((
         NeoHookean {
-            bulk_modulus: 13.0,
-            shear_modulus: 3.0,
+            bulk_modulus: Quantity::new(13.0),
+            shear_modulus: Quantity::new(3.0),
         },
         SVK {
-            bulk_modulus: 13.0,
-            shear_modulus: 3.0,
+            bulk_modulus: Quantity::new(13.0),
+            shear_modulus: Quantity::new(3.0),
         },
     ));
     let length = ref_coordinates
@@ -7959,12 +7960,12 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
     let num_nodes = ref_coordinates.len();
     let model = ElasticMultiplicative::from((
         NeoHookean {
-            bulk_modulus: 13.0,
-            shear_modulus: 3.0,
+            bulk_modulus: Quantity::new(13.0),
+            shear_modulus: Quantity::new(3.0),
         },
         SVK {
-            bulk_modulus: 13.0,
-            shear_modulus: 3.0,
+            bulk_modulus: Quantity::new(13.0),
+            shear_modulus: Quantity::new(3.0),
         },
     ));
     let length = ref_coordinates

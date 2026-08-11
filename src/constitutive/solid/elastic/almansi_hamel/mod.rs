@@ -9,24 +9,24 @@ use crate::{
         solid::{Solid, TWO_THIRDS, elastic::Elastic},
     },
     math::{IDENTITY, Rank2},
-    mechanics::{CauchyStress, CauchyTangentStiffness, DeformationGradient, Scalar},
+    mechanics::{CauchyStress, CauchyTangentStiffness, DeformationGradient},
 };
 
 #[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
 pub struct AlmansiHamel {
     /// The bulk modulus $`\kappa`$.
-    pub bulk_modulus: Scalar,
+    pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
-    pub shear_modulus: Scalar,
+    pub shear_modulus: Quantity<Stress>,
 }
 
 impl Solid for AlmansiHamel {
     fn bulk_modulus(&self) -> Quantity<Stress> {
-        Quantity::new(self.bulk_modulus)
+        self.bulk_modulus
     }
     fn shear_modulus(&self) -> Quantity<Stress> {
-        Quantity::new(self.shear_modulus)
+        self.shear_modulus
     }
 }
 

@@ -18,9 +18,9 @@ const SEVEN_THIRDS: Scalar = 7.0 / 3.0;
 #[derive(Clone, Debug)]
 pub struct Yeoh<const N: usize> {
     /// The bulk modulus $`\kappa`$.
-    pub bulk_modulus: Scalar,
+    pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
-    pub shear_modulus: Scalar,
+    pub shear_modulus: Quantity<Stress>,
     /// The extra moduli $`\mu_n`$ for $`n=2\ldots N`$.
     pub extra_moduli: [Scalar; N],
 }
@@ -34,10 +34,10 @@ impl<const N: usize> Yeoh<N> {
 
 impl<const N: usize> Solid for Yeoh<N> {
     fn bulk_modulus(&self) -> Quantity<Stress> {
-        Quantity::new(self.bulk_modulus)
+        self.bulk_modulus
     }
     fn shear_modulus(&self) -> Quantity<Stress> {
-        Quantity::new(self.shear_modulus)
+        self.shear_modulus
     }
 }
 

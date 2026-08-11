@@ -9,7 +9,7 @@ use crate::{
     },
     math::{ContractThirdFourthWithFirstSecond, IDENTITY_00, Rank2},
     mechanics::{
-        Deformation, DeformationGradient, Scalar, SecondPiolaKirchhoffStress,
+        Deformation, DeformationGradient, SecondPiolaKirchhoffStress,
         SecondPiolaKirchhoffTangentStiffness,
     },
 };
@@ -18,17 +18,17 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct Hencky {
     /// The bulk modulus $`\kappa`$.
-    pub bulk_modulus: Scalar,
+    pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
-    pub shear_modulus: Scalar,
+    pub shear_modulus: Quantity<Stress>,
 }
 
 impl Solid for Hencky {
     fn bulk_modulus(&self) -> Quantity<Stress> {
-        Quantity::new(self.bulk_modulus)
+        self.bulk_modulus
     }
     fn shear_modulus(&self) -> Quantity<Stress> {
-        Quantity::new(self.shear_modulus)
+        self.shear_modulus
     }
 }
 

@@ -27,9 +27,9 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct SaintVenantKirchhoff {
     /// The bulk modulus $`\kappa`$.
-    pub bulk_modulus: Scalar,
+    pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
-    pub shear_modulus: Scalar,
+    pub shear_modulus: Quantity<Stress>,
     /// The initial yield stress $`Y_0`$.
     pub yield_stress: Scalar,
     /// The isotropic hardening slope $`H`$.
@@ -42,10 +42,10 @@ pub struct SaintVenantKirchhoff {
 
 impl Solid for SaintVenantKirchhoff {
     fn bulk_modulus(&self) -> Quantity<Stress> {
-        Quantity::new(self.bulk_modulus)
+        self.bulk_modulus
     }
     fn shear_modulus(&self) -> Quantity<Stress> {
-        Quantity::new(self.shear_modulus)
+        self.shear_modulus
     }
 }
 

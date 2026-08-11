@@ -9,24 +9,24 @@ use crate::{
         solid::{Solid, TWO_THIRDS, elastic::Elastic},
     },
     math::IDENTITY,
-    mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient, Scalar},
+    mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient},
 };
 
 #[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
 pub struct SaintVenantKirchhoff {
     /// The bulk modulus $`\kappa`$.
-    pub bulk_modulus: Scalar,
+    pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
-    pub shear_modulus: Scalar,
+    pub shear_modulus: Quantity<Stress>,
 }
 
 impl Solid for SaintVenantKirchhoff {
     fn bulk_modulus(&self) -> Quantity<Stress> {
-        Quantity::new(self.bulk_modulus)
+        self.bulk_modulus
     }
     fn shear_modulus(&self) -> Quantity<Stress> {
-        Quantity::new(self.shear_modulus)
+        self.shear_modulus
     }
 }
 

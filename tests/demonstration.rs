@@ -1,5 +1,6 @@
 #![cfg(feature = "constitutive")]
 
+use conspire::math::Quantity;
 use conspire::{
     constitutive::{
         fluid::viscoplastic::ViscoplasticFlow,
@@ -22,20 +23,20 @@ fn demonstrate() -> Result<(), AssertionError> {
     let model = ElasticViscoplasticAdditiveElastic::from((
         ElasticMultiplicativeViscoplastic::from((
             Hencky {
-                bulk_modulus: 300.0,
-                shear_modulus: 100.0,
+                bulk_modulus: Quantity::new(300.0),
+                shear_modulus: Quantity::new(100.0),
             },
             ElasticViscoplasticAdditiveViscoplastic::from((
                 ElasticMultiplicativeViscoplastic::from((
                     Hencky {
-                        bulk_modulus: 0.0,
-                        shear_modulus: 25.0,
+                        bulk_modulus: Quantity::new(0.0),
+                        shear_modulus: Quantity::new(25.0),
                     },
                     ElasticViscoplasticAdditiveViscoplastic::from((
                         ElasticMultiplicativeViscoplastic::from((
                             Hencky {
-                                bulk_modulus: 0.0,
-                                shear_modulus: 10.0,
+                                bulk_modulus: Quantity::new(0.0),
+                                shear_modulus: Quantity::new(10.0),
                             },
                             ViscoplasticFlow {
                                 yield_stress: 3.0,
@@ -61,8 +62,8 @@ fn demonstrate() -> Result<(), AssertionError> {
             )),
         )),
         ArrudaBoyce {
-            bulk_modulus: 0.0,
-            shear_modulus: 3.0,
+            bulk_modulus: Quantity::new(0.0),
+            shear_modulus: Quantity::new(3.0),
             number_of_links: 4.0,
         },
     ));
