@@ -1,7 +1,7 @@
 use crate::math::Dimensionless;
 use crate::math::UnitMul;
 use crate::math::{Current, Factor, Flattened, Intermediate, Reference};
-use crate::math::{Quantity, Time, UnitDiv};
+use crate::math::{Quantity, UnitDiv};
 #[cfg(test)]
 mod test;
 
@@ -1443,9 +1443,9 @@ where
     }
 }
 
-impl<const D: usize, I, J, U> Differentiate for TensorRank2<D, I, J, U>
+impl<const D: usize, I, J, U, T> Differentiate<T> for TensorRank2<D, I, J, U>
 where
-    U: UnitDiv<Time>,
+    U: UnitDiv<T>,
 {
-    type Derivative = TensorRank2<D, I, J, <U as UnitDiv<Time>>::Output>;
+    type Derivative = TensorRank2<D, I, J, <U as UnitDiv<T>>::Output>;
 }

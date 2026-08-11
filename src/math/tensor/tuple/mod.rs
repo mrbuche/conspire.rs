@@ -479,13 +479,13 @@ where
     }
 }
 
-impl<T1, T2> Differentiate for TensorTuple<T1, T2>
+impl<T1, T2, T> Differentiate<T> for TensorTuple<T1, T2>
 where
-    T1: Differentiate + Tensor,
-    T2: Differentiate + Tensor,
-    <T1 as Differentiate>::Derivative: Tensor,
-    <T2 as Differentiate>::Derivative: Tensor,
+    T1: Differentiate<T> + Tensor,
+    T2: Differentiate<T> + Tensor,
+    <T1 as Differentiate<T>>::Derivative: Tensor,
+    <T2 as Differentiate<T>>::Derivative: Tensor,
 {
     type Derivative =
-        TensorTuple<<T1 as Differentiate>::Derivative, <T2 as Differentiate>::Derivative>;
+        TensorTuple<<T1 as Differentiate<T>>::Derivative, <T2 as Differentiate<T>>::Derivative>;
 }

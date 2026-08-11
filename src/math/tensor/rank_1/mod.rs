@@ -23,7 +23,7 @@ use crate::{
     math::{
         matrix::vector::Vector,
         tensor::{
-            Jacobian, Quantity, Solution, Tensor, TensorArray, Time, UnitDiv, UnitMul,
+            Jacobian, Quantity, Solution, Tensor, TensorArray, UnitDiv, UnitMul,
             rank_0::TensorRank0, rank_1::list::TensorRank1List, rank_2::TensorRank2,
         },
         write_tensor_rank_0,
@@ -645,9 +645,9 @@ where
     }
 }
 
-impl<const D: usize, I, U> Differentiate for TensorRank1<D, I, U>
+impl<const D: usize, I, U, T> Differentiate<T> for TensorRank1<D, I, U>
 where
-    U: UnitDiv<Time>,
+    U: UnitDiv<T>,
 {
-    type Derivative = TensorRank1<D, I, <U as UnitDiv<Time>>::Output>;
+    type Derivative = TensorRank1<D, I, <U as UnitDiv<T>>::Output>;
 }

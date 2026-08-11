@@ -543,10 +543,10 @@ where
     }
 }
 
-impl<T> Differentiate for TensorVector<T>
+impl<E, T> Differentiate<T> for TensorVector<E>
 where
-    T: Differentiate + Tensor,
-    <T as Differentiate>::Derivative: Tensor,
+    E: Differentiate<T> + Tensor,
+    <E as Differentiate<T>>::Derivative: Tensor,
 {
-    type Derivative = TensorVector<<T as Differentiate>::Derivative>;
+    type Derivative = TensorVector<<E as Differentiate<T>>::Derivative>;
 }

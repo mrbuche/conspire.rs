@@ -4,7 +4,7 @@ mod test;
 use super::{
     Differentiate, Erase, Jacobian, Solution, Tensor, TensorArray, Vector,
     rank_0::TensorRank0,
-    unit::{Dimensionless, Time, UnitDiv, UnitInv, UnitMul},
+    unit::{Dimensionless, UnitDiv, UnitInv, UnitMul},
 };
 use crate::math::assert::FiniteDifference;
 use std::{
@@ -484,9 +484,9 @@ impl<U> From<Vector> for Quantity<U> {
     }
 }
 
-impl<U> Differentiate for Quantity<U>
+impl<U, T> Differentiate<T> for Quantity<U>
 where
-    U: UnitDiv<Time>,
+    U: UnitDiv<T>,
 {
-    type Derivative = Quantity<<U as UnitDiv<Time>>::Output>;
+    type Derivative = Quantity<<U as UnitDiv<T>>::Output>;
 }

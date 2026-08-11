@@ -386,10 +386,10 @@ where
     }
 }
 
-impl<T, const N: usize> Differentiate for TensorList<T, N>
+impl<E, T, const N: usize> Differentiate<T> for TensorList<E, N>
 where
-    T: Differentiate + Tensor,
-    <T as Differentiate>::Derivative: Tensor,
+    E: Differentiate<T> + Tensor,
+    <E as Differentiate<T>>::Derivative: Tensor,
 {
-    type Derivative = TensorList<<T as Differentiate>::Derivative, N>;
+    type Derivative = TensorList<<E as Differentiate<T>>::Derivative, N>;
 }
