@@ -695,18 +695,10 @@ impl<const D: usize, I, J, K, L, N, U> ContractSecondWithFirst<&TensorRank2<D, J
 {
     type Output = TensorRank4<D, I, N, K, L, U>;
     fn contract_second_with_first(self, tensor_rank_2: &TensorRank2<D, J, N, U>) -> Self::Output {
-        let mut output = TensorRank4::zero();
-        output.iter_mut().zip(self).for_each(|(output_i, self_i)| {
-            self_i
-                .into_iter()
-                .zip(tensor_rank_2.iter())
-                .for_each(|(self_is, tensor_rank_2_s)| {
-                    output_i.iter_mut().zip(tensor_rank_2_s.iter()).for_each(
-                        |(output_ij, tensor_rank_2_sj)| *output_ij += &self_is * tensor_rank_2_sj,
-                    )
-                })
-        });
-        output
+        relabel(canonical_contract_second_with_first(
+            self.canonical(),
+            tensor_rank_2.canonical(),
+        ))
     }
 }
 
@@ -758,22 +750,10 @@ impl<const D: usize, I, J, K, L, M, U> ContractThirdWithFirst<&TensorRank2<D, M,
 {
     type Output = TensorRank4<D, I, J, K, L, U>;
     fn contract_third_with_first(&self, tensor_rank_2: &TensorRank2<D, M, K, U>) -> Self::Output {
-        self.iter()
-            .map(|self_i| {
-                self_i
-                    .iter()
-                    .map(|self_ij| {
-                        self_ij
-                            .iter()
-                            .zip(tensor_rank_2.iter())
-                            .map(|(self_ijm, tensor_rank_2_m)| {
-                                TensorRank2::<D, K, L, U>::from((tensor_rank_2_m, self_ijm))
-                            })
-                            .sum()
-                    })
-                    .collect()
-            })
-            .collect()
+        relabel(canonical_contract_third_with_first(
+            self.canonical(),
+            tensor_rank_2.canonical(),
+        ))
     }
 }
 
@@ -1268,4 +1248,78 @@ fn canonical_rank_2_times_rank_4<const D: usize>(
         .iter()
         .map(|tensor_rank_2_i| tensor_rank_2_i * tensor_rank_4)
         .collect()
+}
+
+/// Contracts the second index against the first of a rank 2.
+///
+/// `out[i][j][k][l] = sum_s tensor_rank_4[i][s][k][l] * tensor_rank_2[s][j]`
+///
+/// Accumulated in place, so none of the scaled rank-2 blocks the sum would
+/// otherwise build are materialized.
+fn canonical_contract_second_with_first<const D: usize>(
+    tensor_rank_4: &TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>,
+    tensor_rank_2: &TensorRank2<D, Reference, Reference, Dimensionless>,
+) -> TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless> {
+    let mut output = TensorRank4::zero();
+    tensor_rank_4
+        .iter()
+        .zip(output.iter_mut())
+        .for_each(|(tensor_rank_4_i, output_i)| {
+            tensor_rank_4_i.iter().zip(tensor_rank_2.iter()).for_each(
+                |(tensor_rank_4_is, tensor_rank_2_s)| {
+                    tensor_rank_2_s.iter().zip(output_i.iter_mut()).for_each(
+                        |(tensor_rank_2_sj, output_ij)| {
+                            output_ij.iter_mut().zip(tensor_rank_4_is.iter()).for_each(
+                                |(output_ijk, tensor_rank_4_isk)| {
+                                    output_ijk
+                                        .iter_mut()
+                                        .zip(tensor_rank_4_isk.iter())
+                                        .for_each(|(output_ijkl, tensor_rank_4_iskl)| {
+                                            *output_ijkl += tensor_rank_4_iskl * tensor_rank_2_sj
+                                        })
+                                },
+                            )
+                        },
+                    )
+                },
+            )
+        });
+    output
+}
+
+/// Contracts the third index against the first of a rank 2.
+///
+/// `out[i][j][k][l] = sum_m tensor_rank_2[m][k] * tensor_rank_4[i][j][m][l]`
+///
+/// Accumulated in place, so the outer product this formed for every `m` and
+/// then summed is never built.
+fn canonical_contract_third_with_first<const D: usize>(
+    tensor_rank_4: &TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>,
+    tensor_rank_2: &TensorRank2<D, Reference, Reference, Dimensionless>,
+) -> TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless> {
+    let mut output = TensorRank4::zero();
+    tensor_rank_4
+        .iter()
+        .zip(output.iter_mut())
+        .for_each(|(tensor_rank_4_i, output_i)| {
+            tensor_rank_4_i.iter().zip(output_i.iter_mut()).for_each(
+                |(tensor_rank_4_ij, output_ij)| {
+                    tensor_rank_4_ij.iter().zip(tensor_rank_2.iter()).for_each(
+                        |(tensor_rank_4_ijm, tensor_rank_2_m)| {
+                            tensor_rank_2_m.iter().zip(output_ij.iter_mut()).for_each(
+                                |(tensor_rank_2_mk, output_ijk)| {
+                                    output_ijk
+                                        .iter_mut()
+                                        .zip(tensor_rank_4_ijm.iter())
+                                        .for_each(|(output_ijkl, tensor_rank_4_ijml)| {
+                                            *output_ijkl += tensor_rank_2_mk * tensor_rank_4_ijml
+                                        })
+                                },
+                            )
+                        },
+                    )
+                },
+            )
+        });
+    output
 }

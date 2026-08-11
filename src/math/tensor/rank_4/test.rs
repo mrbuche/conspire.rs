@@ -2,7 +2,8 @@ use super::{
     super::{Tensor, TensorArray},
     ContractAllWithFirst, ContractFirstSecondWithSecond, ContractFirstThirdFourthWithFirst,
     ContractSecondFourthWithFirst, ContractSecondWithFirst, ContractThirdFourthWithFirstSecond,
-    IDENTITY_1010, Rank2, TensorRank0, TensorRank1, TensorRank2, TensorRank3, TensorRank4,
+    ContractThirdWithFirst, IDENTITY_1010, Rank2, TensorRank0, TensorRank1, TensorRank2,
+    TensorRank3, TensorRank4,
 };
 use crate::math::Current;
 use crate::{ABS_TOL, REL_TOL};
@@ -1270,4 +1271,48 @@ fn quadratic_form_matches_dense() {
     let mut dense = SquareMatrix::zero(9);
     tensor.fill_into(&mut dense);
     assert!((form - &vector * (dense * &vector)).abs() < crate::ABS_TOL)
+}
+
+/// Both of these accumulate in place rather than summing blocks they build, so
+/// each is checked against the sum it stands for rather than against a fixture.
+#[test]
+fn contract_second_with_first_is_its_definition() {
+    let tensor_rank_4 = get_tensor_rank_4();
+    let tensor_rank_2 = get_tensor_rank_2();
+    let contraction = get_tensor_rank_4().contract_second_with_first(&tensor_rank_2);
+    (0..3).for_each(|i| {
+        (0..3).for_each(|j| {
+            (0..3).for_each(|k| {
+                (0..3).for_each(|l| {
+                    assert_eq!(
+                        contraction[i][j][k][l],
+                        (0..3)
+                            .map(|s| tensor_rank_4[i][s][k][l] * tensor_rank_2[s][j])
+                            .sum::<TensorRank0>()
+                    )
+                })
+            })
+        })
+    })
+}
+
+#[test]
+fn contract_third_with_first_is_its_definition() {
+    let tensor_rank_4 = get_tensor_rank_4();
+    let tensor_rank_2 = get_tensor_rank_2();
+    let contraction = tensor_rank_4.contract_third_with_first(&tensor_rank_2);
+    (0..3).for_each(|i| {
+        (0..3).for_each(|j| {
+            (0..3).for_each(|k| {
+                (0..3).for_each(|l| {
+                    assert_eq!(
+                        contraction[i][j][k][l],
+                        (0..3)
+                            .map(|m| tensor_rank_2[m][k] * tensor_rank_4[i][j][m][l])
+                            .sum::<TensorRank0>()
+                    )
+                })
+            })
+        })
+    })
 }
