@@ -61,36 +61,40 @@ impl<const D: usize, I, J, K, U> PartialEq for TensorRank3<D, I, J, K, U> {
 impl<const D: usize, I, J, K, U> TensorRank3<D, I, J, K, U> {
     /// Views the tensor with its configurations discarded, so that arithmetic is
     /// compiled once per dimension rather than once per configuration.
-    fn canonical(&self) -> &TensorRank3<D, Reference, Reference, Reference, U> {
+    fn canonical(&self) -> &TensorRank3<D, Reference, Reference, Reference, Dimensionless> {
         unsafe {
-            &*(self as *const Self as *const TensorRank3<D, Reference, Reference, Reference, U>)
+            &*(self as *const Self
+                as *const TensorRank3<D, Reference, Reference, Reference, Dimensionless>)
         }
     }
-    fn canonical_mut(&mut self) -> &mut TensorRank3<D, Reference, Reference, Reference, U> {
+    fn canonical_mut(
+        &mut self,
+    ) -> &mut TensorRank3<D, Reference, Reference, Reference, Dimensionless> {
         unsafe {
-            &mut *(self as *mut Self as *mut TensorRank3<D, Reference, Reference, Reference, U>)
+            &mut *(self as *mut Self
+                as *mut TensorRank3<D, Reference, Reference, Reference, Dimensionless>)
         }
     }
-    fn into_canonical(self) -> TensorRank3<D, Reference, Reference, Reference, U> {
+    fn into_canonical(self) -> TensorRank3<D, Reference, Reference, Reference, Dimensionless> {
         unsafe {
             (&self as *const Self)
-                .cast::<TensorRank3<D, Reference, Reference, Reference, U>>()
+                .cast::<TensorRank3<D, Reference, Reference, Reference, Dimensionless>>()
                 .read()
         }
     }
 }
 
-fn relabel<const D: usize, I, J, K, U>(
-    tensor: TensorRank3<D, Reference, Reference, Reference, U>,
+pub(super) fn relabel<const D: usize, I, J, K, U>(
+    tensor: TensorRank3<D, Reference, Reference, Reference, Dimensionless>,
 ) -> TensorRank3<D, I, J, K, U> {
     unsafe {
-        (&tensor as *const TensorRank3<D, Reference, Reference, Reference, U>)
+        (&tensor as *const TensorRank3<D, Reference, Reference, Reference, Dimensionless>)
             .cast::<TensorRank3<D, I, J, K, U>>()
             .read()
     }
 }
 
-impl<const D: usize, U> TensorRank3<D, Reference, Reference, Reference, U> {
+impl<const D: usize> TensorRank3<D, Reference, Reference, Reference, Dimensionless> {
     fn as_array_core(&self) -> [[[TensorRank0; D]; D]; D] {
         let mut array = [[[0.0; D]; D]; D];
         array
@@ -223,7 +227,13 @@ impl<const D: usize, I, J, K, U> TensorArray for TensorRank3<D, I, J, K, U> {
         panic!()
     }
     fn zero() -> Self {
-        relabel(TensorRank3::zero_core())
+        relabel(TensorRank3::<
+            D,
+            Reference,
+            Reference,
+            Reference,
+            Dimensionless,
+        >::zero_core())
     }
 }
 

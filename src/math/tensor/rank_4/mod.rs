@@ -1,4 +1,5 @@
 use super::rank_2::relabel as relabel_rank_2;
+use super::rank_3::relabel as relabel_rank_3;
 use crate::math::Dimensionless;
 use crate::math::UnitMul;
 use crate::math::{Current, Intermediate, Reference};
@@ -1005,40 +1006,40 @@ where
 impl<const D: usize, J, K, L, M, U> Mul<TensorRank4<D, M, J, K, L, U>> for TensorRank1<D, M, U> {
     type Output = TensorRank3<D, J, K, L, U>;
     fn mul(self, tensor_rank_4: TensorRank4<D, M, J, K, L, U>) -> Self::Output {
-        self.into_iter()
-            .zip(tensor_rank_4)
-            .map(|(self_m, tensor_rank_4_m)| tensor_rank_4_m * self_m)
-            .sum()
+        relabel_rank_3(canonical_rank_1_times_rank_4(
+            self.canonical(),
+            tensor_rank_4.canonical(),
+        ))
     }
 }
 
 impl<const D: usize, J, K, L, M, U> Mul<&TensorRank4<D, M, J, K, L, U>> for TensorRank1<D, M, U> {
     type Output = TensorRank3<D, J, K, L, U>;
     fn mul(self, tensor_rank_4: &TensorRank4<D, M, J, K, L, U>) -> Self::Output {
-        self.into_iter()
-            .zip(tensor_rank_4.iter())
-            .map(|(self_m, tensor_rank_4_m)| tensor_rank_4_m * self_m)
-            .sum()
+        relabel_rank_3(canonical_rank_1_times_rank_4(
+            self.canonical(),
+            tensor_rank_4.canonical(),
+        ))
     }
 }
 
 impl<const D: usize, J, K, L, M, U> Mul<TensorRank4<D, M, J, K, L, U>> for &TensorRank1<D, M, U> {
     type Output = TensorRank3<D, J, K, L, U>;
     fn mul(self, tensor_rank_4: TensorRank4<D, M, J, K, L, U>) -> Self::Output {
-        self.iter()
-            .zip(tensor_rank_4)
-            .map(|(self_m, tensor_rank_4_m)| tensor_rank_4_m * self_m)
-            .sum()
+        relabel_rank_3(canonical_rank_1_times_rank_4(
+            self.canonical(),
+            tensor_rank_4.canonical(),
+        ))
     }
 }
 
 impl<const D: usize, J, K, L, M, U> Mul<&TensorRank4<D, M, J, K, L, U>> for &TensorRank1<D, M, U> {
     type Output = TensorRank3<D, J, K, L, U>;
     fn mul(self, tensor_rank_4: &TensorRank4<D, M, J, K, L, U>) -> Self::Output {
-        self.iter()
-            .zip(tensor_rank_4.iter())
-            .map(|(self_m, tensor_rank_4_m)| tensor_rank_4_m * self_m)
-            .sum()
+        relabel_rank_3(canonical_rank_1_times_rank_4(
+            self.canonical(),
+            tensor_rank_4.canonical(),
+        ))
     }
 }
 
@@ -1047,9 +1048,10 @@ impl<const D: usize, I, J, K, L, M, U> Mul<TensorRank4<D, M, J, K, L, U>>
 {
     type Output = TensorRank4<D, I, J, K, L, U>;
     fn mul(self, tensor_rank_4: TensorRank4<D, M, J, K, L, U>) -> Self::Output {
-        self.into_iter()
-            .map(|self_i| self_i * &tensor_rank_4)
-            .collect()
+        relabel(canonical_rank_2_times_rank_4(
+            self.canonical(),
+            tensor_rank_4.canonical(),
+        ))
     }
 }
 
@@ -1058,9 +1060,10 @@ impl<const D: usize, I, J, K, L, M, U> Mul<&TensorRank4<D, M, J, K, L, U>>
 {
     type Output = TensorRank4<D, I, J, K, L, U>;
     fn mul(self, tensor_rank_4: &TensorRank4<D, M, J, K, L, U>) -> Self::Output {
-        self.into_iter()
-            .map(|self_i| self_i * tensor_rank_4)
-            .collect()
+        relabel(canonical_rank_2_times_rank_4(
+            self.canonical(),
+            tensor_rank_4.canonical(),
+        ))
     }
 }
 
@@ -1069,7 +1072,10 @@ impl<const D: usize, I, J, K, L, M, U> Mul<TensorRank4<D, M, J, K, L, U>>
 {
     type Output = TensorRank4<D, I, J, K, L, U>;
     fn mul(self, tensor_rank_4: TensorRank4<D, M, J, K, L, U>) -> Self::Output {
-        self.iter().map(|self_i| self_i * &tensor_rank_4).collect()
+        relabel(canonical_rank_2_times_rank_4(
+            self.canonical(),
+            tensor_rank_4.canonical(),
+        ))
     }
 }
 
@@ -1078,7 +1084,10 @@ impl<const D: usize, I, J, K, L, M, U> Mul<&TensorRank4<D, M, J, K, L, U>>
 {
     type Output = TensorRank4<D, I, J, K, L, U>;
     fn mul(self, tensor_rank_4: &TensorRank4<D, M, J, K, L, U>) -> Self::Output {
-        self.iter().map(|self_i| self_i * tensor_rank_4).collect()
+        relabel(canonical_rank_2_times_rank_4(
+            self.canonical(),
+            tensor_rank_4.canonical(),
+        ))
     }
 }
 
@@ -1237,5 +1246,26 @@ fn canonical_dyad_il_jk<const D: usize>(
                 })
                 .collect()
         })
+        .collect()
+}
+
+fn canonical_rank_1_times_rank_4<const D: usize>(
+    tensor_rank_1: &TensorRank1<D, Reference, Dimensionless>,
+    tensor_rank_4: &TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>,
+) -> TensorRank3<D, Reference, Reference, Reference, Dimensionless> {
+    tensor_rank_1
+        .iter()
+        .zip(tensor_rank_4.iter())
+        .map(|(&tensor_rank_1_m, tensor_rank_4_m)| tensor_rank_4_m * tensor_rank_1_m)
+        .sum()
+}
+
+fn canonical_rank_2_times_rank_4<const D: usize>(
+    tensor_rank_2: &TensorRank2<D, Reference, Reference, Dimensionless>,
+    tensor_rank_4: &TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>,
+) -> TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless> {
+    tensor_rank_2
+        .iter()
+        .map(|tensor_rank_2_i| tensor_rank_2_i * tensor_rank_4)
         .collect()
 }

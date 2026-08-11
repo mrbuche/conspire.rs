@@ -59,6 +59,14 @@ impl<const D: usize, I, U> PartialEq for TensorRank1<D, I, U> {
 }
 
 impl<const D: usize, I, U> TensorRank1<D, I, U> {
+    /// Views the tensor with its configuration and unit discarded, so that
+    /// arithmetic is compiled once per dimension rather than once per either.
+    pub(super) fn canonical(&self) -> &TensorRank1<D, Reference, Dimensionless> {
+        unsafe { &*(self as *const Self as *const TensorRank1<D, Reference, Dimensionless>) }
+    }
+}
+
+impl<const D: usize, I, U> TensorRank1<D, I, U> {
     /// Associated function for const type conversion.
     pub const fn const_from(array: [TensorRank0; D]) -> Self {
         Self(array, PhantomData)
