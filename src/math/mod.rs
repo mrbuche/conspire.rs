@@ -41,7 +41,7 @@ pub use matrix::{
 pub use set::{Set, sets::Sets};
 pub use tensor::{
     Auxiliary, Compliance, Configuration, Current, Dimensionless, EnergyDensity, Factor, Flattened,
-    Fluidity, Frequency, Hessian, HessianAccumulate, HessianBlock, Interface, Intermediate,
+    Fluidity, Frequency, Hessian, HessianAccumulate, HessianBlock, Interface, Intermediate, Is,
     Jacobian, Length, Modulus, Norm, Pressure, Projection, Quantity, Rank2, Rate, ReciprocalLength,
     ReciprocalStress, ReciprocalTemperature, ReciprocalViscosity, Reference, Scalar, ScalarList,
     ScalarListVec, Scalars, Solution, Stress, StressPerTemperature, Temperature, Tensor,

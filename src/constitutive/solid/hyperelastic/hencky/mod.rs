@@ -1,5 +1,5 @@
 use crate::math::TensorRank4;
-use crate::math::{Dimensionless, Quantity, Stress};
+use crate::math::{Dimensionless, EnergyDensity, Modulus, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -87,12 +87,12 @@ impl Hyperelastic for Hencky {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let strain = deformation_gradient.left_cauchy_green().logm()? * 0.5;
         Ok(
-            (Quantity::<Stress>::new(self.shear_modulus()) * strain.squared_trace()
+            (Quantity::<Modulus>::new(self.shear_modulus()) * strain.squared_trace()
                 + 0.5
-                    * (Quantity::<Stress>::new(self.bulk_modulus())
-                        - TWO_THIRDS * Quantity::<Stress>::new(self.shear_modulus()))
+                    * (Quantity::<Modulus>::new(self.bulk_modulus())
+                        - TWO_THIRDS * Quantity::<Modulus>::new(self.shear_modulus()))
                     * strain.trace().powi(2))
-            .value(),
+            .value_as::<EnergyDensity>(),
         )
     }
 }

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::{Dimensionless, Quantity, Stress};
+use crate::math::{Dimensionless, EnergyDensity, Modulus, Quantity, Stress};
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -141,11 +141,11 @@ impl<const N: usize> Hyperelastic for Yeoh<N> {
                 .chain(self.extra_moduli().iter().copied())
                 .enumerate()
                 .map(|(n, modulus)| {
-                    Quantity::<Stress>::new(modulus * scalar_term.powi((n + 1) as i32))
+                    Quantity::<Modulus>::new(modulus * scalar_term.powi((n + 1) as i32))
                 })
                 .sum::<Quantity<Stress>>()
-                + Quantity::<Stress>::new(self.bulk_modulus())
+                + Quantity::<Modulus>::new(self.bulk_modulus())
                     * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
-        .value())
+        .value_as::<EnergyDensity>())
     }
 }

@@ -1,5 +1,5 @@
 use crate::math::TensorRank4;
-use crate::math::{Dimensionless, Quantity, Stress};
+use crate::math::{Dimensionless, EnergyDensity, Modulus, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -124,13 +124,13 @@ impl Hyperelastic for MooneyRivlin {
         let isochoric_left_cauchy_green_deformation =
             deformation_gradient.left_cauchy_green() / jacobian.powf(TWO_THIRDS);
         Ok((0.5
-            * ((Quantity::<Stress>::new(self.shear_modulus())
-                - Quantity::<Stress>::new(self.extra_modulus()))
+            * ((Quantity::<Modulus>::new(self.shear_modulus())
+                - Quantity::<Modulus>::new(self.extra_modulus()))
                 * (isochoric_left_cauchy_green_deformation.trace() - 3.0)
-                + Quantity::<Stress>::new(self.extra_modulus())
+                + Quantity::<Modulus>::new(self.extra_modulus())
                     * (isochoric_left_cauchy_green_deformation.second_invariant() - 3.0)
-                + Quantity::<Stress>::new(self.bulk_modulus())
+                + Quantity::<Modulus>::new(self.bulk_modulus())
                     * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
-        .value())
+        .value_as::<EnergyDensity>())
     }
 }

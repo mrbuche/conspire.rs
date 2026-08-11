@@ -1,5 +1,6 @@
 use crate::math::{
-    Dimensionless, Quantity, ReciprocalTemperature, Stress, Temperature, TensorRank4,
+    Dimensionless, EnergyDensity, Modulus, Quantity, ReciprocalTemperature, Stress, Temperature,
+    TensorRank4,
 };
 #[cfg(test)]
 mod test;
@@ -123,20 +124,20 @@ impl Thermohyperelastic for SaintVenantKirchhoff {
         let strain = (deformation_gradient.right_cauchy_green() - IDENTITY_00) * 0.5;
         let strain_trace = strain.trace();
         Ok(
-            (Quantity::<Stress>::new(self.shear_modulus()) * strain.squared_trace()
+            (Quantity::<Modulus>::new(self.shear_modulus()) * strain.squared_trace()
                 + 0.5
-                    * (Quantity::<Stress>::new(self.bulk_modulus())
-                        - TWO_THIRDS * Quantity::<Stress>::new(self.shear_modulus()))
+                    * (Quantity::<Modulus>::new(self.bulk_modulus())
+                        - TWO_THIRDS * Quantity::<Modulus>::new(self.shear_modulus()))
                     * strain_trace.powi(2)
                 - 3.0
-                    * Quantity::<Stress>::new(self.bulk_modulus())
+                    * Quantity::<Modulus>::new(self.bulk_modulus())
                     * Quantity::<ReciprocalTemperature>::new(
                         self.coefficient_of_thermal_expansion(),
                     )
                     * (Quantity::<Temperature>::new(temperature)
                         - Quantity::<Temperature>::new(self.reference_temperature()))
                     * strain_trace)
-                .value(),
+                .value_as::<EnergyDensity>(),
         )
     }
 }

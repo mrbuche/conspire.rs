@@ -16,7 +16,7 @@ pub use configuration::{
     Reference,
 };
 pub use norm::Norm;
-pub use quantity::Quantity;
+pub use quantity::{Is, Quantity};
 pub use unit::{
     Compliance, Dimensionless, EnergyDensity, Fluidity, Frequency, Length, Modulus, Pressure, Rate,
     ReciprocalLength, ReciprocalStress, ReciprocalTemperature, ReciprocalViscosity, Stress,

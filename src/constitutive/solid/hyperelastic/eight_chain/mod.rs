@@ -1,5 +1,5 @@
 use crate::math::TensorRank4;
-use crate::math::{Dimensionless, Quantity, Stress};
+use crate::math::{Dimensionless, EnergyDensity, Modulus, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -214,12 +214,12 @@ where
         // If end up re-using so much of ArrudaBoyce should make helper function to share.
         //
         Ok((3.0 * gamma_0 / eta_0
-            * Quantity::<Stress>::new(self.shear_modulus())
+            * Quantity::<Modulus>::new(self.shear_modulus())
             * self.number_of_links()
             * (gamma * eta - gamma_0 * eta_0 - (eta_0 * eta.sinh() / (eta * eta_0.sinh())).ln())
             + 0.5
-                * Quantity::<Stress>::new(self.bulk_modulus())
+                * Quantity::<Modulus>::new(self.bulk_modulus())
                 * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln()))
-        .value())
+        .value_as::<EnergyDensity>())
     }
 }

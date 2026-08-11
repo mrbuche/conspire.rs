@@ -1,4 +1,4 @@
-use crate::math::{Dimensionless, Quantity, Stress};
+use crate::math::{Dimensionless, EnergyDensity, Modulus, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -80,11 +80,11 @@ impl Hyperelastic for NeoHookean {
     ) -> Result<Scalar, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         Ok((0.5
-            * (Quantity::<Stress>::new(self.shear_modulus())
+            * (Quantity::<Modulus>::new(self.shear_modulus())
                 * (deformation_gradient.left_cauchy_green().trace() / jacobian.powf(TWO_THIRDS)
                     - 3.0)
-                + Quantity::<Stress>::new(self.bulk_modulus())
+                + Quantity::<Modulus>::new(self.bulk_modulus())
                     * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
-        .value())
+        .value_as::<EnergyDensity>())
     }
 }

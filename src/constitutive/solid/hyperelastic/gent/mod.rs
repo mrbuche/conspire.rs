@@ -1,5 +1,5 @@
 use crate::math::TensorRank4;
-use crate::math::{Dimensionless, Quantity, Stress};
+use crate::math::{Dimensionless, EnergyDensity, Modulus, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -139,12 +139,12 @@ impl Hyperelastic for Gent {
             ))
         } else {
             Ok((0.5
-                * (-Quantity::<Stress>::new(self.shear_modulus())
+                * (-Quantity::<Modulus>::new(self.shear_modulus())
                     * self.extensibility()
                     * (1.0 - factor).ln()
-                    + Quantity::<Stress>::new(self.bulk_modulus())
+                    + Quantity::<Modulus>::new(self.bulk_modulus())
                         * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
-            .value())
+            .value_as::<EnergyDensity>())
         }
     }
 }

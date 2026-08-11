@@ -11,6 +11,12 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
 };
 
+/// Implemented only where the two types are the same, so that a unit may be
+/// named where it is discarded without allowing a different one.
+pub trait Is<T> {}
+
+impl<T> Is<T> for T {}
+
 /// A scalar carrying a physical unit.
 ///
 /// The dimensions of a constitutive law live in its material parameters rather
@@ -26,6 +32,16 @@ impl<U> Quantity<U> {
     }
     /// Returns the value with its unit discarded.
     pub const fn value(&self) -> TensorRank0 {
+        self.0
+    }
+    /// Returns the value, stating the unit being discarded.
+    ///
+    /// Compiles only when the quantity carries that unit, so a synonym for it
+    /// is accepted and anything else is not.
+    pub const fn value_as<V>(&self) -> TensorRank0
+    where
+        U: Is<V>,
+    {
         self.0
     }
 }

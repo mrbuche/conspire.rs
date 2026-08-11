@@ -1,5 +1,5 @@
 use crate::math::TensorRank4;
-use crate::math::{Dimensionless, Quantity, Stress};
+use crate::math::{Dimensionless, EnergyDensity, Modulus, Quantity, Stress};
 #[cfg(test)]
 mod test;
 
@@ -157,15 +157,15 @@ impl Hyperelastic for ArrudaBoyce {
             let gamma_0 = (1.0 / self.number_of_links()).sqrt();
             let eta_0 = inverse_langevin(gamma_0);
             Ok((3.0 * gamma_0 / eta_0
-                * Quantity::<Stress>::new(self.shear_modulus())
+                * Quantity::<Modulus>::new(self.shear_modulus())
                 * self.number_of_links()
                 * (gamma * eta
                     - gamma_0 * eta_0
                     - (eta_0 * eta.sinh() / (eta * eta_0.sinh())).ln())
                 + 0.5
-                    * Quantity::<Stress>::new(self.bulk_modulus())
+                    * Quantity::<Modulus>::new(self.bulk_modulus())
                     * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln()))
-            .value())
+            .value_as::<EnergyDensity>())
         }
     }
 }
