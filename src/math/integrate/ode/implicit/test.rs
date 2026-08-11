@@ -51,26 +51,30 @@ macro_rules! test_implicit_fixed_step {
                 &finite_difference,
             )
         }
-        // A scalar unknown needs `Quantity<U>` to be a tensor, since
-        // `TensorRank0` is a bare `f64` that cannot carry a unit. Re-enable the
-        // module when it is one.
-        #[cfg(any())]
         mod gradient_descent {
             use super::*;
-            use crate::math::{integrate::ImplicitZerothOrder, optimize::GradientDescent};
+            use crate::math::{
+                Quantity, TensorVector, integrate::ImplicitZerothOrder, optimize::GradientDescent,
+            };
+            // A scalar unknown is a `Quantity`, a bare scalar carrying no unit
+            // for the solver's step size to be measured against.
             #[test]
             fn first_order_tensor_rank_0() -> Result<(), AssertionError> {
                 $crate::math::assert::Assert::eq(&$integration.dt(), &TIME_STEP)?;
-                let (time, solution, function): (Vector, Vector, _) = $integration.integrate(
-                    |t: Scalar, _: &Scalar| Ok(t),
-                    &[0.0, 1.0],
-                    0.0,
-                    GradientDescent::default(),
-                )?;
+                let (time, solution, function): (Vector, TensorVector<Quantity>, _) = $integration
+                    .integrate(
+                        |t: Scalar, _: &Quantity| Ok(Quantity::new(t)),
+                        &[0.0, 1.0],
+                        Quantity::new(0.0),
+                        GradientDescent::default(),
+                    )?;
                 time.iter()
                     .zip(solution.iter().zip(function.iter()))
                     .for_each(|(t, (y, f))| {
-                        assert!((0.5 * t * t - y).abs() < TOLERANCE && (t - f).abs() < TOLERANCE)
+                        assert!(
+                            (0.5 * t * t - y.value()).abs() < TOLERANCE
+                                && (t - f.value()).abs() < TOLERANCE
+                        )
                     });
                 Ok(())
             }

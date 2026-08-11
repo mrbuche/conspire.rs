@@ -2,7 +2,7 @@ pub(super) mod square;
 pub(super) mod vector;
 
 use crate::math::{
-    Scalar, Tensor, TensorRank1, TensorRank1Vec, TensorRank2, TensorTuple, TensorVec,
+    Quantity, Scalar, Tensor, TensorRank1, TensorRank1Vec, TensorRank2, TensorTuple, TensorVec,
 };
 use std::{
     iter::Sum,
@@ -178,6 +178,14 @@ impl Mul<Scalar> for Matrix {
 impl Mul<&Scalar> for &Matrix {
     type Output = Vector;
     fn mul(self, _scalar: &Scalar) -> Self::Output {
+        unimplemented!()
+    }
+}
+
+/// A scalar unknown has no constraint matrix to be multiplied by.
+impl<U> Mul<&Quantity<U>> for &Matrix {
+    type Output = Vector;
+    fn mul(self, _quantity: &Quantity<U>) -> Self::Output {
         unimplemented!()
     }
 }

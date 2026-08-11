@@ -6,19 +6,24 @@ use super::{
     EqualityConstraint, FirstOrderOptimization, GradientDescent, Scalar, ZerothOrderRootFinding,
 };
 use crate::math::assert::Assert;
-use crate::math::{Current, Dimensionless};
+use crate::math::{Current, Dimensionless, Quantity};
 
 mod minimize {
     use super::*;
-    // A scalar unknown needs `Quantity<U>` to be a tensor, since `TensorRank0` is
-    // a bare `f64` that cannot carry a unit. Re-enable when it is one.
-    #[cfg(any())]
+    // A scalar unknown is a `Quantity`, a bare `f64` carrying no unit for the
+    // step size to be measured against.
     #[test]
     fn quadratic() -> Result<(), AssertionError> {
-        Assert::default().zero_within_tols(&GradientDescent::default().minimize(
-            |x: &Scalar| Ok(x.powi(2) / 2.0),
-            |x: &Scalar| Ok(*x),
-            1.0,
+        Assert::default().zero_within_tols(&FirstOrderOptimization::<
+            Scalar,
+            Quantity,
+            Dimensionless,
+            Quantity,
+        >::minimize(
+            &GradientDescent::default(),
+            |x: &Quantity| Ok(x.powi(2).value() / 2.0),
+            |x: &Quantity| Ok(*x),
+            Quantity::new(1.0),
             EqualityConstraint::None,
         )?)
     }
@@ -44,14 +49,16 @@ mod minimize {
 
 mod root {
     use super::*;
-    // A scalar unknown needs `Quantity<U>` to be a tensor, since `TensorRank0` is
-    // a bare `f64` that cannot carry a unit. Re-enable when it is one.
-    #[cfg(any())]
     #[test]
     fn linear() -> Result<(), AssertionError> {
-        Assert::default().zero_within_tols(&GradientDescent::default().root(
-            |x: &Scalar| Ok(*x),
-            1.0,
+        Assert::default().zero_within_tols(&ZerothOrderRootFinding::<
+            Quantity,
+            Dimensionless,
+            Quantity,
+        >::root(
+            &GradientDescent::default(),
+            |x: &Quantity| Ok(*x),
+            Quantity::new(1.0),
             EqualityConstraint::None,
         )?)
     }
