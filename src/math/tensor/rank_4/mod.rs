@@ -19,7 +19,7 @@ use std::{
 };
 
 use super::{
-    Hessian, HessianBlock, Rank2, SquareMatrix, Tensor, TensorArray, Vector,
+    Erase, Hessian, HessianBlock, Rank2, SquareMatrix, Tensor, TensorArray, Vector,
     rank_0::TensorRank0,
     rank_1::TensorRank1,
     rank_2::TensorRank2,
@@ -483,6 +483,13 @@ impl<const D: usize, I, J, K, L, U> Hessian for TensorRank4<D, I, J, K, L, U> {
     }
 }
 
+impl<const D: usize, I, J, K, L, U> Erase for TensorRank4<D, I, J, K, L, U> {
+    type Erased = TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>;
+    fn erase(&self) -> &Self::Erased {
+        self.canonical()
+    }
+}
+
 impl<const D: usize, I, J, K, L, U> Tensor for TensorRank4<D, I, J, K, L, U> {
     type Item = TensorRank3<D, J, K, L, U>;
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
@@ -598,19 +605,19 @@ pub trait ContractAllWithFirst<TIM, TJN, TKO, TLP> {
 
 impl<const D: usize, I, J, K, L, M, N, O, P, U>
     ContractAllWithFirst<
-        &TensorRank2<D, I, M, U>,
-        &TensorRank2<D, J, N, U>,
-        &TensorRank2<D, K, O, U>,
-        &TensorRank2<D, L, P, U>,
+        &TensorRank2<D, I, M, Dimensionless>,
+        &TensorRank2<D, J, N, Dimensionless>,
+        &TensorRank2<D, K, O, Dimensionless>,
+        &TensorRank2<D, L, P, Dimensionless>,
     > for TensorRank4<D, I, J, K, L, U>
 {
     type Output = TensorRank4<D, M, N, O, P, U>;
     fn contract_all_with_first(
         self,
-        tensor_rank_2_a: &TensorRank2<D, I, M, U>,
-        tensor_rank_2_b: &TensorRank2<D, J, N, U>,
-        tensor_rank_2_c: &TensorRank2<D, K, O, U>,
-        tensor_rank_2_d: &TensorRank2<D, L, P, U>,
+        tensor_rank_2_a: &TensorRank2<D, I, M, Dimensionless>,
+        tensor_rank_2_b: &TensorRank2<D, J, N, Dimensionless>,
+        tensor_rank_2_c: &TensorRank2<D, K, O, Dimensionless>,
+        tensor_rank_2_d: &TensorRank2<D, L, P, Dimensionless>,
     ) -> Self::Output {
         // One index at a time. Transforming all four at once sums over every
         // index of the input for every index of the output, which is the
@@ -641,17 +648,17 @@ pub trait ContractFirstThirdFourthWithFirst<TIM, TKO, TLP> {
 
 impl<const D: usize, I, J, K, L, M, O, P, U>
     ContractFirstThirdFourthWithFirst<
-        &TensorRank2<D, I, M, U>,
-        &TensorRank2<D, K, O, U>,
-        &TensorRank2<D, L, P, U>,
+        &TensorRank2<D, I, M, Dimensionless>,
+        &TensorRank2<D, K, O, Dimensionless>,
+        &TensorRank2<D, L, P, Dimensionless>,
     > for TensorRank4<D, I, J, K, L, U>
 {
     type Output = TensorRank4<D, M, J, O, P, U>;
     fn contract_first_third_fourth_with_first(
         self,
-        tensor_rank_2_a: &TensorRank2<D, I, M, U>,
-        tensor_rank_2_b: &TensorRank2<D, K, O, U>,
-        tensor_rank_2_c: &TensorRank2<D, L, P, U>,
+        tensor_rank_2_a: &TensorRank2<D, I, M, Dimensionless>,
+        tensor_rank_2_b: &TensorRank2<D, K, O, Dimensionless>,
+        tensor_rank_2_c: &TensorRank2<D, L, P, Dimensionless>,
     ) -> Self::Output {
         // One index at a time, for the same reason.
         let first = canonical_transform_first(self.canonical(), tensor_rank_2_a.canonical());
@@ -671,11 +678,14 @@ pub trait ContractSecondWithFirst<TJN> {
     fn contract_second_with_first(self, tensor_rank_2: TJN) -> Self::Output;
 }
 
-impl<const D: usize, I, J, K, L, N, U> ContractSecondWithFirst<&TensorRank2<D, J, N, U>>
+impl<const D: usize, I, J, K, L, N, U> ContractSecondWithFirst<&TensorRank2<D, J, N, Dimensionless>>
     for TensorRank4<D, I, J, K, L, U>
 {
     type Output = TensorRank4<D, I, N, K, L, U>;
-    fn contract_second_with_first(self, tensor_rank_2: &TensorRank2<D, J, N, U>) -> Self::Output {
+    fn contract_second_with_first(
+        self,
+        tensor_rank_2: &TensorRank2<D, J, N, Dimensionless>,
+    ) -> Self::Output {
         relabel(canonical_contract_second_with_first(
             self.canonical(),
             tensor_rank_2.canonical(),
@@ -692,35 +702,53 @@ pub trait ContractSecondFourthWithFirst<TJ, TL> {
 }
 
 impl<const D: usize, I, J, K, L, U>
-    ContractSecondFourthWithFirst<&TensorRank1<D, J, U>, &TensorRank1<D, L, U>>
-    for TensorRank4<D, I, J, K, L, U>
+    ContractSecondFourthWithFirst<
+        &TensorRank1<D, J, Dimensionless>,
+        &TensorRank1<D, L, Dimensionless>,
+    > for TensorRank4<D, I, J, K, L, U>
 {
     type Output = TensorRank2<D, I, K, U>;
     fn contract_second_fourth_with_first(
         &self,
-        tensor_rank_1_a: &TensorRank1<D, J, U>,
-        tensor_rank_1_b: &TensorRank1<D, L, U>,
+        tensor_rank_1_a: &TensorRank1<D, J, Dimensionless>,
+        tensor_rank_1_b: &TensorRank1<D, L, Dimensionless>,
     ) -> Self::Output {
-        // The scaled copy of the second vector this used to make depended on
-        // neither of the indices it was made inside, so it is a dot product and
-        // a scalar multiply instead.
-        let mut output = TensorRank2::zero();
-        self.iter()
-            .zip(output.iter_mut())
-            .for_each(|(self_i, output_i)| {
-                self_i.iter().zip(tensor_rank_1_a.iter()).for_each(
-                    |(self_ij, tensor_rank_1_a_j)| {
-                        self_ij
-                            .iter()
-                            .zip(output_i.iter_mut())
-                            .for_each(|(self_ijk, output_ik)| {
-                                *output_ik += (self_ijk * tensor_rank_1_b) * tensor_rank_1_a_j
-                            })
-                    },
-                )
-            });
-        output
+        relabel_rank_2(canonical_contract_second_fourth_with_first(
+            self.canonical(),
+            tensor_rank_1_a.canonical(),
+            tensor_rank_1_b.canonical(),
+        ))
     }
+}
+
+/// Contracts the second and fourth indices against two vectors.
+///
+/// `out[i][k] = sum_{j,l} tensor_rank_4[i][j][k][l] * a[j] * b[l]`
+///
+/// The scaled copy of the second vector this used to make depended on neither
+/// of the indices it was made inside, so it is a dot product and a scalar
+/// multiply instead.
+fn canonical_contract_second_fourth_with_first<const D: usize>(
+    tensor_rank_4: &TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>,
+    tensor_rank_1_a: &TensorRank1<D, Reference, Dimensionless>,
+    tensor_rank_1_b: &TensorRank1<D, Reference, Dimensionless>,
+) -> TensorRank2<D, Reference, Reference, Dimensionless> {
+    let mut output = TensorRank2::zero();
+    tensor_rank_4
+        .iter()
+        .zip(output.iter_mut())
+        .for_each(|(tensor_rank_4_i, output_i)| {
+            tensor_rank_4_i.iter().zip(tensor_rank_1_a.iter()).for_each(
+                |(tensor_rank_4_ij, tensor_rank_1_a_j)| {
+                    tensor_rank_4_ij.iter().zip(output_i.iter_mut()).for_each(
+                        |(tensor_rank_4_ijk, output_ik)| {
+                            *output_ik += (tensor_rank_4_ijk * tensor_rank_1_b) * tensor_rank_1_a_j
+                        },
+                    )
+                },
+            )
+        });
+    output
 }
 
 /// Transforms the third index of a rank-4 tensor.
@@ -731,11 +759,14 @@ pub trait ContractThirdWithFirst<TKL> {
     fn contract_third_with_first(&self, tensor: TKL) -> Self::Output;
 }
 
-impl<const D: usize, I, J, K, L, M, U> ContractThirdWithFirst<&TensorRank2<D, M, K, U>>
+impl<const D: usize, I, J, K, L, M, U> ContractThirdWithFirst<&TensorRank2<D, M, K, Dimensionless>>
     for TensorRank4<D, I, J, M, L, U>
 {
     type Output = TensorRank4<D, I, J, K, L, U>;
-    fn contract_third_with_first(&self, tensor_rank_2: &TensorRank2<D, M, K, U>) -> Self::Output {
+    fn contract_third_with_first(
+        &self,
+        tensor_rank_2: &TensorRank2<D, M, K, Dimensionless>,
+    ) -> Self::Output {
         relabel(canonical_contract_third_with_first(
             self.canonical(),
             tensor_rank_2.canonical(),
@@ -837,36 +868,25 @@ pub trait ContractFirstSecondWithSecond<TI, TJ> {
 }
 
 impl<const D: usize, I, J, K, L, M, N, U>
-    ContractFirstSecondWithSecond<&TensorRank2<D, I, M, U>, &TensorRank2<D, J, N, U>>
-    for TensorRank4<D, M, N, K, L, U>
+    ContractFirstSecondWithSecond<
+        &TensorRank2<D, I, M, Dimensionless>,
+        &TensorRank2<D, J, N, Dimensionless>,
+    > for TensorRank4<D, M, N, K, L, U>
 {
     type Output = TensorRank4<D, I, J, K, L, U>;
     fn contract_first_second_with_second(
         self,
-        tensor_rank_2_a: &TensorRank2<D, I, M, U>,
-        tensor_rank_2_b: &TensorRank2<D, J, N, U>,
+        tensor_rank_2_a: &TensorRank2<D, I, M, Dimensionless>,
+        tensor_rank_2_b: &TensorRank2<D, J, N, Dimensionless>,
     ) -> Self::Output {
-        let mut output = TensorRank4::zero();
-        output
-            .iter_mut()
-            .zip(tensor_rank_2_a.iter())
-            .for_each(|(output_i, tensor_rank_2_a_i)| {
-                output_i.iter_mut().zip(tensor_rank_2_b.iter()).for_each(
-                    |(output_ij, tensor_rank_2_b_j)| {
-                        self.iter().zip(tensor_rank_2_a_i.iter()).for_each(
-                            |(self_m, tensor_rank_2_a_im)| {
-                                self_m.iter().zip(tensor_rank_2_b_j.iter()).for_each(
-                                    |(self_mn, tensor_rank_2_b_jn)| {
-                                        *output_ij +=
-                                            self_mn * tensor_rank_2_a_im * tensor_rank_2_b_jn
-                                    },
-                                )
-                            },
-                        )
-                    },
-                )
-            });
-        output
+        // One index at a time, and against the transposes so that the same two
+        // primitives the other transforms use apply here.
+        let first =
+            canonical_transform_first(self.canonical(), &tensor_rank_2_a.canonical().transpose());
+        relabel(canonical_contract_second_with_first(
+            &first,
+            &tensor_rank_2_b.canonical().transpose(),
+        ))
     }
 }
 
@@ -969,9 +989,12 @@ where
     }
 }
 
-impl<const D: usize, J, K, L, M, U> Mul<TensorRank4<D, M, J, K, L, U>> for TensorRank1<D, M, U> {
-    type Output = TensorRank3<D, J, K, L, U>;
-    fn mul(self, tensor_rank_4: TensorRank4<D, M, J, K, L, U>) -> Self::Output {
+impl<const D: usize, J, K, L, M, U, V> Mul<TensorRank4<D, M, J, K, L, V>> for TensorRank1<D, M, U>
+where
+    U: UnitMul<V>,
+{
+    type Output = TensorRank3<D, J, K, L, <U as UnitMul<V>>::Output>;
+    fn mul(self, tensor_rank_4: TensorRank4<D, M, J, K, L, V>) -> Self::Output {
         relabel_rank_3(canonical_rank_1_times_rank_4(
             self.canonical(),
             tensor_rank_4.canonical(),
@@ -979,9 +1002,12 @@ impl<const D: usize, J, K, L, M, U> Mul<TensorRank4<D, M, J, K, L, U>> for Tenso
     }
 }
 
-impl<const D: usize, J, K, L, M, U> Mul<&TensorRank4<D, M, J, K, L, U>> for TensorRank1<D, M, U> {
-    type Output = TensorRank3<D, J, K, L, U>;
-    fn mul(self, tensor_rank_4: &TensorRank4<D, M, J, K, L, U>) -> Self::Output {
+impl<const D: usize, J, K, L, M, U, V> Mul<&TensorRank4<D, M, J, K, L, V>> for TensorRank1<D, M, U>
+where
+    U: UnitMul<V>,
+{
+    type Output = TensorRank3<D, J, K, L, <U as UnitMul<V>>::Output>;
+    fn mul(self, tensor_rank_4: &TensorRank4<D, M, J, K, L, V>) -> Self::Output {
         relabel_rank_3(canonical_rank_1_times_rank_4(
             self.canonical(),
             tensor_rank_4.canonical(),
@@ -989,9 +1015,12 @@ impl<const D: usize, J, K, L, M, U> Mul<&TensorRank4<D, M, J, K, L, U>> for Tens
     }
 }
 
-impl<const D: usize, J, K, L, M, U> Mul<TensorRank4<D, M, J, K, L, U>> for &TensorRank1<D, M, U> {
-    type Output = TensorRank3<D, J, K, L, U>;
-    fn mul(self, tensor_rank_4: TensorRank4<D, M, J, K, L, U>) -> Self::Output {
+impl<const D: usize, J, K, L, M, U, V> Mul<TensorRank4<D, M, J, K, L, V>> for &TensorRank1<D, M, U>
+where
+    U: UnitMul<V>,
+{
+    type Output = TensorRank3<D, J, K, L, <U as UnitMul<V>>::Output>;
+    fn mul(self, tensor_rank_4: TensorRank4<D, M, J, K, L, V>) -> Self::Output {
         relabel_rank_3(canonical_rank_1_times_rank_4(
             self.canonical(),
             tensor_rank_4.canonical(),
@@ -999,9 +1028,12 @@ impl<const D: usize, J, K, L, M, U> Mul<TensorRank4<D, M, J, K, L, U>> for &Tens
     }
 }
 
-impl<const D: usize, J, K, L, M, U> Mul<&TensorRank4<D, M, J, K, L, U>> for &TensorRank1<D, M, U> {
-    type Output = TensorRank3<D, J, K, L, U>;
-    fn mul(self, tensor_rank_4: &TensorRank4<D, M, J, K, L, U>) -> Self::Output {
+impl<const D: usize, J, K, L, M, U, V> Mul<&TensorRank4<D, M, J, K, L, V>> for &TensorRank1<D, M, U>
+where
+    U: UnitMul<V>,
+{
+    type Output = TensorRank3<D, J, K, L, <U as UnitMul<V>>::Output>;
+    fn mul(self, tensor_rank_4: &TensorRank4<D, M, J, K, L, V>) -> Self::Output {
         relabel_rank_3(canonical_rank_1_times_rank_4(
             self.canonical(),
             tensor_rank_4.canonical(),
@@ -1009,11 +1041,13 @@ impl<const D: usize, J, K, L, M, U> Mul<&TensorRank4<D, M, J, K, L, U>> for &Ten
     }
 }
 
-impl<const D: usize, I, J, K, L, M, U> Mul<TensorRank4<D, M, J, K, L, U>>
+impl<const D: usize, I, J, K, L, M, U, V> Mul<TensorRank4<D, M, J, K, L, V>>
     for TensorRank2<D, I, M, U>
+where
+    U: UnitMul<V>,
 {
-    type Output = TensorRank4<D, I, J, K, L, U>;
-    fn mul(self, tensor_rank_4: TensorRank4<D, M, J, K, L, U>) -> Self::Output {
+    type Output = TensorRank4<D, I, J, K, L, <U as UnitMul<V>>::Output>;
+    fn mul(self, tensor_rank_4: TensorRank4<D, M, J, K, L, V>) -> Self::Output {
         relabel(canonical_rank_2_times_rank_4(
             self.canonical(),
             tensor_rank_4.canonical(),
@@ -1021,11 +1055,13 @@ impl<const D: usize, I, J, K, L, M, U> Mul<TensorRank4<D, M, J, K, L, U>>
     }
 }
 
-impl<const D: usize, I, J, K, L, M, U> Mul<&TensorRank4<D, M, J, K, L, U>>
+impl<const D: usize, I, J, K, L, M, U, V> Mul<&TensorRank4<D, M, J, K, L, V>>
     for TensorRank2<D, I, M, U>
+where
+    U: UnitMul<V>,
 {
-    type Output = TensorRank4<D, I, J, K, L, U>;
-    fn mul(self, tensor_rank_4: &TensorRank4<D, M, J, K, L, U>) -> Self::Output {
+    type Output = TensorRank4<D, I, J, K, L, <U as UnitMul<V>>::Output>;
+    fn mul(self, tensor_rank_4: &TensorRank4<D, M, J, K, L, V>) -> Self::Output {
         relabel(canonical_rank_2_times_rank_4(
             self.canonical(),
             tensor_rank_4.canonical(),
@@ -1033,11 +1069,13 @@ impl<const D: usize, I, J, K, L, M, U> Mul<&TensorRank4<D, M, J, K, L, U>>
     }
 }
 
-impl<const D: usize, I, J, K, L, M, U> Mul<TensorRank4<D, M, J, K, L, U>>
+impl<const D: usize, I, J, K, L, M, U, V> Mul<TensorRank4<D, M, J, K, L, V>>
     for &TensorRank2<D, I, M, U>
+where
+    U: UnitMul<V>,
 {
-    type Output = TensorRank4<D, I, J, K, L, U>;
-    fn mul(self, tensor_rank_4: TensorRank4<D, M, J, K, L, U>) -> Self::Output {
+    type Output = TensorRank4<D, I, J, K, L, <U as UnitMul<V>>::Output>;
+    fn mul(self, tensor_rank_4: TensorRank4<D, M, J, K, L, V>) -> Self::Output {
         relabel(canonical_rank_2_times_rank_4(
             self.canonical(),
             tensor_rank_4.canonical(),
@@ -1045,11 +1083,13 @@ impl<const D: usize, I, J, K, L, M, U> Mul<TensorRank4<D, M, J, K, L, U>>
     }
 }
 
-impl<const D: usize, I, J, K, L, M, U> Mul<&TensorRank4<D, M, J, K, L, U>>
+impl<const D: usize, I, J, K, L, M, U, V> Mul<&TensorRank4<D, M, J, K, L, V>>
     for &TensorRank2<D, I, M, U>
+where
+    U: UnitMul<V>,
 {
-    type Output = TensorRank4<D, I, J, K, L, U>;
-    fn mul(self, tensor_rank_4: &TensorRank4<D, M, J, K, L, U>) -> Self::Output {
+    type Output = TensorRank4<D, I, J, K, L, <U as UnitMul<V>>::Output>;
+    fn mul(self, tensor_rank_4: &TensorRank4<D, M, J, K, L, V>) -> Self::Output {
         relabel(canonical_rank_2_times_rank_4(
             self.canonical(),
             tensor_rank_4.canonical(),

@@ -1,3 +1,4 @@
+use super::Erase;
 use crate::math::Dimensionless;
 use crate::math::{Current, Projection, Reference};
 #[cfg(test)]
@@ -22,8 +23,8 @@ use crate::{
     math::{
         matrix::vector::Vector,
         tensor::{
-            Jacobian, Solution, Tensor, TensorArray, rank_0::TensorRank0,
-            rank_1::list::TensorRank1List, rank_2::TensorRank2,
+            Jacobian, Quantity, Solution, Tensor, TensorArray, UnitDiv, UnitMul,
+            rank_0::TensorRank0, rank_1::list::TensorRank1List, rank_2::TensorRank2,
         },
         write_tensor_rank_0,
     },
@@ -63,6 +64,27 @@ impl<const D: usize, I, U> TensorRank1<D, I, U> {
     /// arithmetic is compiled once per dimension rather than once per either.
     pub(super) fn canonical(&self) -> &TensorRank1<D, Reference, Dimensionless> {
         unsafe { &*(self as *const Self as *const TensorRank1<D, Reference, Dimensionless>) }
+    }
+    /// Asserts that the tensor carries the given unit.
+    pub fn with_unit<V>(self) -> TensorRank1<D, I, V> {
+        relabel(self.into_canonical())
+    }
+    fn into_canonical(self) -> TensorRank1<D, Reference, Dimensionless> {
+        unsafe {
+            (&self as *const Self)
+                .cast::<TensorRank1<D, Reference, Dimensionless>>()
+                .read()
+        }
+    }
+}
+
+pub(super) fn relabel<const D: usize, I, U>(
+    tensor: TensorRank1<D, Reference, Dimensionless>,
+) -> TensorRank1<D, I, U> {
+    unsafe {
+        (&tensor as *const TensorRank1<D, Reference, Dimensionless>)
+            .cast::<TensorRank1<D, I, U>>()
+            .read()
     }
 }
 
@@ -204,6 +226,35 @@ impl<const D: usize, I, U> Sub<&Vector> for TensorRank1<D, I, U> {
     type Output = Self;
     fn sub(self, _vector: &Vector) -> Self::Output {
         unimplemented!()
+    }
+}
+
+impl<const D: usize, I, U> Erase for TensorRank1<D, I, U> {
+    type Erased = TensorRank1<D, Reference, Dimensionless>;
+    fn erase(&self) -> &Self::Erased {
+        self.canonical()
+    }
+}
+
+// A quantity carries its unit into the tensor it scales.
+
+impl<const D: usize, I, U, V> Mul<Quantity<V>> for TensorRank1<D, I, U>
+where
+    U: UnitMul<V>,
+{
+    type Output = TensorRank1<D, I, <U as UnitMul<V>>::Output>;
+    fn mul(self, quantity: Quantity<V>) -> Self::Output {
+        relabel(self.into_canonical() * quantity.value())
+    }
+}
+
+impl<const D: usize, I, U, V> Mul<Quantity<V>> for &TensorRank1<D, I, U>
+where
+    U: UnitMul<V>,
+{
+    type Output = TensorRank1<D, I, <U as UnitMul<V>>::Output>;
+    fn mul(self, quantity: Quantity<V>) -> Self::Output {
+        relabel(self.canonical() * quantity.value())
     }
 }
 
@@ -580,10 +631,15 @@ impl<const D: usize, I, U> Mul for &TensorRank1<D, I, U> {
     }
 }
 
+// Solving against a rank 2 divides the units, as it undoes multiplying by one.
+
 #[allow(clippy::suspicious_arithmetic_impl)]
-impl<const D: usize, I, J, U> Div<TensorRank2<D, I, J, U>> for &TensorRank1<D, I, U> {
-    type Output = TensorRank1<D, J, U>;
-    fn div(self, tensor_rank_2: TensorRank2<D, I, J, U>) -> Self::Output {
-        tensor_rank_2.inverse() * self
+impl<const D: usize, I, J, U, V> Div<TensorRank2<D, I, J, V>> for &TensorRank1<D, I, U>
+where
+    U: UnitDiv<V>,
+{
+    type Output = TensorRank1<D, J, <U as UnitDiv<V>>::Output>;
+    fn div(self, tensor_rank_2: TensorRank2<D, I, J, V>) -> Self::Output {
+        relabel(tensor_rank_2.canonical().clone().inverse() * self.canonical())
     }
 }

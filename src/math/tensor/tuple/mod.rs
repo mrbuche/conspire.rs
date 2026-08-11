@@ -1,7 +1,7 @@
 pub(crate) mod list;
 pub(crate) mod vec;
 
-use crate::math::{Jacobian, Solution, Tensor, TensorRank0, TensorRank2, Vector};
+use crate::math::{Erase, Jacobian, Quantity, Solution, Tensor, TensorRank0, TensorRank2, Vector};
 use std::{
     fmt::{Display, Formatter, Result},
     iter::Sum,
@@ -14,6 +14,48 @@ pub struct TensorTuple<T1, T2>(pub T1, pub T2)
 where
     T1: Tensor,
     T2: Tensor;
+
+// A quantity carries its unit into both halves of the tuple it scales.
+
+impl<T1, T2, V> Mul<Quantity<V>> for TensorTuple<T1, T2>
+where
+    T1: Mul<Quantity<V>> + Tensor,
+    T2: Mul<Quantity<V>> + Tensor,
+    <T1 as Mul<Quantity<V>>>::Output: Tensor,
+    <T2 as Mul<Quantity<V>>>::Output: Tensor,
+{
+    type Output = TensorTuple<<T1 as Mul<Quantity<V>>>::Output, <T2 as Mul<Quantity<V>>>::Output>;
+    fn mul(self, quantity: Quantity<V>) -> Self::Output {
+        TensorTuple(self.0 * quantity, self.1 * quantity)
+    }
+}
+
+impl<T1, T2, V> Mul<Quantity<V>> for &TensorTuple<T1, T2>
+where
+    T1: Clone + Mul<Quantity<V>> + Tensor,
+    T2: Clone + Mul<Quantity<V>> + Tensor,
+    <T1 as Mul<Quantity<V>>>::Output: Tensor,
+    <T2 as Mul<Quantity<V>>>::Output: Tensor,
+{
+    type Output = TensorTuple<<T1 as Mul<Quantity<V>>>::Output, <T2 as Mul<Quantity<V>>>::Output>;
+    fn mul(self, quantity: Quantity<V>) -> Self::Output {
+        TensorTuple(self.0.clone() * quantity, self.1.clone() * quantity)
+    }
+}
+
+impl<T1, T2> Erase for TensorTuple<T1, T2>
+where
+    T1: Erase + Tensor,
+    T2: Erase + Tensor,
+    <T1 as Erase>::Erased: Tensor,
+    <T2 as Erase>::Erased: Tensor,
+{
+    type Erased = TensorTuple<<T1 as Erase>::Erased, <T2 as Erase>::Erased>;
+    fn erase(&self) -> &Self::Erased {
+        // Erasing an item changes neither its size nor its alignment.
+        unsafe { &*(self as *const Self as *const Self::Erased) }
+    }
+}
 
 impl<T1, T2> Default for TensorTuple<T1, T2>
 where

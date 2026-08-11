@@ -1,5 +1,5 @@
 use crate::math::Dimensionless;
-use crate::math::{Tensor, TensorRank0, TensorRank1, TensorRank1List, TensorVec};
+use crate::math::{Erase, Quantity, Tensor, TensorRank0, TensorRank1, TensorRank1List, TensorVec};
 use std::{
     collections::VecDeque,
     fmt::{Display, Formatter, Result},
@@ -10,7 +10,20 @@ use std::{
 
 /// A resizable collection of tensors.
 #[derive(Clone, Debug, PartialEq)]
+#[repr(transparent)]
 pub struct TensorVector<T>(Vec<T>);
+
+impl<T> Erase for TensorVector<T>
+where
+    T: Erase + Tensor,
+{
+    type Erased = TensorVector<<T as Erase>::Erased>;
+    fn erase(&self) -> &Self::Erased {
+        // Erasing an item changes neither its size nor its alignment, so the
+        // vector of erased items has the layout this one already has.
+        unsafe { &*(self as *const Self as *const Self::Erased) }
+    }
+}
 // where
 //     T: Tensor;
 
@@ -332,6 +345,30 @@ where
 {
     fn div_assign(&mut self, tensor_rank_0: &TensorRank0) {
         self.iter_mut().for_each(|entry| *entry /= tensor_rank_0);
+    }
+}
+
+// A quantity carries its unit into the tensor it scales.
+
+impl<T, V> Mul<Quantity<V>> for TensorVector<T>
+where
+    T: Mul<Quantity<V>> + Tensor,
+    <T as Mul<Quantity<V>>>::Output: Tensor,
+{
+    type Output = TensorVector<<T as Mul<Quantity<V>>>::Output>;
+    fn mul(self, quantity: Quantity<V>) -> Self::Output {
+        self.into_iter().map(|entry| entry * quantity).collect()
+    }
+}
+
+impl<T, V> Mul<Quantity<V>> for &TensorVector<T>
+where
+    T: Mul<Quantity<V>> + Tensor,
+    <T as Mul<Quantity<V>>>::Output: Tensor,
+{
+    type Output = TensorVector<<T as Mul<Quantity<V>>>::Output>;
+    fn mul(self, quantity: Quantity<V>) -> Self::Output {
+        self.iter().map(|entry| entry.clone() * quantity).collect()
     }
 }
 

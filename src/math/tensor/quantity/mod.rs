@@ -188,6 +188,14 @@ impl<U> Mul<Quantity<U>> for TensorRank0 {
     }
 }
 
+/// A dimensionless quantity leaves a bare scalar bare.
+impl Mul<Quantity<Dimensionless>> for &TensorRank0 {
+    type Output = TensorRank0;
+    fn mul(self, quantity: Quantity<Dimensionless>) -> Self::Output {
+        self * quantity.0
+    }
+}
+
 // Combining two quantities combines their units.
 
 impl<U, V> Mul<Quantity<V>> for Quantity<U>

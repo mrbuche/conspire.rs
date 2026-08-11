@@ -1,8 +1,8 @@
 use crate::math::assert::FiniteDifference;
 
 use crate::math::{
-    Jacobian, Matrix, Scalar, Solution, SquareMatrix, Tensor, TensorRank1Vec, TensorRank2,
-    TensorTuple, TensorVec, write_tensor_rank_0,
+    Dimensionless, Erase, Jacobian, Matrix, Quantity, Scalar, Solution, SquareMatrix, Tensor,
+    TensorRank1Vec, TensorRank2, TensorTuple, TensorVec, write_tensor_rank_0,
 };
 use std::{
     fmt::{Display, Formatter, Result},
@@ -350,6 +350,30 @@ impl DivAssign<Scalar> for Vector {
 impl DivAssign<&Scalar> for Vector {
     fn div_assign(&mut self, scalar: &Scalar) {
         self.iter_mut().for_each(|entry| *entry /= scalar);
+    }
+}
+
+impl Erase for Vector {
+    type Erased = Self;
+    fn erase(&self) -> &Self {
+        self
+    }
+}
+
+// A dimensionless quantity scaling a vector of bare scalars leaves it bare.
+// Any other unit would name a quantity this type cannot carry.
+
+impl Mul<Quantity<Dimensionless>> for Vector {
+    type Output = Self;
+    fn mul(self, quantity: Quantity<Dimensionless>) -> Self::Output {
+        self * quantity.value()
+    }
+}
+
+impl Mul<Quantity<Dimensionless>> for &Vector {
+    type Output = Vector;
+    fn mul(self, quantity: Quantity<Dimensionless>) -> Self::Output {
+        self * quantity.value()
     }
 }
 

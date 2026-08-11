@@ -1,4 +1,4 @@
-use crate::math::{Tensor, TensorArray, TensorRank0};
+use crate::math::{Erase, Tensor, TensorArray, TensorRank0};
 use std::{
     array::{self, from_fn},
     fmt::{Display, Formatter, Result},
@@ -9,9 +9,22 @@ use std::{
 
 /// A fixed-size collection of tensors.
 #[derive(Clone, Debug, PartialEq)]
+#[repr(transparent)]
 pub struct TensorList<T, const N: usize>([T; N])
 where
     T: Tensor;
+
+impl<T, const N: usize> Erase for TensorList<T, N>
+where
+    T: Erase + Tensor,
+    <T as Erase>::Erased: Tensor,
+{
+    type Erased = TensorList<<T as Erase>::Erased, N>;
+    fn erase(&self) -> &Self::Erased {
+        // Erasing an item changes neither its size nor its alignment.
+        unsafe { &*(self as *const Self as *const Self::Erased) }
+    }
+}
 
 impl<T, const N: usize> TensorList<T, N>
 where

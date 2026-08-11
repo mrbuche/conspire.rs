@@ -69,6 +69,25 @@ impl StyledError for TensorError {
 
 styled_error!(TensorError);
 
+/// Views a tensor with its configurations and unit discarded.
+///
+/// Contracting tensors of different units gives a quantity whose unit is the
+/// product, which is not always one this library names. Generic code that only
+/// wants the number contracts the erased views instead.
+pub trait Erase {
+    /// The tensor with its configurations and unit discarded.
+    type Erased: Tensor;
+    /// Views the tensor with its configurations and unit discarded.
+    fn erase(&self) -> &Self::Erased;
+}
+
+impl Erase for TensorRank0 {
+    type Erased = Self;
+    fn erase(&self) -> &Self {
+        self
+    }
+}
+
 /// Common methods for solutions.
 pub trait Solution
 where
