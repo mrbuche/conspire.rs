@@ -30,7 +30,7 @@ use super::{
     *,
 };
 use crate::math::{
-    Erase, Matrix, Quantity, Time, Vector,
+    ContractWith, Dissipation, Matrix, Quantity, Time, Vector,
     integrate::{ImplicitDaeFirstOrderMinimize, ImplicitDaeSecondOrderMinimize},
     optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
 };
@@ -49,13 +49,10 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate: &DeformationGradientRate,
-    ) -> Result<Scalar, ConstitutiveError> {
-        // A stress contracted with a rate is a power density, which is not a
-        // unit this library names, so the erased views are contracted.
+    ) -> Result<Quantity<Dissipation>, ConstitutiveError> {
         Ok(self
             .first_piola_kirchhoff_stress(deformation_gradient, &DeformationGradientRate::zero())?
-            .erase()
-            .full_contraction(deformation_gradient_rate.erase())
+            .contract_with(deformation_gradient_rate)
             + self.viscous_dissipation(deformation_gradient, deformation_gradient_rate)?)
     }
     /// Calculates and returns the viscous dissipation.
@@ -67,7 +64,7 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate: &DeformationGradientRate,
-    ) -> Result<Scalar, ConstitutiveError>;
+    ) -> Result<Quantity<Dissipation>, ConstitutiveError>;
 }
 
 /// First-order optimization methods for elastic-hyperviscous solid constitutive models.
@@ -146,10 +143,11 @@ where
                     |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
                      deformation_gradient_rate: &DeformationGradientRate| {
-                        Ok(self.dissipation_potential(
-                            deformation_gradient,
-                            deformation_gradient_rate,
-                        )?)
+                        // The solver only compares its objective, so the
+                        // dissipation is spent where it is handed over.
+                        Ok(self
+                            .dissipation_potential(deformation_gradient, deformation_gradient_rate)?
+                            .value_as::<Dissipation>())
                     },
                     |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
@@ -184,10 +182,11 @@ where
                     |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
                      deformation_gradient_rate: &DeformationGradientRate| {
-                        Ok(self.dissipation_potential(
-                            deformation_gradient,
-                            deformation_gradient_rate,
-                        )?)
+                        // The solver only compares its objective, so the
+                        // dissipation is spent where it is handed over.
+                        Ok(self
+                            .dissipation_potential(deformation_gradient, deformation_gradient_rate)?
+                            .value_as::<Dissipation>())
                     },
                     |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
@@ -251,10 +250,11 @@ where
                     |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
                      deformation_gradient_rate: &DeformationGradientRate| {
-                        Ok(self.dissipation_potential(
-                            deformation_gradient,
-                            deformation_gradient_rate,
-                        )?)
+                        // The solver only compares its objective, so the
+                        // dissipation is spent where it is handed over.
+                        Ok(self
+                            .dissipation_potential(deformation_gradient, deformation_gradient_rate)?
+                            .value_as::<Dissipation>())
                     },
                     |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
@@ -298,10 +298,11 @@ where
                     |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
                      deformation_gradient_rate: &DeformationGradientRate| {
-                        Ok(self.dissipation_potential(
-                            deformation_gradient,
-                            deformation_gradient_rate,
-                        )?)
+                        // The solver only compares its objective, so the
+                        // dissipation is spent where it is handed over.
+                        Ok(self
+                            .dissipation_potential(deformation_gradient, deformation_gradient_rate)?
+                            .value_as::<Dissipation>())
                     },
                     |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,

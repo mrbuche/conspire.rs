@@ -93,6 +93,8 @@ units!(
     ReciprocalTemperature,
     /// A stress per unit temperature, as a thermal stress coefficient is.
     StressPerTemperature,
+    /// A power per unit volume, as a dissipation is.
+    PowerDensity,
 );
 
 macro_rules! unit_products {
@@ -137,6 +139,9 @@ unit_products!(
     Rate * Time = Dimensionless,
     Time * Rate = Dimensionless,
     Stress * Time = Viscosity,
+    Dimensionless * PowerDensity = PowerDensity,
+    Stress * Rate = PowerDensity,
+    Rate * Stress = PowerDensity,
 );
 
 // A tuple carries the pair of units its halves do, so the pair combines with
@@ -206,3 +211,6 @@ pub type ThermalExpansion = ReciprocalTemperature;
 
 /// A frequency.
 pub type Frequency = Rate;
+
+/// A dissipation, being a power per unit volume.
+pub type Dissipation = PowerDensity;

@@ -4,7 +4,7 @@ use crate::{
         Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElementError,
         solid::viscoelastic::ViscoelasticFiniteElement, surface::SurfaceElement,
     },
-    math::{Scalar, Tensor},
+    math::{Dissipation, Quantity, Tensor},
 };
 
 pub trait ElasticHyperviscousFiniteElement<
@@ -22,13 +22,13 @@ pub trait ElasticHyperviscousFiniteElement<
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         nodal_velocities: &ElementNodalVelocities<N>,
-    ) -> Result<Scalar, FiniteElementError>;
+    ) -> Result<Quantity<Dissipation>, FiniteElementError>;
     fn dissipation_potential(
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         nodal_velocities: &ElementNodalVelocities<N>,
-    ) -> Result<Scalar, FiniteElementError>;
+    ) -> Result<Quantity<Dissipation>, FiniteElementError>;
 }
 
 impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
@@ -42,7 +42,7 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         nodal_velocities: &ElementNodalVelocities<N>,
-    ) -> Result<Scalar, FiniteElementError> {
+    ) -> Result<Quantity<Dissipation>, FiniteElementError> {
         viscous_dissipation::<_, _, _, _, _, O, _>(
             self,
             constitutive_model,
@@ -55,7 +55,7 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         nodal_velocities: &ElementNodalVelocities<N>,
-    ) -> Result<Scalar, FiniteElementError> {
+    ) -> Result<Quantity<Dissipation>, FiniteElementError> {
         dissipation_potential::<_, _, _, _, _, O, _>(
             self,
             constitutive_model,
@@ -76,7 +76,7 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         nodal_velocities: &ElementNodalVelocities<N>,
-    ) -> Result<Scalar, FiniteElementError> {
+    ) -> Result<Quantity<Dissipation>, FiniteElementError> {
         viscous_dissipation::<_, _, _, _, _, O, _>(
             self,
             constitutive_model,
@@ -89,7 +89,7 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         nodal_velocities: &ElementNodalVelocities<N>,
-    ) -> Result<Scalar, FiniteElementError> {
+    ) -> Result<Quantity<Dissipation>, FiniteElementError> {
         dissipation_potential::<_, _, _, _, _, O, _>(
             self,
             constitutive_model,
@@ -112,7 +112,7 @@ fn viscous_dissipation<
     constitutive_model: &C,
     nodal_coordinates: &ElementNodalCoordinates<N>,
     nodal_velocities: &ElementNodalVelocities<N>,
-) -> Result<Scalar, FiniteElementError>
+) -> Result<Quantity<Dissipation>, FiniteElementError>
 where
     C: ElasticHyperviscous,
     F: ViscoelasticFiniteElement<C, G, M, N, P>,
@@ -158,7 +158,7 @@ fn dissipation_potential<
     constitutive_model: &C,
     nodal_coordinates: &ElementNodalCoordinates<N>,
     nodal_velocities: &ElementNodalVelocities<N>,
-) -> Result<Scalar, FiniteElementError>
+) -> Result<Quantity<Dissipation>, FiniteElementError>
 where
     C: ElasticHyperviscous,
     F: ViscoelasticFiniteElement<C, G, M, N, P>,

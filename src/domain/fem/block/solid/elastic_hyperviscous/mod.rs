@@ -7,7 +7,7 @@ use crate::{
             elastic_hyperviscous::ElasticHyperviscousElements, viscoelastic::ViscoelasticElements,
         },
     },
-    math::Scalar,
+    math::{Dissipation, Quantity},
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
@@ -21,7 +21,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         nodal_velocities: &NodalVelocities<3>,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<Dissipation>, ElementModelError> {
         match self
             .elements()
             .iter()
@@ -46,7 +46,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         nodal_velocities: &NodalVelocities<3>,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<Dissipation>, ElementModelError> {
         match self
             .elements()
             .iter()

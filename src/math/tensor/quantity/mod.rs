@@ -269,6 +269,13 @@ impl<U> Mul<TensorRank0> for Quantity<U> {
     }
 }
 
+impl<U> Mul<&TensorRank0> for Quantity<U> {
+    type Output = Self;
+    fn mul(self, tensor_rank_0: &TensorRank0) -> Self::Output {
+        Self::new(self.0 * tensor_rank_0)
+    }
+}
+
 impl<U> MulAssign<TensorRank0> for Quantity<U> {
     fn mul_assign(&mut self, tensor_rank_0: TensorRank0) {
         self.0 *= tensor_rank_0

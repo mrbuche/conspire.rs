@@ -1,7 +1,7 @@
 use crate::math::Dimensionless;
 use crate::math::UnitMul;
+use crate::math::{ContractWith, Quantity, UnitDiv};
 use crate::math::{Current, Factor, Flattened, Intermediate, Reference};
-use crate::math::{Quantity, UnitDiv};
 #[cfg(test)]
 mod test;
 
@@ -1444,6 +1444,16 @@ where
     type Output = TensorRank2<D, I, J, <U as UnitDiv<V>>::Output>;
     fn div(self, quantity: Quantity<V>) -> Self::Output {
         relabel(self.canonical() / quantity.value())
+    }
+}
+
+impl<const D: usize, I, J, U, V> ContractWith<TensorRank2<D, I, J, V>> for TensorRank2<D, I, J, U>
+where
+    U: UnitMul<V>,
+{
+    type Output = Quantity<<U as UnitMul<V>>::Output>;
+    fn contract_with(&self, tensor_rank_2: &TensorRank2<D, I, J, V>) -> Self::Output {
+        Quantity::new(self.canonical().full_contraction(tensor_rank_2.canonical()))
     }
 }
 

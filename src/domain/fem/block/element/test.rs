@@ -1581,12 +1581,13 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
             $constitutive_model_type
         );
         // A force contracted with a velocity is a power, which no unit here
-        // names, so the erased views are contracted.
-        use crate::math::Erase;
+        // names, the force having spent its stress at assembly, so the erased
+        // views are contracted.
+        use crate::math::{Dissipation, Erase, Quantity};
         fn get_viscous_dissipation(
             is_deformed: bool,
             is_rotated: bool,
-        ) -> Result<Scalar, AssertionError> {
+        ) -> Result<Quantity<Dissipation>, AssertionError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_element_transformed().viscous_dissipation(
@@ -1620,7 +1621,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
         fn get_dissipation_potential(
             is_deformed: bool,
             is_rotated: bool,
-        ) -> Result<Scalar, AssertionError> {
+        ) -> Result<Quantity<Dissipation>, AssertionError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_element_transformed().dissipation_potential(
@@ -1655,7 +1656,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
             is_deformed: bool,
         ) -> Result<ElementNodalForcesSolid<N>, AssertionError> {
             let element = get_element();
-            let mut finite_difference = 0.0;
+            let mut finite_difference = $crate::math::Quantity::default();
             (0..N)
                 .map(|node| {
                     (0..3)
@@ -1682,7 +1683,11 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                                 &nodal_coordinates,
                                 &nodal_velocities,
                             )?;
-                            Ok(finite_difference / EPSILON)
+                            // A dissipation per unit rate is a stress, spent to meet a nodal
+                            // force that spent its own at assembly.
+                            Ok((finite_difference
+                                / $crate::math::Quantity::<$crate::math::Rate>::new(EPSILON))
+                            .value_as::<$crate::math::Stress>())
                         })
                         .collect()
                 })
@@ -1692,7 +1697,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
             is_deformed: bool,
         ) -> Result<ElementNodalForcesSolid<N>, AssertionError> {
             let element = get_element();
-            let mut finite_difference = 0.0;
+            let mut finite_difference = $crate::math::Quantity::default();
             (0..N)
                 .map(|node| {
                     (0..3)
@@ -1719,7 +1724,11 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                                 &nodal_coordinates,
                                 &nodal_velocities,
                             )?;
-                            Ok(finite_difference / EPSILON)
+                            // A dissipation per unit rate is a stress, spent to meet a nodal
+                            // force that spent its own at assembly.
+                            Ok((finite_difference
+                                / $crate::math::Quantity::<$crate::math::Rate>::new(EPSILON))
+                            .value_as::<$crate::math::Stress>())
                         })
                         .collect()
                 })
@@ -1742,7 +1751,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                     let element = get_element();
                     let nodal_forces = get_nodal_forces(true, false, true)?
                         - get_nodal_forces(true, false, false)?;
-                    let minimum = get_viscous_dissipation(true, false)?
+                    let minimum = get_viscous_dissipation(true, false)?.value_as::<Dissipation>()
                         - nodal_forces.erase().full_contraction(velocities().erase());
                     let mut perturbed = 0.0;
                     let mut perturbed_velocities = velocities();
@@ -1750,13 +1759,16 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                         (0..3).try_for_each(|i| {
                             perturbed_velocities = velocities();
                             perturbed_velocities[node][i] += 0.5 * EPSILON;
-                            perturbed = element.viscous_dissipation(
-                                &$constitutive_model,
-                                &coordinates(),
-                                &perturbed_velocities,
-                            )? - nodal_forces
-                                .erase()
-                                .full_contraction(perturbed_velocities.erase());
+                            perturbed = element
+                                .viscous_dissipation(
+                                    &$constitutive_model,
+                                    &coordinates(),
+                                    &perturbed_velocities,
+                                )?
+                                .value_as::<Dissipation>()
+                                - nodal_forces
+                                    .erase()
+                                    .full_contraction(perturbed_velocities.erase());
                             if $crate::math::assert::Assert::default()
                                 .eq_within_tols(&perturbed, &minimum)
                                 .is_err()
@@ -1764,13 +1776,16 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                                 assert!(perturbed > minimum)
                             }
                             perturbed_velocities[node][i] -= EPSILON;
-                            perturbed = element.viscous_dissipation(
-                                &$constitutive_model,
-                                &coordinates(),
-                                &perturbed_velocities,
-                            )? - nodal_forces
-                                .erase()
-                                .full_contraction(perturbed_velocities.erase());
+                            perturbed = element
+                                .viscous_dissipation(
+                                    &$constitutive_model,
+                                    &coordinates(),
+                                    &perturbed_velocities,
+                                )?
+                                .value_as::<Dissipation>()
+                                - nodal_forces
+                                    .erase()
+                                    .full_contraction(perturbed_velocities.erase());
                             if $crate::math::assert::Assert::default()
                                 .eq_within_tols(&perturbed, &minimum)
                                 .is_err()
@@ -1790,7 +1805,9 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                 }
                 #[test]
                 fn positive() -> Result<(), AssertionError> {
-                    assert!(get_viscous_dissipation(true, false)? > 0.0);
+                    assert!(
+                        get_viscous_dissipation(true, false)? > $crate::math::Quantity::default()
+                    );
                     Ok(())
                 }
             }
@@ -1807,7 +1824,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                 fn minimized() -> Result<(), AssertionError> {
                     let element = get_element();
                     let minimum = get_viscous_dissipation(false, false)?;
-                    let mut perturbed = 0.0;
+                    let mut perturbed = $crate::math::Quantity::default();
                     let mut perturbed_velocities = ElementNodalVelocities::zero();
                     (0..N).try_for_each(|node| {
                         (0..3).try_for_each(|i| {
@@ -1866,7 +1883,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                 fn minimized() -> Result<(), AssertionError> {
                     let element = get_element();
                     let nodal_forces = get_nodal_forces(true, false, true)?;
-                    let minimum = get_dissipation_potential(true, false)?
+                    let minimum = get_dissipation_potential(true, false)?.value_as::<Dissipation>()
                         - nodal_forces.erase().full_contraction(velocities().erase());
                     let mut perturbed = 0.0;
                     let mut perturbed_velocities = velocities();
@@ -1874,13 +1891,16 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                         (0..3).try_for_each(|i| {
                             perturbed_velocities = velocities();
                             perturbed_velocities[node][i] += 0.5 * EPSILON;
-                            perturbed = element.dissipation_potential(
-                                &$constitutive_model,
-                                &coordinates(),
-                                &perturbed_velocities,
-                            )? - nodal_forces
-                                .erase()
-                                .full_contraction(perturbed_velocities.erase());
+                            perturbed = element
+                                .dissipation_potential(
+                                    &$constitutive_model,
+                                    &coordinates(),
+                                    &perturbed_velocities,
+                                )?
+                                .value_as::<Dissipation>()
+                                - nodal_forces
+                                    .erase()
+                                    .full_contraction(perturbed_velocities.erase());
                             if $crate::math::assert::Assert::default()
                                 .eq_within_tols(&perturbed, &minimum)
                                 .is_err()
@@ -1888,13 +1908,16 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                                 assert!(perturbed > minimum)
                             }
                             perturbed_velocities[node][i] -= EPSILON;
-                            perturbed = element.dissipation_potential(
-                                &$constitutive_model,
-                                &coordinates(),
-                                &perturbed_velocities,
-                            )? - nodal_forces
-                                .erase()
-                                .full_contraction(perturbed_velocities.erase());
+                            perturbed = element
+                                .dissipation_potential(
+                                    &$constitutive_model,
+                                    &coordinates(),
+                                    &perturbed_velocities,
+                                )?
+                                .value_as::<Dissipation>()
+                                - nodal_forces
+                                    .erase()
+                                    .full_contraction(perturbed_velocities.erase());
                             if $crate::math::assert::Assert::default()
                                 .eq_within_tols(&perturbed, &minimum)
                                 .is_err()
@@ -1926,7 +1949,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                 fn minimized() -> Result<(), AssertionError> {
                     let element = get_element();
                     let minimum = get_dissipation_potential(false, false)?;
-                    let mut perturbed = 0.0;
+                    let mut perturbed = $crate::math::Quantity::default();
                     let mut perturbed_velocities = ElementNodalVelocities::zero();
                     (0..N).try_for_each(|node| {
                         (0..3).try_for_each(|i| {
@@ -1987,7 +2010,7 @@ macro_rules! test_finite_element_with_hyperviscoelastic_constitutive_model {
         fn dissipation_potential_deformed_positive() -> Result<(), AssertionError>
         {
             assert!(
-                get_dissipation_potential(true, false)? > 0.0
+                get_dissipation_potential(true, false)? > $crate::math::Quantity::default()
             );
             Ok(())
         }

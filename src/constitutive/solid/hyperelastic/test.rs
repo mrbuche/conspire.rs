@@ -156,7 +156,8 @@ macro_rules! test_solid_hyperelastic_constitutive_model_no_tangents
                     let minimum =
                     helmholtz_free_energy_density_from_deformation_gradient_simple!(
                         $constitutive_model, &get_deformation_gradient()
-                    )? - $crate::math::Erase::erase(&first_piola_kirchhoff_stress).full_contraction(
+                    )? - $crate::math::Tensor::full_contraction(
+                        $crate::math::Erase::erase(&first_piola_kirchhoff_stress),
                         $crate::math::Erase::erase(&get_deformation_gradient())
                     );
                     let mut perturbed_deformation_gradient = get_deformation_gradient();
@@ -167,7 +168,8 @@ macro_rules! test_solid_hyperelastic_constitutive_model_no_tangents
                             assert!(
                                 helmholtz_free_energy_density_from_deformation_gradient_simple!(
                                     $constitutive_model, &perturbed_deformation_gradient
-                                )? - $crate::math::Erase::erase(&first_piola_kirchhoff_stress).full_contraction(
+                                )? - $crate::math::Tensor::full_contraction(
+                        $crate::math::Erase::erase(&first_piola_kirchhoff_stress),
                                     $crate::math::Erase::erase(&perturbed_deformation_gradient)
                                 ) > minimum
                             );
@@ -175,7 +177,8 @@ macro_rules! test_solid_hyperelastic_constitutive_model_no_tangents
                             assert!(
                                 helmholtz_free_energy_density_from_deformation_gradient_simple!(
                                     $constitutive_model, &perturbed_deformation_gradient
-                                )? - $crate::math::Erase::erase(&first_piola_kirchhoff_stress).full_contraction(
+                                )? - $crate::math::Tensor::full_contraction(
+                        $crate::math::Erase::erase(&first_piola_kirchhoff_stress),
                                     $crate::math::Erase::erase(&perturbed_deformation_gradient)
                                 ) > minimum
                             );

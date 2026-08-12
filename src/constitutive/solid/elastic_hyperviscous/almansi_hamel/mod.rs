@@ -2,7 +2,7 @@ use crate::math::TensorRank4;
 #[cfg(test)]
 mod test;
 
-use crate::math::{Quantity, Stress, Viscosity};
+use crate::math::{ContractWith, Dissipation, Quantity, Rate, Stress, Viscosity};
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -135,14 +135,18 @@ impl ElasticHyperviscous for AlmansiHamel {
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate: &DeformationGradientRate,
-    ) -> Result<Scalar, ConstitutiveError> {
+    ) -> Result<Quantity<Dissipation>, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let velocity_gradient = deformation_gradient_rate * deformation_gradient.inverse();
         let strain_rate = (&velocity_gradient + velocity_gradient.transpose()) * 0.5;
-        Ok((self.shear_viscosity() * strain_rate.squared_trace()
-            + 0.5
-                * (self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity())
-                * strain_rate.trace().powi(2))
-        .value())
+        // The trace of a strain rate is a rate, as any norm of one is.
+        let strain_rate_trace = Quantity::<Rate>::new(strain_rate.trace());
+        Ok(
+            (&strain_rate * self.shear_viscosity()).contract_with(&strain_rate)
+                + (self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity())
+                    * strain_rate_trace
+                    * strain_rate_trace
+                    * 0.5,
+        )
     }
 }

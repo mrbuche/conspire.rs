@@ -18,10 +18,10 @@ pub use configuration::{
 pub use norm::Norm;
 pub use quantity::{Is, Quantity};
 pub use unit::{
-    Compliance, Dimensionless, EnergyDensity, Fluidity, Frequency, Length, Modulus, Pressure, Rate,
-    ReciprocalLength, ReciprocalStress, ReciprocalTemperature, ReciprocalViscosity, Stress,
-    StressPerTemperature, Temperature, ThermalExpansion, Time, Unit, UnitDiv, UnitHalves, UnitInv,
-    UnitMul, Viscosity,
+    Compliance, Dimensionless, Dissipation, EnergyDensity, Fluidity, Frequency, Length, Modulus,
+    PowerDensity, Pressure, Rate, ReciprocalLength, ReciprocalStress, ReciprocalTemperature,
+    ReciprocalViscosity, Stress, StressPerTemperature, Temperature, ThermalExpansion, Time, Unit,
+    UnitDiv, UnitHalves, UnitInv, UnitMul, Viscosity,
 };
 
 use super::{SquareMatrix, Vector};
@@ -93,6 +93,19 @@ where
 /// appears in, since a tensor names a derivative for each variable it might be
 /// differentiated against.
 pub type Derivative<Y, T = Time> = <Y as Differentiate<T>>::Derivative;
+
+/// The full contraction of two tensors whose units need not agree.
+///
+/// [`Tensor::full_contraction`] contracts a tensor with another of its own type
+/// and gives a number. Contracting tensors of different units gives a quantity
+/// whose unit is the product of theirs — a stress with a rate is a power
+/// density — which is what erased views used to stand in for.
+pub trait ContractWith<Rhs> {
+    /// The quantity the contraction gives.
+    type Output;
+    /// Returns the full contraction with the other tensor.
+    fn contract_with(&self, rhs: &Rhs) -> Self::Output;
+}
 
 /// Views a tensor with its configurations and unit discarded.
 ///
