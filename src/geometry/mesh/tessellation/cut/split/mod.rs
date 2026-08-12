@@ -29,6 +29,7 @@ pub(super) fn split_cell(
     let point = |vertex: Vertex| match vertex {
         Vertex::Node(node) => node,
         Vertex::Crossing(edge, ordinal) => crossing_ids[&edge][ordinal],
+        Vertex::Feature(..) => panic!(),
     };
     let keyed_faces: Vec<(Vec<usize>, &Vec<usize>)> = faces
         .iter()

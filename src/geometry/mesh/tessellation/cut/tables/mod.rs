@@ -39,6 +39,18 @@ impl GenericTables {
     }
 }
 
+fn locate(
+    vertex: Vertex,
+    coordinates: &crate::geometry::Coordinates<D>,
+    crossings: &HashMap<[usize; 2], Vec<Coordinate<D>>>,
+) -> Coordinate<D> {
+    match vertex {
+        Vertex::Node(node) => coordinates[node].clone(),
+        Vertex::Crossing(edge, ordinal) => crossings[&edge][ordinal].clone(),
+        Vertex::Feature(..) => panic!(),
+    }
+}
+
 impl Tessellation {
     #[allow(clippy::type_complexity)]
     fn edges_signs_crossings(
@@ -218,6 +230,9 @@ impl Tessellation {
             offset += block.number_of_elements();
         });
         let mut segments = HashMap::new();
+        let mut vias = HashMap::new();
+        let mut features = HashMap::new();
+        let index = self.features().index(0.0);
         face_loops.iter().try_for_each(|(key, corners)| {
             let cut = face_cut(corners, &signs, &crossings)?;
             let count = cut.endpoints.len();
@@ -248,6 +263,38 @@ impl Tessellation {
             if pairs.len() != count / 2 {
                 return Err("inconsistent crossings around a face");
             }
+            if pairs.len() == 1 {
+                let ends = pairs[0].map(|vertex| locate(vertex, coordinates, &crossings));
+                let along = &ends[1] - &ends[0];
+                let span = &along * &along;
+                let quad = corners.map(|node| &coordinates[node]);
+                let margin = CROSSING_TOLERANCE.max(super::GRAZING_TOLERANCE * span.sqrt());
+                let mut riding: Vec<(Scalar, Vertex, Coordinate<D>)> = index
+                    .through(quad)
+                    .into_iter()
+                    .filter(|(_, point)| index.nearest_corner(point, margin).is_none())
+                    .filter_map(|(crease, point)| {
+                        let fraction = (&point - &ends[0]) * &along / span;
+                        (0.0 < fraction && fraction < 1.0).then_some((
+                            fraction,
+                            Vertex::Feature(*key, crease),
+                            point,
+                        ))
+                    })
+                    .collect();
+                riding.sort_by(|(one, ..), (two, ..)| one.total_cmp(two));
+                if !riding.is_empty() {
+                    vias.insert(
+                        *key,
+                        vec![riding.iter().map(|&(_, vertex, _)| vertex).collect()],
+                    );
+                    riding.into_iter().for_each(|(_, vertex, point)| {
+                        if let Vertex::Feature(face, crease) = vertex {
+                            features.insert((face, crease), point);
+                        }
+                    })
+                }
+            }
             segments.insert(*key, pairs);
             Ok(())
         })?;
@@ -256,6 +303,8 @@ impl Tessellation {
             crossings,
             faces: face_loops,
             segments,
+            vias,
+            features,
         })
     }
     pub(super) fn tables_generic(

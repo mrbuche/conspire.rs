@@ -170,11 +170,14 @@ pub(super) fn face_cut(
 pub(super) fn clip_face(
     cut: &FaceCut,
     chords: Option<&Vec<[Vertex; 2]>>,
+    vias: Option<&Vec<Vec<Vertex>>>,
     crossing_ids: &HashMap<[usize; 2], Vec<usize>>,
+    feature_ids: &HashMap<([usize; 4], usize), usize>,
 ) -> Vec<Vec<usize>> {
     let point = |vertex: Vertex| match vertex {
         Vertex::Node(node) => node,
         Vertex::Crossing(edge, ordinal) => crossing_ids[&edge][ordinal],
+        Vertex::Feature(face, crease) => feature_ids[&(face, crease)],
     };
     if cut.endpoints.is_empty() {
         return if cut.inside && cut.emitted.len() > 2 {
@@ -184,10 +187,23 @@ pub(super) fn clip_face(
         };
     }
     let mut partner = HashMap::new();
-    chords.unwrap().iter().for_each(|&[one, two]| {
-        partner.insert(one, two);
-        partner.insert(two, one);
-    });
+    let mut along = HashMap::<[Vertex; 2], Vec<Vertex>>::new();
+    chords
+        .unwrap()
+        .iter()
+        .enumerate()
+        .for_each(|(chord, &[one, two])| {
+            partner.insert(one, two);
+            partner.insert(two, one);
+            let riding = vias
+                .and_then(|vias| vias.get(chord))
+                .cloned()
+                .unwrap_or_default();
+            let mut back = riding.clone();
+            back.reverse();
+            along.insert([one, two], riding);
+            along.insert([two, one], back);
+        });
     let arcs: HashMap<Vertex, usize> = cut
         .endpoints
         .iter()
@@ -206,7 +222,11 @@ pub(super) fn clip_face(
                 polygon.extend(cut.interiors[arc].iter().copied());
                 let end = cut.endpoints[(arc + 1) % count];
                 polygon.push(point(end));
-                let jump = arcs[&partner[&end]];
+                let next = partner[&end];
+                along[&[end, next]]
+                    .iter()
+                    .for_each(|&riding| polygon.push(point(riding)));
+                let jump = arcs[&next];
                 if jump == origin {
                     break;
                 }

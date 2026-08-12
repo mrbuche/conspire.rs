@@ -390,3 +390,29 @@ fn a_corner_takes_at_most_one_node() {
         assert!(landed <= 1, "{landed} nodes on {corner}")
     })
 }
+
+#[test]
+fn the_cut_passes_through_the_creases_of_an_off_axis_box() {
+    let tessellation = rotated_box([-0.5, -0.5, -0.5], [0.5, 0.5, 0.5], 0.7);
+    let features = tessellation.features();
+    let mesh = tessellation.cut_uniform(0.14).unwrap();
+    let riding = mesh
+        .coordinates()
+        .iter()
+        .filter(|point| {
+            features
+                .corners()
+                .iter()
+                .all(|corner| (*point - corner).norm() > 1.0e-9)
+        })
+        .filter(|point| {
+            features.creases().iter().any(|crease| {
+                let along = &crease[1] - &crease[0];
+                let span = &along * &along;
+                let fraction = ((*point - &crease[0]) * &along / span).clamp(0.0, 1.0);
+                (*point - &(&crease[0] + &(&along * fraction))).norm() < 1.0e-9
+            })
+        })
+        .count();
+    assert!(riding > 20, "{riding}")
+}
