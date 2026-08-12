@@ -13,15 +13,17 @@ use crate::{
 };
 use std::array::from_fn;
 
-/// Cosine of the dihedral deviation past which an edge is a crease.
-const CREASE_COSINE: Scalar = 0.866_025_403_784_438_6;
+/// Cosine of the dihedral deviation past which an edge is a crease, taken at
+/// forty-five degrees to agree with the feature angle of 135 that Cubit
+/// defaults to, which is the same fold measured from flat instead.
+const CREASE_COSINE: Scalar = std::f64::consts::FRAC_1_SQRT_2;
 
 /// The sharp edges and points of a tessellation.
 ///
-/// An edge is a crease when its two triangles turn through more than thirty
-/// degrees. A vertex is a corner when the creases through it do not simply
-/// pass through: it ends one, joins three or more, or turns sharply between
-/// two.
+/// An edge is a crease when its two triangles turn through more than
+/// forty-five degrees. A vertex is a corner when the creases through it do
+/// not simply pass through: it ends one, joins three or more, or turns
+/// sharply between two.
 ///
 /// Only edges with exactly two incident triangles are considered, so a
 /// tessellation whose triangles do not share nodes has no features rather

@@ -157,3 +157,13 @@ fn triangles_that_share_no_nodes_have_no_features() {
     assert!(soup.features().corners().is_empty());
     assert!(soup.features().creases().is_empty());
 }
+
+#[test]
+fn an_octahedron_is_all_creases_but_a_smoother_sphere_has_none() {
+    let octahedron = sphere(0);
+    assert_eq!(octahedron.features().creases().len(), 12);
+    assert_eq!(octahedron.features().corners().len(), 6);
+    let rounder = sphere(1);
+    assert!(rounder.features().creases().is_empty());
+    assert!(rounder.features().corners().is_empty());
+}
