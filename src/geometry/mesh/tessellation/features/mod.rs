@@ -97,17 +97,6 @@ pub(crate) fn crease_nodes(
         .collect()
 }
 
-impl Features {
-    pub fn corners(&self) -> &[Coordinate<D>] {
-        &self.corners
-    }
-    pub fn creases(&self) -> &[[Coordinate<D>; 2]] {
-        &self.creases
-    }
-    pub(super) fn of(tessellation: &Tessellation) -> Self {
-        let coordinates = tessellation.mesh().coordinates();
-        let triangles = triangles(tessellation);
-        let sharp = crease_edges(&triangles, coordinates);
         let mut through = FxHashMap::<usize, Vec<usize>>::default();
         sharp.iter().for_each(|&[a, b]| {
             through.entry(a).or_default().push(b);
