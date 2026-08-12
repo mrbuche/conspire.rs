@@ -8,14 +8,15 @@ use crate::{
 };
 
 fn tri() -> Mesh<3> {
-    Mesh::from((
+    (
         vec![Connectivity::Triangular(vec![[0_usize, 1, 2]].into())],
         Coordinates::from([
             Coordinate::const_from([0.0, 0.0, 0.0]),
             Coordinate::const_from([2.0, 0.0, 0.0]),
             Coordinate::const_from([0.0, 2.0, 0.0]),
         ]),
-    ))
+    )
+        .into()
 }
 
 fn centroid(mesh: &Mesh<3>) -> Coordinate<3> {
@@ -146,4 +147,109 @@ fn cotangent_full_step() -> Result<(), AssertionError> {
     Assert::default().eq_within_tols(&coordinates[0], &[1.0, 1.0, 0.0].into())?;
     Assert::default().eq_within_tols(&coordinates[1], &[0.0, 0.0, 0.0].into())?;
     Assert::default().eq_within_tols(&coordinates[2], &[0.0, 0.0, 0.0].into())
+}
+
+fn polygon() -> Mesh<3> {
+    (
+        vec![Connectivity::Polygonal(
+            (
+                vec![vec![0_usize, 1, 2, 3]],
+                vec![vec![0_usize, 1], vec![1, 2], vec![2, 3], vec![3, 0]],
+            )
+                .into(),
+        )],
+        Coordinates::from([
+            Coordinate::const_from([0.0, 0.0, 0.0]),
+            Coordinate::const_from([2.0, 0.0, 0.0]),
+            Coordinate::const_from([2.0, 2.0, 0.0]),
+            Coordinate::const_from([0.0, 2.0, 0.0]),
+        ]),
+    )
+        .into()
+}
+
+fn polyhedron() -> Mesh<3> {
+    (
+        vec![Connectivity::Polyhedral(
+            (
+                vec![vec![0_usize, 1, 2, 3, 4, 5]],
+                vec![
+                    vec![0_usize, 1, 2, 3],
+                    vec![4, 5, 6, 7],
+                    vec![0, 1, 5, 4],
+                    vec![1, 2, 6, 5],
+                    vec![2, 3, 7, 6],
+                    vec![3, 0, 4, 7],
+                ],
+            )
+                .into(),
+        )],
+        Coordinates::from([
+            Coordinate::const_from([0.0, 0.0, 0.0]),
+            Coordinate::const_from([1.0, 0.0, 0.0]),
+            Coordinate::const_from([1.0, 1.0, 0.0]),
+            Coordinate::const_from([0.0, 1.0, 0.0]),
+            Coordinate::const_from([0.0, 0.0, 1.0]),
+            Coordinate::const_from([1.0, 0.0, 1.0]),
+            Coordinate::const_from([1.0, 1.0, 1.0]),
+            Coordinate::const_from([0.0, 1.0, 1.0]),
+        ]),
+    )
+        .into()
+}
+
+#[test]
+fn polygonal_edge_adjacency() {
+    assert_eq!(
+        polygon().node_node_connectivity(),
+        [vec![1, 3], vec![0, 2], vec![1, 3], vec![0, 2]]
+    );
+}
+
+#[test]
+fn polyhedral_edge_adjacency() {
+    assert_eq!(
+        polyhedron().node_node_connectivity(),
+        [
+            vec![1, 3, 4],
+            vec![0, 2, 5],
+            vec![1, 3, 6],
+            vec![0, 2, 7],
+            vec![0, 5, 7],
+            vec![1, 4, 6],
+            vec![2, 5, 7],
+            vec![3, 4, 6]
+        ]
+    );
+}
+
+#[test]
+fn polygonal_full_step() -> Result<(), AssertionError> {
+    let mut mesh = polygon();
+    mesh.laplace_smooth(1, 1.0, Weighting::Uniform, false, false);
+    let coordinates = mesh.coordinates();
+    Assert::default().eq_within_tols(&coordinates[0], &[1.0, 1.0, 0.0].into())?;
+    Assert::default().eq_within_tols(&coordinates[2], &[1.0, 1.0, 0.0].into())
+}
+
+#[test]
+fn polyhedral_full_step() -> Result<(), AssertionError> {
+    let mut mesh = polyhedron();
+    mesh.laplace_smooth(1, 1.0, Weighting::Uniform, false, false);
+    Assert::default().eq_within_tols(
+        &mesh.coordinates()[0],
+        &[1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0].into(),
+    )
+}
+
+#[test]
+fn polyhedral_preserve_boundary_retains_all_neighbors() -> Result<(), AssertionError> {
+    let mut free = polyhedron();
+    let mut mesh = polyhedron();
+    free.laplace_smooth(4, 0.5, Weighting::Uniform, false, false);
+    mesh.laplace_smooth(4, 0.5, Weighting::Uniform, true, false);
+    free.coordinates()
+        .iter()
+        .zip(mesh.coordinates())
+        .try_for_each(|(a, b)| Assert::default().eq_within_tols(a, b))
 }

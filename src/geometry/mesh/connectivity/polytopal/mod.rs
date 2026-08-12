@@ -12,6 +12,20 @@ impl<const M: usize> From<(Vec<Vec<usize>>, Vec<Vec<usize>>)> for PolytopalConne
 }
 
 impl<const M: usize> PolytopalConnectivity<M> {
+    pub fn add_edge_adjacency(&self, nodes_nodes: &mut [Vec<usize>]) {
+        for faces in self.0.members() {
+            for &face in faces {
+                let nodes = &self.1[face];
+                for (index, &u) in nodes.iter().enumerate() {
+                    let v = nodes[(index + 1) % nodes.len()];
+                    if u != v {
+                        nodes_nodes[u].push(v);
+                        nodes_nodes[v].push(u);
+                    }
+                }
+            }
+        }
+    }
     pub fn elements_faces(&self) -> &[Vec<usize>] {
         self.0.members()
     }
