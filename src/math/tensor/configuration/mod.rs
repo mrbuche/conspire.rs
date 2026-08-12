@@ -24,8 +24,6 @@ configurations!(
     Intermediate,
     /// A second intermediate configuration.
     Auxiliary,
-    /// The configuration of a cohesive interface.
-    Interface,
     /// The space a composite element projects onto.
     Projection,
     /// The shared index of a factorization.

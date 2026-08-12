@@ -12,8 +12,7 @@ pub(super) mod unit;
 pub(super) mod vec;
 
 pub use configuration::{
-    Auxiliary, Configuration, Current, Factor, Flattened, Interface, Intermediate, Projection,
-    Reference,
+    Auxiliary, Configuration, Current, Factor, Flattened, Intermediate, Projection, Reference,
 };
 pub use norm::Norm;
 pub use quantity::{Is, Quantity};
