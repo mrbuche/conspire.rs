@@ -3,9 +3,10 @@ mod test;
 
 use super::{
     super::{
-        Dimensionless, Erase, Hessian, HessianBlock, Jacobian, LuDecomposition, Matrix, Quantity,
-        Scalar, Solution, SquareMatrix, Tensor, UnitDiv, Vector,
+        Erase, Hessian, HessianBlock, Jacobian, LuDecomposition, Matrix, Quantity, Scalar,
+        Solution, SquareMatrix, Tensor, Vector,
         sparse::{CscMatrix, SparseSolver},
+        unit::{Dimensionless, UnitDiv},
     },
     BacktrackingLineSearch, EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock,
     FirstOrderRootFindingIncremental, LineSearch, LineSearchError, OptimizationError,

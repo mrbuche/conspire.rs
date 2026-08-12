@@ -1,4 +1,5 @@
 use crate::math::assert::Assert;
+use crate::math::unit::Time;
 use crate::{
     constitutive::{
         fluid::viscoplastic::ViscoplasticFlow,
@@ -19,13 +20,17 @@ use crate::{
                 ViscoplasticStateVariablesHistory,
             },
         },
+        nodal_coordinates,
         solid::{
             elastic::ElasticElements, elastic_viscoplastic::FirstOrderRoot as DaeFirstOrderRoot,
         },
     },
-    geometry::mesh::{Connectivity, Mesh},
+    geometry::{
+        Coordinates,
+        mesh::{Connectivity, Mesh},
+    },
     math::{
-        Matrix, Quantity, Scalar, Tensor, TensorTuple, TensorTupleVec, Time, Vector,
+        Matrix, Quantity, Scalar, Tensor, TensorTuple, TensorTupleVec, Vector,
         assert::AssertionError,
         integrate::BogackiShampine,
         optimize::{EqualityConstraint, NewtonRaphson},
@@ -85,8 +90,8 @@ fn connectivity() -> Vec<[usize; 4]> {
     ]
 }
 
-fn coordinates() -> NodalReferenceCoordinates<3> {
-    NodalReferenceCoordinates::from([
+fn coordinates() -> Coordinates<3> {
+    Coordinates::from([
         [0.5, -0.5, 0.5],
         [0.5, 0.5, 0.5],
         [-0.5, 0.5, 0.5],
@@ -209,7 +214,11 @@ fn split_blocks_model() -> Result<Model<Blocks<Tet, Tet>, 3>, AssertionError> {
 
 #[test]
 fn single_block_nodal_forces() -> Result<(), AssertionError> {
-    let block = Tet::from((constitutive_model(), connectivity(), &coordinates()));
+    let block = Tet::from((
+        constitutive_model(),
+        connectivity(),
+        &nodal_coordinates(coordinates()),
+    ));
     let model = single_block_model()?;
     Assert::eq(
         &ElasticElements::nodal_forces(&block, &deformed_coordinates())?,
@@ -223,7 +232,11 @@ fn single_block_nodal_forces() -> Result<(), AssertionError> {
 
 #[test]
 fn split_blocks_nodal_forces() -> Result<(), AssertionError> {
-    let block = Tet::from((constitutive_model(), connectivity(), &coordinates()));
+    let block = Tet::from((
+        constitutive_model(),
+        connectivity(),
+        &nodal_coordinates(coordinates()),
+    ));
     let model = split_blocks_model()?;
     Assert::default().eq_within_tols(
         &ElasticElements::nodal_forces(&block, &deformed_coordinates())?,
@@ -279,8 +292,16 @@ fn wrong_element_kind() {
 #[test]
 fn heterogeneous_blocks_nodal_forces() -> Result<(), AssertionError> {
     let (connectivity_1, connectivity_2) = split_connectivities();
-    let block_1 = Tet::from((constitutive_model(), connectivity_1, &coordinates()));
-    let block_2 = TetNeoHookean::from((neo_hookean_model(), connectivity_2, &coordinates()));
+    let block_1 = Tet::from((
+        constitutive_model(),
+        connectivity_1,
+        &nodal_coordinates(coordinates()),
+    ));
+    let block_2 = TetNeoHookean::from((
+        neo_hookean_model(),
+        connectivity_2,
+        &nodal_coordinates(coordinates()),
+    ));
     Assert::default().eq_within_tols(
         &(ElasticElements::nodal_forces(&block_1, &deformed_coordinates())?
             + ElasticElements::nodal_forces(&block_2, &deformed_coordinates())?),
@@ -416,7 +437,7 @@ fn heterogeneous_blocks_root() -> Result<(), AssertionError> {
     Ok(())
 }
 
-fn coordinates_2d() -> NodalReferenceCoordinates<2> {
+fn coordinates_2d() -> Coordinates<2> {
     (0..3)
         .flat_map(|j| (0..3).map(move |i| [0.5 * i as Scalar, 0.5 * j as Scalar]))
         .collect::<Vec<_>>()

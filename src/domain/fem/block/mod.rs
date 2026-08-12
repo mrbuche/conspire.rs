@@ -16,8 +16,8 @@ use crate::{
     },
     geometry::mesh::PrimitiveConnectivity,
     math::{
-        Scalar, Tensor, TensorRank1List, TensorRank1Vec, optimize::EqualityConstraint,
-        sparse::SparseSolver,
+        Quantity, Tensor, TensorRank1List, TensorRank1Vec, optimize::EqualityConstraint,
+        sparse::SparseSolver, unit::Volume,
     },
 };
 use std::{
@@ -53,7 +53,7 @@ where
             .map(|&node| coordinates[node].clone())
             .collect()
     }
-    pub fn volume(&self) -> Scalar {
+    pub fn volume(&self) -> Quantity<Volume> {
         self.elements().iter().map(|element| element.volume()).sum()
     }
 }

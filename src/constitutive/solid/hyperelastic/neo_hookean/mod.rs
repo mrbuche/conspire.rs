@@ -1,4 +1,5 @@
-use crate::math::{EnergyDensity, Quantity, Stress};
+use crate::math::Quantity;
+use crate::math::unit::{EnergyDensity, Stress};
 #[cfg(test)]
 mod test;
 

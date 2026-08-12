@@ -8,10 +8,13 @@ use crate::{
         linear::Tetrahedron,
     },
     math::{
-        CrossProduct, Scalar, Scalars, Style, StyledError, Tensor, TensorRank1Vec2D,
-        assert::AssertionError, styled_error,
+        CrossProduct, Quantity, Scalar, Style, StyledError, Tensor, TensorRank1, TensorRank1Vec2D,
+        TensorVector,
+        assert::AssertionError,
+        styled_error,
+        unit::{Area, Length, ReciprocalLength, Volume},
     },
-    mechanics::{CurrentCoordinate, CurrentCoordinatesRef, ReferenceCoordinate, Vectors2D},
+    mechanics::{CurrentCoordinate, CurrentCoordinatesRef, ReferenceCoordinate},
     vem::{NodalCoordinates, NodalReferenceCoordinates},
 };
 
@@ -23,15 +26,16 @@ use std::{
 };
 
 pub type ElementNodalCoordinates<'a> = CurrentCoordinatesRef<'a>;
-pub type ElementNodalReferenceCoordinates = TensorRank1Vec2D<3, Reference>;
-pub type GradientVectors = Vectors2D<Reference>;
+pub type ElementNodalReferenceCoordinates = TensorRank1Vec2D<3, Reference, Length>;
+pub type GradientVectors = TensorRank1Vec2D<3, Reference, ReciprocalLength>;
+pub type IntegrationWeights = TensorVector<Quantity<Volume>>;
 
 pub type TetrahedraCoordinates = Vec<FemElementNodalCoordinates<4>>;
 
 pub struct Element {
     faces_nodes: Vec<Vec<usize>>,
     gradient_vectors: GradientVectors,
-    integration_weights: Scalars,
+    integration_weights: IntegrationWeights,
     stabilization: Scalar,
     tetrahedra: Vec<Tetrahedron>,
     tetrahedra_nodes: Vec<[usize; 3]>,
@@ -53,7 +57,7 @@ where
     ) -> NodalCoordinates;
     fn faces_nodes(&self) -> &[Vec<usize>];
     fn gradient_vectors(&self) -> &GradientVectors;
-    fn integration_weights(&self) -> &Scalars;
+    fn integration_weights(&self) -> &IntegrationWeights;
     fn stabilization(&self) -> Scalar;
     fn tetrahedra(&self) -> &[Tetrahedron];
     fn tetrahedra_coordinates<'a>(
@@ -92,7 +96,7 @@ impl VirtualElement for Element {
     fn gradient_vectors(&self) -> &GradientVectors {
         &self.gradient_vectors
     }
-    fn integration_weights(&self) -> &Scalars {
+    fn integration_weights(&self) -> &IntegrationWeights {
         &self.integration_weights
     }
     fn stabilization(&self) -> Scalar {
@@ -210,7 +214,7 @@ impl
             .iter()
             .map(|tetrahedron| tetrahedron.volume())
             .sum();
-        let integration_weights = Scalars::from([element_volume]);
+        let integration_weights = IntegrationWeights::from([element_volume]);
         let gradient_vectors = vec![
             element_nodes
                 .iter()
@@ -261,13 +265,13 @@ impl
                                                 e_1.cross(e_2) * factor
                                             },
                                         )
-                                        .sum::<ReferenceCoordinate>(),
+                                        .sum::<TensorRank1<3, Reference, Area>>(),
                                 )
                             } else {
                                 None
                             }
                         })
-                        .sum::<ReferenceCoordinate>()
+                        .sum::<TensorRank1<3, Reference, Area>>()
                         / (element_volume * 6.0)
                 })
                 .collect(),
@@ -389,8 +393,8 @@ fn temporary_poly_0() {
     let length = (coordinates[face_node_connectivity[0][0]].clone()
         - coordinates[face_node_connectivity[0][1]].clone())
     .norm();
-    let volume = (15.0 + 7.0 * 5.0_f64.sqrt()) / 4.0 * length.powi(3);
-    assert!((block.elements()[0].integration_weights()[0] / volume - 1.0).abs() < 1e-14);
+    let volume = Quantity::<Volume>::new((15.0 + 7.0 * 5.0_f64.sqrt()) / 4.0 * length.powi(3));
+    assert!((block.elements()[0].integration_weights()[0].ratio(volume) - 1.0).abs() < 1e-14);
 }
 
 #[test]
@@ -563,9 +567,9 @@ fn temporary_poly_2() {
                     finite_difference = block.helmholtz_free_energy(&nodal_coordinates).unwrap();
                     nodal_coordinates[node][i] -= EPSILON;
                     finite_difference -= block.helmholtz_free_energy(&nodal_coordinates).unwrap();
-                    // An energy density per unit perturbation is a stress, which
-                    // is what a nodal force carries.
-                    (finite_difference / EPSILON).value_as::<crate::math::Stress>()
+                    // An energy per unit length is a force.
+                    (finite_difference / Quantity::<Length>::new(EPSILON))
+                        .value_as::<crate::math::unit::Force>()
                 })
                 .collect()
         })

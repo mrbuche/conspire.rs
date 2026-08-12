@@ -3,11 +3,11 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        FRAC_SQRT_3_5, FiniteElement, ParametricCoordinate, ParametricCoordinates,
-        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
+        FRAC_SQRT_3_5, FiniteElement, IntegrationWeights, ParametricCoordinate,
+        ParametricCoordinates, ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         quadratic::{M, QuadraticElement, QuadraticFiniteElement},
     },
-    math::{Scalar, ScalarList},
+    math::{Scalar, ScalarList, unit::Volume},
 };
 
 const G: usize = 18;
@@ -42,7 +42,7 @@ impl FiniteElement<G, M, N, P> for Wedge {
         ]
         .into()
     }
-    fn integration_weights(&self) -> &ScalarList<G> {
+    fn integration_weights(&self) -> &IntegrationWeights<G, Volume> {
         &self.integration_weights
     }
     fn parametric_reference() -> ParametricReference<M, N> {

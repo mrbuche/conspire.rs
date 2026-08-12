@@ -1,6 +1,7 @@
+use crate::math::Current;
 use crate::{
     math::{Scalar, random::random_uniform},
-    mechanics::CurrentCoordinate,
+    mechanics::Vector,
     physics::molecular::{
         potential::{Harmonic, Potential},
         single_chain::{
@@ -126,7 +127,7 @@ impl MonteCarlo for ArbitraryDiscrete {
                 let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
                 let phi = TAU * random_uniform();
                 let (sin_phi, cos_phi) = phi.sin_cos();
-                CurrentCoordinate::from([sin_theta * cos_phi, sin_theta * sin_phi, cos_theta])
+                Vector::<Current>::from([sin_theta * cos_phi, sin_theta * sin_phi, cos_theta])
             })
             .collect()
     }

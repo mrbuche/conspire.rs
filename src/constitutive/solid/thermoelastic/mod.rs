@@ -1,6 +1,7 @@
 //! Thermoelastic solid constitutive models.
 
-use crate::math::{Quantity, ReciprocalTemperature, Temperature};
+use crate::math::Quantity;
+use crate::math::unit::{ReciprocalTemperature, Temperature};
 #[cfg(test)]
 pub mod test;
 

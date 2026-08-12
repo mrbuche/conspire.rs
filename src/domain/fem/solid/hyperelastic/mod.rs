@@ -1,6 +1,7 @@
 pub mod internal_variables;
 
-use crate::math::{EnergyDensity, Quantity};
+use crate::math::Quantity;
+use crate::math::unit::Energy;
 use crate::{
     fem::{
         Blocks, ElementModel, ElementModelError, Elements, FirstOrderMinimize, Model,
@@ -23,7 +24,7 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<Quantity<EnergyDensity>, ElementModelError>;
+    ) -> Result<Quantity<Energy>, ElementModelError>;
     fn nodal_stiffnesses_symmetric_into(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
@@ -46,7 +47,7 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<Quantity<EnergyDensity>, ElementModelError> {
+    ) -> Result<Quantity<Energy>, ElementModelError> {
         self.blocks.helmholtz_free_energy(nodal_coordinates)
     }
     fn nodal_stiffnesses_symmetric_into(
@@ -67,7 +68,7 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<Quantity<EnergyDensity>, ElementModelError> {
+    ) -> Result<Quantity<Energy>, ElementModelError> {
         Ok(self.0.helmholtz_free_energy(nodal_coordinates)?
             + self.1.helmholtz_free_energy(nodal_coordinates)?)
     }
@@ -99,7 +100,7 @@ where
                 // spent where it is handed over.
                 Ok(self
                     .helmholtz_free_energy(nodal_coordinates)?
-                    .value_as::<EnergyDensity>())
+                    .value_as::<Energy>())
             },
             |nodal_coordinates: &NodalCoordinates<D>| Ok(self.nodal_forces(nodal_coordinates)?),
             self.coordinates().clone().into(),
@@ -138,7 +139,7 @@ where
                 // spent where it is handed over.
                 Ok(self
                     .helmholtz_free_energy(nodal_coordinates)?
-                    .value_as::<EnergyDensity>())
+                    .value_as::<Energy>())
             },
             |nodal_coordinates: &NodalCoordinates<D>| Ok(self.nodal_forces(nodal_coordinates)?),
             |nodal_coordinates: &NodalCoordinates<D>| {

@@ -2,7 +2,7 @@
 mod test;
 
 use super::TensorRank1;
-use crate::math::UnitMul;
+use crate::math::unit::UnitMul;
 
 /// The cross product of two rank-1 tensors.
 pub trait CrossProduct<T> {

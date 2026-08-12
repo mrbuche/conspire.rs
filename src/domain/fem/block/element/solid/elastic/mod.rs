@@ -7,7 +7,10 @@ use crate::{
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement},
         surface::{SurfaceElement, SurfaceFiniteElement},
     },
-    math::{ContractSecondFourthWithFirst, IDENTITY, Scalar, Tensor},
+    math::{
+        ContractSecondFourthWithFirst, Current, IDENTITY, Scalar, Tensor, TensorRank2,
+        unit::StressPerArea,
+    },
     mechanics::{FirstPiolaKirchhoffStressList, FirstPiolaKirchhoffTangentStiffnessList},
 };
 
@@ -168,12 +171,12 @@ where
                                             .map(|(first_piola_kirchhoff_tangent_stiffness_mjkl, (gradient_vector_b_l, reference_normal_l))|
                                                 first_piola_kirchhoff_tangent_stiffness_mjkl * gradient_vector_a_j * (
                                                     identity_nk * gradient_vector_b_l + normal_gradient_b_n_k * reference_normal_l
-                                                ) * integration_weight
+                                                )
                                             ).sum::<Scalar>()
                                         ).sum::<Scalar>()
                                     ).sum::<Scalar>()
                                 ).collect()
-                            ).collect()
+                            ).collect::<TensorRank2<3, Current, Current, StressPerArea>>() * integration_weight
                         ).collect()
                     ).collect()
                 }

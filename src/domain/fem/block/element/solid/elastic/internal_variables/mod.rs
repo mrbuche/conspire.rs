@@ -1,16 +1,19 @@
-use crate::math::{Dimensionless, Erase, Quantity, UnitDiv};
+use crate::math::unit::{Dimensionless, UnitDiv};
+use crate::math::{Erase, Quantity};
 use std::ops::{Div, Mul};
 
 use crate::{
     constitutive::{ConstitutiveError, solid::elastic::internal_variables::ElasticIV},
     fem::block::element::{
         Element, ElementNodalCoordinates, FiniteElement, FiniteElementError, GradientVectors,
+        IntegrationWeights,
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement},
     },
     math::{
-        ContractSecondFourthWithFirst, HessianBlock, Jacobian, Matrix, Scalar, ScalarList,
-        Solution, SquareMatrix, Tensor, TensorList, Vector,
+        ContractSecondFourthWithFirst, HessianBlock, Jacobian, Matrix, Scalar, Solution,
+        SquareMatrix, Tensor, TensorList, Vector,
         optimize::{EqualityConstraint, FirstOrderRootFinding, NewtonRaphson},
+        unit::Volume,
     },
     mechanics::{
         DeformationGradient, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStressList,
@@ -144,7 +147,7 @@ where
 fn assemble_forces<const G: usize, const N: usize>(
     stresses: FirstPiolaKirchhoffStressList<G>,
     gradient_vectors: &GradientVectors<3, G, N>,
-    integration_weights: &ScalarList<G>,
+    integration_weights: &IntegrationWeights<G, Volume>,
 ) -> ElementNodalForcesSolid<N> {
     stresses
         .iter()

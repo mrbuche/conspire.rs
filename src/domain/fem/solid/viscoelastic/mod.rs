@@ -1,3 +1,4 @@
+use crate::math::unit::Time;
 use crate::{
     fem::{
         Blocks, ElementModel, ElementModelError, Elements, Model, NodalCoordinates,
@@ -5,7 +6,7 @@ use crate::{
         solid::{NodalDampingsSolid, NodalForcesSolid},
     },
     math::{
-        Quantity, Tensor, Time,
+        Quantity, Tensor,
         integrate::{ImplicitDaeFirstOrderRoot, IntegrationError},
         optimize::{EqualityConstraint, FirstOrderRootFinding},
     },

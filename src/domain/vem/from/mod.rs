@@ -2,8 +2,11 @@
 mod test;
 
 use crate::{
-    fem::{Model, NodalReferenceCoordinates},
-    geometry::mesh::{Connectivities, Mesh, PolytopalConnectivity},
+    fem::{Model, nodal_coordinates},
+    geometry::{
+        Coordinates,
+        mesh::{Connectivities, Mesh, PolytopalConnectivity},
+    },
     vem::block::{Block, element::VirtualElement},
 };
 
@@ -13,8 +16,8 @@ where
 {
     type Error = String;
     fn try_from((mesh, constitutive_model): (Mesh<3>, C)) -> Result<Self, Self::Error> {
-        let (connectivities, coordinates): (Connectivities, NodalReferenceCoordinates<3>) =
-            mesh.into();
+        let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh.into();
+        let coordinates = nodal_coordinates(coordinates);
         let mut connectivities = connectivities.into_members();
         if connectivities.len() != 1 {
             return Err(format!(

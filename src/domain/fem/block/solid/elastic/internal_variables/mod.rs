@@ -1,3 +1,4 @@
+use crate::math::unit::{Dimensionless, UnitDiv};
 use std::ops::{Div, Mul};
 
 use crate::{
@@ -16,8 +17,8 @@ use crate::{
         },
     },
     math::{
-        Dimensionless, Erase, Jacobian, Matrix, Quantity, Scalar, Solution, Tensor, UnitDiv,
-        Vector, optimize::NewtonRaphson,
+        Erase, Jacobian, Matrix, Quantity, Scalar, Solution, Tensor, Vector,
+        optimize::NewtonRaphson,
     },
 };
 

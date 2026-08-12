@@ -1,4 +1,5 @@
-use crate::math::{Quantity, ReciprocalTemperature, Stress, Temperature, TensorRank4};
+use crate::math::unit::{ReciprocalTemperature, Stress, Temperature};
+use crate::math::{Quantity, TensorRank4};
 #[cfg(test)]
 mod test;
 

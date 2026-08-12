@@ -1,4 +1,5 @@
-use crate::math::{Quantity, Stress, TensorRank4};
+use crate::math::unit::Stress;
+use crate::math::{Quantity, TensorRank4};
 #[cfg(test)]
 mod test;
 

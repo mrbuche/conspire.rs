@@ -1,4 +1,4 @@
-use crate::math::Current;
+use crate::constitutive::cohesive::elastic::StiffnessCohesive;
 use crate::{
     constitutive::cohesive::elastic::Elastic,
     fem::block::element::{
@@ -7,12 +7,11 @@ use crate::{
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
         surface::SurfaceFiniteElement,
     },
-    math::{Rank2, Stress, Tensor, TensorRank2List2D},
+    math::{Rank2, Tensor, TensorList, TensorTuple},
     mechanics::TractionList,
 };
 
-pub type StiffnessCohesiveList<const N: usize> =
-    TensorRank2List2D<3, Current, Current, 2, N, Stress>;
+pub type StiffnessCohesiveList<const N: usize> = TensorList<StiffnessCohesive, N>;
 
 pub trait ElasticCohesiveElement<C, const G: usize, const N: usize, const P: usize>
 where
@@ -97,7 +96,7 @@ where
                         stiffness,
                         (signed_shape_functions, (normal_gradient, integration_weight)),
                     )| {
-                        let [stiffness_u, stiffness_n] = stiffness.into();
+                        let TensorTuple(stiffness_u, stiffness_n) = stiffness;
                         signed_shape_functions
                             .iter()
                             .map(|signed_shape_function_a| {

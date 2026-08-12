@@ -1,5 +1,5 @@
 use super::Quantity;
-use crate::math::{Dimensionless, Rate, Stress, Viscosity};
+use crate::math::unit::{Dimensionless, Rate, Stress, Viscosity};
 
 type Modulus = Quantity<Stress>;
 type Viscous = Quantity<Viscosity>;
@@ -29,9 +29,8 @@ fn a_unit_costs_no_space() {
 }
 
 mod constitutive_law {
-    use crate::math::{
-        Current, Dimensionless, Quantity, Rate, Stress, Tensor, TensorArray, TensorRank2, Viscosity,
-    };
+    use crate::math::unit::{Dimensionless, Rate, Stress, Viscosity};
+    use crate::math::{Current, Quantity, Tensor, TensorArray, TensorRank2};
 
     type Strain = TensorRank2<3, Current, Current, Dimensionless>;
     type StrainRate = TensorRank2<3, Current, Current, Rate>;

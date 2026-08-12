@@ -1,14 +1,14 @@
 use crate::{
     math::{
-        Current, Scalar, SquareMatrix, Tensor, TensorArray, Vector,
+        Current, Scalar, SquareMatrix, Tensor, TensorArray, TensorRank1, Vector,
         optimize::{EqualityConstraint, LineSearch, NewtonRaphson, SecondOrderOptimization},
     },
-    mechanics::{Coordinates, CurrentCoordinate},
+    mechanics::Vectors,
     physics::molecular::single_chain::{Extensible, Inextensible, SingleChain, SingleChainError},
 };
 use std::{f64::consts::PI, thread::scope};
 
-pub type Configuration = Coordinates<Current>;
+pub type Configuration = Vectors<Current>;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Ensemble {
@@ -656,7 +656,7 @@ where
     }
     fn random_nondimensional_link_vectors(&self, nondimensional_force: Scalar) -> Configuration;
     fn random_configuration(&self, nondimensional_force: Scalar) -> Configuration {
-        let mut position = CurrentCoordinate::zero();
+        let mut position = TensorRank1::<3, Current>::zero();
         self.random_nondimensional_link_vectors(nondimensional_force)
             .into_iter()
             .map(|displacement| {

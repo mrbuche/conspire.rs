@@ -1,4 +1,5 @@
-use crate::math::{Factor, Reference, UnitInv};
+use crate::math::unit::UnitInv;
+use crate::math::{Factor, Reference};
 #[cfg(test)]
 mod test;
 

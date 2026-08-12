@@ -1,4 +1,4 @@
-use crate::math::Dimensionless;
+use crate::math::unit::Dimensionless;
 use crate::math::{TensorRank2List, TensorVector};
 /// A vector of lists of rank-2 tensors.
 pub type TensorRank2ListVec<const D: usize, I, J, const W: usize, U = Dimensionless> =

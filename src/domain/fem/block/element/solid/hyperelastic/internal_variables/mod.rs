@@ -1,6 +1,7 @@
+use crate::math::unit::Energy;
+use crate::math::unit::{Dimensionless, UnitDiv};
 use std::ops::{Div, Mul};
 
-use crate::math::EnergyDensity;
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperelastic::internal_variables::HyperelasticIV},
     fem::block::element::{
@@ -10,9 +11,7 @@ use crate::{
             elastic::internal_variables::{ElasticIVFiniteElement, InternalVariables},
         },
     },
-    math::{
-        Dimensionless, Erase, Jacobian, Matrix, Quantity, Scalar, Solution, Tensor, UnitDiv, Vector,
-    },
+    math::{Erase, Jacobian, Matrix, Quantity, Scalar, Solution, Tensor, Vector},
 };
 
 pub trait HyperelasticIVFiniteElement<
@@ -39,7 +38,7 @@ pub trait HyperelasticIVFiniteElement<
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         internal_variables: &InternalVariables<G, V>,
-    ) -> Result<Quantity<EnergyDensity>, FiniteElementError>;
+    ) -> Result<Quantity<Energy>, FiniteElementError>;
 }
 
 impl<C, const G: usize, const N: usize, const O: usize, const P: usize, V, E>
@@ -60,7 +59,7 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         internal_variables: &InternalVariables<G, V>,
-    ) -> Result<Quantity<EnergyDensity>, FiniteElementError> {
+    ) -> Result<Quantity<Energy>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
@@ -74,7 +73,7 @@ where
                     )? * integration_weight)
                 },
             )
-            .sum::<Result<Quantity<EnergyDensity>, ConstitutiveError>>()
+            .sum::<Result<Quantity<Energy>, ConstitutiveError>>()
         {
             Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
             Err(error) => Err(FiniteElementError::Upstream(

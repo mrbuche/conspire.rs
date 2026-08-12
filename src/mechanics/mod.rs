@@ -1,6 +1,12 @@
 //! Mechanics library.
 
-use crate::math::{Current, Intermediate, Rate, Reference, Stress, Viscosity};
+use crate::math::{
+    Current, Intermediate, Reference,
+    unit::{
+        ForcePerLength, ForcePerVelocity, Length, PowerPerArea, PowerPerLengthTemperature, Rate,
+        ReciprocalLength, Stress, TemperaturePerLength, Velocity, Viscosity,
+    },
+};
 #[cfg(test)]
 pub mod test;
 
@@ -88,10 +94,10 @@ impl<I, J> Deformation<I, J> for DeformationGradientGeneral<I, J> {
 }
 
 /// A basis.
-pub type Basis = TensorRank1List<3, Current, 3>;
+pub type Basis = TensorRank1List<3, Current, 3, Length>;
 
 /// A list of bases.
-pub type Bases<const N: usize> = TensorRank1List2D<3, Current, 3, N>;
+pub type Bases<const N: usize> = TensorRank1List2D<3, Current, 3, N, Length>;
 
 /// The Cauchy stress $`\boldsymbol{\sigma}`$.
 pub type CauchyStress = TensorRank2<3, Current, Current, Stress>;
@@ -114,31 +120,31 @@ pub type CauchyRateTangentStiffness =
     TensorRank4<3, Current, Current, Current, Reference, Viscosity>;
 
 /// A coordinate.
-pub type Coordinate<I> = TensorRank1<3, I>;
+pub type Coordinate<I> = TensorRank1<3, I, Length>;
 
 /// A list of coordinates.
-pub type CoordinateList<I, const N: usize> = TensorRank1List<3, I, N>;
+pub type CoordinateList<I, const N: usize> = TensorRank1List<3, I, N, Length>;
 
 /// A vector of coordinates.
-pub type Coordinates<I> = TensorRank1Vec<3, I>;
+pub type Coordinates<I> = TensorRank1Vec<3, I, Length>;
 
 /// A vector of references to coordinates.
-pub type CoordinatesRef<'a, I> = TensorRank1RefVec<'a, 3, I>;
+pub type CoordinatesRef<'a, I> = TensorRank1RefVec<'a, 3, I, Length>;
 
 /// A coordinate in the current configuration.
-pub type CurrentCoordinate = TensorRank1<3, Current>;
+pub type CurrentCoordinate = TensorRank1<3, Current, Length>;
 
 /// A list of coordinates in the current configuration.
-pub type CurrentCoordinates<const W: usize> = TensorRank1List<3, Current, W>;
+pub type CurrentCoordinates<const W: usize> = TensorRank1List<3, Current, W, Length>;
 
 /// A vector of references to current coordinates.
-pub type CurrentCoordinatesRef<'a> = TensorRank1RefVec<'a, 3, Current>;
+pub type CurrentCoordinatesRef<'a> = TensorRank1RefVec<'a, 3, Current, Length>;
 
 /// A velocity in the current configuration.
-pub type CurrentVelocity = TensorRank1<3, Current, Rate>;
+pub type CurrentVelocity = TensorRank1<3, Current, Velocity>;
 
 /// A list of velocities in the current configuration.
-pub type CurrentVelocities<const W: usize> = TensorRank1List<3, Current, W, Rate>;
+pub type CurrentVelocities<const W: usize> = TensorRank1List<3, Current, W, Velocity>;
 
 /// The deformation gradient $`\mathbf{F}`$.
 pub type DeformationGradient = TensorRank2<3, Current, Reference>;
@@ -181,7 +187,7 @@ pub type DeformationGradientRates = TensorRank2Vec<3, Current, Reference, Rate>;
 pub type DeformationGradientRatesPlastic = TensorRank2Vec<3, Intermediate, Reference, Rate>;
 
 /// A displacement.
-pub type Displacement = TensorRank1<3, Current>;
+pub type Displacement = TensorRank1<3, Current, Length>;
 
 /// The first Piola-Kirchhoff stress $`\mathbf{P}`$.
 pub type FirstPiolaKirchhoffStress = TensorRank2<3, Current, Reference, Stress>;
@@ -234,34 +240,29 @@ pub type FirstPiolaKirchhoffRateTangentStiffnesses<const W: usize> =
     TensorRank4List<3, Current, Reference, Current, Reference, W, Viscosity>;
 
 /// A force.
-///
-/// TODO: a force should carry a unit of its own. It carries a stress only
-/// because what an element assembles it against carries nothing — a gradient
-/// vector is a reciprocal length and an integration weight is a volume, and
-/// neither says so, nor do the coordinates they are built from. Give a length
-/// its unit and the products land on a force by themselves.
-pub type Force = TensorRank1<3, Current, Stress>;
+pub type Force = TensorRank1<3, Current, crate::math::unit::Force>;
 
 /// A list of forces.
-pub type ForceList<const N: usize> = TensorRank1List<3, Current, N, Stress>;
+pub type ForceList<const N: usize> = TensorRank1List<3, Current, N, crate::math::unit::Force>;
 
 /// A vector of forces.
-pub type Forces = TensorRank1Vec<3, Current, Stress>;
+pub type Forces = TensorRank1Vec<3, Current, crate::math::unit::Force>;
 
 /// The frame spin $`\mathbf{\Omega}=\dot{\mathbf{Q}}\cdot\mathbf{Q}^T`$.
 pub type FrameSpin = TensorRank2<3, Current, Current, Rate>;
 
 /// The heat flux.
-pub type HeatFlux = TensorRank1<3, Reference>;
+pub type HeatFlux = TensorRank1<3, Reference, PowerPerArea>;
 
 /// A list of heat fluxes.
-pub type HeatFluxes<const N: usize> = TensorRank1List<3, Reference, N>;
+pub type HeatFluxes<const N: usize> = TensorRank1List<3, Reference, N, PowerPerArea>;
 
 /// The heat flux tangent.
-pub type HeatFluxTangent = TensorRank2<3, Reference, Reference>;
+pub type HeatFluxTangent = TensorRank2<3, Reference, Reference, PowerPerLengthTemperature>;
 
 /// A list of heat flux tangents.
-pub type HeatFluxTangents<const N: usize> = TensorRank2List<3, Reference, Reference, N>;
+pub type HeatFluxTangents<const N: usize> =
+    TensorRank2List<3, Reference, Reference, N, PowerPerLengthTemperature>;
 
 /// The left Cauchy-Green deformation $`\mathbf{B}`$.
 pub type LeftCauchyGreenDeformation = TensorRank2<3, Current, Current>;
@@ -280,7 +281,7 @@ pub type Normals<const N: usize> = TensorRank1List<3, Current, N>;
 
 /// A list of normal gradients.
 pub type NormalGradients<const O: usize, const P: usize> =
-    TensorRank2List2D<3, Current, Current, O, P>;
+    TensorRank2List2D<3, Current, Current, O, P, ReciprocalLength>;
 
 /// A normal rate.
 pub type NormalRate = TensorRank1<3, Current, Rate>;
@@ -289,10 +290,10 @@ pub type NormalRate = TensorRank1<3, Current, Rate>;
 pub type NormalRates<const N: usize> = TensorRank1List<3, Current, N, Rate>;
 
 /// A coordinate in the reference configuration.
-pub type ReferenceCoordinate = TensorRank1<3, Reference>;
+pub type ReferenceCoordinate = TensorRank1<3, Reference, Length>;
 
 /// A list of coordinates in the reference configuration.
-pub type ReferenceCoordinates<const W: usize> = TensorRank1List<3, Reference, W>;
+pub type ReferenceCoordinates<const W: usize> = TensorRank1List<3, Reference, W, Length>;
 
 /// A reference normal.
 pub type ReferenceNormal = TensorRank1<3, Reference>;
@@ -337,25 +338,27 @@ pub type SecondPiolaKirchhoffRateTangentStiffness =
     TensorRank4<3, Reference, Reference, Current, Reference, Viscosity>;
 
 /// A stiffness resulting from a force.
-pub type Stiffness = TensorRank2<3, Current, Current, Stress>;
+pub type Stiffness = TensorRank2<3, Current, Current, ForcePerLength>;
 
 /// A list of stiffnesses.
-pub type StiffnessList<const N: usize> = TensorRank2List<3, Current, Current, N, Stress>;
+pub type StiffnessList<const N: usize> = TensorRank2List<3, Current, Current, N, ForcePerLength>;
 
 /// A 2D list of stiffnesses.
-pub type StiffnessList2D<const N: usize> = TensorRank2List2D<3, Current, Current, N, N, Stress>;
+pub type StiffnessList2D<const N: usize> =
+    TensorRank2List2D<3, Current, Current, N, N, ForcePerLength>;
 
 /// A damping resulting from a force per unit rate.
-pub type Damping = TensorRank2<3, Current, Current, Viscosity>;
+pub type Damping = TensorRank2<3, Current, Current, ForcePerVelocity>;
 
 /// A list of two-dimensional lists of dampings.
-pub type DampingList2D<const N: usize> = TensorRank2List2D<3, Current, Current, N, N, Viscosity>;
+pub type DampingList2D<const N: usize> =
+    TensorRank2List2D<3, Current, Current, N, N, ForcePerVelocity>;
 
 /// A vector of two-dimensional vectors of dampings.
-pub type Dampings = TensorRank2Vec2D<3, Current, Current, Viscosity>;
+pub type Dampings = TensorRank2Vec2D<3, Current, Current, ForcePerVelocity>;
 
 /// A vector of stiffnesses.
-pub type Stiffnesses = TensorRank2Vec2D<3, Current, Current, Stress>;
+pub type Stiffnesses = TensorRank2Vec2D<3, Current, Current, ForcePerLength>;
 
 /// The stretching rate $`\mathbf{D}`$.
 pub type StretchingRate = TensorRank2<3, Current, Current, Rate>;
@@ -364,16 +367,23 @@ pub type StretchingRate = TensorRank2<3, Current, Current, Rate>;
 pub type StretchingRatePlastic = TensorRank2<3, Intermediate, Intermediate, Rate>;
 
 /// A surface basis.
-pub type SurfaceBasis<I> = TensorRank1List<3, I, 2>;
+pub type SurfaceBasis<I> = TensorRank1List<3, I, 2, Length>;
 
 /// A list of surface bases.
-pub type SurfaceBases<I, const N: usize> = TensorRank1List2D<3, I, 2, N>;
+pub type SurfaceBases<I, const N: usize> = TensorRank1List2D<3, I, 2, N, Length>;
+
+/// A surface dual basis.
+pub type SurfaceDualBasis<I> = TensorRank1List<3, I, 2, ReciprocalLength>;
+
+/// A list of surface dual bases.
+pub type SurfaceDualBases<I, const N: usize> = TensorRank1List2D<3, I, 2, N, ReciprocalLength>;
 
 /// The temperature gradient.
-pub type TemperatureGradient = TensorRank1<3, Reference>;
+pub type TemperatureGradient = TensorRank1<3, Reference, TemperaturePerLength>;
 
 /// A list of temperature gradients.
-pub type TemperatureGradients<const N: usize> = TensorRank1List<3, Reference, N>;
+pub type TemperatureGradients<const N: usize> =
+    TensorRank1List<3, Reference, N, TemperaturePerLength>;
 
 /// A vector of times.
 pub type Times = crate::math::integrate::Times;

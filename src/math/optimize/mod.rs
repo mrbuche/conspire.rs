@@ -15,8 +15,9 @@ pub use newton_raphson::NewtonRaphson;
 pub use strategy::SolveStrategy;
 pub use trust_region::TrustRegion;
 
+use crate::math::unit::UnitDiv;
 use crate::math::{
-    Erase, Jacobian, Quantity, Scalar, Solution, Style, StyledError, Tensor, UnitDiv, Vector,
+    Erase, Jacobian, Quantity, Scalar, Solution, Style, StyledError, Tensor, Vector,
     assert::AssertionError,
     matrix::square::SquareMatrixError,
     sparse::{CscMatrix, SparseError, SparseSolver},

@@ -1,3 +1,4 @@
+use crate::math::unit::{Power, Time};
 use crate::{
     fem::{
         Blocks, ElementModel, ElementModelError, Elements, Model, NodalCoordinates,
@@ -6,7 +7,7 @@ use crate::{
         solid::{NodalDampingsSolid, NodalForcesSolid, viscoelastic::ViscoelasticElements},
     },
     math::{
-        Dissipation, Quantity, Scalar, Tensor, Time,
+        Quantity, Scalar, Tensor,
         integrate::{ImplicitDaeSecondOrderMinimize, IntegrationError},
         optimize::{EqualityConstraint, SecondOrderOptimization},
     },
@@ -21,12 +22,12 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<Quantity<Dissipation>, ElementModelError>;
+    ) -> Result<Quantity<Power>, ElementModelError>;
     fn dissipation_potential(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<Quantity<Dissipation>, ElementModelError>;
+    ) -> Result<Quantity<Power>, ElementModelError>;
 }
 
 impl<B, const D: usize> ElasticHyperviscousElements<D> for Model<B, D>
@@ -37,7 +38,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<Quantity<Dissipation>, ElementModelError> {
+    ) -> Result<Quantity<Power>, ElementModelError> {
         self.blocks
             .viscous_dissipation(nodal_coordinates, nodal_velocities)
     }
@@ -45,7 +46,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<Quantity<Dissipation>, ElementModelError> {
+    ) -> Result<Quantity<Power>, ElementModelError> {
         self.blocks
             .dissipation_potential(nodal_coordinates, nodal_velocities)
     }
@@ -60,7 +61,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<Quantity<Dissipation>, ElementModelError> {
+    ) -> Result<Quantity<Power>, ElementModelError> {
         Ok(self
             .0
             .viscous_dissipation(nodal_coordinates, nodal_velocities)?
@@ -72,7 +73,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<Quantity<Dissipation>, ElementModelError> {
+    ) -> Result<Quantity<Power>, ElementModelError> {
         Ok(self
             .0
             .dissipation_potential(nodal_coordinates, nodal_velocities)?
@@ -140,7 +141,7 @@ where
                 // is spent where it is handed over.
                 Ok(self
                     .dissipation_potential(nodal_coordinates, nodal_velocities)?
-                    .value_as::<Dissipation>())
+                    .value_as::<Power>())
             },
             |_: Quantity<Time>,
              nodal_coordinates: &NodalCoordinates<D>,

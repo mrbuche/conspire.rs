@@ -1,5 +1,6 @@
+use crate::math::unit::Time;
 use crate::math::{
-    Derivative, Differentiate, Quantity, Tensor, TensorVec, Time,
+    Derivative, Differentiate, Quantity, Tensor, TensorVec,
     integrate::{IntegrationError, Times},
     optimize::{
         EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, SecondOrderOptimization,

@@ -1,4 +1,5 @@
-use crate::math::{EnergyDensity, Quantity};
+use crate::math::Quantity;
+use crate::math::unit::Energy;
 use crate::{
     constitutive::solid::hyperviscoelastic::Hyperviscoelastic,
     fem::{
@@ -21,7 +22,7 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
-    ) -> Result<Quantity<EnergyDensity>, ElementModelError> {
+    ) -> Result<Quantity<Energy>, ElementModelError> {
         match self
             .elements()
             .iter()

@@ -1,9 +1,10 @@
 macro_rules! test_implicit_fixed_step {
     ($integration: expr) => {
+        use crate::math::unit::{Rate, Time};
         use crate::{
             EPSILON,
             math::{
-                Quantity, Rate, Scalar, Tensor, TensorVector, Time,
+                Quantity, Scalar, Tensor, TensorVector,
                 assert::AssertionError,
                 integrate::{FixedStep, IntegrationError, Times},
             },

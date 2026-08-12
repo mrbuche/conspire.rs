@@ -1,5 +1,5 @@
-use crate::mechanics::Scalar;
-pub const THICKNESS: Scalar = 1.23;
+use crate::math::{Quantity, unit::Length};
+pub const THICKNESS: Quantity<Length> = Quantity::new(1.23);
 
 macro_rules! test_finite_element {
     ($element: ident) => {
@@ -989,7 +989,7 @@ macro_rules! test_helmholtz_free_energy {
         fn get_helmholtz_free_energy(
             is_deformed: bool,
             is_rotated: bool,
-        ) -> Result<$crate::math::Quantity<$crate::math::EnergyDensity>, AssertionError> {
+        ) -> Result<$crate::math::Quantity<$crate::math::unit::Energy>, AssertionError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_element_transformed()
@@ -1034,9 +1034,12 @@ macro_rules! test_helmholtz_free_energy {
                             nodal_coordinates[node][i] -= EPSILON;
                             finite_difference -= element
                                 .helmholtz_free_energy(&$constitutive_model, &nodal_coordinates)?;
-                            // An energy density per unit perturbation is a
-                            // stress, which is what a nodal force carries.
-                            Ok((finite_difference / EPSILON).value_as::<$crate::math::Stress>())
+                            // An energy per unit length is a force.
+                            Ok((finite_difference
+                                / $crate::math::Quantity::<$crate::math::unit::Length>::new(
+                                    EPSILON,
+                                ))
+                            .value_as::<$crate::math::unit::Force>())
                         })
                         .collect()
                 })
@@ -1586,11 +1589,11 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
             $constitutive_model,
             $constitutive_model_type
         );
-        use crate::math::{ContractWith, Dissipation, Quantity};
+        use crate::math::{ContractWith, Quantity, unit::Power};
         fn get_viscous_dissipation(
             is_deformed: bool,
             is_rotated: bool,
-        ) -> Result<Quantity<Dissipation>, AssertionError> {
+        ) -> Result<Quantity<Power>, AssertionError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_element_transformed().viscous_dissipation(
@@ -1624,7 +1627,7 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
         fn get_dissipation_potential(
             is_deformed: bool,
             is_rotated: bool,
-        ) -> Result<Quantity<Dissipation>, AssertionError> {
+        ) -> Result<Quantity<Power>, AssertionError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_element_transformed().dissipation_potential(
@@ -1686,11 +1689,12 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                                 &nodal_coordinates,
                                 &nodal_velocities,
                             )?;
-                            // A dissipation per unit rate is a stress, spent to meet a nodal
-                            // force that spent its own at assembly.
+                            // A power per unit velocity is a force.
                             Ok((finite_difference
-                                / $crate::math::Quantity::<$crate::math::Rate>::new(EPSILON))
-                            .value_as::<$crate::math::Stress>())
+                                / $crate::math::Quantity::<$crate::math::unit::Velocity>::new(
+                                    EPSILON,
+                                ))
+                            .value_as::<$crate::math::unit::Force>())
                         })
                         .collect()
                 })
@@ -1727,11 +1731,12 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                                 &nodal_coordinates,
                                 &nodal_velocities,
                             )?;
-                            // A dissipation per unit rate is a stress, spent to meet a nodal
-                            // force that spent its own at assembly.
+                            // A power per unit velocity is a force.
                             Ok((finite_difference
-                                / $crate::math::Quantity::<$crate::math::Rate>::new(EPSILON))
-                            .value_as::<$crate::math::Stress>())
+                                / $crate::math::Quantity::<$crate::math::unit::Velocity>::new(
+                                    EPSILON,
+                                ))
+                            .value_as::<$crate::math::unit::Force>())
                         })
                         .collect()
                 })

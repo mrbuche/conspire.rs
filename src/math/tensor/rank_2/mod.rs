@@ -1,6 +1,5 @@
-use crate::math::Dimensionless;
-use crate::math::UnitMul;
-use crate::math::{ContractWith, Quantity, UnitDiv};
+use crate::math::unit::{Dimensionless, UnitDiv, UnitMul};
+use crate::math::{ContractWith, Quantity};
 use crate::math::{Current, Factor, Flattened, Intermediate, Reference};
 #[cfg(test)]
 mod test;
@@ -1424,6 +1423,26 @@ where
     type Output = TensorRank2<D, I, J, <U as UnitMul<V>>::Output>;
     fn mul(self, quantity: Quantity<V>) -> Self::Output {
         relabel(self.canonical() * quantity.value())
+    }
+}
+
+impl<const D: usize, I, J, U, V> Mul<&Quantity<V>> for TensorRank2<D, I, J, U>
+where
+    U: UnitMul<V>,
+{
+    type Output = TensorRank2<D, I, J, <U as UnitMul<V>>::Output>;
+    fn mul(self, quantity: &Quantity<V>) -> Self::Output {
+        self * *quantity
+    }
+}
+
+impl<const D: usize, I, J, U, V> Mul<&Quantity<V>> for &TensorRank2<D, I, J, U>
+where
+    U: UnitMul<V>,
+{
+    type Output = TensorRank2<D, I, J, <U as UnitMul<V>>::Output>;
+    fn mul(self, quantity: &Quantity<V>) -> Self::Output {
+        self * *quantity
     }
 }
 

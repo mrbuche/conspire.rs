@@ -1,7 +1,8 @@
 macro_rules! test_explicit {
     ($integration: expr) => {
+        use crate::math::unit::{Rate, Time};
         use crate::math::{
-            Quantity, Rate, TensorVector, Time,
+            Quantity, TensorVector,
             assert::AssertionError,
             integrate::{Explicit, IntegrationError, Times},
         };

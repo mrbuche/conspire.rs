@@ -15,8 +15,8 @@ use conspire::{
         },
     },
     math::{
-        Quantity, Tensor, Time, assert::AssertionError, integrate::DormandPrince,
-        optimize::NewtonRaphson,
+        Quantity, Tensor, assert::AssertionError, integrate::DormandPrince,
+        optimize::NewtonRaphson, unit::Time,
     },
 };
 

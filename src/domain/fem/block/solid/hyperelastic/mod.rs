@@ -1,6 +1,7 @@
 pub mod internal_variables;
 
-use crate::math::{EnergyDensity, Quantity};
+use crate::math::Quantity;
+use crate::math::unit::Energy;
 use crate::{
     constitutive::solid::hyperelastic::Hyperelastic,
     fem::{
@@ -30,7 +31,7 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
-    ) -> Result<Quantity<EnergyDensity>, ElementModelError> {
+    ) -> Result<Quantity<Energy>, ElementModelError> {
         match self
             .elements()
             .iter()
@@ -98,7 +99,7 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<2>,
-    ) -> Result<Quantity<EnergyDensity>, ElementModelError> {
+    ) -> Result<Quantity<Energy>, ElementModelError> {
         match self
             .elements()
             .iter()

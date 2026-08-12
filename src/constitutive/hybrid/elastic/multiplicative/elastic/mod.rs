@@ -1,5 +1,6 @@
+use crate::math::Quantity;
+use crate::math::unit::Stress;
 use crate::math::{Current, Intermediate, Reference};
-use crate::math::{Quantity, Stress};
 #[cfg(test)]
 mod test;
 

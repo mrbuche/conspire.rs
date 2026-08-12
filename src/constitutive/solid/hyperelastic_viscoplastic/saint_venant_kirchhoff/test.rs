@@ -3,11 +3,11 @@ crate::constitutive::solid::hyperelastic_viscoplastic::test::test_model!(SaintVe
 
 #[test]
 fn root_biaxial() -> Result<(), crate::math::assert::AssertionError> {
+    use crate::math::unit::Time;
     use crate::{
         constitutive::solid::elastic_viscoplastic::{AppliedLoad, FirstOrderRoot},
         math::{
-            Quantity, Time, Vector, assert::Assert, integrate::DormandPrince,
-            optimize::NewtonRaphson,
+            Quantity, Vector, assert::Assert, integrate::DormandPrince, optimize::NewtonRaphson,
         },
     };
     let model = SaintVenantKirchhoff {

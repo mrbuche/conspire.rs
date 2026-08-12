@@ -1,10 +1,11 @@
 //! Viscoplastic fluid constitutive models.
 
+use crate::math::unit::{Rate, Stress};
 use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::Plastic},
     math::{
-        Derivative, Differentiate, Quantity, Rank2, Rate, Scalar, Stress, Tensor, TensorArray,
-        TensorTuple, TensorTupleVec,
+        Derivative, Differentiate, Quantity, Rank2, Scalar, Tensor, TensorArray, TensorTuple,
+        TensorTupleVec,
     },
     mechanics::{
         DeformationGradientPlastic, DeformationGradientRatePlastic, MandelStressElastic,

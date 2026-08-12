@@ -1,7 +1,7 @@
-use crate::math::Dimensionless;
 #[cfg(test)]
 mod test;
 
+use crate::math::unit::Dimensionless;
 use std::f64::consts::TAU;
 
 use super::{

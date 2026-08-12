@@ -421,9 +421,12 @@ macro_rules! test_helmholtz_free_energy {
                             };
                             nodal_coordinates[node][i] -= 0.5 * EPSILON;
                             finite_difference -= block.helmholtz_free_energy(&nodal_coordinates)?;
-                            // An energy density per unit perturbation is a stress, which is
-                            // what a nodal force carries.
-                            Ok((finite_difference / EPSILON).value_as::<$crate::math::Stress>())
+                            // An energy per unit length is a force.
+                            Ok((finite_difference
+                                / $crate::math::Quantity::<$crate::math::unit::Length>::new(
+                                    EPSILON,
+                                ))
+                            .value_as::<$crate::math::unit::Force>())
                         })
                         .collect()
                 })
@@ -1192,11 +1195,12 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                             nodal_velocities[node][i] -= 0.5 * EPSILON;
                             finite_difference -=
                                 block.viscous_dissipation(&nodal_coordinates, &nodal_velocities)?;
-                            // A dissipation per unit rate is a stress, spent to meet a nodal
-                            // force that spent its own at assembly.
+                            // A power per unit velocity is a force.
                             Ok((finite_difference
-                                / $crate::math::Quantity::<$crate::math::Rate>::new(EPSILON))
-                            .value_as::<$crate::math::Stress>())
+                                / $crate::math::Quantity::<$crate::math::unit::Velocity>::new(
+                                    EPSILON,
+                                ))
+                            .value_as::<$crate::math::unit::Force>())
                         })
                         .collect()
                 })
@@ -1232,11 +1236,12 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                             nodal_velocities[node][i] -= 0.5 * EPSILON;
                             finite_difference -= block
                                 .dissipation_potential(&nodal_coordinates, &nodal_velocities)?;
-                            // A dissipation per unit rate is a stress, spent to meet a nodal
-                            // force that spent its own at assembly.
+                            // A power per unit velocity is a force.
                             Ok((finite_difference
-                                / $crate::math::Quantity::<$crate::math::Rate>::new(EPSILON))
-                            .value_as::<$crate::math::Stress>())
+                                / $crate::math::Quantity::<$crate::math::unit::Velocity>::new(
+                                    EPSILON,
+                                ))
+                            .value_as::<$crate::math::unit::Force>())
                         })
                         .collect()
                 })

@@ -1,8 +1,9 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::unit::Time;
 use crate::math::{
-    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec, Time,
+    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
     integrate::{FixedStep, IntegrationError, OdeIntegrator, Times},
     optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
 };

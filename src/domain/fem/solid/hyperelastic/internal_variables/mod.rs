@@ -1,4 +1,5 @@
-use crate::math::{EnergyDensity, Quantity};
+use crate::math::Quantity;
+use crate::math::unit::Energy;
 use crate::{
     fem::{
         ElementModel, ElementModelError, Elements, Model, NodalCoordinates,
@@ -29,7 +30,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         internal_variables: &InternalVariablesField<G, V>,
-    ) -> Result<Quantity<EnergyDensity>, ElementModelError>;
+    ) -> Result<Quantity<Energy>, ElementModelError>;
 }
 
 impl<B, const G: usize, V, const D: usize> HyperelasticIVElements<G, V, D> for Model<B, D>
@@ -41,7 +42,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         internal_variables: &InternalVariablesField<G, V>,
-    ) -> Result<Quantity<EnergyDensity>, ElementModelError> {
+    ) -> Result<Quantity<Energy>, ElementModelError> {
         self.blocks
             .helmholtz_free_energy(nodal_coordinates, internal_variables)
     }
@@ -119,7 +120,7 @@ where
                                 nodal_coordinates,
                                 &solved.at(nodal_coordinates)?,
                             )?
-                            .value_as::<EnergyDensity>())
+                            .value_as::<Energy>())
                     },
                     |nodal_coordinates: &NodalCoordinates<D>| {
                         Ok(self.nodal_forces(nodal_coordinates, &solved.at(nodal_coordinates)?)?)
@@ -148,7 +149,7 @@ where
                         // energy is spent where it is handed over.
                         Ok(self
                             .helmholtz_free_energy(nodal_coordinates, &carried.stepped())?
-                            .value_as::<EnergyDensity>())
+                            .value_as::<Energy>())
                     },
                     |nodal_coordinates: &NodalCoordinates<D>| {
                         Ok(self.nodal_forces_eliminated(nodal_coordinates, &carried.stepped())?)

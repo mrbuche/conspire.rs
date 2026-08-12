@@ -1,11 +1,12 @@
 //! Thermohyperelastic-thermal conduction constitutive models.
 
-use crate::math::{Quantity, Stress};
-use crate::math::{ReciprocalTemperature, Temperature};
+use crate::math::Quantity;
+use crate::math::unit::{
+    EnergyDensity, PowerTemperatureDensity, ReciprocalTemperature, Stress, Temperature,
+};
 #[cfg(test)]
 mod test;
 
-use crate::math::EnergyDensity;
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -151,7 +152,7 @@ where
     fn potential(
         &self,
         temperature_gradient: &TemperatureGradient,
-    ) -> Result<Scalar, ConstitutiveError> {
+    ) -> Result<Quantity<PowerTemperatureDensity>, ConstitutiveError> {
         self.thermal_constitutive_model()
             .potential(temperature_gradient)
     }

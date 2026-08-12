@@ -1,9 +1,10 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::Current;
 use crate::{
     math::{CrossProduct, Scalar, Tensor, random::random_uniform},
-    mechanics::CurrentCoordinate,
+    mechanics::Vector,
     physics::molecular::single_chain::{
         Configuration, Ensemble, Inextensible, Isometric, Isotensional, Legendre, MonteCarlo,
         SingleChain, SingleChainError, Thermodynamics,
@@ -104,11 +105,11 @@ impl MonteCarlo for FreelyRotatingChain {
         let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
         let phi = TAU * random_uniform();
         let (sin_phi, cos_phi) = phi.sin_cos();
-        const AY: CurrentCoordinate = CurrentCoordinate::const_from([0.0, 1.0, 0.0]);
-        const AZ: CurrentCoordinate = CurrentCoordinate::const_from([0.0, 0.0, 1.0]);
+        const AY: Vector<Current> = Vector::<Current>::const_from([0.0, 1.0, 0.0]);
+        const AZ: Vector<Current> = Vector::<Current>::const_from([0.0, 0.0, 1.0]);
         let mut a = AY;
         let mut b =
-            CurrentCoordinate::const_from([sin_theta * cos_phi, sin_theta * sin_phi, cos_theta]);
+            Vector::<Current>::const_from([sin_theta * cos_phi, sin_theta * sin_phi, cos_theta]);
         let (sin_theta, cos_theta) = self.link_angle.sin_cos();
         (0..self.number_of_links())
             .map(|link| {

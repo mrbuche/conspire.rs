@@ -1,7 +1,7 @@
-use crate::math::Dimensionless;
 #[cfg(test)]
 mod test;
 
+use crate::math::unit::Dimensionless;
 use crate::math::{TensorRank0, TensorRank4, tensor::list::TensorList};
 
 /// A list of rank-4 tensors.

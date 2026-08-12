@@ -1,4 +1,5 @@
-use crate::math::{Quantity, TensorRank0, Time};
+use crate::math::unit::Time;
+use crate::math::{Quantity, TensorRank0};
 use std::array::from_fn;
 pub const LENGTH: usize = 33;
 

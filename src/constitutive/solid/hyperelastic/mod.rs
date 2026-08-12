@@ -31,8 +31,9 @@ use super::{
     elastic::{AppliedLoad, Elastic, bcs},
     *,
 };
+use crate::math::Quantity;
 use crate::math::optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization};
-use crate::math::{EnergyDensity, Quantity};
+use crate::math::unit::EnergyDensity;
 
 /// Required methods for hyperelastic solid constitutive models.
 pub trait Hyperelastic

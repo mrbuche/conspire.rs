@@ -1,4 +1,5 @@
-use crate::math::EnergyDensity;
+use crate::math::unit::Energy;
+use crate::math::unit::Time;
 use crate::{
     fem::{
         Blocks, ElasticViscoplasticAndElastic, ElementModel, ElementModelError, Elements, Model,
@@ -13,7 +14,7 @@ use crate::{
         },
     },
     math::{
-        Derivative, Differentiate, Quantity, Scalar, Tensor, TensorTuple, TensorVec, Time,
+        Derivative, Differentiate, Quantity, Scalar, Tensor, TensorTuple, TensorVec,
         integrate::{ExplicitDaeSecondOrderMinimize, IntegrationError},
         optimize::SecondOrderOptimization,
     },
@@ -29,7 +30,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<Quantity<EnergyDensity>, ElementModelError>;
+    ) -> Result<Quantity<Energy>, ElementModelError>;
 }
 
 impl<B, S, const D: usize> HyperelasticViscoplasticElements<S, D> for Model<B, D>
@@ -41,7 +42,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<Quantity<EnergyDensity>, ElementModelError> {
+    ) -> Result<Quantity<Energy>, ElementModelError> {
         self.blocks
             .helmholtz_free_energy(nodal_coordinates, state_variables)
     }
@@ -58,7 +59,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<Quantity<EnergyDensity>, ElementModelError> {
+    ) -> Result<Quantity<Energy>, ElementModelError> {
         Ok(self
             .0
             .helmholtz_free_energy(nodal_coordinates, state_variables)?
@@ -80,7 +81,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &TensorTuple<S1, S2>,
-    ) -> Result<Quantity<EnergyDensity>, ElementModelError> {
+    ) -> Result<Quantity<Energy>, ElementModelError> {
         Ok(self
             .0
             .helmholtz_free_energy(nodal_coordinates, &state_variables.0)?
@@ -168,7 +169,7 @@ where
                     Ok(self
                         .blocks
                         .helmholtz_free_energy(nodal_coordinates, state_variables)?
-                        .value_as::<EnergyDensity>())
+                        .value_as::<Energy>())
                 },
                 |_: Quantity<Time>,
                  state_variables: &S,

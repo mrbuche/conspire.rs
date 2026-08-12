@@ -115,7 +115,7 @@ macro_rules! test_solid_hyperelastic_constitutive_model_no_tangents
                     )?;
                     first_piola_kirchhoff_stress[i][j] = ((
                         helmholtz_free_energy_density_plus - helmholtz_free_energy_density_minus
-                    )/EPSILON).value_as::<$crate::math::Stress>();
+                    )/EPSILON).value_as::<$crate::math::unit::Stress>();
                 }
             }
             Ok(first_piola_kirchhoff_stress)

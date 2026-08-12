@@ -1,8 +1,7 @@
-use crate::math::Dimensionless;
-use crate::math::UnitMul;
 #[cfg(test)]
 mod test;
 
+use crate::math::unit::{Dimensionless, UnitMul};
 use crate::math::{Tensor, TensorRank0, TensorRank2, TensorRank2List, tensor::list::TensorList};
 use std::ops::Mul;
 

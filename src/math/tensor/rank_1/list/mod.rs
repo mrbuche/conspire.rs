@@ -1,10 +1,10 @@
-use crate::math::Dimensionless;
+use crate::math::unit::{Dimensionless, UnitMul};
 use crate::math::{Current, Projection, Reference};
 #[cfg(test)]
 mod test;
 
 use crate::math::{
-    CrossProduct, Tensor, TensorRank0, TensorRank1, TensorRank2, UnitMul, tensor::list::TensorList,
+    CrossProduct, Tensor, TensorRank0, TensorRank1, TensorRank2, tensor::list::TensorList,
 };
 use std::ops::Mul;
 

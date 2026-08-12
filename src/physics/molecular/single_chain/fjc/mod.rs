@@ -1,13 +1,14 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::Current;
 use crate::{
     math::{
         Scalar,
         random::random_uniform,
         special::{inverse_langevin, langevin, langevin_derivative, sinhc},
     },
-    mechanics::CurrentCoordinate,
+    mechanics::Vector,
     physics::molecular::single_chain::{
         Configuration, Ensemble, Inextensible, Isometric, Isotensional, Legendre, MonteCarlo,
         SingleChain, SingleChainError, Thermodynamics,
@@ -200,7 +201,7 @@ impl MonteCarlo for FreelyJointedChain {
                 let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
                 let phi = TAU * random_uniform();
                 let (sin_phi, cos_phi) = phi.sin_cos();
-                CurrentCoordinate::from([sin_theta * cos_phi, sin_theta * sin_phi, cos_theta])
+                Vector::<Current>::from([sin_theta * cos_phi, sin_theta * sin_phi, cos_theta])
             })
             .collect()
     }

@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::{EnergyDensity, Quantity};
+use crate::math::Quantity;
+use crate::math::unit::EnergyDensity;
 use crate::{
     constitutive::{
         ConstitutiveError,

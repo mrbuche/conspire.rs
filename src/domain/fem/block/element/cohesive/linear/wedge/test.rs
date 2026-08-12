@@ -1,5 +1,8 @@
-use crate::math::Current;
 use crate::math::assert::Assert;
+use crate::math::{
+    Current, Quantity,
+    unit::{Area, Force, Stress},
+};
 use crate::{
     EPSILON,
     constitutive::cohesive::elastic::LinearElastic,
@@ -20,8 +23,10 @@ const NORMAL_STIFFNESS: Scalar = 3.4;
 const TANGENTIAL_STIFFNESS: Scalar = 5.6;
 const TANGENTIAL_DISPLACEMENT: Scalar = 7.8;
 
-const TANGENTIAL_TRACTION_P: Scalar = TANGENTIAL_STIFFNESS * TANGENTIAL_DISPLACEMENT / P as Scalar;
-const NORMAL_TRACTION_P: Scalar = NORMAL_STIFFNESS * NORMAL_DISPLACEMENT / P as Scalar;
+const TANGENTIAL_TRACTION_P: Quantity<Stress> =
+    Quantity::new(TANGENTIAL_STIFFNESS * TANGENTIAL_DISPLACEMENT / P as Scalar);
+const NORMAL_TRACTION_P: Quantity<Stress> =
+    Quantity::new(NORMAL_STIFFNESS * NORMAL_DISPLACEMENT / P as Scalar);
 
 const COORDINATES: [[Scalar; 3]; N] = [
     [-0.47979299, 0.48230032, 0.0],
@@ -54,9 +59,12 @@ fn temporary_2() -> Result<(), AssertionError> {
         coordinate[0] += TANGENTIAL_DISPLACEMENT;
         coordinate[2] += NORMAL_DISPLACEMENT
     });
-    let area = element.integration_weights().into_iter().sum::<Scalar>();
-    let tangential_force = TANGENTIAL_TRACTION_P * area;
-    let normal_force = NORMAL_TRACTION_P * area;
+    let area = element
+        .integration_weights()
+        .into_iter()
+        .sum::<Quantity<Area>>();
+    let tangential_force = (TANGENTIAL_TRACTION_P * area).value_as::<Force>();
+    let normal_force = (NORMAL_TRACTION_P * area).value_as::<Force>();
     Assert::default().eq_within_tols(
         &element.nodal_forces(&MODEL, &coordinates.into())?,
         &[
@@ -100,9 +108,12 @@ fn temporary_4() -> Result<(), AssertionError> {
         .into_iter()
         .map(|coordinate| get_rotation_reference_configuration() * coordinate)
         .collect();
-    let area = element.integration_weights().into_iter().sum::<Scalar>();
-    let tangential_force = TANGENTIAL_TRACTION_P * area;
-    let normal_force = NORMAL_TRACTION_P * area;
+    let area = element
+        .integration_weights()
+        .into_iter()
+        .sum::<Quantity<Area>>();
+    let tangential_force = (TANGENTIAL_TRACTION_P * area).value_as::<Force>();
+    let normal_force = (NORMAL_TRACTION_P * area).value_as::<Force>();
     let nodal_forces_rotated_back = element
         .nodal_forces(&MODEL, &coordinates.into())?
         .into_iter()

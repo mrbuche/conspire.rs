@@ -1,13 +1,14 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::Current;
 use crate::{
     math::{
         Scalar,
         random::{random_uniform, random_x2_normal},
         special::{erf, erfc},
     },
-    mechanics::CurrentCoordinate,
+    mechanics::Vector,
     physics::{
         BOLTZMANN_CONSTANT,
         molecular::single_chain::{
@@ -326,7 +327,7 @@ impl MonteCarlo for ExtensibleFreelyJointedChain {
                 let phi = TAU * random_uniform();
                 let (sin_phi, cos_phi) = phi.sin_cos();
                 let lambda = random_x2_normal(1.0, sigma);
-                CurrentCoordinate::from([
+                Vector::<Current>::from([
                     lambda * sin_theta * cos_phi,
                     lambda * sin_theta * sin_phi,
                     lambda * cos_theta,

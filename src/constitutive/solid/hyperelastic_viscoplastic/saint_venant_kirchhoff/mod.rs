@@ -1,10 +1,9 @@
-use crate::math::Rate;
+use crate::math::Quantity;
 use crate::math::TensorRank4;
-use crate::math::{Quantity, Stress};
+use crate::math::unit::{EnergyDensity, Rate, Stress};
 #[cfg(test)]
 mod test;
 
-use crate::math::EnergyDensity;
 use crate::{
     constitutive::{
         ConstitutiveError,

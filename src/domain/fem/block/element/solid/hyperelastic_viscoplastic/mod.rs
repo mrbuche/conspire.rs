@@ -1,4 +1,5 @@
-use crate::math::{EnergyDensity, Quantity};
+use crate::math::Quantity;
+use crate::math::unit::Energy;
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperelastic_viscoplastic::HyperelasticViscoplastic},
     fem::block::element::{
@@ -28,7 +29,7 @@ pub trait HyperelasticViscoplasticFiniteElement<
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         state_variables: &ViscoplasticStateVariables<G, Y>,
-    ) -> Result<Quantity<EnergyDensity>, FiniteElementError>;
+    ) -> Result<Quantity<Energy>, FiniteElementError>;
 }
 
 impl<C, const G: usize, const N: usize, const O: usize, const P: usize, Y>
@@ -43,7 +44,7 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         state_variables: &ViscoplasticStateVariables<G, Y>,
-    ) -> Result<Quantity<EnergyDensity>, FiniteElementError> {
+    ) -> Result<Quantity<Energy>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()

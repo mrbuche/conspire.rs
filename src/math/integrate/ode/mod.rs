@@ -1,4 +1,5 @@
-use crate::math::{Norm, Quantity, Scalar, Tensor, TensorVec, Time};
+use crate::math::unit::Time;
+use crate::math::{Norm, Quantity, Scalar, Tensor, TensorVec};
 use std::fmt::Debug;
 
 pub(super) mod explicit;

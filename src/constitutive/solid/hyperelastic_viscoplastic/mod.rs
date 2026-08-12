@@ -10,7 +10,8 @@ pub use hencky::Hencky;
 pub use saint_venant_kirchhoff::SaintVenantKirchhoff;
 
 use crate::constitutive::solid::elastic_plastic::bcs;
-use crate::math::EnergyDensity;
+use crate::math::unit::EnergyDensity;
+use crate::math::unit::Time;
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -21,7 +22,7 @@ use crate::{
         solid::elastic_viscoplastic::{AppliedLoad, ElasticViscoplastic},
     },
     math::{
-        Differentiate, Quantity, Tensor, TensorArray, Time, Vector,
+        Differentiate, Quantity, Tensor, TensorArray, Vector,
         integrate::{ExplicitDaeFirstOrderMinimize, ExplicitDaeSecondOrderMinimize},
         optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
     },

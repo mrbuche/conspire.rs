@@ -1,11 +1,11 @@
-use crate::math::Dimensionless;
+use crate::math::unit::{Dimensionless, UnitDiv};
 use crate::math::{Current, Reference};
 #[cfg(test)]
 mod test;
 
 use crate::math::{
     Jacobian, Solution, Tensor, TensorRank0, TensorRank1, TensorRank1List, TensorRank2SparseVec2D,
-    TensorRank2SparseVec2DSymmetric, TensorRank2Vec2D, TensorVec, UnitDiv, Vector,
+    TensorRank2SparseVec2DSymmetric, TensorRank2Vec2D, TensorVec, Vector,
     tensor::vec::TensorVector,
 };
 use std::{

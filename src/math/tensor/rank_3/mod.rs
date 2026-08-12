@@ -1,4 +1,4 @@
-use crate::math::Dimensionless;
+use crate::math::unit::Dimensionless;
 use crate::math::{Current, Reference};
 #[cfg(test)]
 mod test;

@@ -29,8 +29,9 @@ use super::{
     viscoelastic::{AppliedLoad, Viscoelastic},
     *,
 };
+use crate::math::unit::{Dissipation, Time};
 use crate::math::{
-    ContractWith, Dissipation, Matrix, Quantity, Time, Vector,
+    ContractWith, Matrix, Quantity, Vector,
     integrate::{ImplicitDaeFirstOrderMinimize, ImplicitDaeSecondOrderMinimize},
     optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
 };

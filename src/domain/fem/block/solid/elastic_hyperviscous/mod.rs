@@ -1,3 +1,4 @@
+use crate::math::unit::Power;
 use crate::{
     constitutive::solid::elastic_hyperviscous::ElasticHyperviscous,
     fem::{
@@ -7,7 +8,7 @@ use crate::{
             elastic_hyperviscous::ElasticHyperviscousElements, viscoelastic::ViscoelasticElements,
         },
     },
-    math::{Dissipation, Quantity},
+    math::Quantity,
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
@@ -21,7 +22,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         nodal_velocities: &NodalVelocities<3>,
-    ) -> Result<Quantity<Dissipation>, ElementModelError> {
+    ) -> Result<Quantity<Power>, ElementModelError> {
         match self
             .elements()
             .iter()
@@ -46,7 +47,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         nodal_velocities: &NodalVelocities<3>,
-    ) -> Result<Quantity<Dissipation>, ElementModelError> {
+    ) -> Result<Quantity<Power>, ElementModelError> {
         match self
             .elements()
             .iter()

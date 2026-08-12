@@ -1,9 +1,8 @@
 use super::rank_2::relabel as relabel_rank_2;
 use super::rank_3::relabel as relabel_rank_3;
-use crate::math::Dimensionless;
-use crate::math::UnitMul;
+use crate::math::Quantity;
+use crate::math::unit::{Dimensionless, UnitDiv, UnitMul};
 use crate::math::{Current, Intermediate, Reference};
-use crate::math::{Quantity, UnitDiv};
 #[cfg(test)]
 mod test;
 
@@ -1189,6 +1188,36 @@ where
     type Output = TensorRank4<D, I, J, K, L, <U as UnitMul<V>>::Output>;
     fn mul(self, quantity: Quantity<V>) -> Self::Output {
         relabel(self.into_canonical() * quantity.value())
+    }
+}
+
+impl<const D: usize, I, J, K, L, U, V> Mul<&Quantity<V>> for TensorRank4<D, I, J, K, L, U>
+where
+    U: UnitMul<V>,
+{
+    type Output = TensorRank4<D, I, J, K, L, <U as UnitMul<V>>::Output>;
+    fn mul(self, quantity: &Quantity<V>) -> Self::Output {
+        self * *quantity
+    }
+}
+
+impl<const D: usize, I, J, K, L, U, V> Mul<Quantity<V>> for &TensorRank4<D, I, J, K, L, U>
+where
+    U: UnitMul<V>,
+{
+    type Output = TensorRank4<D, I, J, K, L, <U as UnitMul<V>>::Output>;
+    fn mul(self, quantity: Quantity<V>) -> Self::Output {
+        relabel(self.canonical().clone() * quantity.value())
+    }
+}
+
+impl<const D: usize, I, J, K, L, U, V> Mul<&Quantity<V>> for &TensorRank4<D, I, J, K, L, U>
+where
+    U: UnitMul<V>,
+{
+    type Output = TensorRank4<D, I, J, K, L, <U as UnitMul<V>>::Output>;
+    fn mul(self, quantity: &Quantity<V>) -> Self::Output {
+        self * *quantity
     }
 }
 

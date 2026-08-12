@@ -15,8 +15,10 @@ pub mod thermal;
 
 use crate::{
     math::{
-        Scalar, ScalarList, TensorRank1, TensorRank1List, TensorRank1List2D,
-        assert::AssertionError, defeat_message,
+        Quantity, Scalar, ScalarList, TensorList, TensorRank1, TensorRank1List, TensorRank1List2D,
+        assert::AssertionError,
+        defeat_message,
+        unit::{Length, ReciprocalLength, Volume},
     },
     mechanics::{CoordinateList, CurrentCoordinates, CurrentVelocities, ReferenceCoordinates},
 };
@@ -30,7 +32,8 @@ pub type ElementNodalVelocities<const N: usize> = CurrentVelocities<N>;
 pub type ElementNodalEitherCoordinates<I, const N: usize> = CoordinateList<I, N>;
 pub type ElementNodalReferenceCoordinates<const N: usize> = ReferenceCoordinates<N>;
 pub type GradientVectors<const D: usize, const G: usize, const N: usize> =
-    TensorRank1List2D<D, Reference, N, G>;
+    TensorRank1List2D<D, Reference, N, G, ReciprocalLength>;
+pub type IntegrationWeights<const G: usize, U> = TensorList<Quantity<U>, G>;
 pub type ParametricCoordinate<const M: usize> = TensorRank1<M, Projection>;
 pub type ParametricCoordinates<const G: usize, const M: usize> = TensorRank1List<M, Projection, G>;
 pub type ParametricReference<const M: usize, const N: usize> = TensorRank1List<M, Projection, N>;
@@ -43,12 +46,17 @@ pub type StandardGradientOperators<const M: usize, const O: usize, const P: usiz
 pub type StandardGradientOperatorsTransposed<const M: usize, const O: usize, const P: usize> =
     TensorRank1List2D<M, Reference, P, O>;
 
-pub trait FiniteElement<const G: usize, const M: usize, const N: usize, const P: usize>
+/// A finite element, whose integration weight carries the unit `W`.
+///
+/// A solid or surface element integrates over a volume, a cohesive element over
+/// the area its traction acts on, which is why the weight is named rather than
+/// assumed.
+pub trait FiniteElement<const G: usize, const M: usize, const N: usize, const P: usize, W = Volume>
 where
     Self: Clone + Debug,
 {
     fn integration_points() -> ParametricCoordinates<G, M>;
-    fn integration_weights(&self) -> &ScalarList<G>;
+    fn integration_weights(&self) -> &IntegrationWeights<G, W>;
     fn parametric_reference() -> ParametricReference<M, N>;
     fn parametric_weights() -> ScalarList<G>;
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<P>;
@@ -67,7 +75,7 @@ where
             .map(|integration_point| Self::shape_functions_gradients(integration_point))
             .collect()
     }
-    fn volume(&self) -> Scalar {
+    fn volume(&self) -> Quantity<W> {
         self.integration_weights().into_iter().sum()
     }
 }
@@ -75,7 +83,7 @@ where
 #[derive(Clone)]
 pub struct Element<const D: usize, const G: usize, const N: usize, const O: usize> {
     gradient_vectors: GradientVectors<D, G, N>,
-    integration_weights: ScalarList<G>,
+    integration_weights: IntegrationWeights<G, Volume>,
 }
 
 impl<const D: usize, const G: usize, const N: usize, const O: usize> Element<D, G, N, O> {
@@ -106,7 +114,7 @@ impl<const D: usize, const G: usize, const N: usize, const O: usize> Debug for E
 }
 
 fn basic_from<const D: usize, const G: usize, const N: usize, const O: usize>(
-    reference_nodal_coordinates: TensorRank1List<D, Reference, N>,
+    reference_nodal_coordinates: TensorRank1List<D, Reference, N, Length>,
 ) -> Element<D, G, N, O>
 where
     Element<D, G, N, O>: FiniteElement<G, D, N, N>,
@@ -122,8 +130,14 @@ where
         .into_iter()
         .zip(Element::parametric_weights())
         .map(|(standard_gradient_operator, integration_weight)| {
-            (&reference_nodal_coordinates * standard_gradient_operator).determinant()
-                * integration_weight
+            // A determinant multiplies its unit once per dimension, which the
+            // type does not know, so the volume is named here rather than
+            // derived. In two dimensions it is an area, the element being of
+            // unit thickness.
+            Quantity::new(
+                (&reference_nodal_coordinates * standard_gradient_operator).determinant()
+                    * integration_weight,
+            )
         })
         .collect();
     Element {

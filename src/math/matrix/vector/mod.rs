@@ -1,8 +1,9 @@
 use crate::math::assert::FiniteDifference;
+use crate::math::unit::Dimensionless;
 
 use crate::math::{
-    Dimensionless, Erase, Jacobian, Matrix, Quantity, Scalar, Solution, SquareMatrix, Tensor,
-    TensorRank1Vec, TensorRank2, TensorTuple, TensorVec, write_tensor_rank_0,
+    Erase, Jacobian, Matrix, Quantity, Scalar, Solution, SquareMatrix, Tensor, TensorRank1Vec,
+    TensorRank2, TensorTuple, TensorVec, write_tensor_rank_0,
 };
 use std::{
     fmt::{Display, Formatter, Result},

@@ -5,10 +5,10 @@ mod ldl;
 mod lu;
 
 use crate::math::assert::FiniteDifference;
+use crate::math::unit::Dimensionless;
 
 use crate::math::{
-    Dimensionless, Hessian, Rank2, Scalar, Tensor, TensorRank2Vec2D, TensorVec, Vector,
-    write_tensor_rank_0,
+    Hessian, Rank2, Scalar, Tensor, TensorRank2Vec2D, TensorVec, Vector, write_tensor_rank_0,
 };
 
 use std::{

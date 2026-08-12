@@ -1,9 +1,8 @@
-use crate::math::Dimensionless;
-use crate::math::UnitMul;
 #[cfg(test)]
 mod test;
 
 use super::TensorRank2;
+use crate::math::unit::{Dimensionless, UnitMul};
 use crate::math::{
     Hessian, HessianAccumulate, Rank2, Scalar, SquareMatrix, Tensor, Vector,
     tensor::vec::TensorVector,

@@ -4,15 +4,15 @@ pub mod test;
 use crate::{
     fem::block::element::{
         ElementNodalCoordinates, ElementNodalEitherCoordinates, ElementNodalReferenceCoordinates,
-        FiniteElement, ParametricCoordinate, ParametricCoordinates, ParametricReference,
-        ShapeFunctions, ShapeFunctionsGradients,
+        FiniteElement, IntegrationWeights, ParametricCoordinate, ParametricCoordinates,
+        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         cohesive::{
             CohesiveFiniteElement, M, Separations,
             linear::{LinearCohesiveElement, LinearCohesiveFiniteElement},
         },
         surface::linear::Triangle,
     },
-    math::ScalarList,
+    math::{ScalarList, unit::Area},
     mechanics::NormalGradients,
 };
 
@@ -24,7 +24,7 @@ const P: usize = 3;
 
 pub type Wedge = LinearCohesiveElement<G, N>;
 
-impl FiniteElement<G, M, N, P> for Wedge {
+impl FiniteElement<G, M, N, P, Area> for Wedge {
     fn integration_points() -> ParametricCoordinates<G, M> {
         [
             [1.0 / 6.0, 1.0 / 6.0],
@@ -33,7 +33,7 @@ impl FiniteElement<G, M, N, P> for Wedge {
         ]
         .into()
     }
-    fn integration_weights(&self) -> &ScalarList<G> {
+    fn integration_weights(&self) -> &IntegrationWeights<G, Area> {
         &self.integration_weights
     }
     fn parametric_reference() -> ParametricReference<M, N> {

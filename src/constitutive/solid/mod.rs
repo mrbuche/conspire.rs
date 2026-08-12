@@ -1,6 +1,7 @@
 //! Solid constitutive models.
 
-use crate::math::{Quantity, Stress};
+use crate::math::Quantity;
+use crate::math::unit::Stress;
 pub mod elastic;
 pub mod elastic_hyperviscous;
 pub mod elastic_plastic;

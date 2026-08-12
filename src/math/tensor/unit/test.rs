@@ -45,10 +45,8 @@ fn units_are_zero_sized() {
 }
 
 mod on_tensors {
-    use crate::math::{
-        Current, Dimensionless, Rate, Reference, Stress, Tensor, TensorArray, TensorRank2,
-        Viscosity,
-    };
+    use crate::math::unit::{Dimensionless, Rate, Stress, Viscosity};
+    use crate::math::{Current, Reference, Tensor, TensorArray, TensorRank2};
 
     type Deformation = TensorRank2<3, Current, Reference, Dimensionless>;
     type Rates = TensorRank2<3, Reference, Reference, Rate>;
@@ -82,7 +80,7 @@ mod on_tensors {
 }
 
 mod synonyms {
-    use crate::math::{
+    use crate::math::unit::{
         Compliance, EnergyDensity, Fluidity, Frequency, Modulus, Pressure, Rate, ReciprocalStress,
         ReciprocalTemperature, ReciprocalViscosity, Stress, ThermalExpansion,
     };

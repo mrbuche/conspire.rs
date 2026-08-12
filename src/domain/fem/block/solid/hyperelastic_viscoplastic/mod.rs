@@ -1,4 +1,5 @@
-use crate::math::{EnergyDensity, Quantity};
+use crate::math::Quantity;
+use crate::math::unit::Energy;
 use crate::{
     constitutive::solid::hyperelastic_viscoplastic::HyperelasticViscoplastic,
     fem::{
@@ -29,7 +30,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &ViscoplasticStateVariables<G, Y>,
-    ) -> Result<Quantity<EnergyDensity>, ElementModelError> {
+    ) -> Result<Quantity<Energy>, ElementModelError> {
         match self
             .elements()
             .iter()

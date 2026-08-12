@@ -1,6 +1,7 @@
+use crate::math::unit::Energy;
+use crate::math::unit::{Dimensionless, UnitDiv};
 use std::ops::{Div, Mul};
 
-use crate::math::EnergyDensity;
 use crate::{
     constitutive::solid::hyperelastic::internal_variables::HyperelasticIV,
     fem::{
@@ -13,9 +14,7 @@ use crate::{
             hyperelastic::internal_variables::HyperelasticIVElements,
         },
     },
-    math::{
-        Dimensionless, Erase, Jacobian, Matrix, Quantity, Scalar, Solution, Tensor, UnitDiv, Vector,
-    },
+    math::{Erase, Jacobian, Matrix, Quantity, Scalar, Solution, Tensor, Vector},
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, V, E>
@@ -36,7 +35,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         internal_variables: &InternalVariablesField<G, V>,
-    ) -> Result<Quantity<EnergyDensity>, ElementModelError> {
+    ) -> Result<Quantity<Energy>, ElementModelError> {
         match self
             .elements()
             .iter()

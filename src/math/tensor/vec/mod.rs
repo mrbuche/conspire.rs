@@ -1,4 +1,4 @@
-use crate::math::Dimensionless;
+use crate::math::unit::Dimensionless;
 use crate::math::{
     ContractWith, Differentiate, Erase, Quantity, Tensor, TensorRank0, TensorRank1,
     TensorRank1List, TensorVec,

@@ -6,7 +6,10 @@ use crate::{
         ConstitutiveError,
         thermal::{Thermal, conduction::ThermalConduction},
     },
-    math::IDENTITY_00,
+    math::{
+        ContractWith, IDENTITY_00, Quantity,
+        unit::{PowerPerLengthTemperature, PowerTemperatureDensity},
+    },
     mechanics::{HeatFlux, HeatFluxTangent, Scalar, TemperatureGradient},
 };
 
@@ -27,8 +30,8 @@ pub struct Fourier {
 }
 
 impl Fourier {
-    fn thermal_conductivity(&self) -> Scalar {
-        self.thermal_conductivity
+    fn thermal_conductivity(&self) -> Quantity<PowerPerLengthTemperature> {
+        self.thermal_conductivity.into()
     }
 }
 
@@ -43,8 +46,14 @@ impl ThermalConduction for Fourier {
     fn potential(
         &self,
         temperature_gradient: &TemperatureGradient,
-    ) -> Result<Scalar, ConstitutiveError> {
-        Ok(0.5 * self.thermal_conductivity() * (temperature_gradient * temperature_gradient))
+    ) -> Result<Quantity<PowerTemperatureDensity>, ConstitutiveError> {
+        // A temperature gradient squared names nothing, so the potential is
+        // stated as the flux it gives contracted with the gradient.
+        Ok(
+            (temperature_gradient * self.thermal_conductivity())
+                .contract_with(temperature_gradient)
+                * 0.5,
+        )
     }
     /// Calculates and returns the heat flux.
     ///

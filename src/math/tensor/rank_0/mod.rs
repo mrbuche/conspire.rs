@@ -1,14 +1,13 @@
 #[cfg(test)]
 mod test;
 
+use super::unit::Dimensionless;
 use crate::math::assert::FiniteDifference;
 
 pub(crate) mod list;
 pub(crate) mod list_2d;
 
-use super::{
-    Dimensionless, Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, Vector,
-};
+use super::{Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, Vector};
 use std::ops::Sub;
 
 /// A tensor of rank 0 (a scalar).

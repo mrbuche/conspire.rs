@@ -1,4 +1,5 @@
-use crate::math::{Quantity, Rate};
+use crate::math::Quantity;
+use crate::math::unit::Rate;
 use crate::{
     constitutive::{
         ConstitutiveError,

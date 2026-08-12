@@ -1,10 +1,10 @@
 //! Elastic-plastic solid constitutive models.
 
+use crate::math::unit::Time;
 use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::Plastic, solid::Solid},
     math::{
         ContractFirstSecondWithSecond, ContractSecondWithFirst, IDENTITY, Matrix, Quantity, Rank2,
-        Time,
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic,

@@ -1,6 +1,7 @@
 //! Hyperelastic solid constitutive models with internal variables.
 
-use crate::math::{EnergyDensity, Quantity};
+use crate::math::Quantity;
+use crate::math::unit::EnergyDensity;
 use crate::{
     constitutive::{
         ConstitutiveError,

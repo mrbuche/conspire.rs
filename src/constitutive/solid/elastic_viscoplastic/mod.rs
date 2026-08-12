@@ -1,5 +1,6 @@
 //! Elastic-viscoplastic solid constitutive models.
 
+use crate::math::unit::Time;
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -9,7 +10,7 @@ use crate::{
         },
     },
     math::{
-        Differentiate, Quantity, Rank2, Tensor, TensorArray, Time, Vector,
+        Differentiate, Quantity, Rank2, Tensor, TensorArray, Vector,
         integrate::{ExplicitDaeFirstOrderRoot, ExplicitDaeZerothOrderRoot},
         optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
     },

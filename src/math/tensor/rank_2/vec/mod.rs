@@ -1,4 +1,4 @@
-use crate::math::Dimensionless;
+use crate::math::unit::Dimensionless;
 use crate::math::{Tensor, TensorRank0, assert::FiniteDifference};
 use crate::math::{TensorArray, TensorRank2, tensor::vec::TensorVector};
 

@@ -1,8 +1,9 @@
 use crate::math::TensorRank4;
+use crate::math::unit::{Dissipation, Rate, Stress, Viscosity};
 #[cfg(test)]
 mod test;
 
-use crate::math::{ContractWith, Dissipation, Quantity, Rate, Stress, Viscosity};
+use crate::math::{ContractWith, Quantity};
 use crate::{
     constitutive::{
         ConstitutiveError,

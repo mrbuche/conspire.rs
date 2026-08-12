@@ -1,9 +1,10 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::Current;
 use crate::{
     math::{Scalar, random::random_uniform},
-    mechanics::CurrentCoordinate,
+    mechanics::Vector,
     physics::molecular::single_chain::{
         Configuration, Ensemble, Inextensible, Isometric, Isotensional, Legendre, MonteCarlo,
         SingleChain, SingleChainError, Thermodynamics,
@@ -165,7 +166,7 @@ impl MonteCarlo for SquareWellFreelyJointedChain {
                 let phi = TAU * random_uniform();
                 let (sin_phi, cos_phi) = phi.sin_cos();
                 let lambda = 1.0 + max_strain * random_uniform();
-                CurrentCoordinate::from([
+                Vector::<Current>::from([
                     lambda * sin_theta * cos_phi,
                     lambda * sin_theta * sin_phi,
                     lambda * cos_theta,

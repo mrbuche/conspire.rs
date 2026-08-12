@@ -1,3 +1,4 @@
+use crate::math::unit::Time;
 use crate::{
     constitutive::solid::elastic_viscoplastic::ElasticViscoplastic,
     fem::{
@@ -15,7 +16,7 @@ use crate::{
     },
     math::{
         Derivative, Differentiate, Quantity, Tensor, TensorTupleListVec, TensorTupleListVec2D,
-        Time, optimize::EqualityConstraint,
+        optimize::EqualityConstraint,
     },
     mechanics::{DeformationGradientPlastic, DeformationGradientRatePlastic},
 };

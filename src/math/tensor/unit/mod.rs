@@ -1,3 +1,5 @@
+//! Units for tensors.
+
 #[cfg(test)]
 mod test;
 
@@ -75,6 +77,32 @@ units!(
     Length,
     /// A reciprocal length.
     ReciprocalLength,
+    /// An area.
+    Area,
+    /// A reciprocal area.
+    ReciprocalArea,
+    /// A volume.
+    Volume,
+    /// A velocity, being a length per unit time.
+    Velocity,
+    /// A force.
+    Force,
+    /// A force per unit length, as a stiffness is.
+    ForcePerLength,
+    /// A force per unit velocity, as a damping is.
+    ForcePerVelocity,
+    /// An energy.
+    Energy,
+    /// A power.
+    Power,
+    /// A stress per unit length, as a force per unit volume is.
+    StressPerLength,
+    /// A stress per unit area, as a stiffness per unit volume is.
+    StressPerArea,
+    /// A viscosity per unit length.
+    ViscosityPerLength,
+    /// A viscosity per unit area, as a damping per unit volume is.
+    ViscosityPerArea,
     /// A stress, and equally a stiffness, being a stress per unit strain.
     Stress,
     /// A reciprocal stress, as a compliance is.
@@ -95,6 +123,22 @@ units!(
     StressPerTemperature,
     /// A power per unit volume, as a dissipation is.
     PowerDensity,
+    /// A temperature per unit length, as a temperature gradient is.
+    TemperaturePerLength,
+    /// A power per unit area, as a heat flux is.
+    PowerPerArea,
+    /// A power per unit length per unit temperature, as a thermal conductivity is.
+    PowerPerLengthTemperature,
+    /// A power per unit area per unit temperature, as a heat flux per unit temperature is.
+    PowerPerAreaTemperature,
+    /// A power per unit volume per unit temperature.
+    PowerPerVolumeTemperature,
+    /// A power per unit temperature, as a thermal stiffness is.
+    PowerPerTemperature,
+    /// A power times a temperature, as the potential a heat flux derives from is.
+    PowerTemperature,
+    /// A power times a temperature per unit volume.
+    PowerTemperatureDensity,
 );
 
 macro_rules! unit_products {
@@ -142,6 +186,81 @@ unit_products!(
     Dimensionless * PowerDensity = PowerDensity,
     Stress * Rate = PowerDensity,
     Rate * Stress = PowerDensity,
+    Dimensionless * Area = Area,
+    Dimensionless * ReciprocalArea = ReciprocalArea,
+    Dimensionless * Volume = Volume,
+    Dimensionless * Velocity = Velocity,
+    Dimensionless * Force = Force,
+    Dimensionless * ForcePerLength = ForcePerLength,
+    Dimensionless * ForcePerVelocity = ForcePerVelocity,
+    Dimensionless * Energy = Energy,
+    Dimensionless * Power = Power,
+    Dimensionless * StressPerLength = StressPerLength,
+    Dimensionless * StressPerArea = StressPerArea,
+    Dimensionless * ViscosityPerLength = ViscosityPerLength,
+    Dimensionless * ViscosityPerArea = ViscosityPerArea,
+    Length * Length = Area,
+    Length * Area = Volume,
+    Area * Length = Volume,
+    Area * ReciprocalArea = Dimensionless,
+    ReciprocalArea * Area = Dimensionless,
+    Length * ReciprocalArea = ReciprocalLength,
+    ReciprocalArea * Length = ReciprocalLength,
+    ReciprocalLength * ReciprocalLength = ReciprocalArea,
+    ReciprocalLength * Volume = Area,
+    Length * Rate = Velocity,
+    Rate * Length = Velocity,
+    Velocity * Time = Length,
+    Velocity * ReciprocalLength = Rate,
+    ReciprocalLength * Velocity = Rate,
+    Stress * Area = Force,
+    Area * Stress = Force,
+    Stress * Volume = Energy,
+    Force * Length = Energy,
+    Force * ReciprocalLength = ForcePerLength,
+    ForcePerLength * Length = Force,
+    Length * ForcePerLength = Force,
+    Velocity * ForcePerVelocity = Force,
+    Stress * ReciprocalLength = StressPerLength,
+    ReciprocalLength * Stress = StressPerLength,
+    StressPerLength * ReciprocalLength = StressPerArea,
+    StressPerLength * Length = Stress,
+    Length * StressPerLength = Stress,
+    StressPerLength * Area = ForcePerLength,
+    StressPerLength * Volume = Force,
+    StressPerArea * Volume = ForcePerLength,
+    Viscosity * ReciprocalLength = ViscosityPerLength,
+    ReciprocalLength * Viscosity = ViscosityPerLength,
+    ViscosityPerLength * ReciprocalLength = ViscosityPerArea,
+    ViscosityPerArea * Volume = ForcePerVelocity,
+    ForcePerVelocity * Velocity = Force,
+    Force * Velocity = Power,
+    PowerDensity * Volume = Power,
+    Energy * Rate = Power,
+    Power * Time = Energy,
+    Dimensionless * TemperaturePerLength = TemperaturePerLength,
+    Dimensionless * PowerPerArea = PowerPerArea,
+    Dimensionless * PowerPerLengthTemperature = PowerPerLengthTemperature,
+    Dimensionless * PowerPerAreaTemperature = PowerPerAreaTemperature,
+    Dimensionless * PowerPerVolumeTemperature = PowerPerVolumeTemperature,
+    Dimensionless * PowerPerTemperature = PowerPerTemperature,
+    Dimensionless * PowerTemperature = PowerTemperature,
+    Dimensionless * PowerTemperatureDensity = PowerTemperatureDensity,
+    Temperature * ReciprocalLength = TemperaturePerLength,
+    ReciprocalLength * Temperature = TemperaturePerLength,
+    TemperaturePerLength * PowerPerLengthTemperature = PowerPerArea,
+    PowerPerLengthTemperature * TemperaturePerLength = PowerPerArea,
+    PowerPerArea * ReciprocalLength = PowerDensity,
+    ReciprocalLength * PowerPerArea = PowerDensity,
+    PowerPerArea * TemperaturePerLength = PowerTemperatureDensity,
+    PowerTemperatureDensity * Volume = PowerTemperature,
+    PowerPerLengthTemperature * ReciprocalLength = PowerPerAreaTemperature,
+    ReciprocalLength * PowerPerLengthTemperature = PowerPerAreaTemperature,
+    PowerPerAreaTemperature * ReciprocalLength = PowerPerVolumeTemperature,
+    ReciprocalLength * PowerPerAreaTemperature = PowerPerVolumeTemperature,
+    PowerPerVolumeTemperature * Volume = PowerPerTemperature,
+    Power * Temperature = PowerTemperature,
+    PowerPerTemperature * Temperature = Power,
 );
 
 // A tuple carries the pair of units its halves do, so the pair combines with
@@ -177,6 +296,8 @@ unit_inverses!(
     Dimensionless => Dimensionless,
     Length => ReciprocalLength,
     ReciprocalLength => Length,
+    Area => ReciprocalArea,
+    ReciprocalArea => Area,
     Stress => ReciprocalStress,
     ReciprocalStress => Stress,
     Temperature => ReciprocalTemperature,

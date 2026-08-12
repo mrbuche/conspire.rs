@@ -1,5 +1,4 @@
-use crate::math::Dimensionless;
-use crate::math::UnitMul;
+use crate::math::unit::{Dimensionless, UnitMul};
 use crate::math::{Tensor, TensorRank0, TensorRank2, TensorRank2Vec, tensor::vec::TensorVector};
 use std::ops::Mul;
 

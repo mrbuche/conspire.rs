@@ -1,4 +1,5 @@
-use crate::math::{EnergyDensity, Quantity};
+use crate::math::Quantity;
+use crate::math::unit::Energy;
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperviscoelastic::Hyperviscoelastic},
     fem::block::element::{
@@ -22,7 +23,7 @@ pub trait HyperviscoelasticFiniteElement<
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
-    ) -> Result<Quantity<EnergyDensity>, FiniteElementError>;
+    ) -> Result<Quantity<Energy>, FiniteElementError>;
 }
 
 impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
@@ -35,7 +36,7 @@ where
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
-    ) -> Result<Quantity<EnergyDensity>, FiniteElementError> {
+    ) -> Result<Quantity<Energy>, FiniteElementError> {
         helmholtz_free_energy::<_, _, _, _, _, O, _>(self, constitutive_model, nodal_coordinates)
     }
 }
@@ -50,7 +51,7 @@ where
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
-    ) -> Result<Quantity<EnergyDensity>, FiniteElementError> {
+    ) -> Result<Quantity<Energy>, FiniteElementError> {
         helmholtz_free_energy::<_, _, _, _, _, O, _>(self, constitutive_model, nodal_coordinates)
     }
 }
@@ -67,7 +68,7 @@ fn helmholtz_free_energy<
     element: &F,
     constitutive_model: &C,
     nodal_coordinates: &ElementNodalCoordinates<N>,
-) -> Result<Quantity<EnergyDensity>, FiniteElementError>
+) -> Result<Quantity<Energy>, FiniteElementError>
 where
     C: Hyperviscoelastic,
     F: ElasticHyperviscousFiniteElement<C, G, M, N, P>,

@@ -1,16 +1,20 @@
-use crate::math::{Current, Reference, Stress};
-use crate::math::{EnergyDensity, Quantity};
+use crate::math::Quantity;
+use crate::math::unit::{Energy, ForcePerLength, Length, StressPerArea, StressPerLength, Volume};
+use crate::math::{Current, Reference};
 use crate::{
     constitutive::{
         ConstitutiveError,
         solid::{elastic::Elastic, hyperelastic::Hyperelastic},
     },
     fem::block::element::{
-        Element, FiniteElement, FiniteElementError, ParametricCoordinate, ParametricCoordinates,
-        ParametricReference, ShapeFunctions, ShapeFunctionsGradients, basic_from,
-        surface::SurfaceElement,
+        Element, FiniteElement, FiniteElementError, IntegrationWeights, ParametricCoordinate,
+        ParametricCoordinates, ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
+        basic_from, surface::SurfaceElement,
     },
-    math::{Scalar, ScalarList, Tensor, TensorArray, TensorRank1List, TensorRank2List2D},
+    math::{
+        Scalar, ScalarList, Tensor, TensorArray, TensorRank1, TensorRank1List, TensorRank2,
+        TensorRank2List2D,
+    },
     mechanics::{
         DeformationGradient, DeformationGradientList, FirstPiolaKirchhoffStressList,
         FirstPiolaKirchhoffTangentStiffnessList,
@@ -22,11 +26,13 @@ const M: usize = 2;
 pub type Quadrilateral = Element<2, 4, 4, 1>;
 pub type Triangle = Element<2, 1, 3, 1>;
 
-pub type PlanarElementNodalCoordinates<const N: usize> = TensorRank1List<M, Current, N>;
-pub type PlanarElementNodalReferenceCoordinates<const N: usize> = TensorRank1List<M, Reference, N>;
-pub type PlanarElementNodalForcesSolid<const N: usize> = TensorRank1List<M, Current, N, Stress>;
+pub type PlanarElementNodalCoordinates<const N: usize> = TensorRank1List<M, Current, N, Length>;
+pub type PlanarElementNodalReferenceCoordinates<const N: usize> =
+    TensorRank1List<M, Reference, N, Length>;
+pub type PlanarElementNodalForcesSolid<const N: usize> =
+    TensorRank1List<M, Current, N, crate::math::unit::Force>;
 pub type PlanarElementNodalStiffnessesSolid<const N: usize> =
-    TensorRank2List2D<M, Current, Current, N, N, Stress>;
+    TensorRank2List2D<M, Current, Current, N, N, ForcePerLength>;
 
 impl<const G: usize, const N: usize, const O: usize, const P: usize> FiniteElement<G, M, N, P>
     for Element<2, G, N, O>
@@ -36,7 +42,7 @@ where
     fn integration_points() -> ParametricCoordinates<G, M> {
         SurfaceElement::<G, N, O>::integration_points()
     }
-    fn integration_weights(&self) -> &ScalarList<G> {
+    fn integration_weights(&self) -> &IntegrationWeights<G, Volume> {
         &self.integration_weights
     }
     fn parametric_reference() -> ParametricReference<M, N> {
@@ -161,9 +167,9 @@ where
                                                     * gradient_vector[j]
                                             })
                                             .sum::<Scalar>()
-                                            * integration_weight
                                     })
-                                    .collect()
+                                    .collect::<TensorRank1<M, Current, StressPerLength>>()
+                                    * integration_weight
                             })
                             .collect()
                     },
@@ -223,11 +229,11 @@ where
                                                                         .sum::<Scalar>()
                                                                 })
                                                                 .sum::<Scalar>()
-                                                                * integration_weight
                                                         })
                                                         .collect()
                                                 })
-                                                .collect()
+                                                .collect::<TensorRank2<M, Current, Current, StressPerArea>>()
+                                                * integration_weight
                                         })
                                         .collect()
                                 })
@@ -253,7 +259,7 @@ where
         &self,
         constitutive_model: &C,
         nodal_coordinates: &PlanarElementNodalCoordinates<N>,
-    ) -> Result<Quantity<EnergyDensity>, FiniteElementError>;
+    ) -> Result<Quantity<Energy>, FiniteElementError>;
 }
 
 impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
@@ -266,7 +272,7 @@ where
         &self,
         constitutive_model: &C,
         nodal_coordinates: &PlanarElementNodalCoordinates<N>,
-    ) -> Result<Quantity<EnergyDensity>, FiniteElementError> {
+    ) -> Result<Quantity<Energy>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()

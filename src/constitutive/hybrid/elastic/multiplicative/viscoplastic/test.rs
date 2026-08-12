@@ -1,4 +1,5 @@
 use crate::math::assert::Assert;
+use crate::math::unit::Time;
 use crate::{
     constitutive::{
         fluid::viscoplastic::ViscoplasticFlow,
@@ -9,7 +10,7 @@ use crate::{
         },
     },
     math::{
-        Quantity, Rank2, Tensor, TensorArray, Time,
+        Quantity, Rank2, Tensor, TensorArray,
         assert::{AssertionError, FiniteDifference},
         integrate::BogackiShampine,
         optimize::NewtonRaphson,

@@ -1,11 +1,12 @@
 macro_rules! test_model {
     ($model:ident) => {
+        use crate::math::unit::Time;
         use crate::{
             constitutive::solid::elastic_viscoplastic::{
                 AppliedLoad, ElasticPlasticOrViscoplastic,
             },
             math::{
-                Quantity, Rank2, Tensor, TensorArray, Time,
+                Quantity, Rank2, Tensor, TensorArray,
                 assert::{AssertionError, FiniteDifference},
                 integrate::{BogackiShampine, DormandPrince, Verner8, Verner9},
                 optimize::{GradientDescent, NewtonRaphson},

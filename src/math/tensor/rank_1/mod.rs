@@ -1,5 +1,5 @@
 use super::{ContractWith, Differentiate, Erase};
-use crate::math::Dimensionless;
+use crate::math::unit::Dimensionless;
 use crate::math::{Current, Projection, Reference};
 #[cfg(test)]
 mod test;
@@ -23,8 +23,11 @@ use crate::{
     math::{
         matrix::vector::Vector,
         tensor::{
-            Jacobian, Quantity, Solution, Tensor, TensorArray, UnitDiv, UnitMul,
-            rank_0::TensorRank0, rank_1::list::TensorRank1List, rank_2::TensorRank2,
+            Jacobian, Quantity, Solution, Tensor, TensorArray,
+            rank_0::TensorRank0,
+            rank_1::list::TensorRank1List,
+            rank_2::TensorRank2,
+            unit::{UnitDiv, UnitMul},
         },
         write_tensor_rank_0,
     },
@@ -255,6 +258,26 @@ where
     type Output = TensorRank1<D, I, <U as UnitMul<V>>::Output>;
     fn mul(self, quantity: Quantity<V>) -> Self::Output {
         relabel(self.canonical() * quantity.value())
+    }
+}
+
+impl<const D: usize, I, U, V> Mul<&Quantity<V>> for TensorRank1<D, I, U>
+where
+    U: UnitMul<V>,
+{
+    type Output = TensorRank1<D, I, <U as UnitMul<V>>::Output>;
+    fn mul(self, quantity: &Quantity<V>) -> Self::Output {
+        self * *quantity
+    }
+}
+
+impl<const D: usize, I, U, V> Mul<&Quantity<V>> for &TensorRank1<D, I, U>
+where
+    U: UnitMul<V>,
+{
+    type Output = TensorRank1<D, I, <U as UnitMul<V>>::Output>;
+    fn mul(self, quantity: &Quantity<V>) -> Self::Output {
+        self * *quantity
     }
 }
 
@@ -642,9 +665,9 @@ impl<const D: usize, I, U, V> Mul<TensorRank1<D, I, V>> for &TensorRank1<D, I, U
     }
 }
 
-impl<const D: usize, I, U> Mul for &TensorRank1<D, I, U> {
+impl<const D: usize, I, U, V> Mul<&TensorRank1<D, I, V>> for &TensorRank1<D, I, U> {
     type Output = TensorRank0;
-    fn mul(self, tensor_rank_1: Self) -> Self::Output {
+    fn mul(self, tensor_rank_1: &TensorRank1<D, I, V>) -> Self::Output {
         self.iter()
             .zip(tensor_rank_1.iter())
             .map(|(self_i, tensor_rank_1_i)| self_i * tensor_rank_1_i)

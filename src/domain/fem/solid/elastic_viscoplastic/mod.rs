@@ -1,3 +1,4 @@
+use crate::math::unit::Time;
 use crate::{
     fem::{
         Blocks, ElasticViscoplasticAndElastic, ElementModel, ElementModelError, Elements, Model,
@@ -6,7 +7,7 @@ use crate::{
         solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticElements},
     },
     math::{
-        Derivative, Differentiate, Quantity, Tensor, TensorTuple, TensorVec, Time,
+        Derivative, Differentiate, Quantity, Tensor, TensorTuple, TensorVec,
         integrate::{ExplicitDaeFirstOrderRoot, IntegrationError},
         optimize::FirstOrderRootFinding,
     },

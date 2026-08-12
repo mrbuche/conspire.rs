@@ -12,7 +12,10 @@ use crate::{
         },
         thermal::conduction::ThermalConductionElements,
     },
-    math::{Scalar, SquareMatrix, Vector},
+    math::{
+        Quantity, Scalar, SquareMatrix, Vector,
+        unit::{Power, PowerPerTemperature, PowerTemperature},
+    },
 };
 
 pub type NodalForcesThermal = Vector;
@@ -38,9 +41,9 @@ where
                     &self.nodal_temperatures_element(element_connectivity, nodal_temperatures),
                 )
             })
-            .sum()
+            .sum::<Result<Quantity<PowerTemperature>, FiniteElementError>>()
         {
-            Ok(potential) => Ok(potential),
+            Ok(potential) => Ok(potential.value_as::<PowerTemperature>()),
             Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
@@ -64,7 +67,9 @@ where
                     )?
                     .into_iter()
                     .zip(element_connectivity)
-                    .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
+                    .for_each(|(nodal_force, &node)| {
+                        nodal_forces[node] += nodal_force.value_as::<Power>()
+                    });
                 Ok::<(), FiniteElementError>(())
             }) {
             Ok(()) => Ok(()),
@@ -94,7 +99,8 @@ where
                     .for_each(|(object, &node_a)| {
                         object.into_iter().zip(element_connectivity).for_each(
                             |(nodal_stiffness, &node_b)| {
-                                nodal_stiffnesses[node_a][node_b] += nodal_stiffness
+                                nodal_stiffnesses[node_a][node_b] +=
+                                    nodal_stiffness.value_as::<PowerPerTemperature>()
                             },
                         )
                     });

@@ -7,7 +7,8 @@ use super::{
     OptimizationError, StepSize, ZerothOrderRootFinding,
 };
 use crate::ABS_TOL;
-use crate::math::{Erase, Norm, UnitDiv};
+use crate::math::unit::UnitDiv;
+use crate::math::{Erase, Norm};
 use std::{
     fmt::{self, Debug, Formatter},
     ops::Mul,

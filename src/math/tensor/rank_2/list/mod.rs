@@ -1,9 +1,9 @@
-use crate::math::Dimensionless;
 pub(crate) mod vec;
 
 #[cfg(test)]
 mod test;
 
+use crate::math::unit::Dimensionless;
 use crate::math::{TensorRank0, TensorRank2, tensor::list::TensorList};
 
 /// A list of rank-2 tensors.

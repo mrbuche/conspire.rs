@@ -6,7 +6,7 @@ use super::{
     rank_0::TensorRank0,
     unit::{Dimensionless, UnitDiv, UnitInv, UnitMul},
 };
-use crate::math::assert::FiniteDifference;
+use crate::math::{TensorList, assert::FiniteDifference};
 use std::{
     fmt::{self, Display, Formatter},
     marker::PhantomData,
@@ -355,6 +355,43 @@ where
     }
 }
 
+// The weights an element hands over are iterated by reference, so a quantity
+// scales the same way whether it is owned or borrowed.
+
+impl<U, V> Mul<&Quantity<V>> for Quantity<U>
+where
+    U: UnitMul<V>,
+{
+    type Output = Quantity<<U as UnitMul<V>>::Output>;
+    fn mul(self, quantity: &Quantity<V>) -> Self::Output {
+        self * *quantity
+    }
+}
+
+impl<U, V> Mul<&Quantity<V>> for &Quantity<U>
+where
+    U: UnitMul<V>,
+{
+    type Output = Quantity<<U as UnitMul<V>>::Output>;
+    fn mul(self, quantity: &Quantity<V>) -> Self::Output {
+        *self * *quantity
+    }
+}
+
+impl<V> Mul<&Quantity<V>> for TensorRank0 {
+    type Output = Quantity<V>;
+    fn mul(self, quantity: &Quantity<V>) -> Self::Output {
+        Quantity::new(self * quantity.0)
+    }
+}
+
+impl<V> Mul<&Quantity<V>> for &TensorRank0 {
+    type Output = Quantity<V>;
+    fn mul(self, quantity: &Quantity<V>) -> Self::Output {
+        Quantity::new(self * quantity.0)
+    }
+}
+
 // A dimensionless quantity is a number, and mixes with one freely.
 
 impl Add<TensorRank0> for Quantity<Dimensionless> {
@@ -411,6 +448,15 @@ impl<U> std::iter::Sum for Quantity<U> {
     fn sum<I>(iter: I) -> Self
     where
         I: Iterator<Item = Self>,
+    {
+        Self::new(iter.map(|quantity| quantity.0).sum())
+    }
+}
+
+impl<'a, U> std::iter::Sum<&'a Quantity<U>> for Quantity<U> {
+    fn sum<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = &'a Quantity<U>>,
     {
         Self::new(iter.map(|quantity| quantity.0).sum())
     }
@@ -496,6 +542,42 @@ impl<U> TensorArray for Quantity<U> {
 impl<U> FiniteDifference for Quantity<U> {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         self.0.error_fd(&comparator.0, epsilon)
+    }
+}
+
+// A list of quantities compares entry by entry, as a list of scalars does.
+
+impl<U, const N: usize> FiniteDifference for TensorList<Quantity<U>, N> {
+    fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
+        error_fd_over(self.iter().zip(comparator.iter()), epsilon)
+    }
+}
+
+impl<U, const M: usize, const N: usize> FiniteDifference
+    for TensorList<TensorList<Quantity<U>, N>, M>
+{
+    fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
+        error_fd_over(
+            self.iter()
+                .zip(comparator.iter())
+                .flat_map(|(entry, comparator_entry)| entry.iter().zip(comparator_entry.iter())),
+            epsilon,
+        )
+    }
+}
+
+fn error_fd_over<'a, U: 'a>(
+    entries: impl Iterator<Item = (&'a Quantity<U>, &'a Quantity<U>)>,
+    epsilon: TensorRank0,
+) -> Option<(bool, usize)> {
+    let error_count = entries
+        .filter_map(|(entry, comparator_entry)| entry.error_fd(comparator_entry, epsilon))
+        .map(|(_, count)| count)
+        .sum();
+    if error_count > 0 {
+        Some((true, error_count))
+    } else {
+        None
     }
 }
 

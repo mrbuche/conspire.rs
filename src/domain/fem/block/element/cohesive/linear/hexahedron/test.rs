@@ -1,5 +1,8 @@
-use crate::math::Current;
 use crate::math::assert::Assert;
+use crate::math::{
+    Current, Quantity,
+    unit::{Area, Force, Stress},
+};
 use crate::{
     EPSILON,
     constitutive::cohesive::elastic::LinearElastic,
@@ -20,8 +23,9 @@ const NORMAL_STIFFNESS: Scalar = 3.4;
 const TANGENTIAL_STIFFNESS: Scalar = 5.6;
 const TANGENTIAL_DISPLACEMENT: Scalar = 7.8;
 
-const TANGENTIAL_TRACTION: Scalar = TANGENTIAL_STIFFNESS * TANGENTIAL_DISPLACEMENT;
-const NORMAL_TRACTION: Scalar = NORMAL_STIFFNESS * NORMAL_DISPLACEMENT;
+const TANGENTIAL_TRACTION: Quantity<Stress> =
+    Quantity::new(TANGENTIAL_STIFFNESS * TANGENTIAL_DISPLACEMENT);
+const NORMAL_TRACTION: Quantity<Stress> = Quantity::new(NORMAL_STIFFNESS * NORMAL_DISPLACEMENT);
 
 const COORDINATES: [[Scalar; 3]; N] = [
     [-0.47979299, 0.48230032, 0.0],
@@ -57,23 +61,42 @@ fn temporary_2() -> Result<(), AssertionError> {
         coordinate[0] += TANGENTIAL_DISPLACEMENT;
         coordinate[2] += NORMAL_DISPLACEMENT
     });
-    let area = element.integration_weights().into_iter().sum::<Scalar>();
+    let area = element
+        .integration_weights()
+        .into_iter()
+        .sum::<Quantity<Area>>();
     let forces = element.nodal_forces(&MODEL, &coordinates.into())?;
     Assert::default().eq_within_tols(
-        &forces.iter().take(P).map(|force| -force[0]).sum(),
+        &forces
+            .iter()
+            .take(P)
+            .map(|force| Quantity::<Force>::new(-force[0]))
+            .sum(),
         &(TANGENTIAL_TRACTION * area),
     )?;
     Assert::default().eq_within_tols(
-        &forces.iter().skip(P).map(|force| force[0]).sum(),
+        &forces
+            .iter()
+            .skip(P)
+            .map(|force| Quantity::<Force>::new(force[0]))
+            .sum(),
         &(TANGENTIAL_TRACTION * area),
     )?;
     Assert::default().zero_within_tols(&forces.iter().map(|force| force[1]).collect::<Vector>())?;
     Assert::default().eq_within_tols(
-        &forces.iter().take(P).map(|force| -force[2]).sum(),
+        &forces
+            .iter()
+            .take(P)
+            .map(|force| Quantity::<Force>::new(-force[2]))
+            .sum(),
         &(NORMAL_TRACTION * area),
     )?;
     Assert::default().eq_within_tols(
-        &forces.iter().skip(P).map(|force| force[2]).sum(),
+        &forces
+            .iter()
+            .skip(P)
+            .map(|force| Quantity::<Force>::new(force[2]))
+            .sum(),
         &(NORMAL_TRACTION * area),
     )
 }
@@ -108,7 +131,10 @@ fn temporary_4() -> Result<(), AssertionError> {
         .into_iter()
         .map(|coordinate| get_rotation_reference_configuration() * coordinate)
         .collect();
-    let area = element.integration_weights().into_iter().sum::<Scalar>();
+    let area = element
+        .integration_weights()
+        .into_iter()
+        .sum::<Quantity<Area>>();
     let forces = element
         .nodal_forces(&MODEL, &coordinates.into())?
         .into_iter()
@@ -119,20 +145,36 @@ fn temporary_4() -> Result<(), AssertionError> {
         })
         .collect::<ElementNodalForcesSolid<N>>();
     Assert::default().eq_within_tols(
-        &forces.iter().take(P).map(|force| -force[0]).sum(),
+        &forces
+            .iter()
+            .take(P)
+            .map(|force| Quantity::<Force>::new(-force[0]))
+            .sum(),
         &(TANGENTIAL_TRACTION * area),
     )?;
     Assert::default().eq_within_tols(
-        &forces.iter().skip(P).map(|force| force[0]).sum(),
+        &forces
+            .iter()
+            .skip(P)
+            .map(|force| Quantity::<Force>::new(force[0]))
+            .sum(),
         &(TANGENTIAL_TRACTION * area),
     )?;
     Assert::default().zero_within_tols(&forces.iter().map(|force| force[1]).collect::<Vector>())?;
     Assert::default().eq_within_tols(
-        &forces.iter().take(P).map(|force| -force[2]).sum(),
+        &forces
+            .iter()
+            .take(P)
+            .map(|force| Quantity::<Force>::new(-force[2]))
+            .sum(),
         &(NORMAL_TRACTION * area),
     )?;
     Assert::default().eq_within_tols(
-        &forces.iter().skip(P).map(|force| force[2]).sum(),
+        &forces
+            .iter()
+            .skip(P)
+            .map(|force| Quantity::<Force>::new(force[2]))
+            .sum(),
         &(NORMAL_TRACTION * area),
     )
 }

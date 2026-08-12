@@ -1,6 +1,5 @@
-use crate::math::{
-    EnergyDensity, Quantity, ReciprocalTemperature, Stress, Temperature, TensorRank4,
-};
+use crate::math::unit::{EnergyDensity, ReciprocalTemperature, Stress, Temperature};
+use crate::math::{Quantity, TensorRank4};
 #[cfg(test)]
 mod test;
 

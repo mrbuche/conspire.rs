@@ -14,8 +14,9 @@
 pub mod test;
 
 use super::{super::fluid::viscous::Viscous, *};
+use crate::math::unit::Time;
 use crate::math::{
-    Matrix, Quantity, Time, Vector,
+    Matrix, Quantity, Vector,
     integrate::{ImplicitDaeFirstOrderRoot, ImplicitDaeZerothOrderRoot},
     optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
 };

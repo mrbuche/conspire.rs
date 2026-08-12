@@ -8,7 +8,7 @@ pub(super) mod rank_2;
 pub(super) mod rank_3;
 pub(super) mod rank_4;
 pub(super) mod tuple;
-pub(super) mod unit;
+pub mod unit;
 pub(super) mod vec;
 
 pub use configuration::{
@@ -16,12 +16,6 @@ pub use configuration::{
 };
 pub use norm::Norm;
 pub use quantity::{Is, Quantity};
-pub use unit::{
-    Compliance, Dimensionless, Dissipation, EnergyDensity, Fluidity, Frequency, Length, Modulus,
-    PowerDensity, Pressure, Rate, ReciprocalLength, ReciprocalStress, ReciprocalTemperature,
-    ReciprocalViscosity, Stress, StressPerTemperature, Temperature, ThermalExpansion, Time, Unit,
-    UnitDiv, UnitHalves, UnitInv, UnitMul, Viscosity,
-};
 
 use super::{SquareMatrix, Vector};
 use crate::math::{Style, StyledError, styled_error};
@@ -34,6 +28,7 @@ use std::{
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
+use unit::{Dimensionless, Time};
 
 /// A scalar.
 pub type Scalar = TensorRank0;

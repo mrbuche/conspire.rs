@@ -11,7 +11,7 @@ use crate::{
         cohesive::{CohesiveElement, Separations},
         surface::SurfaceFiniteElement,
     },
-    math::{CrossProduct, ScalarList, Tensor},
+    math::{CrossProduct, Quantity, ScalarList, Tensor, unit::Area},
     mechanics::NormalGradients,
 };
 use std::iter::repeat_n;
@@ -20,7 +20,7 @@ pub type LinearCohesiveElement<const G: usize, const N: usize> = CohesiveElement
 
 pub trait LinearCohesiveFiniteElement<const G: usize, const N: usize, const P: usize>
 where
-    Self: FiniteElement<G, 2, N, P> + SurfaceFiniteElement<G, N, P>,
+    Self: FiniteElement<G, 2, N, P, Area> + SurfaceFiniteElement<G, N, P, Area>,
 {
     fn from_linear(
         reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,
@@ -31,7 +31,7 @@ where
         .into_iter()
         .zip(Self::parametric_weights())
         .map(|(reference_basis, parametric_weight)| {
-            reference_basis[0].cross(&reference_basis[1]).norm() * parametric_weight
+            Quantity::new(reference_basis[0].cross(&reference_basis[1]).norm() * parametric_weight)
         })
         .collect();
         LinearCohesiveElement {

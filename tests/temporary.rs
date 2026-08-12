@@ -14,18 +14,22 @@ use conspire::{
         thermal::conduction::Fourier,
     },
     fem::{
-        Model, NodalReferenceCoordinates,
+        Model,
         block::{
             Block, element::linear::Tetrahedron as LinearTetrahedron, solid::SolidElements,
             thermal::ThermalElements,
         },
     },
-    geometry::mesh::{Connectivity, Mesh},
+    geometry::{
+        Coordinates,
+        mesh::{Connectivity, Mesh},
+    },
     math::{
-        Matrix, Quantity, Tensor, Time, Vector,
+        Matrix, Quantity, Tensor, Vector,
         assert::AssertionError,
         integrate::DormandPrince,
         optimize::{EqualityConstraint, NewtonRaphson},
+        unit::Time,
     },
     mechanics::TemperatureGradient,
 };
@@ -6040,8 +6044,8 @@ fn connectivity() -> Vec<[usize; N]> {
     ]
 }
 
-fn coordinates() -> NodalReferenceCoordinates<3> {
-    NodalReferenceCoordinates::from([
+fn coordinates() -> Coordinates<3> {
+    Coordinates::from([
         [5.000000e-01, -5.000000e-01, 5.000000e-01],
         [5.000000e-01, 5.000000e-01, 5.000000e-01],
         [5.000000e-01, -4.000000e-01, 5.000000e-01],

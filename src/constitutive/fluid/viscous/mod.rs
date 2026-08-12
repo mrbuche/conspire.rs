@@ -1,6 +1,7 @@
 //! Viscous fluid constitutive models.
 
-use crate::math::{Quantity, Viscosity};
+use crate::math::Quantity;
+use crate::math::unit::Viscosity;
 
 /// Required methods for viscous fluid constitutive models.
 pub trait Viscous {
