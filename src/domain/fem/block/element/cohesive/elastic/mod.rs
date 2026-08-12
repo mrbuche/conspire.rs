@@ -11,7 +11,8 @@ use crate::{
     mechanics::TractionList,
 };
 
-pub type StiffnessCohesiveList<const N: usize> = TensorRank2List2D<3, Current, Current, 2, N>;
+pub type StiffnessCohesiveList<const N: usize> =
+    TensorRank2List2D<3, Current, Current, 2, N, Stress>;
 
 pub trait ElasticCohesiveElement<C, const G: usize, const N: usize, const P: usize>
 where
@@ -59,8 +60,7 @@ where
                     signed_shape_functions
                         .iter()
                         .map(|signed_shape_function| {
-                            (&traction * (signed_shape_function * integration_weight))
-                                .with_unit::<Stress>()
+                            &traction * (signed_shape_function * integration_weight)
                         })
                         .collect()
                 })
@@ -105,10 +105,9 @@ where
                                     .iter()
                                     .zip(normal_gradient.iter())
                                     .map(|(signed_shape_function_b, normal_gradient_b)| {
-                                        ((&stiffness_u * signed_shape_function_b
+                                        (&stiffness_u * signed_shape_function_b
                                             + (&stiffness_n * normal_gradient_b.transpose()) * 0.5)
-                                            * (signed_shape_function_a * integration_weight))
-                                            .with_unit::<Stress>()
+                                            * (signed_shape_function_a * integration_weight)
                                     })
                                     .collect()
                             })

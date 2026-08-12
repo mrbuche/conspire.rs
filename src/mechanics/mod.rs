@@ -235,9 +235,11 @@ pub type FirstPiolaKirchhoffRateTangentStiffnesses<const W: usize> =
 
 /// A force.
 ///
-/// A force is a stress times an area, and an area carries no unit here, so a
-/// force and a stress share a unit. What a finite element assembles is a stress
-/// against a gradient over a weight, which is why the two meet.
+/// TODO: a force should carry a unit of its own. It carries a stress only
+/// because what an element assembles it against carries nothing — a gradient
+/// vector is a reciprocal length and an integration weight is a volume, and
+/// neither says so, nor do the coordinates they are built from. Give a length
+/// its unit and the products land on a force by themselves.
 pub type Force = TensorRank1<3, Current, Stress>;
 
 /// A list of forces.
@@ -377,10 +379,10 @@ pub type TemperatureGradients<const N: usize> = TensorRank1List<3, Reference, N>
 pub type Times = crate::math::integrate::Times;
 
 /// A traction.
-pub type Traction = TensorRank1<3, Current>;
+pub type Traction = TensorRank1<3, Current, Stress>;
 
 /// A list of tractions.
-pub type TractionList<const N: usize> = TensorRank1List<3, Current, N>;
+pub type TractionList<const N: usize> = TensorRank1List<3, Current, N, Stress>;
 
 /// A vector.
 pub type Vector<I> = TensorRank1<3, I>;

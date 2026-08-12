@@ -1,22 +1,16 @@
 //! Elastic cohesive constitutive models.
 
 use crate::math::Current;
-use crate::math::Interface;
 use crate::{
     constitutive::{Constitutive, ConstitutiveError, cohesive::Cohesive},
-    math::{Tensor, TensorArray, TensorRank1, TensorRank2, TensorRank2List},
+    math::{Quantity, Stress, Tensor, TensorArray, TensorRank2, TensorRank2List},
     mechanics::{Normal, Scalar, Separation, Traction},
 };
 
-/// A dyad of the vectors a cohesive stiffness is built from.
-///
-/// The cohesive models carry no units yet, so what they hand a finite element
-/// is a number, named where it enters the assembly.
+/// A dyad of the directions a cohesive stiffness is built from.
 type Dyad = TensorRank2<3, Current, Current>;
 
-pub type Tractions = TensorRank1<2, Interface>;
-pub type Stiffnesses = TensorRank2<2, Interface, Interface>;
-pub type StiffnessCohesive = TensorRank2List<3, Current, Current, 2>;
+pub type StiffnessCohesive = TensorRank2List<3, Current, Current, 2, Stress>;
 
 /// Required methods for elastic cohesive constitutive models.
 pub trait Elastic
@@ -32,9 +26,8 @@ where
         let normal_separation = &normal * normal_component;
         let tangential_separation = separation - normal_separation;
         let tangential_component = tangential_separation.norm();
-        let [normal_traction, tangential_traction] = self
-            .tractions(normal_component, tangential_component)?
-            .into();
+        let (normal_traction, tangential_traction) =
+            self.tractions(normal_component, tangential_component)?;
         if tangential_component > 0.0 {
             Ok(normal * normal_traction
                 + (tangential_separation / tangential_component) * tangential_traction)
@@ -42,11 +35,12 @@ where
             Ok(normal * normal_traction)
         }
     }
+    /// Calculates and returns the normal and tangential tractions.
     fn tractions(
         &self,
         normal_separation: Scalar,
         tangential_separation: Scalar,
-    ) -> Result<Tractions, ConstitutiveError>;
+    ) -> Result<(Quantity<Stress>, Quantity<Stress>), ConstitutiveError>;
     fn stiffness(
         &self,
         separation: Separation,
@@ -56,12 +50,11 @@ where
         let normal_separation = &normal * normal_component;
         let tangential_separation = &separation - normal_separation;
         let tangential_component = tangential_separation.norm();
-        let [normal_traction, tangential_traction] = self
-            .tractions(normal_component, tangential_component)?
-            .into();
-        let [[k_nn, _], [_, k_tt]] = self
-            .stiffnesses(normal_component, tangential_component)?
-            .into();
+        let (normal_traction, tangential_traction) =
+            self.tractions(normal_component, tangential_component)?;
+        let (k_nn, k_tt) = self.stiffnesses(normal_component, tangential_component)?;
+        // The tangent is a direction, so where there is no tangential separation
+        // to take it from, it is a zero separation rather than a zero traction.
         let (tangent, ratio, q_t) = if tangential_component > 0.0 {
             (
                 tangential_separation / tangential_component,
@@ -69,7 +62,7 @@ where
                 tangential_traction / tangential_component,
             )
         } else {
-            (Traction::zero(), 0.0, k_tt)
+            (Separation::zero(), 0.0, k_tt)
         };
         let nn = Dyad::from((&normal, &normal));
         let nu = Dyad::from((&normal, &separation));
@@ -78,15 +71,16 @@ where
         let identity = Dyad::identity();
         let stiffness_u = nn * (k_nn - q_t) + tt * (k_tt - q_t) + &identity * q_t;
         let stiffness_n = nu * (k_nn - q_t)
-            + identity * (normal_traction - ratio * tangential_traction)
+            + identity * (normal_traction - tangential_traction * ratio)
             - tu * ((k_tt - q_t) * ratio);
         Ok([stiffness_u, stiffness_n].into())
     }
+    /// Returns the normal and tangential stiffnesses.
     fn stiffnesses(
         &self,
         normal_separation: Scalar,
         tangential_separation: Scalar,
-    ) -> Result<Stiffnesses, ConstitutiveError>;
+    ) -> Result<(Quantity<Stress>, Quantity<Stress>), ConstitutiveError>;
 }
 
 /// The linear elastic cohesive constitutive model.
@@ -102,27 +96,33 @@ impl Constitutive for LinearElastic {}
 
 impl Cohesive for LinearElastic {}
 
+impl LinearElastic {
+    /// Returns the normal stiffness.
+    fn normal_stiffness(&self) -> Quantity<Stress> {
+        self.normal_stiffness.into()
+    }
+    /// Returns the tangential stiffness.
+    fn tangential_stiffness(&self) -> Quantity<Stress> {
+        self.tangential_stiffness.into()
+    }
+}
+
 impl Elastic for LinearElastic {
     fn tractions(
         &self,
         normal_separation: Scalar,
         tangential_separation: Scalar,
-    ) -> Result<Tractions, ConstitutiveError> {
-        Ok([
-            normal_separation * self.normal_stiffness,
-            tangential_separation * self.tangential_stiffness,
-        ]
-        .into())
+    ) -> Result<(Quantity<Stress>, Quantity<Stress>), ConstitutiveError> {
+        Ok((
+            self.normal_stiffness() * normal_separation,
+            self.tangential_stiffness() * tangential_separation,
+        ))
     }
     fn stiffnesses(
         &self,
         _normal_separation: Scalar,
         _tangential_separation: Scalar,
-    ) -> Result<Stiffnesses, ConstitutiveError> {
-        Ok([
-            [self.normal_stiffness, 0.0],
-            [0.0, self.tangential_stiffness],
-        ]
-        .into())
+    ) -> Result<(Quantity<Stress>, Quantity<Stress>), ConstitutiveError> {
+        Ok((self.normal_stiffness(), self.tangential_stiffness()))
     }
 }
