@@ -7,7 +7,7 @@ use crate::{
         solid::{NodalDampingsSolid, NodalForcesSolid, viscoelastic::ViscoelasticElements},
     },
     math::{
-        Quantity, Scalar, Tensor,
+        Quantity, Tensor,
         integrate::{ImplicitDaeSecondOrderMinimize, IntegrationError},
         optimize::{EqualityConstraint, SecondOrderOptimization},
     },
@@ -88,7 +88,7 @@ pub trait SecondOrderMinimize<const D: usize> {
         &self,
         equality_constraint: EqualityConstraint,
         integrator: impl ImplicitDaeSecondOrderMinimize<
-            Scalar,
+            Quantity<Power>,
             NodalForcesSolid<D>,
             NodalDampingsSolid<D>,
             NodalCoordinates<D>,
@@ -97,7 +97,7 @@ pub trait SecondOrderMinimize<const D: usize> {
         >,
         time: &[Quantity<Time>],
         solver: impl SecondOrderOptimization<
-            Scalar,
+            Quantity<Power>,
             NodalForcesSolid<D>,
             NodalDampingsSolid<D>,
             NodalVelocities<D>,
@@ -113,7 +113,7 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         integrator: impl ImplicitDaeSecondOrderMinimize<
-            Scalar,
+            Quantity<Power>,
             NodalForcesSolid<D>,
             NodalDampingsSolid<D>,
             NodalCoordinates<D>,
@@ -122,7 +122,7 @@ where
         >,
         time: &[Quantity<Time>],
         solver: impl SecondOrderOptimization<
-            Scalar,
+            Quantity<Power>,
             NodalForcesSolid<D>,
             NodalDampingsSolid<D>,
             NodalVelocities<D>,
@@ -137,11 +137,7 @@ where
             |_: Quantity<Time>,
              nodal_coordinates: &NodalCoordinates<D>,
              nodal_velocities: &NodalVelocities<D>| {
-                // The solver only compares its objective, so the dissipation
-                // is spent where it is handed over.
-                Ok(self
-                    .dissipation_potential(nodal_coordinates, nodal_velocities)?
-                    .value_as::<Power>())
+                Ok(self.dissipation_potential(nodal_coordinates, nodal_velocities)?)
             },
             |_: Quantity<Time>,
              nodal_coordinates: &NodalCoordinates<D>,

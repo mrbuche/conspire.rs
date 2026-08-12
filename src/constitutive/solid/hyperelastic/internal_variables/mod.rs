@@ -11,7 +11,7 @@ use crate::{
         },
     },
     math::{
-        Scalar, Tensor, TensorArray, TensorTuple,
+        Tensor, TensorArray, TensorTuple,
         optimize::{
             EqualityConstraint, FirstOrderOptimization, SecondOrderOptimizationBlock, SolveStrategy,
         },
@@ -52,7 +52,7 @@ pub trait FirstOrderMinimize<V> {
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderOptimization<Scalar, Self::Residuals, Self::Variables>,
+        solver: impl FirstOrderOptimization<Quantity<EnergyDensity>, Self::Residuals, Self::Variables>,
     ) -> Result<(DeformationGradient, V), ConstitutiveError>;
 }
 
@@ -71,7 +71,7 @@ where
         &self,
         applied_load: AppliedLoad,
         solver: impl SecondOrderOptimizationBlock<
-            Scalar,
+            Quantity<EnergyDensity>,
             DeformationGradient,
             V,
             FirstPiolaKirchhoffStress,
@@ -96,17 +96,13 @@ where
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderOptimization<Scalar, Self::Residuals, Self::Variables>,
+        solver: impl FirstOrderOptimization<Quantity<EnergyDensity>, Self::Residuals, Self::Variables>,
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {
         let (matrix, vector) = bcs(self, applied_load);
         match solver.minimize(
             |variables: &Self::Variables| {
                 let (deformation_gradient, internal_variables) = variables.into();
-                // The solver only compares its objective, so the free energy is
-                // spent where it is handed over.
-                Ok(self
-                    .helmholtz_free_energy_density(deformation_gradient, internal_variables)?
-                    .value_as::<EnergyDensity>())
+                Ok(self.helmholtz_free_energy_density(deformation_gradient, internal_variables)?)
             },
             |variables: &Self::Variables| {
                 let (deformation_gradient, internal_variables) = variables.into();
@@ -139,7 +135,7 @@ where
         &self,
         applied_load: AppliedLoad,
         solver: impl SecondOrderOptimizationBlock<
-            Scalar,
+            Quantity<EnergyDensity>,
             DeformationGradient,
             V,
             FirstPiolaKirchhoffStress,
@@ -154,11 +150,7 @@ where
         let (constraint_external, constraint_internal) = bcs_block(self, applied_load);
         match solver.minimize_block(
             |deformation_gradient: &DeformationGradient, internal_variables: &V| {
-                // The solver only compares its objective, so the free energy is
-                // spent where it is handed over.
-                Ok(self
-                    .helmholtz_free_energy_density(deformation_gradient, internal_variables)?
-                    .value_as::<EnergyDensity>())
+                Ok(self.helmholtz_free_energy_density(deformation_gradient, internal_variables)?)
             },
             |deformation_gradient: &DeformationGradient, internal_variables: &V| {
                 Ok(self.first_piola_kirchhoff_stress(deformation_gradient, internal_variables)?)

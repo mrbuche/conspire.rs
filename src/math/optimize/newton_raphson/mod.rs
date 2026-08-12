@@ -3,10 +3,10 @@ mod test;
 
 use super::{
     super::{
-        Erase, Hessian, HessianBlock, Jacobian, LuDecomposition, Matrix, Quantity, Scalar,
+        Erase, Hessian, HessianBlock, Is, Jacobian, LuDecomposition, Matrix, Quantity, Scalar,
         Solution, SquareMatrix, Tensor, Vector,
         sparse::{CscMatrix, SparseSolver},
-        unit::{Dimensionless, UnitDiv},
+        unit::{Dimensionless, UnitDiv, UnitMul, UnitSum},
     },
     BacktrackingLineSearch, EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock,
     FirstOrderRootFindingIncremental, LineSearch, LineSearchError, OptimizationError,
@@ -179,8 +179,13 @@ where
     }
 }
 
-impl<J, H, X, E> SecondOrderOptimization<Scalar, J, H, X> for NewtonRaphson
+impl<F, J, H, X, E> SecondOrderOptimization<F, J, H, X> for NewtonRaphson
 where
+    F: Erase<Erased = Scalar> + Tensor,
+    <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
+    <<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output: UnitSum,
+    <<<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output as UnitSum>::Output:
+        Is<<F as Tensor>::Unit>,
     H: Hessian,
     J: Jacobian,
     for<'a> &'a J: Div<H, Output = X>,
@@ -193,13 +198,17 @@ where
 {
     fn minimize(
         &self,
-        function: impl FnMut(&X) -> Result<Scalar, String>,
+        mut function: impl FnMut(&X) -> Result<F, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
         hessian: impl FnMut(&X) -> Result<H, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
+        // The merit a line search compares adds a constraint violation to the
+        // objective, and a violation is a number, so the objective spends its
+        // unit here rather than at every call site that has one to hand over.
+        let function = move |argument: &X| function(argument).map(|value| *value.erase());
         match match equality_constraint {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
                 self,
@@ -235,8 +244,13 @@ where
     }
 }
 
-impl<J, H, X, E> SecondOrderOptimizationIncremental<Scalar, J, H, X> for NewtonRaphson
+impl<F, J, H, X, E> SecondOrderOptimizationIncremental<F, J, H, X> for NewtonRaphson
 where
+    F: Erase<Erased = Scalar> + Tensor,
+    <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
+    <<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output: UnitSum,
+    <<<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output as UnitSum>::Output:
+        Is<<F as Tensor>::Unit>,
     H: Hessian,
     J: Jacobian,
     for<'a> &'a J: Div<H, Output = X>,
@@ -249,7 +263,7 @@ where
 {
     fn minimize_incremental(
         &self,
-        function: impl FnMut(&X) -> Result<Scalar, String>,
+        mut function: impl FnMut(&X) -> Result<F, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
         hessian: impl FnMut(&X) -> Result<H, String>,
         update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
@@ -257,6 +271,7 @@ where
         equality_constraint: EqualityConstraint,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
+        let function = move |argument: &X| function(argument).map(|value| *value.erase());
         match match equality_constraint {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
                 self,
@@ -338,9 +353,18 @@ where
     }
 }
 
-impl<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>
-    SecondOrderOptimizationBlock<Scalar, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> for NewtonRaphson
+impl<F, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>
+    SecondOrderOptimizationBlock<F, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> for NewtonRaphson
 where
+    F: Erase<Erased = Scalar> + Tensor,
+    <Ru as Tensor>::Unit: UnitMul<<U as Tensor>::Unit>,
+    <<Ru as Tensor>::Unit as UnitMul<<U as Tensor>::Unit>>::Output: UnitSum,
+    <<<Ru as Tensor>::Unit as UnitMul<<U as Tensor>::Unit>>::Output as UnitSum>::Output:
+        Is<<F as Tensor>::Unit>,
+    <Rv as Tensor>::Unit: UnitMul<<V as Tensor>::Unit>,
+    <<Rv as Tensor>::Unit as UnitMul<<V as Tensor>::Unit>>::Output: UnitSum,
+    <<<Rv as Tensor>::Unit as UnitMul<<V as Tensor>::Unit>>::Output as UnitSum>::Output:
+        Is<<F as Tensor>::Unit>,
     U: Solution,
     V: Solution,
     Ru: Jacobian,
@@ -353,7 +377,7 @@ where
 {
     fn minimize_block(
         &self,
-        function: impl FnMut(&U, &V) -> Result<Scalar, String>,
+        mut function: impl FnMut(&U, &V) -> Result<F, String>,
         residual_global: impl FnMut(&U, &V) -> Result<Ru, String>,
         residual_local: impl FnMut(&U, &V) -> Result<Rv, String>,
         tangents: impl FnMut(&U, &V) -> Result<(Kuu, Kvu, Kuv, Kvv), String>,
@@ -363,6 +387,7 @@ where
         sparse: Option<SparseSolver>,
         strategy: SolveStrategy,
     ) -> Result<(U, V), OptimizationError> {
+        let function = move |global: &U, local: &V| function(global, local).map(|v| *v.erase());
         match blocked(
             self,
             function,

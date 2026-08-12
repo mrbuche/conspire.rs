@@ -40,6 +40,22 @@ impl<A, B> UnitHalves for (A, B) {
     type Second = B;
 }
 
+/// The unit a sum of parts carries, which is the unit each part carries.
+///
+/// A merit adds the halves of a tuple's contraction together, so a pair whose
+/// halves agree is that unit once. Left unimplemented for a pair whose halves
+/// differ, since adding those names nothing. Implemented concretely rather than
+/// blanketly for the same reason [`UnitHalves`] is: a blanket identity would
+/// overlap the pair.
+pub trait UnitSum {
+    /// The unit of the sum.
+    type Output;
+}
+
+impl<A> UnitSum for (A, A) {
+    type Output = A;
+}
+
 /// The unit obtained by inverting.
 ///
 /// Left unimplemented for units whose inverse names no quantity, so that
@@ -65,6 +81,9 @@ macro_rules! units {
             impl UnitHalves for $name {
                 type First = $name;
                 type Second = $name;
+            }
+            impl UnitSum for $name {
+                type Output = $name;
             }
         )+
     };

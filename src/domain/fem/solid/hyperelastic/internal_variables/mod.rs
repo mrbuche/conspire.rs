@@ -58,12 +58,12 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl SecondOrderOptimization<
-            Scalar,
+            Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
         > + SecondOrderOptimizationIncremental<
-            Scalar,
+            Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
@@ -81,12 +81,12 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl SecondOrderOptimization<
-            Scalar,
+            Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
         > + SecondOrderOptimizationIncremental<
-            Scalar,
+            Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
@@ -113,14 +113,10 @@ where
                 let solved = SolvedInternalVariables::new(self, local_solver, initial);
                 solver.minimize(
                     |nodal_coordinates: &NodalCoordinates<D>| {
-                        // The solver only compares its objective, so the free
-                        // energy is spent where it is handed over.
-                        Ok(self
-                            .helmholtz_free_energy(
-                                nodal_coordinates,
-                                &solved.at(nodal_coordinates)?,
-                            )?
-                            .value_as::<Energy>())
+                        Ok(self.helmholtz_free_energy(
+                            nodal_coordinates,
+                            &solved.at(nodal_coordinates)?,
+                        )?)
                     },
                     |nodal_coordinates: &NodalCoordinates<D>| {
                         Ok(self.nodal_forces(nodal_coordinates, &solved.at(nodal_coordinates)?)?)
@@ -145,11 +141,7 @@ where
                 let carried = CarriedInternalVariables::new(self, initial);
                 solver.minimize_incremental(
                     |nodal_coordinates: &NodalCoordinates<D>| {
-                        // The solver only compares its objective, so the free
-                        // energy is spent where it is handed over.
-                        Ok(self
-                            .helmholtz_free_energy(nodal_coordinates, &carried.stepped())?
-                            .value_as::<Energy>())
+                        Ok(self.helmholtz_free_energy(nodal_coordinates, &carried.stepped())?)
                     },
                     |nodal_coordinates: &NodalCoordinates<D>| {
                         Ok(self.nodal_forces_eliminated(nodal_coordinates, &carried.stepped())?)

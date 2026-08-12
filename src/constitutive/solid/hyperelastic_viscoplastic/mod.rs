@@ -28,7 +28,7 @@ use crate::{
     },
     mechanics::{
         DeformationGradient, DeformationGradientPlastic, DeformationGradients,
-        FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness, Scalar, Times,
+        FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness, Times,
     },
 };
 
@@ -64,7 +64,7 @@ where
         &self,
         applied_load: AppliedLoad,
         integrator: impl ExplicitDaeFirstOrderMinimize<
-            Scalar,
+            Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             ViscoplasticStateVariables<Y>,
             DeformationGradient,
@@ -72,7 +72,11 @@ where
             DeformationGradients,
             ViscoplasticEvolutionHistory<Y>,
         >,
-        solver: impl FirstOrderOptimization<Scalar, FirstPiolaKirchhoffStress, DeformationGradient>,
+        solver: impl FirstOrderOptimization<
+            Quantity<EnergyDensity>,
+            FirstPiolaKirchhoffStress,
+            DeformationGradient,
+        >,
     ) -> Result<
         (
             Times,
@@ -97,7 +101,7 @@ where
         &self,
         applied_load: AppliedLoad,
         integrator: impl ExplicitDaeSecondOrderMinimize<
-            Scalar,
+            Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             ViscoplasticStateVariables<Y>,
@@ -107,7 +111,7 @@ where
             ViscoplasticEvolutionHistory<Y>,
         >,
         solver: impl SecondOrderOptimization<
-            Scalar,
+            Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
@@ -131,7 +135,7 @@ where
         &self,
         applied_load: AppliedLoad,
         integrator: impl ExplicitDaeFirstOrderMinimize<
-            Scalar,
+            Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             ViscoplasticStateVariables<Y>,
             DeformationGradient,
@@ -139,7 +143,11 @@ where
             DeformationGradients,
             ViscoplasticEvolutionHistory<Y>,
         >,
-        solver: impl FirstOrderOptimization<Scalar, FirstPiolaKirchhoffStress, DeformationGradient>,
+        solver: impl FirstOrderOptimization<
+            Quantity<EnergyDensity>,
+            FirstPiolaKirchhoffStress,
+            DeformationGradient,
+        >,
     ) -> Result<
         (
             Times,
@@ -160,11 +168,8 @@ where
              state_variables: &ViscoplasticStateVariables<Y>,
              deformation_gradient: &DeformationGradient| {
                 let deformation_gradient_p = &state_variables.0;
-                // The solver only compares its objective, so the free energy is
-                // spent where it is handed over.
                 Ok(self
-                    .helmholtz_free_energy_density(deformation_gradient, deformation_gradient_p)?
-                    .value_as::<EnergyDensity>())
+                    .helmholtz_free_energy_density(deformation_gradient, deformation_gradient_p)?)
             },
             |_: Quantity<Time>,
              state_variables: &ViscoplasticStateVariables<Y>,
@@ -203,7 +208,7 @@ where
         &self,
         applied_load: AppliedLoad,
         integrator: impl ExplicitDaeSecondOrderMinimize<
-            Scalar,
+            Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             ViscoplasticStateVariables<Y>,
@@ -213,7 +218,7 @@ where
             ViscoplasticEvolutionHistory<Y>,
         >,
         solver: impl SecondOrderOptimization<
-            Scalar,
+            Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
@@ -238,11 +243,8 @@ where
              state_variables: &ViscoplasticStateVariables<Y>,
              deformation_gradient: &DeformationGradient| {
                 let deformation_gradient_p = &state_variables.0;
-                // The solver only compares its objective, so the free energy is
-                // spent where it is handed over.
                 Ok(self
-                    .helmholtz_free_energy_density(deformation_gradient, deformation_gradient_p)?
-                    .value_as::<EnergyDensity>())
+                    .helmholtz_free_energy_density(deformation_gradient, deformation_gradient_p)?)
             },
             |_: Quantity<Time>,
              state_variables: &ViscoplasticStateVariables<Y>,

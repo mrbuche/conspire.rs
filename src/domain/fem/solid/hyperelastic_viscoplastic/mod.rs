@@ -14,7 +14,7 @@ use crate::{
         },
     },
     math::{
-        Derivative, Differentiate, Quantity, Scalar, Tensor, TensorTuple, TensorVec,
+        Derivative, Differentiate, Quantity, Tensor, TensorTuple, TensorVec,
         integrate::{ExplicitDaeSecondOrderMinimize, IntegrationError},
         optimize::SecondOrderOptimization,
     },
@@ -100,7 +100,7 @@ where
     fn minimize(
         &self,
         integrator: impl ExplicitDaeSecondOrderMinimize<
-            Scalar,
+            Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             S,
@@ -110,7 +110,7 @@ where
             R,
         >,
         solver: impl SecondOrderOptimization<
-            Scalar,
+            Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
@@ -130,7 +130,7 @@ where
     fn minimize(
         &self,
         integrator: impl ExplicitDaeSecondOrderMinimize<
-            Scalar,
+            Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             S,
@@ -140,7 +140,7 @@ where
             R,
         >,
         solver: impl SecondOrderOptimization<
-            Scalar,
+            Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
@@ -164,12 +164,9 @@ where
                 |_: Quantity<Time>,
                  state_variables: &S,
                  nodal_coordinates: &NodalCoordinates<D>| {
-                    // The solver only compares its objective, so the free
-                    // energy is spent where it is handed over.
                     Ok(self
                         .blocks
-                        .helmholtz_free_energy(nodal_coordinates, state_variables)?
-                        .value_as::<Energy>())
+                        .helmholtz_free_energy(nodal_coordinates, state_variables)?)
                 },
                 |_: Quantity<Time>,
                  state_variables: &S,

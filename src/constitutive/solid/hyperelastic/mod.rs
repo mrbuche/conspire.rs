@@ -61,7 +61,11 @@ pub trait FirstOrderMinimize {
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderOptimization<Scalar, FirstPiolaKirchhoffStress, DeformationGradient>,
+        solver: impl FirstOrderOptimization<
+            Quantity<EnergyDensity>,
+            FirstPiolaKirchhoffStress,
+            DeformationGradient,
+        >,
     ) -> Result<DeformationGradient, ConstitutiveError>;
 }
 
@@ -76,7 +80,7 @@ pub trait SecondOrderMinimize {
         &self,
         applied_load: AppliedLoad,
         solver: impl SecondOrderOptimization<
-            Scalar,
+            Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
@@ -91,16 +95,16 @@ where
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderOptimization<Scalar, FirstPiolaKirchhoffStress, DeformationGradient>,
+        solver: impl FirstOrderOptimization<
+            Quantity<EnergyDensity>,
+            FirstPiolaKirchhoffStress,
+            DeformationGradient,
+        >,
     ) -> Result<DeformationGradient, ConstitutiveError> {
         let (matrix, vector) = bcs(applied_load);
         match solver.minimize(
             |deformation_gradient: &DeformationGradient| {
-                // The solver only compares its objective, so the free energy is
-                // spent where it is handed over.
-                Ok(self
-                    .helmholtz_free_energy_density(deformation_gradient)?
-                    .value_as::<EnergyDensity>())
+                Ok(self.helmholtz_free_energy_density(deformation_gradient)?)
             },
             |deformation_gradient: &DeformationGradient| {
                 Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
@@ -125,7 +129,7 @@ where
         &self,
         applied_load: AppliedLoad,
         solver: impl SecondOrderOptimization<
-            Scalar,
+            Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
@@ -134,11 +138,7 @@ where
         let (matrix, vector) = bcs(applied_load);
         match solver.minimize(
             |deformation_gradient: &DeformationGradient| {
-                // The solver only compares its objective, so the free energy is
-                // spent where it is handed over.
-                Ok(self
-                    .helmholtz_free_energy_density(deformation_gradient)?
-                    .value_as::<EnergyDensity>())
+                Ok(self.helmholtz_free_energy_density(deformation_gradient)?)
             },
             |deformation_gradient: &DeformationGradient| {
                 Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)

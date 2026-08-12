@@ -7,8 +7,8 @@ use super::{
     OptimizationError, StepSize, ZerothOrderRootFinding,
 };
 use crate::ABS_TOL;
-use crate::math::unit::UnitDiv;
-use crate::math::{Erase, Norm};
+use crate::math::unit::{UnitDiv, UnitMul, UnitSum};
+use crate::math::{Erase, Is, Norm};
 use std::{
     fmt::{self, Debug, Formatter},
     ops::Mul,
@@ -116,25 +116,34 @@ where
     }
 }
 
-impl<F, X, E> FirstOrderOptimization<Scalar, F, X> for GradientDescent
+impl<F, J, X, E> FirstOrderOptimization<F, J, X> for GradientDescent
 where
-    F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
-    for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
+    F: Erase<Erased = Scalar> + Tensor,
+    <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
+    <<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output: UnitSum,
+    <<<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output as UnitSum>::Output:
+        Is<<F as Tensor>::Unit>,
+    J: Erase<Erased = E> + Jacobian + Mul<StepSize<J, X>, Output = X>,
+    for<'a> &'a J: Mul<StepSize<J, X>, Output = X>,
     X: Erase<Erased = E> + Jacobian + Solution,
-    <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
+    <X as Tensor>::Unit: UnitDiv<<J as Tensor>::Unit>,
     E: Tensor,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     fn minimize(
         &self,
-        function: impl FnMut(&X) -> Result<Scalar, String>,
-        jacobian: impl FnMut(&X) -> Result<F, String>,
+        mut function: impl FnMut(&X) -> Result<F, String>,
+        jacobian: impl FnMut(&X) -> Result<J, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizationError> {
+        // The line search compares merits against a constraint violation, which
+        // is a number, so the objective spends its unit here rather than at
+        // every call site that has one to hand over.
+        let objective = move |argument: &X| function(argument).map(|value| *value.erase());
         match equality_constraint {
             EqualityConstraint::Fixed(indices) => {
-                constrained_fixed(self, function, jacobian, initial_guess, indices)
+                constrained_fixed(self, objective, jacobian, initial_guess, indices)
             }
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
                 if self.dual {
@@ -156,7 +165,7 @@ where
                 }
             }
             EqualityConstraint::None => {
-                unconstrained(self, function, jacobian, initial_guess, None)
+                unconstrained(self, objective, jacobian, initial_guess, None)
             }
         }
     }

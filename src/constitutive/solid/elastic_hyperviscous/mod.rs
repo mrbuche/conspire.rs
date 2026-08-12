@@ -79,13 +79,17 @@ pub trait FirstOrderMinimize {
         &self,
         applied_load: AppliedLoad,
         integrator: impl ImplicitDaeFirstOrderMinimize<
-            Scalar,
+            Quantity<Dissipation>,
             FirstPiolaKirchhoffStress,
             DeformationGradient,
             DeformationGradients,
             DeformationGradientRates,
         >,
-        solver: impl FirstOrderOptimization<Scalar, FirstPiolaKirchhoffStress, DeformationGradientRate>,
+        solver: impl FirstOrderOptimization<
+            Quantity<Dissipation>,
+            FirstPiolaKirchhoffStress,
+            DeformationGradientRate,
+        >,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
 }
 
@@ -100,7 +104,7 @@ pub trait SecondOrderMinimize {
         &self,
         applied_load: AppliedLoad,
         integrator: impl ImplicitDaeSecondOrderMinimize<
-            Scalar,
+            Quantity<Dissipation>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffRateTangentStiffness,
             DeformationGradient,
@@ -108,7 +112,7 @@ pub trait SecondOrderMinimize {
             DeformationGradientRates,
         >,
         solver: impl SecondOrderOptimization<
-            Scalar,
+            Quantity<Dissipation>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffRateTangentStiffness,
             DeformationGradientRate,
@@ -124,13 +128,17 @@ where
         &self,
         applied_load: AppliedLoad,
         integrator: impl ImplicitDaeFirstOrderMinimize<
-            Scalar,
+            Quantity<Dissipation>,
             FirstPiolaKirchhoffStress,
             DeformationGradient,
             DeformationGradients,
             DeformationGradientRates,
         >,
-        solver: impl FirstOrderOptimization<Scalar, FirstPiolaKirchhoffStress, DeformationGradientRate>,
+        solver: impl FirstOrderOptimization<
+            Quantity<Dissipation>,
+            FirstPiolaKirchhoffStress,
+            DeformationGradientRate,
+        >,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
         match match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_rate_11, time) => {
@@ -144,11 +152,10 @@ where
                     |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
                      deformation_gradient_rate: &DeformationGradientRate| {
-                        // The solver only compares its objective, so the
-                        // dissipation is spent where it is handed over.
-                        Ok(self
-                            .dissipation_potential(deformation_gradient, deformation_gradient_rate)?
-                            .value_as::<Dissipation>())
+                        Ok(self.dissipation_potential(
+                            deformation_gradient,
+                            deformation_gradient_rate,
+                        )?)
                     },
                     |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
@@ -183,11 +190,10 @@ where
                     |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
                      deformation_gradient_rate: &DeformationGradientRate| {
-                        // The solver only compares its objective, so the
-                        // dissipation is spent where it is handed over.
-                        Ok(self
-                            .dissipation_potential(deformation_gradient, deformation_gradient_rate)?
-                            .value_as::<Dissipation>())
+                        Ok(self.dissipation_potential(
+                            deformation_gradient,
+                            deformation_gradient_rate,
+                        )?)
                     },
                     |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
@@ -225,7 +231,7 @@ where
         &self,
         applied_load: AppliedLoad,
         integrator: impl ImplicitDaeSecondOrderMinimize<
-            Scalar,
+            Quantity<Dissipation>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffRateTangentStiffness,
             DeformationGradient,
@@ -233,7 +239,7 @@ where
             DeformationGradientRates,
         >,
         solver: impl SecondOrderOptimization<
-            Scalar,
+            Quantity<Dissipation>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffRateTangentStiffness,
             DeformationGradientRate,
@@ -251,11 +257,10 @@ where
                     |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
                      deformation_gradient_rate: &DeformationGradientRate| {
-                        // The solver only compares its objective, so the
-                        // dissipation is spent where it is handed over.
-                        Ok(self
-                            .dissipation_potential(deformation_gradient, deformation_gradient_rate)?
-                            .value_as::<Dissipation>())
+                        Ok(self.dissipation_potential(
+                            deformation_gradient,
+                            deformation_gradient_rate,
+                        )?)
                     },
                     |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
@@ -299,11 +304,10 @@ where
                     |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
                      deformation_gradient_rate: &DeformationGradientRate| {
-                        // The solver only compares its objective, so the
-                        // dissipation is spent where it is handed over.
-                        Ok(self
-                            .dissipation_potential(deformation_gradient, deformation_gradient_rate)?
-                            .value_as::<Dissipation>())
+                        Ok(self.dissipation_potential(
+                            deformation_gradient,
+                            deformation_gradient_rate,
+                        )?)
                     },
                     |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,

@@ -11,7 +11,7 @@ use crate::{
         },
     },
     math::{
-        Quantity, Scalar, Tensor,
+        Quantity, Tensor,
         optimize::{
             EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
             SecondOrderOptimization, ZerothOrderRootFinding,
@@ -162,7 +162,8 @@ where
     }
 }
 
-impl<B, const D: usize> FirstOrderMinimize<Scalar, NodalForcesThermal, NodalTemperatures>
+impl<B, const D: usize>
+    FirstOrderMinimize<Quantity<PowerTemperature>, NodalForcesThermal, NodalTemperatures>
     for Model<B, D>
 where
     B: ThermalConductionElements,
@@ -170,16 +171,14 @@ where
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<Scalar, NodalForcesThermal, NodalTemperatures>,
+        solver: impl FirstOrderOptimization<
+            Quantity<PowerTemperature>,
+            NodalForcesThermal,
+            NodalTemperatures,
+        >,
     ) -> Result<NodalTemperatures, OptimizationError> {
         solver.minimize(
-            |nodal_temperatures: &NodalTemperatures| {
-                // The solver only compares its objective, so the potential is
-                // spent where it is handed over.
-                Ok(self
-                    .potential(nodal_temperatures)?
-                    .value_as::<PowerTemperature>())
-            },
+            |nodal_temperatures: &NodalTemperatures| Ok(self.potential(nodal_temperatures)?),
             |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
             NodalTemperatures::zero(self.coordinates().len()),
             equality_constraint,
@@ -188,8 +187,12 @@ where
 }
 
 impl<B, const D: usize>
-    SecondOrderMinimize<Scalar, NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures>
-    for Model<B, D>
+    SecondOrderMinimize<
+        Quantity<PowerTemperature>,
+        NodalForcesThermal,
+        NodalStiffnessesThermal,
+        NodalTemperatures,
+    > for Model<B, D>
 where
     B: ThermalConductionElements,
 {
@@ -197,7 +200,7 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl SecondOrderOptimization<
-            Scalar,
+            Quantity<PowerTemperature>,
             NodalForcesThermal,
             NodalStiffnessesThermal,
             NodalTemperatures,
@@ -209,11 +212,8 @@ where
         let sparse = solver_from_neighbors(&neighbors, &equality_constraint, 1, true);
         solver.minimize(
             |nodal_temperatures: &NodalTemperatures| {
-                // The solver only compares its objective, so the potential is
-                // spent where it is handed over.
                 Ok(self
-                    .potential(nodal_temperatures)?
-                    .value_as::<PowerTemperature>())
+                    .potential(nodal_temperatures)?)
             },
             |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
             |nodal_temperatures: &NodalTemperatures| {
