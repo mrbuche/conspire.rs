@@ -102,7 +102,7 @@ impl Tensor for TensorRank0 {
         self == &0.0
     }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
-        [0.0].iter()
+        std::slice::from_ref(self).iter()
     }
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         [self].into_iter()
