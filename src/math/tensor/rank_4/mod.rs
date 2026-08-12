@@ -702,17 +702,18 @@ pub trait ContractSecondFourthWithFirst<TJ, TL> {
     fn contract_second_fourth_with_first(&self, object_a: TJ, object_b: TL) -> Self::Output;
 }
 
-impl<const D: usize, I, J, K, L, U>
-    ContractSecondFourthWithFirst<
-        &TensorRank1<D, J, Dimensionless>,
-        &TensorRank1<D, L, Dimensionless>,
-    > for TensorRank4<D, I, J, K, L, U>
+impl<const D: usize, I, J, K, L, U, V, W>
+    ContractSecondFourthWithFirst<&TensorRank1<D, J, V>, &TensorRank1<D, L, W>>
+    for TensorRank4<D, I, J, K, L, U>
+where
+    U: UnitMul<V>,
+    <U as UnitMul<V>>::Output: UnitMul<W>,
 {
-    type Output = TensorRank2<D, I, K, U>;
+    type Output = TensorRank2<D, I, K, <<U as UnitMul<V>>::Output as UnitMul<W>>::Output>;
     fn contract_second_fourth_with_first(
         &self,
-        tensor_rank_1_a: &TensorRank1<D, J, Dimensionless>,
-        tensor_rank_1_b: &TensorRank1<D, L, Dimensionless>,
+        tensor_rank_1_a: &TensorRank1<D, J, V>,
+        tensor_rank_1_b: &TensorRank1<D, L, W>,
     ) -> Self::Output {
         relabel_rank_2(canonical_contract_second_fourth_with_first(
             self.canonical(),

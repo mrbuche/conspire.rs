@@ -1,4 +1,4 @@
-use crate::math::{Factor, Reference};
+use crate::math::{Factor, Reference, UnitInv};
 #[cfg(test)]
 mod test;
 
@@ -12,26 +12,48 @@ type LuFactors<const D: usize, I, J, U> = (
     Vec<usize>,
 );
 
+/// The unit an inverse carries.
+type Inverse<U> = <U as UnitInv>::Output;
+
 impl<const D: usize, I, J, U> TensorRank2<D, I, J, U> {
     /// Returns the determinant of the rank-2 tensor.
+    ///
+    /// A determinant multiplies the unit its tensor carries by itself once per
+    /// dimension, which is a unit this cannot name for a dimension it does not
+    /// know, so the determinant is a number and its unit is named where it is
+    /// wanted, as a norm's is.
     pub fn determinant(&self) -> TensorRank0 {
         self.canonical().determinant_core()
     }
     /// Returns the inverse of the rank-2 tensor.
-    pub fn inverse(&self) -> TensorRank2<D, J, I, U> {
+    pub fn inverse(&self) -> TensorRank2<D, J, I, Inverse<U>>
+    where
+        U: UnitInv,
+    {
         relabel(self.canonical().inverse_core())
     }
     /// Returns the inverse and determinant of the rank-2 tensor.
-    pub fn inverse_and_determinant(&self) -> (TensorRank2<D, J, I, U>, TensorRank0) {
+    pub fn inverse_and_determinant(&self) -> (TensorRank2<D, J, I, Inverse<U>>, TensorRank0)
+    where
+        U: UnitInv,
+    {
         let (inverse, determinant) = self.canonical().inverse_and_determinant_core();
         (relabel(inverse), determinant)
     }
     /// Returns the inverse transpose of the rank-2 tensor.
-    pub fn inverse_transpose(&self) -> Self {
+    pub fn inverse_transpose(&self) -> TensorRank2<D, I, J, Inverse<U>>
+    where
+        U: UnitInv,
+    {
         relabel(self.canonical().inverse_transpose_core())
     }
     /// Returns the inverse transpose and determinant of the rank-2 tensor.
-    pub fn inverse_transpose_and_determinant(&self) -> (Self, TensorRank0) {
+    pub fn inverse_transpose_and_determinant(
+        &self,
+    ) -> (TensorRank2<D, I, J, Inverse<U>>, TensorRank0)
+    where
+        U: UnitInv,
+    {
         let (inverse_transpose, determinant) =
             self.canonical().inverse_transpose_and_determinant_core();
         (relabel(inverse_transpose), determinant)

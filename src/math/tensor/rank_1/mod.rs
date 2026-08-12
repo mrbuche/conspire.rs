@@ -632,9 +632,9 @@ impl<const D: usize, I, U> Mul<&Self> for TensorRank1<D, I, U> {
     }
 }
 
-impl<const D: usize, I, U> Mul<TensorRank1<D, I, U>> for &TensorRank1<D, I, U> {
+impl<const D: usize, I, U, V> Mul<TensorRank1<D, I, V>> for &TensorRank1<D, I, U> {
     type Output = TensorRank0;
-    fn mul(self, tensor_rank_1: TensorRank1<D, I, U>) -> Self::Output {
+    fn mul(self, tensor_rank_1: TensorRank1<D, I, V>) -> Self::Output {
         self.iter()
             .zip(tensor_rank_1)
             .map(|(self_i, tensor_rank_1_i)| self_i * tensor_rank_1_i)

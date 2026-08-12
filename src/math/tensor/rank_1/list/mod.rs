@@ -35,7 +35,11 @@ impl<const D: usize, I, const N: usize, U> TensorRank1List<D, I, N, U> {
     }
 }
 
-impl<I, U> TensorRank1List<3, I, 3, U> {
+impl<I, U> TensorRank1List<3, I, 3, U>
+where
+    U: UnitMul<U>,
+{
+    /// Returns the scalar triple product, a number as a determinant is.
     pub fn scalar_triple_product(&self) -> TensorRank0 {
         &self[0] * self[1].cross(&self[2])
     }
