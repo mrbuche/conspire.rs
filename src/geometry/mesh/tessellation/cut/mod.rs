@@ -32,6 +32,7 @@ const CROSSING_TOLERANCE: Scalar = 1.0e-8;
 const GRAZING_TOLERANCE: Scalar = 1.0e-4;
 const PADDING: u16 = 2;
 const SLIVER_FRACTION: Scalar = 0.1;
+const SNAP_FEATURE: Scalar = 0.5;
 const SNAP_HARD: Scalar = 0.05;
 const SNAP_QUALITY: Scalar = 0.3;
 const SNAP_SOFT: Scalar = 0.2;

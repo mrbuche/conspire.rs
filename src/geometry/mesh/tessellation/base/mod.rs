@@ -8,7 +8,7 @@ use crate::{
         mesh::{
             Connectivity, Mesh,
             smooth::Smoothing,
-            tessellation::{D, Normals, Tessellation},
+            tessellation::{D, Normals, Tessellation, features::Features},
         },
     },
     math::{Scalar, Tensor, TensorVec},
@@ -27,6 +27,9 @@ impl Tessellation {
     pub fn bvh(&self) -> &BoundingVolumeHierarchy<D> {
         self.bvh
             .get_or_init(|| BoundingVolumeHierarchy::from(&self.mesh))
+    }
+    pub fn features(&self) -> &Features {
+        self.features.get_or_init(|| Features::of(self))
     }
     pub fn smooth(&mut self, smoothing: Smoothing) {
         self.mesh.smooth(smoothing);
@@ -97,5 +100,6 @@ impl Tessellation {
     fn refresh(&mut self) {
         self.normals = self.mesh.normals();
         self.bvh = OnceCell::new();
+        self.features = OnceCell::new();
     }
 }

@@ -1,6 +1,7 @@
 pub(super) mod base;
 pub(super) mod cut;
 pub(super) mod dual;
+pub(super) mod features;
 pub(super) mod from;
 pub(super) mod into;
 pub(super) mod read;
@@ -11,6 +12,7 @@ use crate::{
     geometry::{bvh::BoundingVolumeHierarchy, mesh::Mesh},
     math::TensorRank1Vec2D,
 };
+use features::Features;
 use std::cell::OnceCell;
 
 const D: usize = 3;
@@ -21,4 +23,5 @@ pub struct Tessellation {
     mesh: Mesh<D>,
     normals: Normals,
     bvh: OnceCell<BoundingVolumeHierarchy<D>>,
+    features: OnceCell<Features>,
 }
