@@ -31,6 +31,8 @@ pub struct NewtonRaphson {
     pub line_search: LineSearch,
     /// Maximum number of steps.
     pub max_steps: usize,
+    /// Relative error tolerance.
+    pub rel_tol: Option<Scalar>,
     /// How far the step is trusted.
     pub trust_region: TrustRegion,
 }
@@ -45,8 +47,8 @@ impl Debug for NewtonRaphson {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "NewtonRaphson {{ abs_tol: {:?}, line_search: {}, max_steps: {:?}, trust_region: {:?} }}",
-            self.abs_tol, self.line_search, self.max_steps, self.trust_region
+            "NewtonRaphson {{ abs_tol: {:?}, line_search: {}, max_steps: {:?}, rel_tol: {:?}, trust_region: {:?} }}",
+            self.abs_tol, self.line_search, self.max_steps, self.rel_tol, self.trust_region
         )
     }
 }
@@ -58,6 +60,7 @@ impl Default for NewtonRaphson {
             error_norm: Norm::Chebyshev,
             line_search: LineSearch::None,
             max_steps: 25,
+            rel_tol: None,
             trust_region: TrustRegion::None,
         }
     }
@@ -508,15 +511,32 @@ fn backtrack_errors(
 /// Each block is measured on its own, the multipliers being of another kind
 /// entirely from the variables, and either kind in one block from that in
 /// another, so that the tolerance means the same thing wherever it is met.
-fn converged(newton_raphson: &NewtonRaphson, residual: &Vector, variables: usize) -> bool {
-    newton_raphson
-        .error_norm
-        .over(residual.iter().take(variables).copied())
-        < newton_raphson.abs_tol
-        && newton_raphson
+///
+/// The scales are what each block was on the first step, so that the relative
+/// tolerance is compared against a ratio of two norms of the same kind, and
+/// means the same thing whatever units that kind is measured in.
+fn converged(
+    newton_raphson: &NewtonRaphson,
+    residual: &Vector,
+    variables: usize,
+    scales: &mut Option<(Scalar, Scalar)>,
+) -> bool {
+    let norms = (
+        newton_raphson
             .error_norm
-            .over(residual.iter().skip(variables).copied())
-            < newton_raphson.abs_tol
+            .over(residual.iter().take(variables).copied()),
+        newton_raphson
+            .error_norm
+            .over(residual.iter().skip(variables).copied()),
+    );
+    let scales = scales.get_or_insert(norms);
+    let met = |norm: Scalar, scale: Scalar| {
+        norm < newton_raphson.abs_tol
+            || newton_raphson
+                .rel_tol
+                .is_some_and(|rel_tol| norm / scale < rel_tol)
+    };
+    met(norms.0, scales.0) && met(norms.1, scales.1)
 }
 
 /// Shortens the step until the variables move no further than the maximum.
@@ -693,6 +713,8 @@ where
     let mut factorization_whole = LuDecomposition::zero(whole);
     let mut monolithic = SquareMatrix::zero(whole);
     let mut residual = Vector::zero(num_outer + num_inner);
+    let mut scales_inner = None;
+    let mut scales_outer = None;
     let mut tangent_inner = SquareMatrix::zero(inner);
     let mut tangent_outer = SquareMatrix::zero(outer);
     let mut update_inner = Vector::zero(num_inner);
@@ -736,9 +758,11 @@ where
             .chain(update_inner.iter())
             .zip(residual.iter_mut())
             .for_each(|(entry, residual_i)| *residual_i = *entry);
-        if converged(newton_raphson, &update_outer, num_global)
-            && converged(newton_raphson, &update_inner, num_local)
-        {
+        let converged_outer =
+            converged(newton_raphson, &update_outer, num_global, &mut scales_outer);
+        let converged_inner =
+            converged(newton_raphson, &update_inner, num_local, &mut scales_inner);
+        if converged_outer && converged_inner {
             return Ok((global, local));
         } else if steps == newton_raphson.max_steps {
             return Err(OptimizationError::MaximumStepsReached(
@@ -1213,6 +1237,7 @@ where
     let mut factorization = LuDecomposition::zero(if sparse.is_none() { num_total } else { 0 });
     let mut multipliers = Vector::zero(num_constraints);
     let mut residual = Vector::zero(num_total);
+    let mut scales = None;
     let mut solution = initial_guess;
     let mut tangent = SquareMatrix::zero(if sparse.is_none() { num_total } else { 0 });
     if sparse.is_none() {
@@ -1235,7 +1260,7 @@ where
             &constraint_rhs - &constraint_matrix * &solution,
             &mut residual,
         );
-        if converged(newton_raphson, &residual, num_variables) {
+        if converged(newton_raphson, &residual, num_variables, &mut scales) {
             return Ok(solution);
         } else if steps == newton_raphson.max_steps {
             return Err(OptimizationError::MaximumStepsReached(

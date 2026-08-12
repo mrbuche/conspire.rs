@@ -230,6 +230,37 @@ mod constrained {
         Assert::default().eq_within_tols(&minimized(LineSearch::None)?, &Vector::from([1.0, 1.0]))
     }
 
+    /// The same problem with the objective measured in another unit, so that
+    /// the variables block of the residual scales while the multipliers block,
+    /// being a constraint violation, does not. No absolute tolerance is
+    /// allowed, so only the relative one can end it.
+    fn scaled(rel_tol: Option<Scalar>) -> Result<Vector, OptimizationError> {
+        const SCALE: Scalar = 1e12;
+        NewtonRaphson {
+            abs_tol: 0.0,
+            rel_tol,
+            ..Default::default()
+        }
+        .minimize(
+            |x: &Vector| Ok(SCALE * (x[0].powi(2) + x[1].powi(2)) / 2.0),
+            |x: &Vector| Ok(x * SCALE),
+            |_: &Vector| Ok(SquareMatrix::from([[SCALE, 0.0], [0.0, SCALE]])),
+            Vector::from([4.0, -3.0]),
+            constraint(),
+            None,
+        )
+    }
+
+    #[test]
+    fn relative() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(&scaled(Some(1e-8))?, &Vector::from([1.0, 1.0]))
+    }
+
+    #[test]
+    fn relative_is_what_absolute_cannot_be() {
+        assert!(scaled(None).is_err())
+    }
+
     #[test]
     fn armijo() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(
